@@ -12,6 +12,7 @@
 #include "raylib.h"
 
 #include "library/game.hpp"
+#include "platform.hpp"
 
 namespace iideck::ui {
 
@@ -28,7 +29,33 @@ struct Tile {
     Texture wide{};
     bool hasPortrait{false};
     bool hasWide{false};
+    /// The tile's platform frame, or null for a game with no platform identity.
+    const Platform* platform{nullptr};
 };
+
+/// Draws a platform's frame around a tile.
+///
+/// The reference frames a tile with its platform's sprite: a 26-pixel stroke on a
+/// 1024 canvas, which is 2.54% of the tile's width, running in a gradient from one
+/// corner to the other, plus a tab in the top-left corner the size of the frame's
+/// own corner radius. Drawing that as geometry rather than as a sprite means a tile
+/// of any size is framed identically, which a fixed sprite is not.
+///
+/// `platform` may be null, for a game with no platform identity, in which case
+/// nothing is drawn: an unframed tile is what the shell did before and is not a
+/// defect.
+void drawPlatformFrame(const Rectangle& tile, const Platform* platform, float radius,
+                       const Color& focusA, const Color& focusB, const Color& focusC, bool focused);
+
+/// Draws cover art into a tile without distorting it.
+///
+/// Steam's artwork is not shaped like the tile it lands in: a portrait is
+/// 2:3 and a hero banner is about 3:1, while a tile is square or wide by
+/// layout. Stretching to fit squashes every cover, so the art is scaled to cover
+/// the tile and centred on the overflow, which is what crops rather than
+/// distorts. A tile smaller than the scaled art in one axis is letterboxed onto
+/// the tile's own colour rather than onto transparency.
+void drawArtCover(const Texture& art, const Rectangle& tile, Color backdrop);
 
 /// The palette, as 8-bit-per-channel colours.
 struct Colour {
@@ -77,6 +104,14 @@ class Shell {
 
     /// Loads every tile's artwork from the paths the sources recorded.
     void loadArtwork();
+
+    /// Sets the platform table every tile's frame is resolved from. Must be called
+    /// before the catalog, since the frames are resolved as the grid is laid out.
+    void setPlatforms(Platforms platforms);
+
+    /// Resolves a game's platform frame. A title from a store has no console, so
+    /// it is framed in that store's identity; a ROM is framed in its system's.
+    [[nodiscard]] const Platform* platformFor(const library::Game& game) const;
 
     /// Moves focus, and reports whether it moved.
     bool moveFocus(int dx, int dy);
@@ -166,6 +201,7 @@ class Shell {
     int page_{};
     int rowHeight_{};
 
+    Platforms platforms_;
     std::string status_;
     std::string clock_;
     std::string toast_;

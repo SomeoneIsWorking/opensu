@@ -12,10 +12,40 @@
 
 #include "lucent/log.h"
 
+#include "platform.hpp"
 #include "typeface.hpp"
 
 namespace iideck::ui {
 namespace {
+
+/// A scissor region that restores clipping when it goes out of scope.
+///
+/// raylib's BeginScissorMode/EndScissorMode are not a stack: EndScissorMode turns
+/// clipping off entirely, so a region left open silently blanks every draw call
+/// after it. Tiles are drawn in a loop, so one missed End is a black screen.
+class ScopedScissor {
+  public:
+    explicit ScopedScissor(const Rectangle& area) {
+        const int left = std::max(static_cast<int>(area.x), 0);
+        const int top = std::max(static_cast<int>(area.y), 0);
+        const int right = std::min(static_cast<int>(area.x + area.width), GetScreenWidth());
+        const int bottom = std::min(static_cast<int>(area.y + area.height), GetScreenHeight());
+        if (right <= left || bottom <= top) {
+            // An empty clip is still a clip: leaving the caller's region in place
+            // would draw outside the region it asked to confine to.
+            BeginScissorMode(0, 0, 0, 0);
+            return;
+        }
+        BeginScissorMode(left, top, right - left, bottom - top);
+    }
+
+    ~ScopedScissor() {
+        EndScissorMode();
+    }
+
+    ScopedScissor(const ScopedScissor&) = delete;
+    ScopedScissor& operator=(const ScopedScissor&) = delete;
+};
 
 namespace fs = std::filesystem;
 
@@ -157,6 +187,22 @@ void Shell::setSize(int width, int height) {
     relayout();
 }
 
+void Shell::setPlatforms(Platforms platforms) {
+    platforms_ = std::move(platforms);
+}
+
+const Platform* Shell::platformFor(const library::Game& game) const {
+    // A ROM belongs to a system, and the pack's console names are those systems.
+    // Everything else belongs to a store, and the pack has a border per store.
+    if (game.source == library::Source::Rom && !game.sourceId.empty()) {
+        if (const auto found = platforms_.find(game.sourceId); found) {
+            return &*found;
+        }
+        return nullptr;
+    }
+    return platforms_.forSource(game.source);
+}
+
 void Shell::setCatalog(std::vector<library::Game> games) {
     releaseTextures();
 
@@ -264,6 +310,10 @@ void Shell::relayout() {
         pages_.push_back({});
         rowHeight_ = 0;
         return;
+    }
+
+    for (Tile& tile : tiles_) {
+        tile.platform = platformFor(tile.game);
     }
 
     const int cols = columns();
@@ -530,6 +580,30 @@ void Shell::drawTopBar() {
     }
 }
 
+void drawArtCover(const Texture& art, const Rectangle& tile, Color backdrop) {
+    if (art.id == 0 || art.width <= 0 || art.height <= 0) {
+        return;
+    }
+
+    // Scaled to cover, not to fit: the smallest factor that leaves no gap, so
+    // the art keeps its own proportions and the overflow is cropped.
+    const float scale = std::max(tile.width / static_cast<float>(art.width),
+                                 tile.height / static_cast<float>(art.height));
+    const float width = static_cast<float>(art.width) * scale;
+    const float height = static_cast<float>(art.height) * scale;
+    const Rectangle destination{tile.x + (tile.width - width) / 2.0f,
+                                tile.y + (tile.height - height) / 2.0f, width, height};
+
+    // A cover wider than its tile in shape, such as a banner in a square tile,
+    // can still leave the tile's edges bare, and bare edges must not be
+    // transparent. Anything outside the tile is clipped away.
+    const ScopedScissor clip{tile};
+    fillRounded(destination, 0.0f, backdrop);
+    DrawTexturePro(art,
+                   Rectangle{0, 0, static_cast<float>(art.width), static_cast<float>(art.height)},
+                   destination, {0, 0}, 0.0f, WHITE);
+}
+
 void Shell::drawTiles() {
     const float u = unit();
 
@@ -555,9 +629,7 @@ void Shell::drawTiles() {
                                 ? tile.wide
                                 : (tile.hasPortrait ? tile.portrait : Texture{});
         if (art.id != 0) {
-            DrawTexturePro(
-                art, Rectangle{0, 0, static_cast<float>(art.width), static_cast<float>(art.height)},
-                r, {0, 0}, 0.0f, WHITE);
+            drawArtCover(art, r, palette::panel);
         } else {
             fillGradient(r, cardColour(tile.game.title, 0.62f),
                          cardColour(tile.game.title + "x", 0.44f));
@@ -607,20 +679,12 @@ void Shell::drawTiles() {
                         chip.y + static_cast<float>(size) * 0.45f, size, palette::ink);
         }
 
-        if (tile.focused) {
-            const float thickness = std::max(u * 0.4f, 2.0f);
-            const Rectangle ring{r.x - thickness / 2.0f, r.y - thickness / 2.0f,
-                                 r.width + thickness, r.height + thickness};
-            // The gradient is drawn across the tile's diagonal, in two passes, so
-            // all three stops are visible.
-            const float half = ring.width / 2.0f;
-            const Rectangle left{ring.x, ring.y, half, ring.height};
-            const Rectangle right{ring.x + half, ring.y, half, ring.height};
-            fillGradient(left, palette::focusA, palette::focusB);
-            fillGradient(right, palette::focusB, palette::focusC);
-            // A thin white inner line, so the ring reads as raised.
-            strokeRounded(r, roundness, std::max(u * 0.2f, 1.0f), Color{0xff, 0xff, 0xff, 208});
-        }
+        // The platform's frame, or the focus ring when the tile has focus: the
+        // reference frames a tile in its console's colour and replaces that with
+        // the selection ring when it is selected. Drawn last, over the artwork,
+        // since that is the order the reference's own sprite composites in.
+        drawPlatformFrame(r, tile.platform, roundness, palette::focusA, palette::focusB,
+                          palette::focusC, tile.focused);
     }
 }
 
@@ -679,6 +743,109 @@ void Shell::drawToast() {
                 toastError_ ? Color{0xb3, 0x26, 0x1e, 240} : Color{0x2b, 0x27, 0x33, 240});
     type().draw(toast_.c_str(), static_cast<int>(box.x) + padding / 2,
                 static_cast<int>(box.y) + padding / 3, size, WHITE);
+}
+
+namespace {
+
+/// The frame's colour at a point, as the reference's sprite runs it: a straight
+/// line from one end of the stroke's gradient to the other.
+Color strokeAt(const Platform& platform, float t) {
+    const auto channel = [](std::uint32_t packed, int shift) {
+        return static_cast<float>((packed >> shift) & 0xff);
+    };
+    const float clamped = std::clamp(t, 0.0f, 1.0f);
+    return Color{static_cast<std::uint8_t>(
+                     channel(platform.strokeFrom, 16) +
+                     (channel(platform.strokeTo, 16) - channel(platform.strokeFrom, 16)) * clamped),
+                 static_cast<std::uint8_t>(
+                     channel(platform.strokeFrom, 8) +
+                     (channel(platform.strokeTo, 8) - channel(platform.strokeFrom, 8)) * clamped),
+                 static_cast<std::uint8_t>(
+                     channel(platform.strokeFrom, 0) +
+                     (channel(platform.strokeTo, 0) - channel(platform.strokeFrom, 0)) * clamped),
+                 255};
+}
+
+/// The gradient runs along the tile's width on the top edge and its height on the
+/// sides, which is what the sprite shows: the colour changes as you move down a
+/// side, and again as you move across the top.
+constexpr int kStrokeSteps = 48;
+
+} // namespace
+
+void drawPlatformFrame(const Rectangle& tile, const Platform* platform, float radius,
+                       const Color& focusA, const Color& focusB, const Color& focusC,
+                       bool focused) {
+    if (platform == nullptr) {
+        return;
+    }
+
+    // The stroke and tab are fractions of the border sprite's own 1024 canvas, and
+    // the tile draws that same fraction of itself. On the reference's tiles the
+    // frame reads as an edge; on a grid this dense a 26px frame would be 5px of
+    // colour on each side of a 200px tile, so the stroke is scaled to the tile's
+    // short side instead, which keeps it proportionally thin on any tile size.
+    const float thickness =
+        std::clamp(std::min(tile.width, tile.height) * platform->strokeFraction, 1.5f, 4.0f);
+    const float tab = std::min(tile.width, tile.height) * platform->tabFraction;
+
+    if (focused) {
+        // Focus keeps the shell's own ring: it is how focus is shown, and it
+        // outranks the platform's colour.
+        const Rectangle ring{tile.x - thickness / 2.0f, tile.y - thickness / 2.0f,
+                             tile.width + thickness, tile.height + thickness};
+        const float half = ring.width / 2.0f;
+        fillGradient({ring.x, ring.y, half, ring.height}, focusA, focusB);
+        fillGradient({ring.x + half, ring.y, half, ring.height}, focusB, focusC);
+        strokeRounded(tile, radius, std::max(thickness * 0.4f, 1.0f), Color{0xff, 0xff, 0xff, 208});
+        return;
+    }
+
+    // The frame's corner radius is its own: the sprite's outer edge is rounded and
+    // its stroke follows that curve, so the frame cannot be four rectangles.
+    const Rectangle clipArea{tile.x - thickness, tile.y - thickness, tile.width + thickness * 2.0f,
+                             tile.height + thickness * 2.0f};
+    const ScopedScissor clip{clipArea};
+
+    for (int i = 0; i < kStrokeSteps; ++i) {
+        const float f0 = static_cast<float>(i) / kStrokeSteps;
+        const float f1 = static_cast<float>(i + 1) / kStrokeSteps;
+        const Color colour = strokeAt(*platform, f0);
+        // Four sides, each a thin gradient run, so the outline reads as one
+        // gradient rather than four flat bands.
+        const Rectangle top{tile.x + tile.width * f0, tile.y, tile.width * (f1 - f0), thickness};
+        DrawRectangleRec(top, colour);
+        const Rectangle bottom{tile.x + tile.width * f0, tile.y + tile.height - thickness,
+                               tile.width * (f1 - f0), thickness};
+        DrawRectangleRec(bottom, colour);
+    }
+    for (int i = 0; i < kStrokeSteps; ++i) {
+        const float f0 = static_cast<float>(i) / kStrokeSteps;
+        const float f1 = static_cast<float>(i + 1) / kStrokeSteps;
+        const Color colour = strokeAt(*platform, f0);
+        const Rectangle left{tile.x, tile.y + tile.height * f0, thickness, tile.height * (f1 - f0)};
+        DrawRectangleRec(left, colour);
+        const Rectangle right{tile.x + tile.width - thickness, tile.y + tile.height * f0, thickness,
+                              tile.height * (f1 - f0)};
+        DrawRectangleRec(right, colour);
+    }
+
+    // The corners, where four rectangles cannot reach: a rounded stroke in the
+    // colour at that corner, so the frame closes.
+    for (const Rectangle& corner :
+         {Rectangle{tile.x, tile.y, tile.width, tile.height},
+          Rectangle{tile.x, tile.y, radius * 2.0f, radius * 2.0f},
+          Rectangle{tile.x + tile.width - radius * 2.0f, tile.y, radius * 2.0f, radius * 2.0f},
+          Rectangle{tile.x, tile.y + tile.height - radius * 2.0f, radius * 2.0f, radius * 2.0f},
+          Rectangle{tile.x + tile.width - radius * 2.0f, tile.y + tile.height - radius * 2.0f,
+                    radius * 2.0f, radius * 2.0f}}) {
+        strokeRounded(corner, radius, thickness, strokeAt(*platform, 0.5f));
+    }
+
+    // The corner tab, in the darker end of the gradient, which is where the
+    // sprite's tab sits.
+    fillRounded({tile.x - thickness, tile.y - thickness, tab, tab}, radius,
+                strokeAt(*platform, 0.0f));
 }
 
 } // namespace iideck::ui

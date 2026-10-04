@@ -50,6 +50,9 @@ ShellApp::ShellApp(Settings settings)
     : settings_{std::move(settings)}, catalog_{library::makeCatalog(config::read())},
       shell_{settings_.width, settings_.height} {
     shell_.setClock(clockNow());
+    // The platform table frames every tile. Loaded before the catalog, because the
+    // frames are resolved as the grid is laid out.
+    shell_.setPlatforms(ui::Platforms::load(ui::defaultPlatformRoot()));
 
     // SDL reports any device with buttons as a gamepad, which on a desktop
     // includes a multimedia keyboard. raylib cannot tell the two apart without
@@ -114,6 +117,41 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
             }
             break;
         }
+    }
+}
+
+/// Keyboard input, so the shell is usable without a controller. Every key maps
+/// to the button it stands in for rather than to a shell command of its own, so
+/// there is one set of actions and the keyboard is a second way to reach it.
+void ShellApp::handleKeyboard() {
+    struct Binding {
+        int key;
+        gamepad::Button button;
+        bool edge;
+    };
+    static constexpr Binding kBindings[]{
+        {KEY_UP, gamepad::Button::Up, false},       {KEY_W, gamepad::Button::Up, false},
+        {KEY_DOWN, gamepad::Button::Down, false},   {KEY_S, gamepad::Button::Down, false},
+        {KEY_LEFT, gamepad::Button::Left, false},   {KEY_A, gamepad::Button::Left, false},
+        {KEY_RIGHT, gamepad::Button::Right, false}, {KEY_D, gamepad::Button::Right, false},
+        {KEY_ENTER, gamepad::Button::A, true},      {KEY_SPACE, gamepad::Button::A, true},
+        {KEY_Y, gamepad::Button::Y, true},          {KEY_R, gamepad::Button::R1, true},
+        {KEY_F, gamepad::Button::X, true},          {KEY_LEFT_BRACKET, gamepad::Button::L1, true},
+        {KEY_E, gamepad::Button::Start, true},      {KEY_ESCAPE, gamepad::Button::B, true},
+    };
+
+    std::array<bool, std::size(kBindings)> held{};
+    for (std::size_t i = 0; i < std::size(kBindings); ++i) {
+        const bool down = IsKeyDown(kBindings[i].key);
+        // A directional key repeats while held; an action key fires once.
+        if (down && (!kBindings[i].edge || !held[i])) {
+            actOn(kBindings[i].button);
+        }
+        held[i] = down;
+    }
+
+    if (IsKeyPressed(KEY_Q)) {
+        requestClose();
     }
 }
 
@@ -192,15 +230,17 @@ void ShellApp::launchFocused() {
 
     std::thread{[this, copy] {
         std::string failure;
-     launch::Handoff::start(
- copy,
-       [this] {
-   // raylib's window calls belong to the thread that owns the GL context, so
-    // the handoff thread only raises a flag and the loop does the work. Hiding
-            // a window off-thread is not something raylib supports.
-    requestWindowVisible(false);
-   },
-      [this] { requestWindowVisible(true); },
+        launch::Handoff::start(
+            copy,
+            [this] {
+                // raylib's window calls belong to the thread that owns the GL context, so
+                // the handoff thread only raises a flag and the loop does the work. Hiding
+                // a window off-thread is not something raylib supports.
+                requestWindowVisible(false);
+            },
+            [this] {
+                requestWindowVisible(true);
+            },
             failure);
         {
             const std::lock_guard lock{launchMutex_};
@@ -210,7 +250,7 @@ void ShellApp::launchFocused() {
             lucent::error("launch", "{}", failure);
             requestToast(failure, true);
         } else {
-requestToast(copy.title + " closed", false);
+            requestToast(copy.title + " closed", false);
         }
     }}.detach();
 }
@@ -223,6 +263,9 @@ void ShellApp::showDetails() {
 
 void ShellApp::refreshClock() {
     shell_.setClock(clockNow());
+    // The platform table frames every tile. Loaded before the catalog, because the
+    // frames are resolved as the grid is laid out.
+    shell_.setPlatforms(ui::Platforms::load(ui::defaultPlatformRoot()));
 }
 
 bool ShellApp::renderFrameToPng(std::string& png) {
@@ -408,7 +451,13 @@ void ShellApp::serviceRequests() {
 int ShellApp::run() {
     reloadCatalog();
 
+    // Resizable, because the layout is computed from the window size rather than
+    // baked at 1280x800, and because a fixed window on a scaled desktop is
+    // unusable. The scale factor is applied by the window manager on the way in,
+    // so what the shell draws in is already in its own pixels.
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
     InitWindow(settings_.width, settings_.height, "iideck");
+    SetWindowMinSize(960, 600);
     // Textures need a GL context, so artwork is loaded only once the window is up.
     shell_.loadArtwork();
     lucent::info("ui", "artwork loaded for {} of {} tiles", shell_.loadedArtwork(),
@@ -425,9 +474,17 @@ int ShellApp::run() {
 
     int clockFrames = 0;
     while (!closeRequested_.load() && !WindowShouldClose()) {
+        // A resize changes the framebuffer, so the layout has to be recomputed
+        // before anything is drawn into it. Checked every frame because there is
+        // no resize callback worth relying on across platforms.
+        if (IsWindowResized()) {
+            shell_.setSize(GetScreenWidth(), GetScreenHeight());
+        }
+
         std::vector<gamepad::Event> events;
         pad_.poll(events);
         handleEvents(events);
+        handleKeyboard();
 
         serviceControlRequests();
         serviceRequests();

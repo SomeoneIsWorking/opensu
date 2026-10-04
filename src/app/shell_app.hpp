@@ -2,6 +2,7 @@
 // shell, and is the only place the two halves meet.
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
@@ -80,6 +81,9 @@ class ShellApp final : public ControlTarget {
 
     void reloadCatalog();
     void handleEvents(const std::vector<gamepad::Event>& events);
+    /// Maps held keys onto the buttons they stand in for, so the keyboard reaches
+    /// the same actions a controller does rather than a parallel set.
+    void handleKeyboard();
     void actOn(gamepad::Button button);
     void launchFocused();
     void showDetails();
