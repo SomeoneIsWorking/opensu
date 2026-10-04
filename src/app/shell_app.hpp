@@ -70,6 +70,13 @@ class ShellApp final : public ControlTarget {
     /// Main loop only.
     void publishSnapshot();
     void serviceControlRequests();
+    void serviceRequests();
+
+    /// Requests raised by the launch thread and applied by the main loop, because
+    /// the GL context and the shell's state belong to it. Each of these only sets
+    /// a flag: none of them touches the window or the shell from that thread.
+    void requestWindowVisible(bool visible);
+    void requestToast(std::string text, bool isError);
 
     void reloadCatalog();
     void handleEvents(const std::vector<gamepad::Event>& events);
@@ -93,6 +100,17 @@ class ShellApp final : public ControlTarget {
     bool launchRunning_{false};
     /// Set by the control channel, read by the loop.
     std::atomic<bool> closeRequested_{false};
+
+    /// Whether the window should be up. The launch thread clears it while a game
+    /// runs; only the loop acts on it.
+    std::atomic<bool> windowVisible_{true};
+    /// What the window is actually doing, so the flag is only acted on once.
+    bool windowShown_{true};
+    /// A toast raised off-thread, taken by the loop.
+    std::mutex toastMutex_;
+    std::string pendingToast_;
+    bool pendingToastError_{false};
+    bool hasPendingToast_{false};
 
     /// Buttons queued by the control channel, drained by the loop.
     std::mutex injectedMutex_;

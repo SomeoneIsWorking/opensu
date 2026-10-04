@@ -35,6 +35,9 @@ struct ShellSnapshot {
     std::string toast;
     bool toastIsError{false};
     bool launching{false};
+    /// Whether the shell's window is up. It goes down while a game runs, so this
+    /// is how an automated run can tell a hidden shell from a hung one.
+    bool windowVisible{true};
 };
 
 /// What the control channel may ask the shell to do. Implemented by the shell,

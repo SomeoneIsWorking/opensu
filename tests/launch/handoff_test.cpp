@@ -11,10 +11,10 @@
 // own thread and every wait is bounded: a regression in the wait reports itself
 // instead of hanging the test.
 //
-// One case is slow by construction: a program that cannot be started is only
-// reported once Handoff::startTimeout has passed, because the wait for the game
-// to appear ignores the child. That case is off by default and runs with
-// `--slow`.
+// A real fork and a real process table are the only things that can catch the
+// bugs this covers -- a use-after-free in the argument vector, or a wait that
+// ends on the wrong signal -- so it is slower than the parser tests, though every
+// case is bounded and none waits out a real timeout.
 #include "launch/handoff.hpp"
 
 #include <atomic>
@@ -441,20 +441,15 @@ void testStartWaitsAcrossAHandOff() {
     expect(shell.hiddenAt.load() < shell.shownAt.load(), "hide precedes show");
 }
 
-/// A command that cannot be started is a launch failure, not a silent success
-/// and not a crash.
+/// A command that cannot be started is a launch failure, reported at once and
+/// naming the program.
 ///
-/// Observed here: show() IS called, so the shell comes back either way and the
-/// failure string is the only thing that reports the bad command. That order is
-/// the safe one -- a failed launch must not leave the shell hidden -- but it
-/// does mean the shell cannot tell success from failure on its own.
-///
-/// Also observed: this is not prompt. The wait for the game to appear does not
-/// look at the child, so a program that does not exist is only reported once
-/// Handoff::startTimeout (three minutes) has passed, and the failure reads
-/// "<title> did not start" rather than naming the program. The bound below is
-/// that timeout, not the prompt return the header's wording suggests.
-void testMissingProgramReportsFailure() {
+/// execvp returns 127 for a command it could not run, and that status is the only
+/// thing that distinguishes a bad program from a game that has not appeared yet.
+/// Without it a missing program waited out the whole appearance bound and was
+/// reported as "<title> did not start", which named neither the program nor the
+/// reason.
+void testMissingProgramReportsFailurePromptly() {
     const Fixture fixture;
     const std::string program = (fixture.base / "no-such-program").string();
     const Game entry = makeGame("missing", program, {"--now"}, fixture.marker("missing"));
@@ -462,22 +457,44 @@ void testMissingProgramReportsFailure() {
     Shell shell;
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(entry, shell);
-    const Outcome outcome = awaitStart(pending, "a launch of a missing program returns",
-                                       Handoff::startTimeout + std::chrono::seconds{30});
+    const Outcome outcome =
+        awaitStart(pending, "a launch of a missing program returns", std::chrono::seconds{20});
     const std::chrono::milliseconds elapsed = since(began);
 
     expect(!outcome.ok, "a program that does not exist fails");
-    expect(!outcome.failure.empty(), "the failure string is not empty");
-    expect(elapsed <= Handoff::startTimeout + std::chrono::seconds{30},
-           "the failure is reported within the bound the wait itself imposes");
+    expect(outcome.failure.find(program) != std::string::npos,
+           "the failure names the program that could not be started");
+    expect(elapsed < std::chrono::seconds{10},
+           "the failure is reported without waiting out the appearance bound");
     expect(shell.hidden.load() == 1, "the shell was hidden while the launch was attempted");
     expect(shell.shown.load() == 1, "the shell was shown again after a failed launch");
     expect(shell.hiddenAt.load() < shell.shownAt.load(), "hide precedes show");
 }
 
-/// An empty hint is what a source records when it cannot identify its own
-/// process, and it must not degenerate into "every process": every launch would
-/// then find a match and the shell would stay hidden for the whole watch timeout.
+/// A source that cannot identify its own process has no hint, and there is
+/// nothing to watch. The handoff has to say so rather than sit out the appearance
+/// bound and then report a game that is running fine as having failed to start.
+void testEmptyHintIsRefusedPromptly() {
+    const Fixture fixture;
+    Game entry = makeGame("nohint", "/bin/sh", {"/bin/true"}, fixture.marker("nohint"));
+    entry.processHint.clear();
+
+    Shell shell;
+    const Clock::time_point began = Clock::now();
+    std::future<Outcome> pending = startOnWorker(entry, shell);
+    const Outcome outcome =
+        awaitStart(pending, "a launch with no hint is refused", std::chrono::seconds{20});
+    const std::chrono::milliseconds elapsed = since(began);
+
+    expect(!outcome.ok, "a launch with no hint fails");
+    expect(outcome.failure.find("cannot tell") != std::string::npos,
+           "the failure says the source cannot identify its process");
+    expect(elapsed < std::chrono::seconds{5}, "the refusal is immediate");
+    expect(shell.shown.load() == 0, "the shell was never hidden for a refused launch");
+}
+
+/// An empty hint must not degenerate into "every process": every launch would then
+/// find a match and the shell would stay hidden for the whole watch timeout.
 void testEmptyHintMatchesNothing() {
     const std::string own = read("/proc/self/cmdline");
     expect(!own.empty(), "this process has a command line");
@@ -487,21 +504,13 @@ void testEmptyHintMatchesNothing() {
 
 } // namespace
 
-/// Any argument turns on the slow cases; the fast run is the default.
-int main(int argc, char** /*argv*/) {
-    const bool slow = argc > 1;
-
+int main() {
     testStartBlocksUntilTheGameIsOver();
     testSpawnedGameLeadsItsOwnSession();
     testStartWaitsAcrossAHandOff();
     testEmptyHintMatchesNothing();
-
-    if (slow) {
-        testMissingProgramReportsFailure();
-    } else {
-        std::printf("handoff: the missing-program case needs Handoff::startTimeout; "
-                    "run with --slow to include it\n");
-    }
+    testMissingProgramReportsFailurePromptly();
+    testEmptyHintIsRefusedPromptly();
 
     std::printf("handoff: all checks passed\n");
     return 0;

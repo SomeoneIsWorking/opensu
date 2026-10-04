@@ -192,14 +192,15 @@ void ShellApp::launchFocused() {
 
     std::thread{[this, copy] {
         std::string failure;
-        // Hiding and showing the window across a thread boundary is safe here:
-        // raylib's window calls are queued onto the main loop.
-        launch::Handoff::start(
-            copy,
-            [] {
-            },
-            [] {
-            },
+     launch::Handoff::start(
+ copy,
+       [this] {
+   // raylib's window calls belong to the thread that owns the GL context, so
+    // the handoff thread only raises a flag and the loop does the work. Hiding
+            // a window off-thread is not something raylib supports.
+    requestWindowVisible(false);
+   },
+      [this] { requestWindowVisible(true); },
             failure);
         {
             const std::lock_guard lock{launchMutex_};
@@ -207,7 +208,9 @@ void ShellApp::launchFocused() {
         }
         if (!failure.empty()) {
             lucent::error("launch", "{}", failure);
-            shell_.setToast(failure, true);
+            requestToast(failure, true);
+        } else {
+requestToast(copy.title + " closed", false);
         }
     }}.detach();
 }
@@ -275,6 +278,19 @@ void ShellApp::requestClose() {
     closeRequested_.store(true);
 }
 
+void ShellApp::requestWindowVisible(bool visible) {
+    windowVisible_.store(visible);
+}
+
+void ShellApp::requestToast(std::string text, bool isError) {
+    {
+        const std::lock_guard lock{toastMutex_};
+        pendingToast_ = std::move(text);
+        pendingToastError_ = isError;
+        hasPendingToast_ = true;
+    }
+}
+
 bool ShellApp::captureFrame(std::string& png) {
     std::unique_lock lock{stateMutex_};
     if (capturePending_) {
@@ -321,6 +337,9 @@ void ShellApp::publishSnapshot() {
         const std::lock_guard lock{launchMutex_};
         next.launching = launchRunning_;
     }
+    // What the loop has actually done to the window, not what was asked for, so a
+    // request that never reached the loop cannot read as hidden.
+    next.windowVisible = windowShown_;
 
     const std::lock_guard lock{stateMutex_};
     published_ = std::move(next);
@@ -357,6 +376,35 @@ void ShellApp::serviceControlRequests() {
     captureAnswered_.notify_all();
 }
 
+/// Applies what the launch thread and the control channel asked for. Everything
+/// that touches the window or the shell happens here, on the loop's thread.
+void ShellApp::serviceRequests() {
+    const bool visible = windowVisible_.load();
+    if (visible != windowShown_) {
+        windowShown_ = visible;
+        // raylib has no ShowWindow or HideWindow: hiding is a window state flag,
+        // and showing is clearing it.
+        if (visible) {
+            ClearWindowState(FLAG_WINDOW_HIDDEN);
+        } else {
+            SetWindowState(FLAG_WINDOW_HIDDEN);
+        }
+    }
+
+    if (hasPendingToast_) {
+        std::string text;
+        bool isError = false;
+        {
+            const std::lock_guard lock{toastMutex_};
+            text = std::move(pendingToast_);
+            isError = pendingToastError_;
+            pendingToast_.clear();
+            hasPendingToast_ = false;
+        }
+        shell_.setToast(std::move(text), isError);
+    }
+}
+
 int ShellApp::run() {
     reloadCatalog();
 
@@ -382,8 +430,11 @@ int ShellApp::run() {
         handleEvents(events);
 
         serviceControlRequests();
+        serviceRequests();
         publishSnapshot();
-        shell_.draw();
+        if (windowVisible_.load()) {
+            shell_.draw();
+        }
 
         if (++clockFrames >= 600) {
             clockFrames = 0;

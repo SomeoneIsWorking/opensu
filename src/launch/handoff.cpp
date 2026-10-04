@@ -14,6 +14,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "library/game.hpp"
 #include "lucent/log.h"
 
 namespace iideck::launch {
@@ -24,6 +25,10 @@ using Clock = std::chrono::system_clock;
 
 /// How often the process table is consulted while waiting.
 constexpr auto pollInterval = std::chrono::milliseconds{750};
+
+/// The exit status a child uses when execvp failed. 127 is what a shell reports
+/// for a command it could not run.
+constexpr int kExecFailed = 127;
 
 /// The argument vector for execvp, owning the strings the pointers refer to.
 ///
@@ -96,6 +101,15 @@ bool Handoff::start(const library::Game& game, const std::function<void()>& hide
         failure = "no launch command for " + game.title;
         return false;
     }
+    if (game.processHint.empty()) {
+        // Without a hint there is nothing to watch, and the two-phase wait would
+        // sit here for the whole appearance bound and then report a game that is
+        // running fine as having failed to start. Refusing is the honest answer:
+        // this source cannot support a handoff.
+        failure = std::string{library::label(game.source)} + " cannot tell when " +
+                 game.title + " is running";
+        return false;
+    }
 
     // Built before the fork: the child must only call async-signal-safe functions,
     // and this owns the strings execvp will read.
@@ -112,15 +126,17 @@ bool Handoff::start(const library::Game& game, const std::function<void()>& hide
         // Child: a new session, then exec. Nothing is allocated here.
         setsid();
         execvp(args.program().c_str(), args.data());
-        // exec failed. 127 is what a shell reports for a command it could not
-        // run, and the parent turns it into a named failure.
-        std::_Exit(127);
+        // exec failed. The parent turns this status into a named failure.
+        std::_Exit(kExecFailed);
     }
 
-    lucent::info("launch", "started {} (pid {})", game.title, pid);
+    // Hidden before the spawn, not after: a game that opens its window
+    // immediately would otherwise appear over a shell that is still up, and
+    // Steam's client is running long before the game it starts.
     if (hide) {
         hide();
     }
+    lucent::info("launch", "started {} (pid {})", game.title, pid);
 
     // The child is reaped throughout: a launcher that exits must not be left as
     // a zombie, and a zombie is worse than a lost exit status.
@@ -137,12 +153,14 @@ bool Handoff::start(const library::Game& game, const std::function<void()>& hide
     };
 
     // Waiting is two phases, not a wait on the child. What matters is the game,
-    // and the child says nothing useful about it: a launcher that hands off
-    // exits immediately, and one that IS the long-lived process never exits.
+    // and the child says nothing useful about a successful launch: a launcher
+    // that hands off exits immediately, and one that IS the long-lived process
+    // never exits.
     //
-    // Phase one: the game has to appear at all. Without this bound a launcher
-    // that stays alive would hold the shell hidden for the whole watch timeout
-    // while nothing was running, which is exactly what Steam's client does.
+    // It does say something about a failed one. execvp returning 127 means the
+    // program never ran, so there is nothing to wait for and the wait must end
+    // at once rather than sitting out the appearance bound on a launch that can
+    // never succeed.
     const Clock::time_point startDeadline = Clock::now() + Handoff::startTimeout;
     bool running = false;
     while (!running) {
@@ -151,6 +169,16 @@ bool Handoff::start(const library::Game& game, const std::function<void()>& hide
             running = true;
             break;
         }
+        if (childExited && WIFEXITED(status) && WEXITSTATUS(status) == kExecFailed) {
+            failure = "could not start " + game.launch.program;
+            reap();
+            if (show) {
+                show();
+            }
+            return false;
+        }
+        // Every exit from here leaves through this, so the child is reaped on
+        // each one rather than only on success.
         if (Clock::now() >= startDeadline) {
             lucent::warn("launch", "{} did not appear within {}", game.title,
                          Handoff::startTimeout);
@@ -158,6 +186,7 @@ bool Handoff::start(const library::Game& game, const std::function<void()>& hide
                 show();
             }
             failure = game.title + " did not start";
+            reap();
             return false;
         }
         std::this_thread::sleep_for(pollInterval);
@@ -179,11 +208,6 @@ bool Handoff::start(const library::Game& game, const std::function<void()>& hide
     reap();
     if (show) {
         show();
-    }
-
-    if (childExited && WIFEXITED(status) && WEXITSTATUS(status) == 127) {
-        failure = "could not start " + game.launch.program;
-        return false;
     }
     lucent::info("launch", "{} finished", game.title);
     return true;

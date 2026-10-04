@@ -86,7 +86,8 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     text("status", snapshot.status);
     text("toast", snapshot.toast);
     flag("toastIsError", snapshot.toastIsError);
-    flag("launching", snapshot.launching, true);
+    flag("launching", snapshot.launching);
+    flag("windowVisible", snapshot.windowVisible, true);
     return out;
 }
 

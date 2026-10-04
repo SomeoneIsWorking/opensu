@@ -115,8 +115,11 @@ keyboards.
 
 ### S004 — Launch handoff
 
-The game gets its own session so a shell exit or a hangup cannot reach it, and
-the shell hides until the game leaves. Every source records a `processHint` — the
+The game gets its own session so a shell exit or a hangup cannot reach it, and the
+shell's window goes down before the spawn and comes back when the game leaves.
+Hiding is a request to the main loop, not a call from the handoff thread: raylib's
+window calls belong to the thread holding the GL context, and there is no queue
+that makes them safe from elsewhere. The launch thread only raises a flag. Every source records a `processHint` — the
 Wine prefix path for Steam, the install folder for the others — which is what
 identifies the game in the process table.
 
@@ -132,11 +135,26 @@ its 12-hour timeout, with `compatdata/960090` never matching and `steam.sh` neve
 exiting. The appearance phase is now bounded at three minutes, and a game that
 does not appear is reported as a failure.
 
-Verified by launching Bloons TD 6 and Spyro through the channel: Steam starts and
-logs in, and the shell returns itself within the bound with a failure toast rather
-than hanging. That is the correct outcome here, because on this machine the game
-genuinely does not start — the last logged attempt is from September and failed
-inside Proton's prefix setup, and `steam.sh` sits idle afterwards.
+Verified end to end through the channel: pressing play takes the window down,
+Steam starts and logs in, and after exactly the three-minute appearance bound the
+window comes back with `Bloons TD 6 did not start`. That is the correct outcome
+on this machine, because the game genuinely does not start — the last real attempt
+in Steam's log is from September and died inside Proton's prefix setup, and
+`steam.sh` sits idle afterwards.
+
+Three further defects were found by the handoff test and fixed:
+
+- `hide` and `show` were **empty lambdas**, so the window never actually hid. The
+  comment above them claimed raylib queues window calls onto the main loop; it does
+  not. Every earlier run launched a game with the shell still on screen.
+- A program that could not be executed was reported only after the full appearance
+  bound, as "did not start", naming neither the program nor the reason. `execvp`
+  returning 127 is the one signal that distinguishes "cannot run" from "not yet",
+  so phase one now ends immediately on it.
+- A game whose source records no hint sat out the whole bound and was then reported
+  as having failed to start, while running perfectly well. `processMatches("")` is
+  false by design, so there was nothing to match. A launch with no hint is now
+  refused up front, because that source cannot support a handoff at all.
 
 Gap: **still no observed game running.** The handoff's "the game appeared, now
 wait for it to leave" path is therefore unproven against a real process, which is
