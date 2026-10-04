@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0, user-scalable=no" name="viewport"/>
+    <title>iideck</title>
+    <link rel="stylesheet" href="./shell.css"/>
+</head>
+<body>
+<div class="shell">
+    <header class="topbar">
+        <div class="topbar-side" id="status">Starting up…</div>
+        <div class="active-pill"><span id="active-title">iideck</span></div>
+        <div class="topbar-side topbar-right"><span id="clock"></span></div>
+    </header>
+
+    <main class="stage">
+        <div class="grid" id="grid" role="list" aria-label="Games"></div>
+        <p class="empty" id="empty" hidden>No games found.</p>
+    </main>
+
+    <footer class="footer">
+        <div class="hints">
+            <span><b class="btn">A</b> Play</span>
+            <span><b class="btn">Y</b> Details</span>
+        </div>
+        <div class="dots" id="dots" role="tablist" aria-label="Pages"></div>
+        <div class="hints hints-right">
+            <span><b class="btn">X</b> Refresh</span>
+            <span><b class="btn">Start</b> All</span>
+        </div>
+    </footer>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="./shell.js"></script>
+</body>
+</html>
