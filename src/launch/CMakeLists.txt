@@ -1,0 +1,5 @@
+add_library(iideck_launch STATIC handoff.cpp)
+add_library(iideck::launch ALIAS iideck_launch)
+target_include_directories(iideck_launch PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(iideck_launch PUBLIC iideck::library lucent::lucent)
+target_compile_features(iideck_launch PUBLIC cxx_std_20)

@@ -1,0 +1,237 @@
+#include "reader.hpp"
+
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
+#include "lucent/log.h"
+
+namespace iideck::gamepad {
+namespace {
+
+/// How far the left stick must move before it counts as a direction, chosen
+/// above typical stick drift.
+constexpr float stickThreshold = 0.5f;
+
+} // namespace
+
+std::string_view prompt(Button button)
+{
+    switch (button) {
+    case Button::A:
+        return "A";
+    case Button::B:
+        return "B";
+    case Button::X:
+        return "X";
+    case Button::Y:
+        return "Y";
+    case Button::L1:
+        return "LB";
+    case Button::R1:
+        return "RB";
+    case Button::L2:
+        return "LT";
+    case Button::R2:
+        return "RT";
+    case Button::L3:
+        return "L3";
+    case Button::R3:
+        return "R3";
+    case Button::Select:
+        return "SELECT";
+    case Button::Start:
+        return "START";
+    case Button::Guide:
+        return "GUIDE";
+    case Button::Up:
+        return "UP";
+    case Button::Down:
+        return "DOWN";
+    case Button::Left:
+        return "LEFT";
+    case Button::Right:
+        return "RIGHT";
+    case Button::None:
+        break;
+    }
+    return {};
+}
+
+Button fromGamepadButton(int button)
+{
+    switch (button) {
+    case GAMEPAD_BUTTON_RIGHT_FACE_DOWN:
+        return Button::A;
+    case GAMEPAD_BUTTON_RIGHT_FACE_RIGHT:
+        return Button::B;
+    case GAMEPAD_BUTTON_RIGHT_FACE_LEFT:
+        return Button::X;
+    case GAMEPAD_BUTTON_RIGHT_FACE_UP:
+        return Button::Y;
+    // raylib 6.0 dropped the separate shoulder buttons: the triggers carry both
+    // the shoulder and the analogue axis.
+    case GAMEPAD_BUTTON_LEFT_TRIGGER_1:
+        return Button::L1;
+    case GAMEPAD_BUTTON_LEFT_TRIGGER_2:
+        return Button::L2;
+    case GAMEPAD_BUTTON_RIGHT_TRIGGER_1:
+        return Button::R1;
+    case GAMEPAD_BUTTON_RIGHT_TRIGGER_2:
+        return Button::R2;
+    case GAMEPAD_BUTTON_LEFT_THUMB:
+        return Button::L3;
+    case GAMEPAD_BUTTON_RIGHT_THUMB:
+        return Button::R3;
+    case GAMEPAD_BUTTON_MIDDLE_LEFT:
+        return Button::Select;
+    case GAMEPAD_BUTTON_MIDDLE_RIGHT:
+        return Button::Start;
+    case GAMEPAD_BUTTON_LEFT_FACE_UP:
+        return Button::Up;
+    case GAMEPAD_BUTTON_LEFT_FACE_RIGHT:
+        return Button::Right;
+    case GAMEPAD_BUTTON_LEFT_FACE_DOWN:
+        return Button::Down;
+    case GAMEPAD_BUTTON_LEFT_FACE_LEFT:
+        return Button::Left;
+    default:
+        return Button::None;
+    }
+}
+
+void Reader::poll(std::vector<Event>& events)
+{
+    for (int id = 0; id < maxGamepads; ++id) {
+        Slot& slot = slots_[static_cast<std::size_t>(id)];
+        const bool connected = IsGamepadAvailable(id);
+
+        if (connected != slot.connected) {
+            slot.connected = connected;
+            if (connected) {
+                slot.held.fill(false);
+                events.push_back(Event{.kind = Event::Kind::Connected,
+                    .device = GetGamepadName(id)});
+                lucent::info("gamepad", "controller connected: {}", GetGamepadName(id));
+            } else {
+                events.push_back(Event{.kind = Event::Kind::Disconnected, .device = "controller"});
+            }
+            continue;
+        }
+        if (!connected) {
+            continue;
+        }
+
+        const char* device = GetGamepadName(id);
+        for (int button = 0; button < 32; ++button) {
+            const bool down = IsGamepadButtonDown(id, static_cast<GamepadButton>(button));
+            if (down == slot.held[static_cast<std::size_t>(button)]) {
+                continue;
+            }
+            slot.held[static_cast<std::size_t>(button)] = down;
+            const Button named = fromGamepadButton(button);
+            if (named == Button::None) {
+                continue;
+            }
+            events.push_back(Event{.kind = Event::Kind::Button,
+                .button = named,
+                .pressed = down,
+                .device = device});
+        }
+
+        // The left stick also drives the dpad, so the shell has one control.
+        const float lx = GetGamepadAxisMovement(id, GAMEPAD_AXIS_LEFT_X);
+        const float ly = GetGamepadAxisMovement(id, GAMEPAD_AXIS_LEFT_Y);
+        const auto direction = [](float x, float y) -> Button {
+            if (x > stickThreshold) {
+                return Button::Right;
+            }
+            if (x < -stickThreshold) {
+                return Button::Left;
+            }
+            if (y > stickThreshold) {
+                return Button::Down;
+            }
+            if (y < -stickThreshold) {
+                return Button::Up;
+            }
+            return Button::None;
+        };
+        const Button held = direction(lx, ly);
+        const auto slotOf = [](Button button) -> std::size_t {
+            switch (button) {
+            case Button::Up:
+                return 0;
+            case Button::Down:
+                return 1;
+            case Button::Left:
+                return 2;
+            case Button::Right:
+                return 3;
+            default:
+                return 0;
+            }
+        };
+        if (held == Button::None) {
+            for (std::size_t direction = 0; direction < directionHeld_.size(); ++direction) {
+                if (directionHeld_[direction]) {
+                    directionHeld_[direction] = false;
+                    const Button released = direction == 0   ? Button::Up
+                        : direction == 1                     ? Button::Down
+                        : direction == 2                     ? Button::Left
+                                                              : Button::Right;
+                    events.push_back(Event{.kind = Event::Kind::Button,
+                        .button = released,
+                        .pressed = false,
+                        .device = device});
+                }
+            }
+        } else {
+            const std::size_t index = slotOf(held);
+            if (!directionHeld_[index]) {
+                directionHeld_[index] = true;
+                events.push_back(
+                    Event{.kind = Event::Kind::Button, .button = held, .pressed = true, .device = device});
+            }
+        }
+
+        slot.axisLX = lx;
+        slot.axisLY = ly;
+        if (lx != 0.0f || ly != 0.0f) {
+            events.push_back(Event{.kind = Event::Kind::Axis, .axis = "lx", .value = lx, .device = device});
+            events.push_back(Event{.kind = Event::Kind::Axis, .axis = "ly", .value = ly, .device = device});
+        }
+    }
+}
+
+bool Reader::anyConnected() const
+{
+    return std::ranges::any_of(slots_, [](const Slot& slot) { return slot.connected; });
+}
+
+std::optional<std::string> Reader::primaryName() const
+{
+    for (int id = 0; id < maxGamepads; ++id) {
+        if (slots_[static_cast<std::size_t>(id)].connected) {
+            return std::string{GetGamepadName(id)};
+        }
+    }
+    return std::nullopt;
+}
+
+bool Reader::rumble(float strong, float weak, float seconds) const
+{
+    // raylib exposes one vibration call and no capability query, so the effect
+    // goes to the first connected pad and a pad without motors simply ignores
+    // it.
+    for (int id = 0; id < maxGamepads; ++id) {
+        if (!slots_[static_cast<std::size_t>(id)].connected) {
+            continue;
+        }
+        SetGamepadVibration(id, weak, strong, seconds);
+        return true;
+    }
+    return false;
+}
+
+} // namespace iideck::gamepad
