@@ -1,9 +1,9 @@
 #include "typeface.hpp"
 
 #include <algorithm>
-#include <cstdlib>
 #include <string>
 
+#include "config/config.hpp"
 #include "lucent/log.h"
 
 namespace iideck::ui {
@@ -18,24 +18,16 @@ const char* const kFacePaths[] = {
     "/usr/share/fonts/google-noto/NotoSans-Bold.ttf",
 };
 
-/// Where the shipped typeface lives. IIDECK_ASSETS relocates it, which the
-/// packaging needs.
 /// Extra spacing between glyphs, in pixels at the face's own scale.
 constexpr float spacing = 0.0f;
-
-std::string assetsDirectory() {
-    if (const char* dir = std::getenv("IIDECK_ASSETS"); dir != nullptr && *dir != '\0') {
-        return dir;
-    }
-    return "assets";
-}
 
 } // namespace
 
 Typeface::Typeface() : cache_{new Entry[static_cast<std::size_t>(entries_)]} {
     for (const char* candidate : kFacePaths) {
-        const std::string path =
-            candidate[0] == '/' ? std::string{candidate} : assetsDirectory() + "/" + candidate;
+        const std::string path = candidate[0] == '/'
+                                     ? std::string{candidate}
+                                     : config::read().assetsDir.string() + "/" + candidate;
         // Loaded once to validate: a face that fails here is reported rather than
         // silently falling back at the first label.
         const Font probe = LoadFontEx(path.c_str(), probeSize, nullptr, 0);

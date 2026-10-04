@@ -1,0 +1,5 @@
+add_library(iideck_config STATIC config.cpp)
+add_library(iideck::config ALIAS iideck_config)
+target_include_directories(iideck_config PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_link_libraries(iideck_config PUBLIC lucent::lucent)
+target_compile_features(iideck_config PUBLIC cxx_std_20)

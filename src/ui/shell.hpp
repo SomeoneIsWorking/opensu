@@ -108,6 +108,18 @@ class Shell {
         return page_;
     }
     [[nodiscard]] const library::Game* focusedGame() const;
+    [[nodiscard]] std::size_t focusIndex() const noexcept {
+        return focus_;
+    }
+    [[nodiscard]] const std::string& status() const noexcept {
+        return status_;
+    }
+    [[nodiscard]] const std::string& toast() const noexcept {
+        return toast_;
+    }
+    [[nodiscard]] bool toastIsError() const noexcept {
+        return toastError_;
+    }
 
     void setStatus(std::string text) {
         status_ = std::move(text);

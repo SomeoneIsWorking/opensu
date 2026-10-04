@@ -15,12 +15,8 @@ namespace iideck::library::gog {
 /// Reads Heroic's cached GOG library.
 class Provider final : public library::Provider {
   public:
-    /// Uses Heroic's default configuration directory.
-    Provider();
-
-    /// Uses an explicit configuration directory and executable, which the tests
-    /// point at a fixture.
-    Provider(std::filesystem::path configDir, std::string binary);
+    /// Uses Heroic's configuration directory under the user's home.
+    explicit Provider(const std::filesystem::path& home);
 
     [[nodiscard]] Source source() const override {
         return Source::Gog;

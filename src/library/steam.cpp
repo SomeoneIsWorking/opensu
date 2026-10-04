@@ -371,14 +371,11 @@ std::vector<LibraryFolder> readExtraFolders(const fs::path& root) {
 
 } // namespace
 
-Library Library::discover(const std::vector<fs::path>& explicitRoots) {
+Library Library::discover(const fs::path& home, const std::vector<fs::path>& explicitRoots) {
     std::vector<fs::path> candidates = explicitRoots;
-    if (candidates.empty()) {
-        const char* home = std::getenv("HOME");
-        if (home != nullptr) {
-            for (const std::string& rel : knownRoots()) {
-                candidates.push_back(fs::path{home} / rel);
-            }
+    if (candidates.empty() && !home.empty()) {
+        for (const std::string& rel : knownRoots()) {
+            candidates.push_back(home / rel);
         }
     }
 

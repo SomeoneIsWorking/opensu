@@ -1,0 +1,157 @@
+#include "config.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <charconv>
+#include <cstdlib>
+#include <ranges>
+#include <string_view>
+#include <vector>
+
+#include "lucent/log.h"
+
+namespace iideck::config {
+namespace {
+
+std::string_view env(const char* name) {
+    const char* raw = std::getenv(name);
+    return raw != nullptr ? std::string_view{raw} : std::string_view{};
+}
+
+int envInt(const char* name, int fallback) {
+    const std::string_view raw = env(name);
+    if (raw.empty()) {
+        return fallback;
+    }
+    int value = 0;
+    const auto [end, error] = std::from_chars(raw.data(), raw.data() + raw.size(), value);
+    if (error != std::errc{} || end != raw.data() + raw.size()) {
+        lucent::warn("config", "{} is not a number; using {}", name, fallback);
+        return fallback;
+    }
+    return value;
+}
+
+std::uint16_t envPort(const char* name, std::uint16_t fallback) {
+    const int value = envInt(name, fallback);
+    if (value < 0 || value > 65535) {
+        lucent::warn("config", "{} is out of range; using {}", name, fallback);
+        return fallback;
+    }
+    return static_cast<std::uint16_t>(value);
+}
+
+bool envBool(const char* name, bool fallback) {
+    const std::string_view raw = env(name);
+    if (raw.empty()) {
+        return fallback;
+    }
+    return raw == "1" || raw == "true" || raw == "yes";
+}
+
+/// Splits a colon-separated path list. A trailing or repeated separator is not
+/// an error, so an empty element is simply dropped.
+std::vector<std::filesystem::path> splitPaths(std::string_view raw) {
+    std::vector<std::filesystem::path> out;
+    std::size_t start = 0;
+    while (start <= raw.size()) {
+        const std::size_t end = raw.find(':', start);
+        const std::size_t stop = end == std::string_view::npos ? raw.size() : end;
+        if (stop > start) {
+            out.emplace_back(raw.substr(start, stop - start));
+        }
+        if (end == std::string_view::npos) {
+            break;
+        }
+        start = end + 1;
+    }
+    return out;
+}
+
+/// Splits a shell-like command into words, honouring double quotes so an
+/// argument can contain spaces.
+std::vector<std::string> splitWords(std::string_view text) {
+    std::vector<std::string> out;
+    std::string current;
+    bool inQuotes = false;
+    for (const char c : text) {
+        if (c == '"') {
+            inQuotes = !inQuotes;
+            continue;
+        }
+        if (!inQuotes && (c == ' ' || c == '\t')) {
+            if (!current.empty()) {
+                out.push_back(current);
+                current.clear();
+            }
+            continue;
+        }
+        current.push_back(c);
+    }
+    if (!current.empty()) {
+        out.push_back(current);
+    }
+    return out;
+}
+
+/// Reads "SYSTEM=program arg;SYSTEM2=program". Splitting on '=' and then on
+/// whitespace keeps a command's own arguments unambiguous. A system name is
+/// upper-cased, because a ROM's system is matched that way.
+EmulatorCommands parseEmulators(std::string_view raw) {
+    EmulatorCommands out;
+    std::size_t start = 0;
+    while (start <= raw.size()) {
+        const std::size_t end = std::min(raw.find(';', start), raw.size());
+        const std::string_view entry = raw.substr(start, end - start);
+        if (!entry.empty()) {
+            const std::size_t equals = entry.find('=');
+            if (equals != std::string_view::npos) {
+                std::string name{entry.substr(0, equals)};
+                std::ranges::transform(name, name.begin(), [](unsigned char c) {
+                    return static_cast<char>(std::toupper(c));
+                });
+                std::vector<std::string> words = splitWords(entry.substr(equals + 1));
+                if (name.empty() || words.empty()) {
+                    lucent::warn("config", "ignoring emulator entry without a system or program");
+                } else {
+                    out.emplace(std::move(name), std::move(words));
+                }
+            } else {
+                lucent::warn("config", "ignoring emulator entry without '=': {}", entry);
+            }
+        }
+        if (end == raw.size()) {
+            break;
+        }
+        start = end + 1;
+    }
+    return out;
+}
+
+} // namespace
+
+const Config& read() {
+    // Deliberately function-local: the environment is read once and never again,
+    // so every holder of this reference sees the same immutable value.
+    static const Config config = [] {
+        Config value;
+        if (const std::string_view home = env("HOME"); !home.empty()) {
+            value.home = std::filesystem::path{home};
+        }
+        value.steamRoots = splitPaths(env("IIDECK_STEAM_ROOTS"));
+        value.romRoots = splitPaths(env("IIDECK_ROM_ROOTS"));
+        value.emulators = parseEmulators(env("IIDECK_EMULATORS"));
+        if (const std::string_view assets = env("IIDECK_ASSETS"); !assets.empty()) {
+            value.assetsDir = std::filesystem::path{assets};
+        }
+        value.gamepadNameFilter = std::string{env("IIDECK_GAMEPAD")};
+        value.width = envInt("IIDECK_WIDTH", value.width);
+        value.height = envInt("IIDECK_HEIGHT", value.height);
+        value.controlPort = envPort("IIDECK_CONTROL_PORT", value.controlPort);
+        value.controlChannel = envBool("IIDECK_CONTROL_CHANNEL", value.controlChannel);
+        return value;
+    }();
+    return config;
+}
+
+} // namespace iideck::config

@@ -52,13 +52,8 @@ struct LibraryEntry {
 
 } // namespace
 
-Provider::Provider()
-    : configDir_{std::filesystem::path{std::getenv("HOME")} / ".config" / "heroic"},
-      binary_{"heroic"} {
-}
-
-Provider::Provider(std::filesystem::path configDir, std::string binary)
-    : configDir_{std::move(configDir)}, binary_{std::move(binary)} {
+Provider::Provider(const std::filesystem::path& home)
+    : configDir_{home / ".config" / "heroic"}, binary_{"heroic"} {
 }
 
 std::vector<Game> Provider::list() {

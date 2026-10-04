@@ -113,7 +113,7 @@ const Game* find(const std::vector<Game>& games, const std::string& id) {
 int main() {
     Fixture fixture;
 
-    const Library library = Library::discover({fixture.root});
+    const Library library = Library::discover(fixture.base / "", {fixture.root});
     expect(library.roots().size() == 1, "one install root discovered");
 
     // The install root is also library "0", so folder discovery must return it
@@ -167,7 +167,7 @@ int main() {
     expect(seen == 1, "the install root is not read twice");
 
     // A root that does not exist is not an install.
-    const Library missingRoot = Library::discover({fixture.base / "nope"});
+    const Library missingRoot = Library::discover(fixture.base, {fixture.base / "nope"});
     expect(missingRoot.roots().empty(), "a missing root is not an install root");
 
     std::printf("steam: all checks passed\n");

@@ -17,8 +17,9 @@ Visible deltas from the baseline:
 
 ## Current focus
 
-S004 — the interactive window: a real gamepad driving focus and a game actually
-launching, neither of which has run yet.
+S004 — a game actually reaching its own window. The interactive shell now runs
+and is driven, and the launch handoff has been exercised against Steam, but no
+game has been observed running yet.
 
 ## Capability inventory
 
@@ -29,6 +30,7 @@ launching, neither of which has run yet.
 | S003 | Gamepad input through raylib, polled per frame | partial | — | G003 |
 | S004 | Launch handoff into a running game, with the shell returning | partial | S002 | G001, G003 |
 | S005 | Reference home layout: top bar, tile grid, page dots, hints | verified | S001 | G002 |
+| S012 | Loopback control channel: state, injected input, frame capture | verified | S001 | G003 |
 | S006 | Epic source via Legendary | verified | — | G001 |
 | S007 | GOG source via Heroic | verified | — | G001 |
 | S008 | ROM source with per-system emulator launch | verified | — | G001 |
@@ -113,16 +115,54 @@ keyboards.
 
 ### S004 — Launch handoff
 
-Starts the game with its own session so a shell exit cannot reach it, hides the
-window, and waits for both the spawned child and the process table, because
-Steam and Legendary hand off to a different process and waiting on the child
-alone would show the shell while the game is still loading. Every source records
-a `processHint` — the Wine prefix path for Steam, the install folder for the
-others — which is what identifies the game in the process table.
+The game gets its own session so a shell exit or a hangup cannot reach it, and
+the shell hides until the game leaves. Every source records a `processHint` — the
+Wine prefix path for Steam, the install folder for the others — which is what
+identifies the game in the process table.
 
-Gap: **never run against a real game.** Launching a Steam title on this machine
-is the outstanding check, including whether the Wine prefix path appears early
-enough to catch the process before the shell reappears.
+Waiting is two phases: the game must appear, then it must leave. It is not a wait
+on the child, because the child says nothing useful: a launcher that hands off
+exits immediately, and one that *is* the long-lived process never exits. Steam is
+both at once — `steam://rungameid/` execs `steam.sh`, which stays alive for
+hours — so a child-based wait either returns instantly or never returns.
+
+That was not a hypothetical. Driving the first launch over the control channel
+left the shell reporting `launching` for 90 seconds and would have gone on for
+its 12-hour timeout, with `compatdata/960090` never matching and `steam.sh` never
+exiting. The appearance phase is now bounded at three minutes, and a game that
+does not appear is reported as a failure.
+
+Verified by launching Bloons TD 6 and Spyro through the channel: Steam starts and
+logs in, and the shell returns itself within the bound with a failure toast rather
+than hanging. That is the correct outcome here, because on this machine the game
+genuinely does not start — the last logged attempt is from September and failed
+inside Proton's prefix setup, and `steam.sh` sits idle afterwards.
+
+Gap: **still no observed game running.** The handoff's "the game appeared, now
+wait for it to leave" path is therefore unproven against a real process, which is
+the half that matters when it works. What is proven is that a launch that does
+not happen is reported instead of hanging.
+
+### S012 — Control channel
+
+A loopback HTTP channel, part of the product rather than a debug flag, so an
+automated run can drive the shell with no controller and no compositor in the way.
+`GET /state` returns the shell's state as JSON, `POST /input` queues a button by
+name, `GET /frame.png` returns the next frame as PNG bytes, `POST /quit` closes
+the shell. `IIDECK_CONTROL_PORT` moves the port; it cannot be closed, because it
+is how the shell is driven. It binds loopback only and names no file to read or
+write — frames come back as bytes over the response.
+
+The shell owns the GL context, so a frame request is handed to the main loop over
+a condition variable and answered there rather than drawn on the request thread.
+Injected buttons go through the same event path a real press takes, so what the
+channel exercises is the shell's own handling and not a parallel one.
+
+This is what made the interactive path checkable. Verified: state read, five
+rightward moves walking focus across two pages, `start` returning to the first
+tile, a frame captured after injection showing the focused tile's ring moved,
+and `quit` shutting the shell down. The first launch through it is what exposed
+the S004 wait defect.
 
 ### S009 — Rumble
 

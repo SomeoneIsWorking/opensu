@@ -2,7 +2,8 @@ add_library(iideck_ui STATIC shell.cpp typeface.cpp)
 add_library(iideck::ui ALIAS iideck_ui)
 target_include_directories(iideck_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(iideck_ui
-    PUBLIC iideck::library raylib
+    PUBLIC iideck::library
+        iideck::config raylib
     PRIVATE lucent::lucent
 )
 target_include_directories(iideck_ui PUBLIC "${RAYLIB_ROOT}/include")

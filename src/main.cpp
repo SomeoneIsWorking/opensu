@@ -4,75 +4,51 @@
 //
 // It is not an emulator and ships no games: Steam, Legendary and Heroic keep
 // doing their own authentication, downloading and cloud sync.
-#include <cstdlib>
-#include <filesystem>
+#include <cstdio>
 #include <string>
-#include <vector>
 
 #include "app/shell_app.hpp"
+#include "config/config.hpp"
 #include "lucent/log.h"
 
 namespace {
 
-int envInt(const char* name, int fallback)
-{
-    const char* raw = std::getenv(name);
-    if (raw == nullptr) {
-        return fallback;
-    }
-    try {
-        return std::stoi(raw);
-    } catch (const std::exception&) {
-        return fallback;
-    }
-}
-
-bool envBool(const char* name, bool fallback)
-{
-    const char* raw = std::getenv(name);
-    if (raw == nullptr) {
-        return fallback;
-    }
-    const std::string text{raw};
-    return text == "1" || text == "true" || text == "yes";
-}
-
-std::vector<std::string> splitList(const char* raw)
-{
-    std::vector<std::string> out;
-    if (raw == nullptr) {
-        return out;
-    }
-    std::string current;
-    for (const char* p = raw;; ++p) {
-        if (*p == ':' || *p == '\0') {
-            if (!current.empty()) {
-                out.push_back(current);
-                current.clear();
-            }
-            if (*p == '\0') {
-                break;
-            }
-            continue;
-        }
-        current.push_back(*p);
-    }
-    return out;
+void printHelp() {
+    std::printf("iideck — a gamepad-first game library shell\n"
+                "\n"
+                "  iideck                run the shell\n"
+                "  iideck --render FILE  render one frame to FILE and exit\n"
+                "\n"
+                "Environment:\n"
+                "  IIDECK_STEAM_ROOTS  colon-separated Steam install roots\n"
+                "  IIDECK_ROM_ROOTS    colon-separated ROM directories\n"
+                "  IIDECK_EMULATORS    SYSTEM=program arg;SYSTEM2=program\n"
+                "  IIDECK_WIDTH        window width (default 1280)\n"
+                "  IIDECK_HEIGHT       window height (default 800)\n"
+                "  IIDECK_ASSETS       directory holding the typeface\n"
+                "  IIDECK_GAMEPAD      only accept controllers whose name contains this\n"
+                "  IIDECK_CONTROL_PORT control channel port (default 7311)\n"
+                "\n"
+                "Control channel, on loopback only:\n"
+                "  GET  /state       the shell's state as JSON\n"
+                "  POST /input       a button name: up down left right a b x y l1 r1\n"
+                "                    select start guide\n"
+                "  GET  /frame.png   the next frame, as PNG bytes\n"
+                "  POST /quit        close the shell\n");
 }
 
 } // namespace
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     // Lucent reads its own debug channels from the environment, so there is
-    // nothing to initialise here.
+    // nothing to initialise here. Everything else is read once, by config::read.
+    const iideck::config::Config& config = iideck::config::read();
 
     iideck::app::Settings settings{
-        .width = envInt("IIDECK_WIDTH", 1280),
-        .height = envInt("IIDECK_HEIGHT", 800),
-        .steamRoots = splitList(std::getenv("IIDECK_STEAM_ROOTS")),
-        .romRoots = splitList(std::getenv("IIDECK_ROM_ROOTS")),
-        .emulatorCommands = std::getenv("IIDECK_EMULATORS") != nullptr ? std::getenv("IIDECK_EMULATORS") : "",
+        .width = config.width,
+        .height = config.height,
+        .controlPort = config.controlPort,
+        .controlChannel = config.controlChannel,
     };
 
     iideck::app::ShellApp shell{settings};
@@ -85,17 +61,7 @@ int main(int argc, char** argv)
             return shell.renderToFile(argv[++i]) ? 0 : 1;
         }
         if (arg == "--help" || arg == "-h") {
-            std::printf("iideck — a gamepad-first game library shell\n"
-                        "\n"
-                        "  iideck              run the shell\n"
-                        "  iideck --render FILE  render one frame to FILE and exit\n"
-                        "\n"
-                        "Environment:\n"
-                        "  IIDECK_STEAM_ROOTS  colon-separated Steam install roots\n"
-                        "  IIDECK_ROM_ROOTS    colon-separated ROM directories\n"
-                        "  IIDECK_EMULATORS    SYSTEM=program arg;SYSTEM2=program\n"
-                        "  IIDECK_WIDTH        window width (default 1280)\n"
-                        "  IIDECK_HEIGHT       window height (default 800)\n");
+            printHelp();
             return 0;
         }
     }

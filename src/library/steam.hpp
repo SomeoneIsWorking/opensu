@@ -27,7 +27,8 @@ class Library {
     /// Finds the usable install roots. When `explicit` is non-empty it is
     /// authoritative — the caller asked for exactly those — otherwise the
     /// standard locations are probed.
-    [[nodiscard]] static Library discover(const std::vector<std::filesystem::path>& explicitRoots);
+    [[nodiscard]] static Library discover(const std::filesystem::path& home,
+                                          const std::vector<std::filesystem::path>& explicitRoots);
 
     /// The install roots in use.
     [[nodiscard]] const std::vector<std::filesystem::path>& roots() const noexcept {

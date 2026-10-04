@@ -10,7 +10,9 @@
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#include <unistd.h>
 
+#include "config/config.hpp"
 #include "lucent/log.h"
 
 namespace iideck::app {
@@ -45,16 +47,17 @@ std::string clockNow() {
 } // namespace
 
 ShellApp::ShellApp(Settings settings)
-    : settings_{std::move(settings)}, catalog_{library::makeCatalog(library::readConfig())},
+    : settings_{std::move(settings)}, catalog_{library::makeCatalog(config::read())},
       shell_{settings_.width, settings_.height} {
     shell_.setClock(clockNow());
 
     // SDL reports any device with buttons as a gamepad, which on a desktop
     // includes a multimedia keyboard. raylib cannot tell the two apart without
     // input, so a name filter lets the player name their controller.
-    if (const char* wanted = std::getenv("IIDECK_GAMEPAD"); wanted != nullptr && *wanted != '\0') {
-        pad_.setNameFilter({std::string{wanted}});
-        lucent::info("gamepad", "only controllers matching \"{}\" are accepted", wanted);
+    if (!config::read().gamepadNameFilter.empty()) {
+        pad_.setNameFilter({config::read().gamepadNameFilter});
+        lucent::info("gamepad", "only controllers matching \"{}\" are accepted",
+                     config::read().gamepadNameFilter);
     }
 }
 
@@ -219,21 +222,167 @@ void ShellApp::refreshClock() {
     shell_.setClock(clockNow());
 }
 
+bool ShellApp::renderFrameToPng(std::string& png) {
+    const RenderTexture target = LoadRenderTexture(settings_.width, settings_.height);
+    if (target.id == 0) {
+        lucent::error("render", "could not create an offscreen target");
+        return false;
+    }
+
+    BeginTextureMode(target);
+    shell_.draw();
+    EndTextureMode();
+
+    // A render texture has OpenGL's bottom-up origin, so the exported image is
+    // the frame upside down. Flipping the rows here keeps draw() identical
+    // between the window and this path.
+    Image frame = LoadImageFromTexture(target.texture);
+    flipVertical(frame);
+
+    // raylib can only encode to a file, so the bytes are written there and read
+    // back. The name carries the process id, so two shells on one machine do
+    // not fight over it.
+    const std::string path = (std::filesystem::temp_directory_path() /
+                              ("iideck-frame-" + std::to_string(::getpid()) + ".png"))
+                                 .string();
+    const bool written = ExportImage(frame, path.c_str());
+    UnloadImage(frame);
+    UnloadTexture(target.texture);
+    if (!written) {
+        lucent::error("render", "could not encode the frame");
+        return false;
+    }
+
+    std::ifstream in{path, std::ios::binary};
+    png.assign(std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{});
+    in.close();
+    std::error_code ignored;
+    std::filesystem::remove(path, ignored);
+    return !png.empty();
+}
+
+ShellSnapshot ShellApp::snapshot() const {
+    const std::lock_guard lock{stateMutex_};
+    return published_;
+}
+
+void ShellApp::inject(gamepad::Button button) {
+    const std::lock_guard lock{injectedMutex_};
+    injected_.push_back(button);
+}
+
+void ShellApp::requestClose() {
+    closeRequested_.store(true);
+}
+
+bool ShellApp::captureFrame(std::string& png) {
+    std::unique_lock lock{stateMutex_};
+    if (capturePending_) {
+        // One frame request at a time: two callers racing for the context would
+        // interleave, and the second would get the first's answer.
+        return false;
+    }
+    capturePending_ = true;
+    captureResult_.clear();
+    // The loop answers within a frame or two. The bound stops a caller hanging
+    // forever if the loop has already exited.
+    captureAnswered_.wait_for(lock, std::chrono::seconds{5}, [this] {
+        return !capturePending_;
+    });
+    if (capturePending_) {
+        // Timed out, so the request is abandoned rather than left set.
+        capturePending_ = false;
+        return false;
+    }
+    png = captureResult_;
+    captureResult_.clear();
+    return !png.empty();
+}
+
+void ShellApp::publishSnapshot() {
+    ShellSnapshot next;
+    next.games = games_.size();
+    for (const library::Game& game : games_) {
+        if (game.installed) {
+            ++next.installed;
+        }
+    }
+    if (const library::Game* focused = shell_.focusedGame(); focused != nullptr) {
+        next.focusedId = focused->id;
+        next.focusedTitle = focused->title;
+    }
+    next.focusIndex = shell_.focusIndex();
+    next.page = static_cast<std::size_t>(std::max(shell_.page(), 0));
+    next.pageCount = static_cast<std::size_t>(std::max(shell_.pageCount(), 1));
+    next.status = shell_.status();
+    next.toast = shell_.toast();
+    next.toastIsError = shell_.toastIsError();
+    {
+        const std::lock_guard lock{launchMutex_};
+        next.launching = launchRunning_;
+    }
+
+    const std::lock_guard lock{stateMutex_};
+    published_ = std::move(next);
+}
+
+void ShellApp::serviceControlRequests() {
+    // Buttons injected over the channel take the same path as a real press, so
+    // what the channel exercises is the shell's own handling.
+    std::vector<gamepad::Button> queued;
+    {
+        const std::lock_guard lock{injectedMutex_};
+        queued.swap(injected_);
+    }
+    for (const gamepad::Button button : queued) {
+        std::vector<gamepad::Event> press{gamepad::Event{
+            .kind = gamepad::Event::Kind::Button, .button = button, .pressed = true}};
+        handleEvents(press);
+    }
+
+    bool wanted = false;
+    {
+        const std::lock_guard lock{stateMutex_};
+        wanted = capturePending_;
+    }
+    if (!wanted) {
+        return;
+    }
+
+    std::string png;
+    const bool ok = renderFrameToPng(png);
+    const std::lock_guard lock{stateMutex_};
+    captureResult_ = ok ? std::move(png) : std::string{};
+    capturePending_ = false;
+    captureAnswered_.notify_all();
+}
+
 int ShellApp::run() {
     reloadCatalog();
 
     InitWindow(settings_.width, settings_.height, "iideck");
     // Textures need a GL context, so artwork is loaded only once the window is up.
     shell_.loadArtwork();
+    lucent::info("ui", "artwork loaded for {} of {} tiles", shell_.loadedArtwork(),
+                 shell_.tiles().size());
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);
 
+    // The control channel is part of the product, not a debug flag: it is how an
+    // automated run drives the shell without a controller.
+    if (settings_.controlChannel) {
+        control_ = std::make_unique<ControlChannel>(*this, settings_.controlPort);
+        control_->start();
+    }
+
     int clockFrames = 0;
-    while (!closeRequested_ && !WindowShouldClose()) {
+    while (!closeRequested_.load() && !WindowShouldClose()) {
         std::vector<gamepad::Event> events;
         pad_.poll(events);
         handleEvents(events);
 
+        serviceControlRequests();
+        publishSnapshot();
         shell_.draw();
 
         if (++clockFrames >= 600) {
@@ -243,6 +392,15 @@ int ShellApp::run() {
         shell_.tickToast();
     }
 
+    // Anything waiting on a frame will never get one now.
+    {
+        const std::lock_guard lock{stateMutex_};
+        capturePending_ = false;
+        captureAnswered_.notify_all();
+    }
+    if (control_) {
+        control_->stop();
+    }
     CloseWindow();
     return 0;
 }
@@ -263,31 +421,23 @@ bool ShellApp::renderToFile(const std::string& path) {
     lucent::info("render", "loaded artwork for {} of {} tiles", shell_.loadedArtwork(),
                  shell_.tiles().size());
 
-    RenderTexture target = LoadRenderTexture(settings_.width, settings_.height);
-    if (target.id == 0) {
-        lucent::error("render", "could not create an offscreen target");
+    std::string png;
+    const bool ok = renderFrameToPng(png);
+    CloseWindow();
+    if (!ok) {
+        lucent::error("render", "could not render a frame");
         return false;
     }
 
-    BeginTextureMode(target);
-    shell_.draw();
-    EndTextureMode();
-
-    // A render texture has OpenGL's bottom-up origin, so the exported image is
-    // the frame upside down. Flipping the rows here keeps draw() identical
-    // between the window and this path.
-    Image frame = LoadImageFromTexture(target.texture);
-    flipVertical(frame);
-    const bool ok = ExportImage(frame, path.c_str());
-    UnloadTexture(target.texture);
-    CloseWindow();
-
-    if (ok) {
+    std::ofstream out{path, std::ios::binary};
+    out.write(png.data(), static_cast<std::streamsize>(png.size()));
+    const bool written = out.good();
+    if (written) {
         lucent::info("render", "wrote {}", path);
     } else {
         lucent::error("render", "could not write {}", path);
     }
-    return ok;
+    return written;
 }
 
 } // namespace iideck::app

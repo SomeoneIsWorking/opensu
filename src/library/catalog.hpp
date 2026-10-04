@@ -1,5 +1,4 @@
-// catalog — the configuration the app runs with, and the providers built from
-// it.
+// catalog — the library sources, built from the one configuration owner.
 #pragma once
 
 #include <filesystem>
@@ -7,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "config/config.hpp"
 #include "epic.hpp"
 #include "game.hpp"
 #include "gog.hpp"
@@ -15,23 +15,12 @@
 
 namespace iideck::library {
 
-/// Reads the process environment once into a typed configuration.
-struct Config {
-    /// Explicit Steam install roots; discovered when empty.
-    std::vector<std::filesystem::path> steamRoots;
-    /// Directories scanned for emulator ROMs.
-    std::vector<std::filesystem::path> romRoots;
-    /// Emulator commands keyed by uppercase system name.
-    std::map<std::string, std::vector<std::string>, std::less<>> emulators;
-    /// File extension (including the dot, uppercase) to system name.
-    std::map<std::string, std::string, std::less<>> extensions;
-};
+/// File extension (including the dot, uppercase) to system name. The library's
+/// own knowledge, not configuration: which extensions mean what is a fact about
+/// emulators, and does not vary per machine.
+[[nodiscard]] const std::map<std::string, std::string, std::less<>>& romExtensions();
 
-/// Reads IIDECK_* from the environment. This is the only place the environment
-/// is read.
-[[nodiscard]] Config readConfig();
-
-/// Builds the catalog's providers from a configuration.
-[[nodiscard]] Catalog makeCatalog(const Config& config);
+/// Builds the catalog's providers from the configuration.
+[[nodiscard]] Catalog makeCatalog(const config::Config& config);
 
 } // namespace iideck::library

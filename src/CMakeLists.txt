@@ -5,6 +5,7 @@
 # points compose; nothing here reaches into another's internals.
 
 add_subdirectory(vdf)
+add_subdirectory(config)
 add_subdirectory(library)
 add_subdirectory(gamepad)
 add_subdirectory(launch)
