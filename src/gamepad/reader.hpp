@@ -65,9 +65,20 @@ struct Event {
 /// The reader has no background thread: it is polled once per frame, which is
 /// what raylib's own input model expects and keeps ordering deterministic.
 class Reader {
-public:
-    /// The number of controller slots checked, including keyboards.
+  public:
+    /// The number of controller slots checked.
     static constexpr int maxGamepads = 4;
+
+    /// A device must report at least this many axes to be treated as a
+    /// controller.
+    static constexpr int minAxes = 2;
+
+    /// Accepts only devices whose name contains one of these. Empty accepts
+    /// every device SDL reports.
+    void setNameFilter(std::vector<std::string> needles);
+
+    /// Reports whether a device's name passes the filter.
+    [[nodiscard]] bool nameAccepted(const char* name) const;
 
     /// Collects this frame's state changes into `events`.
     void poll(std::vector<Event>& events);
@@ -82,7 +93,7 @@ public:
     /// applies the effect to whichever pad is in the slot.
     bool rumble(float strong, float weak, float seconds) const;
 
-private:
+  private:
     /// Per-slot held state, so a press is reported once and a release once.
     struct Slot {
         bool connected{false};
@@ -95,6 +106,7 @@ private:
     /// Directions synthesised from the left stick, so the shell sees sticks and
     /// hats as the same control.
     std::array<bool, 4> directionHeld_{};
+    std::vector<std::string> nameFilter_;
 };
 
 /// Maps a raylib gamepad button to a named control.

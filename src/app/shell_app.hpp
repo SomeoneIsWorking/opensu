@@ -32,7 +32,7 @@ struct Settings {
 
 /// The running shell.
 class ShellApp {
-public:
+  public:
     explicit ShellApp(Settings settings);
 
     /// Loads the library, then runs the window loop until it closes.
@@ -43,9 +43,11 @@ public:
     bool renderToFile(const std::string& path);
 
     /// The catalog as last read.
-    [[nodiscard]] const std::vector<library::Game>& games() const noexcept { return games_; }
+    [[nodiscard]] const std::vector<library::Game>& games() const noexcept {
+        return games_;
+    }
 
-private:
+  private:
     /// Flips an image in place, for the render texture's bottom-up origin.
     static void flipVertical(Image& image);
 

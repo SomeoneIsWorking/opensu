@@ -19,7 +19,7 @@ namespace iideck::vdf {
 
 // A parsed document. Values are either a string or a nested block.
 class Node {
-public:
+  public:
     using Value = std::variant<std::string, Node>;
 
     Node() = default;
@@ -38,17 +38,21 @@ public:
     [[nodiscard]] std::optional<Node> block(std::initializer_list<std::string_view> path) const;
 
     /// Walks a key path and returns the string found there.
-    [[nodiscard]] std::optional<std::string> str(std::initializer_list<std::string_view> path) const;
+    [[nodiscard]] std::optional<std::string>
+    str(std::initializer_list<std::string_view> path) const;
 
     /// Walks a key path and parses the string as a signed integer.
-    [[nodiscard]] std::optional<long long> integer(std::initializer_list<std::string_view> path) const;
+    [[nodiscard]] std::optional<long long>
+    integer(std::initializer_list<std::string_view> path) const;
 
     /// The keys in sorted order, so iteration is reproducible.
     [[nodiscard]] std::vector<std::string> keys() const;
 
-    [[nodiscard]] bool empty() const noexcept { return entries_.empty(); }
+    [[nodiscard]] bool empty() const noexcept {
+        return entries_.empty();
+    }
 
-private:
+  private:
     std::vector<std::pair<std::string, Value>> entries_;
 
     [[nodiscard]] const Value* findValue(std::string_view key) const;

@@ -1,10 +1,10 @@
 #include "gog.hpp"
 
+#include <array>
 #include <cstdlib>
 #include <fstream>
-#include <array>
-#include <string_view>
 #include <stdexcept>
+#include <string_view>
 
 #include <nlohmann/json.hpp>
 
@@ -17,9 +17,7 @@ using nlohmann::json;
 
 /// The first non-empty value, or nothing.
 /// The first value that is not empty.
-template <typename... Args>
-std::string firstNonEmpty(Args&&... args)
-{
+template <typename... Args> std::string firstNonEmpty(Args&&... args) {
     const std::array<std::string_view, sizeof...(Args)> values{std::string_view{args}...};
     for (const std::string_view value : values) {
         if (!value.empty()) {
@@ -37,12 +35,12 @@ struct LibraryEntry {
     std::string installPath;
     bool installed{false};
 
-    [[nodiscard]] static LibraryEntry from(const json& entry)
-    {
+    [[nodiscard]] static LibraryEntry from(const json& entry) {
         const json lib = entry.contains("library") ? entry["library"] : json::object();
         LibraryEntry out;
         out.title = firstNonEmpty(lib.value("title", ""), entry.value("title", ""));
-        out.appName = firstNonEmpty(lib.value("appName", ""), entry.value("app_name", ""), std::string_view{out.title});
+        out.appName = firstNonEmpty(lib.value("appName", ""), entry.value("app_name", ""),
+                                    std::string_view{out.title});
         if (entry.contains("install") && entry["install"].is_object()) {
             const json& install = entry["install"];
             out.installPath = install.value("path", "");
@@ -55,19 +53,15 @@ struct LibraryEntry {
 } // namespace
 
 Provider::Provider()
-    : configDir_{std::filesystem::path{std::getenv("HOME")} / ".config" / "heroic"}
-    , binary_{"heroic"}
-{
+    : configDir_{std::filesystem::path{std::getenv("HOME")} / ".config" / "heroic"},
+      binary_{"heroic"} {
 }
 
 Provider::Provider(std::filesystem::path configDir, std::string binary)
-    : configDir_{std::move(configDir)}
-    , binary_{std::move(binary)}
-{
+    : configDir_{std::move(configDir)}, binary_{std::move(binary)} {
 }
 
-std::vector<Game> Provider::list()
-{
+std::vector<Game> Provider::list() {
     std::error_code ec;
     if (!std::filesystem::is_directory(configDir_, ec)) {
         throw std::runtime_error{"heroic is not installed"};

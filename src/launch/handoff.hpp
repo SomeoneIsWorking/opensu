@@ -18,7 +18,7 @@ struct Error {
 
 /// Starts games. One at a time: a second launch is refused while one is running.
 class Handoff {
-public:
+  public:
     /// The command was started but could not be waited on.
     static constexpr int kWatchFailed = -1;
 
@@ -29,7 +29,7 @@ public:
     /// Steam and Legendary hand off to a different process and waiting on the
     /// child alone would show the shell while the game is still loading.
     static bool start(const library::Game& game, const std::function<void()>& hide,
-        const std::function<void()>& show, std::string& failure);
+                      const std::function<void()>& show, std::string& failure);
 
     /// True when any running process's command line contains `hint`. Every
     /// source records a hint that is unique to its own game: the Wine prefix

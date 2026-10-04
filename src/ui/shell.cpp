@@ -12,6 +12,8 @@
 
 #include "lucent/log.h"
 
+#include "typeface.hpp"
+
 namespace iideck::ui {
 namespace {
 
@@ -21,35 +23,30 @@ namespace fs = std::filesystem;
 constexpr int toastLifetime = 240;
 
 /// The corner radius for a tile, as a fraction of its short side.
-float radiusFor(float side)
-{
+float radiusFor(float side) {
     return side * palette::radiusFraction;
 }
 
 /// Draws a rounded rectangle filled with a single colour.
-void fillRounded(Rectangle rect, float roundness, Color colour)
-{
+void fillRounded(Rectangle rect, float roundness, Color colour) {
     DrawRectangleRounded(rect, roundness, 12, colour);
 }
 
 /// Draws a rectangle filled with a left-to-right gradient.
-void fillGradient(Rectangle rect, Color from, Color to)
-{
+void fillGradient(Rectangle rect, Color from, Color to) {
     DrawRectangleGradientH(static_cast<int>(rect.x), static_cast<int>(rect.y),
-        static_cast<int>(rect.width), static_cast<int>(rect.height), from, to);
+                           static_cast<int>(rect.width), static_cast<int>(rect.height), from, to);
 }
 
 /// Draws a rounded rectangle outline.
-void strokeRounded(Rectangle rect, float roundness, float thickness, Color colour)
-{
+void strokeRounded(Rectangle rect, float roundness, float thickness, Color colour) {
     DrawRectangleRoundedLinesEx(rect, roundness, 12, thickness, colour);
 }
 
 /// A colour derived from a title, so a game with no artwork always gets the same
 /// generated card. raylib converts colours to HSV but not back, so the hue to
 /// RGB conversion is done here.
-Colour cardColour(std::string_view title, float value)
-{
+Colour cardColour(std::string_view title, float value) {
     std::uint32_t hash = 2166136261u;
     for (const char c : title) {
         hash = (hash ^ static_cast<unsigned char>(c)) * 16777619u;
@@ -85,12 +82,11 @@ Colour cardColour(std::string_view title, float value)
         b = second;
     }
     return Colour{static_cast<std::uint8_t>((r + match) * 255.0f),
-        static_cast<std::uint8_t>((g + match) * 255.0f),
-        static_cast<std::uint8_t>((b + match) * 255.0f), 255};
+                  static_cast<std::uint8_t>((g + match) * 255.0f),
+                  static_cast<std::uint8_t>((b + match) * 255.0f), 255};
 }
 
-std::string lighten(std::string_view text, std::string_view suffix)
-{
+std::string lighten(std::string_view text, std::string_view suffix) {
     std::string out{text};
     if (!suffix.empty()) {
         out.append(suffix);
@@ -100,32 +96,28 @@ std::string lighten(std::string_view text, std::string_view suffix)
 
 } // namespace
 
-Shell::Shell(int width, int height)
-    : width_{width}
-    , height_{height}
-{
+Shell::Shell(int width, int height) : width_{width}, height_{height} {
     relayout();
 }
 
-Shell::~Shell() { unloadArtwork(); }
+Shell::~Shell() {
+    unloadArtwork();
+}
 
-float Shell::unit() const
-{
+float Shell::unit() const {
     return static_cast<float>(std::min(width_, height_)) / 100.0f;
 }
 
-Rectangle Shell::gridRect() const
-{
+Rectangle Shell::gridRect() const {
     const float u = unit();
     const float padding = u;
     const float top = u * 9.0f;
     const float bottom = u * 8.0f;
     return Rectangle{padding, top, static_cast<float>(width_) - 2.0f * padding,
-        static_cast<float>(height_) - top - bottom};
+                     static_cast<float>(height_) - top - bottom};
 }
 
-int Shell::columns() const
-{
+int Shell::columns() const {
     if (width_ < 900) {
         return 4;
     }
@@ -138,8 +130,7 @@ int Shell::columns() const
     return 9;
 }
 
-int Shell::rows() const
-{
+int Shell::rows() const {
     const Rectangle area = gridRect();
     const int cols = std::max(columns(), 1);
     const int cell = static_cast<int>(area.width) / cols;
@@ -149,25 +140,24 @@ int Shell::rows() const
     return std::max(static_cast<int>(area.height) / cell, 1);
 }
 
-int Shell::capacity() const { return columns() * rows(); }
+int Shell::capacity() const {
+    return columns() * rows();
+}
 
-Rectangle Shell::topPillRect() const
-{
+Rectangle Shell::topPillRect() const {
     const float u = unit();
     const float height = u * 6.0f;
     const float width = static_cast<float>(width_) * 0.42f;
     return Rectangle{(static_cast<float>(width_) - width) / 2.0f, u * 1.5f, width, height};
 }
 
-void Shell::setSize(int width, int height)
-{
+void Shell::setSize(int width, int height) {
     width_ = width;
     height_ = height;
     relayout();
 }
 
-void Shell::setCatalog(std::vector<library::Game> games)
-{
+void Shell::setCatalog(std::vector<library::Game> games) {
     releaseTextures();
 
     // The reference leads with one hero tile, then wide ones, then squares.
@@ -198,14 +188,13 @@ namespace {
 
 /// Shortens a label with an ellipsis until it fits a width, so a featured tile's
 /// caption does not run under its hint chip.
-std::string clip(std::string_view text, float maxWidth, int fontSize)
-{
+std::string clip(std::string_view text, float maxWidth, int fontSize) {
     const std::string full{text};
-    if (MeasureText(full.c_str(), fontSize) <= maxWidth) {
+    if (type().measure(full.c_str(), fontSize) <= maxWidth) {
         return full;
     }
     std::string out{full};
-    while (out.size() > 1 && MeasureText((out + "...").c_str(), fontSize) > maxWidth) {
+    while (out.size() > 1 && type().measure((out + "...").c_str(), fontSize) > maxWidth) {
         out.pop_back();
     }
     out.append("...");
@@ -214,8 +203,7 @@ std::string clip(std::string_view text, float maxWidth, int fontSize)
 
 /// Loads a texture, returning an empty one when the file is missing or is not an
 /// image raylib can read.
-Texture loadArt(const fs::path& path)
-{
+Texture loadArt(const fs::path& path) {
     if (path.empty() || !fs::is_regular_file(path)) {
         return Texture{};
     }
@@ -224,8 +212,7 @@ Texture loadArt(const fs::path& path)
 
 } // namespace
 
-void Shell::loadArtwork()
-{
+void Shell::loadArtwork() {
     for (Tile& tile : tiles_) {
         tile.portrait = loadArt(tile.game.artwork);
         tile.wide = loadArt(tile.game.artworkWide);
@@ -234,8 +221,7 @@ void Shell::loadArtwork()
     }
 }
 
-std::size_t Shell::loadedArtwork() const noexcept
-{
+std::size_t Shell::loadedArtwork() const noexcept {
     std::size_t count = 0;
     for (const Tile& tile : tiles_) {
         count += tile.hasPortrait ? 1 : 0;
@@ -243,10 +229,11 @@ std::size_t Shell::loadedArtwork() const noexcept
     return count;
 }
 
-void Shell::unloadArtwork() { releaseTextures(); }
+void Shell::unloadArtwork() {
+    releaseTextures();
+}
 
-void Shell::releaseTextures()
-{
+void Shell::releaseTextures() {
     for (Tile& tile : tiles_) {
         if (tile.hasPortrait) {
             UnloadTexture(tile.portrait);
@@ -259,8 +246,7 @@ void Shell::releaseTextures()
     }
 }
 
-void Shell::place(std::size_t index, const Rectangle& area, int x, int y, int cellW, int gap)
-{
+void Shell::place(std::size_t index, const Rectangle& area, int x, int y, int cellW, int gap) {
     Tile& tile = tiles_[index];
     tile.rect = Rectangle{
         area.x + static_cast<float>(x),
@@ -270,8 +256,7 @@ void Shell::place(std::size_t index, const Rectangle& area, int x, int y, int ce
     };
 }
 
-void Shell::relayout()
-{
+void Shell::relayout() {
     // Pages are rebuilt from scratch: leaving the previous ones would leave the
     // empty placeholder page first, and nothing would be visible.
     pages_.clear();
@@ -328,10 +313,14 @@ void Shell::relayout()
     int used = 0;
     int y = 0;
     for (const std::vector<std::size_t>& band : bands) {
-        const int bandColumns = std::accumulate(band.begin(), band.end(), 0,
-            [this](int sum, std::size_t index) { return sum + tiles_[index].columns; });
-        const int bandRows = std::accumulate(band.begin(), band.end(), 0,
-            [this](int, std::size_t index) { return std::max(tiles_[index].rows, 1); });
+        const int bandColumns =
+            std::accumulate(band.begin(), band.end(), 0, [this](int sum, std::size_t index) {
+                return sum + tiles_[index].columns;
+            });
+        const int bandRows =
+            std::accumulate(band.begin(), band.end(), 0, [this](int, std::size_t index) {
+                return std::max(tiles_[index].rows, 1);
+            });
         const int cost = bandColumns * bandRows;
 
         if (!page.empty() && used + cost > capacity) {
@@ -372,8 +361,7 @@ void Shell::relayout()
     refreshFocus();
 }
 
-bool Shell::visible(std::size_t index) const
-{
+bool Shell::visible(std::size_t index) const {
     if (page_ < 0 || page_ >= static_cast<int>(pages_.size())) {
         return false;
     }
@@ -381,13 +369,13 @@ bool Shell::visible(std::size_t index) const
     return std::ranges::find(page, index) != page.end();
 }
 
-void Shell::refreshFocus()
-{
+void Shell::refreshFocus() {
     if (tiles_.empty()) {
         return;
     }
     if (!visible(focus_)) {
-        if (page_ < static_cast<int>(pages_.size()) && !pages_[static_cast<std::size_t>(page_)].empty()) {
+        if (page_ < static_cast<int>(pages_.size()) &&
+            !pages_[static_cast<std::size_t>(page_)].empty()) {
             focus_ = pages_[static_cast<std::size_t>(page_)].front();
         } else {
             focus_ = 0;
@@ -398,23 +386,20 @@ void Shell::refreshFocus()
     }
 }
 
-void Shell::resetFocus()
-{
+void Shell::resetFocus() {
     page_ = 0;
     focus_ = 0;
     refreshFocus();
 }
 
-const library::Game* Shell::focusedGame() const
-{
+const library::Game* Shell::focusedGame() const {
     if (focus_ >= tiles_.size()) {
         return nullptr;
     }
     return &tiles_[focus_].game;
 }
 
-bool Shell::moveFocus(int dx, int dy)
-{
+bool Shell::moveFocus(int dx, int dy) {
     if (page_ < 0 || page_ >= static_cast<int>(pages_.size())) {
         return false;
     }
@@ -462,8 +447,7 @@ bool Shell::moveFocus(int dx, int dy)
     return true;
 }
 
-bool Shell::movePage(int delta)
-{
+bool Shell::movePage(int delta) {
     const int next = page_ + delta;
     if (next < 0 || next >= static_cast<int>(pages_.size())) {
         return false;
@@ -473,15 +457,13 @@ bool Shell::movePage(int delta)
     return true;
 }
 
-void Shell::setToast(std::string text, bool isError)
-{
+void Shell::setToast(std::string text, bool isError) {
     toast_ = std::move(text);
     toastError_ = isError;
     toastFrames_ = toastLifetime;
 }
 
-void Shell::tickToast()
-{
+void Shell::tickToast() {
     if (toastFrames_ > 0) {
         --toastFrames_;
         if (toastFrames_ == 0) {
@@ -490,8 +472,7 @@ void Shell::tickToast()
     }
 }
 
-void Shell::draw()
-{
+void Shell::draw() {
     BeginDrawing();
     ClearBackground(palette::ground);
 
@@ -504,8 +485,7 @@ void Shell::draw()
     EndDrawing();
 }
 
-void Shell::drawDottedGround()
-{
+void Shell::drawDottedGround() {
     const float u = unit();
     const float spacing = std::max(u * 2.2f, 8.0f);
     const float radius = std::max(spacing * 0.09f, 1.0f);
@@ -519,8 +499,7 @@ void Shell::drawDottedGround()
     }
 }
 
-void Shell::drawTopBar()
-{
+void Shell::drawTopBar() {
     const float u = unit();
     const Rectangle pill = topPillRect();
     const float roundness = pill.height / 2.0f / std::max(pill.width, 1.0f);
@@ -528,30 +507,30 @@ void Shell::drawTopBar()
     // A translucent tint, standing in for the reference's glass panel.
     fillRounded(pill, roundness * pill.width / pill.height, Color{0x7c, 0x5c, 0xff, 0x24});
     strokeRounded(pill, roundness * pill.width / pill.height, std::max(u * 0.12f, 1.0f),
-        Color{0x7c, 0x5c, 0xff, 0x40});
+                  Color{0x7c, 0x5c, 0xff, 0x40});
 
     const library::Game* focused = focusedGame();
     if (focused != nullptr) {
         const int size = static_cast<int>(u * 2.2f);
-        DrawText(focused->title.c_str(),
-            static_cast<int>(pill.x + (pill.width - MeasureText(focused->title.c_str(), size)) / 2.0f),
-            static_cast<int>(pill.y + (pill.height - size) / 2.0f),
-            size, palette::ink);
+        const float textWidth = type().measure(focused->title.c_str(), size);
+        type().draw(focused->title.c_str(), pill.x + (pill.width - textWidth) / 2.0f,
+                    pill.y + (pill.height - static_cast<float>(size)) / 2.0f, size, palette::ink);
     }
 
     const int baseline = static_cast<int>(pill.y + pill.height / 2.0f - u * 0.9f);
     if (!status_.empty()) {
-        DrawText(status_.c_str(), static_cast<int>(u), baseline, static_cast<int>(u * 1.6f), palette::inkSoft);
+        type().draw(status_.c_str(), static_cast<int>(u), baseline, static_cast<int>(u * 1.6f),
+                    palette::inkSoft);
     }
     if (!clock_.empty()) {
         const int size = static_cast<int>(u * 1.6f);
-        DrawText(clock_.c_str(), width_ - static_cast<int>(u) - MeasureText(clock_.c_str(), size), baseline,
-            size, palette::inkSoft);
+        type().draw(clock_.c_str(),
+                    width_ - static_cast<int>(u) - type().measure(clock_.c_str(), size), baseline,
+                    size, palette::inkSoft);
     }
 }
 
-void Shell::drawTiles()
-{
+void Shell::drawTiles() {
     const float u = unit();
 
     for (std::size_t index = 0; index < tiles_.size(); ++index) {
@@ -568,19 +547,20 @@ void Shell::drawTiles()
 
         // A soft shadow, offset down and right, lifting the tile off the ground.
         fillRounded({r.x + u * 0.4f, r.y + u * 0.6f, r.width, r.height}, roundness,
-            Color{palette::ink.r, palette::ink.g, palette::ink.b, 24});
+                    Color{palette::ink.r, palette::ink.g, palette::ink.b, 24});
         fillRounded(r, roundness, palette::panel);
 
         // Artwork, or a generated card when the store has none.
-        const Texture art = (tile.columns > 1 && tile.hasWide) ? tile.wide
-                                                               : (tile.hasPortrait ? tile.portrait : Texture{});
+        const Texture art = (tile.columns > 1 && tile.hasWide)
+                                ? tile.wide
+                                : (tile.hasPortrait ? tile.portrait : Texture{});
         if (art.id != 0) {
-            DrawTexturePro(art,
-                Rectangle{0, 0, static_cast<float>(art.width), static_cast<float>(art.height)},
+            DrawTexturePro(
+                art, Rectangle{0, 0, static_cast<float>(art.width), static_cast<float>(art.height)},
                 r, {0, 0}, 0.0f, WHITE);
         } else {
             fillGradient(r, cardColour(tile.game.title, 0.62f),
-                cardColour(tile.game.title + "x", 0.44f));
+                         cardColour(tile.game.title + "x", 0.44f));
         }
 
         if (!tile.game.installed) {
@@ -590,41 +570,47 @@ void Shell::drawTiles()
         if (!tile.game.title.empty()) {
             // A scrim so the caption stays legible over any artwork.
             const float scrimHeight = std::max(r.height * 0.34f, u * 3.0f);
-            DrawRectangleGradientV(static_cast<int>(r.x), static_cast<int>(r.y + r.height - scrimHeight),
-                static_cast<int>(r.width), static_cast<int>(scrimHeight),
-                Color{0, 0, 0, 0}, Color{0, 0, 0, 192});
-            const std::string caption = featured ? clip(tile.game.title, r.width - u * 12.0f,
-                                                         static_cast<int>(u * 1.3f))
-                                                 : tile.game.title;
-            DrawText(caption.c_str(), static_cast<int>(r.x + u),
-                static_cast<int>(r.y + r.height - u * 1.9f), static_cast<int>(u * 1.3f), WHITE);
+            DrawRectangleGradientV(static_cast<int>(r.x),
+                                   static_cast<int>(r.y + r.height - scrimHeight),
+                                   static_cast<int>(r.width), static_cast<int>(scrimHeight),
+                                   Color{0, 0, 0, 0}, Color{0, 0, 0, 192});
+            const int size = static_cast<int>(side * 0.072f);
+            // A featured tile carries its hint chip on the caption's line, so its
+            // caption gets only the space to the chip's left.
+            const std::string caption =
+                featured ? clip(tile.game.title, r.width * 0.55f, size) : tile.game.title;
+            type().draw(caption.c_str(), r.x + side * 0.045f,
+                        r.y + r.height - side * 0.10f - static_cast<float>(size) * 0.82f, size,
+                        WHITE);
         }
 
         if (!tile.game.badge.empty()) {
-            const int size = static_cast<int>(u * 1.1f);
-            const int textWidth = MeasureText(tile.game.badge.c_str(), size);
-            const Rectangle chip{r.x + u * 0.8f, r.y + u * 0.8f,
-                static_cast<float>(textWidth) + u * 1.4f, static_cast<float>(size) + u * 1.0f};
+            const int size = static_cast<int>(side * 0.058f);
+            const float textWidth = type().measure(tile.game.badge.c_str(), size);
+            const Rectangle chip{r.x + side * 0.04f, r.y + side * 0.04f,
+                                 textWidth + static_cast<float>(size) * 1.1f,
+                                 static_cast<float>(size) * 1.85f};
             fillRounded(chip, 0.5f, Color{0xff, 0xff, 0xff, 232});
-            DrawText(tile.game.badge.c_str(), static_cast<int>(chip.x + u * 0.7f),
-                static_cast<int>(chip.y + u * 0.5f), size, palette::ink);
+            type().draw(tile.game.badge.c_str(), chip.x + static_cast<float>(size) * 0.55f,
+                        chip.y + static_cast<float>(size) * 0.45f, size, palette::ink);
         }
 
         if (featured && !tile.game.hint.empty()) {
-            const int size = static_cast<int>(u * 1.1f);
-            const int textWidth = MeasureText(tile.game.hint.c_str(), size);
-            const Rectangle chip{r.x + r.width - u * 0.8f - textWidth - u * 1.4f,
-                r.y + r.height - u * 2.6f,
-                static_cast<float>(textWidth) + u * 1.4f, static_cast<float>(size) + u * 1.0f};
+            const int size = static_cast<int>(side * 0.058f);
+            const float textWidth = type().measure(tile.game.hint.c_str(), size);
+            const Rectangle chip{
+                r.x + r.width - side * 0.04f - textWidth - static_cast<float>(size) * 1.1f,
+                r.y + r.height - static_cast<float>(size) * 2.6f,
+                textWidth + static_cast<float>(size) * 1.1f, static_cast<float>(size) * 1.85f};
             fillRounded(chip, 0.5f, Color{0xff, 0xff, 0xff, 224});
-            DrawText(tile.game.hint.c_str(), static_cast<int>(chip.x + u * 0.7f),
-                static_cast<int>(chip.y + u * 0.5f), size, palette::ink);
+            type().draw(tile.game.hint.c_str(), chip.x + static_cast<float>(size) * 0.55f,
+                        chip.y + static_cast<float>(size) * 0.45f, size, palette::ink);
         }
 
         if (tile.focused) {
             const float thickness = std::max(u * 0.4f, 2.0f);
             const Rectangle ring{r.x - thickness / 2.0f, r.y - thickness / 2.0f,
-                r.width + thickness, r.height + thickness};
+                                 r.width + thickness, r.height + thickness};
             // The gradient is drawn across the tile's diagonal, in two passes, so
             // all three stops are visible.
             const float half = ring.width / 2.0f;
@@ -638,8 +624,7 @@ void Shell::drawTiles()
     }
 }
 
-void Shell::drawFooter()
-{
+void Shell::drawFooter() {
     const float u = unit();
     const int baseline = height_ - static_cast<int>(u * 3.0f);
 
@@ -651,40 +636,38 @@ void Shell::drawFooter()
     float x = static_cast<float>(width_) / 2.0f - total / 2.0f + dotRadius * 1.25f;
     for (int page = 0; page < count; ++page) {
         const bool active = page == page_;
-        DrawCircleV({x, static_cast<float>(baseline)},
-            active ? dotRadius * 1.25f : dotRadius,
-            active ? palette::dotActive : palette::dotInactive);
+        DrawCircleV({x, static_cast<float>(baseline)}, active ? dotRadius * 1.25f : dotRadius,
+                    active ? palette::dotActive : palette::dotInactive);
         x += gap;
     }
 
     // Corner prompts: a rounded key cap followed by the label.
     const auto hint = [this, baseline](const char* key, const char* label, int x) {
         const int size = static_cast<int>(unit() * 1.1f);
-        const int keyWidth = MeasureText(key, size);
+        const int keyWidth = type().measure(key, size);
         const int capWidth = keyWidth + static_cast<int>(unit() * 1.2f);
         const int capHeight = size + static_cast<int>(unit() * 0.9f);
         const Rectangle cap{static_cast<float>(x), static_cast<float>(baseline) - capHeight,
-            static_cast<float>(capWidth), static_cast<float>(capHeight)};
+                            static_cast<float>(capWidth), static_cast<float>(capHeight)};
         fillRounded(cap, 0.4f, palette::panel);
-        DrawText(key, x + static_cast<int>(unit() * 0.6f), baseline - static_cast<int>(unit() * 0.6f), size,
-            palette::ink);
-        DrawText(label, x + capWidth + static_cast<int>(unit() * 0.6f), baseline - static_cast<int>(unit() * 0.6f),
-            size, palette::inkSoft);
+        type().draw(key, x + static_cast<int>(unit() * 0.6f),
+                    baseline - static_cast<int>(unit() * 0.6f), size, palette::ink);
+        type().draw(label, x + capWidth + static_cast<int>(unit() * 0.6f),
+                    baseline - static_cast<int>(unit() * 0.6f), size, palette::inkSoft);
     };
     hint("A", "Play", static_cast<int>(u * 1.4f));
-    const int rightWidth = MeasureText("Refresh", static_cast<int>(u * 1.1f));
-    hint("X", "Refresh", width_ - static_cast<int>(u * 1.4f) - rightWidth
-            - static_cast<int>(u * 2.4f));
+    const int rightWidth = type().measure("Refresh", static_cast<int>(u * 1.1f));
+    hint("X", "Refresh",
+         width_ - static_cast<int>(u * 1.4f) - rightWidth - static_cast<int>(u * 2.4f));
 }
 
-void Shell::drawToast()
-{
+void Shell::drawToast() {
     if (toast_.empty()) {
         return;
     }
     const float u = unit();
     const int size = static_cast<int>(u * 1.4f);
-    const int textWidth = MeasureText(toast_.c_str(), size);
+    const int textWidth = type().measure(toast_.c_str(), size);
     const int padding = static_cast<int>(u * 2.0f);
     const Rectangle box{
         (static_cast<float>(width_) - textWidth - 2 * padding) / 2.0f,
@@ -692,9 +675,10 @@ void Shell::drawToast()
         static_cast<float>(textWidth) + 2.0f * padding,
         static_cast<float>(size) + static_cast<float>(padding),
     };
-    fillRounded(box, 0.5f, toastError_ ? Color{0xb3, 0x26, 0x1e, 240} : Color{0x2b, 0x27, 0x33, 240});
-    DrawText(toast_.c_str(), static_cast<int>(box.x) + padding / 2, static_cast<int>(box.y) + padding / 3, size,
-        WHITE);
+    fillRounded(box, 0.5f,
+                toastError_ ? Color{0xb3, 0x26, 0x1e, 240} : Color{0x2b, 0x27, 0x33, 240});
+    type().draw(toast_.c_str(), static_cast<int>(box.x) + padding / 2,
+                static_cast<int>(box.y) + padding / 3, size, WHITE);
 }
 
 } // namespace iideck::ui

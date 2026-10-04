@@ -15,8 +15,7 @@ constexpr float stickThreshold = 0.5f;
 
 } // namespace
 
-std::string_view prompt(Button button)
-{
+std::string_view prompt(Button button) {
     switch (button) {
     case Button::A:
         return "A";
@@ -58,8 +57,21 @@ std::string_view prompt(Button button)
     return {};
 }
 
-Button fromGamepadButton(int button)
-{
+void Reader::setNameFilter(std::vector<std::string> needles) {
+    nameFilter_ = std::move(needles);
+}
+
+bool Reader::nameAccepted(const char* name) const {
+    if (nameFilter_.empty()) {
+        return true;
+    }
+    const std::string device{name != nullptr ? name : ""};
+    return std::ranges::any_of(nameFilter_, [&device](const std::string& needle) {
+        return !needle.empty() && device.find(needle) != std::string::npos;
+    });
+}
+
+Button fromGamepadButton(int button) {
     switch (button) {
     case GAMEPAD_BUTTON_RIGHT_FACE_DOWN:
         return Button::A;
@@ -100,19 +112,23 @@ Button fromGamepadButton(int button)
     }
 }
 
-void Reader::poll(std::vector<Event>& events)
-{
+void Reader::poll(std::vector<Event>& events) {
     for (int id = 0; id < maxGamepads; ++id) {
         Slot& slot = slots_[static_cast<std::size_t>(id)];
-        const bool connected = IsGamepadAvailable(id);
+        // SDL reports any device with buttons as a gamepad, which on a desktop
+        // includes the keyboard and its media receiver. A real controller has
+        // analogue sticks or triggers, so requiring axes is what separates them.
+        const bool connected = IsGamepadAvailable(id) && GetGamepadAxisCount(id) >= minAxes &&
+                               nameAccepted(GetGamepadName(id));
 
         if (connected != slot.connected) {
             slot.connected = connected;
             if (connected) {
                 slot.held.fill(false);
-                events.push_back(Event{.kind = Event::Kind::Connected,
-                    .device = GetGamepadName(id)});
-                lucent::info("gamepad", "controller connected: {}", GetGamepadName(id));
+                events.push_back(
+                    Event{.kind = Event::Kind::Connected, .device = GetGamepadName(id)});
+                lucent::info("gamepad", "controller connected: {} ({} axes)", GetGamepadName(id),
+                             GetGamepadAxisCount(id));
             } else {
                 events.push_back(Event{.kind = Event::Kind::Disconnected, .device = "controller"});
             }
@@ -133,10 +149,8 @@ void Reader::poll(std::vector<Event>& events)
             if (named == Button::None) {
                 continue;
             }
-            events.push_back(Event{.kind = Event::Kind::Button,
-                .button = named,
-                .pressed = down,
-                .device = device});
+            events.push_back(Event{
+                .kind = Event::Kind::Button, .button = named, .pressed = down, .device = device});
         }
 
         // The left stick also drives the dpad, so the shell has one control.
@@ -177,40 +191,44 @@ void Reader::poll(std::vector<Event>& events)
                 if (directionHeld_[direction]) {
                     directionHeld_[direction] = false;
                     const Button released = direction == 0   ? Button::Up
-                        : direction == 1                     ? Button::Down
-                        : direction == 2                     ? Button::Left
-                                                              : Button::Right;
+                                            : direction == 1 ? Button::Down
+                                            : direction == 2 ? Button::Left
+                                                             : Button::Right;
                     events.push_back(Event{.kind = Event::Kind::Button,
-                        .button = released,
-                        .pressed = false,
-                        .device = device});
+                                           .button = released,
+                                           .pressed = false,
+                                           .device = device});
                 }
             }
         } else {
             const std::size_t index = slotOf(held);
             if (!directionHeld_[index]) {
                 directionHeld_[index] = true;
-                events.push_back(
-                    Event{.kind = Event::Kind::Button, .button = held, .pressed = true, .device = device});
+                events.push_back(Event{.kind = Event::Kind::Button,
+                                       .button = held,
+                                       .pressed = true,
+                                       .device = device});
             }
         }
 
         slot.axisLX = lx;
         slot.axisLY = ly;
         if (lx != 0.0f || ly != 0.0f) {
-            events.push_back(Event{.kind = Event::Kind::Axis, .axis = "lx", .value = lx, .device = device});
-            events.push_back(Event{.kind = Event::Kind::Axis, .axis = "ly", .value = ly, .device = device});
+            events.push_back(
+                Event{.kind = Event::Kind::Axis, .axis = "lx", .value = lx, .device = device});
+            events.push_back(
+                Event{.kind = Event::Kind::Axis, .axis = "ly", .value = ly, .device = device});
         }
     }
 }
 
-bool Reader::anyConnected() const
-{
-    return std::ranges::any_of(slots_, [](const Slot& slot) { return slot.connected; });
+bool Reader::anyConnected() const {
+    return std::ranges::any_of(slots_, [](const Slot& slot) {
+        return slot.connected;
+    });
 }
 
-std::optional<std::string> Reader::primaryName() const
-{
+std::optional<std::string> Reader::primaryName() const {
     for (int id = 0; id < maxGamepads; ++id) {
         if (slots_[static_cast<std::size_t>(id)].connected) {
             return std::string{GetGamepadName(id)};
@@ -219,8 +237,7 @@ std::optional<std::string> Reader::primaryName() const
     return std::nullopt;
 }
 
-bool Reader::rumble(float strong, float weak, float seconds) const
-{
+bool Reader::rumble(float strong, float weak, float seconds) const {
     // raylib exposes one vibration call and no capability query, so the effect
     // goes to the first connected pad and a pad without motors simply ignores
     // it.

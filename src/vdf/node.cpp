@@ -10,19 +10,18 @@
 
 namespace iideck::vdf {
 
-Node Node::from(std::vector<std::pair<std::string, Value>> entries)
-{
+Node Node::from(std::vector<std::pair<std::string, Value>> entries) {
     Node node;
     node.entries_ = std::move(entries);
     return node;
 }
 
-const Node::Value* Node::findValue(std::string_view key) const
-{
+const Node::Value* Node::findValue(std::string_view key) const {
     for (const auto& [name, value] : entries_) {
         // Steam varies key casing between files, so lookups ignore case.
         const bool same = std::ranges::equal(name, key, [](char x, char y) {
-            return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
+            return std::tolower(static_cast<unsigned char>(x)) ==
+                   std::tolower(static_cast<unsigned char>(y));
         });
         if (same) {
             return &value;
@@ -31,16 +30,14 @@ const Node::Value* Node::findValue(std::string_view key) const
     return nullptr;
 }
 
-std::optional<Node::Value> Node::find(std::string_view key) const
-{
+std::optional<Node::Value> Node::find(std::string_view key) const {
     if (const Value* value = findValue(key); value != nullptr) {
         return *value;
     }
     return std::nullopt;
 }
 
-bool Node::has(std::initializer_list<std::string_view> path) const
-{
+bool Node::has(std::initializer_list<std::string_view> path) const {
     if (path.size() == 0) {
         return false;
     }
@@ -57,8 +54,7 @@ bool Node::has(std::initializer_list<std::string_view> path) const
     return current->findValue(*key) != nullptr;
 }
 
-std::optional<Node> Node::block(std::initializer_list<std::string_view> path) const
-{
+std::optional<Node> Node::block(std::initializer_list<std::string_view> path) const {
     const Node* current = this;
     for (const std::string_view key : path) {
         const Value* value = current->findValue(key);
@@ -71,8 +67,7 @@ std::optional<Node> Node::block(std::initializer_list<std::string_view> path) co
     return *current;
 }
 
-std::optional<std::string> Node::str(std::initializer_list<std::string_view> path) const
-{
+std::optional<std::string> Node::str(std::initializer_list<std::string_view> path) const {
     const auto last = path.end();
     if (path.begin() == last) {
         return std::nullopt;
@@ -98,8 +93,7 @@ std::optional<std::string> Node::str(std::initializer_list<std::string_view> pat
     return std::nullopt;
 }
 
-std::optional<long long> Node::integer(std::initializer_list<std::string_view> path) const
-{
+std::optional<long long> Node::integer(std::initializer_list<std::string_view> path) const {
     const std::optional<std::string> text = str(path);
     if (!text) {
         return std::nullopt;
@@ -114,8 +108,7 @@ std::optional<long long> Node::integer(std::initializer_list<std::string_view> p
     return value;
 }
 
-std::vector<std::string> Node::keys() const
-{
+std::vector<std::string> Node::keys() const {
     std::vector<std::string> out;
     out.reserve(entries_.size());
     for (const auto& [name, value] : entries_) {

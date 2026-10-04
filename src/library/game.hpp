@@ -35,7 +35,9 @@ struct LaunchSpec {
     std::string program;
     std::vector<std::string> args;
 
-    [[nodiscard]] bool empty() const noexcept { return program.empty(); }
+    [[nodiscard]] bool empty() const noexcept {
+        return program.empty();
+    }
 };
 
 /// One launchable entry.
@@ -75,7 +77,7 @@ struct Game {
 /// A backend that can list launchable games. Each store has its own type; the
 /// catalog only knows this shape.
 class Provider {
-public:
+  public:
     virtual ~Provider() = default;
     [[nodiscard]] virtual Source source() const = 0;
     [[nodiscard]] virtual std::vector<Game> list() = 0;
@@ -83,7 +85,7 @@ public:
 
 /// Merges every configured provider into the single grid the home screen shows.
 class Catalog {
-public:
+  public:
     void add(std::unique_ptr<Provider> provider);
 
     /// Reads every provider and returns the merged, ordered catalog. A provider
@@ -91,7 +93,7 @@ public:
     /// so one broken store cannot empty the grid.
     [[nodiscard]] std::vector<Game> refresh(std::vector<std::string>& problems);
 
-private:
+  private:
     std::vector<std::unique_ptr<Provider>> providers_;
 };
 

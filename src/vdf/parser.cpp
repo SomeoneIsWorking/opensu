@@ -10,8 +10,7 @@ namespace iideck::vdf::detail {
 namespace {
 
 /// True for the characters that end a bare token.
-bool isDelimiter(char c) noexcept
-{
+bool isDelimiter(char c) noexcept {
     switch (c) {
     case ' ':
     case '\t':
@@ -28,13 +27,10 @@ bool isDelimiter(char c) noexcept
 
 } // namespace
 
-Parser::Parser(std::string_view source) noexcept
-    : source_{source}
-{
+Parser::Parser(std::string_view source) noexcept : source_{source} {
 }
 
-void Parser::skipSpace()
-{
+void Parser::skipSpace() {
     while (offset_ < source_.size()) {
         const char c = source_[offset_];
         if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
@@ -52,8 +48,7 @@ void Parser::skipSpace()
     }
 }
 
-std::optional<std::string> Parser::readQuoted()
-{
+std::optional<std::string> Parser::readQuoted() {
     ++offset_; // opening quote
     std::string out;
     while (offset_ < source_.size()) {
@@ -95,8 +90,7 @@ std::optional<std::string> Parser::readQuoted()
     return std::nullopt;
 }
 
-std::optional<std::string> Parser::readToken()
-{
+std::optional<std::string> Parser::readToken() {
     skipSpace();
     if (atEnd()) {
         error_ = ParseError{offset_, "expected a token"};
@@ -116,8 +110,7 @@ std::optional<std::string> Parser::readToken()
     return std::string{source_.substr(start, offset_ - start)};
 }
 
-bool Parser::parseBlock(std::vector<std::pair<std::string, Node::Value>>& out, bool nested)
-{
+bool Parser::parseBlock(std::vector<std::pair<std::string, Node::Value>>& out, bool nested) {
     while (true) {
         skipSpace();
         if (atEnd()) {
@@ -174,8 +167,7 @@ bool Parser::parseBlock(std::vector<std::pair<std::string, Node::Value>>& out, b
 
 namespace iideck::vdf {
 
-std::optional<Node> parse(std::string_view source, ParseError& error)
-{
+std::optional<Node> parse(std::string_view source, ParseError& error) {
     detail::Parser parser{source};
     std::vector<std::pair<std::string, Node::Value>> entries;
     if (!parser.parseBlock(entries, false)) {
@@ -185,8 +177,7 @@ std::optional<Node> parse(std::string_view source, ParseError& error)
     return Node::from(std::move(entries));
 }
 
-std::optional<Node> parseFile(const std::filesystem::path& path)
-{
+std::optional<Node> parseFile(const std::filesystem::path& path) {
     std::ifstream stream{path, std::ios::binary};
     if (!stream) {
         return std::nullopt;

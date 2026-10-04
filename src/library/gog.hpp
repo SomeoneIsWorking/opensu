@@ -14,7 +14,7 @@ namespace iideck::library::gog {
 
 /// Reads Heroic's cached GOG library.
 class Provider final : public library::Provider {
-public:
+  public:
     /// Uses Heroic's default configuration directory.
     Provider();
 
@@ -22,13 +22,15 @@ public:
     /// point at a fixture.
     Provider(std::filesystem::path configDir, std::string binary);
 
-    [[nodiscard]] Source source() const override { return Source::Gog; }
+    [[nodiscard]] Source source() const override {
+        return Source::Gog;
+    }
 
     /// Lists titles. Throws when Heroic's configuration directory is absent, and
     /// returns nothing when it holds no saved library yet.
     [[nodiscard]] std::vector<Game> list() override;
 
-private:
+  private:
     std::filesystem::path configDir_;
     std::string binary_;
 };

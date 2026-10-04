@@ -12,8 +12,7 @@ namespace {
 namespace fs = std::filesystem;
 
 /// The uppercase extension of a filename, including the dot.
-std::string extensionOf(std::string_view name)
-{
+std::string extensionOf(std::string_view name) {
     const std::size_t dot = name.rfind('.');
     if (dot == std::string_view::npos) {
         return {};
@@ -26,8 +25,8 @@ std::string extensionOf(std::string_view name)
 }
 
 /// The system a ROM belongs to, or "Unknown".
-std::string systemFor(const std::map<std::string, std::string, std::less<>>& extensions, std::string_view name)
-{
+std::string systemFor(const std::map<std::string, std::string, std::less<>>& extensions,
+                      std::string_view name) {
     const auto found = extensions.find(extensionOf(name));
     return found != extensions.end() ? found->second : std::string{"Unknown"};
 }
@@ -36,8 +35,7 @@ std::string systemFor(const std::map<std::string, std::string, std::less<>>& ext
 /// own arguments. An unconfigured system yields an empty spec, which the shell
 /// reports rather than launching nothing silently.
 LaunchSpec launchFor(const std::map<std::string, std::vector<std::string>, std::less<>>& emulators,
-    std::string_view system, const fs::path& rom)
-{
+                     std::string_view system, const fs::path& rom) {
     const auto found = emulators.find(system);
     if (found == emulators.end() || found->second.empty()) {
         return {};
@@ -52,16 +50,13 @@ LaunchSpec launchFor(const std::map<std::string, std::vector<std::string>, std::
 } // namespace
 
 Provider::Provider(std::vector<fs::path> roots,
-    std::map<std::string, std::string, std::less<>> extensions,
-    std::map<std::string, std::vector<std::string>, std::less<>> emulators)
-    : roots_{std::move(roots)}
-    , extensions_{std::move(extensions)}
-    , emulators_{std::move(emulators)}
-{
+                   std::map<std::string, std::string, std::less<>> extensions,
+                   std::map<std::string, std::vector<std::string>, std::less<>> emulators)
+    : roots_{std::move(roots)}, extensions_{std::move(extensions)},
+      emulators_{std::move(emulators)} {
 }
 
-std::vector<Game> Provider::list()
-{
+std::vector<Game> Provider::list() {
     if (roots_.empty()) {
         return {};
     }
@@ -112,8 +107,7 @@ std::vector<Game> Provider::list()
     return games;
 }
 
-std::vector<std::string> Provider::systems() const
-{
+std::vector<std::string> Provider::systems() const {
     std::vector<std::string> out;
     for (const auto& [extension, system] : extensions_) {
         if (std::ranges::find(out, system) == out.end()) {

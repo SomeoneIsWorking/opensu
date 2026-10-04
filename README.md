@@ -47,6 +47,15 @@ Overrides, all optional:
 | `IIDECK_ROM_ROOTS` | Colon-separated directories of emulator ROMs. |
 | `IIDECK_EMULATORS` | `SYSTEM=program arg;SYSTEM2=program` |
 | `IIDECK_WIDTH`, `IIDECK_HEIGHT` | Window size, default 1280x800. |
+| `IIDECK_ASSETS` | Directory holding the typeface. Defaults to `assets`. |
+| `IIDECK_GAMEPAD` | Only accept controllers whose name contains this. |
+
+Run from the repository root, or set `IIDECK_ASSETS` if you start it elsewhere.
+
+`IIDECK_GAMEPAD` exists because SDL reports any device with buttons as a
+gamepad, so on a desktop with a multimedia keyboard the keyboard and its media
+receiver show up as controllers. raylib offers no way to tell them apart, so
+name yours.
 
 A ROM whose system has no configured emulator still appears in the grid, and
 pressing play reports which emulator is missing rather than doing nothing.
@@ -67,3 +76,12 @@ pressing play reports which emulator is missing rather than doing nothing.
 - `docs/project-goals.md` — what this is for, and what it deliberately is not
 - `docs/project-state.md` — what works, what does not, and the current focus
 - `docs/reference/design-reference.md` — the iiSU findings this design comes from
+
+## Typeface
+
+`assets/Nunito-Bold.ttf` is Nunito, the typeface the reference design uses,
+under the SIL Open Font License; the licence is beside it in
+`assets/Nunito-OFL.txt`. It ships as a static instance pinned to weight 700,
+because Google Fonts publishes only the variable font and raylib reads glyphs
+through stb_truetype, which ignores variation tables and would render the
+light default master instead.

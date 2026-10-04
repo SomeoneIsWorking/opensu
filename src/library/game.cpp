@@ -16,21 +16,21 @@ constexpr std::chrono::hours resumeWindow{24 * 7};
 /// Past that, it is something you came back to rather than continue.
 constexpr std::chrono::hours lingerWindow{24 * 90};
 
-std::chrono::system_clock::time_point playedAt(const Game& game)
-{
+std::chrono::system_clock::time_point playedAt(const Game& game) {
     return game.lastPlayed.value_or(Clock::time_point{});
 }
 
 /// Drops repeated ids, keeping the first occurrence.
-std::vector<Game> dedupe(std::vector<Game> games)
-{
+std::vector<Game> dedupe(std::vector<Game> games) {
     std::vector<Game> out;
     out.reserve(games.size());
     for (Game& game : games) {
         if (game.id.empty()) {
             continue;
         }
-        if (std::ranges::any_of(out, [&game](const Game& seen) { return seen.id == game.id; })) {
+        if (std::ranges::any_of(out, [&game](const Game& seen) {
+                return seen.id == game.id;
+            })) {
             continue;
         }
         out.push_back(std::move(game));
@@ -40,8 +40,7 @@ std::vector<Game> dedupe(std::vector<Game> games)
 
 } // namespace
 
-std::string_view label(Source source)
-{
+std::string_view label(Source source) {
     switch (source) {
     case Source::Steam:
         return "Steam";
@@ -55,20 +54,19 @@ std::string_view label(Source source)
     return "Unknown";
 }
 
-void Catalog::add(std::unique_ptr<Provider> provider)
-{
+void Catalog::add(std::unique_ptr<Provider> provider) {
     if (provider != nullptr) {
         providers_.push_back(std::move(provider));
     }
 }
 
-std::vector<Game> Catalog::refresh(std::vector<std::string>& problems)
-{
+std::vector<Game> Catalog::refresh(std::vector<std::string>& problems) {
     std::vector<Game> all;
     for (const std::unique_ptr<Provider>& provider : providers_) {
         try {
             std::vector<Game> found = provider->list();
-            all.insert(all.end(), std::make_move_iterator(found.begin()), std::make_move_iterator(found.end()));
+            all.insert(all.end(), std::make_move_iterator(found.begin()),
+                       std::make_move_iterator(found.end()));
         } catch (const std::exception& error) {
             problems.push_back(std::string{label(provider->source())} + ": " + error.what());
         }
@@ -79,8 +77,7 @@ std::vector<Game> Catalog::refresh(std::vector<std::string>& problems)
     return merged;
 }
 
-void order(std::vector<Game>& games)
-{
+void order(std::vector<Game>& games) {
     std::ranges::stable_sort(games, [](const Game& a, const Game& b) {
         if (a.installed != b.installed) {
             return a.installed;
@@ -94,8 +91,7 @@ void order(std::vector<Game>& games)
     });
 }
 
-void annotate(std::vector<Game>& games)
-{
+void annotate(std::vector<Game>& games) {
     const Clock::time_point now = Clock::now();
     int resumed = 0;
     int lingering = 0;

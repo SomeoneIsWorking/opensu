@@ -8,16 +8,14 @@
 
 namespace {
 
-void expect(bool condition, const char* what)
-{
+void expect(bool condition, const char* what) {
     if (!condition) {
         std::fprintf(stderr, "FAIL: %s\n", what);
         std::exit(1);
     }
 }
 
-void expectEqual(const std::string& got, const std::string& want, const char* what)
-{
+void expectEqual(const std::string& got, const std::string& want, const char* what) {
     if (got != want) {
         std::fprintf(stderr, "FAIL: %s = \"%s\", want \"%s\"\n", what, got.c_str(), want.c_str());
         std::exit(1);
@@ -40,35 +38,32 @@ constexpr std::string_view kManifest = R"("AppState"
 }
 )";
 
-void testManifest()
-{
+void testManifest() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kManifest, error);
     expect(doc.has_value(), "manifest parses");
 
     expectEqual(doc->str({"AppState", "name"}).value_or(""), "Portal 2", "name");
     expect(doc->integer({"AppState", "StateFlags"}) == 4, "StateFlags is 4");
-    expectEqual(doc->str({"AppState", "UserConfig", "language"}).value_or(""), "english", "nested language");
+    expectEqual(doc->str({"AppState", "UserConfig", "language"}).value_or(""), "english",
+                "nested language");
 }
 
-void testCaseInsensitiveLookup()
-{
+void testCaseInsensitiveLookup() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kManifest, error);
     expect(doc.has_value(), "manifest parses");
     expectEqual(doc->str({"appstate", "NAME"}).value_or(""), "Portal 2", "case-insensitive lookup");
 }
 
-void testQuotedEscapes()
-{
+void testQuotedEscapes() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(R"("root" { "path" "D:\\Steam Library" })", error);
     expect(doc.has_value(), "escaped path parses");
     expectEqual(doc->str({"root", "path"}).value_or(""), "D:\\Steam Library", "escaped backslash");
 }
 
-void testBareTokens()
-{
+void testBareTokens() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(R"("root" { bare unquoted })", error);
     expect(doc.has_value(), "bare token parses");
@@ -99,8 +94,7 @@ constexpr std::string_view kLibraryFoldersLegacy = R"("LibraryFolders"
 }
 )";
 
-void testLibraryFoldersCurrent()
-{
+void testLibraryFoldersCurrent() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kLibraryFoldersCurrent, error);
     expect(doc.has_value(), "current libraryfolders parses");
@@ -112,8 +106,7 @@ void testLibraryFoldersCurrent()
     expectEqual(folders->str({"0", "contentid"}).value_or(""), "8019845413043883551", "content id");
 }
 
-void testLibraryFoldersLegacy()
-{
+void testLibraryFoldersLegacy() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kLibraryFoldersLegacy, error);
     expect(doc.has_value(), "legacy libraryfolders parses");
@@ -130,8 +123,7 @@ void testLibraryFoldersLegacy()
     }
 }
 
-void testUserConfigWrapper()
-{
+void testUserConfigWrapper() {
     constexpr std::string_view kUserConfig = R"("UserLocalConfigStore"
 {
 	"Software"
@@ -162,14 +154,14 @@ void testUserConfigWrapper()
     expect(doc.has_value(), "user config parses");
 
     // The whole document is wrapped, so the paths start one level in.
-    expect(doc->integer({"UserLocalConfigStore", "Software", "Valve", "Steam", "Apps", "440", "Playtime"}) == 145,
-        "playtime is read through the wrapper");
+    expect(doc->integer({"UserLocalConfigStore", "Software", "Valve", "Steam", "Apps", "440",
+                         "Playtime"}) == 145,
+           "playtime is read through the wrapper");
     expect(doc->has({"UserLocalConfigStore", "Software", "Valve", "Steam", "Favorites", "440"}),
-        "favourite is found");
+           "favourite is found");
 }
 
-void testMissingPathIsAbsent()
-{
+void testMissingPathIsAbsent() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kManifest, error);
     expect(doc.has_value(), "manifest parses");
@@ -177,19 +169,20 @@ void testMissingPathIsAbsent()
     expect(!doc->block({"AppState", "name"}).has_value(), "a string leaf is not a block");
 }
 
-void testMalformedIsRejected()
-{
+void testMalformedIsRejected() {
     iideck::vdf::ParseError error;
-    expect(!iideck::vdf::parse(R"("root" { "a" "b")", error).has_value(), "unterminated block is rejected");
-    expect(!iideck::vdf::parse(std::string_view{R"("root" { "unterminated )"}, error).has_value(), "unterminated string is rejected");
-    expect(!iideck::vdf::parse(R"("root" { } })", error).has_value(), "stray close brace is rejected");
+    expect(!iideck::vdf::parse(R"("root" { "a" "b")", error).has_value(),
+           "unterminated block is rejected");
+    expect(!iideck::vdf::parse(std::string_view{R"("root" { "unterminated )"}, error).has_value(),
+           "unterminated string is rejected");
+    expect(!iideck::vdf::parse(R"("root" { } })", error).has_value(),
+           "stray close brace is rejected");
     expect(error.offset > 0, "the error reports an offset");
 }
 
 } // namespace
 
-int main()
-{
+int main() {
     testManifest();
     testCaseInsensitiveLookup();
     testQuotedEscapes();

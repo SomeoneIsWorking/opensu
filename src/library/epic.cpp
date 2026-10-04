@@ -21,8 +21,7 @@ struct Install {
     bool installed{false};
     bool dlc{false};
 
-    [[nodiscard]] static Install from(const json& entry, std::string fallbackName)
-    {
+    [[nodiscard]] static Install from(const json& entry, std::string fallbackName) {
         Install out;
         out.appName = entry.value("app_name", fallbackName);
         out.title = entry.value("title", "");
@@ -35,8 +34,7 @@ struct Install {
 
 /// Legendary has emitted both a bare array and an object keyed by app name,
 /// depending on version, so both shapes are accepted.
-std::vector<Install> parseInstalls(std::string_view output)
-{
+std::vector<Install> parseInstalls(std::string_view output) {
     const json document = json::parse(output);
 
     std::vector<Install> installs;
@@ -58,18 +56,13 @@ std::vector<Install> parseInstalls(std::string_view output)
 
 } // namespace
 
-Provider::Provider()
-    : binary_{"legendary"}
-{
+Provider::Provider() : binary_{"legendary"} {
 }
 
-Provider::Provider(std::string binary)
-    : binary_{std::move(binary)}
-{
+Provider::Provider(std::string binary) : binary_{std::move(binary)} {
 }
 
-std::vector<Game> Provider::list()
-{
+std::vector<Game> Provider::list() {
     // Legendary logs to stderr, so only stdout is captured.
     std::array<char, 4096> buffer{};
     std::string output;

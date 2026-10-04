@@ -30,8 +30,7 @@ constexpr auto pollInterval = std::chrono::seconds{2};
 constexpr auto watchTimeout = std::chrono::hours{12};
 
 /// Builds the argument vector, exec-safe.
-std::vector<char*> argv(const std::string& program, const std::vector<std::string>& args)
-{
+std::vector<char*> argv(const std::string& program, const std::vector<std::string>& args) {
     std::vector<std::string> owned;
     owned.push_back(program);
     for (const std::string& arg : args) {
@@ -48,13 +47,11 @@ std::vector<char*> argv(const std::string& program, const std::vector<std::strin
 
 } // namespace
 
-std::string Error::message() const
-{
+std::string Error::message() const {
     return "cannot launch " + id + ": " + reason;
 }
 
-bool Handoff::processMatches(const std::string& hint)
-{
+bool Handoff::processMatches(const std::string& hint) {
     if (hint.empty()) {
         return false;
     }
@@ -84,8 +81,7 @@ bool Handoff::processMatches(const std::string& hint)
 }
 
 bool Handoff::start(const library::Game& game, const std::function<void()>& hide,
-    const std::function<void()>& show, std::string& failure)
-{
+                    const std::function<void()>& show, std::string& failure) {
     if (game.launch.empty()) {
         failure = "no launch command for " + game.title;
         return false;

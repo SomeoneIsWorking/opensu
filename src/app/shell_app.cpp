@@ -22,8 +22,7 @@ constexpr int repeatDelayFrames = 22;
 constexpr int repeatIntervalFrames = 7;
 
 /// A short human summary of a title's state, shown in the details toast.
-std::string describe(const library::Game& game)
-{
+std::string describe(const library::Game& game) {
     std::ostringstream out;
     out << game.title << " · " << library::label(game.source);
     if (game.playtimeMinutes > 0) {
@@ -34,8 +33,7 @@ std::string describe(const library::Game& game)
     return out.str();
 }
 
-std::string clockNow()
-{
+std::string clockNow() {
     const std::time_t now = std::time(nullptr);
     std::tm parts{};
     localtime_r(&now, &parts);
@@ -47,15 +45,20 @@ std::string clockNow()
 } // namespace
 
 ShellApp::ShellApp(Settings settings)
-    : settings_{std::move(settings)}
-    , catalog_{library::makeCatalog(library::readConfig())}
-    , shell_{settings_.width, settings_.height}
-{
+    : settings_{std::move(settings)}, catalog_{library::makeCatalog(library::readConfig())},
+      shell_{settings_.width, settings_.height} {
     shell_.setClock(clockNow());
+
+    // SDL reports any device with buttons as a gamepad, which on a desktop
+    // includes a multimedia keyboard. raylib cannot tell the two apart without
+    // input, so a name filter lets the player name their controller.
+    if (const char* wanted = std::getenv("IIDECK_GAMEPAD"); wanted != nullptr && *wanted != '\0') {
+        pad_.setNameFilter({std::string{wanted}});
+        lucent::info("gamepad", "only controllers matching \"{}\" are accepted", wanted);
+    }
 }
 
-void ShellApp::flipVertical(Image& image)
-{
+void ShellApp::flipVertical(Image& image) {
     const int stride = image.width * 4;
     std::vector<unsigned char> row(static_cast<std::size_t>(stride));
     auto* pixels = static_cast<unsigned char*>(image.data);
@@ -68,8 +71,7 @@ void ShellApp::flipVertical(Image& image)
     }
 }
 
-void ShellApp::reloadCatalog()
-{
+void ShellApp::reloadCatalog() {
     std::vector<std::string> problems;
     games_ = catalog_.refresh(problems);
     for (const std::string& problem : problems) {
@@ -84,14 +86,15 @@ void ShellApp::reloadCatalog()
             ++installed;
         }
     }
-    shell_.setStatus(std::to_string(games_.size()) + " games · "
-        + std::to_string(installed) + " installed");
+    shell_.setStatus(std::to_string(games_.size()) + " games · " + std::to_string(installed) +
+                     " installed");
 }
 
-void ShellApp::pushCatalogToShell() { shell_.setCatalog(games_); }
+void ShellApp::pushCatalogToShell() {
+    shell_.setCatalog(games_);
+}
 
-void ShellApp::handleEvents(const std::vector<gamepad::Event>& events)
-{
+void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
     for (const gamepad::Event& event : events) {
         switch (event.kind) {
         case gamepad::Event::Kind::Connected:
@@ -111,8 +114,7 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& events)
     }
 }
 
-void ShellApp::actOn(gamepad::Button button)
-{
+void ShellApp::actOn(gamepad::Button button) {
     switch (button) {
     case gamepad::Button::Up:
         if (!shell_.moveFocus(0, -1)) {
@@ -162,14 +164,14 @@ void ShellApp::actOn(gamepad::Button button)
     }
 }
 
-void ShellApp::launchFocused()
-{
+void ShellApp::launchFocused() {
     const library::Game* game = shell_.focusedGame();
     if (game == nullptr) {
         return;
     }
     if (game->launch.empty()) {
-        shell_.setToast("no emulator configured for " + std::string{library::label(game->source)}, true);
+        shell_.setToast("no emulator configured for " + std::string{library::label(game->source)},
+                        true);
         return;
     }
     {
@@ -189,7 +191,13 @@ void ShellApp::launchFocused()
         std::string failure;
         // Hiding and showing the window across a thread boundary is safe here:
         // raylib's window calls are queued onto the main loop.
-        launch::Handoff::start(copy, [] {}, [] {}, failure);
+        launch::Handoff::start(
+            copy,
+            [] {
+            },
+            [] {
+            },
+            failure);
         {
             const std::lock_guard lock{launchMutex_};
             launchRunning_ = false;
@@ -201,17 +209,17 @@ void ShellApp::launchFocused()
     }}.detach();
 }
 
-void ShellApp::showDetails()
-{
+void ShellApp::showDetails() {
     if (const library::Game* game = shell_.focusedGame(); game != nullptr) {
         shell_.setToast(describe(*game));
     }
 }
 
-void ShellApp::refreshClock() { shell_.setClock(clockNow()); }
+void ShellApp::refreshClock() {
+    shell_.setClock(clockNow());
+}
 
-int ShellApp::run()
-{
+int ShellApp::run() {
     reloadCatalog();
 
     InitWindow(settings_.width, settings_.height, "iideck");
@@ -239,8 +247,7 @@ int ShellApp::run()
     return 0;
 }
 
-bool ShellApp::renderToFile(const std::string& path)
-{
+bool ShellApp::renderToFile(const std::string& path) {
     if (games_.empty()) {
         reloadCatalog();
     } else {
@@ -253,7 +260,8 @@ bool ShellApp::renderToFile(const std::string& path)
     SetConfigFlags(FLAG_WINDOW_HIDDEN);
     InitWindow(settings_.width, settings_.height, "iideck render");
     shell_.loadArtwork();
-    lucent::info("render", "loaded artwork for {} of {} tiles", shell_.loadedArtwork(), shell_.tiles().size());
+    lucent::info("render", "loaded artwork for {} of {} tiles", shell_.loadedArtwork(),
+                 shell_.tiles().size());
 
     RenderTexture target = LoadRenderTexture(settings_.width, settings_.height);
     if (target.id == 0) {

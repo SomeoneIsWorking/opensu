@@ -37,8 +37,7 @@ struct Colour {
     std::uint8_t b{};
     std::uint8_t a{255};
 
-    [[nodiscard]] operator Color() const noexcept
-    {
+    [[nodiscard]] operator Color() const noexcept {
         return Color{r, g, b, a};
     }
 };
@@ -62,7 +61,7 @@ inline constexpr float radiusFraction = 0.0625f;
 
 /// The home screen: owns layout and draws a frame.
 class Shell {
-public:
+  public:
     Shell(int width, int height);
     ~Shell();
 
@@ -94,20 +93,32 @@ public:
     /// Releases every texture the shell owns.
     void unloadArtwork();
 
-    [[nodiscard]] const std::vector<Tile>& tiles() const noexcept { return tiles_; }
+    [[nodiscard]] const std::vector<Tile>& tiles() const noexcept {
+        return tiles_;
+    }
     /// How many tiles ended up with a loaded portrait texture.
     [[nodiscard]] std::size_t loadedArtwork() const noexcept;
-    [[nodiscard]] std::size_t focus() const noexcept { return focus_; }
-    [[nodiscard]] int pageCount() const noexcept { return static_cast<int>(pages_.size()); }
-    [[nodiscard]] int page() const noexcept { return page_; }
+    [[nodiscard]] std::size_t focus() const noexcept {
+        return focus_;
+    }
+    [[nodiscard]] int pageCount() const noexcept {
+        return static_cast<int>(pages_.size());
+    }
+    [[nodiscard]] int page() const noexcept {
+        return page_;
+    }
     [[nodiscard]] const library::Game* focusedGame() const;
 
-    void setStatus(std::string text) { status_ = std::move(text); }
-    void setClock(std::string text) { clock_ = std::move(text); }
+    void setStatus(std::string text) {
+        status_ = std::move(text);
+    }
+    void setClock(std::string text) {
+        clock_ = std::move(text);
+    }
     void setToast(std::string text, bool isError = false);
     void tickToast();
 
-private:
+  private:
     /// The tile area between the top bar and the footer.
     [[nodiscard]] Rectangle gridRect() const;
     /// How many square tiles fit across.

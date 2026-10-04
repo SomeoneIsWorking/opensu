@@ -73,9 +73,24 @@ machine's screenshot tooling cannot see, and the earlier WebKit frontend's
 offscreen snapshot returned an empty surface. raylib renders to a texture and
 exports it, so a frame is a file.
 
-Gap: the fonts are raylib's built-in face rather than the reference's rounded
-display face, and the per-platform HSL tinting the reference applies to
-artwork is not implemented.
+Type is Nunito Bold, which is the reference's own typeface, shipped in `assets/`
+under the OFL with the licence beside it. Google Fonts publishes it only as a
+variable font, and raylib loads glyphs through stb_truetype, which ignores
+variation tables and would therefore render the file's default master: light
+rather than bold. The shipped face is a static instance pinned to weight 700,
+produced with
+
+```sh
+uvx --from fonttools fonttools varLib.instancer \
+    assets/Nunito.ttf wght=700 -o assets/Nunito-Bold.ttf
+```
+
+Tile captions, badge chips and hint chips are sized from the tile's own short
+side, not from the window's layout unit, so a tile's type keeps its proportion
+whatever the window size or how many columns a tile spans.
+
+Gap: the per-platform HSL tinting the reference applies to artwork is not
+implemented, so covers are shown at their store's own colours.
 
 ### S003 — Gamepad input
 
@@ -83,10 +98,18 @@ Read through raylib, which sits on SDL and already knows the layout mainstream
 pads report. Buttons are edge-detected against held state, and the left stick
 also drives the dpad so the shell has one control for both.
 
-Gap: **never exercised against a real controller.** This machine has only a
-keyboard, so nothing has confirmed the button mapping. raylib 6.0 removed the
-separate shoulder buttons, so the triggers carry both shoulder and axis, and the
-mapping follows that.
+Gap: **button mapping never exercised on real hardware.** This machine reports a
+Logitech K400 Plus and its USB receiver as controllers, because SDL reports any
+device with buttons as a gamepad and raylib's API cannot tell a multimedia
+keyboard from a controller: it offers no way to ask how many buttons a device
+has, and `IsGamepadButtonDown` cannot distinguish an unmapped button from an
+unpressed one. Requiring analogue axes was tried and rejected — the K400's
+touchpad is enough to give it six axes.
+
+`IIDECK_GAMEPAD` therefore names the controller to accept, by substring, so a
+player can exclude the keyboard. Verified by pointing it at a name that matches
+nothing and watching the shell come up with no controller rather than with two
+keyboards.
 
 ### S004 — Launch handoff
 

@@ -2,10 +2,10 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cstdlib>
 #include <fstream>
 #include <map>
 #include <numeric>
-#include <cstdlib>
 #include <ranges>
 #include <stdexcept>
 #include <system_error>
@@ -21,8 +21,7 @@ namespace fs = std::filesystem;
 using vdf::Node;
 
 /// The standard install locations, in the order Steam itself prefers.
-const std::vector<std::string>& knownRoots()
-{
+const std::vector<std::string>& knownRoots() {
     static const std::vector<std::string> roots{
         ".local/share/Steam",
         ".steam/steam",
@@ -36,8 +35,7 @@ const std::vector<std::string>& knownRoots()
 /// Artwork candidates, tried in order. Steam stores portrait art under one name
 /// and, since 2023, landscape hero art under another; older caches hold only the
 /// legacy grid images.
-const std::vector<std::string>& portraitCandidates()
-{
+const std::vector<std::string>& portraitCandidates() {
     static const std::vector<std::string> candidates{
         "appcache/librarycache/{}/library_600x900.jpg",
         "appcache/librarycache/{}/library_600x900.png",
@@ -49,8 +47,7 @@ const std::vector<std::string>& portraitCandidates()
     return candidates;
 }
 
-const std::vector<std::string>& wideCandidates()
-{
+const std::vector<std::string>& wideCandidates() {
     static const std::vector<std::string> candidates{
         "appcache/librarycache/{}_library_hero.jpg",
         "appcache/librarycache/{}_library_hero.png",
@@ -69,8 +66,7 @@ struct PlayRecord {
 
 /// True when the path exists and is a directory, with symlinks resolved so
 /// artwork lookups do not depend on which path was discovered.
-std::optional<fs::path> existingDirectory(const fs::path& path)
-{
+std::optional<fs::path> existingDirectory(const fs::path& path) {
     std::error_code ec;
     const fs::path resolved = fs::weakly_canonical(path, ec);
     if (ec || !fs::is_directory(resolved, ec)) {
@@ -80,14 +76,13 @@ std::optional<fs::path> existingDirectory(const fs::path& path)
 }
 
 /// True when the directory holds both halves of a Steam install.
-bool isInstallRoot(const fs::path& path)
-{
+bool isInstallRoot(const fs::path& path) {
     return fs::is_directory(path / "steamapps") && fs::is_directory(path / "config");
 }
 
 /// The first candidate that is a readable file.
-fs::path firstExisting(const fs::path& root, const std::vector<std::string>& patterns, std::string_view appId)
-{
+fs::path firstExisting(const fs::path& root, const std::vector<std::string>& patterns,
+                       std::string_view appId) {
     for (const std::string& pattern : patterns) {
         auto view = std::string_view{pattern};
         const std::size_t slot = view.find("{}");
@@ -111,14 +106,9 @@ fs::path firstExisting(const fs::path& root, const std::vector<std::string>& pat
 /// these are matched by the directory names Steam installs its components
 /// under. Narrow and documented rather than silent, and recorded as a
 /// stopgap in docs/project-state.md.
-bool isSteamComponent(const std::string& installDir)
-{
+bool isSteamComponent(const std::string& installDir) {
     constexpr std::string_view prefixes[]{
-        "Proton ",
-        "SteamLinuxRuntime",
-        "Steamworks Shared",
-        "Steam Controller Configs",
-        "SteamVR",
+        "Proton ", "SteamLinuxRuntime", "Steamworks Shared", "Steam Controller Configs", "SteamVR",
     };
     for (const std::string_view prefix : prefixes) {
         if (installDir.rfind(prefix, 0) == 0) {
@@ -130,16 +120,14 @@ bool isSteamComponent(const std::string& installDir)
 
 /// Steam's own install flag, authoritative even when the game directory has been
 /// moved or is a symlink.
-bool stateFlagsInstalled(const Node& state)
-{
+bool stateFlagsInstalled(const Node& state) {
     const std::optional<long long> flags = state.integer({"StateFlags"});
     return flags.has_value() && (*flags & 4) != 0;
 }
 
 /// Merges every user profile's app data. Later profiles win, which matches how
 /// Steam treats a shared machine.
-std::map<std::string, PlayRecord, std::less<>> loadUserData(const fs::path& root)
-{
+std::map<std::string, PlayRecord, std::less<>> loadUserData(const fs::path& root) {
     // Keyed by app id, because an app appears under both Apps and Favorites and
     // the two must merge rather than overwrite each other.
     std::map<std::string, PlayRecord, std::less<>> records;
@@ -175,13 +163,15 @@ std::map<std::string, PlayRecord, std::less<>> loadUserData(const fs::path& root
                 PlayRecord record;
                 if (const std::optional<std::string> raw = app->str({"LastPlayed"})) {
                     long long seconds = 0;
-                    const auto [ptr, conv] = std::from_chars(raw->data(), raw->data() + raw->size(), seconds);
+                    const auto [ptr, conv] =
+                        std::from_chars(raw->data(), raw->data() + raw->size(), seconds);
                     if (conv == std::errc{} && ptr == raw->data() + raw->size() && seconds > 0) {
-                        record.lastPlayed =
-                            std::chrono::system_clock::from_time_t(static_cast<std::time_t>(seconds));
+                        record.lastPlayed = std::chrono::system_clock::from_time_t(
+                            static_cast<std::time_t>(seconds));
                     }
                 }
-                if (const std::optional<long long> minutes = app->integer({"Playtime"}); minutes && *minutes > 0) {
+                if (const std::optional<long long> minutes = app->integer({"Playtime"});
+                    minutes && *minutes > 0) {
                     record.playtimeMinutes = static_cast<int>(*minutes);
                 }
                 if (app->block({"Categories"}).value_or(Node{}).has({"Favorites"})) {
@@ -194,7 +184,8 @@ std::map<std::string, PlayRecord, std::less<>> loadUserData(const fs::path& root
             }
         }
 
-        if (const std::optional<Node> favourites = user.block({"Software", "Valve", "Steam", "Favorites"})) {
+        if (const std::optional<Node> favourites =
+                user.block({"Software", "Valve", "Steam", "Favorites"})) {
             for (const std::string& appId : favourites->keys()) {
                 records[appId].favourite = true;
             }
@@ -205,8 +196,7 @@ std::map<std::string, PlayRecord, std::less<>> loadUserData(const fs::path& root
 
 /// The app id from a manifest filename, ordered numerically so the catalog is
 /// stable regardless of directory order.
-std::string appIdOf(const fs::path& manifest)
-{
+std::string appIdOf(const fs::path& manifest) {
     std::string name = manifest.filename().string();
     constexpr std::string_view prefix{"appmanifest_"};
     if (name.starts_with(prefix)) {
@@ -218,16 +208,15 @@ std::string appIdOf(const fs::path& manifest)
     return name;
 }
 
-bool lessByAppId(const fs::path& a, const fs::path& b)
-{
+bool lessByAppId(const fs::path& a, const fs::path& b) {
     return appIdOf(a) < appIdOf(b);
 }
 
 /// Reads one app manifest. Returns nothing when the manifest is unreadable or
 /// carries no name.
 std::optional<Game> readManifest(const fs::path& root, const fs::path& libraryPath,
-    const fs::path& manifestPath, const std::map<std::string, PlayRecord, std::less<>>& play)
-{
+                                 const fs::path& manifestPath,
+                                 const std::map<std::string, PlayRecord, std::less<>>& play) {
     const std::optional<Node> doc = vdf::parseFile(manifestPath);
     if (!doc) {
         return std::nullopt;
@@ -242,7 +231,8 @@ std::optional<Game> readManifest(const fs::path& root, const fs::path& libraryPa
     }
 
     std::string appId = appIdOf(manifestPath);
-    if (const std::optional<long long> declared = state->integer({"appid"}); declared && *declared != 0) {
+    if (const std::optional<long long> declared = state->integer({"appid"});
+        declared && *declared != 0) {
         appId = std::to_string(*declared);
     }
     const std::string installDir = state->str({"installdir"}).value_or("");
@@ -287,8 +277,7 @@ std::optional<Game> readManifest(const fs::path& root, const fs::path& libraryPa
 
 /// Reads every app manifest in one library folder.
 std::vector<Game> readLibrary(const fs::path& root, const fs::path& libraryPath,
-    const std::map<std::string, PlayRecord, std::less<>>& play)
-{
+                              const std::map<std::string, PlayRecord, std::less<>>& play) {
     std::vector<fs::path> manifests;
     std::error_code ec;
     for (const fs::directory_entry& entry : fs::directory_iterator{libraryPath / "steamapps", ec}) {
@@ -317,8 +306,7 @@ std::vector<Game> readLibrary(const fs::path& root, const fs::path& libraryPath,
 /// distinct path and per distinct content id. Steam keeps entries for drives
 /// that are not mounted, and a stale one must never win over a mounted one that
 /// holds the games.
-std::vector<LibraryFolder> presentFolders(std::vector<LibraryFolder> candidates)
-{
+std::vector<LibraryFolder> presentFolders(std::vector<LibraryFolder> candidates) {
     std::vector<LibraryFolder> out;
     std::vector<fs::path> seenPaths;
     std::vector<std::string> seenIds;
@@ -343,8 +331,7 @@ std::vector<LibraryFolder> presentFolders(std::vector<LibraryFolder> candidates)
 }
 
 /// The extra libraries Steam records, accepting both layouts.
-std::vector<LibraryFolder> readExtraFolders(const fs::path& root)
-{
+std::vector<LibraryFolder> readExtraFolders(const fs::path& root) {
     const std::optional<Node> doc = vdf::parseFile(root / "steamapps" / "libraryfolders.vdf");
     if (!doc) {
         return {};
@@ -384,8 +371,7 @@ std::vector<LibraryFolder> readExtraFolders(const fs::path& root)
 
 } // namespace
 
-Library Library::discover(const std::vector<fs::path>& explicitRoots)
-{
+Library Library::discover(const std::vector<fs::path>& explicitRoots) {
     std::vector<fs::path> candidates = explicitRoots;
     if (candidates.empty()) {
         const char* home = std::getenv("HOME");
@@ -415,8 +401,7 @@ Library Library::discover(const std::vector<fs::path>& explicitRoots)
     return library;
 }
 
-std::vector<LibraryFolder> Library::libraryFolders() const
-{
+std::vector<LibraryFolder> Library::libraryFolders() const {
     std::vector<LibraryFolder> folders;
     for (const fs::path& root : roots_) {
         // The install root always comes first so its own manifests win.
@@ -430,8 +415,7 @@ std::vector<LibraryFolder> Library::libraryFolders() const
     return presentFolders(std::move(folders));
 }
 
-std::vector<Game> Library::list() const
-{
+std::vector<Game> Library::list() const {
     if (roots_.empty()) {
         throw std::runtime_error{"no Steam installation found"};
     }
@@ -464,7 +448,9 @@ std::vector<Game> Library::list() const
 
     if (games.empty() && !problems.empty()) {
         throw std::runtime_error{std::accumulate(problems.begin(), problems.end(), std::string{},
-            [](std::string acc, const std::string& p) { return acc.empty() ? p : acc + "; " + p; })};
+                                                 [](std::string acc, const std::string& p) {
+                                                     return acc.empty() ? p : acc + "; " + p;
+                                                 })};
     }
     for (const std::string& problem : problems) {
         lucent::warn("steam", "library folder unreadable: {}", problem);
@@ -472,11 +458,11 @@ std::vector<Game> Library::list() const
     return games;
 }
 
-Provider::Provider(Library library)
-    : library_{std::move(library)}
-{
+Provider::Provider(Library library) : library_{std::move(library)} {
 }
 
-std::vector<Game> Provider::list() { return library_.list(); }
+std::vector<Game> Provider::list() {
+    return library_.list();
+}
 
 } // namespace iideck::library::steam

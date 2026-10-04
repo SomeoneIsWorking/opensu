@@ -17,16 +17,14 @@ namespace fs = std::filesystem;
 using iideck::library::Game;
 using iideck::library::steam::Library;
 
-void expect(bool condition, const char* what)
-{
+void expect(bool condition, const char* what) {
     if (!condition) {
         std::fprintf(stderr, "FAIL: %s\n", what);
         std::exit(1);
     }
 }
 
-void write(const fs::path& path, const std::string& body)
-{
+void write(const fs::path& path, const std::string& body) {
     fs::create_directories(path.parent_path());
     std::ofstream out{path, std::ios::binary};
     out << body;
@@ -37,8 +35,7 @@ struct Fixture {
     fs::path root;
     fs::path extra;
 
-    Fixture()
-    {
+    Fixture() {
         base = fs::temp_directory_path() / "iideck-steam-test";
         fs::remove_all(base);
         root = base / "Steam";
@@ -53,30 +50,34 @@ struct Fixture {
         // The install root is also listed as library "0", which is how Steam
         // records it; it must not be read twice.
         write(root / "steamapps" / "libraryfolders.vdf",
-            "\"libraryfolders\"\n"
-            "{\n"
-            "\t\"0\"\n\t{\n\t\t\"path\"\t\t\"" + root.string() + "\"\n\t}\n"
-            "\t\"1\"\n\t{\n\t\t\"path\"\t\t\"" + extra.string() + "\"\n"
-            "\t\t\"contentid\"\t\t\"8019845413043883551\"\n\t}\n"
-            "}\n");
+              "\"libraryfolders\"\n"
+              "{\n"
+              "\t\"0\"\n\t{\n\t\t\"path\"\t\t\"" +
+                  root.string() +
+                  "\"\n\t}\n"
+                  "\t\"1\"\n\t{\n\t\t\"path\"\t\t\"" +
+                  extra.string() +
+                  "\"\n"
+                  "\t\t\"contentid\"\t\t\"8019845413043883551\"\n\t}\n"
+                  "}\n");
 
         write(root / "steamapps" / "appmanifest_440.acf",
-            "\"AppState\"\n{\n\t\"appid\"\t\t\"440\"\n\t\"name\"\t\t\"Portal 2\"\n"
-            "\t\"installdir\"\t\t\"Portal 2\"\n\t\"StateFlags\"\t\t\"4\"\n}\n");
+              "\"AppState\"\n{\n\t\"appid\"\t\t\"440\"\n\t\"name\"\t\t\"Portal 2\"\n"
+              "\t\"installdir\"\t\t\"Portal 2\"\n\t\"StateFlags\"\t\t\"4\"\n}\n");
 
         // Known to Steam, but its directory is gone: not installed.
         write(root / "steamapps" / "appmanifest_620.acf",
-            "\"AppState\"\n{\n\t\"appid\"\t\t\"620\"\n\t\"name\"\t\t\"Portal 2\"\n"
-            "\t\"installdir\"\t\t\"Portal 2 (Missing)\"\n\t\"StateFlags\"\t\t\"1026\"\n}\n");
+              "\"AppState\"\n{\n\t\"appid\"\t\t\"620\"\n\t\"name\"\t\t\"Portal 2\"\n"
+              "\t\"installdir\"\t\t\"Portal 2 (Missing)\"\n\t\"StateFlags\"\t\t\"1026\"\n}\n");
 
         // One of Steam's own components, which is not a game.
         write(root / "steamapps" / "appmanifest_2805730.acf",
-            "\"AppState\"\n{\n\t\"appid\"\t\t\"2805730\"\n\t\"name\"\t\t\"Proton 9.0\"\n"
-            "\t\"installdir\"\t\t\"Proton 9.0 (Beta)\"\n\t\"StateFlags\"\t\t\"4\"\n}\n");
+              "\"AppState\"\n{\n\t\"appid\"\t\t\"2805730\"\n\t\"name\"\t\t\"Proton 9.0\"\n"
+              "\t\"installdir\"\t\t\"Proton 9.0 (Beta)\"\n\t\"StateFlags\"\t\t\"4\"\n}\n");
 
         write(extra / "steamapps" / "appmanifest_999.acf",
-            "\"AppState\"\n{\n\t\"appid\"\t\t\"999\"\n\t\"name\"\t\t\"Deep Game\"\n"
-            "\t\"installdir\"\t\t\"Deep Game\"\n\t\"StateFlags\"\t\t\"4\"\n}\n");
+              "\"AppState\"\n{\n\t\"appid\"\t\t\"999\"\n\t\"name\"\t\t\"Deep Game\"\n"
+              "\t\"installdir\"\t\t\"Deep Game\"\n\t\"StateFlags\"\t\t\"4\"\n}\n");
 
         write(root / "appcache" / "librarycache" / "440" / "library_600x900.jpg", "portrait");
         write(root / "appcache" / "librarycache" / "440" / "library_hero.jpg", "landscape");
@@ -85,19 +86,20 @@ struct Fixture {
         // 999 has none.
 
         write(root / "userdata" / "1234567" / "config" / "localconfig.vdf",
-            "\"UserLocalConfigStore\"\n{\n\t\"Software\"\n\t{\n\t\t\"Valve\"\n\t\t{\n"
-            "\t\t\t\"Steam\"\n\t\t\t{\n\t\t\t\t\"Apps\"\n\t\t\t\t{\n"
-            "\t\t\t\t\t\"440\"\n\t\t\t\t\t{\n\t\t\t\t\t\t\"LastPlayed\"\t\t\"1700000000\"\n"
-            "\t\t\t\t\t\t\"Playtime\"\t\t\"145\"\n\t\t\t\t\t}\n\t\t\t\t}\n"
-            "\t\t\t\t\"Favorites\"\n\t\t\t\t{\n\t\t\t\t\t\"440\"\t\t\"1\"\n\t\t\t\t}\n"
-            "\t\t\t}\n\t\t}\n\t}\n}\n");
+              "\"UserLocalConfigStore\"\n{\n\t\"Software\"\n\t{\n\t\t\"Valve\"\n\t\t{\n"
+              "\t\t\t\"Steam\"\n\t\t\t{\n\t\t\t\t\"Apps\"\n\t\t\t\t{\n"
+              "\t\t\t\t\t\"440\"\n\t\t\t\t\t{\n\t\t\t\t\t\t\"LastPlayed\"\t\t\"1700000000\"\n"
+              "\t\t\t\t\t\t\"Playtime\"\t\t\"145\"\n\t\t\t\t\t}\n\t\t\t\t}\n"
+              "\t\t\t\t\"Favorites\"\n\t\t\t\t{\n\t\t\t\t\t\"440\"\t\t\"1\"\n\t\t\t\t}\n"
+              "\t\t\t}\n\t\t}\n\t}\n}\n");
     }
 
-    ~Fixture() { fs::remove_all(base); }
+    ~Fixture() {
+        fs::remove_all(base);
+    }
 };
 
-const Game* find(const std::vector<Game>& games, const std::string& id)
-{
+const Game* find(const std::vector<Game>& games, const std::string& id) {
     for (const Game& game : games) {
         if (game.id == id) {
             return &game;
@@ -108,8 +110,7 @@ const Game* find(const std::vector<Game>& games, const std::string& id)
 
 } // namespace
 
-int main()
-{
+int main() {
     Fixture fixture;
 
     const Library library = Library::discover({fixture.root});
@@ -144,8 +145,10 @@ int main()
     expect(portal->launch.args.size() == 1, "one launch argument");
     expect(portal->launch.args[0] == "steam://rungameid/440", "launch url");
     expect(portal->processHint == "compatdata/440", "process hint identifies the game");
-    expect(!portal->artwork.empty() && fs::exists(portal->artwork), "modern portrait artwork found");
-    expect(!portal->artworkWide.empty() && fs::exists(portal->artworkWide), "modern landscape artwork found");
+    expect(!portal->artwork.empty() && fs::exists(portal->artwork),
+           "modern portrait artwork found");
+    expect(!portal->artworkWide.empty() && fs::exists(portal->artworkWide),
+           "modern landscape artwork found");
 
     const Game* missing = find(games, "steam:620");
     expect(missing != nullptr, "known-but-absent game listed");
