@@ -48,7 +48,8 @@ std::string clockNow() {
 
 ShellApp::ShellApp(Settings settings)
     : settings_{std::move(settings)}, catalog_{library::makeCatalog(config::read())},
-      shell_{settings_.width, settings_.height} {
+      shell_{settings_.width, settings_.height},
+      handoff_{config::read().home, config::read().executablePath} {
     shell_.setClock(clockNow());
     // The platform table frames every tile. Loaded before the catalog, because the
     // frames are resolved as the grid is laid out.
@@ -112,6 +113,13 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
         case gamepad::Event::Kind::Axis:
             break;
         case gamepad::Event::Kind::Button:
+            if (event.button == gamepad::Button::Guide) {
+                if (event.pressed) {
+                    guideHeldSince_ = std::chrono::steady_clock::now();
+                } else {
+                    guideHeldSince_.reset();
+                }
+            }
             if (event.pressed) {
                 actOn(event.button);
             }
@@ -224,14 +232,19 @@ void ShellApp::launchFocused() {
         launchRunning_ = true;
     }
 
-    // The copy outlives this call because the handoff thread reads it.
+    // The copy outlives this call because the handoff thread reads it. The monitor is
+    // read here because raylib's window calls belong to this thread.
     const library::Game copy = *game;
+    const int monitor = GetCurrentMonitor();
+    const launch::Output output{GetMonitorWidth(monitor), GetMonitorHeight(monitor),
+                                GetMonitorRefreshRate(monitor)};
+    const bool insideGamescope = config::read().insideGamescope;
     shell_.setToast("starting " + copy.title);
 
-    std::thread{[this, copy] {
+    std::thread{[this, copy, output, insideGamescope] {
         std::string failure;
-        launch::Handoff::start(
-            copy,
+        handoff_.start(
+            copy, output, insideGamescope,
             [this] {
                 // raylib's window calls belong to the thread that owns the GL context, so
                 // the handoff thread only raises a flag and the loop does the work. Hiding
@@ -253,6 +266,21 @@ void ShellApp::launchFocused() {
             requestToast(copy.title + " closed", false);
         }
     }}.detach();
+}
+
+void ShellApp::serviceForceClose() {
+    if (!guideHeldSince_ || std::chrono::steady_clock::now() - *guideHeldSince_ < forceCloseHold) {
+        return;
+    }
+    guideHeldSince_.reset();
+    {
+        const std::lock_guard lock{launchMutex_};
+        if (!launchRunning_) {
+            return;
+        }
+    }
+    lucent::warn("launch", "Guide held; force-closing the running launch");
+    handoff_.forceClose();
 }
 
 void ShellApp::showDetails() {
@@ -485,6 +513,7 @@ int ShellApp::run() {
         pad_.poll(events);
         handleEvents(events);
         handleKeyboard();
+        serviceForceClose();
 
         serviceControlRequests();
         serviceRequests();

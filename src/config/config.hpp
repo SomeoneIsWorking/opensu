@@ -49,6 +49,13 @@ struct Config {
     /// is how an automated run drives the shell, and it listens on loopback
     /// only; the environment can move it, never close it.
     bool controlChannel{true};
+
+    /// Whether iideck itself runs inside a top-level Gamescope, in which case
+    /// games launch directly instead of in a nested one.
+    bool insideGamescope{false};
+
+    /// The directories searched for a launch's program, from PATH.
+    std::vector<std::filesystem::path> executablePath;
 };
 
 /// Reads the environment once and returns the same value thereafter. Values that

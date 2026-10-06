@@ -36,9 +36,9 @@ game has been observed running yet.
 | S008 | ROM source with per-system emulator launch | verified | — | G001 |
 | S009 | Haptic rumble | partial | S003 | G003 |
 | S010 | Own login session entry on Gamescope | missing | — | G004 |
-| S013 | Nested Gamescope launch inside KDE at the output's resolution | missing | S004 | G004 |
+| S013 | Nested Gamescope launch inside KDE at the output's resolution | partial | S004 | G004 |
 | S014 | Alt+F4 closes the game in nested mode while Alt+Tab stays with KDE | missing | S013 | G004 |
-| S015 | Shell owns every instance it starts and can force-close it from the pad | missing | S004 | G003 |
+| S015 | Shell owns every instance it starts and can force-close it from the pad | partial | S004 | G003 |
 | S011 | Steam's own components kept out of the game grid | partial | S002 | G001 |
 
 ## Capability details
@@ -198,9 +198,11 @@ session.
 
 ### S013 — Nested Gamescope launch
 
-Nothing in `src/` starts Gamescope; games launch straight into the desktop.
-Nested Gamescope defaults to 1280x720 for both the game and its window, so the
-launch must pass the output's size and refresh itself.
+Outside Gamescope (`Config::insideGamescope`, from `GAMESCOPE_WAYLAND_DISPLAY`)
+`launch::wrapInGamescope` runs the game as `gamescope -W -H -w -h -r -f` with
+the current monitor's size and refresh from raylib; inside one the game runs
+directly. The argument vector is unit-tested; no nested launch has been run
+against a display yet.
 
 ### S014 — Alt+F4 in nested mode
 
@@ -212,10 +214,17 @@ Alt+F4 on iideck's Gamescope window into a game close over the control channel.
 
 ### S015 — Owned instances
 
-The handoff starts the game with `setsid` and only watches the process table;
-it cannot stop what it started. A Steam game started through an already-running
-Steam client is that client's child, not ours, so ownership also needs Steam to
-run inside the instance iideck owns.
+Every launch runs in a transient systemd user scope (`launch::Instance`), so
+processes that setsid or double-fork stay owned; the scope is stopped when the
+game leaves and killed when Guide is held for two seconds. Steam runs inside the
+instance (`steam -silent -applaunch`); a Steam launch is refused while a desktop
+Steam client is running. Scope ownership, escape-proof stop and force-close are
+tested with real processes; the Guide hold and a real Steam launch are not yet
+exercised.
+
+Gaps: Steam is stopped with SIGTERM as soon as the game leaves, which can cut a
+cloud-save upload short; there is no prompt to restart a desktop Steam inside
+iideck; Steam starts fresh for every launch.
 
 ### S011 — Steam's own components
 

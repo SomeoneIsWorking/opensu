@@ -256,7 +256,7 @@ std::optional<Game> readManifest(const fs::path& root, const fs::path& libraryPa
     game.sourceId = appId;
     game.title = *name;
     game.installed = installed;
-    game.launch = LaunchSpec{.program = "steam", .args = {"steam://rungameid/" + appId}};
+    game.launch = LaunchSpec{.program = "steam", .args = {"-silent", "-applaunch", appId}};
     // The Wine prefix path carries the app id, so a running game is recognisable
     // in the process table whatever the executable is called.
     game.processHint = "compatdata/" + appId;

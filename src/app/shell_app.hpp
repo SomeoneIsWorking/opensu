@@ -4,10 +4,12 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -21,6 +23,9 @@
 #include "ui/shell.hpp"
 
 namespace iideck::app {
+
+/// How long Guide is held to force-close a running launch.
+inline constexpr std::chrono::seconds forceCloseHold{2};
 
 /// What the shell needs from the host, so the shell can be drawn without a
 /// running store client.
@@ -86,6 +91,8 @@ class ShellApp final : public ControlTarget {
     void handleKeyboard();
     void actOn(gamepad::Button button);
     void launchFocused();
+    /// Closes the running launch once Guide has been held long enough. Main loop only.
+    void serviceForceClose();
     void showDetails();
     void refreshClock();
     void pushCatalogToShell();
@@ -102,6 +109,9 @@ class ShellApp final : public ControlTarget {
     /// Guards the handoff thread, which touches the window.
     std::mutex launchMutex_;
     bool launchRunning_{false};
+    launch::Handoff handoff_;
+    /// When Guide went down, while it is held.
+    std::optional<std::chrono::steady_clock::time_point> guideHeldSince_;
     /// Set by the control channel, read by the loop.
     std::atomic<bool> closeRequested_{false};
 

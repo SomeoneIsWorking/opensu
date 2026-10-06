@@ -142,8 +142,9 @@ int main() {
     expect(portal->favourite, "favourite read from the user profile");
     expect(portal->lastPlayed.has_value(), "last played read");
     expect(portal->launch.program == "steam", "launch program");
-    expect(portal->launch.args.size() == 1, "one launch argument");
-    expect(portal->launch.args[0] == "steam://rungameid/440", "launch url");
+    expect(portal->launch.args.size() == 3 && portal->launch.args[0] == "-silent" &&
+               portal->launch.args[1] == "-applaunch" && portal->launch.args[2] == "440",
+           "launch args");
     expect(portal->processHint == "compatdata/440", "process hint identifies the game");
     expect(!portal->artwork.empty() && fs::exists(portal->artwork),
            "modern portrait artwork found");

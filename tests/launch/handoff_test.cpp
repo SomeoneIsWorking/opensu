@@ -1,20 +1,16 @@
 // The launch handoff, exercised against throwaway processes.
 //
-// What is pinned here, all of it observable from outside the shell: a launched
-// game leads its own session, so neither the shell's exit nor a hangup can
-// reach it; start() blocks while the game runs and shows the shell again only
-// once the game is gone; and it keeps waiting across a Steam/Legendary style
-// hand-off, where the program it spawned exits at once and a different process
-// runs the game.
+// What is pinned here, all of it observable from outside the shell: start()
+// blocks while the game runs and shows the shell again only once the game is
+// gone; it keeps waiting across a Steam/Legendary style hand-off, where the
+// program it spawned exits at once and a different process runs the game; it
+// ends when the instance does or when forceClose() is called; and a Steam launch
+// is refused while a desktop Steam client is running.
 //
 // start() blocks for as long as the game runs, so every launch here runs on its
 // own thread and every wait is bounded: a regression in the wait reports itself
-// instead of hanging the test.
-//
-// A real fork and a real process table are the only things that can catch the
-// bugs this covers -- a use-after-free in the argument vector, or a wait that
-// ends on the wrong signal -- so it is slower than the parser tests, though every
-// case is bounded and none waits out a real timeout.
+// instead of hanging the test. Every launch runs with insideGamescope set, so no
+// display or Gamescope is needed.
 #include "launch/handoff.hpp"
 
 #include <atomic>
@@ -33,6 +29,8 @@
 #include <utility>
 #include <vector>
 
+#include <csignal>
+#include <sys/wait.h>
 #include <unistd.h>
 
 namespace {
@@ -40,8 +38,12 @@ namespace {
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 using iideck::launch::Handoff;
+using iideck::launch::Output;
 using iideck::library::Game;
 using iideck::library::Source;
+
+// Where the fixtures' programs live; tests do not read the environment.
+const std::vector<fs::path> kSearchPath{"/usr/bin", "/bin"};
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -81,11 +83,13 @@ bool waitUntil(const std::function<bool()>& predicate, std::chrono::milliseconds
 /// from sharing a directory.
 struct Fixture {
     fs::path base;
+    fs::path home;
 
     Fixture() {
-        base = fs::temp_directory_path() / ("iideck-handoff-test-" + std::to_string(getpid()));
+        base = fs::path{IIDECK_TEST_SCRATCH} / ("iideck-handoff-test-" + std::to_string(getpid()));
         fs::remove_all(base);
-        fs::create_directories(base);
+        home = base / "home";
+        fs::create_directories(home);
     }
 
     ~Fixture() {
@@ -225,11 +229,11 @@ struct Outcome {
 };
 
 /// start() is documented to block, so every launch goes on its own thread.
-std::future<Outcome> startOnWorker(const Game& game, Shell& shell) {
-    return std::async(std::launch::async, [&game, &shell]() {
+std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& shell) {
+    return std::async(std::launch::async, [&handoff, &game, &shell]() {
         Outcome outcome;
-        outcome.ok = Handoff::start(
-            game,
+        outcome.ok = handoff.start(
+            game, Output{}, true,
             [&shell] {
                 shell.hide();
             },
@@ -285,9 +289,10 @@ void testStartBlocksUntilTheGameIsOver() {
     const Fixture fixture;
     const RunningGame child = runningGame(fixture, "blocking", 4);
     Shell shell;
+    Handoff handoff{fixture.home, kSearchPath};
 
     const Clock::time_point began = Clock::now();
-    std::future<Outcome> pending = startOnWorker(child.game, shell);
+    std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
 
     const pid_t pid =
         awaitRecordedPid(child.pidFile, "the launched program was started and recorded its pid");
@@ -310,43 +315,6 @@ void testStartBlocksUntilTheGameIsOver() {
     expect(!running(pid), "the game process is gone by the time start() returns");
     expect(shell.shown.load() == 1, "the shell was shown again, once");
     expect(shell.hiddenAt.load() < shell.shownAt.load(), "hide precedes show");
-}
-
-/// The spawned game leads its own session, so a shell exit or a hangup on the
-/// shell's terminal cannot reach a running game. Observable from /proc: field 6
-/// of /proc/<pid>/stat is the session id, which setsid() makes equal to the
-/// process's own pid.
-void testSpawnedGameLeadsItsOwnSession() {
-    const Fixture fixture;
-    const RunningGame child = runningGame(fixture, "session", 5);
-    Shell shell;
-
-    Stat self;
-    expect(readStat(getpid(), self), "this process has a readable /proc entry");
-
-    std::future<Outcome> pending = startOnWorker(child.game, shell);
-    const pid_t pid =
-        awaitRecordedPid(child.pidFile, "the launched program was started and recorded its pid");
-
-    Stat game;
-    expect(waitUntil(
-               [&game, pid] {
-                   return readStat(pid, game);
-               },
-               std::chrono::seconds{10}),
-           "the launched program has a readable /proc entry");
-    expect(game.state != 'Z' && game.state != 'X', "the launched program is still running");
-    expect(game.ppid == getpid(), "the launched program is a child of start()'s caller");
-    expect(game.session == pid, "the launched game leads its own session");
-    expect(game.session != self.session, "the launched game's session is not the shell's");
-    expect(game.pgrp == pid, "the launched game leads its own process group");
-    expect(game.pgrp != self.pgrp, "the launched game's process group is not the shell's");
-
-    const Outcome outcome = awaitStart(pending, "start() returns when the game exits");
-    expect(outcome.ok, "a game in its own session reports success");
-    expect(outcome.failure.empty(), "a game in its own session reports no failure");
-    expect(!running(pid), "the game process is gone by the time start() returns");
-    expect(shell.shown.load() == 1, "the shell was shown again, once");
 }
 
 /// The Steam/Legendary shape: the program that was spawned exits at once, and a
@@ -390,8 +358,9 @@ void testStartWaitsAcrossAHandOff() {
     expect(!Handoff::processMatches(marker), "the marker matches nothing before the launch");
 
     Shell shell;
+    Handoff handoff{fixture.home, kSearchPath};
     const Clock::time_point began = Clock::now();
-    std::future<Outcome> pending = startOnWorker(entry, shell);
+    std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
 
     const pid_t launcherChild =
         awaitRecordedPid(launcherPid, "the launched program was started and recorded its pid");
@@ -441,34 +410,116 @@ void testStartWaitsAcrossAHandOff() {
     expect(shell.hiddenAt.load() < shell.shownAt.load(), "hide precedes show");
 }
 
-/// A command that cannot be started is a launch failure, reported at once and
-/// naming the program.
-///
-/// execvp returns 127 for a command it could not run, and that status is the only
-/// thing that distinguishes a bad program from a game that has not appeared yet.
-/// Without it a missing program waited out the whole appearance bound and was
-/// reported as "<title> did not start", which named neither the program nor the
-/// reason.
+/// A command that cannot be started is refused at once, naming the program,
+/// before the shell is hidden.
 void testMissingProgramReportsFailurePromptly() {
     const Fixture fixture;
     const std::string program = (fixture.base / "no-such-program").string();
     const Game entry = makeGame("missing", program, {"--now"}, fixture.marker("missing"));
 
     Shell shell;
+    Handoff handoff{fixture.home, kSearchPath};
     const Clock::time_point began = Clock::now();
-    std::future<Outcome> pending = startOnWorker(entry, shell);
+    std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =
         awaitStart(pending, "a launch of a missing program returns", std::chrono::seconds{20});
-    const std::chrono::milliseconds elapsed = since(began);
 
     expect(!outcome.ok, "a program that does not exist fails");
     expect(outcome.failure.find(program) != std::string::npos,
            "the failure names the program that could not be started");
-    expect(elapsed < std::chrono::seconds{10},
-           "the failure is reported without waiting out the appearance bound");
-    expect(shell.hidden.load() == 1, "the shell was hidden while the launch was attempted");
-    expect(shell.shown.load() == 1, "the shell was shown again after a failed launch");
-    expect(shell.hiddenAt.load() < shell.shownAt.load(), "hide precedes show");
+    expect(since(began) < std::chrono::seconds{5}, "the failure is reported at once");
+    expect(shell.hidden.load() == 0, "the shell was never hidden for a refused launch");
+}
+
+/// forceClose() during the run phase kills the instance, so start() returns and
+/// shows the shell although the game had hours left.
+void testForceCloseEndsTheRunPhase() {
+    const Fixture fixture;
+    const RunningGame child = runningGame(fixture, "forced", 600);
+    Shell shell;
+    Handoff handoff{fixture.home, kSearchPath};
+    std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
+
+    const pid_t pid = awaitRecordedPid(child.pidFile, "the game started");
+    expect(waitUntil(
+               [&child] {
+                   return Handoff::processMatches(child.game.processHint);
+               },
+               std::chrono::seconds{10}),
+           "the game is in the process table");
+    expect(!shell.returnedWithin(std::chrono::milliseconds{1500}), "start() waits while it runs");
+
+    const Clock::time_point began = Clock::now();
+    handoff.forceClose();
+    const Outcome outcome =
+        awaitStart(pending, "start() returns after forceClose()", std::chrono::seconds{10});
+    expect(outcome.ok && outcome.failure.empty(), "a forced close is not a failure");
+    expect(since(began) < std::chrono::seconds{8}, "start() returned promptly");
+    expect(shell.shown.load() == 1, "show() fired once");
+    expect(stoppedWithin(pid, std::chrono::seconds{5}), "the game is gone");
+}
+
+/// forceClose() before the game ever appears also ends the wait.
+void testForceCloseEndsTheStartPhase() {
+    const Fixture fixture;
+    const Game entry = makeGame("never", "/bin/sleep", {"600"}, fixture.marker("never"));
+    Shell shell;
+    Handoff handoff{fixture.home, kSearchPath};
+    std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
+
+    expect(waitUntil(
+               [&shell] {
+                   return shell.hidden.load() == 1;
+               },
+               std::chrono::seconds{10}),
+           "the shell was hidden once the instance started");
+    handoff.forceClose();
+    const Outcome outcome =
+        awaitStart(pending, "start() returns after forceClose()", std::chrono::seconds{10});
+    expect(outcome.ok, "a forced close is not a failure");
+    expect(shell.shown.load() == 1, "show() fired once");
+}
+
+/// The instance ending without the game ever appearing ends the wait with a
+/// failure instead of sitting out the appearance bound.
+void testInstanceExitEndsTheWait() {
+    const Fixture fixture;
+    const Game entry = makeGame("quick", "/bin/sh", {"-c", "exit 3"}, fixture.marker("quick"));
+    Shell shell;
+    Handoff handoff{fixture.home, kSearchPath};
+    std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
+    const Outcome outcome =
+        awaitStart(pending, "start() returns when the instance exits", std::chrono::seconds{20});
+    expect(!outcome.ok, "a game that never appeared fails");
+    expect(outcome.failure.find("did not start") != std::string::npos, "the failure says so");
+    expect(shell.shown.load() == 1, "show() fired once");
+}
+
+/// A Steam launch is refused while a desktop Steam client runs, and nothing is
+/// started or hidden.
+void testDesktopSteamRefusesALaunch() {
+    const Fixture fixture;
+    const pid_t steam = fork();
+    expect(steam >= 0, "fork");
+    if (steam == 0) {
+        execl("/bin/sleep", "sleep", "60", static_cast<char*>(nullptr));
+        _exit(127);
+    }
+    write(fixture.home / ".steam" / "steam.pid", std::to_string(steam));
+
+    const Game entry = makeGame("steam:1", "/bin/sleep", {"1"}, fixture.marker("steam"));
+    Shell shell;
+    Handoff handoff{fixture.home, kSearchPath};
+    std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
+    const Outcome outcome =
+        awaitStart(pending, "a Steam launch is refused", std::chrono::seconds{10});
+    kill(steam, SIGKILL);
+    waitpid(steam, nullptr, 0);
+
+    expect(!outcome.ok, "a launch beside a desktop Steam fails");
+    expect(outcome.failure == "Steam is running on the desktop; quit it to launch inside iideck",
+           "the failure is the named one");
+    expect(shell.hidden.load() == 0, "the shell was never hidden");
 }
 
 /// A source that cannot identify its own process has no hint, and there is
@@ -480,8 +531,9 @@ void testEmptyHintIsRefusedPromptly() {
     entry.processHint.clear();
 
     Shell shell;
+    Handoff handoff{fixture.home, kSearchPath};
     const Clock::time_point began = Clock::now();
-    std::future<Outcome> pending = startOnWorker(entry, shell);
+    std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =
         awaitStart(pending, "a launch with no hint is refused", std::chrono::seconds{20});
     const std::chrono::milliseconds elapsed = since(began);
@@ -506,10 +558,13 @@ void testEmptyHintMatchesNothing() {
 
 int main() {
     testStartBlocksUntilTheGameIsOver();
-    testSpawnedGameLeadsItsOwnSession();
     testStartWaitsAcrossAHandOff();
     testEmptyHintMatchesNothing();
     testMissingProgramReportsFailurePromptly();
+    testForceCloseEndsTheRunPhase();
+    testForceCloseEndsTheStartPhase();
+    testInstanceExitEndsTheWait();
+    testDesktopSteamRefusesALaunch();
     testEmptyHintIsRefusedPromptly();
 
     std::printf("handoff: all checks passed\n");

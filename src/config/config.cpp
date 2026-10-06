@@ -149,6 +149,8 @@ const Config& read() {
         value.height = envInt("IIDECK_HEIGHT", value.height);
         value.controlPort = envPort("IIDECK_CONTROL_PORT", value.controlPort);
         value.controlChannel = envBool("IIDECK_CONTROL_CHANNEL", value.controlChannel);
+        value.insideGamescope = !env("GAMESCOPE_WAYLAND_DISPLAY").empty();
+        value.executablePath = splitPaths(env("PATH"));
         return value;
     }();
     return config;
