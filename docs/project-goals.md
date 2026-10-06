@@ -37,6 +37,9 @@ still returns to the desktop and Alt+F4 closes the game, not Gamescope.
 As its own login session, picked at the display manager, it runs on Gamescope
 or a custom compositor and owns the screen from login with no desktop under it.
 
+As on the Steam Deck, a game can run below the output resolution while the one
+Gamescope upscales it with FSR (or another of its filters), chosen per game.
+
 ## Non-goals
 
 - Replacing Steam, Legendary or Heroic as clients for their own stores.

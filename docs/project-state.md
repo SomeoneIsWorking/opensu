@@ -39,6 +39,7 @@ game has been observed running yet.
 | S013 | iideck runs in a nested Gamescope inside KDE at the output's resolution | partial | S004 | G004 |
 | S014 | Alt+F4 closes the game in nested mode while Alt+Tab stays with KDE | missing | S013 | G004 |
 | S015 | Shell owns every instance it starts and can force-close it from the pad | partial | S004 | G003 |
+| S017 | Per-game render resolution with Gamescope FSR upscaling, Deck-style | missing | — | G004 |
 | S016 | Steam client started and owned by iideck, with its state in the top bar | partial | S015 | G003, G004 |
 | S011 | Steam's own components kept out of the game grid | partial | S002 | G001 |
 
@@ -255,3 +256,11 @@ not plain KeyValues and was not decoded. Components are therefore matched by the
 directory names Steam installs them under, which removed 9 entries from this
 machine's grid. The list drifts as Valve adds runtimes, so decoding `appinfo.vdf`
 is the real fix.
+### S017 — Per-game resolution and FSR
+
+Not built. The installed Gamescope exposes the Deck's runtime controls as root
+window atoms: `GAMESCOPE_XWAYLAND_MODE_CONTROL` (switch an Xwayland server's
+mode, so a game sees a smaller screen), `GAMESCOPE_SCALING_FILTER` /
+`GAMESCOPE_NEW_SCALING_FILTER`, `GAMESCOPE_FSR_SHARPNESS`, plus
+`--xwayland-count` for a separate Xwayland per role. Their exact semantics come
+from Gamescope's source (`steamcompmgr.cpp`) before any of it is used.
