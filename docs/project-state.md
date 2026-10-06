@@ -29,7 +29,7 @@ game has been observed running yet.
 | S002 | Steam library source: manifests, install state, artwork, playtime, favourites | verified | — | G001 |
 | S003 | Gamepad input through raylib, polled per frame | partial | — | G003 |
 | S004 | Launch handoff into a running game, with the shell returning | partial | S002 | G001, G003 |
-| S005 | Reference home layout: top bar, tile grid, page dots, hints | verified | S001 | G002 |
+| S005 | Reference home layout: top bar, tile grid, page dots, hints | partial | S001 | G002 |
 | S012 | Loopback control channel: state, injected input, frame capture | verified | S001 | G003 |
 | S006 | Epic source via Legendary | verified | — | G001 |
 | S007 | GOG source via Heroic | verified | — | G001 |
@@ -64,6 +64,12 @@ and `Favorites` produced two records, so the later one won and every favourited
 game's playtime was zeroed.
 
 ### S005 — Reference home layout
+
+Built from a screenshot before the RE pass, and it diverges from iiSU's code
+(`reference/design-reference.md`): iiSU defaults to a 3×4 column-major grid that
+scrolls horizontally, with no automatic feature tiles, and its own focus, frame and
+motion rules. The layout below is what the shell does today, to be rebuilt from
+the reference.
 
 Renders the reference arrangement from real library data: a glass top bar with
 the focused title in a centre pill, a dotted ground, a grid mixing square tiles
