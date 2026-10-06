@@ -18,7 +18,6 @@
 
 #include "library/game.hpp"
 #include <filesystem>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -86,8 +85,9 @@ class Platforms {
     static Platforms load(const std::filesystem::path& root);
 
     /// The platform for a key, matched case-insensitively because the pack is
-    /// inconsistent about it ("steam" and "PC" and "windows" all appear).
-    [[nodiscard]] std::optional<Platform> find(std::string_view key) const;
+    /// inconsistent about it ("steam" and "PC" and "windows" all appear). Points
+    /// into this table; null when the pack has no such key.
+    [[nodiscard]] const Platform* find(std::string_view key) const;
 
     /// The platform a store's titles are framed in, or null when the pack has no
     /// border for it. A ROM has no single store, so it is framed in its system

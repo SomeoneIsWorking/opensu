@@ -162,22 +162,15 @@ const Platform* Platforms::forSource(library::Source source) const {
     if (key == nullptr) {
         return nullptr;
     }
+    return find(key);
+}
+
+const Platform* Platforms::find(std::string_view key) const {
     const std::string wanted = fold(key);
     const auto found = std::ranges::find_if(platforms_, [&wanted](const Platform& platform) {
         return platform.key == wanted;
     });
     return found == platforms_.end() ? nullptr : &*found;
-}
-
-std::optional<Platform> Platforms::find(std::string_view key) const {
-    const std::string wanted = fold(key);
-    const auto found = std::ranges::find_if(platforms_, [&wanted](const Platform& platform) {
-        return platform.key == wanted;
-    });
-    if (found == platforms_.end()) {
-        return std::nullopt;
-    }
-    return *found;
 }
 
 } // namespace iideck::ui

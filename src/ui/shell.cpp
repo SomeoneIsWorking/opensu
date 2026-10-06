@@ -195,10 +195,7 @@ const Platform* Shell::platformFor(const library::Game& game) const {
     // A ROM belongs to a system, and the pack's console names are those systems.
     // Everything else belongs to a store, and the pack has a border per store.
     if (game.source == library::Source::Rom && !game.sourceId.empty()) {
-        if (const auto found = platforms_.find(game.sourceId); found) {
-            return &*found;
-        }
-        return nullptr;
+        return platforms_.find(game.sourceId);
     }
     return platforms_.forSource(game.source);
 }
