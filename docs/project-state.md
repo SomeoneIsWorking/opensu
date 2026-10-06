@@ -35,7 +35,10 @@ game has been observed running yet.
 | S007 | GOG source via Heroic | verified | — | G001 |
 | S008 | ROM source with per-system emulator launch | verified | — | G001 |
 | S009 | Haptic rumble | partial | S003 | G003 |
-| S010 | Gamescope session entry for fullscreen play | missing | — | G004 |
+| S010 | Own login session entry on Gamescope | missing | — | G004 |
+| S013 | Nested Gamescope launch inside KDE at the output's resolution | missing | S004 | G004 |
+| S014 | Alt+F4 closes the game in nested mode while Alt+Tab stays with KDE | missing | S013 | G004 |
+| S015 | Shell owns every instance it starts and can force-close it from the pad | missing | S004 | G003 |
 | S011 | Steam's own components kept out of the game grid | partial | S002 | G001 |
 
 ## Capability details
@@ -188,12 +191,31 @@ the S004 wait defect.
 exposes no capability query, so a pad without motors silently ignores it, and
 nothing in the shell calls rumble yet.
 
-### S010 — Gamescope session
+### S010 — Own login session
 
-The shell runs as an ordinary window. There is no `gamescope-session-*` entry, so
-entering and leaving game mode is still the manual switch described in
-`fedora-kde-steamdeck`'s installer. Nested mode works today inside the Plasma
-session without any session surgery.
+There is no session entry, so iideck can only run as a window inside another
+session.
+
+### S013 — Nested Gamescope launch
+
+Nothing in `src/` starts Gamescope; games launch straight into the desktop.
+Nested Gamescope defaults to 1280x720 for both the game and its window, so the
+launch must pass the output's size and refresh itself.
+
+### S014 — Alt+F4 in nested mode
+
+KWin handles Alt+F4 and Alt+Tab as its own global shortcuts before nested
+Gamescope sees them, so Alt+F4 closes Gamescope. KWin can block all global
+shortcuts for a window (`gamescope --grab` or a window rule) but not one, so
+that loses Alt+Tab. Planned: a KWin script, installed by iideck, that turns
+Alt+F4 on iideck's Gamescope window into a game close over the control channel.
+
+### S015 — Owned instances
+
+The handoff starts the game with `setsid` and only watches the process table;
+it cannot stop what it started. A Steam game started through an already-running
+Steam client is that client's child, not ours, so ownership also needs Steam to
+run inside the instance iideck owns.
 
 ### S011 — Steam's own components
 

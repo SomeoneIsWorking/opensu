@@ -23,11 +23,17 @@ Input is read natively from the controller rather than through the webview, so
 navigation is frame-accurate and haptics are available to the shell. The shell
 gets out of the way while a game runs and comes back when it exits.
 
-## G004 — Its own session
+iideck owns every process it starts, Gamescope included. A stuck game or a
+stuck Gamescope can always be closed from the controller; no state needs a
+keyboard to recover.
 
-iideck is a login session of its own, picked at the display manager like a
-desktop, running on Gamescope or a custom compositor. It owns the screen from
-login and needs no desktop session underneath it.
+## G004 — Inside KDE or as its own session
+
+iideck runs in two modes with the same behaviour. Inside a desktop session such
+as KDE Plasma, games run in a nested Gamescope at the output's own resolution,
+Alt+Tab still returns to the desktop and Alt+F4 closes the game, not Gamescope.
+As its own login session, picked at the display manager, it runs on Gamescope
+or a custom compositor and owns the screen from login with no desktop under it.
 
 ## Non-goals
 
