@@ -145,7 +145,8 @@ int main() {
     expect(portal->launch.args.size() == 3 && portal->launch.args[0] == "-silent" &&
                portal->launch.args[1] == "-applaunch" && portal->launch.args[2] == "440",
            "launch args");
-    expect(portal->processHint == "compatdata/440", "process hint identifies the game");
+    expect(portal->processHint == std::string{"AppId=440"} + std::string(1, '\0'),
+           "process hint is Steam's whole AppId argument");
     expect(!portal->artwork.empty() && fs::exists(portal->artwork),
            "modern portrait artwork found");
     expect(!portal->artworkWide.empty() && fs::exists(portal->artworkWide),

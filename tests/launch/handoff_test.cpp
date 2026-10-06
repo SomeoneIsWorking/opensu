@@ -30,6 +30,7 @@
 #include <vector>
 
 #include <csignal>
+#include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -556,7 +557,29 @@ void testEmptyHintMatchesNothing() {
 
 } // namespace
 
+/// A hint ending in NUL matches a whole command-line argument, never a prefix of one.
+void testTerminatedHintMatchesAWholeArgument() {
+    const pid_t pid = fork();
+    expect(pid >= 0, "fork works");
+    if (pid == 0) {
+        setpgid(0, 0);
+        execl("/bin/sh", "sh", "-c", "sleep 30; true", "AppId=987650", static_cast<char*>(nullptr));
+        std::_Exit(127);
+    }
+    const std::string nul(1, '\0');
+    expect(waitUntil(
+               [&nul] {
+                   return Handoff::processMatches("AppId=987650" + nul);
+               },
+               std::chrono::seconds{5}),
+           "the whole argument matches");
+    expect(!Handoff::processMatches("AppId=98765" + nul), "a prefix of the argument does not");
+    kill(-pid, SIGKILL);
+    waitpid(pid, nullptr, 0);
+}
+
 int main() {
+    testTerminatedHintMatchesAWholeArgument();
     testStartBlocksUntilTheGameIsOver();
     testStartWaitsAcrossAHandOff();
     testEmptyHintMatchesNothing();

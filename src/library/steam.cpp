@@ -257,9 +257,9 @@ std::optional<Game> readManifest(const fs::path& root, const fs::path& libraryPa
     game.title = *name;
     game.installed = installed;
     game.launch = LaunchSpec{.program = "steam", .args = {"-silent", "-applaunch", appId}};
-    // The Wine prefix path carries the app id, so a running game is recognisable
-    // in the process table whatever the executable is called.
-    game.processHint = "compatdata/" + appId;
+    // Steam runs every game, native or Proton, under `reaper SteamLaunch AppId=<id>`;
+    // the trailing NUL ends the argument so AppId=44 cannot match AppId=440.
+    game.processHint = "AppId=" + appId + std::string(1, '\0');
 
     if (const auto found = play.find(appId); found != play.end()) {
         const PlayRecord& record = found->second;
