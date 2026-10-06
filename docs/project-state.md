@@ -35,7 +35,7 @@ game has been observed running yet.
 | S007 | GOG source via Heroic | verified | — | G001 |
 | S008 | ROM source with per-system emulator launch | verified | — | G001 |
 | S009 | Haptic rumble | partial | S003 | G003 |
-| S010 | Gamescope session entry for fullscreen play | missing | — | G001 |
+| S010 | Gamescope session entry for fullscreen play | missing | — | G004 |
 | S011 | Steam's own components kept out of the game grid | partial | S002 | G001 |
 
 ## Capability details
