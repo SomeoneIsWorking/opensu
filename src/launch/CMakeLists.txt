@@ -1,4 +1,4 @@
-add_library(iideck_launch STATIC handoff.cpp instance.cpp gamescope.cpp desktop_steam.cpp)
+add_library(iideck_launch STATIC handoff.cpp instance.cpp command.cpp process_tree.cpp)
 add_library(iideck::launch ALIAS iideck_launch)
 target_include_directories(iideck_launch PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(iideck_launch PUBLIC iideck::library lucent::lucent)

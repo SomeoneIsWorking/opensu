@@ -36,9 +36,10 @@ game has been observed running yet.
 | S008 | ROM source with per-system emulator launch | verified | — | G001 |
 | S009 | Haptic rumble | partial | S003 | G003 |
 | S010 | Own login session entry on Gamescope | missing | — | G004 |
-| S013 | Nested Gamescope launch inside KDE at the output's resolution | partial | S004 | G004 |
+| S013 | iideck runs in a nested Gamescope inside KDE at the output's resolution | partial | S004 | G004 |
 | S014 | Alt+F4 closes the game in nested mode while Alt+Tab stays with KDE | missing | S013 | G004 |
 | S015 | Shell owns every instance it starts and can force-close it from the pad | partial | S004 | G003 |
+| S016 | Steam client started and owned by iideck, with its state in the top bar | partial | S015 | G003, G004 |
 | S011 | Steam's own components kept out of the game grid | partial | S002 | G001 |
 
 ## Capability details
@@ -196,13 +197,17 @@ nothing in the shell calls rumble yet.
 There is no session entry, so iideck can only run as a window inside another
 session.
 
-### S013 — Nested Gamescope launch
+### S013 — Nested Gamescope session
 
 Outside Gamescope (`Config::insideGamescope`, from `GAMESCOPE_WAYLAND_DISPLAY`)
-`launch::wrapInGamescope` runs the game as `gamescope -W -H -w -h -r -f` with
-the current monitor's size and refresh from raylib; inside one the game runs
-directly. The argument vector is unit-tested; no nested launch has been run
-against a display yet.
+`session::NestedSession` runs iideck itself as `gamescope -W -H -w -h -r -f --
+iideck ...` with the current monitor's size and refresh from raylib
+(`session::readMonitor`), in the scope `<session>-compositor.scope` with
+`IIDECK_SESSION` set for the inner iideck. When Gamescope ends it stops every
+other scope named `<session>-*`, and SIGINT/SIGTERM stop the session through its
+scopes. Games are never wrapped in a Gamescope of their own. The argument vector
+and the session's run, leftover cleanup and signal path (against a fake
+`gamescope`) are tested; no nested session has been run against a display yet.
 
 ### S014 — Alt+F4 in nested mode
 
@@ -214,17 +219,33 @@ Alt+F4 on iideck's Gamescope window into a game close over the control channel.
 
 ### S015 — Owned instances
 
-Every launch runs in a transient systemd user scope (`launch::Instance`), so
-processes that setsid or double-fork stay owned; the scope is stopped when the
-game leaves and killed when Guide is held for two seconds. Steam runs inside the
-instance (`steam -silent -applaunch`); a Steam launch is refused while a desktop
-Steam client is running. Scope ownership, escape-proof stop and force-close are
-tested with real processes; the Guide hold and a real Steam launch are not yet
-exercised.
+Every scope iideck creates is named `<session>-<role>[-N].scope`
+(`Config::session`: `IIDECK_SESSION`, else `iideck-<pid>`), and is a transient
+systemd user scope (`launch::Instance`), so processes that setsid or double-fork
+stay owned. A non-Steam game runs in its own scope, stopped when the game leaves
+and killed when Guide is held for two seconds. A Steam game is handed to the
+background client (`steam -applaunch`); Guide held for two seconds kills the
+reaper whose command line carries `AppId=<id>` and everything below it
+(`launch::ProcessTree`), and leaves the client up. Scope ownership, escape-proof
+stop, tree kill and force-close are tested with real processes and a fake `steam`;
+the Guide hold and a real Steam launch are not yet exercised.
 
-Gaps: Steam is stopped with SIGTERM as soon as the game leaves, which can cut a
-cloud-save upload short; there is no prompt to restart a desktop Steam inside
-iideck; Steam starts fresh for every launch.
+Gap: a force-close while the client is still starting the game cannot cancel the
+request it already handed to Steam.
+
+### S016 — Steam client
+
+`steam::Client` starts `steam -silent` in `<session>-steam.scope` when iideck
+starts, if a Steam install exists, and watches it: Initializing until a logon line
+(`[Logged On` with `RecvMsgClientLogOnResponse() : processing complete`) is
+appended to `~/.steam/steam/logs/connection_log.txt` after the start, Failed when
+the scope empties, Blocked when `~/.steam/steam.pid` names a live client outside
+iideck. Steam launches wait for Ready, and are refused with a named message when
+Blocked or Failed. On exit it runs `steam -shutdown`, waits up to 20 s, then stops
+the scope. The state shows in the top bar (starting, ready, failed, on desktop)
+and in `/state` as `steam`. Tested with a fake home and fake `steam`; a real Steam
+has not been started by this code, and the ready marker is as measured on one
+machine.
 
 ### S011 — Steam's own components
 

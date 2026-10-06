@@ -38,6 +38,8 @@ struct ShellSnapshot {
     /// Whether the shell's window is up. It goes down while a game runs, so this
     /// is how an automated run can tell a hidden shell from a hung one.
     bool windowVisible{true};
+    /// The Steam client's state: stopped, initializing, ready, failed or blocked.
+    std::string steam{"stopped"};
 };
 
 /// What the control channel may ask the shell to do. Implemented by the shell,

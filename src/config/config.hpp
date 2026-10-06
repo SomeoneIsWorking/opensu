@@ -50,9 +50,16 @@ struct Config {
     /// only; the environment can move it, never close it.
     bool controlChannel{true};
 
-    /// Whether iideck itself runs inside a top-level Gamescope, in which case
-    /// games launch directly instead of in a nested one.
+    /// Whether iideck itself runs inside a Gamescope; when not, it starts one.
     bool insideGamescope{false};
+
+    /// Names every scope iideck creates, `<session>-<role>[-N].scope`. From
+    /// IIDECK_SESSION, which a nested session sets for the iideck inside it;
+    /// otherwise `iideck-<pid>`.
+    std::string session;
+
+    /// Whether IIDECK_SESSION was set, which means a session already wraps this process.
+    bool sessionInherited{false};
 
     /// The directories searched for a launch's program, from PATH.
     std::vector<std::filesystem::path> executablePath;

@@ -1,10 +1,10 @@
-// launch — finds a Steam client that runs outside iideck's instance.
+// steam — finds a Steam client that runs outside iideck's instance.
 #pragma once
 
 #include <filesystem>
 #include <string>
 
-namespace iideck::launch {
+namespace iideck::steam {
 
 /// A launch into a Steam that is already running would hand off to that client
 /// and escape iideck's ownership, so such a client has to be found first.
@@ -21,4 +21,4 @@ class DesktopSteam {
     std::filesystem::path pidFile_;
 };
 
-} // namespace iideck::launch
+} // namespace iideck::steam

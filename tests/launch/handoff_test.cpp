@@ -4,14 +4,17 @@
 // blocks while the game runs and shows the shell again only once the game is
 // gone; it keeps waiting across a Steam/Legendary style hand-off, where the
 // program it spawned exits at once and a different process runs the game; it
-// ends when the instance does or when forceClose() is called; and a Steam launch
-// is refused while a desktop Steam client is running.
+// ends when the instance does or when forceClose() is called. A Steam launch waits
+// for the client to be ready, asks it to run the game and watches the game's
+// process; it fails while Steam is blocked or failed, and forceClose() ends the
+// game's tree but not the client.
 //
 // start() blocks for as long as the game runs, so every launch here runs on its
 // own thread and every wait is bounded: a regression in the wait reports itself
-// instead of hanging the test. Every launch runs with insideGamescope set, so no
-// display or Gamescope is needed.
+// instead of hanging the test. No display or Gamescope is needed.
 #include "launch/handoff.hpp"
+#include "launch/process_tree.hpp"
+#include "launch/steam_gate.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -39,7 +42,9 @@ namespace {
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 using iideck::launch::Handoff;
-using iideck::launch::Output;
+using iideck::launch::ProcessTree;
+using iideck::launch::SteamGate;
+using iideck::launch::SteamState;
 using iideck::library::Game;
 using iideck::library::Source;
 
@@ -79,6 +84,33 @@ bool waitUntil(const std::function<bool()>& predicate, std::chrono::milliseconds
     return predicate();
 }
 
+/// A Steam client whose state the test sets.
+class FakeSteam final : public SteamGate {
+  public:
+    explicit FakeSteam(SteamState initial = SteamState::Ready) : state_{initial} {
+    }
+
+    void set(SteamState state) {
+        state_.store(state);
+    }
+
+    SteamState state() const override {
+        return state_.load();
+    }
+
+    SteamState waitReady(std::chrono::milliseconds timeout,
+                         const std::function<bool()>& cancelled) override {
+        const Clock::time_point until = Clock::now() + timeout;
+        while (state_.load() == SteamState::Initializing && !cancelled() && Clock::now() < until) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{20});
+        }
+        return state_.load();
+    }
+
+  private:
+    std::atomic<SteamState> state_;
+};
+
 /// One temp directory per run, holding the scripts, the pid files and the
 /// markers those scripts carry. The pid keeps two concurrent runs of this test
 /// from sharing a directory.
@@ -103,6 +135,11 @@ struct Fixture {
         const fs::path path = base / name;
         write(path, body);
         return path;
+    }
+
+    /// Names this run's scopes, so two runs never share one.
+    std::string session() const {
+        return "iideck-test-" + std::to_string(getpid());
     }
 
     /// A hint no process holds by accident: this run's own pid keeps a second
@@ -215,7 +252,7 @@ Game makeGame(const std::string& id, const std::string& program, std::vector<std
               std::string hint) {
     Game game;
     game.id = id;
-    game.source = Source::Steam;
+    game.source = Source::Epic;
     game.title = id;
     game.installed = true;
     game.processHint = std::move(hint);
@@ -234,7 +271,7 @@ std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& sh
     return std::async(std::launch::async, [&handoff, &game, &shell]() {
         Outcome outcome;
         outcome.ok = handoff.start(
-            game, Output{}, true,
+            game,
             [&shell] {
                 shell.hide();
             },
@@ -290,7 +327,8 @@ void testStartBlocksUntilTheGameIsOver() {
     const Fixture fixture;
     const RunningGame child = runningGame(fixture, "blocking", 4);
     Shell shell;
-    Handoff handoff{fixture.home, kSearchPath};
+    FakeSteam steam;
+    Handoff handoff{kSearchPath, fixture.session(), steam};
 
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
@@ -356,10 +394,11 @@ void testStartWaitsAcrossAHandOff() {
                                           "exit 0\n");
 
     const Game entry = makeGame("handoff", "/bin/sh", {launcher.string()}, marker);
-    expect(!Handoff::processMatches(marker), "the marker matches nothing before the launch");
+    expect(!ProcessTree::anyMatches(marker), "the marker matches nothing before the launch");
 
     Shell shell;
-    Handoff handoff{fixture.home, kSearchPath};
+    FakeSteam steam;
+    Handoff handoff{kSearchPath, fixture.session(), steam};
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
 
@@ -387,7 +426,7 @@ void testStartWaitsAcrossAHandOff() {
     Stat inTable;
     expect(readStat(gamePid, inTable), "the hand-off game has a readable /proc entry");
     expect(inTable.ppid != getpid(), "the running game is not this test's own child");
-    expect(Handoff::processMatches(marker), "the running game's command line holds the hint");
+    expect(ProcessTree::anyMatches(marker), "the running game's command line holds the hint");
     expect(!shell.returnedWithin(std::chrono::milliseconds{500}),
            "start() returned while the hand-off game was running");
     expect(shell.shown.load() == 0, "the shell is still hidden while the game runs");
@@ -404,7 +443,7 @@ void testStartWaitsAcrossAHandOff() {
            "start() kept waiting across the whole hand-off");
     expect(elapsed < std::chrono::seconds{60},
            "start() returned instead of waiting out its twelve hour bound");
-    expect(!Handoff::processMatches(marker),
+    expect(!ProcessTree::anyMatches(marker),
            "no process holds the hint by the time start() returns");
     expect(!running(gamePid), "the hand-off game is gone by the time start() returns");
     expect(shell.shown.load() == 1, "the shell was shown again, once");
@@ -419,7 +458,8 @@ void testMissingProgramReportsFailurePromptly() {
     const Game entry = makeGame("missing", program, {"--now"}, fixture.marker("missing"));
 
     Shell shell;
-    Handoff handoff{fixture.home, kSearchPath};
+    FakeSteam steam;
+    Handoff handoff{kSearchPath, fixture.session(), steam};
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =
@@ -438,13 +478,14 @@ void testForceCloseEndsTheRunPhase() {
     const Fixture fixture;
     const RunningGame child = runningGame(fixture, "forced", 600);
     Shell shell;
-    Handoff handoff{fixture.home, kSearchPath};
+    FakeSteam steam;
+    Handoff handoff{kSearchPath, fixture.session(), steam};
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
 
     const pid_t pid = awaitRecordedPid(child.pidFile, "the game started");
     expect(waitUntil(
                [&child] {
-                   return Handoff::processMatches(child.game.processHint);
+                   return ProcessTree::anyMatches(child.game.processHint);
                },
                std::chrono::seconds{10}),
            "the game is in the process table");
@@ -465,7 +506,8 @@ void testForceCloseEndsTheStartPhase() {
     const Fixture fixture;
     const Game entry = makeGame("never", "/bin/sleep", {"600"}, fixture.marker("never"));
     Shell shell;
-    Handoff handoff{fixture.home, kSearchPath};
+    FakeSteam steam;
+    Handoff handoff{kSearchPath, fixture.session(), steam};
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
 
     expect(waitUntil(
@@ -487,7 +529,8 @@ void testInstanceExitEndsTheWait() {
     const Fixture fixture;
     const Game entry = makeGame("quick", "/bin/sh", {"-c", "exit 3"}, fixture.marker("quick"));
     Shell shell;
-    Handoff handoff{fixture.home, kSearchPath};
+    FakeSteam steam;
+    Handoff handoff{kSearchPath, fixture.session(), steam};
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =
         awaitStart(pending, "start() returns when the instance exits", std::chrono::seconds{20});
@@ -496,33 +539,174 @@ void testInstanceExitEndsTheWait() {
     expect(shell.shown.load() == 1, "show() fired once");
 }
 
-/// A Steam launch is refused while a desktop Steam client runs, and nothing is
-/// started or hidden.
-void testDesktopSteamRefusesALaunch() {
-    const Fixture fixture;
-    const pid_t steam = fork();
-    expect(steam >= 0, "fork");
-    if (steam == 0) {
-        execl("/bin/sleep", "sleep", "60", static_cast<char*>(nullptr));
-        _exit(127);
+/// A `steam` that answers `-applaunch <id>` the way a running client does: it
+/// starts the game under a shell whose last argument is `AppId=<id>`, outside the
+/// caller's process group, and exits at once. Returns the directory it lives in.
+struct FakeSteamProgram {
+    fs::path bin;
+    fs::path launchLog;
+    fs::path gamePid;
+    std::string appId;
+    Game game;
+
+    FakeSteamProgram(const Fixture& fixture, int gameSeconds) {
+        appId = std::to_string(getpid());
+        bin = fixture.base / "bin";
+        launchLog = fixture.base / "steam-launches.log";
+        gamePid = fixture.base / "steam-game.pid";
+        const fs::path program = bin / "steam";
+        write(program, "#!/bin/sh\n"
+                       "[ \"$1\" = \"-applaunch\" ] || exit 2\n"
+                       "echo \"$2\" >> \"" +
+                           launchLog.string() +
+                           "\"\n"
+                           "setsid sh -c 'echo $$ > \"" +
+                           gamePid.string() + "\"; sleep " + std::to_string(gameSeconds) +
+                           "; true' \"AppId=$2\" > /dev/null 2>&1 &\n"
+                           "exit 0\n");
+        fs::permissions(program, fs::perms::owner_all);
+        game = makeGame("steam:" + appId, "steam", {"-applaunch", appId},
+                        "AppId=" + appId + std::string(1, '\0'));
+        game.source = Source::Steam;
     }
-    write(fixture.home / ".steam" / "steam.pid", std::to_string(steam));
+};
 
-    const Game entry = makeGame("steam:1", "/bin/sleep", {"1"}, fixture.marker("steam"));
+/// A Steam launch holds until the client is ready, then runs through it: the shell
+/// is hidden only once the game is on its way, and the client is left alone.
+void testSteamWaitsForReadiness() {
+    const Fixture fixture;
+    const FakeSteamProgram steamProgram{fixture, 3};
+    FakeSteam steam{SteamState::Initializing};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam};
     Shell shell;
-    Handoff handoff{fixture.home, kSearchPath};
-    std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
-    const Outcome outcome =
-        awaitStart(pending, "a Steam launch is refused", std::chrono::seconds{10});
-    kill(steam, SIGKILL);
-    waitpid(steam, nullptr, 0);
+    std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
 
-    expect(!outcome.ok, "a launch beside a desktop Steam fails");
-    expect(outcome.failure == "Steam is running on the desktop; quit it to launch inside iideck",
-           "the failure is the named one");
-    expect(shell.hidden.load() == 0, "the shell was never hidden");
+    expect(!shell.returnedWithin(std::chrono::milliseconds{1500}),
+           "a Steam launch waits while the client initializes");
+    expect(shell.hidden.load() == 0, "the shell stays up while Steam initializes");
+    expect(!fs::exists(steamProgram.launchLog), "nothing is launched before Steam is ready");
+
+    steam.set(SteamState::Ready);
+    const pid_t game =
+        awaitRecordedPid(steamProgram.gamePid, "the game started once Steam was ready");
+    expect(running(game), "the game is running");
+    expect(read(steamProgram.launchLog) == steamProgram.appId + "\n",
+           "steam -applaunch was run once, with the app id");
+    expect(waitUntil(
+               [&shell] {
+                   return shell.hidden.load() == 1;
+               },
+               std::chrono::seconds{10}),
+           "the shell was hidden once the game was on its way");
+
+    const Outcome outcome = awaitStart(pending, "start() returns when the game exits");
+    expect(outcome.ok && outcome.failure.empty(), "a Steam game that ran reports success");
+    expect(!running(game), "the game is gone");
+    expect(shell.shown.load() == 1, "the shell was shown again, once");
+    expect(steam.state() == SteamState::Ready, "the client is left ready");
 }
 
+/// Steam being blocked or failed refuses the launch by name, before anything is hidden.
+void testSteamBlockedAndFailedAreRefused() {
+    const Fixture fixture;
+    const FakeSteamProgram steamProgram{fixture, 3};
+
+    {
+        FakeSteam steam{SteamState::Blocked};
+        Handoff handoff{{steamProgram.bin}, fixture.session(), steam};
+        Shell shell;
+        std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
+        const Outcome outcome =
+            awaitStart(pending, "a blocked Steam refuses the launch", std::chrono::seconds{10});
+        expect(!outcome.ok, "a launch beside a desktop Steam fails");
+        expect(outcome.failure ==
+                   "Steam is running on the desktop; quit it to use it inside iideck",
+               "the failure is the named one");
+        expect(shell.hidden.load() == 0, "the shell was never hidden");
+    }
+    {
+        FakeSteam steam{SteamState::Failed};
+        Handoff handoff{{steamProgram.bin}, fixture.session(), steam};
+        Shell shell;
+        std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
+        const Outcome outcome =
+            awaitStart(pending, "a failed Steam refuses the launch", std::chrono::seconds{10});
+        expect(!outcome.ok && outcome.failure == "Steam failed to start",
+               "a failed Steam is named");
+        expect(shell.hidden.load() == 0, "the shell was never hidden");
+    }
+    expect(!fs::exists(steamProgram.launchLog), "neither refusal launched anything");
+}
+
+/// forceClose() ends the game's whole tree and returns the shell, and the Steam
+/// client keeps running.
+void testSteamForceCloseKillsTheGameNotTheClient() {
+    const Fixture fixture;
+    const FakeSteamProgram steamProgram{fixture, 600};
+    FakeSteam steam;
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam};
+
+    // Stands in for the client process: unrelated to the game's command line.
+    const pid_t client = fork();
+    expect(client >= 0, "fork");
+    if (client == 0) {
+        execl("/bin/sleep", "sleep", "600", static_cast<char*>(nullptr));
+        std::_Exit(127);
+    }
+
+    Shell shell;
+    std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
+    const pid_t game = awaitRecordedPid(steamProgram.gamePid, "the game started");
+    expect(waitUntil(
+               [&steamProgram] {
+                   return ProcessTree::anyMatches(steamProgram.game.processHint);
+               },
+               std::chrono::seconds{10}),
+           "the game is in the process table");
+    expect(waitUntil(
+               [game] {
+                   return !ProcessTree::descendants(game).empty();
+               },
+               std::chrono::seconds{10}),
+           "the game has a child process");
+    const std::vector<pid_t> tree = ProcessTree::descendants(game);
+    expect(!shell.returnedWithin(std::chrono::milliseconds{1500}), "start() waits while it runs");
+
+    const Clock::time_point began = Clock::now();
+    handoff.forceClose();
+    const Outcome outcome =
+        awaitStart(pending, "start() returns after forceClose()", std::chrono::seconds{10});
+    expect(outcome.ok && outcome.failure.empty(), "a forced close is not a failure");
+    expect(since(began) < std::chrono::seconds{8}, "start() returned promptly");
+    expect(shell.shown.load() == 1, "show() fired once");
+    expect(stoppedWithin(game, std::chrono::seconds{5}), "the game is gone");
+    for (const pid_t child : tree) {
+        expect(stoppedWithin(child, std::chrono::seconds{5}), "the game's children are gone");
+    }
+    expect(running(client), "the client's process was left alone");
+    expect(steam.state() == SteamState::Ready, "the client is still ready");
+
+    kill(client, SIGKILL);
+    waitpid(client, nullptr, 0);
+}
+
+/// forceClose() while the launch waits for Steam ends the wait without starting anything.
+void testSteamForceCloseCancelsTheWait() {
+    const Fixture fixture;
+    const FakeSteamProgram steamProgram{fixture, 3};
+    FakeSteam steam{SteamState::Initializing};
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam};
+    Shell shell;
+    std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
+
+    expect(!shell.returnedWithin(std::chrono::milliseconds{500}), "start() waits for Steam");
+    handoff.forceClose();
+    const Outcome outcome =
+        awaitStart(pending, "start() returns after forceClose()", std::chrono::seconds{10});
+    expect(outcome.ok && outcome.failure.empty(), "a cancelled wait is not a failure");
+    expect(shell.hidden.load() == 0 && shell.shown.load() == 0, "the shell was never touched");
+    expect(!fs::exists(steamProgram.launchLog), "nothing was launched");
+}
 /// A source that cannot identify its own process has no hint, and there is
 /// nothing to watch. The handoff has to say so rather than sit out the appearance
 /// bound and then report a game that is running fine as having failed to start.
@@ -532,7 +716,8 @@ void testEmptyHintIsRefusedPromptly() {
     entry.processHint.clear();
 
     Shell shell;
-    Handoff handoff{fixture.home, kSearchPath};
+    FakeSteam steam;
+    Handoff handoff{kSearchPath, fixture.session(), steam};
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =
@@ -551,8 +736,8 @@ void testEmptyHintIsRefusedPromptly() {
 void testEmptyHintMatchesNothing() {
     const std::string own = read("/proc/self/cmdline");
     expect(!own.empty(), "this process has a command line");
-    expect(Handoff::processMatches(own), "a hint naming this process matches it");
-    expect(!Handoff::processMatches(""), "an empty hint matches no process at all");
+    expect(ProcessTree::anyMatches(own), "a hint naming this process matches it");
+    expect(!ProcessTree::anyMatches(""), "an empty hint matches no process at all");
 }
 
 } // namespace
@@ -569,11 +754,11 @@ void testTerminatedHintMatchesAWholeArgument() {
     const std::string nul(1, '\0');
     expect(waitUntil(
                [&nul] {
-                   return Handoff::processMatches("AppId=987650" + nul);
+                   return ProcessTree::anyMatches("AppId=987650" + nul);
                },
                std::chrono::seconds{5}),
            "the whole argument matches");
-    expect(!Handoff::processMatches("AppId=98765" + nul), "a prefix of the argument does not");
+    expect(!ProcessTree::anyMatches("AppId=98765" + nul), "a prefix of the argument does not");
     kill(-pid, SIGKILL);
     waitpid(pid, nullptr, 0);
 }
@@ -587,7 +772,10 @@ int main() {
     testForceCloseEndsTheRunPhase();
     testForceCloseEndsTheStartPhase();
     testInstanceExitEndsTheWait();
-    testDesktopSteamRefusesALaunch();
+    testSteamWaitsForReadiness();
+    testSteamBlockedAndFailedAreRefused();
+    testSteamForceCloseKillsTheGameNotTheClient();
+    testSteamForceCloseCancelsTheWait();
     testEmptyHintIsRefusedPromptly();
 
     std::printf("handoff: all checks passed\n");

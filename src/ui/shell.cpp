@@ -572,12 +572,56 @@ void Shell::drawTopBar() {
         type().draw(status_.c_str(), static_cast<int>(u), baseline, static_cast<int>(u * 1.6f),
                     palette::inkSoft);
     }
+    float right = static_cast<float>(width_) - u;
     if (!clock_.empty()) {
         const int size = static_cast<int>(u * 1.6f);
-        type().draw(clock_.c_str(),
-                    width_ - static_cast<int>(u) - type().measure(clock_.c_str(), size), baseline,
-                    size, palette::inkSoft);
+        const float clockWidth = type().measure(clock_.c_str(), size);
+        type().draw(clock_.c_str(), right - clockWidth, static_cast<float>(baseline), size,
+                    palette::inkSoft);
+        right -= clockWidth + u * 1.6f;
     }
+    drawServiceStatus(right, pill.y + pill.height / 2.0f);
+}
+
+void Shell::drawServiceStatus(float right, float centreY) {
+    if (steamState_ == ServiceState::Hidden) {
+        return;
+    }
+    const float u = unit();
+
+    Color dot = palette::dotActive;
+    const char* label = "ready";
+    switch (steamState_) {
+    case ServiceState::Starting:
+        dot = palette::dotWorking;
+        label = "starting";
+        break;
+    case ServiceState::Failed:
+        dot = palette::dotFailed;
+        label = "failed";
+        break;
+    case ServiceState::Blocked:
+        dot = palette::dotFailed;
+        label = "on desktop";
+        break;
+    default:
+        break;
+    }
+
+    const int size = static_cast<int>(u * 1.5f);
+    const float labelWidth = type().measure(label, size);
+    type().draw(label, right - labelWidth, centreY - static_cast<float>(size) / 2.0f, size,
+                palette::inkSoft);
+
+    const float dotRadius = u * 0.35f;
+    const float dotX = right - labelWidth - u * 0.6f - dotRadius;
+    DrawCircleV({dotX, centreY}, dotRadius, dot);
+
+    // A generic client glyph: a ring with a dot inside.
+    const float glyphRadius = u * 0.9f;
+    const Vector2 glyph{dotX - dotRadius - u * 0.7f - glyphRadius, centreY};
+    DrawRing(glyph, glyphRadius * 0.78f, glyphRadius, 0.0f, 360.0f, 32, palette::inkSoft);
+    DrawCircleV(glyph, glyphRadius * 0.34f, palette::inkSoft);
 }
 
 void drawArtCover(const Texture& art, const Rectangle& tile, Color backdrop) {

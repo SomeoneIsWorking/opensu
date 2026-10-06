@@ -20,6 +20,7 @@
 #include "gamepad/reader.hpp"
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
+#include "steam/client.hpp"
 #include "ui/shell.hpp"
 
 namespace iideck::app {
@@ -109,6 +110,8 @@ class ShellApp final : public ControlTarget {
     /// Guards the handoff thread, which touches the window.
     std::mutex launchMutex_;
     bool launchRunning_{false};
+    /// Started in run(), before the loop, and shut down with the app.
+    steam::Client steam_;
     launch::Handoff handoff_;
     /// When Guide went down, while it is held.
     std::optional<std::chrono::steady_clock::time_point> guideHeldSince_;

@@ -35,6 +35,22 @@ std::string describe(const library::Game& game) {
     return out.str();
 }
 
+ui::ServiceState serviceState(launch::SteamState state) {
+    switch (state) {
+    case launch::SteamState::Initializing:
+        return ui::ServiceState::Starting;
+    case launch::SteamState::Ready:
+        return ui::ServiceState::Ready;
+    case launch::SteamState::Failed:
+        return ui::ServiceState::Failed;
+    case launch::SteamState::Blocked:
+        return ui::ServiceState::Blocked;
+    case launch::SteamState::Stopped:
+        break;
+    }
+    return ui::ServiceState::Hidden;
+}
+
 std::string clockNow() {
     const std::time_t now = std::time(nullptr);
     std::tm parts{};
@@ -49,7 +65,9 @@ std::string clockNow() {
 ShellApp::ShellApp(Settings settings)
     : settings_{std::move(settings)}, catalog_{library::makeCatalog(config::read())},
       shell_{settings_.width, settings_.height},
-      handoff_{config::read().home, config::read().executablePath} {
+      steam_{steam::Client::Options{config::read().home, config::read().executablePath,
+                                    config::read().session}},
+      handoff_{config::read().executablePath, config::read().session, steam_} {
     shell_.setClock(clockNow());
     // The platform table frames every tile. Loaded before the catalog, because the
     // frames are resolved as the grid is laid out.
@@ -232,19 +250,16 @@ void ShellApp::launchFocused() {
         launchRunning_ = true;
     }
 
-    // The copy outlives this call because the handoff thread reads it. The monitor is
-    // read here because raylib's window calls belong to this thread.
+    // The copy outlives this call because the handoff thread reads it.
     const library::Game copy = *game;
-    const int monitor = GetCurrentMonitor();
-    const launch::Output output{GetMonitorWidth(monitor), GetMonitorHeight(monitor),
-                                GetMonitorRefreshRate(monitor)};
-    const bool insideGamescope = config::read().insideGamescope;
-    shell_.setToast("starting " + copy.title);
+    const bool waitingForSteam =
+        copy.source == library::Source::Steam && steam_.state() == launch::SteamState::Initializing;
+    shell_.setToast(waitingForSteam ? "waiting for Steam" : "starting " + copy.title);
 
-    std::thread{[this, copy, output, insideGamescope] {
+    std::thread{[this, copy] {
         std::string failure;
         handoff_.start(
-            copy, output, insideGamescope,
+            copy,
             [this] {
                 // raylib's window calls belong to the thread that owns the GL context, so
                 // the handoff thread only raises a flag and the loop does the work. Hiding
@@ -411,6 +426,7 @@ void ShellApp::publishSnapshot() {
     // What the loop has actually done to the window, not what was asked for, so a
     // request that never reached the loop cannot read as hidden.
     next.windowVisible = windowShown_;
+    next.steam = std::string{launch::name(steam_.state())};
 
     const std::lock_guard lock{stateMutex_};
     published_ = std::move(next);
@@ -500,6 +516,13 @@ int ShellApp::run() {
         control_->start();
     }
 
+    // Steam comes up in the background while the shell is already usable. A machine
+    // without a Steam install has nothing to start, and shows no Steam icon.
+    const config::Config& config = config::read();
+    if (!library::steam::Library::discover(config.home, config.steamRoots).roots().empty()) {
+        steam_.start();
+    }
+
     int clockFrames = 0;
     while (!closeRequested_.load() && !WindowShouldClose()) {
         // A resize changes the framebuffer, so the layout has to be recomputed
@@ -517,6 +540,7 @@ int ShellApp::run() {
 
         serviceControlRequests();
         serviceRequests();
+        shell_.setSteamState(serviceState(steam_.state()));
         publishSnapshot();
         if (windowVisible_.load()) {
             shell_.draw();

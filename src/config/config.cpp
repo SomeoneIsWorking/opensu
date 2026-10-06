@@ -8,6 +8,8 @@
 #include <string_view>
 #include <vector>
 
+#include <unistd.h>
+
 #include "lucent/log.h"
 
 namespace iideck::config {
@@ -150,6 +152,11 @@ const Config& read() {
         value.controlPort = envPort("IIDECK_CONTROL_PORT", value.controlPort);
         value.controlChannel = envBool("IIDECK_CONTROL_CHANNEL", value.controlChannel);
         value.insideGamescope = !env("GAMESCOPE_WAYLAND_DISPLAY").empty();
+        value.session = std::string{env("IIDECK_SESSION")};
+        value.sessionInherited = !value.session.empty();
+        if (value.session.empty()) {
+            value.session = "iideck-" + std::to_string(getpid());
+        }
         value.executablePath = splitPaths(env("PATH"));
         return value;
     }();

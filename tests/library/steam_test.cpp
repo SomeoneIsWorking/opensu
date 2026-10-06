@@ -142,8 +142,8 @@ int main() {
     expect(portal->favourite, "favourite read from the user profile");
     expect(portal->lastPlayed.has_value(), "last played read");
     expect(portal->launch.program == "steam", "launch program");
-    expect(portal->launch.args.size() == 3 && portal->launch.args[0] == "-silent" &&
-               portal->launch.args[1] == "-applaunch" && portal->launch.args[2] == "440",
+    expect(portal->launch.args.size() == 2 && portal->launch.args[0] == "-applaunch" &&
+               portal->launch.args[1] == "440",
            "launch args");
     expect(portal->processHint == std::string{"AppId=440"} + std::string(1, '\0'),
            "process hint is Steam's whole AppId argument");

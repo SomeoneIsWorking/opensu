@@ -81,10 +81,24 @@ inline constexpr Colour focusB{0xff, 0x5c, 0xa8, 255};
 inline constexpr Colour focusC{0x46, 0xd7, 0xc8, 255};
 inline constexpr Colour dotActive{0x3d, 0xdc, 0x84, 255};
 inline constexpr Colour dotInactive{0x9a, 0x95, 0xa8, 0x60};
+/// Service status dots: working, and failed.
+inline constexpr Colour dotWorking{0xf2, 0xb1, 0x34, 255};
+inline constexpr Colour dotFailed{0xe0, 0x4f, 0x5f, 255};
 /// A tile corner radius, as a fraction of the tile's short side. This is the
 /// value the reference border pack declares.
 inline constexpr float radiusFraction = 0.0625f;
 } // namespace palette
+
+/// How a background service the shell depends on is doing, as the top bar shows it.
+enum class ServiceState {
+    /// The service is not in use; nothing is drawn.
+    Hidden,
+    Starting,
+    Ready,
+    Failed,
+    /// Something outside iideck holds the service.
+    Blocked,
+};
 
 /// The home screen: owns layout and draws a frame.
 class Shell {
@@ -165,6 +179,11 @@ class Shell {
     void setToast(std::string text, bool isError = false);
     void tickToast();
 
+    /// Sets the Steam client's status icon in the top bar.
+    void setSteamState(ServiceState state) noexcept {
+        steamState_ = state;
+    }
+
   private:
     /// The tile area between the top bar and the footer.
     [[nodiscard]] Rectangle gridRect() const;
@@ -187,6 +206,8 @@ class Shell {
 
     void drawDottedGround();
     void drawTopBar();
+    /// Draws the service status icons, right-aligned to `right`.
+    void drawServiceStatus(float right, float centreY);
     void drawTiles();
     void drawFooter();
     void drawToast();
@@ -204,6 +225,7 @@ class Shell {
     Platforms platforms_;
     std::string status_;
     std::string clock_;
+    ServiceState steamState_{ServiceState::Hidden};
     std::string toast_;
     bool toastError_{false};
     int toastFrames_{};

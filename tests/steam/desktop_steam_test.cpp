@@ -1,5 +1,5 @@
 // Desktop Steam detection against a fake home and real processes.
-#include "launch/desktop_steam.hpp"
+#include "steam/desktop_steam.hpp"
 
 #include <csignal>
 #include <cstdio>
@@ -14,7 +14,7 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::launch::DesktopSteam;
+using iideck::steam::DesktopSteam;
 
 void expect(bool condition, const char* what) {
     if (!condition) {

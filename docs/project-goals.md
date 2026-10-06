@@ -29,9 +29,11 @@ keyboard to recover.
 
 ## G004 — Inside KDE or as its own session
 
-iideck runs in two modes with the same behaviour. Inside a desktop session such
-as KDE Plasma, games run in a nested Gamescope at the output's own resolution,
-Alt+Tab still returns to the desktop and Alt+F4 closes the game, not Gamescope.
+iideck runs in two modes with the same behaviour: everything runs under the one
+compositor that runs iideck, and closing iideck closes it all. Inside a desktop
+session such as KDE Plasma, running iideck starts a nested Gamescope at the
+output's own resolution with iideck, Steam and every game inside it, Alt+Tab
+still returns to the desktop and Alt+F4 closes the game, not Gamescope.
 As its own login session, picked at the display manager, it runs on Gamescope
 or a custom compositor and owns the screen from login with no desktop under it.
 

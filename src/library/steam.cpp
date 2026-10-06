@@ -256,7 +256,7 @@ std::optional<Game> readManifest(const fs::path& root, const fs::path& libraryPa
     game.sourceId = appId;
     game.title = *name;
     game.installed = installed;
-    game.launch = LaunchSpec{.program = "steam", .args = {"-silent", "-applaunch", appId}};
+    game.launch = LaunchSpec{.program = "steam", .args = {"-applaunch", appId}};
     // Steam runs every game, native or Proton, under `reaper SteamLaunch AppId=<id>`;
     // the trailing NUL ends the argument so AppId=44 cannot match AppId=440.
     game.processHint = "AppId=" + appId + std::string(1, '\0');

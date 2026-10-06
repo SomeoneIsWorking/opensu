@@ -1,7 +1,6 @@
 // launch — one transient systemd user scope that owns everything a launch starts.
 #pragma once
 
-#include <filesystem>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -21,10 +20,12 @@ class Instance {
     Instance& operator=(const Instance&) = delete;
     ~Instance();
 
-    /// Starts `program` in the scope `unit`. Returns once the scope exists, so a
-    /// following stop() or kill() always reaches it.
+    /// Starts `program` in the scope `unit`, with each "NAME=value" of `environment`
+    /// added to its environment. Returns once the scope exists, so a following
+    /// stop() or kill() always reaches it.
     [[nodiscard]] bool start(const std::string& unit, const std::string& program,
-                             const std::vector<std::string>& args, std::string& failure);
+                             const std::vector<std::string>& args, std::string& failure,
+                             const std::vector<std::string>& environment = {});
 
     /// True while anything is left in the scope. The started process may exit
     /// while processes it spawned carry on, which still counts as running.
@@ -36,12 +37,12 @@ class Instance {
     /// SIGKILLs every process in the scope, then reaps the started one.
     void kill();
 
+    /// How the started process ended (128 plus the signal when a signal did it), or
+    /// -1 while it has not been seen to exit. Observed by running().
+    [[nodiscard]] int exitStatus() const;
+
     /// The current scope's unit name, empty when nothing was started.
     [[nodiscard]] std::string unit() const;
-
-    /// True when `program` names an executable file, directly or in one of `path`.
-    [[nodiscard]] static bool findExecutable(const std::string& program,
-                                             const std::vector<std::filesystem::path>& path);
 
   private:
     void endScope(const std::vector<std::string>& systemctlArgs);
@@ -50,6 +51,7 @@ class Instance {
     mutable std::mutex mutex_;
     std::string unit_;
     pid_t child_{-1};
+    int exitStatus_{-1};
 };
 
 } // namespace iideck::launch
