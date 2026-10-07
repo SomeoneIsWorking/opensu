@@ -20,7 +20,17 @@ constexpr float hintScale = 1.0f;
 
 } // namespace
 
-TopBarMetrics::TopBarMetrics(float screenWidthDp) noexcept {
+TopBarMetrics::TopBarMetrics(float screenWidthDp, float screenHeightDp) noexcept {
+    // iiSU jj2.f0: the screen against 853 x 480 dp; jj2.i0 marks small screens compact.
+    const float f0 = clampTo(
+        std::min(std::min(screenWidthDp / 853.0f, 1.0f), std::min(screenHeightDp / 480.0f, 1.0f)) *
+            0.92f,
+        0.68f, 1.0f);
+    const bool compact = std::min(screenWidthDp, screenHeightDp) <= 420.0f &&
+                         std::max(screenWidthDp, screenHeightDp) <= 560.0f;
+    // iiSU pl3.q: dl3.a.
+    promptScale_ = compact ? clampTo(f0 * 0.9f, 0.65f, 1.0f) : clampTo(f0 * 0.94f, 0.68f, 1.0f);
+
     // iiSU jj2.k0: t = clamp((max(w, 360) - 360) / 472, 0, 1).
     const float t = clampTo((std::max(screenWidthDp, 360.0f) - 360.0f) / 472.0f, 0.0f, 1.0f);
     sizing_.scale = 0.72f + 0.38f * t;
@@ -49,11 +59,25 @@ float TopBarMetrics::profileSize() const noexcept {
     return clampTo(1.22f * alignment_.statusPillHeight, 38.0f, 64.0f);
 }
 
+float TopBarMetrics::promptRowHeight(float scale) noexcept {
+    // iiSU jj2.q0: two glyph rows, their vertical padding and the spacing between them.
+    const float f = clampTo(scale, 0.65f, 1.1f);
+    return 2.0f * clampTo(22.0f * f, 15.0f, 24.0f) + 2.0f * clampTo(8.0f * f, 5.0f, 7.0f) +
+           clampTo(2.0f * f, 1.0f, 3.0f);
+}
+
 float TopBarMetrics::gridTopInset() const noexcept {
     const float c = alignment_.statusTopPadding;
     const float d = alignment_.statusPillHeight;
     const float profile = profileSize();
-    return std::max(c + 8.0f + d, std::max((d - profile) / 2.0f + c + 8.0f, 4.0f) + profile) + 3.0f;
+    const float hud =
+        std::max(c + 8.0f + d, std::max((d - profile) / 2.0f + c + 8.0f, 4.0f) + profile) + 3.0f;
+    return hud + 4.0f;
+}
+
+float TopBarMetrics::gridBottomInset() const noexcept {
+    // iiSU pl3.q: dl3.j = jj2.q0(dl3.a) + 14 while the prompt row shows.
+    return promptRowHeight(promptScale_) + 14.0f + 4.0f;
 }
 
 StatusPillMetrics TopBarMetrics::statusPill(bool clockHasLetters) const noexcept {

@@ -36,7 +36,7 @@ float Hud::unit() const noexcept {
 }
 
 TopBarMetrics Hud::metrics() const noexcept {
-    return TopBarMetrics{static_cast<float>(width_) / dp_};
+    return TopBarMetrics{static_cast<float>(width_) / dp_, static_cast<float>(height_) / dp_};
 }
 
 float Hud::topInset() const noexcept {
@@ -44,9 +44,7 @@ float Hud::topInset() const noexcept {
 }
 
 float Hud::bottomInset() const noexcept {
-    // STOPGAP: dl3.j's "not minimal, no prompt row" value because jj2.q0, which sizes the prompt
-    // row case, is not in the spec.
-    return TopBarMetrics::bottomInset * dp_;
+    return metrics().gridBottomInset() * dp_;
 }
 
 void Hud::setToast(std::string text, bool isError, Clock::time_point now) {

@@ -53,10 +53,10 @@ class TopBarMetrics {
     /// Row padding (iiSU mw5.l single-screen Row).
     static constexpr float rowPaddingTop = 8.0f;
     static constexpr float rowPaddingEnd = 8.0f;
-    /// iiSU dl3.j: the bottom inset when neither minimal nor showing the prompt row.
-    static constexpr float bottomInset = 24.0f;
+    TopBarMetrics(float screenWidthDp, float screenHeightDp) noexcept;
 
-    explicit TopBarMetrics(float screenWidthDp) noexcept;
+    /// iiSU jj2.q0: the height of a two-row button prompt panel at a scale.
+    [[nodiscard]] static float promptRowHeight(float scale) noexcept;
 
     [[nodiscard]] const StatusPillSizing& sizing() const noexcept {
         return sizing_;
@@ -68,15 +68,19 @@ class TopBarMetrics {
     [[nodiscard]] float statusOffsetX(float aspect) const noexcept;
     /// iiSU nl2.d: clamp(1.22 hs7.d, 38, 64).
     [[nodiscard]] float profileSize() const noexcept;
-    /// iiSU dl3.i: the grid's top inset before the HUD is measured, with the status pill shown
-    /// (without it iiSU uses 84; iideck always shows it).
+    /// iiSU er3.w: the grid's top inset, dl3.i + 4, with the status pill shown (without it dl3.i
+    /// is 84; iideck always shows it).
     [[nodiscard]] float gridTopInset() const noexcept;
+    /// iiSU er3.x: the grid's bottom inset, dl3.j + 4, with the prompt row shown.
+    [[nodiscard]] float gridBottomInset() const noexcept;
     /// iiSU a32.o for a clock string with or without letters.
     [[nodiscard]] StatusPillMetrics statusPill(bool clockHasLetters) const noexcept;
     /// iiSU mw5.h and jj2.b.
     [[nodiscard]] HintRowMetrics hintRow() const noexcept;
 
   private:
+    /// iiSU dl3.a: the prompt panel scale from jj2.f0.
+    float promptScale_{};
     StatusPillSizing sizing_;
     HudStatusAlignment alignment_;
 };

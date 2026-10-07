@@ -99,11 +99,11 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
     : mode_{input.mode}, width_{std::max(input.width, 1.0f)}, height_{std::max(input.height, 1.0f)},
       dp_{input.dp}, items_{input.items} {
     const bool paged = mode_ == ScrollMode::Paged;
+    // iiSU zj2 subtracts WiiSu's content padding when it counts columns; hx2.g lays the grid out
+    // without it (reference capture: WiiSu and Standard grids start at the same y).
     const float pad = paged ? wiiSuPaddingDp * dp_ : 0.0f;
-    // STOPGAP: WiiSu's 12 dp horizontal padding is not applied because its consumer in iiSU is
-    // not traced; the top and bottom padding are applied as insets, as zj2 subtracts them.
-    const float topInsetIn = input.topInset + pad;
-    const float bottomInsetIn = input.bottomInset + pad;
+    const float topInsetIn = input.topInset;
+    const float bottomInsetIn = input.bottomInset;
 
     // iiSU hx2.g: Flow insets the viewport, clamped to 12% of the width; Paged does not.
     viewportX_ = paged ? 0.0f : clampTo(horizontalFlowInsetDp * dp_, 0.0f, width_ * 0.12f);
@@ -140,8 +140,8 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
 
     if (paged) {
         // STOPGAP: use the grid gap as zj2's spacing because the value iiSU passes is not traced.
-        columns_ = clampColumns(
-            wiiSuPageColumns(width_, height_ - top - bottom, rows_, gap_, pageGap, peek));
+        columns_ = clampColumns(wiiSuPageColumns(width_, height_ - top - bottom - 2.0f * pad, rows_,
+                                                 gap_, pageGap, peek));
         const auto reserved = static_cast<float>(columns_);
         const float between = static_cast<float>(columns_ - 1) * gap_;
         // iiSU hx2.g: cells shrink so a whole page plus both peeks and gaps fit.

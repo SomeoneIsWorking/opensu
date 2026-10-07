@@ -166,6 +166,32 @@ void pill() {
     near(compact.body.y, 31.25f, "compact pill moves up by 11 dp x compactness");
 }
 
+void referenceCapture() {
+    // iiSU in the emulator at 1920 x 1080, 2.25 px/dp, 853 x 456 dp after the status bar; grid
+    // insets are TopBarMetrics' 69.29 and 68.94 dp. Edges measured from the captures, +-1.5 px.
+    const auto at = [](ScrollMode mode) {
+        return HomeLayout{HomeLayoutInput{.width = 1920.0f,
+                                          .height = 1080.0f,
+                                          .dp = 2.25f,
+                                          .items = 0,
+                                          .mode = mode,
+                                          .topInset = 69.29424f * 2.25f,
+                                          .bottomInset = 68.93672f * 2.25f}};
+    };
+    const HomeLayout standard = at(ScrollMode::Flow);
+    near(standard.canvasRect(0, 0.0f).x, 18.0f, "Standard: first column at x 18", 1.5);
+    near(standard.canvasRect(0, 0.0f).y, 173.5f, "Standard: first row at y 173.5", 1.5);
+    near(standard.cellWidth(), 226.0f, "Standard: 226 px cells", 1.5);
+    near(standard.cellWidth() + standard.gap(), 253.7f, "Standard: 253.7 px pitch", 1.5);
+    const HomeLayout wiisu = at(ScrollMode::Paged);
+    expect(wiisu.columns() == 7, "WiiSu: 7 columns a page");
+    expect(wiisu.pageCount() == 4, "WiiSu: 4 pages");
+    near(wiisu.canvasRect(0, 0.0f).x, 94.5f, "WiiSu: page starts at x 94.5", 1.5);
+    near(wiisu.canvasRect(0, 0.0f).y, 173.5f, "WiiSu: first row at y 173.5", 1.5);
+    near(wiisu.cellWidth(), 223.5f, "WiiSu: 223.5 px cells", 1.5);
+    near(wiisu.cellWidth() + wiisu.gap(), 251.0f, "WiiSu: 251 px pitch", 1.5);
+}
+
 void arrows() {
     expect(!HomeLayout{window(37, ScrollMode::Flow)}.pageArrows(0).next, "no arrows in Flow");
     // 1920 x 1080 at 2.25 px/dp, as iiSU's reference capture: 64 x 96 px, 26 px from the edge.
@@ -197,6 +223,7 @@ int main() {
     columnGrowth();
     pill();
     arrows();
+    referenceCapture();
     std::printf("home_layout: all checks passed\n");
     return 0;
 }

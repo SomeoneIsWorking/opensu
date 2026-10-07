@@ -23,6 +23,7 @@ guessed. G002 builds only on rows marked grounded.
 | Top bar: layout, title pill, status pill, clock, profile button, friends stack, corner hints | grounded | `reference/iisu/home-grid.md` §2 (Ghidra); status pill x offset on non-default device classes behind an unrecovered jumptable |
 | Tile composition: chrome, frame nine-patch, art fit, tint, logo, focus ring | grounded | `reference/iisu/home-grid.md` §3; logo condition and dark chrome read with Ghidra |
 | "Jump back in!" and "Been a while" tiles: size and game choice | grounded | `reference/iisu/home-grid.md` §1.4 (Ghidra); how the tile body is drawn is untraced |
+| Grid insets from the HUD (`er3`, `dl3`, `jj2.q0`) | grounded | `reference/iisu/home-grid.md` §2.1; measured-HUD callbacks' call sites not recovered, captures match the unmeasured values |
 | Palette | grounded | `reference/iisu/home-grid.md` §4 |
 | Input routing, section cycling, grid focus rules incl. page crossing, repeat, triggers | grounded | `reference/iisu/input-sound.md` §1 |
 | Per-screen key maps for Compose screens | partial | `reference/iisu/input-sound.md` §6, not re-read against source |
