@@ -1,6 +1,7 @@
 // GridFocus against iiSU's neighbour rules (docs/reference/iisu/input-sound.md §1.4).
 #include "grid_focus.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <utility>
 #include <vector>
@@ -55,6 +56,32 @@ FocusGrid handGrid(std::vector<GridCell> cells) {
     return grid;
 }
 
+/// `count` 1 x 1 tiles filled column-major into 3 rows on one page, laid out by handGrid.
+std::vector<GridCell> columnMajor(int count, int page = 0) {
+    std::vector<GridCell> cells;
+    for (int index = 0; index < count; ++index) {
+        cells.push_back(GridCell{index / 3, index % 3, index / 3, index % 3, page});
+    }
+    return cells;
+}
+
+/// A hand-made Flow grid: one page, as many columns as the cells reach.
+FocusGrid flowGrid(std::vector<GridCell> cells) {
+    FocusGrid grid = handGrid(std::move(cells));
+    int columns = 0;
+    for (const GridCell& cell : grid.cells) {
+        columns = std::max(columns, cell.right + 1);
+    }
+    grid.columnCentres.clear();
+    for (int column = 0; column < columns; ++column) {
+        grid.columnCentres.push_back(static_cast<float>(column) * 100.0f + 50.0f);
+    }
+    grid.pageCount = 1;
+    grid.columns = columns;
+    grid.paged = false;
+    return grid;
+}
+
 void flowNeighbours() {
     // 11 items: columns 0-2 full, column 3 holds rows 0 and 1.
     const FocusGrid grid = FocusGrid::of(window(11, ScrollMode::Flow));
@@ -72,13 +99,15 @@ void noWrap() {
     expect(!focus.move(Direction::Up, grid) && focus.index() == 0, "no wrap at the top edge");
     focus = at(grid, 2);
     expect(!focus.move(Direction::Down, grid) && focus.index() == 2, "no wrap at the bottom edge");
-    focus = at(grid, 10);
-    expect(!focus.move(Direction::Right, grid) && focus.index() == 10,
+    const std::size_t last = grid.cells.size() - 1;
+    focus = at(grid, last);
+    expect(!focus.move(Direction::Right, grid) && focus.index() == last,
            "no wrap past the last column");
 }
 
 void shortColumn() {
-    const FocusGrid grid = FocusGrid::of(window(11, ScrollMode::Flow));
+    // 11 tiles: columns 0-2 full, column 3 holds rows 0 and 1.
+    const FocusGrid grid = flowGrid(columnMajor(11));
     GridFocus focus = at(grid, 8);
     expect(!focus.move(Direction::Right, grid) && focus.index() == 8,
            "a short column with no tile on the remembered row is not entered");
@@ -134,7 +163,7 @@ void pixelPassScore() {
 }
 
 void pageCrossing() {
-    // 5 columns x 3 rows per page; 37 items over 3 pages.
+    // 5 columns x 3 rows per page; 37 items over 4 pages of slots.
     const FocusGrid grid = FocusGrid::of(window(37, ScrollMode::Paged));
     GridFocus focus = at(grid, 13);
     expect(focus.move(Direction::Right, grid) && focus.index() == 16,
@@ -145,22 +174,23 @@ void pageCrossing() {
     expect(focus.move(Direction::Right, grid) && focus.index() == 17, "the bottom row crosses");
     focus = at(grid, 0);
     expect(!focus.move(Direction::Left, grid), "no page before the first");
-    focus = at(grid, 36);
+    focus = at(grid, grid.cells.size() - 1);
     expect(!focus.move(Direction::Right, grid), "no page after the last");
     focus = at(grid, 14);
     expect(!focus.move(Direction::Down, grid), "up and down never leave the page");
 }
 
 void pageCrossingNeedsRow() {
-    // 16 items: page 1 holds one tile, on row 0.
-    const FocusGrid grid = FocusGrid::of(window(16, ScrollMode::Paged));
-    GridFocus focus = at(grid, 14);
-    expect(!focus.move(Direction::Right, grid) && focus.index() == 14,
+    // Page 0 is full; page 1 holds one tile, on row 0.
+    std::vector<GridCell> cells = columnMajor(9);
+    cells.push_back(GridCell{0, 0, 0, 0, 1});
+    const FocusGrid grid = handGrid(std::move(cells));
+    GridFocus focus = at(grid, 8);
+    expect(!focus.move(Direction::Right, grid) && focus.index() == 8,
            "no tile on the next page covers the remembered row");
-    expect(focus.move(Direction::Up, grid) && focus.move(Direction::Up, grid) &&
-               focus.index() == 12,
+    expect(focus.move(Direction::Up, grid) && focus.move(Direction::Up, grid) && focus.index() == 6,
            "up the last column");
-    expect(focus.move(Direction::Right, grid) && focus.index() == 15,
+    expect(focus.move(Direction::Right, grid) && focus.index() == 9,
            "the next page's tile on the remembered row");
 }
 

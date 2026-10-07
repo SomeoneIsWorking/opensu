@@ -116,9 +116,7 @@ void Shell::setCatalog(std::vector<library::Game> games) {
     relayout();
     page_ = 0;
     scroller_.snap(0.0f);
-    if (!tiles_.empty()) {
-        focus_.reset(0, layout_.cellOf(0));
-    }
+    focus_.reset(0, layout_.cellOf(0));
     focusAt_ = now_;
     // The catalog can arrive before the first frame, so the entrance starts on the next tick.
     entrancePending_ = true;
@@ -159,11 +157,7 @@ void Shell::releaseTextures() {
 void Shell::relayout() {
     layout_ = computeLayout();
     page_ = std::clamp(page_, 0, layout_.pageCount() - 1);
-    if (tiles_.empty()) {
-        scroller_.snap(0.0f);
-        return;
-    }
-    if (focus_.index() >= tiles_.size()) {
+    if (focus_.index() >= layout_.slotCount()) {
         focus_.reset(0, layout_.cellOf(0));
     }
     if (layout_.mode() == ScrollMode::Paged) {
@@ -211,9 +205,6 @@ void Shell::startEntrance() {
 }
 
 bool Shell::moveFocus(Direction direction) {
-    if (tiles_.empty()) {
-        return false;
-    }
     if (!focus_.move(direction, FocusGrid::of(layout_))) {
         return false;
     }
@@ -230,18 +221,12 @@ bool Shell::movePage(int delta) {
     const std::size_t first = static_cast<std::size_t>(next) *
                               static_cast<std::size_t>(layout_.columns()) *
                               static_cast<std::size_t>(layout_.rows());
-    if (first >= tiles_.size()) {
-        return false;
-    }
     focus_.reset(first, layout_.cellOf(first));
     focusOn(first, 0);
     return true;
 }
 
 void Shell::resetFocus() {
-    if (tiles_.empty()) {
-        return;
-    }
     focus_.reset(0, layout_.cellOf(0));
     focusOn(0, -1);
 }
@@ -295,7 +280,8 @@ TileVisual Shell::visualFor(std::size_t slot) const {
     visual.rect = layout_.canvasRect(slot, scroll());
     visual.cell = std::min(layout_.cellWidth(), layout_.cellHeight());
     visual.placeholder = slot >= tiles_.size();
-    visual.focused = !visual.placeholder && slot == focus_.index();
+    // iiSU ou4.q: an empty slot is a placeholder tile and takes focus like any other.
+    visual.focused = slot == focus_.index();
     if (visual.focused) {
         visual.scale = motion::focusScale(sinceMs(focusAt_));
     }
@@ -328,7 +314,7 @@ void Shell::drawGrid() {
     const std::size_t slots = layout_.slotCount();
     const std::size_t focused = focus_.index();
     for (std::size_t slot = 0; slot < slots; ++slot) {
-        if (slot == focused && slot < tiles_.size()) {
+        if (slot == focused) {
             continue;
         }
         const TileVisual visual = visualFor(slot);
@@ -336,11 +322,9 @@ void Shell::drawGrid() {
             tilePainter_.paint(visual);
         }
     }
-    if (focused < tiles_.size()) {
-        const TileVisual visual = visualFor(focused);
-        if (intersectsCanvas(visual.rect, width_, height_)) {
-            tilePainter_.paint(visual);
-        }
+    const TileVisual visual = visualFor(focused);
+    if (intersectsCanvas(visual.rect, width_, height_)) {
+        tilePainter_.paint(visual);
     }
 }
 

@@ -139,13 +139,13 @@ class HomeLayout {
     [[nodiscard]] float pageSidePadding() const noexcept {
         return pageSidePadding_;
     }
-    /// Every cell a page shows, filled or not: Paged pages are whole.
+    /// Every cell the grid shows, filled or not: whole pages, at least four of them.
     [[nodiscard]] std::size_t slotCount() const noexcept;
 
     /// The lane cell of a slot: column-major, page by page.
     [[nodiscard]] GridCell cellOf(std::size_t index) const noexcept;
     [[nodiscard]] int pageOf(std::size_t index) const noexcept;
-    /// Every item's cell, in index order.
+    /// Every slot's cell, in index order.
     [[nodiscard]] std::vector<GridCell> cells() const;
 
     /// Left edge of `column` on `page` in content space (iiSU qv7.y plus the page offset).
@@ -167,6 +167,7 @@ class HomeLayout {
     [[nodiscard]] PagePill pagePill(int currentPage) const;
 
   private:
+    [[nodiscard]] int slotPages(std::size_t perPage) const noexcept;
     void computeMaxScroll();
 
     ScrollMode mode_;
@@ -174,6 +175,7 @@ class HomeLayout {
     float height_;
     float dp_;
     std::size_t items_;
+    std::size_t slots_{};
     int rows_{};
     int columns_{};
     float cellWidth_{};

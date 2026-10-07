@@ -18,6 +18,8 @@ constexpr float wiiSuPeekDp = 6.0f;
 constexpr float wiiSuMinPageCellScale = 0.92f;
 // iiSU zj2: a WiiSu page has at least 3 columns.
 constexpr int wiiSuMinColumns = 3;
+// iiSU ou4.q: placeholders fill at least 4 viewports.
+constexpr int minSlotPages = 4;
 
 /// coerceIn, which is what iiSU's gk2.C is.
 float clampTo(float value, float low, float high) noexcept {
@@ -158,10 +160,15 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
         pageStride_ = pageWidth + pageGap;
         const std::size_t perPage =
             static_cast<std::size_t>(columns_) * static_cast<std::size_t>(rows_);
-        pageCount_ = std::max(1, static_cast<int>((items_ + perPage - 1) / perPage));
+        pageCount_ = slotPages(perPage);
+        slots_ = static_cast<std::size_t>(pageCount_) * perPage;
     } else {
-        // iiSU hx2.g: a horizontal flow has as many columns as the items need.
-        columns_ = std::max(1, static_cast<int>((items_ + static_cast<std::size_t>(rows_) - 1) /
+        // iiSU ou4.q: a Flow page is the persisted viewport as vj2.M clamps it.
+        const auto perPage = static_cast<std::size_t>(clampTo(input.rows, 2, 6)) *
+                             static_cast<std::size_t>(clampTo(input.columns, 2, 8));
+        slots_ = static_cast<std::size_t>(slotPages(perPage)) * perPage;
+        // iiSU hx2.g: a horizontal flow has as many columns as the slots need.
+        columns_ = std::max(1, static_cast<int>((slots_ + static_cast<std::size_t>(rows_) - 1) /
                                                 static_cast<std::size_t>(rows_)));
         pageCount_ = 1;
     }
@@ -170,13 +177,19 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
         static_cast<float>(rows_) * cellHeight_ + static_cast<float>(rows_ - 1) * gap_;
     // iiSU hx2.g: centred in the band below the top inset, never above padding + inset.
     paddingTop_ = std::max(p + top, (height_ - top - bottom - tail - gridHeight) * 0.5f + top);
-    // iiSU hx2.g: Flow's left padding is the top padding (no edge padding configured).
-    paddingLeft_ = paged ? pageSidePadding_ : paddingTop_;
+    // iiSU hx2.g: a horizontal flow not centred on both axes has no left padding.
+    paddingLeft_ = paged ? pageSidePadding_ : 0.0f;
     computeMaxScroll();
 }
 
+int HomeLayout::slotPages(std::size_t perPage) const noexcept {
+    // iiSU ou4.q: every page up to the one holding the last item, and at least four.
+    const std::size_t used = items_ == 0 ? 0 : (items_ - 1) / perPage + 1;
+    return std::max(minSlotPages, static_cast<int>(used));
+}
+
 void HomeLayout::computeMaxScroll() {
-    if (items_ == 0) {
+    if (slots_ == 0) {
         maxScroll_ = 0.0f;
         return;
     }
@@ -199,12 +212,7 @@ void HomeLayout::computeMaxScroll() {
 }
 
 std::size_t HomeLayout::slotCount() const noexcept {
-    if (mode_ == ScrollMode::Paged) {
-        // iiSU ou4: every empty cell up to the last page is a placeholder.
-        return static_cast<std::size_t>(pageCount_) * static_cast<std::size_t>(columns_) *
-               static_cast<std::size_t>(rows_);
-    }
-    return items_;
+    return slots_;
 }
 
 GridCell HomeLayout::cellOf(std::size_t index) const noexcept {
@@ -226,8 +234,8 @@ int HomeLayout::pageOf(std::size_t index) const noexcept {
 
 std::vector<GridCell> HomeLayout::cells() const {
     std::vector<GridCell> out;
-    out.reserve(items_);
-    for (std::size_t index = 0; index < items_; ++index) {
+    out.reserve(slots_);
+    for (std::size_t index = 0; index < slots_; ++index) {
         out.push_back(cellOf(index));
     }
     return out;
@@ -263,10 +271,10 @@ Rect HomeLayout::canvasRect(std::size_t index, float scroll) const noexcept {
 }
 
 float HomeLayout::scrollTarget(std::size_t index, float current, int dx) const noexcept {
-    if (items_ == 0) {
+    if (slots_ == 0) {
         return 0.0f;
     }
-    const Rect rect = contentRect(std::min(index, items_ - 1));
+    const Rect rect = contentRect(std::min(index, slots_ - 1));
     const float viewport = viewportWidth_;
     const float most = maxScroll_;
     float left = rect.x;

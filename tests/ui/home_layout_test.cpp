@@ -27,7 +27,12 @@ HomeLayoutInput window(std::size_t items, ScrollMode mode) {
 void defaultViewport() {
     const HomeLayout layout{window(12, ScrollMode::Flow)};
     expect(layout.rows() == 3, "the default viewport has 3 rows");
-    expect(layout.columns() == 4, "12 items in 3 rows make 4 columns");
+    expect(layout.slotCount() == 48, "empty slots fill four 3 x 4 viewports");
+    expect(layout.columns() == 16, "48 slots in 3 rows make 16 columns");
+    const HomeLayout full{window(49, ScrollMode::Flow)};
+    expect(full.slotCount() == 60, "49 items take a fifth viewport, filled with empty slots");
+    const HomeLayout empty{window(0, ScrollMode::Flow)};
+    expect(empty.slotCount() == 48, "an empty grid still shows four viewports of slots");
     near(layout.cellWidth(), layout.cellHeight(), "cells are square");
     expect(HomeLayout::clampRows(0) == 1, "rows are at least 1");
     expect(HomeLayout::clampRows(9) == 6, "rows are at most 6");
@@ -48,8 +53,8 @@ void flowMetrics() {
     near(layout.gap(), 24.91008f, "gap after two refinements");
     near(layout.cellHeight(), 208.19328f, "cell height");
     near(layout.paddingTop(), 72.8f, "top padding is base padding plus the top inset");
-    near(layout.paddingLeft(), 72.8f, "flow left padding is the top padding");
-    near(layout.maxScroll(), 2346.13696f, "flow scrolls until the last column is centred", 1e-2);
+    near(layout.paddingLeft(), 0.0f, "flow starts at the viewport inset");
+    near(layout.maxScroll(), 2972.64704f, "flow scrolls until the last column is centred", 1e-2);
 }
 
 void columnMajor() {
@@ -92,8 +97,10 @@ void flowScrollKeepsFocusVisible() {
 void paged() {
     const HomeLayout layout{window(37, ScrollMode::Paged)};
     expect(layout.columns() == 5, "WiiSu sizes this window to 5 columns");
-    expect(layout.pageCount() == 3, "37 items in 15-slot pages make 3 pages");
-    expect(layout.slotCount() == 45, "every page is whole");
+    expect(layout.pageCount() == 4, "37 items in 15-slot pages show at least 4 pages");
+    expect(layout.slotCount() == 60, "every page is whole");
+    expect(HomeLayout{window(61, ScrollMode::Paged)}.pageCount() == 5,
+           "61 items need a fifth page");
     expect(layout.pageOf(14) == 0 && layout.pageOf(15) == 1 && layout.pageOf(36) == 2,
            "items fill page by page");
     expect(layout.cellOf(15).left == 0 && layout.cellOf(15).top == 0,
@@ -133,16 +140,14 @@ void columnGrowth() {
 
 void pill() {
     expect(HomeLayout{window(37, ScrollMode::Flow)}.pagePill(0).dots.empty(), "no pill in Flow");
-    expect(HomeLayout{window(15, ScrollMode::Paged)}.pagePill(0).dots.empty(),
-           "no pill for one page");
     const iideck::ui::PagePill pill = HomeLayout{window(37, ScrollMode::Paged)}.pagePill(1);
     // 800 / 1.5 = 533 dp short side, so not compact: 25 dp tall, 9 dp padding, 10 dp slots.
     near(pill.body.height, 37.5f, "pill is 25 dp tall");
-    near(pill.body.width, 88.5f, "pill hugs three dots");
-    near(pill.body.x, (1280.0f - 88.5f) * 0.5f, "pill is centred");
+    near(pill.body.width, 111.75f, "pill hugs four dots");
+    near(pill.body.x, (1280.0f - 111.75f) * 0.5f, "pill is centred");
     near(pill.body.y, 51.0f, "pill sits 34 dp from the top");
-    expect(pill.dots.size() == 3, "one dot per page");
-    near(pill.dots[0].x, 616.75f, "first dot centre");
+    expect(pill.dots.size() == 4, "one dot per page");
+    near(pill.dots[0].x, 605.125f, "first dot centre");
     near(pill.dots[1].x - pill.dots[0].x, 23.25f, "dots are a 10 dp slot plus 5.5 dp apart");
     expect(!pill.dots[0].active && pill.dots[1].active, "the current page's dot is active");
     near(pill.dots[1].radius, 3.1f * 1.5f, "active dot radius 3.1 dp");
