@@ -13,7 +13,8 @@ target_compile_features(iideck_hud_model PUBLIC cxx_std_20)
 target_compile_options(iideck_hud_model PRIVATE -Wall -Wextra -Wpedantic)
 
 add_library(iideck_ui STATIC
-    shell.cpp hud.cpp status_pill.cpp glass.cpp tile_painter.cpp page_pill.cpp round_shape.cpp
+    shell.cpp hud.cpp status_pill.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
+    round_shape.cpp
     typeface.cpp platform.cpp platform_stroke.cpp)
 add_library(iideck::ui ALIAS iideck_ui)
 target_include_directories(iideck_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

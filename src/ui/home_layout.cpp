@@ -314,14 +314,43 @@ float HomeLayout::pageScroll(int page) const noexcept {
     return static_cast<float>(clampTo(page, 0, pageCount_ - 1)) * pageStride_;
 }
 
+float HomeLayout::compactness() const noexcept {
+    // iiSU ys8.h: compactness from the short side in dp.
+    return clampTo((520.0f - std::min(width_, height_) / dp_) / 160.0f, 0.0f, 1.0f);
+}
+
+Rect HomeLayout::arrowRect(bool previous) const noexcept {
+    // iiSU ys8.k, in pixels: vertically centred, inset from the canvas edge.
+    const float arrowWidth = clampTo((0.05f - 0.012f * compactness()) * width_, 30.0f, 64.0f);
+    const float arrowHeight = clampTo(1.52f * arrowWidth, 48.0f, 96.0f);
+    const float inset = clampTo(0.018f * width_, 8.0f, 26.0f);
+    const float x = previous ? inset : width_ - inset - arrowWidth;
+    return Rect{x, height_ * 0.5f - arrowHeight * 0.5f, arrowWidth, arrowHeight};
+}
+
+PageArrows HomeLayout::pageArrows(int currentPage) const {
+    // iiSU ys8.l: Paged with more than one page; each arrow only where a page lies that way.
+    if (mode_ != ScrollMode::Paged || pageCount_ <= 1) {
+        return {};
+    }
+    const int page = clampTo(currentPage, 0, pageCount_ - 1);
+    PageArrows arrows;
+    if (page > 0) {
+        arrows.previous = arrowRect(true);
+    }
+    if (page < pageCount_ - 1) {
+        arrows.next = arrowRect(false);
+    }
+    return arrows;
+}
+
 PagePill HomeLayout::pagePill(int currentPage) const {
     PagePill pill;
     // iiSU nx2.p: dots only in Paged mode with more than one page.
     if (mode_ != ScrollMode::Paged || pageCount_ <= 1) {
         return pill;
     }
-    // iiSU ys8.h: compactness from the short side in dp.
-    const float compact = clampTo((520.0f - std::min(width_, height_) / dp_) / 160.0f, 0.0f, 1.0f);
+    const float compact = compactness();
     const float scale = 1.0f - 0.16f * compact;
     const float padding = 9.0f * dp_ * scale;
     const float slot = 10.0f * dp_ * scale;

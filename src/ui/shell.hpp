@@ -17,6 +17,7 @@
 #include "home_layout.hpp"
 #include "hud.hpp"
 #include "library/game.hpp"
+#include "page_arrow.hpp"
 #include "page_pill.hpp"
 #include "platform.hpp"
 #include "tile_motion.hpp"
@@ -168,6 +169,7 @@ class Shell {
 
     TilePainter tilePainter_;
     PagePillPainter pillPainter_;
+    PageArrowPainter arrowPainter_;
     Hud hud_;
 };
 

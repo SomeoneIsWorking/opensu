@@ -15,6 +15,9 @@ namespace fs = std::filesystem;
 constexpr float referenceWidthDp = 853.0f;
 constexpr float referenceHeightDp = 480.0f;
 
+// iiSU gh3.q: the home renderer config passes darkHeroScrim = true.
+constexpr bool homeChromeDark = true;
+
 // iiSU go4.java:1942: the Quick Access viewport is 3 rows by 4 columns.
 constexpr int viewportRows = 3;
 constexpr int viewportColumns = 4;
@@ -332,7 +335,8 @@ void Shell::draw() {
     BeginDrawing();
     hud_.drawGround();
     drawGrid();
-    pillPainter_.paint(layout_.pagePill(page_), dp());
+    pillPainter_.paint(layout_.pagePill(page_), dp(), homeChromeDark);
+    arrowPainter_.paint(layout_.pageArrows(page_), homeChromeDark);
     hud_.drawTopBar();
     hud_.drawHints();
     hud_.drawToast();

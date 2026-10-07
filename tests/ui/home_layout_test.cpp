@@ -166,6 +166,24 @@ void pill() {
     near(compact.body.y, 31.25f, "compact pill moves up by 11 dp x compactness");
 }
 
+void arrows() {
+    expect(!HomeLayout{window(37, ScrollMode::Flow)}.pageArrows(0).next, "no arrows in Flow");
+    // 1920 x 1080 at 2.25 px/dp, as iiSU's reference capture: 64 x 96 px, 26 px from the edge.
+    const HomeLayout layout{HomeLayoutInput{
+        .width = 1920.0f, .height = 1080.0f, .dp = 2.25f, .items = 0, .mode = ScrollMode::Paged}};
+    const iideck::ui::PageArrows first = layout.pageArrows(0);
+    expect(!first.previous && first.next, "the first page only points on");
+    near(first.next->x, 1920.0f - 26.0f - 64.0f, "next arrow sits 26 px from the right edge");
+    near(first.next->y, 492.0f, "arrows are vertically centred");
+    near(first.next->width, 64.0f, "arrow width is capped at 64 px");
+    near(first.next->height, 96.0f, "arrow height is 1.52 x width, capped at 96 px");
+    const iideck::ui::PageArrows middle = layout.pageArrows(1);
+    expect(middle.previous && middle.next, "a middle page points both ways");
+    near(middle.previous->x, 26.0f, "previous arrow sits 26 px from the left edge");
+    const iideck::ui::PageArrows last = layout.pageArrows(layout.pageCount() - 1);
+    expect(last.previous && !last.next, "the last page only points back");
+}
+
 } // namespace
 
 int main() {
@@ -178,6 +196,7 @@ int main() {
     pagedShrink();
     columnGrowth();
     pill();
+    arrows();
     std::printf("home_layout: all checks passed\n");
     return 0;
 }

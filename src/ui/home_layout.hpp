@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 namespace iideck::ui {
@@ -59,6 +60,12 @@ struct HomeLayoutInput {
     /// Space the shell's own chrome takes at the top and bottom, in pixels.
     float topInset{};
     float bottomInset{};
+};
+
+/// WiiSu's page arrows; an arrow is absent when there is no page that way (iiSU ys8.l).
+struct PageArrows {
+    std::optional<Rect> previous;
+    std::optional<Rect> next;
 };
 
 /// One page dot.
@@ -165,8 +172,13 @@ class HomeLayout {
 
     /// The page pill for the current page; empty when it is not drawn.
     [[nodiscard]] PagePill pagePill(int currentPage) const;
+    /// The page arrows for the current page; none outside Paged mode or with one page.
+    [[nodiscard]] PageArrows pageArrows(int currentPage) const;
 
   private:
+    /// Compactness of a small screen, 0 to 1 (iiSU ys8.h).
+    [[nodiscard]] float compactness() const noexcept;
+    [[nodiscard]] Rect arrowRect(bool previous) const noexcept;
     [[nodiscard]] int slotPages(std::size_t perPage) const noexcept;
     void computeMaxScroll();
 

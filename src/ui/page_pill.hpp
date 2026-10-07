@@ -7,8 +7,9 @@ namespace iideck::ui {
 
 class PagePillPainter {
   public:
-    /// Draws `pill`; `dp` is pixels per dp. Nothing is drawn for a pill with no dots.
-    void paint(const PagePill& pill, float dp) const;
+    /// Draws `pill` in the dark or light chrome variant; `dp` is pixels per dp. Nothing is drawn
+    /// for a pill with no dots.
+    void paint(const PagePill& pill, float dp, bool dark) const;
 };
 
 } // namespace iideck::ui
