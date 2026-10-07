@@ -26,8 +26,10 @@ struct TileVisual {
     float scale{1.0f};
     float alpha{1.0f};
     bool focused{false};
-    /// An empty WiiSu slot: chrome only.
+    /// An empty slot: chrome only.
     bool placeholder{false};
+    /// Dark or light chrome (iiSU ya0.e).
+    bool dark{false};
     float ringDegrees{0.0f};
     /// Cover art, or null for none.
     const Texture* art{nullptr};
@@ -36,14 +38,17 @@ struct TileVisual {
     std::string_view title;
 };
 
+struct ChromeVariant;
+
 class TilePainter {
   public:
     void paint(const TileVisual& tile) const;
 
   private:
-    void paintShadow(const TileGeometry& geometry, float alpha) const;
+    void paintShadow(const TileGeometry& geometry, const ChromeVariant& variant, float alpha) const;
     void paintRing(const TileGeometry& geometry, float inset, float degrees, float alpha) const;
-    void paintChrome(const TileGeometry& geometry, bool focused, float alpha) const;
+    void paintChrome(const TileGeometry& geometry, const ChromeVariant& variant, bool focused,
+                     float alpha) const;
     void paintContent(const TileVisual& tile, const TileGeometry& geometry) const;
     void paintFrame(const Rect& rect, const Platform& platform, float alpha) const;
     void paintFallback(const Rect& content, std::string_view title, float alpha) const;

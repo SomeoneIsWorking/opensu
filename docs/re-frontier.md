@@ -35,7 +35,7 @@ guessed. G002 builds only on rows marked grounded.
 Spot-checked against the decompile: setContent call, dialog state names, 3×4
 default grid, gap defaults, page-dot colour, focus scale timings, trigger
 thresholds, music loop window, D-pad repeat throttle, Been a while window,
-dark chrome literal.
+dark chrome rule (dexdump).
 
 Methods jadx fails on are read with Ghidra over the DEX bytecode
 (`shared/re-harness` `ghidra-re` skill, `DecompileMatching.java`), cited as
@@ -49,5 +49,7 @@ Methods jadx fails on are read with Ghidra over the DEX bytecode
   iiSU colour grading, and say nothing about its look.
 - `domino_icons_*` are not friend-count notification tiers; they are the section
   change cue, chosen by how many tiles the destination shows.
+- The Home grid chrome is not always dark: `ya0.e` is the theme background's luminance below 0.5.
+  Ghidra decompiled that expression to a literal `true`; dexdump shows the bytecode.
 - iiSU does not promote titles to feature tiles. Wide and tall tiles come from
   widgets and user resizing.

@@ -135,6 +135,8 @@ class Shell {
   private:
     /// Pixels per dp.
     [[nodiscard]] float dp() const noexcept;
+    /// Dark or light grid chrome for the current theme (iiSU ya0.e).
+    [[nodiscard]] static bool chromeDark() noexcept;
     [[nodiscard]] HomeLayout computeLayout() const;
     [[nodiscard]] float sinceMs(Clock::time_point then) const noexcept;
     [[nodiscard]] float scroll() const noexcept;

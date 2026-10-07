@@ -15,9 +15,6 @@ namespace fs = std::filesystem;
 constexpr float referenceWidthDp = 853.0f;
 constexpr float referenceHeightDp = 480.0f;
 
-// iiSU gh3.q: the home renderer config passes darkHeroScrim = true.
-constexpr bool homeChromeDark = true;
-
 // iiSU go4.java:1942: the Quick Access viewport is 3 rows by 4 columns.
 constexpr int viewportRows = 3;
 constexpr int viewportColumns = 4;
@@ -50,6 +47,11 @@ Shell::Shell(int width, int height, config::HomeMode mode)
 
 Shell::~Shell() {
     releaseTextures();
+}
+
+bool Shell::chromeDark() noexcept {
+    // iiSU gh3.q: the grid chrome is dark when the theme background's luminance is under half.
+    return luminance(palette::ground) < 0.5f;
 }
 
 float Shell::dp() const noexcept {
@@ -283,6 +285,7 @@ TileVisual Shell::visualFor(std::size_t slot) const {
     visual.rect = layout_.canvasRect(slot, scroll());
     visual.cell = std::min(layout_.cellWidth(), layout_.cellHeight());
     visual.placeholder = slot >= tiles_.size();
+    visual.dark = chromeDark();
     // iiSU ou4.q: an empty slot is a placeholder tile and takes focus like any other.
     visual.focused = slot == focus_.index();
     if (visual.focused) {
@@ -335,8 +338,8 @@ void Shell::draw() {
     BeginDrawing();
     hud_.drawGround();
     drawGrid();
-    pillPainter_.paint(layout_.pagePill(page_), dp(), homeChromeDark);
-    arrowPainter_.paint(layout_.pageArrows(page_), homeChromeDark);
+    pillPainter_.paint(layout_.pagePill(page_), dp(), chromeDark());
+    arrowPainter_.paint(layout_.pageArrows(page_), chromeDark());
     hud_.drawTopBar();
     hud_.drawHints();
     hud_.drawToast();

@@ -11,3 +11,8 @@ foreach(name top_bar_metrics clock_text)
     target_compile_options(${name}_test PRIVATE -Wall -Wextra -Wpedantic)
     add_test(NAME ${name} COMMAND ${name}_test)
 endforeach()
+
+add_executable(round_shape_test round_shape_test.cpp)
+target_link_libraries(round_shape_test PRIVATE iideck::ui)
+target_compile_options(round_shape_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME round_shape COMMAND round_shape_test)

@@ -90,6 +90,14 @@ Color withAlpha(Color colour, float alpha) noexcept {
     return colour;
 }
 
+float luminance(Color colour) noexcept {
+    const auto linear = [](unsigned char channel) {
+        const float c = static_cast<float>(channel) / 255.0f;
+        return c <= 0.04045f ? c / 12.92f : std::pow((c + 0.055f) / 1.055f, 2.4f);
+    };
+    return 0.2126f * linear(colour.r) + 0.7152f * linear(colour.g) + 0.0722f * linear(colour.b);
+}
+
 Color mix(Color from, Color to, float t) noexcept {
     const float c = std::clamp(t, 0.0f, 1.0f);
     const auto lerp = [c](std::uint8_t a, std::uint8_t b) {

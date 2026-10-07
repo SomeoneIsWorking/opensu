@@ -52,6 +52,8 @@ void drawTextureRound(const RoundRect& shape, const Texture& texture, Rectangle 
 
 /// A colour with its alpha scaled.
 [[nodiscard]] Color withAlpha(Color colour, float alpha) noexcept;
+/// Relative luminance, 0 to 1, from sRGB as Compose's Color.luminance computes it.
+[[nodiscard]] float luminance(Color colour) noexcept;
 /// Straight interpolation between two colours.
 [[nodiscard]] Color mix(Color from, Color to, float t) noexcept;
 
