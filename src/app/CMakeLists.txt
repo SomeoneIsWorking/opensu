@@ -5,6 +5,7 @@ target_link_libraries(iideck_app
     PUBLIC
         iideck::library
         iideck::ui
+        iideck::device
         iideck::gamepad
         iideck::launch
         iideck::steam

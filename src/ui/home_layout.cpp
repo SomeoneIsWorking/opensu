@@ -233,15 +233,24 @@ std::vector<GridCell> HomeLayout::cells() const {
     return out;
 }
 
+float HomeLayout::columnLeft(int column, int page) const noexcept {
+    // iiSU hx2.C: a page is offset by page x pageStride along the flow.
+    return paddingLeft_ + static_cast<float>(page) * pageStride_ +
+           static_cast<float>(column) * (cellWidth_ + gap_);
+}
+
+float HomeLayout::rowTop(int row) const noexcept {
+    return paddingTop_ + static_cast<float>(row) * (cellHeight_ + gap_);
+}
+
 Rect HomeLayout::contentRect(std::size_t index) const noexcept {
     const GridCell cell = cellOf(index);
     // iiSU zz1.Z: a tile spans span x cell + (span - 1) x gap.
     const auto spanColumns = static_cast<float>(cell.right - cell.left + 1);
     const auto spanRows = static_cast<float>(cell.bottom - cell.top + 1);
-    const float pageOffset = static_cast<float>(cell.page) * pageStride_;
     return Rect{
-        paddingLeft_ + pageOffset + static_cast<float>(cell.left) * (cellWidth_ + gap_),
-        paddingTop_ + static_cast<float>(cell.top) * (cellHeight_ + gap_),
+        columnLeft(cell.left, cell.page),
+        rowTop(cell.top),
         spanColumns * cellWidth_ + (spanColumns - 1.0f) * gap_,
         spanRows * cellHeight_ + (spanRows - 1.0f) * gap_,
     };

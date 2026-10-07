@@ -41,7 +41,7 @@ bool intersectsCanvas(const Rect& rect, int width, int height) noexcept {
 
 Shell::Shell(int width, int height, config::HomeMode mode)
     : mode_{mode}, width_{width}, height_{height}, layout_{HomeLayoutInput{}} {
-    hud_.setSize(width, height);
+    hud_.setSize(width, height, dp());
     relayout();
 }
 
@@ -83,7 +83,7 @@ float Shell::scroll() const noexcept {
 void Shell::setSize(int width, int height) {
     width_ = width;
     height_ = height;
-    hud_.setSize(width, height);
+    hud_.setSize(width, height, dp());
     relayout();
 }
 
@@ -214,8 +214,7 @@ bool Shell::moveFocus(Direction direction) {
     if (tiles_.empty()) {
         return false;
     }
-    const std::vector<GridCell> cells = layout_.cells();
-    if (!focus_.move(direction, cells)) {
+    if (!focus_.move(direction, FocusGrid::of(layout_))) {
         return false;
     }
     const int dx = direction == Direction::Right ? 1 : (direction == Direction::Left ? -1 : 0);
@@ -350,9 +349,8 @@ void Shell::draw() {
     hud_.drawGround();
     drawGrid();
     pillPainter_.paint(layout_.pagePill(page_), dp());
-    const library::Game* focused = focusedGame();
-    hud_.drawTopBar(focused != nullptr ? focused->title : std::string{});
-    hud_.drawPrompts();
+    hud_.drawTopBar();
+    hud_.drawHints();
     hud_.drawToast();
     EndDrawing();
 }

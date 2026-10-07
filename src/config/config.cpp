@@ -8,6 +8,8 @@
 #include <string_view>
 #include <vector>
 
+#include <langinfo.h>
+#include <locale.h>
 #include <unistd.h>
 
 #include "lucent/log.h"
@@ -145,7 +147,30 @@ EmulatorCommands parseEmulators(std::string_view raw) {
     return out;
 }
 
+/// The LC_TIME locale's clock convention; the C locale's "%H:%M:%S" when it cannot be loaded.
+bool localeClock24Hour() {
+    const locale_t locale = newlocale(LC_TIME_MASK, "", static_cast<locale_t>(nullptr));
+    if (locale == static_cast<locale_t>(nullptr)) {
+        lucent::warn("config", "the time locale could not be loaded; using a 24-hour clock");
+        return true;
+    }
+    const bool twentyFour = timeFormatIs24Hour(nl_langinfo_l(T_FMT, locale));
+    freelocale(locale);
+    return twentyFour;
+}
+
 } // namespace
+
+bool timeFormatIs24Hour(std::string_view format) noexcept {
+    for (std::size_t at = format.find('%'); at != std::string_view::npos && at + 1 < format.size();
+         at = format.find('%', at + 2)) {
+        const char directive = format[at + 1];
+        if (directive == 'I' || directive == 'l' || directive == 'r') {
+            return false;
+        }
+    }
+    return true;
+}
 
 const Config& read() {
     // Deliberately function-local: the environment is read once and never again,
@@ -163,6 +188,7 @@ const Config& read() {
         }
         value.gamepadNameFilter = std::string{env("IIDECK_GAMEPAD")};
         value.homeMode = envHomeMode("IIDECK_HOME_MODE", value.homeMode);
+        value.clock24Hour = localeClock24Hour();
         value.width = envInt("IIDECK_WIDTH", value.width);
         value.height = envInt("IIDECK_HEIGHT", value.height);
         value.controlPort = envPort("IIDECK_CONTROL_PORT", value.controlPort);

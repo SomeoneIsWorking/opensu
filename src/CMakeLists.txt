@@ -2,7 +2,7 @@
 #
 # Layout follows one owner per subsystem: the library model and its per-store
 # sources, the controller reader, the launch handoff, the Steam client, the nested
-# session, and the drawn shell. Entry points compose; nothing here reaches into
+# session, host device state, and the drawn shell. Entry points compose; nothing here reaches into
 # another's internals.
 
 add_subdirectory(vdf)
@@ -12,6 +12,7 @@ add_subdirectory(gamepad)
 add_subdirectory(launch)
 add_subdirectory(steam)
 add_subdirectory(session)
+add_subdirectory(device)
 add_subdirectory(ui)
 add_subdirectory(app)
 

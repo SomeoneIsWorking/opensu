@@ -75,32 +75,44 @@ Rebuilt from iiSU's decompiled code (`reference/iisu/home-grid.md`, `motion.md`,
   peeking past a 36 dp gap, page changes instant, and the page pill (`wf7`).
 
 Owners: `HomeLayout` (geometry, pure), `GridFocus` (neighbour search with
-remembered row and column, pure), `tile_motion` (focus scale, domino entrance,
+remembered row and column, then iiSU's pixel pass over every page's frames, which
+is how focus crosses pages; pure), `tile_motion` (focus scale, domino entrance,
 pulse, ring rotation, scroll easing; all time-based, pure), `TilePainter` (shadow,
 sweep focus ring, glass chrome, cover-cropped art, platform frame, fallback
-letter, in `tx2`/`tw2` draw order) and `PagePillPainter`. The shell composes them
-under the top bar, prompts and toast in `Hud`. There are no feature tiles, badges
-or hint chips; iiSU has none on the home grid.
+letter, in `tx2`/`tw2` draw order, always the dark variant as iiSU's home config
+fixes `darkHeroScrim`) and `PagePillPainter` (dark variant). The shell composes
+them under `Hud`: iiSU's single-screen top bar (`TopBarMetrics` for is7/hs7/a32.o
+sizes, `StatusPillPainter` for the bell, clock, battery and R2 glyph, `ClockText`
+for o28.g's format and k42's minute tick), the corner hints and iideck's toast.
+The battery comes from `device::BatteryReader` (sysfs, system scope only); the
+12/24-hour choice from the LC_TIME locale in `config`. Home shows no title pill,
+as iiSU's does not. There are no feature tiles or badges; iiSU has none on the
+home grid.
 
 Verified by `tests/ui` (layout numbers hand-computed from `hx2.g` and `zj2`,
-neighbour rules, motion curves, tile geometry from `tj2.V`) and by rendering both
-modes offscreen at 1280×800 and 1920×1080 and looking at them.
+neighbour and page-crossing rules, motion curves, tile geometry from `tj2.V`,
+top-bar sizes at 640/853/1280 dp, clock formats and battery icon slots),
+`tests/device` (battery parsing from a fake sysfs) and by rendering both modes
+offscreen at 1280×800 and 1920×1080 and looking at them.
 
 Stopgaps, each marked in code:
 
 - dp is `min(W/853, H/480)`; iiSU's density comes from Android.
 - WiiSu's 12 dp horizontal padding is not applied and `zj2` takes the grid gap as
   its spacing; the call site's arguments are unresolved.
-- Focus falls back to a search without the lane requirement, and crossing a
-  WiiSu page edge lands on the adjacent page's edge column; iiSU's page-crossing
-  path is unresolved.
-- Chrome is always the light variant; the dark-chrome flag (`ya0.e`) is
-  unresolved.
+- `hx2.z`'s cross-flow fallback for multi-lane tiles is not ported; every home
+  tile is 1x1.
+- Top bar: glass is the fill only (no blur, border or shadow); the `jj2.w` strip
+  is not drawn; the bell is drawn at the progress ring's size; the status text row
+  is centred after the bell; text ink is the icons' `#4D4655`; the hint row uses
+  scale 1 and the status pill's font; the bottom inset is `dl3.j`'s 24 dp.
+- The battery is re-read on the clock's minute tick; there is no uevent listener.
 
-Gaps: the page pill overlaps the bottom of the top bar's title pill by about
-10 px, because iiSU's own top bar is not reverse-engineered and ours was kept;
-items are ordered by install state and recency rather than iiSU's user
-arrangement; held keyboard directions repeat every frame.
+Gaps: items are ordered by install state and recency rather than iiSU's user
+arrangement; WiiSu placeholders do not take focus as they do in iiSU; held
+keyboard directions repeat every frame. The top bar's R2 glyph and bell hint at
+notifications iideck does not have, and iiSU's "B Back" hint is "A Play" because
+iideck has no Back action.
 
 Offscreen rendering is how the layout became checkable at all: the shell is a
 Wayland window, which this machine's screenshot tooling cannot see. raylib
@@ -265,7 +277,8 @@ appended to `~/.steam/steam/logs/connection_log.txt` after the start, Failed whe
 the scope empties, Blocked when `~/.steam/steam.pid` names a live client outside
 iideck. Steam launches wait for Ready, and are refused with a named message when
 Blocked or Failed. On exit it runs `steam -shutdown`, waits up to 20 s, then stops
-the scope. The state shows in the top bar (starting, ready, failed, on desktop)
+the scope. The state shows at the top bar's left, in the friends slot iideck leaves
+empty (starting, ready, failed, on desktop)
 and in `/state` as `steam`. Tested with a fake home and fake `steam`; a real Steam
 has not been started by this code, and the ready marker is as measured on one
 machine.

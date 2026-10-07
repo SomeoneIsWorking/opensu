@@ -1,14 +1,20 @@
-// hud — the chrome drawn around the home grid: ground, top bar, prompts, toast.
+// hud — the chrome drawn around the home grid: ground, top bar, corner hints, toast.
 //
-// iiSU's top bar is only partly recovered (home-grid.md §2), so this keeps
-// iideck's own bar rather than inventing one.
+// The top bar is iiSU's single-screen row (home-grid.md §2.2): an empty friends
+// slot, an empty centre title slot (Home shows no title) and the status pill.
 #pragma once
 
 #include <chrono>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "raylib.h"
+
+#include "device/battery.hpp"
+#include "glass.hpp"
+#include "status_pill.hpp"
+#include "top_bar_metrics.hpp"
 
 namespace iideck::ui {
 
@@ -53,11 +59,12 @@ class Hud {
     /// How long a toast stays up.
     static constexpr std::chrono::milliseconds toastLifetime{4000};
 
-    void setSize(int width, int height) noexcept;
+    /// The window in pixels and its pixels per dp.
+    void setSize(int width, int height, float dp) noexcept;
 
-    /// Height the top bar takes from the grid, in pixels.
+    /// Height the top bar takes from the grid, in pixels (iiSU dl3.i).
     [[nodiscard]] float topInset() const noexcept;
-    /// Height the prompt row takes from the grid, in pixels.
+    /// Height the bottom chrome takes from the grid, in pixels (iiSU dl3.j).
     [[nodiscard]] float bottomInset() const noexcept;
 
     void setStatus(std::string text) {
@@ -65,6 +72,9 @@ class Hud {
     }
     void setClock(std::string text) {
         clock_ = std::move(text);
+    }
+    void setBattery(std::optional<device::BatteryStatus> battery) noexcept {
+        battery_ = battery;
     }
     void setSteamState(ServiceState state) noexcept {
         steamState_ = state;
@@ -84,25 +94,28 @@ class Hud {
     }
 
     void drawGround() const;
-    /// The top bar, with the focused title in its centre pill.
-    void drawTopBar(const std::string& focusedTitle) const;
-    void drawPrompts() const;
+    void drawTopBar() const;
+    void drawHints() const;
     void drawToast() const;
 
   private:
-    /// One hundredth of the window's shorter side, the HUD's base unit.
+    /// One hundredth of the window's shorter side, the unit of iideck's own chrome.
     [[nodiscard]] float unit() const noexcept;
-    [[nodiscard]] Rectangle topPillRect() const noexcept;
-    void drawServiceStatus(float right, float centreY) const;
+    [[nodiscard]] TopBarMetrics metrics() const noexcept;
+    void drawServiceStatus(float left, float centreY) const;
 
     int width_{};
     int height_{};
+    float dp_{1.0f};
     std::string status_;
     std::string clock_;
+    std::optional<device::BatteryStatus> battery_;
     ServiceState steamState_{ServiceState::Hidden};
     std::string toast_;
     bool toastError_{false};
     Clock::time_point toastUntil_{};
+    StatusPillPainter statusPill_;
+    GlassPainter glass_;
 };
 
 } // namespace iideck::ui

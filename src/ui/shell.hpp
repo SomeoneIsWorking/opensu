@@ -127,6 +127,9 @@ class Shell {
     void setSteamState(ServiceState state) noexcept {
         hud_.setSteamState(state);
     }
+    void setBattery(std::optional<device::BatteryStatus> battery) noexcept {
+        hud_.setBattery(battery);
+    }
 
   private:
     /// Pixels per dp.

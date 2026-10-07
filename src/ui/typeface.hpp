@@ -9,6 +9,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "raylib.h"
 
@@ -52,6 +53,8 @@ class Typeface {
     static constexpr int probeSize = 16;
     static constexpr int entries_ = 16;
     Entry* cache_{};
+    /// The codepoints every per-size atlas holds.
+    std::vector<int> codepoints_;
 };
 
 /// The shell's typefaces. One process-wide instance, because the font atlas is

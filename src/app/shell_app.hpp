@@ -18,6 +18,7 @@
 
 #include "config/config.hpp"
 #include "control_channel.hpp"
+#include "device/battery.hpp"
 #include "gamepad/reader.hpp"
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
@@ -98,11 +99,15 @@ class ShellApp final : public ControlTarget {
     /// Closes the running launch once Guide has been held long enough. Main loop only.
     void serviceForceClose();
     void showDetails();
+    /// Re-reads the clock and the battery and schedules the next minute boundary.
     void refreshClock();
     void pushCatalogToShell();
 
     Settings settings_;
     library::Catalog catalog_;
+    device::BatteryReader battery_;
+    /// When the clock next changes, on the minute boundary.
+    std::chrono::steady_clock::time_point nextClockTick_{};
     ui::Shell shell_;
     gamepad::Reader pad_;
 

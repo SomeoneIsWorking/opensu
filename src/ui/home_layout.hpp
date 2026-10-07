@@ -148,6 +148,11 @@ class HomeLayout {
     /// Every item's cell, in index order.
     [[nodiscard]] std::vector<GridCell> cells() const;
 
+    /// Left edge of `column` on `page` in content space (iiSU qv7.y plus the page offset).
+    [[nodiscard]] float columnLeft(int column, int page) const noexcept;
+    /// Top edge of `row` in content space (iiSU qv7.y).
+    [[nodiscard]] float rowTop(int row) const noexcept;
+
     /// A slot's rectangle in content space, before scrolling.
     [[nodiscard]] Rect contentRect(std::size_t index) const noexcept;
     /// A slot's rectangle on the canvas at a scroll offset.

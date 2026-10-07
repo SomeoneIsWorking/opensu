@@ -18,3 +18,5 @@ set_tests_properties(config_home_wiisu PROPERTIES
     ENVIRONMENT_MODIFICATION "IIDECK_HOME_MODE=set:wiisu")
 set_tests_properties(config_home_invalid PROPERTIES
     ENVIRONMENT_MODIFICATION "IIDECK_HOME_MODE=set:paged")
+
+add_test(NAME config_time_format COMMAND config_test time-format)

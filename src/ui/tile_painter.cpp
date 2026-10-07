@@ -16,12 +16,10 @@
 namespace iideck::ui {
 namespace {
 
-// STOPGAP: light chrome values throughout because iiSU's home dark-chrome flag (ya0.e) is
-// set where the decompile is missing (home-grid.md §4, §5.6).
-constexpr bool darkChrome = false;
-// iiSU tx2.a: k and j by darkness.
-constexpr float chromeK = darkChrome ? 0.92f : 1.65f;
-constexpr float chromeJ = darkChrome ? 0.82f : 1.0f;
+// iiSU gh3.q builds the home ya0 with darkHeroScrim = true, so home chrome is always dark.
+// iiSU tx2.a: k and j for dark chrome.
+constexpr float chromeK = 0.92f;
+constexpr float chromeJ = 0.82f;
 
 // iiSU xe4.h: default focus ring stops, evenly spaced.
 constexpr std::array<Color, 10> ringStops{
@@ -122,12 +120,12 @@ void TilePainter::paint(const TileVisual& tile) const {
 }
 
 void TilePainter::paintShadow(const TileGeometry& geometry, float alpha) const {
-    // iiSU tx2.b, light values.
+    // iiSU tx2.b, dark values.
     const float stroke = geometry.outerStroke;
-    const float blur = std::max(2.5f, stroke * (darkChrome ? 1.75f : 2.0f));
+    const float blur = std::max(2.5f, stroke * 1.75f);
     const float spread = std::max(0.75f, 1.25f * stroke);
     const float offsetY = std::max(1.25f, 2.1f * stroke);
-    const Color shadow = alphaColour(0, 0, 0, (darkChrome ? 0.16f : 0.13f) * alpha);
+    const Color shadow = alphaColour(0, 0, 0, 0.16f * alpha);
     RoundRect shape{geometry.outer, geometry.outerRadius};
     shape = shape.grown(spread);
     shape.rect.y += offsetY;
@@ -216,24 +214,22 @@ void TilePainter::paintChrome(const TileGeometry& geometry, bool focused, float 
     }
 
     // 3. A soft white glow just outside the content rect.
-    const float glowAlpha =
-        std::min((darkChrome ? 0.14f : 0.18f) * chromeK, darkChrome ? 0.2f : 0.28f);
+    const float glowAlpha = std::min(0.14f * chromeK, 0.2f);
     const RoundRect glow =
         RoundRect{geometry.content, geometry.contentRadius}.grown(std::max(0.38f * frame, 1.6f));
     const Color glowColour = alphaColour(255, 255, 255, glowAlpha * alpha);
-    strokeSoft(glow, std::clamp(frame * (darkChrome ? 0.72f : 0.82f), 3.4f, 8.2f),
-               std::clamp(frame * (darkChrome ? 0.56f : 0.64f), 2.6f, 6.5f), clip,
-               [glowColour](Vector2, float) {
+    strokeSoft(glow, std::clamp(frame * 0.72f, 3.4f, 8.2f), std::clamp(frame * 0.56f, 2.6f, 6.5f),
+               clip, [glowColour](Vector2, float) {
                    return glowColour;
                });
 
     // 4. A crisp white edge; 5. a second, stronger one when focused.
-    const Color edge = alphaColour(255, 255, 255, (darkChrome ? 0.34f : 0.58f) * alpha);
+    const Color edge = alphaColour(255, 255, 255, 0.34f * alpha);
     strokeSoft(strokeRect, std::clamp(stroke, 1.0f, 2.25f), 0.0f, clip, [edge](Vector2, float) {
         return edge;
     });
     if (focused) {
-        const Color bright = alphaColour(255, 255, 255, (darkChrome ? 0.46f : 0.72f) * alpha);
+        const Color bright = alphaColour(255, 255, 255, 0.46f * alpha);
         strokeSoft(strokeRect, std::clamp(1.18f * stroke, 1.3f, 2.4f), 0.0f, clip,
                    [bright](Vector2, float) {
                        return bright;

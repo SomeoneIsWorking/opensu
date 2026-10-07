@@ -9,16 +9,17 @@
 namespace iideck::ui {
 namespace {
 
-// iiSU wf7.n, light values (see the dark-chrome STOPGAP in tile_painter.cpp).
+// iiSU wf7.n, dark values: the home ya0 has darkHeroScrim = true (gh3.q).
 constexpr Color nearShadow{0, 0, 0, 0x22};
 constexpr Color farShadow{0, 0, 0, 0x14};
-constexpr Color body{0xFF, 0xFF, 0xFF, 250};
-constexpr Color outerStroke{0xFF, 0xFF, 0xFF, 0xF2};
-constexpr Color innerStroke{0xFF, 0xFF, 0xFF, 0xDF};
-// iiSU wf7.l: lime active dot with a green halo; light inactive dot.
+// iiSU vi5.s #222933 at alpha 214.
+constexpr Color body{0x22, 0x29, 0x33, 214};
+constexpr Color outerStroke{0xFF, 0xFF, 0xFF, 0x66};
+constexpr Color innerStroke{0xFF, 0xFF, 0xFF, 0x24};
+// iiSU wf7.l: lime active dot with a green halo; dark inactive dot.
 constexpr Color activeDot{0x7C, 0xFF, 0x4F, 0xFF};
 constexpr Color halo{0xB8, 0xFF, 0x8A, 0x55};
-constexpr Color inactiveDot{0x4D, 0x46, 0x55, 0x84};
+constexpr Color inactiveDot{0xFF, 0xFF, 0xFF, 0x78};
 
 VertexColour flat(Color colour) {
     return [colour](Vector2, float) {

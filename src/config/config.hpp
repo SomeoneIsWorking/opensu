@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace iideck::config {
@@ -49,6 +50,9 @@ struct Config {
     /// The home grid's dashboard mode, from IIDECK_HOME_MODE (`standard` or `wiisu`).
     HomeMode homeMode{HomeMode::Standard};
 
+    /// Whether the clock reads 24-hour time, from the LC_TIME locale's time format.
+    bool clock24Hour{true};
+
     /// Window size.
     int width{1280};
     int height{800};
@@ -75,6 +79,10 @@ struct Config {
     /// The directories searched for a launch's program, from PATH.
     std::vector<std::filesystem::path> executablePath;
 };
+
+/// Whether a POSIX time format (nl_langinfo T_FMT) is 24-hour, i.e. has no 12-hour directive
+/// (%I, %l or %r).
+[[nodiscard]] bool timeFormatIs24Hour(std::string_view format) noexcept;
 
 /// Reads the environment once and returns the same value thereafter. Values that
 /// cannot be parsed fall back to the default and are reported.

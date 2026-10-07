@@ -14,6 +14,7 @@
 
 #include "config/config.hpp"
 #include "lucent/log.h"
+#include "ui/clock_text.hpp"
 
 namespace iideck::app {
 namespace {
@@ -46,15 +47,6 @@ ui::ServiceState serviceState(launch::SteamState state) {
     return ui::ServiceState::Hidden;
 }
 
-std::string clockNow() {
-    const std::time_t now = std::time(nullptr);
-    std::tm parts{};
-    localtime_r(&now, &parts);
-    char text[16]{};
-    std::strftime(text, sizeof(text), "%H:%M", &parts);
-    return text;
-}
-
 } // namespace
 
 ShellApp::ShellApp(Settings settings)
@@ -63,7 +55,7 @@ ShellApp::ShellApp(Settings settings)
       steam_{steam::Client::Options{config::read().home, config::read().executablePath,
                                     config::read().session}},
       handoff_{config::read().executablePath, config::read().session, steam_} {
-    shell_.setClock(clockNow());
+    refreshClock();
     // The platform table frames every tile. Loaded before the catalog, because the
     // frames are resolved as the grid is laid out.
     shell_.setPlatforms(ui::Platforms::load(ui::defaultPlatformRoot()));
@@ -294,7 +286,19 @@ void ShellApp::showDetails() {
 }
 
 void ShellApp::refreshClock() {
-    shell_.setClock(clockNow());
+    const auto now = std::chrono::system_clock::now();
+    const std::time_t seconds = std::chrono::system_clock::to_time_t(now);
+    std::tm parts{};
+    localtime_r(&seconds, &parts);
+    const auto millisecond = static_cast<int>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() %
+        1000);
+    shell_.setClock(ui::ClockText::format(parts.tm_hour, parts.tm_min, config::read().clock24Hour));
+    nextClockTick_ = std::chrono::steady_clock::now() +
+                     ui::ClockText::untilNextMinute(parts.tm_sec, millisecond);
+    // STOPGAP: the battery is re-read on the clock's minute tick because iideck has no
+    // power_supply uevent listener standing in for iiSU's ACTION_BATTERY_CHANGED receiver.
+    shell_.setBattery(battery_.read());
 }
 
 bool ShellApp::renderFrameToPng(std::string& png) {
@@ -509,7 +513,6 @@ int ShellApp::run() {
         steam_.start();
     }
 
-    int clockFrames = 0;
     while (!closeRequested_.load() && !WindowShouldClose()) {
         // A resize changes the framebuffer, so the layout has to be recomputed
         // before anything is drawn into it. Checked every frame because there is
@@ -533,8 +536,8 @@ int ShellApp::run() {
             shell_.draw();
         }
 
-        if (++clockFrames >= 600) {
-            clockFrames = 0;
+        // iiSU k42: the clock re-renders on the minute boundary.
+        if (std::chrono::steady_clock::now() >= nextClockTick_) {
             refreshClock();
         }
     }

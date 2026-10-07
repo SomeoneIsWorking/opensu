@@ -2,6 +2,7 @@
 #include "grid_focus.hpp"
 
 #include <cstdio>
+#include <utility>
 #include <vector>
 
 #include "check.hpp"
@@ -11,10 +12,12 @@ namespace {
 
 using iideck::test::expect;
 using iideck::ui::Direction;
+using iideck::ui::FocusGrid;
 using iideck::ui::GridCell;
 using iideck::ui::GridFocus;
 using iideck::ui::HomeLayout;
 using iideck::ui::HomeLayoutInput;
+using iideck::ui::Rect;
 using iideck::ui::ScrollMode;
 
 HomeLayout window(std::size_t items, ScrollMode mode) {
@@ -27,90 +30,138 @@ HomeLayout window(std::size_t items, ScrollMode mode) {
                                       .bottomInset = 40.0f}};
 }
 
-GridFocus at(const std::vector<GridCell>& cells, std::size_t index) {
+GridFocus at(const FocusGrid& grid, std::size_t index) {
     GridFocus focus;
-    focus.reset(index, cells[index]);
+    focus.reset(index, grid.cells[index]);
     return focus;
+}
+
+/// A hand-made grid: 100 px lanes, pages 1000 px apart.
+FocusGrid handGrid(std::vector<GridCell> cells) {
+    FocusGrid grid;
+    for (const GridCell& cell : cells) {
+        grid.frames.push_back(Rect{static_cast<float>(cell.page * 1000 + cell.left * 100),
+                                   static_cast<float>(cell.top * 100),
+                                   static_cast<float>((cell.right - cell.left + 1) * 100),
+                                   static_cast<float>((cell.bottom - cell.top + 1) * 100)});
+    }
+    grid.cells = std::move(cells);
+    grid.rowCentres = {50.0f, 150.0f, 250.0f};
+    grid.columnCentres = {50.0f, 150.0f, 250.0f};
+    grid.pageStride = 1000.0f;
+    grid.pageCount = 2;
+    grid.columns = 3;
+    grid.paged = true;
+    return grid;
 }
 
 void flowNeighbours() {
     // 11 items: columns 0-2 full, column 3 holds rows 0 and 1.
-    const std::vector<GridCell> cells = window(11, ScrollMode::Flow).cells();
-    GridFocus focus = at(cells, 4);
-    expect(focus.move(Direction::Up, cells) && focus.index() == 3, "up stays in the column");
-    expect(focus.move(Direction::Down, cells) && focus.index() == 4, "down stays in the column");
-    expect(focus.move(Direction::Right, cells) && focus.index() == 7, "right keeps the row");
-    expect(focus.move(Direction::Left, cells) && focus.index() == 4, "left keeps the row");
+    const FocusGrid grid = FocusGrid::of(window(11, ScrollMode::Flow));
+    GridFocus focus = at(grid, 4);
+    expect(focus.move(Direction::Up, grid) && focus.index() == 3, "up stays in the column");
+    expect(focus.move(Direction::Down, grid) && focus.index() == 4, "down stays in the column");
+    expect(focus.move(Direction::Right, grid) && focus.index() == 7, "right keeps the row");
+    expect(focus.move(Direction::Left, grid) && focus.index() == 4, "left keeps the row");
 }
 
 void noWrap() {
-    const std::vector<GridCell> cells = window(11, ScrollMode::Flow).cells();
-    GridFocus focus = at(cells, 0);
-    expect(!focus.move(Direction::Left, cells) && focus.index() == 0, "no wrap at the left edge");
-    expect(!focus.move(Direction::Up, cells) && focus.index() == 0, "no wrap at the top edge");
-    focus = at(cells, 2);
-    expect(!focus.move(Direction::Down, cells) && focus.index() == 2, "no wrap at the bottom edge");
-    focus = at(cells, 10);
-    expect(!focus.move(Direction::Right, cells) && focus.index() == 10,
+    const FocusGrid grid = FocusGrid::of(window(11, ScrollMode::Flow));
+    GridFocus focus = at(grid, 0);
+    expect(!focus.move(Direction::Left, grid) && focus.index() == 0, "no wrap at the left edge");
+    expect(!focus.move(Direction::Up, grid) && focus.index() == 0, "no wrap at the top edge");
+    focus = at(grid, 2);
+    expect(!focus.move(Direction::Down, grid) && focus.index() == 2, "no wrap at the bottom edge");
+    focus = at(grid, 10);
+    expect(!focus.move(Direction::Right, grid) && focus.index() == 10,
            "no wrap past the last column");
 }
 
-void rememberedRowAcrossShortColumn() {
-    const std::vector<GridCell> cells = window(11, ScrollMode::Flow).cells();
-    GridFocus focus = at(cells, 8);
-    expect(focus.move(Direction::Right, cells) && focus.index() == 10,
-           "into a short column, the nearest row to the remembered one");
-    expect(focus.rememberedRow() == 2, "the intended row is kept");
-    expect(focus.move(Direction::Left, cells) && focus.index() == 8,
-           "back out, focus returns to the remembered row");
+void shortColumn() {
+    const FocusGrid grid = FocusGrid::of(window(11, ScrollMode::Flow));
+    GridFocus focus = at(grid, 8);
+    expect(!focus.move(Direction::Right, grid) && focus.index() == 8,
+           "a short column with no tile on the remembered row is not entered");
+    focus = at(grid, 7);
+    expect(focus.move(Direction::Right, grid) && focus.index() == 10,
+           "a short column is entered on a row it has");
 }
 
 void ranking() {
     // Current spans columns 1-2 on row 2; moving up.
-    const std::vector<GridCell> cells{
+    const FocusGrid grid = handGrid({
         GridCell{1, 2, 2, 2, 0}, // 0: current
         GridCell{0, 1, 0, 1, 0}, // 1: one row up, no column overlap
         GridCell{1, 0, 1, 0, 0}, // 2: two rows up, overlaps
         GridCell{2, 1, 2, 1, 0}, // 3: one row up, overlaps, one lane from memory
         GridCell{1, 1, 1, 1, 0}, // 4: one row up, overlaps, on the remembered lane
         GridCell{1, 1, 1, 1, 1}, // 5: same as 4 on another page
-    };
-    GridFocus focus = at(cells, 0);
-    expect(focus.move(Direction::Up, cells) && focus.index() == 4,
+    });
+    GridFocus focus = at(grid, 0);
+    expect(focus.move(Direction::Up, grid) && focus.index() == 4,
            "overlap, then gap, then remembered column");
 
-    const std::vector<GridCell> overlapFirst{
+    const FocusGrid overlapFirst = handGrid({
         GridCell{1, 2, 1, 2, 0}, // current
         GridCell{0, 1, 0, 1, 0}, // nearer but not overlapping
         GridCell{1, 0, 1, 0, 0}, // further but overlapping
-    };
+    });
     focus = at(overlapFirst, 0);
     expect(focus.move(Direction::Up, overlapFirst) && focus.index() == 2,
            "an overlapping cell beats a nearer one");
 
-    const std::vector<GridCell> tie{
+    const FocusGrid tie = handGrid({
         GridCell{1, 1, 1, 1, 0}, // current
         GridCell{0, 0, 2, 0, 0}, // same rank as the next
         GridCell{0, 0, 2, 0, 0},
-    };
+    });
     focus = at(tie, 0);
     expect(focus.move(Direction::Up, tie) && focus.index() == 1, "ties go to the lower index");
 }
 
+void pixelPassScore() {
+    // Off the page edge, a nearer tile off the remembered row loses to one on it.
+    const FocusGrid grid = handGrid({
+        GridCell{2, 1, 2, 1, 0}, // 0: current, last column, row 1
+        GridCell{0, 0, 1, 1, 1}, // 1: next page, rows 0-1, covers row 1
+        GridCell{0, 2, 0, 2, 1}, // 2: next page, row 2 only
+        GridCell{1, 1, 1, 1, 1}, // 3: next page, row 1, one column further
+    });
+    GridFocus focus = at(grid, 0);
+    expect(focus.move(Direction::Right, grid) && focus.index() == 1,
+           "the nearest frame covering the remembered row wins");
+    expect(focus.rememberedColumn() == 0, "landing on a page takes its entered column");
+}
+
 void pageCrossing() {
     // 5 columns x 3 rows per page; 37 items over 3 pages.
-    const std::vector<GridCell> cells = window(37, ScrollMode::Paged).cells();
-    GridFocus focus = at(cells, 13);
-    expect(focus.move(Direction::Right, cells) && focus.index() == 16,
+    const FocusGrid grid = FocusGrid::of(window(37, ScrollMode::Paged));
+    GridFocus focus = at(grid, 13);
+    expect(focus.move(Direction::Right, grid) && focus.index() == 16,
            "right off a page lands on the next page's first column, same row");
-    expect(focus.move(Direction::Left, cells) && focus.index() == 13,
+    expect(focus.move(Direction::Left, grid) && focus.index() == 13,
            "left off a page lands on the previous page's last column, same row");
-    focus = at(cells, 0);
-    expect(!focus.move(Direction::Left, cells), "no page before the first");
-    focus = at(cells, 36);
-    expect(!focus.move(Direction::Right, cells), "no page after the last");
-    focus = at(cells, 14);
-    expect(!focus.move(Direction::Down, cells), "up and down never leave the page");
+    focus = at(grid, 14);
+    expect(focus.move(Direction::Right, grid) && focus.index() == 17, "the bottom row crosses");
+    focus = at(grid, 0);
+    expect(!focus.move(Direction::Left, grid), "no page before the first");
+    focus = at(grid, 36);
+    expect(!focus.move(Direction::Right, grid), "no page after the last");
+    focus = at(grid, 14);
+    expect(!focus.move(Direction::Down, grid), "up and down never leave the page");
+}
+
+void pageCrossingNeedsRow() {
+    // 16 items: page 1 holds one tile, on row 0.
+    const FocusGrid grid = FocusGrid::of(window(16, ScrollMode::Paged));
+    GridFocus focus = at(grid, 14);
+    expect(!focus.move(Direction::Right, grid) && focus.index() == 14,
+           "no tile on the next page covers the remembered row");
+    expect(focus.move(Direction::Up, grid) && focus.move(Direction::Up, grid) &&
+               focus.index() == 12,
+           "up the last column");
+    expect(focus.move(Direction::Right, grid) && focus.index() == 15,
+           "the next page's tile on the remembered row");
 }
 
 } // namespace
@@ -118,9 +169,11 @@ void pageCrossing() {
 int main() {
     flowNeighbours();
     noWrap();
-    rememberedRowAcrossShortColumn();
+    shortColumn();
     ranking();
+    pixelPassScore();
     pageCrossing();
+    pageCrossingNeedsRow();
     std::printf("grid_focus: all checks passed\n");
     return 0;
 }

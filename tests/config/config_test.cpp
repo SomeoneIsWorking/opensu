@@ -23,6 +23,17 @@ int main(int argc, char** argv) {
     expect(argc == 2, "one argument naming the case");
     const iideck::config::Config& config = iideck::config::read();
     const std::string which{argv[1]};
+    using iideck::config::timeFormatIs24Hour;
+    if (which == "time-format") {
+        expect(timeFormatIs24Hour("%H:%M:%S"), "the C locale is 24-hour");
+        expect(timeFormatIs24Hour("%T"), "%T is 24-hour");
+        expect(!timeFormatIs24Hour("%r"), "en_US's %r is 12-hour");
+        expect(!timeFormatIs24Hour("%I:%M:%S %p"), "%I is 12-hour");
+        expect(!timeFormatIs24Hour("%l:%M %p"), "%l is 12-hour");
+        expect(timeFormatIs24Hour("%%I %H"), "an escaped percent is not a directive");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
     using iideck::config::HomeMode;
     if (which == "home-default" || which == "home-invalid") {
         expect(config.homeMode == HomeMode::Standard, "an unset or unknown home mode is Standard");

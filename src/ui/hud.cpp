@@ -1,46 +1,52 @@
 #include "hud.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
+#include <utility>
 
+#include "clock_text.hpp"
 #include "typeface.hpp"
 
 namespace iideck::ui {
 namespace {
 
-void fillRounded(Rectangle rect, float roundness, Color colour) {
-    DrawRectangleRounded(rect, roundness, 12, colour);
-}
-
-// The prompt row sits this many units above the bottom edge, its caps this tall.
-constexpr float promptBaselineUnits = 3.0f;
-constexpr float promptTextUnits = 1.1f;
-constexpr float promptCapPaddingUnits = 0.9f;
+// iiSU mw5.h: ("B", "Back") and ("-", "Details"). iideck has no Back action, so the first entry
+// is its primary action; Select opens details, as "-" does in iiSU.
+constexpr std::array<std::pair<const char*, const char*>, 2> hints{
+    std::pair{"A", "Play"},
+    std::pair{"-", "Details"},
+};
+// STOPGAP: hint text and glyph sizes follow the status pill's font because a32.b's text style
+// from mw5.h is not in the spec.
+constexpr float hintGlyphScale = 1.3f;
+// iiSU res/drawable/bell_icon.png ink, for the hint glyphs and labels.
+constexpr Color hintInk{0x4D, 0x46, 0x55, 255};
 
 } // namespace
 
-void Hud::setSize(int width, int height) noexcept {
+void Hud::setSize(int width, int height, float dp) noexcept {
     width_ = width;
     height_ = height;
+    dp_ = dp;
 }
 
 float Hud::unit() const noexcept {
     return static_cast<float>(std::min(width_, height_)) / 100.0f;
 }
 
-Rectangle Hud::topPillRect() const noexcept {
-    const float u = unit();
-    const float height = u * 6.0f;
-    const float width = static_cast<float>(width_) * 0.42f;
-    return Rectangle{(static_cast<float>(width_) - width) / 2.0f, u * 1.5f, width, height};
+TopBarMetrics Hud::metrics() const noexcept {
+    return TopBarMetrics{static_cast<float>(width_) / dp_};
 }
 
 float Hud::topInset() const noexcept {
-    const Rectangle pill = topPillRect();
-    return pill.y + pill.height;
+    return metrics().gridTopInset() * dp_;
 }
 
 float Hud::bottomInset() const noexcept {
-    return unit() * (promptBaselineUnits + promptTextUnits + promptCapPaddingUnits);
+    // STOPGAP: dl3.j's "not minimal, no prompt row" value because jj2.q0, which sizes the prompt
+    // row case, is not in the spec.
+    return TopBarMetrics::bottomInset * dp_;
 }
 
 void Hud::setToast(std::string text, bool isError, Clock::time_point now) {
@@ -68,35 +74,29 @@ void Hud::drawGround() const {
     }
 }
 
-void Hud::drawTopBar(const std::string& focusedTitle) const {
-    const float u = unit();
-    const Rectangle pill = topPillRect();
-    fillRounded(pill, 0.5f, Color{0x7c, 0x5c, 0xff, 0x24});
-    DrawRectangleRoundedLinesEx(pill, 0.5f, 12, std::max(u * 0.12f, 1.0f),
-                                Color{0x7c, 0x5c, 0xff, 0x40});
+void Hud::drawTopBar() const {
+    // iiSU mw5.l single-screen Row: top 8, end 8, friends | title (weight 1) | status, all Top.
+    const TopBarMetrics m = metrics();
+    const float dp = dp_;
+    const float width = static_cast<float>(width_);
+    const float top = TopBarMetrics::rowPaddingTop * dp;
+    const StatusPillMetrics pill = m.statusPill(ClockText::hasLetters(clock_));
+    const float aspect = std::max(width, static_cast<float>(height_)) /
+                         std::max(std::min(width, static_cast<float>(height_)), 1.0f);
+    // The status box ends at the row's end padding and is offset by the device class rule.
+    const float boxRight = width - TopBarMetrics::rowPaddingEnd * dp + m.statusOffsetX(aspect) * dp;
+    const Rect body{boxRight - (m.sizing().endPadding + pill.width) * dp, top, pill.width * dp,
+                    pill.height * dp};
+    statusPill_.paint(StatusPillView{body, pill, dp, clock_, battery_});
+    // STOPGAP: jj2.w's glass strip behind the status pill is not drawn because its geometry is
+    // not in the spec.
 
-    if (!focusedTitle.empty()) {
-        const int size = static_cast<int>(u * 2.2f);
-        const float textWidth = type().measure(focusedTitle, size);
-        type().draw(focusedTitle.c_str(), pill.x + (pill.width - textWidth) / 2.0f,
-                    pill.y + (pill.height - static_cast<float>(size)) / 2.0f, size, palette::ink);
-    }
-
-    const float baseline = pill.y + pill.height / 2.0f - u * 0.9f;
-    const int size = static_cast<int>(u * 1.6f);
-    if (!status_.empty()) {
-        type().draw(status_.c_str(), u, baseline, size, palette::inkSoft);
-    }
-    float right = static_cast<float>(width_) - u;
-    if (!clock_.empty()) {
-        const float clockWidth = type().measure(clock_, size);
-        type().draw(clock_.c_str(), right - clockWidth, baseline, size, palette::inkSoft);
-        right -= clockWidth + u * 1.6f;
-    }
-    drawServiceStatus(right, pill.y + pill.height / 2.0f);
+    // iideck has no friends, so the friends slot is empty; the Steam indicator, iideck's own,
+    // sits there, at the row's end padding from the left edge.
+    drawServiceStatus(TopBarMetrics::rowPaddingEnd * dp, body.centreY());
 }
 
-void Hud::drawServiceStatus(float right, float centreY) const {
+void Hud::drawServiceStatus(float left, float centreY) const {
     if (steamState_ == ServiceState::Hidden) {
         return;
     }
@@ -121,37 +121,49 @@ void Hud::drawServiceStatus(float right, float centreY) const {
         break;
     }
 
-    const int size = static_cast<int>(u * 1.5f);
-    const float labelWidth = type().measure(label, size);
-    type().draw(label, right - labelWidth, centreY - static_cast<float>(size) / 2.0f, size,
-                palette::inkSoft);
-
-    const float dotRadius = u * 0.35f;
-    const float dotX = right - labelWidth - u * 0.6f - dotRadius;
-    DrawCircleV({dotX, centreY}, dotRadius, dot);
-
-    // A generic client glyph: a ring with a dot inside.
+    // A generic client glyph (a ring with a dot inside), the state dot, then the label.
     const float glyphRadius = u * 0.9f;
-    const Vector2 glyph{dotX - dotRadius - u * 0.7f - glyphRadius, centreY};
+    const Vector2 glyph{left + glyphRadius, centreY};
     DrawRing(glyph, glyphRadius * 0.78f, glyphRadius, 0.0f, 360.0f, 32, palette::inkSoft);
     DrawCircleV(glyph, glyphRadius * 0.34f, palette::inkSoft);
+    const float dotRadius = u * 0.35f;
+    const float dotX = glyph.x + glyphRadius + u * 0.7f + dotRadius;
+    DrawCircleV({dotX, centreY}, dotRadius, dot);
+    const int size = static_cast<int>(u * 1.5f);
+    type().draw(label, dotX + dotRadius + u * 0.6f, centreY - static_cast<float>(size) / 2.0f, size,
+                palette::inkSoft);
 }
 
-void Hud::drawPrompts() const {
-    const float u = unit();
-    const float baseline = static_cast<float>(height_) - u * promptBaselineUnits;
-    const int size = static_cast<int>(u * promptTextUnits);
-    // A rounded key cap followed by the label.
-    const auto prompt = [&](const char* key, const char* label, float x) {
-        const float capWidth = type().measure(key, size) + u * 1.2f;
-        const float capHeight = static_cast<float>(size) + u * promptCapPaddingUnits;
-        fillRounded(Rectangle{x, baseline - capHeight, capWidth, capHeight}, 0.4f, palette::panel);
-        type().draw(key, x + u * 0.6f, baseline - u * 0.6f, size, palette::ink);
-        type().draw(label, x + capWidth + u * 0.6f, baseline - u * 0.6f, size, palette::inkSoft);
-    };
-    prompt("A", "Play", u * 1.4f);
-    const float rightWidth = type().measure("Refresh", size);
-    prompt("X", "Refresh", static_cast<float>(width_) - u * 1.4f - rightWidth - u * 2.4f);
+void Hud::drawHints() const {
+    // iiSU mw5.h: a glass row at BottomStart holding jj2.b's entries.
+    const TopBarMetrics m = metrics();
+    const HintRowMetrics row = m.hintRow();
+    const float dp = dp_;
+    const int size = static_cast<int>(std::lround(m.statusPill(false).fontSize * dp));
+    const float glyph = static_cast<float>(size) * hintGlyphScale;
+    const float gap = row.glyphGap * dp;
+    float content = 0.0f;
+    for (const auto& [key, label] : hints) {
+        content += glyph + gap + type().measure(label, size);
+    }
+    content += static_cast<float>(hints.size() - 1) * row.entrySpacing * dp;
+    const float height = glyph + 2.0f * row.paddingVertical * dp;
+    const Rect body{row.paddingStart * dp,
+                    static_cast<float>(height_) - row.paddingBottom * dp - height,
+                    content + 2.0f * row.paddingHorizontal * dp, height};
+    glass_.paint(body);
+
+    float pen = body.x + row.paddingHorizontal * dp;
+    const float centreY = body.centreY();
+    for (const auto& [key, label] : hints) {
+        DrawCircleV(Vector2{pen + glyph * 0.5f, centreY}, glyph * 0.5f, hintInk);
+        const float keyWidth = type().measure(key, size);
+        type().draw(key, pen + (glyph - keyWidth) * 0.5f, centreY - static_cast<float>(size) * 0.5f,
+                    size, WHITE);
+        pen += glyph + gap;
+        type().draw(label, pen, centreY - static_cast<float>(size) * 0.5f, size, hintInk);
+        pen += type().measure(label, size) + row.entrySpacing * dp;
+    }
 }
 
 void Hud::drawToast() const {
@@ -168,8 +180,8 @@ void Hud::drawToast() const {
         textWidth + 2.0f * padding,
         static_cast<float>(size) + padding,
     };
-    fillRounded(box, 0.5f,
-                toastError_ ? Color{0xb3, 0x26, 0x1e, 240} : Color{0x2b, 0x27, 0x33, 240});
+    DrawRectangleRounded(box, 0.5f, 12,
+                         toastError_ ? Color{0xb3, 0x26, 0x1e, 240} : Color{0x2b, 0x27, 0x33, 240});
     type().draw(toast_.c_str(), box.x + padding / 2.0f, box.y + padding / 3.0f, size, WHITE);
 }
 

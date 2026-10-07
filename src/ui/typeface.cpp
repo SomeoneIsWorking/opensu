@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 #include "config/config.hpp"
 #include "lucent/log.h"
@@ -21,9 +22,26 @@ const char* const kFacePaths[] = {
 /// Extra spacing between glyphs, in pixels at the face's own scale.
 constexpr float spacing = 0.0f;
 
+/// Printable ASCII, Latin-1 and the typographic punctuation labels use; raylib's default
+/// atlas stops at 126, so a "·" drew as "?".
+std::vector<int> atlasCodepoints() {
+    std::vector<int> codepoints;
+    for (int c = 0x20; c <= 0x7E; ++c) {
+        codepoints.push_back(c);
+    }
+    for (int c = 0xA0; c <= 0xFF; ++c) {
+        codepoints.push_back(c);
+    }
+    for (const int c : {0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2026}) {
+        codepoints.push_back(c);
+    }
+    return codepoints;
+}
+
 } // namespace
 
-Typeface::Typeface() : cache_{new Entry[static_cast<std::size_t>(entries_)]} {
+Typeface::Typeface()
+    : cache_{new Entry[static_cast<std::size_t>(entries_)]}, codepoints_{atlasCodepoints()} {
     for (const char* candidate : kFacePaths) {
         const std::string path = candidate[0] == '/'
                                      ? std::string{candidate}
@@ -68,7 +86,8 @@ Font Typeface::face(int size) {
         if (entry.loaded) {
             continue;
         }
-        const Font loaded = LoadFontEx(path_.c_str(), size, nullptr, 0);
+        const Font loaded = LoadFontEx(path_.c_str(), size, codepoints_.data(),
+                                       static_cast<int>(codepoints_.size()));
         if (loaded.texture.id == 0) {
             return GetFontDefault();
         }
@@ -103,8 +122,11 @@ void Typeface::draw(const char* text, float x, float y, int size, Color colour) 
     }
     const Font face = this->face(size);
     float pen = x;
-    for (const char* p = text; *p != '\0'; ++p) {
-        const int glyph = static_cast<unsigned char>(*p);
+    // Labels are UTF-8, so a glyph is a decoded codepoint, not a byte.
+    for (const char* p = text; *p != '\0';) {
+        int bytes = 0;
+        const int glyph = GetCodepointNext(p, &bytes);
+        p += std::max(bytes, 1);
         DrawTextCodepoint(face, glyph, {pen, y}, static_cast<float>(size), colour);
         // raylib has no per-codepoint measure, so a one-element array is the
         // way to get this glyph's advance.
