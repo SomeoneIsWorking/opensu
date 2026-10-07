@@ -20,21 +20,26 @@ guessed. G002 builds only on rows marked grounded.
 | UI framework: Compose root, custom Canvas tile renderer ("Browser2") | grounded | `reference/iisu/screens.md` §1 |
 | Screen inventory, dialog router, settings pages, onboarding steps | grounded | `reference/iisu/screens.md` §2–5; ROM section and detail screen did not decompile |
 | Home grid geometry: rows, columns, gap, fill order, paging, page pill | grounded | `reference/iisu/home-grid.md` §1 |
-| Top bar and corner hints | partial | parts and some sizes; base sizing in undecompiled methods (`home-grid.md` §2) |
-| Tile composition: chrome, frame nine-patch, art fit, tint, logo, focus ring | grounded | `reference/iisu/home-grid.md` §3; logo visibility condition inverted by jadx |
-| "Jump back in!" and "Been a while" tiles: size and game choice | missing | code did not decompile |
+| Top bar: layout, title pill, status pill, clock, profile button, friends stack, corner hints | grounded | `reference/iisu/home-grid.md` §2 (Ghidra); status pill x offset on non-default device classes behind an unrecovered jumptable |
+| Tile composition: chrome, frame nine-patch, art fit, tint, logo, focus ring | grounded | `reference/iisu/home-grid.md` §3; logo condition and dark chrome read with Ghidra |
+| "Jump back in!" and "Been a while" tiles: size and game choice | grounded | `reference/iisu/home-grid.md` §1.4 (Ghidra); how the tile body is drawn is untraced |
 | Palette | grounded | `reference/iisu/home-grid.md` §4 |
-| Input routing, section cycling, grid focus rules, repeat, triggers | grounded | `reference/iisu/input-sound.md` §1; crossing to the next page not decoded |
+| Input routing, section cycling, grid focus rules incl. page crossing, repeat, triggers | grounded | `reference/iisu/input-sound.md` §1 |
 | Per-screen key maps for Compose screens | partial | `reference/iisu/input-sound.md` §6, not re-read against source |
 | Haptics | grounded | `reference/iisu/input-sound.md` §2 |
-| Sound effects and domino cue | grounded | `reference/iisu/input-sound.md` §3; whether grid moves play `Navigation.wav` is unconfirmed |
+| Sound effects and domino cue | grounded | `reference/iisu/input-sound.md` §3; home grid moves play `Navigation.wav` |
 | Music presets, loop windows, fades | grounded | `reference/iisu/input-sound.md` §4 |
 | Motion: focus, domino entrance, pulse, dialogs, startup | grounded | `reference/iisu/motion.md` §1–4 |
-| Motion: title pill text, clock, idle pause | missing | `reference/iisu/motion.md` §6 |
+| Motion: idle pause default, domino replay on return, art fade-in | missing | `reference/iisu/motion.md` §6 |
 
 Spot-checked against the decompile: setContent call, dialog state names, 3×4
 default grid, gap defaults, page-dot colour, focus scale timings, trigger
-thresholds, music loop window, D-pad repeat throttle.
+thresholds, music loop window, D-pad repeat throttle, Been a while window,
+dark chrome literal.
+
+Methods jadx fails on are read with Ghidra over the DEX bytecode
+(`shared/re-harness` `ghidra-re` skill, `DecompileMatching.java`), cited as
+`ghidra:<function>`.
 
 ## Corrections to earlier notes
 
