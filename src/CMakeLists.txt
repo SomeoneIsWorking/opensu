@@ -26,11 +26,9 @@ target_link_libraries(iideck
         iideck::steam
         iideck::session
         iideck::library
-        raylib
+        iideck::raylib
         lucent::lucent
 )
-target_include_directories(iideck PRIVATE "${RAYLIB_ROOT}/include")
-target_link_directories(iideck PRIVATE "${RAYLIB_ROOT}/lib")
 # Subsystem headers are included as "library/game.hpp" and "vdf/node.hpp", so
 # the source root is on the include path for every target.
 target_include_directories(iideck_vdf INTERFACE "${CMAKE_SOURCE_DIR}/src")
@@ -43,6 +41,3 @@ target_include_directories(iideck_session INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_app INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck INTERFACE "${CMAKE_SOURCE_DIR}/src")
 
-# raylib's static archive leaves the platform libraries to the consumer.
-find_package(X11 REQUIRED)
-target_link_libraries(iideck PRIVATE X11::X11 GL m Threads::Threads ${CMAKE_DL_LIBS})

@@ -27,6 +27,16 @@ set(RAYLIB_IMAGE_FLAGS STBI_REQUIRED SUPPORT_FILEFORMAT_JPG=1 SUPPORT_FILEFORMAT
                       SUPPORT_FILEFORMAT_PSD=1)
 add_compile_definitions(${RAYLIB_IMAGE_FLAGS})
 
+# The one raylib dependency: headers, the static archive and the platform libraries it leaves to
+# its consumer.
+find_package(X11 REQUIRED)
+add_library(iideck_raylib INTERFACE)
+add_library(iideck::raylib ALIAS iideck_raylib)
+target_include_directories(iideck_raylib INTERFACE "${RAYLIB_ROOT}/include")
+target_link_directories(iideck_raylib INTERFACE "${RAYLIB_ROOT}/lib")
+target_link_libraries(iideck_raylib
+    INTERFACE raylib X11::X11 GL m Threads::Threads ${CMAKE_DL_LIBS})
+
 # Lucent is the project logger. Shared, not vendored.
 set(LUCENT_ROOT "$ENV{HOME}/repo/lucent" CACHE PATH "Shared Lucent checkout")
 

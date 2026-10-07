@@ -9,9 +9,7 @@ target_link_libraries(iideck_app
         iideck::gamepad
         iideck::launch
         iideck::steam
-        raylib
+        iideck::raylib
         lucent::lucent
 )
-target_include_directories(iideck_app PUBLIC "${RAYLIB_ROOT}/include")
-target_link_directories(iideck_app PUBLIC "${RAYLIB_ROOT}/lib")
 target_compile_features(iideck_app PUBLIC cxx_std_20)
