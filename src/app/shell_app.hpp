@@ -16,6 +16,7 @@
 
 #include "raylib.h"
 
+#include "config/config.hpp"
 #include "control_channel.hpp"
 #include "gamepad/reader.hpp"
 #include "launch/handoff.hpp"
@@ -38,6 +39,8 @@ struct Settings {
     /// Whether the control channel runs. It is how an automated run drives the
     /// shell, so it is on unless configuration turns it off.
     bool controlChannel{true};
+    /// The home grid's dashboard mode.
+    config::HomeMode homeMode{config::HomeMode::Standard};
 };
 
 /// The running shell.

@@ -29,7 +29,7 @@ game has been observed running yet.
 | S002 | Steam library source: manifests, install state, artwork, playtime, favourites | verified | — | G001 |
 | S003 | Gamepad input through raylib, polled per frame | partial | — | G003 |
 | S004 | Launch handoff into a running game, with the shell returning | partial | S002 | G001, G003 |
-| S005 | Reference home layout: top bar, tile grid, page dots, hints | partial | S001 | G002 |
+| S005 | iiSU home grid: Standard (Flow) and WiiSu (Paged) modes, top bar, prompts | partial | S001 | G002 |
 | S012 | Loopback control channel: state, injected input, frame capture | verified | S001 | G003 |
 | S006 | Epic source via Legendary | verified | — | G001 |
 | S007 | GOG source via Heroic | verified | — | G001 |
@@ -63,28 +63,48 @@ the folders were checked for existence; and an app appearing under both `Apps`
 and `Favorites` produced two records, so the later one won and every favourited
 game's playtime was zeroed.
 
-### S005 — Reference home layout
+### S005 — Home grid
 
-Built from a screenshot before the RE pass, and it diverges from iiSU's code
-(`reference/design-reference.md`): iiSU defaults to a 3×4 column-major grid that
-scrolls horizontally, with no automatic feature tiles, and its own focus, frame and
-motion rules. The layout below is what the shell does today, to be rebuilt from
-the reference.
+Rebuilt from iiSU's decompiled code (`reference/iisu/home-grid.md`, `motion.md`,
+`input-sound.md`), not from screenshots. `IIDECK_HOME_MODE` picks the mode:
 
-Renders the reference arrangement from real library data: a glass top bar with
-the focused title in a centre pill, a dotted ground, a grid mixing square tiles
-with multi-column feature tiles, page dots, and corner button hints. Tile
-geometry is banded, so a two-row hero sits at the end of its band with squares
-filling the space beside it, and the next band starts below both of its rows.
-Hints appear only on the featured tiles, whose captions are shortened so the two
-never overlap. A title with no artwork gets a generated card coloured from the
-title, so the grid never shows a hole.
+- `standard` (default) is iiSU's Flow grid: 3 rows, column-major, square cells,
+  scrolling horizontally with iiSU's lead margin and eased scroll (`hx2.g`,
+  `hx2.L`, `hx2.P`).
+- `wiisu` is the Paged grid: whole 3-row pages sized by `zj2`, the next page
+  peeking past a 36 dp gap, page changes instant, and the page pill (`wf7`).
 
-Verified by rendering frames offscreen to PNG and looking at them. That path is
-how the layout became checkable at all: the shell is a Wayland window, which this
-machine's screenshot tooling cannot see, and the earlier WebKit frontend's
-offscreen snapshot returned an empty surface. raylib renders to a texture and
-exports it, so a frame is a file.
+Owners: `HomeLayout` (geometry, pure), `GridFocus` (neighbour search with
+remembered row and column, pure), `tile_motion` (focus scale, domino entrance,
+pulse, ring rotation, scroll easing; all time-based, pure), `TilePainter` (shadow,
+sweep focus ring, glass chrome, cover-cropped art, platform frame, fallback
+letter, in `tx2`/`tw2` draw order) and `PagePillPainter`. The shell composes them
+under the top bar, prompts and toast in `Hud`. There are no feature tiles, badges
+or hint chips; iiSU has none on the home grid.
+
+Verified by `tests/ui` (layout numbers hand-computed from `hx2.g` and `zj2`,
+neighbour rules, motion curves, tile geometry from `tj2.V`) and by rendering both
+modes offscreen at 1280×800 and 1920×1080 and looking at them.
+
+Stopgaps, each marked in code:
+
+- dp is `min(W/853, H/480)`; iiSU's density comes from Android.
+- WiiSu's 12 dp horizontal padding is not applied and `zj2` takes the grid gap as
+  its spacing; the call site's arguments are unresolved.
+- Focus falls back to a search without the lane requirement, and crossing a
+  WiiSu page edge lands on the adjacent page's edge column; iiSU's page-crossing
+  path is unresolved.
+- Chrome is always the light variant; the dark-chrome flag (`ya0.e`) is
+  unresolved.
+
+Gaps: the page pill overlaps the bottom of the top bar's title pill by about
+10 px, because iiSU's own top bar is not reverse-engineered and ours was kept;
+items are ordered by install state and recency rather than iiSU's user
+arrangement; held keyboard directions repeat every frame.
+
+Offscreen rendering is how the layout became checkable at all: the shell is a
+Wayland window, which this machine's screenshot tooling cannot see. raylib
+renders to a texture and exports it, so a frame is a file.
 
 Type is Nunito Bold, which is the reference's own typeface, shipped in `assets/`
 under the OFL with the licence beside it. Google Fonts publishes it only as a
@@ -97,10 +117,6 @@ produced with
 uvx --from fonttools fonttools varLib.instancer \
     assets/Nunito.ttf wght=700 -o assets/Nunito-Bold.ttf
 ```
-
-Tile captions, badge chips and hint chips are sized from the tile's own short
-side, not from the window's layout unit, so a tile's type keeps its proportion
-whatever the window size or how many columns a tile spans.
 
 Gap: the per-platform HSL tinting the reference applies to artwork is not
 implemented, so covers are shown at their store's own colours.

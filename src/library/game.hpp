@@ -22,13 +22,6 @@ enum class Source {
 /// The store's display name.
 [[nodiscard]] std::string_view label(Source source);
 
-/// How much grid space a tile occupies.
-enum class TileSize {
-    Square,
-    Wide,
-    Hero,
-};
-
 /// The command that starts a game. Every source fills this in, so launching
 /// needs no knowledge of which store owns a title.
 struct LaunchSpec {
@@ -67,11 +60,6 @@ struct Game {
     std::string processHint;
 
     LaunchSpec launch;
-
-    /// Display fields, filled by annotate().
-    TileSize size{TileSize::Square};
-    std::string hint;
-    std::string badge;
 };
 
 /// A backend that can list launchable games. Each store has its own type; the
@@ -100,9 +88,5 @@ class Catalog {
 /// Sorts the catalog the way the home screen reads it: installed before
 /// uninstalled, most recently played first, then by title.
 void order(std::vector<Game>& games);
-
-/// Fills the display-only fields, and derives the tile size mix from play
-/// recency: the most recent gets a hero tile, the next few get wide ones.
-void annotate(std::vector<Game>& games);
 
 } // namespace iideck::library

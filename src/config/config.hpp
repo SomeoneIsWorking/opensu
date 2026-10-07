@@ -13,6 +13,14 @@
 
 namespace iideck::config {
 
+/// iiSU's two single-screen dashboard modes (iiSU fs7).
+enum class HomeMode {
+    /// One horizontal grid that scrolls continuously (iiSU ap6 Flow); iiSU's default.
+    Standard,
+    /// Horizontal pages with neighbour peeks and page dots (iiSU ap6 Paged).
+    WiiSu,
+};
+
 /// Emulator commands per system, as "SYSTEM=program|arg|arg".
 using EmulatorCommands = std::map<std::string, std::vector<std::string>, std::less<>>;
 
@@ -37,6 +45,9 @@ struct Config {
     /// Only controllers whose name contains this are accepted. Empty accepts
     /// every device SDL reports.
     std::string gamepadNameFilter;
+
+    /// The home grid's dashboard mode, from IIDECK_HOME_MODE (`standard` or `wiisu`).
+    HomeMode homeMode{HomeMode::Standard};
 
     /// Window size.
     int width{1280};

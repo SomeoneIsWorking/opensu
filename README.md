@@ -9,8 +9,8 @@ their own authentication, downloading and cloud sync; iideck reads what they hav
 already installed and hands launches back to them.
 
 Built with C++20 and raylib. The shell is drawn from geometry rather than
-composed from images, so the layout is resolution independent and the corner
-radius is a fraction of tile size.
+composed from images, so the layout is resolution independent and every size is
+derived from the window, following iiSU's own layout rules.
 
 ## Building
 
@@ -49,6 +49,7 @@ Overrides, all optional:
 | `IIDECK_WIDTH`, `IIDECK_HEIGHT` | Window size, default 1280x800. |
 | `IIDECK_ASSETS` | Directory holding the typeface. Defaults to `assets`. |
 | `IIDECK_GAMEPAD` | Only accept controllers whose name contains this. |
+| `IIDECK_HOME_MODE` | `standard` (scrolling grid, default) or `wiisu` (paged grid). |
 
 Run from the repository root, or set `IIDECK_ASSETS` if you start it elsewhere.
 
@@ -68,7 +69,7 @@ pressing play reports which emulator is missing rather than doing nothing.
 | A | Play |
 | Y / Select | Details |
 | X | Refresh the library |
-| LB / RB | Previous / next page |
+| LB / RB | Previous / next page (`wiisu` mode only) |
 | Start | Back to the first tile |
 
 ## Documentation

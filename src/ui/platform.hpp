@@ -1,16 +1,7 @@
-// platform — a console's identity: its border sprite, its logo, and its tint.
+// platform — a console's identity: its border sprite, its logo and its stroke colours.
 //
-// The reference gives every platform a 1024x1024 border sprite, a small logo,
-// and an HSL tint. Measured from the shipped pack rather than guessed:
-//
-//   - the stroke is 26px on a 1024 canvas, so 2.54% of the tile's width
-//   - the corner tab is 180x180, the same 6.25% the pack declares as the radius,
-//     and it hangs off the top-left
-//   - the stroke is a diagonal gradient between two colours, one per platform:
-//     Steam runs #0b5bb3 to #33a1d7, 3DO runs red to orange
-//
-// The artwork and the border are the same 1024x1024 shape, which is how a box art
-// and its frame stay aligned when one is composited onto the other.
+// The frame's proportions are the sprite's and live in tile_geometry; this holds
+// what differs per platform.
 #pragma once
 
 #include <cstdint>
@@ -52,23 +43,6 @@ struct Platform {
     /// gradient's endpoints. Recovered from the sprite.
     std::uint32_t strokeFrom{0};
     std::uint32_t strokeTo{0};
-    /// The stroke's thickness as a fraction of the border canvas's width.
-    float strokeFraction{0.0254f};
-    /// The corner tab's size as a fraction of the border canvas's width.
-    float tabFraction{0.1758f};
-
-    /// The tint applied to this platform's artwork, as additive HSL offsets.
-    /// Hue is in degrees and wraps; saturation and lightness are additive.
-    struct Tint {
-        float hueDegrees{0.0f};
-        float saturation{0.0f};
-        float lightness{0.0f};
-
-        [[nodiscard]] bool identity() const noexcept {
-            return hueDegrees == 0.0f && saturation == 0.0f && lightness == 0.0f;
-        }
-    };
-    Tint tint{};
 
     [[nodiscard]] bool hasBorder() const noexcept {
         return !border.empty();

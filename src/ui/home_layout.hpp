@@ -1,0 +1,187 @@
+// home_layout — where every home grid cell sits, in canvas pixels.
+//
+// The geometry of iiSU's grid renderer (hx2.g, zj2, wf7/ys8) for a horizontal
+// grid, in both dashboard modes. Pure arithmetic: nothing here draws.
+#pragma once
+
+#include <cstddef>
+#include <vector>
+
+namespace iideck::ui {
+
+/// An axis-aligned rectangle in pixels.
+struct Rect {
+    float x{};
+    float y{};
+    float width{};
+    float height{};
+
+    [[nodiscard]] float right() const noexcept {
+        return x + width;
+    }
+    [[nodiscard]] float bottom() const noexcept {
+        return y + height;
+    }
+    [[nodiscard]] float centreX() const noexcept {
+        return x + width * 0.5f;
+    }
+    [[nodiscard]] float centreY() const noexcept {
+        return y + height * 0.5f;
+    }
+};
+
+/// iiSU ap6: Flow scrolls continuously, Paged shows whole pages with peeks.
+enum class ScrollMode {
+    Flow,
+    Paged,
+};
+
+/// A grid cell in lane units: columns and rows, inclusive, on a page.
+struct GridCell {
+    int left{};
+    int top{};
+    int right{};
+    int bottom{};
+    int page{};
+};
+
+/// What the layout is computed from.
+struct HomeLayoutInput {
+    float width{};
+    float height{};
+    /// Pixels per dp.
+    float dp{1.0f};
+    std::size_t items{};
+    ScrollMode mode{ScrollMode::Flow};
+    /// The persisted viewport (iiSU wx2).
+    int rows{3};
+    int columns{4};
+    /// Space the shell's own chrome takes at the top and bottom, in pixels.
+    float topInset{};
+    float bottomInset{};
+};
+
+/// One page dot.
+struct PageDot {
+    float x{};
+    float y{};
+    float radius{};
+    bool active{};
+};
+
+/// The page pill and its dots (iiSU ys8.h, wf7.l).
+struct PagePill {
+    Rect body;
+    std::vector<PageDot> dots;
+    /// Haloed only on the active dot.
+    float haloRadius{};
+};
+
+class HomeLayout {
+  public:
+    explicit HomeLayout(const HomeLayoutInput& input);
+
+    /// The gap for a cell size: iiSU hx2.g's gap rule with its default fraction and minimum.
+    [[nodiscard]] static float gapForCell(float cell) noexcept;
+
+    /// The rows a persisted viewport becomes (iiSU ul2.F).
+    [[nodiscard]] static int clampRows(int rows) noexcept;
+    /// The columns a persisted viewport becomes for a horizontal grid (iiSU ul2.F).
+    [[nodiscard]] static int clampColumns(int columns) noexcept;
+
+    /// The column count WiiSu sizes a page to (iiSU zj2).
+    [[nodiscard]] static int wiiSuPageColumns(float width, float availableHeight, int rows,
+                                              float spacing, float pageGap, float peek) noexcept;
+
+    [[nodiscard]] ScrollMode mode() const noexcept {
+        return mode_;
+    }
+    [[nodiscard]] int rows() const noexcept {
+        return rows_;
+    }
+    /// Columns in the whole strip (Flow) or on one page (Paged).
+    [[nodiscard]] int columns() const noexcept {
+        return columns_;
+    }
+    [[nodiscard]] float cellWidth() const noexcept {
+        return cellWidth_;
+    }
+    [[nodiscard]] float cellHeight() const noexcept {
+        return cellHeight_;
+    }
+    [[nodiscard]] float gap() const noexcept {
+        return gap_;
+    }
+    [[nodiscard]] float paddingLeft() const noexcept {
+        return paddingLeft_;
+    }
+    [[nodiscard]] float paddingTop() const noexcept {
+        return paddingTop_;
+    }
+    /// Flow's edge inset: the viewport starts this far into the canvas.
+    [[nodiscard]] float viewportX() const noexcept {
+        return viewportX_;
+    }
+    [[nodiscard]] float viewportWidth() const noexcept {
+        return viewportWidth_;
+    }
+    /// The largest scroll offset.
+    [[nodiscard]] float maxScroll() const noexcept {
+        return maxScroll_;
+    }
+    [[nodiscard]] int pageCount() const noexcept {
+        return pageCount_;
+    }
+    /// Distance from one page's first column to the next's.
+    [[nodiscard]] float pageStride() const noexcept {
+        return pageStride_;
+    }
+    [[nodiscard]] float pageSidePadding() const noexcept {
+        return pageSidePadding_;
+    }
+    /// Every cell a page shows, filled or not: Paged pages are whole.
+    [[nodiscard]] std::size_t slotCount() const noexcept;
+
+    /// The lane cell of a slot: column-major, page by page.
+    [[nodiscard]] GridCell cellOf(std::size_t index) const noexcept;
+    [[nodiscard]] int pageOf(std::size_t index) const noexcept;
+    /// Every item's cell, in index order.
+    [[nodiscard]] std::vector<GridCell> cells() const;
+
+    /// A slot's rectangle in content space, before scrolling.
+    [[nodiscard]] Rect contentRect(std::size_t index) const noexcept;
+    /// A slot's rectangle on the canvas at a scroll offset.
+    [[nodiscard]] Rect canvasRect(std::size_t index, float scroll) const noexcept;
+
+    /// The Flow scroll offset that keeps `index` in view after a move of `dx` columns.
+    [[nodiscard]] float scrollTarget(std::size_t index, float current, int dx) const noexcept;
+    /// The Paged scroll offset that shows `page`.
+    [[nodiscard]] float pageScroll(int page) const noexcept;
+
+    /// The page pill for the current page; empty when it is not drawn.
+    [[nodiscard]] PagePill pagePill(int currentPage) const;
+
+  private:
+    void computeMaxScroll();
+
+    ScrollMode mode_;
+    float width_;
+    float height_;
+    float dp_;
+    std::size_t items_;
+    int rows_{};
+    int columns_{};
+    float cellWidth_{};
+    float cellHeight_{};
+    float gap_{};
+    float paddingLeft_{};
+    float paddingTop_{};
+    float viewportX_{};
+    float viewportWidth_{};
+    float maxScroll_{};
+    int pageCount_{1};
+    float pageStride_{};
+    float pageSidePadding_{};
+};
+
+} // namespace iideck::ui

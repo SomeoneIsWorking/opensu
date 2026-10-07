@@ -11,11 +11,8 @@ never reimplements a store's authentication, download or cloud sync.
 
 Reproduce iiSU's interface and the way it behaves, not only its look, from
 facts reverse-engineered out of the iiSU APK rather than guessed from
-screenshots: screens, navigation, transitions, sounds, timings. The home
-screen has the rounded glass top bar with the focused title in a centre pill, a
-grid mixing square tiles with multi-column feature tiles, page dots, and corner
-button hints. Tiles show real box art and the state that matters — installed, in
-progress, how long since it was played.
+screenshots: screens, navigation, transitions, sounds, timings. The
+specification is `reference/design-reference.md`.
 
 ## G003 — Gamepad in, game out
 

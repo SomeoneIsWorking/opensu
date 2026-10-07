@@ -1,5 +1,5 @@
-// The session name: IIDECK_SESSION when set, otherwise one made from the pid.
-// ctest sets or unsets the variable per test; the argument says which to expect.
+// Values read from the environment. ctest sets or unsets the variable per test;
+// the argument says which to expect.
 #include "config/config.hpp"
 
 #include <cstdio>
@@ -20,9 +20,17 @@ void expect(bool condition, const char* what) {
 } // namespace
 
 int main(int argc, char** argv) {
-    expect(argc == 2, "one argument: default or inherited");
+    expect(argc == 2, "one argument naming the case");
     const iideck::config::Config& config = iideck::config::read();
-    if (std::string{argv[1]} == "default") {
+    const std::string which{argv[1]};
+    using iideck::config::HomeMode;
+    if (which == "home-default" || which == "home-invalid") {
+        expect(config.homeMode == HomeMode::Standard, "an unset or unknown home mode is Standard");
+    } else if (which == "home-standard") {
+        expect(config.homeMode == HomeMode::Standard, "standard selects Standard");
+    } else if (which == "home-wiisu") {
+        expect(config.homeMode == HomeMode::WiiSu, "wiisu selects WiiSu");
+    } else if (which == "default") {
         expect(config.session == "iideck-" + std::to_string(getpid()),
                "the default session is iideck-<pid>");
         expect(!config.sessionInherited, "a default session is not inherited");

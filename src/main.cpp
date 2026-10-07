@@ -30,6 +30,8 @@ void printHelp() {
                 "  IIDECK_EMULATORS    SYSTEM=program arg;SYSTEM2=program\n"
                 "  IIDECK_WIDTH        window width (default 1280)\n"
                 "  IIDECK_HEIGHT       window height (default 800)\n"
+                "  IIDECK_HOME_MODE    home grid: standard (scrolling, default) or wiisu\n"
+                "                      (pages with peeks and page dots)\n"
                 "  IIDECK_ASSETS       directory holding the typeface\n"
                 "  IIDECK_GAMEPAD      only accept controllers whose name contains this\n"
                 "  IIDECK_CONTROL_PORT control channel port (default 7311)\n"
@@ -78,6 +80,7 @@ int main(int argc, char** argv) {
         .height = config.height,
         .controlPort = config.controlPort,
         .controlChannel = config.controlChannel,
+        .homeMode = config.homeMode,
     };
     iideck::app::ShellApp shell{settings};
 

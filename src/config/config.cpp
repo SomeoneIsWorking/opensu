@@ -51,6 +51,21 @@ bool envBool(const char* name, bool fallback) {
     return raw == "1" || raw == "true" || raw == "yes";
 }
 
+HomeMode envHomeMode(const char* name, HomeMode fallback) {
+    const std::string_view raw = env(name);
+    if (raw.empty()) {
+        return fallback;
+    }
+    if (raw == "standard") {
+        return HomeMode::Standard;
+    }
+    if (raw == "wiisu") {
+        return HomeMode::WiiSu;
+    }
+    lucent::warn("config", "{} is not standard or wiisu; using standard", name);
+    return fallback;
+}
+
 /// Splits a colon-separated path list. A trailing or repeated separator is not
 /// an error, so an empty element is simply dropped.
 std::vector<std::filesystem::path> splitPaths(std::string_view raw) {
@@ -147,6 +162,7 @@ const Config& read() {
             value.assetsDir = std::filesystem::path{assets};
         }
         value.gamepadNameFilter = std::string{env("IIDECK_GAMEPAD")};
+        value.homeMode = envHomeMode("IIDECK_HOME_MODE", value.homeMode);
         value.width = envInt("IIDECK_WIDTH", value.width);
         value.height = envInt("IIDECK_HEIGHT", value.height);
         value.controlPort = envPort("IIDECK_CONTROL_PORT", value.controlPort);

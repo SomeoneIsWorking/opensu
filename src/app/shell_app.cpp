@@ -18,11 +18,6 @@
 namespace iideck::app {
 namespace {
 
-/// How long a direction must be held before it repeats, then how fast, which is
-/// how a console menu behaves.
-constexpr int repeatDelayFrames = 22;
-constexpr int repeatIntervalFrames = 7;
-
 /// A short human summary of a title's state, shown in the details toast.
 std::string describe(const library::Game& game) {
     std::ostringstream out;
@@ -64,7 +59,7 @@ std::string clockNow() {
 
 ShellApp::ShellApp(Settings settings)
     : settings_{std::move(settings)}, catalog_{library::makeCatalog(config::read())},
-      shell_{settings_.width, settings_.height},
+      shell_{settings_.width, settings_.height, settings_.homeMode},
       steam_{steam::Client::Options{config::read().home, config::read().executablePath,
                                     config::read().session}},
       handoff_{config::read().executablePath, config::read().session, steam_} {
@@ -184,26 +179,19 @@ void ShellApp::handleKeyboard() {
 void ShellApp::actOn(gamepad::Button button) {
     switch (button) {
     case gamepad::Button::Up:
-        if (!shell_.moveFocus(0, -1)) {
-            shell_.movePage(-1);
-        }
+        shell_.moveFocus(ui::Direction::Up);
         break;
     case gamepad::Button::Down:
-        if (!shell_.moveFocus(0, 1)) {
-            shell_.movePage(1);
-        }
+        shell_.moveFocus(ui::Direction::Down);
         break;
     case gamepad::Button::Left:
-        if (!shell_.moveFocus(-1, 0)) {
-            shell_.movePage(-1);
-        }
+        shell_.moveFocus(ui::Direction::Left);
         break;
     case gamepad::Button::Right:
-        if (!shell_.moveFocus(1, 0)) {
-            shell_.movePage(1);
-        }
+        shell_.moveFocus(ui::Direction::Right);
         break;
     case gamepad::Button::A:
+        shell_.pressFocused();
         launchFocused();
         break;
     case gamepad::Button::Y:
@@ -215,6 +203,7 @@ void ShellApp::actOn(gamepad::Button button) {
         shell_.setToast("library refreshed");
         break;
     case gamepad::Button::L1:
+        // iiSU's L1/R1 cycle sections; iideck has none, so they turn WiiSu pages.
         shell_.movePage(-1);
         break;
     case gamepad::Button::R1:
@@ -306,9 +295,6 @@ void ShellApp::showDetails() {
 
 void ShellApp::refreshClock() {
     shell_.setClock(clockNow());
-    // The platform table frames every tile. Loaded before the catalog, because the
-    // frames are resolved as the grid is laid out.
-    shell_.setPlatforms(ui::Platforms::load(ui::defaultPlatformRoot()));
 }
 
 bool ShellApp::renderFrameToPng(std::string& png) {
@@ -541,6 +527,7 @@ int ShellApp::run() {
         serviceControlRequests();
         serviceRequests();
         shell_.setSteamState(serviceState(steam_.state()));
+        shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
         if (windowVisible_.load()) {
             shell_.draw();
@@ -550,7 +537,6 @@ int ShellApp::run() {
             clockFrames = 0;
             refreshClock();
         }
-        shell_.tickToast();
     }
 
     // Anything waiting on a frame will never get one now.
@@ -581,6 +567,9 @@ bool ShellApp::renderToFile(const std::string& path) {
     shell_.loadArtwork();
     lucent::info("render", "loaded artwork for {} of {} tiles", shell_.loadedArtwork(),
                  shell_.tiles().size());
+    // A still frame shows the grid at rest, after its entrance.
+    shell_.tick(std::chrono::steady_clock::now());
+    shell_.settle();
 
     std::string png;
     const bool ok = renderFrameToPng(png);

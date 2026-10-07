@@ -1,0 +1,6 @@
+foreach(name home_layout grid_focus tile_motion tile_geometry)
+    add_executable(${name}_test ${name}_test.cpp)
+    target_link_libraries(${name}_test PRIVATE iideck::grid)
+    target_compile_options(${name}_test PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME ${name} COMMAND ${name}_test)
+endforeach()
