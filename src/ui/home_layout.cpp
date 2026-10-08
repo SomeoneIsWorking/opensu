@@ -97,7 +97,7 @@ int HomeLayout::wiiSuPageColumns(float width, float availableHeight, int rows, f
 
 HomeLayout::HomeLayout(const HomeLayoutInput& input)
     : mode_{input.mode}, width_{std::max(input.width, 1.0f)}, height_{std::max(input.height, 1.0f)},
-      dp_{input.dp}, items_{input.items} {
+      dp_{input.dp}, items_{input.items}, fillSlots_{input.fillSlots} {
     const bool paged = mode_ == ScrollMode::Paged;
     // iiSU zj2 subtracts WiiSu's content padding when it counts columns; hx2.g lays the grid out
     // without it (reference capture: WiiSu and Standard grids start at the same y).
@@ -161,12 +161,12 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
         const std::size_t perPage =
             static_cast<std::size_t>(columns_) * static_cast<std::size_t>(rows_);
         pageCount_ = slotPages(perPage);
-        slots_ = static_cast<std::size_t>(pageCount_) * perPage;
+        slots_ = slotsFor(perPage);
     } else {
         // iiSU ou4.q: a Flow page is the persisted viewport as vj2.M clamps it.
         const auto perPage = static_cast<std::size_t>(clampTo(input.rows, 2, 6)) *
                              static_cast<std::size_t>(clampTo(input.columns, 2, 8));
-        slots_ = static_cast<std::size_t>(slotPages(perPage)) * perPage;
+        slots_ = slotsFor(perPage);
         // iiSU hx2.g: a horizontal flow has as many columns as the slots need.
         columns_ = std::max(1, static_cast<int>((slots_ + static_cast<std::size_t>(rows_) - 1) /
                                                 static_cast<std::size_t>(rows_)));
@@ -185,7 +185,15 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
 int HomeLayout::slotPages(std::size_t perPage) const noexcept {
     // iiSU ou4.q: every page up to the one holding the last item, and at least four.
     const std::size_t used = items_ == 0 ? 0 : (items_ - 1) / perPage + 1;
-    return std::max(minSlotPages, static_cast<int>(used));
+    return std::max(fillSlots_ ? minSlotPages : 1, static_cast<int>(used));
+}
+
+std::size_t HomeLayout::slotsFor(std::size_t perPage) const noexcept {
+    if (fillSlots_) {
+        return static_cast<std::size_t>(slotPages(perPage)) * perPage;
+    }
+    // An empty grid keeps one slot so focus always has a cell.
+    return std::max<std::size_t>(items_, 1);
 }
 
 void HomeLayout::computeMaxScroll() {

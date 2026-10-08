@@ -39,6 +39,19 @@ void defaultViewport() {
     expect(HomeLayout::clampColumns(0) == 1, "horizontal columns are at least 1");
 }
 
+void categoryLevel() {
+    HomeLayoutInput input = window(5, ScrollMode::Flow);
+    input.fillSlots = false;
+    const HomeLayout layout{input};
+    expect(layout.slotCount() == 5, "the category level holds its five consoles and no slots");
+    expect(layout.columns() == 2, "five items in 3 rows make 2 columns");
+    input.mode = ScrollMode::Paged;
+    const HomeLayout paged{input};
+    expect(paged.slotCount() == 5 && paged.pageCount() == 1, "one page of items has no pill");
+    input.items = 0;
+    expect(HomeLayout{input}.slotCount() == 1, "an empty grid keeps one cell for focus");
+}
+
 void gapRule() {
     near(HomeLayout::gapForCell(50.0f), 10.0f, "a small cell takes the 10 px minimum gap");
     near(HomeLayout::gapForCell(100.0f), 12.0f, "the gap is 12% of the cell");
@@ -214,6 +227,7 @@ void arrows() {
 
 int main() {
     defaultViewport();
+    categoryLevel();
     gapRule();
     flowMetrics();
     columnMajor();

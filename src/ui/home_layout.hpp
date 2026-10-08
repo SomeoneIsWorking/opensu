@@ -60,6 +60,9 @@ struct HomeLayoutInput {
     /// Space the shell's own chrome takes at the top and bottom, in pixels.
     float topInset{};
     float bottomInset{};
+    /// Whether empty cells are placeholder slots filling at least four pages (Home), or the grid
+    /// holds only its items (the ROMs category level, navigation.md 5.2).
+    bool fillSlots{true};
 };
 
 /// WiiSu's page arrows; an arrow is absent when there is no page that way (iiSU ys8.l).
@@ -180,6 +183,8 @@ class HomeLayout {
     [[nodiscard]] float compactness() const noexcept;
     [[nodiscard]] Rect arrowRect(bool previous) const noexcept;
     [[nodiscard]] int slotPages(std::size_t perPage) const noexcept;
+    /// How many slots the grid holds: every cell of its pages, or just the items.
+    [[nodiscard]] std::size_t slotsFor(std::size_t perPage) const noexcept;
     void computeMaxScroll();
 
     ScrollMode mode_;
@@ -201,6 +206,7 @@ class HomeLayout {
     int pageCount_{1};
     float pageStride_{};
     float pageSidePadding_{};
+    bool fillSlots_;
 };
 
 } // namespace iideck::ui

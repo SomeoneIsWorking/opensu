@@ -134,7 +134,13 @@ Carousel: focused item at 0.5 W (also the first), shared bottom edge at 918/1080
 cap top 364/1080 (cap 12.9 dp), a marker under the focused game; the entrance fades the focused
 tile in 130 ms and its neighbours 170 ms later. Console cards sit 2 dp inside their slot, game cards
 fill it; only Standard draws the cyan-violet focus ring. START opens the chooser (`ModeChooser`);
-the choice is saved by `settings::Store`. Home is always the grid. Deviation: iideck opens the
+the choice is saved by `settings::Store`. Home is always the grid. Placeholders (empty glass cells, four pages minimum) are Home's: the ROMs
+category level and folders in captures draw only their items, so `HomeLayoutInput::fillSlots` is true
+only for Home. That rule is read from `roms_standard_light_categories.png`; the RE has no ROMs-specific
+branch (`ou4.q` builds placeholders for every Grid caller). Its left inset equals Home's (8 dp edge
+inset, measured the same in both captures). Page dots and the right arrow draw in WiiSu (Paged) mode
+as in `home_dock_light.png`, which is a WiiSu capture; Standard mode has none, as in
+`home_standard_light_initial.png`. Deviation: iideck opens the
 cards page directly from START; iiSU goes START, "Customize Platforms", header arrow, cards. The
 chooser lacks iiSU's options list below the cards. The title shadow numbers are a `// guess:`.
 
