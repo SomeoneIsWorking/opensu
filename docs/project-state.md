@@ -326,7 +326,7 @@ the scope empties, Blocked when `$HOME/.steam/steam.pid` names a live client out
 iideck. Steam launches wait for Ready, and are refused with a named message when
 Blocked or Failed. On exit it runs `steam -shutdown`, waits up to 20 s, then stops
 the scope. The state shows at the top bar's left, in the friends slot iideck leaves
-empty (starting, ready, failed, on desktop)
+empty ("Steam signing in", "Steam ready", "Steam failed", "Steam open on desktop")
 and in `/state` as `steam`. Tested with a fake home and fake `steam`; a real Steam
 has not been started by this code, and the ready marker is as measured on one
 machine.

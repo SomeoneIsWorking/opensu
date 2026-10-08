@@ -96,19 +96,19 @@ void Hud::drawServiceStatus(float left, float centreY) const {
     }
     const float u = unit();
     Color dot = palette::dotReady;
-    const char* label = "ready";
+    const char* label = "Steam ready";
     switch (steamState_) {
     case ServiceState::Starting:
         dot = palette::dotWorking;
-        label = "starting";
+        label = "Steam signing in";
         break;
     case ServiceState::Failed:
         dot = palette::dotFailed;
-        label = "failed";
+        label = "Steam failed";
         break;
     case ServiceState::Blocked:
         dot = palette::dotFailed;
-        label = "on desktop";
+        label = "Steam open on desktop";
         break;
     case ServiceState::Hidden:
     case ServiceState::Ready:
