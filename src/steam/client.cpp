@@ -165,6 +165,15 @@ void Client::watch() {
     }
 }
 
+void Client::install(std::string_view appId, std::string_view name) {
+    library::steam::Library::discover(options_.home, options_.steamRoots)
+        .requestInstall(appId, name);
+    // Steam reads app manifests only when it starts.
+    lucent::info("steam", "restarting Steam to install {}", name);
+    shutdown();
+    start();
+}
+
 std::optional<double> Client::updateProgress(std::string_view appId) const {
     const std::optional<library::steam::AppUpdate> update =
         library::steam::Library::discover(options_.home, options_.steamRoots).pendingUpdate(appId);

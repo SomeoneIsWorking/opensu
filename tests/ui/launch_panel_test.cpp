@@ -17,6 +17,7 @@ void opensAtStarting() {
     expect(panel.isOpen(), "opens");
     expect(panel.title() == "Bloons TD 6", "keeps the game's title");
     expect(panel.line() == "Starting" && !panel.fraction(), "starts at Starting, unmeasured");
+    expect(panel.hints() == std::vector<iideck::ui::PanelHint>{{"B", "Cancel"}}, "B cancels");
 }
 
 void updatesAndClamps() {
@@ -28,8 +29,11 @@ void updatesAndClamps() {
     expect(panel.fraction() == 1.0, "clamps the measure");
     panel.update("Loading", std::nullopt);
     expect(!panel.fraction(), "a stage without a measure drops it");
+    panel.setHints({{"A", "Install"}, {"B", "Cancel"}});
+    expect(panel.hints().size() == 2, "takes the buttons it offers");
     panel.open("Celeste");
-    expect(panel.line() == "Starting" && !panel.fraction(), "a new launch starts over");
+    expect(panel.line() == "Starting" && !panel.fraction() && panel.hints().size() == 1,
+           "a new launch starts over");
     panel.close();
     expect(!panel.isOpen(), "closes");
 }

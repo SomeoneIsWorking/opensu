@@ -123,6 +123,8 @@ bool isSteamComponent(const std::string& installDir) {
 /// StateFlags bits: the app is fully installed; an update must be applied before it runs.
 constexpr long long kFullyInstalled = 4;
 constexpr long long kUpdateRequired = 2;
+/// Set with UpdateRequired on a request Steam is to act on at its next start.
+constexpr long long kUpdateStarted = 1024;
 
 bool stateFlagsInstalled(const Node& state) {
     const std::optional<long long> flags = state.integer({"StateFlags"});
@@ -422,6 +424,54 @@ double AppUpdate::progress() const noexcept {
         return 0.0;
     }
     return std::min(1.0, static_cast<double>(downloaded + staged) / static_cast<double>(total));
+}
+
+fs::path Library::requestInstall(std::string_view appId, std::string_view name) const {
+    const std::string file = "appmanifest_" + std::string{appId} + ".acf";
+    const std::vector<LibraryFolder> folders = libraryFolders();
+    for (const LibraryFolder& folder : folders) {
+        std::error_code ec;
+        if (fs::exists(folder.path / "steamapps" / file, ec)) {
+            return folder.path / "steamapps" / file;
+        }
+    }
+    const auto freeSpace = [](const LibraryFolder& folder) {
+        std::error_code ec;
+        const fs::space_info space = fs::space(folder.path, ec);
+        return ec ? std::uintmax_t{0} : space.available;
+    };
+    const auto roomiest = std::ranges::max_element(folders, {}, freeSpace);
+    if (roomiest == folders.end()) {
+        throw std::runtime_error{"no Steam library folder to install into"};
+    }
+
+    // Steam renames the install folder to its own choice when it downloads; this one only has
+    // to be a valid name.
+    std::string installDir;
+    for (const char c : name) {
+        installDir.push_back(c == '/' || c == '\\' || c == '"' ? ' ' : c);
+    }
+    std::string quotedName;
+    for (const char c : name) {
+        if (c != '"') {
+            quotedName.push_back(c);
+        }
+    }
+    const fs::path manifest = roomiest->path / "steamapps" / file;
+    std::ofstream out{manifest, std::ios::binary};
+    out << "\"AppState\"\n{\n"
+        << "\t\"appid\"\t\t\"" << appId << "\"\n"
+        << "\t\"Universe\"\t\t\"1\"\n"
+        << "\t\"name\"\t\t\"" << quotedName << "\"\n"
+        << "\t\"StateFlags\"\t\t\"" << (kUpdateRequired | kUpdateStarted) << "\"\n"
+        << "\t\"installdir\"\t\t\"" << installDir << "\"\n"
+        << "}\n";
+    out.close();
+    if (!out) {
+        throw std::runtime_error{"cannot write " + manifest.string()};
+    }
+    lucent::info("steam", "asked Steam to install {} into {}", name, roomiest->path.string());
+    return manifest;
 }
 
 std::optional<AppUpdate> Library::pendingUpdate(std::string_view appId) const {

@@ -12,6 +12,7 @@ gitignored `docs/reference/`).
 | `src/main.cpp` | Argument parsing; starts the nested session or the shell; `--render FILE` renders one frame headless |
 | `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop |
 | `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`) |
+| `src/app/install_job.*` | One Steam install: requests it, follows its download, reports to the loop |
 | `src/config/config.*` | The one reader of the environment, into typed immutable config |
 
 ## Session and processes (G003, G004)

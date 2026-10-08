@@ -1,7 +1,8 @@
 // steam — reads a local Steam installation: which apps exist, whether they are
 // installed, what artwork exists, and when they were last played.
 //
-// It never talks to the Steam client and never writes to it.
+// It never talks to the Steam client. The one thing it writes is an install request: an app
+// manifest that tells Steam, when it next starts, to download the app.
 #pragma once
 
 #include <cstdint>
@@ -58,6 +59,12 @@ class Library {
     /// The update an app's manifest says Steam must apply first; nothing when none is pending
     /// or the app has no manifest.
     [[nodiscard]] std::optional<AppUpdate> pendingUpdate(std::string_view appId) const;
+
+    /// Asks Steam to install an app the next time it starts, into the library folder with the
+    /// most free space: writes a manifest marking the app as needing an update. Returns the
+    /// manifest. Throws std::runtime_error when there is no folder or the manifest cannot be
+    /// written; does nothing to an app that already has a manifest.
+    std::filesystem::path requestInstall(std::string_view appId, std::string_view name) const;
 
   private:
     std::vector<std::filesystem::path> roots_;

@@ -97,7 +97,7 @@ emulator to install.
 | Input | Action |
 | --- | --- |
 | D-pad or left stick | Move focus |
-| A | Play |
+| A | Play, or install a Steam game that is not installed |
 | Y / Select | Details |
 | X | Refresh the library |
 | LB / RB | Previous / next page (`wiisu` mode only) |

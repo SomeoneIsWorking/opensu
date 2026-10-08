@@ -1,4 +1,5 @@
-// launch_panel — what the shell shows while a game it launched has no window yet.
+// launch_panel — the card the shell shows over the grid while a game is on its way: launching
+// until its window shows, asking whether to install it, or installing it.
 //
 // iideck's own; iiSU hands off to an Android app that is on screen at once. Pure state, so it is
 // tested without a window.
@@ -6,13 +7,24 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace iideck::ui {
 
+/// A button and what it does, shown along the card's foot.
+struct PanelHint {
+    std::string button;
+    std::string action;
+
+    bool operator==(const PanelHint&) const = default;
+};
+
 class LaunchPanel {
   public:
-    /// Opens over `title`, at "Starting".
+    /// Opens over `title`, at "Starting", with B to cancel.
     void open(std::string title);
+    /// The buttons the card offers.
+    void setHints(std::vector<PanelHint> hints);
     /// The stage's line, and how far through it when it has a measure.
     void update(std::string line, std::optional<double> fraction);
     void close() noexcept;
@@ -30,11 +42,15 @@ class LaunchPanel {
     [[nodiscard]] std::optional<double> fraction() const noexcept {
         return fraction_;
     }
+    [[nodiscard]] const std::vector<PanelHint>& hints() const noexcept {
+        return hints_;
+    }
 
   private:
     std::string title_;
     std::string line_;
     std::optional<double> fraction_;
+    std::vector<PanelHint> hints_;
     bool open_{false};
 };
 

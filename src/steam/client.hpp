@@ -55,6 +55,11 @@ class Client final : public launch::SteamGate {
     /// it, then stops the scope. The state ends as Stopped.
     void shutdown();
 
+    /// Asks Steam to download an app: writes the install request, then restarts the client,
+    /// which acts on it when it starts. Blocks for the restart, so callers run it off the main
+    /// thread. Throws std::runtime_error when the request cannot be written.
+    void install(std::string_view appId, std::string_view name);
+
     [[nodiscard]] launch::SteamState state() const override;
     [[nodiscard]] launch::SteamState waitReady(std::chrono::milliseconds timeout,
                                                const std::function<bool()>& cancelled) override;

@@ -302,6 +302,21 @@ sees the grabbed, silent one too.
 Gap: a force-close while the client is still starting the game cannot cancel the
 request it already handed to Steam.
 
+### Installing Steam games
+
+A on a Steam game that is not installed offers to install it (A installs, B cancels).
+`steam::Client::install` writes an app manifest with StateFlags 1026
+(UpdateRequired|UpdateStarted) into the present library folder with the most free
+space, then restarts the background client, which reads manifests only at start and
+downloads the app without opening any window of its own. `app::InstallJob` follows
+the download through the manifest's byte counts ("Installing · N%" on the panel; B
+hides it and the download goes on), then reloads the catalog. Measured with the real
+client on this machine: Spacewar (480) went from a written manifest to StateFlags 4
+within seconds of the restart, with no dialog; `steam://install/<id>` instead opens
+Steam's own Install window, which a pad cannot drive and synthetic keys do not reach.
+Epic and GOG titles are listed only once installed by Legendary or Heroic; neither is
+signed in on this machine.
+
 ### S008 — ROMs
 
 ROM roots are found when `IIDECK_ROM_ROOTS` is unset: a `ROM`/`ROMs`/`roms` folder

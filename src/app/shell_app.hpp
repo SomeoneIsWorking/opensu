@@ -23,6 +23,7 @@
 #include "gamepad/pads.hpp"
 #include "gamescope_overlay.hpp"
 #include "gamescope_windows.hpp"
+#include "install_job.hpp"
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
 #include "steam/client.hpp"
@@ -100,6 +101,12 @@ class ShellApp final : public ControlTarget {
     void launchFocused();
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
+    /// Buttons while the launch panel is up: it takes them all. Main loop only.
+    void actOnPanel(gamepad::Button button);
+    /// Asks whether to install the focused game, which is not installed.
+    void offerInstall(const library::Game& game);
+    /// Shows the install job's news on the panel and the catalog. Main loop only.
+    void serviceInstall();
     /// Buttons while a game runs: Guide opens and closes the menu over it, which takes the
     /// rest. Main loop only.
     void actInGame(gamepad::Button button);
@@ -136,6 +143,13 @@ class ShellApp final : public ControlTarget {
     launch::Handoff handoff_;
     /// The running launch's title, for the Guide menu. Main loop only.
     std::string runningTitle_;
+    /// What the launch panel is up for. Main loop only.
+    enum class PanelUse { None, Launch, OfferInstall, Install };
+    PanelUse panelUse_{PanelUse::None};
+    /// The game the panel offers to install. Main loop only.
+    std::optional<library::Game> offered_;
+    /// After steam_, so it is stopped before the client it drives.
+    InstallJob install_{steam_};
     /// Inside Gamescope, how the window draws over a running game. Null elsewhere, where the
     /// window is hidden while a game runs and shown only for the Guide menu.
     std::unique_ptr<session::GamescopeOverlay> overlay_;

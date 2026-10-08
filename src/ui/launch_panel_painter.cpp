@@ -27,6 +27,7 @@ constexpr double dotPeriodSeconds = 1.2;
 constexpr float hintSp = 14.0f;
 constexpr float hintGlyphDp = 20.0f;
 constexpr float hintGapDp = 6.0f;
+constexpr float hintSpacingDp = 20.0f;
 
 /// Draws `text` centred horizontally on `centreX`.
 void drawMiddle(std::string_view text, float centreX, float centreY, const TextStyle& style,
@@ -86,11 +87,18 @@ void LaunchPanelPainter::paint(const LaunchPanel& panel, float width, float heig
     }
     y += meter * 0.5f + gap * 1.5f + glyph * 0.5f;
 
-    const char* label = "Cancel";
-    const float hintWidth = glyph + hintGapDp * dp + type().measure(label, hint);
-    const float x = centreX - hintWidth * 0.5f;
-    glyphs_.paint("B", Vector2{x + glyph * 0.5f, y}, glyph, hintInk);
-    type().drawCentred(label, x + glyph + hintGapDp * dp, y, hint, hintInk);
+    const float spacing = hintSpacingDp * dp;
+    float hintsWidth = 0.0f;
+    for (const PanelHint& entry : panel.hints()) {
+        hintsWidth += glyph + hintGapDp * dp + type().measure(entry.action, hint) + spacing;
+    }
+    float x = centreX - (hintsWidth - spacing) * 0.5f;
+    for (const PanelHint& entry : panel.hints()) {
+        glyphs_.paint(entry.button, Vector2{x + glyph * 0.5f, y}, glyph, hintInk);
+        x += glyph + hintGapDp * dp;
+        type().drawCentred(entry.action, x, y, hint, hintInk);
+        x += type().measure(entry.action, hint) + spacing;
+    }
 }
 
 } // namespace iideck::ui

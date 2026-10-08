@@ -162,6 +162,10 @@ void ShellApp::actOn(gamepad::Button button) {
         actInGame(button);
         return;
     }
+    if (panelUse_ != PanelUse::None) {
+        actOnPanel(button);
+        return;
+    }
     switch (button) {
     case gamepad::Button::Up:
         shell_.moveFocus(ui::Direction::Up);
@@ -198,7 +202,6 @@ void ShellApp::actOn(gamepad::Button button) {
         shell_.resetFocus();
         break;
     case gamepad::Button::B:
-        cancelLaunch();
         break;
     default:
         break;
@@ -208,6 +211,10 @@ void ShellApp::actOn(gamepad::Button button) {
 void ShellApp::launchFocused() {
     const library::Game* game = shell_.focusedGame();
     if (game == nullptr) {
+        return;
+    }
+    if (!game->installed) {
+        offerInstall(*game);
         return;
     }
     if (game->launch.empty()) {
@@ -228,6 +235,7 @@ void ShellApp::launchFocused() {
     const library::Game copy = *game;
     runningTitle_ = copy.title;
     shell_.launchPanel().open(copy.title);
+    panelUse_ = PanelUse::Launch;
 
     std::vector<std::string> environment = pads_.hold();
     padsHeld_ = true;
@@ -260,6 +268,85 @@ void ShellApp::launchFocused() {
             requestToast(copy.title + " closed", false);
         }
     }}.detach();
+}
+
+void ShellApp::actOnPanel(gamepad::Button button) {
+    switch (panelUse_) {
+    case PanelUse::Launch:
+        if (button == gamepad::Button::B) {
+            cancelLaunch();
+        }
+        break;
+    case PanelUse::OfferInstall:
+        if (button == gamepad::Button::A && offered_) {
+            if (install_.start(offered_->sourceId, offered_->title)) {
+                panelUse_ = PanelUse::Install;
+                shell_.launchPanel().update("Starting Steam", std::nullopt);
+                shell_.launchPanel().setHints({{"B", "Hide"}});
+            } else {
+                shell_.launchPanel().close();
+                panelUse_ = PanelUse::None;
+                shell_.setToast(install_.title() + " is still installing", true);
+            }
+            offered_.reset();
+        } else if (button == gamepad::Button::B) {
+            shell_.launchPanel().close();
+            panelUse_ = PanelUse::None;
+            offered_.reset();
+        }
+        break;
+    case PanelUse::Install:
+        // The download goes on without the panel.
+        if (button == gamepad::Button::B) {
+            shell_.launchPanel().close();
+            panelUse_ = PanelUse::None;
+        }
+        break;
+    case PanelUse::None:
+        break;
+    }
+}
+
+void ShellApp::offerInstall(const library::Game& game) {
+    if (game.source != library::Source::Steam) {
+        shell_.setToast(game.title + " is not installed; install it in " +
+                            std::string{library::label(game.source)},
+                        true);
+        return;
+    }
+    if (install_.running()) {
+        shell_.setToast(install_.title() + " is still installing", true);
+        return;
+    }
+    offered_ = game;
+    panelUse_ = PanelUse::OfferInstall;
+    shell_.launchPanel().open(game.title);
+    shell_.launchPanel().update("Not installed", std::nullopt);
+    shell_.launchPanel().setHints({{"A", "Install"}, {"B", "Cancel"}});
+}
+
+void ShellApp::serviceInstall() {
+    const std::optional<InstallJob::Report> report = install_.take();
+    if (!report) {
+        return;
+    }
+    if (!report->finished) {
+        if (panelUse_ == PanelUse::Install) {
+            shell_.launchPanel().update(report->line, report->fraction);
+        }
+        return;
+    }
+    if (panelUse_ == PanelUse::Install) {
+        shell_.launchPanel().close();
+        panelUse_ = PanelUse::None;
+    }
+    const std::string title = install_.title();
+    if (report->failure.empty()) {
+        reloadCatalog();
+        shell_.setToast(title + " installed");
+    } else {
+        shell_.setToast("cannot install " + title + ": " + report->failure, true);
+    }
 }
 
 void ShellApp::cancelLaunch() {
@@ -525,14 +612,19 @@ void ShellApp::serviceRequests() {
         shell_.launchPanel().update(launch::describe(*progress),
                                     measured ? std::optional{progress->fraction} : std::nullopt);
     }
-    if (!launching) {
+    if (!launching && panelUse_ == PanelUse::Launch) {
         shell_.launchPanel().close();
+        panelUse_ = PanelUse::None;
     }
+    serviceInstall();
     const bool running = gameRunning_.load();
     if (running != shell_.inGame()) {
         shell_.setInGame(running);
         shell_.gameMenu().close();
-        shell_.launchPanel().close();
+        if (panelUse_ == PanelUse::Launch) {
+            shell_.launchPanel().close();
+            panelUse_ = PanelUse::None;
+        }
         // raylib has no ShowWindow or HideWindow: hiding is a window state flag, and showing is
         // clearing it.
         if (overlay_) {

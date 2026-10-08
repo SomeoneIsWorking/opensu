@@ -144,6 +144,18 @@ int main() {
     expect(update->progress() == 0.125, "progress counts downloading and staging");
     expect(!library.pendingUpdate("440").has_value(), "an installed app has no update pending");
     expect(!library.pendingUpdate("31337").has_value(), "an unknown app has no update pending");
+
+    const fs::path request = library.requestInstall("31337", "New \"Game\"");
+    expect(fs::exists(request) && request.filename() == "appmanifest_31337.acf",
+           "an install request is an app manifest");
+    const std::optional<iideck::library::steam::AppUpdate> requested =
+        library.pendingUpdate("31337");
+    expect(requested.has_value() && requested->progress() == 0.0,
+           "a requested install reads as an update not yet begun");
+    expect(library.requestInstall("440", "Portal 2") ==
+               fixture.root / "steamapps" / "appmanifest_440.acf",
+           "an app with a manifest is left as it is");
+    fs::remove(request);
     expect(find(games, "steam:2805730") == nullptr, "a Steam component is not listed");
 
     const Game* portal = find(games, "steam:440");

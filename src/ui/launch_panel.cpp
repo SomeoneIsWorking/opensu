@@ -9,7 +9,12 @@ void LaunchPanel::open(std::string title) {
     title_ = std::move(title);
     line_ = "Starting";
     fraction_.reset();
+    hints_ = {PanelHint{"B", "Cancel"}};
     open_ = true;
+}
+
+void LaunchPanel::setHints(std::vector<PanelHint> hints) {
+    hints_ = std::move(hints);
 }
 
 void LaunchPanel::update(std::string line, std::optional<double> fraction) {

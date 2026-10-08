@@ -11,6 +11,8 @@ struct LaunchProgress {
         WaitingForSteam,
         /// Steam is downloading an update it must apply first.
         Updating,
+        /// Steam is downloading a game that was not installed.
+        Installing,
         /// Asked to start; nothing of the game runs yet.
         Starting,
         /// The game runs but has no window yet.
@@ -18,7 +20,7 @@ struct LaunchProgress {
     };
 
     Stage stage{Stage::Starting};
-    /// How far through the update, 0 to 1. Updating only.
+    /// How far through the download, 0 to 1. Updating and Installing only.
     double fraction{0.0};
 
     bool operator==(const LaunchProgress&) const = default;
