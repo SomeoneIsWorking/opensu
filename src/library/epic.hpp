@@ -1,12 +1,12 @@
 // epic — lists Epic Games Store titles from the local Legendary installation.
 //
-// Legendary owns authentication and downloads; this only reads what it has
-// already installed, so the grid can show those titles and launch them the same
-// way.
+// Legendary owns authentication and downloads; this reads the account's owned titles
+// (`list --json`) and which of them are installed (`list-installed --json`).
 #pragma once
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "game.hpp"
@@ -26,12 +26,15 @@ class Provider final : public library::Provider {
         return Source::Epic;
     }
 
-    /// Lists installed titles. Throws when Legendary is missing or has no saved
+    /// Lists owned titles, installed or not. Throws when Legendary is missing or has no saved
     /// credentials, which is an ordinary state the catalog reports rather than a
     /// failure to start with.
     [[nodiscard]] std::vector<Game> list() override;
 
   private:
+    /// Legendary's stdout for `arguments`. Throws as `list` does.
+    [[nodiscard]] std::string run(std::string_view arguments) const;
+
     std::string binary_;
 };
 

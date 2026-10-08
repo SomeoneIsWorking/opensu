@@ -15,3 +15,8 @@ target_link_libraries(gog_test PRIVATE iideck::library)
 target_include_directories(gog_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_options(gog_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME gog COMMAND gog_test)
+
+add_executable(epic_test epic_test.cpp)
+target_link_libraries(epic_test PRIVATE iideck::library)
+target_compile_definitions(epic_test PRIVATE IIDECK_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME epic COMMAND epic_test)

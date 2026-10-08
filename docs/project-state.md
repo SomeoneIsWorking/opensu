@@ -32,7 +32,7 @@ game has been observed running yet.
 | S004 | Launch handoff into a running game, with the shell returning | partial | S002 | G001, G003 |
 | S005 | iiSU home grid: Standard (Flow) and WiiSu (Paged) modes, top bar, prompts | partial | S001 | G002 |
 | S012 | Loopback control channel: state, injected input, frame capture | verified | S001 | G003 |
-| S006 | Epic source via Legendary | verified | — | G001 |
+| S006 | Epic source via Legendary: owned titles (`list --json`), install state (`list-installed --json`) | verified | — | G001 |
 | S007 | GOG source: iideck's own sign-in, token and owned-games listing | partial | S018 | G001 |
 | S018 | Store sign-in from the player's browser via the iideck-signin extension (GOG, Epic) | partial | S012 | G001 |
 | S008 | ROM source with per-system emulator launch, found without configuration | verified | — | G001 |
