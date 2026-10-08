@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 
 namespace {
@@ -68,7 +69,9 @@ struct Fixture {
         // Known to Steam, but its directory is gone: not installed.
         write(root / "steamapps" / "appmanifest_620.acf",
               "\"AppState\"\n{\n\t\"appid\"\t\t\"620\"\n\t\"name\"\t\t\"Portal 2\"\n"
-              "\t\"installdir\"\t\t\"Portal 2 (Missing)\"\n\t\"StateFlags\"\t\t\"1026\"\n}\n");
+              "\t\"installdir\"\t\t\"Portal 2 (Missing)\"\n\t\"StateFlags\"\t\t\"1026\"\n"
+              "\t\"BytesToDownload\"\t\t\"2000\"\n\t\"BytesDownloaded\"\t\t\"500\"\n"
+              "\t\"BytesToStage\"\t\t\"2000\"\n\t\"BytesStaged\"\t\t\"0\"\n}\n");
 
         // One of Steam's own components, which is not a game.
         write(root / "steamapps" / "appmanifest_2805730.acf",
@@ -132,6 +135,15 @@ int main() {
     // Three games: the two manifests in the root that are games, plus the extra
     // library's. The Steam component is not a game.
     expect(games.size() == 3, "three games listed");
+
+    // 620 is mid-update (StateFlags 1026 has UpdateRequired), 440 is up to date.
+    const std::optional<iideck::library::steam::AppUpdate> update = library.pendingUpdate("620");
+    expect(update.has_value(), "an app whose manifest requires an update has one pending");
+    expect(update->downloaded == 500 && update->toDownload == 2000 && update->toStage == 2000,
+           "the update's byte counts are read");
+    expect(update->progress() == 0.125, "progress counts downloading and staging");
+    expect(!library.pendingUpdate("440").has_value(), "an installed app has no update pending");
+    expect(!library.pendingUpdate("31337").has_value(), "an unknown app has no update pending");
     expect(find(games, "steam:2805730") == nullptr, "a Steam component is not listed");
 
     const Game* portal = find(games, "steam:440");

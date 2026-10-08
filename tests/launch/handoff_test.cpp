@@ -25,9 +25,12 @@
 #include <functional>
 #include <future>
 #include <iterator>
+#include <mutex>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -94,6 +97,19 @@ class FakeSteam final : public SteamGate {
         state_.store(state);
     }
 
+    /// An update pending for every app, `progress` of the way through; negative for none.
+    void setUpdate(double progress) {
+        update_.store(progress);
+    }
+
+    std::optional<double> updateProgress(std::string_view) const override {
+        const double progress = update_.load();
+        if (progress < 0.0) {
+            return std::nullopt;
+        }
+        return progress;
+    }
+
     SteamState state() const override {
         return state_.load();
     }
@@ -109,6 +125,7 @@ class FakeSteam final : public SteamGate {
 
   private:
     std::atomic<SteamState> state_;
+    std::atomic<double> update_{-1.0};
 };
 
 /// One temp directory per run, holding the scripts, the pid files and the
@@ -226,6 +243,8 @@ struct Shell {
     std::atomic<int> hiddenAt{0};
     std::atomic<int> shownAt{0};
     std::atomic<bool> returned{false};
+    std::mutex statusMutex;
+    std::string lastStatus;
 
     void hide() {
         hiddenAt.store(calls.fetch_add(1));
@@ -235,6 +254,16 @@ struct Shell {
     void show() {
         shownAt.store(calls.fetch_add(1));
         shown.fetch_add(1);
+    }
+
+    void status(const std::string& line) {
+        const std::lock_guard lock{statusMutex};
+        lastStatus = line;
+    }
+
+    std::string latestStatus() {
+        const std::lock_guard lock{statusMutex};
+        return lastStatus;
     }
 
     /// True when start() returned inside `window`. The tests use the inverse: to
@@ -278,6 +307,10 @@ std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& sh
                                    .show =
                                        [&shell] {
                                            shell.show();
+                                       },
+                                   .status =
+                                       [&shell](const std::string& line) {
+                                           shell.status(line);
                                        }};
         outcome.ok = handoff.start(game, hooks, environment, outcome.failure);
         shell.returned.store(true);
@@ -436,8 +469,7 @@ void testStartWaitsAcrossAHandOff() {
     // still be waiting, and the shell must still be hidden.
     expect(!shell.returnedWithin(std::chrono::milliseconds{1500}),
            "start() returned although nothing was running yet");
-    expect(shell.shown.load() == 0, "the shell is still hidden after the launched program exited");
-    expect(shell.hidden.load() == 1, "the shell was hidden once, before the wait ended");
+    expect(shell.hidden.load() == 0, "the shell stays up until the game appears");
 
     const pid_t gamePid = awaitRecordedPid(grandchildPid, "the game the launcher handed off to "
                                                           "started");
@@ -447,6 +479,12 @@ void testStartWaitsAcrossAHandOff() {
                },
                std::chrono::milliseconds{500}),
            "the hand-off game is still running half a second after it appeared");
+    expect(waitUntil(
+               [&shell] {
+                   return shell.hidden.load() == 1;
+               },
+               std::chrono::seconds{5}),
+           "the shell was hidden once the game appeared");
 
     Stat inTable;
     expect(readStat(gamePid, inTable), "the hand-off game has a readable /proc entry");
@@ -535,17 +573,14 @@ void testForceCloseEndsTheStartPhase() {
     Handoff handoff{kSearchPath, fixture.session(), steam};
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
 
-    expect(waitUntil(
-               [&shell] {
-                   return shell.hidden.load() == 1;
-               },
-               std::chrono::seconds{10}),
-           "the shell was hidden once the instance started");
+    expect(!shell.returnedWithin(std::chrono::milliseconds{1500}),
+           "start() waits for a game that has not appeared");
     handoff.forceClose();
     const Outcome outcome =
         awaitStart(pending, "start() returns after forceClose()", std::chrono::seconds{10});
     expect(outcome.ok, "a forced close is not a failure");
-    expect(shell.shown.load() == 1, "show() fired once");
+    expect(shell.hidden.load() == 0 && shell.shown.load() == 0,
+           "a game that never appeared never hid the shell");
 }
 
 /// The instance ending without the game ever appearing ends the wait with a
@@ -561,7 +596,8 @@ void testInstanceExitEndsTheWait() {
         awaitStart(pending, "start() returns when the instance exits", std::chrono::seconds{20});
     expect(!outcome.ok, "a game that never appeared fails");
     expect(outcome.failure.find("did not start") != std::string::npos, "the failure says so");
-    expect(shell.shown.load() == 1, "show() fired once");
+    expect(shell.hidden.load() == 0 && shell.shown.load() == 0,
+           "a game that never appeared never hid the shell");
 }
 
 /// A `steam` that answers `-applaunch <id>` the way a running client does: it
@@ -574,20 +610,27 @@ struct FakeSteamProgram {
     std::string appId;
     Game game;
 
+    /// The game starts once `gate` exists, as a game Steam updates first starts after it.
+    fs::path gate;
+
     FakeSteamProgram(const Fixture& fixture, int gameSeconds) {
         appId = std::to_string(getpid());
         bin = fixture.base / "bin";
         launchLog = fixture.base / "steam-launches.log";
         gamePid = fixture.base / "steam-game.pid";
+        gate = fixture.base / "steam-gate";
+        write(gate, "");
         const fs::path program = bin / "steam";
+        // The waiting shell's command line has no AppId, so nothing matches before the gate opens.
         write(program, "#!/bin/sh\n"
                        "[ \"$1\" = \"-applaunch\" ] || exit 2\n"
                        "echo \"$2\" >> \"" +
                            launchLog.string() +
                            "\"\n"
-                           "setsid sh -c 'echo $$ > \"" +
-                           gamePid.string() + "\"; sleep " + std::to_string(gameSeconds) +
-                           "; true' \"AppId=$2\" > /dev/null 2>&1 &\n"
+                           "setsid sh -c 'while [ ! -e \"" +
+                           gate.string() + "\" ]; do sleep 0.1; done; exec sh -c \"echo \\$\\$ > " +
+                           gamePid.string() + "; sleep " + std::to_string(gameSeconds) +
+                           "; true\" \"AppId=$0\"' \"$2\" > /dev/null 2>&1 &\n"
                            "exit 0\n");
         fs::permissions(program, fs::perms::owner_all);
         game = makeGame("steam:" + appId, "steam", {"-applaunch", appId},
@@ -629,6 +672,45 @@ void testSteamWaitsForReadiness() {
     expect(!running(game), "the game is gone");
     expect(shell.shown.load() == 1, "the shell was shown again, once");
     expect(steam.state() == SteamState::Ready, "the client is left ready");
+}
+
+/// A Steam game that has to be updated first keeps the shell up, reporting the update, for as
+/// long as Steam downloads it; the shell hides once the game runs.
+void testSteamUpdateKeepsTheShellUp() {
+    const Fixture fixture;
+    const FakeSteamProgram steamProgram{fixture, 3};
+    fs::remove(steamProgram.gate);
+    FakeSteam steam;
+    steam.setUpdate(0.42);
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam};
+    Shell shell;
+    std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
+
+    expect(waitUntil(
+               [&steamProgram] {
+                   return fs::exists(steamProgram.launchLog);
+               },
+               std::chrono::seconds{10}),
+           "steam -applaunch was run");
+    expect(!shell.returnedWithin(std::chrono::milliseconds{1500}),
+           "the launch waits while Steam updates the game");
+    expect(shell.hidden.load() == 0, "the shell stays up while the game is updated");
+    expect(shell.latestStatus() == "Updating " + steamProgram.game.title + " · 42%",
+           "the update's progress is reported");
+
+    steam.setUpdate(-1.0);
+    write(steamProgram.gate, "");
+    const pid_t game = awaitRecordedPid(steamProgram.gamePid, "the game started after its update");
+    expect(waitUntil(
+               [&shell] {
+                   return shell.hidden.load() == 1;
+               },
+               std::chrono::seconds{10}),
+           "the shell was hidden once the game ran");
+    const Outcome outcome = awaitStart(pending, "start() returns when the game exits");
+    expect(outcome.ok && outcome.failure.empty(), "an updated game that ran reports success");
+    expect(!running(game), "the game is gone");
+    expect(shell.shown.load() == 1, "the shell was shown again, once");
 }
 
 /// Steam being blocked or failed refuses the launch by name, before anything is hidden.
@@ -799,6 +881,7 @@ int main() {
     testInstanceExitEndsTheWait();
     testEnvironmentReachesTheGame();
     testSteamWaitsForReadiness();
+    testSteamUpdateKeepsTheShellUp();
     testSteamBlockedAndFailedAreRefused();
     testSteamForceCloseKillsTheGameNotTheClient();
     testSteamForceCloseCancelsTheWait();

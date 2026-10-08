@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <functional>
+#include <optional>
 #include <string_view>
 
 namespace iideck::launch {
@@ -51,6 +52,10 @@ class SteamGate {
     /// passes or `cancelled` returns true. Returns the state it stopped at.
     [[nodiscard]] virtual SteamState waitReady(std::chrono::milliseconds timeout,
                                                const std::function<bool()>& cancelled) = 0;
+
+    /// How far Steam is through an update it must apply before it runs `appId`, 0 to 1;
+    /// nothing when none is pending. Callable from any thread.
+    [[nodiscard]] virtual std::optional<double> updateProgress(std::string_view appId) const = 0;
 };
 
 } // namespace iideck::launch

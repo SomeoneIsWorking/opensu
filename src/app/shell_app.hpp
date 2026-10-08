@@ -95,6 +95,8 @@ class ShellApp final : public ControlTarget {
     void handleKeyboard();
     void actOn(gamepad::Button button);
     void launchFocused();
+    /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
+    void cancelLaunch();
     /// Buttons while a game runs: Guide opens and closes the menu over it, which takes the
     /// rest. Main loop only.
     void actInGame(gamepad::Button button);

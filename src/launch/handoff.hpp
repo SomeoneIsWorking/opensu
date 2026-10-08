@@ -41,12 +41,16 @@ class Handoff {
 
     /// What a launch tells its caller, from the thread running start().
     struct Hooks {
+        /// The game is running.
         std::function<void()> hide;
+        /// The game that `hide` announced is over.
         std::function<void()> show;
+        /// A line on how a launch that is not running yet is getting on.
+        std::function<void(const std::string&)> status;
     };
 
-    /// Starts a game, calls `hide`, waits for the game to finish, then calls
-    /// `show`. Blocks until then, so callers run it off the main thread. Each
+    /// Starts a game, calls `hide` once it appears, waits for it to finish, then
+    /// calls `show`. Blocks until then, so callers run it off the main thread. Each
     /// "NAME=value" of `environment` is added to a game iideck starts itself; a
     /// Steam game gets the client's environment.
     ///
@@ -57,7 +61,9 @@ class Handoff {
     ///
     /// The wait is two phases, not a wait on the child: a launcher may hand off
     /// and exit at once. The game appears in the process table, then leaves. It
-    /// also ends when the instance is gone, or when forceClose() is called.
+    /// also ends when the instance is gone, or when forceClose() is called. The game
+    /// must appear within startTimeout, a timeout that does not run while Steam is
+    /// updating it; meanwhile `status` reports the update's progress.
     bool start(const library::Game& game, const Hooks& hooks,
                const std::vector<std::string>& environment, std::string& failure);
 

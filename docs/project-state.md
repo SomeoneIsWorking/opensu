@@ -149,7 +149,8 @@ Gap: not yet confirmed on the real Xbox controller.
 ### S004 — Launch handoff
 
 The game gets its own session so a shell exit or a hangup cannot reach it, and the
-shell's window goes down before the spawn and comes back when the game leaves.
+shell's window goes down once the game appears in the process table and comes back
+when it leaves; a launch whose game never appears leaves the shell up.
 Hiding is a request to the main loop, not a call from the handoff thread: raylib's
 window calls belong to the thread holding the GL context, and there is no queue
 that makes them safe from elsewhere. The launch thread only raises a flag. Every source records a `processHint` — the
@@ -295,6 +296,14 @@ Gap: a force-close while the client is still starting the game cannot cancel the
 request it already handed to Steam.
 
 ### S016 — Steam client
+
+A Steam game with a pending update is downloaded by Steam before it runs: its
+appmanifest carries StateFlags bit 2 (UpdateRequired) and
+`BytesToDownload`/`BytesDownloaded`/`BytesToStage`/`BytesStaged`. While that holds,
+the launch keeps the shell up, toasts `Updating <title> · N%`, and its three-minute
+appearance bound does not run; B cancels. Reproduced from a real run: BTD6
+(960090) with a 2.2 GB update left an empty Gamescope behind a hidden shell.
+
 
 `steam::Client` starts `steam -silent` in `<session>-steam.scope` when iideck
 starts, if a Steam install exists, and watches it: Initializing until a logon line

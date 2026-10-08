@@ -53,7 +53,7 @@ ShellApp::ShellApp(Settings settings)
     : settings_{std::move(settings)}, catalog_{library::makeCatalog(config::read())},
       shell_{settings_.width, settings_.height, settings_.homeMode},
       steam_{steam::Client::Options{config::read().home, config::read().executablePath,
-                                    config::read().session}},
+                                    config::read().session, config::read().steamRoots}},
       handoff_{config::read().executablePath, config::read().session, steam_} {
     refreshClock();
 }
@@ -195,7 +195,7 @@ void ShellApp::actOn(gamepad::Button button) {
         shell_.resetFocus();
         break;
     case gamepad::Button::B:
-        // Back out of a launch, or return from a game.
+        cancelLaunch();
         break;
     default:
         break;
@@ -242,6 +242,10 @@ void ShellApp::launchFocused() {
                                            .show =
                                                [this] {
                                                    requestGameRunning(false);
+                                               },
+                                           .status =
+                                               [this](const std::string& line) {
+                                                   requestToast(line + " · B cancels", false);
                                                }};
         handoff_.start(copy, hooks, environment, failure);
         {
@@ -255,6 +259,17 @@ void ShellApp::launchFocused() {
             requestToast(copy.title + " closed", false);
         }
     }}.detach();
+}
+
+void ShellApp::cancelLaunch() {
+    {
+        const std::lock_guard lock{launchMutex_};
+        if (!launchRunning_) {
+            return;
+        }
+    }
+    lucent::info("launch", "cancelling the launch of {}", runningTitle_);
+    handoff_.forceClose();
 }
 
 void ShellApp::actInGame(gamepad::Button button) {

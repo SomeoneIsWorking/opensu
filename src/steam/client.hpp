@@ -11,7 +11,9 @@
 #include <filesystem>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -34,6 +36,8 @@ class Client final : public launch::SteamGate {
         std::vector<std::filesystem::path> executablePath;
         /// Names the scope: `<session>-steam.scope`.
         std::string session;
+        /// Install roots holding the app manifests; discovered under `home` when empty.
+        std::vector<std::filesystem::path> steamRoots;
     };
 
     explicit Client(Options options);
@@ -53,6 +57,7 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] launch::SteamState state() const override;
     [[nodiscard]] launch::SteamState waitReady(std::chrono::milliseconds timeout,
                                                const std::function<bool()>& cancelled) override;
+    [[nodiscard]] std::optional<double> updateProgress(std::string_view appId) const override;
 
   private:
     /// The watcher thread: polls the scope and the connection log until stopped.

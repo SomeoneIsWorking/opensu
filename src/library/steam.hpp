@@ -4,9 +4,11 @@
 // It never talks to the Steam client and never writes to it.
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "game.hpp"
@@ -19,6 +21,18 @@ struct LibraryFolder {
     /// Identifies the physical library. Steam assigns the same value to two
     /// mount points of one drive, which would otherwise duplicate every game.
     std::string contentId;
+};
+
+/// An update Steam has to apply before it will run an app.
+struct AppUpdate {
+    std::uint64_t downloaded{0};
+    std::uint64_t toDownload{0};
+    std::uint64_t staged{0};
+    std::uint64_t toStage{0};
+
+    /// How far through it Steam is, 0 to 1: downloading and staging count byte for byte. 0
+    /// while Steam has not sized it yet.
+    [[nodiscard]] double progress() const noexcept;
 };
 
 /// Reads a local Steam installation.
@@ -40,6 +54,10 @@ class Library {
 
     /// Lists every app the installation knows about, installed or not.
     [[nodiscard]] std::vector<Game> list() const;
+
+    /// The update an app's manifest says Steam must apply first; nothing when none is pending
+    /// or the app has no manifest.
+    [[nodiscard]] std::optional<AppUpdate> pendingUpdate(std::string_view appId) const;
 
   private:
     std::vector<std::filesystem::path> roots_;

@@ -120,9 +120,13 @@ bool isSteamComponent(const std::string& installDir) {
 
 /// Steam's own install flag, authoritative even when the game directory has been
 /// moved or is a symlink.
+/// StateFlags bits: the app is fully installed; an update must be applied before it runs.
+constexpr long long kFullyInstalled = 4;
+constexpr long long kUpdateRequired = 2;
+
 bool stateFlagsInstalled(const Node& state) {
     const std::optional<long long> flags = state.integer({"StateFlags"});
-    return flags.has_value() && (*flags & 4) != 0;
+    return flags.has_value() && (*flags & kFullyInstalled) != 0;
 }
 
 /// Merges every user profile's app data. Later profiles win, which matches how
@@ -410,6 +414,42 @@ std::vector<LibraryFolder> Library::libraryFolders() const {
         }
     }
     return presentFolders(std::move(folders));
+}
+
+double AppUpdate::progress() const noexcept {
+    const std::uint64_t total = toDownload + toStage;
+    if (total == 0) {
+        return 0.0;
+    }
+    return std::min(1.0, static_cast<double>(downloaded + staged) / static_cast<double>(total));
+}
+
+std::optional<AppUpdate> Library::pendingUpdate(std::string_view appId) const {
+    const std::string file = "appmanifest_" + std::string{appId} + ".acf";
+    for (const LibraryFolder& folder : libraryFolders()) {
+        const fs::path manifest = folder.path / "steamapps" / file;
+        std::error_code ec;
+        if (!fs::is_regular_file(manifest, ec)) {
+            continue;
+        }
+        const std::optional<Node> doc = vdf::parseFile(manifest);
+        const std::optional<Node> state = doc ? doc->block({"AppState"}) : std::nullopt;
+        if (!state) {
+            continue;
+        }
+        const long long flags = state->integer({"StateFlags"}).value_or(0);
+        if ((flags & kUpdateRequired) == 0) {
+            return std::nullopt;
+        }
+        const auto bytes = [&state](std::string_view key) {
+            return static_cast<std::uint64_t>(std::max(0LL, state->integer({key}).value_or(0)));
+        };
+        return AppUpdate{.downloaded = bytes("BytesDownloaded"),
+                         .toDownload = bytes("BytesToDownload"),
+                         .staged = bytes("BytesStaged"),
+                         .toStage = bytes("BytesToStage")};
+    }
+    return std::nullopt;
 }
 
 std::vector<Game> Library::list() const {

@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "launch/command.hpp"
+#include "library/steam.hpp"
 #include "lucent/log.h"
 
 namespace iideck::steam {
@@ -150,6 +151,15 @@ void Client::watch() {
             return stopping_;
         });
     }
+}
+
+std::optional<double> Client::updateProgress(std::string_view appId) const {
+    const std::optional<library::steam::AppUpdate> update =
+        library::steam::Library::discover(options_.home, options_.steamRoots).pendingUpdate(appId);
+    if (!update) {
+        return std::nullopt;
+    }
+    return update->progress();
 }
 
 SteamState Client::waitReady(std::chrono::milliseconds timeout,

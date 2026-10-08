@@ -144,13 +144,9 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
         return true;
     }
 
-    // Hidden once the game is on its way: a game that opens its window at once must
-    // not appear over a shell that is still up.
-    if (hooks.hide) {
-        hooks.hide();
-    }
     lucent::info("launch", "started {}", game.title);
 
+    bool hidden = false;
     const auto finish = [&] {
         if (viaSteam) {
             // The client keeps running; only this game's tree is ours to end.
@@ -162,7 +158,7 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
         } else {
             instance_.stop();
         }
-        if (hooks.show) {
+        if (hidden && hooks.show) {
             hooks.show();
         }
     };
@@ -173,8 +169,17 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
 
     // Phase one: the game appears. The started process says nothing useful about
     // a successful launch, but the instance emptying out means nothing will appear.
-    const Clock::time_point startDeadline = Clock::now() + Handoff::startTimeout;
+    Clock::time_point startDeadline = Clock::now() + Handoff::startTimeout;
     while (!forced_.load() && !ProcessTree::anyMatches(game.processHint)) {
+        // Steam downloads a pending update before it runs the game, for as long as that takes.
+        if (const std::optional<double> update =
+                viaSteam ? steam_.updateProgress(game.sourceId) : std::nullopt) {
+            startDeadline = Clock::now() + Handoff::startTimeout;
+            if (hooks.status) {
+                hooks.status("Updating " + game.title + " · " +
+                             std::to_string(static_cast<int>(*update * 100.0)) + "%");
+            }
+        }
         if (!alive()) {
             if (forced_.load()) {
                 break;
@@ -198,6 +203,11 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
         return true;
     }
     lucent::info("launch", "{} is running", game.title);
+    // Hidden only now: until the game runs, the shell is what the player sees.
+    hidden = true;
+    if (hooks.hide) {
+        hooks.hide();
+    }
 
     // Phase two: the game leaves, or the instance does. No time bound: the player
     // can always force-close from the pad.
