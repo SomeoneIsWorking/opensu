@@ -114,3 +114,9 @@ The detailed reverse-engineering notes that UI comments cite (`home-grid.md`,
 
 `assets/CalSans-Regular.ttf` is Cal Sans, the typeface iiSU uses by default, under the
 SIL Open Font License; the licence is beside it in `assets/CalSans-OFL.txt`.
+
+## License
+
+iideck is MIT-licensed (`LICENSE`). Cal Sans is under the SIL Open Font License
+(`assets/CalSans-OFL.txt`). iideck is an independent project, not affiliated with iiSU,
+and ships none of iiSU's code or assets.
