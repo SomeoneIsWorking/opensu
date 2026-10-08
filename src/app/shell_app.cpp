@@ -125,11 +125,30 @@ void ShellApp::openFolder(const library::Folder& folder) {
     if (const auto* launcher = std::get_if<library::Launcher>(&folder);
         launcher != nullptr && launcher->games == 0) {
         const std::string store{library::label(launcher->source)};
+        if (!launcher->ready && launcher->source == library::Source::Gog) {
+            startSignIn(Store::Gog);
+            return;
+        }
+        if (!launcher->ready && launcher->source == library::Source::Epic) {
+            startSignIn(Store::Epic);
+            return;
+        }
         shell_.setToast(launcher->ready ? "no games in " + store : "sign in to " + store, true);
         return;
     }
     browser_.open(folder, shell_.focusIndex());
     showShelf(0);
+}
+
+void ShellApp::startSignIn(Store store) {
+    shell_.setToast("opening the sign-in page in your browser");
+    // The opener can take seconds to start a browser, so it runs off the loop.
+    signInOpener_ = std::jthread{[this, store] {
+        const SignInResult result = signIn_.open(store);
+        requestToast(result.ok ? "sign in there; the iideck sign-in extension finishes it"
+                               : result.message,
+                     !result.ok);
+    }};
 }
 
 void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
@@ -385,11 +404,12 @@ void ShellApp::startInstall(const library::Game& game) {
 }
 
 void ShellApp::offerInstall(const library::Game& game) {
-    // A store's own page installs that store's copy; elsewhere any store that owns the title will do.
+    // A store's own page installs that store's copy; elsewhere any store that owns the title will
+    // do.
     std::vector<library::Game> copies =
         browser_.inLauncher() ? std::vector<library::Game>{game} : library::copiesOf(games_, game);
-    const std::string unsupported = std::string{library::label(copies.front().source)} +
-                                    " installs are not supported yet";
+    const std::string unsupported =
+        std::string{library::label(copies.front().source)} + " installs are not supported yet";
     std::erase_if(copies, [](const library::Game& copy) {
         return copy.installed || !Installs::supports(copy.source);
     });
@@ -656,8 +676,9 @@ void ShellApp::publishSnapshot() {
     if (const library::Game* focused = shell_.focusedGame(); focused != nullptr) {
         next.focusedId = focused->id;
     } else if (const std::optional<library::Folder> folder = shell_.focusedFolder()) {
-        next.focusedId =
-            std::holds_alternative<library::Console>(*folder) ? "console:" + library::key(*folder) : library::key(*folder);
+        next.focusedId = std::holds_alternative<library::Console>(*folder)
+                             ? "console:" + library::key(*folder)
+                             : library::key(*folder);
     }
     next.focusedTitle = shell_.focusedTitle();
     next.shelf = browser_.folder() ? library::key(*browser_.folder()) : "home";
@@ -845,8 +866,8 @@ int ShellApp::run() {
         serviceRequests();
         serviceArtwork();
         shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
-        // iiSU pl3.q: Home has no title; inside a folder the pill names the focused game.
-        shell_.setTitle(browser_.folder() ? shell_.focusedTitle() : std::string{});
+        // iiSU's Home has no title (pl3.q); iideck's names the focused tile everywhere.
+        shell_.setTitle(shell_.focusedTitle());
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
         shell_.draw();

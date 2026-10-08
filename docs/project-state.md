@@ -14,6 +14,8 @@ Visible deltas from the baseline:
   same grid as Steam; emulator ROMs sit behind one tile per console on Home, and each store
   and the combined "All games" library behind a tile of its own.
 - Each launcher's state is a logo with a status dot in the top bar's left slot.
+- The title pill names the focused tile on Home too; iiSU shows it only inside sections.
+- A signed-out GOG or Epic tile opens that store's sign-in page in the default browser.
 - No store client window is ever opened to reach a game.
 - The grid is ours, so layout, tile sizes and page count are ours.
 
@@ -88,13 +90,12 @@ them under `Hud`: iiSU's single-screen top bar (`TopBarMetrics` for is7/hs7/a32.
 sizes, `StatusPillPainter` for the bell, clock, battery and R2 glyph, `ClockText`
 for o28.g's format and k42's minute tick), the corner hints and iideck's toast.
 The battery comes from `device::BatteryReader` (sysfs, system scope only); the
-12/24-hour choice from the LC_TIME locale in `config`. Home shows no title pill,
-as iiSU's does not; inside a console the pill (`jj2.c`) names the focused ROM, as
-iiSU's Roms section does. There are no feature tiles or badges on game tiles.
+12/24-hour choice from the LC_TIME locale in `config`. The title pill (`jj2.c`)
+names the focused tile everywhere, Home included, where iiSU's Home shows none. There are no feature tiles or badges on game tiles.
 
 Home's shelf (`library::homeShelf`) is, in order: one launcher tile per store whose catalog
 source is not absent (Steam, Epic, GOG: the badges' presence rule; a signed-out store keeps its
-tile, captioned "Sign in", and A on it toasts instead of opening); an "All games" tile when any
+tile, captioned "Sign in", and A on it opens the store's sign-in page in the default browser off the loop, `ShellApp::startSignIn`); an "All games" tile when any
 store has games; one console tile per system with ROMs, in `rom_systems` order; then the store
 games installed here, a title installed in several stores once. The stores come first so they
 sit in the first screen rather than behind eighteen consoles. Uninstalled store games are only

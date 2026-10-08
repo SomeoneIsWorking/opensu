@@ -126,6 +126,8 @@ class ShellApp final : public ControlTarget {
     void serviceArtwork();
     /// Opens a console, a launcher or the combined library on its games.
     void openFolder(const library::Folder& folder);
+    /// Opens a store's sign-in page in the browser, off the loop.
+    void startSignIn(Store store);
     /// Buttons while a game runs: Guide opens and closes the menu over it, which takes the
     /// rest. Main loop only.
     void actInGame(gamepad::Button button);
@@ -196,6 +198,8 @@ class ShellApp final : public ControlTarget {
     std::string pendingToast_;
     bool pendingToastError_{false};
     bool hasPendingToast_{false};
+    /// Opens a store's sign-in page; after the toast it raises, so it is joined first.
+    std::jthread signInOpener_;
     /// The launch's latest progress, raised off-thread, taken by the loop.
     std::mutex progressMutex_;
     std::optional<launch::LaunchProgress> pendingProgress_;
