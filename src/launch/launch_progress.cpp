@@ -19,6 +19,8 @@ std::string describe(const LaunchProgress& progress) {
         return "Installing · " + percent(progress.fraction);
     case LaunchProgress::Stage::Starting:
         return "Starting";
+    case LaunchProgress::Stage::Preparing:
+        return progress.task.empty() ? "Starting" : progress.task;
     case LaunchProgress::Stage::Loading:
         return "Loading";
     }

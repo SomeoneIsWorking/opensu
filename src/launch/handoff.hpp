@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <mutex>
@@ -64,10 +65,15 @@ class Handoff {
     /// game leaves.
     ///
     /// The wait is two phases, not a wait on the child: a launcher may hand off
-    /// and exit at once. The game appears in the process table and shows a window,
-    /// then leaves. It also ends when the instance is gone, or when forceClose() is
-    /// called. The game must appear within startTimeout, a timeout that does not run
-    /// while Steam is updating it; once it runs, it may load for as long as it likes.
+    /// and exit at once. The game appears and shows a window, then leaves. It also ends
+    /// when the instance is gone, or when forceClose() is called. The game must appear
+    /// within startTimeout, a timeout that does not run while Steam is updating it or
+    /// working through its launch; once it runs, it may load for as long as it likes.
+    ///
+    /// A Steam game is followed through Steam's own launch: its tasks are the progress,
+    /// its error is the failure, and the game is over once Steam says it no longer runs and
+    /// none of its processes remain. A game Steam already runs is returned to, not
+    /// launched again.
     bool start(const library::Game& game, const Hooks& hooks,
                const std::vector<std::string>& environment, std::string& failure);
 
@@ -78,13 +84,27 @@ class Handoff {
 
   private:
     /// How a launch got on.
-    enum class Begun { Started, Cancelled, Failed };
+    enum class Begun : std::uint8_t { Started, Cancelled, Failed };
+    /// How the wait for the game's window ended.
+    enum class Shown : std::uint8_t { Window, Forced, Failed };
+    /// Reports a progress line once per change.
+    using Report = std::function<void(const LaunchProgress&)>;
 
-    /// Asks the Steam client to run the game, once it is ready.
-    Begun beginSteam(const library::Game& game, const Hooks& hooks, std::string& failure);
+    /// Asks the Steam client to run the game, once it is ready. `baseline` is Steam's last
+    /// launch action for the game before this one.
+    Begun beginSteam(const library::Game& game, const Hooks& hooks, int& baseline,
+                     std::string& failure);
     /// Starts the game in an Instance of its own.
     Begun beginScope(const library::Game& game, const std::vector<std::string>& environment,
                      std::string& failure);
+
+    /// Phase one for a Steam game: Steam's launch, then the game's window.
+    Shown awaitSteamWindow(const library::Game& game, int baseline, const Report& report,
+                           std::string& failure);
+    /// Phase one for a game in an Instance: it appears, then shows a window.
+    Shown awaitScopeWindow(const library::Game& game, const Report& report, std::string& failure);
+    /// Phase two: whether the game is still there.
+    [[nodiscard]] bool stillRunning(const library::Game& game, bool viaSteam);
 
     /// Sleeps one poll interval, or less when forceClose() wakes it.
     void pause();

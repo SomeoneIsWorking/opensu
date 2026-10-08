@@ -23,6 +23,7 @@
 #include "install_wizard.hpp"
 #include "launch/instance.hpp"
 #include "launch/steam_gate.hpp"
+#include "launch_activity.hpp"
 
 namespace iideck::steam {
 
@@ -70,6 +71,7 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] launch::SteamState waitReady(std::chrono::milliseconds timeout,
                                                const std::function<bool()>& cancelled) override;
     [[nodiscard]] std::optional<double> updateProgress(std::string_view appId) const override;
+    [[nodiscard]] launch::SteamAppActivity activity(std::string_view appId) const override;
 
   private:
     /// The watcher thread: polls the scope and the connection log until stopped.
@@ -79,8 +81,9 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] bool logonCompleted();
 
     void setState(launch::SteamState state);
-    /// Rereads the download queue; keeps the last one when Steam cannot be asked.
-    void refreshDownloads();
+    /// Rereads the download queue and launch activity; keeps the last of each when Steam
+    /// cannot be asked.
+    void refreshFromClient();
 
     Options options_;
     DesktopSteam desktop_;
@@ -92,12 +95,14 @@ class Client final : public launch::SteamGate {
     DevTools devTools_;
     DownloadQueue queue_{devTools_};
     InstallWizard installer_{devTools_};
+    LaunchActivity launches_{devTools_};
 
     mutable std::mutex mutex_;
     std::condition_variable changed_;
     launch::SteamState state_{launch::SteamState::Stopped};
     bool stopping_{false};
     std::vector<Download> downloads_;
+    Activities activities_;
     /// The last reason the queue could not be read, logged once per change.
     std::string queueError_;
     std::thread watcher_;

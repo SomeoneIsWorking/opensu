@@ -151,7 +151,7 @@ Gap: not yet confirmed on the real Xbox controller.
 The game gets its own session so a shell exit or a hangup cannot reach it, and the
 shell's window goes down once the game shows a window and comes back when it
 leaves. Until then the shell shows a launch panel over the grid: the title, the
-stage (waiting for Steam, updating with a bar, starting, loading) and B to cancel.
+stage (waiting for Steam, updating with a bar, Steam's launch task, starting, loading) and B to cancel.
 Inside Gamescope "shows a window" means a pid in the game's process trees owns an
 entry of `GAMESCOPE_FOCUSABLE_WINDOWS` on the root (window, app id, pid triples,
 the pid found by Gamescope); outside it there is no display to watch and a running
@@ -164,43 +164,30 @@ that makes them safe from elsewhere. The launch thread only raises a flag. Every
 Wine prefix path for Steam, the install folder for the others — which is what
 identifies the game in the process table.
 
-Waiting is two phases: the game must appear, then it must leave. It is not a wait
-on the child, because the child says nothing useful: a launcher that hands off
-exits immediately, and one that *is* the long-lived process never exits. Steam is
-both at once — `steam://rungameid/` execs `steam.sh`, which stays alive for
-hours — so a child-based wait either returns instantly or never returns.
+Waiting is two phases: the game must appear, then it must leave. Neither is a wait
+on the child: `steam.sh` lives for hours and a launcher that hands off exits at once.
 
-That was not a hypothetical. Driving the first launch over the control channel
-left the shell reporting `launching` for 90 seconds and would have gone on for
-its 12-hour timeout, with `compatdata/960090` never matching and `steam.sh` never
-exiting. The appearance phase is now bounded at three minutes, and a game that
-does not appear is reported as a failure.
+For a Steam game the handoff follows Steam's own launch (`steam/launch_activity.*`):
+a recorder in Steam's SharedJSContext keeps each app's latest game action (id,
+task, error, ended) and its running state from `GameSessions`. The launch's action
+is the one whose id is newer than the id seen before `-applaunch`. While that action
+is unfinished the panel shows Steam's task ("Synchronizing cloud", "Running
+first-time setup", ...) and the appearance bound is not counting down. Steam
+launches run in stages — Cuphead runs an install script under `reaper --verb=run`
+for 10 s, idles 2 s, then starts the game — so the game is only "gone" when Steam
+says it is not running, no process matches the hint and Steam's action is over.
+An error Steam reports on the action (`AppError_N`, localized) is the failure. A
+game Steam already runs is returned to without a second `-applaunch`, which would
+only raise Steam's "Game already running" dialog. Non-Steam games keep the
+process-and-window check, bounded at three minutes.
 
-Verified end to end through the channel: pressing play takes the window down,
-Steam starts and logs in, and after exactly the three-minute appearance bound the
-window comes back with `Bloons TD 6 did not start`. That is the correct outcome
-on this machine, because the game genuinely does not start — the last real attempt
-in Steam's log is from September and died inside Proton's prefix setup, and
-`steam.sh` sits idle afterwards.
+Verified: Cuphead at 3840x2160 in a headless Gamescope launches through setup to
+its window with no false "closed before it showed a window" (the reported bug),
+and the shell hides at the window. `handoff_test` covers a staged launch with a
+gap, a Steam-reported error and a returned-to running game.
 
-Three further defects were found by the handoff test and fixed:
-
-- `hide` and `show` were **empty lambdas**, so the window never actually hid. The
-  comment above them claimed raylib queues window calls onto the main loop; it does
-  not. Every earlier run launched a game with the shell still on screen.
-- A program that could not be executed was reported only after the full appearance
-  bound, as "did not start", naming neither the program nor the reason. `execvp`
-  returning 127 is the one signal that distinguishes "cannot run" from "not yet",
-  so phase one now ends immediately on it.
-- A game whose source records no hint sat out the whole bound and was then reported
-  as having failed to start, while running perfectly well. `processMatches("")` is
-  false by design, so there was nothing to match. A launch with no hint is now
-  refused up front, because that source cannot support a handoff at all.
-
-Gap: **still no observed game running.** The handoff's "the game appeared, now
-wait for it to leave" path is therefore unproven against a real process, which is
-the half that matters when it works. What is proven is that a launch that does
-not happen is reported instead of hanging.
+Gap: the user saw Cuphead drawn small in the top-left after opening the Guide
+menu (`docs/issues/guide-shrinks-game.md`); not reproduced.
 
 ### S012 — Control channel
 

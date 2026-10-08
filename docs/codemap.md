@@ -35,6 +35,7 @@ gitignored `docs/reference/`).
 | `src/steam/desktop_steam.*` | Detecting a Steam client running outside iideck |
 | `src/steam/devtools.*` | Running JavaScript in Steam's SharedJSContext over Chrome DevTools |
 | `src/steam/downloads.*` | Steam's live download queue: parsing and reading it |
+| `src/steam/launch_activity.*` | Steam's game actions and running state per app, recorded in its SharedJSContext |
 | `src/steam/install_wizard.*` | Installing a Steam app through Steam's own installer, licence steps to the player |
 
 ## Library

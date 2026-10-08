@@ -15,6 +15,8 @@ struct LaunchProgress {
         Installing,
         /// Asked to start; nothing of the game runs yet.
         Starting,
+        /// Steam is working through its launch, at `task`.
+        Preparing,
         /// The game runs but has no window yet.
         Loading,
     };
@@ -22,6 +24,8 @@ struct LaunchProgress {
     Stage stage{Stage::Starting};
     /// How far through the download, 0 to 1. Updating and Installing only.
     double fraction{0.0};
+    /// Steam's own words for its current launch task. Preparing only.
+    std::string task;
 
     bool operator==(const LaunchProgress&) const = default;
 };

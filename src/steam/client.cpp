@@ -145,7 +145,7 @@ void Client::watch() {
         const bool alive = instance_.running();
         const bool ready = alive && current == SteamState::Initializing && logonCompleted();
         if (alive && (ready || current == SteamState::Ready)) {
-            refreshDownloads();
+            refreshFromClient();
         }
         lock.lock();
         if (stopping_) {
@@ -173,19 +173,30 @@ bool Client::installed(std::string_view appId) const {
     return library::steam::Library::discover(options_.home, options_.steamRoots).installed(appId);
 }
 
-void Client::refreshDownloads() {
+void Client::refreshFromClient() {
     std::string error;
     std::optional<std::vector<Download>> queue = queue_.read(error);
+    std::optional<Activities> activities;
+    if (queue) {
+        activities = launches_.read(error);
+    }
     const std::lock_guard lock{mutex_};
-    if (!queue) {
+    if (!queue || !activities) {
         if (error != queueError_) {
-            lucent::warn("steam", "cannot read the download queue: {}", error);
+            lucent::warn("steam", "cannot read Steam's downloads and launches: {}", error);
             queueError_ = error;
         }
         return;
     }
     queueError_.clear();
     downloads_ = std::move(*queue);
+    activities_ = std::move(*activities);
+}
+
+launch::SteamAppActivity Client::activity(std::string_view appId) const {
+    const std::lock_guard lock{mutex_};
+    const auto found = activities_.find(appId);
+    return found == activities_.end() ? launch::SteamAppActivity{} : found->second;
 }
 
 std::vector<Download> Client::downloads() const {
@@ -238,6 +249,7 @@ void Client::shutdown() {
     {
         const std::lock_guard lock{mutex_};
         downloads_.clear();
+        activities_.clear();
     }
     setState(SteamState::Stopped);
 }

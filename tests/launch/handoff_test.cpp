@@ -51,6 +51,7 @@ using iideck::launch::GameWindows;
 using iideck::launch::Handoff;
 using iideck::launch::LaunchProgress;
 using iideck::launch::ProcessTree;
+using iideck::launch::SteamAppActivity;
 using iideck::launch::SteamGate;
 using iideck::launch::SteamState;
 using iideck::library::Game;
@@ -119,6 +120,17 @@ class FakeSteam final : public SteamGate {
         return state_.load();
     }
 
+    /// What Steam says about every app from now on.
+    void setActivity(SteamAppActivity activity) {
+        const std::lock_guard lock{activityMutex_};
+        activity_ = std::move(activity);
+    }
+
+    SteamAppActivity activity(std::string_view) const override {
+        const std::lock_guard lock{activityMutex_};
+        return activity_;
+    }
+
     SteamState waitReady(std::chrono::milliseconds timeout,
                          const std::function<bool()>& cancelled) override {
         const Clock::time_point until = Clock::now() + timeout;
@@ -131,6 +143,8 @@ class FakeSteam final : public SteamGate {
   private:
     std::atomic<SteamState> state_;
     std::atomic<double> update_{-1.0};
+    mutable std::mutex activityMutex_;
+    SteamAppActivity activity_;
 };
 
 /// A display whose windows the test opens: none until show().
@@ -698,7 +712,10 @@ struct FakeSteamProgram {
     /// The game starts once `gate` exists, as a game Steam updates first starts after it.
     fs::path gate;
 
-    FakeSteamProgram(const Fixture& fixture, int gameSeconds) {
+    /// With `setupSeconds`, Steam first runs a setup process under the app's id for that long,
+    /// then leaves `gapSeconds` with nothing running, as it does for an install script.
+    FakeSteamProgram(const Fixture& fixture, int gameSeconds, int setupSeconds = 0,
+                     double gapSeconds = 0.0) {
         appId = std::to_string(getpid());
         bin = fixture.base / "bin";
         launchLog = fixture.base / "steam-launches.log";
@@ -712,8 +729,9 @@ struct FakeSteamProgram {
                        "echo \"$2\" >> \"" +
                            launchLog.string() +
                            "\"\n"
-                           "setsid sh -c 'while [ ! -e \"" +
-                           gate.string() + "\" ]; do sleep 0.1; done; exec sh -c \"echo \\$\\$ > " +
+                           "setsid sh -c '" +
+                           setup(setupSeconds, gapSeconds) + "while [ ! -e \"" + gate.string() +
+                           "\" ]; do sleep 0.1; done; exec sh -c \"echo \\$\\$ > " +
                            gamePid.string() + "; sleep " + std::to_string(gameSeconds) +
                            "; true\" \"AppId=$0\"' \"$2\" > /dev/null 2>&1 &\n"
                            "exit 0\n");
@@ -721,6 +739,14 @@ struct FakeSteamProgram {
         game = makeGame("steam:" + appId, "steam", {"-applaunch", appId},
                         "AppId=" + appId + std::string(1, '\0'));
         game.source = Source::Steam;
+    }
+
+    static std::string setup(int seconds, double gap) {
+        if (seconds == 0) {
+            return {};
+        }
+        return "sh -c \"sleep " + std::to_string(seconds) + "\" \"AppId=$0\" Install=1; sleep " +
+               std::to_string(gap) + "; ";
     }
 };
 
@@ -798,6 +824,106 @@ void testSteamUpdateKeepsTheShellUp() {
     const Outcome outcome = awaitStart(pending, "start() returns when the game exits");
     expect(outcome.ok && outcome.failure.empty(), "an updated game that ran reports success");
     expect(!running(game), "the game is gone");
+    expect(shell.shown.load() == 1, "the shell was shown again, once");
+}
+
+/// Steam's launch can run a setup process, then nothing, then the game: Cuphead's first launch
+/// runs its install script for ten seconds and starts the game two seconds later. The launch
+/// follows Steam's action across the gap and hides the shell only on the game's window.
+void testSteamLaunchSpansSetupAndGap() {
+    const Fixture fixture;
+    const FakeSteamProgram steamProgram{fixture, 3, 1, 2.0};
+    FakeSteam steam;
+    FakeWindows windows;
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, &windows};
+    Shell shell;
+    std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
+    expect(waitUntil(
+               [&steamProgram] {
+                   return fs::exists(steamProgram.launchLog);
+               },
+               std::chrono::seconds{10}),
+           "steam -applaunch was run");
+    steam.setActivity(SteamAppActivity{
+        .actionId = 1, .task = "Running first-time setup", .actionEnded = false, .running = false});
+
+    expect(!shell.returnedWithin(std::chrono::milliseconds{3500}),
+           "the launch outlives the setup process and the gap after it");
+    expect(shell.hidden.load() == 0, "the shell stays up without a window");
+    const std::optional<LaunchProgress> reported = shell.latestProgress();
+    expect(reported && reported->stage == LaunchProgress::Stage::Preparing &&
+               describe(*reported) == "Running first-time setup",
+           "Steam's task is the progress line");
+
+    const pid_t game = awaitRecordedPid(steamProgram.gamePid, "the game started after the gap");
+    steam.setActivity(SteamAppActivity{.actionId = 1, .actionEnded = true, .running = true});
+    windows.show();
+    expect(waitUntil(
+               [&shell] {
+                   return shell.hidden.load() == 1;
+               },
+               std::chrono::seconds{5}),
+           "the shell hides on the game's window");
+    expect(waitUntil(
+               [game] {
+                   return !running(game);
+               },
+               std::chrono::seconds{10}),
+           "the game exits");
+    steam.setActivity(SteamAppActivity{.actionId = 1, .actionEnded = true, .running = false});
+    const Outcome outcome = awaitStart(pending, "start() returns once Steam says it is over");
+    expect(outcome.ok && outcome.failure.empty(), "the launch succeeded");
+    expect(shell.shown.load() == 1, "the shell was shown again, once");
+}
+
+/// An error Steam shows for the launch is the launch's failure, in Steam's words.
+void testSteamLaunchErrorIsTheFailure() {
+    const Fixture fixture;
+    const FakeSteamProgram steamProgram{fixture, 3};
+    fs::remove(steamProgram.gate);
+    FakeSteam steam;
+    steam.setActivity(SteamAppActivity{
+        .actionId = 4, .error = "Disk write failure", .actionEnded = true, .running = false});
+    FakeWindows windows;
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, &windows};
+    Shell shell;
+    std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
+    expect(waitUntil(
+               [&steamProgram] {
+                   return fs::exists(steamProgram.launchLog);
+               },
+               std::chrono::seconds{10}),
+           "steam -applaunch was run");
+    expect(!shell.returnedWithin(std::chrono::milliseconds{1000}),
+           "an error from before this launch is not this launch's");
+    steam.setActivity(SteamAppActivity{
+        .actionId = 5, .error = "Disk write failure", .actionEnded = true, .running = false});
+    const Outcome outcome = awaitStart(pending, "start() returns on Steam's error");
+    expect(!outcome.ok && outcome.failure == steamProgram.game.title + ": Disk write failure",
+           "the failure is Steam's");
+    expect(shell.hidden.load() == 0, "the shell was never hidden");
+}
+
+/// A game Steam already runs is returned to: no second -applaunch, which only gets Steam's
+/// "Game already running" dialog.
+void testSteamRunningGameIsReturnedTo() {
+    const Fixture fixture;
+    const FakeSteamProgram steamProgram{fixture, 3};
+    FakeSteam steam;
+    steam.setActivity(SteamAppActivity{.actionId = 2, .actionEnded = true, .running = true});
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr};
+    Shell shell;
+    std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
+    expect(waitUntil(
+               [&shell] {
+                   return shell.hidden.load() == 1;
+               },
+               std::chrono::seconds{5}),
+           "the shell hides for the running game");
+    expect(!fs::exists(steamProgram.launchLog), "Steam was not asked to launch it again");
+    steam.setActivity(SteamAppActivity{.actionId = 2, .actionEnded = true, .running = false});
+    const Outcome outcome = awaitStart(pending, "start() returns once the game is over");
+    expect(outcome.ok, "returning to a game is a success");
     expect(shell.shown.load() == 1, "the shell was shown again, once");
 }
 
@@ -970,6 +1096,9 @@ int main() {
     testEnvironmentReachesTheGame();
     testSteamWaitsForReadiness();
     testSteamUpdateKeepsTheShellUp();
+    testSteamLaunchSpansSetupAndGap();
+    testSteamLaunchErrorIsTheFailure();
+    testSteamRunningGameIsReturnedTo();
     testShellWaitsForTheWindow();
     testGameLeavingBeforeAWindowFails();
     testSteamBlockedAndFailedAreRefused();

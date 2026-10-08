@@ -20,6 +20,7 @@
 #include "devtools.hpp"
 #include "downloads.hpp"
 #include "install_wizard.hpp"
+#include "launch_activity.hpp"
 #include "lucent/http_client.h"
 
 namespace {
@@ -29,6 +30,7 @@ using iideck::steam::Download;
 using iideck::steam::DownloadQueue;
 using iideck::steam::InstallStep;
 using iideck::steam::InstallWizard;
+using iideck::steam::LaunchActivity;
 using nlohmann::json;
 
 void expect(bool condition, const char* what) {
@@ -266,6 +268,45 @@ void testQueueReadsThroughDevTools() {
            "a second read reuses the connection");
 }
 
+void testLaunchActivityParse() {
+    const json record = json::parse(R"({
+      "actions": {
+        "268910": {"id": 5, "name": "LaunchApp", "task": "ProcessingInstallScript",
+                   "taskText": "", "error": "", "ended": false},
+        "960090": {"id": 3, "name": "LaunchApp", "task": "SynchronizingCloud",
+                   "taskText": "Synchronizing cloud", "error": "Game already running",
+                   "ended": true}},
+      "running": {"960090": true, "480": false}
+    })");
+    const iideck::steam::Activities activities = iideck::steam::parseActivities(record);
+    expect(activities.size() == 3, "every app the record names is read");
+    const auto& setup = activities.at("268910");
+    expect(setup.actionId == 5 && setup.task == "Running first-time setup" && !setup.actionEnded &&
+               !setup.running,
+           "the install script gets a line Steam has none for");
+    const auto& other = activities.at("960090");
+    expect(other.task == "Synchronizing cloud" && other.error == "Game already running" &&
+               other.actionEnded && other.running == true,
+           "Steam's own words and running state are kept");
+    expect(activities.at("480").running == false && activities.at("480").actionId == 0,
+           "a running state without an action stands alone");
+    expect(iideck::steam::parseActivities(json{}).empty(), "no record, no activity");
+}
+
+void testLaunchActivityReadsThroughDevTools() {
+    FakeSteam steam{[](const std::string& expression) {
+        expect(contains(expression, "RegisterForGameActionStart") &&
+                   contains(expression, "RegisterForAppLifetimeNotifications"),
+               "the recorder follows actions and app lifetimes");
+        return json::parse(R"({"actions": {}, "running": {"7": true}})");
+    }};
+    DevTools devTools{steam.port()};
+    LaunchActivity launches{devTools};
+    std::string error;
+    const std::optional<iideck::steam::Activities> read = launches.read(error);
+    expect(read && read->at("7").running == true, "activity is read from Steam");
+}
+
 void testUnreachableSteam() {
     std::uint16_t port = 0;
     {
@@ -348,6 +389,8 @@ void testInstallRefusesWhatOnlySteamCanAsk() {
 int main() {
     testDownloadsParse();
     testQueueReadsThroughDevTools();
+    testLaunchActivityParse();
+    testLaunchActivityReadsThroughDevTools();
     testUnreachableSteam();
     testInstallWalksTheWizard();
     testInstallRefusesWhatOnlySteamCanAsk();
