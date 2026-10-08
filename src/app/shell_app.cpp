@@ -346,7 +346,7 @@ void ShellApp::refreshClock() {
 }
 
 bool ShellApp::renderFrameToPng(std::string& png) {
-    const RenderTexture target = LoadRenderTexture(settings_.width, settings_.height);
+    const RenderTexture target = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
     if (target.id == 0) {
         lucent::error("render", "could not create an offscreen target");
         return false;
