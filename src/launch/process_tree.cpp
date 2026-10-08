@@ -105,25 +105,26 @@ std::vector<pid_t> ProcessTree::descendants(pid_t root) {
     return found;
 }
 
-std::size_t ProcessTree::killMatching(const std::string& hint) {
-    // iideck is never its own target, whatever it was started with.
-    const auto others = [&hint] {
-        std::vector<pid_t> found = matching(hint);
-        std::erase(found, getpid());
-        return found;
-    };
+std::vector<pid_t> ProcessTree::treesMatching(const std::string& hint) {
+    std::vector<pid_t> trees;
+    for (const pid_t root : matching(hint)) {
+        // iideck is never one of them, whatever it was started with.
+        if (root == getpid()) {
+            continue;
+        }
+        const std::vector<pid_t> below = descendants(root);
+        trees.insert(trees.end(), below.rbegin(), below.rend());
+        trees.push_back(root);
+    }
+    return trees;
+}
 
+std::size_t ProcessTree::killMatching(const std::string& hint) {
     std::size_t sent = 0;
     for (int round = 0; round < killRounds; ++round) {
-        const std::vector<pid_t> roots = others();
-        if (roots.empty()) {
+        const std::vector<pid_t> doomed = treesMatching(hint);
+        if (doomed.empty()) {
             break;
-        }
-        std::vector<pid_t> doomed;
-        for (const pid_t root : roots) {
-            const std::vector<pid_t> below = descendants(root);
-            doomed.insert(doomed.end(), below.rbegin(), below.rend());
-            doomed.push_back(root);
         }
         for (const pid_t pid : doomed) {
             if (::kill(pid, SIGKILL) == 0) {
@@ -132,7 +133,7 @@ std::size_t ProcessTree::killMatching(const std::string& hint) {
         }
         std::this_thread::sleep_for(settle);
     }
-    if (!others().empty()) {
+    if (!treesMatching(hint).empty()) {
         lucent::error("launch", "processes matching the hint outlived SIGKILL");
     }
     return sent;

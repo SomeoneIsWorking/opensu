@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "command.hpp"
 #include "library/game.hpp"
@@ -29,8 +30,9 @@ std::string Error::message() const {
 }
 
 Handoff::Handoff(std::vector<std::filesystem::path> executablePath, std::string session,
-                 SteamGate& steam)
-    : executablePath_{std::move(executablePath)}, session_{std::move(session)}, steam_{steam} {
+                 SteamGate& steam, GameWindows* windows)
+    : executablePath_{std::move(executablePath)}, session_{std::move(session)}, steam_{steam},
+      windows_{windows} {
 }
 
 void Handoff::pause() {
@@ -53,7 +55,8 @@ void Handoff::forceClose() {
     wake_.notify_all();
 }
 
-Handoff::Begun Handoff::beginSteam(const library::Game& game, std::string& failure) {
+Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks,
+                                   std::string& failure) {
     const std::filesystem::path program = resolveExecutable(game.launch.program, executablePath_);
     if (program.empty()) {
         failure = "could not start " + game.launch.program;
@@ -69,6 +72,9 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, std::string& failu
         steamHint_.clear();
     };
 
+    if (steam_.state() == SteamState::Initializing && hooks.progress) {
+        hooks.progress(LaunchProgress{.stage = LaunchProgress::Stage::WaitingForSteam});
+    }
     const SteamState state = steam_.waitReady(startTimeout, [this] {
         return forced_.load();
     });
@@ -135,7 +141,7 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
     const bool viaSteam = game.source == library::Source::Steam;
     forced_.store(false);
     const Begun begun =
-        viaSteam ? beginSteam(game, failure) : beginScope(game, environment, failure);
+        viaSteam ? beginSteam(game, hooks, failure) : beginScope(game, environment, failure);
     if (begun == Begun::Failed) {
         return false;
     }
@@ -167,18 +173,45 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
         return viaSteam ? steam_.state() == SteamState::Ready : instance_.running();
     };
 
-    // Phase one: the game appears. The started process says nothing useful about
-    // a successful launch, but the instance emptying out means nothing will appear.
+    std::optional<LaunchProgress> reported;
+    const auto report = [&](const LaunchProgress& now) {
+        if (reported != now && hooks.progress) {
+            hooks.progress(now);
+        }
+        reported = now;
+    };
+
+    // Phase one: the game appears, then shows a window. The started process says nothing
+    // useful about a successful launch, but the instance emptying out means nothing will appear.
     Clock::time_point startDeadline = Clock::now() + Handoff::startTimeout;
-    while (!forced_.load() && !ProcessTree::anyMatches(game.processHint)) {
+    bool appeared = false;
+    while (!forced_.load()) {
+        const std::vector<pid_t> processes = ProcessTree::treesMatching(game.processHint);
+        if (!processes.empty()) {
+            if (!appeared) {
+                lucent::info("launch", "{} is running", game.title);
+            }
+            appeared = true;
+            if (windows_ == nullptr || windows_->anyOwnedBy(processes)) {
+                break;
+            }
+            // Loading has no bound: a first run can compile shaders for minutes, and B cancels.
+            report(LaunchProgress{.stage = LaunchProgress::Stage::Loading});
+            pause();
+            continue;
+        }
+        if (appeared) {
+            failure = game.title + " closed before it showed a window";
+            finish();
+            return false;
+        }
         // Steam downloads a pending update before it runs the game, for as long as that takes.
         if (const std::optional<double> update =
                 viaSteam ? steam_.updateProgress(game.sourceId) : std::nullopt) {
             startDeadline = Clock::now() + Handoff::startTimeout;
-            if (hooks.status) {
-                hooks.status("Updating " + game.title + " · " +
-                             std::to_string(static_cast<int>(*update * 100.0)) + "%");
-            }
+            report(LaunchProgress{.stage = LaunchProgress::Stage::Updating, .fraction = *update});
+        } else {
+            report(LaunchProgress{.stage = LaunchProgress::Stage::Starting});
         }
         if (!alive()) {
             if (forced_.load()) {
@@ -202,8 +235,8 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
         lucent::info("launch", "{} was force-closed", game.title);
         return true;
     }
-    lucent::info("launch", "{} is running", game.title);
-    // Hidden only now: until the game runs, the shell is what the player sees.
+    lucent::info("launch", "{} shows a window", game.title);
+    // Hidden only now: until the game shows itself, the shell is what the player sees.
     hidden = true;
     if (hooks.hide) {
         hooks.hide();

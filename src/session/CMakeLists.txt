@@ -1,4 +1,4 @@
-add_library(iideck_session STATIC gamescope.cpp gamescope_overlay.cpp monitor.cpp nested_session.cpp)
+add_library(iideck_session STATIC gamescope.cpp gamescope_overlay.cpp gamescope_windows.cpp monitor.cpp nested_session.cpp)
 add_library(iideck::session ALIAS iideck_session)
 target_include_directories(iideck_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(iideck_session

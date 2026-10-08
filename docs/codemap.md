@@ -22,11 +22,14 @@ gitignored `docs/reference/`).
 | `src/session/gamescope.*` | The Gamescope command line |
 | `src/session/monitor.*` | The output's size and refresh |
 | `src/session/gamescope_overlay.*` | iideck's window as Gamescope's overlay over a running game |
+| `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show; tells the handoff when a game is on screen |
 | `src/launch/instance.*` | One transient systemd user scope per launch; stopping it ends the whole tree |
-| `src/launch/handoff.*` | Starting a game in an instance and hiding the shell until it ends |
+| `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends |
 | `src/launch/process_tree.*` | Finding processes by command line, ending trees |
 | `src/launch/command.*`, `argv.hpp` | Short-lived children, executable lookup, exec argv |
 | `src/launch/steam_gate.hpp` | What a Steam launch waits for from the owned Steam client |
+| `src/launch/launch_progress.*` | A launch's stage before its window (waiting for Steam, updating, starting, loading) and its line of text |
+| `src/launch/game_windows.hpp` | What the handoff asks the display: does the game show a window yet |
 | `src/steam/client.*` | The Steam client iideck owns: start in background, readiness, state |
 | `src/steam/desktop_steam.*` | Detecting a Steam client running outside iideck |
 

@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 #include "config/config.hpp"
 #include "lucent/log.h"
@@ -54,7 +55,9 @@ ShellApp::ShellApp(Settings settings)
       shell_{settings_.width, settings_.height, settings_.homeMode},
       steam_{steam::Client::Options{config::read().home, config::read().executablePath,
                                     config::read().session, config::read().steamRoots}},
-      handoff_{config::read().executablePath, config::read().session, steam_} {
+      gameWindows_{config::read().insideGamescope ? std::make_unique<session::GamescopeWindows>()
+                                                  : nullptr},
+      handoff_{config::read().executablePath, config::read().session, steam_, gameWindows_.get()} {
     refreshClock();
 }
 
@@ -224,9 +227,7 @@ void ShellApp::launchFocused() {
     // The copy outlives this call because the handoff thread reads it.
     const library::Game copy = *game;
     runningTitle_ = copy.title;
-    const bool waitingForSteam =
-        copy.source == library::Source::Steam && steam_.state() == launch::SteamState::Initializing;
-    shell_.setToast(waitingForSteam ? "waiting for Steam" : "starting " + copy.title);
+    shell_.launchPanel().open(copy.title);
 
     std::vector<std::string> environment = pads_.hold();
     padsHeld_ = true;
@@ -243,9 +244,9 @@ void ShellApp::launchFocused() {
                                                [this] {
                                                    requestGameRunning(false);
                                                },
-                                           .status =
-                                               [this](const std::string& line) {
-                                                   requestToast(line + " · B cancels", false);
+                                           .progress =
+                                               [this](const launch::LaunchProgress& progress) {
+                                                   requestLaunchProgress(progress);
                                                }};
         handoff_.start(copy, hooks, environment, failure);
         {
@@ -401,6 +402,11 @@ void ShellApp::requestGameRunning(bool running) {
     gameRunning_.store(running);
 }
 
+void ShellApp::requestLaunchProgress(const launch::LaunchProgress& progress) {
+    const std::lock_guard lock{progressMutex_};
+    pendingProgress_ = progress;
+}
+
 void ShellApp::requestToast(std::string text, bool isError) {
     {
         const std::lock_guard lock{toastMutex_};
@@ -500,17 +506,33 @@ void ShellApp::serviceControlRequests() {
 /// Applies what the launch thread and the control channel asked for. Everything
 /// that touches the window or the shell happens here, on the loop's thread.
 void ShellApp::serviceRequests() {
-    if (padsHeld_) {
+    bool launching = false;
+    {
         const std::lock_guard lock{launchMutex_};
-        if (!launchRunning_) {
-            pads_.release();
-            padsHeld_ = false;
-        }
+        launching = launchRunning_;
+    }
+    if (padsHeld_ && !launching) {
+        pads_.release();
+        padsHeld_ = false;
+    }
+    std::optional<launch::LaunchProgress> progress;
+    {
+        const std::lock_guard lock{progressMutex_};
+        progress = std::exchange(pendingProgress_, std::nullopt);
+    }
+    if (progress) {
+        const bool measured = progress->stage == launch::LaunchProgress::Stage::Updating;
+        shell_.launchPanel().update(launch::describe(*progress),
+                                    measured ? std::optional{progress->fraction} : std::nullopt);
+    }
+    if (!launching) {
+        shell_.launchPanel().close();
     }
     const bool running = gameRunning_.load();
     if (running != shell_.inGame()) {
         shell_.setInGame(running);
         shell_.gameMenu().close();
+        shell_.launchPanel().close();
         // raylib has no ShowWindow or HideWindow: hiding is a window state flag, and showing is
         // clearing it.
         if (overlay_) {

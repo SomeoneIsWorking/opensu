@@ -149,8 +149,15 @@ Gap: not yet confirmed on the real Xbox controller.
 ### S004 — Launch handoff
 
 The game gets its own session so a shell exit or a hangup cannot reach it, and the
-shell's window goes down once the game appears in the process table and comes back
-when it leaves; a launch whose game never appears leaves the shell up.
+shell's window goes down once the game shows a window and comes back when it
+leaves. Until then the shell shows a launch panel over the grid: the title, the
+stage (waiting for Steam, updating with a bar, starting, loading) and B to cancel.
+Inside Gamescope "shows a window" means a pid in the game's process trees owns an
+entry of `GAMESCOPE_FOCUSABLE_WINDOWS` on the root (window, app id, pid triples,
+the pid found by Gamescope); outside it there is no display to watch and a running
+process counts. A game that leaves before it shows a window is reported as such.
+Verified in a headless Gamescope with an emulator that sleeps 6 s before opening
+glxgears: the panel showed Loading and the shell hid at 7 s.
 Hiding is a request to the main loop, not a call from the handoff thread: raylib's
 window calls belong to the thread holding the GL context, and there is no queue
 that makes them safe from elsewhere. The launch thread only raises a flag. Every source records a `processHint` — the

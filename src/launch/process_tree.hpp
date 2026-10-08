@@ -24,6 +24,10 @@ class ProcessTree {
     /// Every process below `root`, found through parent links.
     [[nodiscard]] static std::vector<pid_t> descendants(pid_t root);
 
+    /// The processes matching `hint` and every process below them, each tree's leaves first
+    /// and its root last. This process and its children are never among them.
+    [[nodiscard]] static std::vector<pid_t> treesMatching(const std::string& hint);
+
     /// SIGKILLs every process matching `hint` and all that descend from them, again
     /// until none is left to find. This process is never signalled. Returns how many signals were
     /// sent.

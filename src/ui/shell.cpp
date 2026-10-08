@@ -348,6 +348,8 @@ void Shell::draw() {
     arrowPainter_.paint(layout_.pageArrows(page_), chromeDark());
     hud_.drawTopBar();
     hud_.drawHints();
+    launchPanelPainter_.paint(launchPanel_, static_cast<float>(width_), static_cast<float>(height_),
+                              dp(), std::chrono::duration<double>(now_.time_since_epoch()).count());
     hud_.drawToast();
     EndBlendMode();
     EndDrawing();

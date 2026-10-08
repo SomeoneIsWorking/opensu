@@ -22,6 +22,7 @@
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pads.hpp"
 #include "gamescope_overlay.hpp"
+#include "gamescope_windows.hpp"
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
 #include "steam/client.hpp"
@@ -87,6 +88,8 @@ class ShellApp final : public ControlTarget {
     /// a flag: none of them touches the window or the shell from that thread.
     void requestGameRunning(bool running);
     void requestToast(std::string text, bool isError);
+    /// Hands the loop a launch's progress, for the launch panel. Any thread.
+    void requestLaunchProgress(const launch::LaunchProgress& progress);
 
     void reloadCatalog();
     void handleEvents(const std::vector<gamepad::Event>& events);
@@ -128,6 +131,8 @@ class ShellApp final : public ControlTarget {
     bool launchRunning_{false};
     /// Started in run(), before the loop, and shut down with the app.
     steam::Client steam_;
+    /// Inside Gamescope, tells the handoff when a game shows a window. Null elsewhere.
+    std::unique_ptr<session::GamescopeWindows> gameWindows_;
     launch::Handoff handoff_;
     /// The running launch's title, for the Guide menu. Main loop only.
     std::string runningTitle_;
@@ -144,6 +149,9 @@ class ShellApp final : public ControlTarget {
     std::string pendingToast_;
     bool pendingToastError_{false};
     bool hasPendingToast_{false};
+    /// The launch's latest progress, raised off-thread, taken by the loop.
+    std::mutex progressMutex_;
+    std::optional<launch::LaunchProgress> pendingProgress_;
 
     /// Buttons queued by the control channel, drained by the loop.
     std::mutex injectedMutex_;

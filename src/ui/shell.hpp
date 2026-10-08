@@ -18,6 +18,8 @@
 #include "grid_focus.hpp"
 #include "home_layout.hpp"
 #include "hud.hpp"
+#include "launch_panel.hpp"
+#include "launch_panel_painter.hpp"
 #include "library/game.hpp"
 #include "page_arrow.hpp"
 #include "page_pill.hpp"
@@ -97,6 +99,9 @@ class Shell {
     }
     [[nodiscard]] const GameMenu& gameMenu() const noexcept {
         return gameMenu_;
+    }
+    [[nodiscard]] LaunchPanel& launchPanel() noexcept {
+        return launchPanel_;
     }
 
     /// Releases every texture the shell owns.
@@ -189,6 +194,8 @@ class Shell {
     Hud hud_;
     GameMenu gameMenu_;
     GameMenuPainter gameMenuPainter_;
+    LaunchPanel launchPanel_;
+    LaunchPanelPainter launchPanelPainter_;
     bool inGame_{false};
 };
 
