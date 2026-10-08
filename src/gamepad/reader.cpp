@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "lucent/log.h"
+#include "virtual_pad.hpp"
 
 namespace iideck::gamepad {
 namespace {
@@ -76,8 +77,10 @@ void Reader::poll(std::vector<Event>& events) {
         // SDL reports any device with buttons as a gamepad, which on a desktop
         // includes the keyboard and its media receiver. A real controller has
         // analogue sticks or triggers, so requiring axes is what separates them.
+        // iideck's own virtual pads carry a game's input, never the shell's.
         const bool connected = IsGamepadAvailable(id) && GetGamepadAxisCount(id) >= minAxes &&
-                               nameAccepted(GetGamepadName(id));
+                               nameAccepted(GetGamepadName(id)) &&
+                               std::string_view{GetGamepadName(id)} != VirtualPad::name;
 
         if (connected != slot.connected) {
             slot.connected = connected;

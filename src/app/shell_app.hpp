@@ -19,6 +19,7 @@
 #include "config/config.hpp"
 #include "control_channel.hpp"
 #include "device/battery.hpp"
+#include "gamepad/pad_guard.hpp"
 #include "gamepad/reader.hpp"
 #include "gamescope_overlay.hpp"
 #include "launch/handoff.hpp"
@@ -124,6 +125,9 @@ class ShellApp final : public ControlTarget {
     launch::Handoff handoff_;
     /// The running launch's title, for the Guide menu. Main loop only.
     std::string runningTitle_;
+    /// Holds the controllers from launch until the launch thread is done, so the Guide menu's
+    /// input stays out of the game. Main loop only.
+    std::unique_ptr<gamepad::PadGuard> guard_;
     /// Inside Gamescope, how the window draws over a running game. Null elsewhere, where the
     /// window is hidden while a game runs and shown only for the Guide menu.
     std::unique_ptr<session::GamescopeOverlay> overlay_;

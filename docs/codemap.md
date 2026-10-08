@@ -39,6 +39,11 @@ evidence is in `reference/iisu/`.
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/reader.*` | Controller input through raylib |
+| `src/gamepad/event.*` | The shell's controls (`Button`, `Event`), raylib-free (`iideck_pad`) |
+| `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls |
+| `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads |
+| `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
+| `src/gamepad/pad_guard.*` | Holds every pad during a game; blocks them while the Guide menu is open |
 
 ## Home UI (G002)
 

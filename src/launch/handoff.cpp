@@ -104,21 +104,24 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, std::string& failu
     return Begun::Started;
 }
 
-Handoff::Begun Handoff::beginScope(const library::Game& game, std::string& failure) {
+Handoff::Begun Handoff::beginScope(const library::Game& game,
+                                   const std::vector<std::string>& environment,
+                                   std::string& failure) {
     if (resolveExecutable(game.launch.program, executablePath_).empty()) {
         failure = "could not start " + game.launch.program;
         return Begun::Failed;
     }
     const std::string unit =
         session_ + "-game-" + std::to_string(launches_.fetch_add(1)) + ".scope";
-    if (!instance_.start(unit, game.launch.program, game.launch.args, failure)) {
+    if (!instance_.start(unit, game.launch.program, game.launch.args, failure, environment)) {
         return Begun::Failed;
     }
     return Begun::Started;
 }
 
 bool Handoff::start(const library::Game& game, const std::function<void()>& hide,
-                    const std::function<void()>& show, std::string& failure) {
+                    const std::function<void()>& show, const std::vector<std::string>& environment,
+                    std::string& failure) {
     if (game.launch.empty()) {
         failure = "no launch command for " + game.title;
         return false;
@@ -132,7 +135,8 @@ bool Handoff::start(const library::Game& game, const std::function<void()>& hide
 
     const bool viaSteam = game.source == library::Source::Steam;
     forced_.store(false);
-    const Begun begun = viaSteam ? beginSteam(game, failure) : beginScope(game, failure);
+    const Begun begun =
+        viaSteam ? beginSteam(game, failure) : beginScope(game, environment, failure);
     if (begun == Begun::Failed) {
         return false;
     }

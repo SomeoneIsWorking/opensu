@@ -273,10 +273,23 @@ control channel (launch, guide, down, a), with full-composition screenshots
 (`GAMESCOPECTRL_REQUEST_SCREENSHOT` = 3 on the root; `gamescopectl screenshot`
 drops overlay planes). Driver: `scratch/overlay-test/drive.py`.
 
-Gap: the game still reads the controller while the menu is open. Gamescope does not
-arbitrate gamepads; an SDL game that honours focus loss ignores the pad, others do
-not. Planned: hold the physical pad exclusively during a game and feed games a
-uinput pad that iideck stops while the menu is open.
+From launch until the game ends, `gamepad::PadGuard` holds every gamepad: each
+physical pad is grabbed (`EVIOCGRAB`) and the game reads one uinput Xbox 360 pad
+(045e:028e) per physical pad instead, translated by `gamepad::PadTranslator` (axes
+rescaled to xpad's ranges, a button d-pad as the hat, digital triggers as full
+axes). Guide never reaches the game; the guard reports controls to the shell, since
+the raylib reader sees nothing from a grabbed pad and ignores the virtual ones. While
+the menu is open the virtual pads rest (held keys released, axes centred); on
+resume they take up the held axes, and keys held then stay up until pressed again.
+A game iideck starts gets `SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e`,
+so SDL hides the grabbed pads. Tested: `pad_translator` (unit), `pad_guard`
+against a real uinput pad, `handoff` passing the environment; verified headless with
+a uinput pad driving the shell (`scratch/overlay-test/drive_pad.py`): B reaches the
+game while playing, Guide and all menu input do not, the virtual pad is gone after.
+
+Gaps: a Steam game gets Steam's environment, not the SDL hint, and Steam Input
+reads hidraw, which a grab does not cover; a non-SDL game that enumerates every
+evdev pad sees the grabbed, silent one too; a pad connected mid-game is not held.
 
 Gap: a force-close while the client is still starting the game cannot cancel the
 request it already handed to Steam.

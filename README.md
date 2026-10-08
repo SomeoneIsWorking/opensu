@@ -71,7 +71,7 @@ pressing play reports which emulator is missing rather than doing nothing.
 | X | Refresh the library |
 | LB / RB | Previous / next page (`wiisu` mode only) |
 | Start | Back to the first tile |
-| Guide (in a game) | Menu over the game: Resume or Close game; B or Guide resumes |
+| Guide (in a game) | Menu over the game: Resume or Close game; B or Guide resumes. The game gets no controller input while it is open |
 
 ## Documentation
 

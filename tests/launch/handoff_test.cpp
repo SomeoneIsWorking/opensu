@@ -267,8 +267,9 @@ struct Outcome {
 };
 
 /// start() is documented to block, so every launch goes on its own thread.
-std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& shell) {
-    return std::async(std::launch::async, [&handoff, &game, &shell]() {
+std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& shell,
+                                   std::vector<std::string> environment = {}) {
+    return std::async(std::launch::async, [&handoff, &game, &shell, environment]() {
         Outcome outcome;
         outcome.ok = handoff.start(
             game,
@@ -278,7 +279,7 @@ std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& sh
             [&shell] {
                 shell.show();
             },
-            outcome.failure);
+            environment, outcome.failure);
         shell.returned.store(true);
         return outcome;
     });
@@ -354,6 +355,30 @@ void testStartBlocksUntilTheGameIsOver() {
     expect(!running(pid), "the game process is gone by the time start() returns");
     expect(shell.shown.load() == 1, "the shell was shown again, once");
     expect(shell.hiddenAt.load() < shell.shownAt.load(), "hide precedes show");
+}
+
+/// What the caller adds to the environment is in the game's.
+void testEnvironmentReachesTheGame() {
+    const Fixture fixture;
+    const std::string marker = fixture.marker("environment");
+    const fs::path seen = fixture.base / "environment.txt";
+    const fs::path script = fixture.script(marker + ".sh", "#!/bin/sh\n"
+                                                           "echo \"$IIDECK_TEST_VALUE\" > \"" +
+                                                               seen.string() +
+                                                               "\"\n"
+                                                               "sleep 1\n");
+    const Game entry = makeGame("environment", "/bin/sh", {script.string()}, marker);
+    Shell shell;
+    FakeSteam steam;
+    Handoff handoff{kSearchPath, fixture.session(), steam};
+    std::future<Outcome> pending =
+        startOnWorker(handoff, entry, shell, {"IIDECK_TEST_VALUE=from-the-shell"});
+    const Outcome outcome = awaitStart(pending, "start() returns when the game exits");
+    expect(outcome.ok, "the game ran");
+    std::ifstream in{seen};
+    std::string value;
+    std::getline(in, value);
+    expect(value == "from-the-shell", "the game saw the variable it was given");
 }
 
 /// The Steam/Legendary shape: the program that was spawned exits at once, and a
@@ -772,6 +797,7 @@ int main() {
     testForceCloseEndsTheRunPhase();
     testForceCloseEndsTheStartPhase();
     testInstanceExitEndsTheWait();
+    testEnvironmentReachesTheGame();
     testSteamWaitsForReadiness();
     testSteamBlockedAndFailedAreRefused();
     testSteamForceCloseKillsTheGameNotTheClient();

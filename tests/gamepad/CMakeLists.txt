@@ -1,0 +1,12 @@
+add_executable(pad_translator_test pad_translator_test.cpp)
+target_link_libraries(pad_translator_test PRIVATE iideck::pad)
+target_include_directories(pad_translator_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui")
+target_compile_options(pad_translator_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME pad_translator COMMAND pad_translator_test)
+
+add_executable(pad_guard_test pad_guard_test.cpp)
+target_link_libraries(pad_guard_test PRIVATE iideck::pad)
+target_include_directories(pad_guard_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui")
+target_compile_options(pad_guard_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME pad_guard COMMAND pad_guard_test)
+set_tests_properties(pad_guard PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)

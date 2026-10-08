@@ -1,6 +1,6 @@
 # Controller input without raylib: the shared controls, evdev devices, uinput virtual pads and the
 # guard that holds the pads while a game runs.
-add_library(iideck_pad STATIC event.cpp)
+add_library(iideck_pad STATIC event.cpp pad_translator.cpp evdev_device.cpp virtual_pad.cpp pad_guard.cpp)
 add_library(iideck::pad ALIAS iideck_pad)
 target_include_directories(iideck_pad PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(iideck_pad PRIVATE lucent::lucent)

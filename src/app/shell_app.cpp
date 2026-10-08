@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <system_error>
 #include <thread>
 #include <unistd.h>
 
@@ -235,7 +236,19 @@ void ShellApp::launchFocused() {
         copy.source == library::Source::Steam && steam_.state() == launch::SteamState::Initializing;
     shell_.setToast(waitingForSteam ? "waiting for Steam" : "starting " + copy.title);
 
-    std::thread{[this, copy] {
+    // The last game's guard still holds the pads until this frame's service; release them first.
+    guard_.reset();
+    try {
+        guard_ = std::make_unique<gamepad::PadGuard>();
+    } catch (const std::system_error& failure) {
+        // Without the guard the game reads the pads directly, Guide menu input included.
+        lucent::error("gamepad", "cannot hold the controllers for {}: {}", copy.title,
+                      failure.what());
+    }
+    std::vector<std::string> environment =
+        guard_ ? guard_->environment() : std::vector<std::string>{};
+
+    std::thread{[this, copy, environment = std::move(environment)] {
         std::string failure;
         handoff_.start(
             copy,
@@ -247,7 +260,7 @@ void ShellApp::launchFocused() {
             [this] {
                 requestGameRunning(false);
             },
-            failure);
+            environment, failure);
         {
             const std::lock_guard lock{launchMutex_};
             launchRunning_ = false;
@@ -298,6 +311,9 @@ void ShellApp::setGameMenuOpen(bool open) {
         menu.open(runningTitle_);
     } else {
         menu.close();
+    }
+    if (guard_) {
+        guard_->setBlocked(open);
     }
     if (overlay_) {
         overlay_->setShown(open);
@@ -486,6 +502,13 @@ void ShellApp::serviceControlRequests() {
 /// Applies what the launch thread and the control channel asked for. Everything
 /// that touches the window or the shell happens here, on the loop's thread.
 void ShellApp::serviceRequests() {
+    if (guard_) {
+        handleEvents(guard_->takeControls());
+        const std::lock_guard lock{launchMutex_};
+        if (!launchRunning_) {
+            guard_.reset();
+        }
+    }
     const bool running = gameRunning_.load();
     if (running != shell_.inGame()) {
         shell_.setInGame(running);

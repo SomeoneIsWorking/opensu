@@ -40,7 +40,9 @@ class Handoff {
             SteamGate& steam);
 
     /// Starts a game, calls `hide`, waits for the game to finish, then calls
-    /// `show`. Blocks until then, so callers run it off the main thread.
+    /// `show`. Blocks until then, so callers run it off the main thread. Each
+    /// "NAME=value" of `environment` is added to a game iideck starts itself; a
+    /// Steam game gets the client's environment.
     ///
     /// A Steam game first waits for the client to be ready (cancellable by
     /// forceClose()), then runs `steam -applaunch`; the client is left running when
@@ -51,7 +53,8 @@ class Handoff {
     /// and exit at once. The game appears in the process table, then leaves. It
     /// also ends when the instance is gone, or when forceClose() is called.
     bool start(const library::Game& game, const std::function<void()>& hide,
-               const std::function<void()>& show, std::string& failure);
+               const std::function<void()>& show, const std::vector<std::string>& environment,
+               std::string& failure);
 
     /// SIGKILLs everything the current launch started: the instance, or a Steam
     /// game's whole process tree (the client stays). Safe from any thread; start()
@@ -65,7 +68,8 @@ class Handoff {
     /// Asks the Steam client to run the game, once it is ready.
     Begun beginSteam(const library::Game& game, std::string& failure);
     /// Starts the game in an Instance of its own.
-    Begun beginScope(const library::Game& game, std::string& failure);
+    Begun beginScope(const library::Game& game, const std::vector<std::string>& environment,
+                     std::string& failure);
 
     /// Sleeps one poll interval, or less when forceClose() wakes it.
     void pause();
