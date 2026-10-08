@@ -37,7 +37,7 @@ class Pads {
     /// the grabbed ones included. Empty when a pad could not be held, since hiding it would leave
     /// the game without it.
     std::vector<std::string> hold();
-    /// Gives the pads back to everyone; the virtual pads disappear.
+    /// Gives the pads back to everyone; the virtual pads are gone on return.
     void release();
 
     /// Rests the virtual pads while blocked; on unblocking they take up the pads' axes again.
@@ -63,6 +63,8 @@ class Pads {
 
     void run(const std::stop_token& stop);
     void wake() const;
+    /// Wakes the worker and waits until it has applied `serial`.
+    void awaitApplied(std::unique_lock<std::mutex>& lock, std::uint64_t serial);
     void scan();
     void add(const std::filesystem::path& node);
     /// Takes a pad into or out of the held state; false when it could not be held.

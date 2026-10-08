@@ -71,11 +71,7 @@ std::vector<std::string> Pads::hold() {
     std::unique_lock lock{mutex_};
     wanted_.held = true;
     wanted_.blocked = false;
-    const std::uint64_t serial = ++wanted_.serial;
-    wake();
-    appliedChanged_.wait(lock, [this, serial] {
-        return appliedSerial_ >= serial;
-    });
+    awaitApplied(lock, ++wanted_.serial);
     if (appliedMissed_) {
         return {};
     }
@@ -83,11 +79,17 @@ std::vector<std::string> Pads::hold() {
 }
 
 void Pads::release() {
-    const std::lock_guard lock{mutex_};
+    std::unique_lock lock{mutex_};
     wanted_.held = false;
     wanted_.blocked = false;
-    ++wanted_.serial;
+    awaitApplied(lock, ++wanted_.serial);
+}
+
+void Pads::awaitApplied(std::unique_lock<std::mutex>& lock, std::uint64_t serial) {
     wake();
+    appliedChanged_.wait(lock, [this, serial] {
+        return appliedSerial_ >= serial;
+    });
 }
 
 void Pads::setBlocked(bool blocked) {

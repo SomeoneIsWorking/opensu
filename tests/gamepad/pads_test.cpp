@@ -128,6 +128,26 @@ std::optional<EvdevDevice> openNamed(std::string_view name) {
     return std::nullopt;
 }
 
+/// Every node named `name` once at least one exists. A real pad plugged in while the test runs
+/// is held too, so there can be more than one virtual pad.
+std::vector<EvdevDevice> openAllNamed(std::string_view name) {
+    std::vector<EvdevDevice> devices;
+    if (!openNamed(name)) {
+        return devices;
+    }
+    for (int n = 0; n < 512; ++n) {
+        const std::string node = "/dev/input/event" + std::to_string(n);
+        if (::access(node.c_str(), R_OK) != 0) {
+            continue;
+        }
+        EvdevDevice device{node};
+        if (device.name() == name) {
+            devices.push_back(std::move(device));
+        }
+    }
+    return devices;
+}
+
 /// Reads until `wanted` has been seen or a second passes, keeping everything seen.
 bool readUntil(EvdevDevice& device, PadEvent wanted, std::vector<PadEvent>& seen) {
     const auto deadline = std::chrono::steady_clock::now() + 1s;
@@ -177,14 +197,30 @@ int main() {
     }
 
     expect(!pads.hold().empty(), "the game is told to read only the virtual pads");
-    auto game = openNamed(VirtualPad::name);
-    expect(game.has_value(), "holding gives the pad a virtual pad");
+    std::vector<EvdevDevice> virtualPads = openAllNamed(VirtualPad::name);
+    expect(!virtualPads.empty(), "holding gives the pad a virtual pad");
     auto other = openNamed("iideck test pad");
     expect(other.has_value(), "the held pad can still be opened");
 
     std::vector<PadEvent> read;
     physical->send({{EV_KEY, BTN_SOUTH, 1}, {EV_ABS, ABS_X, 255}});
-    expect(readUntil(*game, {EV_KEY, BTN_SOUTH, 1}, read), "A reaches the game");
+    // The test pad's virtual pad is the one its A reaches.
+    std::optional<EvdevDevice> game;
+    std::vector<std::vector<PadEvent>> candidateReads(virtualPads.size());
+    const auto deadline = std::chrono::steady_clock::now() + 1s;
+    while (!game && std::chrono::steady_clock::now() < deadline) {
+        for (std::size_t i = 0; i < virtualPads.size(); ++i) {
+            virtualPads[i].read(candidateReads[i]);
+            if (std::ranges::find(candidateReads[i], PadEvent{EV_KEY, BTN_SOUTH, 1}) !=
+                candidateReads[i].end()) {
+                read = std::move(candidateReads[i]);
+                game = std::move(virtualPads[i]);
+                break;
+            }
+        }
+        std::this_thread::sleep_for(5ms);
+    }
+    expect(game.has_value(), "A reaches the game");
     expect(readUntil(*game, {EV_ABS, ABS_X, 32767}, read), "the stick reaches it rescaled");
     std::vector<PadEvent> leaked;
     other->read(leaked);
@@ -228,7 +264,6 @@ int main() {
     }
 
     pads.release();
-    std::this_thread::sleep_for(100ms);
     physical->send({{EV_KEY, BTN_NORTH, 1}});
     leaked.clear();
     expect(readUntil(*other, {EV_KEY, BTN_NORTH, 1}, leaked), "a released pad reaches others");
