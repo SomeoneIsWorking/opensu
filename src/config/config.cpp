@@ -191,6 +191,11 @@ const Config& read() {
                 std::filesystem::read_symlink("/proc/self/exe", error);
             value.assetsDir = self.parent_path().parent_path() / "share" / "iideck";
         }
+        if (const std::string_view cache = env("XDG_CACHE_HOME"); !cache.empty()) {
+            value.cacheDir = std::filesystem::path{cache} / "iideck";
+        } else {
+            value.cacheDir = value.home / ".cache" / "iideck";
+        }
         value.homeMode = envHomeMode("IIDECK_HOME_MODE", value.homeMode);
         value.clock24Hour = localeClock24Hour();
         value.width = envInt("IIDECK_WIDTH", value.width);

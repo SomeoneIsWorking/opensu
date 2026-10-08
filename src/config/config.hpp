@@ -44,6 +44,10 @@ struct Config {
     /// executable's directory, as installed and as staged in the build tree.
     std::filesystem::path assetsDir;
 
+    /// iideck's cache, downloaded artwork among it: `$XDG_CACHE_HOME/iideck`, else
+    /// `~/.cache/iideck`.
+    std::filesystem::path cacheDir;
+
     /// The home grid's dashboard mode, from IIDECK_HOME_MODE (`standard` or `wiisu`).
     HomeMode homeMode{HomeMode::Standard};
 

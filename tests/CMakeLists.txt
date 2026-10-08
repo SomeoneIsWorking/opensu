@@ -4,6 +4,7 @@ add_test(NAME vdf COMMAND vdf_test)
 
 add_subdirectory(config)
 add_subdirectory(library)
+add_subdirectory(artwork)
 add_subdirectory(launch)
 add_subdirectory(steam)
 add_subdirectory(session)

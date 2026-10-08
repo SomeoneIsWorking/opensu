@@ -39,7 +39,7 @@ target_link_libraries(iideck_raylib
 # nanosvg rasterises the shipped icons. Header-only: the distribution's package or a checkout.
 set(NANOSVG_ROOT "$ENV{HOME}/dev/nanosvg" CACHE PATH "nanosvg checkout")
 find_path(NANOSVG_INCLUDE_DIR nanosvg.h
-    HINTS "${NANOSVG_ROOT}/src" PATH_SUFFIXES nanosvg)
+    PATH_SUFFIXES nanosvg PATHS "${NANOSVG_ROOT}/src")
 if(NOT NANOSVG_INCLUDE_DIR)
     message(FATAL_ERROR
         "nanosvg not found. Install it with `sudo dnf install nanosvg-devel` (Fedora), "

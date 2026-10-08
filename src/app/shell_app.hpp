@@ -16,6 +16,8 @@
 
 #include "raylib.h"
 
+#include "artwork_fetcher.hpp"
+#include "artwork_store.hpp"
 #include "config/config.hpp"
 #include "control_channel.hpp"
 #include "device/battery.hpp"
@@ -112,6 +114,8 @@ class ShellApp final : public ControlTarget {
     void presentEula();
     /// Shows the shelf the browser is on, focusing `focus`.
     void showShelf(std::size_t focus);
+    /// Shows artwork the fetcher has downloaded. Main loop only.
+    void serviceArtwork();
     /// Opens the focused console on its ROMs.
     void openConsole(const library::Console& console);
     /// Buttons while a game runs: Guide opens and closes the menu over it, which takes the
@@ -126,6 +130,9 @@ class ShellApp final : public ControlTarget {
 
     Settings settings_;
     library::Catalog catalog_;
+    /// Downloaded artwork, and the worker that fills it in.
+    artwork::ArtworkStore artworkStore_{config::read().cacheDir / "artwork"};
+    artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{}};
     device::BatteryReader battery_;
     /// When the clock next changes, on the minute boundary.
     std::chrono::steady_clock::time_point nextClockTick_{};

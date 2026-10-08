@@ -49,6 +49,10 @@ gitignored `docs/reference/`).
 | `src/library/shelf.*` | What the grid holds: Home's consoles and store games, a console's ROMs, and moving between them |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line |
+| `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
+| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings |
+| `src/artwork/artwork_fetcher.*` | The background downloads: Steam's CDN for Steam, libretro-thumbnails for ROMs |
+| `src/artwork/web_client.*` | HTTPS GETs over libcurl |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`), raylib-free (`iideck_pad`) |

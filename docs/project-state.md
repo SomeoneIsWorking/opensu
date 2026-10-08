@@ -49,7 +49,7 @@ game has been observed running yet.
 ### S002 — Steam library source
 
 Reads app manifests across every library folder, install state from both
-`StateFlags` and the filesystem, artwork from `librarycache` in the modern and
+`StateFlags` and the filesystem, artwork from `librarycache` in the modern (hashed per-app folders) and
 legacy layouts, and playtime and favourites from every user profile.
 
 Verified against this machine and against a synthetic install: one installed
@@ -96,8 +96,21 @@ iideck's own: its platform's gradient (a neutral one for a system the gradient
 table lacks, such as PS4) with the console's name and game count, broken onto two
 lines at a space when one is too wide, at one name size so the typeface loads one
 face. A opens it (`library::ShelfBrowser`) on that system's ROMs; B returns to
-Home with the console focused. ROMs have no artwork source yet, so ROM tiles show
-iiSU's first-letter fallback inside their platform frame.
+Home with the console focused. A tile loads its artwork the first time it is drawn,
+so a shelf change or a download needs no separate load step.
+
+Artwork that no source has on disk is downloaded in the background
+(`artwork::ArtworkFetcher`) into `<cache>/artwork` (`$XDG_CACHE_HOME/iideck`):
+a Steam game's `library_600x900.jpg`, else `header.jpg`, from Steam's CDN; a ROM's
+box art from libretro-thumbnails, its file or folder name matched against the
+system's `Named_Boxarts` listing (same name, else same title preferring the ROM's
+own region, then USA, World, Europe, Japan; never a beta or demo; release numbers
+and GoodTools region letters understood). A source's "not found" is kept as a
+`.miss` for 14 days; an unreachable source ends the round without one. Listings
+are kept for 30 days. Measured on this machine: 54 images on the first run, 10
+misses (libretro lists only 67 PS3 and 12 Xbox 360 boxes, a PS4 folder named by
+title id, two Steam apps without either image). Switch and arcade have no source;
+their ROM tiles keep iiSU's first-letter fallback.
 
 The friends slot (`a32.e`), empty in iideck otherwise, holds the launcher badges
 (`ui::LauncherBadgePainter`, mapped in `app::launcherBadges`): Steam, Epic and

@@ -53,6 +53,9 @@ struct Game {
     /// than opening these itself.
     std::filesystem::path artwork;
     std::filesystem::path artworkWide;
+    /// The name artwork is looked up by remotely: a ROM's file or folder name without its
+    /// extension, dump tags and all. Empty for a source looked up by `sourceId`.
+    std::string artworkKey;
 
     int playtimeMinutes{0};
     std::optional<std::chrono::system_clock::time_point> lastPlayed;

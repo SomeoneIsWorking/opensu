@@ -14,6 +14,8 @@ struct RomSystem {
     /// ES-DE's system name, which is also the platform key for the tile's frame ("ps2").
     std::string_view key;
     std::string_view label;
+    /// The system's folder at thumbnails.libretro.com, empty when it has none.
+    std::string_view libretroName;
     /// Folder names, compared lower-case with everything but letters and digits removed.
     std::vector<std::string_view> folders;
     /// Lower-case extensions, dot included, of the files that are games.

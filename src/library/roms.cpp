@@ -137,6 +137,8 @@ std::vector<Game> Provider::list() {
                 game.source = Source::Rom;
                 game.sourceId = std::string{system->key};
                 game.title = titleOf(entry, fs::is_regular_file(entry, ec));
+                game.artworkKey = fs::is_regular_file(entry, ec) ? entry.stem().string()
+                                                                 : entry.filename().string();
                 // The file itself is what makes the entry playable.
                 game.installed = true;
                 // The emulator's command line carries the game's file.

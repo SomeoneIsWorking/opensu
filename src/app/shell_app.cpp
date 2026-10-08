@@ -63,6 +63,8 @@ void ShellApp::reloadCatalog() {
     library::CatalogSnapshot snapshot = catalog_.refresh();
     games_ = std::move(snapshot.games);
     sources_ = std::move(snapshot.sources);
+    artworkStore_.apply(games_);
+    artworkFetcher_.request(games_);
     for (const library::SourceStatus& source : sources_) {
         if (source.availability != library::Availability::Ready) {
             lucent::warn("catalog", "{}: {}", library::label(source.source), source.detail);
@@ -87,6 +89,17 @@ void ShellApp::pushCatalogToShell() {
 
 void ShellApp::showShelf(std::size_t focus) {
     shell_.setShelf(browser_.shelf(games_), focus);
+}
+
+void ShellApp::serviceArtwork() {
+    for (const artwork::Fetched& fetched : artworkFetcher_.take()) {
+        for (library::Game& game : games_) {
+            if (game.id == fetched.gameId) {
+                game.artwork = fetched.artwork;
+            }
+        }
+        shell_.setArtwork(fetched.gameId, fetched.artwork);
+    }
 }
 
 void ShellApp::openConsole(const library::Console& console) {
@@ -759,6 +772,7 @@ int ShellApp::run() {
 
         serviceControlRequests();
         serviceRequests();
+        serviceArtwork();
         shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
         // iiSU pl3.q: Home has no title; inside a console the pill names the focused ROM.
         shell_.setTitle(browser_.console() ? shell_.focusedTitle() : std::string{});

@@ -21,9 +21,9 @@ derived from the window, following iiSU's own layout rules.
 iideck needs raylib 6.0 built from source, a checkout of
 [Lucent](https://github.com/SomeoneIsWorking/lucent), its logger, and
 [nanosvg](https://github.com/memononen/nanosvg) for its icons: the distribution's
-package (`nanosvg-devel` on Fedora) or a checkout at `NANOSVG_ROOT`, by default
+package (`nanosvg-devel` on Fedora), else a checkout at `NANOSVG_ROOT`, by default
 `$HOME/dev/nanosvg`. The launcher logos are from [Simple Icons](https://simpleicons.org)
-(CC0).
+(CC0). libcurl (`libcurl-devel` on Fedora) downloads missing artwork.
 
 The published `raylib-6.0_linux_amd64` binary cannot be used: it was built with
 `STBI_REQUIRED` undefined and `SUPPORT_FILEFORMAT_JPG=0`, so `LoadImage` reports

@@ -173,6 +173,11 @@ void providerLists(const Fixture& f) {
            "a game with an emulator starts its file");
     expect(tc4->processHint == "Time Crisis 4 (USA).iso", "the hint is the file's name");
     expect(find(games, "Tomba! (USA)")->sourceId == "psx", "PSX CHD games are PlayStation");
+    expect(find(games, "Tomba! (USA)")->artworkKey == "Tomba! (USA)" &&
+               tc4->artworkKey == "Time Crisis 4 (USA)" &&
+               find(games, "Super Mario Bros. Wonder")->artworkKey ==
+                   "Super Mario Bros. Wonder [010015100B514000][v0][US]",
+           "artwork is looked up by the file or folder name, tags kept");
 }
 
 } // namespace

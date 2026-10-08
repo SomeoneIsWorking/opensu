@@ -4,6 +4,7 @@ target_include_directories(iideck_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(iideck_app
     PUBLIC
         iideck::library
+        iideck::artwork
         iideck::ui
         iideck::device
         iideck::pad

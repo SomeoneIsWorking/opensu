@@ -133,9 +133,10 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
 void Shell::loadArtwork() {
     for (Tile& tile : tiles_) {
         const auto* game = std::get_if<library::Game>(&tile.item);
-        if (game == nullptr) {
+        if (game == nullptr || tile.artLoaded) {
             continue;
         }
+        tile.artLoaded = true;
         tile.portrait = loadArt(game->artwork);
         tile.wide = loadArt(game->artworkWide);
         tile.hasPortrait = tile.portrait.id != 0;
@@ -149,12 +150,28 @@ std::size_t Shell::loadedArtwork() const noexcept {
     }));
 }
 
-void Shell::unloadArtwork() {
-    releaseTextures();
+void Shell::setArtwork(std::string_view gameId, const std::filesystem::path& artwork) {
+    for (Tile& tile : tiles_) {
+        auto* game = std::get_if<library::Game>(&tile.item);
+        if (game == nullptr || game->id != gameId) {
+            continue;
+        }
+        game->artwork = artwork;
+        if (tile.hasPortrait) {
+            UnloadTexture(tile.portrait);
+            tile.hasPortrait = false;
+        }
+        if (tile.hasWide) {
+            UnloadTexture(tile.wide);
+            tile.hasWide = false;
+        }
+        tile.artLoaded = false;
+    }
 }
 
 void Shell::releaseTextures() {
     for (Tile& tile : tiles_) {
+        tile.artLoaded = false;
         if (tile.hasPortrait) {
             UnloadTexture(tile.portrait);
             tile.hasPortrait = false;
@@ -365,6 +382,8 @@ void Shell::drawGrid() {
 }
 
 void Shell::draw() {
+    // Textures need the GL context, which only the drawing thread has.
+    loadArtwork();
     BeginDrawing();
     // Alpha accumulates as over-compositing does, so the window's own alpha is what Gamescope
     // and an ARGB visual blend with; raylib's BLEND_ALPHA would square it.

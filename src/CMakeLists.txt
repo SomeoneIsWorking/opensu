@@ -8,6 +8,7 @@
 add_subdirectory(vdf)
 add_subdirectory(config)
 add_subdirectory(library)
+add_subdirectory(artwork)
 add_subdirectory(gamepad)
 add_subdirectory(launch)
 add_subdirectory(steam)

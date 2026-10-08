@@ -6,8 +6,10 @@
 #pragma once
 
 #include <chrono>
+#include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "raylib.h"
@@ -40,6 +42,8 @@ struct Tile {
     Texture wide{};
     bool hasPortrait{false};
     bool hasWide{false};
+    /// Whether its artwork files have been read into the textures.
+    bool artLoaded{false};
     /// The tile's platform frame, or null for a game with no platform identity.
     const Platform* platform{nullptr};
 };
@@ -62,8 +66,12 @@ class Shell {
     /// plays the entrance.
     void setShelf(std::vector<library::ShelfItem> items, std::size_t focus = 0);
 
-    /// Loads every tile's artwork from the paths the sources recorded.
+    /// Loads the artwork of every tile not loaded yet, from the paths the sources recorded.
+    /// Drawing does this itself; it needs the GL context.
     void loadArtwork();
+
+    /// Gives a game's tile artwork that arrived after the shelf was set.
+    void setArtwork(std::string_view gameId, const std::filesystem::path& artwork);
 
     /// Resolves an entry's platform frame. A title from a store has no console, so
     /// it is framed in that store's identity; a ROM and a console in their system's.
@@ -107,9 +115,6 @@ class Shell {
     [[nodiscard]] LaunchPanel& launchPanel() noexcept {
         return launchPanel_;
     }
-
-    /// Releases every texture the shell owns.
-    void unloadArtwork();
 
     [[nodiscard]] const std::vector<Tile>& tiles() const noexcept {
         return tiles_;
