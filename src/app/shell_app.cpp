@@ -65,7 +65,14 @@ void ShellApp::reloadCatalog() {
     games_ = std::move(snapshot.games);
     sources_ = std::move(snapshot.sources);
     artworkStore_.apply(games_);
-    artworkFetcher_.request(games_, library::consoles(games_));
+    const std::vector<library::Console> consoles = library::consoles(games_);
+    artworkFetcher_.request(games_, consoles);
+    for (const library::Console& console : consoles) {
+        const std::filesystem::path glyph = artworkStore_.storedGlyph(console.system);
+        if (!glyph.empty()) {
+            shell_.setGlyph(console.system, glyph);
+        }
+    }
     for (const library::SourceStatus& source : sources_) {
         if (source.availability != library::Availability::Ready) {
             lucent::warn("catalog", "{}: {}", library::label(source.source), source.detail);
@@ -96,6 +103,10 @@ void ShellApp::showShelf(std::size_t focus) {
 
 void ShellApp::serviceArtwork() {
     for (const artwork::Fetched& fetched : artworkFetcher_.take()) {
+        if (fetched.kind == artwork::Fetched::Kind::Glyph) {
+            shell_.setGlyph(fetched.id, fetched.artwork);
+            continue;
+        }
         if (fetched.kind == artwork::Fetched::Kind::Console) {
             shell_.setConsoleArtwork(fetched.id, fetched.artwork);
             continue;

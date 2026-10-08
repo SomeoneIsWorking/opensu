@@ -295,7 +295,7 @@ void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geome
     if (tile.console) {
         paintConsole(tile, content);
         if (tile.platform != nullptr) {
-            paintFrame(content, *tile.platform, tile.alpha);
+            paintFrame(content, *tile.platform, nullptr, tile.alpha);
         }
         return;
     }
@@ -310,7 +310,7 @@ void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geome
         } else {
             paintFallback(content, tile.title, tile.alpha);
         }
-        paintFrame(content, *tile.platform, tile.alpha);
+        paintFrame(content, *tile.platform, tile.glyph, tile.alpha);
         return;
     }
     if (tile.art != nullptr) {
@@ -324,7 +324,8 @@ void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geome
     paintFallback(content, tile.title, tile.alpha);
 }
 
-void TilePainter::paintFrame(const Rect& rect, const Platform& platform, float alpha) const {
+void TilePainter::paintFrame(const Rect& rect, const Platform& platform, const Texture* glyph,
+                             float alpha) const {
     // The border sprite drawn as its own shapes: a stroke and a top-left tab, both on the
     // sprite's diagonal gradient.
     const FrameGeometry frame = frameGeometry(rect);
@@ -343,6 +344,16 @@ void TilePainter::paintFrame(const Rect& rect, const Platform& platform, float a
     };
     square(Rect{rect.x + frame.tab - corner, rect.y, corner, corner});
     square(Rect{rect.x, rect.y + frame.tab - corner, corner, corner});
+    if (glyph != nullptr) {
+        // iiSU g24.e: the white glyph contain-fitted into a square at the tab's centre.
+        const Rect fit = containFit(static_cast<float>(glyph->width),
+                                    static_cast<float>(glyph->height), frame.glyph);
+        DrawTexturePro(*glyph,
+                       Rectangle{0.0f, 0.0f, static_cast<float>(glyph->width),
+                                 static_cast<float>(glyph->height)},
+                       Rectangle{fit.x, fit.y, fit.width, fit.height}, Vector2{0.0f, 0.0f}, 0.0f,
+                       withAlpha(WHITE, alpha));
+    }
 }
 
 void TilePainter::paintConsole(const TileVisual& tile, const Rect& content) const {

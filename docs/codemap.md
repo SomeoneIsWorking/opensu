@@ -54,9 +54,11 @@ gitignored `docs/reference/`).
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line |
 | `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
-| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, the starter pack file |
-| `src/artwork/artwork_fetcher.*` | The background downloads: Steam's CDN for Steam, libretro-thumbnails for ROMs, iiSU's starter pack for console cards |
-| `src/artwork/starter_pack.*` | iiSU's starter pack: ranged download of its entry out of the release APK against a pin, and a system's card as PNG |
+| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file |
+| `src/artwork/artwork_fetcher.*` | The background downloads: Steam's CDN for Steam, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs |
+| `src/artwork/apk_archive.*` | iiSU's release APK read by HTTP ranges: central directory once, any entry by range with its CRC checked |
+| `src/artwork/starter_pack.*` | iiSU's starter pack: its entry taken out of the APK against a pin, and a system's card as PNG |
+| `src/artwork/console_glyphs.*` | iiSU's frame glyphs: `border_pack.json` read once, a system's `logo_*.png` out of the APK |
 | `src/artwork/zip_archive.*` | The one zip reader: end record, central directory, local header offset, checked extraction; an in-memory archive |
 | `src/net/web_client.*` | HTTPS GETs over libcurl, with headers; shared by artwork and the stores |
 | `src/vdf/` | Valve KeyValues parser |
@@ -98,6 +100,7 @@ Painters and composition (`iideck_ui`):
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |
 | `src/ui/platform.*`, `platform_stroke.cpp` | Console border sprites, logos, stroke colours |
+| `src/ui/glyph_textures.*` | The console glyphs drawn in a ROM tile's frame tab: files by system, textures on load |
 | `src/ui/typeface.*`, `face_metrics.*` | Text drawing at Android em sizes; the face's line metrics |
 
 ## Tests and docs

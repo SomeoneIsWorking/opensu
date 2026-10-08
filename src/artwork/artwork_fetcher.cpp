@@ -16,7 +16,8 @@ bool isNotFound(const std::string& error) {
 } // namespace
 
 ArtworkFetcher::ArtworkFetcher(const ArtworkStore& store, const RemoteSources& sources)
-    : store_{store}, sources_{sources}, pack_{store, sources.iisuApk, sources.iisuPin},
+    : store_{store}, sources_{sources}, apk_{sources.iisuApk, sources.iisuPin.apkSize},
+      pack_{store, apk_, sources.iisuPin}, glyphs_{apk_},
       worker_{[this](const std::stop_token& stop) {
           run(stop);
       }} {
@@ -30,10 +31,15 @@ ArtworkFetcher::~ArtworkFetcher() {
 void ArtworkFetcher::request(const std::vector<library::Game>& games,
                              const std::vector<library::Console>& consoles) {
     const ArtworkStore::Clock::time_point now = ArtworkStore::Clock::now();
-    std::vector<library::ShelfItem> wanted;
+    std::vector<Work> wanted;
     for (const library::Console& console : consoles) {
         if (store_.wanted(console, now)) {
             wanted.emplace_back(console);
+        }
+    }
+    for (const library::Console& console : consoles) {
+        if (store_.wantedGlyph(console.system, now)) {
+            wanted.emplace_back(GlyphWork{console.system});
         }
     }
     for (const library::Game& game : games) {
@@ -60,7 +66,7 @@ bool ArtworkFetcher::idle() const {
 
 void ArtworkFetcher::run(const std::stop_token& stop) {
     while (!stop.stop_requested()) {
-        library::ShelfItem item;
+        Work item;
         {
             std::unique_lock lock{mutex_};
             busy_ = false;
@@ -73,26 +79,42 @@ void ArtworkFetcher::run(const std::stop_token& stop) {
             queue_.erase(queue_.begin());
             busy_ = true;
         }
-        const auto* game = std::get_if<library::Game>(&item);
-        const auto* console = std::get_if<library::Console>(&item);
-        const Outcome outcome = game != nullptr ? fetch(*game) : fetchConsole(*console);
+        const Outcome outcome = std::visit(
+            [this](const auto& work) {
+                return fetch(work);
+            },
+            item);
         if (outcome == Outcome::Saved) {
             const std::lock_guard lock{mutex_};
-            done_.push_back(
-                game != nullptr
-                    ? Fetched{Fetched::Kind::Game, game->id, store_.pathFor(*game)}
-                    : Fetched{Fetched::Kind::Console, console->system, store_.pathFor(*console)});
+            done_.push_back(arrived(item));
         } else if (outcome == Outcome::Missing) {
-            if (game != nullptr) {
-                store_.recordMiss(*game);
-            } else {
-                store_.recordMiss(*console);
-            }
+            recordMiss(item);
         } else {
             // The network or the cache is down; the next request tries again.
             const std::lock_guard lock{mutex_};
             queue_.clear();
         }
+    }
+}
+
+Fetched ArtworkFetcher::arrived(const Work& work) const {
+    if (const auto* game = std::get_if<library::Game>(&work)) {
+        return Fetched{Fetched::Kind::Game, game->id, store_.pathFor(*game)};
+    }
+    if (const auto* console = std::get_if<library::Console>(&work)) {
+        return Fetched{Fetched::Kind::Console, console->system, store_.pathFor(*console)};
+    }
+    const auto& glyph = std::get<GlyphWork>(work);
+    return Fetched{Fetched::Kind::Glyph, glyph.system, store_.glyphPath(glyph.system)};
+}
+
+void ArtworkFetcher::recordMiss(const Work& work) const {
+    if (const auto* game = std::get_if<library::Game>(&work)) {
+        store_.recordMiss(*game);
+    } else if (const auto* console = std::get_if<library::Console>(&work)) {
+        store_.recordMiss(*console);
+    } else {
+        store_.recordGlyphMiss(std::get<GlyphWork>(work).system);
     }
 }
 
@@ -109,7 +131,7 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
     return Outcome::Missing;
 }
 
-ArtworkFetcher::Outcome ArtworkFetcher::fetchConsole(const library::Console& console) {
+ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Console& console) {
     std::string error;
     if (!pack_.ensure(web_, error)) {
         lucent::warn("artwork", "starter pack: {}", error);
@@ -123,6 +145,25 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchConsole(const library::Console& con
         return Outcome::Missing;
     }
     if (!store_.save(console, *png, error)) {
+        lucent::warn("artwork", "{}", error);
+        return Outcome::Unreachable;
+    }
+    return Outcome::Saved;
+}
+
+ArtworkFetcher::Outcome ArtworkFetcher::fetch(const GlyphWork& glyph) {
+    const GlyphResult found = glyphs_.fetch(web_, glyph.system);
+    std::string error = found.error;
+    switch (found.status) {
+    case GlyphResult::Status::Missing:
+        return Outcome::Missing;
+    case GlyphResult::Status::Failed:
+        lucent::warn("artwork", "{} glyph: {}", glyph.system, found.error);
+        return Outcome::Unreachable;
+    case GlyphResult::Status::Found:
+        break;
+    }
+    if (!store_.saveGlyph(glyph.system, found.png, error)) {
         lucent::warn("artwork", "{}", error);
         return Outcome::Unreachable;
     }

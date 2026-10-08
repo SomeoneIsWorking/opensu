@@ -1,5 +1,5 @@
 add_library(iideck_artwork STATIC
-    libretro_index.cpp zip_archive.cpp starter_pack.cpp artwork_store.cpp
+    libretro_index.cpp zip_archive.cpp apk_archive.cpp console_glyphs.cpp starter_pack.cpp artwork_store.cpp
     artwork_fetcher.cpp)
 add_library(iideck::artwork ALIAS iideck_artwork)
 target_include_directories(iideck_artwork PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

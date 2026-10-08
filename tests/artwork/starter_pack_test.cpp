@@ -14,17 +14,22 @@
 
 #include <webp/encode.h>
 
+#include "apk_archive.hpp"
 #include "artwork_fetcher.hpp"
 #include "artwork_store.hpp"
+#include "console_glyphs.hpp"
 #include "range_server.hpp"
 #include "zip_fixture.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
+using iideck::artwork::ApkArchive;
 using iideck::artwork::ArtworkFetcher;
 using iideck::artwork::ArtworkStore;
+using iideck::artwork::ConsoleGlyphs;
 using iideck::artwork::Fetched;
+using iideck::artwork::GlyphResult;
 using iideck::artwork::PackPin;
 using iideck::artwork::StarterPack;
 using iideck::artwork::fixture::buildZip;
@@ -37,6 +42,12 @@ using iideck::net::WebClient;
 
 constexpr int cardSize = 8;
 constexpr std::string_view packEntry = "assets/iiSU_StarterPack.zip";
+// The border pack maps gc to a logo in the APK and snes to one the APK lacks; ps4 is not in it.
+constexpr std::string_view borderPack =
+    R"({"version": 9, "consoles": [)"
+    R"({"console": "GC", "border": "gc.png", "logo": "logo_gc.png"},)"
+    R"({"console": "snes", "border": "SNES.png", "logo": "logo_SNES.png"}]})";
+constexpr std::string_view gcGlyph = "\x89PNG\r\n\x1a\n glyph of the GameCube";
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -75,6 +86,8 @@ Release release(int fillerEntries, std::optional<std::uint32_t> packCrc = {}) {
     out.pack = buildZip({{"platforms/gc.webp", webpCard(), true, {}},
                          {"platforms/gc_title.webp", "title", false, {}}});
     std::vector<FixtureEntry> entries{{std::string{packEntry}, out.pack, true, packCrc}};
+    entries.push_back({"assets/borders/border_pack.json", std::string{borderPack}, true, {}});
+    entries.push_back({"assets/borders/logo_gc.png", std::string{gcGlyph}, false, {}});
     entries.push_back({"classes.dex", std::string(2 * 1024 * 1024, 'd'), false, {}});
     for (int i = 0; i < fillerEntries; ++i) {
         entries.push_back(
@@ -102,7 +115,8 @@ void testDownload(const fs::path& root, int fillerEntries) {
     RangeServer server;
     server.put("/apk", served.apk);
     const ArtworkStore store{root};
-    const StarterPack pack{store, server.base() + "/apk", served.pin};
+    ApkArchive apk{server.base() + "/apk", served.pin.apkSize};
+    const StarterPack pack{store, apk, served.pin};
     const WebClient web;
     std::string error;
     expect(pack.ensure(web, error), "the pack downloads");
@@ -118,6 +132,31 @@ void testDownload(const fs::path& root, int fillerEntries) {
     expect(!pack.card("ps4", error) && error.empty(), "a system without a card is nothing");
 }
 
+void testGlyphs() {
+    const Release served = release(0);
+    RangeServer server;
+    server.put("/apk", served.apk);
+    ApkArchive apk{server.base() + "/apk", served.pin.apkSize};
+    ConsoleGlyphs glyphs{apk};
+    const WebClient web;
+    const GlyphResult gc = glyphs.fetch(web, "gc");
+    expect(gc.status == GlyphResult::Status::Found && gc.png == gcGlyph,
+           "a console's glyph comes out of the APK as stored, found by its folded name");
+    expect(server.bytesSent() < served.apk.size() / 2, "the APK is not downloaded whole");
+    const std::uint64_t asked = server.requests();
+    expect(glyphs.fetch(web, "ps4").status == GlyphResult::Status::Missing,
+           "a system the border pack lacks has no glyph");
+    expect(server.requests() == asked, "the border pack is read once");
+    expect(glyphs.fetch(web, "snes").status == GlyphResult::Status::Missing,
+           "a logo the APK lacks is no glyph");
+
+    ApkArchive offline{"http://127.0.0.1:9/apk", served.pin.apkSize};
+    ConsoleGlyphs unreachable{offline};
+    const GlyphResult down = unreachable.fetch(web, "gc");
+    expect(down.status == GlyphResult::Status::Failed && !down.error.empty(),
+           "an APK that cannot be reached fails rather than misses");
+}
+
 void testRefusals(const fs::path& root) {
     std::string error;
     const WebClient web;
@@ -128,7 +167,8 @@ void testRefusals(const fs::path& root) {
         PackPin wrongSize = served.pin;
         ++wrongSize.entrySize;
         const ArtworkStore store{root / "size"};
-        expect(!StarterPack{store, server.base() + "/apk", wrongSize}.ensure(web, error),
+        ApkArchive apk{server.base() + "/apk", wrongSize.apkSize};
+        expect(!StarterPack{store, apk, wrongSize}.ensure(web, error),
                "an entry of another size than pinned is refused");
         expect(!fs::exists(store.packPath(wrongSize.fileName)), "nothing is stored for it");
     }
@@ -137,7 +177,8 @@ void testRefusals(const fs::path& root) {
         RangeServer server;
         server.put("/apk", served.apk);
         const ArtworkStore store{root / "crc"};
-        expect(!StarterPack{store, server.base() + "/apk", served.pin}.ensure(web, error) &&
+        ApkArchive apk{server.base() + "/apk", served.pin.apkSize};
+        expect(!StarterPack{store, apk, served.pin}.ensure(web, error) &&
                    error.find("CRC") != std::string::npos,
                "an entry that fails its CRC-32 is refused");
         expect(!fs::exists(store.packPath(served.pin.fileName)), "nothing is stored for it");
@@ -148,7 +189,8 @@ void testRefusals(const fs::path& root) {
         server.put("/apk", served.apk);
         server.ignoreRange(true);
         const ArtworkStore store{root / "norange"};
-        expect(!StarterPack{store, server.base() + "/apk", served.pin}.ensure(web, error) &&
+        ApkArchive apk{server.base() + "/apk", served.pin.apkSize};
+        expect(!StarterPack{store, apk, served.pin}.ensure(web, error) &&
                    error.find("HTTP 200") != std::string::npos,
                "a server that ignores Range is refused");
     }
@@ -161,18 +203,33 @@ void testFetcher(const fs::path& root) {
     const ArtworkStore store{root};
     const Console gc{"gc", "GameCube", 1, {}};
     const Console ps4{"ps4", "PlayStation 4", 1, {}};
+    const Console snes{"snes", "Super Nintendo", 1, {}};
     {
         ArtworkFetcher fetcher{store,
                                {server.base(), server.base(), server.base() + "/apk", served.pin}};
-        fetcher.request({}, {gc, ps4});
+        fetcher.request({}, {gc, ps4, snes});
         for (int i = 0; i < 500 && !(fetcher.idle() && i > 0); ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds{10});
         }
         const std::vector<Fetched> fetched = fetcher.take();
-        expect(fetched.size() == 1 && fetched[0].kind == Fetched::Kind::Console &&
-                   fetched[0].id == "gc" && fetched[0].artwork == store.pathFor(gc),
-               "the GameCube card arrives as a console's artwork");
+        const auto arrived = [&fetched](Fetched::Kind kind, const std::string& id) {
+            return std::ranges::any_of(fetched, [&](const Fetched& one) {
+                return one.kind == kind && one.id == id;
+            });
+        };
+        expect(fetched.size() == 2 && arrived(Fetched::Kind::Console, "gc") &&
+                   arrived(Fetched::Kind::Glyph, "gc"),
+               "the GameCube card and glyph arrive as artwork");
     }
+    expect(read(store.glyphPath("gc")) == gcGlyph, "the glyph is in the store as shipped");
+    expect(fs::exists(store.glyphPath("ps4").string() + ".miss") &&
+               fs::exists(store.glyphPath("snes").string() + ".miss"),
+           "a system without a glyph is a miss");
+    expect(!store.wantedGlyph("gc", ArtworkStore::Clock::now()) &&
+               !store.wantedGlyph("ps4", ArtworkStore::Clock::now()),
+           "neither a kept glyph nor a recent miss is asked for again");
+    expect(store.storedGlyph("gc") == store.glyphPath("gc") && store.storedGlyph("ps4").empty(),
+           "a stored glyph is found on the next start");
     expect(isPngOfCardSize(read(store.pathFor(gc))), "the card is in the store as a PNG");
     expect(fs::exists(store.pathFor(ps4).string() + ".miss"), "a system without a card is a miss");
     const auto now = ArtworkStore::Clock::now();
@@ -208,6 +265,7 @@ int main() {
     fs::remove_all(root);
     testDownload(root / "small", 0);
     testDownload(root / "large", 1200);
+    testGlyphs();
     testRefusals(root / "refuse");
     testFetcher(root / "fetch");
     testUnreachable(root / "offline");

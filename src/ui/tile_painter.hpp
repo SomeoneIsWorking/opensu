@@ -37,6 +37,8 @@ struct TileVisual {
     const Texture* art{nullptr};
     /// The platform frame, or null for an unframed tile.
     const Platform* platform{nullptr};
+    /// The console's glyph for the frame's tab, or null for none.
+    const Texture* glyph{nullptr};
     std::string_view title;
     /// A console standing for its ROMs rather than one game.
     bool console{false};
@@ -56,7 +58,8 @@ class TilePainter {
     void paintChrome(const TileGeometry& geometry, const ChromeVariant& variant, bool focused,
                      float alpha) const;
     void paintContent(const TileVisual& tile, const TileGeometry& geometry) const;
-    void paintFrame(const Rect& rect, const Platform& platform, float alpha) const;
+    void paintFrame(const Rect& rect, const Platform& platform, const Texture* glyph,
+                    float alpha) const;
     void paintFallback(const Rect& content, std::string_view title, float alpha) const;
     void paintConsole(const TileVisual& tile, const Rect& content) const;
 };

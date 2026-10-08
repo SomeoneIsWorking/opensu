@@ -1,6 +1,6 @@
 // starter_pack — iiSU's console cards. iiSU's starter pack (`platforms/<system>.webp`, a framed
-// card per console) is a zip inside its release APK. It is downloaded by ranges, the APK's end
-// record, then the one entry, never the whole APK, verified against a pin and kept in the store.
+// card per console) is a zip inside its release APK. It is taken out of the APK by ranges
+// (ApkArchive), verified against a pin and kept in the store.
 #pragma once
 
 #include <cstdint>
@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 
+#include "apk_archive.hpp"
 #include "artwork_store.hpp"
 #include "net/web_client.hpp"
 
@@ -32,7 +33,7 @@ inline constexpr PackPin iisuPackPin{128322093, "assets/iiSU_StarterPack.zip", 2
 
 class StarterPack {
   public:
-    StarterPack(const ArtworkStore& store, const std::string& apkUrl, const PackPin& pin);
+    StarterPack(const ArtworkStore& store, ApkArchive& apk, const PackPin& pin);
 
     /// Makes sure the pack is in the store, downloading it when it is not. False with `error`
     /// when the download fails or what arrives differs from the pin; nothing is kept then.
@@ -45,7 +46,7 @@ class StarterPack {
 
   private:
     const ArtworkStore& store_;
-    std::string apkUrl_;
+    ApkArchive& apk_;
     PackPin pin_;
 };
 

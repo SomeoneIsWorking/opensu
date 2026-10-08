@@ -36,12 +36,40 @@ void frame() {
     near(f.artRadius, 46.08f, "art is clipped at 9% of the side");
 }
 
+void glyph() {
+    // home-grid.md §3.7 step 4: 45/1024 in, 90/1024 square, which is the tab's centre.
+    const iideck::ui::FrameGeometry f = iideck::ui::frameGeometry(Rect{100, 200, 512, 512});
+    near(f.glyph.x, 100.0f + 22.5f, "glyph square starts 45/1024 in");
+    near(f.glyph.y, 200.0f + 22.5f, "glyph square starts 45/1024 down");
+    near(f.glyph.width, 45.0f, "glyph square is 90/1024 of the side");
+    near(f.glyph.height, 45.0f, "glyph square is square");
+    near(f.glyph.centreX(), 100.0f + f.tab * 0.5f,
+         "glyph square is centred in the tab horizontally");
+    near(f.glyph.centreY(), 200.0f + f.tab * 0.5f, "glyph square is centred in the tab vertically");
+}
+
+void contain() {
+    const Rect slot{10, 20, 40, 40};
+    const Rect tall = iideck::ui::containFit(38.0f, 95.0f, slot);
+    near(tall.height, 40.0f, "a tall glyph fills the slot's height");
+    near(tall.width, 16.0f, "a tall glyph keeps its aspect");
+    near(tall.centreX(), slot.centreX(), "a tall glyph is centred across");
+    near(tall.y, 20.0f, "a tall glyph starts at the slot's top");
+    const Rect wide = iideck::ui::containFit(80.0f, 20.0f, slot);
+    near(wide.width, 40.0f, "a wide glyph fills the slot's width");
+    near(wide.height, 10.0f, "a wide glyph keeps its aspect");
+    near(wide.centreY(), slot.centreY(), "a wide glyph is centred down");
+    near(iideck::ui::containFit(0.0f, 5.0f, slot).width, 0.0f, "an empty image fits nothing");
+}
+
 } // namespace
 
 int main() {
     cell200();
     smallTile();
     frame();
+    glyph();
+    contain();
     std::printf("tile_geometry: all checks passed\n");
     return 0;
 }

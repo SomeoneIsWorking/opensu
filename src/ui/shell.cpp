@@ -131,6 +131,7 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
 }
 
 void Shell::loadArtwork() {
+    glyphs_.load();
     for (Tile& tile : tiles_) {
         if (tile.artLoaded) {
             continue;
@@ -185,6 +186,10 @@ void Shell::setConsoleArtwork(std::string_view system, const std::filesystem::pa
             unloadArtwork(tile);
         }
     }
+}
+
+void Shell::setGlyph(std::string_view system, const std::filesystem::path& glyph) {
+    glyphs_.set(system, glyph);
 }
 
 void Shell::releaseTextures() {
@@ -366,7 +371,11 @@ TileVisual Shell::visualFor(std::size_t slot) const {
             visual.title = console->label;
             visual.caption = tile.caption;
         } else {
-            visual.title = std::get<library::Game>(tile.item).title;
+            const auto& game = std::get<library::Game>(tile.item);
+            visual.title = game.title;
+            if (game.source == library::Source::Rom) {
+                visual.glyph = glyphs_.find(game.sourceId);
+            }
         }
     }
     return visual;

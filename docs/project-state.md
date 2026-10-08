@@ -128,6 +128,19 @@ a system the pack lacks gets a `.miss` like a game. iiSU's assets are downloaded
 never shipped. The older starter-v1.0.0 release is not used: it lacks GBA, GC,
 PSX, PS2, PSP, Switch and Wii.
 
+A ROM tile's platform frame carries its console's white glyph in the tab, as iiSU's
+`IconComposition` does (`g24.e`): contain-fitted into the square at 45/1024 and 90/1024 of
+the short side (`frameGeometry().glyph`, the tab's centre). The glyph is
+`assets/borders/logo_<console>.png` in the same pinned APK, named by
+`assets/borders/border_pack.json` (`consoles[] {console, border, logo}`).
+`artwork::ConsoleGlyphs` reads that map once through `artwork::ApkArchive` (the one ranged
+APK reader the starter pack shares), then takes only the logos of systems with ROMs, each
+CRC-32 checked, into `<cache>/artwork/glyph/<system>.png`; a system the pack or APK lacks
+gets a `.miss`. The shell reads stored glyphs on each catalog load and takes new ones as they
+arrive (`ui::GlyphTextures`). Without a glyph the tab stays empty. Console cards and store
+tiles are unchanged. Measured against the real APK: five glyphs (gc, psx, snes, n64, switch)
+are 4.3 KB in 8.8 s, over about 11 requests, most of it GitHub's redirect latency.
+
 The friends slot (`a32.e`), empty in iideck otherwise, holds the launcher badges
 (`ui::LauncherBadgePainter`, mapped in `app::launcherBadges`): Steam, Epic and
 GOG, each its Simple Icons logo in an avatar circle at a32.e's avatar size, spaced

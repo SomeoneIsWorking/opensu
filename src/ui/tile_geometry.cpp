@@ -15,6 +15,9 @@ constexpr float spriteTab = 180.0f;
 // iiSU border_pack.json roundRadiusPct 6.25; g24.e clips art at max(pct, 9).
 constexpr float packRoundRadiusPct = 6.25f;
 constexpr float artMinRadiusPct = 9.0f;
+// g24.e: the logo's square sits at 45/1024 with side 90/1024, the tab's centre.
+constexpr float spriteGlyphOffset = 45.0f;
+constexpr float spriteGlyphSide = 90.0f;
 
 /// iiSU xj2: max(4, ceil(0.068 x)).
 float cornerFor(float side) noexcept {
@@ -53,7 +56,19 @@ FrameGeometry frameGeometry(const Rect& rect) noexcept {
         spriteTab * scale,
         spriteCorner * scale,
         side * std::max(packRoundRadiusPct, artMinRadiusPct) / 100.0f,
+        Rect{rect.x + spriteGlyphOffset * scale, rect.y + spriteGlyphOffset * scale,
+             spriteGlyphSide * scale, spriteGlyphSide * scale},
     };
+}
+
+Rect containFit(float width, float height, const Rect& slot) noexcept {
+    if (width <= 0.0f || height <= 0.0f) {
+        return Rect{slot.centreX(), slot.centreY(), 0.0f, 0.0f};
+    }
+    const float fit = std::min(slot.width / width, slot.height / height);
+    const float w = width * fit;
+    const float h = height * fit;
+    return Rect{slot.centreX() - w * 0.5f, slot.centreY() - h * 0.5f, w, h};
 }
 
 } // namespace iideck::ui

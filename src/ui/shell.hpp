@@ -17,6 +17,7 @@
 #include "config/config.hpp"
 #include "game_menu.hpp"
 #include "game_menu_painter.hpp"
+#include "glyph_textures.hpp"
 #include "grid_focus.hpp"
 #include "home_layout.hpp"
 #include "hud.hpp"
@@ -74,6 +75,9 @@ class Shell {
     void setArtwork(std::string_view gameId, const std::filesystem::path& artwork);
     /// Gives a console's tile the card that arrived after the shelf was set.
     void setConsoleArtwork(std::string_view system, const std::filesystem::path& artwork);
+
+    /// Gives the ROM tiles of a system the glyph for their frame's tab.
+    void setGlyph(std::string_view system, const std::filesystem::path& glyph);
 
     /// Resolves an entry's platform frame. A title from a store has no console, so
     /// it is framed in that store's identity; a ROM and a console in their system's.
@@ -193,6 +197,7 @@ class Shell {
     int height_{};
     std::vector<Tile> tiles_;
     Platforms platforms_;
+    GlyphTextures glyphs_;
     HomeLayout layout_;
     GridFocus focus_;
     int page_{};

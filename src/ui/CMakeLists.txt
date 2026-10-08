@@ -16,7 +16,7 @@ add_library(iideck_ui STATIC
     shell.cpp hud.cpp launcher_badges.cpp vector_icon.cpp status_pill.cpp progress_spinner.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
     button_glyph.cpp game_menu_painter.cpp launch_panel_painter.cpp
     round_shape.cpp
-    typeface.cpp face_metrics.cpp platform.cpp platform_stroke.cpp)
+    typeface.cpp face_metrics.cpp platform.cpp platform_stroke.cpp glyph_textures.cpp)
 add_library(iideck::ui ALIAS iideck_ui)
 target_include_directories(iideck_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(iideck_ui

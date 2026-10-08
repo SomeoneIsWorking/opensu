@@ -1,10 +1,8 @@
 #include "starter_pack.hpp"
 
-#include <algorithm>
 #include <fstream>
 #include <memory>
 #include <utility>
-#include <vector>
 
 #include <webp/decode.h>
 
@@ -14,11 +12,6 @@
 
 namespace iideck::artwork {
 namespace {
-
-// The APK's last bytes, which hold its end record.
-constexpr std::uint64_t tailBytes = 64ULL * 1024;
-// Each range stays small enough to finish inside the client's timeout.
-constexpr std::uint64_t chunkBytes = 4ULL * 1024 * 1024;
 
 struct WebpFree {
     void operator()(std::uint8_t* pixels) const noexcept {
@@ -38,21 +31,6 @@ std::optional<std::string> readFile(const std::filesystem::path& file) {
         return std::nullopt;
     }
     return std::string{std::istreambuf_iterator<char>{in}, {}};
-}
-
-/// Bytes `first` to `last` of a URL in `chunkBytes` requests.
-std::optional<std::string> fetchSpan(const net::WebClient& web, const std::string& url,
-                                     std::uint64_t first, std::uint64_t last, std::string& error) {
-    std::string out;
-    for (std::uint64_t at = first; at <= last; at += chunkBytes) {
-        const std::optional<std::string> part =
-            web.getRange(url, at, std::min(at + chunkBytes - 1, last), error);
-        if (!part) {
-            return std::nullopt;
-        }
-        out += *part;
-    }
-    return out;
 }
 
 /// A WebP image as PNG bytes.
@@ -77,8 +55,8 @@ std::optional<std::string> toPng(std::string_view webp, std::string& error) {
 
 } // namespace
 
-StarterPack::StarterPack(const ArtworkStore& store, const std::string& apkUrl, const PackPin& pin)
-    : store_{store}, apkUrl_{apkUrl}, pin_{pin} {
+StarterPack::StarterPack(const ArtworkStore& store, ApkArchive& apk, const PackPin& pin)
+    : store_{store}, apk_{apk}, pin_{pin} {
 }
 
 bool StarterPack::ensure(const net::WebClient& web, std::string& error) const {
@@ -86,61 +64,18 @@ bool StarterPack::ensure(const net::WebClient& web, std::string& error) const {
     if (std::filesystem::is_regular_file(store_.packPath(pin_.fileName), ec)) {
         return true;
     }
-    if (pin_.apkSize < tailBytes) {
-        error = "the pinned APK is smaller than its tail";
-        return false;
-    }
-    const std::uint64_t tailOffset = pin_.apkSize - tailBytes;
-    const std::optional<std::string> tail =
-        fetchSpan(web, apkUrl_, tailOffset, pin_.apkSize - 1, error);
-    if (!tail) {
-        return false;
-    }
-    const std::optional<zip::Directory> directory = zip::findDirectory(*tail, tailOffset, error);
-    if (!directory) {
-        return false;
-    }
-    std::string listing;
-    if (directory->offset >= tailOffset) {
-        listing = tail->substr(directory->offset - tailOffset, directory->size);
-    } else {
-        const std::optional<std::string> fetched = fetchSpan(
-            web, apkUrl_, directory->offset, directory->offset + directory->size - 1, error);
-        if (!fetched) {
-            return false;
+    const zip::Entry* entry = apk_.find(web, pin_.entry, error);
+    if (entry == nullptr) {
+        if (error.empty()) {
+            error = std::string{pin_.entry} + " is not in the APK";
         }
-        listing = *fetched;
-    }
-    const std::optional<std::vector<zip::Entry>> entries =
-        zip::parseDirectory(listing, *directory, error);
-    if (!entries) {
         return false;
     }
-    const auto found = std::ranges::find(*entries, pin_.entry, &zip::Entry::name);
-    if (found == entries->end()) {
-        error = std::string{pin_.entry} + " is not in the APK";
-        return false;
-    }
-    if (found->size != pin_.entrySize || found->crc32 != pin_.entryCrc32) {
+    if (entry->size != pin_.entrySize || entry->crc32 != pin_.entryCrc32) {
         error = std::string{pin_.entry} + " in the APK differs from the pinned release";
         return false;
     }
-    const std::optional<std::string> header =
-        fetchSpan(web, apkUrl_, found->localHeaderOffset,
-                  found->localHeaderOffset + zip::localHeaderSize - 1, error);
-    if (!header) {
-        return false;
-    }
-    const std::optional<std::uint64_t> start = zip::dataOffset(*found, *header, error);
-    if (!start) {
-        return false;
-    }
-    const std::optional<std::string> data =
-        fetchSpan(web, apkUrl_, *start, *start + found->compressedSize - 1, error);
-    if (!data) {
-        return false;
-    }
-    const std::optional<std::string> pack = zip::extract(*found, *data, error);
+    const std::optional<std::string> pack = apk_.extract(web, *entry, error);
     if (!pack || !store_.savePack(pin_.fileName, *pack, error)) {
         return false;
     }

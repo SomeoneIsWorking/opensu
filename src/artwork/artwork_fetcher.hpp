@@ -1,6 +1,7 @@
 // artwork_fetcher — downloads missing artwork in the background: a Steam game's library
 // portrait from Steam's CDN, a ROM's box art from libretro-thumbnails, a console's card from
-// iiSU's starter pack. Each image is kept in the store and handed back for the shell to show.
+// iiSU's starter pack and its frame glyph from iiSU's border pack. Each image is kept in the
+// store and handed back for the shell to show.
 #pragma once
 
 #include <condition_variable>
@@ -11,9 +12,12 @@
 #include <stop_token>
 #include <string>
 #include <thread>
+#include <variant>
 #include <vector>
 
+#include "apk_archive.hpp"
 #include "artwork_store.hpp"
+#include "console_glyphs.hpp"
 #include "library/game.hpp"
 #include "library/shelf.hpp"
 #include "net/web_client.hpp"
@@ -30,12 +34,12 @@ struct RemoteSources {
     PackPin iisuPin{iisuPackPin};
 };
 
-/// A game's or console's artwork, now on disk.
+/// A game's, console's or system glyph's artwork, now on disk.
 struct Fetched {
-    enum class Kind : std::uint8_t { Game, Console };
+    enum class Kind : std::uint8_t { Game, Console, Glyph };
 
     Kind kind;
-    /// The game's id, or the console's system.
+    /// The game's id, or the console's or glyph's system.
     std::string id;
     std::filesystem::path artwork;
 };
@@ -47,8 +51,8 @@ class ArtworkFetcher {
     ArtworkFetcher(const ArtworkFetcher&) = delete;
     ArtworkFetcher& operator=(const ArtworkFetcher&) = delete;
 
-    /// Replaces the queue with the games and consoles the store still wants art for. A source
-    /// that cannot be reached ends the round; the next request starts another.
+    /// Replaces the queue with the games, consoles and console glyphs the store still wants. A
+    /// source that cannot be reached ends the round; the next request starts another.
     void request(const std::vector<library::Game>& games,
                  const std::vector<library::Console>& consoles);
 
@@ -62,9 +66,19 @@ class ArtworkFetcher {
     /// How one download ended.
     enum class Outcome : std::uint8_t { Saved, Missing, Unreachable };
 
+    /// A system's frame glyph, as queued work.
+    struct GlyphWork {
+        std::string system;
+    };
+    using Work = std::variant<library::Game, library::Console, GlyphWork>;
+
     void run(const std::stop_token& stop);
     Outcome fetch(const library::Game& game);
-    Outcome fetchConsole(const library::Console& console);
+    Outcome fetch(const library::Console& console);
+    Outcome fetch(const GlyphWork& glyph);
+    /// The finished download of `work`, for the shell.
+    [[nodiscard]] Fetched arrived(const Work& work) const;
+    void recordMiss(const Work& work) const;
     Outcome fetchSteam(const library::Game& game);
     Outcome fetchRom(const library::Game& game);
     Outcome keep(const library::Game& game, const std::string& url);
@@ -74,13 +88,15 @@ class ArtworkFetcher {
     const ArtworkStore& store_;
     RemoteSources sources_;
     net::WebClient web_;
+    ApkArchive apk_;
     StarterPack pack_;
+    ConsoleGlyphs glyphs_;
     /// The worker's listings, read once per run. Worker only.
     std::map<std::string, std::vector<std::string>, std::less<>> indexes_;
 
     mutable std::mutex mutex_;
     std::condition_variable_any wake_;
-    std::vector<library::ShelfItem> queue_;
+    std::vector<Work> queue_;
     std::vector<Fetched> done_;
     bool busy_{false};
     /// Last, so the worker stops before anything it reads is destroyed.

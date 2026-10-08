@@ -98,6 +98,15 @@ fs::path ArtworkStore::pathFor(const library::Console& console) const {
     return console.system.empty() ? fs::path{} : root_ / "console" / (console.system + ".png");
 }
 
+fs::path ArtworkStore::glyphPath(std::string_view system) const {
+    return system.empty() ? fs::path{} : root_ / "glyph" / (std::string{system} + ".png");
+}
+
+fs::path ArtworkStore::storedGlyph(std::string_view system) const {
+    const fs::path file = glyphPath(system);
+    return !file.empty() && isFile(file) ? file : fs::path{};
+}
+
 fs::path ArtworkStore::packPath(std::string_view name) const {
     return root_ / "iisu" / name;
 }
@@ -135,6 +144,10 @@ bool ArtworkStore::wanted(const library::Console& console, Clock::time_point now
     return console.artwork.empty() && wantedAt(pathFor(console), now);
 }
 
+bool ArtworkStore::wantedGlyph(std::string_view system, Clock::time_point now) const {
+    return wantedAt(glyphPath(system), now);
+}
+
 bool ArtworkStore::save(const library::Game& game, std::string_view bytes,
                         std::string& error) const {
     return saveAt(pathFor(game), game.title, bytes, error);
@@ -143,6 +156,11 @@ bool ArtworkStore::save(const library::Game& game, std::string_view bytes,
 bool ArtworkStore::save(const library::Console& console, std::string_view bytes,
                         std::string& error) const {
     return saveAt(pathFor(console), console.label, bytes, error);
+}
+
+bool ArtworkStore::saveGlyph(std::string_view system, std::string_view bytes,
+                             std::string& error) const {
+    return saveAt(glyphPath(system), std::string{system}, bytes, error);
 }
 
 bool ArtworkStore::savePack(std::string_view name, std::string_view bytes,
@@ -156,6 +174,10 @@ void ArtworkStore::recordMiss(const library::Game& game) const {
 
 void ArtworkStore::recordMiss(const library::Console& console) const {
     recordMissAt(pathFor(console));
+}
+
+void ArtworkStore::recordGlyphMiss(std::string_view system) const {
+    recordMissAt(glyphPath(system));
 }
 
 std::optional<std::vector<std::string>> ArtworkStore::index(std::string_view system,
