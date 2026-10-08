@@ -93,4 +93,23 @@ std::optional<std::string> ApkArchive::extract(const net::WebClient& web, const 
     return zip::extract(entry, *data, error);
 }
 
+ApkFile ApkArchive::fetch(const net::WebClient& web, std::string_view name) {
+    ApkFile result;
+    result.status = ApkFile::Status::Failed;
+    const zip::Entry* entry = find(web, name, result.error);
+    if (entry == nullptr) {
+        if (result.error.empty()) {
+            result.status = ApkFile::Status::Missing;
+        }
+        return result;
+    }
+    std::optional<std::string> bytes = extract(web, *entry, result.error);
+    if (!bytes) {
+        return result;
+    }
+    result.status = ApkFile::Status::Found;
+    result.bytes = std::move(*bytes);
+    return result;
+}
+
 } // namespace iideck::artwork

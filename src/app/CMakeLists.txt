@@ -5,6 +5,7 @@ target_link_libraries(iideck_app
     PUBLIC
         iideck::library
         iideck::artwork
+        iideck::audio
         iideck::ui
         iideck::device
         iideck::pad

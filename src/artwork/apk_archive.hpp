@@ -13,6 +13,22 @@
 
 namespace iideck::artwork {
 
+/// What looking for a file in the APK came to.
+struct ApkFile {
+    enum class Status : std::uint8_t {
+        Found,
+        /// The APK has no such file.
+        Missing,
+        /// The APK cannot be read or the entry fails its checks; `error` says why.
+        Failed,
+    };
+
+    Status status{Status::Missing};
+    /// The file, inflated, when found.
+    std::string bytes;
+    std::string error;
+};
+
 class ApkArchive {
   public:
     /// The APK at `url`, which is `size` bytes long. Nothing is fetched until the first use.
@@ -26,6 +42,9 @@ class ApkArchive {
     /// The entry's file, inflated and checked against its CRC-32.
     [[nodiscard]] std::optional<std::string> extract(const net::WebClient& web,
                                                      const zip::Entry& entry, std::string& error);
+
+    /// The named file, inflated and checked: find and extract in one.
+    [[nodiscard]] ApkFile fetch(const net::WebClient& web, std::string_view name);
 
   private:
     [[nodiscard]] bool load(const net::WebClient& web, std::string& error);

@@ -4,7 +4,7 @@
 // Layout under the root: steam/<appid>.jpg, rom/<system>/<thumbnail name>.png,
 // console/<system>.png, glyph/<system>.png for a console's white frame glyph, a `.miss` file
 // beside any that the source does not have, libretro/<system>.txt for a listing and
-// iisu/<pack> for iiSU's starter pack.
+// iisu/<pack> for iiSU's starter pack and sound/<file>.wav for a UI sound.
 #pragma once
 
 #include <chrono>
@@ -14,6 +14,7 @@
 #include <string_view>
 #include <vector>
 
+#include "audio/effect.hpp"
 #include "library/shelf.hpp"
 
 namespace iideck::artwork {
@@ -41,6 +42,12 @@ class ArtworkStore {
     /// A system's glyph file when it is stored, else empty.
     [[nodiscard]] std::filesystem::path storedGlyph(std::string_view system) const;
 
+    /// The file a UI sound is kept in.
+    [[nodiscard]] std::filesystem::path soundPath(audio::Effect effect) const;
+
+    /// An effect's file when it is stored, else empty.
+    [[nodiscard]] std::filesystem::path storedSound(audio::Effect effect) const;
+
     /// Where the starter pack named `name` is kept.
     [[nodiscard]] std::filesystem::path packPath(std::string_view name) const;
 
@@ -65,6 +72,14 @@ class ArtworkStore {
     bool save(const library::Console& console, std::string_view bytes, std::string& error) const;
     /// Keeps a system's frame glyph.
     bool saveGlyph(std::string_view system, std::string_view bytes, std::string& error) const;
+    /// Whether to ask a source for an effect's file: it is not stored and not missed within
+    /// `missLifetime` of `now`.
+    [[nodiscard]] bool wantedSound(audio::Effect effect, Clock::time_point now) const;
+
+    /// Keeps an effect's WAV.
+    bool saveSound(audio::Effect effect, std::string_view bytes, std::string& error) const;
+    void recordSoundMiss(audio::Effect effect) const;
+
     /// Keeps the starter pack named `name`.
     bool savePack(std::string_view name, std::string_view bytes, std::string& error) const;
     /// Notes that the source has nothing for the game or console.

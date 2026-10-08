@@ -107,6 +107,15 @@ fs::path ArtworkStore::storedGlyph(std::string_view system) const {
     return !file.empty() && isFile(file) ? file : fs::path{};
 }
 
+fs::path ArtworkStore::soundPath(audio::Effect effect) const {
+    return root_ / "sound" / audio::assetFile(effect);
+}
+
+fs::path ArtworkStore::storedSound(audio::Effect effect) const {
+    const fs::path file = soundPath(effect);
+    return isFile(file) ? file : fs::path{};
+}
+
 fs::path ArtworkStore::packPath(std::string_view name) const {
     return root_ / "iisu" / name;
 }
@@ -146,6 +155,19 @@ bool ArtworkStore::wanted(const library::Console& console, Clock::time_point now
 
 bool ArtworkStore::wantedGlyph(std::string_view system, Clock::time_point now) const {
     return wantedAt(glyphPath(system), now);
+}
+
+bool ArtworkStore::wantedSound(audio::Effect effect, Clock::time_point now) const {
+    return wantedAt(soundPath(effect), now);
+}
+
+bool ArtworkStore::saveSound(audio::Effect effect, std::string_view bytes,
+                             std::string& error) const {
+    return saveAt(soundPath(effect), std::string{audio::assetFile(effect)}, bytes, error);
+}
+
+void ArtworkStore::recordSoundMiss(audio::Effect effect) const {
+    recordMissAt(soundPath(effect));
 }
 
 bool ArtworkStore::save(const library::Game& game, std::string_view bytes,

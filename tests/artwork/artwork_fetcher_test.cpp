@@ -112,7 +112,7 @@ void testFetches(const fs::path& root) {
     };
     {
         ArtworkFetcher fetcher{store, {sources.base() + "/libretro", sources.base() + "/steam"}};
-        fetcher.request(games, {});
+        fetcher.request(games, {}, {});
         const std::vector<Fetched> fetched = waitFor(fetcher);
         expect(fetched.size() == 2, "the Steam game and the matched ROM arrive");
         expect(read(store.pathFor(games[0])) == "steam header",
@@ -139,7 +139,7 @@ void testUnreachable(const fs::path& root) {
     // Port 9 is discard; nothing listens on loopback there.
     ArtworkFetcher fetcher{store, {"http://127.0.0.1:9/libretro", "http://127.0.0.1:9/steam"}};
     const Game steam = game(Source::Steam, "steam:1", "1");
-    fetcher.request({steam, game(Source::Steam, "steam:2", "2")}, {});
+    fetcher.request({steam, game(Source::Steam, "steam:2", "2")}, {}, {});
     expect(waitFor(fetcher).empty(), "nothing arrives from a source that cannot be reached");
     expect(!fs::exists(store.pathFor(steam).string() + ".miss"),
            "an unreachable source is not a miss, so the next run asks again");

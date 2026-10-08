@@ -9,6 +9,8 @@
 namespace iideck::artwork {
 namespace {
 
+constexpr std::string_view apkAssetDirectory = "assets/";
+
 bool isNotFound(const std::string& error) {
     return error == "HTTP 404";
 }
@@ -29,9 +31,15 @@ ArtworkFetcher::~ArtworkFetcher() {
 }
 
 void ArtworkFetcher::request(const std::vector<library::Game>& games,
-                             const std::vector<library::Console>& consoles) {
+                             const std::vector<library::Console>& consoles,
+                             const std::vector<audio::Effect>& sounds) {
     const ArtworkStore::Clock::time_point now = ArtworkStore::Clock::now();
     std::vector<Work> wanted;
+    for (const audio::Effect effect : sounds) {
+        if (store_.wantedSound(effect, now)) {
+            wanted.emplace_back(SoundWork{effect});
+        }
+    }
     for (const library::Console& console : consoles) {
         if (store_.wanted(console, now)) {
             wanted.emplace_back(console);
@@ -104,8 +112,12 @@ Fetched ArtworkFetcher::arrived(const Work& work) const {
     if (const auto* console = std::get_if<library::Console>(&work)) {
         return Fetched{Fetched::Kind::Console, console->system, store_.pathFor(*console)};
     }
-    const auto& glyph = std::get<GlyphWork>(work);
-    return Fetched{Fetched::Kind::Glyph, glyph.system, store_.glyphPath(glyph.system)};
+    if (const auto* glyph = std::get_if<GlyphWork>(&work)) {
+        return Fetched{Fetched::Kind::Glyph, glyph->system, store_.glyphPath(glyph->system)};
+    }
+    const audio::Effect effect = std::get<SoundWork>(work).effect;
+    return Fetched{Fetched::Kind::Sound, std::string{audio::assetFile(effect)},
+                   store_.soundPath(effect)};
 }
 
 void ArtworkFetcher::recordMiss(const Work& work) const {
@@ -113,8 +125,10 @@ void ArtworkFetcher::recordMiss(const Work& work) const {
         store_.recordMiss(*game);
     } else if (const auto* console = std::get_if<library::Console>(&work)) {
         store_.recordMiss(*console);
+    } else if (const auto* glyph = std::get_if<GlyphWork>(&work)) {
+        store_.recordGlyphMiss(glyph->system);
     } else {
-        store_.recordGlyphMiss(std::get<GlyphWork>(work).system);
+        store_.recordSoundMiss(std::get<SoundWork>(work).effect);
     }
 }
 
@@ -151,23 +165,39 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Console& console) {
     return Outcome::Saved;
 }
 
-ArtworkFetcher::Outcome ArtworkFetcher::fetch(const GlyphWork& glyph) {
-    const GlyphResult found = glyphs_.fetch(web_, glyph.system);
-    std::string error = found.error;
-    switch (found.status) {
-    case GlyphResult::Status::Missing:
+ArtworkFetcher::Outcome
+ArtworkFetcher::kept(const ApkFile& file, std::string_view what,
+                     const std::function<bool(std::string_view, std::string&)>& keep) {
+    switch (file.status) {
+    case ApkFile::Status::Missing:
         return Outcome::Missing;
-    case GlyphResult::Status::Failed:
-        lucent::warn("artwork", "{} glyph: {}", glyph.system, found.error);
+    case ApkFile::Status::Failed:
+        lucent::warn("artwork", "{}: {}", what, file.error);
         return Outcome::Unreachable;
-    case GlyphResult::Status::Found:
+    case ApkFile::Status::Found:
         break;
     }
-    if (!store_.saveGlyph(glyph.system, found.png, error)) {
+    std::string error;
+    if (!keep(file.bytes, error)) {
         lucent::warn("artwork", "{}", error);
         return Outcome::Unreachable;
     }
     return Outcome::Saved;
+}
+
+ArtworkFetcher::Outcome ArtworkFetcher::fetch(const GlyphWork& glyph) {
+    return kept(glyphs_.fetch(web_, glyph.system), glyph.system + " glyph",
+                [&](std::string_view bytes, std::string& error) {
+                    return store_.saveGlyph(glyph.system, bytes, error);
+                });
+}
+
+ArtworkFetcher::Outcome ArtworkFetcher::fetch(const SoundWork& sound) {
+    const std::string file{audio::assetFile(sound.effect)};
+    return kept(apk_.fetch(web_, std::string{apkAssetDirectory} + file), file,
+                [&](std::string_view bytes, std::string& error) {
+                    return store_.saveSound(sound.effect, bytes, error);
+                });
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetchSteam(const library::Game& game) {

@@ -4,7 +4,7 @@ add_library(iideck_artwork STATIC
 add_library(iideck::artwork ALIAS iideck_artwork)
 target_include_directories(iideck_artwork PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(iideck_artwork
-    PUBLIC iideck::library iideck::net
+    PUBLIC iideck::library iideck::net iideck::audio_model
     PRIVATE ZLIB::ZLIB PkgConfig::WEBP iideck::raylib lucent::lucent
             Threads::Threads)
 target_compile_features(iideck_artwork PUBLIC cxx_std_20)

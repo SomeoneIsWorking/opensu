@@ -67,7 +67,7 @@ void ShellApp::reloadCatalog() {
     sources_ = std::move(snapshot.sources);
     artworkStore_.apply(games_);
     const std::vector<library::Console> consoles = library::consoles(games_);
-    artworkFetcher_.request(games_, consoles);
+    artworkFetcher_.request(games_, consoles, {audio::allEffects.begin(), audio::allEffects.end()});
     for (const library::Console& console : consoles) {
         const std::filesystem::path glyph = artworkStore_.storedGlyph(console.system);
         if (!glyph.empty()) {
@@ -102,8 +102,22 @@ void ShellApp::showShelf(std::size_t focus) {
     shell_.setShelf(std::move(shelf), focus);
 }
 
+void ShellApp::loadStoredSounds() {
+    for (const audio::Effect effect : audio::allEffects) {
+        if (const std::filesystem::path file = artworkStore_.storedSound(effect); !file.empty()) {
+            sounds_.load(effect, file);
+        }
+    }
+}
+
 void ShellApp::serviceArtwork() {
     for (const artwork::Fetched& fetched : artworkFetcher_.take()) {
+        if (fetched.kind == artwork::Fetched::Kind::Sound) {
+            if (const std::optional<audio::Effect> effect = audio::effectOfFile(fetched.id)) {
+                sounds_.load(*effect, fetched.artwork);
+            }
+            continue;
+        }
         if (fetched.kind == artwork::Fetched::Kind::Glyph) {
             shell_.setGlyph(fetched.id, fetched.artwork);
             continue;
@@ -136,6 +150,8 @@ void ShellApp::openFolder(const library::Folder& folder) {
         shell_.setToast(launcher->ready ? "no games in " + store : "sign in to " + store, true);
         return;
     }
+    // input-sound.md 3.4 EnterConsolesApps: A on a console, an app category or a collection.
+    sounds_.play(audio::Effect::EnterConsolesApps);
     browser_.open(folder, shell_.focusIndex());
     showShelf(0);
 }
@@ -236,16 +252,16 @@ void ShellApp::actOn(gamepad::Button button) {
     }
     switch (button) {
     case gamepad::Button::Up:
-        shell_.moveFocus(ui::Direction::Up);
+        moveFocus(ui::Direction::Up);
         break;
     case gamepad::Button::Down:
-        shell_.moveFocus(ui::Direction::Down);
+        moveFocus(ui::Direction::Down);
         break;
     case gamepad::Button::Left:
-        shell_.moveFocus(ui::Direction::Left);
+        moveFocus(ui::Direction::Left);
         break;
     case gamepad::Button::Right:
-        shell_.moveFocus(ui::Direction::Right);
+        moveFocus(ui::Direction::Right);
         break;
     case gamepad::Button::A:
         shell_.pressFocused();
@@ -275,11 +291,21 @@ void ShellApp::actOn(gamepad::Button button) {
         break;
     case gamepad::Button::B:
         if (const std::optional<std::size_t> focus = browser_.back()) {
+            // input-sound.md 3.4 ExitConsolesApps: back out of a console, an app category or a
+            // collection.
+            sounds_.play(audio::Effect::ExitConsolesApps);
             showShelf(*focus);
         }
         break;
     default:
         break;
+    }
+}
+
+void ShellApp::moveFocus(ui::Direction direction) {
+    // input-sound.md 3.4 Navigation: a D-pad focus move in the home grid.
+    if (shell_.moveFocus(direction)) {
+        sounds_.play(audio::Effect::Navigation);
     }
 }
 
@@ -306,6 +332,8 @@ void ShellApp::launchFocused() {
         launchRunning_ = true;
     }
 
+    // input-sound.md 3.4 OpenAppRom: every game launch.
+    sounds_.play(audio::Effect::OpenAppRom);
     // The copy outlives this call because the handoff thread reads it.
     const library::Game copy = *game;
     runningTitle_ = copy.title;
@@ -359,16 +387,14 @@ void ShellApp::actOnPanel(gamepad::Button button) {
                 startInstall(offered_[choice]);
             }
         } else if (button == gamepad::Button::B) {
-            shell_.launchPanel().close();
-            panelUse_ = PanelUse::None;
+            closePanel();
             offered_.clear();
         }
         break;
     case PanelUse::Install:
         // The download goes on without the panel.
         if (button == gamepad::Button::B) {
-            shell_.launchPanel().close();
-            panelUse_ = PanelUse::None;
+            closePanel();
         }
         break;
     case PanelUse::Eula:
@@ -380,14 +406,26 @@ void ShellApp::actOnPanel(gamepad::Button button) {
                 shell_.launchPanel().update("Starting the download", std::nullopt);
                 shell_.launchPanel().setHints({{"B", "Hide"}});
             } else {
-                shell_.launchPanel().close();
-                panelUse_ = PanelUse::None;
+                closePanel();
             }
         }
         break;
     case PanelUse::None:
         break;
     }
+}
+
+void ShellApp::openPanel(const std::string& title) {
+    // input-sound.md 3.4 Open: a panel appears.
+    sounds_.play(audio::Effect::Open);
+    shell_.launchPanel().open(title);
+}
+
+void ShellApp::closePanel() {
+    // input-sound.md 3.4 Close: the player dismisses a panel.
+    sounds_.play(audio::Effect::Close);
+    shell_.launchPanel().close();
+    panelUse_ = PanelUse::None;
 }
 
 void ShellApp::startInstall(const library::Game& game) {
@@ -423,7 +461,7 @@ void ShellApp::offerInstall(const library::Game& game) {
     }
     offered_ = std::move(copies);
     panelUse_ = PanelUse::OfferInstall;
-    shell_.launchPanel().open(game.title);
+    openPanel(game.title);
     if (offered_.size() == 1) {
         shell_.launchPanel().update("Not installed", std::nullopt, false);
         shell_.launchPanel().setHints({{"A", "Install"}, {"B", "Cancel"}});
@@ -440,7 +478,7 @@ void ShellApp::presentEula() {
     eulaWaiting_ = false;
     panelUse_ = PanelUse::Eula;
     const std::string title = install_.title();
-    shell_.launchPanel().open(title);
+    openPanel(title);
     shell_.launchPanel().update("Installing " + title + " means accepting its licence agreement",
                                 std::nullopt, false);
     shell_.launchPanel().setHints({{"A", "Accept"}, {"B", "Decline"}});
@@ -504,10 +542,10 @@ void ShellApp::actInGame(gamepad::Button button) {
     }
     switch (button) {
     case gamepad::Button::Up:
-        menu.move(-1);
+        moveMenu(-1);
         break;
     case gamepad::Button::Down:
-        menu.move(1);
+        moveMenu(1);
         break;
     case gamepad::Button::B:
         setGameMenuOpen(false);
@@ -524,8 +562,20 @@ void ShellApp::actInGame(gamepad::Button button) {
     }
 }
 
+void ShellApp::moveMenu(int delta) {
+    ui::GameMenu& menu = shell_.gameMenu();
+    const ui::GameMenuAction before = menu.selected();
+    menu.move(delta);
+    // input-sound.md 3.4 Navigation: a focus move in a list.
+    if (menu.selected() != before) {
+        sounds_.play(audio::Effect::Navigation);
+    }
+}
+
 void ShellApp::setGameMenuOpen(bool open) {
     ui::GameMenu& menu = shell_.gameMenu();
+    // input-sound.md 3.4 OpenContextMenu / Close: a menu becomes visible or hidden (r90.java).
+    sounds_.play(open ? audio::Effect::OpenContextMenu : audio::Effect::Close);
     if (open) {
         menu.open(runningTitle_);
     } else {
@@ -826,6 +876,8 @@ int ShellApp::run() {
             *static_cast<const unsigned long*>(GetWindowHandle()));
         gameKeys_ = std::make_unique<session::GameKeys>();
     }
+    sounds_.open();
+    loadStoredSounds();
     // Textures need a GL context, so artwork is loaded only once the window is up.
     shell_.loadArtwork();
     lucent::info("ui", "artwork loaded for {} of {} tiles", shell_.loadedArtwork(),

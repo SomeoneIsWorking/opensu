@@ -1,0 +1,11 @@
+add_executable(effect_test effect_test.cpp)
+target_link_libraries(effect_test PRIVATE iideck::audio_model)
+target_include_directories(effect_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(effect_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME effect COMMAND effect_test)
+
+add_executable(sound_player_test sound_player_test.cpp)
+target_link_libraries(sound_player_test PRIVATE iideck::audio lucent::lucent)
+target_include_directories(sound_player_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(sound_player_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME sound_player COMMAND sound_player_test)

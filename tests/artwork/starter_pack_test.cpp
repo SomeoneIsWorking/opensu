@@ -25,17 +25,18 @@ namespace {
 
 namespace fs = std::filesystem;
 using iideck::artwork::ApkArchive;
+using iideck::artwork::ApkFile;
 using iideck::artwork::ArtworkFetcher;
 using iideck::artwork::ArtworkStore;
 using iideck::artwork::ConsoleGlyphs;
 using iideck::artwork::Fetched;
-using iideck::artwork::GlyphResult;
 using iideck::artwork::PackPin;
 using iideck::artwork::StarterPack;
 using iideck::artwork::fixture::buildZip;
 using iideck::artwork::fixture::crcOf;
 using iideck::artwork::fixture::FixtureEntry;
 using iideck::artwork::fixture::RangeServer;
+using iideck::audio::Effect;
 using iideck::library::Console;
 using iideck::library::ShelfItem;
 using iideck::net::WebClient;
@@ -47,6 +48,8 @@ constexpr std::string_view borderPack =
     R"({"version": 9, "consoles": [)"
     R"({"console": "GC", "border": "gc.png", "logo": "logo_gc.png"},)"
     R"({"console": "snes", "border": "SNES.png", "logo": "logo_SNES.png"}]})";
+constexpr std::string_view navigationWav = "RIFF navigation click";
+constexpr std::string_view openWav = "RIFF open";
 constexpr std::string_view gcGlyph = "\x89PNG\r\n\x1a\n glyph of the GameCube";
 
 void expect(bool condition, const char* what) {
@@ -88,6 +91,8 @@ Release release(int fillerEntries, std::optional<std::uint32_t> packCrc = {}) {
     std::vector<FixtureEntry> entries{{std::string{packEntry}, out.pack, true, packCrc}};
     entries.push_back({"assets/borders/border_pack.json", std::string{borderPack}, true, {}});
     entries.push_back({"assets/borders/logo_gc.png", std::string{gcGlyph}, false, {}});
+    entries.push_back({"assets/Navigation.wav", std::string{navigationWav}, false, {}});
+    entries.push_back({"assets/Open.wav", std::string{openWav}, true, {}});
     entries.push_back({"classes.dex", std::string(2 * 1024 * 1024, 'd'), false, {}});
     for (int i = 0; i < fillerEntries; ++i) {
         entries.push_back(
@@ -139,21 +144,21 @@ void testGlyphs() {
     ApkArchive apk{server.base() + "/apk", served.pin.apkSize};
     ConsoleGlyphs glyphs{apk};
     const WebClient web;
-    const GlyphResult gc = glyphs.fetch(web, "gc");
-    expect(gc.status == GlyphResult::Status::Found && gc.png == gcGlyph,
+    const ApkFile gc = glyphs.fetch(web, "gc");
+    expect(gc.status == ApkFile::Status::Found && gc.bytes == gcGlyph,
            "a console's glyph comes out of the APK as stored, found by its folded name");
     expect(server.bytesSent() < served.apk.size() / 2, "the APK is not downloaded whole");
     const std::uint64_t asked = server.requests();
-    expect(glyphs.fetch(web, "ps4").status == GlyphResult::Status::Missing,
+    expect(glyphs.fetch(web, "ps4").status == ApkFile::Status::Missing,
            "a system the border pack lacks has no glyph");
     expect(server.requests() == asked, "the border pack is read once");
-    expect(glyphs.fetch(web, "snes").status == GlyphResult::Status::Missing,
+    expect(glyphs.fetch(web, "snes").status == ApkFile::Status::Missing,
            "a logo the APK lacks is no glyph");
 
     ApkArchive offline{"http://127.0.0.1:9/apk", served.pin.apkSize};
     ConsoleGlyphs unreachable{offline};
-    const GlyphResult down = unreachable.fetch(web, "gc");
-    expect(down.status == GlyphResult::Status::Failed && !down.error.empty(),
+    const ApkFile down = unreachable.fetch(web, "gc");
+    expect(down.status == ApkFile::Status::Failed && !down.error.empty(),
            "an APK that cannot be reached fails rather than misses");
 }
 
@@ -207,7 +212,7 @@ void testFetcher(const fs::path& root) {
     {
         ArtworkFetcher fetcher{store,
                                {server.base(), server.base(), server.base() + "/apk", served.pin}};
-        fetcher.request({}, {gc, ps4, snes});
+        fetcher.request({}, {gc, ps4, snes}, {Effect::Navigation, Effect::Open, Effect::Close});
         for (int i = 0; i < 500 && !(fetcher.idle() && i > 0); ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds{10});
         }
@@ -217,9 +222,11 @@ void testFetcher(const fs::path& root) {
                 return one.kind == kind && one.id == id;
             });
         };
-        expect(fetched.size() == 2 && arrived(Fetched::Kind::Console, "gc") &&
-                   arrived(Fetched::Kind::Glyph, "gc"),
-               "the GameCube card and glyph arrive as artwork");
+        expect(fetched.size() == 4 && arrived(Fetched::Kind::Console, "gc") &&
+                   arrived(Fetched::Kind::Glyph, "gc") &&
+                   arrived(Fetched::Kind::Sound, "Navigation.wav") &&
+                   arrived(Fetched::Kind::Sound, "Open.wav"),
+               "the GameCube card and glyph and the APK's two sounds arrive");
     }
     expect(read(store.glyphPath("gc")) == gcGlyph, "the glyph is in the store as shipped");
     expect(fs::exists(store.glyphPath("ps4").string() + ".miss") &&
@@ -230,6 +237,16 @@ void testFetcher(const fs::path& root) {
            "neither a kept glyph nor a recent miss is asked for again");
     expect(store.storedGlyph("gc") == store.glyphPath("gc") && store.storedGlyph("ps4").empty(),
            "a stored glyph is found on the next start");
+    expect(read(store.soundPath(Effect::Navigation)) == navigationWav &&
+               read(store.soundPath(Effect::Open)) == openWav,
+           "a sound lands in the store as the APK holds it, stored or deflated");
+    expect(fs::exists(store.soundPath(Effect::Close).string() + ".miss") &&
+               store.storedSound(Effect::Close).empty() &&
+               store.storedSound(Effect::Open) == store.soundPath(Effect::Open),
+           "a sound the APK lacks is a miss; a kept one is found on the next start");
+    expect(!store.wantedSound(Effect::Navigation, ArtworkStore::Clock::now()) &&
+               !store.wantedSound(Effect::Close, ArtworkStore::Clock::now()),
+           "neither a kept sound nor a recent miss is asked for again");
     expect(isPngOfCardSize(read(store.pathFor(gc))), "the card is in the store as a PNG");
     expect(fs::exists(store.pathFor(ps4).string() + ".miss"), "a system without a card is a miss");
     const auto now = ArtworkStore::Clock::now();
@@ -249,12 +266,13 @@ void testUnreachable(const fs::path& root) {
     ArtworkFetcher fetcher{
         store,
         {"http://127.0.0.1:9", "http://127.0.0.1:9", "http://127.0.0.1:9/apk", release(0).pin}};
-    fetcher.request({}, {gc});
+    fetcher.request({}, {gc}, {Effect::Navigation});
     for (int i = 0; i < 500 && !(fetcher.idle() && i > 0); ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds{10});
     }
     expect(fetcher.take().empty(), "nothing arrives when the APK cannot be reached");
-    expect(!fs::exists(store.pathFor(gc).string() + ".miss"),
+    expect(!fs::exists(store.pathFor(gc).string() + ".miss") &&
+               !fs::exists(store.soundPath(Effect::Navigation).string() + ".miss"),
            "an unreachable APK is not a miss, so the next run asks again");
 }
 

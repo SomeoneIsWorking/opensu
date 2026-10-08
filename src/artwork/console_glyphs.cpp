@@ -57,32 +57,16 @@ bool ConsoleGlyphs::load(const net::WebClient& web, std::string& error) {
     return true;
 }
 
-GlyphResult ConsoleGlyphs::fetch(const net::WebClient& web, std::string_view system) {
-    GlyphResult result;
-    result.status = GlyphResult::Status::Failed;
-    if (!load(web, result.error) || !logos_) {
-        return result;
+ApkFile ConsoleGlyphs::fetch(const net::WebClient& web, std::string_view system) {
+    std::string error;
+    if (!load(web, error) || !logos_) {
+        return ApkFile{ApkFile::Status::Failed, {}, error};
     }
     const auto logo = logos_->find(system);
     if (logo == logos_->end()) {
-        result.status = GlyphResult::Status::Missing;
-        return result;
+        return ApkFile{};
     }
-    const std::string name = std::string{borderDirectory} + logo->second;
-    const zip::Entry* entry = apk_.find(web, name, result.error);
-    if (entry == nullptr) {
-        if (result.error.empty()) {
-            result.status = GlyphResult::Status::Missing;
-        }
-        return result;
-    }
-    std::optional<std::string> png = apk_.extract(web, *entry, result.error);
-    if (!png) {
-        return result;
-    }
-    result.status = GlyphResult::Status::Found;
-    result.png = std::move(*png);
-    return result;
+    return apk_.fetch(web, std::string{borderDirectory} + logo->second);
 }
 
 } // namespace iideck::artwork

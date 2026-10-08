@@ -47,6 +47,7 @@ game has been observed running yet.
 | S017 | Per-game render resolution with Gamescope FSR upscaling, Deck-style | missing | — | G004 |
 | S016 | Steam client started and owned by iideck, with its state in the top bar | partial | S015 | G003, G004 |
 | S011 | Steam's own components kept out of the game grid | partial | S002 | G001 |
+| S019 | iiSU's UI sounds on the events iideck shares with iiSU | partial | S005 | G002 |
 
 ## Capability details
 
@@ -67,6 +68,22 @@ library folder won over a mounted one because content-id de-duplication ran befo
 the folders were checked for existence; and an app appearing under both `Apps`
 and `Favorites` produced two records, so the later one won and every favourited
 game's playtime was zeroed.
+
+### S019 — UI sounds
+
+The seven iiSU effects that have an iideck event are fetched by range from the pinned APK's
+`assets/` into `<cache>/artwork/sound/` (about 0.9 MB, CRC checked, same worker as the cards) and
+played through raylib's audio device (`audio::SoundPlayer`). Always on; there is no volume or
+mute setting. Events (`input-sound.md` 3.4): Navigation on a D-pad focus move in the grid and the
+Guide menu; EnterConsolesApps on A opening a console, launcher or All games; ExitConsolesApps on B
+back to Home; OpenAppRom on a game launch; Open / Close on the install and licence panels
+appearing and being dismissed; OpenContextMenu / Close on the Guide menu. Enter and Exit are dropped
+when the same effect fired under 91 ms ago. Page turns (L1/R1), X, Y and toasts are silent, as are
+the Domino cues: iiSU plays them on a tab switch and iideck has no tabs. Nothing plays while a game
+runs except the Guide menu's sounds. Without an audio device the player logs one warning and is
+silent. Verified: the fetch against the real APK (all seven valid 44.1 kHz WAVs) and the headless
+render; unverified: audible playback on a device, and iiSU's 4-stream cap (a repeat of one effect
+restarts it).
 
 ### S005 — Home grid
 

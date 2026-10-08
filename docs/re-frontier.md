@@ -29,7 +29,7 @@ guessed. G002 builds only on rows marked grounded.
 | Input routing, section cycling, grid focus rules incl. page crossing, repeat, triggers | grounded | `reference/iisu/input-sound.md` §1 |
 | Per-screen key maps for Compose screens | partial | `reference/iisu/input-sound.md` §6, not re-read against source |
 | Haptics | grounded | `reference/iisu/input-sound.md` §2 |
-| Sound effects and domino cue | grounded | `reference/iisu/input-sound.md` §3; home grid moves play `Navigation.wav` |
+| Sound effects and domino cue | grounded; effects played (`audio::`), Domino cues not (iideck has no tabs) | `reference/iisu/input-sound.md` §3; home grid moves play `Navigation.wav` |
 | Music presets, loop windows, fades | grounded | `reference/iisu/input-sound.md` §4 |
 | Motion: focus, domino entrance, pulse, dialogs, startup | grounded | `reference/iisu/motion.md` §1–4 |
 | Motion: idle pause default, domino replay on return, art fade-in | missing | `reference/iisu/motion.md` §6 |

@@ -18,6 +18,7 @@
 
 #include "artwork_fetcher.hpp"
 #include "artwork_store.hpp"
+#include "audio/sound_player.hpp"
 #include "config/config.hpp"
 #include "control_channel.hpp"
 #include "device/battery.hpp"
@@ -106,6 +107,14 @@ class ShellApp final : public ControlTarget {
     /// Keyboard shortcuts pressed while a game has the keyboard (Shift+Tab is Guide).
     void handleGameKeys();
     void actOn(gamepad::Button button);
+    /// Moves home focus, with iiSU's Navigation sound when it moved.
+    void moveFocus(ui::Direction direction);
+    /// Moves the Guide menu's focus, with the Navigation sound when it moved.
+    void moveMenu(int delta);
+    /// Shows the launch panel for `title` with iiSU's Open sound.
+    void openPanel(const std::string& title);
+    /// Hides the launch panel the player dismissed, with iiSU's Close sound.
+    void closePanel();
     void launchFocused();
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
@@ -122,8 +131,10 @@ class ShellApp final : public ControlTarget {
     void presentEula();
     /// Shows the shelf the browser is on, focusing `focus`.
     void showShelf(std::size_t focus);
-    /// Shows artwork the fetcher has downloaded. Main loop only.
+    /// Shows artwork and loads sounds the fetcher has downloaded. Main loop only.
     void serviceArtwork();
+    /// Loads every UI sound the store holds. Main loop only, once the audio device is open.
+    void loadStoredSounds();
     /// Opens a console, a launcher or the combined library on its games.
     void openFolder(const library::Folder& folder);
     /// Opens a store's sign-in page in the browser, off the loop.
@@ -143,6 +154,8 @@ class ShellApp final : public ControlTarget {
     /// Downloaded artwork, and the worker that fills it in.
     artwork::ArtworkStore artworkStore_{config::read().cacheDir / "artwork"};
     artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{}};
+    /// iiSU's UI sounds, played from the loop's input handling.
+    audio::SoundPlayer sounds_;
     device::BatteryReader battery_;
     /// When the clock next changes, on the minute boundary.
     std::chrono::steady_clock::time_point nextClockTick_{};

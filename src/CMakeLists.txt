@@ -8,6 +8,7 @@
 add_subdirectory(vdf)
 add_subdirectory(config)
 add_subdirectory(net)
+add_subdirectory(audio)
 add_subdirectory(library)
 add_subdirectory(artwork)
 add_subdirectory(gamepad)
@@ -49,6 +50,8 @@ install(FILES "${CMAKE_BINARY_DIR}/iideck.desktop"
 # the source root is on the include path for every target.
 target_include_directories(iideck_vdf INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_net INTERFACE "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(iideck_audio INTERFACE "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(iideck_audio_model INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_library INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_ui INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_pad INTERFACE "${CMAKE_SOURCE_DIR}/src")

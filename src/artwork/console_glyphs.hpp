@@ -3,7 +3,6 @@
 // once and takes single logos out of the APK by ranges.
 #pragma once
 
-#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -14,28 +13,12 @@
 
 namespace iideck::artwork {
 
-/// What looking for a system's glyph came to.
-struct GlyphResult {
-    enum class Status : std::uint8_t {
-        Found,
-        /// The pack has no glyph for the system.
-        Missing,
-        /// The APK cannot be read or an entry fails its checks; `error` says why.
-        Failed,
-    };
-
-    Status status{Status::Missing};
-    /// The glyph PNG, when found.
-    std::string png;
-    std::string error;
-};
-
 class ConsoleGlyphs {
   public:
     explicit ConsoleGlyphs(ApkArchive& apk);
 
     /// The glyph PNG of an ES-DE system.
-    [[nodiscard]] GlyphResult fetch(const net::WebClient& web, std::string_view system);
+    [[nodiscard]] ApkFile fetch(const net::WebClient& web, std::string_view system);
 
   private:
     /// Reads the pack's console to logo map on first use.
