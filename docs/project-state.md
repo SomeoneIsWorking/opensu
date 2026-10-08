@@ -270,7 +270,10 @@ and the session's run, leftover cleanup and signal path (against a fake
 ### S014 — Alt+F4 in nested mode
 
 KWin handles Alt+F4 and Alt+Tab as its own global shortcuts before nested
-Gamescope sees them, so Alt+F4 closes Gamescope. KWin can block all global
+Gamescope sees them. KWin's Alt+F4 sends Gamescope's window a close, and every
+Gamescope backend answers a close with `raise(SIGTERM)` (3.16.29
+`WaylandBackend.cpp` `LibDecor_Frame_Close`, `SDLBackend.cpp` 825), so the whole
+session ends: iideck, then the game with its scope. KWin can block all global
 shortcuts for a window (`gamescope --grab` or a window rule) but not one, so
 that loses Alt+Tab. Planned: a KWin script, installed by iideck, that turns
 Alt+F4 on iideck's Gamescope window into a game close over the control channel.
@@ -290,7 +293,15 @@ a real Steam launch is not yet exercised.
 
 Guide while a game runs opens a menu down the left edge over the dimmed game:
 Resume, Close game (`ui::GameMenu`, `GameMenuPainter`); Up/Down move, A selects,
-B or Guide resumes, and other buttons do nothing while a game runs. Inside Gamescope
+B or Guide resumes, and other buttons do nothing while a game runs. Shift+Tab, Steam's
+overlay key, is a Guide press (`session::GameKeys`): Gamescope gives a game's keys to
+the game's window on the Xwayland iideck shares, and XInput2 raw key events on the
+root reach iideck too, whatever has focus and only while the desktop gives Gamescope
+the keyboard. Nothing is grabbed, so the game also sees the Shift+Tab. Tested:
+`game_keys` (the chord, and raw keys from XTest against Xvfb); verified headless with
+`xdotool` on Gamescope's Xwayland during a running game (Tab alone does nothing,
+Shift+Tab opens the menu and closes it). Not yet pressed on a physical keyboard
+through nested Gamescope. Inside Gamescope
 iideck's window stays mapped as Gamescope's overlay (`session::GamescopeOverlay`:
 `STEAM_OVERLAY`, `_NET_WM_WINDOW_OPACITY` 0 while the menu is closed, and
 `STEAM_INPUT_FOCUS` while it is open); its window is sized to the output and has an

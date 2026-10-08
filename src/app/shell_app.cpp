@@ -167,6 +167,20 @@ void ShellApp::handleKeyboard() {
     }
 }
 
+void ShellApp::handleGameKeys() {
+    if (!gameKeys_) {
+        return;
+    }
+    for (const session::GameShortcut shortcut : gameKeys_->poll()) {
+        switch (shortcut) {
+        case session::GameShortcut::Guide:
+            handleEvents({gamepad::Event{.button = gamepad::Button::Guide, .pressed = true},
+                          gamepad::Event{.button = gamepad::Button::Guide, .pressed = false}});
+            break;
+        }
+    }
+}
+
 void ShellApp::actOn(gamepad::Button button) {
     if (shell_.inGame()) {
         actInGame(button);
@@ -734,6 +748,7 @@ int ShellApp::run() {
         shell_.setSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
         overlay_ = std::make_unique<session::GamescopeOverlay>(
             *static_cast<const unsigned long*>(GetWindowHandle()));
+        gameKeys_ = std::make_unique<session::GameKeys>();
     }
     // Textures need a GL context, so artwork is loaded only once the window is up.
     shell_.loadArtwork();
@@ -766,6 +781,7 @@ int ShellApp::run() {
 
         handleEvents(pads_.takeEvents());
         handleKeyboard();
+        handleGameKeys();
         if (const auto direction = repeat_.poll(std::chrono::steady_clock::now())) {
             actOn(*direction);
         }

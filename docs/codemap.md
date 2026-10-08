@@ -24,6 +24,7 @@ gitignored `docs/reference/`).
 | `src/session/gamescope.*` | The Gamescope command line |
 | `src/session/monitor.*` | The output's size and refresh |
 | `src/session/gamescope_overlay.*` | iideck's window as Gamescope's overlay over a running game |
+| `src/session/game_keys.*` | Keyboard shortcuts while a game has the keyboard (Shift+Tab is Guide), from XInput2 raw keys |
 | `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show; tells the handoff when a game is on screen |
 | `src/launch/instance.*` | One transient systemd user scope per launch; stopping it ends the whole tree |
 | `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends |

@@ -21,6 +21,7 @@
 #include "config/config.hpp"
 #include "control_channel.hpp"
 #include "device/battery.hpp"
+#include "game_keys.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pads.hpp"
 #include "gamescope_overlay.hpp"
@@ -100,6 +101,8 @@ class ShellApp final : public ControlTarget {
     /// Maps held keys onto the buttons they stand in for, so the keyboard reaches
     /// the same actions a controller does rather than a parallel set.
     void handleKeyboard();
+    /// Keyboard shortcuts pressed while a game has the keyboard (Shift+Tab is Guide).
+    void handleGameKeys();
     void actOn(gamepad::Button button);
     void launchFocused();
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
@@ -173,6 +176,7 @@ class ShellApp final : public ControlTarget {
     /// Inside Gamescope, how the window draws over a running game. Null elsewhere, where the
     /// window is hidden while a game runs and shown only for the Guide menu.
     std::unique_ptr<session::GamescopeOverlay> overlay_;
+    std::unique_ptr<session::GameKeys> gameKeys_;
     /// Set by the control channel, read by the loop.
     std::atomic<bool> closeRequested_{false};
 
