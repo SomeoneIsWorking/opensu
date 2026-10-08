@@ -72,6 +72,8 @@ class Shell {
 
     /// Gives a game's tile artwork that arrived after the shelf was set.
     void setArtwork(std::string_view gameId, const std::filesystem::path& artwork);
+    /// Gives a console's tile the card that arrived after the shelf was set.
+    void setConsoleArtwork(std::string_view system, const std::filesystem::path& artwork);
 
     /// Resolves an entry's platform frame. A title from a store has no console, so
     /// it is framed in that store's identity; a ROM and a console in their system's.
@@ -182,6 +184,7 @@ class Shell {
     void focusOn(std::size_t index, int dx);
     void startEntrance();
     void releaseTextures();
+    static void unloadArtwork(Tile& tile);
     void drawGrid();
     [[nodiscard]] TileVisual visualFor(std::size_t slot) const;
 

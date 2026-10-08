@@ -45,6 +45,32 @@ bool fresh(const fs::path& file, ArtworkStore::Clock::time_point now, std::chron
     return !ec && now - written < lifetime;
 }
 
+bool isFile(const fs::path& file) {
+    std::error_code ec;
+    return fs::is_regular_file(file, ec);
+}
+
+bool wantedAt(const fs::path& file, ArtworkStore::Clock::time_point now) {
+    return !file.empty() && !isFile(file) &&
+           !fresh(missMarker(file), now, ArtworkStore::missLifetime);
+}
+
+bool saveAt(const fs::path& file, const std::string& owner, std::string_view bytes,
+            std::string& error) {
+    if (file.empty()) {
+        error = owner + " has no artwork source";
+        return false;
+    }
+    return writeWhole(file, bytes, error);
+}
+
+void recordMissAt(const fs::path& file) {
+    std::string error;
+    if (!file.empty() && !writeWhole(missMarker(file), {}, error)) {
+        lucent::warn("artwork", "{}", error);
+    }
+}
+
 } // namespace
 
 ArtworkStore::ArtworkStore(const fs::path& root) : root_{root} {
@@ -68,47 +94,68 @@ fs::path ArtworkStore::pathFor(const library::Game& game) const {
     return {};
 }
 
+fs::path ArtworkStore::pathFor(const library::Console& console) const {
+    return console.system.empty() ? fs::path{} : root_ / "console" / (console.system + ".png");
+}
+
+fs::path ArtworkStore::packPath(std::string_view name) const {
+    return root_ / "iisu" / name;
+}
+
+void ArtworkStore::apply(std::vector<library::ShelfItem>& shelf) const {
+    for (library::ShelfItem& item : shelf) {
+        auto* console = std::get_if<library::Console>(&item);
+        if (console == nullptr || !console->artwork.empty()) {
+            continue;
+        }
+        const fs::path file = pathFor(*console);
+        if (!file.empty() && isFile(file)) {
+            console->artwork = file;
+        }
+    }
+}
+
 void ArtworkStore::apply(std::vector<library::Game>& games) const {
     for (library::Game& game : games) {
         if (!game.artwork.empty()) {
             continue;
         }
         const fs::path file = pathFor(game);
-        std::error_code ec;
-        if (!file.empty() && fs::is_regular_file(file, ec)) {
+        if (!file.empty() && isFile(file)) {
             game.artwork = file;
         }
     }
 }
 
 bool ArtworkStore::wanted(const library::Game& game, Clock::time_point now) const {
-    if (!game.artwork.empty()) {
-        return false;
-    }
-    const fs::path file = pathFor(game);
-    if (file.empty()) {
-        return false;
-    }
-    std::error_code ec;
-    return !fs::is_regular_file(file, ec) && !fresh(missMarker(file), now, missLifetime);
+    return game.artwork.empty() && wantedAt(pathFor(game), now);
+}
+
+bool ArtworkStore::wanted(const library::Console& console, Clock::time_point now) const {
+    return console.artwork.empty() && wantedAt(pathFor(console), now);
 }
 
 bool ArtworkStore::save(const library::Game& game, std::string_view bytes,
                         std::string& error) const {
-    const fs::path file = pathFor(game);
-    if (file.empty()) {
-        error = game.title + " has no artwork source";
-        return false;
-    }
-    return writeWhole(file, bytes, error);
+    return saveAt(pathFor(game), game.title, bytes, error);
+}
+
+bool ArtworkStore::save(const library::Console& console, std::string_view bytes,
+                        std::string& error) const {
+    return saveAt(pathFor(console), console.label, bytes, error);
+}
+
+bool ArtworkStore::savePack(std::string_view name, std::string_view bytes,
+                            std::string& error) const {
+    return saveAt(packPath(name), std::string{name}, bytes, error);
 }
 
 void ArtworkStore::recordMiss(const library::Game& game) const {
-    const fs::path file = pathFor(game);
-    std::string error;
-    if (!file.empty() && !writeWhole(missMarker(file), {}, error)) {
-        lucent::warn("artwork", "{}", error);
-    }
+    recordMissAt(pathFor(game));
+}
+
+void ArtworkStore::recordMiss(const library::Console& console) const {
+    recordMissAt(pathFor(console));
 }
 
 std::optional<std::vector<std::string>> ArtworkStore::index(std::string_view system,

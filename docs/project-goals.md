@@ -39,5 +39,6 @@ Gamescope upscales it with FSR (or another of its filters), chosen per game.
 
 ## Non-goals
 
-- Replacing Steam, Legendary or Heroic as clients for their own stores.
+- Replacing Steam or Legendary as clients for their own stores. iideck signs in to GOG itself
+  and lists the library; installs stay with the store's own tools.
 - Shipping or scraping copyrighted game assets.

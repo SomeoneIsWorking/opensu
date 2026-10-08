@@ -1,6 +1,6 @@
 // artwork_fetcher — downloads missing artwork in the background: a Steam game's library
-// portrait from Steam's CDN, a ROM's box art from libretro-thumbnails. Each image is kept in
-// the store and handed back for the shell to show.
+// portrait from Steam's CDN, a ROM's box art from libretro-thumbnails, a console's card from
+// iiSU's starter pack. Each image is kept in the store and handed back for the shell to show.
 #pragma once
 
 #include <condition_variable>
@@ -15,8 +15,10 @@
 
 #include "artwork_store.hpp"
 #include "library/game.hpp"
+#include "library/shelf.hpp"
+#include "net/web_client.hpp"
 #include "rom_systems.hpp"
-#include "web_client.hpp"
+#include "starter_pack.hpp"
 
 namespace iideck::artwork {
 
@@ -24,11 +26,17 @@ namespace iideck::artwork {
 struct RemoteSources {
     std::string libretro{"https://thumbnails.libretro.com"};
     std::string steam{"https://cdn.cloudflare.steamstatic.com/steam/apps"};
+    std::string iisuApk{iisuApkUrl};
+    PackPin iisuPin{iisuPackPin};
 };
 
-/// A game's artwork, now on disk.
+/// A game's or console's artwork, now on disk.
 struct Fetched {
-    std::string gameId;
+    enum class Kind : std::uint8_t { Game, Console };
+
+    Kind kind;
+    /// The game's id, or the console's system.
+    std::string id;
     std::filesystem::path artwork;
 };
 
@@ -39,9 +47,10 @@ class ArtworkFetcher {
     ArtworkFetcher(const ArtworkFetcher&) = delete;
     ArtworkFetcher& operator=(const ArtworkFetcher&) = delete;
 
-    /// Replaces the queue with the games the store still wants art for. A source that cannot
-    /// be reached ends the round; the next request starts another.
-    void request(const std::vector<library::Game>& games);
+    /// Replaces the queue with the games and consoles the store still wants art for. A source
+    /// that cannot be reached ends the round; the next request starts another.
+    void request(const std::vector<library::Game>& games,
+                 const std::vector<library::Console>& consoles);
 
     /// The artwork downloaded since the last call.
     [[nodiscard]] std::vector<Fetched> take();
@@ -50,11 +59,12 @@ class ArtworkFetcher {
     [[nodiscard]] bool idle() const;
 
   private:
-    /// How one game's download ended.
+    /// How one download ended.
     enum class Outcome : std::uint8_t { Saved, Missing, Unreachable };
 
     void run(const std::stop_token& stop);
     Outcome fetch(const library::Game& game);
+    Outcome fetchConsole(const library::Console& console);
     Outcome fetchSteam(const library::Game& game);
     Outcome fetchRom(const library::Game& game);
     Outcome keep(const library::Game& game, const std::string& url);
@@ -63,13 +73,14 @@ class ArtworkFetcher {
 
     const ArtworkStore& store_;
     RemoteSources sources_;
-    WebClient web_;
+    net::WebClient web_;
+    StarterPack pack_;
     /// The worker's listings, read once per run. Worker only.
     std::map<std::string, std::vector<std::string>, std::less<>> indexes_;
 
     mutable std::mutex mutex_;
     std::condition_variable_any wake_;
-    std::vector<library::Game> queue_;
+    std::vector<library::ShelfItem> queue_;
     std::vector<Fetched> done_;
     bool busy_{false};
     /// Last, so the worker stops before anything it reads is destroyed.

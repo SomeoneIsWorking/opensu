@@ -42,7 +42,8 @@ ShellApp::ShellApp(Settings settings)
                                     config::read().session, config::read().steamRoots}},
       gameWindows_{config::read().insideGamescope ? std::make_unique<session::GamescopeWindows>()
                                                   : nullptr},
-      handoff_{config::read().executablePath, config::read().session, steam_, gameWindows_.get()} {
+      handoff_{config::read().executablePath, config::read().session, steam_, gameWindows_.get()},
+      signIn_{StoreSignIn::Options{.dataDir = config::read().dataDir}} {
     refreshClock();
 }
 
@@ -64,7 +65,7 @@ void ShellApp::reloadCatalog() {
     games_ = std::move(snapshot.games);
     sources_ = std::move(snapshot.sources);
     artworkStore_.apply(games_);
-    artworkFetcher_.request(games_);
+    artworkFetcher_.request(games_, library::consoles(games_));
     for (const library::SourceStatus& source : sources_) {
         if (source.availability != library::Availability::Ready) {
             lucent::warn("catalog", "{}: {}", library::label(source.source), source.detail);
@@ -88,17 +89,23 @@ void ShellApp::pushCatalogToShell() {
 }
 
 void ShellApp::showShelf(std::size_t focus) {
-    shell_.setShelf(browser_.shelf(games_), focus);
+    std::vector<library::ShelfItem> shelf = browser_.shelf(games_);
+    artworkStore_.apply(shelf);
+    shell_.setShelf(std::move(shelf), focus);
 }
 
 void ShellApp::serviceArtwork() {
     for (const artwork::Fetched& fetched : artworkFetcher_.take()) {
+        if (fetched.kind == artwork::Fetched::Kind::Console) {
+            shell_.setConsoleArtwork(fetched.id, fetched.artwork);
+            continue;
+        }
         for (library::Game& game : games_) {
-            if (game.id == fetched.gameId) {
+            if (game.id == fetched.id) {
                 game.artwork = fetched.artwork;
             }
         }
-        shell_.setArtwork(fetched.gameId, fetched.artwork);
+        shell_.setArtwork(fetched.id, fetched.artwork);
     }
 }
 
@@ -552,6 +559,11 @@ void ShellApp::requestClose() {
     closeRequested_.store(true);
 }
 
+void ShellApp::requestCatalogReload(std::string toast) {
+    requestToast(std::move(toast), false);
+    reloadRequested_.store(true);
+}
+
 void ShellApp::requestGameRunning(bool running) {
     gameRunning_.store(running);
 }
@@ -691,6 +703,9 @@ void ShellApp::serviceRequests() {
         panelUse_ = PanelUse::None;
     }
     serviceInstall();
+    if (reloadRequested_.exchange(false)) {
+        reloadCatalog();
+    }
     const bool running = gameRunning_.load();
     if (running != shell_.inGame()) {
         shell_.setInGame(running);
@@ -760,7 +775,7 @@ int ShellApp::run() {
     // The control channel is part of the product, not a debug flag: it is how an
     // automated run drives the shell without a controller.
     if (settings_.controlChannel) {
-        control_ = std::make_unique<ControlChannel>(*this, settings_.controlPort);
+        control_ = std::make_unique<ControlChannel>(*this, signIn_, settings_.controlPort);
         control_->start();
     }
 

@@ -50,6 +50,11 @@ add_library(iideck_nanosvg INTERFACE)
 add_library(iideck::nanosvg ALIAS iideck_nanosvg)
 target_include_directories(iideck_nanosvg SYSTEM INTERFACE "${NANOSVG_INCLUDE_DIR}")
 
+# The starter pack is a zip of WebP images: zlib reads the zip, libwebp the images.
+find_package(ZLIB REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(WEBP REQUIRED IMPORTED_TARGET GLOBAL libwebp)
+
 # Lucent is the project logger. Shared, not vendored.
 set(LUCENT_ROOT "$ENV{HOME}/repo/lucent" CACHE PATH "Shared Lucent checkout")
 

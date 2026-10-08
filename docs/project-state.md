@@ -10,8 +10,8 @@ ROMs have no home at all.
 
 Visible deltas from the baseline:
 
-- Epic and GOG games sit in the same grid as Steam, when their runtime is
-  installed; emulator ROMs sit behind one tile per console on Home.
+- Epic games (Legendary) and the player's GOG library (iideck's own sign-in) sit in the
+  same grid as Steam; emulator ROMs sit behind one tile per console on Home.
 - Each launcher's state is a logo with a status dot in the top bar's left slot.
 - No store client window is ever opened to reach a game.
 - The grid is ours, so layout, tile sizes and page count are ours.
@@ -33,7 +33,8 @@ game has been observed running yet.
 | S005 | iiSU home grid: Standard (Flow) and WiiSu (Paged) modes, top bar, prompts | partial | S001 | G002 |
 | S012 | Loopback control channel: state, injected input, frame capture | verified | S001 | G003 |
 | S006 | Epic source via Legendary | verified | — | G001 |
-| S007 | GOG source via Heroic | verified | — | G001 |
+| S007 | GOG source: iideck's own sign-in, token and owned-games listing | partial | S018 | G001 |
+| S018 | Store sign-in from the player's browser via the iideck-signin extension (GOG, Epic) | partial | S012 | G001 |
 | S008 | ROM source with per-system emulator launch, found without configuration | verified | — | G001 |
 | S009 | Haptic rumble | missing | S003 | G003 |
 | S010 | Own login session entry on Gamescope | missing | — | G004 |
@@ -92,10 +93,13 @@ iiSU's Roms section does. There are no feature tiles or badges on game tiles.
 
 Home's shelf (`library::homeShelf`) is one console tile per system with ROMs, in
 `rom_systems` order, then the store games in catalog order. A console tile is
-iideck's own: its platform's gradient (a neutral one for a system the gradient
-table lacks, such as PS4) with the console's name and game count, broken onto two
-lines at a space when one is too wide, at one name size so the typeface loads one
-face. A opens it (`library::ShelfBrowser`) on that system's ROMs; B returns to
+iiSU's own card for it when the starter pack has one (below), drawn as the whole
+tile, cover-fit and clipped at the content radius: the card carries the glyph and
+its frame, so the tile has no name or count. Without a card (not downloaded yet,
+offline, or a system the pack lacks, such as PS4) it keeps iideck's own tile: the
+platform's gradient (a neutral one for a system the gradient table lacks) with the
+console's name and game count, broken onto two lines at a space when one is too
+wide, at one name size so the typeface loads one face. A opens it (`library::ShelfBrowser`) on that system's ROMs; B returns to
 Home with the console focused. A tile loads its artwork the first time it is drawn,
 so a shelf change or a download needs no separate load step.
 
@@ -112,11 +116,24 @@ misses (libretro lists only 67 PS3 and 12 Xbox 360 boxes, a PS4 folder named by
 title id, two Steam apps without either image). Switch and arcade have no source;
 their ROM tiles keep iiSU's first-letter fallback.
 
+Console cards are `platforms/<system>.webp` (512x512, ES-DE system names) in iiSU's
+starter pack, `assets/iiSU_StarterPack.zip` inside the 0.0.7.4 release APK
+(`iiSU-Alpha-7.4.apk`, GitHub). `artwork::StarterPack` fetches only that entry with
+HTTP Range requests (the APK's tail for its zip end record, the entry's header and
+data, 25 MB of the 128 MB APK), checks it against a pin (APK size, entry size and
+CRC-32, then the zip's own CRC-32; a 200 answer to a range or any mismatch stores
+nothing) and keeps it as `<cache>/artwork/iisu/starter-pack-0.0.7.4.zip`. Each
+card is decoded with libwebp and kept as `<cache>/artwork/console/<system>.png`;
+a system the pack lacks gets a `.miss` like a game. iiSU's assets are downloaded,
+never shipped. The older starter-v1.0.0 release is not used: it lacks GBA, GC,
+PSX, PS2, PSP, Switch and Wii.
+
 The friends slot (`a32.e`), empty in iideck otherwise, holds the launcher badges
 (`ui::LauncherBadgePainter`, mapped in `app::launcherBadges`): Steam, Epic and
 GOG, each its Simple Icons logo in an avatar circle at a32.e's avatar size, spaced
 rather than overlapped, with a presence dot (green ready, amber starting with a
-spinner ring, red failed or blocked). A launcher not installed has no badge. Epic's
+spinner ring, red failed or blocked). A launcher not installed has no badge; GOG is always
+there, red until the player has signed in. Epic's
 and GOG's state is the catalog's last read of them (`library::SourceStatus`): a
 store whose tool is missing is absent, one that fails to list (Legendary signed
 out) needs attention. `/state` publishes them as `launchers`
@@ -225,6 +242,51 @@ gap, a Steam-reported error and a returned-to running game.
 Gap: the user saw Cuphead drawn small in the top-left after opening the Guide
 menu (`docs/issues/guide-shrinks-game.md`); not reproduced.
 
+### S007, S018 — GOG library and store sign-in
+
+GOG (`library/gog_auth.*`, `gog_token.*`, `gog.*`): iideck signs in itself, with GOG
+Galaxy's own client id and secret as minigalaxy and gogdl do (GOG has no third-party
+registration). `Auth::loginUrl` is the page the player signs in on; it ends on
+`https://embed.gog.com/on_login_success?origin=client&code=<code>`, and `Auth::signIn`
+exchanges the code at `auth.gog.com/token`. The token (access, refresh, expiry, user id)
+is one JSON file, `<data dir>/gog-token.json` (`$XDG_DATA_HOME/iideck`, else
+`~/.local/share/iideck`), mode 0600 in a 0700 directory, replaced atomically;
+`Auth::accessToken` refreshes it a minute before it expires. The library is
+`embed.gog.com/account/getFilteredProducts?mediaType=1&page=N` (minigalaxy's call): one
+request per page returns id, title and image, so no per-game requests. Games are listed
+not installed, with `Game::artworkUrl` set to GOG's image stem (`https:` + `//images-N.gog.com/<hash>`,
+to which `_<size>.jpg` is appended; minigalaxy uses `_196.jpg`); nothing downloads it yet.
+No token, or a refresh GOG refuses, is `Attention` on the GOG badge. Installs come later
+through gogdl. Tested against a local server (`tests/library/gog_test.cpp`); no real GOG
+account has been used.
+
+Sign-in is a browser flow (`app::StoreSignIn`, driven by the control channel's `/signin`
+routes). `open` runs `xdg-open <page>`, so the player's default browser (Zen here) is used
+and Flatpak browsers need no special case. The page is GOG's above, or Legendary's
+`https://legendary.gl/epiclogin`, which redirects to Epic's login. A WebExtension,
+`extension/iideck-signin/` (Manifest V3, Firefox/Zen 142+), watches for the two endings and
+POSTs the code to `http://127.0.0.1:7311/signin/<store>`, then closes the tab once iideck
+answered 200:
+
+- GOG: `webNavigation` on `embed.gog.com/on_login_success`, the `code` query parameter.
+- Epic: Legendary's login ends on `https://www.epicgames.com/id/api/redirect?clientId=...`,
+  which answers JSON holding `authorizationCode` (this is what `legendary auth` asks the
+  player to paste). The extension reads that response with `webRequest.filterResponseData`
+  without changing it. Epic's code goes to `legendary auth --code <code>`; Legendary exits
+  0 even when Epic refuses the code, so the Epic badge after the reload is the proof.
+
+Loading it: `about:debugging` → This Firefox → Load Temporary Add-on →
+`extension/iideck-signin/manifest.json` (gone at browser restart). The port is the constant
+`IIDECK_PORT` in `background.js`, iideck's default 7311; edit it when `IIDECK_CONTROL_PORT`
+differs. Linted with `web-ext lint` (clean); not yet loaded in Zen against a live sign-in.
+
+Known gaps: `lucent::http::Server` keeps no request headers, so the channel cannot check
+`Origin`, and any local web page can POST a code to it (a login-CSRF, not a credential
+leak). The Epic listing (`epic.cpp`) runs `legendary list --output json`, but Legendary
+has no `--output` option (`list --json`, whose entries carry `app_name` and `app_title`
+and no install state), so the Epic grid is not expected to fill after a real sign-in until
+that provider is corrected.
+
 ### S012 — Control channel
 
 A loopback HTTP channel, part of the product rather than a debug flag, so an
@@ -234,6 +296,13 @@ name, `GET /frame.png` returns the next frame as PNG bytes, `POST /quit` closes
 the shell. `IIDECK_CONTROL_PORT` moves the port; it cannot be closed, because it
 is how the shell is driven. It binds loopback only and names no file to read or
 write — frames come back as bytes over the response.
+
+Sign-in routes (S018), all `POST`: `/signin/gog/start` and `/signin/epic/start` open the
+store's sign-in page in the default browser; `/signin/gog` and `/signin/epic` finish a
+sign-in with the authorization code as the body (letters, digits and `-_.~` only; anything
+else is a 400). A finished sign-in answers 200 `{"ok":true,"store":...,"message":...}`
+and reloads the catalog; a store that refuses the code answers 502. The code is never
+echoed or logged. There is no UI button for them yet.
 
 The shell owns the GL context, so a frame request is handed to the main loop over
 a condition variable and answered there rather than drawn on the request thread.
@@ -351,8 +420,7 @@ says installed. Measured with the real client on this machine: Spacewar (480) op
 the wizard, reached its EULA (`480_eula_0`) and cancelled cleanly
 (`scratch/update-progress/live`). Steam's UI shows its own "Install" popup while the
 wizard is open; whether that window takes Gamescope's focus has not been measured.
-Epic and GOG titles are listed only once installed by Legendary or Heroic; neither is
-signed in on this machine.
+Epic titles come from Legendary; neither store is signed in on this machine.
 
 ### S008 — ROMs
 

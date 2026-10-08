@@ -56,6 +56,9 @@ struct Game {
     /// The name artwork is looked up by remotely: a ROM's file or folder name without its
     /// extension, dump tags and all. Empty for a source looked up by `sourceId`.
     std::string artworkKey;
+    /// A store's image for the game, as `https://host/stem` with no size suffix. GOG's takes
+    /// `_<size>.jpg`. Empty for a source whose art is looked up another way.
+    std::string artworkUrl;
 
     int playtimeMinutes{0};
     std::optional<std::chrono::system_clock::time_point> lastPlayed;

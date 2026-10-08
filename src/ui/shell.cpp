@@ -132,13 +132,18 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
 
 void Shell::loadArtwork() {
     for (Tile& tile : tiles_) {
-        const auto* game = std::get_if<library::Game>(&tile.item);
-        if (game == nullptr || tile.artLoaded) {
+        if (tile.artLoaded) {
             continue;
         }
         tile.artLoaded = true;
-        tile.portrait = loadArt(game->artwork);
-        tile.wide = loadArt(game->artworkWide);
+        if (const auto* console = std::get_if<library::Console>(&tile.item)) {
+            tile.portrait = loadArt(console->artwork);
+            tile.hasPortrait = tile.portrait.id != 0;
+            continue;
+        }
+        const auto& game = std::get<library::Game>(tile.item);
+        tile.portrait = loadArt(game.artwork);
+        tile.wide = loadArt(game.artworkWide);
         tile.hasPortrait = tile.portrait.id != 0;
         tile.hasWide = tile.wide.id != 0;
     }
@@ -150,36 +155,41 @@ std::size_t Shell::loadedArtwork() const noexcept {
     }));
 }
 
+void Shell::unloadArtwork(Tile& tile) {
+    if (tile.hasPortrait) {
+        UnloadTexture(tile.portrait);
+        tile.hasPortrait = false;
+    }
+    if (tile.hasWide) {
+        UnloadTexture(tile.wide);
+        tile.hasWide = false;
+    }
+    tile.artLoaded = false;
+}
+
 void Shell::setArtwork(std::string_view gameId, const std::filesystem::path& artwork) {
     for (Tile& tile : tiles_) {
         auto* game = std::get_if<library::Game>(&tile.item);
-        if (game == nullptr || game->id != gameId) {
-            continue;
+        if (game != nullptr && game->id == gameId) {
+            game->artwork = artwork;
+            unloadArtwork(tile);
         }
-        game->artwork = artwork;
-        if (tile.hasPortrait) {
-            UnloadTexture(tile.portrait);
-            tile.hasPortrait = false;
+    }
+}
+
+void Shell::setConsoleArtwork(std::string_view system, const std::filesystem::path& artwork) {
+    for (Tile& tile : tiles_) {
+        auto* console = std::get_if<library::Console>(&tile.item);
+        if (console != nullptr && console->system == system) {
+            console->artwork = artwork;
+            unloadArtwork(tile);
         }
-        if (tile.hasWide) {
-            UnloadTexture(tile.wide);
-            tile.hasWide = false;
-        }
-        tile.artLoaded = false;
     }
 }
 
 void Shell::releaseTextures() {
     for (Tile& tile : tiles_) {
-        tile.artLoaded = false;
-        if (tile.hasPortrait) {
-            UnloadTexture(tile.portrait);
-            tile.hasPortrait = false;
-        }
-        if (tile.hasWide) {
-            UnloadTexture(tile.wide);
-            tile.hasWide = false;
-        }
+        unloadArtwork(tile);
     }
 }
 

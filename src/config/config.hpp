@@ -48,6 +48,10 @@ struct Config {
     /// `~/.cache/iideck`.
     std::filesystem::path cacheDir;
 
+    /// iideck's own data, the store sign-ins among it: `$XDG_DATA_HOME/iideck`, else
+    /// `~/.local/share/iideck`.
+    std::filesystem::path dataDir;
+
     /// The home grid's dashboard mode, from IIDECK_HOME_MODE (`standard` or `wiisu`).
     HomeMode homeMode{HomeMode::Standard};
 

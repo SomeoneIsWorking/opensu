@@ -54,8 +54,9 @@ const Game* gameAt(const std::vector<ShelfItem>& shelf, std::size_t index) {
 void testHomeShelf() {
     const std::vector<ShelfItem> home = iideck::library::homeShelf(library());
     expect(home.size() == 5, "two consoles and three store games");
-    expect(*consoleAt(home, 0) == Console{"gc", "GameCube", 1}, "GameCube first, in system order");
-    expect(*consoleAt(home, 1) == Console{"ps2", "PlayStation 2", 2}, "PS2 counts both ROMs");
+    expect(*consoleAt(home, 0) == Console{"gc", "GameCube", 1, {}},
+           "GameCube first, in system order");
+    expect(*consoleAt(home, 1) == Console{"ps2", "PlayStation 2", 2, {}}, "PS2 counts both ROMs");
     expect(gameAt(home, 2)->id == "steam:1" && gameAt(home, 3)->id == "gog:2" &&
                gameAt(home, 4)->id == "steam:3",
            "store games follow in catalog order, ROMs left out");
@@ -72,13 +73,13 @@ void testConsoleShelf() {
 void testBrowser() {
     ShelfBrowser browser;
     expect(!browser.back().has_value(), "back on Home goes nowhere");
-    browser.open(Console{"ps2", "PlayStation 2", 2}, 1);
+    browser.open(Console{"ps2", "PlayStation 2", 2, {}}, 1);
     expect(browser.console() && browser.console()->system == "ps2", "the console is open");
     expect(browser.shelf(library()).size() == 2, "its shelf is its ROMs");
     expect(browser.back() == 1, "back restores Home's focus on the console");
     expect(!browser.console() && browser.shelf(library()).size() == 5, "Home again");
 
-    browser.open(Console{"ps2", "PlayStation 2", 2}, 1);
+    browser.open(Console{"ps2", "PlayStation 2", 2, {}}, 1);
     std::vector<Game> gone = library();
     std::erase_if(gone, [](const Game& entry) {
         return entry.sourceId == "ps2";

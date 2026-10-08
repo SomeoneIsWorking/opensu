@@ -30,6 +30,7 @@
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
 #include "library/shelf.hpp"
+#include "sign_in.hpp"
 #include "steam/client.hpp"
 #include "ui/shell.hpp"
 
@@ -73,6 +74,7 @@ class ShellApp final : public ControlTarget {
     void inject(gamepad::Button button) override;
     [[nodiscard]] bool captureFrame(std::string& png) override;
     void requestClose() override;
+    void requestCatalogReload(std::string toast) override;
 
   private:
     /// Flips an image in place, for the render texture's bottom-up origin.
@@ -179,6 +181,9 @@ class ShellApp final : public ControlTarget {
     std::unique_ptr<session::GameKeys> gameKeys_;
     /// Set by the control channel, read by the loop.
     std::atomic<bool> closeRequested_{false};
+    std::atomic<bool> reloadRequested_{false};
+    /// The store sign-ins the control channel drives.
+    StoreSignIn signIn_;
 
     /// Whether a game is running. The launch thread sets it; only the loop acts on it.
     std::atomic<bool> gameRunning_{false};

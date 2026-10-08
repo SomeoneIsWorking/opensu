@@ -19,6 +19,7 @@
 
 #include "gamepad/event.hpp"
 #include "lucent/http.h"
+#include "sign_in.hpp"
 
 namespace iideck::app {
 
@@ -65,12 +66,15 @@ class ControlTarget {
 
     /// Asks the main loop to shut down cleanly.
     virtual void requestClose() = 0;
+
+    /// Asks the main loop to read the library again and show `toast`. Callable from any thread.
+    virtual void requestCatalogReload(std::string toast) = 0;
 };
 
 /// Owns the listener. Loopback only.
 class ControlChannel {
   public:
-    ControlChannel(ControlTarget& target, std::uint16_t port);
+    ControlChannel(ControlTarget& target, SignInService& signIn, std::uint16_t port);
     ~ControlChannel();
 
     ControlChannel(const ControlChannel&) = delete;
@@ -88,7 +92,12 @@ class ControlChannel {
     [[nodiscard]] lucent::http::Response handle(const lucent::http::Request& request);
 
   private:
+    /// `/signin/<store>` finishes a sign-in with the code in the body, `/signin/<store>/start`
+    /// opens the store's sign-in page.
+    [[nodiscard]] lucent::http::Response signIn(const lucent::http::Request& request);
+
     ControlTarget& target_;
+    SignInService& signIn_;
     lucent::http::Server server_;
 };
 

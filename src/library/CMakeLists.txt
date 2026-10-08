@@ -4,6 +4,8 @@ add_library(iideck_library STATIC
     steam.cpp
     epic.cpp
     gog.cpp
+    gog_auth.cpp
+    gog_token.cpp
     roms.cpp
     rom_systems.cpp
     shelf.cpp
@@ -14,6 +16,7 @@ target_include_directories(iideck_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(iideck_library
     PUBLIC iideck::vdf
         iideck::config
+        iideck::net
     PRIVATE lucent::lucent
 )
 target_compile_features(iideck_library PUBLIC cxx_std_20)

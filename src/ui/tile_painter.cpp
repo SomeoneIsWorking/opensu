@@ -284,6 +284,14 @@ void TilePainter::paintChrome(const TileGeometry& geometry, const ChromeVariant&
 void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geometry) const {
     const Rect& content = geometry.content;
     const Color tint = withAlpha(WHITE, tile.alpha);
+    if (tile.console && tile.art != nullptr) {
+        // The console's card is the whole tile: it carries the glyph and its own frame.
+        drawTextureRound(RoundRect{content, geometry.contentRadius}, *tile.art,
+                         coverSource(static_cast<float>(tile.art->width),
+                                     static_cast<float>(tile.art->height), content),
+                         tint);
+        return;
+    }
     if (tile.console) {
         paintConsole(tile, content);
         if (tile.platform != nullptr) {

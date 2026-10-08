@@ -1,34 +1,31 @@
-// gog — lists GOG titles from the local Heroic Games Launcher installation.
+// gog — lists the player's GOG library from GOG's own account API.
 //
-// Heroic owns authentication, downloads and cloud sync; this only reads its
-// cached library and hands launches back to it.
+// iideck holds the sign-in itself (`gog_auth`); a game is listed from the account and is not
+// installed until installs are built. GOG's installers and downloads are out of scope here.
 #pragma once
 
-#include <filesystem>
-#include <string>
 #include <vector>
 
 #include "game.hpp"
+#include "gog_auth.hpp"
 
 namespace iideck::library::gog {
 
-/// Reads Heroic's cached GOG library.
 class Provider final : public library::Provider {
   public:
-    /// Uses Heroic's configuration directory under the user's home.
-    explicit Provider(const std::filesystem::path& home);
+    explicit Provider(TokenStore store, Endpoints endpoints = {});
 
     [[nodiscard]] Source source() const override {
         return Source::Gog;
     }
 
-    /// Lists titles. Throws when Heroic's configuration directory is absent, and
-    /// returns nothing when it holds no saved library yet.
+    /// Lists the owned games, a page of GOG's answer per request. Throws NotSignedIn when there
+    /// is no usable sign-in, and std::runtime_error when GOG cannot be reached or answers wrongly.
     [[nodiscard]] std::vector<Game> list() override;
 
   private:
-    std::filesystem::path configDir_;
-    std::string binary_;
+    net::WebClient web_;
+    Auth auth_;
 };
 
 } // namespace iideck::library::gog

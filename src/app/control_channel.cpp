@@ -1,6 +1,8 @@
 #include "control_channel.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstdio>
 #include <fstream>
 #include <string_view>
@@ -59,6 +61,30 @@ std::string jsonString(std::string_view text) {
     }
     out.push_back('"');
     return out;
+}
+
+/// `text` without the whitespace around it.
+std::string_view trimmed(std::string_view text) {
+    while (!text.empty() && std::isspace(static_cast<unsigned char>(text.back())) != 0) {
+        text.remove_suffix(1);
+    }
+    while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front())) != 0) {
+        text.remove_prefix(1);
+    }
+    return text;
+}
+
+/// Whether `text` can be a store's authorization code: a short token of letters, digits and
+/// `-_.~`, so it can never be taken for an option when it is handed to another program.
+bool isAuthorizationCode(std::string_view text) {
+    constexpr std::size_t longestCode = 512;
+    if (text.empty() || text.size() > longestCode || text.front() == '-') {
+        return false;
+    }
+    return std::ranges::all_of(text, [](char c) {
+        return std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '-' || c == '_' ||
+               c == '.' || c == '~';
+    });
 }
 
 std::string jsonSnapshot(const ShellSnapshot& snapshot) {
@@ -124,8 +150,8 @@ bool parseButton(std::string_view name, gamepad::Button& out) {
     return false;
 }
 
-ControlChannel::ControlChannel(ControlTarget& target, std::uint16_t port)
-    : target_{target},
+ControlChannel::ControlChannel(ControlTarget& target, SignInService& signIn, std::uint16_t port)
+    : target_{target}, signIn_{signIn},
       server_{lucent::http::ServerOptions{.port = port,
                                           .listen_scope = lucent::http::ListenScope::Loopback},
               [this](const lucent::http::Request& request) {
@@ -176,11 +202,7 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         // The body is the button name, so a caller can drive the shell with
         // `curl -d left`, with no JSON to parse on either side.
         gamepad::Button button{};
-        std::string_view name{request.body};
-        while (!name.empty() &&
-               (name.back() == '\n' || name.back() == '\r' || name.back() == ' ')) {
-            name.remove_suffix(1);
-        }
+        const std::string_view name = trimmed(request.body);
         if (name.empty()) {
             return refuse(
                 "body must name a button: up down left right a b x y l1 r1 select start guide");
@@ -212,7 +234,49 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         return lucent::http::Response::json(200, "OK", "{\"closing\":true}");
     }
 
+    if (path.starts_with("/signin/")) {
+        return signIn(request);
+    }
+
     return notFound("no route " + std::string{path});
+}
+
+lucent::http::Response ControlChannel::signIn(const lucent::http::Request& request) {
+    if (request.method != "POST") {
+        return refuse("POST only");
+    }
+    std::string_view route = request.path().substr(std::string_view{"/signin/"}.size());
+    const bool start = route.ends_with("/start");
+    if (start) {
+        route.remove_suffix(std::string_view{"/start"}.size());
+    }
+    Store store{};
+    if (route == "gog") {
+        store = Store::Gog;
+    } else if (route == "epic") {
+        store = Store::Epic;
+    } else {
+        return notFound("no store " + std::string{route});
+    }
+    const std::string label = store == Store::Gog ? "GOG" : "Epic";
+
+    SignInResult result;
+    if (start) {
+        result = signIn_.open(store);
+    } else {
+        const std::string_view code = trimmed(request.body);
+        if (!isAuthorizationCode(code)) {
+            return refuse("body must be the authorization code");
+        }
+        result = signIn_.complete(store, code);
+        if (result.ok) {
+            target_.requestCatalogReload(result.message);
+        }
+    }
+    return lucent::http::Response::json(result.ok ? 200 : 502, result.ok ? "OK" : "Bad Gateway",
+                                        "{\"ok\":" + std::string{result.ok ? "true" : "false"} +
+                                            ",\"store\":" + jsonString(label) +
+                                            ",\"message\":" + jsonString(result.message) + "}");
 }
 
 } // namespace iideck::app

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstddef>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -20,11 +21,16 @@ struct Console {
     /// The name the player reads ("GameCube").
     std::string label;
     std::size_t games{0};
+    /// The console card on disk, or empty for none.
+    std::filesystem::path artwork;
 
     bool operator==(const Console&) const = default;
 };
 
 using ShelfItem = std::variant<Game, Console>;
+
+/// One console per system with ROMs, in the known systems' order.
+[[nodiscard]] std::vector<Console> consoles(const std::vector<Game>& games);
 
 /// Home: one console per system with ROMs, in the known systems' order, then every other game
 /// in catalog order.

@@ -4,9 +4,10 @@ A gamepad-first shell for a game library. It shows Steam, Epic, GOG and
 emulator ROMs in one grid and launches each title into the runtime that already
 owns it.
 
-It is not an emulator and ships no games. Steam, Legendary and Heroic keep doing
-their own authentication, downloading and cloud sync; iideck reads what they have
-already installed and hands launches back to them.
+It is not an emulator and ships no games. Steam and Legendary keep doing their own
+authentication, downloading and cloud sync; iideck reads what they have installed and
+hands launches back to them. GOG is signed in by iideck itself (see Signing in to GOG and
+Epic) and its owned games are listed.
 
 iideck runs Steam in the background with `-cef-enable-debugging`, which opens Steam's
 DevTools on 127.0.0.1:8080; that is how it reads download progress and starts
@@ -23,7 +24,8 @@ iideck needs raylib 6.0 built from source, a checkout of
 [nanosvg](https://github.com/memononen/nanosvg) for its icons: the distribution's
 package (`nanosvg-devel` on Fedora), else a checkout at `NANOSVG_ROOT`, by default
 `$HOME/dev/nanosvg`. The launcher logos are from [Simple Icons](https://simpleicons.org)
-(CC0). libcurl (`libcurl-devel` on Fedora) downloads missing artwork.
+(CC0). libcurl (`libcurl-devel` on Fedora) downloads missing artwork; zlib (`zlib-devel`) reads
+iiSU's starter pack and libwebp (`libwebp-devel`) decodes its console cards.
 
 The published `raylib-6.0_linux_amd64` binary cannot be used: it was built with
 `STBI_REQUIRED` undefined and `SUPPORT_FILEFORMAT_JPG=0`, so `LoadImage` reports
@@ -99,6 +101,24 @@ in `~/Applications`, `~/AppImages` or `~/.local/bin`, or as Flatpaks: Dolphin, C
 Ryujinx, PCSX2, RPCS3, shadPS4, DuckStation, PPSSPP, melonDS, Azahar, mGBA, xemu and Xenia
 Canary. A game whose system has no emulator still appears, and pressing play names the
 emulator to install.
+
+## Signing in to GOG and Epic
+
+Sign-in happens in your own browser, on the store's own page. iideck opens the page with
+`xdg-open`, and a small browser extension hands the code the page ends on to iideck's control
+channel and closes the tab. Load it once per browser session: `about:debugging` → This
+Firefox → Load Temporary Add-on → `extension/iideck-signin/manifest.json` (Firefox or Zen
+142 or newer). The extension talks to port 7311, iideck's default `IIDECK_CONTROL_PORT`.
+
+```sh
+curl -X POST http://127.0.0.1:7311/signin/gog/start   # opens GOG's sign-in page
+curl -X POST http://127.0.0.1:7311/signin/epic/start  # opens Epic's, through Legendary's login
+```
+
+`POST /signin/gog` and `POST /signin/epic` take the authorization code as the body; the
+extension does that for you. Epic's code is given to `legendary auth --code`. GOG's token is
+kept in `$XDG_DATA_HOME/iideck/gog-token.json` (default `~/.local/share/iideck`), readable by
+you only.
 
 ## Controls
 

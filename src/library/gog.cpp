@@ -1,10 +1,9 @@
 #include "gog.hpp"
 
-#include <array>
-#include <cstdlib>
-#include <fstream>
+#include <algorithm>
+#include <iterator>
+#include <optional>
 #include <stdexcept>
-#include <string_view>
 
 #include <nlohmann/json.hpp>
 
@@ -15,91 +14,79 @@ namespace {
 
 using nlohmann::json;
 
-/// The first non-empty value, or nothing.
-/// The first value that is not empty.
-template <typename... Args> std::string firstNonEmpty(Args&&... args) {
-    const std::array<std::string_view, sizeof...(Args)> values{std::string_view{args}...};
-    for (const std::string_view value : values) {
-        if (!value.empty()) {
-            return std::string{value};
-        }
-    }
-    return {};
-}
+constexpr std::string_view installsLater = "GOG installs are not built yet";
 
-/// Heroic nests the display fields under "library" and keeps install state
-/// alongside; the nested values are the ones it shows.
-struct LibraryEntry {
-    std::string title;
-    std::string appName;
-    std::string installPath;
-    bool installed{false};
-
-    [[nodiscard]] static LibraryEntry from(const json& entry) {
-        const json lib = entry.contains("library") ? entry["library"] : json::object();
-        LibraryEntry out;
-        out.title = firstNonEmpty(lib.value("title", ""), entry.value("title", ""));
-        out.appName = firstNonEmpty(lib.value("appName", ""), entry.value("app_name", ""),
-                                    std::string_view{out.title});
-        if (entry.contains("install") && entry["install"].is_object()) {
-            const json& install = entry["install"];
-            out.installPath = install.value("path", "");
-            out.installed = install.value("installed", false);
-        }
-        return out;
-    }
+/// One page of the account's games: `{"totalPages": N, "products": [{"id", "title", "image"}]}`.
+struct Page {
+    int totalPages{0};
+    std::vector<Game> games;
 };
 
-} // namespace
-
-Provider::Provider(const std::filesystem::path& home)
-    : configDir_{home / ".config" / "heroic"}, binary_{"heroic"} {
+/// GOG gives images as protocol-relative stems, `//images-N.gog.com/<hash>`, to which a size
+/// like `_196.jpg` is appended.
+std::string imageStem(const std::string& image) {
+    return image.rfind("//", 0) == 0 ? "https:" + image : image;
 }
 
-std::vector<Game> Provider::list() {
-    std::error_code ec;
-    if (!std::filesystem::is_directory(configDir_, ec)) {
-        throw SourceAbsent{"heroic is not installed"};
-    }
-    // Heroic caches its library under store_cache as plain JSON. No file yet
-    // means no library saved, which is not a failure.
-    const std::filesystem::path cache = configDir_ / "store_cache" / "gog_library.json";
-    if (!std::filesystem::exists(cache, ec)) {
+/// The product id as text; GOG sends a number.
+std::string productId(const json& product) {
+    if (!product.contains("id")) {
         return {};
     }
+    const json& id = product["id"];
+    return id.is_string() ? id.get<std::string>() : id.dump();
+}
 
-    const json document = json::parse(std::ifstream{cache});
-    // Heroic writes "{}" for an empty library and "[]" once titles exist.
-    if (document.is_object() && document.empty()) {
-        return {};
+Page parsePage(const std::string& body) {
+    const json document = json::parse(body, nullptr, false);
+    if (!document.is_object() || !document.contains("totalPages") ||
+        !document.contains("products") || !document["products"].is_array()) {
+        throw std::runtime_error{"GOG's library answer has an unexpected shape"};
     }
-    if (!document.is_array()) {
-        throw std::runtime_error{"heroic library has an unexpected shape"};
-    }
-
-    std::vector<Game> games;
-    for (const json& entry : document) {
-        const LibraryEntry parsed = LibraryEntry::from(entry);
-        if (parsed.title.empty() || parsed.appName.empty()) {
+    Page page;
+    page.totalPages = document.value("totalPages", 0);
+    for (const json& product : document["products"]) {
+        const std::string title = product.value("title", "");
+        const std::string id = productId(product);
+        if (title.empty() || id.empty()) {
             continue;
         }
         Game game;
-        game.id = "gog:" + parsed.appName;
+        game.id = "gog:" + id;
         game.source = Source::Gog;
-        game.sourceId = parsed.appName;
-        game.title = parsed.title;
-        // Heroic keeps its own record of what is installed.
-        game.installed = parsed.installed;
-        game.launch = LaunchSpec{
-            .program = binary_,
-            .args = {"util", "install", "--platform", "gog", parsed.appName},
-        };
-        if (!parsed.installPath.empty()) {
-            game.processHint = std::filesystem::path{parsed.installPath}.filename().string();
-        }
-        games.push_back(std::move(game));
+        game.sourceId = id;
+        game.title = title;
+        game.artworkUrl = imageStem(product.value("image", ""));
+        game.unavailable = std::string{installsLater};
+        page.games.push_back(std::move(game));
     }
-    lucent::info("gog", "heroic listed {} titles", games.size());
+    return page;
+}
+
+} // namespace
+
+Provider::Provider(TokenStore store, Endpoints endpoints)
+    : auth_{std::move(store), std::move(endpoints), web_} {
+}
+
+std::vector<Game> Provider::list() {
+    const std::vector<std::string> headers{"Authorization: Bearer " + auth_.accessToken()};
+    std::vector<Game> games;
+    int totalPages = 1;
+    for (int page = 1; page <= totalPages; ++page) {
+        const std::string url =
+            auth_.endpoints().embed +
+            "/account/getFilteredProducts?mediaType=1&page=" + std::to_string(page);
+        std::string error;
+        const std::optional<std::string> body = web_.get(url, error, headers);
+        if (!body) {
+            throw std::runtime_error{"cannot read the GOG library (" + error + ")"};
+        }
+        Page parsed = parsePage(*body);
+        totalPages = parsed.totalPages;
+        std::ranges::move(parsed.games, std::back_inserter(games));
+    }
+    lucent::info("gog", "library lists {} games", games.size());
     return games;
 }
 

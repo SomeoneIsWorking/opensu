@@ -7,6 +7,7 @@
 
 add_subdirectory(vdf)
 add_subdirectory(config)
+add_subdirectory(net)
 add_subdirectory(library)
 add_subdirectory(artwork)
 add_subdirectory(gamepad)
@@ -47,6 +48,7 @@ install(FILES "${CMAKE_BINARY_DIR}/iideck.desktop"
 # Subsystem headers are included as "library/game.hpp" and "vdf/node.hpp", so
 # the source root is on the include path for every target.
 target_include_directories(iideck_vdf INTERFACE "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(iideck_net INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_library INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_ui INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_pad INTERFACE "${CMAKE_SOURCE_DIR}/src")

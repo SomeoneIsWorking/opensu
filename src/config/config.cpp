@@ -196,6 +196,11 @@ const Config& read() {
         } else {
             value.cacheDir = value.home / ".cache" / "iideck";
         }
+        if (const std::string_view data = env("XDG_DATA_HOME"); !data.empty()) {
+            value.dataDir = std::filesystem::path{data} / "iideck";
+        } else {
+            value.dataDir = value.home / ".local" / "share" / "iideck";
+        }
         value.homeMode = envHomeMode("IIDECK_HOME_MODE", value.homeMode);
         value.clock24Hour = localeClock24Hour();
         value.width = envInt("IIDECK_WIDTH", value.width);

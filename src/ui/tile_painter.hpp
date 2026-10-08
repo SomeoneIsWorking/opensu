@@ -2,8 +2,9 @@
 //
 // Draw order is iiSU nx2.j: shadow, outer focus ring, glass chrome, art, inner
 // focus ring, all scaled about the tile centre. A game tile has no title and no
-// badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile,
-// iideck's own, is its platform's colours with the console's name and game count.
+// badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile is iiSU's
+// card for it when there is one, drawn as the whole tile; without, iideck's own: its platform's
+// colours with the console's name and game count.
 #pragma once
 
 #include <string_view>
@@ -32,7 +33,7 @@ struct TileVisual {
     /// Dark or light chrome (iiSU ya0.e).
     bool dark{false};
     float ringDegrees{0.0f};
-    /// Cover art, or null for none.
+    /// Cover art, or a console's card, or null for none.
     const Texture* art{nullptr};
     /// The platform frame, or null for an unframed tile.
     const Platform* platform{nullptr};

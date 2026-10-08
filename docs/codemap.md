@@ -11,10 +11,12 @@ gitignored `docs/reference/`).
 | --- | --- |
 | `src/main.cpp` | Argument parsing; starts the nested session or the shell; `--render FILE` renders one frame headless |
 | `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop |
-| `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`) |
+| `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input, frames, `/signin/<store>[/start]` |
+| `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
 | `src/app/install_job.*` | One Steam install: walks the installer, waits on the player's licence answer, follows the download |
 | `src/config/config.*` | The one reader of the environment, into typed immutable config |
+| `extension/iideck-signin/` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel |
 
 ## Session and processes (G003, G004)
 
@@ -47,13 +49,16 @@ gitignored `docs/reference/`).
 | `src/library/game.*` | The launchable `Game` record |
 | `src/library/catalog.*` | Building the catalog from all sources |
 | `src/library/steam.*`, `epic.*`, `gog.*`, `roms.*` | One source each |
+| `src/library/gog_auth.*`, `gog_token.*` | GOG's OAuth sign-in and the saved token (`<data dir>/gog-token.json`) |
 | `src/library/shelf.*` | What the grid holds: Home's consoles and store games, a console's ROMs, and moving between them |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line |
 | `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
-| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings |
-| `src/artwork/artwork_fetcher.*` | The background downloads: Steam's CDN for Steam, libretro-thumbnails for ROMs |
-| `src/artwork/web_client.*` | HTTPS GETs over libcurl |
+| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, the starter pack file |
+| `src/artwork/artwork_fetcher.*` | The background downloads: Steam's CDN for Steam, libretro-thumbnails for ROMs, iiSU's starter pack for console cards |
+| `src/artwork/starter_pack.*` | iiSU's starter pack: ranged download of its entry out of the release APK against a pin, and a system's card as PNG |
+| `src/artwork/zip_archive.*` | The one zip reader: end record, central directory, local header offset, checked extraction; an in-memory archive |
+| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers; shared by artwork and the stores |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`), raylib-free (`iideck_pad`) |

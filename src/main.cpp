@@ -2,8 +2,8 @@
 // Epic, GOG and emulator ROMs in one grid and launches each title into the
 // runtime that already owns it.
 //
-// It is not an emulator and ships no games: Steam, Legendary and Heroic keep
-// doing their own authentication, downloading and cloud sync.
+// It is not an emulator and ships no games: Steam and Legendary keep doing their
+// own authentication, downloading and cloud sync.
 #include <cstdio>
 #include <optional>
 #include <string>
