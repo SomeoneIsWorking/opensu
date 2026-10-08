@@ -315,12 +315,11 @@ void TilePainter::paintFallback(const Rect& content, std::string_view title, flo
     }
     const std::string letter(1,
                              static_cast<char>(std::toupper(static_cast<unsigned char>(*found))));
-    const int size =
-        static_cast<int>(std::clamp(std::min(content.width, content.height) * 0.34f, 34.0f, 92.0f));
-    const float width = type().measure(letter, size);
-    type().draw(letter.c_str(), content.centreX() - width * 0.5f,
-                content.centreY() - static_cast<float>(size) * 0.5f, size,
-                withAlpha(fallbackInk, alpha));
+    const TextStyle text{type().emForLineBox(
+        std::clamp(std::min(content.width, content.height) * 0.34f, 34.0f, 92.0f))};
+    const float width = type().measure(letter, text);
+    type().drawCentred(letter, content.centreX() - width * 0.5f, content.centreY(), text,
+                       withAlpha(fallbackInk, alpha));
 }
 
 } // namespace iideck::ui

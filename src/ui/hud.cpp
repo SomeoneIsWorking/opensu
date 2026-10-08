@@ -127,9 +127,8 @@ void Hud::drawServiceStatus(float left, float centreY) const {
     const float dotRadius = u * 0.35f;
     const float dotX = glyph.x + glyphRadius + u * 0.7f + dotRadius;
     DrawCircleV({dotX, centreY}, dotRadius, dot);
-    const int size = static_cast<int>(u * 1.5f);
-    type().draw(label, dotX + dotRadius + u * 0.6f, centreY - static_cast<float>(size) / 2.0f, size,
-                palette::inkSoft);
+    const TextStyle text{type().emForLineBox(u * 1.5f)};
+    type().drawCentred(label, dotX + dotRadius + u * 0.6f, centreY, text, palette::inkSoft);
 }
 
 void Hud::drawHints() const {
@@ -137,12 +136,12 @@ void Hud::drawHints() const {
     const TopBarMetrics m = metrics();
     const HintRowMetrics row = m.hintRow();
     const float dp = dp_;
-    const int size = static_cast<int>(std::lround(m.statusPill(false).fontSize * dp));
-    const float glyph = static_cast<float>(size) * hintGlyphScale;
+    const TextStyle text{m.statusPill(false).fontSize * dp};
+    const float glyph = text.size * hintGlyphScale;
     const float gap = row.glyphGap * dp;
     float content = 0.0f;
     for (const auto& [key, label] : hints) {
-        content += glyph + gap + type().measure(label, size);
+        content += glyph + gap + type().measure(label, text);
     }
     content += static_cast<float>(hints.size() - 1) * row.entrySpacing * dp;
     const float height = glyph + 2.0f * row.paddingVertical * dp;
@@ -155,12 +154,11 @@ void Hud::drawHints() const {
     const float centreY = body.centreY();
     for (const auto& [key, label] : hints) {
         DrawCircleV(Vector2{pen + glyph * 0.5f, centreY}, glyph * 0.5f, hintInk);
-        const float keyWidth = type().measure(key, size);
-        type().draw(key, pen + (glyph - keyWidth) * 0.5f, centreY - static_cast<float>(size) * 0.5f,
-                    size, WHITE);
+        const float keyWidth = type().measure(key, text);
+        type().drawCentred(key, pen + (glyph - keyWidth) * 0.5f, centreY, text, WHITE);
         pen += glyph + gap;
-        type().draw(label, pen, centreY - static_cast<float>(size) * 0.5f, size, hintInk);
-        pen += type().measure(label, size) + row.entrySpacing * dp;
+        type().drawCentred(label, pen, centreY, text, hintInk);
+        pen += type().measure(label, text) + row.entrySpacing * dp;
     }
 }
 
@@ -169,18 +167,19 @@ void Hud::drawToast() const {
         return;
     }
     const float u = unit();
-    const int size = static_cast<int>(u * 1.4f);
-    const float textWidth = type().measure(toast_, size);
+    const TextStyle text{type().emForLineBox(u * 1.4f)};
+    const float textWidth = type().measure(toast_, text);
     const float padding = u * 2.0f;
     const Rectangle box{
         (static_cast<float>(width_) - textWidth - 2.0f * padding) / 2.0f,
         static_cast<float>(height_) - u * 8.0f,
         textWidth + 2.0f * padding,
-        static_cast<float>(size) + padding,
+        type().lineBox(text) + padding,
     };
     DrawRectangleRounded(box, 0.5f, 12,
                          toastError_ ? Color{0xb3, 0x26, 0x1e, 240} : Color{0x2b, 0x27, 0x33, 240});
-    type().draw(toast_.c_str(), box.x + padding / 2.0f, box.y + padding / 3.0f, size, WHITE);
+    type().drawCentred(toast_, box.x + padding / 2.0f,
+                       box.y + padding / 3.0f + type().lineBox(text) * 0.5f, text, WHITE);
 }
 
 } // namespace iideck::ui

@@ -75,29 +75,28 @@ void StatusPillPainter::paint(const StatusPillView& view) const {
     paintBell(body.x + bellColumn * 0.5f, centreY, m.ringSize * dp);
 
     // 2. The text row (iiSU a32.p): clock | NN% battery.
-    const int size = static_cast<int>(std::lround(m.fontSize * dp));
+    const TextStyle text{m.fontSize * dp};
     const float spacing = m.textSpacing * dp;
     const std::string clock{view.clock};
-    float width = type().measure(clock, size);
+    float width = type().measure(clock, text);
     std::string percent;
     const float icon = m.batteryIcon * dp;
     if (view.battery) {
         percent = std::to_string(view.battery->percent) + "%";
         width +=
-            spacing * 3.0f + type().measure(separator, size) + type().measure(percent, size) + icon;
+            spacing * 3.0f + type().measure(separator, text) + type().measure(percent, text) + icon;
     }
     // STOPGAP: the row is centred in the space after the bell column because a32.o's
     // arrangement of the text row is not in the spec.
     const float free = body.right() - (body.x + bellColumn);
     float pen = body.x + bellColumn + std::max((free - width) * 0.5f, 0.0f);
-    const float textY = centreY - static_cast<float>(size) * 0.5f;
-    type().draw(clock.c_str(), pen, textY, size, textInk);
-    pen += type().measure(clock, size) + spacing;
+    type().drawCentred(clock, pen, centreY, text, textInk);
+    pen += type().measure(clock, text) + spacing;
     if (view.battery) {
-        type().draw(separator, pen, textY, size, textInk);
-        pen += type().measure(separator, size) + spacing;
-        type().draw(percent.c_str(), pen, textY, size, textInk);
-        pen += type().measure(percent, size) + spacing;
+        type().drawCentred(separator, pen, centreY, text, textInk);
+        pen += type().measure(separator, text) + spacing;
+        type().drawCentred(percent, pen, centreY, text, textInk);
+        pen += type().measure(percent, text) + spacing;
         paintBattery(pen, centreY, icon, *view.battery);
     }
 
@@ -159,10 +158,9 @@ void StatusPillPainter::paintGlyph(float x, float y, float size) const {
     const RoundRect cap{Rect{x, y, size, size * 0.86f}, size * 0.2f};
     fillRoundRect(cap, flat(glyphFace));
     fillBand(cap, cap.grown(-std::max(size * 0.06f, 1.0f)), flat(glyphInk));
-    const int text = static_cast<int>(std::lround(size * 0.42f));
+    const TextStyle text{type().emForLineBox(size * 0.42f)};
     const float width = type().measure("R2", text);
-    type().draw("R2", cap.rect.centreX() - width * 0.5f,
-                cap.rect.centreY() - static_cast<float>(text) * 0.5f, text, glyphInk);
+    type().drawCentred("R2", cap.rect.centreX() - width * 0.5f, cap.rect.centreY(), text, glyphInk);
 }
 
 } // namespace iideck::ui

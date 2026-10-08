@@ -118,17 +118,11 @@ Offscreen rendering is how the layout became checkable at all: the shell is a
 Wayland window, which this machine's screenshot tooling cannot see. raylib
 renders to a texture and exports it, so a frame is a file.
 
-Type is Nunito Bold, which is the reference's own typeface, shipped in `assets/`
-under the OFL with the licence beside it. Google Fonts publishes it only as a
-variable font, and raylib loads glyphs through stb_truetype, which ignores
-variation tables and would therefore render the file's default master: light
-rather than bold. The shipped face is a static instance pinned to weight 700,
-produced with
-
-```sh
-uvx --from fonttools fonttools varLib.instancer \
-    assets/Nunito.ttf wght=700 -o assets/Nunito-Bold.ttf
-```
+Type is Cal Sans 1.000, iiSU's default face (`pp4.a`; the others it offers are Console Sans
+and Arctainium), shipped in `assets/` under the OFL with the licence beside it. The file is the
+Google Fonts build, which matches the one in iiSU's APK in metrics and Latin-1 outlines. Text
+sizes are Android's: the em in pixels, with letter spacing in ems; `Typeface` converts to
+stb_truetype's ascent-to-descent pixel height from the face's `hhea` table.
 
 Gap: the per-platform HSL tinting the reference applies to artwork is not
 implemented, so covers are shown at their store's own colours.

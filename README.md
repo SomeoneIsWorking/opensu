@@ -80,9 +80,5 @@ pressing play reports which emulator is missing rather than doing nothing.
 
 ## Typeface
 
-`assets/Nunito-Bold.ttf` is Nunito, the typeface the reference design uses,
-under the SIL Open Font License; the licence is beside it in
-`assets/Nunito-OFL.txt`. It ships as a static instance pinned to weight 700,
-because Google Fonts publishes only the variable font and raylib reads glyphs
-through stb_truetype, which ignores variation tables and would render the
-light default master instead.
+`assets/CalSans-Regular.ttf` is Cal Sans, the typeface iiSU uses by default, under the
+SIL Open Font License; the licence is beside it in `assets/CalSans-OFL.txt`.

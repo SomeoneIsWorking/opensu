@@ -63,7 +63,7 @@ Painters and composition (`iideck_ui`):
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |
 | `src/ui/platform.*`, `platform_stroke.cpp` | Console border sprites, logos, stroke colours |
-| `src/ui/typeface.*` | Text drawing |
+| `src/ui/typeface.*`, `face_metrics.*` | Text drawing at Android em sizes; the face's line metrics |
 
 ## Tests and docs
 

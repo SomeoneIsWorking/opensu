@@ -1,26 +1,27 @@
 #include "typeface.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <iterator>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "config/config.hpp"
+#include "face_metrics.hpp"
 #include "lucent/log.h"
 
 namespace iideck::ui {
 namespace {
 
-/// Candidate faces, in order. Nunito is the reference's own typeface; the others
-/// are fallbacks for a machine without it. Only TrueType outlines load here, so a
-/// rounded CFF face such as Comfortaa cannot be used.
+/// Candidate faces, in order. Cal Sans is iiSU's default face; the others are fallbacks for a
+/// machine without it.
 const char* const kFacePaths[] = {
-    "Nunito-Bold.ttf",
+    "CalSans-Regular.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/google-noto/NotoSans-Bold.ttf",
 };
-
-/// Extra spacing between glyphs, in pixels at the face's own scale.
-constexpr float spacing = 0.0f;
 
 /// Printable ASCII, Latin-1 and the typographic punctuation labels use; raylib's default
 /// atlas stops at 126, so a "·" drew as "?".
@@ -38,6 +39,27 @@ std::vector<int> atlasCodepoints() {
     return codepoints;
 }
 
+std::optional<FaceMetrics> readFaceFile(const std::string& path) {
+    std::ifstream stream{path, std::ios::binary};
+    if (!stream) {
+        return std::nullopt;
+    }
+    std::vector<char> bytes{std::istreambuf_iterator<char>{stream},
+                            std::istreambuf_iterator<char>{}};
+    return readFaceMetrics(std::as_bytes(std::span{bytes}));
+}
+
+/// UTF-8 labels are drawn and measured per decoded codepoint.
+template <typename Visit> void forEachCodepoint(std::string_view text, Visit visit) {
+    const std::string owned{text};
+    for (const char* p = owned.c_str(); *p != '\0';) {
+        int bytes = 0;
+        const int codepoint = GetCodepointNext(p, &bytes);
+        p += std::max(bytes, 1);
+        visit(codepoint);
+    }
+}
+
 } // namespace
 
 Typeface::Typeface()
@@ -46,6 +68,10 @@ Typeface::Typeface()
         const std::string path = candidate[0] == '/'
                                      ? std::string{candidate}
                                      : config::read().assetsDir.string() + "/" + candidate;
+        const std::optional<FaceMetrics> metrics = readFaceFile(path);
+        if (!metrics) {
+            continue;
+        }
         // Loaded once to validate: a face that fails here is reported rather than
         // silently falling back at the first label.
         const Font probe = LoadFontEx(path.c_str(), probeSize, nullptr, 0);
@@ -53,6 +79,7 @@ Typeface::Typeface()
             UnloadFont(probe);
             path_ = path;
             custom_ = true;
+            lineBoxPerEm_ = metrics->lineBoxPerEm();
             lucent::info("ui", "typeface loaded from {}", path);
             return;
         }
@@ -72,13 +99,21 @@ Typeface::~Typeface() {
     delete[] cache_;
 }
 
-Font Typeface::face(int size) {
-    size = std::max(size, 1);
+float Typeface::lineBox(const TextStyle& style) const noexcept {
+    return style.size * lineBoxPerEm_;
+}
+
+float Typeface::emForLineBox(float height) const noexcept {
+    return height / lineBoxPerEm_;
+}
+
+Font Typeface::face(int lineBoxPx) {
+    lineBoxPx = std::max(lineBoxPx, 1);
     if (!custom_) {
         return GetFontDefault();
     }
     for (Entry& entry : std::span{cache_, static_cast<std::size_t>(entries_)}) {
-        if (entry.loaded && entry.size == size) {
+        if (entry.loaded && entry.size == lineBoxPx) {
             return entry.font;
         }
     }
@@ -86,13 +121,14 @@ Font Typeface::face(int size) {
         if (entry.loaded) {
             continue;
         }
-        const Font loaded = LoadFontEx(path_.c_str(), size, codepoints_.data(),
+        // stb_truetype's pixel height is the line box, ascent to descent.
+        const Font loaded = LoadFontEx(path_.c_str(), lineBoxPx, codepoints_.data(),
                                        static_cast<int>(codepoints_.size()));
         if (loaded.texture.id == 0) {
             return GetFontDefault();
         }
         entry.font = loaded;
-        entry.size = size;
+        entry.size = lineBoxPx;
         entry.loaded = true;
         return entry.font;
     }
@@ -106,34 +142,30 @@ Font Typeface::face(int size) {
     return GetFontDefault();
 }
 
-float Typeface::measure(std::string_view text, int size) {
-    if (!custom_) {
-        return MeasureText(std::string{text}.c_str(), size);
-    }
-    const Font face = this->face(size);
-    const std::string owned{text};
-    return MeasureTextEx(face, owned.c_str(), static_cast<float>(size), spacing).x;
+float Typeface::measure(std::string_view text, const TextStyle& style) {
+    const float box = lineBox(style);
+    const Font font = face(static_cast<int>(std::lround(box)));
+    const float tracking = style.tracking * style.size;
+    float width = 0.0f;
+    forEachCodepoint(text, [&](int codepoint) {
+        // raylib has no per-codepoint measure, so a one-element array is the way to get one
+        // glyph's advance.
+        width += MeasureTextCodepoints(font, &codepoint, 1, box, 0.0f).x + tracking;
+    });
+    return width;
 }
 
-void Typeface::draw(const char* text, float x, float y, int size, Color colour) {
-    if (!custom_) {
-        DrawText(text, static_cast<int>(x), static_cast<int>(y), size, colour);
-        return;
-    }
-    const Font face = this->face(size);
-    float pen = x;
-    // Labels are UTF-8, so a glyph is a decoded codepoint, not a byte.
-    for (const char* p = text; *p != '\0';) {
-        int bytes = 0;
-        const int glyph = GetCodepointNext(p, &bytes);
-        p += std::max(bytes, 1);
-        DrawTextCodepoint(face, glyph, {pen, y}, static_cast<float>(size), colour);
-        // raylib has no per-codepoint measure, so a one-element array is the
-        // way to get this glyph's advance.
-        const Vector2 advance =
-            MeasureTextCodepoints(face, &glyph, 1, static_cast<float>(size), spacing);
-        pen += advance.x;
-    }
+void Typeface::drawCentred(std::string_view text, float x, float centreY, const TextStyle& style,
+                           Color colour) {
+    const float box = lineBox(style);
+    const Font font = face(static_cast<int>(std::lround(box)));
+    const float tracking = style.tracking * style.size;
+    const float top = centreY - box * 0.5f;
+    float pen = x + tracking * 0.5f;
+    forEachCodepoint(text, [&](int codepoint) {
+        DrawTextCodepoint(font, codepoint, {pen, top}, box, colour);
+        pen += MeasureTextCodepoints(font, &codepoint, 1, box, 0.0f).x + tracking;
+    });
 }
 
 Typeface& type() {

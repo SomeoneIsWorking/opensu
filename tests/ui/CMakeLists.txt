@@ -16,3 +16,9 @@ add_executable(round_shape_test round_shape_test.cpp)
 target_link_libraries(round_shape_test PRIVATE iideck::ui)
 target_compile_options(round_shape_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME round_shape COMMAND round_shape_test)
+
+add_executable(face_metrics_test face_metrics_test.cpp)
+target_link_libraries(face_metrics_test PRIVATE iideck::ui)
+target_compile_options(face_metrics_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME face_metrics
+    COMMAND face_metrics_test "${CMAKE_SOURCE_DIR}/assets/CalSans-Regular.ttf")
