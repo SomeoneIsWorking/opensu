@@ -18,6 +18,9 @@
 #include <vector>
 
 #include "desktop_steam.hpp"
+#include "devtools.hpp"
+#include "downloads.hpp"
+#include "install_wizard.hpp"
 #include "launch/instance.hpp"
 #include "launch/steam_gate.hpp"
 
@@ -45,22 +48,23 @@ class Client final : public launch::SteamGate {
     Client& operator=(const Client&) = delete;
     ~Client() override;
 
-    /// Starts `steam -silent` in its scope, on a DBus session bus of its own, and begins
-    /// watching it. The state is
-    /// Blocked when a Steam client already runs outside iideck, and Failed when
-    /// Steam cannot be started. Does nothing unless the state is Stopped.
+    /// Starts `steam -silent -cef-enable-debugging` in its scope, on a DBus session bus of its own,
+    /// and begins watching it. The state is Blocked when a Steam client already runs outside
+    /// iideck, and Failed when Steam cannot be started. Does nothing unless the state is Stopped.
     void start();
 
     /// Asks the client to exit with `steam -shutdown`, waits up to shutdownWait for
     /// it, then stops the scope. The state ends as Stopped.
     void shutdown();
 
-    /// Asks Steam to download an app: writes the install request, then restarts the client,
-    /// which acts on it when it starts. Blocks for the restart, so callers run it off the main
-    /// thread. Throws std::runtime_error when the request cannot be written.
-    void install(std::string_view appId, std::string_view name);
-    /// True once the app is fully installed with no update pending.
+    /// Steam's installer, driven through the running client.
+    [[nodiscard]] InstallWizard& installer() noexcept {
+        return installer_;
+    }
+    /// True once the app's manifest says it is fully installed with no update pending.
     [[nodiscard]] bool installed(std::string_view appId) const;
+    /// Steam's unfinished downloads as last read, at most a second old while Steam is ready.
+    [[nodiscard]] std::vector<Download> downloads() const;
 
     [[nodiscard]] launch::SteamState state() const override;
     [[nodiscard]] launch::SteamState waitReady(std::chrono::milliseconds timeout,
@@ -75,6 +79,8 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] bool logonCompleted();
 
     void setState(launch::SteamState state);
+    /// Rereads the download queue; keeps the last one when Steam cannot be asked.
+    void refreshDownloads();
 
     Options options_;
     DesktopSteam desktop_;
@@ -83,11 +89,17 @@ class Client final : public launch::SteamGate {
     /// How much of the connection log predates this client; only later lines count.
     std::uintmax_t logOffset_{0};
     launch::Instance instance_;
+    DevTools devTools_;
+    DownloadQueue queue_{devTools_};
+    InstallWizard installer_{devTools_};
 
     mutable std::mutex mutex_;
     std::condition_variable changed_;
     launch::SteamState state_{launch::SteamState::Stopped};
     bool stopping_{false};
+    std::vector<Download> downloads_;
+    /// The last reason the queue could not be read, logged once per change.
+    std::string queueError_;
     std::thread watcher_;
 };
 

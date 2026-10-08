@@ -55,6 +55,15 @@ enum class ServiceState {
     Blocked,
 };
 
+/// The download Steam is running in the background, as the top bar shows it.
+struct BackgroundDownload {
+    std::string title;
+    /// 0 to 1.
+    double progress{0.0};
+    /// A first install rather than an update.
+    bool installing{false};
+};
+
 class Hud {
   public:
     using Clock = std::chrono::steady_clock;
@@ -81,6 +90,9 @@ class Hud {
     }
     void setSteamState(ServiceState state) noexcept {
         steamState_ = state;
+    }
+    void setDownload(std::optional<BackgroundDownload> download) {
+        download_ = std::move(download);
     }
     void setToast(std::string text, bool isError, Clock::time_point now);
     /// Clears a toast whose time is up.
@@ -118,6 +130,8 @@ class Hud {
     std::string clock_;
     std::optional<device::BatteryStatus> battery_;
     ServiceState steamState_{ServiceState::Hidden};
+    std::optional<BackgroundDownload> download_;
+    Clock::time_point now_{};
     std::string toast_;
     bool toastError_{false};
     Clock::time_point toastUntil_{};

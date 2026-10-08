@@ -8,6 +8,7 @@
 #include "raylib.h"
 
 #include "battery_icon.hpp"
+#include "progress_spinner.hpp"
 #include "round_shape.hpp"
 #include "typeface.hpp"
 
@@ -16,6 +17,9 @@ namespace {
 
 // iiSU res/drawable/battery_*_dark.png and bell_icon.png ink.
 constexpr Color iconInk{0x4D, 0x46, 0x55, 255};
+// iiSU a32.n: the spinner's stroke, and its colour, the theme's surfaceTint (light primary).
+constexpr float spinnerStroke = 3.0f;
+constexpr Color spinnerInk = iconInk;
 // iiSU res/drawable/bell_icon.png: the bell over the ink disc.
 constexpr Color bellFace{0xF5, 0xF5, 0xF5, 255};
 // iiSU res/drawable/rt_button.png: white cap, #726B78 outline and letters.
@@ -73,6 +77,14 @@ void StatusPillPainter::paint(const StatusPillView& view) const {
     // STOPGAP: the bell is drawn at the progress ring's size because a32.n's icon size is not in
     // the spec.
     paintBell(body.x + bellColumn * 0.5f, centreY, m.ringSize * dp);
+    if (view.busySeconds) {
+        // STOPGAP: the spinner circles the bell, one stroke clear of it, because a32.n's ring sits
+        // under a bell icon larger than itself (f4 22c, f9 50c) and the Box alignments that keep
+        // it visible (wj0.o, wj0.k) are unresolved.
+        const float stroke = spinnerStroke * dp;
+        drawSpinner(Vector2{body.x + bellColumn * 0.5f, centreY}, m.ringSize * dp + stroke * 4.0f,
+                    stroke, spinnerInk, *view.busySeconds);
+    }
 
     // 2. The text row (iiSU a32.p): clock | NN% battery.
     const TextStyle text{m.fontSize * dp};

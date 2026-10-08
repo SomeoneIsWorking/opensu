@@ -10,3 +10,7 @@ set_tests_properties(steam_client PROPERTIES TIMEOUT 180)
 foreach(test desktop_steam_test steam_client_test)
     target_compile_definitions(${test} PRIVATE IIDECK_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 endforeach()
+
+add_executable(steam_devtools_test devtools_test.cpp)
+target_link_libraries(steam_devtools_test PRIVATE iideck::steam lucent::lucent Threads::Threads)
+add_test(NAME steam_devtools COMMAND steam_devtools_test)

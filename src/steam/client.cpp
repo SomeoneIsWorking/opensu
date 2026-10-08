@@ -19,7 +19,7 @@ using launch::SteamState;
 
 /// How often the watcher looks while Steam is coming up, then once it is up.
 constexpr auto startingPoll = std::chrono::milliseconds{500};
-constexpr auto runningPoll = std::chrono::milliseconds{5000};
+constexpr auto runningPoll = std::chrono::milliseconds{1000};
 /// How often a waiter checks for cancellation.
 constexpr auto cancelPoll = std::chrono::milliseconds{100};
 constexpr auto shutdownCommandWait = std::chrono::milliseconds{30000};
@@ -86,10 +86,11 @@ void Client::start() {
     logOffset_ = ec ? 0 : size;
 
     // A bus of its own keeps Steam's tray icon and notifications off the desktop's panel;
-    // -applaunch and -shutdown reach it through its pipe, not the bus.
+    // -applaunch and -shutdown reach it through its pipe, not the bus. DevTools carries the
+    // download queue and the installer.
     std::string failure;
     if (!instance_.start(options_.session + "-steam.scope", privateBus.string(),
-                         {"--", program_.string(), "-silent"}, failure)) {
+                         {"--", program_.string(), "-silent", "-cef-enable-debugging"}, failure)) {
         lucent::error("steam", "{}", failure);
         setState(SteamState::Failed);
         return;
@@ -143,6 +144,9 @@ void Client::watch() {
         lock.unlock();
         const bool alive = instance_.running();
         const bool ready = alive && current == SteamState::Initializing && logonCompleted();
+        if (alive && (ready || current == SteamState::Ready)) {
+            refreshDownloads();
+        }
         lock.lock();
         if (stopping_) {
             break;
@@ -165,26 +169,38 @@ void Client::watch() {
     }
 }
 
-void Client::install(std::string_view appId, std::string_view name) {
-    library::steam::Library::discover(options_.home, options_.steamRoots)
-        .requestInstall(appId, name);
-    // Steam reads app manifests only when it starts.
-    lucent::info("steam", "restarting Steam to install {}", name);
-    shutdown();
-    start();
-}
-
 bool Client::installed(std::string_view appId) const {
     return library::steam::Library::discover(options_.home, options_.steamRoots).installed(appId);
 }
 
-std::optional<double> Client::updateProgress(std::string_view appId) const {
-    const std::optional<library::steam::AppUpdate> update =
-        library::steam::Library::discover(options_.home, options_.steamRoots).pendingUpdate(appId);
-    if (!update) {
-        return std::nullopt;
+void Client::refreshDownloads() {
+    std::string error;
+    std::optional<std::vector<Download>> queue = queue_.read(error);
+    const std::lock_guard lock{mutex_};
+    if (!queue) {
+        if (error != queueError_) {
+            lucent::warn("steam", "cannot read the download queue: {}", error);
+            queueError_ = error;
+        }
+        return;
     }
-    return update->progress();
+    queueError_.clear();
+    downloads_ = std::move(*queue);
+}
+
+std::vector<Download> Client::downloads() const {
+    const std::lock_guard lock{mutex_};
+    return downloads_;
+}
+
+std::optional<double> Client::updateProgress(std::string_view appId) const {
+    const std::lock_guard lock{mutex_};
+    for (const Download& download : downloads_) {
+        if (download.appId == appId) {
+            return download.progress;
+        }
+    }
+    return std::nullopt;
 }
 
 SteamState Client::waitReady(std::chrono::milliseconds timeout,
@@ -219,6 +235,10 @@ void Client::shutdown() {
         }
     }
     instance_.stop();
+    {
+        const std::lock_guard lock{mutex_};
+        downloads_.clear();
+    }
     setState(SteamState::Stopped);
 }
 

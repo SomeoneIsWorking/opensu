@@ -33,6 +33,7 @@ guessed. G002 builds only on rows marked grounded.
 | Music presets, loop windows, fades | grounded | `reference/iisu/input-sound.md` §4 |
 | Motion: focus, domino entrance, pulse, dialogs, startup | grounded | `reference/iisu/motion.md` §1–4 |
 | Motion: idle pause default, domino replay on return, art fade-in | missing | `reference/iisu/motion.md` §6 |
+| Status pill bell while tasks run: Material indeterminate ring (of6.a, stroke 3, surfaceTint) of f4 = clamp(22c,10,28) behind a bell icon box f9 = clamp(50c,18,62) at (f7, f8) = (max(0, fE15 - fE13), clamp(1c,0,6)) | partial | `a32.java:5472` (a32.n), sizes `a32.java:5896-5919`; the Box alignments wj0.o/wj0.k are unresolved, so how the ring shows around a larger icon is not known |
 | Game launch: pulse, OpenAppRom sound, music cut, 350 ms, then the app; no launch screen on one display ("LaunchScreen" is the dual-screen display chooser) | grounded | `reference/iisu/launch.md`; three callbacks on the launch path unresolved. iideck's launch panel is its own, since a PC game needs seconds to show a window |
 
 Spot-checked against the decompile: setContent call, dialog state names, 3×4

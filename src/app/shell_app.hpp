@@ -107,6 +107,10 @@ class ShellApp final : public ControlTarget {
     void offerInstall(const library::Game& game);
     /// Shows the install job's news on the panel and the catalog. Main loop only.
     void serviceInstall();
+    /// Asks the player about the install's licence agreements on the panel.
+    void presentEula();
+    /// The download Steam is running, named from the library, for the top bar.
+    [[nodiscard]] std::optional<ui::BackgroundDownload> backgroundDownload() const;
     /// Buttons while a game runs: Guide opens and closes the menu over it, which takes the
     /// rest. Main loop only.
     void actInGame(gamepad::Button button);
@@ -144,8 +148,10 @@ class ShellApp final : public ControlTarget {
     /// The running launch's title, for the Guide menu. Main loop only.
     std::string runningTitle_;
     /// What the launch panel is up for. Main loop only.
-    enum class PanelUse { None, Launch, OfferInstall, Install };
+    enum class PanelUse { None, Launch, OfferInstall, Install, Eula };
     PanelUse panelUse_{PanelUse::None};
+    /// A licence question that arrived while a launch held the panel.
+    bool eulaWaiting_{false};
     /// The game the panel offers to install. Main loop only.
     std::optional<library::Game> offered_;
     /// After steam_, so it is stopped before the client it drives.

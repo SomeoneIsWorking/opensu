@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <string>
 #include <utility>
 
 #include "clock_text.hpp"
@@ -50,6 +51,7 @@ void Hud::setToast(std::string text, bool isError, Clock::time_point now) {
 }
 
 void Hud::tick(Clock::time_point now) {
+    now_ = now;
     if (!toast_.empty() && now >= toastUntil_) {
         toast_.clear();
     }
@@ -81,7 +83,11 @@ void Hud::drawTopBar() const {
     const float boxRight = width - TopBarMetrics::rowPaddingEnd * dp + m.statusOffsetX(aspect) * dp;
     const Rect body{boxRight - (m.sizing().endPadding + pill.width) * dp, top, pill.width * dp,
                     pill.height * dp};
-    statusPill_.paint(StatusPillView{body, pill, dp, clock_, battery_});
+    std::optional<double> busy;
+    if (download_) {
+        busy = std::chrono::duration<double>(now_.time_since_epoch()).count();
+    }
+    statusPill_.paint(StatusPillView{body, pill, dp, clock_, battery_, busy});
     // STOPGAP: jj2.w's glass strip behind the status pill is not drawn because its geometry is
     // not in the spec.
 
@@ -113,6 +119,14 @@ void Hud::drawServiceStatus(float left, float centreY) const {
     case ServiceState::Hidden:
     case ServiceState::Ready:
         break;
+    }
+    std::string downloading;
+    if (steamState_ == ServiceState::Ready && download_) {
+        dot = palette::dotWorking;
+        downloading = std::string{download_->installing ? "Installing " : "Updating "} +
+                      download_->title + " · " +
+                      std::to_string(static_cast<int>(download_->progress * 100.0)) + "%";
+        label = downloading.c_str();
     }
 
     // A generic client glyph (a ring with a dot inside), the state dot, then the label.

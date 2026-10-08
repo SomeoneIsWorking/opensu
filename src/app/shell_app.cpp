@@ -302,6 +302,20 @@ void ShellApp::actOnPanel(gamepad::Button button) {
             panelUse_ = PanelUse::None;
         }
         break;
+    case PanelUse::Eula:
+        if (button == gamepad::Button::A || button == gamepad::Button::B) {
+            const bool accepted = button == gamepad::Button::A;
+            install_.decide(accepted);
+            if (accepted) {
+                panelUse_ = PanelUse::Install;
+                shell_.launchPanel().update("Starting the download", std::nullopt);
+                shell_.launchPanel().setHints({{"B", "Hide"}});
+            } else {
+                shell_.launchPanel().close();
+                panelUse_ = PanelUse::None;
+            }
+        }
+        break;
     case PanelUse::None:
         break;
     }
@@ -325,9 +339,49 @@ void ShellApp::offerInstall(const library::Game& game) {
     shell_.launchPanel().setHints({{"A", "Install"}, {"B", "Cancel"}});
 }
 
+void ShellApp::presentEula() {
+    eulaWaiting_ = false;
+    panelUse_ = PanelUse::Eula;
+    const std::string title = install_.title();
+    shell_.launchPanel().open(title);
+    shell_.launchPanel().update("Installing " + title + " means accepting its licence agreement",
+                                std::nullopt, false);
+    shell_.launchPanel().setHints({{"A", "Accept"}, {"B", "Decline"}});
+}
+
+std::optional<ui::BackgroundDownload> ShellApp::backgroundDownload() const {
+    for (const steam::Download& download : steam_.downloads()) {
+        if (!download.active) {
+            continue;
+        }
+        std::string title = "app " + download.appId;
+        for (const library::Game& game : games_) {
+            if (game.source == library::Source::Steam && game.sourceId == download.appId) {
+                title = game.title;
+                break;
+            }
+        }
+        return ui::BackgroundDownload{.title = std::move(title),
+                                      .progress = download.progress,
+                                      .installing = download.installing};
+    }
+    return std::nullopt;
+}
+
 void ShellApp::serviceInstall() {
+    if (eulaWaiting_ && panelUse_ != PanelUse::Launch) {
+        presentEula();
+    }
     const std::optional<InstallJob::Report> report = install_.take();
     if (!report) {
+        return;
+    }
+    if (!report->eulas.empty()) {
+        if (panelUse_ == PanelUse::Launch) {
+            eulaWaiting_ = true;
+        } else {
+            presentEula();
+        }
         return;
     }
     if (!report->finished) {
@@ -336,10 +390,11 @@ void ShellApp::serviceInstall() {
         }
         return;
     }
-    if (panelUse_ == PanelUse::Install) {
+    if (panelUse_ == PanelUse::Install || panelUse_ == PanelUse::Eula) {
         shell_.launchPanel().close();
         panelUse_ = PanelUse::None;
     }
+    eulaWaiting_ = false;
     const std::string title = install_.title();
     if (report->failure.empty()) {
         reloadCatalog();
@@ -713,6 +768,7 @@ int ShellApp::run() {
         serviceControlRequests();
         serviceRequests();
         shell_.setSteamState(serviceState(steam_.state()));
+        shell_.setDownload(backgroundDownload());
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
         shell_.draw();

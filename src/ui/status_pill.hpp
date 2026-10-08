@@ -20,6 +20,8 @@ struct StatusPillView {
     float dp{1.0f};
     std::string_view clock;
     std::optional<device::BatteryStatus> battery;
+    /// Seconds into the bell's spinner while background tasks run; nothing when none do.
+    std::optional<double> busySeconds;
 };
 
 class StatusPillPainter {

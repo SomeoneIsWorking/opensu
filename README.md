@@ -8,6 +8,10 @@ It is not an emulator and ships no games. Steam, Legendary and Heroic keep doing
 their own authentication, downloading and cloud sync; iideck reads what they have
 already installed and hands launches back to them.
 
+iideck runs Steam in the background with `-cef-enable-debugging`, which opens Steam's
+DevTools on 127.0.0.1:8080; that is how it reads download progress and starts
+installs through Steam's own installer.
+
 Built with C++20 and raylib. The shell is drawn from geometry rather than
 composed from images, so the layout is resolution independent and every size is
 derived from the window, following iiSU's own layout rules.

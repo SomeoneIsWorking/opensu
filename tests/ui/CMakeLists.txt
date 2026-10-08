@@ -27,3 +27,8 @@ add_executable(platform_test platform_test.cpp)
 target_link_libraries(platform_test PRIVATE iideck::ui)
 target_compile_options(platform_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME platform COMMAND platform_test)
+
+add_executable(progress_spinner_test progress_spinner_test.cpp)
+target_link_libraries(progress_spinner_test PRIVATE iideck::ui)
+target_compile_options(progress_spinner_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME progress_spinner COMMAND progress_spinner_test)

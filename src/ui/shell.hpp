@@ -147,6 +147,9 @@ class Shell {
     void setSteamState(ServiceState state) noexcept {
         hud_.setSteamState(state);
     }
+    void setDownload(std::optional<BackgroundDownload> download) {
+        hud_.setDownload(std::move(download));
+    }
     void setBattery(std::optional<device::BatteryStatus> battery) noexcept {
         hud_.setBattery(battery);
     }

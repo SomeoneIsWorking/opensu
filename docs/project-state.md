@@ -305,15 +305,18 @@ request it already handed to Steam.
 ### Installing Steam games
 
 A on a Steam game that is not installed offers to install it (A installs, B cancels).
-`steam::Client::install` writes an app manifest with StateFlags 1026
-(UpdateRequired|UpdateStarted) into the present library folder with the most free
-space, then restarts the background client, which reads manifests only at start and
-downloads the app without opening any window of its own. `app::InstallJob` follows
-the download through the manifest's byte counts ("Installing · N%" on the panel; B
-hides it and the download goes on), then reloads the catalog. Measured with the real
-client on this machine: Spacewar (480) went from a written manifest to StateFlags 4
-within seconds of the restart, with no dialog; `steam://install/<id>` instead opens
-Steam's own Install window, which a pad cannot drive and synthetic keys do not reach.
+`app::InstallJob` drives Steam's own installer through `steam::InstallWizard`, the
+same `SteamClient.Installs` calls Steam's library makes: OpenInstallWizard, then
+ContinueInstall at the config step with Steam's default library folder, until the
+wizard hands off. A licence agreement stops the job and the panel asks the player
+(A accepts and records it with `SteamClient.Apps.MarkEulaAccepted`, B declines and
+cancels the wizard); a CD key, password or sign-up step cancels with a toast. The
+download is then followed through the live queue ("Installing · N%" on the panel; B
+hides it and the download goes on), and the catalog is reloaded once the manifest
+says installed. Measured with the real client on this machine: Spacewar (480) opened
+the wizard, reached its EULA (`480_eula_0`) and cancelled cleanly
+(`scratch/update-progress/live`). Steam's UI shows its own "Install" popup while the
+wizard is open; whether that window takes Gamescope's focus has not been measured.
 Epic and GOG titles are listed only once installed by Legendary or Heroic; neither is
 signed in on this machine.
 
@@ -343,15 +346,20 @@ its windows stay inside Gamescope. Measured with a real Steam in a headless
 Gamescope: the item appears on the shared bus and not on a private one, logon still
 completes, and `-applaunch`/`-shutdown` still reach it through its pipe.
 
-A Steam game with a pending update is downloaded by Steam before it runs: its
-appmanifest carries StateFlags bit 2 (UpdateRequired) and
-`BytesToDownload`/`BytesDownloaded`/`BytesToStage`/`BytesStaged`. While that holds,
-the launch keeps the shell up, toasts `Updating <title> · N%`, and its three-minute
-appearance bound does not run; B cancels. Reproduced from a real run: BTD6
-(960090) with a 2.2 GB update left an empty Gamescope behind a hidden shell.
+Steam's downloads are read live from the client itself: Steam is started with
+`-cef-enable-debugging`, which serves Chrome DevTools on 127.0.0.1:8080, and
+`steam::DevTools` evaluates `SteamClient.Downloads` registrations in its
+SharedJSContext once a second while Ready (`steam::DownloadQueue`). App manifests are
+no use for this: during a measured BTD6 (960090) update at 44 Mbps the manifest's
+byte counts and StateFlags stayed unchanged for minutes while the client reported
+92% done. The queue drives three things: a launch of a game with an unfinished
+download keeps the shell up with `Updating · N%` and no appearance bound (B cancels);
+the bell in the status pill spins (iiSU a32.n) while any download is active; and the
+Steam indicator reads `Updating <title> · N%` or `Installing <title> · N%`.
+Reproduced from a real run: BTD6 with a 2.2 GB update left an empty Gamescope
+behind a hidden shell before the launch waited for it.
 
-
-`steam::Client` starts `dbus-run-session -- steam -silent` in `<session>-steam.scope`
+`steam::Client` starts `dbus-run-session -- steam -silent -cef-enable-debugging` in `<session>-steam.scope`
 when iideck starts, if a Steam install exists, and watches it: Initializing until a logon line
 (`[Logged On` with `RecvMsgClientLogOnResponse() : processing complete`) is
 appended to `$HOME/.steam/steam/logs/connection_log.txt` after the start, Failed when

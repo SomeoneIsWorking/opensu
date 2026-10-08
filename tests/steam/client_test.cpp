@@ -156,37 +156,6 @@ const auto never = [] {
     return false;
 };
 
-/// install() writes the request into the library and restarts Steam, which reads it on start.
-void testInstallRestartsSteam() {
-    const Fixture fixture{Mode::Ready};
-    const fs::path library = fixture.base / "Steam";
-    fs::create_directories(library / "steamapps");
-    fs::create_directories(library / "config");
-    Client::Options options = fixture.options();
-    options.steamRoots = {library};
-    Client client{options};
-    client.start();
-    expect(client.waitReady(std::chrono::seconds{30}, never) == SteamState::Ready, "ready");
-    const pid_t first = recordedPid(fixture.pidFile);
-
-    client.install("480", "Spacewar");
-    expect(fs::exists(library / "steamapps" / "appmanifest_480.acf"),
-           "the install request is in the library");
-    expect(client.updateProgress("480") == 0.0, "the requested app reads as not yet downloaded");
-    expect(client.state() == SteamState::Initializing, "Steam was started again");
-    expect(waitUntil(
-               [&fixture, first] {
-                   const pid_t now = recordedPid(fixture.pidFile);
-                   return now > 0 && now != first;
-               },
-               std::chrono::seconds{10}),
-           "a new Steam process runs");
-    expect(!alive(first), "the old one is gone");
-    expect(client.waitReady(std::chrono::seconds{30}, never) == SteamState::Ready,
-           "the restarted client logs on");
-    client.shutdown();
-}
-
 /// Initializing, then Ready once a logon is logged after the start; then a graceful
 /// shutdown ends the scope.
 void testReadyThenShutdown() {
@@ -341,7 +310,6 @@ void testDestructorShutsDown() {
 int main() {
     fs::create_directories(IIDECK_TEST_SCRATCH);
     testReadyThenShutdown();
-    testInstallRestartsSteam();
     testExitIsAFailure();
     testMissingSteamIsAFailure();
     testDesktopSteamBlocks();

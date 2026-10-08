@@ -12,7 +12,7 @@ gitignored `docs/reference/`).
 | `src/main.cpp` | Argument parsing; starts the nested session or the shell; `--render FILE` renders one frame headless |
 | `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop |
 | `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`) |
-| `src/app/install_job.*` | One Steam install: requests it, follows its download, reports to the loop |
+| `src/app/install_job.*` | One Steam install: walks the installer, waits on the player's licence answer, follows the download |
 | `src/config/config.*` | The one reader of the environment, into typed immutable config |
 
 ## Session and processes (G003, G004)
@@ -33,6 +33,9 @@ gitignored `docs/reference/`).
 | `src/launch/game_windows.hpp` | What the handoff asks the display: does the game show a window yet |
 | `src/steam/client.*` | The Steam client iideck owns: start in background, readiness, state |
 | `src/steam/desktop_steam.*` | Detecting a Steam client running outside iideck |
+| `src/steam/devtools.*` | Running JavaScript in Steam's SharedJSContext over Chrome DevTools |
+| `src/steam/downloads.*` | Steam's live download queue: parsing and reading it |
+| `src/steam/install_wizard.*` | Installing a Steam app through Steam's own installer, licence steps to the player |
 
 ## Library
 
@@ -73,6 +76,7 @@ Painters and composition (`iideck_ui`):
 | `src/ui/shell.*` | The home screen: tiles, focus, paging, draw order |
 | `src/ui/hud.*` | Chrome around the grid: ground, top bar, corner hints, toast; grid insets |
 | `src/ui/status_pill.*`, `glass.*` | Status pill and its glass body |
+| `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (the bell's busy ring) |
 | `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`) |
 | `src/ui/game_menu_painter.*` | The Guide menu over a running game |
 | `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art, platform frame |

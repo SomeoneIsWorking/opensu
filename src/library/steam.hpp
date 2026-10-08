@@ -1,8 +1,7 @@
 // steam — reads a local Steam installation: which apps exist, whether they are
 // installed, what artwork exists, and when they were last played.
 //
-// It never talks to the Steam client. The one thing it writes is an install request: an app
-// manifest that tells Steam, when it next starts, to download the app.
+// It never talks to the Steam client and never writes.
 #pragma once
 
 #include <cstdint>
@@ -22,18 +21,6 @@ struct LibraryFolder {
     /// Identifies the physical library. Steam assigns the same value to two
     /// mount points of one drive, which would otherwise duplicate every game.
     std::string contentId;
-};
-
-/// An update Steam has to apply before it will run an app.
-struct AppUpdate {
-    std::uint64_t downloaded{0};
-    std::uint64_t toDownload{0};
-    std::uint64_t staged{0};
-    std::uint64_t toStage{0};
-
-    /// How far through it Steam is, 0 to 1: downloading and staging count byte for byte. 0
-    /// while Steam has not sized it yet.
-    [[nodiscard]] double progress() const noexcept;
 };
 
 /// Reads a local Steam installation.
@@ -56,18 +43,8 @@ class Library {
     /// Lists every app the installation knows about, installed or not.
     [[nodiscard]] std::vector<Game> list() const;
 
-    /// The update an app's manifest says Steam must apply first; nothing when none is pending
-    /// or the app has no manifest.
-    [[nodiscard]] std::optional<AppUpdate> pendingUpdate(std::string_view appId) const;
-
     /// True when the app's manifest says it is fully installed with no update pending.
     [[nodiscard]] bool installed(std::string_view appId) const;
-
-    /// Asks Steam to install an app the next time it starts: writes a manifest marking it as
-    /// needing an update, over the app's own manifest when it has one, else into the library
-    /// folder with the most free space. Returns the manifest. Throws std::runtime_error when
-    /// there is no folder or the manifest cannot be written; leaves an installed app alone.
-    std::filesystem::path requestInstall(std::string_view appId, std::string_view name) const;
 
   private:
     [[nodiscard]] std::optional<std::filesystem::path> manifestOf(std::string_view appId) const;

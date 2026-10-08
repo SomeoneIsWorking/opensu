@@ -123,8 +123,6 @@ bool isSteamComponent(const std::string& installDir) {
 /// StateFlags bits: the app is fully installed; an update must be applied before it runs.
 constexpr long long kFullyInstalled = 4;
 constexpr long long kUpdateRequired = 2;
-/// Set with UpdateRequired on a request Steam is to act on at its next start.
-constexpr long long kUpdateStarted = 1024;
 
 bool stateFlagsInstalled(const Node& state) {
     const std::optional<long long> flags = state.integer({"StateFlags"});
@@ -418,14 +416,6 @@ std::vector<LibraryFolder> Library::libraryFolders() const {
     return presentFolders(std::move(folders));
 }
 
-double AppUpdate::progress() const noexcept {
-    const std::uint64_t total = toDownload + toStage;
-    if (total == 0) {
-        return 0.0;
-    }
-    return std::min(1.0, static_cast<double>(downloaded + staged) / static_cast<double>(total));
-}
-
 std::optional<fs::path> Library::manifestOf(std::string_view appId) const {
     const std::string file = "appmanifest_" + std::string{appId} + ".acf";
     for (const LibraryFolder& folder : libraryFolders()) {
@@ -447,81 +437,6 @@ long long Library::stateFlags(std::string_view appId) const {
 bool Library::installed(std::string_view appId) const {
     const long long flags = stateFlags(appId);
     return (flags & kFullyInstalled) != 0 && (flags & kUpdateRequired) == 0;
-}
-
-fs::path Library::requestInstall(std::string_view appId, std::string_view name) const {
-    const std::string file = "appmanifest_" + std::string{appId} + ".acf";
-    const std::optional<fs::path> existing = manifestOf(appId);
-    if (existing && (stateFlags(appId) & kFullyInstalled) != 0) {
-        return *existing;
-    }
-    const std::vector<LibraryFolder> folders = libraryFolders();
-    const auto freeSpace = [](const LibraryFolder& folder) {
-        std::error_code ec;
-        const fs::space_info space = fs::space(folder.path, ec);
-        return ec ? std::uintmax_t{0} : space.available;
-    };
-    const auto roomiest = std::ranges::max_element(folders, {}, freeSpace);
-    if (!existing && roomiest == folders.end()) {
-        throw std::runtime_error{"no Steam library folder to install into"};
-    }
-
-    // Steam renames the install folder to its own choice when it downloads; this one only has
-    // to be a valid name.
-    std::string installDir;
-    for (const char c : name) {
-        installDir.push_back(c == '/' || c == '\\' || c == '"' ? ' ' : c);
-    }
-    std::string quotedName;
-    for (const char c : name) {
-        if (c != '"') {
-            quotedName.push_back(c);
-        }
-    }
-    // An uninstalled app's own manifest is reused, so Steam never sees two for one app.
-    const fs::path manifest = existing ? *existing : roomiest->path / "steamapps" / file;
-    std::ofstream out{manifest, std::ios::binary};
-    out << "\"AppState\"\n{\n"
-        << "\t\"appid\"\t\t\"" << appId << "\"\n"
-        << "\t\"Universe\"\t\t\"1\"\n"
-        << "\t\"name\"\t\t\"" << quotedName << "\"\n"
-        << "\t\"StateFlags\"\t\t\"" << (kUpdateRequired | kUpdateStarted) << "\"\n"
-        << "\t\"installdir\"\t\t\"" << installDir << "\"\n"
-        << "}\n";
-    out.close();
-    if (!out) {
-        throw std::runtime_error{"cannot write " + manifest.string()};
-    }
-    lucent::info("steam", "asked Steam to install {} through {}", name, manifest.string());
-    return manifest;
-}
-
-std::optional<AppUpdate> Library::pendingUpdate(std::string_view appId) const {
-    const std::string file = "appmanifest_" + std::string{appId} + ".acf";
-    for (const LibraryFolder& folder : libraryFolders()) {
-        const fs::path manifest = folder.path / "steamapps" / file;
-        std::error_code ec;
-        if (!fs::is_regular_file(manifest, ec)) {
-            continue;
-        }
-        const std::optional<Node> doc = vdf::parseFile(manifest);
-        const std::optional<Node> state = doc ? doc->block({"AppState"}) : std::nullopt;
-        if (!state) {
-            continue;
-        }
-        const long long flags = state->integer({"StateFlags"}).value_or(0);
-        if ((flags & kUpdateRequired) == 0) {
-            return std::nullopt;
-        }
-        const auto bytes = [&state](std::string_view key) {
-            return static_cast<std::uint64_t>(std::max(0LL, state->integer({key}).value_or(0)));
-        };
-        return AppUpdate{.downloaded = bytes("BytesDownloaded"),
-                         .toDownload = bytes("BytesToDownload"),
-                         .staged = bytes("BytesStaged"),
-                         .toStage = bytes("BytesToStage")};
-    }
-    return std::nullopt;
 }
 
 std::vector<Game> Library::list() const {
