@@ -29,8 +29,9 @@ class DirectionRepeat {
 
   private:
     Button held_{Button::None};
+    /// The press not yet answered with a move.
+    Button pending_{Button::None};
     Clock::time_point next_{};
-    bool first_{true};
 };
 
 } // namespace iideck::gamepad

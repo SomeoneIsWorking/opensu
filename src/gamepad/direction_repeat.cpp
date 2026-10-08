@@ -9,8 +9,8 @@ bool DirectionRepeat::repeats(Button button) {
 
 void DirectionRepeat::press(Button direction, Clock::time_point now) {
     held_ = direction;
+    pending_ = direction;
     next_ = now;
-    first_ = true;
 }
 
 void DirectionRepeat::release(Button direction) {
@@ -20,11 +20,17 @@ void DirectionRepeat::release(Button direction) {
 }
 
 std::optional<Button> DirectionRepeat::poll(Clock::time_point now) {
+    // A press moves once even when it was released before this poll.
+    if (pending_ != Button::None) {
+        const Button direction = pending_;
+        pending_ = Button::None;
+        next_ = now + delay;
+        return direction;
+    }
     if (held_ == Button::None || now < next_) {
         return std::nullopt;
     }
-    next_ = now + (first_ ? delay : interval);
-    first_ = false;
+    next_ = now + interval;
     return held_;
 }
 

@@ -35,6 +35,13 @@ int main() {
     tap.release(Button::Down);
     expect(movesOver(tap, start, 2000ms) == 0, "a released direction stops");
 
+    DirectionRepeat quick;
+    quick.press(Button::Right, start);
+    quick.release(Button::Right);
+    expect(quick.poll(start + 16ms) == Button::Right,
+           "a tap released before the frame polls still moves once");
+    expect(movesOver(quick, start + 16ms, 2000ms) == 0, "and only once");
+
     DirectionRepeat held;
     held.press(Button::Right, start);
     expect(movesOver(held, start, 390ms) == 1, "a held direction waits before repeating");
