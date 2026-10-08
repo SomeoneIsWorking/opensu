@@ -1,5 +1,6 @@
 // artwork_fetcher — downloads missing artwork in the background: a Steam game's library
-// portrait from Steam's CDN, a ROM's box art from libretro-thumbnails, an Epic game's key image
+// portrait from Steam's CDN, a GOG game's portrait cover from gamesdb (else its library tile),
+// a ROM's box art from libretro-thumbnails, an Epic game's key image
 // from its own URL, a console's card from iiSU's starter pack, its frame glyph from iiSU's border
 // pack, and its UI sounds and dock icons from the APK as they are. Each file is kept in the store
 // and handed back for the shell to use.
@@ -35,6 +36,7 @@ struct RemoteSources {
     std::string steam{"https://cdn.cloudflare.steamstatic.com/steam/apps"};
     std::string iisuApk{iisuApkUrl};
     PackPin iisuPin{iisuPackPin};
+    std::string gogdb{"https://gamesdb.gog.com/platforms/gog/external_releases"};
 };
 
 /// A game's, console's, system glyph's, UI sound's or dock icon's file, now on disk.
@@ -88,6 +90,7 @@ class ArtworkFetcher {
     [[nodiscard]] Fetched arrived(const Work& work) const;
     void recordMiss(const Work& work) const;
     Outcome fetchSteam(const library::Game& game);
+    Outcome fetchGog(const library::Game& game);
     Outcome fetchRom(const library::Game& game);
     Outcome keep(const library::Game& game, const std::string& url);
     /// A system's libretro listing from the store or the server; null when unreachable.

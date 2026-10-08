@@ -86,6 +86,21 @@ class FakeSources {
         if (path == "/epic/tall.jpg") {
             return lucent::http::Response::binary(200, "OK", "image/jpeg", "epic tall");
         }
+        if (path == "/gogdb/1001") {
+            return lucent::http::Response::json(
+                200, "OK",
+                R"({"game":{"vertical_cover":{"url_format":")" + base() +
+                    R"(/gogimg/abc{formatter}.{ext}?namespace=gamesdb"}}})");
+        }
+        if (path == "/gogimg/abc_glx_vertical_cover.jpg") {
+            return lucent::http::Response::binary(200, "OK", "image/jpeg", "gog portrait");
+        }
+        if (path == "/gogdb/1002") {
+            return lucent::http::Response::json(200, "OK", R"({"game":{}})");
+        }
+        if (path == "/gogtile/def_196.jpg") {
+            return lucent::http::Response::binary(200, "OK", "image/jpeg", "gog tile");
+        }
         if (path == "/libretro/Nintendo%20-%20GameCube/Named_Boxarts/") {
             return lucent::http::Response::text(
                 200, "OK",
@@ -109,20 +124,35 @@ void testFetches(const fs::path& root) {
     ArtworkStore store{root};
     Game epic = game(Source::Epic, "epic:Owned", "Owned");
     epic.artworkUrl = sources.base() + "/epic/tall.jpg";
+    Game gogPortrait = game(Source::Gog, "gog:1001", "1001");
+    Game gogTile = game(Source::Gog, "gog:1002", "1002");
+    gogTile.artworkUrl = sources.base() + "/gogtile/def";
     const std::vector<Game> games{
         game(Source::Steam, "steam:440", "440"),
         game(Source::Rom, "rom:sunshine", "gc", "Super Mario Sunshine"),
         game(Source::Rom, "rom:nothing", "gc", "No Such Game (USA)"),
         game(Source::Rom, "rom:switch", "switch", "Xenoblade Chronicles 2"),
         epic,
+        gogPortrait,
+        gogTile,
+        game(Source::Gog, "gog:1003", "1003"),
     };
     {
-        ArtworkFetcher fetcher{store, {sources.base() + "/libretro", sources.base() + "/steam"}};
+        ArtworkFetcher fetcher{store,
+                               {.libretro = sources.base() + "/libretro",
+                                .steam = sources.base() + "/steam",
+                                .gogdb = sources.base() + "/gogdb"}};
         fetcher.request(games, {}, {});
         const std::vector<Fetched> fetched = waitFor(fetcher);
-        expect(fetched.size() == 3, "the Steam game, the Epic game and the matched ROM arrive");
+        expect(fetched.size() == 5, "the Steam, Epic and GOG games and the matched ROM arrive");
         expect(read(store.pathFor(games[4])) == "epic tall",
                "an Epic game gets its key image from its URL");
+        expect(read(store.pathFor(games[5])) == "gog portrait",
+               "a GOG game gets the portrait cover gamesdb names");
+        expect(read(store.pathFor(games[6])) == "gog tile",
+               "a GOG game gamesdb has no cover for gets its library tile");
+        expect(fs::exists(store.pathFor(games[7]).string() + ".miss"),
+               "a GOG game with no cover anywhere is noted as a miss");
         expect(read(store.pathFor(games[0])) == "steam header",
                "a Steam game without a portrait gets its store header");
         expect(read(store.pathFor(games[1])) == "sunshine box",
@@ -137,7 +167,8 @@ void testFetches(const fs::path& root) {
     expect(again[0].artwork == store.pathFor(games[0]) && again[2].artwork.empty(),
            "the next start reads downloaded art from the store");
     const auto now = ArtworkStore::Clock::now();
-    expect(!store.wanted(again[0], now) && !store.wanted(again[2], now),
+    expect(!store.wanted(again[0], now) && !store.wanted(again[2], now) &&
+               !store.wanted(again[7], now),
            "neither a kept image nor a recent miss is asked for again");
     expect(store.index("gc", now).has_value(), "the listing is kept for the next run");
 }

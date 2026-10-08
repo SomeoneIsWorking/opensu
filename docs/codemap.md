@@ -63,7 +63,7 @@ gitignored `docs/reference/`).
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line |
 | `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
 | `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, UI sounds (`sound/<file>`, WAV or OGG) and the dock's icons (`nav/`) |
-| `src/artwork/artwork_fetcher.*` | The background downloads: Steam's CDN for Steam, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs, the APK's sounds and nav drawables (`ApkAsset`) |
+| `src/artwork/artwork_fetcher.*` | The background downloads: Steam's CDN for Steam, gamesdb (else the library tile) for GOG, the key image URL for Epic, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs, the APK's sounds and nav drawables (`ApkAsset`) |
 | `src/artwork/apk_archive.*` | iiSU's release APK read by HTTP ranges: central directory once, any entry by range with its CRC checked; `fetch` is find and extract with a found/missing/failed result (glyphs, sounds and nav icons use it) |
 | `src/artwork/starter_pack.*` | iiSU's starter pack: its entry taken out of the APK against a pin, and a system's card as PNG |
 | `src/artwork/console_glyphs.*` | iiSU's frame glyphs: `border_pack.json` read once, a system's `logo_*.png` out of the APK |

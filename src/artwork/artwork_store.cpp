@@ -72,7 +72,7 @@ fs::path ArtworkStore::pathFor(const library::Game& game) const {
                    ? fs::path{}
                    : root_ / "epic" / (game.sourceId + ".jpg");
     case library::Source::Gog:
-        break;
+        return game.sourceId.empty() ? fs::path{} : root_ / "gog" / (game.sourceId + ".jpg");
     }
     return {};
 }

@@ -180,7 +180,10 @@ Artwork that no source has on disk is downloaded in the background
 a Steam game's `library_600x900.jpg`, else `header.jpg`, from Steam's CDN; an Epic
 game's key image from `Game::artworkUrl` (`epic::Provider` takes it from `legendary list
 --json` `metadata.keyImages`: `DieselGameBoxTall`, else `DieselGameBox`, else `Thumbnail`),
-kept as `epic/<app name>.jpg`; GOG has a URL stem but no fetch yet; a ROM's
+kept as `epic/<app name>.jpg`; a GOG game's portrait cover, the `game.vertical_cover.url_format`
+of gamesdb's `platforms/gog/external_releases/<product id>` (public, no token) with
+`_glx_vertical_cover` and `jpg` filled in (342x482), else the library's `Game::artworkUrl` stem plus
+`_196.jpg`, kept as `gog/<product id>.jpg`; a ROM's
 box art from libretro-thumbnails, its file or folder name matched against the
 system's `Named_Boxarts` listing (same name, else same title preferring the ROM's
 own region, then USA, World, Europe, Japan; never a beta or demo; release numbers
@@ -343,7 +346,7 @@ is one JSON file, `<data dir>/gog-token.json` (`$XDG_DATA_HOME/iideck`, else
 `embed.gog.com/account/getFilteredProducts?mediaType=1&page=N` (minigalaxy's call): one
 request per page returns id, title and image, so no per-game requests. Games are listed
 not installed, with `Game::artworkUrl` set to GOG's image stem (`https:` + `//images-N.gog.com/<hash>`,
-to which `_<size>.jpg` is appended; minigalaxy uses `_196.jpg`); nothing downloads it yet.
+to which `_<size>.jpg` is appended; minigalaxy uses `_196.jpg`), the fetcher's fallback tile.
 No token, or a refresh GOG refuses, is `Attention` on the GOG badge. Installs come later
 through gogdl. Tested against a local server (`tests/library/gog_test.cpp`); no real GOG
 account has been used.

@@ -2,6 +2,8 @@
 
 #include <utility>
 
+#include <nlohmann/json.hpp>
+
 #include "libretro_index.hpp"
 #include "lucent/log.h"
 #include "rom_systems.hpp"
@@ -11,6 +13,32 @@ namespace {
 
 bool isNotFound(const std::string& error) {
     return error == "HTTP 404";
+}
+
+/// GOG's size suffix for the library tile, the fallback when gamesdb has no portrait cover.
+constexpr std::string_view gogTileSuffix = "_196.jpg";
+
+/// The portrait cover URL in a gamesdb release answer, `game.vertical_cover.url_format` with its
+/// `{formatter}` and `{ext}` filled in; empty when the answer has none.
+std::string gogCoverUrl(const std::string& body) {
+    const nlohmann::json document = nlohmann::json::parse(body, nullptr, false);
+    if (!document.is_object() || !document.contains("game") || !document["game"].is_object()) {
+        return {};
+    }
+    const nlohmann::json& game = document["game"];
+    if (!game.contains("vertical_cover") || !game["vertical_cover"].is_object()) {
+        return {};
+    }
+    std::string url = game["vertical_cover"].value("url_format", "");
+    const auto fill = [&url](std::string_view key, std::string_view value) {
+        for (size_t at = url.find(key); at != std::string::npos; at = url.find(key, at)) {
+            url.replace(at, key.size(), value);
+            at += value.size();
+        }
+    };
+    fill("{formatter}", "_glx_vertical_cover");
+    fill("{ext}", "jpg");
+    return url;
 }
 
 } // namespace
@@ -139,7 +167,7 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
     case library::Source::Epic:
         return game.artworkUrl.empty() ? Outcome::Missing : keep(game, game.artworkUrl);
     case library::Source::Gog:
-        break;
+        return fetchGog(game);
     }
     return Outcome::Missing;
 }
@@ -206,6 +234,30 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchSteam(const library::Game& game) {
         return portrait;
     }
     return keep(game, base + "header.jpg");
+}
+
+ArtworkFetcher::Outcome ArtworkFetcher::fetchGog(const library::Game& game) {
+    if (game.sourceId.empty()) {
+        return Outcome::Missing;
+    }
+    // gamesdb's portrait cover, else the library's own tile.
+    const std::string url = sources_.gogdb + "/" + game.sourceId;
+    std::string error;
+    const std::optional<std::string> release = web_.get(url, error);
+    if (release) {
+        const std::string cover = gogCoverUrl(*release);
+        if (!cover.empty()) {
+            const Outcome portrait = keep(game, cover);
+            if (portrait != Outcome::Missing) {
+                return portrait;
+            }
+        }
+    } else if (!isNotFound(error)) {
+        lucent::warn("artwork", "{}: {}", url, error);
+        return Outcome::Unreachable;
+    }
+    return game.artworkUrl.empty() ? Outcome::Missing
+                                   : keep(game, game.artworkUrl + std::string{gogTileSuffix});
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetchRom(const library::Game& game) {
