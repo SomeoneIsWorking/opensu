@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=iideck
+GenericName=Game Library
+Comment=Gamepad-first shell for Steam, Epic, GOG and emulator games
+Exec=@IIDECK_EXEC@
+Icon=applications-games
+Terminal=false
+Categories=Game;
+Keywords=games;launcher;gamescope;steam;emulator;

@@ -40,8 +40,9 @@ struct Config {
     /// Per-system emulator commands.
     EmulatorCommands emulators;
 
-    /// Where the shipped typeface lives.
-    std::filesystem::path assetsDir{"assets"};
+    /// Where the shipped typeface lives: `IIDECK_ASSETS`, else `share/iideck` beside the
+    /// executable's directory, as installed and as staged in the build tree.
+    std::filesystem::path assetsDir;
 
     /// Only controllers whose name contains this are accepted. Empty accepts
     /// every device SDL reports.

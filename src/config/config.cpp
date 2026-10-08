@@ -185,6 +185,11 @@ const Config& read() {
         value.emulators = parseEmulators(env("IIDECK_EMULATORS"));
         if (const std::string_view assets = env("IIDECK_ASSETS"); !assets.empty()) {
             value.assetsDir = std::filesystem::path{assets};
+        } else {
+            std::error_code error;
+            const std::filesystem::path self =
+                std::filesystem::read_symlink("/proc/self/exe", error);
+            value.assetsDir = self.parent_path().parent_path() / "share" / "iideck";
         }
         value.gamepadNameFilter = std::string{env("IIDECK_GAMEPAD")};
         value.homeMode = envHomeMode("IIDECK_HOME_MODE", value.homeMode);

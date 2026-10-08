@@ -47,11 +47,27 @@ Overrides, all optional:
 | `IIDECK_ROM_ROOTS` | Colon-separated directories of emulator ROMs. |
 | `IIDECK_EMULATORS` | `SYSTEM=program arg;SYSTEM2=program` |
 | `IIDECK_WIDTH`, `IIDECK_HEIGHT` | Window size, default 1280x800. |
-| `IIDECK_ASSETS` | Directory holding the typeface. Defaults to `assets`. |
+| `IIDECK_ASSETS` | Directory holding the typeface. Defaults to `share/iideck` beside the executable's directory. |
 | `IIDECK_GAMEPAD` | Only accept controllers whose name contains this. |
 | `IIDECK_HOME_MODE` | `standard` (scrolling grid, default) or `wiisu` (paged grid). |
 
-Run from the repository root, or set `IIDECK_ASSETS` if you start it elsewhere.
+The build stages the assets beside the binary, so it runs from any directory.
+
+## Installing
+
+Configure with the prefix to install to, then install. The binary, its assets and a
+desktop entry (`share/applications/iideck.desktop`, which shows iideck in the
+application menu) go under the prefix:
+
+```sh
+cmake -S . -B build/cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
+      -DRAYLIB_ROOT=$HOME/dev/raylib-built -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+cmake --build build/cmake
+cmake --install build/cmake
+```
+
+For a desktop icon as well, copy the entry to the desktop and mark it executable:
+`cp $HOME/.local/share/applications/iideck.desktop "$(xdg-user-dir DESKTOP)/" && chmod +x "$(xdg-user-dir DESKTOP)/iideck.desktop"`.
 
 `IIDECK_GAMEPAD` exists because SDL reports any device with buttons as a
 gamepad, so on a desktop with a multimedia keyboard the keyboard and its media
