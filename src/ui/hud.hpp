@@ -1,7 +1,8 @@
 // hud — the chrome drawn around the home grid: ground, top bar, corner hints, toast.
 //
-// The top bar is iiSU's single-screen row (home-grid.md §2.2): an empty friends
-// slot, an empty centre title slot (Home shows no title) and the status pill.
+// The top bar is iiSU's single-screen row (home-grid.md §2.2): the friends slot, which
+// iideck fills with its launchers' badges, the centre title pill (empty on Home, the
+// console's name inside one) and the status pill.
 #pragma once
 
 #include <chrono>
@@ -10,12 +11,14 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "raylib.h"
 
 #include "button_glyph.hpp"
 #include "device/battery.hpp"
 #include "glass.hpp"
+#include "launcher_badges.hpp"
 #include "status_pill.hpp"
 #include "top_bar_metrics.hpp"
 
@@ -38,31 +41,7 @@ inline constexpr Colour ground{0xf4, 0xf3, 0xf7, 255};
 inline constexpr Colour panel{0xff, 0xff, 0xff, 255};
 inline constexpr Colour ink{0x2b, 0x27, 0x33, 255};
 inline constexpr Colour inkSoft{0x6f, 0x68, 0x80, 255};
-/// Service status dots: ready, working, and failed.
-inline constexpr Colour dotReady{0x3d, 0xdc, 0x84, 255};
-inline constexpr Colour dotWorking{0xf2, 0xb1, 0x34, 255};
-inline constexpr Colour dotFailed{0xe0, 0x4f, 0x5f, 255};
 } // namespace palette
-
-/// How a background service the shell depends on is doing, as the top bar shows it.
-enum class ServiceState {
-    /// The service is not in use; nothing is drawn.
-    Hidden,
-    Starting,
-    Ready,
-    Failed,
-    /// Something outside iideck holds the service.
-    Blocked,
-};
-
-/// The download Steam is running in the background, as the top bar shows it.
-struct BackgroundDownload {
-    std::string title;
-    /// 0 to 1.
-    double progress{0.0};
-    /// A first install rather than an update.
-    bool installing{false};
-};
 
 class Hud {
   public:
@@ -88,11 +67,12 @@ class Hud {
     void setBattery(std::optional<device::BatteryStatus> battery) noexcept {
         battery_ = battery;
     }
-    void setSteamState(ServiceState state) noexcept {
-        steamState_ = state;
+    void setLaunchers(std::vector<LauncherBadge> launchers) {
+        launchers_ = std::move(launchers);
     }
-    void setDownload(std::optional<BackgroundDownload> download) {
-        download_ = std::move(download);
+    /// The centre title pill's text; empty draws no pill.
+    void setTitle(std::string title) {
+        title_ = std::move(title);
     }
     void setToast(std::string text, bool isError, Clock::time_point now);
     /// Clears a toast whose time is up.
@@ -109,7 +89,7 @@ class Hud {
     }
 
     void drawGround() const;
-    void drawTopBar() const;
+    void drawTopBar();
     void drawHints() const;
     void drawToast() const;
 
@@ -117,7 +97,7 @@ class Hud {
     /// One hundredth of the window's shorter side, the unit of iideck's own chrome.
     [[nodiscard]] float unit() const noexcept;
     [[nodiscard]] TopBarMetrics metrics() const noexcept;
-    void drawServiceStatus(float left, float centreY) const;
+    void drawTitlePill(float top) const;
     /// One corner prompt panel of (glyph, label) entries (iiSU jj2.b).
     void drawPromptPanel(const HintPanelMetrics& panel,
                          std::span<const std::pair<const char*, const char*>> prompts,
@@ -129,8 +109,8 @@ class Hud {
     std::string status_;
     std::string clock_;
     std::optional<device::BatteryStatus> battery_;
-    ServiceState steamState_{ServiceState::Hidden};
-    std::optional<BackgroundDownload> download_;
+    std::vector<LauncherBadge> launchers_;
+    std::string title_;
     Clock::time_point now_{};
     std::string toast_;
     bool toastError_{false};
@@ -138,6 +118,7 @@ class Hud {
     StatusPillPainter statusPill_;
     GlassPainter glass_;
     ButtonGlyphPainter glyphs_;
+    LauncherBadgePainter badges_;
 };
 
 } // namespace iideck::ui

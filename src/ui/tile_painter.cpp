@@ -8,6 +8,8 @@
 #include <numbers>
 #include <span>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include "rlgl.h"
 
@@ -50,10 +52,31 @@ constexpr float ringOverInset = 0.9f;
 // iiSU nx2.u: no-art letter is #66FFFFFF, clamp(0.34 min, 34, 92) px.
 constexpr Color fallbackInk{0xFF, 0xFF, 0xFF, 0x66};
 
+// A console with no platform colours of its own: iiSU's prompt ink, lightened.
+constexpr Color consoleFrom{0x8A, 0x82, 0x9C, 255};
+constexpr Color consoleTo{0x4D, 0x46, 0x55, 255};
+constexpr Color consoleDarkInk{0x2B, 0x27, 0x33, 255};
+
 struct Stop {
     float at;
     Color colour;
 };
+
+/// `text` as one line, or two broken at the last space that lets the first fit `room`.
+std::vector<std::string_view> breakLines(std::string_view text, const TextStyle& style,
+                                         float room) {
+    if (type().measure(text, style) <= room) {
+        return {text};
+    }
+    for (std::size_t space = text.rfind(' '); space != std::string_view::npos && space > 0;
+         space = text.rfind(' ', space - 1)) {
+        const std::string_view first = text.substr(0, space);
+        if (type().measure(first, style) <= room || first.find(' ') == std::string_view::npos) {
+            return {first, text.substr(space + 1)};
+        }
+    }
+    return {text};
+}
 
 Color alphaColour(int r, int g, int b, float alpha) noexcept {
     return Color{static_cast<unsigned char>(r), static_cast<unsigned char>(g),
@@ -261,6 +284,13 @@ void TilePainter::paintChrome(const TileGeometry& geometry, const ChromeVariant&
 void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geometry) const {
     const Rect& content = geometry.content;
     const Color tint = withAlpha(WHITE, tile.alpha);
+    if (tile.console) {
+        paintConsole(tile, content);
+        if (tile.platform != nullptr) {
+            paintFrame(content, *tile.platform, tile.alpha);
+        }
+        return;
+    }
     if (tile.platform != nullptr) {
         // iiSU g24.e: art clipped at the larger art radius, then the platform frame over it.
         const FrameGeometry frame = frameGeometry(content);
@@ -269,6 +299,8 @@ void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geome
                              coverSource(static_cast<float>(tile.art->width),
                                          static_cast<float>(tile.art->height), content),
                              tint);
+        } else {
+            paintFallback(content, tile.title, tile.alpha);
         }
         paintFrame(content, *tile.platform, tile.alpha);
         return;
@@ -303,6 +335,38 @@ void TilePainter::paintFrame(const Rect& rect, const Platform& platform, float a
     };
     square(Rect{rect.x + frame.tab - corner, rect.y, corner, corner});
     square(Rect{rect.x, rect.y + frame.tab - corner, corner, corner});
+}
+
+void TilePainter::paintConsole(const TileVisual& tile, const Rect& content) const {
+    const FrameGeometry frame = frameGeometry(content);
+    const Color from = tile.platform != nullptr ? unpack(tile.platform->strokeFrom) : consoleFrom;
+    const Color to = tile.platform != nullptr ? unpack(tile.platform->strokeTo) : consoleTo;
+    const float alpha = tile.alpha;
+    fillRoundRect(RoundRect{content, frame.artRadius},
+                  [&content, from, to, alpha](Vector2 point, float) {
+                      return withAlpha(mix(from, to, diagonal(content, point)), alpha);
+                  });
+    const Color ink = luminance(mix(from, to, 0.5f)) > 0.6f ? consoleDarkInk : WHITE;
+
+    // One name size and one count size for every console, so the typeface loads two faces; a
+    // name too wide for one line breaks at a space.
+    const float side = std::min(content.width, content.height);
+    const float room = content.width - 2.0f * std::max(frame.tab, frame.stroke * 2.0f);
+    const TextStyle name{type().emForLineBox(side * 0.15f)};
+    const TextStyle count{type().emForLineBox(side * 0.1f)};
+    const std::vector<std::string_view> lines = breakLines(tile.title, name, room);
+    const float nameBox = type().lineBox(name);
+    const float gap = side * 0.04f;
+    const float block = static_cast<float>(lines.size()) * nameBox + gap + type().lineBox(count);
+    float y = content.centreY() - block * 0.5f + nameBox * 0.5f;
+    for (const std::string_view line : lines) {
+        type().drawCentred(line, content.centreX() - type().measure(line, name) * 0.5f, y, name,
+                           withAlpha(ink, alpha));
+        y += nameBox;
+    }
+    const float countY = y - nameBox * 0.5f + gap + type().lineBox(count) * 0.5f;
+    type().drawCentred(tile.caption, content.centreX() - type().measure(tile.caption, count) * 0.5f,
+                       countY, count, withAlpha(ink, alpha * 0.72f));
 }
 
 void TilePainter::paintFallback(const Rect& content, std::string_view title, float alpha) const {

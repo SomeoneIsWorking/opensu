@@ -150,6 +150,11 @@ const RomSystem* systemForFolder(std::string_view folderName) {
     return nullptr;
 }
 
+const RomSystem* systemByKey(std::string_view key) {
+    const auto found = std::ranges::find(romSystems(), key, &RomSystem::key);
+    return found == romSystems().end() ? nullptr : &*found;
+}
+
 std::optional<fs::path> gameFile(const RomSystem& system, const fs::path& entry) {
     std::error_code ec;
     if (fs::is_regular_file(entry, ec)) {

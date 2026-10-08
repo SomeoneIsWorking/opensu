@@ -70,6 +70,19 @@ struct HintPanelMetrics {
     [[nodiscard]] float labelShift(std::string_view key) const noexcept;
 };
 
+/// The centre title pill's sizes (iiSU jj2.c), in dp.
+struct TitlePillMetrics {
+    /// Below the row's own top padding (hs7.c).
+    float topPadding{};
+    float height{};
+    float paddingHorizontal{};
+    float minWidth{};
+    /// The widest the text may run.
+    float maxTextWidth{};
+    /// titleMedium scaled, in sp.
+    float fontSize{};
+};
+
 class TopBarMetrics {
   public:
     /// Row padding (iiSU mw5.l single-screen Row).
@@ -88,6 +101,10 @@ class TopBarMetrics {
     }
     /// iiSU mw5.l: the default device class's status box x offset for a window aspect ratio.
     [[nodiscard]] float statusOffsetX(float aspect) const noexcept;
+    /// iiSU jj2.c.
+    [[nodiscard]] TitlePillMetrics titlePill() const noexcept;
+    /// iiSU a32.e: a friend avatar's diameter, clamp(55 x 0.7 x 0.82, 24, 34).
+    [[nodiscard]] static float avatarSize() noexcept;
     /// iiSU nl2.d: clamp(1.22 hs7.d, 38, 64).
     [[nodiscard]] float profileSize() const noexcept;
     /// iiSU er3.w: the grid's top inset, dl3.i + 4, with the status pill shown (without it dl3.i
@@ -107,6 +124,7 @@ class TopBarMetrics {
     float textScale_{};
     float glyphScale_{};
     bool compact_{};
+    float widthDp_{};
     StatusPillSizing sizing_;
     HudStatusAlignment alignment_;
 };

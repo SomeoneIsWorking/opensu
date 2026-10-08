@@ -70,7 +70,7 @@ void Hud::drawGround() const {
     }
 }
 
-void Hud::drawTopBar() const {
+void Hud::drawTopBar() {
     // iiSU mw5.l single-screen Row: top 8, end 8, friends | title (weight 1) | status, all Top.
     const TopBarMetrics m = metrics();
     const float dp = dp_;
@@ -83,62 +83,43 @@ void Hud::drawTopBar() const {
     const float boxRight = width - TopBarMetrics::rowPaddingEnd * dp + m.statusOffsetX(aspect) * dp;
     const Rect body{boxRight - (m.sizing().endPadding + pill.width) * dp, top, pill.width * dp,
                     pill.height * dp};
+    const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
     std::optional<double> busy;
-    if (download_) {
-        busy = std::chrono::duration<double>(now_.time_since_epoch()).count();
+    if (std::ranges::any_of(launchers_, [](const LauncherBadge& badge) {
+            return badge.progress.has_value();
+        })) {
+        busy = seconds;
     }
     statusPill_.paint(StatusPillView{body, pill, dp, clock_, battery_, busy});
     // STOPGAP: jj2.w's glass strip behind the status pill is not drawn because its geometry is
     // not in the spec.
 
-    // iideck has no friends, so the friends slot is empty; the Steam indicator, iideck's own,
-    // sits there, at the row's end padding from the left edge.
-    drawServiceStatus(TopBarMetrics::rowPaddingEnd * dp, body.centreY());
+    drawTitlePill(top);
+
+    // iiSU a32.e lays friends' avatars in this slot; iideck has no friends, so it holds the
+    // launchers' badges, spaced rather than overlapped so each state reads on its own.
+    const float avatar = TopBarMetrics::avatarSize() * dp;
+    badges_.paint(launchers_, BadgeRow{.start = {TopBarMetrics::rowPaddingEnd * dp, body.centreY()},
+                                       .diameter = avatar,
+                                       .gap = avatar * 0.3f,
+                                       .seconds = seconds});
 }
 
-void Hud::drawServiceStatus(float left, float centreY) const {
-    if (steamState_ == ServiceState::Hidden) {
+void Hud::drawTitlePill(float top) const {
+    if (title_.empty()) {
         return;
     }
-    const float u = unit();
-    Color dot = palette::dotReady;
-    const char* label = "Steam ready";
-    switch (steamState_) {
-    case ServiceState::Starting:
-        dot = palette::dotWorking;
-        label = "Steam signing in";
-        break;
-    case ServiceState::Failed:
-        dot = palette::dotFailed;
-        label = "Steam failed";
-        break;
-    case ServiceState::Blocked:
-        dot = palette::dotFailed;
-        label = "Steam open on desktop";
-        break;
-    case ServiceState::Hidden:
-    case ServiceState::Ready:
-        break;
-    }
-    std::string downloading;
-    if (steamState_ == ServiceState::Ready && download_) {
-        dot = palette::dotWorking;
-        downloading = std::string{download_->installing ? "Installing " : "Updating "} +
-                      download_->title + " · " +
-                      std::to_string(static_cast<int>(download_->progress * 100.0)) + "%";
-        label = downloading.c_str();
-    }
-
-    // A generic client glyph (a ring with a dot inside), the state dot, then the label.
-    const float glyphRadius = u * 0.9f;
-    const Vector2 glyph{left + glyphRadius, centreY};
-    DrawRing(glyph, glyphRadius * 0.78f, glyphRadius, 0.0f, 360.0f, 32, palette::inkSoft);
-    DrawCircleV(glyph, glyphRadius * 0.34f, palette::inkSoft);
-    const float dotRadius = u * 0.35f;
-    const float dotX = glyph.x + glyphRadius + u * 0.7f + dotRadius;
-    DrawCircleV({dotX, centreY}, dotRadius, dot);
-    const TextStyle text{type().emForLineBox(u * 1.5f)};
-    type().drawCentred(label, dotX + dotRadius + u * 0.6f, centreY, text, palette::inkSoft);
+    // iiSU jj2.c: a glass pill centred in the row, its text titleMedium.
+    const TitlePillMetrics pill = metrics().titlePill();
+    const float dp = dp_;
+    const TextStyle text{pill.fontSize * dp};
+    const float textWidth = std::min(type().measure(title_, text), pill.maxTextWidth * dp);
+    const float bodyWidth =
+        std::max(textWidth + 2.0f * pill.paddingHorizontal * dp, pill.minWidth * dp);
+    const Rect body{(static_cast<float>(width_) - bodyWidth) * 0.5f, top + pill.topPadding * dp,
+                    bodyWidth, pill.height * dp};
+    glass_.paint(body);
+    type().drawCentred(title_, body.centreX() - textWidth * 0.5f, body.centreY(), text, hintInk);
 }
 
 void Hud::drawHints() const {

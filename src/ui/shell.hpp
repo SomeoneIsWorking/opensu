@@ -21,6 +21,7 @@
 #include "launch_panel.hpp"
 #include "launch_panel_painter.hpp"
 #include "library/game.hpp"
+#include "library/shelf.hpp"
 #include "page_arrow.hpp"
 #include "page_pill.hpp"
 #include "platform.hpp"
@@ -29,9 +30,11 @@
 
 namespace iideck::ui {
 
-/// One title in the grid, with the artwork loaded for it.
+/// One entry in the grid, with the artwork loaded for it.
 struct Tile {
-    library::Game game;
+    library::ShelfItem item;
+    /// A console's game count, as its tile reads it.
+    std::string caption;
     /// Artwork loaded as textures, or zero for none.
     Texture portrait{};
     Texture wide{};
@@ -55,15 +58,16 @@ class Shell {
     /// Reports a new window size and re-flows the grid.
     void setSize(int width, int height);
 
-    /// Replaces the catalog, releasing the artwork already loaded, and plays the entrance.
-    void setCatalog(std::vector<library::Game> games);
+    /// Replaces the grid's entries, releasing the artwork already loaded, focuses `focus` and
+    /// plays the entrance.
+    void setShelf(std::vector<library::ShelfItem> items, std::size_t focus = 0);
 
     /// Loads every tile's artwork from the paths the sources recorded.
     void loadArtwork();
 
-    /// Resolves a game's platform frame. A title from a store has no console, so
-    /// it is framed in that store's identity; a ROM is framed in its system's.
-    [[nodiscard]] const Platform* platformFor(const library::Game& game) const;
+    /// Resolves an entry's platform frame. A title from a store has no console, so
+    /// it is framed in that store's identity; a ROM and a console in their system's.
+    [[nodiscard]] const Platform* platformFor(const library::ShelfItem& item) const;
 
     /// Moves focus, and reports whether it moved.
     bool moveFocus(Direction direction);
@@ -118,7 +122,12 @@ class Shell {
     [[nodiscard]] int page() const noexcept {
         return page_;
     }
+    /// The focused game, or null when a console or an empty slot has focus.
     [[nodiscard]] const library::Game* focusedGame() const;
+    /// The focused console, or null.
+    [[nodiscard]] const library::Console* focusedConsole() const;
+    /// The title the focused entry shows, empty for an empty slot.
+    [[nodiscard]] std::string focusedTitle() const;
     [[nodiscard]] std::size_t focusIndex() const noexcept {
         return focus_.index();
     }
@@ -144,11 +153,11 @@ class Shell {
     void setToast(std::string text, bool isError = false) {
         hud_.setToast(std::move(text), isError, now_);
     }
-    void setSteamState(ServiceState state) noexcept {
-        hud_.setSteamState(state);
+    void setLaunchers(std::vector<LauncherBadge> launchers) {
+        hud_.setLaunchers(std::move(launchers));
     }
-    void setDownload(std::optional<BackgroundDownload> download) {
-        hud_.setDownload(std::move(download));
+    void setTitle(std::string title) {
+        hud_.setTitle(std::move(title));
     }
     void setBattery(std::optional<device::BatteryStatus> battery) noexcept {
         hud_.setBattery(battery);

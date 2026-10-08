@@ -1,8 +1,9 @@
 // tile_painter — draws one home grid tile the way iiSU's grid renderer does.
 //
 // Draw order is iiSU nx2.j: shadow, outer focus ring, glass chrome, art, inner
-// focus ring, all scaled about the tile centre. The tile has no title and no
-// badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8).
+// focus ring, all scaled about the tile centre. A game tile has no title and no
+// badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile,
+// iideck's own, is its platform's colours with the console's name and game count.
 #pragma once
 
 #include <string_view>
@@ -36,6 +37,10 @@ struct TileVisual {
     /// The platform frame, or null for an unframed tile.
     const Platform* platform{nullptr};
     std::string_view title;
+    /// A console standing for its ROMs rather than one game.
+    bool console{false};
+    /// A console's second line, its game count.
+    std::string_view caption;
 };
 
 struct ChromeVariant;
@@ -52,6 +57,7 @@ class TilePainter {
     void paintContent(const TileVisual& tile, const TileGeometry& geometry) const;
     void paintFrame(const Rect& rect, const Platform& platform, float alpha) const;
     void paintFallback(const Rect& content, std::string_view title, float alpha) const;
+    void paintConsole(const TileVisual& tile, const Rect& content) const;
 };
 
 /// A cover crop of a `width` x `height` image for a `target` (iiSU e01.k, centred anchors).

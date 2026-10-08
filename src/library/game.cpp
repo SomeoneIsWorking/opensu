@@ -54,20 +54,27 @@ void Catalog::add(std::unique_ptr<Provider> provider) {
     }
 }
 
-std::vector<Game> Catalog::refresh(std::vector<std::string>& problems) {
+CatalogSnapshot Catalog::refresh() {
+    CatalogSnapshot snapshot;
     std::vector<Game> all;
     for (const std::unique_ptr<Provider>& provider : providers_) {
+        SourceStatus status{.source = provider->source()};
         try {
             std::vector<Game> found = provider->list();
             all.insert(all.end(), std::make_move_iterator(found.begin()),
                        std::make_move_iterator(found.end()));
+        } catch (const SourceAbsent& absent) {
+            status.availability = Availability::Absent;
+            status.detail = absent.what();
         } catch (const std::exception& error) {
-            problems.push_back(std::string{label(provider->source())} + ": " + error.what());
+            status.availability = Availability::Attention;
+            status.detail = error.what();
         }
+        snapshot.sources.push_back(std::move(status));
     }
-    std::vector<Game> merged = dedupe(std::move(all));
-    order(merged);
-    return merged;
+    snapshot.games = dedupe(std::move(all));
+    order(snapshot.games);
+    return snapshot;
 }
 
 void order(std::vector<Game>& games) {

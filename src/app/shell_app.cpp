@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "config/config.hpp"
+#include "launcher_status.hpp"
 #include "lucent/log.h"
 #include "ui/clock_text.hpp"
 
@@ -30,22 +31,6 @@ std::string describe(const library::Game& game) {
         out << " · never played";
     }
     return out.str();
-}
-
-ui::ServiceState serviceState(launch::SteamState state) {
-    switch (state) {
-    case launch::SteamState::Initializing:
-        return ui::ServiceState::Starting;
-    case launch::SteamState::Ready:
-        return ui::ServiceState::Ready;
-    case launch::SteamState::Failed:
-        return ui::ServiceState::Failed;
-    case launch::SteamState::Blocked:
-        return ui::ServiceState::Blocked;
-    case launch::SteamState::Stopped:
-        break;
-    }
-    return ui::ServiceState::Hidden;
 }
 
 } // namespace
@@ -75,14 +60,17 @@ void ShellApp::flipVertical(Image& image) {
 }
 
 void ShellApp::reloadCatalog() {
-    std::vector<std::string> problems;
-    games_ = catalog_.refresh(problems);
-    for (const std::string& problem : problems) {
-        lucent::warn("catalog", "{}", problem);
+    library::CatalogSnapshot snapshot = catalog_.refresh();
+    games_ = std::move(snapshot.games);
+    sources_ = std::move(snapshot.sources);
+    for (const library::SourceStatus& source : sources_) {
+        if (source.availability != library::Availability::Ready) {
+            lucent::warn("catalog", "{}: {}", library::label(source.source), source.detail);
+        }
     }
     lucent::info("catalog", "{} games loaded", games_.size());
 
-    shell_.setCatalog(games_);
+    showShelf(shell_.focusIndex());
     std::size_t installed = 0;
     for (const library::Game& game : games_) {
         if (game.installed) {
@@ -94,7 +82,16 @@ void ShellApp::reloadCatalog() {
 }
 
 void ShellApp::pushCatalogToShell() {
-    shell_.setCatalog(games_);
+    showShelf(shell_.focusIndex());
+}
+
+void ShellApp::showShelf(std::size_t focus) {
+    shell_.setShelf(browser_.shelf(games_), focus);
+}
+
+void ShellApp::openConsole(const library::Console& console) {
+    browser_.open(console, shell_.focusIndex());
+    showShelf(0);
 }
 
 void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
@@ -181,7 +178,11 @@ void ShellApp::actOn(gamepad::Button button) {
         break;
     case gamepad::Button::A:
         shell_.pressFocused();
-        launchFocused();
+        if (const library::Console* console = shell_.focusedConsole()) {
+            openConsole(*console);
+        } else {
+            launchFocused();
+        }
         break;
     case gamepad::Button::Y:
     case gamepad::Button::Select:
@@ -202,6 +203,9 @@ void ShellApp::actOn(gamepad::Button button) {
         shell_.resetFocus();
         break;
     case gamepad::Button::B:
+        if (const std::optional<std::size_t> focus = browser_.back()) {
+            showShelf(*focus);
+        }
         break;
     default:
         break;
@@ -347,25 +351,6 @@ void ShellApp::presentEula() {
     shell_.launchPanel().update("Installing " + title + " means accepting its licence agreement",
                                 std::nullopt, false);
     shell_.launchPanel().setHints({{"A", "Accept"}, {"B", "Decline"}});
-}
-
-std::optional<ui::BackgroundDownload> ShellApp::backgroundDownload() const {
-    for (const steam::Download& download : steam_.downloads()) {
-        if (!download.active) {
-            continue;
-        }
-        std::string title = "app " + download.appId;
-        for (const library::Game& game : games_) {
-            if (game.source == library::Source::Steam && game.sourceId == download.appId) {
-                title = game.title;
-                break;
-            }
-        }
-        return ui::BackgroundDownload{.title = std::move(title),
-                                      .progress = download.progress,
-                                      .installing = download.installing};
-    }
-    return std::nullopt;
 }
 
 void ShellApp::serviceInstall() {
@@ -592,8 +577,11 @@ void ShellApp::publishSnapshot() {
     }
     if (const library::Game* focused = shell_.focusedGame(); focused != nullptr) {
         next.focusedId = focused->id;
-        next.focusedTitle = focused->title;
+    } else if (const library::Console* console = shell_.focusedConsole(); console != nullptr) {
+        next.focusedId = "console:" + console->system;
     }
+    next.focusedTitle = shell_.focusedTitle();
+    next.shelf = browser_.console() ? browser_.console()->system : "home";
     next.focusIndex = shell_.focusIndex();
     next.page = static_cast<std::size_t>(std::max(shell_.page(), 0));
     next.pageCount = static_cast<std::size_t>(std::max(shell_.pageCount(), 1));
@@ -609,6 +597,7 @@ void ShellApp::publishSnapshot() {
     next.inGame = shell_.inGame();
     next.gameMenuOpen = shell_.gameMenu().isOpen();
     next.steam = std::string{launch::name(steam_.state())};
+    next.launchers = describe(launcherBadges(steam_.state(), steam_.downloads(), sources_));
 
     const std::lock_guard lock{stateMutex_};
     published_ = std::move(next);
@@ -622,10 +611,13 @@ void ShellApp::serviceControlRequests() {
         const std::lock_guard lock{injectedMutex_};
         queued.swap(injected_);
     }
+    // An injected button is a tap: without its release a direction would repeat forever.
     for (const gamepad::Button button : queued) {
-        std::vector<gamepad::Event> press{gamepad::Event{
-            .kind = gamepad::Event::Kind::Button, .button = button, .pressed = true}};
-        handleEvents(press);
+        handleEvents({gamepad::Event{
+                          .kind = gamepad::Event::Kind::Button, .button = button, .pressed = true},
+                      gamepad::Event{.kind = gamepad::Event::Kind::Button,
+                                     .button = button,
+                                     .pressed = false}});
     }
 
     bool wanted = false;
@@ -767,8 +759,9 @@ int ShellApp::run() {
 
         serviceControlRequests();
         serviceRequests();
-        shell_.setSteamState(serviceState(steam_.state()));
-        shell_.setDownload(backgroundDownload());
+        shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
+        // iiSU pl3.q: Home has no title; inside a console the pill names the focused ROM.
+        shell_.setTitle(browser_.console() ? shell_.focusedTitle() : std::string{});
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
         shell_.draw();

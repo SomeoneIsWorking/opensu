@@ -6,6 +6,7 @@ add_library(iideck_library STATIC
     gog.cpp
     roms.cpp
     rom_systems.cpp
+    shelf.cpp
     emulators.cpp
 )
 add_library(iideck::library ALIAS iideck_library)

@@ -40,6 +40,7 @@ TopBarMetrics::TopBarMetrics(float screenWidthDp, float screenHeightDp) noexcept
     // iiSU pl3.q: dl3.a.
     promptScale_ = compact ? clampTo(f0 * 0.9f, 0.65f, 1.0f) : clampTo(f0 * 0.94f, 0.68f, 1.0f);
     compact_ = compact;
+    widthDp_ = screenWidthDp;
 
     // iiSU jj2.k0: t = clamp((max(w, 360) - 360) / 472, 0, 1).
     const float t = clampTo((std::max(screenWidthDp, 360.0f) - 360.0f) / 472.0f, 0.0f, 1.0f);
@@ -69,6 +70,24 @@ float TopBarMetrics::statusOffsetX(float aspect) const noexcept {
     const float a = sizing_.scale;
     return 6.0f * r + 4.0f * clampTo((a - 1.04f) / 0.06f, 0.0f, 1.0f) +
            16.0f * clampTo((1.02f - a) / 0.3f, 0.0f, 1.0f);
+}
+
+TitlePillMetrics TopBarMetrics::titlePill() const noexcept {
+    // f = 0.9 + 0.1 clamp((max(w, 538) - 538) / 294).
+    const float f =
+        0.9f + 0.1f * clampTo((std::max(widthDp_, 538.0f) - 538.0f) / 294.0f, 0.0f, 1.0f);
+    TitlePillMetrics pill;
+    pill.topPadding = alignment_.statusTopPadding;
+    pill.height = clampTo(48.0f * f, 36.0f, 56.0f);
+    pill.paddingHorizontal = clampTo(22.0f * f, 12.0f, 22.0f);
+    pill.minWidth = clampTo(140.0f * f, 110.0f, 160.0f);
+    pill.maxTextWidth = 520.0f - 2.0f * pill.paddingHorizontal;
+    pill.fontSize = std::max(titleMediumSp * clampTo(f, 0.72f, 1.0f), 11.0f);
+    return pill;
+}
+
+float TopBarMetrics::avatarSize() noexcept {
+    return clampTo(55.0f * 0.7f * 0.82f, 24.0f, 34.0f);
 }
 
 float TopBarMetrics::profileSize() const noexcept {

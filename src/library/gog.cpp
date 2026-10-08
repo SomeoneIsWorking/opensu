@@ -59,7 +59,7 @@ Provider::Provider(const std::filesystem::path& home)
 std::vector<Game> Provider::list() {
     std::error_code ec;
     if (!std::filesystem::is_directory(configDir_, ec)) {
-        throw std::runtime_error{"heroic is not installed"};
+        throw SourceAbsent{"heroic is not installed"};
     }
     // Heroic caches its library under store_cache as plain JSON. No file yet
     // means no library saved, which is not a failure.

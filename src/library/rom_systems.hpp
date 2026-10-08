@@ -29,6 +29,9 @@ struct RomSystem {
 /// The system a ROM root's subfolder holds, or null.
 [[nodiscard]] const RomSystem* systemForFolder(std::string_view folderName);
 
+/// The system with ES-DE name `key`, or null.
+[[nodiscard]] const RomSystem* systemByKey(std::string_view key);
+
 /// The file to start for one game: `entry` itself when it is a file of the system's, or the
 /// file inside a game folder. In a folder a marker wins; otherwise the game file that is no
 /// update or DLC, the largest when several are. Nothing when the entry holds no game.

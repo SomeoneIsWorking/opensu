@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <variant>
 
 #include "lucent/log.h"
 #include "rlgl.h"
@@ -93,7 +94,11 @@ void Shell::setSize(int width, int height) {
     relayout();
 }
 
-const Platform* Shell::platformFor(const library::Game& game) const {
+const Platform* Shell::platformFor(const library::ShelfItem& item) const {
+    if (const auto* console = std::get_if<library::Console>(&item)) {
+        return platforms_.find(console->system);
+    }
+    const auto& game = std::get<library::Game>(item);
     // A ROM belongs to a system, and the pack's console names are those systems.
     if (game.source == library::Source::Rom && !game.sourceId.empty()) {
         return platforms_.find(game.sourceId);
@@ -101,20 +106,25 @@ const Platform* Shell::platformFor(const library::Game& game) const {
     return platforms_.forSource(game.source);
 }
 
-void Shell::setCatalog(std::vector<library::Game> games) {
+void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
     releaseTextures();
     tiles_.clear();
-    tiles_.reserve(games.size());
-    for (library::Game& game : games) {
+    tiles_.reserve(items.size());
+    for (library::ShelfItem& item : items) {
         Tile tile;
-        tile.game = std::move(game);
-        tile.platform = platformFor(tile.game);
+        tile.item = std::move(item);
+        tile.platform = platformFor(tile.item);
+        if (const auto* console = std::get_if<library::Console>(&tile.item)) {
+            tile.caption =
+                std::to_string(console->games) + (console->games == 1 ? " game" : " games");
+        }
         tiles_.push_back(std::move(tile));
     }
     relayout();
-    page_ = 0;
-    scroller_.snap(0.0f);
-    focus_.reset(0, layout_.cellOf(0));
+    const std::size_t start = focus < tiles_.size() ? focus : 0;
+    focus_.reset(start, layout_.cellOf(start));
+    page_ = layout_.mode() == ScrollMode::Paged ? layout_.pageOf(start) : 0;
+    scroller_.snap(layout_.scrollTarget(start, 0.0f, 0));
     focusAt_ = now_;
     // The catalog can arrive before the first frame, so the entrance starts on the next tick.
     entrancePending_ = true;
@@ -122,8 +132,12 @@ void Shell::setCatalog(std::vector<library::Game> games) {
 
 void Shell::loadArtwork() {
     for (Tile& tile : tiles_) {
-        tile.portrait = loadArt(tile.game.artwork);
-        tile.wide = loadArt(tile.game.artworkWide);
+        const auto* game = std::get_if<library::Game>(&tile.item);
+        if (game == nullptr) {
+            continue;
+        }
+        tile.portrait = loadArt(game->artwork);
+        tile.wide = loadArt(game->artworkWide);
         tile.hasPortrait = tile.portrait.id != 0;
         tile.hasWide = tile.wide.id != 0;
     }
@@ -270,7 +284,24 @@ const library::Game* Shell::focusedGame() const {
     if (focus_.index() >= tiles_.size()) {
         return nullptr;
     }
-    return &tiles_[focus_.index()].game;
+    return std::get_if<library::Game>(&tiles_[focus_.index()].item);
+}
+
+const library::Console* Shell::focusedConsole() const {
+    if (focus_.index() >= tiles_.size()) {
+        return nullptr;
+    }
+    return std::get_if<library::Console>(&tiles_[focus_.index()].item);
+}
+
+std::string Shell::focusedTitle() const {
+    if (const library::Game* game = focusedGame()) {
+        return game->title;
+    }
+    if (const library::Console* console = focusedConsole()) {
+        return console->label;
+    }
+    return {};
 }
 
 TileVisual Shell::visualFor(std::size_t slot) const {
@@ -303,7 +334,13 @@ TileVisual Shell::visualFor(std::size_t slot) const {
             visual.art = &tile.wide;
         }
         visual.platform = tile.platform;
-        visual.title = tile.game.title;
+        if (const auto* console = std::get_if<library::Console>(&tile.item)) {
+            visual.console = true;
+            visual.title = console->label;
+            visual.caption = tile.caption;
+        } else {
+            visual.title = std::get<library::Game>(tile.item).title;
+        }
     }
     return visual;
 }

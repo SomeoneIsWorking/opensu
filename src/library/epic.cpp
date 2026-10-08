@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdio>
 #include <stdexcept>
+#include <sys/wait.h>
 
 #include <nlohmann/json.hpp>
 
@@ -74,6 +75,11 @@ std::vector<Game> Provider::list() {
         output += buffer.data();
     }
     const int status = pclose(pipe);
+    // The shell's code for a command it cannot find.
+    constexpr int commandNotFound = 127;
+    if (WIFEXITED(status) && WEXITSTATUS(status) == commandNotFound) {
+        throw SourceAbsent{"legendary is not installed"};
+    }
     if (status != 0) {
         // Legendary exits non-zero when it has no saved credentials, which means
         // there is nothing to list.

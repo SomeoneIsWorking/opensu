@@ -99,9 +99,26 @@ void wide1280() {
     near(m.statusPill(false).width, 224.4, "1280: 24 h pill width");
 }
 
+void titlePill() {
+    // f = 0.9 + 0.1 clamp((w - 538) / 294): 0.93469 at 640, 1 from 832 up.
+    const iideck::ui::TitlePillMetrics phone = TopBarMetrics{640.0f, 360.0f}.titlePill();
+    near(phone.height, 44.86531, "640: title pill height");
+    near(phone.paddingHorizontal, 20.56327, "640: title pill padding");
+    near(phone.minWidth, 130.85714, "640: title pill min width");
+    near(phone.maxTextWidth, 478.87347, "640: title text max width");
+    near(phone.fontSize, 14.95510, "640: title font");
+    near(phone.topPadding, 7.37431, "640: title pill sits at hs7.c");
+    const iideck::ui::TitlePillMetrics wide = TopBarMetrics{853.0f, 480.0f}.titlePill();
+    near(wide.height, 48.0, "853: title pill height");
+    near(wide.minWidth, 140.0, "853: title pill min width");
+    near(wide.fontSize, 16.0, "853: title font");
+    near(TopBarMetrics::avatarSize(), 31.570, "a32.e avatar");
+}
+
 } // namespace
 
 int main() {
+    titlePill();
     phone640();
     reference853();
     wide1280();

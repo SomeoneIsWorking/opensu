@@ -10,8 +10,9 @@ ROMs have no home at all.
 
 Visible deltas from the baseline:
 
-- Epic, GOG and emulator ROMs sit in the same grid as Steam, when their runtime
-  is installed.
+- Epic and GOG games sit in the same grid as Steam, when their runtime is
+  installed; emulator ROMs sit behind one tile per console on Home.
+- Each launcher's state is a logo with a status dot in the top bar's left slot.
 - No store client window is ever opened to reach a game.
 - The grid is ours, so layout, tile sizes and page count are ours.
 
@@ -86,8 +87,30 @@ sizes, `StatusPillPainter` for the bell, clock, battery and R2 glyph, `ClockText
 for o28.g's format and k42's minute tick), the corner hints and iideck's toast.
 The battery comes from `device::BatteryReader` (sysfs, system scope only); the
 12/24-hour choice from the LC_TIME locale in `config`. Home shows no title pill,
-as iiSU's does not. There are no feature tiles or badges; iiSU has none on the
-home grid.
+as iiSU's does not; inside a console the pill (`jj2.c`) names the focused ROM, as
+iiSU's Roms section does. There are no feature tiles or badges on game tiles.
+
+Home's shelf (`library::homeShelf`) is one console tile per system with ROMs, in
+`rom_systems` order, then the store games in catalog order. A console tile is
+iideck's own: its platform's gradient (a neutral one for a system the gradient
+table lacks, such as PS4) with the console's name and game count, broken onto two
+lines at a space when one is too wide, at one name size so the typeface loads one
+face. A opens it (`library::ShelfBrowser`) on that system's ROMs; B returns to
+Home with the console focused. ROMs have no artwork source yet, so ROM tiles show
+iiSU's first-letter fallback inside their platform frame.
+
+The friends slot (`a32.e`), empty in iideck otherwise, holds the launcher badges
+(`ui::LauncherBadgePainter`, mapped in `app::launcherBadges`): Steam, Epic and
+GOG, each its Simple Icons logo in an avatar circle at a32.e's avatar size, spaced
+rather than overlapped, with a presence dot (green ready, amber starting with a
+spinner ring, red failed or blocked). A launcher not installed has no badge. Epic's
+and GOG's state is the catalog's last read of them (`library::SourceStatus`): a
+store whose tool is missing is absent, one that fails to list (Legendary signed
+out) needs attention. `/state` publishes them as `launchers`
+(`steam=ready epic=failed gog=ready`) and the open shelf as `shelf`. Icons are SVGs
+rasterised by nanosvg at the drawn size (`ui::IconAtlas`). Verified headless at
+1280x720: badges, console tiles, opening GameCube, the ROM title pill and B back
+to the console.
 
 Verified by `tests/ui` (layout numbers hand-computed from `hx2.g` and `zj2`,
 neighbour and page-crossing rules, motion curves, tile geometry from `tj2.V`,
@@ -193,7 +216,7 @@ menu (`docs/issues/guide-shrinks-game.md`); not reproduced.
 
 A loopback HTTP channel, part of the product rather than a debug flag, so an
 automated run can drive the shell with no controller and no compositor in the way.
-`GET /state` returns the shell's state as JSON, `POST /input` queues a button by
+`GET /state` returns the shell's state as JSON, `POST /input` queues a tap (press and release) of a button by
 name, `GET /frame.png` returns the next frame as PNG bytes, `POST /quit` closes
 the shell. `IIDECK_CONTROL_PORT` moves the port; it cannot be closed, because it
 is how the shell is driven. It binds loopback only and names no file to read or
@@ -341,8 +364,8 @@ no use for this: during a measured BTD6 (960090) update at 44 Mbps the manifest'
 byte counts and StateFlags stayed unchanged for minutes while the client reported
 92% done. The queue drives three things: a launch of a game with an unfinished
 download keeps the shell up with `Updating · N%` and no appearance bound (B cancels);
-the bell in the status pill spins (iiSU a32.n) while any download is active; and the
-Steam indicator reads `Updating <title> · N%` or `Installing <title> · N%`.
+the bell in the status pill spins (iiSU a32.n) while any download is active; and a
+progress ring fills around the Steam badge.
 Reproduced from a real run: BTD6 with a 2.2 GB update left an empty Gamescope
 behind a hidden shell before the launch waited for it.
 
@@ -353,8 +376,7 @@ appended to `$HOME/.steam/steam/logs/connection_log.txt` after the start, Failed
 the scope empties, Blocked when `$HOME/.steam/steam.pid` names a live client outside
 iideck. Steam launches wait for Ready, and are refused with a named message when
 Blocked or Failed. On exit it runs `steam -shutdown`, waits up to 20 s, then stops
-the scope. The state shows at the top bar's left, in the friends slot iideck leaves
-empty ("Steam signing in", "Steam ready", "Steam failed", "Steam open on desktop")
+the scope. The state shows as the Steam badge in the top bar's friends slot (S005)
 and in `/state` as `steam`. Tested with a fake home and fake `steam`; a real Steam
 has not been started by this code, and the ready marker is as measured on one
 machine.

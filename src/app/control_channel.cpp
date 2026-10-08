@@ -83,13 +83,15 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     number("pageCount", snapshot.pageCount);
     text("focusedId", snapshot.focusedId);
     text("focusedTitle", snapshot.focusedTitle);
+    text("shelf", snapshot.shelf);
     text("status", snapshot.status);
     text("toast", snapshot.toast);
     flag("toastIsError", snapshot.toastIsError);
     flag("launching", snapshot.launching);
     flag("inGame", snapshot.inGame);
     flag("gameMenuOpen", snapshot.gameMenuOpen);
-    text("steam", snapshot.steam, true);
+    text("steam", snapshot.steam);
+    text("launchers", snapshot.launchers, true);
     return out;
 }
 

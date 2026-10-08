@@ -26,6 +26,7 @@
 #include "install_job.hpp"
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
+#include "library/shelf.hpp"
 #include "steam/client.hpp"
 #include "ui/shell.hpp"
 
@@ -109,8 +110,10 @@ class ShellApp final : public ControlTarget {
     void serviceInstall();
     /// Asks the player about the install's licence agreements on the panel.
     void presentEula();
-    /// The download Steam is running, named from the library, for the top bar.
-    [[nodiscard]] std::optional<ui::BackgroundDownload> backgroundDownload() const;
+    /// Shows the shelf the browser is on, focusing `focus`.
+    void showShelf(std::size_t focus);
+    /// Opens the focused console on its ROMs.
+    void openConsole(const library::Console& console);
     /// Buttons while a game runs: Guide opens and closes the menu over it, which takes the
     /// rest. Main loop only.
     void actInGame(gamepad::Button button);
@@ -137,6 +140,10 @@ class ShellApp final : public ControlTarget {
     std::unique_ptr<ControlChannel> control_;
 
     std::vector<library::Game> games_;
+    /// Each store's state from the last catalog read.
+    std::vector<library::SourceStatus> sources_;
+    /// Home or the open console. Main loop only.
+    library::ShelfBrowser browser_;
     /// Guards the handoff thread, which touches the window.
     std::mutex launchMutex_;
     bool launchRunning_{false};

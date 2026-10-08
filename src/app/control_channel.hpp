@@ -31,6 +31,8 @@ struct ShellSnapshot {
     std::size_t pageCount{1};
     std::string focusedId;
     std::string focusedTitle;
+    /// "home", or the open console's system.
+    std::string shelf{"home"};
     std::string status;
     std::string toast;
     bool toastIsError{false};
@@ -41,6 +43,8 @@ struct ShellSnapshot {
     bool gameMenuOpen{false};
     /// The Steam client's state: stopped, initializing, ready, failed or blocked.
     std::string steam{"stopped"};
+    /// The launcher badges, as `steam=ready epic=failed`.
+    std::string launchers;
 };
 
 /// What the control channel may ask the shell to do. Implemented by the shell,

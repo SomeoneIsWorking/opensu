@@ -3,8 +3,11 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -64,6 +67,34 @@ struct Game {
     std::string unavailable;
 };
 
+/// Thrown by a provider whose store is not on this machine at all, which is not a fault.
+class SourceAbsent : public std::runtime_error {
+  public:
+    using std::runtime_error::runtime_error;
+};
+
+/// How a store fared on the last read.
+enum class Availability : std::uint8_t {
+    /// Not on this machine.
+    Absent,
+    Ready,
+    /// There but unusable until the player acts, such as signing in.
+    Attention,
+};
+
+struct SourceStatus {
+    Source source{Source::Steam};
+    Availability availability{Availability::Ready};
+    /// Why the store is absent or needs attention.
+    std::string detail;
+};
+
+/// One read of every provider.
+struct CatalogSnapshot {
+    std::vector<Game> games;
+    std::vector<SourceStatus> sources;
+};
+
 /// A backend that can list launchable games. Each store has its own type; the
 /// catalog only knows this shape.
 class Provider {
@@ -78,10 +109,10 @@ class Catalog {
   public:
     void add(std::unique_ptr<Provider> provider);
 
-    /// Reads every provider and returns the merged, ordered catalog. A provider
-    /// that fails is reported in `problems` while the others still contribute,
-    /// so one broken store cannot empty the grid.
-    [[nodiscard]] std::vector<Game> refresh(std::vector<std::string>& problems);
+    /// Reads every provider into the merged, ordered catalog and each store's status. A provider
+    /// that fails is reported in its status while the others still contribute, so one broken
+    /// store cannot empty the grid.
+    [[nodiscard]] CatalogSnapshot refresh();
 
   private:
     std::vector<std::unique_ptr<Provider>> providers_;

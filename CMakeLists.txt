@@ -36,6 +36,20 @@ target_link_directories(iideck_raylib INTERFACE "${RAYLIB_ROOT}/lib")
 target_link_libraries(iideck_raylib
     INTERFACE raylib X11::X11 GL m Threads::Threads ${CMAKE_DL_LIBS})
 
+# nanosvg rasterises the shipped icons. Header-only: the distribution's package or a checkout.
+set(NANOSVG_ROOT "$ENV{HOME}/dev/nanosvg" CACHE PATH "nanosvg checkout")
+find_path(NANOSVG_INCLUDE_DIR nanosvg.h
+    HINTS "${NANOSVG_ROOT}/src" PATH_SUFFIXES nanosvg)
+if(NOT NANOSVG_INCLUDE_DIR)
+    message(FATAL_ERROR
+        "nanosvg not found. Install it with `sudo dnf install nanosvg-devel` (Fedora), "
+        "`sudo apt install libnanosvg-dev` (Debian/Ubuntu), or clone "
+        "https://github.com/memononen/nanosvg to ${NANOSVG_ROOT}")
+endif()
+add_library(iideck_nanosvg INTERFACE)
+add_library(iideck::nanosvg ALIAS iideck_nanosvg)
+target_include_directories(iideck_nanosvg SYSTEM INTERFACE "${NANOSVG_INCLUDE_DIR}")
+
 # Lucent is the project logger. Shared, not vendored.
 set(LUCENT_ROOT "$ENV{HOME}/repo/lucent" CACHE PATH "Shared Lucent checkout")
 

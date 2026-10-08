@@ -32,3 +32,8 @@ add_executable(progress_spinner_test progress_spinner_test.cpp)
 target_link_libraries(progress_spinner_test PRIVATE iideck::ui)
 target_compile_options(progress_spinner_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME progress_spinner COMMAND progress_spinner_test)
+
+add_executable(vector_icon_test vector_icon_test.cpp)
+target_link_libraries(vector_icon_test PRIVATE iideck::ui)
+target_compile_options(vector_icon_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME vector_icon COMMAND vector_icon_test "${CMAKE_SOURCE_DIR}/assets")

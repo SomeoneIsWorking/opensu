@@ -12,6 +12,7 @@ gitignored `docs/reference/`).
 | `src/main.cpp` | Argument parsing; starts the nested session or the shell; `--render FILE` renders one frame headless |
 | `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop |
 | `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`) |
+| `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
 | `src/app/install_job.*` | One Steam install: walks the installer, waits on the player's licence answer, follows the download |
 | `src/config/config.*` | The one reader of the environment, into typed immutable config |
 
@@ -45,6 +46,7 @@ gitignored `docs/reference/`).
 | `src/library/game.*` | The launchable `Game` record |
 | `src/library/catalog.*` | Building the catalog from all sources |
 | `src/library/steam.*`, `epic.*`, `gog.*`, `roms.*` | One source each |
+| `src/library/shelf.*` | What the grid holds: Home's consoles and store games, a console's ROMs, and moving between them |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line |
 | `src/vdf/` | Valve KeyValues parser |
@@ -77,10 +79,12 @@ Painters and composition (`iideck_ui`):
 | `src/ui/shell.*` | The home screen: tiles, focus, paging, draw order |
 | `src/ui/hud.*` | Chrome around the grid: ground, top bar, corner hints, toast; grid insets |
 | `src/ui/status_pill.*`, `glass.*` | Status pill and its glass body |
+| `src/ui/launcher_badges.*` | Launcher logos with status dots and the download ring, in the top bar's friends slot |
+| `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size |
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (the bell's busy ring) |
 | `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`) |
 | `src/ui/game_menu_painter.*` | The Guide menu over a running game |
-| `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art, platform frame |
+| `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art, platform frame; a console's name tile |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |
 | `src/ui/platform.*`, `platform_stroke.cpp` | Console border sprites, logos, stroke colours |

@@ -13,7 +13,7 @@ target_compile_features(iideck_hud_model PUBLIC cxx_std_20)
 target_compile_options(iideck_hud_model PRIVATE -Wall -Wextra -Wpedantic)
 
 add_library(iideck_ui STATIC
-    shell.cpp hud.cpp status_pill.cpp progress_spinner.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
+    shell.cpp hud.cpp launcher_badges.cpp vector_icon.cpp status_pill.cpp progress_spinner.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
     button_glyph.cpp game_menu_painter.cpp launch_panel_painter.cpp
     round_shape.cpp
     typeface.cpp face_metrics.cpp platform.cpp platform_stroke.cpp)
@@ -22,7 +22,7 @@ target_include_directories(iideck_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(iideck_ui
     PUBLIC iideck::grid iideck::hud_model iideck::library iideck::device
         iideck::config iideck::raylib
-    PRIVATE lucent::lucent
+    PRIVATE lucent::lucent iideck::nanosvg
 )
 target_compile_features(iideck_ui PUBLIC cxx_std_20)
 target_compile_options(iideck_ui PRIVATE -Wall -Wextra -Wpedantic)

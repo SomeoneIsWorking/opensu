@@ -441,7 +441,7 @@ bool Library::installed(std::string_view appId) const {
 
 std::vector<Game> Library::list() const {
     if (roots_.empty()) {
-        throw std::runtime_error{"no Steam installation found"};
+        throw SourceAbsent{"no Steam installation found"};
     }
 
     std::vector<Game> games;
