@@ -52,6 +52,29 @@ cmake -S . -B build/cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
 cmake --build build/cmake
 ```
 
+### Gamescope fork
+
+The nested session (iideck started on a desktop) runs iideck's own pinned
+[Gamescope fork](https://github.com/SomeoneIsWorking/gamescope) (branch `iideck`), built by
+`cmake/Gamescope.cmake` from a fixed commit. It adds `--close-focused-window`, so Alt+F4 in KDE
+closes the game instead of ending the session. The fork is built with meson and ninja on the
+first `cmake --build` (it clones the commit and its submodules, so it needs the network once) and
+is not rebuilt afterwards. Install its build dependencies first; configure refuses and names what
+is missing:
+
+```sh
+sudo dnf builddep gamescope        # Fedora
+sudo apt build-dep gamescope       # Debian/Ubuntu (needs deb-src enabled)
+# Arch: sudo pacman -S --needed with the list configure prints
+```
+
+meson and ninja are needed as well (`uv tool install meson` installs meson without root). To
+work on the rest of iideck without the fork, configure with `-DIIDECK_BUILD_GAMESCOPE=OFF`; the
+nested session then refuses to start and says so. `cmake --install` puts the binary at
+`<prefix>/libexec/iideck/gamescope`, where an installed iideck looks; a build-tree iideck looks at
+`<build>/libexec/iideck/gamescope`. There is no `PATH` lookup and no fallback to the distribution's
+Gamescope.
+
 ## Running
 
 ```sh

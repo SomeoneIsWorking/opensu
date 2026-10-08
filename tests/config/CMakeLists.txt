@@ -27,3 +27,5 @@ set_tests_properties(config_data_dir PROPERTIES
     ENVIRONMENT_MODIFICATION "XDG_DATA_HOME=set:/xdg-data")
 set_tests_properties(config_data_dir_default PROPERTIES
     ENVIRONMENT_MODIFICATION "XDG_DATA_HOME=unset:")
+
+add_test(NAME config_gamescope COMMAND config_test gamescope)

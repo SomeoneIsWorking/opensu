@@ -172,6 +172,13 @@ bool timeFormatIs24Hour(std::string_view format) noexcept {
     return true;
 }
 
+std::filesystem::path gamescopeBeside(const std::filesystem::path& executable) {
+    if (executable.empty()) {
+        return {};
+    }
+    return executable.parent_path().parent_path() / IIDECK_GAMESCOPE_RELATIVE;
+}
+
 const Config& read() {
     // Deliberately function-local: the environment is read once and never again,
     // so every holder of this reference sees the same immutable value.
@@ -183,14 +190,14 @@ const Config& read() {
         value.steamRoots = splitPaths(env("IIDECK_STEAM_ROOTS"));
         value.romRoots = splitPaths(env("IIDECK_ROM_ROOTS"));
         value.emulators = parseEmulators(env("IIDECK_EMULATORS"));
+        std::error_code error;
+        const std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", error);
         if (const std::string_view assets = env("IIDECK_ASSETS"); !assets.empty()) {
             value.assetsDir = std::filesystem::path{assets};
         } else {
-            std::error_code error;
-            const std::filesystem::path self =
-                std::filesystem::read_symlink("/proc/self/exe", error);
             value.assetsDir = self.parent_path().parent_path() / "share" / "iideck";
         }
+        value.gamescope = gamescopeBeside(self);
         if (const std::string_view cache = env("XDG_CACHE_HOME"); !cache.empty()) {
             value.cacheDir = std::filesystem::path{cache} / "iideck";
         } else {

@@ -14,7 +14,8 @@ struct Output {
     int refreshHz{0};
 };
 
-/// The arguments of `gamescope -W w -H h -w w -h h [-r hz] -f -- program args...`.
+/// The arguments of `gamescope -W w -H h -w w -h h [-r hz] -f --close-focused-window -- program
+/// args...`.
 [[nodiscard]] std::vector<std::string> gamescopeArgs(const Output& output,
                                                      const std::string& program,
                                                      const std::vector<std::string>& args);

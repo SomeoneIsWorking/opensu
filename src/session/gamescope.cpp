@@ -12,6 +12,8 @@ std::vector<std::string> gamescopeArgs(const Output& output, const std::string& 
         out.push_back(std::to_string(output.refreshHz));
     }
     out.push_back("-f");
+    // The fork: a host close request closes the focused game, not the session.
+    out.push_back("--close-focused-window");
     out.push_back("--");
     out.push_back(program);
     out.insert(out.end(), args.begin(), args.end());

@@ -44,6 +44,10 @@ struct Config {
     /// executable's directory, as installed and as staged in the build tree.
     std::filesystem::path assetsDir;
 
+    /// The Gamescope fork the nested session runs, next to this executable's prefix; see
+    /// `gamescopeBeside`. May not exist when iideck was built without the fork.
+    std::filesystem::path gamescope;
+
     /// iideck's cache, downloaded artwork among it: `$XDG_CACHE_HOME/iideck`, else
     /// `~/.cache/iideck`.
     std::filesystem::path cacheDir;
@@ -88,6 +92,11 @@ struct Config {
 /// Whether a POSIX time format (nl_langinfo T_FMT) is 24-hour, i.e. has no 12-hour directive
 /// (%I, %l or %r).
 [[nodiscard]] bool timeFormatIs24Hour(std::string_view format) noexcept;
+
+/// Where the Gamescope fork sits for an iideck at `executable`: `<prefix>/libexec/iideck/gamescope`
+/// for `<prefix>/bin/iideck` as installed, and `<build>/libexec/iideck/gamescope` for
+/// `<build>/src/iideck` in the build tree. Empty when `executable` is empty.
+[[nodiscard]] std::filesystem::path gamescopeBeside(const std::filesystem::path& executable);
 
 /// Reads the environment once and returns the same value thereafter. Values that
 /// cannot be parsed fall back to the default and are reported.

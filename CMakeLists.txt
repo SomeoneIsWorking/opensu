@@ -60,7 +60,19 @@ set(LUCENT_ROOT "$ENV{HOME}/repo/lucent" CACHE PATH "Shared Lucent checkout")
 
 add_subdirectory("${LUCENT_ROOT}" "${CMAKE_BINARY_DIR}/lucent" EXCLUDE_FROM_ALL)
 
+# The Gamescope fork the nested session runs; the running binary looks for it by the
+# relative path below, in the build tree and installed alike.
+include(GNUInstallDirs)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(Gamescope)
+if(IIDECK_BUILD_GAMESCOPE)
+    iideck_add_gamescope()
+endif()
+
 add_subdirectory(src)
+if(IIDECK_BUILD_GAMESCOPE)
+    add_dependencies(iideck iideck_gamescope)
+endif()
 
 enable_testing()
 add_subdirectory(tests)

@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
             lucent::error("session", "no display to read the monitor from");
             return 1;
         }
-        iideck::session::NestedSession session{config.session, config.executablePath};
+        iideck::session::NestedSession session{config.session, config.gamescope};
         return session.run(*output, args);
     }
 

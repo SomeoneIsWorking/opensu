@@ -15,7 +15,7 @@ gitignored `docs/reference/`).
 | `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
 | `src/app/install_job.*` | One Steam install: walks the installer, waits on the player's licence answer, follows the download |
-| `src/config/config.*` | The one reader of the environment, into typed immutable config |
+| `src/config/config.*` | The one reader of the environment, into typed immutable config; where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
 | `extension/iideck-signin/` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel |
 
 ## Session and processes (G003, G004)
@@ -23,7 +23,8 @@ gitignored `docs/reference/`).
 | Path | Owns |
 | --- | --- |
 | `src/session/nested_session.*` | Re-running iideck inside its own Gamescope when not already in one |
-| `src/session/gamescope.*` | The Gamescope command line |
+| `src/session/gamescope.*` | The Gamescope command line (`--close-focused-window` included) |
+| `cmake/Gamescope.cmake` | Building the pinned Gamescope fork (commit, dependency check, staging and install path); `IIDECK_BUILD_GAMESCOPE` |
 | `src/session/monitor.*` | The output's size and refresh |
 | `src/session/gamescope_overlay.*` | iideck's window as Gamescope's overlay over a running game |
 | `src/session/game_keys.*` | Keyboard shortcuts while a game has the keyboard (Shift+Tab is Guide), from XInput2 raw keys |

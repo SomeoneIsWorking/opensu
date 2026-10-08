@@ -18,15 +18,15 @@ inline constexpr const char* sessionVariable = "IIDECK_SESSION";
 
 class NestedSession {
   public:
-    /// `session` names every scope of the run; `executablePath` is where
-    /// `gamescope` is looked up.
-    NestedSession(std::string session, std::vector<std::filesystem::path> executablePath);
+    /// `session` names every scope of the run; `gamescope` is the pinned fork's binary
+    /// (`Config::gamescope`).
+    NestedSession(std::string session, std::filesystem::path gamescope);
 
     /// Runs `<this executable> <args>` in a Gamescope sized to `output`, in the scope
     /// `<session>-compositor.scope`, and waits for it to end. Then stops every other
     /// scope of the session. Returns Gamescope's exit status, or 1 when it could not
-    /// be started. SIGINT and SIGTERM stop the session instead of killing this
-    /// process.
+    /// be started, among it a missing `gamescope`. SIGINT and SIGTERM stop the session instead of
+    /// killing this process.
     int run(const Output& output, const std::vector<std::string>& args);
 
   private:
@@ -34,7 +34,7 @@ class NestedSession {
     void stopLeftovers() const;
 
     std::string session_;
-    std::vector<std::filesystem::path> executablePath_;
+    std::filesystem::path gamescope_;
 };
 
 } // namespace iideck::session

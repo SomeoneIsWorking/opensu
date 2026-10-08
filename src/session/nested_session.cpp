@@ -22,8 +22,8 @@ constexpr long pollNanoseconds = 200'000'000;
 
 } // namespace
 
-NestedSession::NestedSession(std::string session, std::vector<fs::path> executablePath)
-    : session_{std::move(session)}, executablePath_{std::move(executablePath)} {
+NestedSession::NestedSession(std::string session, fs::path gamescope)
+    : session_{std::move(session)}, gamescope_{std::move(gamescope)} {
 }
 
 void NestedSession::stopLeftovers() const {
@@ -32,11 +32,12 @@ void NestedSession::stopLeftovers() const {
 }
 
 int NestedSession::run(const Output& output, const std::vector<std::string>& args) {
-    const fs::path gamescope = launch::resolveExecutable("gamescope", executablePath_);
-    if (gamescope.empty()) {
-        lucent::error("session", "gamescope is not installed. Fedora: sudo dnf install gamescope; "
-                                 "Debian/Ubuntu: sudo apt install gamescope; "
-                                 "Arch: sudo pacman -S gamescope");
+    if (launch::resolveExecutable(gamescope_.string(), {}).empty()) {
+        lucent::error(
+            "session",
+            "the Gamescope fork is not at '{}'; iideck was built without it. Rebuild with "
+            "-DIIDECK_BUILD_GAMESCOPE=ON (the default)",
+            gamescope_.string());
         return 1;
     }
     std::error_code ec;
@@ -48,7 +49,7 @@ int NestedSession::run(const Output& output, const std::vector<std::string>& arg
 
     launch::Instance compositor;
     std::string failure;
-    if (!compositor.start(session_ + "-compositor.scope", gamescope.string(),
+    if (!compositor.start(session_ + "-compositor.scope", gamescope_.string(),
                           gamescopeArgs(output, self.string(), args), failure,
                           {std::string{sessionVariable} + "=" + session_})) {
         lucent::error("session", "{}", failure);

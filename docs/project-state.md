@@ -39,7 +39,7 @@ game has been observed running yet.
 | S009 | Haptic rumble | missing | S003 | G003 |
 | S010 | Own login session entry on Gamescope | missing | — | G004 |
 | S013 | iideck runs in a nested Gamescope inside KDE at the output's resolution | partial | S004 | G004 |
-| S014 | Alt+F4 closes the game in nested mode while Alt+Tab stays with KDE | missing | S013 | G004 |
+| S014 | Alt+F4 closes the game in nested mode while Alt+Tab stays with KDE | partial | S013 | G004 |
 | S015 | Shell owns every instance it starts and can force-close it from the pad | partial | S004 | G003 |
 | S017 | Per-game render resolution with Gamescope FSR upscaling, Deck-style | missing | — | G004 |
 | S016 | Steam client started and owned by iideck, with its state in the top bar | partial | S015 | G003, G004 |
@@ -348,17 +348,43 @@ other scope named `<session>-*`, and SIGINT/SIGTERM stop the session through its
 scopes. Games are never wrapped in a Gamescope of their own. The argument vector
 and the session's run, leftover cleanup and signal path (against a fake
 `gamescope`) are tested; no nested session has been run against a display yet.
+The binary is the pinned fork of S014, at `Config::gamescope`; a missing binary (iideck
+configured with `IIDECK_BUILD_GAMESCOPE=OFF`) is a one-line error, not a PATH lookup.
 
 ### S014 — Alt+F4 in nested mode
 
 KWin handles Alt+F4 and Alt+Tab as its own global shortcuts before nested
-Gamescope sees them. KWin's Alt+F4 sends Gamescope's window a close, and every
-Gamescope backend answers a close with `raise(SIGTERM)` (3.16.29
+Gamescope sees them. KWin's Alt+F4 sends Gamescope's window a close, and stock
+Gamescope answers a close with `raise(SIGTERM)` on every backend (3.16.29
 `WaylandBackend.cpp` `LibDecor_Frame_Close`, `SDLBackend.cpp` 825), so the whole
-session ends: iideck, then the game with its scope. KWin can block all global
-shortcuts for a window (`gamescope --grab` or a window rule) but not one, so
-that loses Alt+Tab. Planned: a KWin script, installed by iideck, that turns
-Alt+F4 on iideck's Gamescope window into a game close over the control channel.
+session ends. KWin can block all global shortcuts for a window (`gamescope
+--grab`) but not one, which loses Alt+Tab.
+
+iideck therefore runs a fork, `SomeoneIsWorking/gamescope` branch `iideck`, pinned
+to commit `41e84d4f5870a06534e310ff279a19a137375f79` (3.16.29 plus one commit).
+It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
+(or the xdg close) to Gamescope's focused app window and the session keeps
+running. `gamescopeArgs` always passes it. `cmake/Gamescope.cmake` builds the pin
+as an ExternalProject (meson, release, Clang from CMake's compilers; the layer and
+the tests are off) and stages it where `Config::gamescope` finds it, in the build
+tree and installed.
+
+With no game running, the focused app window is iideck's own, so Alt+F4 reaches
+raylib as a window close: `WindowShouldClose` ends the frame loop in
+`ShellApp::run`, which stops the control channel, calls `CloseWindow` and
+returns, the inner iideck exits, Gamescope ends with its only client and
+`NestedSession` stops the session's scopes. That is the intended desktop behaviour.
+
+Verified (virtual `kwin_wayland`, a KWin script closing Gamescope's window, an
+`xmessage` client): without the option Gamescope exits on the close; with it, on the
+Wayland, SDL and xdg paths, the client's window closes and Gamescope stays up, and
+a second close with no app window left is ignored. Evidence:
+`scratch/gamescope-fork/test/` (`run_case.sh`, `close_gamescope.js`, per-case logs).
+The ExternalProject recipe was built in a Fedora 44 image with all dependencies and
+a second build compiled nothing. Not verified: a nested session in the real KDE
+session, the shell's own window closing there, and Alt+Tab staying with KDE. The
+fork is built without Gamescope's Vulkan WSI layer; whether a game needs it
+nested is untested.
 
 ### S015 — Owned instances
 

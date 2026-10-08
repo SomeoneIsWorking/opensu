@@ -97,7 +97,7 @@ void testRunPassesArgumentsAndStopsLeftovers() {
     std::string failure;
     expect(leftover.start(steamUnit, "/bin/sleep", {"600"}, failure), "the leftover scope starts");
 
-    NestedSession session{fixture.session, {fixture.bin}};
+    NestedSession session{fixture.session, fixture.bin / "gamescope"};
     const Output output{2560, 1440, 144};
     const int status = session.run(output, {"--flag"});
 
@@ -117,9 +117,10 @@ void testRunPassesArgumentsAndStopsLeftovers() {
     expect(!scopeActive(fixture.session + "-compositor.scope"), "the compositor scope is gone");
 }
 
-/// No gamescope on the path is refused, not run.
+/// A missing gamescope binary is refused, not run.
 void testMissingGamescope() {
-    NestedSession session{"iideck-test-missing-" + std::to_string(getpid()), {}};
+    NestedSession session{"iideck-test-missing-" + std::to_string(getpid()),
+                          "/nonexistent/gamescope"};
     expect(session.run(Output{1280, 720, 0}, {}) == 1, "a missing gamescope fails");
 }
 
@@ -139,7 +140,7 @@ void testSignalStopsTheSession() {
     sigset_t previous;
     pthread_sigmask(SIG_BLOCK, &term, &previous);
 
-    NestedSession session{fixture.session, {fixture.bin}};
+    NestedSession session{fixture.session, fixture.bin / "gamescope"};
     std::future<int> done = std::async(std::launch::async, [&] {
         return session.run(Output{1280, 720, 0}, {});
     });

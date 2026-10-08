@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 
 #include <unistd.h>
@@ -31,6 +32,18 @@ int main(int argc, char** argv) {
         expect(!timeFormatIs24Hour("%I:%M:%S %p"), "%I is 12-hour");
         expect(!timeFormatIs24Hour("%l:%M %p"), "%l is 12-hour");
         expect(timeFormatIs24Hour("%%I %H"), "an escaped percent is not a directive");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
+    if (which == "gamescope") {
+        using iideck::config::gamescopeBeside;
+        const std::filesystem::path rel{IIDECK_GAMESCOPE_RELATIVE};
+        expect(gamescopeBeside("/prefix/bin/iideck") == "/prefix" / rel,
+               "an installed iideck finds the fork under its prefix");
+        expect(gamescopeBeside("/build/src/iideck") == "/build" / rel,
+               "a build-tree iideck finds the staged fork under the build directory");
+        expect(gamescopeBeside("").empty(), "an unknown executable has no fork");
+        expect(config.gamescope.filename() == "gamescope", "the config names the fork binary");
         std::printf("config: all checks passed\n");
         return 0;
     }
