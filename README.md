@@ -7,7 +7,7 @@ owns it.
 It is not an emulator and ships no games. Steam and Legendary keep doing their own
 authentication, downloading and cloud sync; iideck reads what they have installed and
 hands launches back to them. GOG is signed in by iideck itself (see Signing in to GOG and
-Epic) and its owned games are listed.
+Epic), its owned games are listed, and `gogdl` downloads them (see below).
 
 iideck runs Steam in the background with `-cef-enable-debugging`, which opens Steam's
 DevTools on 127.0.0.1:8080; that is how it reads download progress and starts
@@ -140,6 +140,19 @@ curl -X POST http://127.0.0.1:7311/signin/epic/start  # opens Epic's, through Le
 extension does that for you. Epic's code is given to `legendary auth --code`. GOG's token is
 kept in `$XDG_DATA_HOME/iideck/gog-token.json` (default `~/.local/share/iideck`), readable by
 you only.
+
+## Installing GOG games
+
+GOG downloads go through `gogdl`, Heroic's standalone GOG downloader (no Heroic launcher).
+Install it once, without root, pinned to the revision iideck was written against:
+
+```sh
+uv tool install "git+https://github.com/Heroic-Games-Launcher/heroic-gogdl@ac1580aeb004dda75557c97be9cc3105d50eeecb"
+```
+
+It needs a C compiler, for its xdelta3 extension. A game with a Linux build is downloaded as
+that build; otherwise the Windows build is downloaded and run with `wine`. Games land in
+`$XDG_DATA_HOME/iideck/gog-games/<id>/`.
 
 ## Controls
 

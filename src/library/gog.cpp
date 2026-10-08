@@ -14,8 +14,6 @@ namespace {
 
 using nlohmann::json;
 
-constexpr std::string_view installsLater = "GOG installs are not built yet";
-
 /// One page of the account's games: `{"totalPages": N, "products": [{"id", "title", "image"}]}`.
 struct Page {
     int totalPages{0};
@@ -57,7 +55,10 @@ Page parsePage(const std::string& body) {
         game.sourceId = id;
         game.title = title;
         game.artworkUrl = imageStem(product.value("image", ""));
-        game.unavailable = std::string{installsLater};
+        // "worksOn": {"Windows": bool, "Mac": bool, "Linux": bool}
+        const json worksOn = product.value("worksOn", json::object());
+        game.builds.windows = worksOn.value("Windows", false);
+        game.builds.linuxNative = worksOn.value("Linux", false);
         page.games.push_back(std::move(game));
     }
     return page;
@@ -65,12 +66,33 @@ Page parsePage(const std::string& body) {
 
 } // namespace
 
-Provider::Provider(TokenStore store, Endpoints endpoints)
-    : auth_{std::move(store), std::move(endpoints), web_} {
+Provider::Provider(TokenStore store, Setup setup)
+    : auth_{std::move(store), setup.endpoints, web_}, setup_{std::move(setup)} {
+}
+
+void Provider::applyInstall(Game& game,
+                            const std::map<std::string, Installed, std::less<>>& installs) const {
+    const auto install = installs.find(game.sourceId);
+    if (install == installs.end()) {
+        return;
+    }
+    game.installed = true;
+    game.launch = LaunchSpec{.program = setup_.gogdl,
+                             .args = {"launch", install->second.path.string(), game.sourceId,
+                                      "--platform", install->second.platform}};
+    if (install->second.platform == "windows") {
+        game.launch.args.insert(game.launch.args.end(),
+                                {"--wine", setup_.wine, "--wine-prefix",
+                                 (setup_.paths.prefixes / game.sourceId).string()});
+    }
+    // The install folder name identifies the running game.
+    game.processHint = install->second.path.filename().string();
 }
 
 std::vector<Game> Provider::list() {
     const std::vector<std::string> headers{"Authorization: Bearer " + auth_.accessToken()};
+    const std::map<std::string, Installed, std::less<>> installs =
+        InstallRecords{setup_.paths.records}.all();
     std::vector<Game> games;
     int totalPages = 1;
     for (int page = 1; page <= totalPages; ++page) {
@@ -84,6 +106,9 @@ std::vector<Game> Provider::list() {
         }
         Page parsed = parsePage(*body);
         totalPages = parsed.totalPages;
+        for (Game& game : parsed.games) {
+            applyInstall(game, installs);
+        }
         std::ranges::move(parsed.games, std::back_inserter(games));
     }
     lucent::info("gog", "library lists {} games", games.size());

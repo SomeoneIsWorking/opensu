@@ -67,39 +67,43 @@ std::optional<Token> TokenStore::load() const {
     return token;
 }
 
-void TokenStore::save(const Token& token) const {
+void writeOwnerOnly(const fs::path& file, const std::string& bytes) {
     std::error_code ec;
-    fs::create_directories(file_.parent_path(), ec);
+    fs::create_directories(file.parent_path(), ec);
     if (ec) {
-        throw std::runtime_error{"cannot create " + file_.parent_path().string() + ": " +
+        throw std::runtime_error{"cannot create " + file.parent_path().string() + ": " +
                                  ec.message()};
     }
-    fs::permissions(file_.parent_path(), ownerOnlyDir, ec);
+    fs::permissions(file.parent_path(), ownerOnlyDir, ec);
 
-    const json document{{"access_token", token.accessToken},
-                        {"refresh_token", token.refreshToken},
-                        {"user_id", token.userId},
-                        {"expires_at", token.expiresAt}};
     // mkstemp creates the file owner-only, and a name of its own per writer.
-    std::string staged = file_.string() + ".XXXXXX";
+    std::string staged = file.string() + ".XXXXXX";
     const int fd = ::mkostemp(staged.data(), O_CLOEXEC);
     if (fd < 0) {
-        failWrite(file_, "create");
+        failWrite(file, "create");
     }
-    const bool written = writeAll(fd, document.dump());
+    const bool written = writeAll(fd, bytes);
     const int writeErrno = errno;
     ::close(fd);
     if (!written) {
         errno = writeErrno;
         fs::remove(staged, ec);
-        failWrite(file_, "write");
+        failWrite(file, "write");
     }
-    if (::rename(staged.c_str(), file_.c_str()) != 0) {
+    if (::rename(staged.c_str(), file.c_str()) != 0) {
         const int renameErrno = errno;
         fs::remove(staged, ec);
         errno = renameErrno;
-        failWrite(file_, "rename");
+        failWrite(file, "rename");
     }
+}
+
+void TokenStore::save(const Token& token) const {
+    const json document{{"access_token", token.accessToken},
+                        {"refresh_token", token.refreshToken},
+                        {"user_id", token.userId},
+                        {"expires_at", token.expiresAt}};
+    writeOwnerOnly(file_, document.dump());
 }
 
 } // namespace iideck::library::gog

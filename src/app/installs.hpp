@@ -6,6 +6,7 @@
 #include <string>
 
 #include "epic_install_job.hpp"
+#include "gog_install_job.hpp"
 #include "install_job.hpp"
 #include "library/game.hpp"
 #include "steam_install_job.hpp"
@@ -14,10 +15,10 @@ namespace iideck::app {
 
 class Installs {
   public:
-    /// Installs Epic titles with `legendary`.
-    Installs(steam::Client& steam, std::string legendary);
+    /// Installs Epic titles with `legendary` and GOG titles with gogdl.
+    Installs(steam::Client& steam, std::string legendary, GogInstallJob::Options gog);
 
-    /// Whether iideck installs from this store. GOG waits for gogdl.
+    /// Whether iideck installs from this store.
     [[nodiscard]] static bool supports(library::Source source) noexcept;
 
     /// Starts installing `game` through its store. False while an install runs, or for a store
@@ -43,6 +44,7 @@ class Installs {
 
     SteamInstallJob steam_;
     EpicInstallJob epic_;
+    GogInstallJob gog_;
     std::string title_;
 };
 

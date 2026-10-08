@@ -11,7 +11,9 @@ Catalog makeCatalog(const config::Config& config) {
     catalog.add(std::make_unique<steam::Provider>(
         steam::Library::discover(config.home, config.steamRoots)));
     catalog.add(std::make_unique<epic::Provider>());
-    catalog.add(std::make_unique<gog::Provider>(gog::TokenStore::under(config.dataDir)));
+    catalog.add(
+        std::make_unique<gog::Provider>(gog::TokenStore::under(config.dataDir),
+                                        gog::Setup{.paths = gog::Paths::under(config.dataDir)}));
     std::vector<std::filesystem::path> romRoots = config.romRoots;
     if (romRoots.empty()) {
         romRoots = roms::discoverRoots(config.home, roms::standardMountDirs(config.home));

@@ -30,3 +30,13 @@ target_link_libraries(sections_test PRIVATE iideck::library)
 target_include_directories(sections_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_options(sections_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME sections COMMAND sections_test)
+
+add_executable(gog_install_test gog_install_test.cpp)
+target_link_libraries(gog_install_test PRIVATE iideck::library)
+target_compile_options(gog_install_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME gog_install COMMAND gog_install_test)
+
+add_executable(install_log_test install_log_test.cpp)
+target_link_libraries(install_log_test PRIVATE iideck::library)
+target_compile_options(install_log_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME install_log COMMAND install_log_test)

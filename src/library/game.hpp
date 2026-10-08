@@ -61,6 +61,12 @@ struct Game {
     /// another way.
     std::string artworkUrl;
 
+    /// The platforms the store lists builds for; set by GOG, which installs the one that runs here.
+    struct Builds {
+        bool windows{false};
+        bool linuxNative{false};
+    } builds;
+
     int playtimeMinutes{0};
     std::optional<std::chrono::system_clock::time_point> lastPlayed;
     bool favourite{false};

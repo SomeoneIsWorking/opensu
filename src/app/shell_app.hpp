@@ -210,7 +210,8 @@ class ShellApp final : public ControlTarget {
     /// second. Main loop only.
     std::vector<library::Game> offered_;
     /// After steam_, so it is stopped before the client it drives.
-    Installs install_{steam_, "legendary"};
+    Installs install_{steam_, "legendary",
+                      GogInstallJob::Options{.dataDir = config::read().dataDir}};
     /// Inside Gamescope, how the window draws over a running game. Null elsewhere, where the
     /// window is hidden while a game runs and shown only for the Guide menu.
     std::unique_ptr<session::GamescopeOverlay> overlay_;

@@ -17,6 +17,10 @@ struct Token {
     std::int64_t expiresAt{0};
 };
 
+/// Writes `bytes` to `file` readable by its owner only, replacing it atomically, in a directory
+/// that is owner-only too. Throws when it cannot.
+void writeOwnerOnly(const std::filesystem::path& file, const std::string& bytes);
+
 /// The token as one JSON file, owner-only, replaced atomically so a reader never sees half of one.
 class TokenStore {
   public:

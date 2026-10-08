@@ -3,11 +3,11 @@
 
 #include <string>
 
-#include "install_job.hpp"
+#include "cli_install_job.hpp"
 
 namespace iideck::app {
 
-class EpicInstallJob final : public InstallJob {
+class EpicInstallJob final : public CliInstallJob {
   public:
     /// Uses the `legendary` on PATH.
     EpicInstallJob();
@@ -17,9 +17,9 @@ class EpicInstallJob final : public InstallJob {
     ~EpicInstallJob();
 
   private:
-    void run(const std::stop_token& stop, const std::string& appName) override;
-
-    std::string binary_;
+    std::vector<std::string> arguments(const std::string& appName) override;
+    std::optional<double> progressIn(std::string_view line) const override;
+    std::optional<std::string> failureIn(std::string_view line) const override;
 };
 
 } // namespace iideck::app

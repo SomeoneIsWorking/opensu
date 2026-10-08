@@ -1,6 +1,7 @@
-// Install jobs: the store-neutral job's report handling through a fake installer, the Epic job
-// against a stub `legendary`, and which stores install.
+// Install jobs: the store-neutral job's report handling through a fake installer, the Epic and GOG
+// jobs against stub `legendary` and `gogdl` programs, and which stores install.
 #include "epic_install_job.hpp"
+#include "gog_install_job.hpp"
 #include "install_job.hpp"
 #include "installs.hpp"
 
@@ -12,13 +13,18 @@
 #include <string>
 #include <thread>
 
+#include <sys/stat.h>
 #include <unistd.h>
+
+#include "library/gog_installs.hpp"
+#include "library/gog_token.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 using iideck::app::EpicInstallJob;
+using iideck::app::GogInstallJob;
 using iideck::app::InstallJob;
 using iideck::app::Installs;
 using iideck::library::Source;
@@ -200,19 +206,146 @@ exit 1
            "a job going away does not wait for legendary");
 }
 
+/// A fake gogdl whose `download` records its arguments and the auth file's mode, makes a game
+/// folder and logs progress as gogdl does.
+fs::path writeGogdl(const fs::path& dir) {
+    return writeStub(dir / "gogdl", R"sh(auth=""
+if [ "$1" = "--auth-config-path" ]; then auth="$2"; shift 2; fi
+grep -q '"access_token":"ACCESS-1"' "$auth" || { echo "[AUTH] ERROR: no token" >&2; exit 3; }
+case "$1" in
+download)
+    id="$2"
+    all="$*"
+    while [ "$1" != "--path" ]; do shift; done
+    path="$2"
+    mkdir -p "$path"
+    echo "$(stat -c %a "$auth")" > "$path/../../auth-mode"
+    echo "$all" > "$path/../../download-args"
+    case "$id" in
+    full)
+        echo "Unable to proceed, Not enough disk space"
+        exit 2
+        ;;
+    esac
+    mkdir -p "$path/Game Folder"
+    echo "[PROGRESS] INFO: = Progress: 25.00 5/20, Running for: 00:00:01, ETA: 00:00:03" >&2
+    sleep 0.3
+    echo "[PROGRESS] INFO: = Progress: 100.00 20/20, Running for: 00:00:04, ETA: 00:00:00" >&2
+    sleep 0.3
+    [ "$id" = rotate ] && sed -i 's/REFRESH-1/REFRESH-9/' "$auth"
+    exit 0
+    ;;
+esac
+exit 9
+)sh");
+}
+
+fs::path gogData(const fs::path& dir, const char* name) {
+    const fs::path data = dir / name;
+    fs::create_directories(data);
+    iideck::library::gog::TokenStore::under(data).save(
+        iideck::library::gog::Token{"ACCESS-1", "REFRESH-1", "4242", 4'000'000'000});
+    return data;
+}
+
+std::string firstLine(const fs::path& file) {
+    std::ifstream in{file};
+    std::string line;
+    std::getline(in, line);
+    return line;
+}
+
+void testGog(const fs::path& dir) {
+    const fs::path gogdl = writeGogdl(dir / "bin");
+
+    const fs::path data = gogData(dir, "gog-native");
+    GogInstallJob native{GogInstallJob::Options{.dataDir = data, .gogdl = gogdl.string()}};
+    native.setBuilds({.windows = true, .linuxNative = true});
+    expect(native.start("native", "Native"), "a GOG install starts");
+    std::vector<double> seen;
+    const std::vector<InstallJob::Report> reports = drain(native);
+    for (const InstallJob::Report& report : reports) {
+        if (report.fraction) {
+            seen.push_back(*report.fraction);
+        }
+    }
+    expect(reports.back().finished && reports.back().failure.empty(), "it finishes installed");
+    expect(seen.size() == 2 && seen[0] == 0.25 && seen[1] == 1.0,
+           "progress reaches the loop as gogdl logs it");
+    expect(firstLine(data / "download-args") ==
+               "download native --platform linux --path " + (data / "gog-games/native").string(),
+           "a game with a Linux build downloads that build");
+    expect(firstLine(data / "auth-mode") == "600", "gogdl read an owner-only token file");
+    expect(!fs::exists(data / "gogdl-auth.json"), "the token file is gone afterwards");
+    const auto record =
+        iideck::library::gog::InstallRecords{data / "gog-installs.json"}.find("native");
+    expect(record && record->platform == "linux" &&
+               record->path == data / "gog-games/native/Game Folder",
+           "the install is recorded with gogdl's folder and platform");
+
+    const fs::path windowsData = gogData(dir, "gog-windows");
+    GogInstallJob windows{GogInstallJob::Options{.dataDir = windowsData, .gogdl = gogdl.string()}};
+    windows.setBuilds({.windows = true, .linuxNative = false});
+    expect(windows.start("winonly", "Win"), "a Windows-only install starts");
+    expect(drain(windows).back().failure.empty(), "it finishes installed");
+    expect(firstLine(windowsData / "download-args").find("--platform windows") != std::string::npos,
+           "a game without a Linux build downloads the Windows build");
+    const auto windowsRecord =
+        iideck::library::gog::InstallRecords{windowsData / "gog-installs.json"}.find("winonly");
+    expect(windowsRecord && windowsRecord->platform == "windows", "and is recorded as Windows");
+
+    // gogdl refreshed the token while it downloaded; iideck keeps the new one.
+    const fs::path rotatedData = gogData(dir, "gog-rotated");
+    GogInstallJob rotated{GogInstallJob::Options{.dataDir = rotatedData, .gogdl = gogdl.string()}};
+    rotated.setBuilds({.windows = true, .linuxNative = true});
+    expect(rotated.start("rotate", "Rotate"), "a long install starts");
+    expect(drain(rotated).back().failure.empty(), "it finishes installed");
+    const auto kept = iideck::library::gog::TokenStore::under(rotatedData).load();
+    expect(kept && kept->refreshToken == "REFRESH-9",
+           "the refresh token gogdl rotated is saved in iideck's token store");
+
+    const fs::path fullData = gogData(dir, "gog-full");
+    GogInstallJob full{GogInstallJob::Options{.dataDir = fullData, .gogdl = gogdl.string()}};
+    full.setBuilds({.windows = true, .linuxNative = true});
+    expect(full.start("full", "Full"), "an install on a full disk starts");
+    expect(drain(full).back().failure == "Not enough disk space", "it fails with gogdl's reason");
+    expect(!fs::exists(fullData / "gog-installs.json") && !fs::exists(fullData / "gogdl-auth.json"),
+           "a failed install records nothing and leaves no token file");
+
+    const fs::path noneData = gogData(dir, "gog-none");
+    GogInstallJob none{GogInstallJob::Options{.dataDir = noneData, .gogdl = gogdl.string()}};
+    expect(none.start("native", "Native"), "a game with no listed build starts");
+    expect(drain(none).back().failure == "GOG lists no Linux or Windows build of this game",
+           "it fails without running gogdl");
+    expect(!fs::exists(noneData / "download-args"), "gogdl was not run");
+
+    const fs::path emptyData = dir / "gog-signed-out";
+    GogInstallJob signedOut{GogInstallJob::Options{.dataDir = emptyData, .gogdl = gogdl.string()}};
+    signedOut.setBuilds({.windows = true, .linuxNative = true});
+    expect(signedOut.start("native", "Native"), "a signed-out install starts");
+    expect(drain(signedOut).back().failure == "GOG is not signed in", "it asks for a sign-in");
+
+    const fs::path missingData = gogData(dir, "gog-missing");
+    GogInstallJob missing{
+        GogInstallJob::Options{.dataDir = missingData, .gogdl = (dir / "no-gogdl").string()}};
+    missing.setBuilds({.windows = true, .linuxNative = true});
+    expect(missing.start("native", "Native"), "a missing gogdl starts");
+    expect(drain(missing).back().failure == "gogdl is not installed", "a missing gogdl says so");
+}
+
 void testInstalls(const fs::path& dir) {
     const fs::path slow = writeStub(dir / "legendary-routed", "sleep 0.3\nexit 0\n");
     iideck::steam::Client steam{iideck::steam::Client::Options{
         .home = dir / "home", .executablePath = {}, .session = "install-test", .steamRoots = {}}};
-    Installs installs{steam, slow.string()};
+    Installs installs{steam, slow.string(), GogInstallJob::Options{.dataDir = dir / "data"}};
 
     iideck::library::Game epic;
     epic.source = Source::Epic;
     epic.sourceId = "Fortnite";
     epic.title = "Fortnite";
-    iideck::library::Game gog = epic;
-    gog.source = Source::Gog;
-    expect(!installs.start(gog), "a GOG game is not installed");
+    iideck::library::Game rom = epic;
+    rom.source = Source::Rom;
+    expect(!installs.start(rom), "a ROM is not installed");
     expect(!installs.running(), "and nothing runs for it");
     expect(installs.start(epic) && installs.running(), "an Epic game starts its installer");
     expect(!installs.start(epic), "one install at a time");
@@ -226,12 +359,33 @@ void testInstalls(const fs::path& dir) {
     }
     expect(finished && !installs.running(), "the report comes through the router");
     expect(installs.title() == "Fortnite", "the title outlives the install");
+
+    // The listing's builds reach the GOG job: with one the install goes on to need a sign-in.
+    iideck::library::Game gog = epic;
+    gog.source = Source::Gog;
+    gog.sourceId = "1";
+    for (const bool linux : {false, true}) {
+        gog.builds = {.windows = false, .linuxNative = linux};
+        expect(installs.start(gog), "a GOG install starts");
+        std::optional<InstallJob::Report> last;
+        const Clock::time_point wait = Clock::now() + std::chrono::seconds{20};
+        while ((!last || !last->finished) && Clock::now() < wait) {
+            if (std::optional<InstallJob::Report> report = installs.take()) {
+                last = report;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds{2});
+        }
+        expect(last &&
+                   last->failure == (linux ? "GOG is not signed in"
+                                           : "GOG lists no Linux or Windows build of this game"),
+               "the game's builds decide whether the GOG install can go on");
+    }
 }
 
 void testSupports() {
     expect(Installs::supports(Source::Steam), "Steam installs");
     expect(Installs::supports(Source::Epic), "Epic installs");
-    expect(!Installs::supports(Source::Gog), "GOG does not install yet");
+    expect(Installs::supports(Source::Gog), "GOG installs");
     expect(!Installs::supports(Source::Rom), "a ROM is not installed");
 }
 
@@ -243,6 +397,7 @@ int main() {
     testJobLifecycle();
     testStoppedJob();
     testEpic(dir);
+    testGog(dir);
     testInstalls(dir);
     testSupports();
     fs::remove_all(dir);

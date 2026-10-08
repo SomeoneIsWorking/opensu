@@ -5,7 +5,7 @@
 The baseline is what this machine does today with no iideck installed: Steam's
 own Big Picture (`steam -gamepadui`) launched under Gamescope, switched to by
 hand from a Fedora KDE Plasma session. That UI lists Steam only. Epic needs
-Legendary or Heroic in a separate window, GOG needs Heroic, and emulators and
+Legendary or Heroic in a separate window, GOG needs Heroic (or gogdl and a script), and emulators and
 ROMs have no home at all.
 
 Visible deltas from the baseline:
@@ -38,7 +38,7 @@ game has been observed running yet.
 | S005 | iiSU home grid: Standard (Flow) and WiiSu (Paged) modes, top bar, prompts | partial | S001 | G002 |
 | S012 | Loopback control channel: state, injected input, frame capture | verified | S001 | G003 |
 | S006 | Epic source via Legendary: owned titles (`list --json`), install state (`list-installed --json`) | verified | — | G001 |
-| S007 | GOG source: iideck's own sign-in, token and owned-games listing | partial | S018 | G001 |
+| S007 | GOG source: iideck's own sign-in, token, owned-games listing, installs through gogdl | partial | S018 | G001 |
 | S018 | Store sign-in from the player's browser via the iideck-signin extension (GOG, Epic) | partial | S012 | G001 |
 | S008 | ROM source with per-system emulator launch, found without configuration | verified | — | G001 |
 | S009 | Haptic rumble | missing | S003 | G003 |
@@ -347,9 +347,40 @@ is one JSON file, `<data dir>/gog-token.json` (`$XDG_DATA_HOME/iideck`, else
 request per page returns id, title and image, so no per-game requests. Games are listed
 not installed, with `Game::artworkUrl` set to GOG's image stem (`https:` + `//images-N.gog.com/<hash>`,
 to which `_<size>.jpg` is appended; minigalaxy uses `_196.jpg`), the fetcher's fallback tile.
-No token, or a refresh GOG refuses, is `Attention` on the GOG badge. Installs come later
-through gogdl. Tested against a local server (`tests/library/gog_test.cpp`); no real GOG
-account has been used.
+No token, or a refresh GOG refuses, is `Attention` on the GOG badge. Tested against a local
+server (`tests/library/gog_test.cpp`); no real GOG account has been used.
+
+GOG installs (`app::GogInstallJob`, a `CliInstallJob` like Epic's) run `gogdl --auth-config-path
+<file> download <id> --platform linux|windows --path <data dir>/gog-games/<id>`; gogdl is
+Heroic's `heroic-gogdl` 1.3.1, installed with `uv tool install` pinned to a revision (README).
+Decisions:
+
+- Token: `TokenStore` stays the only saved token. Before each install the job refreshes it
+  through `Auth::accessToken` (iideck's refresh) and writes it for gogdl with
+  `gog::GogdlAuthFile` into `<data dir>/gogdl-auth.json` (0600): gogdl keys credentials by
+  Galaxy's client id with `access_token`, `refresh_token`, `loginTime` and `expires_in`
+  (`gogdl/auth.py`). A download longer than the token's life makes gogdl refresh and rotate the
+  token itself, so afterwards the job reads the file back, saves a changed refresh token into
+  `TokenStore` and deletes the file.
+- Platform: the library listing's `worksOn` (`{"Windows","Mac","Linux"}` per product in
+  `getFilteredProducts`) is parsed into `Game::builds`; the install downloads `linux` when GOG
+  lists a Linux build, else `windows`, else fails with "GOG lists no Linux or Windows build of
+  this game". Epic passes no platform.
+- Progress and failure: gogdl logs `[PROGRESS] INFO: = Progress: 12.34 505/4096, ...` (no `%`);
+  `library::install_log` parses that and legendary's line, and the ERROR/CRITICAL log lines of
+  both; gogdl's `Unable to proceed, ...` line (disk space) is a failure too.
+- Installed state: gogdl keeps no list and picks the game folder itself, so on success the job
+  records `{path, platform}` in `<data dir>/gog-installs.json` (`gog::InstallRecords`); the
+  provider reads it at each listing, marks the game installed and launches it with `gogdl launch
+  <path> <id> --platform <p>`, plus `--wine wine --wine-prefix <data dir>/gog-prefixes/<id>` for
+  a Windows install. No uninstall, update or repair yet; a deleted game folder stays recorded.
+
+Unverified: no real GOG download was made. gogdl's output format, the folder layout under
+`--path` and `gogdl launch` come from reading gogdl 1.3.1's source and a fake gogdl in
+`tests/app/install_job_test.cpp`; the `worksOn` field comes from minigalaxy's use of the same
+endpoint and is only exercised against the fake GOG server in `tests/library/gog_test.cpp`, so a
+real account's answer may differ (a product without it has no builds and cannot be installed).
+Windows installs run under the system `wine`, not Proton.
 
 Sign-in is a browser flow (`app::StoreSignIn`, driven by the control channel's `/signin`
 routes). `open` runs `xdg-open <page>`, so the player's default browser (Zen here) is used
@@ -529,18 +560,19 @@ request it already handed to Steam.
 ### Installing Steam games
 
 A on a game that is not installed offers to install it (A installs, B cancels). Steam and
-Epic install; GOG toasts "GOG installs are not supported yet" until gogdl. A title owned in
+Epic and GOG install. A title owned in
 several stores is installed from the stores that can: with one candidate A installs it, with
-two (Steam and Epic) the panel reads "Install from" with A for the first store and X for the
+two stores (say Steam and GOG) the panel reads "Install from" with A for the first store and X for the
 second. A launcher page installs its own store's copy; Home and All games choose among
 the copies. Launching an entry owned in several stores uses the installed copy, Steam first,
 then GOG, then Epic.
 
 `app::InstallJob` is the store-neutral job (thread, latest report, licence answer);
-`app::SteamInstallJob` and `app::EpicInstallJob` implement it and `app::Installs` routes by
-store, one install at a time. The Epic job runs `legendary install <app> -y --skip-sdl`
+`app::SteamInstallJob` implements it; `app::CliInstallJob` is the base of the two jobs that
+drive a downloader program (`app::EpicInstallJob`, `app::GogInstallJob`, the latter described
+under S007); `app::Installs` routes by store, one install at a time. The Epic job runs `legendary install <app> -y --skip-sdl`
 (`launch::runStreaming`, stdin closed, stderr and stdout merged) and shows the percentage of
-legendary's `= Progress:` line (`library::epic::installProgress`) on the same panel and
+legendary's `= Progress:` line (`library::install_log::progress`) on the same panel and
 "Installing · N%" line as Steam's; a failure shows the first ERROR/CRITICAL or
 " ! Failure:" line. Its output format is legendary 0.20.35's own, from `cli.py` and
 `downloader/mp/manager.py`; no game was installed on a real account to capture it live.

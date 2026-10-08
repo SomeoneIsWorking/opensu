@@ -21,8 +21,12 @@ namespace fs = std::filesystem;
 using iideck::library::Game;
 using iideck::library::gog::Auth;
 using iideck::library::gog::Endpoints;
+using iideck::library::gog::Installed;
+using iideck::library::gog::InstallRecords;
 using iideck::library::gog::NotSignedIn;
+using iideck::library::gog::Paths;
 using iideck::library::gog::Provider;
+using iideck::library::gog::Setup;
 using iideck::library::gog::Token;
 using iideck::library::gog::TokenStore;
 using iideck::net::WebClient;
@@ -98,11 +102,13 @@ class FakeGog {
             }
             if (contains(target, "page=1")) {
                 return reply(200, R"({"totalPages":2,"products":[
-                    {"id":1207658930,"title":"Alpha","image":"//images-4.gog.com/aaa"},
+                    {"id":1207658930,"title":"Alpha","image":"//images-4.gog.com/aaa",
+                     "worksOn":{"Windows":true,"Mac":false,"Linux":true}},
                     {"id":1,"title":"","image":"//images-4.gog.com/skipped"}]})");
             }
             return reply(200, R"({"totalPages":2,"products":[
-                {"id":2,"title":"Beta","image":"//images-2.gog.com/bbb"}]})");
+                {"id":2,"title":"Beta","image":"//images-2.gog.com/bbb",
+                 "worksOn":{"Windows":true,"Mac":true,"Linux":false}}]})");
         }
         return reply(404, "");
     }
@@ -211,7 +217,8 @@ void testRefresh() {
 void testLibrary() {
     FakeGog gog;
     const fs::path dir = freshDir("library");
-    Provider provider{TokenStore::under(dir), gog.endpoints()};
+    Provider provider{TokenStore::under(dir),
+                      Setup{.endpoints = gog.endpoints(), .paths = Paths::under(dir)}};
 
     bool signedOut = false;
     try {
@@ -235,6 +242,30 @@ void testLibrary() {
                games[1].artworkUrl == "https://images-2.gog.com/bbb",
            "GOG's image stem is kept for later");
     expect(games[1].title == "Beta", "the second page follows the first");
+    expect(games[0].builds.windows && games[0].builds.linuxNative,
+           "worksOn gives the Windows and Linux builds");
+    expect(games[1].builds.windows && !games[1].builds.linuxNative,
+           "a game GOG does not list for Linux has no Linux build");
+
+    // An install iideck recorded makes the game installed and launchable through gogdl.
+    const InstallRecords records{Paths::under(dir).records};
+    records.add("1207658930",
+                Installed{.path = dir / "gog-games/1207658930/Alpha", .platform = "linux"});
+    records.add("2", Installed{.path = dir / "gog-games/2/Beta", .platform = "windows"});
+    const std::vector<Game> installed = provider.list();
+    expect(
+        installed[0].installed && installed[0].processHint == "Alpha" &&
+            installed[0].launch.program == "gogdl" &&
+            installed[0].launch.args ==
+                (std::vector<std::string>{"launch", (dir / "gog-games/1207658930/Alpha").string(),
+                                          "1207658930", "--platform", "linux"}),
+        "a Linux install launches through gogdl");
+    expect(installed[1].installed &&
+               installed[1].launch.args ==
+                   (std::vector<std::string>{"launch", (dir / "gog-games/2/Beta").string(), "2",
+                                             "--platform", "windows", "--wine", "wine",
+                                             "--wine-prefix", (dir / "gog-prefixes/2").string()}),
+           "a Windows install launches under Wine in a prefix of its own");
 
     TokenStore::under(dir).save(Token{"WRONG", "REFRESH-1", "4242", 4'000'000'000});
     bool failed = false;

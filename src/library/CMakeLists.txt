@@ -3,9 +3,12 @@ add_library(iideck_library STATIC
     catalog.cpp
     steam.cpp
     epic.cpp
+    install_log.cpp
     gog.cpp
     gog_auth.cpp
     gog_token.cpp
+    gogdl_auth.cpp
+    gog_installs.cpp
     roms.cpp
     rom_systems.cpp
     shelf.cpp
@@ -19,6 +22,6 @@ target_link_libraries(iideck_library
     PUBLIC iideck::vdf
         iideck::config
         iideck::net
-    PRIVATE iideck::command lucent::lucent
+    PRIVATE iideck::command iideck::fileio lucent::lucent
 )
 target_compile_features(iideck_library PUBLIC cxx_std_20)
