@@ -39,6 +39,8 @@ const std::vector<std::string>& portraitCandidates() {
     static const std::vector<std::string> candidates{
         "appcache/librarycache/{}/library_600x900.jpg",
         "appcache/librarycache/{}/library_600x900.png",
+        "appcache/librarycache/{}/*/library_600x900.jpg",
+        "appcache/librarycache/{}/*/library_600x900.png",
         "appcache/librarycache/{}_600x900.jpg",
         "config/grid/{}p.jpg",
         "config/grid/{}.jpg",
@@ -53,6 +55,8 @@ const std::vector<std::string>& wideCandidates() {
         "appcache/librarycache/{}_library_hero.png",
         "appcache/librarycache/{}/library_hero.jpg",
         "appcache/librarycache/{}/library_hero.png",
+        "appcache/librarycache/{}/*/library_hero.jpg",
+        "appcache/librarycache/{}/*/library_hero.png",
     };
     return candidates;
 }
@@ -81,6 +85,33 @@ bool isInstallRoot(const fs::path& path) {
 }
 
 /// The first candidate that is a readable file.
+/// The file a candidate names, where a `*` component stands for any one folder (Steam's current
+/// cache keeps each image in a hashed folder of its own).
+std::optional<fs::path> matchOne(const fs::path& candidate) {
+    std::error_code ec;
+    fs::path prefix;
+    for (auto part = candidate.begin(); part != candidate.end(); ++part) {
+        if (*part != "*") {
+            prefix /= *part;
+            continue;
+        }
+        fs::path rest;
+        for (auto tail = std::next(part); tail != candidate.end(); ++tail) {
+            rest /= *tail;
+        }
+        for (const fs::directory_entry& entry : fs::directory_iterator{prefix, ec}) {
+            if (std::optional<fs::path> found = matchOne(entry.path() / rest)) {
+                return found;
+            }
+        }
+        return std::nullopt;
+    }
+    if (fs::is_regular_file(candidate, ec)) {
+        return candidate;
+    }
+    return std::nullopt;
+}
+
 fs::path firstExisting(const fs::path& root, const std::vector<std::string>& patterns,
                        std::string_view appId) {
     for (const std::string& pattern : patterns) {
@@ -92,10 +123,8 @@ fs::path firstExisting(const fs::path& root, const std::vector<std::string>& pat
         std::string filled{view.substr(0, slot)};
         filled.append(appId);
         filled.append(view.substr(slot + 2));
-        const fs::path candidate = root / filled;
-        std::error_code ec;
-        if (fs::is_regular_file(candidate, ec)) {
-            return candidate;
+        if (std::optional<fs::path> found = matchOne(root / filled)) {
+            return *found;
         }
     }
     return {};

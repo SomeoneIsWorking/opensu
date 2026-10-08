@@ -88,6 +88,14 @@ struct Fixture {
         write(root / "config" / "grid" / "620p.jpg", "legacy");
         // 999 has none.
 
+        // Steam's current cache keeps each image in a hashed folder of its own.
+        write(root / "steamapps" / "appmanifest_777.acf",
+              "\"AppState\"\n{\n\t\"appid\"\t\t\"777\"\n\t\"name\"\t\t\"Hashed Game\"\n"
+              "\t\"installdir\"\t\t\"Portal 2\"\n\t\"StateFlags\"\t\t\"4\"\n}\n");
+        write(root / "appcache" / "librarycache" / "777" / "ac2f07" / "library_600x900.jpg",
+              "portrait");
+        write(root / "appcache" / "librarycache" / "777" / "5925343" / "library_hero.jpg", "hero");
+
         write(root / "userdata" / "1234567" / "config" / "localconfig.vdf",
               "\"UserLocalConfigStore\"\n{\n\t\"Software\"\n\t{\n\t\t\"Valve\"\n\t\t{\n"
               "\t\t\t\"Steam\"\n\t\t\t{\n\t\t\t\t\"Apps\"\n\t\t\t\t{\n"
@@ -132,9 +140,9 @@ int main() {
     iideck::library::steam::Provider provider{library};
     const std::vector<Game> games = provider.list();
 
-    // Three games: the two manifests in the root that are games, plus the extra
+    // Four games: the three manifests in the root that are games, plus the extra
     // library's. The Steam component is not a game.
-    expect(games.size() == 3, "three games listed");
+    expect(games.size() == 4, "four games listed");
 
     // 620 is mid-update (StateFlags 1026 has UpdateRequired), 440 is up to date.
     expect(library.installed("440") && !library.installed("620") && !library.installed("31337"),
@@ -163,6 +171,11 @@ int main() {
     expect(missing != nullptr, "known-but-absent game listed");
     expect(!missing->installed, "absent directory means not installed");
     expect(!missing->artwork.empty(), "legacy grid artwork found");
+
+    const Game* hashed = find(games, "steam:777");
+    expect(hashed != nullptr && hashed->artwork.filename() == "library_600x900.jpg" &&
+               hashed->artworkWide.filename() == "library_hero.jpg",
+           "artwork in the cache's hashed folders is found");
 
     const Game* deep = find(games, "steam:999");
     expect(deep != nullptr, "game from the extra library listed");
