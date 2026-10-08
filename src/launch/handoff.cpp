@@ -119,9 +119,8 @@ Handoff::Begun Handoff::beginScope(const library::Game& game,
     return Begun::Started;
 }
 
-bool Handoff::start(const library::Game& game, const std::function<void()>& hide,
-                    const std::function<void()>& show, const std::vector<std::string>& environment,
-                    std::string& failure) {
+bool Handoff::start(const library::Game& game, const Hooks& hooks,
+                    const std::vector<std::string>& environment, std::string& failure) {
     if (game.launch.empty()) {
         failure = "no launch command for " + game.title;
         return false;
@@ -147,8 +146,8 @@ bool Handoff::start(const library::Game& game, const std::function<void()>& hide
 
     // Hidden once the game is on its way: a game that opens its window at once must
     // not appear over a shell that is still up.
-    if (hide) {
-        hide();
+    if (hooks.hide) {
+        hooks.hide();
     }
     lucent::info("launch", "started {}", game.title);
 
@@ -163,8 +162,8 @@ bool Handoff::start(const library::Game& game, const std::function<void()>& hide
         } else {
             instance_.stop();
         }
-        if (show) {
-            show();
+        if (hooks.show) {
+            hooks.show();
         }
     };
     // Nothing will appear once the thing that was to start the game is gone.

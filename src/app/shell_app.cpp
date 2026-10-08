@@ -233,17 +233,17 @@ void ShellApp::launchFocused() {
 
     std::thread{[this, copy, environment = std::move(environment)] {
         std::string failure;
-        handoff_.start(
-            copy,
-            [this] {
-                // raylib's window calls belong to the thread that owns the GL context, so
-                // the handoff thread only raises a flag and the loop does the work.
-                requestGameRunning(true);
-            },
-            [this] {
-                requestGameRunning(false);
-            },
-            environment, failure);
+        // raylib's window calls belong to the thread that owns the GL context, so the handoff
+        // thread only raises flags and the loop does the work.
+        const launch::Handoff::Hooks hooks{.hide =
+                                               [this] {
+                                                   requestGameRunning(true);
+                                               },
+                                           .show =
+                                               [this] {
+                                                   requestGameRunning(false);
+                                               }};
+        handoff_.start(copy, hooks, environment, failure);
         {
             const std::lock_guard lock{launchMutex_};
             launchRunning_ = false;

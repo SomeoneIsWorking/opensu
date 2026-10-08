@@ -39,6 +39,12 @@ class Handoff {
     Handoff(std::vector<std::filesystem::path> executablePath, std::string session,
             SteamGate& steam);
 
+    /// What a launch tells its caller, from the thread running start().
+    struct Hooks {
+        std::function<void()> hide;
+        std::function<void()> show;
+    };
+
     /// Starts a game, calls `hide`, waits for the game to finish, then calls
     /// `show`. Blocks until then, so callers run it off the main thread. Each
     /// "NAME=value" of `environment` is added to a game iideck starts itself; a
@@ -52,9 +58,8 @@ class Handoff {
     /// The wait is two phases, not a wait on the child: a launcher may hand off
     /// and exit at once. The game appears in the process table, then leaves. It
     /// also ends when the instance is gone, or when forceClose() is called.
-    bool start(const library::Game& game, const std::function<void()>& hide,
-               const std::function<void()>& show, const std::vector<std::string>& environment,
-               std::string& failure);
+    bool start(const library::Game& game, const Hooks& hooks,
+               const std::vector<std::string>& environment, std::string& failure);
 
     /// SIGKILLs everything the current launch started: the instance, or a Steam
     /// game's whole process tree (the client stays). Safe from any thread; start()

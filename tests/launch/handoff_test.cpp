@@ -271,15 +271,15 @@ std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& sh
                                    std::vector<std::string> environment = {}) {
     return std::async(std::launch::async, [&handoff, &game, &shell, environment]() {
         Outcome outcome;
-        outcome.ok = handoff.start(
-            game,
-            [&shell] {
-                shell.hide();
-            },
-            [&shell] {
-                shell.show();
-            },
-            environment, outcome.failure);
+        const Handoff::Hooks hooks{.hide =
+                                       [&shell] {
+                                           shell.hide();
+                                       },
+                                   .show =
+                                       [&shell] {
+                                           shell.show();
+                                       }};
+        outcome.ok = handoff.start(game, hooks, environment, outcome.failure);
         shell.returned.store(true);
         return outcome;
     });
