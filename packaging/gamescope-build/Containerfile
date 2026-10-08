@@ -1,0 +1,8 @@
+# Build environment for the pinned Gamescope fork (cmake/Gamescope.cmake). The release matches
+# the host so the binary links against the host's own runtime libraries.
+ARG FEDORA_VERSION
+FROM registry.fedoraproject.org/fedora:${FEDORA_VERSION}
+
+RUN dnf -y install dnf-plugins-core clang meson ninja-build glslang git \
+    && dnf -y builddep gamescope \
+    && dnf clean all

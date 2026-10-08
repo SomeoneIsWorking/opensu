@@ -57,19 +57,17 @@ cmake --build build/cmake
 The nested session (iideck started on a desktop) runs iideck's own pinned
 [Gamescope fork](https://github.com/SomeoneIsWorking/gamescope) (branch `iideck`), built by
 `cmake/Gamescope.cmake` from a fixed commit. It adds `--close-focused-window`, so Alt+F4 in KDE
-closes the game instead of ending the session. The fork is built with meson and ninja on the
-first `cmake --build` (it clones the commit and its submodules, so it needs the network once) and
-is not rebuilt afterwards. Install its build dependencies first; configure refuses and names what
-is missing:
-
-```sh
-sudo dnf builddep gamescope        # Fedora
-sudo apt build-dep gamescope       # Debian/Ubuntu (needs deb-src enabled)
-# Arch: sudo pacman -S --needed with the list configure prints
-```
-
-meson and ninja are needed as well (`uv tool install meson` installs meson without root). To
-work on the rest of iideck without the fork, configure with `-DIIDECK_BUILD_GAMESCOPE=OFF`; the
+closes the game instead of ending the session. The fork is built with meson and ninja inside a
+rootless podman container, so the host needs no Gamescope build dependencies, only podman
+(`sudo dnf install podman`) and the network once. The container image
+(`packaging/gamescope-build/Containerfile`) is the host's own Fedora release plus
+`dnf builddep gamescope`, clang, meson, ninja and glslang, tagged by the Containerfile's hash; the
+first `cmake --build` pulls and builds it (a few GB of image, several minutes), clones the commit
+and its submodules, and builds the fork. Afterwards nothing is rebuilt until the Containerfile
+changes. Only Fedora hosts are supported; configure refuses elsewhere. The staged binary's
+runtime libraries are checked on the host with `ldd`; `sudo dnf install gamescope` installs any
+that are missing. To work on the rest of iideck without the fork, configure with
+`-DIIDECK_BUILD_GAMESCOPE=OFF`; the
 nested session then refuses to start and says so. `cmake --install` puts the binary at
 `<prefix>/libexec/iideck/gamescope`, where an installed iideck looks; a build-tree iideck looks at
 `<build>/libexec/iideck/gamescope`. There is no `PATH` lookup and no fallback to the distribution's
