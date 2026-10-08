@@ -68,7 +68,8 @@ class FakeSignIn final : public SignInService {
 };
 
 Request post(std::string target, std::string body = {}) {
-    return Request{.method = "POST", .target = std::move(target), .body = std::move(body)};
+    return Request{
+        .method = "POST", .target = std::move(target), .headers = {}, .body = std::move(body)};
 }
 
 void testStart() {
@@ -126,7 +127,9 @@ void testRefusals() {
     expect(channel.handle(post("/signin/gog", std::string(600, 'a'))).status == 400,
            "an over-long code is refused");
     expect(signIn.completed.empty(), "a refused body reaches no store");
-    expect(channel.handle(Request{.method = "GET", .target = "/signin/gog/start", .body = {}})
+    expect(channel
+                   .handle(Request{
+                       .method = "GET", .target = "/signin/gog/start", .headers = {}, .body = {}})
                    .status == 400,
            "sign-in is POST only");
     expect(channel.handle(post("/signin/steam")).status == 404, "only GOG and Epic have sign-in");
@@ -138,7 +141,7 @@ void testState() {
     FakeShell shell;
     FakeSignIn signIn;
     ControlChannel channel{shell, signIn, 0};
-    const Request get{.method = "GET", .target = "/state", .body = {}};
+    const Request get{.method = "GET", .target = "/state", .headers = {}, .body = {}};
 
     Response fresh = channel.handle(get);
     expect(fresh.status == 200 && contains(fresh.body, "\"section\":\"home\"") &&

@@ -13,7 +13,7 @@
 
 #include <sys/stat.h>
 
-#include "support/header_server.hpp"
+#include "support/loopback_server.hpp"
 
 namespace {
 
@@ -26,8 +26,8 @@ using iideck::library::gog::Provider;
 using iideck::library::gog::Token;
 using iideck::library::gog::TokenStore;
 using iideck::net::WebClient;
-using iideck::test::Answer;
-using iideck::test::HeaderServer;
+using iideck::test::LoopbackServer;
+using iideck::test::reply;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -55,8 +55,8 @@ constexpr const char* refreshedToken =
 class FakeGog {
   public:
     FakeGog()
-        : server_{[this](const std::string& target, const std::string& headers) {
-              return answer(target, headers);
+        : server_{[this](const lucent::http::Request& request) {
+              return answer(request);
           }} {
     }
 
@@ -75,7 +75,8 @@ class FakeGog {
     }
 
   private:
-    Answer answer(const std::string& target, const std::string& headers) {
+    lucent::http::Response answer(const lucent::http::Request& request) {
+        const std::string& target = request.target;
         if (target.rfind("/token?", 0) == 0) {
             ++tokenRequests_;
             {
@@ -83,34 +84,34 @@ class FakeGog {
                 lastTokenTarget_ = target;
             }
             if (contains(target, "grant_type=authorization_code&code=GOOD-CODE&")) {
-                return {200, fakeToken};
+                return reply(200, fakeToken);
             }
             if (contains(target, "grant_type=refresh_token&refresh_token=REFRESH-1")) {
-                return {200, refreshedToken};
+                return reply(200, refreshedToken);
             }
-            return {400, R"({"error":"invalid_grant"})"};
+            return reply(400, R"({"error":"invalid_grant"})");
         }
         if (target.rfind("/account/getFilteredProducts?mediaType=1&page=", 0) == 0) {
             ++libraryRequests_;
-            if (!contains(headers, "Authorization: Bearer ACCESS-")) {
-                return {401, ""};
+            if (!request.header("Authorization").value_or("").starts_with("Bearer ACCESS-")) {
+                return reply(401, "");
             }
             if (contains(target, "page=1")) {
-                return {200, R"({"totalPages":2,"products":[
+                return reply(200, R"({"totalPages":2,"products":[
                     {"id":1207658930,"title":"Alpha","image":"//images-4.gog.com/aaa"},
-                    {"id":1,"title":"","image":"//images-4.gog.com/skipped"}]})"};
+                    {"id":1,"title":"","image":"//images-4.gog.com/skipped"}]})");
             }
-            return {200, R"({"totalPages":2,"products":[
-                {"id":2,"title":"Beta","image":"//images-2.gog.com/bbb"}]})"};
+            return reply(200, R"({"totalPages":2,"products":[
+                {"id":2,"title":"Beta","image":"//images-2.gog.com/bbb"}]})");
         }
-        return {404, ""};
+        return reply(404, "");
     }
 
     mutable std::mutex mutex_;
     std::string lastTokenTarget_;
     std::atomic<int> tokenRequests_{0};
     std::atomic<int> libraryRequests_{0};
-    HeaderServer server_;
+    LoopbackServer server_;
 };
 
 fs::path freshDir(const char* name) {

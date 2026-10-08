@@ -16,6 +16,7 @@ add_test(NAME zip_archive COMMAND zip_archive_test)
 add_executable(starter_pack_test starter_pack_test.cpp)
 target_link_libraries(starter_pack_test PRIVATE iideck::artwork ZLIB::ZLIB PkgConfig::WEBP
                                                 lucent::lucent Threads::Threads)
+target_include_directories(starter_pack_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_options(starter_pack_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME starter_pack COMMAND starter_pack_test)
 

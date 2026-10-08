@@ -8,7 +8,7 @@
 #include <string>
 
 #include "library/gog_token.hpp"
-#include "support/header_server.hpp"
+#include "support/loopback_server.hpp"
 
 namespace {
 
@@ -16,8 +16,8 @@ namespace fs = std::filesystem;
 using iideck::app::SignInResult;
 using iideck::app::Store;
 using iideck::app::StoreSignIn;
-using iideck::test::Answer;
-using iideck::test::HeaderServer;
+using iideck::test::LoopbackServer;
+using iideck::test::reply;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -57,12 +57,13 @@ fs::path freshDir() {
 
 int main() {
     const fs::path dir = freshDir();
-    HeaderServer gog{[](const std::string& target, const std::string& /*headers*/) -> Answer {
+    LoopbackServer gog{[](const lucent::http::Request& request) {
+        const std::string& target = request.target;
         if (target.find("code=GOOD-CODE&") != std::string::npos) {
-            return {200,
-                    R"({"access_token":"A","refresh_token":"R","expires_in":3600,"user_id":"7"})"};
+            return reply(
+                200, R"({"access_token":"A","refresh_token":"R","expires_in":3600,"user_id":"7"})");
         }
-        return {400, "{}"};
+        return reply(400, "{}");
     }};
     const fs::path browser = fakeProgram(dir, "browser", 0);
     const fs::path legendary = fakeProgram(dir, "legendary", 0);
