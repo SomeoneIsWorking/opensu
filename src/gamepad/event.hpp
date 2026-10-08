@@ -2,6 +2,7 @@
 // device.
 #pragma once
 
+#include <string>
 #include <string_view>
 
 namespace iideck::gamepad {
@@ -35,7 +36,6 @@ enum class Button {
 struct Event {
     enum class Kind {
         Button,
-        Axis,
         Connected,
         Disconnected,
     };
@@ -43,11 +43,8 @@ struct Event {
     Kind kind{Kind::Button};
     Button button{Button::None};
     bool pressed{false};
-    /// "lx", "ly", "rx" or "ry", normalised to -1..1.
-    const char* axis{nullptr};
-    float value{0.0f};
-    /// The controller's name, for the status line.
-    const char* device{""};
+    /// The controller's name, for Connected and Disconnected.
+    std::string device;
 };
 
 } // namespace iideck::gamepad

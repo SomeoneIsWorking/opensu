@@ -1,14 +1,21 @@
 #include "virtual_pad.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
+#include <chrono>
 #include <cstring>
+#include <filesystem>
+#include <string>
 #include <system_error>
+#include <thread>
 
 #include <fcntl.h>
 #include <linux/uinput.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+
+#include "lucent/log.h"
 
 namespace iideck::gamepad {
 namespace {
@@ -72,6 +79,30 @@ VirtualPad::VirtualPad() {
         ::close(fd_);
         throw;
     }
+    awaitAccess();
+}
+
+void VirtualPad::awaitAccess() const {
+    std::array<char, 64> sysname{};
+    if (ioctl(fd_, UI_GET_SYSNAME(sysname.size()), sysname.data()) < 0) {
+        return;
+    }
+    const std::filesystem::path device =
+        std::filesystem::path{"/sys/devices/virtual/input"} / sysname.data();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{2};
+    while (std::chrono::steady_clock::now() < deadline) {
+        std::error_code error;
+        for (const auto& entry : std::filesystem::directory_iterator{device, error}) {
+            const std::string name = entry.path().filename().string();
+            if (name.starts_with("event") &&
+                ::access(("/dev/input/" + name).c_str(), R_OK | W_OK) == 0) {
+                return;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
+    lucent::warn("gamepad", "{} is not yet open to this user; a game may not see it",
+                 sysname.data());
 }
 
 VirtualPad::~VirtualPad() {

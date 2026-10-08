@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include "gamepad/reader.hpp"
+#include "gamepad/event.hpp"
 #include "lucent/http.h"
 
 namespace iideck::app {

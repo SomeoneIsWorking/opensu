@@ -58,7 +58,6 @@ Overrides, all optional:
 | `IIDECK_EMULATORS` | `SYSTEM=program arg;SYSTEM2=program` |
 | `IIDECK_WIDTH`, `IIDECK_HEIGHT` | Window size, default 1280x800. |
 | `IIDECK_ASSETS` | Directory holding the typeface. Defaults to `share/iideck` beside the executable's directory. |
-| `IIDECK_GAMEPAD` | Only accept controllers whose name contains this. |
 | `IIDECK_HOME_MODE` | `standard` (scrolling grid, default) or `wiisu` (paged grid). |
 
 The build stages the assets beside the binary, so it runs from any directory.
@@ -80,10 +79,9 @@ cmake --install build/cmake
 For a desktop icon as well, copy the entry to the desktop and mark it executable:
 `cp "$HOME/.local/share/applications/iideck.desktop" "$(xdg-user-dir DESKTOP)/" && chmod +x "$(xdg-user-dir DESKTOP)/iideck.desktop"`.
 
-`IIDECK_GAMEPAD` exists because SDL reports any device with buttons as a
-gamepad, so on a desktop with a multimedia keyboard the keyboard and its media
-receiver show up as controllers. raylib offers no way to tell them apart, so
-name yours.
+Controllers are read from evdev: any pad whose driver follows the kernel's gamepad
+codes (xpad, xone, hid-playstation, hid-nintendo, ...) works, keyboards are never
+taken for one, and a pad switched on while iideck runs is picked up.
 
 A ROM whose system has no configured emulator still appears in the grid, and
 pressing play reports which emulator is missing rather than doing nothing.

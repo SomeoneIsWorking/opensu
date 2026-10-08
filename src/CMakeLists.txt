@@ -21,7 +21,7 @@ target_link_libraries(iideck
     PRIVATE
         iideck::app
         iideck::ui
-        iideck::gamepad
+        iideck::pad
         iideck::launch
         iideck::steam
         iideck::session
@@ -48,7 +48,7 @@ install(FILES "${CMAKE_BINARY_DIR}/iideck.desktop"
 target_include_directories(iideck_vdf INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_library INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_ui INTERFACE "${CMAKE_SOURCE_DIR}/src")
-target_include_directories(iideck_gamepad INTERFACE "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(iideck_pad INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_launch INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_steam INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(iideck_session INTERFACE "${CMAKE_SOURCE_DIR}/src")

@@ -6,7 +6,7 @@ target_link_libraries(iideck_app
         iideck::library
         iideck::ui
         iideck::device
-        iideck::gamepad
+        iideck::pad
         iideck::launch
         iideck::steam
         iideck::session

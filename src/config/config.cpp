@@ -191,7 +191,6 @@ const Config& read() {
                 std::filesystem::read_symlink("/proc/self/exe", error);
             value.assetsDir = self.parent_path().parent_path() / "share" / "iideck";
         }
-        value.gamepadNameFilter = std::string{env("IIDECK_GAMEPAD")};
         value.homeMode = envHomeMode("IIDECK_HOME_MODE", value.homeMode);
         value.clock24Hour = localeClock24Hour();
         value.width = envInt("IIDECK_WIDTH", value.width);

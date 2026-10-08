@@ -44,10 +44,6 @@ struct Config {
     /// executable's directory, as installed and as staged in the build tree.
     std::filesystem::path assetsDir;
 
-    /// Only controllers whose name contains this are accepted. Empty accepts
-    /// every device SDL reports.
-    std::string gamepadNameFilter;
-
     /// The home grid's dashboard mode, from IIDECK_HOME_MODE (`standard` or `wiisu`).
     HomeMode homeMode{HomeMode::Standard};
 

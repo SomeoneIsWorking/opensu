@@ -19,7 +19,8 @@ class VirtualPad {
     static constexpr std::uint16_t vendor{0x045e};
     static constexpr std::uint16_t product{0x028e};
 
-    /// Creates the device; throws std::system_error when uinput is unavailable.
+    /// Creates the device and returns once its node is open to this user, as it is to a game;
+    /// throws std::system_error when uinput is unavailable.
     VirtualPad();
     VirtualPad(const VirtualPad&) = delete;
     VirtualPad& operator=(const VirtualPad&) = delete;
@@ -29,6 +30,10 @@ class VirtualPad {
     void write(const std::vector<PadEvent>& events);
 
   private:
+    /// Waits for udev to grant access to the new node; a game that enumerates before then
+    /// cannot open it.
+    void awaitAccess() const;
+
     int fd_{-1};
 };
 

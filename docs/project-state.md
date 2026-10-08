@@ -27,14 +27,14 @@ game has been observed running yet.
 | --- | --- | --- | --- | --- |
 | S001 | Library model and catalog aggregate over every source | verified | — | G001 |
 | S002 | Steam library source: manifests, install state, artwork, playtime, favourites | verified | — | G001 |
-| S003 | Gamepad input through raylib, polled per frame | partial | — | G003 |
+| S003 | Gamepad input from evdev, hot-plugged, with iiSU's repeat | partial | — | G003 |
 | S004 | Launch handoff into a running game, with the shell returning | partial | S002 | G001, G003 |
 | S005 | iiSU home grid: Standard (Flow) and WiiSu (Paged) modes, top bar, prompts | partial | S001 | G002 |
 | S012 | Loopback control channel: state, injected input, frame capture | verified | S001 | G003 |
 | S006 | Epic source via Legendary | verified | — | G001 |
 | S007 | GOG source via Heroic | verified | — | G001 |
 | S008 | ROM source with per-system emulator launch | verified | — | G001 |
-| S009 | Haptic rumble | partial | S003 | G003 |
+| S009 | Haptic rumble | missing | S003 | G003 |
 | S010 | Own login session entry on Gamescope | missing | — | G004 |
 | S013 | iideck runs in a nested Gamescope inside KDE at the output's resolution | partial | S004 | G004 |
 | S014 | Alt+F4 closes the game in nested mode while Alt+Tab stays with KDE | missing | S013 | G004 |
@@ -130,22 +130,21 @@ implemented, so covers are shown at their store's own colours.
 
 ### S003 — Gamepad input
 
-Read through raylib, which sits on SDL and already knows the layout mainstream
-pads report. Buttons are edge-detected against held state, and the left stick
-also drives the dpad so the shell has one control for both.
+`gamepad::Pads` reads every evdev node that is a gamepad (`BTN_SOUTH` and a left
+stick), so a keyboard is never one, and watches `/dev/input` with inotify so a pad
+switched on later is picked up; it skips iideck's own and Steam Input's virtual pads.
+`gamepad::PadTranslator` maps the kernel's gamepad codes to the shell's controls,
+the left stick and hat included, so any driver following them works (xpad, xone,
+hid-playstation, hid-nintendo). Held directions, from a pad or the keyboard, move
+once and then repeat after 400 ms every 100 ms (`gamepad::DirectionRepeat`, iiSU's
+95 ms throttle on Android's repeats). Tested: `pads` against uinput pads (hotplug,
+Steam's virtual pad ignored, disconnect), `direction_repeat`, `pad_translator`.
 
-Gap: **button mapping never exercised on real hardware.** This machine reports a
-Logitech K400 Plus and its USB receiver as controllers, because SDL reports any
-device with buttons as a gamepad and raylib's API cannot tell a multimedia
-keyboard from a controller: it offers no way to ask how many buttons a device
-has, and `IsGamepadButtonDown` cannot distinguish an unmapped button from an
-unpressed one. Requiring analogue axes was tried and rejected — the K400's
-touchpad is enough to give it six axes.
+The raylib/GLFW reader this replaced had no mapping for the xone driver's Xbox
+controller, so its buttons never registered, and counted a Logitech K400 Plus as a
+controller; the keyboard path moved focus on every frame a key was down.
 
-`IIDECK_GAMEPAD` therefore names the controller to accept, by substring, so a
-player can exclude the keyboard. Verified by pointing it at a name that matches
-nothing and watching the shell come up with no controller rather than with two
-keyboards.
+Gap: not yet confirmed on the real Xbox controller.
 
 ### S004 — Launch handoff
 
@@ -218,9 +217,7 @@ the S004 wait defect.
 
 ### S009 — Rumble
 
-`Reader::rumble` calls `SetGamepadVibration` on the first connected pad. raylib
-exposes no capability query, so a pad without motors silently ignores it, and
-nothing in the shell calls rumble yet.
+Missing: the raylib reader that had it is gone; evdev force feedback is the way back.
 
 ### S010 — Own login session
 
@@ -273,23 +270,26 @@ control channel (launch, guide, down, a), with full-composition screenshots
 (`GAMESCOPECTRL_REQUEST_SCREENSHOT` = 3 on the root; `gamescopectl screenshot`
 drops overlay planes). Driver: `scratch/overlay-test/drive.py`.
 
-From launch until the game ends, `gamepad::PadGuard` holds every gamepad: each
+From launch until the launch ends, `gamepad::Pads` holds every gamepad, including one
+connected meanwhile: each
 physical pad is grabbed (`EVIOCGRAB`) and the game reads one uinput Xbox 360 pad
 (045e:028e) per physical pad instead, translated by `gamepad::PadTranslator` (axes
 rescaled to xpad's ranges, a button d-pad as the hat, digital triggers as full
-axes). Guide never reaches the game; the guard reports controls to the shell, since
-the raylib reader sees nothing from a grabbed pad and ignores the virtual ones. While
+axes). Guide never reaches the game; the shell reads its controls from the same
+pads, held or not. A virtual pad is ready only once udev has opened it to the user,
+so a game enumerating at once can open it. While
 the menu is open the virtual pads rest (held keys released, axes centred); on
 resume they take up the held axes, and keys held then stay up until pressed again.
 A game iideck starts gets `SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e`,
-so SDL hides the grabbed pads. Tested: `pad_translator` (unit), `pad_guard`
-against a real uinput pad, `handoff` passing the environment; verified headless with
+so SDL hides the grabbed pads. Tested: `pad_translator` (unit), `pads`
+against real uinput pads, `handoff` passing the environment; verified headless with
 a uinput pad driving the shell (`scratch/overlay-test/drive_pad.py`): B reaches the
 game while playing, Guide and all menu input do not, the virtual pad is gone after.
 
-Gaps: a Steam game gets Steam's environment, not the SDL hint, and Steam Input
-reads hidraw, which a grab does not cover; a non-SDL game that enumerates every
-evdev pad sees the grabbed, silent one too; a pad connected mid-game is not held.
+Gaps: a Steam game gets Steam's environment, not the SDL hint; Steam Input reads
+hidraw where a pad has it, which a grab does not cover (an xone pad has none, and
+Steam then reads the virtual pad); a non-SDL game that enumerates every evdev pad
+sees the grabbed, silent one too.
 
 Gap: a force-close while the client is still starting the game cannot cancel the
 request it already handed to Steam.

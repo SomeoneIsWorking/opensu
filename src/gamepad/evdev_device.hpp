@@ -2,7 +2,9 @@
 // else receives its events.
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -21,8 +23,11 @@ class EvdevDevice {
     /// Closing the node also releases a grab.
     ~EvdevDevice();
 
-    /// Every gamepad node this user can open, except iideck's own virtual pads.
-    [[nodiscard]] static std::vector<EvdevDevice> openGamepads(const std::filesystem::path& dir);
+    /// The node opened, if it is a pad this user can read.
+    [[nodiscard]] static std::optional<EvdevDevice> openPad(const std::filesystem::path& node);
+
+    /// A controller iideck reads: a gamepad, and not a virtual pad iideck or Steam made from one.
+    [[nodiscard]] bool isPad() const;
 
     [[nodiscard]] int fd() const {
         return fd_;
@@ -42,6 +47,8 @@ class EvdevDevice {
 
     /// Makes iideck the device's only reader. False when another process holds it.
     [[nodiscard]] bool grab();
+    /// Lets every reader see the device again.
+    void ungrab();
 
     /// The device's present keys and axes, as events.
     [[nodiscard]] std::vector<PadEvent> state() const;
@@ -54,6 +61,8 @@ class EvdevDevice {
     std::filesystem::path node_;
     std::string name_;
     std::string phys_;
+    std::uint16_t vendor_{0};
+    std::uint16_t product_{0};
     PadCapabilities capabilities_;
 };
 

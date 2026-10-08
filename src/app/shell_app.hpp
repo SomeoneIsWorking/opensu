@@ -19,8 +19,8 @@
 #include "config/config.hpp"
 #include "control_channel.hpp"
 #include "device/battery.hpp"
-#include "gamepad/pad_guard.hpp"
-#include "gamepad/reader.hpp"
+#include "gamepad/direction_repeat.hpp"
+#include "gamepad/pads.hpp"
 #include "gamescope_overlay.hpp"
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
@@ -111,7 +111,11 @@ class ShellApp final : public ControlTarget {
     /// When the clock next changes, on the minute boundary.
     std::chrono::steady_clock::time_point nextClockTick_{};
     ui::Shell shell_;
-    gamepad::Reader pad_;
+    gamepad::Pads pads_;
+    /// Held directions, from a pad or the keyboard, repeat on one schedule.
+    gamepad::DirectionRepeat repeat_;
+    /// The pads are held for the running launch. Main loop only.
+    bool padsHeld_{false};
 
     /// Created after construction, because it drives this shell.
     std::unique_ptr<ControlChannel> control_;
@@ -125,9 +129,6 @@ class ShellApp final : public ControlTarget {
     launch::Handoff handoff_;
     /// The running launch's title, for the Guide menu. Main loop only.
     std::string runningTitle_;
-    /// Holds the controllers from launch until the launch thread is done, so the Guide menu's
-    /// input stays out of the game. Main loop only.
-    std::unique_ptr<gamepad::PadGuard> guard_;
     /// Inside Gamescope, how the window draws over a running game. Null elsewhere, where the
     /// window is hidden while a game runs and shown only for the Guide menu.
     std::unique_ptr<session::GamescopeOverlay> overlay_;

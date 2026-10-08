@@ -34,7 +34,6 @@ void printHelp() {
                 "                      (pages with peeks and page dots)\n"
                 "  IIDECK_ASSETS       directory holding the typeface (default ../share/iideck\n"
                 "                      beside the executable)\n"
-                "  IIDECK_GAMEPAD      only accept controllers whose name contains this\n"
                 "  IIDECK_CONTROL_PORT control channel port (default 7311)\n"
                 "  IIDECK_SESSION      name of the session's scopes (default iideck-<pid>)\n"
                 "\n"

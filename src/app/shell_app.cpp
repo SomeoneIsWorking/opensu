@@ -9,7 +9,6 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
-#include <system_error>
 #include <thread>
 #include <unistd.h>
 
@@ -57,14 +56,6 @@ ShellApp::ShellApp(Settings settings)
                                     config::read().session}},
       handoff_{config::read().executablePath, config::read().session, steam_} {
     refreshClock();
-    // SDL reports any device with buttons as a gamepad, which on a desktop
-    // includes a multimedia keyboard. raylib cannot tell the two apart without
-    // input, so a name filter lets the player name their controller.
-    if (!config::read().gamepadNameFilter.empty()) {
-        pad_.setNameFilter({config::read().gamepadNameFilter});
-        lucent::info("gamepad", "only controllers matching \"{}\" are accepted",
-                     config::read().gamepadNameFilter);
-    }
 }
 
 void ShellApp::flipVertical(Image& image) {
@@ -112,10 +103,14 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
         case gamepad::Event::Kind::Disconnected:
             shell_.setToast("controller disconnected", true);
             break;
-        case gamepad::Event::Kind::Axis:
-            break;
         case gamepad::Event::Kind::Button:
-            if (event.pressed) {
+            if (gamepad::DirectionRepeat::repeats(event.button)) {
+                if (event.pressed) {
+                    repeat_.press(event.button, std::chrono::steady_clock::now());
+                } else {
+                    repeat_.release(event.button);
+                }
+            } else if (event.pressed) {
                 actOn(event.button);
             }
             break;
@@ -130,28 +125,29 @@ void ShellApp::handleKeyboard() {
     struct Binding {
         int key;
         gamepad::Button button;
-        bool edge;
     };
     static constexpr Binding kBindings[]{
-        {KEY_UP, gamepad::Button::Up, false},       {KEY_W, gamepad::Button::Up, false},
-        {KEY_DOWN, gamepad::Button::Down, false},   {KEY_S, gamepad::Button::Down, false},
-        {KEY_LEFT, gamepad::Button::Left, false},   {KEY_A, gamepad::Button::Left, false},
-        {KEY_RIGHT, gamepad::Button::Right, false}, {KEY_D, gamepad::Button::Right, false},
-        {KEY_ENTER, gamepad::Button::A, true},      {KEY_SPACE, gamepad::Button::A, true},
-        {KEY_Y, gamepad::Button::Y, true},          {KEY_R, gamepad::Button::R1, true},
-        {KEY_F, gamepad::Button::X, true},          {KEY_LEFT_BRACKET, gamepad::Button::L1, true},
-        {KEY_E, gamepad::Button::Start, true},      {KEY_ESCAPE, gamepad::Button::B, true},
+        {KEY_UP, gamepad::Button::Up},       {KEY_W, gamepad::Button::Up},
+        {KEY_DOWN, gamepad::Button::Down},   {KEY_S, gamepad::Button::Down},
+        {KEY_LEFT, gamepad::Button::Left},   {KEY_A, gamepad::Button::Left},
+        {KEY_RIGHT, gamepad::Button::Right}, {KEY_D, gamepad::Button::Right},
+        {KEY_ENTER, gamepad::Button::A},     {KEY_SPACE, gamepad::Button::A},
+        {KEY_Y, gamepad::Button::Y},         {KEY_R, gamepad::Button::R1},
+        {KEY_F, gamepad::Button::X},         {KEY_LEFT_BRACKET, gamepad::Button::L1},
+        {KEY_E, gamepad::Button::Start},     {KEY_ESCAPE, gamepad::Button::B},
     };
 
-    std::array<bool, std::size(kBindings)> held{};
-    for (std::size_t i = 0; i < std::size(kBindings); ++i) {
-        const bool down = IsKeyDown(kBindings[i].key);
-        // A directional key repeats while held; an action key fires once.
-        if (down && (!kBindings[i].edge || !held[i])) {
-            actOn(kBindings[i].button);
+    // Keys report edges like a pad's buttons, so held arrows repeat on the pad's schedule rather
+    // than the keyboard's.
+    std::vector<gamepad::Event> events;
+    for (const Binding& binding : kBindings) {
+        if (IsKeyPressed(binding.key)) {
+            events.push_back(gamepad::Event{.button = binding.button, .pressed = true});
+        } else if (IsKeyReleased(binding.key)) {
+            events.push_back(gamepad::Event{.button = binding.button, .pressed = false});
         }
-        held[i] = down;
     }
+    handleEvents(events);
 
     if (IsKeyPressed(KEY_Q)) {
         requestClose();
@@ -232,17 +228,8 @@ void ShellApp::launchFocused() {
         copy.source == library::Source::Steam && steam_.state() == launch::SteamState::Initializing;
     shell_.setToast(waitingForSteam ? "waiting for Steam" : "starting " + copy.title);
 
-    // The last game's guard still holds the pads until this frame's service; release them first.
-    guard_.reset();
-    try {
-        guard_ = std::make_unique<gamepad::PadGuard>();
-    } catch (const std::system_error& failure) {
-        // Without the guard the game reads the pads directly, Guide menu input included.
-        lucent::error("gamepad", "cannot hold the controllers for {}: {}", copy.title,
-                      failure.what());
-    }
-    std::vector<std::string> environment =
-        guard_ ? guard_->environment() : std::vector<std::string>{};
+    std::vector<std::string> environment = pads_.hold();
+    padsHeld_ = true;
 
     std::thread{[this, copy, environment = std::move(environment)] {
         std::string failure;
@@ -308,8 +295,8 @@ void ShellApp::setGameMenuOpen(bool open) {
     } else {
         menu.close();
     }
-    if (guard_) {
-        guard_->setBlocked(open);
+    if (padsHeld_) {
+        pads_.setBlocked(open);
     }
     if (overlay_) {
         overlay_->setShown(open);
@@ -498,11 +485,11 @@ void ShellApp::serviceControlRequests() {
 /// Applies what the launch thread and the control channel asked for. Everything
 /// that touches the window or the shell happens here, on the loop's thread.
 void ShellApp::serviceRequests() {
-    if (guard_) {
-        handleEvents(guard_->takeControls());
+    if (padsHeld_) {
         const std::lock_guard lock{launchMutex_};
         if (!launchRunning_) {
-            guard_.reset();
+            pads_.release();
+            padsHeld_ = false;
         }
     }
     const bool running = gameRunning_.load();
@@ -588,10 +575,11 @@ int ShellApp::run() {
             shell_.setSize(GetScreenWidth(), GetScreenHeight());
         }
 
-        std::vector<gamepad::Event> events;
-        pad_.poll(events);
-        handleEvents(events);
+        handleEvents(pads_.takeEvents());
         handleKeyboard();
+        if (const auto direction = repeat_.poll(std::chrono::steady_clock::now())) {
+            actOn(*direction);
+        }
 
         serviceControlRequests();
         serviceRequests();

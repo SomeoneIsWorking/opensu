@@ -1,6 +1,5 @@
 #include "evdev_device.hpp"
 
-#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <climits>
@@ -44,6 +43,11 @@ EvdevDevice::EvdevDevice(const std::filesystem::path& node) : node_{node} {
     }
     name_ = readString(fd_, EVIOCGNAME(256));
     phys_ = readString(fd_, EVIOCGPHYS(256));
+    input_id id{};
+    if (ioctl(fd_, EVIOCGID, &id) == 0) {
+        vendor_ = id.vendor;
+        product_ = id.product;
+    }
 
     BitSet<KEY_CNT> keys{};
     BitSet<ABS_CNT> axes{};
@@ -64,8 +68,8 @@ EvdevDevice::EvdevDevice(const std::filesystem::path& node) : node_{node} {
 
 EvdevDevice::EvdevDevice(EvdevDevice&& other) noexcept
     : fd_{std::exchange(other.fd_, -1)}, node_{std::move(other.node_)},
-      name_{std::move(other.name_)}, phys_{std::move(other.phys_)},
-      capabilities_{std::move(other.capabilities_)} {
+      name_{std::move(other.name_)}, phys_{std::move(other.phys_)}, vendor_{other.vendor_},
+      product_{other.product_}, capabilities_{std::move(other.capabilities_)} {
 }
 
 EvdevDevice& EvdevDevice::operator=(EvdevDevice&& other) noexcept {
@@ -77,6 +81,8 @@ EvdevDevice& EvdevDevice::operator=(EvdevDevice&& other) noexcept {
         node_ = std::move(other.node_);
         name_ = std::move(other.name_);
         phys_ = std::move(other.phys_);
+        vendor_ = other.vendor_;
+        product_ = other.product_;
         capabilities_ = std::move(other.capabilities_);
     }
     return *this;
@@ -88,31 +94,31 @@ EvdevDevice::~EvdevDevice() {
     }
 }
 
-std::vector<EvdevDevice> EvdevDevice::openGamepads(const std::filesystem::path& dir) {
-    std::vector<std::filesystem::path> nodes;
-    std::error_code error;
-    for (const auto& entry : std::filesystem::directory_iterator{dir, error}) {
-        if (entry.path().filename().string().starts_with("event")) {
-            nodes.push_back(entry.path());
+bool EvdevDevice::isPad() const {
+    // Steam Input's virtual gamepad, which Steam feeds from a pad iideck already reads.
+    constexpr std::uint16_t valve = 0x28de;
+    constexpr std::uint16_t steamVirtualGamepad = 0x11ff;
+    return capabilities_.isGamepad() && phys_ != VirtualPad::phys &&
+           !(vendor_ == valve && product_ == steamVirtualGamepad);
+}
+
+std::optional<EvdevDevice> EvdevDevice::openPad(const std::filesystem::path& node) {
+    try {
+        EvdevDevice device{node};
+        if (device.isPad()) {
+            return device;
+        }
+    } catch (const std::system_error& failure) {
+        // Keyboards and the like are not ours to read; anything else is worth knowing about.
+        if (failure.code() != std::errc::permission_denied) {
+            lucent::warn("gamepad", "{}", failure.what());
         }
     }
-    std::ranges::sort(nodes);
-    std::vector<EvdevDevice> pads;
-    for (const auto& node : nodes) {
-        try {
-            EvdevDevice device{node};
-            if (device.capabilities().isGamepad() && device.phys() != VirtualPad::phys) {
-                pads.push_back(std::move(device));
-            }
-        } catch (const std::system_error& failure) {
-            // Keyboards and other people's devices are not ours to read; a pad we cannot open
-            // is worth knowing about only once it would have been one.
-            if (failure.code() != std::errc::permission_denied) {
-                lucent::warn("gamepad", "{}", failure.what());
-            }
-        }
-    }
-    return pads;
+    return std::nullopt;
+}
+
+void EvdevDevice::ungrab() {
+    ioctl(fd_, EVIOCGRAB, 0);
 }
 
 bool EvdevDevice::grab() {
