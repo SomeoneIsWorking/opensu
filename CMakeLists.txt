@@ -12,8 +12,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # raylib ships its headers and static library in a prefix. RAYLIB_ROOT points at
-# that prefix; see $HOME/dev/raylib-built/BUILD-NOTES.md for why the published
-# prebuilt binary cannot be used.
+# that prefix; the README says why the published prebuilt binary cannot be used.
 set(RAYLIB_ROOT "$ENV{HOME}/dev/raylib-built" CACHE PATH "Unpacked raylib prefix")
 if(NOT EXISTS "${RAYLIB_ROOT}/include/raylib.h")
     message(FATAL_ERROR

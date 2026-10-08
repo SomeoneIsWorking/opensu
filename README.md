@@ -14,23 +14,33 @@ derived from the window, following iiSU's own layout rules.
 
 ## Building
 
-raylib is not a distro package here. `RAYLIB_ROOT` points at a prefix containing
-`include/raylib.h` and `lib/libraylib.a`:
-
-```sh
-cmake -S . -B build/cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
-      -DRAYLIB_ROOT=$HOME/dev/raylib-built
-cmake --build build/cmake
-```
+iideck needs raylib 6.0 built from source and a checkout of
+[Lucent](https://github.com/SomeoneIsWorking/lucent), its logger.
 
 The published `raylib-6.0_linux_amd64` binary cannot be used: it was built with
 `STBI_REQUIRED` undefined and `SUPPORT_FILEFORMAT_JPG=0`, so `LoadImage` reports
-"Data format not supported" for every file. Steam's artwork is JPEG, so raylib
-has to be built from source with image decoding enabled. See
-`$HOME/dev/raylib-built/BUILD-NOTES.md` for the exact flags.
+"Data format not supported" for every file, and Steam's artwork is JPEG. Build it
+with image decoding on and X11 only (iideck reads its X11 window to become
+Gamescope's overlay), then install it to a prefix of its own:
 
-Lucent is the project logger and is consumed from `LUCENT_ROOT`, which defaults
-to `$HOME/repo/lucent`.
+```sh
+git clone --branch 6.0 https://github.com/raysan5/raylib.git
+cmake -S raylib -B raylib/build -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=OFF \
+      -DGLFW_BUILD_WAYLAND=OFF -DGLFW_BUILD_X11=ON -DCMAKE_INSTALL_LIBDIR=lib \
+      -DCMAKE_C_FLAGS="-DSTBI_REQUIRED -DSUPPORT_FILEFORMAT_JPG=1 -DSUPPORT_FILEFORMAT_TGA=1 -DSUPPORT_FILEFORMAT_PSD=1"
+cmake --build raylib/build
+cmake --install raylib/build --prefix "$PWD/raylib-prefix"
+git clone https://github.com/SomeoneIsWorking/lucent.git
+```
+
+Then point iideck at both (`RAYLIB_ROOT` defaults to `$HOME/dev/raylib-built`,
+`LUCENT_ROOT` to `$HOME/repo/lucent`):
+
+```sh
+cmake -S . -B build/cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
+      -DRAYLIB_ROOT="$PWD/raylib-prefix" -DLUCENT_ROOT="$PWD/lucent"
+cmake --build build/cmake
+```
 
 ## Running
 
@@ -61,13 +71,14 @@ application menu) go under the prefix:
 
 ```sh
 cmake -S . -B build/cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
-      -DRAYLIB_ROOT=$HOME/dev/raylib-built -DCMAKE_INSTALL_PREFIX="$HOME/.local"
+      -DRAYLIB_ROOT="$PWD/raylib-prefix" -DLUCENT_ROOT="$PWD/lucent" \
+      -DCMAKE_INSTALL_PREFIX="$HOME/.local"
 cmake --build build/cmake
 cmake --install build/cmake
 ```
 
 For a desktop icon as well, copy the entry to the desktop and mark it executable:
-`cp $HOME/.local/share/applications/iideck.desktop "$(xdg-user-dir DESKTOP)/" && chmod +x "$(xdg-user-dir DESKTOP)/iideck.desktop"`.
+`cp "$HOME/.local/share/applications/iideck.desktop" "$(xdg-user-dir DESKTOP)/" && chmod +x "$(xdg-user-dir DESKTOP)/iideck.desktop"`.
 
 `IIDECK_GAMEPAD` exists because SDL reports any device with buttons as a
 gamepad, so on a desktop with a multimedia keyboard the keyboard and its media

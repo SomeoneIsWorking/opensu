@@ -299,8 +299,8 @@ request it already handed to Steam.
 `steam::Client` starts `steam -silent` in `<session>-steam.scope` when iideck
 starts, if a Steam install exists, and watches it: Initializing until a logon line
 (`[Logged On` with `RecvMsgClientLogOnResponse() : processing complete`) is
-appended to `~/.steam/steam/logs/connection_log.txt` after the start, Failed when
-the scope empties, Blocked when `~/.steam/steam.pid` names a live client outside
+appended to `$HOME/.steam/steam/logs/connection_log.txt` after the start, Failed when
+the scope empties, Blocked when `$HOME/.steam/steam.pid` names a live client outside
 iideck. Steam launches wait for Ready, and are refused with a named message when
 Blocked or Failed. On exit it runs `steam -shutdown`, waits up to 20 s, then stops
 the scope. The state shows at the top bar's left, in the friends slot iideck leaves
