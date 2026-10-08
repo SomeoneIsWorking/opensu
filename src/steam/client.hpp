@@ -45,7 +45,8 @@ class Client final : public launch::SteamGate {
     Client& operator=(const Client&) = delete;
     ~Client() override;
 
-    /// Starts `steam -silent` in its scope and begins watching it. The state is
+    /// Starts `steam -silent` in its scope, on a DBus session bus of its own, and begins
+    /// watching it. The state is
     /// Blocked when a Steam client already runs outside iideck, and Failed when
     /// Steam cannot be started. Does nothing unless the state is Stopped.
     void start();

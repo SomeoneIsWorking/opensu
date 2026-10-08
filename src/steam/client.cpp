@@ -71,13 +71,25 @@ void Client::start() {
         return;
     }
 
+    const fs::path privateBus =
+        launch::resolveExecutable("dbus-run-session", options_.executablePath);
+    if (privateBus.empty()) {
+        lucent::error("steam",
+                      "dbus-run-session is not on PATH; install it with `sudo dnf install "
+                      "dbus-daemon`, `sudo apt install dbus-daemon` or `sudo pacman -S dbus`");
+        setState(SteamState::Failed);
+        return;
+    }
+
     std::error_code ec;
     const std::uintmax_t size = fs::file_size(connectionLog_, ec);
     logOffset_ = ec ? 0 : size;
 
+    // A bus of its own keeps Steam's tray icon and notifications off the desktop's panel;
+    // -applaunch and -shutdown reach it through its pipe, not the bus.
     std::string failure;
-    if (!instance_.start(options_.session + "-steam.scope", program_.string(), {"-silent"},
-                         failure)) {
+    if (!instance_.start(options_.session + "-steam.scope", privateBus.string(),
+                         {"--", program_.string(), "-silent"}, failure)) {
         lucent::error("steam", "{}", failure);
         setState(SteamState::Failed);
         return;

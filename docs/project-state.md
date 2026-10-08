@@ -297,6 +297,12 @@ request it already handed to Steam.
 
 ### S016 — Steam client
 
+Steam gets a DBus session bus of its own: on the desktop's bus it registers a tray
+item (`org/ayatana/NotificationItem/steam`) that KDE shows on its panel, although
+its windows stay inside Gamescope. Measured with a real Steam in a headless
+Gamescope: the item appears on the shared bus and not on a private one, logon still
+completes, and `-applaunch`/`-shutdown` still reach it through its pipe.
+
 A Steam game with a pending update is downloaded by Steam before it runs: its
 appmanifest carries StateFlags bit 2 (UpdateRequired) and
 `BytesToDownload`/`BytesDownloaded`/`BytesToStage`/`BytesStaged`. While that holds,
@@ -305,8 +311,8 @@ appearance bound does not run; B cancels. Reproduced from a real run: BTD6
 (960090) with a 2.2 GB update left an empty Gamescope behind a hidden shell.
 
 
-`steam::Client` starts `steam -silent` in `<session>-steam.scope` when iideck
-starts, if a Steam install exists, and watches it: Initializing until a logon line
+`steam::Client` starts `dbus-run-session -- steam -silent` in `<session>-steam.scope`
+when iideck starts, if a Steam install exists, and watches it: Initializing until a logon line
 (`[Logged On` with `RecvMsgClientLogOnResponse() : processing complete`) is
 appended to `$HOME/.steam/steam/logs/connection_log.txt` after the start, Failed when
 the scope empties, Blocked when `$HOME/.steam/steam.pid` names a live client outside

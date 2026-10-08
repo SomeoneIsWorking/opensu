@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <system_error>
 #include <thread>
 
 #include <csignal>
@@ -53,6 +54,8 @@ struct Fixture {
     fs::path home;
     fs::path bin;
     fs::path pidFile;
+    /// The bus address the fake steam was started with.
+    fs::path busFile;
     fs::path log;
     std::string session;
 
@@ -63,6 +66,7 @@ struct Fixture {
         home = base / "home";
         bin = base / "bin";
         pidFile = base / "steam.pid";
+        busFile = base / "steam.bus";
         log = home / ".steam" / "steam" / "logs" / "connection_log.txt";
         session = "iideck-test-" + name;
         fs::create_directories(log.parent_path());
@@ -82,6 +86,7 @@ struct Fixture {
             body += "exit 1\n";
         } else {
             body += "echo $$ > \"" + pidFile.string() + "\"\n";
+            body += "echo \"$DBUS_SESSION_BUS_ADDRESS\" > \"" + busFile.string() + "\"\n";
             if (mode != Mode::Slow) {
                 body += "sleep 1\n"
                         "printf '%s' '[2026-10-06 19:56:14] [Logged On, 4, 7] [U:1:7] Recv' >> \"" +
@@ -96,6 +101,11 @@ struct Fixture {
         const fs::path program = bin / "steam";
         std::ofstream{program} << body;
         fs::permissions(program, fs::perms::owner_all);
+        // The real one, beside the fake steam, since the client looks only in `bin`.
+        const fs::path bus =
+            iideck::launch::resolveExecutable("dbus-run-session", {"/usr/bin", "/bin"});
+        expect(!bus.empty(), "dbus-run-session is installed");
+        fs::create_symlink(bus, bin / "dbus-run-session");
     }
 
     ~Fixture() {
@@ -155,6 +165,21 @@ void testReadyThenShutdown() {
     client.start();
     expect(client.state() == SteamState::Initializing, "a started client is initializing");
     expect(scopeActive(fixture.unit()), "steam runs in the session's scope");
+    expect(waitUntil(
+               [&fixture] {
+                   std::error_code ec;
+                   return fs::file_size(fixture.busFile, ec) > 1 && !ec;
+               },
+               std::chrono::seconds{10}),
+           "steam runs on a session bus");
+    {
+        std::ifstream in{fixture.busFile};
+        std::string address;
+        std::getline(in, address);
+        const char* desktop = std::getenv("DBUS_SESSION_BUS_ADDRESS");
+        expect(desktop == nullptr || address != desktop,
+               "steam's session bus is its own, not the desktop's");
+    }
 
     // The log already held a logon line; only one logged after the start counts.
     std::this_thread::sleep_for(std::chrono::milliseconds{700});
