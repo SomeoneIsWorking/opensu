@@ -9,6 +9,7 @@ target_link_libraries(iideck_app
         iideck::gamepad
         iideck::launch
         iideck::steam
+        iideck::session
         iideck::raylib
         lucent::lucent
 )

@@ -35,9 +35,10 @@ struct ShellSnapshot {
     std::string toast;
     bool toastIsError{false};
     bool launching{false};
-    /// Whether the shell's window is up. It goes down while a game runs, so this
-    /// is how an automated run can tell a hidden shell from a hung one.
-    bool windowVisible{true};
+    /// Whether the shell has given the screen to a running game, as the loop applied it.
+    bool inGame{false};
+    /// Whether the Guide menu is open over that game.
+    bool gameMenuOpen{false};
     /// The Steam client's state: stopped, initializing, ready, failed or blocked.
     std::string steam{"stopped"};
 };

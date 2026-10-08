@@ -252,13 +252,31 @@ Alt+F4 on iideck's Gamescope window into a game close over the control channel.
 Every scope iideck creates is named `<session>-<role>[-N].scope`
 (`Config::session`: `IIDECK_SESSION`, else `iideck-<pid>`), and is a transient
 systemd user scope (`launch::Instance`), so processes that setsid or double-fork
-stay owned. A non-Steam game runs in its own scope, stopped when the game leaves
-and killed when Guide is held for two seconds. A Steam game is handed to the
-background client (`steam -applaunch`); Guide held for two seconds kills the
-reaper whose command line carries `AppId=<id>` and everything below it
-(`launch::ProcessTree`), and leaves the client up. Scope ownership, escape-proof
+stay owned. A non-Steam game runs in its own scope,
+stopped when the game leaves. A Steam game is handed to the background client
+(`steam -applaunch`). Close game in the Guide menu force-closes either: the scope,
+or for Steam the reaper whose command line carries `AppId=<id>` and everything below
+it (`launch::ProcessTree`), leaving the client up. Scope ownership, escape-proof
 stop, tree kill and force-close are tested with real processes and a fake `steam`;
-the Guide hold and a real Steam launch are not yet exercised.
+a real Steam launch is not yet exercised.
+
+Guide while a game runs opens a menu down the left edge over the dimmed game:
+Resume, Close game (`ui::GameMenu`, `GameMenuPainter`); Up/Down move, A selects,
+B or Guide resumes, and other buttons do nothing while a game runs. Inside Gamescope
+iideck's window stays mapped as Gamescope's overlay (`session::GamescopeOverlay`:
+`STEAM_OVERLAY`, `_NET_WM_WINDOW_OPACITY` 0 while the menu is closed, and
+`STEAM_INPUT_FOCUS` while it is open); its window is sized to the output and has an
+ARGB visual, which is why it has no MSAA. Outside Gamescope the window is hidden
+during a game and shown for the menu. Verified headless: `gamescope --backend
+headless` running iideck with a ROM whose emulator execs `glxgears`, driven over the
+control channel (launch, guide, down, a), with full-composition screenshots
+(`GAMESCOPECTRL_REQUEST_SCREENSHOT` = 3 on the root; `gamescopectl screenshot`
+drops overlay planes). Driver: `scratch/overlay-test/drive.py`.
+
+Gap: the game still reads the controller while the menu is open. Gamescope does not
+arbitrate gamepads; an SDL game that honours focus loss ignores the pad, others do
+not. Planned: hold the physical pad exclusively during a game and feed games a
+uinput pad that iideck stops while the menu is open.
 
 Gap: a force-close while the client is still starting the game cannot cancel the
 request it already handed to Steam.

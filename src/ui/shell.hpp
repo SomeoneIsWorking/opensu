@@ -13,6 +13,8 @@
 #include "raylib.h"
 
 #include "config/config.hpp"
+#include "game_menu.hpp"
+#include "game_menu_painter.hpp"
 #include "grid_focus.hpp"
 #include "home_layout.hpp"
 #include "hud.hpp"
@@ -82,8 +84,23 @@ class Shell {
     /// Advances past every one-shot motion, for a still frame.
     void settle();
 
-    /// Draws one frame.
+    /// Draws one frame: the home screen, or while a game runs, only the Guide menu over a
+    /// transparent frame.
     void draw();
+
+    /// Whether a game is running, which turns the home screen into the in-game overlay.
+    void setInGame(bool inGame) noexcept {
+        inGame_ = inGame;
+    }
+    [[nodiscard]] bool inGame() const noexcept {
+        return inGame_;
+    }
+    [[nodiscard]] GameMenu& gameMenu() noexcept {
+        return gameMenu_;
+    }
+    [[nodiscard]] const GameMenu& gameMenu() const noexcept {
+        return gameMenu_;
+    }
 
     /// Releases every texture the shell owns.
     void unloadArtwork();
@@ -173,6 +190,9 @@ class Shell {
     PagePillPainter pillPainter_;
     PageArrowPainter arrowPainter_;
     Hud hud_;
+    GameMenu gameMenu_;
+    GameMenuPainter gameMenuPainter_;
+    bool inGame_{false};
 };
 
 } // namespace iideck::ui

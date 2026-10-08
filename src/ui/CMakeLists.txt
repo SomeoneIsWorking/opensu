@@ -5,8 +5,8 @@ target_include_directories(iideck_grid PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(iideck_grid PUBLIC cxx_std_20)
 target_compile_options(iideck_grid PRIVATE -Wall -Wextra -Wpedantic)
 
-# The top bar's model: sizing, clock text and battery icon choice. Pure, so tests link it alone.
-add_library(iideck_hud_model STATIC top_bar_metrics.cpp clock_text.cpp battery_icon.cpp)
+# The chrome's models: top bar sizing, clock text, battery icon choice and the Guide menu. Pure, so tests link it alone.
+add_library(iideck_hud_model STATIC top_bar_metrics.cpp clock_text.cpp battery_icon.cpp game_menu.cpp)
 add_library(iideck::hud_model ALIAS iideck_hud_model)
 target_include_directories(iideck_hud_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(iideck_hud_model PUBLIC cxx_std_20)
@@ -14,7 +14,7 @@ target_compile_options(iideck_hud_model PRIVATE -Wall -Wextra -Wpedantic)
 
 add_library(iideck_ui STATIC
     shell.cpp hud.cpp status_pill.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
-    button_glyph.cpp
+    button_glyph.cpp game_menu_painter.cpp
     round_shape.cpp
     typeface.cpp face_metrics.cpp platform.cpp platform_stroke.cpp)
 add_library(iideck::ui ALIAS iideck_ui)

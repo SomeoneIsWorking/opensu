@@ -5,7 +5,7 @@ foreach(name home_layout grid_focus tile_motion tile_geometry)
     add_test(NAME ${name} COMMAND ${name}_test)
 endforeach()
 
-foreach(name top_bar_metrics clock_text)
+foreach(name top_bar_metrics clock_text game_menu)
     add_executable(${name}_test ${name}_test.cpp)
     target_link_libraries(${name}_test PRIVATE iideck::hud_model)
     target_compile_options(${name}_test PRIVATE -Wall -Wextra -Wpedantic)

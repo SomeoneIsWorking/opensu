@@ -20,6 +20,7 @@ evidence is in `reference/iisu/`.
 | `src/session/nested_session.*` | Re-running iideck inside its own Gamescope when not already in one |
 | `src/session/gamescope.*` | The Gamescope command line |
 | `src/session/monitor.*` | The output's size and refresh |
+| `src/session/gamescope_overlay.*` | iideck's window as Gamescope's overlay over a running game |
 | `src/launch/instance.*` | One transient systemd user scope per launch; stopping it ends the whole tree |
 | `src/launch/handoff.*` | Starting a game in an instance and hiding the shell until it ends |
 | `src/launch/process_tree.*` | Finding processes by command line, ending trees |
@@ -51,6 +52,7 @@ Pure model, unit-tested without raylib (`iideck_grid`, `iideck_hud_model`):
 | `src/ui/tile_geometry.*` | One tile's rectangles and radii |
 | `src/ui/top_bar_metrics.*` | Top bar sizes in dp (`is7`, `hs7`, `dl3`) |
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
+| `src/ui/game_menu.*` | The Guide menu's items and focus (iideck's own) |
 
 Painters and composition (`iideck_ui`):
 
@@ -60,6 +62,7 @@ Painters and composition (`iideck_ui`):
 | `src/ui/hud.*` | Chrome around the grid: ground, top bar, corner hints, toast; grid insets |
 | `src/ui/status_pill.*`, `glass.*` | Status pill and its glass body |
 | `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`) |
+| `src/ui/game_menu_painter.*` | The Guide menu over a running game |
 | `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art, platform frame |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |

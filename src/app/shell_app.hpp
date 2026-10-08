@@ -20,15 +20,13 @@
 #include "control_channel.hpp"
 #include "device/battery.hpp"
 #include "gamepad/reader.hpp"
+#include "gamescope_overlay.hpp"
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
 #include "steam/client.hpp"
 #include "ui/shell.hpp"
 
 namespace iideck::app {
-
-/// How long Guide is held to force-close a running launch.
-inline constexpr std::chrono::seconds forceCloseHold{2};
 
 /// What the shell needs from the host, so the shell can be drawn without a
 /// running store client.
@@ -86,7 +84,7 @@ class ShellApp final : public ControlTarget {
     /// Requests raised by the launch thread and applied by the main loop, because
     /// the GL context and the shell's state belong to it. Each of these only sets
     /// a flag: none of them touches the window or the shell from that thread.
-    void requestWindowVisible(bool visible);
+    void requestGameRunning(bool running);
     void requestToast(std::string text, bool isError);
 
     void reloadCatalog();
@@ -96,8 +94,11 @@ class ShellApp final : public ControlTarget {
     void handleKeyboard();
     void actOn(gamepad::Button button);
     void launchFocused();
-    /// Closes the running launch once Guide has been held long enough. Main loop only.
-    void serviceForceClose();
+    /// Buttons while a game runs: Guide opens and closes the menu over it, which takes the
+    /// rest. Main loop only.
+    void actInGame(gamepad::Button button);
+    /// Opens or closes the Guide menu and shows or hides the window drawing it.
+    void setGameMenuOpen(bool open);
     void showDetails();
     /// Re-reads the clock and the battery and schedules the next minute boundary.
     void refreshClock();
@@ -121,16 +122,16 @@ class ShellApp final : public ControlTarget {
     /// Started in run(), before the loop, and shut down with the app.
     steam::Client steam_;
     launch::Handoff handoff_;
-    /// When Guide went down, while it is held.
-    std::optional<std::chrono::steady_clock::time_point> guideHeldSince_;
+    /// The running launch's title, for the Guide menu. Main loop only.
+    std::string runningTitle_;
+    /// Inside Gamescope, how the window draws over a running game. Null elsewhere, where the
+    /// window is hidden while a game runs and shown only for the Guide menu.
+    std::unique_ptr<session::GamescopeOverlay> overlay_;
     /// Set by the control channel, read by the loop.
     std::atomic<bool> closeRequested_{false};
 
-    /// Whether the window should be up. The launch thread clears it while a game
-    /// runs; only the loop acts on it.
-    std::atomic<bool> windowVisible_{true};
-    /// What the window is actually doing, so the flag is only acted on once.
-    bool windowShown_{true};
+    /// Whether a game is running. The launch thread sets it; only the loop acts on it.
+    std::atomic<bool> gameRunning_{false};
     /// A toast raised off-thread, taken by the loop.
     std::mutex toastMutex_;
     std::string pendingToast_;

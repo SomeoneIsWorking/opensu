@@ -118,13 +118,6 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
         case gamepad::Event::Kind::Axis:
             break;
         case gamepad::Event::Kind::Button:
-            if (event.button == gamepad::Button::Guide) {
-                if (event.pressed) {
-                    guideHeldSince_ = std::chrono::steady_clock::now();
-                } else {
-                    guideHeldSince_.reset();
-                }
-            }
             if (event.pressed) {
                 actOn(event.button);
             }
@@ -169,6 +162,10 @@ void ShellApp::handleKeyboard() {
 }
 
 void ShellApp::actOn(gamepad::Button button) {
+    if (shell_.inGame()) {
+        actInGame(button);
+        return;
+    }
     switch (button) {
     case gamepad::Button::Up:
         shell_.moveFocus(ui::Direction::Up);
@@ -233,6 +230,7 @@ void ShellApp::launchFocused() {
 
     // The copy outlives this call because the handoff thread reads it.
     const library::Game copy = *game;
+    runningTitle_ = copy.title;
     const bool waitingForSteam =
         copy.source == library::Source::Steam && steam_.state() == launch::SteamState::Initializing;
     shell_.setToast(waitingForSteam ? "waiting for Steam" : "starting " + copy.title);
@@ -243,12 +241,11 @@ void ShellApp::launchFocused() {
             copy,
             [this] {
                 // raylib's window calls belong to the thread that owns the GL context, so
-                // the handoff thread only raises a flag and the loop does the work. Hiding
-                // a window off-thread is not something raylib supports.
-                requestWindowVisible(false);
+                // the handoff thread only raises a flag and the loop does the work.
+                requestGameRunning(true);
             },
             [this] {
-                requestWindowVisible(true);
+                requestGameRunning(false);
             },
             failure);
         {
@@ -264,19 +261,51 @@ void ShellApp::launchFocused() {
     }}.detach();
 }
 
-void ShellApp::serviceForceClose() {
-    if (!guideHeldSince_ || std::chrono::steady_clock::now() - *guideHeldSince_ < forceCloseHold) {
+void ShellApp::actInGame(gamepad::Button button) {
+    ui::GameMenu& menu = shell_.gameMenu();
+    if (button == gamepad::Button::Guide) {
+        setGameMenuOpen(!menu.isOpen());
         return;
     }
-    guideHeldSince_.reset();
-    {
-        const std::lock_guard lock{launchMutex_};
-        if (!launchRunning_) {
-            return;
-        }
+    if (!menu.isOpen()) {
+        return;
     }
-    lucent::warn("launch", "Guide held; force-closing the running launch");
-    handoff_.forceClose();
+    switch (button) {
+    case gamepad::Button::Up:
+        menu.move(-1);
+        break;
+    case gamepad::Button::Down:
+        menu.move(1);
+        break;
+    case gamepad::Button::B:
+        setGameMenuOpen(false);
+        break;
+    case gamepad::Button::A:
+        if (menu.selected() == ui::GameMenuAction::CloseGame) {
+            lucent::info("launch", "closing {} from the Guide menu", runningTitle_);
+            handoff_.forceClose();
+        }
+        setGameMenuOpen(false);
+        break;
+    default:
+        break;
+    }
+}
+
+void ShellApp::setGameMenuOpen(bool open) {
+    ui::GameMenu& menu = shell_.gameMenu();
+    if (open) {
+        menu.open(runningTitle_);
+    } else {
+        menu.close();
+    }
+    if (overlay_) {
+        overlay_->setShown(open);
+    } else if (open) {
+        ClearWindowState(FLAG_WINDOW_HIDDEN);
+    } else {
+        SetWindowState(FLAG_WINDOW_HIDDEN);
+    }
 }
 
 void ShellApp::showDetails() {
@@ -354,8 +383,8 @@ void ShellApp::requestClose() {
     closeRequested_.store(true);
 }
 
-void ShellApp::requestWindowVisible(bool visible) {
-    windowVisible_.store(visible);
+void ShellApp::requestGameRunning(bool running) {
+    gameRunning_.store(running);
 }
 
 void ShellApp::requestToast(std::string text, bool isError) {
@@ -413,9 +442,10 @@ void ShellApp::publishSnapshot() {
         const std::lock_guard lock{launchMutex_};
         next.launching = launchRunning_;
     }
-    // What the loop has actually done to the window, not what was asked for, so a
-    // request that never reached the loop cannot read as hidden.
-    next.windowVisible = windowShown_;
+    // What the loop has applied, not what was asked for, so a request that never reached the
+    // loop cannot read as in game.
+    next.inGame = shell_.inGame();
+    next.gameMenuOpen = shell_.gameMenu().isOpen();
     next.steam = std::string{launch::name(steam_.state())};
 
     const std::lock_guard lock{stateMutex_};
@@ -456,15 +486,22 @@ void ShellApp::serviceControlRequests() {
 /// Applies what the launch thread and the control channel asked for. Everything
 /// that touches the window or the shell happens here, on the loop's thread.
 void ShellApp::serviceRequests() {
-    const bool visible = windowVisible_.load();
-    if (visible != windowShown_) {
-        windowShown_ = visible;
-        // raylib has no ShowWindow or HideWindow: hiding is a window state flag,
-        // and showing is clearing it.
-        if (visible) {
-            ClearWindowState(FLAG_WINDOW_HIDDEN);
-        } else {
+    const bool running = gameRunning_.load();
+    if (running != shell_.inGame()) {
+        shell_.setInGame(running);
+        shell_.gameMenu().close();
+        // raylib has no ShowWindow or HideWindow: hiding is a window state flag, and showing is
+        // clearing it.
+        if (overlay_) {
+            if (running) {
+                overlay_->enter();
+            } else {
+                overlay_->leave();
+            }
+        } else if (running) {
             SetWindowState(FLAG_WINDOW_HIDDEN);
+        } else {
+            ClearWindowState(FLAG_WINDOW_HIDDEN);
         }
     }
 
@@ -489,9 +526,20 @@ int ShellApp::run() {
     // baked at 1280x800, and because a fixed window on a scaled desktop is
     // unusable. The scale factor is applied by the window manager on the way in,
     // so what the shell draws in is already in its own pixels.
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
+    // Transparent, so the Guide menu can draw over a game with the game showing through. No
+    // MSAA: with it, Gamescope's Xwayland gave a 24-bit window, which it composites as opaque.
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_TRANSPARENT);
     InitWindow(settings_.width, settings_.height, "iideck");
     SetWindowMinSize(960, 600);
+    if (config::read().insideGamescope) {
+        // Gamescope composites a window as the overlay only when it spans the whole screen,
+        // which also draws the home screen at the output's own resolution.
+        const int monitor = GetCurrentMonitor();
+        SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
+        shell_.setSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
+        overlay_ = std::make_unique<session::GamescopeOverlay>(
+            *static_cast<const unsigned long*>(GetWindowHandle()));
+    }
     // Textures need a GL context, so artwork is loaded only once the window is up.
     shell_.loadArtwork();
     lucent::info("ui", "artwork loaded for {} of {} tiles", shell_.loadedArtwork(),
@@ -525,16 +573,13 @@ int ShellApp::run() {
         pad_.poll(events);
         handleEvents(events);
         handleKeyboard();
-        serviceForceClose();
 
         serviceControlRequests();
         serviceRequests();
         shell_.setSteamState(serviceState(steam_.state()));
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
-        if (windowVisible_.load()) {
-            shell_.draw();
-        }
+        shell_.draw();
 
         // iiSU k42: the clock re-renders on the minute boundary.
         if (std::chrono::steady_clock::now() >= nextClockTick_) {

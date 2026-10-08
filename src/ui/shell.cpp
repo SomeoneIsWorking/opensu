@@ -4,6 +4,7 @@
 #include <filesystem>
 
 #include "lucent/log.h"
+#include "rlgl.h"
 
 namespace iideck::ui {
 namespace {
@@ -336,6 +337,19 @@ void Shell::drawGrid() {
 
 void Shell::draw() {
     BeginDrawing();
+    // Alpha accumulates as over-compositing does, so the window's own alpha is what Gamescope
+    // and an ARGB visual blend with; raylib's BLEND_ALPHA would square it.
+    rlSetBlendFactorsSeparate(RL_SRC_ALPHA, RL_ONE_MINUS_SRC_ALPHA, RL_ONE, RL_ONE_MINUS_SRC_ALPHA,
+                              RL_FUNC_ADD, RL_FUNC_ADD);
+    BeginBlendMode(BLEND_CUSTOM_SEPARATE);
+    if (inGame_) {
+        ClearBackground(BLANK);
+        gameMenuPainter_.paint(gameMenu_, static_cast<float>(width_), static_cast<float>(height_),
+                               dp());
+        EndBlendMode();
+        EndDrawing();
+        return;
+    }
     hud_.drawGround();
     drawGrid();
     pillPainter_.paint(layout_.pagePill(page_), dp(), chromeDark());
@@ -343,6 +357,7 @@ void Shell::draw() {
     hud_.drawTopBar();
     hud_.drawHints();
     hud_.drawToast();
+    EndBlendMode();
     EndDrawing();
 }
 
