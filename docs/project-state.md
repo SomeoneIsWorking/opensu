@@ -33,7 +33,7 @@ game has been observed running yet.
 | S012 | Loopback control channel: state, injected input, frame capture | verified | S001 | G003 |
 | S006 | Epic source via Legendary | verified | — | G001 |
 | S007 | GOG source via Heroic | verified | — | G001 |
-| S008 | ROM source with per-system emulator launch | verified | — | G001 |
+| S008 | ROM source with per-system emulator launch, found without configuration | verified | — | G001 |
 | S009 | Haptic rumble | missing | S003 | G003 |
 | S010 | Own login session entry on Gamescope | missing | — | G004 |
 | S013 | iideck runs in a nested Gamescope inside KDE at the output's resolution | partial | S004 | G004 |
@@ -301,6 +301,24 @@ sees the grabbed, silent one too.
 
 Gap: a force-close while the client is still starting the game cannot cancel the
 request it already handed to Steam.
+
+### S008 — ROMs
+
+ROM roots are found when `IIDECK_ROM_ROOTS` is unset: a `ROM`/`ROMs`/`roms` folder
+in the home folder, `~/Emulation`, or at the top of a drive under `/mnt`,
+`/media/<user>` or `/run/media/<user>` that holds a known system's folder. Systems
+(`library/rom_systems`) are matched by folder name with only letters and digits
+compared ("PSX CHD" is psx, "Wii U" is wiiu); a system folder holds game files or
+game folders, and a folder starts its marker (Wii U `code/*.rpx`, PS4 `eboot.bin`,
+PS3 `PS3_GAME/USRDIR/EBOOT.BIN`) or else its game file that is no update or DLC.
+Emulators (`library/emulators`) are found on PATH, as AppImages in
+`~/Applications`, `~/AppImages`, `~/.local/bin`, or as Flatpaks; a system without
+one is listed, and play names what to install. On this machine: 124 games in the
+grid from `/mnt/Boy/ROM`; Dolphin (GameCube), PCSX2 (PS2) and Eden (Switch)
+launched in a headless Gamescope, showed a window in 1.5–2.5 s and closed from the
+Guide menu (`scratch/roms-real/smoke.py`). Cemu, RPCS3, shadPS4 and Xenia Canary
+arguments come from their `--help` and are not launched yet. Not covered: PS5,
+Vita `.pkg` (needs installing into Vita3K), XBLA, Amiga disk sets, Android.
 
 ### S016 — Steam client
 

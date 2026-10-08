@@ -2,120 +2,155 @@
 
 #include <algorithm>
 #include <cctype>
+#include <string>
 #include <system_error>
 
 #include "lucent/log.h"
+#include "rom_systems.hpp"
 
 namespace iideck::library::roms {
 namespace {
 
 namespace fs = std::filesystem;
 
-/// The uppercase extension of a filename, including the dot.
-std::string extensionOf(std::string_view name) {
-    const std::size_t dot = name.rfind('.');
-    if (dot == std::string_view::npos) {
-        return {};
+std::string lowerKey(std::string_view name) {
+    std::string out;
+    for (const unsigned char c : name) {
+        if (std::isalnum(c) != 0) {
+            out.push_back(static_cast<char>(std::tolower(c)));
+        }
     }
-    std::string ext{name.substr(dot)};
-    for (char& c : ext) {
-        c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-    }
-    return ext;
+    return out;
 }
 
-/// The system a ROM belongs to, or "Unknown".
-std::string systemFor(const std::map<std::string, std::string, std::less<>>& extensions,
-                      std::string_view name) {
-    const auto found = extensions.find(extensionOf(name));
-    return found != extensions.end() ? found->second : std::string{"Unknown"};
+bool isRootName(std::string_view name) {
+    const std::string key = lowerKey(name);
+    return key == "rom" || key == "roms";
 }
 
-/// The command for a system, with the ROM path appended after the emulator's
-/// own arguments. An unconfigured system yields an empty spec, which the shell
-/// reports rather than launching nothing silently.
-LaunchSpec launchFor(const std::map<std::string, std::vector<std::string>, std::less<>>& emulators,
-                     std::string_view system, const fs::path& rom) {
-    const auto found = emulators.find(system);
-    if (found == emulators.end() || found->second.empty()) {
-        return {};
+bool holdsSystems(const fs::path& root) {
+    std::error_code ec;
+    for (const fs::directory_entry& entry : fs::directory_iterator{root, ec}) {
+        if (entry.is_directory(ec) &&
+            systemForFolder(entry.path().filename().string()) != nullptr) {
+            return true;
+        }
     }
-    LaunchSpec spec;
-    spec.program = found->second.front();
-    spec.args.assign(std::next(found->second.begin()), found->second.end());
-    spec.args.push_back(rom.string());
-    return spec;
+    return false;
+}
+
+/// The children of `dir` named like a ROM root.
+void addRootsIn(const fs::path& dir, std::vector<fs::path>& roots) {
+    std::error_code ec;
+    for (const fs::directory_entry& entry : fs::directory_iterator{dir, ec}) {
+        if (entry.is_directory(ec) && isRootName(entry.path().filename().string()) &&
+            holdsSystems(entry.path())) {
+            roots.push_back(entry.path());
+        }
+    }
+}
+
+/// A title from a file or folder name: dump tags in brackets go, region tags in parentheses
+/// stay, as ES-DE shows them.
+std::string titleOf(const fs::path& entry, bool isFile) {
+    const std::string name = isFile ? entry.stem().string() : entry.filename().string();
+    std::string out;
+    int depth = 0;
+    for (const char c : name) {
+        if (c == '[') {
+            ++depth;
+        } else if (c == ']' && depth > 0) {
+            --depth;
+        } else if (depth == 0) {
+            out.push_back(c);
+        }
+    }
+    while (!out.empty() && out.back() == ' ') {
+        out.pop_back();
+    }
+    return out.empty() ? name : out;
+}
+
+std::string missingEmulator(const RomSystem& system) {
+    const std::vector<std::string_view> names = Emulators::candidates(system.key);
+    std::string text = "no " + std::string{system.label} + " emulator found";
+    if (!names.empty()) {
+        text += "; install ";
+        for (std::size_t i = 0; i < names.size(); ++i) {
+            text += (i == 0 ? "" : " or ") + std::string{names[i]};
+        }
+    }
+    return text;
 }
 
 } // namespace
 
-Provider::Provider(std::vector<fs::path> roots,
-                   std::map<std::string, std::string, std::less<>> extensions,
-                   std::map<std::string, std::vector<std::string>, std::less<>> emulators)
-    : roots_{std::move(roots)}, extensions_{std::move(extensions)},
-      emulators_{std::move(emulators)} {
+std::vector<fs::path> standardMountDirs(const fs::path& home) {
+    const std::string user = home.filename().string();
+    return {"/mnt", "/media/" + user, "/run/media/" + user};
+}
+
+std::vector<fs::path> discoverRoots(const fs::path& home, const std::vector<fs::path>& mountDirs) {
+    std::vector<fs::path> roots;
+    addRootsIn(home, roots);
+    addRootsIn(home / "Emulation", roots);
+    for (const fs::path& mounts : mountDirs) {
+        std::error_code ec;
+        for (const fs::directory_entry& drive : fs::directory_iterator{mounts, ec}) {
+            if (drive.is_directory(ec)) {
+                addRootsIn(drive.path(), roots);
+            }
+        }
+    }
+    return roots;
+}
+
+Provider::Provider(std::vector<fs::path> roots, Emulators emulators)
+    : roots_{std::move(roots)}, emulators_{std::move(emulators)} {
 }
 
 std::vector<Game> Provider::list() {
-    if (roots_.empty()) {
-        return {};
-    }
-
     std::vector<Game> games;
-    std::vector<std::string> problems;
-
     for (const fs::path& root : roots_) {
         std::error_code ec;
         if (!fs::is_directory(root, ec)) {
-            problems.push_back(root.string() + ": not a directory");
+            lucent::warn("roms", "{}: not a directory", root.string());
             continue;
         }
-        // Subdirectories are not descended into: an emulator library is
-        // conventionally flat, and deep nesting is usually a mistake.
-        for (const fs::directory_entry& entry : fs::directory_iterator{root, ec}) {
-            if (!entry.is_regular_file()) {
+        for (const fs::directory_entry& folder : fs::directory_iterator{root, ec}) {
+            const RomSystem* system = systemForFolder(folder.path().filename().string());
+            if (system == nullptr || !folder.is_directory(ec)) {
                 continue;
             }
-            const std::string name = entry.path().filename().string();
-            if (extensions_.find(extensionOf(name)) == extensions_.end()) {
-                continue;
+            std::vector<fs::path> entries;
+            for (const fs::directory_entry& entry : fs::directory_iterator{folder.path(), ec}) {
+                entries.push_back(entry.path());
             }
-            const std::string system = systemFor(extensions_, name);
-
-            Game game;
-            game.id = "rom:" + entry.path().string();
-            game.source = Source::Rom;
-            game.sourceId = system;
-            game.title = name.substr(0, name.size() - extensionOf(name).size());
-            // The file itself is what makes the entry launchable.
-            game.installed = true;
-            game.processHint = name;
-            game.launch = launchFor(emulators_, system, entry.path());
-            games.push_back(std::move(game));
+            std::ranges::sort(entries);
+            for (const fs::path& entry : entries) {
+                const std::optional<fs::path> file = gameFile(*system, entry);
+                if (!file) {
+                    continue;
+                }
+                Game game;
+                game.id = "rom:" + entry.string();
+                game.source = Source::Rom;
+                game.sourceId = std::string{system->key};
+                game.title = titleOf(entry, fs::is_regular_file(entry, ec));
+                // The file itself is what makes the entry playable.
+                game.installed = true;
+                // The emulator's command line carries the game's file.
+                game.processHint = file->filename().string();
+                if (std::optional<LaunchSpec> spec = emulators_.launch(system->key, *file)) {
+                    game.launch = std::move(*spec);
+                } else {
+                    game.unavailable = missingEmulator(*system);
+                }
+                games.push_back(std::move(game));
+            }
         }
-        if (ec) {
-            problems.push_back(root.string() + ": " + ec.message());
-        }
-    }
-
-    if (games.empty() && !problems.empty()) {
-        lucent::warn("roms", "no ROMs found in {} configured roots", roots_.size());
-    }
-    for (const std::string& problem : problems) {
-        lucent::warn("roms", "{}", problem);
     }
     return games;
-}
-
-std::vector<std::string> Provider::systems() const {
-    std::vector<std::string> out;
-    for (const auto& [extension, system] : extensions_) {
-        if (std::ranges::find(out, system) == out.end()) {
-            out.push_back(system);
-        }
-    }
-    std::ranges::sort(out);
-    return out;
 }
 
 } // namespace iideck::library::roms

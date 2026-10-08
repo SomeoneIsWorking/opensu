@@ -54,8 +54,8 @@ Overrides, all optional:
 | Variable | Meaning |
 | --- | --- |
 | `IIDECK_STEAM_ROOTS` | Colon-separated Steam install roots. Discovered when unset. |
-| `IIDECK_ROM_ROOTS` | Colon-separated directories of emulator ROMs. |
-| `IIDECK_EMULATORS` | `SYSTEM=program arg;SYSTEM2=program` |
+| `IIDECK_ROM_ROOTS` | Colon-separated ROM roots, each holding one folder per system. Discovered when unset. |
+| `IIDECK_EMULATORS` | Per-system command overriding the one found: `ps2=pcsx2-qt -batch {rom};gc=dolphin-emu -b -e {rom}`. |
 | `IIDECK_WIDTH`, `IIDECK_HEIGHT` | Window size, default 1280x800. |
 | `IIDECK_ASSETS` | Directory holding the typeface. Defaults to `share/iideck` beside the executable's directory. |
 | `IIDECK_HOME_MODE` | `standard` (scrolling grid, default) or `wiisu` (paged grid). |
@@ -83,8 +83,14 @@ Controllers are read from evdev: any pad whose driver follows the kernel's gamep
 codes (xpad, xone, hid-playstation, hid-nintendo, ...) works, keyboards are never
 taken for one, and a pad switched on while iideck runs is picked up.
 
-A ROM whose system has no configured emulator still appears in the grid, and
-pressing play reports which emulator is missing rather than doing nothing.
+ROMs live in a ROM root (a folder named `ROM`, `ROMs` or `roms` in the home folder, in
+`~/Emulation`, or at the top of a mounted drive) with one folder per system (`PS2`, `GameCube`,
+`Switch`, `PSX CHD`, ...). A system folder holds game files or game folders; in a folder, the
+base game is started rather than its updates and DLC. Emulators are found on PATH, as AppImages
+in `~/Applications`, `~/AppImages` or `~/.local/bin`, or as Flatpaks: Dolphin, Cemu, Eden,
+Ryujinx, PCSX2, RPCS3, shadPS4, DuckStation, PPSSPP, melonDS, Azahar, mGBA, xemu and Xenia
+Canary. A game whose system has no emulator still appears, and pressing play names the
+emulator to install.
 
 ## Controls
 

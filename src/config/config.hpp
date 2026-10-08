@@ -34,10 +34,10 @@ struct Config {
     /// Explicit Steam install roots; discovered when empty.
     std::vector<std::filesystem::path> steamRoots;
 
-    /// Directories scanned for emulator ROMs.
+    /// ROM roots, each holding one folder per system; discovered when empty.
     std::vector<std::filesystem::path> romRoots;
 
-    /// Per-system emulator commands.
+    /// Per-system emulator commands, keyed by system ("ps2"), overriding the ones found.
     EmulatorCommands emulators;
 
     /// Where the shipped typeface lives: `IIDECK_ASSETS`, else `share/iideck` beside the

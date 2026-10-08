@@ -40,6 +40,8 @@ gitignored `docs/reference/`).
 | `src/library/game.*` | The launchable `Game` record |
 | `src/library/catalog.*` | Building the catalog from all sources |
 | `src/library/steam.*`, `epic.*`, `gog.*`, `roms.*` | One source each |
+| `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts |
+| `src/library/emulators.*` | Which emulator runs each system here, and its command line |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`), raylib-free (`iideck_pad`) |

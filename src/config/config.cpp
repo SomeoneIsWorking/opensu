@@ -127,7 +127,7 @@ EmulatorCommands parseEmulators(std::string_view raw) {
             if (equals != std::string_view::npos) {
                 std::string name{entry.substr(0, equals)};
                 std::ranges::transform(name, name.begin(), [](unsigned char c) {
-                    return static_cast<char>(std::toupper(c));
+                    return static_cast<char>(std::tolower(c));
                 });
                 std::vector<std::string> words = splitWords(entry.substr(equals + 1));
                 if (name.empty() || words.empty()) {

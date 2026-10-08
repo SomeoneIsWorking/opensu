@@ -60,6 +60,8 @@ struct Game {
     std::string processHint;
 
     LaunchSpec launch;
+    /// Why `launch` is empty for a game that is there to play, in words for the player.
+    std::string unavailable;
 };
 
 /// A backend that can list launchable games. Each store has its own type; the

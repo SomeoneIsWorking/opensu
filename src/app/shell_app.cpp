@@ -211,8 +211,8 @@ void ShellApp::launchFocused() {
         return;
     }
     if (game->launch.empty()) {
-        shell_.setToast("no emulator configured for " + std::string{library::label(game->source)},
-                        true);
+        shell_.setToast(
+            game->unavailable.empty() ? "no way to start " + game->title : game->unavailable, true);
         return;
     }
     {
