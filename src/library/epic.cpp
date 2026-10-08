@@ -1,6 +1,8 @@
 #include "epic.hpp"
 
+#include <algorithm>
 #include <array>
+#include <charconv>
 #include <cstdio>
 #include <map>
 #include <stdexcept>
@@ -45,7 +47,48 @@ std::map<std::string, Install, std::less<>> parseInstalls(std::string_view outpu
     return installs;
 }
 
+constexpr std::string_view progressMarker = "= Progress: ";
+constexpr std::string_view failureMarker = " ! Failure: ";
+
+/// `line` without a trailing carriage return.
+std::string_view trimmed(std::string_view line) {
+    while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) {
+        line.remove_suffix(1);
+    }
+    return line;
+}
+
 } // namespace
+
+std::optional<double> installProgress(std::string_view line) {
+    const std::size_t at = line.find(progressMarker);
+    if (at == std::string_view::npos) {
+        return std::nullopt;
+    }
+    const std::string_view number = line.substr(at + progressMarker.size());
+    double percent = 0.0;
+    const auto [end, error] = std::from_chars(number.data(), number.data() + number.size(), percent);
+    if (error != std::errc{} || end == number.data() + number.size() || *end != '%') {
+        return std::nullopt;
+    }
+    return std::clamp(percent / 100.0, 0.0, 1.0);
+}
+
+std::optional<std::string> installFailure(std::string_view line) {
+    line = trimmed(line);
+    for (const std::string_view level : {"ERROR: ", "CRITICAL: "}) {
+        // "[cli] ERROR: message": the logger's name in brackets, then the level.
+        const std::size_t at = line.find(level);
+        if (line.starts_with('[') && at != std::string_view::npos &&
+            line.find(']') + 2 == at) {
+            return std::string{line.substr(at + level.size())};
+        }
+    }
+    if (line.starts_with(failureMarker)) {
+        return std::string{line.substr(failureMarker.size())};
+    }
+    return std::nullopt;
+}
 
 std::string Provider::run(std::string_view arguments) const {
     // Legendary logs to stderr, so only stdout is captured.

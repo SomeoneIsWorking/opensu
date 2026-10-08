@@ -6,7 +6,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <stop_token>
 #include <string>
+#include <thread>
 
 #include <unistd.h>
 
@@ -16,6 +18,7 @@ namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 using iideck::launch::resolveExecutable;
 using iideck::launch::runCommand;
+using iideck::launch::runStreaming;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -51,6 +54,36 @@ int main() {
     expect(!runCommand("/bin/sleep", {"30"}, std::chrono::milliseconds{300}).has_value(),
            "a child past its bound reports nothing");
     expect(Clock::now() - began < std::chrono::seconds{5}, "the bound holds");
+
+    std::vector<std::string> lines;
+    const auto collect = [&lines](std::string_view line) {
+        lines.emplace_back(line);
+    };
+    const std::stop_token never;
+    expect(runStreaming("/bin/sh", {"-c", "echo out; echo err >&2; printf tail; exit 3"}, collect,
+                        never) == 3,
+           "a streamed child's status is returned");
+    expect(lines == std::vector<std::string>({"out", "err", "tail"}),
+           "stdout and stderr arrive as lines, an unterminated last line too");
+    expect(!runStreaming("/no/such/program", {}, collect, never).has_value(),
+           "a streamed missing program fails");
+    lines.clear();
+    expect(runStreaming("/bin/sh", {"-c", "read x; echo got:$x"}, collect, never) == 0 &&
+               lines == std::vector<std::string>({"got:"}),
+           "a streamed child's stdin is closed");
+
+    // Stopping ends the child and what it started.
+    std::jthread stopper;
+    std::stop_source source;
+    stopper = std::jthread{[&source] {
+        std::this_thread::sleep_for(std::chrono::milliseconds{300});
+        source.request_stop();
+    }};
+    const Clock::time_point streamed = Clock::now();
+    expect(!runStreaming("/bin/sh", {"-c", "sleep 30 & sleep 30"}, collect, source.get_token())
+                .has_value(),
+           "a stopped stream reports nothing");
+    expect(Clock::now() - streamed < std::chrono::seconds{8}, "stopping does not wait for the child");
 
     fs::remove_all(scratch);
     std::printf("command: all checks passed\n");

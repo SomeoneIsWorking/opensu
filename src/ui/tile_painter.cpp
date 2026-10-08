@@ -57,6 +57,28 @@ constexpr Color consoleFrom{0x8A, 0x82, 0x9C, 255};
 constexpr Color consoleTo{0x4D, 0x46, 0x55, 255};
 constexpr Color consoleDarkInk{0x2B, 0x27, 0x33, 255};
 
+/// A launcher's card gradient, from its brand's colours.
+struct Brand {
+    Icon icon;
+    Color from;
+    Color to;
+};
+constexpr std::array<Brand, 3> brands{
+    Brand{Icon::Steam, Color{0x2A, 0x47, 0x5E, 255}, Color{0x1B, 0x28, 0x38, 255}},
+    Brand{Icon::Epic, Color{0x3A, 0x3A, 0x3F, 255}, Color{0x16, 0x16, 0x1A, 255}},
+    Brand{Icon::Gog, Color{0x86, 0x32, 0x8A, 255}, Color{0x4A, 0x1A, 0x4D, 255}},
+};
+// The combined library's card: a calm violet apart from the stores' colours.
+constexpr Color libraryFrom{0x5B, 0x4F, 0x9A, 255};
+constexpr Color libraryTo{0x2F, 0x28, 0x5E, 255};
+// A store badge's disc, dark so a white logo reads over any cover.
+constexpr Color badgeDisc{0x16, 0x13, 0x1E, 200};
+constexpr float badgeLogo = 0.62f;
+// A folder card's mark is a quarter of the card; the library glyph is four tiles of it.
+constexpr float markSide = 0.26f;
+constexpr float markGap = 0.05f;
+constexpr float glyphTile = 0.44f;
+
 struct Stop {
     float at;
     Color colour;
@@ -137,7 +159,7 @@ Rectangle coverSource(float width, float height, const Rect& target) noexcept {
                      cropWidth, cropHeight};
 }
 
-void TilePainter::paint(const TileVisual& tile) const {
+void TilePainter::paint(const TileVisual& tile) {
     if (tile.alpha <= 0.0f) {
         return;
     }
@@ -281,10 +303,10 @@ void TilePainter::paintChrome(const TileGeometry& geometry, const ChromeVariant&
     }
 }
 
-void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geometry) const {
+void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geometry) {
     const Rect& content = geometry.content;
     const Color tint = withAlpha(WHITE, tile.alpha);
-    if (tile.console && tile.art != nullptr) {
+    if (tile.kind == TileKind::Console && tile.art != nullptr) {
         // The console's card is the whole tile: it carries the glyph and its own frame.
         drawTextureRound(RoundRect{content, geometry.contentRadius}, *tile.art,
                          coverSource(static_cast<float>(tile.art->width),
@@ -292,11 +314,25 @@ void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geome
                          tint);
         return;
     }
-    if (tile.console) {
-        paintConsole(tile, content);
+    if (tile.kind == TileKind::Console) {
+        const Color from = tile.platform != nullptr ? unpack(tile.platform->strokeFrom) : consoleFrom;
+        const Color to = tile.platform != nullptr ? unpack(tile.platform->strokeTo) : consoleTo;
+        paintCard(tile, content, from, to);
         if (tile.platform != nullptr) {
             paintFrame(content, *tile.platform, nullptr, tile.alpha);
         }
+        return;
+    }
+    if (tile.kind == TileKind::Launcher) {
+        const auto brand = std::ranges::find_if(brands, [&tile](const Brand& candidate) {
+            return tile.logo && candidate.icon == *tile.logo;
+        });
+        paintCard(tile, content, brand != brands.end() ? brand->from : consoleFrom,
+                  brand != brands.end() ? brand->to : consoleTo);
+        return;
+    }
+    if (tile.kind == TileKind::AllGames) {
+        paintCard(tile, content, libraryFrom, libraryTo);
         return;
     }
     if (tile.platform != nullptr) {
@@ -311,17 +347,32 @@ void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geome
             paintFallback(content, tile.title, tile.alpha);
         }
         paintFrame(content, *tile.platform, tile.glyph, tile.alpha);
-        return;
-    }
-    if (tile.art != nullptr) {
+    } else if (tile.art != nullptr) {
         // iiSU nx2.l: a cover crop into the content rect at the content radius.
         drawTextureRound(RoundRect{content, geometry.contentRadius}, *tile.art,
                          coverSource(static_cast<float>(tile.art->width),
                                      static_cast<float>(tile.art->height), content),
                          tint);
-        return;
+    } else {
+        paintFallback(content, tile.title, tile.alpha);
     }
-    paintFallback(content, tile.title, tile.alpha);
+    paintStores(tile, content);
+}
+
+void TilePainter::paintStores(const TileVisual& tile, const Rect& content) {
+    const StoreIconRow row = storeIconRow(content, tile.stores.size());
+    for (std::size_t i = 0; i < row.count; ++i) {
+        const Rect& badge = row.badges[i];
+        const Vector2 centre{badge.centreX(), badge.centreY()};
+        DrawCircleV(centre, badge.width * 0.5f, withAlpha(badgeDisc, tile.alpha));
+        const int pixels = std::max(static_cast<int>(std::lround(badge.width * badgeLogo)), 1);
+        if (const Texture* mark = icons_.mask(tile.stores[i], pixels)) {
+            DrawTexture(*mark,
+                        static_cast<int>(std::lround(centre.x - static_cast<float>(pixels) * 0.5f)),
+                        static_cast<int>(std::lround(centre.y - static_cast<float>(pixels) * 0.5f)),
+                        withAlpha(WHITE, tile.alpha));
+        }
+    }
 }
 
 void TilePainter::paintFrame(const Rect& rect, const Platform& platform, const Texture* glyph,
@@ -356,10 +407,34 @@ void TilePainter::paintFrame(const Rect& rect, const Platform& platform, const T
     }
 }
 
-void TilePainter::paintConsole(const TileVisual& tile, const Rect& content) const {
+void TilePainter::paintMark(const TileVisual& tile, const Rect& box, Color ink) {
+    if (tile.kind == TileKind::Launcher) {
+        const int pixels = std::max(static_cast<int>(std::lround(box.width)), 1);
+        const Texture* mark = tile.logo ? icons_.mask(*tile.logo, pixels) : nullptr;
+        if (mark != nullptr) {
+            DrawTexture(*mark, static_cast<int>(std::lround(box.x)),
+                        static_cast<int>(std::lround(box.y)), withAlpha(ink, tile.alpha));
+        }
+        return;
+    }
+    // Four rounded tiles in a square: a shelf of games.
+    const float cell = box.width * glyphTile;
+    const float gap = box.width - 2.0f * cell;
+    for (int row = 0; row < 2; ++row) {
+        for (int column = 0; column < 2; ++column) {
+            fillRoundRect(RoundRect{Rect{box.x + static_cast<float>(column) * (cell + gap),
+                                         box.y + static_cast<float>(row) * (cell + gap), cell,
+                                         cell},
+                                    cell * 0.25f},
+                          [ink, alpha = tile.alpha](Vector2, float) {
+                              return withAlpha(ink, alpha);
+                          });
+        }
+    }
+}
+
+void TilePainter::paintCard(const TileVisual& tile, const Rect& content, Color from, Color to) {
     const FrameGeometry frame = frameGeometry(content);
-    const Color from = tile.platform != nullptr ? unpack(tile.platform->strokeFrom) : consoleFrom;
-    const Color to = tile.platform != nullptr ? unpack(tile.platform->strokeTo) : consoleTo;
     const float alpha = tile.alpha;
     fillRoundRect(RoundRect{content, frame.artRadius},
                   [&content, from, to, alpha](Vector2 point, float) {
@@ -367,7 +442,7 @@ void TilePainter::paintConsole(const TileVisual& tile, const Rect& content) cons
                   });
     const Color ink = luminance(mix(from, to, 0.5f)) > 0.6f ? consoleDarkInk : WHITE;
 
-    // One name size and one count size for every console, so the typeface loads two faces; a
+    // One name size and one count size for every card, so the typeface loads two faces; a
     // name too wide for one line breaks at a space.
     const float side = std::min(content.width, content.height);
     const float room = content.width - 2.0f * std::max(frame.tab, frame.stroke * 2.0f);
@@ -376,8 +451,16 @@ void TilePainter::paintConsole(const TileVisual& tile, const Rect& content) cons
     const std::vector<std::string_view> lines = breakLines(tile.title, name, room);
     const float nameBox = type().lineBox(name);
     const float gap = side * 0.04f;
-    const float block = static_cast<float>(lines.size()) * nameBox + gap + type().lineBox(count);
-    float y = content.centreY() - block * 0.5f + nameBox * 0.5f;
+    const bool marked = tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames;
+    const float mark = marked ? side * markSide : 0.0f;
+    const float markRoom = marked ? side * markGap : 0.0f;
+    const float block = mark + markRoom + static_cast<float>(lines.size()) * nameBox + gap +
+                        type().lineBox(count);
+    float y = content.centreY() - block * 0.5f;
+    if (marked) {
+        paintMark(tile, Rect{content.centreX() - mark * 0.5f, y, mark, mark}, ink);
+    }
+    y += mark + markRoom + nameBox * 0.5f;
     for (const std::string_view line : lines) {
         type().drawCentred(line, content.centreX() - type().measure(line, name) * 0.5f, y, name,
                            withAlpha(ink, alpha));

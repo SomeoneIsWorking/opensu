@@ -9,6 +9,7 @@ add_library(iideck_library STATIC
     roms.cpp
     rom_systems.cpp
     shelf.cpp
+    titles.cpp
     emulators.cpp
 )
 add_library(iideck::library ALIAS iideck_library)

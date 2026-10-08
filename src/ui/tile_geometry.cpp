@@ -19,6 +19,12 @@ constexpr float artMinRadiusPct = 9.0f;
 constexpr float spriteGlyphOffset = 45.0f;
 constexpr float spriteGlyphSide = 90.0f;
 
+// iideck's own: a store badge is 15% of the content's short side, 5% from its corner, with a
+// fifth of a badge between neighbours.
+constexpr float storeBadgeSide = 0.15f;
+constexpr float storeBadgeMargin = 0.05f;
+constexpr float storeBadgeGap = 0.2f;
+
 /// iiSU xj2: max(4, ceil(0.068 x)).
 float cornerFor(float side) noexcept {
     return std::max(4.0f, std::ceil(0.068f * side));
@@ -59,6 +65,21 @@ FrameGeometry frameGeometry(const Rect& rect) noexcept {
         Rect{rect.x + spriteGlyphOffset * scale, rect.y + spriteGlyphOffset * scale,
              spriteGlyphSide * scale, spriteGlyphSide * scale},
     };
+}
+
+StoreIconRow storeIconRow(const Rect& content, std::size_t count) noexcept {
+    StoreIconRow row;
+    row.count = std::min(count, maxStoreIcons);
+    const float side = std::min(content.width, content.height);
+    const float badge = side * storeBadgeSide;
+    const float margin = side * storeBadgeMargin;
+    const float pitch = badge * (1.0f + storeBadgeGap);
+    const float y = content.bottom() - margin - badge;
+    for (std::size_t i = 0; i < row.count; ++i) {
+        const float fromCorner = static_cast<float>(row.count - 1 - i);
+        row.badges[i] = Rect{content.right() - margin - badge - fromCorner * pitch, y, badge, badge};
+    }
+    return row;
 }
 
 Rect containFit(float width, float height, const Rect& slot) noexcept {

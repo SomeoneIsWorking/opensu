@@ -15,6 +15,7 @@
 
 #include "config/config.hpp"
 #include "launcher_status.hpp"
+#include "library/titles.hpp"
 #include "lucent/log.h"
 #include "ui/clock_text.hpp"
 
@@ -96,7 +97,7 @@ void ShellApp::pushCatalogToShell() {
 }
 
 void ShellApp::showShelf(std::size_t focus) {
-    std::vector<library::ShelfItem> shelf = browser_.shelf(games_);
+    std::vector<library::ShelfItem> shelf = browser_.shelf(games_, sources_);
     artworkStore_.apply(shelf);
     shell_.setShelf(std::move(shelf), focus);
 }
@@ -120,8 +121,14 @@ void ShellApp::serviceArtwork() {
     }
 }
 
-void ShellApp::openConsole(const library::Console& console) {
-    browser_.open(console, shell_.focusIndex());
+void ShellApp::openFolder(const library::Folder& folder) {
+    if (const auto* launcher = std::get_if<library::Launcher>(&folder);
+        launcher != nullptr && launcher->games == 0) {
+        const std::string store{library::label(launcher->source)};
+        shell_.setToast(launcher->ready ? "no games in " + store : "sign in to " + store, true);
+        return;
+    }
+    browser_.open(folder, shell_.focusIndex());
     showShelf(0);
 }
 
@@ -223,8 +230,8 @@ void ShellApp::actOn(gamepad::Button button) {
         break;
     case gamepad::Button::A:
         shell_.pressFocused();
-        if (const library::Console* console = shell_.focusedConsole()) {
-            openConsole(*console);
+        if (const std::optional<library::Folder> folder = shell_.focusedFolder()) {
+            openFolder(*folder);
         } else {
             launchFocused();
         }
@@ -327,21 +334,15 @@ void ShellApp::actOnPanel(gamepad::Button button) {
         }
         break;
     case PanelUse::OfferInstall:
-        if (button == gamepad::Button::A && offered_) {
-            if (install_.start(offered_->sourceId, offered_->title)) {
-                panelUse_ = PanelUse::Install;
-                shell_.launchPanel().update("Starting Steam", std::nullopt);
-                shell_.launchPanel().setHints({{"B", "Hide"}});
-            } else {
-                shell_.launchPanel().close();
-                panelUse_ = PanelUse::None;
-                shell_.setToast(install_.title() + " is still installing", true);
+        if (button == gamepad::Button::A || button == gamepad::Button::X) {
+            const std::size_t choice = button == gamepad::Button::A ? 0 : 1;
+            if (choice < offered_.size()) {
+                startInstall(offered_[choice]);
             }
-            offered_.reset();
         } else if (button == gamepad::Button::B) {
             shell_.launchPanel().close();
             panelUse_ = PanelUse::None;
-            offered_.reset();
+            offered_.clear();
         }
         break;
     case PanelUse::Install:
@@ -370,22 +371,49 @@ void ShellApp::actOnPanel(gamepad::Button button) {
     }
 }
 
+void ShellApp::startInstall(const library::Game& game) {
+    if (install_.start(game)) {
+        panelUse_ = PanelUse::Install;
+        shell_.launchPanel().update("Starting", std::nullopt);
+        shell_.launchPanel().setHints({{"B", "Hide"}});
+    } else {
+        shell_.launchPanel().close();
+        panelUse_ = PanelUse::None;
+        shell_.setToast(install_.title() + " is still installing", true);
+    }
+    offered_.clear();
+}
+
 void ShellApp::offerInstall(const library::Game& game) {
-    if (game.source != library::Source::Steam) {
-        shell_.setToast(game.title + " is not installed; install it in " +
-                            std::string{library::label(game.source)},
-                        true);
+    // A store's own page installs that store's copy; elsewhere any store that owns the title will do.
+    std::vector<library::Game> copies =
+        browser_.inLauncher() ? std::vector<library::Game>{game} : library::copiesOf(games_, game);
+    const std::string unsupported = std::string{library::label(copies.front().source)} +
+                                    " installs are not supported yet";
+    std::erase_if(copies, [](const library::Game& copy) {
+        return copy.installed || !Installs::supports(copy.source);
+    });
+    if (copies.empty()) {
+        shell_.setToast(unsupported, true);
         return;
     }
     if (install_.running()) {
         shell_.setToast(install_.title() + " is still installing", true);
         return;
     }
-    offered_ = game;
+    offered_ = std::move(copies);
     panelUse_ = PanelUse::OfferInstall;
     shell_.launchPanel().open(game.title);
-    shell_.launchPanel().update("Not installed", std::nullopt, false);
-    shell_.launchPanel().setHints({{"A", "Install"}, {"B", "Cancel"}});
+    if (offered_.size() == 1) {
+        shell_.launchPanel().update("Not installed", std::nullopt, false);
+        shell_.launchPanel().setHints({{"A", "Install"}, {"B", "Cancel"}});
+        return;
+    }
+    // Two stores can install it: A is the first, X the second.
+    shell_.launchPanel().update("Install from", std::nullopt, false);
+    shell_.launchPanel().setHints({{"A", std::string{library::label(offered_[0].source)}},
+                                   {"X", std::string{library::label(offered_[1].source)}},
+                                   {"B", "Cancel"}});
 }
 
 void ShellApp::presentEula() {
@@ -406,7 +434,7 @@ void ShellApp::serviceInstall() {
     if (!report) {
         return;
     }
-    if (!report->eulas.empty()) {
+    if (report->licence) {
         if (panelUse_ == PanelUse::Launch) {
             eulaWaiting_ = true;
         } else {
@@ -627,11 +655,12 @@ void ShellApp::publishSnapshot() {
     }
     if (const library::Game* focused = shell_.focusedGame(); focused != nullptr) {
         next.focusedId = focused->id;
-    } else if (const library::Console* console = shell_.focusedConsole(); console != nullptr) {
-        next.focusedId = "console:" + console->system;
+    } else if (const std::optional<library::Folder> folder = shell_.focusedFolder()) {
+        next.focusedId =
+            std::holds_alternative<library::Console>(*folder) ? "console:" + library::key(*folder) : library::key(*folder);
     }
     next.focusedTitle = shell_.focusedTitle();
-    next.shelf = browser_.console() ? browser_.console()->system : "home";
+    next.shelf = browser_.folder() ? library::key(*browser_.folder()) : "home";
     next.focusIndex = shell_.focusIndex();
     next.page = static_cast<std::size_t>(std::max(shell_.page(), 0));
     next.pageCount = static_cast<std::size_t>(std::max(shell_.pageCount(), 1));
@@ -816,8 +845,8 @@ int ShellApp::run() {
         serviceRequests();
         serviceArtwork();
         shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
-        // iiSU pl3.q: Home has no title; inside a console the pill names the focused ROM.
-        shell_.setTitle(browser_.console() ? shell_.focusedTitle() : std::string{});
+        // iiSU pl3.q: Home has no title; inside a folder the pill names the focused game.
+        shell_.setTitle(browser_.folder() ? shell_.focusedTitle() : std::string{});
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
         shell_.draw();

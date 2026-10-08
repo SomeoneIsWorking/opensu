@@ -17,6 +17,8 @@ namespace {
 namespace fs = std::filesystem;
 using iideck::library::Game;
 using iideck::library::SourceAbsent;
+using iideck::library::epic::installFailure;
+using iideck::library::epic::installProgress;
 using iideck::library::epic::Provider;
 
 void expect(bool condition, const char* what) {
@@ -39,9 +41,43 @@ const Game* find(const std::vector<Game>& games, const std::string& id) {
     return it == games.end() ? nullptr : &*it;
 }
 
+/// `legendary install` output, as legendary 0.20.35 logs it: its own format string
+/// ('[%(name)s] %(levelname)s: %(message)s') over the messages of cli.py and
+/// downloader/mp/manager.py.
+void testInstallOutput() {
+    expect(installProgress("[DLManager] INFO: = Progress: 12.34% (505/4096), Running for "
+                           "00:00:10, ETA: 00:01:11") == 0.1234,
+           "a progress line is its percentage");
+    expect(installProgress("[DLManager] INFO: = Progress: 0.00% (0/4096), Running for 00:00:00, "
+                           "ETA: 00:00:00") == 0.0,
+           "the first progress line is zero");
+    expect(installProgress("[DLManager] INFO: = Progress: 100.00% (4096/4096), Running for "
+                           "00:01:20, ETA: 00:00:00") == 1.0,
+           "the last progress line is one");
+    expect(!installProgress("[DLManager] INFO:  - Downloaded: 104.20 MiB, Written: 250.10 MiB"),
+           "the downloaded line is not progress");
+    expect(!installProgress("[cli] INFO: Download size: 1024.50 MiB (Compression savings: 50.0%)"),
+           "a percentage elsewhere is not progress");
+    expect(!installProgress("[DLManager] INFO: = Progress: soon%"), "a damaged line is not progress");
+    expect(!installProgress(""), "an empty line is not progress");
+
+    expect(installFailure("[cli] ERROR: Login failed! Cannot continue with download process.") ==
+               "Login failed! Cannot continue with download process.",
+           "an error line is the reason");
+    expect(installFailure("[cli] CRITICAL: Installation cannot proceed, exiting.") ==
+               "Installation cannot proceed, exiting.",
+           "a critical line is the reason");
+    expect(installFailure(" ! Failure: Not enough available disk space") ==
+               "Not enough available disk space",
+           "a failed requirement is the reason");
+    expect(!installFailure("[cli] INFO: Install size: 2048.00 MiB"), "an info line is no failure");
+    expect(!installFailure("The ERROR: word alone"), "text mentioning an error is no failure");
+}
+
 } // namespace
 
 int main() {
+    testInstallOutput();
     const fs::path dir = fs::path{IIDECK_TEST_SCRATCH} / ("epic-" + std::to_string(getpid()));
     fs::remove_all(dir);
 

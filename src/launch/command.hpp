@@ -3,8 +3,11 @@
 
 #include <chrono>
 #include <filesystem>
+#include <functional>
 #include <optional>
+#include <stop_token>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace iideck::launch {
@@ -20,5 +23,13 @@ resolveExecutable(const std::string& program, const std::vector<std::filesystem:
 [[nodiscard]] std::optional<int> runCommand(const std::string& program,
                                             const std::vector<std::string>& args,
                                             std::chrono::milliseconds timeout);
+
+/// Runs `program` with stdout and stderr merged and stdin closed, handing each complete line to
+/// `onLine` as it arrives, until the child exits. When `stop` is requested the child and its
+/// processes are ended. Returns the exit status (128 plus the signal when it was killed by one),
+/// or nothing when it could not be run or was stopped.
+[[nodiscard]] std::optional<int>
+runStreaming(const std::string& program, const std::vector<std::string>& args,
+             const std::function<void(std::string_view)>& onLine, const std::stop_token& stop);
 
 } // namespace iideck::launch

@@ -5,7 +5,10 @@
 #include <cstring>
 #include <thread>
 
+#include <array>
+
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <spawn.h>
 #include <sys/wait.h>
@@ -29,6 +32,51 @@ bool isExecutable(const fs::path& candidate) {
 
 int exitCode(int status) {
     return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
+}
+
+constexpr auto readSlice = std::chrono::milliseconds{100};
+/// How long a stopped child has to end on SIGTERM before it is killed.
+constexpr auto termGrace = std::chrono::seconds{2};
+
+/// Closes a descriptor when it goes out of scope.
+class Descriptor {
+  public:
+    explicit Descriptor(int fd) noexcept : fd_{fd} {
+    }
+    ~Descriptor() {
+        close();
+    }
+    Descriptor(const Descriptor&) = delete;
+    Descriptor& operator=(const Descriptor&) = delete;
+    [[nodiscard]] int get() const noexcept {
+        return fd_;
+    }
+    void close() noexcept {
+        if (fd_ >= 0) {
+            ::close(fd_);
+            fd_ = -1;
+        }
+    }
+
+  private:
+    int fd_;
+};
+
+/// Ends the child's process group: SIGTERM, then SIGKILL after the grace, and reaps it.
+void endGroup(pid_t pid) {
+    ::kill(-pid, SIGTERM);
+    const Clock::time_point until = Clock::now() + termGrace;
+    int status = 0;
+    while (Clock::now() < until) {
+        if (waitpid(pid, &status, WNOHANG) == pid) {
+            ::kill(-pid, SIGKILL);
+            return;
+        }
+        std::this_thread::sleep_for(step);
+    }
+    ::kill(-pid, SIGKILL);
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+    }
 }
 
 } // namespace
@@ -82,6 +130,79 @@ std::optional<int> runCommand(const std::string& program, const std::vector<std:
         }
         std::this_thread::sleep_for(step);
     }
+}
+
+std::optional<int> runStreaming(const std::string& program, const std::vector<std::string>& args,
+                                const std::function<void(std::string_view)>& onLine,
+                                const std::stop_token& stop) {
+    std::array<int, 2> ends{};
+    if (pipe2(ends.data(), O_CLOEXEC) != 0) {
+        lucent::warn("launch", "cannot make a pipe for {}: {}", program, std::strerror(errno));
+        return std::nullopt;
+    }
+    Descriptor reader{ends[0]};
+    Descriptor writer{ends[1]};
+
+    Argv argv{program, args};
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+    posix_spawn_file_actions_adddup2(&actions, writer.get(), STDOUT_FILENO);
+    posix_spawn_file_actions_adddup2(&actions, writer.get(), STDERR_FILENO);
+    // A group of its own, so stopping it reaches the processes the child starts.
+    posix_spawnattr_t attributes;
+    posix_spawnattr_init(&attributes);
+    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP);
+    posix_spawnattr_setpgroup(&attributes, 0);
+    pid_t pid = -1;
+    const int spawned =
+        posix_spawnp(&pid, program.c_str(), &actions, &attributes, argv.data(), environ);
+    posix_spawn_file_actions_destroy(&actions);
+    posix_spawnattr_destroy(&attributes);
+    if (spawned != 0) {
+        lucent::warn("launch", "cannot run {}: {}", program, std::strerror(spawned));
+        return std::nullopt;
+    }
+    writer.close();
+
+    std::string pending;
+    std::array<char, 4096> chunk{};
+    bool open = true;
+    while (open) {
+        if (stop.stop_requested()) {
+            endGroup(pid);
+            return std::nullopt;
+        }
+        pollfd watch{.fd = reader.get(), .events = POLLIN, .revents = 0};
+        const int ready = poll(&watch, 1, static_cast<int>(readSlice.count()));
+        if (ready < 0 && errno != EINTR) {
+            break;
+        }
+        if (ready <= 0) {
+            continue;
+        }
+        const ssize_t got = read(reader.get(), chunk.data(), chunk.size());
+        if (got <= 0) {
+            open = got < 0 && errno == EINTR;
+            continue;
+        }
+        pending.append(chunk.data(), static_cast<std::size_t>(got));
+        for (std::size_t end = pending.find('\n'); end != std::string::npos;
+             end = pending.find('\n')) {
+            onLine(std::string_view{pending}.substr(0, end));
+            pending.erase(0, end + 1);
+        }
+    }
+    if (!pending.empty()) {
+        onLine(pending);
+    }
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0) {
+        if (errno != EINTR) {
+            return std::nullopt;
+        }
+    }
+    return exitCode(status);
 }
 
 } // namespace iideck::launch

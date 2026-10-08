@@ -29,6 +29,20 @@ Texture loadArt(const fs::path& path) {
     return LoadTexture(path.string().c_str());
 }
 
+std::string gameCount(std::size_t games) {
+    return std::to_string(games) + (games == 1 ? " game" : " games");
+}
+
+TileKind kindOf(const library::ShelfItem& item) noexcept {
+    if (std::holds_alternative<library::Console>(item)) {
+        return TileKind::Console;
+    }
+    if (std::holds_alternative<library::Launcher>(item)) {
+        return TileKind::Launcher;
+    }
+    return std::holds_alternative<library::AllGames>(item) ? TileKind::AllGames : TileKind::Game;
+}
+
 ScrollMode scrollModeFor(config::HomeMode mode) noexcept {
     return mode == config::HomeMode::WiiSu ? ScrollMode::Paged : ScrollMode::Flow;
 }
@@ -98,7 +112,11 @@ const Platform* Shell::platformFor(const library::ShelfItem& item) const {
     if (const auto* console = std::get_if<library::Console>(&item)) {
         return platforms_.find(console->system);
     }
-    const auto& game = std::get<library::Game>(item);
+    const auto* single = std::get_if<library::Game>(&item);
+    if (single == nullptr) {
+        return nullptr;
+    }
+    const library::Game& game = *single;
     // A ROM belongs to a system, and the pack's console names are those systems.
     if (game.source == library::Source::Rom && !game.sourceId.empty()) {
         return platforms_.find(game.sourceId);
@@ -114,9 +132,22 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
         Tile tile;
         tile.item = std::move(item);
         tile.platform = platformFor(tile.item);
+        if (const std::optional<library::Folder> folder = library::folderOf(tile.item)) {
+            tile.title = library::name(*folder);
+        }
         if (const auto* console = std::get_if<library::Console>(&tile.item)) {
-            tile.caption =
-                std::to_string(console->games) + (console->games == 1 ? " game" : " games");
+            tile.caption = gameCount(console->games);
+        } else if (const auto* launcher = std::get_if<library::Launcher>(&tile.item)) {
+            tile.caption = launcher->ready ? gameCount(launcher->games) : "Sign in";
+            tile.logo = iconFor(launcher->source);
+        } else if (const auto* all = std::get_if<library::AllGames>(&tile.item)) {
+            tile.caption = gameCount(all->games);
+        } else {
+            for (const library::Source source : std::get<library::Game>(tile.item).ownedIn) {
+                if (const std::optional<Icon> icon = iconFor(source)) {
+                    tile.stores.push_back(*icon);
+                }
+            }
         }
         tiles_.push_back(std::move(tile));
     }
@@ -142,7 +173,11 @@ void Shell::loadArtwork() {
             tile.hasPortrait = tile.portrait.id != 0;
             continue;
         }
-        const auto& game = std::get<library::Game>(tile.item);
+        const auto* single = std::get_if<library::Game>(&tile.item);
+        if (single == nullptr) {
+            continue;
+        }
+        const library::Game& game = *single;
         tile.portrait = loadArt(game.artwork);
         tile.wide = loadArt(game.artworkWide);
         tile.hasPortrait = tile.portrait.id != 0;
@@ -319,19 +354,19 @@ const library::Game* Shell::focusedGame() const {
     return std::get_if<library::Game>(&tiles_[focus_.index()].item);
 }
 
-const library::Console* Shell::focusedConsole() const {
+std::optional<library::Folder> Shell::focusedFolder() const {
     if (focus_.index() >= tiles_.size()) {
-        return nullptr;
+        return std::nullopt;
     }
-    return std::get_if<library::Console>(&tiles_[focus_.index()].item);
+    return library::folderOf(tiles_[focus_.index()].item);
 }
 
 std::string Shell::focusedTitle() const {
     if (const library::Game* game = focusedGame()) {
         return game->title;
     }
-    if (const library::Console* console = focusedConsole()) {
-        return console->label;
+    if (const std::optional<library::Folder> folder = focusedFolder()) {
+        return library::name(*folder);
     }
     return {};
 }
@@ -366,16 +401,17 @@ TileVisual Shell::visualFor(std::size_t slot) const {
             visual.art = &tile.wide;
         }
         visual.platform = tile.platform;
-        if (const auto* console = std::get_if<library::Console>(&tile.item)) {
-            visual.console = true;
-            visual.title = console->label;
-            visual.caption = tile.caption;
-        } else {
-            const auto& game = std::get<library::Game>(tile.item);
-            visual.title = game.title;
-            if (game.source == library::Source::Rom) {
-                visual.glyph = glyphs_.find(game.sourceId);
+        if (const auto* game = std::get_if<library::Game>(&tile.item)) {
+            visual.title = game->title;
+            visual.stores = tile.stores;
+            if (game->source == library::Source::Rom) {
+                visual.glyph = glyphs_.find(game->sourceId);
             }
+        } else {
+            visual.title = tile.title;
+            visual.caption = tile.caption;
+            visual.logo = tile.logo;
+            visual.kind = kindOf(tile.item);
         }
     }
     return visual;

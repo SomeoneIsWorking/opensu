@@ -30,6 +30,20 @@ constexpr std::size_t channels = 4;
 
 } // namespace
 
+std::optional<Icon> iconFor(library::Source source) noexcept {
+    switch (source) {
+    case library::Source::Steam:
+        return Icon::Steam;
+    case library::Source::Epic:
+        return Icon::Epic;
+    case library::Source::Gog:
+        return Icon::Gog;
+    case library::Source::Rom:
+        break;
+    }
+    return std::nullopt;
+}
+
 std::string_view iconFile(Icon icon) noexcept {
     switch (icon) {
     case Icon::Steam:

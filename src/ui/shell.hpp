@@ -36,8 +36,14 @@ namespace iideck::ui {
 /// One entry in the grid, with the artwork loaded for it.
 struct Tile {
     library::ShelfItem item;
-    /// A console's game count, as its tile reads it.
+    /// A folder's name, as its tile reads it.
+    std::string title;
+    /// A folder's game count, as its tile reads it.
     std::string caption;
+    /// A launcher's logo.
+    std::optional<Icon> logo;
+    /// The stores a game is owned in, as icons in its corner.
+    std::vector<Icon> stores;
     /// Artwork loaded as textures, or zero for none.
     Texture portrait{};
     Texture wide{};
@@ -135,8 +141,8 @@ class Shell {
     }
     /// The focused game, or null when a console or an empty slot has focus.
     [[nodiscard]] const library::Game* focusedGame() const;
-    /// The focused console, or null.
-    [[nodiscard]] const library::Console* focusedConsole() const;
+    /// The folder the focused tile opens, or nothing for a game or an empty slot.
+    [[nodiscard]] std::optional<library::Folder> focusedFolder() const;
     /// The title the focused entry shows, empty for an empty slot.
     [[nodiscard]] std::string focusedTitle() const;
     [[nodiscard]] std::size_t focusIndex() const noexcept {

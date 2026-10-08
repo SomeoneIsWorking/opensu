@@ -20,3 +20,7 @@ add_executable(epic_test epic_test.cpp)
 target_link_libraries(epic_test PRIVATE iideck::library)
 target_compile_definitions(epic_test PRIVATE IIDECK_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME epic COMMAND epic_test)
+
+add_executable(titles_test titles_test.cpp)
+target_link_libraries(titles_test PRIVATE iideck::library)
+add_test(NAME titles COMMAND titles_test)

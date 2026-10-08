@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -12,6 +13,15 @@
 #include "game.hpp"
 
 namespace iideck::library::epic {
+
+/// How far an install has got, 0 to 1, from one line of `legendary install` output
+/// ("[DLManager] INFO: = Progress: 12.34% (505/4096), Running for 00:00:10, ETA: 00:01:11");
+/// nothing for any other line.
+[[nodiscard]] std::optional<double> installProgress(std::string_view line);
+
+/// Why an install failed, from one line of `legendary install` output: an ERROR or CRITICAL log
+/// line, or a " ! Failure: ..." line of its requirements check; nothing for any other line.
+[[nodiscard]] std::optional<std::string> installFailure(std::string_view line);
 
 /// Runs Legendary and parses its install list.
 class Provider final : public library::Provider {

@@ -11,7 +11,8 @@ ROMs have no home at all.
 Visible deltas from the baseline:
 
 - Epic games (Legendary) and the player's GOG library (iideck's own sign-in) sit in the
-  same grid as Steam; emulator ROMs sit behind one tile per console on Home.
+  same grid as Steam; emulator ROMs sit behind one tile per console on Home, and each store
+  and the combined "All games" library behind a tile of its own.
 - Each launcher's state is a logo with a status dot in the top bar's left slot.
 - No store client window is ever opened to reach a game.
 - The grid is ours, so layout, tile sizes and page count are ours.
@@ -91,16 +92,35 @@ The battery comes from `device::BatteryReader` (sysfs, system scope only); the
 as iiSU's does not; inside a console the pill (`jj2.c`) names the focused ROM, as
 iiSU's Roms section does. There are no feature tiles or badges on game tiles.
 
-Home's shelf (`library::homeShelf`) is one console tile per system with ROMs, in
-`rom_systems` order, then the store games in catalog order. A console tile is
+Home's shelf (`library::homeShelf`) is, in order: one launcher tile per store whose catalog
+source is not absent (Steam, Epic, GOG: the badges' presence rule; a signed-out store keeps its
+tile, captioned "Sign in", and A on it toasts instead of opening); an "All games" tile when any
+store has games; one console tile per system with ROMs, in `rom_systems` order; then the store
+games installed here, a title installed in several stores once. The stores come first so they
+sit in the first screen rather than behind eighteen consoles. Uninstalled store games are only
+inside the library pages, so Home does not carry hundreds of titles it cannot launch.
+A console tile is
 iiSU's own card for it when the starter pack has one (below), drawn as the whole
 tile, cover-fit and clipped at the content radius: the card carries the glyph and
 its frame, so the tile has no name or count. Without a card (not downloaded yet,
 offline, or a system the pack lacks, such as PS4) it keeps iideck's own tile: the
 platform's gradient (a neutral one for a system the gradient table lacks) with the
 console's name and game count, broken onto two lines at a space when one is too
-wide, at one name size so the typeface loads one face. A opens it (`library::ShelfBrowser`) on that system's ROMs; B returns to
-Home with the console focused. A tile loads its artwork the first time it is drawn,
+wide, at one name size so the typeface loads one face. A launcher tile is the same
+card in the store's brand colours with its Simple Icons logo above the name and count;
+the All games tile is a violet card with a four-square library glyph. A opens a console,
+a launcher or All games (`library::ShelfBrowser`, `library::Folder`) on its games; B returns to
+Home with that tile focused. A launcher page holds the store's whole library, installed or
+not, in catalog order; All games holds every store game once. Titles are merged across
+stores by normalised title (`library::titles`: ASCII letters and digits lower-cased, "&" as
+"and", so "Hades" and "HADES™" are one; a title with no ASCII letters is never merged; a
+store never merges two of its own games). The entry is the preferred copy: installed first,
+then Steam, GOG, Epic. A store game tile (Home, All games) carries small store icons in its
+bottom-right corner for every store that owns it (`Game::ownedIn`,
+`ui::storeIconRow`); on a launcher page only the other stores are shown, and a game owned
+there alone shows none. ROM, console and launcher tiles never carry them. Inside any of the
+three the title pill names the focused game.
+A tile loads its artwork the first time it is drawn,
 so a shelf change or a download needs no separate load step.
 
 Artwork that no source has on disk is downloaded in the background
@@ -349,7 +369,8 @@ scopes. Games are never wrapped in a Gamescope of their own. The argument vector
 and the session's run, leftover cleanup and signal path (against a fake
 `gamescope`) are tested; no nested session has been run against a display yet.
 The binary is the pinned fork of S014, at `Config::gamescope`; a missing binary (iideck
-configured with `IIDECK_BUILD_GAMESCOPE=OFF`) is a one-line error, not a PATH lookup.
+configured with `IIDECK_BUILD_GAMESCOPE=OFF`) is a one-line error, not a PATH lookup. The
+fork is built in podman (S014), so the host needs podman and nothing else.
 
 ### S014 — Alt+F4 in nested mode
 
@@ -365,8 +386,11 @@ to commit `41e84d4f5870a06534e310ff279a19a137375f79` (3.16.29 plus one commit).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. `cmake/Gamescope.cmake` builds the pin
-as an ExternalProject (meson, release, Clang from CMake's compilers; the layer and
-the tests are off) and stages it where `Config::gamescope` finds it, in the build
+as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
+configure and build steps run in a rootless podman container built from
+`packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;
+image tagged by the Containerfile hash), then checks the staged binary with `ldd` on the host
+(Fedora hosts only; no host-build fallback) and stages it where `Config::gamescope` finds it, in the build
 tree and installed.
 
 With no game running, the focused app window is iideck's own, so Alt+F4 reaches
@@ -446,8 +470,23 @@ request it already handed to Steam.
 
 ### Installing Steam games
 
-A on a Steam game that is not installed offers to install it (A installs, B cancels).
-`app::InstallJob` drives Steam's own installer through `steam::InstallWizard`, the
+A on a game that is not installed offers to install it (A installs, B cancels). Steam and
+Epic install; GOG toasts "GOG installs are not supported yet" until gogdl. A title owned in
+several stores is installed from the stores that can: with one candidate A installs it, with
+two (Steam and Epic) the panel reads "Install from" with A for the first store and X for the
+second. A launcher page installs its own store's copy; Home and All games choose among
+the copies. Launching an entry owned in several stores uses the installed copy, Steam first,
+then GOG, then Epic.
+
+`app::InstallJob` is the store-neutral job (thread, latest report, licence answer);
+`app::SteamInstallJob` and `app::EpicInstallJob` implement it and `app::Installs` routes by
+store, one install at a time. The Epic job runs `legendary install <app> -y --skip-sdl`
+(`launch::runStreaming`, stdin closed, stderr and stdout merged) and shows the percentage of
+legendary's `= Progress:` line (`library::epic::installProgress`) on the same panel and
+"Installing · N%" line as Steam's; a failure shows the first ERROR/CRITICAL or
+" ! Failure:" line. Its output format is legendary 0.20.35's own, from `cli.py` and
+`downloader/mp/manager.py`; no game was installed on a real account to capture it live.
+The Steam job drives Steam's own installer through `steam::InstallWizard`, the
 same `SteamClient.Installs` calls Steam's library makes: OpenInstallWizard, then
 ContinueInstall at the config step with Steam's default library folder, until the
 wizard hands off. A licence agreement stops the job and the panel asks the player

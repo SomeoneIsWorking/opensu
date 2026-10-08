@@ -14,7 +14,9 @@ gitignored `docs/reference/`).
 | `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input, frames, `/signin/<store>[/start]` |
 | `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
-| `src/app/install_job.*` | One Steam install: walks the installer, waits on the player's licence answer, follows the download |
+| `src/app/install_job.*` | The store-neutral install job: its thread, the latest report the loop takes, the licence answer |
+| `src/app/steam_install_job.*`, `epic_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install (`legendary install`, its progress line) |
+| `src/app/installs.*` | The installers by store, one install at a time; which stores install |
 | `src/config/config.*` | The one reader of the environment, into typed immutable config; where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
 | `extension/iideck-signin/` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel |
 
@@ -24,7 +26,8 @@ gitignored `docs/reference/`).
 | --- | --- |
 | `src/session/nested_session.*` | Re-running iideck inside its own Gamescope when not already in one |
 | `src/session/gamescope.*` | The Gamescope command line (`--close-focused-window` included) |
-| `cmake/Gamescope.cmake` | Building the pinned Gamescope fork (commit, dependency check, staging and install path); `IIDECK_BUILD_GAMESCOPE` |
+| `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman (commit, container steps, staging and install path); `IIDECK_BUILD_GAMESCOPE`. `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
+| `packaging/gamescope-build/Containerfile` | The Gamescope build image: host's Fedora release plus Gamescope's build dependencies |
 | `src/session/monitor.*` | The output's size and refresh |
 | `src/session/gamescope_overlay.*` | iideck's window as Gamescope's overlay over a running game |
 | `src/session/game_keys.*` | Keyboard shortcuts while a game has the keyboard (Shift+Tab is Guide), from XInput2 raw keys |
@@ -32,7 +35,7 @@ gitignored `docs/reference/`).
 | `src/launch/instance.*` | One transient systemd user scope per launch; stopping it ends the whole tree |
 | `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends |
 | `src/launch/process_tree.*` | Finding processes by command line, ending trees |
-| `src/launch/command.*`, `argv.hpp` | Short-lived children, executable lookup, exec argv |
+| `src/launch/command.*`, `argv.hpp` | Short-lived children, a child streamed line by line, executable lookup, exec argv |
 | `src/launch/steam_gate.hpp` | What a Steam launch waits for from the owned Steam client |
 | `src/launch/launch_progress.*` | A launch's stage before its window (waiting for Steam, updating, starting, loading) and its line of text |
 | `src/launch/game_windows.hpp` | What the handoff asks the display: does the game show a window yet |
@@ -51,7 +54,8 @@ gitignored `docs/reference/`).
 | `src/library/catalog.*` | Building the catalog from all sources |
 | `src/library/steam.*`, `epic.*`, `gog.*`, `roms.*` | One source each |
 | `src/library/gog_auth.*`, `gog_token.*` | GOG's OAuth sign-in and the saved token (`<data dir>/gog-token.json`) |
-| `src/library/shelf.*` | What the grid holds: Home's consoles and store games, a console's ROMs, and moving between them |
+| `src/library/shelf.*` | What the grid holds: Home's consoles, launchers, All games and installed store games; a console's ROMs, a launcher's library, the combined library; moving between them |
+| `src/library/titles.*` | The same title across stores: the comparison key, merged copies, preference order |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line |
 | `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
@@ -80,7 +84,7 @@ Pure model, unit-tested without raylib (`iideck_grid`, `iideck_hud_model`):
 | `src/ui/home_layout.*` | Grid geometry for Standard and WiiSu: cells, gaps, insets, placeholder slots, scrolling, page pill and page arrow rects (`hx2.g`, `zj2`, `ou4.q`, `ys8.h/k/l`) |
 | `src/ui/grid_focus.*` | D-pad focus movement and page crossing (`hx2.z/O`) |
 | `src/ui/tile_motion.*` | Focus scale, domino entrance, press pulse, ring rotation |
-| `src/ui/tile_geometry.*` | One tile's rectangles and radii |
+| `src/ui/tile_geometry.*` | One tile's rectangles and radii; where a game tile's store icons sit |
 | `src/ui/top_bar_metrics.*` | Top bar sizes in dp (`is7`, `hs7`, `dl3`) |
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
 | `src/ui/game_menu.*` | The Guide menu's items and focus (iideck's own) |
@@ -97,7 +101,7 @@ Painters and composition (`iideck_ui`):
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (the bell's busy ring) |
 | `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`) |
 | `src/ui/game_menu_painter.*` | The Guide menu over a running game |
-| `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art, platform frame; a console's name tile |
+| `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art, platform frame, store icons; the name cards of a console, a launcher and All games |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |
 | `src/ui/platform.*`, `platform_stroke.cpp` | Console border sprites, logos, stroke colours |

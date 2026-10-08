@@ -62,6 +62,28 @@ void contain() {
     near(iideck::ui::containFit(0.0f, 5.0f, slot).width, 0.0f, "an empty image fits nothing");
 }
 
+void storeIcons() {
+    const Rect content{100, 200, 200, 300};
+    const iideck::ui::StoreIconRow none = iideck::ui::storeIconRow(content, 0);
+    iideck::test::expect(none.count == 0, "no stores, no badges");
+
+    const iideck::ui::StoreIconRow one = iideck::ui::storeIconRow(content, 1);
+    iideck::test::expect(one.count == 1, "one store, one badge");
+    near(one.badges[0].width, 30.0f, "a badge is 15% of the short side");
+    near(one.badges[0].height, 30.0f, "a badge is round");
+    near(one.badges[0].right(), content.right() - 10.0f, "a badge is 5% in from the right");
+    near(one.badges[0].bottom(), content.bottom() - 10.0f, "a badge is 5% up from the bottom");
+
+    const iideck::ui::StoreIconRow two = iideck::ui::storeIconRow(content, 2);
+    near(two.badges[1].x, one.badges[0].x, "the last badge sits against the corner");
+    near(two.badges[1].x - two.badges[0].x, 36.0f, "badges are a fifth of a badge apart");
+    near(two.badges[0].y, two.badges[1].y, "badges share a line");
+
+    const iideck::ui::StoreIconRow many = iideck::ui::storeIconRow(content, 9);
+    iideck::test::expect(many.count == iideck::ui::maxStoreIcons, "a row holds one badge per store");
+    iideck::test::expect(many.badges[0].x > content.x, "the row stays on the tile");
+}
+
 } // namespace
 
 int main() {
@@ -70,6 +92,7 @@ int main() {
     frame();
     glyph();
     contain();
+    storeIcons();
     std::printf("tile_geometry: all checks passed\n");
     return 0;
 }

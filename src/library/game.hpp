@@ -15,7 +15,7 @@
 namespace iideck::library {
 
 /// The backend an entry came from.
-enum class Source {
+enum class Source : std::uint8_t {
     Steam,
     Epic,
     Gog,
@@ -67,6 +67,10 @@ struct Game {
     /// A substring of the running game's command line, used to notice that it
     /// has exited. Empty when the source cannot identify its own process.
     std::string processHint;
+
+    /// The stores a shelf reports the title as owned in, for the tile's store icons, in Steam,
+    /// GOG, Epic order. Set by the shelf builders; empty in the catalog and for a ROM.
+    std::vector<Source> ownedIn;
 
     LaunchSpec launch;
     /// Why `launch` is empty for a game that is there to play, in words for the player.

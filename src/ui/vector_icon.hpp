@@ -8,11 +8,15 @@
 #include <string_view>
 #include <vector>
 
+#include "library/game.hpp"
 #include "raylib.h"
 
 namespace iideck::ui {
 
 enum class Icon : std::uint8_t { Steam, Epic, Gog };
+
+/// The store's icon, or nothing for a ROM.
+[[nodiscard]] std::optional<Icon> iconFor(library::Source source) noexcept;
 
 /// The icon's file under the assets folder.
 [[nodiscard]] std::string_view iconFile(Icon icon) noexcept;

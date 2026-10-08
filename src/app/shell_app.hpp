@@ -26,7 +26,7 @@
 #include "gamepad/pads.hpp"
 #include "gamescope_overlay.hpp"
 #include "gamescope_windows.hpp"
-#include "install_job.hpp"
+#include "installs.hpp"
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
 #include "library/shelf.hpp"
@@ -111,8 +111,11 @@ class ShellApp final : public ControlTarget {
     void cancelLaunch();
     /// Buttons while the launch panel is up: it takes them all. Main loop only.
     void actOnPanel(gamepad::Button button);
-    /// Asks whether to install the focused game, which is not installed.
+    /// Asks whether to install the focused game, which is not installed, from the store that
+    /// can: all the stores that own it when more than one can.
     void offerInstall(const library::Game& game);
+    /// Starts the install of `game` and shows it on the panel.
+    void startInstall(const library::Game& game);
     /// Shows the install job's news on the panel and the catalog. Main loop only.
     void serviceInstall();
     /// Asks the player about the install's licence agreements on the panel.
@@ -121,8 +124,8 @@ class ShellApp final : public ControlTarget {
     void showShelf(std::size_t focus);
     /// Shows artwork the fetcher has downloaded. Main loop only.
     void serviceArtwork();
-    /// Opens the focused console on its ROMs.
-    void openConsole(const library::Console& console);
+    /// Opens a console, a launcher or the combined library on its games.
+    void openFolder(const library::Folder& folder);
     /// Buttons while a game runs: Guide opens and closes the menu over it, which takes the
     /// rest. Main loop only.
     void actInGame(gamepad::Button button);
@@ -154,7 +157,7 @@ class ShellApp final : public ControlTarget {
     std::vector<library::Game> games_;
     /// Each store's state from the last catalog read.
     std::vector<library::SourceStatus> sources_;
-    /// Home or the open console. Main loop only.
+    /// Home or the open folder. Main loop only.
     library::ShelfBrowser browser_;
     /// Guards the handoff thread, which touches the window.
     std::mutex launchMutex_;
@@ -167,14 +170,15 @@ class ShellApp final : public ControlTarget {
     /// The running launch's title, for the Guide menu. Main loop only.
     std::string runningTitle_;
     /// What the launch panel is up for. Main loop only.
-    enum class PanelUse { None, Launch, OfferInstall, Install, Eula };
+    enum class PanelUse : std::uint8_t { None, Launch, OfferInstall, Install, Eula };
     PanelUse panelUse_{PanelUse::None};
     /// A licence question that arrived while a launch held the panel.
     bool eulaWaiting_{false};
-    /// The game the panel offers to install. Main loop only.
-    std::optional<library::Game> offered_;
+    /// The copies of a game the panel offers to install, one per store: A takes the first, X the
+    /// second. Main loop only.
+    std::vector<library::Game> offered_;
     /// After steam_, so it is stopped before the client it drives.
-    InstallJob install_{steam_};
+    Installs install_{steam_, "legendary"};
     /// Inside Gamescope, how the window draws over a running game. Null elsewhere, where the
     /// window is hidden while a game runs and shown only for the Guide menu.
     std::unique_ptr<session::GamescopeOverlay> overlay_;

@@ -3,6 +3,9 @@
 // iiSU tj2.V (GridTileGeometry) and the border pack's sprite proportions.
 #pragma once
 
+#include <array>
+#include <cstddef>
+
 #include "home_layout.hpp"
 
 namespace iideck::ui {
@@ -35,6 +38,19 @@ struct FrameGeometry {
 
 /// The largest rectangle of `width` x `height`'s aspect that fits `slot`, centred in it.
 [[nodiscard]] Rect containFit(float width, float height, const Rect& slot) noexcept;
+
+/// The most store icons one tile shows: Steam, GOG and Epic.
+inline constexpr std::size_t maxStoreIcons = 3;
+
+/// Where a game tile's store icons sit: round badges along the content's bottom-right corner,
+/// the first leftmost, the last against the corner.
+struct StoreIconRow {
+    std::array<Rect, maxStoreIcons> badges{};
+    std::size_t count{0};
+};
+
+/// The row for `count` icons (at most `maxStoreIcons`) on a tile whose content is `content`.
+[[nodiscard]] StoreIconRow storeIconRow(const Rect& content, std::size_t count) noexcept;
 
 /// The platform frame for a composition rectangle.
 [[nodiscard]] FrameGeometry frameGeometry(const Rect& rect) noexcept;
