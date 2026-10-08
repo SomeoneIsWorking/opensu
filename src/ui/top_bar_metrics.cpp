@@ -15,8 +15,17 @@ float clampTo(float value, float low, float high) noexcept {
 constexpr float titleMediumSp = 16.0f;
 // iiSU mw5.l passes 9 as a32.o's glyph x base (p9).
 constexpr float glyphBaseX = 9.0f;
-// STOPGAP: jj2.b's scale argument from mw5.h is not traced, so the hint row uses scale 1.
-constexpr float hintScale = 1.0f;
+// iiSU pl3.q: dl3.d is typography slot 8 (Material 3 titleMedium, 16 sp on 24 sp) with Cal Sans's
+// pp4.g overrides (size x1, line x1.08, 0.03 em), scaled by dl3.b and its line by a further 0.92.
+constexpr float labelSizeSp = 16.0f;
+constexpr float labelLineSp = 24.0f * 1.08f;
+constexpr float labelLineScale = 0.92f;
+constexpr float labelTrackingEm = 0.03f;
+// iiSU pp4.e under Cal Sans: -(clamp(t, 0.5, 1.6) * 1.8).
+constexpr float calSansNudge = 1.8f;
+// iiSU mw5.l p11: the entries' base text offset; jj2.p0 lowers it by 0.65 for +, - and X.
+constexpr float entryOffset = 1.5f;
+constexpr float signOffset = 0.65f;
 
 } // namespace
 
@@ -30,6 +39,7 @@ TopBarMetrics::TopBarMetrics(float screenWidthDp, float screenHeightDp) noexcept
                          std::max(screenWidthDp, screenHeightDp) <= 560.0f;
     // iiSU pl3.q: dl3.a.
     promptScale_ = compact ? clampTo(f0 * 0.9f, 0.65f, 1.0f) : clampTo(f0 * 0.94f, 0.68f, 1.0f);
+    compact_ = compact;
 
     // iiSU jj2.k0: t = clamp((max(w, 360) - 360) / 472, 0, 1).
     const float t = clampTo((std::max(screenWidthDp, 360.0f) - 360.0f) / 472.0f, 0.0f, 1.0f);
@@ -45,6 +55,12 @@ TopBarMetrics::TopBarMetrics(float screenWidthDp, float screenHeightDp) noexcept
     alignment_.profileTopPadding = std::max(0.0f, (alignment_.statusPillHeight - 62.0f) / 2.0f +
                                                       alignment_.statusTopPadding + 8.0f);
     alignment_.compactWidthScale = clampTo(0.546f / s * 1.15f, 0.45f, 0.82f);
+
+    // iiSU pl3.q: dl3.b from jj2.j0(is7), dl3.c from dl3.b.
+    const float j0 =
+        clampTo(s * std::min(clampTo(sizing_.stretch, 0.55f, 1.2f), 1.0f), 0.42f, 1.6f);
+    textScale_ = clampTo(j0 * 0.94f, compact ? 0.6f : 0.42f, 1.6f);
+    glyphScale_ = clampTo(textScale_ * 0.9f, compact ? 0.54f : 0.42f, 1.2f);
 }
 
 float TopBarMetrics::statusOffsetX(float aspect) const noexcept {
@@ -105,19 +121,52 @@ StatusPillMetrics TopBarMetrics::statusPill(bool clockHasLetters) const noexcept
     return pill;
 }
 
-HintRowMetrics TopBarMetrics::hintRow() const noexcept {
-    HintRowMetrics row;
-    // iiSU mw5.h: BottomStart, padding start 8, bottom 2 in the single-screen layout.
-    row.paddingStart = 8.0f;
-    row.paddingBottom = 2.0f;
-    // iiSU jj2.b: f = clamp(scale, 0.65, 1.1).
-    const float f = clampTo(hintScale, 0.65f, 1.1f);
-    row.paddingHorizontal = clampTo(10.0f * f, 6.0f, 10.0f);
-    row.paddingVertical = clampTo(8.0f * f, 5.0f, 7.0f);
-    row.entrySpacing = clampTo(2.0f * f, 1.0f, 3.0f);
-    // iiSU a32.b: glyph to label gap clamp(4 f, 2, 6) with f = clamp(scale, 0.65, 1.2).
-    row.glyphGap = clampTo(4.0f * clampTo(hintScale, 0.65f, 1.2f), 2.0f, 6.0f);
-    return row;
+HintPanelMetrics TopBarMetrics::hintPanels() const noexcept {
+    HintPanelMetrics panel;
+    // iiSU mw5.h: BottomStart, start 8, bottom 2; mw5.i/j: BottomEnd, end 8, bottom 4.
+    panel.leftInset = 8.0f;
+    panel.leftBottom = 2.0f;
+    panel.rightInset = 8.0f;
+    panel.rightBottom = 4.0f;
+    // iiSU mw5.l hands jj2.b dl3.c(), dl3.a(), dl3.b(): the panel, text and glyph scales.
+    const float f = clampTo(promptScale_, 0.65f, 1.1f);
+    panel.paddingHorizontal = clampTo(10.0f * f, 6.0f, 10.0f);
+    panel.paddingVertical =
+        compact_ ? clampTo(6.0f * f, 3.0f, 5.0f) : clampTo(8.0f * f, 5.0f, 7.0f);
+    panel.entrySpacing = clampTo(2.0f * f, 1.0f, 3.0f);
+    panel.glyphSize = clampTo(22.0f * clampTo(glyphScale_, 0.65f, 1.2f), 15.0f, 24.0f);
+    const float text = clampTo(textScale_, 0.65f, 1.2f);
+    panel.glyphGap = clampTo(4.0f * text, 2.0f, 6.0f);
+    // iiSU jj2.d: RoundedCornerShape(8 dp) by default.
+    panel.cornerRadius = 8.0f;
+    panel.labelSize = labelSizeSp * textScale_;
+    panel.labelLineHeight = labelLineSp * textScale_ * labelLineScale;
+    panel.labelTracking = labelTrackingEm;
+    panel.labelNudge = -clampTo(text, 0.5f, 1.6f) * calSansNudge;
+    const float floorScale = clampTo(f / 0.94f, 0.65f, 1.1f);
+    panel.minHeight = promptRowHeight(floorScale) - clampTo(4.0f * floorScale, 2.0f, 4.0f);
+    return panel;
+}
+
+float HintPanelMetrics::height(float density) const noexcept {
+    // iiSU jj2.g0: spacing + 2 max(glyph, text offset + "Ag" height) + 2 vertical padding, in
+    // whole pixels; Compose rounds the line height up.
+    const auto px = [density](float dp) {
+        return std::round(dp * density);
+    };
+    const float text =
+        px(std::max(entryOffset + labelNudge, 0.0f)) + std::ceil(labelLineHeight * density);
+    const float content =
+        px(entrySpacing) + 2.0f * std::max(px(glyphSize), text) + 2.0f * px(paddingVertical);
+    return std::max(content / density, minHeight);
+}
+
+float HintPanelMetrics::labelShift(std::string_view key) const noexcept {
+    // a32.b pads the label's top by a positive offset, which the centred row halves, and moves
+    // it by a negative one.
+    const bool sign = key == "+" || key == "-" || key == "X";
+    const float offset = entryOffset - (sign ? signOffset : 0.0f) + labelNudge;
+    return offset > 0.0f ? offset * 0.5f : offset;
 }
 
 } // namespace iideck::ui

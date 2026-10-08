@@ -4,6 +4,8 @@
 // Pure arithmetic from the screen width in dp: nothing here draws.
 #pragma once
 
+#include <string_view>
+
 namespace iideck::ui {
 
 /// iiSU is7 SingleScreenStatusPillSizing.
@@ -38,14 +40,34 @@ struct StatusPillMetrics {
     float glyphOffsetY{};
 };
 
-/// The corner hint row's sizes (iiSU mw5.h, jj2.b), in dp.
-struct HintRowMetrics {
-    float paddingStart{};
-    float paddingBottom{};
+/// The corner button prompt panels' sizes (iiSU mw5.h, mw5.k, jj2.b, jj2.g0, a32.b), in dp.
+struct HintPanelMetrics {
+    /// Left panel: BottomStart, start and bottom padding.
+    float leftInset{};
+    float leftBottom{};
+    /// Right panel: BottomEnd, end and bottom padding.
+    float rightInset{};
+    float rightBottom{};
     float paddingHorizontal{};
     float paddingVertical{};
     float entrySpacing{};
+    float glyphSize{};
     float glyphGap{};
+    float cornerRadius{};
+    /// Label em and line height in sp, letter spacing in em.
+    float labelSize{};
+    float labelLineHeight{};
+    float labelTracking{};
+    /// a32.b's text nudge before the key's own adjustment: Cal Sans's -1.8 t.
+    float labelNudge{};
+    /// jj2.g0's floor on the panel height.
+    float minHeight{};
+
+    /// iiSU jj2.g0: the panel height at a density, rounded to pixels term by term as Compose
+    /// lays it out. Always two entries tall, whatever the panel holds.
+    [[nodiscard]] float height(float density) const noexcept;
+    /// iiSU a32.b: how far the label for `key` sits below the row's centre.
+    [[nodiscard]] float labelShift(std::string_view key) const noexcept;
 };
 
 class TopBarMetrics {
@@ -75,12 +97,16 @@ class TopBarMetrics {
     [[nodiscard]] float gridBottomInset() const noexcept;
     /// iiSU a32.o for a clock string with or without letters.
     [[nodiscard]] StatusPillMetrics statusPill(bool clockHasLetters) const noexcept;
-    /// iiSU mw5.h and jj2.b.
-    [[nodiscard]] HintRowMetrics hintRow() const noexcept;
+    /// iiSU mw5.h, mw5.k and jj2.b.
+    [[nodiscard]] HintPanelMetrics hintPanels() const noexcept;
 
   private:
-    /// iiSU dl3.a: the prompt panel scale from jj2.f0.
+    /// iiSU dl3 fields a, b, c (getters c(), a(), b()): the prompt panel, its text and its glyph
+    /// scales.
     float promptScale_{};
+    float textScale_{};
+    float glyphScale_{};
+    bool compact_{};
     StatusPillSizing sizing_;
     HudStatusAlignment alignment_;
 };

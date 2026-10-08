@@ -7,10 +7,13 @@
 #include <chrono>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
+#include <utility>
 
 #include "raylib.h"
 
+#include "button_glyph.hpp"
 #include "device/battery.hpp"
 #include "glass.hpp"
 #include "status_pill.hpp"
@@ -103,6 +106,10 @@ class Hud {
     [[nodiscard]] float unit() const noexcept;
     [[nodiscard]] TopBarMetrics metrics() const noexcept;
     void drawServiceStatus(float left, float centreY) const;
+    /// One corner prompt panel of (glyph, label) entries (iiSU jj2.b).
+    void drawPromptPanel(const HintPanelMetrics& panel,
+                         std::span<const std::pair<const char*, const char*>> prompts,
+                         bool atEnd) const;
 
     int width_{};
     int height_{};
@@ -116,6 +123,7 @@ class Hud {
     Clock::time_point toastUntil_{};
     StatusPillPainter statusPill_;
     GlassPainter glass_;
+    ButtonGlyphPainter glyphs_;
 };
 
 } // namespace iideck::ui

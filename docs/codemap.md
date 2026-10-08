@@ -59,6 +59,7 @@ Painters and composition (`iideck_ui`):
 | `src/ui/shell.*` | The home screen: tiles, focus, paging, draw order |
 | `src/ui/hud.*` | Chrome around the grid: ground, top bar, corner hints, toast; grid insets |
 | `src/ui/status_pill.*`, `glass.*` | Status pill and its glass body |
+| `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`) |
 | `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art, platform frame |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |

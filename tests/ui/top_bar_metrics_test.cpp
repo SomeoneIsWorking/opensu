@@ -69,6 +69,26 @@ void promptRow() {
     near(TopBarMetrics{640.0f, 360.0f}.gridBottomInset(), 60.24, "640 x 360: bottom inset");
 }
 
+void hintPanels() {
+    // The emulator capture's 853 x 456 dp: dl3 fields a = 0.82156, b = 0.8789, c = 0.79101.
+    const iideck::ui::HintPanelMetrics p = TopBarMetrics{853.0f, 456.0f}.hintPanels();
+    near(p.paddingHorizontal, 8.2156, "hint panel: horizontal padding 10 a");
+    near(p.paddingVertical, 6.57248, "hint panel: vertical padding 8 a");
+    near(p.entrySpacing, 1.64312, "hint panel: row spacing 2 a");
+    near(p.glyphSize, 17.40222, "hint panel: glyph 22 c");
+    near(p.glyphGap, 3.5156, "hint panel: glyph gap 4 b");
+    near(p.labelSize, 14.0624, "label: titleMedium 16 sp x b");
+    near(p.labelLineHeight, 20.95880, "label line: 24 x 1.08 x b x 0.92");
+    near(p.labelNudge, -1.58202, "Cal Sans nudge: -1.8 b");
+    near(p.minHeight, 50.69227, "hint panel: jj2.g0 floor");
+    // At 2.25 px/dp: 4 + 2 max(39, 0 + 48) + 2 x 15 = 130 px, the captured panel.
+    near(p.height(2.25f), 130.0 / 2.25, "panel height matches the capture");
+    near(p.labelShift("B"), -0.08202, "B label sits 0.08 dp high");
+    near(p.labelShift("-"), -0.73202, "- label sits 0.73 dp high");
+    near(p.leftInset, 8.0, "left panel 8 dp from the start");
+    near(p.rightBottom, 4.0, "right panel 4 dp from the bottom");
+}
+
 void wide1280() {
     // t saturates at 832 dp, so 1280 dp sizes as 853 does.
     const TopBarMetrics m{1280.0f, 800.0f};
@@ -86,6 +106,7 @@ int main() {
     reference853();
     wide1280();
     promptRow();
+    hintPanels();
     std::printf("top_bar_metrics: all checks passed\n");
     return 0;
 }

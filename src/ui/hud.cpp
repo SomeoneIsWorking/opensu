@@ -11,15 +11,11 @@
 namespace iideck::ui {
 namespace {
 
-// iiSU mw5.h: ("B", "Back") and ("-", "Details"). iideck has no Back action, so the first entry
-// is its primary action; Select opens details, as "-" does in iiSU.
-constexpr std::array<std::pair<const char*, const char*>, 2> hints{
-    std::pair{"A", "Play"},
-    std::pair{"-", "Details"},
-};
-// STOPGAP: hint text and glyph sizes follow the status pill's font because a32.b's text style
-// from mw5.h is not in the spec.
-constexpr float hintGlyphScale = 1.3f;
+using Prompt = std::pair<const char*, const char*>;
+// iiSU mw5.h: ("B", "Back"), ("-", "Details").
+constexpr std::array<Prompt, 2> leftPrompts{Prompt{"B", "Back"}, Prompt{"-", "Details"}};
+// iiSU mw5.k: ("A", "Select"), ("+", "Menu"); iideck has no START menu yet, so "+" is left out.
+constexpr std::array<Prompt, 1> rightPrompts{Prompt{"A", "Select"}};
 // iiSU res/drawable/bell_icon.png ink, for the hint glyphs and labels.
 constexpr Color hintInk{0x4D, 0x46, 0x55, 255};
 
@@ -132,33 +128,42 @@ void Hud::drawServiceStatus(float left, float centreY) const {
 }
 
 void Hud::drawHints() const {
-    // iiSU mw5.h: a glass row at BottomStart holding jj2.b's entries.
-    const TopBarMetrics m = metrics();
-    const HintRowMetrics row = m.hintRow();
-    const float dp = dp_;
-    const TextStyle text{m.statusPill(false).fontSize * dp};
-    const float glyph = text.size * hintGlyphScale;
-    const float gap = row.glyphGap * dp;
-    float content = 0.0f;
-    for (const auto& [key, label] : hints) {
-        content += glyph + gap + type().measure(label, text);
-    }
-    content += static_cast<float>(hints.size() - 1) * row.entrySpacing * dp;
-    const float height = glyph + 2.0f * row.paddingVertical * dp;
-    const Rect body{row.paddingStart * dp,
-                    static_cast<float>(height_) - row.paddingBottom * dp - height,
-                    content + 2.0f * row.paddingHorizontal * dp, height};
-    glass_.paint(body);
+    // iiSU mw5.h (BottomStart) and mw5.k (BottomEnd): jj2.b glass panels of a32.b entries.
+    const HintPanelMetrics panel = metrics().hintPanels();
+    drawPromptPanel(panel, leftPrompts, false);
+    drawPromptPanel(panel, rightPrompts, true);
+}
 
-    float pen = body.x + row.paddingHorizontal * dp;
-    const float centreY = body.centreY();
-    for (const auto& [key, label] : hints) {
-        DrawCircleV(Vector2{pen + glyph * 0.5f, centreY}, glyph * 0.5f, hintInk);
-        const float keyWidth = type().measure(key, text);
-        type().drawCentred(key, pen + (glyph - keyWidth) * 0.5f, centreY, text, WHITE);
-        pen += glyph + gap;
-        type().drawCentred(label, pen, centreY, text, hintInk);
-        pen += type().measure(label, text) + row.entrySpacing * dp;
+void Hud::drawPromptPanel(const HintPanelMetrics& panel, std::span<const Prompt> prompts,
+                          bool atEnd) const {
+    const float dp = dp_;
+    const TextStyle text{panel.labelSize * dp, panel.labelTracking};
+    const float glyph = panel.glyphSize * dp;
+    const float gap = panel.glyphGap * dp;
+    float labels = 0.0f;
+    for (const auto& [key, label] : prompts) {
+        labels = std::max(labels, type().measure(label, text));
+    }
+    const float width = 2.0f * panel.paddingHorizontal * dp + glyph + gap + labels;
+    const float height = panel.height(dp) * dp;
+    const float bottom = (atEnd ? panel.rightBottom : panel.leftBottom) * dp;
+    const float x =
+        atEnd ? static_cast<float>(width_) - panel.rightInset * dp - width : panel.leftInset * dp;
+    const Rect body{x, static_cast<float>(height_) - bottom - height, width, height};
+    glass_.paint(body, panel.cornerRadius * dp);
+
+    // jj2.b: a Column of a32.b rows, centred vertically, rows centred on their tallest child.
+    const float row = std::max(glyph, std::ceil(panel.labelLineHeight * dp));
+    const auto count = static_cast<float>(prompts.size());
+    const float content = count * row + (count - 1.0f) * panel.entrySpacing * dp;
+    float top = body.centreY() - content * 0.5f;
+    const float left = body.x + panel.paddingHorizontal * dp;
+    for (const auto& [key, label] : prompts) {
+        const float centreY = top + row * 0.5f;
+        glyphs_.paint(key, Vector2{left + glyph * 0.5f, centreY}, glyph, hintInk);
+        type().drawCentred(label, left + glyph + gap, centreY + panel.labelShift(key) * dp, text,
+                           hintInk);
+        top += row + panel.entrySpacing * dp;
     }
 }
 

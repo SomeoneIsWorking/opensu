@@ -104,15 +104,16 @@ Stopgaps, each marked in code:
   tile is 1x1.
 - Top bar: glass is the fill only (no blur, border or shadow); the `jj2.w` strip
   is not drawn; the bell is drawn at the progress ring's size; the status text row
-  is centred after the bell; text ink is the icons' `#4D4655`; the hint row uses
-  scale 1 and the status pill's font; the bottom inset is `dl3.j`'s 24 dp.
+  is centred after the bell; text ink is the icons' `#4D4655`.
+- Corner prompt panels: the right panel shows "A Select" without iiSU's "+ Menu",
+  because iideck has no START menu; their glass is the fill only, like the top bar's.
 - The battery is re-read on the clock's minute tick; there is no uevent listener.
 
 Gaps: items are ordered by install state and recency rather than iiSU's user
 arrangement; WiiSu placeholders do not take focus as they do in iiSU; held
 keyboard directions repeat every frame. The top bar's R2 glyph and bell hint at
-notifications iideck does not have, and iiSU's "B Back" hint is "A Play" because
-iideck has no Back action.
+notifications iideck does not have, and "B Back" is shown as iiSU shows it although B
+does nothing on Home.
 
 Offscreen rendering is how the layout became checkable at all: the shell is a
 Wayland window, which this machine's screenshot tooling cannot see. raylib

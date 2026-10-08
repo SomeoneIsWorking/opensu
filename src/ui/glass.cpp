@@ -16,10 +16,14 @@ constexpr Color glassTo{0xE6, 0xE9, 0xEE, 166};
 } // namespace
 
 void GlassPainter::paint(const Rect& body) const {
+    paint(body, body.height * 0.5f);
+}
+
+void GlassPainter::paint(const Rect& body, float radius) const {
     // STOPGAP: only ea3.e's fill is drawn because ea3.n's blur, border and shadow layers are not
     // in the spec.
     const float span = std::max(body.width * body.width + body.height * body.height, 1.0f);
-    fillRoundRect(RoundRect{body, body.height * 0.5f}, [body, span](Vector2 point, float) {
+    fillRoundRect(RoundRect{body, radius}, [body, span](Vector2 point, float) {
         // Compose resolves the infinite end offset to the size, so the axis is (w, h).
         const float t = ((point.x - body.x) * body.width + (point.y - body.y) * body.height) / span;
         return mix(glassFrom, glassTo, std::clamp(t, 0.0f, 1.0f));
