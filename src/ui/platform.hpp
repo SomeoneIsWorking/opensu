@@ -1,28 +1,26 @@
-// platform — a console's identity: its border sprite, its logo and its stroke colours.
+// platform — a console's frame colours.
 //
 // The frame's proportions are the sprite's and live in tile_geometry; this holds
 // what differs per platform.
 #pragma once
 
 #include <cstdint>
-#include <vector>
-
-#include "library/game.hpp"
-#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "library/game.hpp"
+
 namespace iideck::ui {
 
-/// A platform's stroke gradient, as recovered from the reference's border pack.
+/// A platform's stroke gradient: the reference frame's colours at its two ends.
 struct StrokeGradient {
     const char* console;
     std::uint32_t from;
     std::uint32_t to;
 };
 
-/// The pack's gradients, keyed by the pack's own console names. Defined in the
+/// The gradients, keyed by ES-DE system name. Defined in the
 /// generated platform_stroke.cpp and declared here, so the definition and its only
 /// reader cannot drift apart.
 extern const StrokeGradient kStrokeGradients[];
@@ -30,45 +28,27 @@ extern const StrokeGradient kStrokeGradients[];
 /// The number of gradients in the table above, sentinel excluded.
 [[nodiscard]] std::size_t strokeGradientCount() noexcept;
 
-/// One platform's identity, as the reference defines it.
+/// One platform's frame.
 struct Platform {
-    /// The platform key, matching the reference's console names ("steam", "psx").
+    /// The platform key, lower-case ("steam", "psx").
     std::string key;
-    /// The border sprite's path, if the platform has one.
-    std::filesystem::path border;
-    /// The logo's path, if the platform has one.
-    std::filesystem::path logo;
-
-    /// The stroke colour at the top-left and bottom-right of the frame, as the
-    /// gradient's endpoints. Recovered from the sprite.
+    /// The stroke colour at the top-left and bottom-right of the frame.
     std::uint32_t strokeFrom{0};
     std::uint32_t strokeTo{0};
-
-    [[nodiscard]] bool hasBorder() const noexcept {
-        return !border.empty();
-    }
 };
 
-/// The platform table, read once from the reference's own border pack.
+/// The platform table, built from the compiled gradients.
 class Platforms {
   public:
-    /// Reads the pack at `root`, which is a directory holding `border_pack.json`.
-    /// A missing pack is not an error: every platform simply has no border, which
-    /// is what the shell drew before. The gradients come from the pack's sprites
-    /// and are always available, since they are compiled in.
-    static Platforms load(const std::filesystem::path& root);
+    Platforms();
 
-    /// The platform for a key, matched case-insensitively because the pack is
-    /// inconsistent about it ("steam" and "PC" and "windows" all appear). Points
-    /// into this table; null when the pack has no such key.
+    /// The platform for a key, matched case-insensitively. Points into this table; null
+    /// when there is no such key.
     [[nodiscard]] const Platform* find(std::string_view key) const;
 
-    /// The platform a store's titles are framed in, or null when the pack has no
-    /// border for it. A ROM has no single store, so it is framed in its system
-    /// instead and this returns null.
-    ///
-    /// The pointer is into the table this owns and stays valid for the table's
-    /// lifetime. Returning a pointer into a temporary would dangle.
+    /// The platform a store's titles are framed in, or null when there is none. A ROM has no
+    /// single store, so it is framed in its system instead and this returns null. Points into
+    /// this table.
     [[nodiscard]] const Platform* forSource(library::Source source) const;
 
     [[nodiscard]] std::size_t size() const noexcept {
@@ -78,8 +58,5 @@ class Platforms {
   private:
     std::vector<Platform> platforms_;
 };
-
-/// The default pack location, beside the typeface in `assets/`.
-[[nodiscard]] std::filesystem::path defaultPlatformRoot();
 
 } // namespace iideck::ui

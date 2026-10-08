@@ -1,22 +1,12 @@
 // platform_stroke.cpp — the reference's per-platform stroke gradients.
 //
-// Generated from the reference's own border pack: see docs/reference for how the
-// pack was read and what the numbers mean. Kept as a table rather than decoded
-// from the sprites at startup, because a shell that reads 174 1024x1024 PNGs
-// before its first frame is a shell that starts slowly for no benefit.
+// Sampled from the reference's border sprites, which iideck does not ship.
 
 #include "platform.hpp"
 
 namespace iideck::ui {
 
-// Each platform's stroke gradient, recovered from the reference border pack.
-//
-// The pack's sprites are 1024x1024 palette PNGs: a 26-pixel stroke along the
-// canvas edge, with its colour running linearly from one end to the other, and
-// a 180x180 tab in the top-left corner carrying the console's glyphs. These are
-// the stroke's two endpoints, sampled inside the stroke with the tab avoided.
-//
-// The key is the pack's own console name, which is an ES-DE system name.
+// The two ends of each frame's diagonal stroke gradient, keyed by ES-DE system name.
 const StrokeGradient kStrokeGradients[] = {
     {"3do", 0xef885c, 0xe1cd79},
     {"adam", 0x3256ff, 0x6198ff},

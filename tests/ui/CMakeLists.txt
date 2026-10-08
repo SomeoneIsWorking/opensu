@@ -22,3 +22,8 @@ target_link_libraries(face_metrics_test PRIVATE iideck::ui)
 target_compile_options(face_metrics_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME face_metrics
     COMMAND face_metrics_test "${CMAKE_SOURCE_DIR}/assets/CalSans-Regular.ttf")
+
+add_executable(platform_test platform_test.cpp)
+target_link_libraries(platform_test PRIVATE iideck::ui)
+target_compile_options(platform_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME platform COMMAND platform_test)

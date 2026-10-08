@@ -57,10 +57,6 @@ ShellApp::ShellApp(Settings settings)
                                     config::read().session}},
       handoff_{config::read().executablePath, config::read().session, steam_} {
     refreshClock();
-    // The platform table frames every tile. Loaded before the catalog, because the
-    // frames are resolved as the grid is laid out.
-    shell_.setPlatforms(ui::Platforms::load(ui::defaultPlatformRoot()));
-
     // SDL reports any device with buttons as a gamepad, which on a desktop
     // includes a multimedia keyboard. raylib cannot tell the two apart without
     // input, so a name filter lets the player name their controller.

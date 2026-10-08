@@ -59,9 +59,6 @@ class Shell {
     /// Loads every tile's artwork from the paths the sources recorded.
     void loadArtwork();
 
-    /// Sets the platform table every tile's frame is resolved from.
-    void setPlatforms(Platforms platforms);
-
     /// Resolves a game's platform frame. A title from a store has no console, so
     /// it is framed in that store's identity; a ROM is framed in its system's.
     [[nodiscard]] const Platform* platformFor(const library::Game& game) const;

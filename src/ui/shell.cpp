@@ -93,14 +93,6 @@ void Shell::setSize(int width, int height) {
     relayout();
 }
 
-void Shell::setPlatforms(Platforms platforms) {
-    platforms_ = std::move(platforms);
-    // Tiles point into the table, so they are resolved again against the new one.
-    for (Tile& tile : tiles_) {
-        tile.platform = platformFor(tile.game);
-    }
-}
-
 const Platform* Shell::platformFor(const library::Game& game) const {
     // A ROM belongs to a system, and the pack's console names are those systems.
     if (game.source == library::Source::Rom && !game.sourceId.empty()) {
