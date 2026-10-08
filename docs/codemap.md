@@ -2,7 +2,8 @@
 
 Where each concept lives. Read this before placing code; update it in the change that adds or
 moves an owner. The UI replicates iiSU, so UI owners cite the iiSU function they reproduce and the
-evidence is in `reference/iisu/`.
+evidence is in `reference/iisu/` (the private `iideck-re` repository, checked out at the
+gitignored `docs/reference/`).
 
 ## Entry and composition
 
@@ -77,4 +78,5 @@ Painters and composition (`iideck_ui`):
 ## Tests and docs
 
 - `tests/<area>/`: one ctest suite per owner, through the shipping code.
-- `docs/re-frontier.md`, `docs/reference/`: what is recovered from iiSU and the spec built on it.
+- `docs/re-frontier.md`: what is recovered from iiSU. `docs/reference/` (private `iideck-re`
+  checkout): the evidence and the spec built on it.

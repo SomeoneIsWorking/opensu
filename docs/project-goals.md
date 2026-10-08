@@ -12,7 +12,7 @@ never reimplements a store's authentication, download or cloud sync.
 Reproduce iiSU's interface and the way it behaves, not only its look, from
 facts reverse-engineered out of the iiSU APK rather than guessed from
 screenshots: screens, navigation, transitions, sounds, timings. The
-specification is `reference/design-reference.md`.
+specification is `reference/design-reference.md` (private, see `re-frontier.md`).
 
 ## G003 — Gamepad in, game out
 

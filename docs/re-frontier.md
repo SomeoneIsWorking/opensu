@@ -12,6 +12,7 @@ guessed. G002 builds only on rows marked grounded.
   from the APK enters git). App code is 56 classes under `com/iisulauncher`;
   the UI is Jetpack Compose, R8-obfuscated into `defpackage/`.
 - Evidence with `file:line` citations: `reference/iisu/`; summary in `reference/design-reference.md`.
+  Both are in the private `iideck-re` repository, checked out at the gitignored `docs/reference/`.
 
 ## Chain
 

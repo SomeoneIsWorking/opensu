@@ -104,7 +104,11 @@ pressing play reports which emulator is missing rather than doing nothing.
 
 - `docs/project-goals.md` — what this is for, and what it deliberately is not
 - `docs/project-state.md` — what works, what does not, and the current focus
-- `docs/reference/design-reference.md` — the iiSU findings this design comes from
+- `docs/re-frontier.md` — what of iiSU's UI has been recovered, and what is still guessed
+
+The detailed reverse-engineering notes that UI comments cite (`home-grid.md`,
+`motion.md`, ...) are kept in a private repository, checked out at the gitignored
+`docs/reference/`; they are not needed to build or run iideck.
 
 ## Typeface
 
