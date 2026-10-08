@@ -17,7 +17,9 @@ gitignored `docs/reference/`).
 | `src/app/install_job.*` | The store-neutral install job: its thread, the latest report the loop takes, the licence answer |
 | `src/app/steam_install_job.*`, `epic_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install (`legendary install`, its progress line) |
 | `src/app/installs.*` | The installers by store, one install at a time; which stores install |
-| `src/config/config.*` | The one reader of the environment, into typed immutable config; where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
+| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
+| `src/settings/settings.*` | The player's saved preferences (Library layout mode) as JSON under the config dir; defaults on a missing or corrupt file |
+| `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
 | `extension/iideck-signin/` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel |
 
 ## Session and processes (G003, G004)
@@ -54,18 +56,20 @@ gitignored `docs/reference/`).
 | `src/library/catalog.*` | Building the catalog from all sources |
 | `src/library/steam.*`, `epic.*`, `gog.*`, `roms.*` | One source each |
 | `src/library/gog_auth.*`, `gog_token.*` | GOG's OAuth sign-in and the saved token (`<data dir>/gog-token.json`) |
-| `src/library/shelf.*` | What the grid holds: Home's consoles, launchers, All games and installed store games; a console's ROMs, a launcher's library, the combined library; moving between them |
+| `src/library/sections.*` | The dock's sections (Home, Library), the active one and L1/R1 cycling with wrap; Library's layout modes and their keys |
+| `src/library/shelf.*` | What the grid holds: Home's installed store games (`homeShelf`); Library's launchers, All games and consoles (`libraryShelf`); a console's ROMs, a launcher's library, the combined library; moving between them and between sections |
 | `src/library/titles.*` | The same title across stores: the comparison key, merged copies, preference order |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line |
 | `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
-| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, UI sounds (`sound/<file>.wav`) |
-| `src/artwork/artwork_fetcher.*` | The background downloads: Steam's CDN for Steam, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs, the APK's `assets/*.wav` for UI sounds |
-| `src/artwork/apk_archive.*` | iiSU's release APK read by HTTP ranges: central directory once, any entry by range with its CRC checked; `fetch` is find and extract with a found/missing/failed result (glyphs and sounds use it) |
+| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, UI sounds (`sound/<file>`, WAV or OGG) and the dock's icons (`nav/`) |
+| `src/artwork/artwork_fetcher.*` | The background downloads: Steam's CDN for Steam, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs, the APK's sounds and nav drawables (`ApkAsset`) |
+| `src/artwork/apk_archive.*` | iiSU's release APK read by HTTP ranges: central directory once, any entry by range with its CRC checked; `fetch` is find and extract with a found/missing/failed result (glyphs, sounds and nav icons use it) |
 | `src/artwork/starter_pack.*` | iiSU's starter pack: its entry taken out of the APK against a pin, and a system's card as PNG |
 | `src/artwork/console_glyphs.*` | iiSU's frame glyphs: `border_pack.json` read once, a system's `logo_*.png` out of the APK |
+| `src/artwork/iisu_assets.*` | Which APK entry is each UI sound and each dock icon (the nav table is valid for the pinned APK only) |
 | `src/artwork/zip_archive.*` | The one zip reader: end record, central directory, local header offset, checked extraction; an in-memory archive |
-| `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds iideck plays (`yp8`): effect to APK file name, the 91 ms repeat rule for Enter/ExitConsolesApps; pure (`iideck_audio_model`) |
+| `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds iideck plays (`yp8`): effect to APK file name, the Domino cues and `dominoFor(tileCount)` (`xp8.a`), the 91 ms repeat rule for Enter/ExitConsolesApps and the Domino cues; pure (`iideck_audio_model`) |
 | `src/audio/sound_player.*` | raylib audio: the device opened once (silent with one warning when absent), the WAVs loaded from the store, `play` through the debounce |
 | `src/net/web_client.*` | HTTPS GETs over libcurl, with headers; shared by artwork and the stores |
 | `src/vdf/` | Valve KeyValues parser |
@@ -85,8 +89,16 @@ Pure model, unit-tested without raylib (`iideck_grid`, `iideck_hud_model`):
 | --- | --- |
 | `src/ui/home_layout.*` | Grid geometry for Standard and WiiSu: cells, gaps, insets, placeholder slots, scrolling, page pill and page arrow rects (`hx2.g`, `zj2`, `ou4.q`, `ys8.h/k/l`) |
 | `src/ui/grid_focus.*` | D-pad focus movement and page crossing (`hx2.z/O`) |
-| `src/ui/tile_motion.*` | Focus scale, domino entrance, press pulse, ring rotation |
-| `src/ui/tile_geometry.*` | One tile's rectangles and radii; where a game tile's store icons sit |
+| `src/ui/tile_motion.*` | Focus scale, domino entrance, press pulse, ring rotation, FastOutSlowIn, the rail's visual-index easing |
+| `src/ui/section_view.*` | Per section: the grid viewport (3 rows x 4 columns, column-major, horizontal paging, both sections) and the presentation (Grid, XMB, Carousel) |
+| `src/ui/rail_layout.*` | XMB and Carousel geometry (navigation.md 5.3): tile rectangles from the fractional focus, left column, header card, marker and title anchors |
+| `src/ui/rail_painter.*` | XMB/Carousel chrome: the recoloured section icon, the header card, the markers and the shadowed title |
+| `src/ui/icon_recolour.*` | Reads a console card's border colours and recolours the section icon with them |
+| `src/ui/backdrop_blur.*` | The dock glass's 8 dp backdrop blur: scene texture, separable Gaussian, capsule mask |
+| `src/ui/dock_metrics.*` | The dock capsule's sizes and rectangles in dp (`gh3.i1/j1`, `jj2`) |
+| `src/ui/dock_motion.*` | The dock's show/hide (pinned on Home, 1200 ms after L1/R1 on Library; show 170 ms ease-out from below, hide 125 ms ease-in straight down) and the icon pop |
+| `src/ui/mode_chooser.*` | The Library layout picker's open state, focus and card/panel layout |
+| `src/ui/tile_geometry.*` | One tile's rectangles and radii (and `outerForContent`, the inverse of the frame inset); where a game tile's store icons sit |
 | `src/ui/top_bar_metrics.*` | Top bar sizes in dp (`is7`, `hs7`, `dl3`) |
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
 | `src/ui/game_menu.*` | The Guide menu's items and focus (iideck's own) |
@@ -101,7 +113,9 @@ Painters and composition (`iideck_ui`):
 | `src/ui/launcher_badges.*` | Launcher logos with status dots and the download ring, in the top bar's friends slot |
 | `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size |
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (the bell's busy ring) |
-| `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`) |
+| `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included) |
+| `src/ui/dock_painter.*` | The dock capsule: glass, nav icons, LB/RB badges |
+| `src/ui/mode_chooser_painter.*` | The Library layout picker: the cards page after iiSU's chooser, with sketched previews |
 | `src/ui/game_menu_painter.*` | The Guide menu over a running game |
 | `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art, platform frame, store icons; the name cards of a console, a launcher and All games |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |

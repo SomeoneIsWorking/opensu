@@ -15,8 +15,9 @@ namespace {
 using Prompt = std::pair<const char*, const char*>;
 // iiSU mw5.h: ("B", "Back"), ("-", "Details").
 constexpr std::array<Prompt, 2> leftPrompts{Prompt{"B", "Back"}, Prompt{"-", "Details"}};
-// iiSU mw5.k: ("A", "Select"), ("+", "Menu"); iideck has no START menu yet, so "+" is left out.
+// iiSU mw5.k: ("A", "Select"), ("+", "Menu"); iideck's START opens a menu in Library only.
 constexpr std::array<Prompt, 1> rightPrompts{Prompt{"A", "Select"}};
+constexpr std::array<Prompt, 2> rightPromptsWithMenu{Prompt{"A", "Select"}, Prompt{"+", "Menu"}};
 // iiSU res/drawable/bell_icon.png ink, for the hint glyphs and labels.
 constexpr Color hintInk{0x4D, 0x46, 0x55, 255};
 
@@ -126,7 +127,10 @@ void Hud::drawHints() const {
     // iiSU mw5.h (BottomStart) and mw5.k (BottomEnd): jj2.b glass panels of a32.b entries.
     const HintPanelMetrics panel = metrics().hintPanels();
     drawPromptPanel(panel, leftPrompts, false);
-    drawPromptPanel(panel, rightPrompts, true);
+    drawPromptPanel(panel,
+                    startMenu_ ? std::span<const Prompt>{rightPromptsWithMenu}
+                               : std::span<const Prompt>{rightPrompts},
+                    true);
 }
 
 void Hud::drawPromptPanel(const HintPanelMetrics& panel, std::span<const Prompt> prompts,

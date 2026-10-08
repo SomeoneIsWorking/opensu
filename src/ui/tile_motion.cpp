@@ -27,11 +27,42 @@ constexpr float pulsePeak = 1.025f;
 // iiSU tw2: one turn per 5600 ms of uptime.
 constexpr double ringTurnMs = 5600.0;
 
+double bezier(double t, double p1, double p2) noexcept {
+    const double u = 1.0 - t;
+    return 3.0 * u * u * t * p1 + 3.0 * u * t * t * p2 + t * t * t;
+}
+
 float lerp(float from, float to, float t) noexcept {
     return from + (to - from) * t;
 }
 
 } // namespace
+
+double cubicBezierEase(double x, const CubicBezier& curve) noexcept {
+    double low = 0.0;
+    double high = 1.0;
+    for (int i = 0; i < 40; ++i) {
+        const double mid = (low + high) * 0.5;
+        if (bezier(mid, curve.x1, curve.x2) < x) {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+    return bezier((low + high) * 0.5, curve.y1, curve.y2);
+}
+
+double fastOutSlowIn(double x) noexcept {
+    return cubicBezierEase(x, CubicBezier{0.4, 0.0, 0.2, 1.0});
+}
+
+double fastOutLinearIn(double x) noexcept {
+    return cubicBezierEase(x, CubicBezier{0.4, 0.0, 1.0, 1.0});
+}
+
+double linearOutSlowIn(double x) noexcept {
+    return cubicBezierEase(x, CubicBezier{0.0, 0.0, 0.2, 1.0});
+}
 
 float easeOutCubic(float t) noexcept {
     const float rest = 1.0f - std::clamp(t, 0.0f, 1.0f);
@@ -41,6 +72,20 @@ float easeOutCubic(float t) noexcept {
 float smoothstep(float t) noexcept {
     const float c = std::clamp(t, 0.0f, 1.0f);
     return (3.0f - 2.0f * c) * c * c;
+}
+
+float railEntranceAlpha(const RailEntrance& at) noexcept {
+    const float sinceMs = at.sinceMs;
+    const int distance = at.distance;
+    constexpr float focusedFadeMs = 130.0f;
+    constexpr float neighbourStartMs = 170.0f;
+    constexpr float neighbourFadeMs = 100.0f;
+    if (distance <= 0) {
+        return std::clamp(sinceMs / focusedFadeMs, 0.0f, 1.0f);
+    }
+    const float start =
+        neighbourStartMs + neighbourFadeMs * static_cast<float>(std::min(distance, 2) - 1);
+    return std::clamp((sinceMs - start) / neighbourFadeMs, 0.0f, 1.0f);
 }
 
 float focusScale(float sinceFocusMs) noexcept {
@@ -99,6 +144,25 @@ float pulseScale(float sincePressMs) noexcept {
 float ringAngleDegrees(double uptimeMs) noexcept {
     const double phase = std::fmod(std::max(uptimeMs, 0.0), ringTurnMs) / ringTurnMs;
     return static_cast<float>(phase * 360.0);
+}
+
+void VisualIndexEaser::snap(float index) noexcept {
+    value_ = index;
+    target_ = index;
+}
+
+void VisualIndexEaser::retarget(float index) noexcept {
+    target_ = index;
+}
+
+void VisualIndexEaser::step(float dtMs) noexcept {
+    const float rest = 1.0f - std::min(std::max(dtMs, 0.0f), 20.0f) / 245.0f;
+    const float follow = 1.0f - rest * rest * rest * rest;
+    value_ += (target_ - value_) * follow;
+    // Far under a pixel of a tile, so the frame stops redrawing a still row.
+    if (std::abs(target_ - value_) < 0.0005f) {
+        value_ = target_;
+    }
 }
 
 void ScrollEaser::snap(float offset) noexcept {

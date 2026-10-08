@@ -1,6 +1,7 @@
 // Tile motion against iiSU's curves (docs/reference/iisu/motion.md §1, §4).
 #include "tile_motion.hpp"
 
+#include <cmath>
 #include <cstdio>
 
 #include "check.hpp"
@@ -79,6 +80,48 @@ void scroll() {
     near(easer.offset(), 100.0f + 276.32f, "a long jump moves at most its step limit", 1e-2);
 }
 
+void railEntrance() {
+    near(motion::railEntranceAlpha(motion::RailEntrance{0.0f, 0}), 0.0f,
+         "the focused tile starts clear");
+    near(motion::railEntranceAlpha(motion::RailEntrance{65.0f, 0}), 0.5f, "half in at 65 ms");
+    near(motion::railEntranceAlpha(motion::RailEntrance{130.0f, 0}), 1.0f, "in at 130 ms");
+    near(motion::railEntranceAlpha(motion::RailEntrance{169.0f, 1}), 0.0f,
+         "its neighbours wait until 170 ms");
+    near(motion::railEntranceAlpha(motion::RailEntrance{220.0f, 1}), 0.5f,
+         "and are half in 50 ms later");
+    near(motion::railEntranceAlpha(motion::RailEntrance{270.0f, 1}), 1.0f, "in at 270 ms");
+    near(motion::railEntranceAlpha(motion::RailEntrance{270.0f, 2}), 0.0f,
+         "the next ones start at 270 ms");
+    near(motion::railEntranceAlpha(motion::RailEntrance{370.0f, 2}), 1.0f, "and are in at 370 ms");
+    near(motion::railEntranceAlpha(motion::RailEntrance{270.0f, 5}), 0.0f, "as are the rest");
+}
+
+void visualIndex() {
+    motion::VisualIndexEaser easer;
+    easer.snap(2.0f);
+    near(easer.value(), 2.0f, "snaps to an index");
+    expect(easer.settled(), "settled");
+    easer.retarget(3.0f);
+    expect(!easer.settled(), "heading for a new index");
+    // One 16 ms frame covers 1 - (1 - 16/245)^4 of the way.
+    easer.step(16.0f);
+    near(easer.value(), 2.0f + (1.0f - std::pow(1.0f - 16.0f / 245.0f, 4.0f)), "one frame", 1e-4);
+    // A long frame counts as 20 ms.
+    motion::VisualIndexEaser slow;
+    slow.snap(0.0f);
+    slow.retarget(1.0f);
+    slow.step(500.0f);
+    near(slow.value(), 1.0f - std::pow(1.0f - 20.0f / 245.0f, 4.0f), "a frame is capped at 20 ms",
+         1e-4);
+    float previous = easer.value();
+    for (int frame = 0; frame < 200; ++frame) {
+        easer.step(16.0f);
+        expect(easer.value() >= previous && easer.value() <= 3.0f, "approaches without overshoot");
+        previous = easer.value();
+    }
+    expect(easer.settled() && easer.value() == 3.0f, "lands exactly on the target");
+}
+
 } // namespace
 
 int main() {
@@ -87,6 +130,8 @@ int main() {
     pulse();
     ring();
     scroll();
+    railEntrance();
+    visualIndex();
     std::printf("tile_motion: all checks passed\n");
     return 0;
 }

@@ -3,6 +3,7 @@
 #include <fstream>
 #include <system_error>
 
+#include "fileio/atomic_write.hpp"
 #include "libretro_index.hpp"
 #include "lucent/log.h"
 #include "rom_systems.hpp"
@@ -16,27 +17,6 @@ fs::path missMarker(const fs::path& file) {
     fs::path marker = file;
     marker += ".miss";
     return marker;
-}
-
-bool writeWhole(const fs::path& file, std::string_view bytes, std::string& error) {
-    std::error_code ec;
-    fs::create_directories(file.parent_path(), ec);
-    fs::path partial = file;
-    partial += ".part";
-    {
-        std::ofstream out{partial, std::ios::binary | std::ios::trunc};
-        out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
-        if (!out) {
-            error = "cannot write " + partial.string();
-            return false;
-        }
-    }
-    fs::rename(partial, file, ec);
-    if (ec) {
-        error = "cannot replace " + file.string() + ": " + ec.message();
-        return false;
-    }
-    return true;
 }
 
 bool fresh(const fs::path& file, ArtworkStore::Clock::time_point now, std::chrono::hours lifetime) {
@@ -61,12 +41,12 @@ bool saveAt(const fs::path& file, const std::string& owner, std::string_view byt
         error = owner + " has no artwork source";
         return false;
     }
-    return writeWhole(file, bytes, error);
+    return fileio::writeWhole(file, bytes, error);
 }
 
 void recordMissAt(const fs::path& file) {
     std::string error;
-    if (!file.empty() && !writeWhole(missMarker(file), {}, error)) {
+    if (!file.empty() && !fileio::writeWhole(missMarker(file), {}, error)) {
         lucent::warn("artwork", "{}", error);
     }
 }
@@ -107,12 +87,12 @@ fs::path ArtworkStore::storedGlyph(std::string_view system) const {
     return !file.empty() && isFile(file) ? file : fs::path{};
 }
 
-fs::path ArtworkStore::soundPath(audio::Effect effect) const {
-    return root_ / "sound" / audio::assetFile(effect);
+fs::path ArtworkStore::assetPath(const ApkAsset& asset) const {
+    return root_ / folder(asset.kind) / asset.file;
 }
 
-fs::path ArtworkStore::storedSound(audio::Effect effect) const {
-    const fs::path file = soundPath(effect);
+fs::path ArtworkStore::storedAsset(const ApkAsset& asset) const {
+    const fs::path file = assetPath(asset);
     return isFile(file) ? file : fs::path{};
 }
 
@@ -157,17 +137,17 @@ bool ArtworkStore::wantedGlyph(std::string_view system, Clock::time_point now) c
     return wantedAt(glyphPath(system), now);
 }
 
-bool ArtworkStore::wantedSound(audio::Effect effect, Clock::time_point now) const {
-    return wantedAt(soundPath(effect), now);
+bool ArtworkStore::wantedAsset(const ApkAsset& asset, Clock::time_point now) const {
+    return wantedAt(assetPath(asset), now);
 }
 
-bool ArtworkStore::saveSound(audio::Effect effect, std::string_view bytes,
+bool ArtworkStore::saveAsset(const ApkAsset& asset, std::string_view bytes,
                              std::string& error) const {
-    return saveAt(soundPath(effect), std::string{audio::assetFile(effect)}, bytes, error);
+    return saveAt(assetPath(asset), asset.file, bytes, error);
 }
 
-void ArtworkStore::recordSoundMiss(audio::Effect effect) const {
-    recordMissAt(soundPath(effect));
+void ArtworkStore::recordAssetMiss(const ApkAsset& asset) const {
+    recordMissAt(assetPath(asset));
 }
 
 bool ArtworkStore::save(const library::Game& game, std::string_view bytes,
@@ -225,7 +205,7 @@ void ArtworkStore::saveIndex(std::string_view system, const std::vector<std::str
         text += '\n';
     }
     std::string error;
-    if (!writeWhole(root_ / "libretro" / (std::string{system} + ".txt"), text, error)) {
+    if (!fileio::writeWhole(root_ / "libretro" / (std::string{system} + ".txt"), text, error)) {
         lucent::warn("artwork", "{}", error);
     }
 }

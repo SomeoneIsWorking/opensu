@@ -1,8 +1,9 @@
-// shelf — what one screen of the home grid holds. Home holds one tile per launcher, the combined
-// library, one per console with ROMs and the store games installed here. Opening a console, a
-// launcher or the combined library holds its games.
+// shelf — what one screen of the grid holds. Home holds the store games installed here. Library
+// holds one tile per launcher, the combined library and one per console with ROMs. Opening one of
+// those holds its games.
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <optional>
@@ -12,10 +13,11 @@
 #include <vector>
 
 #include "game.hpp"
+#include "sections.hpp"
 
 namespace iideck::library {
 
-/// A system with ROMs here, standing for all of them on Home.
+/// A system with ROMs here, standing for all of them in Library.
 struct Console {
     /// ES-DE system name, the ROMs' `sourceId` ("gc").
     std::string system;
@@ -61,11 +63,13 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames>;
 /// One console per system with ROMs, in the known systems' order.
 [[nodiscard]] std::vector<Console> consoles(const std::vector<Game>& games);
 
-/// Home: one launcher per store that is not absent, Steam, Epic, GOG; the combined library when
-/// a store has games; one console per system with ROMs, in the known systems' order; then the
-/// store games installed here, a title installed in several stores once.
-[[nodiscard]] std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
-                                               const std::vector<SourceStatus>& sources);
+/// Home: the store games installed here, a title installed in several stores once.
+[[nodiscard]] std::vector<ShelfItem> homeShelf(const std::vector<Game>& games);
+
+/// Library: one launcher per store that is not absent, Steam, Epic, GOG; the combined library when
+/// a store has games; then one console per system with ROMs, in the known systems' order.
+[[nodiscard]] std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
+                                                  const std::vector<SourceStatus>& sources);
 
 /// One console's ROMs, in catalog order.
 [[nodiscard]] std::vector<ShelfItem> consoleShelf(const std::vector<Game>& games,
@@ -82,20 +86,32 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames>;
 [[nodiscard]] std::vector<ShelfItem> folderShelf(const std::vector<Game>& games,
                                                  const Folder& folder);
 
-/// Which shelf the grid shows: Home, or one folder.
+/// Which shelf the grid shows: a section's, or one folder's inside Library.
 class ShelfBrowser {
   public:
-    /// The shelf for the current place. A folder that has emptied returns to Home.
+    /// The shelf for the current place. A folder that has emptied returns to its section.
     [[nodiscard]] std::vector<ShelfItem> shelf(const std::vector<Game>& games,
                                                const std::vector<SourceStatus>& sources);
 
-    /// Opens a folder, remembering which Home slot had focus.
-    void open(const Folder& folder, std::size_t homeFocus);
+    /// Opens a folder, remembering which slot of the section's shelf had focus.
+    void open(const Folder& folder, std::size_t sectionFocus);
 
-    /// Returns to Home and gives the slot to focus there, or nothing when already Home.
+    /// Returns to the section's shelf and gives the slot to focus there, or nothing when no folder
+    /// is open.
     [[nodiscard]] std::optional<std::size_t> back();
 
-    /// The open folder, or nothing on Home.
+    /// Remembers `focus`, the grid's focus now, as where the active section is left.
+    void leave(std::size_t focus);
+
+    /// Moves `delta` sections along the dock, closing any folder; the result is the slot to focus
+    /// in the section arrived at, where it was last left.
+    [[nodiscard]] std::size_t cycle(int delta);
+
+    [[nodiscard]] Section section() const noexcept {
+        return sections_.active();
+    }
+
+    /// The open folder, or nothing at a section's top.
     [[nodiscard]] const std::optional<Folder>& folder() const noexcept {
         return folder_;
     }
@@ -106,8 +122,12 @@ class ShelfBrowser {
     }
 
   private:
+    Sections sections_;
     std::optional<Folder> folder_;
-    std::size_t homeFocus_{0};
+    /// The focus the open folder was entered from, in its section's shelf.
+    std::size_t parentFocus_{0};
+    /// Where each section was left, by `Section`.
+    std::array<std::size_t, allSections.size()> left_{};
 };
 
 } // namespace iideck::library

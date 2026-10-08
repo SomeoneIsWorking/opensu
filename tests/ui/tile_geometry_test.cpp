@@ -7,8 +7,20 @@
 
 namespace {
 
+using iideck::test::expect;
 using iideck::test::near;
 using iideck::ui::Rect;
+
+void outerForContent() {
+    for (const float side : {434.0f, 217.0f, 120.0f, 40.0f}) {
+        const Rect content{100.0f, 50.0f, side, side};
+        const Rect outer = iideck::ui::outerForContent(content);
+        const iideck::ui::TileGeometry geometry = iideck::ui::tileGeometry(outer, side);
+        near(geometry.content.x, content.x, "the content's left edge is the one asked for", 0.01);
+        near(geometry.content.width, content.width, "and its width", 0.01);
+        expect(outer.width > content.width, "the outer rectangle is the larger");
+    }
+}
 
 void cell200() {
     // home-grid.md §3.2's worked example.
@@ -80,13 +92,15 @@ void storeIcons() {
     near(two.badges[0].y, two.badges[1].y, "badges share a line");
 
     const iideck::ui::StoreIconRow many = iideck::ui::storeIconRow(content, 9);
-    iideck::test::expect(many.count == iideck::ui::maxStoreIcons, "a row holds one badge per store");
+    iideck::test::expect(many.count == iideck::ui::maxStoreIcons,
+                         "a row holds one badge per store");
     iideck::test::expect(many.badges[0].x > content.x, "the row stays on the tile");
 }
 
 } // namespace
 
 int main() {
+    outerForContent();
     cell200();
     smallTile();
     frame();

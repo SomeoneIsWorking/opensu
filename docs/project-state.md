@@ -11,8 +11,10 @@ ROMs have no home at all.
 Visible deltas from the baseline:
 
 - Epic games (Legendary) and the player's GOG library (iideck's own sign-in) sit in the
-  same grid as Steam; emulator ROMs sit behind one tile per console on Home, and each store
-  and the combined "All games" library behind a tile of its own.
+  same grid as Steam; emulator ROMs sit behind one tile per console in the Library section, and
+  each store and the combined "All games" library behind a tile of its own there.
+- A dock (Home, Library) switches sections with L1/R1; Library has Standard, XMB and Carousel
+  layouts, chosen with START and kept in the config dir.
 - Each launcher's state is a logo with a status dot in the top bar's left slot.
 - The title pill names the focused tile on Home too; iiSU shows it only inside sections.
 - A signed-out GOG or Epic tile opens that store's sign-in page in the default browser.
@@ -71,15 +73,16 @@ game's playtime was zeroed.
 
 ### S019 — UI sounds
 
-The seven iiSU effects that have an iideck event are fetched by range from the pinned APK's
-`assets/` into `<cache>/artwork/sound/` (about 0.9 MB, CRC checked, same worker as the cards) and
+The twelve iiSU effects that have an iideck event are fetched by range from the pinned APK's
+`assets/` into `<cache>/artwork/sound/` (about 1 MB, CRC checked, same worker as the cards) and
 played through raylib's audio device (`audio::SoundPlayer`). Always on; there is no volume or
 mute setting. Events (`input-sound.md` 3.4): Navigation on a D-pad focus move in the grid and the
 Guide menu; EnterConsolesApps on A opening a console, launcher or All games; ExitConsolesApps on B
-back to Home; OpenAppRom on a game launch; Open / Close on the install and licence panels
+back to Library; OpenAppRom on a game launch; Open / Close on the install and licence panels
 appearing and being dismissed; OpenContextMenu / Close on the Guide menu. Enter and Exit are dropped
-when the same effect fired under 91 ms ago. Page turns (L1/R1), X, Y and toasts are silent, as are
-the Domino cues: iiSU plays them on a tab switch and iideck has no tabs. Nothing plays while a game
+when the same effect fired under 91 ms ago. X, Y and toasts are silent. L1/R1 switch the dock's section and play the Domino cue for the
+destination's visible tile count (`audio::dominoFor`: 1, 2, 3-5, 6-11, 12+ tiles; the five
+OGGs are fetched with the rest). Nothing plays while a game
 runs except the Guide menu's sounds. Without an audio device the player logs one warning and is
 silent. Verified: the fetch against the real APK (all seven valid 44.1 kHz WAVs) and the headless
 render; unverified: audible playback on a device, and iiSU's 4-stream cap (a repeat of one effect
@@ -110,13 +113,38 @@ The battery comes from `device::BatteryReader` (sysfs, system scope only); the
 12/24-hour choice from the LC_TIME locale in `config`. The title pill (`jj2.c`)
 names the focused tile everywhere, Home included, where iiSU's Home shows none. There are no feature tiles or badges on game tiles.
 
-Home's shelf (`library::homeShelf`) is, in order: one launcher tile per store whose catalog
+The dock (`ui::DockPainter`, metrics `DockMetrics`, motion `DockVisibility`/`IconPop`,
+`navigation.md` 1.2-1.5, 4) is a bottom-centre glass capsule with Home and Library icons (iiSU's
+own nav drawables, taken from the pinned APK into `<cache>/artwork/nav/`) and LB/RB badges, in the
+variant matching the chrome (light). It is shown always on Home, and on Library for 1200 ms after
+L1/R1 with a 250 ms tween; it is not focusable. L1/R1 used to turn grid pages; they now cycle
+`library::Sections` (Home, Library, wrapping), each section remembering its focus. Page turns
+are D-pad only. The slide follows the dock capture (navigation.md 5.1): straight down while fading
+(FastOutLinearIn, 125 ms), back up from below (LinearOutSlowIn, 170 ms). The glass blurs the scene
+behind it with a real 8 dp Gaussian (`BackdropBlur`). Gap: the inner rim highlight is not drawn
+(its clip is unrecovered).
+
+Library's modes (`ui::section_view`, `rail_layout`, `rail_painter`; navigation.md 5): Standard is
+3 rows x 4 columns, column-major, paged horizontally ("Horizontal Mode"); the earlier single-row
+render came from stale persisted settings in the capture driver, not the layout. XMB: slots start at
+340.5 px of 1920, focused 434 px, others 217, gap 17; the left column shows the section icon
+recoloured with the focused console's border colours and a marker, and inside a console a 72 dp card
+for the console; the focused title sits right of the card (cap 25.8 dp, #4D4655 light, soft shadow).
+Carousel: focused item at 0.5 W (also the first), shared bottom edge at 918/1080, title centred at
+cap top 364/1080 (cap 12.9 dp), a marker under the focused game; the entrance fades the focused
+tile in 130 ms and its neighbours 170 ms later. Console cards sit 2 dp inside their slot, game cards
+fill it; only Standard draws the cyan-violet focus ring. START opens the chooser (`ModeChooser`);
+the choice is saved by `settings::Store`. Home is always the grid. Deviation: iideck opens the
+cards page directly from START; iiSU goes START, "Customize Platforms", header arrow, cards. The
+chooser lacks iiSU's options list below the cards. The title shadow numbers are a `// guess:`.
+
+Home's shelf (`library::homeShelf`) is the store games installed here, a title installed in
+several stores once. Library's shelf (`library::libraryShelf`) is, in order: one launcher tile per store whose catalog
 source is not absent (Steam, Epic, GOG: the badges' presence rule; a signed-out store keeps its
 tile, captioned "Sign in", and A on it opens the store's sign-in page in the default browser off the loop, `ShellApp::startSignIn`); an "All games" tile when any
-store has games; one console tile per system with ROMs, in `rom_systems` order; then the store
-games installed here, a title installed in several stores once. The stores come first so they
-sit in the first screen rather than behind eighteen consoles. Uninstalled store games are only
-inside the library pages, so Home does not carry hundreds of titles it cannot launch.
+store has games; one console tile per system with ROMs, in `rom_systems` order; 
+Uninstalled store games are only inside the library pages, so Home does not carry hundreds of
+titles it cannot launch.
 A console tile is
 iiSU's own card for it when the starter pack has one (below), drawn as the whole
 tile, cover-fit and clipped at the content radius: the card carries the glyph and
@@ -128,7 +156,7 @@ wide, at one name size so the typeface loads one face. A launcher tile is the sa
 card in the store's brand colours with its Simple Icons logo above the name and count;
 the All games tile is a violet card with a four-square library glyph. A opens a console,
 a launcher or All games (`library::ShelfBrowser`, `library::Folder`) on its games; B returns to
-Home with that tile focused. A launcher page holds the store's whole library, installed or
+Library with that tile focused. A launcher page holds the store's whole library, installed or
 not, in catalog order; All games holds every store game once. Titles are merged across
 stores by normalised title (`library::titles`: ASCII letters and digits lower-cased, "&" as
 "and", so "Hades" and "HADES™" are one; a title with no ASCII letters is never merged; a
@@ -206,7 +234,7 @@ Stopgaps, each marked in code:
   its spacing; the call site's arguments are unresolved.
 - `hx2.z`'s cross-flow fallback for multi-lane tiles is not ported; every home
   tile is 1x1.
-- Top bar: glass is the fill only (no blur, border or shadow); the `jj2.w` strip
+- Top bar: glass is the fill only (no border or shadow; the dock's glass has the blur); the `jj2.w` strip
   is not drawn; the bell is drawn at the progress ring's size; the status text row
   is centred after the bell; text ink is the icons' `#4D4655`.
 - Corner prompt panels: the right panel shows "A Select" without iiSU's "+ Menu",

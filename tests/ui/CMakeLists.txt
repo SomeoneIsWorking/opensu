@@ -1,11 +1,12 @@
-foreach(name home_layout grid_focus tile_motion tile_geometry)
+foreach(name home_layout grid_focus tile_motion tile_geometry rail_layout)
     add_executable(${name}_test ${name}_test.cpp)
     target_link_libraries(${name}_test PRIVATE iideck::grid)
     target_compile_options(${name}_test PRIVATE -Wall -Wextra -Wpedantic)
     add_test(NAME ${name} COMMAND ${name}_test)
 endforeach()
 
-foreach(name top_bar_metrics clock_text game_menu launch_panel)
+foreach(name top_bar_metrics clock_text game_menu launch_panel dock_metrics dock_motion
+             section_view mode_chooser icon_recolour)
     add_executable(${name}_test ${name}_test.cpp)
     target_link_libraries(${name}_test PRIVATE iideck::hud_model)
     target_compile_options(${name}_test PRIVATE -Wall -Wextra -Wpedantic)

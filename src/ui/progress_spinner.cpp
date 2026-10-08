@@ -4,6 +4,8 @@
 #include <cmath>
 #include <numbers>
 
+#include "tile_motion.hpp"
+
 namespace iideck::ui {
 namespace {
 
@@ -15,32 +17,7 @@ constexpr float baseRotationAngle = 286.0f;
 constexpr float jumpRotationAngle = 290.0f;
 constexpr float rotationAngleOffset = 216.0f;
 constexpr double headAndTailDuration = 0.666;
-// CircularEasing = CubicBezierEasing(0.4, 0, 0.2, 1).
-constexpr double easeX1 = 0.4;
-constexpr double easeY1 = 0.0;
-constexpr double easeX2 = 0.2;
-constexpr double easeY2 = 1.0;
 constexpr int segmentsPerTurn = 64;
-
-double bezier(double t, double p1, double p2) noexcept {
-    const double u = 1.0 - t;
-    return 3.0 * u * u * t * p1 + 3.0 * u * t * t * p2 + t * t * t;
-}
-
-/// The eased value of `x` in [0, 1]: the curve's y where its x is `x`.
-double circularEasing(double x) noexcept {
-    double low = 0.0;
-    double high = 1.0;
-    for (int i = 0; i < 40; ++i) {
-        const double mid = (low + high) * 0.5;
-        if (bezier(mid, easeX1, easeX2) < x) {
-            low = mid;
-        } else {
-            high = mid;
-        }
-    }
-    return bezier((low + high) * 0.5, easeY1, easeY2);
-}
 
 /// A keyframe pair: 0 until `delay`, eased up to the jump over the next half rotation.
 float headOrTail(double phase, double delay) noexcept {
@@ -51,7 +28,7 @@ float headOrTail(double phase, double delay) noexcept {
     if (x >= 1.0) {
         return jumpRotationAngle;
     }
-    return static_cast<float>(circularEasing(x)) * jumpRotationAngle;
+    return static_cast<float>(motion::fastOutSlowIn(x)) * jumpRotationAngle;
 }
 
 } // namespace

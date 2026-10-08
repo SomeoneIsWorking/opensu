@@ -13,11 +13,13 @@
 #include <unistd.h>
 #include <utility>
 
+#include "artwork/iisu_assets.hpp"
 #include "config/config.hpp"
 #include "launcher_status.hpp"
 #include "library/titles.hpp"
 #include "lucent/log.h"
 #include "ui/clock_text.hpp"
+#include "ui/section_view.hpp"
 
 namespace iideck::app {
 namespace {
@@ -34,6 +36,19 @@ std::string describe(const library::Game& game) {
     return out.str();
 }
 
+/// The APK files iideck keeps: every UI sound and the dock's icons.
+std::vector<artwork::ApkAsset> iisuAssets() {
+    std::vector<artwork::ApkAsset> assets;
+    assets.reserve(audio::allEffects.size() + artwork::allNavIcons.size());
+    for (const audio::Effect effect : audio::allEffects) {
+        assets.push_back(artwork::soundAsset(effect));
+    }
+    for (const artwork::NavIcon icon : artwork::allNavIcons) {
+        assets.push_back(artwork::navAsset(icon));
+    }
+    return assets;
+}
+
 } // namespace
 
 ShellApp::ShellApp(Settings settings)
@@ -46,6 +61,8 @@ ShellApp::ShellApp(Settings settings)
       handoff_{config::read().executablePath, config::read().session, steam_, gameWindows_.get()},
       signIn_{StoreSignIn::Options{.dataDir = config::read().dataDir}} {
     refreshClock();
+    preferences_ = settingsStore_.load();
+    shell_.setLibraryMode(preferences_.libraryMode);
 }
 
 void ShellApp::flipVertical(Image& image) {
@@ -67,7 +84,8 @@ void ShellApp::reloadCatalog() {
     sources_ = std::move(snapshot.sources);
     artworkStore_.apply(games_);
     const std::vector<library::Console> consoles = library::consoles(games_);
-    artworkFetcher_.request(games_, consoles, {audio::allEffects.begin(), audio::allEffects.end()});
+    artworkFetcher_.request(games_, consoles, iisuAssets());
+    loadStoredNavIcons();
     for (const library::Console& console : consoles) {
         const std::filesystem::path glyph = artworkStore_.storedGlyph(console.system);
         if (!glyph.empty()) {
@@ -100,12 +118,38 @@ void ShellApp::showShelf(std::size_t focus) {
     std::vector<library::ShelfItem> shelf = browser_.shelf(games_, sources_);
     artworkStore_.apply(shelf);
     shell_.setShelf(std::move(shelf), focus);
+    shell_.setHeader(folderCard());
+}
+
+std::optional<library::ShelfItem> ShellApp::folderCard() const {
+    const std::optional<library::Folder> folder = browser_.folder();
+    if (!folder) {
+        return std::nullopt;
+    }
+    std::vector<library::ShelfItem> card{std::visit(
+        [](const auto& opened) {
+            return library::ShelfItem{opened};
+        },
+        *folder)};
+    artworkStore_.apply(card);
+    return std::move(card.front());
 }
 
 void ShellApp::loadStoredSounds() {
     for (const audio::Effect effect : audio::allEffects) {
-        if (const std::filesystem::path file = artworkStore_.storedSound(effect); !file.empty()) {
+        if (const std::filesystem::path file =
+                artworkStore_.storedAsset(artwork::soundAsset(effect));
+            !file.empty()) {
             sounds_.load(effect, file);
+        }
+    }
+}
+
+void ShellApp::loadStoredNavIcons() {
+    for (const artwork::NavIcon icon : artwork::allNavIcons) {
+        if (const std::filesystem::path file = artworkStore_.storedAsset(artwork::navAsset(icon));
+            !file.empty()) {
+            shell_.setNavIcon(icon.section, icon.selected, file);
         }
     }
 }
@@ -115,6 +159,12 @@ void ShellApp::serviceArtwork() {
         if (fetched.kind == artwork::Fetched::Kind::Sound) {
             if (const std::optional<audio::Effect> effect = audio::effectOfFile(fetched.id)) {
                 sounds_.load(*effect, fetched.artwork);
+            }
+            continue;
+        }
+        if (fetched.kind == artwork::Fetched::Kind::NavIcon) {
+            if (const std::optional<artwork::NavIcon> icon = artwork::navIconOfFile(fetched.id)) {
+                shell_.setNavIcon(icon->section, icon->selected, fetched.artwork);
             }
             continue;
         }
@@ -200,14 +250,23 @@ void ShellApp::handleKeyboard() {
         gamepad::Button button;
     };
     static constexpr Binding kBindings[]{
-        {KEY_UP, gamepad::Button::Up},       {KEY_W, gamepad::Button::Up},
-        {KEY_DOWN, gamepad::Button::Down},   {KEY_S, gamepad::Button::Down},
-        {KEY_LEFT, gamepad::Button::Left},   {KEY_A, gamepad::Button::Left},
-        {KEY_RIGHT, gamepad::Button::Right}, {KEY_D, gamepad::Button::Right},
-        {KEY_ENTER, gamepad::Button::A},     {KEY_SPACE, gamepad::Button::A},
-        {KEY_Y, gamepad::Button::Y},         {KEY_R, gamepad::Button::R1},
-        {KEY_F, gamepad::Button::X},         {KEY_LEFT_BRACKET, gamepad::Button::L1},
-        {KEY_E, gamepad::Button::Start},     {KEY_ESCAPE, gamepad::Button::B},
+        {KEY_UP, gamepad::Button::Up},
+        {KEY_W, gamepad::Button::Up},
+        {KEY_DOWN, gamepad::Button::Down},
+        {KEY_S, gamepad::Button::Down},
+        {KEY_LEFT, gamepad::Button::Left},
+        {KEY_A, gamepad::Button::Left},
+        {KEY_RIGHT, gamepad::Button::Right},
+        {KEY_D, gamepad::Button::Right},
+        {KEY_ENTER, gamepad::Button::A},
+        {KEY_SPACE, gamepad::Button::A},
+        {KEY_Y, gamepad::Button::Y},
+        {KEY_R, gamepad::Button::R1},
+        {KEY_F, gamepad::Button::X},
+        {KEY_LEFT_BRACKET, gamepad::Button::L1},
+        {KEY_E, gamepad::Button::Start},
+        {KEY_ESCAPE, gamepad::Button::B},
+        {KEY_RIGHT_BRACKET, gamepad::Button::R1},
     };
 
     // Keys report edges like a pad's buttons, so held arrows repeat on the pad's schedule rather
@@ -250,6 +309,10 @@ void ShellApp::actOn(gamepad::Button button) {
         actOnPanel(button);
         return;
     }
+    if (shell_.modeChooser().isOpen()) {
+        actOnModeChooser(button);
+        return;
+    }
     switch (button) {
     case gamepad::Button::Up:
         moveFocus(ui::Direction::Up);
@@ -280,14 +343,17 @@ void ShellApp::actOn(gamepad::Button button) {
         shell_.setToast("library refreshed");
         break;
     case gamepad::Button::L1:
-        // iiSU's L1/R1 cycle sections; iideck has none, so they turn WiiSu pages.
-        shell_.movePage(-1);
+        cycleSection(-1);
         break;
     case gamepad::Button::R1:
-        shell_.movePage(1);
+        cycleSection(1);
         break;
     case gamepad::Button::Start:
-        shell_.resetFocus();
+        if (browser_.section() == library::Section::Library) {
+            openModeChooser();
+        } else {
+            shell_.resetFocus();
+        }
         break;
     case gamepad::Button::B:
         if (const std::optional<std::size_t> focus = browser_.back()) {
@@ -306,6 +372,64 @@ void ShellApp::moveFocus(ui::Direction direction) {
     // input-sound.md 3.4 Navigation: a D-pad focus move in the home grid.
     if (shell_.moveFocus(direction)) {
         sounds_.play(audio::Effect::Navigation);
+    }
+}
+
+void ShellApp::cycleSection(int delta) {
+    browser_.leave(shell_.focusIndex());
+    const std::size_t focus = browser_.cycle(delta);
+    shell_.setSection(browser_.section(), true);
+    showShelf(focus);
+    // input-sound.md 3.3 (`dg3.a`): the cue is sized by how many tiles the section shows at once.
+    const std::size_t visible =
+        ui::visibleTiles(browser_.section(), preferences_.libraryMode, shell_.tiles().size());
+    if (const std::optional<audio::Effect> cue = audio::dominoFor(visible)) {
+        sounds_.play(*cue);
+    }
+}
+
+void ShellApp::openModeChooser() {
+    // input-sound.md 3.4 Open: a panel appears.
+    sounds_.play(audio::Effect::Open);
+    shell_.modeChooser().open(preferences_.libraryMode);
+}
+
+void ShellApp::actOnModeChooser(gamepad::Button button) {
+    ui::ModeChooser& chooser = shell_.modeChooser();
+    switch (button) {
+    case gamepad::Button::Left:
+    case gamepad::Button::Right:
+        // input-sound.md 3.4 Navigation: a focus move in a list.
+        if (chooser.move(button == gamepad::Button::Left ? -1 : 1)) {
+            sounds_.play(audio::Effect::Navigation);
+        }
+        break;
+    case gamepad::Button::A:
+        chooseLibraryMode(chooser.focused());
+        // input-sound.md 3.4 Close: the player dismisses a panel.
+        sounds_.play(audio::Effect::Close);
+        chooser.close();
+        break;
+    case gamepad::Button::B:
+        sounds_.play(audio::Effect::Close);
+        chooser.close();
+        break;
+    default:
+        break;
+    }
+}
+
+void ShellApp::chooseLibraryMode(library::LibraryMode mode) {
+    if (mode == preferences_.libraryMode) {
+        return;
+    }
+    preferences_.libraryMode = mode;
+    shell_.setLibraryMode(mode);
+    showShelf(shell_.focusIndex());
+    std::string error;
+    if (!settingsStore_.save(preferences_, error)) {
+        lucent::error("settings", "{}", error);
+        shell_.setToast("cannot keep the layout: " + error, true);
     }
 }
 
@@ -622,9 +746,7 @@ bool ShellApp::renderFrameToPng(std::string& png) {
         return false;
     }
 
-    BeginTextureMode(target);
-    shell_.draw();
-    EndTextureMode();
+    shell_.draw(&target);
 
     // A render texture has OpenGL's bottom-up origin, so the exported image is
     // the frame upside down. Flipping the rows here keeps draw() identical
@@ -731,7 +853,10 @@ void ShellApp::publishSnapshot() {
                              : library::key(*folder);
     }
     next.focusedTitle = shell_.focusedTitle();
-    next.shelf = browser_.folder() ? library::key(*browser_.folder()) : "home";
+    next.section = std::string{library::key(browser_.section())};
+    next.libraryMode = std::string{library::key(preferences_.libraryMode)};
+    next.modeChooserOpen = shell_.modeChooser().isOpen();
+    next.shelf = browser_.folder() ? library::key(*browser_.folder()) : next.section;
     next.focusIndex = shell_.focusIndex();
     next.page = static_cast<std::size_t>(std::max(shell_.page(), 0));
     next.pageCount = static_cast<std::size_t>(std::max(shell_.pageCount(), 1));
@@ -919,7 +1044,7 @@ int ShellApp::run() {
         serviceArtwork();
         shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
         // iiSU's Home has no title (pl3.q); iideck's names the focused tile everywhere.
-        shell_.setTitle(shell_.focusedTitle());
+        shell_.setTitle(shell_.pillTitle());
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
         shell_.draw();

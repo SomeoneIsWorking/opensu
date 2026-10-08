@@ -56,6 +56,10 @@ struct Config {
     /// `~/.local/share/iideck`.
     std::filesystem::path dataDir;
 
+    /// iideck's settings, which the player's choices are saved in: `$XDG_CONFIG_HOME/iideck`, else
+    /// `~/.config/iideck`.
+    std::filesystem::path configDir;
+
     /// The home grid's dashboard mode, from IIDECK_HOME_MODE (`standard` or `wiisu`).
     HomeMode homeMode{HomeMode::Standard};
 

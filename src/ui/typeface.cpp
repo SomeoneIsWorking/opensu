@@ -80,6 +80,7 @@ Typeface::Typeface()
             path_ = path;
             custom_ = true;
             lineBoxPerEm_ = metrics->lineBoxPerEm();
+            ascentShare_ = metrics->ascent / (metrics->ascent - metrics->descent);
             lucent::info("ui", "typeface loaded from {}", path);
             return;
         }
@@ -166,6 +167,13 @@ void Typeface::drawCentred(std::string_view text, float x, float centreY, const 
         DrawTextCodepoint(font, codepoint, {pen, top}, box, colour);
         pen += MeasureTextCodepoints(font, &codepoint, 1, box, 0.0f).x + tracking;
     });
+}
+
+void Typeface::drawFromCapTop(std::string_view text, Vector2 origin, const TextStyle& style,
+                              Color colour) {
+    const float box = lineBox(style);
+    const float baseline = origin.y + capHeightPerEm * style.size;
+    drawCentred(text, origin.x, baseline - box * ascentShare_ + box * 0.5f, style, colour);
 }
 
 Typeface& type() {

@@ -1,0 +1,6 @@
+add_executable(settings_test settings_test.cpp)
+target_link_libraries(settings_test PRIVATE iideck::settings lucent::lucent)
+target_include_directories(settings_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(settings_test PRIVATE IIDECK_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+target_compile_options(settings_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME settings COMMAND settings_test)

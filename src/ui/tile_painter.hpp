@@ -46,6 +46,9 @@ struct TileVisual {
     float scale{1.0f};
     float alpha{1.0f};
     bool focused{false};
+    /// Whether the focused tile carries iiSU's cyan to violet selection ring: the grid's does, an
+    /// XMB's and a Carousel's do not (navigation.md §5.3).
+    bool selectionRing{true};
     /// An empty slot: chrome only.
     bool placeholder{false};
     /// Dark or light chrome (iiSU ya0.e).

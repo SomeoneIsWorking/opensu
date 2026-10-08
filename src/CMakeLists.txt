@@ -7,6 +7,8 @@
 
 add_subdirectory(vdf)
 add_subdirectory(config)
+add_subdirectory(fileio)
+add_subdirectory(settings)
 add_subdirectory(net)
 add_subdirectory(audio)
 add_subdirectory(library)

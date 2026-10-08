@@ -58,6 +58,17 @@ int main(int argc, char** argv) {
         std::printf("config: all checks passed\n");
         return 0;
     }
+    if (which == "config-dir") {
+        expect(config.configDir == "/xdg-config/iideck", "XDG_CONFIG_HOME holds iideck's settings");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
+    if (which == "config-dir-default") {
+        expect(config.configDir == config.home / ".config" / "iideck",
+               "iideck's settings default to ~/.config/iideck");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
     using iideck::config::HomeMode;
     if (which == "home-default" || which == "home-invalid") {
         expect(config.homeMode == HomeMode::Standard, "an unset or unknown home mode is Standard");

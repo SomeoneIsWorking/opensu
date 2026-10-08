@@ -31,6 +31,7 @@
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
 #include "library/shelf.hpp"
+#include "settings/settings.hpp"
 #include "sign_in.hpp"
 #include "steam/client.hpp"
 #include "ui/shell.hpp"
@@ -115,6 +116,17 @@ class ShellApp final : public ControlTarget {
     void openPanel(const std::string& title);
     /// Hides the launch panel the player dismissed, with iiSU's Close sound.
     void closePanel();
+    /// L1 and R1: moves `delta` sections along the dock and shows the section's shelf, with iiSU's
+    /// domino cue sized by what the section shows at once.
+    void cycleSection(int delta);
+    /// START on Library: asks which layout Library uses.
+    void openModeChooser();
+    /// Buttons while the layout picker is up: it takes them all. Main loop only.
+    void actOnModeChooser(gamepad::Button button);
+    /// Makes `mode` Library's layout and keeps it for the next run.
+    void chooseLibraryMode(library::LibraryMode mode);
+    /// Gives the shell the dock icons the store holds. Needs no GL context.
+    void loadStoredNavIcons();
     void launchFocused();
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
@@ -131,6 +143,8 @@ class ShellApp final : public ControlTarget {
     void presentEula();
     /// Shows the shelf the browser is on, focusing `focus`.
     void showShelf(std::size_t focus);
+    /// The folder open now as the tile that stands for it, or nothing in a section.
+    [[nodiscard]] std::optional<library::ShelfItem> folderCard() const;
     /// Shows artwork and loads sounds the fetcher has downloaded. Main loop only.
     void serviceArtwork();
     /// Loads every UI sound the store holds. Main loop only, once the audio device is open.
@@ -160,6 +174,9 @@ class ShellApp final : public ControlTarget {
     /// When the clock next changes, on the minute boundary.
     std::chrono::steady_clock::time_point nextClockTick_{};
     ui::Shell shell_;
+    /// What the player chose, read at start and saved when it changes.
+    settings::Store settingsStore_{config::read().configDir / "settings.json"};
+    settings::Settings preferences_;
     gamepad::Pads pads_;
     /// Held directions, from a pad or the keyboard, repeat on one schedule.
     gamepad::DirectionRepeat repeat_;

@@ -32,7 +32,13 @@ struct ShellSnapshot {
     std::size_t pageCount{1};
     std::string focusedId;
     std::string focusedTitle;
-    /// "home", or the open console's system.
+    /// The section on screen, "home" or "library".
+    std::string section{"home"};
+    /// How Library lays out its tiles: "standard", "xmb" or "carousel".
+    std::string libraryMode{"standard"};
+    /// Whether the Library layout picker is up.
+    bool modeChooserOpen{false};
+    /// The open folder's key, else the section's.
     std::string shelf{"home"};
     std::string status;
     std::string toast;

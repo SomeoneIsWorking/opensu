@@ -1,0 +1,5 @@
+add_library(iideck_fileio STATIC atomic_write.cpp)
+add_library(iideck::fileio ALIAS iideck_fileio)
+target_include_directories(iideck_fileio PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_compile_features(iideck_fileio PUBLIC cxx_std_20)
+target_compile_options(iideck_fileio PRIVATE -Wall -Wextra -Wpedantic)

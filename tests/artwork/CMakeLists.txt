@@ -18,3 +18,9 @@ target_link_libraries(starter_pack_test PRIVATE iideck::artwork ZLIB::ZLIB PkgCo
                                                 lucent::lucent Threads::Threads)
 target_compile_options(starter_pack_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME starter_pack COMMAND starter_pack_test)
+
+add_executable(iisu_assets_test iisu_assets_test.cpp)
+target_link_libraries(iisu_assets_test PRIVATE iideck::artwork)
+target_include_directories(iisu_assets_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(iisu_assets_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME iisu_assets COMMAND iisu_assets_test)

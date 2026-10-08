@@ -19,13 +19,33 @@ void filesRoundTrip() {
     std::set<std::string> seen;
     for (const Effect effect : iideck::audio::allEffects) {
         const std::string_view file = iideck::audio::assetFile(effect);
-        expect(file.ends_with(".wav"), "every effect is a WAV");
+        expect(file.ends_with(".wav") ||
+                   (file.starts_with("domino_icons") && file.ends_with(".ogg")),
+               "every effect is a WAV, or a domino cue's OGG");
         expect(iideck::audio::effectOfFile(file) == effect, "a file names its effect back");
         expect(seen.insert(std::string{file}).second, "no two effects share a file");
     }
     expect(iideck::audio::assetFile(Effect::EnterConsolesApps) == "Enter ConsolesApps.wav",
            "the APK's name keeps its space");
     expect(!iideck::audio::effectOfFile("Friends Tab.wav"), "an effect iideck lacks is nothing");
+}
+
+void dominoCueSizes() {
+    // xp8.a: 1 and 2 have their own cues, 3 to 5, 6 to 11 and 12 or more share one each.
+    expect(!iideck::audio::dominoFor(0), "no tiles, no cue: domino_icons.ogg is unreachable");
+    expect(iideck::audio::dominoFor(1) == Effect::DominoOne, "one tile");
+    expect(iideck::audio::dominoFor(2) == Effect::DominoTwo, "two tiles");
+    for (const std::size_t tiles : {3U, 4U, 5U}) {
+        expect(iideck::audio::dominoFor(tiles) == Effect::DominoThreeToFive, "three to five");
+    }
+    for (const std::size_t tiles : {6U, 8U, 11U}) {
+        expect(iideck::audio::dominoFor(tiles) == Effect::DominoSixToEleven, "six to eleven");
+    }
+    for (const std::size_t tiles : {12U, 13U, 100U}) {
+        expect(iideck::audio::dominoFor(tiles) == Effect::DominoTwelvePlus, "twelve or more");
+    }
+    expect(iideck::audio::assetFile(Effect::DominoThreeToFive) == "domino_icons_0_5.ogg",
+           "the 3 to 5 cue is iiSU's _0_5 file");
 }
 
 void consoleEffectsDebounce() {
@@ -38,6 +58,10 @@ void consoleEffectsDebounce() {
            "a dropped one does not restart the window");
     expect(debounce.admit(Effect::EnterConsolesApps, start + milliseconds{91}),
            "91 ms after the last played one plays");
+    expect(debounce.admit(Effect::DominoTwo, start) &&
+               !debounce.admit(Effect::DominoTwo, start + milliseconds{90}) &&
+               debounce.admit(Effect::DominoTwo, start + milliseconds{91}),
+           "every domino cue debounces at 91 ms");
     expect(debounce.admit(Effect::ExitConsolesApps, start + milliseconds{92}),
            "another effect has its own window");
     expect(!debounce.admit(Effect::ExitConsolesApps, start + milliseconds{100}),
@@ -58,6 +82,7 @@ void otherEffectsDoNot() {
 
 int main() {
     filesRoundTrip();
+    dominoCueSizes();
     consoleEffectsDebounce();
     otherEffectsDoNot();
     std::printf("effect: all checks passed\n");

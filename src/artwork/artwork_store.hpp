@@ -4,7 +4,8 @@
 // Layout under the root: steam/<appid>.jpg, rom/<system>/<thumbnail name>.png,
 // console/<system>.png, glyph/<system>.png for a console's white frame glyph, a `.miss` file
 // beside any that the source does not have, libretro/<system>.txt for a listing and
-// iisu/<pack> for iiSU's starter pack and sound/<file>.wav for a UI sound.
+// iisu/<pack> for iiSU's starter pack, and sound/<file> and nav/<file> for an APK asset: a UI
+// sound, a dock icon.
 #pragma once
 
 #include <chrono>
@@ -14,7 +15,7 @@
 #include <string_view>
 #include <vector>
 
-#include "audio/effect.hpp"
+#include "iisu_assets.hpp"
 #include "library/shelf.hpp"
 
 namespace iideck::artwork {
@@ -42,11 +43,11 @@ class ArtworkStore {
     /// A system's glyph file when it is stored, else empty.
     [[nodiscard]] std::filesystem::path storedGlyph(std::string_view system) const;
 
-    /// The file a UI sound is kept in.
-    [[nodiscard]] std::filesystem::path soundPath(audio::Effect effect) const;
+    /// The file an APK asset (a UI sound, a dock icon) is kept in.
+    [[nodiscard]] std::filesystem::path assetPath(const ApkAsset& asset) const;
 
-    /// An effect's file when it is stored, else empty.
-    [[nodiscard]] std::filesystem::path storedSound(audio::Effect effect) const;
+    /// An asset's file when it is stored, else empty.
+    [[nodiscard]] std::filesystem::path storedAsset(const ApkAsset& asset) const;
 
     /// Where the starter pack named `name` is kept.
     [[nodiscard]] std::filesystem::path packPath(std::string_view name) const;
@@ -72,13 +73,13 @@ class ArtworkStore {
     bool save(const library::Console& console, std::string_view bytes, std::string& error) const;
     /// Keeps a system's frame glyph.
     bool saveGlyph(std::string_view system, std::string_view bytes, std::string& error) const;
-    /// Whether to ask a source for an effect's file: it is not stored and not missed within
-    /// `missLifetime` of `now`.
-    [[nodiscard]] bool wantedSound(audio::Effect effect, Clock::time_point now) const;
+    /// Whether to ask the APK for an asset: it is not stored and not missed within `missLifetime`
+    /// of `now`.
+    [[nodiscard]] bool wantedAsset(const ApkAsset& asset, Clock::time_point now) const;
 
-    /// Keeps an effect's WAV.
-    bool saveSound(audio::Effect effect, std::string_view bytes, std::string& error) const;
-    void recordSoundMiss(audio::Effect effect) const;
+    /// Keeps an asset as the APK holds it.
+    bool saveAsset(const ApkAsset& asset, std::string_view bytes, std::string& error) const;
+    void recordAssetMiss(const ApkAsset& asset) const;
 
     /// Keeps the starter pack named `name`.
     bool savePack(std::string_view name, std::string_view bytes, std::string& error) const;

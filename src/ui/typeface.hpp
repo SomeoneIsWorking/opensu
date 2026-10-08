@@ -49,6 +49,12 @@ class Typeface {
     void drawCentred(std::string_view text, float x, float centreY, const TextStyle& style,
                      Color colour);
 
+    /// Cal Sans's capital height as a share of the em (navigation.md §5.3).
+    static constexpr float capHeightPerEm = 0.70f;
+    /// Draws a label from `origin.x` with the tops of its capitals at `origin.y`.
+    void drawFromCapTop(std::string_view text, Vector2 origin, const TextStyle& style,
+                        Color colour);
+
   private:
     struct Entry {
         Font font{};
@@ -64,6 +70,8 @@ class Typeface {
     bool custom_{false};
     /// stb_truetype's line box per em for the loaded face; 1 for the built-in font.
     float lineBoxPerEm_{1.0f};
+    /// The baseline's depth in the line box, as a share of it; hhea ascender over its height.
+    float ascentShare_{0.8f};
     static constexpr int probeSize = 16;
     static constexpr int entries_ = 16;
     Entry* cache_{};

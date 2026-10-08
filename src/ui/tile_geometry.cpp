@@ -53,6 +53,17 @@ TileGeometry tileGeometry(const Rect& rect, float cell) noexcept {
     return out;
 }
 
+Rect outerForContent(const Rect& content) noexcept {
+    // The chrome's width depends on the size it surrounds, so the answer is found by iterating; the
+    // width is capped, and the iteration settles at once for any tile but a tiny one.
+    Rect outer = content;
+    for (int pass = 0; pass < 4; ++pass) {
+        outer =
+            inset(content, -tileGeometry(outer, std::min(outer.width, outer.height)).frameWidth);
+    }
+    return outer;
+}
+
 FrameGeometry frameGeometry(const Rect& rect) noexcept {
     const float side = std::min(rect.width, rect.height);
     const float scale = side / spriteSize;
@@ -77,7 +88,8 @@ StoreIconRow storeIconRow(const Rect& content, std::size_t count) noexcept {
     const float y = content.bottom() - margin - badge;
     for (std::size_t i = 0; i < row.count; ++i) {
         const float fromCorner = static_cast<float>(row.count - 1 - i);
-        row.badges[i] = Rect{content.right() - margin - badge - fromCorner * pitch, y, badge, badge};
+        row.badges[i] =
+            Rect{content.right() - margin - badge - fromCorner * pitch, y, badge, badge};
     }
     return row;
 }

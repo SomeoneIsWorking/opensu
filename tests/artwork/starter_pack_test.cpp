@@ -25,12 +25,15 @@ namespace {
 
 namespace fs = std::filesystem;
 using iideck::artwork::ApkArchive;
+using iideck::artwork::ApkAsset;
 using iideck::artwork::ApkFile;
 using iideck::artwork::ArtworkFetcher;
 using iideck::artwork::ArtworkStore;
 using iideck::artwork::ConsoleGlyphs;
 using iideck::artwork::Fetched;
+using iideck::artwork::navAsset;
 using iideck::artwork::PackPin;
+using iideck::artwork::soundAsset;
 using iideck::artwork::StarterPack;
 using iideck::artwork::fixture::buildZip;
 using iideck::artwork::fixture::crcOf;
@@ -38,6 +41,7 @@ using iideck::artwork::fixture::FixtureEntry;
 using iideck::artwork::fixture::RangeServer;
 using iideck::audio::Effect;
 using iideck::library::Console;
+using iideck::library::Section;
 using iideck::library::ShelfItem;
 using iideck::net::WebClient;
 
@@ -50,6 +54,8 @@ constexpr std::string_view borderPack =
     R"({"console": "snes", "border": "SNES.png", "logo": "logo_SNES.png"}]})";
 constexpr std::string_view navigationWav = "RIFF navigation click";
 constexpr std::string_view openWav = "RIFF open";
+constexpr std::string_view domeOgg = "OggS domino cue";
+constexpr std::string_view homePng = "\x89PNG\r\n\x1a\n the Home icon";
 constexpr std::string_view gcGlyph = "\x89PNG\r\n\x1a\n glyph of the GameCube";
 
 void expect(bool condition, const char* what) {
@@ -93,6 +99,8 @@ Release release(int fillerEntries, std::optional<std::uint32_t> packCrc = {}) {
     entries.push_back({"assets/borders/logo_gc.png", std::string{gcGlyph}, false, {}});
     entries.push_back({"assets/Navigation.wav", std::string{navigationWav}, false, {}});
     entries.push_back({"assets/Open.wav", std::string{openWav}, true, {}});
+    entries.push_back({"assets/domino_icons_2.ogg", std::string{domeOgg}, false, {}});
+    entries.push_back({"res/TG.png", std::string{homePng}, false, {}});
     entries.push_back({"classes.dex", std::string(2 * 1024 * 1024, 'd'), false, {}});
     for (int i = 0; i < fillerEntries; ++i) {
         entries.push_back(
@@ -212,7 +220,10 @@ void testFetcher(const fs::path& root) {
     {
         ArtworkFetcher fetcher{store,
                                {server.base(), server.base(), server.base() + "/apk", served.pin}};
-        fetcher.request({}, {gc, ps4, snes}, {Effect::Navigation, Effect::Open, Effect::Close});
+        fetcher.request({}, {gc, ps4, snes},
+                        {soundAsset(Effect::Navigation), soundAsset(Effect::Open),
+                         soundAsset(Effect::Close), soundAsset(Effect::DominoTwo),
+                         navAsset({Section::Home, false}), navAsset({Section::Home, true})});
         for (int i = 0; i < 500 && !(fetcher.idle() && i > 0); ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds{10});
         }
@@ -222,11 +233,13 @@ void testFetcher(const fs::path& root) {
                 return one.kind == kind && one.id == id;
             });
         };
-        expect(fetched.size() == 4 && arrived(Fetched::Kind::Console, "gc") &&
+        expect(fetched.size() == 6 && arrived(Fetched::Kind::Console, "gc") &&
                    arrived(Fetched::Kind::Glyph, "gc") &&
                    arrived(Fetched::Kind::Sound, "Navigation.wav") &&
-                   arrived(Fetched::Kind::Sound, "Open.wav"),
-               "the GameCube card and glyph and the APK's two sounds arrive");
+                   arrived(Fetched::Kind::Sound, "Open.wav") &&
+                   arrived(Fetched::Kind::Sound, "domino_icons_2.ogg") &&
+                   arrived(Fetched::Kind::NavIcon, "home.png"),
+               "the GameCube card and glyph, the APK's sounds and the Home icon arrive");
     }
     expect(read(store.glyphPath("gc")) == gcGlyph, "the glyph is in the store as shipped");
     expect(fs::exists(store.glyphPath("ps4").string() + ".miss") &&
@@ -237,16 +250,27 @@ void testFetcher(const fs::path& root) {
            "neither a kept glyph nor a recent miss is asked for again");
     expect(store.storedGlyph("gc") == store.glyphPath("gc") && store.storedGlyph("ps4").empty(),
            "a stored glyph is found on the next start");
-    expect(read(store.soundPath(Effect::Navigation)) == navigationWav &&
-               read(store.soundPath(Effect::Open)) == openWav,
+    const ApkAsset navigation = soundAsset(Effect::Navigation);
+    const ApkAsset open = soundAsset(Effect::Open);
+    const ApkAsset close = soundAsset(Effect::Close);
+    expect(read(store.assetPath(navigation)) == navigationWav &&
+               read(store.assetPath(open)) == openWav &&
+               read(store.assetPath(soundAsset(Effect::DominoTwo))) == domeOgg,
            "a sound lands in the store as the APK holds it, stored or deflated");
-    expect(fs::exists(store.soundPath(Effect::Close).string() + ".miss") &&
-               store.storedSound(Effect::Close).empty() &&
-               store.storedSound(Effect::Open) == store.soundPath(Effect::Open),
+    expect(fs::exists(store.assetPath(close).string() + ".miss") &&
+               store.storedAsset(close).empty() && store.storedAsset(open) == store.assetPath(open),
            "a sound the APK lacks is a miss; a kept one is found on the next start");
-    expect(!store.wantedSound(Effect::Navigation, ArtworkStore::Clock::now()) &&
-               !store.wantedSound(Effect::Close, ArtworkStore::Clock::now()),
+    expect(!store.wantedAsset(navigation, ArtworkStore::Clock::now()) &&
+               !store.wantedAsset(close, ArtworkStore::Clock::now()),
            "neither a kept sound nor a recent miss is asked for again");
+    const ApkAsset home = navAsset({Section::Home, false});
+    const ApkAsset homeSelected = navAsset({Section::Home, true});
+    expect(read(store.assetPath(home)) == homePng &&
+               store.assetPath(home) == root / "nav" / "home.png",
+           "a dock icon lands under nav/ as the APK holds it");
+    expect(fs::exists(store.assetPath(homeSelected).string() + ".miss") &&
+               !store.wantedAsset(homeSelected, ArtworkStore::Clock::now()),
+           "an icon the APK lacks is a miss");
     expect(isPngOfCardSize(read(store.pathFor(gc))), "the card is in the store as a PNG");
     expect(fs::exists(store.pathFor(ps4).string() + ".miss"), "a system without a card is a miss");
     const auto now = ArtworkStore::Clock::now();
@@ -266,13 +290,14 @@ void testUnreachable(const fs::path& root) {
     ArtworkFetcher fetcher{
         store,
         {"http://127.0.0.1:9", "http://127.0.0.1:9", "http://127.0.0.1:9/apk", release(0).pin}};
-    fetcher.request({}, {gc}, {Effect::Navigation});
+    fetcher.request({}, {gc}, {soundAsset(Effect::Navigation), navAsset({Section::Home, false})});
     for (int i = 0; i < 500 && !(fetcher.idle() && i > 0); ++i) {
         std::this_thread::sleep_for(std::chrono::milliseconds{10});
     }
     expect(fetcher.take().empty(), "nothing arrives when the APK cannot be reached");
     expect(!fs::exists(store.pathFor(gc).string() + ".miss") &&
-               !fs::exists(store.soundPath(Effect::Navigation).string() + ".miss"),
+               !fs::exists(store.assetPath(soundAsset(Effect::Navigation)).string() + ".miss") &&
+               !fs::exists(store.assetPath(navAsset({Section::Home, false})).string() + ".miss"),
            "an unreachable APK is not a miss, so the next run asks again");
 }
 

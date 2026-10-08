@@ -9,8 +9,6 @@
 namespace iideck::artwork {
 namespace {
 
-constexpr std::string_view apkAssetDirectory = "assets/";
-
 bool isNotFound(const std::string& error) {
     return error == "HTTP 404";
 }
@@ -32,12 +30,12 @@ ArtworkFetcher::~ArtworkFetcher() {
 
 void ArtworkFetcher::request(const std::vector<library::Game>& games,
                              const std::vector<library::Console>& consoles,
-                             const std::vector<audio::Effect>& sounds) {
+                             const std::vector<ApkAsset>& assets) {
     const ArtworkStore::Clock::time_point now = ArtworkStore::Clock::now();
     std::vector<Work> wanted;
-    for (const audio::Effect effect : sounds) {
-        if (store_.wantedSound(effect, now)) {
-            wanted.emplace_back(SoundWork{effect});
+    for (const ApkAsset& asset : assets) {
+        if (store_.wantedAsset(asset, now)) {
+            wanted.emplace_back(asset);
         }
     }
     for (const library::Console& console : consoles) {
@@ -115,9 +113,9 @@ Fetched ArtworkFetcher::arrived(const Work& work) const {
     if (const auto* glyph = std::get_if<GlyphWork>(&work)) {
         return Fetched{Fetched::Kind::Glyph, glyph->system, store_.glyphPath(glyph->system)};
     }
-    const audio::Effect effect = std::get<SoundWork>(work).effect;
-    return Fetched{Fetched::Kind::Sound, std::string{audio::assetFile(effect)},
-                   store_.soundPath(effect)};
+    const ApkAsset& asset = std::get<ApkAsset>(work);
+    return Fetched{asset.kind == AssetKind::Sound ? Fetched::Kind::Sound : Fetched::Kind::NavIcon,
+                   asset.file, store_.assetPath(asset)};
 }
 
 void ArtworkFetcher::recordMiss(const Work& work) const {
@@ -128,7 +126,7 @@ void ArtworkFetcher::recordMiss(const Work& work) const {
     } else if (const auto* glyph = std::get_if<GlyphWork>(&work)) {
         store_.recordGlyphMiss(glyph->system);
     } else {
-        store_.recordSoundMiss(std::get<SoundWork>(work).effect);
+        store_.recordAssetMiss(std::get<ApkAsset>(work));
     }
 }
 
@@ -192,11 +190,10 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const GlyphWork& glyph) {
                 });
 }
 
-ArtworkFetcher::Outcome ArtworkFetcher::fetch(const SoundWork& sound) {
-    const std::string file{audio::assetFile(sound.effect)};
-    return kept(apk_.fetch(web_, std::string{apkAssetDirectory} + file), file,
+ArtworkFetcher::Outcome ArtworkFetcher::fetch(const ApkAsset& asset) {
+    return kept(apk_.fetch(web_, asset.entry), asset.file,
                 [&](std::string_view bytes, std::string& error) {
-                    return store_.saveSound(sound.effect, bytes, error);
+                    return store_.saveAsset(asset, bytes, error);
                 });
 }
 

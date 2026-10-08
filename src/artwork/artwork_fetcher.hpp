@@ -1,7 +1,7 @@
 // artwork_fetcher — downloads missing artwork in the background: a Steam game's library
 // portrait from Steam's CDN, a ROM's box art from libretro-thumbnails, a console's card from
-// iiSU's starter pack, its frame glyph from iiSU's border pack and its UI sounds from the APK's
-// assets. Each file is kept in the store and handed back for the shell to use.
+// iiSU's starter pack, its frame glyph from iiSU's border pack, and its UI sounds and dock icons
+// from the APK as they are. Each file is kept in the store and handed back for the shell to use.
 #pragma once
 
 #include <condition_variable>
@@ -18,8 +18,8 @@
 
 #include "apk_archive.hpp"
 #include "artwork_store.hpp"
-#include "audio/effect.hpp"
 #include "console_glyphs.hpp"
+#include "iisu_assets.hpp"
 #include "library/game.hpp"
 #include "library/shelf.hpp"
 #include "net/web_client.hpp"
@@ -36,12 +36,12 @@ struct RemoteSources {
     PackPin iisuPin{iisuPackPin};
 };
 
-/// A game's, console's, system glyph's or UI sound's file, now on disk.
+/// A game's, console's, system glyph's, UI sound's or dock icon's file, now on disk.
 struct Fetched {
-    enum class Kind : std::uint8_t { Game, Console, Glyph, Sound };
+    enum class Kind : std::uint8_t { Game, Console, Glyph, Sound, NavIcon };
 
     Kind kind;
-    /// The game's id, the console's or glyph's system, or the sound's file name.
+    /// The game's id, the console's or glyph's system, or the sound's or icon's file name.
     std::string id;
     std::filesystem::path artwork;
 };
@@ -53,11 +53,11 @@ class ArtworkFetcher {
     ArtworkFetcher(const ArtworkFetcher&) = delete;
     ArtworkFetcher& operator=(const ArtworkFetcher&) = delete;
 
-    /// Replaces the queue with the games, consoles, console glyphs and sounds the store still
+    /// Replaces the queue with the games, consoles, console glyphs and APK assets the store still
     /// wants. A source that cannot be reached ends the round; the next request starts another.
     void request(const std::vector<library::Game>& games,
                  const std::vector<library::Console>& consoles,
-                 const std::vector<audio::Effect>& sounds);
+                 const std::vector<ApkAsset>& assets);
 
     /// The artwork downloaded since the last call.
     [[nodiscard]] std::vector<Fetched> take();
@@ -73,17 +73,13 @@ class ArtworkFetcher {
     struct GlyphWork {
         std::string system;
     };
-    /// A UI sound, as queued work.
-    struct SoundWork {
-        audio::Effect effect;
-    };
-    using Work = std::variant<library::Game, library::Console, GlyphWork, SoundWork>;
+    using Work = std::variant<library::Game, library::Console, GlyphWork, ApkAsset>;
 
     void run(const std::stop_token& stop);
     Outcome fetch(const library::Game& game);
     Outcome fetch(const library::Console& console);
     Outcome fetch(const GlyphWork& glyph);
-    Outcome fetch(const SoundWork& sound);
+    Outcome fetch(const ApkAsset& asset);
     /// How an APK file ended: `keep` stores a found file's bytes.
     Outcome kept(const ApkFile& file, std::string_view what,
                  const std::function<bool(std::string_view, std::string&)>& keep);

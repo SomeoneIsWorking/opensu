@@ -24,6 +24,10 @@ struct TileGeometry {
 /// The geometry of a tile at `rect` in a grid whose cell's short side is `cell`.
 [[nodiscard]] TileGeometry tileGeometry(const Rect& rect, float cell) noexcept;
 
+/// The rectangle to give `tileGeometry` so that its content, where the platform frame's edge shows,
+/// is `content`. A rail lays tiles out by the slot their frame fills, not by the chrome around it.
+[[nodiscard]] Rect outerForContent(const Rect& content) noexcept;
+
 /// A platform frame's proportions on its 1024 px sprite (iiSU assets/borders/*.png).
 struct FrameGeometry {
     float stroke{};

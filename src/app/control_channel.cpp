@@ -109,6 +109,9 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     number("pageCount", snapshot.pageCount);
     text("focusedId", snapshot.focusedId);
     text("focusedTitle", snapshot.focusedTitle);
+    text("section", snapshot.section);
+    text("libraryMode", snapshot.libraryMode);
+    flag("modeChooserOpen", snapshot.modeChooserOpen);
     text("shelf", snapshot.shelf);
     text("status", snapshot.status);
     text("toast", snapshot.toast);

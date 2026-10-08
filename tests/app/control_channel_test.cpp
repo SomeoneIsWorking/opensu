@@ -31,9 +31,10 @@ bool contains(const std::string& text, const std::string& part) {
 class FakeShell final : public ControlTarget {
   public:
     [[nodiscard]] ShellSnapshot snapshot() const override {
-        return {};
+        return state;
     }
-    void inject(iideck::gamepad::Button /*button*/) override {
+    void inject(iideck::gamepad::Button button) override {
+        pressed.push_back(button);
     }
     [[nodiscard]] bool captureFrame(std::string& /*png*/) override {
         return false;
@@ -45,6 +46,8 @@ class FakeShell final : public ControlTarget {
     }
 
     std::vector<std::string> reloads;
+    std::vector<iideck::gamepad::Button> pressed;
+    ShellSnapshot state;
 };
 
 class FakeSignIn final : public SignInService {
@@ -131,9 +134,48 @@ void testRefusals() {
            "only GOG and Epic have a sign-in page");
 }
 
+void testState() {
+    FakeShell shell;
+    FakeSignIn signIn;
+    ControlChannel channel{shell, signIn, 0};
+    const Request get{.method = "GET", .target = "/state", .body = {}};
+
+    Response fresh = channel.handle(get);
+    expect(fresh.status == 200 && contains(fresh.body, "\"section\":\"home\"") &&
+               contains(fresh.body, "\"libraryMode\":\"standard\"") &&
+               contains(fresh.body, "\"modeChooserOpen\":false"),
+           "the state names the section, Library's mode and whether the picker is up");
+
+    shell.state.section = "library";
+    shell.state.libraryMode = "carousel";
+    shell.state.modeChooserOpen = true;
+    shell.state.shelf = "ps2";
+    Response library = channel.handle(get);
+    expect(contains(library.body, "\"section\":\"library\"") &&
+               contains(library.body, "\"libraryMode\":\"carousel\"") &&
+               contains(library.body, "\"modeChooserOpen\":true") &&
+               contains(library.body, "\"shelf\":\"ps2\""),
+           "the state follows the shell");
+}
+
+void testSectionButtons() {
+    FakeShell shell;
+    FakeSignIn signIn;
+    ControlChannel channel{shell, signIn, 0};
+    using iideck::gamepad::Button;
+
+    for (const char* name : {"l1", "r1", "start"}) {
+        expect(channel.handle(post("/input", name)).status == 200, "the dock's buttons are input");
+    }
+    expect(shell.pressed == std::vector<Button>{Button::L1, Button::R1, Button::Start},
+           "L1, R1 and START reach the shell as those buttons");
+}
+
 } // namespace
 
 int main() {
+    testState();
+    testSectionButtons();
     testStart();
     testComplete();
     testRefusals();

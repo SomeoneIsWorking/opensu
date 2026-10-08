@@ -6,6 +6,7 @@ target_link_libraries(iideck_app
         iideck::library
         iideck::artwork
         iideck::audio
+        iideck::settings
         iideck::ui
         iideck::device
         iideck::pad

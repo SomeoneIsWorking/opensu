@@ -9,6 +9,7 @@ add_library(iideck_library STATIC
     roms.cpp
     rom_systems.cpp
     shelf.cpp
+    sections.cpp
     titles.cpp
     emulators.cpp
 )

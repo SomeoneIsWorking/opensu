@@ -1,6 +1,6 @@
-// Shelves: Home's consoles, launchers and installed games, a console's ROMs, a store's library and
-// the combined library, going in and back out; and the catalog's per-store status that the
-// launcher badges read.
+// Shelves: Home's installed games, Library's launchers and consoles, a console's ROMs, a store's
+// library and the combined library, going in and back out and between sections; and the catalog's
+// per-store status that the launcher badges read.
 #include "library/shelf.hpp"
 
 #include <algorithm>
@@ -21,10 +21,16 @@ using iideck::library::Catalog;
 using iideck::library::Console;
 using iideck::library::Game;
 using iideck::library::Launcher;
+using iideck::library::Section;
 using iideck::library::ShelfBrowser;
 using iideck::library::ShelfItem;
 using iideck::library::Source;
 using iideck::library::SourceStatus;
+
+std::size_t cycleFrom(ShelfBrowser& browser, int delta, std::size_t focus) {
+    browser.leave(focus);
+    return browser.cycle(delta);
+}
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -86,46 +92,63 @@ std::vector<Source> stores(std::initializer_list<Source> list) {
 }
 
 void testHomeShelf() {
-    const std::vector<ShelfItem> home = iideck::library::homeShelf(library(), allReady());
-    // Three launchers, All games, two consoles, then Hades (Steam), Celeste (Epic), Only Steam.
-    expect(home.size() == 9, "launchers, All games, consoles and the installed titles");
-    expect(*launcherAt(home, 0) == Launcher{Source::Steam, 3, true}, "Steam counts its games");
-    expect(*launcherAt(home, 1) == Launcher{Source::Epic, 2, true}, "Epic follows Steam");
-    expect(*launcherAt(home, 2) == Launcher{Source::Gog, 2, true}, "GOG follows Epic");
-    expect(std::get_if<AllGames>(&home.at(3)) != nullptr &&
-               std::get<AllGames>(home.at(3)).games == 4,
-           "All games counts titles, a title owned in three stores once");
-    expect(*consoleAt(home, 4) == Console{"gc", "GameCube", 1, {}},
-           "GameCube first, in system order");
-    expect(*consoleAt(home, 5) == Console{"ps2", "PlayStation 2", 2, {}}, "PS2 counts both ROMs");
-    expect(gameAt(home, 6)->id == "steam:hades" && gameAt(home, 7)->id == "epic:celeste" &&
-               gameAt(home, 8)->id == "steam:solo",
-           "Home keeps the installed titles, each as the copy installed here");
-    expect(gameAt(home, 6)->ownedIn == stores({Source::Steam, Source::Gog, Source::Epic}),
+    const std::vector<ShelfItem> home = iideck::library::homeShelf(library());
+    // Hades (Steam), Celeste (Epic), Only Steam: the installed titles, each once.
+    expect(home.size() == 3, "Home holds only the installed titles");
+    expect(gameAt(home, 0)->id == "steam:hades" && gameAt(home, 1)->id == "epic:celeste" &&
+               gameAt(home, 2)->id == "steam:solo",
+           "Home keeps each installed title as the copy installed here");
+    expect(gameAt(home, 0)->ownedIn == stores({Source::Steam, Source::Gog, Source::Epic}),
            "an installed title lists every store that owns it");
+    expect(std::ranges::none_of(home,
+                                [](const ShelfItem& item) {
+                                    return std::get<Game>(item).source == Source::Rom;
+                                }),
+           "no ROM and no folder is on Home");
+    expect(iideck::library::homeShelf({}).empty(), "nothing installed is an empty Home");
 }
 
-void testHomeLaunchers() {
+void testLibraryShelf() {
+    const std::vector<ShelfItem> shelf = iideck::library::libraryShelf(library(), allReady());
+    // Three launchers, All games, two consoles.
+    expect(shelf.size() == 6, "launchers, All games and consoles");
+    expect(*launcherAt(shelf, 0) == Launcher{Source::Steam, 3, true}, "Steam counts its games");
+    expect(*launcherAt(shelf, 1) == Launcher{Source::Epic, 2, true}, "Epic follows Steam");
+    expect(*launcherAt(shelf, 2) == Launcher{Source::Gog, 2, true}, "GOG follows Epic");
+    expect(std::get_if<AllGames>(&shelf.at(3)) != nullptr &&
+               std::get<AllGames>(shelf.at(3)).games == 4,
+           "All games counts titles, a title owned in three stores once");
+    expect(*consoleAt(shelf, 4) == Console{"gc", "GameCube", 1, {}},
+           "GameCube first, in system order");
+    expect(*consoleAt(shelf, 5) == Console{"ps2", "PlayStation 2", 2, {}}, "PS2 counts both ROMs");
+    expect(std::ranges::none_of(shelf,
+                                [](const ShelfItem& item) {
+                                    return std::holds_alternative<Game>(item);
+                                }),
+           "Library holds no game of its own");
+}
+
+void testLibraryLaunchers() {
     std::vector<SourceStatus> sources = allReady();
     sources[1].availability = Availability::Absent;
     sources[2].availability = Availability::Attention;
-    const std::vector<ShelfItem> home = iideck::library::homeShelf(library(), sources);
-    expect(launcherAt(home, 0) != nullptr && launcherAt(home, 0)->source == Source::Steam &&
-               launcherAt(home, 1) != nullptr && launcherAt(home, 1)->source == Source::Gog,
+    const std::vector<ShelfItem> shelf = iideck::library::libraryShelf(library(), sources);
+    expect(launcherAt(shelf, 0) != nullptr && launcherAt(shelf, 0)->source == Source::Steam &&
+               launcherAt(shelf, 1) != nullptr && launcherAt(shelf, 1)->source == Source::Gog,
            "a store that is not there has no tile");
-    expect(!launcherAt(home, 1)->ready, "a store that needs attention is not ready");
-    expect(launcherAt(home, 2) == nullptr, "no third launcher");
+    expect(!launcherAt(shelf, 1)->ready, "a store that needs attention is not ready");
+    expect(std::get_if<AllGames>(&shelf.at(2)) != nullptr, "All games follows the stores");
 
-    const std::vector<ShelfItem> bare = iideck::library::homeShelf({}, {});
-    expect(bare.empty(), "nothing at all is an empty Home");
+    const std::vector<ShelfItem> bare = iideck::library::libraryShelf({}, {});
+    expect(bare.empty(), "nothing at all is an empty Library");
 
-    const std::vector<ShelfItem> romsOnly = iideck::library::homeShelf(
+    const std::vector<ShelfItem> romsOnly = iideck::library::libraryShelf(
         {game(Source::Rom, "rom:gc-a", "gc")}, {{Source::Steam, Availability::Absent, {}}});
     expect(romsOnly.size() == 1 && consoleAt(romsOnly, 0) != nullptr,
            "no stores, no launchers and no All games");
 
-    const std::vector<ShelfItem> signedOut =
-        iideck::library::homeShelf({}, {{Source::Gog, Availability::Attention, "not signed in"}});
+    const std::vector<ShelfItem> signedOut = iideck::library::libraryShelf(
+        {}, {{Source::Gog, Availability::Attention, "not signed in"}});
     expect(signedOut.size() == 1 && !launcherAt(signedOut, 0)->ready,
            "a signed-out store still has its tile, and no All games without games");
 }
@@ -177,31 +200,55 @@ void testAllGames() {
 
 void testBrowser() {
     ShelfBrowser browser;
-    expect(!browser.back().has_value(), "back on Home goes nowhere");
-    browser.open(Console{"ps2", "PlayStation 2", 2, {}}, 1);
+    expect(browser.section() == Section::Home, "the browser starts on Home");
+    expect(!browser.back().has_value(), "back at a section's top goes nowhere");
+    expect(browser.shelf(library(), allReady()).size() == 3, "Home's shelf");
+
+    expect(cycleFrom(browser, 1, 2) == 0 && browser.section() == Section::Library,
+           "R1 reaches Library, first visit at its first slot");
+    expect(browser.shelf(library(), allReady()).size() == 6, "Library's shelf");
+    browser.open(Console{"ps2", "PlayStation 2", 2, {}}, 5);
     expect(keyOf(browser.folder()) == "ps2", "the console is open");
     expect(browser.shelf(library(), allReady()).size() == 2, "its shelf is its ROMs");
-    expect(browser.back() == 1, "back restores Home's focus on the console");
-    expect(!browser.folder() && browser.shelf(library(), allReady()).size() == 9, "Home again");
+    expect(browser.back() == 5, "back restores Library's focus on the console");
+    expect(!browser.folder() && browser.section() == Section::Library &&
+               browser.shelf(library(), allReady()).size() == 6,
+           "Library again, not Home");
 
-    browser.open(Console{"ps2", "PlayStation 2", 2, {}}, 1);
+    browser.open(Console{"ps2", "PlayStation 2", 2, {}}, 5);
     std::vector<Game> gone = library();
     std::erase_if(gone, [](const Game& entry) {
         return entry.sourceId == "ps2";
     });
-    expect(browser.shelf(gone, allReady()).size() == 8 && !browser.folder(),
-           "a console whose ROMs are gone returns to Home");
+    expect(browser.shelf(gone, allReady()).size() == 5 && !browser.folder(),
+           "a console whose ROMs are gone returns to Library");
 
-    browser.open(Launcher{Source::Epic, 2, true}, 3);
+    browser.open(Launcher{Source::Epic, 2, true}, 1);
     expect(browser.inLauncher() && keyOf(browser.folder()) == "launcher:epic",
            "a launcher is open");
     expect(browser.shelf(library(), allReady()).size() == 2, "its shelf is its store's games");
-    expect(browser.back() == 3, "back restores the launcher's slot");
+    expect(browser.back() == 1, "back restores the launcher's slot");
 
-    browser.open(AllGames{4}, 4);
+    browser.open(AllGames{4}, 3);
     expect(!browser.inLauncher() && keyOf(browser.folder()) == "all",
            "the combined library is open");
     expect(browser.shelf(library(), allReady()).size() == 4, "its shelf is every title");
+}
+
+void testCycling() {
+    ShelfBrowser browser;
+    expect(cycleFrom(browser, 1, 2) == 0 && browser.section() == Section::Library,
+           "Home to Library");
+    expect(cycleFrom(browser, 1, 4) == 2 && browser.section() == Section::Home,
+           "Library wraps to Home, which is where it was left");
+    expect(cycleFrom(browser, -1, 2) == 4 && browser.section() == Section::Library,
+           "L1 from Home wraps to Library, which is where it was left");
+
+    browser.open(Console{"gc", "GameCube", 1, {}}, 4);
+    expect(cycleFrom(browser, 1, 0) == 2 && !browser.folder() && browser.section() == Section::Home,
+           "leaving Library closes the folder");
+    expect(cycleFrom(browser, 1, 2) == 4,
+           "Library is remembered at the slot the folder was entered from, not the folder's");
 }
 
 void testFolders() {
@@ -257,11 +304,13 @@ void testCatalogStatuses() {
 
 int main() {
     testHomeShelf();
-    testHomeLaunchers();
+    testLibraryShelf();
+    testLibraryLaunchers();
     testConsoleShelf();
     testLauncherShelf();
     testAllGames();
     testBrowser();
+    testCycling();
     testFolders();
     testCatalogStatuses();
     std::printf("shelf: all checks passed\n");

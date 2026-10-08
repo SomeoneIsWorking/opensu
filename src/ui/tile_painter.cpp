@@ -167,15 +167,16 @@ void TilePainter::paint(const TileVisual& tile) {
     // iiSU nx2.j: the canvas is scaled about the tile centre.
     const ScopedScale scaled{tile.rect.centreX(), tile.rect.centreY(), tile.scale};
     const ChromeVariant& variant = tile.dark ? darkChrome : lightChrome;
+    const bool selected = tile.focused && tile.selectionRing;
     paintShadow(geometry, variant, tile.alpha);
-    if (tile.focused) {
+    if (selected) {
         paintRing(geometry, ringUnderInset, tile.ringDegrees, tile.alpha);
     }
-    paintChrome(geometry, variant, tile.focused, tile.alpha);
+    paintChrome(geometry, variant, selected, tile.alpha);
     if (!tile.placeholder) {
         paintContent(tile, geometry);
     }
-    if (tile.focused) {
+    if (selected) {
         paintRing(geometry, ringOverInset, tile.ringDegrees, tile.alpha);
     }
 }
@@ -315,7 +316,8 @@ void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geome
         return;
     }
     if (tile.kind == TileKind::Console) {
-        const Color from = tile.platform != nullptr ? unpack(tile.platform->strokeFrom) : consoleFrom;
+        const Color from =
+            tile.platform != nullptr ? unpack(tile.platform->strokeFrom) : consoleFrom;
         const Color to = tile.platform != nullptr ? unpack(tile.platform->strokeTo) : consoleTo;
         paintCard(tile, content, from, to);
         if (tile.platform != nullptr) {
@@ -422,13 +424,13 @@ void TilePainter::paintMark(const TileVisual& tile, const Rect& box, Color ink) 
     const float gap = box.width - 2.0f * cell;
     for (int row = 0; row < 2; ++row) {
         for (int column = 0; column < 2; ++column) {
-            fillRoundRect(RoundRect{Rect{box.x + static_cast<float>(column) * (cell + gap),
-                                         box.y + static_cast<float>(row) * (cell + gap), cell,
-                                         cell},
-                                    cell * 0.25f},
-                          [ink, alpha = tile.alpha](Vector2, float) {
-                              return withAlpha(ink, alpha);
-                          });
+            fillRoundRect(
+                RoundRect{Rect{box.x + static_cast<float>(column) * (cell + gap),
+                               box.y + static_cast<float>(row) * (cell + gap), cell, cell},
+                          cell * 0.25f},
+                [ink, alpha = tile.alpha](Vector2, float) {
+                    return withAlpha(ink, alpha);
+                });
         }
     }
 }
@@ -454,8 +456,8 @@ void TilePainter::paintCard(const TileVisual& tile, const Rect& content, Color f
     const bool marked = tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames;
     const float mark = marked ? side * markSide : 0.0f;
     const float markRoom = marked ? side * markGap : 0.0f;
-    const float block = mark + markRoom + static_cast<float>(lines.size()) * nameBox + gap +
-                        type().lineBox(count);
+    const float block =
+        mark + markRoom + static_cast<float>(lines.size()) * nameBox + gap + type().lineBox(count);
     float y = content.centreY() - block * 0.5f;
     if (marked) {
         paintMark(tile, Rect{content.centreX() - mark * 0.5f, y, mark, mark}, ink);

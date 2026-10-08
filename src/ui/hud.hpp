@@ -74,6 +74,10 @@ class Hud {
     void setTitle(std::string title) {
         title_ = std::move(title);
     }
+    /// Whether START opens a menu here, which the right corner's prompts then name.
+    void setStartMenu(bool available) noexcept {
+        startMenu_ = available;
+    }
     void setToast(std::string text, bool isError, Clock::time_point now);
     /// Clears a toast whose time is up.
     void tick(Clock::time_point now);
@@ -111,6 +115,7 @@ class Hud {
     std::optional<device::BatteryStatus> battery_;
     std::vector<LauncherBadge> launchers_;
     std::string title_;
+    bool startMenu_{false};
     Clock::time_point now_{};
     std::string toast_;
     bool toastError_{false};

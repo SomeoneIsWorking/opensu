@@ -1,0 +1,6 @@
+add_library(iideck_settings STATIC settings.cpp)
+add_library(iideck::settings ALIAS iideck_settings)
+target_include_directories(iideck_settings PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_link_libraries(iideck_settings PUBLIC iideck::library PRIVATE iideck::fileio lucent::lucent)
+target_compile_features(iideck_settings PUBLIC cxx_std_20)
+target_compile_options(iideck_settings PRIVATE -Wall -Wextra -Wpedantic)

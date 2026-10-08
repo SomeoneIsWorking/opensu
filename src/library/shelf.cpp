@@ -11,7 +11,7 @@
 namespace iideck::library {
 namespace {
 
-/// The order the launchers sit in on Home, as the top bar's badges do.
+/// The order the launchers sit in in Library, as the top bar's badges do.
 constexpr std::array<Source, 3> launcherOrder{Source::Steam, Source::Epic, Source::Gog};
 /// The order store icons are drawn in.
 constexpr std::array<Source, 3> iconOrder{Source::Steam, Source::Gog, Source::Epic};
@@ -118,8 +118,12 @@ std::vector<Console> consoles(const std::vector<Game>& games) {
     return out;
 }
 
-std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
-                                 const std::vector<SourceStatus>& sources) {
+std::vector<ShelfItem> homeShelf(const std::vector<Game>& games) {
+    return titleShelf(games, true);
+}
+
+std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
+                                    const std::vector<SourceStatus>& sources) {
     std::vector<ShelfItem> shelf;
     for (const Source source : launcherOrder) {
         const auto status = std::ranges::find(sources, source, &SourceStatus::source);
@@ -134,9 +138,6 @@ std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
     }
     for (Console& console : consoles(games)) {
         shelf.emplace_back(std::move(console));
-    }
-    for (ShelfItem& installed : titleShelf(games, true)) {
-        shelf.push_back(std::move(installed));
     }
     return shelf;
 }
@@ -197,12 +198,12 @@ std::vector<ShelfItem> ShelfBrowser::shelf(const std::vector<Game>& games,
         }
         folder_.reset();
     }
-    return homeShelf(games, sources);
+    return section() == Section::Home ? homeShelf(games) : libraryShelf(games, sources);
 }
 
-void ShelfBrowser::open(const Folder& folder, std::size_t homeFocus) {
+void ShelfBrowser::open(const Folder& folder, std::size_t sectionFocus) {
     folder_ = folder;
-    homeFocus_ = homeFocus;
+    parentFocus_ = sectionFocus;
 }
 
 std::optional<std::size_t> ShelfBrowser::back() {
@@ -210,7 +211,16 @@ std::optional<std::size_t> ShelfBrowser::back() {
         return std::nullopt;
     }
     folder_.reset();
-    return homeFocus_;
+    return parentFocus_;
+}
+
+void ShelfBrowser::leave(std::size_t focus) {
+    left_[static_cast<std::size_t>(section())] = folder_ ? parentFocus_ : focus;
+}
+
+std::size_t ShelfBrowser::cycle(int delta) {
+    folder_.reset();
+    return left_[static_cast<std::size_t>(sections_.cycle(delta))];
 }
 
 } // namespace iideck::library
