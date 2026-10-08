@@ -45,12 +45,9 @@ void testKey() {
 
 void testMerge() {
     const std::vector<Game> games{
-        game(Source::Epic, "epic:a", "Alpha"),
-        game(Source::Steam, "steam:a", "ALPHA™", true),
-        game(Source::Gog, "gog:a", "Alpha"),
-        game(Source::Steam, "steam:b", "Beta"),
-        game(Source::Rom, "rom:alpha", "Alpha"),
-        game(Source::Epic, "epic:c", "魔界戦記"),
+        game(Source::Epic, "epic:a", "Alpha"),   game(Source::Steam, "steam:a", "ALPHA™", true),
+        game(Source::Gog, "gog:a", "Alpha"),     game(Source::Steam, "steam:b", "Beta"),
+        game(Source::Rom, "rom:alpha", "Alpha"), game(Source::Epic, "epic:c", "魔界戦記"),
         game(Source::Gog, "gog:c", "魔界戦記"),
     };
     const std::vector<iideck::library::Title> titles = storeTitles(games);
