@@ -8,9 +8,9 @@ namespace iideck::ui {
 
 class LaunchPanelPainter {
   public:
-    /// Draws `panel` into a `width` x `height` frame at `dp` pixels per dp. `seconds` drives the
+    /// Draws `panel` into a `size` frame at `dp` pixels per dp. `seconds` drives the
     /// activity dots shown while the stage has no measure.
-    void paint(const LaunchPanel& panel, float width, float height, float dp, double seconds) const;
+    void paint(const LaunchPanel& panel, Vector2 size, float dp, double seconds) const;
 
   private:
     ButtonGlyphPainter glyphs_;

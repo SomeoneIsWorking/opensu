@@ -51,7 +51,12 @@ class Hud {
     static constexpr std::chrono::milliseconds toastLifetime{4000};
 
     /// The window in pixels and its pixels per dp.
-    void setSize(int width, int height, float dp) noexcept;
+    struct Size {
+        int width{};
+        int height{};
+        float dp{1.0f};
+    };
+    void setSize(const Size& size) noexcept;
 
     /// Height the top bar takes from the grid, in pixels (iiSU dl3.i).
     [[nodiscard]] float topInset() const noexcept;

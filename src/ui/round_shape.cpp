@@ -26,7 +26,7 @@ std::vector<Vector2> outline(const RoundRect& shape, Tessellation cut) {
     const int arcs = std::max(cut.cornerSegments, 1);
     const int edges = std::max(cut.edgeSegments, 1);
     std::vector<Vector2> points;
-    points.reserve(static_cast<std::size_t>(4 * (arcs + edges)));
+    points.reserve(4 * static_cast<std::size_t>(arcs + edges));
     for (std::size_t corner = 0; corner < centres.size(); ++corner) {
         // Arcs run from 180, 270, 0 and 90 degrees, a quarter turn each.
         const float start = std::numbers::pi_v<float> * (1.0f + 0.5f * static_cast<float>(corner));

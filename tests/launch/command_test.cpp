@@ -17,6 +17,7 @@ namespace {
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 using iideck::launch::resolveExecutable;
+using iideck::launch::runCaptured;
 using iideck::launch::runCommand;
 using iideck::launch::runStreaming;
 
@@ -67,6 +68,14 @@ int main() {
            "stdout and stderr arrive as lines, an unterminated last line too");
     expect(!runStreaming("/no/such/program", {}, collect, never).has_value(),
            "a streamed missing program fails");
+    const auto captured =
+        runCaptured("/bin/sh", {"-c", "echo out; echo err >&2; printf tail; exit 4"});
+    expect(captured.has_value(), "a captured command runs");
+    if (captured) {
+        expect(captured->status == 4, "a captured command's status is returned");
+        expect(captured->output == "out\ntail\n", "only stdout is captured");
+    }
+    expect(!runCaptured("/no/such/program", {}).has_value(), "a captured missing program fails");
     lines.clear();
     expect(runStreaming("/bin/sh", {"-c", "read x; echo got:$x"}, collect, never) == 0 &&
                lines == std::vector<std::string>({"got:"}),
@@ -83,7 +92,8 @@ int main() {
     expect(!runStreaming("/bin/sh", {"-c", "sleep 30 & sleep 30"}, collect, source.get_token())
                 .has_value(),
            "a stopped stream reports nothing");
-    expect(Clock::now() - streamed < std::chrono::seconds{8}, "stopping does not wait for the child");
+    expect(Clock::now() - streamed < std::chrono::seconds{8},
+           "stopping does not wait for the child");
 
     fs::remove_all(scratch);
     std::printf("command: all checks passed\n");

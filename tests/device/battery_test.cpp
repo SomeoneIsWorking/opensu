@@ -14,10 +14,21 @@ namespace fs = std::filesystem;
 using iideck::device::BatteryReader;
 using iideck::device::BatteryStatus;
 
+[[noreturn]] void fail(const char* what) {
+    std::fprintf(stderr, "FAIL: %s\n", what);
+    std::exit(1);
+}
+
+template <class T> const T& need(const std::optional<T>& value, const char* what) {
+    if (!value) {
+        fail(what);
+    }
+    return *value;
+}
+
 void expect(bool condition, const char* what) {
     if (!condition) {
-        std::fprintf(stderr, "FAIL: %s\n", what);
-        std::exit(1);
+        fail(what);
     }
 }
 
@@ -60,7 +71,7 @@ void charging() {
 
     const fs::path full = freshRoot("full");
     supply(full, "BAT0", "Battery", nullptr, "100", "Full");
-    expect(!BatteryReader{full}.read()->charging, "Full is not charging");
+    expect(!need(BatteryReader{full}.read(), "Full reads").charging, "Full is not charging");
 }
 
 void deviceBatteriesIgnored() {
@@ -74,7 +85,8 @@ void unreadable() {
     supply(root, "BAT0", "Battery", nullptr, "abc", "Discharging");
     expect(!BatteryReader{root}.read(), "a capacity that is not a number is no battery");
     supply(root, "BAT1", "Battery", nullptr, "140", "Discharging");
-    expect(BatteryReader{root}.read()->percent == 100, "capacity is clamped to 100");
+    expect(need(BatteryReader{root}.read(), "a clamped capacity reads").percent == 100,
+           "capacity is clamped to 100");
     expect(!BatteryReader{root / "missing"}.read(), "no power_supply class, no battery");
 }
 
@@ -82,7 +94,8 @@ void firstByName() {
     const fs::path root = freshRoot("order");
     supply(root, "BAT1", "Battery", nullptr, "20", "Discharging");
     supply(root, "BAT0", "Battery", nullptr, "60", "Discharging");
-    expect(BatteryReader{root}.read()->percent == 60, "the first battery by name");
+    expect(need(BatteryReader{root}.read(), "a battery reads").percent == 60,
+           "the first battery by name");
 }
 
 } // namespace

@@ -8,10 +8,14 @@
 
 namespace {
 
+[[noreturn]] void fail(const char* what) {
+    std::fprintf(stderr, "FAIL: %s\n", what);
+    std::exit(1);
+}
+
 void expect(bool condition, const char* what) {
     if (!condition) {
-        std::fprintf(stderr, "FAIL: %s\n", what);
-        std::exit(1);
+        fail(what);
     }
 }
 
@@ -41,7 +45,9 @@ constexpr std::string_view kManifest = R"("AppState"
 void testManifest() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kManifest, error);
-    expect(doc.has_value(), "manifest parses");
+    if (!doc) {
+        fail("manifest parses");
+    }
 
     expectEqual(doc->str({"AppState", "name"}).value_or(""), "Portal 2", "name");
     expect(doc->integer({"AppState", "StateFlags"}) == 4, "StateFlags is 4");
@@ -52,21 +58,27 @@ void testManifest() {
 void testCaseInsensitiveLookup() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kManifest, error);
-    expect(doc.has_value(), "manifest parses");
+    if (!doc) {
+        fail("manifest parses");
+    }
     expectEqual(doc->str({"appstate", "NAME"}).value_or(""), "Portal 2", "case-insensitive lookup");
 }
 
 void testQuotedEscapes() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(R"("root" { "path" "D:\\Steam Library" })", error);
-    expect(doc.has_value(), "escaped path parses");
+    if (!doc) {
+        fail("escaped path parses");
+    }
     expectEqual(doc->str({"root", "path"}).value_or(""), "D:\\Steam Library", "escaped backslash");
 }
 
 void testBareTokens() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(R"("root" { bare unquoted })", error);
-    expect(doc.has_value(), "bare token parses");
+    if (!doc) {
+        fail("bare token parses");
+    }
     expectEqual(doc->str({"root", "bare"}).value_or(""), "unquoted", "bare value");
 }
 
@@ -97,10 +109,14 @@ constexpr std::string_view kLibraryFoldersLegacy = R"("LibraryFolders"
 void testLibraryFoldersCurrent() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kLibraryFoldersCurrent, error);
-    expect(doc.has_value(), "current libraryfolders parses");
+    if (!doc) {
+        fail("current libraryfolders parses");
+    }
 
     const auto folders = doc->block({"libraryfolders"});
-    expect(folders.has_value(), "libraryfolders block exists");
+    if (!folders) {
+        fail("libraryfolders block exists");
+    }
     expect(folders->keys().size() == 2, "two folders");
     expectEqual(folders->str({"1", "path"}).value_or(""), "/mnt/games/SteamLibrary", "folder path");
     expectEqual(folders->str({"0", "contentid"}).value_or(""), "8019845413043883551", "content id");
@@ -109,13 +125,19 @@ void testLibraryFoldersCurrent() {
 void testLibraryFoldersLegacy() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kLibraryFoldersLegacy, error);
-    expect(doc.has_value(), "legacy libraryfolders parses");
+    if (!doc) {
+        fail("legacy libraryfolders parses");
+    }
 
     const auto folders = doc->block({"LibraryFolders"});
-    expect(folders.has_value(), "LibraryFolders block exists");
+    if (!folders) {
+        fail("LibraryFolders block exists");
+    }
     // The legacy layout puts the path directly as the value.
     const auto value = folders->find("1");
-    expect(value.has_value(), "folder 1 present");
+    if (!value) {
+        fail("folder 1 present");
+    }
     if (const auto* text = std::get_if<std::string>(&*value); text != nullptr) {
         expectEqual(*text, "/mnt/games/SteamLibrary", "legacy path is a string value");
     } else {
@@ -151,7 +173,9 @@ void testUserConfigWrapper() {
 )";
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kUserConfig, error);
-    expect(doc.has_value(), "user config parses");
+    if (!doc) {
+        fail("user config parses");
+    }
 
     // The whole document is wrapped, so the paths start one level in.
     expect(doc->integer({"UserLocalConfigStore", "Software", "Valve", "Steam", "Apps", "440",
@@ -164,7 +188,9 @@ void testUserConfigWrapper() {
 void testMissingPathIsAbsent() {
     iideck::vdf::ParseError error;
     const auto doc = iideck::vdf::parse(kManifest, error);
-    expect(doc.has_value(), "manifest parses");
+    if (!doc) {
+        fail("manifest parses");
+    }
     expect(!doc->str({"AppState", "nosuchkey"}).has_value(), "missing key is absent");
     expect(!doc->block({"AppState", "name"}).has_value(), "a string leaf is not a block");
 }

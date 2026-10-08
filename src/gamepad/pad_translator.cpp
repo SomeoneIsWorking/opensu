@@ -78,7 +78,7 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
                 vertical ? (held(BTN_DPAD_DOWN) ? 1 : 0) - (held(BTN_DPAD_UP) ? 1 : 0)
                          : (held(BTN_DPAD_RIGHT) ? 1 : 0) - (held(BTN_DPAD_LEFT) ? 1 : 0);
             forwardAxis(hat, value, forward);
-            hatControls(hat, value, controls);
+            hatControls({EV_ABS, hat, value}, controls);
             return;
         }
         if ((in.code == BTN_TL2 && !physical_.axes.contains(ABS_Z) &&
@@ -107,7 +107,7 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
         }
         if (isStick(in.code)) {
             forwardAxis(in.code, rescale(in.value, range->second, virtualStick), forward);
-            stickControls(in.code, in.value, controls);
+            stickControls(in, controls);
             return;
         }
         if (in.code == ABS_Z || in.code == ABS_RZ || in.code == ABS_BRAKE || in.code == ABS_GAS) {
@@ -118,7 +118,7 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
         if (in.code == ABS_HAT0X || in.code == ABS_HAT0Y) {
             const std::int32_t value = std::clamp(in.value, -1, 1);
             forwardAxis(in.code, value, forward);
-            hatControls(in.code, value, controls);
+            hatControls({EV_ABS, in.code, value}, controls);
         }
     }
 }
@@ -173,9 +173,9 @@ void PadTranslator::control(Button button, bool pressed, std::vector<Event>& con
     controls.push_back(event);
 }
 
-void PadTranslator::hatControls(std::uint16_t code, std::int32_t value,
-                                std::vector<Event>& controls) {
-    const bool vertical = code == ABS_HAT0Y;
+void PadTranslator::hatControls(const PadEvent& axis, std::vector<Event>& controls) {
+    const std::int32_t value = axis.value;
+    const bool vertical = axis.code == ABS_HAT0Y;
     const Button negative = vertical ? Button::Up : Button::Left;
     const Button positive = vertical ? Button::Down : Button::Right;
     for (const auto& [button, on] :
@@ -188,8 +188,9 @@ void PadTranslator::hatControls(std::uint16_t code, std::int32_t value,
     }
 }
 
-void PadTranslator::stickControls(std::uint16_t code, std::int32_t value,
-                                  std::vector<Event>& controls) {
+void PadTranslator::stickControls(const PadEvent& axis, std::vector<Event>& controls) {
+    const std::uint16_t code = axis.code;
+    const std::int32_t value = axis.value;
     if (code != ABS_X && code != ABS_Y) {
         return;
     }

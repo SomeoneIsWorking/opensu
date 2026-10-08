@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -101,7 +102,7 @@ Release release(int fillerEntries, std::optional<std::uint32_t> packCrc = {}) {
     entries.push_back({"assets/Open.wav", std::string{openWav}, true, {}});
     entries.push_back({"assets/domino_icons_2.ogg", std::string{domeOgg}, false, {}});
     entries.push_back({"res/TG.png", std::string{homePng}, false, {}});
-    entries.push_back({"classes.dex", std::string(2 * 1024 * 1024, 'd'), false, {}});
+    entries.push_back({"classes.dex", std::string(std::size_t{2} * 1024 * 1024, 'd'), false, {}});
     for (int i = 0; i < fillerEntries; ++i) {
         entries.push_back(
             {"res/filler/" + std::string(60, 'a') + std::to_string(i), {}, false, {}});
@@ -304,15 +305,20 @@ void testUnreachable(const fs::path& root) {
 } // namespace
 
 int main() {
-    const fs::path root = fs::temp_directory_path() / "iideck-starter-pack-test";
-    fs::remove_all(root);
-    testDownload(root / "small", 0);
-    testDownload(root / "large", 1200);
-    testGlyphs();
-    testRefusals(root / "refuse");
-    testFetcher(root / "fetch");
-    testUnreachable(root / "offline");
-    fs::remove_all(root);
-    std::printf("starter_pack: all checks passed\n");
-    return 0;
+    try {
+        const fs::path root = fs::temp_directory_path() / "iideck-starter-pack-test";
+        fs::remove_all(root);
+        testDownload(root / "small", 0);
+        testDownload(root / "large", 1200);
+        testGlyphs();
+        testRefusals(root / "refuse");
+        testFetcher(root / "fetch");
+        testUnreachable(root / "offline");
+        fs::remove_all(root);
+        std::printf("starter_pack: all checks passed\n");
+        return 0;
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
+        return 1;
+    }
 }

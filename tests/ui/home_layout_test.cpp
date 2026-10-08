@@ -8,6 +8,7 @@
 namespace {
 
 using iideck::test::expect;
+using iideck::test::fail;
 using iideck::test::near;
 using iideck::ui::HomeLayout;
 using iideck::ui::HomeLayoutInput;
@@ -94,17 +95,17 @@ void flowScrollKeepsFocusVisible() {
         return rect.x >= target - 0.01f && rect.right() <= target + viewport + 0.01f;
     };
     for (std::size_t column = 1; column < 13; ++column) {
-        target = layout.scrollTarget(column * 3, target, 1);
+        target = layout.scrollTarget({column * 3, target, 1});
         expect(visible(column * 3), "moving right keeps the focused column in view");
         expect(target >= 0.0f && target <= layout.maxScroll(), "target stays in range");
     }
     for (std::size_t column = 12; column-- > 0;) {
-        target = layout.scrollTarget(column * 3, target, -1);
+        target = layout.scrollTarget({column * 3, target, -1});
         expect(visible(column * 3), "moving left keeps the focused column in view");
     }
     near(target, 0.0f, "the first column scrolls back to the start");
     // A step right from the start leads by clamp(1.85 pitch, 0.12 vp, 0.32 vp) before moving.
-    expect(layout.scrollTarget(3, 0.0f, 1) == 0.0f, "the second column needs no scroll");
+    expect(layout.scrollTarget({3, 0.0f, 1}) == 0.0f, "the second column needs no scroll");
 }
 
 void paged() {
@@ -143,11 +144,11 @@ void pagedShrink() {
 }
 
 void columnGrowth() {
-    expect(HomeLayout::wiiSuPageColumns(1280.0f, 664.0f, 3, 23.0f, 54.0f, 9.0f) == 5,
+    expect(HomeLayout::wiiSuPageColumns({1280.0f, 664.0f, 3, 23.0f, 54.0f, 9.0f}) == 5,
            "1280 px with 206 px cells fits 5 columns");
-    expect(HomeLayout::wiiSuPageColumns(3000.0f, 664.0f, 3, 23.0f, 54.0f, 9.0f) == 13,
+    expect(HomeLayout::wiiSuPageColumns({3000.0f, 664.0f, 3, 23.0f, 54.0f, 9.0f}) == 13,
            "growth is unlimited without bottom navigation");
-    expect(HomeLayout::wiiSuPageColumns(400.0f, 800.0f, 3, 10.0f, 36.0f, 6.0f) == 3,
+    expect(HomeLayout::wiiSuPageColumns({400.0f, 800.0f, 3, 10.0f, 36.0f, 6.0f}) == 3,
            "never fewer than 3 columns");
 }
 
@@ -211,13 +212,18 @@ void arrows() {
     const HomeLayout layout{HomeLayoutInput{
         .width = 1920.0f, .height = 1080.0f, .dp = 2.25f, .items = 0, .mode = ScrollMode::Paged}};
     const iideck::ui::PageArrows first = layout.pageArrows(0);
-    expect(!first.previous && first.next, "the first page only points on");
+    expect(!first.previous, "the first page only points on");
+    if (!first.next) {
+        fail("the first page only points on");
+    }
     near(first.next->x, 1920.0f - 26.0f - 64.0f, "next arrow sits 26 px from the right edge");
     near(first.next->y, 492.0f, "arrows are vertically centred");
     near(first.next->width, 64.0f, "arrow width is capped at 64 px");
     near(first.next->height, 96.0f, "arrow height is 1.52 x width, capped at 96 px");
     const iideck::ui::PageArrows middle = layout.pageArrows(1);
-    expect(middle.previous && middle.next, "a middle page points both ways");
+    if (!middle.previous || !middle.next) {
+        fail("a middle page points both ways");
+    }
     near(middle.previous->x, 26.0f, "previous arrow sits 26 px from the left edge");
     const iideck::ui::PageArrows last = layout.pageArrows(layout.pageCount() - 1);
     expect(last.previous && !last.next, "the last page only points back");

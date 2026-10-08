@@ -72,7 +72,7 @@ VirtualPad::VirtualPad() {
         setup.id.vendor = vendor;
         setup.id.product = product;
         setup.id.version = 0x0110;
-        std::copy_n(name.data(), std::min(name.size(), sizeof(setup.name) - 1), setup.name);
+        std::copy_n(name.begin(), std::min(name.size(), sizeof(setup.name) - 1), setup.name);
         check(ioctl(fd_, UI_DEV_SETUP, &setup), "UI_DEV_SETUP");
         check(ioctl(fd_, UI_DEV_CREATE), "UI_DEV_CREATE");
     } catch (...) {

@@ -15,7 +15,7 @@
 namespace iideck::config {
 
 /// iiSU's two single-screen dashboard modes (iiSU fs7).
-enum class HomeMode {
+enum class HomeMode : std::uint8_t {
     /// One horizontal grid that scrolls continuously (iiSU ap6 Flow); iiSU's default.
     Standard,
     /// Horizontal pages with neighbour peeks and page dots (iiSU ap6 Paged).

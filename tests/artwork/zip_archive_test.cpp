@@ -14,10 +14,14 @@ using iideck::artwork::fixture::crcOf;
 using iideck::artwork::fixture::FixtureEntry;
 namespace zip = iideck::artwork::zip;
 
+[[noreturn]] void fail(const char* what) {
+    std::fprintf(stderr, "FAIL: %s\n", what);
+    std::exit(1);
+}
+
 void expect(bool condition, const char* what) {
     if (!condition) {
-        std::fprintf(stderr, "FAIL: %s\n", what);
-        std::exit(1);
+        fail(what);
     }
 }
 
@@ -39,7 +43,10 @@ void testArchive() {
     const auto archive = zip::Archive::open(
         buildZip({{"stored.txt", "stored bytes", false, {}}, {"packed.txt", packed, true, {}}}),
         error);
-    expect(archive.has_value() && archive->entries().size() == 2, "a zip opens");
+    if (!archive) {
+        fail("a zip opens");
+    }
+    expect(archive->entries().size() == 2, "a zip opens");
     expect(archive->read("stored.txt", error) == "stored bytes", "a stored entry reads back");
     expect(archive->read("packed.txt", error) == packed, "a deflated entry inflates");
     expect(!archive->read("missing.txt", error) && error.empty(),
@@ -50,7 +57,9 @@ void testChecks() {
     std::string error;
     const auto badCrc =
         zip::Archive::open(buildZip({{"a.txt", "payload", true, 0x12345678}}), error);
-    expect(badCrc.has_value(), "a wrong CRC still lists");
+    if (!badCrc) {
+        fail("a wrong CRC still lists");
+    }
     expect(!badCrc->read("a.txt", error) && mentions(error, "CRC"), "a CRC mismatch is refused");
 
     const std::string zip64 = buildZip({{"a.txt", "payload", false, {}}}, {}, true);
@@ -79,19 +88,27 @@ void testRanges() {
     const std::uint64_t tailOffset = file.size() - 200;
     const std::string tail = file.substr(tailOffset);
     const auto directory = zip::findDirectory(tail, tailOffset, error);
-    expect(directory.has_value() && directory->entries == 2, "the end record is read from a tail");
+    if (!directory) {
+        fail("the end record is read from a tail");
+    }
+    expect(directory->entries == 2, "the end record is read from a tail");
     expect(directory->offset + directory->size < file.size(), "the directory lies inside the file");
 
     const std::string listing = file.substr(directory->offset, directory->size);
     const auto entries = zip::parseDirectory(listing, *directory, error);
-    expect(entries.has_value() && entries->size() == 2 && (*entries)[1].name == "second.bin",
+    if (!entries) {
+        fail("the directory parses on its own");
+    }
+    expect(entries->size() == 2 && (*entries)[1].name == "second.bin",
            "the directory parses on its own");
     const zip::Entry& entry = (*entries)[1];
     expect(entry.crc32 == crcOf(packed) && entry.size == packed.size(), "size and CRC are kept");
 
     const auto start =
         zip::dataOffset(entry, file.substr(entry.localHeaderOffset, zip::localHeaderSize), error);
-    expect(start.has_value(), "the data offset follows the local header");
+    if (!start) {
+        fail("the data offset follows the local header");
+    }
     expect(zip::extract(entry, file.substr(*start, entry.compressedSize), error) == packed,
            "an entry extracts from its data alone");
 

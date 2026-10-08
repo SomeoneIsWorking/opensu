@@ -5,12 +5,13 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <span>
 #include <string>
 
 namespace iideck::ui {
 
-enum class GameMenuAction { Resume, CloseGame };
+enum class GameMenuAction : std::uint8_t { Resume, CloseGame };
 
 struct GameMenuItem {
     const char* label;

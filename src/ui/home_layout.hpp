@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -32,7 +33,7 @@ struct Rect {
 };
 
 /// iiSU ap6: Flow scrolls continuously, Paged shows whole pages with peeks.
-enum class ScrollMode {
+enum class ScrollMode : std::uint8_t {
     Flow,
     Paged,
 };
@@ -44,6 +45,23 @@ struct GridCell {
     int right{};
     int bottom{};
     int page{};
+};
+
+/// A scroll to bring one cell into view from the current offset; `dx` is the direction of travel.
+struct ScrollRequest {
+    std::size_t index{};
+    float current{};
+    int dx{};
+};
+
+/// What zj2 sizes a WiiSu page from, in pixels.
+struct WiiSuPageInput {
+    float width{};
+    float availableHeight{};
+    int rows{};
+    float spacing{};
+    float pageGap{};
+    float peek{};
 };
 
 /// What the layout is computed from.
@@ -100,8 +118,7 @@ class HomeLayout {
     [[nodiscard]] static int clampColumns(int columns) noexcept;
 
     /// The column count WiiSu sizes a page to (iiSU zj2).
-    [[nodiscard]] static int wiiSuPageColumns(float width, float availableHeight, int rows,
-                                              float spacing, float pageGap, float peek) noexcept;
+    [[nodiscard]] static int wiiSuPageColumns(const WiiSuPageInput& page) noexcept;
 
     [[nodiscard]] ScrollMode mode() const noexcept {
         return mode_;
@@ -169,7 +186,7 @@ class HomeLayout {
     [[nodiscard]] Rect canvasRect(std::size_t index, float scroll) const noexcept;
 
     /// The Flow scroll offset that keeps `index` in view after a move of `dx` columns.
-    [[nodiscard]] float scrollTarget(std::size_t index, float current, int dx) const noexcept;
+    [[nodiscard]] float scrollTarget(const ScrollRequest& request) const noexcept;
     /// The Paged scroll offset that shows `page`.
     [[nodiscard]] float pageScroll(int page) const noexcept;
 

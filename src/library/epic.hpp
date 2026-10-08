@@ -43,7 +43,7 @@ class Provider final : public library::Provider {
 
   private:
     /// Legendary's stdout for `arguments`. Throws as `list` does.
-    [[nodiscard]] std::string run(std::string_view arguments) const;
+    [[nodiscard]] std::string run(const std::vector<std::string>& arguments) const;
 
     std::string binary_;
 };

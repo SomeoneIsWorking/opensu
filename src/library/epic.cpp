@@ -1,15 +1,13 @@
 #include "epic.hpp"
 
 #include <algorithm>
-#include <array>
 #include <charconv>
-#include <cstdio>
 #include <map>
 #include <stdexcept>
-#include <sys/wait.h>
 
 #include <nlohmann/json.hpp>
 
+#include "launch/command.hpp"
 #include "lucent/log.h"
 
 namespace iideck::library::epic {
@@ -67,7 +65,8 @@ std::optional<double> installProgress(std::string_view line) {
     }
     const std::string_view number = line.substr(at + progressMarker.size());
     double percent = 0.0;
-    const auto [end, error] = std::from_chars(number.data(), number.data() + number.size(), percent);
+    const auto [end, error] =
+        std::from_chars(number.data(), number.data() + number.size(), percent);
     if (error != std::errc{} || end == number.data() + number.size() || *end != '%') {
         return std::nullopt;
     }
@@ -79,8 +78,7 @@ std::optional<std::string> installFailure(std::string_view line) {
     for (const std::string_view level : {"ERROR: ", "CRITICAL: "}) {
         // "[cli] ERROR: message": the logger's name in brackets, then the level.
         const std::size_t at = line.find(level);
-        if (line.starts_with('[') && at != std::string_view::npos &&
-            line.find(']') + 2 == at) {
+        if (line.starts_with('[') && at != std::string_view::npos && line.find(']') + 2 == at) {
             return std::string{line.substr(at + level.size())};
         }
     }
@@ -90,28 +88,17 @@ std::optional<std::string> installFailure(std::string_view line) {
     return std::nullopt;
 }
 
-std::string Provider::run(std::string_view arguments) const {
+std::string Provider::run(const std::vector<std::string>& arguments) const {
     // Legendary logs to stderr, so only stdout is captured.
-    std::array<char, 4096> buffer{};
-    std::string output;
-    FILE* pipe = popen((binary_ + " " + std::string{arguments} + " 2>/dev/null").c_str(), "r");
-    if (pipe == nullptr) {
-        throw std::runtime_error{"legendary is not ready"};
-    }
-    while (std::fgets(buffer.data(), static_cast<int>(buffer.size()), pipe) != nullptr) {
-        output += buffer.data();
-    }
-    const int status = pclose(pipe);
-    // The shell's code for a command it cannot find.
-    constexpr int commandNotFound = 127;
-    if (WIFEXITED(status) && WEXITSTATUS(status) == commandNotFound) {
+    const std::optional<launch::Captured> result = launch::runCaptured(binary_, arguments);
+    if (!result) {
         throw SourceAbsent{"legendary is not installed"};
     }
-    if (status != 0) {
+    if (result->status != 0) {
         // Legendary exits non-zero when it has no saved credentials.
         throw std::runtime_error{"legendary is not logged in"};
     }
-    return output;
+    return result->output;
 }
 
 Provider::Provider() : binary_{"legendary"} {
@@ -121,8 +108,8 @@ Provider::Provider(std::string binary) : binary_{std::move(binary)} {
 }
 
 std::vector<Game> Provider::list() {
-    const std::vector<Owned> owned = parseOwned(run("list --json"));
-    const auto installs = parseInstalls(run("list-installed --json"));
+    const std::vector<Owned> owned = parseOwned(run({"list", "--json"}));
+    const auto installs = parseInstalls(run({"list-installed", "--json"}));
 
     std::vector<Game> games;
     for (const Owned& title : owned) {

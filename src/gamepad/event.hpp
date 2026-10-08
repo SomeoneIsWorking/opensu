@@ -2,13 +2,14 @@
 // device.
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
 namespace iideck::gamepad {
 
 /// A named control, presentation-facing rather than device-facing.
-enum class Button {
+enum class Button : std::uint8_t {
     None,
     A,
     B,
@@ -34,7 +35,7 @@ enum class Button {
 
 /// One input state change.
 struct Event {
-    enum class Kind {
+    enum class Kind : std::uint8_t {
         Button,
         Connected,
         Disconnected,

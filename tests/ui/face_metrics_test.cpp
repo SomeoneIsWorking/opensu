@@ -12,6 +12,7 @@
 namespace {
 
 using iideck::test::expect;
+using iideck::test::fail;
 using iideck::test::near;
 using iideck::ui::readFaceMetrics;
 
@@ -21,7 +22,9 @@ void calSans(const char* path) {
     const std::vector<char> bytes{std::istreambuf_iterator<char>{stream},
                                   std::istreambuf_iterator<char>{}};
     const auto metrics = readFaceMetrics(std::as_bytes(std::span{bytes}));
-    expect(metrics.has_value(), "head and hhea are found");
+    if (!metrics) {
+        fail("head and hhea are found");
+    }
     // Cal Sans 1.000, as iiSU ships it: 1000 units per em, hhea 1000 / -300.
     near(metrics->unitsPerEm, 1000.0f, "units per em");
     near(metrics->ascent, 1000.0f, "ascent");

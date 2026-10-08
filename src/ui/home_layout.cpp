@@ -65,8 +65,8 @@ int HomeLayout::clampColumns(int columns) noexcept {
     return std::max(columns, 1);
 }
 
-int HomeLayout::wiiSuPageColumns(float width, float availableHeight, int rows, float spacing,
-                                 float pageGap, float peek) noexcept {
+int HomeLayout::wiiSuPageColumns(const WiiSuPageInput& page) noexcept {
+    const auto& [width, availableHeight, rows, spacing, pageGap, peek] = page;
     // iiSU zj2 works in whole pixels.
     const int lanes = std::max(rows, 1);
     const int gapPx = static_cast<int>(spacing);
@@ -140,8 +140,8 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
 
     if (paged) {
         // STOPGAP: use the grid gap as zj2's spacing because the value iiSU passes is not traced.
-        columns_ = clampColumns(wiiSuPageColumns(width_, height_ - top - bottom - 2.0f * pad, rows_,
-                                                 gap_, pageGap, peek));
+        columns_ = clampColumns(wiiSuPageColumns(
+            {width_, height_ - top - bottom - 2.0f * pad, rows_, gap_, pageGap, peek}));
         const auto reserved = static_cast<float>(columns_);
         const float between = static_cast<float>(columns_ - 1) * gap_;
         // iiSU hx2.g: cells shrink so a whole page plus both peeks and gaps fit.
@@ -278,7 +278,8 @@ Rect HomeLayout::canvasRect(std::size_t index, float scroll) const noexcept {
     return rect;
 }
 
-float HomeLayout::scrollTarget(std::size_t index, float current, int dx) const noexcept {
+float HomeLayout::scrollTarget(const ScrollRequest& request) const noexcept {
+    const auto& [index, current, dx] = request;
     if (slots_ == 0) {
         return 0.0f;
     }

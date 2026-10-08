@@ -78,7 +78,12 @@ class TilePainter {
 
   private:
     void paintShadow(const TileGeometry& geometry, const ChromeVariant& variant, float alpha) const;
-    void paintRing(const TileGeometry& geometry, float inset, float degrees, float alpha) const;
+    struct Ring {
+        float inset;
+        float degrees;
+        float alpha;
+    };
+    void paintRing(const TileGeometry& geometry, const Ring& ring) const;
     void paintChrome(const TileGeometry& geometry, const ChromeVariant& variant, bool focused,
                      float alpha) const;
     void paintContent(const TileVisual& tile, const TileGeometry& geometry);

@@ -6,19 +6,20 @@
 // The game still receives the keys: nothing is grabbed.
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <vector>
 
 namespace iideck::session {
 
-enum class GameShortcut {
+enum class GameShortcut : std::uint8_t {
     /// Shift+Tab, Steam's overlay key: the shell treats it as a Guide press.
     Guide,
 };
 
 /// Which key went down or up, as far as the shortcuts care.
-enum class ShortcutKey {
+enum class ShortcutKey : std::uint8_t {
     LeftShift,
     RightShift,
     Tab,

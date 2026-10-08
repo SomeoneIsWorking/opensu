@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
 #include <thread>
 
@@ -33,6 +34,9 @@ bool isExecutable(const fs::path& candidate) {
 int exitCode(int status) {
     return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
 }
+
+/// Where a streamed child's stderr goes.
+enum class Errors : std::uint8_t { Merged, Discarded };
 
 constexpr auto readSlice = std::chrono::milliseconds{100};
 /// How long a stopped child has to end on SIGTERM before it is killed.
@@ -132,9 +136,11 @@ std::optional<int> runCommand(const std::string& program, const std::vector<std:
     }
 }
 
-std::optional<int> runStreaming(const std::string& program, const std::vector<std::string>& args,
-                                const std::function<void(std::string_view)>& onLine,
-                                const std::stop_token& stop) {
+namespace {
+
+std::optional<int> stream(const std::string& program, const std::vector<std::string>& args,
+                          const std::function<void(std::string_view)>& onLine,
+                          const std::stop_token& stop, Errors errors) {
     std::array<int, 2> ends{};
     if (pipe2(ends.data(), O_CLOEXEC) != 0) {
         lucent::warn("launch", "cannot make a pipe for {}: {}", program, std::strerror(errno));
@@ -148,7 +154,11 @@ std::optional<int> runStreaming(const std::string& program, const std::vector<st
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
     posix_spawn_file_actions_adddup2(&actions, writer.get(), STDOUT_FILENO);
-    posix_spawn_file_actions_adddup2(&actions, writer.get(), STDERR_FILENO);
+    if (errors == Errors::Merged) {
+        posix_spawn_file_actions_adddup2(&actions, writer.get(), STDERR_FILENO);
+    } else {
+        posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
+    }
     // A group of its own, so stopping it reaches the processes the child starts.
     posix_spawnattr_t attributes;
     posix_spawnattr_init(&attributes);
@@ -203,6 +213,31 @@ std::optional<int> runStreaming(const std::string& program, const std::vector<st
         }
     }
     return exitCode(status);
+}
+
+} // namespace
+
+std::optional<int> runStreaming(const std::string& program, const std::vector<std::string>& args,
+                                const std::function<void(std::string_view)>& onLine,
+                                const std::stop_token& stop) {
+    return stream(program, args, onLine, stop, Errors::Merged);
+}
+
+std::optional<Captured> runCaptured(const std::string& program,
+                                    const std::vector<std::string>& args) {
+    Captured captured;
+    const std::optional<int> status = stream(
+        program, args,
+        [&captured](std::string_view line) {
+            captured.output.append(line);
+            captured.output.push_back('\n');
+        },
+        std::stop_token{}, Errors::Discarded);
+    if (!status) {
+        return std::nullopt;
+    }
+    captured.status = *status;
+    return captured;
 }
 
 } // namespace iideck::launch

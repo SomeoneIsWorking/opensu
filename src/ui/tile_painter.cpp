@@ -103,7 +103,7 @@ std::vector<std::string_view> breakLines(std::string_view text, const TextStyle&
 Color alphaColour(int r, int g, int b, float alpha) noexcept {
     return Color{static_cast<unsigned char>(r), static_cast<unsigned char>(g),
                  static_cast<unsigned char>(b),
-                 static_cast<unsigned char>(std::clamp(alpha, 0.0f, 1.0f) * 255.0f + 0.5f)};
+                 static_cast<unsigned char>(std::lround(std::clamp(alpha, 0.0f, 1.0f) * 255.0f))};
 }
 
 Color sample(std::span<const Stop> stops, float t) noexcept {
@@ -170,14 +170,14 @@ void TilePainter::paint(const TileVisual& tile) {
     const bool selected = tile.focused && tile.selectionRing;
     paintShadow(geometry, variant, tile.alpha);
     if (selected) {
-        paintRing(geometry, ringUnderInset, tile.ringDegrees, tile.alpha);
+        paintRing(geometry, {ringUnderInset, tile.ringDegrees, tile.alpha});
     }
     paintChrome(geometry, variant, selected, tile.alpha);
     if (!tile.placeholder) {
         paintContent(tile, geometry);
     }
     if (selected) {
-        paintRing(geometry, ringOverInset, tile.ringDegrees, tile.alpha);
+        paintRing(geometry, {ringOverInset, tile.ringDegrees, tile.alpha});
     }
 }
 
@@ -197,8 +197,8 @@ void TilePainter::paintShadow(const TileGeometry& geometry, const ChromeVariant&
     });
 }
 
-void TilePainter::paintRing(const TileGeometry& geometry, float inset, float degrees,
-                            float alpha) const {
+void TilePainter::paintRing(const TileGeometry& geometry, const Ring& ring) const {
+    const auto [inset, degrees, alpha] = ring;
     // iiSU tw2.b: outer round rect to a rect inset frame x k at the content radius.
     const RoundRect outer{geometry.outer, geometry.outerRadius};
     const float by = geometry.frameWidth * inset;

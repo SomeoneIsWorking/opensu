@@ -24,8 +24,8 @@ bool isZombie(const std::filesystem::path& proc) {
 
 } // namespace
 
-DesktopSteam::DesktopSteam(std::filesystem::path home)
-    : pidFile_{std::move(home) / ".steam" / "steam.pid"} {
+DesktopSteam::DesktopSteam(const std::filesystem::path& home)
+    : pidFile_{home / ".steam" / "steam.pid"} {
 }
 
 bool DesktopSteam::runningOutside(const std::string& instanceUnit) const {

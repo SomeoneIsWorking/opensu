@@ -62,8 +62,8 @@ class PadTranslator {
     void forwardKey(std::uint16_t code, std::int32_t value, std::vector<PadEvent>& forward);
     void forwardAxis(std::uint16_t code, std::int32_t value, std::vector<PadEvent>& forward);
     void control(Button button, bool pressed, std::vector<Event>& controls);
-    void hatControls(std::uint16_t code, std::int32_t value, std::vector<Event>& controls);
-    void stickControls(std::uint16_t code, std::int32_t value, std::vector<Event>& controls);
+    void hatControls(const PadEvent& axis, std::vector<Event>& controls);
+    void stickControls(const PadEvent& axis, std::vector<Event>& controls);
 
     PadCapabilities physical_;
     /// The virtual pad's state as last forwarded, by (type, code).

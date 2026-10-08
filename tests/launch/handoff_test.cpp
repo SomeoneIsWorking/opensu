@@ -58,12 +58,18 @@ using iideck::library::Game;
 using iideck::library::Source;
 
 // Where the fixtures' programs live; tests do not read the environment.
-const std::vector<fs::path> kSearchPath{"/usr/bin", "/bin"};
+std::vector<fs::path> searchPath() {
+    return std::vector<fs::path>{"/usr/bin", "/bin"};
+}
+
+[[noreturn]] void fail(const char* what) {
+    std::fprintf(stderr, "FAIL: %s\n", what);
+    std::exit(1);
+}
 
 void expect(bool condition, const char* what) {
     if (!condition) {
-        std::fprintf(stderr, "FAIL: %s\n", what);
-        std::exit(1);
+        fail(what);
     }
 }
 
@@ -333,7 +339,7 @@ Game makeGame(const std::string& id, const std::string& program, std::vector<std
     game.title = id;
     game.installed = true;
     game.processHint = std::move(hint);
-    game.launch.program = std::move(program);
+    game.launch.program = program;
     game.launch.args = std::move(args);
     return game;
 }
@@ -346,24 +352,25 @@ struct Outcome {
 /// start() is documented to block, so every launch goes on its own thread.
 std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& shell,
                                    std::vector<std::string> environment = {}) {
-    return std::async(std::launch::async, [&handoff, &game, &shell, environment]() {
-        Outcome outcome;
-        const Handoff::Hooks hooks{.hide =
-                                       [&shell] {
-                                           shell.hide();
-                                       },
-                                   .show =
-                                       [&shell] {
-                                           shell.show();
-                                       },
-                                   .progress =
-                                       [&shell](const LaunchProgress& now) {
-                                           shell.report(now);
-                                       }};
-        outcome.ok = handoff.start(game, hooks, environment, outcome.failure);
-        shell.returned.store(true);
-        return outcome;
-    });
+    return std::async(std::launch::async,
+                      [&handoff, &game, &shell, environment = std::move(environment)]() {
+                          Outcome outcome;
+                          const Handoff::Hooks hooks{.hide =
+                                                         [&shell] {
+                                                             shell.hide();
+                                                         },
+                                                     .show =
+                                                         [&shell] {
+                                                             shell.show();
+                                                         },
+                                                     .progress =
+                                                         [&shell](const LaunchProgress& now) {
+                                                             shell.report(now);
+                                                         }};
+                          outcome.ok = handoff.start(game, hooks, environment, outcome.failure);
+                          shell.returned.store(true);
+                          return outcome;
+                      });
 }
 
 /// Waits for start() to return, reporting instead of blocking forever.
@@ -410,7 +417,7 @@ void testStartBlocksUntilTheGameIsOver() {
     const RunningGame child = runningGame(fixture, "blocking", 4);
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{kSearchPath, fixture.session(), steam, nullptr};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
 
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
@@ -451,7 +458,7 @@ void testEnvironmentReachesTheGame() {
     const Game entry = makeGame("environment", "/bin/sh", {script.string()}, marker);
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{kSearchPath, fixture.session(), steam, nullptr};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
     std::future<Outcome> pending =
         startOnWorker(handoff, entry, shell, {"IIDECK_TEST_VALUE=from-the-shell"});
     const Outcome outcome = awaitStart(pending, "start() returns when the game exits");
@@ -504,7 +511,7 @@ void testStartWaitsAcrossAHandOff() {
 
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{kSearchPath, fixture.session(), steam, nullptr};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
 
@@ -569,7 +576,7 @@ void testShellWaitsForTheWindow() {
     Shell shell;
     FakeSteam steam;
     FakeWindows windows;
-    Handoff handoff{kSearchPath, fixture.session(), steam, &windows};
+    Handoff handoff{searchPath(), fixture.session(), steam, &windows};
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
 
     const pid_t pid = awaitRecordedPid(child.pidFile, "the game started");
@@ -602,7 +609,7 @@ void testGameLeavingBeforeAWindowFails() {
     Shell shell;
     FakeSteam steam;
     FakeWindows windows;
-    Handoff handoff{kSearchPath, fixture.session(), steam, &windows};
+    Handoff handoff{searchPath(), fixture.session(), steam, &windows};
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
     const Outcome outcome =
         awaitStart(pending, "start() returns when the game leaves", std::chrono::seconds{20});
@@ -621,7 +628,7 @@ void testMissingProgramReportsFailurePromptly() {
 
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{kSearchPath, fixture.session(), steam, nullptr};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =
@@ -641,7 +648,7 @@ void testForceCloseEndsTheRunPhase() {
     const RunningGame child = runningGame(fixture, "forced", 600);
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{kSearchPath, fixture.session(), steam, nullptr};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
     std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
 
     const pid_t pid = awaitRecordedPid(child.pidFile, "the game started");
@@ -669,7 +676,7 @@ void testForceCloseEndsTheStartPhase() {
     const Game entry = makeGame("never", "/bin/sleep", {"600"}, fixture.marker("never"));
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{kSearchPath, fixture.session(), steam, nullptr};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
 
     expect(!shell.returnedWithin(std::chrono::milliseconds{1500}),
@@ -689,7 +696,7 @@ void testInstanceExitEndsTheWait() {
     const Game entry = makeGame("quick", "/bin/sh", {"-c", "exit 3"}, fixture.marker("quick"));
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{kSearchPath, fixture.session(), steam, nullptr};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =
         awaitStart(pending, "start() returns when the instance exits", std::chrono::seconds{20});
@@ -807,8 +814,10 @@ void testSteamUpdateKeepsTheShellUp() {
            "the launch waits while Steam updates the game");
     expect(shell.hidden.load() == 0, "the shell stays up while the game is updated");
     const std::optional<LaunchProgress> reported = shell.latestProgress();
-    expect(reported && reported->stage == LaunchProgress::Stage::Updating &&
-               reported->fraction == 0.42,
+    if (!reported) {
+        fail("the update's progress is reported");
+    }
+    expect(reported->stage == LaunchProgress::Stage::Updating && reported->fraction == 0.42,
            "the update's progress is reported");
     expect(describe(*reported) == "Updating · 42%", "and reads as such");
 
@@ -1038,7 +1047,7 @@ void testEmptyHintIsRefusedPromptly() {
 
     Shell shell;
     FakeSteam steam;
-    Handoff handoff{kSearchPath, fixture.session(), steam, nullptr};
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
     const Clock::time_point began = Clock::now();
     std::future<Outcome> pending = startOnWorker(handoff, entry, shell);
     const Outcome outcome =

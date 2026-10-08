@@ -1,6 +1,7 @@
 #include "rom_systems.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <iterator>
 #include <string>
@@ -99,7 +100,7 @@ std::uintmax_t sizeOf(const fs::path& file) {
     return ec ? 0 : size;
 }
 
-const std::vector<RomSystem> systems{
+constexpr auto systems = std::to_array<RomSystem>({
     {"nes",
      "NES",
      "Nintendo - Nintendo Entertainment System",
@@ -185,7 +186,7 @@ const std::vector<RomSystem> systems{
      {".iso", ".xex", ".zar"},
      {}},
     {"arcade", "Arcade", "", {"arcade", "mame", "fbneo"}, {".zip"}, {}},
-};
+});
 
 } // namespace
 

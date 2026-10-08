@@ -51,8 +51,8 @@ std::vector<artwork::ApkAsset> iisuAssets() {
 
 } // namespace
 
-ShellApp::ShellApp(Settings settings)
-    : settings_{std::move(settings)}, catalog_{library::makeCatalog(config::read())},
+ShellApp::ShellApp(const Settings& settings)
+    : settings_{settings}, catalog_{library::makeCatalog(config::read())},
       shell_{settings_.width, settings_.height, settings_.homeMode},
       steam_{steam::Client::Options{config::read().home, config::read().executablePath,
                                     config::read().session, config::read().steamRoots}},

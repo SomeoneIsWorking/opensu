@@ -72,7 +72,7 @@ struct PlayRecord {
 /// artwork lookups do not depend on which path was discovered.
 std::optional<fs::path> existingDirectory(const fs::path& path) {
     std::error_code ec;
-    const fs::path resolved = fs::weakly_canonical(path, ec);
+    fs::path resolved = fs::weakly_canonical(path, ec);
     if (ec || !fs::is_directory(resolved, ec)) {
         return std::nullopt;
     }
@@ -245,10 +245,15 @@ bool lessByAppId(const fs::path& a, const fs::path& b) {
     return appIdOf(a) < appIdOf(b);
 }
 
+/// A library folder and the Steam install root it was found under.
+struct LibraryLocation {
+    const fs::path& root;
+    const fs::path& path;
+};
+
 /// Reads one app manifest. Returns nothing when the manifest is unreadable or
 /// carries no name.
-std::optional<Game> readManifest(const fs::path& root, const fs::path& libraryPath,
-                                 const fs::path& manifestPath,
+std::optional<Game> readManifest(const LibraryLocation& library, const fs::path& manifestPath,
                                  const std::map<std::string, PlayRecord, std::less<>>& play) {
     const std::optional<Node> doc = vdf::parseFile(manifestPath);
     if (!doc) {
@@ -276,7 +281,7 @@ std::optional<Game> readManifest(const fs::path& root, const fs::path& libraryPa
     bool installed = stateFlagsInstalled(*state);
     if (!installDir.empty()) {
         std::error_code ec;
-        if (fs::is_directory(libraryPath / "steamapps" / "common" / installDir, ec)) {
+        if (fs::is_directory(library.path / "steamapps" / "common" / installDir, ec)) {
             installed = true;
         }
     }
@@ -303,8 +308,8 @@ std::optional<Game> readManifest(const fs::path& root, const fs::path& libraryPa
         }
     }
 
-    game.artwork = firstExisting(root, portraitCandidates(), appId);
-    game.artworkWide = firstExisting(root, wideCandidates(), appId);
+    game.artwork = firstExisting(library.root, portraitCandidates(), appId);
+    game.artworkWide = firstExisting(library.root, wideCandidates(), appId);
     return game;
 }
 
@@ -328,7 +333,8 @@ std::vector<Game> readLibrary(const fs::path& root, const fs::path& libraryPath,
 
     std::vector<Game> games;
     for (const fs::path& manifest : manifests) {
-        if (std::optional<Game> game = readManifest(root, libraryPath, manifest, play)) {
+        if (std::optional<Game> game =
+                readManifest(LibraryLocation{root, libraryPath}, manifest, play)) {
             games.push_back(std::move(*game));
         }
     }
@@ -339,7 +345,7 @@ std::vector<Game> readLibrary(const fs::path& root, const fs::path& libraryPath,
 /// distinct path and per distinct content id. Steam keeps entries for drives
 /// that are not mounted, and a stale one must never win over a mounted one that
 /// holds the games.
-std::vector<LibraryFolder> presentFolders(std::vector<LibraryFolder> candidates) {
+std::vector<LibraryFolder> presentFolders(const std::vector<LibraryFolder>& candidates) {
     std::vector<LibraryFolder> out;
     std::vector<fs::path> seenPaths;
     std::vector<std::string> seenIds;
@@ -442,7 +448,7 @@ std::vector<LibraryFolder> Library::libraryFolders() const {
             }
         }
     }
-    return presentFolders(std::move(folders));
+    return presentFolders(folders);
 }
 
 std::optional<fs::path> Library::manifestOf(std::string_view appId) const {
@@ -501,7 +507,7 @@ std::vector<Game> Library::list() const {
 
     if (games.empty() && !problems.empty()) {
         throw std::runtime_error{std::accumulate(problems.begin(), problems.end(), std::string{},
-                                                 [](std::string acc, const std::string& p) {
+                                                 [](const std::string& acc, const std::string& p) {
                                                      return acc.empty() ? p : acc + "; " + p;
                                                  })};
     }

@@ -15,12 +15,16 @@ using iideck::ui::plainItem;
 using iideck::ui::wideItem;
 
 /// iiSU's five items: Home, ROMs (wide), RetroAchievements, Friends, Apps.
-const std::vector<float> fiveItems{plainItem, wideItem, plainItem, plainItem, plainItem};
+std::vector<float> fiveItems() {
+    return std::vector<float>{plainItem, wideItem, plainItem, plainItem, plainItem};
+}
 /// iideck's two: Home and Library.
-const std::vector<float> twoItems{plainItem, wideItem};
+std::vector<float> twoItems() {
+    return std::vector<float>{plainItem, wideItem};
+}
 
 void referenceCapture() {
-    const DockMetrics dock{853.0f, 456.0f, fiveItems};
+    const DockMetrics dock{853.0f, 456.0f, fiveItems()};
     near(dock.height, 50.94f, "bar height at 853 x 456 dp", 0.01);
     near(dock.iconSize, 43.81f, "icon box", 0.01);
     near(dock.itemWidths[1], 54.10f, "the ROMs item is 1.235 icons wide", 0.01);
@@ -37,7 +41,7 @@ void referenceCapture() {
 }
 
 void ourTwoItems() {
-    const DockMetrics dock{853.0f, 456.0f, twoItems};
+    const DockMetrics dock{853.0f, 456.0f, twoItems()};
     near(dock.height, 50.94f, "the height does not depend on the item count", 0.01);
     // (1 + 1.235) icons, one gap, two side paddings.
     near(dock.width, (1.0f + 1.235f) * 43.81f + 1.53f + 2.0f * 6.11f, "two items make a bar", 0.05);
@@ -46,7 +50,7 @@ void ourTwoItems() {
 
 void otherSize() {
     // 480 x 270 dp: f0 floors at 0.68, so s = 0.82 and the prompt height 42.24 caps the bar.
-    const DockMetrics dock{480.0f, 270.0f, fiveItems};
+    const DockMetrics dock{480.0f, 270.0f, fiveItems()};
     near(dock.height, 42.24f, "the bar is capped by the prompt row's height", 0.01);
     near(dock.iconSize, 36.33f, "icon box", 0.01);
     near(dock.spacing, 1.267f, "spacing", 0.01);
@@ -58,7 +62,7 @@ void otherSize() {
     near(dock.badgeOutset, 3.38f, "badge outset", 0.01);
     near(dock.badgeRise, 4.65f, "badge rise", 0.01);
 
-    const DockMetrics large{1920.0f, 1080.0f, twoItems};
+    const DockMetrics large{1920.0f, 1080.0f, twoItems()};
     near(large.height, 50.94f + 0.0f * 0.0f, "a larger screen does not grow the bar past f0 = 1",
          10.0);
     expect(large.height <= 60.0f && large.iconSize <= 58.0f, "the bar never exceeds its clamps");
@@ -78,7 +82,7 @@ void insetLeavesRoom() {
     // it.
     for (const auto [w, h] : {std::pair{853.0f, 456.0f}, std::pair{853.0f, 480.0f},
                               std::pair{480.0f, 270.0f}, std::pair{1280.0f, 800.0f}}) {
-        const DockMetrics dock{w, h, twoItems};
+        const DockMetrics dock{w, h, twoItems()};
         const iideck::ui::TopBarMetrics top{w, h};
         expect(dock.height + DockMetrics::bottomGap + DockMetrics::topGap <= top.gridBottomInset(),
                "the grid's bottom inset leaves room for the dock");
@@ -86,7 +90,7 @@ void insetLeavesRoom() {
 }
 
 void placement() {
-    const DockMetrics dock{853.0f, 456.0f, twoItems};
+    const DockMetrics dock{853.0f, 456.0f, twoItems()};
     const float dp = 2.0f;
     const iideck::ui::DockLayout layout =
         iideck::ui::layoutDock(dock, 853.0f * dp, 456.0f * dp, dp);

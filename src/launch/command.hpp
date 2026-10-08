@@ -28,8 +28,20 @@ resolveExecutable(const std::string& program, const std::vector<std::filesystem:
 /// `onLine` as it arrives, until the child exits. When `stop` is requested the child and its
 /// processes are ended. Returns the exit status (128 plus the signal when it was killed by one),
 /// or nothing when it could not be run or was stopped.
-[[nodiscard]] std::optional<int>
-runStreaming(const std::string& program, const std::vector<std::string>& args,
-             const std::function<void(std::string_view)>& onLine, const std::stop_token& stop);
+[[nodiscard]] std::optional<int> runStreaming(const std::string& program,
+                                              const std::vector<std::string>& args,
+                                              const std::function<void(std::string_view)>& onLine,
+                                              const std::stop_token& stop);
+
+/// The status and stdout of a finished command.
+struct Captured {
+    int status{};
+    std::string output;
+};
+
+/// Runs `program` with stdin closed and stderr discarded, collecting stdout until it exits.
+/// Returns nothing when it could not be run.
+[[nodiscard]] std::optional<Captured> runCaptured(const std::string& program,
+                                                  const std::vector<std::string>& args);
 
 } // namespace iideck::launch

@@ -27,10 +27,10 @@ void recolour() {
 void borders() {
     // A 32 x 32 card whose top stroke row is green and bottom stroke row red; the stroke's middle
     // is 13/1024 of the height, which is row 0 here.
-    std::vector<std::uint8_t> card(32 * 32 * 4, 255);
+    std::vector<std::uint8_t> card(std::size_t{32} * 32 * 4, 255);
     for (int x = 0; x < 32; ++x) {
         const std::size_t top = static_cast<std::size_t>(x) * 4;
-        const std::size_t bottom = (31 * 32 + static_cast<std::size_t>(x)) * 4;
+        const std::size_t bottom = (std::size_t{31} * 32 + static_cast<std::size_t>(x)) * 4;
         card[top] = 0;
         card[top + 1] = 200;
         card[top + 2] = 0;

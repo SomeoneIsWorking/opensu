@@ -4,13 +4,26 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <optional>
 
 namespace iideck::test {
 
+[[noreturn]] inline void fail(const char* what) {
+    std::fprintf(stderr, "FAIL: %s\n", what);
+    std::exit(1);
+}
+
+/// The value of `value`, or a failed check when it is empty.
+template <class T> const T& need(const std::optional<T>& value, const char* what) {
+    if (!value) {
+        fail(what);
+    }
+    return *value;
+}
+
 inline void expect(bool condition, const char* what) {
     if (!condition) {
-        std::fprintf(stderr, "FAIL: %s\n", what);
-        std::exit(1);
+        fail(what);
     }
 }
 

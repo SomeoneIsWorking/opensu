@@ -28,6 +28,7 @@ using iideck::gamepad::PadEvent;
 using iideck::gamepad::Pads;
 using iideck::gamepad::VirtualPad;
 using iideck::test::expect;
+using iideck::test::fail;
 
 /// A DualSense-shaped controller: 0..255 sticks, a hat, Guide.
 class FakePad {
@@ -189,7 +190,9 @@ int main() {
     {
         const FakePad steamVirtual{"Steam Virtual Gamepad", 0x28de, 0x11ff};
         auto node = openNamed("Steam Virtual Gamepad");
-        expect(node.has_value(), "Steam's virtual pad appears");
+        if (!node) {
+            fail("Steam's virtual pad appears");
+        }
         std::this_thread::sleep_for(200ms);
         for (const Event& event : pads.takeEvents()) {
             expect(event.device != "Steam Virtual Gamepad", "Steam's virtual pad is not read");
@@ -200,7 +203,9 @@ int main() {
     std::vector<EvdevDevice> virtualPads = openAllNamed(VirtualPad::name);
     expect(!virtualPads.empty(), "holding gives the pad a virtual pad");
     auto other = openNamed("iideck test pad");
-    expect(other.has_value(), "the held pad can still be opened");
+    if (!other) {
+        fail("the held pad can still be opened");
+    }
 
     std::vector<PadEvent> read;
     physical->send({{EV_KEY, BTN_SOUTH, 1}, {EV_ABS, ABS_X, 255}});
@@ -220,7 +225,9 @@ int main() {
         }
         std::this_thread::sleep_for(5ms);
     }
-    expect(game.has_value(), "A reaches the game");
+    if (!game) {
+        fail("A reaches the game");
+    }
     expect(readUntil(*game, {EV_ABS, ABS_X, 32767}, read), "the stick reaches it rescaled");
     std::vector<PadEvent> leaked;
     other->read(leaked);

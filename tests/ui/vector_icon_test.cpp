@@ -9,16 +9,20 @@
 namespace {
 
 using iideck::test::expect;
+using iideck::test::fail;
 
 void testShippedIcons(const std::filesystem::path& assets) {
     for (const iideck::ui::Icon icon :
          {iideck::ui::Icon::Steam, iideck::ui::Icon::Epic, iideck::ui::Icon::Gog}) {
         const auto mask = iideck::ui::rasteriseMask(assets / iideck::ui::iconFile(icon), 48);
-        expect(mask && mask->size() == 48u * 48u * 4u, "an icon rasterises at the size asked");
+        if (!mask) {
+            fail("an icon rasterises at the size asked");
+        }
+        expect(mask->size() == std::size_t{48} * 48 * 4, "an icon rasterises at the size asked");
         std::size_t covered = 0;
         bool white = true;
         double sumX = 0.0;
-        for (std::size_t i = 0; i < 48u * 48u; ++i) {
+        for (std::size_t i = 0; i < std::size_t{48} * 48; ++i) {
             const unsigned char* px = &(*mask)[i * 4];
             white = white && px[0] == 255 && px[1] == 255 && px[2] == 255;
             if (px[3] > 127) {

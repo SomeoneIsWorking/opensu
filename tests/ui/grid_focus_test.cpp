@@ -59,6 +59,7 @@ FocusGrid handGrid(std::vector<GridCell> cells) {
 /// `count` 1 x 1 tiles filled column-major into 3 rows on one page, laid out by handGrid.
 std::vector<GridCell> columnMajor(int count, int page = 0) {
     std::vector<GridCell> cells;
+    cells.reserve(static_cast<std::size_t>(count));
     for (int index = 0; index < count; ++index) {
         cells.push_back(GridCell{index / 3, index % 3, index / 3, index % 3, page});
     }

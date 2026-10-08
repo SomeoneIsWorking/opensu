@@ -23,10 +23,10 @@ constexpr Color hintInk{0x4D, 0x46, 0x55, 255};
 
 } // namespace
 
-void Hud::setSize(int width, int height, float dp) noexcept {
-    width_ = width;
-    height_ = height;
-    dp_ = dp;
+void Hud::setSize(const Size& size) noexcept {
+    width_ = size.width;
+    height_ = size.height;
+    dp_ = size.dp;
 }
 
 float Hud::unit() const noexcept {
@@ -64,9 +64,11 @@ void Hud::drawGround() const {
     const float spacing = std::max(u * 2.2f, 8.0f);
     const float radius = std::max(spacing * 0.09f, 1.0f);
     const Color dot{palette::ink.r, palette::ink.g, palette::ink.b, 24};
-    for (float y = spacing; y < static_cast<float>(height_); y += spacing) {
-        for (float x = spacing; x < static_cast<float>(width_); x += spacing) {
-            DrawCircleV({x, y}, radius, dot);
+    for (int row = 1; spacing * static_cast<float>(row) < static_cast<float>(height_); ++row) {
+        for (int column = 1; spacing * static_cast<float>(column) < static_cast<float>(width_);
+             ++column) {
+            DrawCircleV({spacing * static_cast<float>(column), spacing * static_cast<float>(row)},
+                        radius, dot);
         }
     }
 }

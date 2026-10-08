@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <optional>
 
 #include "lucent/log.h"
@@ -16,7 +17,7 @@ constexpr std::string_view readState =
     "app: info.currentAppID, error: info.errorDetail }))";
 
 // Steam's EInstallMgrState (steamui library.js).
-enum InstallState : int {
+enum InstallState : std::uint8_t {
     None = 0,
     Setup = 1,
     WaitLicense = 2,
@@ -68,6 +69,7 @@ WizardAction actionFor(int installState) noexcept {
     case ShowPassword:
     case ShowChangeMedia:
     case ShowSignup:
+    default:
         break;
     }
     return WizardAction::Unsupported;

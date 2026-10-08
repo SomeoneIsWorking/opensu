@@ -37,11 +37,12 @@ void drawMiddle(std::string_view text, float centreX, float centreY, const TextS
 
 } // namespace
 
-void LaunchPanelPainter::paint(const LaunchPanel& panel, float width, float height, float dp,
+void LaunchPanelPainter::paint(const LaunchPanel& panel, Vector2 size, float dp,
                                double seconds) const {
     if (!panel.isOpen()) {
         return;
     }
+    const auto [width, height] = size;
     DrawRectangleRec(Rectangle{0.0f, 0.0f, width, height}, scrim);
 
     const float pad = paddingDp * dp;

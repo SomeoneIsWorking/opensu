@@ -37,7 +37,7 @@ gitignored `docs/reference/`).
 | `src/launch/instance.*` | One transient systemd user scope per launch; stopping it ends the whole tree |
 | `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends |
 | `src/launch/process_tree.*` | Finding processes by command line, ending trees |
-| `src/launch/command.*`, `argv.hpp` | Short-lived children, a child streamed line by line, executable lookup, exec argv |
+| `src/launch/command.*`, `argv.hpp` | Short-lived children, a child streamed line by line or its stdout captured (own `iideck_command` target, so `library` can run `legendary`), executable lookup, exec argv |
 | `src/launch/steam_gate.hpp` | What a Steam launch waits for from the owned Steam client |
 | `src/launch/launch_progress.*` | A launch's stage before its window (waiting for Steam, updating, starting, loading) and its line of text |
 | `src/launch/game_windows.hpp` | What the handoff asks the display: does the game show a window yet |
@@ -59,7 +59,7 @@ gitignored `docs/reference/`).
 | `src/library/sections.*` | The dock's sections (Home, Library), the active one and L1/R1 cycling with wrap; Library's layout modes and their keys |
 | `src/library/shelf.*` | What the grid holds: Home's installed store games (`homeShelf`); Library's launchers, All games and consoles (`libraryShelf`); a console's ROMs, a launcher's library, the combined library; moving between them and between sections |
 | `src/library/titles.*` | The same title across stores: the comparison key, merged copies, preference order |
-| `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts |
+| `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts; the tables are `constexpr` (`name_list.hpp`) |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line |
 | `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
 | `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, UI sounds (`sound/<file>`, WAV or OGG) and the dock's icons (`nav/`) |

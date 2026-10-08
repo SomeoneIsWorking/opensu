@@ -3,6 +3,7 @@
 // Licence agreements are never accepted without the player.
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,7 +23,7 @@ struct Eula {
 
 /// Where the wizard stands.
 struct InstallStep {
-    enum class Kind {
+    enum class Kind : std::uint8_t {
         /// Steam is still preparing; poll again.
         Working,
         /// The player must accept `eulas` before it continues.
@@ -38,7 +39,7 @@ struct InstallStep {
 };
 
 /// What to do at one of Steam's EInstallMgrState values.
-enum class WizardAction {
+enum class WizardAction : std::uint8_t {
     Wait,
     Continue,
     AskEula,

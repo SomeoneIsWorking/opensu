@@ -1,12 +1,13 @@
 // launch — how far a launch has got before its game shows a window.
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 namespace iideck::launch {
 
 struct LaunchProgress {
-    enum class Stage {
+    enum class Stage : std::uint8_t {
         /// The Steam client is still signing in.
         WaitingForSteam,
         /// Steam is downloading an update it must apply first.

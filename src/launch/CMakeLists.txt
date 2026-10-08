@@ -1,5 +1,11 @@
-add_library(iideck_launch STATIC handoff.cpp launch_progress.cpp instance.cpp command.cpp process_tree.cpp)
+add_library(iideck_command STATIC command.cpp)
+add_library(iideck::command ALIAS iideck_command)
+target_include_directories(iideck_command PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(iideck_command PUBLIC lucent::lucent)
+target_compile_features(iideck_command PUBLIC cxx_std_20)
+
+add_library(iideck_launch STATIC handoff.cpp launch_progress.cpp instance.cpp process_tree.cpp)
 add_library(iideck::launch ALIAS iideck_launch)
 target_include_directories(iideck_launch PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(iideck_launch PUBLIC iideck::library lucent::lucent)
+target_link_libraries(iideck_launch PUBLIC iideck::command iideck::library lucent::lucent)
 target_compile_features(iideck_launch PUBLIC cxx_std_20)

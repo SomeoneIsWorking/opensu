@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -35,7 +36,7 @@ void expect(bool condition, const char* what) {
 constexpr const char* logonLine = "[2026-10-06 19:56:14] [Logged On, 4, 7] [U:1:71770072] "
                                   "RecvMsgClientLogOnResponse() : processing complete";
 
-enum class Mode {
+enum class Mode : std::uint8_t {
     /// Logs on after a second, writing the line in two pieces, then runs until -shutdown.
     Ready,
     /// Never logs on; runs until -shutdown.

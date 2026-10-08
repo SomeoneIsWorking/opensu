@@ -16,9 +16,14 @@ struct GamescopeOverlay::Connection {
     Atom opacity{};
     Atom inputFocus{};
 
-    void set(Atom property, unsigned long value) const {
+    /// A CARDINAL property value.
+    struct Cardinal {
+        unsigned long value;
+    };
+
+    void set(Atom property, Cardinal cardinal) const {
         // Format-32 property data is an array of long, whatever its width.
-        const long data = static_cast<long>(value);
+        const long data = static_cast<long>(cardinal.value);
         XChangeProperty(display, window, property, XA_CARDINAL, 32, PropModeReplace,
                         reinterpret_cast<const unsigned char*>(&data), 1);
     }
@@ -63,14 +68,14 @@ GamescopeOverlay::~GamescopeOverlay() {
 }
 
 void GamescopeOverlay::enter() {
-    connection_->set(connection_->opacity, 0);
-    connection_->set(connection_->overlay, 1);
+    connection_->set(connection_->opacity, {0});
+    connection_->set(connection_->overlay, {1});
     connection_->flush();
 }
 
 void GamescopeOverlay::setShown(bool shown) {
-    connection_->set(connection_->opacity, shown ? opaque : 0);
-    connection_->set(connection_->inputFocus, shown ? 1 : 0);
+    connection_->set(connection_->opacity, {shown ? opaque : 0});
+    connection_->set(connection_->inputFocus, {shown ? 1UL : 0UL});
     connection_->flush();
 }
 

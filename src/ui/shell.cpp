@@ -71,7 +71,7 @@ bool intersectsCanvas(const Rect& rect, int width, int height) noexcept {
 
 Shell::Shell(int width, int height, config::HomeMode mode)
     : layout_{HomeLayoutInput{}}, mode_{mode}, width_{width}, height_{height} {
-    hud_.setSize(width, height, dp());
+    hud_.setSize({width, height, dp()});
     relayout();
 }
 
@@ -126,7 +126,7 @@ float Shell::scroll() const noexcept {
 void Shell::setSize(int width, int height) {
     width_ = width;
     height_ = height;
-    hud_.setSize(width, height, dp());
+    hud_.setSize({width, height, dp()});
     relayout();
 }
 
@@ -191,7 +191,7 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
     const std::size_t start = focus < tiles_.size() ? focus : 0;
     focus_.reset(start, layout_.cellOf(start));
     page_ = layout_.mode() == ScrollMode::Paged ? layout_.pageOf(start) : 0;
-    scroller_.snap(layout_.scrollTarget(start, 0.0f, 0));
+    scroller_.snap(layout_.scrollTarget({start, 0.0f, 0}));
     railFocus_.snap(static_cast<float>(start));
     focusAt_ = now_;
     // The catalog can arrive before the first frame, so the entrance starts on the next tick.
@@ -325,7 +325,7 @@ void Shell::relayout() {
         page_ = layout_.pageOf(focus_.index());
         return;
     }
-    scroller_.snap(layout_.scrollTarget(focus_.index(), scroller_.target(), 0));
+    scroller_.snap(layout_.scrollTarget({focus_.index(), scroller_.target(), 0}));
 }
 
 void Shell::focusOn(std::size_t index, int dx) {
@@ -334,7 +334,7 @@ void Shell::focusOn(std::size_t index, int dx) {
         page_ = layout_.pageOf(index);
         return;
     }
-    scroller_.retarget(layout_.scrollTarget(index, scroller_.target(), dx));
+    scroller_.retarget(layout_.scrollTarget({index, scroller_.target(), dx}));
 }
 
 void Shell::startEntrance() {
@@ -732,7 +732,7 @@ void Shell::draw(const RenderTexture2D* target) {
                              -static_cast<float>(scene_.texture.height)},
                    Vector2{0.0f, 0.0f}, WHITE);
     drawDock(dock, frameHeight);
-    launchPanelPainter_.paint(launchPanel_, frameWidth, frameHeight, dp(),
+    launchPanelPainter_.paint(launchPanel_, Vector2{frameWidth, frameHeight}, dp(),
                               std::chrono::duration<double>(now_.time_since_epoch()).count());
     chooserPainter_.paint(chooser_, Vector2{frameWidth, frameHeight}, dp());
     hud_.drawToast();

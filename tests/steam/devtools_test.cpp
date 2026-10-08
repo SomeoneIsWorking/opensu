@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <functional>
 #include <mutex>
 #include <optional>
@@ -387,13 +388,18 @@ void testInstallRefusesWhatOnlySteamCanAsk() {
 } // namespace
 
 int main() {
-    testDownloadsParse();
-    testQueueReadsThroughDevTools();
-    testLaunchActivityParse();
-    testLaunchActivityReadsThroughDevTools();
-    testUnreachableSteam();
-    testInstallWalksTheWizard();
-    testInstallRefusesWhatOnlySteamCanAsk();
-    std::printf("devtools: all checks passed\n");
-    return 0;
+    try {
+        testDownloadsParse();
+        testQueueReadsThroughDevTools();
+        testLaunchActivityParse();
+        testLaunchActivityReadsThroughDevTools();
+        testUnreachableSteam();
+        testInstallWalksTheWizard();
+        testInstallRefusesWhatOnlySteamCanAsk();
+        std::printf("devtools: all checks passed\n");
+        return 0;
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
+        return 1;
+    }
 }

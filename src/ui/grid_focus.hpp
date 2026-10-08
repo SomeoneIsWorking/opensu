@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <vector>
 
@@ -14,7 +15,7 @@
 
 namespace iideck::ui {
 
-enum class Direction {
+enum class Direction : std::uint8_t {
     Left,
     Right,
     Up,

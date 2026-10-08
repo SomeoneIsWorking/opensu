@@ -8,6 +8,8 @@
 #include <string_view>
 #include <vector>
 
+#include "name_list.hpp"
+
 namespace iideck::library::roms {
 
 struct RomSystem {
@@ -17,12 +19,12 @@ struct RomSystem {
     /// The system's folder at thumbnails.libretro.com, empty when it has none.
     std::string_view libretroName;
     /// Folder names, compared lower-case with everything but letters and digits removed.
-    std::vector<std::string_view> folders;
+    NameList folders;
     /// Lower-case extensions, dot included, of the files that are games.
-    std::vector<std::string_view> extensions;
+    NameList extensions;
     /// A game folder's file to start when no file of `extensions` names it: a path relative to
     /// the folder, matched case-insensitively, with `*` standing for one name ("code/*.rpx").
-    std::vector<std::string_view> markers;
+    NameList markers;
 };
 
 /// Every known system.

@@ -19,6 +19,6 @@ target_link_libraries(iideck_library
     PUBLIC iideck::vdf
         iideck::config
         iideck::net
-    PRIVATE lucent::lucent
+    PRIVATE iideck::command lucent::lucent
 )
 target_compile_features(iideck_library PUBLIC cxx_std_20)

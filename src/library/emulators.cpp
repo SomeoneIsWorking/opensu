@@ -1,10 +1,12 @@
 #include "emulators.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <system_error>
 
 #include "lucent/log.h"
+#include "name_list.hpp"
 
 namespace iideck::library::roms {
 namespace {
@@ -13,16 +15,16 @@ namespace fs = std::filesystem;
 
 struct EmulatorRule {
     std::string_view name;
-    std::vector<std::string_view> systems;
+    NameList systems;
     /// Program names on PATH.
-    std::vector<std::string_view> programs;
+    NameList programs;
     /// AppImage file names start with this, compared lower-case with only letters and digits.
     std::string_view appImage;
     std::string_view flatpak;
-    std::vector<std::string_view> args;
+    NameList args;
 };
 
-const std::vector<EmulatorRule> rules{
+constexpr auto rules = std::to_array<EmulatorRule>({
     {"Dolphin",
      {"gc", "wii"},
      {"dolphin-emu"},
@@ -74,7 +76,7 @@ const std::vector<EmulatorRule> rules{
     {"mGBA", {"gb", "gbc", "gba"}, {"mgba-qt", "mgba"}, "mgba", "io.mgba.mGBA", {"-f", "{rom}"}},
     {"xemu", {"xbox"}, {"xemu"}, "xemu", "app.xemu.xemu", {"-dvd_path", "{rom}"}},
     {"Xenia Canary", {"xbox360"}, {"xenia_canary"}, "xenia", "", {"--fullscreen=true", "{rom}"}},
-};
+});
 
 std::string nameKey(std::string_view name) {
     std::string out;

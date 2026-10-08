@@ -2,6 +2,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
@@ -10,7 +11,7 @@
 namespace iideck::launch {
 
 /// Where the background Steam client stands.
-enum class SteamState {
+enum class SteamState : std::uint8_t {
     /// Not started, or shut down.
     Stopped,
     /// Started, not yet logged on.

@@ -10,7 +10,7 @@ namespace iideck::steam {
 /// and escape iideck's ownership, so such a client has to be found first.
 class DesktopSteam {
   public:
-    explicit DesktopSteam(std::filesystem::path home);
+    explicit DesktopSteam(const std::filesystem::path& home);
 
     /// True when `<home>/.steam/steam.pid` names a live process whose cgroup does
     /// not contain `instanceUnit`. An empty unit means no instance runs, so any

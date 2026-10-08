@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 
 #include <unistd.h>
@@ -23,10 +24,21 @@ using iideck::library::roms::gameFile;
 using iideck::library::roms::Provider;
 using iideck::library::roms::systemForFolder;
 
+[[noreturn]] void fail(const char* what) {
+    std::fprintf(stderr, "FAIL: %s\n", what);
+    std::exit(1);
+}
+
+template <class T> const T& need(const std::optional<T>& value, const char* what) {
+    if (!value) {
+        fail(what);
+    }
+    return *value;
+}
+
 void expect(bool condition, const char* what) {
     if (!condition) {
-        std::fprintf(stderr, "FAIL: %s\n", what);
-        std::exit(1);
+        fail(what);
     }
 }
 
@@ -95,20 +107,24 @@ void systemsByFolder() {
 
 void gameFiles(const Fixture& f) {
     const auto& sw = *systemForFolder("Switch");
-    expect(gameFile(sw, f.root / "Switch" / "Kirby Star Allies")->filename() ==
-               "Kirby Star Allies[01007E3006DDA000][US][v0].nsp",
+    expect(need(gameFile(sw, f.root / "Switch" / "Kirby Star Allies"), "Kirby has a file")
+                   .filename() == "Kirby Star Allies[01007E3006DDA000][US][v0].nsp",
            "a Switch folder starts its [v0] base, not the larger update");
-    expect(gameFile(sw, f.root / "Switch" / "Metroid Dread")->filename() == "Metroid Dread.nsp",
-           "a file named Update is not the base");
     expect(
-        gameFile(*systemForFolder("Wii U"), f.root / "Wii U" / "Breath of the Wild")->filename() ==
-            "U-King.rpx",
-        "an extracted Wii U game starts its code/*.rpx");
-    expect(gameFile(*systemForFolder("PS4"), f.root / "PS4" / "CUSA00900")->filename() ==
-               "eboot.bin",
+        need(gameFile(sw, f.root / "Switch" / "Metroid Dread"), "Metroid has a file").filename() ==
+            "Metroid Dread.nsp",
+        "a file named Update is not the base");
+    expect(need(gameFile(*systemForFolder("Wii U"), f.root / "Wii U" / "Breath of the Wild"),
+                "Breath of the Wild has a file")
+                   .filename() == "U-King.rpx",
+           "an extracted Wii U game starts its code/*.rpx");
+    expect(need(gameFile(*systemForFolder("PS4"), f.root / "PS4" / "CUSA00900"),
+                "the PS4 folder has a file")
+                   .filename() == "eboot.bin",
            "a PS4 folder starts eboot.bin");
-    expect(gameFile(*systemForFolder("PS3"), f.root / "PS3" / "Time Crisis 4 (USA)")->filename() ==
-               "Time Crisis 4 (USA).iso",
+    expect(need(gameFile(*systemForFolder("PS3"), f.root / "PS3" / "Time Crisis 4 (USA)"),
+                "the PS3 folder has a file")
+                   .filename() == "Time Crisis 4 (USA).iso",
            "a PS3 folder starts its ISO");
     expect(!gameFile(*systemForFolder("GameBoy"),
                      f.root / "GameBoy" / "Final Fantasy Adventure DX (USA).ips"),
@@ -141,7 +157,7 @@ void emulatorsAreFound(const Fixture& f) {
     const auto sw = emulators.launch("switch", "/s.nsp");
     expect(sw && sw->program == (appImages / "eden_nightly.appimage").string(),
            "an Eden AppImage runs Switch games");
-    expect(emulators.launch("ps2", "/p.chd")->args.back() == "/p.chd",
+    expect(need(emulators.launch("ps2", "/p.chd"), "PCSX2 runs PS2 games").args.back() == "/p.chd",
            "PCSX2's AppImage, matched in any case, takes the game last");
     const auto psx = emulators.launch("psx", "/x.chd");
     expect(psx && psx->program == "flatpak" && psx->args[0] == "run" &&

@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <fstream>
+#include <iterator>
 #include <memory>
+#include <string>
 
 #define NANOSVG_IMPLEMENTATION
 #include <nanosvg.h>
@@ -61,8 +64,13 @@ std::optional<std::vector<unsigned char>> rasteriseMask(const std::filesystem::p
     if (pixels <= 0) {
         return std::nullopt;
     }
-    const std::unique_ptr<NSVGimage, ImageDeleter> image{
-        nsvgParseFromFile(svg.string().c_str(), "px", 96.0f)};
+    std::ifstream file{svg, std::ios::binary};
+    std::string text{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}};
+    if (text.empty()) {
+        return std::nullopt;
+    }
+    // nsvgParse edits the text in place.
+    const std::unique_ptr<NSVGimage, ImageDeleter> image{nsvgParse(text.data(), "px", 96.0f)};
     if (image == nullptr || image->width <= 0.0f || image->height <= 0.0f) {
         return std::nullopt;
     }

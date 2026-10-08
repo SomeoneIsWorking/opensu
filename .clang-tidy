@@ -1,0 +1,13 @@
+Checks: >
+  bugprone-*,
+  clang-analyzer-*,
+  performance-*,
+  readability-braces-around-statements
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*[/\\]iideck[/\\](src|tests)[/\\].*'
+FormatStyle: file
+CheckOptions:
+  - key: readability-braces-around-statements.ShortStatementLines
+    value: '0'
+  - key: bugprone-easily-swappable-parameters.MinimumLength
+    value: '3'

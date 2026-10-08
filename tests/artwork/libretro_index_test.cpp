@@ -17,22 +17,24 @@ void expect(bool condition, const char* what) {
     }
 }
 
-const std::vector<std::string> index{
-    "Legend of Zelda, The - The Wind Waker (Europe) (En,Fr,De,Es,It)",
-    "Legend of Zelda, The - The Wind Waker (Japan)",
-    "Legend of Zelda, The - The Wind Waker (USA)",
-    "Legend of Zelda, The - The Wind Waker (USA) (Demo)",
-    "Super Mario Sunshine (Europe) (En,Fr,De,Es,It)",
-    "Super Mario Sunshine (USA)",
-    "Super Mario Sunshine (USA) (Rev 1)",
-    "Mario & Luigi - Superstar Saga (USA)",
-    "Xenoblade Chronicles (Europe, Australia)",
-    "Pikmin (Beta)",
-    "Castlevania - Portrait of Ruin (Europe) (En,Fr,De,Es,It)",
-    "Castlevania - Portrait of Ruin (USA)",
-    "Kirby & The Amazing Mirror (Europe) (En,Fr,De,Es,It)",
-    "Kirby & The Amazing Mirror (USA)",
-};
+std::vector<std::string> releaseIndex() {
+    return std::vector<std::string>{
+        "Legend of Zelda, The - The Wind Waker (Europe) (En,Fr,De,Es,It)",
+        "Legend of Zelda, The - The Wind Waker (Japan)",
+        "Legend of Zelda, The - The Wind Waker (USA)",
+        "Legend of Zelda, The - The Wind Waker (USA) (Demo)",
+        "Super Mario Sunshine (Europe) (En,Fr,De,Es,It)",
+        "Super Mario Sunshine (USA)",
+        "Super Mario Sunshine (USA) (Rev 1)",
+        "Mario & Luigi - Superstar Saga (USA)",
+        "Xenoblade Chronicles (Europe, Australia)",
+        "Pikmin (Beta)",
+        "Castlevania - Portrait of Ruin (Europe) (En,Fr,De,Es,It)",
+        "Castlevania - Portrait of Ruin (USA)",
+        "Kirby & The Amazing Mirror (Europe) (En,Fr,De,Es,It)",
+        "Kirby & The Amazing Mirror (USA)",
+    };
+}
 
 void testParseIndex() {
     const std::vector<std::string> names = iideck::artwork::parseIndex(
@@ -45,30 +47,31 @@ void testParseIndex() {
 }
 
 void testMatches() {
-    expect(bestMatch("Legend of Zelda, The - The Wind Waker (USA)", index) ==
+    expect(bestMatch("Legend of Zelda, The - The Wind Waker (USA)", releaseIndex()) ==
                "Legend of Zelda, The - The Wind Waker (USA)",
            "the same name is taken as it is");
-    expect(bestMatch("Legend of Zelda, The - The Wind Waker (Japan) (Rev 2)", index) ==
+    expect(bestMatch("Legend of Zelda, The - The Wind Waker (Japan) (Rev 2)", releaseIndex()) ==
                "Legend of Zelda, The - The Wind Waker (Japan)",
            "the ROM's own region wins");
-    expect(bestMatch("The Legend of Zelda The Wind Waker", index) ==
+    expect(bestMatch("The Legend of Zelda The Wind Waker", releaseIndex()) ==
                "Legend of Zelda, The - The Wind Waker (USA)",
            "a plain folder name matches its title, USA first, never the demo");
-    expect(bestMatch("Super Mario Sunshine", index) == "Super Mario Sunshine (USA)",
+    expect(bestMatch("Super Mario Sunshine", releaseIndex()) == "Super Mario Sunshine (USA)",
            "the entry with the fewest extra tags wins within a region");
-    expect(bestMatch("Mario & Luigi - Superstar Saga (USA)", index) ==
+    expect(bestMatch("Mario & Luigi - Superstar Saga (USA)", releaseIndex()) ==
                "Mario & Luigi - Superstar Saga (USA)",
            "an ampersand matches the listing's own name");
-    expect(bestMatch("Xenoblade Chronicles", index) == "Xenoblade Chronicles (Europe, Australia)",
+    expect(bestMatch("Xenoblade Chronicles", releaseIndex()) ==
+               "Xenoblade Chronicles (Europe, Australia)",
            "any region when it is the only one");
-    expect(!bestMatch("Pikmin", index), "a beta is not taken for a release");
-    expect(bestMatch("0881 - Castlevania - Portrait of Ruin (E)(Supremacy)", index) ==
+    expect(!bestMatch("Pikmin", releaseIndex()), "a beta is not taken for a release");
+    expect(bestMatch("0881 - Castlevania - Portrait of Ruin (E)(Supremacy)", releaseIndex()) ==
                "Castlevania - Portrait of Ruin (Europe) (En,Fr,De,Es,It)",
            "a release number goes and GoodTools' (E) is Europe");
-    expect(bestMatch("Kirby _ the Amazing Mirror (Europe) (En,Fr,De,Es,It)", index) ==
+    expect(bestMatch("Kirby _ the Amazing Mirror (Europe) (En,Fr,De,Es,It)", releaseIndex()) ==
                "Kirby & The Amazing Mirror (Europe) (En,Fr,De,Es,It)",
            "an underscore standing for an ampersand still matches");
-    expect(!bestMatch("Xenoblade Chronicles 2", index), "a different title is no match");
+    expect(!bestMatch("Xenoblade Chronicles 2", releaseIndex()), "a different title is no match");
 }
 
 void testNames() {

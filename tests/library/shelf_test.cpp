@@ -4,8 +4,10 @@
 #include "library/shelf.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -263,7 +265,7 @@ void testFolders() {
 
 class FakeProvider final : public iideck::library::Provider {
   public:
-    enum class Mode { Lists, Absent, Fails };
+    enum class Mode : std::uint8_t { Lists, Absent, Fails };
     FakeProvider(Source source, Mode mode) : source_{source}, mode_{mode} {
     }
     [[nodiscard]] Source source() const override {
@@ -303,16 +305,21 @@ void testCatalogStatuses() {
 } // namespace
 
 int main() {
-    testHomeShelf();
-    testLibraryShelf();
-    testLibraryLaunchers();
-    testConsoleShelf();
-    testLauncherShelf();
-    testAllGames();
-    testBrowser();
-    testCycling();
-    testFolders();
-    testCatalogStatuses();
-    std::printf("shelf: all checks passed\n");
-    return 0;
+    try {
+        testHomeShelf();
+        testLibraryShelf();
+        testLibraryLaunchers();
+        testConsoleShelf();
+        testLauncherShelf();
+        testAllGames();
+        testBrowser();
+        testCycling();
+        testFolders();
+        testCatalogStatuses();
+        std::printf("shelf: all checks passed\n");
+        return 0;
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
+        return 1;
+    }
 }

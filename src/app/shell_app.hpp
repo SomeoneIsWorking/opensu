@@ -55,7 +55,7 @@ struct Settings {
 /// The running shell.
 class ShellApp final : public ControlTarget {
   public:
-    explicit ShellApp(Settings settings);
+    explicit ShellApp(const Settings& settings);
 
     /// Loads the library, then runs the window loop until it closes.
     int run();
