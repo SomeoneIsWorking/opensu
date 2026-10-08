@@ -177,7 +177,10 @@ so a shelf change or a download needs no separate load step.
 
 Artwork that no source has on disk is downloaded in the background
 (`artwork::ArtworkFetcher`) into `<cache>/artwork` (`$XDG_CACHE_HOME/iideck`):
-a Steam game's `library_600x900.jpg`, else `header.jpg`, from Steam's CDN; a ROM's
+a Steam game's `library_600x900.jpg`, else `header.jpg`, from Steam's CDN; an Epic
+game's key image from `Game::artworkUrl` (`epic::Provider` takes it from `legendary list
+--json` `metadata.keyImages`: `DieselGameBoxTall`, else `DieselGameBox`, else `Thumbnail`),
+kept as `epic/<app name>.jpg`; GOG has a URL stem but no fetch yet; a ROM's
 box art from libretro-thumbnails, its file or folder name matched against the
 system's `Named_Boxarts` listing (same name, else same title preferring the ROM's
 own region, then USA, World, Europe, Japan; never a beta or demo; release numbers

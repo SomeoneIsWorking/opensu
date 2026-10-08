@@ -1,6 +1,7 @@
 #include "epic.hpp"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <map>
 #include <stdexcept>
@@ -19,6 +20,7 @@ using nlohmann::json;
 struct Owned {
     std::string appName;
     std::string title;
+    std::string artworkUrl;
 };
 
 /// One installed title from `legendary list-installed --json`.
@@ -27,11 +29,36 @@ struct Install {
     bool dlc{false};
 };
 
+/// Key image types in preference order: the portrait box, then the wide box, then the thumbnail.
+constexpr std::array<std::string_view, 3> imageTypes{"DieselGameBoxTall", "DieselGameBox",
+                                                     "Thumbnail"};
+
+/// The URL of the preferred key image in `metadata.keyImages`; empty when there is none.
+std::string artworkUrl(const json& entry) {
+    const json::const_iterator metadata = entry.find("metadata");
+    if (metadata == entry.end() || !metadata->is_object()) {
+        return {};
+    }
+    const json::const_iterator images = metadata->find("keyImages");
+    if (images == metadata->end() || !images->is_array()) {
+        return {};
+    }
+    for (const std::string_view type : imageTypes) {
+        for (const json& image : *images) {
+            if (image.value("type", "") == type && image.value("url", "").starts_with("https://")) {
+                return image.value("url", "");
+            }
+        }
+    }
+    return {};
+}
+
 std::vector<Owned> parseOwned(std::string_view output) {
     std::vector<Owned> owned;
     for (const json& entry : json::parse(output)) {
-        owned.push_back(
-            Owned{.appName = entry.value("app_name", ""), .title = entry.value("app_title", "")});
+        owned.push_back(Owned{.appName = entry.value("app_name", ""),
+                              .title = entry.value("app_title", ""),
+                              .artworkUrl = artworkUrl(entry)});
     }
     return owned;
 }
@@ -123,6 +150,7 @@ std::vector<Game> Provider::list() {
         game.source = Source::Epic;
         game.sourceId = title.appName;
         game.title = title.title.empty() ? title.appName : title.title;
+        game.artworkUrl = title.artworkUrl;
         game.installed = install != installs.end();
         game.launch = LaunchSpec{.program = "legendary", .args = {"launch", title.appName}};
         if (game.installed && !install->second.installPath.empty()) {

@@ -57,7 +57,8 @@ struct Game {
     /// extension, dump tags and all. Empty for a source looked up by `sourceId`.
     std::string artworkKey;
     /// A store's image for the game, as `https://host/stem` with no size suffix. GOG's takes
-    /// `_<size>.jpg`. Empty for a source whose art is looked up another way.
+    /// `_<size>.jpg`; Epic's is a complete image URL. Empty for a source whose art is looked up
+    /// another way.
     std::string artworkUrl;
 
     int playtimeMinutes{0};

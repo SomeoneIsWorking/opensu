@@ -137,6 +137,7 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
     case library::Source::Rom:
         return fetchRom(game);
     case library::Source::Epic:
+        return game.artworkUrl.empty() ? Outcome::Missing : keep(game, game.artworkUrl);
     case library::Source::Gog:
         break;
     }

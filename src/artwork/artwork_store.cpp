@@ -68,6 +68,9 @@ fs::path ArtworkStore::pathFor(const library::Game& game) const {
         return root_ / "rom" / game.sourceId / (thumbnailName(game.artworkKey) + ".png");
     }
     case library::Source::Epic:
+        return game.sourceId.empty() || game.artworkUrl.empty()
+                   ? fs::path{}
+                   : root_ / "epic" / (game.sourceId + ".jpg");
     case library::Source::Gog:
         break;
     }

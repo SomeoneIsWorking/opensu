@@ -58,7 +58,8 @@ void testInstallOutput() {
            "the downloaded line is not progress");
     expect(!installProgress("[cli] INFO: Download size: 1024.50 MiB (Compression savings: 50.0%)"),
            "a percentage elsewhere is not progress");
-    expect(!installProgress("[DLManager] INFO: = Progress: soon%"), "a damaged line is not progress");
+    expect(!installProgress("[DLManager] INFO: = Progress: soon%"),
+           "a damaged line is not progress");
     expect(!installProgress(""), "an empty line is not progress");
 
     expect(installFailure("[cli] ERROR: Login failed! Cannot continue with download process.") ==
@@ -83,8 +84,13 @@ int main() {
 
     const fs::path legendary = writeStub(dir, "legendary", R"(echo "log line" >&2
 case "$1" in
-list) echo '[{"app_name":"Fortnite","app_title":"Fortnite","metadata":{}},
-             {"app_name":"Owned","app_title":"Owned Game"},
+list) echo '[{"app_name":"Fortnite","app_title":"Fortnite","metadata":{"keyImages":[
+                {"type":"Thumbnail","url":"https://cdn.example/fn-thumb.jpg"},
+                {"type":"DieselGameBox","url":"https://cdn.example/fn-wide.jpg"},
+                {"type":"DieselGameBoxTall","url":"https://cdn.example/fn-tall.jpg"}]}},
+             {"app_name":"Owned","app_title":"Owned Game","metadata":{"keyImages":[
+                {"type":"DieselGameBoxLogo","url":"https://cdn.example/logo.png"},
+                {"type":"Thumbnail","url":"https://cdn.example/owned-thumb.jpg"}]}},
              {"app_name":"Extra","app_title":"Extra Pack"},
              {"app_name":"Untitled","app_title":""}]' ;;
 list-installed) echo '[{"app_name":"Fortnite","title":"Fortnite","install_path":"/games/Fortnite","is_dlc":false},
@@ -102,8 +108,13 @@ esac
     expect(owned->title == "Owned Game", "the title is legendary's app_title");
     expect(owned->launch.args == std::vector<std::string>{"launch", "Owned"},
            "it launches through legendary");
+    expect(fortnite->artworkUrl == "https://cdn.example/fn-tall.jpg",
+           "the portrait box is preferred");
+    expect(owned->artworkUrl == "https://cdn.example/owned-thumb.jpg",
+           "the thumbnail is the last resort and a logo is never used");
     const Game* untitled = find(games, "epic:Untitled");
     expect(untitled != nullptr && untitled->title == "Untitled", "no title falls back to the id");
+    expect(untitled->artworkUrl.empty(), "a title without key images has no artwork URL");
 
     const fs::path signedOut = writeStub(dir, "signed-out", "exit 1\n");
     bool threw = false;

@@ -1,7 +1,8 @@
 // artwork_fetcher — downloads missing artwork in the background: a Steam game's library
-// portrait from Steam's CDN, a ROM's box art from libretro-thumbnails, a console's card from
-// iiSU's starter pack, its frame glyph from iiSU's border pack, and its UI sounds and dock icons
-// from the APK as they are. Each file is kept in the store and handed back for the shell to use.
+// portrait from Steam's CDN, a ROM's box art from libretro-thumbnails, an Epic game's key image
+// from its own URL, a console's card from iiSU's starter pack, its frame glyph from iiSU's border
+// pack, and its UI sounds and dock icons from the APK as they are. Each file is kept in the store
+// and handed back for the shell to use.
 #pragma once
 
 #include <condition_variable>

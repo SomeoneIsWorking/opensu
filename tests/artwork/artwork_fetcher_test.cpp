@@ -83,6 +83,9 @@ class FakeSources {
         if (path == "/steam/440/header.jpg") {
             return lucent::http::Response::binary(200, "OK", "image/jpeg", "steam header");
         }
+        if (path == "/epic/tall.jpg") {
+            return lucent::http::Response::binary(200, "OK", "image/jpeg", "epic tall");
+        }
         if (path == "/libretro/Nintendo%20-%20GameCube/Named_Boxarts/") {
             return lucent::http::Response::text(
                 200, "OK",
@@ -104,17 +107,22 @@ class FakeSources {
 void testFetches(const fs::path& root) {
     FakeSources sources;
     ArtworkStore store{root};
+    Game epic = game(Source::Epic, "epic:Owned", "Owned");
+    epic.artworkUrl = sources.base() + "/epic/tall.jpg";
     const std::vector<Game> games{
         game(Source::Steam, "steam:440", "440"),
         game(Source::Rom, "rom:sunshine", "gc", "Super Mario Sunshine"),
         game(Source::Rom, "rom:nothing", "gc", "No Such Game (USA)"),
         game(Source::Rom, "rom:switch", "switch", "Xenoblade Chronicles 2"),
+        epic,
     };
     {
         ArtworkFetcher fetcher{store, {sources.base() + "/libretro", sources.base() + "/steam"}};
         fetcher.request(games, {}, {});
         const std::vector<Fetched> fetched = waitFor(fetcher);
-        expect(fetched.size() == 2, "the Steam game and the matched ROM arrive");
+        expect(fetched.size() == 3, "the Steam game, the Epic game and the matched ROM arrive");
+        expect(read(store.pathFor(games[4])) == "epic tall",
+               "an Epic game gets its key image from its URL");
         expect(read(store.pathFor(games[0])) == "steam header",
                "a Steam game without a portrait gets its store header");
         expect(read(store.pathFor(games[1])) == "sunshine box",
