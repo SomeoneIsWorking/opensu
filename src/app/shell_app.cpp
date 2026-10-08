@@ -321,7 +321,7 @@ void ShellApp::offerInstall(const library::Game& game) {
     offered_ = game;
     panelUse_ = PanelUse::OfferInstall;
     shell_.launchPanel().open(game.title);
-    shell_.launchPanel().update("Not installed", std::nullopt);
+    shell_.launchPanel().update("Not installed", std::nullopt, false);
     shell_.launchPanel().setHints({{"A", "Install"}, {"B", "Cancel"}});
 }
 

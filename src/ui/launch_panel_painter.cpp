@@ -74,7 +74,7 @@ void LaunchPanelPainter::paint(const LaunchPanel& panel, float width, float heig
         const Rectangle done{
             bar.x, bar.y, std::max(barHeight, barWidth * static_cast<float>(*fraction)), barHeight};
         DrawRectangleRounded(done, 1.0f, 8, palette::ink);
-    } else {
+    } else if (panel.busy()) {
         // One dot lit at a time, left to right: the launch is alive but has no measure.
         const int lit =
             static_cast<int>(std::fmod(seconds, dotPeriodSeconds) / dotPeriodSeconds * dotCount);

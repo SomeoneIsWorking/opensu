@@ -174,6 +174,10 @@ void Client::install(std::string_view appId, std::string_view name) {
     start();
 }
 
+bool Client::installed(std::string_view appId) const {
+    return library::steam::Library::discover(options_.home, options_.steamRoots).installed(appId);
+}
+
 std::optional<double> Client::updateProgress(std::string_view appId) const {
     const std::optional<library::steam::AppUpdate> update =
         library::steam::Library::discover(options_.home, options_.steamRoots).pendingUpdate(appId);

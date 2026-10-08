@@ -60,13 +60,20 @@ class Library {
     /// or the app has no manifest.
     [[nodiscard]] std::optional<AppUpdate> pendingUpdate(std::string_view appId) const;
 
-    /// Asks Steam to install an app the next time it starts, into the library folder with the
-    /// most free space: writes a manifest marking the app as needing an update. Returns the
-    /// manifest. Throws std::runtime_error when there is no folder or the manifest cannot be
-    /// written; does nothing to an app that already has a manifest.
+    /// True when the app's manifest says it is fully installed with no update pending.
+    [[nodiscard]] bool installed(std::string_view appId) const;
+
+    /// Asks Steam to install an app the next time it starts: writes a manifest marking it as
+    /// needing an update, over the app's own manifest when it has one, else into the library
+    /// folder with the most free space. Returns the manifest. Throws std::runtime_error when
+    /// there is no folder or the manifest cannot be written; leaves an installed app alone.
     std::filesystem::path requestInstall(std::string_view appId, std::string_view name) const;
 
   private:
+    [[nodiscard]] std::optional<std::filesystem::path> manifestOf(std::string_view appId) const;
+    /// The manifest's StateFlags; 0 when there is none.
+    [[nodiscard]] long long stateFlags(std::string_view appId) const;
+
     std::vector<std::filesystem::path> roots_;
 };
 

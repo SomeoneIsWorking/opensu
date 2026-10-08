@@ -84,9 +84,12 @@ void InstallJob::run(const std::stop_token& stop, const std::string& appId) {
                 .line = launch::describe(launch::LaunchProgress{
                     .stage = launch::LaunchProgress::Stage::Installing, .fraction = *progress}),
                 .fraction = progress});
-        } else {
+        } else if (steam_.installed(appId)) {
             lucent::info("steam", "{} is installed", name);
             post(Report{.finished = true});
+            return;
+        } else {
+            post(Report{.finished = true, .failure = "Steam did not install it"});
             return;
         }
         std::this_thread::sleep_for(pollInterval);

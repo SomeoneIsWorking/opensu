@@ -59,6 +59,8 @@ class Client final : public launch::SteamGate {
     /// which acts on it when it starts. Blocks for the restart, so callers run it off the main
     /// thread. Throws std::runtime_error when the request cannot be written.
     void install(std::string_view appId, std::string_view name);
+    /// True once the app is fully installed with no update pending.
+    [[nodiscard]] bool installed(std::string_view appId) const;
 
     [[nodiscard]] launch::SteamState state() const override;
     [[nodiscard]] launch::SteamState waitReady(std::chrono::milliseconds timeout,

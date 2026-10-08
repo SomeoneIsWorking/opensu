@@ -426,22 +426,43 @@ double AppUpdate::progress() const noexcept {
     return std::min(1.0, static_cast<double>(downloaded + staged) / static_cast<double>(total));
 }
 
-fs::path Library::requestInstall(std::string_view appId, std::string_view name) const {
+std::optional<fs::path> Library::manifestOf(std::string_view appId) const {
     const std::string file = "appmanifest_" + std::string{appId} + ".acf";
-    const std::vector<LibraryFolder> folders = libraryFolders();
-    for (const LibraryFolder& folder : folders) {
+    for (const LibraryFolder& folder : libraryFolders()) {
         std::error_code ec;
-        if (fs::exists(folder.path / "steamapps" / file, ec)) {
+        if (fs::is_regular_file(folder.path / "steamapps" / file, ec)) {
             return folder.path / "steamapps" / file;
         }
     }
+    return std::nullopt;
+}
+
+long long Library::stateFlags(std::string_view appId) const {
+    const std::optional<fs::path> manifest = manifestOf(appId);
+    const std::optional<Node> doc = manifest ? vdf::parseFile(*manifest) : std::nullopt;
+    const std::optional<Node> state = doc ? doc->block({"AppState"}) : std::nullopt;
+    return state ? state->integer({"StateFlags"}).value_or(0) : 0;
+}
+
+bool Library::installed(std::string_view appId) const {
+    const long long flags = stateFlags(appId);
+    return (flags & kFullyInstalled) != 0 && (flags & kUpdateRequired) == 0;
+}
+
+fs::path Library::requestInstall(std::string_view appId, std::string_view name) const {
+    const std::string file = "appmanifest_" + std::string{appId} + ".acf";
+    const std::optional<fs::path> existing = manifestOf(appId);
+    if (existing && (stateFlags(appId) & kFullyInstalled) != 0) {
+        return *existing;
+    }
+    const std::vector<LibraryFolder> folders = libraryFolders();
     const auto freeSpace = [](const LibraryFolder& folder) {
         std::error_code ec;
         const fs::space_info space = fs::space(folder.path, ec);
         return ec ? std::uintmax_t{0} : space.available;
     };
     const auto roomiest = std::ranges::max_element(folders, {}, freeSpace);
-    if (roomiest == folders.end()) {
+    if (!existing && roomiest == folders.end()) {
         throw std::runtime_error{"no Steam library folder to install into"};
     }
 
@@ -457,7 +478,8 @@ fs::path Library::requestInstall(std::string_view appId, std::string_view name) 
             quotedName.push_back(c);
         }
     }
-    const fs::path manifest = roomiest->path / "steamapps" / file;
+    // An uninstalled app's own manifest is reused, so Steam never sees two for one app.
+    const fs::path manifest = existing ? *existing : roomiest->path / "steamapps" / file;
     std::ofstream out{manifest, std::ios::binary};
     out << "\"AppState\"\n{\n"
         << "\t\"appid\"\t\t\"" << appId << "\"\n"
@@ -470,7 +492,7 @@ fs::path Library::requestInstall(std::string_view appId, std::string_view name) 
     if (!out) {
         throw std::runtime_error{"cannot write " + manifest.string()};
     }
-    lucent::info("steam", "asked Steam to install {} into {}", name, roomiest->path.string());
+    lucent::info("steam", "asked Steam to install {} through {}", name, manifest.string());
     return manifest;
 }
 

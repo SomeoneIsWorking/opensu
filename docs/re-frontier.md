@@ -33,6 +33,7 @@ guessed. G002 builds only on rows marked grounded.
 | Music presets, loop windows, fades | grounded | `reference/iisu/input-sound.md` §4 |
 | Motion: focus, domino entrance, pulse, dialogs, startup | grounded | `reference/iisu/motion.md` §1–4 |
 | Motion: idle pause default, domino replay on return, art fade-in | missing | `reference/iisu/motion.md` §6 |
+| Game launch: pulse, OpenAppRom sound, music cut, 350 ms, then the app; no launch screen on one display ("LaunchScreen" is the dual-screen display chooser) | grounded | `reference/iisu/launch.md`; three callbacks on the launch path unresolved. iideck's launch panel is its own, since a PC game needs seconds to show a window |
 
 Spot-checked against the decompile: setContent call, dialog state names, 3×4
 default grid, gap defaults, page-dot colour, focus scale timings, trigger
@@ -53,5 +54,8 @@ Methods jadx fails on are read with Ghidra over the DEX bytecode
   change cue, chosen by how many tiles the destination shows.
 - The Home grid chrome is not always dark: `ya0.e` is the theme background's luminance below 0.5.
   Ghidra decompiled that expression to a literal `true`; dexdump shows the bytecode.
+- `OpenAppRom.wav` plays on every game launch; jadx dropped the lambda that triggers it, which read
+  as "never played". The `makeCustomAnimation(0,0)` once cited for game launch restarts iiSU's own
+  task; games open with no custom animation.
 - iiSU does not promote titles to feature tiles. Wide and tall tiles come from
   widgets and user resizing.

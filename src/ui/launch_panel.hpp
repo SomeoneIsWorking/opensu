@@ -25,8 +25,9 @@ class LaunchPanel {
     void open(std::string title);
     /// The buttons the card offers.
     void setHints(std::vector<PanelHint> hints);
-    /// The stage's line, and how far through it when it has a measure.
-    void update(std::string line, std::optional<double> fraction);
+    /// The stage's line, and how far through it when it has a measure. A stage that is not
+    /// `busy` waits on the player and shows no activity.
+    void update(std::string line, std::optional<double> fraction, bool busy = true);
     void close() noexcept;
 
     [[nodiscard]] bool isOpen() const noexcept {
@@ -42,6 +43,9 @@ class LaunchPanel {
     [[nodiscard]] std::optional<double> fraction() const noexcept {
         return fraction_;
     }
+    [[nodiscard]] bool busy() const noexcept {
+        return busy_;
+    }
     [[nodiscard]] const std::vector<PanelHint>& hints() const noexcept {
         return hints_;
     }
@@ -51,6 +55,7 @@ class LaunchPanel {
     std::string line_;
     std::optional<double> fraction_;
     std::vector<PanelHint> hints_;
+    bool busy_{true};
     bool open_{false};
 };
 

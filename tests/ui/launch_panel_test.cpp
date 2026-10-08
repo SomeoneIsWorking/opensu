@@ -28,7 +28,9 @@ void updatesAndClamps() {
     panel.update("Updating", 1.5);
     expect(panel.fraction() == 1.0, "clamps the measure");
     panel.update("Loading", std::nullopt);
-    expect(!panel.fraction(), "a stage without a measure drops it");
+    expect(!panel.fraction() && panel.busy(), "a stage without a measure drops it");
+    panel.update("Not installed", std::nullopt, false);
+    expect(!panel.busy(), "a stage waiting on the player is not busy");
     panel.setHints({{"A", "Install"}, {"B", "Cancel"}});
     expect(panel.hints().size() == 2, "takes the buttons it offers");
     panel.open("Celeste");

@@ -154,7 +154,16 @@ int main() {
            "a requested install reads as an update not yet begun");
     expect(library.requestInstall("440", "Portal 2") ==
                fixture.root / "steamapps" / "appmanifest_440.acf",
-           "an app with a manifest is left as it is");
+           "an installed app is left as it is");
+    expect(library.installed("440") && !library.installed("31337"),
+           "installed reads the manifest's flags");
+    // 620's manifest is there but the game is not; the request goes into that manifest.
+    write(fixture.root / "steamapps" / "appmanifest_620.acf",
+          "\"AppState\"\n{\n\t\"appid\"\t\t\"620\"\n\t\"StateFlags\"\t\t\"0\"\n}\n");
+    expect(library.requestInstall("620", "Portal 2 (Missing)") ==
+                   fixture.root / "steamapps" / "appmanifest_620.acf" &&
+               library.pendingUpdate("620").has_value(),
+           "an uninstalled app's own manifest carries the request");
     fs::remove(request);
     expect(find(games, "steam:2805730") == nullptr, "a Steam component is not listed");
 
