@@ -34,7 +34,7 @@ bool isLogonLine(const std::string& line) {
 } // namespace
 
 Client::Client(Options options)
-    : options_{std::move(options)}, desktop_{options_.home},
+    : options_{std::move(options)}, desktop_{options_.home}, orphans_{options_.home},
       connectionLog_{options_.home / ".steam" / "steam" / "logs" / "connection_log.txt"} {
 }
 
@@ -59,11 +59,6 @@ void Client::start() {
     if (state() != SteamState::Stopped) {
         return;
     }
-    if (desktop_.runningOutside("")) {
-        lucent::warn("steam", "a Steam client already runs outside opensu");
-        setState(SteamState::Blocked);
-        return;
-    }
     program_ = launch::resolveExecutable("steam", options_.executablePath);
     if (program_.empty()) {
         lucent::error("steam", "steam is not on PATH");
@@ -71,26 +66,21 @@ void Client::start() {
         return;
     }
 
-    const fs::path privateBus =
-        launch::resolveExecutable("dbus-run-session", options_.executablePath);
-    if (privateBus.empty()) {
-        lucent::error("steam",
-                      "dbus-run-session is not on PATH; install it with `sudo dnf install "
-                      "dbus-daemon`, `sudo apt install dbus-daemon` or `sudo pacman -S dbus`");
-        setState(SteamState::Failed);
+    orphans_.stop(program_, shutdownWait);
+    if (desktop_.runningOutside("")) {
+        lucent::warn("steam", "a Steam client already runs outside opensu");
+        setState(SteamState::Blocked);
         return;
     }
-
     std::error_code ec;
     const std::uintmax_t size = fs::file_size(connectionLog_, ec);
     logOffset_ = ec ? 0 : size;
 
-    // A bus of its own keeps Steam's tray icon and notifications off the desktop's panel;
-    // -applaunch and -shutdown reach it through its pipe, not the bus. DevTools carries the
-    // download queue and the installer.
+    // Steam's tray icon needs the desktop's StatusNotifierWatcher: on a bus of its own Steam falls
+    // back to XEmbed, which the desktop's proxy shows as an icon that ignores clicks.
     std::string failure;
-    if (!instance_.start(options_.session + "-steam.scope", privateBus.string(),
-                         {"--", program_.string(), "-silent", "-cef-enable-debugging"}, failure)) {
+    if (!instance_.start(options_.session + "-steam.scope", program_.string(),
+                         {"-silent", "-cef-enable-debugging"}, failure)) {
         lucent::error("steam", "{}", failure);
         setState(SteamState::Failed);
         return;

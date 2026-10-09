@@ -12,12 +12,14 @@
 #include <string>
 #include <system_error>
 #include <thread>
+#include <vector>
 
 #include <csignal>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "launch/command.hpp"
+#include "steam/orphaned_steam.hpp"
 
 namespace {
 
@@ -55,7 +57,7 @@ struct Fixture {
     fs::path home;
     fs::path bin;
     fs::path pidFile;
-    /// The bus address the fake steam was started with.
+    /// The session bus address the fake steam was started with.
     fs::path busFile;
     fs::path log;
     std::string session;
@@ -87,6 +89,7 @@ struct Fixture {
             body += "exit 1\n";
         } else {
             body += "echo $$ > \"" + pidFile.string() + "\"\n";
+            body += "echo $$ > \"" + (home / ".steam" / "steam.pid").string() + "\"\n";
             body += "echo \"$DBUS_SESSION_BUS_ADDRESS\" > \"" + busFile.string() + "\"\n";
             if (mode != Mode::Slow) {
                 body += "sleep 1\n"
@@ -102,11 +105,6 @@ struct Fixture {
         const fs::path program = bin / "steam";
         std::ofstream{program} << body;
         fs::permissions(program, fs::perms::owner_all);
-        // The real one, beside the fake steam, since the client looks only in `bin`.
-        const fs::path bus =
-            opensu::launch::resolveExecutable("dbus-run-session", {"/usr/bin", "/bin"});
-        expect(!bus.empty(), "dbus-run-session is installed");
-        fs::create_symlink(bus, bin / "dbus-run-session");
     }
 
     ~Fixture() {
@@ -172,14 +170,14 @@ void testReadyThenShutdown() {
                    return fs::file_size(fixture.busFile, ec) > 1 && !ec;
                },
                std::chrono::seconds{10}),
-           "steam runs on a session bus");
+           "steam reports its session bus");
     {
         std::ifstream in{fixture.busFile};
         std::string address;
         std::getline(in, address);
         const char* desktop = std::getenv("DBUS_SESSION_BUS_ADDRESS");
-        expect(desktop == nullptr || address != desktop,
-               "steam's session bus is its own, not the desktop's");
+        expect(desktop != nullptr && address == desktop,
+               "steam runs on the desktop's session bus, where its tray icon works");
     }
 
     // The log already held a logon line; only one logged after the start counts.
@@ -244,6 +242,73 @@ void testDesktopSteamBlocks() {
 
     kill(desktop, SIGKILL);
     waitpid(desktop, nullptr, 0);
+}
+
+/// A scope of an openSU that no longer exists, holding the fake steam; the returned pid is the
+/// scope's main process and must be reaped by the caller.
+pid_t startOrphan(const Fixture& fixture, const std::string& unit) {
+    const pid_t child = fork();
+    expect(child >= 0, "fork");
+    if (child == 0) {
+        const std::string name = "--unit=" + unit;
+        const std::string steam = (fixture.bin / "steam").string();
+        execlp("systemd-run", "systemd-run", "--user", "--scope", "--collect", "--quiet",
+               name.c_str(), "--", steam.c_str(), static_cast<char*>(nullptr));
+        _exit(127);
+    }
+    expect(waitUntil(
+               [&fixture] {
+                   return recordedPid(fixture.pidFile) > 0;
+               },
+               std::chrono::seconds{10}),
+           "the orphan's steam runs");
+    return child;
+}
+
+/// A pid that belonged to a process that has been reaped.
+pid_t deadPid() {
+    const pid_t child = fork();
+    expect(child >= 0, "fork");
+    if (child == 0) {
+        _exit(0);
+    }
+    waitpid(child, nullptr, 0);
+    return child;
+}
+
+/// A Steam left in `opensu-<dead pid>-steam.scope` is ended on start instead of blocking it,
+/// and a scope of a live openSU is left alone.
+void testOrphanedScopeIsEnded() {
+    const Fixture fixture{Mode::Ready};
+    const std::string orphan = "opensu-" + std::to_string(deadPid()) + "-steam.scope";
+    const pid_t orphanSteam = startOrphan(fixture, orphan);
+    const pid_t orphanPid = recordedPid(fixture.pidFile);
+    expect(scopeActive(orphan), "the orphan scope is up");
+    expect(opensu::steam::OrphanedSteam{fixture.home}.find() == std::vector<std::string>{orphan},
+           "only the dead openSU's scope is an orphan");
+
+    const Fixture live{Mode::Slow};
+    const std::string owned = "opensu-" + std::to_string(getpid()) + "-steam.scope";
+    const pid_t ownedSteam = startOrphan(live, owned);
+    expect(opensu::steam::OrphanedSteam{fixture.home}.find() == std::vector<std::string>{orphan},
+           "a scope of a live openSU is not an orphan");
+
+    // Its pid file names the orphan's steam, which would have blocked the start.
+    expect(fixture.pidFile != live.pidFile, "separate fixtures");
+    Client client{fixture.options()};
+    client.start();
+    expect(client.state() == SteamState::Initializing, "the orphan did not block the start");
+    expect(!scopeActive(orphan), "the orphan scope is gone");
+    waitpid(orphanSteam, nullptr, 0);
+    expect(!alive(orphanPid), "the orphan's steam is gone");
+    expect(scopeActive(owned), "the live openSU's scope is untouched");
+    expect(scopeActive(fixture.unit()), "a new scope runs steam");
+
+    client.shutdown();
+    expect(opensu::launch::runCommand("systemctl", {"--user", "stop", owned},
+                                      std::chrono::seconds{20}) == 0,
+           "the test scope stops");
+    waitpid(ownedSteam, nullptr, 0);
 }
 
 /// A wait ends on its timeout and on cancellation, still initializing.
@@ -317,6 +382,7 @@ int main() {
     testWaitIsBounded();
     testDestructorShutsDown();
     testStubbornSteamIsStopped();
+    testOrphanedScopeIsEnded();
     std::printf("steam client: all checks passed\n");
     return 0;
 }

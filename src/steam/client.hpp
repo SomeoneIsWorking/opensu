@@ -24,6 +24,7 @@
 #include "launch/instance.hpp"
 #include "launch/steam_gate.hpp"
 #include "launch_activity.hpp"
+#include "orphaned_steam.hpp"
 
 namespace opensu::steam {
 
@@ -49,8 +50,9 @@ class Client final : public launch::SteamGate {
     Client& operator=(const Client&) = delete;
     ~Client() override;
 
-    /// Starts `steam -silent -cef-enable-debugging` in its scope, on a DBus session bus of its own,
-    /// and begins watching it. The state is Blocked when a Steam client already runs outside
+    /// First ends a Steam left in `opensu-<pid>-steam.scope` by an openSU that died, then starts
+    /// `steam -silent -cef-enable-debugging` in its scope, on the desktop's session bus, and
+    /// begins watching it. The state is Blocked when a Steam client already runs outside
     /// opensu, and Failed when Steam cannot be started. Does nothing unless the state is Stopped.
     void start();
 
@@ -87,6 +89,7 @@ class Client final : public launch::SteamGate {
 
     Options options_;
     DesktopSteam desktop_;
+    OrphanedSteam orphans_;
     std::filesystem::path program_;
     std::filesystem::path connectionLog_;
     /// How much of the connection log predates this client; only later lines count.
