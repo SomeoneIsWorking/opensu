@@ -4,6 +4,7 @@
 // grid, in both dashboard modes. Pure arithmetic: nothing here draws.
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -35,6 +36,13 @@ struct Rect {
     /// Whether the point is inside; the left and top edges count, the right and bottom do not.
     [[nodiscard]] bool contains(float px, float py) const noexcept {
         return px >= x && px < right() && py >= y && py < bottom();
+    }
+    /// The area both rects cover; zero-sized when they do not overlap.
+    [[nodiscard]] Rect intersected(const Rect& other) const noexcept {
+        const float left = std::max(x, other.x);
+        const float top = std::max(y, other.y);
+        return Rect{left, top, std::max(0.0f, std::min(right(), other.right()) - left),
+                    std::max(0.0f, std::min(bottom(), other.bottom()) - top)};
     }
 };
 

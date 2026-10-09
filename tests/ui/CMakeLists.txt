@@ -13,6 +13,11 @@ foreach(name top_bar_metrics top_bar_layout corner_hints clock_text game_menu la
     add_test(NAME ${name} COMMAND ${name}_test)
 endforeach()
 
+add_executable(clip_stack_test clip_stack_test.cpp)
+target_link_libraries(clip_stack_test PRIVATE opensu::ui)
+target_compile_options(clip_stack_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME clip_stack COMMAND clip_stack_test)
+
 add_executable(round_shape_test round_shape_test.cpp)
 target_link_libraries(round_shape_test PRIVATE opensu::ui)
 target_compile_options(round_shape_test PRIVATE -Wall -Wextra -Wpedantic)

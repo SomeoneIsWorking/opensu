@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 
+#include "clip_stack.hpp"
 #include "hud.hpp"
 #include "round_shape.hpp"
 #include "typeface.hpp"
@@ -81,10 +82,9 @@ void sketchTile(const Sketched& tile, float dp) {
 }
 
 /// A mode's sketch inside `card`, clipped to it.
-void sketch(library::LibraryMode mode, const Rect& card, float dp) {
+void sketch(library::LibraryMode mode, const Rect& card, float dp, ClipStack& clips) {
     const float side = card.width;
-    BeginScissorMode(static_cast<int>(card.x), static_cast<int>(card.y),
-                     static_cast<int>(card.width), static_cast<int>(card.height));
+    const ScopedClip clip{clips, card};
     if (mode == library::LibraryMode::Standard) {
         for (std::size_t column = 0; column < 5; ++column) {
             for (std::size_t row = 0; row < 3; ++row) {
@@ -136,7 +136,6 @@ void sketch(library::LibraryMode mode, const Rect& card, float dp) {
                        dp);
         }
     }
-    EndScissorMode();
 }
 
 /// A switch at the end of a row.
@@ -258,7 +257,8 @@ void paintRow(const ChooserRowBox& box, const ModeChooser& chooser, float dp) {
 }
 
 /// The three layout cards, the focused one outlined with a radio dot.
-void paintCards(const ModeChooser& chooser, const ChooserLayout& layout, float dp) {
+void paintCards(const ModeChooser& chooser, const ChooserLayout& layout, float dp,
+                ClipStack& clips) {
     const TextStyle label{labelSp * dp};
     for (std::size_t i = 0; i < layout.cards.size(); ++i) {
         const library::LibraryMode mode = library::allLibraryModes[i];
@@ -270,7 +270,7 @@ void paintCards(const ModeChooser& chooser, const ChooserLayout& layout, float d
         fillRoundRect(shape, [](Vector2, float) {
             return cardFill;
         });
-        sketch(mode, card, dp);
+        sketch(mode, card, dp, clips);
 
         const std::string_view name = library::label(mode);
         const float width = type().measure(name, label);
@@ -300,17 +300,15 @@ void ModeChooserPainter::paint(const ModeChooser& chooser, Vector2 size, float d
     fillRoundRect(RoundRect{layout.panel, layout.panelRadius}, [](Vector2, float) {
         return panelFill;
     });
-    BeginScissorMode(static_cast<int>(layout.content.x), static_cast<int>(layout.content.y),
-                     static_cast<int>(layout.content.width),
-                     static_cast<int>(layout.content.height));
+    ClipStack clips;
+    const ScopedClip content{clips, layout.content};
     for (const ChooserRowBox& box : layout.rows) {
         if (box.row == ChooserRow::Cards) {
-            paintCards(chooser, layout, dp);
+            paintCards(chooser, layout, dp, clips);
         } else {
             paintRow(box, chooser, dp);
         }
     }
-    EndScissorMode();
 }
 
 } // namespace opensu::ui

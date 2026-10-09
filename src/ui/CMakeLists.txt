@@ -18,7 +18,7 @@ target_compile_options(opensu_hud_model PRIVATE -Wall -Wextra -Wpedantic)
 add_library(opensu_ui STATIC
     shell.cpp hud.cpp launcher_badges.cpp vector_icon.cpp status_pill.cpp progress_spinner.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
     button_glyph.cpp game_menu_painter.cpp launch_panel_painter.cpp dock_painter.cpp mode_chooser_painter.cpp search_panel_painter.cpp context_menu_painter.cpp rail_painter.cpp backdrop_blur.cpp
-    round_shape.cpp image_decoder.cpp
+    round_shape.cpp image_decoder.cpp clip_stack.cpp
     typeface.cpp face_metrics.cpp platform.cpp platform_stroke.cpp glyph_textures.cpp)
 add_library(opensu::ui ALIAS opensu_ui)
 target_include_directories(opensu_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
