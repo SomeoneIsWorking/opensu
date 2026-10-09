@@ -23,6 +23,10 @@ constexpr std::array<Color, 6> tileBorders{{{0xE0, 0x31, 0x5A, 255},
                                             {0x2F, 0xB9, 0xA0, 255},
                                             {0xE8, 0x92, 0x3A, 255},
                                             {0x7A, 0x5A, 0xD8, 255}}};
+constexpr Color switchOff{0xB7, 0xB2, 0xC0, 255};
+constexpr float pinLabelSp = 17.0f;
+constexpr float pinRowInsetDp = 16.0f;
+constexpr float pinRowRadiusDp = 12.0f;
 constexpr float outlineDp = 1.8f;
 constexpr float dotInsetDp = 17.0f;
 constexpr float dotOuterDp = 8.0f;
@@ -127,6 +131,30 @@ void sketch(library::LibraryMode mode, const Rect& card, float dp) {
     EndScissorMode();
 }
 
+/// The pin option: a row of white with its label, and a switch at its end.
+void paintPinRow(const ModeChooser& chooser, const ChooserLayout& layout, float dp) {
+    const RoundRect row{layout.pinRow, pinRowRadiusDp * dp};
+    fillRoundRect(row, [](Vector2, float) {
+        return cardFill;
+    });
+    const TextStyle label{pinLabelSp * dp};
+    type().drawCentred("Pin navigation bar on Library", layout.pinRow.x + pinRowInsetDp * dp,
+                       layout.pinRow.centreY(), label, palette::ink);
+    const Rect& track = layout.pinSwitch;
+    const float radius = track.height * 0.5f;
+    fillRoundRect(RoundRect{track, radius}, [on = chooser.pinned()](Vector2, float) {
+        return on ? outlineInk : switchOff;
+    });
+    const float thumb = radius - 3.0f * dp;
+    const float thumbX = chooser.pinned() ? track.right() - radius : track.x + radius;
+    DrawCircleV(Vector2{thumbX, track.centreY()}, thumb, WHITE);
+    if (chooser.row() == ChooserRow::Pin) {
+        fillBand(row, row.grown(-outlineDp * dp), [](Vector2, float) {
+            return outlineInk;
+        });
+    }
+}
+
 } // namespace
 
 void ModeChooserPainter::paint(const ModeChooser& chooser, Vector2 size, float dp) const {
@@ -167,6 +195,7 @@ void ModeChooserPainter::paint(const ModeChooser& chooser, Vector2 size, float d
             DrawCircleV(dot, dotInnerDp * dp, WHITE);
         }
     }
+    paintPinRow(chooser, layout, dp);
 }
 
 } // namespace opensu::ui

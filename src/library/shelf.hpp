@@ -98,6 +98,11 @@ class ShelfBrowser {
     /// Opens a folder, remembering which slot of the section's shelf had focus.
     void open(const Folder& folder, std::size_t sectionFocus);
 
+    /// Whether a folder is open, which is when `back` does anything.
+    [[nodiscard]] bool canBack() const noexcept {
+        return folder_.has_value();
+    }
+
     /// Returns to the section's shelf and gives the slot to focus there, or nothing when no folder
     /// is open.
     [[nodiscard]] std::optional<std::size_t> back();

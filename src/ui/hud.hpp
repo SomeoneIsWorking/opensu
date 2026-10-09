@@ -1,14 +1,13 @@
 // hud — the chrome drawn around the home grid: ground, top bar, corner hints, toast.
 //
-// The top bar is iiSU's single-screen row (home-grid.md §2.2): the friends slot, which
-// opensu fills with its launchers' badges, the centre title pill (empty on Home, the
-// console's name inside one) and the status pill.
+// The top bar is iiSU's single-screen row (home-grid.md §2.2): the centre title pill (empty on
+// Home, the console's name inside one) and the status pill, which holds opensu's launchers'
+// badges where iiSU has its bell.
 #pragma once
 
 #include <chrono>
 #include <cstdint>
 #include <optional>
-#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -16,10 +15,13 @@
 #include "raylib.h"
 
 #include "button_glyph.hpp"
+#include "corner_hints.hpp"
 #include "device/battery.hpp"
 #include "glass.hpp"
 #include "launcher_badges.hpp"
+#include "library/game.hpp"
 #include "status_pill.hpp"
+#include "top_bar_layout.hpp"
 #include "top_bar_metrics.hpp"
 
 namespace opensu::ui {
@@ -83,10 +85,16 @@ class Hud {
     void setTitle(std::string title) {
         title_ = std::move(title);
     }
-    /// Whether START opens a menu here, which the right corner's prompts then name.
-    void setStartMenu(bool available) noexcept {
-        startMenu_ = available;
+    /// What each button does now; the corners name only the ones that do something.
+    void setHints(const HintContext& hints) noexcept {
+        hints_ = hints;
     }
+    /// The launcher the pointer is on, which its badge lights for.
+    void setLauncherHover(std::optional<library::Source> source) noexcept {
+        launcherHover_ = source;
+    }
+    /// The launcher whose badge is under the point, from the geometry the top bar paints at.
+    [[nodiscard]] std::optional<library::Source> launcherAt(float x, float y) const;
     void setToast(std::string text, bool isError, Clock::time_point now);
     /// Clears a toast whose time is up.
     void tick(Clock::time_point now);
@@ -112,9 +120,9 @@ class Hud {
     [[nodiscard]] TopBarMetrics metrics() const noexcept;
     void drawTitlePill(float top) const;
     /// One corner prompt panel of (glyph, label) entries (iiSU jj2.b).
-    void drawPromptPanel(const HintPanelMetrics& panel,
-                         std::span<const std::pair<const char*, const char*>> prompts,
+    void drawPromptPanel(const HintPanelMetrics& panel, const std::vector<Prompt>& prompts,
                          bool atEnd) const;
+    [[nodiscard]] TopBarLayout topBarLayout() const;
 
     int width_{};
     int height_{};
@@ -124,7 +132,8 @@ class Hud {
     std::optional<device::BatteryStatus> battery_;
     std::vector<LauncherBadge> launchers_;
     std::string title_;
-    bool startMenu_{false};
+    HintContext hints_;
+    std::optional<library::Source> launcherHover_;
     Clock::time_point now_{};
     std::string toast_;
     bool toastError_{false};

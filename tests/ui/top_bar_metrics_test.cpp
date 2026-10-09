@@ -48,15 +48,11 @@ void reference853() {
     near(pill.height, 41.184, "853: pill height");
     near(pill.width, 224.4, "853: 24 h pill width");
     near(pill.contentScale, 0.935, "853: content scale");
-    near(pill.bellColumn, 43.01, "853: bell column");
+    near(pill.textWidth, 224.4 - 43.01, "853: the pill less iiSU's bell column");
     near(pill.fontSize, 14.96, "853: clock font");
     near(pill.batteryIcon, 25.245, "853: battery icon");
-    near(pill.glyphSize, 24.024, "853: R2 glyph");
-    near(pill.glyphOffsetX, 14.08571, "853: 24 h glyph x");
-    near(pill.glyphOffsetY, -7.722, "853: glyph y");
     const StatusPillMetrics twelve = m.statusPill(true);
     near(twelve.width, 250.8, "853: 12 h pill width");
-    near(twelve.glyphOffsetX, 9.68571, "853: 12 h glyph x");
     near(m.statusOffsetX(1.6f), 4.0, "853: status offset on 16:10");
     near(m.statusOffsetX(4.0f / 3.0f), 10.0, "853: status offset on 4:3");
 }

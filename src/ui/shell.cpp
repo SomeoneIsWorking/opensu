@@ -412,15 +412,19 @@ void Shell::setNavIcon(library::Section section, bool selected, const std::files
 void Shell::setSection(library::Section section, bool revealDock) {
     section_ = section;
     const double now = nowMs();
-    dockVisibility_.setPinned(section == library::Section::Home, now);
+    dockVisibility_.setPinned(dockPinned(section, pinLibraryDock_), now);
     if (revealDock) {
         dockVisibility_.reveal(now);
     }
     for (std::size_t i = 0; i < library::allSections.size(); ++i) {
         iconPops_[i].select(library::allSections[i] == section, now);
     }
-    hud_.setStartMenu(section == library::Section::Library);
     relayout();
+}
+
+void Shell::setPinLibraryDock(bool pinned) {
+    pinLibraryDock_ = pinned;
+    dockVisibility_.setPinned(dockPinned(section_, pinLibraryDock_), nowMs());
 }
 
 void Shell::setLibraryMode(library::LibraryMode mode) {
@@ -800,11 +804,16 @@ Shell::DockFrame Shell::dockFrame(float width, float height) const {
 
 PointerTarget Shell::pointAt(std::optional<Vector2> point) {
     dockHover_.reset();
+    hud_.setLauncherHover(std::nullopt);
     if (!point) {
         return {};
     }
     if (inGame_ || launchPanel_.isOpen() || chooser_.isOpen()) {
         return pointAtModal(*point);
+    }
+    if (const std::optional<library::Source> launcher = hud_.launcherAt(point->x, point->y)) {
+        hud_.setLauncherHover(launcher);
+        return OnLauncher{*launcher};
     }
     const DockFrame frame = dockFrame(static_cast<float>(width_), static_cast<float>(height_));
     if (onRestingDock(frame.layout, point->x, point->y)) {
@@ -844,6 +853,9 @@ PointerTarget Shell::pointAtModal(Vector2 point) const {
         return {};
     }
     const ChooserLayout picker = layoutChooser(Rect{0.0f, 0.0f, width, height}, dp());
+    if (picker.pinRow.contains(point.x, point.y)) {
+        return OnPinOption{};
+    }
     if (const std::optional<library::LibraryMode> card = picker.cardAt(point.x, point.y)) {
         return OnLayoutCard{*card};
     }
@@ -909,6 +921,12 @@ bool Shell::focusTarget(const PointerTarget& target) {
         }
         bool operator()(const OnPanelButton&) const {
             return false;
+        }
+        bool operator()(const OnLauncher&) const {
+            return false;
+        }
+        bool operator()(const OnPinOption&) const {
+            return shell.chooser_.focusPin();
         }
         bool operator()(const OnTile& tile) const {
             return shell.focusTile(tile.index);

@@ -1,5 +1,6 @@
 // progress_spinner — Material 3's indeterminate CircularProgressIndicator, which iiSU draws
-// around the status pill's bell while tasks run (a32.n, of6.a).
+// around the status pill's bell while tasks run (a32.n, of6.a) and openSU around a starting
+// launcher's badge.
 #pragma once
 
 #include "raylib.h"

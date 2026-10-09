@@ -7,6 +7,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -29,6 +30,7 @@
 #include "gamescope_overlay.hpp"
 #include "gamescope_windows.hpp"
 #include "installs.hpp"
+#include "layout_picker.hpp"
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
@@ -53,6 +55,8 @@ struct Settings {
     bool controlChannel{true};
     /// The home grid's dashboard mode.
     config::HomeMode homeMode{config::HomeMode::Standard};
+    /// The window is never mapped and no pad is read, for maintainer runs and tests.
+    bool hidden{false};
 };
 
 /// The running shell.
@@ -82,6 +86,8 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void requestCatalogReload(std::string toast) override;
 
   private:
+    /// Where pads are read from: the system's, or an empty directory in a hidden run.
+    static std::filesystem::path padsDirectory(bool hidden);
     /// Flips an image in place, for the render texture's bottom-up origin.
     static void flipVertical(Image& image);
 
@@ -125,6 +131,7 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void focus(const ui::PointerTarget& target) override;
     void press(gamepad::Button button) override;
     void activateSection(library::Section section) override;
+    void selectLauncher(library::Source source) override;
     void scroll(int steps) override;
     /// A click on a dock item: the same section change as L1 and R1.
     void clickSection(library::Section section);
@@ -140,12 +147,6 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// L1 and R1: moves `delta` sections along the dock and shows the section's shelf, with iiSU's
     /// domino cue sized by what the section shows at once.
     void cycleSection(int delta);
-    /// START on Library: asks which layout Library uses.
-    void openModeChooser();
-    /// Buttons while the layout picker is up: it takes them all. Main loop only.
-    void actOnModeChooser(gamepad::Button button);
-    /// Makes `mode` Library's layout and keeps it for the next run.
-    void chooseLibraryMode(library::LibraryMode mode);
     /// Gives the shell the dock icons the store holds. Needs no GL context.
     void loadStoredNavIcons();
     void launchFocused();
@@ -180,6 +181,8 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// Opens or closes the Guide menu and shows or hides the window drawing it.
     void setGameMenuOpen(bool open);
     void showDetails();
+    /// What each button does now, for the corner prompts: the same tests the actions make.
+    [[nodiscard]] ui::HintContext hints() const;
     /// Re-reads the clock and the battery and schedules the next minute boundary.
     void refreshClock();
     void pushCatalogToShell();
@@ -202,7 +205,10 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// What the player chose, read at start and saved when it changes.
     settings::Store settingsStore_{config::read().configDir / "settings.json"};
     settings::Settings preferences_;
-    gamepad::Pads pads_;
+    /// After the settings it keeps and the shelf it re-shows.
+    LayoutPicker layoutPicker_{shell_, sounds_, settingsStore_, preferences_,
+                               [this] { showShelf(shell_.focusIndex()); }};
+    gamepad::Pads pads_{padsDirectory(settings_.hidden)};
     /// After shell_ and the host it drives.
     PointerRouter pointer_{shell_.inputDevice(), *this};
     /// Held directions, from a pad or the keyboard, repeat on one schedule.

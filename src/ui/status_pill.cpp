@@ -8,23 +8,14 @@
 #include "raylib.h"
 
 #include "battery_icon.hpp"
-#include "progress_spinner.hpp"
 #include "round_shape.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
 namespace {
 
-// iiSU res/drawable/battery_*_dark.png and bell_icon.png ink.
+// iiSU res/drawable/battery_*_dark.png ink.
 constexpr Color iconInk{0x4D, 0x46, 0x55, 255};
-// iiSU a32.n: the spinner's stroke, and its colour, the theme's surfaceTint (light primary).
-constexpr float spinnerStroke = 3.0f;
-constexpr Color spinnerInk = iconInk;
-// iiSU res/drawable/bell_icon.png: the bell over the ink disc.
-constexpr Color bellFace{0xF5, 0xF5, 0xF5, 255};
-// iiSU res/drawable/rt_button.png: white cap, #726B78 outline and letters.
-constexpr Color glyphFace{0xFF, 0xFF, 0xFF, 255};
-constexpr Color glyphInk{0x72, 0x6B, 0x78, 255};
 // STOPGAP: text uses the icons' ink because a32.p's ja3 text colours are not in the spec.
 constexpr Color textInk = iconInk;
 // iiSU res/values/strings.xml status_separator_pipe.
@@ -71,22 +62,7 @@ void StatusPillPainter::paint(const StatusPillView& view) const {
     const Rect& body = view.body;
     glass_.paint(body);
     const float centreY = body.centreY();
-
-    // 1. The bell column (iiSU a32.n).
-    const float bellColumn = m.bellColumn * dp;
-    // STOPGAP: the bell is drawn at the progress ring's size because a32.n's icon size is not in
-    // the spec.
-    paintBell(body.x + bellColumn * 0.5f, centreY, m.ringSize * dp);
-    if (view.busySeconds) {
-        // STOPGAP: the spinner circles the bell, one stroke clear of it, because a32.n's ring sits
-        // under a bell icon larger than itself (f4 22c, f9 50c) and the Box alignments that keep
-        // it visible (wj0.o, wj0.k) are unresolved.
-        const float stroke = spinnerStroke * dp;
-        drawSpinner(Vector2{body.x + bellColumn * 0.5f, centreY}, m.ringSize * dp + stroke * 4.0f,
-                    stroke, spinnerInk, *view.busySeconds);
-    }
-
-    // 2. The text row (iiSU a32.p): clock | NN% battery.
+    // The text row (iiSU a32.p): clock | NN% battery.
     const TextStyle text{m.fontSize * dp};
     const float spacing = m.textSpacing * dp;
     const std::string clock{view.clock};
@@ -98,10 +74,10 @@ void StatusPillPainter::paint(const StatusPillView& view) const {
         width +=
             spacing * 3.0f + type().measure(separator, text) + type().measure(percent, text) + icon;
     }
-    // STOPGAP: the row is centred in the space after the bell column because a32.o's
-    // arrangement of the text row is not in the spec.
-    const float free = body.right() - (body.x + bellColumn);
-    float pen = body.x + bellColumn + std::max((free - width) * 0.5f, 0.0f);
+    // STOPGAP: the row is centred in the space after the launchers because a32.o's arrangement
+    // of the text row is not in the spec.
+    const float free = body.right() - (body.x + view.launcherColumn);
+    float pen = body.x + view.launcherColumn + std::max((free - width) * 0.5f, 0.0f);
     type().drawCentred(clock, pen, centreY, text, textInk);
     pen += type().measure(clock, text) + spacing;
     if (view.battery) {
@@ -111,21 +87,6 @@ void StatusPillPainter::paint(const StatusPillView& view) const {
         pen += type().measure(percent, text) + spacing;
         paintBattery(pen, centreY, icon, *view.battery);
     }
-
-    // 3. The R2 glyph at the pill's top-left, offset (iiSU a32.o).
-    paintGlyph(body.x + m.glyphOffsetX * dp, body.y + m.glyphOffsetY * dp, m.glyphSize * dp);
-}
-
-void StatusPillPainter::paintBell(float centreX, float centreY, float size) const {
-    DrawCircleV(Vector2{centreX, centreY}, size * 0.5f, iconInk);
-    // A bell: dome, flared rim and clapper, in the drawable's light face.
-    const float u = size / 10.0f;
-    DrawCircleV(Vector2{centreX, centreY - u * 0.6f}, u * 2.2f, bellFace);
-    DrawRectangleV(Vector2{centreX - u * 2.2f, centreY - u * 0.6f}, Vector2{u * 4.4f, u * 2.2f},
-                   bellFace);
-    DrawRectangleRounded(Rectangle{centreX - u * 3.0f, centreY + u * 1.4f, u * 6.0f, u * 0.9f},
-                         1.0f, 6, bellFace);
-    DrawCircleV(Vector2{centreX, centreY + u * 2.9f}, u * 0.8f, bellFace);
 }
 
 void StatusPillPainter::paintBattery(float x, float centreY, float size,
@@ -163,16 +124,6 @@ void StatusPillPainter::paintBattery(float x, float centreY, float size,
     if (count == 0) {
         fillRoundRect(RoundRect{onIcon(lowMark, x, y, size), 8.0f * k}, flat(iconInk));
     }
-}
-
-void StatusPillPainter::paintGlyph(float x, float y, float size) const {
-    // iiSU res/drawable/rt_button.png: a rounded cap with the trigger's name.
-    const RoundRect cap{Rect{x, y, size, size * 0.86f}, size * 0.2f};
-    fillRoundRect(cap, flat(glyphFace));
-    fillBand(cap, cap.grown(-std::max(size * 0.06f, 1.0f)), flat(glyphInk));
-    const TextStyle text{type().emForLineBox(size * 0.42f)};
-    const float width = type().measure("R2", text);
-    type().drawCentred("R2", cap.rect.centreX() - width * 0.5f, cap.rect.centreY(), text, glyphInk);
 }
 
 } // namespace opensu::ui

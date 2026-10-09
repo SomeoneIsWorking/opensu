@@ -38,6 +38,9 @@ class Recorder final : public PointerHost {
     void activateSection(opensu::library::Section) override {
         calls.emplace_back("section");
     }
+    void selectLauncher(opensu::library::Source) override {
+        calls.emplace_back("launcher");
+    }
     void scroll(int steps) override {
         calls.emplace_back(steps > 0 ? "scroll+" : "scroll-");
     }
@@ -78,6 +81,9 @@ void hoverSkipsWhatAHoverWouldTrigger() {
     host.under = opensu::ui::OnPanelButton{Button::A};
     router.route(at(10.0f, 10.0f, 4.0f));
     expect(host.calls.empty(), "a panel hint only presses on a click");
+    host.under = opensu::ui::OnLauncher{opensu::library::Source::Gog};
+    router.route(at(10.0f, 10.0f, 4.0f));
+    expect(host.calls.empty(), "a launcher's badge only lights");
 }
 
 void leftClickIsFocusThenA() {
@@ -87,7 +93,7 @@ void leftClickIsFocusThenA() {
     for (const PointerTarget target :
          {PointerTarget{opensu::ui::OnTile{1}},
           PointerTarget{opensu::ui::OnLayoutCard{opensu::library::LibraryMode::Xmb}},
-          PointerTarget{opensu::ui::OnMenuItem{1}}}) {
+          PointerTarget{opensu::ui::OnMenuItem{1}}, PointerTarget{opensu::ui::OnPinOption{}}}) {
         host.under = target;
         host.calls.clear();
         PointerFrame frame = at(10.0f, 10.0f);
@@ -115,6 +121,11 @@ void leftClickOnTheOthers() {
     host.under = opensu::ui::OnPanelButton{Button::X};
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"other"}, "a panel hint presses its button");
+    host.calls.clear();
+    host.under = opensu::ui::OnLauncher{opensu::library::Source::Epic};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"launcher"},
+           "a launcher's badge selects its store");
     host.calls.clear();
     host.under = PointerTarget{};
     router.route(frame);

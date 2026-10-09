@@ -13,6 +13,10 @@ struct Settings {
     /// How Library lays out its folders (iiSU `romCategoryLayoutMode`).
     library::LibraryMode libraryMode{library::LibraryMode::Standard};
 
+    /// Whether the dock stays up on Library (iiSU `persistentNavBarOnPlatforms`, which iiSU
+    /// defaults to off; openSU defaults to on so the way back to Home stays visible).
+    bool pinLibraryDock{true};
+
     bool operator==(const Settings&) const = default;
 };
 

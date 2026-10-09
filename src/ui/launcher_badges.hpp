@@ -1,5 +1,6 @@
-// launcher_badges — the launchers opensu depends on, as icons in the top bar's friends slot:
-// each launcher's logo in an iiSU avatar circle (a32.e), with a presence dot for its state.
+// launcher_badges — the launchers opensu depends on, as icons in the top bar's status pill, where
+// iiSU has its bell: each launcher's logo in an iiSU avatar circle (a32.e), with a presence dot
+// for its state.
 #pragma once
 
 #include <cstdint>
@@ -8,6 +9,8 @@
 
 #include "raylib.h"
 
+#include "home_layout.hpp"
+#include "library/game.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -26,6 +29,8 @@ enum class ServiceState : std::uint8_t {
 
 struct LauncherBadge {
     Icon icon{Icon::Steam};
+    /// The store it stands for, which a click opens.
+    library::Source source{library::Source::Steam};
     ServiceState state{ServiceState::Hidden};
     /// A download the launcher is running, 0 to 1.
     std::optional<double> progress;
@@ -35,21 +40,21 @@ struct LauncherBadge {
 
 /// Where the badges go, in pixels.
 struct BadgeRow {
-    /// The first badge's left edge and the row's vertical centre.
-    Vector2 start{};
-    float diameter{};
-    float gap{};
+    /// One circle's bounds per visible badge, in order (`TopBarLayout::launchers`).
+    std::span<const Rect> cells;
+    /// The launcher the pointer is on.
+    std::optional<library::Source> hovered;
     /// Drives the starting spinner.
     double seconds{};
 };
 
 class LauncherBadgePainter {
   public:
-    /// Draws the visible badges left to right along `row`.
+    /// Draws the visible badges, each in its cell of `row`.
     void paint(std::span<const LauncherBadge> badges, const BadgeRow& row);
 
   private:
-    void paintOne(const LauncherBadge& badge, const BadgeRow& row, Vector2 centre);
+    void paintOne(const LauncherBadge& badge, const BadgeRow& row, const Rect& cell);
 
     IconAtlas icons_;
 };

@@ -16,6 +16,9 @@ struct FocusesOnHover {
     bool operator()(const ui::OnMenuItem&) const {
         return true;
     }
+    bool operator()(const ui::OnPinOption&) const {
+        return true;
+    }
     template <class Other> bool operator()(const Other&) const {
         return false;
     }
@@ -61,6 +64,8 @@ void PointerRouter::route(const PointerFrame& frame) {
 void PointerRouter::click(const ui::PointerTarget& target) {
     if (const auto* dock = std::get_if<ui::OnDock>(&target)) {
         host_.activateSection(dock->section);
+    } else if (const auto* launcher = std::get_if<ui::OnLauncher>(&target)) {
+        host_.selectLauncher(launcher->source);
     } else if (const auto* button = std::get_if<ui::OnPanelButton>(&target)) {
         host_.press(button->button);
     } else if (std::holds_alternative<ui::OnPage>(target)) {

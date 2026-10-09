@@ -44,6 +44,8 @@ class PointerHost {
     virtual void press(gamepad::Button button) = 0;
     /// A click on a dock item.
     virtual void activateSection(library::Section section) = 0;
+    /// A click on a launcher's badge in the top bar.
+    virtual void selectLauncher(library::Source source) = 0;
     /// One wheel step: `steps` is 1 towards the end of the list or page, -1 towards its start.
     virtual void scroll(int steps) = 0;
 };

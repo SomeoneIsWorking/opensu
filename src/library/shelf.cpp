@@ -208,7 +208,7 @@ void ShelfBrowser::open(const Folder& folder, std::size_t sectionFocus) {
 }
 
 std::optional<std::size_t> ShelfBrowser::back() {
-    if (!folder_) {
+    if (!canBack()) {
         return std::nullopt;
     }
     folder_.reset();

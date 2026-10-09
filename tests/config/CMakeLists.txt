@@ -36,3 +36,7 @@ set_tests_properties(config_config_dir_default PROPERTIES
     ENVIRONMENT_MODIFICATION "XDG_CONFIG_HOME=unset:")
 
 add_test(NAME config_gamescope COMMAND config_test gamescope)
+
+add_executable(arguments_test arguments_test.cpp)
+target_link_libraries(arguments_test PRIVATE opensu::config)
+add_test(NAME config_arguments COMMAND arguments_test)

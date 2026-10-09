@@ -14,6 +14,7 @@ namespace {
 using json = nlohmann::json;
 
 constexpr const char* libraryModeKey = "libraryMode";
+constexpr const char* pinLibraryDockKey = "pinLibraryDock";
 
 } // namespace
 
@@ -32,6 +33,14 @@ Settings Store::load() const {
         lucent::warn("settings", "{} is not a settings file; using the defaults", file_.string());
         return settings;
     }
+    if (const auto pin = document.find(pinLibraryDockKey); pin != document.end()) {
+        if (pin->is_boolean()) {
+            settings.pinLibraryDock = pin->get<bool>();
+        } else {
+            lucent::warn("settings", "{}: {} is not true or false; the dock stays pinned",
+                         file_.string(), pin->dump());
+        }
+    }
     const auto mode = document.find(libraryModeKey);
     if (mode == document.end()) {
         return settings;
@@ -48,7 +57,8 @@ Settings Store::load() const {
 }
 
 bool Store::save(const Settings& settings, std::string& error) const {
-    const json document{{libraryModeKey, std::string{library::key(settings.libraryMode)}}};
+    const json document{{libraryModeKey, std::string{library::key(settings.libraryMode)}},
+                         {pinLibraryDockKey, settings.pinLibraryDock}};
     return fileio::writeWhole(file_, document.dump(2) + "\n", error);
 }
 

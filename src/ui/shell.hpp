@@ -20,6 +20,7 @@
 
 #include "backdrop_blur.hpp"
 #include "config/config.hpp"
+#include "corner_hints.hpp"
 #include "dock_metrics.hpp"
 #include "dock_motion.hpp"
 #include "dock_painter.hpp"
@@ -139,6 +140,8 @@ class Shell {
     /// the caller's to replace after. `revealDock` slides the dock in for a moment (iiSU
     /// `jk2.java:937`), as an L1 or R1 press does.
     void setSection(library::Section section, bool revealDock);
+    /// Whether the dock stays up on Library (the picker's "Pin navigation bar" option).
+    void setPinLibraryDock(bool pinned);
     [[nodiscard]] library::Section section() const noexcept {
         return section_;
     }
@@ -266,6 +269,9 @@ class Shell {
     void setLaunchers(std::vector<LauncherBadge> launchers) {
         hud_.setLaunchers(std::move(launchers));
     }
+    void setHints(const HintContext& hints) noexcept {
+        hud_.setHints(hints);
+    }
     void setTitle(std::string title) {
         hud_.setTitle(std::move(title));
     }
@@ -364,6 +370,7 @@ class Shell {
     DockVisibility dockVisibility_;
     /// The section whose dock item the pointer is on.
     std::optional<library::Section> dockHover_;
+    bool pinLibraryDock_{true};
     std::array<IconPop, library::allSections.size()> iconPops_{IconPop{true}, IconPop{false}};
     ModeChooser chooser_;
 

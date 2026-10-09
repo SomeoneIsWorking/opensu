@@ -64,6 +64,16 @@ ShellApp::ShellApp(const Settings& settings)
     refreshClock();
     preferences_ = settingsStore_.load();
     shell_.setLibraryMode(preferences_.libraryMode);
+    shell_.setPinLibraryDock(preferences_.pinLibraryDock);
+}
+
+std::filesystem::path ShellApp::padsDirectory(bool hidden) {
+    if (!hidden) {
+        return "/dev/input";
+    }
+    const std::filesystem::path empty = config::read().dataDir / "hidden-pads";
+    std::filesystem::create_directories(empty);
+    return empty;
 }
 
 void ShellApp::flipVertical(Image& image) {
@@ -325,6 +335,30 @@ void ShellApp::activateSection(library::Section section) {
     clickSection(section);
 }
 
+void ShellApp::selectLauncher(library::Source source) {
+    // The gates actOn puts in front of every button.
+    if (shell_.inGame() || panelUse_ != PanelUse::None || shell_.modeChooser().isOpen()) {
+        return;
+    }
+    // Selecting the store's tile in Library: from its top, whatever is open now.
+    if (browser_.section() != library::Section::Library) {
+        clickSection(library::Section::Library);
+    } else if (const std::optional<std::size_t> focus = browser_.back()) {
+        showShelf(*focus);
+    }
+    const std::vector<ui::Tile>& tiles = shell_.tiles();
+    const auto tile = std::ranges::find_if(tiles, [source](const ui::Tile& candidate) {
+        const auto* launcher = std::get_if<library::Launcher>(&candidate.item);
+        return launcher != nullptr && launcher->source == source;
+    });
+    if (tile == tiles.end()) {
+        shell_.setToast("no " + std::string{library::label(source)} + " library here", true);
+        return;
+    }
+    focus(ui::OnTile{static_cast<std::size_t>(tile - tiles.begin())});
+    actOn(gamepad::Button::A);
+}
+
 void ShellApp::scroll(int steps) {
     const bool modal =
         shell_.inGame() || panelUse_ != PanelUse::None || shell_.modeChooser().isOpen();
@@ -378,7 +412,7 @@ void ShellApp::actOn(gamepad::Button button) {
         return;
     }
     if (shell_.modeChooser().isOpen()) {
-        actOnModeChooser(button);
+        layoutPicker_.act(button);
         return;
     }
     switch (button) {
@@ -418,7 +452,7 @@ void ShellApp::actOn(gamepad::Button button) {
         break;
     case gamepad::Button::Start:
         if (browser_.section() == library::Section::Library) {
-            openModeChooser();
+            layoutPicker_.open();
         } else {
             shell_.resetFocus();
         }
@@ -453,51 +487,6 @@ void ShellApp::cycleSection(int delta) {
         ui::visibleTiles(browser_.section(), preferences_.libraryMode, shell_.tiles().size());
     if (const std::optional<audio::Effect> cue = audio::dominoFor(visible)) {
         sounds_.play(*cue);
-    }
-}
-
-void ShellApp::openModeChooser() {
-    // input-sound.md 3.4 Open: a panel appears.
-    sounds_.play(audio::Effect::Open);
-    shell_.modeChooser().open(preferences_.libraryMode);
-}
-
-void ShellApp::actOnModeChooser(gamepad::Button button) {
-    ui::ModeChooser& chooser = shell_.modeChooser();
-    switch (button) {
-    case gamepad::Button::Left:
-    case gamepad::Button::Right:
-        // input-sound.md 3.4 Navigation: a focus move in a list.
-        if (chooser.move(button == gamepad::Button::Left ? -1 : 1)) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::A:
-        chooseLibraryMode(chooser.focused());
-        // input-sound.md 3.4 Close: the player dismisses a panel.
-        sounds_.play(audio::Effect::Close);
-        chooser.close();
-        break;
-    case gamepad::Button::B:
-        sounds_.play(audio::Effect::Close);
-        chooser.close();
-        break;
-    default:
-        break;
-    }
-}
-
-void ShellApp::chooseLibraryMode(library::LibraryMode mode) {
-    if (mode == preferences_.libraryMode) {
-        return;
-    }
-    preferences_.libraryMode = mode;
-    shell_.setLibraryMode(mode);
-    showShelf(shell_.focusIndex());
-    std::string error;
-    if (!settingsStore_.save(preferences_, error)) {
-        lucent::error("settings", "{}", error);
-        shell_.setToast("cannot keep the layout: " + error, true);
     }
 }
 
@@ -778,10 +767,12 @@ void ShellApp::setGameMenuOpen(bool open) {
     }
     if (overlay_) {
         overlay_->setShown(open);
-    } else if (open) {
-        ClearWindowState(FLAG_WINDOW_HIDDEN);
-    } else {
-        SetWindowState(FLAG_WINDOW_HIDDEN);
+    } else if (!settings_.hidden) {
+        if (open) {
+            ClearWindowState(FLAG_WINDOW_HIDDEN);
+        } else {
+            SetWindowState(FLAG_WINDOW_HIDDEN);
+        }
     }
 }
 
@@ -789,6 +780,14 @@ void ShellApp::showDetails() {
     if (const library::Game* game = shell_.focusedGame(); game != nullptr) {
         shell_.setToast(describe(*game));
     }
+}
+
+ui::HintContext ShellApp::hints() const {
+    const bool game = shell_.focusedGame() != nullptr;
+    return ui::HintContext{.back = browser_.canBack(),
+                           .select = game || shell_.focusedFolder().has_value(),
+                           .details = game,
+                           .menu = browser_.section() == library::Section::Library};
 }
 
 void ShellApp::refreshClock() {
@@ -1029,10 +1028,12 @@ void ShellApp::serviceRequests() {
             } else {
                 overlay_->leave();
             }
-        } else if (running) {
-            SetWindowState(FLAG_WINDOW_HIDDEN);
-        } else {
-            ClearWindowState(FLAG_WINDOW_HIDDEN);
+        } else if (!settings_.hidden) {
+            if (running) {
+                SetWindowState(FLAG_WINDOW_HIDDEN);
+            } else {
+                ClearWindowState(FLAG_WINDOW_HIDDEN);
+            }
         }
     }
 
@@ -1059,10 +1060,11 @@ int ShellApp::run() {
     // so what the shell draws in is already in its own pixels.
     // Transparent, so the Guide menu can draw over a game with the game showing through. No
     // MSAA: with it, Gamescope's Xwayland gave a 24-bit window, which it composites as opaque.
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_TRANSPARENT);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_TRANSPARENT |
+                   (settings_.hidden ? FLAG_WINDOW_HIDDEN : 0u));
     InitWindow(settings_.width, settings_.height, "openSU");
     SetWindowMinSize(960, 600);
-    if (config::read().insideGamescope) {
+    if (config::read().insideGamescope && !settings_.hidden) {
         // Gamescope composites a window as the overlay only when it spans the whole screen,
         // which also draws the home screen at the output's own resolution.
         const int monitor = GetCurrentMonitor();
@@ -1112,6 +1114,7 @@ int ShellApp::run() {
         serviceRequests();
         serviceCatalog();
         serviceArtwork();
+        shell_.setHints(hints());
         shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
         // iiSU's Home has no title (pl3.q); opensu's names the focused tile everywhere.
         shell_.setTitle(shell_.pillTitle());
@@ -1158,6 +1161,8 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
                  shell_.tiles().size());
     // A still frame shows the grid at rest, after its entrance.
     shell_.tick(std::chrono::steady_clock::now());
+    shell_.setHints(hints());
+    shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
     shell_.settle();
 
     std::string png;

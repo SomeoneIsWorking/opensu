@@ -15,7 +15,15 @@ Visible deltas from the baseline:
   each store and the combined "All games" library behind a tile of its own there.
 - A dock (Home, Library) switches sections with L1/R1; Library has Standard, XMB and Carousel
   layouts, chosen with START and kept in the config dir.
-- Each launcher's state is a logo with a status dot in the top bar's left slot.
+- Each launcher's state is a logo with a status dot inside the top-right status pill, where iiSU
+  has its notification bell (openSU has no notifications, so the bell and its R2 glyph are gone).
+  A badge is a pointer target: hover lights it, a click selects that store's tile in Library.
+- The dock stays shown on Library by default: iiSU hides it there 1.2 s after L1/R1
+  (`persistentNavBarOnPlatforms` false), which left a mouse or keyboard player no visible way back
+  to Home. The Library layout picker has iiSU's "Pin navigation bar" option (here "on Library"),
+  default on, kept in `settings.json` as `pinLibraryDock`; off gives iiSU's behaviour.
+- The corner prompts name only what works: Back inside a folder, Details with a game focused,
+  Select on a tile, Menu on Library. iiSU shows them all always.
 - The title pill names the focused tile on Home too; iiSU shows it only inside sections.
 - A signed-out GOG or Epic tile opens that store's sign-in page in the default browser.
 - No store client window is ever opened to reach a game.
@@ -107,7 +115,7 @@ sweep focus ring, glass chrome, cover-cropped art, platform frame, fallback
 letter, in `tx2`/`tw2` draw order, always the dark variant as iiSU's home config
 fixes `darkHeroScrim`) and `PagePillPainter` (dark variant). The shell composes
 them under `Hud`: iiSU's single-screen top bar (`TopBarMetrics` for is7/hs7/a32.o
-sizes, `StatusPillPainter` for the bell, clock, battery and R2 glyph, `ClockText`
+sizes, `StatusPillPainter` for the clock and battery, `TopBarLayout` for the pill and the launcher cells it paints and hit-tests at, `ClockText`
 for o28.g's format and k42's minute tick), the corner hints and openSU's toast.
 The battery comes from `device::BatteryReader` (sysfs, system scope only); the
 12/24-hour choice from the LC_TIME locale in `config`. The title pill (`jj2.c`)
@@ -116,8 +124,8 @@ names the focused tile everywhere, Home included, where iiSU's Home shows none. 
 The dock (`ui::DockPainter`, metrics `DockMetrics`, motion `DockVisibility`/`IconPop`,
 `navigation.md` 1.2-1.5, 4) is a bottom-centre glass capsule with Home and Library icons (iiSU's
 own nav drawables, taken from the pinned APK into `<cache>/artwork/nav/`) and LB/RB badges, in the
-variant matching the chrome (light). It is shown always on Home, and on Library for 1200 ms after
-L1/R1 with a 250 ms tween; it is not focusable. L1/R1 used to turn grid pages; they now cycle
+variant matching the chrome (light). It is shown always on Home, and on Library while pinned (default) or else for 1200 ms after
+L1/R1 or a pointer resting where it is, with a 250 ms tween; it is not focusable. L1/R1 used to turn grid pages; they now cycle
 `library::Sections` (Home, Library, wrapping), each section remembering its focus. Page turns
 are D-pad only. The slide follows the dock capture (navigation.md 5.1): straight down while fading
 (FastOutLinearIn, 125 ms), back up from below (LinearOutSlowIn, 170 ms). The glass blurs the scene
@@ -191,7 +199,7 @@ image at full size, all of a shelf's tiles in one frame):
   or whose file is decoding, shows a rotating arc in the focus ring's cyan; a confirmed miss or
   an unreachable round settles it (`Fetched::saved == false`) and it keeps the first-letter
   placeholder. iiSU has no tile spinner (`launch.md` F), so the arc is openSU's own, drawn with
-  the bell's Material spinner. The fetcher takes the games on screen first.
+  the Material spinner. The fetcher takes the games on screen first.
 - Epic key image URLs with spaces are percent-encoded; one such URL used to end the whole round.
 
 A tile loads its artwork when it comes near the canvas, so a shelf change or a download needs
@@ -267,7 +275,7 @@ arrive (`ui::GlyphTextures`). Without a glyph the tab stays empty. Console cards
 tiles are unchanged. Measured against the real APK: five glyphs (gc, psx, snes, n64, switch)
 are 4.3 KB in 8.8 s, over about 11 requests, most of it GitHub's redirect latency.
 
-The friends slot (`a32.e`), empty in openSU otherwise, holds the launcher badges
+The status pill's bell column (iiSU `a32.n`; openSU has no notifications) holds the launcher badges
 (`ui::LauncherBadgePainter`, mapped in `app::launcherBadges`): Steam, Epic and
 GOG, each its Simple Icons logo in an avatar circle at a32.e's avatar size, spaced
 rather than overlapped, with a presence dot (green ready, amber starting with a
@@ -295,17 +303,15 @@ Stopgaps, each marked in code:
 - `hx2.z`'s cross-flow fallback for multi-lane tiles is not ported; every home
   tile is 1x1.
 - Top bar: glass is the fill only (no border or shadow; the dock's glass has the blur); the `jj2.w` strip
-  is not drawn; the bell is drawn at the progress ring's size; the status text row
-  is centred after the bell; text ink is the icons' `#4D4655`.
-- Corner prompt panels: the right panel shows "A Select" without iiSU's "+ Menu",
-  because openSU has no START menu; their glass is the fill only, like the top bar's.
+  is not drawn; the status text row
+  is centred after the launchers' column; text ink is the icons' `#4D4655`.
+- Corner prompt panels: each prompt shows only while its button does something (Back in a
+  folder, Details with a game focused, Select on a tile, Menu on Library); their glass is the fill only, like the top bar's.
 - The battery is re-read on the clock's minute tick; there is no uevent listener.
 
 Gaps: items are ordered by install state and recency rather than iiSU's user
 arrangement; WiiSu placeholders do not take focus as they do in iiSU; held
-keyboard directions repeat every frame. The top bar's R2 glyph and bell hint at
-notifications openSU does not have, and "B Back" is shown as iiSU shows it although B
-does nothing on Home.
+keyboard directions repeat every frame.
 
 Offscreen rendering is how the layout became checkable at all: the shell is a
 Wayland window, which this machine's screenshot tooling cannot see. raylib
@@ -356,7 +362,9 @@ between layout cards, down the Guide menu. Hit-tests: `HomeLayout::slotAt/pageAt
 `railTileAt`, `ChooserLayout::cardAt`, `GameMenuLayout::itemAt`, `PanelLayout::hintAt`, `dockItemAt`.
 Tested: `home_layout`, `rail_layout`, `mode_chooser`, `game_menu`, `launch_panel`, `pointer_router`,
 plus `last_device`, `keyboard_bindings`, `dock_metrics`, `sections`, `control_channel`.
-Not clickable: the top bar (launcher badges, bell), the corner hints, the toast, the XMB's header
+A launcher badge hovers lit and a click selects that store's tile in Library (`ShellApp::selectLauncher`,
+`TopBarLayout::launcherAt`); the layout picker's pin row hovers and clicks like a card.
+Not clickable: the rest of the top bar, the corner hints, the toast, the XMB's header
 card (B or right click goes back). The sign-in prompt is the Library launcher tile, so it takes the
 tile click. `opensu --render FILE --keyboard` draws the keyboard's prompts; `POST /input` takes `a keyboard`
 and `/state` reports `inputDevice`.
@@ -698,7 +706,7 @@ no use for this: during a measured BTD6 (960090) update at 44 Mbps the manifest'
 byte counts and StateFlags stayed unchanged for minutes while the client reported
 92% done. The queue drives three things: a launch of a game with an unfinished
 download keeps the shell up with `Updating · N%` and no appearance bound (B cancels);
-the bell in the status pill spins (iiSU a32.n) while any download is active; and a
+the Steam badge shows a progress ring; and a
 progress ring fills around the Steam badge.
 Reproduced from a real run: BTD6 with a 2.2 GB update left an empty Gamescope
 behind a hidden shell before the launch waited for it.

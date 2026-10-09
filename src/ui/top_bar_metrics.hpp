@@ -26,18 +26,16 @@ struct HudStatusAlignment {
 /// The status pill's sizes (iiSU a32.o), in dp.
 struct StatusPillMetrics {
     float height{};
+    /// iiSU's whole pill, the bell's column included.
     float width{};
-    /// The content scale c that the bell, text and battery icon follow.
+    /// The pill less iiSU's bell column: what the clock and battery take. opensu gives the bell's
+    /// column to the launchers, which size it themselves.
+    float textWidth{};
+    /// The content scale c that the text and battery icon follow.
     float contentScale{};
-    float bellColumn{};
-    float ringSize{};
     float textSpacing{};
     float fontSize{};
     float batteryIcon{};
-    float glyphSize{};
-    /// The R2 glyph's offset from the pill's top-left corner.
-    float glyphOffsetX{};
-    float glyphOffsetY{};
 };
 
 /// The corner button prompt panels' sizes (iiSU mw5.h, mw5.k, jj2.b, jj2.g0, a32.b), in dp.

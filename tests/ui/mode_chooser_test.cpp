@@ -45,16 +45,37 @@ void cardsUnderThePointer() {
 
 void focusByPointer() {
     ModeChooser chooser;
-    chooser.open(LibraryMode::Standard);
+    chooser.open(LibraryMode::Standard, true);
     expect(chooser.focus(LibraryMode::Carousel) && chooser.focused() == LibraryMode::Carousel,
            "a card takes focus");
     expect(!chooser.focus(LibraryMode::Carousel), "the focused card is not a move");
 }
 
+void pinRow() {
+    const opensu::ui::ChooserLayout chooser =
+        opensu::ui::layoutChooser(opensu::ui::Rect{0.0f, 0.0f, 1920.0f, 1080.0f}, 2.25f);
+    expect(chooser.pinRow.y >= chooser.cards[0].bottom(), "the pin row sits under the cards");
+    expect(chooser.pinRow.bottom() <= chooser.panel.bottom(), "inside the panel");
+    expect(chooser.pinRow.contains(chooser.pinSwitch.centreX(), chooser.pinSwitch.centreY()),
+           "its switch is in the row");
+    ModeChooser picker;
+    picker.open(LibraryMode::Xmb, false);
+    expect(!picker.pinned() && picker.row() == opensu::ui::ChooserRow::Cards,
+           "it opens on the cards with the option as it stands");
+    expect(picker.moveRow(1) && picker.row() == opensu::ui::ChooserRow::Pin, "down to the pin row");
+    expect(!picker.moveRow(1), "it stops there");
+    expect(picker.togglePin() && picker.pinned(), "a toggle pins");
+    expect(!picker.togglePin() && !picker.pinned(), "and unpins");
+    expect(picker.moveRow(-1) && picker.row() == opensu::ui::ChooserRow::Cards, "back up");
+    expect(picker.focusPin() && !picker.focusPin(), "the pointer focuses the row once");
+    picker.open(LibraryMode::Xmb, true);
+    expect(picker.row() == opensu::ui::ChooserRow::Cards, "a reopened picker starts on the cards");
+}
+
 void focusMoves() {
     ModeChooser chooser;
     expect(!chooser.isOpen(), "closed at first");
-    chooser.open(LibraryMode::Xmb);
+    chooser.open(LibraryMode::Xmb, true);
     expect(chooser.isOpen() && chooser.focused() == LibraryMode::Xmb,
            "it opens on the mode in use");
     expect(chooser.move(1) && chooser.focused() == LibraryMode::Carousel, "right");
@@ -66,7 +87,7 @@ void focusMoves() {
     expect(chooser.move(5) && chooser.focused() == LibraryMode::Carousel, "a long move clamps");
     chooser.close();
     expect(!chooser.isOpen(), "closed again");
-    chooser.open(LibraryMode::Standard);
+    chooser.open(LibraryMode::Standard, true);
     expect(chooser.focused() == LibraryMode::Standard, "it reopens on the current mode");
 }
 
@@ -77,6 +98,7 @@ int main() {
     cardsUnderThePointer();
     focusByPointer();
     focusMoves();
+    pinRow();
     std::printf("mode_chooser: all checks passed\n");
     return 0;
 }

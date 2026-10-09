@@ -10,6 +10,8 @@ namespace opensu::ui {
 namespace {
 
 constexpr Color face{0xFF, 0xFF, 0xFF, 235};
+// The dock item's hover fill: the ink at 12 %.
+constexpr Color hoverFill{0x2B, 0x27, 0x33, 31};
 constexpr Color rim{0x2B, 0x27, 0x33, 30};
 constexpr Color logo{0x2B, 0x27, 0x33, 255};
 constexpr Color dotReady{0x3D, 0xDC, 0x84, 255};
@@ -32,19 +34,19 @@ Color dotFor(ServiceState state) noexcept {
 } // namespace
 
 void LauncherBadgePainter::paint(std::span<const LauncherBadge> badges, const BadgeRow& row) {
-    float x = row.start.x;
+    std::size_t cell = 0;
     for (const LauncherBadge& badge : badges) {
-        if (badge.state == ServiceState::Hidden) {
+        if (badge.state == ServiceState::Hidden || cell >= row.cells.size()) {
             continue;
         }
-        paintOne(badge, row, Vector2{x + row.diameter * 0.5f, row.start.y});
-        x += row.diameter + row.gap;
+        paintOne(badge, row, row.cells[cell++]);
     }
 }
 
 void LauncherBadgePainter::paintOne(const LauncherBadge& badge, const BadgeRow& row,
-                                    Vector2 centre) {
-    const float diameter = row.diameter;
+                                    const Rect& cell) {
+    const Vector2 centre{cell.centreX(), cell.centreY()};
+    const float diameter = cell.width;
     const double seconds = row.seconds;
     const float radius = diameter * 0.5f;
     const float line = std::max(diameter * 0.07f, 1.5f);
@@ -60,6 +62,9 @@ void LauncherBadgePainter::paintOne(const LauncherBadge& badge, const BadgeRow& 
         drawSpinner(centre, ringRadius * 2.0f, line, dotWorking, seconds);
     }
 
+    if (row.hovered == badge.source) {
+        DrawCircleV(centre, ringRadius + line, hoverFill);
+    }
     DrawCircleV(centre, radius, face);
     DrawRing(centre, radius - 1.0f, radius, 0.0f, 360.0f, 64, rim);
 

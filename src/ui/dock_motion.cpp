@@ -6,6 +6,10 @@
 
 namespace opensu::ui {
 
+bool dockPinned(library::Section section, bool pinLibrary) noexcept {
+    return section == library::Section::Home || pinLibrary;
+}
+
 float DockVisibility::at(const Slide& slide, double nowMs) {
     const float target = slide.heading ? 1.0f : 0.0f;
     const double duration = slide.heading ? showMs : hideMs;

@@ -1,4 +1,5 @@
-// status_pill — iiSU's top-right status pill (a32.o): bell, clock, battery, R2 glyph.
+// status_pill — iiSU's top-right status pill (a32.o): clock and battery, with the launchers' column
+// where iiSU has the bell.
 #pragma once
 
 #include <optional>
@@ -20,8 +21,8 @@ struct StatusPillView {
     float dp{1.0f};
     std::string_view clock;
     std::optional<device::BatteryStatus> battery;
-    /// Seconds into the bell's spinner while background tasks run; nothing when none do.
-    std::optional<double> busySeconds;
+    /// Pixels at the pill's left that the launchers hold; the clock's area is the rest.
+    float launcherColumn{};
 };
 
 class StatusPillPainter {
@@ -29,10 +30,8 @@ class StatusPillPainter {
     void paint(const StatusPillView& view) const;
 
   private:
-    void paintBell(float centreX, float centreY, float size) const;
     void paintBattery(float x, float centreY, float size,
                       const device::BatteryStatus& battery) const;
-    void paintGlyph(float x, float y, float size) const;
 
     GlassPainter glass_;
 };

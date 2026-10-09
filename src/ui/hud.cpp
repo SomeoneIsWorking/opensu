@@ -7,18 +7,13 @@
 #include <utility>
 
 #include "clock_text.hpp"
+#include "corner_hints.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
 namespace {
 
-using Prompt = std::pair<const char*, const char*>;
-// iiSU mw5.h: ("B", "Back"), ("-", "Details").
-constexpr std::array<Prompt, 2> leftPrompts{Prompt{"B", "Back"}, Prompt{"-", "Details"}};
-// iiSU mw5.k: ("A", "Select"), ("+", "Menu"); opensu's START opens a menu in Library only.
-constexpr std::array<Prompt, 1> rightPrompts{Prompt{"A", "Select"}};
-constexpr std::array<Prompt, 2> rightPromptsWithMenu{Prompt{"A", "Select"}, Prompt{"+", "Menu"}};
-// iiSU res/drawable/bell_icon.png ink, for the hint glyphs and labels.
+// iiSU res/drawable/bell_icon.png ink, which iiSU's hint glyphs and labels share.
 constexpr Color hintInk{0x4D, 0x46, 0x55, 255};
 
 } // namespace
@@ -73,39 +68,40 @@ void Hud::drawGround() const {
     }
 }
 
-void Hud::drawTopBar() {
-    // iiSU mw5.l single-screen Row: top 8, end 8, friends | title (weight 1) | status, all Top.
-    const TopBarMetrics m = metrics();
-    const float dp = dp_;
-    const float width = static_cast<float>(width_);
-    const float top = TopBarMetrics::rowPaddingTop * dp;
-    const StatusPillMetrics pill = m.statusPill(ClockText::hasLetters(clock_));
-    const float aspect = std::max(width, static_cast<float>(height_)) /
-                         std::max(std::min(width, static_cast<float>(height_)), 1.0f);
-    // The status box ends at the row's end padding and is offset by the device class rule.
-    const float boxRight = width - TopBarMetrics::rowPaddingEnd * dp + m.statusOffsetX(aspect) * dp;
-    const Rect body{boxRight - (m.sizing().endPadding + pill.width) * dp, top, pill.width * dp,
-                    pill.height * dp};
-    const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
-    std::optional<double> busy;
-    if (std::ranges::any_of(launchers_, [](const LauncherBadge& badge) {
-            return badge.progress.has_value();
-        })) {
-        busy = seconds;
+TopBarLayout Hud::topBarLayout() const {
+    const auto visible = static_cast<std::size_t>(std::ranges::count_if(
+        launchers_, [](const LauncherBadge& badge) { return badge.state != ServiceState::Hidden; }));
+    return layoutTopBar(metrics(), TopBarFrame{static_cast<float>(width_),
+                                               static_cast<float>(height_), dp_,
+                                               ClockText::hasLetters(clock_), visible});
+}
+
+std::optional<library::Source> Hud::launcherAt(float x, float y) const {
+    const std::optional<std::size_t> cell = topBarLayout().launcherAt(x, y);
+    if (!cell) {
+        return std::nullopt;
     }
-    statusPill_.paint(StatusPillView{body, pill, dp, clock_, battery_, busy});
+    std::size_t seen = 0;
+    for (const LauncherBadge& badge : launchers_) {
+        if (badge.state != ServiceState::Hidden && seen++ == *cell) {
+            return badge.source;
+        }
+    }
+    return std::nullopt;
+}
+
+void Hud::drawTopBar() {
+    // iiSU mw5.l single-screen Row: friends | title (weight 1) | status, all Top. opensu has no
+    // friends; its launchers' badges stand in the status pill where iiSU has the bell.
+    const TopBarLayout layout = topBarLayout();
+    const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
+    statusPill_.paint(StatusPillView{layout.status, layout.pill, dp_, clock_, battery_,
+                                     layout.launcherColumn});
+    badges_.paint(launchers_, BadgeRow{layout.launchers, launcherHover_, seconds});
     // STOPGAP: jj2.w's glass strip behind the status pill is not drawn because its geometry is
     // not in the spec.
 
-    drawTitlePill(top);
-
-    // iiSU a32.e lays friends' avatars in this slot; opensu has no friends, so it holds the
-    // launchers' badges, spaced rather than overlapped so each state reads on its own.
-    const float avatar = TopBarMetrics::avatarSize() * dp;
-    badges_.paint(launchers_, BadgeRow{.start = {TopBarMetrics::rowPaddingEnd * dp, body.centreY()},
-                                       .diameter = avatar,
-                                       .gap = avatar * 0.3f,
-                                       .seconds = seconds});
+    drawTitlePill(layout.top);
 }
 
 void Hud::drawTitlePill(float top) const {
@@ -128,15 +124,15 @@ void Hud::drawTitlePill(float top) const {
 void Hud::drawHints() const {
     // iiSU mw5.h (BottomStart) and mw5.k (BottomEnd): jj2.b glass panels of a32.b entries.
     const HintPanelMetrics panel = metrics().hintPanels();
-    drawPromptPanel(panel, leftPrompts, false);
-    drawPromptPanel(panel,
-                    startMenu_ ? std::span<const Prompt>{rightPromptsWithMenu}
-                               : std::span<const Prompt>{rightPrompts},
-                    true);
+    drawPromptPanel(panel, startPrompts(hints_), false);
+    drawPromptPanel(panel, endPrompts(hints_), true);
 }
 
-void Hud::drawPromptPanel(const HintPanelMetrics& panel, std::span<const Prompt> prompts,
+void Hud::drawPromptPanel(const HintPanelMetrics& panel, const std::vector<Prompt>& prompts,
                           bool atEnd) const {
+    if (prompts.empty()) {
+        return;
+    }
     const float dp = dp_;
     const TextStyle text{panel.labelSize * dp, panel.labelTracking};
     const float glyph = panel.glyphSize * dp;

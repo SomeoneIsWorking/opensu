@@ -19,6 +19,13 @@ void easing() {
     near(opensu::ui::motion::fastOutSlowIn(0.5), 0.7756, "the curve is 0.776 at half way", 1e-3);
 }
 
+void pinRule() {
+    using opensu::library::Section;
+    expect(opensu::ui::dockPinned(Section::Home, false), "Home always keeps the dock");
+    expect(opensu::ui::dockPinned(Section::Library, true), "a pinned Library keeps the dock");
+    expect(!opensu::ui::dockPinned(Section::Library, false), "an unpinned Library hides it");
+}
+
 void pinnedDock() {
     DockVisibility dock;
     near(dock.progress(0.0), 1.0, "the dock starts in, as it is on Home");
@@ -119,6 +126,7 @@ void iconPop() {
 
 int main() {
     easing();
+    pinRule();
     pinnedDock();
     revealedDock();
     slideShapes();

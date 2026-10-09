@@ -45,6 +45,19 @@ void roundTrip(const fs::path& root) {
            "the file is JSON with the mode's key");
 }
 
+void pinnedDock(const fs::path& root) {
+    const fs::path file = root / "pin" / "settings.json";
+    const Store store{file};
+    expect(store.load().pinLibraryDock, "the dock is pinned on Library by default");
+    std::string error;
+    expect(store.save(Settings{LibraryMode::Standard, false}, error), "an unpinned dock saves");
+    expect(!store.load().pinLibraryDock, "and is read back unpinned");
+    write(file, R"({"libraryMode": "xmb"})");
+    expect(store.load().pinLibraryDock, "a file from before the option keeps the default");
+    write(file, R"({"pinLibraryDock": "no"})");
+    expect(store.load().pinLibraryDock, "a pin that is not a boolean keeps the default");
+}
+
 void damaged(const fs::path& root) {
     const fs::path file = root / "damaged" / "settings.json";
     const Store store{file};
@@ -77,6 +90,7 @@ int main() {
     fs::remove_all(root);
     defaults(root);
     roundTrip(root);
+    pinnedDock(root);
     damaged(root);
     unwritable(root);
     fs::remove_all(root);

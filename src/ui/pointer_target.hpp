@@ -5,6 +5,7 @@
 #include <variant>
 
 #include "gamepad/event.hpp"
+#include "library/game.hpp"
 #include "library/sections.hpp"
 
 namespace opensu::ui {
@@ -39,6 +40,17 @@ struct OnMenuItem {
     bool operator==(const OnMenuItem&) const = default;
 };
 
+/// The pin option of the layout picker.
+struct OnPinOption {
+    bool operator==(const OnPinOption&) const = default;
+};
+
+/// A launcher's badge in the top bar.
+struct OnLauncher {
+    library::Source source;
+    bool operator==(const OnLauncher&) const = default;
+};
+
 /// A hint on the launch panel, which presses the button it names.
 struct OnPanelButton {
     gamepad::Button button;
@@ -47,6 +59,7 @@ struct OnPanelButton {
 
 /// Nothing, or the element the pointer is on.
 using PointerTarget =
-    std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnMenuItem, OnPanelButton>;
+    std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnMenuItem, OnPanelButton,
+                                OnPinOption, OnLauncher>;
 
 } // namespace opensu::ui

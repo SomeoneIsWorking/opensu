@@ -4,12 +4,14 @@
 //
 // It is not an emulator and ships no games: Steam and Legendary keep doing their
 // own authentication, downloading and cloud sync.
+#include <cstdint>
 #include <cstdio>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "app/shell_app.hpp"
+#include "config/arguments.hpp"
 #include "config/config.hpp"
 #include "lucent/log.h"
 #include "session/monitor.hpp"
@@ -24,6 +26,8 @@ void printHelp() {
                 "                        Gamescope, and Steam and games run inside it\n"
                 "  opensu --render FILE  render one frame to FILE and exit\n"
                 "        --keyboard      with --render, draw the keyboard's prompts\n"
+                "  opensu --hidden       the shell with an unmapped window, no Gamescope, no pads\n"
+                "                        and a free control port (logged), for maintainer runs\n"
                 "\n"
                 "Environment:\n"
                 "  OPENSU_STEAM_ROOTS  colon-separated Steam install roots\n"
@@ -54,22 +58,16 @@ int main(int argc, char** argv) {
     const opensu::config::Config& config = opensu::config::read();
 
     const std::vector<std::string> args(argv + 1, argv + argc);
-    std::optional<std::string> renderPath;
-    bool keyboardPrompts = false;
-    for (std::size_t i = 0; i < args.size(); ++i) {
-        if (args[i] == "--render" && i + 1 < args.size()) {
-            renderPath = args[++i];
-        } else if (args[i] == "--keyboard") {
-            keyboardPrompts = true;
-        } else if (args[i] == "--help" || args[i] == "-h") {
-            printHelp();
-            return 0;
-        }
+    const opensu::config::Arguments arguments = opensu::config::Arguments::parse(args);
+    if (arguments.help) {
+        printHelp();
+        return 0;
     }
+    const std::optional<std::string>& renderPath = arguments.renderPath;
 
     // Without a Gamescope of its own, opensu makes one and runs inside it, so that
     // Steam and every game share the one compositor that closing opensu ends.
-    if (!renderPath && !config.insideGamescope && !config.sessionInherited) {
+    if (!renderPath && !arguments.hidden && !config.insideGamescope && !config.sessionInherited) {
         const std::optional<opensu::session::Output> output = opensu::session::readMonitor();
         if (!output) {
             lucent::error("session", "no display to read the monitor from");
@@ -82,16 +80,17 @@ int main(int argc, char** argv) {
     opensu::app::Settings settings{
         .width = config.width,
         .height = config.height,
-        .controlPort = config.controlPort,
+        .controlPort = arguments.hidden ? std::uint16_t{0} : config.controlPort,
         .controlChannel = config.controlChannel,
         .homeMode = config.homeMode,
+        .hidden = arguments.hidden,
     };
     opensu::app::ShellApp shell{settings};
 
     // Rendering one frame to a file needs no window, which is how the layout can
     // be looked at without a compositor.
     if (renderPath) {
-        return shell.renderToFile(*renderPath, keyboardPrompts) ? 0 : 1;
+        return shell.renderToFile(*renderPath, arguments.keyboardPrompts) ? 0 : 1;
     }
     return shell.run();
 }
