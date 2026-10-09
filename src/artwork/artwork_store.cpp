@@ -104,14 +104,16 @@ fs::path ArtworkStore::packPath(std::string_view name) const {
 }
 
 void ArtworkStore::apply(std::vector<library::ShelfItem>& shelf) const {
-    for (library::ShelfItem& item : shelf) {
-        auto* console = std::get_if<library::Console>(&item);
-        if (console == nullptr || !console->artwork.empty()) {
-            continue;
+    const auto give = [](auto& owner, const fs::path& file) {
+        if (owner.artwork.empty() && !file.empty() && isFile(file)) {
+            owner.artwork = file;
         }
-        const fs::path file = pathFor(*console);
-        if (!file.empty() && isFile(file)) {
-            console->artwork = file;
+    };
+    for (library::ShelfItem& item : shelf) {
+        if (auto* console = std::get_if<library::Console>(&item)) {
+            give(*console, pathFor(*console));
+        } else if (auto* game = std::get_if<library::Game>(&item)) {
+            give(*game, pathFor(*game));
         }
     }
 }

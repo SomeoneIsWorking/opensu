@@ -54,7 +54,8 @@ class ArtworkStore {
 
     /// Gives every game without art of its own its downloaded file, when there is one.
     void apply(std::vector<library::Game>& games) const;
-    /// The same for the consoles of a shelf; its games are left as they are.
+    /// The same for the games and consoles of a shelf, which holds copies made before a later
+    /// download.
     void apply(std::vector<library::ShelfItem>& shelf) const;
 
     /// Whether to ask a source for a game: it has no art, a source could supply it, and it was

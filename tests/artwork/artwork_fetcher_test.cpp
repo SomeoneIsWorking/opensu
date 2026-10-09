@@ -309,6 +309,23 @@ void testStages(const fs::path& root) {
            "the others arrive with their files");
 }
 
+// Art that arrives after the catalog was read is on disk but not in the catalog's games; every
+// shelf built later has to pick it up from the store.
+void testShelfPicksUpLateArtwork(const fs::path& root) {
+    ArtworkStore store{root};
+    const Game worms = game(Source::Gog, "gog:1421309312", "1421309312");
+    std::vector<opensu::library::ShelfItem> shelf{worms};
+    store.apply(shelf);
+    expect(std::get<Game>(shelf[0]).artwork.empty(), "a game with no file has no art");
+
+    fs::create_directories(store.pathFor(worms).parent_path());
+    std::ofstream{store.pathFor(worms)} << "x";
+    shelf = {worms};
+    store.apply(shelf);
+    expect(std::get<Game>(shelf[0]).artwork == store.pathFor(worms),
+           "a shelf built after the download carries the game's art");
+}
+
 } // namespace
 
 int main() {
@@ -318,6 +335,7 @@ int main() {
     testArcadeNames(root / "names");
     testUnreachable(root / "offline");
     testStages(root / "stages");
+    testShelfPicksUpLateArtwork(root / "late");
     fs::remove_all(root);
     std::printf("artwork_fetcher: all checks passed\n");
     return 0;

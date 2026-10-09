@@ -215,7 +215,8 @@ image at full size, all of a shelf's tiles in one frame):
 - Epic key image URLs with spaces are percent-encoded; one such URL used to end the whole round.
 
 A tile loads its artwork when it comes near the canvas, so a shelf change or a download needs
-no separate load step.
+no separate load step. A shelf holds copies of the catalog's games made before later downloads, so every rebuild
+(`ShellApp::showShelf`) takes each game's file from `ArtworkStore::apply(shelf)`.
 
 Artwork that no source has on disk is downloaded in the background
 (`artwork::ArtworkFetcher`) into `<cache>/artwork` (`$XDG_CACHE_HOME/opensu`):
