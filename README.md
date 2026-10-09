@@ -128,8 +128,10 @@ emulator to install.
 Sign-in happens in your own browser, on the store's own page. openSU opens the page with
 `xdg-open`, and a small browser extension hands the code the page ends on to openSU's control
 channel and closes the tab. Load it once per browser session: `about:debugging` → This
-Firefox → Load Temporary Add-on → `extension/opensu-signin/manifest.json` (Firefox or Zen
-142 or newer). The extension talks to port 7311, openSU's default `OPENSU_CONTROL_PORT`.
+Firefox → Load Temporary Add-on → `~/.local/share/opensu/opensu-signin.xpi` (Firefox or Zen
+142 or newer; in the file picker, Ctrl+L takes a typed path). The build packs it from
+`extension/opensu-signin/`; a Flatpak browser cannot load the bare `manifest.json`, because its
+file picker hands over only the chosen file and not the scripts beside it. The extension talks to port 7311, openSU's default `OPENSU_CONTROL_PORT`.
 
 ```sh
 curl -X POST http://127.0.0.1:7311/signin/gog/start   # opens GOG's sign-in page

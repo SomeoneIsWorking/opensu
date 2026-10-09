@@ -425,16 +425,15 @@ answered 200:
   0 even when Epic refuses the code, so the Epic badge after the reload is the proof.
 
 Loading it: `about:debugging` → This Firefox → Load Temporary Add-on →
-`extension/opensu-signin/manifest.json` (gone at browser restart). The port is the constant
+`<datadir>/opensu/opensu-signin.xpi`, which `extension/CMakeLists.txt` packs and installs (gone at
+browser restart). A Flatpak browser's portal file picker exposes only the chosen file, so the bare
+`manifest.json` loads without `background.js`; the `.xpi` is one file. The port is the constant
 `OPENSU_PORT` in `background.js`, openSU's default 7311; edit it when `OPENSU_CONTROL_PORT`
-differs. Linted with `web-ext lint` (clean); not yet loaded in Zen against a live sign-in.
+differs. The source and the `.xpi` lint clean (`web-ext lint`, `addons-linter`); not yet loaded in Zen
+against a live sign-in.
 
-Known gaps: `lucent::http::Server` keeps no request headers, so the channel cannot check
-`Origin`, and any local web page can POST a code to it (a login-CSRF, not a credential
-leak). The Epic listing (`epic.cpp`) runs `legendary list --output json`, but Legendary
-has no `--output` option (`list --json`, whose entries carry `app_name` and `app_title`
-and no install state), so the Epic grid is not expected to fill after a real sign-in until
-that provider is corrected.
+Known gap: the channel does not check `Origin` (`lucent::http::Request::header` now exposes
+it), so any local web page can POST a code to it (a login-CSRF, not a credential leak).
 
 ### S012 — Control channel
 

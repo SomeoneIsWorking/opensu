@@ -70,6 +70,7 @@ if(OPENSU_BUILD_GAMESCOPE)
 endif()
 
 add_subdirectory(src)
+add_subdirectory(extension)
 if(OPENSU_BUILD_GAMESCOPE)
     add_dependencies(opensu opensu_gamescope)
 endif()

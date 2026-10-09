@@ -22,7 +22,7 @@ gitignored `docs/reference/`).
 | `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
 | `src/settings/settings.*` | The player's saved preferences (Library layout mode) as JSON under the config dir; defaults on a missing or corrupt file |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
-| `extension/opensu-signin/` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel |
+| `extension/opensu-signin/`, `extension/CMakeLists.txt` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel; packed into `opensu-signin.xpi` and installed beside the assets |
 
 ## Session and processes (G003, G004)
 
