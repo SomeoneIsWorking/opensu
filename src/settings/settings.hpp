@@ -28,6 +28,9 @@ inline constexpr int maxUiScale = 150;
 inline constexpr int defaultUiScale = 100;
 inline constexpr int uiScaleStep = 5;
 
+/// The scale `step` choices from `current`, which A moves one forward, wrapping at either end.
+[[nodiscard]] int steppedUiScale(int current, int step) noexcept;
+
 struct Settings {
     /// How Library lays out its folders (iiSU `romCategoryLayoutMode`).
     library::LibraryMode libraryMode{library::LibraryMode::Standard};

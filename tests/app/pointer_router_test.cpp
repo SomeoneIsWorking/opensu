@@ -45,7 +45,7 @@ class Recorder final : public PointerHost {
     void activateCrumb(std::size_t index) override {
         calls.push_back("crumb" + std::to_string(index));
     }
-    void chooseIconSize(int level) override {
+    void chooseLevel(int level) override {
         calls.push_back("size" + std::to_string(level));
     }
     void contextMenu(const PointerTarget& target) override {
@@ -107,7 +107,7 @@ void leftClickIsFocusThenA() {
     for (const PointerTarget target :
          {PointerTarget{opensu::ui::OnTile{1}},
           PointerTarget{opensu::ui::OnLayoutCard{opensu::library::LibraryMode::Xmb}},
-          PointerTarget{opensu::ui::OnMenuItem{1}},
+          PointerTarget{opensu::ui::OnGuideEntry{1}},
           PointerTarget{opensu::ui::OnChooserRow{opensu::ui::ChooserRow::Pin}}}) {
         host.under = target;
         host.calls.clear();
@@ -167,7 +167,7 @@ void rightClickAndWheel() {
     expect(host.calls == std::vector<std::string>{"menu"}, "a right click asks for a menu");
     expect(host.menuTarget == PointerTarget{opensu::ui::OnTile{4}}, "the menu is for the target");
     host.calls.clear();
-    host.under = opensu::ui::OnContextBackdrop{};
+    host.under = opensu::ui::OnBackdrop{};
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"menu"}, "a right click is never B");
     host.calls.clear();
@@ -191,9 +191,40 @@ void iconSizeAndBackdropClicks() {
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"focus", "size14"}, "the slider sets the level");
     host.calls.clear();
-    host.under = opensu::ui::OnContextBackdrop{};
+    host.under = opensu::ui::OnBackdrop{};
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"B"}, "a click outside a menu closes it");
+}
+
+void sliderClicksChooseTheirLevel() {
+    Recorder host;
+    LastDevice device;
+    PointerRouter router{device, host};
+    PointerFrame frame = at(10.0f, 10.0f);
+    frame.left = true;
+    host.under = opensu::ui::OnSettingsSlider{2, 40};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"focus", "size40"}, "a page slider sets its level");
+    host.calls.clear();
+    host.under = opensu::ui::OnQuickSlider{0, 70};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"focus", "size70"}, "a quick slider sets its level");
+}
+
+void rightClickIsNeverBackOnTheNewMenus() {
+    Recorder host;
+    LastDevice device;
+    PointerRouter router{device, host};
+    PointerFrame frame = at(10.0f, 10.0f);
+    frame.right = true;
+    for (const PointerTarget target :
+         {PointerTarget{opensu::ui::OnGuideEntry{1}}, PointerTarget{opensu::ui::OnQuickRow{1}},
+          PointerTarget{opensu::ui::OnBackdrop{}}}) {
+        host.under = target;
+        host.calls.clear();
+        router.route(frame);
+        expect(host.calls == std::vector<std::string>{"menu"}, "a right click only reaches the host's menu");
+    }
 }
 
 void hoverFocusesThePanelTargets() {
@@ -236,6 +267,8 @@ int main() {
     leftClickOnTheOthers();
     rightClickAndWheel();
     iconSizeAndBackdropClicks();
+    sliderClicksChooseTheirLevel();
+    rightClickIsNeverBackOnTheNewMenus();
     hoverFocusesThePanelTargets();
     padKeepsFocusFromAStillPointer();
     std::printf("pointer_router: all checks passed\n");

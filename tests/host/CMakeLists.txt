@@ -1,0 +1,18 @@
+add_executable(bluetooth_test bluetooth_test.cpp)
+target_link_libraries(bluetooth_test PRIVATE opensu::host)
+target_include_directories(bluetooth_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(bluetooth_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME bluetooth COMMAND bluetooth_test)
+
+add_executable(power_test power_test.cpp)
+target_link_libraries(power_test PRIVATE opensu::host)
+target_include_directories(power_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(power_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME power COMMAND power_test)
+
+add_executable(backlight_test backlight_test.cpp)
+target_link_libraries(backlight_test PRIVATE opensu::host)
+target_include_directories(backlight_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(backlight_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(backlight_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME backlight COMMAND backlight_test)

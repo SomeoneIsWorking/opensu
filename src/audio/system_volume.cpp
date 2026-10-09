@@ -94,6 +94,26 @@ std::string SystemVolume::toggleMute() {
     return setMuted(!current.muted);
 }
 
+std::vector<AudioSink> SystemVolume::sinks() {
+    if (!backend_) {
+        return {};
+    }
+    finishPoll();
+    return backend_->sinks();
+}
+
+std::string SystemVolume::setDefaultSink(const std::string& id) {
+    if (!backend_) {
+        return missingBackendAdvice();
+    }
+    finishPoll();
+    if (!backend_->setDefaultSink(id)) {
+        return std::string{backend_->name()} + " refused the output";
+    }
+    adopt(backend_->read());
+    return {};
+}
+
 void SystemVolume::finishPoll() {
     if (reading_.valid()) {
         adopt(reading_.get());

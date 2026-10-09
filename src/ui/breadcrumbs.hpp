@@ -29,7 +29,10 @@ enum class CrumbKind : std::uint8_t {
     Game,
     /// The Settings screen.
     Settings,
-    /// The category of the Settings screen on show; the screen's own level, not a place of its own.
+    /// The Devices page.
+    Devices,
+    /// The category of the Settings screen or the tab of the Devices page on show; the page's own
+    /// level, not a place of its own.
     Page,
 };
 

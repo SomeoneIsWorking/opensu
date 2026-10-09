@@ -21,7 +21,7 @@ struct ActionInfo {
     bool padChord;
 };
 
-constexpr std::array<ActionInfo, 18> infos{{
+constexpr std::array<ActionInfo, 19> infos{{
     {Action::Up, "up", "Up", Button::Up, false, false},
     {Action::Down, "down", "Down", Button::Down, false, false},
     {Action::Left, "left", "Left", Button::Left, false, false},
@@ -36,6 +36,7 @@ constexpr std::array<ActionInfo, 18> infos{{
     {Action::R1, "r1", "Next section", Button::R1, false, false},
     {Action::Search, "search", "Search", Button::Search, false, false},
     {Action::Guide, "guide", "Guide menu", Button::Guide, true, false},
+    {Action::QuickMenu, "quickMenu", "Quick menu", Button::None, true, true},
     {Action::VolumeUp, "volumeUp", "Volume up", Button::None, true, true},
     {Action::VolumeDown, "volumeDown", "Volume down", Button::None, true, true},
     {Action::VolumeMute, "volumeMute", "Mute", Button::None, true, true},
@@ -47,7 +48,7 @@ const ActionInfo& infoOf(Action action) noexcept {
 }
 
 /// The shipped key bindings; an action's first entry is the one its prompts show.
-constexpr std::array<KeyBinding, 27> defaultBindings{{
+constexpr std::array<KeyBinding, 28> defaultBindings{{
     {Action::Up, {KEY_UP}},
     {Action::Up, {KEY_W}},
     {Action::Down, {KEY_DOWN}},
@@ -71,6 +72,7 @@ constexpr std::array<KeyBinding, 27> defaultBindings{{
     {Action::Search, {KEY_SLASH}},
     {Action::Search, {KEY_F, true, false}},
     {Action::Guide, {KEY_TAB, false, true}},
+    {Action::QuickMenu, {KEY_TAB, true, false}},
     {Action::VolumeUp, {KEY_UP, true, false}},
     {Action::VolumeDown, {KEY_DOWN, true, false}},
     {Action::VolumeMute, {KEY_M, true, false}},
@@ -82,7 +84,8 @@ struct DefaultPad {
     PadChord chord;
 };
 
-constexpr std::array<DefaultPad, 3> defaultPads{{
+constexpr std::array<DefaultPad, 4> defaultPads{{
+    {Action::QuickMenu, {Button::Guide, Button::A}},
     {Action::VolumeUp, {Button::L2, Button::Up}},
     {Action::VolumeDown, {Button::L2, Button::Down}},
     {Action::VolumeMute, {Button::L2, Button::Left}},
@@ -130,7 +133,7 @@ bool takesPadChord(Action action) noexcept {
 
 bool canHold(Button button) noexcept {
     return button == Button::L2 || button == Button::R2 || button == Button::L3 ||
-           button == Button::R3;
+           button == Button::R3 || button == Button::Guide;
 }
 
 std::string describe(const PadChord& chord) {
@@ -246,7 +249,7 @@ std::string Shortcuts::rebind(Action action, const PadChord& chord) {
     }
     if (!canHold(chord.modifier) || chord.trigger == Button::None ||
         chord.trigger == chord.modifier) {
-        return "hold L2, R2, L3 or R3 and press another button";
+        return "hold Guide, L2, R2, L3 or R3 and press another button";
     }
     if (const std::optional<Action> holder = actionFor(chord); holder && *holder != action) {
         return describe(chord) + " is already " + std::string{label(*holder)};

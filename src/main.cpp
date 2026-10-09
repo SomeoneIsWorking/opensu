@@ -84,6 +84,7 @@ int main(int argc, char** argv) {
         .controlChannel = config.controlChannel,
         .homeMode = config.homeMode,
         .hidden = arguments.hidden,
+        .startSteam = arguments.startsSteam(),
     };
     opensu::app::ShellApp shell{settings};
 

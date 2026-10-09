@@ -20,6 +20,8 @@ struct HintContext {
     bool change{false};
     /// Select opens the focused tile's context menu.
     bool options{false};
+    /// Select forgets the focused Bluetooth device.
+    bool forget{false};
     /// START opens a menu.
     bool menu{false};
 };

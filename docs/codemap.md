@@ -9,9 +9,20 @@ gitignored `docs/reference/`).
 
 | Path | Owns |
 | --- | --- |
-| `src/config/arguments.*` | The command line as typed values (`--render`, `--keyboard`, `--hidden`: the shell with an unmapped window, no Gamescope session, no pads, free control port) |
+| `src/config/arguments.*` | The command line as typed values (`--render`, `--keyboard`, `--hidden`: the shell with an unmapped window, no Gamescope session, no pads, free control port, no Steam client: `startsSteam()`) |
 | `src/main.cpp` | Starts the nested session or the shell; `--render FILE` renders one frame headless |
 | `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop; plays the UI sounds at the input events that iiSU plays them at |
+| `src/app/control_bridge.*` | The hand-over between the control channel's threads and the loop: queued input, reload and close requests, the published `ShellSnapshot`, the frame handshake |
+| `src/app/game_screen.*` | The window's relation to a running game: the Gamescope overlay and game-time key watcher, or the hidden window flag; shows the window only while a menu or page is up |
+| `src/app/guide_menu_controller.*` | The Guide menu's buttons and what each entry does (sections, stores, Devices, Settings, close game, quit, power through `host::Power` with a second press for restart and shut down) |
+| `src/app/quick_menu_controller.*` | The quick menu's rows and buttons: volume, mute, output, brightness, Bluetooth, controller batteries, Devices, Close game |
+| `src/app/devices_controller.*` | The Devices page: Bluetooth, Controllers, Audio output and Display tabs and what their rows do |
+| `src/app/host_services.*` | Power, Bluetooth and backlight backends for this machine; the one place a hidden run is made read-only |
+| `src/app/bluetooth_session.*` | BlueZ reads off the loop and one change at a time, with notices; pairing is pair, trust, connect |
+| `src/app/controller_roster.*` | The pads connected now in player order, with battery and held buttons (the live button test) |
+| `src/app/audio_outputs.*` | The sound outputs and the default one, through `SystemVolume` |
+| `src/app/brightness_control.*` | Display brightness through the backlight, absent without one |
+| `src/host/` | System services over `busctl`, `systemctl` and `bluetoothctl` behind fakeable seams: `runner` (run or hold a program), `bluetooth` (BlueZ), `power` (logind), `backlight` (sysfs read, logind write) |
 | `src/app/layout_picker.*` | START: the options panel's buttons (layout cards, icon size, pin, sort, source, installed, hidden, search row) and saving what is chosen |
 | `src/app/preferences.*` | The loaded `settings::Settings` and saving them, with a toast when the file cannot be written |
 | `src/app/search_controller.*` | The search panel's pad buttons and keyboard text; the typed text is the view's search |
@@ -23,7 +34,7 @@ gitignored `docs/reference/`).
 | `src/app/artwork_delivery.*` | Hands saved artwork, store contents and UI sounds to the shell and sound player |
 | `src/app/volume_control.*` | The volume actions onto `SystemVolume` and its backend; polling; the OSD listener |
 | `src/app/shortcut_editor.*` | The remap capture: pick an action, press the new combo or pad chord, refusals |
-| `src/app/shortcut_router.*` | Keys, pad events and game keys onto shell events and actions through `Shortcuts` |
+| `src/app/shortcut_router.*` | Keys, pad events and game keys onto shell events and actions through `Shortcuts`; the quick menu and quit actions are done here |
 | `src/app/frame_png.*` | The drawn shell as PNG bytes, for the control channel's frame and `--render` |
 | `src/app/panel_flow.*` | The launch/install panel flow taken out of `shell_app.cpp` |
 | `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page, breadcrumb and panel-button action), right click = the target's context menu (never B), wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
@@ -61,6 +72,7 @@ gitignored `docs/reference/`).
 | `src/launch/game_windows.hpp` | What the handoff asks the display: does the game show a window yet |
 | `src/steam/client.*` | The Steam client openSU owns: start in background, readiness, state |
 | `src/steam/desktop_steam.*` | Detecting a Steam client running outside openSU |
+| `src/steam/orphaned_steam.*` | Finding and ending a Steam scope left by an openSU that died |
 | `src/steam/devtools.*` | Running JavaScript in Steam's SharedJSContext over Chrome DevTools |
 | `src/steam/downloads.*` | Steam's live download queue: parsing and reading it |
 | `src/steam/launch_activity.*` | Steam's game actions and running state per app, recorded in its SharedJSContext |
@@ -109,11 +121,11 @@ gitignored `docs/reference/`).
 | `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls |
 | `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads |
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
-| `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while the Guide menu is open |
+| `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while a menu or page is up; lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
 | `src/input/shortcuts.*` | The one chord table: every `Action` (pad buttons, Guide, volume, Quit) with its default key combos and pad chords, the player's overrides (`rebind`, with conflict refusals), labels and settings spellings |
 | `src/input/key_names.*` | raylib-free key names: `Combo`, modifiers, bindable keys, X11 key names for the in-game watcher |
-| `src/input/pad_chords.*` | Pad chords (L2 plus a button): the held modifier swallows its trigger and emits the action |
+| `src/input/pad_chords.*` | Pad chords (L2, R2, L3, R3 or Guide plus a button): the held modifier swallows its trigger and emits the action; Guide alone is a tap that comes out on release |
 | `src/input/prompts.hpp` | `Prompts`: the last device and the shortcuts, so key caps in hints follow remaps |
 | `src/input/keyboard_bindings.*` | `KeySource`, the frame's pressed `Combo`, and typed text; the keys themselves come from `Shortcuts` |
 | `src/input/last_device.*` | Which device (pad, or keyboard and mouse) gave the latest real input; read by the prompt painters |
@@ -146,9 +158,13 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/top_bar_layout.*` | The status pill and the launcher badge cells in it, in pixels; the launcher under a point. The Hud paints and hit-tests from it |
 | `src/ui/corner_hints.*` | Which prompts the bottom corners name, from what each button does now (`HintContext`) |
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
-| `src/ui/game_menu.*` | The Guide menu's items and focus (openSU's own); its panel and row rectangles, and the row under a point |
+| `src/ui/guide_menu.*` | The Guide menu's entries per context (home or running game), the power list, the armed entry, focus; its panel and row rectangles |
+| `src/ui/quick_menu.*` | The quick menu's rows (the Settings rows), focus, panel layout and hit-tests |
+| `src/ui/panel_frame.hpp` | The frame and chrome heights the side menus are laid out in |
+| `src/ui/page_panel.*` | A settings-style page with its fade, as the Settings screen and Devices page use it |
+| `src/ui/tile.hpp`, `tile_artwork.*` | The tile; the artwork decode, tickets and resident textures of the shelf |
 | `src/ui/launch_panel.*` | The launch/install card's state; its card and hint rectangles from measured widths, and the hint under a point |
-| `src/ui/pointer_target.hpp` | What a pointer can be on (breadcrumb level, details button, dock item, tile, page control, layout card, options row, icon size slider, search key or result, context item or backdrop, menu row, panel button, launcher badge) |
+| `src/ui/pointer_target.hpp` | What a pointer can be on (breadcrumb level, details button, dock item, tile, page control, layout card, options row, icon size slider, search key or result, context item or backdrop, Guide entry, quick row or slider, page row or slider, panel button, launcher badge) |
 
 Painters and composition (`opensu_ui`):
 
@@ -169,7 +185,8 @@ Painters and composition (`opensu_ui`):
 | `src/ui/dock_painter.*` | The dock capsule: glass, nav icons, LB/RB badges |
 | `src/ui/mode_chooser_painter.*` | The options panel: the cards after iiSU's chooser, with sketched previews, then the slider and switch rows |
 | `src/ui/search_panel_painter.*`, `context_menu_painter.*` | The search panel with its keyboard and the tile context menu |
-| `src/ui/game_menu_painter.*` | The Guide menu over a running game |
+| `src/ui/guide_menu_painter.*`, `quick_menu_painter.*` | The Guide menu on the left and the quick menu on the right, over the home screen or a running game |
+| `src/ui/guide_panels.*` | The Guide and quick menus with their painters and the one hit test |
 | `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art (a spinner while it is on its way), platform frame, store icons; the name cards of a console, a launcher and All games |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |

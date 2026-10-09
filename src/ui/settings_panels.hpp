@@ -10,6 +10,7 @@
 #include "button_glyph.hpp"
 #include "folder_chooser.hpp"
 #include "folder_chooser_painter.hpp"
+#include "page_panel.hpp"
 #include "panel_fade.hpp"
 #include "pointer_target.hpp"
 #include "search_panel.hpp"
@@ -27,10 +28,10 @@ class SettingsPanels {
     }
 
     [[nodiscard]] SettingsPage& page() noexcept {
-        return page_;
+        return page_.page();
     }
     [[nodiscard]] const SettingsPage& page() const noexcept {
-        return page_;
+        return page_.page();
     }
     [[nodiscard]] FolderChooser& folders() noexcept {
         return folders_;
@@ -56,7 +57,7 @@ class SettingsPanels {
     }
     /// Whether the page is drawn, which includes fading out.
     [[nodiscard]] bool pageVisible(Clock::time_point now) const noexcept {
-        return pageFade_.visible(now);
+        return page_.visible(now);
     }
 
     /// Starts the fades the panels' open states call for.
@@ -76,8 +77,7 @@ class SettingsPanels {
     bool focusTarget(const PointerTarget& target);
 
   private:
-    SettingsPage page_;
-    PanelFade pageFade_{FadeSpec{300.0f, 300.0f, 1.0f, 0.0f, 1.0f}};
+    PagePanel page_;
     FolderChooser folders_;
     PanelFade folderFade_{FadeSpec{150.0f, 150.0f, 1.0f, 0.0f, 1.0f}};
     FolderChooserPainter folderPainter_;

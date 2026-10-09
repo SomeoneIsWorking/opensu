@@ -133,7 +133,10 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     flag("toastIsError", snapshot.toastIsError);
     flag("launching", snapshot.launching);
     flag("inGame", snapshot.inGame);
-    flag("gameMenuOpen", snapshot.gameMenuOpen);
+    flag("guideMenuOpen", snapshot.guideMenuOpen);
+    flag("quickMenuOpen", snapshot.quickMenuOpen);
+    flag("devicesOpen", snapshot.devicesOpen);
+    text("devicesTab", snapshot.devicesTab);
     text("steam", snapshot.steam);
     text("launchers", snapshot.launchers);
     text("inputDevice", snapshot.inputDevice, true);

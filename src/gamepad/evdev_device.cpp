@@ -43,6 +43,7 @@ EvdevDevice::EvdevDevice(const std::filesystem::path& node) : node_{node} {
     }
     name_ = readString(fd_, EVIOCGNAME(256));
     phys_ = readString(fd_, EVIOCGPHYS(256));
+    uniq_ = readString(fd_, EVIOCGUNIQ(256));
     input_id id{};
     if (ioctl(fd_, EVIOCGID, &id) == 0) {
         vendor_ = id.vendor;
@@ -68,8 +69,9 @@ EvdevDevice::EvdevDevice(const std::filesystem::path& node) : node_{node} {
 
 EvdevDevice::EvdevDevice(EvdevDevice&& other) noexcept
     : fd_{std::exchange(other.fd_, -1)}, node_{std::move(other.node_)},
-      name_{std::move(other.name_)}, phys_{std::move(other.phys_)}, vendor_{other.vendor_},
-      product_{other.product_}, capabilities_{std::move(other.capabilities_)} {
+      name_{std::move(other.name_)}, phys_{std::move(other.phys_)}, uniq_{std::move(other.uniq_)},
+      vendor_{other.vendor_}, product_{other.product_},
+      capabilities_{std::move(other.capabilities_)} {
 }
 
 EvdevDevice& EvdevDevice::operator=(EvdevDevice&& other) noexcept {
@@ -81,6 +83,7 @@ EvdevDevice& EvdevDevice::operator=(EvdevDevice&& other) noexcept {
         node_ = std::move(other.node_);
         name_ = std::move(other.name_);
         phys_ = std::move(other.phys_);
+        uniq_ = std::move(other.uniq_);
         vendor_ = other.vendor_;
         product_ = other.product_;
         capabilities_ = std::move(other.capabilities_);

@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "volume_backend.hpp"
 
@@ -50,6 +51,12 @@ class SystemVolume {
     std::string setPercent(int percent);
     std::string toggleMute();
     std::string setMuted(bool muted);
+
+    /// The mixer's outputs now; empty without a mixer or when it did not answer.
+    [[nodiscard]] std::vector<AudioSink> sinks();
+    /// Makes output `id` the default and reads the volume again, which is per output. Empty on
+    /// success, else why not.
+    std::string setDefaultSink(const std::string& id);
 
     /// Watches the mixer: reads it in the background once `interval` has passed since the last
     /// read and tells the listener of a change someone else made. Never blocks.

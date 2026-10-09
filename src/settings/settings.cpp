@@ -354,4 +354,11 @@ config::Config resolved(config::Config base, const Settings& settings) {
     return base;
 }
 
+int steppedUiScale(int current, int step) noexcept {
+    const int choices = (maxUiScale - minUiScale) / uiScaleStep + 1;
+    const int from = std::clamp((current - minUiScale) / uiScaleStep, 0, choices - 1);
+    const int to = (from + (step == 0 ? 1 : step) + choices) % choices;
+    return minUiScale + to * uiScaleStep;
+}
+
 } // namespace opensu::settings

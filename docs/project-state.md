@@ -100,6 +100,9 @@ game has been observed running yet.
 | S020 | Settings screen with every user-meaningful preference, mouse, keyboard and pad | partial | S005 | G002 |
 | S021 | Install folders: one default plus Steam, Epic and GOG overrides from one resolver | partial | S020 | G001 |
 | S022 | PC volume and mute, volume overlay, remappable shortcut chords, interface scale | partial | S020 | G002, G003 |
+| S023 | Guide menu (Home, Library, stores, Devices, Settings, Power) over the home screen and a running game | partial | S020 | G002, G003 |
+| S024 | Devices page: Bluetooth, controllers, audio output, display | partial | S023 | G002, G003 |
+| S025 | Quick menu on Guide + A over the home screen and a running game | partial | S024 | G002, G003 |
 
 ## Capability details
 
@@ -404,8 +407,8 @@ it opens that game's menu, on a folder or store tile the tile's menu (Open, Sign
 anything else it does nothing, and outside an open menu it closes it. The wheel
 steps the way the pad does: a page in WiiSu, a column in Flow, down the XMB, along the Carousel,
 between layout cards, down the Guide menu. Hit-tests: `HomeLayout::slotAt/pageAt`,
-`railTileAt`, `ChooserLayout::cardAt/rowAt/iconSizeAt`, `SearchLayout::keyAt/resultAt`, `ContextLayout::itemAt`, `GameMenuLayout::itemAt`, `PanelLayout::hintAt`, `dockItemAt`.
-Tested: `home_layout`, `rail_layout`, `mode_chooser`, `search_panel`, `context_menu`, `game_menu`, `launch_panel`, `pointer_router`,
+`railTileAt`, `ChooserLayout::cardAt/rowAt/iconSizeAt`, `SearchLayout::keyAt/resultAt`, `ContextLayout::itemAt`, `GuideLayout::rowAt`, `QuickLayout::rowAt/levelAt`, `PanelLayout::hintAt`, `dockItemAt`.
+Tested: `home_layout`, `rail_layout`, `mode_chooser`, `search_panel`, `context_menu`, `guide_menu`, `quick_menu`, `launch_panel`, `pointer_router`,
 plus `last_device`, `keyboard_bindings`, `dock_metrics`, `sections`, `control_channel`.
 A launcher badge hovers lit and a click selects that store's tile in Library (`ShellApp::selectLauncher`,
 `TopBarLayout::launcherAt`); the options panel's rows, the icon size slider (a click or drag sets the level), the search keys and results, and the context menu's rows hover and click like a card.
@@ -642,26 +645,34 @@ it (`launch::ProcessTree`), leaving the client up. Scope ownership, escape-proof
 stop, tree kill and force-close are tested with real processes and a fake `steam`;
 a real Steam launch is not yet exercised.
 
-Guide while a game runs opens a menu down the left edge over the dimmed game:
-Resume, Close game (`ui::GameMenu`, `GameMenuPainter`); Up/Down move, A selects,
-B or Guide resumes, and other buttons do nothing while a game runs. Shift+Tab, Steam's
-overlay key, is a Guide press (`session::GameKeys`): Gamescope gives a game's keys to
-the game's window on the Xwayland openSU shares, and XInput2 raw key events on the
-root reach openSU too, whatever has focus and only while the desktop gives Gamescope
-the keyboard. Nothing is grabbed, so the game also sees the Shift+Tab. Tested:
-`game_keys` (the chord, and raw keys from XTest against Xvfb); verified headless with
-`xdotool` on Gamescope's Xwayland during a running game (Tab alone does nothing,
-Shift+Tab opens the menu and closes it). Not yet pressed on a physical keyboard
-through nested Gamescope. Inside Gamescope
-openSU's window stays mapped as Gamescope's overlay (`session::GamescopeOverlay`:
-`STEAM_OVERLAY`, `_NET_WM_WINDOW_OPACITY` 0 while the menu is closed, and
-`STEAM_INPUT_FOCUS` while it is open); its window is sized to the output and has an
-ARGB visual, which is why it has no MSAA. Outside Gamescope the window is hidden
-during a game and shown for the menu. Verified headless: `gamescope --backend
-headless` running openSU with a ROM whose emulator execs `glxgears`, driven over the
-control channel (launch, guide, down, a), with full-composition screenshots
-(`GAMESCOPECTRL_REQUEST_SCREENSHOT` = 3 on the root; `gamescopectl screenshot`
-drops overlay planes). Driver: `scratch/overlay-test/drive.py`.
+### S023 — Guide menu, S024 — Devices page, S025 — quick menu
+
+Guide (a tap on the pad's Guide button, which comes out on release so Guide + A can be a chord, or
+Shift+Tab, Steam's overlay key, read by `session::GameKeys` over a game) opens a menu down the
+left edge: Home, Library, each store with a section, Devices, Settings and Power (Sleep, Restart,
+Shut down, Quit to desktop) outside a game; Resume, Close game, Devices, Settings and Power over
+one. Power is `systemctl suspend|reboot|poweroff` through `host::Power`; Restart and Shut down
+need a second A. Over a game it draws through the Gamescope overlay (`GameScreen`); the Devices,
+Settings and quick pages do too.
+
+Devices tabs: Bluetooth (BlueZ over `busctl`: adapter on/off, scan held by `bluetoothctl`, pair
+with trust and connect, connect, disconnect, forget on Select twice or a right click; no
+PIN or passkey agent, so Just-Works pairing only), Controllers (name, player order, battery,
+live held buttons, link to shortcut remapping), Audio output (volume, mute, default sink through
+the volume owner) and Display (interface size, output size and rate, brightness where a backlight
+exists; no resolution backend). The quick menu (Guide + A, Ctrl+Tab on a keyboard) holds volume,
+mute, output, brightness, Bluetooth, controller batteries, Devices and, over a game, Close game.
+
+A hidden run reads Bluetooth and the backlight and changes nothing, never runs a power command
+and never starts Steam (`host_services`, `Arguments::startsSteam`). Tested with fakes:
+`host_services`, `bluetooth_session`, `devices_controller`, `quick_menu_controller`,
+`guide_menu_controller`, `controller_roster`, `audio_outputs`, `brightness_control`,
+`shortcut_router`, `pointer_router`, `guide_menu`, `quick_menu`, `game_keys` (Ctrl+Tab). Verified
+headless (`--hidden`, captures under `scratch/guide-menu/`): Guide menu, power list and armed
+restart, Devices tabs reading the real adapter, quick menu, Settings without the title pill, a
+hidden Restart refused. Unverified: real power actions, scan, pairing and connect, the overlay over
+a real game under Gamescope, mouse clicks on the new pages (routed and unit-tested only), a
+physical pad's battery and button test, a backlight (this machine has none).
 
 From launch until the launch ends, `gamepad::Pads` holds every gamepad, including one
 connected meanwhile: each
@@ -740,11 +751,26 @@ Vita `.pkg` (needs installing into Vita3K), XBLA, Amiga disk sets, Android.
 
 ### S016 — Steam client
 
-Steam gets a DBus session bus of its own: on the desktop's bus it registers a tray
-item (`org/ayatana/NotificationItem/steam`) that KDE shows on its panel, although
-its windows stay inside Gamescope. Measured with a real Steam in a headless
-Gamescope: the item appears on the shared bus and not on a private one, logon still
-completes, and `-applaunch`/`-shutdown` still reach it through its pipe.
+Steam runs on the desktop's session bus. Its tray icon cannot be suppressed: `-silent` is
+"tray mode only", and no tray switch or flag was found in `steam`, `steamui.so` or the UI bundle
+(only `MinimizeToSysTray`). On a private `dbus-run-session` bus there is no
+StatusNotifierWatcher, so Steam falls back to an XEmbed icon, which KDE's `xembedsniproxy`
+re-exports on the desktop's bus as a bare item (Id `Steam`, `WindowId` set, no menu, `ItemIsMenu`
+false). That was the icon that showed and ignored left and right clicks. Measured on KDE Plasma
+(Wayland) with a real Steam, not signed in: private bus gave `:1.N/StatusNotifierItem` owned by
+xembedsniproxy; the session bus gave Steam's own `org/ayatana/NotificationItem/steam` with a
+`/Menu` object, and no proxy item. The private bus also left `xdg-desktop-portal-kde` and `ksecretd`
+in the scope after Steam exited, so the scope never emptied; on the session bus it empties 5 s
+after `-shutdown`. A working icon was chosen over a hidden one; its menu contents and clicks were
+not exercised.
+
+A Steam left running when openSU dies without `Client::shutdown` (killed by PID) stays in
+`opensu-<pid>-steam.scope`, and its pid file made the next start Blocked. `Client::start` now ends
+such scopes first (`steam::OrphanedSteam`): an active `opensu-<pid>-steam.scope` whose `<pid>` is
+not a live process of the same program is stopped, through `steam -shutdown` first when the pid file
+names a process inside it. Ending rather than adopting: the orphan's flags, bus and log position
+are unknown, and `Instance` owns a child it started. A Steam outside openSU is in no such scope, so
+it still blocks. Tested with fake scopes of a dead pid and of a live one.
 
 Steam's downloads are read live from the client itself: Steam is started with
 `-cef-enable-debugging`, which serves Chrome DevTools on 127.0.0.1:8080, and
@@ -759,7 +785,7 @@ progress ring fills around the Steam badge.
 Reproduced from a real run: BTD6 with a 2.2 GB update left an empty Gamescope
 behind a hidden shell before the launch waited for it.
 
-`steam::Client` starts `dbus-run-session -- steam -silent -cef-enable-debugging` in `<session>-steam.scope`
+`steam::Client` starts `steam -silent -cef-enable-debugging` in `<session>-steam.scope`
 when openSU starts, if a Steam install exists, and watches it: Initializing until a logon line
 (`[Logged On` with `RecvMsgClientLogOnResponse() : processing complete`) is
 appended to `$HOME/.steam/steam/logs/connection_log.txt` after the start, Failed when

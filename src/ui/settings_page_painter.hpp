@@ -13,6 +13,10 @@ class SettingsPagePainter {
     /// Draws `page` in `layout` over a `size` frame at `dp` pixels per dp, at opacity `alpha`.
     static void paint(const SettingsPage& page, const SettingsLayout& layout, Vector2 size,
                       float dp, float alpha);
+
+    /// Draws one row in `box`, outlined when `focused`.
+    static void paintRow(const SettingsRow& row, const SettingsRowBox& box, bool focused, float dp,
+                         float alpha);
 };
 
 } // namespace opensu::ui

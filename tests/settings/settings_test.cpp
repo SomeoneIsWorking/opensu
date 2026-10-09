@@ -225,9 +225,21 @@ void resolution() {
            "what the player set wins over the environment, field by field");
 }
 
+void steppedScale() {
+    using opensu::settings::steppedUiScale;
+    const int step = opensu::settings::uiScaleStep;
+    expect(steppedUiScale(100, 1) == 100 + step && steppedUiScale(100, -1) == 100 - step,
+           "a step moves one size");
+    expect(steppedUiScale(100, 0) == 100 + step, "A is one step up");
+    expect(steppedUiScale(opensu::settings::maxUiScale, 1) == opensu::settings::minUiScale &&
+               steppedUiScale(opensu::settings::minUiScale, -1) == opensu::settings::maxUiScale,
+           "the sizes wrap");
+}
+
 } // namespace
 
 int main() {
+    steppedScale();
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "settings";
     fs::remove_all(root);
     defaults(root);

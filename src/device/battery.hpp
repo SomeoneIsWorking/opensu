@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <string_view>
 
 namespace opensu::device {
 
@@ -22,6 +23,20 @@ class BatteryReader {
 
     /// The first system battery by supply name, or nothing when the machine has none.
     [[nodiscard]] std::optional<BatteryStatus> read() const;
+
+  private:
+    std::filesystem::path root_;
+};
+
+/// The battery of a wireless controller, found by the controller's unique id (its Bluetooth
+/// address): the kernel names such a supply after it ("ps-controller-battery-e8:48:b8:c8:20:00").
+class ControllerBatteries {
+  public:
+    explicit ControllerBatteries(std::filesystem::path root = "/sys/class/power_supply");
+
+    /// The battery of the controller with `uniq`, or nothing for an empty id or no match. Case and
+    /// the separators between address bytes do not matter.
+    [[nodiscard]] std::optional<BatteryStatus> read(std::string_view uniq) const;
 
   private:
     std::filesystem::path root_;

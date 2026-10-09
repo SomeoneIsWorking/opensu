@@ -67,6 +67,11 @@ std::vector<Event> Pads::takeEvents() {
     return std::exchange(events_, {});
 }
 
+std::vector<PadInfo> Pads::connected() const {
+    const std::lock_guard lock{mutex_};
+    return connected_;
+}
+
 std::vector<std::string> Pads::hold() {
     std::unique_lock lock{mutex_};
     wanted_.held = true;
@@ -129,7 +134,13 @@ void Pads::add(const std::filesystem::path& node) {
     if (applied_.held && !apply(*pad, true, applied_.blocked)) {
         missed_ = true;
     }
-    std::vector<Event> events{Event{.kind = Event::Kind::Connected, .device = pad->device.name()}};
+    const PadInfo info{node.string(), pad->device.name(), pad->device.uniq()};
+    std::vector<Event> events{
+        Event{.kind = Event::Kind::Connected, .device = info.name, .source = info.id}};
+    {
+        const std::lock_guard lock{mutex_};
+        connected_.push_back(info);
+    }
     publish(events);
     pads_.push_back(std::move(pad));
 }
@@ -235,14 +246,25 @@ void Pads::run(const std::stop_token& stop) {
             std::vector<PadEvent> read;
             if (!pad.device.read(read) || (fds[i].revents & (POLLHUP | POLLERR)) != 0) {
                 lucent::info("gamepad", "controller disconnected: {}", pad.device.name());
-                events.push_back(
-                    Event{.kind = Event::Kind::Disconnected, .device = pad.device.name()});
+                const std::string id = pad.device.node().string();
+                events.push_back(Event{
+                    .kind = Event::Kind::Disconnected, .device = pad.device.name(), .source = id});
+                {
+                    const std::lock_guard lock{mutex_};
+                    std::erase_if(connected_, [&id](const PadInfo& info) {
+                        return info.id == id;
+                    });
+                }
                 pads_.erase(pads_.begin() + static_cast<std::ptrdiff_t>(i - 2));
                 continue;
             }
             std::vector<PadEvent> forward;
+            const std::size_t before = events.size();
             for (const PadEvent& event : read) {
                 pad.translator.translate(event, forward, events);
+            }
+            for (std::size_t i = before; i < events.size(); ++i) {
+                events[i].source = pad.device.node().string();
             }
             if (!applied_.blocked) {
                 write(pad, forward);

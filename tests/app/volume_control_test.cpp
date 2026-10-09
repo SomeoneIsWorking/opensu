@@ -35,6 +35,13 @@ class FakeMixer final : public audio::VolumeBackend {
         return true;
     }
 
+    std::vector<audio::AudioSink> sinks() override {
+        return {};
+    }
+    bool setDefaultSink(const std::string&) override {
+        return false;
+    }
+
   private:
     audio::VolumeState* state_;
     bool* wrote_;

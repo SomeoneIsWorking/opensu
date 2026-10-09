@@ -28,10 +28,9 @@
 #include "dock_metrics.hpp"
 #include "dock_motion.hpp"
 #include "dock_painter.hpp"
-#include "game_menu.hpp"
-#include "game_menu_painter.hpp"
 #include "glyph_textures.hpp"
 #include "grid_focus.hpp"
+#include "guide_panels.hpp"
 #include "home_layout.hpp"
 #include "hud.hpp"
 #include "image_decoder.hpp"
@@ -43,6 +42,7 @@
 #include "library/shelf.hpp"
 #include "mode_chooser.hpp"
 #include "mode_chooser_painter.hpp"
+#include "page_panel.hpp"
 #include "page_arrow.hpp"
 #include "page_pill.hpp"
 #include "panel_fade.hpp"
@@ -54,40 +54,14 @@
 #include "search_panel_painter.hpp"
 #include "section_view.hpp"
 #include "settings_panels.hpp"
+#include "tile.hpp"
+#include "tile_artwork.hpp"
 #include "tile_motion.hpp"
 #include "tile_painter.hpp"
 #include "volume_osd.hpp"
 #include "volume_osd_painter.hpp"
 
 namespace opensu::ui {
-
-/// One entry in the grid, with the artwork loaded for it.
-struct Tile {
-    library::ShelfItem item;
-    /// A folder's name, as its tile reads it.
-    std::string title;
-    /// A folder's game count, as its tile reads it.
-    std::string caption;
-    /// A launcher's logo.
-    std::optional<Icon> logo;
-    /// The stores a game is owned in, as icons in its corner.
-    std::vector<Icon> stores;
-    /// Artwork loaded as textures, or zero for none.
-    Texture portrait{};
-    Texture wide{};
-    bool hasPortrait{false};
-    bool hasWide{false};
-    /// Whether its artwork files have been read into the textures.
-    bool artLoaded{false};
-    /// Whether its files are queued to decode or decoding.
-    bool artRequested{false};
-    /// Whether the artwork fetcher is downloading, or has queued, art for it.
-    bool artDownloading{false};
-    /// Changes when its files change, so a decode of the old ones is dropped.
-    std::uint64_t ticket{};
-    /// The tile's platform frame, or null for a game with no platform identity.
-    const Platform* platform{nullptr};
-};
 
 /// The home screen.
 class Shell {
@@ -113,7 +87,7 @@ class Shell {
 
     /// Streams the artwork of the tiles near the canvas: queues their files to decode on the
     /// decoder's thread and uploads at most `uploads` decoded images as textures, then releases
-    /// the textures of tiles far from the canvas once more than `residentLimit` are held. Drawing
+    /// the textures of tiles far from the canvas once many are held. Drawing
     /// does this itself; it needs the GL context.
     void loadArtwork(std::size_t uploads = uploadsPerFrame);
 
@@ -123,8 +97,6 @@ class Shell {
 
     /// Textures uploaded per frame, so a screenful of new covers spreads over a few frames.
     static constexpr std::size_t uploadsPerFrame = 4;
-    /// Tile textures held at most; the oldest outside the window are released beyond it.
-    static constexpr std::size_t residentLimit = 120;
 
     /// Gives a game's tile artwork that arrived after the shelf was set.
     void setArtwork(std::string_view gameId, const std::filesystem::path& artwork);
@@ -201,11 +173,25 @@ class Shell {
     [[nodiscard]] const SettingsPanels& settingsPanels() const noexcept {
         return settings_;
     }
+    /// The Devices page, which replaces the grid while it is open.
+    [[nodiscard]] PagePanel& devicesPanel() noexcept {
+        return devices_;
+    }
+    [[nodiscard]] const PagePanel& devicesPanel() const noexcept {
+        return devices_;
+    }
+    /// The Guide menu and the quick menu.
+    [[nodiscard]] GuidePanels& guidePanels() noexcept {
+        return guide_;
+    }
+    [[nodiscard]] const GuidePanels& guidePanels() const noexcept {
+        return guide_;
+    }
     /// Whether a panel that takes every button is up: the options, the search, a context menu, the
-    /// details page or the Settings screen.
+    /// details page, the Settings screen, the Devices page or a Guide menu.
     [[nodiscard]] bool panelOpen() const noexcept {
         return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || details_.isOpen() ||
-               settings_.anyOpen();
+               settings_.anyOpen() || devices_.isOpen() || guide_.anyOpen();
     }
 
     /// Which device the prompts name. The caller feeds it; the painters read it.
@@ -257,8 +243,8 @@ class Shell {
     /// Advances past every one-shot motion, for a still frame.
     void settle();
 
-    /// Draws one frame: the home screen, or while a game runs, only the Guide menu over a
-    /// transparent frame. With `target`, a render texture, the frame goes there instead of the
+    /// Draws one frame: the home screen, or while a game runs, only the Guide menus and the pages
+    /// they open over a transparent frame. With `target`, a render texture, the frame goes there instead of the
     /// window (the window's buffers are still begun and ended, as a frame is).
     void draw(const RenderTexture2D* target = nullptr);
 
@@ -268,12 +254,6 @@ class Shell {
     }
     [[nodiscard]] bool inGame() const noexcept {
         return inGame_;
-    }
-    [[nodiscard]] GameMenu& gameMenu() noexcept {
-        return gameMenu_;
-    }
-    [[nodiscard]] const GameMenu& gameMenu() const noexcept {
-        return gameMenu_;
     }
     [[nodiscard]] LaunchPanel& launchPanel() noexcept {
         return launchPanel_;
@@ -377,30 +357,23 @@ class Shell {
     [[nodiscard]] DetailsArt detailsArt() const;
     /// The tiles whose art is wanted now: those near the canvas, as the layout owner places them.
     [[nodiscard]] SlotRange artWindow() const;
-    /// Queues the art of the window's tiles that has not been, and drops queued art that left it.
-    void requestArtwork(const SlotRange& window);
-    void requestTile(Tile& tile, std::size_t index);
-    /// Uploads up to `limit` decoded images to their tiles.
-    void uploadArtwork(std::size_t limit);
-    void trimResident(const SlotRange& window);
-    /// The shelf's tile `index`, or the header for `headerTile`; null when there is none.
-    [[nodiscard]] Tile* tileOf(std::size_t index);
-    static constexpr std::size_t headerTile = std::numeric_limits<std::size_t>::max();
     /// Fills `visual` with what `tile` shows: its art, frame, names and badges.
     void fillContent(TileVisual& visual, const Tile& tile) const;
     /// Points focus at `index`, restarting the focus scale and bringing it into view.
     void focusOn(std::size_t index, int dx);
     void startEntrance();
-    void releaseTextures();
-    void unloadArtwork(Tile& tile);
     void drawScene();
+    /// The Settings screen and the Devices page, whichever is shown.
+    void drawPages(Vector2 size);
+    /// A frame over a running game: the Guide menus and the pages they open.
+    void drawOverGame(Vector2 size);
     void drawGrid();
     void drawRail();
     /// The rectangles an XMB's or a Carousel's layout `rects` are drawn at, tile by tile, for the
     /// tiles from `first` on.
     [[nodiscard]] std::vector<Rect> railSlots(const std::vector<Rect>& rects,
                                               std::size_t first) const;
-    /// What a click at `point` hits while the Guide menu, the launch panel or the layout picker is
+    /// What a click at `point` hits while a menu, a page, the launch panel or the layout picker is
     /// up.
     [[nodiscard]] PointerTarget pointAtModal(Vector2 point) const;
     /// What it hits on the home screen below the dock.
@@ -420,12 +393,7 @@ class Shell {
     std::vector<Tile> tiles_;
     /// A game's tile in `tiles_`, by game id.
     std::unordered_map<std::string, std::size_t> gameTiles_;
-    ImageDecoder decoder_;
-    /// Replaced with the shelf, so decodes for an earlier one are dropped.
-    std::uint64_t shelfSerial_{};
-    std::uint64_t lastTicket_{};
-    /// Tiles holding textures, the oldest first.
-    std::vector<std::size_t> resident_;
+    TileArtwork artwork_;
     /// What stands for the folder in the XMB's left column.
     std::optional<Tile> header_;
     Platforms platforms_;
@@ -474,8 +442,8 @@ class Shell {
     PagePillPainter pillPainter_;
     PageArrowPainter arrowPainter_;
     Hud hud_{prompts_};
-    GameMenu gameMenu_;
-    GameMenuPainter gameMenuPainter_{prompts_};
+    GuidePanels guide_{prompts_};
+    PagePanel devices_;
     LaunchPanel launchPanel_;
     LaunchPanelPainter launchPanelPainter_{prompts_};
 

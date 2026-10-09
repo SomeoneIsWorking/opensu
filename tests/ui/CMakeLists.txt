@@ -5,7 +5,7 @@ foreach(name home_layout grid_focus tile_motion tile_geometry rail_layout)
     add_test(NAME ${name} COMMAND ${name}_test)
 endforeach()
 
-foreach(name top_bar_metrics top_bar_layout corner_hints clock_text game_menu launch_panel dock_metrics dock_motion
+foreach(name top_bar_metrics top_bar_layout corner_hints clock_text guide_menu quick_menu launch_panel dock_metrics dock_motion
              section_view mode_chooser icon_recolour search_panel context_menu panel_fade breadcrumbs details_page settings_page volume_osd)
     add_executable(${name}_test ${name}_test.cpp)
     target_link_libraries(${name}_test PRIVATE opensu::hud_model)

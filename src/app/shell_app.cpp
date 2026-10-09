@@ -319,6 +319,9 @@ void ShellApp::handlePads() {
     const std::vector<gamepad::Event> events = pads_.takeEvents();
     for (const gamepad::Event& event : events) {
         shell_.inputDevice().notePad(event);
+        if (roster_.note(event)) {
+            devicesScreen_.controllerChanged();
+        }
     }
     handleEvents(events);
 }
@@ -400,14 +403,26 @@ void ShellApp::clickSection(library::Section section) {
 }
 
 void ShellApp::handleGameKeys() {
-    if (gameKeys_) {
-        handleEvents(router_.fromGame(*gameKeys_));
+    if (session::GameKeys* keys = gameScreen_.keys()) {
+        handleEvents(router_.fromGame(*keys));
     }
 }
 
 void ShellApp::actOn(gamepad::Button button) {
-    if (shell_.inGame()) {
-        actInGame(button);
+    if (button == gamepad::Button::Guide) {
+        toggleGuide();
+        return;
+    }
+    if (shell_.guidePanels().guide().isOpen()) {
+        guideMenu_.act(button);
+        return;
+    }
+    if (shell_.guidePanels().quick().isOpen()) {
+        quickMenu_.act(button);
+        return;
+    }
+    // Over a running game only the pages the Guide menu opened take buttons.
+    if (shell_.inGame() && !shell_.panelOpen()) {
         return;
     }
     if (panels_.active()) {
@@ -428,6 +443,10 @@ void ShellApp::actOn(gamepad::Button button) {
     }
     if (paths_.active()) {
         paths_.act(button);
+        return;
+    }
+    if (shell_.devicesPanel().isOpen()) {
+        devicesScreen_.act(button);
         return;
     }
     if (shell_.settingsPanels().page().isOpen()) {
@@ -598,86 +617,108 @@ void ShellApp::cancelLaunch() {
     handoff_.forceClose();
 }
 
-void ShellApp::actInGame(gamepad::Button button) {
-    ui::GameMenu& menu = shell_.gameMenu();
-    if (button == gamepad::Button::Guide) {
-        setGameMenuOpen(!menu.isOpen());
-        return;
-    }
-    if (!menu.isOpen()) {
-        return;
-    }
-    switch (button) {
-    case gamepad::Button::Up:
-        moveMenu(-1);
-        break;
-    case gamepad::Button::Down:
-        moveMenu(1);
-        break;
-    case gamepad::Button::B:
-        setGameMenuOpen(false);
-        break;
-    case gamepad::Button::A:
-        if (menu.selected() == ui::GameMenuAction::CloseGame) {
-            lucent::info("launch", "closing {} from the Guide menu", runningTitle_);
-            handoff_.forceClose();
-        }
-        setGameMenuOpen(false);
-        break;
-    default:
-        break;
-    }
-}
-
-void ShellApp::moveMenu(int delta) {
-    ui::GameMenu& menu = shell_.gameMenu();
-    const ui::GameMenuAction before = menu.selected();
-    menu.move(delta);
-    // input-sound.md 3.4 Navigation: a focus move in a list.
-    if (menu.selected() != before) {
-        sounds_.play(audio::Effect::Navigation);
-    }
-}
-
-void ShellApp::setGameMenuOpen(bool open) {
-    ui::GameMenu& menu = shell_.gameMenu();
-    // input-sound.md 3.4 OpenContextMenu / Close: a menu becomes visible or hidden (r90.java).
-    sounds_.play(open ? audio::Effect::OpenContextMenu : audio::Effect::Close);
-    if (open) {
-        menu.open(runningTitle_);
-    } else {
-        menu.close();
-    }
-    if (padsHeld_) {
-        pads_.setBlocked(open);
-    }
-    if (overlay_) {
-        overlay_->setShown(open);
-    } else if (!settings_.hidden) {
-        if (open) {
-            ClearWindowState(FLAG_WINDOW_HIDDEN);
-        } else {
-            SetWindowState(FLAG_WINDOW_HIDDEN);
-        }
-    }
-}
-
-void ShellApp::chooseIconSize(int level) {
-    if (shell_.modeChooser().isOpen()) {
+void ShellApp::chooseLevel(int level) {
+    if (shell_.guidePanels().quick().isOpen()) {
+        quickMenu_.chooseLevel(level);
+    } else if (shell_.modeChooser().isOpen()) {
         layoutPicker_.chooseIconSize(level);
+    } else if (shell_.devicesPanel().isOpen()) {
+        devicesScreen_.chooseLevel(level);
     } else if (shell_.settingsPanels().onlyPage()) {
         settingsScreen_.chooseLevel(level);
     }
 }
 
+bool ShellApp::menusBlocked() {
+    return panels_.active() || paths_.active() || shortcutEditor_.capturing() ||
+           shell_.searchPanel().isOpen() || shell_.modeChooser().isOpen() ||
+           shell_.contextMenu().isOpen();
+}
+
+void ShellApp::closeRunningGame() {
+    lucent::info("launch", "closing {} from a menu", runningTitle_);
+    handoff_.forceClose();
+}
+
+void ShellApp::toggleGuide() {
+    ui::GuidePanels& menus = shell_.guidePanels();
+    if (menus.quick().isOpen()) {
+        quickMenu_.close();
+    } else if (menus.guide().isOpen() || !menusBlocked()) {
+        guideMenu_.toggle();
+    }
+}
+
+void ShellApp::toggleQuickMenu() {
+    ui::GuidePanels& menus = shell_.guidePanels();
+    if (menus.guide().isOpen()) {
+        guideMenu_.close();
+    }
+    if (menus.quick().isOpen() || !menusBlocked()) {
+        quickMenu_.toggle();
+    }
+}
+
+void ShellApp::closePages() {
+    details_.close();
+    settingsScreen_.close();
+    devicesScreen_.close();
+}
+
+void ShellApp::syncOverlay() {
+    const bool wanted = shell_.inGame() && shell_.panelOpen();
+    if (gameScreen_.setShown(wanted) && padsHeld_) {
+        pads_.setBlocked(wanted);
+    }
+}
+
+std::vector<library::Source> ShellApp::storeSections() const {
+    std::vector<library::Source> stores;
+    for (const library::SourceStatus& status : sources_) {
+        if (status.source != library::Source::Rom &&
+            status.availability != library::Availability::Absent) {
+            stores.push_back(status.source);
+        }
+    }
+    return stores;
+}
+
+std::string ShellApp::outputLine() {
+    const int monitor = GetCurrentMonitor();
+    return std::to_string(GetMonitorWidth(monitor)) + " x " +
+           std::to_string(GetMonitorHeight(monitor)) + " at " +
+           std::to_string(GetMonitorRefreshRate(monitor)) + " Hz";
+}
+
+void ShellApp::serviceDevices(std::chrono::steady_clock::time_point now) {
+    const bool quickOpen = shell_.guidePanels().quick().isOpen();
+    if (bluetooth_.poll(now, devicesScreen_.showsBluetooth() || quickOpen)) {
+        devicesScreen_.refresh();
+        quickMenu_.refresh();
+    }
+    if (const std::optional<BluetoothNotice> notice = bluetooth_.takeNotice()) {
+        shell_.setToast(notice->text, notice->error);
+    }
+    devicesScreen_.tick(now);
+    quickMenu_.tick(now);
+}
+
 void ShellApp::contextMenu(const ui::PointerTarget& target) {
-    if (shell_.inGame() || panels_.active()) {
+    if (shell_.inGame() || panels_.active() || shell_.guidePanels().anyOpen()) {
+        return;
+    }
+    if (shell_.devicesPanel().isOpen()) {
+        // A right click on a Bluetooth device forgets it, as Select does.
+        if (std::holds_alternative<ui::OnSettingsRow>(target)) {
+            focus(target);
+            devicesScreen_.forgetFocused();
+        }
         return;
     }
     // Right click dismisses an open menu from outside it, and opens a tile's menu; it is never
     // Back.
     if (shell_.contextMenu().isOpen()) {
-        if (std::holds_alternative<ui::OnContextBackdrop>(target)) {
+        if (std::holds_alternative<ui::OnBackdrop>(target)) {
             contextMenu_.close();
         }
         return;
@@ -737,6 +778,7 @@ ui::Trail ShellApp::currentTrail() const {
         state.game = shell_.detailsPage().view().title;
     }
     state.settings = settingsScreen_.category();
+    state.devices = devicesScreen_.tab();
     return trailOf(state);
 }
 
@@ -746,13 +788,17 @@ void ShellApp::activateCrumb(std::size_t index) {
         panels_.active()) {
         return;
     }
-    // The details page and the Settings screen are the only panels the trail stays clickable over.
+    // The details page, the Settings screen and the Devices page are the only panels the trail
+    // stays clickable over.
     details_.close();
-    if (shell_.panelOpen() && !shell_.settingsPanels().onlyPage()) {
+    if (shell_.panelOpen() && !shell_.settingsPanels().onlyPage() &&
+        !shell_.devicesPanel().isOpen()) {
         return;
     }
     const ui::Crumb& crumb = trail[index];
-    if (crumb.kind == ui::CrumbKind::Settings) {
+    if (crumb.kind == ui::CrumbKind::Devices) {
+        devicesScreen_.showTabs();
+    } else if (crumb.kind == ui::CrumbKind::Settings) {
         settingsScreen_.showCategories();
     } else if (crumb.kind == ui::CrumbKind::Section && crumb.section != browser_.section()) {
         clickSection(crumb.section);
@@ -767,11 +813,18 @@ void ShellApp::activateCrumb(std::size_t index) {
 }
 
 ui::HintContext ShellApp::hints() const {
-    if (paths_.active()) {
+    // The menus draw their own prompts.
+    if (paths_.active() || shell_.guidePanels().anyOpen()) {
         return ui::HintContext{};
     }
     if (shortcutEditor_.capturing()) {
         return ui::HintContext{.back = true};
+    }
+    if (shell_.devicesPanel().isOpen()) {
+        return ui::HintContext{.back = true,
+                               .select = true,
+                               .change = devicesScreen_.changes(),
+                               .forget = devicesScreen_.forgets()};
     }
     if (shell_.settingsPanels().page().isOpen()) {
         return ui::HintContext{.back = true, .select = settingsScreen_.changes(), .change = true};
@@ -792,9 +845,9 @@ ui::HintContext ShellApp::hints() const {
 void ShellApp::syncChrome() {
     shell_.setHints(hints());
     shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
-    // iiSU's Home has no title (pl3.q); opensu's names the focused tile everywhere, and the
-    // trail names the game on its details page.
-    shell_.setTitle(shell_.detailsPage().isOpen() ? std::string{} : shell_.pillTitle());
+    // iiSU's Home has no title (pl3.q); opensu's names the focused tile, except over a page, whose
+    // trail names where it is.
+    shell_.setTitle(shell_.pillTitle());
     shell_.setTrail(currentTrail());
 }
 
@@ -814,35 +867,6 @@ void ShellApp::refreshClock() {
     shell_.setBattery(battery_.read());
 }
 
-ShellSnapshot ShellApp::snapshot() const {
-    const std::lock_guard lock{stateMutex_};
-    return published_;
-}
-
-void ShellApp::inject(gamepad::Button button, input::Device device) {
-    const std::lock_guard lock{injectedMutex_};
-    injected_.emplace_back(button, device);
-}
-
-void ShellApp::injectKey(input::Combo combo) {
-    const std::lock_guard lock{injectedMutex_};
-    injectedKeys_.push_back(combo);
-}
-
-void ShellApp::typeText(std::string text) {
-    const std::lock_guard lock{injectedMutex_};
-    typed_.push_back(std::move(text));
-}
-
-void ShellApp::requestClose() {
-    closeRequested_.store(true);
-}
-
-void ShellApp::requestCatalogReload(std::string toast) {
-    requestToast(std::move(toast), false);
-    reloadRequested_.store(true);
-}
-
 void ShellApp::requestGameRunning(bool running) {
     gameRunning_.store(running);
 }
@@ -859,30 +883,6 @@ void ShellApp::requestToast(std::string text, bool isError) {
         pendingToastError_ = isError;
         hasPendingToast_ = true;
     }
-}
-
-bool ShellApp::captureFrame(std::string& png) {
-    std::unique_lock lock{stateMutex_};
-    if (capturePending_) {
-        // One frame request at a time: two callers racing for the context would
-        // interleave, and the second would get the first's answer.
-        return false;
-    }
-    capturePending_ = true;
-    captureResult_.clear();
-    // The loop answers within a frame or two. The bound stops a caller hanging
-    // forever if the loop has already exited.
-    captureAnswered_.wait_for(lock, std::chrono::seconds{5}, [this] {
-        return !capturePending_;
-    });
-    if (capturePending_) {
-        // Timed out, so the request is abandoned rather than left set.
-        capturePending_ = false;
-        return false;
-    }
-    png = captureResult_;
-    captureResult_.clear();
-    return !png.empty();
 }
 
 void ShellApp::publishSnapshot() {
@@ -931,29 +931,23 @@ void ShellApp::publishSnapshot() {
     // What the loop has applied, not what was asked for, so a request that never reached the
     // loop cannot read as in game.
     next.inGame = shell_.inGame();
-    next.gameMenuOpen = shell_.gameMenu().isOpen();
+    next.guideMenuOpen = shell_.guidePanels().guide().isOpen();
+    next.quickMenuOpen = shell_.guidePanels().quick().isOpen();
+    next.devicesOpen = shell_.devicesPanel().isOpen();
+    next.devicesTab = devicesScreen_.tab();
     next.steam = std::string{launch::name(steam_.state())};
     next.inputDevice =
         shell_.inputDevice().current() == input::Device::KeyboardMouse ? "keyboard" : "pad";
     next.launchers = describe(launcherBadges(steam_.state(), steam_.downloads(), sources_));
 
-    const std::lock_guard lock{stateMutex_};
-    published_ = std::move(next);
+    bridge_.publish(std::move(next));
 }
 
 void ShellApp::serviceControlRequests() {
     // Buttons injected over the channel take the same path as a real press, so
     // what the channel exercises is the shell's own handling.
-    std::vector<std::pair<gamepad::Button, input::Device>> queued;
-    std::vector<std::string> typed;
-    std::vector<input::Combo> keys;
-    {
-        const std::lock_guard lock{injectedMutex_};
-        queued.swap(injected_);
-        typed.swap(typed_);
-        keys.swap(injectedKeys_);
-    }
-    for (const input::Combo& combo : keys) {
+    const ControlBridge::Input queued = bridge_.takeInput();
+    for (const input::Combo& combo : queued.keys) {
         shell_.inputDevice().noteKey();
         if (shortcutEditor_.capturing()) {
             shortcutEditor_.captureKey(combo);
@@ -961,7 +955,7 @@ void ShellApp::serviceControlRequests() {
             handleEvents(router_.fromCombo(combo));
         }
     }
-    for (const std::string& text : typed) {
+    for (const std::string& text : queued.text) {
         if (shell_.searchPanel().isOpen()) {
             shell_.inputDevice().noteKey();
             search_.typeText(text);
@@ -971,7 +965,7 @@ void ShellApp::serviceControlRequests() {
         }
     }
     // An injected button is a tap: without its release a direction would repeat forever.
-    for (const auto& [button, device] : queued) {
+    for (const auto& [button, device] : queued.buttons) {
         if (device == input::Device::KeyboardMouse) {
             shell_.inputDevice().noteKey();
         } else {
@@ -984,21 +978,11 @@ void ShellApp::serviceControlRequests() {
                                      .pressed = false}});
     }
 
-    bool wanted = false;
-    {
-        const std::lock_guard lock{stateMutex_};
-        wanted = capturePending_;
-    }
-    if (!wanted) {
+    if (!bridge_.frameWanted()) {
         return;
     }
-
     std::string png;
-    const bool ok = renderShellPng(shell_, png);
-    const std::lock_guard lock{stateMutex_};
-    captureResult_ = ok ? std::move(png) : std::string{};
-    capturePending_ = false;
-    captureAnswered_.notify_all();
+    bridge_.answerFrame(renderShellPng(shell_, png) ? std::move(png) : std::string{});
 }
 
 /// Applies what the launch thread and the control channel asked for. Everything
@@ -1027,29 +1011,20 @@ void ShellApp::serviceRequests() {
         panels_.endLaunch();
     }
     panels_.service();
-    if (reloadRequested_.exchange(false)) {
+    if (const std::optional<std::string> reload = bridge_.takeReload()) {
+        if (!reload->empty()) {
+            shell_.setToast(*reload);
+        }
         reloadCatalog();
     }
     const bool running = gameRunning_.load();
     if (running != shell_.inGame()) {
         shell_.setInGame(running);
-        shell_.gameMenu().close();
+        guideMenu_.close();
+        quickMenu_.close();
+        closePages();
         panels_.endLaunch();
-        // raylib has no ShowWindow or HideWindow: hiding is a window state flag, and showing is
-        // clearing it.
-        if (overlay_) {
-            if (running) {
-                overlay_->enter();
-            } else {
-                overlay_->leave();
-            }
-        } else if (!settings_.hidden) {
-            if (running) {
-                SetWindowState(FLAG_WINDOW_HIDDEN);
-            } else {
-                ClearWindowState(FLAG_WINDOW_HIDDEN);
-            }
-        }
+        gameScreen_.setRunning(running);
     }
 
     if (hasPendingToast_) {
@@ -1085,9 +1060,7 @@ int ShellApp::run() {
         const int monitor = GetCurrentMonitor();
         SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
         shell_.setSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
-        overlay_ = std::make_unique<session::GamescopeOverlay>(
-            *static_cast<const unsigned long*>(GetWindowHandle()));
-        gameKeys_ = std::make_unique<session::GameKeys>();
+        gameScreen_.attachOverlay(*static_cast<const unsigned long*>(GetWindowHandle()));
     }
     sounds_.open();
     delivery_.loadStoredSounds();
@@ -1098,17 +1071,18 @@ int ShellApp::run() {
     // The control channel is part of the product, not a debug flag: it is how an
     // automated run drives the shell without a controller.
     if (settings_.controlChannel) {
-        control_ = std::make_unique<ControlChannel>(*this, signIn_, settings_.controlPort);
+        control_ = std::make_unique<ControlChannel>(bridge_, signIn_, settings_.controlPort);
         control_->start();
     }
 
     // Steam comes up in the background while the shell is already usable. A machine
     // without a Steam install has nothing to start, and shows no Steam icon.
-    if (!library::steam::Library::discover(resolved_.home, resolved_.steamRoots).roots().empty()) {
+    if (settings_.startSteam &&
+        !library::steam::Library::discover(resolved_.home, resolved_.steamRoots).roots().empty()) {
         steam_.start();
     }
 
-    while (!closeRequested_.load() && !WindowShouldClose()) {
+    while (!bridge_.closeRequested() && !WindowShouldClose()) {
         // A resize changes the framebuffer, so the layout has to be recomputed
         // before anything is drawn into it. Checked every frame because there is
         // no resize callback worth relying on across platforms.
@@ -1129,6 +1103,8 @@ int ShellApp::run() {
         serviceRequests();
         serviceCatalog();
         delivery_.service();
+        serviceDevices(std::chrono::steady_clock::now());
+        syncOverlay();
         syncChrome();
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
@@ -1141,11 +1117,7 @@ int ShellApp::run() {
     }
 
     // Anything waiting on a frame will never get one now.
-    {
-        const std::lock_guard lock{stateMutex_};
-        capturePending_ = false;
-        captureAnswered_.notify_all();
-    }
+    bridge_.abandonFrame();
     if (control_) {
         control_->stop();
     }

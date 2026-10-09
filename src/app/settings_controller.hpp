@@ -59,6 +59,8 @@ class SettingsController {
 
     /// Opens the screen on its first category.
     void open();
+    /// Opens the screen on the category with id `id` (the first when there is none).
+    void openCategory(const std::string& id);
     /// Closes the screen with iiSU's Close sound.
     void close();
     /// A button while the screen is up and no chooser is over it.

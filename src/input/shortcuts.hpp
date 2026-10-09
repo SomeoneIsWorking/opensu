@@ -35,8 +35,10 @@ enum class Action : std::uint8_t {
     L1,
     R1,
     Search,
-    /// The Guide menu over a running game.
+    /// The Guide menu: the left menu, over a running game too.
     Guide,
+    /// The quick menu on the right, over a running game too.
+    QuickMenu,
     VolumeUp,
     VolumeDown,
     VolumeMute,
@@ -47,8 +49,8 @@ enum class Action : std::uint8_t {
 inline constexpr std::array allActions{
     Action::Up,         Action::Down,       Action::Left,   Action::Right,  Action::Confirm,
     Action::Back,       Action::X,          Action::Y,      Action::Select, Action::Start,
-    Action::L1,         Action::R1,         Action::Search, Action::Guide,  Action::VolumeUp,
-    Action::VolumeDown, Action::VolumeMute, Action::Quit};
+    Action::L1,         Action::R1,         Action::Search, Action::Guide,  Action::QuickMenu,
+    Action::VolumeUp,   Action::VolumeDown, Action::VolumeMute, Action::Quit};
 
 /// The action's name in the Settings screen.
 [[nodiscard]] std::string_view label(Action action) noexcept;
@@ -70,7 +72,8 @@ struct PadChord {
     bool operator==(const PadChord&) const = default;
 };
 
-/// Buttons whose own press does nothing in the shell, so they can be held for a chord.
+/// Buttons that can be held for a chord: L2, R2, L3 and R3 do nothing of their own in the shell,
+/// and Guide waits for its release to say whether it was a chord.
 [[nodiscard]] bool canHold(gamepad::Button button) noexcept;
 
 /// `L2 + Up`: a name for the chord.

@@ -81,6 +81,9 @@ void shippedKeysAreUnchanged() {
            "Shift+Tab is Guide's chord and does not open the menu");
     expect(presses(s, FakeKeys{{KEY_LEFT_SHIFT, KEY_TAB}, {KEY_TAB}}, Action::Guide),
            "Shift+Tab is Guide");
+    expect(presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_TAB}, {KEY_TAB}}, Action::QuickMenu) &&
+               !presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_TAB}, {KEY_TAB}}, Action::Select),
+           "Ctrl+Tab is the quick menu, not the menu");
     expect(presses(s, FakeKeys{{KEY_ENTER}, {KEY_ENTER}}, Action::Confirm), "Enter confirms");
     expect(presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_F}, {KEY_F}}, Action::Search) &&
                !presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_F}, {KEY_F}}, Action::X),
@@ -105,7 +108,8 @@ void everyActionHasAHandlerNameAndKey() {
         expect(s.primary(action).has_value(), "an action has a key");
         expect(buttonOf(action).has_value() ==
                    !(action == Action::VolumeUp || action == Action::VolumeDown ||
-                     action == Action::VolumeMute || action == Action::Quit),
+                     action == Action::VolumeMute || action == Action::Quit ||
+                     action == Action::QuickMenu),
                "an action is a pad button or one of the shell's own");
     }
     expect(spellings.size() == allActions.size(), "spellings are distinct");
@@ -162,6 +166,20 @@ void padChordsCanBeRemapped() {
     expect(s.overrides() == ShortcutOverrides{}, "reset puts back the defaults");
 }
 
+void quickMenuHasItsDefaults() {
+    const Shortcuts s;
+    expect(s.padChord(Action::QuickMenu) == PadChord{Button::Guide, Button::A},
+           "Guide + A is the quick menu on a pad");
+    expect(s.primary(Action::QuickMenu) == Combo{KEY_TAB, true, false}, "Ctrl+Tab on a keyboard");
+    expect(worksInGame(Action::QuickMenu) && takesPadChord(Action::QuickMenu),
+           "it works over a game and takes a chord");
+    Shortcuts changed;
+    expect(changed.rebind(Action::QuickMenu, Combo{KEY_F9}).empty() &&
+               changed.overrides().keys.at(Action::QuickMenu) == Combo{KEY_F9},
+           "it can be remapped like any action");
+    expect(!changed.rebind(Action::Guide, Combo{KEY_F9}).empty(), "and holds its key");
+}
+
 void combosHaveNames() {
     expect(describe(Combo{KEY_TAB, false, true}) == "Shift+Tab", "a modified cap");
     expect(describe(Combo{KEY_F5, true, true}) == "Ctrl+Shift+F5", "both modifiers");
@@ -179,6 +197,28 @@ Event press(Button button, bool pressed = true) {
     event.button = button;
     event.pressed = pressed;
     return event;
+}
+
+void guideIsATapOrAModifier() {
+    const Shortcuts s;
+    PadChords chords{s};
+    auto fed = chords.feed({press(Button::Guide)});
+    expect(fed.events.empty() && fed.actions.empty(), "Guide waits for its release");
+    fed = chords.feed({press(Button::Guide, false)});
+    expect(fed.events.size() == 2 && fed.events[0].button == Button::Guide && fed.events[0].pressed &&
+               fed.events[1].button == Button::Guide && !fed.events[1].pressed,
+           "a tap comes out as a press and a release");
+    fed = chords.feed({press(Button::Guide)});
+    fed = chords.feed({press(Button::A)});
+    expect(fed.events.empty() && fed.actions == std::vector{Action::QuickMenu},
+           "Guide with A is the quick menu and no A press");
+    fed = chords.feed({press(Button::A, false), press(Button::Guide, false)});
+    expect(fed.events.empty() && fed.actions.empty(), "its release is swallowed with the chord");
+    fed = chords.feed({press(Button::Guide), press(Button::Up), press(Button::Up, false)});
+    expect(fed.events.size() == 2 && fed.actions.empty(), "Guide with a non-chord button passes it");
+    fed = chords.feed({press(Button::Guide, false)});
+    expect(fed.events.size() == 2 && fed.events[0].button == Button::Guide,
+           "and Guide is still a tap on release");
 }
 
 void chordsAreToldFromPresses() {
@@ -219,6 +259,8 @@ int main() {
     padChordsCanBeRemapped();
     combosHaveNames();
     chordsAreToldFromPresses();
+    guideIsATapOrAModifier();
+    quickMenuHasItsDefaults();
     std::printf("shortcuts: all checks passed\n");
     return 0;
 }

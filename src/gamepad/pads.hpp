@@ -20,6 +20,17 @@
 
 namespace opensu::gamepad {
 
+/// A connected controller.
+struct PadInfo {
+    /// The evdev node, "/dev/input/event12"; what `Event::source` names.
+    std::string id;
+    std::string name;
+    /// The device's unique id (a Bluetooth pad's address), or empty.
+    std::string uniq;
+
+    bool operator==(const PadInfo&) const = default;
+};
+
 class Pads {
   public:
     /// Reads every pad node in `inputDir`, now and as they appear. Throws std::system_error when
@@ -31,6 +42,9 @@ class Pads {
 
     /// Control presses and releases, and pads connecting and leaving, since the last call.
     [[nodiscard]] std::vector<Event> takeEvents();
+
+    /// The pads connected now, in the order they connected. Any thread.
+    [[nodiscard]] std::vector<PadInfo> connected() const;
 
     /// Holds every pad for a game, including pads that connect while held. Returns what the game
     /// needs in its environment to read only the virtual pads: SDL hides every other controller,
@@ -87,6 +101,7 @@ class Pads {
     std::uint64_t appliedSerial_{0};
     bool appliedMissed_{false};
     std::vector<Event> events_;
+    std::vector<PadInfo> connected_;
 
     std::jthread thread_;
 };

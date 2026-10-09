@@ -24,6 +24,8 @@ int main() {
            "no arguments is the plain shell");
     const std::vector<std::string> hidden{"--hidden"};
     expect(Arguments::parse(hidden).hidden, "--hidden asks for the hidden run");
+    expect(!Arguments::parse(hidden).startsSteam() && Arguments{}.startsSteam(),
+           "a hidden run never starts Steam");
     const std::vector<std::string> render{"--render", "a.png", "--keyboard"};
     const Arguments rendered = Arguments::parse(render);
     expect(rendered.renderPath == "a.png" && rendered.keyboardPrompts && !rendered.hidden,

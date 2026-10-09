@@ -2,6 +2,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <optional>
@@ -39,9 +40,13 @@ struct Captured {
     std::string output;
 };
 
-/// Runs `program` with stdin closed and stderr discarded, collecting stdout until it exits.
-/// Returns nothing when it could not be run.
-[[nodiscard]] std::optional<Captured> runCaptured(const std::string& program,
-                                                  const std::vector<std::string>& args);
+/// Where a captured child's stderr goes.
+enum class CaptureErrors : std::uint8_t { Discarded, Merged };
+
+/// Runs `program` with stdin closed, collecting stdout until it exits; stderr is discarded, or
+/// merged into the output with `Merged`. Returns nothing when it could not be run.
+[[nodiscard]] std::optional<Captured>
+runCaptured(const std::string& program, const std::vector<std::string>& args,
+            CaptureErrors errors = CaptureErrors::Discarded);
 
 } // namespace opensu::launch

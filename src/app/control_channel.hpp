@@ -71,8 +71,13 @@ struct ShellSnapshot {
     bool launching{false};
     /// Whether the shell has given the screen to a running game, as the loop applied it.
     bool inGame{false};
-    /// Whether the Guide menu is open over that game.
-    bool gameMenuOpen{false};
+    /// Whether the Guide menu is open, over the home screen or a running game.
+    bool guideMenuOpen{false};
+    /// Whether the quick menu is open.
+    bool quickMenuOpen{false};
+    /// Whether the Devices page is open, and which tab it shows.
+    bool devicesOpen{false};
+    std::string devicesTab;
     /// The Steam client's state: stopped, initializing, ready, failed or blocked.
     std::string steam{"stopped"};
     /// The launcher badges, as `steam=ready epic=failed`.

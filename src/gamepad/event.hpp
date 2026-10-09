@@ -54,6 +54,8 @@ struct Event {
     bool pressed{false};
     /// The controller's name, for Connected and Disconnected.
     std::string device;
+    /// Which pad the event came from (`PadInfo::id`); empty for keys and the control channel.
+    std::string source;
 };
 
 } // namespace opensu::gamepad

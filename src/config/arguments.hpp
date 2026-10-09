@@ -17,6 +17,12 @@ struct Arguments {
     bool hidden{false};
     bool help{false};
 
+    /// Whether the shell starts the Steam client: a hidden run never does, so it leaves no Steam
+    /// behind when it is killed.
+    [[nodiscard]] bool startsSteam() const noexcept {
+        return !hidden;
+    }
+
     [[nodiscard]] static Arguments parse(std::span<const std::string> args);
 };
 

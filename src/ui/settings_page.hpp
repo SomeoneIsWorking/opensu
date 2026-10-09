@@ -48,6 +48,21 @@ struct SettingsRow {
     bool operator==(const SettingsRow&) const = default;
 };
 
+/// A row of `kind` with its label, note and value.
+[[nodiscard]] SettingsRow makeRow(std::string id, RowKind kind, std::string label,
+                                  std::string note, std::string value);
+/// A switch row.
+[[nodiscard]] SettingsRow makeToggle(std::string id, std::string label, std::string note, bool on);
+/// Where a slider stands and how far it goes.
+struct SliderRange {
+    int level{};
+    int low{};
+    int high{};
+};
+/// A slider row over `range`.
+[[nodiscard]] SettingsRow makeSlider(std::string id, std::string label, std::string note,
+                                     SliderRange range);
+
 struct SettingsCategory {
     std::string id;
     std::string label;
@@ -82,6 +97,13 @@ struct SettingsLayout {
     [[nodiscard]] std::optional<int> levelAt(const SettingsRow& row, std::size_t index, float x,
                                              float y) const noexcept;
 };
+
+/// The box of a row whose rectangle is `rect`: its switch or slider track sits at the end.
+[[nodiscard]] SettingsRowBox settingsRowBox(const Rect& rect, RowKind kind, float dp);
+
+/// The level a point on `row`'s slider track stands for, or nothing off it.
+[[nodiscard]] std::optional<int> levelOnTrack(const SettingsRow& row, const SettingsRowBox& box,
+                                              float x, float y) noexcept;
 
 /// The page between `topInset` and `bottomInset` in a `width` x `height` frame at `dp` pixels per
 /// dp, showing `rows` of the category, with row `focused` scrolled whole into view.

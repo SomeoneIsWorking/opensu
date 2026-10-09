@@ -41,6 +41,10 @@ class EvdevDevice {
     [[nodiscard]] const std::string& phys() const {
         return phys_;
     }
+    /// The device's unique id (a Bluetooth pad's address), or empty when it has none.
+    [[nodiscard]] const std::string& uniq() const {
+        return uniq_;
+    }
     [[nodiscard]] const PadCapabilities& capabilities() const {
         return capabilities_;
     }
@@ -61,6 +65,7 @@ class EvdevDevice {
     std::filesystem::path node_;
     std::string name_;
     std::string phys_;
+    std::string uniq_;
     std::uint16_t vendor_{0};
     std::uint16_t product_{0};
     PadCapabilities capabilities_;

@@ -4,6 +4,8 @@
 #include <charconv>
 #include <cmath>
 
+#include <nlohmann/json.hpp>
+
 namespace opensu::audio {
 namespace {
 
@@ -35,6 +37,13 @@ class Wpctl final : public VolumeBackend {
     bool setMuted(bool muted) override {
         return succeeded(run_("wpctl", {"set-mute", wpctlSink, muted ? "1" : "0"}));
     }
+    std::vector<AudioSink> sinks() override {
+        const std::optional<CommandOutput> out = run_("wpctl", {"status"});
+        return out && out->status == 0 ? parseWpctlSinks(out->output) : std::vector<AudioSink>{};
+    }
+    bool setDefaultSink(const std::string& id) override {
+        return succeeded(run_("wpctl", {"set-default", id}));
+    }
 
   private:
     static bool succeeded(const std::optional<CommandOutput>& out) {
@@ -63,6 +72,21 @@ class Pactl final : public VolumeBackend {
     }
     bool setMuted(bool muted) override {
         return succeeded(run_("pactl", {"set-sink-mute", pactlSink, muted ? "1" : "0"}));
+    }
+    std::vector<AudioSink> sinks() override {
+        const std::optional<CommandOutput> list = run_("pactl", {"--format=json", "list", "sinks"});
+        const std::optional<CommandOutput> current = run_("pactl", {"get-default-sink"});
+        if (!list || list->status != 0) {
+            return {};
+        }
+        std::string defaultName = current && current->status == 0 ? current->output : "";
+        while (!defaultName.empty() && (defaultName.back() == '\n' || defaultName.back() == ' ')) {
+            defaultName.pop_back();
+        }
+        return parsePactlSinks(list->output, defaultName);
+    }
+    bool setDefaultSink(const std::string& id) override {
+        return succeeded(run_("pactl", {"set-default-sink", id}));
     }
 
   private:
@@ -101,10 +125,31 @@ class ReadOnly final : public VolumeBackend {
         held_ = VolumeState{now->percent, muted};
         return true;
     }
+    std::vector<AudioSink> sinks() override {
+        std::vector<AudioSink> all = inner_->sinks();
+        if (!chosen_) {
+            return all;
+        }
+        for (AudioSink& sink : all) {
+            sink.isDefault = sink.id == *chosen_;
+        }
+        return all;
+    }
+    bool setDefaultSink(const std::string& id) override {
+        const std::vector<AudioSink> all = inner_->sinks();
+        if (std::ranges::none_of(all, [&id](const AudioSink& sink) {
+                return sink.id == id;
+            })) {
+            return false;
+        }
+        chosen_ = id;
+        return true;
+    }
 
   private:
     std::unique_ptr<VolumeBackend> inner_;
     std::optional<VolumeState> held_;
+    std::optional<std::string> chosen_;
 };
 
 /// The number that follows `marker` in `text`, or nothing.
@@ -158,6 +203,82 @@ std::optional<VolumeState> parsePactl(std::string_view volume, std::string_view 
     }
     return VolumeState{clampPercent(level),
                        mute.substr(verdict).find("yes") != std::string_view::npos};
+}
+
+std::vector<AudioSink> parseWpctlSinks(std::string_view status) {
+    std::vector<AudioSink> sinks;
+    bool inAudio = false;
+    bool inSinks = false;
+    std::size_t at = 0;
+    while (at < status.size()) {
+        std::size_t end = status.find('\n', at);
+        if (end == std::string_view::npos) {
+            end = status.size();
+        }
+        std::string_view line = status.substr(at, end - at);
+        at = end + 1;
+        // Top-level headings start in column 0 ("Audio", "Video", "Settings").
+        if (!line.empty() && line.front() != ' ') {
+            inAudio = line == "Audio";
+            inSinks = false;
+            continue;
+        }
+        if (!inAudio) {
+            continue;
+        }
+        // Section headings are drawn after tree glyphs: "├─ Sinks:".
+        if (const std::size_t colon = line.find(':');
+            colon != std::string_view::npos && line.find("─ ") != std::string_view::npos) {
+            inSinks = line.substr(0, colon).ends_with("Sinks");
+            continue;
+        }
+        if (!inSinks) {
+            continue;
+        }
+        const std::size_t dot = line.find(". ");
+        if (dot == std::string_view::npos) {
+            continue;
+        }
+        std::size_t start = dot;
+        while (start > 0 && line[start - 1] >= '0' && line[start - 1] <= '9') {
+            --start;
+        }
+        if (start == dot) {
+            continue;
+        }
+        AudioSink sink;
+        sink.id = std::string{line.substr(start, dot - start)};
+        sink.isDefault = line.substr(0, start).find('*') != std::string_view::npos;
+        std::string_view name = line.substr(dot + 2);
+        if (const std::size_t volume = name.rfind("[vol:"); volume != std::string_view::npos) {
+            name = name.substr(0, volume);
+        }
+        while (!name.empty() && name.back() == ' ') {
+            name.remove_suffix(1);
+        }
+        sink.name = std::string{name};
+        sinks.push_back(std::move(sink));
+    }
+    return sinks;
+}
+
+std::vector<AudioSink> parsePactlSinks(std::string_view json, std::string_view defaultName) {
+    const nlohmann::json parsed = nlohmann::json::parse(json, nullptr, false);
+    std::vector<AudioSink> sinks;
+    if (!parsed.is_array()) {
+        return sinks;
+    }
+    for (const nlohmann::json& entry : parsed) {
+        if (!entry.is_object() || !entry.contains("name") || !entry["name"].is_string()) {
+            continue;
+        }
+        AudioSink sink;
+        sink.id = entry["name"].get<std::string>();
+        sink.name = entry.value("description", sink.id);
+        sink.isDefault = sink.id == defaultName;
+        sinks.push_back(std::move(sink));
+    }
+    return sinks;
 }
 
 std::unique_ptr<VolumeBackend> makeWpctl(Runner run) {

@@ -13,6 +13,7 @@ namespace {
 namespace fs = std::filesystem;
 using opensu::device::BatteryReader;
 using opensu::device::BatteryStatus;
+using opensu::device::ControllerBatteries;
 
 [[noreturn]] void fail(const char* what) {
     std::fprintf(stderr, "FAIL: %s\n", what);
@@ -98,9 +99,30 @@ void firstByName() {
            "the first battery by name");
 }
 
+void controllerBattery() {
+    const fs::path root = freshRoot("controller");
+    supply(root, "BAT0", "Battery", "System", "90", "Discharging");
+    supply(root, "hidpp_battery_0", "Battery", "Device", "40", "Discharging");
+    supply(root, "ps-controller-battery-e8:48:b8:c8:20:00", "Battery", "Device", "55", "Charging");
+    supply(root, "nintendo_switch_controller_battery_86:10:67:67:72:5f", "Battery", "Device", "30",
+           "Discharging");
+    const ControllerBatteries batteries{root};
+    const std::optional<BatteryStatus> ps = batteries.read("E8:48:B8:C8:20:00");
+    expect(ps && ps->percent == 55 && ps->charging, "a DualSense battery by address, any case");
+    const std::optional<BatteryStatus> joy = batteries.read("86:10:67:67:72:5F");
+    expect(joy && joy->percent == 30, "a Switch pad's battery, underscores and colons alike");
+    expect(!batteries.read("aa:bb:cc:dd:ee:ff"), "an unrelated pad has no battery");
+    expect(!batteries.read(""), "a pad without an id has no battery");
+    expect(!ControllerBatteries{root / "missing"}.read("e8:48:b8:c8:20:00"),
+           "no power_supply class, no battery");
+    const std::optional<BatteryStatus> system = BatteryReader{root}.read();
+    expect(system && system->percent == 90, "controller batteries are not the system's");
+}
+
 } // namespace
 
 int main() {
+    controllerBattery();
     systemBattery();
     charging();
     deviceBatteriesIgnored();

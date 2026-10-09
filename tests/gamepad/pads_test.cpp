@@ -25,6 +25,7 @@ using opensu::gamepad::Button;
 using opensu::gamepad::EvdevDevice;
 using opensu::gamepad::Event;
 using opensu::gamepad::PadEvent;
+using opensu::gamepad::PadInfo;
 using opensu::gamepad::Pads;
 using opensu::gamepad::VirtualPad;
 using opensu::test::expect;
@@ -187,6 +188,47 @@ int main() {
            "its presses are read");
     physical->send({{EV_KEY, BTN_SOUTH, 0}});
 
+    std::string testId;
+    for (const Event& event : seen) {
+        if (event.kind == Event::Kind::Connected && event.device == "opensu test pad") {
+            testId = event.source;
+        }
+    }
+    expect(testId.starts_with("/dev/input/event"), "a connection names the pad's node");
+    const auto listed = pads.connected();
+    const auto mine = std::ranges::find(listed, testId, &PadInfo::id);
+    expect(mine != listed.end() && mine->name == "opensu test pad", "connected() lists the pad");
+    expect(std::ranges::any_of(seen,
+                               [&](const Event& event) {
+                                   return event.kind == Event::Kind::Button &&
+                                          event.button == Button::A && event.source == testId;
+                               }),
+           "a button event names the pad that pressed it");
+    {
+        const FakePad second{"opensu second pad", 0x054c, 0x0ce6};
+        expect(collect(pads, seen,
+                       [&] {
+                           return has(seen, Event::Kind::Connected, "opensu second pad");
+                       }),
+               "a second pad is picked up");
+        const auto both = pads.connected();
+        const auto first = std::ranges::find(both, testId, &PadInfo::id);
+        const auto later =
+            std::ranges::find(both, std::string{"opensu second pad"}, &PadInfo::name);
+        expect(first != both.end() && later != both.end() && first < later,
+               "pads are listed in the order they connected");
+    }
+    expect(collect(pads, seen,
+                   [&] {
+                       return has(seen, Event::Kind::Disconnected, "opensu second pad");
+                   }),
+           "the second pad leaves");
+    expect(std::ranges::none_of(pads.connected(),
+                                [](const PadInfo& info) {
+                                    return info.name == "opensu second pad";
+                                }),
+           "a pad that left is no longer listed");
+
     {
         const FakePad steamVirtual{"Steam Virtual Gamepad", 0x28de, 0x11ff};
         auto node = openNamed("Steam Virtual Gamepad");
@@ -282,6 +324,11 @@ int main() {
                        return has(seen, Event::Kind::Disconnected, "opensu test pad");
                    }),
            "a pad that leaves is reported");
+    expect(std::ranges::none_of(pads.connected(),
+                                [&](const PadInfo& info) {
+                                    return info.id == testId;
+                                }),
+           "and no longer listed");
 
     std::printf("pads: all checks passed\n");
     return 0;

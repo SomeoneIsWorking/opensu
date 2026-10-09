@@ -26,6 +26,47 @@ constexpr float sliderInsetDp = 52.0f;
 
 } // namespace
 
+SettingsRow makeRow(std::string id, RowKind kind, std::string label, std::string note,
+                    std::string value) {
+    SettingsRow row;
+    row.id = std::move(id);
+    row.kind = kind;
+    row.label = std::move(label);
+    row.note = std::move(note);
+    row.value = std::move(value);
+    return row;
+}
+
+SettingsRow makeToggle(std::string id, std::string label, std::string note, bool on) {
+    SettingsRow row = makeRow(std::move(id), RowKind::Toggle, std::move(label), std::move(note), {});
+    row.on = on;
+    return row;
+}
+
+SettingsRow makeSlider(std::string id, std::string label, std::string note, SliderRange range) {
+    SettingsRow row = makeRow(std::move(id), RowKind::Slider, std::move(label), std::move(note), {});
+    row.level = range.level;
+    row.low = range.low;
+    row.high = range.high;
+    return row;
+}
+
+SettingsRowBox settingsRowBox(const Rect& rect, RowKind kind, float dp) {
+    SettingsRowBox box;
+    box.rect = rect;
+    if (kind == RowKind::Toggle) {
+        box.control = Rect{rect.right() - controlInsetDp * dp - switchWidthDp * dp,
+                           rect.centreY() - switchHeightDp * dp * 0.5f, switchWidthDp * dp,
+                           switchHeightDp * dp};
+    } else if (kind == RowKind::Slider) {
+        // The track leaves the label two fifths of the row at least.
+        const float track = std::min(sliderWidthDp * dp, rect.width * 0.4f);
+        box.control = Rect{rect.right() - sliderInsetDp * dp - track,
+                           rect.centreY() - sliderHeightDp * dp * 0.5f, track, sliderHeightDp * dp};
+    }
+    return box;
+}
+
 SettingsLayout layoutSettings(float width, float height, float dp, float topInset,
                               float bottomInset, std::size_t categories,
                               const std::vector<SettingsRow>& rows, std::size_t focused) {
@@ -64,20 +105,9 @@ SettingsLayout layoutSettings(float width, float height, float dp, float topInse
     scroll = std::min(scroll, std::max(contentHeight - visible, 0.0f));
     float rowY = topInset + pad - scroll;
     for (const SettingsRow& row : rows) {
-        SettingsRowBox box;
-        box.rect = Rect{layout.panel.x + pad, rowY, layout.panel.width - 2.0f * pad, rowHeight};
-        if (row.kind == RowKind::Toggle) {
-            box.control = Rect{box.rect.right() - controlInsetDp * dp - switchWidthDp * dp,
-                               box.rect.centreY() - switchHeightDp * dp * 0.5f, switchWidthDp * dp,
-                               switchHeightDp * dp};
-        } else if (row.kind == RowKind::Slider) {
-            // The track leaves the label two fifths of the row at least.
-            const float track = std::min(sliderWidthDp * dp, box.rect.width * 0.4f);
-            box.control =
-                Rect{box.rect.right() - sliderInsetDp * dp - track,
-                     box.rect.centreY() - sliderHeightDp * dp * 0.5f, track, sliderHeightDp * dp};
-        }
-        layout.rows.push_back(box);
+        layout.rows.push_back(settingsRowBox(
+            Rect{layout.panel.x + pad, rowY, layout.panel.width - 2.0f * pad, rowHeight}, row.kind,
+            dp));
         rowY += rowHeight + rowGap;
     }
     return layout;
@@ -106,11 +136,18 @@ std::optional<std::size_t> SettingsLayout::rowAt(float x, float y) const noexcep
 
 std::optional<int> SettingsLayout::levelAt(const SettingsRow& row, std::size_t index, float x,
                                            float y) const noexcept {
-    if (row.kind != RowKind::Slider || index >= rows.size() || !panel.contains(x, y) ||
-        !rows[index].rect.contains(x, y)) {
+    if (index >= rows.size() || !panel.contains(x, y)) {
         return std::nullopt;
     }
-    const Rect& track = rows[index].control;
+    return levelOnTrack(row, rows[index], x, y);
+}
+
+std::optional<int> levelOnTrack(const SettingsRow& row, const SettingsRowBox& box, float x,
+                                float y) noexcept {
+    if (row.kind != RowKind::Slider || !box.rect.contains(x, y)) {
+        return std::nullopt;
+    }
+    const Rect& track = box.control;
     if (x < track.x || x >= track.right()) {
         return std::nullopt;
     }

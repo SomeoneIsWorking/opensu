@@ -35,9 +35,6 @@ int exitCode(int status) {
     return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
 }
 
-/// Where a streamed child's stderr goes.
-enum class Errors : std::uint8_t { Merged, Discarded };
-
 constexpr auto readSlice = std::chrono::milliseconds{100};
 /// How long a stopped child has to end on SIGTERM before it is killed.
 constexpr auto termGrace = std::chrono::seconds{2};
@@ -140,7 +137,7 @@ namespace {
 
 std::optional<int> stream(const std::string& program, const std::vector<std::string>& args,
                           const std::function<void(std::string_view)>& onLine,
-                          const std::stop_token& stop, Errors errors) {
+                          const std::stop_token& stop, CaptureErrors errors) {
     std::array<int, 2> ends{};
     if (pipe2(ends.data(), O_CLOEXEC) != 0) {
         lucent::warn("launch", "cannot make a pipe for {}: {}", program, std::strerror(errno));
@@ -154,7 +151,7 @@ std::optional<int> stream(const std::string& program, const std::vector<std::str
     posix_spawn_file_actions_init(&actions);
     posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
     posix_spawn_file_actions_adddup2(&actions, writer.get(), STDOUT_FILENO);
-    if (errors == Errors::Merged) {
+    if (errors == CaptureErrors::Merged) {
         posix_spawn_file_actions_adddup2(&actions, writer.get(), STDERR_FILENO);
     } else {
         posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
@@ -220,11 +217,11 @@ std::optional<int> stream(const std::string& program, const std::vector<std::str
 std::optional<int> runStreaming(const std::string& program, const std::vector<std::string>& args,
                                 const std::function<void(std::string_view)>& onLine,
                                 const std::stop_token& stop) {
-    return stream(program, args, onLine, stop, Errors::Merged);
+    return stream(program, args, onLine, stop, CaptureErrors::Merged);
 }
 
 std::optional<Captured> runCaptured(const std::string& program,
-                                    const std::vector<std::string>& args) {
+                                    const std::vector<std::string>& args, CaptureErrors errors) {
     Captured captured;
     const std::optional<int> status = stream(
         program, args,
@@ -232,7 +229,7 @@ std::optional<Captured> runCaptured(const std::string& program,
             captured.output.append(line);
             captured.output.push_back('\n');
         },
-        std::stop_token{}, Errors::Discarded);
+        std::stop_token{}, errors);
     if (!status) {
         return std::nullopt;
     }

@@ -35,27 +35,6 @@ constexpr const char* soundsId = "uiSounds";
 constexpr const char* installDefaultId = "install.default";
 constexpr const char* installStoreId = "install.";
 
-SettingsRow toggle(const char* id, std::string label, std::string note, bool on) {
-    SettingsRow row;
-    row.id = id;
-    row.kind = RowKind::Toggle;
-    row.label = std::move(label);
-    row.note = std::move(note);
-    row.on = on;
-    return row;
-}
-
-SettingsRow row(const char* id, RowKind kind, std::string label, std::string note,
-                std::string value) {
-    SettingsRow made;
-    made.id = id;
-    made.kind = kind;
-    made.label = std::move(label);
-    made.note = std::move(note);
-    made.value = std::move(value);
-    return made;
-}
-
 /// The paths of `folders` for a value, or `none` when there are no paths.
 std::string listed(const std::vector<fs::path>& folders, const std::string& none) {
     std::string text;
@@ -113,22 +92,18 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
 ui::SettingsCategory SettingsController::appearancePage() const {
     const settings::Settings& v = preferences_.values();
     ui::SettingsCategory page{"appearance", "Appearance", {}};
-    page.rows.push_back(row(layoutId, RowKind::Choice, "Library layout",
+    page.rows.push_back(ui::makeRow(layoutId, RowKind::Choice, "Library layout",
                             "How Library lays out its tiles",
                             std::string{library::label(v.libraryMode)}));
-    SettingsRow size =
-        row(iconSizeId, RowKind::Slider, "Icon size", "How large Library's tiles are", "");
-    size.level = v.iconSize;
-    size.low = ui::minIconLevel;
-    size.high = ui::maxIconLevel;
-    page.rows.push_back(size);
+    page.rows.push_back(ui::makeSlider(iconSizeId, "Icon size", "How large Library's tiles are",
+                                       ui::SliderRange{v.iconSize, ui::minIconLevel, ui::maxIconLevel}));
     const config::HomeMode mode = v.homeMode.value_or(defaults_.homeMode);
-    page.rows.push_back(row(scrollModeId, RowKind::Choice, "Scroll mode",
+    page.rows.push_back(ui::makeRow(scrollModeId, RowKind::Choice, "Scroll mode",
                             v.homeMode ? "How the home grid scrolls" : "From OPENSU_HOME_MODE",
                             mode == config::HomeMode::WiiSu ? "Pages" : "Scrolling"));
-    page.rows.push_back(toggle(pinDockId, "Pin navigation bar on Library",
+    page.rows.push_back(ui::makeToggle(pinDockId, "Pin navigation bar on Library",
                                "Keep the dock up on Library", v.pinLibraryDock));
-    page.rows.push_back(row(uiScaleId, RowKind::Choice, "Interface size",
+    page.rows.push_back(ui::makeRow(uiScaleId, RowKind::Choice, "Interface size",
                             "Scales everything on screen", percentOf(v.uiScale)));
     return page;
 }
@@ -136,7 +111,7 @@ ui::SettingsCategory SettingsController::appearancePage() const {
 ui::SettingsCategory SettingsController::libraryPage() const {
     const settings::Settings& v = preferences_.values();
     ui::SettingsCategory page{"library", "Library", {}};
-    page.rows.push_back(row(sortId, RowKind::Choice, "Sort by", "How games are ordered",
+    page.rows.push_back(ui::makeRow(sortId, RowKind::Choice, "Sort by", "How games are ordered",
                             std::string{library::label(v.view.sort)}));
     std::string source = "All sources";
     for (const library::SourceChoice& choice : hooks_.sourceChoices()) {
@@ -144,37 +119,37 @@ ui::SettingsCategory SettingsController::libraryPage() const {
             source = choice.label;
         }
     }
-    page.rows.push_back(row(sourceId, RowKind::Choice, "Show", "Which store's games show", source));
-    page.rows.push_back(toggle(installedId, "Installed games only",
+    page.rows.push_back(ui::makeRow(sourceId, RowKind::Choice, "Show", "Which store's games show", source));
+    page.rows.push_back(ui::makeToggle(installedId, "Installed games only",
                                "Hide games you have not installed", v.view.installedOnly));
     page.rows.push_back(
-        row(hiddenId, RowKind::Action, "Show hidden games again", "Brings back every game you hid",
+        ui::makeRow(hiddenId, RowKind::Action, "Show hidden games again", "Brings back every game you hid",
             v.hidden.keys().empty() ? "None hidden" : countOf(v.hidden.keys().size(), "game")));
-    page.rows.push_back(row(emulatorsId, RowKind::Action, "Reset emulator choices",
+    page.rows.push_back(ui::makeRow(emulatorsId, RowKind::Action, "Reset emulator choices",
                             "Every ROM goes back to its default emulator",
                             v.emulators.entries().empty()
                                 ? "None chosen"
                                 : countOf(v.emulators.entries().size(), "game")));
-    page.rows.push_back(row(
+    page.rows.push_back(ui::makeRow(
         "roms.list", RowKind::Info, "ROM folders",
         v.romFolders.empty() && !defaults_.romRoots.empty() ? "From OPENSU_ROM_ROOTS"
                                                             : "Applies after a restart",
         listed(v.romFolders.empty() ? defaults_.romRoots : v.romFolders, "Found automatically")));
-    page.rows.push_back(row(romAddId, RowKind::Folder, "Add a ROM folder",
+    page.rows.push_back(ui::makeRow(romAddId, RowKind::Folder, "Add a ROM folder",
                             "A folder with one subfolder per system", ""));
-    page.rows.push_back(row(romResetId, RowKind::Action, "Find ROM folders automatically",
+    page.rows.push_back(ui::makeRow(romResetId, RowKind::Action, "Find ROM folders automatically",
                             "Forgets the folders you added", ""));
-    page.rows.push_back(row(
+    page.rows.push_back(ui::makeRow(
         "steam.list", RowKind::Info, "Steam install folders",
         v.steamRoots.empty() && !defaults_.steamRoots.empty() ? "From OPENSU_STEAM_ROOTS"
                                                               : "Applies after a restart",
         listed(v.steamRoots.empty() ? defaults_.steamRoots : v.steamRoots, "Found automatically")));
-    page.rows.push_back(row(steamAddId, RowKind::Folder, "Add a Steam install folder",
+    page.rows.push_back(ui::makeRow(steamAddId, RowKind::Folder, "Add a Steam install folder",
                             "The folder that holds steamapps", ""));
-    page.rows.push_back(row(steamResetId, RowKind::Action, "Find Steam automatically",
+    page.rows.push_back(ui::makeRow(steamResetId, RowKind::Action, "Find Steam automatically",
                             "Forgets the folders you added", ""));
     for (const fs::path& library : libraries_) {
-        page.rows.push_back(row("steam.library", RowKind::Info, "Steam library",
+        page.rows.push_back(ui::makeRow("steam.library", RowKind::Info, "Steam library",
                                 "Manage them in Steam's storage settings", library.string()));
     }
     return page;
@@ -182,22 +157,18 @@ ui::SettingsCategory SettingsController::libraryPage() const {
 
 ui::SettingsCategory SettingsController::audioPage() const {
     ui::SettingsCategory page{"audio", "Audio", {}};
-    page.rows.push_back(toggle(soundsId, "UI sounds", "The sounds menus and launches make",
+    page.rows.push_back(ui::makeToggle(soundsId, "UI sounds", "The sounds menus and launches make",
                                preferences_.values().uiSounds));
     const audio::SystemVolume& volume = volume_.system();
     if (!volume.available()) {
-        page.rows.push_back(row("volume.missing", RowKind::Info, "System volume",
+        page.rows.push_back(ui::makeRow("volume.missing", RowKind::Info, "System volume",
                                 volume.unavailable(), "Not available"));
         return page;
     }
     const audio::VolumeState state = volume.state().value_or(audio::VolumeState{});
-    SettingsRow level =
-        row(volumeId, RowKind::Slider, "System volume", "The output volume of this computer", "");
-    level.level = state.percent;
-    level.low = 0;
-    level.high = 100;
-    page.rows.push_back(level);
-    page.rows.push_back(toggle(muteId, "Mute", "Silences the output", state.muted));
+    page.rows.push_back(ui::makeSlider(volumeId, "System volume",
+                                       "The output volume of this computer", ui::SliderRange{state.percent, 0, 100}));
+    page.rows.push_back(ui::makeToggle(muteId, "Mute", "Silences the output", state.muted));
     return page;
 }
 
@@ -211,11 +182,11 @@ ui::SettingsCategory SettingsController::controlsPage() const {
                                                  : "Press the new key";
         }
         page.rows.push_back(
-            row((std::string{shortcutId} + std::string{input::spelling(action)}).c_str(),
+            ui::makeRow((std::string{shortcutId} + std::string{input::spelling(action)}).c_str(),
                 RowKind::Action, std::string{input::label(action)},
                 listening ? "Esc or B cancels" : "", value));
     }
-    page.rows.push_back(row(shortcutsResetId, RowKind::Action, "Restore default shortcuts",
+    page.rows.push_back(ui::makeRow(shortcutsResetId, RowKind::Action, "Restore default shortcuts",
                             "Every key and chord back to how it shipped", ""));
     return page;
 }
@@ -223,7 +194,7 @@ ui::SettingsCategory SettingsController::controlsPage() const {
 ui::SettingsCategory SettingsController::installPage() const {
     const settings::InstallFolders& folders = preferences_.values().installFolders;
     ui::SettingsCategory page{"installs", "Install folders", {}};
-    page.rows.push_back(row(installDefaultId, RowKind::Folder, "Default install folder",
+    page.rows.push_back(ui::makeRow(installDefaultId, RowKind::Folder, "Default install folder",
                             "Where games install unless a store has its own folder",
                             folders.defaultFolder().empty() ? "Each store's own"
                                                             : folders.defaultFolder().string()));
@@ -238,7 +209,7 @@ ui::SettingsCategory SettingsController::installPage() const {
                         ? "Store's own"
                         : "Default (" + folders.defaultFolder().string() + ")";
         }
-        page.rows.push_back(row(storeKeyOf(store).c_str(), RowKind::Folder,
+        page.rows.push_back(ui::makeRow(storeKeyOf(store).c_str(), RowKind::Folder,
                                 std::string{library::label(store)} + " install folder", notes[at++],
                                 value));
     }
@@ -248,11 +219,11 @@ ui::SettingsCategory SettingsController::installPage() const {
 ui::SettingsCategory SettingsController::aboutPage() const {
     return {"about",
             "About",
-            {row("about.settings", RowKind::Info, "Settings file", "",
+            {ui::makeRow("about.settings", RowKind::Info, "Settings file", "",
                  (defaults_.configDir / "settings.json").string()),
-             row("about.data", RowKind::Info, "Data folder", "Sign-ins and GOG installs",
+             ui::makeRow("about.data", RowKind::Info, "Data folder", "Sign-ins and GOG installs",
                  defaults_.dataDir.string()),
-             row("about.cache", RowKind::Info, "Cache folder", "Artwork and sounds",
+             ui::makeRow("about.cache", RowKind::Info, "Cache folder", "Artwork and sounds",
                  defaults_.cacheDir.string())}};
 }
 
@@ -261,6 +232,17 @@ void SettingsController::open() {
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     page_.open(build());
+}
+
+void SettingsController::openCategory(const std::string& id) {
+    open();
+    const std::vector<ui::SettingsCategory>& categories = page_.categories();
+    for (std::size_t index = 0; index < categories.size(); ++index) {
+        if (categories[index].id == id) {
+            page_.focusCategory(index);
+            return;
+        }
+    }
 }
 
 void SettingsController::close() {
@@ -418,13 +400,7 @@ void SettingsController::runAppearance(const std::string& id, int step) {
     } else if (id == pinDockId) {
         v.pinLibraryDock = !v.pinLibraryDock;
     } else if (id == uiScaleId) {
-        const int levels =
-            (settings::maxUiScale - settings::minUiScale) / settings::uiScaleStep + 1;
-        const auto choices = static_cast<std::size_t>(levels);
-        const auto from =
-            static_cast<std::size_t>((v.uiScale - settings::minUiScale) / settings::uiScaleStep);
-        v.uiScale = settings::minUiScale +
-                    static_cast<int>(around(from, step, choices)) * settings::uiScaleStep;
+        v.uiScale = settings::steppedUiScale(v.uiScale, step);
     } else {
         v.uiSounds = !v.uiSounds;
     }

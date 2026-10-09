@@ -27,11 +27,6 @@ constexpr float railCardInsetDp = 2.0f;
 // iiSU's backdrop blur radius for glass (`homeGlassBlurRadiusDp`), as a Gaussian's sigma.
 constexpr float glassBlurSigmaDp = 8.0f;
 
-/// A texture from decoded pixels, or an empty one for none.
-Texture upload(const Pixels& pixels) {
-    return pixels.empty() ? Texture{} : LoadTextureFromImage(pixels.image());
-}
-
 /// The dock's keys for the icon files: `home`, `home_selected`, `library`, `library_selected`.
 std::string navKey(library::Section section, bool selected) {
     return std::string{library::key(section)} + (selected ? "_selected" : "");
@@ -75,7 +70,7 @@ Shell::Shell(int width, int height, config::HomeMode mode)
 }
 
 Shell::~Shell() {
-    releaseTextures();
+    artwork_.beginShelf(tiles_, header_);
     if (scene_.id != 0) {
         UnloadRenderTexture(scene_);
     }
@@ -159,18 +154,17 @@ Tile Shell::makeTile(library::ShelfItem item) const {
 
 void Shell::setHeader(std::optional<library::ShelfItem> header) {
     if (header_) {
-        unloadArtwork(*header_);
+        artwork_.unload(*header_);
     }
     header_.reset();
     if (header) {
         header_ = makeTile(std::move(*header));
-        header_->ticket = ++lastTicket_;
+        header_->ticket = artwork_.ticket();
     }
 }
 
 void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
-    releaseTextures();
-    ++shelfSerial_;
+    artwork_.beginShelf(tiles_, header_);
     tiles_.clear();
     tiles_.reserve(items.size());
     gameTiles_.clear();
@@ -179,7 +173,7 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
             gameTiles_.emplace(game->id, tiles_.size());
         }
         tiles_.push_back(makeTile(std::move(item)));
-        tiles_.back().ticket = ++lastTicket_;
+        tiles_.back().ticket = artwork_.ticket();
     }
     relayout();
     const std::size_t start = focus < tiles_.size() ? focus : 0;
@@ -190,13 +184,6 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
     focusAt_ = now_;
     // The catalog can arrive before the first frame, so the entrance starts on the next tick.
     entrancePending_ = true;
-}
-
-Tile* Shell::tileOf(std::size_t index) {
-    if (index == headerTile) {
-        return header_ ? &*header_ : nullptr;
-    }
-    return index < tiles_.size() ? &tiles_[index] : nullptr;
 }
 
 SlotRange Shell::artWindow() const {
@@ -219,90 +206,16 @@ SlotRange Shell::artWindow() const {
     return window;
 }
 
-void Shell::requestTile(Tile& tile, std::size_t index) {
-    if (tile.artLoaded || tile.artRequested) {
-        return;
-    }
-    DecodeJob job{
-        .shelf = shelfSerial_, .tile = index, .ticket = tile.ticket, .portrait = {}, .wide = {}};
-    if (const auto* console = std::get_if<library::Console>(&tile.item)) {
-        job.portrait = console->artwork;
-    } else if (const auto* game = std::get_if<library::Game>(&tile.item)) {
-        job.portrait = game->artwork;
-        job.wide = game->artworkWide;
-    }
-    if (job.portrait.empty() && job.wide.empty()) {
-        tile.artLoaded = true;
-        return;
-    }
-    tile.artRequested = true;
-    decoder_.request(std::move(job));
-}
-
-void Shell::requestArtwork(const SlotRange& window) {
-    // Art queued for tiles that have since left the window is not worth decoding.
-    for (const DecodeJob& dropped : decoder_.prune([&](const DecodeJob& job) {
-             return job.shelf == shelfSerial_ &&
-                    (job.tile == headerTile || window.contains(job.tile));
-         })) {
-        if (Tile* tile = dropped.shelf == shelfSerial_ ? tileOf(dropped.tile) : nullptr) {
-            tile->artRequested = false;
-        }
-    }
-    for (std::size_t index = window.first; index < window.last; ++index) {
-        requestTile(tiles_[index], index);
-    }
-    if (header_) {
-        requestTile(*header_, headerTile);
-    }
-}
-
-void Shell::uploadArtwork(std::size_t limit) {
-    for (Decoded& done : decoder_.take(limit)) {
-        Tile* tile = done.job.shelf == shelfSerial_ ? tileOf(done.job.tile) : nullptr;
-        if (tile == nullptr || tile->ticket != done.job.ticket || tile->artLoaded) {
-            continue;
-        }
-        tile->portrait = upload(done.portrait);
-        tile->wide = upload(done.wide);
-        tile->hasPortrait = tile->portrait.id != 0;
-        tile->hasWide = tile->wide.id != 0;
-        tile->artLoaded = true;
-        tile->artRequested = false;
-        if (done.job.tile != headerTile && (tile->hasPortrait || tile->hasWide)) {
-            resident_.push_back(done.job.tile);
-        }
-    }
-}
-
-void Shell::trimResident(const SlotRange& window) {
-    std::erase_if(resident_, [this](std::size_t index) {
-        return index >= tiles_.size() || !(tiles_[index].hasPortrait || tiles_[index].hasWide);
-    });
-    // Oldest first: a tile outside the window gives its textures back until the limit holds.
-    for (auto it = resident_.begin(); it != resident_.end() && resident_.size() > residentLimit;) {
-        if (window.contains(*it)) {
-            ++it;
-            continue;
-        }
-        unloadArtwork(tiles_[*it]);
-        it = resident_.erase(it);
-    }
-}
-
 void Shell::loadArtwork(std::size_t uploads) {
     glyphs_.load();
     navIcons_.load();
-    const SlotRange window = artWindow();
-    requestArtwork(window);
-    uploadArtwork(uploads);
-    trimResident(window);
+    artwork_.load(tiles_, header_, artWindow(), uploads);
 }
 
 void Shell::loadArtworkNow() {
     loadArtwork(std::numeric_limits<std::size_t>::max());
-    while (!decoder_.idle()) {
-        decoder_.waitDecoded();
+    while (!artwork_.idle()) {
+        artwork_.waitDecoded();
         loadArtwork(std::numeric_limits<std::size_t>::max());
     }
 }
@@ -313,20 +226,6 @@ std::size_t Shell::loadedArtwork() const noexcept {
     }));
 }
 
-void Shell::unloadArtwork(Tile& tile) {
-    if (tile.hasPortrait) {
-        UnloadTexture(tile.portrait);
-        tile.hasPortrait = false;
-    }
-    if (tile.hasWide) {
-        UnloadTexture(tile.wide);
-        tile.hasWide = false;
-    }
-    tile.artLoaded = false;
-    tile.artRequested = false;
-    tile.ticket = ++lastTicket_;
-}
-
 void Shell::setArtwork(std::string_view gameId, const std::filesystem::path& artwork) {
     const auto found = gameTiles_.find(std::string{gameId});
     if (found == gameTiles_.end()) {
@@ -335,7 +234,7 @@ void Shell::setArtwork(std::string_view gameId, const std::filesystem::path& art
     Tile& tile = tiles_[found->second];
     if (auto* game = std::get_if<library::Game>(&tile.item)) {
         game->artwork = artwork;
-        unloadArtwork(tile);
+        artwork_.unload(tile);
     }
     tile.artDownloading = false;
 }
@@ -374,7 +273,7 @@ void Shell::setConsoleArtwork(std::string_view system, const std::filesystem::pa
         auto* console = std::get_if<library::Console>(&tile.item);
         if (console != nullptr && console->system == system) {
             console->artwork = artwork;
-            unloadArtwork(tile);
+            artwork_.unload(tile);
         }
     };
     for (Tile& tile : tiles_) {
@@ -438,16 +337,6 @@ void Shell::setHomeMode(config::HomeMode mode) {
     if (mode != mode_) {
         mode_ = mode;
         relayout();
-    }
-}
-
-void Shell::releaseTextures() {
-    resident_.clear();
-    for (Tile& tile : tiles_) {
-        unloadArtwork(tile);
-    }
-    if (header_) {
-        unloadArtwork(*header_);
     }
 }
 
@@ -578,6 +467,7 @@ void Shell::tick(Clock::time_point now) {
     followFade(contextFade_, context_.isOpen(), contextWasOpen_);
     followFade(detailsFade_, details_.isOpen(), detailsWasOpen_);
     settings_.tick(now_);
+    devices_.tick(now_);
     volumeOsd_.tick(now_);
     railFocus_.step(dt);
     if (layout_.mode() == ScrollMode::Flow) {
@@ -634,7 +524,9 @@ std::string Shell::focusedTitle() const {
 }
 
 std::string Shell::pillTitle() const {
-    return presentation() == Presentation::Grid ? focusedTitle() : std::string{};
+    // The grid names its focused tile; a page that replaces the grid names itself in the trail.
+    const bool page = details_.isOpen() || settings_.anyOpen() || devices_.isOpen();
+    return presentation() == Presentation::Grid && !page ? focusedTitle() : std::string{};
 }
 
 void Shell::fillContent(TileVisual& visual, const Tile& tile) const {
@@ -848,7 +740,8 @@ PointerTarget Shell::pointAt(std::optional<Vector2> point) {
         return {};
     }
     if (!inGame_ && !launchPanel_.isOpen() &&
-        (!panelOpen() || details_.isOpen() || settings_.onlyPage())) {
+        (!panelOpen() || details_.isOpen() || settings_.onlyPage() || devices_.isOpen()) &&
+        !guide_.anyOpen()) {
         if (const std::optional<std::size_t> crumb = hud_.crumbAt(point->x, point->y)) {
             hud_.setCrumbHover(crumb);
             return OnCrumb{*crumb};
@@ -877,14 +770,10 @@ PointerTarget Shell::pointAt(std::optional<Vector2> point) {
 PointerTarget Shell::pointAtModal(Vector2 point) const {
     const auto width = static_cast<float>(width_);
     const auto height = static_cast<float>(height_);
-    if (inGame_) {
-        if (!gameMenu_.isOpen()) {
-            return {};
-        }
-        const GameMenuLayout menu = gameMenuPainter_.layout(width, height, dp());
-        if (const std::optional<std::size_t> row = menu.itemAt(point.x, point.y)) {
-            return OnMenuItem{*row};
-        }
+    if (guide_.anyOpen()) {
+        return guide_.pointAt(point, Vector2{width, height}, dp());
+    }
+    if (inGame_ && !settings_.anyOpen() && !devices_.isOpen()) {
         return {};
     }
     if (launchPanel_.isOpen()) {
@@ -903,6 +792,10 @@ PointerTarget Shell::pointAtModal(Vector2 point) const {
         return settings_.pointAt(point, Vector2{width, height}, dp(), hud_.topInset(),
                                  hud_.bottomInset());
     }
+    if (devices_.isOpen()) {
+        return devices_.pointAt(point, Vector2{width, height}, dp(), hud_.topInset(),
+                                hud_.bottomInset());
+    }
     if (details_.isOpen()) {
         if (const std::optional<std::size_t> button = detailsLayout().buttonAt(point.x, point.y)) {
             return OnDetailsButton{*button};
@@ -914,7 +807,7 @@ PointerTarget Shell::pointAtModal(Vector2 point) const {
         if (const std::optional<std::size_t> row = menu.itemAt(point.x, point.y)) {
             return OnContextItem{*row};
         }
-        return menu.contains(point.x, point.y) ? PointerTarget{} : OnContextBackdrop{};
+        return menu.contains(point.x, point.y) ? PointerTarget{} : OnBackdrop{};
     }
     if (search_.isOpen()) {
         const SearchLayout panel = layoutSearch(frame, dp());
@@ -1008,7 +901,11 @@ bool Shell::focusTarget(const PointerTarget& target) {
                                  std::is_same_v<Target, OnSettingsRow> ||
                                  std::is_same_v<Target, OnSettingsSlider> ||
                                  std::is_same_v<Target, OnFolderEntry>) {
-                return settings_.focusTarget(at);
+                return devices_.isOpen() ? devices_.focusTarget(at) : settings_.focusTarget(at);
+            } else if constexpr (std::is_same_v<Target, OnGuideEntry> ||
+                                 std::is_same_v<Target, OnQuickRow> ||
+                                 std::is_same_v<Target, OnQuickSlider>) {
+                return guide_.focusTarget(at);
             } else if constexpr (std::is_same_v<Target, OnSearchResult>) {
                 return search_.focusResult(at.index);
             } else if constexpr (std::is_same_v<Target, OnContextItem>) {
@@ -1019,8 +916,6 @@ bool Shell::focusTarget(const PointerTarget& target) {
                 return focusPage(at.page);
             } else if constexpr (std::is_same_v<Target, OnLayoutCard>) {
                 return chooser_.focus(at.mode);
-            } else if constexpr (std::is_same_v<Target, OnMenuItem>) {
-                return gameMenu_.focusItem(at.index);
             } else {
                 return false;
             }
@@ -1043,7 +938,7 @@ void Shell::drawDock(const DockFrame& frame, float frameHeight) {
 
 void Shell::drawScene() {
     hud_.drawGround();
-    const bool settingsShown = settings_.pageVisible(now_);
+    const bool settingsShown = settings_.pageVisible(now_) || devices_.visible(now_);
     const bool detailsShown = detailsFade_.visible(now_);
     if (presentation() == Presentation::Grid) {
         drawGrid();
@@ -1059,12 +954,27 @@ void Shell::drawScene() {
                                   Vector2{static_cast<float>(width_), static_cast<float>(height_)},
                                   dp(), detailsFade_.alpha(now_));
     }
-    if (settingsShown) {
-        settings_.drawPage(Vector2{static_cast<float>(width_), static_cast<float>(height_)}, dp(),
-                           hud_.topInset(), hud_.bottomInset(), now_);
-    }
+    drawPages(Vector2{static_cast<float>(width_), static_cast<float>(height_)});
     hud_.drawTopBar();
     hud_.drawHints();
+}
+
+void Shell::drawPages(Vector2 size) {
+    settings_.drawPage(size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
+    devices_.draw(size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
+}
+
+void Shell::drawOverGame(Vector2 size) {
+    // Only what the Guide menus open is drawn; the game shows through everywhere else.
+    drawPages(size);
+    if (settings_.pageVisible(now_) || devices_.visible(now_)) {
+        hud_.drawTopBar();
+        hud_.drawHints();
+    }
+    const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
+    settings_.drawOverlays(size, dp(), now_, seconds);
+    guide_.draw(size, dp());
+    hud_.drawToast();
 }
 
 void Shell::draw(const RenderTexture2D* target) {
@@ -1084,7 +994,7 @@ void Shell::draw(const RenderTexture2D* target) {
         }
         BeginBlendMode(BLEND_CUSTOM_SEPARATE);
         ClearBackground(BLANK);
-        gameMenuPainter_.paint(gameMenu_, frameWidth, frameHeight, dp());
+        drawOverGame(Vector2{frameWidth, frameHeight});
         EndBlendMode();
         if (target != nullptr) {
             EndTextureMode();
@@ -1112,7 +1022,7 @@ void Shell::draw(const RenderTexture2D* target) {
                    Rectangle{0.0f, 0.0f, static_cast<float>(scene_.texture.width),
                              -static_cast<float>(scene_.texture.height)},
                    Vector2{0.0f, 0.0f}, WHITE);
-    if (!detailsFade_.visible(now_) && !settings_.pageVisible(now_)) {
+    if (!detailsFade_.visible(now_) && !settings_.pageVisible(now_) && !devices_.visible(now_)) {
         drawDock(dock, frameHeight);
     }
     launchPanelPainter_.paint(launchPanel_, Vector2{frameWidth, frameHeight}, dp(),
@@ -1124,6 +1034,7 @@ void Shell::draw(const RenderTexture2D* target) {
     contextPainter_.paint(context_, Vector2{frameWidth, frameHeight}, dp(),
                           contextFade_.look(now_));
     settings_.drawOverlays(Vector2{frameWidth, frameHeight}, dp(), now_, seconds);
+    guide_.draw(Vector2{frameWidth, frameHeight}, dp());
     if (volumeOsd_.visible(now_)) {
         paintVolumeOsd(volumeOsd_.level(), Vector2{frameWidth, frameHeight}, dp(), hud_.topInset(),
                        volumeOsd_.look(now_));

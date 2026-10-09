@@ -21,25 +21,33 @@
 #include "artwork_delivery.hpp"
 #include "artwork_fetcher.hpp"
 #include "artwork_store.hpp"
+#include "audio_outputs.hpp"
+#include "bluetooth_session.hpp"
+#include "brightness_control.hpp"
+#include "controller_roster.hpp"
 #include "audio/sound_player.hpp"
 #include "breadcrumb_trail.hpp"
 #include "config/config.hpp"
 #include "context_menu_controller.hpp"
+#include "control_bridge.hpp"
 #include "control_channel.hpp"
 #include "details_controller.hpp"
+#include "devices_controller.hpp"
 #include "device/battery.hpp"
-#include "game_keys.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pads.hpp"
-#include "gamescope_overlay.hpp"
 #include "gamescope_windows.hpp"
 #include "input/keyboard_bindings.hpp"
+#include "game_screen.hpp"
+#include "guide_menu_controller.hpp"
+#include "host_services.hpp"
 #include "launch/handoff.hpp"
 #include "layout_picker.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
 #include "library/shelf.hpp"
 #include "panel_flow.hpp"
+#include "quick_menu_controller.hpp"
 #include "path_editor.hpp"
 #include "pointer_router.hpp"
 #include "preferences.hpp"
@@ -68,10 +76,12 @@ struct Settings {
     config::HomeMode homeMode{config::HomeMode::Standard};
     /// The window is never mapped and no pad is read, for maintainer runs and tests.
     bool hidden{false};
+    /// Whether `run` starts the Steam client, when a Steam install exists.
+    bool startSteam{true};
 };
 
 /// The running shell.
-class ShellApp final : public ControlTarget, private PointerHost {
+class ShellApp final : private PointerHost {
   public:
     explicit ShellApp(const Settings& settings);
 
@@ -86,17 +96,6 @@ class ShellApp final : public ControlTarget, private PointerHost {
     [[nodiscard]] const std::vector<library::Game>& games() const noexcept {
         return games_;
     }
-
-    // ControlTarget. Each is callable from another thread, and each hands work to
-    // the main loop, because the OpenGL context and the shell's state belong to
-    // it and to no other thread.
-    [[nodiscard]] ShellSnapshot snapshot() const override;
-    void inject(gamepad::Button button, input::Device device) override;
-    [[nodiscard]] bool captureFrame(std::string& png) override;
-    void requestClose() override;
-    void requestCatalogReload(std::string toast) override;
-    void typeText(std::string text) override;
-    void injectKey(input::Combo combo) override;
 
   private:
     /// Where pads are read from: the system's, or an empty directory in a hidden run.
@@ -141,15 +140,13 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void selectLauncher(library::Source source) override;
     void activateCrumb(std::size_t index) override;
     void scroll(int steps) override;
-    void chooseIconSize(int level) override;
+    void chooseLevel(int level) override;
     void contextMenu(const ui::PointerTarget& target) override;
     /// A click on a dock item: the same section change as L1 and R1.
     void clickSection(library::Section section);
     void actOn(gamepad::Button button);
     /// Moves home focus, with iiSU's Navigation sound when it moved.
     void moveFocus(ui::Direction direction);
-    /// Moves the Guide menu's focus, with the Navigation sound when it moved.
-    void moveMenu(int delta);
     /// L1 and R1: moves `delta` sections along the dock and shows the section's shelf, with iiSU's
     /// domino cue sized by what the section shows at once.
     void cycleSection(int delta);
@@ -185,11 +182,25 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void handleSearchText(const input::TextInput& typed);
     /// Opens a store's sign-in page in the browser, off the loop.
     void startSignIn(Store store);
-    /// Buttons while a game runs: Guide opens and closes the menu over it, which takes the
-    /// rest. Main loop only.
-    void actInGame(gamepad::Button button);
-    /// Opens or closes the Guide menu and shows or hides the window drawing it.
-    void setGameMenuOpen(bool open);
+    /// Whether a menu cannot open now: a launch, a chooser, the search or a typed field has the
+    /// buttons.
+    [[nodiscard]] bool menusBlocked();
+    /// Ends the running game from a menu.
+    void closeRunningGame();
+    /// Guide: opens the Guide menu, or closes whichever menu is open.
+    void toggleGuide();
+    /// The quick menu action: opens the quick menu, or closes it.
+    void toggleQuickMenu();
+    /// Closes the details, Settings and Devices pages, which a Guide menu entry leaves.
+    void closePages();
+    /// Shows the window over a running game while a menu or page is up, and only then.
+    void syncOverlay();
+    /// Keeps Bluetooth read while something shows it and the Devices page current. Main loop only.
+    void serviceDevices(std::chrono::steady_clock::time_point now);
+    /// The stores that have a section in the Guide menu.
+    [[nodiscard]] std::vector<library::Source> storeSections() const;
+    /// The output's size and refresh rate, for the Display tab.
+    [[nodiscard]] static std::string outputLine();
     /// Gives the shell what its chrome shows now: prompts, launcher badges, title and trail.
     void syncChrome();
     /// The trail the top bar shows for where the shell is now.
@@ -223,10 +234,12 @@ class ShellApp final : public ControlTarget, private PointerHost {
     device::BatteryReader battery_;
     /// When the clock next changes, on the minute boundary.
     std::chrono::steady_clock::time_point nextClockTick_{};
+    /// What the control channel's threads and the loop hand each other.
+    ControlBridge bridge_;
     ui::Shell shell_;
     /// Hands the fetched artwork and the stored sounds on.
     ArtworkDelivery delivery_{shell_, sounds_, artworkStore_, artworkFetcher_, [this] {
-                                  reloadRequested_.store(true);
+                                  bridge_.requestCatalogReload({});
                               }};
     /// After the preferences they keep and the shelf they re-show.
     LayoutPicker layoutPicker_{shell_.modeChooser(), sounds_, preferences_,
@@ -309,14 +322,25 @@ class ShellApp final : public ControlTarget, private PointerHost {
                                                    shell_.showVolume(
                                                        ui::VolumeLevel{state.percent, state.muted});
                                                    settingsScreen_.refresh();
+                                                   devicesScreen_.refresh();
+                                                   quickMenu_.refresh();
                                                },
                                                [this](const std::string& text, bool isError) {
                                                    shell_.setToast(text, isError);
                                                }}};
+    /// Power, Bluetooth and the backlight; a hidden run reads them and changes nothing.
+    HostServices host_{HostServices::detect(resolved_, settings_.hidden)};
+    BluetoothSession bluetooth_{*host_.bluetooth};
+    AudioOutputs outputs_{volume_.system()};
+    BrightnessControl brightness_{host_.backlight.get()};
     /// Where keys, pad chords and the game-time watcher come out as the shell's buttons.
-    ShortcutRouter router_{shell_.shortcuts(), volume_, ShortcutRouter::Hooks{[this] {
-                               requestClose();
-                           }}};
+    ShortcutRouter router_{shell_.shortcuts(), volume_,
+                           ShortcutRouter::Hooks{[this] {
+                                                     bridge_.requestClose();
+                                                 },
+                                                 [this] {
+                                                     toggleQuickMenu();
+                                                 }}};
     /// Remaps a shortcut on the Settings screen.
     ShortcutEditor shortcutEditor_{shell_.shortcuts(), preferences_,
                                    [this](const std::string& text, bool isError) {
@@ -356,6 +380,84 @@ class ShellApp final : public ControlTarget, private PointerHost {
                                       shell_.setToast(text, isError);
                                   }}};
     gamepad::Pads pads_{padsDirectory(settings_.hidden)};
+    device::ControllerBatteries padBatteries_;
+    /// The pads as the Devices page and the quick menu list them.
+    ControllerRoster roster_{ControllerRoster::Sources{
+        [this] {
+            return pads_.connected();
+        },
+        [this](const std::string& uniq) {
+            return padBatteries_.read(uniq);
+        }}};
+    /// The Devices page, reached from the Guide menu and the quick menu.
+    DevicesController devicesScreen_{
+        shell_.devicesPanel().page(),
+        DevicesController::Services{bluetooth_, roster_, outputs_, volume_, brightness_},
+        sounds_,
+        preferences_,
+        DevicesController::Hooks{[this] {
+                                     applyLayout();
+                                 },
+                                 [this](const std::string& text, bool isError) {
+                                     shell_.setToast(text, isError);
+                                 },
+                                 [this] {
+                                     devicesScreen_.close();
+                                     settingsScreen_.openCategory("controls");
+                                 },
+                                 [] {
+                                     return outputLine();
+                                 }}};
+    /// The menu Guide opens.
+    GuideMenuController guideMenu_{
+        shell_.guidePanels().guide(), *host_.power, sounds_,
+        GuideMenuController::Hooks{[this] {
+                                       return ui::GuideContext{shell_.inGame(), runningTitle_,
+                                                               storeSections()};
+                                   },
+                                   [this](library::Section section) {
+                                       closePages();
+                                       clickSection(section);
+                                   },
+                                   [this](library::Source source) {
+                                       closePages();
+                                       selectLauncher(source);
+                                   },
+                                   [this] {
+                                       closePages();
+                                       devicesScreen_.open();
+                                   },
+                                   [this] {
+                                       closePages();
+                                       settingsScreen_.open();
+                                   },
+                                   [this] {
+                                       closeRunningGame();
+                                   },
+                                   [this] {
+                                       bridge_.requestClose();
+                                   },
+                                   [this](const std::string& text, bool isError) {
+                                       shell_.setToast(text, isError);
+                                   }}};
+    /// The quick menu: Guide + A, over the home screen or a running game.
+    QuickMenuController quickMenu_{
+        shell_.guidePanels().quick(),
+        QuickMenuController::Services{volume_, outputs_, brightness_, bluetooth_, roster_},
+        sounds_,
+        QuickMenuController::Hooks{[this] {
+                                       return shell_.inGame();
+                                   },
+                                   [this] {
+                                       closeRunningGame();
+                                   },
+                                   [this] {
+                                       closePages();
+                                       devicesScreen_.open();
+                                   },
+                                   [this](const std::string& text, bool isError) {
+                                       shell_.setToast(text, isError);
+                                   }}};
     /// After shell_ and the host it drives.
     PointerRouter pointer_{shell_.inputDevice(), *this};
     /// Held directions, from a pad or the keyboard, repeat on one schedule.
@@ -396,13 +498,8 @@ class ShellApp final : public ControlTarget, private PointerHost {
                                            return preferences_.values().installFolders.effective(
                                                store);
                                        }}};
-    /// Inside Gamescope, how the window draws over a running game. Null elsewhere, where the
-    /// window is hidden while a game runs and shown only for the Guide menu.
-    std::unique_ptr<session::GamescopeOverlay> overlay_;
-    std::unique_ptr<session::GameKeys> gameKeys_;
-    /// Set by the control channel, read by the loop.
-    std::atomic<bool> closeRequested_{false};
-    std::atomic<bool> reloadRequested_{false};
+    /// How the window relates to a running game: the overlay inside Gamescope, hidden elsewhere.
+    GameScreen gameScreen_{settings_.hidden};
     /// The store sign-ins the control channel drives.
     StoreSignIn signIn_;
 
@@ -418,22 +515,6 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// The launch's latest progress, raised off-thread, taken by the loop.
     std::mutex progressMutex_;
     std::optional<launch::LaunchProgress> pendingProgress_;
-
-    /// Buttons queued by the control channel, drained by the loop.
-    std::mutex injectedMutex_;
-    std::vector<std::pair<gamepad::Button, input::Device>> injected_;
-    /// Key combinations queued by the control channel.
-    std::vector<input::Combo> injectedKeys_;
-    /// Text typed over the channel, as a physical keyboard would.
-    std::vector<std::string> typed_;
-
-    /// The published state and the frame-request handshake. Written only by the
-    /// main loop and read from the control channel's threads.
-    mutable std::mutex stateMutex_;
-    ShellSnapshot published_;
-    std::condition_variable captureAnswered_;
-    bool capturePending_{false};
-    std::string captureResult_;
 };
 
 } // namespace opensu::app

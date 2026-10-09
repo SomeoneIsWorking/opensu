@@ -84,8 +84,10 @@ void paintEnd(const SettingsRow& row, const SettingsRowBox& box, float dp, float
     }
 }
 
-void paintRow(const SettingsRow& row, const SettingsRowBox& box, bool focused, float dp,
-              float alpha) {
+} // namespace
+
+void SettingsPagePainter::paintRow(const SettingsRow& row, const SettingsRowBox& box,
+                                   bool focused, float dp, float alpha) {
     const RoundRect bar{box.rect, rowRadiusDp * dp};
     fillRoundRect(bar, [alpha](Vector2, float) {
         return faded(cardFill, alpha);
@@ -116,8 +118,6 @@ void paintRow(const SettingsRow& row, const SettingsRowBox& box, bool focused, f
     }
 }
 
-} // namespace
-
 void SettingsPagePainter::paint(const SettingsPage& page, const SettingsLayout& layout,
                                 Vector2 size, float dp, float alpha) {
     if (alpha <= 0.0f) {
@@ -137,7 +137,7 @@ void SettingsPagePainter::paint(const SettingsPage& page, const SettingsLayout& 
         if (box.rect.bottom() < layout.panel.y || box.rect.y > layout.panel.bottom()) {
             continue;
         }
-        paintRow(rows[i], box, page.zone() == SettingsZone::Rows && i == page.row(), dp, alpha);
+        SettingsPagePainter::paintRow(rows[i], box, page.zone() == SettingsZone::Rows && i == page.row(), dp, alpha);
     }
 }
 

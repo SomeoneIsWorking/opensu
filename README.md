@@ -81,7 +81,7 @@ Gamescope.
 ./build/cmake/src/opensu --hidden         # maintainer run: unmapped window, no pads, free control port
 ```
 
-`--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `volumePercent`, `volumeMuted`, `uiScale`). A hidden run only reads the system volume.
+`--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `volumePercent`, `volumeMuted`, `uiScale`). A hidden run only reads the system volume and never starts the Steam client (Steam shows as stopped); it also never sleeps, restarts, shuts down, scans, pairs, connects or forgets Bluetooth devices, and never writes the brightness.
 
 Overrides, all optional:
 

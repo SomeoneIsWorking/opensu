@@ -12,6 +12,8 @@ std::vector<Prompt> startPrompts(const HintContext& context) {
     }
     if (context.options) {
         prompts.push_back(Prompt{"-", "Options"});
+    } else if (context.forget) {
+        prompts.push_back(Prompt{"-", "Forget"});
     }
     return prompts;
 }

@@ -167,6 +167,10 @@ int rawKeysFromAServer() {
     expect(pollFor(keys, shortcuts, 1) == std::vector{Action::Guide},
            "right Shift+Tab is one Guide");
 
+    tap(injector, XK_Control_L, XK_Tab);
+    expect(pollFor(keys, shortcuts, 1) == std::vector{Action::QuickMenu},
+           "Ctrl+Tab is the quick menu over a game");
+
     tap(injector, XK_Control_L, XK_Up);
     tap(injector, XK_Control_R, XK_m);
     expect(pollFor(keys, shortcuts, 2) == (std::vector{Action::VolumeUp, Action::VolumeMute}),

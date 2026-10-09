@@ -15,7 +15,7 @@ using opensu::input::LastDevice;
 using opensu::test::expect;
 
 Event event(Event::Kind kind, Button button, bool pressed) {
-    return Event{.kind = kind, .button = button, .pressed = pressed, .device = {}};
+    return Event{.kind = kind, .button = button, .pressed = pressed, .device = {}, .source = {}};
 }
 
 Event press(Button button) {

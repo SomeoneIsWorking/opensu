@@ -10,6 +10,8 @@ void ShortcutRouter::route(input::Action action, bool pressed, std::vector<gamep
         out.push_back(event);
     } else if (pressed && action == input::Action::Quit) {
         hooks_.quit();
+    } else if (pressed && action == input::Action::QuickMenu) {
+        hooks_.quickMenu();
     } else if (pressed) {
         volume_.act(action);
     }

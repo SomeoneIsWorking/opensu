@@ -35,10 +35,10 @@ struct OnLayoutCard {
     bool operator==(const OnLayoutCard&) const = default;
 };
 
-/// A row of the Guide menu.
-struct OnMenuItem {
+/// An entry of the Guide menu.
+struct OnGuideEntry {
     std::size_t index;
-    bool operator==(const OnMenuItem&) const = default;
+    bool operator==(const OnGuideEntry&) const = default;
 };
 
 /// A row of the Library options under the cards: pin, sort, source, filters or search.
@@ -71,9 +71,9 @@ struct OnContextItem {
     bool operator==(const OnContextItem&) const = default;
 };
 
-/// The screen outside the open context menu.
-struct OnContextBackdrop {
-    bool operator==(const OnContextBackdrop&) const = default;
+/// The screen outside the open context menu, Guide menu or quick menu.
+struct OnBackdrop {
+    bool operator==(const OnBackdrop&) const = default;
 };
 
 /// A launcher's badge in the top bar.
@@ -100,19 +100,32 @@ struct OnDetailsButton {
     bool operator==(const OnDetailsButton&) const = default;
 };
 
-/// A category of the Settings screen, by its place in the list.
+/// A row of the quick menu, by its place in it.
+struct OnQuickRow {
+    std::size_t index;
+    bool operator==(const OnQuickRow&) const = default;
+};
+
+/// A point on a quick menu slider's track, by the row and the level it stands for.
+struct OnQuickSlider {
+    std::size_t row;
+    int level;
+    bool operator==(const OnQuickSlider&) const = default;
+};
+
+/// A category of the Settings screen or the Devices page, by its place in the list.
 struct OnSettingsCategory {
     std::size_t index;
     bool operator==(const OnSettingsCategory&) const = default;
 };
 
-/// A row of the focused category of the Settings screen, by its place in it.
+/// A row of the focused category of the open page, by its place in it.
 struct OnSettingsRow {
     std::size_t index;
     bool operator==(const OnSettingsRow&) const = default;
 };
 
-/// A point on a Settings slider's track, by the row and the level it stands for.
+/// A point on a page slider's track, by the row and the level it stands for.
 struct OnSettingsSlider {
     std::size_t row;
     int level;
@@ -127,9 +140,9 @@ struct OnFolderEntry {
 
 /// Nothing, or the element the pointer is on.
 using PointerTarget =
-    std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnMenuItem, OnPanelButton,
+    std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnGuideEntry, OnPanelButton,
                  OnChooserRow, OnIconSize, OnSearchKey, OnSearchResult, OnContextItem,
-                 OnContextBackdrop, OnLauncher, OnCrumb, OnDetailsButton, OnSettingsCategory,
-                 OnSettingsRow, OnSettingsSlider, OnFolderEntry>;
+                 OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton, OnSettingsCategory,
+                 OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow, OnQuickSlider>;
 
 } // namespace opensu::ui

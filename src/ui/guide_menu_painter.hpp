@@ -1,0 +1,26 @@
+// guide_menu_painter — draws the Guide menu as a panel down the left edge over a dimmed screen or
+// game.
+#pragma once
+
+#include "button_glyph.hpp"
+#include "guide_menu.hpp"
+
+namespace opensu::ui {
+
+class GuideMenuPainter {
+  public:
+    explicit GuideMenuPainter(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
+    }
+
+    /// Where the panel and its rows stand in a `width` x `height` frame; what a pointer hits.
+    [[nodiscard]] GuideLayout layout(const GuideMenu& menu, float width, float height,
+                                     float dp) const;
+
+    /// Draws `menu` into a `width` x `height` frame at `dp` pixels per dp.
+    void paint(const GuideMenu& menu, float width, float height, float dp) const;
+
+  private:
+    ButtonGlyphPainter glyphs_;
+};
+
+} // namespace opensu::ui

@@ -53,9 +53,19 @@ void settingsScreen() {
            "nothing to change on a fact, or while a shortcut is being listened for");
 }
 
+void devicesPage() {
+    expect((opensu::ui::startPrompts(HintContext{.back = true, .forget = true}) ==
+            std::vector<Prompt>{{"B", "Back"}, {"-", "Forget"}}),
+           "Select forgets a Bluetooth device");
+    expect((opensu::ui::startPrompts(HintContext{.back = true, .options = true, .forget = true}) ==
+            std::vector<Prompt>{{"B", "Back"}, {"-", "Options"}}),
+           "a tile's options win over forgetting");
+}
+
 } // namespace
 
 int main() {
+    devicesPage();
     settingsScreen();
     startCorner();
     searchAndOptions();

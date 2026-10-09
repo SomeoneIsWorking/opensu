@@ -187,9 +187,144 @@ void readOnlyNeverWrites() {
            "polling does not revert the held change");
 }
 
+// A real `wpctl status` from a machine with one sink, and one with two.
+constexpr const char* wpctlStatus =
+    "PipeWire 'pipewire-0' [1.6.9, bhamil@fedora, cookie:3709236677]\n"
+    " └─ Clients:\n"
+    "        33. uresourced                          [1.6.9, bhamil@fedora, pid:2407]\n"
+    "\n"
+    "Audio\n"
+    " ├─ Devices:\n"
+    " │      47. Navi 21/23 HDMI/DP Audio Controller [alsa]\n"
+    " │  \n"
+    " ├─ Sinks:\n"
+    " │      49. Built-in Audio Analog Stereo                         [vol: 1.00]\n"
+    " │  *   75. Navi 21/23 HDMI/DP Audio Controller Digital Stereo (HDMI) [SAMSUNG] [vol: 0.35]\n"
+    " │  \n"
+    " ├─ Sources:\n"
+    " │      50. Microphone                                           [vol: 1.00]\n"
+    " │  \n"
+    " └─ Streams:\n"
+    "        87. opensu\n"
+    "\n"
+    "Video\n"
+    " ├─ Sinks:\n"
+    " │      99. Not audio\n";
+
+constexpr const char* pactlSinks =
+    R"([{"index":1,"name":"alsa_output.analog","description":"Built-in Audio"},)"
+    R"({"index":2,"name":"alsa_output.hdmi","description":"HDMI [SAMSUNG]"}])";
+
+void sinkParsing() {
+    const std::vector<AudioSink> sinks = parseWpctlSinks(wpctlStatus);
+    expect(sinks.size() == 2, "only the Audio section's Sinks block is read");
+    expect(sinks[0] == AudioSink{"49", "Built-in Audio Analog Stereo", false}, "a plain sink");
+    expect(sinks[1] ==
+               AudioSink{"75",
+                         "Navi 21/23 HDMI/DP Audio Controller Digital Stereo (HDMI) [SAMSUNG]",
+                         true},
+           "the starred sink is the default and keeps its bracketed name");
+    expect(parseWpctlSinks("nothing").empty(), "noise has no sinks");
+    const std::vector<AudioSink> pulse = parsePactlSinks(pactlSinks, "alsa_output.hdmi");
+    expect(pulse.size() == 2 && !pulse[0].isDefault && pulse[1].isDefault &&
+               pulse[1].name == "HDMI [SAMSUNG]" && pulse[0].id == "alsa_output.analog",
+           "pactl sinks");
+    expect(parsePactlSinks("not json", "x").empty(), "bad json has no sinks");
+}
+
+/// Answers sink commands; each sink has its own volume.
+struct SinkMixer {
+    std::string current{"75"};
+    std::vector<std::string> commands;
+
+    Runner runner() {
+        return [this](const std::string& program,
+                      const std::vector<std::string>& args) -> std::optional<CommandOutput> {
+            std::string line = program;
+            for (const std::string& arg : args) {
+                line += " " + arg;
+            }
+            commands.push_back(line);
+            if (args.front() == "status") {
+                std::string text = wpctlStatus;
+                if (current == "49") {
+                    text.replace(text.find("*   75"), 6, "    75");
+                    text.replace(text.find("│      49"), 9, "│  *   49");
+                }
+                return CommandOutput{0, text};
+            }
+            if (args.front() == "set-default") {
+                current = args.back();
+                return CommandOutput{0, {}};
+            }
+            if (args.front() == "get-volume") {
+                return CommandOutput{0, current == "49" ? "Volume: 1.00\n" : "Volume: 0.35\n"};
+            }
+            return CommandOutput{0, {}};
+        };
+    }
+};
+
+void switchingTheOutput() {
+    SinkMixer mixer;
+    const auto wpctl = makeWpctl(mixer.runner());
+    expect(wpctl->sinks().size() == 2, "wpctl lists its sinks");
+    expect(wpctl->setDefaultSink("49") && mixer.commands.back() == "wpctl set-default 49",
+           "wpctl switches with set-default");
+    std::vector<std::string> ran;
+    const auto pactl =
+        makePactl([&](const std::string& program, const std::vector<std::string>& a) {
+            std::string line = program;
+            for (const std::string& arg : a) {
+                line += " " + arg;
+            }
+            ran.push_back(line);
+            if (a.front() == "get-default-sink") {
+                return std::optional{CommandOutput{0, "alsa_output.hdmi\n"}};
+            }
+            return std::optional{CommandOutput{0, a.front() == "--format=json" ? pactlSinks : ""}};
+        });
+    const std::vector<AudioSink> listed = pactl->sinks();
+    expect(listed.size() == 2 && listed[1].isDefault, "pactl lists its sinks and the default");
+    expect(pactl->setDefaultSink("alsa_output.analog") &&
+               ran.back() == "pactl set-default-sink alsa_output.analog",
+           "pactl switches with set-default-sink");
+
+    SystemVolume volume{makeWpctl(mixer.runner())};
+    mixer.current = "75";
+    std::vector<VolumeState> told;
+    volume.refresh();
+    volume.setListener([&](const VolumeState& s) {
+        told.push_back(s);
+    });
+    expect(volume.setDefaultSink("49").empty(), "the switch is accepted");
+    expect(told.size() == 1 && told[0].percent == 100,
+           "the new output's own volume is read and told");
+    expect(SystemVolume{nullptr}.sinks().empty() &&
+               !SystemVolume{nullptr}.setDefaultSink("1").empty(),
+           "no mixer, no outputs and a refusal");
+}
+
+void readOnlyOutputs() {
+    SinkMixer mixer;
+    SystemVolume volume{makeReadOnly(makeWpctl(mixer.runner()))};
+    expect(volume.setDefaultSink("49").empty(), "a held switch is accepted");
+    const std::vector<AudioSink> sinks = volume.sinks();
+    expect(sinks.size() == 2 && sinks[0].isDefault && !sinks[1].isDefault,
+           "the held default shows in the list");
+    expect(!volume.setDefaultSink("nope").empty(), "an unknown sink is refused");
+    expect(mixer.current == "75", "the real default is untouched");
+    for (const std::string& command : mixer.commands) {
+        expect(command.find("set-") == std::string::npos, "no write command ran");
+    }
+}
+
 } // namespace
 
 int main() {
+    sinkParsing();
+    switchingTheOutput();
+    readOnlyOutputs();
     parsing();
     backendsSpeakTheirMixer();
     detectionPrefersWpctl();
