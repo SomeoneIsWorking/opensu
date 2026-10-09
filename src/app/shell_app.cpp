@@ -53,7 +53,7 @@ std::vector<artwork::ApkAsset> iisuAssets() {
 } // namespace
 
 ShellApp::ShellApp(const Settings& settings)
-    : settings_{settings}, catalog_{library::makeCatalog(config::read())},
+    : settings_{settings}, catalogLoader_{library::makeCatalog(config::read())},
       shell_{settings_.width, settings_.height, settings_.homeMode},
       steam_{steam::Client::Options{config::read().home, config::read().executablePath,
                                     config::read().session, config::read().steamRoots}},
@@ -80,12 +80,28 @@ void ShellApp::flipVertical(Image& image) {
 }
 
 void ShellApp::reloadCatalog() {
-    library::CatalogSnapshot snapshot = catalog_.refresh();
+    catalogLoader_.refresh();
+}
+
+void ShellApp::serviceCatalog() {
+    if (std::optional<library::CatalogSnapshot> snapshot = catalogLoader_.take()) {
+        applyCatalog(std::move(*snapshot));
+    }
+}
+
+void ShellApp::loadCatalogNow() {
+    catalogLoader_.refresh();
+    catalogLoader_.waitIdle();
+    serviceCatalog();
+}
+
+void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     games_ = std::move(snapshot.games);
     sources_ = std::move(snapshot.sources);
     artworkStore_.apply(games_);
     const std::vector<library::Console> consoles = library::consoles(games_);
     artworkFetcher_.request(games_, consoles, iisuAssets());
+    prioritised_.clear();
     loadStoredNavIcons();
     for (const library::Console& console : consoles) {
         const std::filesystem::path glyph = artworkStore_.storedGlyph(console.system);
@@ -94,20 +110,17 @@ void ShellApp::reloadCatalog() {
         }
     }
     for (const library::SourceStatus& source : sources_) {
-        if (source.availability != library::Availability::Ready) {
+        if (source.availability != library::Availability::Ready &&
+            source.availability != library::Availability::Loading) {
             lucent::warn("catalog", "{}: {}", library::label(source.source), source.detail);
         }
     }
     lucent::info("catalog", "{} games loaded", games_.size());
 
     showShelf(shell_.focusIndex());
-    std::size_t installed = 0;
-    for (const library::Game& game : games_) {
-        if (game.installed) {
-            ++installed;
-        }
-    }
-    shell_.setStatus(std::to_string(games_.size()) + " games · " + std::to_string(installed) +
+    installedCount_ =
+        static_cast<std::size_t>(std::ranges::count_if(games_, &library::Game::installed));
+    shell_.setStatus(std::to_string(games_.size()) + " games · " + std::to_string(installedCount_) +
                      " installed");
 }
 
@@ -120,6 +133,7 @@ void ShellApp::showShelf(std::size_t focus) {
     artworkStore_.apply(shelf);
     shell_.setShelf(std::move(shelf), focus);
     shell_.setHeader(folderCard());
+    shell_.setArtworkDownloading(artworkFetcher_.pendingGames());
 }
 
 std::optional<library::ShelfItem> ShellApp::folderCard() const {
@@ -157,6 +171,10 @@ void ShellApp::loadStoredNavIcons() {
 
 void ShellApp::serviceArtwork() {
     for (const artwork::Fetched& fetched : artworkFetcher_.take()) {
+        if (!fetched.saved) {
+            shell_.artworkSettled(fetched.id);
+            continue;
+        }
         if (fetched.kind == artwork::Fetched::Kind::Sound) {
             if (const std::optional<audio::Effect> effect = audio::effectOfFile(fetched.id)) {
                 sounds_.load(*effect, fetched.artwork);
@@ -169,6 +187,10 @@ void ShellApp::serviceArtwork() {
             }
             continue;
         }
+        if (fetched.kind == artwork::Fetched::Kind::Names) {
+            reloadRequested_.store(true);
+            continue;
+        }
         if (fetched.kind == artwork::Fetched::Kind::Glyph) {
             shell_.setGlyph(fetched.id, fetched.artwork);
             continue;
@@ -177,12 +199,13 @@ void ShellApp::serviceArtwork() {
             shell_.setConsoleArtwork(fetched.id, fetched.artwork);
             continue;
         }
-        for (library::Game& game : games_) {
-            if (game.id == fetched.id) {
-                game.artwork = fetched.artwork;
-            }
-        }
         shell_.setArtwork(fetched.id, fetched.artwork);
+    }
+    // The queue goes to the games on screen first.
+    std::vector<std::string> onScreen = shell_.downloadingOnScreen();
+    if (onScreen != prioritised_) {
+        artworkFetcher_.prioritize(onScreen);
+        prioritised_ = std::move(onScreen);
     }
 }
 
@@ -190,6 +213,10 @@ void ShellApp::openFolder(const library::Folder& folder) {
     if (const auto* launcher = std::get_if<library::Launcher>(&folder);
         launcher != nullptr && launcher->games == 0) {
         const std::string store{library::label(launcher->source)};
+        if (launcher->loading) {
+            shell_.setToast("still loading " + store);
+            return;
+        }
         if (!launcher->ready && launcher->source == library::Source::Gog) {
             startSignIn(Store::Gog);
             return;
@@ -881,11 +908,7 @@ bool ShellApp::captureFrame(std::string& png) {
 void ShellApp::publishSnapshot() {
     ShellSnapshot next;
     next.games = games_.size();
-    for (const library::Game& game : games_) {
-        if (game.installed) {
-            ++next.installed;
-        }
-    }
+    next.installed = installedCount_;
     if (const library::Game* focused = shell_.focusedGame(); focused != nullptr) {
         next.focusedId = focused->id;
     } else if (const std::optional<library::Folder> folder = shell_.focusedFolder()) {
@@ -1051,10 +1074,7 @@ int ShellApp::run() {
     }
     sounds_.open();
     loadStoredSounds();
-    // Textures need a GL context, so artwork is loaded only once the window is up.
-    shell_.loadArtwork();
-    lucent::info("ui", "artwork loaded for {} of {} tiles", shell_.loadedArtwork(),
-                 shell_.tiles().size());
+    // Textures need a GL context; the shell streams artwork in as frames are drawn.
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);
 
@@ -1090,6 +1110,7 @@ int ShellApp::run() {
 
         serviceControlRequests();
         serviceRequests();
+        serviceCatalog();
         serviceArtwork();
         shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
         // iiSU's Home has no title (pl3.q); opensu's names the focused tile everywhere.
@@ -1122,7 +1143,7 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
         shell_.inputDevice().noteKey();
     }
     if (games_.empty()) {
-        reloadCatalog();
+        loadCatalogNow();
     } else {
         pushCatalogToShell();
     }
@@ -1132,7 +1153,7 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
     // still lands on no screen.
     SetConfigFlags(FLAG_WINDOW_HIDDEN);
     InitWindow(settings_.width, settings_.height, "opensu render");
-    shell_.loadArtwork();
+    shell_.loadArtworkNow();
     lucent::info("render", "loaded artwork for {} of {} tiles", shell_.loadedArtwork(),
                  shell_.tiles().size());
     // A still frame shows the grid at rest, after its entrance.

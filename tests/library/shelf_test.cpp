@@ -12,8 +12,11 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
+
+#include "library/catalog_loader.hpp"
 
 namespace {
 
@@ -286,12 +289,30 @@ class FakeProvider final : public opensu::library::Provider {
     Mode mode_;
 };
 
+void testLoadingLauncher() {
+    const std::vector<SourceStatus> sources{{Source::Steam, Availability::Ready, {}},
+                                            {Source::Epic, Availability::Loading, {}}};
+    const std::vector<ShelfItem> shelf = opensu::library::libraryShelf({}, sources);
+    const Launcher* epic = launcherAt(shelf, 1);
+    expect(epic != nullptr && epic->loading && !epic->ready,
+           "a store whose listing is not in is loading, and is not asking to sign in");
+    expect(!launcherAt(shelf, 0)->loading, "a store that listed is not loading");
+}
+
 void testCatalogStatuses() {
     Catalog catalog;
     catalog.add(std::make_unique<FakeProvider>(Source::Steam, FakeProvider::Mode::Lists));
     catalog.add(std::make_unique<FakeProvider>(Source::Epic, FakeProvider::Mode::Fails));
     catalog.add(std::make_unique<FakeProvider>(Source::Gog, FakeProvider::Mode::Absent));
-    const opensu::library::CatalogSnapshot snapshot = catalog.refresh();
+    opensu::library::CatalogLoader loader{std::move(catalog)};
+    loader.refresh();
+    loader.waitIdle();
+    const std::optional<opensu::library::CatalogSnapshot> taken = loader.take();
+    if (!taken) {
+        expect(false, "the listings arrive");
+        return;
+    }
+    const opensu::library::CatalogSnapshot& snapshot = *taken;
     expect(snapshot.games.size() == 1, "the working store still contributes");
     expect(snapshot.sources.size() == 3, "every store reports");
     expect(snapshot.sources[0].availability == Availability::Ready, "a store that lists is ready");
@@ -315,6 +336,7 @@ int main() {
         testBrowser();
         testCycling();
         testFolders();
+        testLoadingLauncher();
         testCatalogStatuses();
         std::printf("shelf: all checks passed\n");
         return 0;

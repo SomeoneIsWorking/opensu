@@ -26,12 +26,9 @@ constexpr float railCardInsetDp = 2.0f;
 // iiSU's backdrop blur radius for glass (`homeGlassBlurRadiusDp`), as a Gaussian's sigma.
 constexpr float glassBlurSigmaDp = 8.0f;
 
-/// Loads a texture, returning an empty one when the file is missing or unreadable.
-Texture loadArt(const fs::path& path) {
-    if (path.empty() || !fs::is_regular_file(path)) {
-        return Texture{};
-    }
-    return LoadTexture(path.string().c_str());
+/// A texture from decoded pixels, or an empty one for none.
+Texture upload(const Pixels& pixels) {
+    return pixels.empty() ? Texture{} : LoadTextureFromImage(pixels.image());
 }
 
 /// The dock's keys for the icon files: `home`, `home_selected`, `library`, `library_selected`.
@@ -157,7 +154,9 @@ Tile Shell::makeTile(library::ShelfItem item) const {
     if (const auto* console = std::get_if<library::Console>(&tile.item)) {
         tile.caption = gameCount(console->games);
     } else if (const auto* launcher = std::get_if<library::Launcher>(&tile.item)) {
-        tile.caption = launcher->ready ? gameCount(launcher->games) : "Sign in";
+        tile.caption = launcher->loading
+                           ? "Loading"
+                           : (launcher->ready ? gameCount(launcher->games) : "Sign in");
         tile.logo = iconFor(launcher->source);
     } else if (const auto* all = std::get_if<library::AllGames>(&tile.item)) {
         tile.caption = gameCount(all->games);
@@ -178,15 +177,22 @@ void Shell::setHeader(std::optional<library::ShelfItem> header) {
     header_.reset();
     if (header) {
         header_ = makeTile(std::move(*header));
+        header_->ticket = ++lastTicket_;
     }
 }
 
 void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
     releaseTextures();
+    ++shelfSerial_;
     tiles_.clear();
     tiles_.reserve(items.size());
+    gameTiles_.clear();
     for (library::ShelfItem& item : items) {
+        if (const auto* game = std::get_if<library::Game>(&item)) {
+            gameTiles_.emplace(game->id, tiles_.size());
+        }
         tiles_.push_back(makeTile(std::move(item)));
+        tiles_.back().ticket = ++lastTicket_;
     }
     relayout();
     const std::size_t start = focus < tiles_.size() ? focus : 0;
@@ -199,35 +205,118 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
     entrancePending_ = true;
 }
 
-void Shell::loadTile(Tile& tile) {
-    if (tile.artLoaded) {
-        return;
+Tile* Shell::tileOf(std::size_t index) {
+    if (index == headerTile) {
+        return header_ ? &*header_ : nullptr;
     }
-    tile.artLoaded = true;
-    if (const auto* console = std::get_if<library::Console>(&tile.item)) {
-        tile.portrait = loadArt(console->artwork);
-        tile.hasPortrait = tile.portrait.id != 0;
-        return;
-    }
-    const auto* single = std::get_if<library::Game>(&tile.item);
-    if (single == nullptr) {
-        return;
-    }
-    const library::Game& game = *single;
-    tile.portrait = loadArt(game.artwork);
-    tile.wide = loadArt(game.artworkWide);
-    tile.hasPortrait = tile.portrait.id != 0;
-    tile.hasWide = tile.wide.id != 0;
+    return index < tiles_.size() ? &tiles_[index] : nullptr;
 }
 
-void Shell::loadArtwork() {
-    glyphs_.load();
-    navIcons_.load();
-    for (Tile& tile : tiles_) {
-        loadTile(tile);
+SlotRange Shell::artWindow() const {
+    SlotRange window;
+    if (presentation() == Presentation::Grid) {
+        window = layout_.visibleSlots(scroll(), static_cast<float>(width_),
+                                      layout_.viewportWidth() * 0.5f);
+    } else {
+        const RailInput input = railInput();
+        if (presentation() == Presentation::Xmb) {
+            const XmbLayout column{input};
+            window = SlotRange{column.first(), column.first() + column.rects().size()};
+        } else {
+            const CarouselLayout row{input};
+            window = SlotRange{row.first(), row.first() + row.rects().size()};
+        }
+    }
+    window.last = std::min(window.last, tiles_.size());
+    window.first = std::min(window.first, window.last);
+    return window;
+}
+
+void Shell::requestTile(Tile& tile, std::size_t index) {
+    if (tile.artLoaded || tile.artRequested) {
+        return;
+    }
+    DecodeJob job{
+        .shelf = shelfSerial_, .tile = index, .ticket = tile.ticket, .portrait = {}, .wide = {}};
+    if (const auto* console = std::get_if<library::Console>(&tile.item)) {
+        job.portrait = console->artwork;
+    } else if (const auto* game = std::get_if<library::Game>(&tile.item)) {
+        job.portrait = game->artwork;
+        job.wide = game->artworkWide;
+    }
+    if (job.portrait.empty() && job.wide.empty()) {
+        tile.artLoaded = true;
+        return;
+    }
+    tile.artRequested = true;
+    decoder_.request(std::move(job));
+}
+
+void Shell::requestArtwork(const SlotRange& window) {
+    // Art queued for tiles that have since left the window is not worth decoding.
+    for (const DecodeJob& dropped : decoder_.prune([&](const DecodeJob& job) {
+             return job.shelf == shelfSerial_ &&
+                    (job.tile == headerTile || window.contains(job.tile));
+         })) {
+        if (Tile* tile = dropped.shelf == shelfSerial_ ? tileOf(dropped.tile) : nullptr) {
+            tile->artRequested = false;
+        }
+    }
+    for (std::size_t index = window.first; index < window.last; ++index) {
+        requestTile(tiles_[index], index);
     }
     if (header_) {
-        loadTile(*header_);
+        requestTile(*header_, headerTile);
+    }
+}
+
+void Shell::uploadArtwork(std::size_t limit) {
+    for (Decoded& done : decoder_.take(limit)) {
+        Tile* tile = done.job.shelf == shelfSerial_ ? tileOf(done.job.tile) : nullptr;
+        if (tile == nullptr || tile->ticket != done.job.ticket || tile->artLoaded) {
+            continue;
+        }
+        tile->portrait = upload(done.portrait);
+        tile->wide = upload(done.wide);
+        tile->hasPortrait = tile->portrait.id != 0;
+        tile->hasWide = tile->wide.id != 0;
+        tile->artLoaded = true;
+        tile->artRequested = false;
+        if (done.job.tile != headerTile && (tile->hasPortrait || tile->hasWide)) {
+            resident_.push_back(done.job.tile);
+        }
+    }
+}
+
+void Shell::trimResident(const SlotRange& window) {
+    std::erase_if(resident_, [this](std::size_t index) {
+        return index >= tiles_.size() || !(tiles_[index].hasPortrait || tiles_[index].hasWide);
+    });
+    // Oldest first: a tile outside the window gives its textures back until the limit holds.
+    for (auto it = resident_.begin(); it != resident_.end() && resident_.size() > residentLimit;) {
+        if (window.contains(*it)) {
+            ++it;
+            continue;
+        }
+        unloadArtwork(tiles_[*it]);
+        it = resident_.erase(it);
+    }
+}
+
+void Shell::loadArtwork(std::size_t uploads) {
+    glyphs_.load();
+    navIcons_.load();
+    const SlotRange window = artWindow();
+    requestArtwork(window);
+    uploadArtwork(uploads);
+    trimResident(window);
+}
+
+void Shell::loadArtworkNow() {
+    loadArtwork(std::numeric_limits<std::size_t>::max());
+    while (!decoder_.idle()) {
+        decoder_.waitDecoded();
+        loadArtwork(std::numeric_limits<std::size_t>::max());
     }
 }
 
@@ -247,15 +336,49 @@ void Shell::unloadArtwork(Tile& tile) {
         tile.hasWide = false;
     }
     tile.artLoaded = false;
+    tile.artRequested = false;
+    tile.ticket = ++lastTicket_;
 }
 
 void Shell::setArtwork(std::string_view gameId, const std::filesystem::path& artwork) {
+    const auto found = gameTiles_.find(std::string{gameId});
+    if (found == gameTiles_.end()) {
+        return;
+    }
+    Tile& tile = tiles_[found->second];
+    if (auto* game = std::get_if<library::Game>(&tile.item)) {
+        game->artwork = artwork;
+        unloadArtwork(tile);
+    }
+    tile.artDownloading = false;
+}
+
+void Shell::setArtworkDownloading(const std::vector<std::string>& gameIds) {
     for (Tile& tile : tiles_) {
-        auto* game = std::get_if<library::Game>(&tile.item);
-        if (game != nullptr && game->id == gameId) {
-            game->artwork = artwork;
-            unloadArtwork(tile);
+        tile.artDownloading = false;
+    }
+    for (const std::string& id : gameIds) {
+        if (const auto found = gameTiles_.find(id); found != gameTiles_.end()) {
+            tiles_[found->second].artDownloading = true;
         }
+    }
+}
+
+std::vector<std::string> Shell::downloadingOnScreen() const {
+    std::vector<std::string> ids;
+    const SlotRange window = artWindow();
+    for (std::size_t index = window.first; index < window.last; ++index) {
+        const auto* game = std::get_if<library::Game>(&tiles_[index].item);
+        if (game != nullptr && tiles_[index].artDownloading) {
+            ids.push_back(game->id);
+        }
+    }
+    return ids;
+}
+
+void Shell::artworkSettled(std::string_view gameId) {
+    if (const auto found = gameTiles_.find(std::string{gameId}); found != gameTiles_.end()) {
+        tiles_[found->second].artDownloading = false;
     }
 }
 
@@ -308,6 +431,7 @@ void Shell::setLibraryMode(library::LibraryMode mode) {
 }
 
 void Shell::releaseTextures() {
+    resident_.clear();
     for (Tile& tile : tiles_) {
         unloadArtwork(tile);
     }
@@ -352,8 +476,8 @@ void Shell::startEntrance() {
     bool any = false;
     int first = 0;
     int last = 0;
-    const std::size_t slots = layout_.slotCount();
-    for (std::size_t slot = 0; slot < slots; ++slot) {
+    const SlotRange seen = layout_.visibleSlots(scroll(), static_cast<float>(width_));
+    for (std::size_t slot = seen.first; slot < seen.last; ++slot) {
         if (!intersectsCanvas(layout_.canvasRect(slot, scroll()), width_, height_)) {
             continue;
         }
@@ -487,6 +611,7 @@ void Shell::fillContent(TileVisual& visual, const Tile& tile) const {
         visual.art = &tile.wide;
     }
     visual.platform = tile.platform;
+    visual.loading = visual.art == nullptr && (tile.artDownloading || tile.artRequested);
     if (const auto* game = std::get_if<library::Game>(&tile.item)) {
         visual.title = game->title;
         visual.stores = tile.stores;
@@ -529,6 +654,7 @@ TileVisual Shell::visualFor(std::size_t slot, const Rect& rect) const {
     }
     visual.selectionRing = grid;
     visual.ringDegrees = motion::ringAngleDegrees(nowMs());
+    visual.seconds = nowMs() / 1000.0;
     if (!visual.placeholder) {
         fillContent(visual, tiles_[slot]);
     }
@@ -537,9 +663,9 @@ TileVisual Shell::visualFor(std::size_t slot, const Rect& rect) const {
 
 void Shell::drawGrid() {
     // iiSU nx2.d: unfocused tiles first, the focused tile last, over its neighbours.
-    const std::size_t slots = layout_.slotCount();
+    const SlotRange seen = layout_.visibleSlots(scroll(), static_cast<float>(width_));
     const std::size_t focused = focus_.index();
-    for (std::size_t slot = 0; slot < slots; ++slot) {
+    for (std::size_t slot = seen.first; slot < seen.last; ++slot) {
         if (slot == focused) {
             continue;
         }
@@ -562,13 +688,15 @@ float Shell::aspectOf(const Tile& tile) const noexcept {
 }
 
 RailInput Shell::railInput() const {
-    RailInput input{
-        static_cast<float>(width_), static_cast<float>(height_), {}, railFocus_.value(), 9, dp()};
-    input.aspects.reserve(tiles_.size());
-    for (const Tile& tile : tiles_) {
-        input.aspects.push_back(aspectOf(tile));
-    }
-    return input;
+    return RailInput{static_cast<float>(width_),
+                     static_cast<float>(height_),
+                     tiles_.size(),
+                     [this](std::size_t index) {
+                         return aspectOf(tiles_[index]);
+                     },
+                     railFocus_.value(),
+                     9,
+                     dp()};
 }
 
 Rect Shell::railSlot(const Tile& tile, const Rect& rect) const noexcept {
@@ -586,11 +714,11 @@ float Shell::railAlpha(int distance) const noexcept {
                : 1.0f;
 }
 
-std::vector<Rect> Shell::railSlots(const std::vector<Rect>& rects) const {
+std::vector<Rect> Shell::railSlots(const std::vector<Rect>& rects, std::size_t first) const {
     std::vector<Rect> slots;
     slots.reserve(rects.size());
     for (std::size_t i = 0; i < rects.size(); ++i) {
-        slots.push_back(railSlot(tiles_[i], rects[i]));
+        slots.push_back(railSlot(tiles_[first + i], rects[i]));
     }
     return slots;
 }
@@ -600,19 +728,20 @@ void Shell::drawRail() {
     const RailInput input = railInput();
     const XmbLayout column{input};
     const CarouselLayout row{input};
-    const std::vector<Rect> rects = railSlots(xmb ? column.rects() : row.rects());
+    const std::size_t first = xmb ? column.first() : row.first();
+    const std::vector<Rect> rects = railSlots(xmb ? column.rects() : row.rects(), first);
     // The tiles nearest the focus are drawn last, the focused one over its neighbours.
     std::vector<std::size_t> order(rects.size());
     for (std::size_t i = 0; i < order.size(); ++i) {
         order[i] = i;
     }
-    const float focus = railFocus_.value();
+    const float focus = railFocus_.value() - static_cast<float>(first);
     std::ranges::sort(order, [focus](std::size_t a, std::size_t b) {
         return std::abs(static_cast<float>(a) - focus) > std::abs(static_cast<float>(b) - focus);
     });
     for (const std::size_t slot : order) {
         if (intersectsCanvas(rects[slot], width_, height_)) {
-            tilePainter_.paint(visualFor(slot, rects[slot]));
+            tilePainter_.paint(visualFor(first + slot, rects[slot]));
         }
     }
     if (tiles_.empty()) {
@@ -724,11 +853,13 @@ PointerTarget Shell::pointAtModal(Vector2 point) const {
 PointerTarget Shell::pointAtHome(Vector2 point) const {
     if (presentation() != Presentation::Grid) {
         const RailInput input = railInput();
-        const std::vector<Rect> slots =
-            railSlots(presentation() == Presentation::Xmb ? XmbLayout{input}.rects()
-                                                          : CarouselLayout{input}.rects());
+        const bool xmb = presentation() == Presentation::Xmb;
+        const XmbLayout column{input};
+        const CarouselLayout row{input};
+        const std::size_t first = xmb ? column.first() : row.first();
+        const std::vector<Rect> slots = railSlots(xmb ? column.rects() : row.rects(), first);
         if (const std::optional<std::size_t> tile =
-                railTileAt(slots, railFocus_.value(), point.x, point.y)) {
+                railTileAt(slots, first, railFocus_.value(), point.x, point.y)) {
             return OnTile{*tile};
         }
         return {};

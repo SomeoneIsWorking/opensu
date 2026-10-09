@@ -1,6 +1,6 @@
 add_library(opensu_artwork STATIC
     libretro_index.cpp zip_archive.cpp apk_archive.cpp console_glyphs.cpp iisu_assets.cpp starter_pack.cpp artwork_store.cpp
-    artwork_fetcher.cpp)
+    artwork_fetcher.cpp arcade_dat.cpp)
 add_library(opensu::artwork ALIAS opensu_artwork)
 target_include_directories(opensu_artwork PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_artwork

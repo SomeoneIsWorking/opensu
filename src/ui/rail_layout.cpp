@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
+#include <utility>
 
 #include "tile_motion.hpp"
 
@@ -51,7 +53,7 @@ float blend(SizePair sizes, std::size_t index, float focus) noexcept {
     return sizes.small + (sizes.large - sizes.small) * motion::smoothstep(near);
 }
 
-/// The centres of tiles of `extents` along an axis, `gap` apart, with the tile at `focus` at
+/// The centres of the tiles placed along an axis, `gap` apart, with the tile at `focus` at
 /// `anchor`. A tile between two positions is laid out for each neighbour in turn and the two
 /// layouts blended, so the row moves continuously.
 struct Anchor {
@@ -59,39 +61,80 @@ struct Anchor {
     float gap;
 };
 
-std::vector<float> stack(const std::vector<float>& extents, Anchor anchor, float focus) {
-    const std::size_t count = extents.size();
-    std::vector<float> centres(count, anchor.centre);
-    if (count == 0) {
-        return centres;
+/// The tiles placed: `first` and the centres from it on.
+struct Stack {
+    std::size_t first{};
+    std::vector<float> centres;
+};
+
+/// What `stack` lays out: `count` tiles of `extent(i)` along an axis `canvas` long.
+struct Strip {
+    std::size_t count;
+    float canvas;
+    const std::function<float(std::size_t)>& extent;
+};
+
+/// The tiles from `pivot` outward, anchored on it, that reach within half a canvas of the canvas.
+std::pair<std::size_t, std::size_t> reach(const Strip& strip, Anchor anchor, std::size_t pivot) {
+    const float pad = strip.canvas * 0.5f;
+    std::size_t low = pivot;
+    std::size_t high = pivot;
+    float centre = anchor.centre;
+    while (high + 1 < strip.count && centre + strip.extent(high) * 0.5f < strip.canvas + pad) {
+        centre += (strip.extent(high) + strip.extent(high + 1)) * 0.5f + anchor.gap;
+        ++high;
+    }
+    centre = anchor.centre;
+    while (low > 0 && centre - strip.extent(low) * 0.5f > -pad) {
+        centre -= (strip.extent(low) + strip.extent(low - 1)) * 0.5f + anchor.gap;
+        --low;
+    }
+    return {low, high};
+}
+
+Stack stack(const Strip& strip, Anchor anchor, float focus) {
+    if (strip.count == 0) {
+        return {};
     }
     const auto lower = static_cast<std::size_t>(std::floor(focus));
     const auto upper = static_cast<std::size_t>(std::ceil(focus));
     const float mix = focus - std::floor(focus);
+    const auto [lowA, highA] = reach(strip, anchor, lower);
+    const auto [lowB, highB] = reach(strip, anchor, upper);
+    const std::size_t first = std::min(lowA, lowB);
+    const std::size_t last = std::max(highA, highB);
+    std::vector<float> extents;
+    extents.reserve(last - first + 1);
+    for (std::size_t i = first; i <= last; ++i) {
+        extents.push_back(strip.extent(i));
+    }
     const auto anchored = [&](std::size_t pivot) {
-        std::vector<float> out(count, anchor.centre);
-        for (std::size_t i = pivot + 1; i < count; ++i) {
+        std::vector<float> out(extents.size(), anchor.centre);
+        const std::size_t at = pivot - first;
+        for (std::size_t i = at + 1; i < out.size(); ++i) {
             out[i] = out[i - 1] + (extents[i - 1] + extents[i]) * 0.5f + anchor.gap;
         }
-        for (std::size_t i = pivot; i-- > 0;) {
+        for (std::size_t i = at; i-- > 0;) {
             out[i] = out[i + 1] - (extents[i] + extents[i + 1]) * 0.5f - anchor.gap;
         }
         return out;
     };
     const std::vector<float> below = anchored(lower);
     const std::vector<float> above = anchored(upper);
-    for (std::size_t i = 0; i < count; ++i) {
-        centres[i] = below[i] + (above[i] - below[i]) * mix;
+    Stack placed{first, std::vector<float>(extents.size())};
+    for (std::size_t i = 0; i < extents.size(); ++i) {
+        placed.centres[i] = below[i] + (above[i] - below[i]) * mix;
     }
-    return centres;
+    return placed;
 }
 
 float clampedFocus(const RailInput& input) noexcept {
-    const auto last = static_cast<float>(input.aspects.empty() ? 0 : input.aspects.size() - 1);
+    const auto last = static_cast<float>(input.count == 0 ? 0 : input.count - 1);
     return std::clamp(input.focus, 0.0f, last);
 }
 
-float aspectOf(float aspect) noexcept {
+float aspectOf(const RailInput& input, std::size_t index) {
+    const float aspect = input.aspect ? input.aspect(index) : 1.0f;
     return aspect > 0.0f ? aspect : 1.0f;
 }
 
@@ -122,15 +165,17 @@ XmbLayout::XmbLayout(const RailInput& input) : focus_{clampedFocus(input)}, dp_{
 
     // A tile wider than it is tall shrinks to the column's width (iiSU `w70.V`); a taller one
     // keeps the column's height and is as narrow as its art.
-    std::vector<float> heights;
-    heights.reserve(input.aspects.size());
-    for (std::size_t i = 0; i < input.aspects.size(); ++i) {
-        heights.push_back(sizeOf(i) / std::max(aspectOf(input.aspects[i]), 1.0f));
-    }
-    const std::vector<float> centres = stack(heights, Anchor{centreY_, gap_}, focus_);
-    for (std::size_t i = 0; i < heights.size(); ++i) {
-        const float width = sizeOf(i) * std::min(aspectOf(input.aspects[i]), 1.0f);
-        rects_.push_back(Rect{leftMargin_, centres[i] - heights[i] * 0.5f, width, heights[i]});
+    const std::function<float(std::size_t)> height = [&](std::size_t i) {
+        return sizeOf(i) / std::max(aspectOf(input, i), 1.0f);
+    };
+    const Stack placed =
+        stack(Strip{input.count, input.height, height}, Anchor{centreY_, gap_}, focus_);
+    first_ = placed.first;
+    for (std::size_t i = 0; i < placed.centres.size(); ++i) {
+        const std::size_t tile = placed.first + i;
+        const float tall = height(tile);
+        const float width = sizeOf(tile) * std::min(aspectOf(input, tile), 1.0f);
+        rects_.push_back(Rect{leftMargin_, placed.centres[i] - tall * 0.5f, width, tall});
     }
 }
 
@@ -150,17 +195,17 @@ CarouselLayout::CarouselLayout(const RailInput& input)
     titleCapHeight_ = carouselTitleCapDp * input.dp;
     markerY_ = carouselMarkerY * input.height;
 
-    std::vector<float> widths;
-    widths.reserve(input.aspects.size());
-    for (std::size_t i = 0; i < input.aspects.size(); ++i) {
-        widths.push_back(sizeOf(i) *
-                         std::clamp(aspectOf(input.aspects[i]), narrowestSlot, widestSlot));
-    }
-    const std::vector<float> centres = stack(widths, Anchor{centreX_, gap_}, focus_);
-    for (std::size_t i = 0; i < widths.size(); ++i) {
-        const float height = sizeOf(i);
-        rects_.push_back(
-            Rect{centres[i] - widths[i] * 0.5f, baselineY_ - height, widths[i], height});
+    const std::function<float(std::size_t)> width = [&](std::size_t i) {
+        return sizeOf(i) * std::clamp(aspectOf(input, i), narrowestSlot, widestSlot);
+    };
+    const Stack placed =
+        stack(Strip{input.count, input.width, width}, Anchor{centreX_, gap_}, focus_);
+    first_ = placed.first;
+    for (std::size_t i = 0; i < placed.centres.size(); ++i) {
+        const std::size_t tile = placed.first + i;
+        const float wide = width(tile);
+        const float height = sizeOf(tile);
+        rects_.push_back(Rect{placed.centres[i] - wide * 0.5f, baselineY_ - height, wide, height});
     }
 }
 
@@ -168,14 +213,14 @@ float CarouselLayout::sizeOf(std::size_t index) const noexcept {
     return blend(SizePair{unfocusedSize_, focusedSize_}, index, focus_);
 }
 
-std::optional<std::size_t> railTileAt(const std::vector<Rect>& tiles, float focus, float x,
-                                      float y) {
+std::optional<std::size_t> railTileAt(const std::vector<Rect>& tiles, std::size_t first,
+                                      float focus, float x, float y) {
     std::optional<std::size_t> found;
     float best = 0.0f;
     for (std::size_t i = 0; i < tiles.size(); ++i) {
-        const float distance = std::abs(static_cast<float>(i) - focus);
+        const float distance = std::abs(static_cast<float>(first + i) - focus);
         if (tiles[i].contains(x, y) && (!found || distance < best)) {
-            found = i;
+            found = first + i;
             best = distance;
         }
     }

@@ -1,6 +1,7 @@
 add_library(opensu_library STATIC
     game.cpp
     catalog.cpp
+    catalog_loader.cpp
     steam.cpp
     epic.cpp
     install_log.cpp
@@ -11,6 +12,8 @@ add_library(opensu_library STATIC
     gog_installs.cpp
     roms.cpp
     rom_systems.cpp
+    rom_titles.cpp
+    arcade_names.cpp
     shelf.cpp
     sections.cpp
     titles.cpp

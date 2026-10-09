@@ -51,6 +51,19 @@ struct GridCell {
     int page{};
 };
 
+/// A run of slots, `first` to `last` exclusive, in index order.
+struct SlotRange {
+    std::size_t first{};
+    std::size_t last{};
+
+    [[nodiscard]] std::size_t size() const noexcept {
+        return last - first;
+    }
+    [[nodiscard]] bool contains(std::size_t slot) const noexcept {
+        return slot >= first && slot < last;
+    }
+};
+
 /// A scroll to bring one cell into view from the current offset; `dx` is the direction of travel.
 struct ScrollRequest {
     std::size_t index{};
@@ -188,6 +201,12 @@ class HomeLayout {
     [[nodiscard]] Rect contentRect(std::size_t index) const noexcept;
     /// A slot's rectangle on the canvas at a scroll offset.
     [[nodiscard]] Rect canvasRect(std::size_t index, float scroll) const noexcept;
+
+    /// The slots whose rectangle reaches within `margin` of a `canvasWidth` wide canvas at a scroll
+    /// offset. The one visible-window rule: painting, hit-testing and artwork prefetch use it, and
+    /// its cost does not depend on the slot count.
+    [[nodiscard]] SlotRange visibleSlots(float scroll, float canvasWidth,
+                                         float margin = 0.0f) const noexcept;
 
     /// The slot under the point at a scroll offset, filled or not, or nothing.
     [[nodiscard]] std::optional<std::size_t> slotAt(float scroll, float x, float y) const noexcept;

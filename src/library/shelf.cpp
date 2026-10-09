@@ -129,7 +129,8 @@ std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
         const auto status = std::ranges::find(sources, source, &SourceStatus::source);
         if (status != sources.end() && status->availability != Availability::Absent) {
             shelf.emplace_back(Launcher{source, countOf(games, source),
-                                        status->availability == Availability::Ready});
+                                        status->availability == Availability::Ready,
+                                        status->availability == Availability::Loading});
         }
     }
     const std::vector<Title> titles = storeTitles(games);

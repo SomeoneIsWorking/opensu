@@ -55,7 +55,8 @@ gitignored `docs/reference/`).
 | Path | Owns |
 | --- | --- |
 | `src/library/game.*` | The launchable `Game` record |
-| `src/library/catalog.*` | Building the catalog from all sources |
+| `src/library/catalog.*` | Building the catalog's providers from all sources (`game.*` holds `readProvider` and `assemble`, the merge) |
+| `src/library/catalog_loader.*` | Listing every store off the frame thread: one thread per provider, listings handed over as they arrive, `Loading` until a store's first one |
 | `src/library/steam.*`, `epic.*`, `gog.*`, `roms.*` | One source each |
 | `src/library/gog_auth.*`, `gog_token.*` | GOG's OAuth sign-in and the saved token (`<data dir>/gog-token.json`); `writeOwnerOnly`, the one owner-only atomic write |
 | `src/library/gogdl_auth.*` | The token as gogdl's `--auth-config-path` file, written for an install and read back |
@@ -64,11 +65,14 @@ gitignored `docs/reference/`).
 | `src/library/sections.*` | The dock's sections (Home, Library), the active one and L1/R1 cycling with wrap; Library's layout modes and their keys |
 | `src/library/shelf.*` | What the grid holds: Home's installed store games (`homeShelf`); Library's launchers, All games and consoles (`libraryShelf`); a console's ROMs, a launcher's library, the combined library; moving between them and between sections |
 | `src/library/titles.*` | The same title across stores: the comparison key, merged copies, preference order |
+| `src/library/rom_titles.*` | A ROM's display title from its name: tags, release numbers and the ", The" order (`cleanTitle`); the one title cleanup, also the release-number rule the libretro matcher uses |
+| `src/library/arcade_names.*` | Arcade short name to description: the libretro-database `.dat` parser and `NameDb`, the parsed names kept under `<cache>/names/` |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts; the tables are `constexpr` (`name_list.hpp`) |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line |
 | `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
+| `src/artwork/arcade_dat.*` | The pinned libretro-database arcade listings (FinalBurn Neo, MAME 2016): download against size and CRC-32, parse, merge; the fetcher keeps the result in `NameDb` |
 | `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, UI sounds (`sound/<file>`, WAV or OGG) and the dock's icons (`nav/`) |
-| `src/artwork/artwork_fetcher.*` | The background downloads: Steam's CDN for Steam, gamesdb (else the library tile) for GOG, the key image URL for Epic, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs, the APK's sounds and nav drawables (`ApkAsset`) |
+| `src/artwork/artwork_fetcher.*` | The background downloads (queue stages per game, on-screen games first, a settled game reported as not saved): Steam's CDN for Steam, gamesdb (else the library tile) for GOG, the key image URL for Epic, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs, the APK's sounds and nav drawables (`ApkAsset`) |
 | `src/artwork/apk_archive.*` | iiSU's release APK read by HTTP ranges: central directory once, any entry by range with its CRC checked; `fetch` is find and extract with a found/missing/failed result (glyphs, sounds and nav icons use it) |
 | `src/artwork/starter_pack.*` | iiSU's starter pack: its entry taken out of the APK against a pin, and a system's card as PNG |
 | `src/artwork/console_glyphs.*` | iiSU's frame glyphs: `border_pack.json` read once, a system's `logo_*.png` out of the APK |
@@ -94,11 +98,11 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 
 | Path | Owns |
 | --- | --- |
-| `src/ui/home_layout.*` | Grid geometry for Standard and WiiSu: cells, gaps, insets, placeholder slots, scrolling, page pill and page arrow rects, and the slot or page control under a point (`hx2.g`, `zj2`, `ou4.q`, `ys8.h/k/l`) |
+| `src/ui/home_layout.*` | Grid geometry; `visibleSlots`, the one visible-window rule painting, hit-testing and artwork requests share for Standard and WiiSu: cells, gaps, insets, placeholder slots, scrolling, page pill and page arrow rects, and the slot or page control under a point (`hx2.g`, `zj2`, `ou4.q`, `ys8.h/k/l`) |
 | `src/ui/grid_focus.*` | D-pad focus movement and page crossing (`hx2.z/O`) |
 | `src/ui/tile_motion.*` | Focus scale, domino entrance, press pulse, ring rotation, FastOutSlowIn, the rail's visual-index easing |
 | `src/ui/section_view.*` | Per section: the grid viewport (3 rows x 4 columns, column-major, horizontal paging, both sections) and the presentation (Grid, XMB, Carousel) |
-| `src/ui/rail_layout.*` | XMB and Carousel geometry (navigation.md 5.3): tile rectangles from the fractional focus, left column, header card, marker and title anchors; the tile under a point (`railTileAt`) |
+| `src/ui/rail_layout.*` | XMB and Carousel geometry (navigation.md 5.3): rectangles of the tiles near the canvas only (`first()`), from the fractional focus, left column, header card, marker and title anchors; the tile under a point (`railTileAt`) |
 | `src/ui/rail_painter.*` | XMB/Carousel chrome: the recoloured section icon, the header card, the markers and the shadowed title |
 | `src/ui/icon_recolour.*` | Reads a console card's border colours and recolours the section icon with them |
 | `src/ui/backdrop_blur.*` | The dock glass's 8 dp backdrop blur: scene texture, separable Gaussian, capsule mask |
@@ -126,10 +130,11 @@ Painters and composition (`opensu_ui`):
 | `src/ui/dock_painter.*` | The dock capsule: glass, nav icons, LB/RB badges |
 | `src/ui/mode_chooser_painter.*` | The Library layout picker: the cards page after iiSU's chooser, with sketched previews |
 | `src/ui/game_menu_painter.*` | The Guide menu over a running game |
-| `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art, platform frame, store icons; the name cards of a console, a launcher and All games |
+| `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art (a spinner while it is on its way), platform frame, store icons; the name cards of a console, a launcher and All games |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |
 | `src/ui/platform.*`, `platform_stroke.cpp` | Console border sprites, logos, stroke colours |
+| `src/ui/image_decoder.*` | Cover decode and downscale on a worker thread; the frame only uploads what it takes |
 | `src/ui/glyph_textures.*` | The console glyphs drawn in a ROM tile's frame tab: files by system, textures on load |
 | `src/ui/typeface.*`, `face_metrics.*` | Text drawing at Android em sizes; the face's line metrics |
 

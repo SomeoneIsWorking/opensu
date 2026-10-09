@@ -21,6 +21,8 @@ using opensu::library::Game;
 using opensu::library::roms::Emulators;
 using opensu::library::roms::EmulatorSearch;
 using opensu::library::roms::gameFile;
+using opensu::library::roms::NameDb;
+using opensu::library::roms::NameMap;
 using opensu::library::roms::Provider;
 using opensu::library::roms::systemForFolder;
 
@@ -62,6 +64,8 @@ struct Fixture {
     Fixture() {
         fs::remove_all(base);
         write(root / "PS2" / "Black (USA).chd");
+        write(root / "Arcade" / "sf2.zip");
+        write(root / "Arcade" / "unlisted.zip");
         write(root / "PSX CHD" / "Tomba! (USA).chd");
         write(root / "GameBoy" / "Final Fantasy Adventure (USA).gb");
         write(root / "GameBoy" / "Final Fantasy Adventure DX (USA).ips");
@@ -172,24 +176,41 @@ void emulatorsAreFound(const Fixture& f) {
 void providerLists(const Fixture& f) {
     const fs::path bin = f.base / "bin2";
     writeExecutable(bin / "rpcs3");
-    Provider provider{{f.root}, Emulators::discover(EmulatorSearch{.executablePath = {bin}}, {})};
+    const fs::path cache = f.base / "cache";
+    const NameDb names = NameDb::under(cache);
+    Provider provider{
+        {f.root}, Emulators::discover(EmulatorSearch{.executablePath = {bin}}, {}), names};
+    const std::vector<Game> before = provider.list();
+    expect(find(before, "sf2") != nullptr && find(before, "unlisted") != nullptr,
+           "an arcade short name is its own title until the listing is kept");
+
+    std::string error;
+    expect(names.save(NameMap{{"sf2", "Street Fighter II: The World Warrior (World 910522)"},
+                              {"black", "Wrong System Entry"}},
+                      error),
+           "the arcade listing is kept");
     const std::vector<Game> games = provider.list();
 
-    expect(games.size() == 9, "every game of every known system is listed once");
+    expect(games.size() == 11, "every game of every known system is listed once");
+    const Game* sf2 = find(games, "Street Fighter II: The World Warrior");
+    expect(sf2 != nullptr && sf2->artworkKey == "sf2",
+           "an arcade short name is titled by the listing, cleaned of its tags");
+    expect(find(games, "unlisted") != nullptr, "a short name the listing lacks keeps its name");
+    expect(find(games, "Black") != nullptr, "the listing only titles arcade games");
     const Game* kirby = find(games, "Kirby Star Allies");
     expect(kirby != nullptr && kirby->sourceId == "switch", "a game folder is one game");
     expect(kirby->launch.empty() &&
                kirby->unavailable == "no Nintendo Switch emulator found; install Eden or Ryujinx",
            "a game without an emulator names what to install");
     expect(find(games, "Super Mario Bros. Wonder") != nullptr, "dump tags leave the title");
-    const Game* tc4 = find(games, "Time Crisis 4 (USA)");
+    const Game* tc4 = find(games, "Time Crisis 4");
     expect(tc4 != nullptr && !tc4->launch.empty() &&
                tc4->launch.args.back() ==
                    (f.root / "PS3" / "Time Crisis 4 (USA)" / "Time Crisis 4 (USA).iso").string(),
            "a game with an emulator starts its file");
     expect(tc4->processHint == "Time Crisis 4 (USA).iso", "the hint is the file's name");
-    expect(find(games, "Tomba! (USA)")->sourceId == "psx", "PSX CHD games are PlayStation");
-    expect(find(games, "Tomba! (USA)")->artworkKey == "Tomba! (USA)" &&
+    expect(find(games, "Tomba!")->sourceId == "psx", "PSX CHD games are PlayStation");
+    expect(find(games, "Tomba!")->artworkKey == "Tomba! (USA)" &&
                tc4->artworkKey == "Time Crisis 4 (USA)" &&
                find(games, "Super Mario Bros. Wonder")->artworkKey ==
                    "Super Mario Bros. Wonder [010015100B514000][v0][US]",

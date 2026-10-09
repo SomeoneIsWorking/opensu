@@ -6,6 +6,14 @@ add_executable(roms_test roms_test.cpp)
 target_link_libraries(roms_test PRIVATE opensu::library)
 add_test(NAME roms COMMAND roms_test)
 
+add_executable(rom_titles_test rom_titles_test.cpp)
+target_link_libraries(rom_titles_test PRIVATE opensu::library)
+add_test(NAME rom_titles COMMAND rom_titles_test)
+
+add_executable(arcade_names_test arcade_names_test.cpp)
+target_link_libraries(arcade_names_test PRIVATE opensu::library)
+add_test(NAME arcade_names COMMAND arcade_names_test)
+
 add_executable(shelf_test shelf_test.cpp)
 target_link_libraries(shelf_test PRIVATE opensu::library)
 add_test(NAME shelf COMMAND shelf_test)
@@ -40,3 +48,8 @@ add_executable(install_log_test install_log_test.cpp)
 target_link_libraries(install_log_test PRIVATE opensu::library)
 target_compile_options(install_log_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME install_log COMMAND install_log_test)
+
+add_executable(catalog_loader_test catalog_loader_test.cpp)
+target_link_libraries(catalog_loader_test PRIVATE opensu::library)
+target_compile_options(catalog_loader_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME catalog_loader COMMAND catalog_loader_test)

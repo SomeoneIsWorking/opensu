@@ -201,16 +201,10 @@ void HomeLayout::computeMaxScroll() {
         maxScroll_ = 0.0f;
         return;
     }
-    float right = 0.0f;
-    float lastWidth = 0.0f;
-    const std::size_t count = slotCount();
-    for (std::size_t index = 0; index < count; ++index) {
-        const Rect rect = contentRect(index);
-        if (rect.right() >= right) {
-            right = rect.right();
-            lastWidth = rect.width;
-        }
-    }
+    // Slots run left to right, so the last one reaches furthest.
+    const Rect last = contentRect(slotCount() - 1);
+    const float right = last.right();
+    const float lastWidth = last.width;
     float endPadding = paddingLeft_;
     if (mode_ == ScrollMode::Flow) {
         // iiSU hx2.g: Flow may scroll until the last column is centred.
@@ -278,8 +272,34 @@ Rect HomeLayout::canvasRect(std::size_t index, float scroll) const noexcept {
     return rect;
 }
 
+SlotRange HomeLayout::visibleSlots(float scroll, float canvasWidth, float margin) const noexcept {
+    // A slot's left and right edges never decrease with its index, so each bound is a binary
+    // search for the first slot past it.
+    const auto firstWhere = [this](const auto& past) {
+        std::size_t low = 0;
+        std::size_t high = slots_;
+        while (low < high) {
+            const std::size_t middle = low + (high - low) / 2;
+            if (past(middle)) {
+                high = middle;
+            } else {
+                low = middle + 1;
+            }
+        }
+        return low;
+    };
+    const std::size_t first = firstWhere([&](std::size_t slot) {
+        return canvasRect(slot, scroll).right() > -margin;
+    });
+    const std::size_t last = firstWhere([&](std::size_t slot) {
+        return canvasRect(slot, scroll).x >= canvasWidth + margin;
+    });
+    return SlotRange{first, std::max(first, last)};
+}
+
 std::optional<std::size_t> HomeLayout::slotAt(float scroll, float x, float y) const noexcept {
-    for (std::size_t slot = 0; slot < slots_; ++slot) {
+    const SlotRange near = visibleSlots(scroll, viewportX_ * 2.0f + viewportWidth_);
+    for (std::size_t slot = near.first; slot < near.last; ++slot) {
         if (canvasRect(slot, scroll).contains(x, y)) {
             return slot;
         }
@@ -288,19 +308,24 @@ std::optional<std::size_t> HomeLayout::slotAt(float scroll, float x, float y) co
 }
 
 std::size_t HomeLayout::slotOnPage(int page, int row, bool last) const noexcept {
-    std::optional<std::size_t> pick;
-    std::optional<std::size_t> any;
-    for (std::size_t slot = 0; slot < slots_; ++slot) {
-        const GridCell cell = cellOf(slot);
-        if (cell.page != page) {
-            continue;
-        }
-        any = any.value_or(slot);
-        if (cell.top == row && (!pick || last || cell.left < cellOf(*pick).left)) {
-            pick = slot;
+    const auto rows = static_cast<std::size_t>(rows_);
+    const auto columns = static_cast<std::size_t>(columns_);
+    if (page < 0 || static_cast<std::size_t>(page) * columns * rows >= slots_) {
+        return 0;
+    }
+    const std::size_t start = static_cast<std::size_t>(page) * columns * rows;
+    if (row < 0 || row >= rows_) {
+        return start;
+    }
+    // Column-major: the row's slot in the first (or last) column that has one on this page.
+    for (std::size_t step = 0; step < columns; ++step) {
+        const std::size_t column = last ? columns - 1 - step : step;
+        const std::size_t slot = start + column * rows + static_cast<std::size_t>(row);
+        if (slot < slots_) {
+            return slot;
         }
     }
-    return pick.value_or(any.value_or(0));
+    return start;
 }
 
 std::optional<int> HomeLayout::pageAt(int currentPage, float x, float y) const {

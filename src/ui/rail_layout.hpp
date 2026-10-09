@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -12,12 +13,17 @@
 
 namespace opensu::ui {
 
-/// What a rail is laid out from.
+/// What a rail is laid out from. A layout places only the tiles reaching the canvas and half a
+/// canvas beyond it each way (so artwork is ready before a tile scrolls in); its cost follows the
+/// canvas, not the tile count.
 struct RailInput {
     float width{};
     float height{};
-    /// One art aspect (width over height) per tile; 1 for a tile with no art.
-    std::vector<float> aspects;
+    /// How many tiles the rail holds.
+    std::size_t count{};
+    /// A tile's art aspect (width over height); 1 for a tile with no art. Asked only of the tiles
+    /// the layout places.
+    std::function<float(std::size_t)> aspect;
     /// The focus position in tiles, fractional while it moves; clamped to the tiles.
     float focus{};
     /// iiSU's icon size level, 1 to 20 (`xmbIconSizeLevel`, default 9).
@@ -29,10 +35,10 @@ struct RailInput {
 /// iiSU `w70.I`: the size level's scale, `clamp((level - 10) 0.11 + 1.45, 0.67, 2.55)`.
 [[nodiscard]] float iconScale(int level) noexcept;
 
-/// The tile under the point, given every tile's drawn rectangle: the tiles nearest `focus` are
-/// drawn last, so they are on top.
-[[nodiscard]] std::optional<std::size_t> railTileAt(const std::vector<Rect>& tiles, float focus,
-                                                    float x, float y);
+/// The tile under the point, given the drawn rectangles of the tiles from `first` on: the tiles
+/// nearest `focus` are drawn last, so they are on top.
+[[nodiscard]] std::optional<std::size_t>
+railTileAt(const std::vector<Rect>& tiles, std::size_t first, float focus, float x, float y);
 
 /// The vertical XMB: a column at the left edge, centred vertically (iiSU `e39`).
 class XmbLayout {
@@ -58,9 +64,13 @@ class XmbLayout {
     /// A tile's side before its aspect: `smoothstep` between the two sizes by its distance from
     /// the focus.
     [[nodiscard]] float sizeOf(std::size_t index) const noexcept;
-    /// Every tile's rectangle, in tile order.
+    /// The placed tiles' rectangles, in tile order from `first()`.
     [[nodiscard]] const std::vector<Rect>& rects() const noexcept {
         return rects_;
+    }
+    /// The index of the first placed tile.
+    [[nodiscard]] std::size_t first() const noexcept {
+        return first_;
     }
 
     /// Pixels per dp the layout was made for.
@@ -105,6 +115,7 @@ class XmbLayout {
     float unfocusedSize_{};
     float gap_{};
     float centreY_{};
+    std::size_t first_{};
     std::vector<Rect> rects_;
 };
 
@@ -133,6 +144,9 @@ class CarouselLayout {
     [[nodiscard]] float sizeOf(std::size_t index) const noexcept;
     [[nodiscard]] const std::vector<Rect>& rects() const noexcept {
         return rects_;
+    }
+    [[nodiscard]] std::size_t first() const noexcept {
+        return first_;
     }
 
     [[nodiscard]] float dp() const noexcept {
@@ -165,6 +179,7 @@ class CarouselLayout {
     float focusedSize_{};
     float unfocusedSize_{};
     float gap_{};
+    std::size_t first_{};
     std::vector<Rect> rects_;
 };
 

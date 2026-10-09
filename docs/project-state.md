@@ -172,8 +172,30 @@ bottom-right corner for every store that owns it (`Game::ownedIn`,
 `ui::storeIconRow`); on a launcher page only the other stores are shown, and a game owned
 there alone shows none. ROM, console and launcher tiles never carry them. Inside any of the
 three the title pill names the focused game.
-A tile loads its artwork the first time it is drawn,
-so a shelf change or a download needs no separate load step.
+Nothing a large library does runs on the frame thread (measured on the 447-title Epic
+library: `legendary list --json` 2.3 s to 10 s; cover decode 113 ms and upload 16 ms per Epic
+image at full size, all of a shelf's tiles in one frame):
+
+- Stores list on threads of their own (`library::CatalogLoader`, one per provider); the
+  loop takes each listing as it arrives and rebuilds the catalog. A store whose first listing is
+  not in is `Availability::Loading`: its Library tile reads "Loading", its top-bar badge spins,
+  and A on it says it is loading rather than opening sign-in.
+- Covers decode on a worker (`ui::ImageDecoder`), scaled to at most 768 px on the long side,
+  and the frame uploads at most `Shell::uploadsPerFrame` (4) textures. Only tiles the layout
+  owner places near the canvas (`HomeLayout::visibleSlots`, the XMB's and Carousel's window)
+  are decoded; textures are released oldest first outside that window once `Shell::residentLimit`
+  (120) are held, and re-decoded from the file when the tile comes back. Layout, hit-testing,
+  painting and artwork requests cost the same for 50 tiles and 5000 (unit-tested). Per-event
+  work that is still O(items): D-pad focus search (`FocusGrid::of`).
+- A game tile whose art is queued or downloading by the fetcher (`ArtworkFetcher::stageOf`),
+  or whose file is decoding, shows a rotating arc in the focus ring's cyan; a confirmed miss or
+  an unreachable round settles it (`Fetched::saved == false`) and it keeps the first-letter
+  placeholder. iiSU has no tile spinner (`launch.md` F), so the arc is openSU's own, drawn with
+  the bell's Material spinner. The fetcher takes the games on screen first.
+- Epic key image URLs with spaces are percent-encoded; one such URL used to end the whole round.
+
+A tile loads its artwork when it comes near the canvas, so a shelf change or a download needs
+no separate load step.
 
 Artwork that no source has on disk is downloaded in the background
 (`artwork::ArtworkFetcher`) into `<cache>/artwork` (`$XDG_CACHE_HOME/opensu`):
@@ -193,6 +215,32 @@ are kept for 30 days. Measured on this machine: 54 images on the first run, 10
 misses (libretro lists only 67 PS3 and 12 Xbox 360 boxes, a PS4 folder named by
 title id, two Steam apps without either image). Switch and arcade have no source;
 their ROM tiles keep iiSU's first-letter fallback.
+
+A ROM's tile title is `library::roms::cleanTitle` of its file or folder name: everything from
+the first `(` or `[` goes (region, language, revision, dump flags, `Decrypted`, `-patched`), a
+release number prefix goes, a trailing `, The` (also A, An, Le, La, Les, Il, El, Der, Die, Das,
+Los, `L'`) moves to the front, and a name without spaces reads its underscores as spaces. The
+artwork key stays the untouched name, so box art matching is unchanged. An arcade system's zip
+is a MAME short name, so its title is the description libretro-database lists for it
+(`sf2` is "Street Fighter II: The World Warrior (World 910522)"), cleaned the same way. The
+listings are `metadat/fbneo-split/FBNeo - Arcade Games.dat` (1,791,303 bytes, CRC-32 67cc252a)
+and `metadat/mame-split/MAME 2016.dat` (2,118,571 bytes, CRC-32 1ecf3c2e) of libretro-database
+commit `bf825e3ec48d` (CC-BY-SA-4.0), a short name in both read as FinalBurn Neo has it.
+`ArtworkFetcher` downloads them in the background the first time the catalog holds an arcade
+ROM and no `<cache>/names/arcade-<commit>.tsv` exists, checks size and CRC-32 against the pin,
+and keeps the merged 11,491 short names parsed as that tab-separated file (488 KB). The ROM
+provider only reads the file during `list()`, so a catalog read never waits on the network;
+until the file exists an arcade game shows its short name, and the shell re-reads the catalog
+when the names arrive (`Fetched::Kind::Names`). The pin and the cache file name change together
+with the commit. iiSU itself scrapes ScreenScraper/TheGamesDB with per-user credentials and
+ships only a Vita title-id table, so there was no iiSU name source to match.
+Gaps: a ROM whose file name is a code on a system other than arcade (a Vita `PCSE00905` pkg,
+a PS4 `CUSA` folder) keeps that name; the Vita table (`psvita_title_ids.json` in the APK) is
+the candidate. A hash lookup is not done: the listings carry the CRC of the whole zip, which
+differs between a user's re-zipped copy and the listing (`armwar.zip` and `avspu.zip` here match
+neither), so it would only work for TorrentZipped sets. A game the two listings lack (newer than
+MAME 2016 and not in FinalBurn Neo) keeps its short name. Arcade box art has no source yet:
+libretro's MAME thumbnails are named by these descriptions, so the key could use them.
 
 Console cards are `platforms/<system>.webp` (512x512, ES-DE system names) in iiSU's
 starter pack, `assets/iiSU_StarterPack.zip` inside the 0.0.7.4 release APK

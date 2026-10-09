@@ -6,6 +6,8 @@
 #include <cstddef>
 #include <limits>
 
+#include "rom_titles.hpp"
+
 namespace opensu::artwork {
 namespace {
 
@@ -73,22 +75,9 @@ std::string region(std::string tag) {
     return tag;
 }
 
-/// Drops a scene release number ("0881 - Castlevania").
-std::string_view withoutReleaseNumber(std::string_view name) {
-    std::size_t digits = 0;
-    while (digits < name.size() && std::isdigit(static_cast<unsigned char>(name[digits])) != 0) {
-        ++digits;
-    }
-    constexpr std::string_view separator = " - ";
-    if (digits > 0 && name.substr(digits).starts_with(separator)) {
-        return name.substr(digits + separator.size());
-    }
-    return name;
-}
-
 Parsed parse(std::string_view whole) {
     Parsed parsed;
-    const std::string_view name = withoutReleaseNumber(whole);
+    const std::string_view name = library::roms::withoutReleaseNumber(whole);
     const std::size_t cut = std::min(name.find(" ("), name.find(" ["));
     const std::string_view title = name.substr(0, cut);
     std::string word;

@@ -7,10 +7,13 @@
 
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "raylib.h"
@@ -26,6 +29,7 @@
 #include "grid_focus.hpp"
 #include "home_layout.hpp"
 #include "hud.hpp"
+#include "image_decoder.hpp"
 #include "input/last_device.hpp"
 #include "launch_panel.hpp"
 #include "launch_panel_painter.hpp"
@@ -64,6 +68,12 @@ struct Tile {
     bool hasWide{false};
     /// Whether its artwork files have been read into the textures.
     bool artLoaded{false};
+    /// Whether its files are queued to decode or decoding.
+    bool artRequested{false};
+    /// Whether the artwork fetcher is downloading, or has queued, art for it.
+    bool artDownloading{false};
+    /// Changes when its files change, so a decode of the old ones is dropped.
+    std::uint64_t ticket{};
     /// The tile's platform frame, or null for a game with no platform identity.
     const Platform* platform{nullptr};
 };
@@ -90,12 +100,31 @@ class Shell {
     /// clears it (navigation.md §5.4).
     void setHeader(std::optional<library::ShelfItem> header);
 
-    /// Loads the artwork of every tile not loaded yet, from the paths the sources recorded.
-    /// Drawing does this itself; it needs the GL context.
-    void loadArtwork();
+    /// Streams the artwork of the tiles near the canvas: queues their files to decode on the
+    /// decoder's thread and uploads at most `uploads` decoded images as textures, then releases
+    /// the textures of tiles far from the canvas once more than `residentLimit` are held. Drawing
+    /// does this itself; it needs the GL context.
+    void loadArtwork(std::size_t uploads = uploadsPerFrame);
+
+    /// Loads the artwork of the tiles near the canvas and waits until it is all in; for a still
+    /// render.
+    void loadArtworkNow();
+
+    /// Textures uploaded per frame, so a screenful of new covers spreads over a few frames.
+    static constexpr std::size_t uploadsPerFrame = 4;
+    /// Tile textures held at most; the oldest outside the window are released beyond it.
+    static constexpr std::size_t residentLimit = 120;
 
     /// Gives a game's tile artwork that arrived after the shelf was set.
     void setArtwork(std::string_view gameId, const std::filesystem::path& artwork);
+    /// Sets which games' artwork is downloading or queued, which is what a tile's spinner shows;
+    /// every other game's is not.
+    void setArtworkDownloading(const std::vector<std::string>& gameIds);
+    /// The games near the canvas whose artwork is downloading or queued, for the fetcher to do
+    /// first.
+    [[nodiscard]] std::vector<std::string> downloadingOnScreen() const;
+    /// A game's artwork is not coming (a confirmed miss, or the round ended): no spinner.
+    void artworkSettled(std::string_view gameId);
     /// Gives a console's tile the card that arrived after the shelf was set.
     void setConsoleArtwork(std::string_view system, const std::filesystem::path& artwork);
 
@@ -268,19 +297,31 @@ class Shell {
     /// How far the entrance has run for a tile `distance` from the focus, or 1 when none runs.
     [[nodiscard]] float railAlpha(int distance) const noexcept;
     [[nodiscard]] Tile makeTile(library::ShelfItem item) const;
-    void loadTile(Tile& tile);
+    /// The tiles whose art is wanted now: those near the canvas, as the layout owner places them.
+    [[nodiscard]] SlotRange artWindow() const;
+    /// Queues the art of the window's tiles that has not been, and drops queued art that left it.
+    void requestArtwork(const SlotRange& window);
+    void requestTile(Tile& tile, std::size_t index);
+    /// Uploads up to `limit` decoded images to their tiles.
+    void uploadArtwork(std::size_t limit);
+    void trimResident(const SlotRange& window);
+    /// The shelf's tile `index`, or the header for `headerTile`; null when there is none.
+    [[nodiscard]] Tile* tileOf(std::size_t index);
+    static constexpr std::size_t headerTile = std::numeric_limits<std::size_t>::max();
     /// Fills `visual` with what `tile` shows: its art, frame, names and badges.
     void fillContent(TileVisual& visual, const Tile& tile) const;
     /// Points focus at `index`, restarting the focus scale and bringing it into view.
     void focusOn(std::size_t index, int dx);
     void startEntrance();
     void releaseTextures();
-    static void unloadArtwork(Tile& tile);
+    void unloadArtwork(Tile& tile);
     void drawScene();
     void drawGrid();
     void drawRail();
-    /// The rectangles an XMB's or a Carousel's layout `rects` are drawn at, tile by tile.
-    [[nodiscard]] std::vector<Rect> railSlots(const std::vector<Rect>& rects) const;
+    /// The rectangles an XMB's or a Carousel's layout `rects` are drawn at, tile by tile, for the
+    /// tiles from `first` on.
+    [[nodiscard]] std::vector<Rect> railSlots(const std::vector<Rect>& rects,
+                                              std::size_t first) const;
     /// What a click at `point` hits while the Guide menu, the launch panel or the layout picker is
     /// up.
     [[nodiscard]] PointerTarget pointAtModal(Vector2 point) const;
@@ -299,6 +340,14 @@ class Shell {
     [[nodiscard]] TileVisual visualFor(std::size_t slot, const Rect& rect) const;
 
     std::vector<Tile> tiles_;
+    /// A game's tile in `tiles_`, by game id.
+    std::unordered_map<std::string, std::size_t> gameTiles_;
+    ImageDecoder decoder_;
+    /// Replaced with the shelf, so decodes for an earlier one are dropped.
+    std::uint64_t shelfSerial_{};
+    std::uint64_t lastTicket_{};
+    /// Tiles holding textures, the oldest first.
+    std::vector<std::size_t> resident_;
     /// What stands for the folder in the XMB's left column.
     std::optional<Tile> header_;
     Platforms platforms_;

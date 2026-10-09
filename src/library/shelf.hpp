@@ -36,6 +36,8 @@ struct Launcher {
     std::size_t games{0};
     /// Whether the store listed its games on the last read; false when it needs signing in.
     bool ready{true};
+    /// Whether its first listing has not come back yet; not `ready`, but nothing to sign in to.
+    bool loading{false};
 
     bool operator==(const Launcher&) const = default;
 };

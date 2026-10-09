@@ -68,6 +68,11 @@ struct TileVisual {
     std::optional<Icon> logo;
     /// The stores a game is owned in, as icons in its corner.
     std::span<const Icon> stores;
+    /// Whether the cover is on its way (downloading, queued or decoding): a spinner stands in for
+    /// the no-art letter.
+    bool loading{false};
+    /// The clock the spinner turns by.
+    double seconds{0.0};
 };
 
 struct ChromeVariant;
@@ -89,7 +94,8 @@ class TilePainter {
     void paintContent(const TileVisual& tile, const TileGeometry& geometry);
     void paintFrame(const Rect& rect, const Platform& platform, const Texture* glyph,
                     float alpha) const;
-    void paintFallback(const Rect& content, std::string_view title, float alpha) const;
+    void paintFallback(const TileVisual& tile, const Rect& content) const;
+    void paintLoading(const TileVisual& tile, const Rect& content) const;
     /// A folder's card: a gradient with the mark, the name and the count centred on it.
     void paintCard(const TileVisual& tile, const Rect& content, Color from, Color to);
     void paintMark(const TileVisual& tile, const Rect& box, Color ink);

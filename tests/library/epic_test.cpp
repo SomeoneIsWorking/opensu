@@ -72,14 +72,16 @@ list) echo '[{"app_name":"Fortnite","app_title":"Fortnite","metadata":{"keyImage
                 {"type":"DieselGameBoxLogo","url":"https://cdn.example/logo.png"},
                 {"type":"Thumbnail","url":"https://cdn.example/owned-thumb.jpg"}]}},
              {"app_name":"Extra","app_title":"Extra Pack"},
-             {"app_name":"Untitled","app_title":""}]' ;;
+             {"app_name":"Untitled","app_title":""},
+             {"app_name":"Spaced","app_title":"Spaced","metadata":{"keyImages":[
+                {"type":"DieselGameBoxTall","url":"https://cdn.example/public testing 1200 x 1600.jpg"}]}}]' ;;
 list-installed) echo '[{"app_name":"Fortnite","title":"Fortnite","install_path":"/games/Fortnite","is_dlc":false},
                        {"app_name":"Extra","title":"Extra Pack","install_path":"/games/Extra","is_dlc":true}]' ;;
 *) exit 2 ;;
 esac
 )");
     const std::vector<Game> games = Provider{legendary.string()}.list();
-    expect(games.size() == 3, "every owned title but the installed DLC is listed");
+    expect(games.size() == 4, "every owned title but the installed DLC is listed");
     const Game* fortnite = find(games, "epic:Fortnite");
     expect(fortnite != nullptr && fortnite->installed, "an installed title is installed");
     expect(fortnite->processHint == "Fortnite", "its install folder names its process");
@@ -92,6 +94,10 @@ esac
            "the portrait box is preferred");
     expect(owned->artworkUrl == "https://cdn.example/owned-thumb.jpg",
            "the thumbnail is the last resort and a logo is never used");
+    const Game* spaced = find(games, "epic:Spaced");
+    expect(spaced != nullptr &&
+               spaced->artworkUrl == "https://cdn.example/public%20testing%201200%20x%201600.jpg",
+           "spaces in an image URL are encoded, since curl refuses them");
     const Game* untitled = find(games, "epic:Untitled");
     expect(untitled != nullptr && untitled->title == "Untitled", "no title falls back to the id");
     expect(untitled->artworkUrl.empty(), "a title without key images has no artwork URL");

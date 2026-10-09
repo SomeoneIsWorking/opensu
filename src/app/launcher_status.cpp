@@ -32,6 +32,8 @@ ui::ServiceState storeState(library::Source source,
         return ui::ServiceState::Ready;
     case library::Availability::Attention:
         return ui::ServiceState::Failed;
+    case library::Availability::Loading:
+        return ui::ServiceState::Starting;
     case library::Availability::Absent:
         break;
     }

@@ -13,6 +13,7 @@
 
 #include "rlgl.h"
 
+#include "progress_spinner.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
@@ -51,6 +52,12 @@ constexpr float ringOverInset = 0.9f;
 
 // iiSU nx2.u: no-art letter is #66FFFFFF, clamp(0.34 min, 34, 92) px.
 constexpr Color fallbackInk{0xFF, 0xFF, 0xFF, 0x66};
+
+// A cover on its way: the spinner is the focus ring's cyan, a third of the tile.
+constexpr Color loadingInk{0x71, 0xE0, 0xFF, 255};
+constexpr float loadingSize = 0.3f;
+constexpr float loadingMinSize = 24.0f;
+constexpr float loadingStroke = 0.11f;
 
 // A console with no platform colours of its own: iiSU's prompt ink, lightened.
 constexpr Color consoleFrom{0x8A, 0x82, 0x9C, 255};
@@ -346,7 +353,7 @@ void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geome
                                          static_cast<float>(tile.art->height), content),
                              tint);
         } else {
-            paintFallback(content, tile.title, tile.alpha);
+            paintFallback(tile, content);
         }
         paintFrame(content, *tile.platform, tile.glyph, tile.alpha);
     } else if (tile.art != nullptr) {
@@ -356,7 +363,7 @@ void TilePainter::paintContent(const TileVisual& tile, const TileGeometry& geome
                                      static_cast<float>(tile.art->height), content),
                          tint);
     } else {
-        paintFallback(content, tile.title, tile.alpha);
+        paintFallback(tile, content);
     }
     paintStores(tile, content);
 }
@@ -473,12 +480,16 @@ void TilePainter::paintCard(const TileVisual& tile, const Rect& content, Color f
                        countY, count, withAlpha(ink, alpha * 0.72f));
 }
 
-void TilePainter::paintFallback(const Rect& content, std::string_view title, float alpha) const {
+void TilePainter::paintFallback(const TileVisual& tile, const Rect& content) const {
+    if (tile.loading) {
+        paintLoading(tile, content);
+        return;
+    }
     // iiSU yy0.f: the first letter or digit, upper-cased.
-    const auto found = std::ranges::find_if(title, [](char c) {
+    const auto found = std::ranges::find_if(tile.title, [](char c) {
         return std::isalnum(static_cast<unsigned char>(c)) != 0;
     });
-    if (found == title.end()) {
+    if (found == tile.title.end()) {
         return;
     }
     const std::string letter(1,
@@ -487,7 +498,14 @@ void TilePainter::paintFallback(const Rect& content, std::string_view title, flo
         std::clamp(std::min(content.width, content.height) * 0.34f, 34.0f, 92.0f))};
     const float width = type().measure(letter, text);
     type().drawCentred(letter, content.centreX() - width * 0.5f, content.centreY(), text,
-                       withAlpha(fallbackInk, alpha));
+                       withAlpha(fallbackInk, tile.alpha));
+}
+
+void TilePainter::paintLoading(const TileVisual& tile, const Rect& content) const {
+    const float side = std::min(content.width, content.height);
+    const float size = std::max(side * loadingSize, loadingMinSize);
+    drawSpinner(Vector2{content.centreX(), content.centreY()}, size, size * loadingStroke,
+                withAlpha(loadingInk, tile.alpha), tile.seconds);
 }
 
 } // namespace opensu::ui

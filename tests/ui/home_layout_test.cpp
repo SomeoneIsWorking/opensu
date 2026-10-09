@@ -241,8 +241,11 @@ void slotsUnderThePointer() {
     expect(!layout.slotAt(scroll, first.right() + layout.gap() * 0.5f, first.centreY()),
            "the gap between cells hits none");
     expect(!layout.slotAt(scroll, first.x - 1.0f, first.centreY()), "nor does the margin");
-    const opensu::ui::Rect placeholder = layout.canvasRect(40, scroll);
-    const auto empty = layout.slotAt(scroll, placeholder.centreX(), placeholder.centreY());
+    // Scrolled until it is on the canvas.
+    const float placeholderScroll = layout.canvasRect(40, scroll).x - 200.0f;
+    const opensu::ui::Rect placeholder = layout.canvasRect(40, placeholderScroll);
+    const auto empty =
+        layout.slotAt(placeholderScroll, placeholder.centreX(), placeholder.centreY());
     expect(empty && *empty == 40, "an empty slot is hit like a tile");
     const opensu::ui::Rect scrolled = layout.canvasRect(0, 100.0f);
     const auto moved = layout.slotAt(100.0f, scrolled.centreX(), scrolled.centreY());
@@ -278,9 +281,33 @@ void slotOnPage() {
     expect(layout.slotOnPage(2, 0, false) == 30, "page 2 starts at slot 30");
 }
 
+void visibleWindowIsSmallWhateverTheLibrary() {
+    for (const ScrollMode mode : {ScrollMode::Flow, ScrollMode::Paged}) {
+        const HomeLayout layout{window(5000, mode)};
+        const float scroll = mode == ScrollMode::Flow ? layout.maxScroll() * 0.5f
+                                                      : layout.pageScroll(layout.pageCount() / 2);
+        const opensu::ui::SlotRange seen = layout.visibleSlots(scroll, 1280.0f);
+        expect(seen.size() > 0 && seen.size() < 60, "a 5000-item grid shows a screenful");
+        for (std::size_t slot = 0; slot < layout.slotCount(); slot += 7) {
+            const opensu::ui::Rect rect = layout.canvasRect(slot, scroll);
+            const bool onCanvas = rect.right() > 0.0f && rect.x < 1280.0f;
+            expect(onCanvas == seen.contains(slot), "the range is exactly the slots on the canvas");
+        }
+        const opensu::ui::SlotRange wide = layout.visibleSlots(scroll, 1280.0f, 640.0f);
+        expect(wide.first <= seen.first && wide.last >= seen.last && wide.size() < 120,
+               "a margin widens it by a bounded amount");
+        const opensu::ui::Rect middle = layout.canvasRect(seen.first, scroll);
+        const auto hit = layout.slotAt(scroll, middle.centreX(), middle.centreY());
+        expect(hit && *hit == seen.first, "hit-testing finds a visible slot");
+    }
+    const HomeLayout empty{window(0, ScrollMode::Flow)};
+    expect(empty.visibleSlots(0.0f, 1280.0f).size() > 0, "an empty grid still shows its slots");
+}
+
 } // namespace
 
 int main() {
+    visibleWindowIsSmallWhateverTheLibrary();
     defaultViewport();
     categoryLevel();
     gapRule();

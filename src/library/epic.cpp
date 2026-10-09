@@ -32,6 +32,15 @@ struct Install {
 constexpr std::array<std::string_view, 3> imageTypes{"DieselGameBoxTall", "DieselGameBox",
                                                      "Thumbnail"};
 
+/// Some key image URLs carry spaces ("public testing EGS 1200 x 1600 library_..."), which curl
+/// refuses as an illegal URL and which would end a whole artwork round.
+std::string encodeSpaces(std::string url) {
+    for (std::size_t at = url.find(' '); at != std::string::npos; at = url.find(' ', at)) {
+        url.replace(at, 1, "%20");
+    }
+    return url;
+}
+
 /// The URL of the preferred key image in `metadata.keyImages`; empty when there is none.
 std::string artworkUrl(const json& entry) {
     const json::const_iterator metadata = entry.find("metadata");
@@ -45,7 +54,7 @@ std::string artworkUrl(const json& entry) {
     for (const std::string_view type : imageTypes) {
         for (const json& image : *images) {
             if (image.value("type", "") == type && image.value("url", "").starts_with("https://")) {
-                return image.value("url", "");
+                return encodeSpaces(image.value("url", ""));
             }
         }
     }

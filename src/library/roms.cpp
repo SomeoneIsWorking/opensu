@@ -7,6 +7,7 @@
 
 #include "lucent/log.h"
 #include "rom_systems.hpp"
+#include "rom_titles.hpp"
 
 namespace opensu::library::roms {
 namespace {
@@ -20,6 +21,14 @@ std::string lowerKey(std::string_view name) {
             out.push_back(static_cast<char>(std::tolower(c)));
         }
     }
+    return out;
+}
+
+std::string lowerAscii(std::string_view text) {
+    std::string out{text};
+    std::ranges::transform(out, out.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
     return out;
 }
 
@@ -50,25 +59,19 @@ void addRootsIn(const fs::path& dir, std::vector<fs::path>& roots) {
     }
 }
 
-/// A title from a file or folder name: dump tags in brackets go, region tags in parentheses
-/// stay, as ES-DE shows them.
-std::string titleOf(const fs::path& entry, bool isFile) {
-    const std::string name = isFile ? entry.stem().string() : entry.filename().string();
-    std::string out;
-    int depth = 0;
-    for (const char c : name) {
-        if (c == '[') {
-            ++depth;
-        } else if (c == ']' && depth > 0) {
-            --depth;
-        } else if (depth == 0) {
-            out.push_back(c);
+std::string entryName(const fs::path& entry, bool isFile) {
+    return isFile ? entry.stem().string() : entry.filename().string();
+}
+
+/// The title of the entry: the arcade listing's description for a short name it knows, else the
+/// name itself, cleaned of its dump tags.
+std::string titleOf(const std::string& name, const NameMap* arcade) {
+    if (arcade != nullptr) {
+        if (const auto found = arcade->find(lowerAscii(name)); found != arcade->end()) {
+            return cleanTitle(found->second);
         }
     }
-    while (!out.empty() && out.back() == ' ') {
-        out.pop_back();
-    }
-    return out.empty() ? name : out;
+    return cleanTitle(name);
 }
 
 std::string missingEmulator(const RomSystem& system) {
@@ -105,12 +108,13 @@ std::vector<fs::path> discoverRoots(const fs::path& home, const std::vector<fs::
     return roots;
 }
 
-Provider::Provider(std::vector<fs::path> roots, Emulators emulators)
-    : roots_{std::move(roots)}, emulators_{std::move(emulators)} {
+Provider::Provider(std::vector<fs::path> roots, Emulators emulators, NameDb names)
+    : roots_{std::move(roots)}, emulators_{std::move(emulators)}, names_{std::move(names)} {
 }
 
 std::vector<Game> Provider::list() {
     std::vector<Game> games;
+    const NameMap arcade = names_.load();
     for (const fs::path& root : roots_) {
         std::error_code ec;
         if (!fs::is_directory(root, ec)) {
@@ -136,9 +140,9 @@ std::vector<Game> Provider::list() {
                 game.id = "rom:" + entry.string();
                 game.source = Source::Rom;
                 game.sourceId = std::string{system->key};
-                game.title = titleOf(entry, fs::is_regular_file(entry, ec));
-                game.artworkKey = fs::is_regular_file(entry, ec) ? entry.stem().string()
-                                                                 : entry.filename().string();
+                const std::string name = entryName(entry, fs::is_regular_file(entry, ec));
+                game.title = titleOf(name, system->key == "arcade" ? &arcade : nullptr);
+                game.artworkKey = name;
                 // The file itself is what makes the entry playable.
                 game.installed = true;
                 // The emulator's command line carries the game's file.

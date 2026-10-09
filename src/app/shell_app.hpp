@@ -31,6 +31,7 @@
 #include "installs.hpp"
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
+#include "library/catalog_loader.hpp"
 #include "library/shelf.hpp"
 #include "pointer_router.hpp"
 #include "settings/settings.hpp"
@@ -102,7 +103,13 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// Hands the loop a launch's progress, for the launch panel. Any thread.
     void requestLaunchProgress(const launch::LaunchProgress& progress);
 
+    /// Asks every store to list again; the listings reach the shell as they arrive.
     void reloadCatalog();
+    /// Takes the listings that arrived and shows them. Main loop only.
+    void serviceCatalog();
+    /// Lists every store and waits for all of them; for a still render only.
+    void loadCatalogNow();
+    void applyCatalog(library::CatalogSnapshot snapshot);
     void handleEvents(const std::vector<gamepad::Event>& events);
     /// Maps held keys onto the buttons they stand in for, so the keyboard reaches
     /// the same actions a controller does rather than a parallel set.
@@ -176,12 +183,16 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// Re-reads the clock and the battery and schedules the next minute boundary.
     void refreshClock();
     void pushCatalogToShell();
+    /// The games whose art the shell wants first, as last sent to the fetcher.
+    std::vector<std::string> prioritised_;
 
     Settings settings_;
-    library::Catalog catalog_;
+    /// Lists every store off the loop; the loop takes what has arrived.
+    library::CatalogLoader catalogLoader_;
     /// Downloaded artwork, and the worker that fills it in.
     artwork::ArtworkStore artworkStore_{config::read().cacheDir / "artwork"};
-    artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{}};
+    artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{},
+                                            library::roms::NameDb::under(config::read().cacheDir)};
     /// iiSU's UI sounds, played from the loop's input handling.
     audio::SoundPlayer sounds_;
     device::BatteryReader battery_;
@@ -203,6 +214,8 @@ class ShellApp final : public ControlTarget, private PointerHost {
     std::unique_ptr<ControlChannel> control_;
 
     std::vector<library::Game> games_;
+    /// How many of `games_` are installed, counted when the catalog arrives.
+    std::size_t installedCount_{0};
     /// Each store's state from the last catalog read.
     std::vector<library::SourceStatus> sources_;
     /// Home or the open folder. Main loop only.

@@ -1,5 +1,6 @@
 #include "artwork_fetcher.hpp"
 
+#include <algorithm>
 #include <utility>
 
 #include <nlohmann/json.hpp>
@@ -43,9 +44,10 @@ std::string gogCoverUrl(const std::string& body) {
 
 } // namespace
 
-ArtworkFetcher::ArtworkFetcher(const ArtworkStore& store, const RemoteSources& sources)
+ArtworkFetcher::ArtworkFetcher(const ArtworkStore& store, const RemoteSources& sources,
+                               library::roms::NameDb names)
     : store_{store}, sources_{sources}, apk_{sources.iisuApk, sources.iisuPin.apkSize},
-      pack_{store, apk_, sources.iisuPin}, glyphs_{apk_},
+      pack_{store, apk_, sources.iisuPin}, glyphs_{apk_}, names_{std::move(names)},
       worker_{[this](const std::stop_token& stop) {
           run(stop);
       }} {
@@ -81,6 +83,12 @@ void ArtworkFetcher::request(const std::vector<library::Game>& games,
             wanted.emplace_back(game);
         }
     }
+    const bool arcade = std::ranges::any_of(games, [](const library::Game& game) {
+        return game.source == library::Source::Rom && game.sourceId == "arcade";
+    });
+    if (arcade && names_.enabled() && !names_.cached()) {
+        wanted.emplace_back(NamesWork{});
+    }
     {
         const std::lock_guard lock{mutex_};
         queue_ = std::move(wanted);
@@ -91,6 +99,48 @@ void ArtworkFetcher::request(const std::vector<library::Game>& games,
 std::vector<Fetched> ArtworkFetcher::take() {
     const std::lock_guard lock{mutex_};
     return std::exchange(done_, {});
+}
+
+void ArtworkFetcher::prioritize(const std::vector<std::string>& gameIds) {
+    const std::lock_guard lock{mutex_};
+    std::size_t front = 0;
+    for (const std::string& id : gameIds) {
+        const auto found = std::find_if(queue_.begin() + static_cast<std::ptrdiff_t>(front),
+                                        queue_.end(), [&id](const Work& work) {
+                                            const auto* game = std::get_if<library::Game>(&work);
+                                            return game != nullptr && game->id == id;
+                                        });
+        if (found != queue_.end()) {
+            std::rotate(queue_.begin() + static_cast<std::ptrdiff_t>(front), found, found + 1);
+            ++front;
+        }
+    }
+}
+
+Stage ArtworkFetcher::stageOf(std::string_view gameId) const {
+    const std::lock_guard lock{mutex_};
+    if (downloading_ == gameId) {
+        return Stage::Downloading;
+    }
+    const bool queued = std::ranges::any_of(queue_, [gameId](const Work& work) {
+        const auto* game = std::get_if<library::Game>(&work);
+        return game != nullptr && game->id == gameId;
+    });
+    return queued ? Stage::Queued : Stage::None;
+}
+
+std::vector<std::string> ArtworkFetcher::pendingGames() const {
+    const std::lock_guard lock{mutex_};
+    std::vector<std::string> ids;
+    if (!downloading_.empty()) {
+        ids.push_back(downloading_);
+    }
+    for (const Work& work : queue_) {
+        if (const auto* game = std::get_if<library::Game>(&work)) {
+            ids.push_back(game->id);
+        }
+    }
+    return ids;
 }
 
 bool ArtworkFetcher::idle() const {
@@ -112,20 +162,34 @@ void ArtworkFetcher::run(const std::stop_token& stop) {
             item = std::move(queue_.front());
             queue_.erase(queue_.begin());
             busy_ = true;
+            if (const auto* game = std::get_if<library::Game>(&item)) {
+                downloading_ = game->id;
+            }
         }
         const Outcome outcome = std::visit(
             [this](const auto& work) {
                 return fetch(work);
             },
             item);
-        if (outcome == Outcome::Saved) {
-            const std::lock_guard lock{mutex_};
-            done_.push_back(arrived(item));
-        } else if (outcome == Outcome::Missing) {
+        if (outcome == Outcome::Missing) {
             recordMiss(item);
-        } else {
+        }
+        const std::lock_guard lock{mutex_};
+        downloading_.clear();
+        if (outcome == Outcome::Saved) {
+            done_.push_back(arrived(item));
+            continue;
+        }
+        if (const auto* game = std::get_if<library::Game>(&item)) {
+            done_.push_back(Fetched{Fetched::Kind::Game, game->id, {}, false});
+        }
+        if (outcome == Outcome::Unreachable) {
             // The network or the cache is down; the next request tries again.
-            const std::lock_guard lock{mutex_};
+            for (const Work& dropped : queue_) {
+                if (const auto* game = std::get_if<library::Game>(&dropped)) {
+                    done_.push_back(Fetched{Fetched::Kind::Game, game->id, {}, false});
+                }
+            }
             queue_.clear();
         }
     }
@@ -141,6 +205,9 @@ Fetched ArtworkFetcher::arrived(const Work& work) const {
     if (const auto* glyph = std::get_if<GlyphWork>(&work)) {
         return Fetched{Fetched::Kind::Glyph, glyph->system, store_.glyphPath(glyph->system)};
     }
+    if (std::holds_alternative<NamesWork>(work)) {
+        return Fetched{Fetched::Kind::Names, {}, {}};
+    }
     const ApkAsset& asset = std::get<ApkAsset>(work);
     return Fetched{asset.kind == AssetKind::Sound ? Fetched::Kind::Sound : Fetched::Kind::NavIcon,
                    asset.file, store_.assetPath(asset)};
@@ -153,8 +220,8 @@ void ArtworkFetcher::recordMiss(const Work& work) const {
         store_.recordMiss(*console);
     } else if (const auto* glyph = std::get_if<GlyphWork>(&work)) {
         store_.recordGlyphMiss(glyph->system);
-    } else {
-        store_.recordAssetMiss(std::get<ApkAsset>(work));
+    } else if (const auto* asset = std::get_if<ApkAsset>(&work)) {
+        store_.recordAssetMiss(*asset);
     }
 }
 
@@ -224,6 +291,18 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const ApkAsset& asset) {
                 [&](std::string_view bytes, std::string& error) {
                     return store_.saveAsset(asset, bytes, error);
                 });
+}
+
+ArtworkFetcher::Outcome ArtworkFetcher::fetch(const NamesWork& /*names*/) {
+    std::string error;
+    const std::optional<library::roms::NameMap> names =
+        fetchArcadeNames(web_, sources_.libretroDatabase, sources_.arcadeDats, error);
+    if (!names || !names_.save(*names, error)) {
+        lucent::warn("artwork", "arcade names: {}", error);
+        return Outcome::Unreachable;
+    }
+    lucent::info("artwork", "{} arcade names kept", names->size());
+    return Outcome::Saved;
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetchSteam(const library::Game& game) {

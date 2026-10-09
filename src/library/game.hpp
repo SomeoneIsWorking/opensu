@@ -97,6 +97,8 @@ enum class Availability : std::uint8_t {
     Ready,
     /// There but unusable until the player acts, such as signing in.
     Attention,
+    /// Present, and its first listing has not come back yet.
+    Loading,
 };
 
 struct SourceStatus {
@@ -112,6 +114,12 @@ struct CatalogSnapshot {
     std::vector<SourceStatus> sources;
 };
 
+/// What one provider listed, or why it could not.
+struct SourceListing {
+    SourceStatus status;
+    std::vector<Game> games;
+};
+
 /// A backend that can list launchable games. Each store has its own type; the
 /// catalog only knows this shape.
 class Provider {
@@ -121,19 +129,27 @@ class Provider {
     [[nodiscard]] virtual std::vector<Game> list() = 0;
 };
 
-/// Merges every configured provider into the single grid the home screen shows.
+/// Reads one provider. A provider that fails is reported in the status, with no games, so one
+/// broken store cannot empty the grid. Blocks as long as the provider does.
+[[nodiscard]] SourceListing readProvider(Provider& provider);
+
+/// The providers of every store the catalog reads, in the order the stores are shown.
 class Catalog {
   public:
     void add(std::unique_ptr<Provider> provider);
 
-    /// Reads every provider into the merged, ordered catalog and each store's status. A provider
-    /// that fails is reported in its status while the others still contribute, so one broken
-    /// store cannot empty the grid.
-    [[nodiscard]] CatalogSnapshot refresh();
+    /// Hands the providers over, to whatever reads them.
+    [[nodiscard]] std::vector<std::unique_ptr<Provider>> release() &&;
 
   private:
     std::vector<std::unique_ptr<Provider>> providers_;
 };
+
+/// The listings merged into the single catalog the home screen shows: games of the same id once,
+/// ordered by `order`, and each store's status in the order of `sources`. A store in `sources`
+/// without a listing is `Loading`.
+[[nodiscard]] CatalogSnapshot assemble(const std::vector<Source>& sources,
+                                       const std::vector<SourceListing>& listings);
 
 /// Sorts the catalog the way the home screen reads it: installed before
 /// uninstalled, most recently played first, then by title.

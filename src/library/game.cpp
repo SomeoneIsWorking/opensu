@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <memory>
 #include <ranges>
+#include <string>
+#include <unordered_set>
 #include <utility>
 
 namespace opensu::library {
@@ -18,13 +20,10 @@ std::chrono::system_clock::time_point playedAt(const Game& game) {
 std::vector<Game> dedupe(std::vector<Game> games) {
     std::vector<Game> out;
     out.reserve(games.size());
+    std::unordered_set<std::string> seen;
+    seen.reserve(games.size());
     for (Game& game : games) {
-        if (game.id.empty()) {
-            continue;
-        }
-        if (std::ranges::any_of(out, [&game](const Game& seen) {
-                return seen.id == game.id;
-            })) {
+        if (game.id.empty() || !seen.insert(game.id).second) {
             continue;
         }
         out.push_back(std::move(game));
@@ -54,23 +53,39 @@ void Catalog::add(std::unique_ptr<Provider> provider) {
     }
 }
 
-CatalogSnapshot Catalog::refresh() {
+std::vector<std::unique_ptr<Provider>> Catalog::release() && {
+    return std::move(providers_);
+}
+
+SourceListing readProvider(Provider& provider) {
+    SourceListing listing{.status = SourceStatus{.source = provider.source()}, .games = {}};
+    try {
+        listing.games = provider.list();
+    } catch (const SourceAbsent& absent) {
+        listing.status.availability = Availability::Absent;
+        listing.status.detail = absent.what();
+    } catch (const std::exception& error) {
+        listing.status.availability = Availability::Attention;
+        listing.status.detail = error.what();
+    }
+    return listing;
+}
+
+CatalogSnapshot assemble(const std::vector<Source>& sources,
+                         const std::vector<SourceListing>& listings) {
     CatalogSnapshot snapshot;
     std::vector<Game> all;
-    for (const std::unique_ptr<Provider>& provider : providers_) {
-        SourceStatus status{.source = provider->source()};
-        try {
-            std::vector<Game> found = provider->list();
-            all.insert(all.end(), std::make_move_iterator(found.begin()),
-                       std::make_move_iterator(found.end()));
-        } catch (const SourceAbsent& absent) {
-            status.availability = Availability::Absent;
-            status.detail = absent.what();
-        } catch (const std::exception& error) {
-            status.availability = Availability::Attention;
-            status.detail = error.what();
+    for (const Source source : sources) {
+        const auto found = std::ranges::find(listings, source, [](const SourceListing& listing) {
+            return listing.status.source;
+        });
+        if (found == listings.end()) {
+            snapshot.sources.push_back(SourceStatus{
+                .source = source, .availability = Availability::Loading, .detail = {}});
+            continue;
         }
-        snapshot.sources.push_back(std::move(status));
+        snapshot.sources.push_back(found->status);
+        all.insert(all.end(), found->games.begin(), found->games.end());
     }
     snapshot.games = dedupe(std::move(all));
     order(snapshot.games);

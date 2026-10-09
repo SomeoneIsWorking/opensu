@@ -21,7 +21,8 @@ Catalog makeCatalog(const config::Config& config) {
     catalog.add(std::make_unique<roms::Provider>(
         std::move(romRoots),
         roms::Emulators::discover(
-            roms::EmulatorSearch::standard(config.home, config.executablePath), config.emulators)));
+            roms::EmulatorSearch::standard(config.home, config.executablePath), config.emulators),
+        roms::NameDb::under(config.cacheDir)));
     return catalog;
 }
 

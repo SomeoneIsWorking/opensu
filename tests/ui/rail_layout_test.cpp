@@ -1,6 +1,7 @@
 // The XMB and the Carousel against navigation.md §2.2's worked numbers.
 #include "rail_layout.hpp"
 
+#include <array>
 #include <cmath>
 #include <cstdio>
 
@@ -16,7 +17,14 @@ using opensu::ui::Rect;
 using opensu::ui::XmbLayout;
 
 RailInput input(float width, float height, std::size_t items, float focus) {
-    return RailInput{width, height, std::vector<float>(items, 1.0f), focus, 9};
+    return RailInput{width,
+                     height,
+                     items,
+                     [](std::size_t) {
+                         return 1.0f;
+                     },
+                     focus,
+                     9};
 }
 
 void iconScales() {
@@ -99,7 +107,9 @@ void xmbEdges() {
 void xmbAspects() {
     // A wide tile shrinks to the column's width; a tall one keeps the height and is narrower.
     RailInput in = input(1920.0f, 1080.0f, 3, 1.0f);
-    in.aspects = {2.0f, 1.0f, 0.5f};
+    in.aspect = [](std::size_t i) {
+        return std::array{2.0f, 1.0f, 0.5f}[i];
+    };
     const XmbLayout xmb{in};
     near(xmb.rects()[0].width, 217.1, "wide: the column's width", 0.1);
     near(xmb.rects()[0].height, 217.1 / 2.0, "at its own aspect", 0.1);
@@ -142,7 +152,9 @@ void carouselAnchors() {
 
 void carouselSlots() {
     RailInput in = input(1920.0f, 1080.0f, 3, 1.0f);
-    in.aspects = {0.3f, 1.5f, 4.0f};
+    in.aspect = [](std::size_t i) {
+        return std::array{0.3f, 1.5f, 4.0f}[i];
+    };
     // Tile 1 is focused; tile 0 is narrow, tile 2 wide, both clamped.
     const CarouselLayout row{in};
     near(row.rects()[0].width, 199.6 * 0.55, "a narrow tile's slot floors at 0.55", 0.1);
@@ -166,28 +178,53 @@ void tileUnderThePointer() {
     const XmbLayout xmb{input(1920.0f, 1080.0f, 5, 2.0f)};
     const Rect& focused = xmb.rects()[2];
     const auto hit =
-        opensu::ui::railTileAt(xmb.rects(), 2.0f, focused.centreX(), focused.centreY());
+        opensu::ui::railTileAt(xmb.rects(), 0, 2.0f, focused.centreX(), focused.centreY());
     expect(hit && *hit == 2, "the focused tile is hit at its centre");
     const Rect& above = xmb.rects()[1];
-    const auto upper = opensu::ui::railTileAt(xmb.rects(), 2.0f, above.centreX(), above.centreY());
+    const auto upper =
+        opensu::ui::railTileAt(xmb.rects(), 0, 2.0f, above.centreX(), above.centreY());
     expect(upper && *upper == 1, "so is a neighbour");
-    expect(!opensu::ui::railTileAt(xmb.rects(), 2.0f, 5.0f, 5.0f), "the corner hits none");
+    expect(!opensu::ui::railTileAt(xmb.rects(), 0, 2.0f, 5.0f, 5.0f), "the corner hits none");
     // Where two rectangles overlap, the one nearer the focus is drawn last and wins.
     const std::vector<Rect> stacked{Rect{0.0f, 0.0f, 100.0f, 100.0f},
                                     Rect{50.0f, 0.0f, 100.0f, 100.0f}};
-    const auto lowFocus = opensu::ui::railTileAt(stacked, 0.0f, 75.0f, 50.0f);
-    const auto highFocus = opensu::ui::railTileAt(stacked, 1.0f, 75.0f, 50.0f);
+    const auto lowFocus = opensu::ui::railTileAt(stacked, 0, 0.0f, 75.0f, 50.0f);
+    const auto highFocus = opensu::ui::railTileAt(stacked, 0, 1.0f, 75.0f, 50.0f);
     expect(lowFocus && *lowFocus == 0 && highFocus && *highFocus == 1,
            "the tile nearer the focus is on top");
     const CarouselLayout row{input(1920.0f, 1080.0f, 4, 1.0f)};
-    const auto across = opensu::ui::railTileAt(row.rects(), 1.0f, row.rects()[3].centreX(),
+    const auto across = opensu::ui::railTileAt(row.rects(), 0, 1.0f, row.rects()[3].centreX(),
                                                row.rects()[3].centreY());
     expect(across && *across == 3, "the carousel hits by the same rule");
+}
+
+void largeRailsPlaceOnlyWhatIsNearTheCanvas() {
+    std::size_t asked = 0;
+    RailInput in = input(1920.0f, 1080.0f, 5000, 2500.0f);
+    in.aspect = [&asked](std::size_t) {
+        ++asked;
+        return 1.0f;
+    };
+    const XmbLayout xmb{in};
+    expect(xmb.rects().size() < 40, "an XMB of 5000 places a screenful and a half-screen margin");
+    expect(asked < 400, "and asks the art of only those");
+    expect(xmb.first() <= 2500 && xmb.first() + xmb.rects().size() > 2500, "around the focus");
+    asked = 0;
+    const CarouselLayout row{in};
+    expect(row.rects().size() < 40 && asked < 400, "a Carousel of 5000 does the same");
+    near(row.rects()[2500 - row.first()].centreX(), 960.0, "the focused tile is still centred",
+         0.01);
+    in.focus = 0.0f;
+    expect(XmbLayout{in}.first() == 0, "at the start the window begins at the first tile");
+    in.focus = 4999.0f;
+    const XmbLayout end{in};
+    expect(end.first() + end.rects().size() == 5000, "at the end it stops at the last tile");
 }
 
 } // namespace
 
 int main() {
+    largeRailsPlaceOnlyWhatIsNearTheCanvas();
     tileUnderThePointer();
     iconScales();
     xmbWorkedNumbers();
