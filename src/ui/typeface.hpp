@@ -76,6 +76,7 @@ class Typeface {
     static constexpr int entries_ = 16;
     Entry* cache_{};
     /// The codepoints every per-size atlas holds.
+    /// The loaded face's cmap: the atlas holds every character the face can draw.
     std::vector<int> codepoints_;
 };
 

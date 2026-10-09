@@ -6,6 +6,7 @@
 #include <iterator>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "config/config.hpp"
@@ -22,22 +23,6 @@ const char* const kFacePaths[] = {
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/google-noto/NotoSans-Bold.ttf",
 };
-
-/// Printable ASCII, Latin-1 and the typographic punctuation labels use; raylib's default
-/// atlas stops at 126, so a "·" drew as "?".
-std::vector<int> atlasCodepoints() {
-    std::vector<int> codepoints;
-    for (int c = 0x20; c <= 0x7E; ++c) {
-        codepoints.push_back(c);
-    }
-    for (int c = 0xA0; c <= 0xFF; ++c) {
-        codepoints.push_back(c);
-    }
-    for (const int c : {0x2013, 0x2014, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2026}) {
-        codepoints.push_back(c);
-    }
-    return codepoints;
-}
 
 std::optional<FaceMetrics> readFaceFile(const std::string& path) {
     std::ifstream stream{path, std::ios::binary};
@@ -63,12 +48,12 @@ template <typename Visit> void forEachCodepoint(std::string_view text, Visit vis
 } // namespace
 
 Typeface::Typeface()
-    : cache_{new Entry[static_cast<std::size_t>(entries_)]}, codepoints_{atlasCodepoints()} {
+    : cache_{new Entry[static_cast<std::size_t>(entries_)]} {
     for (const char* candidate : kFacePaths) {
         const std::string path = candidate[0] == '/'
                                      ? std::string{candidate}
                                      : config::read().assetsDir.string() + "/" + candidate;
-        const std::optional<FaceMetrics> metrics = readFaceFile(path);
+        std::optional<FaceMetrics> metrics = readFaceFile(path);
         if (!metrics) {
             continue;
         }
@@ -81,6 +66,7 @@ Typeface::Typeface()
             custom_ = true;
             lineBoxPerEm_ = metrics->lineBoxPerEm();
             ascentShare_ = metrics->ascent / (metrics->ascent - metrics->descent);
+            codepoints_ = std::move(metrics->codepoints);
             lucent::info("ui", "typeface loaded from {}", path);
             return;
         }
