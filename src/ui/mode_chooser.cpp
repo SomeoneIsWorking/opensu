@@ -36,6 +36,15 @@ ChooserLayout layoutChooser(const Rect& frame, float dp) noexcept {
     return layout;
 }
 
+std::optional<library::LibraryMode> ChooserLayout::cardAt(float x, float y) const noexcept {
+    for (std::size_t i = 0; i < cards.size(); ++i) {
+        if (cards[i].contains(x, y)) {
+            return library::allLibraryModes[i];
+        }
+    }
+    return std::nullopt;
+}
+
 void ModeChooser::open(library::LibraryMode current) noexcept {
     focused_ = current;
     open_ = true;
@@ -51,6 +60,12 @@ bool ModeChooser::move(int delta) noexcept {
     const bool moved = next != static_cast<int>(focused_);
     focused_ = library::allLibraryModes[static_cast<std::size_t>(next)];
     return moved;
+}
+
+bool ModeChooser::focus(library::LibraryMode mode) noexcept {
+    const bool changed = mode != focused_;
+    focused_ = mode;
+    return changed;
 }
 
 } // namespace opensu::ui

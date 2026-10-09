@@ -37,6 +37,7 @@
 #include "page_arrow.hpp"
 #include "page_pill.hpp"
 #include "platform.hpp"
+#include "pointer_target.hpp"
 #include "rail_layout.hpp"
 #include "rail_painter.hpp"
 #include "section_view.hpp"
@@ -128,9 +129,18 @@ class Shell {
     }
 
     /// The pointer at `point`, or away from the window with nothing. Hovers the dock item under
-    /// it and slides a hidden dock in when the pointer rests where the dock is. Returns the
-    /// section the pointer is on.
-    std::optional<library::Section> pointDock(std::optional<Vector2> point);
+    /// it and slides a hidden dock in when the pointer rests where the dock is. Returns what the
+    /// pointer is on.
+    PointerTarget pointAt(std::optional<Vector2> point);
+
+    /// Moves the focus the D-pad moves to the element in `target`: a tile, a page, a layout card
+    /// or a menu row. Reports whether it moved.
+    bool focusTarget(const PointerTarget& target);
+    /// Focuses slot `index` of the grid or tile `index` of the rail; reports whether it moved.
+    bool focusTile(std::size_t index);
+    /// Turns a Paged grid to `page`, focusing the same row's first or last slot there; reports
+    /// whether it turned.
+    bool focusPage(int page);
 
     /// Gives a dock icon's file, which arrives from the APK after the shell is up.
     void setNavIcon(library::Section section, bool selected, const std::filesystem::path& file);
@@ -269,6 +279,13 @@ class Shell {
     void drawScene();
     void drawGrid();
     void drawRail();
+    /// The rectangles an XMB's or a Carousel's layout `rects` are drawn at, tile by tile.
+    [[nodiscard]] std::vector<Rect> railSlots(const std::vector<Rect>& rects) const;
+    /// What a click at `point` hits while the Guide menu, the launch panel or the layout picker is
+    /// up.
+    [[nodiscard]] PointerTarget pointAtModal(Vector2 point) const;
+    /// What it hits on the home screen below the dock.
+    [[nodiscard]] PointerTarget pointAtHome(Vector2 point) const;
     /// The dock as it stands this frame in a `width` x `height` target.
     struct DockFrame {
         DockMetrics metrics;

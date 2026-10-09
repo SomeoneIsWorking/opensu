@@ -13,21 +13,14 @@ constexpr Color scrim{0, 0, 0, 115};
 constexpr Color track{palette::inkSoft.r, palette::inkSoft.g, palette::inkSoft.b, 50};
 constexpr Color hintInk{0x4d, 0x46, 0x55, 255};
 
-constexpr float cardWidthDp = 420.0f;
 constexpr float cardRadiusDp = 24.0f;
-constexpr float paddingDp = 28.0f;
 constexpr float titleSp = 24.0f;
 constexpr float lineSp = 16.0f;
-constexpr float gapDp = 14.0f;
-constexpr float barHeightDp = 8.0f;
-constexpr float dotDp = 8.0f;
 constexpr float dotSpacingDp = 18.0f;
 constexpr int dotCount = 3;
 constexpr double dotPeriodSeconds = 1.2;
 constexpr float hintSp = 14.0f;
-constexpr float hintGlyphDp = 20.0f;
 constexpr float hintGapDp = 6.0f;
-constexpr float hintSpacingDp = 20.0f;
 
 /// Draws `text` centred horizontally on `centreX`.
 void drawMiddle(std::string_view text, float centreX, float centreY, const TextStyle& style,
@@ -37,40 +30,39 @@ void drawMiddle(std::string_view text, float centreX, float centreY, const TextS
 
 } // namespace
 
+PanelLayout LaunchPanelPainter::layout(const LaunchPanel& panel, Vector2 size, float dp) const {
+    PanelMetrics metrics{.titleBox = type().lineBox(TextStyle{titleSp * dp}),
+                         .lineBox = type().lineBox(TextStyle{lineSp * dp}),
+                         .hintWidths = {}};
+    const TextStyle hint{hintSp * dp};
+    const float glyph = panelGlyphDp * dp;
+    for (const PanelHint& entry : panel.hints()) {
+        metrics.hintWidths.push_back(glyphs_.advance(entry.button, glyph) + hintGapDp * dp +
+                                     type().measure(entry.action, hint));
+    }
+    return layoutPanel(size.x, size.y, dp, metrics);
+}
+
 void LaunchPanelPainter::paint(const LaunchPanel& panel, Vector2 size, float dp,
                                double seconds) const {
     if (!panel.isOpen()) {
         return;
     }
-    const auto [width, height] = size;
-    DrawRectangleRec(Rectangle{0.0f, 0.0f, width, height}, scrim);
+    DrawRectangleRec(Rectangle{0.0f, 0.0f, size.x, size.y}, scrim);
 
-    const float pad = paddingDp * dp;
-    const float gap = gapDp * dp;
-    const TextStyle title{titleSp * dp};
-    const TextStyle line{lineSp * dp};
-    const TextStyle hint{hintSp * dp};
-    const float meter = std::max(barHeightDp, dotDp) * dp;
-    const float glyph = hintGlyphDp * dp;
-    const float cardHeight = pad + type().lineBox(title) + gap + type().lineBox(line) + gap +
-                             meter + gap * 1.5f + glyph + pad;
-    const float cardWidth = std::min(cardWidthDp * dp, width - 2.0f * pad);
-    const Rectangle card{(width - cardWidth) * 0.5f, (height - cardHeight) * 0.5f, cardWidth,
-                         cardHeight};
-    DrawRectangleRounded(card, std::min(1.0f, 2.0f * cardRadiusDp * dp / cardHeight), 16,
+    const PanelLayout frame = layout(panel, size, dp);
+    const Rectangle card{frame.card.x, frame.card.y, frame.card.width, frame.card.height};
+    DrawRectangleRounded(card, std::min(1.0f, 2.0f * cardRadiusDp * dp / card.height), 16,
                          palette::panel);
 
-    const float centreX = card.x + card.width * 0.5f;
-    float y = card.y + pad + type().lineBox(title) * 0.5f;
-    drawMiddle(panel.title(), centreX, y, title, palette::ink);
-    y += type().lineBox(title) * 0.5f + gap + type().lineBox(line) * 0.5f;
-    drawMiddle(panel.line(), centreX, y, line, palette::inkSoft);
-    y += type().lineBox(line) * 0.5f + gap + meter * 0.5f;
+    drawMiddle(panel.title(), frame.centreX, frame.titleY, TextStyle{titleSp * dp}, palette::ink);
+    drawMiddle(panel.line(), frame.centreX, frame.lineY, TextStyle{lineSp * dp}, palette::inkSoft);
 
+    const float y = frame.meterY;
     if (const std::optional<double> fraction = panel.fraction()) {
-        const float barWidth = card.width - 2.0f * pad;
-        const float barHeight = barHeightDp * dp;
-        const Rectangle bar{card.x + pad, y - barHeight * 0.5f, barWidth, barHeight};
+        const float barWidth = card.width - 2.0f * frame.padding;
+        const float barHeight = frame.meter;
+        const Rectangle bar{card.x + frame.padding, y - barHeight * 0.5f, barWidth, barHeight};
         DrawRectangleRounded(bar, 1.0f, 8, track);
         const Rectangle done{
             bar.x, bar.y, std::max(barHeight, barWidth * static_cast<float>(*fraction)), barHeight};
@@ -81,26 +73,20 @@ void LaunchPanelPainter::paint(const LaunchPanel& panel, Vector2 size, float dp,
             static_cast<int>(std::fmod(seconds, dotPeriodSeconds) / dotPeriodSeconds * dotCount);
         const float spacing = dotSpacingDp * dp;
         for (int i = 0; i < dotCount; ++i) {
-            const float x = centreX + (static_cast<float>(i) - (dotCount - 1) * 0.5f) * spacing;
-            DrawCircleV(Vector2{x, y}, dotDp * dp * 0.5f,
+            const float x =
+                frame.centreX + (static_cast<float>(i) - (dotCount - 1) * 0.5f) * spacing;
+            DrawCircleV(Vector2{x, y}, frame.meter * 0.5f,
                         i == lit ? static_cast<Color>(palette::ink) : track);
         }
     }
-    y += meter * 0.5f + gap * 1.5f + glyph * 0.5f;
 
-    const float spacing = hintSpacingDp * dp;
-    float hintsWidth = 0.0f;
-    for (const PanelHint& entry : panel.hints()) {
-        hintsWidth += glyphs_.advance(entry.button, glyph) + hintGapDp * dp +
-                      type().measure(entry.action, hint) + spacing;
-    }
-    float x = centreX - (hintsWidth - spacing) * 0.5f;
-    for (const PanelHint& entry : panel.hints()) {
-        const float advance = glyphs_.advance(entry.button, glyph);
-        glyphs_.paint(entry.button, Vector2{x + advance * 0.5f, y}, glyph, hintInk);
-        x += advance + hintGapDp * dp;
-        type().drawCentred(entry.action, x, y, hint, hintInk);
-        x += type().measure(entry.action, hint) + spacing;
+    const TextStyle hint{hintSp * dp};
+    for (std::size_t i = 0; i < panel.hints().size(); ++i) {
+        const PanelHint& entry = panel.hints()[i];
+        const float advance = glyphs_.advance(entry.button, frame.glyph);
+        const float x = frame.hints[i].x;
+        glyphs_.paint(entry.button, Vector2{x + advance * 0.5f, frame.hintY}, frame.glyph, hintInk);
+        type().drawCentred(entry.action, x + advance + hintGapDp * dp, frame.hintY, hint, hintInk);
     }
 }
 

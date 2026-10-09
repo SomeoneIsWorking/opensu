@@ -276,17 +276,43 @@ void ShellApp::handlePads() {
 }
 
 void ShellApp::handlePointer() {
-    const Vector2 delta = GetMouseDelta();
-    const bool clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    const bool pressed = clicked || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) ||
-                         IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE);
-    shell_.inputDevice().notePointer(delta.x, delta.y, pressed);
-    const bool active =
-        shell_.inputDevice().current() == input::Device::KeyboardMouse && IsCursorOnScreen();
-    const std::optional<library::Section> over =
-        shell_.pointDock(active ? std::optional{GetMousePosition()} : std::nullopt);
-    if (clicked && over) {
-        clickSection(*over);
+    pointer_.route(readPointerFrame());
+}
+
+ui::PointerTarget ShellApp::pointAt(std::optional<Vector2> point) {
+    return shell_.pointAt(point);
+}
+
+void ShellApp::focus(const ui::PointerTarget& target) {
+    // input-sound.md 3.4 Navigation: a focus move.
+    if (shell_.focusTarget(target)) {
+        sounds_.play(audio::Effect::Navigation);
+    }
+}
+
+void ShellApp::press(gamepad::Button button) {
+    actOn(button);
+}
+
+void ShellApp::activateSection(library::Section section) {
+    clickSection(section);
+}
+
+void ShellApp::scroll(int steps) {
+    const bool modal =
+        shell_.inGame() || panelUse_ != PanelUse::None || shell_.modeChooser().isOpen();
+    if (!modal && shell_.layout().mode() == ui::ScrollMode::Paged &&
+        shell_.presentation() == ui::Presentation::Grid) {
+        focus(ui::OnPage{shell_.page() + steps});
+        return;
+    }
+    // The Guide menu and an XMB run down the screen; the rest run across it.
+    const bool vertical =
+        shell_.inGame() || (!modal && shell_.presentation() == ui::Presentation::Xmb);
+    if (vertical) {
+        actOn(steps > 0 ? gamepad::Button::Down : gamepad::Button::Up);
+    } else {
+        actOn(steps > 0 ? gamepad::Button::Right : gamepad::Button::Left);
     }
 }
 

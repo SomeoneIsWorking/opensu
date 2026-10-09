@@ -294,16 +294,28 @@ name its first key per button. `input::LastDevice` records which device gave the
 input (a pad button, a key, a moving or clicking pointer; a still pointer, a pad connecting and
 the sticks inside the translator's threshold do not count); while it is the keyboard and mouse,
 every prompt (`ButtonGlyphPainter`: corner hints, dock LB/RB, launch panel, Guide menu) draws a
-key cap in the ring's size and stroke instead of the controller glyph. The pointer reaches the
-dock only: `Shell::pointDock` hovers an item, slides a hidden dock in over its resting place,
-and a left click goes to `ShellApp::clickSection`, the L1/R1 path (`cycleSection`). Tiles, the
-chooser and the panels have no pointer input. Tested: `last_device`, `keyboard_bindings`,
-`dock_metrics` (`dockItemAt`), `sections` (`stepsBetween`), `control_channel` (`a keyboard`).
-`opensu --render FILE --keyboard` draws the keyboard's prompts; `POST /input` takes `a keyboard`
+key cap in the ring's size and stroke instead of the controller glyph.
+
+Mouse: `app::PointerRouter` maps one `PointerFrame` onto the shell's actions through
+`PointerHost` (`ShellApp`), and `Shell::pointAt` says what is under the pointer from the painters'
+own geometry. Hover focuses the tile, layout card or Guide row under a pointer that moved (the
+focus the D-pad moves, with the Navigation sound; a still pointer never refocuses); the dock lights
+its item as before. Left click is focus plus A on a tile, card or row, the section change on a dock
+item, the page turn on a page arrow or dot, and the hint's own button on a launch-panel hint
+(install, store choice, licence accept/decline, cancel). Right click is B everywhere. The wheel
+steps the way the pad does: a page in WiiSu, a column in Flow, down the XMB, along the Carousel,
+between layout cards, down the Guide menu. Hit-tests: `HomeLayout::slotAt/pageAt`,
+`railTileAt`, `ChooserLayout::cardAt`, `GameMenuLayout::itemAt`, `PanelLayout::hintAt`, `dockItemAt`.
+Tested: `home_layout`, `rail_layout`, `mode_chooser`, `game_menu`, `launch_panel`, `pointer_router`,
+plus `last_device`, `keyboard_bindings`, `dock_metrics`, `sections`, `control_channel`.
+Not clickable: the top bar (launcher badges, bell), the corner hints, the toast, the XMB's header
+card (B or right click goes back). The sign-in prompt is the Library launcher tile, so it takes the
+tile click. `opensu --render FILE --keyboard` draws the keyboard's prompts; `POST /input` takes `a keyboard`
 and `/state` reports `inputDevice`.
 
-Gap: not yet confirmed on the real Xbox controller, or the dock hover and click with a real
-mouse.
+Gap: not yet confirmed on the real Xbox controller, or the mouse behaviour above with a real
+mouse (the control channel injects buttons only, so hover, click and wheel are covered by unit
+tests, not by a driven run).
 
 ### S004 — Launch handoff
 

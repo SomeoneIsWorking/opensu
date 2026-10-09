@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <variant>
 
+#include "input/keyboard_bindings.hpp"
 #include "lucent/log.h"
 #include "rlgl.h"
 #include "tile_geometry.hpp"
@@ -585,12 +586,21 @@ float Shell::railAlpha(int distance) const noexcept {
                : 1.0f;
 }
 
+std::vector<Rect> Shell::railSlots(const std::vector<Rect>& rects) const {
+    std::vector<Rect> slots;
+    slots.reserve(rects.size());
+    for (std::size_t i = 0; i < rects.size(); ++i) {
+        slots.push_back(railSlot(tiles_[i], rects[i]));
+    }
+    return slots;
+}
+
 void Shell::drawRail() {
     const bool xmb = presentation() == Presentation::Xmb;
     const RailInput input = railInput();
     const XmbLayout column{input};
     const CarouselLayout row{input};
-    const std::vector<Rect>& rects = xmb ? column.rects() : row.rects();
+    const std::vector<Rect> rects = railSlots(xmb ? column.rects() : row.rects());
     // The tiles nearest the focus are drawn last, the focused one over its neighbours.
     std::vector<std::size_t> order(rects.size());
     for (std::size_t i = 0; i < order.size(); ++i) {
@@ -601,9 +611,8 @@ void Shell::drawRail() {
         return std::abs(static_cast<float>(a) - focus) > std::abs(static_cast<float>(b) - focus);
     });
     for (const std::size_t slot : order) {
-        const Rect rect = railSlot(tiles_[slot], rects[slot]);
-        if (intersectsCanvas(rect, width_, height_)) {
-            tilePainter_.paint(visualFor(slot, rect));
+        if (intersectsCanvas(rects[slot], width_, height_)) {
+            tilePainter_.paint(visualFor(slot, rects[slot]));
         }
     }
     if (tiles_.empty()) {
@@ -660,10 +669,13 @@ Shell::DockFrame Shell::dockFrame(float width, float height) const {
                      DockStyle{chromeDark(), pixelsPerDp, dockVisibility_.progress(nowMs())}};
 }
 
-std::optional<library::Section> Shell::pointDock(std::optional<Vector2> point) {
+PointerTarget Shell::pointAt(std::optional<Vector2> point) {
     dockHover_.reset();
-    if (!point || inGame_) {
-        return std::nullopt;
+    if (!point) {
+        return {};
+    }
+    if (inGame_ || launchPanel_.isOpen() || chooser_.isOpen()) {
+        return pointAtModal(*point);
     }
     const DockFrame frame = dockFrame(static_cast<float>(width_), static_cast<float>(height_));
     if (onRestingDock(frame.layout, point->x, point->y)) {
@@ -673,8 +685,114 @@ std::optional<library::Section> Shell::pointDock(std::optional<Vector2> point) {
     if (const std::optional<std::size_t> item =
             dockItemAt(frame.layout, slide, point->x, point->y)) {
         dockHover_ = library::allSections[*item];
+        return OnDock{*dockHover_};
     }
-    return dockHover_;
+    return pointAtHome(*point);
+}
+
+PointerTarget Shell::pointAtModal(Vector2 point) const {
+    const auto width = static_cast<float>(width_);
+    const auto height = static_cast<float>(height_);
+    if (inGame_) {
+        if (!gameMenu_.isOpen()) {
+            return {};
+        }
+        const GameMenuLayout menu = gameMenuPainter_.layout(width, height, dp());
+        if (const std::optional<std::size_t> row = menu.itemAt(point.x, point.y)) {
+            return OnMenuItem{*row};
+        }
+        return {};
+    }
+    if (launchPanel_.isOpen()) {
+        const PanelLayout panel =
+            launchPanelPainter_.layout(launchPanel_, Vector2{width, height}, dp());
+        if (const std::optional<std::size_t> hint = panel.hintAt(point.x, point.y)) {
+            const gamepad::Button button = input::buttonOfGlyph(launchPanel_.hints()[*hint].button);
+            if (button != gamepad::Button::None) {
+                return OnPanelButton{button};
+            }
+        }
+        return {};
+    }
+    const ChooserLayout picker = layoutChooser(Rect{0.0f, 0.0f, width, height}, dp());
+    if (const std::optional<library::LibraryMode> card = picker.cardAt(point.x, point.y)) {
+        return OnLayoutCard{*card};
+    }
+    return {};
+}
+
+PointerTarget Shell::pointAtHome(Vector2 point) const {
+    if (presentation() != Presentation::Grid) {
+        const RailInput input = railInput();
+        const std::vector<Rect> slots =
+            railSlots(presentation() == Presentation::Xmb ? XmbLayout{input}.rects()
+                                                          : CarouselLayout{input}.rects());
+        if (const std::optional<std::size_t> tile =
+                railTileAt(slots, railFocus_.value(), point.x, point.y)) {
+            return OnTile{*tile};
+        }
+        return {};
+    }
+    if (const std::optional<int> page = layout_.pageAt(page_, point.x, point.y)) {
+        return OnPage{*page};
+    }
+    if (const std::optional<std::size_t> slot = layout_.slotAt(scroll(), point.x, point.y)) {
+        return OnTile{*slot};
+    }
+    return {};
+}
+
+bool Shell::focusTile(std::size_t index) {
+    const bool rail = presentation() != Presentation::Grid;
+    if (index == focus_.index() || index >= (rail ? tiles_.size() : layout_.slotCount())) {
+        return false;
+    }
+    const GridCell from = layout_.cellOf(focus_.index());
+    const GridCell to = layout_.cellOf(index);
+    focus_.reset(index, to);
+    if (rail) {
+        railFocus_.retarget(static_cast<float>(index));
+        focusAt_ = now_;
+    } else {
+        focusOn(index, to.left > from.left ? 1 : (to.left < from.left ? -1 : 0));
+    }
+    return true;
+}
+
+bool Shell::focusPage(int page) {
+    if (layout_.mode() != ScrollMode::Paged || page == page_ || page < 0 ||
+        page >= layout_.pageCount()) {
+        return false;
+    }
+    return focusTile(layout_.slotOnPage(page, focus_.rememberedRow(), page < page_));
+}
+
+bool Shell::focusTarget(const PointerTarget& target) {
+    struct Focus {
+        Shell& shell;
+        bool operator()(std::monostate) const {
+            return false;
+        }
+        bool operator()(const OnDock&) const {
+            return false;
+        }
+        bool operator()(const OnPanelButton&) const {
+            return false;
+        }
+        bool operator()(const OnTile& tile) const {
+            return shell.focusTile(tile.index);
+        }
+        bool operator()(const OnPage& page) const {
+            return shell.focusPage(page.page);
+        }
+        bool operator()(const OnLayoutCard& card) const {
+            return shell.chooser_.focus(card.mode);
+        }
+        bool operator()(const OnMenuItem& item) const {
+            return shell.gameMenu_.focusItem(item.index);
+        }
+    };
+    return std::visit(Focus{*this}, target);
 }
 
 void Shell::drawDock(const DockFrame& frame, float frameHeight) {

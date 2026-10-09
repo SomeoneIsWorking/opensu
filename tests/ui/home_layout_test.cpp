@@ -229,6 +229,55 @@ void arrows() {
     expect(last.previous && !last.next, "the last page only points back");
 }
 
+void slotsUnderThePointer() {
+    const HomeLayout layout{window(37, ScrollMode::Flow)};
+    const float scroll = 0.0f;
+    const opensu::ui::Rect first = layout.canvasRect(0, scroll);
+    const auto hit = layout.slotAt(scroll, first.centreX(), first.centreY());
+    expect(hit && *hit == 0, "a cell's centre hits it");
+    const opensu::ui::Rect third = layout.canvasRect(2, scroll);
+    const auto lower = layout.slotAt(scroll, third.x + 1.0f, third.bottom() - 1.0f);
+    expect(lower && *lower == 2, "so does its corner");
+    expect(!layout.slotAt(scroll, first.right() + layout.gap() * 0.5f, first.centreY()),
+           "the gap between cells hits none");
+    expect(!layout.slotAt(scroll, first.x - 1.0f, first.centreY()), "nor does the margin");
+    const opensu::ui::Rect placeholder = layout.canvasRect(40, scroll);
+    const auto empty = layout.slotAt(scroll, placeholder.centreX(), placeholder.centreY());
+    expect(empty && *empty == 40, "an empty slot is hit like a tile");
+    const opensu::ui::Rect scrolled = layout.canvasRect(0, 100.0f);
+    const auto moved = layout.slotAt(100.0f, scrolled.centreX(), scrolled.centreY());
+    expect(moved && *moved == 0, "the scroll offset moves the cells");
+}
+
+void pagesUnderThePointer() {
+    const HomeLayout layout{window(37, ScrollMode::Paged)};
+    const opensu::ui::PageArrows arrows = layout.pageArrows(1);
+    if (!arrows.previous || !arrows.next) {
+        fail("a middle page has both arrows");
+    }
+    const auto previous = layout.pageAt(1, arrows.previous->centreX(), arrows.previous->centreY());
+    const auto next = layout.pageAt(1, arrows.next->centreX(), arrows.next->centreY());
+    expect(previous && *previous == 0, "the left arrow goes back a page");
+    expect(next && *next == 2, "the right arrow goes on");
+    expect(!layout.pageAt(0, arrows.previous->centreX(), arrows.previous->centreY()),
+           "the first page has no left arrow");
+    const opensu::ui::PagePill pill = layout.pagePill(1);
+    for (std::size_t i = 0; i < pill.dots.size(); ++i) {
+        const auto dot = layout.pageAt(1, pill.dots[i].x, pill.dots[i].y);
+        expect(dot && *dot == static_cast<int>(i), "a dot goes to its page");
+    }
+    expect(!layout.pageAt(1, pill.body.x - 5.0f, pill.body.centreY()), "outside the pill is none");
+    expect(!HomeLayout{window(37, ScrollMode::Flow)}.pageAt(0, 640.0f, 40.0f),
+           "Flow has no page controls");
+}
+
+void slotOnPage() {
+    const HomeLayout layout{window(37, ScrollMode::Paged)};
+    expect(layout.slotOnPage(1, 1, false) == 15 + 1, "the first column's slot in the row");
+    expect(layout.slotOnPage(1, 1, true) == 15 + 4 * 3 + 1, "the last column's slot in the row");
+    expect(layout.slotOnPage(2, 0, false) == 30, "page 2 starts at slot 30");
+}
+
 } // namespace
 
 int main() {
@@ -244,6 +293,9 @@ int main() {
     pill();
     arrows();
     referenceCapture();
+    slotsUnderThePointer();
+    pagesUnderThePointer();
+    slotOnPage();
     std::printf("home_layout: all checks passed\n");
     return 0;
 }

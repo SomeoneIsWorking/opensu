@@ -11,6 +11,7 @@ gitignored `docs/reference/`).
 | --- | --- |
 | `src/main.cpp` | Argument parsing; starts the nested session or the shell; `--render FILE` renders one frame headless |
 | `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop; plays the UI sounds at the input events that iiSU plays them at |
+| `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page and panel-button action), right click = B, wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
 | `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input, frames, `/signin/<store>[/start]` |
 | `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
@@ -93,21 +94,23 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 
 | Path | Owns |
 | --- | --- |
-| `src/ui/home_layout.*` | Grid geometry for Standard and WiiSu: cells, gaps, insets, placeholder slots, scrolling, page pill and page arrow rects (`hx2.g`, `zj2`, `ou4.q`, `ys8.h/k/l`) |
+| `src/ui/home_layout.*` | Grid geometry for Standard and WiiSu: cells, gaps, insets, placeholder slots, scrolling, page pill and page arrow rects, and the slot or page control under a point (`hx2.g`, `zj2`, `ou4.q`, `ys8.h/k/l`) |
 | `src/ui/grid_focus.*` | D-pad focus movement and page crossing (`hx2.z/O`) |
 | `src/ui/tile_motion.*` | Focus scale, domino entrance, press pulse, ring rotation, FastOutSlowIn, the rail's visual-index easing |
 | `src/ui/section_view.*` | Per section: the grid viewport (3 rows x 4 columns, column-major, horizontal paging, both sections) and the presentation (Grid, XMB, Carousel) |
-| `src/ui/rail_layout.*` | XMB and Carousel geometry (navigation.md 5.3): tile rectangles from the fractional focus, left column, header card, marker and title anchors |
+| `src/ui/rail_layout.*` | XMB and Carousel geometry (navigation.md 5.3): tile rectangles from the fractional focus, left column, header card, marker and title anchors; the tile under a point (`railTileAt`) |
 | `src/ui/rail_painter.*` | XMB/Carousel chrome: the recoloured section icon, the header card, the markers and the shadowed title |
 | `src/ui/icon_recolour.*` | Reads a console card's border colours and recolours the section icon with them |
 | `src/ui/backdrop_blur.*` | The dock glass's 8 dp backdrop blur: scene texture, separable Gaussian, capsule mask |
 | `src/ui/dock_metrics.*` | The dock capsule's sizes and rectangles in dp (`gh3.i1/j1`, `jj2`); which item a pointer is on (`dockItemAt`) |
 | `src/ui/dock_motion.*` | The dock's show/hide (pinned on Home, 1200 ms after L1/R1 on Library; show 170 ms ease-out from below, hide 125 ms ease-in straight down) and the icon pop |
-| `src/ui/mode_chooser.*` | The Library layout picker's open state, focus and card/panel layout |
+| `src/ui/mode_chooser.*` | The Library layout picker's open state, focus and card/panel layout; the card under a point |
 | `src/ui/tile_geometry.*` | One tile's rectangles and radii (and `outerForContent`, the inverse of the frame inset); where a game tile's store icons sit |
 | `src/ui/top_bar_metrics.*` | Top bar sizes in dp (`is7`, `hs7`, `dl3`) |
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
-| `src/ui/game_menu.*` | The Guide menu's items and focus (openSU's own) |
+| `src/ui/game_menu.*` | The Guide menu's items and focus (openSU's own); its panel and row rectangles, and the row under a point |
+| `src/ui/launch_panel.*` | The launch/install card's state; its card and hint rectangles from measured widths, and the hint under a point |
+| `src/ui/pointer_target.hpp` | What a pointer can be on (dock item, tile, page control, layout card, menu row, panel button) |
 
 Painters and composition (`opensu_ui`):
 

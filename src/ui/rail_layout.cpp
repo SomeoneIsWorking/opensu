@@ -168,4 +168,18 @@ float CarouselLayout::sizeOf(std::size_t index) const noexcept {
     return blend(SizePair{unfocusedSize_, focusedSize_}, index, focus_);
 }
 
+std::optional<std::size_t> railTileAt(const std::vector<Rect>& tiles, float focus, float x,
+                                      float y) {
+    std::optional<std::size_t> found;
+    float best = 0.0f;
+    for (std::size_t i = 0; i < tiles.size(); ++i) {
+        const float distance = std::abs(static_cast<float>(i) - focus);
+        if (tiles[i].contains(x, y) && (!found || distance < best)) {
+            found = i;
+            best = distance;
+        }
+    }
+    return found;
+}
+
 } // namespace opensu::ui

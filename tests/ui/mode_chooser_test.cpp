@@ -28,6 +28,29 @@ void layout() {
     near(chooser.panel.centreY(), 540.0, "centred vertically", 0.01);
 }
 
+void cardsUnderThePointer() {
+    const opensu::ui::ChooserLayout chooser =
+        opensu::ui::layoutChooser(opensu::ui::Rect{0.0f, 0.0f, 1920.0f, 1080.0f}, 2.25f);
+    for (std::size_t i = 0; i < chooser.cards.size(); ++i) {
+        const auto hit = chooser.cardAt(chooser.cards[i].centreX(), chooser.cards[i].centreY());
+        expect(hit && *hit == opensu::library::allLibraryModes[i], "a card's centre hits it");
+    }
+    const opensu::ui::Rect& left = chooser.cards[0];
+    const opensu::ui::Rect& middle = chooser.cards[1];
+    expect(!chooser.cardAt((left.right() + middle.x) * 0.5f, left.centreY()),
+           "the gap between cards hits none");
+    expect(!chooser.cardAt(chooser.panel.x + 1.0f, chooser.panel.y + 1.0f),
+           "the panel's padding hits none");
+}
+
+void focusByPointer() {
+    ModeChooser chooser;
+    chooser.open(LibraryMode::Standard);
+    expect(chooser.focus(LibraryMode::Carousel) && chooser.focused() == LibraryMode::Carousel,
+           "a card takes focus");
+    expect(!chooser.focus(LibraryMode::Carousel), "the focused card is not a move");
+}
+
 void focusMoves() {
     ModeChooser chooser;
     expect(!chooser.isOpen(), "closed at first");
@@ -51,6 +74,8 @@ void focusMoves() {
 
 int main() {
     layout();
+    cardsUnderThePointer();
+    focusByPointer();
     focusMoves();
     std::printf("mode_chooser: all checks passed\n");
     return 0;

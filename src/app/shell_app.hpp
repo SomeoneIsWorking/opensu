@@ -32,6 +32,7 @@
 #include "launch/handoff.hpp"
 #include "library/catalog.hpp"
 #include "library/shelf.hpp"
+#include "pointer_router.hpp"
 #include "settings/settings.hpp"
 #include "sign_in.hpp"
 #include "steam/client.hpp"
@@ -54,7 +55,7 @@ struct Settings {
 };
 
 /// The running shell.
-class ShellApp final : public ControlTarget {
+class ShellApp final : public ControlTarget, private PointerHost {
   public:
     explicit ShellApp(const Settings& settings);
 
@@ -110,8 +111,14 @@ class ShellApp final : public ControlTarget {
     void handleGameKeys();
     /// Pad events, noting the pad as the device in use.
     void handlePads();
-    /// The pointer: notes the device, hovers the dock and clicks its sections. Main loop only.
+    /// The pointer: routed onto the shell's actions. Main loop only.
     void handlePointer();
+    // PointerHost.
+    ui::PointerTarget pointAt(std::optional<Vector2> point) override;
+    void focus(const ui::PointerTarget& target) override;
+    void press(gamepad::Button button) override;
+    void activateSection(library::Section section) override;
+    void scroll(int steps) override;
     /// A click on a dock item: the same section change as L1 and R1.
     void clickSection(library::Section section);
     void actOn(gamepad::Button button);
@@ -185,6 +192,8 @@ class ShellApp final : public ControlTarget {
     settings::Store settingsStore_{config::read().configDir / "settings.json"};
     settings::Settings preferences_;
     gamepad::Pads pads_;
+    /// After shell_ and the host it drives.
+    PointerRouter pointer_{shell_.inputDevice(), *this};
     /// Held directions, from a pad or the keyboard, repeat on one schedule.
     gamepad::DirectionRepeat repeat_;
     /// The pads are held for the running launch. Main loop only.

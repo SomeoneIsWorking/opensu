@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "home_layout.hpp"
+
 namespace opensu::ui {
 
 /// A button and what it does, shown along the card's foot.
@@ -18,6 +20,45 @@ struct PanelHint {
 
     bool operator==(const PanelHint&) const = default;
 };
+
+/// The hint glyphs' size in dp.
+inline constexpr float panelGlyphDp = 20.0f;
+
+/// What the card's layout is made from: the heights and widths the painter measures, in pixels.
+struct PanelMetrics {
+    /// The title line's and the status line's heights.
+    float titleBox{};
+    float lineBox{};
+    /// Each hint's width, glyph through text.
+    std::vector<float> hintWidths;
+};
+
+/// Where the card and its lines stand, in pixels; the lines are given by their centres.
+struct PanelLayout {
+    Rect card;
+    float padding{};
+    float centreX{};
+    float titleY{};
+    float lineY{};
+    /// The progress bar's or the dots' centre, and their height.
+    float meterY{};
+    float meter{};
+    /// The hints' centre line and the glyph size.
+    float hintY{};
+    float glyph{};
+    /// Each hint's content, left to right.
+    std::vector<Rect> hints;
+    /// The room between hints.
+    float hintSpacing{};
+
+    /// The hint under the point, or nothing: a hint takes the room beside it up to its
+    /// neighbour's, and a little above and below.
+    [[nodiscard]] std::optional<std::size_t> hintAt(float x, float y) const noexcept;
+};
+
+/// The card in a `width` x `height` frame at `dp` pixels per dp.
+[[nodiscard]] PanelLayout layoutPanel(float width, float height, float dp,
+                                      const PanelMetrics& metrics);
 
 class LaunchPanel {
   public:

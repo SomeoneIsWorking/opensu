@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 #include "home_layout.hpp"
@@ -27,6 +28,11 @@ struct RailInput {
 
 /// iiSU `w70.I`: the size level's scale, `clamp((level - 10) 0.11 + 1.45, 0.67, 2.55)`.
 [[nodiscard]] float iconScale(int level) noexcept;
+
+/// The tile under the point, given every tile's drawn rectangle: the tiles nearest `focus` are
+/// drawn last, so they are on top.
+[[nodiscard]] std::optional<std::size_t> railTileAt(const std::vector<Rect>& tiles, float focus,
+                                                    float x, float y);
 
 /// The vertical XMB: a column at the left edge, centred vertically (iiSU `e39`).
 class XmbLayout {

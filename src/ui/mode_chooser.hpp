@@ -5,6 +5,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 
 #include "home_layout.hpp"
 #include "library/sections.hpp"
@@ -20,6 +21,9 @@ struct ChooserLayout {
     std::array<Rect, library::allLibraryModes.size()> cards;
     float panelRadius{};
     float cardRadius{};
+
+    /// The card under the point, or nothing.
+    [[nodiscard]] std::optional<library::LibraryMode> cardAt(float x, float y) const noexcept;
 };
 
 [[nodiscard]] ChooserLayout layoutChooser(const Rect& frame, float dp) noexcept;
@@ -32,6 +36,8 @@ class ModeChooser {
 
     /// Moves focus `delta` cards, stopping at the ends; reports whether it moved.
     bool move(int delta) noexcept;
+    /// Focuses `mode`; reports whether focus changed.
+    bool focus(library::LibraryMode mode) noexcept;
 
     [[nodiscard]] bool isOpen() const noexcept {
         return open_;

@@ -11,6 +11,9 @@ class GameMenuPainter {
     explicit GameMenuPainter(const input::LastDevice& device) noexcept : glyphs_{device} {
     }
 
+    /// Where the panel and its rows stand in a `width` x `height` frame; what a pointer hits.
+    [[nodiscard]] GameMenuLayout layout(float width, float height, float dp) const;
+
     /// Draws `menu` into a `width` x `height` frame at `dp` pixels per dp.
     void paint(const GameMenu& menu, float width, float height, float dp) const;
 

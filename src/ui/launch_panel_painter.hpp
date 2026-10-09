@@ -11,6 +11,9 @@ class LaunchPanelPainter {
     explicit LaunchPanelPainter(const input::LastDevice& device) noexcept : glyphs_{device} {
     }
 
+    /// Where the card and its hints stand in a `size` frame; what a pointer hits.
+    [[nodiscard]] PanelLayout layout(const LaunchPanel& panel, Vector2 size, float dp) const;
+
     /// Draws `panel` into a `size` frame at `dp` pixels per dp. `seconds` drives the
     /// activity dots shown while the stage has no measure.
     void paint(const LaunchPanel& panel, Vector2 size, float dp, double seconds) const;

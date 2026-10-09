@@ -278,6 +278,53 @@ Rect HomeLayout::canvasRect(std::size_t index, float scroll) const noexcept {
     return rect;
 }
 
+std::optional<std::size_t> HomeLayout::slotAt(float scroll, float x, float y) const noexcept {
+    for (std::size_t slot = 0; slot < slots_; ++slot) {
+        if (canvasRect(slot, scroll).contains(x, y)) {
+            return slot;
+        }
+    }
+    return std::nullopt;
+}
+
+std::size_t HomeLayout::slotOnPage(int page, int row, bool last) const noexcept {
+    std::optional<std::size_t> pick;
+    std::optional<std::size_t> any;
+    for (std::size_t slot = 0; slot < slots_; ++slot) {
+        const GridCell cell = cellOf(slot);
+        if (cell.page != page) {
+            continue;
+        }
+        any = any.value_or(slot);
+        if (cell.top == row && (!pick || last || cell.left < cellOf(*pick).left)) {
+            pick = slot;
+        }
+    }
+    return pick.value_or(any.value_or(0));
+}
+
+std::optional<int> HomeLayout::pageAt(int currentPage, float x, float y) const {
+    const PageArrows arrows = pageArrows(currentPage);
+    if (arrows.previous && arrows.previous->contains(x, y)) {
+        return currentPage - 1;
+    }
+    if (arrows.next && arrows.next->contains(x, y)) {
+        return currentPage + 1;
+    }
+    const PagePill pill = pagePill(currentPage);
+    if (pill.dots.empty() || !pill.body.contains(x, y)) {
+        return std::nullopt;
+    }
+    int nearest = 0;
+    for (std::size_t i = 0; i < pill.dots.size(); ++i) {
+        if (std::abs(pill.dots[i].x - x) <
+            std::abs(pill.dots[static_cast<std::size_t>(nearest)].x - x)) {
+            nearest = static_cast<int>(i);
+        }
+    }
+    return nearest;
+}
+
 float HomeLayout::scrollTarget(const ScrollRequest& request) const noexcept {
     const auto& [index, current, dx] = request;
     if (slots_ == 0) {

@@ -30,6 +30,10 @@ struct Rect {
     [[nodiscard]] float centreY() const noexcept {
         return y + height * 0.5f;
     }
+    /// Whether the point is inside; the left and top edges count, the right and bottom do not.
+    [[nodiscard]] bool contains(float px, float py) const noexcept {
+        return px >= x && px < right() && py >= y && py < bottom();
+    }
 };
 
 /// iiSU ap6: Flow scrolls continuously, Paged shows whole pages with peeks.
@@ -184,6 +188,14 @@ class HomeLayout {
     [[nodiscard]] Rect contentRect(std::size_t index) const noexcept;
     /// A slot's rectangle on the canvas at a scroll offset.
     [[nodiscard]] Rect canvasRect(std::size_t index, float scroll) const noexcept;
+
+    /// The slot under the point at a scroll offset, filled or not, or nothing.
+    [[nodiscard]] std::optional<std::size_t> slotAt(float scroll, float x, float y) const noexcept;
+    /// The first slot of `page` in `row`, or the last when `last`; the page's first slot when the
+    /// row has none there.
+    [[nodiscard]] std::size_t slotOnPage(int page, int row, bool last) const noexcept;
+    /// The page the pill's dot or an arrow under the point turns to, or nothing.
+    [[nodiscard]] std::optional<int> pageAt(int currentPage, float x, float y) const;
 
     /// The Flow scroll offset that keeps `index` in view after a move of `dx` columns.
     [[nodiscard]] float scrollTarget(const ScrollRequest& request) const noexcept;

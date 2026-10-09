@@ -162,9 +162,33 @@ void carouselBetween() {
     near(small.rects()[0].centreX(), 426.5, "the first tile starts at the centre", 0.01);
 }
 
+void tileUnderThePointer() {
+    const XmbLayout xmb{input(1920.0f, 1080.0f, 5, 2.0f)};
+    const Rect& focused = xmb.rects()[2];
+    const auto hit =
+        opensu::ui::railTileAt(xmb.rects(), 2.0f, focused.centreX(), focused.centreY());
+    expect(hit && *hit == 2, "the focused tile is hit at its centre");
+    const Rect& above = xmb.rects()[1];
+    const auto upper = opensu::ui::railTileAt(xmb.rects(), 2.0f, above.centreX(), above.centreY());
+    expect(upper && *upper == 1, "so is a neighbour");
+    expect(!opensu::ui::railTileAt(xmb.rects(), 2.0f, 5.0f, 5.0f), "the corner hits none");
+    // Where two rectangles overlap, the one nearer the focus is drawn last and wins.
+    const std::vector<Rect> stacked{Rect{0.0f, 0.0f, 100.0f, 100.0f},
+                                    Rect{50.0f, 0.0f, 100.0f, 100.0f}};
+    const auto lowFocus = opensu::ui::railTileAt(stacked, 0.0f, 75.0f, 50.0f);
+    const auto highFocus = opensu::ui::railTileAt(stacked, 1.0f, 75.0f, 50.0f);
+    expect(lowFocus && *lowFocus == 0 && highFocus && *highFocus == 1,
+           "the tile nearer the focus is on top");
+    const CarouselLayout row{input(1920.0f, 1080.0f, 4, 1.0f)};
+    const auto across = opensu::ui::railTileAt(row.rects(), 1.0f, row.rects()[3].centreX(),
+                                               row.rects()[3].centreY());
+    expect(across && *across == 3, "the carousel hits by the same rule");
+}
+
 } // namespace
 
 int main() {
+    tileUnderThePointer();
     iconScales();
     xmbWorkedNumbers();
     xmbAnchors();
