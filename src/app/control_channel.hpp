@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "gamepad/event.hpp"
+#include "input/key_names.hpp"
 #include "input/last_device.hpp"
 #include "lucent/http.h"
 #include "sign_in.hpp"
@@ -46,6 +47,18 @@ struct ShellSnapshot {
     bool contextMenuOpen{false};
     /// Whether a game's details page is up.
     bool detailsOpen{false};
+    /// Whether the Settings screen is up, and whether a folder chooser or its keyboard is over it.
+    bool settingsOpen{false};
+    bool folderPickerOpen{false};
+    /// Whether the Settings screen is waiting for a new shortcut.
+    bool capturingShortcut{false};
+    /// The system volume as last read (0 to 100) and whether it is muted.
+    std::size_t volumePercent{0};
+    bool volumeMuted{false};
+    /// Whether the volume display is up.
+    bool volumeShown{false};
+    /// The interface size in percent.
+    std::size_t uiScale{100};
     /// Where the shell is, as the top bar's trail reads: "Library > GOG > Search \"had\"".
     std::string breadcrumb;
     /// iiSU's icon size level Library is laid out at.
@@ -82,6 +95,9 @@ class ControlTarget {
 
     /// Queues a button press, as if it came from `device`.
     virtual void inject(gamepad::Button button, input::Device device) = 0;
+
+    /// Queues a key combination pressed on the keyboard, to be read through the shortcut table.
+    virtual void injectKey(input::Combo combo) = 0;
 
     /// Renders the next frame to a PNG and answers when it is written. Blocks
     /// until the main loop has done it, or fails if it cannot.
@@ -123,9 +139,5 @@ class ControlChannel {
     SignInService& signIn_;
     lucent::http::Server server_;
 };
-
-/// Parses a button name as the control channel spells it. Returns false for an
-/// unknown name rather than defaulting to a button that would do something.
-[[nodiscard]] bool parseButton(std::string_view name, gamepad::Button& out);
 
 } // namespace opensu::app

@@ -29,11 +29,20 @@ class SoundPlayer {
     /// Loads an effect's WAV, replacing the one loaded. False when silent or the file is unusable.
     bool load(Effect effect, const std::filesystem::path& file);
 
+    /// Silences every effect, or lets them play again.
+    void setMuted(bool muted) noexcept {
+        muted_ = muted;
+    }
+    [[nodiscard]] bool muted() const noexcept {
+        return muted_;
+    }
+
     /// Plays the effect now, unless its debounce drops it or it has no file. Whether it started.
     bool play(Effect effect);
 
   private:
     bool ready_{false};
+    bool muted_{false};
     std::array<Sound, allEffects.size()> sounds_{};
     std::array<bool, allEffects.size()> loaded_{};
     Debounce debounce_;

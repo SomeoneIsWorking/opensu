@@ -58,11 +58,8 @@ HomeMode envHomeMode(const char* name, HomeMode fallback) {
     if (raw.empty()) {
         return fallback;
     }
-    if (raw == "standard") {
-        return HomeMode::Standard;
-    }
-    if (raw == "wiisu") {
-        return HomeMode::WiiSu;
+    if (const std::optional<HomeMode> mode = homeModeOf(raw)) {
+        return *mode;
     }
     lucent::warn("config", "{} is not standard or wiisu; using standard", name);
     return fallback;
@@ -160,6 +157,20 @@ bool localeClock24Hour() {
 }
 
 } // namespace
+
+std::string_view key(HomeMode mode) noexcept {
+    return mode == HomeMode::WiiSu ? "wiisu" : "standard";
+}
+
+std::optional<HomeMode> homeModeOf(std::string_view text) noexcept {
+    if (text == "standard") {
+        return HomeMode::Standard;
+    }
+    if (text == "wiisu") {
+        return HomeMode::WiiSu;
+    }
+    return std::nullopt;
+}
 
 bool timeFormatIs24Hour(std::string_view format) noexcept {
     for (std::size_t at = format.find('%'); at != std::string_view::npos && at + 1 < format.size();

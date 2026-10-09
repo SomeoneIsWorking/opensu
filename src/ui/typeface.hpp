@@ -45,6 +45,9 @@ class Typeface {
     /// The width a label advances.
     [[nodiscard]] float measure(std::string_view text, const TextStyle& style);
 
+    /// `text` cut to fit `room` pixels, ending in dots when it is cut.
+    [[nodiscard]] std::string fitted(std::string text, float room, const TextStyle& style);
+
     /// Draws a label from `x`, its line box centred on `centreY`.
     void drawCentred(std::string_view text, float x, float centreY, const TextStyle& style,
                      Color colour);

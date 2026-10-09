@@ -32,6 +32,8 @@ class PanelFade {
 
     void show(Clock::time_point now) noexcept;
     void hide(Clock::time_point now) noexcept;
+    /// Shows or hides the panel when `open` is not what it is now.
+    void follow(bool open, Clock::time_point now) noexcept;
 
     /// How opaque the panel is at `now`: 0 once it has faded out.
     [[nodiscard]] float alpha(Clock::time_point now) const noexcept;

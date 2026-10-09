@@ -88,7 +88,8 @@ bool Shell::chromeDark() noexcept {
 
 float Shell::dp() const noexcept {
     return std::min(static_cast<float>(width_) / referenceWidthDp,
-                    static_cast<float>(height_) / referenceHeightDp);
+                    static_cast<float>(height_) / referenceHeightDp) *
+           static_cast<float>(uiScale_) / 100.0f;
 }
 
 HomeLayout Shell::computeLayout() const {
@@ -425,6 +426,21 @@ void Shell::setIconSize(int level) {
     relayout();
 }
 
+void Shell::setUiScale(int percent) {
+    if (percent != uiScale_) {
+        uiScale_ = percent;
+        hud_.setSize({width_, height_, dp()});
+        relayout();
+    }
+}
+
+void Shell::setHomeMode(config::HomeMode mode) {
+    if (mode != mode_) {
+        mode_ = mode;
+        relayout();
+    }
+}
+
 void Shell::releaseTextures() {
     resident_.clear();
     for (Tile& tile : tiles_) {
@@ -561,6 +577,8 @@ void Shell::tick(Clock::time_point now) {
     followFade(searchFade_, search_.isOpen(), searchWasOpen_);
     followFade(contextFade_, context_.isOpen(), contextWasOpen_);
     followFade(detailsFade_, details_.isOpen(), detailsWasOpen_);
+    settings_.tick(now_);
+    volumeOsd_.tick(now_);
     railFocus_.step(dt);
     if (layout_.mode() == ScrollMode::Flow) {
         scroller_.step(dt, layout_.cellWidth() + layout_.gap(), layout_.viewportWidth(),
@@ -829,7 +847,8 @@ PointerTarget Shell::pointAt(std::optional<Vector2> point) {
     if (!point) {
         return {};
     }
-    if (!inGame_ && !launchPanel_.isOpen() && (!panelOpen() || details_.isOpen())) {
+    if (!inGame_ && !launchPanel_.isOpen() &&
+        (!panelOpen() || details_.isOpen() || settings_.onlyPage())) {
         if (const std::optional<std::size_t> crumb = hud_.crumbAt(point->x, point->y)) {
             hud_.setCrumbHover(crumb);
             return OnCrumb{*crumb};
@@ -880,6 +899,10 @@ PointerTarget Shell::pointAtModal(Vector2 point) const {
         return {};
     }
     const Rect frame{0.0f, 0.0f, width, height};
+    if (settings_.anyOpen()) {
+        return settings_.pointAt(point, Vector2{width, height}, dp(), hud_.topInset(),
+                                 hud_.bottomInset());
+    }
     if (details_.isOpen()) {
         if (const std::optional<std::size_t> button = detailsLayout().buttonAt(point.x, point.y)) {
             return OnDetailsButton{*button};
@@ -979,7 +1002,13 @@ bool Shell::focusTarget(const PointerTarget& target) {
             } else if constexpr (std::is_same_v<Target, OnIconSize>) {
                 return chooser_.focusRow(ChooserRow::IconSize);
             } else if constexpr (std::is_same_v<Target, OnSearchKey>) {
-                return search_.focusKey(at.index);
+                return settings_.entry().isOpen() ? settings_.entry().focusKey(at.index)
+                                                  : search_.focusKey(at.index);
+            } else if constexpr (std::is_same_v<Target, OnSettingsCategory> ||
+                                 std::is_same_v<Target, OnSettingsRow> ||
+                                 std::is_same_v<Target, OnSettingsSlider> ||
+                                 std::is_same_v<Target, OnFolderEntry>) {
+                return settings_.focusTarget(at);
             } else if constexpr (std::is_same_v<Target, OnSearchResult>) {
                 return search_.focusResult(at.index);
             } else if constexpr (std::is_same_v<Target, OnContextItem>) {
@@ -1014,10 +1043,11 @@ void Shell::drawDock(const DockFrame& frame, float frameHeight) {
 
 void Shell::drawScene() {
     hud_.drawGround();
+    const bool settingsShown = settings_.pageVisible(now_);
     const bool detailsShown = detailsFade_.visible(now_);
     if (presentation() == Presentation::Grid) {
         drawGrid();
-        if (!detailsShown) {
+        if (!detailsShown && !settingsShown) {
             pillPainter_.paint(layout_.pagePill(page_), dp(), chromeDark());
             arrowPainter_.paint(layout_.pageArrows(page_), chromeDark());
         }
@@ -1028,6 +1058,10 @@ void Shell::drawScene() {
         DetailsPagePainter::paint(details_, detailsLayout(), detailsArt(),
                                   Vector2{static_cast<float>(width_), static_cast<float>(height_)},
                                   dp(), detailsFade_.alpha(now_));
+    }
+    if (settingsShown) {
+        settings_.drawPage(Vector2{static_cast<float>(width_), static_cast<float>(height_)}, dp(),
+                           hud_.topInset(), hud_.bottomInset(), now_);
     }
     hud_.drawTopBar();
     hud_.drawHints();
@@ -1078,7 +1112,7 @@ void Shell::draw(const RenderTexture2D* target) {
                    Rectangle{0.0f, 0.0f, static_cast<float>(scene_.texture.width),
                              -static_cast<float>(scene_.texture.height)},
                    Vector2{0.0f, 0.0f}, WHITE);
-    if (!detailsFade_.visible(now_)) {
+    if (!detailsFade_.visible(now_) && !settings_.pageVisible(now_)) {
         drawDock(dock, frameHeight);
     }
     launchPanelPainter_.paint(launchPanel_, Vector2{frameWidth, frameHeight}, dp(),
@@ -1089,6 +1123,11 @@ void Shell::draw(const RenderTexture2D* target) {
                          seconds);
     contextPainter_.paint(context_, Vector2{frameWidth, frameHeight}, dp(),
                           contextFade_.look(now_));
+    settings_.drawOverlays(Vector2{frameWidth, frameHeight}, dp(), now_, seconds);
+    if (volumeOsd_.visible(now_)) {
+        paintVolumeOsd(volumeOsd_.level(), Vector2{frameWidth, frameHeight}, dp(), hud_.topInset(),
+                       volumeOsd_.look(now_));
+    }
     hud_.drawToast();
     EndBlendMode();
     if (target != nullptr) {

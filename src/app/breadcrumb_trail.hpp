@@ -1,6 +1,6 @@
 // breadcrumb_trail — the one place the breadcrumb trail is computed from where the shell is: the
-// section, the folder open in Library, a search, the filters narrowing the view, and an open
-// game's details page.
+// section, the folder open in Library, a search, the filters narrowing the view, an open
+// game's details page and the Settings screen's category.
 #pragma once
 
 #include <optional>
@@ -25,10 +25,12 @@ struct TrailState {
     std::vector<std::string> filters;
     /// The title of the game whose details page is open; empty for none.
     std::string game;
+    /// The category on show while the Settings screen is open; empty when it is not.
+    std::string settings;
 };
 
 /// The trail for `state`, first level first: the section, its folder, the search, the filters, the
-/// game.
+/// game. The Settings screen replaces them all: "Settings" then its category.
 [[nodiscard]] ui::Trail trailOf(const TrailState& state);
 
 /// The filters of `options` as the player reads them. `sources` names each source filter.

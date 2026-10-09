@@ -18,6 +18,8 @@ struct TopBarFrame {
     /// Pixels per dp.
     float dp{1.0f};
     bool clockHasLetters{false};
+    /// The text row's measured width in pixels (`StatusPillPainter::rowWidth`).
+    float contentWidth{};
     /// Launchers shown, which take the column iiSU's bell had.
     std::size_t launchers{0};
 };
@@ -26,7 +28,7 @@ struct TopBarLayout {
     /// The pill, launcher column included.
     Rect status;
     StatusPillMetrics pill;
-    /// The width from the pill's left edge to where the clock's area starts.
+    /// The width from the pill's left edge to where the text row's padding starts.
     float launcherColumn{};
     /// One square per launcher, in order, each the badge circle's bounds.
     std::vector<Rect> launchers;

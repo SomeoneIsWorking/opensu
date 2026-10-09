@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "ui/check.hpp"
+
 namespace {
 
 using lucent::http::Request;
@@ -40,6 +42,9 @@ class FakeShell final : public ControlTarget {
         pressed.push_back(button);
         devices.push_back(device);
     }
+    void injectKey(opensu::input::Combo combo) override {
+        keys.push_back(combo);
+    }
     [[nodiscard]] bool captureFrame(std::string& /*png*/) override {
         return false;
     }
@@ -51,6 +56,7 @@ class FakeShell final : public ControlTarget {
 
     std::vector<std::string> reloads;
     std::vector<std::string> typed;
+    std::vector<opensu::input::Combo> keys;
     std::vector<opensu::gamepad::Button> pressed;
     std::vector<opensu::input::Device> devices;
     ShellSnapshot state;
@@ -187,6 +193,8 @@ void testSearchAndText() {
     shell.state.contextMenuOpen = true;
     shell.state.iconSize = 14;
     shell.state.detailsOpen = true;
+    shell.state.settingsOpen = true;
+    shell.state.folderPickerOpen = true;
     shell.state.breadcrumb = "Library > GOG > Hades";
     const Response state =
         channel.handle(Request{.method = "GET", .target = "/state", .headers = {}, .body = {}});
@@ -195,6 +203,8 @@ void testSearchAndText() {
                contains(state.body, "\"contextMenuOpen\":true") &&
                contains(state.body, "\"iconSize\":14") &&
                contains(state.body, "\"detailsOpen\":true") &&
+               contains(state.body, "\"settingsOpen\":true") &&
+               contains(state.body, "\"folderPickerOpen\":true") &&
                contains(state.body, "\"breadcrumb\":\"Library > GOG > Hades\""),
            "the state reports the search, the menu, the icon size, the details page and the trail");
 }
@@ -226,9 +236,47 @@ void testKeyboardInput() {
     expect(shell.devices.size() == 2, "a refused press reaches nobody");
 }
 
+void testKeysAndVolumeState() {
+    FakeShell shell;
+    FakeSignIn signIn;
+    ControlChannel channel{shell, signIn, 0};
+    using opensu::input::Combo;
+
+    expect(channel.handle(post("/key", "ctrl+Up")).status == 200 &&
+               channel.handle(post("/key", "f9")).status == 200,
+           "a spelled key is input");
+    expect(shell.keys ==
+               (std::vector<Combo>{
+                   {opensu::test::need(opensu::input::comboNamed("ctrl+up"), "a key name").key,
+                    true, false},
+                   {opensu::test::need(opensu::input::comboNamed("f9"), "a key name").key, false,
+                    false}}),
+           "it reaches the shell as that combination");
+    expect(channel.handle(post("/key", "ctrl+nothing")).status == 400 &&
+               channel.handle(post("/key", "")).status == 400,
+           "an unknown key is refused");
+    expect(shell.keys.size() == 2, "a refused key reaches nobody");
+    expect(channel.handle(post("/input", "l2")).status == 200, "L2 can be injected too");
+
+    shell.state.volumePercent = 45;
+    shell.state.volumeMuted = true;
+    shell.state.volumeShown = true;
+    shell.state.uiScale = 125;
+    shell.state.capturingShortcut = true;
+    const Response state =
+        channel.handle(Request{.method = "GET", .target = "/state", .headers = {}, .body = {}});
+    expect(contains(state.body, "\"volumePercent\":45") &&
+               contains(state.body, "\"volumeMuted\":true") &&
+               contains(state.body, "\"volumeShown\":true") &&
+               contains(state.body, "\"uiScale\":125") &&
+               contains(state.body, "\"capturingShortcut\":true"),
+           "the state reports the volume, the scale and the shortcut capture");
+}
+
 } // namespace
 
 int main() {
+    testKeysAndVolumeState();
     testState();
     testKeyboardInput();
     testSearchAndText();

@@ -18,6 +18,7 @@
 
 #include "raylib.h"
 
+#include "artwork_delivery.hpp"
 #include "artwork_fetcher.hpp"
 #include "artwork_store.hpp"
 #include "audio/sound_player.hpp"
@@ -39,12 +40,17 @@
 #include "library/catalog_loader.hpp"
 #include "library/shelf.hpp"
 #include "panel_flow.hpp"
+#include "path_editor.hpp"
 #include "pointer_router.hpp"
 #include "preferences.hpp"
 #include "search_controller.hpp"
+#include "settings_controller.hpp"
+#include "shortcut_editor.hpp"
+#include "shortcut_router.hpp"
 #include "sign_in.hpp"
 #include "steam/client.hpp"
 #include "ui/shell.hpp"
+#include "volume_control.hpp"
 
 namespace opensu::app {
 
@@ -90,6 +96,7 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void requestClose() override;
     void requestCatalogReload(std::string toast) override;
     void typeText(std::string text) override;
+    void injectKey(input::Combo combo) override;
 
   private:
     /// Where pads are read from: the system's, or an empty directory in a hidden run.
@@ -146,8 +153,6 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// L1 and R1: moves `delta` sections along the dock and shows the section's shelf, with iiSU's
     /// domino cue sized by what the section shows at once.
     void cycleSection(int delta);
-    /// Gives the shell the dock icons the store holds. Needs no GL context.
-    void loadStoredNavIcons();
     /// Launches `game`, or offers to install it.
     void launch(const library::Game& game);
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
@@ -159,10 +164,6 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void showShelf(std::size_t focus);
     /// The folder open now as the tile that stands for it, or nothing in a section.
     [[nodiscard]] std::optional<library::ShelfItem> folderCard() const;
-    /// Shows artwork and loads sounds the fetcher has downloaded. Main loop only.
-    void serviceArtwork();
-    /// Loads every UI sound the store holds. Main loop only, once the audio device is open.
-    void loadStoredSounds();
     /// Opens a console, a launcher or the combined library on its games.
     void openFolder(const library::Folder& folder);
     /// Gives the screen the layout, pin and icon size the preferences hold.
@@ -175,6 +176,10 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void setHidden(const library::Game& game, bool hidden);
     /// Notes that `game` was launched now, for the recently played sort.
     void recordLaunch(const library::Game& game);
+    /// The folders of the Steam libraries the installation holds now.
+    [[nodiscard]] std::vector<std::filesystem::path> steamLibraries() const;
+    /// Reads a physical keyboard as text while a path is being typed.
+    void handlePathText(const input::TextInput& typed);
     /// Reads the keyboard as text while the search panel is open. `typed` was read before the
     /// frame's key bindings ran.
     void handleSearchText(const input::TextInput& typed);
@@ -198,10 +203,15 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// Re-reads the clock and the battery and schedules the next minute boundary.
     void refreshClock();
     void pushCatalogToShell();
-    /// The games whose art the shell wants first, as last sent to the fetcher.
-    std::vector<std::string> prioritised_;
-
     Settings settings_;
+    /// What the player chose, read at start and saved when it changes.
+    Preferences preferences_{settings::Store{config::read().configDir / "settings.json"},
+                             [this](const std::string& why) {
+                                 shell_.setToast(why, true);
+                             }};
+    /// The environment's configuration with what the player set in place of it: the roots the
+    /// catalog and Steam read, fixed for the run.
+    config::Config resolved_{settings::resolved(config::read(), preferences_.values())};
     /// Lists every store off the loop; the loop takes what has arrived.
     library::CatalogLoader catalogLoader_;
     /// Downloaded artwork, and the worker that fills it in.
@@ -214,11 +224,10 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// When the clock next changes, on the minute boundary.
     std::chrono::steady_clock::time_point nextClockTick_{};
     ui::Shell shell_;
-    /// What the player chose, read at start and saved when it changes.
-    Preferences preferences_{settings::Store{config::read().configDir / "settings.json"},
-                             [this](const std::string& why) {
-                                 shell_.setToast(why, true);
-                             }};
+    /// Hands the fetched artwork and the stored sounds on.
+    ArtworkDelivery delivery_{shell_, sounds_, artworkStore_, artworkFetcher_, [this] {
+                                  reloadRequested_.store(true);
+                              }};
     /// After the preferences they keep and the shelf they re-show.
     LayoutPicker layoutPicker_{shell_.modeChooser(), sounds_, preferences_,
                                LayoutPicker::Hooks{[this](std::size_t focus) {
@@ -236,6 +245,9 @@ class ShellApp final : public ControlTarget, private PointerHost {
                                                    },
                                                    [this] {
                                                        search_.open();
+                                                   },
+                                                   [this] {
+                                                       settingsScreen_.open();
                                                    }}};
     SearchController search_{shell_.searchPanel(), sounds_, preferences_,
                              SearchController::Hooks{[this](std::size_t focus) {
@@ -291,6 +303,58 @@ class ShellApp final : public ControlTarget, private PointerHost {
                                  [this](const library::Game& game, const std::string& name) {
                                      chooseEmulator(game, name);
                                  }}};
+    /// The volume shortcuts and the display that follows every change of the volume.
+    VolumeControl volume_{VolumeControl::detect(config::read(), settings_.hidden),
+                          VolumeControl::Hooks{[this](const audio::VolumeState& state) {
+                                                   shell_.showVolume(
+                                                       ui::VolumeLevel{state.percent, state.muted});
+                                                   settingsScreen_.refresh();
+                                               },
+                                               [this](const std::string& text, bool isError) {
+                                                   shell_.setToast(text, isError);
+                                               }}};
+    /// Where keys, pad chords and the game-time watcher come out as the shell's buttons.
+    ShortcutRouter router_{shell_.shortcuts(), volume_, ShortcutRouter::Hooks{[this] {
+                               requestClose();
+                           }}};
+    /// Remaps a shortcut on the Settings screen.
+    ShortcutEditor shortcutEditor_{shell_.shortcuts(), preferences_,
+                                   [this](const std::string& text, bool isError) {
+                                       shell_.setToast(text, isError);
+                                   },
+                                   [this] {
+                                       settingsScreen_.refresh();
+                                   }};
+    /// Chooses the folders the Settings screen asks for.
+    PathEditor paths_{shell_.settingsPanels().folders(), shell_.settingsPanels().entry(), sounds_,
+                      [this](const std::string& text, bool isError) {
+                          shell_.setToast(text, isError);
+                      }};
+    /// The Settings screen, reached from the options panel.
+    SettingsController settingsScreen_{
+        shell_.settingsPanels().page(),
+        SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts()},
+        sounds_,
+        preferences_,
+        config::read(),
+        SettingsController::Hooks{[this] {
+                                      applyLayout();
+                                  },
+                                  [this] {
+                                      showShelf(0);
+                                  },
+                                  [this] {
+                                      reloadCatalog();
+                                  },
+                                  [this] {
+                                      return library::sourceChoices(games_, sources_);
+                                  },
+                                  [this] {
+                                      return steamLibraries();
+                                  },
+                                  [this](const std::string& text, bool isError) {
+                                      shell_.setToast(text, isError);
+                                  }}};
     gamepad::Pads pads_{padsDirectory(settings_.hidden)};
     /// After shell_ and the host it drives.
     PointerRouter pointer_{shell_.inputDevice(), *this};
@@ -327,6 +391,10 @@ class ShellApp final : public ControlTarget, private PointerHost {
                                        },
                                        [this] {
                                            reloadCatalog();
+                                       },
+                                       [this](library::Source store) {
+                                           return preferences_.values().installFolders.effective(
+                                               store);
                                        }}};
     /// Inside Gamescope, how the window draws over a running game. Null elsewhere, where the
     /// window is hidden while a game runs and shown only for the Guide menu.
@@ -354,6 +422,8 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// Buttons queued by the control channel, drained by the loop.
     std::mutex injectedMutex_;
     std::vector<std::pair<gamepad::Button, input::Device>> injected_;
+    /// Key combinations queued by the control channel.
+    std::vector<input::Combo> injectedKeys_;
     /// Text typed over the channel, as a physical keyboard would.
     std::vector<std::string> typed_;
 

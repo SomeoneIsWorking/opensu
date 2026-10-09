@@ -8,7 +8,7 @@ namespace opensu::ui {
 
 class LaunchPanelPainter {
   public:
-    explicit LaunchPanelPainter(const input::LastDevice& device) noexcept : glyphs_{device} {
+    explicit LaunchPanelPainter(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
     }
 
     /// Where the card and its hints stand in a `size` frame; what a pointer hits.

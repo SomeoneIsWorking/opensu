@@ -36,6 +36,10 @@ GogInstallJob::~GogInstallJob() {
     halt();
 }
 
+fs::path GogInstallJob::gameRoot(const std::string& gameId) const {
+    return (folder_ ? *folder_ : paths_.games) / gameId;
+}
+
 std::vector<std::string> GogInstallJob::arguments(const std::string& gameId) {
     if (builds_.linuxNative) {
         platform_ = "linux";
@@ -59,7 +63,7 @@ std::vector<std::string> GogInstallJob::arguments(const std::string& gameId) {
             "--platform",
             platform_,
             "--path",
-            (paths_.games / gameId).string()};
+            gameRoot(gameId).string()};
 }
 
 std::optional<double> GogInstallJob::progressIn(std::string_view line) const {
@@ -91,13 +95,13 @@ std::optional<std::string> GogInstallJob::ended(const std::string& gameId, bool 
     // gogdl names the folder inside the one it was given; there is exactly one.
     std::vector<fs::path> folders;
     std::error_code ec;
-    for (const fs::directory_entry& entry : fs::directory_iterator{paths_.games / gameId, ec}) {
+    for (const fs::directory_entry& entry : fs::directory_iterator{gameRoot(gameId), ec}) {
         if (entry.is_directory()) {
             folders.push_back(entry.path());
         }
     }
     if (folders.size() != 1) {
-        return "gogdl left no install folder under " + (paths_.games / gameId).string();
+        return "gogdl left no install folder under " + gameRoot(gameId).string();
     }
     records_.add(gameId, library::gog::Installed{.path = folders.front(), .platform = platform_});
     return std::nullopt;

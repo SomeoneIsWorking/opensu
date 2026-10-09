@@ -54,7 +54,7 @@ class Hud {
     static constexpr std::chrono::milliseconds toastLifetime{4000};
 
     /// `device` is which prompts the corner hints draw.
-    explicit Hud(const input::LastDevice& device) noexcept : glyphs_{device} {
+    explicit Hud(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
     }
 
     /// The window in pixels and its pixels per dp.

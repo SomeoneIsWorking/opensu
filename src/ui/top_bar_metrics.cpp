@@ -123,7 +123,7 @@ StatusPillMetrics TopBarMetrics::statusPill(bool clockHasLetters) const noexcept
     pill.height = clampTo(48.0f * k, 30.0f, 86.0f);
     pill.width =
         clockHasLetters ? clampTo(228.0f * s, 188.0f, 320.0f) : clampTo(204.0f * s, 168.0f, 292.0f);
-    pill.textWidth = pill.width - clampTo(46.0f * c, 14.0f, 86.0f);
+    pill.paddingHorizontal = clampTo(10.0f * c, 6.0f, 16.0f);
     pill.textSpacing = clampTo(5.0f * c, 2.0f, 10.0f);
     pill.fontSize = std::max(titleMediumSp * c, 10.0f);
     pill.batteryIcon = clampTo(27.0f * c, 12.0f, 42.0f);

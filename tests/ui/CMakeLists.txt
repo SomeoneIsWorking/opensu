@@ -6,7 +6,7 @@ foreach(name home_layout grid_focus tile_motion tile_geometry rail_layout)
 endforeach()
 
 foreach(name top_bar_metrics top_bar_layout corner_hints clock_text game_menu launch_panel dock_metrics dock_motion
-             section_view mode_chooser icon_recolour search_panel context_menu panel_fade breadcrumbs details_page)
+             section_view mode_chooser icon_recolour search_panel context_menu panel_fade breadcrumbs details_page settings_page volume_osd)
     add_executable(${name}_test ${name}_test.cpp)
     target_link_libraries(${name}_test PRIVATE opensu::hud_model)
     target_compile_options(${name}_test PRIVATE -Wall -Wextra -Wpedantic)
@@ -49,3 +49,9 @@ target_link_libraries(image_decoder_test PRIVATE opensu::ui)
 target_compile_definitions(image_decoder_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 target_compile_options(image_decoder_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME image_decoder COMMAND image_decoder_test)
+
+add_executable(folder_chooser_test folder_chooser_test.cpp)
+target_link_libraries(folder_chooser_test PRIVATE opensu::hud_model)
+target_compile_options(folder_chooser_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(folder_chooser_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME folder_chooser COMMAND folder_chooser_test)

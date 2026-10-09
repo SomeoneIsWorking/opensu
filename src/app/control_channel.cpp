@@ -1,5 +1,7 @@
 #include "control_channel.hpp"
 
+#include "input/key_names.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -116,6 +118,13 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     text("searchText", snapshot.searchText);
     flag("contextMenuOpen", snapshot.contextMenuOpen);
     flag("detailsOpen", snapshot.detailsOpen);
+    flag("settingsOpen", snapshot.settingsOpen);
+    flag("folderPickerOpen", snapshot.folderPickerOpen);
+    flag("capturingShortcut", snapshot.capturingShortcut);
+    number("volumePercent", snapshot.volumePercent);
+    flag("volumeMuted", snapshot.volumeMuted);
+    flag("volumeShown", snapshot.volumeShown);
+    number("uiScale", snapshot.uiScale);
     number("iconSize", snapshot.iconSize);
     text("breadcrumb", snapshot.breadcrumb);
     text("shelf", snapshot.shelf);
@@ -132,34 +141,6 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
 }
 
 } // namespace
-
-bool parseButton(std::string_view name, gamepad::Button& out) {
-    // The same spellings the shell's own hints use, so a caller driving the
-    // shell by HTTP and a person reading a footer agree on what "a" means.
-    static constexpr std::array<std::pair<std::string_view, gamepad::Button>, 14> kNames{{
-        {"up", gamepad::Button::Up},
-        {"down", gamepad::Button::Down},
-        {"left", gamepad::Button::Left},
-        {"right", gamepad::Button::Right},
-        {"a", gamepad::Button::A},
-        {"b", gamepad::Button::B},
-        {"x", gamepad::Button::X},
-        {"y", gamepad::Button::Y},
-        {"l1", gamepad::Button::L1},
-        {"r1", gamepad::Button::R1},
-        {"select", gamepad::Button::Select},
-        {"start", gamepad::Button::Start},
-        {"guide", gamepad::Button::Guide},
-        {"search", gamepad::Button::Search},
-    }};
-    for (const auto& [spelling, button] : kNames) {
-        if (spelling == name) {
-            out = button;
-            return true;
-        }
-    }
-    return false;
-}
 
 ControlChannel::ControlChannel(ControlTarget& target, SignInService& signIn, std::uint16_t port)
     : target_{target}, signIn_{signIn},
@@ -212,7 +193,6 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         }
         // The body is the button name, so a caller can drive the shell with
         // `curl -d left`, with no JSON to parse on either side.
-        gamepad::Button button{};
         std::string_view name = trimmed(request.body);
         // An optional second word says the press came from the keyboard: `a keyboard`.
         input::Device device = input::Device::Pad;
@@ -227,12 +207,27 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
             return refuse("body must name a button: up down left right a b x y l1 r1 select start "
                           "guide search");
         }
-        if (!parseButton(name, button)) {
+        const gamepad::Button button = gamepad::buttonNamed(name);
+        if (button == gamepad::Button::None) {
             return refuse("unknown button \"" + std::string{name} + "\"");
         }
         target_.inject(button, device);
         lucent::info("control", "injected {}", name);
         return lucent::http::Response::json(200, "OK", "{\"injected\":" + jsonString(name) + "}");
+    }
+
+    if (path == "/key") {
+        if (request.method != "POST") {
+            return refuse("POST only");
+        }
+        // A key combination as the keyboard would press it: `ctrl+up`, `shift+tab`, `f9`.
+        const std::optional<input::Combo> combo = input::comboNamed(trimmed(request.body));
+        if (!combo) {
+            return refuse("body must name a key, with optional ctrl+ and shift+: ctrl+up, f9");
+        }
+        target_.injectKey(*combo);
+        return lucent::http::Response::json(
+            200, "OK", "{\"pressed\":" + jsonString(input::describe(*combo)) + "}");
     }
 
     if (path == "/text") {

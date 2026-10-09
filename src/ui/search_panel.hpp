@@ -39,6 +39,8 @@ inline constexpr int searchKeyRows = 5;
 inline constexpr std::size_t searchResultRows = 3;
 /// The most characters the field holds.
 inline constexpr std::size_t searchMostLength = 64;
+/// The most bytes a typed path holds, a Linux PATH_MAX.
+inline constexpr std::size_t pathMostLength = 4096;
 
 /// The keys, row by row, left to right.
 [[nodiscard]] std::span<const SearchKey> searchKeys() noexcept;
@@ -68,7 +70,8 @@ struct SearchLayout {
     [[nodiscard]] std::optional<std::size_t> resultAt(float x, float y) const noexcept;
 };
 
-[[nodiscard]] SearchLayout layoutSearch(const Rect& frame, float dp);
+/// The panel in `frame`; without `lists`, the room for the results is left out.
+[[nodiscard]] SearchLayout layoutSearch(const Rect& frame, float dp, bool lists = true);
 
 /// Which part of the panel the D-pad is in.
 enum class SearchZone : std::uint8_t { Keys, Results };
@@ -85,6 +88,20 @@ struct SearchPress {
 
 class SearchPanel {
   public:
+    /// What the empty field says, and whether the panel lists results. A search does; a text
+    /// entry such as a folder path does not.
+    void configure(std::string prompt, bool lists) {
+        prompt_ = std::move(prompt);
+        lists_ = lists;
+        mostLength_ = lists ? searchMostLength : pathMostLength;
+    }
+    [[nodiscard]] const std::string& prompt() const noexcept {
+        return prompt_;
+    }
+    [[nodiscard]] bool lists() const noexcept {
+        return lists_;
+    }
+
     /// Opens with `text` in the field and the first key focused.
     void open(std::string text);
     void close() noexcept {
@@ -137,6 +154,9 @@ class SearchPanel {
   private:
     void keepResultInView() noexcept;
 
+    std::string prompt_{"Search ROMs, consoles, apps, collections, and folders"};
+    bool lists_{true};
+    std::size_t mostLength_{searchMostLength};
     std::string text_;
     std::vector<SearchResult> results_;
     SearchZone zone_{SearchZone::Keys};

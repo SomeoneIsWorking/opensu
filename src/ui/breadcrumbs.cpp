@@ -5,7 +5,8 @@
 namespace opensu::ui {
 
 bool isPlace(const Crumb& crumb) noexcept {
-    return crumb.kind != CrumbKind::Filter && crumb.kind != CrumbKind::Game;
+    return crumb.kind != CrumbKind::Filter && crumb.kind != CrumbKind::Game &&
+           crumb.kind != CrumbKind::Page;
 }
 
 std::optional<std::size_t> BreadcrumbLayout::crumbAt(float x, float y) const noexcept {

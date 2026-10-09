@@ -1,4 +1,5 @@
-// game_keys — keyboard shortcuts the player presses while a game has the keyboard.
+// game_keys — keyboard shortcuts the player presses while a game has the keyboard (the Guide menu
+// and the volume), by the same table the shell reads.
 //
 // Gamescope hands its keys to the focused window on its Xwayland, so opensu's own window
 // gets none while a game runs. XInput2 raw key events selected on the root reach every
@@ -9,32 +10,24 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <set>
 #include <vector>
+
+#include "input/shortcuts.hpp"
 
 namespace opensu::session {
 
-enum class GameShortcut : std::uint8_t {
-    /// Shift+Tab, Steam's overlay key: the shell treats it as a Guide press.
-    Guide,
-};
-
-/// Which key went down or up, as far as the shortcuts care.
-enum class ShortcutKey : std::uint8_t {
-    LeftShift,
-    RightShift,
-    Tab,
-    Other,
-};
-
-/// Turns key edges into shortcuts. A held Tab's repeats fire once.
+/// Turns key edges into key combinations. A held key's repeats fire once, and a modifier alone
+/// fires nothing.
 class ShortcutChord {
   public:
-    [[nodiscard]] std::optional<GameShortcut> key(ShortcutKey key, bool pressed);
+    /// `key` is a raylib key code; the combination it completes when it goes down.
+    [[nodiscard]] std::optional<input::Combo> key(int key, bool pressed);
 
   private:
-    bool leftShift_{};
-    bool rightShift_{};
-    bool tabDown_{};
+    bool ctrl_{};
+    bool shift_{};
+    std::set<int> down_;
 };
 
 class GameKeys {
@@ -47,8 +40,9 @@ class GameKeys {
     GameKeys(const GameKeys&) = delete;
     GameKeys& operator=(const GameKeys&) = delete;
 
-    /// The shortcuts pressed since the last poll. Never blocks.
-    [[nodiscard]] std::vector<GameShortcut> poll();
+    /// The actions `shortcuts` performs that work with a game up and were pressed since the last
+    /// poll. Never blocks.
+    [[nodiscard]] std::vector<input::Action> poll(const input::Shortcuts& shortcuts);
 
   private:
     struct Connection;

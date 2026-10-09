@@ -19,8 +19,9 @@ using opensu::ui::Rect;
 constexpr float dp1080 = 2.25f;
 const Rect frame1080{0.0f, 0.0f, 1920.0f, 1080.0f};
 std::vector<ChooserRow> libraryRows() {
-    return {ChooserRow::Cards,  ChooserRow::IconSize,  ChooserRow::Pin,    ChooserRow::Sort,
-            ChooserRow::Source, ChooserRow::Installed, ChooserRow::Hidden, ChooserRow::Search};
+    return {ChooserRow::Cards,  ChooserRow::IconSize, ChooserRow::Pin,
+            ChooserRow::Sort,   ChooserRow::Source,   ChooserRow::Installed,
+            ChooserRow::Hidden, ChooserRow::Search,   ChooserRow::Settings};
 }
 
 ChooserLayout layoutAt(ChooserRow focused) {
@@ -65,9 +66,9 @@ void panelStaysInTheFrame() {
 
 void focusedRowScrollsIntoView() {
     const ChooserLayout top = layoutAt(ChooserRow::Cards);
-    const ChooserLayout bottom = layoutAt(ChooserRow::Search);
-    const opensu::ui::ChooserRowBox* search = bottom.find(ChooserRow::Search);
-    expect(search != nullptr, "the search row is there");
+    const ChooserLayout bottom = layoutAt(ChooserRow::Settings);
+    const opensu::ui::ChooserRowBox* search = bottom.find(ChooserRow::Settings);
+    expect(search != nullptr, "the settings row is there");
     expect(search->rect.y >= bottom.content.y && search->rect.bottom() <= bottom.content.bottom(),
            "the focused last row is whole inside the panel");
     expect(bottom.find(ChooserRow::Cards)->rect.y < top.find(ChooserRow::Cards)->rect.y,
@@ -118,8 +119,8 @@ void libraryHoldsEveryRowAndHomeOnlyItsOwn() {
     chooser.open(LibraryMode::Standard, ChooserValues{}, false);
     expect(chooser.rows() == std::vector<ChooserRow>{ChooserRow::Sort, ChooserRow::Source,
                                                      ChooserRow::Installed, ChooserRow::Hidden,
-                                                     ChooserRow::Search},
-           "Home holds the sort, the filters and the search");
+                                                     ChooserRow::Search, ChooserRow::Settings},
+           "Home holds the sort, the filters, the search and the settings");
     expect(chooser.row() == ChooserRow::Sort, "and opens on the first of them");
     expect(!chooser.focusRow(ChooserRow::Pin), "a row Home lacks cannot be focused");
 }
@@ -135,7 +136,8 @@ void rowFocusMoves() {
     for (int i = 0; i < 20; ++i) {
         chooser.moveRow(1);
     }
-    expect(chooser.row() == ChooserRow::Search && !chooser.moveRow(1), "it stops at the last row");
+    expect(chooser.row() == ChooserRow::Settings && !chooser.moveRow(1),
+           "it stops at the last row");
     expect(chooser.focusRow(ChooserRow::Hidden) && !chooser.focusRow(ChooserRow::Hidden),
            "the pointer focuses a row once");
     chooser.open(LibraryMode::Xmb, ChooserValues{}, true);

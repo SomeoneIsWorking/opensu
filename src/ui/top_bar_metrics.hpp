@@ -28,9 +28,8 @@ struct StatusPillMetrics {
     float height{};
     /// iiSU's whole pill, the bell's column included.
     float width{};
-    /// The pill less iiSU's bell column: what the clock and battery take. opensu gives the bell's
-    /// column to the launchers, which size it themselves.
-    float textWidth{};
+    /// The room at each end of the text row; opensu's own, as iiSU's pill is a fixed width.
+    float paddingHorizontal{};
     /// The content scale c that the text and battery icon follow.
     float contentScale{};
     float textSpacing{};

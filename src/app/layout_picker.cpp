@@ -110,6 +110,12 @@ void LayoutPicker::actOnRow(int step) {
             hooks_.openSearch();
         }
         break;
+    case ui::ChooserRow::Settings:
+        if (step == 0) {
+            close();
+            hooks_.openSettings();
+        }
+        break;
     }
 }
 

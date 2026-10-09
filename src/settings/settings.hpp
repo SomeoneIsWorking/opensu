@@ -3,9 +3,13 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "config/config.hpp"
+#include "input/shortcuts.hpp"
+#include "install_folders.hpp"
 #include "library/emulator_choice.hpp"
 #include "library/library_query.hpp"
 #include "library/play_history.hpp"
@@ -17,6 +21,12 @@ namespace opensu::settings {
 inline constexpr int minIconSize = 1;
 inline constexpr int maxIconSize = 20;
 inline constexpr int defaultIconSize = 9;
+
+/// The interface scale in percent: 100 is the size the layouts are drawn at.
+inline constexpr int minUiScale = 70;
+inline constexpr int maxUiScale = 150;
+inline constexpr int defaultUiScale = 100;
+inline constexpr int uiScaleStep = 5;
 
 struct Settings {
     /// How Library lays out its folders (iiSU `romCategoryLayoutMode`).
@@ -42,8 +52,34 @@ struct Settings {
     /// The emulator picked for each ROM that has a pick.
     library::EmulatorChoices emulators;
 
+    /// How the home grid scrolls, when the player chose; else OPENSU_HOME_MODE (iiSU
+    /// `singleScreenHomeDashboardMode`).
+    std::optional<config::HomeMode> homeMode;
+
+    /// Whether the UI sounds play.
+    bool uiSounds{true};
+
+    /// ROM roots the player set; the environment's, else the discovered ones, when empty.
+    std::vector<std::filesystem::path> romFolders;
+
+    /// Steam install roots the player set; the environment's, else the discovered ones, when empty.
+    std::vector<std::filesystem::path> steamRoots;
+
+    /// Where games install.
+    InstallFolders installFolders;
+
+    /// How large the interface is drawn, in percent (`minUiScale` to `maxUiScale`).
+    int uiScale{defaultUiScale};
+
+    /// The player's changes to the shortcut table.
+    input::ShortcutOverrides shortcuts;
+
     bool operator==(const Settings&) const = default;
 };
+
+/// `base` with what the player set in `settings` in place of the environment's: the home mode and
+/// the ROM and Steam roots.
+[[nodiscard]] config::Config resolved(config::Config base, const Settings& settings);
 
 class Store {
   public:

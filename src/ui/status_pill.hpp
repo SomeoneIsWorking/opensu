@@ -36,6 +36,11 @@ class StatusPillPainter {
   public:
     void paint(const StatusPillView& view);
 
+    /// The width of the text row (`clock | NN% battery`) the pill is sized to, in pixels.
+    [[nodiscard]] static float rowWidth(const StatusPillMetrics& metrics, float dp,
+                                        std::string_view clock,
+                                        const std::optional<device::BatteryStatus>& battery);
+
   private:
     void paintLaunchers(const StatusPillView& view);
     void paintBattery(float x, float centreY, float size,

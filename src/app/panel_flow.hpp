@@ -23,6 +23,8 @@ class PanelFlow {
         std::function<void()> cancelLaunch;
         /// Reads the stores again, after an install finished.
         std::function<void()> reloadCatalog;
+        /// Where a store installs now, from the settings; nothing leaves the store's choice.
+        Installs::Folders installFolder;
     };
 
     /// Installs go through `steam` for Steam titles, `legendary` for Epic's and gogdl for GOG's.

@@ -52,7 +52,8 @@ bool SoundPlayer::load(Effect effect, const std::filesystem::path& file) {
 }
 
 bool SoundPlayer::play(Effect effect) {
-    if (!ready_ || !loaded_[slot(effect)] || !debounce_.admit(effect, Debounce::Clock::now())) {
+    if (muted_ || !ready_ || !loaded_[slot(effect)] ||
+        !debounce_.admit(effect, Debounce::Clock::now())) {
         return false;
     }
     PlaySound(sounds_[slot(effect)]);

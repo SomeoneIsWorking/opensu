@@ -67,18 +67,12 @@ void StatusPillPainter::paint(const StatusPillView& view) {
     const TextStyle text{m.fontSize * dp};
     const float spacing = m.textSpacing * dp;
     const std::string clock{view.clock};
-    float width = type().measure(clock, text);
-    std::string percent;
     const float icon = m.batteryIcon * dp;
+    std::string percent;
     if (view.battery) {
         percent = std::to_string(view.battery->percent) + "%";
-        width +=
-            spacing * 3.0f + type().measure(separator, text) + type().measure(percent, text) + icon;
     }
-    // STOPGAP: the row is centred in the space after the launchers because a32.o's arrangement
-    // of the text row is not in the spec.
-    const float free = body.right() - (body.x + view.launcherColumn);
-    float pen = body.x + view.launcherColumn + std::max((free - width) * 0.5f, 0.0f);
+    float pen = body.x + view.launcherColumn + m.paddingHorizontal * dp;
     type().drawCentred(clock, pen, centreY, text, textInk);
     pen += type().measure(clock, text) + spacing;
     if (view.battery) {
@@ -88,6 +82,19 @@ void StatusPillPainter::paint(const StatusPillView& view) {
         pen += type().measure(percent, text) + spacing;
         paintBattery(pen, centreY, icon, *view.battery);
     }
+}
+
+float StatusPillPainter::rowWidth(const StatusPillMetrics& metrics, float dp,
+                                  std::string_view clock,
+                                  const std::optional<device::BatteryStatus>& battery) {
+    const TextStyle text{metrics.fontSize * dp};
+    float width = type().measure(std::string{clock}, text);
+    if (battery) {
+        width += metrics.textSpacing * dp * 3.0f + type().measure(separator, text) +
+                 type().measure(std::to_string(battery->percent) + "%", text) +
+                 metrics.batteryIcon * dp;
+    }
+    return width;
 }
 
 void StatusPillPainter::paintLaunchers(const StatusPillView& view) {

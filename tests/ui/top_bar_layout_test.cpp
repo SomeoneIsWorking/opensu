@@ -13,10 +13,24 @@ using opensu::ui::TopBarFrame;
 using opensu::ui::TopBarLayout;
 using opensu::ui::TopBarMetrics;
 
-TopBarLayout layoutOf(std::size_t launchers) {
+TopBarLayout layoutOf(std::size_t launchers, float content = 120.0f) {
     const float dp = 1.5f;
     const TopBarMetrics metrics{1280.0f / dp, 800.0f / dp};
-    return opensu::ui::layoutTopBar(metrics, TopBarFrame{1280.0f, 800.0f, dp, false, launchers});
+    return opensu::ui::layoutTopBar(metrics,
+                                    TopBarFrame{1280.0f, 800.0f, dp, false, content, launchers});
+}
+
+void pillFollowsItsContent() {
+    const TopBarLayout clockOnly = layoutOf(0, 70.0f);
+    const TopBarLayout withBattery = layoutOf(0, 190.0f);
+    expect(clockOnly.status.width < withBattery.status.width, "no battery, a shorter pill");
+    expect(clockOnly.status.right() == withBattery.status.right(), "still right-aligned");
+    const float padding = clockOnly.pill.paddingHorizontal * 1.5f;
+    expect(clockOnly.status.width == 70.0f + 2.0f * padding,
+           "the pill is the content plus its padding at each end");
+    const TopBarLayout launchers = layoutOf(2, 70.0f);
+    expect(launchers.status.width == launchers.launcherColumn + 70.0f + 2.0f * padding,
+           "the launcher column comes first");
 }
 
 void launchersInThePill() {
@@ -58,6 +72,7 @@ void hitTesting() {
 
 int main() {
     launchersInThePill();
+    pillFollowsItsContent();
     hitTesting();
     std::printf("top_bar_layout: all checks passed\n");
     return 0;

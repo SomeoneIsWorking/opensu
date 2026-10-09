@@ -81,7 +81,7 @@ Gamescope.
 ./build/cmake/src/opensu --hidden         # maintainer run: unmapped window, no pads, free control port
 ```
 
-`--hidden` logs its control channel port; drive it with `POST /input` and read `GET /state`.
+`--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `volumePercent`, `volumeMuted`, `uiScale`). A hidden run only reads the system volume.
 
 Overrides, all optional:
 
@@ -93,6 +93,9 @@ Overrides, all optional:
 | `OPENSU_WIDTH`, `OPENSU_HEIGHT` | Window size, default 1280x800. |
 | `OPENSU_ASSETS` | Directory holding the typeface. Defaults to `share/opensu` beside the executable's directory. |
 | `OPENSU_HOME_MODE` | `standard` (scrolling grid, default) or `wiisu` (paged grid). |
+
+The environment seeds defaults; the Settings screen (START, last row) saves the player's choices
+(interface size, volume, shortcuts, install folders) in `settings.json`, and those win.
 
 The build stages the assets beside the binary, so it runs from any directory.
 

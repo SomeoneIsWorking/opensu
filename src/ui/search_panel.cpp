@@ -16,7 +16,7 @@ constexpr float keyGapDp = 4.0f;
 constexpr float sectionGapDp = 8.0f;
 constexpr float hintHeightDp = 22.0f;
 
-constexpr std::size_t keyCount = static_cast<std::size_t>(searchKeyColumns) * 4 + 4;
+constexpr std::size_t keyCount = static_cast<std::size_t>(searchKeyColumns) * 4 + 5;
 
 // What the character keys type, and what they are drawn as (letters as capitals).
 constexpr std::string_view typed = "1234567890qwertyuiopasdfghjkl'zxcvbnm-.&";
@@ -32,10 +32,12 @@ constexpr std::array<SearchKey, keyCount> makeKeys() {
                             static_cast<int>(i) % searchKeyColumns,
                             1};
     }
-    keys[typed.size()] = SearchKey{KeyKind::Space, ' ', "Space", 4, 0, 4};
-    keys[typed.size() + 1] = SearchKey{KeyKind::Backspace, '\0', "Delete", 4, 4, 2};
-    keys[typed.size() + 2] = SearchKey{KeyKind::Clear, '\0', "Clear", 4, 6, 2};
-    keys[typed.size() + 3] = SearchKey{KeyKind::Done, '\0', "Done", 4, 8, 2};
+    // The slash makes folder paths typeable; the space key gives up a column to it.
+    keys[typed.size()] = SearchKey{KeyKind::Character, '/', "/", 4, 0, 1};
+    keys[typed.size() + 1] = SearchKey{KeyKind::Space, ' ', "Space", 4, 1, 3};
+    keys[typed.size() + 2] = SearchKey{KeyKind::Backspace, '\0', "Delete", 4, 4, 2};
+    keys[typed.size() + 3] = SearchKey{KeyKind::Clear, '\0', "Clear", 4, 6, 2};
+    keys[typed.size() + 4] = SearchKey{KeyKind::Done, '\0', "Done", 4, 8, 2};
     return keys;
 }
 
@@ -78,14 +80,15 @@ std::span<const SearchKey> searchKeys() noexcept {
     return keyTable;
 }
 
-SearchLayout layoutSearch(const Rect& frame, float dp) {
+SearchLayout layoutSearch(const Rect& frame, float dp, bool lists) {
     SearchLayout layout;
     const float pad = panelPaddingDp * dp;
     const float gap = keyGapDp * dp;
     const float section = sectionGapDp * dp;
     const float width = std::min(panelWidthDp * dp, frame.width);
-    const float height = 2.0f * pad + fieldHeightDp * dp + section +
-                         static_cast<float>(searchResultRows) * resultHeightDp * dp + section +
+    const float listed =
+        lists ? static_cast<float>(searchResultRows) * resultHeightDp * dp + section : 0.0f;
+    const float height = 2.0f * pad + fieldHeightDp * dp + section + listed +
                          static_cast<float>(searchKeyRows) * keyHeightDp * dp +
                          static_cast<float>(searchKeyRows - 1) * gap + section + hintHeightDp * dp;
     layout.panel = Rect{frame.x + (frame.width - width) * 0.5f,
@@ -95,11 +98,13 @@ SearchLayout layoutSearch(const Rect& frame, float dp) {
     float y = layout.panel.y + pad;
     layout.field = Rect{layout.panel.x + pad, y, inner, fieldHeightDp * dp};
     y += fieldHeightDp * dp + section;
-    for (Rect& row : layout.results) {
-        row = Rect{layout.panel.x + pad, y, inner, resultHeightDp * dp};
-        y += resultHeightDp * dp;
+    if (lists) {
+        for (Rect& row : layout.results) {
+            row = Rect{layout.panel.x + pad, y, inner, resultHeightDp * dp};
+            y += resultHeightDp * dp;
+        }
+        y += section;
     }
-    y += section;
     const float cell = (inner - static_cast<float>(searchKeyColumns - 1) * gap) /
                        static_cast<float>(searchKeyColumns);
     const float keysTop = y;
@@ -143,7 +148,7 @@ void SearchPanel::open(std::string text) {
 }
 
 bool SearchPanel::type(std::string_view text) {
-    if (text.empty() || text_.size() + text.size() > searchMostLength) {
+    if (text.empty() || text_.size() + text.size() > mostLength_) {
         return false;
     }
     text_ += text;

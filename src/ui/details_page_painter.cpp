@@ -26,19 +26,6 @@ constexpr float labelColumnDp = 120.0f;
 constexpr float outlineDp = 2.5f;
 constexpr float backdropAlpha = 0.14f;
 
-/// `text` cut to fit `room` pixels, ending in dots when it is cut.
-std::string fitted(std::string text, float room, const TextStyle& style) {
-    if (type().measure(text, style) <= room) {
-        return text;
-    }
-    while (!text.empty() && type().measure(text + "...", style) > room) {
-        do {
-            text.pop_back();
-        } while (!text.empty() && (static_cast<unsigned char>(text.back()) & 0xC0U) == 0x80U);
-    }
-    return text + "...";
-}
-
 /// `texture` scaled to fill `box` with its middle showing, or to sit whole inside it when it is
 /// much wider than tall.
 void drawCover(const Texture& texture, const Rect& box, float radius, float alpha) {
@@ -111,7 +98,7 @@ void DetailsPagePainter::paintText(const DetailsLayout& layout, const DetailsVie
     const Rect& text = layout.text;
     const TextStyle title{titleSp * dp};
     float y = text.y + type().lineBox(title) * 0.5f;
-    type().drawCentred(fitted(view.title, text.width, title), text.x, y, title,
+    type().drawCentred(type().fitted(view.title, text.width, title), text.x, y, title,
                        withAlpha(ink, alpha));
     y += type().lineBox(title) * 0.5f + 10.0f * dp;
 
@@ -135,8 +122,8 @@ void DetailsPagePainter::paintText(const DetailsLayout& layout, const DetailsVie
         }
         const float centre = y + rowHeightDp * dp * 0.5f;
         type().drawCentred(row.label, text.x, centre, label, withAlpha(inkSoft, alpha));
-        type().drawCentred(fitted(row.value, text.right() - valueX, value), valueX, centre, value,
-                           withAlpha(ink, alpha));
+        type().drawCentred(type().fitted(row.value, text.right() - valueX, value), valueX, centre,
+                           value, withAlpha(ink, alpha));
         y += rowHeightDp * dp;
     }
 }
@@ -163,7 +150,7 @@ void DetailsPagePainter::paintButtons(const DetailsPage& page, const DetailsLayo
         if (!buttons[i].value.empty()) {
             const std::string shown = "<  " + buttons[i].value + "  >";
             const float width = type().measure(shown, text);
-            type().drawCentred(fitted(shown, rect.width - 2.0f * pad - 90.0f * dp, text),
+            type().drawCentred(type().fitted(shown, rect.width - 2.0f * pad - 90.0f * dp, text),
                                rect.right() - pad - width, rect.centreY(), text,
                                withAlpha(inkSoft, alpha));
         }

@@ -27,6 +27,10 @@ enum class CrumbKind : std::uint8_t {
     Filter,
     /// The game whose details page is open.
     Game,
+    /// The Settings screen.
+    Settings,
+    /// The category of the Settings screen on show; the screen's own level, not a place of its own.
+    Page,
 };
 
 struct Crumb {

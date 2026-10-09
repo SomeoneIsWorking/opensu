@@ -13,7 +13,7 @@
 
 #include "raylib.h"
 
-#include "input/last_device.hpp"
+#include "input/prompts.hpp"
 
 namespace opensu::ui {
 
@@ -21,7 +21,7 @@ namespace opensu::ui {
 /// outline in the ring's size and stroke around the key's label.
 class ButtonGlyphPainter {
   public:
-    explicit ButtonGlyphPainter(const input::LastDevice& device) noexcept : device_{&device} {
+    explicit ButtonGlyphPainter(const input::Prompts& prompts) noexcept : prompts_{&prompts} {
     }
 
     /// How wide the glyph for `key` is in a `box`-sized square: `box` for a controller button, and
@@ -36,7 +36,7 @@ class ButtonGlyphPainter {
     /// The key cap text to draw for `key`, or nothing to draw the controller's glyph.
     [[nodiscard]] std::optional<std::string> capLabel(std::string_view key) const;
 
-    const input::LastDevice* device_;
+    const input::Prompts* prompts_;
 };
 
 } // namespace opensu::ui

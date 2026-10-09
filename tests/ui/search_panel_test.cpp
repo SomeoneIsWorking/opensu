@@ -55,6 +55,11 @@ void physicalKeyboardTextAndLimits() {
     panel.clear();
     panel.type(std::string(searchMostLength, 'a'));
     expect(!panel.type("b") && panel.text().size() == searchMostLength, "the field is bounded");
+    panel.configure("Type a folder path", false);
+    panel.clear();
+    expect(panel.type(std::string(searchMostLength + 1, 'a')),
+           "a typed path may be longer than a search");
+    expect(!panel.type(std::string(pathMostLength, 'a')), "but not longer than a path can be");
     panel.clear();
     expect(!panel.backspace(), "backspace on nothing");
 }

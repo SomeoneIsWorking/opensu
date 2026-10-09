@@ -43,6 +43,12 @@ bool numeric(std::string_view text) {
     });
 }
 
+/// `folder` spelled without a trailing separator, as Steam lists its libraries.
+std::filesystem::path unslashed(const std::filesystem::path& folder) {
+    const std::filesystem::path normal = folder.lexically_normal();
+    return normal.has_filename() ? normal : normal.parent_path();
+}
+
 } // namespace
 
 WizardAction actionFor(int installState) noexcept {
@@ -83,11 +89,58 @@ InstallStep InstallWizard::failed(std::string reason) {
     return InstallStep{.kind = InstallStep::Kind::Failed, .failure = std::move(reason)};
 }
 
-InstallStep InstallWizard::open(std::string_view appId) {
+std::optional<int> InstallWizard::libraryIndex(std::string& error) {
+    const std::optional<json> folders =
+        devTools_.evaluate("SteamClient.InstallFolder.GetInstallFolders()", error);
+    if (!folders || !folders->is_array()) {
+        error = error.empty() ? "Steam did not list its libraries" : error;
+        return std::nullopt;
+    }
+    if (!folder_) {
+        return std::nullopt;
+    }
+    const std::filesystem::path wanted = unslashed(*folder_);
+    for (const json& library : *folders) {
+        if (unslashed(library.value("strFolderPath", "")) == wanted) {
+            return library.value("nFolderIndex", 0);
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> InstallWizard::chooseFolder() {
+    if (!folder_) {
+        return std::nullopt;
+    }
+    const std::filesystem::path folder = *folder_;
+    std::string error;
+    std::optional<int> index = libraryIndex(error);
+    if (!index && error.empty()) {
+        if (!devTools_.evaluate("SteamClient.InstallFolder.AddInstallFolder(" +
+                                    json(folder.string()).dump() + ")",
+                                error)) {
+            return "Steam would not add " + folder.string() + " as a library: " + error;
+        }
+        index = libraryIndex(error);
+    }
+    if (!index) {
+        return error.empty() ? "Steam does not list " + folder.string() + " as a library" : error;
+    }
+    if (!devTools_.evaluate("SteamClient.Installs.SetInstallFolder(" + std::to_string(*index) + ")",
+                            error)) {
+        return "Steam would not install into " + folder.string() + ": " + error;
+    }
+    lucent::info("steam", "installing {} into the library {}", appId_, folder.string());
+    return std::nullopt;
+}
+
+InstallStep InstallWizard::open(std::string_view appId,
+                                std::optional<std::filesystem::path> folder) {
     if (!numeric(appId)) {
         return failed("not a Steam app id: " + std::string{appId});
     }
     appId_ = std::string{appId};
+    folder_ = std::move(folder);
     continued_ = false;
     std::string error;
     if (!devTools_.evaluate("SteamClient.Installs.OpenInstallWizard([" + appId_ + "])", error)) {
@@ -117,6 +170,12 @@ InstallStep InstallWizard::poll() {
     case WizardAction::Wait:
         return InstallStep{};
     case WizardAction::Continue:
+        if (folder_ && !continued_) {
+            if (const std::optional<std::string> refused = chooseFolder()) {
+                cancel();
+                return failed(*refused);
+            }
+        }
         if (!devTools_.evaluate("SteamClient.Installs.ContinueInstall()", error)) {
             return failed("Steam's installer would not continue: " + error);
         }

@@ -1,6 +1,6 @@
 // layout_picker — START: the Library options panel's buttons. The layout cards, the icon size, the
 // "Pin navigation bar" option, the sort, the source and installed/hidden filters and the way into
-// the search, and keeping what the player picks for the next run.
+// the search and the Settings screen, and keeping what the player picks for the next run.
 #pragma once
 
 #include <functional>
@@ -28,6 +28,8 @@ class LayoutPicker {
         std::function<std::vector<library::SourceChoice>()> sourceChoices;
         /// Opens the search panel.
         std::function<void()> openSearch;
+        /// Opens the Settings screen.
+        std::function<void()> openSettings;
     };
 
     LayoutPicker(ui::ModeChooser& chooser, audio::SoundPlayer& sounds, Preferences& preferences,

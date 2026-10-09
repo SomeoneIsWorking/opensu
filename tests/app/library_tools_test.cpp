@@ -198,6 +198,7 @@ void optionsChangeAndKeep(const fs::path& root) {
     std::size_t reshown = 0;
     std::size_t applied = 0;
     bool searchOpened = false;
+    bool settingsOpened = false;
     LayoutPicker picker{
         chooser,
         rig.sounds,
@@ -222,6 +223,10 @@ void optionsChangeAndKeep(const fs::path& root) {
          .openSearch =
              [&] {
                  searchOpened = true;
+             },
+         .openSettings =
+             [&] {
+                 settingsOpened = true;
              }}};
 
     picker.open(true);
@@ -269,8 +274,15 @@ void optionsChangeAndKeep(const fs::path& root) {
     picker.act(Button::A);
     expect(!chooser.isOpen() && searchOpened, "the Search row closes the panel and opens search");
 
+    picker.open(true);
+    chooser.focusRow(ui::ChooserRow::Settings);
+    picker.act(Button::A);
+    expect(!chooser.isOpen() && settingsOpened,
+           "the Settings row closes the panel and opens the Settings screen");
+
     picker.open(false);
-    expect(chooser.rows().size() < 8, "Home's panel holds fewer rows");
+    expect(chooser.rows().size() < 9 && chooser.focusRow(ui::ChooserRow::Settings),
+           "Home's panel holds fewer rows, Settings among them");
     picker.act(Button::Start);
     expect(!chooser.isOpen(), "Start closes it");
     expect(rig.failures.empty(), "nothing failed to save");

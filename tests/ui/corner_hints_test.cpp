@@ -45,9 +45,18 @@ void endCorner() {
            "both together");
 }
 
+void settingsScreen() {
+    expect((opensu::ui::endPrompts(HintContext{.select = true, .change = true}) ==
+            std::vector<Prompt>{{"A", "Change"}}),
+           "A changes the focused setting");
+    expect(opensu::ui::endPrompts(HintContext{.change = true}).empty(),
+           "nothing to change on a fact, or while a shortcut is being listened for");
+}
+
 } // namespace
 
 int main() {
+    settingsScreen();
     startCorner();
     searchAndOptions();
     endCorner();

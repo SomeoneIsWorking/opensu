@@ -1,6 +1,7 @@
 #include "game_keys.hpp"
 
 #include <array>
+#include <map>
 #include <stdexcept>
 
 #include <X11/XKBlib.h>
@@ -10,47 +11,28 @@
 
 namespace opensu::session {
 
-std::optional<GameShortcut> ShortcutChord::key(ShortcutKey key, bool pressed) {
-    switch (key) {
-    case ShortcutKey::LeftShift:
-        leftShift_ = pressed;
-        return std::nullopt;
-    case ShortcutKey::RightShift:
-        rightShift_ = pressed;
-        return std::nullopt;
-    case ShortcutKey::Tab: {
-        const bool repeat = pressed && tabDown_;
-        tabDown_ = pressed;
-        if (pressed && !repeat && (leftShift_ || rightShift_)) {
-            return GameShortcut::Guide;
-        }
+std::optional<input::Combo> ShortcutChord::key(int key, bool pressed) {
+    if (const input::Modifier modifier = input::modifierOf(key);
+        modifier != input::Modifier::Neither) {
+        (modifier == input::Modifier::Ctrl ? ctrl_ : shift_) = pressed;
         return std::nullopt;
     }
-    case ShortcutKey::Other:
+    if (!pressed) {
+        down_.erase(key);
         return std::nullopt;
     }
-    return std::nullopt;
+    const bool repeat = !down_.insert(key).second;
+    if (repeat) {
+        return std::nullopt;
+    }
+    return input::Combo{key, ctrl_, shift_};
 }
 
 struct GameKeys::Connection {
     Display* display{};
     int xinputOpcode{};
-    KeyCode leftShift{};
-    KeyCode rightShift{};
-    KeyCode tab{};
-
-    [[nodiscard]] ShortcutKey classify(int keycode) const {
-        if (keycode == leftShift) {
-            return ShortcutKey::LeftShift;
-        }
-        if (keycode == rightShift) {
-            return ShortcutKey::RightShift;
-        }
-        if (keycode == tab) {
-            return ShortcutKey::Tab;
-        }
-        return ShortcutKey::Other;
-    }
+    /// Raylib's key for each X keycode that has one.
+    std::map<int, int> keys;
 };
 
 GameKeys::GameKeys() : connection_{std::make_unique<Connection>()} {
@@ -72,9 +54,16 @@ GameKeys::GameKeys() : connection_{std::make_unique<Connection>()} {
         XCloseDisplay(display);
         throw std::runtime_error{"the X display has no XInput 2.2"};
     }
-    connection_->leftShift = XKeysymToKeycode(display, XK_Shift_L);
-    connection_->rightShift = XKeysymToKeycode(display, XK_Shift_R);
-    connection_->tab = XKeysymToKeycode(display, XK_Tab);
+    std::vector<int> wanted(input::bindableKeys().begin(), input::bindableKeys().end());
+    wanted.insert(wanted.end(), input::modifierKeys().begin(), input::modifierKeys().end());
+    for (const int key : wanted) {
+        const std::string name = input::x11Name(key);
+        if (const KeySym keysym = XStringToKeysym(name.c_str()); keysym != NoSymbol) {
+            if (const KeyCode code = XKeysymToKeycode(display, keysym); code != 0) {
+                connection_->keys[code] = key;
+            }
+        }
+    }
 
     std::array<unsigned char, XIMaskLen(XI_LASTEVENT)> mask{};
     XISetMask(mask.data(), XI_RawKeyPress);
@@ -90,8 +79,8 @@ GameKeys::~GameKeys() {
     XCloseDisplay(connection_->display);
 }
 
-std::vector<GameShortcut> GameKeys::poll() {
-    std::vector<GameShortcut> shortcuts;
+std::vector<input::Action> GameKeys::poll(const input::Shortcuts& shortcuts) {
+    std::vector<input::Action> actions;
     Display* display = connection_->display;
     while (XPending(display) > 0) {
         XEvent event{};
@@ -108,11 +97,18 @@ std::vector<GameShortcut> GameKeys::poll() {
         if (!pressed && !released) {
             continue;
         }
-        if (const auto shortcut = chord_.key(connection_->classify(keycode), pressed)) {
-            shortcuts.push_back(*shortcut);
+        const auto known = connection_->keys.find(keycode);
+        if (known == connection_->keys.end()) {
+            continue;
+        }
+        if (const auto combo = chord_.key(known->second, pressed)) {
+            if (const auto action = shortcuts.actionFor(*combo);
+                action && input::worksInGame(*action)) {
+                actions.push_back(*action);
+            }
         }
     }
-    return shortcuts;
+    return actions;
 }
 
 } // namespace opensu::session

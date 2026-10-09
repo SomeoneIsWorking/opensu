@@ -10,7 +10,7 @@ namespace opensu::ui {
 
 class ContextMenuPainter {
   public:
-    explicit ContextMenuPainter(const input::LastDevice& device) noexcept : glyphs_{device} {
+    explicit ContextMenuPainter(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
     }
 
     /// Draws `menu` into a frame of `size` at `dp` pixels per dp, as faded and scaled by `look`.

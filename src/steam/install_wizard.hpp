@@ -4,6 +4,8 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -54,8 +56,11 @@ class InstallWizard {
   public:
     explicit InstallWizard(DevTools& devTools);
 
-    /// Opens the wizard for `appId`. Fails when Steam cannot be asked.
-    [[nodiscard]] InstallStep open(std::string_view appId);
+    /// Opens the wizard for `appId`, installing into the Steam library at `folder` (added to Steam
+    /// when it is not one yet) or, with none, into Steam's default. Fails when Steam cannot be
+    /// asked.
+    [[nodiscard]] InstallStep open(std::string_view appId,
+                                   std::optional<std::filesystem::path> folder = std::nullopt);
     /// Advances the wizard as far as it can go without the player.
     [[nodiscard]] InstallStep poll();
     /// Records the player's acceptance of `eulas` for the open app and continues.
@@ -65,9 +70,16 @@ class InstallWizard {
 
   private:
     [[nodiscard]] InstallStep failed(std::string reason);
+    /// Points the open install at the library `folder_`, adding the library first when Steam has
+    /// not got it. Nothing on success, else the reason.
+    [[nodiscard]] std::optional<std::string> chooseFolder();
+    /// The index Steam gives the library at `folder_`, or nothing when it has none there.
+    [[nodiscard]] std::optional<int> libraryIndex(std::string& error);
 
     DevTools& devTools_;
     std::string appId_;
+    /// The library to install into; none leaves Steam's default.
+    std::optional<std::filesystem::path> folder_;
     /// The wizard was told to continue; it returns to no state once it has handed off.
     bool continued_{false};
 };

@@ -13,6 +13,11 @@ std::string sectionLabel(library::Section section) {
 
 ui::Trail trailOf(const TrailState& state) {
     ui::Trail trail;
+    if (!state.settings.empty()) {
+        trail.push_back(ui::Crumb{"Settings", ui::CrumbKind::Settings});
+        trail.push_back(ui::Crumb{state.settings, ui::CrumbKind::Page});
+        return trail;
+    }
     trail.push_back(ui::Crumb{sectionLabel(state.section), ui::CrumbKind::Section, state.section});
     if (state.folder) {
         trail.push_back(ui::Crumb{library::name(*state.folder), ui::CrumbKind::Folder});

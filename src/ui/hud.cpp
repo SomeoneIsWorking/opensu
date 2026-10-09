@@ -73,9 +73,12 @@ TopBarLayout Hud::topBarLayout() const {
         static_cast<std::size_t>(std::ranges::count_if(launchers_, [](const LauncherBadge& badge) {
             return badge.state != ServiceState::Hidden;
         }));
+    const bool letters = ClockText::hasLetters(clock_);
+    const float content =
+        StatusPillPainter::rowWidth(metrics().statusPill(letters), dp_, clock_, battery_);
     return layoutTopBar(metrics(),
                         TopBarFrame{static_cast<float>(width_), static_cast<float>(height_), dp_,
-                                    ClockText::hasLetters(clock_), visible});
+                                    letters, content, visible});
 }
 
 std::optional<library::Source> Hud::launcherAt(float x, float y) const {

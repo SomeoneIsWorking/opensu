@@ -100,10 +100,10 @@ float capWidth(const std::string& label, float box) {
 } // namespace
 
 std::optional<std::string> ButtonGlyphPainter::capLabel(std::string_view key) const {
-    if (device_->current() != input::Device::KeyboardMouse) {
+    if (prompts_->device.current() != input::Device::KeyboardMouse) {
         return std::nullopt;
     }
-    return input::keyLabelForGlyph(key);
+    return prompts_->shortcuts.keyLabelForGlyph(key);
 }
 
 float ButtonGlyphPainter::advance(std::string_view key, float box) const {

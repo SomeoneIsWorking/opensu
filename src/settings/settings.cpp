@@ -1,6 +1,7 @@
 #include "settings.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <iterator>
 
@@ -23,6 +24,25 @@ constexpr const char* sourceKey = "source";
 constexpr const char* hiddenKey = "hidden";
 constexpr const char* lastPlayedKey = "lastPlayed";
 constexpr const char* emulatorsKey = "emulators";
+constexpr const char* homeModeKey = "homeMode";
+constexpr const char* uiSoundsKey = "uiSounds";
+constexpr const char* romFoldersKey = "romFolders";
+constexpr const char* steamRootsKey = "steamRoots";
+constexpr const char* uiScaleKey = "uiScale";
+constexpr const char* shortcutsKey = "shortcuts";
+constexpr const char* shortcutKeysKey = "keys";
+constexpr const char* shortcutPadsKey = "pads";
+constexpr const char* installFoldersKey = "installFolders";
+constexpr const char* defaultFolderKey = "default";
+
+/// The key a store's own install folder is kept under.
+std::string storeKey(library::Source store) {
+    std::string key{library::label(store)};
+    std::ranges::transform(key, key.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return key;
+}
 
 /// Reads a file's fields, each on its own: one that is damaged is reported and keeps its default.
 class Reader {
@@ -80,6 +100,79 @@ class Reader {
         } else {
             reject(name, *found, fallback);
         }
+    }
+
+    void paths(const char* name, std::vector<std::filesystem::path>& out,
+               const char* fallback) const {
+        std::vector<std::string> listed;
+        texts(name, listed, fallback);
+        out.assign(listed.begin(), listed.end());
+    }
+
+    void installFolders(const char* name, InstallFolders& out, const char* fallback) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        bool strings = found->is_object();
+        for (const auto& item : found->items()) {
+            strings = strings && item.value().is_string();
+        }
+        if (!strings) {
+            reject(name, *found, fallback);
+            return;
+        }
+        out.setDefault(found->value(defaultFolderKey, std::string{}));
+        for (const library::Source store : installStores) {
+            out.setStore(store, found->value(storeKey(store), std::string{}));
+        }
+    }
+
+    /// The shortcut changes in `name`, each tried against the table so a clash or an unknown key is
+    /// reported and dropped.
+    void shortcuts(const char* name, input::ShortcutOverrides& out) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        if (!found->is_object()) {
+            reject(name, *found, "using the shipped shortcuts");
+            return;
+        }
+        input::Shortcuts table;
+        const json keys = found->value(shortcutKeysKey, json::object());
+        const json pads = found->value(shortcutPadsKey, json::object());
+        for (const auto& [spelling, entry] : keys.items()) {
+            const std::optional<input::Action> action = input::actionOf(spelling);
+            if (!entry.is_object()) {
+                lucent::warn("settings", "{}: shortcut {} needs a key", file_, spelling);
+                continue;
+            }
+            const input::Combo combo{entry.value("key", 0), entry.value("ctrl", false),
+                                     entry.value("shift", false)};
+            const std::string refused =
+                action ? table.rebind(*action, combo) : "no such action " + spelling;
+            if (!refused.empty()) {
+                lucent::warn("settings", "{}: shortcut {}: {}", file_, spelling, refused);
+            }
+        }
+        for (const auto& [spelling, entry] : pads.items()) {
+            const std::optional<input::Action> action = input::actionOf(spelling);
+            const bool pair = entry.is_array() && entry.size() == 2 && entry[0].is_string() &&
+                              entry[1].is_string();
+            std::string refused = "needs [modifier, trigger]";
+            if (action && pair) {
+                refused = table.rebind(
+                    *action, input::PadChord{gamepad::buttonNamed(entry[0].get<std::string>()),
+                                             gamepad::buttonNamed(entry[1].get<std::string>())});
+            } else if (!action) {
+                refused = "no such action " + spelling;
+            }
+            if (!refused.empty()) {
+                lucent::warn("settings", "{}: shortcut {}: {}", file_, spelling, refused);
+            }
+        }
+        out = table.overrides();
     }
 
     void times(const char* name, library::PlayHistory::Entries& out, const char* fallback) const {
@@ -145,6 +238,13 @@ Settings Store::load() const {
     const Reader read{document, file_.string()};
     read.boolean(pinLibraryDockKey, settings.pinLibraryDock, "the dock stays pinned");
     read.integer(iconSizeKey, minIconSize, maxIconSize, settings.iconSize, "using the default");
+    read.boolean(uiSoundsKey, settings.uiSounds, "the sounds play");
+    read.paths(romFoldersKey, settings.romFolders, "using the discovered ROM folders");
+    read.paths(steamRootsKey, settings.steamRoots, "using the discovered Steam roots");
+    read.installFolders(installFoldersKey, settings.installFolders,
+                        "every store installs where it chooses");
+    read.integer(uiScaleKey, minUiScale, maxUiScale, settings.uiScale, "using 100%");
+    read.shortcuts(shortcutsKey, settings.shortcuts);
     read.boolean(installedOnlyKey, settings.view.installedOnly, "showing every game");
     read.text(sourceKey, settings.view.source, "showing every source");
     std::vector<std::string> hidden;
@@ -167,6 +267,15 @@ Settings Store::load() const {
                          spelling);
         }
     }
+    std::string homeSpelling;
+    read.text(homeModeKey, homeSpelling, "using the environment's");
+    if (!homeSpelling.empty()) {
+        settings.homeMode = config::homeModeOf(homeSpelling);
+        if (!settings.homeMode) {
+            lucent::warn("settings", "{}: {} is not a scroll mode; using the environment's",
+                         file_.string(), homeSpelling);
+        }
+    }
     const auto mode = document.find(libraryModeKey);
     if (mode == document.end()) {
         return settings;
@@ -183,16 +292,66 @@ Settings Store::load() const {
 }
 
 bool Store::save(const Settings& settings, std::string& error) const {
-    const json document{{libraryModeKey, std::string{library::key(settings.libraryMode)}},
-                        {pinLibraryDockKey, settings.pinLibraryDock},
-                        {iconSizeKey, settings.iconSize},
-                        {sortKey, std::string{library::key(settings.view.sort)}},
-                        {installedOnlyKey, settings.view.installedOnly},
-                        {sourceKey, settings.view.source},
-                        {hiddenKey, settings.hidden.keys()},
-                        {lastPlayedKey, settings.lastPlayed.entries()},
-                        {emulatorsKey, settings.emulators.entries()}};
+    json folders = json::object();
+    if (!settings.installFolders.defaultFolder().empty()) {
+        folders[defaultFolderKey] = settings.installFolders.defaultFolder().string();
+    }
+    for (const library::Source store : installStores) {
+        if (const std::filesystem::path own = settings.installFolders.storeFolder(store);
+            !own.empty()) {
+            folders[storeKey(store)] = own.string();
+        }
+    }
+    const auto listOf = [](const std::vector<std::filesystem::path>& paths) {
+        json list = json::array();
+        for (const std::filesystem::path& path : paths) {
+            list.push_back(path.string());
+        }
+        return list;
+    };
+    json shortcutKeys = json::object();
+    for (const auto& [action, combo] : settings.shortcuts.keys) {
+        shortcutKeys[std::string{input::spelling(action)}] = {
+            {"key", combo.key}, {"ctrl", combo.ctrl}, {"shift", combo.shift}};
+    }
+    json shortcutPads = json::object();
+    for (const auto& [action, chord] : settings.shortcuts.pads) {
+        shortcutPads[std::string{input::spelling(action)}] = {
+            std::string{gamepad::name(chord.modifier)}, std::string{gamepad::name(chord.trigger)}};
+    }
+    json document{
+        {libraryModeKey, std::string{library::key(settings.libraryMode)}},
+        {pinLibraryDockKey, settings.pinLibraryDock},
+        {iconSizeKey, settings.iconSize},
+        {sortKey, std::string{library::key(settings.view.sort)}},
+        {installedOnlyKey, settings.view.installedOnly},
+        {sourceKey, settings.view.source},
+        {hiddenKey, settings.hidden.keys()},
+        {lastPlayedKey, settings.lastPlayed.entries()},
+        {emulatorsKey, settings.emulators.entries()},
+        {uiSoundsKey, settings.uiSounds},
+        {romFoldersKey, listOf(settings.romFolders)},
+        {steamRootsKey, listOf(settings.steamRoots)},
+        {installFoldersKey, folders},
+        {uiScaleKey, settings.uiScale},
+        {shortcutsKey, {{shortcutKeysKey, shortcutKeys}, {shortcutPadsKey, shortcutPads}}}};
+    if (settings.homeMode) {
+        document[homeModeKey] = std::string{config::key(*settings.homeMode)};
+    }
     return fileio::writeWhole(file_, document.dump(2) + "\n", error);
+}
+
+config::Config resolved(config::Config base, const Settings& settings) {
+    if (settings.homeMode) {
+        base.homeMode = *settings.homeMode;
+    }
+    if (!settings.romFolders.empty()) {
+        base.romRoots = settings.romFolders;
+    }
+    if (!settings.steamRoots.empty()) {
+        base.steamRoots = settings.steamRoots;
+    }
+    return base;
 }
 
 } // namespace opensu::settings

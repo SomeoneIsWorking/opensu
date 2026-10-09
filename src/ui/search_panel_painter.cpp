@@ -31,7 +31,6 @@ constexpr float cornerDp = 10.0f;
 constexpr float outlineDp = 1.8f;
 constexpr float iconDp = 9.0f;
 constexpr double caretPeriod = 1.0;
-constexpr std::string_view placeholder = "Search ROMs, consoles, apps, collections, and folders";
 
 /// Draws `text` cut to `room` pixels, ending in dots when it is cut.
 void drawFitted(std::string text, float x, float centreY, float room, const TextStyle& style,
@@ -81,7 +80,7 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
     }
     const float alpha = look.alpha;
     DrawRectangleRec(Rectangle{0.0f, 0.0f, size.x, size.y}, withAlpha(scrim, alpha));
-    const SearchLayout layout = layoutSearch(Rect{0.0f, 0.0f, size.x, size.y}, dp);
+    const SearchLayout layout = layoutSearch(Rect{0.0f, 0.0f, size.x, size.y}, dp, panel.lists());
     const PanelScope scope{Vector2{layout.panel.centreX(), layout.panel.centreY()}, look.scale};
     fillRoundRect(RoundRect{layout.panel, layout.panelRadius}, [alpha](Vector2, float) {
         return withAlpha(panelFill, alpha);
@@ -96,7 +95,7 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
     const float textX = layout.field.x + inset * 2.0f + iconDp * dp;
     const float room = layout.field.right() - inset - textX;
     if (panel.text().empty()) {
-        drawFitted(std::string{placeholder}, textX, layout.field.centreY(), room, field,
+        drawFitted(panel.prompt(), textX, layout.field.centreY(), room, field,
                    withAlpha(palette::inkSoft, alpha));
     } else {
         drawFitted(panel.text(), textX, layout.field.centreY(), room, field,
@@ -115,13 +114,13 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
     // The results: as many rows as fit, from the first in view.
     const TextStyle result{resultSp * dp};
     const bool inResults = panel.zone() == SearchZone::Results;
-    if (panel.results().empty() && !panel.text().empty()) {
+    if (panel.lists() && panel.results().empty() && !panel.text().empty()) {
         type().drawCentred("No results", layout.results[0].x + inset, layout.results[0].centreY(),
                            result, withAlpha(palette::inkSoft, alpha));
     }
     for (std::size_t row = 0; row < layout.results.size(); ++row) {
         const std::size_t index = panel.firstListed() + row;
-        if (index >= panel.results().size()) {
+        if (!panel.lists() || index >= panel.results().size()) {
             break;
         }
         const Rect& box = layout.results[row];
@@ -163,17 +162,16 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
     const float glyph = hintGlyphDp * dp;
     const float centreY = layout.hints.centreY();
     // A physical keyboard types straight into the field, so it needs no key prompts.
-    const bool typing = device_->current() == input::Device::KeyboardMouse;
+    const bool typing = prompts_->device.current() == input::Device::KeyboardMouse;
     std::vector<std::pair<const char*, const char*>> hints;
     if (typing) {
         hints = {{"A", inResults ? "Open" : "Done"}, {"B", "Close"}};
     } else {
-        hints = {{"A", inResults ? "Open" : "Type"},
-                 {"B", "Delete"},
-                 {"X", inResults ? "Keys" : "Results"},
-                 {"Y", "Space"},
-                 {"-", "Clear"},
-                 {"+", "Done"}};
+        hints = {{"A", inResults ? "Open" : "Type"}, {"B", "Delete"}};
+        if (panel.lists()) {
+            hints.emplace_back("X", inResults ? "Keys" : "Results");
+        }
+        hints.insert(hints.end(), {{"Y", "Space"}, {"-", "Clear"}, {"+", "Done"}});
     }
     float total = 0.0f;
     for (const auto& [key, label] : hints) {

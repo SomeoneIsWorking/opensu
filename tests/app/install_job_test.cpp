@@ -126,6 +126,13 @@ fs::path writeStub(const fs::path& path, const std::string& body) {
     return path;
 }
 
+std::string firstLine(const fs::path& file) {
+    std::ifstream in{file};
+    std::string line;
+    std::getline(in, line);
+    return line;
+}
+
 void testEpic(const fs::path& dir) {
     // Records its arguments, then logs as legendary does: install details, progress, a summary.
     const fs::path ok =
@@ -146,6 +153,14 @@ exit 0
     std::string line;
     std::getline(args, line);
     expect(line == "install Fortnite -y --skip-sdl", "it runs `legendary install <app> -y`");
+
+    EpicInstallJob placed{ok.string()};
+    placed.setFolder(dir / "epic-games");
+    expect(placed.start("Fortnite", "Fortnite"), "an Epic install into a folder starts");
+    expect(drain(placed).back().failure.empty(), "it finishes installed");
+    expect(firstLine(dir / "args") ==
+               "install Fortnite -y --skip-sdl --base-path " + (dir / "epic-games").string(),
+           "legendary installs under the folder it is given");
     // Reports are latest-wins, so only the last of a fast burst is guaranteed to be seen.
     for (const InstallJob::Report& report : reports) {
         if (report.fraction) {
@@ -248,13 +263,6 @@ fs::path gogData(const fs::path& dir, const char* name) {
     return data;
 }
 
-std::string firstLine(const fs::path& file) {
-    std::ifstream in{file};
-    std::string line;
-    std::getline(in, line);
-    return line;
-}
-
 void testGog(const fs::path& dir) {
     const fs::path gogdl = writeGogdl(dir / "bin");
 
@@ -282,6 +290,21 @@ void testGog(const fs::path& dir) {
     expect(record && record->platform == "linux" &&
                record->path == data / "gog-games/native/Game Folder",
            "the install is recorded with gogdl's folder and platform");
+
+    const fs::path placedData = gogData(dir, "gog-placed");
+    const fs::path placedFolder = dir / "gog-store" / "games";
+    GogInstallJob placed{GogInstallJob::Options{.dataDir = placedData, .gogdl = gogdl.string()}};
+    placed.setBuilds({.windows = true, .linuxNative = true});
+    placed.setFolder(placedFolder);
+    expect(placed.start("native", "Native"), "a GOG install into a folder starts");
+    expect(drain(placed).back().failure.empty(), "it finishes installed");
+    expect(firstLine(placedFolder.parent_path() / "download-args") ==
+               "download native --platform linux --path " + (placedFolder / "native").string(),
+           "gogdl downloads under the folder it is given");
+    const auto placedRecord =
+        opensu::library::gog::InstallRecords{placedData / "gog-installs.json"}.find("native");
+    expect(placedRecord && placedRecord->path == placedFolder / "native/Game Folder",
+           "the install is recorded where gogdl put it");
 
     const fs::path windowsData = gogData(dir, "gog-windows");
     GogInstallJob windows{GogInstallJob::Options{.dataDir = windowsData, .gogdl = gogdl.string()}};
@@ -337,7 +360,12 @@ void testInstalls(const fs::path& dir) {
     const fs::path slow = writeStub(dir / "legendary-routed", "sleep 0.3\nexit 0\n");
     opensu::steam::Client steam{opensu::steam::Client::Options{
         .home = dir / "home", .executablePath = {}, .session = "install-test", .steamRoots = {}}};
-    Installs installs{steam, slow.string(), GogInstallJob::Options{.dataDir = dir / "data"}};
+    std::vector<Source> asked;
+    Installs installs{steam, slow.string(), GogInstallJob::Options{.dataDir = dir / "data"},
+                      [&asked](Source store) -> std::optional<fs::path> {
+                          asked.push_back(store);
+                          return std::nullopt;
+                      }};
 
     opensu::library::Game epic;
     epic.source = Source::Epic;
@@ -348,6 +376,8 @@ void testInstalls(const fs::path& dir) {
     expect(!installs.start(rom), "a ROM is not installed");
     expect(!installs.running(), "and nothing runs for it");
     expect(installs.start(epic) && installs.running(), "an Epic game starts its installer");
+    expect(asked == std::vector<Source>{Source::Epic},
+           "the store's folder is asked for once, when its install starts");
     expect(!installs.start(epic), "one install at a time");
     expect(installs.title() == "Fortnite", "the running title");
     const Clock::time_point until = Clock::now() + std::chrono::seconds{20};
@@ -382,6 +412,29 @@ void testInstalls(const fs::path& dir) {
     }
 }
 
+void testFolderRefusal(const fs::path& dir) {
+    const fs::path stub = writeStub(dir / "legendary-refusal", "exit 0\n");
+    opensu::steam::Client steam{opensu::steam::Client::Options{.home = dir / "home",
+                                                               .executablePath = {},
+                                                               .session = "install-refusal",
+                                                               .steamRoots = {}}};
+    const fs::path good = dir / "good-games";
+    fs::create_directories(good);
+    std::optional<fs::path> chosen;
+    Installs installs{steam, stub.string(), GogInstallJob::Options{.dataDir = dir / "data"},
+                      [&chosen](Source) {
+                          return chosen;
+                      }};
+    expect(installs.folderRefusal(Source::Epic).empty(), "a store that chooses is not refused");
+    chosen = good;
+    expect(installs.folderRefusal(Source::Epic).empty(), "a writable folder is accepted");
+    chosen = dir / "nowhere";
+    expect(!installs.folderRefusal(Source::Gog).empty(),
+           "a missing folder is refused with a reason");
+    chosen = fs::path{"relative"};
+    expect(!installs.folderRefusal(Source::Steam).empty(), "a relative folder is refused");
+}
+
 void testSupports() {
     expect(Installs::supports(Source::Steam), "Steam installs");
     expect(Installs::supports(Source::Epic), "Epic installs");
@@ -399,6 +452,7 @@ int main() {
     testEpic(dir);
     testGog(dir);
     testInstalls(dir);
+    testFolderRefusal(dir);
     testSupports();
     fs::remove_all(dir);
     std::printf("install_job: all checks passed\n");

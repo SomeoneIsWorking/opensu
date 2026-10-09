@@ -2,6 +2,8 @@
 // that runs at a time.
 #pragma once
 
+#include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -15,11 +17,20 @@ namespace opensu::app {
 
 class Installs {
   public:
-    /// Installs Epic titles with `legendary` and GOG titles with gogdl.
-    Installs(steam::Client& steam, std::string legendary, GogInstallJob::Options gog);
+    /// Where a store installs, read when an install starts: nothing leaves the store's own choice.
+    using Folders = std::function<std::optional<std::filesystem::path>(library::Source)>;
+
+    /// Installs Epic titles with `legendary` and GOG titles with gogdl, each into the folder
+    /// `folders` names for its store.
+    Installs(steam::Client& steam, std::string legendary, GogInstallJob::Options gog,
+             Folders folders);
 
     /// Whether opensu installs from this store.
     [[nodiscard]] static bool supports(library::Source source) noexcept;
+
+    /// Why the folder `game`'s store installs into cannot take an install; empty when it can, or
+    /// when the store chooses.
+    [[nodiscard]] std::string folderRefusal(library::Source store) const;
 
     /// Starts installing `game` through its store. False while an install runs, or for a store
     /// opensu cannot install from.
@@ -45,6 +56,7 @@ class Installs {
     SteamInstallJob steam_;
     EpicInstallJob epic_;
     GogInstallJob gog_;
+    Folders folders_;
     std::string title_;
 };
 

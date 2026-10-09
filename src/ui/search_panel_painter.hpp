@@ -11,8 +11,8 @@ namespace opensu::ui {
 
 class SearchPanelPainter {
   public:
-    explicit SearchPanelPainter(const input::LastDevice& device) noexcept
-        : device_{&device}, glyphs_{device} {
+    explicit SearchPanelPainter(const input::Prompts& prompts) noexcept
+        : prompts_{&prompts}, glyphs_{prompts} {
     }
 
     /// Draws `panel` into a frame of `size` at `dp` pixels per dp, as faded and scaled by `look`;
@@ -21,7 +21,7 @@ class SearchPanelPainter {
                double seconds) const;
 
   private:
-    const input::LastDevice* device_;
+    const input::Prompts* prompts_;
     ButtonGlyphPainter glyphs_;
 };
 

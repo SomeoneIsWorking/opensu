@@ -73,9 +73,8 @@ std::string_view name(ui::ServiceState state) {
 std::vector<ui::LauncherBadge> launcherBadges(launch::SteamState steam,
                                               std::span<const steam::Download> downloads,
                                               std::span<const library::SourceStatus> sources) {
-    ui::LauncherBadge steamBadge{.icon = ui::Icon::Steam,
-                                 .source = library::Source::Steam,
-                                 .state = steamState(steam)};
+    ui::LauncherBadge steamBadge{
+        .icon = ui::Icon::Steam, .source = library::Source::Steam, .state = steamState(steam)};
     const auto active = std::ranges::find_if(downloads, &steam::Download::active);
     if (steamBadge.state == ui::ServiceState::Ready && active != downloads.end()) {
         steamBadge.progress = active->progress;

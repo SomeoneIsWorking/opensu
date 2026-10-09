@@ -43,7 +43,7 @@ void SteamInstallJob::run(const std::stop_token& stop, const std::string& appId)
 
 bool SteamInstallJob::queue(const std::stop_token& stop, const std::string& appId) {
     steam::InstallWizard& installer = steam_.installer();
-    steam::InstallStep step = installer.open(appId);
+    steam::InstallStep step = installer.open(appId, folder_);
     auto deadline = std::chrono::steady_clock::now() + wizardLimit;
     while (!stop.stop_requested()) {
         switch (step.kind) {

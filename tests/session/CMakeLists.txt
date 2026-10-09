@@ -10,5 +10,6 @@ target_compile_definitions(nested_session_test PRIVATE OPENSU_TEST_SCRATCH="${CM
 
 add_executable(game_keys_test game_keys_test.cpp)
 target_link_libraries(game_keys_test PRIVATE opensu::session X11::X11 X11::Xtst)
+target_include_directories(game_keys_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 add_test(NAME game_keys COMMAND game_keys_test)
 set_tests_properties(game_keys PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)

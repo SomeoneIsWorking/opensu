@@ -8,7 +8,7 @@ namespace opensu::ui {
 
 class GameMenuPainter {
   public:
-    explicit GameMenuPainter(const input::LastDevice& device) noexcept : glyphs_{device} {
+    explicit GameMenuPainter(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
     }
 
     /// Where the panel and its rows stand in a `width` x `height` frame; what a pointer hits.

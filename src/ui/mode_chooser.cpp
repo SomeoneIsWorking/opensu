@@ -24,9 +24,10 @@ constexpr float sliderInsetDp = 56.0f;
 // The panel stays this share of the frame's height at most.
 constexpr float panelMostHeight = 0.92f;
 
-constexpr std::array<ChooserRow, 8> everyRow{
-    ChooserRow::Cards,  ChooserRow::IconSize,  ChooserRow::Pin,    ChooserRow::Sort,
-    ChooserRow::Source, ChooserRow::Installed, ChooserRow::Hidden, ChooserRow::Search};
+constexpr std::array<ChooserRow, 9> everyRow{
+    ChooserRow::Cards,  ChooserRow::IconSize, ChooserRow::Pin,
+    ChooserRow::Sort,   ChooserRow::Source,   ChooserRow::Installed,
+    ChooserRow::Hidden, ChooserRow::Search,   ChooserRow::Settings};
 
 bool hasSwitch(ChooserRow row) noexcept {
     return row == ChooserRow::Pin || row == ChooserRow::Installed || row == ChooserRow::Hidden;

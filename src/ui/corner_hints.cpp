@@ -20,7 +20,8 @@ std::vector<Prompt> endPrompts(const HintContext& context) {
     std::vector<Prompt> prompts;
     // iiSU mw5.k: ("A", "Select"), ("+", "Menu").
     if (context.select) {
-        prompts.push_back(Prompt{"A", context.details ? "Details" : "Select"});
+        const char* label = context.change ? "Change" : (context.details ? "Details" : "Select");
+        prompts.push_back(Prompt{"A", label});
     }
     if (context.menu) {
         prompts.push_back(Prompt{"+", "Menu"});

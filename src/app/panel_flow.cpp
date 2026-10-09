@@ -9,7 +9,8 @@ namespace opensu::app {
 PanelFlow::PanelFlow(ui::Shell& shell, audio::SoundPlayer& sounds, steam::Client& steam,
                      Hooks hooks)
     : shell_{shell}, sounds_{sounds},
-      install_{steam, "legendary", GogInstallJob::Options{.dataDir = config::read().dataDir}},
+      install_{steam, "legendary", GogInstallJob::Options{.dataDir = config::read().dataDir},
+               hooks.installFolder},
       hooks_{std::move(hooks)} {
 }
 
@@ -81,6 +82,13 @@ void PanelFlow::dismiss() {
 }
 
 void PanelFlow::startInstall(const library::Game& game) {
+    if (const std::string refused = install_.folderRefusal(game.source); !refused.empty()) {
+        shell_.launchPanel().close();
+        use_ = Use::None;
+        offered_.clear();
+        shell_.setToast("cannot install " + game.title + ": " + refused, true);
+        return;
+    }
     if (install_.start(game)) {
         use_ = Use::Install;
         shell_.launchPanel().update("Starting", std::nullopt);

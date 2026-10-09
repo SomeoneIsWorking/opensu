@@ -21,7 +21,11 @@ EpicInstallJob::~EpicInstallJob() {
 std::vector<std::string> EpicInstallJob::arguments(const std::string& appName) {
     // -y answers legendary's prompts; --skip-sdl keeps it from asking which optional packs to
     // fetch, as its stdin is closed.
-    return {"install", appName, "-y", "--skip-sdl"};
+    std::vector<std::string> arguments{"install", appName, "-y", "--skip-sdl"};
+    if (folder_) {
+        arguments.insert(arguments.end(), {"--base-path", folder_->string()});
+    }
+    return arguments;
 }
 
 std::optional<double> EpicInstallJob::progressIn(std::string_view line) const {

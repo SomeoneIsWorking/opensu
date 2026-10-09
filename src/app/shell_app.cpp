@@ -41,14 +41,15 @@ std::vector<artwork::ApkAsset> iisuAssets() {
 } // namespace
 
 ShellApp::ShellApp(const Settings& settings)
-    : settings_{settings}, catalogLoader_{library::makeCatalog(config::read())},
+    : settings_{settings}, catalogLoader_{library::makeCatalog(resolved_)},
       shell_{settings_.width, settings_.height, settings_.homeMode},
-      steam_{steam::Client::Options{config::read().home, config::read().executablePath,
-                                    config::read().session, config::read().steamRoots}},
+      steam_{steam::Client::Options{resolved_.home, resolved_.executablePath, resolved_.session,
+                                    resolved_.steamRoots}},
       gameWindows_{config::read().insideGamescope ? std::make_unique<session::GamescopeWindows>()
                                                   : nullptr},
       handoff_{config::read().executablePath, config::read().session, steam_, gameWindows_.get()},
       signIn_{StoreSignIn::Options{.dataDir = config::read().dataDir}} {
+    shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
     refreshClock();
     applyLayout();
 }
@@ -62,6 +63,18 @@ void ShellApp::applyLayout() {
     if (shell_.iconSize() != chosen.iconSize) {
         shell_.setIconSize(chosen.iconSize);
     }
+    shell_.setHomeMode(chosen.homeMode.value_or(settings_.homeMode));
+    shell_.setUiScale(chosen.uiScale);
+    sounds_.setMuted(!chosen.uiSounds);
+}
+
+std::vector<std::filesystem::path> ShellApp::steamLibraries() const {
+    std::vector<std::filesystem::path> folders;
+    for (const library::steam::LibraryFolder& folder :
+         library::steam::Library::discover(resolved_.home, resolved_.steamRoots).libraryFolders()) {
+        folders.push_back(folder.path);
+    }
+    return folders;
 }
 
 std::vector<ui::SearchResult> ShellApp::searchResults() const {
@@ -112,8 +125,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     artworkStore_.apply(games_);
     const std::vector<library::Console> consoles = library::consoles(games_);
     artworkFetcher_.request(games_, consoles, iisuAssets());
-    prioritised_.clear();
-    loadStoredNavIcons();
+    delivery_.restart();
     for (const library::Console& console : consoles) {
         const std::filesystem::path glyph = artworkStore_.storedGlyph(console.system);
         if (!glyph.empty()) {
@@ -164,65 +176,6 @@ std::optional<library::ShelfItem> ShellApp::folderCard() const {
     return std::move(card.front());
 }
 
-void ShellApp::loadStoredSounds() {
-    for (const audio::Effect effect : audio::allEffects) {
-        if (const std::filesystem::path file =
-                artworkStore_.storedAsset(artwork::soundAsset(effect));
-            !file.empty()) {
-            sounds_.load(effect, file);
-        }
-    }
-}
-
-void ShellApp::loadStoredNavIcons() {
-    for (const artwork::NavIcon icon : artwork::allNavIcons) {
-        if (const std::filesystem::path file = artworkStore_.storedAsset(artwork::navAsset(icon));
-            !file.empty()) {
-            shell_.setNavIcon(icon.section, icon.selected, file);
-        }
-    }
-}
-
-void ShellApp::serviceArtwork() {
-    for (const artwork::Fetched& fetched : artworkFetcher_.take()) {
-        if (!fetched.saved) {
-            shell_.artworkSettled(fetched.id);
-            continue;
-        }
-        if (fetched.kind == artwork::Fetched::Kind::Sound) {
-            if (const std::optional<audio::Effect> effect = audio::effectOfFile(fetched.id)) {
-                sounds_.load(*effect, fetched.artwork);
-            }
-            continue;
-        }
-        if (fetched.kind == artwork::Fetched::Kind::NavIcon) {
-            if (const std::optional<artwork::NavIcon> icon = artwork::navIconOfFile(fetched.id)) {
-                shell_.setNavIcon(icon->section, icon->selected, fetched.artwork);
-            }
-            continue;
-        }
-        if (fetched.kind == artwork::Fetched::Kind::Names) {
-            reloadRequested_.store(true);
-            continue;
-        }
-        if (fetched.kind == artwork::Fetched::Kind::Glyph) {
-            shell_.setGlyph(fetched.id, fetched.artwork);
-            continue;
-        }
-        if (fetched.kind == artwork::Fetched::Kind::Console) {
-            shell_.setConsoleArtwork(fetched.id, fetched.artwork);
-            continue;
-        }
-        shell_.setArtwork(fetched.id, fetched.artwork);
-    }
-    // The queue goes to the games on screen first.
-    std::vector<std::string> onScreen = shell_.downloadingOnScreen();
-    if (onScreen != prioritised_) {
-        artworkFetcher_.prioritize(onScreen);
-        prioritised_ = std::move(onScreen);
-    }
-}
-
 void ShellApp::openFolder(const library::Folder& folder) {
     if (const auto* launcher = std::get_if<library::Launcher>(&folder);
         launcher != nullptr && launcher->games == 0) {
@@ -262,7 +215,12 @@ void ShellApp::startSignIn(Store store) {
     }};
 }
 
-void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
+void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
+    if (shortcutEditor_.capturing()) {
+        shortcutEditor_.capturePad(incoming);
+        return;
+    }
+    const std::vector<gamepad::Event> events = router_.fromPad(incoming);
     for (const gamepad::Event& event : events) {
         switch (event.kind) {
         case gamepad::Event::Kind::Connected:
@@ -292,21 +250,31 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
 void ShellApp::handleKeyboard() {
     // Typed characters are read first: the key that opens the search must not also type itself.
     const bool searching = shell_.searchPanel().isOpen();
+    const bool typingPath = paths_.typing();
     const input::TextInput typed = input::readTextInput();
     if (searching) {
         handleSearchText(typed);
         return;
     }
-    const std::vector<gamepad::Event> events = input::keyEvents(input::raylibKeys());
-    if (!events.empty()) {
+    if (typingPath) {
+        handlePathText(typed);
+        return;
+    }
+    if (shortcutEditor_.capturing()) {
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            shortcutEditor_.cancel();
+        } else if (const std::optional<input::Combo> combo =
+                       input::pressedCombo(input::raylibKeys())) {
+            shell_.inputDevice().noteKey();
+            shortcutEditor_.captureKey(*combo);
+        }
+        return;
+    }
+    const ShortcutRouter::Keys keys = router_.fromKeys(input::raylibKeys());
+    if (keys.any) {
         shell_.inputDevice().noteKey();
     }
-    handleEvents(events);
-
-    if (IsKeyPressed(KEY_Q)) {
-        shell_.inputDevice().noteKey();
-        requestClose();
-    }
+    handleEvents(keys.events);
 }
 
 void ShellApp::handleSearchText(const input::TextInput& typed) {
@@ -328,6 +296,22 @@ void ShellApp::handleSearchText(const input::TextInput& typed) {
         search_.confirm();
     } else if (typed.escape) {
         search_.dismiss();
+    }
+}
+
+void ShellApp::handlePathText(const input::TextInput& typed) {
+    if (!typed.any()) {
+        return;
+    }
+    shell_.inputDevice().noteKey();
+    paths_.typeText(typed.text);
+    if (typed.backspace) {
+        paths_.backspace();
+    }
+    if (typed.enter) {
+        paths_.confirm();
+    } else if (typed.escape) {
+        paths_.dismiss();
     }
 }
 
@@ -416,16 +400,8 @@ void ShellApp::clickSection(library::Section section) {
 }
 
 void ShellApp::handleGameKeys() {
-    if (!gameKeys_) {
-        return;
-    }
-    for (const session::GameShortcut shortcut : gameKeys_->poll()) {
-        switch (shortcut) {
-        case session::GameShortcut::Guide:
-            handleEvents({gamepad::Event{.button = gamepad::Button::Guide, .pressed = true},
-                          gamepad::Event{.button = gamepad::Button::Guide, .pressed = false}});
-            break;
-        }
+    if (gameKeys_) {
+        handleEvents(router_.fromGame(*gameKeys_));
     }
 }
 
@@ -448,6 +424,14 @@ void ShellApp::actOn(gamepad::Button button) {
     }
     if (shell_.modeChooser().isOpen()) {
         layoutPicker_.act(button);
+        return;
+    }
+    if (paths_.active()) {
+        paths_.act(button);
+        return;
+    }
+    if (shell_.settingsPanels().page().isOpen()) {
+        settingsScreen_.act(button);
         return;
     }
     if (shell_.detailsPage().isOpen()) {
@@ -681,6 +665,8 @@ void ShellApp::setGameMenuOpen(bool open) {
 void ShellApp::chooseIconSize(int level) {
     if (shell_.modeChooser().isOpen()) {
         layoutPicker_.chooseIconSize(level);
+    } else if (shell_.settingsPanels().onlyPage()) {
+        settingsScreen_.chooseLevel(level);
     }
 }
 
@@ -750,6 +736,7 @@ ui::Trail ShellApp::currentTrail() const {
     if (shell_.detailsPage().isOpen()) {
         state.game = shell_.detailsPage().view().title;
     }
+    state.settings = settingsScreen_.category();
     return trailOf(state);
 }
 
@@ -759,13 +746,15 @@ void ShellApp::activateCrumb(std::size_t index) {
         panels_.active()) {
         return;
     }
-    // The details page is the only panel the trail stays clickable over.
+    // The details page and the Settings screen are the only panels the trail stays clickable over.
     details_.close();
-    if (shell_.panelOpen()) {
+    if (shell_.panelOpen() && !shell_.settingsPanels().onlyPage()) {
         return;
     }
     const ui::Crumb& crumb = trail[index];
-    if (crumb.kind == ui::CrumbKind::Section && crumb.section != browser_.section()) {
+    if (crumb.kind == ui::CrumbKind::Settings) {
+        settingsScreen_.showCategories();
+    } else if (crumb.kind == ui::CrumbKind::Section && crumb.section != browser_.section()) {
         clickSection(crumb.section);
     } else if (crumb.kind != ui::CrumbKind::Search) {
         search_.clear();
@@ -778,6 +767,15 @@ void ShellApp::activateCrumb(std::size_t index) {
 }
 
 ui::HintContext ShellApp::hints() const {
+    if (paths_.active()) {
+        return ui::HintContext{};
+    }
+    if (shortcutEditor_.capturing()) {
+        return ui::HintContext{.back = true};
+    }
+    if (shell_.settingsPanels().page().isOpen()) {
+        return ui::HintContext{.back = true, .select = settingsScreen_.changes(), .change = true};
+    }
     if (shell_.detailsPage().isOpen()) {
         return ui::HintContext{.back = true, .select = true};
     }
@@ -824,6 +822,11 @@ ShellSnapshot ShellApp::snapshot() const {
 void ShellApp::inject(gamepad::Button button, input::Device device) {
     const std::lock_guard lock{injectedMutex_};
     injected_.emplace_back(button, device);
+}
+
+void ShellApp::injectKey(input::Combo combo) {
+    const std::lock_guard lock{injectedMutex_};
+    injectedKeys_.push_back(combo);
 }
 
 void ShellApp::typeText(std::string text) {
@@ -901,6 +904,15 @@ void ShellApp::publishSnapshot() {
     next.searchText = preferences_.values().view.search;
     next.contextMenuOpen = shell_.contextMenu().isOpen();
     next.detailsOpen = shell_.detailsPage().isOpen();
+    next.settingsOpen = shell_.settingsPanels().page().isOpen();
+    next.folderPickerOpen = paths_.active();
+    next.capturingShortcut = shortcutEditor_.capturing();
+    next.volumeShown = shell_.volumeOsd().holding();
+    next.uiScale = preferences_.values().uiScale;
+    if (const auto& level = volume_.system().state()) {
+        next.volumePercent = level->percent;
+        next.volumeMuted = level->muted;
+    }
     for (const ui::Crumb& crumb : currentTrail()) {
         next.breadcrumb += (next.breadcrumb.empty() ? "" : " > ") + crumb.label;
     }
@@ -934,15 +946,28 @@ void ShellApp::serviceControlRequests() {
     // what the channel exercises is the shell's own handling.
     std::vector<std::pair<gamepad::Button, input::Device>> queued;
     std::vector<std::string> typed;
+    std::vector<input::Combo> keys;
     {
         const std::lock_guard lock{injectedMutex_};
         queued.swap(injected_);
         typed.swap(typed_);
+        keys.swap(injectedKeys_);
+    }
+    for (const input::Combo& combo : keys) {
+        shell_.inputDevice().noteKey();
+        if (shortcutEditor_.capturing()) {
+            shortcutEditor_.captureKey(combo);
+        } else {
+            handleEvents(router_.fromCombo(combo));
+        }
     }
     for (const std::string& text : typed) {
         if (shell_.searchPanel().isOpen()) {
             shell_.inputDevice().noteKey();
             search_.typeText(text);
+        } else if (paths_.typing()) {
+            shell_.inputDevice().noteKey();
+            paths_.typeText(text);
         }
     }
     // An injected button is a tap: without its release a direction would repeat forever.
@@ -1065,7 +1090,7 @@ int ShellApp::run() {
         gameKeys_ = std::make_unique<session::GameKeys>();
     }
     sounds_.open();
-    loadStoredSounds();
+    delivery_.loadStoredSounds();
     // Textures need a GL context; the shell streams artwork in as frames are drawn.
     SetTargetFPS(60);
     SetExitKey(KEY_NULL);
@@ -1079,8 +1104,7 @@ int ShellApp::run() {
 
     // Steam comes up in the background while the shell is already usable. A machine
     // without a Steam install has nothing to start, and shows no Steam icon.
-    const config::Config& config = config::read();
-    if (!library::steam::Library::discover(config.home, config.steamRoots).roots().empty()) {
+    if (!library::steam::Library::discover(resolved_.home, resolved_.steamRoots).roots().empty()) {
         steam_.start();
     }
 
@@ -1096,6 +1120,7 @@ int ShellApp::run() {
         handleKeyboard();
         handlePointer();
         handleGameKeys();
+        volume_.poll(std::chrono::steady_clock::now());
         if (const auto direction = repeat_.poll(std::chrono::steady_clock::now())) {
             actOn(*direction);
         }
@@ -1103,7 +1128,7 @@ int ShellApp::run() {
         serviceControlRequests();
         serviceRequests();
         serviceCatalog();
-        serviceArtwork();
+        delivery_.service();
         syncChrome();
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();

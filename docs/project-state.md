@@ -21,6 +21,9 @@ Visible deltas from the baseline:
   `clock | NN% battery`; the launchers take the bell's column, drawn by the one status pill
   painter, without a circle of their own. A badge is a pointer target: hover lights it, a click
   selects that store's tile in Library.
+- Delta from iiSU: the status pill is sized to what it shows (launcher column, the measured
+  `clock | NN% battery` row, padding at each end), not iiSU's fixed width, so a PC without a
+  battery gets a pill that fits its clock. It stays right-aligned.
 - A details page replaces the direct launch: A (Enter, left click) on a game opens it, as do Y and
   the context menu's Details. It shows the cover (a Steam hero as a faded backdrop), title, store or
   system badge, installed state, last played and play time, and Play or Install, Hide or Show, Back
@@ -57,6 +60,12 @@ Visible deltas from the baseline:
 - The title pill names the focused tile on Home too; iiSU shows it only inside sections.
 - A signed-out GOG or Epic tile opens that store's sign-in page in the default browser.
 - No store client window is ever opened to reach a game.
+- Settings screen (START options, last row "Settings"): iiSU's settings dialog structure with six
+  categories (Appearance, Library, Audio, Controls, Install folders, About), own controller, model
+  and painter. iiSU's Performance, Updates and Integrations sections have no counterpart.
+- No volume overlay in iiSU (its main activity hands the volume keys to Android); openSU draws its
+  own pill on every volume change. No display-scale setting in iiSU (it follows the Android
+  density); openSU has "Interface size", 70 to 150 percent, clamped so every screen fits.
 - The grid is ours, so layout, tile sizes and page count are ours.
 
 ## Current focus
@@ -88,6 +97,9 @@ game has been observed running yet.
 | S016 | Steam client started and owned by openSU, with its state in the top bar | partial | S015 | G003, G004 |
 | S011 | Steam's own components kept out of the game grid | partial | S002 | G001 |
 | S019 | iiSU's UI sounds on the events openSU shares with iiSU | partial | S005 | G002 |
+| S020 | Settings screen with every user-meaningful preference, mouse, keyboard and pad | partial | S005 | G002 |
+| S021 | Install folders: one default plus Steam, Epic and GOG overrides from one resolver | partial | S020 | G001 |
+| S022 | PC volume and mute, volume overlay, remappable shortcut chords, interface scale | partial | S020 | G002, G003 |
 
 ## Capability details
 
@@ -775,3 +787,28 @@ mode, so a game sees a smaller screen), `GAMESCOPE_SCALING_FILTER` /
 `GAMESCOPE_NEW_SCALING_FILTER`, `GAMESCOPE_FSR_SHARPNESS`, plus
 `--xwayland-count` for a separate Xwayland per role. Their exact semantics come
 from Gamescope's source (`steamcompmgr.cpp`) before any of it is used.
+
+### S020 to S022 — Settings, install folders, volume, chords, scale
+
+Settings: `src/app/settings_controller.*` rows per category, saved through `Preferences` into
+`settings.json`; ROM and Steam root changes apply after a restart. Skipped as not user-meaningful
+or not safe live: window size, control channel port, emulator command overrides, 24 hour clock
+(locale-derived), theme, removing a single ROM or Steam folder.
+
+Install folders: `settings/install_folders` resolves store override, else default, else the store's
+own choice. Epic passes `legendary --base-path`, GOG `gogdl --path <folder>/<id>`. Steam targets a
+library through `SteamClient.InstallFolder.AddInstallFolder/GetInstallFolders` and
+`Installs.SetInstallFolder(index)` in the install wizard, and only into Steam's own libraries.
+Verified against the steamui JS and a fake DevTools Steam in tests, not live Steam.
+
+Volume: `audio/volume_backend` (wpctl, pactl, read-only shadow for hidden runs) behind
+`audio/system_volume`. openSU applies its own shortcuts; the desktop's media keys are observed by
+polling (raylib does not deliver them), so one change is one step and one overlay. Missing backend
+shows the install command in the Audio page.
+
+Chords: `input/shortcuts` is the one table (defaults Shift+Tab Guide, Ctrl+Up/Down/M volume, Q quit,
+L2+Up/Down/Left for volume on a pad), remapped on the Controls page with conflict refusal and
+saved. Esc cannot be captured; pad chords are limited to the volume actions.
+
+Unverified: live Steam, real Epic and GOG installs, volume writes on a real device, pad chords on
+hardware, the in-game X11 path outside Xvfb, media keys.

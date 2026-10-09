@@ -34,7 +34,7 @@ struct DockStyle {
 
 class DockPainter {
   public:
-    explicit DockPainter(const input::LastDevice& device) noexcept : glyphs_{device} {
+    explicit DockPainter(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
     }
 
     /// The bar where this frame draws it, slid down by how far it has left.

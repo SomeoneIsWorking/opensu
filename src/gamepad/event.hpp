@@ -32,6 +32,12 @@ enum class Button : std::uint8_t {
     Search,
 };
 
+/// The control's lowercase spelling ("up", "l2", "select"), as the control channel and the settings
+/// file write it; empty for `None`.
+[[nodiscard]] std::string_view name(Button button);
+/// The control spelled `text`, or `None` for another spelling.
+[[nodiscard]] Button buttonNamed(std::string_view text) noexcept;
+
 /// The prompt glyph for a control, as the reference labels its buttons.
 [[nodiscard]] std::string_view prompt(Button button);
 

@@ -1,6 +1,7 @@
 // Shift+Tab as Guide: the chord's edges, and the raw key path against a real X server (Xvfb,
 // keys injected with XTest).
 #include "session/game_keys.hpp"
+#include "ui/check.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -13,16 +14,26 @@
 #include <X11/Xlib.h>
 #include <X11/extensions/XTest.h>
 #include <X11/keysym.h>
+
 #include <csignal>
 #include <sys/wait.h>
 #include <unistd.h>
 
 namespace {
 
+using opensu::input::Action;
+using opensu::input::Combo;
+using opensu::input::Shortcuts;
 using opensu::session::GameKeys;
-using opensu::session::GameShortcut;
 using opensu::session::ShortcutChord;
-using opensu::session::ShortcutKey;
+
+int code(const char* name) {
+    return opensu::test::need(opensu::input::comboNamed(name), "a key name").key;
+}
+
+const int leftShift = opensu::input::modifierKeys()[0];
+const int rightShift = opensu::input::modifierKeys()[1];
+const int leftControl = opensu::input::modifierKeys()[2];
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -33,20 +44,25 @@ void expect(bool condition, const char* what) {
 
 void chordEdges() {
     ShortcutChord chord;
-    expect(!chord.key(ShortcutKey::Tab, true), "Tab alone is no shortcut");
-    expect(!chord.key(ShortcutKey::Tab, false), "Tab release alone is no shortcut");
-    expect(!chord.key(ShortcutKey::LeftShift, true), "Shift alone is no shortcut");
-    expect(chord.key(ShortcutKey::Tab, true) == GameShortcut::Guide, "Shift+Tab is Guide");
-    expect(!chord.key(ShortcutKey::Tab, true), "a held Tab's repeat fires nothing");
-    expect(!chord.key(ShortcutKey::Tab, false), "releasing Tab fires nothing");
-    expect(chord.key(ShortcutKey::Tab, true) == GameShortcut::Guide, "a second tap is Guide again");
-    expect(!chord.key(ShortcutKey::Tab, false), "Tab up");
-    expect(!chord.key(ShortcutKey::LeftShift, false), "Shift up");
-    expect(!chord.key(ShortcutKey::Tab, true), "Tab after Shift is released is no shortcut");
-    expect(!chord.key(ShortcutKey::Tab, false), "Tab up");
-    expect(!chord.key(ShortcutKey::RightShift, true), "right Shift down");
-    expect(!chord.key(ShortcutKey::Other, true), "another key changes nothing");
-    expect(chord.key(ShortcutKey::Tab, true) == GameShortcut::Guide, "right Shift+Tab is Guide");
+    const Combo shiftTab{code("tab"), false, true};
+    expect(chord.key(code("tab"), true) == Combo{code("tab")}, "Tab alone is a bare Tab");
+    expect(!chord.key(code("tab"), false), "Tab release fires nothing");
+    expect(!chord.key(leftShift, true), "Shift alone is no combination");
+    expect(chord.key(code("tab"), true) == shiftTab, "Shift+Tab");
+    expect(!chord.key(code("tab"), true), "a held Tab's repeat fires nothing");
+    expect(!chord.key(code("tab"), false), "releasing Tab fires nothing");
+    expect(chord.key(code("tab"), true) == shiftTab, "a second tap fires again");
+    expect(!chord.key(code("tab"), false), "Tab up");
+    expect(!chord.key(leftShift, false), "Shift up");
+    expect(chord.key(code("tab"), true) == Combo{code("tab")},
+           "Tab after Shift is released is bare");
+    expect(!chord.key(code("tab"), false), "Tab up");
+    expect(!chord.key(rightShift, true), "right Shift down");
+    expect(chord.key(code("tab"), true) == shiftTab, "right Shift+Tab");
+    expect(!chord.key(code("tab"), false), "Tab up");
+    expect(!chord.key(rightShift, false), "Shift up");
+    expect(!chord.key(leftControl, true), "Ctrl down");
+    expect(chord.key(code("up"), true) == Combo{code("up"), true, false}, "Ctrl+Up");
 }
 
 /// An Xvfb on a display it picks itself, ended on scope exit.
@@ -93,17 +109,17 @@ class Xvfb {
     std::optional<std::string> display_;
 };
 
-std::vector<GameShortcut> pollFor(GameKeys& keys, std::size_t wanted) {
-    std::vector<GameShortcut> seen;
+std::vector<Action> pollFor(GameKeys& keys, const Shortcuts& shortcuts, std::size_t wanted) {
+    std::vector<Action> seen;
     const auto end = std::chrono::steady_clock::now() + std::chrono::seconds{3};
     while (std::chrono::steady_clock::now() < end) {
-        for (GameShortcut shortcut : keys.poll()) {
+        for (Action shortcut : keys.poll(shortcuts)) {
             seen.push_back(shortcut);
         }
         if (seen.size() >= wanted) {
             // Anything late would be a second, wrong Guide.
             std::this_thread::sleep_for(std::chrono::milliseconds{200});
-            for (GameShortcut shortcut : keys.poll()) {
+            for (Action shortcut : keys.poll(shortcuts)) {
                 seen.push_back(shortcut);
             }
             break;
@@ -135,18 +151,33 @@ int rawKeysFromAServer() {
     }
     setenv("DISPLAY", server.display()->c_str(), 1);
     GameKeys keys;
+    const Shortcuts shortcuts;
     Display* injector = XOpenDisplay(nullptr);
     expect(injector != nullptr, "the injector connects");
 
     tap(injector, NoSymbol, XK_Tab);
     tap(injector, XK_Shift_L, XK_a);
-    expect(pollFor(keys, 1).empty(), "Tab alone and Shift+A are no shortcut");
+    tap(injector, XK_Control_L, XK_f);
+    expect(pollFor(keys, shortcuts, 1).empty(), "Tab, Shift+A and Ctrl+F are no game shortcut");
 
     tap(injector, XK_Shift_L, XK_Tab);
-    expect(pollFor(keys, 1) == std::vector{GameShortcut::Guide}, "Shift+Tab is one Guide");
+    expect(pollFor(keys, shortcuts, 1) == std::vector{Action::Guide}, "Shift+Tab is one Guide");
 
     tap(injector, XK_Shift_R, XK_Tab);
-    expect(pollFor(keys, 1) == std::vector{GameShortcut::Guide}, "right Shift+Tab is one Guide");
+    expect(pollFor(keys, shortcuts, 1) == std::vector{Action::Guide},
+           "right Shift+Tab is one Guide");
+
+    tap(injector, XK_Control_L, XK_Up);
+    tap(injector, XK_Control_R, XK_m);
+    expect(pollFor(keys, shortcuts, 2) == (std::vector{Action::VolumeUp, Action::VolumeMute}),
+           "Ctrl+Up and Ctrl+M are the volume");
+
+    Shortcuts remapped;
+    expect(remapped.rebind(Action::Guide, Combo{code("f9")}).empty(), "a remap");
+    tap(injector, XK_Shift_L, XK_Tab);
+    tap(injector, NoSymbol, XK_F9);
+    expect(pollFor(keys, remapped, 1) == std::vector{Action::Guide},
+           "a remapped Guide follows the table, and the old chord no longer fires");
 
     XCloseDisplay(injector);
     return 0;

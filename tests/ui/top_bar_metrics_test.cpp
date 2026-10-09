@@ -48,7 +48,7 @@ void reference853() {
     near(pill.height, 41.184, "853: pill height");
     near(pill.width, 224.4, "853: 24 h pill width");
     near(pill.contentScale, 0.935, "853: content scale");
-    near(pill.textWidth, 224.4 - 43.01, "853: the pill less iiSU's bell column");
+    near(pill.paddingHorizontal, 9.35, "853: the text row's end padding");
     near(pill.fontSize, 14.96, "853: clock font");
     near(pill.batteryIcon, 25.245, "853: battery icon");
     const StatusPillMetrics twelve = m.statusPill(true);

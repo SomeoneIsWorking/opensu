@@ -100,10 +100,36 @@ struct OnDetailsButton {
     bool operator==(const OnDetailsButton&) const = default;
 };
 
+/// A category of the Settings screen, by its place in the list.
+struct OnSettingsCategory {
+    std::size_t index;
+    bool operator==(const OnSettingsCategory&) const = default;
+};
+
+/// A row of the focused category of the Settings screen, by its place in it.
+struct OnSettingsRow {
+    std::size_t index;
+    bool operator==(const OnSettingsRow&) const = default;
+};
+
+/// A point on a Settings slider's track, by the row and the level it stands for.
+struct OnSettingsSlider {
+    std::size_t row;
+    int level;
+    bool operator==(const OnSettingsSlider&) const = default;
+};
+
+/// An entry of the folder chooser, by its place in the list.
+struct OnFolderEntry {
+    std::size_t index;
+    bool operator==(const OnFolderEntry&) const = default;
+};
+
 /// Nothing, or the element the pointer is on.
 using PointerTarget =
     std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnMenuItem, OnPanelButton,
                  OnChooserRow, OnIconSize, OnSearchKey, OnSearchResult, OnContextItem,
-                 OnContextBackdrop, OnLauncher, OnCrumb, OnDetailsButton>;
+                 OnContextBackdrop, OnLauncher, OnCrumb, OnDetailsButton, OnSettingsCategory,
+                 OnSettingsRow, OnSettingsSlider, OnFolderEntry>;
 
 } // namespace opensu::ui

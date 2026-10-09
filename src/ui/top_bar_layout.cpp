@@ -36,7 +36,8 @@ TopBarLayout layoutTopBar(const TopBarMetrics& metrics, const TopBarFrame& frame
     // The pill ends at the row's end padding and is offset by the device class rule.
     const float boxRight =
         frame.width - TopBarMetrics::rowPaddingEnd * dp + metrics.statusOffsetX(aspect) * dp;
-    const float width = layout.pill.textWidth * dp + layout.launcherColumn;
+    const float width =
+        layout.launcherColumn + frame.contentWidth + 2.0f * layout.pill.paddingHorizontal * dp;
     layout.status = Rect{boxRight - metrics.sizing().endPadding * dp - width, layout.top, width,
                          layout.pill.height * dp};
 

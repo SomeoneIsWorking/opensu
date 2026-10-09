@@ -1,6 +1,7 @@
 // mode_chooser — the Library options panel: the three layout cards (Standard, XMB, Carousel), the
 // icon size slider and the "Pin navigation bar" option under them, then openSU's own sort, source
-// and installed/hidden filters and a way into the search.
+// and installed/hidden filters, a way into the search and a way into the Settings screen (iiSU's
+// START menu holds its Settings the same way, screens.md §3.2).
 //
 // iiSU offers the cards in its "Customize Games" menu (`roms_layout_cards`, navigation.md §2.1)
 // with the icon size slider (`rom_browser_xmb_icon_size`, §2.3) and the pin option; its Global
@@ -31,6 +32,7 @@ enum class ChooserRow : std::uint8_t {
     Installed,
     Hidden,
     Search,
+    Settings,
 };
 
 /// What each option stands at, as the panel shows it.

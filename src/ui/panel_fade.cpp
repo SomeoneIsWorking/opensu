@@ -29,6 +29,14 @@ void PanelFade::hide(Clock::time_point now) noexcept {
     shown_ = false;
 }
 
+void PanelFade::follow(bool open, Clock::time_point now) noexcept {
+    if (open && !shown_) {
+        show(now);
+    } else if (!open && shown_) {
+        hide(now);
+    }
+}
+
 float PanelFade::alpha(Clock::time_point now) const noexcept {
     const float t = sinceMs(now);
     if (shown_) {

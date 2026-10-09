@@ -35,7 +35,7 @@
 #include "home_layout.hpp"
 #include "hud.hpp"
 #include "image_decoder.hpp"
-#include "input/last_device.hpp"
+#include "input/prompts.hpp"
 #include "launch_panel.hpp"
 #include "launch_panel_painter.hpp"
 #include "library/game.hpp"
@@ -53,8 +53,11 @@
 #include "search_panel.hpp"
 #include "search_panel_painter.hpp"
 #include "section_view.hpp"
+#include "settings_panels.hpp"
 #include "tile_motion.hpp"
 #include "tile_painter.hpp"
+#include "volume_osd.hpp"
+#include "volume_osd_painter.hpp"
 
 namespace opensu::ui {
 
@@ -165,6 +168,18 @@ class Shell {
         return iconSize_;
     }
 
+    /// Sets how the home grid scrolls; takes effect in place.
+    void setHomeMode(config::HomeMode mode);
+    /// Draws everything at `percent` of its size: 100 is the size the layouts are drawn at.
+    void setUiScale(int percent);
+    /// Shows the volume display with `level`.
+    void showVolume(const VolumeLevel& level) {
+        volumeOsd_.show(level, now_);
+    }
+    [[nodiscard]] const VolumeOsd& volumeOsd() const noexcept {
+        return volumeOsd_;
+    }
+
     /// The search panel and the context menu. They fade in and out as they open and close.
     [[nodiscard]] SearchPanel& searchPanel() noexcept {
         return search_;
@@ -179,15 +194,27 @@ class Shell {
     [[nodiscard]] const DetailsPage& detailsPage() const noexcept {
         return details_;
     }
-    /// Whether a panel that takes every button is up: the options, the search, a context menu or
-    /// the details page.
+    /// The Settings screen, and the folder chooser and keyboard that open over it.
+    [[nodiscard]] SettingsPanels& settingsPanels() noexcept {
+        return settings_;
+    }
+    [[nodiscard]] const SettingsPanels& settingsPanels() const noexcept {
+        return settings_;
+    }
+    /// Whether a panel that takes every button is up: the options, the search, a context menu, the
+    /// details page or the Settings screen.
     [[nodiscard]] bool panelOpen() const noexcept {
-        return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || details_.isOpen();
+        return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || details_.isOpen() ||
+               settings_.anyOpen();
     }
 
     /// Which device the prompts name. The caller feeds it; the painters read it.
     [[nodiscard]] input::LastDevice& inputDevice() noexcept {
-        return device_;
+        return prompts_.device;
+    }
+    /// The shortcut table the prompts name keys from; the app rebinds it.
+    [[nodiscard]] input::Shortcuts& shortcuts() noexcept {
+        return prompts_.shortcuts;
     }
 
     /// The pointer at `point`, or away from the window with nothing. Hovers the dock item under
@@ -403,7 +430,9 @@ class Shell {
     std::optional<Tile> header_;
     Platforms platforms_;
     /// Before the painters that read it.
-    input::LastDevice device_;
+    input::Prompts prompts_;
+    int uiScale_{100};
+    VolumeOsd volumeOsd_;
     GlyphTextures glyphs_;
     /// The dock's icons, by `home`, `home_selected`, `library`, `library_selected`.
     GlyphTextures navIcons_;
@@ -417,12 +446,13 @@ class Shell {
     std::optional<library::Section> dockHover_;
     std::array<IconPop, library::allSections.size()> iconPops_{IconPop{true}, IconPop{false}};
     ModeChooser chooser_;
+    SettingsPanels settings_{prompts_};
     SearchPanel search_;
     PanelFade searchFade_{FadeSpec{120.0f, 120.0f, 0.96f, 140.0f, 1.0f}};
-    SearchPanelPainter searchPainter_{device_};
+    SearchPanelPainter searchPainter_{prompts_};
     ContextMenu context_;
     PanelFade contextFade_{FadeSpec{110.0f, 95.0f, 0.96f, 110.0f, 0.985f}};
-    ContextMenuPainter contextPainter_{device_};
+    ContextMenuPainter contextPainter_{prompts_};
 
     DetailsPage details_;
     PanelFade detailsFade_{FadeSpec{140.0f, 110.0f, 1.0f, 0.0f, 1.0f}};
@@ -435,7 +465,7 @@ class Shell {
     std::optional<Clock::time_point> entranceAt_;
 
     TilePainter tilePainter_;
-    DockPainter dockPainter_{device_};
+    DockPainter dockPainter_{prompts_};
     RailPainter railPainter_;
     BackdropBlur blur_;
     /// The frame up to the dock, which the dock's glass blurs.
@@ -443,11 +473,11 @@ class Shell {
     ModeChooserPainter chooserPainter_;
     PagePillPainter pillPainter_;
     PageArrowPainter arrowPainter_;
-    Hud hud_{device_};
+    Hud hud_{prompts_};
     GameMenu gameMenu_;
-    GameMenuPainter gameMenuPainter_{device_};
+    GameMenuPainter gameMenuPainter_{prompts_};
     LaunchPanel launchPanel_;
-    LaunchPanelPainter launchPanelPainter_{device_};
+    LaunchPanelPainter launchPanelPainter_{prompts_};
 
     config::HomeMode mode_;
     library::Section section_{library::Section::Home};

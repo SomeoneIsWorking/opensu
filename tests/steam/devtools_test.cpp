@@ -26,13 +26,13 @@
 
 namespace {
 
+using nlohmann::json;
 using opensu::steam::DevTools;
 using opensu::steam::Download;
 using opensu::steam::DownloadQueue;
 using opensu::steam::InstallStep;
 using opensu::steam::InstallWizard;
 using opensu::steam::LaunchActivity;
-using nlohmann::json;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -385,6 +385,112 @@ void testInstallRefusesWhatOnlySteamCanAsk() {
            "an app id that is not a number never reaches Steam");
 }
 
+/// A fake Steam at the install wizard's config step whose libraries are `libraries`; an
+/// AddInstallFolder call appends its path when `adds` is set.
+json librariesOf(const std::vector<std::string>& paths) {
+    json list = json::array();
+    for (std::size_t i = 0; i < paths.size(); ++i) {
+        list.push_back({{"nFolderIndex", i}, {"strFolderPath", paths[i]}});
+    }
+    return list;
+}
+
+int indexOfCall(const std::vector<std::string>& calls, const std::string& needle) {
+    for (std::size_t i = 0; i < calls.size(); ++i) {
+        if (contains(calls[i], needle)) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
+void testInstallChoosesTheLibrary() {
+    std::vector<std::string> libraries{"/home/p/.local/share/Steam", "/mnt/games"};
+    FakeSteam steam{[&libraries](const std::string& expression) -> json {
+        if (contains(expression, "GetInstallManagerInfo")) {
+            return {{"state", 7}, {"app", 480}, {"error", ""}};
+        }
+        if (contains(expression, "GetInstallFolders")) {
+            return librariesOf(libraries);
+        }
+        return json{};
+    }};
+    DevTools devTools{steam.port()};
+    InstallWizard wizard{devTools};
+    expect(wizard.open("480", std::filesystem::path{"/mnt/games"}).kind ==
+               InstallStep::Kind::Working,
+           "the config step is continued");
+    const std::vector<std::string> calls = steam.calls();
+    expect(indexOfCall(calls, "AddInstallFolder") < 0, "a library Steam has is not added again");
+    const int set = indexOfCall(calls, "SetInstallFolder(1)");
+    expect(set >= 0 && set < indexOfCall(calls, "ContinueInstall"),
+           "the install is pointed at Steam's library before it continues");
+    expect(wizard.poll().kind == InstallStep::Kind::Working, "a second poll continues");
+    expect(indexOfCall(steam.calls(), "SetInstallFolder(1)") == set &&
+               steam.calls().size() > calls.size(),
+           "the folder is chosen once");
+}
+
+void testInstallAddsAMissingLibrary() {
+    std::vector<std::string> libraries{"/home/p/.local/share/Steam"};
+    FakeSteam steam{[&libraries](const std::string& expression) -> json {
+        if (contains(expression, "GetInstallManagerInfo")) {
+            return {{"state", 7}, {"app", 480}, {"error", ""}};
+        }
+        if (contains(expression, "GetInstallFolders")) {
+            return librariesOf(libraries);
+        }
+        if (contains(expression, "AddInstallFolder")) {
+            libraries.emplace_back("/mnt/new");
+        }
+        return json{};
+    }};
+    DevTools devTools{steam.port()};
+    InstallWizard wizard{devTools};
+    expect(wizard.open("480", std::filesystem::path{"/mnt/new/"}).kind ==
+               InstallStep::Kind::Working,
+           "a folder Steam lacks is added as a library");
+    const std::vector<std::string> calls = steam.calls();
+    const int add = indexOfCall(calls, "AddInstallFolder(\"/mnt/new/\")");
+    const int set = indexOfCall(calls, "SetInstallFolder(1)");
+    expect(add >= 0 && add < set && set < indexOfCall(calls, "ContinueInstall"),
+           "it is added, then chosen, then the install continues");
+}
+
+void testInstallFailsWhenSteamKeepsNoLibrary() {
+    FakeSteam steam{[](const std::string& expression) -> json {
+        if (contains(expression, "GetInstallManagerInfo")) {
+            return {{"state", 7}, {"app", 480}, {"error", ""}};
+        }
+        if (contains(expression, "GetInstallFolders")) {
+            return librariesOf({"/home/p/.local/share/Steam"});
+        }
+        return json{};
+    }};
+    DevTools devTools{steam.port()};
+    InstallWizard wizard{devTools};
+    const InstallStep step = wizard.open("480", std::filesystem::path{"/mnt/new"});
+    expect(step.kind == InstallStep::Kind::Failed && contains(step.failure, "/mnt/new"),
+           "a library Steam will not keep fails the install, naming the folder");
+    expect(indexOfCall(steam.calls(), "ContinueInstall") < 0, "the install never continues");
+    expect(contains(steam.calls().back(), "CancelInstall"), "and Steam's wizard is closed");
+}
+
+void testInstallWithoutAFolderLeavesSteamsDefault() {
+    FakeSteam steam{[](const std::string& expression) -> json {
+        if (contains(expression, "GetInstallManagerInfo")) {
+            return {{"state", 7}, {"app", 480}, {"error", ""}};
+        }
+        return json{};
+    }};
+    DevTools devTools{steam.port()};
+    InstallWizard wizard{devTools};
+    expect(wizard.open("480").kind == InstallStep::Kind::Working, "the config step is continued");
+    expect(indexOfCall(steam.calls(), "InstallFolder") < 0 &&
+               indexOfCall(steam.calls(), "SetInstallFolder") < 0,
+           "with no folder, Steam is not asked about its libraries");
+}
+
 } // namespace
 
 int main() {
@@ -396,6 +502,10 @@ int main() {
         testUnreachableSteam();
         testInstallWalksTheWizard();
         testInstallRefusesWhatOnlySteamCanAsk();
+        testInstallChoosesTheLibrary();
+        testInstallAddsAMissingLibrary();
+        testInstallFailsWhenSteamKeepsNoLibrary();
+        testInstallWithoutAFolderLeavesSteamsDefault();
         std::printf("devtools: all checks passed\n");
         return 0;
     } catch (const std::exception& error) {

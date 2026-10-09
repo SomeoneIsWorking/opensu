@@ -7,6 +7,8 @@
 // build, else the install fails.
 #pragma once
 
+#include <filesystem>
+#include <optional>
 #include <string>
 
 #include "cli_install_job.hpp"
@@ -37,7 +39,15 @@ class GogInstallJob final : public CliInstallJob {
         builds_ = builds;
     }
 
+    /// The folder the next install goes under, as `<folder>/<game id>/<gogdl's folder>`; none uses
+    /// opensu's data directory. Call before start(), while idle.
+    void setFolder(std::optional<std::filesystem::path> folder) {
+        folder_ = std::move(folder);
+    }
+
   private:
+    /// Where gogdl is told to put game `gameId`.
+    [[nodiscard]] std::filesystem::path gameRoot(const std::string& gameId) const;
     std::vector<std::string> arguments(const std::string& gameId) override;
     std::optional<double> progressIn(std::string_view line) const override;
     std::optional<std::string> failureIn(std::string_view line) const override;
@@ -53,6 +63,8 @@ class GogInstallJob final : public CliInstallJob {
     std::string handedRefreshToken_;
     /// The builds the listing gave for the install being started. Set while idle.
     library::Game::Builds builds_;
+    /// The folder the install being started goes under. Set while idle.
+    std::optional<std::filesystem::path> folder_;
     /// The platform being downloaded. Job thread only.
     std::string platform_;
 };

@@ -1,6 +1,6 @@
-add_library(opensu_settings STATIC settings.cpp)
+add_library(opensu_settings STATIC settings.cpp install_folders.cpp)
 add_library(opensu::settings ALIAS opensu_settings)
 target_include_directories(opensu_settings PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
-target_link_libraries(opensu_settings PUBLIC opensu::library PRIVATE opensu::fileio lucent::lucent)
+target_link_libraries(opensu_settings PUBLIC opensu::library opensu::input PRIVATE opensu::fileio lucent::lucent)
 target_compile_features(opensu_settings PUBLIC cxx_std_20)
 target_compile_options(opensu_settings PRIVATE -Wall -Wextra -Wpedantic)

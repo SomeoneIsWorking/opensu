@@ -7,6 +7,7 @@
 #include <fstream>
 #include <string>
 
+#include "raylib.h"
 #include "ui/check.hpp"
 
 namespace {
@@ -141,6 +142,89 @@ void unwritable(const fs::path& root) {
     expect(read(blocker) == "a file where a directory should be", "and leaves what was there");
 }
 
+void installAndSources(const fs::path& root) {
+    const fs::path file = root / "sources" / "settings.json";
+    const Store store{file};
+    const Settings fresh = store.load();
+    expect(fresh.uiSounds && !fresh.homeMode && fresh.romFolders.empty() &&
+               fresh.steamRoots.empty() &&
+               fresh.installFolders == opensu::settings::InstallFolders{},
+           "sounds are on and nothing else is set by default");
+    Settings saved;
+    saved.uiSounds = false;
+    saved.homeMode = opensu::config::HomeMode::WiiSu;
+    saved.romFolders = {"/mnt/roms", "/home/p/Roms"};
+    saved.steamRoots = {"/mnt/steam"};
+    saved.installFolders.setDefault("/mnt/games");
+    saved.installFolders.setStore(opensu::library::Source::Gog, "/mnt/gog");
+    std::string error;
+    expect(store.save(saved, error), "the sources save");
+    expect(store.load() == saved, "sounds, scroll mode, folders and install folders round trip");
+    expect(read(file).find("\"epic\"") == std::string::npos,
+           "a store that follows the default writes no folder");
+
+    write(file, R"({"homeMode": "carousel", "romFolders": [1], "installFolders": {"steam": 4}})");
+    const Settings damagedSources = store.load();
+    expect(!damagedSources.homeMode && damagedSources.romFolders.empty() &&
+               damagedSources.installFolders == opensu::settings::InstallFolders{},
+           "damaged source settings fall back to nothing set");
+}
+
+void scaleAndShortcuts(const fs::path& root) {
+    using namespace opensu::input;
+    const fs::path file = root / "shortcuts" / "settings.json";
+    const Store store{file};
+    expect(store.load().uiScale == opensu::settings::defaultUiScale &&
+               store.load().shortcuts.keys.empty(),
+           "the scale is 100% and the shortcuts are the shipped ones by default");
+    Settings saved;
+    saved.uiScale = 125;
+    Shortcuts table;
+    expect(table.rebind(Action::Quit, Combo{KEY_F9}).empty(), "a remap");
+    expect(table
+               .rebind(Action::VolumeUp,
+                       PadChord{opensu::gamepad::Button::R2, opensu::gamepad::Button::Up})
+               .empty(),
+           "a pad remap");
+    saved.shortcuts = table.overrides();
+    std::string error;
+    expect(store.save(saved, error), "saved");
+    const Settings loaded = store.load();
+    expect(loaded == saved && loaded.shortcuts == table.overrides(),
+           "scale and shortcuts round trip");
+
+    write(
+        file,
+        R"({"uiScale": 400, "shortcuts": {"keys": {"quit": {"key": 81, "ctrl": false, "shift": false},
+        "nothing": {"key": 65}, "volumeUp": {"key": 69}, "volumeDown": 7}, "pads": {"volumeUp": ["a", "b"], "volumeMute": ["r2"]}}})");
+    const Settings damagedFile = store.load();
+    expect(damagedFile.uiScale == opensu::settings::defaultUiScale,
+           "an out-of-range scale is dropped");
+    expect(damagedFile.shortcuts == ShortcutOverrides{},
+           "an unknown action, a clash and a bad chord are each dropped");
+
+    write(file, R"({"shortcuts": 3})");
+    expect(store.load().shortcuts == ShortcutOverrides{}, "a damaged table keeps the shipped one");
+}
+
+void resolution() {
+    opensu::config::Config env;
+    env.homeMode = opensu::config::HomeMode::WiiSu;
+    env.romRoots = {"/env/roms"};
+    env.steamRoots = {"/env/steam"};
+    const opensu::config::Config untouched = opensu::settings::resolved(env, Settings{});
+    expect(untouched.homeMode == opensu::config::HomeMode::WiiSu &&
+               untouched.romRoots == env.romRoots && untouched.steamRoots == env.steamRoots,
+           "with nothing set, the environment's values stand");
+    Settings chosen;
+    chosen.homeMode = opensu::config::HomeMode::Standard;
+    chosen.romFolders = {"/set/roms"};
+    const opensu::config::Config over = opensu::settings::resolved(env, chosen);
+    expect(over.homeMode == opensu::config::HomeMode::Standard &&
+               over.romRoots == chosen.romFolders && over.steamRoots == env.steamRoots,
+           "what the player set wins over the environment, field by field");
+}
+
 } // namespace
 
 int main() {
@@ -151,6 +235,9 @@ int main() {
     pinnedDock(root);
     damaged(root);
     libraryTools(root);
+    installAndSources(root);
+    scaleAndShortcuts(root);
+    resolution();
     unwritable(root);
     fs::remove_all(root);
     std::printf("settings: all checks passed\n");

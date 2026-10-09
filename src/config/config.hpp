@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,6 +22,11 @@ enum class HomeMode : std::uint8_t {
     /// Horizontal pages with neighbour peeks and page dots (iiSU ap6 Paged).
     WiiSu,
 };
+
+/// The mode's spelling in OPENSU_HOME_MODE and the settings file: `standard` or `wiisu`.
+[[nodiscard]] std::string_view key(HomeMode mode) noexcept;
+/// The mode spelled `text`, or nothing for another spelling.
+[[nodiscard]] std::optional<HomeMode> homeModeOf(std::string_view text) noexcept;
 
 /// Emulator commands per system, as "SYSTEM=program|arg|arg".
 using EmulatorCommands = std::map<std::string, std::vector<std::string>, std::less<>>;

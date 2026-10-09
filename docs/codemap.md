@@ -18,6 +18,12 @@ gitignored `docs/reference/`).
 | `src/app/context_menu_controller.*` | Opening the focused tile's menu and what its entries do (launch, details, hide/unhide, open, refresh, sign in) |
 | `src/app/details_controller.*` | The details page's buttons: open for the focused game, Play or Install, the emulator pick, Hide, Back; keeps the page current as the library changes |
 | `src/app/breadcrumb_trail.*` | The one computation of the breadcrumb trail from the shell's state (section, folder, search, filters, open game) |
+| `src/app/settings_controller.*` | The Settings screen's controller: rows per category, input routing, saving through `Preferences`, folder chooser and path entry |
+| `src/app/path_editor.*` | Choosing a folder on the chooser or typing a path; one request at a time, refusals shown with their reason |
+| `src/app/artwork_delivery.*` | Hands saved artwork, store contents and UI sounds to the shell and sound player |
+| `src/app/volume_control.*` | The volume actions onto `SystemVolume` and its backend; polling; the OSD listener |
+| `src/app/shortcut_editor.*` | The remap capture: pick an action, press the new combo or pad chord, refusals |
+| `src/app/shortcut_router.*` | Keys, pad events and game keys onto shell events and actions through `Shortcuts` |
 | `src/app/frame_png.*` | The drawn shell as PNG bytes, for the control channel's frame and `--render` |
 | `src/app/panel_flow.*` | The launch/install panel flow taken out of `shell_app.cpp` |
 | `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page, breadcrumb and panel-button action), right click = the target's context menu (never B), wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
@@ -29,7 +35,8 @@ gitignored `docs/reference/`).
 | `src/app/steam_install_job.*`, `epic_install_job.*`, `gog_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install (`legendary install`); one GOG install (`gogdl download`: token handed over and taken back, Linux or Windows build, the install recorded) |
 | `src/app/installs.*` | The installers by store, one install at a time; which stores install |
 | `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
-| `src/settings/settings.*` | The player's saved preferences (Library layout mode, dock pin, icon size, sort and filters, hidden games, last-played times) as JSON under the config dir; defaults on a missing or corrupt file |
+| `src/settings/settings.*` | The player's saved preferences (Library layout, dock pin, icon size, sort and filters, hidden games, last-played times, Settings-screen choices, interface scale, install folders, shortcut remaps) as JSON under the config dir; defaults on a missing or corrupt file |
+| `src/settings/install_folders.*` | The one resolver of where a store installs: a store's override, else the default, else none (the store's own choice); validation (exists, writable) |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
 | `extension/opensu-signin/`, `extension/CMakeLists.txt` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel; packed into `opensu-signin.xpi` and installed beside the assets |
 
@@ -43,7 +50,7 @@ gitignored `docs/reference/`).
 | `packaging/gamescope-build/Containerfile` | The Gamescope build image: host's Fedora release plus Gamescope's build dependencies |
 | `src/session/monitor.*` | The output's size and refresh |
 | `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game |
-| `src/session/game_keys.*` | Keyboard shortcuts while a game has the keyboard (Shift+Tab is Guide), from XInput2 raw keys |
+| `src/session/game_keys.*` | The shortcuts that work while a game has the keyboard (Guide, volume), matched against the `Shortcuts` table from XInput2 raw keys |
 | `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show; tells the handoff when a game is on screen |
 | `src/launch/instance.*` | One transient systemd user scope per launch; stopping it ends the whole tree |
 | `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends |
@@ -92,6 +99,8 @@ gitignored `docs/reference/`).
 | `src/artwork/iisu_assets.*` | Which APK entry is each UI sound and each dock icon (the nav table is valid for the pinned APK only) |
 | `src/artwork/zip_archive.*` | The one zip reader: end record, central directory, local header offset, checked extraction; an in-memory archive |
 | `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds openSU plays (`yp8`): effect to APK file name, the Domino cues and `dominoFor(tileCount)` (`xp8.a`), the 91 ms repeat rule for Enter/ExitConsolesApps and the Domino cues; pure (`opensu_audio_model`) |
+| `src/audio/volume_backend.*` | PC output volume through wpctl or pactl (injectable runner), a read-only shadow for hidden runs, the install advice when no backend exists |
+| `src/audio/system_volume.*` | Volume and mute state, steps, one listener, async polling of changes made elsewhere |
 | `src/audio/sound_player.*` | raylib audio: the device opened once (silent with one warning when absent), the WAVs loaded from the store, `play` through the debounce |
 | `src/net/web_client.*` | HTTPS GETs over libcurl, with headers; shared by artwork and the stores |
 | `src/vdf/` | Valve KeyValues parser |
@@ -102,7 +111,11 @@ gitignored `docs/reference/`).
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
 | `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while the Guide menu is open |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
-| `src/input/keyboard_bindings.*` | The one key table (raylib key to shell button, with exact Ctrl and Shift; the context menu is Tab, the Menu key and Shift+F10), `keyEvents` (a frame's keys as button edges), the key cap a button's prompt shows, glyph key to button |
+| `src/input/shortcuts.*` | The one chord table: every `Action` (pad buttons, Guide, volume, Quit) with its default key combos and pad chords, the player's overrides (`rebind`, with conflict refusals), labels and settings spellings |
+| `src/input/key_names.*` | raylib-free key names: `Combo`, modifiers, bindable keys, X11 key names for the in-game watcher |
+| `src/input/pad_chords.*` | Pad chords (L2 plus a button): the held modifier swallows its trigger and emits the action |
+| `src/input/prompts.hpp` | `Prompts`: the last device and the shortcuts, so key caps in hints follow remaps |
+| `src/input/keyboard_bindings.*` | `KeySource`, the frame's pressed `Combo`, and typed text; the keys themselves come from `Shortcuts` |
 | `src/input/last_device.*` | Which device (pad, or keyboard and mouse) gave the latest real input; read by the prompt painters |
 
 ## Home UI (G002)
@@ -143,6 +156,10 @@ Painters and composition (`opensu_ui`):
 | --- | --- |
 | `src/ui/shell.*` | The home screen: tiles, focus, paging, draw order |
 | `src/ui/hud.*` | Chrome around the grid: ground, top bar, corner hints, toast; grid insets |
+| `src/ui/settings_page.*`, `settings_page_painter.*` | The Settings screen: categories, rows (toggle, choice, slider, path, action, info), focus, layout and hit-tests; its painter |
+| `src/ui/settings_panels.*` | The Settings screen and what opens over it (folder chooser, on-screen keyboard): their state, fades and painters as one object |
+| `src/ui/folder_chooser.*`, `folder_chooser_painter.*` | The console-friendly folder chooser: model and painter |
+| `src/ui/volume_osd.*`, `volume_osd_painter.*` | The volume overlay: model (hold, fade) and painter |
 | `src/ui/status_pill.*`, `glass.*` | The one status pill painter: clock, battery and the launchers inline, on a glass body |
 | `src/ui/launcher_badges.*` | Launcher logos with status dots, the starting spinner and the download ring, drawn by the status pill painter; the hover light |
 | `src/ui/breadcrumb_painter.*`, `details_page_painter.*` | The breadcrumb pill; the details page (cover, backdrop, title, badge, rows, buttons) |

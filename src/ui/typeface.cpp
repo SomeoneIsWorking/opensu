@@ -47,8 +47,7 @@ template <typename Visit> void forEachCodepoint(std::string_view text, Visit vis
 
 } // namespace
 
-Typeface::Typeface()
-    : cache_{new Entry[static_cast<std::size_t>(entries_)]} {
+Typeface::Typeface() : cache_{new Entry[static_cast<std::size_t>(entries_)]} {
     for (const char* candidate : kFacePaths) {
         const std::string path = candidate[0] == '/'
                                      ? std::string{candidate}
@@ -140,6 +139,18 @@ float Typeface::measure(std::string_view text, const TextStyle& style) {
         width += MeasureTextCodepoints(font, &codepoint, 1, box, 0.0f).x + tracking;
     });
     return width;
+}
+
+std::string Typeface::fitted(std::string text, float room, const TextStyle& style) {
+    if (measure(text, style) <= room) {
+        return text;
+    }
+    while (!text.empty() && measure(text + "...", style) > room) {
+        do {
+            text.pop_back();
+        } while (!text.empty() && (static_cast<unsigned char>(text.back()) & 0xC0U) == 0x80U);
+    }
+    return text + "...";
 }
 
 void Typeface::drawCentred(std::string_view text, float x, float centreY, const TextStyle& style,

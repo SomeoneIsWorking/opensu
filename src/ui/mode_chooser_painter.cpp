@@ -8,6 +8,7 @@
 #include "clip_stack.hpp"
 #include "hud.hpp"
 #include "round_shape.hpp"
+#include "row_controls.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
@@ -17,7 +18,7 @@ constexpr Color scrim{0, 0, 0, 115};
 constexpr Color panelFill{0xF8, 0xF8, 0xFB, 255};
 constexpr Color cardFill{0xFF, 0xFF, 0xFF, 255};
 constexpr Color cardShadow{0, 0, 0, 22};
-constexpr Color outlineInk{0x4D, 0x46, 0x55, 255};
+constexpr Color outlineInk = rowInk;
 // The sketches' tiles take these borders in turn, as iiSU's console cards do.
 constexpr std::array<Color, 6> tileBorders{{{0xE0, 0x31, 0x5A, 255},
                                             {0x3A, 0x87, 0xD8, 255},
@@ -25,17 +26,10 @@ constexpr std::array<Color, 6> tileBorders{{{0xE0, 0x31, 0x5A, 255},
                                             {0x2F, 0xB9, 0xA0, 255},
                                             {0xE8, 0x92, 0x3A, 255},
                                             {0x7A, 0x5A, 0xD8, 255}}};
-constexpr Color switchOff{0xB7, 0xB2, 0xC0, 255};
 constexpr float rowLabelSp = 17.0f;
 constexpr float valueSp = 16.0f;
-constexpr float chevronWidthDp = 14.0f;
-constexpr float chevronHalfHeightDp = 5.5f;
-constexpr float chevronStrokeDp = 2.0f;
 constexpr float rowInsetDp = 16.0f;
 constexpr float rowRadiusDp = 12.0f;
-constexpr float sliderBarDp = 4.0f;
-constexpr float sliderThumbDp = 8.0f;
-constexpr float sliderNumberGapDp = 14.0f;
 constexpr float outlineDp = 1.8f;
 constexpr float dotInsetDp = 17.0f;
 constexpr float dotOuterDp = 8.0f;
@@ -138,38 +132,6 @@ void sketch(library::LibraryMode mode, const Rect& card, float dp, ClipStack& cl
     }
 }
 
-/// A switch at the end of a row.
-void paintSwitch(const Rect& track, bool on, float dp) {
-    const float radius = track.height * 0.5f;
-    fillRoundRect(RoundRect{track, radius}, [on](Vector2, float) {
-        return on ? outlineInk : switchOff;
-    });
-    const float thumb = radius - 3.0f * dp;
-    const float thumbX = on ? track.right() - radius : track.x + radius;
-    DrawCircleV(Vector2{thumbX, track.centreY()}, thumb, WHITE);
-}
-
-/// The icon size slider: a track filled to the level, a thumb on it and the number after it.
-void paintSlider(const Rect& track, int level, float dp) {
-    const float radius = sliderBarDp * dp * 0.5f;
-    const Rect bar{track.x, track.centreY() - radius, track.width, radius * 2.0f};
-    fillRoundRect(RoundRect{bar, radius}, [](Vector2, float) {
-        return switchOff;
-    });
-    const float along =
-        static_cast<float>(level - minIconLevel) / static_cast<float>(maxIconLevel - minIconLevel);
-    const float thumbX = track.x + along * track.width;
-    fillRoundRect(RoundRect{Rect{bar.x, bar.y, thumbX - bar.x, bar.height}, radius},
-                  [](Vector2, float) {
-                      return outlineInk;
-                  });
-    DrawCircleV(Vector2{thumbX, track.centreY()}, sliderThumbDp * dp, outlineInk);
-    DrawCircleV(Vector2{thumbX, track.centreY()}, sliderThumbDp * dp * 0.4f, WHITE);
-    const TextStyle number{valueSp * dp};
-    type().drawCentred(std::to_string(level), track.right() + sliderNumberGapDp * dp,
-                       track.centreY(), number, palette::ink);
-}
-
 /// What a row reads and, for a row with a value to cycle, what it stands at.
 struct RowText {
     std::string label;
@@ -192,21 +154,12 @@ RowText textOf(ChooserRow row, const ChooserValues& values) {
         return {"Hidden games only", ""};
     case ChooserRow::Search:
         return {"Search", ""};
+    case ChooserRow::Settings:
+        return {"Settings", ""};
     case ChooserRow::Cards:
         break;
     }
     return {};
-}
-
-/// A right-pointing chevron whose tip is at `x`.
-void paintChevron(float x, float centreY, float dp) {
-    const float half = chevronHalfHeightDp * dp;
-    const float depth = chevronWidthDp * dp * 0.5f;
-    const float thickness = chevronStrokeDp * dp;
-    DrawLineEx(Vector2{x - depth, centreY - half}, Vector2{x, centreY}, thickness,
-               static_cast<Color>(palette::inkSoft));
-    DrawLineEx(Vector2{x, centreY}, Vector2{x - depth, centreY + half}, thickness,
-               static_cast<Color>(palette::inkSoft));
 }
 
 /// One option row: a white bar with its label, its value or control, and the focus outline.
@@ -224,7 +177,7 @@ void paintRow(const ChooserRowBox& box, const ModeChooser& chooser, float dp) {
     const float endX = box.rect.right() - rowInsetDp * dp;
     switch (box.row) {
     case ChooserRow::IconSize:
-        paintSlider(box.control, values.iconSize, dp);
+        paintSlider(box.control, values.iconSize, minIconLevel, maxIconLevel, dp);
         break;
     case ChooserRow::Pin:
         paintSwitch(box.control, values.pinned, dp);
@@ -244,6 +197,7 @@ void paintRow(const ChooserRowBox& box, const ModeChooser& chooser, float dp) {
         break;
     }
     case ChooserRow::Search:
+    case ChooserRow::Settings:
         paintChevron(endX, box.rect.centreY(), dp);
         break;
     case ChooserRow::Cards:
