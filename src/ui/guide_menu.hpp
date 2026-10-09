@@ -49,7 +49,9 @@ struct GuideLayout {
     Rect panel;
     float padding{};
     std::vector<Rect> rows;
-    /// The power button above the corner hints; the rows stop above it.
+    /// The bottom row: the power button at its left end, the hints at its right; the rows stop
+    /// above it.
+    Rect footer;
     Rect powerButton;
 
     /// The row under the point, or nothing.
@@ -57,7 +59,7 @@ struct GuideLayout {
 };
 
 /// The layout of `rows` entries in `frame`; `chrome.heading` is the title line's height and
-/// `chrome.footer` the room the hints take under the rows.
+/// `chrome.footer` the height of the stacked hints beside the power button.
 [[nodiscard]] GuideLayout layoutGuide(const PanelFrame& frame, const PanelChrome& chrome,
                                       std::size_t rows) noexcept;
 

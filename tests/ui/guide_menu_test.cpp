@@ -136,11 +136,11 @@ void rowsUnderThePointer() {
     near(layout.panel.height, 1080.0, "and as tall as the frame");
     near(layout.rows[0].y, 54.0 + 40.0 + 54.0, "the rows start below the title");
     near(layout.rows[1].y - layout.rows[0].bottom(), 13.5, "6 dp apart");
-    near(layout.powerButton.x, layout.padding, "the power button stands at the panel's left");
-    near(layout.powerButton.width, 99.0, "44 dp square");
-    expect(layout.powerButton.bottom() <= 1080.0f - 45.0f - layout.padding,
-           "above the corner hints");
-    expect(layout.rows.back().bottom() < layout.powerButton.y, "below the rows");
+    near(layout.powerButton.x, layout.rows[0].x, "the power button lines up with the rows");
+    near(layout.powerButton.width, 81.0, "36 dp square");
+    near(layout.powerButton.centreY(), layout.footer.centreY(), "in the hints' row");
+    near(layout.footer.bottom(), 1080.0 - layout.padding, "which ends at the bottom padding");
+    expect(layout.rows.back().bottom() < layout.footer.y, "below the rows");
     for (std::size_t i = 0; i < layout.rows.size(); ++i) {
         const auto hit = layout.rowAt(layout.rows[i].centreX(), layout.rows[i].centreY());
         expect(hit && *hit == i, "a row's centre hits it");
@@ -155,7 +155,7 @@ void rowsShrinkToFit() {
     const GuideLayout layout = opensu::ui::layoutGuide({1280.0f, 300.0f, 1.0f}, {30.0f, 20.0f}, 8);
     expect(layout.rows.back().bottom() <= 300.0f - 20.0f, "eight rows still end above the hints");
     expect(layout.rows[0].height < 52.0f, "by giving up height together");
-    expect(layout.rows.back().bottom() <= layout.powerButton.y, "and stop above the power button");
+    expect(layout.rows.back().bottom() <= layout.footer.y, "and stop above the footer");
 }
 
 } // namespace

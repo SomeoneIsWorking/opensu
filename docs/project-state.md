@@ -650,8 +650,9 @@ a real Steam launch is not yet exercised.
 Guide (a tap on the pad's Guide button, which comes out on release so Guide + A can be a chord, or
 Shift+Tab, Steam's overlay key, read by `session::GameKeys` over a game) opens a menu down the
 left edge: Home, Library, Devices and Settings outside a game; Resume, Close game, Devices and
-Settings over one. The stores are in Library, not here. Power is a power icon at the bottom left
-above the hints: Down past the last row focuses it, Up returns, a click or A opens the power list
+Settings over one. The stores are in Library, not here. Power is a power icon at the left end
+of the bottom row, with the A and B hints stacked at its right end: Down past the last row focuses
+it, Up returns, a click or A opens the power list
 (Sleep, Restart, Shut down, Quit to desktop). It is `systemctl suspend|reboot|poweroff` through
 `host::Power`; Restart and Shut down need a second A. With `--session` (openSU is the login
 session) the list ends with Switch to desktop instead of Quit to desktop, since quitting the login

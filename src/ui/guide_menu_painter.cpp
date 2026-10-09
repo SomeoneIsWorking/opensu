@@ -20,7 +20,7 @@ constexpr float itemRadiusDp = 14.0f;
 constexpr float hintSp = 14.0f;
 constexpr float hintGlyphDp = 20.0f;
 constexpr float hintGapDp = 6.0f;
-constexpr float hintSpacingDp = 20.0f;
+constexpr float hintLineGapDp = 4.0f;
 // Degrees clockwise from 3 o'clock; the ring leaves a gap at 12 o'clock.
 constexpr float powerRingStart = -55.0f;
 constexpr float powerRingEnd = 235.0f;
@@ -30,19 +30,23 @@ constexpr float powerRingEnd = 235.0f;
 GuideLayout GuideMenuPainter::layout(const GuideMenu& menu, float width, float height,
                                      float dp) const {
     return layoutGuide(PanelFrame{width, height, dp},
-                       PanelChrome{type().lineBox(TextStyle{titleSp * dp}), hintGlyphDp * dp},
+                       PanelChrome{type().lineBox(TextStyle{titleSp * dp}),
+                                   (2.0f * hintGlyphDp + hintLineGapDp) * dp},
                        menu.entries().size());
 }
 
 void GuideMenuPainter::paintPowerButton(const Rect& box, bool focused, float dp) const {
     const Rectangle bounds{box.x, box.y, box.width, box.height};
+    // Focus is the rows' rounded selection, so the button reads as one of them.
     if (focused) {
-        DrawRectangleRounded(bounds, 1.0f, 24, selection);
+        DrawRectangleRounded(bounds, std::min(1.0f, 2.0f * itemRadiusDp * dp / box.height), 12,
+                             selection);
     }
     const Color ink = focused ? palette::panel : palette::ink;
     const Vector2 centre{box.centreX(), box.centreY()};
-    const float radius = box.width * 0.27f;
-    const float stroke = std::max(2.0f * dp, 1.0f);
+    // About the rows' cap height, with their text's stroke weight.
+    const float radius = box.width * 0.22f;
+    const float stroke = std::max(1.75f * dp, 1.0f);
     // The standard power symbol: a ring open at the top with a bar through the gap.
     DrawRing(centre, radius - stroke * 0.5f, radius + stroke * 0.5f, powerRingStart, powerRingEnd,
              36, ink);
@@ -85,17 +89,18 @@ void GuideMenuPainter::paint(const GuideMenu& menu, float width, float height, f
         paintPowerButton(frame.powerButton, menu.powerFocused(), dp);
     }
 
-    // Button hints along the bottom: A selects, B goes back.
+    // The hints stack at the footer's right end: A selects over B going back.
     const TextStyle hint{hintSp * dp};
     const float glyph = hintGlyphDp * dp;
-    const float centreY = height - pad - glyph * 0.5f;
-    float x = pad;
+    const float right = frame.footer.right() - frame.padding * 0.5f;
+    float centreY = frame.footer.centreY() - (glyph + hintLineGapDp * dp) * 0.5f;
     for (const auto& [key, label] : {std::pair{"A", "Select"}, std::pair{"B", menu.backLabel()}}) {
+        const float labelWidth = type().measure(label, hint);
         const float advance = glyphs_.advance(key, glyph);
+        const float x = right - labelWidth - hintGapDp * dp - advance;
         glyphs_.paint(key, Vector2{x + advance * 0.5f, centreY}, glyph, hintInk);
-        x += advance + hintGapDp * dp;
-        type().drawCentred(label, x, centreY, hint, hintInk);
-        x += type().measure(label, hint) + hintSpacingDp * dp;
+        type().drawCentred(label, right - labelWidth, centreY, hint, hintInk);
+        centreY += glyph + hintLineGapDp * dp;
     }
 }
 
