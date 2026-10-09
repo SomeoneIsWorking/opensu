@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=openSU
+Comment=Gamepad-first game shell as its own session on Gamescope
+Exec=@OPENSU_EXEC@ --session
+DesktopNames=gamescope

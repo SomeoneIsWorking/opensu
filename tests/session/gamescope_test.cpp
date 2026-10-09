@@ -38,6 +38,11 @@ int main() {
                             "--close-focused-window", "--", "opensu", "a", "b"},
            "a negative refresh rate is omitted");
 
+    const auto native = gamescopeArgs(Output{}, "/usr/bin/opensu", {"--session"});
+    expect(native == Args{"--backend", "drm", "--", "/usr/bin/opensu", "--session"},
+           "the native output is a top-level DRM Gamescope with no size or window flags");
+    expect(Output{}.native() && !Output{1280, 720, 0}.native(), "only a sized output is nested");
+
     std::printf("gamescope: all checks passed\n");
     return 0;
 }

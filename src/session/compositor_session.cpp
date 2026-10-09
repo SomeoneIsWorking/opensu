@@ -1,4 +1,4 @@
-#include "nested_session.hpp"
+#include "compositor_session.hpp"
 
 #include <chrono>
 #include <csignal>
@@ -22,16 +22,16 @@ constexpr long pollNanoseconds = 200'000'000;
 
 } // namespace
 
-NestedSession::NestedSession(std::string session, fs::path gamescope)
+CompositorSession::CompositorSession(std::string session, fs::path gamescope)
     : session_{std::move(session)}, gamescope_{std::move(gamescope)} {
 }
 
-void NestedSession::stopLeftovers() const {
+void CompositorSession::stopLeftovers() const {
     // systemctl takes a glob, which reaches the steam and game scopes by name.
     (void)launch::runCommand("systemctl", {"--user", "stop", session_ + "-*"}, stopWait);
 }
 
-int NestedSession::run(const Output& output, const std::vector<std::string>& args) {
+int CompositorSession::run(const Output& output, const std::vector<std::string>& args) {
     if (launch::resolveExecutable(gamescope_.string(), {}).empty()) {
         lucent::error(
             "session",
@@ -55,8 +55,12 @@ int NestedSession::run(const Output& output, const std::vector<std::string>& arg
         lucent::error("session", "{}", failure);
         return 1;
     }
-    lucent::info("session", "{} runs in a nested gamescope at {}x{}", session_, output.width,
-                 output.height);
+    if (output.native()) {
+        lucent::info("session", "{} runs in a top-level gamescope", session_);
+    } else {
+        lucent::info("session", "{} runs in a nested gamescope at {}x{}", session_, output.width,
+                     output.height);
+    }
 
     // Blocked only after the start, so the children do not inherit the mask. A signal
     // is then taken here and ends the session through the scopes, rather than

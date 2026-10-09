@@ -16,7 +16,8 @@ struct Arguments {
     /// and a free control port, for maintainer runs and tests.
     bool hidden{false};
     /// `--session`: openSU is the login session, started by a session entry or the display
-    /// manager, rather than an app on a desktop. The power list then offers Switch to desktop.
+    /// manager, rather than an app on a desktop: Gamescope runs top level. The power list then
+    /// offers Switch to desktop.
     bool loginSession{false};
     bool help{false};
 

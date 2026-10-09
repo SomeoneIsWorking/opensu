@@ -22,7 +22,7 @@ gitignored `docs/reference/`).
 | `src/app/controller_roster.*` | The pads connected now in player order, with battery and held buttons (the live button test) |
 | `src/app/audio_outputs.*` | The sound outputs and the default one, through `SystemVolume` |
 | `src/app/brightness_control.*` | Display brightness through the backlight, absent without one |
-| `src/host/` | System services over `busctl`, `systemctl` and `bluetoothctl` behind fakeable seams: `runner` (run or hold a program), `bluetooth` (BlueZ), `power` (logind; in a login session also `steamos-session-select` or `loginctl terminate-session`), `backlight` (sysfs read, logind write) |
+| `src/host/` | System services over `busctl`, `systemctl` and `bluetoothctl` behind fakeable seams: `runner` (run or hold a program), `bluetooth` (BlueZ), `power` (logind; in a login session Switch to desktop leaves a `desktop_request` note, then `steamos-session-select` or stops the Gamescope scope), `backlight` (sysfs read, logind write) |
 | `src/app/layout_picker.*` | START: the options panel's buttons (layout cards, icon size, pin, sort, source, installed, hidden, search row) and saving what is chosen |
 | `src/app/preferences.*` | The loaded `settings::Settings` and saving them, with a toast when the file cannot be written |
 | `src/app/search_controller.*` | The search panel's pad buttons and keyboard text; the typed text is the view's search |
@@ -55,8 +55,10 @@ gitignored `docs/reference/`).
 
 | Path | Owns |
 | --- | --- |
-| `src/session/nested_session.*` | Re-running openSU inside its own Gamescope when not already in one |
-| `src/session/gamescope.*` | The Gamescope command line (`--close-focused-window` included) |
+| `src/session/compositor_session.*` | Re-running openSU inside its own Gamescope when not already in one: nested at the monitor's size on a desktop, top level on DRM at the native mode for `--session` |
+| `src/host/desktop_request.*` | The note Switch to desktop leaves in the runtime dir, and `startplasma-wayland` run in the login session's place once Gamescope has ended |
+| `src/session/gamescope.*` | The Gamescope command line, nested (`--close-focused-window` included) or top level (`--backend drm`) from `Output::native()` |
+| `packaging/opensu-session.desktop.in` | The Wayland session entry, installed to `<prefix>/share/wayland-sessions/opensu.desktop` (one `sudo install` copies it where SDDM reads) |
 | `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman (commit, container steps, staging and install path); `OPENSU_BUILD_GAMESCOPE`. `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
 | `packaging/gamescope-build/Containerfile` | The Gamescope build image: host's Fedora release plus Gamescope's build dependencies |
 | `src/session/monitor.*` | The output's size and refresh |

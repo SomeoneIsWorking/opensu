@@ -79,12 +79,17 @@ void switchingToTheDesktop() {
     fs::remove_all(bin.parent_path());
     fs::create_directories(bin);
     Calls calls;
-    const opensu::host::SessionExit exit{{bin}, "7"};
+    const fs::path note = bin.parent_path() / "run" / "desktop";
+    const opensu::host::SessionExit exit{
+        {bin}, opensu::host::DesktopRequest{note}, "s-compositor.scope"};
     const auto bare = opensu::host::makeLogindPower(fake(calls, opensu::launch::Captured{}), exit);
     expect(bare->perform(PowerAction::SwitchToDesktop).empty(), "ending the session is accepted");
-    expect(calls.programs == std::vector<std::string>{"loginctl"} &&
-               calls.arguments == std::vector<std::vector<std::string>>{{"terminate-session", "7"}},
-           "without steamos-session-select it ends our logind session");
+    expect(calls.programs == std::vector<std::string>{"systemctl"} &&
+               calls.arguments ==
+                   std::vector<std::vector<std::string>>{{"--user", "stop", "s-compositor.scope"}},
+           "without steamos-session-select it stops the session's Gamescope scope");
+    expect(fs::exists(note), "the login session is told to start the desktop");
+    expect(opensu::host::DesktopRequest{note}.consume(), "and finds the note once");
 
     const fs::path select = bin / "steamos-session-select";
     std::ofstream{select} << "#!/bin/sh\n";
@@ -102,10 +107,12 @@ void switchingToTheDesktop() {
     expect(denied->perform(PowerAction::SwitchToDesktop) == "no session", "its refusal is said");
 
     calls = {};
-    const auto unknown = opensu::host::makeLogindPower(fake(calls, opensu::launch::Captured{}),
-                                                       opensu::host::SessionExit{{}, ""});
-    expect(!unknown->perform(PowerAction::SwitchToDesktop).empty() && calls.programs.empty(),
-           "with no tool and no session id nothing runs and the reason is said");
+    fs::remove_all(note.parent_path());
+    std::ofstream{note.parent_path()} << "a file, not a directory\n";
+    const auto unwritable =
+        opensu::host::makeLogindPower(fake(calls, opensu::launch::Captured{}), exit);
+    expect(!unwritable->perform(PowerAction::SwitchToDesktop).empty() && calls.programs.empty(),
+           "when the note cannot be left nothing is ended and the reason is said");
     fs::remove_all(bin.parent_path());
 }
 

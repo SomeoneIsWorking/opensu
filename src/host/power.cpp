@@ -65,16 +65,15 @@ class LogindPower final : public Power {
 
   private:
     std::string switchToDesktop() {
+        if (const std::string failure = exit_.request.write(); !failure.empty()) {
+            return failure;
+        }
         if (onPath(exit_.path, sessionSelect)) {
             lucent::info("power", "switching to the desktop with {}", sessionSelect);
             return run(sessionSelect, {"plasma"}, "switch to the desktop");
         }
-        if (exit_.sessionId.empty()) {
-            return "no login session to end";
-        }
-        lucent::info("power", "switching to the desktop by ending login session {}",
-                     exit_.sessionId);
-        return run("loginctl", {"terminate-session", exit_.sessionId}, "end the session");
+        lucent::info("power", "switching to the desktop by stopping {}", exit_.compositorScope);
+        return run("systemctl", {"--user", "stop", exit_.compositorScope}, "end the session");
     }
 
     /// Runs `program`; empty when it succeeded, else why it did not (`what` names the action).

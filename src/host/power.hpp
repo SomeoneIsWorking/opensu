@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "desktop_request.hpp"
 #include "runner.hpp"
 
 namespace opensu::host {
@@ -30,13 +31,16 @@ class Power {
 struct SessionExit {
     /// The directories searched for `steamos-session-select`.
     std::vector<std::filesystem::path> path;
-    /// This process's logind session, for `loginctl terminate-session`; empty when unknown.
-    std::string sessionId;
+    /// Left for the login session, which starts the desktop once Gamescope has ended.
+    DesktopRequest request{{}};
+    /// The scope of the session's Gamescope, which ends it when `steamos-session-select` is absent.
+    std::string compositorScope;
 };
 
 /// `systemctl suspend|reboot|poweroff`, which logind authorises for the active session.
-/// SwitchToDesktop runs `steamos-session-select plasma` when it is on `exit.path`, else ends the
-/// logind session, which returns to the display manager.
+/// SwitchToDesktop writes `exit.request`, then ends the session's Gamescope with
+/// `steamos-session-select plasma` when that is on `exit.path`, else by stopping
+/// `exit.compositorScope`. The login session then starts the desktop itself.
 [[nodiscard]] std::unique_ptr<Power> makeLogindPower(Runner run, SessionExit exit = {});
 
 /// A backend that refuses every action with `reason`; for hidden runs.

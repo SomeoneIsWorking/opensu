@@ -1,4 +1,4 @@
-add_library(opensu_session STATIC game_keys.cpp gamescope.cpp gamescope_overlay.cpp gamescope_windows.cpp monitor.cpp nested_session.cpp)
+add_library(opensu_session STATIC game_keys.cpp gamescope.cpp gamescope_overlay.cpp gamescope_windows.cpp monitor.cpp compositor_session.cpp)
 add_library(opensu::session ALIAS opensu_session)
 target_include_directories(opensu_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_session

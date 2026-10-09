@@ -50,6 +50,18 @@ configure_file("${CMAKE_SOURCE_DIR}/packaging/opensu.desktop.in"
 install(FILES "${CMAKE_BINARY_DIR}/opensu.desktop"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
 
+# The login session entry. SDDM reads only /usr/share and /usr/local/share wayland-sessions, so the
+# one root step is printed after the install.
+configure_file("${CMAKE_SOURCE_DIR}/packaging/opensu-session.desktop.in"
+               "${CMAKE_BINARY_DIR}/opensu-session.desktop" @ONLY)
+install(FILES "${CMAKE_BINARY_DIR}/opensu-session.desktop"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/wayland-sessions" RENAME opensu.desktop)
+install(CODE "set(OPENSU_SESSION_ENTRY \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/wayland-sessions/opensu.desktop\")")
+install(CODE [[
+message(STATUS "To pick openSU at the login screen, run once (and after a changed prefix):")
+message(STATUS "  sudo install -Dm644 ${OPENSU_SESSION_ENTRY} /usr/local/share/wayland-sessions/opensu.desktop")
+]])
+
 # Subsystem headers are included as "library/game.hpp" and "vdf/node.hpp", so
 # the source root is on the include path for every target.
 target_include_directories(opensu_vdf INTERFACE "${CMAKE_SOURCE_DIR}/src")

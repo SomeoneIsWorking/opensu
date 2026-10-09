@@ -13,9 +13,10 @@
 #include "app/shell_app.hpp"
 #include "config/arguments.hpp"
 #include "config/config.hpp"
+#include "host/desktop_request.hpp"
 #include "lucent/log.h"
+#include "session/compositor_session.hpp"
 #include "session/monitor.hpp"
-#include "session/nested_session.hpp"
 
 namespace {
 
@@ -29,8 +30,9 @@ void printHelp() {
         "        --keyboard      with --render, draw the keyboard's prompts\n"
         "  opensu --hidden       the shell with an unmapped window, no Gamescope, no pads\n"
         "                        and a free control port (logged), for maintainer runs\n"
-        "  opensu --session      openSU is the login session: the power list offers Switch\n"
-        "                        to desktop instead of Quit to desktop\n"
+        "  opensu --session      openSU is the login session, started by the display manager\n"
+        "                        on a top-level Gamescope; the power list offers Switch to\n"
+        "                        desktop instead of Quit to desktop\n"
         "\n"
         "Environment:\n"
         "  OPENSU_STEAM_ROOTS  colon-separated Steam install roots\n"
@@ -71,13 +73,25 @@ int main(int argc, char** argv) {
     // Without a Gamescope of its own, opensu makes one and runs inside it, so that
     // Steam and every game share the one compositor that closing opensu ends.
     if (!renderPath && !arguments.hidden && !config.insideGamescope && !config.sessionInherited) {
-        const std::optional<opensu::session::Output> output = opensu::session::readMonitor();
+        // A login session has no display yet: Gamescope takes the seat at the native mode.
+        std::optional<opensu::session::Output> output = opensu::session::Output{};
+        if (!arguments.loginSession) {
+            output = opensu::session::readMonitor();
+        }
         if (!output) {
             lucent::error("session", "no display to read the monitor from");
             return 1;
         }
-        opensu::session::NestedSession session{config.session, config.gamescope};
-        return session.run(*output, args);
+        opensu::session::CompositorSession session{config.session, config.gamescope};
+        const int status = session.run(*output, args);
+        const opensu::host::DesktopRequest request{config.desktopRequest};
+        if (arguments.loginSession && request.consume()) {
+            lucent::info("session", "starting the desktop");
+            lucent::error("session", "{}",
+                          opensu::host::DesktopRequest::enterDesktop(config.executablePath));
+            return 1;
+        }
+        return status;
     }
 
     opensu::app::Settings settings{

@@ -89,7 +89,7 @@ game has been observed running yet.
 | S018 | Store sign-in from the player's browser via the opensu-signin extension (GOG, Epic) | partial | S012 | G001 |
 | S008 | ROM source with per-system emulator launch, found without configuration | verified | — | G001 |
 | S009 | Haptic rumble | missing | S003 | G003 |
-| S010 | Own login session entry on Gamescope | missing | — | G004 |
+| S010 | Own login session entry on Gamescope | partial | S013 | G004 |
 | S013 | openSU runs in a nested Gamescope inside KDE at the output's resolution | partial | S004 | G004 |
 | S014 | Alt+F4 closes the game in nested mode while Alt+Tab stays with KDE | partial | S013 | G004 |
 | S015 | Shell owns every instance it starts and can force-close it from the pad | partial | S004 | G003 |
@@ -576,13 +576,42 @@ Missing: the raylib reader that had it is gone; evdev force feedback is the way 
 
 ### S010 — Own login session
 
-There is no session entry, so openSU can only run as a window inside another
-session.
+Partial: everything is built and unit-tested; no real login has been run.
+
+`opensu --session` outside Gamescope runs `session::CompositorSession` with a native
+`Output`, which is `gamescope --backend drm -- opensu --session` (the connector's
+own mode; no `-W/-H/-w/-h/-f`, which are nested-only, and no `-e`: Steam is started
+by openSU as in the nested session). `cmake --install` puts
+`<prefix>/share/wayland-sessions/opensu.desktop` (`Exec=<prefix>/bin/opensu
+--session`, `DesktopNames=gamescope`, from `packaging/opensu-session.desktop.in`)
+and prints the one root step. SDDM here (0.21+) reads `/usr/local/share/wayland-sessions`
+and `/usr/share/wayland-sessions` (`sddm --example-config`; `/etc/sddm.conf` sets no
+`SessionDir`), never `~/.local/share`, so the step is
+`sudo install -Dm644 <prefix>/share/wayland-sessions/opensu.desktop /usr/local/share/wayland-sessions/opensu.desktop`.
+
+Switch to desktop in this session: `host::Power` writes `host::DesktopRequest`
+(`$XDG_RUNTIME_DIR/opensu/desktop`), then runs `steamos-session-select plasma` when it
+is on PATH (it kills `steam` and `gamescope`) or stops `<session>-compositor.scope`.
+When Gamescope ends, `main` consumes the note and `exec`s `startplasma-wayland`, as
+`steamos-session-picker` does. Without the note the session simply ends and SDDM decides.
+Loops: this machine's autologin is `Relogin=true`, `Session=steam-picker`, so a login
+session that ends (crash, power-off menu aside) relogins into the picker, which starts
+Plasma unless `~/.gamemode-session-flag` exists: no loop. If autologin is changed to
+`Session=opensu`, a crash restarts openSU (what Relogin means), while Switch to
+desktop does not loop because the desktop replaces the session process itself;
+`loginctl terminate-session` is deliberately not used, as it would relogin into openSU.
+Unverified: the DRM start of the fork on this seat, libseat under SDDM, Steam inside
+the top-level session, Plasma started from the openSU session, the picker integration
+(below).
+
+Picker integration is not done, as it means editing `/usr/bin/steamos-session-picker`.
+Without that, openSU is reached from the login screen entry, or by setting
+`Session=opensu` under `[Autologin]` in `/etc/sddm.conf`.
 
 ### S013 — Nested Gamescope session
 
 Outside Gamescope (`Config::insideGamescope`, from `GAMESCOPE_WAYLAND_DISPLAY`)
-`session::NestedSession` runs openSU itself as `gamescope -W -H -w -h -r -f --
+`session::CompositorSession` runs openSU itself as `gamescope -W -H -w -h -r -f --
 opensu ...` with the current monitor's size and refresh from raylib
 (`session::readMonitor`), in the scope `<session>-compositor.scope` with
 `OPENSU_SESSION` set for the inner opensu. When Gamescope ends it stops every
@@ -619,7 +648,7 @@ With no game running, the focused app window is openSU's own, so Alt+F4 reaches
 raylib as a window close: `WindowShouldClose` ends the frame loop in
 `ShellApp::run`, which stops the control channel, calls `CloseWindow` and
 returns, the inner openSU exits, Gamescope ends with its only client and
-`NestedSession` stops the session's scopes. That is the intended desktop behaviour.
+`CompositorSession` stops the session's scopes. That is the intended desktop behaviour.
 
 Verified (virtual `kwin_wayland`, a KWin script closing Gamescope's window, an
 `xmessage` client): without the option Gamescope exits on the close; with it, on the

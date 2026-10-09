@@ -1,7 +1,7 @@
 // The nested session against a fake `gamescope` in real systemd scopes: what it is
 // started with, that a leftover scope of the session is stopped when it ends, and
 // that SIGTERM ends the session rather than this process.
-#include "session/nested_session.hpp"
+#include "session/compositor_session.hpp"
 
 #include <chrono>
 #include <csignal>
@@ -26,8 +26,8 @@ namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
+using opensu::session::CompositorSession;
 using opensu::session::gamescopeArgs;
-using opensu::session::NestedSession;
 using opensu::session::Output;
 
 void expect(bool condition, const char* what) {
@@ -97,7 +97,7 @@ void testRunPassesArgumentsAndStopsLeftovers() {
     std::string failure;
     expect(leftover.start(steamUnit, "/bin/sleep", {"600"}, failure), "the leftover scope starts");
 
-    NestedSession session{fixture.session, fixture.bin / "gamescope"};
+    CompositorSession session{fixture.session, fixture.bin / "gamescope"};
     const Output output{2560, 1440, 144};
     const int status = session.run(output, {"--flag"});
 
@@ -117,10 +117,24 @@ void testRunPassesArgumentsAndStopsLeftovers() {
     expect(!scopeActive(fixture.session + "-compositor.scope"), "the compositor scope is gone");
 }
 
+/// The login session's top-level Gamescope: DRM backend at the native mode, `--session` handed on.
+void testLoginSessionIsTopLevel() {
+    const Fixture fixture{"login", "exit 0\n"};
+    CompositorSession session{fixture.session, fixture.bin / "gamescope"};
+    expect(session.run(Output{}, {"--session"}) == 0, "the top-level run ends with Gamescope");
+    expect(slurp(fixture.envFile) == fixture.session + "\n", "OPENSU_SESSION names the session");
+
+    std::error_code ec;
+    const std::string self = fs::read_symlink("/proc/self/exe", ec).string();
+    expect(slurp(fixture.argsFile) == "--backend\ndrm\n--\n" + self + "\n--session\n",
+           "Gamescope is told the DRM backend, no size, and runs this executable --session");
+    expect(!scopeActive(fixture.session + "-compositor.scope"), "the compositor scope is gone");
+}
+
 /// A missing gamescope binary is refused, not run.
 void testMissingGamescope() {
-    NestedSession session{"opensu-test-missing-" + std::to_string(getpid()),
-                          "/nonexistent/gamescope"};
+    CompositorSession session{"opensu-test-missing-" + std::to_string(getpid()),
+                              "/nonexistent/gamescope"};
     expect(session.run(Output{1280, 720, 0}, {}) == 1, "a missing gamescope fails");
 }
 
@@ -140,7 +154,7 @@ void testSignalStopsTheSession() {
     sigset_t previous;
     pthread_sigmask(SIG_BLOCK, &term, &previous);
 
-    NestedSession session{fixture.session, fixture.bin / "gamescope"};
+    CompositorSession session{fixture.session, fixture.bin / "gamescope"};
     std::future<int> done = std::async(std::launch::async, [&] {
         return session.run(Output{1280, 720, 0}, {});
     });
@@ -165,8 +179,9 @@ void testSignalStopsTheSession() {
 int main() {
     fs::create_directories(OPENSU_TEST_SCRATCH);
     testRunPassesArgumentsAndStopsLeftovers();
+    testLoginSessionIsTopLevel();
     testMissingGamescope();
     testSignalStopsTheSession();
-    std::printf("nested_session: all checks passed\n");
+    std::printf("compositor_session: all checks passed\n");
     return 0;
 }

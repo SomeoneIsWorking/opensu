@@ -4,6 +4,12 @@ namespace opensu::session {
 
 std::vector<std::string> gamescopeArgs(const Output& output, const std::string& program,
                                        const std::vector<std::string>& args) {
+    if (output.native()) {
+        // Top level on the seat: the DRM backend takes the connector's preferred mode.
+        std::vector<std::string> top{"--backend", "drm", "--", program};
+        top.insert(top.end(), args.begin(), args.end());
+        return top;
+    }
     const std::string width = std::to_string(output.width);
     const std::string height = std::to_string(output.height);
     std::vector<std::string> out{"-W", width, "-H", height, "-w", width, "-h", height};

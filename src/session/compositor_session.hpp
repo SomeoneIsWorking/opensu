@@ -1,8 +1,9 @@
 // session — runs opensu inside its own Gamescope.
 //
 // On a desktop there is no compositor of opensu's own, so it makes one: a nested
-// Gamescope at the monitor's size, with opensu as its client. Steam and every game
-// then run inside it, and everything of the session ends when Gamescope does.
+// Gamescope at the monitor's size, with opensu as its client. As a login session it is the
+// top-level Gamescope on the seat at the native mode. Steam and every game then run inside
+// it, and everything of the session ends when Gamescope does.
 #pragma once
 
 #include <filesystem>
@@ -16,13 +17,14 @@ namespace opensu::session {
 /// The environment variable that tells the inner opensu which session it belongs to.
 inline constexpr const char* sessionVariable = "OPENSU_SESSION";
 
-class NestedSession {
+class CompositorSession {
   public:
     /// `session` names every scope of the run; `gamescope` is the pinned fork's binary
     /// (`Config::gamescope`).
-    NestedSession(std::string session, std::filesystem::path gamescope);
+    CompositorSession(std::string session, std::filesystem::path gamescope);
 
-    /// Runs `<this executable> <args>` in a Gamescope sized to `output`, in the scope
+    /// Runs `<this executable> <args>` in a Gamescope sized to `output` (top level when it is
+    /// native), in the scope
     /// `<session>-compositor.scope`, and waits for it to end. Then stops every other
     /// scope of the session. Returns Gamescope's exit status, or 1 when it could not
     /// be started, among it a missing `gamescope`. SIGINT and SIGTERM stop the session instead of

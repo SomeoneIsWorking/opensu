@@ -10,7 +10,9 @@ constexpr const char* hiddenReason = "changes are off in a hidden run";
 HostServices HostServices::detect(const config::Config& config, bool hidden) {
     return over(host::systemRunner(), host::systemSpawner(config.executablePath),
                 "/sys/class/backlight", hidden,
-                host::SessionExit{config.executablePath, config.loginSessionId});
+                host::SessionExit{config.executablePath,
+                                  host::DesktopRequest{config.desktopRequest},
+                                  config.session + "-compositor.scope"});
 }
 
 HostServices HostServices::over(const host::Runner& run, const host::Spawner& spawn,

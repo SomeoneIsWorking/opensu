@@ -236,7 +236,12 @@ const Config& read() {
         if (value.session.empty()) {
             value.session = "opensu-" + std::to_string(getpid());
         }
-        value.loginSessionId = std::string{env("XDG_SESSION_ID")};
+        if (const std::string_view runtime = env("XDG_RUNTIME_DIR"); !runtime.empty()) {
+            value.desktopRequest = std::filesystem::path{runtime} / "opensu" / "desktop";
+        } else {
+            value.desktopRequest = std::filesystem::path{"/run/user"} / std::to_string(getuid()) /
+                                   "opensu" / "desktop";
+        }
         value.executablePath = splitPaths(env("PATH"));
         return value;
     }();

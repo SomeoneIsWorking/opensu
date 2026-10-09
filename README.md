@@ -82,18 +82,27 @@ Gamescope.
 ./build/cmake/src/opensu --session        # openSU is the login session, not an app on a desktop
 ```
 
-`--session` is for a session entry or a display manager's autologin target. The Guide menu's power
-list then ends with Switch to desktop instead of Quit to desktop: it runs
-`steamos-session-select plasma` when that is on `PATH`, and otherwise ends the logind session
-(`loginctl terminate-session`), which returns to the display manager. A Wayland session entry,
-`/usr/share/wayland-sessions/opensu.desktop`:
+### Login session
 
-```ini
-[Desktop Entry]
-Name=openSU
-Exec=/opt/opensu/bin/opensu --session
-Type=Application
+`--session` makes openSU the login session: from a display manager it starts the pinned Gamescope
+top level on the seat (`--backend drm`, the monitor's own mode) with openSU in it, and there is no
+desktop underneath. Closing openSU ends the session. The Guide menu's power list ends with Switch
+to desktop instead of Quit to desktop: it leaves a note, ends Gamescope (with
+`steamos-session-select plasma` when that is on `PATH`, else by stopping its scope) and starts
+`startplasma-wayland` in the session's place, so an autologin into openSU does not loop.
+
+`cmake --install` writes `<prefix>/share/wayland-sessions/opensu.desktop` and prints one step that
+needs root, because SDDM reads only `/usr/share/wayland-sessions` and
+`/usr/local/share/wayland-sessions`, never your home:
+
+```sh
+sudo install -Dm644 ~/.local/share/wayland-sessions/opensu.desktop /usr/local/share/wayland-sessions/opensu.desktop
 ```
+
+(for the `~/.local` prefix; repeat it after changing the prefix). openSU then appears in the login
+screen's session list. To boot straight into it, set `Session=opensu` under `[Autologin]` in
+`/etc/sddm.conf`. With the SteamOS-style `steam-picker` autologin left as it is, a login session
+that ends relogins into the picker, which starts Plasma.
 
 `--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `volumePercent`, `volumeMuted`, `uiScale`). A hidden run only reads the system volume and never starts the Steam client (Steam shows as stopped); it also never sleeps, restarts, shuts down, scans, pairs, connects or forgets Bluetooth devices, and never writes the brightness.
 
