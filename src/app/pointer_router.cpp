@@ -16,6 +16,9 @@ struct FocusesOnHover {
     bool operator()(const ui::OnGuideEntry&) const {
         return true;
     }
+    bool operator()(const ui::OnGuidePower&) const {
+        return true;
+    }
     bool operator()(const ui::OnChooserRow&) const {
         return true;
     }

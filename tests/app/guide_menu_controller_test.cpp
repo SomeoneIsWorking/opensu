@@ -13,18 +13,15 @@ using gamepad::Button;
 using test::expect;
 
 struct Rig {
-    explicit Rig(bool inGame = false)
+    explicit Rig(bool inGame = false, bool session = false)
         : controller{menu, power, sounds,
                      app::GuideMenuController::Hooks{
-                         [inGame] {
-                             return ui::GuideContext{inGame, "Roboquest",
-                                                     {library::Source::Steam, library::Source::Gog}};
+                         [inGame, session] {
+                             return ui::GuideContext{inGame, "Roboquest", session};
                          },
                          [this](library::Section section) {
-                             calls.push_back(section == library::Section::Home ? "home" : "library");
-                         },
-                         [this](library::Source source) {
-                             calls.push_back("store " + std::string{library::label(source)});
+                             calls.push_back(section == library::Section::Home ? "home"
+                                                                               : "library");
                          },
                          [this] {
                              calls.emplace_back("devices");
@@ -41,6 +38,16 @@ struct Rig {
                          [this](const std::string& text, bool error) {
                              said.push_back((error ? "error: " : "") + text);
                          }}} {
+    }
+
+    /// Moves to the power button and presses A.
+    void openPower() {
+        controller.act(Button::Down);
+        for (std::size_t i = 0; i < menu.entries().size(); ++i) {
+            controller.act(Button::Down);
+        }
+        expect(menu.powerFocused(), "down reaches the power button");
+        controller.act(Button::A);
     }
 
     /// Moves to the entry labelled `label` and presses A.
@@ -70,11 +77,11 @@ void entriesFollowWhereTheShellIs() {
     for (const ui::GuideEntry& entry : home.menu.entries()) {
         labels.push_back(entry.label);
     }
-    expect(labels == std::vector<std::string>{"Home", "Library", "Steam", "GOG", "Devices",
-                                              "Settings", "Power"},
-           "home lists sections, stores, devices, settings and power");
+    expect(labels == std::vector<std::string>{"Home", "Library", "Devices", "Settings"},
+           "home lists sections, devices and settings");
     Rig game{true};
     game.controller.open();
+    expect(game.menu.entries().size() == 4, "a running game lists four entries");
     expect(game.menu.entries().front().action == ui::GuideAction::Resume &&
                game.menu.entries()[1].action == ui::GuideAction::CloseGame,
            "a running game gets Resume and Close game first");
@@ -85,12 +92,10 @@ void entriesReachTheirHooks() {
     rig.controller.open();
     rig.choose("Library");
     rig.controller.open();
-    rig.choose("GOG");
-    rig.controller.open();
     rig.choose("Devices");
     rig.controller.open();
     rig.choose("Settings");
-    expect(rig.calls == std::vector<std::string>{"library", "store GOG", "devices", "settings"},
+    expect(rig.calls == std::vector<std::string>{"library", "devices", "settings"},
            "each entry reaches its hook");
     expect(!rig.menu.isOpen(), "choosing closes the menu");
 }
@@ -98,7 +103,7 @@ void entriesReachTheirHooks() {
 void powerNeedsTwoPressesForRestartAndShutDown() {
     Rig rig;
     rig.controller.open();
-    rig.choose("Power");
+    rig.openPower();
     expect(rig.menu.inPower() && rig.menu.isOpen(), "Power opens its list");
     rig.choose("Restart");
     expect(rig.power.performed.empty() && rig.menu.armed() && rig.menu.isOpen(),
@@ -108,7 +113,7 @@ void powerNeedsTwoPressesForRestartAndShutDown() {
                !rig.menu.isOpen(),
            "the second press restarts");
     rig.controller.open();
-    rig.choose("Power");
+    rig.openPower();
     rig.choose("Shut down");
     rig.controller.act(Button::Down);
     expect(!rig.menu.armed(), "moving lets go of an armed entry");
@@ -121,21 +126,41 @@ void sleepAndQuitActAtOnceAndRefusalsAreSaid() {
     Rig rig;
     rig.power.refusal = "Access denied";
     rig.controller.open();
-    rig.choose("Power");
+    rig.openPower();
     rig.choose("Sleep");
     expect(rig.power.performed == std::vector<host::PowerAction>{host::PowerAction::Suspend},
            "sleep acts at once");
-    expect(rig.said == std::vector<std::string>{"error: Sleep: Access denied"}, "the refusal is said");
+    expect(rig.said == std::vector<std::string>{"error: Sleep: Access denied"},
+           "the refusal is said");
     rig.controller.open();
-    rig.choose("Power");
+    rig.openPower();
     rig.choose("Quit to desktop");
     expect(rig.calls == std::vector<std::string>{"quit"}, "quit reaches its hook");
+}
+
+void switchToDesktopIsPowerNotAHook() {
+    Rig rig{false, true};
+    rig.controller.open();
+    rig.openPower();
+    rig.choose("Switch to desktop");
+    expect(rig.power.performed ==
+                   std::vector<host::PowerAction>{host::PowerAction::SwitchToDesktop} &&
+               rig.calls.empty() && !rig.menu.isOpen(),
+           "Switch to desktop goes to power at once");
+    rig.power.refusal = "changes are off in a hidden run";
+    rig.controller.open();
+    rig.openPower();
+    rig.choose("Switch to desktop");
+    expect(
+        rig.said ==
+            std::vector<std::string>{"error: Switch to desktop: changes are off in a hidden run"},
+        "a refusal is said");
 }
 
 void backLeavesThePowerListBeforeTheMenu() {
     Rig rig;
     rig.controller.open();
-    rig.choose("Power");
+    rig.openPower();
     rig.controller.act(Button::B);
     expect(rig.menu.isOpen() && !rig.menu.inPower(), "B returns to the main list");
     rig.controller.act(Button::B);
@@ -159,6 +184,7 @@ int main() {
     entriesReachTheirHooks();
     powerNeedsTwoPressesForRestartAndShutDown();
     sleepAndQuitActAtOnceAndRefusalsAreSaid();
+    switchToDesktopIsPowerNotAHook();
     backLeavesThePowerListBeforeTheMenu();
     closeGameAndResume();
     std::printf("guide_menu_controller: all checks passed\n");

@@ -11,6 +11,8 @@ constexpr float panelWidthDp = 300.0f;
 constexpr float paddingDp = 24.0f;
 constexpr float itemHeightDp = 52.0f;
 constexpr float itemGapDp = 6.0f;
+constexpr float powerButtonDp = 44.0f;
+constexpr float powerGapDp = 8.0f;
 
 } // namespace
 
@@ -33,8 +35,11 @@ GuideLayout layoutGuide(const PanelFrame& frame, const PanelChrome& chrome,
     layout.padding = paddingDp * dp;
     const float inset = layout.padding * 0.5f;
     const float top = layout.padding + titleBox + layout.padding;
-    // The rows give up height together when the list would run into the hints.
-    const float room = std::max(height - top - footer - layout.padding, 0.0f);
+    const float size = powerButtonDp * dp;
+    layout.powerButton =
+        Rect{layout.padding, height - layout.padding - footer - powerGapDp * dp - size, size, size};
+    // The rows give up height together when the list would run into the power button.
+    const float room = std::max(layout.powerButton.y - powerGapDp * dp - top, 0.0f);
     const float step = itemHeightDp * dp + itemGapDp * dp;
     const float wanted = static_cast<float>(rows) * step;
     const float squeeze = wanted > room && wanted > 0.0f ? room / wanted : 1.0f;
@@ -73,6 +78,7 @@ void GuideMenu::build() {
     entries_.clear();
     focus_ = 0;
     armed_ = false;
+    powerFocused_ = false;
     const auto add = [this](GuideAction action, std::string label) {
         entries_.push_back(GuideEntry{action, std::move(label)});
     };
@@ -80,7 +86,12 @@ void GuideMenu::build() {
         add(GuideAction::Sleep, "Sleep");
         add(GuideAction::Restart, "Restart");
         add(GuideAction::ShutDown, "Shut down");
-        add(GuideAction::QuitToDesktop, "Quit to desktop");
+        // As the login session, quitting only ends it and the display manager starts it again.
+        if (context_.loginSession) {
+            add(GuideAction::SwitchToDesktop, "Switch to desktop");
+        } else {
+            add(GuideAction::QuitToDesktop, "Quit to desktop");
+        }
         return;
     }
     if (context_.inGame) {
@@ -89,17 +100,22 @@ void GuideMenu::build() {
     } else {
         add(GuideAction::Home, "Home");
         add(GuideAction::Library, "Library");
-        for (const library::Source store : context_.stores) {
-            entries_.push_back(
-                GuideEntry{GuideAction::Store, std::string{library::label(store)}, store});
-        }
     }
     add(GuideAction::Devices, "Devices");
     add(GuideAction::Settings, "Settings");
-    add(GuideAction::Power, "Power");
 }
 
 bool GuideMenu::move(int delta) noexcept {
+    armed_ = false;
+    if (powerFocused_) {
+        const bool leaves = delta < 0;
+        powerFocused_ = !leaves;
+        return leaves;
+    }
+    if (!power_ && delta > 0 && focus_ + 1 == entries_.size()) {
+        powerFocused_ = true;
+        return true;
+    }
     const auto last = static_cast<long>(entries_.size()) - 1;
     const std::size_t next =
         static_cast<std::size_t>(std::clamp(static_cast<long>(focus_) + delta, 0L, last));
@@ -109,10 +125,20 @@ bool GuideMenu::move(int delta) noexcept {
     return moved;
 }
 
-bool GuideMenu::focusEntry(std::size_t index) noexcept {
-    if (index >= entries_.size() || index == focus_) {
+bool GuideMenu::focusPower() noexcept {
+    if (power_ || powerFocused_) {
         return false;
     }
+    powerFocused_ = true;
+    armed_ = false;
+    return true;
+}
+
+bool GuideMenu::focusEntry(std::size_t index) noexcept {
+    if (index >= entries_.size() || (index == focus_ && !powerFocused_)) {
+        return false;
+    }
+    powerFocused_ = false;
     focus_ = index;
     armed_ = false;
     return true;
@@ -126,8 +152,9 @@ void GuideMenu::showPower() {
 void GuideMenu::showMain() {
     power_ = false;
     build();
-    // Back from the power list lands on Power, the last entry.
+    // Back from the power list lands on the power button.
     focus_ = entries_.size() - 1;
+    powerFocused_ = true;
 }
 
 void GuideMenu::arm() noexcept {

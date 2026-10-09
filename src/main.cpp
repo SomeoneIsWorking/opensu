@@ -20,34 +20,37 @@
 namespace {
 
 void printHelp() {
-    std::printf("opensu — a gamepad-first game library shell\n"
-                "\n"
-                "  opensu                run the shell; from a desktop it starts its own\n"
-                "                        Gamescope, and Steam and games run inside it\n"
-                "  opensu --render FILE  render one frame to FILE and exit\n"
-                "        --keyboard      with --render, draw the keyboard's prompts\n"
-                "  opensu --hidden       the shell with an unmapped window, no Gamescope, no pads\n"
-                "                        and a free control port (logged), for maintainer runs\n"
-                "\n"
-                "Environment:\n"
-                "  OPENSU_STEAM_ROOTS  colon-separated Steam install roots\n"
-                "  OPENSU_ROM_ROOTS    colon-separated ROM roots (discovered when unset)\n"
-                "  OPENSU_EMULATORS    system=program arg {rom};system2=program\n"
-                "  OPENSU_WIDTH        window width (default 1280)\n"
-                "  OPENSU_HEIGHT       window height (default 800)\n"
-                "  OPENSU_HOME_MODE    home grid: standard (scrolling, default) or wiisu\n"
-                "                      (pages with peeks and page dots)\n"
-                "  OPENSU_ASSETS       directory holding the typeface (default ../share/opensu\n"
-                "                      beside the executable)\n"
-                "  OPENSU_CONTROL_PORT control channel port (default 7311)\n"
-                "  OPENSU_SESSION      name of the session's scopes (default opensu-<pid>)\n"
-                "\n"
-                "Control channel, on loopback only:\n"
-                "  GET  /state       the shell's state as JSON\n"
-                "  POST /input       a button name: up down left right a b x y l1 r1\n"
-                "                    select start guide\n"
-                "  GET  /frame.png   the next frame, as PNG bytes\n"
-                "  POST /quit        close the shell\n");
+    std::printf(
+        "opensu — a gamepad-first game library shell\n"
+        "\n"
+        "  opensu                run the shell; from a desktop it starts its own\n"
+        "                        Gamescope, and Steam and games run inside it\n"
+        "  opensu --render FILE  render one frame to FILE and exit\n"
+        "        --keyboard      with --render, draw the keyboard's prompts\n"
+        "  opensu --hidden       the shell with an unmapped window, no Gamescope, no pads\n"
+        "                        and a free control port (logged), for maintainer runs\n"
+        "  opensu --session      openSU is the login session: the power list offers Switch\n"
+        "                        to desktop instead of Quit to desktop\n"
+        "\n"
+        "Environment:\n"
+        "  OPENSU_STEAM_ROOTS  colon-separated Steam install roots\n"
+        "  OPENSU_ROM_ROOTS    colon-separated ROM roots (discovered when unset)\n"
+        "  OPENSU_EMULATORS    system=program arg {rom};system2=program\n"
+        "  OPENSU_WIDTH        window width (default 1280)\n"
+        "  OPENSU_HEIGHT       window height (default 800)\n"
+        "  OPENSU_HOME_MODE    home grid: standard (scrolling, default) or wiisu\n"
+        "                      (pages with peeks and page dots)\n"
+        "  OPENSU_ASSETS       directory holding the typeface (default ../share/opensu\n"
+        "                      beside the executable)\n"
+        "  OPENSU_CONTROL_PORT control channel port (default 7311)\n"
+        "  OPENSU_SESSION      name of the session's scopes (default opensu-<pid>)\n"
+        "\n"
+        "Control channel, on loopback only:\n"
+        "  GET  /state       the shell's state as JSON\n"
+        "  POST /input       a button name: up down left right a b x y l1 r1\n"
+        "                    select start guide\n"
+        "  GET  /frame.png   the next frame, as PNG bytes\n"
+        "  POST /quit        close the shell\n");
 }
 
 } // namespace
@@ -84,6 +87,7 @@ int main(int argc, char** argv) {
         .controlChannel = config.controlChannel,
         .homeMode = config.homeMode,
         .hidden = arguments.hidden,
+        .loginSession = arguments.loginSession,
         .startSteam = arguments.startsSteam(),
     };
     opensu::app::ShellApp shell{settings};

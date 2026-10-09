@@ -3,6 +3,8 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 
 namespace {
 
@@ -65,8 +67,46 @@ void refusing() {
 void labels() {
     expect(std::string{opensu::host::label(PowerAction::Suspend)} == "Sleep" &&
                std::string{opensu::host::label(PowerAction::Restart)} == "Restart" &&
-               std::string{opensu::host::label(PowerAction::ShutDown)} == "Shut down",
+               std::string{opensu::host::label(PowerAction::ShutDown)} == "Shut down" &&
+               std::string{opensu::host::label(PowerAction::SwitchToDesktop)} ==
+                   "Switch to desktop",
            "the labels");
+}
+
+void switchingToTheDesktop() {
+    namespace fs = std::filesystem;
+    const fs::path bin = fs::path{OPENSU_TEST_SCRATCH} / "power" / "bin";
+    fs::remove_all(bin.parent_path());
+    fs::create_directories(bin);
+    Calls calls;
+    const opensu::host::SessionExit exit{{bin}, "7"};
+    const auto bare = opensu::host::makeLogindPower(fake(calls, opensu::launch::Captured{}), exit);
+    expect(bare->perform(PowerAction::SwitchToDesktop).empty(), "ending the session is accepted");
+    expect(calls.programs == std::vector<std::string>{"loginctl"} &&
+               calls.arguments == std::vector<std::vector<std::string>>{{"terminate-session", "7"}},
+           "without steamos-session-select it ends our logind session");
+
+    const fs::path select = bin / "steamos-session-select";
+    std::ofstream{select} << "#!/bin/sh\n";
+    fs::permissions(select, fs::perms::owner_all);
+    calls = {};
+    const auto steamos =
+        opensu::host::makeLogindPower(fake(calls, opensu::launch::Captured{}), exit);
+    expect(steamos->perform(PowerAction::SwitchToDesktop).empty(),
+           "the SteamOS switch is accepted");
+    expect(calls.programs == std::vector<std::string>{"steamos-session-select"} &&
+               calls.arguments == std::vector<std::vector<std::string>>{{"plasma"}},
+           "with steamos-session-select it selects plasma");
+    const auto denied = opensu::host::makeLogindPower(
+        fake(calls, opensu::launch::Captured{1, "no session\n"}), exit);
+    expect(denied->perform(PowerAction::SwitchToDesktop) == "no session", "its refusal is said");
+
+    calls = {};
+    const auto unknown = opensu::host::makeLogindPower(fake(calls, opensu::launch::Captured{}),
+                                                       opensu::host::SessionExit{{}, ""});
+    expect(!unknown->perform(PowerAction::SwitchToDesktop).empty() && calls.programs.empty(),
+           "with no tool and no session id nothing runs and the reason is said");
+    fs::remove_all(bin.parent_path());
 }
 
 } // namespace
@@ -76,5 +116,6 @@ int main() {
     refusals();
     refusing();
     labels();
+    switchingToTheDesktop();
     return 0;
 }

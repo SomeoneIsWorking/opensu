@@ -1,4 +1,4 @@
-// The Guide menu's entries, focus, power list and geometry.
+// The Guide menu's entries, focus, power button and list, and geometry.
 #include "guide_menu.hpp"
 
 #include <cstdio>
@@ -9,7 +9,6 @@
 
 namespace {
 
-using opensu::library::Source;
 using opensu::test::expect;
 using opensu::test::near;
 using opensu::ui::GuideAction;
@@ -18,11 +17,11 @@ using opensu::ui::GuideLayout;
 using opensu::ui::GuideMenu;
 
 GuideContext home() {
-    return GuideContext{false, {}, {Source::Steam, Source::Epic, Source::Gog}};
+    return GuideContext{false, {}};
 }
 
 GuideContext inGame() {
-    return GuideContext{true, "Celeste", {Source::Steam, Source::Epic, Source::Gog}};
+    return GuideContext{true, "Celeste"};
 }
 
 void homeEntriesAreTheSectionsThenTheSystem() {
@@ -33,13 +32,8 @@ void homeEntriesAreTheSectionsThenTheSystem() {
         actions.push_back(entry.action);
     }
     expect(actions == std::vector<GuideAction>({GuideAction::Home, GuideAction::Library,
-                                                GuideAction::Store, GuideAction::Store,
-                                                GuideAction::Store, GuideAction::Devices,
-                                                GuideAction::Settings, GuideAction::Power}),
-           "Home, Library, each store, Devices, Settings, Power");
-    expect(menu.entries()[2].label == "Steam" && menu.entries()[3].store == Source::Epic &&
-               menu.entries()[4].label == "GOG",
-           "a store entry names its store");
+                                                GuideAction::Devices, GuideAction::Settings}),
+           "Home, Library, Devices, Settings");
     expect(menu.title() == "openSU", "the heading names openSU outside a game");
     expect(menu.focus() == 0 && std::string{menu.backLabel()} == "Close",
            "it opens on the first entry and B closes it");
@@ -51,8 +45,9 @@ void gameEntriesResumeOrClose() {
     expect(menu.entries()[0].action == GuideAction::Resume &&
                menu.entries()[1].action == GuideAction::CloseGame,
            "over a game, Resume and Close game come first");
-    expect(menu.entries().size() == 5 && menu.entries()[4].action == GuideAction::Power,
-           "then Devices, Settings and Power; no sections");
+    expect(menu.entries().size() == 4 && menu.entries()[2].action == GuideAction::Devices &&
+               menu.entries()[3].action == GuideAction::Settings,
+           "then Devices and Settings; no sections");
     expect(menu.title() == "Celeste" && std::string{menu.backLabel()} == "Resume",
            "the game's title heads it and B resumes");
 }
@@ -63,7 +58,9 @@ void movesAndStops() {
     expect(!menu.move(-1) && menu.focus() == 0, "stops at the top");
     expect(menu.move(1) && menu.focus() == 1, "moves down");
     expect(menu.move(50) && menu.focus() == menu.entries().size() - 1, "stops at the bottom");
-    expect(!menu.move(1), "and does not move there");
+    expect(menu.move(1) && menu.powerFocused() && !menu.move(1),
+           "then the power button, and no further");
+    menu.move(-1);
     expect(menu.focusEntry(2) && !menu.focusEntry(2) && !menu.focusEntry(99),
            "a pointer focuses an entry once, and not one that is not there");
 }
@@ -72,7 +69,11 @@ void powerHasItsOwnList() {
     GuideMenu menu;
     menu.open(home());
     menu.move(50);
-    expect(menu.selected().action == GuideAction::Power, "Power is last");
+    expect(!menu.powerFocused(), "moving a lot stops on the last row");
+    expect(menu.move(1) && menu.powerFocused(), "down past the last row focuses the power button");
+    expect(!menu.move(1) && menu.powerFocused(), "and stops there");
+    expect(menu.move(-1) && !menu.powerFocused() && menu.focus() == 3, "up returns to the list");
+    menu.focusPower();
     menu.showPower();
     expect(menu.inPower() && menu.title() == "Power" && std::string{menu.backLabel()} == "Back",
            "the power list is headed Power and B goes back");
@@ -82,8 +83,24 @@ void powerHasItsOwnList() {
                menu.entries()[3].action == GuideAction::QuitToDesktop,
            "sleep, restart, shut down, quit to desktop");
     menu.showMain();
-    expect(!menu.inPower() && menu.selected().action == GuideAction::Power,
-           "going back lands on Power");
+    expect(!menu.inPower() && menu.powerFocused(), "going back lands on the power button");
+    expect(!menu.focusPower() && menu.focusEntry(1) && !menu.powerFocused() && menu.focus() == 1,
+           "a pointer moves between the button and the rows");
+    menu.showPower();
+    expect(!menu.focusPower(), "the button is not there in the power list");
+}
+
+void sessionModeSwitchesInsteadOfQuitting() {
+    GuideMenu menu;
+    menu.open(GuideContext{false, {}, true});
+    menu.focusPower();
+    menu.showPower();
+    expect(menu.entries().size() == 4 && menu.entries()[3].action == GuideAction::SwitchToDesktop &&
+               menu.entries()[3].label == "Switch to desktop",
+           "as the login session the list ends with Switch to desktop");
+    for (const auto& entry : menu.entries()) {
+        expect(entry.action != GuideAction::QuitToDesktop, "and has no Quit to desktop");
+    }
 }
 
 void armingAsksForASecondPress() {
@@ -113,11 +130,17 @@ void reopenStartsOver() {
 }
 
 void rowsUnderThePointer() {
-    const GuideLayout layout = opensu::ui::layoutGuide({1920.0f, 1080.0f, 2.25f}, {40.0f, 45.0f}, 3);
+    const GuideLayout layout =
+        opensu::ui::layoutGuide({1920.0f, 1080.0f, 2.25f}, {40.0f, 45.0f}, 3);
     near(layout.panel.width, 675.0, "the panel is 300 dp wide");
     near(layout.panel.height, 1080.0, "and as tall as the frame");
     near(layout.rows[0].y, 54.0 + 40.0 + 54.0, "the rows start below the title");
     near(layout.rows[1].y - layout.rows[0].bottom(), 13.5, "6 dp apart");
+    near(layout.powerButton.x, layout.padding, "the power button stands at the panel's left");
+    near(layout.powerButton.width, 99.0, "44 dp square");
+    expect(layout.powerButton.bottom() <= 1080.0f - 45.0f - layout.padding,
+           "above the corner hints");
+    expect(layout.rows.back().bottom() < layout.powerButton.y, "below the rows");
     for (std::size_t i = 0; i < layout.rows.size(); ++i) {
         const auto hit = layout.rowAt(layout.rows[i].centreX(), layout.rows[i].centreY());
         expect(hit && *hit == i, "a row's centre hits it");
@@ -132,6 +155,7 @@ void rowsShrinkToFit() {
     const GuideLayout layout = opensu::ui::layoutGuide({1280.0f, 300.0f, 1.0f}, {30.0f, 20.0f}, 8);
     expect(layout.rows.back().bottom() <= 300.0f - 20.0f, "eight rows still end above the hints");
     expect(layout.rows[0].height < 52.0f, "by giving up height together");
+    expect(layout.rows.back().bottom() <= layout.powerButton.y, "and stop above the power button");
 }
 
 } // namespace
@@ -141,6 +165,7 @@ int main() {
     gameEntriesResumeOrClose();
     movesAndStops();
     powerHasItsOwnList();
+    sessionModeSwitchesInsteadOfQuitting();
     armingAsksForASecondPress();
     reopenStartsOver();
     rowsUnderThePointer();

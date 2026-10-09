@@ -26,6 +26,9 @@ int main() {
     expect(Arguments::parse(hidden).hidden, "--hidden asks for the hidden run");
     expect(!Arguments::parse(hidden).startsSteam() && Arguments{}.startsSteam(),
            "a hidden run never starts Steam");
+    const std::vector<std::string> session{"--session"};
+    expect(Arguments::parse(session).loginSession && !none.loginSession,
+           "--session asks for the login session");
     const std::vector<std::string> render{"--render", "a.png", "--keyboard"};
     const Arguments rendered = Arguments::parse(render);
     expect(rendered.renderPath == "a.png" && rendered.keyboardPrompts && !rendered.hidden,

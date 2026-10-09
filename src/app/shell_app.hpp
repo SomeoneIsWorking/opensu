@@ -21,36 +21,36 @@
 #include "artwork_delivery.hpp"
 #include "artwork_fetcher.hpp"
 #include "artwork_store.hpp"
+#include "audio/sound_player.hpp"
 #include "audio_outputs.hpp"
 #include "bluetooth_session.hpp"
-#include "brightness_control.hpp"
-#include "controller_roster.hpp"
-#include "audio/sound_player.hpp"
 #include "breadcrumb_trail.hpp"
+#include "brightness_control.hpp"
 #include "config/config.hpp"
 #include "context_menu_controller.hpp"
 #include "control_bridge.hpp"
 #include "control_channel.hpp"
+#include "controller_roster.hpp"
 #include "details_controller.hpp"
-#include "devices_controller.hpp"
 #include "device/battery.hpp"
+#include "devices_controller.hpp"
+#include "game_screen.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pads.hpp"
 #include "gamescope_windows.hpp"
-#include "input/keyboard_bindings.hpp"
-#include "game_screen.hpp"
 #include "guide_menu_controller.hpp"
 #include "host_services.hpp"
+#include "input/keyboard_bindings.hpp"
 #include "launch/handoff.hpp"
 #include "layout_picker.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
 #include "library/shelf.hpp"
 #include "panel_flow.hpp"
-#include "quick_menu_controller.hpp"
 #include "path_editor.hpp"
 #include "pointer_router.hpp"
 #include "preferences.hpp"
+#include "quick_menu_controller.hpp"
 #include "search_controller.hpp"
 #include "settings_controller.hpp"
 #include "shortcut_editor.hpp"
@@ -76,6 +76,8 @@ struct Settings {
     config::HomeMode homeMode{config::HomeMode::Standard};
     /// The window is never mapped and no pad is read, for maintainer runs and tests.
     bool hidden{false};
+    /// openSU is the login session (`--session`), not an app on a desktop.
+    bool loginSession{false};
     /// Whether `run` starts the Steam client, when a Steam install exists.
     bool startSteam{true};
 };
@@ -197,8 +199,6 @@ class ShellApp final : private PointerHost {
     void syncOverlay();
     /// Keeps Bluetooth read while something shows it and the Devices page current. Main loop only.
     void serviceDevices(std::chrono::steady_clock::time_point now);
-    /// The stores that have a section in the Guide menu.
-    [[nodiscard]] std::vector<library::Source> storeSections() const;
     /// The output's size and refresh rate, for the Display tab.
     [[nodiscard]] static std::string outputLine();
     /// Gives the shell what its chrome shows now: prompts, launcher badges, title and trail.
@@ -382,18 +382,16 @@ class ShellApp final : private PointerHost {
     gamepad::Pads pads_{padsDirectory(settings_.hidden)};
     device::ControllerBatteries padBatteries_;
     /// The pads as the Devices page and the quick menu list them.
-    ControllerRoster roster_{ControllerRoster::Sources{
-        [this] {
-            return pads_.connected();
-        },
-        [this](const std::string& uniq) {
-            return padBatteries_.read(uniq);
-        }}};
+    ControllerRoster roster_{ControllerRoster::Sources{[this] {
+                                                           return pads_.connected();
+                                                       },
+                                                       [this](const std::string& uniq) {
+                                                           return padBatteries_.read(uniq);
+                                                       }}};
     /// The Devices page, reached from the Guide menu and the quick menu.
     DevicesController devicesScreen_{
         shell_.devicesPanel().page(),
-        DevicesController::Services{bluetooth_, roster_, outputs_, volume_, brightness_},
-        sounds_,
+        DevicesController::Services{bluetooth_, roster_, outputs_, volume_, brightness_}, sounds_,
         preferences_,
         DevicesController::Hooks{[this] {
                                      applyLayout();
@@ -413,15 +411,11 @@ class ShellApp final : private PointerHost {
         shell_.guidePanels().guide(), *host_.power, sounds_,
         GuideMenuController::Hooks{[this] {
                                        return ui::GuideContext{shell_.inGame(), runningTitle_,
-                                                               storeSections()};
+                                                               settings_.loginSession};
                                    },
                                    [this](library::Section section) {
                                        closePages();
                                        clickSection(section);
-                                   },
-                                   [this](library::Source source) {
-                                       closePages();
-                                       selectLauncher(source);
                                    },
                                    [this] {
                                        closePages();
@@ -443,8 +437,7 @@ class ShellApp final : private PointerHost {
     /// The quick menu: Guide + A, over the home screen or a running game.
     QuickMenuController quickMenu_{
         shell_.guidePanels().quick(),
-        QuickMenuController::Services{volume_, outputs_, brightness_, bluetooth_, roster_},
-        sounds_,
+        QuickMenuController::Services{volume_, outputs_, brightness_, bluetooth_, roster_}, sounds_,
         QuickMenuController::Hooks{[this] {
                                        return shell_.inGame();
                                    },

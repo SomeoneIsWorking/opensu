@@ -1,7 +1,8 @@
 // guide_menu — the menu Guide opens: a panel down the left edge, after Steam's main menu, with
-// openSU's own entries. Outside a game it goes to Home, Library, each store, Devices and Settings;
-// over a running game it resumes or closes the game first. Power opens a second list of its own.
-// Pure state, so it is tested without a window.
+// openSU's own entries. Outside a game it goes to Home, Library, Devices and Settings; over a
+// running game it resumes or closes the game first. A power button in the bottom-left corner,
+// reached by moving down past the last row, opens a second list of its own. Pure state, so it is
+// tested without a window.
 #pragma once
 
 #include <cstdint>
@@ -11,7 +12,6 @@
 #include <vector>
 
 #include "home_layout.hpp"
-#include "library/game.hpp"
 #include "panel_frame.hpp"
 
 namespace opensu::ui {
@@ -21,23 +21,18 @@ enum class GuideAction : std::uint8_t {
     CloseGame,
     Home,
     Library,
-    /// A store's section of Library, named by `GuideEntry::store`.
-    Store,
     Devices,
     Settings,
-    /// Opens the power list.
-    Power,
     Sleep,
     Restart,
     ShutDown,
     QuitToDesktop,
+    SwitchToDesktop,
 };
 
 struct GuideEntry {
     GuideAction action{GuideAction::Resume};
     std::string label;
-    /// The store a `Store` entry goes to.
-    library::Source store{library::Source::Steam};
 };
 
 /// What the menu is opened over.
@@ -45,8 +40,8 @@ struct GuideContext {
     /// A game is running; its title heads the menu.
     bool inGame{false};
     std::string title;
-    /// The stores that have a section of their own.
-    std::vector<library::Source> stores;
+    /// openSU is the login session: the power list ends with Switch to desktop, not Quit.
+    bool loginSession{false};
 };
 
 /// The panel down the left edge and its entry rows, in pixels.
@@ -54,6 +49,8 @@ struct GuideLayout {
     Rect panel;
     float padding{};
     std::vector<Rect> rows;
+    /// The power button above the corner hints; the rows stop above it.
+    Rect powerButton;
 
     /// The row under the point, or nothing.
     [[nodiscard]] std::optional<std::size_t> rowAt(float x, float y) const noexcept;
@@ -88,14 +85,21 @@ class GuideMenu {
     [[nodiscard]] std::string shown(std::size_t index) const;
 
     /// Moves focus by `delta` entries, stopping at either end; moving lets go of an armed entry.
+    /// Down past the last row of the main list focuses the power button, and Up leaves it.
     bool move(int delta) noexcept;
     /// Focuses entry `index`; reports whether focus changed.
     bool focusEntry(std::size_t index) noexcept;
+    /// Focuses the power button; reports whether focus changed. Not in the power list.
+    bool focusPower() noexcept;
+    /// Whether focus is on the power button rather than a row.
+    [[nodiscard]] bool powerFocused() const noexcept {
+        return powerFocused_;
+    }
 
     [[nodiscard]] bool inPower() const noexcept {
         return power_;
     }
-    /// Shows the power list, or the main list again.
+    /// Shows the power list, or the main list again with the power button focused.
     void showPower();
     void showMain();
 
@@ -114,6 +118,7 @@ class GuideMenu {
     std::vector<GuideEntry> entries_;
     std::size_t focus_{0};
     bool power_{false};
+    bool powerFocused_{false};
     bool armed_{false};
     bool open_{false};
 };

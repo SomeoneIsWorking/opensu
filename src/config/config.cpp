@@ -236,6 +236,7 @@ const Config& read() {
         if (value.session.empty()) {
             value.session = "opensu-" + std::to_string(getpid());
         }
+        value.loginSessionId = std::string{env("XDG_SESSION_ID")};
         value.executablePath = splitPaths(env("PATH"));
         return value;
     }();

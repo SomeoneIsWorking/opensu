@@ -95,6 +95,9 @@ struct Config {
     /// Whether OPENSU_SESSION was set, which means a session already wraps this process.
     bool sessionInherited{false};
 
+    /// The logind session this process runs in, from XDG_SESSION_ID; empty when there is none.
+    std::string loginSessionId;
+
     /// The directories searched for a launch's program, from PATH.
     std::vector<std::filesystem::path> executablePath;
 };

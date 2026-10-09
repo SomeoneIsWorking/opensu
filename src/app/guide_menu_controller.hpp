@@ -1,7 +1,7 @@
 // guide_menu_controller — what the Guide menu does. Builds its entries for where the shell is (the
-// sections and stores, or the running game), moves its focus, and sends a chosen entry to the
-// shell app's navigation or to power: sleep, restart and shut down go through `host::Power`, with
-// a second press for the two that cannot be taken back.
+// sections, or the running game), moves its focus, and sends a chosen entry to the shell app's
+// navigation or to power: sleep, restart and shut down go through `host::Power`, with a second
+// press for the two that cannot be taken back.
 #pragma once
 
 #include <functional>
@@ -19,11 +19,9 @@ class GuideMenuController {
   public:
     /// What an entry asks of the shell app.
     struct Hooks {
-        /// What the menu opens over: a running game, or the home screen, and the stores.
+        /// What the menu opens over: a running game, or the home screen.
         std::function<ui::GuideContext()> context;
         std::function<void(library::Section)> showSection;
-        /// Library, on this store's section.
-        std::function<void(library::Source)> showStore;
         std::function<void()> openDevices;
         std::function<void()> openSettings;
         /// Ends the running game.

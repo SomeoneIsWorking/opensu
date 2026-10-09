@@ -672,17 +672,6 @@ void ShellApp::syncOverlay() {
     }
 }
 
-std::vector<library::Source> ShellApp::storeSections() const {
-    std::vector<library::Source> stores;
-    for (const library::SourceStatus& status : sources_) {
-        if (status.source != library::Source::Rom &&
-            status.availability != library::Availability::Absent) {
-            stores.push_back(status.source);
-        }
-    }
-    return stores;
-}
-
 std::string ShellApp::outputLine() {
     const int monitor = GetCurrentMonitor();
     return std::to_string(GetMonitorWidth(monitor)) + " x " +

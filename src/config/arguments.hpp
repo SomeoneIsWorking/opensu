@@ -15,6 +15,9 @@ struct Arguments {
     /// `--hidden`: the interactive shell with an unmapped window, no Gamescope session, no pads
     /// and a free control port, for maintainer runs and tests.
     bool hidden{false};
+    /// `--session`: openSU is the login session, started by a session entry or the display
+    /// manager, rather than an app on a desktop. The power list then offers Switch to desktop.
+    bool loginSession{false};
     bool help{false};
 
     /// Whether the shell starts the Steam client: a hidden run never does, so it leaves no Steam

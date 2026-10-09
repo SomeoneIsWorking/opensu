@@ -9,12 +9,12 @@ gitignored `docs/reference/`).
 
 | Path | Owns |
 | --- | --- |
-| `src/config/arguments.*` | The command line as typed values (`--render`, `--keyboard`, `--hidden`: the shell with an unmapped window, no Gamescope session, no pads, free control port, no Steam client: `startsSteam()`) |
+| `src/config/arguments.*` | The command line as typed values (`--render`, `--keyboard`, `--session`: openSU is the login session, `--hidden`: the shell with an unmapped window, no Gamescope session, no pads, free control port, no Steam client: `startsSteam()`) |
 | `src/main.cpp` | Starts the nested session or the shell; `--render FILE` renders one frame headless |
 | `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop; plays the UI sounds at the input events that iiSU plays them at |
 | `src/app/control_bridge.*` | The hand-over between the control channel's threads and the loop: queued input, reload and close requests, the published `ShellSnapshot`, the frame handshake |
 | `src/app/game_screen.*` | The window's relation to a running game: the Gamescope overlay and game-time key watcher, or the hidden window flag; shows the window only while a menu or page is up |
-| `src/app/guide_menu_controller.*` | The Guide menu's buttons and what each entry does (sections, stores, Devices, Settings, close game, quit, power through `host::Power` with a second press for restart and shut down) |
+| `src/app/guide_menu_controller.*` | The Guide menu's buttons and what each entry does (sections, Devices, Settings, close game, quit, the power button and list through `host::Power` with a second press for restart and shut down, Switch to desktop in a login session) |
 | `src/app/quick_menu_controller.*` | The quick menu's rows and buttons: volume, mute, output, brightness, Bluetooth, controller batteries, Devices, Close game |
 | `src/app/devices_controller.*` | The Devices page: Bluetooth, Controllers, Audio output and Display tabs and what their rows do |
 | `src/app/host_services.*` | Power, Bluetooth and backlight backends for this machine; the one place a hidden run is made read-only |
@@ -22,7 +22,7 @@ gitignored `docs/reference/`).
 | `src/app/controller_roster.*` | The pads connected now in player order, with battery and held buttons (the live button test) |
 | `src/app/audio_outputs.*` | The sound outputs and the default one, through `SystemVolume` |
 | `src/app/brightness_control.*` | Display brightness through the backlight, absent without one |
-| `src/host/` | System services over `busctl`, `systemctl` and `bluetoothctl` behind fakeable seams: `runner` (run or hold a program), `bluetooth` (BlueZ), `power` (logind), `backlight` (sysfs read, logind write) |
+| `src/host/` | System services over `busctl`, `systemctl` and `bluetoothctl` behind fakeable seams: `runner` (run or hold a program), `bluetooth` (BlueZ), `power` (logind; in a login session also `steamos-session-select` or `loginctl terminate-session`), `backlight` (sysfs read, logind write) |
 | `src/app/layout_picker.*` | START: the options panel's buttons (layout cards, icon size, pin, sort, source, installed, hidden, search row) and saving what is chosen |
 | `src/app/preferences.*` | The loaded `settings::Settings` and saving them, with a toast when the file cannot be written |
 | `src/app/search_controller.*` | The search panel's pad buttons and keyboard text; the typed text is the view's search |
@@ -45,7 +45,7 @@ gitignored `docs/reference/`).
 | `src/app/cli_install_job.*` | An install by a downloader program: run it, turn its logged progress into reports, fail with its reason; the base of the Epic and GOG jobs |
 | `src/app/steam_install_job.*`, `epic_install_job.*`, `gog_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install (`legendary install`); one GOG install (`gogdl download`: token handed over and taken back, Linux or Windows build, the install recorded) |
 | `src/app/installs.*` | The installers by store, one install at a time; which stores install |
-| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
+| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
 | `src/settings/settings.*` | The player's saved preferences (Library layout, dock pin, icon size, sort and filters, hidden games, last-played times, Settings-screen choices, interface scale, install folders, shortcut remaps) as JSON under the config dir; defaults on a missing or corrupt file |
 | `src/settings/install_folders.*` | The one resolver of where a store installs: a store's override, else the default, else none (the store's own choice); validation (exists, writable) |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
@@ -158,13 +158,13 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/top_bar_layout.*` | The status pill and the launcher badge cells in it, in pixels; the launcher under a point. The Hud paints and hit-tests from it |
 | `src/ui/corner_hints.*` | Which prompts the bottom corners name, from what each button does now (`HintContext`) |
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
-| `src/ui/guide_menu.*` | The Guide menu's entries per context (home or running game), the power list, the armed entry, focus; its panel and row rectangles |
+| `src/ui/guide_menu.*` | The Guide menu's entries per context (home or running game), the power button below the rows, the power list, the armed entry, focus; its panel, row and power button rectangles |
 | `src/ui/quick_menu.*` | The quick menu's rows (the Settings rows), focus, panel layout and hit-tests |
 | `src/ui/panel_frame.hpp` | The frame and chrome heights the side menus are laid out in |
 | `src/ui/page_panel.*` | A settings-style page with its fade, as the Settings screen and Devices page use it |
 | `src/ui/tile.hpp`, `tile_artwork.*` | The tile; the artwork decode, tickets and resident textures of the shelf |
 | `src/ui/launch_panel.*` | The launch/install card's state; its card and hint rectangles from measured widths, and the hint under a point |
-| `src/ui/pointer_target.hpp` | What a pointer can be on (breadcrumb level, details button, dock item, tile, page control, layout card, options row, icon size slider, search key or result, context item or backdrop, Guide entry, quick row or slider, page row or slider, panel button, launcher badge) |
+| `src/ui/pointer_target.hpp` | What a pointer can be on (breadcrumb level, details button, dock item, tile, page control, layout card, options row, icon size slider, search key or result, context item or backdrop, Guide entry, Guide power button, quick row or slider, page row or slider, panel button, launcher badge) |
 
 Painters and composition (`opensu_ui`):
 

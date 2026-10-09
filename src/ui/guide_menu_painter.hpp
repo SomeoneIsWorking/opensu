@@ -20,6 +20,7 @@ class GuideMenuPainter {
     void paint(const GuideMenu& menu, float width, float height, float dp) const;
 
   private:
+    void paintPowerButton(const Rect& box, bool focused, float dp) const;
     ButtonGlyphPainter glyphs_;
 };
 

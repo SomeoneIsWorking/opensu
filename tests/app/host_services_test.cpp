@@ -44,23 +44,28 @@ bool ranAny(const Rig& rig, const std::string& word) {
 
 void hiddenRunsChangeNothing() {
     Rig rig;
-    app::HostServices services = app::HostServices::over(rig.runner(), rig.spawner(), rig.root, true);
+    app::HostServices services =
+        app::HostServices::over(rig.runner(), rig.spawner(), rig.root, true);
     expect(!services.power->perform(host::PowerAction::ShutDown).empty(), "power is refused");
     expect(!services.power->perform(host::PowerAction::Suspend).empty(), "sleep is refused");
+    expect(!services.power->perform(host::PowerAction::SwitchToDesktop).empty(),
+           "switching to the desktop is refused");
     expect(!services.bluetooth->startDiscovery().empty(), "a scan is refused");
     expect(!services.bluetooth->pair("/d/x").empty(), "pairing is refused");
     expect(!services.bluetooth->connect("/d/x").empty(), "connecting is refused");
     expect(!services.bluetooth->remove("/d/x").empty(), "forgetting is refused");
     expect(!services.bluetooth->setPowered(false).empty(), "switching off is refused");
     expect(rig.spawned.empty(), "no scan program was started");
-    expect(!ranAny(rig, "systemctl") && !ranAny(rig, "Pair") && !ranAny(rig, "Connect") &&
-               !ranAny(rig, "RemoveDevice"),
+    expect(!ranAny(rig, "systemctl") && !ranAny(rig, "loginctl") &&
+               !ranAny(rig, "steamos-session-select") && !ranAny(rig, "Pair") &&
+               !ranAny(rig, "Connect") && !ranAny(rig, "RemoveDevice"),
            "no change reached the system");
 }
 
 void normalRunsReachTheSystem() {
     Rig rig;
-    app::HostServices services = app::HostServices::over(rig.runner(), rig.spawner(), rig.root, false);
+    app::HostServices services =
+        app::HostServices::over(rig.runner(), rig.spawner(), rig.root, false);
     expect(services.power->perform(host::PowerAction::Restart).empty(), "restart is accepted");
     expect(ranAny(rig, "systemctl reboot"), "restart runs systemctl reboot");
 }
@@ -75,7 +80,8 @@ void aBacklightIsOnlyThereWhenTheMachineHasOne() {
     std::filesystem::create_directories(device);
     std::ofstream{device / "max_brightness"} << "100\n";
     std::ofstream{device / "brightness"} << "40\n";
-    app::HostServices services = app::HostServices::over(rig.runner(), rig.spawner(), rig.root, true);
+    app::HostServices services =
+        app::HostServices::over(rig.runner(), rig.spawner(), rig.root, true);
     expect(services.backlight && services.backlight->percent() == 40, "a hidden run reads it");
     expect(services.backlight->setPercent(10).empty() && services.backlight->percent() == 10,
            "a change is only held in memory");

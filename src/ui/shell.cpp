@@ -903,6 +903,7 @@ bool Shell::focusTarget(const PointerTarget& target) {
                                  std::is_same_v<Target, OnFolderEntry>) {
                 return devices_.isOpen() ? devices_.focusTarget(at) : settings_.focusTarget(at);
             } else if constexpr (std::is_same_v<Target, OnGuideEntry> ||
+                                 std::is_same_v<Target, OnGuidePower> ||
                                  std::is_same_v<Target, OnQuickRow> ||
                                  std::is_same_v<Target, OnQuickSlider>) {
                 return guide_.focusTarget(at);

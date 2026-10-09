@@ -52,12 +52,13 @@ void GuideMenuController::act(gamepad::Button button) {
 
 void GuideMenuController::choose() {
     // The entry is a reference into the menu, which closing or switching lists rebuilds.
-    const ui::GuideEntry entry = menu_.selected();
-    switch (entry.action) {
-    case ui::GuideAction::Power:
+    if (menu_.powerFocused()) {
         sounds_.play(audio::Effect::Navigation);
         menu_.showPower();
         return;
+    }
+    const ui::GuideAction action = menu_.selected().action;
+    switch (action) {
     case ui::GuideAction::Restart:
     case ui::GuideAction::ShutDown:
         if (!menu_.armed()) {
@@ -70,9 +71,8 @@ void GuideMenuController::choose() {
         break;
     }
     close();
-    switch (entry.action) {
+    switch (action) {
     case ui::GuideAction::Resume:
-    case ui::GuideAction::Power:
         break;
     case ui::GuideAction::CloseGame:
         hooks_.closeGame();
@@ -82,9 +82,6 @@ void GuideMenuController::choose() {
         break;
     case ui::GuideAction::Library:
         hooks_.showSection(library::Section::Library);
-        break;
-    case ui::GuideAction::Store:
-        hooks_.showStore(entry.store);
         break;
     case ui::GuideAction::Devices:
         hooks_.openDevices();
@@ -103,6 +100,9 @@ void GuideMenuController::choose() {
         break;
     case ui::GuideAction::QuitToDesktop:
         hooks_.quit();
+        break;
+    case ui::GuideAction::SwitchToDesktop:
+        perform(host::PowerAction::SwitchToDesktop);
         break;
     }
 }

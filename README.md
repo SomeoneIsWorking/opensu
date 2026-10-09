@@ -79,6 +79,20 @@ Gamescope.
 ./build/cmake/src/opensu                  # the shell
 ./build/cmake/src/opensu --render out.png # one frame to a file, no window shown
 ./build/cmake/src/opensu --hidden         # maintainer run: unmapped window, no pads, free control port
+./build/cmake/src/opensu --session        # openSU is the login session, not an app on a desktop
+```
+
+`--session` is for a session entry or a display manager's autologin target. The Guide menu's power
+list then ends with Switch to desktop instead of Quit to desktop: it runs
+`steamos-session-select plasma` when that is on `PATH`, and otherwise ends the logind session
+(`loginctl terminate-session`), which returns to the display manager. A Wayland session entry,
+`/usr/share/wayland-sessions/opensu.desktop`:
+
+```ini
+[Desktop Entry]
+Name=openSU
+Exec=/opt/opensu/bin/opensu --session
+Type=Application
 ```
 
 `--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `volumePercent`, `volumeMuted`, `uiScale`). A hidden run only reads the system volume and never starts the Steam client (Steam shows as stopped); it also never sleeps, restarts, shuts down, scans, pairs, connects or forgets Bluetooth devices, and never writes the brightness.

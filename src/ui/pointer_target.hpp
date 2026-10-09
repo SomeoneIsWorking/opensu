@@ -41,6 +41,11 @@ struct OnGuideEntry {
     bool operator==(const OnGuideEntry&) const = default;
 };
 
+/// The Guide menu's power button.
+struct OnGuidePower {
+    bool operator==(const OnGuidePower&) const = default;
+};
+
 /// A row of the Library options under the cards: pin, sort, source, filters or search.
 struct OnChooserRow {
     ChooserRow row;
@@ -140,9 +145,10 @@ struct OnFolderEntry {
 
 /// Nothing, or the element the pointer is on.
 using PointerTarget =
-    std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnGuideEntry, OnPanelButton,
-                 OnChooserRow, OnIconSize, OnSearchKey, OnSearchResult, OnContextItem,
-                 OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton, OnSettingsCategory,
-                 OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow, OnQuickSlider>;
+    std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnGuideEntry, OnGuidePower,
+                 OnPanelButton, OnChooserRow, OnIconSize, OnSearchKey, OnSearchResult,
+                 OnContextItem, OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton,
+                 OnSettingsCategory, OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow,
+                 OnQuickSlider>;
 
 } // namespace opensu::ui

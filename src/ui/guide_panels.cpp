@@ -15,6 +15,9 @@ PointerTarget GuidePanels::pointAt(Vector2 point, Vector2 size, float dp) const 
         if (const std::optional<std::size_t> row = layout.rowAt(point.x, point.y)) {
             return OnGuideEntry{*row};
         }
+        if (!guide_.inPower() && layout.powerButton.contains(point.x, point.y)) {
+            return OnGuidePower{};
+        }
         return layout.panel.contains(point.x, point.y) ? PointerTarget{} : OnBackdrop{};
     }
     if (quick_.isOpen()) {
@@ -34,6 +37,9 @@ PointerTarget GuidePanels::pointAt(Vector2 point, Vector2 size, float dp) const 
 bool GuidePanels::focusTarget(const PointerTarget& target) {
     if (const auto* entry = std::get_if<OnGuideEntry>(&target)) {
         return guide_.focusEntry(entry->index);
+    }
+    if (std::holds_alternative<OnGuidePower>(target)) {
+        return guide_.focusPower();
     }
     if (const auto* row = std::get_if<OnQuickRow>(&target)) {
         return quick_.focusRow(row->index);

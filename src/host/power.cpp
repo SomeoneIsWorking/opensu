@@ -4,6 +4,8 @@
 #include <cctype>
 #include <utility>
 
+#include "lucent/log.h"
+
 namespace opensu::host {
 namespace {
 
@@ -15,8 +17,24 @@ const char* verb(PowerAction action) noexcept {
         return "reboot";
     case PowerAction::ShutDown:
         return "poweroff";
+    case PowerAction::SwitchToDesktop:
+        return "";
     }
     return "";
+}
+
+constexpr const char* sessionSelect = "steamos-session-select";
+
+bool onPath(const std::vector<std::filesystem::path>& path, const char* program) {
+    namespace fs = std::filesystem;
+    constexpr fs::perms execute =
+        fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec;
+    return std::ranges::any_of(path, [program](const fs::path& directory) {
+        std::error_code error;
+        const fs::path candidate = directory / program;
+        return fs::is_regular_file(candidate, error) &&
+               (fs::status(candidate, error).permissions() & execute) != fs::perms::none;
+    });
 }
 
 /// The first line of `output`, trimmed.
@@ -35,23 +53,46 @@ std::string firstLine(const std::string& output) {
 
 class LogindPower final : public Power {
   public:
-    explicit LogindPower(Runner run) : run_{std::move(run)} {
+    LogindPower(Runner run, SessionExit exit) : run_{std::move(run)}, exit_{std::move(exit)} {
     }
 
     std::string perform(PowerAction action) override {
-        const std::optional<launch::Captured> out = run_("systemctl", {verb(action)});
+        if (action == PowerAction::SwitchToDesktop) {
+            return switchToDesktop();
+        }
+        return run("systemctl", {verb(action)}, verb(action));
+    }
+
+  private:
+    std::string switchToDesktop() {
+        if (onPath(exit_.path, sessionSelect)) {
+            lucent::info("power", "switching to the desktop with {}", sessionSelect);
+            return run(sessionSelect, {"plasma"}, "switch to the desktop");
+        }
+        if (exit_.sessionId.empty()) {
+            return "no login session to end";
+        }
+        lucent::info("power", "switching to the desktop by ending login session {}",
+                     exit_.sessionId);
+        return run("loginctl", {"terminate-session", exit_.sessionId}, "end the session");
+    }
+
+    /// Runs `program`; empty when it succeeded, else why it did not (`what` names the action).
+    std::string run(const std::string& program, const std::vector<std::string>& args,
+                    const std::string& what) {
+        const std::optional<launch::Captured> out = run_(program, args);
         if (!out) {
-            return "systemctl could not be run";
+            return program + " could not be run";
         }
         if (out->status == 0) {
             return {};
         }
         const std::string reason = firstLine(out->output);
-        return reason.empty() ? std::string{"systemctl refused to "} + verb(action) : reason;
+        return reason.empty() ? program + " refused to " + what : reason;
     }
 
-  private:
     Runner run_;
+    SessionExit exit_;
 };
 
 class RefusingPower final : public Power {
@@ -77,12 +118,14 @@ const char* label(PowerAction action) noexcept {
         return "Restart";
     case PowerAction::ShutDown:
         return "Shut down";
+    case PowerAction::SwitchToDesktop:
+        return "Switch to desktop";
     }
     return "";
 }
 
-std::unique_ptr<Power> makeLogindPower(Runner run) {
-    return std::make_unique<LogindPower>(std::move(run));
+std::unique_ptr<Power> makeLogindPower(Runner run, SessionExit exit) {
+    return std::make_unique<LogindPower>(std::move(run), std::move(exit));
 }
 
 std::unique_ptr<Power> makeRefusingPower(std::string reason) {

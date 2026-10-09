@@ -23,10 +23,11 @@ struct HostServices {
     /// The real services for this machine; with `hidden` they can be read but not changed.
     [[nodiscard]] static HostServices detect(const config::Config& config, bool hidden);
 
-    /// The services over `run` and `spawn`, with the backlight under `backlightRoot`.
+    /// The services over `run` and `spawn`, with the backlight under `backlightRoot` and `exit`
+    /// leaving the login session.
     [[nodiscard]] static HostServices over(const host::Runner& run, const host::Spawner& spawn,
-                                           const std::filesystem::path& backlightRoot,
-                                           bool hidden);
+                                           const std::filesystem::path& backlightRoot, bool hidden,
+                                           const host::SessionExit& exit = {});
 };
 
 } // namespace opensu::app

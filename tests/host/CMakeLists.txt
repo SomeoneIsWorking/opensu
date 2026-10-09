@@ -9,6 +9,7 @@ target_link_libraries(power_test PRIVATE opensu::host)
 target_include_directories(power_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_options(power_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME power COMMAND power_test)
+target_compile_definitions(power_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 
 add_executable(backlight_test backlight_test.cpp)
 target_link_libraries(backlight_test PRIVATE opensu::host)
