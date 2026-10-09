@@ -140,11 +140,6 @@ float aspectOf(const RailInput& input, std::size_t index) {
 
 } // namespace
 
-float iconScale(int level) noexcept {
-    return std::clamp((static_cast<float>(std::clamp(level, 1, 20)) - 10.0f) * 0.11f + 1.45f, 0.67f,
-                      2.55f);
-}
-
 XmbLayout::XmbLayout(const RailInput& input) : focus_{clampedFocus(input)}, dp_{input.dp} {
     const float k = iconScale(input.iconLevel);
     leftMargin_ = xmbLeftMargin * input.width;

@@ -12,8 +12,12 @@ gitignored `docs/reference/`).
 | `src/config/arguments.*` | The command line as typed values (`--render`, `--keyboard`, `--hidden`: the shell with an unmapped window, no Gamescope session, no pads, free control port) |
 | `src/main.cpp` | Starts the nested session or the shell; `--render FILE` renders one frame headless |
 | `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop; plays the UI sounds at the input events that iiSU plays them at |
-| `src/app/layout_picker.*` | START on Library: the layout picker's buttons, its pin option, and saving what is chosen |
-| `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page and panel-button action), right click = B, wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
+| `src/app/layout_picker.*` | START: the options panel's buttons (layout cards, icon size, pin, sort, source, installed, hidden, search row) and saving what is chosen |
+| `src/app/preferences.*` | The loaded `settings::Settings` and saving them, with a toast when the file cannot be written |
+| `src/app/search_controller.*` | The search panel's pad buttons and keyboard text; the typed text is the view's search |
+| `src/app/context_menu_controller.*` | Opening the focused tile's menu and what its entries do (launch, details, hide/unhide, open, refresh, sign in) |
+| `src/app/panel_flow.*` | The launch/install panel flow taken out of `shell_app.cpp` |
+| `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page and panel-button action), right click = the target's context menu (never B), wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
 | `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input, frames, `/signin/<store>[/start]` |
 | `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
@@ -22,7 +26,7 @@ gitignored `docs/reference/`).
 | `src/app/steam_install_job.*`, `epic_install_job.*`, `gog_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install (`legendary install`); one GOG install (`gogdl download`: token handed over and taken back, Linux or Windows build, the install recorded) |
 | `src/app/installs.*` | The installers by store, one install at a time; which stores install |
 | `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
-| `src/settings/settings.*` | The player's saved preferences (Library layout mode, whether the dock is pinned on Library) as JSON under the config dir; defaults on a missing or corrupt file |
+| `src/settings/settings.*` | The player's saved preferences (Library layout mode, dock pin, icon size, sort and filters, hidden games, last-played times) as JSON under the config dir; defaults on a missing or corrupt file |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
 | `extension/opensu-signin/`, `extension/CMakeLists.txt` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel; packed into `opensu-signin.xpi` and installed beside the assets |
 
@@ -66,6 +70,9 @@ gitignored `docs/reference/`).
 | `src/library/install_log.*` | What legendary and gogdl log while installing: progress fraction, ERROR/CRITICAL lines |
 | `src/library/sections.*` | The dock's sections (Home, Library), the active one and L1/R1 cycling with wrap; Library's layout modes and their keys |
 | `src/library/shelf.*` | What the grid holds: Home's installed store games (`homeShelf`); Library's launchers, All games and consoles (`libraryShelf`); a console's ROMs, a launcher's library, the combined library; moving between them and between sections |
+| `src/library/library_query.*` | The one owner of what the library shows: the search ranking, the filters (installed, source, hidden), the sort, `HiddenGames`; Home, Library, folders and All games take their games from `visibleShelf` |
+| `src/library/text_fold.*` | Case, accent and white-space folding titles are compared in |
+| `src/library/play_history.*` | When openSU last launched each game, for the recent sort of stores that do not say |
 | `src/library/titles.*` | The same title across stores: the comparison key, merged copies, preference order |
 | `src/library/rom_titles.*` | A ROM's display title from its name: tags, release numbers and the ", The" order (`cleanTitle`); the one title cleanup, also the release-number rule the libretro matcher uses |
 | `src/library/arcade_names.*` | Arcade short name to description: the libretro-database `.dat` parser and `NameDb`, the parsed names kept under `<cache>/names/` |
@@ -110,7 +117,11 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/backdrop_blur.*` | The dock glass's 8 dp backdrop blur: scene texture, separable Gaussian, capsule mask |
 | `src/ui/dock_metrics.*` | The dock capsule's sizes and rectangles in dp (`gh3.i1/j1`, `jj2`); which item a pointer is on (`dockItemAt`) |
 | `src/ui/dock_motion.*` | The dock's show/hide (`dockPinned`: Home always, Library by the pin option; else 1200 ms after L1/R1 on Library; show 170 ms ease-out from below, hide 125 ms ease-in straight down) and the icon pop |
-| `src/ui/mode_chooser.*` | The Library layout picker's open state, focus (cards or the pin row) and card/panel/pin-row layout; the card under a point |
+| `src/ui/mode_chooser.*` | The options panel's state, focus row and scrolling layout (cards, icon size slider, pin, sort, source, filters, search); the card, row or slider level under a point |
+| `src/ui/icon_size.*` | iiSU's icon size levels 1 to 20 and their scale formulas; shared by `home_layout` and `rail_layout` |
+| `src/ui/search_panel.*` | Global Search state: field, drawn keyboard walk, results list, layout and hit-tests |
+| `src/ui/context_menu.*` | The tile context menu: entries per tile (`contextItemsFor`), focus, layout and hit-tests |
+| `src/ui/panel_fade.*` | The fade and scale a panel shows and hides with |
 | `src/ui/tile_geometry.*` | One tile's rectangles and radii (and `outerForContent`, the inverse of the frame inset); where a game tile's store icons sit |
 | `src/ui/top_bar_metrics.*` | Top bar sizes in dp (`is7`, `hs7`, `dl3`) |
 | `src/ui/top_bar_layout.*` | The status pill and the launcher badge cells in it, in pixels; the launcher under a point. The Hud paints and hit-tests from it |
@@ -118,7 +129,7 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
 | `src/ui/game_menu.*` | The Guide menu's items and focus (openSU's own); its panel and row rectangles, and the row under a point |
 | `src/ui/launch_panel.*` | The launch/install card's state; its card and hint rectangles from measured widths, and the hint under a point |
-| `src/ui/pointer_target.hpp` | What a pointer can be on (dock item, tile, page control, layout card, pin option, menu row, panel button, launcher badge) |
+| `src/ui/pointer_target.hpp` | What a pointer can be on (dock item, tile, page control, layout card, options row, icon size slider, search key or result, context item or backdrop, menu row, panel button, launcher badge) |
 
 Painters and composition (`opensu_ui`):
 
@@ -132,7 +143,8 @@ Painters and composition (`opensu_ui`):
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (a starting launcher's ring) |
 | `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included), or the bound key's cap when keyboard and mouse were last used |
 | `src/ui/dock_painter.*` | The dock capsule: glass, nav icons, LB/RB badges |
-| `src/ui/mode_chooser_painter.*` | The Library layout picker: the cards page after iiSU's chooser, with sketched previews |
+| `src/ui/mode_chooser_painter.*` | The options panel: the cards after iiSU's chooser, with sketched previews, then the slider and switch rows |
+| `src/ui/search_panel_painter.*`, `context_menu_painter.*` | The search panel with its keyboard and the tile context menu |
 | `src/ui/game_menu_painter.*` | The Guide menu over a running game |
 | `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art (a spinner while it is on its way), platform frame, store icons; the name cards of a console, a launcher and All games |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |

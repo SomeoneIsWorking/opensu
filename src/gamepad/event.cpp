@@ -38,6 +38,8 @@ std::string_view prompt(Button button) {
         return "LEFT";
     case Button::Right:
         return "RIGHT";
+    case Button::Search:
+        return "SEARCH";
     case Button::None:
         break;
     }

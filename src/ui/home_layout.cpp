@@ -18,6 +18,8 @@ constexpr float wiiSuPeekDp = 6.0f;
 constexpr float wiiSuMinPageCellScale = 0.92f;
 // iiSU zj2: a WiiSu page has at least 3 columns.
 constexpr int wiiSuMinColumns = 3;
+// Rounding slack when counting the rows that fit, so an exact fit is not lost to float error.
+constexpr float rowFitSlack = 0.001f;
 // iiSU ou4.q: placeholders fill at least 4 viewports.
 constexpr int minSlotPages = 4;
 
@@ -137,6 +139,15 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
     // Square cells: iiSU ul2.F's aspect ratio 1.0.
     cellWidth_ = clampTo(cellHeight_, std::min(180.0f, std::max(floorSize, cellHeight_)),
                          std::max(196.0f, viewportWidth_));
+    if (clampIconLevel(input.iconLevel) != defaultIconLevel) {
+        // The icon size scales the cell; the rows are as many as then fit.
+        const float scaled = std::max(cellHeight_ * relativeIconScale(input.iconLevel), 1.0f);
+        gap_ = gapForCell(scaled);
+        const float fits = (content + gap_) / (scaled + gap_);
+        rows_ = clampRows(static_cast<int>(fits + rowFitSlack));
+        cellHeight_ = scaled;
+        cellWidth_ = scaled;
+    }
 
     if (paged) {
         // STOPGAP: use the grid gap as zj2's spacing because the value iiSU passes is not traced.

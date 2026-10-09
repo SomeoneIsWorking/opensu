@@ -7,6 +7,7 @@
 #include "gamepad/event.hpp"
 #include "library/game.hpp"
 #include "library/sections.hpp"
+#include "mode_chooser.hpp"
 
 namespace opensu::ui {
 
@@ -40,9 +41,39 @@ struct OnMenuItem {
     bool operator==(const OnMenuItem&) const = default;
 };
 
-/// The pin option of the layout picker.
-struct OnPinOption {
-    bool operator==(const OnPinOption&) const = default;
+/// A row of the Library options under the cards: pin, sort, source, filters or search.
+struct OnChooserRow {
+    ChooserRow row;
+    bool operator==(const OnChooserRow&) const = default;
+};
+
+/// A point on the icon size slider, by the level it stands for.
+struct OnIconSize {
+    int level;
+    bool operator==(const OnIconSize&) const = default;
+};
+
+/// A key of the search panel's keyboard, by its index in `searchKeys()`.
+struct OnSearchKey {
+    std::size_t index;
+    bool operator==(const OnSearchKey&) const = default;
+};
+
+/// A listed result of the search panel, by its index in the results.
+struct OnSearchResult {
+    std::size_t index;
+    bool operator==(const OnSearchResult&) const = default;
+};
+
+/// A row of the context menu.
+struct OnContextItem {
+    std::size_t index;
+    bool operator==(const OnContextItem&) const = default;
+};
+
+/// The screen outside the open context menu.
+struct OnContextBackdrop {
+    bool operator==(const OnContextBackdrop&) const = default;
 };
 
 /// A launcher's badge in the top bar.
@@ -58,8 +89,8 @@ struct OnPanelButton {
 };
 
 /// Nothing, or the element the pointer is on.
-using PointerTarget =
-    std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnMenuItem, OnPanelButton,
-                                OnPinOption, OnLauncher>;
+using PointerTarget = std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnMenuItem,
+                                   OnPanelButton, OnChooserRow, OnIconSize, OnSearchKey,
+                                   OnSearchResult, OnContextItem, OnContextBackdrop, OnLauncher>;
 
 } // namespace opensu::ui

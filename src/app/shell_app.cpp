@@ -62,9 +62,33 @@ ShellApp::ShellApp(const Settings& settings)
       handoff_{config::read().executablePath, config::read().session, steam_, gameWindows_.get()},
       signIn_{StoreSignIn::Options{.dataDir = config::read().dataDir}} {
     refreshClock();
-    preferences_ = settingsStore_.load();
-    shell_.setLibraryMode(preferences_.libraryMode);
-    shell_.setPinLibraryDock(preferences_.pinLibraryDock);
+    applyLayout();
+}
+
+void ShellApp::applyLayout() {
+    const settings::Settings& chosen = preferences_.values();
+    if (shell_.libraryMode() != chosen.libraryMode) {
+        shell_.setLibraryMode(chosen.libraryMode);
+    }
+    shell_.setPinLibraryDock(chosen.pinLibraryDock);
+    if (shell_.iconSize() != chosen.iconSize) {
+        shell_.setIconSize(chosen.iconSize);
+    }
+}
+
+std::vector<ui::SearchResult> ShellApp::searchResults() const {
+    std::vector<ui::SearchResult> results;
+    for (const ui::Tile& tile : shell_.tiles()) {
+        const auto* game = std::get_if<library::Game>(&tile.item);
+        results.push_back(ui::SearchResult{game != nullptr ? game->title : tile.title,
+                                           library::describeResult(tile.item)});
+    }
+    return results;
+}
+
+void ShellApp::openTile(std::size_t index) {
+    shell_.focusTile(index);
+    actOn(gamepad::Button::A);
 }
 
 std::filesystem::path ShellApp::padsDirectory(bool hidden) {
@@ -108,6 +132,7 @@ void ShellApp::loadCatalogNow() {
 void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     games_ = std::move(snapshot.games);
     sources_ = std::move(snapshot.sources);
+    preferences_.values().lastPlayed.apply(games_);
     artworkStore_.apply(games_);
     const std::vector<library::Console> consoles = library::consoles(games_);
     artworkFetcher_.request(games_, consoles, iisuAssets());
@@ -127,11 +152,9 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     }
     lucent::info("catalog", "{} games loaded", games_.size());
 
-    showShelf(shell_.focusIndex());
     installedCount_ =
         static_cast<std::size_t>(std::ranges::count_if(games_, &library::Game::installed));
-    shell_.setStatus(std::to_string(games_.size()) + " games · " + std::to_string(installedCount_) +
-                     " installed");
+    showShelf(shell_.focusIndex());
 }
 
 void ShellApp::pushCatalogToShell() {
@@ -139,16 +162,20 @@ void ShellApp::pushCatalogToShell() {
 }
 
 void ShellApp::showShelf(std::size_t focus) {
-    std::vector<library::ShelfItem> shelf = browser_.shelf(games_, sources_);
+    const settings::Settings& chosen = preferences_.values();
+    std::vector<library::ShelfItem> shelf =
+        library::visibleShelf(browser_, games_, sources_, chosen.view, chosen.hidden);
     artworkStore_.apply(shelf);
     shell_.setShelf(std::move(shelf), focus);
     shell_.setHeader(folderCard());
+    shell_.setStatus(std::to_string(games_.size()) + " games · " + std::to_string(installedCount_) +
+                     " installed" + (library::narrowing(chosen.view) ? " · filtered" : ""));
     shell_.setArtworkDownloading(artworkFetcher_.pendingGames());
 }
 
 std::optional<library::ShelfItem> ShellApp::folderCard() const {
     const std::optional<library::Folder> folder = browser_.folder();
-    if (!folder) {
+    if (!folder || search_.searching()) {
         return std::nullopt;
     }
     std::vector<library::ShelfItem> card{std::visit(
@@ -240,7 +267,10 @@ void ShellApp::openFolder(const library::Folder& folder) {
     }
     // input-sound.md 3.4 EnterConsolesApps: A on a console, an app category or a collection.
     sounds_.play(audio::Effect::EnterConsolesApps);
-    browser_.open(folder, shell_.focusIndex());
+    // A folder opened from search results is entered from the top of its section's shelf.
+    const std::size_t from = search_.searching() ? 0 : shell_.focusIndex();
+    search_.clear();
+    browser_.open(folder, from);
     showShelf(0);
 }
 
@@ -283,10 +313,21 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
 /// to the button it stands in for rather than to a shell command of its own, so
 /// there is one set of actions and the keyboard is a second way to reach it.
 void ShellApp::handleKeyboard() {
+    // Typed characters are read first: the key that opens the search must not also type itself.
+    const bool searching = shell_.searchPanel().isOpen();
+    const input::TextInput typed = input::readTextInput();
+    if (searching) {
+        handleSearchText(typed);
+        return;
+    }
     // Keys report edges like a pad's buttons, so held arrows repeat on the pad's schedule rather
     // than the keyboard's.
+    const bool control = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
     std::vector<gamepad::Event> events;
     for (const input::KeyBinding& binding : input::keyBindings()) {
+        if (binding.ctrl != control) {
+            continue;
+        }
         if (IsKeyPressed(binding.key)) {
             events.push_back(gamepad::Event{.button = binding.button, .pressed = true});
         } else if (IsKeyReleased(binding.key)) {
@@ -301,6 +342,28 @@ void ShellApp::handleKeyboard() {
     if (IsKeyPressed(KEY_Q)) {
         shell_.inputDevice().noteKey();
         requestClose();
+    }
+}
+
+void ShellApp::handleSearchText(const input::TextInput& typed) {
+    if (!typed.any()) {
+        return;
+    }
+    shell_.inputDevice().noteKey();
+    search_.typeText(typed.text);
+    if (typed.backspace) {
+        search_.backspace();
+    }
+    if (typed.up) {
+        search_.walk(ui::Direction::Up);
+    }
+    if (typed.down) {
+        search_.walk(ui::Direction::Down);
+    }
+    if (typed.enter) {
+        search_.confirm();
+    } else if (typed.escape) {
+        search_.dismiss();
     }
 }
 
@@ -337,10 +400,11 @@ void ShellApp::activateSection(library::Section section) {
 
 void ShellApp::selectLauncher(library::Source source) {
     // The gates actOn puts in front of every button.
-    if (shell_.inGame() || panelUse_ != PanelUse::None || shell_.modeChooser().isOpen()) {
+    if (shell_.inGame() || panels_.active() || shell_.panelOpen()) {
         return;
     }
     // Selecting the store's tile in Library: from its top, whatever is open now.
+    search_.clear();
     if (browser_.section() != library::Section::Library) {
         clickSection(library::Section::Library);
     } else if (const std::optional<std::size_t> focus = browser_.back()) {
@@ -360,16 +424,15 @@ void ShellApp::selectLauncher(library::Source source) {
 }
 
 void ShellApp::scroll(int steps) {
-    const bool modal =
-        shell_.inGame() || panelUse_ != PanelUse::None || shell_.modeChooser().isOpen();
+    const bool modal = shell_.inGame() || panels_.active() || shell_.panelOpen();
     if (!modal && shell_.layout().mode() == ui::ScrollMode::Paged &&
         shell_.presentation() == ui::Presentation::Grid) {
         focus(ui::OnPage{shell_.page() + steps});
         return;
     }
     // The Guide menu and an XMB run down the screen; the rest run across it.
-    const bool vertical =
-        shell_.inGame() || (!modal && shell_.presentation() == ui::Presentation::Xmb);
+    const bool vertical = shell_.inGame() || shell_.panelOpen() ||
+                          (!modal && shell_.presentation() == ui::Presentation::Xmb);
     if (vertical) {
         actOn(steps > 0 ? gamepad::Button::Down : gamepad::Button::Up);
     } else {
@@ -379,7 +442,7 @@ void ShellApp::scroll(int steps) {
 
 void ShellApp::clickSection(library::Section section) {
     // The gates actOn puts in front of L1 and R1.
-    if (shell_.inGame() || panelUse_ != PanelUse::None || shell_.modeChooser().isOpen()) {
+    if (shell_.inGame() || panels_.active() || shell_.panelOpen()) {
         return;
     }
     const int steps = library::Sections::stepsBetween(browser_.section(), section);
@@ -407,8 +470,16 @@ void ShellApp::actOn(gamepad::Button button) {
         actInGame(button);
         return;
     }
-    if (panelUse_ != PanelUse::None) {
-        actOnPanel(button);
+    if (panels_.active()) {
+        panels_.act(button);
+        return;
+    }
+    if (shell_.contextMenu().isOpen()) {
+        contextMenu_.act(button);
+        return;
+    }
+    if (shell_.searchPanel().isOpen()) {
+        search_.act(button);
         return;
     }
     if (shell_.modeChooser().isOpen()) {
@@ -437,8 +508,14 @@ void ShellApp::actOn(gamepad::Button button) {
         }
         break;
     case gamepad::Button::Y:
-    case gamepad::Button::Select:
         showDetails();
+        break;
+    case gamepad::Button::Select:
+        // iiSU `pb0.java:2086`: SELECT asks for the focused item's menu.
+        contextMenu_.open();
+        break;
+    case gamepad::Button::Search:
+        search_.open();
         break;
     case gamepad::Button::X:
         reloadCatalog();
@@ -451,14 +528,13 @@ void ShellApp::actOn(gamepad::Button button) {
         cycleSection(1);
         break;
     case gamepad::Button::Start:
-        if (browser_.section() == library::Section::Library) {
-            layoutPicker_.open();
-        } else {
-            shell_.resetFocus();
-        }
+        layoutPicker_.open(browser_.section() == library::Section::Library);
         break;
     case gamepad::Button::B:
-        if (const std::optional<std::size_t> focus = browser_.back()) {
+        if (search_.clear()) {
+            // input-sound.md 3.4 ExitConsolesApps: back out of what was opened.
+            sounds_.play(audio::Effect::ExitConsolesApps);
+        } else if (const std::optional<std::size_t> focus = browser_.back()) {
             // input-sound.md 3.4 ExitConsolesApps: back out of a console, an app category or a
             // collection.
             sounds_.play(audio::Effect::ExitConsolesApps);
@@ -478,13 +554,16 @@ void ShellApp::moveFocus(ui::Direction direction) {
 }
 
 void ShellApp::cycleSection(int delta) {
-    browser_.leave(shell_.focusIndex());
+    // Search results belong to no section; moving along the dock ends the search.
+    if (!search_.clear()) {
+        browser_.leave(shell_.focusIndex());
+    }
     const std::size_t focus = browser_.cycle(delta);
     shell_.setSection(browser_.section(), true);
     showShelf(focus);
     // input-sound.md 3.3 (`dg3.a`): the cue is sized by how many tiles the section shows at once.
-    const std::size_t visible =
-        ui::visibleTiles(browser_.section(), preferences_.libraryMode, shell_.tiles().size());
+    const std::size_t visible = ui::visibleTiles(
+        browser_.section(), preferences_.values().libraryMode, shell_.tiles().size());
     if (const std::optional<audio::Effect> cue = audio::dominoFor(visible)) {
         sounds_.play(*cue);
     }
@@ -518,8 +597,8 @@ void ShellApp::launchFocused() {
     // The copy outlives this call because the handoff thread reads it.
     const library::Game copy = *game;
     runningTitle_ = copy.title;
-    shell_.launchPanel().open(copy.title);
-    panelUse_ = PanelUse::Launch;
+    panels_.showLaunch(copy.title);
+    recordLaunch(copy);
 
     std::vector<std::string> environment = pads_.hold();
     padsHeld_ = true;
@@ -554,151 +633,11 @@ void ShellApp::launchFocused() {
     }}.detach();
 }
 
-void ShellApp::actOnPanel(gamepad::Button button) {
-    switch (panelUse_) {
-    case PanelUse::Launch:
-        if (button == gamepad::Button::B) {
-            cancelLaunch();
-        }
-        break;
-    case PanelUse::OfferInstall:
-        if (button == gamepad::Button::A || button == gamepad::Button::X) {
-            const std::size_t choice = button == gamepad::Button::A ? 0 : 1;
-            if (choice < offered_.size()) {
-                startInstall(offered_[choice]);
-            }
-        } else if (button == gamepad::Button::B) {
-            closePanel();
-            offered_.clear();
-        }
-        break;
-    case PanelUse::Install:
-        // The download goes on without the panel.
-        if (button == gamepad::Button::B) {
-            closePanel();
-        }
-        break;
-    case PanelUse::Eula:
-        if (button == gamepad::Button::A || button == gamepad::Button::B) {
-            const bool accepted = button == gamepad::Button::A;
-            install_.decide(accepted);
-            if (accepted) {
-                panelUse_ = PanelUse::Install;
-                shell_.launchPanel().update("Starting the download", std::nullopt);
-                shell_.launchPanel().setHints({{"B", "Hide"}});
-            } else {
-                closePanel();
-            }
-        }
-        break;
-    case PanelUse::None:
-        break;
-    }
-}
-
-void ShellApp::openPanel(const std::string& title) {
-    // input-sound.md 3.4 Open: a panel appears.
-    sounds_.play(audio::Effect::Open);
-    shell_.launchPanel().open(title);
-}
-
-void ShellApp::closePanel() {
-    // input-sound.md 3.4 Close: the player dismisses a panel.
-    sounds_.play(audio::Effect::Close);
-    shell_.launchPanel().close();
-    panelUse_ = PanelUse::None;
-}
-
-void ShellApp::startInstall(const library::Game& game) {
-    if (install_.start(game)) {
-        panelUse_ = PanelUse::Install;
-        shell_.launchPanel().update("Starting", std::nullopt);
-        shell_.launchPanel().setHints({{"B", "Hide"}});
-    } else {
-        shell_.launchPanel().close();
-        panelUse_ = PanelUse::None;
-        shell_.setToast(install_.title() + " is still installing", true);
-    }
-    offered_.clear();
-}
-
 void ShellApp::offerInstall(const library::Game& game) {
     // A store's own page installs that store's copy; elsewhere any store that owns the title will
     // do.
-    std::vector<library::Game> copies =
-        browser_.inLauncher() ? std::vector<library::Game>{game} : library::copiesOf(games_, game);
-    const std::string unsupported =
-        std::string{library::label(copies.front().source)} + " installs are not supported yet";
-    std::erase_if(copies, [](const library::Game& copy) {
-        return copy.installed || !Installs::supports(copy.source);
-    });
-    if (copies.empty()) {
-        shell_.setToast(unsupported, true);
-        return;
-    }
-    if (install_.running()) {
-        shell_.setToast(install_.title() + " is still installing", true);
-        return;
-    }
-    offered_ = std::move(copies);
-    panelUse_ = PanelUse::OfferInstall;
-    openPanel(game.title);
-    if (offered_.size() == 1) {
-        shell_.launchPanel().update("Not installed", std::nullopt, false);
-        shell_.launchPanel().setHints({{"A", "Install"}, {"B", "Cancel"}});
-        return;
-    }
-    // Two stores can install it: A is the first, X the second.
-    shell_.launchPanel().update("Install from", std::nullopt, false);
-    shell_.launchPanel().setHints({{"A", std::string{library::label(offered_[0].source)}},
-                                   {"X", std::string{library::label(offered_[1].source)}},
-                                   {"B", "Cancel"}});
-}
-
-void ShellApp::presentEula() {
-    eulaWaiting_ = false;
-    panelUse_ = PanelUse::Eula;
-    const std::string title = install_.title();
-    openPanel(title);
-    shell_.launchPanel().update("Installing " + title + " means accepting its licence agreement",
-                                std::nullopt, false);
-    shell_.launchPanel().setHints({{"A", "Accept"}, {"B", "Decline"}});
-}
-
-void ShellApp::serviceInstall() {
-    if (eulaWaiting_ && panelUse_ != PanelUse::Launch) {
-        presentEula();
-    }
-    const std::optional<InstallJob::Report> report = install_.take();
-    if (!report) {
-        return;
-    }
-    if (report->licence) {
-        if (panelUse_ == PanelUse::Launch) {
-            eulaWaiting_ = true;
-        } else {
-            presentEula();
-        }
-        return;
-    }
-    if (!report->finished) {
-        if (panelUse_ == PanelUse::Install) {
-            shell_.launchPanel().update(report->line, report->fraction);
-        }
-        return;
-    }
-    if (panelUse_ == PanelUse::Install || panelUse_ == PanelUse::Eula) {
-        shell_.launchPanel().close();
-        panelUse_ = PanelUse::None;
-    }
-    eulaWaiting_ = false;
-    const std::string title = install_.title();
-    if (report->failure.empty()) {
-        reloadCatalog();
-        shell_.setToast(title + " installed");
-    } else {
-        shell_.setToast("cannot install " + title + ": " + report->failure, true);
-    }
+    panels_.offerInstall(game, browser_.inLauncher() ? std::vector<library::Game>{game}
+                                                     : library::copiesOf(games_, game));
 }
 
 void ShellApp::cancelLaunch() {
@@ -776,6 +715,44 @@ void ShellApp::setGameMenuOpen(bool open) {
     }
 }
 
+void ShellApp::chooseIconSize(int level) {
+    if (shell_.modeChooser().isOpen()) {
+        layoutPicker_.chooseIconSize(level);
+    }
+}
+
+void ShellApp::contextMenu(const ui::PointerTarget& target) {
+    if (shell_.inGame() || panels_.active()) {
+        return;
+    }
+    // Right click dismisses an open menu from outside it, and opens a tile's menu; it is never
+    // Back.
+    if (shell_.contextMenu().isOpen()) {
+        if (std::holds_alternative<ui::OnContextBackdrop>(target)) {
+            contextMenu_.close();
+        }
+        return;
+    }
+    if (shell_.panelOpen() || !std::holds_alternative<ui::OnTile>(target)) {
+        return;
+    }
+    focus(target);
+    contextMenu_.open();
+}
+
+void ShellApp::setHidden(const library::Game& game, bool hidden) {
+    preferences_.values().hidden.set(game, hidden);
+    preferences_.save();
+    showShelf(shell_.focusIndex());
+    shell_.setToast(game.title + (hidden ? " hidden" : " shown again"));
+}
+
+void ShellApp::recordLaunch(const library::Game& game) {
+    preferences_.values().lastPlayed.record(game.id, std::chrono::system_clock::now());
+    preferences_.values().lastPlayed.apply(games_);
+    preferences_.save();
+}
+
 void ShellApp::showDetails() {
     if (const library::Game* game = shell_.focusedGame(); game != nullptr) {
         shell_.setToast(describe(*game));
@@ -784,10 +761,13 @@ void ShellApp::showDetails() {
 
 ui::HintContext ShellApp::hints() const {
     const bool game = shell_.focusedGame() != nullptr;
+    const bool folder = shell_.focusedFolder().has_value();
     return ui::HintContext{.back = browser_.canBack(),
-                           .select = game || shell_.focusedFolder().has_value(),
+                           .clearSearch = search_.searching(),
+                           .select = game || folder,
                            .details = game,
-                           .menu = browser_.section() == library::Section::Library};
+                           .options = folder,
+                           .menu = true};
 }
 
 void ShellApp::refreshClock() {
@@ -851,6 +831,11 @@ ShellSnapshot ShellApp::snapshot() const {
 void ShellApp::inject(gamepad::Button button, input::Device device) {
     const std::lock_guard lock{injectedMutex_};
     injected_.emplace_back(button, device);
+}
+
+void ShellApp::typeText(std::string text) {
+    const std::lock_guard lock{injectedMutex_};
+    typed_.push_back(std::move(text));
 }
 
 void ShellApp::requestClose() {
@@ -917,8 +902,12 @@ void ShellApp::publishSnapshot() {
     }
     next.focusedTitle = shell_.focusedTitle();
     next.section = std::string{library::key(browser_.section())};
-    next.libraryMode = std::string{library::key(preferences_.libraryMode)};
+    next.libraryMode = std::string{library::key(preferences_.values().libraryMode)};
     next.modeChooserOpen = shell_.modeChooser().isOpen();
+    next.searchOpen = shell_.searchPanel().isOpen();
+    next.searchText = preferences_.values().view.search;
+    next.contextMenuOpen = shell_.contextMenu().isOpen();
+    next.iconSize = static_cast<std::size_t>(shell_.iconSize());
     next.shelf = browser_.folder() ? library::key(*browser_.folder()) : next.section;
     next.focusIndex = shell_.focusIndex();
     next.page = static_cast<std::size_t>(std::max(shell_.page(), 0));
@@ -947,9 +936,17 @@ void ShellApp::serviceControlRequests() {
     // Buttons injected over the channel take the same path as a real press, so
     // what the channel exercises is the shell's own handling.
     std::vector<std::pair<gamepad::Button, input::Device>> queued;
+    std::vector<std::string> typed;
     {
         const std::lock_guard lock{injectedMutex_};
         queued.swap(injected_);
+        typed.swap(typed_);
+    }
+    for (const std::string& text : typed) {
+        if (shell_.searchPanel().isOpen()) {
+            shell_.inputDevice().noteKey();
+            search_.typeText(text);
+        }
     }
     // An injected button is a tap: without its release a direction would repeat forever.
     for (const auto& [button, device] : queued) {
@@ -1004,11 +1001,10 @@ void ShellApp::serviceRequests() {
         shell_.launchPanel().update(launch::describe(*progress),
                                     measured ? std::optional{progress->fraction} : std::nullopt);
     }
-    if (!launching && panelUse_ == PanelUse::Launch) {
-        shell_.launchPanel().close();
-        panelUse_ = PanelUse::None;
+    if (!launching) {
+        panels_.endLaunch();
     }
-    serviceInstall();
+    panels_.service();
     if (reloadRequested_.exchange(false)) {
         reloadCatalog();
     }
@@ -1016,10 +1012,7 @@ void ShellApp::serviceRequests() {
     if (running != shell_.inGame()) {
         shell_.setInGame(running);
         shell_.gameMenu().close();
-        if (panelUse_ == PanelUse::Launch) {
-            shell_.launchPanel().close();
-            panelUse_ = PanelUse::None;
-        }
+        panels_.endLaunch();
         // raylib has no ShowWindow or HideWindow: hiding is a window state flag, and showing is
         // clearing it.
         if (overlay_) {

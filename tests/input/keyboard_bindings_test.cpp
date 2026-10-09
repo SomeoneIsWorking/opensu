@@ -50,12 +50,32 @@ void everyLabelMatchesItsTable() {
     }
 }
 
+void searchHasSlashAndControlF() {
+    bool slash = false;
+    bool controlF = false;
+    for (const auto& binding : keyBindings()) {
+        if (binding.button != Button::Search) {
+            continue;
+        }
+        slash = slash || (binding.key == KEY_SLASH && !binding.ctrl);
+        controlF = controlF || (binding.key == KEY_F && binding.ctrl);
+    }
+    expect(slash && controlF, "/ and Ctrl+F open the search");
+    expect(keyLabelFor(Button::Search) == "/", "the search's cap is the slash");
+    for (const auto& binding : keyBindings()) {
+        if (binding.key == KEY_F && !binding.ctrl) {
+            expect(binding.button == Button::X, "a bare F is still X");
+        }
+    }
+}
+
 } // namespace
 
 int main() {
     promptsNameTheBoundKeys();
     unboundGlyphsHaveNoCap();
     everyLabelMatchesItsTable();
+    searchHasSlashAndControlF();
     std::puts("keyboard_bindings: ok");
     return 0;
 }

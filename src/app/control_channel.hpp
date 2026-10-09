@@ -37,8 +37,15 @@ struct ShellSnapshot {
     std::string section{"home"};
     /// How Library lays out its tiles: "standard", "xmb" or "carousel".
     std::string libraryMode{"standard"};
-    /// Whether the Library layout picker is up.
+    /// Whether the Library options panel is up.
     bool modeChooserOpen{false};
+    /// Whether the search panel is up, and the text in it (or the search still applied).
+    bool searchOpen{false};
+    std::string searchText;
+    /// Whether a context menu is up.
+    bool contextMenuOpen{false};
+    /// iiSU's icon size level Library is laid out at.
+    std::size_t iconSize{9};
     /// The open folder's key, else the section's.
     std::string shelf{"home"};
     std::string status;
@@ -65,6 +72,9 @@ class ControlTarget {
 
     /// The shell's state. Callable from any thread.
     [[nodiscard]] virtual ShellSnapshot snapshot() const = 0;
+
+    /// Types `text` as a physical keyboard would, into the search field if it is open.
+    virtual void typeText(std::string text) = 0;
 
     /// Queues a button press, as if it came from `device`.
     virtual void inject(gamepad::Button button, input::Device device) = 0;

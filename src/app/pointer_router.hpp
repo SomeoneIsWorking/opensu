@@ -1,8 +1,8 @@
 // pointer_router — maps the mouse onto the shell's existing actions.
 //
 // Hover moves the same focus the D-pad moves, a left click is focus plus the A press, a right click
-// is B and the wheel steps the way the D-pad does. Nothing here knows geometry: the host says what
-// is under the pointer.
+// asks for the context menu of what is under it (it is never Back) and the wheel steps the way the
+// D-pad does. Nothing here knows geometry: the host says what is under the pointer.
 #pragma once
 
 #include <optional>
@@ -46,6 +46,11 @@ class PointerHost {
     virtual void activateSection(library::Section section) = 0;
     /// A click on a launcher's badge in the top bar.
     virtual void selectLauncher(library::Source source) = 0;
+    /// A click on the icon size slider at `level`.
+    virtual void chooseIconSize(int level) = 0;
+    /// A right click on `target`: its context menu opens, an open one closes, and a target
+    /// without a menu does nothing.
+    virtual void contextMenu(const ui::PointerTarget& target) = 0;
     /// One wheel step: `steps` is 1 towards the end of the list or page, -1 towards its start.
     virtual void scroll(int steps) = 0;
 };

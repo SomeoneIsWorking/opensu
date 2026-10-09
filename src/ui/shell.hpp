@@ -20,6 +20,8 @@
 
 #include "backdrop_blur.hpp"
 #include "config/config.hpp"
+#include "context_menu.hpp"
+#include "context_menu_painter.hpp"
 #include "corner_hints.hpp"
 #include "dock_metrics.hpp"
 #include "dock_motion.hpp"
@@ -41,10 +43,13 @@
 #include "mode_chooser_painter.hpp"
 #include "page_arrow.hpp"
 #include "page_pill.hpp"
+#include "panel_fade.hpp"
 #include "platform.hpp"
 #include "pointer_target.hpp"
 #include "rail_layout.hpp"
 #include "rail_painter.hpp"
+#include "search_panel.hpp"
+#include "search_panel_painter.hpp"
 #include "section_view.hpp"
 #include "tile_motion.hpp"
 #include "tile_painter.hpp"
@@ -155,6 +160,25 @@ class Shell {
         return presentationOf(section_, libraryMode_);
     }
 
+    /// Sets iiSU's icon size level (1 to 20) Library's tiles are laid out at; the grid, the XMB
+    /// and the Carousel all follow it.
+    void setIconSize(int level);
+    [[nodiscard]] int iconSize() const noexcept {
+        return iconSize_;
+    }
+
+    /// The search panel and the context menu. They fade in and out as they open and close.
+    [[nodiscard]] SearchPanel& searchPanel() noexcept {
+        return search_;
+    }
+    [[nodiscard]] ContextMenu& contextMenu() noexcept {
+        return context_;
+    }
+    /// Whether a panel that takes every button is up: the options, the search or a context menu.
+    [[nodiscard]] bool panelOpen() const noexcept {
+        return chooser_.isOpen() || search_.isOpen() || context_.isOpen();
+    }
+
     /// Which device the prompts name. The caller feeds it; the painters read it.
     [[nodiscard]] input::LastDevice& inputDevice() noexcept {
         return device_;
@@ -235,6 +259,8 @@ class Shell {
     }
     /// The focused game, or null when a console or an empty slot has focus.
     [[nodiscard]] const library::Game* focusedGame() const;
+    /// The focused tile's entry, or null for an empty slot.
+    [[nodiscard]] const library::ShelfItem* focusedItem() const;
     /// The folder the focused tile opens, or nothing for a game or an empty slot.
     [[nodiscard]] std::optional<library::Folder> focusedFolder() const;
     /// The title the focused entry shows, empty for an empty slot.
@@ -370,9 +396,14 @@ class Shell {
     DockVisibility dockVisibility_;
     /// The section whose dock item the pointer is on.
     std::optional<library::Section> dockHover_;
-    bool pinLibraryDock_{true};
     std::array<IconPop, library::allSections.size()> iconPops_{IconPop{true}, IconPop{false}};
     ModeChooser chooser_;
+    SearchPanel search_;
+    PanelFade searchFade_{FadeSpec{120.0f, 120.0f, 0.96f, 140.0f, 1.0f}};
+    SearchPanelPainter searchPainter_{device_};
+    ContextMenu context_;
+    PanelFade contextFade_{FadeSpec{110.0f, 95.0f, 0.96f, 110.0f, 0.985f}};
+    ContextMenuPainter contextPainter_{device_};
 
     Clock::time_point now_{Clock::now()};
     Clock::time_point lastTick_{now_};
@@ -404,8 +435,12 @@ class Shell {
     int page_{};
     int entranceFirstStep_{};
     int entranceSpread_{};
+    int iconSize_{defaultIconLevel};
     bool entrancePending_{false};
     bool inGame_{false};
+    bool pinLibraryDock_{true};
+    bool searchWasOpen_{false};
+    bool contextWasOpen_{false};
 };
 
 } // namespace opensu::ui

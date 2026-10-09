@@ -24,6 +24,18 @@ void startCorner() {
            "both together");
 }
 
+void searchAndOptions() {
+    expect((opensu::ui::startPrompts(HintContext{.back = true, .clearSearch = true}) ==
+            std::vector<Prompt>{{"B", "Clear search"}}),
+           "a search being cleared takes B before Back");
+    expect((opensu::ui::startPrompts(HintContext{.options = true}) ==
+            std::vector<Prompt>{{"-", "Options"}}),
+           "a folder tile offers its options");
+    expect((opensu::ui::startPrompts(HintContext{.details = true, .options = true}) ==
+            std::vector<Prompt>{{"-", "Details"}}),
+           "a game's menu is Details, not Options");
+}
+
 void endCorner() {
     expect(opensu::ui::endPrompts(HintContext{}).empty(), "an empty slot selects nothing");
     expect((opensu::ui::endPrompts(HintContext{.select = true}) ==
@@ -40,6 +52,7 @@ void endCorner() {
 
 int main() {
     startCorner();
+    searchAndOptions();
     endCorner();
     std::printf("corner_hints: all checks passed\n");
     return 0;

@@ -8,14 +8,14 @@
 
 namespace {
 
+using lucent::http::Request;
+using lucent::http::Response;
 using opensu::app::ControlChannel;
 using opensu::app::ControlTarget;
 using opensu::app::ShellSnapshot;
 using opensu::app::SignInResult;
 using opensu::app::SignInService;
 using opensu::app::Store;
-using lucent::http::Request;
-using lucent::http::Response;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -33,6 +33,9 @@ class FakeShell final : public ControlTarget {
     [[nodiscard]] ShellSnapshot snapshot() const override {
         return state;
     }
+    void typeText(std::string text) override {
+        typed.push_back(std::move(text));
+    }
     void inject(opensu::gamepad::Button button, opensu::input::Device device) override {
         pressed.push_back(button);
         devices.push_back(device);
@@ -47,6 +50,7 @@ class FakeShell final : public ControlTarget {
     }
 
     std::vector<std::string> reloads;
+    std::vector<std::string> typed;
     std::vector<opensu::gamepad::Button> pressed;
     std::vector<opensu::input::Device> devices;
     ShellSnapshot state;
@@ -163,6 +167,34 @@ void testState() {
            "the state follows the shell");
 }
 
+void testSearchAndText() {
+    FakeShell shell;
+    FakeSignIn signIn;
+    ControlChannel channel{shell, signIn, 0};
+    using opensu::gamepad::Button;
+
+    expect(channel.handle(post("/input", "search")).status == 200 &&
+               shell.pressed == std::vector<Button>{Button::Search},
+           "the search button is input");
+    expect(channel.handle(post("/text", "had")).status == 200 &&
+               shell.typed == std::vector<std::string>{"had"},
+           "text reaches the shell");
+    const Request get{.method = "GET", .target = "/text", .headers = {}, .body = {}};
+    expect(channel.handle(get).status != 200 && shell.typed.size() == 1, "text is POST only");
+
+    shell.state.searchOpen = true;
+    shell.state.searchText = "had";
+    shell.state.contextMenuOpen = true;
+    shell.state.iconSize = 14;
+    const Response state =
+        channel.handle(Request{.method = "GET", .target = "/state", .headers = {}, .body = {}});
+    expect(contains(state.body, "\"searchOpen\":true") &&
+               contains(state.body, "\"searchText\":\"had\"") &&
+               contains(state.body, "\"contextMenuOpen\":true") &&
+               contains(state.body, "\"iconSize\":14"),
+           "the state reports the search, the menu and the icon size");
+}
+
 void testSectionButtons() {
     FakeShell shell;
     FakeSignIn signIn;
@@ -195,6 +227,7 @@ void testKeyboardInput() {
 int main() {
     testState();
     testKeyboardInput();
+    testSearchAndText();
     testSectionButtons();
     testStart();
     testComplete();

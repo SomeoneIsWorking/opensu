@@ -40,6 +40,68 @@ void defaultViewport() {
     expect(HomeLayout::clampColumns(0) == 1, "horizontal columns are at least 1");
 }
 
+void iconSizeScalesTheCells() {
+    for (const ScrollMode mode : {ScrollMode::Flow, ScrollMode::Paged}) {
+        HomeLayoutInput input = window(60, mode);
+        input.fillSlots = false;
+        const HomeLayout base{input};
+        input.iconLevel = opensu::ui::defaultIconLevel;
+        const HomeLayout same{input};
+        expect(same.rows() == base.rows() && same.cellWidth() == base.cellWidth(),
+               "the default level is the unscaled grid");
+        expect(base.rows() == 3, "which has 3 rows");
+
+        float lastCell = 0.0f;
+        int lastRows = 7;
+        for (int level = opensu::ui::minIconLevel; level <= opensu::ui::maxIconLevel; ++level) {
+            input.iconLevel = level;
+            const HomeLayout layout{input};
+            near(layout.cellWidth(), layout.cellHeight(), "cells stay square");
+            expect(layout.cellWidth() >= lastCell, "a larger level never shrinks the cell");
+            expect(layout.rows() <= lastRows, "nor adds rows");
+            expect(layout.rows() >= 1 && layout.rows() <= 6, "rows stay within 1 to 6");
+            const float used = static_cast<float>(layout.rows()) * layout.cellHeight() +
+                               static_cast<float>(layout.rows() - 1) * layout.gap();
+            expect(used <= 800.0f - 60.0f - 40.0f, "the rows fit between the bars");
+            lastCell = layout.cellWidth();
+            lastRows = layout.rows();
+        }
+        if (mode == ScrollMode::Flow) {
+            input.iconLevel = 1;
+            const HomeLayout small{input};
+            input.iconLevel = 20;
+            const HomeLayout large{input};
+            near(small.cellHeight() / base.cellHeight(), opensu::ui::relativeIconScale(1),
+                 "level 1 scales the cell by iiSU's factor");
+            near(large.cellHeight() / base.cellHeight(), opensu::ui::relativeIconScale(20),
+                 "and level 20 likewise");
+            expect(small.rows() > base.rows() && large.rows() == 1,
+                   "the smallest fits more rows than the default, the largest one");
+        }
+    }
+}
+
+void iconSizeKeepsHitTestsAndWindowsConsistent() {
+    for (const int level : {1, 5, 14, 20}) {
+        HomeLayoutInput input = window(80, ScrollMode::Flow);
+        input.fillSlots = false;
+        input.iconLevel = level;
+        const HomeLayout layout{input};
+        const opensu::ui::SlotRange seen = layout.visibleSlots(0.0f, 1280.0f);
+        expect(seen.size() > 0, "some slots are in view");
+        for (std::size_t slot = seen.first; slot < seen.last; ++slot) {
+            const opensu::ui::Rect rect = layout.canvasRect(slot, 0.0f);
+            const auto hit = layout.slotAt(0.0f, rect.centreX(), rect.centreY());
+            expect(hit && *hit == slot, "the slot under a cell's centre is that slot");
+        }
+        const auto rows = static_cast<std::size_t>(layout.rows());
+        const opensu::ui::GridCell cell = layout.cellOf(rows + 1);
+        expect(static_cast<std::size_t>(cell.left) == (rows + 1) / rows &&
+                   static_cast<std::size_t>(cell.top) == (rows + 1) % rows,
+               "slots still fill column-major at the new rows");
+    }
+}
+
 void categoryLevel() {
     HomeLayoutInput input = window(5, ScrollMode::Flow);
     input.fillSlots = false;
@@ -310,6 +372,8 @@ int main() {
     visibleWindowIsSmallWhateverTheLibrary();
     defaultViewport();
     categoryLevel();
+    iconSizeScalesTheCells();
+    iconSizeKeepsHitTestsAndWindowsConsistent();
     gapRule();
     flowMetrics();
     columnMajor();

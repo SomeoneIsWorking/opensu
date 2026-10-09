@@ -5,11 +5,15 @@ namespace opensu::ui {
 std::vector<Prompt> startPrompts(const HintContext& context) {
     std::vector<Prompt> prompts;
     // iiSU mw5.h: ("B", "Back"), ("-", "Details").
-    if (context.back) {
+    if (context.clearSearch) {
+        prompts.push_back(Prompt{"B", "Clear search"});
+    } else if (context.back) {
         prompts.push_back(Prompt{"B", "Back"});
     }
     if (context.details) {
         prompts.push_back(Prompt{"-", "Details"});
+    } else if (context.options) {
+        prompts.push_back(Prompt{"-", "Options"});
     }
     return prompts;
 }

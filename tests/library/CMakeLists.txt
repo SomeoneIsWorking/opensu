@@ -53,3 +53,8 @@ add_executable(catalog_loader_test catalog_loader_test.cpp)
 target_link_libraries(catalog_loader_test PRIVATE opensu::library)
 target_compile_options(catalog_loader_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME catalog_loader COMMAND catalog_loader_test)
+
+add_executable(library_query_test library_query_test.cpp)
+target_link_libraries(library_query_test PRIVATE opensu::library)
+target_include_directories(library_query_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+add_test(NAME library_query COMMAND library_query_test)

@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "home_layout.hpp"
+#include "icon_size.hpp"
 
 namespace opensu::ui {
 
@@ -27,13 +28,10 @@ struct RailInput {
     /// The focus position in tiles, fractional while it moves; clamped to the tiles.
     float focus{};
     /// iiSU's icon size level, 1 to 20 (`xmbIconSizeLevel`, default 9).
-    int iconLevel{9};
+    int iconLevel{defaultIconLevel};
     /// Pixels per dp, which sizes what iiSU gives in dp: the titles and the left column.
     float dp{1.0f};
 };
-
-/// iiSU `w70.I`: the size level's scale, `clamp((level - 10) 0.11 + 1.45, 0.67, 2.55)`.
-[[nodiscard]] float iconScale(int level) noexcept;
 
 /// The tile under the point, given the drawn rectangles of the tiles from `first` on: the tiles
 /// nearest `focus` are drawn last, so they are on top.

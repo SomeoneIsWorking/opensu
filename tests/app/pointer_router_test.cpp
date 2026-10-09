@@ -24,6 +24,7 @@ class Recorder final : public PointerHost {
     PointerTarget under;
     std::vector<std::string> calls;
     bool pointerGiven{false};
+    PointerTarget menuTarget;
 
     PointerTarget pointAt(std::optional<Vector2> point) override {
         pointerGiven = point.has_value();
@@ -40,6 +41,13 @@ class Recorder final : public PointerHost {
     }
     void selectLauncher(opensu::library::Source) override {
         calls.emplace_back("launcher");
+    }
+    void chooseIconSize(int level) override {
+        calls.push_back("size" + std::to_string(level));
+    }
+    void contextMenu(const PointerTarget& target) override {
+        calls.emplace_back("menu");
+        menuTarget = target;
     }
     void scroll(int steps) override {
         calls.emplace_back(steps > 0 ? "scroll+" : "scroll-");
@@ -93,7 +101,8 @@ void leftClickIsFocusThenA() {
     for (const PointerTarget target :
          {PointerTarget{opensu::ui::OnTile{1}},
           PointerTarget{opensu::ui::OnLayoutCard{opensu::library::LibraryMode::Xmb}},
-          PointerTarget{opensu::ui::OnMenuItem{1}}, PointerTarget{opensu::ui::OnPinOption{}}}) {
+          PointerTarget{opensu::ui::OnMenuItem{1}},
+          PointerTarget{opensu::ui::OnChooserRow{opensu::ui::ChooserRow::Pin}}}) {
         host.under = target;
         host.calls.clear();
         PointerFrame frame = at(10.0f, 10.0f);
@@ -138,8 +147,14 @@ void rightClickAndWheel() {
     PointerRouter router{device, host};
     PointerFrame frame = at(10.0f, 10.0f);
     frame.right = true;
+    host.under = opensu::ui::OnTile{4};
     router.route(frame);
-    expect(host.calls == std::vector<std::string>{"B"}, "a right click is B");
+    expect(host.calls == std::vector<std::string>{"menu"}, "a right click asks for a menu");
+    expect(host.menuTarget == PointerTarget{opensu::ui::OnTile{4}}, "the menu is for the target");
+    host.calls.clear();
+    host.under = opensu::ui::OnContextBackdrop{};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"menu"}, "a right click is never B");
     host.calls.clear();
     frame = at(10.0f, 10.0f);
     frame.wheel = -1.0f;
@@ -149,6 +164,36 @@ void rightClickAndWheel() {
     expect(host.calls == std::vector<std::string>{"scroll+", "scroll-"},
            "the wheel steps down, then up");
     expect(device.current() == Device::KeyboardMouse, "the wheel is real input");
+}
+
+void iconSizeAndBackdropClicks() {
+    Recorder host;
+    LastDevice device;
+    PointerRouter router{device, host};
+    PointerFrame frame = at(10.0f, 10.0f);
+    frame.left = true;
+    host.under = opensu::ui::OnIconSize{14};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"focus", "size14"}, "the slider sets the level");
+    host.calls.clear();
+    host.under = opensu::ui::OnContextBackdrop{};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"B"}, "a click outside a menu closes it");
+}
+
+void hoverFocusesThePanelTargets() {
+    Recorder host;
+    LastDevice device;
+    PointerRouter router{device, host};
+    for (const PointerTarget target :
+         {PointerTarget{opensu::ui::OnIconSize{3}}, PointerTarget{opensu::ui::OnSearchKey{2}},
+          PointerTarget{opensu::ui::OnSearchResult{1}},
+          PointerTarget{opensu::ui::OnContextItem{0}}}) {
+        host.under = target;
+        host.calls.clear();
+        router.route(at(10.0f, 10.0f, 4.0f));
+        expect(host.calls == std::vector<std::string>{"focus"}, "hover focuses a panel target");
+    }
 }
 
 void padKeepsFocusFromAStillPointer() {
@@ -175,6 +220,8 @@ int main() {
     leftClickIsFocusThenA();
     leftClickOnTheOthers();
     rightClickAndWheel();
+    iconSizeAndBackdropClicks();
+    hoverFocusesThePanelTargets();
     padKeepsFocusFromAStillPointer();
     std::printf("pointer_router: all checks passed\n");
     return 0;

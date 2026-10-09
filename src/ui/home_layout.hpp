@@ -9,6 +9,8 @@
 #include <optional>
 #include <vector>
 
+#include "icon_size.hpp"
+
 namespace opensu::ui {
 
 /// An axis-aligned rectangle in pixels.
@@ -98,6 +100,9 @@ struct HomeLayoutInput {
     /// Whether empty cells are placeholder slots filling at least four pages (Home), or the grid
     /// holds only its items (the ROMs category level, navigation.md 5.2).
     bool fillSlots{true};
+    /// iiSU's icon size level. Away from the default the cells are that much larger or smaller
+    /// and as many rows are laid out as fit, up to 6.
+    int iconLevel{defaultIconLevel};
 };
 
 /// WiiSu's page arrows; an arrow is absent when there is no page that way (iiSU ys8.l).

@@ -27,6 +27,26 @@ RailInput input(float width, float height, std::size_t items, float focus) {
                      9};
 }
 
+void railsFollowTheIconSize() {
+    RailInput xmb = input(1920.0f, 1080.0f, 12, 0.0f);
+    xmb.iconLevel = 20;
+    near(XmbLayout{xmb}.focusedSize(), 0.30 * 1080.0 * 2.55, "level 20 sizes the XMB by 2.55");
+    xmb.iconLevel = 1;
+    near(XmbLayout{xmb}.focusedSize(), 0.30 * 1080.0 * 0.67, "level 1 by 0.67");
+    RailInput row = input(1920.0f, 1080.0f, 12, 0.0f);
+    row.iconLevel = 20;
+    near(CarouselLayout{row}.focusedSize(), 0.30 * 1080.0 * 2.55 / 1.45,
+         "the Carousel is scaled against level 10");
+    row.iconLevel = 10;
+    near(CarouselLayout{row}.focusedSize(), 0.30 * 1080.0, "level 10 is its unscaled size");
+    for (const RailInput& rail : {xmb, row}) {
+        const CarouselLayout laid{rail};
+        for (const Rect& rect : laid.rects()) {
+            expect(rect.width > 0.0f && rect.height > 0.0f, "placed tiles have a size");
+        }
+    }
+}
+
 void iconScales() {
     near(opensu::ui::iconScale(9), 1.34, "level 9 is 1.34");
     near(opensu::ui::iconScale(10), 1.45, "level 10 is 1.45");
@@ -34,6 +54,9 @@ void iconScales() {
     near(opensu::ui::iconScale(20), 2.55, "level 20 caps at 2.55");
     near(opensu::ui::iconScale(0), 0.67, "a level under 1 reads as 1");
     near(opensu::ui::iconScale(99), 2.55, "a level over 20 reads as 20");
+    near(opensu::ui::relativeIconScale(9), 1.0, "the default level is the unscaled size");
+    near(opensu::ui::relativeIconScale(20), 2.55 / 1.34, "level 20 is 1.9 times it");
+    near(opensu::ui::relativeIconScale(1), 0.67 / 1.34, "level 1 is half of it");
 }
 
 void xmbWorkedNumbers() {
@@ -227,6 +250,7 @@ int main() {
     largeRailsPlaceOnlyWhatIsNearTheCanvas();
     tileUnderThePointer();
     iconScales();
+    railsFollowTheIconSize();
     xmbWorkedNumbers();
     xmbAnchors();
     xmbBetweenTiles();

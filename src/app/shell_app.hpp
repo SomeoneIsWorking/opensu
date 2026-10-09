@@ -22,6 +22,7 @@
 #include "artwork_store.hpp"
 #include "audio/sound_player.hpp"
 #include "config/config.hpp"
+#include "context_menu_controller.hpp"
 #include "control_channel.hpp"
 #include "device/battery.hpp"
 #include "game_keys.hpp"
@@ -29,14 +30,16 @@
 #include "gamepad/pads.hpp"
 #include "gamescope_overlay.hpp"
 #include "gamescope_windows.hpp"
-#include "installs.hpp"
-#include "layout_picker.hpp"
+#include "input/keyboard_bindings.hpp"
 #include "launch/handoff.hpp"
+#include "layout_picker.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
 #include "library/shelf.hpp"
+#include "panel_flow.hpp"
 #include "pointer_router.hpp"
-#include "settings/settings.hpp"
+#include "preferences.hpp"
+#include "search_controller.hpp"
 #include "sign_in.hpp"
 #include "steam/client.hpp"
 #include "ui/shell.hpp"
@@ -84,6 +87,7 @@ class ShellApp final : public ControlTarget, private PointerHost {
     [[nodiscard]] bool captureFrame(std::string& png) override;
     void requestClose() override;
     void requestCatalogReload(std::string toast) override;
+    void typeText(std::string text) override;
 
   private:
     /// Where pads are read from: the system's, or an empty directory in a hidden run.
@@ -133,6 +137,8 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void activateSection(library::Section section) override;
     void selectLauncher(library::Source source) override;
     void scroll(int steps) override;
+    void chooseIconSize(int level) override;
+    void contextMenu(const ui::PointerTarget& target) override;
     /// A click on a dock item: the same section change as L1 and R1.
     void clickSection(library::Section section);
     void actOn(gamepad::Button button);
@@ -140,10 +146,6 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void moveFocus(ui::Direction direction);
     /// Moves the Guide menu's focus, with the Navigation sound when it moved.
     void moveMenu(int delta);
-    /// Shows the launch panel for `title` with iiSU's Open sound.
-    void openPanel(const std::string& title);
-    /// Hides the launch panel the player dismissed, with iiSU's Close sound.
-    void closePanel();
     /// L1 and R1: moves `delta` sections along the dock and shows the section's shelf, with iiSU's
     /// domino cue sized by what the section shows at once.
     void cycleSection(int delta);
@@ -152,17 +154,9 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void launchFocused();
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
-    /// Buttons while the launch panel is up: it takes them all. Main loop only.
-    void actOnPanel(gamepad::Button button);
-    /// Asks whether to install the focused game, which is not installed, from the store that
+    /// Asks whether to install the focused game, which is not installed, from the stores that
     /// can: all the stores that own it when more than one can.
     void offerInstall(const library::Game& game);
-    /// Starts the install of `game` and shows it on the panel.
-    void startInstall(const library::Game& game);
-    /// Shows the install job's news on the panel and the catalog. Main loop only.
-    void serviceInstall();
-    /// Asks the player about the install's licence agreements on the panel.
-    void presentEula();
     /// Shows the shelf the browser is on, focusing `focus`.
     void showShelf(std::size_t focus);
     /// The folder open now as the tile that stands for it, or nothing in a section.
@@ -173,6 +167,19 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void loadStoredSounds();
     /// Opens a console, a launcher or the combined library on its games.
     void openFolder(const library::Folder& folder);
+    /// Gives the screen the layout, pin and icon size the preferences hold.
+    void applyLayout();
+    /// The tiles the grid shows, as lines of the search results.
+    [[nodiscard]] std::vector<ui::SearchResult> searchResults() const;
+    /// Focuses tile `index` and presses A on it.
+    void openTile(std::size_t index);
+    /// Hides or shows `game` everywhere, and keeps it.
+    void setHidden(const library::Game& game, bool hidden);
+    /// Notes that `game` was launched now, for the recently played sort.
+    void recordLaunch(const library::Game& game);
+    /// Reads the keyboard as text while the search panel is open. `typed` was read before the
+    /// frame's key bindings ran.
+    void handleSearchText(const input::TextInput& typed);
     /// Opens a store's sign-in page in the browser, off the loop.
     void startSignIn(Store store);
     /// Buttons while a game runs: Guide opens and closes the menu over it, which takes the
@@ -203,11 +210,63 @@ class ShellApp final : public ControlTarget, private PointerHost {
     std::chrono::steady_clock::time_point nextClockTick_{};
     ui::Shell shell_;
     /// What the player chose, read at start and saved when it changes.
-    settings::Store settingsStore_{config::read().configDir / "settings.json"};
-    settings::Settings preferences_;
-    /// After the settings it keeps and the shelf it re-shows.
-    LayoutPicker layoutPicker_{shell_, sounds_, settingsStore_, preferences_,
-                               [this] { showShelf(shell_.focusIndex()); }};
+    Preferences preferences_{settings::Store{config::read().configDir / "settings.json"},
+                             [this](const std::string& why) {
+                                 shell_.setToast(why, true);
+                             }};
+    /// After the preferences they keep and the shelf they re-show.
+    LayoutPicker layoutPicker_{shell_.modeChooser(), sounds_, preferences_,
+                               LayoutPicker::Hooks{[this](std::size_t focus) {
+                                                       showShelf(focus);
+                                                   },
+                                                   [this] {
+                                                       return shell_.focusIndex();
+                                                   },
+                                                   [this] {
+                                                       applyLayout();
+                                                   },
+                                                   [this] {
+                                                       return library::sourceChoices(games_,
+                                                                                     sources_);
+                                                   },
+                                                   [this] {
+                                                       search_.open();
+                                                   }}};
+    SearchController search_{shell_.searchPanel(), sounds_, preferences_,
+                             SearchController::Hooks{[this](std::size_t focus) {
+                                                         showShelf(focus);
+                                                     },
+                                                     [this] {
+                                                         return searchResults();
+                                                     },
+                                                     [this](std::size_t index) {
+                                                         openTile(index);
+                                                     }}};
+    ContextMenuController contextMenu_{
+        shell_.contextMenu(), sounds_, preferences_,
+        ContextMenuController::Hooks{[this] {
+                                         return shell_.focusedItem();
+                                     },
+                                     [this] {
+                                         launchFocused();
+                                     },
+                                     [this] {
+                                         showDetails();
+                                     },
+                                     [this](const library::Game& game, bool hidden) {
+                                         setHidden(game, hidden);
+                                     },
+                                     [this](const library::Folder& folder) {
+                                         openFolder(folder);
+                                     },
+                                     [this] {
+                                         reloadCatalog();
+                                         shell_.setToast("library refreshed");
+                                     },
+                                     [this](library::Source source) {
+                                         startSignIn(source == library::Source::Gog ? Store::Gog
+                                                                                    : Store::Epic);
+                                     }}};
     gamepad::Pads pads_{padsDirectory(settings_.hidden)};
     /// After shell_ and the host it drives.
     PointerRouter pointer_{shell_.inputDevice(), *this};
@@ -236,17 +295,15 @@ class ShellApp final : public ControlTarget, private PointerHost {
     launch::Handoff handoff_;
     /// The running launch's title, for the Guide menu. Main loop only.
     std::string runningTitle_;
-    /// What the launch panel is up for. Main loop only.
-    enum class PanelUse : std::uint8_t { None, Launch, OfferInstall, Install, Eula };
-    PanelUse panelUse_{PanelUse::None};
-    /// A licence question that arrived while a launch held the panel.
-    bool eulaWaiting_{false};
-    /// The copies of a game the panel offers to install, one per store: A takes the first, X the
-    /// second. Main loop only.
-    std::vector<library::Game> offered_;
-    /// After steam_, so it is stopped before the client it drives.
-    Installs install_{steam_, "legendary",
-                      GogInstallJob::Options{.dataDir = config::read().dataDir}};
+    /// What the launch panel is up for, and the one install that runs. After steam_, so the
+    /// install is stopped before the client it drives. Main loop only.
+    PanelFlow panels_{shell_, sounds_, steam_,
+                      PanelFlow::Hooks{[this] {
+                                           cancelLaunch();
+                                       },
+                                       [this] {
+                                           reloadCatalog();
+                                       }}};
     /// Inside Gamescope, how the window draws over a running game. Null elsewhere, where the
     /// window is hidden while a game runs and shown only for the Guide menu.
     std::unique_ptr<session::GamescopeOverlay> overlay_;
@@ -273,6 +330,8 @@ class ShellApp final : public ControlTarget, private PointerHost {
     /// Buttons queued by the control channel, drained by the loop.
     std::mutex injectedMutex_;
     std::vector<std::pair<gamepad::Button, input::Device>> injected_;
+    /// Text typed over the channel, as a physical keyboard would.
+    std::vector<std::string> typed_;
 
     /// The published state and the frame-request handshake. Written only by the
     /// main loop and read from the control channel's threads.

@@ -22,6 +22,18 @@ Visible deltas from the baseline:
   (`persistentNavBarOnPlatforms` false), which left a mouse or keyboard player no visible way back
   to Home. The Library layout picker has iiSU's "Pin navigation bar" option (here "on Library"),
   default on, kept in `settings.json` as `pinLibraryDock`; off gives iiSU's behaviour.
+- Library tools, openSU's own (iiSU has none of the filters or the sort). Global Search is iiSU's
+  panel (Ctrl+F, `/`, or a row of the START options): case- and accent-insensitive substring on the
+  title, prefix matches first, narrowing as typed; a keyboard types straight into the field, a pad
+  gets an on-screen keyboard. The START options (Home and Library) add a sort (recently played,
+  name, store), a source filter (a store or a ROM system), installed only and hidden games only;
+  sort, source and installed are kept in `settings.json`, the search and the hidden filter are not.
+  Hide/Unhide is in the context menu (Select on a pad, Tab on a keyboard, right click on a tile),
+  with Launch or Install and Details; hidden games leave Home, Library, folders, All games and
+  search except under the hidden filter. The last-played time of an Epic, GOG or ROM launch is
+  recorded by openSU. Library's icon size is iiSU's slider (levels 1 to 20, default 9) in the
+  options for all three layouts. START also opens the options on Home now, and Y still shows the
+  details.
 - The corner prompts name only what works: Back inside a folder, Details with a game focused,
   Select on a tile, Menu on Library. iiSU shows them all always.
 - The title pill names the focused tile on Home too; iiSU shows it only inside sections.
@@ -356,16 +368,18 @@ own geometry. Hover focuses the tile, layout card or Guide row under a pointer t
 focus the D-pad moves, with the Navigation sound; a still pointer never refocuses); the dock lights
 its item as before. Left click is focus plus A on a tile, card or row, the section change on a dock
 item, the page turn on a page arrow or dot, and the hint's own button on a launch-panel hint
-(install, store choice, licence accept/decline, cancel). Right click is B everywhere. The wheel
+(install, store choice, licence accept/decline, cancel). Right click is never Back: on a game tile
+it opens that game's menu, on a folder or store tile the tile's menu (Open, Sign in, Refresh), on
+anything else it does nothing, and outside an open menu it closes it. The wheel
 steps the way the pad does: a page in WiiSu, a column in Flow, down the XMB, along the Carousel,
 between layout cards, down the Guide menu. Hit-tests: `HomeLayout::slotAt/pageAt`,
-`railTileAt`, `ChooserLayout::cardAt`, `GameMenuLayout::itemAt`, `PanelLayout::hintAt`, `dockItemAt`.
-Tested: `home_layout`, `rail_layout`, `mode_chooser`, `game_menu`, `launch_panel`, `pointer_router`,
+`railTileAt`, `ChooserLayout::cardAt/rowAt/iconSizeAt`, `SearchLayout::keyAt/resultAt`, `ContextLayout::itemAt`, `GameMenuLayout::itemAt`, `PanelLayout::hintAt`, `dockItemAt`.
+Tested: `home_layout`, `rail_layout`, `mode_chooser`, `search_panel`, `context_menu`, `game_menu`, `launch_panel`, `pointer_router`,
 plus `last_device`, `keyboard_bindings`, `dock_metrics`, `sections`, `control_channel`.
 A launcher badge hovers lit and a click selects that store's tile in Library (`ShellApp::selectLauncher`,
-`TopBarLayout::launcherAt`); the layout picker's pin row hovers and clicks like a card.
+`TopBarLayout::launcherAt`); the options panel's rows, the icon size slider (a click or drag sets the level), the search keys and results, and the context menu's rows hover and click like a card.
 Not clickable: the rest of the top bar, the corner hints, the toast, the XMB's header
-card (B or right click goes back). The sign-in prompt is the Library launcher tile, so it takes the
+card (B goes back). The sign-in prompt is the Library launcher tile, so it takes the
 tile click. `opensu --render FILE --keyboard` draws the keyboard's prompts; `POST /input` takes `a keyboard`
 and `/state` reports `inputDevice`.
 
@@ -485,8 +499,11 @@ Loading it: `about:debugging` → This Firefox → Load Temporary Add-on →
 browser restart). A Flatpak browser's portal file picker exposes only the chosen file, so the bare
 `manifest.json` loads without `background.js`; the `.xpi` is one file. The port is the constant
 `OPENSU_PORT` in `background.js`, openSU's default 7311; edit it when `OPENSU_CONTROL_PORT`
-differs. The source and the `.xpi` lint clean (`web-ext lint`, `addons-linter`); not yet loaded in Zen
-against a live sign-in.
+differs. The source and the `.xpi` lint clean (`web-ext lint`, `addons-linter`).
+
+Verified (GOG): user-confirmed real GOG sign-in in Zen 1.23b (Firefox 157) with the extension
+sideloaded into the profile, 2026-10-09. Epic's sign-in through the extension is not yet
+verified against a live account, so S018 stays partial.
 
 Known gap: the channel does not check `Origin` (`lucent::http::Request::header` now exposes
 it), so any local web page can POST a code to it (a login-CSRF, not a credential leak).

@@ -28,6 +28,8 @@ enum class Button : std::uint8_t {
     Down,
     Left,
     Right,
+    /// Opens the search; no pad button is bound to it (the options panel has its entry).
+    Search,
 };
 
 /// The prompt glyph for a control, as the reference labels its buttons.

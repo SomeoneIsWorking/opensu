@@ -16,7 +16,19 @@ struct FocusesOnHover {
     bool operator()(const ui::OnMenuItem&) const {
         return true;
     }
-    bool operator()(const ui::OnPinOption&) const {
+    bool operator()(const ui::OnChooserRow&) const {
+        return true;
+    }
+    bool operator()(const ui::OnIconSize&) const {
+        return true;
+    }
+    bool operator()(const ui::OnSearchKey&) const {
+        return true;
+    }
+    bool operator()(const ui::OnSearchResult&) const {
+        return true;
+    }
+    bool operator()(const ui::OnContextItem&) const {
         return true;
     }
     template <class Other> bool operator()(const Other&) const {
@@ -54,7 +66,7 @@ void PointerRouter::route(const PointerFrame& frame) {
         click(target);
     }
     if (frame.right) {
-        host_.press(gamepad::Button::B);
+        host_.contextMenu(target);
     }
     if (frame.wheel != 0.0f) {
         host_.scroll(frame.wheel < 0.0f ? 1 : -1);
@@ -68,6 +80,11 @@ void PointerRouter::click(const ui::PointerTarget& target) {
         host_.selectLauncher(launcher->source);
     } else if (const auto* button = std::get_if<ui::OnPanelButton>(&target)) {
         host_.press(button->button);
+    } else if (const auto* size = std::get_if<ui::OnIconSize>(&target)) {
+        host_.focus(target);
+        host_.chooseIconSize(size->level);
+    } else if (std::holds_alternative<ui::OnContextBackdrop>(target)) {
+        host_.press(gamepad::Button::B);
     } else if (std::holds_alternative<ui::OnPage>(target)) {
         host_.focus(target);
     } else if (!std::holds_alternative<std::monostate>(target)) {

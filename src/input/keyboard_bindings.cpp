@@ -9,7 +9,7 @@ namespace {
 
 using gamepad::Button;
 
-constexpr std::array<KeyBinding, 18> bindings{{
+constexpr std::array<KeyBinding, 20> bindings{{
     {KEY_UP, Button::Up},
     {KEY_W, Button::Up},
     {KEY_DOWN, Button::Down},
@@ -28,6 +28,8 @@ constexpr std::array<KeyBinding, 18> bindings{{
     {KEY_LEFT_BRACKET, Button::L1},
     {KEY_RIGHT_BRACKET, Button::R1},
     {KEY_R, Button::R1},
+    {KEY_SLASH, Button::Search},
+    {KEY_F, Button::Search, true},
 }};
 
 struct NamedKey {
@@ -62,6 +64,24 @@ std::string labelOf(int key) {
 
 std::span<const KeyBinding> keyBindings() noexcept {
     return bindings;
+}
+
+TextInput readTextInput() {
+    TextInput input;
+    for (int point = GetCharPressed(); point != 0; point = GetCharPressed()) {
+        int bytes = 0;
+        const char* encoded = CodepointToUTF8(point, &bytes);
+        input.text.append(encoded, static_cast<std::size_t>(bytes));
+    }
+    const auto pressed = [](int key) {
+        return IsKeyPressed(key) || IsKeyPressedRepeat(key);
+    };
+    input.backspace = pressed(KEY_BACKSPACE);
+    input.enter = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER);
+    input.escape = IsKeyPressed(KEY_ESCAPE);
+    input.up = pressed(KEY_UP);
+    input.down = pressed(KEY_DOWN);
+    return input;
 }
 
 std::optional<std::string> keyLabelFor(Button button) {

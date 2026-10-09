@@ -15,6 +15,9 @@ add_library(opensu_library STATIC
     rom_titles.cpp
     arcade_names.cpp
     shelf.cpp
+    library_query.cpp
+    play_history.cpp
+    text_fold.cpp
     sections.cpp
     titles.cpp
     emulators.cpp

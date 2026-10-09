@@ -102,6 +102,7 @@ HomeLayout Shell::computeLayout() const {
         .topInset = hud_.topInset(),
         .bottomInset = hud_.bottomInset(),
         .fillSlots = section_ == library::Section::Home,
+        .iconLevel = section_ == library::Section::Library ? iconSize_ : defaultIconLevel,
     }};
 }
 
@@ -434,6 +435,11 @@ void Shell::setLibraryMode(library::LibraryMode mode) {
     relayout();
 }
 
+void Shell::setIconSize(int level) {
+    iconSize_ = clampIconLevel(level);
+    relayout();
+}
+
 void Shell::releaseTextures() {
     resident_.clear();
     for (Tile& tile : tiles_) {
@@ -554,6 +560,23 @@ void Shell::tick(Clock::time_point now) {
         entrancePending_ = false;
         startEntrance();
     }
+    // A panel's fade starts when its state says it opened or closed.
+    if (search_.isOpen() != searchWasOpen_) {
+        searchWasOpen_ = search_.isOpen();
+        if (searchWasOpen_) {
+            searchFade_.show(now_);
+        } else {
+            searchFade_.hide(now_);
+        }
+    }
+    if (context_.isOpen() != contextWasOpen_) {
+        contextWasOpen_ = context_.isOpen();
+        if (contextWasOpen_) {
+            contextFade_.show(now_);
+        } else {
+            contextFade_.hide(now_);
+        }
+    }
     railFocus_.step(dt);
     if (layout_.mode() == ScrollMode::Flow) {
         scroller_.step(dt, layout_.cellWidth() + layout_.gap(), layout_.viewportWidth(),
@@ -585,6 +608,10 @@ const library::Game* Shell::focusedGame() const {
         return nullptr;
     }
     return std::get_if<library::Game>(&tiles_[focus_.index()].item);
+}
+
+const library::ShelfItem* Shell::focusedItem() const {
+    return focus_.index() < tiles_.size() ? &tiles_[focus_.index()].item : nullptr;
 }
 
 std::optional<library::Folder> Shell::focusedFolder() const {
@@ -699,7 +726,7 @@ RailInput Shell::railInput() const {
                          return aspectOf(tiles_[index]);
                      },
                      railFocus_.value(),
-                     9,
+                     iconSize_,
                      dp()};
 }
 
@@ -808,7 +835,7 @@ PointerTarget Shell::pointAt(std::optional<Vector2> point) {
     if (!point) {
         return {};
     }
-    if (inGame_ || launchPanel_.isOpen() || chooser_.isOpen()) {
+    if (inGame_ || launchPanel_.isOpen() || panelOpen()) {
         return pointAtModal(*point);
     }
     if (const std::optional<library::Source> launcher = hud_.launcherAt(point->x, point->y)) {
@@ -852,9 +879,32 @@ PointerTarget Shell::pointAtModal(Vector2 point) const {
         }
         return {};
     }
-    const ChooserLayout picker = layoutChooser(Rect{0.0f, 0.0f, width, height}, dp());
-    if (picker.pinRow.contains(point.x, point.y)) {
-        return OnPinOption{};
+    const Rect frame{0.0f, 0.0f, width, height};
+    if (context_.isOpen()) {
+        const ContextLayout menu = context_.layout(frame, dp());
+        if (const std::optional<std::size_t> row = menu.itemAt(point.x, point.y)) {
+            return OnContextItem{*row};
+        }
+        return menu.contains(point.x, point.y) ? PointerTarget{} : OnContextBackdrop{};
+    }
+    if (search_.isOpen()) {
+        const SearchLayout panel = layoutSearch(frame, dp());
+        if (const std::optional<std::size_t> key = panel.keyAt(point.x, point.y)) {
+            return OnSearchKey{*key};
+        }
+        if (const std::optional<std::size_t> row = panel.resultAt(point.x, point.y)) {
+            const std::size_t result = search_.firstListed() + *row;
+            return result < search_.results().size() ? PointerTarget{OnSearchResult{result}}
+                                                     : PointerTarget{};
+        }
+        return {};
+    }
+    const ChooserLayout picker = chooser_.layout(frame, dp());
+    if (const std::optional<int> level = picker.iconSizeAt(point.x, point.y)) {
+        return OnIconSize{*level};
+    }
+    if (const std::optional<ChooserRow> row = picker.rowAt(point.x, point.y)) {
+        return OnChooserRow{*row};
     }
     if (const std::optional<library::LibraryMode> card = picker.cardAt(point.x, point.y)) {
         return OnLayoutCard{*card};
@@ -925,8 +975,23 @@ bool Shell::focusTarget(const PointerTarget& target) {
         bool operator()(const OnLauncher&) const {
             return false;
         }
-        bool operator()(const OnPinOption&) const {
-            return shell.chooser_.focusPin();
+        bool operator()(const OnChooserRow& row) const {
+            return shell.chooser_.focusRow(row.row);
+        }
+        bool operator()(const OnIconSize&) const {
+            return shell.chooser_.focusRow(ChooserRow::IconSize);
+        }
+        bool operator()(const OnSearchKey& key) const {
+            return shell.search_.focusKey(key.index);
+        }
+        bool operator()(const OnSearchResult& result) const {
+            return shell.search_.focusResult(result.index);
+        }
+        bool operator()(const OnContextItem& item) const {
+            return shell.context_.focusItem(item.index);
+        }
+        bool operator()(const OnContextBackdrop&) const {
+            return false;
         }
         bool operator()(const OnTile& tile) const {
             return shell.focusTile(tile.index);
@@ -1019,6 +1084,11 @@ void Shell::draw(const RenderTexture2D* target) {
     launchPanelPainter_.paint(launchPanel_, Vector2{frameWidth, frameHeight}, dp(),
                               std::chrono::duration<double>(now_.time_since_epoch()).count());
     chooserPainter_.paint(chooser_, Vector2{frameWidth, frameHeight}, dp());
+    const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
+    searchPainter_.paint(search_, Vector2{frameWidth, frameHeight}, dp(), searchFade_.look(now_),
+                         seconds);
+    contextPainter_.paint(context_, Vector2{frameWidth, frameHeight}, dp(),
+                          contextFade_.look(now_));
     hud_.drawToast();
     EndBlendMode();
     if (target != nullptr) {

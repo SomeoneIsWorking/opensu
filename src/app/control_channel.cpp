@@ -112,6 +112,10 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     text("section", snapshot.section);
     text("libraryMode", snapshot.libraryMode);
     flag("modeChooserOpen", snapshot.modeChooserOpen);
+    flag("searchOpen", snapshot.searchOpen);
+    text("searchText", snapshot.searchText);
+    flag("contextMenuOpen", snapshot.contextMenuOpen);
+    number("iconSize", snapshot.iconSize);
     text("shelf", snapshot.shelf);
     text("status", snapshot.status);
     text("toast", snapshot.toast);
@@ -130,7 +134,7 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
 bool parseButton(std::string_view name, gamepad::Button& out) {
     // The same spellings the shell's own hints use, so a caller driving the
     // shell by HTTP and a person reading a footer agree on what "a" means.
-    static constexpr std::array<std::pair<std::string_view, gamepad::Button>, 13> kNames{{
+    static constexpr std::array<std::pair<std::string_view, gamepad::Button>, 14> kNames{{
         {"up", gamepad::Button::Up},
         {"down", gamepad::Button::Down},
         {"left", gamepad::Button::Left},
@@ -144,6 +148,7 @@ bool parseButton(std::string_view name, gamepad::Button& out) {
         {"select", gamepad::Button::Select},
         {"start", gamepad::Button::Start},
         {"guide", gamepad::Button::Guide},
+        {"search", gamepad::Button::Search},
     }};
     for (const auto& [spelling, button] : kNames) {
         if (spelling == name) {
@@ -217,8 +222,8 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
             name = name.substr(0, space);
         }
         if (name.empty()) {
-            return refuse(
-                "body must name a button: up down left right a b x y l1 r1 select start guide");
+            return refuse("body must name a button: up down left right a b x y l1 r1 select start "
+                          "guide search");
         }
         if (!parseButton(name, button)) {
             return refuse("unknown button \"" + std::string{name} + "\"");
@@ -226,6 +231,16 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         target_.inject(button, device);
         lucent::info("control", "injected {}", name);
         return lucent::http::Response::json(200, "OK", "{\"injected\":" + jsonString(name) + "}");
+    }
+
+    if (path == "/text") {
+        if (request.method != "POST") {
+            return refuse("POST only");
+        }
+        // What a physical keyboard would type, for the search field.
+        target_.typeText(request.body);
+        return lucent::http::Response::json(200, "OK",
+                                            "{\"typed\":" + jsonString(request.body) + "}");
     }
 
     if (path == "/frame.png") {

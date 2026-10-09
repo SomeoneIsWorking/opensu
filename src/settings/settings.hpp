@@ -4,10 +4,18 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
+#include "library/library_query.hpp"
+#include "library/play_history.hpp"
 #include "library/sections.hpp"
 
 namespace opensu::settings {
+
+/// iiSU's icon size level bounds and default (`xmbIconSizeLevel`, navigation.md §2.2).
+inline constexpr int minIconSize = 1;
+inline constexpr int maxIconSize = 20;
+inline constexpr int defaultIconSize = 9;
 
 struct Settings {
     /// How Library lays out its folders (iiSU `romCategoryLayoutMode`).
@@ -16,6 +24,19 @@ struct Settings {
     /// Whether the dock stays up on Library (iiSU `persistentNavBarOnPlatforms`, which iiSU
     /// defaults to off; openSU defaults to on so the way back to Home stays visible).
     bool pinLibraryDock{true};
+
+    /// How large Library's tiles are, 1 to 20 (iiSU `xmbIconSizeLevel`).
+    int iconSize{defaultIconSize};
+
+    /// The sort, installed-only and source filters. The search text and the hidden-only filter
+    /// are for one run and are not kept.
+    library::ViewOptions view;
+
+    /// The games the player hid.
+    library::HiddenGames hidden;
+
+    /// When each game was last launched from opensu.
+    library::PlayHistory lastPlayed;
 
     bool operator==(const Settings&) const = default;
 };
