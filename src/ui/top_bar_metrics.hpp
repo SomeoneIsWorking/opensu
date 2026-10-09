@@ -6,7 +6,7 @@
 
 #include <string_view>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// iiSU is7 SingleScreenStatusPillSizing.
 struct StatusPillSizing {
@@ -108,7 +108,7 @@ class TopBarMetrics {
     /// iiSU nl2.d: clamp(1.22 hs7.d, 38, 64).
     [[nodiscard]] float profileSize() const noexcept;
     /// iiSU er3.w: the grid's top inset, dl3.i + 4, with the status pill shown (without it dl3.i
-    /// is 84; iideck always shows it).
+    /// is 84; opensu always shows it).
     [[nodiscard]] float gridTopInset() const noexcept;
     /// iiSU er3.x: the grid's bottom inset, dl3.j + 4, with the prompt row shown.
     [[nodiscard]] float gridBottomInset() const noexcept;
@@ -129,4 +129,4 @@ class TopBarMetrics {
     HudStatusAlignment alignment_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

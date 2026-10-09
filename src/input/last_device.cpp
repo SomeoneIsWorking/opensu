@@ -1,6 +1,6 @@
 #include "last_device.hpp"
 
-namespace iideck::input {
+namespace opensu::input {
 
 void LastDevice::notePad(const gamepad::Event& event) noexcept {
     if (event.kind == gamepad::Event::Kind::Button && event.button != gamepad::Button::None) {
@@ -14,4 +14,4 @@ void LastDevice::notePointer(float dx, float dy, bool buttonPressed) noexcept {
     }
 }
 
-} // namespace iideck::input
+} // namespace opensu::input

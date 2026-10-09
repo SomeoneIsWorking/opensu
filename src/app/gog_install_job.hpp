@@ -1,7 +1,7 @@
 // gog_install_job — one GOG install: runs `gogdl download` and shows the progress it logs.
 //
-// Authentication: iideck's TokenStore is the one saved token. Before the download the token is
-// refreshed through `gog::Auth` (iideck's own refresh) and handed to gogdl in a transient
+// Authentication: opensu's TokenStore is the one saved token. Before the download the token is
+// refreshed through `gog::Auth` (opensu's own refresh) and handed to gogdl in a transient
 // owner-only file; whatever gogdl refreshed meanwhile is saved back and the file deleted. The
 // download takes the Linux build when the library listing says GOG has one, else the Windows
 // build, else the install fails.
@@ -16,12 +16,12 @@
 #include "library/gogdl_auth.hpp"
 #include "net/web_client.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 
 class GogInstallJob final : public CliInstallJob {
   public:
     struct Options {
-        /// iideck's data directory, where the token, the install records and the games are.
+        /// opensu's data directory, where the token, the install records and the games are.
         std::filesystem::path dataDir;
         /// The gogdl executable; the tests point it at a stub.
         std::string gogdl{"gogdl"};
@@ -57,4 +57,4 @@ class GogInstallJob final : public CliInstallJob {
     std::string platform_;
 };
 
-} // namespace iideck::app
+} // namespace opensu::app

@@ -12,7 +12,7 @@
 #include "lucent/log.h"
 #include "process_tree.hpp"
 
-namespace iideck::launch {
+namespace opensu::launch {
 namespace {
 
 using Clock = std::chrono::system_clock;
@@ -86,7 +86,7 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
         forgetHint();
         switch (state) {
         case SteamState::Blocked:
-            failure = "Steam is running on the desktop; quit it to use it inside iideck";
+            failure = "Steam is running on the desktop; quit it to use it inside opensu";
             break;
         case SteamState::Initializing:
             failure = "Steam did not become ready";
@@ -320,4 +320,4 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
     return true;
 }
 
-} // namespace iideck::launch
+} // namespace opensu::launch

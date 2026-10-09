@@ -7,7 +7,7 @@
 #include <string>
 #include <system_error>
 
-namespace iideck::library::roms {
+namespace opensu::library::roms {
 namespace {
 
 namespace fs = std::filesystem;
@@ -245,4 +245,4 @@ std::optional<fs::path> gameFile(const RomSystem& system, const fs::path& entry)
     return *std::ranges::max_element(pool, {}, sizeOf);
 }
 
-} // namespace iideck::library::roms
+} // namespace opensu::library::roms

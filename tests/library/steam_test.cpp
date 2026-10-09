@@ -15,8 +15,8 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::library::Game;
-using iideck::library::steam::Library;
+using opensu::library::Game;
+using opensu::library::steam::Library;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -37,7 +37,7 @@ struct Fixture {
     fs::path extra;
 
     Fixture() {
-        base = fs::temp_directory_path() / "iideck-steam-test";
+        base = fs::temp_directory_path() / "opensu-steam-test";
         fs::remove_all(base);
         root = base / "Steam";
         extra = base / "Games";
@@ -129,7 +129,7 @@ int main() {
 
     // The install root is also library "0", so folder discovery must return it
     // once rather than twice.
-    const std::vector<iideck::library::steam::LibraryFolder> folders = library.libraryFolders();
+    const std::vector<opensu::library::steam::LibraryFolder> folders = library.libraryFolders();
     expect(folders.size() == 2, "two library folders, the root and the extra one");
     int rootCount = 0;
     for (const auto& folder : folders) {
@@ -137,7 +137,7 @@ int main() {
     }
     expect(rootCount == 1, "the install root appears once");
 
-    iideck::library::steam::Provider provider{library};
+    opensu::library::steam::Provider provider{library};
     const std::vector<Game> games = provider.list();
 
     // Four games: the three manifests in the root that are games, plus the extra

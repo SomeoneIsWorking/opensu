@@ -1,13 +1,13 @@
-// steam — finds a Steam client that runs outside iideck's instance.
+// steam — finds a Steam client that runs outside opensu's instance.
 #pragma once
 
 #include <filesystem>
 #include <string>
 
-namespace iideck::steam {
+namespace opensu::steam {
 
 /// A launch into a Steam that is already running would hand off to that client
-/// and escape iideck's ownership, so such a client has to be found first.
+/// and escape opensu's ownership, so such a client has to be found first.
 class DesktopSteam {
   public:
     explicit DesktopSteam(const std::filesystem::path& home);
@@ -21,4 +21,4 @@ class DesktopSteam {
     std::filesystem::path pidFile_;
 };
 
-} // namespace iideck::steam
+} // namespace opensu::steam

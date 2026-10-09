@@ -1,10 +1,10 @@
 // platform_stroke.cpp — the reference's per-platform stroke gradients.
 //
-// Sampled from the reference's border sprites, which iideck does not ship.
+// Sampled from the reference's border sprites, which opensu does not ship.
 
 #include "platform.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 // The two ends of each frame's diagonal stroke gradient, keyed by ES-DE system name.
 const StrokeGradient kStrokeGradients[] = {
@@ -186,4 +186,4 @@ const StrokeGradient kStrokeGradients[] = {
     {nullptr, 0, 0},
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

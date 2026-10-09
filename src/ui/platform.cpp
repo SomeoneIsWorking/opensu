@@ -7,7 +7,7 @@
 
 #include "library/game.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 namespace {
 
@@ -68,4 +68,4 @@ const Platform* Platforms::find(std::string_view key) const {
     return found == platforms_.end() ? nullptr : &*found;
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

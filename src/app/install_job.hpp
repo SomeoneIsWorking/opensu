@@ -10,7 +10,7 @@
 #include <string>
 #include <thread>
 
-namespace iideck::app {
+namespace opensu::app {
 
 class InstallJob {
   public:
@@ -70,4 +70,4 @@ class InstallJob {
     std::jthread thread_;
 };
 
-} // namespace iideck::app
+} // namespace opensu::app

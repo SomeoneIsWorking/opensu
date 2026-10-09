@@ -6,7 +6,7 @@
 #include "launch/launch_progress.hpp"
 #include "lucent/log.h"
 
-namespace iideck::app {
+namespace opensu::app {
 namespace {
 
 constexpr auto pollInterval = std::chrono::seconds{1};
@@ -112,4 +112,4 @@ void SteamInstallJob::follow(const std::stop_token& stop, const std::string& app
     }
 }
 
-} // namespace iideck::app
+} // namespace opensu::app

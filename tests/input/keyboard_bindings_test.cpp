@@ -9,12 +9,12 @@
 
 namespace {
 
-using iideck::gamepad::Button;
-using iideck::input::buttonOfGlyph;
-using iideck::input::keyBindings;
-using iideck::input::keyLabelFor;
-using iideck::input::keyLabelForGlyph;
-using iideck::test::expect;
+using opensu::gamepad::Button;
+using opensu::input::buttonOfGlyph;
+using opensu::input::keyBindings;
+using opensu::input::keyLabelFor;
+using opensu::input::keyLabelForGlyph;
+using opensu::test::expect;
 
 void promptsNameTheBoundKeys() {
     expect(keyLabelForGlyph("A") == "Enter", "A confirms with Enter");

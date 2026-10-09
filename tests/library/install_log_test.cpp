@@ -7,8 +7,8 @@
 
 namespace {
 
-using iideck::library::install_log::loggedError;
-using iideck::library::install_log::progress;
+using opensu::library::install_log::loggedError;
+using opensu::library::install_log::progress;
 
 void expect(bool condition, const char* what) {
     if (!condition) {

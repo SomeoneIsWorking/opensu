@@ -1,6 +1,6 @@
 #include "launch_progress.hpp"
 
-namespace iideck::launch {
+namespace opensu::launch {
 namespace {
 
 std::string percent(double fraction) {
@@ -27,4 +27,4 @@ std::string describe(const LaunchProgress& progress) {
     return "Starting";
 }
 
-} // namespace iideck::launch
+} // namespace opensu::launch

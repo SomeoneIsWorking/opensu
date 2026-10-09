@@ -4,7 +4,7 @@
 
 #include "tile_motion.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 float DockVisibility::at(const Slide& slide, double nowMs) {
     const float target = slide.heading ? 1.0f : 0.0f;
@@ -72,4 +72,4 @@ float IconPop::scale(double nowMs) const noexcept {
     return peak + (restSelected - peak) * motion::easeOutCubic(t);
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

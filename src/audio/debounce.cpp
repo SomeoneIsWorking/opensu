@@ -1,6 +1,6 @@
 #include "debounce.hpp"
 
-namespace iideck::audio {
+namespace opensu::audio {
 
 bool Debounce::admit(Effect effect, Clock::time_point now) {
     std::optional<Clock::time_point>& last = last_[static_cast<std::size_t>(effect)];
@@ -11,4 +11,4 @@ bool Debounce::admit(Effect effect, Clock::time_point now) {
     return true;
 }
 
-} // namespace iideck::audio
+} // namespace opensu::audio

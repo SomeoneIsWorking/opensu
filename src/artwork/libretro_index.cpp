@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <limits>
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 namespace {
 
 constexpr std::string_view pngSuffix = ".png";
@@ -245,4 +245,4 @@ std::string encodeSegment(std::string_view segment) {
     return out;
 }
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

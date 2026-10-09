@@ -6,7 +6,7 @@
 #include <fstream>
 #include <utility>
 
-namespace iideck::vdf::detail {
+namespace opensu::vdf::detail {
 namespace {
 
 /// True for the characters that end a bare token.
@@ -163,9 +163,9 @@ bool Parser::parseBlock(std::vector<std::pair<std::string, Node::Value>>& out, b
     }
 }
 
-} // namespace iideck::vdf::detail
+} // namespace opensu::vdf::detail
 
-namespace iideck::vdf {
+namespace opensu::vdf {
 
 std::optional<Node> parse(std::string_view source, ParseError& error) {
     detail::Parser parser{source};
@@ -188,4 +188,4 @@ std::optional<Node> parseFile(const std::filesystem::path& path) {
     return parse(buffer.str(), error);
 }
 
-} // namespace iideck::vdf
+} // namespace opensu::vdf

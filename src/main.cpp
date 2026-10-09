@@ -1,4 +1,4 @@
-// Command iideck is a gamepad-first shell for a game library. It shows Steam,
+// Command opensu is a gamepad-first shell for a game library. It shows Steam,
 // Epic, GOG and emulator ROMs in one grid and launches each title into the
 // runtime that already owns it.
 //
@@ -18,25 +18,25 @@
 namespace {
 
 void printHelp() {
-    std::printf("iideck — a gamepad-first game library shell\n"
+    std::printf("opensu — a gamepad-first game library shell\n"
                 "\n"
-                "  iideck                run the shell; from a desktop it starts its own\n"
+                "  opensu                run the shell; from a desktop it starts its own\n"
                 "                        Gamescope, and Steam and games run inside it\n"
-                "  iideck --render FILE  render one frame to FILE and exit\n"
+                "  opensu --render FILE  render one frame to FILE and exit\n"
                 "        --keyboard      with --render, draw the keyboard's prompts\n"
                 "\n"
                 "Environment:\n"
-                "  IIDECK_STEAM_ROOTS  colon-separated Steam install roots\n"
-                "  IIDECK_ROM_ROOTS    colon-separated ROM roots (discovered when unset)\n"
-                "  IIDECK_EMULATORS    system=program arg {rom};system2=program\n"
-                "  IIDECK_WIDTH        window width (default 1280)\n"
-                "  IIDECK_HEIGHT       window height (default 800)\n"
-                "  IIDECK_HOME_MODE    home grid: standard (scrolling, default) or wiisu\n"
+                "  OPENSU_STEAM_ROOTS  colon-separated Steam install roots\n"
+                "  OPENSU_ROM_ROOTS    colon-separated ROM roots (discovered when unset)\n"
+                "  OPENSU_EMULATORS    system=program arg {rom};system2=program\n"
+                "  OPENSU_WIDTH        window width (default 1280)\n"
+                "  OPENSU_HEIGHT       window height (default 800)\n"
+                "  OPENSU_HOME_MODE    home grid: standard (scrolling, default) or wiisu\n"
                 "                      (pages with peeks and page dots)\n"
-                "  IIDECK_ASSETS       directory holding the typeface (default ../share/iideck\n"
+                "  OPENSU_ASSETS       directory holding the typeface (default ../share/opensu\n"
                 "                      beside the executable)\n"
-                "  IIDECK_CONTROL_PORT control channel port (default 7311)\n"
-                "  IIDECK_SESSION      name of the session's scopes (default iideck-<pid>)\n"
+                "  OPENSU_CONTROL_PORT control channel port (default 7311)\n"
+                "  OPENSU_SESSION      name of the session's scopes (default opensu-<pid>)\n"
                 "\n"
                 "Control channel, on loopback only:\n"
                 "  GET  /state       the shell's state as JSON\n"
@@ -51,7 +51,7 @@ void printHelp() {
 int main(int argc, char** argv) {
     // Lucent reads its own debug channels from the environment, so there is
     // nothing to initialise here. Everything else is read once, by config::read.
-    const iideck::config::Config& config = iideck::config::read();
+    const opensu::config::Config& config = opensu::config::read();
 
     const std::vector<std::string> args(argv + 1, argv + argc);
     std::optional<std::string> renderPath;
@@ -67,26 +67,26 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Without a Gamescope of its own, iideck makes one and runs inside it, so that
-    // Steam and every game share the one compositor that closing iideck ends.
+    // Without a Gamescope of its own, opensu makes one and runs inside it, so that
+    // Steam and every game share the one compositor that closing opensu ends.
     if (!renderPath && !config.insideGamescope && !config.sessionInherited) {
-        const std::optional<iideck::session::Output> output = iideck::session::readMonitor();
+        const std::optional<opensu::session::Output> output = opensu::session::readMonitor();
         if (!output) {
             lucent::error("session", "no display to read the monitor from");
             return 1;
         }
-        iideck::session::NestedSession session{config.session, config.gamescope};
+        opensu::session::NestedSession session{config.session, config.gamescope};
         return session.run(*output, args);
     }
 
-    iideck::app::Settings settings{
+    opensu::app::Settings settings{
         .width = config.width,
         .height = config.height,
         .controlPort = config.controlPort,
         .controlChannel = config.controlChannel,
         .homeMode = config.homeMode,
     };
-    iideck::app::ShellApp shell{settings};
+    opensu::app::ShellApp shell{settings};
 
     // Rendering one frame to a file needs no window, which is how the layout can
     // be looked at without a compositor.

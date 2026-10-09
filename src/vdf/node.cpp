@@ -8,7 +8,7 @@
 #include <sstream>
 #include <utility>
 
-namespace iideck::vdf {
+namespace opensu::vdf {
 
 Node Node::from(std::vector<std::pair<std::string, Value>> entries) {
     Node node;
@@ -118,4 +118,4 @@ std::vector<std::string> Node::keys() const {
     return out;
 }
 
-} // namespace iideck::vdf
+} // namespace opensu::vdf

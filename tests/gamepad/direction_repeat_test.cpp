@@ -7,9 +7,9 @@
 
 namespace {
 
-using iideck::gamepad::Button;
-using iideck::gamepad::DirectionRepeat;
-using iideck::test::expect;
+using opensu::gamepad::Button;
+using opensu::gamepad::DirectionRepeat;
+using opensu::test::expect;
 using namespace std::chrono_literals;
 
 /// How many moves `repeat` gives over `span`, polled every frame at 60 Hz.

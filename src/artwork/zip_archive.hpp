@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace iideck::artwork::zip {
+namespace opensu::artwork::zip {
 
 /// An entry's central directory record.
 struct Entry {
@@ -71,4 +71,4 @@ class Archive {
     std::vector<Entry> entries_;
 };
 
-} // namespace iideck::artwork::zip
+} // namespace opensu::artwork::zip

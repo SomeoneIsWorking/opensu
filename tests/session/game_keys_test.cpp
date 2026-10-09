@@ -19,10 +19,10 @@
 
 namespace {
 
-using iideck::session::GameKeys;
-using iideck::session::GameShortcut;
-using iideck::session::ShortcutChord;
-using iideck::session::ShortcutKey;
+using opensu::session::GameKeys;
+using opensu::session::GameShortcut;
+using opensu::session::ShortcutChord;
+using opensu::session::ShortcutKey;
 
 void expect(bool condition, const char* what) {
     if (!condition) {

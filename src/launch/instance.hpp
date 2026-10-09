@@ -7,7 +7,7 @@
 
 #include <sys/types.h>
 
-namespace iideck::launch {
+namespace opensu::launch {
 
 /// Runs a command inside its own systemd scope. The scope's cgroup is the
 /// ownership: processes that setsid or double-fork stay in it, so stopping the
@@ -54,4 +54,4 @@ class Instance {
     int exitStatus_{-1};
 };
 
-} // namespace iideck::launch
+} // namespace opensu::launch

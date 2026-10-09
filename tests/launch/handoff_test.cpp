@@ -47,15 +47,15 @@ namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
-using iideck::launch::GameWindows;
-using iideck::launch::Handoff;
-using iideck::launch::LaunchProgress;
-using iideck::launch::ProcessTree;
-using iideck::launch::SteamAppActivity;
-using iideck::launch::SteamGate;
-using iideck::launch::SteamState;
-using iideck::library::Game;
-using iideck::library::Source;
+using opensu::launch::GameWindows;
+using opensu::launch::Handoff;
+using opensu::launch::LaunchProgress;
+using opensu::launch::ProcessTree;
+using opensu::launch::SteamAppActivity;
+using opensu::launch::SteamGate;
+using opensu::launch::SteamState;
+using opensu::library::Game;
+using opensu::library::Source;
 
 // Where the fixtures' programs live; tests do not read the environment.
 std::vector<fs::path> searchPath() {
@@ -187,7 +187,7 @@ struct Fixture {
     fs::path home;
 
     Fixture() {
-        base = fs::path{IIDECK_TEST_SCRATCH} / ("iideck-handoff-test-" + std::to_string(getpid()));
+        base = fs::path{OPENSU_TEST_SCRATCH} / ("opensu-handoff-test-" + std::to_string(getpid()));
         fs::remove_all(base);
         home = base / "home";
         fs::create_directories(home);
@@ -207,13 +207,13 @@ struct Fixture {
 
     /// Names this run's scopes, so two runs never share one.
     std::string session() const {
-        return "iideck-test-" + std::to_string(getpid());
+        return "opensu-test-" + std::to_string(getpid());
     }
 
     /// A hint no process holds by accident: this run's own pid keeps a second
     /// test binary from matching the first one's marker.
     std::string marker(const std::string& stem) const {
-        return "iideck-handoff-" + stem + "-" + std::to_string(getpid());
+        return "opensu-handoff-" + stem + "-" + std::to_string(getpid());
     }
 };
 
@@ -451,7 +451,7 @@ void testEnvironmentReachesTheGame() {
     const std::string marker = fixture.marker("environment");
     const fs::path seen = fixture.base / "environment.txt";
     const fs::path script = fixture.script(marker + ".sh", "#!/bin/sh\n"
-                                                           "echo \"$IIDECK_TEST_VALUE\" > \"" +
+                                                           "echo \"$OPENSU_TEST_VALUE\" > \"" +
                                                                seen.string() +
                                                                "\"\n"
                                                                "sleep 1\n");
@@ -460,7 +460,7 @@ void testEnvironmentReachesTheGame() {
     FakeSteam steam;
     Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
     std::future<Outcome> pending =
-        startOnWorker(handoff, entry, shell, {"IIDECK_TEST_VALUE=from-the-shell"});
+        startOnWorker(handoff, entry, shell, {"OPENSU_TEST_VALUE=from-the-shell"});
     const Outcome outcome = awaitStart(pending, "start() returns when the game exits");
     expect(outcome.ok, "the game ran");
     std::ifstream in{seen};
@@ -950,7 +950,7 @@ void testSteamBlockedAndFailedAreRefused() {
             awaitStart(pending, "a blocked Steam refuses the launch", std::chrono::seconds{10});
         expect(!outcome.ok, "a launch beside a desktop Steam fails");
         expect(outcome.failure ==
-                   "Steam is running on the desktop; quit it to use it inside iideck",
+                   "Steam is running on the desktop; quit it to use it inside opensu",
                "the failure is the named one");
         expect(shell.hidden.load() == 0, "the shell was never hidden");
     }

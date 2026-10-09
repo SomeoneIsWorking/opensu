@@ -5,7 +5,7 @@
 
 #include "cli_install_job.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 
 class EpicInstallJob final : public CliInstallJob {
   public:
@@ -22,4 +22,4 @@ class EpicInstallJob final : public CliInstallJob {
     std::optional<std::string> failureIn(std::string_view line) const override;
 };
 
-} // namespace iideck::app
+} // namespace opensu::app

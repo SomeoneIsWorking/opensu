@@ -11,10 +11,10 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::test::fail;
-using iideck::test::near;
-using iideck::ui::readFaceMetrics;
+using opensu::test::expect;
+using opensu::test::fail;
+using opensu::test::near;
+using opensu::ui::readFaceMetrics;
 
 void calSans(const char* path) {
     std::ifstream stream{path, std::ios::binary};

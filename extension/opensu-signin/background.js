@@ -1,11 +1,11 @@
-// Watches two sign-in endings and hands the code to iideck's control channel on loopback.
+// Watches two sign-in endings and hands the code to opensu's control channel on loopback.
 //   GOG:  https://embed.gog.com/on_login_success?origin=client&code=<code>
 //   Epic: https://www.epicgames.com/id/api/redirect?clientId=...&responseType=code answers JSON
 //         holding "authorizationCode" (Legendary's login, https://legendary.gl/epiclogin)
-// The code is never logged or kept; the tab closes only once iideck accepted it.
+// The code is never logged or kept; the tab closes only once opensu accepted it.
 
-// iideck's default control port (IIDECK_CONTROL_PORT); change it here if iideck runs on another.
-const IIDECK_PORT = 7311;
+// opensu's default control port (OPENSU_CONTROL_PORT); change it here if opensu runs on another.
+const OPENSU_PORT = 7311;
 
 const handed = new Set();
 
@@ -16,17 +16,17 @@ async function hand(store, code, tabId) {
   }
   handed.add(key);
   try {
-    const answer = await fetch(`http://127.0.0.1:${IIDECK_PORT}/signin/${store}`, {
+    const answer = await fetch(`http://127.0.0.1:${OPENSU_PORT}/signin/${store}`, {
       method: "POST",
       body: code,
     });
     if (answer.ok) {
       await browser.tabs.remove(tabId);
     } else {
-      console.error(`iideck refused the ${store} sign-in: HTTP ${answer.status}`);
+      console.error(`opensu refused the ${store} sign-in: HTTP ${answer.status}`);
     }
   } catch (error) {
-    console.error(`iideck is not reachable on port ${IIDECK_PORT}: ${error.name}`);
+    console.error(`opensu is not reachable on port ${OPENSU_PORT}: ${error.name}`);
   }
 }
 

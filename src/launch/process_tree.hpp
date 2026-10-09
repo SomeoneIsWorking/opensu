@@ -7,7 +7,7 @@
 
 #include <sys/types.h>
 
-namespace iideck::launch {
+namespace opensu::launch {
 
 /// Reads the process table. Steam runs every game under a reaper whose command
 /// line names the app, and the game is that reaper's descendant, so a game is found
@@ -34,4 +34,4 @@ class ProcessTree {
     static std::size_t killMatching(const std::string& hint);
 };
 
-} // namespace iideck::launch
+} // namespace opensu::launch

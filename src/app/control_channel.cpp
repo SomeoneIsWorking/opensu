@@ -9,7 +9,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::app {
+namespace opensu::app {
 namespace {
 
 /// Why a request was refused, so a caller is told the difference between "you
@@ -292,4 +292,4 @@ lucent::http::Response ControlChannel::signIn(const lucent::http::Request& reque
                                             ",\"message\":" + jsonString(result.message) + "}");
 }
 
-} // namespace iideck::app
+} // namespace opensu::app

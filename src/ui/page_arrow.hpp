@@ -3,7 +3,7 @@
 
 #include "home_layout.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 class PageArrowPainter {
   public:
@@ -11,4 +11,4 @@ class PageArrowPainter {
     void paint(const PageArrows& arrows, bool dark) const;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

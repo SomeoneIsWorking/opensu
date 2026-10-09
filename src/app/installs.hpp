@@ -1,4 +1,4 @@
-// installs — the installers by store: which stores iideck can install from, and the one install
+// installs — the installers by store: which stores opensu can install from, and the one install
 // that runs at a time.
 #pragma once
 
@@ -11,18 +11,18 @@
 #include "library/game.hpp"
 #include "steam_install_job.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 
 class Installs {
   public:
     /// Installs Epic titles with `legendary` and GOG titles with gogdl.
     Installs(steam::Client& steam, std::string legendary, GogInstallJob::Options gog);
 
-    /// Whether iideck installs from this store.
+    /// Whether opensu installs from this store.
     [[nodiscard]] static bool supports(library::Source source) noexcept;
 
     /// Starts installing `game` through its store. False while an install runs, or for a store
-    /// iideck cannot install from.
+    /// opensu cannot install from.
     bool start(const library::Game& game);
 
     /// True from start() until the install's last report has been taken.
@@ -48,4 +48,4 @@ class Installs {
     std::string title_;
 };
 
-} // namespace iideck::app
+} // namespace opensu::app

@@ -1,7 +1,7 @@
 // gog — lists the player's GOG library from GOG's own account API.
 //
-// iideck holds the sign-in itself (`gog_auth`) and lists the games from the account. A game is
-// installed when iideck recorded an install of it (`gog_installs`, made by gogdl through the
+// opensu holds the sign-in itself (`gog_auth`) and lists the games from the account. A game is
+// installed when opensu recorded an install of it (`gog_installs`, made by gogdl through the
 // install job), and launches through `gogdl launch`.
 #pragma once
 
@@ -13,7 +13,7 @@
 #include "gog_auth.hpp"
 #include "gog_installs.hpp"
 
-namespace iideck::library::gog {
+namespace opensu::library::gog {
 
 /// What the provider needs besides the sign-in.
 struct Setup {
@@ -38,7 +38,7 @@ class Provider final : public library::Provider {
     [[nodiscard]] std::vector<Game> list() override;
 
   private:
-    /// Marks `game` installed and says how it launches, when iideck installed it.
+    /// Marks `game` installed and says how it launches, when opensu installed it.
     void applyInstall(Game& game,
                       const std::map<std::string, Installed, std::less<>>& installs) const;
 
@@ -47,4 +47,4 @@ class Provider final : public library::Provider {
     Setup setup_;
 };
 
-} // namespace iideck::library::gog
+} // namespace opensu::library::gog

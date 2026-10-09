@@ -12,7 +12,7 @@
 #include "gog_token.hpp"
 #include "net/web_client.hpp"
 
-namespace iideck::library::gog {
+namespace opensu::library::gog {
 
 /// The GOG hosts, which a test points at a local server.
 struct Endpoints {
@@ -54,4 +54,4 @@ class Auth {
     const net::WebClient& web_;
 };
 
-} // namespace iideck::library::gog
+} // namespace opensu::library::gog

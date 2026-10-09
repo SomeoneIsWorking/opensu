@@ -9,7 +9,7 @@
 
 #include "raylib.h"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 class GlyphTextures {
   public:
@@ -39,4 +39,4 @@ class GlyphTextures {
     std::map<std::string, Entry, std::less<>> entries_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

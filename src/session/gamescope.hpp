@@ -1,10 +1,10 @@
-// session — the Gamescope command that wraps iideck itself.
+// session — the Gamescope command that wraps opensu itself.
 #pragma once
 
 #include <string>
 #include <vector>
 
-namespace iideck::session {
+namespace opensu::session {
 
 /// The display a nested Gamescope has to match; without it Gamescope opens 1280x720.
 struct Output {
@@ -20,4 +20,4 @@ struct Output {
                                                      const std::string& program,
                                                      const std::vector<std::string>& args);
 
-} // namespace iideck::session
+} // namespace opensu::session

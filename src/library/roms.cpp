@@ -8,7 +8,7 @@
 #include "lucent/log.h"
 #include "rom_systems.hpp"
 
-namespace iideck::library::roms {
+namespace opensu::library::roms {
 namespace {
 
 namespace fs = std::filesystem;
@@ -155,4 +155,4 @@ std::vector<Game> Provider::list() {
     return games;
 }
 
-} // namespace iideck::library::roms
+} // namespace opensu::library::roms

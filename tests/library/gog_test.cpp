@@ -18,20 +18,20 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::library::Game;
-using iideck::library::gog::Auth;
-using iideck::library::gog::Endpoints;
-using iideck::library::gog::Installed;
-using iideck::library::gog::InstallRecords;
-using iideck::library::gog::NotSignedIn;
-using iideck::library::gog::Paths;
-using iideck::library::gog::Provider;
-using iideck::library::gog::Setup;
-using iideck::library::gog::Token;
-using iideck::library::gog::TokenStore;
-using iideck::net::WebClient;
-using iideck::test::LoopbackServer;
-using iideck::test::reply;
+using opensu::library::Game;
+using opensu::library::gog::Auth;
+using opensu::library::gog::Endpoints;
+using opensu::library::gog::Installed;
+using opensu::library::gog::InstallRecords;
+using opensu::library::gog::NotSignedIn;
+using opensu::library::gog::Paths;
+using opensu::library::gog::Provider;
+using opensu::library::gog::Setup;
+using opensu::library::gog::Token;
+using opensu::library::gog::TokenStore;
+using opensu::net::WebClient;
+using opensu::test::LoopbackServer;
+using opensu::test::reply;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -235,7 +235,7 @@ void testLibrary() {
     expect(games[0].id == "gog:1207658930" && games[0].sourceId == "1207658930" &&
                games[0].title == "Alpha",
            "a game is keyed by its product id");
-    expect(games[0].source == iideck::library::Source::Gog && !games[0].installed &&
+    expect(games[0].source == opensu::library::Source::Gog && !games[0].installed &&
                games[0].launch.empty(),
            "an owned game is listed as not installed");
     expect(games[0].artworkUrl == "https://images-4.gog.com/aaa" &&
@@ -247,7 +247,7 @@ void testLibrary() {
     expect(games[1].builds.windows && !games[1].builds.linuxNative,
            "a game GOG does not list for Linux has no Linux build");
 
-    // An install iideck recorded makes the game installed and launchable through gogdl.
+    // An install opensu recorded makes the game installed and launchable through gogdl.
     const InstallRecords records{Paths::under(dir).records};
     records.add("1207658930",
                 Installed{.path = dir / "gog-games/1207658930/Alpha", .platform = "linux"});

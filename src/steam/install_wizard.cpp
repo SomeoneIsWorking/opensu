@@ -7,7 +7,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::steam {
+namespace opensu::steam {
 namespace {
 
 using nlohmann::json;
@@ -178,4 +178,4 @@ void InstallWizard::cancel() {
     }
 }
 
-} // namespace iideck::steam
+} // namespace opensu::steam

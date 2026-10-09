@@ -9,7 +9,7 @@
 #include "effect.hpp"
 #include "raylib.h"
 
-namespace iideck::audio {
+namespace opensu::audio {
 
 class SoundPlayer {
   public:
@@ -39,4 +39,4 @@ class SoundPlayer {
     Debounce debounce_;
 };
 
-} // namespace iideck::audio
+} // namespace opensu::audio

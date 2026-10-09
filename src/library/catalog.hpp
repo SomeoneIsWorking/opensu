@@ -8,9 +8,9 @@
 #include "roms.hpp"
 #include "steam.hpp"
 
-namespace iideck::library {
+namespace opensu::library {
 
 /// Builds the catalog's providers from the configuration.
 [[nodiscard]] Catalog makeCatalog(const config::Config& config);
 
-} // namespace iideck::library
+} // namespace opensu::library

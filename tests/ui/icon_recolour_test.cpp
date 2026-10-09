@@ -8,14 +8,14 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::ui::Rgb;
+using opensu::test::expect;
+using opensu::ui::Rgb;
 
 void recolour() {
     // 2 x 2: a white pixel, a cyan one, a dark blue one (the base), and a half-covered white one.
     std::vector<std::uint8_t> pixels{255, 255, 255, 255, 64, 240, 255, 255,
                                      255, 255, 255, 90,  0,  60,  140, 255};
-    iideck::ui::recolourIcon(pixels, 2, 2, Rgb{0, 200, 0}, Rgb{255, 0, 0});
+    opensu::ui::recolourIcon(pixels, 2, 2, Rgb{0, 200, 0}, Rgb{255, 0, 0});
     expect(pixels[0] == 255 && pixels[1] == 255 && pixels[2] == 255, "white stays white");
     expect(pixels[3] == 255 && pixels[7] == 255 && pixels[11] == 90 && pixels[15] == 255,
            "alpha is untouched");
@@ -38,17 +38,17 @@ void borders() {
         card[bottom + 1] = 20;
         card[bottom + 2] = 60;
     }
-    const iideck::ui::Gradient gradient = iideck::ui::borderColours(card, 32, 32);
+    const opensu::ui::Gradient gradient = opensu::ui::borderColours(card, 32, 32);
     expect(gradient.from.r == 0 && gradient.from.g == 200, "the top edge's colour is the start");
     expect(gradient.to.r == 240 && gradient.to.b == 60, "the bottom edge's is the end");
-    const iideck::ui::Gradient none =
-        iideck::ui::borderColours(std::span<const std::uint8_t>{}, 32, 32);
+    const opensu::ui::Gradient none =
+        opensu::ui::borderColours(std::span<const std::uint8_t>{}, 32, 32);
     expect(none.from.r == 0 && none.to.r == 0, "too few pixels read as nothing");
 }
 
 void empty() {
     std::vector<std::uint8_t> none;
-    iideck::ui::recolourIcon(none, 0, 0, Rgb{}, Rgb{});
+    opensu::ui::recolourIcon(none, 0, 0, Rgb{}, Rgb{});
     expect(none.empty(), "nothing to recolour");
 }
 

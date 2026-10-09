@@ -8,27 +8,27 @@
 # The image is built once per Containerfile content, the fork once, and a second build does
 # nothing.
 #
-# Layout: the binary is staged at <build>/<libexecdir>/iideck/gamescope, which is where the
-# running build-tree executable looks (<exe dir>/../<libexecdir>/iideck/gamescope), and it is
-# installed to <prefix>/<libexecdir>/iideck/gamescope, where an installed iideck looks.
+# Layout: the binary is staged at <build>/<libexecdir>/opensu/gamescope, which is where the
+# running build-tree executable looks (<exe dir>/../<libexecdir>/opensu/gamescope), and it is
+# installed to <prefix>/<libexecdir>/opensu/gamescope, where an installed opensu looks.
 
 include(ExternalProject)
 include(GNUInstallDirs)
 
-option(IIDECK_BUILD_GAMESCOPE
+option(OPENSU_BUILD_GAMESCOPE
     "Build the pinned Gamescope fork the nested session runs. OFF only for development of \
-the rest of iideck: the nested session then refuses to start" ON)
+the rest of opensu: the nested session then refuses to start" ON)
 
-set(IIDECK_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.git")
-set(IIDECK_GAMESCOPE_COMMIT "41e84d4f5870a06534e310ff279a19a137375f79")
+set(OPENSU_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.git")
+set(OPENSU_GAMESCOPE_COMMIT "41e84d4f5870a06534e310ff279a19a137375f79")
 
-# Where the running iideck finds the binary, relative to the directory above its own.
-set(IIDECK_GAMESCOPE_RELATIVE "${CMAKE_INSTALL_LIBEXECDIR}/iideck/gamescope")
+# Where the running opensu finds the binary, relative to the directory above its own.
+set(OPENSU_GAMESCOPE_RELATIVE "${CMAKE_INSTALL_LIBEXECDIR}/opensu/gamescope")
 
-set(IIDECK_GAMESCOPE_CONTAINERFILE "${CMAKE_SOURCE_DIR}/packaging/gamescope-build/Containerfile")
+set(OPENSU_GAMESCOPE_CONTAINERFILE "${CMAKE_SOURCE_DIR}/packaging/gamescope-build/Containerfile")
 
 # The image is based on the host's Fedora release, so the binary links the host's libraries.
-function(iideck_gamescope_image_tag out fedora_version_out)
+function(opensu_gamescope_image_tag out fedora_version_out)
     file(STRINGS /etc/os-release release REGEX "^(ID|VERSION_ID)=")
     set(id "")
     set(version "")
@@ -43,50 +43,50 @@ function(iideck_gamescope_image_tag out fedora_version_out)
         message(FATAL_ERROR
             "The Gamescope fork is built in a Fedora container matching the host, so only "
             "Fedora hosts are supported (this host: '${id}'). Configure with "
-            "-DIIDECK_BUILD_GAMESCOPE=OFF to work on the rest of iideck; the nested session "
+            "-DOPENSU_BUILD_GAMESCOPE=OFF to work on the rest of opensu; the nested session "
             "then refuses to start.")
     endif()
-    file(SHA256 "${IIDECK_GAMESCOPE_CONTAINERFILE}" digest)
+    file(SHA256 "${OPENSU_GAMESCOPE_CONTAINERFILE}" digest)
     string(SUBSTRING "${digest}" 0 12 short)
-    set(${out} "localhost/iideck-gamescope-build:fedora-${version}-${short}" PARENT_SCOPE)
+    set(${out} "localhost/opensu-gamescope-build:fedora-${version}-${short}" PARENT_SCOPE)
     set(${fedora_version_out} "${version}" PARENT_SCOPE)
 endfunction()
 
-function(iideck_add_gamescope)
-    find_program(IIDECK_PODMAN podman)
-    if(NOT IIDECK_PODMAN)
+function(opensu_add_gamescope)
+    find_program(OPENSU_PODMAN podman)
+    if(NOT OPENSU_PODMAN)
         message(FATAL_ERROR
             "Building the Gamescope fork needs podman (rootless). Install it: `sudo dnf install "
-            "podman`. To work on the rest of iideck without the fork, configure with "
-            "-DIIDECK_BUILD_GAMESCOPE=OFF.")
+            "podman`. To work on the rest of opensu without the fork, configure with "
+            "-DOPENSU_BUILD_GAMESCOPE=OFF.")
     endif()
-    iideck_gamescope_image_tag(image fedora_version)
+    opensu_gamescope_image_tag(image fedora_version)
 
     set(root "${CMAKE_BINARY_DIR}/gamescope")
     set(built "${root}/build/src/gamescope")
-    set(staged "${CMAKE_BINARY_DIR}/${IIDECK_GAMESCOPE_RELATIVE}")
+    set(staged "${CMAKE_BINARY_DIR}/${OPENSU_GAMESCOPE_RELATIVE}")
     set(image_stamp "${root}/image.stamp")
 
     add_custom_command(
         OUTPUT "${image_stamp}"
-        COMMAND "${CMAKE_COMMAND}" "-DPODMAN=${IIDECK_PODMAN}" "-DIMAGE=${image}"
-            "-DCONTAINERFILE=${IIDECK_GAMESCOPE_CONTAINERFILE}"
+        COMMAND "${CMAKE_COMMAND}" "-DPODMAN=${OPENSU_PODMAN}" "-DIMAGE=${image}"
+            "-DCONTAINERFILE=${OPENSU_GAMESCOPE_CONTAINERFILE}"
             "-DCONTEXT=${CMAKE_SOURCE_DIR}/packaging/gamescope-build"
             "-DFEDORA_VERSION=${fedora_version}" "-DSTAMP=${image_stamp}"
             -P "${CMAKE_SOURCE_DIR}/cmake/GamescopeImage.cmake"
-        DEPENDS "${IIDECK_GAMESCOPE_CONTAINERFILE}" "${CMAKE_SOURCE_DIR}/cmake/GamescopeImage.cmake"
+        DEPENDS "${OPENSU_GAMESCOPE_CONTAINERFILE}" "${CMAKE_SOURCE_DIR}/cmake/GamescopeImage.cmake"
         COMMENT "Gamescope build image ${image}"
         USES_TERMINAL VERBATIM)
-    add_custom_target(iideck_gamescope_image DEPENDS "${image_stamp}")
+    add_custom_target(opensu_gamescope_image DEPENDS "${image_stamp}")
 
-    set(in_container "${IIDECK_PODMAN}" run --rm --userns=keep-id
+    set(in_container "${OPENSU_PODMAN}" run --rm --userns=keep-id
         -v "${root}/source:${root}/source:Z" -v "${root}/build:${root}/build:Z"
         -e CC=clang -e CXX=clang++ "${image}")
 
-    ExternalProject_Add(iideck_gamescope
-        DEPENDS iideck_gamescope_image
-        GIT_REPOSITORY "${IIDECK_GAMESCOPE_REPOSITORY}"
-        GIT_TAG "${IIDECK_GAMESCOPE_COMMIT}"
+    ExternalProject_Add(opensu_gamescope
+        DEPENDS opensu_gamescope_image
+        GIT_REPOSITORY "${OPENSU_GAMESCOPE_REPOSITORY}"
+        GIT_TAG "${OPENSU_GAMESCOPE_COMMIT}"
         GIT_SUBMODULES_RECURSE ON
         GIT_PROGRESS ON
         UPDATE_DISCONNECTED ON
@@ -105,11 +105,11 @@ function(iideck_add_gamescope)
         USES_TERMINAL_CONFIGURE ON
         USES_TERMINAL_BUILD ON
     )
-    ExternalProject_Add_Step(iideck_gamescope check_runtime_libraries
+    ExternalProject_Add_Step(opensu_gamescope check_runtime_libraries
         COMMAND "${CMAKE_COMMAND}" "-DBINARY=${staged}"
             -P "${CMAKE_SOURCE_DIR}/cmake/GamescopeLddCheck.cmake"
         DEPENDEES install
         USES_TERMINAL ON)
 
-    install(PROGRAMS "${staged}" DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/iideck")
+    install(PROGRAMS "${staged}" DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/opensu")
 endfunction()

@@ -6,7 +6,7 @@
 
 #include "tile_motion.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // compose-material3 ProgressIndicator.kt indeterminate circular constants.
@@ -60,4 +60,4 @@ void drawSpinner(Vector2 centre, float size, float stroke, Color colour, double 
     DrawRing(centre, outer - stroke, outer, from, to, segments, colour);
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

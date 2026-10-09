@@ -8,7 +8,7 @@
 #include "rom_systems.hpp"
 #include "titles.hpp"
 
-namespace iideck::library {
+namespace opensu::library {
 namespace {
 
 /// The order the launchers sit in in Library, as the top bar's badges do.
@@ -223,4 +223,4 @@ std::size_t ShelfBrowser::cycle(int delta) {
     return left_[static_cast<std::size_t>(sections_.cycle(delta))];
 }
 
-} // namespace iideck::library
+} // namespace opensu::library

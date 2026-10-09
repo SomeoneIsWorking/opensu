@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // iiSU ix2: gapFraction 0.12, minGapPx 10.
@@ -384,4 +384,4 @@ PagePill HomeLayout::pagePill(int currentPage) const {
     return pill;
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

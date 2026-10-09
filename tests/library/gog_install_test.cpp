@@ -15,11 +15,11 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::library::gog::GogdlAuthFile;
-using iideck::library::gog::Installed;
-using iideck::library::gog::InstallRecords;
-using iideck::library::gog::Paths;
-using iideck::library::gog::Token;
+using opensu::library::gog::GogdlAuthFile;
+using opensu::library::gog::Installed;
+using opensu::library::gog::InstallRecords;
+using opensu::library::gog::Paths;
+using opensu::library::gog::Token;
 
 void expect(bool condition, const char* what) {
     if (!condition) {

@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=iideck
+Name=openSU
 GenericName=Game Library
 Comment=Gamepad-first shell for Steam, Epic, GOG and emulator games
-Exec=@IIDECK_EXEC@
+Exec=@OPENSU_EXEC@
 Icon=applications-games
 Terminal=false
 Categories=Game;

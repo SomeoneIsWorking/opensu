@@ -15,7 +15,7 @@ screenshots (`GAMESCOPECTRL_REQUEST_SCREENSHOT`) come back black, so the composi
 was not seen.
 
 What the Guide does: `session/gamescope_overlay.cpp:setShown` sets `_NET_WM_WINDOW_OPACITY`
-and `STEAM_INPUT_FOCUS` on iideck's own window; it touches no game window.
+and `STEAM_INPUT_FOCUS` on openSU's own window; it touches no game window.
 
 Leads:
 - The run that showed it had a second, failed `-applaunch` and a Steam dialog in focus

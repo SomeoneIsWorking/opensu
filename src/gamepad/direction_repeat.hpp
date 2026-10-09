@@ -6,7 +6,7 @@
 
 #include "event.hpp"
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 
 class DirectionRepeat {
   public:
@@ -34,4 +34,4 @@ class DirectionRepeat {
     Clock::time_point next_{};
 };
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

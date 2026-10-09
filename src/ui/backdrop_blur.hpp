@@ -10,7 +10,7 @@
 
 #include "home_layout.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 class BackdropBlur {
   public:
@@ -59,4 +59,4 @@ class BackdropBlur {
     float sigma_{};
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

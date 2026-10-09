@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 namespace {
 
 // The APK's last bytes, which hold its end record.
@@ -112,4 +112,4 @@ ApkFile ApkArchive::fetch(const net::WebClient& web, std::string_view name) {
     return result;
 }
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

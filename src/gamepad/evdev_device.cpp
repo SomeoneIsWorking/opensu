@@ -14,7 +14,7 @@
 #include "lucent/log.h"
 #include "virtual_pad.hpp"
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 namespace {
 
 constexpr std::size_t bitsPerLong = sizeof(unsigned long) * CHAR_BIT;
@@ -95,7 +95,7 @@ EvdevDevice::~EvdevDevice() {
 }
 
 bool EvdevDevice::isPad() const {
-    // Steam Input's virtual gamepad, which Steam feeds from a pad iideck already reads.
+    // Steam Input's virtual gamepad, which Steam feeds from a pad opensu already reads.
     constexpr std::uint16_t valve = 0x28de;
     constexpr std::uint16_t steamVirtualGamepad = 0x11ff;
     return capabilities_.isGamepad() && phys_ != VirtualPad::phys &&
@@ -165,4 +165,4 @@ bool EvdevDevice::read(std::vector<PadEvent>& out) {
     }
 }
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

@@ -4,7 +4,7 @@
 
 #include "node.hpp"
 
-namespace iideck::vdf::detail {
+namespace opensu::vdf::detail {
 
 /// Reads a document into a flat entry list.
 class Parser {
@@ -36,4 +36,4 @@ class Parser {
     ParseError error_{};
 };
 
-} // namespace iideck::vdf::detail
+} // namespace opensu::vdf::detail

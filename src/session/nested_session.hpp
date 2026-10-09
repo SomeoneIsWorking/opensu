@@ -1,7 +1,7 @@
-// session — runs iideck inside its own Gamescope.
+// session — runs opensu inside its own Gamescope.
 //
-// On a desktop there is no compositor of iideck's own, so it makes one: a nested
-// Gamescope at the monitor's size, with iideck as its client. Steam and every game
+// On a desktop there is no compositor of opensu's own, so it makes one: a nested
+// Gamescope at the monitor's size, with opensu as its client. Steam and every game
 // then run inside it, and everything of the session ends when Gamescope does.
 #pragma once
 
@@ -11,10 +11,10 @@
 
 #include "gamescope.hpp"
 
-namespace iideck::session {
+namespace opensu::session {
 
-/// The environment variable that tells the inner iideck which session it belongs to.
-inline constexpr const char* sessionVariable = "IIDECK_SESSION";
+/// The environment variable that tells the inner opensu which session it belongs to.
+inline constexpr const char* sessionVariable = "OPENSU_SESSION";
 
 class NestedSession {
   public:
@@ -37,4 +37,4 @@ class NestedSession {
     std::filesystem::path gamescope_;
 };
 
-} // namespace iideck::session
+} // namespace opensu::session

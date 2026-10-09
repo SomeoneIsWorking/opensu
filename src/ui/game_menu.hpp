@@ -1,6 +1,6 @@
 // game_menu — the menu Guide opens over a running game: resume it or close it.
 //
-// iideck's own, after Steam's in-game Guide menu; iiSU has no counterpart. Pure state, so it is
+// opensu's own, after Steam's in-game Guide menu; iiSU has no counterpart. Pure state, so it is
 // tested without a window.
 #pragma once
 
@@ -9,7 +9,7 @@
 #include <span>
 #include <string>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 enum class GameMenuAction : std::uint8_t { Resume, CloseGame };
 
@@ -53,4 +53,4 @@ class GameMenu {
     bool open_{false};
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

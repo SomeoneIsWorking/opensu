@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // Measured on iiSU's 1024 px border sprites: 26 px stroke, 80 px outer and tab corners,
@@ -19,7 +19,7 @@ constexpr float artMinRadiusPct = 9.0f;
 constexpr float spriteGlyphOffset = 45.0f;
 constexpr float spriteGlyphSide = 90.0f;
 
-// iideck's own: a store badge is 15% of the content's short side, 5% from its corner, with a
+// opensu's own: a store badge is 15% of the content's short side, 5% from its corner, with a
 // fifth of a badge between neighbours.
 constexpr float storeBadgeSide = 0.15f;
 constexpr float storeBadgeMargin = 0.05f;
@@ -104,4 +104,4 @@ Rect containFit(float width, float height, const Rect& slot) noexcept {
     return Rect{slot.centreX() - w * 0.5f, slot.centreY() - h * 0.5f, w, h};
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

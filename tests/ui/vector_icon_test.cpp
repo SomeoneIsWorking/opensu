@@ -8,13 +8,13 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::test::fail;
+using opensu::test::expect;
+using opensu::test::fail;
 
 void testShippedIcons(const std::filesystem::path& assets) {
-    for (const iideck::ui::Icon icon :
-         {iideck::ui::Icon::Steam, iideck::ui::Icon::Epic, iideck::ui::Icon::Gog}) {
-        const auto mask = iideck::ui::rasteriseMask(assets / iideck::ui::iconFile(icon), 48);
+    for (const opensu::ui::Icon icon :
+         {opensu::ui::Icon::Steam, opensu::ui::Icon::Epic, opensu::ui::Icon::Gog}) {
+        const auto mask = opensu::ui::rasteriseMask(assets / opensu::ui::iconFile(icon), 48);
         if (!mask) {
             fail("an icon rasterises at the size asked");
         }
@@ -38,8 +38,8 @@ void testShippedIcons(const std::filesystem::path& assets) {
 }
 
 void testMissingFile() {
-    expect(!iideck::ui::rasteriseMask("does/not/exist.svg", 32), "a missing file gives nothing");
-    expect(!iideck::ui::rasteriseMask("does/not/exist.svg", 0), "no size gives nothing");
+    expect(!opensu::ui::rasteriseMask("does/not/exist.svg", 32), "a missing file gives nothing");
+    expect(!opensu::ui::rasteriseMask("does/not/exist.svg", 0), "no size gives nothing");
 }
 
 } // namespace

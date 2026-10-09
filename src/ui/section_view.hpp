@@ -8,7 +8,7 @@
 
 #include "library/sections.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// A grid's viewport (iiSU `wx2`).
 struct Viewport {
@@ -37,4 +37,4 @@ enum class Presentation : std::uint8_t { Grid, Xmb, Carousel };
 [[nodiscard]] std::size_t visibleTiles(library::Section section, library::LibraryMode mode,
                                        std::size_t items) noexcept;
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 class ClockText {
   public:
@@ -20,4 +20,4 @@ class ClockText {
     [[nodiscard]] static bool hasLetters(std::string_view text) noexcept;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

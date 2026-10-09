@@ -17,11 +17,11 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::artwork::ArtworkFetcher;
-using iideck::artwork::ArtworkStore;
-using iideck::artwork::Fetched;
-using iideck::library::Game;
-using iideck::library::Source;
+using opensu::artwork::ArtworkFetcher;
+using opensu::artwork::ArtworkStore;
+using opensu::artwork::Fetched;
+using opensu::library::Game;
+using opensu::library::Source;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -187,7 +187,7 @@ void testUnreachable(const fs::path& root) {
 } // namespace
 
 int main() {
-    const fs::path root = fs::temp_directory_path() / "iideck-artwork-test";
+    const fs::path root = fs::temp_directory_path() / "opensu-artwork-test";
     fs::remove_all(root);
     testFetches(root / "fetch");
     testUnreachable(root / "offline");

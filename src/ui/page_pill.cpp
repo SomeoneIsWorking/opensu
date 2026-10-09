@@ -6,7 +6,7 @@
 
 #include "round_shape.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // iiSU wf7.n.
@@ -63,4 +63,4 @@ void PagePillPainter::paint(const PagePill& pill, float dp, bool dark) const {
     }
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 /// coerceIn, which is what iiSU's gk2.C is.
@@ -188,4 +188,4 @@ float HintPanelMetrics::labelShift(std::string_view key) const noexcept {
     return offset > 0.0f ? offset * 0.5f : offset;
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 
-namespace iideck::library {
+namespace opensu::library {
 
 Catalog makeCatalog(const config::Config& config) {
     Catalog catalog;
@@ -25,4 +25,4 @@ Catalog makeCatalog(const config::Config& config) {
     return catalog;
 }
 
-} // namespace iideck::library
+} // namespace opensu::library

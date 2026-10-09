@@ -5,7 +5,7 @@
 #include <ranges>
 #include <utility>
 
-namespace iideck::library {
+namespace opensu::library {
 namespace {
 
 using Clock = std::chrono::system_clock;
@@ -91,4 +91,4 @@ void order(std::vector<Game>& games) {
     });
 }
 
-} // namespace iideck::library
+} // namespace opensu::library

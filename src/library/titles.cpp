@@ -6,7 +6,7 @@
 #include <functional>
 #include <unordered_map>
 
-namespace iideck::library {
+namespace opensu::library {
 namespace {
 
 /// Steam, GOG, Epic: the store a title is taken from when more than one will do.
@@ -96,4 +96,4 @@ std::vector<Game> copiesOf(const std::vector<Game>& games, const Game& game) {
     return {game};
 }
 
-} // namespace iideck::library
+} // namespace opensu::library

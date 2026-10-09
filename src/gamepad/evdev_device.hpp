@@ -1,4 +1,4 @@
-// evdev_device — one /dev/input/event node opened for reading, which iideck can grab so nothing
+// evdev_device — one /dev/input/event node opened for reading, which opensu can grab so nothing
 // else receives its events.
 #pragma once
 
@@ -10,7 +10,7 @@
 
 #include "pad_translator.hpp"
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 
 class EvdevDevice {
   public:
@@ -26,7 +26,7 @@ class EvdevDevice {
     /// The node opened, if it is a pad this user can read.
     [[nodiscard]] static std::optional<EvdevDevice> openPad(const std::filesystem::path& node);
 
-    /// A controller iideck reads: a gamepad, and not a virtual pad iideck or Steam made from one.
+    /// A controller opensu reads: a gamepad, and not a virtual pad opensu or Steam made from one.
     [[nodiscard]] bool isPad() const;
 
     [[nodiscard]] int fd() const {
@@ -45,7 +45,7 @@ class EvdevDevice {
         return capabilities_;
     }
 
-    /// Makes iideck the device's only reader. False when another process holds it.
+    /// Makes opensu the device's only reader. False when another process holds it.
     [[nodiscard]] bool grab();
     /// Lets every reader see the device again.
     void ungrab();
@@ -66,4 +66,4 @@ class EvdevDevice {
     PadCapabilities capabilities_;
 };
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

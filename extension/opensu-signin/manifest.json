@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "iideck sign-in",
+  "name": "openSU sign-in",
   "version": "1.0.0",
-  "description": "Hands the code a GOG or Epic sign-in ends on to iideck, then closes the tab.",
+  "description": "Hands the code a GOG or Epic sign-in ends on to opensu, then closes the tab.",
   "permissions": ["webNavigation", "webRequest", "webRequestBlocking"],
   "host_permissions": [
     "http://127.0.0.1/*",
@@ -14,7 +14,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "iideck-signin@iideck",
+      "id": "opensu-signin@opensu",
       "strict_min_version": "142.0",
       "data_collection_permissions": {
         "required": ["none"]

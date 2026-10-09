@@ -9,10 +9,10 @@
 
 namespace {
 
-using iideck::artwork::fixture::buildZip;
-using iideck::artwork::fixture::crcOf;
-using iideck::artwork::fixture::FixtureEntry;
-namespace zip = iideck::artwork::zip;
+using opensu::artwork::fixture::buildZip;
+using opensu::artwork::fixture::crcOf;
+using opensu::artwork::fixture::FixtureEntry;
+namespace zip = opensu::artwork::zip;
 
 [[noreturn]] void fail(const char* what) {
     std::fprintf(stderr, "FAIL: %s\n", what);

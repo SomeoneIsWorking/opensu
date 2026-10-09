@@ -10,7 +10,7 @@
 #include <nlohmann/json.hpp>
 #include <unistd.h>
 
-namespace iideck::library::gog {
+namespace opensu::library::gog {
 namespace {
 
 namespace fs = std::filesystem;
@@ -106,4 +106,4 @@ void TokenStore::save(const Token& token) const {
     writeOwnerOnly(file_, document.dump());
 }
 
-} // namespace iideck::library::gog
+} // namespace opensu::library::gog

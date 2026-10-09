@@ -2,11 +2,11 @@
 
 #include "raylib.h"
 
-namespace iideck::session {
+namespace opensu::session {
 
 std::optional<Output> readMonitor() {
     SetConfigFlags(FLAG_WINDOW_HIDDEN);
-    InitWindow(1, 1, "iideck monitor");
+    InitWindow(1, 1, "opensu monitor");
     if (!IsWindowReady()) {
         return std::nullopt;
     }
@@ -20,4 +20,4 @@ std::optional<Output> readMonitor() {
     return output;
 }
 
-} // namespace iideck::session
+} // namespace opensu::session

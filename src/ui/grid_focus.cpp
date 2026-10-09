@@ -5,7 +5,7 @@
 #include <limits>
 #include <tuple>
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 bool horizontal(Direction direction) noexcept {
@@ -219,7 +219,7 @@ bool GridFocus::move(Direction direction, const FocusGrid& grid) {
     }
     // iiSU hx2.z :636-639: an along-flow move with no pixel hit stays.
     // STOPGAP: hx2.z's cross-flow fallback for multi-lane tiles (:640-703) is not ported because
-    // every iideck home tile is 1x1, where it never applies.
+    // every opensu home tile is 1x1, where it never applies.
     if (next == index_) {
         return false;
     }
@@ -227,4 +227,4 @@ bool GridFocus::move(Direction direction, const FocusGrid& grid) {
     return true;
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

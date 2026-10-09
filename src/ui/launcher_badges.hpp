@@ -1,4 +1,4 @@
-// launcher_badges — the launchers iideck depends on, as icons in the top bar's friends slot:
+// launcher_badges — the launchers opensu depends on, as icons in the top bar's friends slot:
 // each launcher's logo in an iiSU avatar circle (a32.e), with a presence dot for its state.
 #pragma once
 
@@ -10,7 +10,7 @@
 
 #include "vector_icon.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// How a launcher is doing, as its badge shows it.
 enum class ServiceState : std::uint8_t {
@@ -20,7 +20,7 @@ enum class ServiceState : std::uint8_t {
     Ready,
     /// Unusable until the player acts, such as signing in, or broken.
     Failed,
-    /// Something outside iideck holds it.
+    /// Something outside opensu holds it.
     Blocked,
 };
 
@@ -54,4 +54,4 @@ class LauncherBadgePainter {
     IconAtlas icons_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

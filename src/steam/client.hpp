@@ -1,7 +1,7 @@
-// steam — the Steam client iideck owns.
+// steam — the Steam client opensu owns.
 //
-// Steam starts in the background when iideck does, inside a scope of the session,
-// so closing iideck closes Steam. Games are then launched through that client, and
+// Steam starts in the background when opensu does, inside a scope of the session,
+// so closing opensu closes Steam. Games are then launched through that client, and
 // a launch waits until it is logged on.
 #pragma once
 
@@ -25,7 +25,7 @@
 #include "launch/steam_gate.hpp"
 #include "launch_activity.hpp"
 
-namespace iideck::steam {
+namespace opensu::steam {
 
 /// How long shutdown() lets Steam exit on its own before the scope is stopped.
 inline constexpr std::chrono::seconds shutdownWait{20};
@@ -51,7 +51,7 @@ class Client final : public launch::SteamGate {
 
     /// Starts `steam -silent -cef-enable-debugging` in its scope, on a DBus session bus of its own,
     /// and begins watching it. The state is Blocked when a Steam client already runs outside
-    /// iideck, and Failed when Steam cannot be started. Does nothing unless the state is Stopped.
+    /// opensu, and Failed when Steam cannot be started. Does nothing unless the state is Stopped.
     void start();
 
     /// Asks the client to exit with `steam -shutdown`, waits up to shutdownWait for
@@ -108,4 +108,4 @@ class Client final : public launch::SteamGate {
     std::thread watcher_;
 };
 
-} // namespace iideck::steam
+} // namespace opensu::steam

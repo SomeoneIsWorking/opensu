@@ -7,34 +7,34 @@
 
 namespace {
 
-using iideck::library::LibraryMode;
-using iideck::library::Section;
-using iideck::test::expect;
-using iideck::ui::Presentation;
+using opensu::library::LibraryMode;
+using opensu::library::Section;
+using opensu::test::expect;
+using opensu::ui::Presentation;
 
 void viewports() {
-    expect(iideck::ui::gridViewport.rows == 3 && iideck::ui::gridViewport.columns == 4,
+    expect(opensu::ui::gridViewport.rows == 3 && opensu::ui::gridViewport.columns == 4,
            "the grid is 3 rows by 4 columns, in Home and in Library's Standard");
 }
 
 void presentations() {
-    for (const LibraryMode mode : iideck::library::allLibraryModes) {
-        expect(iideck::ui::presentationOf(Section::Home, mode) == Presentation::Grid,
+    for (const LibraryMode mode : opensu::library::allLibraryModes) {
+        expect(opensu::ui::presentationOf(Section::Home, mode) == Presentation::Grid,
                "Home is a grid whatever Library's mode");
     }
-    expect(iideck::ui::presentationOf(Section::Library, LibraryMode::Standard) ==
+    expect(opensu::ui::presentationOf(Section::Library, LibraryMode::Standard) ==
                Presentation::Grid,
            "Standard is the grid");
-    expect(iideck::ui::presentationOf(Section::Library, LibraryMode::Xmb) == Presentation::Xmb,
+    expect(opensu::ui::presentationOf(Section::Library, LibraryMode::Xmb) == Presentation::Xmb,
            "XMB is the column");
-    expect(iideck::ui::presentationOf(Section::Library, LibraryMode::Carousel) ==
+    expect(opensu::ui::presentationOf(Section::Library, LibraryMode::Carousel) ==
                Presentation::Carousel,
            "Carousel is the row");
 }
 
 void visible() {
     const auto count = [](Section section, LibraryMode mode, std::size_t items) {
-        return iideck::ui::visibleTiles(section, mode, items);
+        return opensu::ui::visibleTiles(section, mode, items);
     };
     expect(count(Section::Home, LibraryMode::Standard, 30) == 12, "Home shows 3 x 4 tiles");
     expect(count(Section::Home, LibraryMode::Xmb, 30) == 12, "whatever Library's mode");

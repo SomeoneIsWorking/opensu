@@ -8,17 +8,17 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::test::near;
-using iideck::ui::DockMetrics;
-using iideck::ui::plainItem;
-using iideck::ui::wideItem;
+using opensu::test::expect;
+using opensu::test::near;
+using opensu::ui::DockMetrics;
+using opensu::ui::plainItem;
+using opensu::ui::wideItem;
 
 /// iiSU's five items: Home, ROMs (wide), RetroAchievements, Friends, Apps.
 std::vector<float> fiveItems() {
     return std::vector<float>{plainItem, wideItem, plainItem, plainItem, plainItem};
 }
-/// iideck's two: Home and Library.
+/// opensu's two: Home and Library.
 std::vector<float> twoItems() {
     return std::vector<float>{plainItem, wideItem};
 }
@@ -83,7 +83,7 @@ void insetLeavesRoom() {
     for (const auto [w, h] : {std::pair{853.0f, 456.0f}, std::pair{853.0f, 480.0f},
                               std::pair{480.0f, 270.0f}, std::pair{1280.0f, 800.0f}}) {
         const DockMetrics dock{w, h, twoItems()};
-        const iideck::ui::TopBarMetrics top{w, h};
+        const opensu::ui::TopBarMetrics top{w, h};
         expect(dock.height + DockMetrics::bottomGap + DockMetrics::topGap <= top.gridBottomInset(),
                "the grid's bottom inset leaves room for the dock");
     }
@@ -92,8 +92,8 @@ void insetLeavesRoom() {
 void placement() {
     const DockMetrics dock{853.0f, 456.0f, twoItems()};
     const float dp = 2.0f;
-    const iideck::ui::DockLayout layout =
-        iideck::ui::layoutDock(dock, 853.0f * dp, 456.0f * dp, dp);
+    const opensu::ui::DockLayout layout =
+        opensu::ui::layoutDock(dock, 853.0f * dp, 456.0f * dp, dp);
     near(layout.bar.centreX(), 853.0f, "the bar is centred", 0.01);
     near(layout.bar.bottom(), (456.0f - 6.0f) * dp, "6 dp above the bottom edge", 0.01);
     near(layout.bar.height, dock.height * dp, "its height", 0.01);
@@ -118,10 +118,10 @@ void placement() {
 void pointerHits() {
     const DockMetrics dock{853.0f, 456.0f, twoItems()};
     const float dp = 2.0f;
-    const iideck::ui::DockLayout layout =
-        iideck::ui::layoutDock(dock, 853.0f * dp, 456.0f * dp, dp);
+    const opensu::ui::DockLayout layout =
+        opensu::ui::layoutDock(dock, 853.0f * dp, 456.0f * dp, dp);
     const auto at = [&](float x, float y, float slide = 0.0f) {
-        return iideck::ui::dockItemAt(layout, slide, x, y);
+        return opensu::ui::dockItemAt(layout, slide, x, y);
     };
     const float y = layout.bar.centreY();
     expect(at(layout.items[0].centreX(), y) == 0, "the middle of Home's item is Home");
@@ -138,8 +138,8 @@ void pointerHits() {
     expect(!at(layout.items[0].centreX(), y, 100.0f) &&
                at(layout.items[0].centreX(), y + 100.0f, 100.0f) == 0,
            "a bar slid down is hit where it is drawn");
-    expect(iideck::ui::onRestingDock(layout, layout.bar.centreX(), y) &&
-               !iideck::ui::onRestingDock(layout, layout.bar.x - 1.0f, y),
+    expect(opensu::ui::onRestingDock(layout, layout.bar.centreX(), y) &&
+               !opensu::ui::onRestingDock(layout, layout.bar.x - 1.0f, y),
            "the resting bar is where a pointer asks for a hidden dock");
 }
 

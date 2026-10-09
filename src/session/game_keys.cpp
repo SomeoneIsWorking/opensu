@@ -8,7 +8,7 @@
 #include <X11/extensions/XInput2.h>
 #include <X11/keysym.h>
 
-namespace iideck::session {
+namespace opensu::session {
 
 std::optional<GameShortcut> ShortcutChord::key(ShortcutKey key, bool pressed) {
     switch (key) {
@@ -115,4 +115,4 @@ std::vector<GameShortcut> GameKeys::poll() {
     return shortcuts;
 }
 
-} // namespace iideck::session
+} // namespace opensu::session

@@ -8,7 +8,7 @@
 
 #include "fileio/atomic_write.hpp"
 
-namespace iideck::library::gog {
+namespace opensu::library::gog {
 namespace {
 
 namespace fs = std::filesystem;
@@ -67,4 +67,4 @@ void InstallRecords::add(const std::string& id, const Installed& installed) cons
     }
 }
 
-} // namespace iideck::library::gog
+} // namespace opensu::library::gog

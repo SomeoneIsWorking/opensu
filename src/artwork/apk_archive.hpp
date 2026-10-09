@@ -11,7 +11,7 @@
 #include "net/web_client.hpp"
 #include "zip_archive.hpp"
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 
 /// What looking for a file in the APK came to.
 struct ApkFile {
@@ -56,4 +56,4 @@ class ApkArchive {
     std::optional<std::vector<zip::Entry>> entries_;
 };
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

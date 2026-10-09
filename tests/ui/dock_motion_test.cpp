@@ -8,15 +8,15 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::test::near;
-using iideck::ui::DockVisibility;
-using iideck::ui::IconPop;
+using opensu::test::expect;
+using opensu::test::near;
+using opensu::ui::DockVisibility;
+using opensu::ui::IconPop;
 
 void easing() {
-    near(iideck::ui::motion::fastOutSlowIn(0.0), 0.0, "FastOutSlowIn starts at 0");
-    near(iideck::ui::motion::fastOutSlowIn(1.0), 1.0, "and ends at 1");
-    near(iideck::ui::motion::fastOutSlowIn(0.5), 0.7756, "the curve is 0.776 at half way", 1e-3);
+    near(opensu::ui::motion::fastOutSlowIn(0.0), 0.0, "FastOutSlowIn starts at 0");
+    near(opensu::ui::motion::fastOutSlowIn(1.0), 1.0, "and ends at 1");
+    near(opensu::ui::motion::fastOutSlowIn(0.5), 0.7756, "the curve is 0.776 at half way", 1e-3);
 }
 
 void pinnedDock() {
@@ -27,8 +27,8 @@ void pinnedDock() {
 }
 
 void revealedDock() {
-    using iideck::ui::motion::fastOutLinearIn;
-    using iideck::ui::motion::linearOutSlowIn;
+    using opensu::ui::motion::fastOutLinearIn;
+    using opensu::ui::motion::linearOutSlowIn;
     DockVisibility dock;
     dock.setPinned(false, 0.0);
     near(dock.progress(0.0), 1.0, "leaving Home does not snap the dock away");

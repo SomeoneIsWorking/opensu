@@ -12,7 +12,7 @@
 
 #include "launch/game_windows.hpp"
 
-namespace iideck::session {
+namespace opensu::session {
 
 class GamescopeWindows final : public launch::GameWindows {
   public:
@@ -34,4 +34,4 @@ class GamescopeWindows final : public launch::GameWindows {
     std::unique_ptr<Connection> connection_;
 };
 
-} // namespace iideck::session
+} // namespace opensu::session

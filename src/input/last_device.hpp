@@ -6,7 +6,7 @@
 
 #include "gamepad/event.hpp"
 
-namespace iideck::input {
+namespace opensu::input {
 
 enum class Device : std::uint8_t {
     Pad,
@@ -36,4 +36,4 @@ class LastDevice {
     Device current_{Device::Pad};
 };
 
-} // namespace iideck::input
+} // namespace opensu::input

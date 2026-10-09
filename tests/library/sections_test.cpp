@@ -7,10 +7,10 @@
 
 namespace {
 
-using iideck::library::LibraryMode;
-using iideck::library::Section;
-using iideck::library::Sections;
-using iideck::test::expect;
+using opensu::library::LibraryMode;
+using opensu::library::Section;
+using opensu::library::Sections;
+using opensu::test::expect;
 
 void cyclingWraps() {
     Sections sections;
@@ -27,8 +27,8 @@ void cyclingWraps() {
 }
 
 void stepsReachASection() {
-    for (const Section from : iideck::library::allSections) {
-        for (const Section to : iideck::library::allSections) {
+    for (const Section from : opensu::library::allSections) {
+        for (const Section to : opensu::library::allSections) {
             Sections sections;
             sections.select(from);
             expect(sections.cycle(Sections::stepsBetween(from, to)) == to,
@@ -40,18 +40,18 @@ void stepsReachASection() {
 }
 
 void spellings() {
-    expect(iideck::library::key(Section::Home) == "home" &&
-               iideck::library::key(Section::Library) == "library",
+    expect(opensu::library::key(Section::Home) == "home" &&
+               opensu::library::key(Section::Library) == "library",
            "sections have control channel names");
-    for (const LibraryMode mode : iideck::library::allLibraryModes) {
-        expect(iideck::library::libraryModeOf(iideck::library::key(mode)) == mode,
+    for (const LibraryMode mode : opensu::library::allLibraryModes) {
+        expect(opensu::library::libraryModeOf(opensu::library::key(mode)) == mode,
                "a mode's key names it back");
     }
-    expect(!iideck::library::libraryModeOf("list") && !iideck::library::libraryModeOf(""),
+    expect(!opensu::library::libraryModeOf("list") && !opensu::library::libraryModeOf(""),
            "iiSU's List layout has no picker, so it is no mode here");
-    expect(iideck::library::label(LibraryMode::Xmb) == "XMB" &&
-               iideck::library::label(LibraryMode::Carousel) == "Carousel" &&
-               iideck::library::label(LibraryMode::Standard) == "Standard",
+    expect(opensu::library::label(LibraryMode::Xmb) == "XMB" &&
+               opensu::library::label(LibraryMode::Carousel) == "Carousel" &&
+               opensu::library::label(LibraryMode::Standard) == "Standard",
            "the card names are iiSU's");
 }
 

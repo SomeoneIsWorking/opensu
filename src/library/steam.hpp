@@ -13,7 +13,7 @@
 
 #include "game.hpp"
 
-namespace iideck::library::steam {
+namespace opensu::library::steam {
 
 /// One place Steam keeps games.
 struct LibraryFolder {
@@ -69,4 +69,4 @@ class Provider final : public library::Provider {
     Library library_;
 };
 
-} // namespace iideck::library::steam
+} // namespace opensu::library::steam

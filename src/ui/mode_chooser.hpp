@@ -1,6 +1,6 @@
 // mode_chooser — the Library layout picker: three cards, Standard, XMB and Carousel, one focused.
 //
-// iiSU offers them in its "Customize Games" menu (`roms_layout_cards`, navigation.md §2.1); iideck
+// iiSU offers them in its "Customize Games" menu (`roms_layout_cards`, navigation.md §2.1); opensu
 // has no such menu, so START on Library opens just this. Pure state, tested without a window.
 #pragma once
 
@@ -9,11 +9,11 @@
 #include "home_layout.hpp"
 #include "library/sections.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// Where the picker's panel and its three cards stand (navigation.md §5.2,
 /// `roms_layout_chooser_*_light.png`: panel 523.6 dp wide, cards 156.5 dp square 10.7 dp apart, 16
-/// dp in from the panel's sides and 21 dp down from its top). iideck's picker has the cards only,
+/// dp in from the panel's sides and 21 dp down from its top). opensu's picker has the cards only,
 /// so the panel is as tall as they and their padding, centred in the frame.
 struct ChooserLayout {
     Rect panel;
@@ -45,4 +45,4 @@ class ModeChooser {
     bool open_{false};
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

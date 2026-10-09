@@ -7,12 +7,12 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::test::fail;
-using iideck::test::near;
-using iideck::ui::HomeLayout;
-using iideck::ui::HomeLayoutInput;
-using iideck::ui::ScrollMode;
+using opensu::test::expect;
+using opensu::test::fail;
+using opensu::test::near;
+using opensu::ui::HomeLayout;
+using opensu::ui::HomeLayoutInput;
+using opensu::ui::ScrollMode;
 
 /// A 1280 x 800 window at 1.5 px per dp with a 60 px top bar and 40 px prompt row.
 HomeLayoutInput window(std::size_t items, ScrollMode mode) {
@@ -74,7 +74,7 @@ void flowMetrics() {
 void columnMajor() {
     const HomeLayout layout{window(12, ScrollMode::Flow)};
     const auto cell = [&layout](std::size_t index, int column, int row) {
-        const iideck::ui::GridCell got = layout.cellOf(index);
+        const opensu::ui::GridCell got = layout.cellOf(index);
         return got.left == column && got.top == row && got.page == 0;
     };
     expect(cell(0, 0, 0) && cell(1, 0, 1) && cell(2, 0, 2) && cell(3, 1, 0) && cell(11, 3, 2),
@@ -91,7 +91,7 @@ void flowScrollKeepsFocusVisible() {
     const float viewport = layout.viewportWidth();
     float target = 0.0f;
     const auto visible = [&](std::size_t index) {
-        const iideck::ui::Rect rect = layout.contentRect(index);
+        const opensu::ui::Rect rect = layout.contentRect(index);
         return rect.x >= target - 0.01f && rect.right() <= target + viewport + 0.01f;
     };
     for (std::size_t column = 1; column < 13; ++column) {
@@ -154,7 +154,7 @@ void columnGrowth() {
 
 void pill() {
     expect(HomeLayout{window(37, ScrollMode::Flow)}.pagePill(0).dots.empty(), "no pill in Flow");
-    const iideck::ui::PagePill pill = HomeLayout{window(37, ScrollMode::Paged)}.pagePill(1);
+    const opensu::ui::PagePill pill = HomeLayout{window(37, ScrollMode::Paged)}.pagePill(1);
     // 800 / 1.5 = 533 dp short side, so not compact: 25 dp tall, 9 dp padding, 10 dp slots.
     near(pill.body.height, 37.5f, "pill is 25 dp tall");
     near(pill.body.width, 111.75f, "pill hugs four dots");
@@ -169,7 +169,7 @@ void pill() {
     near(pill.haloRadius, 5.0f * 1.5f, "halo radius 5 dp");
 
     // 480 dp short side: compactness 0.25, scale 0.96.
-    const iideck::ui::PagePill compact = HomeLayout{
+    const opensu::ui::PagePill compact = HomeLayout{
         HomeLayoutInput{
             .width = 853.0f,
             .height = 480.0f,
@@ -211,7 +211,7 @@ void arrows() {
     // 1920 x 1080 at 2.25 px/dp, as iiSU's reference capture: 64 x 96 px, 26 px from the edge.
     const HomeLayout layout{HomeLayoutInput{
         .width = 1920.0f, .height = 1080.0f, .dp = 2.25f, .items = 0, .mode = ScrollMode::Paged}};
-    const iideck::ui::PageArrows first = layout.pageArrows(0);
+    const opensu::ui::PageArrows first = layout.pageArrows(0);
     expect(!first.previous, "the first page only points on");
     if (!first.next) {
         fail("the first page only points on");
@@ -220,12 +220,12 @@ void arrows() {
     near(first.next->y, 492.0f, "arrows are vertically centred");
     near(first.next->width, 64.0f, "arrow width is capped at 64 px");
     near(first.next->height, 96.0f, "arrow height is 1.52 x width, capped at 96 px");
-    const iideck::ui::PageArrows middle = layout.pageArrows(1);
+    const opensu::ui::PageArrows middle = layout.pageArrows(1);
     if (!middle.previous || !middle.next) {
         fail("a middle page points both ways");
     }
     near(middle.previous->x, 26.0f, "previous arrow sits 26 px from the left edge");
-    const iideck::ui::PageArrows last = layout.pageArrows(layout.pageCount() - 1);
+    const opensu::ui::PageArrows last = layout.pageArrows(layout.pageCount() - 1);
     expect(last.previous && !last.next, "the last page only points back");
 }
 

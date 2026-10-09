@@ -15,7 +15,7 @@
 #include "command.hpp"
 #include "lucent/log.h"
 
-namespace iideck::launch {
+namespace opensu::launch {
 namespace {
 
 using Clock = std::chrono::steady_clock;
@@ -184,4 +184,4 @@ void Instance::reapChild() {
     child_ = -1;
 }
 
-} // namespace iideck::launch
+} // namespace opensu::launch

@@ -22,7 +22,7 @@
 #include "lucent/http.h"
 #include "sign_in.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 
 /// The shell's state as of the last frame, published so any thread can read it.
 struct ShellSnapshot {
@@ -114,4 +114,4 @@ class ControlChannel {
 /// unknown name rather than defaulting to a button that would do something.
 [[nodiscard]] bool parseButton(std::string_view name, gamepad::Button& out);
 
-} // namespace iideck::app
+} // namespace opensu::app

@@ -7,7 +7,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::session {
+namespace opensu::session {
 
 struct GamescopeOverlay::Connection {
     Display* display{};
@@ -86,4 +86,4 @@ void GamescopeOverlay::leave() {
     connection_->flush();
 }
 
-} // namespace iideck::session
+} // namespace opensu::session

@@ -9,7 +9,7 @@
 #include "input/keyboard_bindings.hpp"
 #include "typeface.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // input_glyph_minus.xml and input_glyph_plus.xml, in their 24-unit viewport: a radius 10 ring
@@ -150,4 +150,4 @@ void ButtonGlyphPainter::paint(std::string_view key, Vector2 centre, float box, 
     type().drawCentred(key, centre.x - width * 0.5f, centre.y, letter, ink);
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

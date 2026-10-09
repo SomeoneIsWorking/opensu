@@ -16,10 +16,10 @@ namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
-using iideck::launch::resolveExecutable;
-using iideck::launch::runCaptured;
-using iideck::launch::runCommand;
-using iideck::launch::runStreaming;
+using opensu::launch::resolveExecutable;
+using opensu::launch::runCaptured;
+using opensu::launch::runCommand;
+using opensu::launch::runStreaming;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -32,7 +32,7 @@ void expect(bool condition, const char* what) {
 
 int main() {
     const fs::path scratch =
-        fs::path{IIDECK_TEST_SCRATCH} / ("iideck-command-test-" + std::to_string(getpid()));
+        fs::path{OPENSU_TEST_SCRATCH} / ("opensu-command-test-" + std::to_string(getpid()));
     fs::create_directories(scratch);
     std::ofstream{scratch / "plain.txt"} << "not a program";
 
@@ -41,7 +41,7 @@ int main() {
     expect(resolveExecutable("sh", path).filename() == "sh", "the result names the program");
     expect(resolveExecutable("plain.txt", path).empty(), "a non-executable file is not found");
     expect(resolveExecutable("/bin/sh", {}) == fs::path{"/bin/sh"}, "an absolute path is kept");
-    expect(resolveExecutable("no-such-program-iideck", path).empty(), "a missing program is empty");
+    expect(resolveExecutable("no-such-program-opensu", path).empty(), "a missing program is empty");
     expect(resolveExecutable("", path).empty(), "an empty name is empty");
 
     const std::chrono::milliseconds generous{10000};

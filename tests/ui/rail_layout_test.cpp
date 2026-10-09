@@ -8,24 +8,24 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::test::near;
-using iideck::ui::CarouselLayout;
-using iideck::ui::RailInput;
-using iideck::ui::Rect;
-using iideck::ui::XmbLayout;
+using opensu::test::expect;
+using opensu::test::near;
+using opensu::ui::CarouselLayout;
+using opensu::ui::RailInput;
+using opensu::ui::Rect;
+using opensu::ui::XmbLayout;
 
 RailInput input(float width, float height, std::size_t items, float focus) {
     return RailInput{width, height, std::vector<float>(items, 1.0f), focus, 9};
 }
 
 void iconScales() {
-    near(iideck::ui::iconScale(9), 1.34, "level 9 is 1.34");
-    near(iideck::ui::iconScale(10), 1.45, "level 10 is 1.45");
-    near(iideck::ui::iconScale(1), 0.67, "level 1 floors at 0.67");
-    near(iideck::ui::iconScale(20), 2.55, "level 20 caps at 2.55");
-    near(iideck::ui::iconScale(0), 0.67, "a level under 1 reads as 1");
-    near(iideck::ui::iconScale(99), 2.55, "a level over 20 reads as 20");
+    near(opensu::ui::iconScale(9), 1.34, "level 9 is 1.34");
+    near(opensu::ui::iconScale(10), 1.45, "level 10 is 1.45");
+    near(opensu::ui::iconScale(1), 0.67, "level 1 floors at 0.67");
+    near(opensu::ui::iconScale(20), 2.55, "level 20 caps at 2.55");
+    near(opensu::ui::iconScale(0), 0.67, "a level under 1 reads as 1");
+    near(opensu::ui::iconScale(99), 2.55, "a level over 20 reads as 20");
 }
 
 void xmbWorkedNumbers() {

@@ -7,15 +7,15 @@
 
 namespace {
 
-using iideck::library::LibraryMode;
-using iideck::test::expect;
-using iideck::test::near;
-using iideck::ui::ModeChooser;
+using opensu::library::LibraryMode;
+using opensu::test::expect;
+using opensu::test::near;
+using opensu::ui::ModeChooser;
 
 void layout() {
     // navigation.md §5.2 on 1920 x 1080 at 2.25 px per dp: cards 352 px square, 24 px apart.
-    const iideck::ui::ChooserLayout chooser =
-        iideck::ui::layoutChooser(iideck::ui::Rect{0.0f, 0.0f, 1920.0f, 1080.0f}, 2.25f);
+    const opensu::ui::ChooserLayout chooser =
+        opensu::ui::layoutChooser(opensu::ui::Rect{0.0f, 0.0f, 1920.0f, 1080.0f}, 2.25f);
     near(chooser.panel.width, 1178.1, "the panel is 523.6 dp wide", 0.1);
     near(chooser.panel.centreX(), 960.0, "centred", 0.01);
     near(chooser.cards[0].width, 352.3, "cards are 352 px", 0.5);

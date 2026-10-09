@@ -12,7 +12,7 @@
 #include "artwork_store.hpp"
 #include "net/web_client.hpp"
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 
 /// The release APK and the starter pack entry in it, as pinned.
 struct PackPin {
@@ -50,4 +50,4 @@ class StarterPack {
     PackPin pin_;
 };
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

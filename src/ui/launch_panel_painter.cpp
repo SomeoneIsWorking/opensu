@@ -6,7 +6,7 @@
 #include "hud.hpp"
 #include "typeface.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 constexpr Color scrim{0, 0, 0, 115};
@@ -104,4 +104,4 @@ void LaunchPanelPainter::paint(const LaunchPanel& panel, Vector2 size, float dp,
     }
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -8,7 +8,7 @@
 #include "fileio/atomic_write.hpp"
 #include "lucent/log.h"
 
-namespace iideck::settings {
+namespace opensu::settings {
 namespace {
 
 using json = nlohmann::json;
@@ -52,4 +52,4 @@ bool Store::save(const Settings& settings, std::string& error) const {
     return fileio::writeWhole(file_, document.dump(2) + "\n", error);
 }
 
-} // namespace iideck::settings
+} // namespace opensu::settings

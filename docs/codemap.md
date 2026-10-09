@@ -2,7 +2,7 @@
 
 Where each concept lives. Read this before placing code; update it in the change that adds or
 moves an owner. The UI replicates iiSU, so UI owners cite the iiSU function they reproduce and the
-evidence is in `reference/iisu/` (the private `iideck-re` repository, checked out at the
+evidence is in `reference/iisu/` (the private `opensu-re` repository, checked out at the
 gitignored `docs/reference/`).
 
 ## Entry and composition
@@ -21,29 +21,29 @@ gitignored `docs/reference/`).
 | `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
 | `src/settings/settings.*` | The player's saved preferences (Library layout mode) as JSON under the config dir; defaults on a missing or corrupt file |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
-| `extension/iideck-signin/` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel |
+| `extension/opensu-signin/` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel |
 
 ## Session and processes (G003, G004)
 
 | Path | Owns |
 | --- | --- |
-| `src/session/nested_session.*` | Re-running iideck inside its own Gamescope when not already in one |
+| `src/session/nested_session.*` | Re-running openSU inside its own Gamescope when not already in one |
 | `src/session/gamescope.*` | The Gamescope command line (`--close-focused-window` included) |
-| `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman (commit, container steps, staging and install path); `IIDECK_BUILD_GAMESCOPE`. `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
+| `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman (commit, container steps, staging and install path); `OPENSU_BUILD_GAMESCOPE`. `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
 | `packaging/gamescope-build/Containerfile` | The Gamescope build image: host's Fedora release plus Gamescope's build dependencies |
 | `src/session/monitor.*` | The output's size and refresh |
-| `src/session/gamescope_overlay.*` | iideck's window as Gamescope's overlay over a running game |
+| `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game |
 | `src/session/game_keys.*` | Keyboard shortcuts while a game has the keyboard (Shift+Tab is Guide), from XInput2 raw keys |
 | `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show; tells the handoff when a game is on screen |
 | `src/launch/instance.*` | One transient systemd user scope per launch; stopping it ends the whole tree |
 | `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends |
 | `src/launch/process_tree.*` | Finding processes by command line, ending trees |
-| `src/launch/command.*`, `argv.hpp` | Short-lived children, a child streamed line by line or its stdout captured (own `iideck_command` target, so `library` can run `legendary`), executable lookup, exec argv |
+| `src/launch/command.*`, `argv.hpp` | Short-lived children, a child streamed line by line or its stdout captured (own `opensu_command` target, so `library` can run `legendary`), executable lookup, exec argv |
 | `src/launch/steam_gate.hpp` | What a Steam launch waits for from the owned Steam client |
 | `src/launch/launch_progress.*` | A launch's stage before its window (waiting for Steam, updating, starting, loading) and its line of text |
 | `src/launch/game_windows.hpp` | What the handoff asks the display: does the game show a window yet |
-| `src/steam/client.*` | The Steam client iideck owns: start in background, readiness, state |
-| `src/steam/desktop_steam.*` | Detecting a Steam client running outside iideck |
+| `src/steam/client.*` | The Steam client openSU owns: start in background, readiness, state |
+| `src/steam/desktop_steam.*` | Detecting a Steam client running outside openSU |
 | `src/steam/devtools.*` | Running JavaScript in Steam's SharedJSContext over Chrome DevTools |
 | `src/steam/downloads.*` | Steam's live download queue: parsing and reading it |
 | `src/steam/launch_activity.*` | Steam's game actions and running state per app, recorded in its SharedJSContext |
@@ -73,12 +73,12 @@ gitignored `docs/reference/`).
 | `src/artwork/console_glyphs.*` | iiSU's frame glyphs: `border_pack.json` read once, a system's `logo_*.png` out of the APK |
 | `src/artwork/iisu_assets.*` | Which APK entry is each UI sound and each dock icon (the nav table is valid for the pinned APK only) |
 | `src/artwork/zip_archive.*` | The one zip reader: end record, central directory, local header offset, checked extraction; an in-memory archive |
-| `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds iideck plays (`yp8`): effect to APK file name, the Domino cues and `dominoFor(tileCount)` (`xp8.a`), the 91 ms repeat rule for Enter/ExitConsolesApps and the Domino cues; pure (`iideck_audio_model`) |
+| `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds openSU plays (`yp8`): effect to APK file name, the Domino cues and `dominoFor(tileCount)` (`xp8.a`), the 91 ms repeat rule for Enter/ExitConsolesApps and the Domino cues; pure (`opensu_audio_model`) |
 | `src/audio/sound_player.*` | raylib audio: the device opened once (silent with one warning when absent), the WAVs loaded from the store, `play` through the debounce |
 | `src/net/web_client.*` | HTTPS GETs over libcurl, with headers; shared by artwork and the stores |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
-| `src/gamepad/event.*` | The shell's controls (`Button`, `Event`), raylib-free (`iideck_pad`) |
+| `src/gamepad/event.*` | The shell's controls (`Button`, `Event`), raylib-free (`opensu_pad`) |
 | `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls |
 | `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads |
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
@@ -89,7 +89,7 @@ gitignored `docs/reference/`).
 
 ## Home UI (G002)
 
-Pure model, unit-tested without raylib (`iideck_grid`, `iideck_hud_model`):
+Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 
 | Path | Owns |
 | --- | --- |
@@ -107,9 +107,9 @@ Pure model, unit-tested without raylib (`iideck_grid`, `iideck_hud_model`):
 | `src/ui/tile_geometry.*` | One tile's rectangles and radii (and `outerForContent`, the inverse of the frame inset); where a game tile's store icons sit |
 | `src/ui/top_bar_metrics.*` | Top bar sizes in dp (`is7`, `hs7`, `dl3`) |
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
-| `src/ui/game_menu.*` | The Guide menu's items and focus (iideck's own) |
+| `src/ui/game_menu.*` | The Guide menu's items and focus (openSU's own) |
 
-Painters and composition (`iideck_ui`):
+Painters and composition (`opensu_ui`):
 
 | Path | Owns |
 | --- | --- |
@@ -133,5 +133,5 @@ Painters and composition (`iideck_ui`):
 ## Tests and docs
 
 - `tests/<area>/`: one ctest suite per owner, through the shipping code.
-- `docs/re-frontier.md`: what is recovered from iiSU. `docs/reference/` (private `iideck-re`
+- `docs/re-frontier.md`: what is recovered from iiSU. `docs/reference/` (private `opensu-re`
   checkout): the evidence and the spec built on it.

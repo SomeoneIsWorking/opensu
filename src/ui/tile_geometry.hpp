@@ -8,7 +8,7 @@
 
 #include "home_layout.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// iiSU ux2 GridTileGeometry.
 struct TileGeometry {
@@ -59,4 +59,4 @@ struct StoreIconRow {
 /// The platform frame for a composition rectangle.
 [[nodiscard]] FrameGeometry frameGeometry(const Rect& rect) noexcept;
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -13,7 +13,7 @@
 
 #include "home_layout.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 enum class Direction : std::uint8_t {
     Left,
@@ -76,4 +76,4 @@ class GridFocus {
     int row_{};
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

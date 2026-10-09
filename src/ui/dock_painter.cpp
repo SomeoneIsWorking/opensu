@@ -5,7 +5,7 @@
 #include "tile_geometry.hpp"
 #include "typeface.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // The badges' ink: the corner hints' (iiSU bell_icon.png).
@@ -73,4 +73,4 @@ void DockPainter::paint(const DockLayout& layout, const DockMetrics& metrics,
     glyphs_.paint("RB", Vector2{right.centreX(), right.centreY()}, right.width, ink);
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace iideck::library {
+namespace opensu::library {
 
 std::string_view key(Section section) noexcept {
     switch (section) {
@@ -57,4 +57,4 @@ Section Sections::cycle(int delta) noexcept {
     return active_;
 }
 
-} // namespace iideck::library
+} // namespace opensu::library

@@ -1,4 +1,4 @@
-// One physical pad's events as the virtual Xbox 360 pad and iideck's controls see them.
+// One physical pad's events as the virtual Xbox 360 pad and opensu's controls see them.
 #include "pad_translator.hpp"
 
 #include <cstdio>
@@ -10,12 +10,12 @@
 
 namespace {
 
-using iideck::gamepad::Button;
-using iideck::gamepad::Event;
-using iideck::gamepad::PadCapabilities;
-using iideck::gamepad::PadEvent;
-using iideck::gamepad::PadTranslator;
-using iideck::test::expect;
+using opensu::gamepad::Button;
+using opensu::gamepad::Event;
+using opensu::gamepad::PadCapabilities;
+using opensu::gamepad::PadEvent;
+using opensu::gamepad::PadTranslator;
+using opensu::test::expect;
 
 using Events = std::vector<PadEvent>;
 
@@ -72,12 +72,12 @@ void faceButtonsPassThrough() {
     const auto run = feed(pad, {{EV_KEY, BTN_SOUTH, 1}, {EV_SYN, SYN_REPORT, 0}});
     expect(run.forward == Events{{EV_KEY, BTN_SOUTH, 1}, {EV_SYN, SYN_REPORT, 0}},
            "A is forwarded with its report");
-    expect(reports(run, Button::A, true), "A is reported to iideck");
+    expect(reports(run, Button::A, true), "A is reported to opensu");
     const auto repeat = feed(pad, {{EV_KEY, BTN_SOUTH, 2}});
     expect(repeat.forward.empty() && repeat.controls.empty(), "autorepeat is dropped");
 }
 
-void guideStaysWithIideck() {
+void guideStaysWithOpensu() {
     PadTranslator pad{dualSense()};
     const auto run = feed(pad, {{EV_KEY, BTN_MODE, 1}, {EV_KEY, BTN_MODE, 0}});
     expect(run.forward.empty(), "Guide never reaches the game");
@@ -100,7 +100,7 @@ void dpadButtonsBecomeHat() {
     PadTranslator pad{switchPro()};
     auto run = feed(pad, {{EV_KEY, BTN_DPAD_UP, 1}});
     expect(run.forward == Events{{EV_ABS, ABS_HAT0Y, -1}}, "d-pad up is the hat up");
-    expect(reports(run, Button::Up, true), "and Up for iideck");
+    expect(reports(run, Button::Up, true), "and Up for opensu");
     run = feed(pad, {{EV_KEY, BTN_DPAD_DOWN, 1}, {EV_KEY, BTN_DPAD_UP, 0}});
     expect(run.forward == Events{{EV_ABS, ABS_HAT0Y, 0}, {EV_ABS, ABS_HAT0Y, 1}},
            "up and down together cancel, then down alone is down");
@@ -110,7 +110,7 @@ void digitalTriggersDriveAxes() {
     PadTranslator pad{switchPro()};
     const auto run = feed(pad, {{EV_KEY, BTN_TR2, 1}});
     expect(run.forward == Events{{EV_ABS, ABS_RZ, 255}}, "ZR pulls the right trigger fully");
-    expect(reports(run, Button::R2, true), "and is R2 for iideck");
+    expect(reports(run, Button::R2, true), "and is R2 for opensu");
 }
 
 void restAndResume() {
@@ -136,7 +136,7 @@ void unknownCodesDropped() {
 
 int main() {
     faceButtonsPassThrough();
-    guideStaysWithIideck();
+    guideStaysWithOpensu();
     axesRescale();
     dpadButtonsBecomeHat();
     digitalTriggersDriveAxes();

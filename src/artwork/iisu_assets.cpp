@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 namespace {
 
 constexpr std::string_view soundDirectory = "assets/";
@@ -49,4 +49,4 @@ std::optional<NavIcon> navIconOfFile(std::string_view file) noexcept {
     return found == navEntries.end() ? std::nullopt : std::optional{found->icon};
 }
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

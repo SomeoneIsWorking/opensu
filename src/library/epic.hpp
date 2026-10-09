@@ -12,7 +12,7 @@
 
 #include "game.hpp"
 
-namespace iideck::library::epic {
+namespace opensu::library::epic {
 
 /// Why an install failed, from one line of `legendary install` output: an ERROR or CRITICAL log
 /// line (`install_log::loggedError`), or a " ! Failure: ..." line of its requirements check;
@@ -44,4 +44,4 @@ class Provider final : public library::Provider {
     std::string binary_;
 };
 
-} // namespace iideck::library::epic
+} // namespace opensu::library::epic

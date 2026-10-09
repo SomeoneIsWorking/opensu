@@ -7,7 +7,7 @@
 #include "library/gog_token.hpp"
 #include "lucent/log.h"
 
-namespace iideck::app {
+namespace opensu::app {
 namespace {
 
 // Legendary's own sign-in page; it redirects to Epic's login with Legendary's client, and the
@@ -60,4 +60,4 @@ SignInResult StoreSignIn::complete(Store store, std::string_view code) {
     return {true, "Epic code given to legendary"};
 }
 
-} // namespace iideck::app
+} // namespace opensu::app

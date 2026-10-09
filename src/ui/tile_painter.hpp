@@ -3,9 +3,9 @@
 // Draw order is iiSU nx2.j: shadow, outer focus ring, glass chrome, art, inner
 // focus ring, all scaled about the tile centre. A game tile has no title and no
 // badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile is iiSU's
-// card for it when there is one, drawn as the whole tile; without, iideck's own: its platform's
+// card for it when there is one, drawn as the whole tile; without, opensu's own: its platform's
 // colours with the console's name and game count. A launcher and the combined library are
-// iideck's own cards in the same shape, with the store's logo or a library glyph above the name.
+// opensu's own cards in the same shape, with the store's logo or a library glyph above the name.
 // A store game that is owned in more than one store carries a row of store icons in its
 // bottom-right corner.
 #pragma once
@@ -23,7 +23,7 @@
 #include "tile_geometry.hpp"
 #include "vector_icon.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// What a tile stands for.
 enum class TileKind : std::uint8_t {
@@ -101,4 +101,4 @@ class TilePainter {
 /// A cover crop of a `width` x `height` image for a `target` (iiSU e01.k, centred anchors).
 [[nodiscard]] Rectangle coverSource(float width, float height, const Rect& target) noexcept;
 
-} // namespace iideck::ui
+} // namespace opensu::ui

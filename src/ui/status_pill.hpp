@@ -9,7 +9,7 @@
 #include "home_layout.hpp"
 #include "top_bar_metrics.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// What one status pill shows.
 struct StatusPillView {
@@ -37,4 +37,4 @@ class StatusPillPainter {
     GlassPainter glass_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

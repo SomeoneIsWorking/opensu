@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace iideck::audio {
+namespace opensu::audio {
 
 std::string_view assetFile(Effect effect) noexcept {
     switch (effect) {
@@ -77,4 +77,4 @@ std::chrono::milliseconds debounceOf(Effect effect) noexcept {
     return std::chrono::milliseconds{0};
 }
 
-} // namespace iideck::audio
+} // namespace opensu::audio

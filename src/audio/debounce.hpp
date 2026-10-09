@@ -8,7 +8,7 @@
 
 #include "effect.hpp"
 
-namespace iideck::audio {
+namespace opensu::audio {
 
 class Debounce {
   public:
@@ -21,4 +21,4 @@ class Debounce {
     std::array<std::optional<Clock::time_point>, allEffects.size()> last_{};
 };
 
-} // namespace iideck::audio
+} // namespace opensu::audio

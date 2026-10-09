@@ -4,7 +4,7 @@
 #include <string>
 #include <utility>
 
-namespace iideck::steam {
+namespace opensu::steam {
 namespace {
 
 /// The first line of a procfs file, empty when it cannot be read.
@@ -56,4 +56,4 @@ bool DesktopSteam::runningOutside(const std::string& instanceUnit) const {
     return true;
 }
 
-} // namespace iideck::steam
+} // namespace opensu::steam

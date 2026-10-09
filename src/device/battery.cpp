@@ -7,7 +7,7 @@
 #include <system_error>
 #include <vector>
 
-namespace iideck::device {
+namespace opensu::device {
 namespace {
 
 namespace fs = std::filesystem;
@@ -56,4 +56,4 @@ std::optional<BatteryStatus> BatteryReader::read() const {
     return std::nullopt;
 }
 
-} // namespace iideck::device
+} // namespace opensu::device

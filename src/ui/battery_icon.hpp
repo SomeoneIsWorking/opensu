@@ -4,7 +4,7 @@
 #include <array>
 #include <cstdint>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 class BatteryIcon {
   public:
@@ -18,4 +18,4 @@ class BatteryIcon {
                                                               0xFF7200, 0xFF0000};
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

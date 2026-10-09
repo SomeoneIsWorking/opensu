@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace iideck::app {
+namespace opensu::app {
 namespace {
 
 ui::ServiceState steamState(launch::SteamState state) {
@@ -100,4 +100,4 @@ std::string describe(std::span<const ui::LauncherBadge> badges) {
     return out;
 }
 
-} // namespace iideck::app
+} // namespace opensu::app

@@ -1,4 +1,4 @@
-// launcher_status — what the top bar's launcher badges show: Steam from the client iideck owns
+// launcher_status — what the top bar's launcher badges show: Steam from the client opensu owns
 // and its download queue, Epic and GOG from the catalog's last read of them.
 #pragma once
 
@@ -11,7 +11,7 @@
 #include "library/game.hpp"
 #include "steam/downloads.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 
 /// One badge per launcher, Steam first. A launcher not on this machine is hidden.
 [[nodiscard]] std::vector<ui::LauncherBadge>
@@ -21,4 +21,4 @@ launcherBadges(launch::SteamState steam, std::span<const steam::Download> downlo
 /// The badges as `steam=ready epic=failed`, hidden ones left out, for the control channel.
 [[nodiscard]] std::string describe(std::span<const ui::LauncherBadge> badges);
 
-} // namespace iideck::app
+} // namespace opensu::app

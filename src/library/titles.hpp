@@ -8,7 +8,7 @@
 
 #include "game.hpp"
 
-namespace iideck::library {
+namespace opensu::library {
 
 /// `title` as the stores compare it: lower-case letters and digits only, "&" read as "and", so
 /// "Hades II", "HADES II™" and "Hades  II" match. Nothing but letters and digits of ASCII
@@ -30,4 +30,4 @@ struct Title {
 /// Every copy of `game`'s title in `games`, preferred first; `game` alone when it has no other.
 [[nodiscard]] std::vector<Game> copiesOf(const std::vector<Game>& games, const Game& game);
 
-} // namespace iideck::library
+} // namespace opensu::library

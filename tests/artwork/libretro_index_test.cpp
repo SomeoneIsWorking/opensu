@@ -8,7 +8,7 @@
 
 namespace {
 
-using iideck::artwork::bestMatch;
+using opensu::artwork::bestMatch;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -37,7 +37,7 @@ std::vector<std::string> releaseIndex() {
 }
 
 void testParseIndex() {
-    const std::vector<std::string> names = iideck::artwork::parseIndex(
+    const std::vector<std::string> names = opensu::artwork::parseIndex(
         R"(<a href="?C=N;O=D">Name</a> <a href="Super%20Mario%20Sunshine%20(USA).png">Super)"
         R"( Mario</a> <a href="Mario%20_%20Luigi%20-%20Superstar%20Saga%20(USA).png">x</a>)"
         R"( <a href="../">Parent</a>)");
@@ -75,11 +75,11 @@ void testMatches() {
 }
 
 void testNames() {
-    expect(iideck::artwork::thumbnailName("Mario & Luigi: Saga?") == "Mario _ Luigi_ Saga_",
+    expect(opensu::artwork::thumbnailName("Mario & Luigi: Saga?") == "Mario _ Luigi_ Saga_",
            "libretro's file name characters");
-    expect(iideck::artwork::encodeSegment("Sony - PlayStation 2") == "Sony%20-%20PlayStation%202",
+    expect(opensu::artwork::encodeSegment("Sony - PlayStation 2") == "Sony%20-%20PlayStation%202",
            "spaces are encoded");
-    expect(iideck::artwork::encodeSegment("Ico (Europe, Australia) #1") ==
+    expect(opensu::artwork::encodeSegment("Ico (Europe, Australia) #1") ==
                "Ico%20(Europe,%20Australia)%20%231",
            "parentheses and commas stay as the listing writes them");
 }

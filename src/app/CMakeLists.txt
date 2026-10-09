@@ -1,19 +1,19 @@
-add_library(iideck_app STATIC shell_app.cpp control_channel.cpp install_job.cpp steam_install_job.cpp cli_install_job.cpp epic_install_job.cpp gog_install_job.cpp installs.cpp launcher_status.cpp sign_in.cpp)
-add_library(iideck::app ALIAS iideck_app)
-target_include_directories(iideck_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(iideck_app
+add_library(opensu_app STATIC shell_app.cpp control_channel.cpp install_job.cpp steam_install_job.cpp cli_install_job.cpp epic_install_job.cpp gog_install_job.cpp installs.cpp launcher_status.cpp sign_in.cpp)
+add_library(opensu::app ALIAS opensu_app)
+target_include_directories(opensu_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(opensu_app
     PUBLIC
-        iideck::library
-        iideck::artwork
-        iideck::audio
-        iideck::settings
-        iideck::ui
-        iideck::device
-        iideck::pad
-        iideck::launch
-        iideck::steam
-        iideck::session
-        iideck::raylib
+        opensu::library
+        opensu::artwork
+        opensu::audio
+        opensu::settings
+        opensu::ui
+        opensu::device
+        opensu::pad
+        opensu::launch
+        opensu::steam
+        opensu::session
+        opensu::raylib
         lucent::lucent
 )
-target_compile_features(iideck_app PUBLIC cxx_std_20)
+target_compile_features(opensu_app PUBLIC cxx_std_20)

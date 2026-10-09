@@ -12,7 +12,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 namespace {
 
 std::system_error lastError(const char* what) {
@@ -265,4 +265,4 @@ void Pads::run(const std::stop_token& stop) {
     }
 }
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

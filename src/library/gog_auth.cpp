@@ -8,7 +8,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::library::gog {
+namespace opensu::library::gog {
 namespace {
 
 using nlohmann::json;
@@ -98,4 +98,4 @@ Token Auth::request(const std::string& grant) const {
     return token;
 }
 
-} // namespace iideck::library::gog
+} // namespace opensu::library::gog

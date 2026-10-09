@@ -8,7 +8,7 @@
 #include "lucent/log.h"
 #include "name_list.hpp"
 
-namespace iideck::library::roms {
+namespace opensu::library::roms {
 namespace {
 
 namespace fs = std::filesystem;
@@ -205,4 +205,4 @@ std::vector<std::string_view> Emulators::candidates(std::string_view system) {
     return names;
 }
 
-} // namespace iideck::library::roms
+} // namespace opensu::library::roms

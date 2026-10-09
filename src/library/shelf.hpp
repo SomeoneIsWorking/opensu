@@ -15,7 +15,7 @@
 #include "game.hpp"
 #include "sections.hpp"
 
-namespace iideck::library {
+namespace opensu::library {
 
 /// A system with ROMs here, standing for all of them in Library.
 struct Console {
@@ -130,4 +130,4 @@ class ShelfBrowser {
     std::array<std::size_t, allSections.size()> left_{};
 };
 
-} // namespace iideck::library
+} // namespace opensu::library

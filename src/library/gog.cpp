@@ -9,7 +9,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::library::gog {
+namespace opensu::library::gog {
 namespace {
 
 using nlohmann::json;
@@ -115,4 +115,4 @@ std::vector<Game> Provider::list() {
     return games;
 }
 
-} // namespace iideck::library::gog
+} // namespace opensu::library::gog

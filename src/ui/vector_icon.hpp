@@ -11,7 +11,7 @@
 #include "library/game.hpp"
 #include "raylib.h"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 enum class Icon : std::uint8_t { Steam, Epic, Gog };
 
@@ -47,4 +47,4 @@ class IconAtlas {
     std::vector<Entry> entries_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

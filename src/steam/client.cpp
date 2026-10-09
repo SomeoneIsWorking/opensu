@@ -10,7 +10,7 @@
 #include "library/steam.hpp"
 #include "lucent/log.h"
 
-namespace iideck::steam {
+namespace opensu::steam {
 namespace {
 
 namespace fs = std::filesystem;
@@ -60,7 +60,7 @@ void Client::start() {
         return;
     }
     if (desktop_.runningOutside("")) {
-        lucent::warn("steam", "a Steam client already runs outside iideck");
+        lucent::warn("steam", "a Steam client already runs outside opensu");
         setState(SteamState::Blocked);
         return;
     }
@@ -254,4 +254,4 @@ void Client::shutdown() {
     setState(SteamState::Stopped);
 }
 
-} // namespace iideck::steam
+} // namespace opensu::steam

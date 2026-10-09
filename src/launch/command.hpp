@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-namespace iideck::launch {
+namespace opensu::launch {
 
 /// The executable `program` names, directly or in one of `path`; empty when there is none.
 [[nodiscard]] std::filesystem::path
@@ -44,4 +44,4 @@ struct Captured {
 [[nodiscard]] std::optional<Captured> runCaptured(const std::string& program,
                                                   const std::vector<std::string>& args);
 
-} // namespace iideck::launch
+} // namespace opensu::launch

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <utility>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 void GameMenu::open(std::string title) {
     title_ = std::move(title);
@@ -20,4 +20,4 @@ void GameMenu::move(int delta) noexcept {
     focus_ = static_cast<std::size_t>(std::clamp(static_cast<long>(focus_) + delta, 0L, last));
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

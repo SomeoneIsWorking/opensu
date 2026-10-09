@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-namespace iideck::launch {
+namespace opensu::launch {
 
 struct LaunchProgress {
     enum class Stage : std::uint8_t {
@@ -34,4 +34,4 @@ struct LaunchProgress {
 /// One line for the player: "Updating · 42%".
 [[nodiscard]] std::string describe(const LaunchProgress& progress);
 
-} // namespace iideck::launch
+} // namespace opensu::launch

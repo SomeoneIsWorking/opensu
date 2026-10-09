@@ -18,7 +18,7 @@
 namespace {
 
 using Clock = std::chrono::steady_clock;
-using iideck::launch::ProcessTree;
+using opensu::launch::ProcessTree;
 
 void expect(bool condition, const char* what) {
     if (!condition) {

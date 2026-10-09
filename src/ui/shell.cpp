@@ -10,7 +10,7 @@
 #include "rlgl.h"
 #include "tile_geometry.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 namespace fs = std::filesystem;
@@ -760,4 +760,4 @@ void Shell::draw(const RenderTexture2D* target) {
     EndDrawing();
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

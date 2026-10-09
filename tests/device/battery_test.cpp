@@ -11,8 +11,8 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::device::BatteryReader;
-using iideck::device::BatteryStatus;
+using opensu::device::BatteryReader;
+using opensu::device::BatteryStatus;
 
 [[noreturn]] void fail(const char* what) {
     std::fprintf(stderr, "FAIL: %s\n", what);
@@ -34,7 +34,7 @@ void expect(bool condition, const char* what) {
 
 /// A fresh fake power_supply class directory.
 fs::path freshRoot(const char* name) {
-    const fs::path root = fs::path{IIDECK_TEST_SCRATCH} / "battery" / name;
+    const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "battery" / name;
     fs::remove_all(root);
     fs::create_directories(root);
     return root;

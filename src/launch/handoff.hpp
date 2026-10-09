@@ -17,7 +17,7 @@
 #include "library/game.hpp"
 #include "steam_gate.hpp"
 
-namespace iideck::launch {
+namespace opensu::launch {
 
 /// A launch that cannot be attempted.
 struct Error {
@@ -27,7 +27,7 @@ struct Error {
     [[nodiscard]] std::string message() const;
 };
 
-/// Starts games, one at a time. A Steam game is handed to the Steam client iideck
+/// Starts games, one at a time. A Steam game is handed to the Steam client opensu
 /// owns, which runs it in its own scope; any other game runs in an Instance of its own.
 class Handoff {
   public:
@@ -56,7 +56,7 @@ class Handoff {
 
     /// Starts a game, calls `hide` once it shows a window, waits for it to finish,
     /// then calls `show`. Blocks until then, so callers run it off the main thread. Each
-    /// "NAME=value" of `environment` is added to a game iideck starts itself; a
+    /// "NAME=value" of `environment` is added to a game opensu starts itself; a
     /// Steam game gets the client's environment.
     ///
     /// A Steam game first waits for the client to be ready (cancellable by
@@ -123,4 +123,4 @@ class Handoff {
     std::string steamHint_;
 };
 
-} // namespace iideck::launch
+} // namespace opensu::launch

@@ -43,7 +43,7 @@
 #include "tile_motion.hpp"
 #include "tile_painter.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// One entry in the grid, with the artwork loaded for it.
 struct Tile {
@@ -335,4 +335,4 @@ class Shell {
     bool inGame_{false};
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

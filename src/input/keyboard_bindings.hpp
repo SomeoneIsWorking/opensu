@@ -9,7 +9,7 @@
 
 #include "gamepad/event.hpp"
 
-namespace iideck::input {
+namespace opensu::input {
 
 /// A raylib key code and the button it presses.
 struct KeyBinding {
@@ -30,4 +30,4 @@ struct KeyBinding {
 /// The key cap text for a glyph key, or nothing when its button has no key.
 [[nodiscard]] std::optional<std::string> keyLabelForGlyph(std::string_view glyph);
 
-} // namespace iideck::input
+} // namespace opensu::input

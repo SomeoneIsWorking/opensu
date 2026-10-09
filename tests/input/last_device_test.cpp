@@ -8,11 +8,11 @@
 
 namespace {
 
-using iideck::gamepad::Button;
-using iideck::gamepad::Event;
-using iideck::input::Device;
-using iideck::input::LastDevice;
-using iideck::test::expect;
+using opensu::gamepad::Button;
+using opensu::gamepad::Event;
+using opensu::input::Device;
+using opensu::input::LastDevice;
+using opensu::test::expect;
 
 Event event(Event::Kind kind, Button button, bool pressed) {
     return Event{.kind = kind, .button = button, .pressed = pressed, .device = {}};

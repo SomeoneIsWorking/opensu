@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <numeric>
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 /// iiSU `jj2.q0`: the height of a two-row button prompt panel at a scale.
@@ -95,4 +95,4 @@ bool onRestingDock(const DockLayout& layout, float x, float y) noexcept {
            y <= layout.bar.bottom();
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

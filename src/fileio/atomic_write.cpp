@@ -3,7 +3,7 @@
 #include <fstream>
 #include <system_error>
 
-namespace iideck::fileio {
+namespace opensu::fileio {
 
 bool writeWhole(const std::filesystem::path& file, std::string_view bytes, std::string& error) {
     std::error_code ec;
@@ -26,4 +26,4 @@ bool writeWhole(const std::filesystem::path& file, std::string_view bytes, std::
     return true;
 }
 
-} // namespace iideck::fileio
+} // namespace opensu::fileio

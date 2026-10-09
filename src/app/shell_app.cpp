@@ -22,7 +22,7 @@
 #include "ui/clock_text.hpp"
 #include "ui/section_view.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 namespace {
 
 /// A short human summary of a title's state, shown in the details toast.
@@ -37,7 +37,7 @@ std::string describe(const library::Game& game) {
     return out.str();
 }
 
-/// The APK files iideck keeps: every UI sound and the dock's icons.
+/// The APK files opensu keeps: every UI sound and the dock's icons.
 std::vector<artwork::ApkAsset> iisuAssets() {
     std::vector<artwork::ApkAsset> assets;
     assets.reserve(audio::allEffects.size() + artwork::allNavIcons.size());
@@ -212,7 +212,7 @@ void ShellApp::startSignIn(Store store) {
     // The opener can take seconds to start a browser, so it runs off the loop.
     signInOpener_ = std::jthread{[this, store] {
         const SignInResult result = signIn_.open(store);
-        requestToast(result.ok ? "sign in there; the iideck sign-in extension finishes it"
+        requestToast(result.ok ? "sign in there; the opensu sign-in extension finishes it"
                                : result.message,
                      !result.ok);
     }};
@@ -749,7 +749,7 @@ void ShellApp::refreshClock() {
     shell_.setClock(ui::ClockText::format(parts.tm_hour, parts.tm_min, config::read().clock24Hour));
     nextClockTick_ = std::chrono::steady_clock::now() +
                      ui::ClockText::untilNextMinute(parts.tm_sec, millisecond);
-    // STOPGAP: the battery is re-read on the clock's minute tick because iideck has no
+    // STOPGAP: the battery is re-read on the clock's minute tick because opensu has no
     // power_supply uevent listener standing in for iiSU's ACTION_BATTERY_CHANGED receiver.
     shell_.setBattery(battery_.read());
 }
@@ -773,7 +773,7 @@ bool ShellApp::renderFrameToPng(std::string& png) {
     // back. The name carries the process id, so two shells on one machine do
     // not fight over it.
     const std::string path = (std::filesystem::temp_directory_path() /
-                              ("iideck-frame-" + std::to_string(::getpid()) + ".png"))
+                              ("opensu-frame-" + std::to_string(::getpid()) + ".png"))
                                  .string();
     const bool written = ExportImage(frame, path.c_str());
     UnloadImage(frame);
@@ -1011,7 +1011,7 @@ int ShellApp::run() {
     // Transparent, so the Guide menu can draw over a game with the game showing through. No
     // MSAA: with it, Gamescope's Xwayland gave a 24-bit window, which it composites as opaque.
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_TRANSPARENT);
-    InitWindow(settings_.width, settings_.height, "iideck");
+    InitWindow(settings_.width, settings_.height, "openSU");
     SetWindowMinSize(960, 600);
     if (config::read().insideGamescope) {
         // Gamescope composites a window as the overlay only when it spans the whole screen,
@@ -1066,7 +1066,7 @@ int ShellApp::run() {
         serviceRequests();
         serviceArtwork();
         shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
-        // iiSU's Home has no title (pl3.q); iideck's names the focused tile everywhere.
+        // iiSU's Home has no title (pl3.q); opensu's names the focused tile everywhere.
         shell_.setTitle(shell_.pillTitle());
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
@@ -1105,7 +1105,7 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
     // window. The window is never shown and nothing is presented, so a render
     // still lands on no screen.
     SetConfigFlags(FLAG_WINDOW_HIDDEN);
-    InitWindow(settings_.width, settings_.height, "iideck render");
+    InitWindow(settings_.width, settings_.height, "opensu render");
     shell_.loadArtwork();
     lucent::info("render", "loaded artwork for {} of {} tiles", shell_.loadedArtwork(),
                  shell_.tiles().size());
@@ -1132,4 +1132,4 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
     return written;
 }
 
-} // namespace iideck::app
+} // namespace opensu::app

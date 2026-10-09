@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <span>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 struct Rgb {
     std::uint8_t r{};
@@ -31,4 +31,4 @@ struct Gradient {
 /// untouched.
 void recolourIcon(std::span<std::uint8_t> rgba, int width, int height, Rgb from, Rgb to) noexcept;
 
-} // namespace iideck::ui
+} // namespace opensu::ui

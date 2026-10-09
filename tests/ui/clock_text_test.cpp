@@ -8,9 +8,9 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::ui::BatteryIcon;
-using iideck::ui::ClockText;
+using opensu::test::expect;
+using opensu::ui::BatteryIcon;
+using opensu::ui::ClockText;
 
 void twentyFourHour() {
     expect(ClockText::format(0, 5, true) == "00:05", "HH:mm pads the hour");

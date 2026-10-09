@@ -12,7 +12,7 @@ guessed. G002 builds only on rows marked grounded.
   from the APK enters git). App code is 56 classes under `com/iisulauncher`;
   the UI is Jetpack Compose, R8-obfuscated into `defpackage/`.
 - Evidence with `file:line` citations: `reference/iisu/`; summary in `reference/design-reference.md`.
-  Both are in the private `iideck-re` repository, checked out at the gitignored `docs/reference/`.
+  Both are in the private `opensu-re` repository, checked out at the gitignored `docs/reference/`.
 
 ## Chain
 
@@ -32,12 +32,12 @@ guessed. G002 builds only on rows marked grounded.
 | Input routing, section cycling, grid focus rules incl. page crossing, repeat, triggers | grounded | `reference/iisu/input-sound.md` §1 |
 | Per-screen key maps for Compose screens | partial | `reference/iisu/input-sound.md` §6, not re-read against source |
 | Haptics | grounded | `reference/iisu/input-sound.md` §2 |
-| Sound effects and domino cue | grounded; effects played (`audio::`), Domino cues not (iideck has no tabs) | `reference/iisu/input-sound.md` §3; home grid moves play `Navigation.wav` |
+| Sound effects and domino cue | grounded; effects played (`audio::`), Domino cues not (openSU has no tabs) | `reference/iisu/input-sound.md` §3; home grid moves play `Navigation.wav` |
 | Music presets, loop windows, fades | grounded | `reference/iisu/input-sound.md` §4 |
 | Motion: focus, domino entrance, pulse, dialogs, startup | grounded | `reference/iisu/motion.md` §1–4 |
 | Motion: idle pause default, domino replay on return, art fade-in | missing | `reference/iisu/motion.md` §6 |
 | Status pill bell while tasks run: Material indeterminate ring (of6.a, stroke 3, surfaceTint) of f4 = clamp(22c,10,28) behind a bell icon box f9 = clamp(50c,18,62) at (f7, f8) = (max(0, fE15 - fE13), clamp(1c,0,6)) | partial | `a32.java:5472` (a32.n), sizes `a32.java:5896-5919`; the Box alignments wj0.o/wj0.k are unresolved, so how the ring shows around a larger icon is not known |
-| Game launch: pulse, OpenAppRom sound, music cut, 350 ms, then the app; no launch screen on one display ("LaunchScreen" is the dual-screen display chooser) | grounded | `reference/iisu/launch.md`; three callbacks on the launch path unresolved. iideck's launch panel is its own, since a PC game needs seconds to show a window |
+| Game launch: pulse, OpenAppRom sound, music cut, 350 ms, then the app; no launch screen on one display ("LaunchScreen" is the dual-screen display chooser) | grounded | `reference/iisu/launch.md`; three callbacks on the launch path unresolved. openSU's launch panel is its own, since a PC game needs seconds to show a window |
 
 Spot-checked against the decompile: setContent call, dialog state names, 3×4
 default grid, gap defaults, page-dot colour, focus scale timings, trigger

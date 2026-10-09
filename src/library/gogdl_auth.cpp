@@ -7,7 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace iideck::library::gog {
+namespace opensu::library::gog {
 namespace {
 
 using nlohmann::json;
@@ -55,4 +55,4 @@ void GogdlAuthFile::remove() const {
     std::filesystem::remove(file_, ec);
 }
 
-} // namespace iideck::library::gog
+} // namespace opensu::library::gog

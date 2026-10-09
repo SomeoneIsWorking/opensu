@@ -1,6 +1,6 @@
-// gog_installs — where iideck keeps GOG installs and which ones it has made.
+// gog_installs — where opensu keeps GOG installs and which ones it has made.
 //
-// gogdl downloads into a folder it names itself and keeps no list of installs, so iideck records
+// gogdl downloads into a folder it names itself and keeps no list of installs, so opensu records
 // each finished install (game id, folder, platform) in `<data dir>/gog-installs.json`. The record
 // is what makes a GOG game installed and says how it launches.
 #pragma once
@@ -11,9 +11,9 @@
 #include <string>
 #include <string_view>
 
-namespace iideck::library::gog {
+namespace opensu::library::gog {
 
-/// Where iideck puts GOG's files under its data directory.
+/// Where opensu puts GOG's files under its data directory.
 struct Paths {
     /// The install records.
     std::filesystem::path records;
@@ -52,4 +52,4 @@ class InstallRecords {
     std::filesystem::path file_;
 };
 
-} // namespace iideck::library::gog
+} // namespace opensu::library::gog

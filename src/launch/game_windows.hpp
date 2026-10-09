@@ -5,7 +5,7 @@
 
 #include <sys/types.h>
 
-namespace iideck::launch {
+namespace opensu::launch {
 
 /// The windows the display shows. Implemented by session::GamescopeWindows; an interface so the
 /// handoff does not depend on the display.
@@ -18,4 +18,4 @@ class GameWindows {
     [[nodiscard]] virtual bool anyOwnedBy(const std::vector<pid_t>& pids) = 0;
 };
 
-} // namespace iideck::launch
+} // namespace opensu::launch

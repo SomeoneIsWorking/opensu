@@ -21,14 +21,14 @@
 namespace {
 
 using namespace std::chrono_literals;
-using iideck::gamepad::Button;
-using iideck::gamepad::EvdevDevice;
-using iideck::gamepad::Event;
-using iideck::gamepad::PadEvent;
-using iideck::gamepad::Pads;
-using iideck::gamepad::VirtualPad;
-using iideck::test::expect;
-using iideck::test::fail;
+using opensu::gamepad::Button;
+using opensu::gamepad::EvdevDevice;
+using opensu::gamepad::Event;
+using opensu::gamepad::PadEvent;
+using opensu::gamepad::Pads;
+using opensu::gamepad::VirtualPad;
+using opensu::test::expect;
+using opensu::test::fail;
 
 /// A DualSense-shaped controller: 0..255 sticks, a hat, Guide.
 class FakePad {
@@ -173,10 +173,10 @@ int main() {
     std::vector<Event> seen;
 
     // Connected after the reader started, as a pad switched on mid-session is.
-    std::optional<FakePad> physical{std::in_place, "iideck test pad", 0x054c, 0x0ce6};
+    std::optional<FakePad> physical{std::in_place, "opensu test pad", 0x054c, 0x0ce6};
     expect(collect(pads, seen,
                    [&] {
-                       return has(seen, Event::Kind::Connected, "iideck test pad");
+                       return has(seen, Event::Kind::Connected, "opensu test pad");
                    }),
            "a pad connected later is picked up");
     physical->send({{EV_KEY, BTN_SOUTH, 1}});
@@ -202,7 +202,7 @@ int main() {
     expect(!pads.hold().empty(), "the game is told to read only the virtual pads");
     std::vector<EvdevDevice> virtualPads = openAllNamed(VirtualPad::name);
     expect(!virtualPads.empty(), "holding gives the pad a virtual pad");
-    auto other = openNamed("iideck test pad");
+    auto other = openNamed("opensu test pad");
     if (!other) {
         fail("the held pad can still be opened");
     }
@@ -239,7 +239,7 @@ int main() {
                    [&] {
                        return pressed(seen, Button::Guide);
                    }),
-           "Guide is reported to iideck");
+           "Guide is reported to opensu");
     read.clear();
     game->read(read);
     for (const PadEvent& event : read) {
@@ -256,7 +256,7 @@ int main() {
                    [&] {
                        return pressed(seen, Button::B);
                    }),
-           "iideck still sees B");
+           "opensu still sees B");
     read.clear();
     game->read(read);
     for (const PadEvent& event : read) {
@@ -279,7 +279,7 @@ int main() {
     physical.reset();
     expect(collect(pads, seen,
                    [&] {
-                       return has(seen, Event::Kind::Disconnected, "iideck test pad");
+                       return has(seen, Event::Kind::Disconnected, "opensu test pad");
                    }),
            "a pad that leaves is reported");
 

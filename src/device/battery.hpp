@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <optional>
 
-namespace iideck::device {
+namespace opensu::device {
 
 struct BatteryStatus {
     /// 0 to 100.
@@ -27,4 +27,4 @@ class BatteryReader {
     std::filesystem::path root_;
 };
 
-} // namespace iideck::device
+} // namespace opensu::device

@@ -1,6 +1,6 @@
 #include "glyph_textures.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 GlyphTextures::~GlyphTextures() {
     for (auto& [system, entry] : entries_) {
@@ -43,4 +43,4 @@ const Texture* GlyphTextures::find(std::string_view system) const {
                                                                     : nullptr;
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstddef>
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // The source icon's own gradient, read off `res/TQ.png`'s centre column: brightest (v 1) at the top
@@ -79,4 +79,4 @@ void recolourIcon(std::span<std::uint8_t> rgba, int width, int height, Rgb from,
     }
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 
-namespace iideck::steam {
+namespace opensu::steam {
 namespace {
 
 using nlohmann::json;
@@ -83,4 +83,4 @@ std::optional<std::vector<Download>> DownloadQueue::read(std::string& error) {
     return parseDownloads(*answer);
 }
 
-} // namespace iideck::steam
+} // namespace opensu::steam

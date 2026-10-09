@@ -1,4 +1,4 @@
-// settings — what the player chose and iideck keeps between runs, in one JSON file under the
+// settings — what the player chose and opensu keeps between runs, in one JSON file under the
 // config directory (`config::Config::configDir`).
 #pragma once
 
@@ -7,7 +7,7 @@
 
 #include "library/sections.hpp"
 
-namespace iideck::settings {
+namespace opensu::settings {
 
 struct Settings {
     /// How Library lays out its folders (iiSU `romCategoryLayoutMode`).
@@ -35,4 +35,4 @@ class Store {
     std::filesystem::path file_;
 };
 
-} // namespace iideck::settings
+} // namespace opensu::settings

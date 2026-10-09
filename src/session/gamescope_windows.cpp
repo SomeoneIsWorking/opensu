@@ -7,7 +7,7 @@
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 
-namespace iideck::session {
+namespace opensu::session {
 
 struct GamescopeWindows::Connection {
     Display* display{};
@@ -56,4 +56,4 @@ bool GamescopeWindows::anyOwnedBy(const std::vector<pid_t>& pids) {
     });
 }
 
-} // namespace iideck::session
+} // namespace opensu::session

@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 int BatteryIcon::slot(int percent, bool charging) noexcept {
     const int level = std::clamp(percent, 0, 100);
@@ -30,4 +30,4 @@ int BatteryIcon::slot(int percent, bool charging) noexcept {
     return level < 20 ? 4 : 3;
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

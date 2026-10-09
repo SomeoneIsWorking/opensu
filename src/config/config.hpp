@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-namespace iideck::config {
+namespace opensu::config {
 
 /// iiSU's two single-screen dashboard modes (iiSU fs7).
 enum class HomeMode : std::uint8_t {
@@ -40,27 +40,27 @@ struct Config {
     /// Per-system emulator commands, keyed by system ("ps2"), overriding the ones found.
     EmulatorCommands emulators;
 
-    /// Where the shipped typeface lives: `IIDECK_ASSETS`, else `share/iideck` beside the
+    /// Where the shipped typeface lives: `OPENSU_ASSETS`, else `share/opensu` beside the
     /// executable's directory, as installed and as staged in the build tree.
     std::filesystem::path assetsDir;
 
     /// The Gamescope fork the nested session runs, next to this executable's prefix; see
-    /// `gamescopeBeside`. May not exist when iideck was built without the fork.
+    /// `gamescopeBeside`. May not exist when opensu was built without the fork.
     std::filesystem::path gamescope;
 
-    /// iideck's cache, downloaded artwork among it: `$XDG_CACHE_HOME/iideck`, else
-    /// `~/.cache/iideck`.
+    /// opensu's cache, downloaded artwork among it: `$XDG_CACHE_HOME/opensu`, else
+    /// `~/.cache/opensu`.
     std::filesystem::path cacheDir;
 
-    /// iideck's own data, the store sign-ins among it: `$XDG_DATA_HOME/iideck`, else
-    /// `~/.local/share/iideck`.
+    /// opensu's own data, the store sign-ins among it: `$XDG_DATA_HOME/opensu`, else
+    /// `~/.local/share/opensu`.
     std::filesystem::path dataDir;
 
-    /// iideck's settings, which the player's choices are saved in: `$XDG_CONFIG_HOME/iideck`, else
-    /// `~/.config/iideck`.
+    /// opensu's settings, which the player's choices are saved in: `$XDG_CONFIG_HOME/opensu`, else
+    /// `~/.config/opensu`.
     std::filesystem::path configDir;
 
-    /// The home grid's dashboard mode, from IIDECK_HOME_MODE (`standard` or `wiisu`).
+    /// The home grid's dashboard mode, from OPENSU_HOME_MODE (`standard` or `wiisu`).
     HomeMode homeMode{HomeMode::Standard};
 
     /// Whether the clock reads 24-hour time, from the LC_TIME locale's time format.
@@ -78,15 +78,15 @@ struct Config {
     /// only; the environment can move it, never close it.
     bool controlChannel{true};
 
-    /// Whether iideck itself runs inside a Gamescope; when not, it starts one.
+    /// Whether opensu itself runs inside a Gamescope; when not, it starts one.
     bool insideGamescope{false};
 
-    /// Names every scope iideck creates, `<session>-<role>[-N].scope`. From
-    /// IIDECK_SESSION, which a nested session sets for the iideck inside it;
-    /// otherwise `iideck-<pid>`.
+    /// Names every scope opensu creates, `<session>-<role>[-N].scope`. From
+    /// OPENSU_SESSION, which a nested session sets for the opensu inside it;
+    /// otherwise `opensu-<pid>`.
     std::string session;
 
-    /// Whether IIDECK_SESSION was set, which means a session already wraps this process.
+    /// Whether OPENSU_SESSION was set, which means a session already wraps this process.
     bool sessionInherited{false};
 
     /// The directories searched for a launch's program, from PATH.
@@ -97,13 +97,13 @@ struct Config {
 /// (%I, %l or %r).
 [[nodiscard]] bool timeFormatIs24Hour(std::string_view format) noexcept;
 
-/// Where the Gamescope fork sits for an iideck at `executable`: `<prefix>/libexec/iideck/gamescope`
-/// for `<prefix>/bin/iideck` as installed, and `<build>/libexec/iideck/gamescope` for
-/// `<build>/src/iideck` in the build tree. Empty when `executable` is empty.
+/// Where the Gamescope fork sits for an opensu at `executable`: `<prefix>/libexec/opensu/gamescope`
+/// for `<prefix>/bin/opensu` as installed, and `<build>/libexec/opensu/gamescope` for
+/// `<build>/src/opensu` in the build tree. Empty when `executable` is empty.
 [[nodiscard]] std::filesystem::path gamescopeBeside(const std::filesystem::path& executable);
 
 /// Reads the environment once and returns the same value thereafter. Values that
 /// cannot be parsed fall back to the default and are reported.
 [[nodiscard]] const Config& read();
 
-} // namespace iideck::config
+} // namespace opensu::config

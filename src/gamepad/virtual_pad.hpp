@@ -8,13 +8,13 @@
 
 #include "pad_translator.hpp"
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 
 class VirtualPad {
   public:
-    /// What marks iideck's own virtual pads, so they are never grabbed or read as a controller.
-    static constexpr std::string_view phys{"iideck/virtual-pad"};
-    static constexpr std::string_view name{"iideck virtual pad"};
+    /// What marks opensu's own virtual pads, so they are never grabbed or read as a controller.
+    static constexpr std::string_view phys{"opensu/virtual-pad"};
+    static constexpr std::string_view name{"opensu virtual pad"};
     /// Xbox 360 wired: the identity every game and SDL's mapping database knows.
     static constexpr std::uint16_t vendor{0x045e};
     static constexpr std::uint16_t product{0x028e};
@@ -37,4 +37,4 @@ class VirtualPad {
     int fd_{-1};
 };
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

@@ -11,7 +11,7 @@
 
 #include "home_layout.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// How wide a section's item is, as a multiple of the icon size (iiSU: ROMs is `max(I, 1.235 I)`,
 /// the others `I`).
@@ -69,4 +69,4 @@ struct DockLayout {
 [[nodiscard]] DockLayout layoutDock(const DockMetrics& metrics, float width, float height,
                                     float dp);
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -1,5 +1,5 @@
 add_executable(battery_test battery_test.cpp)
-target_link_libraries(battery_test PRIVATE iideck::device)
+target_link_libraries(battery_test PRIVATE opensu::device)
 target_compile_options(battery_test PRIVATE -Wall -Wextra -Wpedantic)
-target_compile_definitions(battery_test PRIVATE IIDECK_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+target_compile_definitions(battery_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME battery COMMAND battery_test)

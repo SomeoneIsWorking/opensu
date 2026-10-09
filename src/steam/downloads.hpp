@@ -9,7 +9,7 @@
 
 #include "devtools.hpp"
 
-namespace iideck::steam {
+namespace opensu::steam {
 
 /// One app with an install or update Steam has not finished.
 struct Download {
@@ -41,4 +41,4 @@ class DownloadQueue {
     DevTools& devTools_;
 };
 
-} // namespace iideck::steam
+} // namespace opensu::steam

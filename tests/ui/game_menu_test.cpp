@@ -7,9 +7,9 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::ui::GameMenu;
-using iideck::ui::GameMenuAction;
+using opensu::test::expect;
+using opensu::ui::GameMenu;
+using opensu::ui::GameMenuAction;
 
 void opensOnResume() {
     GameMenu menu;

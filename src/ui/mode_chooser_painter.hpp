@@ -8,7 +8,7 @@
 #include "mode_chooser.hpp"
 #include "raylib.h"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 class ModeChooserPainter {
   public:
@@ -17,4 +17,4 @@ class ModeChooserPainter {
     void paint(const ModeChooser& chooser, Vector2 size, float dp) const;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -14,7 +14,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::config {
+namespace opensu::config {
 namespace {
 
 std::string_view env(const char* name) {
@@ -176,7 +176,7 @@ std::filesystem::path gamescopeBeside(const std::filesystem::path& executable) {
     if (executable.empty()) {
         return {};
     }
-    return executable.parent_path().parent_path() / IIDECK_GAMESCOPE_RELATIVE;
+    return executable.parent_path().parent_path() / OPENSU_GAMESCOPE_RELATIVE;
 }
 
 const Config& read() {
@@ -187,43 +187,43 @@ const Config& read() {
         if (const std::string_view home = env("HOME"); !home.empty()) {
             value.home = std::filesystem::path{home};
         }
-        value.steamRoots = splitPaths(env("IIDECK_STEAM_ROOTS"));
-        value.romRoots = splitPaths(env("IIDECK_ROM_ROOTS"));
-        value.emulators = parseEmulators(env("IIDECK_EMULATORS"));
+        value.steamRoots = splitPaths(env("OPENSU_STEAM_ROOTS"));
+        value.romRoots = splitPaths(env("OPENSU_ROM_ROOTS"));
+        value.emulators = parseEmulators(env("OPENSU_EMULATORS"));
         std::error_code error;
         const std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", error);
-        if (const std::string_view assets = env("IIDECK_ASSETS"); !assets.empty()) {
+        if (const std::string_view assets = env("OPENSU_ASSETS"); !assets.empty()) {
             value.assetsDir = std::filesystem::path{assets};
         } else {
-            value.assetsDir = self.parent_path().parent_path() / "share" / "iideck";
+            value.assetsDir = self.parent_path().parent_path() / "share" / "opensu";
         }
         value.gamescope = gamescopeBeside(self);
         if (const std::string_view cache = env("XDG_CACHE_HOME"); !cache.empty()) {
-            value.cacheDir = std::filesystem::path{cache} / "iideck";
+            value.cacheDir = std::filesystem::path{cache} / "opensu";
         } else {
-            value.cacheDir = value.home / ".cache" / "iideck";
+            value.cacheDir = value.home / ".cache" / "opensu";
         }
         if (const std::string_view data = env("XDG_DATA_HOME"); !data.empty()) {
-            value.dataDir = std::filesystem::path{data} / "iideck";
+            value.dataDir = std::filesystem::path{data} / "opensu";
         } else {
-            value.dataDir = value.home / ".local" / "share" / "iideck";
+            value.dataDir = value.home / ".local" / "share" / "opensu";
         }
         if (const std::string_view settings = env("XDG_CONFIG_HOME"); !settings.empty()) {
-            value.configDir = std::filesystem::path{settings} / "iideck";
+            value.configDir = std::filesystem::path{settings} / "opensu";
         } else {
-            value.configDir = value.home / ".config" / "iideck";
+            value.configDir = value.home / ".config" / "opensu";
         }
-        value.homeMode = envHomeMode("IIDECK_HOME_MODE", value.homeMode);
+        value.homeMode = envHomeMode("OPENSU_HOME_MODE", value.homeMode);
         value.clock24Hour = localeClock24Hour();
-        value.width = envInt("IIDECK_WIDTH", value.width);
-        value.height = envInt("IIDECK_HEIGHT", value.height);
-        value.controlPort = envPort("IIDECK_CONTROL_PORT", value.controlPort);
-        value.controlChannel = envBool("IIDECK_CONTROL_CHANNEL", value.controlChannel);
+        value.width = envInt("OPENSU_WIDTH", value.width);
+        value.height = envInt("OPENSU_HEIGHT", value.height);
+        value.controlPort = envPort("OPENSU_CONTROL_PORT", value.controlPort);
+        value.controlChannel = envBool("OPENSU_CONTROL_CHANNEL", value.controlChannel);
         value.insideGamescope = !env("GAMESCOPE_WAYLAND_DISPLAY").empty();
-        value.session = std::string{env("IIDECK_SESSION")};
+        value.session = std::string{env("OPENSU_SESSION")};
         value.sessionInherited = !value.session.empty();
         if (value.session.empty()) {
-            value.session = "iideck-" + std::to_string(getpid());
+            value.session = "opensu-" + std::to_string(getpid());
         }
         value.executablePath = splitPaths(env("PATH"));
         return value;
@@ -231,4 +231,4 @@ const Config& read() {
     return config;
 }
 
-} // namespace iideck::config
+} // namespace opensu::config

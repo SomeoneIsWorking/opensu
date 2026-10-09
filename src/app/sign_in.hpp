@@ -1,8 +1,8 @@
-// sign_in — the stores' account sign-ins that iideck starts and finishes itself.
+// sign_in — the stores' account sign-ins that opensu starts and finishes itself.
 //
 // The player signs in on the store's own page in their own browser. A browser extension
-// (`extension/iideck-signin`) sees the page end on an authorization code and hands it to the
-// control channel, which gives it to this. GOG's code becomes a token iideck keeps; Epic's goes
+// (`extension/opensu-signin`) sees the page end on an authorization code and hands it to the
+// control channel, which gives it to this. GOG's code becomes a token opensu keeps; Epic's goes
 // to Legendary, which keeps the session.
 #pragma once
 
@@ -15,7 +15,7 @@
 #include "library/gog_auth.hpp"
 #include "net/web_client.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 
 enum class Store : std::uint8_t {
     Gog,
@@ -64,4 +64,4 @@ class StoreSignIn final : public SignInService {
     library::gog::Auth gog_;
 };
 
-} // namespace iideck::app
+} // namespace opensu::app

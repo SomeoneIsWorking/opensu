@@ -14,7 +14,7 @@
 
 #include "vdf/node.hpp"
 
-namespace iideck::library::steam {
+namespace opensu::library::steam {
 namespace {
 
 namespace fs = std::filesystem;
@@ -524,4 +524,4 @@ std::vector<Game> Provider::list() {
     return library_.list();
 }
 
-} // namespace iideck::library::steam
+} // namespace opensu::library::steam

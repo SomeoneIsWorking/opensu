@@ -1,4 +1,4 @@
-// rom_systems — the consoles iideck knows: what a system's folder may be called, which files
+// rom_systems — the consoles opensu knows: what a system's folder may be called, which files
 // are its games, and which file in a game's folder is the one to start.
 #pragma once
 
@@ -10,7 +10,7 @@
 
 #include "name_list.hpp"
 
-namespace iideck::library::roms {
+namespace opensu::library::roms {
 
 struct RomSystem {
     /// ES-DE's system name, which is also the platform key for the tile's frame ("ps2").
@@ -42,4 +42,4 @@ struct RomSystem {
 [[nodiscard]] std::optional<std::filesystem::path> gameFile(const RomSystem& system,
                                                             const std::filesystem::path& entry);
 
-} // namespace iideck::library::roms
+} // namespace opensu::library::roms

@@ -13,7 +13,7 @@
 
 #include "lucent/http_client.h"
 
-namespace iideck::steam {
+namespace opensu::steam {
 
 /// Steam's DevTools port; the client has no switch to move it.
 inline constexpr std::uint16_t devToolsPort = 8080;
@@ -37,4 +37,4 @@ class DevTools {
     std::uint64_t nextId_{1};
 };
 
-} // namespace iideck::steam
+} // namespace opensu::steam

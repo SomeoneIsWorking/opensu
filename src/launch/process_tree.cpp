@@ -13,7 +13,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::launch {
+namespace opensu::launch {
 namespace {
 
 namespace fs = std::filesystem;
@@ -108,7 +108,7 @@ std::vector<pid_t> ProcessTree::descendants(pid_t root) {
 std::vector<pid_t> ProcessTree::treesMatching(const std::string& hint) {
     std::vector<pid_t> trees;
     for (const pid_t root : matching(hint)) {
-        // iideck is never one of them, whatever it was started with.
+        // opensu is never one of them, whatever it was started with.
         if (root == getpid()) {
             continue;
         }
@@ -139,4 +139,4 @@ std::size_t ProcessTree::killMatching(const std::string& hint) {
     return sent;
 }
 
-} // namespace iideck::launch
+} // namespace opensu::launch

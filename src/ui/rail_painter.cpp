@@ -12,7 +12,7 @@
 #include "icon_recolour.hpp"
 #include "typeface.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // navigation.md §5.3: the title and the markers are #4D4655 in the light theme, white in the dark.
@@ -183,4 +183,4 @@ void RailPainter::paintTitle(const CarouselLayout& layout, std::string_view titl
               style);
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

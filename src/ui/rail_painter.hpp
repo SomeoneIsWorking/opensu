@@ -15,7 +15,7 @@
 #include "platform.hpp"
 #include "rail_layout.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// How the rail's extras are inked: the theme, and how far they have faded in.
 struct RailStyle {
@@ -77,4 +77,4 @@ class RailPainter {
     std::map<std::string, Texture, std::less<>> tints_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

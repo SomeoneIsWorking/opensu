@@ -25,7 +25,7 @@ float wrap(float degrees) {
 } // namespace
 
 int main() {
-    using iideck::ui::spinnerArc;
+    using opensu::ui::spinnerArc;
     const auto start = spinnerArc(0.0);
     expect(near(start.start, -90.0f) && near(start.sweep, 0.0f), "it starts empty at 12 o'clock");
 

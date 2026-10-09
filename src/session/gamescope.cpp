@@ -1,6 +1,6 @@
 #include "gamescope.hpp"
 
-namespace iideck::session {
+namespace opensu::session {
 
 std::vector<std::string> gamescopeArgs(const Output& output, const std::string& program,
                                        const std::vector<std::string>& args) {
@@ -20,4 +20,4 @@ std::vector<std::string> gamescopeArgs(const Output& output, const std::string& 
     return out;
 }
 
-} // namespace iideck::session
+} // namespace opensu::session

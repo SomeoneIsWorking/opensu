@@ -1,4 +1,4 @@
-// The Steam client iideck owns, against a fake home and a fake `steam` program run
+// The Steam client opensu owns, against a fake home and a fake `steam` program run
 // in real systemd scopes. Every wait is bounded.
 #include "steam/client.hpp"
 
@@ -23,8 +23,8 @@ namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
-using iideck::launch::SteamState;
-using iideck::steam::Client;
+using opensu::launch::SteamState;
+using opensu::steam::Client;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -62,14 +62,14 @@ struct Fixture {
 
     explicit Fixture(Mode mode) {
         const std::string name = std::to_string(getpid()) + "-" + std::to_string(fixtures++);
-        base = fs::path{IIDECK_TEST_SCRATCH} / ("iideck-steam-client-test-" + name);
+        base = fs::path{OPENSU_TEST_SCRATCH} / ("opensu-steam-client-test-" + name);
         fs::remove_all(base);
         home = base / "home";
         bin = base / "bin";
         pidFile = base / "steam.pid";
         busFile = base / "steam.bus";
         log = home / ".steam" / "steam" / "logs" / "connection_log.txt";
-        session = "iideck-test-" + name;
+        session = "opensu-test-" + name;
         fs::create_directories(log.parent_path());
         fs::create_directories(bin);
 
@@ -104,7 +104,7 @@ struct Fixture {
         fs::permissions(program, fs::perms::owner_all);
         // The real one, beside the fake steam, since the client looks only in `bin`.
         const fs::path bus =
-            iideck::launch::resolveExecutable("dbus-run-session", {"/usr/bin", "/bin"});
+            opensu::launch::resolveExecutable("dbus-run-session", {"/usr/bin", "/bin"});
         expect(!bus.empty(), "dbus-run-session is installed");
         fs::create_symlink(bus, bin / "dbus-run-session");
     }
@@ -134,7 +134,7 @@ bool waitUntil(const std::function<bool()>& predicate, std::chrono::milliseconds
 }
 
 bool scopeActive(const std::string& unit) {
-    return iideck::launch::runCommand("systemctl", {"--user", "is-active", "--quiet", unit},
+    return opensu::launch::runCommand("systemctl", {"--user", "is-active", "--quiet", unit},
                                       std::chrono::seconds{20}) == 0;
 }
 
@@ -223,7 +223,7 @@ void testMissingSteamIsAFailure() {
     expect(client.state() == SteamState::Failed, "no steam program fails");
 }
 
-/// A client running outside iideck blocks, and nothing is started.
+/// A client running outside opensu blocks, and nothing is started.
 void testDesktopSteamBlocks() {
     const Fixture fixture{Mode::Ready};
     const pid_t desktop = fork();
@@ -283,9 +283,9 @@ void testStubbornSteamIsStopped() {
     const Clock::time_point began = Clock::now();
     client.shutdown();
     const auto took = Clock::now() - began;
-    expect(took >= iideck::steam::shutdownWait - std::chrono::seconds{1},
+    expect(took >= opensu::steam::shutdownWait - std::chrono::seconds{1},
            "a steam that does not exit is waited for");
-    expect(took < iideck::steam::shutdownWait + std::chrono::seconds{15}, "the bound holds");
+    expect(took < opensu::steam::shutdownWait + std::chrono::seconds{15}, "the bound holds");
     expect(!scopeActive(fixture.unit()), "the scope is gone");
     expect(waitUntil(
                [steam] {
@@ -309,7 +309,7 @@ void testDestructorShutsDown() {
 } // namespace
 
 int main() {
-    fs::create_directories(IIDECK_TEST_SCRATCH);
+    fs::create_directories(OPENSU_TEST_SCRATCH);
     testReadyThenShutdown();
     testExitIsAFailure();
     testMissingSteamIsAFailure();

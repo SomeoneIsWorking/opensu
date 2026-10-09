@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 
 /// The thumbnail names in a Named_Boxarts directory listing, decoded and without `.png`.
 [[nodiscard]] std::vector<std::string> parseIndex(std::string_view html);
@@ -25,4 +25,4 @@ namespace iideck::artwork {
 /// Percent-encodes a path segment, leaving parentheses and commas as libretro's links do.
 [[nodiscard]] std::string encodeSegment(std::string_view segment);
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

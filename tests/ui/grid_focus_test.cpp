@@ -11,15 +11,15 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::ui::Direction;
-using iideck::ui::FocusGrid;
-using iideck::ui::GridCell;
-using iideck::ui::GridFocus;
-using iideck::ui::HomeLayout;
-using iideck::ui::HomeLayoutInput;
-using iideck::ui::Rect;
-using iideck::ui::ScrollMode;
+using opensu::test::expect;
+using opensu::ui::Direction;
+using opensu::ui::FocusGrid;
+using opensu::ui::GridCell;
+using opensu::ui::GridFocus;
+using opensu::ui::HomeLayout;
+using opensu::ui::HomeLayoutInput;
+using opensu::ui::Rect;
+using opensu::ui::ScrollMode;
 
 HomeLayout window(std::size_t items, ScrollMode mode) {
     return HomeLayout{HomeLayoutInput{.width = 1280.0f,

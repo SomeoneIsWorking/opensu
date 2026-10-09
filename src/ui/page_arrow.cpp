@@ -8,7 +8,7 @@
 
 #include "raylib.h"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // iiSU nx2.o: shadow #66000000 dropped 0.11 width.
@@ -131,4 +131,4 @@ void PageArrowPainter::paint(const PageArrows& arrows, bool dark) const {
     }
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

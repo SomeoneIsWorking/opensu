@@ -1,7 +1,7 @@
 // hud — the chrome drawn around the home grid: ground, top bar, corner hints, toast.
 //
 // The top bar is iiSU's single-screen row (home-grid.md §2.2): the friends slot, which
-// iideck fills with its launchers' badges, the centre title pill (empty on Home, the
+// opensu fills with its launchers' badges, the centre title pill (empty on Home, the
 // console's name inside one) and the status pill.
 #pragma once
 
@@ -22,7 +22,7 @@
 #include "status_pill.hpp"
 #include "top_bar_metrics.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// The HUD palette, as 8-bit-per-channel colours.
 struct Colour {
@@ -107,7 +107,7 @@ class Hud {
     void drawToast() const;
 
   private:
-    /// One hundredth of the window's shorter side, the unit of iideck's own chrome.
+    /// One hundredth of the window's shorter side, the unit of opensu's own chrome.
     [[nodiscard]] float unit() const noexcept;
     [[nodiscard]] TopBarMetrics metrics() const noexcept;
     void drawTitlePill(float top) const;
@@ -135,4 +135,4 @@ class Hud {
     LauncherBadgePainter badges_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

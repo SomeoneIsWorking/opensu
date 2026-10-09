@@ -4,7 +4,7 @@
 
 #include "raylib.h"
 
-namespace iideck::input {
+namespace opensu::input {
 namespace {
 
 using gamepad::Button;
@@ -109,4 +109,4 @@ std::optional<std::string> keyLabelForGlyph(std::string_view glyph) {
     return keyLabelFor(button);
 }
 
-} // namespace iideck::input
+} // namespace opensu::input

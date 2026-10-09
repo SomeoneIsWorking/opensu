@@ -7,13 +7,13 @@
 
 namespace {
 
-using iideck::launch::SteamState;
-using iideck::library::Availability;
-using iideck::library::Source;
-using iideck::library::SourceStatus;
-using iideck::steam::Download;
-using iideck::ui::LauncherBadge;
-using iideck::ui::ServiceState;
+using opensu::launch::SteamState;
+using opensu::library::Availability;
+using opensu::library::Source;
+using opensu::library::SourceStatus;
+using opensu::steam::Download;
+using opensu::ui::LauncherBadge;
+using opensu::ui::ServiceState;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -34,13 +34,13 @@ std::vector<SourceStatus> stores() {
 
 void testStoresAndStartingSteam() {
     const std::vector<LauncherBadge> badges =
-        iideck::app::launcherBadges(SteamState::Initializing, {}, stores());
+        opensu::app::launcherBadges(SteamState::Initializing, {}, stores());
     expect(badges.size() == 3, "one badge per launcher");
     expect(badges[0].state == ServiceState::Starting && !badges[0].progress,
            "Steam signing in is starting");
     expect(badges[1].state == ServiceState::Failed, "Epic signed out needs the player");
     expect(badges[2].state == ServiceState::Hidden, "GOG not installed shows no badge");
-    expect(iideck::app::describe(badges) == "steam=starting epic=failed",
+    expect(opensu::app::describe(badges) == "steam=starting epic=failed",
            "the channel names the visible badges");
 }
 
@@ -58,15 +58,15 @@ void testDownloadRing() {
                                                    .installing = false,
                                                    .secondsLeft = {}}};
     const std::vector<LauncherBadge> ready =
-        iideck::app::launcherBadges(SteamState::Ready, downloads, stores());
+        opensu::app::launcherBadges(SteamState::Ready, downloads, stores());
     expect(ready[0].state == ServiceState::Ready && ready[0].progress == 0.53,
            "the active download's progress rings the Steam badge");
-    expect(iideck::app::describe(ready).starts_with("steam=ready:53%"), "progress is published");
+    expect(opensu::app::describe(ready).starts_with("steam=ready:53%"), "progress is published");
     const std::vector<LauncherBadge> blocked =
-        iideck::app::launcherBadges(SteamState::Blocked, downloads, stores());
+        opensu::app::launcherBadges(SteamState::Blocked, downloads, stores());
     expect(blocked[0].state == ServiceState::Blocked && !blocked[0].progress,
-           "a Steam iideck does not own shows no progress");
-    expect(iideck::app::launcherBadges(SteamState::Stopped, {}, {})[0].state ==
+           "a Steam opensu does not own shows no progress");
+    expect(opensu::app::launcherBadges(SteamState::Stopped, {}, {})[0].state ==
                ServiceState::Hidden,
            "no Steam, no badge");
 }

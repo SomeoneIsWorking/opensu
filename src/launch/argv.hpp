@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace iideck::launch {
+namespace opensu::launch {
 
 /// The argument vector for execvp, owning the strings the pointers refer to.
 ///
@@ -38,4 +38,4 @@ class Argv {
     std::vector<char*> pointers_;
 };
 
-} // namespace iideck::launch
+} // namespace opensu::launch

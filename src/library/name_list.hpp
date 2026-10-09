@@ -6,7 +6,7 @@
 #include <initializer_list>
 #include <string_view>
 
-namespace iideck::library {
+namespace opensu::library {
 
 /// Up to `capacity` names, built at compile time so tables of them need no dynamic initialization.
 class NameList {
@@ -38,4 +38,4 @@ class NameList {
     std::size_t count_ = 0;
 };
 
-} // namespace iideck::library
+} // namespace opensu::library

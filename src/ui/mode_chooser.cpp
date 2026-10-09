@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 namespace {
 
@@ -53,4 +53,4 @@ bool ModeChooser::move(int delta) noexcept {
     return moved;
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

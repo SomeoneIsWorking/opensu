@@ -2,7 +2,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::audio {
+namespace opensu::audio {
 namespace {
 
 std::size_t slot(Effect effect) {
@@ -59,4 +59,4 @@ bool SoundPlayer::play(Effect effect) {
     return true;
 }
 
-} // namespace iideck::audio
+} // namespace opensu::audio

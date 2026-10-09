@@ -12,7 +12,7 @@
 #include "devtools.hpp"
 #include "launch/steam_gate.hpp"
 
-namespace iideck::steam {
+namespace opensu::steam {
 
 /// Every app the record names, by app id.
 using Activities = std::map<std::string, launch::SteamAppActivity, std::less<>>;
@@ -32,4 +32,4 @@ class LaunchActivity {
     DevTools& devTools_;
 };
 
-} // namespace iideck::steam
+} // namespace opensu::steam

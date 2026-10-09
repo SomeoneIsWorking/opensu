@@ -11,10 +11,10 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::library::LibraryMode;
-using iideck::settings::Settings;
-using iideck::settings::Store;
-using iideck::test::expect;
+using opensu::library::LibraryMode;
+using opensu::settings::Settings;
+using opensu::settings::Store;
+using opensu::test::expect;
 
 void write(const fs::path& file, const std::string& text) {
     fs::create_directories(file.parent_path());
@@ -34,7 +34,7 @@ void defaults(const fs::path& root) {
 
 void roundTrip(const fs::path& root) {
     const Store store{root / "nested" / "dir" / "settings.json"};
-    for (const LibraryMode mode : iideck::library::allLibraryModes) {
+    for (const LibraryMode mode : opensu::library::allLibraryModes) {
         std::string error;
         expect(store.save(Settings{mode}, error), "a save makes its directories and writes");
         expect(store.load().libraryMode == mode, "what was saved is read back");
@@ -53,11 +53,11 @@ void damaged(const fs::path& root) {
     write(file, "[1, 2]");
     expect(store.load() == Settings{}, "JSON that is not an object gives the defaults");
     write(file, R"({"libraryMode": "list"})");
-    expect(store.load() == Settings{}, "a layout iideck has no card for gives the default");
+    expect(store.load() == Settings{}, "a layout opensu has no card for gives the default");
     write(file, R"({"libraryMode": 3})");
     expect(store.load() == Settings{}, "a mode that is not a string gives the default");
     write(file, R"({"libraryMode": "xmb", "other": true})");
-    expect(store.load().libraryMode == LibraryMode::Xmb, "a key iideck does not know is ignored");
+    expect(store.load().libraryMode == LibraryMode::Xmb, "a key opensu does not know is ignored");
 }
 
 void unwritable(const fs::path& root) {
@@ -73,7 +73,7 @@ void unwritable(const fs::path& root) {
 } // namespace
 
 int main() {
-    const fs::path root = fs::path{IIDECK_TEST_SCRATCH} / "settings";
+    const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "settings";
     fs::remove_all(root);
     defaults(root);
     roundTrip(root);

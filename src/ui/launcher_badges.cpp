@@ -6,7 +6,7 @@
 
 #include "progress_spinner.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 constexpr Color face{0xFF, 0xFF, 0xFF, 235};
@@ -80,4 +80,4 @@ void LauncherBadgePainter::paintOne(const LauncherBadge& badge, const BadgeRow& 
     DrawCircleV(at, dot, dotFor(badge.state));
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

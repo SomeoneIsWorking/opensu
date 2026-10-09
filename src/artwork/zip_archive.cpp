@@ -6,7 +6,7 @@
 
 #include <zlib.h>
 
-namespace iideck::artwork::zip {
+namespace opensu::artwork::zip {
 namespace {
 
 constexpr std::uint32_t endSignature = 0x06054b50;
@@ -19,7 +19,7 @@ constexpr std::size_t directoryHeaderSize = 46;
 constexpr std::uint16_t methodStored = 0;
 constexpr std::uint16_t methodDeflate = 8;
 constexpr std::uint16_t encryptedFlag = 0x1;
-// A file larger than this is not something iideck reads out of a zip.
+// A file larger than this is not something opensu reads out of a zip.
 constexpr std::uint32_t maxFileSize = 256U * 1024U * 1024U;
 
 std::uint32_t le16(std::string_view bytes, std::size_t at) {
@@ -204,4 +204,4 @@ std::optional<std::string> Archive::read(std::string_view name, std::string& err
     return extract(*found, std::string_view{bytes_}.substr(*start, found->compressedSize), error);
 }
 
-} // namespace iideck::artwork::zip
+} // namespace opensu::artwork::zip

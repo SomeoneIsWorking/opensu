@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(iideck LANGUAGES CXX)
+project(opensu LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,11 +29,11 @@ add_compile_definitions(${RAYLIB_IMAGE_FLAGS})
 # The one raylib dependency: headers, the static archive and the platform libraries it leaves to
 # its consumer.
 find_package(X11 REQUIRED)
-add_library(iideck_raylib INTERFACE)
-add_library(iideck::raylib ALIAS iideck_raylib)
-target_include_directories(iideck_raylib INTERFACE "${RAYLIB_ROOT}/include")
-target_link_directories(iideck_raylib INTERFACE "${RAYLIB_ROOT}/lib")
-target_link_libraries(iideck_raylib
+add_library(opensu_raylib INTERFACE)
+add_library(opensu::raylib ALIAS opensu_raylib)
+target_include_directories(opensu_raylib INTERFACE "${RAYLIB_ROOT}/include")
+target_link_directories(opensu_raylib INTERFACE "${RAYLIB_ROOT}/lib")
+target_link_libraries(opensu_raylib
     INTERFACE raylib X11::X11 GL m Threads::Threads ${CMAKE_DL_LIBS})
 
 # nanosvg rasterises the shipped icons. Header-only: the distribution's package or a checkout.
@@ -46,9 +46,9 @@ if(NOT NANOSVG_INCLUDE_DIR)
         "`sudo apt install libnanosvg-dev` (Debian/Ubuntu), or clone "
         "https://github.com/memononen/nanosvg to ${NANOSVG_ROOT}")
 endif()
-add_library(iideck_nanosvg INTERFACE)
-add_library(iideck::nanosvg ALIAS iideck_nanosvg)
-target_include_directories(iideck_nanosvg SYSTEM INTERFACE "${NANOSVG_INCLUDE_DIR}")
+add_library(opensu_nanosvg INTERFACE)
+add_library(opensu::nanosvg ALIAS opensu_nanosvg)
+target_include_directories(opensu_nanosvg SYSTEM INTERFACE "${NANOSVG_INCLUDE_DIR}")
 
 # The starter pack is a zip of WebP images: zlib reads the zip, libwebp the images.
 find_package(ZLIB REQUIRED)
@@ -65,13 +65,13 @@ add_subdirectory("${LUCENT_ROOT}" "${CMAKE_BINARY_DIR}/lucent" EXCLUDE_FROM_ALL)
 include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(Gamescope)
-if(IIDECK_BUILD_GAMESCOPE)
-    iideck_add_gamescope()
+if(OPENSU_BUILD_GAMESCOPE)
+    opensu_add_gamescope()
 endif()
 
 add_subdirectory(src)
-if(IIDECK_BUILD_GAMESCOPE)
-    add_dependencies(iideck iideck_gamescope)
+if(OPENSU_BUILD_GAMESCOPE)
+    add_dependencies(opensu opensu_gamescope)
 endif()
 
 enable_testing()

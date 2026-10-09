@@ -28,7 +28,7 @@
 #include "rom_systems.hpp"
 #include "starter_pack.hpp"
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 
 /// Where artwork is downloaded from; tests point these at a local server.
 struct RemoteSources {
@@ -114,4 +114,4 @@ class ArtworkFetcher {
     std::jthread worker_;
 };
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

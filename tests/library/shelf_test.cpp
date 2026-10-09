@@ -17,17 +17,17 @@
 
 namespace {
 
-using iideck::library::AllGames;
-using iideck::library::Availability;
-using iideck::library::Catalog;
-using iideck::library::Console;
-using iideck::library::Game;
-using iideck::library::Launcher;
-using iideck::library::Section;
-using iideck::library::ShelfBrowser;
-using iideck::library::ShelfItem;
-using iideck::library::Source;
-using iideck::library::SourceStatus;
+using opensu::library::AllGames;
+using opensu::library::Availability;
+using opensu::library::Catalog;
+using opensu::library::Console;
+using opensu::library::Game;
+using opensu::library::Launcher;
+using opensu::library::Section;
+using opensu::library::ShelfBrowser;
+using opensu::library::ShelfItem;
+using opensu::library::Source;
+using opensu::library::SourceStatus;
 
 std::size_t cycleFrom(ShelfBrowser& browser, int delta, std::size_t focus) {
     browser.leave(focus);
@@ -85,8 +85,8 @@ const Launcher* launcherAt(const std::vector<ShelfItem>& shelf, std::size_t inde
     return std::get_if<Launcher>(&shelf.at(index));
 }
 
-std::string keyOf(const std::optional<iideck::library::Folder>& folder) {
-    return folder ? iideck::library::key(*folder) : std::string{};
+std::string keyOf(const std::optional<opensu::library::Folder>& folder) {
+    return folder ? opensu::library::key(*folder) : std::string{};
 }
 
 std::vector<Source> stores(std::initializer_list<Source> list) {
@@ -94,7 +94,7 @@ std::vector<Source> stores(std::initializer_list<Source> list) {
 }
 
 void testHomeShelf() {
-    const std::vector<ShelfItem> home = iideck::library::homeShelf(library());
+    const std::vector<ShelfItem> home = opensu::library::homeShelf(library());
     // Hades (Steam), Celeste (Epic), Only Steam: the installed titles, each once.
     expect(home.size() == 3, "Home holds only the installed titles");
     expect(gameAt(home, 0)->id == "steam:hades" && gameAt(home, 1)->id == "epic:celeste" &&
@@ -107,11 +107,11 @@ void testHomeShelf() {
                                     return std::get<Game>(item).source == Source::Rom;
                                 }),
            "no ROM and no folder is on Home");
-    expect(iideck::library::homeShelf({}).empty(), "nothing installed is an empty Home");
+    expect(opensu::library::homeShelf({}).empty(), "nothing installed is an empty Home");
 }
 
 void testLibraryShelf() {
-    const std::vector<ShelfItem> shelf = iideck::library::libraryShelf(library(), allReady());
+    const std::vector<ShelfItem> shelf = opensu::library::libraryShelf(library(), allReady());
     // Three launchers, All games, two consoles.
     expect(shelf.size() == 6, "launchers, All games and consoles");
     expect(*launcherAt(shelf, 0) == Launcher{Source::Steam, 3, true}, "Steam counts its games");
@@ -134,38 +134,38 @@ void testLibraryLaunchers() {
     std::vector<SourceStatus> sources = allReady();
     sources[1].availability = Availability::Absent;
     sources[2].availability = Availability::Attention;
-    const std::vector<ShelfItem> shelf = iideck::library::libraryShelf(library(), sources);
+    const std::vector<ShelfItem> shelf = opensu::library::libraryShelf(library(), sources);
     expect(launcherAt(shelf, 0) != nullptr && launcherAt(shelf, 0)->source == Source::Steam &&
                launcherAt(shelf, 1) != nullptr && launcherAt(shelf, 1)->source == Source::Gog,
            "a store that is not there has no tile");
     expect(!launcherAt(shelf, 1)->ready, "a store that needs attention is not ready");
     expect(std::get_if<AllGames>(&shelf.at(2)) != nullptr, "All games follows the stores");
 
-    const std::vector<ShelfItem> bare = iideck::library::libraryShelf({}, {});
+    const std::vector<ShelfItem> bare = opensu::library::libraryShelf({}, {});
     expect(bare.empty(), "nothing at all is an empty Library");
 
-    const std::vector<ShelfItem> romsOnly = iideck::library::libraryShelf(
+    const std::vector<ShelfItem> romsOnly = opensu::library::libraryShelf(
         {game(Source::Rom, "rom:gc-a", "gc")}, {{Source::Steam, Availability::Absent, {}}});
     expect(romsOnly.size() == 1 && consoleAt(romsOnly, 0) != nullptr,
            "no stores, no launchers and no All games");
 
-    const std::vector<ShelfItem> signedOut = iideck::library::libraryShelf(
+    const std::vector<ShelfItem> signedOut = opensu::library::libraryShelf(
         {}, {{Source::Gog, Availability::Attention, "not signed in"}});
     expect(signedOut.size() == 1 && !launcherAt(signedOut, 0)->ready,
            "a signed-out store still has its tile, and no All games without games");
 }
 
 void testConsoleShelf() {
-    const std::vector<ShelfItem> ps2 = iideck::library::consoleShelf(library(), "ps2");
+    const std::vector<ShelfItem> ps2 = opensu::library::consoleShelf(library(), "ps2");
     expect(ps2.size() == 2 && gameAt(ps2, 0)->id == "rom:ps2-a" &&
                gameAt(ps2, 1)->id == "rom:ps2-b",
            "a console holds its own ROMs in catalog order");
     expect(gameAt(ps2, 0)->ownedIn.empty(), "a ROM shows no stores");
-    expect(iideck::library::consoleShelf(library(), "n64").empty(), "no ROMs, empty shelf");
+    expect(opensu::library::consoleShelf(library(), "n64").empty(), "no ROMs, empty shelf");
 }
 
 void testLauncherShelf() {
-    const std::vector<ShelfItem> steam = iideck::library::launcherShelf(library(), Source::Steam);
+    const std::vector<ShelfItem> steam = opensu::library::launcherShelf(library(), Source::Steam);
     expect(steam.size() == 3 && gameAt(steam, 0)->id == "steam:hades" &&
                gameAt(steam, 1)->id == "steam:solo" && gameAt(steam, 2)->id == "steam:celeste",
            "a store holds its whole library, installed or not, in catalog order");
@@ -175,14 +175,14 @@ void testLauncherShelf() {
     expect(gameAt(steam, 2)->ownedIn == stores({Source::Epic}) && !gameAt(steam, 2)->installed,
            "the store's own copy is shown even where another store has it installed");
 
-    const std::vector<ShelfItem> gog = iideck::library::launcherShelf(library(), Source::Gog);
+    const std::vector<ShelfItem> gog = opensu::library::launcherShelf(library(), Source::Gog);
     expect(gog.size() == 2 && gameAt(gog, 0)->ownedIn == stores({Source::Steam, Source::Epic}),
            "GOG's Hades lists Steam and Epic");
-    expect(iideck::library::launcherShelf({}, Source::Epic).empty(), "no games, empty shelf");
+    expect(opensu::library::launcherShelf({}, Source::Epic).empty(), "no games, empty shelf");
 }
 
 void testAllGames() {
-    const std::vector<ShelfItem> all = iideck::library::allGamesShelf(library());
+    const std::vector<ShelfItem> all = opensu::library::allGamesShelf(library());
     expect(all.size() == 4, "four titles across the stores");
     expect(gameAt(all, 0)->id == "steam:hades" &&
                gameAt(all, 0)->ownedIn == stores({Source::Steam, Source::Gog, Source::Epic}),
@@ -254,16 +254,16 @@ void testCycling() {
 }
 
 void testFolders() {
-    expect(!iideck::library::folderOf(ShelfItem{game(Source::Steam, "steam:1")}),
+    expect(!opensu::library::folderOf(ShelfItem{game(Source::Steam, "steam:1")}),
            "a game opens nothing");
-    const std::optional<iideck::library::Folder> all =
-        iideck::library::folderOf(ShelfItem{AllGames{1}});
-    expect(all && iideck::library::name(*all) == "All games", "the combined library's name");
-    expect(iideck::library::name(Launcher{Source::Gog, 0, false}) == "GOG",
+    const std::optional<opensu::library::Folder> all =
+        opensu::library::folderOf(ShelfItem{AllGames{1}});
+    expect(all && opensu::library::name(*all) == "All games", "the combined library's name");
+    expect(opensu::library::name(Launcher{Source::Gog, 0, false}) == "GOG",
            "a launcher is its store");
 }
 
-class FakeProvider final : public iideck::library::Provider {
+class FakeProvider final : public opensu::library::Provider {
   public:
     enum class Mode : std::uint8_t { Lists, Absent, Fails };
     FakeProvider(Source source, Mode mode) : source_{source}, mode_{mode} {
@@ -273,7 +273,7 @@ class FakeProvider final : public iideck::library::Provider {
     }
     [[nodiscard]] std::vector<Game> list() override {
         if (mode_ == Mode::Absent) {
-            throw iideck::library::SourceAbsent{"not installed"};
+            throw opensu::library::SourceAbsent{"not installed"};
         }
         if (mode_ == Mode::Fails) {
             throw std::runtime_error{"not logged in"};
@@ -291,7 +291,7 @@ void testCatalogStatuses() {
     catalog.add(std::make_unique<FakeProvider>(Source::Steam, FakeProvider::Mode::Lists));
     catalog.add(std::make_unique<FakeProvider>(Source::Epic, FakeProvider::Mode::Fails));
     catalog.add(std::make_unique<FakeProvider>(Source::Gog, FakeProvider::Mode::Absent));
-    const iideck::library::CatalogSnapshot snapshot = catalog.refresh();
+    const opensu::library::CatalogSnapshot snapshot = catalog.refresh();
     expect(snapshot.games.size() == 1, "the working store still contributes");
     expect(snapshot.sources.size() == 3, "every store reports");
     expect(snapshot.sources[0].availability == Availability::Ready, "a store that lists is ready");

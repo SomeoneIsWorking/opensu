@@ -12,7 +12,7 @@
 #include "face_metrics.hpp"
 #include "lucent/log.h"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 /// Candidate faces, in order. Cal Sans is iiSU's default face; the others are fallbacks for a
@@ -181,4 +181,4 @@ Typeface& type() {
     return instance;
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

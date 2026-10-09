@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 
 /// A named control, presentation-facing rather than device-facing.
 enum class Button : std::uint8_t {
@@ -48,4 +48,4 @@ struct Event {
     std::string device;
 };
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

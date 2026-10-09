@@ -37,7 +37,7 @@
 #include "steam/client.hpp"
 #include "ui/shell.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 
 /// What the shell needs from the host, so the shell can be drawn without a
 /// running store client.
@@ -255,4 +255,4 @@ class ShellApp final : public ControlTarget {
     std::string captureResult_;
 };
 
-} // namespace iideck::app
+} // namespace opensu::app

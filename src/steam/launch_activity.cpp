@@ -2,14 +2,14 @@
 
 #include <string_view>
 
-namespace iideck::steam {
+namespace opensu::steam {
 namespace {
 
 using nlohmann::json;
 
 // Kept on window so it survives between reads; a new SharedJSContext starts without it.
 constexpr std::string_view recordAndRead = R"js((() => {
-  if (!window.__iideckLaunch) {
+  if (!window.__opensuLaunch) {
     const record = { actions: {}, running: {} };
     const text = key => { try { return LocalizationManager.LocalizeString(key) || ""; }
                           catch (e) { return ""; } };
@@ -33,9 +33,9 @@ constexpr std::string_view recordAndRead = R"js((() => {
     SteamClient.GameSessions.RegisterForAppLifetimeNotifications(note => {
       record.running[String(note.unAppID)] = note.bRunning;
     });
-    window.__iideckLaunch = record;
+    window.__opensuLaunch = record;
   }
-  return window.__iideckLaunch;
+  return window.__opensuLaunch;
 })())js";
 
 /// Tasks Steam has no localized line for.
@@ -88,4 +88,4 @@ std::optional<Activities> LaunchActivity::read(std::string& error) {
     return parseActivities(*record);
 }
 
-} // namespace iideck::steam
+} // namespace opensu::steam

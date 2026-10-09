@@ -10,7 +10,7 @@
 #include "launch/command.hpp"
 #include "lucent/log.h"
 
-namespace iideck::library::epic {
+namespace opensu::library::epic {
 namespace {
 
 using nlohmann::json;
@@ -136,4 +136,4 @@ std::vector<Game> Provider::list() {
     return games;
 }
 
-} // namespace iideck::library::epic
+} // namespace opensu::library::epic

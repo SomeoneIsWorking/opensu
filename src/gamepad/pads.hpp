@@ -1,6 +1,6 @@
-// pads — every controller, read from evdev for as long as iideck runs. A pad connected later is
+// pads — every controller, read from evdev for as long as opensu runs. A pad connected later is
 // picked up when its node appears. While a game runs the pads are held: grabbed, with the game
-// reading one virtual Xbox 360 pad per pad, and Guide reaching iideck alone. While blocked, the
+// reading one virtual Xbox 360 pad per pad, and Guide reaching opensu alone. While blocked, the
 // virtual pads rest, so the Guide menu's input never reaches the game.
 #pragma once
 
@@ -18,7 +18,7 @@
 #include "pad_translator.hpp"
 #include "virtual_pad.hpp"
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 
 class Pads {
   public:
@@ -91,4 +91,4 @@ class Pads {
     std::jthread thread_;
 };
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

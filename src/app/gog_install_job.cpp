@@ -8,7 +8,7 @@
 
 #include "library/install_log.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 namespace {
 
 namespace fs = std::filesystem;
@@ -103,4 +103,4 @@ std::optional<std::string> GogInstallJob::ended(const std::string& gameId, bool 
     return std::nullopt;
 }
 
-} // namespace iideck::app
+} // namespace opensu::app

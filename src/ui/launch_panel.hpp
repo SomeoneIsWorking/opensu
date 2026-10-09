@@ -1,7 +1,7 @@
 // launch_panel — the card the shell shows over the grid while a game is on its way: launching
 // until its window shows, asking whether to install it, or installing it.
 //
-// iideck's own; iiSU hands off to an Android app that is on screen at once. Pure state, so it is
+// opensu's own; iiSU hands off to an Android app that is on screen at once. Pure state, so it is
 // tested without a window.
 #pragma once
 
@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// A button and what it does, shown along the card's foot.
 struct PanelHint {
@@ -59,4 +59,4 @@ class LaunchPanel {
     bool open_{false};
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

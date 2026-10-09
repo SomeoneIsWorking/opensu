@@ -2,7 +2,7 @@
 
 #include <utility>
 
-namespace iideck::app {
+namespace opensu::app {
 
 Installs::Installs(steam::Client& steam, std::string legendary, GogInstallJob::Options gog)
     : steam_{steam}, epic_{std::move(legendary)}, gog_{std::move(gog)} {
@@ -58,4 +58,4 @@ void Installs::decide(bool accepted) {
     }
 }
 
-} // namespace iideck::app
+} // namespace opensu::app

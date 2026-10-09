@@ -8,9 +8,9 @@
 
 namespace {
 
-using iideck::test::near;
-using iideck::ui::StatusPillMetrics;
-using iideck::ui::TopBarMetrics;
+using opensu::test::near;
+using opensu::ui::StatusPillMetrics;
+using opensu::ui::TopBarMetrics;
 
 void phone640() {
     const TopBarMetrics m{640.0f, 360.0f};
@@ -71,7 +71,7 @@ void promptRow() {
 
 void hintPanels() {
     // The emulator capture's 853 x 456 dp: dl3 fields a = 0.82156, b = 0.8789, c = 0.79101.
-    const iideck::ui::HintPanelMetrics p = TopBarMetrics{853.0f, 456.0f}.hintPanels();
+    const opensu::ui::HintPanelMetrics p = TopBarMetrics{853.0f, 456.0f}.hintPanels();
     near(p.paddingHorizontal, 8.2156, "hint panel: horizontal padding 10 a");
     near(p.paddingVertical, 6.57248, "hint panel: vertical padding 8 a");
     near(p.entrySpacing, 1.64312, "hint panel: row spacing 2 a");
@@ -101,14 +101,14 @@ void wide1280() {
 
 void titlePill() {
     // f = 0.9 + 0.1 clamp((w - 538) / 294): 0.93469 at 640, 1 from 832 up.
-    const iideck::ui::TitlePillMetrics phone = TopBarMetrics{640.0f, 360.0f}.titlePill();
+    const opensu::ui::TitlePillMetrics phone = TopBarMetrics{640.0f, 360.0f}.titlePill();
     near(phone.height, 44.86531, "640: title pill height");
     near(phone.paddingHorizontal, 20.56327, "640: title pill padding");
     near(phone.minWidth, 130.85714, "640: title pill min width");
     near(phone.maxTextWidth, 478.87347, "640: title text max width");
     near(phone.fontSize, 14.95510, "640: title font");
     near(phone.topPadding, 7.37431, "640: title pill sits at hs7.c");
-    const iideck::ui::TitlePillMetrics wide = TopBarMetrics{853.0f, 480.0f}.titlePill();
+    const opensu::ui::TitlePillMetrics wide = TopBarMetrics{853.0f, 480.0f}.titlePill();
     near(wide.height, 48.0, "853: title pill height");
     near(wide.minWidth, 140.0, "853: title pill min width");
     near(wide.fontSize, 16.0, "853: title font");

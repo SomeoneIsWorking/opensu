@@ -4,7 +4,7 @@
 
 #include "home_layout.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// How an elevated glass pill is drawn.
 struct PillStyle {
@@ -28,4 +28,4 @@ class GlassPainter {
     void paintPill(const Rect& body, const PillStyle& style) const;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

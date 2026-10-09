@@ -12,7 +12,7 @@
 #include "launch/instance.hpp"
 #include "lucent/log.h"
 
-namespace iideck::session {
+namespace opensu::session {
 namespace {
 
 namespace fs = std::filesystem;
@@ -35,8 +35,8 @@ int NestedSession::run(const Output& output, const std::vector<std::string>& arg
     if (launch::resolveExecutable(gamescope_.string(), {}).empty()) {
         lucent::error(
             "session",
-            "the Gamescope fork is not at '{}'; iideck was built without it. Rebuild with "
-            "-DIIDECK_BUILD_GAMESCOPE=ON (the default)",
+            "the Gamescope fork is not at '{}'; opensu was built without it. Rebuild with "
+            "-DOPENSU_BUILD_GAMESCOPE=ON (the default)",
             gamescope_.string());
         return 1;
     }
@@ -82,4 +82,4 @@ int NestedSession::run(const Output& output, const std::vector<std::string>& arg
     return compositor.exitStatus() >= 0 ? compositor.exitStatus() : 1;
 }
 
-} // namespace iideck::session
+} // namespace opensu::session

@@ -7,9 +7,9 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::test::near;
-using iideck::ui::luminance;
+using opensu::test::expect;
+using opensu::test::near;
+using opensu::ui::luminance;
 
 void themeBackgrounds() {
     near(luminance(Color{0, 0, 0, 255}), 0.0f, "black has no luminance");

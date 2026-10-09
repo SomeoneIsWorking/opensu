@@ -9,7 +9,7 @@
 #include <optional>
 #include <vector>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// An axis-aligned rectangle in pixels.
 struct Rect {
@@ -226,4 +226,4 @@ class HomeLayout {
     bool fillSlots_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

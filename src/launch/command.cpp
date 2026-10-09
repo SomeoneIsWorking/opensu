@@ -18,7 +18,7 @@
 #include "argv.hpp"
 #include "lucent/log.h"
 
-namespace iideck::launch {
+namespace opensu::launch {
 namespace {
 
 namespace fs = std::filesystem;
@@ -240,4 +240,4 @@ std::optional<Captured> runCaptured(const std::string& program,
     return captured;
 }
 
-} // namespace iideck::launch
+} // namespace opensu::launch

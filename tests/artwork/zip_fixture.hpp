@@ -8,7 +8,7 @@
 
 #include <zlib.h>
 
-namespace iideck::artwork::fixture {
+namespace opensu::artwork::fixture {
 
 struct FixtureEntry {
     std::string name;
@@ -108,4 +108,4 @@ inline std::string buildZip(const std::vector<FixtureEntry>& entries,
     return out;
 }
 
-} // namespace iideck::artwork::fixture
+} // namespace opensu::artwork::fixture

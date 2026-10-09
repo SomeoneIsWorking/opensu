@@ -10,7 +10,7 @@
 #include "dock_metrics.hpp"
 #include "glass.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// One section's icon as it is drawn now.
 struct DockIcon {
@@ -52,4 +52,4 @@ class DockPainter {
     ButtonGlyphPainter glyphs_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

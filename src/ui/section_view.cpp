@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 Presentation presentationOf(library::Section section, library::LibraryMode mode) noexcept {
     if (section == library::Section::Home) {
@@ -27,4 +27,4 @@ std::size_t visibleTiles(library::Section section, library::LibraryMode mode,
     return std::min(items, static_cast<std::size_t>(gridViewport.rows * gridViewport.columns));
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

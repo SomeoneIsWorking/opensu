@@ -7,7 +7,7 @@
 #include "launch/launch_progress.hpp"
 #include "lucent/log.h"
 
-namespace iideck::app {
+namespace opensu::app {
 
 CliInstallJob::CliInstallJob(std::string program, std::string tool, std::string logTag)
     : program_{std::move(program)}, tool_{std::move(tool)}, logTag_{std::move(logTag)} {
@@ -64,4 +64,4 @@ void CliInstallJob::run(const std::stop_token& stop, const std::string& appId) {
     }
 }
 
-} // namespace iideck::app
+} // namespace opensu::app

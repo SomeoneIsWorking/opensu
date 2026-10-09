@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-namespace iideck::library {
+namespace opensu::library {
 
 /// The backend an entry came from.
 enum class Source : std::uint8_t {
@@ -139,4 +139,4 @@ class Catalog {
 /// uninstalled, most recently played first, then by title.
 void order(std::vector<Game>& games);
 
-} // namespace iideck::library
+} // namespace opensu::library

@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace iideck::net {
+namespace opensu::net {
 
 class WebClient {
   public:
@@ -34,4 +34,4 @@ class WebClient {
                                                    const std::vector<std::string>& headers) const;
 };
 
-} // namespace iideck::net
+} // namespace opensu::net

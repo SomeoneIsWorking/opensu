@@ -1,4 +1,4 @@
-// gamescope_overlay — draws iideck's own window over a running game, as Steam's overlay does.
+// gamescope_overlay — draws opensu's own window over a running game, as Steam's overlay does.
 //
 // Gamescope composites a window carrying STEAM_OVERLAY above the focused game, blended by
 // _NET_WM_WINDOW_OPACITY and the window's own alpha; STEAM_INPUT_FOCUS hands it keyboard
@@ -10,11 +10,11 @@
 #include <cstdint>
 #include <memory>
 
-namespace iideck::session {
+namespace opensu::session {
 
 class GamescopeOverlay {
   public:
-    /// Opens a connection to the X display iideck's window lives on. `window` is its X id.
+    /// Opens a connection to the X display opensu's window lives on. `window` is its X id.
     /// Throws std::runtime_error when the display cannot be opened.
     explicit GamescopeOverlay(std::uint64_t window);
     ~GamescopeOverlay();
@@ -35,4 +35,4 @@ class GamescopeOverlay {
     std::unique_ptr<Connection> connection_;
 };
 
-} // namespace iideck::session
+} // namespace opensu::session

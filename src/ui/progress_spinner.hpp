@@ -4,7 +4,7 @@
 
 #include "raylib.h"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// The arc the spinner draws at one moment, in degrees clockwise from 3 o'clock.
 struct SpinnerArc {
@@ -18,4 +18,4 @@ struct SpinnerArc {
 /// Draws the spinner in a `size` box centred on `centre`, with a `stroke` wide line.
 void drawSpinner(Vector2 centre, float size, float stroke, Color colour, double seconds);
 
-} // namespace iideck::ui
+} // namespace opensu::ui

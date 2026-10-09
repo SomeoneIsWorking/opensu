@@ -5,7 +5,7 @@
 #include "library/epic.hpp"
 #include "library/install_log.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 
 EpicInstallJob::EpicInstallJob() : CliInstallJob{"legendary", "legendary", "epic"} {
 }
@@ -32,4 +32,4 @@ std::optional<std::string> EpicInstallJob::failureIn(std::string_view line) cons
     return library::epic::installFailure(line);
 }
 
-} // namespace iideck::app
+} // namespace opensu::app

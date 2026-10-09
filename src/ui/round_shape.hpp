@@ -13,7 +13,7 @@
 
 #include "home_layout.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// A rectangle with one corner radius.
 struct RoundRect {
@@ -57,4 +57,4 @@ void drawTextureRound(const RoundRect& shape, const Texture& texture, Rectangle 
 /// Straight interpolation between two colours.
 [[nodiscard]] Color mix(Color from, Color to, float t) noexcept;
 
-} // namespace iideck::ui
+} // namespace opensu::ui

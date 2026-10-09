@@ -2,7 +2,7 @@
 
 #include <utility>
 
-namespace iideck::app {
+namespace opensu::app {
 
 void InstallJob::halt() {
     thread_.request_stop();
@@ -73,4 +73,4 @@ void InstallJob::post(Report report) {
     }
 }
 
-} // namespace iideck::app
+} // namespace opensu::app

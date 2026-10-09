@@ -4,7 +4,7 @@
 #include "button_glyph.hpp"
 #include "launch_panel.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 class LaunchPanelPainter {
   public:
@@ -19,4 +19,4 @@ class LaunchPanelPainter {
     ButtonGlyphPainter glyphs_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -15,7 +15,7 @@
 #include "config/config.hpp"
 #include "lucent/log.h"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 struct ImageDeleter {
@@ -128,4 +128,4 @@ const Texture* IconAtlas::mask(Icon icon, int pixels) {
     return entries_.back().loaded ? &entries_.back().texture : nullptr;
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -1,4 +1,4 @@
-// effect — iiSU's UI sounds that iideck plays: which file each is and how often it may repeat.
+// effect — iiSU's UI sounds that opensu plays: which file each is and how often it may repeat.
 // Pure, so the artwork store can name the files and tests link it alone.
 #pragma once
 
@@ -9,11 +9,11 @@
 #include <optional>
 #include <string_view>
 
-namespace iideck::audio {
+namespace opensu::audio {
 
-/// The sound effects of iiSU's `yp8` that iideck has an event for (input-sound.md 3.2, 3.4).
+/// The sound effects of iiSU's `yp8` that opensu has an event for (input-sound.md 3.2, 3.4).
 /// MenuNavigate, KeyClick, MessageSend, FriendsTab and the count-less `domino_icons.ogg` have no
-/// iideck event: the last is unreachable in iiSU too (`xp8.a` is never called with a count of 0).
+/// opensu event: the last is unreachable in iiSU too (`xp8.a` is never called with a count of 0).
 enum class Effect : std::uint8_t {
     Open,
     Close,
@@ -57,4 +57,4 @@ inline constexpr std::array allEffects{
 /// How soon after itself the effect is dropped (`xp8.java:1559-1586`); zero for none.
 [[nodiscard]] std::chrono::milliseconds debounceOf(Effect effect) noexcept;
 
-} // namespace iideck::audio
+} // namespace opensu::audio

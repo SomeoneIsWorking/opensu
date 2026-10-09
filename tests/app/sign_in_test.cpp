@@ -13,11 +13,11 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::app::SignInResult;
-using iideck::app::Store;
-using iideck::app::StoreSignIn;
-using iideck::test::LoopbackServer;
-using iideck::test::reply;
+using opensu::app::SignInResult;
+using opensu::app::Store;
+using opensu::app::StoreSignIn;
+using opensu::test::LoopbackServer;
+using opensu::test::reply;
 
 void expect(bool condition, const char* what) {
     if (!condition) {

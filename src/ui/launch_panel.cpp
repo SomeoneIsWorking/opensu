@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <utility>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 void LaunchPanel::open(std::string title) {
     title_ = std::move(title);
@@ -31,4 +31,4 @@ void LaunchPanel::close() noexcept {
     open_ = false;
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

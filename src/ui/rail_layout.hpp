@@ -9,7 +9,7 @@
 
 #include "home_layout.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// What a rail is laid out from.
 struct RailInput {
@@ -162,4 +162,4 @@ class CarouselLayout {
     std::vector<Rect> rects_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

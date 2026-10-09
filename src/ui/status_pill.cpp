@@ -12,7 +12,7 @@
 #include "round_shape.hpp"
 #include "typeface.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // iiSU res/drawable/battery_*_dark.png and bell_icon.png ink.
@@ -175,4 +175,4 @@ void StatusPillPainter::paintGlyph(float x, float y, float size) const {
     type().drawCentred("R2", cap.rect.centreX() - width * 0.5f, cap.rect.centreY(), text, glyphInk);
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

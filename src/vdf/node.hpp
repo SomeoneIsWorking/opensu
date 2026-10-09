@@ -15,7 +15,7 @@
 #include <variant>
 #include <vector>
 
-namespace iideck::vdf {
+namespace opensu::vdf {
 
 // A parsed document. Values are either a string or a nested block.
 class Node {
@@ -73,4 +73,4 @@ struct ParseError {
 /// Parses a file, returning nothing when it cannot be read or is malformed.
 [[nodiscard]] std::optional<Node> parseFile(const std::filesystem::path& path);
 
-} // namespace iideck::vdf
+} // namespace opensu::vdf

@@ -7,7 +7,7 @@
 
 #include "round_shape.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // iiSU ea3.e, light: na3.e #F2F4F7 at 0.55 to na3.f #E6E9EE at 0.65, top-left to bottom-right.
@@ -79,4 +79,4 @@ void GlassPainter::paintPill(const Rect& body, const PillStyle& style) const {
     });
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

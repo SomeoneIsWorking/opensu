@@ -14,7 +14,7 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::steam::DesktopSteam;
+using opensu::steam::DesktopSteam;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -32,7 +32,7 @@ void writePid(const fs::path& home, const std::string& text) {
 
 int main() {
     const fs::path home =
-        fs::path{IIDECK_TEST_SCRATCH} / ("iideck-steam-test-" + std::to_string(getpid()));
+        fs::path{OPENSU_TEST_SCRATCH} / ("opensu-steam-test-" + std::to_string(getpid()));
     fs::remove_all(home);
     fs::create_directories(home);
     const DesktopSteam steam{home};
@@ -47,7 +47,7 @@ int main() {
     }
     writePid(home, std::to_string(child) + "\n");
     expect(steam.runningOutside(""), "a live pid with no instance is the desktop's");
-    expect(steam.runningOutside("iideck-game-none.scope"),
+    expect(steam.runningOutside("opensu-game-none.scope"),
            "a live pid outside the instance's cgroup is the desktop's");
 
     // The test process's own cgroup stands in for a Steam inside the instance.

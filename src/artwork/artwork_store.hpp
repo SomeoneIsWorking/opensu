@@ -18,7 +18,7 @@
 #include "iisu_assets.hpp"
 #include "library/shelf.hpp"
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 
 class ArtworkStore {
   public:
@@ -97,4 +97,4 @@ class ArtworkStore {
     std::filesystem::path root_;
 };
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

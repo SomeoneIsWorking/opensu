@@ -6,10 +6,10 @@
 
 #include <linux/input-event-codes.h>
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 namespace {
 
-/// Face, shoulder, menu and stick buttons the virtual pad carries, with iideck's name for each.
+/// Face, shoulder, menu and stick buttons the virtual pad carries, with opensu's name for each.
 /// BTN_NORTH and BTN_WEST are BTN_X and BTN_Y, as xpad reports the Xbox X and Y.
 constexpr std::pair<std::uint16_t, Button> forwardedKeys[] = {
     {BTN_SOUTH, Button::A},       {BTN_EAST, Button::B},      {BTN_NORTH, Button::X},
@@ -211,4 +211,4 @@ void PadTranslator::stickControls(const PadEvent& axis, std::vector<Event>& cont
     }
 }
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

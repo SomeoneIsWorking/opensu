@@ -26,9 +26,9 @@ namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
-using iideck::session::gamescopeArgs;
-using iideck::session::NestedSession;
-using iideck::session::Output;
+using opensu::session::gamescopeArgs;
+using opensu::session::NestedSession;
+using opensu::session::Output;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -54,7 +54,7 @@ bool waitUntil(const std::function<bool()>& predicate, std::chrono::milliseconds
 }
 
 bool scopeActive(const std::string& unit) {
-    return iideck::launch::runCommand("systemctl", {"--user", "is-active", "--quiet", unit},
+    return opensu::launch::runCommand("systemctl", {"--user", "is-active", "--quiet", unit},
                                       std::chrono::seconds{20}) == 0;
 }
 
@@ -66,8 +66,8 @@ struct Fixture {
     std::string session;
 
     Fixture(const std::string& stem, const std::string& tail) {
-        session = "iideck-test-" + stem + "-" + std::to_string(getpid());
-        base = fs::path{IIDECK_TEST_SCRATCH} / session;
+        session = "opensu-test-" + stem + "-" + std::to_string(getpid());
+        base = fs::path{OPENSU_TEST_SCRATCH} / session;
         fs::remove_all(base);
         bin = base / "bin";
         fs::create_directories(bin);
@@ -78,7 +78,7 @@ struct Fixture {
                                   "printf '%s\\n' \"$@\" > \"" +
                                       argsFile.string() +
                                       "\"\n"
-                                      "echo \"$IIDECK_SESSION\" > \"" +
+                                      "echo \"$OPENSU_SESSION\" > \"" +
                                       envFile.string() + "\"\n" + tail;
         fs::permissions(program, fs::perms::owner_all);
     }
@@ -93,7 +93,7 @@ struct Fixture {
 void testRunPassesArgumentsAndStopsLeftovers() {
     const Fixture fixture{"run", "exit 3\n"};
     const std::string steamUnit = fixture.session + "-steam.scope";
-    iideck::launch::Instance leftover;
+    opensu::launch::Instance leftover;
     std::string failure;
     expect(leftover.start(steamUnit, "/bin/sleep", {"600"}, failure), "the leftover scope starts");
 
@@ -102,7 +102,7 @@ void testRunPassesArgumentsAndStopsLeftovers() {
     const int status = session.run(output, {"--flag"});
 
     expect(status == 3, "Gamescope's exit status is returned");
-    expect(slurp(fixture.envFile) == fixture.session + "\n", "IIDECK_SESSION names the session");
+    expect(slurp(fixture.envFile) == fixture.session + "\n", "OPENSU_SESSION names the session");
 
     std::error_code ec;
     const std::string self = fs::read_symlink("/proc/self/exe", ec).string();
@@ -119,7 +119,7 @@ void testRunPassesArgumentsAndStopsLeftovers() {
 
 /// A missing gamescope binary is refused, not run.
 void testMissingGamescope() {
-    NestedSession session{"iideck-test-missing-" + std::to_string(getpid()),
+    NestedSession session{"opensu-test-missing-" + std::to_string(getpid()),
                           "/nonexistent/gamescope"};
     expect(session.run(Output{1280, 720, 0}, {}) == 1, "a missing gamescope fails");
 }
@@ -128,7 +128,7 @@ void testMissingGamescope() {
 void testSignalStopsTheSession() {
     const Fixture fixture{"signal", "exec sleep 600\n"};
     const std::string steamUnit = fixture.session + "-steam.scope";
-    iideck::launch::Instance leftover;
+    opensu::launch::Instance leftover;
     std::string failure;
     expect(leftover.start(steamUnit, "/bin/sleep", {"600"}, failure), "the leftover scope starts");
 
@@ -163,7 +163,7 @@ void testSignalStopsTheSession() {
 } // namespace
 
 int main() {
-    fs::create_directories(IIDECK_TEST_SCRATCH);
+    fs::create_directories(OPENSU_TEST_SCRATCH);
     testRunPassesArgumentsAndStopsLeftovers();
     testMissingGamescope();
     testSignalStopsTheSession();

@@ -5,7 +5,7 @@
 #include "hud.hpp"
 #include "typeface.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // The game shows through, dimmed, as under Steam's Guide menu.
@@ -71,4 +71,4 @@ void GameMenuPainter::paint(const GameMenu& menu, float width, float height, flo
     }
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

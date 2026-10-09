@@ -1,6 +1,6 @@
 // game_keys — keyboard shortcuts the player presses while a game has the keyboard.
 //
-// Gamescope hands its keys to the focused window on its Xwayland, so iideck's own window
+// Gamescope hands its keys to the focused window on its Xwayland, so opensu's own window
 // gets none while a game runs. XInput2 raw key events selected on the root reach every
 // client whatever the focus, and only while the desktop gives Gamescope the keyboard.
 // The game still receives the keys: nothing is grabbed.
@@ -11,7 +11,7 @@
 #include <optional>
 #include <vector>
 
-namespace iideck::session {
+namespace opensu::session {
 
 enum class GameShortcut : std::uint8_t {
     /// Shift+Tab, Steam's overlay key: the shell treats it as a Guide press.
@@ -56,4 +56,4 @@ class GameKeys {
     ShortcutChord chord_;
 };
 
-} // namespace iideck::session
+} // namespace opensu::session

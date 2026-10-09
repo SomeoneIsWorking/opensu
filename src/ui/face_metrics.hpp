@@ -8,7 +8,7 @@
 #include <optional>
 #include <span>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 struct FaceMetrics {
     float unitsPerEm{};
@@ -27,4 +27,4 @@ struct FaceMetrics {
 /// nothing when the tables are missing or truncated.
 [[nodiscard]] std::optional<FaceMetrics> readFaceMetrics(std::span<const std::byte> file) noexcept;
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -10,7 +10,7 @@
 #include "raylib.h"
 #include "zip_archive.hpp"
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 namespace {
 
 struct WebpFree {
@@ -103,4 +103,4 @@ std::optional<std::string> StarterPack::card(std::string_view system, std::strin
     return toPng(*webp, error);
 }
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

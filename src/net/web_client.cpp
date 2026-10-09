@@ -4,7 +4,7 @@
 
 #include <curl/curl.h>
 
-namespace iideck::net {
+namespace opensu::net {
 namespace {
 
 struct HeaderListDeleter {
@@ -65,7 +65,7 @@ std::optional<std::string> WebClient::fetch(const std::string& url, const std::s
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, redirectLimit);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSeconds);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeoutSeconds);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "iideck");
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "opensu");
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, append);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
@@ -94,4 +94,4 @@ std::optional<std::string> WebClient::fetch(const std::string& url, const std::s
     return body;
 }
 
-} // namespace iideck::net
+} // namespace opensu::net

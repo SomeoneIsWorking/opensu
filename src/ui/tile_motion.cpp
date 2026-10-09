@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace iideck::ui::motion {
+namespace opensu::ui::motion {
 namespace {
 
 // iiSU w70 (w70.java:813-840): 1.00 -> 1.05 over 145 ms, -> 1.03 by 265 ms.
@@ -207,4 +207,4 @@ bool ScrollEaser::step(float dtMs, float pitch, float viewport, ScrollMode mode)
     return true;
 }
 
-} // namespace iideck::ui::motion
+} // namespace opensu::ui::motion

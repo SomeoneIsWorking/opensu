@@ -14,7 +14,7 @@
 
 #include "game.hpp"
 
-namespace iideck::library::roms {
+namespace opensu::library::roms {
 
 /// Where emulators are looked for.
 struct EmulatorSearch {
@@ -50,4 +50,4 @@ class Emulators {
     Commands commands_;
 };
 
-} // namespace iideck::library::roms
+} // namespace opensu::library::roms

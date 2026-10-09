@@ -11,7 +11,7 @@
 
 #include "library/game.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// A platform's stroke gradient: the reference frame's colours at its two ends.
 struct StrokeGradient {
@@ -59,4 +59,4 @@ class Platforms {
     std::vector<Platform> platforms_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

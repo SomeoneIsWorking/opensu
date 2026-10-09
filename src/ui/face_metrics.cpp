@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 class BigEndian {
@@ -78,4 +78,4 @@ std::optional<FaceMetrics> readFaceMetrics(std::span<const std::byte> data) noex
                        static_cast<float>(descent)};
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

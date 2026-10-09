@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace iideck::library::install_log {
+namespace opensu::library::install_log {
 
 /// How far an install has got, 0 to 1, from one `= Progress: 12.34% (505/4096), ...` or
 /// `= Progress: 12.34 505/4096, ...` line; nothing for any other line.
@@ -20,4 +20,4 @@ namespace iideck::library::install_log {
 /// `line` without trailing spaces and carriage returns.
 [[nodiscard]] std::string_view trimmed(std::string_view line);
 
-} // namespace iideck::library::install_log
+} // namespace opensu::library::install_log

@@ -15,7 +15,7 @@
 
 #include "typeface.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// The constants iiSU's tx2.a and tx2.b switch on the dark flag.
 struct ChromeVariant {
@@ -490,4 +490,4 @@ void TilePainter::paintFallback(const Rect& content, std::string_view title, flo
                        withAlpha(fallbackInk, alpha));
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

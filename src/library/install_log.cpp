@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <charconv>
 
-namespace iideck::library::install_log {
+namespace opensu::library::install_log {
 namespace {
 
 constexpr std::string_view progressMarker = "= Progress: ";
@@ -45,4 +45,4 @@ std::optional<std::string> loggedError(std::string_view line) {
     return std::nullopt;
 }
 
-} // namespace iideck::library::install_log
+} // namespace opensu::library::install_log

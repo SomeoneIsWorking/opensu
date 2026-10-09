@@ -8,7 +8,7 @@
 #include "emulators.hpp"
 #include "game.hpp"
 
-namespace iideck::library::roms {
+namespace opensu::library::roms {
 
 /// The ROM roots on this machine: a folder named ROM, ROMs or roms (or Emulation/roms) in the
 /// home folder or at the top of a mounted drive under `mountDirs`, holding at least one
@@ -42,4 +42,4 @@ class Provider final : public library::Provider {
     Emulators emulators_;
 };
 
-} // namespace iideck::library::roms
+} // namespace opensu::library::roms

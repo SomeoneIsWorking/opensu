@@ -1,4 +1,4 @@
-// launch — what a Steam launch needs from the Steam client iideck owns.
+// launch — what a Steam launch needs from the Steam client opensu owns.
 #pragma once
 
 #include <chrono>
@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace iideck::launch {
+namespace opensu::launch {
 
 /// Where the background Steam client stands.
 enum class SteamState : std::uint8_t {
@@ -20,7 +20,7 @@ enum class SteamState : std::uint8_t {
     Ready,
     /// Could not start, or exited.
     Failed,
-    /// A Steam client runs outside iideck, so a launch would escape it.
+    /// A Steam client runs outside opensu, so a launch would escape it.
     Blocked,
 };
 
@@ -52,7 +52,7 @@ struct SteamAppActivity {
     std::string error;
     /// The action is over, succeeded or not.
     bool actionEnded{true};
-    /// Whether Steam runs the app; nothing until Steam has said since iideck started watching.
+    /// Whether Steam runs the app; nothing until Steam has said since opensu started watching.
     std::optional<bool> running;
 
     bool operator==(const SteamAppActivity&) const = default;
@@ -80,4 +80,4 @@ class SteamGate {
     [[nodiscard]] virtual SteamAppActivity activity(std::string_view appId) const = 0;
 };
 
-} // namespace iideck::launch
+} // namespace opensu::launch

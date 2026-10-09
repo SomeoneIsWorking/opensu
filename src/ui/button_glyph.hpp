@@ -15,7 +15,7 @@
 
 #include "input/last_device.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// With the keyboard and mouse last used, a glyph draws as the key bound to its button: a rounded
 /// outline in the ring's size and stroke around the key's label.
@@ -39,4 +39,4 @@ class ButtonGlyphPainter {
     const input::LastDevice* device_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -1,6 +1,6 @@
 // sections — the dock's places and how Library lays out its games.
 //
-// iiSU's primary navigation (navigation.md §1) cycles its sections with L1 and R1 and wraps. iideck
+// iiSU's primary navigation (navigation.md §1) cycles its sections with L1 and R1 and wraps. opensu
 // has two: Home, the games installed here, and Library, every launcher, console and store library.
 #pragma once
 
@@ -9,7 +9,7 @@
 #include <optional>
 #include <string_view>
 
-namespace iideck::library {
+namespace opensu::library {
 
 /// The dock's sections, in dock order (iiSU `tg3`: Home, Roms).
 enum class Section : std::uint8_t {
@@ -65,4 +65,4 @@ class Sections {
     Section active_{Section::Home};
 };
 
-} // namespace iideck::library
+} // namespace opensu::library

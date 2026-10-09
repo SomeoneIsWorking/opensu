@@ -4,7 +4,7 @@ Checks: >
   performance-*,
   readability-braces-around-statements
 WarningsAsErrors: '*'
-HeaderFilterRegex: '.*[/\\]iideck[/\\](src|tests)[/\\].*'
+HeaderFilterRegex: '.*[/\\]opensu[/\\](src|tests)[/\\].*'
 FormatStyle: file
 CheckOptions:
   - key: readability-braces-around-statements.ShortStatementLines

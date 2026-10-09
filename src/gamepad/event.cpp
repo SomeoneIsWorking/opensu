@@ -1,6 +1,6 @@
 #include "event.hpp"
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 
 std::string_view prompt(Button button) {
     switch (button) {
@@ -44,4 +44,4 @@ std::string_view prompt(Button button) {
     return {};
 }
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

@@ -8,7 +8,7 @@
 #include "lucent/log.h"
 #include "rom_systems.hpp"
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 namespace {
 
 namespace fs = std::filesystem;
@@ -213,4 +213,4 @@ void ArtworkStore::saveIndex(std::string_view system, const std::vector<std::str
     }
 }
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

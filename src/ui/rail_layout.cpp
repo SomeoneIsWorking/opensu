@@ -5,7 +5,7 @@
 
 #include "tile_motion.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // iiSU e39: the vertical XMB's proportions of the canvas. The slot's left edge is measured, 340.5
@@ -168,4 +168,4 @@ float CarouselLayout::sizeOf(std::size_t index) const noexcept {
     return blend(SizePair{unfocusedSize_, focusedSize_}, index, focus_);
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

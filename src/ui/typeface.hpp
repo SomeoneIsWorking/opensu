@@ -12,7 +12,7 @@
 
 #include "raylib.h"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// A text size as Android takes it.
 struct TextStyle {
@@ -83,4 +83,4 @@ class Typeface {
 /// GPU state that must not be duplicated per shell.
 [[nodiscard]] Typeface& type();
 
-} // namespace iideck::ui
+} // namespace opensu::ui

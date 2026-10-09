@@ -3,7 +3,7 @@
 
 #include "home_layout.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 class PagePillPainter {
   public:
@@ -12,4 +12,4 @@ class PagePillPainter {
     void paint(const PagePill& pill, float dp, bool dark) const;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

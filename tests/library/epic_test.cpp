@@ -15,10 +15,10 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::library::Game;
-using iideck::library::SourceAbsent;
-using iideck::library::epic::installFailure;
-using iideck::library::epic::Provider;
+using opensu::library::Game;
+using opensu::library::SourceAbsent;
+using opensu::library::epic::installFailure;
+using opensu::library::epic::Provider;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -59,7 +59,7 @@ void testInstallOutput() {
 
 int main() {
     testInstallOutput();
-    const fs::path dir = fs::path{IIDECK_TEST_SCRATCH} / ("epic-" + std::to_string(getpid()));
+    const fs::path dir = fs::path{OPENSU_TEST_SCRATCH} / ("epic-" + std::to_string(getpid()));
     fs::remove_all(dir);
 
     const fs::path legendary = writeStub(dir, "legendary", R"(echo "log line" >&2

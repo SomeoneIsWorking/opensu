@@ -7,8 +7,8 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::ui::LaunchPanel;
+using opensu::test::expect;
+using opensu::ui::LaunchPanel;
 
 void opensAtStarting() {
     LaunchPanel panel;
@@ -17,7 +17,7 @@ void opensAtStarting() {
     expect(panel.isOpen(), "opens");
     expect(panel.title() == "Bloons TD 6", "keeps the game's title");
     expect(panel.line() == "Starting" && !panel.fraction(), "starts at Starting, unmeasured");
-    expect(panel.hints() == std::vector<iideck::ui::PanelHint>{{"B", "Cancel"}}, "B cancels");
+    expect(panel.hints() == std::vector<opensu::ui::PanelHint>{{"B", "Cancel"}}, "B cancels");
 }
 
 void updatesAndClamps() {

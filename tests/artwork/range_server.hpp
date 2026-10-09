@@ -11,7 +11,7 @@
 
 #include "support/loopback_server.hpp"
 
-namespace iideck::artwork::fixture {
+namespace opensu::artwork::fixture {
 
 class RangeServer {
   public:
@@ -80,4 +80,4 @@ class RangeServer {
     test::LoopbackServer server_;
 };
 
-} // namespace iideck::artwork::fixture
+} // namespace opensu::artwork::fixture

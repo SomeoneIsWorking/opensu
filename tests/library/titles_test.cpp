@@ -8,11 +8,11 @@
 
 namespace {
 
-using iideck::library::copiesOf;
-using iideck::library::Game;
-using iideck::library::Source;
-using iideck::library::storeTitles;
-using iideck::library::titleKey;
+using opensu::library::copiesOf;
+using opensu::library::Game;
+using opensu::library::Source;
+using opensu::library::storeTitles;
+using opensu::library::titleKey;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -50,7 +50,7 @@ void testMerge() {
         game(Source::Rom, "rom:alpha", "Alpha"), game(Source::Epic, "epic:c", "魔界戦記"),
         game(Source::Gog, "gog:c", "魔界戦記"),
     };
-    const std::vector<iideck::library::Title> titles = storeTitles(games);
+    const std::vector<opensu::library::Title> titles = storeTitles(games);
     expect(titles.size() == 4, "Alpha across three stores, Beta, and two unkeyed games");
 
     // Alpha: installed Steam first, then GOG, then Epic; the ROM is no store copy.
@@ -73,7 +73,7 @@ void testSameStore() {
         game(Source::Steam, "steam:2", "DOOM"),
         game(Source::Gog, "gog:1", "Doom"),
     };
-    const std::vector<iideck::library::Title> titles = storeTitles(games);
+    const std::vector<opensu::library::Title> titles = storeTitles(games);
     expect(titles.size() == 2, "two Steam games with one key stay two titles");
     expect(titles[0].copies.size() == 2 && titles[1].copies.size() == 1,
            "the other store joins the first of them");

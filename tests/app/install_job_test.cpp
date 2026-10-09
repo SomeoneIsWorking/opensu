@@ -23,11 +23,11 @@ namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
-using iideck::app::EpicInstallJob;
-using iideck::app::GogInstallJob;
-using iideck::app::InstallJob;
-using iideck::app::Installs;
-using iideck::library::Source;
+using opensu::app::EpicInstallJob;
+using opensu::app::GogInstallJob;
+using opensu::app::InstallJob;
+using opensu::app::Installs;
+using opensu::library::Source;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -243,8 +243,8 @@ exit 9
 fs::path gogData(const fs::path& dir, const char* name) {
     const fs::path data = dir / name;
     fs::create_directories(data);
-    iideck::library::gog::TokenStore::under(data).save(
-        iideck::library::gog::Token{"ACCESS-1", "REFRESH-1", "4242", 4'000'000'000});
+    opensu::library::gog::TokenStore::under(data).save(
+        opensu::library::gog::Token{"ACCESS-1", "REFRESH-1", "4242", 4'000'000'000});
     return data;
 }
 
@@ -278,7 +278,7 @@ void testGog(const fs::path& dir) {
     expect(firstLine(data / "auth-mode") == "600", "gogdl read an owner-only token file");
     expect(!fs::exists(data / "gogdl-auth.json"), "the token file is gone afterwards");
     const auto record =
-        iideck::library::gog::InstallRecords{data / "gog-installs.json"}.find("native");
+        opensu::library::gog::InstallRecords{data / "gog-installs.json"}.find("native");
     expect(record && record->platform == "linux" &&
                record->path == data / "gog-games/native/Game Folder",
            "the install is recorded with gogdl's folder and platform");
@@ -291,18 +291,18 @@ void testGog(const fs::path& dir) {
     expect(firstLine(windowsData / "download-args").find("--platform windows") != std::string::npos,
            "a game without a Linux build downloads the Windows build");
     const auto windowsRecord =
-        iideck::library::gog::InstallRecords{windowsData / "gog-installs.json"}.find("winonly");
+        opensu::library::gog::InstallRecords{windowsData / "gog-installs.json"}.find("winonly");
     expect(windowsRecord && windowsRecord->platform == "windows", "and is recorded as Windows");
 
-    // gogdl refreshed the token while it downloaded; iideck keeps the new one.
+    // gogdl refreshed the token while it downloaded; opensu keeps the new one.
     const fs::path rotatedData = gogData(dir, "gog-rotated");
     GogInstallJob rotated{GogInstallJob::Options{.dataDir = rotatedData, .gogdl = gogdl.string()}};
     rotated.setBuilds({.windows = true, .linuxNative = true});
     expect(rotated.start("rotate", "Rotate"), "a long install starts");
     expect(drain(rotated).back().failure.empty(), "it finishes installed");
-    const auto kept = iideck::library::gog::TokenStore::under(rotatedData).load();
+    const auto kept = opensu::library::gog::TokenStore::under(rotatedData).load();
     expect(kept && kept->refreshToken == "REFRESH-9",
-           "the refresh token gogdl rotated is saved in iideck's token store");
+           "the refresh token gogdl rotated is saved in opensu's token store");
 
     const fs::path fullData = gogData(dir, "gog-full");
     GogInstallJob full{GogInstallJob::Options{.dataDir = fullData, .gogdl = gogdl.string()}};
@@ -335,15 +335,15 @@ void testGog(const fs::path& dir) {
 
 void testInstalls(const fs::path& dir) {
     const fs::path slow = writeStub(dir / "legendary-routed", "sleep 0.3\nexit 0\n");
-    iideck::steam::Client steam{iideck::steam::Client::Options{
+    opensu::steam::Client steam{opensu::steam::Client::Options{
         .home = dir / "home", .executablePath = {}, .session = "install-test", .steamRoots = {}}};
     Installs installs{steam, slow.string(), GogInstallJob::Options{.dataDir = dir / "data"}};
 
-    iideck::library::Game epic;
+    opensu::library::Game epic;
     epic.source = Source::Epic;
     epic.sourceId = "Fortnite";
     epic.title = "Fortnite";
-    iideck::library::Game rom = epic;
+    opensu::library::Game rom = epic;
     rom.source = Source::Rom;
     expect(!installs.start(rom), "a ROM is not installed");
     expect(!installs.running(), "and nothing runs for it");
@@ -361,7 +361,7 @@ void testInstalls(const fs::path& dir) {
     expect(installs.title() == "Fortnite", "the title outlives the install");
 
     // The listing's builds reach the GOG job: with one the install goes on to need a sign-in.
-    iideck::library::Game gog = epic;
+    opensu::library::Game gog = epic;
     gog.source = Source::Gog;
     gog.sourceId = "1";
     for (const bool linux : {false, true}) {

@@ -8,7 +8,7 @@
 #include "round_shape.hpp"
 #include "typeface.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 constexpr Color scrim{0, 0, 0, 115};
@@ -169,4 +169,4 @@ void ModeChooserPainter::paint(const ModeChooser& chooser, Vector2 size, float d
     }
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

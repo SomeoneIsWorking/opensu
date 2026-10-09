@@ -11,7 +11,7 @@
 #include "apk_archive.hpp"
 #include "net/web_client.hpp"
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 
 class ConsoleGlyphs {
   public:
@@ -28,4 +28,4 @@ class ConsoleGlyphs {
     std::optional<std::map<std::string, std::string, std::less<>>> logos_;
 };
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

@@ -17,7 +17,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 namespace {
 
 void check(int result, const char* what) {
@@ -124,4 +124,4 @@ void VirtualPad::write(const std::vector<PadEvent>& events) {
     }
 }
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

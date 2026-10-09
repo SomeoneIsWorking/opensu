@@ -6,7 +6,7 @@
 
 #include "home_layout.hpp"
 
-namespace iideck::ui::motion {
+namespace opensu::ui::motion {
 
 /// iiSU w70.m and ox2.g: 1 - (1 - t)^3.
 [[nodiscard]] float easeOutCubic(float t) noexcept;
@@ -114,4 +114,4 @@ class ScrollEaser {
     bool settled_{true};
 };
 
-} // namespace iideck::ui::motion
+} // namespace opensu::ui::motion

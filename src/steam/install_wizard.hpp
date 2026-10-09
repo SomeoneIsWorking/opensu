@@ -12,7 +12,7 @@
 
 #include "devtools.hpp"
 
-namespace iideck::steam {
+namespace opensu::steam {
 
 /// A licence agreement an app's install waits on.
 struct Eula {
@@ -72,4 +72,4 @@ class InstallWizard {
     bool continued_{false};
 };
 
-} // namespace iideck::steam
+} // namespace opensu::steam

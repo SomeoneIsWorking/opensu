@@ -1,10 +1,10 @@
 // pad_translator — turns one physical pad's evdev events into an Xbox 360-layout virtual pad's
-// events and into iideck's controls.
+// events and into opensu's controls.
 //
 // Codes follow the kernel's gamepad API (BTN_SOUTH, ABS_X, ABS_HAT0X, ...), which xpad,
 // hid-playstation and hid-nintendo share; only ranges and d-pad style differ, so a pad's axes are
 // rescaled to the virtual pad's and a d-pad reported as buttons becomes the hat. Guide is never
-// forwarded: it belongs to iideck. Pure state, so it is tested without devices.
+// forwarded: it belongs to opensu. Pure state, so it is tested without devices.
 #pragma once
 
 #include <cstdint>
@@ -14,7 +14,7 @@
 
 #include "event.hpp"
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 
 /// One evdev event, without its timestamp.
 struct PadEvent {
@@ -48,7 +48,7 @@ class PadTranslator {
     explicit PadTranslator(PadCapabilities physical);
 
     /// Translates one physical event: what the virtual pad should receive goes to `forward`,
-    /// control presses and releases for iideck to `controls`.
+    /// control presses and releases for opensu to `controls`.
     void translate(const PadEvent& in, std::vector<PadEvent>& forward,
                    std::vector<Event>& controls);
 
@@ -75,4 +75,4 @@ class PadTranslator {
     std::map<Button, bool> stickHeld_;
 };
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

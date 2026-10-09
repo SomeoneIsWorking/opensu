@@ -1,4 +1,4 @@
-// gog_token — the GOG sign-in iideck keeps between runs.
+// gog_token — the GOG sign-in opensu keeps between runs.
 #pragma once
 
 #include <cstdint>
@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-namespace iideck::library::gog {
+namespace opensu::library::gog {
 
 /// What GOG's token endpoint granted.
 struct Token {
@@ -26,7 +26,7 @@ class TokenStore {
   public:
     explicit TokenStore(std::filesystem::path file);
 
-    /// The store in iideck's data directory, which sign-in and the library both open.
+    /// The store in opensu's data directory, which sign-in and the library both open.
     [[nodiscard]] static TokenStore under(const std::filesystem::path& dataDir);
 
     /// The saved token; nothing when none was saved yet. Throws when the file is unreadable or
@@ -44,4 +44,4 @@ class TokenStore {
     std::filesystem::path file_;
 };
 
-} // namespace iideck::library::gog
+} // namespace opensu::library::gog

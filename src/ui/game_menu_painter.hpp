@@ -4,7 +4,7 @@
 #include "button_glyph.hpp"
 #include "game_menu.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 class GameMenuPainter {
   public:
@@ -18,4 +18,4 @@ class GameMenuPainter {
     ButtonGlyphPainter glyphs_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

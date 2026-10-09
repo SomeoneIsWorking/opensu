@@ -25,26 +25,26 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::artwork::ApkArchive;
-using iideck::artwork::ApkAsset;
-using iideck::artwork::ApkFile;
-using iideck::artwork::ArtworkFetcher;
-using iideck::artwork::ArtworkStore;
-using iideck::artwork::ConsoleGlyphs;
-using iideck::artwork::Fetched;
-using iideck::artwork::navAsset;
-using iideck::artwork::PackPin;
-using iideck::artwork::soundAsset;
-using iideck::artwork::StarterPack;
-using iideck::artwork::fixture::buildZip;
-using iideck::artwork::fixture::crcOf;
-using iideck::artwork::fixture::FixtureEntry;
-using iideck::artwork::fixture::RangeServer;
-using iideck::audio::Effect;
-using iideck::library::Console;
-using iideck::library::Section;
-using iideck::library::ShelfItem;
-using iideck::net::WebClient;
+using opensu::artwork::ApkArchive;
+using opensu::artwork::ApkAsset;
+using opensu::artwork::ApkFile;
+using opensu::artwork::ArtworkFetcher;
+using opensu::artwork::ArtworkStore;
+using opensu::artwork::ConsoleGlyphs;
+using opensu::artwork::Fetched;
+using opensu::artwork::navAsset;
+using opensu::artwork::PackPin;
+using opensu::artwork::soundAsset;
+using opensu::artwork::StarterPack;
+using opensu::artwork::fixture::buildZip;
+using opensu::artwork::fixture::crcOf;
+using opensu::artwork::fixture::FixtureEntry;
+using opensu::artwork::fixture::RangeServer;
+using opensu::audio::Effect;
+using opensu::library::Console;
+using opensu::library::Section;
+using opensu::library::ShelfItem;
+using opensu::net::WebClient;
 
 constexpr int cardSize = 8;
 constexpr std::string_view packEntry = "assets/iiSU_StarterPack.zip";
@@ -306,7 +306,7 @@ void testUnreachable(const fs::path& root) {
 
 int main() {
     try {
-        const fs::path root = fs::temp_directory_path() / "iideck-starter-pack-test";
+        const fs::path root = fs::temp_directory_path() / "opensu-starter-pack-test";
         fs::remove_all(root);
         testDownload(root / "small", 0);
         testDownload(root / "large", 1200);

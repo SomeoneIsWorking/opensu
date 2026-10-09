@@ -4,7 +4,7 @@
 #include <cctype>
 #include <cstdio>
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 std::string ClockText::format(int hour, int minute, bool twentyFourHour) {
     char text[16]{};
@@ -29,4 +29,4 @@ bool ClockText::hasLetters(std::string_view text) noexcept {
     });
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

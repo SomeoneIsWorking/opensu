@@ -26,12 +26,12 @@
 
 namespace {
 
-using iideck::steam::DevTools;
-using iideck::steam::Download;
-using iideck::steam::DownloadQueue;
-using iideck::steam::InstallStep;
-using iideck::steam::InstallWizard;
-using iideck::steam::LaunchActivity;
+using opensu::steam::DevTools;
+using opensu::steam::Download;
+using opensu::steam::DownloadQueue;
+using opensu::steam::InstallStep;
+using opensu::steam::InstallWizard;
+using opensu::steam::LaunchActivity;
 using nlohmann::json;
 
 void expect(bool condition, const char* what) {
@@ -241,7 +241,7 @@ void testDownloadsParse() {
         {"appid": 1, "completed": false,
          "update_type_info": [{"has_update": true, "overall_percent_complete": 5}]}]}]
     })");
-    const std::vector<Download> downloads = iideck::steam::parseDownloads(answer);
+    const std::vector<Download> downloads = opensu::steam::parseDownloads(answer);
     expect(downloads.size() == 2, "finished and remote downloads are left out");
     expect(downloads[0].appId == "960090" && downloads[0].active && downloads[0].progress == 0.53 &&
                downloads[0].secondsLeft == 34,
@@ -249,7 +249,7 @@ void testDownloadsParse() {
     expect(downloads[1].appId == "292030" && !downloads[1].active && downloads[1].paused &&
                downloads[1].progress == 0.10 && !downloads[1].secondsLeft,
            "a queued download keeps its own part's progress");
-    expect(iideck::steam::parseDownloads(json::object()).empty(), "no answer, no downloads");
+    expect(opensu::steam::parseDownloads(json::object()).empty(), "no answer, no downloads");
 }
 
 void testQueueReadsThroughDevTools() {
@@ -279,7 +279,7 @@ void testLaunchActivityParse() {
                    "ended": true}},
       "running": {"960090": true, "480": false}
     })");
-    const iideck::steam::Activities activities = iideck::steam::parseActivities(record);
+    const opensu::steam::Activities activities = opensu::steam::parseActivities(record);
     expect(activities.size() == 3, "every app the record names is read");
     const auto& setup = activities.at("268910");
     expect(setup.actionId == 5 && setup.task == "Running first-time setup" && !setup.actionEnded &&
@@ -291,7 +291,7 @@ void testLaunchActivityParse() {
            "Steam's own words and running state are kept");
     expect(activities.at("480").running == false && activities.at("480").actionId == 0,
            "a running state without an action stands alone");
-    expect(iideck::steam::parseActivities(json{}).empty(), "no record, no activity");
+    expect(opensu::steam::parseActivities(json{}).empty(), "no record, no activity");
 }
 
 void testLaunchActivityReadsThroughDevTools() {
@@ -304,7 +304,7 @@ void testLaunchActivityReadsThroughDevTools() {
     DevTools devTools{steam.port()};
     LaunchActivity launches{devTools};
     std::string error;
-    const std::optional<iideck::steam::Activities> read = launches.read(error);
+    const std::optional<opensu::steam::Activities> read = launches.read(error);
     expect(read && read->at("7").running == true, "activity is read from Steam");
 }
 

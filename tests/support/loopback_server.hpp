@@ -8,7 +8,7 @@
 
 #include "lucent/http.h"
 
-namespace iideck::test {
+namespace opensu::test {
 
 class LoopbackServer {
   public:
@@ -32,4 +32,4 @@ inline lucent::http::Response reply(int status, std::string body) {
     return lucent::http::Response::json(status, "Test", std::move(body));
 }
 
-} // namespace iideck::test
+} // namespace opensu::test

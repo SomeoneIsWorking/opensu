@@ -8,12 +8,12 @@
 
 namespace {
 
-using iideck::app::ControlChannel;
-using iideck::app::ControlTarget;
-using iideck::app::ShellSnapshot;
-using iideck::app::SignInResult;
-using iideck::app::SignInService;
-using iideck::app::Store;
+using opensu::app::ControlChannel;
+using opensu::app::ControlTarget;
+using opensu::app::ShellSnapshot;
+using opensu::app::SignInResult;
+using opensu::app::SignInService;
+using opensu::app::Store;
 using lucent::http::Request;
 using lucent::http::Response;
 
@@ -33,7 +33,7 @@ class FakeShell final : public ControlTarget {
     [[nodiscard]] ShellSnapshot snapshot() const override {
         return state;
     }
-    void inject(iideck::gamepad::Button button, iideck::input::Device device) override {
+    void inject(opensu::gamepad::Button button, opensu::input::Device device) override {
         pressed.push_back(button);
         devices.push_back(device);
     }
@@ -47,8 +47,8 @@ class FakeShell final : public ControlTarget {
     }
 
     std::vector<std::string> reloads;
-    std::vector<iideck::gamepad::Button> pressed;
-    std::vector<iideck::input::Device> devices;
+    std::vector<opensu::gamepad::Button> pressed;
+    std::vector<opensu::input::Device> devices;
     ShellSnapshot state;
 };
 
@@ -167,7 +167,7 @@ void testSectionButtons() {
     FakeShell shell;
     FakeSignIn signIn;
     ControlChannel channel{shell, signIn, 0};
-    using iideck::gamepad::Button;
+    using opensu::gamepad::Button;
 
     for (const char* name : {"l1", "r1", "start"}) {
         expect(channel.handle(post("/input", name)).status == 200, "the dock's buttons are input");
@@ -180,7 +180,7 @@ void testKeyboardInput() {
     FakeShell shell;
     FakeSignIn signIn;
     ControlChannel channel{shell, signIn, 0};
-    using iideck::input::Device;
+    using opensu::input::Device;
 
     expect(channel.handle(post("/input", "a")).status == 200, "a pad press is input");
     expect(channel.handle(post("/input", "a keyboard")).status == 200, "a key press is input");

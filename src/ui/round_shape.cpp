@@ -9,7 +9,7 @@
 
 #include "rlgl.h"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 /// Points around a rounded rectangle, clockwise on screen from the top-left arc. Every
@@ -233,4 +233,4 @@ void drawTextureRound(const RoundRect& shape, const Texture& texture, Rectangle 
     bindWhite();
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

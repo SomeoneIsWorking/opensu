@@ -10,7 +10,7 @@
 
 #include "install_job.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 
 class CliInstallJob : public InstallJob {
   protected:
@@ -41,4 +41,4 @@ class CliInstallJob : public InstallJob {
     std::string logTag_;
 };
 
-} // namespace iideck::app
+} // namespace opensu::app

@@ -6,7 +6,7 @@
 
 #include "lucent/log.h"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 // A Gaussian of standard deviation `sigma` pixels along `direction`, on raylib's default vertex
@@ -160,4 +160,4 @@ void BackdropBlur::draw(const Rect& body, const Placement& placement) const {
     EndShaderMode();
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui

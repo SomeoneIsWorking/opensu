@@ -16,7 +16,7 @@ namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
-using iideck::launch::Instance;
+using opensu::launch::Instance;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -45,7 +45,7 @@ bool alive(pid_t pid) {
 }
 
 std::string unitName(const char* stem) {
-    return std::string{"iideck-test-"} + stem + "-" + std::to_string(getpid()) + ".scope";
+    return std::string{"opensu-test-"} + stem + "-" + std::to_string(getpid()) + ".scope";
 }
 
 pid_t readPid(const fs::path& path) {
@@ -79,7 +79,7 @@ pid_t startEscaper(Instance& instance, const char* stem, const fs::path& pidFile
 
 int main() {
     const fs::path scratch =
-        fs::path{IIDECK_TEST_SCRATCH} / ("iideck-instance-test-" + std::to_string(getpid()));
+        fs::path{OPENSU_TEST_SCRATCH} / ("opensu-instance-test-" + std::to_string(getpid()));
     fs::create_directories(scratch);
 
     {

@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace iideck::steam {
+namespace opensu::steam {
 namespace {
 
 using nlohmann::json;
@@ -82,4 +82,4 @@ std::optional<json> DevTools::evaluate(std::string_view expression, std::string&
     }
 }
 
-} // namespace iideck::steam
+} // namespace opensu::steam

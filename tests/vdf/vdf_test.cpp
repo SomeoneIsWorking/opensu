@@ -43,8 +43,8 @@ constexpr std::string_view kManifest = R"("AppState"
 )";
 
 void testManifest() {
-    iideck::vdf::ParseError error;
-    const auto doc = iideck::vdf::parse(kManifest, error);
+    opensu::vdf::ParseError error;
+    const auto doc = opensu::vdf::parse(kManifest, error);
     if (!doc) {
         fail("manifest parses");
     }
@@ -56,8 +56,8 @@ void testManifest() {
 }
 
 void testCaseInsensitiveLookup() {
-    iideck::vdf::ParseError error;
-    const auto doc = iideck::vdf::parse(kManifest, error);
+    opensu::vdf::ParseError error;
+    const auto doc = opensu::vdf::parse(kManifest, error);
     if (!doc) {
         fail("manifest parses");
     }
@@ -65,8 +65,8 @@ void testCaseInsensitiveLookup() {
 }
 
 void testQuotedEscapes() {
-    iideck::vdf::ParseError error;
-    const auto doc = iideck::vdf::parse(R"("root" { "path" "D:\\Steam Library" })", error);
+    opensu::vdf::ParseError error;
+    const auto doc = opensu::vdf::parse(R"("root" { "path" "D:\\Steam Library" })", error);
     if (!doc) {
         fail("escaped path parses");
     }
@@ -74,8 +74,8 @@ void testQuotedEscapes() {
 }
 
 void testBareTokens() {
-    iideck::vdf::ParseError error;
-    const auto doc = iideck::vdf::parse(R"("root" { bare unquoted })", error);
+    opensu::vdf::ParseError error;
+    const auto doc = opensu::vdf::parse(R"("root" { bare unquoted })", error);
     if (!doc) {
         fail("bare token parses");
     }
@@ -107,8 +107,8 @@ constexpr std::string_view kLibraryFoldersLegacy = R"("LibraryFolders"
 )";
 
 void testLibraryFoldersCurrent() {
-    iideck::vdf::ParseError error;
-    const auto doc = iideck::vdf::parse(kLibraryFoldersCurrent, error);
+    opensu::vdf::ParseError error;
+    const auto doc = opensu::vdf::parse(kLibraryFoldersCurrent, error);
     if (!doc) {
         fail("current libraryfolders parses");
     }
@@ -123,8 +123,8 @@ void testLibraryFoldersCurrent() {
 }
 
 void testLibraryFoldersLegacy() {
-    iideck::vdf::ParseError error;
-    const auto doc = iideck::vdf::parse(kLibraryFoldersLegacy, error);
+    opensu::vdf::ParseError error;
+    const auto doc = opensu::vdf::parse(kLibraryFoldersLegacy, error);
     if (!doc) {
         fail("legacy libraryfolders parses");
     }
@@ -171,8 +171,8 @@ void testUserConfigWrapper() {
 	}
 }
 )";
-    iideck::vdf::ParseError error;
-    const auto doc = iideck::vdf::parse(kUserConfig, error);
+    opensu::vdf::ParseError error;
+    const auto doc = opensu::vdf::parse(kUserConfig, error);
     if (!doc) {
         fail("user config parses");
     }
@@ -186,8 +186,8 @@ void testUserConfigWrapper() {
 }
 
 void testMissingPathIsAbsent() {
-    iideck::vdf::ParseError error;
-    const auto doc = iideck::vdf::parse(kManifest, error);
+    opensu::vdf::ParseError error;
+    const auto doc = opensu::vdf::parse(kManifest, error);
     if (!doc) {
         fail("manifest parses");
     }
@@ -196,12 +196,12 @@ void testMissingPathIsAbsent() {
 }
 
 void testMalformedIsRejected() {
-    iideck::vdf::ParseError error;
-    expect(!iideck::vdf::parse(R"("root" { "a" "b")", error).has_value(),
+    opensu::vdf::ParseError error;
+    expect(!opensu::vdf::parse(R"("root" { "a" "b")", error).has_value(),
            "unterminated block is rejected");
-    expect(!iideck::vdf::parse(std::string_view{R"("root" { "unterminated )"}, error).has_value(),
+    expect(!opensu::vdf::parse(std::string_view{R"("root" { "unterminated )"}, error).has_value(),
            "unterminated string is rejected");
-    expect(!iideck::vdf::parse(R"("root" { } })", error).has_value(),
+    expect(!opensu::vdf::parse(R"("root" { } })", error).has_value(),
            "stray close brace is rejected");
     expect(error.offset > 0, "the error reports an offset");
 }

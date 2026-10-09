@@ -5,7 +5,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 namespace {
 
 constexpr std::string_view borderDirectory = "assets/borders/";
@@ -69,4 +69,4 @@ ApkFile ConsoleGlyphs::fetch(const net::WebClient& web, std::string_view system)
     return apk_.fetch(web, std::string{borderDirectory} + logo->second);
 }
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

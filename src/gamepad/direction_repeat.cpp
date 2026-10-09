@@ -1,6 +1,6 @@
 #include "direction_repeat.hpp"
 
-namespace iideck::gamepad {
+namespace opensu::gamepad {
 
 bool DirectionRepeat::repeats(Button button) {
     return button == Button::Up || button == Button::Down || button == Button::Left ||
@@ -34,4 +34,4 @@ std::optional<Button> DirectionRepeat::poll(Clock::time_point now) {
     return held_;
 }
 
-} // namespace iideck::gamepad
+} // namespace opensu::gamepad

@@ -17,12 +17,12 @@
 namespace {
 
 namespace fs = std::filesystem;
-using iideck::library::Game;
-using iideck::library::roms::Emulators;
-using iideck::library::roms::EmulatorSearch;
-using iideck::library::roms::gameFile;
-using iideck::library::roms::Provider;
-using iideck::library::roms::systemForFolder;
+using opensu::library::Game;
+using opensu::library::roms::Emulators;
+using opensu::library::roms::EmulatorSearch;
+using opensu::library::roms::gameFile;
+using opensu::library::roms::Provider;
+using opensu::library::roms::systemForFolder;
 
 [[noreturn]] void fail(const char* what) {
     std::fprintf(stderr, "FAIL: %s\n", what);
@@ -54,7 +54,7 @@ void writeExecutable(const fs::path& path) {
 }
 
 struct Fixture {
-    fs::path base = fs::temp_directory_path() / ("iideck-roms-test-" + std::to_string(getpid()));
+    fs::path base = fs::temp_directory_path() / ("opensu-roms-test-" + std::to_string(getpid()));
     fs::path home = base / "home";
     fs::path mounts = base / "mnt";
     fs::path root = mounts / "Boy" / "ROM";
@@ -132,7 +132,7 @@ void gameFiles(const Fixture& f) {
 }
 
 void rootsAreDiscovered(const Fixture& f) {
-    const std::vector<fs::path> roots = iideck::library::roms::discoverRoots(f.home, {f.mounts});
+    const std::vector<fs::path> roots = opensu::library::roms::discoverRoots(f.home, {f.mounts});
     expect(roots.size() == 1 && roots.front() == f.root,
            "the drive's ROM folder is the one root; a roms folder without systems is not");
 }

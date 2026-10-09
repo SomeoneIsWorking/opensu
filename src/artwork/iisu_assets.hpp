@@ -1,4 +1,4 @@
-// iisu_assets — the files iideck takes out of iiSU's APK as they are and keeps in the artwork
+// iisu_assets — the files opensu takes out of iiSU's APK as they are and keeps in the artwork
 // store: its UI sounds and the dock's icons. One description of such a file serves the store, which
 // names where it is kept, and the fetcher, which names where it is in the APK.
 #pragma once
@@ -11,7 +11,7 @@
 #include "audio/effect.hpp"
 #include "library/sections.hpp"
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 
 /// What an asset is for, which is also the store folder it is kept in.
 enum class AssetKind : std::uint8_t { Sound, NavIcon };
@@ -55,4 +55,4 @@ inline constexpr std::array allNavIcons{
 /// The dock icon whose store file is `file`, or nothing.
 [[nodiscard]] std::optional<NavIcon> navIconOfFile(std::string_view file) noexcept;
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

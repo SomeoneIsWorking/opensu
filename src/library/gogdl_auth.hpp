@@ -1,6 +1,6 @@
 // gogdl_auth — the token in the file format gogdl reads with `--auth-config-path`.
 //
-// iideck's TokenStore stays the one saved token. For an install the token is handed to gogdl in
+// opensu's TokenStore stays the one saved token. For an install the token is handed to gogdl in
 // this transient file; whatever gogdl refreshed during a long download is taken back afterwards.
 #pragma once
 
@@ -9,7 +9,7 @@
 
 #include "gog_token.hpp"
 
-namespace iideck::library::gog {
+namespace opensu::library::gog {
 
 class GogdlAuthFile {
   public:
@@ -32,4 +32,4 @@ class GogdlAuthFile {
     std::filesystem::path file_;
 };
 
-} // namespace iideck::library::gog
+} // namespace opensu::library::gog

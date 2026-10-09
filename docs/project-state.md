@@ -2,7 +2,7 @@
 
 ## Comparison baseline
 
-The baseline is what this machine does today with no iideck installed: Steam's
+The baseline is what this machine does today with no openSU installed: Steam's
 own Big Picture (`steam -gamepadui`) launched under Gamescope, switched to by
 hand from a Fedora KDE Plasma session. That UI lists Steam only. Epic needs
 Legendary or Heroic in a separate window, GOG needs Heroic (or gogdl and a script), and emulators and
@@ -10,7 +10,7 @@ ROMs have no home at all.
 
 Visible deltas from the baseline:
 
-- Epic games (Legendary) and the player's GOG library (iideck's own sign-in) sit in the
+- Epic games (Legendary) and the player's GOG library (openSU's own sign-in) sit in the
   same grid as Steam; emulator ROMs sit behind one tile per console in the Library section, and
   each store and the combined "All games" library behind a tile of its own there.
 - A dock (Home, Library) switches sections with L1/R1; Library has Standard, XMB and Carousel
@@ -38,18 +38,18 @@ game has been observed running yet.
 | S005 | iiSU home grid: Standard (Flow) and WiiSu (Paged) modes, top bar, prompts | partial | S001 | G002 |
 | S012 | Loopback control channel: state, injected input, frame capture | verified | S001 | G003 |
 | S006 | Epic source via Legendary: owned titles (`list --json`), install state (`list-installed --json`) | verified | — | G001 |
-| S007 | GOG source: iideck's own sign-in, token, owned-games listing, installs through gogdl | partial | S018 | G001 |
-| S018 | Store sign-in from the player's browser via the iideck-signin extension (GOG, Epic) | partial | S012 | G001 |
+| S007 | GOG source: openSU's own sign-in, token, owned-games listing, installs through gogdl | partial | S018 | G001 |
+| S018 | Store sign-in from the player's browser via the opensu-signin extension (GOG, Epic) | partial | S012 | G001 |
 | S008 | ROM source with per-system emulator launch, found without configuration | verified | — | G001 |
 | S009 | Haptic rumble | missing | S003 | G003 |
 | S010 | Own login session entry on Gamescope | missing | — | G004 |
-| S013 | iideck runs in a nested Gamescope inside KDE at the output's resolution | partial | S004 | G004 |
+| S013 | openSU runs in a nested Gamescope inside KDE at the output's resolution | partial | S004 | G004 |
 | S014 | Alt+F4 closes the game in nested mode while Alt+Tab stays with KDE | partial | S013 | G004 |
 | S015 | Shell owns every instance it starts and can force-close it from the pad | partial | S004 | G003 |
 | S017 | Per-game render resolution with Gamescope FSR upscaling, Deck-style | missing | — | G004 |
-| S016 | Steam client started and owned by iideck, with its state in the top bar | partial | S015 | G003, G004 |
+| S016 | Steam client started and owned by openSU, with its state in the top bar | partial | S015 | G003, G004 |
 | S011 | Steam's own components kept out of the game grid | partial | S002 | G001 |
-| S019 | iiSU's UI sounds on the events iideck shares with iiSU | partial | S005 | G002 |
+| S019 | iiSU's UI sounds on the events openSU shares with iiSU | partial | S005 | G002 |
 
 ## Capability details
 
@@ -73,7 +73,7 @@ game's playtime was zeroed.
 
 ### S019 — UI sounds
 
-The twelve iiSU effects that have an iideck event are fetched by range from the pinned APK's
+The twelve iiSU effects that have an openSU event are fetched by range from the pinned APK's
 `assets/` into `<cache>/artwork/sound/` (about 1 MB, CRC checked, same worker as the cards) and
 played through raylib's audio device (`audio::SoundPlayer`). Always on; there is no volume or
 mute setting. Events (`input-sound.md` 3.4): Navigation on a D-pad focus move in the grid and the
@@ -91,7 +91,7 @@ restarts it).
 ### S005 — Home grid
 
 Rebuilt from iiSU's decompiled code (`reference/iisu/home-grid.md`, `motion.md`,
-`input-sound.md`), not from screenshots. `IIDECK_HOME_MODE` picks the mode:
+`input-sound.md`), not from screenshots. `OPENSU_HOME_MODE` picks the mode:
 
 - `standard` (default) is iiSU's Flow grid: 3 rows, column-major, square cells,
   scrolling horizontally with iiSU's lead margin and eased scroll (`hx2.g`,
@@ -108,7 +108,7 @@ letter, in `tx2`/`tw2` draw order, always the dark variant as iiSU's home config
 fixes `darkHeroScrim`) and `PagePillPainter` (dark variant). The shell composes
 them under `Hud`: iiSU's single-screen top bar (`TopBarMetrics` for is7/hs7/a32.o
 sizes, `StatusPillPainter` for the bell, clock, battery and R2 glyph, `ClockText`
-for o28.g's format and k42's minute tick), the corner hints and iideck's toast.
+for o28.g's format and k42's minute tick), the corner hints and openSU's toast.
 The battery comes from `device::BatteryReader` (sysfs, system scope only); the
 12/24-hour choice from the LC_TIME locale in `config`. The title pill (`jj2.c`)
 names the focused tile everywhere, Home included, where iiSU's Home shows none. There are no feature tiles or badges on game tiles.
@@ -140,7 +140,7 @@ only for Home. That rule is read from `roms_standard_light_categories.png`; the 
 branch (`ou4.q` builds placeholders for every Grid caller). Its left inset equals Home's (8 dp edge
 inset, measured the same in both captures). Page dots and the right arrow draw in WiiSu (Paged) mode
 as in `home_dock_light.png`, which is a WiiSu capture; Standard mode has none, as in
-`home_standard_light_initial.png`. Deviation: iideck opens the
+`home_standard_light_initial.png`. Deviation: openSU opens the
 cards page directly from START; iiSU goes START, "Customize Platforms", header arrow, cards. The
 chooser lacks iiSU's options list below the cards. The title shadow numbers are a `// guess:`.
 
@@ -155,7 +155,7 @@ A console tile is
 iiSU's own card for it when the starter pack has one (below), drawn as the whole
 tile, cover-fit and clipped at the content radius: the card carries the glyph and
 its frame, so the tile has no name or count. Without a card (not downloaded yet,
-offline, or a system the pack lacks, such as PS4) it keeps iideck's own tile: the
+offline, or a system the pack lacks, such as PS4) it keeps openSU's own tile: the
 platform's gradient (a neutral one for a system the gradient table lacks) with the
 console's name and game count, broken onto two lines at a space when one is too
 wide, at one name size so the typeface loads one face. A launcher tile is the same
@@ -176,7 +176,7 @@ A tile loads its artwork the first time it is drawn,
 so a shelf change or a download needs no separate load step.
 
 Artwork that no source has on disk is downloaded in the background
-(`artwork::ArtworkFetcher`) into `<cache>/artwork` (`$XDG_CACHE_HOME/iideck`):
+(`artwork::ArtworkFetcher`) into `<cache>/artwork` (`$XDG_CACHE_HOME/opensu`):
 a Steam game's `library_600x900.jpg`, else `header.jpg`, from Steam's CDN; an Epic
 game's key image from `Game::artworkUrl` (`epic::Provider` takes it from `legendary list
 --json` `metadata.keyImages`: `DieselGameBoxTall`, else `DieselGameBox`, else `Thumbnail`),
@@ -219,7 +219,7 @@ arrive (`ui::GlyphTextures`). Without a glyph the tab stays empty. Console cards
 tiles are unchanged. Measured against the real APK: five glyphs (gc, psx, snes, n64, switch)
 are 4.3 KB in 8.8 s, over about 11 requests, most of it GitHub's redirect latency.
 
-The friends slot (`a32.e`), empty in iideck otherwise, holds the launcher badges
+The friends slot (`a32.e`), empty in openSU otherwise, holds the launcher badges
 (`ui::LauncherBadgePainter`, mapped in `app::launcherBadges`): Steam, Epic and
 GOG, each its Simple Icons logo in an avatar circle at a32.e's avatar size, spaced
 rather than overlapped, with a presence dot (green ready, amber starting with a
@@ -250,13 +250,13 @@ Stopgaps, each marked in code:
   is not drawn; the bell is drawn at the progress ring's size; the status text row
   is centred after the bell; text ink is the icons' `#4D4655`.
 - Corner prompt panels: the right panel shows "A Select" without iiSU's "+ Menu",
-  because iideck has no START menu; their glass is the fill only, like the top bar's.
+  because openSU has no START menu; their glass is the fill only, like the top bar's.
 - The battery is re-read on the clock's minute tick; there is no uevent listener.
 
 Gaps: items are ordered by install state and recency rather than iiSU's user
 arrangement; WiiSu placeholders do not take focus as they do in iiSU; held
 keyboard directions repeat every frame. The top bar's R2 glyph and bell hint at
-notifications iideck does not have, and "B Back" is shown as iiSU shows it although B
+notifications openSU does not have, and "B Back" is shown as iiSU shows it although B
 does nothing on Home.
 
 Offscreen rendering is how the layout became checkable at all: the shell is a
@@ -276,7 +276,7 @@ implemented, so covers are shown at their store's own colours.
 
 `gamepad::Pads` reads every evdev node that is a gamepad (`BTN_SOUTH` and a left
 stick), so a keyboard is never one, and watches `/dev/input` with inotify so a pad
-switched on later is picked up; it skips iideck's own and Steam Input's virtual pads.
+switched on later is picked up; it skips openSU's own and Steam Input's virtual pads.
 `gamepad::PadTranslator` maps the kernel's gamepad codes to the shell's controls,
 the left stick and hat included, so any driver following them works (xpad, xone,
 hid-playstation, hid-nintendo). Held directions, from a pad or the keyboard, move
@@ -299,7 +299,7 @@ dock only: `Shell::pointDock` hovers an item, slides a hidden dock in over its r
 and a left click goes to `ShellApp::clickSection`, the L1/R1 path (`cycleSection`). Tiles, the
 chooser and the panels have no pointer input. Tested: `last_device`, `keyboard_bindings`,
 `dock_metrics` (`dockItemAt`), `sections` (`stepsBetween`), `control_channel` (`a keyboard`).
-`iideck --render FILE --keyboard` draws the keyboard's prompts; `POST /input` takes `a keyboard`
+`opensu --render FILE --keyboard` draws the keyboard's prompts; `POST /input` takes `a keyboard`
 and `/state` reports `inputDevice`.
 
 Gap: not yet confirmed on the real Xbox controller, or the dock hover and click with a real
@@ -350,13 +350,13 @@ menu (`docs/issues/guide-shrinks-game.md`); not reproduced.
 
 ### S007, S018 — GOG library and store sign-in
 
-GOG (`library/gog_auth.*`, `gog_token.*`, `gog.*`): iideck signs in itself, with GOG
+GOG (`library/gog_auth.*`, `gog_token.*`, `gog.*`): openSU signs in itself, with GOG
 Galaxy's own client id and secret as minigalaxy and gogdl do (GOG has no third-party
 registration). `Auth::loginUrl` is the page the player signs in on; it ends on
 `https://embed.gog.com/on_login_success?origin=client&code=<code>`, and `Auth::signIn`
 exchanges the code at `auth.gog.com/token`. The token (access, refresh, expiry, user id)
-is one JSON file, `<data dir>/gog-token.json` (`$XDG_DATA_HOME/iideck`, else
-`~/.local/share/iideck`), mode 0600 in a 0700 directory, replaced atomically;
+is one JSON file, `<data dir>/gog-token.json` (`$XDG_DATA_HOME/opensu`, else
+`~/.local/share/opensu`), mode 0600 in a 0700 directory, replaced atomically;
 `Auth::accessToken` refreshes it a minute before it expires. The library is
 `embed.gog.com/account/getFilteredProducts?mediaType=1&page=N` (minigalaxy's call): one
 request per page returns id, title and image, so no per-game requests. Games are listed
@@ -371,7 +371,7 @@ Heroic's `heroic-gogdl` 1.3.1, installed with `uv tool install` pinned to a revi
 Decisions:
 
 - Token: `TokenStore` stays the only saved token. Before each install the job refreshes it
-  through `Auth::accessToken` (iideck's refresh) and writes it for gogdl with
+  through `Auth::accessToken` (openSU's refresh) and writes it for gogdl with
   `gog::GogdlAuthFile` into `<data dir>/gogdl-auth.json` (0600): gogdl keys credentials by
   Galaxy's client id with `access_token`, `refresh_token`, `loginTime` and `expires_in`
   (`gogdl/auth.py`). A download longer than the token's life makes gogdl refresh and rotate the
@@ -401,8 +401,8 @@ Sign-in is a browser flow (`app::StoreSignIn`, driven by the control channel's `
 routes). `open` runs `xdg-open <page>`, so the player's default browser (Zen here) is used
 and Flatpak browsers need no special case. The page is GOG's above, or Legendary's
 `https://legendary.gl/epiclogin`, which redirects to Epic's login. A WebExtension,
-`extension/iideck-signin/` (Manifest V3, Firefox/Zen 142+), watches for the two endings and
-POSTs the code to `http://127.0.0.1:7311/signin/<store>`, then closes the tab once iideck
+`extension/opensu-signin/` (Manifest V3, Firefox/Zen 142+), watches for the two endings and
+POSTs the code to `http://127.0.0.1:7311/signin/<store>`, then closes the tab once openSU
 answered 200:
 
 - GOG: `webNavigation` on `embed.gog.com/on_login_success`, the `code` query parameter.
@@ -413,8 +413,8 @@ answered 200:
   0 even when Epic refuses the code, so the Epic badge after the reload is the proof.
 
 Loading it: `about:debugging` → This Firefox → Load Temporary Add-on →
-`extension/iideck-signin/manifest.json` (gone at browser restart). The port is the constant
-`IIDECK_PORT` in `background.js`, iideck's default 7311; edit it when `IIDECK_CONTROL_PORT`
+`extension/opensu-signin/manifest.json` (gone at browser restart). The port is the constant
+`OPENSU_PORT` in `background.js`, openSU's default 7311; edit it when `OPENSU_CONTROL_PORT`
 differs. Linted with `web-ext lint` (clean); not yet loaded in Zen against a live sign-in.
 
 Known gaps: `lucent::http::Server` keeps no request headers, so the channel cannot check
@@ -430,7 +430,7 @@ A loopback HTTP channel, part of the product rather than a debug flag, so an
 automated run can drive the shell with no controller and no compositor in the way.
 `GET /state` returns the shell's state as JSON, `POST /input` queues a tap (press and release) of a button by
 name, `GET /frame.png` returns the next frame as PNG bytes, `POST /quit` closes
-the shell. `IIDECK_CONTROL_PORT` moves the port; it cannot be closed, because it
+the shell. `OPENSU_CONTROL_PORT` moves the port; it cannot be closed, because it
 is how the shell is driven. It binds loopback only and names no file to read or
 write — frames come back as bytes over the response.
 
@@ -458,22 +458,22 @@ Missing: the raylib reader that had it is gone; evdev force feedback is the way 
 
 ### S010 — Own login session
 
-There is no session entry, so iideck can only run as a window inside another
+There is no session entry, so openSU can only run as a window inside another
 session.
 
 ### S013 — Nested Gamescope session
 
 Outside Gamescope (`Config::insideGamescope`, from `GAMESCOPE_WAYLAND_DISPLAY`)
-`session::NestedSession` runs iideck itself as `gamescope -W -H -w -h -r -f --
-iideck ...` with the current monitor's size and refresh from raylib
+`session::NestedSession` runs openSU itself as `gamescope -W -H -w -h -r -f --
+opensu ...` with the current monitor's size and refresh from raylib
 (`session::readMonitor`), in the scope `<session>-compositor.scope` with
-`IIDECK_SESSION` set for the inner iideck. When Gamescope ends it stops every
+`OPENSU_SESSION` set for the inner opensu. When Gamescope ends it stops every
 other scope named `<session>-*`, and SIGINT/SIGTERM stop the session through its
 scopes. Games are never wrapped in a Gamescope of their own. The argument vector
 and the session's run, leftover cleanup and signal path (against a fake
 `gamescope`) are tested; no nested session has been run against a display yet.
-The binary is the pinned fork of S014, at `Config::gamescope`; a missing binary (iideck
-configured with `IIDECK_BUILD_GAMESCOPE=OFF`) is a one-line error, not a PATH lookup. The
+The binary is the pinned fork of S014, at `Config::gamescope`; a missing binary (openSU
+configured with `OPENSU_BUILD_GAMESCOPE=OFF`) is a one-line error, not a PATH lookup. The
 fork is built in podman (S014), so the host needs podman and nothing else.
 
 ### S014 — Alt+F4 in nested mode
@@ -485,7 +485,7 @@ Gamescope answers a close with `raise(SIGTERM)` on every backend (3.16.29
 session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
-iideck therefore runs a fork, `SomeoneIsWorking/gamescope` branch `iideck`, pinned
+openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
 to commit `41e84d4f5870a06534e310ff279a19a137375f79` (3.16.29 plus one commit).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
@@ -497,10 +497,10 @@ image tagged by the Containerfile hash), then checks the staged binary with `ldd
 (Fedora hosts only; no host-build fallback) and stages it where `Config::gamescope` finds it, in the build
 tree and installed.
 
-With no game running, the focused app window is iideck's own, so Alt+F4 reaches
+With no game running, the focused app window is openSU's own, so Alt+F4 reaches
 raylib as a window close: `WindowShouldClose` ends the frame loop in
 `ShellApp::run`, which stops the control channel, calls `CloseWindow` and
-returns, the inner iideck exits, Gamescope ends with its only client and
+returns, the inner openSU exits, Gamescope ends with its only client and
 `NestedSession` stops the session's scopes. That is the intended desktop behaviour.
 
 Verified (virtual `kwin_wayland`, a KWin script closing Gamescope's window, an
@@ -516,8 +516,8 @@ nested is untested.
 
 ### S015 — Owned instances
 
-Every scope iideck creates is named `<session>-<role>[-N].scope`
-(`Config::session`: `IIDECK_SESSION`, else `iideck-<pid>`), and is a transient
+Every scope openSU creates is named `<session>-<role>[-N].scope`
+(`Config::session`: `OPENSU_SESSION`, else `opensu-<pid>`), and is a transient
 systemd user scope (`launch::Instance`), so processes that setsid or double-fork
 stay owned. A non-Steam game runs in its own scope,
 stopped when the game leaves. A Steam game is handed to the background client
@@ -531,19 +531,19 @@ Guide while a game runs opens a menu down the left edge over the dimmed game:
 Resume, Close game (`ui::GameMenu`, `GameMenuPainter`); Up/Down move, A selects,
 B or Guide resumes, and other buttons do nothing while a game runs. Shift+Tab, Steam's
 overlay key, is a Guide press (`session::GameKeys`): Gamescope gives a game's keys to
-the game's window on the Xwayland iideck shares, and XInput2 raw key events on the
-root reach iideck too, whatever has focus and only while the desktop gives Gamescope
+the game's window on the Xwayland openSU shares, and XInput2 raw key events on the
+root reach openSU too, whatever has focus and only while the desktop gives Gamescope
 the keyboard. Nothing is grabbed, so the game also sees the Shift+Tab. Tested:
 `game_keys` (the chord, and raw keys from XTest against Xvfb); verified headless with
 `xdotool` on Gamescope's Xwayland during a running game (Tab alone does nothing,
 Shift+Tab opens the menu and closes it). Not yet pressed on a physical keyboard
 through nested Gamescope. Inside Gamescope
-iideck's window stays mapped as Gamescope's overlay (`session::GamescopeOverlay`:
+openSU's window stays mapped as Gamescope's overlay (`session::GamescopeOverlay`:
 `STEAM_OVERLAY`, `_NET_WM_WINDOW_OPACITY` 0 while the menu is closed, and
 `STEAM_INPUT_FOCUS` while it is open); its window is sized to the output and has an
 ARGB visual, which is why it has no MSAA. Outside Gamescope the window is hidden
 during a game and shown for the menu. Verified headless: `gamescope --backend
-headless` running iideck with a ROM whose emulator execs `glxgears`, driven over the
+headless` running openSU with a ROM whose emulator execs `glxgears`, driven over the
 control channel (launch, guide, down, a), with full-composition screenshots
 (`GAMESCOPECTRL_REQUEST_SCREENSHOT` = 3 on the root; `gamescopectl screenshot`
 drops overlay planes). Driver: `scratch/overlay-test/drive.py`.
@@ -558,7 +558,7 @@ pads, held or not. A virtual pad is ready only once udev has opened it to the us
 so a game enumerating at once can open it. While
 the menu is open the virtual pads rest (held keys released, axes centred); on
 resume they take up the held axes, and keys held then stay up until pressed again.
-A game iideck starts gets `SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e`,
+A game openSU starts gets `SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e`,
 so SDL hides the grabbed pads. Tested: `pad_translator` (unit), `pads`
 against real uinput pads, `handoff` passing the environment; verified headless with
 a uinput pad driving the shell (`scratch/overlay-test/drive_pad.py`): B reaches the
@@ -607,7 +607,7 @@ Epic titles come from Legendary; neither store is signed in on this machine.
 
 ### S008 — ROMs
 
-ROM roots are found when `IIDECK_ROM_ROOTS` is unset: a `ROM`/`ROMs`/`roms` folder
+ROM roots are found when `OPENSU_ROM_ROOTS` is unset: a `ROM`/`ROMs`/`roms` folder
 in the home folder, `~/Emulation`, or at the top of a drive under `/mnt`,
 `/media/<user>` or `/run/media/<user>` that holds a known system's folder. Systems
 (`library/rom_systems`) are matched by folder name with only letters and digits
@@ -645,11 +645,11 @@ Reproduced from a real run: BTD6 with a 2.2 GB update left an empty Gamescope
 behind a hidden shell before the launch waited for it.
 
 `steam::Client` starts `dbus-run-session -- steam -silent -cef-enable-debugging` in `<session>-steam.scope`
-when iideck starts, if a Steam install exists, and watches it: Initializing until a logon line
+when openSU starts, if a Steam install exists, and watches it: Initializing until a logon line
 (`[Logged On` with `RecvMsgClientLogOnResponse() : processing complete`) is
 appended to `$HOME/.steam/steam/logs/connection_log.txt` after the start, Failed when
 the scope empties, Blocked when `$HOME/.steam/steam.pid` names a live client outside
-iideck. Steam launches wait for Ready, and are refused with a named message when
+opensu. Steam launches wait for Ready, and are refused with a named message when
 Blocked or Failed. On exit it runs `steam -shutdown`, waits up to 20 s, then stops
 the scope. The state shows as the Steam badge in the top bar's friends slot (S005)
 and in `/state` as `steam`. Tested with a fake home and fake `steam`; a real Steam

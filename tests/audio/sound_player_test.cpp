@@ -8,9 +8,9 @@
 
 namespace {
 
-using iideck::audio::Effect;
-using iideck::audio::SoundPlayer;
-using iideck::test::expect;
+using opensu::audio::Effect;
+using opensu::audio::SoundPlayer;
+using opensu::test::expect;
 
 void silentUntilOpened() {
     SoundPlayer player;

@@ -8,9 +8,9 @@
 
 namespace {
 
-using iideck::test::expect;
-using iideck::test::near;
-namespace motion = iideck::ui::motion;
+using opensu::test::expect;
+using opensu::test::near;
+namespace motion = opensu::ui::motion;
 
 void focus() {
     near(motion::focusScale(0.0f), 1.0f, "focus starts at 1.00");
@@ -22,7 +22,7 @@ void focus() {
 }
 
 void domino() {
-    expect(motion::dominoStep(iideck::ui::GridCell{2, 1, 2, 1, 0}) == 1,
+    expect(motion::dominoStep(opensu::ui::GridCell{2, 1, 2, 1, 0}) == 1,
            "the wave step is column minus row");
     motion::Entrance e = motion::domino(0.0f, 0);
     near(e.alpha, 0.0f, "the first tile starts transparent");
@@ -62,20 +62,20 @@ void scroll() {
     easer.snap(0.0f);
     easer.retarget(100.0f);
     // Unsettled: tau 50 ms, so a 16 ms frame moves 1 - e^(-16/50) of the way.
-    expect(easer.step(16.0f, 233.0f, 1256.0f, iideck::ui::ScrollMode::Flow), "it moves");
+    expect(easer.step(16.0f, 233.0f, 1256.0f, opensu::ui::ScrollMode::Flow), "it moves");
     near(easer.offset(), 27.385f, "one frame of the 50 ms time constant", 1e-2);
     float previous = easer.offset();
     for (int frame = 0; frame < 120; ++frame) {
-        easer.step(16.0f, 233.0f, 1256.0f, iideck::ui::ScrollMode::Flow);
+        easer.step(16.0f, 233.0f, 1256.0f, opensu::ui::ScrollMode::Flow);
         expect(easer.offset() >= previous && easer.offset() <= 100.0f,
                "approaches without overshoot");
         previous = easer.offset();
     }
     near(easer.offset(), 100.0f, "snaps to the target under half a pixel");
-    expect(!easer.step(16.0f, 233.0f, 1256.0f, iideck::ui::ScrollMode::Flow), "settled");
+    expect(!easer.step(16.0f, 233.0f, 1256.0f, opensu::ui::ScrollMode::Flow), "settled");
 
     easer.retarget(2000.0f);
-    easer.step(16.0f, 233.0f, 1256.0f, iideck::ui::ScrollMode::Flow);
+    easer.step(16.0f, 233.0f, 1256.0f, opensu::ui::ScrollMode::Flow);
     // A long jump is capped at min(distance, max(0.22 viewport, 0.85 pitch)) = 276.32.
     near(easer.offset(), 100.0f + 276.32f, "a long jump moves at most its step limit", 1e-2);
 }

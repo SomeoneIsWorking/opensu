@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <optional>
 
-namespace iideck::test {
+namespace opensu::test {
 
 [[noreturn]] inline void fail(const char* what) {
     std::fprintf(stderr, "FAIL: %s\n", what);
@@ -34,4 +34,4 @@ inline void near(double actual, double wanted, const char* what, double toleranc
     }
 }
 
-} // namespace iideck::test
+} // namespace opensu::test

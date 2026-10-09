@@ -1,4 +1,4 @@
-add_library(iideck_library STATIC
+add_library(opensu_library STATIC
     game.cpp
     catalog.cpp
     steam.cpp
@@ -16,12 +16,12 @@ add_library(iideck_library STATIC
     titles.cpp
     emulators.cpp
 )
-add_library(iideck::library ALIAS iideck_library)
-target_include_directories(iideck_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(iideck_library
-    PUBLIC iideck::vdf
-        iideck::config
-        iideck::net
-    PRIVATE iideck::command iideck::fileio lucent::lucent
+add_library(opensu::library ALIAS opensu_library)
+target_include_directories(opensu_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(opensu_library
+    PUBLIC opensu::vdf
+        opensu::config
+        opensu::net
+    PRIVATE opensu::command opensu::fileio lucent::lucent
 )
-target_compile_features(iideck_library PUBLIC cxx_std_20)
+target_compile_features(opensu_library PUBLIC cxx_std_20)

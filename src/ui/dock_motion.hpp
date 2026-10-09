@@ -2,7 +2,7 @@
 // icon's pop (navigation.md §1.4, §1.6, §1.7). Times are milliseconds on one monotonic clock.
 #pragma once
 
-namespace iideck::ui {
+namespace opensu::ui {
 
 /// Whether the dock is on screen, and how far it has slid in. On Home it is always shown; on
 /// another section only for `revealMs` after L1 or R1 (iiSU `jk2.java:937`).
@@ -72,4 +72,4 @@ class IconPop {
     float from_;
 };
 
-} // namespace iideck::ui
+} // namespace opensu::ui

@@ -5,7 +5,7 @@
 #include "install_job.hpp"
 #include "steam/client.hpp"
 
-namespace iideck::app {
+namespace opensu::app {
 
 class SteamInstallJob final : public InstallJob {
   public:
@@ -21,4 +21,4 @@ class SteamInstallJob final : public InstallJob {
     steam::Client& steam_;
 };
 
-} // namespace iideck::app
+} // namespace opensu::app

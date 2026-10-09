@@ -8,7 +8,7 @@
 #include "lucent/log.h"
 #include "rom_systems.hpp"
 
-namespace iideck::artwork {
+namespace opensu::artwork {
 namespace {
 
 bool isNotFound(const std::string& error) {
@@ -318,4 +318,4 @@ const std::vector<std::string>* ArtworkFetcher::index(const library::roms::RomSy
     return &indexes_.emplace(std::string{system}, std::move(*names)).first->second;
 }
 
-} // namespace iideck::artwork
+} // namespace opensu::artwork

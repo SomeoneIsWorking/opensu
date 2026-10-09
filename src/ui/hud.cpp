@@ -9,13 +9,13 @@
 #include "clock_text.hpp"
 #include "typeface.hpp"
 
-namespace iideck::ui {
+namespace opensu::ui {
 namespace {
 
 using Prompt = std::pair<const char*, const char*>;
 // iiSU mw5.h: ("B", "Back"), ("-", "Details").
 constexpr std::array<Prompt, 2> leftPrompts{Prompt{"B", "Back"}, Prompt{"-", "Details"}};
-// iiSU mw5.k: ("A", "Select"), ("+", "Menu"); iideck's START opens a menu in Library only.
+// iiSU mw5.k: ("A", "Select"), ("+", "Menu"); opensu's START opens a menu in Library only.
 constexpr std::array<Prompt, 1> rightPrompts{Prompt{"A", "Select"}};
 constexpr std::array<Prompt, 2> rightPromptsWithMenu{Prompt{"A", "Select"}, Prompt{"+", "Menu"}};
 // iiSU res/drawable/bell_icon.png ink, for the hint glyphs and labels.
@@ -99,7 +99,7 @@ void Hud::drawTopBar() {
 
     drawTitlePill(top);
 
-    // iiSU a32.e lays friends' avatars in this slot; iideck has no friends, so it holds the
+    // iiSU a32.e lays friends' avatars in this slot; opensu has no friends, so it holds the
     // launchers' badges, spaced rather than overlapped so each state reads on its own.
     const float avatar = TopBarMetrics::avatarSize() * dp;
     badges_.paint(launchers_, BadgeRow{.start = {TopBarMetrics::rowPaddingEnd * dp, body.centreY()},
@@ -190,4 +190,4 @@ void Hud::drawToast() const {
                        box.y + padding / 3.0f + type().lineBox(text) * 0.5f, text, WHITE);
 }
 
-} // namespace iideck::ui
+} // namespace opensu::ui
