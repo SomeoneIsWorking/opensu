@@ -33,8 +33,9 @@ class FakeShell final : public ControlTarget {
     [[nodiscard]] ShellSnapshot snapshot() const override {
         return state;
     }
-    void inject(iideck::gamepad::Button button) override {
+    void inject(iideck::gamepad::Button button, iideck::input::Device device) override {
         pressed.push_back(button);
+        devices.push_back(device);
     }
     [[nodiscard]] bool captureFrame(std::string& /*png*/) override {
         return false;
@@ -47,6 +48,7 @@ class FakeShell final : public ControlTarget {
 
     std::vector<std::string> reloads;
     std::vector<iideck::gamepad::Button> pressed;
+    std::vector<iideck::input::Device> devices;
     ShellSnapshot state;
 };
 
@@ -174,10 +176,25 @@ void testSectionButtons() {
            "L1, R1 and START reach the shell as those buttons");
 }
 
+void testKeyboardInput() {
+    FakeShell shell;
+    FakeSignIn signIn;
+    ControlChannel channel{shell, signIn, 0};
+    using iideck::input::Device;
+
+    expect(channel.handle(post("/input", "a")).status == 200, "a pad press is input");
+    expect(channel.handle(post("/input", "a keyboard")).status == 200, "a key press is input");
+    expect(shell.devices == std::vector<Device>{Device::Pad, Device::KeyboardMouse},
+           "the word keyboard says the press came from a key");
+    expect(channel.handle(post("/input", "a mouse")).status == 400, "no other device is named");
+    expect(shell.devices.size() == 2, "a refused press reaches nobody");
+}
+
 } // namespace
 
 int main() {
     testState();
+    testKeyboardInput();
     testSectionButtons();
     testStart();
     testComplete();

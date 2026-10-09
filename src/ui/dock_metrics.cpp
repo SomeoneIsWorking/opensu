@@ -77,4 +77,22 @@ DockLayout layoutDock(const DockMetrics& metrics, float width, float height, flo
     return out;
 }
 
+std::optional<std::size_t> dockItemAt(const DockLayout& layout, float slide, float x,
+                                      float y) noexcept {
+    if (y < layout.bar.y + slide || y > layout.bar.bottom() + slide) {
+        return std::nullopt;
+    }
+    for (std::size_t i = 0; i < layout.items.size(); ++i) {
+        if (x >= layout.items[i].x && x <= layout.items[i].right()) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
+bool onRestingDock(const DockLayout& layout, float x, float y) noexcept {
+    return x >= layout.bar.x && x <= layout.bar.right() && y >= layout.bar.y &&
+           y <= layout.bar.bottom();
+}
+
 } // namespace iideck::ui

@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "gamepad/event.hpp"
+#include "input/last_device.hpp"
 #include "lucent/http.h"
 #include "sign_in.hpp"
 
@@ -52,6 +53,8 @@ struct ShellSnapshot {
     std::string steam{"stopped"};
     /// The launcher badges, as `steam=ready epic=failed`.
     std::string launchers;
+    /// Which device the prompts name: "pad" or "keyboard".
+    std::string inputDevice{"pad"};
 };
 
 /// What the control channel may ask the shell to do. Implemented by the shell,
@@ -63,8 +66,8 @@ class ControlTarget {
     /// The shell's state. Callable from any thread.
     [[nodiscard]] virtual ShellSnapshot snapshot() const = 0;
 
-    /// Queues a button press, as if it came from a controller.
-    virtual void inject(gamepad::Button button) = 0;
+    /// Queues a button press, as if it came from `device`.
+    virtual void inject(gamepad::Button button, input::Device device) = 0;
 
     /// Renders the next frame to a PNG and answers when it is written. Blocks
     /// until the main loop has done it, or fails if it cannot.

@@ -45,6 +45,11 @@ std::string_view label(LibraryMode mode) noexcept {
     return {};
 }
 
+int Sections::stepsBetween(Section from, Section to) noexcept {
+    const int count = static_cast<int>(allSections.size());
+    return (static_cast<int>(to) - static_cast<int>(from) + count) % count;
+}
+
 Section Sections::cycle(int delta) noexcept {
     const int count = static_cast<int>(allSections.size());
     const int next = (static_cast<int>(active_) + delta) % count;

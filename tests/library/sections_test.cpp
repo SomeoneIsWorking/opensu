@@ -26,6 +26,19 @@ void cyclingWraps() {
     expect(sections.active() == Section::Home, "a tap selects a section directly");
 }
 
+void stepsReachASection() {
+    for (const Section from : iideck::library::allSections) {
+        for (const Section to : iideck::library::allSections) {
+            Sections sections;
+            sections.select(from);
+            expect(sections.cycle(Sections::stepsBetween(from, to)) == to,
+                   "the steps between two sections cycle from one to the other");
+        }
+    }
+    expect(Sections::stepsBetween(Section::Library, Section::Library) == 0,
+           "a section is no steps from itself");
+}
+
 void spellings() {
     expect(iideck::library::key(Section::Home) == "home" &&
                iideck::library::key(Section::Library) == "library",
@@ -46,6 +59,7 @@ void spellings() {
 
 int main() {
     cyclingWraps();
+    stepsReachASection();
     spellings();
     std::printf("sections: all checks passed\n");
     return 0;

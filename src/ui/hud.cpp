@@ -142,10 +142,12 @@ void Hud::drawPromptPanel(const HintPanelMetrics& panel, std::span<const Prompt>
     const float glyph = panel.glyphSize * dp;
     const float gap = panel.glyphGap * dp;
     float labels = 0.0f;
+    float column = glyph;
     for (const auto& [key, label] : prompts) {
         labels = std::max(labels, type().measure(label, text));
+        column = std::max(column, glyphs_.advance(key, glyph));
     }
-    const float width = 2.0f * panel.paddingHorizontal * dp + glyph + gap + labels;
+    const float width = 2.0f * panel.paddingHorizontal * dp + column + gap + labels;
     const float height = panel.height(dp) * dp;
     const float bottom = (atEnd ? panel.rightBottom : panel.leftBottom) * dp;
     const float x =
@@ -161,8 +163,8 @@ void Hud::drawPromptPanel(const HintPanelMetrics& panel, std::span<const Prompt>
     const float left = body.x + panel.paddingHorizontal * dp;
     for (const auto& [key, label] : prompts) {
         const float centreY = top + row * 0.5f;
-        glyphs_.paint(key, Vector2{left + glyph * 0.5f, centreY}, glyph, hintInk);
-        type().drawCentred(label, left + glyph + gap, centreY + panel.labelShift(key) * dp, text,
+        glyphs_.paint(key, Vector2{left + column * 0.5f, centreY}, glyph, hintInk);
+        type().drawCentred(label, left + column + gap, centreY + panel.labelShift(key) * dp, text,
                            hintInk);
         top += row + panel.entrySpacing * dp;
     }

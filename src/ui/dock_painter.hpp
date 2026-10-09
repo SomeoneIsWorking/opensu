@@ -20,6 +20,8 @@ struct DockIcon {
     float scale{1.0f};
     /// What stands in for the icon until its texture arrives: the section's initial.
     const char* initial{""};
+    /// Whether the pointer is over the item.
+    bool hovered{false};
 };
 
 /// How the bar is drawn this frame.
@@ -32,6 +34,9 @@ struct DockStyle {
 
 class DockPainter {
   public:
+    explicit DockPainter(const input::LastDevice& device) noexcept : glyphs_{device} {
+    }
+
     /// The bar where this frame draws it, slid down by how far it has left.
     [[nodiscard]] static Rect barRect(const DockLayout& layout, const DockStyle& style) noexcept;
 

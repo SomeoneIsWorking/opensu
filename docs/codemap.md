@@ -84,6 +84,8 @@ gitignored `docs/reference/`).
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
 | `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while the Guide menu is open |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
+| `src/input/keyboard_bindings.*` | The one key table (raylib key to shell button), the key cap a button's prompt shows, glyph key to button |
+| `src/input/last_device.*` | Which device (pad, or keyboard and mouse) gave the latest real input; read by the prompt painters |
 
 ## Home UI (G002)
 
@@ -99,7 +101,7 @@ Pure model, unit-tested without raylib (`iideck_grid`, `iideck_hud_model`):
 | `src/ui/rail_painter.*` | XMB/Carousel chrome: the recoloured section icon, the header card, the markers and the shadowed title |
 | `src/ui/icon_recolour.*` | Reads a console card's border colours and recolours the section icon with them |
 | `src/ui/backdrop_blur.*` | The dock glass's 8 dp backdrop blur: scene texture, separable Gaussian, capsule mask |
-| `src/ui/dock_metrics.*` | The dock capsule's sizes and rectangles in dp (`gh3.i1/j1`, `jj2`) |
+| `src/ui/dock_metrics.*` | The dock capsule's sizes and rectangles in dp (`gh3.i1/j1`, `jj2`); which item a pointer is on (`dockItemAt`) |
 | `src/ui/dock_motion.*` | The dock's show/hide (pinned on Home, 1200 ms after L1/R1 on Library; show 170 ms ease-out from below, hide 125 ms ease-in straight down) and the icon pop |
 | `src/ui/mode_chooser.*` | The Library layout picker's open state, focus and card/panel layout |
 | `src/ui/tile_geometry.*` | One tile's rectangles and radii (and `outerForContent`, the inverse of the frame inset); where a game tile's store icons sit |
@@ -117,7 +119,7 @@ Painters and composition (`iideck_ui`):
 | `src/ui/launcher_badges.*` | Launcher logos with status dots and the download ring, in the top bar's friends slot |
 | `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size |
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (the bell's busy ring) |
-| `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included) |
+| `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included), or the bound key's cap when keyboard and mouse were last used |
 | `src/ui/dock_painter.*` | The dock capsule: glass, nav icons, LB/RB badges |
 | `src/ui/mode_chooser_painter.*` | The Library layout picker: the cards page after iiSU's chooser, with sketched previews |
 | `src/ui/game_menu_painter.*` | The Guide menu over a running game |

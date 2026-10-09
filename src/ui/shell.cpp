@@ -660,6 +660,23 @@ Shell::DockFrame Shell::dockFrame(float width, float height) const {
                      DockStyle{chromeDark(), pixelsPerDp, dockVisibility_.progress(nowMs())}};
 }
 
+std::optional<library::Section> Shell::pointDock(std::optional<Vector2> point) {
+    dockHover_.reset();
+    if (!point || inGame_) {
+        return std::nullopt;
+    }
+    const DockFrame frame = dockFrame(static_cast<float>(width_), static_cast<float>(height_));
+    if (onRestingDock(frame.layout, point->x, point->y)) {
+        dockVisibility_.reveal(nowMs());
+    }
+    const float slide = DockPainter::barRect(frame.layout, frame.style).y - frame.layout.bar.y;
+    if (const std::optional<std::size_t> item =
+            dockItemAt(frame.layout, slide, point->x, point->y)) {
+        dockHover_ = library::allSections[*item];
+    }
+    return dockHover_;
+}
+
 void Shell::drawDock(const DockFrame& frame, float frameHeight) {
     const double now = nowMs();
     blur_.draw(DockPainter::barRect(frame.layout, frame.style),
@@ -668,7 +685,7 @@ void Shell::drawDock(const DockFrame& frame, float frameHeight) {
     for (std::size_t i = 0; i < icons.size(); ++i) {
         const library::Section section = library::allSections[i];
         icons[i] = DockIcon{navIcons_.find(navKey(section, section == section_)),
-                            iconPops_[i].scale(now), initialOf(section)};
+                            iconPops_[i].scale(now), initialOf(section), dockHover_ == section};
     }
     dockPainter_.paint(frame.layout, frame.metrics, icons, frame.style);
 }

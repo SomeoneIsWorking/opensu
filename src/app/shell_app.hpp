@@ -12,6 +12,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "raylib.h"
@@ -62,7 +63,7 @@ class ShellApp final : public ControlTarget {
 
     /// Renders one frame offscreen and writes it to `path`, without opening a
     /// window. This is what makes the layout checkable from a test.
-    bool renderToFile(const std::string& path);
+    bool renderToFile(const std::string& path, bool keyboardPrompts = false);
 
     /// The catalog as last read.
     [[nodiscard]] const std::vector<library::Game>& games() const noexcept {
@@ -73,7 +74,7 @@ class ShellApp final : public ControlTarget {
     // the main loop, because the OpenGL context and the shell's state belong to
     // it and to no other thread.
     [[nodiscard]] ShellSnapshot snapshot() const override;
-    void inject(gamepad::Button button) override;
+    void inject(gamepad::Button button, input::Device device) override;
     [[nodiscard]] bool captureFrame(std::string& png) override;
     void requestClose() override;
     void requestCatalogReload(std::string toast) override;
@@ -107,6 +108,12 @@ class ShellApp final : public ControlTarget {
     void handleKeyboard();
     /// Keyboard shortcuts pressed while a game has the keyboard (Shift+Tab is Guide).
     void handleGameKeys();
+    /// Pad events, noting the pad as the device in use.
+    void handlePads();
+    /// The pointer: notes the device, hovers the dock and clicks its sections. Main loop only.
+    void handlePointer();
+    /// A click on a dock item: the same section change as L1 and R1.
+    void clickSection(library::Section section);
     void actOn(gamepad::Button button);
     /// Moves home focus, with iiSU's Navigation sound when it moved.
     void moveFocus(ui::Direction direction);
@@ -237,7 +244,7 @@ class ShellApp final : public ControlTarget {
 
     /// Buttons queued by the control channel, drained by the loop.
     std::mutex injectedMutex_;
-    std::vector<gamepad::Button> injected_;
+    std::vector<std::pair<gamepad::Button, input::Device>> injected_;
 
     /// The published state and the frame-request handshake. Written only by the
     /// main loop and read from the control channel's threads.

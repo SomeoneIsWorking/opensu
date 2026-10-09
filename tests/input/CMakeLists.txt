@@ -1,0 +1,7 @@
+foreach(name last_device keyboard_bindings)
+    add_executable(${name}_test ${name}_test.cpp)
+    target_link_libraries(${name}_test PRIVATE iideck::input)
+    target_include_directories(${name}_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui")
+    target_compile_options(${name}_test PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME ${name} COMMAND ${name}_test)
+endforeach()

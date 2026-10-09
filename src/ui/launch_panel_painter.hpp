@@ -8,6 +8,9 @@ namespace iideck::ui {
 
 class LaunchPanelPainter {
   public:
+    explicit LaunchPanelPainter(const input::LastDevice& device) noexcept : glyphs_{device} {
+    }
+
     /// Draws `panel` into a `size` frame at `dp` pixels per dp. `seconds` drives the
     /// activity dots shown while the stage has no measure.
     void paint(const LaunchPanel& panel, Vector2 size, float dp, double seconds) const;

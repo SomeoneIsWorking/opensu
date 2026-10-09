@@ -91,12 +91,14 @@ void LaunchPanelPainter::paint(const LaunchPanel& panel, Vector2 size, float dp,
     const float spacing = hintSpacingDp * dp;
     float hintsWidth = 0.0f;
     for (const PanelHint& entry : panel.hints()) {
-        hintsWidth += glyph + hintGapDp * dp + type().measure(entry.action, hint) + spacing;
+        hintsWidth += glyphs_.advance(entry.button, glyph) + hintGapDp * dp +
+                      type().measure(entry.action, hint) + spacing;
     }
     float x = centreX - (hintsWidth - spacing) * 0.5f;
     for (const PanelHint& entry : panel.hints()) {
-        glyphs_.paint(entry.button, Vector2{x + glyph * 0.5f, y}, glyph, hintInk);
-        x += glyph + hintGapDp * dp;
+        const float advance = glyphs_.advance(entry.button, glyph);
+        glyphs_.paint(entry.button, Vector2{x + advance * 0.5f, y}, glyph, hintInk);
+        x += advance + hintGapDp * dp;
         type().drawCentred(entry.action, x, y, hint, hintInk);
         x += type().measure(entry.action, hint) + spacing;
     }

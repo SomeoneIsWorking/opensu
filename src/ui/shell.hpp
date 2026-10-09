@@ -26,6 +26,7 @@
 #include "grid_focus.hpp"
 #include "home_layout.hpp"
 #include "hud.hpp"
+#include "input/last_device.hpp"
 #include "launch_panel.hpp"
 #include "launch_panel_painter.hpp"
 #include "library/game.hpp"
@@ -120,6 +121,16 @@ class Shell {
     [[nodiscard]] Presentation presentation() const noexcept {
         return presentationOf(section_, libraryMode_);
     }
+
+    /// Which device the prompts name. The caller feeds it; the painters read it.
+    [[nodiscard]] input::LastDevice& inputDevice() noexcept {
+        return device_;
+    }
+
+    /// The pointer at `point`, or away from the window with nothing. Hovers the dock item under
+    /// it and slides a hidden dock in when the pointer rests where the dock is. Returns the
+    /// section the pointer is on.
+    std::optional<library::Section> pointDock(std::optional<Vector2> point);
 
     /// Gives a dock icon's file, which arrives from the APK after the shell is up.
     void setNavIcon(library::Section section, bool selected, const std::filesystem::path& file);
@@ -274,6 +285,8 @@ class Shell {
     /// What stands for the folder in the XMB's left column.
     std::optional<Tile> header_;
     Platforms platforms_;
+    /// Before the painters that read it.
+    input::LastDevice device_;
     GlyphTextures glyphs_;
     /// The dock's icons, by `home`, `home_selected`, `library`, `library_selected`.
     GlyphTextures navIcons_;
@@ -283,6 +296,8 @@ class Shell {
     /// Where an XMB's or a Carousel's focus has eased to, in tiles.
     motion::VisualIndexEaser railFocus_;
     DockVisibility dockVisibility_;
+    /// The section whose dock item the pointer is on.
+    std::optional<library::Section> dockHover_;
     std::array<IconPop, library::allSections.size()> iconPops_{IconPop{true}, IconPop{false}};
     ModeChooser chooser_;
 
@@ -294,7 +309,7 @@ class Shell {
     std::optional<Clock::time_point> entranceAt_;
 
     TilePainter tilePainter_;
-    DockPainter dockPainter_;
+    DockPainter dockPainter_{device_};
     RailPainter railPainter_;
     BackdropBlur blur_;
     /// The frame up to the dock, which the dock's glass blurs.
@@ -302,11 +317,11 @@ class Shell {
     ModeChooserPainter chooserPainter_;
     PagePillPainter pillPainter_;
     PageArrowPainter arrowPainter_;
-    Hud hud_;
+    Hud hud_{device_};
     GameMenu gameMenu_;
-    GameMenuPainter gameMenuPainter_;
+    GameMenuPainter gameMenuPainter_{device_};
     LaunchPanel launchPanel_;
-    LaunchPanelPainter launchPanelPainter_;
+    LaunchPanelPainter launchPanelPainter_{device_};
 
     config::HomeMode mode_;
     library::Section section_{library::Section::Home};

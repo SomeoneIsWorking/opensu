@@ -22,7 +22,7 @@ add_library(iideck_ui STATIC
 add_library(iideck::ui ALIAS iideck_ui)
 target_include_directories(iideck_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(iideck_ui
-    PUBLIC iideck::grid iideck::hud_model iideck::library iideck::device
+    PUBLIC iideck::grid iideck::hud_model iideck::library iideck::device iideck::input
         iideck::config iideck::raylib
     PRIVATE lucent::lucent iideck::nanosvg
 )

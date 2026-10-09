@@ -115,6 +115,34 @@ void placement() {
     near(layout.rightBadge.width, dock.badgeSize * dp, "badge size", 0.01);
 }
 
+void pointerHits() {
+    const DockMetrics dock{853.0f, 456.0f, twoItems()};
+    const float dp = 2.0f;
+    const iideck::ui::DockLayout layout =
+        iideck::ui::layoutDock(dock, 853.0f * dp, 456.0f * dp, dp);
+    const auto at = [&](float x, float y, float slide = 0.0f) {
+        return iideck::ui::dockItemAt(layout, slide, x, y);
+    };
+    const float y = layout.bar.centreY();
+    expect(at(layout.items[0].centreX(), y) == 0, "the middle of Home's item is Home");
+    expect(at(layout.items[1].centreX(), y) == 1, "the middle of Library's item is Library");
+    expect(at(layout.items[1].right() - 1.0f, y) == 1, "an item reaches its right edge");
+    expect(at(layout.items[0].centreX(), layout.bar.y + 1.0f) == 0,
+           "an item reaches the bar's full height, not only its icon's");
+    expect(!at(layout.items[0].centreX(), layout.bar.y - 1.0f), "above the bar is no item");
+    expect(!at(layout.items[0].centreX(), layout.bar.bottom() + 1.0f), "below the bar is no item");
+    expect(!at(layout.bar.x + 1.0f, y), "the bar's padding is no item");
+    expect(!at((layout.items[0].right() + layout.items[1].x) * 0.5f, y) ||
+               layout.items[1].x - layout.items[0].right() < 1.0f,
+           "the gap between items is none");
+    expect(!at(layout.items[0].centreX(), y, 100.0f) &&
+               at(layout.items[0].centreX(), y + 100.0f, 100.0f) == 0,
+           "a bar slid down is hit where it is drawn");
+    expect(iideck::ui::onRestingDock(layout, layout.bar.centreX(), y) &&
+               !iideck::ui::onRestingDock(layout, layout.bar.x - 1.0f, y),
+           "the resting bar is where a pointer asks for a hidden dock");
+}
+
 } // namespace
 
 int main() {
@@ -124,6 +152,7 @@ int main() {
     tooWide();
     insetLeavesRoom();
     placement();
+    pointerHits();
     std::printf("dock_metrics: all checks passed\n");
     return 0;
 }

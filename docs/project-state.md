@@ -288,7 +288,22 @@ The raylib/GLFW reader this replaced had no mapping for the xone driver's Xbox
 controller, so its buttons never registered, and counted a Logitech K400 Plus as a
 controller; the keyboard path moved focus on every frame a key was down.
 
-Gap: not yet confirmed on the real Xbox controller.
+Keyboard and pointer: `input::keyBindings` is the one key table (arrows/WASD, Enter/Space, Esc,
+F, Y, Tab = Select, E = Start, `[` `]`, R); `ShellApp::handleKeyboard` reads it and the prompts
+name its first key per button. `input::LastDevice` records which device gave the latest real
+input (a pad button, a key, a moving or clicking pointer; a still pointer, a pad connecting and
+the sticks inside the translator's threshold do not count); while it is the keyboard and mouse,
+every prompt (`ButtonGlyphPainter`: corner hints, dock LB/RB, launch panel, Guide menu) draws a
+key cap in the ring's size and stroke instead of the controller glyph. The pointer reaches the
+dock only: `Shell::pointDock` hovers an item, slides a hidden dock in over its resting place,
+and a left click goes to `ShellApp::clickSection`, the L1/R1 path (`cycleSection`). Tiles, the
+chooser and the panels have no pointer input. Tested: `last_device`, `keyboard_bindings`,
+`dock_metrics` (`dockItemAt`), `sections` (`stepsBetween`), `control_channel` (`a keyboard`).
+`iideck --render FILE --keyboard` draws the keyboard's prompts; `POST /input` takes `a keyboard`
+and `/state` reports `inputDevice`.
+
+Gap: not yet confirmed on the real Xbox controller, or the dock hover and click with a real
+mouse.
 
 ### S004 — Launch handoff
 

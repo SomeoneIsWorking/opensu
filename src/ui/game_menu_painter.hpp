@@ -8,6 +8,9 @@ namespace iideck::ui {
 
 class GameMenuPainter {
   public:
+    explicit GameMenuPainter(const input::LastDevice& device) noexcept : glyphs_{device} {
+    }
+
     /// Draws `menu` into a `width` x `height` frame at `dp` pixels per dp.
     void paint(const GameMenu& menu, float width, float height, float dp) const;
 

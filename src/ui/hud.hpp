@@ -50,6 +50,10 @@ class Hud {
     /// How long a toast stays up.
     static constexpr std::chrono::milliseconds toastLifetime{4000};
 
+    /// `device` is which prompts the corner hints draw.
+    explicit Hud(const input::LastDevice& device) noexcept : glyphs_{device} {
+    }
+
     /// The window in pixels and its pixels per dp.
     struct Size {
         int width{};

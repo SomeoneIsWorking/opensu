@@ -120,7 +120,8 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     flag("inGame", snapshot.inGame);
     flag("gameMenuOpen", snapshot.gameMenuOpen);
     text("steam", snapshot.steam);
-    text("launchers", snapshot.launchers, true);
+    text("launchers", snapshot.launchers);
+    text("inputDevice", snapshot.inputDevice, true);
     return out;
 }
 
@@ -205,7 +206,16 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         // The body is the button name, so a caller can drive the shell with
         // `curl -d left`, with no JSON to parse on either side.
         gamepad::Button button{};
-        const std::string_view name = trimmed(request.body);
+        std::string_view name = trimmed(request.body);
+        // An optional second word says the press came from the keyboard: `a keyboard`.
+        input::Device device = input::Device::Pad;
+        if (const std::size_t space = name.find_first_of(" \t"); space != std::string_view::npos) {
+            if (trimmed(name.substr(space)) != "keyboard") {
+                return refuse("the only word after a button is \"keyboard\"");
+            }
+            device = input::Device::KeyboardMouse;
+            name = name.substr(0, space);
+        }
         if (name.empty()) {
             return refuse(
                 "body must name a button: up down left right a b x y l1 r1 select start guide");
@@ -213,7 +223,7 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         if (!parseButton(name, button)) {
             return refuse("unknown button \"" + std::string{name} + "\"");
         }
-        target_.inject(button);
+        target_.inject(button, device);
         lucent::info("control", "injected {}", name);
         return lucent::http::Response::json(200, "OK", "{\"injected\":" + jsonString(name) + "}");
     }

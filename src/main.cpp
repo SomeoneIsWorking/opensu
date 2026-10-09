@@ -23,6 +23,7 @@ void printHelp() {
                 "  iideck                run the shell; from a desktop it starts its own\n"
                 "                        Gamescope, and Steam and games run inside it\n"
                 "  iideck --render FILE  render one frame to FILE and exit\n"
+                "        --keyboard      with --render, draw the keyboard's prompts\n"
                 "\n"
                 "Environment:\n"
                 "  IIDECK_STEAM_ROOTS  colon-separated Steam install roots\n"
@@ -54,9 +55,12 @@ int main(int argc, char** argv) {
 
     const std::vector<std::string> args(argv + 1, argv + argc);
     std::optional<std::string> renderPath;
+    bool keyboardPrompts = false;
     for (std::size_t i = 0; i < args.size(); ++i) {
         if (args[i] == "--render" && i + 1 < args.size()) {
             renderPath = args[++i];
+        } else if (args[i] == "--keyboard") {
+            keyboardPrompts = true;
         } else if (args[i] == "--help" || args[i] == "-h") {
             printHelp();
             return 0;
@@ -87,7 +91,7 @@ int main(int argc, char** argv) {
     // Rendering one frame to a file needs no window, which is how the layout can
     // be looked at without a compositor.
     if (renderPath) {
-        return shell.renderToFile(*renderPath) ? 0 : 1;
+        return shell.renderToFile(*renderPath, keyboardPrompts) ? 0 : 1;
     }
     return shell.run();
 }

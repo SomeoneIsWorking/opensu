@@ -63,8 +63,9 @@ void GameMenuPainter::paint(const GameMenu& menu, float width, float height, flo
     const float centreY = height - pad - glyph * 0.5f;
     float x = pad;
     for (const auto& [key, label] : {std::pair{"A", "Select"}, std::pair{"B", "Resume"}}) {
-        glyphs_.paint(key, Vector2{x + glyph * 0.5f, centreY}, glyph, hintInk);
-        x += glyph + hintGapDp * dp;
+        const float advance = glyphs_.advance(key, glyph);
+        glyphs_.paint(key, Vector2{x + advance * 0.5f, centreY}, glyph, hintInk);
+        x += advance + hintGapDp * dp;
         type().drawCentred(label, x, centreY, hint, hintInk);
         x += type().measure(label, hint) + hintSpacingDp * dp;
     }

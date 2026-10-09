@@ -15,6 +15,7 @@
 
 #include "artwork/iisu_assets.hpp"
 #include "config/config.hpp"
+#include "input/keyboard_bindings.hpp"
 #include "launcher_status.hpp"
 #include "library/titles.hpp"
 #include "lucent/log.h"
@@ -245,44 +246,58 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& events) {
 /// to the button it stands in for rather than to a shell command of its own, so
 /// there is one set of actions and the keyboard is a second way to reach it.
 void ShellApp::handleKeyboard() {
-    struct Binding {
-        int key;
-        gamepad::Button button;
-    };
-    static constexpr Binding kBindings[]{
-        {KEY_UP, gamepad::Button::Up},
-        {KEY_W, gamepad::Button::Up},
-        {KEY_DOWN, gamepad::Button::Down},
-        {KEY_S, gamepad::Button::Down},
-        {KEY_LEFT, gamepad::Button::Left},
-        {KEY_A, gamepad::Button::Left},
-        {KEY_RIGHT, gamepad::Button::Right},
-        {KEY_D, gamepad::Button::Right},
-        {KEY_ENTER, gamepad::Button::A},
-        {KEY_SPACE, gamepad::Button::A},
-        {KEY_Y, gamepad::Button::Y},
-        {KEY_R, gamepad::Button::R1},
-        {KEY_F, gamepad::Button::X},
-        {KEY_LEFT_BRACKET, gamepad::Button::L1},
-        {KEY_E, gamepad::Button::Start},
-        {KEY_ESCAPE, gamepad::Button::B},
-        {KEY_RIGHT_BRACKET, gamepad::Button::R1},
-    };
-
     // Keys report edges like a pad's buttons, so held arrows repeat on the pad's schedule rather
     // than the keyboard's.
     std::vector<gamepad::Event> events;
-    for (const Binding& binding : kBindings) {
+    for (const input::KeyBinding& binding : input::keyBindings()) {
         if (IsKeyPressed(binding.key)) {
             events.push_back(gamepad::Event{.button = binding.button, .pressed = true});
         } else if (IsKeyReleased(binding.key)) {
             events.push_back(gamepad::Event{.button = binding.button, .pressed = false});
         }
     }
+    if (!events.empty()) {
+        shell_.inputDevice().noteKey();
+    }
     handleEvents(events);
 
     if (IsKeyPressed(KEY_Q)) {
+        shell_.inputDevice().noteKey();
         requestClose();
+    }
+}
+
+void ShellApp::handlePads() {
+    const std::vector<gamepad::Event> events = pads_.takeEvents();
+    for (const gamepad::Event& event : events) {
+        shell_.inputDevice().notePad(event);
+    }
+    handleEvents(events);
+}
+
+void ShellApp::handlePointer() {
+    const Vector2 delta = GetMouseDelta();
+    const bool clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    const bool pressed = clicked || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) ||
+                         IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE);
+    shell_.inputDevice().notePointer(delta.x, delta.y, pressed);
+    const bool active =
+        shell_.inputDevice().current() == input::Device::KeyboardMouse && IsCursorOnScreen();
+    const std::optional<library::Section> over =
+        shell_.pointDock(active ? std::optional{GetMousePosition()} : std::nullopt);
+    if (clicked && over) {
+        clickSection(*over);
+    }
+}
+
+void ShellApp::clickSection(library::Section section) {
+    // The gates actOn puts in front of L1 and R1.
+    if (shell_.inGame() || panelUse_ != PanelUse::None || shell_.modeChooser().isOpen()) {
+        return;
+    }
+    const int steps = library::Sections::stepsBetween(browser_.section(), section);
+    if (steps != 0) {
+        cycleSection(steps);
     }
 }
 
@@ -781,9 +796,9 @@ ShellSnapshot ShellApp::snapshot() const {
     return published_;
 }
 
-void ShellApp::inject(gamepad::Button button) {
+void ShellApp::inject(gamepad::Button button, input::Device device) {
     const std::lock_guard lock{injectedMutex_};
-    injected_.push_back(button);
+    injected_.emplace_back(button, device);
 }
 
 void ShellApp::requestClose() {
@@ -872,6 +887,8 @@ void ShellApp::publishSnapshot() {
     next.inGame = shell_.inGame();
     next.gameMenuOpen = shell_.gameMenu().isOpen();
     next.steam = std::string{launch::name(steam_.state())};
+    next.inputDevice =
+        shell_.inputDevice().current() == input::Device::KeyboardMouse ? "keyboard" : "pad";
     next.launchers = describe(launcherBadges(steam_.state(), steam_.downloads(), sources_));
 
     const std::lock_guard lock{stateMutex_};
@@ -881,13 +898,18 @@ void ShellApp::publishSnapshot() {
 void ShellApp::serviceControlRequests() {
     // Buttons injected over the channel take the same path as a real press, so
     // what the channel exercises is the shell's own handling.
-    std::vector<gamepad::Button> queued;
+    std::vector<std::pair<gamepad::Button, input::Device>> queued;
     {
         const std::lock_guard lock{injectedMutex_};
         queued.swap(injected_);
     }
     // An injected button is a tap: without its release a direction would repeat forever.
-    for (const gamepad::Button button : queued) {
+    for (const auto& [button, device] : queued) {
+        if (device == input::Device::KeyboardMouse) {
+            shell_.inputDevice().noteKey();
+        } else {
+            shell_.inputDevice().notePad(gamepad::Event{.button = button, .pressed = true});
+        }
         handleEvents({gamepad::Event{
                           .kind = gamepad::Event::Kind::Button, .button = button, .pressed = true},
                       gamepad::Event{.kind = gamepad::Event::Kind::Button,
@@ -1032,8 +1054,9 @@ int ShellApp::run() {
             shell_.setSize(GetScreenWidth(), GetScreenHeight());
         }
 
-        handleEvents(pads_.takeEvents());
+        handlePads();
         handleKeyboard();
+        handlePointer();
         handleGameKeys();
         if (const auto direction = repeat_.poll(std::chrono::steady_clock::now())) {
             actOn(*direction);
@@ -1068,7 +1091,10 @@ int ShellApp::run() {
     return 0;
 }
 
-bool ShellApp::renderToFile(const std::string& path) {
+bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
+    if (keyboardPrompts) {
+        shell_.inputDevice().noteKey();
+    }
     if (games_.empty()) {
         reloadCatalog();
     } else {

@@ -1,10 +1,12 @@
 #include "button_glyph.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <numbers>
 #include <vector>
 
+#include "input/keyboard_bindings.hpp"
 #include "typeface.hpp"
 
 namespace iideck::ui {
@@ -32,6 +34,12 @@ constexpr float shoulderSmallCorner = 25.0f / 216.0f;
 constexpr float shoulderStroke = 14.0f / 249.0f;
 constexpr float shoulderCapHeight = 56.0f / 249.0f;
 constexpr int cornerSegments = 12;
+
+// A key cap is the ring's height, with the ring's stroke and cap height, and grows to fit a long
+// label.
+constexpr float capRoundness = 0.3f;
+constexpr float capLabelPadding = 0.18f;
+constexpr int capSegments = 12;
 
 void roundBar(Vector2 from, Vector2 to, float stroke, Color ink) {
     DrawLineEx(from, to, stroke, ink);
@@ -80,9 +88,44 @@ void paintShoulder(std::string_view key, Vector2 centre, float box, Color ink) {
     type().drawCentred(key, centre.x - width * 0.5f, centre.y, letters, ink);
 }
 
+TextStyle capLabelStyle(float box) {
+    return TextStyle{pngCapHeight * box / capHeightPerEm};
+}
+
+float capWidth(const std::string& label, float box) {
+    return std::max(2.0f * pngRingOuter * box,
+                    type().measure(label, capLabelStyle(box)) + 2.0f * capLabelPadding * box);
+}
+
 } // namespace
 
+std::optional<std::string> ButtonGlyphPainter::capLabel(std::string_view key) const {
+    if (device_->current() != input::Device::KeyboardMouse) {
+        return std::nullopt;
+    }
+    return input::keyLabelForGlyph(key);
+}
+
+float ButtonGlyphPainter::advance(std::string_view key, float box) const {
+    const std::optional<std::string> label = capLabel(key);
+    if (!label) {
+        return box;
+    }
+    // The slack around the ring that the square leaves, so a cap sits as a ring does.
+    return capWidth(*label, box) + (box - 2.0f * pngRingOuter * box);
+}
+
 void ButtonGlyphPainter::paint(std::string_view key, Vector2 centre, float box, Color ink) const {
+    if (const std::optional<std::string> label = capLabel(key)) {
+        const float height = 2.0f * pngRingOuter * box;
+        const float width = capWidth(*label, box);
+        const Rectangle cap{centre.x - width * 0.5f, centre.y - height * 0.5f, width, height};
+        DrawRectangleRoundedLinesEx(cap, capRoundness, capSegments, pngRingStroke * box, ink);
+        const TextStyle text = capLabelStyle(box);
+        const float textWidth = type().measure(*label, text);
+        type().drawCentred(*label, centre.x - textWidth * 0.5f, centre.y, text, ink);
+        return;
+    }
     if (key == "LB" || key == "RB") {
         paintShoulder(key, centre, box, ink);
         return;

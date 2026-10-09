@@ -42,6 +42,11 @@ void DockPainter::paint(const DockLayout& layout, const DockMetrics& metrics,
     for (std::size_t i = 0; i < layout.icons.size() && i < icons.size(); ++i) {
         const Rect box = shifted(layout.icons[i], dy);
         const DockIcon& icon = icons[i];
+        if (icon.hovered) {
+            const Rect item = shifted(layout.items[i], dy);
+            DrawRectangleRounded(Rectangle{item.x, item.y, item.width, item.height}, 1.0f, 16,
+                                 Fade(badgeInk, 0.12f * alpha));
+        }
         if (icon.texture != nullptr && icon.texture->id != 0) {
             const Rect fit = containFit(static_cast<float>(icon.texture->width),
                                         static_cast<float>(icon.texture->height), box);

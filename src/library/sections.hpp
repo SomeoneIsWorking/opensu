@@ -52,6 +52,10 @@ class Sections {
     /// Moves `delta` sections along the dock, wrapping at both ends, and returns the new one.
     Section cycle(int delta) noexcept;
 
+    /// How many steps along the dock lead from `from` to `to`, forwards and wrapping; `cycle` takes
+    /// it.
+    [[nodiscard]] static int stepsBetween(Section from, Section to) noexcept;
+
     /// Makes `section` the active one.
     void select(Section section) noexcept {
         active_ = section;
