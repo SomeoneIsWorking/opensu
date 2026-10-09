@@ -78,7 +78,10 @@ Gamescope.
 ```sh
 ./build/cmake/src/opensu                  # the shell
 ./build/cmake/src/opensu --render out.png # one frame to a file, no window shown
+./build/cmake/src/opensu --hidden         # maintainer run: unmapped window, no pads, free control port
 ```
+
+`--hidden` logs its control channel port; drive it with `POST /input` and read `GET /state`.
 
 Overrides, all optional:
 
@@ -127,11 +130,21 @@ emulator to install.
 
 Sign-in happens in your own browser, on the store's own page. openSU opens the page with
 `xdg-open`, and a small browser extension hands the code the page ends on to openSU's control
-channel and closes the tab. Load it once per browser session: `about:debugging` → This
-Firefox → Load Temporary Add-on → `~/.local/share/opensu/opensu-signin.xpi` (Firefox or Zen
-142 or newer; in the file picker, Ctrl+L takes a typed path). The build packs it from
-`extension/opensu-signin/`; a Flatpak browser cannot load the bare `manifest.json`, because its
-file picker hands over only the chosen file and not the scripts beside it. The extension talks to port 7311, openSU's default `OPENSU_CONTROL_PORT`.
+channel and closes the tab. The build packs it as `~/.local/share/opensu/opensu-signin.xpi`.
+
+Zen does not require signed extensions, so it can be installed for good: close Zen, copy the
+`.xpi` to `<profile>/extensions/opensu-signin@opensu.xpi` (the Flatpak's profiles are under
+`~/.var/app/app.zen_browser.zen/.zen/`), and add to the profile's `user.js`:
+
+```js
+user_pref("xpinstall.signatures.required", false);
+user_pref("extensions.autoDisableScopes", 14);  // enable add-ons placed in this profile
+```
+
+Firefox release builds enforce signing, so there it can only be loaded per session:
+`about:debugging` → This Firefox → Load Temporary Add-on → the `.xpi` (Ctrl+L takes a typed
+path). A Flatpak browser cannot load the bare `manifest.json`: its file picker hands over only the
+chosen file, not the scripts beside it. The extension talks to port 7311, openSU's default `OPENSU_CONTROL_PORT`.
 
 ```sh
 curl -X POST http://127.0.0.1:7311/signin/gog/start   # opens GOG's sign-in page
