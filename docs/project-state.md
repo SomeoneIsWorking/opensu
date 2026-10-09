@@ -15,9 +15,25 @@ Visible deltas from the baseline:
   each store and the combined "All games" library behind a tile of its own there.
 - A dock (Home, Library) switches sections with L1/R1; Library has Standard, XMB and Carousel
   layouts, chosen with START and kept in the config dir.
-- Each launcher's state is a logo with a status dot inside the top-right status pill, where iiSU
-  has its notification bell (openSU has no notifications, so the bell and its R2 glyph are gone).
-  A badge is a pointer target: hover lights it, a click selects that store's tile in Library.
+- Each launcher's state is a small logo with a status dot, inline in the top-right status pill
+  with the clock and battery (a divider between them), where iiSU has its notification bell (openSU
+  has no notifications, so the bell and its R2 glyph are gone). iiSU's pill is the bell column then
+  `clock | NN% battery`; the launchers take the bell's column, drawn by the one status pill
+  painter, without a circle of their own. A badge is a pointer target: hover lights it, a click
+  selects that store's tile in Library.
+- A details page replaces the direct launch: A (Enter, left click) on a game opens it, as do Y and
+  the context menu's Details. It shows the cover (a Steam hero as a faded backdrop), title, store or
+  system badge, installed state, last played and play time, and Play or Install, Hide or Show, Back
+  as pointer targets (the Install flow is the launch panel's). A ROM's page names its emulator and
+  whether it is installed, and a button steps through the emulators for its system; the pick is
+  kept per game in `settings.json` (`emulators`). iiSU launches on A with no page (launch.md 3,
+  `handleRomActivated`) and only shows game details on a dual-display device's second screen
+  (`n42.a`, screens.md 3.6); it has no per-game emulator choice (a console's command template picks
+  the emulator), and no install flow for emulators exists here: a missing emulator is named, not
+  installed. The size on disk is not shown because no store source records it.
+- A breadcrumb trail in the top bar's start (`Library > GOG > Search "had" > Installed > <game>`)
+  names where the player is; each place in it is a pointer target that goes back to that level.
+  iiSU names no place.
 - The dock stays shown on Library by default: iiSU hides it there 1.2 s after L1/R1
   (`persistentNavBarOnPlatforms` false), which left a mouse or keyboard player no visible way back
   to Home. The Library layout picker has iiSU's "Pin navigation bar" option (here "on Library"),
@@ -28,14 +44,16 @@ Visible deltas from the baseline:
   gets an on-screen keyboard. The START options (Home and Library) add a sort (recently played,
   name, store), a source filter (a store or a ROM system), installed only and hidden games only;
   sort, source and installed are kept in `settings.json`, the search and the hidden filter are not.
-  Hide/Unhide is in the context menu (Select on a pad, Tab on a keyboard, right click on a tile),
+  Hide/Unhide is in the context menu (Select on a pad; Tab, the Menu key or Shift+F10 on a keyboard;
+  right click on a tile) and on the details page,
   with Launch or Install and Details; hidden games leave Home, Library, folders, All games and
   search except under the hidden filter. The last-played time of an Epic, GOG or ROM launch is
   recorded by openSU. Library's icon size is iiSU's slider (levels 1 to 20, default 9) in the
-  options for all three layouts. START also opens the options on Home now, and Y still shows the
-  details.
-- The corner prompts name only what works: Back inside a folder, Details with a game focused,
-  Select on a tile, Menu on Library. iiSU shows them all always.
+  options for all three layouts. START also opens the options on Home now, and Y opens the
+  details page.
+- The corner prompts name only what works: Back inside a folder, Options (the context menu, whose
+  key cap is Tab with the keyboard last used) with a tile focused, Details (A) on a game or Select
+  on a folder, Menu on Library, Back and Select on the details page. iiSU shows them all always.
 - The title pill names the focused tile on Home too; iiSU shows it only inside sections.
 - A signed-out GOG or Epic tile opens that store's sign-in page in the default browser.
 - No store client window is ever opened to reach a game.

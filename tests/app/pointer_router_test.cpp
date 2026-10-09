@@ -42,6 +42,9 @@ class Recorder final : public PointerHost {
     void selectLauncher(opensu::library::Source) override {
         calls.emplace_back("launcher");
     }
+    void activateCrumb(std::size_t index) override {
+        calls.push_back("crumb" + std::to_string(index));
+    }
     void chooseIconSize(int level) override {
         calls.push_back("size" + std::to_string(level));
     }
@@ -92,6 +95,9 @@ void hoverSkipsWhatAHoverWouldTrigger() {
     host.under = opensu::ui::OnLauncher{opensu::library::Source::Gog};
     router.route(at(10.0f, 10.0f, 4.0f));
     expect(host.calls.empty(), "a launcher's badge only lights");
+    host.under = opensu::ui::OnCrumb{0};
+    router.route(at(10.0f, 10.0f, 4.0f));
+    expect(host.calls.empty(), "a breadcrumb only lights");
 }
 
 void leftClickIsFocusThenA() {
@@ -135,6 +141,15 @@ void leftClickOnTheOthers() {
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"launcher"},
            "a launcher's badge selects its store");
+    host.calls.clear();
+    host.under = opensu::ui::OnCrumb{1};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"crumb1"}, "a breadcrumb goes back to its level");
+    host.calls.clear();
+    host.under = opensu::ui::OnDetailsButton{2};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"focus", "A"},
+           "a details button is focus, then the A press");
     host.calls.clear();
     host.under = PointerTarget{};
     router.route(frame);
@@ -187,8 +202,8 @@ void hoverFocusesThePanelTargets() {
     PointerRouter router{device, host};
     for (const PointerTarget target :
          {PointerTarget{opensu::ui::OnIconSize{3}}, PointerTarget{opensu::ui::OnSearchKey{2}},
-          PointerTarget{opensu::ui::OnSearchResult{1}},
-          PointerTarget{opensu::ui::OnContextItem{0}}}) {
+          PointerTarget{opensu::ui::OnSearchResult{1}}, PointerTarget{opensu::ui::OnContextItem{0}},
+          PointerTarget{opensu::ui::OnDetailsButton{1}}}) {
         host.under = target;
         host.calls.clear();
         router.route(at(10.0f, 10.0f, 4.0f));

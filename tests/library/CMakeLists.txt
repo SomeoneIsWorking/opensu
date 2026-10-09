@@ -58,3 +58,8 @@ add_executable(library_query_test library_query_test.cpp)
 target_link_libraries(library_query_test PRIVATE opensu::library)
 target_include_directories(library_query_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 add_test(NAME library_query COMMAND library_query_test)
+
+add_executable(emulator_choice_test emulator_choice_test.cpp)
+target_link_libraries(emulator_choice_test PRIVATE opensu::library)
+target_include_directories(emulator_choice_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+add_test(NAME emulator_choice COMMAND emulator_choice_test)

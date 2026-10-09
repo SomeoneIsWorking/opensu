@@ -31,6 +31,9 @@ struct FocusesOnHover {
     bool operator()(const ui::OnContextItem&) const {
         return true;
     }
+    bool operator()(const ui::OnDetailsButton&) const {
+        return true;
+    }
     template <class Other> bool operator()(const Other&) const {
         return false;
     }
@@ -78,6 +81,8 @@ void PointerRouter::click(const ui::PointerTarget& target) {
         host_.activateSection(dock->section);
     } else if (const auto* launcher = std::get_if<ui::OnLauncher>(&target)) {
         host_.selectLauncher(launcher->source);
+    } else if (const auto* crumb = std::get_if<ui::OnCrumb>(&target)) {
+        host_.activateCrumb(crumb->index);
     } else if (const auto* button = std::get_if<ui::OnPanelButton>(&target)) {
         host_.press(button->button);
     } else if (const auto* size = std::get_if<ui::OnIconSize>(&target)) {

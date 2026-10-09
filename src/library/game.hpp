@@ -36,6 +36,14 @@ struct LaunchSpec {
     }
 };
 
+/// One emulator that can run a ROM's system, installed here or not.
+struct EmulatorOption {
+    std::string name;
+    bool installed{false};
+    /// What starts the game with it; empty when it is not installed.
+    LaunchSpec launch;
+};
+
 /// One launchable entry.
 struct Game {
     /// Source-qualified, so two stores holding the same title never collide.
@@ -80,6 +88,10 @@ struct Game {
     std::vector<Source> ownedIn;
 
     LaunchSpec launch;
+    /// A ROM's emulators for its system and the name of the one `launch` runs; empty for a game of
+    /// a store, and `emulator` empty when none is installed.
+    std::vector<EmulatorOption> emulatorOptions;
+    std::string emulator;
     /// Why `launch` is empty for a game that is there to play, in words for the player.
     std::string unavailable;
 };

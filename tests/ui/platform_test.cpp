@@ -23,6 +23,19 @@ int main() {
     expect(platforms.forSource(opensu::library::Source::Rom) == nullptr,
            "a ROM is framed by its system, not its source");
     expect(platforms.find("no-such-console") == nullptr, "an unknown key has no frame");
+
+    opensu::library::Game rom;
+    rom.source = opensu::library::Source::Rom;
+    rom.sourceId = "psx";
+    expect(platforms.forItem(rom) == psx, "a ROM tile is framed by its system");
+    opensu::library::Game store;
+    store.source = opensu::library::Source::Steam;
+    expect(platforms.forItem(store) == steam, "a store tile is framed by its store");
+    opensu::library::Console console;
+    console.system = "psx";
+    expect(platforms.forItem(console) == psx, "a console card is framed by its system");
+    expect(platforms.forItem(opensu::library::AllGames{}) == nullptr,
+           "a folder of games has no frame");
     std::printf("platform: all checks passed\n");
     return 0;
 }

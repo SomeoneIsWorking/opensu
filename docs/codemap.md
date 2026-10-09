@@ -16,8 +16,11 @@ gitignored `docs/reference/`).
 | `src/app/preferences.*` | The loaded `settings::Settings` and saving them, with a toast when the file cannot be written |
 | `src/app/search_controller.*` | The search panel's pad buttons and keyboard text; the typed text is the view's search |
 | `src/app/context_menu_controller.*` | Opening the focused tile's menu and what its entries do (launch, details, hide/unhide, open, refresh, sign in) |
+| `src/app/details_controller.*` | The details page's buttons: open for the focused game, Play or Install, the emulator pick, Hide, Back; keeps the page current as the library changes |
+| `src/app/breadcrumb_trail.*` | The one computation of the breadcrumb trail from the shell's state (section, folder, search, filters, open game) |
+| `src/app/frame_png.*` | The drawn shell as PNG bytes, for the control channel's frame and `--render` |
 | `src/app/panel_flow.*` | The launch/install panel flow taken out of `shell_app.cpp` |
-| `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page and panel-button action), right click = the target's context menu (never B), wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
+| `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page, breadcrumb and panel-button action), right click = the target's context menu (never B), wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
 | `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input, frames, `/signin/<store>[/start]` |
 | `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
@@ -72,12 +75,13 @@ gitignored `docs/reference/`).
 | `src/library/shelf.*` | What the grid holds: Home's installed store games (`homeShelf`); Library's launchers, All games and consoles (`libraryShelf`); a console's ROMs, a launcher's library, the combined library; moving between them and between sections |
 | `src/library/library_query.*` | The one owner of what the library shows: the search ranking, the filters (installed, source, hidden), the sort, `HiddenGames`; Home, Library, folders and All games take their games from `visibleShelf` |
 | `src/library/text_fold.*` | Case, accent and white-space folding titles are compared in |
+| `src/library/emulator_choice.*` | The emulator picked per ROM (`settings.json`): points the game's `launch` and `emulator` at the pick, `unavailable` when it is not installed |
 | `src/library/play_history.*` | When openSU last launched each game, for the recent sort of stores that do not say |
 | `src/library/titles.*` | The same title across stores: the comparison key, merged copies, preference order |
 | `src/library/rom_titles.*` | A ROM's display title from its name: tags, release numbers and the ", The" order (`cleanTitle`); the one title cleanup, also the release-number rule the libretro matcher uses |
 | `src/library/arcade_names.*` | Arcade short name to description: the libretro-database `.dat` parser and `NameDb`, the parsed names kept under `<cache>/names/` |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts; the tables are `constexpr` (`name_list.hpp`) |
-| `src/library/emulators.*` | Which emulator runs each system here, and its command line |
+| `src/library/emulators.*` | Which emulator runs each system here, and its command line; every emulator of a system, installed or not (`options`), which a ROM's details page lists |
 | `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
 | `src/artwork/arcade_dat.*` | The pinned libretro-database arcade listings (FinalBurn Neo, MAME 2016): download against size and CRC-32, parse, merge; the fetcher keeps the result in `NameDb` |
 | `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, UI sounds (`sound/<file>`, WAV or OGG) and the dock's icons (`nav/`) |
@@ -98,7 +102,7 @@ gitignored `docs/reference/`).
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
 | `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while the Guide menu is open |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
-| `src/input/keyboard_bindings.*` | The one key table (raylib key to shell button), the key cap a button's prompt shows, glyph key to button |
+| `src/input/keyboard_bindings.*` | The one key table (raylib key to shell button, with exact Ctrl and Shift; the context menu is Tab, the Menu key and Shift+F10), `keyEvents` (a frame's keys as button edges), the key cap a button's prompt shows, glyph key to button |
 | `src/input/last_device.*` | Which device (pad, or keyboard and mouse) gave the latest real input; read by the prompt painters |
 
 ## Home UI (G002)
@@ -120,6 +124,8 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/mode_chooser.*` | The options panel's state, focus row and scrolling layout (cards, icon size slider, pin, sort, source, filters, search); the card, row or slider level under a point |
 | `src/ui/icon_size.*` | iiSU's icon size levels 1 to 20 and their scale formulas; shared by `home_layout` and `rail_layout` |
 | `src/ui/search_panel.*` | Global Search state: field, drawn keyboard walk, results list, layout and hit-tests |
+| `src/ui/details_page.*` | The details page: what it says about a game (`detailsFor`, `lastPlayedText`), its buttons, geometry, focus |
+| `src/ui/breadcrumbs.*` | The breadcrumb trail's levels and geometry: cells, chevrons, fitting to the room, the level under a point |
 | `src/ui/context_menu.*` | The tile context menu: entries per tile (`contextItemsFor`), focus, layout and hit-tests |
 | `src/ui/panel_fade.*` | The fade and scale a panel shows and hides with |
 | `src/ui/tile_geometry.*` | One tile's rectangles and radii (and `outerForContent`, the inverse of the frame inset); where a game tile's store icons sit |
@@ -129,7 +135,7 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
 | `src/ui/game_menu.*` | The Guide menu's items and focus (openSU's own); its panel and row rectangles, and the row under a point |
 | `src/ui/launch_panel.*` | The launch/install card's state; its card and hint rectangles from measured widths, and the hint under a point |
-| `src/ui/pointer_target.hpp` | What a pointer can be on (dock item, tile, page control, layout card, options row, icon size slider, search key or result, context item or backdrop, menu row, panel button, launcher badge) |
+| `src/ui/pointer_target.hpp` | What a pointer can be on (breadcrumb level, details button, dock item, tile, page control, layout card, options row, icon size slider, search key or result, context item or backdrop, menu row, panel button, launcher badge) |
 
 Painters and composition (`opensu_ui`):
 
@@ -137,8 +143,9 @@ Painters and composition (`opensu_ui`):
 | --- | --- |
 | `src/ui/shell.*` | The home screen: tiles, focus, paging, draw order |
 | `src/ui/hud.*` | Chrome around the grid: ground, top bar, corner hints, toast; grid insets |
-| `src/ui/status_pill.*`, `glass.*` | Status pill (clock, battery) and its glass body |
-| `src/ui/launcher_badges.*` | Launcher logos with status dots, the starting spinner and the download ring, in the status pill; the hover light |
+| `src/ui/status_pill.*`, `glass.*` | The one status pill painter: clock, battery and the launchers inline, on a glass body |
+| `src/ui/launcher_badges.*` | Launcher logos with status dots, the starting spinner and the download ring, drawn by the status pill painter; the hover light |
+| `src/ui/breadcrumb_painter.*`, `details_page_painter.*` | The breadcrumb pill; the details page (cover, backdrop, title, badge, rows, buttons) |
 | `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size |
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (a starting launcher's ring) |
 | `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included), or the bound key's cap when keyboard and mouse were last used |

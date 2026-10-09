@@ -17,10 +17,10 @@ void startCorner() {
     expect(
         (opensu::ui::startPrompts(HintContext{.back = true}) == std::vector<Prompt>{{"B", "Back"}}),
         "Back shows inside a folder only");
-    expect((opensu::ui::startPrompts(HintContext{.details = true}) ==
-            std::vector<Prompt>{{"-", "Details"}}),
-           "Details shows with a game focused only");
-    expect(opensu::ui::startPrompts(HintContext{.back = true, .details = true}).size() == 2,
+    expect((opensu::ui::startPrompts(HintContext{.options = true}) ==
+            std::vector<Prompt>{{"-", "Options"}}),
+           "Options shows with a tile focused, and names the context menu");
+    expect(opensu::ui::startPrompts(HintContext{.back = true, .options = true}).size() == 2,
            "both together");
 }
 
@@ -28,12 +28,6 @@ void searchAndOptions() {
     expect((opensu::ui::startPrompts(HintContext{.back = true, .clearSearch = true}) ==
             std::vector<Prompt>{{"B", "Clear search"}}),
            "a search being cleared takes B before Back");
-    expect((opensu::ui::startPrompts(HintContext{.options = true}) ==
-            std::vector<Prompt>{{"-", "Options"}}),
-           "a folder tile offers its options");
-    expect((opensu::ui::startPrompts(HintContext{.details = true, .options = true}) ==
-            std::vector<Prompt>{{"-", "Details"}}),
-           "a game's menu is Details, not Options");
 }
 
 void endCorner() {
@@ -41,6 +35,9 @@ void endCorner() {
     expect((opensu::ui::endPrompts(HintContext{.select = true}) ==
             std::vector<Prompt>{{"A", "Select"}}),
            "Select shows on a tile");
+    expect((opensu::ui::endPrompts(HintContext{.select = true, .details = true}) ==
+            std::vector<Prompt>{{"A", "Details"}}),
+           "A on a game opens its details");
     expect(
         (opensu::ui::endPrompts(HintContext{.menu = true}) == std::vector<Prompt>{{"+", "Menu"}}),
         "Menu shows where START opens one");

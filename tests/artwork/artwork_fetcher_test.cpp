@@ -329,14 +329,19 @@ void testShelfPicksUpLateArtwork(const fs::path& root) {
 } // namespace
 
 int main() {
-    const fs::path root = fs::temp_directory_path() / "opensu-artwork-test";
-    fs::remove_all(root);
-    testFetches(root / "fetch");
-    testArcadeNames(root / "names");
-    testUnreachable(root / "offline");
-    testStages(root / "stages");
-    testShelfPicksUpLateArtwork(root / "late");
-    fs::remove_all(root);
-    std::printf("artwork_fetcher: all checks passed\n");
-    return 0;
+    try {
+        const fs::path root = fs::temp_directory_path() / "opensu-artwork-test";
+        fs::remove_all(root);
+        testFetches(root / "fetch");
+        testArcadeNames(root / "names");
+        testUnreachable(root / "offline");
+        testStages(root / "stages");
+        testShelfPicksUpLateArtwork(root / "late");
+        fs::remove_all(root);
+        std::printf("artwork_fetcher: all checks passed\n");
+        return 0;
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
+        return 1;
+    }
 }

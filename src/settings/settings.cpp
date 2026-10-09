@@ -22,6 +22,7 @@ constexpr const char* installedOnlyKey = "installedOnly";
 constexpr const char* sourceKey = "source";
 constexpr const char* hiddenKey = "hidden";
 constexpr const char* lastPlayedKey = "lastPlayed";
+constexpr const char* emulatorsKey = "emulators";
 
 /// Reads a file's fields, each on its own: one that is damaged is reported and keeps its default.
 class Reader {
@@ -97,6 +98,23 @@ class Reader {
         }
     }
 
+    void names(const char* name, library::EmulatorChoices::Entries& out,
+               const char* fallback) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        bool strings = found->is_object();
+        for (const auto& item : found->items()) {
+            strings = strings && item.value().is_string();
+        }
+        if (strings) {
+            out = found->get<library::EmulatorChoices::Entries>();
+        } else {
+            reject(name, *found, fallback);
+        }
+    }
+
     void reject(const char* name, const json& value, const char* fallback) const {
         lucent::warn("settings", "{}: {} is not a valid {}; {}", file_, value.dump(), name,
                      fallback);
@@ -135,6 +153,9 @@ Settings Store::load() const {
     library::PlayHistory::Entries played;
     read.times(lastPlayedKey, played, "no launch is remembered");
     settings.lastPlayed = library::PlayHistory{std::move(played)};
+    library::EmulatorChoices::Entries emulators;
+    read.names(emulatorsKey, emulators, "every ROM keeps its default emulator");
+    settings.emulators = library::EmulatorChoices{std::move(emulators)};
 
     std::string spelling;
     read.text(sortKey, spelling, "using the default");
@@ -169,7 +190,8 @@ bool Store::save(const Settings& settings, std::string& error) const {
                         {installedOnlyKey, settings.view.installedOnly},
                         {sourceKey, settings.view.source},
                         {hiddenKey, settings.hidden.keys()},
-                        {lastPlayedKey, settings.lastPlayed.entries()}};
+                        {lastPlayedKey, settings.lastPlayed.entries()},
+                        {emulatorsKey, settings.emulators.entries()}};
     return fileio::writeWhole(file_, document.dump(2) + "\n", error);
 }
 

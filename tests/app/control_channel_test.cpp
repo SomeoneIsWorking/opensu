@@ -186,13 +186,17 @@ void testSearchAndText() {
     shell.state.searchText = "had";
     shell.state.contextMenuOpen = true;
     shell.state.iconSize = 14;
+    shell.state.detailsOpen = true;
+    shell.state.breadcrumb = "Library > GOG > Hades";
     const Response state =
         channel.handle(Request{.method = "GET", .target = "/state", .headers = {}, .body = {}});
     expect(contains(state.body, "\"searchOpen\":true") &&
                contains(state.body, "\"searchText\":\"had\"") &&
                contains(state.body, "\"contextMenuOpen\":true") &&
-               contains(state.body, "\"iconSize\":14"),
-           "the state reports the search, the menu and the icon size");
+               contains(state.body, "\"iconSize\":14") &&
+               contains(state.body, "\"detailsOpen\":true") &&
+               contains(state.body, "\"breadcrumb\":\"Library > GOG > Hades\""),
+           "the state reports the search, the menu, the icon size, the details page and the trail");
 }
 
 void testSectionButtons() {

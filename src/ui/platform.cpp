@@ -4,6 +4,7 @@
 #include <cctype>
 #include <ranges>
 #include <span>
+#include <variant>
 
 #include "library/game.hpp"
 
@@ -58,6 +59,21 @@ const Platform* Platforms::forSource(library::Source source) const {
         return nullptr;
     }
     return find(key);
+}
+
+const Platform* Platforms::forItem(const library::ShelfItem& item) const {
+    if (const auto* console = std::get_if<library::Console>(&item)) {
+        return find(console->system);
+    }
+    const auto* game = std::get_if<library::Game>(&item);
+    if (game == nullptr) {
+        return nullptr;
+    }
+    // A ROM belongs to a system, and the pack's console names are those systems.
+    if (game->source == library::Source::Rom && !game->sourceId.empty()) {
+        return find(game->sourceId);
+    }
+    return forSource(game->source);
 }
 
 const Platform* Platforms::find(std::string_view key) const {

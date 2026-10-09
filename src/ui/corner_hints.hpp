@@ -12,11 +12,11 @@ struct HintContext {
     bool back{false};
     /// B clears a search whose results are showing; it comes before leaving a folder.
     bool clearSearch{false};
-    /// A opens a folder or launches a game.
+    /// A does something: opens a folder, a game's details, or the details page's focused button.
     bool select{false};
-    /// Select opens a game's menu, whose first entries are its details.
+    /// A opens the focused game's details page, which the prompt says.
     bool details{false};
-    /// Select opens a folder tile's menu.
+    /// Select opens the focused tile's context menu.
     bool options{false};
     /// START opens a menu.
     bool menu{false};
@@ -30,9 +30,9 @@ struct Prompt {
     bool operator==(const Prompt&) const = default;
 };
 
-/// The bottom-left panel: B Back or Clear search, - Details or Options.
+/// The bottom-left panel: B Back or Clear search, - Options.
 [[nodiscard]] std::vector<Prompt> startPrompts(const HintContext& context);
-/// The bottom-right panel: A Select, + Menu.
+/// The bottom-right panel: A Select or Details, + Menu.
 [[nodiscard]] std::vector<Prompt> endPrompts(const HintContext& context);
 
 } // namespace opensu::ui

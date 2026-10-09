@@ -23,6 +23,8 @@
 #include "context_menu.hpp"
 #include "context_menu_painter.hpp"
 #include "corner_hints.hpp"
+#include "details_page.hpp"
+#include "details_page_painter.hpp"
 #include "dock_metrics.hpp"
 #include "dock_motion.hpp"
 #include "dock_painter.hpp"
@@ -137,10 +139,6 @@ class Shell {
     /// Gives the ROM tiles of a system the glyph for their frame's tab.
     void setGlyph(std::string_view system, const std::filesystem::path& glyph);
 
-    /// Resolves an entry's platform frame. A title from a store has no console, so
-    /// it is framed in that store's identity; a ROM and a console in their system's.
-    [[nodiscard]] const Platform* platformFor(const library::ShelfItem& item) const;
-
     /// Makes `section` the one shown, which sets its grid and where the dock stands. The shelf is
     /// the caller's to replace after. `revealDock` slides the dock in for a moment (iiSU
     /// `jk2.java:937`), as an L1 or R1 press does.
@@ -174,9 +172,17 @@ class Shell {
     [[nodiscard]] ContextMenu& contextMenu() noexcept {
         return context_;
     }
-    /// Whether a panel that takes every button is up: the options, the search or a context menu.
+    /// The details page of a game, which replaces the grid while it is open.
+    [[nodiscard]] DetailsPage& detailsPage() noexcept {
+        return details_;
+    }
+    [[nodiscard]] const DetailsPage& detailsPage() const noexcept {
+        return details_;
+    }
+    /// Whether a panel that takes every button is up: the options, the search, a context menu or
+    /// the details page.
     [[nodiscard]] bool panelOpen() const noexcept {
-        return chooser_.isOpen() || search_.isOpen() || context_.isOpen();
+        return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || details_.isOpen();
     }
 
     /// Which device the prompts name. The caller feeds it; the painters read it.
@@ -301,6 +307,10 @@ class Shell {
     void setTitle(std::string title) {
         hud_.setTitle(std::move(title));
     }
+    /// The breadcrumb trail the top bar shows.
+    void setTrail(Trail trail) {
+        hud_.setTrail(std::move(trail));
+    }
     void setBattery(std::optional<device::BatteryStatus> battery) noexcept {
         hud_.setBattery(battery);
     }
@@ -329,6 +339,15 @@ class Shell {
     /// How far the entrance has run for a tile `distance` from the focus, or 1 when none runs.
     [[nodiscard]] float railAlpha(int distance) const noexcept;
     [[nodiscard]] Tile makeTile(library::ShelfItem item) const;
+    /// The details page's geometry this frame.
+    [[nodiscard]] DetailsLayout detailsLayout() const {
+        return layoutDetails(static_cast<float>(width_), static_cast<float>(height_), dp(),
+                             hud_.topInset(), hud_.bottomInset(), details_.view().buttons.size());
+    }
+    /// Starts `fade` when a panel's `open` state changed from `wasOpen`, which it then records.
+    void followFade(PanelFade& fade, bool open, bool& wasOpen) const;
+    /// The textures the details page draws: the focused tile's.
+    [[nodiscard]] DetailsArt detailsArt() const;
     /// The tiles whose art is wanted now: those near the canvas, as the layout owner places them.
     [[nodiscard]] SlotRange artWindow() const;
     /// Queues the art of the window's tiles that has not been, and drops queued art that left it.
@@ -405,6 +424,9 @@ class Shell {
     PanelFade contextFade_{FadeSpec{110.0f, 95.0f, 0.96f, 110.0f, 0.985f}};
     ContextMenuPainter contextPainter_{device_};
 
+    DetailsPage details_;
+    PanelFade detailsFade_{FadeSpec{140.0f, 110.0f, 1.0f, 0.0f, 1.0f}};
+
     Clock::time_point now_{Clock::now()};
     Clock::time_point lastTick_{now_};
     Clock::time_point focusAt_{now_};
@@ -441,6 +463,7 @@ class Shell {
     bool pinLibraryDock_{true};
     bool searchWasOpen_{false};
     bool contextWasOpen_{false};
+    bool detailsWasOpen_{false};
 };
 
 } // namespace opensu::ui

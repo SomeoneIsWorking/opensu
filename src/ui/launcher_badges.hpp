@@ -1,6 +1,6 @@
-// launcher_badges — the launchers opensu depends on, as icons in the top bar's status pill, where
-// iiSU has its bell: each launcher's logo in an iiSU avatar circle (a32.e), with a presence dot
-// for its state.
+// launcher_badges — the launchers opensu depends on, as icons inline in the top bar's status pill
+// where iiSU has its bell: each launcher's logo with a presence dot for its state. The status pill
+// painter draws them with the clock.
 #pragma once
 
 #include <cstdint>

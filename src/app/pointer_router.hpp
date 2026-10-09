@@ -5,6 +5,7 @@
 // D-pad does. Nothing here knows geometry: the host says what is under the pointer.
 #pragma once
 
+#include <cstddef>
 #include <optional>
 
 #include "gamepad/event.hpp"
@@ -46,6 +47,8 @@ class PointerHost {
     virtual void activateSection(library::Section section) = 0;
     /// A click on a launcher's badge in the top bar.
     virtual void selectLauncher(library::Source source) = 0;
+    /// A click on a level of the breadcrumb trail: go back to it.
+    virtual void activateCrumb(std::size_t index) = 0;
     /// A click on the icon size slider at `level`.
     virtual void chooseIconSize(int level) = 0;
     /// A right click on `target`: its context menu opens, an open one closes, and a target

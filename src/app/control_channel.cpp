@@ -115,7 +115,9 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     flag("searchOpen", snapshot.searchOpen);
     text("searchText", snapshot.searchText);
     flag("contextMenuOpen", snapshot.contextMenuOpen);
+    flag("detailsOpen", snapshot.detailsOpen);
     number("iconSize", snapshot.iconSize);
+    text("breadcrumb", snapshot.breadcrumb);
     text("shelf", snapshot.shelf);
     text("status", snapshot.status);
     text("toast", snapshot.toast);

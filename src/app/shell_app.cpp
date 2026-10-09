@@ -7,7 +7,6 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
-#include <sstream>
 #include <stdexcept>
 #include <thread>
 #include <unistd.h>
@@ -15,6 +14,7 @@
 
 #include "artwork/iisu_assets.hpp"
 #include "config/config.hpp"
+#include "frame_png.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "launcher_status.hpp"
 #include "library/titles.hpp"
@@ -24,18 +24,6 @@
 
 namespace opensu::app {
 namespace {
-
-/// A short human summary of a title's state, shown in the details toast.
-std::string describe(const library::Game& game) {
-    std::ostringstream out;
-    out << game.title << " · " << library::label(game.source);
-    if (game.playtimeMinutes > 0) {
-        out << " · " << (game.playtimeMinutes / 60) << " h played";
-    } else {
-        out << " · never played";
-    }
-    return out.str();
-}
 
 /// The APK files opensu keeps: every UI sound and the dock's icons.
 std::vector<artwork::ApkAsset> iisuAssets() {
@@ -100,19 +88,6 @@ std::filesystem::path ShellApp::padsDirectory(bool hidden) {
     return empty;
 }
 
-void ShellApp::flipVertical(Image& image) {
-    const int stride = image.width * 4;
-    std::vector<unsigned char> row(static_cast<std::size_t>(stride));
-    auto* pixels = static_cast<unsigned char*>(image.data);
-    for (int y = 0; y < image.height / 2; ++y) {
-        unsigned char* top = pixels + static_cast<std::size_t>(y) * stride;
-        unsigned char* bottom = pixels + static_cast<std::size_t>(image.height - 1 - y) * stride;
-        std::memcpy(row.data(), top, static_cast<std::size_t>(stride));
-        std::memcpy(top, bottom, static_cast<std::size_t>(stride));
-        std::memcpy(bottom, row.data(), static_cast<std::size_t>(stride));
-    }
-}
-
 void ShellApp::reloadCatalog() {
     catalogLoader_.refresh();
 }
@@ -133,6 +108,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     games_ = std::move(snapshot.games);
     sources_ = std::move(snapshot.sources);
     preferences_.values().lastPlayed.apply(games_);
+    preferences_.values().emulators.apply(games_);
     artworkStore_.apply(games_);
     const std::vector<library::Console> consoles = library::consoles(games_);
     artworkFetcher_.request(games_, consoles, iisuAssets());
@@ -171,6 +147,7 @@ void ShellApp::showShelf(std::size_t focus) {
     shell_.setStatus(std::to_string(games_.size()) + " games · " + std::to_string(installedCount_) +
                      " installed" + (library::narrowing(chosen.view) ? " · filtered" : ""));
     shell_.setArtworkDownloading(artworkFetcher_.pendingGames());
+    details_.refresh();
 }
 
 std::optional<library::ShelfItem> ShellApp::folderCard() const {
@@ -320,20 +297,7 @@ void ShellApp::handleKeyboard() {
         handleSearchText(typed);
         return;
     }
-    // Keys report edges like a pad's buttons, so held arrows repeat on the pad's schedule rather
-    // than the keyboard's.
-    const bool control = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
-    std::vector<gamepad::Event> events;
-    for (const input::KeyBinding& binding : input::keyBindings()) {
-        if (binding.ctrl != control) {
-            continue;
-        }
-        if (IsKeyPressed(binding.key)) {
-            events.push_back(gamepad::Event{.button = binding.button, .pressed = true});
-        } else if (IsKeyReleased(binding.key)) {
-            events.push_back(gamepad::Event{.button = binding.button, .pressed = false});
-        }
-    }
+    const std::vector<gamepad::Event> events = input::keyEvents(input::raylibKeys());
     if (!events.empty()) {
         shell_.inputDevice().noteKey();
     }
@@ -486,6 +450,10 @@ void ShellApp::actOn(gamepad::Button button) {
         layoutPicker_.act(button);
         return;
     }
+    if (shell_.detailsPage().isOpen()) {
+        details_.act(button);
+        return;
+    }
     switch (button) {
     case gamepad::Button::Up:
         moveFocus(ui::Direction::Up);
@@ -504,11 +472,11 @@ void ShellApp::actOn(gamepad::Button button) {
         if (const std::optional<library::Folder> folder = shell_.focusedFolder()) {
             openFolder(*folder);
         } else {
-            launchFocused();
+            details_.open();
         }
         break;
     case gamepad::Button::Y:
-        showDetails();
+        details_.open();
         break;
     case gamepad::Button::Select:
         // iiSU `pb0.java:2086`: SELECT asks for the focused item's menu.
@@ -569,18 +537,14 @@ void ShellApp::cycleSection(int delta) {
     }
 }
 
-void ShellApp::launchFocused() {
-    const library::Game* game = shell_.focusedGame();
-    if (game == nullptr) {
+void ShellApp::launch(const library::Game& game) {
+    if (!game.installed) {
+        offerInstall(game);
         return;
     }
-    if (!game->installed) {
-        offerInstall(*game);
-        return;
-    }
-    if (game->launch.empty()) {
+    if (game.launch.empty()) {
         shell_.setToast(
-            game->unavailable.empty() ? "no way to start " + game->title : game->unavailable, true);
+            game.unavailable.empty() ? "no way to start " + game.title : game.unavailable, true);
         return;
     }
     {
@@ -594,16 +558,15 @@ void ShellApp::launchFocused() {
 
     // input-sound.md 3.4 OpenAppRom: every game launch.
     sounds_.play(audio::Effect::OpenAppRom);
-    // The copy outlives this call because the handoff thread reads it.
-    const library::Game copy = *game;
-    runningTitle_ = copy.title;
-    panels_.showLaunch(copy.title);
-    recordLaunch(copy);
+    runningTitle_ = game.title;
+    panels_.showLaunch(game.title);
+    recordLaunch(game);
 
     std::vector<std::string> environment = pads_.hold();
     padsHeld_ = true;
 
-    std::thread{[this, copy, environment = std::move(environment)] {
+    // The thread owns a copy because it outlives this call.
+    std::thread{[this, copy = game, environment = std::move(environment)] {
         std::string failure;
         // raylib's window calls belong to the thread that owns the GL context, so the handoff
         // thread only raises flags and the loop does the work.
@@ -753,21 +716,88 @@ void ShellApp::recordLaunch(const library::Game& game) {
     preferences_.save();
 }
 
-void ShellApp::showDetails() {
-    if (const library::Game* game = shell_.focusedGame(); game != nullptr) {
-        shell_.setToast(describe(*game));
+void ShellApp::chooseEmulator(const library::Game& game, const std::string& name) {
+    preferences_.values().emulators.set(game.id, name);
+    preferences_.save();
+    preferences_.values().emulators.apply(games_);
+    showShelf(shell_.focusIndex());
+}
+
+std::optional<library::Game> ShellApp::shownGame(const std::string& id) const {
+    for (const ui::Tile& tile : shell_.tiles()) {
+        const auto* game = std::get_if<library::Game>(&tile.item);
+        if (game == nullptr || game->id != id) {
+            continue;
+        }
+        std::vector<library::Game> shown{*game};
+        preferences_.values().lastPlayed.apply(shown);
+        return std::move(shown.front());
+    }
+    return std::nullopt;
+}
+
+ui::Trail ShellApp::currentTrail() const {
+    const settings::Settings& chosen = preferences_.values();
+    TrailState state{.section = browser_.section(), .folder = browser_.folder()};
+    if (search_.searching()) {
+        state.search = chosen.view.search;
+    }
+    if (!chosen.view.source.empty()) {
+        state.filters = filtersOf(chosen.view, library::sourceChoices(games_, sources_));
+    } else {
+        state.filters = filtersOf(chosen.view, {});
+    }
+    if (shell_.detailsPage().isOpen()) {
+        state.game = shell_.detailsPage().view().title;
+    }
+    return trailOf(state);
+}
+
+void ShellApp::activateCrumb(std::size_t index) {
+    const ui::Trail trail = currentTrail();
+    if (index >= trail.size() || !ui::isPlace(trail[index]) || shell_.inGame() ||
+        panels_.active()) {
+        return;
+    }
+    // The details page is the only panel the trail stays clickable over.
+    details_.close();
+    if (shell_.panelOpen()) {
+        return;
+    }
+    const ui::Crumb& crumb = trail[index];
+    if (crumb.kind == ui::CrumbKind::Section && crumb.section != browser_.section()) {
+        clickSection(crumb.section);
+    } else if (crumb.kind != ui::CrumbKind::Search) {
+        search_.clear();
+        if (crumb.kind == ui::CrumbKind::Section) {
+            if (const std::optional<std::size_t> focus = browser_.back()) {
+                showShelf(*focus);
+            }
+        }
     }
 }
 
 ui::HintContext ShellApp::hints() const {
+    if (shell_.detailsPage().isOpen()) {
+        return ui::HintContext{.back = true, .select = true};
+    }
     const bool game = shell_.focusedGame() != nullptr;
     const bool folder = shell_.focusedFolder().has_value();
     return ui::HintContext{.back = browser_.canBack(),
                            .clearSearch = search_.searching(),
                            .select = game || folder,
                            .details = game,
-                           .options = folder,
+                           .options = game || folder,
                            .menu = true};
+}
+
+void ShellApp::syncChrome() {
+    shell_.setHints(hints());
+    shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
+    // iiSU's Home has no title (pl3.q); opensu's names the focused tile everywhere, and the
+    // trail names the game on its details page.
+    shell_.setTitle(shell_.detailsPage().isOpen() ? std::string{} : shell_.pillTitle());
+    shell_.setTrail(currentTrail());
 }
 
 void ShellApp::refreshClock() {
@@ -784,43 +814,6 @@ void ShellApp::refreshClock() {
     // STOPGAP: the battery is re-read on the clock's minute tick because opensu has no
     // power_supply uevent listener standing in for iiSU's ACTION_BATTERY_CHANGED receiver.
     shell_.setBattery(battery_.read());
-}
-
-bool ShellApp::renderFrameToPng(std::string& png) {
-    const RenderTexture target = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    if (target.id == 0) {
-        lucent::error("render", "could not create an offscreen target");
-        return false;
-    }
-
-    shell_.draw(&target);
-
-    // A render texture has OpenGL's bottom-up origin, so the exported image is
-    // the frame upside down. Flipping the rows here keeps draw() identical
-    // between the window and this path.
-    Image frame = LoadImageFromTexture(target.texture);
-    flipVertical(frame);
-
-    // raylib can only encode to a file, so the bytes are written there and read
-    // back. The name carries the process id, so two shells on one machine do
-    // not fight over it.
-    const std::string path = (std::filesystem::temp_directory_path() /
-                              ("opensu-frame-" + std::to_string(::getpid()) + ".png"))
-                                 .string();
-    const bool written = ExportImage(frame, path.c_str());
-    UnloadImage(frame);
-    UnloadTexture(target.texture);
-    if (!written) {
-        lucent::error("render", "could not encode the frame");
-        return false;
-    }
-
-    std::ifstream in{path, std::ios::binary};
-    png.assign(std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{});
-    in.close();
-    std::error_code ignored;
-    std::filesystem::remove(path, ignored);
-    return !png.empty();
 }
 
 ShellSnapshot ShellApp::snapshot() const {
@@ -907,6 +900,10 @@ void ShellApp::publishSnapshot() {
     next.searchOpen = shell_.searchPanel().isOpen();
     next.searchText = preferences_.values().view.search;
     next.contextMenuOpen = shell_.contextMenu().isOpen();
+    next.detailsOpen = shell_.detailsPage().isOpen();
+    for (const ui::Crumb& crumb : currentTrail()) {
+        next.breadcrumb += (next.breadcrumb.empty() ? "" : " > ") + crumb.label;
+    }
     next.iconSize = static_cast<std::size_t>(shell_.iconSize());
     next.shelf = browser_.folder() ? library::key(*browser_.folder()) : next.section;
     next.focusIndex = shell_.focusIndex();
@@ -972,7 +969,7 @@ void ShellApp::serviceControlRequests() {
     }
 
     std::string png;
-    const bool ok = renderFrameToPng(png);
+    const bool ok = renderShellPng(shell_, png);
     const std::lock_guard lock{stateMutex_};
     captureResult_ = ok ? std::move(png) : std::string{};
     capturePending_ = false;
@@ -1107,10 +1104,7 @@ int ShellApp::run() {
         serviceRequests();
         serviceCatalog();
         serviceArtwork();
-        shell_.setHints(hints());
-        shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
-        // iiSU's Home has no title (pl3.q); opensu's names the focused tile everywhere.
-        shell_.setTitle(shell_.pillTitle());
+        syncChrome();
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
         shell_.draw();
@@ -1154,12 +1148,11 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
                  shell_.tiles().size());
     // A still frame shows the grid at rest, after its entrance.
     shell_.tick(std::chrono::steady_clock::now());
-    shell_.setHints(hints());
-    shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
+    syncChrome();
     shell_.settle();
 
     std::string png;
-    const bool ok = renderFrameToPng(png);
+    const bool ok = renderShellPng(shell_, png);
     CloseWindow();
     if (!ok) {
         lucent::error("render", "could not render a frame");

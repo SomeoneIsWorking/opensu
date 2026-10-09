@@ -6,21 +6,39 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "gamepad/event.hpp"
 
 namespace opensu::input {
 
-/// A raylib key code and the button it presses. A binding with `ctrl` is the key with Control held;
-/// one without it is the key without.
+/// A raylib key code and the button it presses. A binding fires only with exactly its modifiers
+/// held: `ctrl` and `shift` mean the key with that modifier down, their absence the key without it.
 struct KeyBinding {
     int key;
     gamepad::Button button;
     bool ctrl{false};
+    bool shift{false};
 };
 
 /// Every binding. A button's first entry is the key its prompts show.
 [[nodiscard]] std::span<const KeyBinding> keyBindings() noexcept;
+
+/// The keyboard's state this frame, as raylib reports it; tests give it a table instead.
+class KeySource {
+  public:
+    virtual ~KeySource() = default;
+    [[nodiscard]] virtual bool down(int key) const = 0;
+    [[nodiscard]] virtual bool pressed(int key) const = 0;
+    [[nodiscard]] virtual bool released(int key) const = 0;
+};
+
+/// raylib's keyboard. Main loop only.
+[[nodiscard]] const KeySource& raylibKeys() noexcept;
+
+/// The button edges the keys in `keys` made this frame, by the binding table. A key reports its
+/// edges like a pad's button, so a held arrow repeats on the pad's schedule.
+[[nodiscard]] std::vector<gamepad::Event> keyEvents(const KeySource& keys);
 
 /// What a physical keyboard typed into a text field in one frame.
 struct TextInput {

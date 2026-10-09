@@ -147,8 +147,10 @@ std::vector<Game> Provider::list() {
                 game.installed = true;
                 // The emulator's command line carries the game's file.
                 game.processHint = file->filename().string();
+                game.emulatorOptions = emulators_.options(system->key, *file);
                 if (std::optional<LaunchSpec> spec = emulators_.launch(system->key, *file)) {
                     game.launch = std::move(*spec);
+                    game.emulator = emulators_.chosenName(system->key);
                 } else {
                     game.unavailable = missingEmulator(*system);
                 }

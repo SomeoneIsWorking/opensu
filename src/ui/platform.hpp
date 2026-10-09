@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-#include "library/game.hpp"
+#include "library/shelf.hpp"
 
 namespace opensu::ui {
 
@@ -50,6 +50,10 @@ class Platforms {
     /// single store, so it is framed in its system instead and this returns null. Points into
     /// this table.
     [[nodiscard]] const Platform* forSource(library::Source source) const;
+
+    /// The platform frame of a shelf entry: a console's and a ROM's by their system, a store
+    /// title's by its store. Null for a folder of games and for an entry with no platform identity.
+    [[nodiscard]] const Platform* forItem(const library::ShelfItem& item) const;
 
     [[nodiscard]] std::size_t size() const noexcept {
         return platforms_.size();

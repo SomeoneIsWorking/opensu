@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <filesystem>
+#include <type_traits>
 #include <variant>
 
 #include "input/keyboard_bindings.hpp"
@@ -129,26 +130,10 @@ void Shell::setSize(int width, int height) {
     relayout();
 }
 
-const Platform* Shell::platformFor(const library::ShelfItem& item) const {
-    if (const auto* console = std::get_if<library::Console>(&item)) {
-        return platforms_.find(console->system);
-    }
-    const auto* single = std::get_if<library::Game>(&item);
-    if (single == nullptr) {
-        return nullptr;
-    }
-    const library::Game& game = *single;
-    // A ROM belongs to a system, and the pack's console names are those systems.
-    if (game.source == library::Source::Rom && !game.sourceId.empty()) {
-        return platforms_.find(game.sourceId);
-    }
-    return platforms_.forSource(game.source);
-}
-
 Tile Shell::makeTile(library::ShelfItem item) const {
     Tile tile;
     tile.item = std::move(item);
-    tile.platform = platformFor(tile.item);
+    tile.platform = platforms_.forItem(tile.item);
     if (const std::optional<library::Folder> folder = library::folderOf(tile.item)) {
         tile.title = library::name(*folder);
     }
@@ -552,6 +537,18 @@ void Shell::pressFocused() {
     }
 }
 
+void Shell::followFade(PanelFade& fade, bool open, bool& wasOpen) const {
+    if (open == wasOpen) {
+        return;
+    }
+    wasOpen = open;
+    if (open) {
+        fade.show(now_);
+    } else {
+        fade.hide(now_);
+    }
+}
+
 void Shell::tick(Clock::time_point now) {
     const float dt = std::chrono::duration<float, std::milli>(now - lastTick_).count();
     lastTick_ = now;
@@ -561,22 +558,9 @@ void Shell::tick(Clock::time_point now) {
         startEntrance();
     }
     // A panel's fade starts when its state says it opened or closed.
-    if (search_.isOpen() != searchWasOpen_) {
-        searchWasOpen_ = search_.isOpen();
-        if (searchWasOpen_) {
-            searchFade_.show(now_);
-        } else {
-            searchFade_.hide(now_);
-        }
-    }
-    if (context_.isOpen() != contextWasOpen_) {
-        contextWasOpen_ = context_.isOpen();
-        if (contextWasOpen_) {
-            contextFade_.show(now_);
-        } else {
-            contextFade_.hide(now_);
-        }
-    }
+    followFade(searchFade_, search_.isOpen(), searchWasOpen_);
+    followFade(contextFade_, context_.isOpen(), contextWasOpen_);
+    followFade(detailsFade_, details_.isOpen(), detailsWasOpen_);
     railFocus_.step(dt);
     if (layout_.mode() == ScrollMode::Flow) {
         scroller_.step(dt, layout_.cellWidth() + layout_.gap(), layout_.viewportWidth(),
@@ -829,11 +813,27 @@ Shell::DockFrame Shell::dockFrame(float width, float height) const {
                      DockStyle{chromeDark(), pixelsPerDp, dockVisibility_.progress(nowMs())}};
 }
 
+DetailsArt Shell::detailsArt() const {
+    if (focus_.index() >= tiles_.size()) {
+        return {};
+    }
+    const Tile& tile = tiles_[focus_.index()];
+    return DetailsArt::of(tile.hasPortrait ? &tile.portrait : nullptr,
+                          tile.hasWide ? &tile.wide : nullptr);
+}
+
 PointerTarget Shell::pointAt(std::optional<Vector2> point) {
     dockHover_.reset();
     hud_.setLauncherHover(std::nullopt);
+    hud_.setCrumbHover(std::nullopt);
     if (!point) {
         return {};
+    }
+    if (!inGame_ && !launchPanel_.isOpen() && (!panelOpen() || details_.isOpen())) {
+        if (const std::optional<std::size_t> crumb = hud_.crumbAt(point->x, point->y)) {
+            hud_.setCrumbHover(crumb);
+            return OnCrumb{*crumb};
+        }
     }
     if (inGame_ || launchPanel_.isOpen() || panelOpen()) {
         return pointAtModal(*point);
@@ -880,6 +880,12 @@ PointerTarget Shell::pointAtModal(Vector2 point) const {
         return {};
     }
     const Rect frame{0.0f, 0.0f, width, height};
+    if (details_.isOpen()) {
+        if (const std::optional<std::size_t> button = detailsLayout().buttonAt(point.x, point.y)) {
+            return OnDetailsButton{*button};
+        }
+        return {};
+    }
     if (context_.isOpen()) {
         const ContextLayout menu = context_.layout(frame, dp());
         if (const std::optional<std::size_t> row = menu.itemAt(point.x, point.y)) {
@@ -961,52 +967,36 @@ bool Shell::focusPage(int page) {
 }
 
 bool Shell::focusTarget(const PointerTarget& target) {
-    struct Focus {
-        Shell& shell;
-        bool operator()(std::monostate) const {
-            return false;
-        }
-        bool operator()(const OnDock&) const {
-            return false;
-        }
-        bool operator()(const OnPanelButton&) const {
-            return false;
-        }
-        bool operator()(const OnLauncher&) const {
-            return false;
-        }
-        bool operator()(const OnChooserRow& row) const {
-            return shell.chooser_.focusRow(row.row);
-        }
-        bool operator()(const OnIconSize&) const {
-            return shell.chooser_.focusRow(ChooserRow::IconSize);
-        }
-        bool operator()(const OnSearchKey& key) const {
-            return shell.search_.focusKey(key.index);
-        }
-        bool operator()(const OnSearchResult& result) const {
-            return shell.search_.focusResult(result.index);
-        }
-        bool operator()(const OnContextItem& item) const {
-            return shell.context_.focusItem(item.index);
-        }
-        bool operator()(const OnContextBackdrop&) const {
-            return false;
-        }
-        bool operator()(const OnTile& tile) const {
-            return shell.focusTile(tile.index);
-        }
-        bool operator()(const OnPage& page) const {
-            return shell.focusPage(page.page);
-        }
-        bool operator()(const OnLayoutCard& card) const {
-            return shell.chooser_.focus(card.mode);
-        }
-        bool operator()(const OnMenuItem& item) const {
-            return shell.gameMenu_.focusItem(item.index);
-        }
-    };
-    return std::visit(Focus{*this}, target);
+    // What has no focus to move (no target, the dock, a panel's hint, a badge, a crumb, a backdrop)
+    // does not move it.
+    return std::visit(
+        [this](const auto& at) {
+            using Target = std::decay_t<decltype(at)>;
+            if constexpr (std::is_same_v<Target, OnDetailsButton>) {
+                return details_.focusButton(at.index);
+            } else if constexpr (std::is_same_v<Target, OnChooserRow>) {
+                return chooser_.focusRow(at.row);
+            } else if constexpr (std::is_same_v<Target, OnIconSize>) {
+                return chooser_.focusRow(ChooserRow::IconSize);
+            } else if constexpr (std::is_same_v<Target, OnSearchKey>) {
+                return search_.focusKey(at.index);
+            } else if constexpr (std::is_same_v<Target, OnSearchResult>) {
+                return search_.focusResult(at.index);
+            } else if constexpr (std::is_same_v<Target, OnContextItem>) {
+                return context_.focusItem(at.index);
+            } else if constexpr (std::is_same_v<Target, OnTile>) {
+                return focusTile(at.index);
+            } else if constexpr (std::is_same_v<Target, OnPage>) {
+                return focusPage(at.page);
+            } else if constexpr (std::is_same_v<Target, OnLayoutCard>) {
+                return chooser_.focus(at.mode);
+            } else if constexpr (std::is_same_v<Target, OnMenuItem>) {
+                return gameMenu_.focusItem(at.index);
+            } else {
+                return false;
+            }
+        },
+        target);
 }
 
 void Shell::drawDock(const DockFrame& frame, float frameHeight) {
@@ -1024,12 +1014,20 @@ void Shell::drawDock(const DockFrame& frame, float frameHeight) {
 
 void Shell::drawScene() {
     hud_.drawGround();
+    const bool detailsShown = detailsFade_.visible(now_);
     if (presentation() == Presentation::Grid) {
         drawGrid();
-        pillPainter_.paint(layout_.pagePill(page_), dp(), chromeDark());
-        arrowPainter_.paint(layout_.pageArrows(page_), chromeDark());
+        if (!detailsShown) {
+            pillPainter_.paint(layout_.pagePill(page_), dp(), chromeDark());
+            arrowPainter_.paint(layout_.pageArrows(page_), chromeDark());
+        }
     } else {
         drawRail();
+    }
+    if (detailsShown) {
+        DetailsPagePainter::paint(details_, detailsLayout(), detailsArt(),
+                                  Vector2{static_cast<float>(width_), static_cast<float>(height_)},
+                                  dp(), detailsFade_.alpha(now_));
     }
     hud_.drawTopBar();
     hud_.drawHints();
@@ -1080,7 +1078,9 @@ void Shell::draw(const RenderTexture2D* target) {
                    Rectangle{0.0f, 0.0f, static_cast<float>(scene_.texture.width),
                              -static_cast<float>(scene_.texture.height)},
                    Vector2{0.0f, 0.0f}, WHITE);
-    drawDock(dock, frameHeight);
+    if (!detailsFade_.visible(now_)) {
+        drawDock(dock, frameHeight);
+    }
     launchPanelPainter_.paint(launchPanel_, Vector2{frameWidth, frameHeight}, dp(),
                               std::chrono::duration<double>(now_.time_since_epoch()).count());
     chooserPainter_.paint(chooser_, Vector2{frameWidth, frameHeight}, dp());

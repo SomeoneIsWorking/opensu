@@ -39,6 +39,14 @@ class Emulators {
     [[nodiscard]] static Emulators discover(const EmulatorSearch& search,
                                             const Commands& overrides);
 
+    /// Every emulator of `system`, each as it would start `rom`: installed or not, in the order
+    /// the search prefers them. A configured override is listed first as "Custom".
+    [[nodiscard]] std::vector<EmulatorOption> options(std::string_view system,
+                                                      const std::filesystem::path& rom) const;
+
+    /// The name of the emulator `launch` uses for `system`, or nothing when none serves it.
+    [[nodiscard]] std::string chosenName(std::string_view system) const;
+
     /// The command that starts `rom` on `system`; nothing when no emulator for it was found.
     [[nodiscard]] std::optional<LaunchSpec> launch(std::string_view system,
                                                    const std::filesystem::path& rom) const;
@@ -46,8 +54,15 @@ class Emulators {
     /// The emulators that would serve `system`, for telling the player what to install.
     [[nodiscard]] static std::vector<std::string_view> candidates(std::string_view system);
 
+    /// The name an override from configuration is listed under.
+    static constexpr std::string_view customName = "Custom";
+
   private:
+    EmulatorSearch search_;
+    Commands overrides_;
     Commands commands_;
+    /// The emulator found for each system, by name.
+    std::map<std::string, std::string, std::less<>> names_;
 };
 
 } // namespace opensu::library::roms

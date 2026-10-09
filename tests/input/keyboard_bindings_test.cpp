@@ -2,6 +2,7 @@
 #include "input/keyboard_bindings.hpp"
 
 #include <cstdio>
+#include <set>
 #include <string>
 
 #include "check.hpp"
@@ -69,9 +70,57 @@ void searchHasSlashAndControlF() {
     }
 }
 
+/// A keyboard that holds the keys it is given: `held` are down, `fresh` went down this frame.
+class FakeKeys final : public opensu::input::KeySource {
+  public:
+    FakeKeys(std::set<int> held, std::set<int> fresh)
+        : held_{std::move(held)}, fresh_{std::move(fresh)} {
+    }
+    bool down(int key) const override {
+        return held_.contains(key);
+    }
+    bool pressed(int key) const override {
+        return fresh_.contains(key);
+    }
+    bool released(int) const override {
+        return false;
+    }
+
+  private:
+    std::set<int> held_;
+    std::set<int> fresh_;
+};
+
+bool presses(const FakeKeys& keys, Button button) {
+    for (const auto& event : opensu::input::keyEvents(keys)) {
+        if (event.button == button && event.pressed) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void contextMenuKeys() {
+    expect(presses(FakeKeys{{KEY_TAB}, {KEY_TAB}}, Button::Select),
+           "Tab asks for the context menu");
+    expect(presses(FakeKeys{{KEY_KB_MENU}, {KEY_KB_MENU}}, Button::Select),
+           "the Menu key asks for the context menu");
+    expect(presses(FakeKeys{{KEY_LEFT_SHIFT, KEY_F10}, {KEY_F10}}, Button::Select),
+           "Shift+F10 asks for the context menu");
+    expect(!presses(FakeKeys{{KEY_F10}, {KEY_F10}}, Button::Select), "a bare F10 does not");
+    expect(!presses(FakeKeys{{KEY_LEFT_SHIFT, KEY_TAB}, {KEY_TAB}}, Button::Select),
+           "Shift+Tab is Guide's chord and does not open the menu");
+    expect(presses(FakeKeys{{KEY_ENTER}, {KEY_ENTER}}, Button::A), "Enter is A");
+    expect(presses(FakeKeys{{KEY_LEFT_CONTROL, KEY_F}, {KEY_F}}, Button::Search) &&
+               !presses(FakeKeys{{KEY_LEFT_CONTROL, KEY_F}, {KEY_F}}, Button::X),
+           "Ctrl+F is the search, not X");
+    expect(keyLabelFor(Button::Select) == "Tab", "the context menu's prompt names Tab");
+}
+
 } // namespace
 
 int main() {
+    contextMenuKeys();
     promptsNameTheBoundKeys();
     unboundGlyphsHaveNoCap();
     everyLabelMatchesItsTable();

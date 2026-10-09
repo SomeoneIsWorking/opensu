@@ -21,9 +21,11 @@
 #include "artwork_fetcher.hpp"
 #include "artwork_store.hpp"
 #include "audio/sound_player.hpp"
+#include "breadcrumb_trail.hpp"
 #include "config/config.hpp"
 #include "context_menu_controller.hpp"
 #include "control_channel.hpp"
+#include "details_controller.hpp"
 #include "device/battery.hpp"
 #include "game_keys.hpp"
 #include "gamepad/direction_repeat.hpp"
@@ -92,12 +94,6 @@ class ShellApp final : public ControlTarget, private PointerHost {
   private:
     /// Where pads are read from: the system's, or an empty directory in a hidden run.
     static std::filesystem::path padsDirectory(bool hidden);
-    /// Flips an image in place, for the render texture's bottom-up origin.
-    static void flipVertical(Image& image);
-
-    /// Renders the current state offscreen and encodes it as PNG. Main loop
-    /// only, with a live GL context.
-    [[nodiscard]] bool renderFrameToPng(std::string& png);
 
     /// Publishes state for the control channel, and serves any pending request.
     /// Main loop only.
@@ -136,6 +132,7 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void press(gamepad::Button button) override;
     void activateSection(library::Section section) override;
     void selectLauncher(library::Source source) override;
+    void activateCrumb(std::size_t index) override;
     void scroll(int steps) override;
     void chooseIconSize(int level) override;
     void contextMenu(const ui::PointerTarget& target) override;
@@ -151,7 +148,8 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void cycleSection(int delta);
     /// Gives the shell the dock icons the store holds. Needs no GL context.
     void loadStoredNavIcons();
-    void launchFocused();
+    /// Launches `game`, or offers to install it.
+    void launch(const library::Game& game);
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
     /// Asks whether to install the focused game, which is not installed, from the stores that
@@ -187,7 +185,14 @@ class ShellApp final : public ControlTarget, private PointerHost {
     void actInGame(gamepad::Button button);
     /// Opens or closes the Guide menu and shows or hides the window drawing it.
     void setGameMenuOpen(bool open);
-    void showDetails();
+    /// Gives the shell what its chrome shows now: prompts, launcher badges, title and trail.
+    void syncChrome();
+    /// The trail the top bar shows for where the shell is now.
+    [[nodiscard]] ui::Trail currentTrail() const;
+    /// Runs ROM `game` on emulator `name` from now on, and keeps the pick.
+    void chooseEmulator(const library::Game& game, const std::string& name);
+    /// The game with `id` as the grid shows it now.
+    [[nodiscard]] std::optional<library::Game> shownGame(const std::string& id) const;
     /// What each button does now, for the corner prompts: the same tests the actions make.
     [[nodiscard]] ui::HintContext hints() const;
     /// Re-reads the clock and the battery and schedules the next minute boundary.
@@ -248,10 +253,12 @@ class ShellApp final : public ControlTarget, private PointerHost {
                                          return shell_.focusedItem();
                                      },
                                      [this] {
-                                         launchFocused();
+                                         if (const library::Game* game = shell_.focusedGame()) {
+                                             launch(*game);
+                                         }
                                      },
                                      [this] {
-                                         showDetails();
+                                         details_.open();
                                      },
                                      [this](const library::Game& game, bool hidden) {
                                          setHidden(game, hidden);
@@ -267,6 +274,23 @@ class ShellApp final : public ControlTarget, private PointerHost {
                                          startSignIn(source == library::Source::Gog ? Store::Gog
                                                                                     : Store::Epic);
                                      }}};
+    DetailsController details_{
+        shell_.detailsPage(), sounds_, preferences_,
+        DetailsController::Hooks{[this] {
+                                     return shell_.focusedGame();
+                                 },
+                                 [this](const std::string& id) {
+                                     return shownGame(id);
+                                 },
+                                 [this](const library::Game& game) {
+                                     launch(game);
+                                 },
+                                 [this](const library::Game& game, bool hidden) {
+                                     setHidden(game, hidden);
+                                 },
+                                 [this](const library::Game& game, const std::string& name) {
+                                     chooseEmulator(game, name);
+                                 }}};
     gamepad::Pads pads_{padsDirectory(settings_.hidden)};
     /// After shell_ and the host it drives.
     PointerRouter pointer_{shell_.inputDevice(), *this};

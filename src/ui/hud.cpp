@@ -69,11 +69,13 @@ void Hud::drawGround() const {
 }
 
 TopBarLayout Hud::topBarLayout() const {
-    const auto visible = static_cast<std::size_t>(std::ranges::count_if(
-        launchers_, [](const LauncherBadge& badge) { return badge.state != ServiceState::Hidden; }));
-    return layoutTopBar(metrics(), TopBarFrame{static_cast<float>(width_),
-                                               static_cast<float>(height_), dp_,
-                                               ClockText::hasLetters(clock_), visible});
+    const auto visible =
+        static_cast<std::size_t>(std::ranges::count_if(launchers_, [](const LauncherBadge& badge) {
+            return badge.state != ServiceState::Hidden;
+        }));
+    return layoutTopBar(metrics(),
+                        TopBarFrame{static_cast<float>(width_), static_cast<float>(height_), dp_,
+                                    ClockText::hasLetters(clock_), visible});
 }
 
 std::optional<library::Source> Hud::launcherAt(float x, float y) const {
@@ -96,12 +98,44 @@ void Hud::drawTopBar() {
     const TopBarLayout layout = topBarLayout();
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
     statusPill_.paint(StatusPillView{layout.status, layout.pill, dp_, clock_, battery_,
-                                     layout.launcherColumn});
-    badges_.paint(launchers_, BadgeRow{layout.launchers, launcherHover_, seconds});
+                                     layout.launcherColumn, layout.divider, launchers_,
+                                     BadgeRow{layout.launchers, launcherHover_, seconds}});
     // STOPGAP: jj2.w's glass strip behind the status pill is not drawn because its geometry is
     // not in the spec.
 
     drawTitlePill(layout.top);
+    const BreadcrumbLayout trail = crumbs_.layout(trail_, crumbFrame(), metrics().titlePill());
+    crumbs_.paint(trail_, trail, metrics().titlePill(), dp_, crumbHover_);
+}
+
+Rect Hud::titlePillBody(float top) const {
+    const TitlePillMetrics pill = metrics().titlePill();
+    const float dp = dp_;
+    const TextStyle text{pill.fontSize * dp};
+    const float textWidth = std::min(type().measure(title_, text), pill.maxTextWidth * dp);
+    const float bodyWidth =
+        std::max(textWidth + 2.0f * pill.paddingHorizontal * dp, pill.minWidth * dp);
+    return Rect{(static_cast<float>(width_) - bodyWidth) * 0.5f, top + pill.topPadding * dp,
+                bodyWidth, pill.height * dp};
+}
+
+BreadcrumbFrame Hud::crumbFrame() const {
+    const TopBarLayout bar = topBarLayout();
+    const TitlePillMetrics pill = metrics().titlePill();
+    const float gap = TopBarMetrics::rowPaddingEnd * dp_;
+    float right = bar.status.x - gap;
+    if (!title_.empty()) {
+        right = std::min(right, titlePillBody(bar.top).x - gap);
+    }
+    return BreadcrumbFrame{.left = TopBarMetrics::rowPaddingEnd * dp_,
+                           .top = bar.top + pill.topPadding * dp_,
+                           .height = pill.height * dp_,
+                           .maxRight = right,
+                           .dp = dp_};
+}
+
+std::optional<std::size_t> Hud::crumbAt(float x, float y) const {
+    return crumbs_.layout(trail_, crumbFrame(), metrics().titlePill()).crumbAt(x, y);
 }
 
 void Hud::drawTitlePill(float top) const {
@@ -110,13 +144,9 @@ void Hud::drawTitlePill(float top) const {
     }
     // iiSU jj2.c: a glass pill centred in the row, its text titleMedium.
     const TitlePillMetrics pill = metrics().titlePill();
-    const float dp = dp_;
-    const TextStyle text{pill.fontSize * dp};
-    const float textWidth = std::min(type().measure(title_, text), pill.maxTextWidth * dp);
-    const float bodyWidth =
-        std::max(textWidth + 2.0f * pill.paddingHorizontal * dp, pill.minWidth * dp);
-    const Rect body{(static_cast<float>(width_) - bodyWidth) * 0.5f, top + pill.topPadding * dp,
-                    bodyWidth, pill.height * dp};
+    const TextStyle text{pill.fontSize * dp_};
+    const float textWidth = std::min(type().measure(title_, text), pill.maxTextWidth * dp_);
+    const Rect body = titlePillBody(top);
     glass_.paint(body);
     type().drawCentred(title_, body.centreX() - textWidth * 0.5f, body.centreY(), text, hintInk);
 }

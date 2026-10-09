@@ -9,7 +9,7 @@ namespace {
 
 using gamepad::Button;
 
-constexpr std::array<KeyBinding, 20> bindings{{
+constexpr std::array<KeyBinding, 22> bindings{{
     {KEY_UP, Button::Up},
     {KEY_W, Button::Up},
     {KEY_DOWN, Button::Down},
@@ -24,12 +24,14 @@ constexpr std::array<KeyBinding, 20> bindings{{
     {KEY_F, Button::X},
     {KEY_Y, Button::Y},
     {KEY_TAB, Button::Select},
+    {KEY_KB_MENU, Button::Select},
+    {KEY_F10, Button::Select, false, true},
     {KEY_E, Button::Start},
     {KEY_LEFT_BRACKET, Button::L1},
     {KEY_RIGHT_BRACKET, Button::R1},
     {KEY_R, Button::R1},
     {KEY_SLASH, Button::Search},
-    {KEY_F, Button::Search, true},
+    {KEY_F, Button::Search, true, false},
 }};
 
 struct NamedKey {
@@ -37,7 +39,8 @@ struct NamedKey {
     const char* label;
 };
 
-constexpr std::array<NamedKey, 10> namedKeys{{
+constexpr std::array<NamedKey, 11> namedKeys{{
+    {KEY_KB_MENU, "Menu"},
     {KEY_UP, "Up"},
     {KEY_DOWN, "Down"},
     {KEY_LEFT, "Left"},
@@ -60,10 +63,48 @@ std::string labelOf(int key) {
     return std::string(1, static_cast<char>(key));
 }
 
+class RaylibKeys final : public KeySource {
+  public:
+    [[nodiscard]] bool down(int key) const override {
+        return IsKeyDown(key);
+    }
+    [[nodiscard]] bool pressed(int key) const override {
+        return IsKeyPressed(key);
+    }
+    [[nodiscard]] bool released(int key) const override {
+        return IsKeyReleased(key);
+    }
+};
+
+const RaylibKeys raylib;
+
 } // namespace
 
 std::span<const KeyBinding> keyBindings() noexcept {
     return bindings;
+}
+
+const KeySource& raylibKeys() noexcept {
+    return raylib;
+}
+
+std::vector<gamepad::Event> keyEvents(const KeySource& keys) {
+    const bool ctrl = keys.down(KEY_LEFT_CONTROL) || keys.down(KEY_RIGHT_CONTROL);
+    const bool shift = keys.down(KEY_LEFT_SHIFT) || keys.down(KEY_RIGHT_SHIFT);
+    std::vector<gamepad::Event> events;
+    for (const KeyBinding& binding : bindings) {
+        if (binding.ctrl != ctrl || binding.shift != shift) {
+            continue;
+        }
+        if (keys.pressed(binding.key)) {
+            events.push_back(
+                gamepad::Event{.button = binding.button, .pressed = true, .device = {}});
+        } else if (keys.released(binding.key)) {
+            events.push_back(
+                gamepad::Event{.button = binding.button, .pressed = false, .device = {}});
+        }
+    }
+    return events;
 }
 
 TextInput readTextInput() {

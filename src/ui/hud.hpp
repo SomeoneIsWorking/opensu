@@ -14,6 +14,7 @@
 
 #include "raylib.h"
 
+#include "breadcrumb_painter.hpp"
 #include "button_glyph.hpp"
 #include "corner_hints.hpp"
 #include "device/battery.hpp"
@@ -85,6 +86,15 @@ class Hud {
     void setTitle(std::string title) {
         title_ = std::move(title);
     }
+    /// The breadcrumb trail and the level the pointer is on; an empty trail draws nothing.
+    void setTrail(Trail trail) {
+        trail_ = std::move(trail);
+    }
+    void setCrumbHover(std::optional<std::size_t> crumb) noexcept {
+        crumbHover_ = crumb;
+    }
+    /// The level of the trail under the point, from the geometry the trail paints at.
+    [[nodiscard]] std::optional<std::size_t> crumbAt(float x, float y) const;
     /// What each button does now; the corners name only the ones that do something.
     void setHints(const HintContext& hints) noexcept {
         hints_ = hints;
@@ -119,6 +129,10 @@ class Hud {
     [[nodiscard]] float unit() const noexcept;
     [[nodiscard]] TopBarMetrics metrics() const noexcept;
     void drawTitlePill(float top) const;
+    /// The title pill's body in a row whose top is `top`.
+    [[nodiscard]] Rect titlePillBody(float top) const;
+    /// Where the trail may stand: from the row's start to the title pill or the status pill.
+    [[nodiscard]] BreadcrumbFrame crumbFrame() const;
     /// One corner prompt panel of (glyph, label) entries (iiSU jj2.b).
     void drawPromptPanel(const HintPanelMetrics& panel, const std::vector<Prompt>& prompts,
                          bool atEnd) const;
@@ -132,6 +146,8 @@ class Hud {
     std::optional<device::BatteryStatus> battery_;
     std::vector<LauncherBadge> launchers_;
     std::string title_;
+    Trail trail_;
+    std::optional<std::size_t> crumbHover_;
     HintContext hints_;
     std::optional<library::Source> launcherHover_;
     Clock::time_point now_{};
@@ -140,8 +156,8 @@ class Hud {
     Clock::time_point toastUntil_{};
     StatusPillPainter statusPill_;
     GlassPainter glass_;
+    BreadcrumbPainter crumbs_;
     ButtonGlyphPainter glyphs_;
-    LauncherBadgePainter badges_;
 };
 
 } // namespace opensu::ui

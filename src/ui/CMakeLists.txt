@@ -8,7 +8,7 @@ target_compile_options(opensu_grid PRIVATE -Wall -Wextra -Wpedantic)
 # The chrome's models: top bar sizing, clock text, battery icon choice and the Guide menu. Pure, so tests link it alone.
 add_library(opensu_hud_model STATIC top_bar_metrics.cpp top_bar_layout.cpp corner_hints.cpp clock_text.cpp battery_icon.cpp game_menu.cpp launch_panel.cpp
     section_view.cpp mode_chooser.cpp dock_metrics.cpp dock_motion.cpp icon_recolour.cpp
-    search_panel.cpp context_menu.cpp panel_fade.cpp)
+    search_panel.cpp context_menu.cpp panel_fade.cpp breadcrumbs.cpp details_page.cpp)
 add_library(opensu::hud_model ALIAS opensu_hud_model)
 target_include_directories(opensu_hud_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_hud_model PUBLIC opensu::grid opensu::library)
@@ -16,7 +16,7 @@ target_compile_features(opensu_hud_model PUBLIC cxx_std_20)
 target_compile_options(opensu_hud_model PRIVATE -Wall -Wextra -Wpedantic)
 
 add_library(opensu_ui STATIC
-    shell.cpp hud.cpp launcher_badges.cpp vector_icon.cpp status_pill.cpp progress_spinner.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
+    shell.cpp hud.cpp breadcrumb_painter.cpp details_page_painter.cpp launcher_badges.cpp vector_icon.cpp status_pill.cpp progress_spinner.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
     button_glyph.cpp game_menu_painter.cpp launch_panel_painter.cpp dock_painter.cpp mode_chooser_painter.cpp search_panel_painter.cpp context_menu_painter.cpp rail_painter.cpp backdrop_blur.cpp
     round_shape.cpp image_decoder.cpp clip_stack.cpp
     typeface.cpp face_metrics.cpp platform.cpp platform_stroke.cpp glyph_textures.cpp)

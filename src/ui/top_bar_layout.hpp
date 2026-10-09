@@ -30,6 +30,8 @@ struct TopBarLayout {
     float launcherColumn{};
     /// One square per launcher, in order, each the badge circle's bounds.
     std::vector<Rect> launchers;
+    /// The x of the line between the launchers and the clock, or 0 with no launcher.
+    float divider{};
     /// The row's top, below the row padding.
     float top{};
     /// How far a launcher's hit extends past its circle.

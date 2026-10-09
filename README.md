@@ -174,8 +174,9 @@ that build; otherwise the Windows build is downloaded and run with `wine`. Games
 | Input | Action |
 | --- | --- |
 | D-pad or left stick | Move focus |
-| A | Play, or install a Steam game that is not installed |
-| Y / Select | Details |
+| A (Enter, click) | Open a game's details page; Play, Install, change a ROM's emulator or Hide from there |
+| Y | Details page |
+| Select (Tab, Menu key, Shift+F10, right click) | Context menu of the focused tile |
 | X | Refresh the library |
 | LB / RB | Previous / next page (`wiisu` mode only) |
 | Start | Back to the first tile |

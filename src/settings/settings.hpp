@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "library/emulator_choice.hpp"
 #include "library/library_query.hpp"
 #include "library/play_history.hpp"
 #include "library/sections.hpp"
@@ -37,6 +38,9 @@ struct Settings {
 
     /// When each game was last launched from opensu.
     library::PlayHistory lastPlayed;
+
+    /// The emulator picked for each ROM that has a pick.
+    library::EmulatorChoices emulators;
 
     bool operator==(const Settings&) const = default;
 };

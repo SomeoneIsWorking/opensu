@@ -133,6 +133,31 @@ std::optional<std::vector<std::string>> locate(const EmulatorRule& rule,
     return std::nullopt;
 }
 
+/// The command words of `rule` run with the program words `program`, then its arguments.
+std::vector<std::string> commandOf(std::vector<std::string> program, const EmulatorRule& rule) {
+    program.insert(program.end(), rule.args.begin(), rule.args.end());
+    return program;
+}
+
+/// A command as the launch that starts `rom`.
+LaunchSpec specOf(const std::vector<std::string>& command, const fs::path& rom) {
+    LaunchSpec spec;
+    spec.program = command.front();
+    bool placed = false;
+    for (auto word = std::next(command.begin()); word != command.end(); ++word) {
+        if (*word == "{rom}") {
+            spec.args.push_back(rom.string());
+            placed = true;
+        } else {
+            spec.args.push_back(*word);
+        }
+    }
+    if (!placed) {
+        spec.args.push_back(rom.string());
+    }
+    return spec;
+}
+
 } // namespace
 
 EmulatorSearch EmulatorSearch::standard(const fs::path& home,
@@ -146,6 +171,8 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home,
 
 Emulators Emulators::discover(const EmulatorSearch& search, const Commands& overrides) {
     Emulators found;
+    found.search_ = search;
+    found.overrides_ = overrides;
     for (const EmulatorRule& rule : rules) {
         // An emulator already chosen for every system of this rule needs no search.
         const bool needed = std::ranges::any_of(rule.systems, [&found](std::string_view system) {
@@ -154,20 +181,22 @@ Emulators Emulators::discover(const EmulatorSearch& search, const Commands& over
         if (!needed) {
             continue;
         }
-        std::optional<std::vector<std::string>> command = locate(rule, search);
-        if (!command) {
+        std::optional<std::vector<std::string>> program = locate(rule, search);
+        if (!program) {
             continue;
         }
-        command->insert(command->end(), rule.args.begin(), rule.args.end());
+        const std::vector<std::string> command = commandOf(std::move(*program), rule);
         for (const std::string_view system : rule.systems) {
             if (!found.commands_.contains(system)) {
-                lucent::info("roms", "{} runs {} games: {}", rule.name, system, command->front());
-                found.commands_.emplace(std::string{system}, *command);
+                lucent::info("roms", "{} runs {} games: {}", rule.name, system, command.front());
+                found.commands_.emplace(std::string{system}, command);
+                found.names_.emplace(std::string{system}, std::string{rule.name});
             }
         }
     }
     for (const auto& [system, command] : overrides) {
         found.commands_.insert_or_assign(system, command);
+        found.names_.insert_or_assign(system, std::string{customName});
     }
     return found;
 }
@@ -177,21 +206,41 @@ std::optional<LaunchSpec> Emulators::launch(std::string_view system, const fs::p
     if (found == commands_.end() || found->second.empty()) {
         return std::nullopt;
     }
-    LaunchSpec spec;
-    spec.program = found->second.front();
-    bool placed = false;
-    for (auto word = std::next(found->second.begin()); word != found->second.end(); ++word) {
-        if (*word == "{rom}") {
-            spec.args.push_back(rom.string());
-            placed = true;
-        } else {
-            spec.args.push_back(*word);
+    return specOf(found->second, rom);
+}
+
+std::string Emulators::chosenName(std::string_view system) const {
+    const auto found = names_.find(system);
+    return found == names_.end() ? std::string{} : found->second;
+}
+
+std::vector<EmulatorOption> Emulators::options(std::string_view system, const fs::path& rom) const {
+    std::vector<EmulatorOption> options;
+    if (const auto custom = overrides_.find(system);
+        custom != overrides_.end() && !custom->second.empty()) {
+        options.push_back(
+            EmulatorOption{std::string{customName}, true, specOf(custom->second, rom)});
+    }
+    for (const EmulatorRule& rule : rules) {
+        if (std::ranges::find(rule.systems, system) == rule.systems.end()) {
+            continue;
+        }
+        auto listed = std::ranges::find(options, rule.name, &EmulatorOption::name);
+        if (listed == options.end()) {
+            options.push_back(EmulatorOption{std::string{rule.name}, false, {}});
+            listed = std::prev(options.end());
+        }
+        // A second rule of one emulator (shadPS4's launcher and its own binary) only matters
+        // while the first found nothing.
+        if (listed->installed) {
+            continue;
+        }
+        if (std::optional<std::vector<std::string>> program = locate(rule, search_)) {
+            listed->installed = true;
+            listed->launch = specOf(commandOf(std::move(*program), rule), rom);
         }
     }
-    if (!placed) {
-        spec.args.push_back(rom.string());
-    }
-    return spec;
+    return options;
 }
 
 std::vector<std::string_view> Emulators::candidates(std::string_view system) {

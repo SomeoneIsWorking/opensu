@@ -105,6 +105,7 @@ void libraryTools(const fs::path& root) {
     saved.view.search = "not kept";
     saved.view.hiddenOnly = true;
     saved.hidden.set(hades(), true);
+    saved.emulators.set("rom:/r/Kirby.nsp", "Ryujinx");
     saved.lastPlayed.record("epic:celeste", std::chrono::system_clock::from_time_t(1700000000));
     std::string error;
     expect(store.save(saved, error), "the tools save");
@@ -116,6 +117,7 @@ void libraryTools(const fs::path& root) {
            "the search and the hidden filter are for this session only");
     expect(loaded.hidden == saved.hidden && loaded.lastPlayed == saved.lastPlayed,
            "hidden games and play history round trip");
+    expect(loaded.emulators == saved.emulators, "the emulator picked for a ROM round trips");
 
     write(
         file,

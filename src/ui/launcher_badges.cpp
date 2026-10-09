@@ -9,10 +9,8 @@
 namespace opensu::ui {
 namespace {
 
-constexpr Color face{0xFF, 0xFF, 0xFF, 235};
 // The dock item's hover fill: the ink at 12 %.
 constexpr Color hoverFill{0x2B, 0x27, 0x33, 31};
-constexpr Color rim{0x2B, 0x27, 0x33, 30};
 constexpr Color logo{0x2B, 0x27, 0x33, 255};
 constexpr Color dotReady{0x3D, 0xDC, 0x84, 255};
 constexpr Color dotWorking{0xF2, 0xB1, 0x34, 255};
@@ -65,11 +63,9 @@ void LauncherBadgePainter::paintOne(const LauncherBadge& badge, const BadgeRow& 
     if (row.hovered == badge.source) {
         DrawCircleV(centre, ringRadius + line, hoverFill);
     }
-    DrawCircleV(centre, radius, face);
-    DrawRing(centre, radius - 1.0f, radius, 0.0f, 360.0f, 64, rim);
 
     const bool usable = badge.state == ServiceState::Ready || badge.state == ServiceState::Starting;
-    const int pixels = std::max(static_cast<int>(std::lround(diameter * 0.56f)), 1);
+    const int pixels = std::max(static_cast<int>(std::lround(diameter * 0.9f)), 1);
     if (const Texture* mark = icons_.mask(badge.icon, pixels)) {
         const Color tint{logo.r, logo.g, logo.b, static_cast<unsigned char>(usable ? 255 : 110)};
         DrawTexture(
@@ -77,11 +73,11 @@ void LauncherBadgePainter::paintOne(const LauncherBadge& badge, const BadgeRow& 
             static_cast<int>(std::lround(centre.y - static_cast<float>(pixels) * 0.5f)), tint);
     }
 
-    // A presence dot on the circle's lower right, cut out of it by a white rim.
-    const float dot = diameter * 0.16f;
-    const float along = radius * std::numbers::sqrt2_v<float> * 0.5f;
+    // A presence dot on the logo's lower right, cut out of it by a light rim.
+    const float dot = diameter * 0.2f;
+    const float along = radius * std::numbers::sqrt2_v<float> * 0.62f;
     const Vector2 at{centre.x + along, centre.y + along};
-    DrawCircleV(at, dot + line * 0.8f, WHITE);
+    DrawCircleV(at, dot + line * 0.8f, Color{0xFF, 0xFF, 0xFF, 235});
     DrawCircleV(at, dot, dotFor(badge.state));
 }
 

@@ -171,6 +171,18 @@ void emulatorsAreFound(const Fixture& f) {
     expect(gb && gb->program == "mygb" && gb->args == std::vector<std::string>{"--rom", "/b.gb"},
            "an override without {rom} gets the game appended");
     expect(!emulators.launch("n3ds", "/c.3ds"), "nothing runs a system with no emulator");
+
+    const auto options = emulators.options("switch", "/s.nsp");
+    expect(options.size() == 2 && options[0].name == "Eden" && options[0].installed &&
+               options[0].launch.args.back() == "/s.nsp" && options[1].name == "Ryujinx" &&
+               !options[1].installed && options[1].launch.empty(),
+           "a system's options list every emulator, the installed one with its command");
+    expect(emulators.chosenName("switch") == "Eden" && emulators.chosenName("n3ds").empty(),
+           "the default is the first one found, and none when none is");
+    const auto custom = emulators.options("gb", "/b.gb");
+    expect(!custom.empty() && custom.front().name == "Custom" && custom.front().installed &&
+               emulators.chosenName("gb") == "Custom",
+           "a configured override is the first option and the default");
 }
 
 void providerLists(const Fixture& f) {

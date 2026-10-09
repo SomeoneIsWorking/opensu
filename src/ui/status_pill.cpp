@@ -56,11 +56,12 @@ Rect onIcon(const Rect& grid, float x, float y, float size) noexcept {
 
 } // namespace
 
-void StatusPillPainter::paint(const StatusPillView& view) const {
+void StatusPillPainter::paint(const StatusPillView& view) {
     const StatusPillMetrics& m = view.metrics;
     const float dp = view.dp;
     const Rect& body = view.body;
     glass_.paint(body);
+    paintLaunchers(view);
     const float centreY = body.centreY();
     // The text row (iiSU a32.p): clock | NN% battery.
     const TextStyle text{m.fontSize * dp};
@@ -87,6 +88,17 @@ void StatusPillPainter::paint(const StatusPillView& view) const {
         pen += type().measure(percent, text) + spacing;
         paintBattery(pen, centreY, icon, *view.battery);
     }
+}
+
+void StatusPillPainter::paintLaunchers(const StatusPillView& view) {
+    if (view.badges.cells.empty()) {
+        return;
+    }
+    badges_.paint(view.launchers, view.badges);
+    const float height = view.body.height * 0.5f;
+    DrawLineEx(Vector2{view.divider, view.body.centreY() - height * 0.5f},
+               Vector2{view.divider, view.body.centreY() + height * 0.5f}, std::max(view.dp, 1.0f),
+               Color{iconInk.r, iconInk.g, iconInk.b, 70});
 }
 
 void StatusPillPainter::paintBattery(float x, float centreY, float size,

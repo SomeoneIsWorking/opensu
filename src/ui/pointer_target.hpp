@@ -88,9 +88,22 @@ struct OnPanelButton {
     bool operator==(const OnPanelButton&) const = default;
 };
 
+/// A level of the breadcrumb trail, by its place in it.
+struct OnCrumb {
+    std::size_t index;
+    bool operator==(const OnCrumb&) const = default;
+};
+
+/// A button of the details page, by its place on it.
+struct OnDetailsButton {
+    std::size_t index;
+    bool operator==(const OnDetailsButton&) const = default;
+};
+
 /// Nothing, or the element the pointer is on.
-using PointerTarget = std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnMenuItem,
-                                   OnPanelButton, OnChooserRow, OnIconSize, OnSearchKey,
-                                   OnSearchResult, OnContextItem, OnContextBackdrop, OnLauncher>;
+using PointerTarget =
+    std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnMenuItem, OnPanelButton,
+                 OnChooserRow, OnIconSize, OnSearchKey, OnSearchResult, OnContextItem,
+                 OnContextBackdrop, OnLauncher, OnCrumb, OnDetailsButton>;
 
 } // namespace opensu::ui

@@ -44,6 +44,10 @@ struct ShellSnapshot {
     std::string searchText;
     /// Whether a context menu is up.
     bool contextMenuOpen{false};
+    /// Whether a game's details page is up.
+    bool detailsOpen{false};
+    /// Where the shell is, as the top bar's trail reads: "Library > GOG > Search \"had\"".
+    std::string breadcrumb;
     /// iiSU's icon size level Library is laid out at.
     std::size_t iconSize{9};
     /// The open folder's key, else the section's.
