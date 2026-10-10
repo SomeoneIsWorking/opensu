@@ -203,6 +203,13 @@ Painters and composition (`opensu_ui`):
 | `src/ui/glyph_textures.*` | The console glyphs drawn in a ROM tile's frame tab: files by system, textures on load |
 | `src/ui/typeface.*`, `face_metrics.*` | Text drawing at Android em sizes; the face's line metrics |
 
+## Maintainer tooling
+
+| Path | Owns |
+| --- | --- |
+| `tools/vm/` | The headless Fedora 44 KDE guest for login-session tests (`docs/vm-harness.md`): `provision`/`kickstart`/`fetch`/`hostfiles`/`configure` (install and host-like setup), `machine` (qemu command line, PID lifecycle, overlays), `qmp` and `vnc` (screenshots, input), `guest` (SSH), `deploy` (build, install, ship), `control` (openSU's control channel in the guest), `cli` |
+| `pyproject.toml`, `uv.lock` | The one locked Python environment of the tools (`uv run --frozen`) |
+
 ## Tests and docs
 
 - `tests/<area>/`: one ctest suite per owner, through the shipping code.
