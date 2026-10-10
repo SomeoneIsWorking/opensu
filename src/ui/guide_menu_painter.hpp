@@ -4,12 +4,14 @@
 
 #include "button_glyph.hpp"
 #include "guide_menu.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
 class GuideMenuPainter {
   public:
-    explicit GuideMenuPainter(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
+    GuideMenuPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
+        : typeface_{typeface}, glyphs_{prompts, typeface} {
     }
 
     /// Where the panel and its rows stand in a `width` x `height` frame; what a pointer hits.
@@ -21,6 +23,7 @@ class GuideMenuPainter {
 
   private:
     void paintPowerButton(const Rect& box, bool focused, float dp) const;
+    Typeface& typeface_;
     ButtonGlyphPainter glyphs_;
 };
 

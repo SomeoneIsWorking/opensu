@@ -26,8 +26,8 @@ QuickLayout QuickMenuPainter::layout(const QuickMenu& menu, float width, float h
                                      float dp) const {
     const float footer = hintGlyphDp * dp;
     return layoutQuick(PanelFrame{width, height, dp},
-                       PanelChrome{type().lineBox(TextStyle{headingSp * dp}), footer}, menu.rows(),
-                       menu.focus());
+                       PanelChrome{typeface_.lineBox(TextStyle{headingSp * dp}), footer},
+                       menu.rows(), menu.focus());
 }
 
 void QuickMenuPainter::paint(const QuickMenu& menu, float width, float height, float dp) const {
@@ -39,8 +39,8 @@ void QuickMenuPainter::paint(const QuickMenu& menu, float width, float height, f
     DrawRectangleRec(Rectangle{frame.panel.x, 0.0f, frame.panel.width, height}, panelFill);
 
     const TextStyle heading{headingSp * dp};
-    type().drawCentred("Quick menu", frame.heading.x, frame.heading.centreY(), heading,
-                       palette::ink);
+    typeface_.drawCentred("Quick menu", frame.heading.x, frame.heading.centreY(), heading,
+                          palette::ink);
 
     {
         ClipStack clips;
@@ -50,7 +50,7 @@ void QuickMenuPainter::paint(const QuickMenu& menu, float width, float height, f
             if (box.rect.bottom() < frame.content.y || box.rect.y > frame.content.bottom()) {
                 continue;
             }
-            SettingsPagePainter::paintRow(menu.rows()[i], box, i == menu.focus(), dp, 1.0f);
+            rows_.paintRow(menu.rows()[i], box, i == menu.focus(), dp, 1.0f);
         }
     }
 
@@ -61,13 +61,13 @@ void QuickMenuPainter::paint(const QuickMenu& menu, float width, float height, f
     const float glyph = hintGlyphDp * dp;
     const float centreY = height - frame.padding - glyph * 0.5f;
     float x = frame.heading.x;
-    for (const auto& [key, label] : {std::pair{"A", changes ? "Change" : "Select"},
-                                     std::pair{"B", "Close"}}) {
+    for (const auto& [key, label] :
+         {std::pair{"A", changes ? "Change" : "Select"}, std::pair{"B", "Close"}}) {
         const float advance = glyphs_.advance(key, glyph);
         glyphs_.paint(key, Vector2{x + advance * 0.5f, centreY}, glyph, hintInk);
         x += advance + hintGapDp * dp;
-        type().drawCentred(label, x, centreY, hint, hintInk);
-        x += type().measure(label, hint) + hintSpacingDp * dp;
+        typeface_.drawCentred(label, x, centreY, hint, hintInk);
+        x += typeface_.measure(label, hint) + hintSpacingDp * dp;
     }
 }
 

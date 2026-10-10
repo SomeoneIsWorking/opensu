@@ -5,18 +5,25 @@
 #include "raylib.h"
 
 #include "settings_page.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
 class SettingsPagePainter {
   public:
+    explicit SettingsPagePainter(Typeface& typeface) noexcept : typeface_{typeface} {
+    }
+
     /// Draws `page` in `layout` over a `size` frame at `dp` pixels per dp, at opacity `alpha`.
-    static void paint(const SettingsPage& page, const SettingsLayout& layout, Vector2 size,
-                      float dp, float alpha);
+    void paint(const SettingsPage& page, const SettingsLayout& layout, Vector2 size, float dp,
+               float alpha) const;
 
     /// Draws one row in `box`, outlined when `focused`.
-    static void paintRow(const SettingsRow& row, const SettingsRowBox& box, bool focused, float dp,
-                         float alpha);
+    void paintRow(const SettingsRow& row, const SettingsRowBox& box, bool focused, float dp,
+                  float alpha) const;
+
+  private:
+    Typeface& typeface_;
 };
 
 } // namespace opensu::ui

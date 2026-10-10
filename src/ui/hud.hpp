@@ -24,6 +24,8 @@
 #include "status_pill.hpp"
 #include "top_bar_layout.hpp"
 #include "top_bar_metrics.hpp"
+#include "typeface.hpp"
+#include "vector_icon.hpp"
 
 namespace opensu::ui {
 
@@ -54,7 +56,9 @@ class Hud {
     static constexpr std::chrono::milliseconds toastLifetime{4000};
 
     /// `device` is which prompts the corner hints draw.
-    explicit Hud(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
+    Hud(const input::Prompts& prompts, Typeface& typeface, IconAtlas& icons) noexcept
+        : typeface_{typeface}, statusPill_{typeface, icons}, crumbs_{typeface},
+          glyphs_{prompts, typeface} {
     }
 
     /// The window in pixels and its pixels per dp.
@@ -154,6 +158,7 @@ class Hud {
     std::string toast_;
     bool toastError_{false};
     Clock::time_point toastUntil_{};
+    Typeface& typeface_;
     StatusPillPainter statusPill_;
     GlassPainter glass_;
     BreadcrumbPainter crumbs_;

@@ -23,8 +23,8 @@ class SettingsPanels {
   public:
     using Clock = std::chrono::steady_clock;
 
-    explicit SettingsPanels(const input::Prompts& prompts) noexcept
-        : folderPainter_{prompts}, entryPainter_{prompts} {
+    SettingsPanels(const input::Prompts& prompts, Typeface& typeface) noexcept
+        : page_{typeface}, folderPainter_{prompts, typeface}, entryPainter_{prompts, typeface} {
     }
 
     [[nodiscard]] SettingsPage& page() noexcept {

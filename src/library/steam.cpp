@@ -1,13 +1,16 @@
 #include "steam.hpp"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cstdlib>
 #include <fstream>
 #include <map>
 #include <numeric>
 #include <ranges>
+#include <span>
 #include <stdexcept>
+#include <string_view>
 #include <system_error>
 
 #include "lucent/log.h"
@@ -21,45 +24,33 @@ namespace fs = std::filesystem;
 using vdf::Node;
 
 /// The standard install locations, in the order Steam itself prefers.
-const std::vector<std::string>& knownRoots() {
-    static const std::vector<std::string> roots{
-        ".local/share/Steam",
-        ".steam/steam",
-        ".steam/root",
-        ".steam/debian-installation",
-        ".var/app/com.valvesoftware.Steam/.local/share/Steam",
-    };
-    return roots;
-}
+constexpr std::array<std::string_view, 5> knownRoots{
+    ".local/share/Steam",
+    ".steam/steam",
+    ".steam/root",
+    ".steam/debian-installation",
+    ".var/app/com.valvesoftware.Steam/.local/share/Steam",
+};
 
 /// Artwork candidates, tried in order. Steam stores portrait art under one name
 /// and, since 2023, landscape hero art under another; older caches hold only the
 /// legacy grid images.
-const std::vector<std::string>& portraitCandidates() {
-    static const std::vector<std::string> candidates{
-        "appcache/librarycache/{}/library_600x900.jpg",
-        "appcache/librarycache/{}/library_600x900.png",
-        "appcache/librarycache/{}/*/library_600x900.jpg",
-        "appcache/librarycache/{}/*/library_600x900.png",
-        "appcache/librarycache/{}_600x900.jpg",
-        "config/grid/{}p.jpg",
-        "config/grid/{}.jpg",
-        "config/grid/{}p.png",
-    };
-    return candidates;
-}
+constexpr std::array<std::string_view, 8> portraitCandidates{
+    "appcache/librarycache/{}/library_600x900.jpg",
+    "appcache/librarycache/{}/library_600x900.png",
+    "appcache/librarycache/{}/*/library_600x900.jpg",
+    "appcache/librarycache/{}/*/library_600x900.png",
+    "appcache/librarycache/{}_600x900.jpg",
+    "config/grid/{}p.jpg",
+    "config/grid/{}.jpg",
+    "config/grid/{}p.png",
+};
 
-const std::vector<std::string>& wideCandidates() {
-    static const std::vector<std::string> candidates{
-        "appcache/librarycache/{}_library_hero.jpg",
-        "appcache/librarycache/{}_library_hero.png",
-        "appcache/librarycache/{}/library_hero.jpg",
-        "appcache/librarycache/{}/library_hero.png",
-        "appcache/librarycache/{}/*/library_hero.jpg",
-        "appcache/librarycache/{}/*/library_hero.png",
-    };
-    return candidates;
-}
+constexpr std::array<std::string_view, 6> wideCandidates{
+    "appcache/librarycache/{}_library_hero.jpg",   "appcache/librarycache/{}_library_hero.png",
+    "appcache/librarycache/{}/library_hero.jpg",   "appcache/librarycache/{}/library_hero.png",
+    "appcache/librarycache/{}/*/library_hero.jpg", "appcache/librarycache/{}/*/library_hero.png",
+};
 
 /// What a user's configuration says about one app.
 struct PlayRecord {
@@ -112,10 +103,9 @@ std::optional<fs::path> matchOne(const fs::path& candidate) {
     return std::nullopt;
 }
 
-fs::path firstExisting(const fs::path& root, const std::vector<std::string>& patterns,
+fs::path firstExisting(const fs::path& root, std::span<const std::string_view> patterns,
                        std::string_view appId) {
-    for (const std::string& pattern : patterns) {
-        auto view = std::string_view{pattern};
+    for (const std::string_view view : patterns) {
         const std::size_t slot = view.find("{}");
         if (slot == std::string_view::npos) {
             continue;
@@ -308,8 +298,8 @@ std::optional<Game> readManifest(const LibraryLocation& library, const fs::path&
         }
     }
 
-    game.artwork = firstExisting(library.root, portraitCandidates(), appId);
-    game.artworkWide = firstExisting(library.root, wideCandidates(), appId);
+    game.artwork = firstExisting(library.root, portraitCandidates, appId);
+    game.artworkWide = firstExisting(library.root, wideCandidates, appId);
     return game;
 }
 
@@ -413,7 +403,7 @@ std::vector<LibraryFolder> readExtraFolders(const fs::path& root) {
 Library Library::discover(const fs::path& home, const std::vector<fs::path>& explicitRoots) {
     std::vector<fs::path> candidates = explicitRoots;
     if (candidates.empty() && !home.empty()) {
-        for (const std::string& rel : knownRoots()) {
+        for (const std::string_view rel : knownRoots) {
             candidates.push_back(home / rel);
         }
     }

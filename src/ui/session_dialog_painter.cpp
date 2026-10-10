@@ -26,7 +26,7 @@ constexpr float buttonRadiusDp = 22.0f;
 using Paragraph = std::vector<std::string>;
 
 /// `text` broken into lines no wider than `room`, at spaces.
-Paragraph wrap(const std::string& text, float room, const TextStyle& style) {
+Paragraph wrap(Typeface& typeface, const std::string& text, float room, const TextStyle& style) {
     Paragraph lines;
     std::string line;
     std::size_t at = 0;
@@ -39,7 +39,7 @@ Paragraph wrap(const std::string& text, float room, const TextStyle& style) {
             joined += ' ';
         }
         joined += word;
-        if (!line.empty() && type().measure(joined, style) > room) {
+        if (!line.empty() && typeface.measure(joined, style) > room) {
             lines.push_back(line);
             line = word;
         } else {
@@ -53,10 +53,11 @@ Paragraph wrap(const std::string& text, float room, const TextStyle& style) {
     return lines;
 }
 
-std::vector<Paragraph> wrapAll(const SessionDialog& dialog, float room, float dp) {
+std::vector<Paragraph> wrapAll(Typeface& typeface, const SessionDialog& dialog, float room,
+                               float dp) {
     std::vector<Paragraph> wrapped;
     for (const std::string& paragraph : dialog.text().paragraphs) {
-        wrapped.push_back(wrap(paragraph, room, TextStyle{bodySp * dp}));
+        wrapped.push_back(wrap(typeface, paragraph, room, TextStyle{bodySp * dp}));
     }
     return wrapped;
 }
@@ -70,19 +71,21 @@ float heightOf(const std::vector<Paragraph>& wrapped, float lineBox, float dp) {
     return height;
 }
 
-void drawMiddle(const std::string& text, float centreX, float centreY, const TextStyle& style,
-                Color colour) {
-    type().drawCentred(text, centreX - type().measure(text, style) * 0.5f, centreY, style, colour);
+void drawMiddle(Typeface& typeface, const std::string& text, float centreX, float centreY,
+                const TextStyle& style, Color colour) {
+    typeface.drawCentred(text, centreX - typeface.measure(text, style) * 0.5f, centreY, style,
+                         colour);
 }
 
 } // namespace
 
 SessionDialogLayout SessionDialogPainter::layout(const SessionDialog& dialog, Vector2 size,
                                                  float dp) const {
-    const float lineBox = type().lineBox(TextStyle{bodySp * dp});
-    const std::vector<Paragraph> wrapped = wrapAll(dialog, dialogBodyWidth(size.x, dp), dp);
+    const float lineBox = typeface_.lineBox(TextStyle{bodySp * dp});
+    const std::vector<Paragraph> wrapped =
+        wrapAll(typeface_, dialog, dialogBodyWidth(size.x, dp), dp);
     return layoutSessionDialog(PanelFrame{size.x, size.y, dp},
-                               SessionDialogMetrics{type().lineBox(TextStyle{titleSp * dp}),
+                               SessionDialogMetrics{typeface_.lineBox(TextStyle{titleSp * dp}),
                                                     lineBox, heightOf(wrapped, lineBox, dp)},
                                !dialog.busy());
 }
@@ -100,22 +103,22 @@ void SessionDialogPainter::paint(const SessionDialog& dialog, Vector2 size, floa
         return withAlpha(palette::panel, alpha);
     });
 
-    drawMiddle(dialog.text().title, frame.card.centreX(), frame.titleY, TextStyle{titleSp * dp},
-               withAlpha(palette::ink, alpha));
+    drawMiddle(typeface_, dialog.text().title, frame.card.centreX(), frame.titleY,
+               TextStyle{titleSp * dp}, withAlpha(palette::ink, alpha));
     const TextStyle body{bodySp * dp};
-    const float lineBox = type().lineBox(body);
+    const float lineBox = typeface_.lineBox(body);
     float y = frame.body.y;
-    for (const Paragraph& lines : wrapAll(dialog, frame.body.width, dp)) {
+    for (const Paragraph& lines : wrapAll(typeface_, dialog, frame.body.width, dp)) {
         for (const std::string& line : lines) {
-            type().drawCentred(line, frame.body.x, y + lineBox * 0.5f, body,
-                               withAlpha(palette::inkSoft, alpha));
+            typeface_.drawCentred(line, frame.body.x, y + lineBox * 0.5f, body,
+                                  withAlpha(palette::inkSoft, alpha));
             y += lineBox;
         }
         y += paragraphGapDp * dp;
     }
 
     if (const std::optional<std::string>& progress = dialog.progress()) {
-        drawMiddle(*progress, frame.card.centreX(), frame.progressY, body,
+        drawMiddle(typeface_, *progress, frame.card.centreX(), frame.progressY, body,
                    withAlpha(palette::ink, alpha));
         return;
     }
@@ -133,12 +136,12 @@ void SessionDialogPainter::paint(const SessionDialog& dialog, Vector2 size, floa
         const Color ink = focused ? WHITE : static_cast<Color>(palette::ink);
         const float glyph = glyphDp * dp;
         const float advance = glyphs_.advance(keys[i], glyph);
-        const float text = type().measure(*labels[i], label);
+        const float text = typeface_.measure(*labels[i], label);
         float x = box.centreX() - (advance + glyphGapDp * dp + text) * 0.5f;
         glyphs_.paint(keys[i], Vector2{x + advance * 0.5f, box.centreY()}, glyph,
                       withAlpha(focused ? ink : outlineInk, alpha));
         x += advance + glyphGapDp * dp;
-        type().drawCentred(*labels[i], x, box.centreY(), label, withAlpha(ink, alpha));
+        typeface_.drawCentred(*labels[i], x, box.centreY(), label, withAlpha(ink, alpha));
     }
 }
 

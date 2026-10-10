@@ -115,8 +115,8 @@ struct Config {
 /// `<build>/src/opensu` in the build tree. Empty when `executable` is empty.
 [[nodiscard]] std::filesystem::path gamescopeBeside(const std::filesystem::path& executable);
 
-/// Reads the environment once and returns the same value thereafter. Values that
-/// cannot be parsed fall back to the default and are reported.
-[[nodiscard]] const Config& read();
+/// Reads the environment into a configuration. Values that cannot be parsed fall back to the
+/// default and are reported. `main` reads it once and hands the value to whoever needs it.
+[[nodiscard]] Config read();
 
 } // namespace opensu::config

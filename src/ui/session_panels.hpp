@@ -20,8 +20,8 @@ class SessionPanels {
   public:
     using Clock = std::chrono::steady_clock;
 
-    explicit SessionPanels(const input::Prompts& prompts) noexcept
-        : dialogPainter_{prompts}, passwordPainter_{prompts} {
+    SessionPanels(const input::Prompts& prompts, Typeface& typeface) noexcept
+        : dialogPainter_{prompts, typeface}, passwordPainter_{prompts, typeface} {
     }
 
     [[nodiscard]] SessionDialog& dialog() noexcept {

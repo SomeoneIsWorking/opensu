@@ -2,15 +2,12 @@
 
 #include <utility>
 
-#include "config/config.hpp"
-
 namespace opensu::app {
 
 PanelFlow::PanelFlow(ui::Shell& shell, audio::SoundPlayer& sounds, steam::Client& steam,
-                     Hooks hooks)
+                     const std::filesystem::path& dataDir, Hooks hooks)
     : shell_{shell}, sounds_{sounds},
-      install_{steam, "legendary", GogInstallJob::Options{.dataDir = config::read().dataDir},
-               hooks.installFolder},
+      install_{steam, "legendary", GogInstallJob::Options{.dataDir = dataDir}, hooks.installFolder},
       hooks_{std::move(hooks)} {
 }
 

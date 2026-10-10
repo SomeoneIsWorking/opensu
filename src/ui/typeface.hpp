@@ -5,6 +5,7 @@
 // em in pixels, with letter spacing in ems, so sizes recovered from iiSU apply unchanged.
 #pragma once
 
+#include <filesystem>
 #include <span>
 #include <string>
 #include <string_view>
@@ -25,11 +26,15 @@ struct TextStyle {
 /// Owns the shell's typefaces.
 class Typeface {
   public:
-    Typeface();
+    /// Faces are read from `assetsDir`; nothing is loaded until `load`.
+    explicit Typeface(std::filesystem::path assetsDir);
     ~Typeface();
 
     Typeface(const Typeface&) = delete;
     Typeface& operator=(const Typeface&) = delete;
+
+    /// Picks and loads the first usable face. Needs a GL context, so it runs once the window is up.
+    void load();
 
     /// The face in use, which is raylib's built-in one when no file could be
     /// loaded.
@@ -68,6 +73,7 @@ class Typeface {
     /// The face loaded at a line box height, in pixels. Loaded once per size and cached.
     [[nodiscard]] Font face(int lineBoxPx);
 
+    std::filesystem::path assetsDir_;
     /// The file that was loaded, kept so per-size faces come from the same face.
     std::string path_;
     bool custom_{false};
@@ -82,9 +88,5 @@ class Typeface {
     /// The loaded face's cmap: the atlas holds every character the face can draw.
     std::vector<int> codepoints_;
 };
-
-/// The shell's typefaces. One process-wide instance, because the font atlas is
-/// GPU state that must not be duplicated per shell.
-[[nodiscard]] Typeface& type();
 
 } // namespace opensu::ui

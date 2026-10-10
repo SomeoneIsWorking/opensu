@@ -43,7 +43,7 @@ void ContextMenuPainter::paint(const ContextMenu& menu, Vector2 size, float dp,
     const TextStyle title{titleSp * dp};
     const float room = layout.title.width;
     std::string name = menu.title();
-    while (name.size() > 1 && type().measure(name, title) > room) {
+    while (name.size() > 1 && typeface_.measure(name, title) > room) {
         // Back up over a whole UTF-8 character, then mark the cut.
         std::size_t cut = name.size() - 1;
         while (cut > 0 && (static_cast<unsigned char>(name[cut]) & 0xC0U) == 0x80U) {
@@ -51,13 +51,13 @@ void ContextMenuPainter::paint(const ContextMenu& menu, Vector2 size, float dp,
         }
         name.resize(cut);
         name += "...";
-        if (type().measure(name, title) <= room) {
+        if (typeface_.measure(name, title) <= room) {
             break;
         }
         name.resize(name.size() - 3);
     }
-    type().drawCentred(name, layout.title.x, layout.title.centreY(), title,
-                       withAlpha(palette::ink, look.alpha));
+    typeface_.drawCentred(name, layout.title.x, layout.title.centreY(), title,
+                          withAlpha(palette::ink, look.alpha));
 
     const TextStyle row{rowSp * dp};
     for (std::size_t i = 0; i < layout.rows.size(); ++i) {
@@ -65,8 +65,8 @@ void ContextMenuPainter::paint(const ContextMenu& menu, Vector2 size, float dp,
         fillRoundRect(bar, [&](Vector2, float) {
             return withAlpha(rowFill, look.alpha);
         });
-        type().drawCentred(menu.items()[i].label, layout.rows[i].x + rowInsetDp * dp,
-                           layout.rows[i].centreY(), row, withAlpha(palette::ink, look.alpha));
+        typeface_.drawCentred(menu.items()[i].label, layout.rows[i].x + rowInsetDp * dp,
+                              layout.rows[i].centreY(), row, withAlpha(palette::ink, look.alpha));
         if (i == menu.focus()) {
             fillBand(bar, bar.grown(-outlineDp * dp), [&](Vector2, float) {
                 return withAlpha(outlineInk, look.alpha);
@@ -82,7 +82,7 @@ void ContextMenuPainter::paint(const ContextMenu& menu, Vector2 size, float dp,
     constexpr std::array<std::pair<const char*, const char*>, 2> hints{
         {{"A", "Select"}, {"B", "Close"}}};
     for (const auto& [key, label] : hints) {
-        width += glyphs_.advance(key, glyph) + hintGapDp * dp + type().measure(label, hint) +
+        width += glyphs_.advance(key, glyph) + hintGapDp * dp + typeface_.measure(label, hint) +
                  hintSpacingDp * dp;
     }
     float x = layout.card.centreX() - (width - hintSpacingDp * dp) * 0.5f;
@@ -91,8 +91,8 @@ void ContextMenuPainter::paint(const ContextMenu& menu, Vector2 size, float dp,
         glyphs_.paint(key, Vector2{x + advance * 0.5f, centreY}, glyph,
                       withAlpha(outlineInk, look.alpha));
         x += advance + hintGapDp * dp;
-        type().drawCentred(label, x, centreY, hint, withAlpha(outlineInk, look.alpha));
-        x += type().measure(label, hint) + hintSpacingDp * dp;
+        typeface_.drawCentred(label, x, centreY, hint, withAlpha(outlineInk, look.alpha));
+        x += typeface_.measure(label, hint) + hintSpacingDp * dp;
     }
 }
 

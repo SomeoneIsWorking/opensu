@@ -3,12 +3,14 @@
 
 #include "button_glyph.hpp"
 #include "launch_panel.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
 class LaunchPanelPainter {
   public:
-    explicit LaunchPanelPainter(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
+    LaunchPanelPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
+        : typeface_{typeface}, glyphs_{prompts, typeface} {
     }
 
     /// Where the card and its hints stand in a `size` frame; what a pointer hits.
@@ -19,6 +21,7 @@ class LaunchPanelPainter {
     void paint(const LaunchPanel& panel, Vector2 size, float dp, double seconds) const;
 
   private:
+    Typeface& typeface_;
     ButtonGlyphPainter glyphs_;
 };
 

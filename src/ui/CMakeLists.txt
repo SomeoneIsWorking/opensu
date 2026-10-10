@@ -22,7 +22,7 @@ add_library(opensu_ui STATIC
     round_shape.cpp image_decoder.cpp clip_stack.cpp row_controls.cpp
     settings_page_painter.cpp folder_chooser_painter.cpp settings_panels.cpp volume_osd_painter.cpp
     session_dialog_painter.cpp session_panels.cpp
-    typeface.cpp face_metrics.cpp platform.cpp platform_stroke.cpp glyph_textures.cpp)
+    typeface.cpp face_metrics.cpp platform.cpp glyph_textures.cpp)
 add_library(opensu::ui ALIAS opensu_ui)
 target_include_directories(opensu_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_ui

@@ -14,6 +14,7 @@
 #include "raylib.h"
 
 #include "input/prompts.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
@@ -21,7 +22,8 @@ namespace opensu::ui {
 /// outline in the ring's size and stroke around the key's label.
 class ButtonGlyphPainter {
   public:
-    explicit ButtonGlyphPainter(const input::Prompts& prompts) noexcept : prompts_{&prompts} {
+    ButtonGlyphPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
+        : prompts_{&prompts}, typeface_{typeface} {
     }
 
     /// How wide the glyph for `key` is in a `box`-sized square: `box` for a controller button, and
@@ -37,6 +39,7 @@ class ButtonGlyphPainter {
     [[nodiscard]] std::optional<std::string> capLabel(std::string_view key) const;
 
     const input::Prompts* prompts_;
+    Typeface& typeface_;
 };
 
 } // namespace opensu::ui

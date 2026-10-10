@@ -6,12 +6,14 @@
 #include "button_glyph.hpp"
 #include "panel_fade.hpp"
 #include "session_dialog.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
 class SessionDialogPainter {
   public:
-    explicit SessionDialogPainter(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
+    SessionDialogPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
+        : typeface_{typeface}, glyphs_{prompts, typeface} {
     }
 
     /// Where the card and its buttons stand in a `size` frame; what a pointer hits.
@@ -22,6 +24,7 @@ class SessionDialogPainter {
     void paint(const SessionDialog& dialog, Vector2 size, float dp, const PanelLook& look) const;
 
   private:
+    Typeface& typeface_;
     ButtonGlyphPainter glyphs_;
 };
 

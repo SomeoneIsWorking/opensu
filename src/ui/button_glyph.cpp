@@ -77,24 +77,24 @@ std::vector<Vector2> shoulderOutline(Vector2 centre, float side, bool bigOnLeft)
     return points;
 }
 
-void paintShoulder(std::string_view key, Vector2 centre, float box, Color ink) {
+void paintShoulder(Typeface& typeface, std::string_view key, Vector2 centre, float box, Color ink) {
     const std::vector<Vector2> outline = shoulderOutline(centre, shoulderSide * box, key == "LB");
     const float stroke = shoulderStroke * box;
     for (std::size_t i = 0; i < outline.size(); ++i) {
         roundBar(outline[i], outline[(i + 1) % outline.size()], stroke, ink);
     }
     const TextStyle letters{shoulderCapHeight * box / capHeightPerEm};
-    const float width = type().measure(key, letters);
-    type().drawCentred(key, centre.x - width * 0.5f, centre.y, letters, ink);
+    const float width = typeface.measure(key, letters);
+    typeface.drawCentred(key, centre.x - width * 0.5f, centre.y, letters, ink);
 }
 
 TextStyle capLabelStyle(float box) {
     return TextStyle{pngCapHeight * box / capHeightPerEm};
 }
 
-float capWidth(const std::string& label, float box) {
+float capWidth(Typeface& typeface, const std::string& label, float box) {
     return std::max(2.0f * pngRingOuter * box,
-                    type().measure(label, capLabelStyle(box)) + 2.0f * capLabelPadding * box);
+                    typeface.measure(label, capLabelStyle(box)) + 2.0f * capLabelPadding * box);
 }
 
 } // namespace
@@ -112,22 +112,22 @@ float ButtonGlyphPainter::advance(std::string_view key, float box) const {
         return box;
     }
     // The slack around the ring that the square leaves, so a cap sits as a ring does.
-    return capWidth(*label, box) + (box - 2.0f * pngRingOuter * box);
+    return capWidth(typeface_, *label, box) + (box - 2.0f * pngRingOuter * box);
 }
 
 void ButtonGlyphPainter::paint(std::string_view key, Vector2 centre, float box, Color ink) const {
     if (const std::optional<std::string> label = capLabel(key)) {
         const float height = 2.0f * pngRingOuter * box;
-        const float width = capWidth(*label, box);
+        const float width = capWidth(typeface_, *label, box);
         const Rectangle cap{centre.x - width * 0.5f, centre.y - height * 0.5f, width, height};
         DrawRectangleRoundedLinesEx(cap, capRoundness, capSegments, pngRingStroke * box, ink);
         const TextStyle text = capLabelStyle(box);
-        const float textWidth = type().measure(*label, text);
-        type().drawCentred(*label, centre.x - textWidth * 0.5f, centre.y, text, ink);
+        const float textWidth = typeface_.measure(*label, text);
+        typeface_.drawCentred(*label, centre.x - textWidth * 0.5f, centre.y, text, ink);
         return;
     }
     if (key == "LB" || key == "RB") {
-        paintShoulder(key, centre, box, ink);
+        paintShoulder(typeface_, key, centre, box, ink);
         return;
     }
     if (key == "-" || key == "+") {
@@ -146,8 +146,8 @@ void ButtonGlyphPainter::paint(std::string_view key, Vector2 centre, float box, 
     const float outer = pngRingOuter * box;
     DrawRing(centre, outer - pngRingStroke * box, outer, 0.0f, 360.0f, 48, ink);
     const TextStyle letter{pngCapHeight * box / capHeightPerEm};
-    const float width = type().measure(key, letter);
-    type().drawCentred(key, centre.x - width * 0.5f, centre.y, letter, ink);
+    const float width = typeface_.measure(key, letter);
+    typeface_.drawCentred(key, centre.x - width * 0.5f, centre.y, letter, ink);
 }
 
 } // namespace opensu::ui

@@ -42,13 +42,15 @@ void FolderChooserPainter::paint(const FolderChooser& chooser, Vector2 size, flo
         return withAlpha(panelFill, alpha);
     });
     const TextStyle title{titleSp * dp};
-    type().drawCentred(type().fitted(chooser.title(), layout.title.width, title), layout.title.x,
-                       layout.title.centreY(), title, withAlpha(palette::ink, alpha));
+    typeface_.drawCentred(typeface_.fitted(chooser.title(), layout.title.width, title),
+                          layout.title.x, layout.title.centreY(), title,
+                          withAlpha(palette::ink, alpha));
     const TextStyle path{pathSp * dp};
     const std::string shown =
         chooser.problem().empty() ? chooser.current().string() : chooser.problem();
-    type().drawCentred(
-        type().fitted(shown, layout.path.width, path), layout.path.x, layout.path.centreY(), path,
+    typeface_.drawCentred(
+        typeface_.fitted(shown, layout.path.width, path), layout.path.x, layout.path.centreY(),
+        path,
         withAlpha(chooser.problem().empty() ? palette::inkSoft : Colour{0xB3, 0x26, 0x1E, 255},
                   alpha));
 
@@ -68,9 +70,9 @@ void FolderChooserPainter::paint(const FolderChooser& chooser, Vector2 size, flo
             const FolderEntry& entry = chooser.entries()[i];
             const float x = box.x + insetDp * dp;
             const bool folder = entry.kind == FolderEntryKind::Folder;
-            type().drawCentred(type().fitted(entry.label + (folder ? "/" : ""),
-                                             box.width - 3.0f * insetDp * dp, row),
-                               x, box.centreY(), row, withAlpha(palette::ink, alpha));
+            typeface_.drawCentred(typeface_.fitted(entry.label + (folder ? "/" : ""),
+                                                   box.width - 3.0f * insetDp * dp, row),
+                                  x, box.centreY(), row, withAlpha(palette::ink, alpha));
             if (entry.kind != FolderEntryKind::Use && entry.kind != FolderEntryKind::Clear) {
                 paintChevron(box.right() - insetDp * dp, box.centreY(), dp);
             }
@@ -96,7 +98,7 @@ void FolderChooserPainter::paint(const FolderChooser& chooser, Vector2 size, flo
     const std::vector<std::pair<const char*, const char*>> hints{{"A", press}, {"B", "Cancel"}};
     float total = 0.0f;
     for (const auto& [key, label] : hints) {
-        total += glyphs_.advance(key, glyph) + hintGapDp * dp + type().measure(label, hint) +
+        total += glyphs_.advance(key, glyph) + hintGapDp * dp + typeface_.measure(label, hint) +
                  hintSpacingDp * dp;
     }
     float x = layout.hints.centreX() - (total - hintSpacingDp * dp) * 0.5f;
@@ -105,8 +107,8 @@ void FolderChooserPainter::paint(const FolderChooser& chooser, Vector2 size, flo
         glyphs_.paint(key, Vector2{x + advance * 0.5f, layout.hints.centreY()}, glyph,
                       withAlpha(rowInk, alpha));
         x += advance + hintGapDp * dp;
-        type().drawCentred(label, x, layout.hints.centreY(), hint, withAlpha(rowInk, alpha));
-        x += type().measure(label, hint) + hintSpacingDp * dp;
+        typeface_.drawCentred(label, x, layout.hints.centreY(), hint, withAlpha(rowInk, alpha));
+        x += typeface_.measure(label, hint) + hintSpacingDp * dp;
     }
 }
 

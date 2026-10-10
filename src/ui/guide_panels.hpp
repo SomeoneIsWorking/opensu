@@ -13,8 +13,8 @@ namespace opensu::ui {
 
 class GuidePanels {
   public:
-    explicit GuidePanels(const input::Prompts& prompts) noexcept
-        : guidePainter_{prompts}, quickPainter_{prompts} {
+    GuidePanels(const input::Prompts& prompts, Typeface& typeface) noexcept
+        : guidePainter_{prompts, typeface}, quickPainter_{prompts, typeface} {
     }
 
     [[nodiscard]] GuideMenu& guide() noexcept {

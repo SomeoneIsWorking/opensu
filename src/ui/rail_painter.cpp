@@ -154,17 +154,18 @@ void RailPainter::drawTitle(std::string_view title, const TitleBox& box, const R
         return;
     }
     const TextStyle text{box.capHeight / Typeface::capHeightPerEm};
-    const float left = box.centred ? box.x - type().measure(title, text) * 0.5f : box.x;
+    const float left = box.centred ? box.x - typeface_.measure(title, text) * 0.5f : box.x;
     const float step = 2.0f * std::numbers::pi_v<float> / static_cast<float>(shadowTaps);
     for (int tap = 0; tap < shadowTaps; ++tap) {
         const float angle = step * static_cast<float>(tap);
-        type().drawFromCapTop(
+        typeface_.drawFromCapTop(
             title,
             Vector2{left + (shadowOffsetDp + shadowRadiusDp * std::cos(angle)) * box.dp,
                     box.capTop + (shadowOffsetDp + shadowRadiusDp * std::sin(angle)) * box.dp},
             text, Fade(BLACK, shadowAlpha * style.alpha));
     }
-    type().drawFromCapTop(title, Vector2{left, box.capTop}, text, inkOf(style.dark, style.alpha));
+    typeface_.drawFromCapTop(title, Vector2{left, box.capTop}, text,
+                             inkOf(style.dark, style.alpha));
 }
 
 void RailPainter::paintTitle(const XmbLayout& layout, std::string_view title,

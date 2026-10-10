@@ -199,7 +199,7 @@ Painters and composition (`opensu_ui`):
 | `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art (a spinner while it is on its way), platform frame, store icons; the name cards of a console, a launcher and All games |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |
-| `src/ui/platform.*`, `platform_stroke.cpp` | Console border sprites, logos, stroke colours |
+| `src/ui/platform.*`, `platform_stroke.hpp` | Console border sprites, logos, stroke colours |
 | `src/ui/image_decoder.*` | Cover decode and downscale on a worker thread; the frame only uploads what it takes |
 | `src/ui/glyph_textures.*` | The console glyphs drawn in a ROM tile's frame tab: files by system, textures on load |
 | `src/ui/typeface.*`, `face_metrics.*` | Text drawing at Android em sizes; the face's line metrics |

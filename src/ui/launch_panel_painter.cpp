@@ -23,22 +23,23 @@ constexpr float hintSp = 14.0f;
 constexpr float hintGapDp = 6.0f;
 
 /// Draws `text` centred horizontally on `centreX`.
-void drawMiddle(std::string_view text, float centreX, float centreY, const TextStyle& style,
-                Color colour) {
-    type().drawCentred(text, centreX - type().measure(text, style) * 0.5f, centreY, style, colour);
+void drawMiddle(Typeface& typeface, std::string_view text, float centreX, float centreY,
+                const TextStyle& style, Color colour) {
+    typeface.drawCentred(text, centreX - typeface.measure(text, style) * 0.5f, centreY, style,
+                         colour);
 }
 
 } // namespace
 
 PanelLayout LaunchPanelPainter::layout(const LaunchPanel& panel, Vector2 size, float dp) const {
-    PanelMetrics metrics{.titleBox = type().lineBox(TextStyle{titleSp * dp}),
-                         .lineBox = type().lineBox(TextStyle{lineSp * dp}),
+    PanelMetrics metrics{.titleBox = typeface_.lineBox(TextStyle{titleSp * dp}),
+                         .lineBox = typeface_.lineBox(TextStyle{lineSp * dp}),
                          .hintWidths = {}};
     const TextStyle hint{hintSp * dp};
     const float glyph = panelGlyphDp * dp;
     for (const PanelHint& entry : panel.hints()) {
         metrics.hintWidths.push_back(glyphs_.advance(entry.button, glyph) + hintGapDp * dp +
-                                     type().measure(entry.action, hint));
+                                     typeface_.measure(entry.action, hint));
     }
     return layoutPanel(size.x, size.y, dp, metrics);
 }
@@ -55,8 +56,10 @@ void LaunchPanelPainter::paint(const LaunchPanel& panel, Vector2 size, float dp,
     DrawRectangleRounded(card, std::min(1.0f, 2.0f * cardRadiusDp * dp / card.height), 16,
                          palette::panel);
 
-    drawMiddle(panel.title(), frame.centreX, frame.titleY, TextStyle{titleSp * dp}, palette::ink);
-    drawMiddle(panel.line(), frame.centreX, frame.lineY, TextStyle{lineSp * dp}, palette::inkSoft);
+    drawMiddle(typeface_, panel.title(), frame.centreX, frame.titleY, TextStyle{titleSp * dp},
+               palette::ink);
+    drawMiddle(typeface_, panel.line(), frame.centreX, frame.lineY, TextStyle{lineSp * dp},
+               palette::inkSoft);
 
     const float y = frame.meterY;
     if (const std::optional<double> fraction = panel.fraction()) {
@@ -86,7 +89,8 @@ void LaunchPanelPainter::paint(const LaunchPanel& panel, Vector2 size, float dp,
         const float advance = glyphs_.advance(entry.button, frame.glyph);
         const float x = frame.hints[i].x;
         glyphs_.paint(entry.button, Vector2{x + advance * 0.5f, frame.hintY}, frame.glyph, hintInk);
-        type().drawCentred(entry.action, x + advance + hintGapDp * dp, frame.hintY, hint, hintInk);
+        typeface_.drawCentred(entry.action, x + advance + hintGapDp * dp, frame.hintY, hint,
+                              hintInk);
     }
 }
 

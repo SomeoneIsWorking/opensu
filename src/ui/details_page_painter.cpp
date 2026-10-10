@@ -50,7 +50,7 @@ void drawCover(const Texture& texture, const Rect& box, float radius, float alph
 } // namespace
 
 void DetailsPagePainter::paint(const DetailsPage& page, const DetailsLayout& layout,
-                               const DetailsArt& art, Vector2 size, float dp, float alpha) {
+                               const DetailsArt& art, Vector2 size, float dp, float alpha) const {
     if (alpha <= 0.0f) {
         return;
     }
@@ -74,7 +74,7 @@ void DetailsPagePainter::paint(const DetailsPage& page, const DetailsLayout& lay
 }
 
 void DetailsPagePainter::paintCover(const DetailsLayout& layout, const DetailsArt& art,
-                                    const DetailsView& view, float alpha) {
+                                    const DetailsView& view, float alpha) const {
     const RoundRect frame{layout.art, layout.radius};
     fillSoft(frame.grown(2.0f), 10.0f, [alpha](Vector2, float) {
         return withAlpha(Color{0, 0, 0, 60}, alpha);
@@ -88,29 +88,29 @@ void DetailsPagePainter::paintCover(const DetailsLayout& layout, const DetailsAr
     });
     const TextStyle letter{layout.art.width * 0.4f};
     const std::string initial = view.title.empty() ? "?" : view.title.substr(0, 1);
-    const float width = type().measure(initial, letter);
-    type().drawCentred(initial, layout.art.centreX() - width * 0.5f, layout.art.centreY(), letter,
-                       withAlpha(inkSoft, alpha));
+    const float width = typeface_.measure(initial, letter);
+    typeface_.drawCentred(initial, layout.art.centreX() - width * 0.5f, layout.art.centreY(),
+                          letter, withAlpha(inkSoft, alpha));
 }
 
 void DetailsPagePainter::paintText(const DetailsLayout& layout, const DetailsView& view, float dp,
-                                   float alpha) {
+                                   float alpha) const {
     const Rect& text = layout.text;
     const TextStyle title{titleSp * dp};
-    float y = text.y + type().lineBox(title) * 0.5f;
-    type().drawCentred(type().fitted(view.title, text.width, title), text.x, y, title,
-                       withAlpha(ink, alpha));
-    y += type().lineBox(title) * 0.5f + 10.0f * dp;
+    float y = text.y + typeface_.lineBox(title) * 0.5f;
+    typeface_.drawCentred(typeface_.fitted(view.title, text.width, title), text.x, y, title,
+                          withAlpha(ink, alpha));
+    y += typeface_.lineBox(title) * 0.5f + 10.0f * dp;
 
     const TextStyle badge{badgeSp * dp};
-    const float badgeWidth = type().measure(view.badge, badge) + 20.0f * dp;
-    const float badgeHeight = type().lineBox(badge) + 8.0f * dp;
+    const float badgeWidth = typeface_.measure(view.badge, badge) + 20.0f * dp;
+    const float badgeHeight = typeface_.lineBox(badge) + 8.0f * dp;
     fillRoundRect(RoundRect{Rect{text.x, y, badgeWidth, badgeHeight}, badgeHeight * 0.5f},
                   [alpha](Vector2, float) {
                       return withAlpha(badgeFill, alpha);
                   });
-    type().drawCentred(view.badge, text.x + 10.0f * dp, y + badgeHeight * 0.5f, badge,
-                       withAlpha(ink, alpha));
+    typeface_.drawCentred(view.badge, text.x + 10.0f * dp, y + badgeHeight * 0.5f, badge,
+                          withAlpha(ink, alpha));
     y += badgeHeight + 18.0f * dp;
 
     const TextStyle label{rowLabelSp * dp};
@@ -121,15 +121,15 @@ void DetailsPagePainter::paintText(const DetailsLayout& layout, const DetailsVie
             break;
         }
         const float centre = y + rowHeightDp * dp * 0.5f;
-        type().drawCentred(row.label, text.x, centre, label, withAlpha(inkSoft, alpha));
-        type().drawCentred(type().fitted(row.value, text.right() - valueX, value), valueX, centre,
-                           value, withAlpha(ink, alpha));
+        typeface_.drawCentred(row.label, text.x, centre, label, withAlpha(inkSoft, alpha));
+        typeface_.drawCentred(typeface_.fitted(row.value, text.right() - valueX, value), valueX,
+                              centre, value, withAlpha(ink, alpha));
         y += rowHeightDp * dp;
     }
 }
 
 void DetailsPagePainter::paintButtons(const DetailsPage& page, const DetailsLayout& layout,
-                                      float dp, float alpha) {
+                                      float dp, float alpha) const {
     const TextStyle text{buttonSp * dp};
     const auto& buttons = page.view().buttons;
     for (std::size_t i = 0; i < buttons.size() && i < layout.buttons.size(); ++i) {
@@ -145,14 +145,14 @@ void DetailsPagePainter::paintButtons(const DetailsPage& page, const DetailsLayo
             });
         }
         const float pad = 16.0f * dp;
-        type().drawCentred(buttons[i].label, rect.x + pad, rect.centreY(), text,
-                           withAlpha(ink, alpha));
+        typeface_.drawCentred(buttons[i].label, rect.x + pad, rect.centreY(), text,
+                              withAlpha(ink, alpha));
         if (!buttons[i].value.empty()) {
             const std::string shown = "<  " + buttons[i].value + "  >";
-            const float width = type().measure(shown, text);
-            type().drawCentred(type().fitted(shown, rect.width - 2.0f * pad - 90.0f * dp, text),
-                               rect.right() - pad - width, rect.centreY(), text,
-                               withAlpha(inkSoft, alpha));
+            const float width = typeface_.measure(shown, text);
+            typeface_.drawCentred(
+                typeface_.fitted(shown, rect.width - 2.0f * pad - 90.0f * dp, text),
+                rect.right() - pad - width, rect.centreY(), text, withAlpha(inkSoft, alpha));
         }
     }
 }

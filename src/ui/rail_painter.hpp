@@ -14,6 +14,7 @@
 #include "library/shelf.hpp"
 #include "platform.hpp"
 #include "rail_layout.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
@@ -35,7 +36,8 @@ struct Focused {
 
 class RailPainter {
   public:
-    RailPainter() = default;
+    explicit RailPainter(Typeface& typeface) noexcept : typeface_{typeface} {
+    }
     ~RailPainter();
     RailPainter(const RailPainter&) = delete;
     RailPainter& operator=(const RailPainter&) = delete;
@@ -73,6 +75,7 @@ class RailPainter {
     };
     void drawTitle(std::string_view title, const TitleBox& box, const RailStyle& style);
 
+    Typeface& typeface_;
     std::filesystem::path sectionIcon_;
     std::map<std::string, Texture, std::less<>> tints_;
 };

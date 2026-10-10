@@ -21,6 +21,7 @@
 #include "platform.hpp"
 #include "round_shape.hpp"
 #include "tile_geometry.hpp"
+#include "typeface.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -79,6 +80,10 @@ struct ChromeVariant;
 
 class TilePainter {
   public:
+    TilePainter(IconAtlas& icons, Typeface& typeface) noexcept
+        : icons_{icons}, typeface_{typeface} {
+    }
+
     void paint(const TileVisual& tile);
 
   private:
@@ -101,7 +106,8 @@ class TilePainter {
     void paintMark(const TileVisual& tile, const Rect& box, Color ink);
     void paintStores(const TileVisual& tile, const Rect& content);
 
-    IconAtlas icons_;
+    IconAtlas& icons_;
+    Typeface& typeface_;
 };
 
 /// A cover crop of a `width` x `height` image for a `target` (iiSU e01.k, centred anchors).

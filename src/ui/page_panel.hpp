@@ -9,12 +9,16 @@
 #include "panel_fade.hpp"
 #include "pointer_target.hpp"
 #include "settings_page.hpp"
+#include "settings_page_painter.hpp"
 
 namespace opensu::ui {
 
 class PagePanel {
   public:
     using Clock = std::chrono::steady_clock;
+
+    explicit PagePanel(Typeface& typeface) noexcept : painter_{typeface} {
+    }
 
     [[nodiscard]] SettingsPage& page() noexcept {
         return page_;
@@ -36,16 +40,19 @@ class PagePanel {
     }
 
     /// Draws the page between `topInset` and `bottomInset` in a `size` frame at `dp` pixels per dp.
-    void draw(Vector2 size, float dp, float topInset, float bottomInset, Clock::time_point now) const;
+    void draw(Vector2 size, float dp, float topInset, float bottomInset,
+              Clock::time_point now) const;
 
     /// The category, row or slider level under `point`, or nothing.
     [[nodiscard]] PointerTarget pointAt(Vector2 point, Vector2 size, float dp, float topInset,
                                         float bottomInset) const;
-    /// Moves the page's focus to `target`, when it is one of its elements; reports whether it moved.
+    /// Moves the page's focus to `target`, when it is one of its elements; reports whether it
+    /// moved.
     bool focusTarget(const PointerTarget& target);
 
   private:
     SettingsPage page_;
+    SettingsPagePainter painter_;
     PanelFade fade_{FadeSpec{300.0f, 300.0f, 1.0f, 0.0f, 1.0f}};
 };
 

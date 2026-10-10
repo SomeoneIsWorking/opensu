@@ -5,13 +5,23 @@
 #include "home_layout.hpp"
 #include "panel_fade.hpp"
 #include "raylib.h"
+#include "typeface.hpp"
 #include "volume_osd.hpp"
 
 namespace opensu::ui {
 
-/// Draws the pill in a frame of `size` at `dp` pixels per dp, `topInset` below the frame's top.
-void paintVolumeOsd(const VolumeLevel& level, Vector2 size, float dp, float topInset,
-                    const PanelLook& look);
+class VolumeOsdPainter {
+  public:
+    explicit VolumeOsdPainter(Typeface& typeface) noexcept : typeface_{typeface} {
+    }
+
+    /// Draws the pill in a frame of `size` at `dp` pixels per dp, `topInset` below the frame's top.
+    void paint(const VolumeLevel& level, Vector2 size, float dp, float topInset,
+               const PanelLook& look) const;
+
+  private:
+    Typeface& typeface_;
+};
 
 /// Where the pill stands at rest, in pixels.
 [[nodiscard]] Rect volumeOsdBody(Vector2 size, float dp, float topInset) noexcept;

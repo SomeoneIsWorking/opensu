@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <string>
 #include <vector>
@@ -28,7 +29,8 @@ class PanelFlow {
     };
 
     /// Installs go through `steam` for Steam titles, `legendary` for Epic's and gogdl for GOG's.
-    PanelFlow(ui::Shell& shell, audio::SoundPlayer& sounds, steam::Client& steam, Hooks hooks);
+    PanelFlow(ui::Shell& shell, audio::SoundPlayer& sounds, steam::Client& steam,
+              const std::filesystem::path& dataDir, Hooks hooks);
 
     /// Whether the panel is up for anything, which is when it takes every button.
     [[nodiscard]] bool active() const noexcept {

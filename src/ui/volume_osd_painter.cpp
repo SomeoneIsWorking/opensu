@@ -49,8 +49,8 @@ Rect volumeOsdBody(Vector2 size, float dp, float topInset) noexcept {
     return Rect{(size.x - width) * 0.5f, topInset + gapBelowBarDp * dp, width, height};
 }
 
-void paintVolumeOsd(const VolumeLevel& level, Vector2 size, float dp, float topInset,
-                    const PanelLook& look) {
+void VolumeOsdPainter::paint(const VolumeLevel& level, Vector2 size, float dp, float topInset,
+                             const PanelLook& look) const {
     const Rect rest = volumeOsdBody(size, dp, topInset);
     const float width = rest.width * look.scale;
     const float height = rest.height * look.scale;
@@ -89,7 +89,7 @@ void paintVolumeOsd(const VolumeLevel& level, Vector2 size, float dp, float topI
     }
     const TextStyle text{percentSp * unit};
     const std::string percent = level.muted ? "Muted" : std::to_string(level.percent) + "%";
-    type().drawCentred(percent, trackRight + paddingDp * 0.6f * unit, pill.centreY(), text, ink);
+    typeface_.drawCentred(percent, trackRight + paddingDp * 0.6f * unit, pill.centreY(), text, ink);
 }
 
 } // namespace opensu::ui

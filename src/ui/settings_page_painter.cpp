@@ -28,8 +28,8 @@ Color faded(Color colour, float alpha) {
     return withAlpha(colour, alpha);
 }
 
-void paintCategories(const SettingsPage& page, const SettingsLayout& layout, float dp,
-                     float alpha) {
+void paintCategories(Typeface& typeface, const SettingsPage& page, const SettingsLayout& layout,
+                     float dp, float alpha) {
     const TextStyle text{categorySp * dp};
     const bool inList = page.zone() == SettingsZone::Categories;
     for (std::size_t i = 0; i < layout.categoryCells.size(); ++i) {
@@ -44,13 +44,14 @@ void paintCategories(const SettingsPage& page, const SettingsLayout& layout, flo
                 return faded(rowInk, alpha);
             });
         }
-        type().drawCentred(page.categories()[i].label, cell.x + insetDp * dp, cell.centreY(), text,
-                           faded(palette::ink, alpha));
+        typeface.drawCentred(page.categories()[i].label, cell.x + insetDp * dp, cell.centreY(),
+                             text, faded(palette::ink, alpha));
     }
 }
 
 /// What a row shows at its end, right-aligned inside `rect`; the room it needs is returned.
-void paintEnd(const SettingsRow& row, const SettingsRowBox& box, float dp, float alpha) {
+void paintEnd(Typeface& typeface, const SettingsRow& row, const SettingsRowBox& box, float dp,
+              float alpha) {
     const TextStyle value{valueSp * dp};
     const float endX = box.rect.right() - insetDp * dp;
     const float room = box.rect.width * valueRoomShare;
@@ -59,26 +60,26 @@ void paintEnd(const SettingsRow& row, const SettingsRowBox& box, float dp, float
         paintSwitch(box.control, row.on, dp);
         break;
     case RowKind::Slider:
-        paintSlider(box.control, row.level, row.low, row.high, dp);
+        paintSlider(typeface, box.control, row.level, row.low, row.high, dp);
         break;
     case RowKind::Choice: {
-        const std::string shown = type().fitted("<  " + row.value + "  >", room, value);
-        type().drawCentred(shown, endX - type().measure(shown, value), box.rect.centreY(), value,
-                           faded(palette::inkSoft, alpha));
+        const std::string shown = typeface.fitted("<  " + row.value + "  >", room, value);
+        typeface.drawCentred(shown, endX - typeface.measure(shown, value), box.rect.centreY(),
+                             value, faded(palette::inkSoft, alpha));
         break;
     }
     case RowKind::Folder:
     case RowKind::Action: {
-        const std::string shown = type().fitted(row.value, room - chevronWidthDp * dp, value);
-        type().drawCentred(shown, endX - chevronWidthDp * dp - type().measure(shown, value),
-                           box.rect.centreY(), value, faded(palette::inkSoft, alpha));
+        const std::string shown = typeface.fitted(row.value, room - chevronWidthDp * dp, value);
+        typeface.drawCentred(shown, endX - chevronWidthDp * dp - typeface.measure(shown, value),
+                             box.rect.centreY(), value, faded(palette::inkSoft, alpha));
         paintChevron(endX, box.rect.centreY(), dp);
         break;
     }
     case RowKind::Info: {
-        const std::string shown = type().fitted(row.value, room, value);
-        type().drawCentred(shown, endX - type().measure(shown, value), box.rect.centreY(), value,
-                           faded(palette::inkSoft, alpha));
+        const std::string shown = typeface.fitted(row.value, room, value);
+        typeface.drawCentred(shown, endX - typeface.measure(shown, value), box.rect.centreY(),
+                             value, faded(palette::inkSoft, alpha));
         break;
     }
     }
@@ -86,8 +87,8 @@ void paintEnd(const SettingsRow& row, const SettingsRowBox& box, float dp, float
 
 } // namespace
 
-void SettingsPagePainter::paintRow(const SettingsRow& row, const SettingsRowBox& box,
-                                   bool focused, float dp, float alpha) {
+void SettingsPagePainter::paintRow(const SettingsRow& row, const SettingsRowBox& box, bool focused,
+                                   float dp, float alpha) const {
     const RoundRect bar{box.rect, rowRadiusDp * dp};
     fillRoundRect(bar, [alpha](Vector2, float) {
         return faded(cardFill, alpha);
@@ -101,16 +102,17 @@ void SettingsPagePainter::paintRow(const SettingsRow& row, const SettingsRowBox&
         room = std::min(room, box.control.x - x - insetDp * 0.5f * dp);
     }
     if (row.note.empty()) {
-        type().drawCentred(type().fitted(row.label, room, label), x, box.rect.centreY(), label,
-                           faded(palette::ink, alpha));
+        typeface_.drawCentred(typeface_.fitted(row.label, room, label), x, box.rect.centreY(),
+                              label, faded(palette::ink, alpha));
     } else {
-        const float shift = type().lineBox(note) * 0.5f + 1.0f * dp;
-        type().drawCentred(type().fitted(row.label, room, label), x, box.rect.centreY() - shift,
-                           label, faded(palette::ink, alpha));
-        type().drawCentred(type().fitted(row.note, room, note), x,
-                           box.rect.centreY() + shift * 1.4f, note, faded(palette::inkSoft, alpha));
+        const float shift = typeface_.lineBox(note) * 0.5f + 1.0f * dp;
+        typeface_.drawCentred(typeface_.fitted(row.label, room, label), x,
+                              box.rect.centreY() - shift, label, faded(palette::ink, alpha));
+        typeface_.drawCentred(typeface_.fitted(row.note, room, note), x,
+                              box.rect.centreY() + shift * 1.4f, note,
+                              faded(palette::inkSoft, alpha));
     }
-    paintEnd(row, box, dp, alpha);
+    paintEnd(typeface_, row, box, dp, alpha);
     if (focused) {
         fillBand(bar, bar.grown(-outlineDp * dp), [alpha](Vector2, float) {
             return faded(rowInk, alpha);
@@ -119,13 +121,13 @@ void SettingsPagePainter::paintRow(const SettingsRow& row, const SettingsRowBox&
 }
 
 void SettingsPagePainter::paint(const SettingsPage& page, const SettingsLayout& layout,
-                                Vector2 size, float dp, float alpha) {
+                                Vector2 size, float dp, float alpha) const {
     if (alpha <= 0.0f) {
         return;
     }
     DrawRectangle(0, 0, static_cast<int>(size.x), static_cast<int>(size.y),
                   faded(palette::ground, alpha));
-    paintCategories(page, layout, dp, alpha);
+    paintCategories(typeface_, page, layout, dp, alpha);
     fillRoundRect(RoundRect{layout.panel, layout.radius}, [alpha](Vector2, float) {
         return faded(panelFill, alpha);
     });
@@ -137,7 +139,7 @@ void SettingsPagePainter::paint(const SettingsPage& page, const SettingsLayout& 
         if (box.rect.bottom() < layout.panel.y || box.rect.y > layout.panel.bottom()) {
             continue;
         }
-        SettingsPagePainter::paintRow(rows[i], box, page.zone() == SettingsZone::Rows && i == page.row(), dp, alpha);
+        paintRow(rows[i], box, page.zone() == SettingsZone::Rows && i == page.row(), dp, alpha);
     }
 }
 

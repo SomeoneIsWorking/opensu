@@ -65,7 +65,7 @@ void printHelp() {
 int main(int argc, char** argv) {
     // Lucent reads its own debug channels from the environment, so there is
     // nothing to initialise here. Everything else is read once, by config::read.
-    const opensu::config::Config& config = opensu::config::read();
+    const opensu::config::Config config = opensu::config::read();
 
     const std::vector<std::string> args(argv + 1, argv + argc);
     const opensu::config::Arguments arguments = opensu::config::Arguments::parse(args);
@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
         .loginSession = arguments.loginSession,
         .startSteam = arguments.startsSteam(),
     };
-    opensu::app::ShellApp shell{settings};
+    opensu::app::ShellApp shell{settings, config};
 
     // Rendering one frame to a file needs no window, which is how the layout can
     // be looked at without a compositor.

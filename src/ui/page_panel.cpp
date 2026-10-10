@@ -12,8 +12,8 @@ void PagePanel::draw(Vector2 size, float dp, float topInset, float bottomInset,
     if (!fade_.visible(now)) {
         return;
     }
-    SettingsPagePainter::paint(page_, page_.layout(size.x, size.y, dp, topInset, bottomInset), size,
-                               dp, fade_.alpha(now));
+    painter_.paint(page_, page_.layout(size.x, size.y, dp, topInset, bottomInset), size, dp,
+                   fade_.alpha(now));
 }
 
 PointerTarget PagePanel::pointAt(Vector2 point, Vector2 size, float dp, float topInset,

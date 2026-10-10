@@ -3,10 +3,10 @@
 #include <algorithm>
 #include <cctype>
 #include <ranges>
-#include <span>
 #include <variant>
 
 #include "library/game.hpp"
+#include "platform_stroke.hpp"
 
 namespace opensu::ui {
 
@@ -39,16 +39,8 @@ const char* platformForSource(library::Source source) noexcept {
 
 } // namespace
 
-std::size_t strokeGradientCount() noexcept {
-    const auto* cursor = kStrokeGradients;
-    while (cursor->console != nullptr) {
-        ++cursor;
-    }
-    return static_cast<std::size_t>(cursor - kStrokeGradients);
-}
-
 Platforms::Platforms() {
-    for (const StrokeGradient& gradient : std::span{kStrokeGradients, strokeGradientCount()}) {
+    for (const StrokeGradient& gradient : kStrokeGradients) {
         platforms_.push_back(Platform{fold(gradient.console), gradient.from, gradient.to});
     }
 }

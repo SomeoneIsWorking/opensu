@@ -20,14 +20,6 @@ struct StrokeGradient {
     std::uint32_t to;
 };
 
-/// The gradients, keyed by ES-DE system name. Defined in the
-/// generated platform_stroke.cpp and declared here, so the definition and its only
-/// reader cannot drift apart.
-extern const StrokeGradient kStrokeGradients[];
-
-/// The number of gradients in the table above, sentinel excluded.
-[[nodiscard]] std::size_t strokeGradientCount() noexcept;
-
 /// One platform's frame.
 struct Platform {
     /// The platform key, lower-case ("steam", "psx").

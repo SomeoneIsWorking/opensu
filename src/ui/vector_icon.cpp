@@ -12,7 +12,6 @@
 #define NANOSVGRAST_IMPLEMENTATION
 #include <nanosvgrast.h>
 
-#include "config/config.hpp"
 #include "lucent/log.h"
 
 namespace opensu::ui {
@@ -111,7 +110,7 @@ const Texture* IconAtlas::mask(Icon icon, int pixels) {
         return found->loaded ? &found->texture : nullptr;
     }
     Entry entry{.icon = icon, .pixels = pixels};
-    const std::filesystem::path path = config::read().assetsDir / iconFile(icon);
+    const std::filesystem::path path = assetsDir_ / iconFile(icon);
     if (std::optional<std::vector<unsigned char>> rgba = rasteriseMask(path, pixels)) {
         Image image{.data = rgba->data(),
                     .width = pixels,

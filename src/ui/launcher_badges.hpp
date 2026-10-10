@@ -50,13 +50,16 @@ struct BadgeRow {
 
 class LauncherBadgePainter {
   public:
+    explicit LauncherBadgePainter(IconAtlas& icons) noexcept : icons_{icons} {
+    }
+
     /// Draws the visible badges, each in its cell of `row`.
     void paint(std::span<const LauncherBadge> badges, const BadgeRow& row);
 
   private:
     void paintOne(const LauncherBadge& badge, const BadgeRow& row, const Rect& cell);
 
-    IconAtlas icons_;
+    IconAtlas& icons_;
 };
 
 } // namespace opensu::ui

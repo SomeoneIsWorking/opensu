@@ -63,8 +63,9 @@ bool intersectsCanvas(const Rect& rect, int width, int height) noexcept {
 
 } // namespace
 
-Shell::Shell(int width, int height, config::HomeMode mode)
-    : layout_{HomeLayoutInput{}}, mode_{mode}, width_{width}, height_{height} {
+Shell::Shell(int width, int height, config::HomeMode mode, const std::filesystem::path& assetsDir)
+    : typeface_{assetsDir}, icons_{assetsDir}, layout_{HomeLayoutInput{}}, mode_{mode},
+      width_{width}, height_{height} {
     hud_.setSize({width, height, dp()});
     relayout();
 }
@@ -960,9 +961,9 @@ void Shell::drawScene() {
         drawRail();
     }
     if (detailsShown) {
-        DetailsPagePainter::paint(details_, detailsLayout(), detailsArt(),
-                                  Vector2{static_cast<float>(width_), static_cast<float>(height_)},
-                                  dp(), detailsFade_.alpha(now_));
+        detailsPainter_.paint(details_, detailsLayout(), detailsArt(),
+                              Vector2{static_cast<float>(width_), static_cast<float>(height_)},
+                              dp(), detailsFade_.alpha(now_));
     }
     drawPages(Vector2{static_cast<float>(width_), static_cast<float>(height_)});
     hud_.drawTopBar();
@@ -1048,8 +1049,8 @@ void Shell::draw(const RenderTexture2D* target) {
     guide_.draw(Vector2{frameWidth, frameHeight}, dp());
     session_.draw(Vector2{frameWidth, frameHeight}, dp(), now_, seconds);
     if (volumeOsd_.visible(now_)) {
-        paintVolumeOsd(volumeOsd_.level(), Vector2{frameWidth, frameHeight}, dp(), hud_.topInset(),
-                       volumeOsd_.look(now_));
+        volumeOsdPainter_.paint(volumeOsd_.level(), Vector2{frameWidth, frameHeight}, dp(),
+                                hud_.topInset(), volumeOsd_.look(now_));
     }
     hud_.drawToast();
     EndBlendMode();

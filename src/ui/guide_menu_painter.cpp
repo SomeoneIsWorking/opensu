@@ -30,7 +30,7 @@ constexpr float powerRingEnd = 235.0f;
 GuideLayout GuideMenuPainter::layout(const GuideMenu& menu, float width, float height,
                                      float dp) const {
     return layoutGuide(PanelFrame{width, height, dp},
-                       PanelChrome{type().lineBox(TextStyle{titleSp * dp}),
+                       PanelChrome{typeface_.lineBox(TextStyle{titleSp * dp}),
                                    (2.0f * hintGlyphDp + hintLineGapDp) * dp},
                        menu.entries().size());
 }
@@ -69,8 +69,8 @@ void GuideMenuPainter::paint(const GuideMenu& menu, float width, float height, f
     const float pad = frame.padding;
     const TextStyle title{titleSp * dp};
     const float room = frame.panel.width - 2.0f * pad;
-    type().drawCentred(type().fitted(menu.title(), room, title), pad,
-                       pad + type().lineBox(title) * 0.5f, title, palette::ink);
+    typeface_.drawCentred(typeface_.fitted(menu.title(), room, title), pad,
+                          pad + typeface_.lineBox(title) * 0.5f, title, palette::ink);
 
     const TextStyle item{itemSp * dp};
     for (std::size_t i = 0; i < menu.entries().size() && i < frame.rows.size(); ++i) {
@@ -81,8 +81,8 @@ void GuideMenuPainter::paint(const GuideMenu& menu, float width, float height, f
             DrawRectangleRounded(row, std::min(1.0f, 2.0f * itemRadiusDp * dp / box.height), 12,
                                  selection);
         }
-        type().drawCentred(type().fitted(menu.shown(i), room, item), pad, box.centreY(), item,
-                           focused ? palette::panel : palette::ink);
+        typeface_.drawCentred(typeface_.fitted(menu.shown(i), room, item), pad, box.centreY(), item,
+                              focused ? palette::panel : palette::ink);
     }
 
     if (!menu.inPower()) {
@@ -95,11 +95,11 @@ void GuideMenuPainter::paint(const GuideMenu& menu, float width, float height, f
     const float right = frame.footer.right() - frame.padding * 0.5f;
     float centreY = frame.footer.centreY() - (glyph + hintLineGapDp * dp) * 0.5f;
     for (const auto& [key, label] : {std::pair{"A", "Select"}, std::pair{"B", menu.backLabel()}}) {
-        const float labelWidth = type().measure(label, hint);
+        const float labelWidth = typeface_.measure(label, hint);
         const float advance = glyphs_.advance(key, glyph);
         const float x = right - labelWidth - hintGapDp * dp - advance;
         glyphs_.paint(key, Vector2{x + advance * 0.5f, centreY}, glyph, hintInk);
-        type().drawCentred(label, right - labelWidth, centreY, hint, hintInk);
+        typeface_.drawCentred(label, right - labelWidth, centreY, hint, hintInk);
         centreY += glyph + hintLineGapDp * dp;
     }
 }

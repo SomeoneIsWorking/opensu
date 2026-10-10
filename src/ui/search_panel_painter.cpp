@@ -33,20 +33,20 @@ constexpr float iconDp = 9.0f;
 constexpr double caretPeriod = 1.0;
 
 /// Draws `text` cut to `room` pixels, ending in dots when it is cut.
-void drawFitted(std::string text, float x, float centreY, float room, const TextStyle& style,
-                Color colour) {
-    while (text.size() > 1 && type().measure(text, style) > room) {
+void drawFitted(Typeface& typeface, std::string text, float x, float centreY, float room,
+                const TextStyle& style, Color colour) {
+    while (text.size() > 1 && typeface.measure(text, style) > room) {
         std::size_t cut = text.size() - 1;
         while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0U) == 0x80U) {
             --cut;
         }
         text.resize(cut);
-        if (type().measure(text + "...", style) <= room) {
+        if (typeface.measure(text + "...", style) <= room) {
             text += "...";
             break;
         }
     }
-    type().drawCentred(text, x, centreY, style, colour);
+    typeface.drawCentred(text, x, centreY, style, colour);
 }
 
 /// One dot for each character of a password.
@@ -110,16 +110,16 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
     const float room = layout.field.right() - inset - textX;
     const std::string shown = panel.secret() ? dotsFor(panel.text()) : panel.text();
     if (shown.empty()) {
-        drawFitted(panel.prompt(), textX, layout.field.centreY(), room, field,
+        drawFitted(typeface_, panel.prompt(), textX, layout.field.centreY(), room, field,
                    withAlpha(palette::inkSoft, alpha));
     } else {
-        drawFitted(shown, textX, layout.field.centreY(), room, field,
+        drawFitted(typeface_, shown, textX, layout.field.centreY(), room, field,
                    withAlpha(palette::ink, alpha));
     }
     if (std::fmod(seconds, caretPeriod) < caretPeriod * 0.5) {
         const float caretX =
-            textX + (shown.empty() ? 0.0f : std::min(type().measure(shown, field), room));
-        const float caretHeight = type().lineBox(field) * 0.8f;
+            textX + (shown.empty() ? 0.0f : std::min(typeface_.measure(shown, field), room));
+        const float caretHeight = typeface_.lineBox(field) * 0.8f;
         DrawRectangleRec(Rectangle{caretX + dp, layout.field.centreY() - caretHeight * 0.5f,
                                    1.6f * dp, caretHeight},
                          withAlpha(palette::ink, alpha));
@@ -129,8 +129,9 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
     const TextStyle result{resultSp * dp};
     const bool inResults = panel.zone() == SearchZone::Results;
     if (panel.lists() && panel.results().empty() && !panel.text().empty()) {
-        type().drawCentred("No results", layout.results[0].x + inset, layout.results[0].centreY(),
-                           result, withAlpha(palette::inkSoft, alpha));
+        typeface_.drawCentred("No results", layout.results[0].x + inset,
+                              layout.results[0].centreY(), result,
+                              withAlpha(palette::inkSoft, alpha));
     }
     for (std::size_t row = 0; row < layout.results.size(); ++row) {
         const std::size_t index = panel.firstListed() + row;
@@ -140,11 +141,11 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
         const Rect& box = layout.results[row];
         paintBar(box, inResults && index == panel.resultFocus(), dp, alpha);
         const SearchResult& entry = panel.results()[index];
-        const float detail = type().measure(entry.detail, result);
-        type().drawCentred(entry.detail, box.right() - inset - detail, box.centreY(), result,
-                           withAlpha(palette::inkSoft, alpha));
-        drawFitted(entry.title, box.x + inset, box.centreY(), box.width - detail - inset * 3.0f,
-                   result, withAlpha(palette::ink, alpha));
+        const float detail = typeface_.measure(entry.detail, result);
+        typeface_.drawCentred(entry.detail, box.right() - inset - detail, box.centreY(), result,
+                              withAlpha(palette::inkSoft, alpha));
+        drawFitted(typeface_, entry.title, box.x + inset, box.centreY(),
+                   box.width - detail - inset * 3.0f, result, withAlpha(palette::ink, alpha));
     }
 
     // The keys.
@@ -166,9 +167,10 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
             }
         }
         const std::string label{keys[i].label};
-        const float width = type().measure(label, cap);
-        type().drawCentred(label, layout.keys[i].centreX() - width * 0.5f, layout.keys[i].centreY(),
-                           cap, withAlpha(done ? WHITE : static_cast<Color>(palette::ink), alpha));
+        const float width = typeface_.measure(label, cap);
+        typeface_.drawCentred(label, layout.keys[i].centreX() - width * 0.5f,
+                              layout.keys[i].centreY(), cap,
+                              withAlpha(done ? WHITE : static_cast<Color>(palette::ink), alpha));
     }
 
     // The buttons along the foot.
@@ -191,7 +193,7 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
     }
     float total = 0.0f;
     for (const auto& [key, label] : hints) {
-        total += glyphs_.advance(key, glyph) + hintGapDp * dp + type().measure(label, hint) +
+        total += glyphs_.advance(key, glyph) + hintGapDp * dp + typeface_.measure(label, hint) +
                  hintSpacingDp * dp;
     }
     float x = layout.hints.centreX() - (total - hintSpacingDp * dp) * 0.5f;
@@ -200,8 +202,8 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
         glyphs_.paint(key, Vector2{x + advance * 0.5f, centreY}, glyph,
                       withAlpha(outlineInk, alpha));
         x += advance + hintGapDp * dp;
-        type().drawCentred(label, x, centreY, hint, withAlpha(outlineInk, alpha));
-        x += type().measure(label, hint) + hintSpacingDp * dp;
+        typeface_.drawCentred(label, x, centreY, hint, withAlpha(outlineInk, alpha));
+        x += typeface_.measure(label, hint) + hintSpacingDp * dp;
     }
 }
 

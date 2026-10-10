@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <optional>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "library/game.hpp"
@@ -29,7 +30,9 @@ rasteriseMask(const std::filesystem::path& svg, int pixels);
 /// Icon textures, one per icon and size, made on first use.
 class IconAtlas {
   public:
-    IconAtlas() = default;
+    /// The icons are read from `assetsDir`.
+    explicit IconAtlas(std::filesystem::path assetsDir) : assetsDir_{std::move(assetsDir)} {
+    }
     ~IconAtlas();
     IconAtlas(const IconAtlas&) = delete;
     IconAtlas& operator=(const IconAtlas&) = delete;
@@ -44,6 +47,7 @@ class IconAtlas {
         Texture texture{};
         bool loaded{false};
     };
+    std::filesystem::path assetsDir_;
     std::vector<Entry> entries_;
 };
 

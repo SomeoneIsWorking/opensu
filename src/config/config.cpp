@@ -190,63 +190,58 @@ std::filesystem::path gamescopeBeside(const std::filesystem::path& executable) {
     return executable.parent_path().parent_path() / OPENSU_GAMESCOPE_RELATIVE;
 }
 
-const Config& read() {
-    // Deliberately function-local: the environment is read once and never again,
-    // so every holder of this reference sees the same immutable value.
-    static const Config config = [] {
-        Config value;
-        if (const std::string_view home = env("HOME"); !home.empty()) {
-            value.home = std::filesystem::path{home};
-        }
-        value.steamRoots = splitPaths(env("OPENSU_STEAM_ROOTS"));
-        value.romRoots = splitPaths(env("OPENSU_ROM_ROOTS"));
-        value.emulators = parseEmulators(env("OPENSU_EMULATORS"));
-        std::error_code error;
-        const std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", error);
-        if (const std::string_view assets = env("OPENSU_ASSETS"); !assets.empty()) {
-            value.assetsDir = std::filesystem::path{assets};
-        } else {
-            value.assetsDir = self.parent_path().parent_path() / "share" / "opensu";
-        }
-        value.executable = self;
-        value.gamescope = gamescopeBeside(self);
-        if (const std::string_view cache = env("XDG_CACHE_HOME"); !cache.empty()) {
-            value.cacheDir = std::filesystem::path{cache} / "opensu";
-        } else {
-            value.cacheDir = value.home / ".cache" / "opensu";
-        }
-        if (const std::string_view data = env("XDG_DATA_HOME"); !data.empty()) {
-            value.dataDir = std::filesystem::path{data} / "opensu";
-        } else {
-            value.dataDir = value.home / ".local" / "share" / "opensu";
-        }
-        if (const std::string_view settings = env("XDG_CONFIG_HOME"); !settings.empty()) {
-            value.configDir = std::filesystem::path{settings} / "opensu";
-        } else {
-            value.configDir = value.home / ".config" / "opensu";
-        }
-        value.homeMode = envHomeMode("OPENSU_HOME_MODE", value.homeMode);
-        value.clock24Hour = localeClock24Hour();
-        value.width = envInt("OPENSU_WIDTH", value.width);
-        value.height = envInt("OPENSU_HEIGHT", value.height);
-        value.controlPort = envPort("OPENSU_CONTROL_PORT", value.controlPort);
-        value.controlChannel = envBool("OPENSU_CONTROL_CHANNEL", value.controlChannel);
-        value.insideGamescope = !env("GAMESCOPE_WAYLAND_DISPLAY").empty();
-        value.session = std::string{env("OPENSU_SESSION")};
-        value.sessionInherited = !value.session.empty();
-        if (value.session.empty()) {
-            value.session = "opensu-" + std::to_string(getpid());
-        }
-        if (const std::string_view runtime = env("XDG_RUNTIME_DIR"); !runtime.empty()) {
-            value.desktopRequest = std::filesystem::path{runtime} / "opensu" / "desktop";
-        } else {
-            value.desktopRequest = std::filesystem::path{"/run/user"} / std::to_string(getuid()) /
-                                   "opensu" / "desktop";
-        }
-        value.executablePath = splitPaths(env("PATH"));
-        return value;
-    }();
-    return config;
+Config read() {
+    Config value;
+    if (const std::string_view home = env("HOME"); !home.empty()) {
+        value.home = std::filesystem::path{home};
+    }
+    value.steamRoots = splitPaths(env("OPENSU_STEAM_ROOTS"));
+    value.romRoots = splitPaths(env("OPENSU_ROM_ROOTS"));
+    value.emulators = parseEmulators(env("OPENSU_EMULATORS"));
+    std::error_code error;
+    const std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", error);
+    if (const std::string_view assets = env("OPENSU_ASSETS"); !assets.empty()) {
+        value.assetsDir = std::filesystem::path{assets};
+    } else {
+        value.assetsDir = self.parent_path().parent_path() / "share" / "opensu";
+    }
+    value.executable = self;
+    value.gamescope = gamescopeBeside(self);
+    if (const std::string_view cache = env("XDG_CACHE_HOME"); !cache.empty()) {
+        value.cacheDir = std::filesystem::path{cache} / "opensu";
+    } else {
+        value.cacheDir = value.home / ".cache" / "opensu";
+    }
+    if (const std::string_view data = env("XDG_DATA_HOME"); !data.empty()) {
+        value.dataDir = std::filesystem::path{data} / "opensu";
+    } else {
+        value.dataDir = value.home / ".local" / "share" / "opensu";
+    }
+    if (const std::string_view settings = env("XDG_CONFIG_HOME"); !settings.empty()) {
+        value.configDir = std::filesystem::path{settings} / "opensu";
+    } else {
+        value.configDir = value.home / ".config" / "opensu";
+    }
+    value.homeMode = envHomeMode("OPENSU_HOME_MODE", value.homeMode);
+    value.clock24Hour = localeClock24Hour();
+    value.width = envInt("OPENSU_WIDTH", value.width);
+    value.height = envInt("OPENSU_HEIGHT", value.height);
+    value.controlPort = envPort("OPENSU_CONTROL_PORT", value.controlPort);
+    value.controlChannel = envBool("OPENSU_CONTROL_CHANNEL", value.controlChannel);
+    value.insideGamescope = !env("GAMESCOPE_WAYLAND_DISPLAY").empty();
+    value.session = std::string{env("OPENSU_SESSION")};
+    value.sessionInherited = !value.session.empty();
+    if (value.session.empty()) {
+        value.session = "opensu-" + std::to_string(getpid());
+    }
+    if (const std::string_view runtime = env("XDG_RUNTIME_DIR"); !runtime.empty()) {
+        value.desktopRequest = std::filesystem::path{runtime} / "opensu" / "desktop";
+    } else {
+        value.desktopRequest =
+            std::filesystem::path{"/run/user"} / std::to_string(getuid()) / "opensu" / "desktop";
+    }
+    value.executablePath = splitPaths(env("PATH"));
+    return value;
 }
 
 } // namespace opensu::config

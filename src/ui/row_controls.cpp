@@ -28,7 +28,7 @@ void paintSwitch(const Rect& track, bool on, float dp) {
     DrawCircleV(Vector2{thumbX, track.centreY()}, thumb, WHITE);
 }
 
-void paintSlider(const Rect& track, int level, int low, int high, float dp) {
+void paintSlider(Typeface& typeface, const Rect& track, int level, int low, int high, float dp) {
     const float radius = sliderBarDp * dp * 0.5f;
     const Rect bar{track.x, track.centreY() - radius, track.width, radius * 2.0f};
     fillRoundRect(RoundRect{bar, radius}, [](Vector2, float) {
@@ -43,8 +43,8 @@ void paintSlider(const Rect& track, int level, int low, int high, float dp) {
     DrawCircleV(Vector2{thumbX, track.centreY()}, sliderThumbDp * dp, rowInk);
     DrawCircleV(Vector2{thumbX, track.centreY()}, sliderThumbDp * dp * 0.4f, WHITE);
     const TextStyle number{valueSp * dp};
-    type().drawCentred(std::to_string(level), track.right() + sliderNumberGapDp * dp,
-                       track.centreY(), number, palette::ink);
+    typeface.drawCentred(std::to_string(level), track.right() + sliderNumberGapDp * dp,
+                         track.centreY(), number, palette::ink);
 }
 
 void paintChevron(float x, float centreY, float dp) {

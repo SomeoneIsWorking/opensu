@@ -86,7 +86,8 @@ struct Settings {
 /// The running shell.
 class ShellApp final : private PointerHost {
   public:
-    explicit ShellApp(const Settings& settings);
+    /// `environment` outlives the app; it is what `config::read` returned at start.
+    ShellApp(const Settings& settings, const config::Config& environment);
 
     /// Loads the library, then runs the window loop until it closes.
     int run();
@@ -102,7 +103,7 @@ class ShellApp final : private PointerHost {
 
   private:
     /// Where pads are read from: the system's, or an empty directory in a hidden run.
-    static std::filesystem::path padsDirectory(bool hidden);
+    static std::filesystem::path padsDirectory(const std::filesystem::path& dataDir, bool hidden);
 
     /// Publishes state for the control channel, and serves any pending request.
     /// Main loop only.
@@ -216,21 +217,22 @@ class ShellApp final : private PointerHost {
     /// Re-reads the clock and the battery and schedules the next minute boundary.
     void refreshClock();
     void pushCatalogToShell();
+    const config::Config& environment_;
     Settings settings_;
     /// What the player chose, read at start and saved when it changes.
-    Preferences preferences_{settings::Store{config::read().configDir / "settings.json"},
+    Preferences preferences_{settings::Store{environment_.configDir / "settings.json"},
                              [this](const std::string& why) {
                                  shell_.setToast(why, true);
                              }};
     /// The environment's configuration with what the player set in place of it: the roots the
     /// catalog and Steam read, fixed for the run.
-    config::Config resolved_{settings::resolved(config::read(), preferences_.values())};
+    config::Config resolved_{settings::resolved(environment_, preferences_.values())};
     /// Lists every store off the loop; the loop takes what has arrived.
     library::CatalogLoader catalogLoader_;
     /// Downloaded artwork, and the worker that fills it in.
-    artwork::ArtworkStore artworkStore_{config::read().cacheDir / "artwork"};
+    artwork::ArtworkStore artworkStore_{environment_.cacheDir / "artwork"};
     artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{},
-                                            library::roms::NameDb::under(config::read().cacheDir)};
+                                            library::roms::NameDb::under(environment_.cacheDir)};
     /// iiSU's UI sounds, played from the loop's input handling.
     audio::SoundPlayer sounds_;
     device::BatteryReader battery_;
@@ -319,7 +321,7 @@ class ShellApp final : private PointerHost {
                                      chooseEmulator(game, name);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
-    VolumeControl volume_{VolumeControl::detect(config::read(), settings_.hidden),
+    VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
                           VolumeControl::Hooks{[this](const audio::VolumeState& state) {
                                                    shell_.showVolume(
                                                        ui::VolumeLevel{state.percent, state.muted});
@@ -362,7 +364,7 @@ class ShellApp final : private PointerHost {
         SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts()},
         sounds_,
         preferences_,
-        config::read(),
+        environment_,
         SettingsController::Hooks{[this] {
                                       applyLayout();
                                   },
@@ -381,7 +383,7 @@ class ShellApp final : private PointerHost {
                                   [this](const std::string& text, bool isError) {
                                       shell_.setToast(text, isError);
                                   }}};
-    gamepad::Pads pads_{padsDirectory(settings_.hidden)};
+    gamepad::Pads pads_{padsDirectory(environment_.dataDir, settings_.hidden)};
     device::ControllerBatteries padBatteries_;
     /// The pads as the Devices page and the quick menu list them.
     ControllerRoster roster_{ControllerRoster::Sources{[this] {
@@ -492,7 +494,7 @@ class ShellApp final : private PointerHost {
     std::string runningTitle_;
     /// What the launch panel is up for, and the one install that runs. After steam_, so the
     /// install is stopped before the client it drives. Main loop only.
-    PanelFlow panels_{shell_, sounds_, steam_,
+    PanelFlow panels_{shell_, sounds_, steam_, environment_.dataDir,
                       PanelFlow::Hooks{[this] {
                                            cancelLaunch();
                                        },

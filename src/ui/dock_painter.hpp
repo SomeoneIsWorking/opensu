@@ -9,6 +9,7 @@
 #include "button_glyph.hpp"
 #include "dock_metrics.hpp"
 #include "glass.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
@@ -34,7 +35,8 @@ struct DockStyle {
 
 class DockPainter {
   public:
-    explicit DockPainter(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
+    DockPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
+        : typeface_{typeface}, glyphs_{prompts, typeface} {
     }
 
     /// The bar where this frame draws it, slid down by how far it has left.
@@ -49,6 +51,7 @@ class DockPainter {
                                            const DockStyle& style) noexcept;
 
     GlassPainter glass_;
+    Typeface& typeface_;
     ButtonGlyphPainter glyphs_;
 };
 

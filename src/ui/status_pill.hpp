@@ -11,6 +11,7 @@
 #include "home_layout.hpp"
 #include "launcher_badges.hpp"
 #include "top_bar_metrics.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
@@ -34,18 +35,22 @@ struct StatusPillView {
 
 class StatusPillPainter {
   public:
+    StatusPillPainter(Typeface& typeface, IconAtlas& icons) noexcept
+        : typeface_{typeface}, badges_{icons} {
+    }
+
     void paint(const StatusPillView& view);
 
     /// The width of the text row (`clock | NN% battery`) the pill is sized to, in pixels.
-    [[nodiscard]] static float rowWidth(const StatusPillMetrics& metrics, float dp,
-                                        std::string_view clock,
-                                        const std::optional<device::BatteryStatus>& battery);
+    [[nodiscard]] float rowWidth(const StatusPillMetrics& metrics, float dp, std::string_view clock,
+                                 const std::optional<device::BatteryStatus>& battery) const;
 
   private:
     void paintLaunchers(const StatusPillView& view);
     void paintBattery(float x, float centreY, float size,
                       const device::BatteryStatus& battery) const;
 
+    Typeface& typeface_;
     GlassPainter glass_;
     LauncherBadgePainter badges_;
 };

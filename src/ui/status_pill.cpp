@@ -73,25 +73,25 @@ void StatusPillPainter::paint(const StatusPillView& view) {
         percent = std::to_string(view.battery->percent) + "%";
     }
     float pen = body.x + view.launcherColumn + m.paddingHorizontal * dp;
-    type().drawCentred(clock, pen, centreY, text, textInk);
-    pen += type().measure(clock, text) + spacing;
+    typeface_.drawCentred(clock, pen, centreY, text, textInk);
+    pen += typeface_.measure(clock, text) + spacing;
     if (view.battery) {
-        type().drawCentred(separator, pen, centreY, text, textInk);
-        pen += type().measure(separator, text) + spacing;
-        type().drawCentred(percent, pen, centreY, text, textInk);
-        pen += type().measure(percent, text) + spacing;
+        typeface_.drawCentred(separator, pen, centreY, text, textInk);
+        pen += typeface_.measure(separator, text) + spacing;
+        typeface_.drawCentred(percent, pen, centreY, text, textInk);
+        pen += typeface_.measure(percent, text) + spacing;
         paintBattery(pen, centreY, icon, *view.battery);
     }
 }
 
 float StatusPillPainter::rowWidth(const StatusPillMetrics& metrics, float dp,
                                   std::string_view clock,
-                                  const std::optional<device::BatteryStatus>& battery) {
+                                  const std::optional<device::BatteryStatus>& battery) const {
     const TextStyle text{metrics.fontSize * dp};
-    float width = type().measure(std::string{clock}, text);
+    float width = typeface_.measure(std::string{clock}, text);
     if (battery) {
-        width += metrics.textSpacing * dp * 3.0f + type().measure(separator, text) +
-                 type().measure(std::to_string(battery->percent) + "%", text) +
+        width += metrics.textSpacing * dp * 3.0f + typeface_.measure(separator, text) +
+                 typeface_.measure(std::to_string(battery->percent) + "%", text) +
                  metrics.batteryIcon * dp;
     }
     return width;

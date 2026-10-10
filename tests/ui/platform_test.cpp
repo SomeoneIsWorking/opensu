@@ -1,5 +1,6 @@
 // The platform table, built from the compiled frame gradients.
 #include "platform.hpp"
+#include "platform_stroke.hpp"
 
 #include <cstdio>
 
@@ -14,7 +15,7 @@ using opensu::ui::Platforms;
 
 int main() {
     const Platforms platforms;
-    expect(platforms.size() == opensu::ui::strokeGradientCount(), "one platform per gradient");
+    expect(platforms.size() == opensu::ui::kStrokeGradients.size(), "one platform per gradient");
     const auto* psx = platforms.find("PSX");
     expect(psx != nullptr, "a key matches whatever its case");
     expect(psx->strokeFrom == 0xb8b0de && psx->strokeTo == 0xc7acff, "with its gradient");

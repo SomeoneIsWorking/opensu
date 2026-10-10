@@ -5,18 +5,21 @@
 #include "button_glyph.hpp"
 #include "folder_chooser.hpp"
 #include "panel_fade.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
 class FolderChooserPainter {
   public:
-    explicit FolderChooserPainter(const input::Prompts& prompts) noexcept : glyphs_{prompts} {
+    FolderChooserPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
+        : typeface_{typeface}, glyphs_{prompts, typeface} {
     }
 
     /// Draws `chooser` into a frame of `size` at `dp` pixels per dp, as faded and scaled by `look`.
     void paint(const FolderChooser& chooser, Vector2 size, float dp, const PanelLook& look) const;
 
   private:
+    Typeface& typeface_;
     ButtonGlyphPainter glyphs_;
 };
 

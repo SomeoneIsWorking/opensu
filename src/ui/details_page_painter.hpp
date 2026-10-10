@@ -5,6 +5,7 @@
 #include "raylib.h"
 
 #include "details_page.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
@@ -25,17 +26,22 @@ struct DetailsArt {
 
 class DetailsPagePainter {
   public:
+    explicit DetailsPagePainter(Typeface& typeface) noexcept : typeface_{typeface} {
+    }
+
     /// Draws `page` in `layout` over a `size` frame at `dp` pixels per dp, at opacity `alpha`.
-    static void paint(const DetailsPage& page, const DetailsLayout& layout, const DetailsArt& art,
-                      Vector2 size, float dp, float alpha);
+    void paint(const DetailsPage& page, const DetailsLayout& layout, const DetailsArt& art,
+               Vector2 size, float dp, float alpha) const;
 
   private:
-    static void paintCover(const DetailsLayout& layout, const DetailsArt& art,
-                           const DetailsView& view, float alpha);
-    static void paintText(const DetailsLayout& layout, const DetailsView& view, float dp,
-                          float alpha);
-    static void paintButtons(const DetailsPage& page, const DetailsLayout& layout, float dp,
-                             float alpha);
+    void paintCover(const DetailsLayout& layout, const DetailsArt& art, const DetailsView& view,
+                    float alpha) const;
+    void paintText(const DetailsLayout& layout, const DetailsView& view, float dp,
+                   float alpha) const;
+    void paintButtons(const DetailsPage& page, const DetailsLayout& layout, float dp,
+                      float alpha) const;
+
+    Typeface& typeface_;
 };
 
 } // namespace opensu::ui

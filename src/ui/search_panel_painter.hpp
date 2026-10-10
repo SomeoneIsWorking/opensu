@@ -6,13 +6,14 @@
 #include "button_glyph.hpp"
 #include "panel_fade.hpp"
 #include "search_panel.hpp"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
 class SearchPanelPainter {
   public:
-    explicit SearchPanelPainter(const input::Prompts& prompts) noexcept
-        : prompts_{&prompts}, glyphs_{prompts} {
+    SearchPanelPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
+        : prompts_{&prompts}, typeface_{typeface}, glyphs_{prompts, typeface} {
     }
 
     /// Draws `panel` into a frame of `size` at `dp` pixels per dp, as faded and scaled by `look`;
@@ -22,6 +23,7 @@ class SearchPanelPainter {
 
   private:
     const input::Prompts* prompts_;
+    Typeface& typeface_;
     ButtonGlyphPainter glyphs_;
 };
 

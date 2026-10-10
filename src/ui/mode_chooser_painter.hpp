@@ -7,14 +7,21 @@
 
 #include "mode_chooser.hpp"
 #include "raylib.h"
+#include "typeface.hpp"
 
 namespace opensu::ui {
 
 class ModeChooserPainter {
   public:
+    explicit ModeChooserPainter(Typeface& typeface) noexcept : typeface_{typeface} {
+    }
+
     /// Draws `chooser` into a frame of `size` at `dp` pixels per dp; does nothing when it is
     /// closed. The focused card carries the outline: it is the mode A would choose.
     void paint(const ModeChooser& chooser, Vector2 size, float dp) const;
+
+  private:
+    Typeface& typeface_;
 };
 
 } // namespace opensu::ui

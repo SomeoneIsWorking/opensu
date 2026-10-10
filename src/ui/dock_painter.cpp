@@ -61,9 +61,9 @@ void DockPainter::paint(const DockLayout& layout, const DockMetrics& metrics,
             continue;
         }
         const TextStyle letter{box.height * 0.6f * icon.scale};
-        const float width = type().measure(icon.initial, letter);
-        type().drawCentred(icon.initial, box.centreX() - width * 0.5f, box.centreY(), letter,
-                           Fade(initialInk, alpha));
+        const float width = typeface_.measure(icon.initial, letter);
+        typeface_.drawCentred(icon.initial, box.centreX() - width * 0.5f, box.centreY(), letter,
+                              Fade(initialInk, alpha));
     }
 
     const Color ink = Fade(badgeInk, alpha);

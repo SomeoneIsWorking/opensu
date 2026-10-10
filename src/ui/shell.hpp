@@ -59,6 +59,8 @@
 #include "tile_artwork.hpp"
 #include "tile_motion.hpp"
 #include "tile_painter.hpp"
+#include "typeface.hpp"
+#include "vector_icon.hpp"
 #include "volume_osd.hpp"
 #include "volume_osd_painter.hpp"
 
@@ -69,7 +71,8 @@ class Shell {
   public:
     using Clock = std::chrono::steady_clock;
 
-    Shell(int width, int height, config::HomeMode mode);
+    /// `assetsDir` holds the typeface and the icons the shell draws.
+    Shell(int width, int height, config::HomeMode mode, const std::filesystem::path& assetsDir);
     ~Shell();
 
     Shell(const Shell&) = delete;
@@ -95,6 +98,11 @@ class Shell {
     /// Loads the artwork of the tiles near the canvas and waits until it is all in; for a still
     /// render.
     void loadArtworkNow();
+
+    /// Loads the typeface. Needs a GL context, so it runs once the window is up.
+    void loadFonts() {
+        typeface_.load();
+    }
 
     /// Textures uploaded per frame, so a screenful of new covers spreads over a few frames.
     static constexpr std::size_t uploadsPerFrame = 4;
@@ -252,8 +260,8 @@ class Shell {
     void settle();
 
     /// Draws one frame: the home screen, or while a game runs, only the Guide menus and the pages
-    /// they open over a transparent frame. With `target`, a render texture, the frame goes there instead of the
-    /// window (the window's buffers are still begun and ended, as a frame is).
+    /// they open over a transparent frame. With `target`, a render texture, the frame goes there
+    /// instead of the window (the window's buffers are still begun and ended, as a frame is).
     void draw(const RenderTexture2D* target = nullptr);
 
     /// Whether a game is running, which turns the home screen into the in-game overlay.
@@ -405,6 +413,9 @@ class Shell {
     /// What stands for the folder in the XMB's left column.
     std::optional<Tile> header_;
     Platforms platforms_;
+    /// Before the painters that draw with them.
+    Typeface typeface_;
+    IconAtlas icons_;
     /// Before the painters that read it.
     input::Prompts prompts_;
     int uiScale_{100};
@@ -422,13 +433,13 @@ class Shell {
     std::optional<library::Section> dockHover_;
     std::array<IconPop, library::allSections.size()> iconPops_{IconPop{true}, IconPop{false}};
     ModeChooser chooser_;
-    SettingsPanels settings_{prompts_};
+    SettingsPanels settings_{prompts_, typeface_};
     SearchPanel search_;
     PanelFade searchFade_{FadeSpec{120.0f, 120.0f, 0.96f, 140.0f, 1.0f}};
-    SearchPanelPainter searchPainter_{prompts_};
+    SearchPanelPainter searchPainter_{prompts_, typeface_};
     ContextMenu context_;
     PanelFade contextFade_{FadeSpec{110.0f, 95.0f, 0.96f, 110.0f, 0.985f}};
-    ContextMenuPainter contextPainter_{prompts_};
+    ContextMenuPainter contextPainter_{prompts_, typeface_};
 
     DetailsPage details_;
     PanelFade detailsFade_{FadeSpec{140.0f, 110.0f, 1.0f, 0.0f, 1.0f}};
@@ -440,21 +451,23 @@ class Shell {
     std::size_t pressIndex_{};
     std::optional<Clock::time_point> entranceAt_;
 
-    TilePainter tilePainter_;
-    DockPainter dockPainter_{prompts_};
-    RailPainter railPainter_;
+    TilePainter tilePainter_{icons_, typeface_};
+    DockPainter dockPainter_{prompts_, typeface_};
+    RailPainter railPainter_{typeface_};
+    DetailsPagePainter detailsPainter_{typeface_};
+    VolumeOsdPainter volumeOsdPainter_{typeface_};
     BackdropBlur blur_;
     /// The frame up to the dock, which the dock's glass blurs.
     RenderTexture2D scene_{};
-    ModeChooserPainter chooserPainter_;
+    ModeChooserPainter chooserPainter_{typeface_};
     PagePillPainter pillPainter_;
     PageArrowPainter arrowPainter_;
-    Hud hud_{prompts_};
-    GuidePanels guide_{prompts_};
-    SessionPanels session_{prompts_};
-    PagePanel devices_;
+    Hud hud_{prompts_, typeface_, icons_};
+    GuidePanels guide_{prompts_, typeface_};
+    SessionPanels session_{prompts_, typeface_};
+    PagePanel devices_{typeface_};
     LaunchPanel launchPanel_;
-    LaunchPanelPainter launchPanelPainter_{prompts_};
+    LaunchPanelPainter launchPanelPainter_{prompts_, typeface_};
 
     config::HomeMode mode_;
     library::Section section_{library::Section::Home};

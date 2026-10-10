@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include "config/config.hpp"
 #include "face_metrics.hpp"
 #include "lucent/log.h"
 
@@ -47,11 +46,14 @@ template <typename Visit> void forEachCodepoint(std::string_view text, Visit vis
 
 } // namespace
 
-Typeface::Typeface() : cache_{new Entry[static_cast<std::size_t>(entries_)]} {
+Typeface::Typeface(std::filesystem::path assetsDir)
+    : assetsDir_{std::move(assetsDir)}, cache_{new Entry[static_cast<std::size_t>(entries_)]} {
+}
+
+void Typeface::load() {
     for (const char* candidate : kFacePaths) {
-        const std::string path = candidate[0] == '/'
-                                     ? std::string{candidate}
-                                     : config::read().assetsDir.string() + "/" + candidate;
+        const std::string path =
+            candidate[0] == '/' ? std::string{candidate} : assetsDir_.string() + "/" + candidate;
         std::optional<FaceMetrics> metrics = readFaceFile(path);
         if (!metrics) {
             continue;
@@ -171,11 +173,6 @@ void Typeface::drawFromCapTop(std::string_view text, Vector2 origin, const TextS
     const float box = lineBox(style);
     const float baseline = origin.y + capHeightPerEm * style.size;
     drawCentred(text, origin.x, baseline - box * ascentShare_ + box * 0.5f, style, colour);
-}
-
-Typeface& type() {
-    static Typeface instance;
-    return instance;
 }
 
 } // namespace opensu::ui

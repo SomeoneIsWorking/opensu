@@ -40,15 +40,16 @@ std::vector<artwork::ApkAsset> iisuAssets() {
 
 } // namespace
 
-ShellApp::ShellApp(const Settings& settings)
-    : settings_{settings}, catalogLoader_{library::makeCatalog(resolved_)},
-      shell_{settings_.width, settings_.height, settings_.homeMode},
+ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
+    : environment_{environment}, settings_{settings},
+      catalogLoader_{library::makeCatalog(resolved_)},
+      shell_{settings_.width, settings_.height, settings_.homeMode, environment_.assetsDir},
       steam_{steam::Client::Options{resolved_.home, resolved_.executablePath, resolved_.session,
                                     resolved_.steamRoots}},
-      gameWindows_{config::read().insideGamescope ? std::make_unique<session::GamescopeWindows>()
-                                                  : nullptr},
-      handoff_{config::read().executablePath, config::read().session, steam_, gameWindows_.get()},
-      signIn_{StoreSignIn::Options{.dataDir = config::read().dataDir}} {
+      gameWindows_{environment_.insideGamescope ? std::make_unique<session::GamescopeWindows>()
+                                                : nullptr},
+      handoff_{environment_.executablePath, environment_.session, steam_, gameWindows_.get()},
+      signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
     refreshClock();
     applyLayout();
@@ -92,11 +93,11 @@ void ShellApp::openTile(std::size_t index) {
     actOn(gamepad::Button::A);
 }
 
-std::filesystem::path ShellApp::padsDirectory(bool hidden) {
+std::filesystem::path ShellApp::padsDirectory(const std::filesystem::path& dataDir, bool hidden) {
     if (!hidden) {
         return "/dev/input";
     }
-    const std::filesystem::path empty = config::read().dataDir / "hidden-pads";
+    const std::filesystem::path empty = dataDir / "hidden-pads";
     std::filesystem::create_directories(empty);
     return empty;
 }
@@ -858,7 +859,7 @@ void ShellApp::refreshClock() {
     const auto millisecond = static_cast<int>(
         std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() %
         1000);
-    shell_.setClock(ui::ClockText::format(parts.tm_hour, parts.tm_min, config::read().clock24Hour));
+    shell_.setClock(ui::ClockText::format(parts.tm_hour, parts.tm_min, environment_.clock24Hour));
     nextClockTick_ = std::chrono::steady_clock::now() +
                      ui::ClockText::untilNextMinute(parts.tm_sec, millisecond);
     // STOPGAP: the battery is re-read on the clock's minute tick because opensu has no
@@ -1055,7 +1056,8 @@ int ShellApp::run() {
                    (settings_.hidden ? FLAG_WINDOW_HIDDEN : 0u));
     InitWindow(settings_.width, settings_.height, "openSU");
     SetWindowMinSize(960, 600);
-    if (config::read().insideGamescope && !settings_.hidden) {
+    shell_.loadFonts();
+    if (environment_.insideGamescope && !settings_.hidden) {
         // Gamescope composites a window as the overlay only when it spans the whole screen,
         // which also draws the home screen at the output's own resolution.
         const int monitor = GetCurrentMonitor();
@@ -1142,6 +1144,7 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
     // still lands on no screen.
     SetConfigFlags(FLAG_WINDOW_HIDDEN);
     InitWindow(settings_.width, settings_.height, "opensu render");
+    shell_.loadFonts();
     shell_.loadArtworkNow();
     lucent::info("render", "loaded artwork for {} of {} tiles", shell_.loadedArtwork(),
                  shell_.tiles().size());

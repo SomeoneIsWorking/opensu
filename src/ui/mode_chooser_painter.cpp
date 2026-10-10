@@ -163,7 +163,7 @@ RowText textOf(ChooserRow row, const ChooserValues& values) {
 }
 
 /// One option row: a white bar with its label, its value or control, and the focus outline.
-void paintRow(const ChooserRowBox& box, const ModeChooser& chooser, float dp) {
+void paintRow(Typeface& typeface, const ChooserRowBox& box, const ModeChooser& chooser, float dp) {
     const RoundRect bar{box.rect, rowRadiusDp * dp};
     fillRoundRect(bar, [](Vector2, float) {
         return cardFill;
@@ -171,13 +171,13 @@ void paintRow(const ChooserRowBox& box, const ModeChooser& chooser, float dp) {
     const ChooserValues& values = chooser.values();
     const RowText text = textOf(box.row, values);
     const TextStyle label{rowLabelSp * dp};
-    type().drawCentred(text.label, box.rect.x + rowInsetDp * dp, box.rect.centreY(), label,
-                       palette::ink);
+    typeface.drawCentred(text.label, box.rect.x + rowInsetDp * dp, box.rect.centreY(), label,
+                         palette::ink);
     const TextStyle value{valueSp * dp};
     const float endX = box.rect.right() - rowInsetDp * dp;
     switch (box.row) {
     case ChooserRow::IconSize:
-        paintSlider(box.control, values.iconSize, minIconLevel, maxIconLevel, dp);
+        paintSlider(typeface, box.control, values.iconSize, minIconLevel, maxIconLevel, dp);
         break;
     case ChooserRow::Pin:
         paintSwitch(box.control, values.pinned, dp);
@@ -191,8 +191,8 @@ void paintRow(const ChooserRowBox& box, const ModeChooser& chooser, float dp) {
     case ChooserRow::Sort:
     case ChooserRow::Source: {
         const float arrowEdge = endX - chevronWidthDp * dp;
-        type().drawCentred(text.value, arrowEdge - type().measure(text.value, value),
-                           box.rect.centreY(), value, palette::inkSoft);
+        typeface.drawCentred(text.value, arrowEdge - typeface.measure(text.value, value),
+                             box.rect.centreY(), value, palette::inkSoft);
         paintChevron(endX, box.rect.centreY(), dp);
         break;
     }
@@ -211,8 +211,8 @@ void paintRow(const ChooserRowBox& box, const ModeChooser& chooser, float dp) {
 }
 
 /// The three layout cards, the focused one outlined with a radio dot.
-void paintCards(const ModeChooser& chooser, const ChooserLayout& layout, float dp,
-                ClipStack& clips) {
+void paintCards(Typeface& typeface, const ModeChooser& chooser, const ChooserLayout& layout,
+                float dp, ClipStack& clips) {
     const TextStyle label{labelSp * dp};
     for (std::size_t i = 0; i < layout.cards.size(); ++i) {
         const library::LibraryMode mode = library::allLibraryModes[i];
@@ -227,9 +227,9 @@ void paintCards(const ModeChooser& chooser, const ChooserLayout& layout, float d
         sketch(mode, card, dp, clips);
 
         const std::string_view name = library::label(mode);
-        const float width = type().measure(name, label);
-        type().drawCentred(name, card.centreX() - width * 0.5f,
-                           card.bottom() - labelAboveBottomDp * dp, label, palette::ink);
+        const float width = typeface.measure(name, label);
+        typeface.drawCentred(name, card.centreX() - width * 0.5f,
+                             card.bottom() - labelAboveBottomDp * dp, label, palette::ink);
 
         if (mode == chooser.focused()) {
             const float ring = outlineDp * dp;
@@ -258,9 +258,9 @@ void ModeChooserPainter::paint(const ModeChooser& chooser, Vector2 size, float d
     const ScopedClip content{clips, layout.content};
     for (const ChooserRowBox& box : layout.rows) {
         if (box.row == ChooserRow::Cards) {
-            paintCards(chooser, layout, dp, clips);
+            paintCards(typeface_, chooser, layout, dp, clips);
         } else {
-            paintRow(box, chooser, dp);
+            paintRow(typeface_, box, chooser, dp);
         }
     }
 }
