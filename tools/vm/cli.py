@@ -110,6 +110,8 @@ def _ui(args: argparse.Namespace) -> int:
             time.sleep(0.4)
     elif args.action == "key":
         control.key(guest, args.args[0])
+    elif args.action == "text":
+        control.text(guest, args.args[0])
     else:
         stamp = datetime.now().strftime("%H%M%S")
         print(control.frame(guest, cfg.shots / f"{args.args[0]}-{stamp}.png"))
@@ -167,8 +169,12 @@ def main(argv: list[str] | None = None) -> int:
     dep.add_argument(
         "--headless-gamescope", action="store_true", help="run the DRM backend headless"
     )
-    ui = add("ui", _ui, "openSU control channel: state | press BUTTON... | key CHORD | frame NAME")
-    ui.add_argument("action", choices=["state", "press", "key", "frame"])
+    ui = add(
+        "ui",
+        _ui,
+        "openSU control channel: state | press BUTTON... | key CHORD | text TEXT | frame NAME",
+    )
+    ui.add_argument("action", choices=["state", "press", "key", "text", "frame"])
     ui.add_argument("args", nargs="*")
     add("session-entry", _session_entry, "the README's sudo install of the session entry")
     auto = add("autologin", _autologin, "set SDDM autologin: off, default or a session name")

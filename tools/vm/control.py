@@ -27,3 +27,8 @@ def frame(guest: Guest, local: Path) -> Path:
     local.parent.mkdir(parents=True, exist_ok=True)
     guest.get("/tmp/opensu-frame.png", local)
     return local
+
+
+def text(guest: Guest, value: str) -> str:
+    """Type `value` as a physical keyboard would (a focused text or password field)."""
+    return guest.run(f"curl -sf --data-binary {shlex.quote(value)} {CONTROL_URL}/text").out

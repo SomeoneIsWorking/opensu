@@ -17,13 +17,25 @@ lint: `uv run --frozen ruff check tools`.
 | `session-entry` | The README's `sudo install` line, run as the test user |
 | `autologin off\|default\|SESSION` | Rewrites the autologin drop-in and reboots |
 | `shot NAME`, `key CHORD...`, `type TEXT`, `click X Y` | QMP screendump (VNC frame when the GPU is GL) and keyboard and tablet input |
-| `ui state\|press BUTTON...\|key CHORD\|frame NAME` | openSU's control channel (port 7311, also served under `--session`) from inside the guest; `frame` is the drawn shell, whatever the display shows |
+| `ui state\|press BUTTON...\|key CHORD\|text TEXT\|frame NAME` | openSU's control channel (port 7311, also served under `--session`) from inside the guest; `text` types into a focused field as a keyboard would (the install dialog's password); `frame` is the drawn shell, whatever the display shows |
 | `ssh [--sudo] CMD...` | A command in the guest |
 | `snapshot NAME` | Flattens the stopped VM's overlay into `snap-NAME.qcow2` |
 | `down`, `status` | ACPI power-off then quit then kill of the recorded PID |
 
 Every `up` starts from a clean overlay, so a test never inherits the last one's sessions. Restarting
 SDDM instead of rebooting leaves the old user manager and compositor behind and corrupts a run.
+
+## Failure runs
+
+The real DRM Gamescope fails in the guest, which tests an abnormal login-session end: `up --gpu
+virtio`, `deploy` (no shim), `ssh --sudo sh ~/.local/libexec/opensu/install-session.sh`, `ssh sudo
+-n /usr/local/libexec/opensu-session-select opensu`, reboot. Expect one openSU login, then
+`steamos-session-picker`, and `/etc/sddm.conf.d/zz-opensu-session.conf` gone.
+
+Nested Gamescope does not run on the guest's KWin, so for the in-Plasma dialogs run the shell
+itself from `ssh`: `OPENSU_SESSION=x WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XAUTHORITY=/run/user/1000/xauth_*
+XDG_RUNTIME_DIR=/run/user/1000 ~/.local/bin/opensu`, then `ui press guide down down down down down a`
+opens the power list.
 
 ## GPU
 

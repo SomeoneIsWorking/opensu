@@ -40,3 +40,10 @@ target_compile_definitions(session_scripts_test PRIVATE
     OPENSU_PACKAGING_DIR="${CMAKE_SOURCE_DIR}/packaging")
 add_test(NAME session_scripts COMMAND session_scripts_test)
 set_tests_properties(session_scripts PROPERTIES SKIP_RETURN_CODE 77)
+
+add_executable(login_session_end_test login_session_end_test.cpp)
+target_link_libraries(login_session_end_test PRIVATE opensu::host)
+target_include_directories(login_session_end_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(login_session_end_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(login_session_end_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME login_session_end COMMAND login_session_end_test)

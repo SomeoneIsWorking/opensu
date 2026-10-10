@@ -112,9 +112,10 @@ class SddmSessionMode final : public SessionMode {
             // No selector: the session starts the desktop itself once Gamescope has ended.
             lucent::info("session", "no {}; the session will start the desktop itself",
                          paths_.selector.string());
-            if (const std::string failure = paths_.request.write(); !failure.empty()) {
-                return failure;
-            }
+        }
+        // The note marks this end as deliberate, so the session neither restores nor starts again.
+        if (const std::string failure = paths_.request.write(); !failure.empty()) {
+            return failure;
         }
         lucent::info("session", "ending openSU's session by stopping {}", paths_.compositorScope);
         return refusalOf("systemctl", run_("systemctl", {"--user", "stop", paths_.compositorScope}),
@@ -122,11 +123,8 @@ class SddmSessionMode final : public SessionMode {
     }
 
   private:
-    /// Runs the selector with a fixed `argument` through `sudo -n`, which never asks for a
-    /// password.
     std::string select(const char* argument) {
-        return refusalOf("sudo", run_("sudo", {"-n", paths_.selector.string(), argument}),
-                         std::string{"select "} + argument);
+        return runSelector(run_, paths_.selector, argument);
     }
 
     static std::string lastLine(const std::string& output) {
@@ -172,6 +170,11 @@ class ReadOnlySessionMode final : public SessionMode {
 };
 
 } // namespace
+
+std::string runSelector(const Runner& run, const fs::path& selector, const char* argument) {
+    return refusalOf("sudo", run("sudo", {"-n", selector.string(), argument}),
+                     std::string{"select "} + argument);
+}
 
 SessionPaths SessionPaths::forExecutable(const fs::path& executable, DesktopRequest request,
                                          std::string compositorScope) {

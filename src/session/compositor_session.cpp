@@ -76,6 +76,7 @@ int CompositorSession::run(const Output& output, const std::vector<std::string>&
     while (compositor.running()) {
         if (sigtimedwait(&signals, nullptr, &poll) > 0) {
             lucent::info("session", "stopping {}", session_);
+            stopRequested_ = true;
             compositor.stop();
         }
     }

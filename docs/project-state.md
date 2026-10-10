@@ -640,18 +640,46 @@ Gamescope scope does the same without a SteamOS script). Kept: `host::DesktopReq
 `startplasma-wayland` hand-over, as the fallback when the selector is not installed (a login
 session entered through an entry installed by hand, no root helper): it works without root and
 needs nothing from SDDM.
-Loops: with the drop-in in place a crash of openSU relogins into openSU (what `Relogin` means)
-until Switch to desktop; `loginctl terminate-session` is deliberately not used.
+Abnormal end (`host::LoginSessionEnd`, run by `session::LoginSession` after the top-level
+Gamescope ends): SDDM with `Relogin=true` and autologin on openSU logs in again at every end, so a
+failing Gamescope (lavapipe: `Failed to initialize Vulkan`; Venus: abort) was a relogin loop of
+about one login per second, and "Switch to session mode" would have trapped a user in it. The end
+is abnormal when Gamescope exits non-zero or by a signal, or exits at all within 30 s of the start
+(`quickEndWindow`; the inner openSU dying at once is also such an end), and nobody asked for it.
+Not abnormal: SIGINT/SIGTERM taken by `CompositorSession` (logout, shutdown; `stopRequested()`),
+and a Switch to desktop, which leaves the `DesktopRequest` note after the selector's `restore`
+(now with the selector installed as well, not only for the fallback). An abnormal end with the
+selector installed runs `sudo -n <selector> restore` (the one `host::runSelector`, shared with
+`SessionMode`), so the next login is the previous session and nothing is tried again; a restore
+that fails is logged as an error and the exit status stays non-zero. Without the selector openSU
+changed no autologin, so it logs that and does nothing. This lives in the login-session path of
+`main`, not in the session entry's `Exec`: a wrapper script would be a second implementation of
+the same decision, would need the exit status and the stop request that only the process has, and
+the entry would stop being `opensu --session`, which `SessionMode::installed()` matches. Residual:
+a failure before `main` runs (a missing shared library, the loader) or openSU's own process being
+killed by a signal cannot restore anything; the next login is openSU again until Switch to desktop
+or a TTY.
 
-Unverified: a real login, the DRM start of the fork on this seat, libseat under SDDM, Steam in
-the top-level session, Plasma from the restored session, SDDM re-reading the drop-in at relogin
-(SteamOS's `zz-steamos-autologin.conf` relies on it), `[Last] Session=` form and effect without
-autologin, `sudo -S` with a real wrong password on this machine, `visudo` and SELinux contexts
-under the real `/etc`, the logout call on a real session (the VM harness in `tools/vm/` is to do
-these), and the install dialog under a real Gamescope.
+Unverified: a real login on hardware, the DRM start of the fork on a real seat, libseat under
+SDDM, Steam in the top-level session, `[Last] Session=` form and effect without autologin, `sudo
+-S` with a real wrong password on a real machine, `visudo` and SELinux contexts on the user's
+machine. Verified in the VM (`docs/vm-harness.md`): the install dialog with a wrong then the right
+password, Switch to session mode from Plasma, Switch to desktop, SDDM re-reading the drop-in at
+relogin, and the abnormal-end restore against the failing DRM Gamescope (at most one failed openSU
+login, then the previous session stays up).
 Evidence: unit tests `session_mode`, `session_scripts` (the real scripts against a temp root, the
-real `visudo`), `session_install_controller`, `session_dialog`, `guide_menu*`, `host_services`;
-hidden-run captures under `scratch/session-install/`.
+real `visudo`), `login_session_end` and `login_session` (fake sudo, selector and gamescope),
+`session_install_controller`, `session_dialog`, `guide_menu*`, `host_services`; hidden-run
+captures under `scratch/session-install/`; VM shots and journals under `scratch/vm/`.
+Open VM finding: Plasma ending 10 to 30 s after the `startplasma-wayland` hand-over (selector not
+installed) was seen in 2 of 3 early greeter runs and not reproduced since: 3 autologin and 4
+greeter hand-overs stayed up for 140 s, as did 3 plain greeter Plasma logins
+(`scratch/vm/fallback-*`, `greeter-*`). The hand-over environment is the plain one except the
+entry's identity (`DESKTOP_SESSION=opensu`, `XDG_CURRENT_DESKTOP`/`XDG_SESSION_DESKTOP=gamescope`
+from `DesktopNames=gamescope`); no `WAYLAND_DISPLAY`, `OPENSU_*` or Gamescope variable, same
+session scope and fds (`scratch/vm/env-*.txt`). The early runs overlapped with host load and, in a
+later batch, with a second harness loop, so they are not evidence. Whether the fallback stays is
+undecided.
 
 Picker integration is not done (it would edit `/usr/bin/steamos-session-picker`, which is the
 player's own).

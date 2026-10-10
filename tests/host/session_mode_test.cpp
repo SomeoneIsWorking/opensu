@@ -218,7 +218,8 @@ void switchingToTheDesktopRestoresThenEndsOpenSu() {
                std::vector<std::string>{"sudo -n " + bench.paths().selector.string() + " restore",
                                         "systemctl --user stop s-compositor.scope"},
            "it restores through sudo -n, then stops openSU's Gamescope");
-    expect(!fs::exists(bench.root / "run" / "desktop"), "the selector path leaves no note");
+    expect(fs::exists(bench.root / "run" / "desktop"),
+           "the selector path leaves the note that marks the end as deliberate");
 
     bench.forgetCalls();
     bench.flag("select-fails");

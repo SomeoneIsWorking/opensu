@@ -83,6 +83,11 @@ class SessionMode {
     virtual std::string switchToDesktop() = 0;
 };
 
+/// Runs `selector` with `argument` (`opensu` or `restore`) through `sudo -n`, which never asks for
+/// a password. Empty when it did, else why not.
+[[nodiscard]] std::string runSelector(const Runner& run, const std::filesystem::path& selector,
+                                      const char* argument);
+
 /// SDDM and sudo over `run` and `runLine`.
 [[nodiscard]] std::unique_ptr<SessionMode> makeSddmSessionMode(Runner run, LineRunner runLine,
                                                                SessionPaths paths);

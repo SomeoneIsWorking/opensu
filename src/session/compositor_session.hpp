@@ -31,12 +31,19 @@ class CompositorSession {
     /// killing this process.
     int run(const Output& output, const std::vector<std::string>& args);
 
+    /// Whether the last `run` ended because SIGINT or SIGTERM stopped it (a logout or shutdown),
+    /// rather than Gamescope ending by itself.
+    [[nodiscard]] bool stopRequested() const noexcept {
+        return stopRequested_;
+    }
+
   private:
     /// Stops the scopes of the session that are still up.
     void stopLeftovers() const;
 
     std::string session_;
     std::filesystem::path gamescope_;
+    bool stopRequested_{false};
 };
 
 } // namespace opensu::session
