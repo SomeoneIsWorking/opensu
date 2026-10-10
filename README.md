@@ -86,23 +86,38 @@ Gamescope.
 
 `--session` makes openSU the login session: from a display manager it starts the pinned Gamescope
 top level on the seat (`--backend drm`, the monitor's own mode) with openSU in it, and there is no
-desktop underneath. Closing openSU ends the session. The Guide menu's power list ends with Switch
-to desktop instead of Quit to desktop: it leaves a note, ends Gamescope (with
-`steamos-session-select plasma` when that is on `PATH`, else by stopping its scope) and starts
-`startplasma-wayland` in the session's place, so an autologin into openSU does not loop.
+desktop underneath. Closing openSU ends the session.
 
-`cmake --install` writes `<prefix>/share/wayland-sessions/opensu.desktop` and prints one step that
-needs root, because SDDM reads only `/usr/share/wayland-sessions` and
-`/usr/local/share/wayland-sessions`, never your home:
+From the desktop, open the Guide menu, then Power. **Install session mode** explains what it is and
+what it installs, and on Accept asks for your administrator password inside openSU (a masked field,
+the on-screen keyboard or your keyboard; it goes to `sudo` on stdin and is never stored or logged).
+It runs one `sudo` step that puts three things in place:
+
+| File | Why |
+| --- | --- |
+| `/usr/local/share/wayland-sessions/opensu.desktop` | the session entry SDDM lists |
+| `/usr/local/libexec/opensu-session-select` | a small root-owned script that sets which session the next login uses (`opensu` or `restore`) |
+| `/etc/sudoers.d/zz-opensu-session-select` | lets your user run exactly that script with exactly those two arguments, without a password |
+
+Afterwards Power shows **Switch to session mode** (press A twice): it selects openSU for the next
+login and logs the Plasma session out, and SDDM logs in to openSU. In the session, Power then
+**Switch to desktop** selects the previous session again and ends openSU. With SDDM autologin the
+selector writes `/etc/sddm.conf.d/zz-opensu-session.conf` (`[Autologin] Session=`, which wins over
+`kde_settings.conf`) and removes it on restore; without autologin it sets SDDM's last session in
+`/var/lib/sddm/state.conf`. What was there before is kept in `/var/lib/opensu/previous-session`.
+Switching to session mode ends the session with KDE's `org.kde.Shutdown.logout`, so it needs
+Plasma; on another desktop the selection is undone and the refusal shown.
+
+`cmake --install` also puts `install-session.sh` and `opensu-session-select` in
+`<prefix>/libexec/opensu/`, and prints the same step for a terminal:
 
 ```sh
-sudo install -Dm644 ~/.local/share/wayland-sessions/opensu.desktop /usr/local/share/wayland-sessions/opensu.desktop
+sudo sh ~/.local/libexec/opensu/install-session.sh
 ```
 
-(for the `~/.local` prefix; repeat it after changing the prefix). openSU then appears in the login
-screen's session list. To boot straight into it, set `Session=opensu` under `[Autologin]` in
-`/etc/sddm.conf`. With the SteamOS-style `steam-picker` autologin left as it is, a login session
-that ends relogins into the picker, which starts Plasma.
+(for the `~/.local` prefix). Without the selector, Switch to desktop in a session entered through an
+entry installed by hand still works: openSU leaves a note, ends its Gamescope and starts
+`startplasma-wayland` in the session's place.
 
 `--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `volumePercent`, `volumeMuted`, `uiScale`). A hidden run only reads the system volume and never starts the Steam client (Steam shows as stopped); it also never sleeps, restarts, shuts down, scans, pairs, connects or forgets Bluetooth devices, and never writes the brightness.
 

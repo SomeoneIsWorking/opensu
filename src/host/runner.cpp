@@ -1,5 +1,7 @@
 #include "runner.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <string_view>
 #include <thread>
 
@@ -35,11 +37,44 @@ class StreamingHolder final : public Holder {
     std::jthread thread_;
 };
 
+/// The first line of `output`, trimmed.
+std::string firstLine(const std::string& output) {
+    const auto isSpace = [](unsigned char c) {
+        return std::isspace(c) != 0;
+    };
+    const auto begin = std::find_if_not(output.begin(), output.end(), isSpace);
+    const auto end = std::find(begin, output.end(), '\n');
+    std::string line{begin, end};
+    while (!line.empty() && isSpace(static_cast<unsigned char>(line.back()))) {
+        line.pop_back();
+    }
+    return line;
+}
+
 } // namespace
+
+std::string refusalOf(const std::string& program, const std::optional<launch::Captured>& out,
+                      const std::string& what) {
+    if (!out) {
+        return program + " could not be run";
+    }
+    if (out->status == 0) {
+        return {};
+    }
+    const std::string reason = firstLine(out->output);
+    return reason.empty() ? program + " refused to " + what : reason;
+}
 
 Runner systemRunner() {
     return [](const std::string& program, const std::vector<std::string>& args) {
         return launch::runCaptured(program, args, launch::CaptureErrors::Merged);
+    };
+}
+
+LineRunner systemLineRunner() {
+    return [](const std::string& program, const std::vector<std::string>& args,
+              std::string_view line) {
+        return launch::runCapturedWithLine(program, args, line);
     };
 }
 

@@ -77,11 +77,13 @@ void powerHasItsOwnList() {
     menu.showPower();
     expect(menu.inPower() && menu.title() == "Power" && std::string{menu.backLabel()} == "Back",
            "the power list is headed Power and B goes back");
-    expect(menu.entries().size() == 4 && menu.entries()[0].action == GuideAction::Sleep &&
+    expect(menu.entries().size() == 5 && menu.entries()[0].action == GuideAction::Sleep &&
                menu.entries()[1].action == GuideAction::Restart &&
                menu.entries()[2].action == GuideAction::ShutDown &&
-               menu.entries()[3].action == GuideAction::QuitToDesktop,
-           "sleep, restart, shut down, quit to desktop");
+               menu.entries()[3].action == GuideAction::InstallSession &&
+               menu.entries()[3].label == "Install session mode" &&
+               menu.entries()[4].action == GuideAction::QuitToDesktop,
+           "sleep, restart, shut down, install session mode, quit to desktop");
     menu.showMain();
     expect(!menu.inPower() && menu.powerFocused(), "going back lands on the power button");
     expect(!menu.focusPower() && menu.focusEntry(1) && !menu.powerFocused() && menu.focus() == 1,
@@ -100,6 +102,23 @@ void sessionModeSwitchesInsteadOfQuitting() {
            "as the login session the list ends with Switch to desktop");
     for (const auto& entry : menu.entries()) {
         expect(entry.action != GuideAction::QuitToDesktop, "and has no Quit to desktop");
+    }
+}
+
+void sessionModeIsOfferedOutsideItAsInstallOrSwitch() {
+    GuideMenu menu;
+    menu.open(GuideContext{false, {}, false, true});
+    menu.showPower();
+    expect(menu.entries().size() == 5 && menu.entries()[3].action == GuideAction::SwitchToSession &&
+               menu.entries()[3].label == "Switch to session mode" &&
+               menu.entries()[4].action == GuideAction::QuitToDesktop,
+           "once installed the list offers Switch to session mode");
+    menu.open(GuideContext{false, {}, true, true});
+    menu.showPower();
+    for (const auto& entry : menu.entries()) {
+        expect(entry.action != GuideAction::SwitchToSession &&
+                   entry.action != GuideAction::InstallSession,
+               "inside session mode there is no way into it");
     }
 }
 
@@ -166,6 +185,7 @@ int main() {
     movesAndStops();
     powerHasItsOwnList();
     sessionModeSwitchesInsteadOfQuitting();
+    sessionModeIsOfferedOutsideItAsInstallOrSwitch();
     armingAsksForASecondPress();
     reopenStartsOver();
     rowsUnderThePointer();

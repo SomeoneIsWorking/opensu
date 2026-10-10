@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "launch/command.hpp"
@@ -20,6 +21,20 @@ using Runner = std::function<std::optional<launch::Captured>(const std::string& 
 
 /// The runner that starts real programs.
 [[nodiscard]] Runner systemRunner();
+
+/// Runs a program with one line on its stdin, such as a password for `sudo -S`; output merged as
+/// for `Runner`. The line is never logged. Nothing when the program could not be run.
+using LineRunner = std::function<std::optional<launch::Captured>(
+    const std::string& program, const std::vector<std::string>& args, std::string_view line)>;
+
+/// The line runner that starts real programs.
+[[nodiscard]] LineRunner systemLineRunner();
+
+/// Why `out`, the result of running `program`, is not a success: empty when it exited 0, else its
+/// first output line, else "<program> refused to <what>", or "<program> could not be run".
+[[nodiscard]] std::string refusalOf(const std::string& program,
+                                    const std::optional<launch::Captured>& out,
+                                    const std::string& what);
 
 /// A program kept running for as long as its holder lives; destroying the holder ends it.
 class Holder {

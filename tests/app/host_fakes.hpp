@@ -10,6 +10,7 @@
 #include "host/backlight.hpp"
 #include "host/bluetooth.hpp"
 #include "host/power.hpp"
+#include "host/session_mode.hpp"
 
 namespace opensu::test {
 
@@ -22,6 +23,41 @@ class FakePower final : public host::Power {
 
     std::vector<host::PowerAction> performed;
     std::string refusal;
+};
+
+class FakeSessionMode final : public host::SessionMode {
+  public:
+    bool installed() const override {
+        return isInstalled;
+    }
+    std::string installBlocker() const override {
+        return blocker;
+    }
+    host::InstallResult install(std::string_view password) override {
+        passwords.emplace_back(password);
+        if (results.empty()) {
+            return {};
+        }
+        const host::InstallResult next = results.front();
+        results.erase(results.begin());
+        return next;
+    }
+    std::string switchToSession() override {
+        calls.emplace_back("session");
+        return refusal;
+    }
+    std::string switchToDesktop() override {
+        calls.emplace_back("desktop");
+        return refusal;
+    }
+
+    bool isInstalled{false};
+    std::string blocker;
+    std::string refusal;
+    /// The results the installs give, in order; a missing one is a success.
+    std::vector<host::InstallResult> results;
+    std::vector<std::string> passwords;
+    std::vector<std::string> calls;
 };
 
 class FakeBluetooth final : public host::Bluetooth {

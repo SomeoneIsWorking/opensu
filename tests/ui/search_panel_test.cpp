@@ -133,6 +133,38 @@ void layoutHitTests() {
     expect(narrow.panel.width <= 400.0f, "the panel never exceeds a narrow frame");
 }
 
+void aSecretEntryWipesAndCapitalises() {
+    SearchPanel panel;
+    panel.configure("Administrator password", false, true);
+    expect(panel.secret() && !panel.shifted(), "a secret entry starts without capitals");
+    panel.open({});
+    pressKey(panel, KeyKind::Character, 'a');
+    panel.toggleShift();
+    pressKey(panel, KeyKind::Character, 'b');
+    pressKey(panel, KeyKind::Character, '1');
+    expect(panel.text() == "aB1", "capitals apply to letters only");
+    expect(panel.type("x") && panel.text() == "aB1x", "a physical keyboard types too");
+    panel.backspace();
+    panel.close();
+    expect(panel.text().empty() && !panel.isOpen(), "closing empties the field");
+    const char* buffer = panel.text().data();
+    expect(buffer[0] == '\0' && buffer[1] == '\0' && buffer[2] == '\0' && buffer[3] == '\0',
+           "and overwrites everything typed, a deleted character included");
+    panel.configure("Administrator password", false, true);
+    panel.open({});
+    expect(!panel.shifted(), "configuring starts without capitals again");
+    pressKey(panel, KeyKind::Character, 'q');
+    const std::string taken = panel.takeText();
+    expect(taken == "q" && panel.text().empty(), "the text can be taken out");
+    SearchPanel plain;
+    plain.configure("Type a folder path", false);
+    plain.toggleShift();
+    plain.open({});
+    pressKey(plain, KeyKind::Character, 'a');
+    plain.close();
+    expect(!plain.secret(), "an ordinary entry is not secret");
+}
+
 } // namespace
 
 int main() {
@@ -141,6 +173,7 @@ int main() {
     dpadWalksTheKeys();
     resultsZone();
     layoutHitTests();
+    aSecretEntryWipesAndCapitalises();
     std::printf("search_panel: all checks passed\n");
     return 0;
 }

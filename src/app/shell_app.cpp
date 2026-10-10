@@ -251,13 +251,18 @@ void ShellApp::handleKeyboard() {
     // Typed characters are read first: the key that opens the search must not also type itself.
     const bool searching = shell_.searchPanel().isOpen();
     const bool typingPath = paths_.typing();
+    const bool typingPassword = sessionInstall_.typing();
     const input::TextInput typed = input::readTextInput();
     if (searching) {
         handleSearchText(typed);
         return;
     }
     if (typingPath) {
-        handlePathText(typed);
+        typeInto(paths_, typed);
+        return;
+    }
+    if (typingPassword) {
+        typeInto(sessionInstall_, typed);
         return;
     }
     if (shortcutEditor_.capturing()) {
@@ -299,19 +304,19 @@ void ShellApp::handleSearchText(const input::TextInput& typed) {
     }
 }
 
-void ShellApp::handlePathText(const input::TextInput& typed) {
+template <class Entry> void ShellApp::typeInto(Entry& entry, const input::TextInput& typed) {
     if (!typed.any()) {
         return;
     }
     shell_.inputDevice().noteKey();
-    paths_.typeText(typed.text);
+    entry.typeText(typed.text);
     if (typed.backspace) {
-        paths_.backspace();
+        entry.backspace();
     }
     if (typed.enter) {
-        paths_.confirm();
+        entry.confirm();
     } else if (typed.escape) {
-        paths_.dismiss();
+        entry.dismiss();
     }
 }
 
@@ -419,6 +424,10 @@ void ShellApp::actOn(gamepad::Button button) {
     }
     if (shell_.guidePanels().quick().isOpen()) {
         quickMenu_.act(button);
+        return;
+    }
+    if (sessionInstall_.active()) {
+        sessionInstall_.act(button);
         return;
     }
     // Over a running game only the pages the Guide menu opened take buttons.
@@ -630,9 +639,9 @@ void ShellApp::chooseLevel(int level) {
 }
 
 bool ShellApp::menusBlocked() {
-    return panels_.active() || paths_.active() || shortcutEditor_.capturing() ||
-           shell_.searchPanel().isOpen() || shell_.modeChooser().isOpen() ||
-           shell_.contextMenu().isOpen();
+    return panels_.active() || paths_.active() || sessionInstall_.active() ||
+           shortcutEditor_.capturing() || shell_.searchPanel().isOpen() ||
+           shell_.modeChooser().isOpen() || shell_.contextMenu().isOpen();
 }
 
 void ShellApp::closeRunningGame() {
@@ -693,7 +702,8 @@ void ShellApp::serviceDevices(std::chrono::steady_clock::time_point now) {
 }
 
 void ShellApp::contextMenu(const ui::PointerTarget& target) {
-    if (shell_.inGame() || panels_.active() || shell_.guidePanels().anyOpen()) {
+    if (shell_.inGame() || panels_.active() || shell_.guidePanels().anyOpen() ||
+        sessionInstall_.active()) {
         return;
     }
     if (shell_.devicesPanel().isOpen()) {
@@ -803,7 +813,7 @@ void ShellApp::activateCrumb(std::size_t index) {
 
 ui::HintContext ShellApp::hints() const {
     // The menus draw their own prompts.
-    if (paths_.active() || shell_.guidePanels().anyOpen()) {
+    if (paths_.active() || sessionInstall_.active() || shell_.guidePanels().anyOpen()) {
         return ui::HintContext{};
     }
     if (shortcutEditor_.capturing()) {
@@ -951,6 +961,8 @@ void ShellApp::serviceControlRequests() {
         } else if (paths_.typing()) {
             shell_.inputDevice().noteKey();
             paths_.typeText(text);
+        } else if (sessionInstall_.typing()) {
+            sessionInstall_.typeText(text);
         }
     }
     // An injected button is a tap: without its release a direction would repeat forever.
@@ -1093,6 +1105,7 @@ int ShellApp::run() {
         serviceCatalog();
         delivery_.service();
         serviceDevices(std::chrono::steady_clock::now());
+        sessionInstall_.service();
         syncOverlay();
         syncChrome();
         shell_.tick(std::chrono::steady_clock::now());

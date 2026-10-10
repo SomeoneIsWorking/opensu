@@ -4,12 +4,14 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <string_view>
 #include <thread>
 
 #include <array>
 
 #include <fcntl.h>
 #include <poll.h>
+#include <pthread.h>
 #include <signal.h>
 #include <spawn.h>
 #include <sys/wait.h>
@@ -135,9 +137,38 @@ std::optional<int> runCommand(const std::string& program, const std::vector<std:
 
 namespace {
 
+/// Writes all of `data` to `fd`; false when the reader is gone or the write failed. A closed
+/// reader raises SIGPIPE, which is held back for the write and taken so it never reaches the
+/// process.
+bool writeAll(int fd, std::string_view data) {
+    sigset_t pipeSignal;
+    sigemptyset(&pipeSignal);
+    sigaddset(&pipeSignal, SIGPIPE);
+    sigset_t previous;
+    pthread_sigmask(SIG_BLOCK, &pipeSignal, &previous);
+    bool ok = true;
+    while (ok && !data.empty()) {
+        const ssize_t put = write(fd, data.data(), data.size());
+        if (put < 0 && errno == EINTR) {
+            continue;
+        }
+        ok = put > 0;
+        if (ok) {
+            data.remove_prefix(static_cast<std::size_t>(put));
+        }
+    }
+    if (!ok) {
+        const timespec none{0, 0};
+        sigtimedwait(&pipeSignal, nullptr, &none);
+    }
+    pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+    return ok;
+}
+
 std::optional<int> stream(const std::string& program, const std::vector<std::string>& args,
                           const std::function<void(std::string_view)>& onLine,
-                          const std::stop_token& stop, CaptureErrors errors) {
+                          const std::stop_token& stop, CaptureErrors errors,
+                          const std::optional<std::string_view>& stdinLine = std::nullopt) {
     std::array<int, 2> ends{};
     if (pipe2(ends.data(), O_CLOEXEC) != 0) {
         lucent::warn("launch", "cannot make a pipe for {}: {}", program, std::strerror(errno));
@@ -145,11 +176,22 @@ std::optional<int> stream(const std::string& program, const std::vector<std::str
     }
     Descriptor reader{ends[0]};
     Descriptor writer{ends[1]};
+    std::array<int, 2> inEnds{-1, -1};
+    if (stdinLine && pipe2(inEnds.data(), O_CLOEXEC) != 0) {
+        lucent::warn("launch", "cannot make a pipe for {}: {}", program, std::strerror(errno));
+        return std::nullopt;
+    }
+    Descriptor stdinReader{inEnds[0]};
+    Descriptor stdinWriter{inEnds[1]};
 
     Argv argv{program, args};
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
-    posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+    if (stdinLine) {
+        posix_spawn_file_actions_adddup2(&actions, stdinReader.get(), STDIN_FILENO);
+    } else {
+        posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
+    }
     posix_spawn_file_actions_adddup2(&actions, writer.get(), STDOUT_FILENO);
     if (errors == CaptureErrors::Merged) {
         posix_spawn_file_actions_adddup2(&actions, writer.get(), STDERR_FILENO);
@@ -171,6 +213,13 @@ std::optional<int> stream(const std::string& program, const std::vector<std::str
         return std::nullopt;
     }
     writer.close();
+    stdinReader.close();
+    if (stdinLine) {
+        // A child that has already gone is found out by its status below.
+        static_cast<void>(writeAll(stdinWriter.get(), *stdinLine) &&
+                          writeAll(stdinWriter.get(), "\n"));
+        stdinWriter.close();
+    }
 
     std::string pending;
     std::array<char, 4096> chunk{};
@@ -230,6 +279,24 @@ std::optional<Captured> runCaptured(const std::string& program,
             captured.output.push_back('\n');
         },
         std::stop_token{}, errors);
+    if (!status) {
+        return std::nullopt;
+    }
+    captured.status = *status;
+    return captured;
+}
+
+std::optional<Captured> runCapturedWithLine(const std::string& program,
+                                            const std::vector<std::string>& args,
+                                            std::string_view line) {
+    Captured captured;
+    const std::optional<int> status = stream(
+        program, args,
+        [&captured](std::string_view out) {
+            captured.output.append(out);
+            captured.output.push_back('\n');
+        },
+        std::stop_token{}, CaptureErrors::Merged, line);
     if (!status) {
         return std::nullopt;
     }

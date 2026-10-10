@@ -50,16 +50,21 @@ configure_file("${CMAKE_SOURCE_DIR}/packaging/opensu.desktop.in"
 install(FILES "${CMAKE_BINARY_DIR}/opensu.desktop"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
 
-# The login session entry. SDDM reads only /usr/share and /usr/local/share wayland-sessions, so the
-# one root step is printed after the install.
+# The login session entry and the root step that makes it usable. SDDM reads only /usr/share and
+# /usr/local/share wayland-sessions, so install-session.sh (one sudo) copies the entry there, installs
+# the root-owned session selector and its sudoers rule. openSU runs it from Power > Install session mode.
 configure_file("${CMAKE_SOURCE_DIR}/packaging/opensu-session.desktop.in"
                "${CMAKE_BINARY_DIR}/opensu-session.desktop" @ONLY)
 install(FILES "${CMAKE_BINARY_DIR}/opensu-session.desktop"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/wayland-sessions" RENAME opensu.desktop)
-install(CODE "set(OPENSU_SESSION_ENTRY \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/wayland-sessions/opensu.desktop\")")
+install(PROGRAMS "${CMAKE_SOURCE_DIR}/packaging/install-session.sh"
+        DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/opensu")
+install(PROGRAMS "${CMAKE_SOURCE_DIR}/packaging/opensu-session-select.sh"
+        DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/opensu" RENAME opensu-session-select)
+install(CODE "set(OPENSU_SESSION_INSTALLER \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBEXECDIR}/opensu/install-session.sh\")")
 install(CODE [[
-message(STATUS "To pick openSU at the login screen, run once (and after a changed prefix):")
-message(STATUS "  sudo install -Dm644 ${OPENSU_SESSION_ENTRY} /usr/local/share/wayland-sessions/opensu.desktop")
+message(STATUS "To make openSU a login session, use Power > Install session mode in openSU, or run once:")
+message(STATUS "  sudo sh ${OPENSU_SESSION_INSTALLER}")
 ]])
 
 # Subsystem headers are included as "library/game.hpp" and "vdf/node.hpp", so

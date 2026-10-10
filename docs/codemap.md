@@ -14,15 +14,17 @@ gitignored `docs/reference/`).
 | `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop; plays the UI sounds at the input events that iiSU plays them at |
 | `src/app/control_bridge.*` | The hand-over between the control channel's threads and the loop: queued input, reload and close requests, the published `ShellSnapshot`, the frame handshake |
 | `src/app/game_screen.*` | The window's relation to a running game: the Gamescope overlay and game-time key watcher, or the hidden window flag; shows the window only while a menu or page is up |
-| `src/app/guide_menu_controller.*` | The Guide menu's buttons and what each entry does (sections, Devices, Settings, close game, quit, the power button and list through `host::Power` with a second press for restart and shut down, Switch to desktop in a login session) |
+| `src/app/guide_menu_controller.*` | The Guide menu's buttons and what each entry does (sections, Devices, Settings, close game, quit, the power button and list: `host::Power` with a second press for restart and shut down, `host::SessionMode` for Switch to session mode (second press), Install session mode (opens the dialog) and, in a login session, Switch to desktop) |
+| `src/app/session_install_controller.*` | The Install session mode flow: the dialog, then the password on the on-screen or physical keyboard, the root step on a worker, a wrong password asking again, the password wiped once sudo has had it |
+| `src/app/keyboard_walk.*` | A pad button on the on-screen keyboard for the entries that type a line (folder path, password): the one implementation `path_editor` and the session install share |
 | `src/app/quick_menu_controller.*` | The quick menu's rows and buttons: volume, mute, output, brightness, Bluetooth, controller batteries, Devices, Close game |
 | `src/app/devices_controller.*` | The Devices page: Bluetooth, Controllers, Audio output and Display tabs and what their rows do |
-| `src/app/host_services.*` | Power, Bluetooth and backlight backends for this machine; the one place a hidden run is made read-only |
+| `src/app/host_services.*` | Power, session mode, Bluetooth and backlight backends for this machine; the one place a hidden run is made read-only |
 | `src/app/bluetooth_session.*` | BlueZ reads off the loop and one change at a time, with notices; pairing is pair, trust, connect |
 | `src/app/controller_roster.*` | The pads connected now in player order, with battery and held buttons (the live button test) |
 | `src/app/audio_outputs.*` | The sound outputs and the default one, through `SystemVolume` |
 | `src/app/brightness_control.*` | Display brightness through the backlight, absent without one |
-| `src/host/` | System services over `busctl`, `systemctl` and `bluetoothctl` behind fakeable seams: `runner` (run or hold a program), `bluetooth` (BlueZ), `power` (logind; in a login session Switch to desktop leaves a `desktop_request` note, then `steamos-session-select` or stops the Gamescope scope), `backlight` (sysfs read, logind write) |
+| `src/host/` | System services over `busctl`, `systemctl` and `bluetoothctl` behind fakeable seams: `runner` (run or hold a program), `bluetooth` (BlueZ), `power` (logind: sleep, restart, shut down), `session_mode` (install session mode, switch to it and back through the selector, `sudo` and the logout call; see Session and processes), `backlight` (sysfs read, logind write), `secret.hpp` (wiping a password buffer) |
 | `src/app/layout_picker.*` | START: the options panel's buttons (layout cards, icon size, pin, sort, source, installed, hidden, search row) and saving what is chosen |
 | `src/app/preferences.*` | The loaded `settings::Settings` and saving them, with a toast when the file cannot be written |
 | `src/app/search_controller.*` | The search panel's pad buttons and keyboard text; the typed text is the view's search |
@@ -56,9 +58,11 @@ gitignored `docs/reference/`).
 | Path | Owns |
 | --- | --- |
 | `src/session/compositor_session.*` | Re-running openSU inside its own Gamescope when not already in one: nested at the monitor's size on a desktop, top level on DRM at the native mode for `--session` |
-| `src/host/desktop_request.*` | The note Switch to desktop leaves in the runtime dir, and `startplasma-wayland` run in the login session's place once Gamescope has ended |
+| `src/host/session_mode.*` | Session mode, the one owner of switching sessions: `installed()` (an entry for this openSU in a directory SDDM reads, and the selector), the root step (`sudo -S -k` with the password on stdin, one `install-session.sh`), Switch to session mode (selector `opensu`, then KDE's `org.kde.Shutdown.logout`) and Switch to desktop (selector `restore`, then stopping the Gamescope scope); read-only wrapper for hidden runs |
+| `src/host/desktop_request.*` | The fallback of Switch to desktop when the selector is not installed: the note left in the runtime dir, and `startplasma-wayland` run in the login session's place once Gamescope has ended |
+| `packaging/install-session.sh`, `packaging/opensu-session-select.sh` | The two root-run POSIX sh scripts, installed to `<prefix>/libexec/opensu/`: the one-sudo installer (session entry, `/usr/local/libexec/opensu-session-select`, `/etc/sudoers.d/zz-opensu-session-select`) and the selector (`opensu` or `restore`: SDDM drop-in `zz-opensu-session.conf` or the last session in `state.conf`) |
 | `src/session/gamescope.*` | The Gamescope command line, nested (`--close-focused-window` included) or top level (`--backend drm`) from `Output::native()` |
-| `packaging/opensu-session.desktop.in` | The Wayland session entry, installed to `<prefix>/share/wayland-sessions/opensu.desktop` (one `sudo install` copies it where SDDM reads) |
+| `packaging/opensu-session.desktop.in` | The Wayland session entry, installed to `<prefix>/share/wayland-sessions/opensu.desktop` (`install-session.sh` copies it where SDDM reads) |
 | `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman (commit, container steps, staging and install path); `OPENSU_BUILD_GAMESCOPE`. `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
 | `packaging/gamescope-build/Containerfile` | The Gamescope build image: host's Fedora release plus Gamescope's build dependencies |
 | `src/session/monitor.*` | The output's size and refresh |
@@ -68,7 +72,7 @@ gitignored `docs/reference/`).
 | `src/launch/instance.*` | One transient systemd user scope per launch; stopping it ends the whole tree |
 | `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends |
 | `src/launch/process_tree.*` | Finding processes by command line, ending trees |
-| `src/launch/command.*`, `argv.hpp` | Short-lived children, a child streamed line by line or its stdout captured (own `opensu_command` target, so `library` can run `legendary`), executable lookup, exec argv |
+| `src/launch/command.*`, `argv.hpp` | Short-lived children, a child streamed line by line, its stdout captured or fed one line on stdin (`runCapturedWithLine`, the sudo password) (own `opensu_command` target, so `library` can run `legendary`), executable lookup, exec argv |
 | `src/launch/steam_gate.hpp` | What a Steam launch waits for from the owned Steam client |
 | `src/launch/launch_progress.*` | A launch's stage before its window (waiting for Steam, updating, starting, loading) and its line of text |
 | `src/launch/game_windows.hpp` | What the handoff asks the display: does the game show a window yet |
@@ -160,13 +164,14 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/top_bar_layout.*` | The status pill and the launcher badge cells in it, in pixels; the launcher under a point. The Hud paints and hit-tests from it |
 | `src/ui/corner_hints.*` | Which prompts the bottom corners name, from what each button does now (`HintContext`) |
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
-| `src/ui/guide_menu.*` | The Guide menu's entries per context (home or running game), the power button below the rows, the power list, the armed entry, focus; its panel, row and power button rectangles |
+| `src/ui/guide_menu.*` | The Guide menu's entries per context (home or running game), the power button below the rows, the power list (Switch to session mode or Install session mode outside the login session, Switch to desktop inside it), the armed entry, focus; its panel, row and power button rectangles |
+| `src/ui/session_dialog.*` | The consent dialog model: title, paragraphs, Accept and Cancel focus, the progress line while a change runs; its layout and hit-test |
 | `src/ui/quick_menu.*` | The quick menu's rows (the Settings rows), focus, panel layout and hit-tests |
 | `src/ui/panel_frame.hpp` | The frame and chrome heights the side menus are laid out in |
 | `src/ui/page_panel.*` | A settings-style page with its fade, as the Settings screen and Devices page use it |
 | `src/ui/tile.hpp`, `tile_artwork.*` | The tile; the artwork decode, tickets and resident textures of the shelf |
 | `src/ui/launch_panel.*` | The launch/install card's state; its card and hint rectangles from measured widths, and the hint under a point |
-| `src/ui/pointer_target.hpp` | What a pointer can be on (breadcrumb level, details button, dock item, tile, page control, layout card, options row, icon size slider, search key or result, context item or backdrop, Guide entry, Guide power button, quick row or slider, page row or slider, panel button, launcher badge) |
+| `src/ui/pointer_target.hpp` | What a pointer can be on (session dialog button, breadcrumb level, details button, dock item, tile, page control, layout card, options row, icon size slider, search key or result, context item or backdrop, Guide entry, Guide power button, quick row or slider, page row or slider, panel button, launcher badge) |
 
 Painters and composition (`opensu_ui`):
 
@@ -189,6 +194,7 @@ Painters and composition (`opensu_ui`):
 | `src/ui/search_panel_painter.*`, `context_menu_painter.*` | The search panel with its keyboard and the tile context menu |
 | `src/ui/guide_menu_painter.*`, `quick_menu_painter.*` | The Guide menu on the left and the quick menu on the right, over the home screen or a running game |
 | `src/ui/guide_panels.*` | The Guide and quick menus with their painters and the one hit test |
+| `src/ui/session_dialog_painter.*`, `session_panels.*` | The dialog's painter (wrapped paragraphs, pill buttons with pad glyphs); the dialog and the password keyboard (a secret `SearchPanel`: dots, Caps, wiped on close) with their fades and one hit test |
 | `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art (a spinner while it is on its way), platform frame, store icons; the name cards of a console, a launcher and All games |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |

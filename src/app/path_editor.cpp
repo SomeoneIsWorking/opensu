@@ -1,22 +1,8 @@
 #include "path_editor.hpp"
 
+#include "keyboard_walk.hpp"
+
 namespace opensu::app {
-namespace {
-
-ui::Direction directionOf(gamepad::Button button) noexcept {
-    switch (button) {
-    case gamepad::Button::Up:
-        return ui::Direction::Up;
-    case gamepad::Button::Down:
-        return ui::Direction::Down;
-    case gamepad::Button::Left:
-        return ui::Direction::Left;
-    default:
-        return ui::Direction::Right;
-    }
-}
-
-} // namespace
 
 void PathEditor::begin(Request request) {
     request_ = std::move(request);
@@ -99,41 +85,14 @@ void PathEditor::actInChooser(gamepad::Button button) {
 }
 
 void PathEditor::actOnKeys(gamepad::Button button) {
-    switch (button) {
-    case gamepad::Button::Up:
-    case gamepad::Button::Down:
-    case gamepad::Button::Left:
-    case gamepad::Button::Right:
-        // input-sound.md 3.4 Navigation: a focus move in a list.
-        if (entry_.move(directionOf(button))) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::A: {
-        const ui::SearchPress press = entry_.press();
-        if (press.close) {
-            confirm();
-        }
-        break;
-    }
-    case gamepad::Button::B:
-        // A character at a time; with none left B leaves the keyboard.
-        if (entry_.text().empty()) {
-            closeEntry();
-        } else {
-            entry_.backspace();
-        }
-        break;
-    case gamepad::Button::Y:
-        static_cast<void>(entry_.type(" "));
-        break;
-    case gamepad::Button::Select:
-        static_cast<void>(entry_.clear());
-        break;
-    case gamepad::Button::Start:
+    switch (walkKeyboard(entry_, button, sounds_)) {
+    case KeyboardOutcome::Confirm:
         confirm();
         break;
-    default:
+    case KeyboardOutcome::Leave:
+        closeEntry();
+        break;
+    case KeyboardOutcome::Handled:
         break;
     }
 }

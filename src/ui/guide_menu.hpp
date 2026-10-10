@@ -1,8 +1,9 @@
 // guide_menu — the menu Guide opens: a panel down the left edge, after Steam's main menu, with
 // openSU's own entries. Outside a game it goes to Home, Library, Devices and Settings; over a
 // running game it resumes or closes the game first. A power button in the bottom-left corner,
-// reached by moving down past the last row, opens a second list of its own. Pure state, so it is
-// tested without a window.
+// reached by moving down past the last row, opens a second list of its own: Sleep, Restart, Shut
+// down, then the way to openSU's session mode (or back to the desktop from it). Pure state, so it
+// is tested without a window.
 #pragma once
 
 #include <cstdint>
@@ -28,6 +29,8 @@ enum class GuideAction : std::uint8_t {
     ShutDown,
     QuitToDesktop,
     SwitchToDesktop,
+    SwitchToSession,
+    InstallSession,
 };
 
 struct GuideEntry {
@@ -42,6 +45,9 @@ struct GuideContext {
     std::string title;
     /// openSU is the login session: the power list ends with Switch to desktop, not Quit.
     bool loginSession{false};
+    /// Session mode is installed: the power list offers Switch to session mode, else Install
+    /// session mode. Outside the login session only.
+    bool sessionInstalled{false};
 };
 
 /// The panel down the left edge and its entry rows, in pixels.

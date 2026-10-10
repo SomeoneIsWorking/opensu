@@ -1,6 +1,7 @@
 #include "search_panel.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 
 namespace opensu::ui {
@@ -141,6 +142,10 @@ std::optional<std::size_t> SearchLayout::resultAt(float x, float y) const noexce
 
 void SearchPanel::open(std::string text) {
     text_ = std::move(text);
+    if (secret_) {
+        // No growth while it is typed, so no stale copy is left behind.
+        text_.reserve(mostLength_ + 1);
+    }
     zone_ = SearchZone::Keys;
     key_ = 0;
     anchor_ = centreOf(searchKeys()[0]);
@@ -163,7 +168,11 @@ bool SearchPanel::backspace() {
 
 bool SearchPanel::clear() {
     const bool held = !text_.empty();
-    text_.clear();
+    if (secret_) {
+        host::wipe(text_);
+    } else {
+        text_.clear();
+    }
     return held;
 }
 
@@ -253,8 +262,12 @@ SearchPress SearchPanel::press() {
     }
     const SearchKey& key = searchKeys()[key_];
     switch (key.kind) {
-    case KeyKind::Character:
-        return edited(type(std::string_view{&key.character, 1}));
+    case KeyKind::Character: {
+        const bool capital = shifted_ && std::isalpha(static_cast<unsigned char>(key.character));
+        const char typedCharacter =
+            capital ? static_cast<char>(std::toupper(key.character)) : key.character;
+        return edited(type(std::string_view{&typedCharacter, 1}));
+    }
     case KeyKind::Space:
         return edited(!text_.empty() && text_.back() != ' ' && type(" "));
     case KeyKind::Backspace:

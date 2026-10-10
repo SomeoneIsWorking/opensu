@@ -13,11 +13,11 @@ using gamepad::Button;
 using test::expect;
 
 struct Rig {
-    explicit Rig(bool inGame = false, bool session = false)
-        : controller{menu, power, sounds,
+    explicit Rig(bool inGame = false, bool session = false, bool installed = false)
+        : controller{menu, power, sessionMode, sounds,
                      app::GuideMenuController::Hooks{
-                         [inGame, session] {
-                             return ui::GuideContext{inGame, "Roboquest", session};
+                         [inGame, session, installed] {
+                             return ui::GuideContext{inGame, "Roboquest", session, installed};
                          },
                          [this](library::Section section) {
                              calls.push_back(section == library::Section::Home ? "home"
@@ -34,6 +34,9 @@ struct Rig {
                          },
                          [this] {
                              calls.emplace_back("quit");
+                         },
+                         [this] {
+                             calls.emplace_back("install");
                          },
                          [this](const std::string& text, bool error) {
                              said.push_back((error ? "error: " : "") + text);
@@ -64,6 +67,7 @@ struct Rig {
 
     ui::GuideMenu menu;
     test::FakePower power;
+    test::FakeSessionMode sessionMode;
     audio::SoundPlayer sounds;
     std::vector<std::string> calls;
     std::vector<std::string> said;
@@ -138,16 +142,15 @@ void sleepAndQuitActAtOnceAndRefusalsAreSaid() {
     expect(rig.calls == std::vector<std::string>{"quit"}, "quit reaches its hook");
 }
 
-void switchToDesktopIsPowerNotAHook() {
+void switchToDesktopGoesToSessionMode() {
     Rig rig{false, true};
     rig.controller.open();
     rig.openPower();
     rig.choose("Switch to desktop");
-    expect(rig.power.performed ==
-                   std::vector<host::PowerAction>{host::PowerAction::SwitchToDesktop} &&
-               rig.calls.empty() && !rig.menu.isOpen(),
-           "Switch to desktop goes to power at once");
-    rig.power.refusal = "changes are off in a hidden run";
+    expect(rig.sessionMode.calls == std::vector<std::string>{"desktop"} &&
+               rig.power.performed.empty() && rig.calls.empty() && !rig.menu.isOpen(),
+           "Switch to desktop goes to session mode at once");
+    rig.sessionMode.refusal = "changes are off in a hidden run";
     rig.controller.open();
     rig.openPower();
     rig.choose("Switch to desktop");
@@ -155,6 +158,39 @@ void switchToDesktopIsPowerNotAHook() {
         rig.said ==
             std::vector<std::string>{"error: Switch to desktop: changes are off in a hidden run"},
         "a refusal is said");
+}
+
+void switchToSessionModeNeedsTwoPresses() {
+    Rig rig{false, false, true};
+    rig.controller.open();
+    rig.openPower();
+    rig.choose("Switch to session mode");
+    expect(rig.sessionMode.calls.empty() && rig.menu.armed() && rig.menu.isOpen(),
+           "the first press only arms");
+    expect(rig.menu.shown(rig.menu.focus()) == "Switch to session mode? Press A again",
+           "and asks for the second");
+    rig.controller.act(Button::A);
+    expect(rig.sessionMode.calls == std::vector<std::string>{"session"} && !rig.menu.isOpen(),
+           "the second press switches");
+    rig.sessionMode.refusal = "sudo: a password is required";
+    rig.controller.open();
+    rig.openPower();
+    rig.choose("Switch to session mode");
+    rig.controller.act(Button::A);
+    expect(
+        rig.said ==
+            std::vector<std::string>{"error: Switch to session mode: sudo: a password is required"},
+        "a refusal is said");
+}
+
+void installSessionModeOpensItsDialogAtOnce() {
+    Rig rig;
+    rig.controller.open();
+    rig.openPower();
+    rig.choose("Install session mode");
+    expect(rig.calls == std::vector<std::string>{"install"} && !rig.menu.isOpen() &&
+               rig.sessionMode.calls.empty(),
+           "Install session mode reaches its hook without a second press");
 }
 
 void backLeavesThePowerListBeforeTheMenu() {
@@ -184,7 +220,9 @@ int main() {
     entriesReachTheirHooks();
     powerNeedsTwoPressesForRestartAndShutDown();
     sleepAndQuitActAtOnceAndRefusalsAreSaid();
-    switchToDesktopIsPowerNotAHook();
+    switchToDesktopGoesToSessionMode();
+    switchToSessionModeNeedsTwoPresses();
+    installSessionModeOpensItsDialogAtOnce();
     backLeavesThePowerListBeforeTheMenu();
     closeGameAndResume();
     std::printf("guide_menu_controller: all checks passed\n");

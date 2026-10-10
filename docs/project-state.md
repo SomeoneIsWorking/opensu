@@ -583,30 +583,78 @@ Partial: everything is built and unit-tested; no real login has been run.
 own mode; no `-W/-H/-w/-h/-f`, which are nested-only, and no `-e`: Steam is started
 by openSU as in the nested session). `cmake --install` puts
 `<prefix>/share/wayland-sessions/opensu.desktop` (`Exec=<prefix>/bin/opensu
---session`, `DesktopNames=gamescope`, from `packaging/opensu-session.desktop.in`)
-and prints the one root step. SDDM here (0.21+) reads `/usr/local/share/wayland-sessions`
-and `/usr/share/wayland-sessions` (`sddm --example-config`; `/etc/sddm.conf` sets no
-`SessionDir`), never `~/.local/share`, so the step is
-`sudo install -Dm644 <prefix>/share/wayland-sessions/opensu.desktop /usr/local/share/wayland-sessions/opensu.desktop`.
+--session`, `DesktopNames=gamescope`, from `packaging/opensu-session.desktop.in`) and the two
+root-run scripts in `<prefix>/libexec/opensu/` (`install-session.sh`, `opensu-session-select`).
+SDDM here (0.21+) reads `/usr/local/share/wayland-sessions` and `/usr/share/wayland-sessions`
+(`sddm --example-config`; `/etc/sddm.conf` sets no `SessionDir`), never `~/.local/share`.
 
-Switch to desktop in this session: `host::Power` writes `host::DesktopRequest`
-(`$XDG_RUNTIME_DIR/opensu/desktop`), then runs `steamos-session-select plasma` when it
-is on PATH (it kills `steam` and `gamescope`) or stops `<session>-compositor.scope`.
-When Gamescope ends, `main` consumes the note and `exec`s `startplasma-wayland`, as
-`steamos-session-picker` does. Without the note the session simply ends and SDDM decides.
-Loops: this machine's autologin is `Relogin=true`, `Session=steam-picker`, so a login
-session that ends (crash, power-off menu aside) relogins into the picker, which starts
-Plasma unless `~/.gamemode-session-flag` exists: no loop. If autologin is changed to
-`Session=opensu`, a crash restarts openSU (what Relogin means), while Switch to
-desktop does not loop because the desktop replaces the session process itself;
-`loginctl terminate-session` is deliberately not used, as it would relogin into openSU.
-Unverified: the DRM start of the fork on this seat, libseat under SDDM, Steam inside
-the top-level session, Plasma started from the openSU session, the picker integration
-(below).
+Install session mode (Power list outside the login session, `host::SessionMode`): "Install
+session mode" shows while no entry for this openSU is in a directory SDDM reads or the selector is
+missing; "Switch to session mode" once both are there. Install opens a dialog (what it is, that
+openSU becomes its own login session on Gamescope with no desktop, that Power then Switch to
+desktop comes back, what is installed where, that an administrator password is needed; Accept and
+Cancel by pad, keyboard or mouse; a right click is never Back). Accept opens a masked password
+field with the on-screen keyboard (Caps on X; letters, digits and `- . & ' /` only, the physical
+keyboard types anything) or the physical keyboard. The password goes to `sudo -S -k -p ''
+/bin/sh <prefix>/libexec/opensu/install-session.sh` on stdin only (never argv, log, settings or
+control channel), from a worker; the buffer is wiped as soon as sudo has had it. A wrong password
+shows sudo's line and asks again; the installer's first output line (`opensu-install: start`) is
+how a sudo refusal is told from an installer failure. Cancel, or B on an empty field, aborts.
+The prompt is in openSU because a desktop polkit dialog is invisible inside nested Gamescope.
 
-Picker integration is not done, as it means editing `/usr/bin/steamos-session-picker`.
-Without that, openSU is reached from the login screen entry, or by setting
-`Session=opensu` under `[Autologin]` in `/etc/sddm.conf`.
+The one root step installs, as root: `/usr/local/share/wayland-sessions/opensu.desktop`;
+`/usr/local/libexec/opensu-session-select` (0755); and `/etc/sudoers.d/zz-opensu-session-select`
+(0440, checked with `visudo -cf` before it is moved in, last, so a failure never leaves a rule
+without its selector): `<user> ALL=(root) NOPASSWD: /usr/local/libexec/opensu-session-select
+opensu, /usr/local/libexec/opensu-session-select restore`. Scope: one user (`SUDO_USER`, validated
+`[A-Za-z_][A-Za-z0-9_.-]*`, not root), one root-owned program in a root-owned directory, and only
+its two fixed arguments (sudoers matches the argument list exactly); it cannot run anything else.
+`sudo -n` can use it without a password the way SteamOS's session switch does.
+
+The selector is POSIX sh, not Python: it runs as root on a machine openSU does not control, needs
+no interpreter, module path or environment (`PATH` and `LC_ALL` are set in it, sudo resets the
+rest), and is about 150 lines to audit; the project's Python rule is for project tooling, not for a
+shipped system helper. It takes exactly `opensu` or `restore`, anything else (none, two, other
+words, empty, injection) exits 1 before touching a file, and `SUDO_USER` is only compared, never
+written. `opensu`: with SDDM autologin configured for this user, writes
+`/etc/sddm.conf.d/zz-opensu-session.conf` (`[Autologin] Session=opensu`; it sorts after
+`kde_settings.conf`, so it wins); without autologin, sets SDDM's last session
+(`/var/lib/sddm/state.conf`, `[Last] Session=`, the full path of the entry; SDDM's `StateDir`
+default) so the login screen preselects openSU. It remembers the previous autologin and last
+session once, in `/var/lib/opensu/previous-session`. `restore` removes the drop-in (what is left
+is the player's own autologin session again) and puts the remembered last session back only if
+state.conf still names openSU's entry. It refuses autologin for another user and a `Session=` in
+`/etc/sddm.conf`, which SDDM reads after the drop-ins. `OPENSU_SELECT_ROOT` prefixes every path,
+honoured only for a non-root caller (tests); under sudo the variable is dropped.
+
+Switch to session mode: second press, then `sudo -n <selector> opensu`, then
+`busctl --user call org.kde.Shutdown /Shutdown org.kde.Shutdown logout` (Plasma 6; the method and
+its sibling `org.kde.LogoutPrompt.promptLogout` exist on this machine, read with `busctl --user
+introspect`; `logout` skips KDE's own confirmation, which the second press replaces). SDDM then
+logs in again to openSU. If the logout call fails the selection is undone with `restore`.
+Switch to desktop in the session: `sudo -n <selector> restore`, then stop
+`<session>-compositor.scope`; SDDM logs in again to the previous session (here `steam-picker`,
+which starts Plasma while `~/.gamemode-session-flag` is absent). Superseded and deleted: the
+`steamos-session-select` branch and `PowerAction::SwitchToDesktop` in `host::Power` (stopping the
+Gamescope scope does the same without a SteamOS script). Kept: `host::DesktopRequest` and `main`'s
+`startplasma-wayland` hand-over, as the fallback when the selector is not installed (a login
+session entered through an entry installed by hand, no root helper): it works without root and
+needs nothing from SDDM.
+Loops: with the drop-in in place a crash of openSU relogins into openSU (what `Relogin` means)
+until Switch to desktop; `loginctl terminate-session` is deliberately not used.
+
+Unverified: a real login, the DRM start of the fork on this seat, libseat under SDDM, Steam in
+the top-level session, Plasma from the restored session, SDDM re-reading the drop-in at relogin
+(SteamOS's `zz-steamos-autologin.conf` relies on it), `[Last] Session=` form and effect without
+autologin, `sudo -S` with a real wrong password on this machine, `visudo` and SELinux contexts
+under the real `/etc`, the logout call on a real session (the VM harness in `tools/vm/` is to do
+these), and the install dialog under a real Gamescope.
+Evidence: unit tests `session_mode`, `session_scripts` (the real scripts against a temp root, the
+real `visudo`), `session_install_controller`, `session_dialog`, `guide_menu*`, `host_services`;
+hidden-run captures under `scratch/session-install/`.
+
+Picker integration is not done (it would edit `/usr/bin/steamos-session-picker`, which is the
+player's own).
 
 ### S013 — Nested Gamescope session
 
@@ -682,11 +730,12 @@ left edge: Home, Library, Devices and Settings outside a game; Resume, Close gam
 Settings over one. The stores are in Library, not here. Power is a power icon at the left end
 of the bottom row, with the A and B hints stacked at its right end: Down past the last row focuses
 it, Up returns, a click or A opens the power list
-(Sleep, Restart, Shut down, Quit to desktop). It is `systemctl suspend|reboot|poweroff` through
-`host::Power`; Restart and Shut down need a second A. With `--session` (openSU is the login
-session) the list ends with Switch to desktop instead of Quit to desktop, since quitting the login
-session only makes the display manager start it again: `steamos-session-select plasma` when that is
-on PATH, else `loginctl terminate-session` on `XDG_SESSION_ID` (logged); untested against the real
+(Sleep, Restart, Shut down, Install session mode or Switch to session mode, Quit to desktop).
+Sleep, Restart and Shut down are `systemctl suspend|reboot|poweroff` through `host::Power`;
+Restart, Shut down and Switch to session mode need a second A; the session entries are S010. With
+`--session` (openSU is the login session) the list ends with Switch to desktop instead of Quit to
+desktop, since quitting the login session only makes the display manager start it again; untested
+against the real
 session, only against fakes. Over a game it draws through the Gamescope overlay (`GameScreen`); the Devices,
 Settings and quick pages do too.
 

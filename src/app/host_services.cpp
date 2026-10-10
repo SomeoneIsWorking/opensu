@@ -8,19 +8,23 @@ constexpr const char* hiddenReason = "changes are off in a hidden run";
 } // namespace
 
 HostServices HostServices::detect(const config::Config& config, bool hidden) {
-    return over(host::systemRunner(), host::systemSpawner(config.executablePath),
-                "/sys/class/backlight", hidden,
-                host::SessionExit{config.executablePath,
-                                  host::DesktopRequest{config.desktopRequest},
-                                  config.session + "-compositor.scope"});
+    return over(host::systemRunner(), host::systemLineRunner(),
+                host::systemSpawner(config.executablePath), "/sys/class/backlight", hidden,
+                host::SessionPaths::forExecutable(config.executable,
+                                                  host::DesktopRequest{config.desktopRequest},
+                                                  config.session + "-compositor.scope"));
 }
 
-HostServices HostServices::over(const host::Runner& run, const host::Spawner& spawn,
+HostServices HostServices::over(const host::Runner& run, const host::LineRunner& runLine,
+                                const host::Spawner& spawn,
                                 const std::filesystem::path& backlightRoot, bool hidden,
-                                const host::SessionExit& exit) {
+                                host::SessionPaths paths) {
     HostServices services;
-    services.power =
-        hidden ? host::makeRefusingPower(hiddenReason) : host::makeLogindPower(run, exit);
+    services.power = hidden ? host::makeRefusingPower(hiddenReason) : host::makeLogindPower(run);
+    services.session = host::makeSddmSessionMode(run, runLine, std::move(paths));
+    if (hidden) {
+        services.session = host::makeReadOnlySessionMode(std::move(services.session), hiddenReason);
+    }
     services.bluetooth = host::makeBluez(run, spawn);
     services.backlight = host::makeLogindBacklight(run, backlightRoot);
     if (hidden) {

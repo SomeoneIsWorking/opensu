@@ -52,6 +52,7 @@
 #include "preferences.hpp"
 #include "quick_menu_controller.hpp"
 #include "search_controller.hpp"
+#include "session_install_controller.hpp"
 #include "settings_controller.hpp"
 #include "shortcut_editor.hpp"
 #include "shortcut_router.hpp"
@@ -177,8 +178,9 @@ class ShellApp final : private PointerHost {
     void recordLaunch(const library::Game& game);
     /// The folders of the Steam libraries the installation holds now.
     [[nodiscard]] std::vector<std::filesystem::path> steamLibraries() const;
-    /// Reads a physical keyboard as text while a path is being typed.
-    void handlePathText(const input::TextInput& typed);
+    /// Feeds a physical keyboard's text into a line entry (`PathEditor`,
+    /// `SessionInstallController`), which takes typed text, Backspace, Enter and Escape.
+    template <class Entry> void typeInto(Entry& entry, const input::TextInput& typed);
     /// Reads the keyboard as text while the search panel is open. `typed` was read before the
     /// frame's key bindings ran.
     void handleSearchText(const input::TextInput& typed);
@@ -406,12 +408,19 @@ class ShellApp final : private PointerHost {
                                  [] {
                                      return outputLine();
                                  }}};
+    /// Installing session mode: its dialog, the password keyboard and the root step.
+    SessionInstallController sessionInstall_{
+        shell_.sessionPanels().dialog(), shell_.sessionPanels().password(), *host_.session, sounds_,
+        [this](const std::string& text, bool isError) {
+            shell_.setToast(text, isError);
+        }};
     /// The menu Guide opens.
     GuideMenuController guideMenu_{
-        shell_.guidePanels().guide(), *host_.power, sounds_,
+        shell_.guidePanels().guide(), *host_.power, *host_.session, sounds_,
         GuideMenuController::Hooks{[this] {
-                                       return ui::GuideContext{shell_.inGame(), runningTitle_,
-                                                               settings_.loginSession};
+                                       return ui::GuideContext{
+                                           shell_.inGame(), runningTitle_, settings_.loginSession,
+                                           !settings_.loginSession && host_.session->installed()};
                                    },
                                    [this](library::Section section) {
                                        closePages();
@@ -430,6 +439,9 @@ class ShellApp final : private PointerHost {
                                    },
                                    [this] {
                                        bridge_.requestClose();
+                                   },
+                                   [this] {
+                                       sessionInstall_.begin();
                                    },
                                    [this](const std::string& text, bool isError) {
                                        shell_.setToast(text, isError);

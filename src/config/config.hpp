@@ -50,6 +50,9 @@ struct Config {
     /// executable's directory, as installed and as staged in the build tree.
     std::filesystem::path assetsDir;
 
+    /// This executable, resolved from /proc/self/exe; empty when it cannot be read.
+    std::filesystem::path executable;
+
     /// The Gamescope fork the nested session runs, next to this executable's prefix; see
     /// `gamescopeBeside`. May not exist when opensu was built without the fork.
     std::filesystem::path gamescope;

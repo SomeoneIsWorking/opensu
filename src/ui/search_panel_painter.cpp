@@ -49,6 +49,17 @@ void drawFitted(std::string text, float x, float centreY, float room, const Text
     type().drawCentred(text, x, centreY, style, colour);
 }
 
+/// One dot for each character of a password.
+std::string dotsFor(const std::string& secret) {
+    std::string dots;
+    for (const char byte : secret) {
+        if ((static_cast<unsigned char>(byte) & 0xC0U) != 0x80U) {
+            dots += "\u2022";
+        }
+    }
+    return dots;
+}
+
 /// A white rounded bar; outlined when `focused`.
 void paintBar(const Rect& rect, bool focused, float dp, float alpha) {
     const RoundRect bar{rect, cornerDp * dp};
@@ -89,22 +100,25 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
     // The field: the glass, then the text (or what to type) and the caret.
     paintBar(layout.field, false, dp, alpha);
     const float inset = insetDp * dp;
-    paintGlass(Vector2{layout.field.x + inset + iconDp * dp * 0.5f, layout.field.centreY()}, dp,
-               withAlpha(palette::inkSoft, alpha));
+    if (!panel.secret()) {
+        paintGlass(Vector2{layout.field.x + inset + iconDp * dp * 0.5f, layout.field.centreY()}, dp,
+                   withAlpha(palette::inkSoft, alpha));
+    }
     const TextStyle field{fieldSp * dp};
-    const float textX = layout.field.x + inset * 2.0f + iconDp * dp;
+    const float textX = layout.field.x + inset * (panel.secret() ? 1.0f : 2.0f) +
+                        (panel.secret() ? 0.0f : iconDp * dp);
     const float room = layout.field.right() - inset - textX;
-    if (panel.text().empty()) {
+    const std::string shown = panel.secret() ? dotsFor(panel.text()) : panel.text();
+    if (shown.empty()) {
         drawFitted(panel.prompt(), textX, layout.field.centreY(), room, field,
                    withAlpha(palette::inkSoft, alpha));
     } else {
-        drawFitted(panel.text(), textX, layout.field.centreY(), room, field,
+        drawFitted(shown, textX, layout.field.centreY(), room, field,
                    withAlpha(palette::ink, alpha));
     }
     if (std::fmod(seconds, caretPeriod) < caretPeriod * 0.5) {
         const float caretX =
-            textX +
-            (panel.text().empty() ? 0.0f : std::min(type().measure(panel.text(), field), room));
+            textX + (shown.empty() ? 0.0f : std::min(type().measure(shown, field), room));
         const float caretHeight = type().lineBox(field) * 0.8f;
         DrawRectangleRec(Rectangle{caretX + dp, layout.field.centreY() - caretHeight * 0.5f,
                                    1.6f * dp, caretHeight},
@@ -170,6 +184,8 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
         hints = {{"A", inResults ? "Open" : "Type"}, {"B", "Delete"}};
         if (panel.lists()) {
             hints.emplace_back("X", inResults ? "Keys" : "Results");
+        } else if (panel.secret()) {
+            hints.emplace_back("X", panel.shifted() ? "Caps on" : "Caps");
         }
         hints.insert(hints.end(), {{"Y", "Space"}, {"-", "Clear"}, {"+", "Done"}});
     }

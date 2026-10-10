@@ -80,6 +80,14 @@ int main() {
     expect(merged && merged->status == 2 && merged->output == "out\nerr\n",
            "merged capture keeps stderr in the output");
     expect(!runCaptured("/no/such/program", {}).has_value(), "a captured missing program fails");
+    const auto fed = opensu::launch::runCapturedWithLine(
+        "/bin/sh", {"-c", "read x; read y; echo got:$x:${y:-eof} $#", "zero", "one"}, "hunter2");
+    expect(fed && fed->status == 0 && fed->output == "got:hunter2:eof 1\n",
+           "a line is fed to stdin, then end of input, and is not an argument");
+    const auto gone = opensu::launch::runCapturedWithLine("/bin/sh", {"-c", "exit 5"}, "ignored");
+    expect(gone && gone->status == 5, "a child that never reads is still reaped");
+    expect(!opensu::launch::runCapturedWithLine("/no/such/program", {}, "x").has_value(),
+           "a missing program fails");
     lines.clear();
     expect(runStreaming("/bin/sh", {"-c", "read x; echo got:$x"}, collect, never) == 0 &&
                lines == std::vector<std::string>({"got:"}),

@@ -143,12 +143,18 @@ struct OnFolderEntry {
     bool operator==(const OnFolderEntry&) const = default;
 };
 
+/// Accept or Cancel on the session dialog, by its place.
+struct OnDialogButton {
+    std::size_t index;
+    bool operator==(const OnDialogButton&) const = default;
+};
+
 /// Nothing, or the element the pointer is on.
 using PointerTarget =
     std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnGuideEntry, OnGuidePower,
                  OnPanelButton, OnChooserRow, OnIconSize, OnSearchKey, OnSearchResult,
                  OnContextItem, OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton,
                  OnSettingsCategory, OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow,
-                 OnQuickSlider>;
+                 OnQuickSlider, OnDialogButton>;
 
 } // namespace opensu::ui

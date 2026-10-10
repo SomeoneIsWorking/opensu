@@ -12,10 +12,12 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "grid_focus.hpp"
 #include "home_layout.hpp"
+#include "host/secret.hpp"
 
 namespace opensu::ui {
 
@@ -41,6 +43,8 @@ inline constexpr std::size_t searchResultRows = 3;
 inline constexpr std::size_t searchMostLength = 64;
 /// The most bytes a typed path holds, a Linux PATH_MAX.
 inline constexpr std::size_t pathMostLength = 4096;
+/// The most bytes a typed password holds.
+inline constexpr std::size_t passwordMostLength = 256;
 
 /// The keys, row by row, left to right.
 [[nodiscard]] std::span<const SearchKey> searchKeys() noexcept;
@@ -89,11 +93,25 @@ struct SearchPress {
 class SearchPanel {
   public:
     /// What the empty field says, and whether the panel lists results. A search does; a text
-    /// entry such as a folder path does not.
-    void configure(std::string prompt, bool lists) {
+    /// entry such as a folder path does not. A `secret` entry is a password: the field shows dots
+    /// instead of the text, the keyboard has a Caps key, and the text is wiped when the panel
+    /// closes.
+    void configure(std::string prompt, bool lists, bool secret = false) {
         prompt_ = std::move(prompt);
         lists_ = lists;
-        mostLength_ = lists ? searchMostLength : pathMostLength;
+        secret_ = secret;
+        shifted_ = false;
+        mostLength_ = secret ? passwordMostLength : (lists ? searchMostLength : pathMostLength);
+    }
+    [[nodiscard]] bool secret() const noexcept {
+        return secret_;
+    }
+    /// Whether the letter keys type capitals; only a secret entry has the toggle.
+    [[nodiscard]] bool shifted() const noexcept {
+        return shifted_;
+    }
+    void toggleShift() noexcept {
+        shifted_ = !shifted_;
     }
     [[nodiscard]] const std::string& prompt() const noexcept {
         return prompt_;
@@ -106,6 +124,9 @@ class SearchPanel {
     void open(std::string text);
     void close() noexcept {
         open_ = false;
+        if (secret_) {
+            host::wipe(text_);
+        }
     }
     [[nodiscard]] bool isOpen() const noexcept {
         return open_;
@@ -113,6 +134,10 @@ class SearchPanel {
 
     [[nodiscard]] const std::string& text() const noexcept {
         return text_;
+    }
+    /// Hands the text over and leaves the field empty. The caller owns wiping it.
+    [[nodiscard]] std::string takeText() noexcept {
+        return std::exchange(text_, std::string{});
     }
     /// Appends typed text (UTF-8) to the field, up to its length; reports whether it changed.
     bool type(std::string_view text);
@@ -156,6 +181,8 @@ class SearchPanel {
 
     std::string prompt_{"Search ROMs, consoles, apps, collections, and folders"};
     bool lists_{true};
+    bool secret_{false};
+    bool shifted_{false};
     std::size_t mostLength_{searchMostLength};
     std::string text_;
     std::vector<SearchResult> results_;

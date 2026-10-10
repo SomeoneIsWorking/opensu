@@ -9,7 +9,6 @@ target_link_libraries(power_test PRIVATE opensu::host)
 target_include_directories(power_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_options(power_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME power COMMAND power_test)
-target_compile_definitions(power_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 
 add_executable(backlight_test backlight_test.cpp)
 target_link_libraries(backlight_test PRIVATE opensu::host)
@@ -23,3 +22,21 @@ target_link_libraries(desktop_request_test PRIVATE opensu::host)
 target_compile_options(desktop_request_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(desktop_request_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME desktop_request COMMAND desktop_request_test)
+
+add_executable(session_mode_test session_mode_test.cpp)
+target_link_libraries(session_mode_test PRIVATE opensu::host)
+target_include_directories(session_mode_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(session_mode_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(session_mode_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME session_mode COMMAND session_mode_test)
+
+# The root-run scripts, against a temp root; a root caller would ignore the root, so it is skipped.
+add_executable(session_scripts_test session_scripts_test.cpp)
+target_link_libraries(session_scripts_test PRIVATE opensu::host)
+target_include_directories(session_scripts_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(session_scripts_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(session_scripts_test PRIVATE
+    OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch"
+    OPENSU_PACKAGING_DIR="${CMAKE_SOURCE_DIR}/packaging")
+add_test(NAME session_scripts COMMAND session_scripts_test)
+set_tests_properties(session_scripts PROPERTIES SKIP_RETURN_CODE 77)

@@ -467,6 +467,7 @@ void Shell::tick(Clock::time_point now) {
     followFade(contextFade_, context_.isOpen(), contextWasOpen_);
     followFade(detailsFade_, details_.isOpen(), detailsWasOpen_);
     settings_.tick(now_);
+    session_.tick(now_);
     devices_.tick(now_);
     volumeOsd_.tick(now_);
     railFocus_.step(dt);
@@ -770,6 +771,9 @@ PointerTarget Shell::pointAt(std::optional<Vector2> point) {
 PointerTarget Shell::pointAtModal(Vector2 point) const {
     const auto width = static_cast<float>(width_);
     const auto height = static_cast<float>(height_);
+    if (session_.anyOpen()) {
+        return session_.pointAt(point, Vector2{width, height}, dp());
+    }
     if (guide_.anyOpen()) {
         return guide_.pointAt(point, Vector2{width, height}, dp());
     }
@@ -894,7 +898,12 @@ bool Shell::focusTarget(const PointerTarget& target) {
                 return chooser_.focusRow(at.row);
             } else if constexpr (std::is_same_v<Target, OnIconSize>) {
                 return chooser_.focusRow(ChooserRow::IconSize);
+            } else if constexpr (std::is_same_v<Target, OnDialogButton>) {
+                return session_.focusTarget(PointerTarget{at});
             } else if constexpr (std::is_same_v<Target, OnSearchKey>) {
+                if (session_.password().isOpen()) {
+                    return session_.focusTarget(PointerTarget{at});
+                }
                 return settings_.entry().isOpen() ? settings_.entry().focusKey(at.index)
                                                   : search_.focusKey(at.index);
             } else if constexpr (std::is_same_v<Target, OnSettingsCategory> ||
@@ -975,6 +984,7 @@ void Shell::drawOverGame(Vector2 size) {
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
     settings_.drawOverlays(size, dp(), now_, seconds);
     guide_.draw(size, dp());
+    session_.draw(size, dp(), now_, seconds);
     hud_.drawToast();
 }
 
@@ -1036,6 +1046,7 @@ void Shell::draw(const RenderTexture2D* target) {
                           contextFade_.look(now_));
     settings_.drawOverlays(Vector2{frameWidth, frameHeight}, dp(), now_, seconds);
     guide_.draw(Vector2{frameWidth, frameHeight}, dp());
+    session_.draw(Vector2{frameWidth, frameHeight}, dp(), now_, seconds);
     if (volumeOsd_.visible(now_)) {
         paintVolumeOsd(volumeOsd_.level(), Vector2{frameWidth, frameHeight}, dp(), hud_.topInset(),
                        volumeOsd_.look(now_));

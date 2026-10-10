@@ -61,6 +61,7 @@ void GuideMenuController::choose() {
     switch (action) {
     case ui::GuideAction::Restart:
     case ui::GuideAction::ShutDown:
+    case ui::GuideAction::SwitchToSession:
         if (!menu_.armed()) {
             sounds_.play(audio::Effect::Navigation);
             menu_.arm();
@@ -102,14 +103,24 @@ void GuideMenuController::choose() {
         hooks_.quit();
         break;
     case ui::GuideAction::SwitchToDesktop:
-        perform(host::PowerAction::SwitchToDesktop);
+        report(session_.switchToDesktop(), "Switch to desktop");
+        break;
+    case ui::GuideAction::SwitchToSession:
+        report(session_.switchToSession(), "Switch to session mode");
+        break;
+    case ui::GuideAction::InstallSession:
+        hooks_.installSession();
         break;
     }
 }
 
 void GuideMenuController::perform(host::PowerAction action) {
-    if (const std::string refused = power_.perform(action); !refused.empty()) {
-        hooks_.say(std::string{host::label(action)} + ": " + refused, true);
+    report(power_.perform(action), host::label(action));
+}
+
+void GuideMenuController::report(const std::string& refused, const char* what) {
+    if (!refused.empty()) {
+        hooks_.say(std::string{what} + ": " + refused, true);
     }
 }
 

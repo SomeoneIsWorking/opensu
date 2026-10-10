@@ -91,7 +91,11 @@ void GuideMenu::build() {
         // As the login session, quitting only ends it and the display manager starts it again.
         if (context_.loginSession) {
             add(GuideAction::SwitchToDesktop, "Switch to desktop");
+        } else if (context_.sessionInstalled) {
+            add(GuideAction::SwitchToSession, "Switch to session mode");
+            add(GuideAction::QuitToDesktop, "Quit to desktop");
         } else {
+            add(GuideAction::InstallSession, "Install session mode");
             add(GuideAction::QuitToDesktop, "Quit to desktop");
         }
         return;

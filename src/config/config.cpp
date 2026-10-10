@@ -208,6 +208,7 @@ const Config& read() {
         } else {
             value.assetsDir = self.parent_path().parent_path() / "share" / "opensu";
         }
+        value.executable = self;
         value.gamescope = gamescopeBeside(self);
         if (const std::string_view cache = env("XDG_CACHE_HOME"); !cache.empty()) {
             value.cacheDir = std::filesystem::path{cache} / "opensu";

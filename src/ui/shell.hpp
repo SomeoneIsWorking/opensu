@@ -42,8 +42,8 @@
 #include "library/shelf.hpp"
 #include "mode_chooser.hpp"
 #include "mode_chooser_painter.hpp"
-#include "page_panel.hpp"
 #include "page_arrow.hpp"
+#include "page_panel.hpp"
 #include "page_pill.hpp"
 #include "panel_fade.hpp"
 #include "platform.hpp"
@@ -53,6 +53,7 @@
 #include "search_panel.hpp"
 #include "search_panel_painter.hpp"
 #include "section_view.hpp"
+#include "session_panels.hpp"
 #include "settings_panels.hpp"
 #include "tile.hpp"
 #include "tile_artwork.hpp"
@@ -173,6 +174,13 @@ class Shell {
     [[nodiscard]] const SettingsPanels& settingsPanels() const noexcept {
         return settings_;
     }
+    /// The dialog and password keyboard of installing session mode.
+    [[nodiscard]] SessionPanels& sessionPanels() noexcept {
+        return session_;
+    }
+    [[nodiscard]] const SessionPanels& sessionPanels() const noexcept {
+        return session_;
+    }
     /// The Devices page, which replaces the grid while it is open.
     [[nodiscard]] PagePanel& devicesPanel() noexcept {
         return devices_;
@@ -191,7 +199,7 @@ class Shell {
     /// details page, the Settings screen, the Devices page or a Guide menu.
     [[nodiscard]] bool panelOpen() const noexcept {
         return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || details_.isOpen() ||
-               settings_.anyOpen() || devices_.isOpen() || guide_.anyOpen();
+               settings_.anyOpen() || devices_.isOpen() || guide_.anyOpen() || session_.anyOpen();
     }
 
     /// Which device the prompts name. The caller feeds it; the painters read it.
@@ -443,6 +451,7 @@ class Shell {
     PageArrowPainter arrowPainter_;
     Hud hud_{prompts_};
     GuidePanels guide_{prompts_};
+    SessionPanels session_{prompts_};
     PagePanel devices_;
     LaunchPanel launchPanel_;
     LaunchPanelPainter launchPanelPainter_{prompts_};
