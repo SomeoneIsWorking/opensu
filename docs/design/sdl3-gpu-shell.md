@@ -40,7 +40,7 @@ and no raylib; it does not change.
 | `src/render/render_target.*` | Offscreen colour targets and their read-back to RGBA |
 | `src/render/text.*` | Cal Sans through SDL3_ttf (FreeType, HarfBuzz) and its GPU text engine: glyph atlas, measure, draw |
 | `src/render/shaders/` | GLSL compiled to SPIR-V by `glslc` at build time, embedded as headers |
-| `src/image/` | Decoding PNG, JPEG and WebP with SDL3_image, resizing, and the PNG encoder now in `retro/png_encoder` (moved, one owner for both executables) |
+| `src/image/` | Decoding PNG, JPEG and WebP with SDL3_image, resizing, and the PNG encoder now in `retro/png_encoder` (moved, one owner for both executables), encoding to memory so `/frame.png` stops writing a temporary file under `/tmp` |
 | `src/audio/sound_player.*` | UI sounds on an SDL audio stream; WAV through `SDL_LoadWAV`, OGG through libvorbisfile |
 | `src/input/keyboard_bindings.*`, `app/pointer_router.*` | SDL keyboard, text and mouse events into the existing raylib-free key names and pointer actions |
 
