@@ -34,6 +34,11 @@ class TileArtwork {
     /// images and releases textures beyond the limit. Needs the GL context.
     void load(std::vector<Tile>& tiles, std::optional<Tile>& header, const SlotRange& window,
               std::size_t uploads);
+    /// The window's tiles and the header still awaiting art: downloading, queued, decoding, or
+    /// decoded and not yet uploaded.
+    [[nodiscard]] static std::size_t pending(const std::vector<Tile>& tiles,
+                                             const std::optional<Tile>& header,
+                                             const SlotRange& window);
     /// Whether every queued decode has been taken.
     [[nodiscard]] bool idle() const {
         return decoder_.idle();

@@ -55,3 +55,8 @@ target_link_libraries(folder_chooser_test PRIVATE opensu::hud_model)
 target_compile_options(folder_chooser_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(folder_chooser_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME folder_chooser COMMAND folder_chooser_test)
+
+add_executable(tile_artwork_test tile_artwork_test.cpp)
+target_link_libraries(tile_artwork_test PRIVATE opensu::ui)
+target_compile_options(tile_artwork_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME tile_artwork COMMAND tile_artwork_test)

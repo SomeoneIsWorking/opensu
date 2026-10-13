@@ -55,6 +55,7 @@ def _capture(args: argparse.Namespace) -> int:
         for scene in scenes:
             scene.reach(shell)
             time.sleep(scene.settle)
+            shell.wait_for("artworkPending", 0)
             png = frames / f"{scene.name}.png"
             png.write_bytes(shell.frame())
             if magick is None:

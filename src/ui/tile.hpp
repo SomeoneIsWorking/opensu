@@ -40,6 +40,11 @@ struct Tile {
     std::uint64_t ticket{};
     /// The tile's platform frame, or null for a game with no platform identity.
     const Platform* platform{nullptr};
+
+    /// Whether it shows the loading placeholder: no texture yet, and art downloading or decoding.
+    [[nodiscard]] bool awaitingArt() const noexcept {
+        return !hasPortrait && !hasWide && (artDownloading || artRequested);
+    }
 };
 
 } // namespace opensu::ui
