@@ -709,10 +709,14 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `41e84d4f5870a06534e310ff279a19a137375f79` (3.16.29 plus one commit).
+to commit `eea763bd1aab1b26ca705b37a4c445a0f0b5777f` (3.16.29 plus four commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
-running. `gamescopeArgs` always passes it. `cmake/Gamescope.cmake` builds the pin
+running. `gamescopeArgs` always passes it. The other three are upstream's
+`WaylandBackend` fix series (c50ddfa9, 6867f509, e0602ccc, cherry-picked): with no focus window
+Gamescope unmaps its toplevel with a NULL buffer, and the next frame attached a buffer before the
+host's new configure, so KWin killed the connection (`xdg_surface` error 3) and the session with it
+whenever a game quit to nothing (`docs/issues/nested-gamescope-dies-on-game-quit.md`). `cmake/Gamescope.cmake` builds the pin
 as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
 configure and build steps run in a rootless podman container built from
 `packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;

@@ -20,7 +20,7 @@ option(OPENSU_BUILD_GAMESCOPE
 the rest of opensu: the nested session then refuses to start" ON)
 
 set(OPENSU_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.git")
-set(OPENSU_GAMESCOPE_COMMIT "41e84d4f5870a06534e310ff279a19a137375f79")
+set(OPENSU_GAMESCOPE_COMMIT "eea763bd1aab1b26ca705b37a4c445a0f0b5777f")
 
 # Where the running opensu finds the binary, relative to the directory above its own.
 set(OPENSU_GAMESCOPE_RELATIVE "${CMAKE_INSTALL_LIBEXECDIR}/opensu/gamescope")
