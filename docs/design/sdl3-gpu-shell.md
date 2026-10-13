@@ -1,6 +1,8 @@
 # The shell on SDL3 GPU
 
-Status: proposal.
+Status: in progress. The overlay spike (§6.1) passed: an SDL3 GPU window with
+`SDL_WINDOW_TRANSPARENT` on X11 gets a 32-bit visual and INHERIT composite alpha, and nested
+Gamescope showed the game through it.
 
 ## 1. Goal
 
@@ -55,11 +57,11 @@ and no raylib; it does not change.
 
 ## 5. Proving the look
 
-1. Before any change, the current build renders a fixed set of screens to PNG (`tools/screens`:
-   Home, Library, a console shelf, the details page, Settings pages, the Guide and quick menus, the
-   options panel, search, the dock glass over artwork, the volume OSD, the session dialog), driven
-   through `--hidden` and the control channel with a scratch library. These are the references, kept
-   under `scratch/`, never committed (they contain artwork).
+1. Before any change, the current build renders a fixed set of screens to PNG
+   (`tools.screenshots --parity DIR`: the README scenes plus a console shelf, Settings pages, the
+   options panel, search, the dock glass over artwork, the volume OSD and the session dialog), driven
+   through `--hidden` and the control channel with the demo library. These are the references, kept
+   under `scratch/`, never committed.
 2. After the port the same tool renders the same screens and compares them: mean and maximum
    per-channel difference per screen, and a difference image. Antialiased edges and text may move by
    a pixel; anything above the threshold is a defect to fix, not to accept.
