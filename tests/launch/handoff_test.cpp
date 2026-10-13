@@ -1070,8 +1070,6 @@ void testEmptyHintMatchesNothing() {
     expect(!ProcessTree::anyMatches(""), "an empty hint matches no process at all");
 }
 
-} // namespace
-
 /// A hint ending in NUL matches a whole command-line argument, never a prefix of one.
 void testTerminatedHintMatchesAWholeArgument() {
     const pid_t pid = fork();
@@ -1092,6 +1090,8 @@ void testTerminatedHintMatchesAWholeArgument() {
     kill(-pid, SIGKILL);
     waitpid(pid, nullptr, 0);
 }
+
+} // namespace
 
 int main() {
     testTerminatedHintMatchesAWholeArgument();

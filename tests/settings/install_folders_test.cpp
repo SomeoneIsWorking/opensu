@@ -53,8 +53,6 @@ void refusals(const fs::path& root) {
     fs::permissions(root / "locked", fs::perms::owner_all);
 }
 
-} // namespace
-
 void resolvesWithTheStoresOwn() {
     using opensu::library::Source;
     using opensu::settings::Destination;
@@ -75,6 +73,8 @@ void resolvesWithTheStoresOwn() {
                folders.effective(Source::Gog) == fs::path{"/fast"},
            "an override wins, the same folder the install reads");
 }
+
+} // namespace
 
 int main() {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "install-folders";
