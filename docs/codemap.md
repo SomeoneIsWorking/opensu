@@ -209,6 +209,7 @@ Painters and composition (`opensu_ui`):
 | Path | Owns |
 | --- | --- |
 | `tools/vm/` | The headless Fedora 44 KDE guest for login-session tests (`docs/vm-harness.md`): `provision`/`kickstart`/`fetch`/`hostfiles`/`configure` (install and host-like setup), `machine` (qemu command line, PID lifecycle, overlays), `qmp` and `vnc` (screenshots, input), `guest` (SSH), `deploy` (build, install, ship), `control` (openSU's control channel in the guest), `cli` |
+| `tools/nested_remap/` | Headless check that a nested Gamescope survives its windows closing and reopening: `host` (a private `kwin_wayland --virtual` on its own runtime dir and bus), `child` (the glxgears close/open cycle), `run` (openSU's nested command line under `WAYLAND_DEBUG`), `verdict` (exit and protocol error from the log), `cli` |
 | `pyproject.toml`, `uv.lock` | The one locked Python environment of the tools (`uv run --frozen`) |
 
 ## Tests and docs
