@@ -1,6 +1,7 @@
 // The emulator catalog: the shipped file parses into entries the search can use, and a malformed
 // file is refused with where it is wrong.
 #include <cstdio>
+#include <optional>
 #include <string>
 
 #include "library/emulator_catalog.hpp"
@@ -28,10 +29,41 @@ void shippedCatalogParses() {
     const EmulatorEntry* shad = catalog.find("shadps4");
     expect(shad != nullptr && shad->launchers.size() == 2, "an emulator may start two ways");
     for (const EmulatorEntry& entry : catalog.entries()) {
-        expect(!entry.launchers.empty() && !entry.systems.empty(), "every entry is usable");
+        expect((entry.launchers.empty() == entry.builtIn()) && !entry.systems.empty(),
+               "every entry is usable: launchers, or a core built in");
         expect(!entry.release || entry.release->downloads.starts_with("https://"),
                "every download is HTTPS from the project's own host");
     }
+    const EmulatorEntry* mgba = catalog.find("mgba-core");
+    expect(mgba != nullptr && mgba->name == "mGBA (built-in)" && mgba->core == "mgba_libretro" &&
+               mgba->serves("gb") && mgba->serves("gbc") && mgba->serves("gba") &&
+               mgba->launchers.empty() && !mgba->release && mgba->downloadable(),
+           "a built-in emulator names its core and is downloadable");
+    expect(catalog.find("mgba") != nullptr && !catalog.find("mgba")->builtIn(),
+           "the standalone mGBA stays beside it");
+}
+
+void coreEntries() {
+    std::string error;
+    const std::optional<EmulatorCatalog> parsed = EmulatorCatalog::parse(
+        R"({"emulators":[{"id":"snes-core","name":"S","systems":["snes"],"core":"snes9x_libretro"}]})",
+        "/h", error);
+    expect(parsed && parsed->find("snes-core")->core == "snes9x_libretro",
+           "a core entry parses without launchers");
+    expect(!EmulatorCatalog::parse(
+               R"({"emulators":[{"id":"bad","name":"B","systems":["gb"],"core":"../evil"}]})", "/h",
+               error) &&
+               error.starts_with("bad:") && error.find("core") != std::string::npos,
+           "a core that is not a core's name is refused, naming the entry");
+    expect(!EmulatorCatalog::parse(R"({"emulators":[{"id":"both","name":"B","systems":["gb"],
+              "core":"mgba_libretro","launchers":[{}]}]})",
+                                   "/h", error) &&
+               error.starts_with("both:") && error.find("launchers") != std::string::npos,
+           "a core entry with launchers is refused, naming the entry");
+    expect(!EmulatorCatalog::parse(R"({"emulators":[{"id":"none","name":"N","systems":["gb"]}]})",
+                                   "/h", error) &&
+               error == "none: no launchers and no core",
+           "an entry with neither is refused");
 }
 
 void malformedIsRefused() {
@@ -65,6 +97,7 @@ void malformedIsRefused() {
 int main() {
     shippedCatalogParses();
     malformedIsRefused();
+    coreEntries();
     std::puts("emulator_catalog: ok");
     return 0;
 }

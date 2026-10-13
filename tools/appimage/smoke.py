@@ -98,21 +98,13 @@ class Container:
         words = [
             "podman", "run", "-d", "--rm", "--network", "none", "--device", "/dev/fuse",
             "--cap-add", "SYS_ADMIN", "--security-opt", "label=disable",
-            "-v", f"{appimage.parent}:/appimage:ro", "-v", "/tmp/.X11-unix:/tmp/.X11-unix:ro",
+            "-v", f"{appimage.parent}:/appimage:ro",
         ]  # fmt: skip
         if Path("/dev/dri").exists():
             words += ["--device", "/dev/dri"]
         # The gamepad watcher needs /dev/input, which every desktop host has.
         words += ["-v", "/dev/input:/dev/input:ro"]
-        display = env.get("DISPLAY", "")
-        if not display:
-            raise RuntimeError("the render check needs DISPLAY (CI wraps the job in xvfb-run)")
-        words += ["-e", f"DISPLAY={display}"]
-        xauthority = env.get("XAUTHORITY", "")
-        if xauthority:
-            # Cookies are keyed by hostname, so the container keeps the host's.
-            words += ["--uts", "host"]
-            words += ["-v", f"{xauthority}:/xauthority:ro", "-e", "XAUTHORITY=/xauthority"]
+        words += podman.display_words(env)
         self.id = process.output([*words, tag, "sleep", "infinity"], env).strip()
 
     def run(self, command: str, check: bool = True) -> subprocess.CompletedProcess[str]:

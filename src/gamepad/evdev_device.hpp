@@ -12,6 +12,13 @@
 
 namespace opensu::gamepad {
 
+/// Whether a reader takes opensu's own virtual pads: the shell skips them, a game process reads
+/// them.
+enum class OwnVirtualPads : std::uint8_t {
+    Skip,
+    Read,
+};
+
 class EvdevDevice {
   public:
     /// Opens the node non-blocking; throws std::system_error when it cannot.
@@ -24,10 +31,12 @@ class EvdevDevice {
     ~EvdevDevice();
 
     /// The node opened, if it is a pad this user can read.
-    [[nodiscard]] static std::optional<EvdevDevice> openPad(const std::filesystem::path& node);
+    [[nodiscard]] static std::optional<EvdevDevice> openPad(const std::filesystem::path& node,
+                                                            OwnVirtualPads own);
 
-    /// A controller opensu reads: a gamepad, and not a virtual pad opensu or Steam made from one.
-    [[nodiscard]] bool isPad() const;
+    /// A controller opensu reads: a gamepad, and not a virtual pad Steam made from one; opensu's
+    /// own virtual pads count only when `own` reads them.
+    [[nodiscard]] bool isPad(OwnVirtualPads own) const;
 
     [[nodiscard]] int fd() const {
         return fd_;

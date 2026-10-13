@@ -97,18 +97,20 @@ EvdevDevice::~EvdevDevice() {
     }
 }
 
-bool EvdevDevice::isPad() const {
+bool EvdevDevice::isPad(OwnVirtualPads own) const {
     // Steam Input's virtual gamepad, which Steam feeds from a pad opensu already reads.
     constexpr std::uint16_t valve = 0x28de;
     constexpr std::uint16_t steamVirtualGamepad = 0x11ff;
-    return capabilities_.isGamepad() && phys_ != VirtualPad::phys &&
+    return capabilities_.isGamepad() &&
+           (own == OwnVirtualPads::Read || phys_ != VirtualPad::phys) &&
            !(vendor_ == valve && product_ == steamVirtualGamepad);
 }
 
-std::optional<EvdevDevice> EvdevDevice::openPad(const std::filesystem::path& node) {
+std::optional<EvdevDevice> EvdevDevice::openPad(const std::filesystem::path& node,
+                                                OwnVirtualPads own) {
     try {
         EvdevDevice device{node};
-        if (device.isPad()) {
+        if (device.isPad(own)) {
             return device;
         }
     } catch (const std::system_error& failure) {

@@ -6,7 +6,7 @@
 
 #include <zlib.h>
 
-namespace opensu::artwork::zip {
+namespace opensu::zip {
 namespace {
 
 constexpr std::uint32_t endSignature = 0x06054b50;
@@ -163,13 +163,16 @@ std::optional<std::string> extract(const Entry& entry, std::string_view data, st
         fail(error, entry.name + " uses an unsupported compression method");
         return std::nullopt;
     }
-    const uLong crc =
-        crc32(0, reinterpret_cast<const Bytef*>(file.data()), static_cast<uInt>(file.size()));
-    if (crc != entry.crc32) {
+    if (crc32Of(file) != entry.crc32) {
         fail(error, entry.name + " fails its CRC-32");
         return std::nullopt;
     }
     return file;
+}
+
+std::uint32_t crc32Of(std::string_view bytes) {
+    return static_cast<std::uint32_t>(
+        ::crc32(0L, reinterpret_cast<const Bytef*>(bytes.data()), static_cast<uInt>(bytes.size())));
 }
 
 std::optional<Archive> Archive::open(std::string bytes, std::string& error) {
@@ -204,4 +207,4 @@ std::optional<std::string> Archive::read(std::string_view name, std::string& err
     return extract(*found, std::string_view{bytes_}.substr(*start, found->compressedSize), error);
 }
 
-} // namespace opensu::artwork::zip
+} // namespace opensu::zip

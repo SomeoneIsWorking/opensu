@@ -87,12 +87,12 @@ void romEmulator() {
     const DetailsView view = detailsFor(kirby(true), false, now);
     expect(view.badge == "Nintendo Switch" || view.badge == "Switch",
            "a ROM's badge is its system");
-    expect(valueOf(view, "Emulator") == "Eden (installed)",
+    expect(valueOf(view, "Emulator") == "Eden · installed",
            "the emulator row names it and says it is installed");
     expect(view.buttons[1].action == DetailsAction::Emulator && view.buttons[1].value == "Eden",
            "a ROM with two emulators has a button to change it");
     const DetailsView missing = detailsFor(kirby(false), false, now);
-    expect(valueOf(missing, "Emulator") == "Eden (not installed)",
+    expect(valueOf(missing, "Emulator") == "Eden · not installed",
            "an emulator that is not installed says so");
     Game single = kirby(true);
     single.emulatorOptions.pop_back();

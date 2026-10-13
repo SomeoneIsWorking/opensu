@@ -1,18 +1,18 @@
 // The zip reader on zips built in memory.
-#include "zip_archive.hpp"
+#include "zip/zip_archive.hpp"
 
 #include <cstdio>
 #include <cstdlib>
 #include <string>
 
-#include "zip_fixture.hpp"
+#include "support/zip_fixture.hpp"
 
 namespace {
 
-using opensu::artwork::fixture::buildZip;
-using opensu::artwork::fixture::crcOf;
-using opensu::artwork::fixture::FixtureEntry;
-namespace zip = opensu::artwork::zip;
+using opensu::test::zipfixture::buildZip;
+using opensu::test::zipfixture::crcOf;
+using opensu::test::zipfixture::FixtureEntry;
+namespace zip = opensu::zip;
 
 [[noreturn]] void fail(const char* what) {
     std::fprintf(stderr, "FAIL: %s\n", what);

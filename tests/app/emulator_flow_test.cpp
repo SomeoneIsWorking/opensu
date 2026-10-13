@@ -67,7 +67,7 @@ struct Rig {
 
     /// The version of `id` that openSU downloaded, or empty.
     std::string versionInUse(std::string_view id) const {
-        const std::optional<library::roms::DownloadedEmulator> record = downloads.downloaded(id);
+        const std::optional<app::EmulatorDownloads::Build> record = downloads.downloaded(id);
         return record ? record->version : std::string{};
     }
 

@@ -33,9 +33,10 @@ struct PadInfo {
 
 class Pads {
   public:
-    /// Reads every pad node in `inputDir`, now and as they appear. Throws std::system_error when
-    /// the directory cannot be watched.
-    explicit Pads(std::filesystem::path inputDir = "/dev/input");
+    /// Reads every pad node in `inputDir`, now and as they appear, without grabbing any until
+    /// `hold`. Throws std::system_error when the directory cannot be watched.
+    explicit Pads(std::filesystem::path inputDir = "/dev/input",
+                  OwnVirtualPads own = OwnVirtualPads::Skip);
     Pads(const Pads&) = delete;
     Pads& operator=(const Pads&) = delete;
     ~Pads();
@@ -87,6 +88,7 @@ class Pads {
     void publish(std::vector<Event>& events);
 
     std::filesystem::path inputDir_;
+    OwnVirtualPads own_;
     int wake_{-1};
     int watch_{-1};
 

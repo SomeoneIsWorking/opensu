@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "net/web_client.hpp"
-#include "zip_archive.hpp"
+#include "zip/zip_archive.hpp"
 
 namespace opensu::artwork {
 

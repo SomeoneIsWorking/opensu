@@ -142,53 +142,71 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
 }
 
 bool WebClient::download(const std::string& url, const std::filesystem::path& file,
-                         const Progress& progress, std::string& error) const {
-    const std::unique_ptr<CURL, EasyDeleter> handle{curl_easy_init()};
-    if (handle == nullptr) {
-        error = "libcurl could not start a request";
-        return false;
+                         const Progress& progress, std::string& error,
+                         const Refusal& refusal) const {
+    const std::string scheme = url.substr(0, url.find(':') + 1);
+    const Refusal sameScheme = [&scheme](const std::string& next) {
+        return next.starts_with(scheme) ? std::string{} : next + " leaves " + scheme;
+    };
+    const Refusal& allowed = refusal ? refusal : sameScheme;
+    std::string next = url;
+    for (long hop = 0; hop <= redirectLimit; ++hop) {
+        if (std::string refused = allowed(next); !refused.empty()) {
+            error = std::move(refused);
+            return false;
+        }
+        const std::unique_ptr<CURL, EasyDeleter> handle{curl_easy_init()};
+        if (handle == nullptr) {
+            error = "libcurl could not start a request";
+            return false;
+        }
+        // Each hop starts the file afresh, so a redirect's body never stays in it.
+        const std::unique_ptr<std::FILE, FileCloser> out{std::fopen(file.c_str(), "wb")};
+        if (out == nullptr) {
+            error = "cannot write " + file.string();
+            return false;
+        }
+        CURL* curl = handle.get();
+        curl_easy_setopt(curl, CURLOPT_URL, next.c_str());
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSeconds);
+        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, stallBytesPerSecond);
+        curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, stallSeconds);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "opensu");
+        curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, out.get());
+        curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+        curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, report);
+        curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &progress);
+        const CURLcode result = curl_easy_perform(curl);
+        if (result == CURLE_ABORTED_BY_CALLBACK) {
+            error = "cancelled";
+            return false;
+        }
+        if (result != CURLE_OK) {
+            error = curl_easy_strerror(result);
+            return false;
+        }
+        char* location = nullptr;
+        curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &location);
+        if (location != nullptr) {
+            next = location;
+            continue;
+        }
+        long status = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+        if (status != httpOk) {
+            error = "HTTP " + std::to_string(status);
+            return false;
+        }
+        if (std::fflush(out.get()) != 0) {
+            error = "cannot write " + file.string();
+            return false;
+        }
+        return true;
     }
-    const std::unique_ptr<std::FILE, FileCloser> out{std::fopen(file.c_str(), "wb")};
-    if (out == nullptr) {
-        error = "cannot write " + file.string();
-        return false;
-    }
-    const std::string scheme = url.substr(0, url.find(':'));
-    CURL* curl = handle.get();
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_MAXREDIRS, redirectLimit);
-    curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS_STR, scheme.c_str());
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSeconds);
-    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, stallBytesPerSecond);
-    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, stallSeconds);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "opensu");
-    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, out.get());
-    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
-    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, report);
-    curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &progress);
-    const CURLcode result = curl_easy_perform(curl);
-    if (result == CURLE_ABORTED_BY_CALLBACK) {
-        error = "cancelled";
-        return false;
-    }
-    if (result != CURLE_OK) {
-        error = curl_easy_strerror(result);
-        return false;
-    }
-    long status = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
-    if (status != httpOk) {
-        error = "HTTP " + std::to_string(status);
-        return false;
-    }
-    if (std::fflush(out.get()) != 0) {
-        error = "cannot write " + file.string();
-        return false;
-    }
-    return true;
+    error = "more than " + std::to_string(redirectLimit) + " redirects";
+    return false;
 }
 
 std::optional<std::string> WebClient::fetch(const std::string& url, const std::string& range,

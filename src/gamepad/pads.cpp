@@ -30,7 +30,8 @@ Pads::Pad::Pad(EvdevDevice opened) : device{std::move(opened)}, translator{devic
     }
 }
 
-Pads::Pads(std::filesystem::path inputDir) : inputDir_{std::move(inputDir)} {
+Pads::Pads(std::filesystem::path inputDir, OwnVirtualPads own)
+    : inputDir_{std::move(inputDir)}, own_{own} {
     wake_ = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if (wake_ < 0) {
         throw lastError("eventfd");
@@ -125,7 +126,7 @@ void Pads::add(const std::filesystem::path& node) {
             return;
         }
     }
-    std::optional<EvdevDevice> device = EvdevDevice::openPad(node);
+    std::optional<EvdevDevice> device = EvdevDevice::openPad(node, own_);
     if (!device) {
         return;
     }

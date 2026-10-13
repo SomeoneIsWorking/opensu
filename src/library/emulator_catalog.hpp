@@ -1,6 +1,7 @@
 // emulator_catalog — the emulators openSU knows, read from the shipped `emulators.json`: which
 // systems each runs, how it is found and started on this machine, where it keeps its settings,
-// and, for one that publishes an official AppImage, where its releases are.
+// and, for one that publishes an official AppImage, where its releases are. A built-in emulator
+// names a libretro core instead, which openSU's runner plays.
 #pragma once
 
 #include <filesystem>
@@ -41,11 +42,21 @@ struct EmulatorEntry {
     /// Where the emulator keeps its own settings; empty when not known.
     std::filesystem::path config;
     /// In the order they are looked for. A downloaded AppImage runs with the first one's words.
+    /// None for a built-in emulator.
     std::vector<EmulatorLauncher> launchers;
     /// Absent for an emulator without an official AppImage.
     std::optional<ReleaseSource> release;
+    /// The libretro core a built-in emulator runs ("mgba_libretro"); empty for a standalone one.
+    std::string core;
 
     [[nodiscard]] bool serves(std::string_view system) const;
+    [[nodiscard]] bool builtIn() const noexcept {
+        return !core.empty();
+    }
+    /// Whether openSU can download it: an official AppImage or a core.
+    [[nodiscard]] bool downloadable() const noexcept {
+        return release.has_value() || builtIn();
+    }
 };
 
 class EmulatorCatalog {

@@ -44,11 +44,19 @@ int main(int argc, char** argv) {
                "a build-tree opensu finds the staged fork under the build directory");
         expect(gamescopeBeside("").empty(), "an unknown executable has no fork");
         expect(config.gamescope.filename() == "gamescope", "the config names the fork binary");
+        expect(opensu::config::retroRunnerBeside("/prefix/bin/opensu") ==
+                       "/prefix/bin/opensu-retro" &&
+                   opensu::config::retroRunnerBeside("").empty(),
+               "the libretro runner sits beside opensu");
+        expect(config.retroRunner.filename() == "opensu-retro", "the config names the runner");
         std::printf("config: all checks passed\n");
         return 0;
     }
     if (which == "data-dir") {
         expect(config.dataDir == "/xdg-data/opensu", "XDG_DATA_HOME holds opensu's data");
+        expect(config.savesDir == "/xdg-data/opensu/saves", "save RAM sits in opensu's data");
+        expect(config.retroSystemDir == "/xdg-data/opensu/system",
+               "core system files sit in opensu's data");
         std::printf("config: all checks passed\n");
         return 0;
     }

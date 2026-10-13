@@ -34,8 +34,8 @@ gitignored `docs/reference/`).
 | `src/app/settings_controller.*` | The Settings screen's controller: rows per category, input routing, saving through `Preferences`, folder chooser and path entry; Install folders shows each store's resolved folder (override, default or the store's own) |
 | `src/app/plugin_service.*` | Which plugins run (bundled unless turned off, user plugins only when turned on with their exact permissions granted), refresh requests, play-time reports applied to the library, the stop toast |
 | `src/app/plugin_settings.*` | Settings › Plugins: a toggle and an access row per plugin, the consent dialog before a user plugin runs |
-| `src/app/emulator_downloads.*` | The emulator download job: one download at a time on a thread with progress and cancel, the update check (shows, never installs), removal of openSU's AppImages; news handed to the loop in `service` |
-| `src/app/emulator_settings.*` | Settings › Emulators: each emulator's install state, source and version with Download / Update / Remove (two presses), Check for updates, the emulator per system |
+| `src/app/emulator_downloads.*` | The emulator download job for official AppImages and built-in emulators' cores: one download at a time on a thread with progress and cancel, the update check (shows, never installs; the buildbot listing read once for every core), removal of what openSU downloaded; news handed to the loop in `service` |
+| `src/app/emulator_settings.*` | Settings › Emulators: each emulator's install state, source and version (a core's: libretro buildbot and its build date, or the folder it was found in) with Download / Update / Remove (two presses), Check for updates, the emulator per system |
 | `src/app/steam_library_settings.*` | Settings › Steam libraries: the libraries with path, free space, games and size; add, make default, remove an empty one, on a worker thread; read-only from `libraryfolders.vdf` while Steam is not running |
 | `src/app/path_editor.*` | Choosing a folder on the chooser or typing a path; one request at a time, refusals shown with their reason |
 | `src/app/artwork_delivery.*` | Hands saved artwork, store contents and UI sounds to the shell and sound player |
@@ -52,10 +52,11 @@ gitignored `docs/reference/`).
 | `src/app/cli_install_job.*` | An install by a downloader program: run it, turn its logged progress into reports, fail with its reason; the base of the Epic and GOG jobs |
 | `src/app/steam_install_job.*`, `epic_install_job.*`, `gog_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install (`legendary install`); one GOG install (`gogdl download`: token handed over and taken back, Linux or Windows build, the install recorded) |
 | `src/app/installs.*` | The installers by store, one install at a time; which stores install; each store's own install folder (`ownFolders`: GOG under the data dir, legendary's, Steam's default library) |
-| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, the XDG bases plugin paths expand from, legendary's config dir, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
+| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, the XDG bases plugin paths expand from, legendary's config dir, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) and the libretro runner beside the executable (`retroRunnerBeside`); the runner's saves and system folders (`savesDir`, `retroSystemDir`) |
 | `src/settings/settings.*` | The player's saved preferences (Library layout, dock pin, icon size, sort and filters, hidden games, last-played times, Settings-screen choices, interface scale, install folders, shortcut remaps, plugins turned on or off with the permissions granted) as JSON under the config dir; defaults on a missing or corrupt file |
 | `src/settings/install_folders.*` | The one resolver of where a store installs: a store's override, else the default, else none (the store's own choice); `resolve` adds the store's own folder and says which of the three applies; validation (exists, writable) |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
+| `src/zip/zip_archive.*` | The one zip reader: end record, central directory, local header offset, checked extraction, an in-memory archive, and the CRC-32 (`crc32Of`) zips and libretro listings are checked with; used by artwork and core downloads |
 | `extension/opensu-signin/`, `extension/CMakeLists.txt` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel; packed into `opensu-signin.xpi` and installed beside the assets |
 
 ## Session and processes (G003, G004)
@@ -118,8 +119,9 @@ gitignored `docs/reference/`).
 | `src/library/dump_info.*` | What a game folder says about itself (`readDumpInfo`): a PS4 dump's `sce_sys/param.sfo` title and `icon0.png` |
 | `src/library/arcade_names.*` | Arcade short name to description: the libretro-database `.dat` parser and `NameDb`, the parsed names kept under `<cache>/names/` |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts; the tables are `constexpr` (`name_list.hpp`) |
-| `src/library/emulators.*` | Which emulator runs each system here, and its command line, from the catalog: openSU's downloaded AppImage, else a package on `PATH`, an AppImage in the usual folders, a Flatpak; every emulator of a system, installed or not (`options`), which a ROM's details page lists |
-| `src/library/emulator_catalog.*`, `assets/emulators.json` | The emulator catalog: id, name, systems, settings folder, launchers (programs, AppImage name, Flatpak id, arguments) and, for emulators with an official AppImage, the release API, asset pattern and download host |
+| `src/library/emulators.*` | Which emulator runs each system here, and its command line, from the catalog: openSU's downloaded AppImage, else a package on `PATH`, an AppImage in the usual folders, a Flatpak; a built-in emulator when its core is found and `opensu-retro` is there (`opensu-retro --core <core> <rom>`); every emulator of a system, installed or not (`options`), which a ROM's details page lists |
+| `src/library/emulator_catalog.*`, `assets/emulators.json` | The emulator catalog: id, name, systems, settings folder, launchers (programs, AppImage name, Flatpak id, arguments) and, for emulators with an official AppImage, the release API, asset pattern and download host; a built-in emulator names its libretro core (`"core": "mgba_libretro"`) instead of launchers |
+| `src/library/libretro_cores.*` | Built-in emulators' cores: the lookup (openSU's `<data>/opensu/cores/`, then RetroArch's and the system's core folders), the buildbot's `.index-extended` parsed, a core zip downloaded on the buildbot's origin only, its one `.so` taken out, checked against the listed CRC-32 (the library's, not the zip's) and written whole, its `<core>.json` record (build date, CRC-32), removal |
 | `src/library/emulator_release.*` | An emulator's latest official AppImage from its GitHub or Forgejo release JSON, downloaded beside the one in use, checked against the published SHA-256 (or recorded as seen, HTTPS from the project's host only), made executable and switched to |
 | `src/library/downloaded_emulators.*` | The AppImages openSU downloaded under `<data>/opensu/emulators/<id>/<asset id>/`: the `installed.json` record (the atomic switch), old versions cleared, removal |
 | `src/library/appimage_runtime.*` | Whether an AppImage can run here: its runtime's libfuse2 need, `/dev/fuse`, `fusermount`; the refusal names the install command for the distribution |
@@ -131,17 +133,16 @@ gitignored `docs/reference/`).
 | `src/artwork/starter_pack.*` | iiSU's starter pack: its entry taken out of the APK against a pin, and a system's card as PNG |
 | `src/artwork/console_glyphs.*` | iiSU's frame glyphs: `border_pack.json` read once, a system's `logo_*.png` out of the APK |
 | `src/artwork/iisu_assets.*` | Which APK entry is each UI sound and each dock icon (the nav table is valid for the pinned APK only) |
-| `src/artwork/zip_archive.*` | The one zip reader: end record, central directory, local header offset, checked extraction; an in-memory archive |
 | `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds openSU plays (`yp8`): effect to APK file name, the Domino cues and `dominoFor(tileCount)` (`xp8.a`), the 91 ms repeat rule for Enter/ExitConsolesApps and the Domino cues; pure (`opensu_audio_model`) |
 | `src/audio/volume_backend.*` | PC output volume through wpctl or pactl (injectable runner), a read-only shadow for hidden runs, the install advice when no backend exists |
 | `src/audio/system_volume.*` | Volume and mute state, steps, one listener, async polling of changes made elsewhere |
 | `src/audio/sound_player.*` | raylib audio: the device opened once (silent with one warning when absent), the WAVs loaded from the store, `play` through the debounce |
-| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads; `request` with a body cap and each redirect hop checked |
+| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads; `request` with a body cap, and `request` and `download` with each redirect hop checked (`Refusal`) |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`), raylib-free (`opensu_pad`) |
 | `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls |
-| `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads |
+| `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads; whether a reader takes opensu's own virtual pads (`OwnVirtualPads`: the shell skips them, `opensu-retro` reads them) |
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
 | `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while a menu or page is up; lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
@@ -151,6 +152,30 @@ gitignored `docs/reference/`).
 | `src/input/prompts.hpp` | `Prompts`: the last device and the shortcuts, so key caps in hints follow remaps |
 | `src/input/keyboard_bindings.*` | `KeySource`, the frame's pressed `Combo`, and typed text; the keys themselves come from `Shortcuts` |
 | `src/input/last_device.*` | Which device (pad, or keyboard and mouse) gave the latest real input; read by the prompt painters |
+
+## Built-in libretro runner (`opensu-retro`)
+
+Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executable, built beside
+`opensu`; no raylib.
+
+| Path | Owns |
+| --- | --- |
+| `cmake/Libretro.cmake` | `libretro.h` from libretro-common at a pinned commit, SHA-256 checked (`opensu::libretro_header`) |
+| `src/retro/main.cpp` | The command line; the default saves (`Config::savesDir`) and system (`Config::retroSystemDir`) folders |
+| `src/retro/runner_app.*` | Composition and the frame loop: pacing on a clock at the core's rate, input, sound, save checks, `--hidden` |
+| `src/retro/core.*` | One core: `dlopen`, `retro_*` symbols, init/load/run/unload, the context-free callback trampolines (one file-scope pointer) |
+| `src/retro/core_environment.*` | The environment commands answered; everything else refused |
+| `src/retro/core_options.*` | Core option definitions (v0, v1, v2, intl) and their default values |
+| `src/retro/video_frame.*` | 0RGB1555, XRGB8888, RGB565 to RGBA; duplicate frames |
+| `src/retro/audio_sink.*` | Resampling ring with ±0.5 % dynamic rate control |
+| `src/retro/audio_output.*` | The sink on the SDL playback device, or drained by the clock when hidden |
+| `src/retro/joypad.*` | `gamepad::Button` and SDL scancodes to `RETRO_DEVICE_JOYPAD` |
+| `src/retro/save_memory.*` | Save RAM: load, change check, atomic `.srm` write |
+| `src/retro/presenter.*` | The SDL window and its events; Vulkan swapchain or hidden offscreen image, frame texture, letterboxed draw, read-back |
+| `src/retro/vulkan_device.*` | Vulkan instance (optional validation), device and graphics queue |
+| `src/retro/png_encoder.*` | RGBA to PNG through libpng |
+| `src/retro/shaders/` | GLSL for the frame, compiled by glslc into SPIR-V headers in the build tree |
+| `tests/retro/` | Fake cores (`fake_core.cpp`, built twice, once crashing), unit tests of each owner, `core_test`, and `runner_test` running `opensu-retro --hidden` end to end |
 
 ## Plugins
 
@@ -259,7 +284,7 @@ Painters and composition (`opensu_ui`):
 ## Tests and docs
 
 - `tests/<area>/`: one ctest suite per owner, through the shipping code.
-- `tests/support/`: shared fakes: `fake_steam.hpp` (a DevTools Steam), `release_server.hpp` (a release API and asset host), `loopback_server.hpp`; `scratch_dir.hpp`, a test's own empty directory under the test scratch.
+- `tests/support/`: shared fakes: `fake_steam.hpp` (a DevTools Steam), `release_server.hpp` (a release API and asset host), `buildbot_server.hpp` (a libretro buildbot nightly folder), `zip_fixture.hpp` (zips built in memory), `loopback_server.hpp`; `scratch_dir.hpp`, a test's own empty directory under the test scratch.
 - `tests/plugin/`: the plugin host through the shipping runtime (`plugin_rig.hpp`), the shipped Eden plugin against fixture files.
 - `docs/design/`: designs (`lua-plugins.md`: the Lua plugin host, phase 1 built, later phases proposed).
 - `docs/re-frontier.md`: what is recovered from iiSU. `docs/reference/` (private `opensu-re`

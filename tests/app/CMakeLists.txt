@@ -135,3 +135,10 @@ target_include_directories(emulator_flow_test PRIVATE "${CMAKE_SOURCE_DIR}/tests
 target_compile_options(emulator_flow_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(emulator_flow_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME emulator_flow COMMAND emulator_flow_test)
+
+add_executable(core_flow_test core_flow_test.cpp)
+target_link_libraries(core_flow_test PRIVATE opensu::app ZLIB::ZLIB)
+target_include_directories(core_flow_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(core_flow_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(core_flow_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME core_flow COMMAND core_flow_test)

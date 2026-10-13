@@ -57,6 +57,9 @@ struct Config {
     /// `gamescopeBeside`. May not exist when opensu was built without the fork.
     std::filesystem::path gamescope;
 
+    /// The libretro runner built-in emulators start; see `retroRunnerBeside`.
+    std::filesystem::path retroRunner;
+
     /// The XDG base directories, each `$XDG_<NAME>_HOME` or its default under `home`. Plugins
     /// name their read paths relative to these (`{xdg_cache}` and so on).
     std::filesystem::path xdgCacheHome;
@@ -74,6 +77,13 @@ struct Config {
     /// opensu's settings, which the player's choices are saved in: `$XDG_CONFIG_HOME/opensu`, else
     /// `~/.config/opensu`.
     std::filesystem::path configDir;
+
+    /// Save RAM of games the built-in libretro runner plays, one folder per system:
+    /// `<dataDir>/saves`.
+    std::filesystem::path savesDir;
+
+    /// The files libretro cores look up by name, BIOS images among them: `<dataDir>/system`.
+    std::filesystem::path retroSystemDir;
 
     /// The home grid's dashboard mode, from OPENSU_HOME_MODE (`standard` or `wiisu`).
     HomeMode homeMode{HomeMode::Standard};
@@ -124,6 +134,10 @@ struct Config {
 /// for `<prefix>/bin/opensu` as installed, and `<build>/libexec/opensu/gamescope` for
 /// `<build>/src/opensu` in the build tree. Empty when `executable` is empty.
 [[nodiscard]] std::filesystem::path gamescopeBeside(const std::filesystem::path& executable);
+
+/// Where the libretro runner sits for an opensu at `executable`: `opensu-retro` in the same
+/// directory. Empty when `executable` is empty.
+[[nodiscard]] std::filesystem::path retroRunnerBeside(const std::filesystem::path& executable);
 
 /// Reads the environment into a configuration. Values that cannot be parsed fall back to the
 /// default and are reported. `main` reads it once and hands the value to whoever needs it.

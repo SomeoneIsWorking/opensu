@@ -8,7 +8,7 @@
 
 #include "lucent/log.h"
 #include "raylib.h"
-#include "zip_archive.hpp"
+#include "zip/zip_archive.hpp"
 
 namespace opensu::artwork {
 namespace {

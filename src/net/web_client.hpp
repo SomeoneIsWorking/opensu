@@ -36,12 +36,14 @@ class WebClient {
         std::string body;
     };
 
+    /// Why `url` may not be requested, or empty when it may. Asked for the URL and for every
+    /// redirect before it is followed.
+    using Refusal = std::function<std::string(const std::string& url)>;
+
     /// What a guarded request may do: how large a body it takes, and which URLs it may reach.
     struct Guard {
         std::size_t maxBody{0};
-        /// Why `url` may not be requested, or empty when it may. Asked for the URL and for every
-        /// redirect before it is followed.
-        std::function<std::string(const std::string& url)> refusal;
+        Refusal refusal;
     };
 
     /// The response to a GET of `url` with `headers` sent, following redirects that `guard`
@@ -54,12 +56,14 @@ class WebClient {
     /// Bytes received and the size the server announced (0 when unknown); returns false to cancel.
     using Progress = std::function<bool(std::uint64_t received, std::uint64_t total)>;
 
-    /// Streams the body of a 200 response to `file`, following redirects only within the URL's
-    /// own scheme. `progress` is called as bytes arrive and cancels the transfer by returning
-    /// false. On failure `error` says why ("cancelled", "HTTP 404" or libcurl's reason) and
-    /// `file` may hold a partial body, which the caller removes.
+    /// Streams the body of a 200 response to `file`, following redirects that `refusal` allows,
+    /// or without one, only those within the URL's own scheme. `progress` is called as bytes
+    /// arrive and cancels the transfer by returning false. On failure `error` says why
+    /// ("cancelled", "HTTP 404", the refusal or libcurl's reason) and `file` may hold a partial
+    /// body, which the caller removes.
     [[nodiscard]] bool download(const std::string& url, const std::filesystem::path& file,
-                                const Progress& progress, std::string& error) const;
+                                const Progress& progress, std::string& error,
+                                const Refusal& refusal = {}) const;
 
   private:
     /// One GET following redirects, answered by `expected`; `range` is "first-last" or empty.

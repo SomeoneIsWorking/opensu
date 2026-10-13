@@ -8,6 +8,7 @@
 add_subdirectory(vdf)
 add_subdirectory(config)
 add_subdirectory(fileio)
+add_subdirectory(zip)
 add_subdirectory(settings)
 add_subdirectory(net)
 add_subdirectory(audio)
@@ -23,6 +24,7 @@ add_subdirectory(session)
 add_subdirectory(device)
 add_subdirectory(ui)
 add_subdirectory(app)
+add_subdirectory(retro)
 
 add_executable(opensu main.cpp)
 target_link_libraries(opensu
@@ -82,6 +84,7 @@ message(STATUS "  sudo sh ${OPENSU_SESSION_INSTALLER}")
 # the source root is on the include path for every target.
 target_include_directories(opensu_vdf INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(opensu_net INTERFACE "${CMAKE_SOURCE_DIR}/src")
+target_include_directories(opensu_zip INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(opensu_audio INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(opensu_audio_model INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(opensu_library INTERFACE "${CMAKE_SOURCE_DIR}/src")

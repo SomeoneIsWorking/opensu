@@ -84,7 +84,10 @@ package (`nanosvg-devel` on Fedora), else a checkout at `NANOSVG_ROOT`, by defau
 `$HOME/dev/nanosvg`. The launcher logos are from [Simple Icons](https://simpleicons.org)
 (CC0). libcurl (`libcurl-devel` on Fedora) downloads missing artwork; zlib (`zlib-devel`) reads
 iiSU's starter pack, libwebp (`libwebp-devel`) decodes its console cards and nlohmann/json
-(`json-devel`) reads and writes the settings.
+(`json-devel`) reads and writes the settings. `opensu-retro`, the built-in libretro runner, needs
+SDL3, the Vulkan loader, libpng and glslc (`SDL3-devel vulkan-loader-devel libpng-devel glslc` on
+Fedora); its tests draw on any Vulkan driver, lavapipe (`mesa-vulkan-drivers`) included, and use
+the validation layers (`vulkan-validation-layers`) when installed.
 
 The published `raylib-6.0_linux_amd64` binary cannot be used: it was built with
 `STBI_REQUIRED` undefined and `SUPPORT_FILEFORMAT_JPG=0`, so `LoadImage` reports

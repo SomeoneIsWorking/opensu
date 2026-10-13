@@ -3,8 +3,9 @@
 // The emulators are the catalog's (`emulator_catalog`). One is installed when openSU downloaded
 // its AppImage, or, for each of its launchers in turn, a program of it is on PATH, an AppImage of
 // it is in one of the usual folders, or its Flatpak is installed; the first found is the one that
-// runs. The first emulator of the catalog found for a system serves it, and an override from
-// configuration replaces the search for its system.
+// runs. A built-in emulator is installed when its core is found (`libretro_cores`) and runs on
+// openSU's runner, `opensu-retro`. The first emulator of the catalog found for a system serves it,
+// and an override from configuration replaces the search for its system.
 #pragma once
 
 #include <cstdint>
@@ -20,6 +21,7 @@
 #include "downloaded_emulators.hpp"
 #include "emulator_catalog.hpp"
 #include "game.hpp"
+#include "libretro_cores.hpp"
 
 namespace opensu::library::roms {
 
@@ -33,12 +35,21 @@ struct EmulatorSearch {
     std::filesystem::path downloads;
     /// Whether AppImages can start here.
     FuseSupport fuse;
+    /// Where built-in emulators' cores are looked for.
+    CoreSearch cores;
+    /// openSU's libretro runner, which built-in emulators start; empty for none.
+    std::filesystem::path runner;
+    /// Where the runner keeps save RAM, one folder per system; empty leaves it the runner's.
+    std::filesystem::path saves;
 
     /// PATH, then openSU's downloads under `dataDir`, ~/Applications, ~/AppImages and
-    /// ~/.local/bin for AppImages, then the user's and the system's Flatpak installations.
+    /// ~/.local/bin for AppImages, then the user's and the system's Flatpak installations; cores
+    /// as `CoreSearch::standard` looks for them, run by `runner` with save RAM under `saves`.
     [[nodiscard]] static EmulatorSearch standard(const std::filesystem::path& home,
                                                  const std::filesystem::path& dataDir,
-                                                 std::vector<std::filesystem::path> executablePath);
+                                                 std::vector<std::filesystem::path> executablePath,
+                                                 std::filesystem::path runner,
+                                                 std::filesystem::path saves);
 };
 
 /// How an emulator got onto this machine.
@@ -50,16 +61,22 @@ enum class InstallSource : std::uint8_t {
     /// An AppImage openSU downloaded.
     Downloaded,
     Flatpak,
+    /// A core openSU downloaded from the libretro buildbot.
+    DownloadedCore,
+    /// A core in RetroArch's or the system's core folder.
+    Core,
 };
 
 /// The source's name as the player reads it.
 [[nodiscard]] std::string_view label(InstallSource source);
+/// Whether openSU downloaded it, so it updates and removes it.
+[[nodiscard]] bool downloadedByOpensu(InstallSource source) noexcept;
 
 /// An emulator found here.
 struct EmulatorInstall {
     std::string id;
     InstallSource source{InstallSource::Program};
-    /// The program, the AppImage, or the Flatpak's app id.
+    /// The program, the AppImage, the Flatpak's app id, or the core.
     std::string where;
     /// Empty when the source does not say.
     std::string version;
@@ -119,6 +136,8 @@ struct EmulatorSetup {
     EmulatorCatalog catalog;
     EmulatorSearch search;
     Emulators::Commands overrides;
+    /// The buildbot folder cores are downloaded from, ending in /.
+    std::string coreSource{buildbotNightly};
 
     /// The standard search for `config`, with the catalog shipped in its assets folder.
     [[nodiscard]] static EmulatorSetup standard(const config::Config& config);

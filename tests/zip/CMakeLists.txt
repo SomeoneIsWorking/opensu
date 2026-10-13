@@ -1,0 +1,5 @@
+add_executable(zip_archive_test zip_archive_test.cpp)
+target_link_libraries(zip_archive_test PRIVATE opensu::zip ZLIB::ZLIB)
+target_include_directories(zip_archive_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(zip_archive_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME zip_archive COMMAND zip_archive_test)

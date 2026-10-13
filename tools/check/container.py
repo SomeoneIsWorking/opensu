@@ -24,12 +24,13 @@ def ensure_image(env: Mapping[str, str]) -> str:
 
 
 def run_all(build_dir: Path, env: Mapping[str, str]) -> None:
-    """`tools.check all --gamescope native` in the CI image, against this checkout."""
+    """`tools.check all --gamescope native` in the CI image, against this checkout, on the caller's
+    display for the tests' hidden windows."""
     tag = ensure_image(env)
     uid = os.getuid()
     words: list[str | Path] = [
         "podman", "run", "-d", "--rm", "--systemd=always", "--userns=keep-id", "--user", "root",
-        "--security-opt", "label=disable", "-v", f"{REPO}:{REPO}",
+        "--security-opt", "label=disable", "-v", f"{REPO}:{REPO}", *podman.display_words(env),
     ]  # fmt: skip
     common = podman.git_common_dir(REPO)
     if common is not None:

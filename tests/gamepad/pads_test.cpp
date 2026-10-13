@@ -24,6 +24,7 @@ using namespace std::chrono_literals;
 using opensu::gamepad::Button;
 using opensu::gamepad::EvdevDevice;
 using opensu::gamepad::Event;
+using opensu::gamepad::OwnVirtualPads;
 using opensu::gamepad::PadEvent;
 using opensu::gamepad::PadInfo;
 using opensu::gamepad::Pads;
@@ -274,6 +275,37 @@ int main() {
     std::vector<PadEvent> leaked;
     other->read(leaked);
     expect(leaked.empty(), "nothing else reads a held pad");
+
+    {
+        // A game process reading pads, as opensu-retro does: the virtual pad is its controller.
+        Pads reader{"/dev/input", OwnVirtualPads::Read};
+        std::vector<Event> heard;
+        const std::string virtualName{VirtualPad::name};
+        expect(collect(reader, heard,
+                       [&] {
+                           return has(heard, Event::Kind::Connected, virtualName);
+                       }),
+               "a game's reader takes the virtual pad");
+        physical->send({{EV_KEY, BTN_WEST, 1}});
+        expect(collect(reader, heard,
+                       [&] {
+                           return pressed(heard, Button::Y);
+                       }),
+               "it reads the held pad's presses through the virtual pad");
+        const auto readerPads = reader.connected();
+        for (const Event& event : heard) {
+            if (event.kind == Event::Kind::Button) {
+                const auto from = std::ranges::find(readerPads, event.source, &PadInfo::id);
+                expect(from != readerPads.end() && from->name == virtualName,
+                       "only the virtual pad moves while the real one is held");
+            }
+        }
+        read.clear();
+        expect(readUntil(*game, {EV_KEY, BTN_WEST, 1}, read),
+               "reading takes nothing from the game");
+        physical->send({{EV_KEY, BTN_WEST, 0}});
+        expect(readUntil(*game, {EV_KEY, BTN_WEST, 0}, read), "the release reaches the game too");
+    }
 
     seen.clear();
     physical->send({{EV_KEY, BTN_MODE, 1}});
