@@ -10,6 +10,8 @@
 #include <string>
 #include <thread>
 
+#include <pthread.h>
+#include <signal.h>
 #include <unistd.h>
 
 namespace {
@@ -143,6 +145,36 @@ int main() {
                    },
                    std::chrono::seconds{8}),
                "destroying an instance stops it");
+    }
+
+    {
+        // A caller that blocks SIGTERM, as the compositor session does, does not hand it on.
+        sigset_t term;
+        sigemptyset(&term);
+        sigaddset(&term, SIGTERM);
+        sigset_t previous;
+        pthread_sigmask(SIG_BLOCK, &term, &previous);
+        const fs::path mask = scratch / "mask";
+        Instance instance;
+        std::string failure;
+        expect(instance.start(unitName("mask"), "/bin/sh",
+                              {"-c", "grep SigBlk /proc/self/status > " + mask.string()}, failure),
+               "the mask probe starts");
+        pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+        expect(waitUntil(
+                   [&instance] {
+                       return !instance.running();
+                   },
+                   std::chrono::seconds{10}),
+               "the mask probe ends");
+        std::ifstream in{mask};
+        std::string label;
+        std::string bits;
+        in >> label >> bits;
+        expect(label == "SigBlk:", "the probe recorded its blocked signals");
+        constexpr unsigned long termBit = 1UL << (SIGTERM - 1);
+        expect((std::stoul(bits, nullptr, 16) & termBit) == 0,
+               "the started program does not inherit a blocked SIGTERM");
     }
 
     fs::remove_all(scratch);

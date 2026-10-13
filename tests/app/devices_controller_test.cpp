@@ -8,6 +8,7 @@
 
 #include "devices_controller.hpp"
 #include "host_fakes.hpp"
+#include "support/scratch_dir.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -18,8 +19,8 @@ using test::expect;
 
 struct Rig {
     Rig()
-        : preferences{settings::Store{std::filesystem::path{OPENSU_TEST_SCRATCH} / "devices" /
-                                      "settings.json"},
+        : scratch{OPENSU_TEST_SCRATCH, "devices"},
+          preferences{settings::Store{scratch.path() / "settings.json"},
                       [](const std::string&) {
                       }},
           volume{std::make_unique<test::FakeMixer>(), {}}, outputs{volume.system()},
@@ -88,6 +89,7 @@ struct Rig {
         return page.focusedCategory().rows.front();
     }
 
+    test::ScratchDir scratch;
     app::Preferences preferences;
     ui::SettingsPage page;
     app::VolumeControl volume;

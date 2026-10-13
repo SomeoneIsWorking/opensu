@@ -46,8 +46,9 @@ Game kirby(bool edenInstalled) {
     game.sourceId = "switch";
     game.title = "Kirby";
     game.installed = true;
-    game.emulatorOptions = {EmulatorOption{"Eden", edenInstalled, LaunchSpec{"eden", {}}},
-                            EmulatorOption{"Ryujinx", false, {}}};
+    game.emulatorOptions = {
+        EmulatorOption{"Eden", edenInstalled, LaunchSpec{"eden", {}}, "eden", false, {}},
+        EmulatorOption{"Ryujinx", false, {}, "ryujinx", false, {}}};
     game.emulator = "Eden";
     return game;
 }

@@ -69,15 +69,6 @@ void ShellApp::applyLayout() {
     sounds_.setMuted(!chosen.uiSounds);
 }
 
-std::vector<std::filesystem::path> ShellApp::steamLibraries() const {
-    std::vector<std::filesystem::path> folders;
-    for (const library::steam::LibraryFolder& folder :
-         library::steam::Library::discover(resolved_.home, resolved_.steamRoots).libraryFolders()) {
-        folders.push_back(folder.path);
-    }
-    return folders;
-}
-
 std::vector<ui::SearchResult> ShellApp::searchResults() const {
     std::vector<ui::SearchResult> results;
     for (const ui::Tile& tile : shell_.tiles()) {
@@ -1108,6 +1099,8 @@ int ShellApp::run() {
         delivery_.service();
         serviceDevices(std::chrono::steady_clock::now());
         sessionInstall_.service();
+        emulatorDownloads_.service();
+        settingsScreen_.service();
         syncOverlay();
         syncChrome();
         shell_.tick(std::chrono::steady_clock::now());

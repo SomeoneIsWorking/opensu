@@ -22,7 +22,7 @@ class Instance {
 
     /// Starts `program` in the scope `unit`, with each "NAME=value" of `environment`
     /// added to its environment. Returns once the scope exists, so a following
-    /// stop() or kill() always reaches it.
+    /// stop() or kill() always reaches it. The program starts with no signal blocked.
     [[nodiscard]] bool start(const std::string& unit, const std::string& program,
                              const std::vector<std::string>& args, std::string& failure,
                              const std::vector<std::string>& environment = {});

@@ -24,6 +24,7 @@
 #include "launch/instance.hpp"
 #include "launch/steam_gate.hpp"
 #include "launch_activity.hpp"
+#include "libraries.hpp"
 #include "orphaned_steam.hpp"
 
 namespace opensu::steam {
@@ -64,6 +65,10 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] InstallWizard& installer() noexcept {
         return installer_;
     }
+    /// Steam's library folders, through the running client.
+    [[nodiscard]] Libraries& libraries() noexcept {
+        return libraries_;
+    }
     /// True once the app's manifest says it is fully installed with no update pending.
     [[nodiscard]] bool installed(std::string_view appId) const;
     /// Steam's unfinished downloads as last read, at most a second old while Steam is ready.
@@ -99,6 +104,7 @@ class Client final : public launch::SteamGate {
     DownloadQueue queue_{devTools_};
     InstallWizard installer_{devTools_};
     LaunchActivity launches_{devTools_};
+    Libraries libraries_{devTools_};
 
     mutable std::mutex mutex_;
     std::condition_variable changed_;

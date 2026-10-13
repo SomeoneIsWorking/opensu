@@ -29,6 +29,16 @@ std::optional<std::filesystem::path> InstallFolders::effective(library::Source s
     return std::nullopt;
 }
 
+Destination InstallFolders::resolve(library::Source store, const StoreFolders& own) const {
+    if (std::optional<std::filesystem::path> chosen = effective(store)) {
+        return Destination{std::move(*chosen), storeFolder(store).empty() ? FolderOrigin::Default
+                                                                          : FolderOrigin::Store};
+    }
+    const auto found = own.find(store);
+    return Destination{found == own.end() ? std::filesystem::path{} : found->second,
+                       FolderOrigin::StoreOwn};
+}
+
 std::string refusal(const std::filesystem::path& folder, Need need) {
     if (!folder.is_absolute()) {
         return "the folder must be an absolute path";

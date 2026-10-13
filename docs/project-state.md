@@ -32,8 +32,9 @@ Visible deltas from the baseline:
   kept per game in `settings.json` (`emulators`). iiSU launches on A with no page (launch.md 3,
   `handleRomActivated`) and only shows game details on a dual-display device's second screen
   (`n42.a`, screens.md 3.6); it has no per-game emulator choice (a console's command template picks
-  the emulator), and no install flow for emulators exists here: a missing emulator is named, not
-  installed. The size on disk is not shown because no store source records it.
+  the emulator). openSU also keeps an emulator per system, and a ROM page whose emulator is
+  missing offers "Download <emulator>" for one with an official AppImage, with progress, and Play
+  works on the same page once it is in. iiSU installs no emulators. The size on disk is not shown because no store source records it.
 - A breadcrumb trail in the top bar's start (`Library > GOG > Search "had" > Installed > <game>`)
   names where the player is; each place in it is a pointer target that goes back to that level.
   iiSU names no place.
@@ -60,9 +61,11 @@ Visible deltas from the baseline:
 - The title pill names the focused tile on Home too; iiSU shows it only inside sections.
 - A signed-out GOG or Epic tile opens that store's sign-in page in the default browser.
 - No store client window is ever opened to reach a game.
-- Settings screen (START options, last row "Settings"): iiSU's settings dialog structure with six
-  categories (Appearance, Library, Audio, Controls, Install folders, About), own controller, model
-  and painter. iiSU's Performance, Updates and Integrations sections have no counterpart.
+- Settings screen (START options, last row "Settings"): iiSU's settings dialog structure with eight
+  categories (Appearance, Library, Emulators, Steam libraries, Audio, Controls, Install folders,
+  About), own controller, model and painter. iiSU's Performance, Updates and Integrations sections
+  have no counterpart; Emulators (download, update, remove official AppImages, emulator per
+  system) and Steam libraries are openSU's own.
 - No volume overlay in iiSU (its main activity hands the volume keys to Android); openSU draws its
   own pill on every volume change. No display-scale setting in iiSU (it follows the Android
   density); openSU has "Interface size", 70 to 150 percent, clamped so every screen fits.
@@ -103,6 +106,8 @@ game has been observed running yet.
 | S023 | Guide menu (Home, Library, Devices, Settings, power button) over the home screen and a running game | partial | S020 | G002, G003 |
 | S024 | Devices page: Bluetooth, controllers, audio output, display | partial | S023 | G002, G003 |
 | S025 | Quick menu on Guide + A over the home screen and a running game | partial | S024 | G002, G003 |
+| S026 | Emulator catalog, official AppImage download, update and removal, emulator per system | partial | S008, S020 | G001 |
+| S027 | Steam libraries page: list, add, make default, remove an empty library | partial | S020, S016 | G001 |
 
 ## Capability details
 
@@ -691,10 +696,21 @@ Outside Gamescope (`Config::insideGamescope`, from `GAMESCOPE_WAYLAND_DISPLAY`)
 opensu ...` with the current monitor's size and refresh from raylib
 (`session::readMonitor`), in the scope `<session>-compositor.scope` with
 `OPENSU_SESSION` set for the inner opensu. When Gamescope ends it stops every
-other scope named `<session>-*`, and SIGINT/SIGTERM stop the session through its
-scopes. Games are never wrapped in a Gamescope of their own. The argument vector
-and the session's run, leftover cleanup and signal path (against a fake
-`gamescope`) are tested; no nested session has been run against a display yet.
+other scope named `<session>-*`, and SIGINT/SIGTERM (blocked for the whole run; `launch::Instance`
+starts every program with no signal blocked) stop the session through its scopes. When Gamescope
+ends abnormally (a signal or a non-zero exit) and neither a signal nor Switch to desktop's note
+(`DesktopRequest::pending`) asked for it, the session's leftovers are stopped (the game and Steam
+die with it) and a fresh Gamescope is started, logged as a warning, at most 3 times in any 2
+minutes (`session::RestartBudget`); past that it gives up with an error and returns the crash's
+status, which the login session then judges as before. Games are never wrapped in a Gamescope of
+their own. The argument vector and the session's run, leftover cleanup, signal path, restart, cap,
+no restart on a requested stop or on the way to the desktop (against a fake `gamescope` that
+crashes N times) are tested. `uv run --frozen python -m tools.nested_remap.restart` runs the real
+`CompositorSession` and the pinned Gamescope in the private headless KWin with a stand-in child
+(`tests/session/nested_session_driver`; the real shell would grab the machine's pads), SIGABRTs
+Gamescope by the PID in its scope once each child is up: 4 kills gave 3 restarts, each with a new
+Gamescope and child, then the give-up and exit 134. Not run: the restart with the real shell,
+Steam and a game in the user's KDE session.
 The binary is the pinned fork of S014, at `Config::gamescope`; a missing binary (openSU
 configured with `OPENSU_BUILD_GAMESCOPE=OFF`) is a one-line error, not a PATH lookup. The
 fork is built in podman (S014), so the host needs podman and nothing else.
@@ -709,20 +725,29 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `eea763bd1aab1b26ca705b37a4c445a0f0b5777f` (3.16.29 plus four commits).
+to commit `79db8c0d82f71e990ba9d604588032f5990797f3` (3.16.29 plus seven commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. The other three are upstream's
 `WaylandBackend` fix series (c50ddfa9, 6867f509, e0602ccc, cherry-picked): with no focus window
 Gamescope unmaps its toplevel with a NULL buffer, and the next frame attached a buffer before the
 host's new configure, so KWin killed the connection (`xdg_surface` error 3) and the session with it
-whenever a game quit to nothing (`docs/issues/nested-gamescope-dies-on-game-quit.md`). `cmake/Gamescope.cmake` builds the pin
+whenever a game quit to nothing (`docs/issues/nested-gamescope-dies-on-game-quit.md`). The last
+three end the session on a dead host connection instead of aborting: upstream PR 2393's
+`WaylandBackend` input thread shutdown (b35aaa12, cherry-picked), a failure exit status for that
+shutdown (`ShutdownGamescopeOnError`, 883b7842), and the host display's hangup left to the read
+that reports it (79db8c0d; `IWaitable::OnPollHangUp` aborted first). `cmake/Gamescope.cmake` builds the pin
 as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
 configure and build steps run in a rootless podman container built from
 `packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;
 image tagged by the Containerfile hash), then checks the staged binary with `ldd` on the host
 (Fedora hosts only; no host-build fallback) and stages it where `Config::gamescope` finds it, in the build
-tree and installed.
+tree and installed. A pin change fetches the commit into the existing clone
+(`cmake/GamescopeFetchPin.cmake`, before the disconnected update that would refuse it) and runs
+`meson setup --reconfigure`, so the version header (`git describe`) follows the pin. Verified in a
+scratch tree configured at `41e84d4f` with the new pin absent from its clone: the bump fetched,
+rebuilt and reported `3.16.29-4-geea763bd`, and the unchanged rebuild after it had no work; the
+bump to `79db8c0d` did the same in `build/clang` (`3.16.29-7-g79db8c0d`).
 
 With no game running, the focused app window is openSU's own, so Alt+F4 reaches
 raylib as a window close: `WindowShouldClose` ends the frame loop in
@@ -856,9 +881,10 @@ in the home folder, `~/Emulation`, or at the top of a drive under `/mnt`,
 compared ("PSX CHD" is psx, "Wii U" is wiiu); a system folder holds game files or
 game folders, and a folder starts its marker (Wii U `code/*.rpx`, PS4 `eboot.bin`,
 PS3 `PS3_GAME/USRDIR/EBOOT.BIN`) or else its game file that is no update or DLC.
-Emulators (`library/emulators`) are found on PATH, as AppImages in
-`~/Applications`, `~/AppImages`, `~/.local/bin`, or as Flatpaks; a system without
-one is listed, and play names what to install. On this machine: 124 games in the
+Emulators (`library/emulators`, from the catalog `assets/emulators.json`) are found
+as openSU's downloaded AppImage, on PATH, as AppImages in `~/Applications`,
+`~/AppImages`, `~/.local/bin`, or as Flatpaks; a system without one is listed, and
+play names what to install or offers the download (S026). On this machine: 124 games in the
 grid from `/mnt/Boy/ROM`; Dolphin (GameCube), PCSX2 (PS2) and Eden (Switch)
 launched in a headless Gamescope, showed a window in 1.5–2.5 s and closed from the
 Guide menu (`scratch/roms-real/smoke.py`). Cemu, RPCS3, shadPS4 and Xenia Canary
@@ -952,5 +978,44 @@ Chords: `input/shortcuts` is the one table (defaults Shift+Tab Guide, Ctrl+Up/Do
 L2+Up/Down/Left for volume on a pad), remapped on the Controls page with conflict refusal and
 saved. Esc cannot be captured; pad chords are limited to the volume actions.
 
+The Install folders rows show the folder each store will use and where it comes from: the store's
+override, the default folder, or the store's own (GOG `<data>/opensu/gog-games/<id>`, Epic
+legendary's `[Legendary] install_dir` else `~/Games`, Steam its default library while Steam runs).
+The rows and the install flows read the same `InstallFolders::resolve`.
+
 Unverified: live Steam, real Epic and GOG installs, volume writes on a real device, pad chords on
 hardware, the in-game X11 path outside Xvfb, media keys.
+
+### S026 — Emulator downloads
+
+`assets/emulators.json` is the one catalog (`library/emulator_catalog`): detection and downloads
+read it. Emulators with an official AppImage on their own release page carry a `release`: Cemu,
+Eden (Forgejo, `stable.eden-emu.dev`), PCSX2, RPCS3, DuckStation, PPSSPP, Azahar, mGBA, xemu.
+Dolphin, Ryujinx, shadPS4, melonDS and Xenia Canary are detected only: no official AppImage, or
+one only inside an archive. No BIOS, keys or firmware are linked.
+
+A download (`app/emulator_downloads`, `library/emulator_release`) goes to
+`<data>/opensu/emulators/<id>/<asset id>/` through `net::WebClient`, is checked against the GitHub
+asset digest and refused on a mismatch; without a digest (mGBA, Eden) only HTTPS from the
+project's own host is accepted and the size and SHA-256 seen are recorded. The version in use
+changes when `installed.json` is rewritten after the new file is verified; old versions go after
+that. The update check shows versions and installs nothing. An AppImage whose runtime links
+libfuse2 is refused with the distribution's install command when libfuse2 is missing; every
+AppImage needs `/dev/fuse` and `fusermount`. `--appimage-extract-and-run` is not used.
+
+Verified: tests through the shipping code against a fake release host (digest match and mismatch,
+update kept apart until verified, cancel, remove, catalog parsing, merge with detected installs);
+mGBA 0.10.5 downloaded from GitHub in a hidden openSU with scratch XDG dirs, from the ROM's
+details page, then removed from Settings › Emulators. Unverified: a real update, a real Eden
+download, launching a downloaded AppImage, versions of packaged emulators (not shown).
+
+### S027 — Steam libraries
+
+Settings › Steam libraries (`app/steam_library_settings`, `steam/libraries`) lists Steam's
+libraries through `SteamClient.InstallFolder.GetInstallFolders`: path, free space, games, size,
+the default. Add uses `AddInstallFolder`, make default `SetDefaultInstallFolder(index)`, remove
+`RemoveInstallFolder(index)`, refused for Steam's own library and for one that holds games, as
+Steam's own UI does. Steam also exposes `MoveInstallFolderForApp`, `SetFolderLabel`,
+`RepairInstallFolder` and `RefreshFolders`; moving games is not offered. Without a running Steam
+the page lists `libraryfolders.vdf` read-only and says Steam is not running. Verified against a
+fake DevTools Steam in tests; not against a live Steam.

@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include "host_services.hpp"
+#include "support/scratch_dir.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -16,7 +17,8 @@ using test::expect;
 struct Rig {
     std::vector<std::string> ran;
     std::vector<std::string> spawned;
-    std::filesystem::path root{std::filesystem::path{OPENSU_TEST_SCRATCH} / "host-services"};
+    test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "host-services"};
+    std::filesystem::path root{scratch.path()};
 
     host::Runner runner() {
         return [this](const std::string& program, const std::vector<std::string>& args) {
@@ -82,8 +84,6 @@ void normalRunsReachTheSystem() {
 
 void aBacklightIsOnlyThereWhenTheMachineHasOne() {
     Rig rig;
-    std::filesystem::remove_all(rig.root);
-    std::filesystem::create_directories(rig.root);
     expect(!app::HostServices::over(rig.runner(), rig.lineRunner(), rig.spawner(), rig.root, false)
                 .backlight,
            "no device, no backlight");

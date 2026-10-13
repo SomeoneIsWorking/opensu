@@ -2,12 +2,20 @@
 
 #include <algorithm>
 #include <chrono>
+#include <string>
 
 namespace opensu::app {
 
 ui::DetailsView DetailsController::viewOf(const library::Game& game) const {
+    std::string download;
+    const std::optional<EmulatorDownloads::Progress> progress = downloads_.progress();
+    if (const library::EmulatorOption* missing = ui::emulatorToDownload(game);
+        missing != nullptr && progress && progress->id == missing->id) {
+        const std::optional<int> percent = progress->percent();
+        download = percent ? std::to_string(*percent) + "% · A cancels" : "Starting · A cancels";
+    }
     return ui::detailsFor(game, preferences_.values().hidden.contains(game),
-                          std::chrono::system_clock::now());
+                          std::chrono::system_clock::now(), download);
 }
 
 void DetailsController::open() {
@@ -85,6 +93,9 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::Emulator:
         cycleEmulator(*game, 1);
         break;
+    case ui::DetailsAction::DownloadEmulator:
+        downloadEmulator(*game);
+        break;
     case ui::DetailsAction::Hidden:
         hooks_.setHidden(*game, !preferences_.values().hidden.contains(*game));
         // The game leaves or joins the shelf the page was opened over.
@@ -93,6 +104,21 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::Back:
         break;
     }
+}
+
+void DetailsController::downloadEmulator(const library::Game& game) {
+    const library::EmulatorOption* missing = ui::emulatorToDownload(game);
+    if (missing == nullptr) {
+        return;
+    }
+    sounds_.play(audio::Effect::Navigation);
+    if (const std::optional<EmulatorDownloads::Progress> progress = downloads_.progress();
+        progress && progress->id == missing->id) {
+        downloads_.cancel(missing->id);
+    } else if (const std::string refused = downloads_.start(missing->id); !refused.empty()) {
+        hooks_.say(refused, true);
+    }
+    refresh();
 }
 
 void DetailsController::cycleEmulator(const library::Game& game, int delta) {

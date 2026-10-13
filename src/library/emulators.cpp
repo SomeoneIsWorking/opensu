@@ -1,82 +1,18 @@
 #include "emulators.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cctype>
+#include <fstream>
+#include <iterator>
+#include <regex>
 #include <system_error>
 
 #include "lucent/log.h"
-#include "name_list.hpp"
 
 namespace opensu::library::roms {
 namespace {
 
 namespace fs = std::filesystem;
-
-struct EmulatorRule {
-    std::string_view name;
-    NameList systems;
-    /// Program names on PATH.
-    NameList programs;
-    /// AppImage file names start with this, compared lower-case with only letters and digits.
-    std::string_view appImage;
-    std::string_view flatpak;
-    NameList args;
-};
-
-constexpr auto rules = std::to_array<EmulatorRule>({
-    {"Dolphin",
-     {"gc", "wii"},
-     {"dolphin-emu"},
-     "dolphin",
-     "org.DolphinEmu.dolphin-emu",
-     {"-b", "-e", "{rom}"}},
-    {"Cemu", {"wiiu"}, {"cemu", "Cemu"}, "cemu", "info.cemu.Cemu", {"-f", "-g", "{rom}"}},
-    {"Eden", {"switch"}, {"eden"}, "eden", "dev.eden_emu.eden", {"-f", "-g", "{rom}"}},
-    {"Ryujinx",
-     {"switch"},
-     {"ryujinx", "Ryujinx"},
-     "ryujinx",
-     "io.github.ryubing.Ryujinx",
-     {"--fullscreen", "{rom}"}},
-    {"PCSX2",
-     {"ps2"},
-     {"pcsx2-qt"},
-     "pcsx2",
-     "net.pcsx2.PCSX2",
-     {"-batch", "-nogui", "-fullscreen", "--", "{rom}"}},
-    {"RPCS3",
-     {"ps3"},
-     {"rpcs3"},
-     "rpcs3",
-     "net.rpcs3.RPCS3",
-     {"--no-gui", "--fullscreen", "{rom}"}},
-    // The launcher starts the core version chosen in its own settings.
-    {"shadPS4",
-     {"ps4"},
-     {"shadps4-qt-launcher"},
-     "shadps4qtlauncher",
-     "",
-     {"-e", "default", "-g", "{rom}"}},
-    {"shadPS4", {"ps4"}, {"shadps4"}, "shadps4", "net.shadps4.shadPS4", {"-g", "{rom}"}},
-    {"DuckStation",
-     {"psx"},
-     {"duckstation-qt"},
-     "duckstation",
-     "org.duckstation.DuckStation",
-     {"-batch", "-fullscreen", "--", "{rom}"}},
-    {"PPSSPP",
-     {"psp"},
-     {"PPSSPPSDL", "PPSSPPQt", "ppsspp"},
-     "ppsspp",
-     "org.ppsspp.PPSSPP",
-     {"--fullscreen", "{rom}"}},
-    {"melonDS", {"nds"}, {"melonDS"}, "melonds", "net.kuribo64.melonDS", {"-f", "{rom}"}},
-    {"Azahar", {"n3ds"}, {"azahar"}, "azahar", "org.azahar_emu.Azahar", {"{rom}"}},
-    {"mGBA", {"gb", "gbc", "gba"}, {"mgba-qt", "mgba"}, "mgba", "io.mgba.mGBA", {"-f", "{rom}"}},
-    {"xemu", {"xbox"}, {"xemu"}, "xemu", "app.xemu.xemu", {"-dvd_path", "{rom}"}},
-    {"Xenia Canary", {"xbox360"}, {"xenia_canary"}, "xenia", "", {"--fullscreen=true", "{rom}"}},
-});
 
 std::string nameKey(std::string_view name) {
     std::string out;
@@ -95,23 +31,40 @@ bool executable(const fs::path& file) {
            (status.permissions() & fs::perms::owner_exec) != fs::perms::none;
 }
 
-/// The program and leading words that run `rule`, or nothing when it is not installed.
-std::optional<std::vector<std::string>> locate(const EmulatorRule& rule,
-                                               const EmulatorSearch& search) {
-    for (const std::string_view program : rule.programs) {
-        for (const fs::path& dir : search.executablePath) {
-            if (executable(dir / program)) {
-                return std::vector<std::string>{(dir / program).string()};
-            }
+/// The version a Flatpak's metainfo names first, or nothing.
+std::string flatpakVersion(const fs::path& app, const std::string& appId) {
+    const fs::path share = app / "current" / "active" / "files" / "share";
+    for (const fs::path& file : {share / "metainfo" / (appId + ".metainfo.xml"),
+                                 share / "metainfo" / (appId + ".appdata.xml"),
+                                 share / "appdata" / (appId + ".appdata.xml")}) {
+        std::ifstream in{file};
+        if (!in) {
+            continue;
+        }
+        const std::string body{std::istreambuf_iterator<char>{in},
+                               std::istreambuf_iterator<char>{}};
+        const std::regex release{R"re(<release[^>]*\sversion="([^"]+)")re"};
+        if (std::smatch found; std::regex_search(body, found, release)) {
+            return found[1].str();
         }
     }
+    return {};
+}
+
+std::vector<std::string> commandOf(std::string program, const EmulatorLauncher& launcher) {
+    std::vector<std::string> command{std::move(program)};
+    command.insert(command.end(), launcher.args.begin(), launcher.args.end());
+    return command;
+}
+
+std::optional<EmulatorInstall> appImageIn(const EmulatorLauncher& launcher,
+                                          const EmulatorSearch& search) {
     for (const fs::path& dir : search.appImageDirs) {
         std::error_code ec;
         std::vector<fs::path> found;
         for (const fs::directory_entry& entry : fs::directory_iterator{dir, ec}) {
-            const std::string file = entry.path().filename().string();
-            const std::string key = nameKey(file);
-            if (key.starts_with(rule.appImage) && key.ends_with("appimage") &&
+            const std::string key = nameKey(entry.path().filename().string());
+            if (key.starts_with(launcher.appImage) && key.ends_with("appimage") &&
                 executable(entry.path())) {
                 found.push_back(entry.path());
             }
@@ -119,24 +72,77 @@ std::optional<std::vector<std::string>> locate(const EmulatorRule& rule,
         if (!found.empty()) {
             // Sorted, so the same AppImage wins on every run.
             std::ranges::sort(found);
-            return std::vector<std::string>{found.front().string()};
+            const fs::path& file = found.front();
+            return EmulatorInstall{{},
+                                   InstallSource::AppImage,
+                                   file.string(),
+                                   {},
+                                   commandOf(file.string(), launcher),
+                                   appImageRefusal(file, search.fuse)};
         }
     }
-    if (!rule.flatpak.empty()) {
+    return std::nullopt;
+}
+
+/// How `launcher` is installed, or nothing when it is not.
+std::optional<EmulatorInstall> locate(const EmulatorLauncher& launcher,
+                                      const EmulatorSearch& search) {
+    for (const std::string& program : launcher.programs) {
+        for (const fs::path& dir : search.executablePath) {
+            if (executable(dir / program)) {
+                const std::string file = (dir / program).string();
+                return EmulatorInstall{{}, InstallSource::Program,    file,
+                                       {}, commandOf(file, launcher), {}};
+            }
+        }
+    }
+    if (!launcher.appImage.empty()) {
+        if (std::optional<EmulatorInstall> found = appImageIn(launcher, search)) {
+            return found;
+        }
+    }
+    if (!launcher.flatpak.empty()) {
         for (const fs::path& dir : search.flatpakDirs) {
             std::error_code ec;
-            if (fs::is_directory(dir / rule.flatpak, ec)) {
-                return std::vector<std::string>{"flatpak", "run", std::string{rule.flatpak}};
+            if (fs::is_directory(dir / launcher.flatpak, ec)) {
+                EmulatorInstall found{{},
+                                      InstallSource::Flatpak,
+                                      launcher.flatpak,
+                                      flatpakVersion(dir / launcher.flatpak, launcher.flatpak),
+                                      {"flatpak", "run", launcher.flatpak},
+                                      {}};
+                found.command.insert(found.command.end(), launcher.args.begin(),
+                                     launcher.args.end());
+                return found;
             }
         }
     }
     return std::nullopt;
 }
 
-/// The command words of `rule` run with the program words `program`, then its arguments.
-std::vector<std::string> commandOf(std::vector<std::string> program, const EmulatorRule& rule) {
-    program.insert(program.end(), rule.args.begin(), rule.args.end());
-    return program;
+/// How `entry` is installed: openSU's download first, then each launcher in turn.
+std::optional<EmulatorInstall> locate(const EmulatorEntry& entry, const EmulatorSearch& search) {
+    std::optional<EmulatorInstall> found;
+    if (!search.downloads.empty()) {
+        if (const std::optional<DownloadedEmulator> downloaded =
+                DownloadedEmulators{search.downloads}.find(entry.id)) {
+            const std::string file = downloaded->file.string();
+            found = EmulatorInstall{{},
+                                    InstallSource::Downloaded,
+                                    file,
+                                    downloaded->version,
+                                    commandOf(file, entry.launchers.front()),
+                                    appImageRefusal(downloaded->file, search.fuse)};
+        }
+    }
+    for (auto launcher = entry.launchers.begin(); !found && launcher != entry.launchers.end();
+         ++launcher) {
+        found = locate(*launcher, search);
+    }
+    if (found) {
+        found->id = entry.id;
+    }
+    return found;
 }
 
 /// A command as the launch that starts `rom`.
@@ -160,45 +166,73 @@ LaunchSpec specOf(const std::vector<std::string>& command, const fs::path& rom) 
 
 } // namespace
 
-EmulatorSearch EmulatorSearch::standard(const fs::path& home,
+std::string_view label(InstallSource source) {
+    switch (source) {
+    case InstallSource::Program:
+        return "Package";
+    case InstallSource::AppImage:
+        return "AppImage";
+    case InstallSource::Downloaded:
+        return "AppImage (openSU)";
+    case InstallSource::Flatpak:
+        return "Flatpak";
+    }
+    return "Package";
+}
+
+EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& dataDir,
                                         std::vector<fs::path> executablePath) {
+    FuseSupport fuse = FuseSupport::detect(executablePath);
     return EmulatorSearch{
         .executablePath = std::move(executablePath),
         .appImageDirs = {home / "Applications", home / "AppImages", home / ".local" / "bin"},
         .flatpakDirs = {home / ".local" / "share" / "flatpak" / "app", "/var/lib/flatpak/app"},
+        .downloads = DownloadedEmulators::under(dataDir).root(),
+        .fuse = std::move(fuse),
     };
 }
 
-Emulators Emulators::discover(const EmulatorSearch& search, const Commands& overrides) {
+EmulatorSetup EmulatorSetup::standard(const config::Config& config) {
+    return EmulatorSetup{
+        EmulatorCatalog::shipped(config.assetsDir, config.home),
+        EmulatorSearch::standard(config.home, config.dataDir, config.executablePath),
+        config.emulators};
+}
+
+Emulators Emulators::discover(EmulatorCatalog catalog, const EmulatorSearch& search,
+                              const Commands& overrides) {
     Emulators found;
-    found.search_ = search;
+    found.catalog_ = std::move(catalog);
     found.overrides_ = overrides;
-    for (const EmulatorRule& rule : rules) {
-        // An emulator already chosen for every system of this rule needs no search.
-        const bool needed = std::ranges::any_of(rule.systems, [&found](std::string_view system) {
-            return !found.commands_.contains(system);
-        });
-        if (!needed) {
+    for (const EmulatorEntry& entry : found.catalog_.entries()) {
+        std::optional<EmulatorInstall> install = locate(entry, search);
+        if (!install) {
             continue;
         }
-        std::optional<std::vector<std::string>> program = locate(rule, search);
-        if (!program) {
-            continue;
+        if (!install->problem.empty()) {
+            lucent::warn("roms", "{} at {} cannot start: {}", entry.name, install->where,
+                         install->problem);
         }
-        const std::vector<std::string> command = commandOf(std::move(*program), rule);
-        for (const std::string_view system : rule.systems) {
-            if (!found.commands_.contains(system)) {
-                lucent::info("roms", "{} runs {} games: {}", rule.name, system, command.front());
-                found.commands_.emplace(std::string{system}, command);
-                found.names_.emplace(std::string{system}, std::string{rule.name});
+        for (const std::string& system : entry.systems) {
+            if (install->problem.empty() && !found.commands_.contains(system)) {
+                lucent::info("roms", "{} runs {} games: {}", entry.name, system,
+                             install->command.front());
+                found.commands_.emplace(system, install->command);
+                found.names_.emplace(system, entry.name);
             }
         }
+        found.installs_.emplace(entry.id, std::move(*install));
     }
     for (const auto& [system, command] : overrides) {
         found.commands_.insert_or_assign(system, command);
         found.names_.insert_or_assign(system, std::string{customName});
     }
     return found;
+}
+
+const EmulatorInstall* Emulators::installed(std::string_view id) const {
+    const auto found = installs_.find(id);
+    return found == installs_.end() ? nullptr : &found->second;
 }
 
 std::optional<LaunchSpec> Emulators::launch(std::string_view system, const fs::path& rom) const {
@@ -218,37 +252,31 @@ std::vector<EmulatorOption> Emulators::options(std::string_view system, const fs
     std::vector<EmulatorOption> options;
     if (const auto custom = overrides_.find(system);
         custom != overrides_.end() && !custom->second.empty()) {
-        options.push_back(
-            EmulatorOption{std::string{customName}, true, specOf(custom->second, rom)});
+        options.push_back(EmulatorOption{
+            std::string{customName}, true, specOf(custom->second, rom), {}, false, {}});
     }
-    for (const EmulatorRule& rule : rules) {
-        if (std::ranges::find(rule.systems, system) == rule.systems.end()) {
+    for (const EmulatorEntry& entry : catalog_.entries()) {
+        if (!entry.serves(system)) {
             continue;
         }
-        auto listed = std::ranges::find(options, rule.name, &EmulatorOption::name);
-        if (listed == options.end()) {
-            options.push_back(EmulatorOption{std::string{rule.name}, false, {}});
-            listed = std::prev(options.end());
+        EmulatorOption option{entry.name, false, {}, entry.id, entry.release.has_value(), {}};
+        if (const EmulatorInstall* install = installed(entry.id)) {
+            option.problem = install->problem;
+            option.installed = install->problem.empty();
+            if (option.installed) {
+                option.launch = specOf(install->command, rom);
+            }
         }
-        // A second rule of one emulator (shadPS4's launcher and its own binary) only matters
-        // while the first found nothing.
-        if (listed->installed) {
-            continue;
-        }
-        if (std::optional<std::vector<std::string>> program = locate(rule, search_)) {
-            listed->installed = true;
-            listed->launch = specOf(commandOf(std::move(*program), rule), rom);
-        }
+        options.push_back(std::move(option));
     }
     return options;
 }
 
-std::vector<std::string_view> Emulators::candidates(std::string_view system) {
+std::vector<std::string_view> Emulators::candidates(std::string_view system) const {
     std::vector<std::string_view> names;
-    for (const EmulatorRule& rule : rules) {
-        if (std::ranges::find(rule.systems, system) != rule.systems.end() &&
-            std::ranges::find(names, rule.name) == names.end()) {
-            names.push_back(rule.name);
+    for (const EmulatorEntry& entry : catalog_.entries()) {
+        if (entry.serves(system)) {
+            names.emplace_back(entry.name);
         }
     }
     return names;

@@ -1,20 +1,25 @@
 // The Settings screen's controller and the folder editor under it, with the real preferences on a
 // scratch file: rows built from the saved settings, every change kept on disk, and the install
 // folders refused when they are missing or not writable.
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <unistd.h>
 
 #include "audio/sound_player.hpp"
 #include "audio/volume_backend.hpp"
+#include "installs.hpp"
 #include "path_editor.hpp"
 #include "preferences.hpp"
 #include "settings_controller.hpp"
 #include "shortcut_editor.hpp"
+#include "support/fake_steam.hpp"
 #include "ui/check.hpp"
 #include "volume_control.hpp"
 
@@ -67,8 +72,8 @@ class FakeMixer final : public audio::VolumeBackend {
 };
 
 struct Rig {
-    explicit Rig(const fs::path& root, bool mixer = true)
-        : file{root / "config" / "settings.json"}, config{defaults(root)},
+    explicit Rig(const fs::path& root, bool mixer = true, std::uint16_t steamPort = 1)
+        : file{root / "config" / "settings.json"}, config{defaults(root)}, devTools{steamPort},
           preferences{settings::Store{file},
                       [this](const std::string& why) {
                           failures.push_back(why);
@@ -94,7 +99,8 @@ struct Rig {
                              controller.refresh();
                          }},
           controller{page,
-                     app::SettingsController::Services{paths, shortcutEditor, volume, shortcuts},
+                     app::SettingsController::Services{paths, shortcutEditor, volume, shortcuts,
+                                                       emulatorSettings, steamLibrarySettings},
                      sounds,
                      preferences,
                      config,
@@ -113,14 +119,21 @@ struct Rig {
                               return std::vector<library::SourceChoice>{{"", "All sources"},
                                                                         {"launcher:epic", "Epic"}};
                           },
-                      .steamLibraries =
+                      .storeFolders =
                           [this] {
-                              return libraries;
+                              return app::Installs::ownFolders(
+                                  config, steamLibrarySettings.defaultLibrary());
                           },
                       .say =
                           [this](const std::string& text, bool error) {
                               said.push_back({text, error});
                           }}} {
+    }
+
+    static library::roms::EmulatorSearch downloadsIn(const fs::path& dir) {
+        library::roms::EmulatorSearch search;
+        search.downloads = dir;
+        return search;
     }
 
     static config::Config defaults(const fs::path& root) {
@@ -129,6 +142,7 @@ struct Rig {
         config.configDir = root / "config";
         config.dataDir = root / "data";
         config.cacheDir = root / "cache";
+        config.legendaryConfigDir = root / "legendary";
         return config;
     }
 
@@ -169,7 +183,9 @@ struct Rig {
     audio::SoundPlayer sounds;
     std::vector<std::string> failures;
     std::vector<Said> said;
-    std::vector<fs::path> libraries;
+    steam::DevTools devTools;
+    bool steamReady{false};
+    std::vector<library::steam::LibraryFolder> recorded;
     int applied{0};
     app::Preferences preferences;
     ui::SettingsPage page;
@@ -182,28 +198,64 @@ struct Rig {
     input::Shortcuts shortcuts;
     app::VolumeControl volume;
     app::ShortcutEditor shortcutEditor;
+    app::EmulatorDownloads downloads{
+        library::roms::EmulatorSetup{
+            library::roms::EmulatorCatalog::shipped(OPENSU_ASSETS_DIR, config.home),
+            downloadsIn(config.dataDir / "emulators"),
+            {}},
+        app::EmulatorDownloads::Hooks{[this](const std::string& text, bool error) {
+                                          said.push_back({text, error});
+                                      },
+                                      [] {
+                                      },
+                                      [] {
+                                      }}};
+    app::EmulatorSettings emulatorSettings{
+        downloads, preferences,
+        app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
+                                         said.push_back({text, error});
+                                     },
+                                     [] {
+                                     }}};
+    steam::Libraries steamLibraries{devTools};
+    app::SteamLibrarySettings steamLibrarySettings{
+        app::SteamLibrarySettings::Sources{steamLibraries,
+                                           [this] {
+                                               return steamReady;
+                                           },
+                                           [this] {
+                                               return recorded;
+                                           }},
+        paths, config.home,
+        app::SteamLibrarySettings::Hooks{[this](const std::string& text, bool error) {
+                                             said.push_back({text, error});
+                                         },
+                                         [this] {
+                                             controller.refresh();
+                                         }}};
     app::SettingsController controller;
 };
 
 void categoriesFollowTheSavedSettings(const fs::path& root) {
     Rig rig{root / "categories"};
-    rig.libraries = {"/mnt/games/SteamLibrary"};
+    rig.recorded = {library::steam::LibraryFolder{"/mnt/games/SteamLibrary", "", {{"10", 2048}}}};
     rig.controller.open();
     std::vector<std::string> names;
     for (const ui::SettingsCategory& category : rig.page.categories()) {
         names.push_back(category.label);
     }
-    expect(names == std::vector<std::string>{"Appearance", "Library", "Audio", "Controls",
+    expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators",
+                                             "Steam libraries", "Audio", "Controls",
                                              "Install folders", "About"},
-           "the six categories");
+           "the eight categories");
     expect(rig.controller.category() == "Appearance" && !rig.controller.changes(),
            "opens on Appearance with nothing to change yet");
-    rig.enter("Library");
-    std::size_t libraries = 0;
-    for (const ui::SettingsRow& row : rig.page.focusedCategory().rows) {
-        libraries += row.id == "steam.library" ? 1 : 0;
-    }
-    expect(libraries == 1, "each Steam library is a read-only row");
+    rig.enter("Steam libraries");
+    const auto& rows = rig.page.focusedCategory().rows;
+    expect(rows.size() == 2 && rows[0].label == "Steam is not running" &&
+               rows[1].kind == ui::RowKind::Info && rows[1].label == "/mnt/games/SteamLibrary" &&
+               rows[1].note == "1 game, 2.0 KB" && rows[1].value == "Not mounted",
+           "without Steam each recorded library is a read-only row, the page says why");
     rig.controller.close();
     expect(!rig.page.isOpen() && rig.controller.category().empty(), "closed");
 }
@@ -288,8 +340,15 @@ void installFoldersPersistPerStore(const fs::path& root) {
     fs::create_directories(epic);
     rig.controller.open();
     rig.enter("Install folders");
-    expect(rig.rowOf("install.default").value == "Each store's own", "no default at first");
-    expect(rig.rowOf("install.Epic").value == "Store's own", "and no store folder");
+    expect(rig.rowOf("install.default").value == "Not set: each store's own",
+           "no default at first");
+    expect(rig.rowOf("install.Epic").value == (rig.config.home / "Games").string() &&
+               rig.rowOf("install.Epic").note == "Epic's own default",
+           "Epic shows legendary's own default folder, marked as the store's");
+    expect(rig.rowOf("install.GOG").value == (rig.config.dataDir / "gog-games").string(),
+           "GOG shows where gogdl installs under openSU's data");
+    expect(rig.rowOf("install.Steam").value.starts_with("Steam's default library"),
+           "Steam's default is named as unknown while Steam is not running");
 
     rig.focus("install.default");
     rig.controller.act(Button::A);
@@ -298,8 +357,9 @@ void installFoldersPersistPerStore(const fs::path& root) {
     expect(rig.onDisk().installFolders.defaultFolder() == library, "the default is kept");
     expect(rig.onDisk().installFolders.effective(library::Source::Gog) == library,
            "a store follows it");
-    expect(rig.rowOf("install.Epic").value == "Default (" + library.string() + ")",
-           "the row says so");
+    expect(rig.rowOf("install.Epic").value == library.string() &&
+               rig.rowOf("install.Epic").note == "From the default install folder",
+           "the row shows the folder and that it is the default");
 
     rig.focus("install.Epic");
     rig.controller.act(Button::A);
@@ -547,6 +607,117 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
            "restore puts every shortcut back");
 }
 
+bool hasCall(const test::FakeSteam& steam, const std::string& part) {
+    for (const std::string& call : steam.calls()) {
+        if (call.find(part) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Hands the loop the Steam worker's answers until `done` holds.
+template <class Done> void settle(Rig& rig, Done done, const char* what = "Steam answers") {
+    const auto until = std::chrono::steady_clock::now() + std::chrono::seconds{10};
+    while (!done() && std::chrono::steady_clock::now() < until) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+        rig.controller.service();
+    }
+    expect(done(), what);
+}
+
+void steamLibrariesWhileSteamRuns(const fs::path& root) {
+    using nlohmann::json;
+    std::mutex mutex;
+    int defaultIndex = 1;
+    test::FakeSteam steam{[&](const std::string& expression) -> json {
+        const std::lock_guard lock{mutex};
+        if (expression.find("SetDefaultInstallFolder(") != std::string::npos) {
+            defaultIndex = expression[expression.find('(') + 1] - '0';
+        }
+        if (expression.find("GetInstallFolders") == std::string::npos) {
+            return json{};
+        }
+        return json::array({{{"nFolderIndex", 0},
+                             {"strFolderPath", "/home/p/.local/share/Steam"},
+                             {"nFreeSpace", "2048"},
+                             {"nCapacity", "4096"},
+                             {"bIsDefaultFolder", defaultIndex == 0},
+                             {"vecApps", json::array({{{"nAppID", 220}, {"nAppSize", "1024"}}})}},
+                            {{"nFolderIndex", 1},
+                             {"strFolderPath", "/mnt/empty"},
+                             {"bIsDefaultFolder", defaultIndex == 1},
+                             {"vecApps", json::array()}},
+                            {{"nFolderIndex", 2},
+                             {"strFolderPath", "/mnt/games"},
+                             {"bIsDefaultFolder", defaultIndex == 2},
+                             {"vecApps", json::array({{{"nAppID", 1}, {"nAppSize", 10}}})}}});
+    }};
+    Rig rig{root, true, steam.port()};
+    rig.steamReady = true;
+    rig.controller.open();
+    rig.enter("Steam libraries");
+    settle(rig, [&rig] {
+        return rig.page.focusedCategory().rows.size() == 6;
+    });
+    expect(rig.rowOf("steamLibraries.library.0").note == "1 game, 1.0 KB · 2.0 KB free of 4.0 KB" &&
+               rig.rowOf("steamLibraries.library.1").value == "Default" &&
+               rig.rowOf("steamLibraries.library.2").value == "Make default",
+           "each library shows its games, size, free space and whether it is the default");
+    expect(rig.rowOf("steamLibraries.remove.2").note.find("1 game") != std::string::npos,
+           "a library with games says why it cannot be removed");
+
+    rig.focus("steamLibraries.library.2");
+    rig.controller.act(Button::A);
+    settle(rig, [&rig] {
+        return rig.rowOf("steamLibraries.library.2").value == "Default";
+    });
+    expect(hasCall(steam, "SetDefaultInstallFolder(2)"), "A makes a library the default");
+    rig.controller.close();
+    rig.controller.openCategory("installs");
+    rig.page.enterRows();
+    expect(rig.rowOf("install.Steam").value == "/mnt/games" &&
+               rig.rowOf("install.Steam").note.starts_with("Steam's own default"),
+           "the Install folders page shows Steam's default library as Steam's own");
+    rig.controller.close();
+    rig.controller.open();
+    rig.enter("Steam libraries");
+    settle(rig, [&rig] {
+        return rig.page.focusedCategory().rows.size() == 6;
+    });
+
+    rig.focus("steamLibraries.remove.2");
+    rig.controller.act(Button::A);
+    expect(!rig.said.empty() && rig.said.back().error &&
+               rig.said.back().text.find("uninstall or move them") != std::string::npos &&
+               !hasCall(steam, "RemoveInstallFolder"),
+           "removing a library with games is refused with the reason");
+    rig.focus("steamLibraries.remove.1");
+    rig.controller.act(Button::A);
+    expect(rig.rowOf("steamLibraries.remove.1").value == "Press again to remove" &&
+               !hasCall(steam, "RemoveInstallFolder"),
+           "an empty library asks for a second press");
+    rig.controller.act(Button::A);
+    settle(
+        rig,
+        [&steam] {
+            return hasCall(steam, "RemoveInstallFolder(1)");
+        },
+        "the second press removes the empty library");
+
+    const fs::path added = root / "new-library";
+    fs::create_directories(added);
+    rig.focus("steamLibraries.add");
+    rig.controller.act(Button::A);
+    choose(rig, added);
+    settle(
+        rig,
+        [&steam, &added] {
+            return hasCall(steam, "AddInstallFolder(\"" + added.string() + "\")");
+        },
+        "a chosen folder is added as a library");
+}
+
 } // namespace
 
 int main() {
@@ -564,6 +735,7 @@ int main() {
     withoutAMixerTheRowSaysHow(root);
     interfaceSizeCycles(root);
     shortcutsAreRemappedAndKept(root);
+    steamLibrariesWhileSteamRuns(root / "steam");
     fs::remove_all(root);
     std::printf("settings_controller: all checks passed\n");
     return 0;

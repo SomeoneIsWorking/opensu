@@ -1,6 +1,6 @@
 // details_controller — the details page's buttons and what they do: play or install the game, pick
-// its emulator, hide it, go back. Opens for the focused game and keeps what it shows current while
-// the library changes under it.
+// its emulator, download the emulator it is missing, hide it, go back. Opens for the focused game
+// and keeps what it shows current while the library changes under it.
 #pragma once
 
 #include <functional>
@@ -8,6 +8,7 @@
 #include <string>
 
 #include "audio/sound_player.hpp"
+#include "emulator_downloads.hpp"
 #include "gamepad/event.hpp"
 #include "library/game.hpp"
 #include "preferences.hpp"
@@ -29,11 +30,14 @@ class DetailsController {
         std::function<void(const library::Game& game, bool hidden)> setHidden;
         /// Runs ROM `game` on emulator `name` from now on.
         std::function<void(const library::Game& game, const std::string& name)> chooseEmulator;
+        /// Tells the player something; `error` marks a refusal.
+        std::function<void(const std::string& text, bool error)> say;
     };
 
     DetailsController(ui::DetailsPage& page, audio::SoundPlayer& sounds,
-                      const Preferences& preferences, Hooks hooks)
-        : page_{page}, sounds_{sounds}, preferences_{preferences}, hooks_{std::move(hooks)} {
+                      const Preferences& preferences, EmulatorDownloads& downloads, Hooks hooks)
+        : page_{page}, sounds_{sounds}, preferences_{preferences}, downloads_{downloads},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the page for the focused game; nothing when no game has focus.
@@ -50,10 +54,13 @@ class DetailsController {
     void run(ui::DetailsAction action);
     /// Picks the emulator `delta` places along the game's list, wrapping.
     void cycleEmulator(const library::Game& game, int delta);
+    /// Starts downloading the emulator `game` is missing, or cancels its download.
+    void downloadEmulator(const library::Game& game);
 
     ui::DetailsPage& page_;
     audio::SoundPlayer& sounds_;
     const Preferences& preferences_;
+    EmulatorDownloads& downloads_;
     Hooks hooks_;
 };
 

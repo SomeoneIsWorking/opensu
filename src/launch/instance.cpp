@@ -75,6 +75,10 @@ bool Instance::start(const std::string& unit, const std::string& program,
         return false;
     }
     if (pid == 0) {
+        // The program starts with no signal blocked, whatever this thread blocks.
+        sigset_t none;
+        sigemptyset(&none);
+        sigprocmask(SIG_SETMASK, &none, nullptr);
         execvp("systemd-run", argv.data());
         std::_Exit(127);
     }

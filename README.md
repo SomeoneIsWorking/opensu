@@ -167,6 +167,21 @@ Ryujinx, PCSX2, RPCS3, shadPS4, DuckStation, PPSSPP, melonDS, Azahar, mGBA, xemu
 Canary. A game whose system has no emulator still appears, and pressing play names the
 emulator to install.
 
+Emulators that publish an official AppImage (Cemu, Eden, PCSX2, RPCS3, DuckStation, PPSSPP,
+Azahar, mGBA, xemu) can be downloaded from a ROM's details page ("Download <emulator>") or from
+Settings › Emulators, into `~/.local/share/opensu/emulators/<id>/`. A download is checked against
+the release's published SHA-256 and refused on a mismatch; without one, only HTTPS from the
+project's own host is accepted and the checksum seen is recorded. Settings › Emulators also
+checks for updates (nothing updates by itself), removes openSU's AppImages and picks the
+emulator for each system. openSU links no BIOS, keys or firmware. An AppImage needs FUSE
+(`/dev/fuse`, `fusermount`); one built on the older runtime also needs libfuse2, and openSU
+names the package to install when it is missing.
+
+Settings › Steam libraries lists Steam's libraries with free space and games, adds one, sets
+the default and removes an empty one; it is read-only while Steam is not running. Settings ›
+Install folders shows the folder each store installs into and whether it is the store's own,
+the default or an override.
+
 ## Signing in to GOG and Epic
 
 Sign-in happens in your own browser, on the store's own page. openSU opens the page with

@@ -1,10 +1,13 @@
 // emulators — which emulator starts each system's games on this machine, and how.
 //
-// An emulator is found as a program on PATH, an AppImage in one of the usual folders, or an
-// installed Flatpak, in that order; the first emulator of a system's list that is found serves
-// it. An override from configuration replaces the search for its system.
+// The emulators are the catalog's (`emulator_catalog`). One is installed when openSU downloaded
+// its AppImage, or, for each of its launchers in turn, a program of it is on PATH, an AppImage of
+// it is in one of the usual folders, or its Flatpak is installed; the first found is the one that
+// runs. The first emulator of the catalog found for a system serves it, and an override from
+// configuration replaces the search for its system.
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <optional>
@@ -12,6 +15,10 @@
 #include <string_view>
 #include <vector>
 
+#include "appimage_runtime.hpp"
+#include "config/config.hpp"
+#include "downloaded_emulators.hpp"
+#include "emulator_catalog.hpp"
 #include "game.hpp"
 
 namespace opensu::library::roms {
@@ -22,11 +29,44 @@ struct EmulatorSearch {
     std::vector<std::filesystem::path> appImageDirs;
     /// Flatpak installations' `app` directories.
     std::vector<std::filesystem::path> flatpakDirs;
+    /// openSU's own downloads; empty for none.
+    std::filesystem::path downloads;
+    /// Whether AppImages can start here.
+    FuseSupport fuse;
 
-    /// PATH, then ~/Applications, ~/AppImages and ~/.local/bin for AppImages, then the user's
-    /// and the system's Flatpak installations.
+    /// PATH, then openSU's downloads under `dataDir`, ~/Applications, ~/AppImages and
+    /// ~/.local/bin for AppImages, then the user's and the system's Flatpak installations.
     [[nodiscard]] static EmulatorSearch standard(const std::filesystem::path& home,
+                                                 const std::filesystem::path& dataDir,
                                                  std::vector<std::filesystem::path> executablePath);
+};
+
+/// How an emulator got onto this machine.
+enum class InstallSource : std::uint8_t {
+    /// A program on PATH: a system package or the player's own build.
+    Program,
+    /// An AppImage the player put in one of the usual folders.
+    AppImage,
+    /// An AppImage openSU downloaded.
+    Downloaded,
+    Flatpak,
+};
+
+/// The source's name as the player reads it.
+[[nodiscard]] std::string_view label(InstallSource source);
+
+/// An emulator found here.
+struct EmulatorInstall {
+    std::string id;
+    InstallSource source{InstallSource::Program};
+    /// The program, the AppImage, or the Flatpak's app id.
+    std::string where;
+    /// Empty when the source does not say.
+    std::string version;
+    /// The program and its words, `{rom}` where the game goes.
+    std::vector<std::string> command;
+    /// Why it cannot start here, with what fixes it; empty when it can.
+    std::string problem;
 };
 
 class Emulators {
@@ -35,12 +75,19 @@ class Emulators {
     /// appended when no word holds it.
     using Commands = std::map<std::string, std::vector<std::string>, std::less<>>;
 
-    /// Finds an emulator for every system it can. `overrides` are keyed by system ("ps2").
-    [[nodiscard]] static Emulators discover(const EmulatorSearch& search,
+    /// Finds the catalog's emulators. `overrides` are keyed by system ("ps2").
+    [[nodiscard]] static Emulators discover(EmulatorCatalog catalog, const EmulatorSearch& search,
                                             const Commands& overrides);
 
+    [[nodiscard]] const EmulatorCatalog& catalog() const noexcept {
+        return catalog_;
+    }
+
+    /// The emulator `id` as found here, or nothing when it is not installed.
+    [[nodiscard]] const EmulatorInstall* installed(std::string_view id) const;
+
     /// Every emulator of `system`, each as it would start `rom`: installed or not, in the order
-    /// the search prefers them. A configured override is listed first as "Custom".
+    /// the catalog lists them. A configured override is listed first as "Custom".
     [[nodiscard]] std::vector<EmulatorOption> options(std::string_view system,
                                                       const std::filesystem::path& rom) const;
 
@@ -52,17 +99,34 @@ class Emulators {
                                                    const std::filesystem::path& rom) const;
 
     /// The emulators that would serve `system`, for telling the player what to install.
-    [[nodiscard]] static std::vector<std::string_view> candidates(std::string_view system);
+    [[nodiscard]] std::vector<std::string_view> candidates(std::string_view system) const;
 
     /// The name an override from configuration is listed under.
     static constexpr std::string_view customName = "Custom";
 
   private:
-    EmulatorSearch search_;
+    EmulatorCatalog catalog_;
     Commands overrides_;
+    /// The installed emulators by id.
+    std::map<std::string, EmulatorInstall, std::less<>> installs_;
     Commands commands_;
     /// The emulator found for each system, by name.
     std::map<std::string, std::string, std::less<>> names_;
+};
+
+/// What a search for emulators needs: the catalog, where to look, the configured overrides.
+struct EmulatorSetup {
+    EmulatorCatalog catalog;
+    EmulatorSearch search;
+    Emulators::Commands overrides;
+
+    /// The standard search for `config`, with the catalog shipped in its assets folder.
+    [[nodiscard]] static EmulatorSetup standard(const config::Config& config);
+
+    /// Searches now; what is installed changes as the player installs and removes.
+    [[nodiscard]] Emulators discover() const {
+        return Emulators::discover(catalog, search, overrides);
+    }
 };
 
 } // namespace opensu::library::roms

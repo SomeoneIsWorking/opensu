@@ -2,6 +2,8 @@
 
 #include <utility>
 
+#include "library/epic.hpp"
+#include "library/gog_installs.hpp"
 #include "settings/install_folders.hpp"
 
 namespace opensu::app {
@@ -15,6 +17,18 @@ Installs::Installs(steam::Client& steam, std::string legendary, GogInstallJob::O
 bool Installs::supports(library::Source source) noexcept {
     return source == library::Source::Steam || source == library::Source::Epic ||
            source == library::Source::Gog;
+}
+
+settings::StoreFolders Installs::ownFolders(const config::Config& config,
+                                            std::optional<std::filesystem::path> steamDefault) {
+    settings::StoreFolders own{
+        {library::Source::Gog, library::gog::Paths::under(config.dataDir).games},
+        {library::Source::Epic,
+         library::epic::legendaryInstallDir(config.legendaryConfigDir, config.home)}};
+    if (steamDefault) {
+        own.emplace(library::Source::Steam, std::move(*steamDefault));
+    }
+    return own;
 }
 
 std::string Installs::folderRefusal(library::Source store) const {

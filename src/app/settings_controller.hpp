@@ -11,12 +11,15 @@
 
 #include "audio/sound_player.hpp"
 #include "config/config.hpp"
+#include "emulator_settings.hpp"
 #include "gamepad/event.hpp"
 #include "input/shortcuts.hpp"
 #include "library/library_query.hpp"
 #include "path_editor.hpp"
 #include "preferences.hpp"
+#include "settings/install_folders.hpp"
 #include "shortcut_editor.hpp"
+#include "steam_library_settings.hpp"
 #include "ui/settings_page.hpp"
 #include "volume_control.hpp"
 
@@ -35,8 +38,8 @@ class SettingsController {
         std::function<void()> reloadCatalog;
         /// The sources the source filter cycles through.
         std::function<std::vector<library::SourceChoice>()> sourceChoices;
-        /// The Steam libraries the client has now.
-        std::function<std::vector<std::filesystem::path>()> steamLibraries;
+        /// Where each store installs when no folder is set, as far as it is known now.
+        std::function<settings::StoreFolders()> storeFolders;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
     };
@@ -47,14 +50,17 @@ class SettingsController {
         ShortcutEditor& shortcutEditor;
         VolumeControl& volume;
         const input::Shortcuts& shortcuts;
+        EmulatorSettings& emulators;
+        SteamLibrarySettings& steamLibraries;
     };
 
     /// `defaults` is the environment's configuration, which the settings override.
     SettingsController(ui::SettingsPage& page, Services services, audio::SoundPlayer& sounds,
                        Preferences& preferences, const config::Config& defaults, Hooks hooks)
         : page_{page}, paths_{services.paths}, shortcutEditor_{services.shortcutEditor},
-          volume_{services.volume}, shortcuts_{services.shortcuts}, sounds_{sounds},
-          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
+          volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
+          steamLibraries_{services.steamLibraries}, sounds_{sounds}, preferences_{preferences},
+          defaults_{defaults}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -69,6 +75,8 @@ class SettingsController {
     void chooseLevel(int level);
     /// Shows the rows again after something outside the screen changed one.
     void refresh();
+    /// Takes what the Steam libraries' worker finished. Main loop only.
+    void service();
     /// The pad goes back to the list of categories; the trail's "Settings" level does this.
     void showCategories();
     /// The focused category's name, or empty when the screen is closed.
@@ -102,12 +110,12 @@ class SettingsController {
     ShortcutEditor& shortcutEditor_;
     VolumeControl& volume_;
     const input::Shortcuts& shortcuts_;
+    EmulatorSettings& emulators_;
+    SteamLibrarySettings& steamLibraries_;
     audio::SoundPlayer& sounds_;
     Preferences& preferences_;
     const config::Config& defaults_;
     Hooks hooks_;
-    /// The Steam libraries as of the screen opening or a Steam folder changing.
-    std::vector<std::filesystem::path> libraries_;
 };
 
 } // namespace opensu::app

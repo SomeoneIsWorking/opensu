@@ -24,7 +24,7 @@ standardMountDirs(const std::filesystem::path& home);
 
 class Provider final : public library::Provider {
   public:
-    Provider(std::vector<std::filesystem::path> roots, Emulators emulators, NameDb names);
+    Provider(std::vector<std::filesystem::path> roots, EmulatorSetup emulators, NameDb names);
 
     [[nodiscard]] Source source() const override {
         return Source::Rom;
@@ -33,6 +33,7 @@ class Provider final : public library::Provider {
     /// Every game in every known system's folder under the roots, titled from its name with the
     /// dump tags cleaned off, and an arcade game from the kept listing when it has its short name.
     /// A game whose system has no emulator is listed, with `unavailable` naming what to install.
+    /// The emulators are searched for on every call, so one installed since shows.
     [[nodiscard]] std::vector<Game> list() override;
 
     [[nodiscard]] const std::vector<std::filesystem::path>& roots() const noexcept {
@@ -41,7 +42,7 @@ class Provider final : public library::Provider {
 
   private:
     std::vector<std::filesystem::path> roots_;
-    Emulators emulators_;
+    EmulatorSetup emulators_;
     NameDb names_;
 };
 

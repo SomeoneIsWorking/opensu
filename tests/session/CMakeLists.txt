@@ -20,3 +20,7 @@ target_include_directories(login_session_test PRIVATE "${CMAKE_SOURCE_DIR}/tests
 add_test(NAME login_session COMMAND login_session_test)
 set_tests_properties(login_session PROPERTIES TIMEOUT 120)
 target_compile_definitions(login_session_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+
+# Not a test: tools/nested_remap's restart check runs it inside a headless KWin.
+add_executable(nested_session_driver nested_session_driver.cpp)
+target_link_libraries(nested_session_driver PRIVATE opensu::session opensu::config lucent::lucent)

@@ -1,0 +1,79 @@
+// emulator_catalog — the emulators openSU knows, read from the shipped `emulators.json`: which
+// systems each runs, how it is found and started on this machine, where it keeps its settings,
+// and, for one that publishes an official AppImage, where its releases are.
+#pragma once
+
+#include <filesystem>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace opensu::library::roms {
+
+/// One way an emulator is installed and started.
+struct EmulatorLauncher {
+    /// Program names on PATH.
+    std::vector<std::string> programs;
+    /// AppImage file names start with this, compared lower-case with only letters and digits.
+    std::string appImage;
+    /// The Flatpak app id; empty when there is none.
+    std::string flatpak;
+    /// The words after the program, `{rom}` where the game's file goes.
+    std::vector<std::string> args;
+};
+
+/// Where an emulator's official releases are published.
+struct ReleaseSource {
+    /// The latest release as GitHub's or Forgejo's release JSON.
+    std::string api;
+    /// The asset to download, as an ECMAScript regular expression over its file name.
+    std::string asset;
+    /// Every download URL must start with this: the project's own release host and path.
+    std::string downloads;
+};
+
+struct EmulatorEntry {
+    /// Stable key: the download folder's name and the settings' spelling.
+    std::string id;
+    std::string name;
+    std::vector<std::string> systems;
+    /// Where the emulator keeps its own settings; empty when not known.
+    std::filesystem::path config;
+    /// In the order they are looked for. A downloaded AppImage runs with the first one's words.
+    std::vector<EmulatorLauncher> launchers;
+    /// Absent for an emulator without an official AppImage.
+    std::optional<ReleaseSource> release;
+
+    [[nodiscard]] bool serves(std::string_view system) const;
+};
+
+class EmulatorCatalog {
+  public:
+    EmulatorCatalog() = default;
+    explicit EmulatorCatalog(std::vector<EmulatorEntry> entries) : entries_{std::move(entries)} {
+    }
+
+    /// The catalog in `json`, with `~` in a config path meaning `home`. Nothing, with `error`
+    /// naming the entry and field, when it is malformed.
+    [[nodiscard]] static std::optional<EmulatorCatalog>
+    parse(std::string_view json, const std::filesystem::path& home, std::string& error);
+
+    /// The catalog shipped in `assetsDir`; empty, with the reason logged, when it cannot be read.
+    [[nodiscard]] static EmulatorCatalog shipped(const std::filesystem::path& assetsDir,
+                                                 const std::filesystem::path& home);
+
+    [[nodiscard]] const std::vector<EmulatorEntry>& entries() const noexcept {
+        return entries_;
+    }
+    [[nodiscard]] const EmulatorEntry* find(std::string_view id) const;
+    [[nodiscard]] const EmulatorEntry* findByName(std::string_view name) const;
+
+  private:
+    std::vector<EmulatorEntry> entries_;
+};
+
+/// The shipped catalog's file name in the assets folder.
+inline constexpr std::string_view catalogFile = "emulators.json";
+
+} // namespace opensu::library::roms

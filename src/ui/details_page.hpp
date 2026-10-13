@@ -21,6 +21,8 @@ enum class DetailsAction : std::uint8_t {
     Launch,
     /// Choose the next emulator for a ROM.
     Emulator,
+    /// Download the emulator a ROM is missing, or cancel its download.
+    DownloadEmulator,
     /// Hide the game, or show it again.
     Hidden,
     Back,
@@ -60,9 +62,15 @@ struct DetailsView {
 lastPlayedText(const std::optional<std::chrono::system_clock::time_point>& at,
                std::chrono::system_clock::time_point now);
 
-/// What the page shows for `game`; `hidden` is whether the player hid it.
+/// The emulator a ROM that cannot start can download: its pick when that is missing and openSU
+/// can download it, else the first such emulator of its system; null for none.
+[[nodiscard]] const library::EmulatorOption* emulatorToDownload(const library::Game& game);
+
+/// What the page shows for `game`; `hidden` is whether the player hid it. `download` is what the
+/// Download button reads beside its label: the running download's progress, or empty.
 [[nodiscard]] DetailsView detailsFor(const library::Game& game, bool hidden,
-                                     std::chrono::system_clock::time_point now);
+                                     std::chrono::system_clock::time_point now,
+                                     const std::string& download = {});
 
 /// The page and its buttons in pixels.
 struct DetailsLayout {

@@ -7,24 +7,35 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <optional>
 #include <string>
 
+#include <elf.h>
 #include <unistd.h>
+
+#include "library/appimage_runtime.hpp"
+#include "library/downloaded_emulators.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
 using opensu::library::Game;
+using opensu::library::roms::EmulatorCatalog;
 using opensu::library::roms::Emulators;
 using opensu::library::roms::EmulatorSearch;
+using opensu::library::roms::EmulatorSetup;
 using opensu::library::roms::gameFile;
 using opensu::library::roms::NameDb;
 using opensu::library::roms::NameMap;
 using opensu::library::roms::Provider;
 using opensu::library::roms::systemForFolder;
+
+EmulatorCatalog shipped() {
+    return EmulatorCatalog::shipped(OPENSU_ASSETS_DIR, "/home/p");
+}
 
 [[noreturn]] void fail(const char* what) {
     std::fprintf(stderr, "FAIL: %s\n", what);
@@ -151,7 +162,7 @@ void emulatorsAreFound(const Fixture& f) {
     fs::create_directories(flatpaks / "org.duckstation.DuckStation");
     const EmulatorSearch search{
         .executablePath = {bin}, .appImageDirs = {appImages}, .flatpakDirs = {flatpaks}};
-    const Emulators emulators = Emulators::discover(search, {{"gb", {"mygb", "--rom"}}});
+    const Emulators emulators = Emulators::discover(shipped(), search, {{"gb", {"mygb", "--rom"}}});
 
     const auto gc = emulators.launch("gc", "/g.rvz");
     expect(gc && gc->program == (bin / "dolphin-emu").string() &&
@@ -191,7 +202,7 @@ void providerLists(const Fixture& f) {
     const fs::path cache = f.base / "cache";
     const NameDb names = NameDb::under(cache);
     Provider provider{
-        {f.root}, Emulators::discover(EmulatorSearch{.executablePath = {bin}}, {}), names};
+        {f.root}, EmulatorSetup{shipped(), EmulatorSearch{.executablePath = {bin}}, {}}, names};
     const std::vector<Game> before = provider.list();
     expect(find(before, "sf2") != nullptr && find(before, "unlisted") != nullptr,
            "an arcade short name is its own title until the listing is kept");
@@ -229,6 +240,95 @@ void providerLists(const Fixture& f) {
            "artwork is looked up by the file or folder name, tags kept");
 }
 
+/// An AppImage whose runtime is a minimal ELF; `classic` puts libfuse.so.2 in the runtime, as the
+/// runtime that loads it does.
+void writeAppImage(const fs::path& path, bool classic) {
+    Elf64_Ehdr header{};
+    std::copy_n(ELFMAG, SELFMAG, header.e_ident);
+    header.e_ident[EI_CLASS] = ELFCLASS64;
+    header.e_shoff = 64;
+    header.e_shentsize = 64;
+    header.e_shnum = 2;
+    std::string bytes(4096, '\0');
+    std::memcpy(bytes.data(), &header, sizeof header);
+    if (classic) {
+        bytes.replace(100, 12, "libfuse.so.2");
+    } else {
+        // Past the runtime: the filesystem image may name anything.
+        bytes.replace(1000, 12, "libfuse.so.2");
+    }
+    fs::create_directories(path.parent_path());
+    std::ofstream{path, std::ios::binary} << bytes;
+    fs::permissions(path, fs::perms::owner_all);
+}
+
+void downloadsMergeWithDetected(const Fixture& f) {
+    using opensu::library::roms::DownloadedEmulator;
+    using opensu::library::roms::DownloadedEmulators;
+    using opensu::library::roms::FuseSupport;
+    using opensu::library::roms::InstallSource;
+    const fs::path bin = f.base / "merge-bin";
+    const fs::path appImages = f.base / "merge-AppImages";
+    const fs::path flatpaks = f.base / "merge-flatpak";
+    const fs::path downloads = f.base / "merge-emulators";
+    writeExecutable(bin / "mgba-qt");
+    const DownloadedEmulators store{downloads};
+    const fs::path ours = store.versionDir("mgba", "42") / "mGBA-0.10.5-appimage-x64.appimage";
+    writeAppImage(ours, false);
+    std::string error;
+    expect(store.install(DownloadedEmulator{"mgba", "0.10.5", "42", ours, "ab", 4096,
+                                            opensu::library::roms::Verification::Observed, "u"},
+                         error),
+           "the download is recorded");
+    writeAppImage(appImages / "PPSSPP-v1.20-anylinux-x86_64.AppImage", true);
+    writeAppImage(appImages / "Cemu-2.6-x86_64.AppImage", false);
+    const fs::path metainfo =
+        flatpaks / "app.xemu.xemu" / "current" / "active" / "files" / "share" / "metainfo";
+    fs::create_directories(metainfo);
+    std::ofstream{metainfo / "app.xemu.xemu.metainfo.xml"}
+        << R"(<component><releases><release version="0.8.136" date="2026-01-01"/>)"
+        << R"(<release version="0.8.100"/></releases></component>)";
+
+    EmulatorSearch search{.executablePath = {bin},
+                          .appImageDirs = {appImages},
+                          .flatpakDirs = {flatpaks},
+                          .downloads = downloads,
+                          .fuse = FuseSupport{.libfuse2 = false, .distro = "fedora"}};
+    const Emulators found = Emulators::discover(shipped(), search, {});
+
+    const auto* mgba = found.installed("mgba");
+    expect(mgba != nullptr && mgba->source == InstallSource::Downloaded &&
+               mgba->version == "0.10.5" && mgba->where == ours.string(),
+           "openSU's download is the mGBA that runs, ahead of the package on PATH");
+    const auto gba = found.launch("gba", "/g.gba");
+    expect(gba && gba->program == ours.string() &&
+               gba->args == std::vector<std::string>{"-f", "/g.gba"},
+           "and starts with the catalog's words");
+
+    const auto* ppsspp = found.installed("ppsspp");
+    expect(ppsspp != nullptr && ppsspp->source == InstallSource::AppImage &&
+               ppsspp->problem.find("sudo dnf install fuse-libs") != std::string::npos,
+           "an AppImage whose runtime needs a missing libfuse2 names the install command");
+    expect(!found.launch("psp", "/p.iso"), "and runs nothing");
+    const auto psp = found.options("psp", "/p.iso");
+    expect(psp.size() == 1 && !psp[0].installed && !psp[0].problem.empty() && psp[0].downloadable &&
+               psp[0].id == "ppsspp",
+           "its option says why it cannot start and that it can be downloaded");
+
+    const auto* cemu = found.installed("cemu");
+    expect(cemu != nullptr && cemu->problem.empty(),
+           "a runtime with FUSE inside starts without libfuse2");
+    const auto* xemu = found.installed("xemu");
+    expect(xemu != nullptr && xemu->source == InstallSource::Flatpak && xemu->version == "0.8.136",
+           "a Flatpak's version is its newest release in the metainfo");
+    expect(
+        opensu::library::roms::needsLibfuse2(appImages / "PPSSPP-v1.20-anylinux-x86_64.AppImage") &&
+            !opensu::library::roms::needsLibfuse2(ours),
+        "only the runtime is read for libfuse.so.2");
+    expect(opensu::library::roms::libfuse2Install("ubuntu debian").starts_with("sudo apt"),
+           "Debian family gets apt");
+}
+
 } // namespace
 
 int main() {
@@ -238,6 +338,7 @@ int main() {
     rootsAreDiscovered(fixture);
     emulatorsAreFound(fixture);
     providerLists(fixture);
+    downloadsMergeWithDetected(fixture);
     std::printf("roms: all checks passed\n");
     return 0;
 }
