@@ -13,6 +13,8 @@ add_library(opensu_library STATIC
     roms.cpp
     rom_systems.cpp
     rom_titles.cpp
+    param_sfo.cpp
+    dump_info.cpp
     arcade_names.cpp
     shelf.cpp
     library_query.cpp

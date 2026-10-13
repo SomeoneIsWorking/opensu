@@ -5,6 +5,7 @@
 #include <string>
 #include <system_error>
 
+#include "dump_info.hpp"
 #include "lucent/log.h"
 #include "rom_systems.hpp"
 #include "rom_titles.hpp"
@@ -63,15 +64,15 @@ std::string entryName(const fs::path& entry, bool isFile) {
     return isFile ? entry.stem().string() : entry.filename().string();
 }
 
-/// The title of the entry: the arcade listing's description for a short name it knows, else the
-/// name itself, cleaned of its dump tags.
-std::string titleOf(const std::string& name, const NameMap* arcade) {
+/// The name the game is listed under: the arcade listing's description for a short name it
+/// knows, which also names its box art, else the entry's own name.
+std::string listedName(const std::string& name, const NameMap* arcade) {
     if (arcade != nullptr) {
         if (const auto found = arcade->find(lowerAscii(name)); found != arcade->end()) {
-            return cleanTitle(found->second);
+            return found->second;
         }
     }
-    return cleanTitle(name);
+    return name;
 }
 
 std::string missingEmulator(const RomSystem& system, const Emulators& emulators) {
@@ -148,8 +149,15 @@ std::vector<Game> Provider::list() {
                 game.source = Source::Rom;
                 game.sourceId = std::string{system->key};
                 const std::string name = entryName(entry, fs::is_regular_file(entry, ec));
-                game.title = titleOf(name, system->key == "arcade" ? &arcade : nullptr);
-                game.artworkKey = name;
+                const std::string listed =
+                    listedName(name, system->key == "arcade" ? &arcade : nullptr);
+                const std::optional<DumpInfo> dump = readDumpInfo(*system, entry);
+                const bool titled = dump && !dump->title.empty();
+                game.title = titled ? dump->title : cleanTitle(listed);
+                game.artworkKey = titled ? dump->title : listed;
+                if (dump) {
+                    game.artwork = dump->icon;
+                }
                 game.file = *file;
                 // The file itself is what makes the entry playable.
                 game.installed = true;

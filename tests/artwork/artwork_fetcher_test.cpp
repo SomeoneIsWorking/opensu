@@ -146,6 +146,16 @@ class FakeSources {
                     "Super%20Mario%20Sunshine%20(USA).png") {
             return lucent::http::Response::binary(200, "OK", "image/png", "sunshine box");
         }
+        if (path == "/libretro/MAME/Named_Boxarts/") {
+            return lucent::http::Response::text(
+                200, "OK",
+                R"(<a href="Street%20Fighter%20II_%20The%20World%20Warrior%20(Japan%20911210).png">x</a>)"
+                R"(<a href="Street%20Fighter%20II_%20The%20World%20Warrior%20(World%20910522).png">x</a>)");
+        }
+        if (path == "/libretro/MAME/Named_Boxarts/"
+                    "Street%20Fighter%20II_%20The%20World%20Warrior%20(World%20910522).png") {
+            return lucent::http::Response::binary(200, "OK", "image/png", "sf2 flyer");
+        }
         return lucent::http::Response::text(404, "Not Found", "");
     }
 
@@ -254,6 +264,17 @@ void testArcadeNames(const fs::path& root) {
     expect(waitFor(fetcher).empty() && !refused.cached(), "a listing off its pin is not kept");
 }
 
+void testArcadeBoxArt(const fs::path& root) {
+    FakeSources sources;
+    ArtworkStore store{root};
+    const Game sf2 = game(Source::Rom, "rom:sf2", "arcade",
+                          "Street Fighter II: The World Warrior (World 910522)");
+    ArtworkFetcher fetcher{store, {.libretro = sources.base() + "/libretro"}};
+    fetcher.request({sf2}, {}, {});
+    expect(waitFor(fetcher).size() == 1 && read(store.pathFor(sf2)) == "sf2 flyer",
+           "an arcade game gets the MAME box art its listed description names");
+}
+
 void testUnreachable(const fs::path& root) {
     ArtworkStore store{root};
     // Port 9 is discard; nothing listens on loopback there.
@@ -334,6 +355,7 @@ int main() {
         fs::remove_all(root);
         testFetches(root / "fetch");
         testArcadeNames(root / "names");
+        testArcadeBoxArt(root / "arcade");
         testUnreachable(root / "offline");
         testStages(root / "stages");
         testShelfPicksUpLateArtwork(root / "late");

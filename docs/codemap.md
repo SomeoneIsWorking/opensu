@@ -114,6 +114,8 @@ gitignored `docs/reference/`).
 | `src/library/emulator_game_list.*` | An emulator's own game list (its id, title, path, metadata per game) matched to openSU's games by path, then by unique title key |
 | `src/library/titles.*` | The same title across stores: the comparison key, merged copies, preference order |
 | `src/library/rom_titles.*` | A ROM's display title from its name: tags, release numbers and the ", The" order (`cleanTitle`); the one title cleanup, also the release-number rule the libretro matcher uses |
+| `src/library/param_sfo.*` | The PlayStation PARAM.SFO reader (`sfoStrings`): its UTF-8 values by key |
+| `src/library/dump_info.*` | What a game folder says about itself (`readDumpInfo`): a PS4 dump's `sce_sys/param.sfo` title and `icon0.png` |
 | `src/library/arcade_names.*` | Arcade short name to description: the libretro-database `.dat` parser and `NameDb`, the parsed names kept under `<cache>/names/` |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts; the tables are `constexpr` (`name_list.hpp`) |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line, from the catalog: openSU's downloaded AppImage, else a package on `PATH`, an AppImage in the usual folders, a Flatpak; every emulator of a system, installed or not (`options`), which a ROM's details page lists |

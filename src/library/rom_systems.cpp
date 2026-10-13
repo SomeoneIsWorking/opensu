@@ -185,7 +185,7 @@ constexpr auto systems = std::to_array<RomSystem>({
      {"xbox360", "x360"},
      {".iso", ".xex", ".zar"},
      {}},
-    {"arcade", "Arcade", "", {"arcade", "mame", "fbneo"}, {".zip"}, {}},
+    {"arcade", "Arcade", "MAME", {"arcade", "mame", "fbneo"}, {".zip"}, {}},
 });
 
 } // namespace
