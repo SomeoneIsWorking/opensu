@@ -127,7 +127,6 @@ void EmulatorDownloads::runDownload(const std::stop_token& stop, const EmulatorE
         lucent::warn("emulators", "{}", ended.text);
     }
     const std::lock_guard lock{mutex_};
-    progress_.reset();
     ended_.push_back(std::move(ended));
 }
 
@@ -263,6 +262,10 @@ void EmulatorDownloads::service() {
     {
         const std::lock_guard lock{mutex_};
         ended = std::exchange(ended_, {});
+        // A download runs until its end is reported here, on the caller's thread.
+        if (!ended.empty()) {
+            progress_.reset();
+        }
         const std::optional<int> percent =
             progress_ ? progress_->percent().value_or(0) : std::optional<int>{};
         refresh = std::exchange(checkChanged_, false) || percent != shownPercent_;

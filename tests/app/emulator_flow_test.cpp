@@ -161,6 +161,14 @@ void detailsDownloadsTheMissingEmulator(const fs::path& root) {
     rig.details.act(Button::Down);
     rig.details.act(Button::A);
     expect(rig.downloads.progress().has_value(), "A starts the download in the background");
+    const auto until = std::chrono::steady_clock::now() + wait;
+    while (!rig.downloads.downloaded("emu") && std::chrono::steady_clock::now() < until) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
+    // Past the install, so the worker has ended before anything reports it.
+    std::this_thread::sleep_for(std::chrono::milliseconds{100});
+    expect(rig.downloads.progress().has_value(),
+           "a finished download still runs until service() reports its end");
     rig.settle();
     expect(!rig.said.back().second && rig.said.back().first == "Emu v1 is installed" &&
                rig.changes == 1,
