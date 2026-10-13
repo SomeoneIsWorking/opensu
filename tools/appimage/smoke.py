@@ -110,6 +110,8 @@ class Container:
         words += ["-e", f"DISPLAY={display}"]
         xauthority = env.get("XAUTHORITY", "")
         if xauthority:
+            # Cookies are keyed by hostname, so the container keeps the host's.
+            words += ["--uts", "host"]
             words += ["-v", f"{xauthority}:/xauthority:ro", "-e", "XAUTHORITY=/xauthority"]
         self.id = process.output([*words, tag, "sleep", "infinity"], env).strip()
 

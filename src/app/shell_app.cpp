@@ -1057,6 +1057,10 @@ int ShellApp::run() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_TRANSPARENT |
                    (settings_.hidden ? FLAG_WINDOW_HIDDEN : 0u));
     InitWindow(settings_.width, settings_.height, "openSU");
+    if (!IsWindowReady()) {
+        lucent::error("shell", "could not open a window");
+        return 1;
+    }
     SetWindowMinSize(960, 600);
     shell_.loadFonts();
     if (environment_.insideGamescope && !settings_.hidden) {
@@ -1149,6 +1153,10 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
     // still lands on no screen.
     SetConfigFlags(FLAG_WINDOW_HIDDEN);
     InitWindow(settings_.width, settings_.height, "opensu render");
+    if (!IsWindowReady()) {
+        lucent::error("render", "could not open a window for the GL context");
+        return false;
+    }
     shell_.loadFonts();
     shell_.loadArtworkNow();
     lucent::info("render", "loaded artwork for {} of {} tiles", shell_.loadedArtwork(),
