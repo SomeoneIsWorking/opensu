@@ -34,6 +34,8 @@
 #include "details_controller.hpp"
 #include "device/battery.hpp"
 #include "devices_controller.hpp"
+#include "emulator_downloads.hpp"
+#include "emulator_settings.hpp"
 #include "game_screen.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pads.hpp"
@@ -58,6 +60,7 @@
 #include "shortcut_router.hpp"
 #include "sign_in.hpp"
 #include "steam/client.hpp"
+#include "steam_library_settings.hpp"
 #include "ui/shell.hpp"
 #include "volume_control.hpp"
 
@@ -177,8 +180,6 @@ class ShellApp final : private PointerHost {
     void setHidden(const library::Game& game, bool hidden);
     /// Notes that `game` was launched now, for the recently played sort.
     void recordLaunch(const library::Game& game);
-    /// The folders of the Steam libraries the installation holds now.
-    [[nodiscard]] std::vector<std::filesystem::path> steamLibraries() const;
     /// Feeds a physical keyboard's text into a line entry (`PathEditor`,
     /// `SessionInstallController`), which takes typed text, Backspace, Enter and Escape.
     template <class Entry> void typeInto(Entry& entry, const input::TextInput& typed);
@@ -303,8 +304,31 @@ class ShellApp final : private PointerHost {
                                          startSignIn(source == library::Source::Gog ? Store::Gog
                                                                                     : Store::Epic);
                                      }}};
+    /// Emulator downloads, updates and removals, off the loop.
+    EmulatorDownloads emulatorDownloads_{
+        library::roms::EmulatorSetup::standard(resolved_),
+        EmulatorDownloads::Hooks{[this](const std::string& text, bool isError) {
+                                     shell_.setToast(text, isError);
+                                 },
+                                 [this] {
+                                     emulatorSettings_.rescan();
+                                     reloadCatalog();
+                                 },
+                                 [this] {
+                                     settingsScreen_.refresh();
+                                     details_.refresh();
+                                 }}};
+    /// The Settings screen's Emulators category.
+    EmulatorSettings emulatorSettings_{
+        emulatorDownloads_, preferences_,
+        EmulatorSettings::Hooks{[this](const std::string& text, bool isError) {
+                                    shell_.setToast(text, isError);
+                                },
+                                [this] {
+                                    reloadCatalog();
+                                }}};
     DetailsController details_{
-        shell_.detailsPage(), sounds_, preferences_,
+        shell_.detailsPage(), sounds_, preferences_, emulatorDownloads_,
         DetailsController::Hooks{[this] {
                                      return shell_.focusedGame();
                                  },
@@ -319,6 +343,9 @@ class ShellApp final : private PointerHost {
                                  },
                                  [this](const library::Game& game, const std::string& name) {
                                      chooseEmulator(game, name);
+                                 },
+                                 [this](const std::string& text, bool isError) {
+                                     shell_.setToast(text, isError);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
@@ -361,7 +388,8 @@ class ShellApp final : private PointerHost {
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{
         shell_.settingsPanels().page(),
-        SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts()},
+        SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts(),
+                                     emulatorSettings_, steamLibrarySettings_},
         sounds_,
         preferences_,
         environment_,
@@ -378,7 +406,8 @@ class ShellApp final : private PointerHost {
                                       return library::sourceChoices(games_, sources_);
                                   },
                                   [this] {
-                                      return steamLibraries();
+                                      return Installs::ownFolders(
+                                          resolved_, steamLibrarySettings_.defaultLibrary());
                                   },
                                   [this](const std::string& text, bool isError) {
                                       shell_.setToast(text, isError);
@@ -487,6 +516,24 @@ class ShellApp final : private PointerHost {
     bool launchRunning_{false};
     /// Started in run(), before the loop, and shut down with the app.
     steam::Client steam_;
+    /// The Settings screen's Steam libraries category; after the client it asks.
+    SteamLibrarySettings steamLibrarySettings_{
+        SteamLibrarySettings::Sources{steam_.libraries(),
+                                      [this] {
+                                          return steam_.state() == launch::SteamState::Ready;
+                                      },
+                                      [this] {
+                                          return library::steam::Library::discover(
+                                                     resolved_.home, resolved_.steamRoots)
+                                              .libraryFolders();
+                                      }},
+        paths_, resolved_.home,
+        SteamLibrarySettings::Hooks{[this](const std::string& text, bool isError) {
+                                        shell_.setToast(text, isError);
+                                    },
+                                    [this] {
+                                        settingsScreen_.refresh();
+                                    }}};
     /// Inside Gamescope, tells the handoff when a game shows a window. Null elsewhere.
     std::unique_ptr<session::GamescopeWindows> gameWindows_;
     launch::Handoff handoff_;

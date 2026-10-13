@@ -11,6 +11,9 @@
 # Layout: the binary is staged at <build>/<libexecdir>/opensu/gamescope, which is where the
 # running build-tree executable looks (<exe dir>/../<libexecdir>/opensu/gamescope), and it is
 # installed to <prefix>/<libexecdir>/opensu/gamescope, where an installed opensu looks.
+#
+# A pin change fetches the commit into the existing clone, checks it out, and reconfigures meson,
+# which regenerates the version header from `git describe`; an unchanged pin runs none of these.
 
 include(ExternalProject)
 include(GNUInstallDirs)
@@ -20,7 +23,7 @@ option(OPENSU_BUILD_GAMESCOPE
 the rest of opensu: the nested session then refuses to start" ON)
 
 set(OPENSU_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.git")
-set(OPENSU_GAMESCOPE_COMMIT "eea763bd1aab1b26ca705b37a4c445a0f0b5777f")
+set(OPENSU_GAMESCOPE_COMMIT "79db8c0d82f71e990ba9d604588032f5990797f3")
 
 # Where the running opensu finds the binary, relative to the directory above its own.
 set(OPENSU_GAMESCOPE_RELATIVE "${CMAKE_INSTALL_LIBEXECDIR}/opensu/gamescope")
@@ -53,6 +56,7 @@ function(opensu_gamescope_image_tag out fedora_version_out)
 endfunction()
 
 function(opensu_add_gamescope)
+    find_package(Git REQUIRED)
     find_program(OPENSU_PODMAN podman)
     if(NOT OPENSU_PODMAN)
         message(FATAL_ERROR
@@ -66,6 +70,9 @@ function(opensu_add_gamescope)
     set(built "${root}/build/src/gamescope")
     set(staged "${CMAKE_BINARY_DIR}/${OPENSU_GAMESCOPE_RELATIVE}")
     set(image_stamp "${root}/image.stamp")
+    set(pin_file "${root}/pin.txt")
+    # Rewritten only when the pin changes, so it dates the pin.
+    file(CONFIGURE OUTPUT "${pin_file}" CONTENT "${OPENSU_GAMESCOPE_COMMIT}\n")
 
     add_custom_command(
         OUTPUT "${image_stamp}"
@@ -95,7 +102,7 @@ function(opensu_add_gamescope)
         STAMP_DIR "${root}/stamp"
         TMP_DIR "${root}/tmp"
         DOWNLOAD_DIR "${root}/download"
-        CONFIGURE_COMMAND ${in_container} meson setup "${root}/build" "${root}/source"
+        CONFIGURE_COMMAND ${in_container} meson setup --reconfigure "${root}/build" "${root}/source"
             --buildtype=release -Denable_gamescope_wsi_layer=false -Denable_tests=false
         BUILD_COMMAND ${in_container} ninja -C "${root}/build" src/gamescope
         BUILD_BYPRODUCTS "${built}"
@@ -105,6 +112,16 @@ function(opensu_add_gamescope)
         USES_TERMINAL_CONFIGURE ON
         USES_TERMINAL_BUILD ON
     )
+    # The disconnected update refuses a commit the clone does not have.
+    ExternalProject_Add_Step(opensu_gamescope fetch_pin
+        COMMAND "${CMAKE_COMMAND}" "-DGIT=${GIT_EXECUTABLE}" "-DSOURCE=${root}/source"
+            "-DCOMMIT=${OPENSU_GAMESCOPE_COMMIT}"
+            -P "${CMAKE_SOURCE_DIR}/cmake/GamescopeFetchPin.cmake"
+        DEPENDS "${pin_file}" "${CMAKE_SOURCE_DIR}/cmake/GamescopeFetchPin.cmake"
+        DEPENDEES download
+        DEPENDERS update_disconnected
+        INDEPENDENT TRUE
+        USES_TERMINAL ON)
     ExternalProject_Add_Step(opensu_gamescope check_runtime_libraries
         COMMAND "${CMAKE_COMMAND}" "-DBINARY=${staged}"
             -P "${CMAKE_SOURCE_DIR}/cmake/GamescopeLddCheck.cmake"

@@ -4,6 +4,7 @@
 // (`list --json`) and which of them are installed (`list-installed --json`).
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -20,6 +21,13 @@ namespace opensu::library::epic {
 [[nodiscard]] std::optional<std::string> installFailure(std::string_view line);
 
 /// Runs Legendary and parses its install list.
+/// Where legendary installs when given no `--base-path`: `install_dir` in the `[Legendary]`
+/// section of `<legendaryConfigDir>/config.ini`, else `~/Games` (legendary's
+/// `get_default_install_dir`), `~` meaning `home`.
+[[nodiscard]] std::filesystem::path
+legendaryInstallDir(const std::filesystem::path& legendaryConfigDir,
+                    const std::filesystem::path& home);
+
 class Provider final : public library::Provider {
   public:
     /// Uses the `legendary` on PATH.

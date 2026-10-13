@@ -7,10 +7,12 @@
 #include <optional>
 #include <string>
 
+#include "config/config.hpp"
 #include "epic_install_job.hpp"
 #include "gog_install_job.hpp"
 #include "install_job.hpp"
 #include "library/game.hpp"
+#include "settings/install_folders.hpp"
 #include "steam_install_job.hpp"
 
 namespace opensu::app {
@@ -24,6 +26,12 @@ class Installs {
     /// `folders` names for its store.
     Installs(steam::Client& steam, std::string legendary, GogInstallJob::Options gog,
              Folders folders);
+
+    /// Where each store installs when no folder is set: GOG under openSU's data dir (gogdl's
+    /// `<data>/gog-games`), Epic where legendary's own default is, Steam its default library
+    /// (`steamDefault`, known while Steam runs).
+    [[nodiscard]] static settings::StoreFolders
+    ownFolders(const config::Config& config, std::optional<std::filesystem::path> steamDefault);
 
     /// Whether opensu installs from this store.
     [[nodiscard]] static bool supports(library::Source source) noexcept;

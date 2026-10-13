@@ -1,0 +1,189 @@
+{
+  "emulators": [
+    {
+      "id": "dolphin",
+      "name": "Dolphin",
+      "systems": ["gc", "wii"],
+      "config": "~/.config/dolphin-emu",
+      "launchers": [
+        {"programs": ["dolphin-emu"], "appImage": "dolphin", "flatpak": "org.DolphinEmu.dolphin-emu",
+         "args": ["-b", "-e", "{rom}"]}
+      ]
+    },
+    {
+      "id": "cemu",
+      "name": "Cemu",
+      "systems": ["wiiu"],
+      "config": "~/.config/Cemu",
+      "launchers": [
+        {"programs": ["cemu", "Cemu"], "appImage": "cemu", "flatpak": "info.cemu.Cemu",
+         "args": ["-f", "-g", "{rom}"]}
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/cemu-project/Cemu/releases/latest",
+        "asset": "^Cemu-[0-9.]+-x86_64\\.AppImage$",
+        "downloads": "https://github.com/cemu-project/Cemu/releases/download/"
+      }
+    },
+    {
+      "id": "eden",
+      "name": "Eden",
+      "systems": ["switch"],
+      "config": "~/.config/eden",
+      "launchers": [
+        {"programs": ["eden"], "appImage": "eden", "flatpak": "dev.eden_emu.eden",
+         "args": ["-f", "-g", "{rom}"]}
+      ],
+      "release": {
+        "api": "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases/latest",
+        "asset": "^Eden-Linux-v[0-9.]+-amd64-clang-pgo\\.AppImage$",
+        "downloads": "https://stable.eden-emu.dev/"
+      }
+    },
+    {
+      "id": "ryujinx",
+      "name": "Ryujinx",
+      "systems": ["switch"],
+      "config": "~/.config/Ryujinx",
+      "launchers": [
+        {"programs": ["ryujinx", "Ryujinx"], "appImage": "ryujinx",
+         "flatpak": "io.github.ryubing.Ryujinx", "args": ["--fullscreen", "{rom}"]}
+      ]
+    },
+    {
+      "id": "pcsx2",
+      "name": "PCSX2",
+      "systems": ["ps2"],
+      "config": "~/.config/PCSX2",
+      "launchers": [
+        {"programs": ["pcsx2-qt"], "appImage": "pcsx2", "flatpak": "net.pcsx2.PCSX2",
+         "args": ["-batch", "-nogui", "-fullscreen", "--", "{rom}"]}
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/PCSX2/pcsx2/releases/latest",
+        "asset": "^pcsx2-v[0-9.]+-linux-appimage-x64-Qt\\.AppImage$",
+        "downloads": "https://github.com/PCSX2/pcsx2/releases/download/"
+      }
+    },
+    {
+      "id": "rpcs3",
+      "name": "RPCS3",
+      "systems": ["ps3"],
+      "config": "~/.config/rpcs3",
+      "launchers": [
+        {"programs": ["rpcs3"], "appImage": "rpcs3", "flatpak": "net.rpcs3.RPCS3",
+         "args": ["--no-gui", "--fullscreen", "{rom}"]}
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/RPCS3/rpcs3-binaries-linux/releases/latest",
+        "asset": "^rpcs3-v[0-9.]+-[0-9]+-[0-9a-f]+_linux64\\.AppImage$",
+        "downloads": "https://github.com/RPCS3/rpcs3-binaries-linux/releases/download/"
+      }
+    },
+    {
+      "id": "shadps4",
+      "name": "shadPS4",
+      "systems": ["ps4"],
+      "config": "~/.local/share/shadPS4",
+      "launchers": [
+        {"programs": ["shadps4-qt-launcher"], "appImage": "shadps4qtlauncher",
+         "args": ["-e", "default", "-g", "{rom}"]},
+        {"programs": ["shadps4"], "appImage": "shadps4", "flatpak": "net.shadps4.shadPS4",
+         "args": ["-g", "{rom}"]}
+      ]
+    },
+    {
+      "id": "duckstation",
+      "name": "DuckStation",
+      "systems": ["psx"],
+      "config": "~/.local/share/duckstation",
+      "launchers": [
+        {"programs": ["duckstation-qt"], "appImage": "duckstation",
+         "flatpak": "org.duckstation.DuckStation", "args": ["-batch", "-fullscreen", "--", "{rom}"]}
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/stenzek/duckstation/releases/latest",
+        "asset": "^DuckStation-x64\\.AppImage$",
+        "downloads": "https://github.com/stenzek/duckstation/releases/download/"
+      }
+    },
+    {
+      "id": "ppsspp",
+      "name": "PPSSPP",
+      "systems": ["psp"],
+      "config": "~/.config/ppsspp",
+      "launchers": [
+        {"programs": ["PPSSPPSDL", "PPSSPPQt", "ppsspp"], "appImage": "ppsspp",
+         "flatpak": "org.ppsspp.PPSSPP", "args": ["--fullscreen", "{rom}"]}
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/hrydgard/ppsspp/releases/latest",
+        "asset": "^PPSSPP-v[0-9.]+-anylinux-x86_64\\.AppImage$",
+        "downloads": "https://github.com/hrydgard/ppsspp/releases/download/"
+      }
+    },
+    {
+      "id": "melonds",
+      "name": "melonDS",
+      "systems": ["nds"],
+      "config": "~/.config/melonDS",
+      "launchers": [
+        {"programs": ["melonDS"], "appImage": "melonds", "flatpak": "net.kuribo64.melonDS",
+         "args": ["-f", "{rom}"]}
+      ]
+    },
+    {
+      "id": "azahar",
+      "name": "Azahar",
+      "systems": ["n3ds"],
+      "config": "~/.config/azahar-emu",
+      "launchers": [
+        {"programs": ["azahar"], "appImage": "azahar", "flatpak": "org.azahar_emu.Azahar",
+         "args": ["{rom}"]}
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/azahar-emu/azahar/releases/latest",
+        "asset": "^azahar\\.AppImage$",
+        "downloads": "https://github.com/azahar-emu/azahar/releases/download/"
+      }
+    },
+    {
+      "id": "mgba",
+      "name": "mGBA",
+      "systems": ["gb", "gbc", "gba"],
+      "config": "~/.config/mgba",
+      "launchers": [
+        {"programs": ["mgba-qt", "mgba"], "appImage": "mgba", "flatpak": "io.mgba.mGBA",
+         "args": ["-f", "{rom}"]}
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/mgba-emu/mgba/releases/latest",
+        "asset": "^mGBA-[0-9.]+-appimage-x64\\.appimage$",
+        "downloads": "https://github.com/mgba-emu/mgba/releases/download/"
+      }
+    },
+    {
+      "id": "xemu",
+      "name": "xemu",
+      "systems": ["xbox"],
+      "config": "~/.local/share/xemu/xemu",
+      "launchers": [
+        {"programs": ["xemu"], "appImage": "xemu", "flatpak": "app.xemu.xemu",
+         "args": ["-dvd_path", "{rom}"]}
+      ],
+      "release": {
+        "api": "https://api.github.com/repos/xemu-project/xemu/releases/latest",
+        "asset": "^xemu-[0-9.]+-x86_64\\.AppImage$",
+        "downloads": "https://github.com/xemu-project/xemu/releases/download/"
+      }
+    },
+    {
+      "id": "xenia-canary",
+      "name": "Xenia Canary",
+      "systems": ["xbox360"],
+      "launchers": [
+        {"programs": ["xenia_canary"], "appImage": "xenia", "args": ["--fullscreen=true", "{rom}"]}
+      ]
+    }
+  ]
+}

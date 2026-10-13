@@ -222,6 +222,11 @@ Config read() {
     } else {
         value.configDir = value.home / ".config" / "opensu";
     }
+    if (const std::string_view legendary = env("LEGENDARY_CONFIG_PATH"); !legendary.empty()) {
+        value.legendaryConfigDir = std::filesystem::path{legendary};
+    } else {
+        value.legendaryConfigDir = value.configDir.parent_path() / "legendary";
+    }
     value.homeMode = envHomeMode("OPENSU_HOME_MODE", value.homeMode);
     value.clock24Hour = localeClock24Hour();
     value.width = envInt("OPENSU_WIDTH", value.width);

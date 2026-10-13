@@ -55,11 +55,33 @@ void refusals(const fs::path& root) {
 
 } // namespace
 
+void resolvesWithTheStoresOwn() {
+    using opensu::library::Source;
+    using opensu::settings::Destination;
+    using opensu::settings::FolderOrigin;
+    const opensu::settings::StoreFolders own{{Source::Epic, "/home/p/Games"},
+                                             {Source::Gog, "/data/opensu/gog-games"}};
+    InstallFolders folders;
+    expect(folders.resolve(Source::Epic, own) ==
+               Destination{"/home/p/Games", FolderOrigin::StoreOwn},
+           "with nothing set, a store's own folder is shown as its own");
+    expect(folders.resolve(Source::Steam, own) == Destination{{}, FolderOrigin::StoreOwn},
+           "a store whose folder is not known here has none");
+    folders.setDefault("/games");
+    expect(folders.resolve(Source::Gog, own) == Destination{"/games", FolderOrigin::Default},
+           "the default wins over the store's own, marked as the default");
+    folders.setStore(Source::Gog, "/fast");
+    expect(folders.resolve(Source::Gog, own) == Destination{"/fast", FolderOrigin::Store} &&
+               folders.effective(Source::Gog) == fs::path{"/fast"},
+           "an override wins, the same folder the install reads");
+}
+
 int main() {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "install-folders";
     fs::remove_all(root);
     fs::create_directories(root);
     resolves();
+    resolvesWithTheStoresOwn();
     refusals(root);
     fs::remove_all(root);
     std::printf("install_folders: all checks passed\n");

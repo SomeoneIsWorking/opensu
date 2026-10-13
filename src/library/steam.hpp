@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -21,6 +22,8 @@ struct LibraryFolder {
     /// Identifies the physical library. Steam assigns the same value to two
     /// mount points of one drive, which would otherwise duplicate every game.
     std::string contentId;
+    /// The apps Steam records in it, app id to bytes on disk; empty in the legacy layout.
+    std::map<std::string, std::uint64_t> apps;
 };
 
 /// Reads a local Steam installation.

@@ -42,6 +42,12 @@ struct EmulatorOption {
     bool installed{false};
     /// What starts the game with it; empty when it is not installed.
     LaunchSpec launch;
+    /// The catalog's id; empty for a configured override.
+    std::string id;
+    /// Whether openSU can download it.
+    bool downloadable{false};
+    /// Why an emulator that is there cannot start, with what fixes it; empty otherwise.
+    std::string problem;
 };
 
 /// One launchable entry.

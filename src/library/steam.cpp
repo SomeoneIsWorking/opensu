@@ -384,6 +384,12 @@ std::vector<LibraryFolder> readExtraFolders(const fs::path& root) {
                 // Current layout: "1" { "path" "..." "contentid" "..." }.
                 folder.path = child->str({"path"}).value_or("");
                 folder.contentId = child->str({"contentid"}).value_or("");
+                if (const std::optional<Node> apps = child->block({"apps"})) {
+                    for (const std::string& app : apps->keys()) {
+                        const long long bytes = apps->integer({app}).value_or(0);
+                        folder.apps[app] = static_cast<std::uint64_t>(std::max(bytes, 0LL));
+                    }
+                }
             }
             if (folder.path.empty()) {
                 continue;
@@ -432,9 +438,12 @@ std::vector<LibraryFolder> Library::libraryFolders() const {
     for (const fs::path& root : roots_) {
         // The install root always comes first so its own manifests win.
         folders.push_back(LibraryFolder{.path = root});
+        const std::size_t rootAt = folders.size() - 1;
         for (LibraryFolder& extra : readExtraFolders(root)) {
             if (extra.path != root) {
                 folders.push_back(std::move(extra));
+            } else {
+                folders[rootAt].apps = std::move(extra.apps);
             }
         }
     }

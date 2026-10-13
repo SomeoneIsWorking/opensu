@@ -98,6 +98,10 @@ struct Config {
     /// Whether OPENSU_SESSION was set, which means a session already wraps this process.
     bool sessionInherited{false};
 
+    /// legendary's configuration, as legendary finds it: `LEGENDARY_CONFIG_PATH`, else
+    /// `$XDG_CONFIG_HOME/legendary`, else `~/.config/legendary`.
+    std::filesystem::path legendaryConfigDir;
+
     /// The note a login session's Switch to desktop leaves: `$XDG_RUNTIME_DIR/opensu/desktop`,
     /// else under `/run/user/<uid>`.
     std::filesystem::path desktopRequest;

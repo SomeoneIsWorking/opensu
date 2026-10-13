@@ -22,6 +22,10 @@ add_library(opensu_library STATIC
     sections.cpp
     titles.cpp
     emulators.cpp
+    emulator_catalog.cpp
+    emulator_release.cpp
+    downloaded_emulators.cpp
+    appimage_runtime.cpp
 )
 add_library(opensu::library ALIAS opensu_library)
 target_include_directories(opensu_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

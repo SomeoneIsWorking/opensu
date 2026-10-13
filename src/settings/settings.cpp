@@ -24,6 +24,7 @@ constexpr const char* sourceKey = "source";
 constexpr const char* hiddenKey = "hidden";
 constexpr const char* lastPlayedKey = "lastPlayed";
 constexpr const char* emulatorsKey = "emulators";
+constexpr const char* systemEmulatorsKey = "systemEmulators";
 constexpr const char* homeModeKey = "homeMode";
 constexpr const char* uiSoundsKey = "uiSounds";
 constexpr const char* romFoldersKey = "romFolders";
@@ -255,7 +256,9 @@ Settings Store::load() const {
     settings.lastPlayed = library::PlayHistory{std::move(played)};
     library::EmulatorChoices::Entries emulators;
     read.names(emulatorsKey, emulators, "every ROM keeps its default emulator");
-    settings.emulators = library::EmulatorChoices{std::move(emulators)};
+    library::EmulatorChoices::Entries systemEmulators;
+    read.names(systemEmulatorsKey, systemEmulators, "every system keeps the emulator found");
+    settings.emulators = library::EmulatorChoices{std::move(emulators), std::move(systemEmulators)};
 
     std::string spelling;
     read.text(sortKey, spelling, "using the default");
@@ -329,6 +332,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {hiddenKey, settings.hidden.keys()},
         {lastPlayedKey, settings.lastPlayed.entries()},
         {emulatorsKey, settings.emulators.entries()},
+        {systemEmulatorsKey, settings.emulators.systems()},
         {uiSoundsKey, settings.uiSounds},
         {romFoldersKey, listOf(settings.romFolders)},
         {steamRootsKey, listOf(settings.steamRoots)},

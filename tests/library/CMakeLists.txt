@@ -4,6 +4,7 @@ add_test(NAME steam COMMAND steam_test)
 
 add_executable(roms_test roms_test.cpp)
 target_link_libraries(roms_test PRIVATE opensu::library)
+target_compile_definitions(roms_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
 add_test(NAME roms COMMAND roms_test)
 
 add_executable(rom_titles_test rom_titles_test.cpp)
@@ -63,3 +64,15 @@ add_executable(emulator_choice_test emulator_choice_test.cpp)
 target_link_libraries(emulator_choice_test PRIVATE opensu::library)
 target_include_directories(emulator_choice_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 add_test(NAME emulator_choice COMMAND emulator_choice_test)
+
+add_executable(emulator_catalog_test emulator_catalog_test.cpp)
+target_link_libraries(emulator_catalog_test PRIVATE opensu::library)
+target_include_directories(emulator_catalog_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(emulator_catalog_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
+add_test(NAME emulator_catalog COMMAND emulator_catalog_test)
+
+add_executable(emulator_release_test emulator_release_test.cpp)
+target_link_libraries(emulator_release_test PRIVATE opensu::library lucent::lucent)
+target_include_directories(emulator_release_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(emulator_release_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME emulator_release COMMAND emulator_release_test)

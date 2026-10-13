@@ -20,6 +20,9 @@ class DesktopRequest {
     /// Whether the note is there. It is removed either way.
     [[nodiscard]] bool consume() const;
 
+    /// Whether the note is there, leaving it for `consume`.
+    [[nodiscard]] bool pending() const;
+
     /// Runs `startplasma-wayland` (found in `path`) in this process's place. Returns only when
     /// it could not be started, with the reason.
     [[nodiscard]] static std::string enterDesktop(const std::vector<std::filesystem::path>& path);

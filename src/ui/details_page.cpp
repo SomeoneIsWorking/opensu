@@ -79,8 +79,25 @@ std::string lastPlayedText(const std::optional<std::chrono::system_clock::time_p
     return date;
 }
 
+const library::EmulatorOption* emulatorToDownload(const library::Game& game) {
+    if (game.source != library::Source::Rom || !game.launch.empty()) {
+        return nullptr;
+    }
+    const auto missing = [](const library::EmulatorOption& option) {
+        return !option.installed && option.downloadable && option.problem.empty();
+    };
+    const auto& options = game.emulatorOptions;
+    if (const auto chosen =
+            std::ranges::find(options, game.emulator, &library::EmulatorOption::name);
+        chosen != options.end()) {
+        return missing(*chosen) ? &*chosen : nullptr;
+    }
+    const auto first = std::ranges::find_if(options, missing);
+    return first == options.end() ? nullptr : &*first;
+}
+
 DetailsView detailsFor(const library::Game& game, bool hidden,
-                       std::chrono::system_clock::time_point now) {
+                       std::chrono::system_clock::time_point now, const std::string& download) {
     DetailsView view;
     view.gameId = game.id;
     view.title = game.title;
@@ -106,6 +123,10 @@ DetailsView detailsFor(const library::Game& game, bool hidden,
 
     view.buttons.push_back(
         DetailsButton{DetailsAction::Launch, game.installed ? "Play" : "Install", ""});
+    if (const library::EmulatorOption* missing = emulatorToDownload(game)) {
+        view.buttons.push_back(
+            DetailsButton{DetailsAction::DownloadEmulator, "Download " + missing->name, download});
+    }
     if (rom && game.emulatorOptions.size() > 1) {
         view.buttons.push_back(DetailsButton{DetailsAction::Emulator, "Emulator", game.emulator});
     }
@@ -166,8 +187,14 @@ void DetailsPage::refresh(DetailsView view) {
     const DetailsAction was = selected();
     view_ = std::move(view);
     const auto same = std::ranges::find(view_.buttons, was, &DetailsButton::action);
-    focus_ = same == view_.buttons.end() ? std::min(focus_, view_.buttons.size() - 1)
-                                         : static_cast<std::size_t>(same - view_.buttons.begin());
+    if (same != view_.buttons.end()) {
+        focus_ = static_cast<std::size_t>(same - view_.buttons.begin());
+    } else if (was == DetailsAction::DownloadEmulator) {
+        // The emulator arrived: Play is what the player came for.
+        focus_ = 0;
+    } else {
+        focus_ = std::min(focus_, view_.buttons.size() - 1);
+    }
 }
 
 bool DetailsPage::move(int delta) noexcept {

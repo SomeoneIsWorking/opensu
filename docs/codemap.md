@@ -29,9 +29,12 @@ gitignored `docs/reference/`).
 | `src/app/preferences.*` | The loaded `settings::Settings` and saving them, with a toast when the file cannot be written |
 | `src/app/search_controller.*` | The search panel's pad buttons and keyboard text; the typed text is the view's search |
 | `src/app/context_menu_controller.*` | Opening the focused tile's menu and what its entries do (launch, details, hide/unhide, open, refresh, sign in) |
-| `src/app/details_controller.*` | The details page's buttons: open for the focused game, Play or Install, the emulator pick, Hide, Back; keeps the page current as the library changes |
+| `src/app/details_controller.*` | The details page's buttons: open for the focused game, Play or Install, the emulator pick, Download <emulator> (start or cancel the emulator download), Hide, Back; keeps the page current as the library changes |
 | `src/app/breadcrumb_trail.*` | The one computation of the breadcrumb trail from the shell's state (section, folder, search, filters, open game) |
-| `src/app/settings_controller.*` | The Settings screen's controller: rows per category, input routing, saving through `Preferences`, folder chooser and path entry |
+| `src/app/settings_controller.*` | The Settings screen's controller: rows per category, input routing, saving through `Preferences`, folder chooser and path entry; Install folders shows each store's resolved folder (override, default or the store's own) |
+| `src/app/emulator_downloads.*` | The emulator download job: one download at a time on a thread with progress and cancel, the update check (shows, never installs), removal of openSU's AppImages; news handed to the loop in `service` |
+| `src/app/emulator_settings.*` | Settings › Emulators: each emulator's install state, source and version with Download / Update / Remove (two presses), Check for updates, the emulator per system |
+| `src/app/steam_library_settings.*` | Settings › Steam libraries: the libraries with path, free space, games and size; add, make default, remove an empty one, on a worker thread; read-only from `libraryfolders.vdf` while Steam is not running |
 | `src/app/path_editor.*` | Choosing a folder on the chooser or typing a path; one request at a time, refusals shown with their reason |
 | `src/app/artwork_delivery.*` | Hands saved artwork, store contents and UI sounds to the shell and sound player |
 | `src/app/volume_control.*` | The volume actions onto `SystemVolume` and its backend; polling; the OSD listener |
@@ -46,10 +49,10 @@ gitignored `docs/reference/`).
 | `src/app/install_job.*` | The store-neutral install job: its thread, the latest report the loop takes, the licence answer |
 | `src/app/cli_install_job.*` | An install by a downloader program: run it, turn its logged progress into reports, fail with its reason; the base of the Epic and GOG jobs |
 | `src/app/steam_install_job.*`, `epic_install_job.*`, `gog_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install (`legendary install`); one GOG install (`gogdl download`: token handed over and taken back, Linux or Windows build, the install recorded) |
-| `src/app/installs.*` | The installers by store, one install at a time; which stores install |
-| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
+| `src/app/installs.*` | The installers by store, one install at a time; which stores install; each store's own install folder (`ownFolders`: GOG under the data dir, legendary's, Steam's default library) |
+| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, legendary's config dir, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
 | `src/settings/settings.*` | The player's saved preferences (Library layout, dock pin, icon size, sort and filters, hidden games, last-played times, Settings-screen choices, interface scale, install folders, shortcut remaps) as JSON under the config dir; defaults on a missing or corrupt file |
-| `src/settings/install_folders.*` | The one resolver of where a store installs: a store's override, else the default, else none (the store's own choice); validation (exists, writable) |
+| `src/settings/install_folders.*` | The one resolver of where a store installs: a store's override, else the default, else none (the store's own choice); `resolve` adds the store's own folder and says which of the three applies; validation (exists, writable) |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
 | `extension/opensu-signin/`, `extension/CMakeLists.txt` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel; packed into `opensu-signin.xpi` and installed beside the assets |
 
@@ -57,20 +60,21 @@ gitignored `docs/reference/`).
 
 | Path | Owns |
 | --- | --- |
-| `src/session/compositor_session.*` | Re-running openSU inside its own Gamescope when not already in one: nested at the monitor's size on a desktop, top level on DRM at the native mode for `--session` |
+| `src/session/compositor_session.*` | Re-running openSU inside its own Gamescope when not already in one: nested at the monitor's size on a desktop, top level on DRM at the native mode for `--session`; starting a fresh Gamescope after an abnormal end nobody asked for |
+| `src/session/restart_budget.*` | How often a crashed compositor is started again (3 restarts in any 2 minutes) |
 | `src/host/session_mode.*` | Session mode, the one owner of switching sessions: `installed()` (an entry for this openSU in a directory SDDM reads, and the selector), the root step (`sudo -S -k` with the password on stdin, one `install-session.sh`), Switch to session mode (selector `opensu`, then KDE's `org.kde.Shutdown.logout`) and Switch to desktop (selector `restore`, then stopping the Gamescope scope); read-only wrapper for hidden runs |
 | `src/host/login_session_end.*`, `src/session/login_session.*` | What the next login is when the login session ends: an abnormal end (Gamescope non-zero, by a signal, or within 30 s) runs `sudo -n <selector> restore` so SDDM autologin cannot relogin in a loop; a logout or shutdown signal and a deliberate Switch to desktop (the note) leave it alone; `LoginSession` composes the top-level `CompositorSession` with the judgement and the desktop fallback |
 | `src/host/desktop_request.*` | The note Switch to desktop leaves in the runtime dir (it marks the end deliberate), and, as the fallback when the selector is not installed, `startplasma-wayland` run in the login session's place once Gamescope has ended |
 | `packaging/install-session.sh`, `packaging/opensu-session-select.sh` | The two root-run POSIX sh scripts, installed to `<prefix>/libexec/opensu/`: the one-sudo installer (session entry, `/usr/local/libexec/opensu-session-select`, `/etc/sudoers.d/zz-opensu-session-select`) and the selector (`opensu` or `restore`: SDDM drop-in `zz-opensu-session.conf` or the last session in `state.conf`) |
 | `src/session/gamescope.*` | The Gamescope command line, nested (`--close-focused-window` included) or top level (`--backend drm`) from `Output::native()` |
 | `packaging/opensu-session.desktop.in` | The Wayland session entry, installed to `<prefix>/share/wayland-sessions/opensu.desktop` (`install-session.sh` copies it where SDDM reads) |
-| `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman (commit, container steps, staging and install path); `OPENSU_BUILD_GAMESCOPE`. `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
+| `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman (commit, container steps, staging and install path); `OPENSU_BUILD_GAMESCOPE`. `cmake/GamescopeFetchPin.cmake` fetches a new pin into an existing clone, `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
 | `packaging/gamescope-build/Containerfile` | The Gamescope build image: host's Fedora release plus Gamescope's build dependencies |
 | `src/session/monitor.*` | The output's size and refresh |
 | `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game |
 | `src/session/game_keys.*` | The shortcuts that work while a game has the keyboard (Guide, volume), matched against the `Shortcuts` table from XInput2 raw keys |
 | `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show; tells the handoff when a game is on screen |
-| `src/launch/instance.*` | One transient systemd user scope per launch; stopping it ends the whole tree |
+| `src/launch/instance.*` | One transient systemd user scope per launch, its program started with no signal blocked; stopping it ends the whole tree |
 | `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends |
 | `src/launch/process_tree.*` | Finding processes by command line, ending trees |
 | `src/launch/command.*`, `argv.hpp` | Short-lived children, a child streamed line by line, its stdout captured or fed one line on stdin (`runCapturedWithLine`, the sudo password) (own `opensu_command` target, so `library` can run `legendary`), executable lookup, exec argv |
@@ -81,6 +85,7 @@ gitignored `docs/reference/`).
 | `src/steam/desktop_steam.*` | Detecting a Steam client running outside openSU |
 | `src/steam/orphaned_steam.*` | Finding and ending a Steam scope left by an openSU that died |
 | `src/steam/devtools.*` | Running JavaScript in Steam's SharedJSContext over Chrome DevTools |
+| `src/steam/libraries.*` | Steam's library folders through `SteamClient.InstallFolder`: read, add, set default, remove (refused for Steam's own library or one that holds games) |
 | `src/steam/downloads.*` | Steam's live download queue: parsing and reading it |
 | `src/steam/launch_activity.*` | Steam's game actions and running state per app, recorded in its SharedJSContext |
 | `src/steam/install_wizard.*` | Installing a Steam app through Steam's own installer, licence steps to the player |
@@ -101,13 +106,17 @@ gitignored `docs/reference/`).
 | `src/library/shelf.*` | What the grid holds: Home's installed store games (`homeShelf`); Library's launchers, All games and consoles (`libraryShelf`); a console's ROMs, a launcher's library, the combined library; moving between them and between sections |
 | `src/library/library_query.*` | The one owner of what the library shows: the search ranking, the filters (installed, source, hidden), the sort, `HiddenGames`; Home, Library, folders and All games take their games from `visibleShelf` |
 | `src/library/text_fold.*` | Case, accent and white-space folding titles are compared in |
-| `src/library/emulator_choice.*` | The emulator picked per ROM (`settings.json`): points the game's `launch` and `emulator` at the pick, `unavailable` when it is not installed |
+| `src/library/emulator_choice.*` | The emulator picked per ROM and per system (`settings.json`): points the game's `launch` and `emulator` at the game's pick, else the system's; `unavailable` when it is not installed or cannot start |
 | `src/library/play_history.*` | When openSU last launched each game, for the recent sort of stores that do not say |
 | `src/library/titles.*` | The same title across stores: the comparison key, merged copies, preference order |
 | `src/library/rom_titles.*` | A ROM's display title from its name: tags, release numbers and the ", The" order (`cleanTitle`); the one title cleanup, also the release-number rule the libretro matcher uses |
 | `src/library/arcade_names.*` | Arcade short name to description: the libretro-database `.dat` parser and `NameDb`, the parsed names kept under `<cache>/names/` |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts; the tables are `constexpr` (`name_list.hpp`) |
-| `src/library/emulators.*` | Which emulator runs each system here, and its command line; every emulator of a system, installed or not (`options`), which a ROM's details page lists |
+| `src/library/emulators.*` | Which emulator runs each system here, and its command line, from the catalog: openSU's downloaded AppImage, else a package on `PATH`, an AppImage in the usual folders, a Flatpak; every emulator of a system, installed or not (`options`), which a ROM's details page lists |
+| `src/library/emulator_catalog.*`, `assets/emulators.json` | The emulator catalog: id, name, systems, settings folder, launchers (programs, AppImage name, Flatpak id, arguments) and, for emulators with an official AppImage, the release API, asset pattern and download host |
+| `src/library/emulator_release.*` | An emulator's latest official AppImage from its GitHub or Forgejo release JSON, downloaded beside the one in use, checked against the published SHA-256 (or recorded as seen, HTTPS from the project's host only), made executable and switched to |
+| `src/library/downloaded_emulators.*` | The AppImages openSU downloaded under `<data>/opensu/emulators/<id>/<asset id>/`: the `installed.json` record (the atomic switch), old versions cleared, removal |
+| `src/library/appimage_runtime.*` | Whether an AppImage can run here: its runtime's libfuse2 need, `/dev/fuse`, `fusermount`; the refusal names the install command for the distribution |
 | `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
 | `src/artwork/arcade_dat.*` | The pinned libretro-database arcade listings (FinalBurn Neo, MAME 2016): download against size and CRC-32, parse, merge; the fetcher keeps the result in `NameDb` |
 | `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, UI sounds (`sound/<file>`, WAV or OGG) and the dock's icons (`nav/`) |
@@ -121,7 +130,7 @@ gitignored `docs/reference/`).
 | `src/audio/volume_backend.*` | PC output volume through wpctl or pactl (injectable runner), a read-only shadow for hidden runs, the install advice when no backend exists |
 | `src/audio/system_volume.*` | Volume and mute state, steps, one listener, async polling of changes made elsewhere |
 | `src/audio/sound_player.*` | raylib audio: the device opened once (silent with one warning when absent), the WAVs loaded from the store, `play` through the debounce |
-| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers; shared by artwork and the stores |
+| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`), raylib-free (`opensu_pad`) |
@@ -209,11 +218,13 @@ Painters and composition (`opensu_ui`):
 | Path | Owns |
 | --- | --- |
 | `tools/vm/` | The headless Fedora 44 KDE guest for login-session tests (`docs/vm-harness.md`): `provision`/`kickstart`/`fetch`/`hostfiles`/`configure` (install and host-like setup), `machine` (qemu command line, PID lifecycle, overlays), `qmp` and `vnc` (screenshots, input), `guest` (SSH), `deploy` (build, install, ship), `control` (openSU's control channel in the guest), `cli` |
-| `tools/nested_remap/` | Headless check that a nested Gamescope survives its windows closing and reopening: `host` (a private `kwin_wayland --virtual` on its own runtime dir and bus), `child` (the glxgears close/open cycle), `run` (openSU's nested command line under `WAYLAND_DEBUG`), `verdict` (exit and protocol error from the log), `cli` |
+| `tools/nested_remap/` | Headless checks of the nested Gamescope in a private `kwin_wayland --virtual` (`host`: own runtime dir and bus, KWin scripts): `cli` runs openSU's nested command line under `WAYLAND_DEBUG` (`run`) with a window scenario (`child`: cycle, rapid, steam), optionally `kwin/focus_flap.qml` or the host stopping mid-run, and judges exit and protocol error (`verdict`); `restart` runs the real `CompositorSession` with `tests/session/nested_session_driver` as the child and SIGABRTs Gamescope until the restart limit |
 | `pyproject.toml`, `uv.lock` | The one locked Python environment of the tools (`uv run --frozen`) |
 
 ## Tests and docs
 
 - `tests/<area>/`: one ctest suite per owner, through the shipping code.
+- `tests/support/`: shared fakes: `fake_steam.hpp` (a DevTools Steam), `release_server.hpp` (a release API and asset host), `loopback_server.hpp`; `scratch_dir.hpp`, a test's own empty directory under the test scratch.
+- `docs/design/`: proposals not yet built (`lua-plugins.md`: Lua plugin host).
 - `docs/re-frontier.md`: what is recovered from iiSU. `docs/reference/` (private `opensu-re`
   checkout): the evidence and the spec built on it.

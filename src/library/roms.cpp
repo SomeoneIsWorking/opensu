@@ -74,8 +74,14 @@ std::string titleOf(const std::string& name, const NameMap* arcade) {
     return cleanTitle(name);
 }
 
-std::string missingEmulator(const RomSystem& system) {
-    const std::vector<std::string_view> names = Emulators::candidates(system.key);
+std::string missingEmulator(const RomSystem& system, const Emulators& emulators) {
+    for (const EmulatorEntry& entry : emulators.catalog().entries()) {
+        if (const EmulatorInstall* install = emulators.installed(entry.id);
+            install != nullptr && entry.serves(system.key) && !install->problem.empty()) {
+            return entry.name + " cannot start: " + install->problem;
+        }
+    }
+    const std::vector<std::string_view> names = emulators.candidates(system.key);
     std::string text = "no " + std::string{system.label} + " emulator found";
     if (!names.empty()) {
         text += "; install ";
@@ -108,13 +114,14 @@ std::vector<fs::path> discoverRoots(const fs::path& home, const std::vector<fs::
     return roots;
 }
 
-Provider::Provider(std::vector<fs::path> roots, Emulators emulators, NameDb names)
+Provider::Provider(std::vector<fs::path> roots, EmulatorSetup emulators, NameDb names)
     : roots_{std::move(roots)}, emulators_{std::move(emulators)}, names_{std::move(names)} {
 }
 
 std::vector<Game> Provider::list() {
     std::vector<Game> games;
     const NameMap arcade = names_.load();
+    const Emulators emulators = emulators_.discover();
     for (const fs::path& root : roots_) {
         std::error_code ec;
         if (!fs::is_directory(root, ec)) {
@@ -147,12 +154,12 @@ std::vector<Game> Provider::list() {
                 game.installed = true;
                 // The emulator's command line carries the game's file.
                 game.processHint = file->filename().string();
-                game.emulatorOptions = emulators_.options(system->key, *file);
-                if (std::optional<LaunchSpec> spec = emulators_.launch(system->key, *file)) {
+                game.emulatorOptions = emulators.options(system->key, *file);
+                if (std::optional<LaunchSpec> spec = emulators.launch(system->key, *file)) {
                     game.launch = std::move(*spec);
-                    game.emulator = emulators_.chosenName(system->key);
+                    game.emulator = emulators.chosenName(system->key);
                 } else {
-                    game.unavailable = missingEmulator(*system);
+                    game.unavailable = missingEmulator(*system, emulators);
                 }
                 games.push_back(std::move(game));
             }

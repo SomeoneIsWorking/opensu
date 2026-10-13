@@ -29,6 +29,11 @@ bool DesktopRequest::consume() const {
     return std::filesystem::remove(file_, error);
 }
 
+bool DesktopRequest::pending() const {
+    std::error_code error;
+    return std::filesystem::exists(file_, error);
+}
+
 std::string DesktopRequest::enterDesktop(const std::vector<std::filesystem::path>& path) {
     const std::filesystem::path program = launch::resolveExecutable(desktopProgram, path);
     if (program.empty()) {

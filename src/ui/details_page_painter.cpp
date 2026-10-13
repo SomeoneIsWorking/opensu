@@ -148,7 +148,10 @@ void DetailsPagePainter::paintButtons(const DetailsPage& page, const DetailsLayo
         typeface_.drawCentred(buttons[i].label, rect.x + pad, rect.centreY(), text,
                               withAlpha(ink, alpha));
         if (!buttons[i].value.empty()) {
-            const std::string shown = "<  " + buttons[i].value + "  >";
+            // Only a choice steps with Left and Right; other values are read-outs.
+            const std::string shown = buttons[i].action == DetailsAction::Emulator
+                                          ? "<  " + buttons[i].value + "  >"
+                                          : buttons[i].value;
             const float width = typeface_.measure(shown, text);
             typeface_.drawCentred(
                 typeface_.fitted(shown, rect.width - 2.0f * pad - 90.0f * dp, text),

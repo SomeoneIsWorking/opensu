@@ -24,8 +24,9 @@ library::Game rom(const std::string& id) {
     game.sourceId = "switch";
     game.installed = true;
     game.emulatorOptions = {
-        library::EmulatorOption{"Eden", true, library::LaunchSpec{"eden", {}}},
-        library::EmulatorOption{"Ryujinx", true, library::LaunchSpec{"ryujinx", {}}}};
+        library::EmulatorOption{"Eden", true, library::LaunchSpec{"eden", {}}, "eden", false, {}},
+        library::EmulatorOption{
+            "Ryujinx", true, library::LaunchSpec{"ryujinx", {}}, "ryujinx", false, {}}};
     game.emulator = "Eden";
     return game;
 }
@@ -36,6 +37,7 @@ struct Rig {
     app::Preferences preferences;
     library::Game game;
     std::vector<std::string> calls;
+    app::EmulatorDownloads downloads;
     app::DetailsController controller;
 
     explicit Rig(const fs::path& dir)
@@ -43,7 +45,14 @@ struct Rig {
                       [](const std::string&) {
                       }},
           game{rom("rom:/r/Kirby.nsp")},
-          controller{page, sounds, preferences,
+          downloads{library::roms::EmulatorSetup{},
+                    app::EmulatorDownloads::Hooks{[](const std::string&, bool) {
+                                                  },
+                                                  [] {
+                                                  },
+                                                  [] {
+                                                  }}},
+          controller{page, sounds, preferences, downloads,
                      app::DetailsController::Hooks{
                          [this] {
                              return &game;
@@ -59,6 +68,9 @@ struct Rig {
                          },
                          [this](const library::Game&, const std::string& name) {
                              calls.push_back("emulator " + name);
+                         },
+                         [this](const std::string& text, bool) {
+                             calls.push_back("say " + text);
                          }}} {
     }
 };

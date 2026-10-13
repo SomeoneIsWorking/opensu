@@ -57,10 +57,27 @@ void testInstallOutput() {
 
 } // namespace
 
+void legendaryDefaultFolder(const fs::path& dir) {
+    using opensu::library::epic::legendaryInstallDir;
+    const fs::path config = dir / "legendary-config";
+    fs::create_directories(config);
+    expect(legendaryInstallDir(config, "/home/p") == fs::path{"/home/p/Games"},
+           "without a config, legendary installs under ~/Games");
+    std::ofstream{config / "config.ini"}
+        << "[Legendary]\n; comment\ndisable_update_check = false\n"
+        << "install_dir = ~/Epic Games\n[other]\ninstall_dir = /x\n";
+    expect(legendaryInstallDir(config, "/home/p") == fs::path{"/home/p/Epic Games"},
+           "install_dir in [Legendary] is the default, ~ expanded");
+    std::ofstream{config / "config.ini"} << "[other]\ninstall_dir = /x\n";
+    expect(legendaryInstallDir(config, "/home/p") == fs::path{"/home/p/Games"},
+           "install_dir in another section is not legendary's");
+}
+
 int main() {
     testInstallOutput();
     const fs::path dir = fs::path{OPENSU_TEST_SCRATCH} / ("epic-" + std::to_string(getpid()));
     fs::remove_all(dir);
+    legendaryDefaultFolder(dir);
 
     const fs::path legendary = writeStub(dir, "legendary", R"(echo "log line" >&2
 case "$1" in
