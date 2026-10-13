@@ -20,7 +20,7 @@
 #include "artwork_store.hpp"
 #include "console_glyphs.hpp"
 #include "range_server.hpp"
-#include "zip_fixture.hpp"
+#include "support/zip_fixture.hpp"
 
 namespace {
 
@@ -36,15 +36,15 @@ using opensu::artwork::navAsset;
 using opensu::artwork::PackPin;
 using opensu::artwork::soundAsset;
 using opensu::artwork::StarterPack;
-using opensu::artwork::fixture::buildZip;
-using opensu::artwork::fixture::crcOf;
-using opensu::artwork::fixture::FixtureEntry;
 using opensu::artwork::fixture::RangeServer;
 using opensu::audio::Effect;
 using opensu::library::Console;
 using opensu::library::Section;
 using opensu::library::ShelfItem;
 using opensu::net::WebClient;
+using opensu::test::zipfixture::buildZip;
+using opensu::test::zipfixture::crcOf;
+using opensu::test::zipfixture::FixtureEntry;
 
 constexpr int cardSize = 8;
 constexpr std::string_view packEntry = "assets/iiSU_StarterPack.zip";

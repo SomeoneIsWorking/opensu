@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libcap-dev libsdl2-dev libavif-dev libudev-dev libdecor-0-dev libluajit-5.1-dev \
         libinput-dev libei-dev libpipewire-0.3-dev libvulkan-dev libseat-dev liblcms2-dev \
         libglm-dev libstb-dev libgbm-dev libegl-dev libgles-dev xwayland \
+        libpng-dev glslc mesa-vulkan-drivers libpulse-dev libasound2-dev \
     && rm -rf /var/lib/apt/lists/* \
     && for tool in clang clang++ clang-scan-deps; do \
         ln -s "/usr/bin/$tool-22" "/usr/local/bin/$tool"; \
@@ -71,6 +72,21 @@ RUN set -eu; \
         -Dvmwgfx=disabled -Dfreedreno=disabled -Dvc4=disabled -Detnaviv=disabled \
         -Dexynos=disabled -Domap=disabled -Dtegra=disabled -Dcairo-tests=disabled \
         -Dvalgrind=disabled -Dman-pages=disabled -Dtests=false; \
+    ldconfig
+
+# SDL3, which 24.04 does not package, for opensu-retro; the AppImage bundles it. The release
+# tarball's sha256 is the one GitHub publishes for the asset.
+RUN set -eu; \
+    curl -fsSL -o /tmp/sdl3.tar.gz \
+        https://github.com/libsdl-org/SDL/releases/download/release-3.4.18/SDL3-3.4.18.tar.gz; \
+    echo "9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3  /tmp/sdl3.tar.gz" \
+        | sha256sum -c -; \
+    mkdir /tmp/sdl3; tar -xzf /tmp/sdl3.tar.gz -C /tmp/sdl3 --strip-components=1; \
+    cmake -S /tmp/sdl3 -B /tmp/sdl3/build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu \
+        -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF; \
+    ninja -C /tmp/sdl3/build install; \
+    rm -rf /tmp/sdl3 /tmp/sdl3.tar.gz; \
     ldconfig
 
 ARG UV_VERSION

@@ -1,6 +1,6 @@
 // zip_archive — reading zip files from bytes: the end record, the central directory, a local
-// header's data offset and one entry's inflated, checked contents. No I/O; the caller fetches
-// the bytes. zip64 is refused.
+// header's data offset and one entry's inflated, checked contents, and the CRC-32 they are checked
+// with. No I/O; the caller fetches the bytes. zip64 is refused.
 #pragma once
 
 #include <cstdint>
@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace opensu::artwork::zip {
+namespace opensu::zip {
 
 /// An entry's central directory record.
 struct Entry {
@@ -28,6 +28,9 @@ struct Directory {
     std::uint32_t size{0};
     std::uint16_t entries{0};
 };
+
+/// The CRC-32 of `bytes`, as zip and the libretro listings state it.
+[[nodiscard]] std::uint32_t crc32Of(std::string_view bytes);
 
 /// The fixed part of a local header, which holds the lengths of its name and extra field.
 inline constexpr std::size_t localHeaderSize = 30;
@@ -71,4 +74,4 @@ class Archive {
     std::vector<Entry> entries_;
 };
 
-} // namespace opensu::artwork::zip
+} // namespace opensu::zip

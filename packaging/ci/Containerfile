@@ -1,12 +1,15 @@
 # The CI build environment (tools/check `ci`): the Fedora release the Gamescope fork's podman build
 # uses, with openSU's and the fork's build dependencies, and systemd, which runs as PID 1 so the
-# tests get the user manager their scopes need.
+# tests get the user manager their scopes need. lavapipe (mesa-vulkan-drivers) and the validation
+# layers let opensu-retro's tests draw with Vulkan on the display CI forwards in.
 FROM registry.fedoraproject.org/fedora:44@sha256:959833699a2fb5da1bc70b4db659ab229252c2ba1ed8e2fa29d4b30a704c0f63
 
 RUN dnf -y install --setopt=install_weak_deps=False \
         systemd systemd-pam dbus sudo git clang clang-tools-extra cmake ninja-build meson glslang uv \
         dnf-plugins-core libcurl-devel zlib-ng-compat-devel libwebp-devel nanosvg-devel json-devel \
         libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel mesa-libGL-devel \
+        SDL3-devel vulkan-loader-devel libpng-devel glslc mesa-vulkan-drivers \
+        vulkan-validation-layers \
     && dnf -y builddep gamescope \
     && dnf clean all
 

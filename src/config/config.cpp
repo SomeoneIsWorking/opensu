@@ -190,6 +190,13 @@ std::filesystem::path gamescopeBeside(const std::filesystem::path& executable) {
     return executable.parent_path().parent_path() / OPENSU_GAMESCOPE_RELATIVE;
 }
 
+std::filesystem::path retroRunnerBeside(const std::filesystem::path& executable) {
+    if (executable.empty()) {
+        return {};
+    }
+    return executable.parent_path() / "opensu-retro";
+}
+
 Config read() {
     Config value;
     if (const std::string_view home = env("HOME"); !home.empty()) {
@@ -207,6 +214,7 @@ Config read() {
     }
     value.executable = self;
     value.gamescope = gamescopeBeside(self);
+    value.retroRunner = retroRunnerBeside(self);
     const auto base = [&value](const char* variable, const char* fallback) {
         const std::string_view set = env(variable);
         return set.empty() ? value.home / fallback : std::filesystem::path{set};
@@ -217,6 +225,8 @@ Config read() {
     value.cacheDir = value.xdgCacheHome / "opensu";
     value.dataDir = value.xdgDataHome / "opensu";
     value.configDir = value.xdgConfigHome / "opensu";
+    value.savesDir = value.dataDir / "saves";
+    value.retroSystemDir = value.dataDir / "system";
     if (const std::string_view legendary = env("LEGENDARY_CONFIG_PATH"); !legendary.empty()) {
         value.legendaryConfigDir = std::filesystem::path{legendary};
     } else {

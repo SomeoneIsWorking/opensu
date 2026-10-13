@@ -1,6 +1,7 @@
 #include "emulator_catalog.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <iterator>
 #include <regex>
@@ -15,6 +16,8 @@ namespace {
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
+
+constexpr std::string_view coreSuffix = "_libretro";
 
 /// Thrown for a malformed field, carrying where it is.
 class Malformed : public std::runtime_error {
@@ -70,6 +73,20 @@ ReleaseSource releaseOf(const json& object, const std::string& where) {
     return release;
 }
 
+/// A built-in emulator's core: a file name of the buildbot's, and nothing else to start it with.
+void checkCore(const json& object, const std::string& core, const std::string& where) {
+    const bool named = core.ends_with(coreSuffix) && core.size() > coreSuffix.size() &&
+                       std::ranges::all_of(core, [](unsigned char c) {
+                           return std::islower(c) != 0 || std::isdigit(c) != 0 || c == '_';
+                       });
+    if (!named) {
+        throw Malformed{where + ": \"core\" must be a core's name, as \"mgba_libretro\""};
+    }
+    if (object.contains("launchers") || object.contains("release")) {
+        throw Malformed{where + ": a core runs built in, without \"launchers\" or \"release\""};
+    }
+}
+
 EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t index) {
     std::string where = "emulator " + std::to_string(index);
     if (!object.is_object()) {
@@ -84,9 +101,14 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
         throw Malformed{where + ": no systems"};
     }
     entry.config = configPath(text(object, "config", where, false), home);
+    entry.core = text(object, "core", where, false);
+    if (entry.builtIn()) {
+        checkCore(object, entry.core, where);
+        return entry;
+    }
     const auto launchers = object.find("launchers");
     if (launchers == object.end() || !launchers->is_array() || launchers->empty()) {
-        throw Malformed{where + ": no launchers"};
+        throw Malformed{where + ": no launchers and no core"};
     }
     for (const json& launcher : *launchers) {
         if (!launcher.is_object()) {

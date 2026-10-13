@@ -184,6 +184,36 @@
       "launchers": [
         {"programs": ["xenia_canary"], "appImage": "xenia", "args": ["--fullscreen=true", "{rom}"]}
       ]
+    },
+    {
+      "id": "mgba-core",
+      "name": "mGBA (built-in)",
+      "systems": ["gb", "gbc", "gba"],
+      "core": "mgba_libretro"
+    },
+    {
+      "id": "gambatte-core",
+      "name": "Gambatte (built-in)",
+      "systems": ["gb", "gbc"],
+      "core": "gambatte_libretro"
+    },
+    {
+      "id": "snes9x-core",
+      "name": "Snes9x (built-in)",
+      "systems": ["snes"],
+      "core": "snes9x_libretro"
+    },
+    {
+      "id": "mesen-core",
+      "name": "Mesen (built-in)",
+      "systems": ["nes"],
+      "core": "mesen_libretro"
+    },
+    {
+      "id": "pcsx-rearmed-core",
+      "name": "PCSX ReARMed (built-in)",
+      "systems": ["psx"],
+      "core": "pcsx_rearmed_libretro"
     }
   ]
 }

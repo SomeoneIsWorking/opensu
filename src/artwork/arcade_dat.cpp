@@ -1,11 +1,10 @@
 #include "arcade_dat.hpp"
 
-#include <zlib.h>
-
 #include <algorithm>
 #include <string>
 
 #include "libretro_index.hpp"
+#include "zip/zip_archive.hpp"
 
 namespace opensu::artwork {
 namespace {
@@ -25,11 +24,6 @@ std::string urlOf(std::string_view base, std::string_view path) {
     return url;
 }
 
-std::uint32_t crc32Of(std::string_view bytes) {
-    return static_cast<std::uint32_t>(
-        ::crc32(0L, reinterpret_cast<const Bytef*>(bytes.data()), static_cast<uInt>(bytes.size())));
-}
-
 } // namespace
 
 std::optional<library::roms::NameMap> fetchArcadeNames(const net::WebClient& web,
@@ -44,7 +38,7 @@ std::optional<library::roms::NameMap> fetchArcadeNames(const net::WebClient& web
             error.insert(0, url + ": ");
             return std::nullopt;
         }
-        if (bytes->size() != pin.size || crc32Of(*bytes) != pin.crc32) {
+        if (bytes->size() != pin.size || zip::crc32Of(*bytes) != pin.crc32) {
             error = url + " differs from its pin";
             return std::nullopt;
         }

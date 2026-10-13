@@ -1,6 +1,7 @@
 #include "emulator_settings.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <vector>
 
 #include "library/rom_systems.hpp"
@@ -93,6 +94,9 @@ std::string EmulatorSettings::noteOf(const EmulatorEntry& entry) const {
     } else {
         note = std::string{library::roms::label(install->source)} +
                (install->version.empty() ? "" : " " + install->version);
+        if (install->source == InstallSource::Core) {
+            note += " in " + std::filesystem::path{install->where}.parent_path().string();
+        }
     }
     note += " · " + systemsOf(entry);
     if (!entry.config.empty()) {
@@ -109,8 +113,8 @@ std::string EmulatorSettings::valueOf(const EmulatorEntry& entry) const {
                " · A cancels";
     }
     const EmulatorInstall* install = found_.installed(entry.id);
-    if (install != nullptr && install->source == InstallSource::Downloaded) {
-        const std::optional<library::roms::ReleaseAsset> newest = downloads_.latest(entry.id);
+    if (install != nullptr && library::roms::downloadedByOpensu(install->source)) {
+        const std::optional<EmulatorDownloads::Build> newest = downloads_.latest(entry.id);
         if (!newest) {
             return "Installed";
         }
@@ -119,7 +123,7 @@ std::string EmulatorSettings::valueOf(const EmulatorEntry& entry) const {
     if (install != nullptr && install->problem.empty()) {
         return "Installed";
     }
-    return entry.release ? "Download" : "Install it yourself";
+    return entry.downloadable() ? "Download" : "Install it yourself";
 }
 
 ui::SettingsCategory EmulatorSettings::page() const {
@@ -136,10 +140,11 @@ ui::SettingsCategory EmulatorSettings::page() const {
         page.rows.push_back(ui::makeRow(std::string{emulatorId} + entry.id, RowKind::Action,
                                         entry.name, noteOf(entry), valueOf(entry)));
         const EmulatorInstall* install = found_.installed(entry.id);
-        if (install != nullptr && install->source == InstallSource::Downloaded) {
+        if (install != nullptr && library::roms::downloadedByOpensu(install->source)) {
             page.rows.push_back(ui::makeRow(
                 std::string{removeId} + entry.id, RowKind::Action, "Remove " + entry.name,
-                "Deletes the AppImage openSU downloaded; its settings stay",
+                entry.builtIn() ? "Deletes the core openSU downloaded; saves stay"
+                                : "Deletes the AppImage openSU downloaded; its settings stay",
                 armed_ == entry.id ? "Press again to remove" : "Remove"));
         }
     }
@@ -196,7 +201,7 @@ void EmulatorSettings::runEmulator(const EmulatorEntry& entry) {
         return;
     }
     const EmulatorInstall* install = found_.installed(entry.id);
-    const bool ours = install != nullptr && install->source == InstallSource::Downloaded;
+    const bool ours = install != nullptr && library::roms::downloadedByOpensu(install->source);
     if (install != nullptr && install->problem.empty() && !ours) {
         hooks_.say(entry.name + " is installed as " +
                        std::string{library::roms::label(install->source)} + ": " + install->where,

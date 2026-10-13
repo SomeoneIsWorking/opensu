@@ -1,4 +1,4 @@
-// Builds small zips in memory for the artwork tests.
+// Builds small zips in memory for tests.
 #pragma once
 
 #include <cstdint>
@@ -8,7 +8,7 @@
 
 #include <zlib.h>
 
-namespace opensu::artwork::fixture {
+namespace opensu::test::zipfixture {
 
 struct FixtureEntry {
     std::string name;
@@ -108,4 +108,4 @@ inline std::string buildZip(const std::vector<FixtureEntry>& entries,
     return out;
 }
 
-} // namespace opensu::artwork::fixture
+} // namespace opensu::test::zipfixture

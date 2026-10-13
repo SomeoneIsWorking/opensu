@@ -48,3 +48,17 @@ def git_common_dir(repo: Path) -> Path | None:
         return None
     gitdir = Path(dot_git.read_text().removeprefix("gitdir:").strip())
     return (gitdir / (gitdir / "commondir").read_text().strip()).resolve()
+
+
+def display_words(env: Mapping[str, str]) -> list[str]:
+    """`podman run` words giving a container the caller's X display (CI's is xvfb-run's)."""
+    display = env.get("DISPLAY", "")
+    if not display:
+        raise RuntimeError("hidden windows need DISPLAY (CI wraps the job in xvfb-run)")
+    words = ["-v", "/tmp/.X11-unix:/tmp/.X11-unix:ro", "-e", f"DISPLAY={display}"]
+    xauthority = env.get("XAUTHORITY", "")
+    if xauthority:
+        # Cookies are keyed by hostname, so the container keeps the host's.
+        words += ["--uts", "host"]
+        words += ["-v", f"{xauthority}:/xauthority:ro", "-e", "XAUTHORITY=/xauthority"]
+    return words

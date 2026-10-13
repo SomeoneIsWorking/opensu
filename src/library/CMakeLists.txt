@@ -29,6 +29,7 @@ add_library(opensu_library STATIC
     emulator_catalog.cpp
     emulator_release.cpp
     downloaded_emulators.cpp
+    libretro_cores.cpp
     appimage_runtime.cpp
 )
 add_library(opensu::library ALIAS opensu_library)
@@ -37,6 +38,6 @@ target_link_libraries(opensu_library
     PUBLIC opensu::vdf
         opensu::config
         opensu::net
-    PRIVATE opensu::command opensu::fileio lucent::lucent
+    PRIVATE opensu::command opensu::fileio opensu::zip lucent::lucent
 )
 target_compile_features(opensu_library PUBLIC cxx_std_20)

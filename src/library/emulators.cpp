@@ -120,8 +120,36 @@ std::optional<EmulatorInstall> locate(const EmulatorLauncher& launcher,
     return std::nullopt;
 }
 
+/// How built-in `entry` is installed: its core, on openSU's runner.
+std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
+                                          const EmulatorSearch& search) {
+    std::optional<FoundCore> core = search.cores.find(entry.core);
+    if (!core) {
+        return std::nullopt;
+    }
+    const std::string file = core->file.string();
+    const bool ours = core->downloaded.has_value();
+    std::vector<std::string> command{search.runner.string(), "--core", file};
+    if (!search.saves.empty()) {
+        command.insert(command.end(), {"--saves", (search.saves / "{system}").string()});
+    }
+    command.emplace_back("{rom}");
+    return EmulatorInstall{entry.id,
+                           ours ? InstallSource::DownloadedCore : InstallSource::Core,
+                           file,
+                           ours ? core->downloaded->date : std::string{},
+                           std::move(command),
+                           executable(search.runner)
+                               ? std::string{}
+                               : "openSU's libretro runner is missing at " +
+                                     search.runner.string() + "; reinstall openSU"};
+}
+
 /// How `entry` is installed: openSU's download first, then each launcher in turn.
 std::optional<EmulatorInstall> locate(const EmulatorEntry& entry, const EmulatorSearch& search) {
+    if (entry.builtIn()) {
+        return locateCore(entry, search);
+    }
     std::optional<EmulatorInstall> found;
     if (!search.downloads.empty()) {
         if (const std::optional<DownloadedEmulator> downloaded =
@@ -145,8 +173,11 @@ std::optional<EmulatorInstall> locate(const EmulatorEntry& entry, const Emulator
     return found;
 }
 
-/// A command as the launch that starts `rom`.
-LaunchSpec specOf(const std::vector<std::string>& command, const fs::path& rom) {
+/// A command as the launch that starts `rom` of `system`: `{rom}` is the file, `{system}` inside
+/// a word is the system's key.
+LaunchSpec specOf(const std::vector<std::string>& command, std::string_view system,
+                  const fs::path& rom) {
+    constexpr std::string_view systemToken{"{system}"};
     LaunchSpec spec;
     spec.program = command.front();
     bool placed = false;
@@ -154,6 +185,10 @@ LaunchSpec specOf(const std::vector<std::string>& command, const fs::path& rom) 
         if (*word == "{rom}") {
             spec.args.push_back(rom.string());
             placed = true;
+        } else if (const std::size_t at = word->find(systemToken); at != std::string::npos) {
+            std::string filled = *word;
+            filled.replace(at, systemToken.size(), system);
+            spec.args.push_back(std::move(filled));
         } else {
             spec.args.push_back(*word);
         }
@@ -176,12 +211,21 @@ std::string_view label(InstallSource source) {
         return "AppImage (openSU)";
     case InstallSource::Flatpak:
         return "Flatpak";
+    case InstallSource::DownloadedCore:
+        return "libretro buildbot";
+    case InstallSource::Core:
+        return "Core";
     }
     return "Package";
 }
 
+bool downloadedByOpensu(InstallSource source) noexcept {
+    return source == InstallSource::Downloaded || source == InstallSource::DownloadedCore;
+}
+
 EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& dataDir,
-                                        std::vector<fs::path> executablePath) {
+                                        std::vector<fs::path> executablePath, fs::path runner,
+                                        fs::path saves) {
     FuseSupport fuse = FuseSupport::detect(executablePath);
     return EmulatorSearch{
         .executablePath = std::move(executablePath),
@@ -189,14 +233,18 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
         .flatpakDirs = {home / ".local" / "share" / "flatpak" / "app", "/var/lib/flatpak/app"},
         .downloads = DownloadedEmulators::under(dataDir).root(),
         .fuse = std::move(fuse),
+        .cores = CoreSearch::standard(home, dataDir),
+        .runner = std::move(runner),
+        .saves = std::move(saves),
     };
 }
 
 EmulatorSetup EmulatorSetup::standard(const config::Config& config) {
-    return EmulatorSetup{
-        EmulatorCatalog::shipped(config.assetsDir, config.home),
-        EmulatorSearch::standard(config.home, config.dataDir, config.executablePath),
-        config.emulators};
+    return EmulatorSetup{EmulatorCatalog::shipped(config.assetsDir, config.home),
+                         EmulatorSearch::standard(config.home, config.dataDir,
+                                                  config.executablePath, config.retroRunner,
+                                                  config.savesDir),
+                         config.emulators};
 }
 
 Emulators Emulators::discover(EmulatorCatalog catalog, const EmulatorSearch& search,
@@ -240,7 +288,7 @@ std::optional<LaunchSpec> Emulators::launch(std::string_view system, const fs::p
     if (found == commands_.end() || found->second.empty()) {
         return std::nullopt;
     }
-    return specOf(found->second, rom);
+    return specOf(found->second, system, rom);
 }
 
 std::string Emulators::chosenName(std::string_view system) const {
@@ -253,18 +301,18 @@ std::vector<EmulatorOption> Emulators::options(std::string_view system, const fs
     if (const auto custom = overrides_.find(system);
         custom != overrides_.end() && !custom->second.empty()) {
         options.push_back(EmulatorOption{
-            std::string{customName}, true, specOf(custom->second, rom), {}, false, {}});
+            std::string{customName}, true, specOf(custom->second, system, rom), {}, false, {}});
     }
     for (const EmulatorEntry& entry : catalog_.entries()) {
         if (!entry.serves(system)) {
             continue;
         }
-        EmulatorOption option{entry.name, false, {}, entry.id, entry.release.has_value(), {}};
+        EmulatorOption option{entry.name, false, {}, entry.id, entry.downloadable(), {}};
         if (const EmulatorInstall* install = installed(entry.id)) {
             option.problem = install->problem;
             option.installed = install->problem.empty();
             if (option.installed) {
-                option.launch = specOf(install->command, rom);
+                option.launch = specOf(install->command, system, rom);
             }
         }
         options.push_back(std::move(option));

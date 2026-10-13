@@ -48,7 +48,7 @@ std::string emulatorText(const library::Game& game) {
     if (chosen == game.emulatorOptions.end()) {
         return game.unavailable.empty() ? "none installed" : game.unavailable;
     }
-    return chosen->name + (chosen->installed ? " (installed)" : " (not installed)");
+    return chosen->name + (chosen->installed ? " · installed" : " · not installed");
 }
 
 } // namespace

@@ -116,6 +116,8 @@ game has been observed running yet.
 | S028 | Sandboxed Lua plugins (API v1: play-time sources, emulator game lists), Settings › Plugins, bundled Eden play time | partial | S008, S020 | G001 |
 | S029 | CI: pinned sources, Clang build, clang-tidy, clang-format, ruff, ctest on every push | partial | — | — |
 | S030 | Linux AppImage release, signed, tested on clean Fedora 44 and Ubuntu 24.04 | partial | S029 | G004 |
+| S031 | Built-in emulators: libretro cores found or downloaded from the buildbot, updated, removed, started on `opensu-retro` | partial | S026 | G001 |
+| S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM | partial | S003 | G001 |
 
 ## Capability details
 
@@ -1022,6 +1024,52 @@ update kept apart until verified, cancel, remove, catalog parsing, merge with de
 mGBA 0.10.5 downloaded from GitHub in a hidden openSU with scratch XDG dirs, from the ROM's
 details page, then removed from Settings › Emulators. Unverified: a real update, a real Eden
 download, launching a downloaded AppImage, versions of packaged emulators (not shown).
+
+### S031 — Built-in emulator cores
+
+A catalog entry with `"core"` is a built-in emulator (`library/emulator_catalog`): mGBA (GB, GBC,
+GBA), Gambatte (GB, GBC), Snes9x, Mesen and PCSX ReARMed, listed after the standalone emulators so
+a system's automatic emulator does not change where one is installed. Genesis Plus GX is not listed:
+openSU has no Mega Drive, Master System or Game Gear system. A core is found in
+`<data>/opensu/cores/` (openSU's, with a `<core>.json` record), then `~/.config/retroarch/cores`,
+`/usr/lib64/libretro`, `/usr/lib/libretro`, `/usr/lib/x86_64-linux-gnu/libretro`
+(`library/libretro_cores`); the emulator is installed when its core is found and runs as
+`opensu-retro --core <core> --saves <data>/opensu/saves/<system> <rom>`, which cannot start, with the reason, when `opensu-retro` is not
+beside `opensu`. Downloads use the Settings › Emulators and details page paths of S026: the
+buildbot's `.index-extended` is read, the zip is fetched with every hop on the buildbot's origin,
+its one `.so` is checked against the listed CRC-32, which is the library's and not the zip's
+(corruption, not a compromised host), written whole, then the record; the update check compares the listed CRC-32 with the record's.
+
+Verified: tests through the shipping code against a fake buildbot (listing parse, lookup order,
+CRC-32 match and mismatch, off-host redirect and off-host listing refused with nothing kept, an
+on-host redirect followed, cancel, update detection and update, removal, LaunchSpec shape, the
+ROM's emulator options, the details page Download then Play, Settings source, update and two-press
+Remove). Unverified: a real buildbot download, a real core run through `opensu-retro`.
+
+### S032 — The libretro runner
+
+`opensu-retro` (`src/retro/`, design in `docs/design/libretro.md`) loads one core, answers its
+environment (directories, pixel formats, core option defaults v0 to v2, log, geometry and timing),
+runs it at its rate on a clock, draws its frame with Vulkan letterboxed in an SDL window, plays its
+sound at 48 kHz through a resampling ring with ±0.5 % rate control, reads every pad without grabbing
+(the shell's virtual pad included) and the keyboard, and keeps save RAM in `<saves>/<rom>.srm`,
+written atomically when it changes and at exit.
+
+Verified: unit tests through the shipping code (pixel formats, rate control against a device 0.3 %
+fast and slow, the joypad mapping, save RAM round trip, failed and wrong-size writes, every answered
+and a refused environment command, a fake core through `Core`), and `runner_test` running the real
+binary hidden with Vulkan validation on: the fake core's RGB565 bars letterboxed in the frame PNG,
+its `.srm` continued across two runs, exit 2 for a missing core or ROM, a crashing core killing only
+the runner by SIGSEGV. By hand: the buildbot's mGBA core (its listed CRC-32, which is the extracted
+`.so`'s, matched) ran Kirby & the Amazing Mirror hidden for 600 frames with no validation errors; the
+frame PNG shows the title screen letterboxed 3:2 and the 32 KiB `.srm` was written. The fake core's run
+also passes on lavapipe with validation.
+
+Unverified: a visible window under Gamescope with sound on a device, a real pad and the shell's
+virtual pad driving a game (`pads_test`'s new reader case cannot pass on this machine while the
+running openSU holds every new pad; the pre-change test binary fails the same way). Missing: L2/R2
+from analogue triggers (the translator reports them only for digital triggers), ports beyond the
+first, analogue sticks (`RETRO_DEVICE_ANALOG`), core option changes.
 
 ### S027 — Steam libraries
 

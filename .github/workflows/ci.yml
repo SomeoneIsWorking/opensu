@@ -28,8 +28,10 @@ jobs:
           enable-cache: false
       # The Fedora 44 image the fork's local podman build uses, booted with systemd so the tests
       # get a user manager; the fork is built natively inside it.
+      - name: Xvfb for the tests' hidden windows
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth
       - name: Pinned sources, configure, build, lint, test (packaging/ci container)
-        run: uv run --frozen python -m tools.check ci --build-dir "$GITHUB_WORKSPACE/build/ci"
+        run: xvfb-run -a uv run --frozen python -m tools.check ci --build-dir "$GITHUB_WORKSPACE/build/ci"
 
   appimage:
     name: AppImage (Ubuntu 24.04 floor)

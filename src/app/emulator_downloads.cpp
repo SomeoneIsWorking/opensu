@@ -1,5 +1,7 @@
 #include "emulator_downloads.hpp"
 
+#include <algorithm>
+
 #include "lucent/log.h"
 
 namespace opensu::app {
@@ -19,7 +21,8 @@ std::optional<int> EmulatorDownloads::Progress::percent() const noexcept {
 }
 
 EmulatorDownloads::EmulatorDownloads(library::roms::EmulatorSetup setup, Hooks hooks)
-    : setup_{std::move(setup)}, store_{setup_.search.downloads}, hooks_{std::move(hooks)} {
+    : setup_{std::move(setup)}, store_{setup_.search.downloads},
+      cores_{setup_.search.cores.downloads}, hooks_{std::move(hooks)} {
 }
 
 EmulatorDownloads::~EmulatorDownloads() {
@@ -29,10 +32,12 @@ EmulatorDownloads::~EmulatorDownloads() {
 
 std::string EmulatorDownloads::start(std::string_view id) {
     const EmulatorEntry* entry = setup_.catalog.find(id);
-    if (entry == nullptr || !entry->release) {
+    if (entry == nullptr || !entry->downloadable()) {
         return "openSU cannot download " + std::string{entry == nullptr ? id : entry->name};
     }
-    const library::roms::ReleaseSource* source = &*entry->release;
+    if (entry->builtIn() && cores_.root().empty()) {
+        return "openSU has no folder to keep " + entry->name + "'s core in";
+    }
     {
         const std::lock_guard lock{mutex_};
         if (progress_) {
@@ -43,36 +48,75 @@ std::string EmulatorDownloads::start(std::string_view id) {
         progress_ = Progress{std::string{id}, 0, 0};
         shownPercent_.reset();
     }
-    downloader_ = std::jthread{[this, entry, source](const std::stop_token& stop) {
-        runDownload(stop, *entry, *source);
+    downloader_ = std::jthread{[this, entry](const std::stop_token& stop) {
+        runDownload(stop, *entry);
     }};
     return {};
 }
 
-void EmulatorDownloads::runDownload(const std::stop_token& stop, const EmulatorEntry& entry,
-                                    const library::roms::ReleaseSource& source) {
-    std::string error;
-    std::optional<library::roms::ReleaseAsset> asset = release_.latest(source, error);
-    std::optional<library::roms::DownloadedEmulator> installed;
-    if (asset && !stop.stop_requested()) {
-        {
-            const std::lock_guard lock{mutex_};
-            latest_.insert_or_assign(entry.id, *asset);
-        }
-        installed = release_.install(
-            entry, *asset, store_,
-            [this, &stop](std::uint64_t received, std::uint64_t total) {
-                const std::lock_guard lock{mutex_};
-                if (progress_) {
-                    progress_->received = received;
-                    progress_->total = total;
-                }
-                return !stop.stop_requested();
-            },
-            error);
-    } else if (asset) {
-        error = "cancelled";
+void EmulatorDownloads::remember(const std::string& id, Build build) {
+    const std::lock_guard lock{mutex_};
+    latest_.insert_or_assign(id, std::move(build));
+}
+
+std::optional<EmulatorDownloads::Build>
+EmulatorDownloads::installRelease(const std::stop_token& stop, const EmulatorEntry& entry,
+                                  const net::WebClient::Progress& progress, std::string& error) {
+    if (!entry.release) {
+        error = entry.name + " publishes no AppImage";
+        return std::nullopt;
     }
+    const std::optional<library::roms::ReleaseAsset> asset = release_.latest(*entry.release, error);
+    if (!asset) {
+        return std::nullopt;
+    }
+    remember(entry.id, Build{asset->version, asset->assetId});
+    if (stop.stop_requested()) {
+        error = "cancelled";
+        return std::nullopt;
+    }
+    const std::optional<library::roms::DownloadedEmulator> installed =
+        release_.install(entry, *asset, store_, progress, error);
+    if (!installed) {
+        return std::nullopt;
+    }
+    return Build{installed->version, installed->assetId};
+}
+
+std::optional<EmulatorDownloads::Build>
+EmulatorDownloads::installCore(const std::stop_token& stop, const EmulatorEntry& entry,
+                               const net::WebClient::Progress& progress, std::string& error) {
+    const std::optional<library::roms::CoreBuild> build = coreDownload_.latest(entry.core, error);
+    if (!build) {
+        return std::nullopt;
+    }
+    remember(entry.id, Build{build->date, std::to_string(build->crc32)});
+    if (stop.stop_requested()) {
+        error = "cancelled";
+        return std::nullopt;
+    }
+    const std::optional<library::roms::DownloadedCore> installed =
+        coreDownload_.install(*build, cores_, progress, error);
+    if (!installed) {
+        return std::nullopt;
+    }
+    return Build{installed->date, std::to_string(installed->crc32)};
+}
+
+void EmulatorDownloads::runDownload(const std::stop_token& stop, const EmulatorEntry& entry) {
+    const net::WebClient::Progress progress = [this, &stop](std::uint64_t received,
+                                                            std::uint64_t total) {
+        const std::lock_guard lock{mutex_};
+        if (progress_) {
+            progress_->received = received;
+            progress_->total = total;
+        }
+        return !stop.stop_requested();
+    };
+    std::string error;
+    const std::optional<Build> installed = entry.builtIn()
+                                               ? installCore(stop, entry, progress, error)
+                                               : installRelease(stop, entry, progress, error);
     Ended ended;
     if (installed) {
         ended = Ended{entry.name + " " + installed->version + " is installed", false, true};
@@ -115,6 +159,7 @@ void EmulatorDownloads::checkUpdates() {
 
 void EmulatorDownloads::runCheck(const std::stop_token& stop) {
     std::vector<std::string> failures;
+    checkCores(failures);
     for (const EmulatorEntry& entry : setup_.catalog.entries()) {
         if (stop.stop_requested()) {
             return;
@@ -123,10 +168,9 @@ void EmulatorDownloads::runCheck(const std::stop_token& stop) {
             continue;
         }
         std::string error;
-        if (std::optional<library::roms::ReleaseAsset> asset =
+        if (const std::optional<library::roms::ReleaseAsset> asset =
                 release_.latest(*entry.release, error)) {
-            const std::lock_guard lock{mutex_};
-            latest_.insert_or_assign(entry.id, std::move(*asset));
+            remember(entry.id, Build{asset->version, asset->assetId});
         } else {
             lucent::warn("emulators", "{}: {}", entry.name, error);
             failures.push_back(entry.name + ": " + error);
@@ -137,26 +181,59 @@ void EmulatorDownloads::runCheck(const std::stop_token& stop) {
     checkChanged_ = true;
 }
 
+void EmulatorDownloads::checkCores(std::vector<std::string>& failures) {
+    if (std::ranges::none_of(setup_.catalog.entries(), &EmulatorEntry::builtIn)) {
+        return;
+    }
+    std::string error;
+    const std::optional<std::string> listing = coreDownload_.index(error);
+    if (!listing) {
+        lucent::warn("emulators", "libretro buildbot: {}", error);
+        failures.push_back("libretro buildbot: " + error);
+        return;
+    }
+    for (const EmulatorEntry& entry : setup_.catalog.entries()) {
+        if (!entry.builtIn()) {
+            continue;
+        }
+        if (const std::optional<library::roms::CoreBuild> build =
+                library::roms::coreBuildIn(*listing, entry.core, coreDownload_.base(), error)) {
+            remember(entry.id, Build{build->date, std::to_string(build->crc32)});
+        } else {
+            lucent::warn("emulators", "{}: {}", entry.name, error);
+            failures.push_back(entry.name + ": " + error);
+        }
+    }
+}
+
 EmulatorDownloads::Check EmulatorDownloads::check() const {
     const std::lock_guard lock{mutex_};
     return check_;
 }
 
-std::optional<library::roms::ReleaseAsset> EmulatorDownloads::latest(std::string_view id) const {
+std::optional<EmulatorDownloads::Build> EmulatorDownloads::latest(std::string_view id) const {
     const std::lock_guard lock{mutex_};
     const auto found = latest_.find(id);
     return found == latest_.end() ? std::nullopt : std::optional{found->second};
 }
 
-std::optional<library::roms::DownloadedEmulator>
-EmulatorDownloads::downloaded(std::string_view id) const {
-    return store_.find(id);
+std::optional<EmulatorDownloads::Build> EmulatorDownloads::downloaded(std::string_view id) const {
+    const EmulatorEntry* entry = setup_.catalog.find(id);
+    if (entry == nullptr) {
+        return std::nullopt;
+    }
+    if (entry->builtIn()) {
+        const std::optional<library::roms::DownloadedCore> core = cores_.find(entry->core);
+        return core ? std::optional{Build{core->date, std::to_string(core->crc32)}} : std::nullopt;
+    }
+    const std::optional<library::roms::DownloadedEmulator> have = store_.find(id);
+    return have ? std::optional{Build{have->version, have->assetId}} : std::nullopt;
 }
 
 bool EmulatorDownloads::updateAvailable(std::string_view id) const {
-    const std::optional<library::roms::ReleaseAsset> newest = latest(id);
-    const std::optional<library::roms::DownloadedEmulator> have = downloaded(id);
-    return newest && have && newest->assetId != have->assetId;
+    const std::optional<Build> newest = latest(id);
+    const std::optional<Build> have = downloaded(id);
+    return newest && have && newest->key != have->key;
 }
 
 std::string EmulatorDownloads::remove(std::string_view id) {
@@ -166,11 +243,12 @@ std::string EmulatorDownloads::remove(std::string_view id) {
             return "it is downloading; cancel the download first";
         }
     }
-    if (!store_.find(id)) {
+    const EmulatorEntry* entry = setup_.catalog.find(id);
+    if (entry == nullptr || !downloaded(id)) {
         return "openSU did not download it";
     }
     std::string error;
-    if (!store_.remove(id, error)) {
+    if (!(entry->builtIn() ? cores_.remove(entry->core, error) : store_.remove(id, error))) {
         return error;
     }
     if (hooks_.installedChanged) {
