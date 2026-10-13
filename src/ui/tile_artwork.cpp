@@ -119,6 +119,15 @@ void TileArtwork::trim(std::vector<Tile>& tiles, const SlotRange& window) {
     }
 }
 
+std::size_t TileArtwork::pending(const std::vector<Tile>& tiles, const std::optional<Tile>& header,
+                                 const SlotRange& window) {
+    std::size_t count = header && header->awaitingArt() ? 1 : 0;
+    for (std::size_t index = window.first; index < window.last && index < tiles.size(); ++index) {
+        count += tiles[index].awaitingArt() ? 1 : 0;
+    }
+    return count;
+}
+
 void TileArtwork::load(std::vector<Tile>& tiles, std::optional<Tile>& header,
                        const SlotRange& window, std::size_t uploads) {
     requestWindow(tiles, header, window);

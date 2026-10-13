@@ -280,6 +280,8 @@ class Shell {
     }
     /// How many tiles ended up with a loaded portrait texture.
     [[nodiscard]] std::size_t loadedArtwork() const noexcept;
+    /// Tiles near the canvas still showing the loading placeholder.
+    [[nodiscard]] std::size_t artworkPending() const;
     [[nodiscard]] int pageCount() const noexcept {
         return layout_.pageCount();
     }

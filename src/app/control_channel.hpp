@@ -29,6 +29,8 @@ namespace opensu::app {
 struct ShellSnapshot {
     std::size_t games{0};
     std::size_t installed{0};
+    /// Tiles near the canvas still showing the loading placeholder.
+    std::size_t artworkPending{0};
     std::size_t focusIndex{0};
     std::size_t page{0};
     std::size_t pageCount{1};

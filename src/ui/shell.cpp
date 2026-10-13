@@ -221,6 +221,10 @@ void Shell::loadArtworkNow() {
     }
 }
 
+std::size_t Shell::artworkPending() const {
+    return artwork_.pending(tiles_, header_, artWindow());
+}
+
 std::size_t Shell::loadedArtwork() const noexcept {
     return static_cast<std::size_t>(std::ranges::count_if(tiles_, [](const Tile& tile) {
         return tile.hasPortrait;
@@ -538,7 +542,7 @@ void Shell::fillContent(TileVisual& visual, const Tile& tile) const {
         visual.art = &tile.wide;
     }
     visual.platform = tile.platform;
-    visual.loading = visual.art == nullptr && (tile.artDownloading || tile.artRequested);
+    visual.loading = tile.awaitingArt();
     if (const auto* game = std::get_if<library::Game>(&tile.item)) {
         visual.title = game->title;
         visual.stores = tile.stores;
