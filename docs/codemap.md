@@ -17,7 +17,9 @@ gitignored `docs/reference/`).
 | `src/app/guide_menu_controller.*` | The Guide menu's buttons and what each entry does (sections, Devices, Settings, close game, quit, the power button and list: `host::Power` with a second press for restart and shut down, `host::SessionMode` for Switch to session mode (second press), Install session mode (opens the dialog) and, in a login session, Switch to desktop) |
 | `src/app/session_install_controller.*` | The Install session mode flow: the dialog, then the password on the on-screen or physical keyboard, the root step on a worker, a wrong password asking again, the password wiped once sudo has had it |
 | `src/app/keyboard_walk.*` | A pad button on the on-screen keyboard for the entries that type a line (folder path, password): the one implementation `path_editor` and the session install share |
-| `src/app/quick_menu_controller.*` | The quick menu's rows and buttons: volume, mute, output, brightness, Bluetooth, controller batteries, Devices, Close game |
+| `src/app/quick_menu_controller.*` | The quick menu's rows and buttons: volume, mute, output, brightness, Bluetooth, controller batteries, Devices, Save state, Load state and Reset game for a game on `opensu-retro` (Load and Reset on a second press), Close game |
+| `src/app/retro_session.*` | The shell's side of `opensu-retro`'s control channel: each launch's `OPENSU_RETRO_CONTROL` file under the runtime dir, the port read from it, `/status`, save, load and reset over `lucent::http` loopback, the load failure a runner leaves handed over and the file removed |
+| `src/app/game_end.*` | The toast for a launch that is over: a runner's load failure, `<title> crashed (SIGSEGV)` for a death by a signal the player did not send, the launch's failure, or `<title> closed` |
 | `src/app/devices_controller.*` | The Devices page: Bluetooth, Controllers, Audio output and Display tabs and what their rows do |
 | `src/app/host_services.*` | Power, session mode, Bluetooth and backlight backends for this machine; the one place a hidden run is made read-only |
 | `src/app/bluetooth_session.*` | BlueZ reads off the loop and one change at a time, with notices; pairing is pair, trust, connect |
@@ -52,7 +54,7 @@ gitignored `docs/reference/`).
 | `src/app/cli_install_job.*` | An install by a downloader program: run it, turn its logged progress into reports, fail with its reason; the base of the Epic and GOG jobs |
 | `src/app/steam_install_job.*`, `epic_install_job.*`, `gog_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install (`legendary install`); one GOG install (`gogdl download`: token handed over and taken back, Linux or Windows build, the install recorded) |
 | `src/app/installs.*` | The installers by store, one install at a time; which stores install; each store's own install folder (`ownFolders`: GOG under the data dir, legendary's, Steam's default library) |
-| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, the XDG bases plugin paths expand from, legendary's config dir, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) and the libretro runner beside the executable (`retroRunnerBeside`); the runner's saves and system folders (`savesDir`, `retroSystemDir`) |
+| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, the XDG bases plugin paths expand from, legendary's config dir, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) and the libretro runner beside the executable (`retroRunnerBeside`); the runner's saves and system folders (`savesDir`, `retroSystemDir`); the runtime dir (`runtimeDir`) and the runner's control file (`retroControl`, from `OPENSU_RETRO_CONTROL`) |
 | `src/settings/settings.*` | The player's saved preferences (Library layout, dock pin, icon size, sort and filters, hidden games, last-played times, Settings-screen choices, interface scale, install folders, shortcut remaps, plugins turned on or off with the permissions granted) as JSON under the config dir; defaults on a missing or corrupt file |
 | `src/settings/install_folders.*` | The one resolver of where a store installs: a store's override, else the default, else none (the store's own choice); `resolve` adds the store's own folder and says which of the three applies; validation (exists, writable) |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
@@ -77,8 +79,8 @@ gitignored `docs/reference/`).
 | `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game |
 | `src/session/game_keys.*` | The shortcuts that work while a game has the keyboard (Guide, volume), matched against the `Shortcuts` table from XInput2 raw keys |
 | `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show; tells the handoff when a game is on screen |
-| `src/launch/instance.*` | One transient systemd user scope per launch, its program started with no signal blocked; stopping it ends the whole tree |
-| `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends |
+| `src/launch/instance.*` | One transient systemd user scope per launch, its program started with no signal blocked; stopping it ends the whole tree; how the started process ended (`exitStatus`) |
+| `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends; how a game in an Instance ended (`Hooks::ended`), unless force-closed |
 | `src/launch/process_tree.*` | Finding processes by command line, ending trees |
 | `src/launch/command.*`, `argv.hpp` | Short-lived children, a child streamed line by line, its stdout captured or fed one line on stdin (`runCapturedWithLine`, the sudo password) (own `opensu_command` target, so `library` can run `legendary`), executable lookup, exec argv |
 | `src/launch/steam_gate.hpp` | What a Steam launch waits for from the owned Steam client |
@@ -162,7 +164,9 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | --- | --- |
 | `cmake/Libretro.cmake` | `libretro.h` from libretro-common at a pinned commit, SHA-256 checked (`opensu::libretro_header`) |
 | `src/retro/main.cpp` | The command line; the default saves (`Config::savesDir`) and system (`Config::retroSystemDir`) folders |
-| `src/retro/runner_app.*` | Composition and the frame loop: pacing on a clock at the core's rate, input, sound, save checks, `--hidden` |
+| `src/retro/runner_app.*` | Composition and the frame loop: pacing on a clock at the core's rate, input, sound, save checks, control commands between frames, `--hidden` |
+| `src/retro/control_server.*` | The runner's loopback control channel: `{"port", "pid"}` (or `{"error"}` on a load failure) in the `OPENSU_RETRO_CONTROL` file, `/status`, `/state/save`, `/state/load`, `/reset`, each POST run on the frame loop |
+| `src/retro/save_state.*` | The state slot `<saves>/<rom stem>.state`: serialize, atomic write, unserialize |
 | `src/retro/core.*` | One core: `dlopen`, `retro_*` symbols, init/load/run/unload, the context-free callback trampolines (one file-scope pointer) |
 | `src/retro/core_environment.*` | The environment commands answered; everything else refused |
 | `src/retro/core_options.*` | Core option definitions (v0, v1, v2, intl) and their default values |
@@ -175,7 +179,7 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | `src/retro/vulkan_device.*` | Vulkan instance (optional validation), device and graphics queue |
 | `src/retro/png_encoder.*` | RGBA to PNG through libpng |
 | `src/retro/shaders/` | GLSL for the frame, compiled by glslc into SPIR-V headers in the build tree |
-| `tests/retro/` | Fake cores (`fake_core.cpp`, built twice, once crashing), unit tests of each owner, `core_test`, and `runner_test` running `opensu-retro --hidden` end to end |
+| `tests/retro/` | Fake cores (`fake_core.cpp`, built three times: serializing, crashing, stateless), unit tests of each owner, `core_test`, and `runner_test` running `opensu-retro --hidden` end to end, its control channel included |
 
 ## Plugins
 
@@ -228,7 +232,7 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/quick_menu.*` | The quick menu's rows (the Settings rows), focus, panel layout and hit-tests |
 | `src/ui/panel_frame.hpp` | The frame and chrome heights the side menus are laid out in |
 | `src/ui/page_panel.*` | A settings-style page with its fade, as the Settings screen and Devices page use it |
-| `src/ui/tile.hpp`, `tile_artwork.*` | The tile; the artwork decode, tickets and resident textures of the shelf |
+| `src/ui/tile.hpp`, `tile_artwork.*` | The tile and when it shows the loading placeholder; the artwork decode, tickets, resident textures and pending count (`/state` `artworkPending`) of the shelf |
 | `src/ui/launch_panel.*` | The launch/install card's state; its card and hint rectangles from measured widths, and the hint under a point |
 | `src/ui/pointer_target.hpp` | What a pointer can be on (session dialog button, breadcrumb level, details button, dock item, tile, page control, layout card, options row, icon size slider, search key or result, context item or backdrop, Guide entry, Guide power button, quick row or slider, page row or slider, panel button, launcher badge) |
 
@@ -271,7 +275,7 @@ Painters and composition (`opensu_ui`):
 | `pyproject.toml`, `uv.lock` | The one locked Python environment of the tools (`uv run --frozen`) |
 | `tools/check/` | Building and checking openSU from a clean checkout, locally and in CI: `pins` (raylib and Lucent commits), `deps` (checkout by commit, raylib built into a prefix), `cmake` (configure with Clang and refuse any other compiler, build, ctest, install a component), `lint` (clang-format, clang-tidy over `compile_commands.json`, ruff), `container` (`all` inside the systemd-booted `packaging/ci` image as the calling user, for CI), `cli` (`deps`, `configure`, `build`, `lint`, `test`, `all`, `ci`) |
 | `tools/appimage/` | The Linux AppImage: `config` (pins, names, layout, the signing key from the environment), `container` (the Ubuntu 24.04 build image and running in it), `inner` (in the container: build, install the default component; tests run in `tools.check ci`), `bundle` (the host-provided library list, copying the rest into `usr/lib`, runpaths, the glibc floor check), `appdir` (AppRun, desktop entry, icon), `pack` (appimagetool with the pinned static runtime, zsync update information, gpg signature), `smoke` (the AppImage on clean Fedora 44 and Ubuntu 24.04 containers with only the documented requirements) |
-| `tools/screenshots/` | The README screenshots and the look-parity references (`docs/design/sdl3-gpu-shell.md` §5): a demo library of freely licensed games (`demo`, art pinned by sha256), openSU run hidden with no network (`offline`, `shell`), a fixed-volume `wpctl` stand-in for parity runs (`mixer`), the screens driven over the control channel, each reached on a `/state` field (`scenes`, `readme` marks the README set), WebP output (`encode`), `--parity DIR` raw PNGs of every scene, and `compare` (per-scene mean, max and share of differing pixels, difference images, non-zero exit over thresholds); credits in `docs/screenshots/CREDITS.md` |
+| `tools/screenshots/` | The README screenshots and the look-parity references (`docs/design/sdl3-gpu-shell.md` §5): a demo library of freely licensed games (`demo`, art pinned by sha256), openSU run hidden with no network (`offline`, `shell`), a fixed-volume `wpctl` stand-in for parity runs (`mixer`), the screens driven over the control channel, each reached on a `/state` field and taken once `artworkPending` is 0 (`scenes`, `readme` marks the README set), WebP output (`encode`), `--parity DIR` raw PNGs of every scene, and `compare` (per-scene mean, max and share of differing pixels, difference images, non-zero exit over thresholds); credits in `docs/screenshots/CREDITS.md` |
 | `tools/download.py` | The one checksum-verified download the tools share |
 | `tools/podman.py` | Container images the tools build, tagged by the hash of their recipe, and the worktree git dir a container must also mount |
 | `packaging/ci/Containerfile` | The CI image: Fedora 44 (the fork's podman build release) with openSU's and the fork's build dependencies and systemd as PID 1, so tests get a user manager |
@@ -284,7 +288,7 @@ Painters and composition (`opensu_ui`):
 ## Tests and docs
 
 - `tests/<area>/`: one ctest suite per owner, through the shipping code.
-- `tests/support/`: shared fakes: `fake_steam.hpp` (a DevTools Steam), `release_server.hpp` (a release API and asset host), `buildbot_server.hpp` (a libretro buildbot nightly folder), `zip_fixture.hpp` (zips built in memory), `loopback_server.hpp`; `scratch_dir.hpp`, a test's own empty directory under the test scratch.
+- `tests/support/`: shared fakes: `fake_steam.hpp` (a DevTools Steam), `release_server.hpp` (a release API and asset host), `buildbot_server.hpp` (a libretro buildbot nightly folder), `zip_fixture.hpp` (zips built in memory), `loopback_server.hpp`, `fake_runner.hpp` (`opensu-retro`'s control channel); `scratch_dir.hpp`, a test's own empty directory under the test scratch.
 - `tests/plugin/`: the plugin host through the shipping runtime (`plugin_rig.hpp`), the shipped Eden plugin against fixture files.
 - `docs/design/`: designs (`lua-plugins.md`: the Lua plugin host, phase 1 built, later phases proposed).
 - `docs/re-frontier.md`: what is recovered from iiSU. `docs/reference/` (private `opensu-re`

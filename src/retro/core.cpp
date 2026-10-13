@@ -75,6 +75,10 @@ Core::Core(const std::filesystem::path& library, CoreHost host) : host_{host} {
         bind(library_, "retro_load_game", api_.loadGame);
         bind(library_, "retro_unload_game", api_.unloadGame);
         bind(library_, "retro_run", api_.run);
+        bind(library_, "retro_reset", api_.reset);
+        bind(library_, "retro_serialize_size", api_.serializeSize);
+        bind(library_, "retro_serialize", api_.serialize);
+        bind(library_, "retro_unserialize", api_.unserialize);
         bind(library_, "retro_get_memory_data", api_.getMemoryData);
         bind(library_, "retro_get_memory_size", api_.getMemorySize);
         if (api_.apiVersion() != RETRO_API_VERSION) {
@@ -153,6 +157,22 @@ void Core::loadGame(const std::filesystem::path& rom) {
 
 void Core::run() {
     api_.run();
+}
+
+void Core::reset() {
+    api_.reset();
+}
+
+std::vector<std::byte> Core::serialize() {
+    std::vector<std::byte> state(api_.serializeSize());
+    if (state.empty() || !api_.serialize(state.data(), state.size())) {
+        return {};
+    }
+    return state;
+}
+
+bool Core::unserialize(std::span<const std::byte> state) {
+    return !state.empty() && api_.unserialize(state.data(), state.size());
 }
 
 std::span<std::byte> Core::saveRam() {

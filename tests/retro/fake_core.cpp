@@ -1,7 +1,8 @@
 // A libretro core for the runner's tests: four colour bars in RGB565 (yellow when its option is not
 // the default), a 440 Hz tone at 32 kHz, the joypad read each frame, and save RAM holding the frame
-// count, the last joypad bits and the ROM's first byte. Built with FAKE_CORE_CRASH it crashes in
-// retro_run.
+// count, the last joypad bits and the ROM's first byte. Its state is the save RAM and the frame
+// counter; reset zeroes the frame count. Built with FAKE_CORE_CRASH it crashes in retro_run, with
+// FAKE_CORE_NO_STATE it cannot serialize.
 #include <array>
 #include <cmath>
 #include <csignal>
@@ -37,6 +38,8 @@ struct FakeCore {
 };
 
 FakeCore core;
+
+constexpr std::size_t stateSize = sizeof(core.saveRam) + sizeof(core.frames);
 
 retro_core_option_v2_definition definitions[] = {
     {"fake_pattern",
@@ -170,18 +173,36 @@ RETRO_API void retro_run() {
 }
 
 RETRO_API void retro_reset() {
+    std::memset(core.saveRam.data(), 0, sizeof(std::uint32_t));
+    core.frames = 0;
 }
 
 RETRO_API std::size_t retro_serialize_size() {
+#ifdef FAKE_CORE_NO_STATE
     return 0;
+#else
+    return stateSize;
+#endif
 }
 
-RETRO_API bool retro_serialize(void* /*data*/, std::size_t /*size*/) {
-    return false;
+RETRO_API bool retro_serialize(void* data, std::size_t size) {
+    if (size < stateSize) {
+        return false;
+    }
+    auto* out = static_cast<std::uint8_t*>(data);
+    std::memcpy(out, core.saveRam.data(), core.saveRam.size());
+    std::memcpy(out + core.saveRam.size(), &core.frames, sizeof(core.frames));
+    return true;
 }
 
-RETRO_API bool retro_unserialize(const void* /*data*/, std::size_t /*size*/) {
-    return false;
+RETRO_API bool retro_unserialize(const void* data, std::size_t size) {
+    if (size != stateSize) {
+        return false;
+    }
+    const auto* in = static_cast<const std::uint8_t*>(data);
+    std::memcpy(core.saveRam.data(), in, core.saveRam.size());
+    std::memcpy(&core.frames, in + core.saveRam.size(), sizeof(core.frames));
+    return true;
 }
 
 RETRO_API void retro_cheat_reset() {

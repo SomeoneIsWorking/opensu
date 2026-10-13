@@ -52,6 +52,22 @@ int main(int argc, char** argv) {
         std::printf("config: all checks passed\n");
         return 0;
     }
+    if (which == "runtime") {
+        expect(config.runtimeDir == "/xdg-runtime/opensu", "XDG_RUNTIME_DIR holds opensu's files");
+        expect(config.desktopRequest == "/xdg-runtime/opensu/desktop",
+               "the desktop request is a runtime file");
+        expect(config.retroControl == "/xdg-runtime/opensu/retro-1.json",
+               "OPENSU_RETRO_CONTROL names the runner's control file");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
+    if (which == "runtime-default") {
+        expect(config.runtimeDir == "/run/user/" + std::to_string(getuid()) + "/opensu",
+               "without XDG_RUNTIME_DIR, the user's /run/user folder");
+        expect(config.retroControl.empty(), "no control file outside a launch");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
     if (which == "data-dir") {
         expect(config.dataDir == "/xdg-data/opensu", "XDG_DATA_HOME holds opensu's data");
         expect(config.savesDir == "/xdg-data/opensu/saves", "save RAM sits in opensu's data");

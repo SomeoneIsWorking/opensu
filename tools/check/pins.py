@@ -19,7 +19,7 @@ RAYLIB = GitPin(
 LUCENT = GitPin(
     "lucent",
     "https://github.com/SomeoneIsWorking/lucent.git",
-    "ee3b6056262cf09f1f8606eae868947a9301c80c",
+    "efb9a7bdacaf7c04663a225233dc7da125c491f3",
 )
 
 # Image decoding on and X11 only: openSU reads its X11 window to become Gamescope's overlay.

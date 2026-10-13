@@ -118,9 +118,15 @@ struct Config {
     /// `$XDG_CONFIG_HOME/legendary`, else `~/.config/legendary`.
     std::filesystem::path legendaryConfigDir;
 
-    /// The note a login session's Switch to desktop leaves: `$XDG_RUNTIME_DIR/opensu/desktop`,
-    /// else under `/run/user/<uid>`.
+    /// opensu's per-login files: `$XDG_RUNTIME_DIR/opensu`, else `/run/user/<uid>/opensu`.
+    std::filesystem::path runtimeDir;
+
+    /// The note a login session's Switch to desktop leaves: `<runtimeDir>/desktop`.
     std::filesystem::path desktopRequest;
+
+    /// Where `opensu-retro` announces its control port or its load failure, from
+    /// OPENSU_RETRO_CONTROL, which the shell sets for each launch; empty when unset.
+    std::filesystem::path retroControl;
 
     /// The directories searched for a launch's program, from PATH.
     std::vector<std::filesystem::path> executablePath;

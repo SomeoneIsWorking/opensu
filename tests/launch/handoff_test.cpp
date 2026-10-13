@@ -294,6 +294,9 @@ struct Shell {
     std::atomic<int> hiddenAt{0};
     std::atomic<int> shownAt{0};
     std::atomic<bool> returned{false};
+    /// How many times `ended` was called, and the last status it had.
+    std::atomic<int> endings{0};
+    std::atomic<int> endedWith{-2};
     std::mutex progressMutex;
     std::vector<LaunchProgress> progress;
 
@@ -366,6 +369,11 @@ std::future<Outcome> startOnWorker(Handoff& handoff, const Game& game, Shell& sh
                                                      .progress =
                                                          [&shell](const LaunchProgress& now) {
                                                              shell.report(now);
+                                                         },
+                                                     .ended =
+                                                         [&shell](int status) {
+                                                             shell.endedWith.store(status);
+                                                             shell.endings.fetch_add(1);
                                                          }};
                           outcome.ok = handoff.start(game, hooks, environment, outcome.failure);
                           shell.returned.store(true);
@@ -467,6 +475,39 @@ void testEnvironmentReachesTheGame() {
     std::string value;
     std::getline(in, value);
     expect(value == "from-the-shell", "the game saw the variable it was given");
+}
+
+/// How a game in an Instance ended reaches the caller: a crash as 128 plus its signal, a clean
+/// exit as 0, and a game closed through forceClose() not at all.
+void testExitStatusIsReported() {
+    const Fixture fixture;
+    const auto launchScript = [&fixture](const std::string& stem, const std::string& body) {
+        const std::string marker = fixture.marker(stem);
+        const fs::path script = fixture.script(marker + ".sh", "#!/bin/sh\n" + body);
+        return makeGame(stem, "/bin/sh", {script.string()}, marker);
+    };
+    FakeSteam steam;
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
+    const Game crashing = launchScript("segv", "ulimit -c 0\nsleep 1\nkill -SEGV $$\n");
+    Shell crashed;
+    std::future<Outcome> pending = startOnWorker(handoff, crashing, crashed);
+    expect(awaitStart(pending, "a crashing game ends").ok, "a crash is not a launch failure");
+    expect(crashed.endings.load() == 1 && crashed.endedWith.load() == 128 + SIGSEGV,
+           "a crash is reported as 128 plus SIGSEGV");
+
+    const Game clean = launchScript("clean", "sleep 1\nexit 0\n");
+    Shell exited;
+    pending = startOnWorker(handoff, clean, exited);
+    expect(awaitStart(pending, "a clean game ends").ok, "a clean exit is a success");
+    expect(exited.endings.load() == 1 && exited.endedWith.load() == 0, "a clean exit is 0");
+
+    const RunningGame closed = runningGame(fixture, "closed-by-player", 600);
+    Shell forced;
+    pending = startOnWorker(handoff, closed.game, forced);
+    awaitRecordedPid(closed.pidFile, "the game to be closed started");
+    handoff.forceClose();
+    expect(awaitStart(pending, "a closed game ends").ok, "a forced close is not a failure");
+    expect(forced.endings.load() == 0, "a game the player closed reports no ending");
 }
 
 /// The Steam/Legendary shape: the program that was spawned exits at once, and a
@@ -1103,6 +1144,7 @@ int main() {
     testForceCloseEndsTheStartPhase();
     testInstanceExitEndsTheWait();
     testEnvironmentReachesTheGame();
+    testExitStatusIsReported();
     testSteamWaitsForReadiness();
     testSteamUpdateKeepsTheShellUp();
     testSteamLaunchSpansSetupAndGap();

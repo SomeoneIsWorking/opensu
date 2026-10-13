@@ -33,6 +33,11 @@ int systemctl(const std::vector<std::string>& args) {
     return runCommand("systemctl", full, systemctlWait).value_or(-1);
 }
 
+/// A wait status as a shell reports it: the exit code, or 128 plus the signal.
+int statusOf(int waitStatus) {
+    return WIFEXITED(waitStatus) ? WEXITSTATUS(waitStatus) : 128 + WTERMSIG(waitStatus);
+}
+
 /// True when /proc/<pid>/cgroup already places the process in `unit`.
 bool inScope(pid_t pid, const std::string& unit) {
     std::ifstream in{"/proc/" + std::to_string(pid) + "/cgroup"};
@@ -122,7 +127,7 @@ bool Instance::running() {
             return true;
         }
         child_ = -1;
-        exitStatus_ = WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
+        exitStatus_ = statusOf(status);
     }
     if (systemctl({"is-active", "--quiet", unit_}) == 0) {
         return true;
@@ -175,15 +180,19 @@ void Instance::reapChild() {
     }
     int status = 0;
     const Clock::time_point until = Clock::now() + reapWait;
-    while (waitpid(child_, &status, WNOHANG) == 0) {
+    pid_t done = 0;
+    while ((done = waitpid(child_, &status, WNOHANG)) == 0) {
         if (Clock::now() >= until) {
             lucent::error("launch", "pid {} outlived its scope; killing it", child_);
             ::kill(child_, SIGKILL);
-            while (waitpid(child_, &status, 0) < 0 && errno == EINTR) {
+            while ((done = waitpid(child_, &status, 0)) < 0 && errno == EINTR) {
             }
             break;
         }
         std::this_thread::sleep_for(step);
+    }
+    if (done == child_) {
+        exitStatus_ = statusOf(status);
     }
     child_ = -1;
 }

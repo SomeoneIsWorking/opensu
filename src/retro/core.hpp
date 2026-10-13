@@ -50,6 +50,14 @@ class Core {
     /// One frame.
     void run();
 
+    /// Restarts the game, as the console's reset button.
+    void reset();
+
+    /// The game's whole state: empty when the core cannot serialize.
+    [[nodiscard]] std::vector<std::byte> serialize();
+    /// Puts back a state from serialize(); false when the core refuses it.
+    [[nodiscard]] bool unserialize(std::span<const std::byte> state);
+
     /// The core's save RAM; empty when it has none.
     [[nodiscard]] std::span<std::byte> saveRam();
 
@@ -84,6 +92,10 @@ class Core {
         bool (*loadGame)(const retro_game_info*);
         void (*unloadGame)();
         void (*run)();
+        void (*reset)();
+        std::size_t (*serializeSize)();
+        bool (*serialize)(void*, std::size_t);
+        bool (*unserialize)(const void*, std::size_t);
         void* (*getMemoryData)(unsigned);
         std::size_t (*getMemorySize)(unsigned);
     };

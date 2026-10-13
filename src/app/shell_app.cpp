@@ -15,6 +15,7 @@
 #include "artwork/iisu_assets.hpp"
 #include "config/config.hpp"
 #include "frame_png.hpp"
+#include "game_end.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "launcher_status.hpp"
 #include "library/titles.hpp"
@@ -574,11 +575,13 @@ void ShellApp::launch(const library::Game& game) {
     recordLaunch(game);
 
     std::vector<std::string> environment = pads_.hold();
+    environment.push_back(retro_.begin());
     padsHeld_ = true;
 
     // The thread owns a copy because it outlives this call.
     std::thread{[this, copy = game, environment = std::move(environment)] {
         std::string failure;
+        int exitStatus = -1;
         // raylib's window calls belong to the thread that owns the GL context, so the handoff
         // thread only raises flags and the loop does the work.
         const launch::Handoff::Hooks hooks{.hide =
@@ -592,18 +595,19 @@ void ShellApp::launch(const library::Game& game) {
                                            .progress =
                                                [this](const launch::LaunchProgress& progress) {
                                                    requestLaunchProgress(progress);
+                                               },
+                                           .ended =
+                                               [&exitStatus](int status) {
+                                                   exitStatus = status;
                                                }};
         handoff_.start(copy, hooks, environment, failure);
         {
             const std::lock_guard lock{launchMutex_};
             launchRunning_ = false;
         }
-        if (!failure.empty()) {
-            lucent::error("launch", "{}", failure);
-            requestToast(failure, true);
-        } else {
-            requestToast(copy.title + " closed", false);
-        }
+        const EndNotice notice = noticeOf(GameEnd{copy.title, failure, exitStatus, retro_.end()});
+        lucent::info("launch", "{} is over: {}", copy.title, notice.text);
+        requestToast(notice.text, notice.error);
     }}.detach();
 }
 
@@ -887,6 +891,7 @@ void ShellApp::publishSnapshot() {
     ShellSnapshot next;
     next.games = games_.size();
     next.installed = installedCount_;
+    next.artworkPending = shell_.artworkPending();
     if (const library::Game* focused = shell_.focusedGame(); focused != nullptr) {
         next.focusedId = focused->id;
     } else if (const std::optional<library::Folder> folder = shell_.focusedFolder()) {

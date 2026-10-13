@@ -245,11 +245,12 @@ Config read() {
         value.session = "opensu-" + std::to_string(getpid());
     }
     if (const std::string_view runtime = env("XDG_RUNTIME_DIR"); !runtime.empty()) {
-        value.desktopRequest = std::filesystem::path{runtime} / "opensu" / "desktop";
+        value.runtimeDir = std::filesystem::path{runtime} / "opensu";
     } else {
-        value.desktopRequest =
-            std::filesystem::path{"/run/user"} / std::to_string(getuid()) / "opensu" / "desktop";
+        value.runtimeDir = std::filesystem::path{"/run/user"} / std::to_string(getuid()) / "opensu";
     }
+    value.desktopRequest = value.runtimeDir / "desktop";
+    value.retroControl = std::filesystem::path{env("OPENSU_RETRO_CONTROL")};
     value.executablePath = splitPaths(env("PATH"));
     return value;
 }
