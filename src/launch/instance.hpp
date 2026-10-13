@@ -38,7 +38,7 @@ class Instance {
     void kill();
 
     /// How the started process ended (128 plus the signal when a signal did it), or
-    /// -1 while it has not been seen to exit. Observed by running().
+    /// -1 while it has not been seen to exit. Observed by running(), stop() and kill().
     [[nodiscard]] int exitStatus() const;
 
     /// The current scope's unit name, empty when nothing was started.

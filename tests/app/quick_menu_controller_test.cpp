@@ -1,11 +1,16 @@
 // The quick menu's controller: its rows follow what the machine has, volume and mute reach the
-// mixer, the output cycles, Bluetooth toggles, Close game shows only with a game, and B closes.
+// mixer, the output cycles, Bluetooth toggles, Close game shows only with a game, a game on
+// opensu-retro adds Save state, Load state and Reset game (the last two on a second press), and B
+// closes.
 #include <chrono>
 #include <cstdio>
+#include <exception>
 #include <thread>
 
 #include "host_fakes.hpp"
 #include "quick_menu_controller.hpp"
+#include "support/fake_runner.hpp"
+#include "support/scratch_dir.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -15,10 +20,11 @@ using gamepad::Button;
 using test::expect;
 
 struct Rig {
-    explicit Rig(bool gameRunning = false, bool backlight = true)
-        : game{gameRunning}, brightness{backlight ? &light : nullptr},
-          volume{std::make_unique<test::FakeMixer>(), {}}, outputs{volume.system()},
-          bluetooth{radio},
+    explicit Rig(bool gameRunning = false, bool backlight = true,
+                 const std::string& scratchName = "quick_menu")
+        : scratch{OPENSU_TEST_SCRATCH, scratchName}, retro{scratch.path()}, game{gameRunning},
+          brightness{backlight ? &light : nullptr}, volume{std::make_unique<test::FakeMixer>(), {}},
+          outputs{volume.system()}, bluetooth{radio},
           roster{{[] {
                       return std::vector<gamepad::PadInfo>{{"/dev/input/event5", "Pro Pad", "aa"}};
                   },
@@ -26,7 +32,7 @@ struct Rig {
                       return std::optional{device::BatteryStatus{64, true}};
                   }}},
           controller{menu,
-                     {volume, outputs, brightness, bluetooth, roster},
+                     {volume, outputs, brightness, bluetooth, roster, retro},
                      sounds,
                      {[this] {
                           return game;
@@ -37,8 +43,9 @@ struct Rig {
                       [this] {
                           calls.emplace_back("devices");
                       },
-                      [this](const std::string& text, bool) {
+                      [this](const std::string& text, bool error) {
                           said.push_back(text);
+                          lastWasError = error;
                       }}} {
         radio.state = test::pairedPadAndHeadset();
         for (int attempt = 0; attempt < 2000 && !bluetooth.known(); ++attempt) {
@@ -68,6 +75,8 @@ struct Rig {
         return volume.system().state().value_or(audio::VolumeState{});
     }
 
+    test::ScratchDir scratch;
+    app::RetroSession retro;
     bool game;
     test::FakeBacklight light;
     app::BrightnessControl brightness;
@@ -80,6 +89,7 @@ struct Rig {
     audio::SoundPlayer sounds;
     std::vector<std::string> calls;
     std::vector<std::string> said;
+    bool lastWasError{false};
     app::QuickMenuController controller;
 };
 
@@ -157,14 +167,91 @@ void backClosesAndToggleTogglesAndUpDownMove() {
     expect(!rig.menu.isOpen(), "toggle closes");
 }
 
+void retroRowsShowForAGameOnTheRunner() {
+    Rig rig{true, true, "quick_menu_rows"};
+    rig.controller.open();
+    expect(!rig.row("quick.saveState") && !rig.row("quick.resetGame"),
+           "a game not on opensu-retro has no state rows");
+    const test::FakeRunner runner;
+    runner.announce(rig.retro.begin());
+    rig.controller.refresh();
+    const ui::SettingsRow* save = rig.row("quick.saveState");
+    const ui::SettingsRow* load = rig.row("quick.loadState");
+    const ui::SettingsRow* reset = rig.row("quick.resetGame");
+    expect(save && save->kind == ui::RowKind::Action && reset && reset->kind == ui::RowKind::Action,
+           "Save state and Reset game with a game on the runner");
+    expect(load && load->kind == ui::RowKind::Info && load->value == "No state saved",
+           "Load state is disabled without a state");
+    expect(rig.menu.rows().back().id == "quick.closeGame", "Close game stays last");
+    Rig idle{false, true, "quick_menu_idle"};
+    runner.announce(idle.retro.begin());
+    idle.controller.open();
+    expect(!idle.row("quick.saveState"), "no state rows without a running game");
+}
+
+void saveLoadAndResetReachTheRunner() {
+    Rig rig{true, true, "quick_menu_states"};
+    const test::FakeRunner runner;
+    runner.announce(rig.retro.begin());
+    rig.controller.open();
+    rig.focus("quick.loadState");
+    rig.controller.act(Button::A);
+    expect(runner.calls().empty(), "a disabled Load state sends nothing");
+    rig.focus("quick.saveState");
+    rig.controller.act(Button::A);
+    expect(runner.calls() == std::vector<std::string>{"/state/save"}, "one press saves");
+    expect(rig.said.back() == "State saved" && !rig.lastWasError, "the save is told");
+    expect(rig.row("quick.loadState")->kind == ui::RowKind::Action, "Load state is enabled");
+
+    rig.focus("quick.loadState");
+    rig.controller.act(Button::A);
+    expect(runner.calls().size() == 1 && rig.row("quick.loadState")->value == "Press again to load",
+           "the first press on Load state asks again");
+    rig.controller.act(Button::A);
+    expect(runner.calls().back() == "/state/load" && rig.said.back() == "State loaded",
+           "the second press loads");
+
+    rig.focus("quick.resetGame");
+    rig.controller.act(Button::A);
+    expect(rig.row("quick.resetGame")->value == "Press again to reset", "Reset game asks again");
+    rig.controller.act(Button::Up);
+    expect(rig.row("quick.resetGame")->value.empty(), "moving away takes the question back");
+    rig.focus("quick.resetGame");
+    rig.controller.act(Button::A);
+    expect(runner.calls().back() == "/state/load", "a press after moving away asks again");
+    rig.controller.act(Button::A);
+    expect(runner.calls().back() == "/reset" && rig.said.back() == "Game reset",
+           "the second press resets");
+    expect(rig.menu.isOpen(), "the menu stays up over the game");
+}
+
+void aRefusedSaveIsTold() {
+    Rig rig{true, true, "quick_menu_refused"};
+    const test::FakeRunner runner{"fake cannot save states"};
+    runner.announce(rig.retro.begin());
+    rig.controller.open();
+    rig.focus("quick.saveState");
+    rig.controller.act(Button::A);
+    expect(rig.said.back() == "fake cannot save states" && rig.lastWasError,
+           "the runner's reason is told as a refusal");
+}
+
 } // namespace
 
 int main() {
-    rowsFollowWhatTheMachineHas();
-    volumeMuteAndOutputReachTheMixer();
-    brightnessStepsAndBluetoothToggles();
-    devicesAndCloseGameAreActions();
-    backClosesAndToggleTogglesAndUpDownMove();
+    try {
+        rowsFollowWhatTheMachineHas();
+        volumeMuteAndOutputReachTheMixer();
+        brightnessStepsAndBluetoothToggles();
+        devicesAndCloseGameAreActions();
+        backClosesAndToggleTogglesAndUpDownMove();
+        retroRowsShowForAGameOnTheRunner();
+        saveLoadAndResetReachTheRunner();
+        aRefusedSaveIsTold();
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
+        return 1;
+    }
     std::printf("quick_menu_controller: all checks passed\n");
     return 0;
 }

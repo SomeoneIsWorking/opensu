@@ -55,6 +55,7 @@
 #include "pointer_router.hpp"
 #include "preferences.hpp"
 #include "quick_menu_controller.hpp"
+#include "retro_session.hpp"
 #include "search_controller.hpp"
 #include "session_install_controller.hpp"
 #include "settings_controller.hpp"
@@ -366,6 +367,8 @@ class ShellApp final : private PointerHost {
     BluetoothSession bluetooth_{*host_.bluetooth};
     AudioOutputs outputs_{volume_.system()};
     BrightnessControl brightness_{host_.backlight.get()};
+    /// The running game's opensu-retro control channel, when it runs on one.
+    RetroSession retro_{environment_.runtimeDir};
     /// Where keys, pad chords and the game-time watcher come out as the shell's buttons.
     ShortcutRouter router_{shell_.shortcuts(), volume_,
                            ShortcutRouter::Hooks{[this] {
@@ -498,7 +501,8 @@ class ShellApp final : private PointerHost {
     /// The quick menu: Guide + A, over the home screen or a running game.
     QuickMenuController quickMenu_{
         shell_.guidePanels().quick(),
-        QuickMenuController::Services{volume_, outputs_, brightness_, bluetooth_, roster_}, sounds_,
+        QuickMenuController::Services{volume_, outputs_, brightness_, bluetooth_, roster_, retro_},
+        sounds_,
         QuickMenuController::Hooks{[this] {
                                        return shell_.inGame();
                                    },

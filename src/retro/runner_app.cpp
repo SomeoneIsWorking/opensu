@@ -12,6 +12,7 @@
 
 #include "audio_output.hpp"
 #include "audio_sink.hpp"
+#include "control_server.hpp"
 #include "core.hpp"
 #include "core_environment.hpp"
 #include "fileio/atomic_write.hpp"
@@ -21,6 +22,7 @@
 #include "png_encoder.hpp"
 #include "presenter.hpp"
 #include "save_memory.hpp"
+#include "save_state.hpp"
 #include "video_frame.hpp"
 
 namespace opensu::retro {
@@ -74,6 +76,51 @@ std::unique_ptr<AudioOutput> openAudio(AudioSink& sink, bool hidden) {
     }
 }
 
+ControlAnswer answerOf(const StateOutcome& outcome) {
+    switch (outcome.result) {
+    case StateResult::Done:
+        return {};
+    case StateResult::Refused:
+        return {409, outcome.reason};
+    case StateResult::Missing:
+        return {404, outcome.reason};
+    case StateResult::FileFailed:
+        break;
+    }
+    return {500, outcome.reason};
+}
+
+ControlAnswer perform(ControlCommand command, Core& core, SaveState& state) {
+    ControlAnswer answer;
+    switch (command) {
+    case ControlCommand::SaveState:
+        answer = answerOf(state.save(core));
+        break;
+    case ControlCommand::LoadState:
+        answer = answerOf(state.load(core));
+        break;
+    case ControlCommand::Reset:
+        core.reset();
+        lucent::info("retro", "game reset");
+        break;
+    }
+    answer.hasState = state.exists();
+    return answer;
+}
+
+/// The control channel when the shell asked for one and it listens; none otherwise.
+std::unique_ptr<ControlServer> openControl(const RunnerOptions& options, const Core& core) {
+    if (options.control.empty()) {
+        return nullptr;
+    }
+    auto control =
+        std::make_unique<ControlServer>(options.control, core.name(), options.rom.string());
+    if (!control->start()) {
+        return nullptr;
+    }
+    return control;
+}
+
 bool writeFramePng(Presenter& presenter, const std::filesystem::path& file) {
     Readback image;
     try {
@@ -114,6 +161,9 @@ RunnerExit RunnerApp::run() {
         core->loadGame(options_.rom);
     } catch (const CoreError& failure) {
         lucent::error("retro", "{}", failure.what());
+        if (!options_.control.empty()) {
+            ControlServer::reportLoadFailure(options_.control, failure.what());
+        }
         return RunnerExit::LoadFailed;
     }
     retro_game_geometry geometry = core->avInfo().geometry;
@@ -122,6 +172,7 @@ RunnerExit RunnerApp::run() {
 
     SaveMemory saves{options_.saves / (options_.rom.stem().string() + ".srm")};
     saves.load(core->saveRam());
+    SaveState state{options_.saves / (options_.rom.stem().string() + ".state")};
 
     std::unique_ptr<Presenter> presenter;
     try {
@@ -138,6 +189,7 @@ RunnerExit RunnerApp::run() {
     }
     const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.hidden);
     const std::unique_ptr<gamepad::Pads> pads = options_.hidden ? nullptr : openPads();
+    const std::unique_ptr<ControlServer> control = openControl(options_, *core);
 
     RunnerExit exit = RunnerExit::Quit;
     std::uint64_t frame = 0;
@@ -164,8 +216,16 @@ RunnerExit RunnerApp::run() {
             }
         }
 
+        if (control) {
+            control->serve([&core, &state](ControlCommand command) {
+                return perform(command, *core, state);
+            });
+        }
         core->run();
         ++frame;
+        if (control) {
+            control->publish(frame, state.exists());
+        }
         if (const auto timing = environment.takeTiming()) {
             interval = frameInterval(timing->fps);
             sink.setCoreRate(timing->sample_rate);

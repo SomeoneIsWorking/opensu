@@ -6,6 +6,7 @@
 //
 // Exit status: 0 on quit, 1 for a bad command line or a window, Vulkan or frame-file failure, 2
 // when the core or game cannot be loaded, 3 when --validate saw Vulkan validation errors.
+// OPENSU_RETRO_CONTROL names the file the control channel's port, or a load failure, is left in.
 #include <charconv>
 #include <optional>
 #include <span>
@@ -109,6 +110,7 @@ int main(int argc, char** argv) {
     options->width = config.width;
     options->height = config.height;
     options->fullscreen = config.insideGamescope && !options->hidden;
+    options->control = config.retroControl;
     opensu::retro::RunnerApp app{std::move(*options)};
     return static_cast<int>(app.run());
 }

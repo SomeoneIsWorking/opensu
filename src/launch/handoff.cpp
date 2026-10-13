@@ -277,6 +277,9 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
             steamHint_.clear();
         } else {
             instance_.stop();
+            if (!forced_.load() && hooks.ended) {
+                hooks.ended(instance_.exitStatus());
+            }
         }
         if (hidden && hooks.show) {
             hooks.show();
@@ -293,14 +296,17 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
 
     const Shown shown = viaSteam ? awaitSteamWindow(game, baseline, report, failure)
                                  : awaitScopeWindow(game, report, failure);
-    if (shown == Shown::Failed) {
-        finish();
-        return false;
-    }
+    // Read after the wait: forceClose() sets forced_ before it kills, so a game that vanished
+    // because the player closed it is not a failure.
     if (shown == Shown::Forced || forced_.load()) {
+        failure.clear();
         finish();
         lucent::info("launch", "{} was force-closed", game.title);
         return true;
+    }
+    if (shown == Shown::Failed) {
+        finish();
+        return false;
     }
     lucent::info("launch", "{} shows a window", game.title);
     // Hidden only now: until the game shows itself, the shell is what the player sees.

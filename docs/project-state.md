@@ -117,7 +117,7 @@ game has been observed running yet.
 | S029 | CI: pinned sources, Clang build, clang-tidy, clang-format, ruff, ctest on every push | partial | — | — |
 | S030 | Linux AppImage release, signed, tested on clean Fedora 44 and Ubuntu 24.04 | partial | S029 | G004 |
 | S031 | Built-in emulators: libretro cores found or downloaded from the buildbot, updated, removed, started on `opensu-retro` | partial | S026 | G001 |
-| S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM | partial | S003 | G001 |
+| S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the quick menu, crash and load-failure toasts | partial | S003 | G001 |
 
 ## Capability details
 
@@ -563,7 +563,8 @@ it), so any local web page can POST a code to it (a login-CSRF, not a credential
 
 A loopback HTTP channel, part of the product rather than a debug flag, so an
 automated run can drive the shell with no controller and no compositor in the way.
-`GET /state` returns the shell's state as JSON, `POST /input` queues a tap (press and release) of a button by
+`GET /state` returns the shell's state as JSON (`artworkPending`: tiles near the canvas still
+showing the loading placeholder, downloading or decoding or not yet uploaded), `POST /input` queues a tap (press and release) of a button by
 name, `GET /frame.png` returns the next frame as PNG bytes, `POST /quit` closes
 the shell. `OPENSU_CONTROL_PORT` moves the port; it cannot be closed, because it
 is how the shell is driven. It binds loopback only and names no file to read or
@@ -1044,7 +1045,9 @@ Verified: tests through the shipping code against a fake buildbot (listing parse
 CRC-32 match and mismatch, off-host redirect and off-host listing refused with nothing kept, an
 on-host redirect followed, cancel, update detection and update, removal, LaunchSpec shape, the
 ROM's emulator options, the details page Download then Play, Settings source, update and two-press
-Remove). Unverified: a real buildbot download, a real core run through `opensu-retro`.
+Remove). Every launch carries `OPENSU_RETRO_CONTROL` (S032). Unverified: a real buildbot download,
+a real core launched from the shell through `opensu-retro` (the shell starts it visible, which
+agents do not run).
 
 ### S032 — The libretro runner
 
@@ -1053,14 +1056,29 @@ environment (directories, pixel formats, core option defaults v0 to v2, log, geo
 runs it at its rate on a clock, draws its frame with Vulkan letterboxed in an SDL window, plays its
 sound at 48 kHz through a resampling ring with ±0.5 % rate control, reads every pad without grabbing
 (the shell's virtual pad included) and the keyboard, and keeps save RAM in `<saves>/<rom>.srm`,
-written atomically when it changes and at exit.
+written atomically when it changes and at exit. Phase 2: with `OPENSU_RETRO_CONTROL` set (the shell
+sets it for every launch) it serves `/status`, `/state/save`, `/state/load` and `/reset` on a free
+loopback port announced in that file, runs each command between frames, keeps one state slot
+`<saves>/<rom>.state`, and leaves a load failure in the file (`retro/control_server`,
+`retro/save_state`). The quick menu shows Save state, Load state and Reset game for such a game
+(`app/retro_session`, `app/quick_menu_controller`); a game in an Instance that dies by a signal
+other than TERM, KILL, INT or HUP is toasted as crashed, by name, and a runner's load failure by its
+reason (`launch/handoff` `Hooks::ended`, `app/game_end`).
 
 Verified: unit tests through the shipping code (pixel formats, rate control against a device 0.3 %
 fast and slow, the joypad mapping, save RAM round trip, failed and wrong-size writes, every answered
 and a refused environment command, a fake core through `Core`), and `runner_test` running the real
 binary hidden with Vulkan validation on: the fake core's RGB565 bars letterboxed in the frame PNG,
 its `.srm` continued across two runs, exit 2 for a missing core or ROM, a crashing core killing only
-the runner by SIGSEGV. By hand: the buildbot's mGBA core (its listed CRC-32, which is the extracted
+the runner by SIGSEGV; the control file with pid and port, `/status`, 404 for a load before any save,
+a save writing the `.state`, a later load undoing the frames between (the `.srm`'s count), reset,
+409 with the reason from a core that cannot serialize, SIGTERM removing the file, a missing ROM
+leaving `{"error"}`. `retro_session_test` and `quick_menu_controller_test` against a fake runner
+(rows, disabled Load state, two presses, refusals), `handoff_test` (a scope process killing itself
+with SIGSEGV reported as 139, a clean exit as 0, a force-close not at all), `game_end_test`
+(wording). By hand, hidden: the buildbot's mGBA core with Kirby & the Amazing Mirror answered
+`/status`, 404 before a save, wrote a 430 KB `.state`, loaded it and reset, and removed its control
+file at exit. By hand: the buildbot's mGBA core (its listed CRC-32, which is the extracted
 `.so`'s, matched) ran Kirby & the Amazing Mirror hidden for 600 frames with no validation errors; the
 frame PNG shows the title screen letterboxed 3:2 and the 32 KiB `.srm` was written. The fake core's run
 also passes on lavapipe with validation.
@@ -1069,7 +1087,10 @@ Unverified: a visible window under Gamescope with sound on a device, a real pad 
 virtual pad driving a game (`pads_test`'s new reader case cannot pass on this machine while the
 running openSU holds every new pad; the pre-change test binary fails the same way). Missing: L2/R2
 from analogue triggers (the translator reports them only for digital triggers), ports beyond the
-first, analogue sticks (`RETRO_DEVICE_ANALOG`), core option changes.
+first, analogue sticks (`RETRO_DEVICE_ANALOG`), core option changes. Unverified: the quick menu's
+state rows over a real game in Gamescope, and the crash toast after a real crash from the shell.
+Control requests run on the shell's loop, so a runner that stops answering holds the shell for up to
+5 s (the loopback client's socket timeout).
 
 ### S027 — Steam libraries
 

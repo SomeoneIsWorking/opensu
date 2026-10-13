@@ -1,7 +1,9 @@
 // quick_menu_controller — the quick menu's rows and buttons: the changes made in place. Volume,
 // mute and the output go through the volume owner, brightness through `BrightnessControl`,
 // Bluetooth through the shared `BluetoothSession`, and Close game ends the running game as the
-// Guide menu does. The controller batteries come from `ControllerRoster`.
+// Guide menu does. The controller batteries come from `ControllerRoster`. A game on opensu-retro
+// adds Save state, Load state and Reset game through `RetroSession`; Load and Reset take a second
+// press.
 #pragma once
 
 #include <chrono>
@@ -15,6 +17,7 @@
 #include "brightness_control.hpp"
 #include "controller_roster.hpp"
 #include "gamepad/event.hpp"
+#include "retro_session.hpp"
 #include "ui/quick_menu.hpp"
 #include "volume_control.hpp"
 
@@ -42,13 +45,15 @@ class QuickMenuController {
         BrightnessControl& brightness;
         BluetoothSession& bluetooth;
         ControllerRoster& controllers;
+        RetroSession& retro;
     };
 
     QuickMenuController(ui::QuickMenu& menu, Services services, audio::SoundPlayer& sounds,
                         Hooks hooks)
         : menu_{menu}, volume_{services.volume}, outputs_{services.outputs},
           brightness_{services.brightness}, bluetooth_{services.bluetooth},
-          controllers_{services.controllers}, sounds_{sounds}, hooks_{std::move(hooks)} {
+          controllers_{services.controllers}, retro_{services.retro}, sounds_{sounds},
+          hooks_{std::move(hooks)} {
     }
 
     void open();
@@ -69,6 +74,10 @@ class QuickMenuController {
     /// Acts on `row`: `step` is 0 for A and -1 or 1 for Left and Right.
     void run(const ui::SettingsRow& row, int step);
     void refuse(const std::string& reason);
+    /// The rows a game on opensu-retro adds; none for any other game.
+    void addRetroRows(std::vector<ui::SettingsRow>& rows);
+    /// Runs a game row: Save at once, Load and Reset on the second press.
+    void runRetro(const ui::SettingsRow& row, bool confirmed);
 
     ui::QuickMenu& menu_;
     VolumeControl& volume_;
@@ -76,8 +85,11 @@ class QuickMenuController {
     BrightnessControl& brightness_;
     BluetoothSession& bluetooth_;
     ControllerRoster& controllers_;
+    RetroSession& retro_;
     audio::SoundPlayer& sounds_;
     Hooks hooks_;
+    /// The row waiting for its second press; empty when none.
+    std::string armed_;
     Clock::time_point refreshedAt_{};
 };
 

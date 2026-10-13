@@ -37,6 +37,14 @@ set_tests_properties(config_config_dir_default PROPERTIES
 
 add_test(NAME config_gamescope COMMAND config_test gamescope)
 
+add_test(NAME config_runtime COMMAND config_test runtime)
+add_test(NAME config_runtime_default COMMAND config_test runtime-default)
+set_tests_properties(config_runtime PROPERTIES
+    ENVIRONMENT_MODIFICATION
+    "XDG_RUNTIME_DIR=set:/xdg-runtime;OPENSU_RETRO_CONTROL=set:/xdg-runtime/opensu/retro-1.json")
+set_tests_properties(config_runtime_default PROPERTIES
+    ENVIRONMENT_MODIFICATION "XDG_RUNTIME_DIR=unset:;OPENSU_RETRO_CONTROL=unset:")
+
 add_executable(arguments_test arguments_test.cpp)
 target_link_libraries(arguments_test PRIVATE opensu::config)
 add_test(NAME config_arguments COMMAND arguments_test)

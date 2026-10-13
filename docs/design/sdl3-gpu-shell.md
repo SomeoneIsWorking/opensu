@@ -60,7 +60,8 @@ and no raylib; it does not change.
 1. Before any change, the current build renders a fixed set of screens to PNG
    (`tools.screenshots --parity DIR`: the README scenes plus a console shelf, Settings pages, the
    options panel, search, the dock glass over artwork, the volume OSD and the session dialog), driven
-   through `--hidden` and the control channel with the demo library. These are the references, kept
+   through `--hidden` and the control channel with the demo library; each frame is taken once
+   `/state` reports `artworkPending` 0, so covers still decoding never read as a difference. These are the references, kept
    under `scratch/`, never committed.
 2. After the port the same tool renders the same screens and compares them: mean and maximum
    per-channel difference per screen, and a difference image. Antialiased edges and text may move by

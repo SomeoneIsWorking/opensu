@@ -15,6 +15,9 @@ constexpr const char* brightnessId = "quick.brightness";
 constexpr const char* bluetoothId = "quick.bluetooth";
 constexpr const char* devicesId = "quick.devices";
 constexpr const char* closeGameId = "quick.closeGame";
+constexpr const char* saveStateId = "quick.saveState";
+constexpr const char* loadStateId = "quick.loadState";
+constexpr const char* resetGameId = "quick.resetGame";
 
 std::string percentOf(int percent) {
     return std::to_string(percent) + "%";
@@ -65,14 +68,55 @@ std::vector<SettingsRow> QuickMenuController::build() {
     }
     rows.push_back(ui::makeRow(devicesId, RowKind::Action, "Devices", "", "Open"));
     if (hooks_.gameRunning()) {
+        addRetroRows(rows);
         rows.push_back(ui::makeRow(closeGameId, RowKind::Action, "Close game", "", ""));
     }
     return rows;
 }
 
+void QuickMenuController::addRetroRows(std::vector<SettingsRow>& rows) {
+    const std::optional<RetroSession::Status> status = retro_.status();
+    if (!status) {
+        return;
+    }
+    rows.push_back(ui::makeRow(saveStateId, RowKind::Action, "Save state", "", ""));
+    if (status->hasState) {
+        rows.push_back(ui::makeRow(loadStateId, RowKind::Action, "Load state", "",
+                                   armed_ == loadStateId ? "Press again to load" : ""));
+    } else {
+        rows.push_back(ui::makeRow(loadStateId, RowKind::Info, "Load state", "", "No state saved"));
+    }
+    rows.push_back(ui::makeRow(resetGameId, RowKind::Action, "Reset game", "",
+                               armed_ == resetGameId ? "Press again to reset" : ""));
+}
+
+void QuickMenuController::runRetro(const SettingsRow& row, bool confirmed) {
+    if (row.kind != RowKind::Action) {
+        return;
+    }
+    if (row.id != saveStateId && !confirmed) {
+        armed_ = row.id;
+        return;
+    }
+    std::string refused;
+    std::string done;
+    if (row.id == saveStateId) {
+        refused = retro_.saveState();
+        done = "State saved";
+    } else if (row.id == loadStateId) {
+        refused = retro_.loadState();
+        done = "State loaded";
+    } else {
+        refused = retro_.reset();
+        done = "Game reset";
+    }
+    hooks_.say(refused.empty() ? done : refused, !refused.empty());
+}
+
 void QuickMenuController::open() {
     // input-sound.md 3.4 OpenContextMenu: a menu becomes visible (r90.java).
     sounds_.play(audio::Effect::OpenContextMenu);
+    armed_.clear();
     outputs_.refresh();
     bluetooth_.readSoon();
     menu_.open(build());
@@ -121,6 +165,10 @@ void QuickMenuController::act(gamepad::Button button) {
         // input-sound.md 3.4 Navigation: a focus move in a list.
         if (menu_.move(button == gamepad::Button::Down ? 1 : -1)) {
             sounds_.play(audio::Effect::Navigation);
+            if (!armed_.empty()) {
+                armed_.clear();
+                refresh();
+            }
         }
         break;
     case gamepad::Button::Left:
@@ -157,7 +205,13 @@ void QuickMenuController::chooseLevel(int level) {
 void QuickMenuController::run(const SettingsRow& focused, int step) {
     // The row is a reference into the menu, which a change rebuilds.
     const std::string id = focused.id;
-    if (id == volumeId) {
+    const bool confirmed = armed_ == id;
+    armed_.clear();
+    if (id == saveStateId || id == loadStateId || id == resetGameId) {
+        if (step == 0) {
+            runRetro(focused, confirmed);
+        }
+    } else if (id == volumeId) {
         if (step != 0) {
             refuse(volume_.system().step(step * audio::volumeStep));
         }

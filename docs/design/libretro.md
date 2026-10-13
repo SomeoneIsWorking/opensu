@@ -1,6 +1,7 @@
 # Built-in libretro runner
 
-Status: phase 1 runner built (`opensu-retro`, S032); core downloads and launch are S031.
+Status: phases 1 and 2 built (`opensu-retro` with its control channel, S032); core downloads and
+launch are S031.
 
 ## 1. Goal
 
@@ -55,14 +56,19 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/vulkan_device.*` | The Vulkan instance (validation layer and its error count on request) and the one device and graphics queue, the objects a Vulkan core will be handed in phase 3 |
 | `src/retro/png_encoder.*` | RGBA to PNG bytes through libpng |
 | `src/retro/shaders/frame.{vert,frag}` | The frame's two shaders, compiled by glslc at build time into SPIR-V headers under the build tree |
-| `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, the hidden mode for tests |
+| `src/retro/save_state.*` | The one state slot `<saves>/<rom stem>.state`: `retro_serialize` written whole, read back through `retro_unserialize` |
+| `src/retro/control_server.*` | The runner's loopback `lucent::http::Server`: the control file (port and pid, or the load failure), the routes, the hand-over of each command to the frame loop |
+| `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, control commands between frames, the hidden mode for tests |
 | `src/retro/main.cpp` | `opensu-retro`'s command line |
 | `src/library/libretro_cores.*` | Finding a core; core downloads from the libretro buildbot under `<data>/opensu/cores/` and their record |
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release |
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> <rom>` |
 | `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core, on the same paths as an AppImage |
+| `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests, the load failure handed over and the file removed |
+| `src/app/quick_menu_controller.*` | Save state, Load state and Reset game while the running game answers on a control channel |
+| `src/app/game_end.*`, `src/launch/handoff.*` | How a game ended (`Hooks::ended`, the scope's exit status) and the toast it gets |
 
-`retro` depends on `gamepad`, `fileio`, Lucent, SDL3, the Vulkan loader and libpng; `config` is
+`retro` depends on `gamepad`, `fileio`, Lucent, nlohmann/json, SDL3, the Vulkan loader and libpng; `config` is
 read by `main.cpp` only. Nothing outside `retro` and the `opensu-retro` executable links it. Only
 `presenter` and `vulkan_device` include Vulkan or SDL video; `audio_output` includes SDL audio;
 `joypad` uses SDL's scancode values only.
@@ -85,7 +91,40 @@ fullscreen.
 into a quit so save RAM is written) or the frame count is reached; 1 for a bad command line or a
 window, Vulkan or frame-file failure; 2 when the core or game cannot be loaded (the reason logged);
 3 when `--validate` saw validation errors; a crash is the signal it died of. The shell learns how a
-game ended from the scope.
+game ended from the scope: the handoff reports the started process's status (`Instance::exitStatus`,
+128 plus the signal) through `Handoff::Hooks::ended`, except for a game force-closed from a menu.
+A death by any signal but SIGTERM, SIGKILL, SIGINT and SIGHUP is toasted as `<title> crashed
+(SIGSEGV)`; a load failure the runner left in its control file is toasted as its reason instead.
+Other ends keep the launch's own toast (`<title> closed`, or its failure).
+
+**Control channel.** The shell sets `OPENSU_RETRO_CONTROL=<runtime>/opensu/retro-<shell pid>-<n>.json`
+(`<runtime>` is `$XDG_RUNTIME_DIR`) in every launch's environment; `config::Config::retroControl` is
+how the runner reads it. With it set, once the game has loaded and the window is up, the runner
+listens on a free loopback port (`lucent::http::Server`, port 0) and writes
+`{"port": N, "pid": P}` to that file atomically (`fileio::writeWhole`); it removes the file when it
+exits. When the core or game cannot be loaded (exit 2) it writes `{"error": "<reason>"}` there
+instead and leaves it; the shell reads it once the launch is over and deletes it. Routes:
+
+| Route | Answer |
+| --- | --- |
+| `GET /status` | `{"core", "rom", "frame", "hasState"}`: the core's name, the ROM path, frames run, whether the slot holds a state |
+| `POST /state/save` | 200; 409 with the reason when the core cannot serialize (`retro_serialize_size` 0 or `retro_serialize` false); 500 when the slot cannot be written |
+| `POST /state/load` | 200; 404 when no state is saved; 409 when the core refuses it |
+| `POST /reset` | 200 after `retro_reset` |
+
+Every POST is queued for the frame loop, which runs it between frames, never beside `retro_run`;
+the request waits for the answer, and is answered 503 when the loop has not taken it within 3 s or
+the runner is closing. Error bodies are the reason as plain text. The slot is
+`<saves>/<rom stem>.state`, written whole, so a crash mid-write keeps the previous state. The shell
+reads the port lazily and talks through `lucent::http::get_loopback` and `post_loopback`; requests
+run on the shell's loop, which a runner that stops answering holds for up to the client's 5 s
+socket timeout.
+
+**Quick menu.** While the running game answers `/status`, the quick menu (Guide + A) shows Save
+state (one press), Load state (a second press confirms; an Info row reading "No state saved" when
+the slot is empty) and Reset game (a second press confirms) above Close game. A focus move takes the
+first press back. The results are toasts: "State saved", "State loaded", "Game reset", or the
+runner's reason as an error.
 
 **Input.** The runner reads every evdev pad without grabbing it. While the shell holds the real
 pads during a game, the only pad that moves is the shell's virtual Xbox 360 pad, so the Guide
@@ -128,15 +167,16 @@ automatic emulator stays the standalone one where it is installed.
    ReARMed. Genesis Plus GX waits for Mega Drive, Master System and Game Gear systems in
    `rom_systems`. Runner, input, audio, save RAM, core downloads through Settings › Emulators and the
    details page.
-2. Save states and reset from the quick menu over a loopback `lucent::http::Server` in the runner;
-   a crash named in the shell's toast.
+2. Built: save states and reset from the quick menu over a loopback `lucent::http::Server` in the
+   runner; a crash named in the shell's toast, a load failure told by its reason.
 3. GPU cores (`RETRO_ENVIRONMENT_SET_HW_RENDER` with `RETRO_HW_CONTEXT_VULKAN`, handed the
    presenter's device): Mupen64Plus-Next, Beetle PSX HW, Flycast.
 
 ## 6. Testing
 
-- `tests/retro/` builds two fake cores as shared libraries: one draws a known pattern, plays a
-  tone, reads the joypad and writes save RAM; one crashes in `retro_run`.
+- `tests/retro/` builds three fake cores as shared libraries from one source: one draws a known
+  pattern, plays a tone, reads the joypad, writes save RAM and serializes its save RAM and frame
+  counter (reset zeroes the count); one crashes in `retro_run`; one cannot serialize.
 - Unit tests through the shipping code: pixel conversion, resampler fill control, joypad mapping,
   save RAM round trip and atomic write, environment answers.
 - `core_test` loads the fake core through `Core` with the real owners: frames, samples, the
@@ -144,7 +184,17 @@ automatic emulator stays the standalone one where it is installed.
 - `runner_test` runs `opensu-retro --hidden --validate --frames 30 --frame-png` against the fake
   core (RGB565 bars letterboxed in the PNG, the `.srm` holding the frame count, a second run
   continuing from it), exit 2 for a missing core or ROM, exit 1 for a bad command line, and the
-  crashing core killing the runner by SIGSEGV with the last save intact.
+  crashing core killing the runner by SIGSEGV with the last save intact. With `OPENSU_RETRO_CONTROL` set: the control file
+  appears with the runner's pid and port, `/status` names the game, loading before a save is 404, a
+  save writes the `.state`, a later load leaves the `.srm`'s frame count showing the frames between
+  them undone, a reset zeroes it, the stateless core's save is 409 with its reason, an unknown
+  route 404, SIGTERM exits 0 and removes the file, and a missing ROM exits 2 leaving the error.
+- `retro_session_test` and `quick_menu_controller_test` run `RetroSession` against a fake runner
+  (`tests/support/fake_runner.hpp`): the per-launch file, the port read once announced, reasons
+  passed through, the load failure handed over once; the rows, the disabled Load state, the two
+  presses and a moved focus taking the first back. `handoff_test` launches a scope process that
+  kills itself with SIGSEGV (reported 139), one that exits 0 (0) and one force-closed (not
+  reported); `game_end_test` pins the toast wording.
 - The tests need a display for the hidden SDL window and any Vulkan driver: the CI workflow wraps
   `tools.check ci` in `xvfb-run`, the check container gets that display forwarded in
   (`tools/podman.display_words`), and the image has lavapipe and the validation layers.

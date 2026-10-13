@@ -37,6 +37,8 @@ struct RunnerOptions {
     std::optional<std::uint64_t> frames;
     /// Hidden only: the last image shown, written here as PNG.
     std::optional<std::filesystem::path> framePng;
+    /// Where the control channel is announced, or a load failure reported; none when empty.
+    std::filesystem::path control;
 };
 
 class RunnerApp {

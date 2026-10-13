@@ -52,6 +52,9 @@ class Handoff {
         std::function<void()> show;
         /// How the launch is getting on until then; called on each change.
         std::function<void(const LaunchProgress&)> progress;
+        /// A game in an Instance is over without forceClose(): how its started process ended
+        /// (`Instance::exitStatus`), called before start() returns.
+        std::function<void(int exitStatus)> ended;
     };
 
     /// Starts a game, calls `hide` once it shows a window, waits for it to finish,

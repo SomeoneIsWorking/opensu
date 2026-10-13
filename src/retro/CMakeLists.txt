@@ -27,7 +27,7 @@ endforeach()
 add_library(opensu_retro STATIC
     core.cpp core_environment.cpp core_options.cpp video_frame.cpp audio_sink.cpp
     audio_output.cpp joypad.cpp save_memory.cpp png_encoder.cpp vulkan_device.cpp presenter.cpp
-    runner_app.cpp ${OPENSU_RETRO_SHADERS})
+    save_state.cpp control_server.cpp runner_app.cpp ${OPENSU_RETRO_SHADERS})
 add_library(opensu::retro ALIAS opensu_retro)
 target_include_directories(opensu_retro
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/src"

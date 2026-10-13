@@ -1,19 +1,30 @@
 // opensu-retro end to end: the hidden runner against the fake core draws its bars letterboxed,
 // writes and reloads save RAM, refuses what it cannot load, and dies alone when its core crashes.
+// Its control channel announces itself, saves, loads and resets between frames, refuses a core
+// without states and a missing state, and leaves a load failure for the shell.
+#include <chrono>
 #include <cmath>
+#include <csignal>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <thread>
 #include <vector>
 
+#include <nlohmann/json.hpp>
 #include <png.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include "check.hpp"
+#include "lucent/http_client.h"
 #include "scratch_dir.hpp"
 
 namespace {
@@ -27,7 +38,8 @@ struct Status {
     int signal{0};
 };
 
-Status run(const std::vector<std::string>& args) {
+/// Starts the runner with OPENSU_RETRO_CONTROL set to `control`, or unset when it is empty.
+pid_t spawn(const std::vector<std::string>& args, const std::filesystem::path& control = {}) {
     std::vector<char*> argv;
     argv.reserve(args.size() + 1);
     for (const std::string& arg : args) {
@@ -39,15 +51,28 @@ Status run(const std::vector<std::string>& args) {
         // The crashing core must not leave a core dump behind.
         const rlimit none{0, 0};
         setrlimit(RLIMIT_CORE, &none);
+        if (control.empty()) {
+            unsetenv("OPENSU_RETRO_CONTROL");
+        } else {
+            setenv("OPENSU_RETRO_CONTROL", control.c_str(), 1);
+        }
         execv(argv[0], argv.data());
         _exit(127);
     }
+    return child;
+}
+
+Status wait(pid_t child) {
     int status = 0;
     waitpid(child, &status, 0);
     if (WIFSIGNALED(status)) {
         return {false, 0, WTERMSIG(status)};
     }
     return {true, WEXITSTATUS(status), 0};
+}
+
+Status run(const std::vector<std::string>& args, const std::filesystem::path& control = {}) {
+    return wait(spawn(args, control));
 }
 
 struct Image {
@@ -120,15 +145,147 @@ void checkFrame(const Image& image) {
     }
 }
 
+nlohmann::json readJson(const std::filesystem::path& file) {
+    return nlohmann::json::parse(read(file), nullptr, false);
+}
+
+/// The port the runner announced in `control`, waiting for it; fails if `child` exits first.
+std::uint16_t awaitPort(const std::filesystem::path& control, pid_t child) {
+    const auto until = std::chrono::steady_clock::now() + std::chrono::seconds{30};
+    while (std::chrono::steady_clock::now() < until) {
+        const nlohmann::json announce = readJson(control);
+        if (announce.is_object() && announce.contains("port") && announce.contains("pid")) {
+            expect(announce["pid"] == child, "the control file names the runner's pid");
+            return announce["port"].get<std::uint16_t>();
+        }
+        int status = 0;
+        expect(waitpid(child, &status, WNOHANG) == 0, "the runner runs until it announces");
+        std::this_thread::sleep_for(std::chrono::milliseconds{20});
+    }
+    fail("the runner announced its port");
+}
+
+nlohmann::json status(std::uint16_t port) {
+    lucent::http::FetchResult result;
+    std::string error;
+    expect(lucent::http::get_loopback(port, "/status", result, error) && result.status == 200,
+           "GET /status answers");
+    return nlohmann::json::parse(result.body);
+}
+
+lucent::http::FetchResult post(std::uint16_t port, const char* target) {
+    lucent::http::FetchResult result;
+    std::string error;
+    expect(lucent::http::post_loopback(port, target, "", result, error), "the POST is answered");
+    return result;
+}
+
+/// Waits until the runner has run `frames` frames.
+void awaitFrame(std::uint16_t port, std::uint64_t frames) {
+    const auto until = std::chrono::steady_clock::now() + std::chrono::seconds{30};
+    while (status(port)["frame"].get<std::uint64_t>() < frames) {
+        expect(std::chrono::steady_clock::now() < until, "the runner reaches the frame");
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
+}
+
+std::uint32_t countIn(const std::string& bytes) {
+    std::uint32_t count = 0;
+    expect(bytes.size() >= sizeof(count), "the file holds the frame count");
+    std::memcpy(&count, bytes.data(), sizeof(count));
+    return count;
+}
+
+struct Paths {
+    std::string runner;
+    std::string core;
+    std::filesystem::path rom;
+    std::filesystem::path root;
+};
+
+/// Save, a later load, and the frame count at exit showing the frames between them undone.
+void stateRoundTrip(const Paths& paths) {
+    const std::filesystem::path control = paths.root / "run" / "control.json";
+    const std::filesystem::path saves = paths.root / "state-saves";
+    const pid_t child = spawn({paths.runner, "--core", paths.core, "--saves", saves.string(),
+                               "--hidden", "--frames", "600", paths.rom.string()},
+                              control);
+    const std::uint16_t port = awaitPort(control, child);
+    nlohmann::json now = status(port);
+    expect(now["core"] == "fake" && now["rom"] == paths.rom.string(), "/status names the game");
+    expect(now["hasState"] == false, "no state before the first save");
+    expect(post(port, "/state/load").status == 404, "loading a missing state is 404");
+    awaitFrame(port, 10);
+    expect(post(port, "/state/save").status == 200, "the state is saved");
+    const std::string state = read(saves / "game.state");
+    expect(state.size() == 256 + 8, "the slot holds the core's whole state");
+    const std::uint32_t saved = countIn(state);
+    expect(saved >= 10, "the state was taken between frames");
+    expect(status(port)["hasState"] == true, "/status shows the state");
+    awaitFrame(port, saved + 60);
+    expect(post(port, "/state/load").status == 200, "the state is loaded");
+    const Status ended = wait(child);
+    expect(ended.exited && ended.code == 0, "the runner ends after its frames");
+    expect(!std::filesystem::exists(control), "the control file goes at exit");
+    const std::uint32_t count = countIn(read(saves / "game.srm"));
+    expect(count > saved && count <= 600 - 60, "the load took the core back to the saved frame");
+}
+
+void resetRestarts(const Paths& paths) {
+    const std::filesystem::path control = paths.root / "run" / "reset.json";
+    const std::filesystem::path saves = paths.root / "reset-saves";
+    const pid_t child = spawn({paths.runner, "--core", paths.core, "--saves", saves.string(),
+                               "--hidden", "--frames", "300", paths.rom.string()},
+                              control);
+    const std::uint16_t port = awaitPort(control, child);
+    awaitFrame(port, 100);
+    expect(post(port, "/reset").status == 200, "the game is reset");
+    const Status ended = wait(child);
+    expect(ended.exited && ended.code == 0, "the runner ends after its frames");
+    expect(countIn(read(saves / "game.srm")) <= 200, "the reset zeroed the core's frame count");
+}
+
+void statelessCoreRefuses(const Paths& paths, const std::string& stateless) {
+    const std::filesystem::path control = paths.root / "run" / "stateless.json";
+    const std::filesystem::path saves = paths.root / "stateless-saves";
+    const pid_t child = spawn({paths.runner, "--core", stateless, "--saves", saves.string(),
+                               "--hidden", "--frames", "1200", paths.rom.string()},
+                              control);
+    const std::uint16_t port = awaitPort(control, child);
+    const lucent::http::FetchResult refused = post(port, "/state/save");
+    expect(refused.status == 409 && refused.body == "fake cannot save states",
+           "a core that cannot serialize is 409 with the reason");
+    expect(!std::filesystem::exists(saves / "game.state"), "nothing is written for it");
+    expect(post(port, "/nowhere").status == 404, "an unknown route is 404");
+    kill(child, SIGTERM);
+    const Status ended = wait(child);
+    expect(ended.exited && ended.code == 0, "SIGTERM quits the runner cleanly");
+    expect(!std::filesystem::exists(control), "the control file goes at exit");
+}
+
+void loadFailureIsReported(const Paths& paths) {
+    const std::filesystem::path control = paths.root / "run" / "failed.json";
+    const Status failed =
+        run({paths.runner, "--core", paths.core, "--saves", (paths.root / "saves").string(),
+             "--hidden", "--frames", "1", (paths.root / "missing.bin").string()},
+            control);
+    expect(failed.exited && failed.code == 2, "a missing game exits 2");
+    const nlohmann::json report = readJson(control);
+    expect(report.is_object() && report.size() == 1 &&
+               report["error"].get<std::string>().find("missing.bin") != std::string::npos,
+           "the control file holds the load failure for the shell");
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
-        fail("usage: runner_test <opensu-retro> <fake core> <crashing core>");
+    if (argc != 5) {
+        fail("usage: runner_test <opensu-retro> <fake core> <crashing core> <stateless core>");
     }
     const std::string runner = argv[1];
     const std::string core = argv[2];
     const std::string crashing = argv[3];
+    const std::string stateless = argv[4];
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "retro_runner"};
     const std::filesystem::path rom = scratch.path() / "game.bin";
     std::ofstream{rom, std::ios::binary} << "Bgame";
@@ -170,6 +327,17 @@ int main(int argc, char** argv) {
     expect(!crashed.exited && crashed.signal == SIGSEGV,
            "a core crashing in retro_run kills the runner by its signal");
     expect(read(srm)[0] == 40, "the crash left the last save as it was");
+
+    const Paths paths{runner, core, rom, scratch.path()};
+    try {
+        stateRoundTrip(paths);
+        resetRestarts(paths);
+        statelessCoreRefuses(paths, stateless);
+        loadFailureIsReported(paths);
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
+        return 1;
+    }
 
     std::printf("runner: all checks passed\n");
     return 0;
