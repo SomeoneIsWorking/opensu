@@ -76,3 +76,8 @@ target_link_libraries(emulator_release_test PRIVATE opensu::library lucent::luce
 target_include_directories(emulator_release_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_definitions(emulator_release_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME emulator_release COMMAND emulator_release_test)
+
+add_executable(play_time_test play_time_test.cpp)
+target_link_libraries(play_time_test PRIVATE opensu::library)
+target_compile_options(play_time_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME play_time COMMAND play_time_test)

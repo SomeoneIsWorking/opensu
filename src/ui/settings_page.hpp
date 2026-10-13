@@ -49,8 +49,8 @@ struct SettingsRow {
 };
 
 /// A row of `kind` with its label, note and value.
-[[nodiscard]] SettingsRow makeRow(std::string id, RowKind kind, std::string label,
-                                  std::string note, std::string value);
+[[nodiscard]] SettingsRow makeRow(std::string id, RowKind kind, std::string label, std::string note,
+                                  std::string value);
 /// A switch row.
 [[nodiscard]] SettingsRow makeToggle(std::string id, std::string label, std::string note, bool on);
 /// Where a slider stands and how far it goes.

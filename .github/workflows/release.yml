@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  appimage:
+    name: Signed AppImage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.19"
+          checksum: "23bf5552d220e0842b65c862097b2ebaeba0064b74eda5e565e77fd25969d8c8"
+          enable-cache: false
+      - name: Install the X server the render check draws to
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb xauth
+      - name: Build, sign and smoke-test the AppImage
+        env:
+          OPENSU_APPIMAGE_SIGNING_KEY: ${{ secrets.OPENSU_APPIMAGE_SIGNING_KEY }}
+        run: |
+          test -n "$OPENSU_APPIMAGE_SIGNING_KEY" || { echo "OPENSU_APPIMAGE_SIGNING_KEY is not set"; exit 1; }
+          xvfb-run -a uv run --frozen python -m tools.appimage all --version "${GITHUB_REF_NAME#v}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: build/appimage/out/
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    name: GitHub Release
+    needs: appimage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: out
+      - name: Verify the checksum
+        working-directory: out
+        run: sha256sum -c ./*.AppImage.sha256
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "openSU ${GITHUB_REF_NAME#v}" \
+            --notes "Linux x86_64 AppImage (glibc 2.39 or newer; tested on Fedora 44 and Ubuntu 24.04). See the README's Install section for requirements; verify with \`sha256sum -c\` and the signing key in packaging/appimage/signing-key.asc." \
+            out/*

@@ -205,8 +205,9 @@ void guideIsATapOrAModifier() {
     auto fed = chords.feed({press(Button::Guide)});
     expect(fed.events.empty() && fed.actions.empty(), "Guide waits for its release");
     fed = chords.feed({press(Button::Guide, false)});
-    expect(fed.events.size() == 2 && fed.events[0].button == Button::Guide && fed.events[0].pressed &&
-               fed.events[1].button == Button::Guide && !fed.events[1].pressed,
+    expect(fed.events.size() == 2 && fed.events[0].button == Button::Guide &&
+               fed.events[0].pressed && fed.events[1].button == Button::Guide &&
+               !fed.events[1].pressed,
            "a tap comes out as a press and a release");
     fed = chords.feed({press(Button::Guide)});
     fed = chords.feed({press(Button::A)});
@@ -215,7 +216,8 @@ void guideIsATapOrAModifier() {
     fed = chords.feed({press(Button::A, false), press(Button::Guide, false)});
     expect(fed.events.empty() && fed.actions.empty(), "its release is swallowed with the chord");
     fed = chords.feed({press(Button::Guide), press(Button::Up), press(Button::Up, false)});
-    expect(fed.events.size() == 2 && fed.actions.empty(), "Guide with a non-chord button passes it");
+    expect(fed.events.size() == 2 && fed.actions.empty(),
+           "Guide with a non-chord button passes it");
     fed = chords.feed({press(Button::Guide, false)});
     expect(fed.events.size() == 2 && fed.events[0].button == Button::Guide,
            "and Guide is still a tap on release");

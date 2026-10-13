@@ -1,0 +1,82 @@
+# Build environment for the openSU AppImage (tools/appimage). Ubuntu 24.04 sets the glibc floor
+# (2.39). wlroots 0.20, which the Gamescope fork builds as a subproject, needs wayland, wayland-protocols,
+# libxkbcommon and pixman newer than 24.04 ships, and libdrm 2.4.129 headers: those are built from
+# pinned release tarballs into /usr/local. The AppImage bundles the first four; libdrm is the host's.
+FROM docker.io/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+
+ENV DEBIAN_FRONTEND=noninteractive
+# Clang 22 from apt.llvm.org, the release Fedora 44 builds with: 24.04's Clang 18 cannot compile the
+# fork's sol2. The archive key is pinned by its sha256.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+    && curl -fsSL -o /tmp/llvm.key https://apt.llvm.org/llvm-snapshot.gpg.key \
+    && echo "8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d  /tmp/llvm.key" \
+        | sha256sum -c - \
+    && gpg --dearmor -o /usr/share/keyrings/llvm.gpg /tmp/llvm.key && rm /tmp/llvm.key \
+    && echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-22 main" \
+        > /etc/apt/sources.list.d/llvm.list
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        xz-utils git file patchelf desktop-file-utils zsync \
+        clang-22 clang-tools-22 lld-22 libstdc++-14-dev \
+        cmake ninja-build meson pkg-config bison python3 glslang-tools hwdata \
+        libexpat1-dev libffi-dev libxml2-dev xkb-data \
+        libcurl4-openssl-dev zlib1g-dev libwebp-dev libnanosvg-dev nlohmann-json3-dev \
+        libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev \
+        libxdamage-dev libxcomposite-dev libxrender-dev libxext-dev libxfixes-dev libxxf86vm-dev \
+        libxtst-dev libxres-dev libxmu-dev libxcb1-dev libxcb-composite0-dev libxcb-icccm4-dev \
+        libxcb-res0-dev libxcb-xfixes0-dev libxcb-render-util0-dev libxcb-ewmh-dev \
+        libxcb-xinput-dev libxcb-present-dev libxcb-dri3-dev libxcb-shm0-dev libxcb-render0-dev \
+        libcap-dev libsdl2-dev libavif-dev libudev-dev libdecor-0-dev libluajit-5.1-dev \
+        libinput-dev libei-dev libpipewire-0.3-dev libvulkan-dev libseat-dev liblcms2-dev \
+        libglm-dev libstb-dev libgbm-dev libegl-dev libgles-dev xwayland \
+    && rm -rf /var/lib/apt/lists/* \
+    && for tool in clang clang++ clang-scan-deps; do \
+        ln -s "/usr/bin/$tool-22" "/usr/local/bin/$tool"; \
+    done
+ENV CC=clang CXX=clang++
+
+# Each source: download, check its sha256, build with meson into /usr/local.
+RUN set -eu; \
+    build() { \
+        name=$1; url=$2; sum=$3; shift 3; \
+        curl -fsSL -o "/tmp/$name.tar" "$url"; \
+        echo "$sum  /tmp/$name.tar" | sha256sum -c -; \
+        mkdir "/tmp/$name"; tar -xf "/tmp/$name.tar" -C "/tmp/$name" --strip-components=1; \
+        meson setup "/tmp/$name/build" "/tmp/$name" --prefix=/usr/local \
+            --libdir=lib/x86_64-linux-gnu --buildtype=release "$@"; \
+        ninja -C "/tmp/$name/build" install; \
+        rm -rf "/tmp/$name" "/tmp/$name.tar"; \
+    }; \
+    build wayland \
+        https://gitlab.freedesktop.org/wayland/wayland/-/releases/1.24.0/downloads/wayland-1.24.0.tar.xz \
+        82892487a01ad67b334eca83b54317a7c86a03a89cfadacfef5211f11a5d0536 \
+        -Ddocumentation=false -Dtests=false; \
+    build wayland-protocols \
+        https://gitlab.freedesktop.org/wayland/wayland-protocols/-/releases/1.47/downloads/wayland-protocols-1.47.tar.xz \
+        5fd4349bcbc9bab9a46f8cf77d1f434296a7a052c87440a094f63fcf62a58e20 \
+        -Dtests=false; \
+    build libxkbcommon \
+        https://github.com/xkbcommon/libxkbcommon/archive/refs/tags/xkbcommon-1.8.1.tar.gz \
+        c65c668810db305c4454ba26a10b6d84a96b5469719fe3c729e1c6542b8d0d87 \
+        -Denable-docs=false -Denable-x11=false -Denable-wayland=false -Denable-tools=false \
+        -Denable-xkbregistry=false -Dxkb-config-root=/usr/share/X11/xkb \
+        -Dx-locale-root=/usr/share/X11/locale; \
+    build pixman \
+        https://www.cairographics.org/releases/pixman-0.46.4.tar.gz \
+        d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c \
+        -Dtests=disabled -Ddemos=disabled -Dgtk=disabled -Dlibpng=disabled; \
+    build libdrm \
+        https://dri.freedesktop.org/libdrm/libdrm-2.4.129.tar.xz \
+        5978183f978d697e26a50ba066174964efb0ab97caa1ecaa1b861fbe5ddf77dc \
+        -Dintel=disabled -Dradeon=disabled -Damdgpu=disabled -Dnouveau=disabled \
+        -Dvmwgfx=disabled -Dfreedreno=disabled -Dvc4=disabled -Detnaviv=disabled \
+        -Dexynos=disabled -Domap=disabled -Dtegra=disabled -Dcairo-tests=disabled \
+        -Dvalgrind=disabled -Dman-pages=disabled -Dtests=false; \
+    ldconfig
+
+ARG UV_VERSION
+ARG UV_SHA256
+RUN curl -fsSL -o /tmp/uv.tar.gz \
+        "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
+    && echo "${UV_SHA256}  /tmp/uv.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/uv.tar.gz -C /usr/local/bin --strip-components=1 \
+    && rm /tmp/uv.tar.gz

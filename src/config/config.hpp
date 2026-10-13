@@ -57,6 +57,12 @@ struct Config {
     /// `gamescopeBeside`. May not exist when opensu was built without the fork.
     std::filesystem::path gamescope;
 
+    /// The XDG base directories, each `$XDG_<NAME>_HOME` or its default under `home`. Plugins
+    /// name their read paths relative to these (`{xdg_cache}` and so on).
+    std::filesystem::path xdgCacheHome;
+    std::filesystem::path xdgDataHome;
+    std::filesystem::path xdgConfigHome;
+
     /// opensu's cache, downloaded artwork among it: `$XDG_CACHE_HOME/opensu`, else
     /// `~/.cache/opensu`.
     std::filesystem::path cacheDir;

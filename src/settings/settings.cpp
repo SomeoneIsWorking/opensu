@@ -35,6 +35,9 @@ constexpr const char* shortcutKeysKey = "keys";
 constexpr const char* shortcutPadsKey = "pads";
 constexpr const char* installFoldersKey = "installFolders";
 constexpr const char* defaultFolderKey = "default";
+constexpr const char* pluginsKey = "plugins";
+constexpr const char* enabledKey = "enabled";
+constexpr const char* grantedKey = "granted";
 
 /// The key a store's own install folder is kept under.
 std::string storeKey(library::Source store) {
@@ -209,6 +212,37 @@ class Reader {
         }
     }
 
+    void plugins(const char* name, std::map<std::string, PluginChoice>& out) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        if (!found->is_object()) {
+            reject(name, *found, "every plugin keeps its default");
+            return;
+        }
+        for (const auto& [id, entry] : found->items()) {
+            const auto enabled = entry.is_object() ? entry.find(enabledKey) : entry.end();
+            const auto granted = entry.is_object() ? entry.find(grantedKey) : entry.end();
+            bool valid = entry.is_object() && enabled != entry.end() && enabled->is_boolean() &&
+                         (granted == entry.end() || granted->is_array());
+            if (valid && granted != entry.end()) {
+                valid = std::ranges::all_of(*granted, [](const json& item) {
+                    return item.is_string();
+                });
+            }
+            if (!valid) {
+                reject(name, entry, "the plugin keeps its default");
+                continue;
+            }
+            PluginChoice choice{enabled->get<bool>(), {}};
+            if (granted != entry.end()) {
+                choice.granted = granted->get<std::vector<std::string>>();
+            }
+            out[id] = std::move(choice);
+        }
+    }
+
     void reject(const char* name, const json& value, const char* fallback) const {
         lucent::warn("settings", "{}: {} is not a valid {}; {}", file_, value.dump(), name,
                      fallback);
@@ -246,6 +280,7 @@ Settings Store::load() const {
                         "every store installs where it chooses");
     read.integer(uiScaleKey, minUiScale, maxUiScale, settings.uiScale, "using 100%");
     read.shortcuts(shortcutsKey, settings.shortcuts);
+    read.plugins(pluginsKey, settings.plugins);
     read.boolean(installedOnlyKey, settings.view.installedOnly, "showing every game");
     read.text(sourceKey, settings.view.source, "showing every source");
     std::vector<std::string> hidden;
@@ -339,6 +374,11 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {installFoldersKey, folders},
         {uiScaleKey, settings.uiScale},
         {shortcutsKey, {{shortcutKeysKey, shortcutKeys}, {shortcutPadsKey, shortcutPads}}}};
+    json plugins = json::object();
+    for (const auto& [id, choice] : settings.plugins) {
+        plugins[id] = {{enabledKey, choice.enabled}, {grantedKey, choice.granted}};
+    }
+    document[pluginsKey] = plugins;
     if (settings.homeMode) {
         document[homeModeKey] = std::string{config::key(*settings.homeMode)};
     }

@@ -17,15 +17,74 @@ Built with C++20 and raylib. The shell is drawn from geometry rather than
 composed from images, so the layout is resolution independent and every size is
 derived from the window, following iiSU's own layout rules.
 
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Home: installed games from every store](docs/screenshots/home.webp) | ![Library: stores, all games and one tile per console](docs/screenshots/library.webp) |
+| Home: installed games from every store | Library: stores, all games and one tile per console |
+| ![A game's details page](docs/screenshots/details.webp) | ![Guide menu](docs/screenshots/guide.webp) |
+| A game's details page | Guide menu |
+| ![Settings](docs/screenshots/settings.webp) | ![Quick menu](docs/screenshots/quick-menu.webp) |
+| Settings | Quick menu |
+
+The demo library is freely licensed games; art sources and licences are in
+[docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md). Captured with
+`uv run --frozen python -m tools.screenshots`.
+
+## Installing the AppImage
+
+Each [release](https://github.com/SomeoneIsWorking/opensu/releases) carries
+`openSU-<version>-x86_64.AppImage`, its `.sha256`, a `.zsync` for AppImageUpdate and the sign-in
+extension `opensu-signin.xpi`:
+
+```sh
+sha256sum -c openSU-<version>-x86_64.AppImage.sha256
+chmod +x openSU-<version>-x86_64.AppImage
+./openSU-<version>-x86_64.AppImage
+```
+
+The AppImage holds openSU, its assets, the sign-in extension (`usr/share/opensu/opensu-signin.xpi`)
+and the pinned Gamescope fork. It is signed with the key in
+`packaging/appimage/signing-key.asc` (fingerprint `0604 E249 E180 039C 3BA2 FEF3 419F 535F 9867 0291`);
+`./openSU-<version>-x86_64.AppImage --appimage-signature` prints the signature. Settings, data and
+cache stay in `$XDG_CONFIG_HOME/opensu`, `$XDG_DATA_HOME/opensu` and `$XDG_CACHE_HOME/opensu`
+(`.config`, `.local/share` and `.cache` in the home folder by default), never inside the
+AppImage. Session mode (Power › Install session mode) needs an openSU installed from source: the
+AppImage's mount point changes on every run, so a login session entry cannot name it.
+
+Requirements, which a desktop install of a current distribution already has:
+
+- x86_64 Linux with glibc 2.39 or newer
+- OpenGL and Vulkan drivers for the GPU (Mesa or the vendor's), and Xwayland
+- FUSE 3 (`fusermount3`); libfuse2 is not needed, the runtime is the static type 2 one
+- libcurl, the PipeWire, ALSA and PulseAudio client libraries and a systemd user session
+
+On Fedora: `sudo dnf install fuse3 libcurl pipewire-libs alsa-lib pulseaudio-libs mesa-vulkan-drivers
+xorg-x11-server-Xwayland`. On Ubuntu: `sudo apt install fuse3 libcurl4t64 libpipewire-0.3-0t64
+libasound2t64 libpulse0 mesa-vulkan-drivers xwayland`.
+
+Tested on Fedora 44 and Ubuntu 24.04 (clean containers with only the runtime libraries above: the
+AppImage mounts, every bundled library resolves, the Gamescope binary loads and openSU renders a
+frame; a Gamescope session itself is not run there); other
+distributions with glibc 2.39 or newer should work but are untested. Linux only: a Windows build
+(without Gamescope) is a possible future target, macOS is not planned.
+
+`uv run --frozen python -m tools.appimage all` builds it in a podman container (Ubuntu 24.04, the
+glibc floor) and runs the same checks; the AppImage lands in `build/appimage/out/`.
+
 ## Building
 
-openSU needs raylib 6.0 built from source, a checkout of
+openSU needs raylib 6.0 built from source (the `opensu` branch of
+[our fork](https://github.com/SomeoneIsWorking/raylib), which fixes a miniaudio crash when
+PulseAudio answers a device query with an error), a checkout of
 [Lucent](https://github.com/SomeoneIsWorking/lucent), its logger, and
 [nanosvg](https://github.com/memononen/nanosvg) for its icons: the distribution's
 package (`nanosvg-devel` on Fedora), else a checkout at `NANOSVG_ROOT`, by default
 `$HOME/dev/nanosvg`. The launcher logos are from [Simple Icons](https://simpleicons.org)
 (CC0). libcurl (`libcurl-devel` on Fedora) downloads missing artwork; zlib (`zlib-devel`) reads
-iiSU's starter pack and libwebp (`libwebp-devel`) decodes its console cards.
+iiSU's starter pack, libwebp (`libwebp-devel`) decodes its console cards and nlohmann/json
+(`json-devel`) reads and writes the settings.
 
 The published `raylib-6.0_linux_amd64` binary cannot be used: it was built with
 `STBI_REQUIRED` undefined and `SUPPORT_FILEFORMAT_JPG=0`, so `LoadImage` reports
@@ -34,7 +93,7 @@ with image decoding on and X11 only (openSU reads its X11 window to become
 Gamescope's overlay), then install it to a prefix of its own:
 
 ```sh
-git clone --branch 6.0 https://github.com/raysan5/raylib.git
+git clone --branch opensu https://github.com/SomeoneIsWorking/raylib.git
 cmake -S raylib -B raylib/build -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=OFF \
       -DGLFW_BUILD_WAYLAND=OFF -DGLFW_BUILD_X11=ON -DCMAKE_INSTALL_LIBDIR=lib \
       -DCMAKE_C_FLAGS="-DSTBI_REQUIRED -DSUPPORT_FILEFORMAT_JPG=1 -DSUPPORT_FILEFORMAT_TGA=1 -DSUPPORT_FILEFORMAT_PSD=1"
@@ -42,6 +101,11 @@ cmake --build raylib/build
 cmake --install raylib/build --prefix "$PWD/raylib-prefix"
 git clone https://github.com/SomeoneIsWorking/lucent.git
 ```
+
+Or let `uv run --frozen python -m tools.check all` do it: it checks out raylib and Lucent at the
+commits `tools/check/pins.py` pins, builds raylib into `build/check/deps`, then configures, builds,
+lints (clang-format, clang-tidy, ruff) and tests openSU with Clang in `build/check`, as CI does
+(`--gamescope native` when Gamescope's build dependencies are installed, `off` to skip the fork).
 
 Then point openSU at both (`RAYLIB_ROOT` defaults to `$HOME/dev/raylib-built`,
 `LUCENT_ROOT` to `$HOME/repo/lucent`):
@@ -137,9 +201,9 @@ The environment seeds defaults; the Settings screen (START, last row) saves the 
 
 The build stages the assets beside the binary, so it runs from any directory.
 
-## Installing
+## Installing from source
 
-Configure with the prefix to install to, then install. The binary, its assets and a
+Configure with the prefix to install to, then install. The binary, its assets, its icon and a
 desktop entry (`share/applications/opensu.desktop`, which shows openSU in the
 application menu) go under the prefix:
 
@@ -186,7 +250,8 @@ the default or an override.
 
 Sign-in happens in your own browser, on the store's own page. openSU opens the page with
 `xdg-open`, and a small browser extension hands the code the page ends on to openSU's control
-channel and closes the tab. The build packs it as `~/.local/share/opensu/opensu-signin.xpi`.
+channel and closes the tab. The build packs it as `~/.local/share/opensu/opensu-signin.xpi`
+(for the `$HOME/.local` prefix); a release carries it beside the AppImage.
 
 Zen does not require signed extensions, so it can be installed for good: close Zen, copy the
 `.xpi` to `<profile>/extensions/opensu-signin@opensu.xpi` (the Flatpak's profiles are under
@@ -258,3 +323,19 @@ SIL Open Font License; the licence is beside it in `assets/CalSans-OFL.txt`.
 openSU is MIT-licensed (`LICENSE`). Cal Sans is under the SIL Open Font License
 (`assets/CalSans-OFL.txt`). openSU is an independent project, not affiliated with iiSU,
 and ships none of iiSU's code or assets.
+
+## Plugins
+
+openSU runs small Lua plugins in a sandbox: no file access beyond the paths a plugin's
+`plugin.json` declares, no network beyond its declared HTTPS hosts, no processes, and limits on
+memory and run time. A plugin that keeps failing is stopped; openSU carries on.
+
+- **Bundled**: *Eden play time* shows the play time Eden recorded on each Switch game's details
+  page. It finds a game by the `[0100…]` program ID in its file name, or by its title in Eden's
+  game list. Turn it off in Settings › Plugins.
+- **Your own**: put a plugin's folder (`plugin.json` and `main.lua`) in
+  `~/.local/share/opensu/plugins/`. It starts off; turning it on in Settings › Plugins shows what
+  it can read and which hosts it can reach before it runs.
+
+The API (version 1: play-time sources and emulator game lists) is described in
+`docs/design/lua-plugins.md`.

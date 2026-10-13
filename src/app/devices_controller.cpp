@@ -110,7 +110,8 @@ ui::SettingsCategory DevicesController::bluetoothTab() {
     }
     const host::BluetoothAdapter& adapter = *state.adapter;
     tab.rows.push_back(ui::makeToggle("bluetooth.power", "Bluetooth",
-                                      adapter.name + " (" + adapter.address + ")", adapter.powered));
+                                      adapter.name + " (" + adapter.address + ")",
+                                      adapter.powered));
     if (!bluetooth_.busyWith().empty()) {
         tab.rows.push_back(ui::makeRow("bluetooth.busy", RowKind::Info, bluetooth_.busyWith(),
                                        "BlueZ is working on it", "Please wait"));
@@ -122,8 +123,8 @@ ui::SettingsCategory DevicesController::bluetoothTab() {
                                    "Put the device in pairing mode first",
                                    adapter.discovering ? "Scanning, press to stop" : "Start"));
     if (state.devices.empty()) {
-        tab.rows.push_back(ui::makeRow("bluetooth.none", RowKind::Info, "No devices yet",
-                                       "Scan to find one", ""));
+        tab.rows.push_back(
+            ui::makeRow("bluetooth.none", RowKind::Info, "No devices yet", "Scan to find one", ""));
     }
     for (const host::BluetoothDevice& device : state.devices) {
         const std::string id = devicePrefix + device.path;
@@ -174,7 +175,8 @@ ui::SettingsCategory DevicesController::audioTab() {
     }
     for (const audio::AudioSink& sink : outputs_.sinks()) {
         tab.rows.push_back(ui::makeRow(sinkPrefix + sink.id, RowKind::Action, sink.name,
-                                       sink.isDefault ? "In use" : "", sink.isDefault ? "" : "Use"));
+                                       sink.isDefault ? "In use" : "",
+                                       sink.isDefault ? "" : "Use"));
     }
     return tab;
 }

@@ -204,11 +204,13 @@ void sliderClicksChooseTheirLevel() {
     frame.left = true;
     host.under = opensu::ui::OnSettingsSlider{2, 40};
     router.route(frame);
-    expect(host.calls == std::vector<std::string>{"focus", "size40"}, "a page slider sets its level");
+    expect(host.calls == std::vector<std::string>{"focus", "size40"},
+           "a page slider sets its level");
     host.calls.clear();
     host.under = opensu::ui::OnQuickSlider{0, 70};
     router.route(frame);
-    expect(host.calls == std::vector<std::string>{"focus", "size70"}, "a quick slider sets its level");
+    expect(host.calls == std::vector<std::string>{"focus", "size70"},
+           "a quick slider sets its level");
 }
 
 void rightClickIsNeverBackOnTheNewMenus() {
@@ -223,7 +225,8 @@ void rightClickIsNeverBackOnTheNewMenus() {
         host.under = target;
         host.calls.clear();
         router.route(frame);
-        expect(host.calls == std::vector<std::string>{"menu"}, "a right click only reaches the host's menu");
+        expect(host.calls == std::vector<std::string>{"menu"},
+               "a right click only reaches the host's menu");
     }
 }
 

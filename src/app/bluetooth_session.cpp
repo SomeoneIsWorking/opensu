@@ -1,8 +1,8 @@
 #include "bluetooth_session.hpp"
 
-#include <utility>
 #include <algorithm>
 #include <cctype>
+#include <utility>
 
 namespace opensu::app {
 namespace {
@@ -47,7 +47,8 @@ bool BluetoothSession::poll(Clock::time_point now, bool wanted) {
         known_ = true;
     }
     const auto interval = scanning() ? scanInterval : readInterval;
-    if (wanted && !reading_.valid() && !changing_.valid() && (due_ || now - lastRead_ >= interval)) {
+    if (wanted && !reading_.valid() && !changing_.valid() &&
+        (due_ || now - lastRead_ >= interval)) {
         due_ = false;
         lastRead_ = now;
         reading_ = std::async(std::launch::async, [backend = backend_] {
@@ -94,10 +95,10 @@ std::string BluetoothSession::setPowered(bool powered) {
     return start(powered ? "Turning Bluetooth on" : "Turning Bluetooth off",
                  [powered](host::Bluetooth& backend) {
                      const std::string refused = backend.setPowered(powered);
-                     return refused.empty() ? BluetoothNotice{powered ? "Bluetooth is on"
-                                                                      : "Bluetooth is off",
-                                                              false}
-                                            : BluetoothNotice{refused, true};
+                     return refused.empty()
+                                ? BluetoothNotice{powered ? "Bluetooth is on" : "Bluetooth is off",
+                                                  false}
+                                : BluetoothNotice{refused, true};
                  });
 }
 

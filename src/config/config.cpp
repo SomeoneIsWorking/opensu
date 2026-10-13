@@ -207,21 +207,16 @@ Config read() {
     }
     value.executable = self;
     value.gamescope = gamescopeBeside(self);
-    if (const std::string_view cache = env("XDG_CACHE_HOME"); !cache.empty()) {
-        value.cacheDir = std::filesystem::path{cache} / "opensu";
-    } else {
-        value.cacheDir = value.home / ".cache" / "opensu";
-    }
-    if (const std::string_view data = env("XDG_DATA_HOME"); !data.empty()) {
-        value.dataDir = std::filesystem::path{data} / "opensu";
-    } else {
-        value.dataDir = value.home / ".local" / "share" / "opensu";
-    }
-    if (const std::string_view settings = env("XDG_CONFIG_HOME"); !settings.empty()) {
-        value.configDir = std::filesystem::path{settings} / "opensu";
-    } else {
-        value.configDir = value.home / ".config" / "opensu";
-    }
+    const auto base = [&value](const char* variable, const char* fallback) {
+        const std::string_view set = env(variable);
+        return set.empty() ? value.home / fallback : std::filesystem::path{set};
+    };
+    value.xdgCacheHome = base("XDG_CACHE_HOME", ".cache");
+    value.xdgDataHome = base("XDG_DATA_HOME", ".local/share");
+    value.xdgConfigHome = base("XDG_CONFIG_HOME", ".config");
+    value.cacheDir = value.xdgCacheHome / "opensu";
+    value.dataDir = value.xdgDataHome / "opensu";
+    value.configDir = value.xdgConfigHome / "opensu";
     if (const std::string_view legendary = env("LEGENDARY_CONFIG_PATH"); !legendary.empty()) {
         value.legendaryConfigDir = std::filesystem::path{legendary};
     } else {

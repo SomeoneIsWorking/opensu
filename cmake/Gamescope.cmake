@@ -6,7 +6,9 @@
 # ExternalProject, with meson and ninja running inside a podman container built from
 # packaging/gamescope-build/Containerfile, so the host needs no Gamescope build dependencies.
 # The image is built once per Containerfile content, the fork once, and a second build does
-# nothing.
+# nothing. OPENSU_GAMESCOPE_BUILD_ENV=native runs meson and ninja directly instead, for a
+# configure that already runs inside a build environment holding the dependencies (CI's Fedora
+# job container, the AppImage build container).
 #
 # Layout: the binary is staged at <build>/<libexecdir>/opensu/gamescope, which is where the
 # running build-tree executable looks (<exe dir>/../<libexecdir>/opensu/gamescope), and it is
@@ -22,8 +24,16 @@ option(OPENSU_BUILD_GAMESCOPE
     "Build the pinned Gamescope fork the nested session runs. OFF only for development of \
 the rest of opensu: the nested session then refuses to start" ON)
 
+set(OPENSU_GAMESCOPE_BUILD_ENV "podman" CACHE STRING
+    "Where the fork's meson build runs: podman (a container matching the Fedora host) or native \
+(this environment already has Gamescope's build dependencies)")
+set_property(CACHE OPENSU_GAMESCOPE_BUILD_ENV PROPERTY STRINGS podman native)
+set(OPENSU_GAMESCOPE_MESON_OPTIONS "" CACHE STRING
+    "Extra meson options for the fork, for a build environment whose distribution lacks some of its \
+dependencies (-Dforce_fallback_for=...)")
+
 set(OPENSU_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.git")
-set(OPENSU_GAMESCOPE_COMMIT "79db8c0d82f71e990ba9d604588032f5990797f3")
+set(OPENSU_GAMESCOPE_COMMIT "6654c87f20eb212c159e3a22cfbf7ccc03af5dfd")
 
 # Where the running opensu finds the binary, relative to the directory above its own.
 set(OPENSU_GAMESCOPE_RELATIVE "${CMAKE_INSTALL_LIBEXECDIR}/opensu/gamescope")
@@ -55,8 +65,26 @@ function(opensu_gamescope_image_tag out fedora_version_out)
     set(${fedora_version_out} "${version}" PARENT_SCOPE)
 endfunction()
 
-function(opensu_add_gamescope)
-    find_package(Git REQUIRED)
+# The meson and ninja command prefix and the target that prepares it, for the chosen build
+# environment.
+function(opensu_gamescope_runner root runner_out depends_out)
+    if(OPENSU_GAMESCOPE_BUILD_ENV STREQUAL "native")
+        foreach(tool meson ninja glslangValidator)
+            find_program(OPENSU_GAMESCOPE_${tool} ${tool})
+            if(NOT OPENSU_GAMESCOPE_${tool})
+                message(FATAL_ERROR
+                    "OPENSU_GAMESCOPE_BUILD_ENV=native needs ${tool} and Gamescope's build "
+                    "dependencies in this environment (Fedora: `sudo dnf builddep gamescope`).")
+            endif()
+        endforeach()
+        set(${runner_out} "${CMAKE_COMMAND}" -E env CC=clang CXX=clang++ PARENT_SCOPE)
+        set(${depends_out} "" PARENT_SCOPE)
+        return()
+    endif()
+    if(NOT OPENSU_GAMESCOPE_BUILD_ENV STREQUAL "podman")
+        message(FATAL_ERROR "OPENSU_GAMESCOPE_BUILD_ENV must be podman or native, not "
+            "'${OPENSU_GAMESCOPE_BUILD_ENV}'")
+    endif()
     find_program(OPENSU_PODMAN podman)
     if(NOT OPENSU_PODMAN)
         message(FATAL_ERROR
@@ -65,14 +93,7 @@ function(opensu_add_gamescope)
             "-DOPENSU_BUILD_GAMESCOPE=OFF.")
     endif()
     opensu_gamescope_image_tag(image fedora_version)
-
-    set(root "${CMAKE_BINARY_DIR}/gamescope")
-    set(built "${root}/build/src/gamescope")
-    set(staged "${CMAKE_BINARY_DIR}/${OPENSU_GAMESCOPE_RELATIVE}")
     set(image_stamp "${root}/image.stamp")
-    set(pin_file "${root}/pin.txt")
-    # Rewritten only when the pin changes, so it dates the pin.
-    file(CONFIGURE OUTPUT "${pin_file}" CONTENT "${OPENSU_GAMESCOPE_COMMIT}\n")
 
     add_custom_command(
         OUTPUT "${image_stamp}"
@@ -86,12 +107,25 @@ function(opensu_add_gamescope)
         USES_TERMINAL VERBATIM)
     add_custom_target(opensu_gamescope_image DEPENDS "${image_stamp}")
 
-    set(in_container "${OPENSU_PODMAN}" run --rm --userns=keep-id
+    set(${runner_out} "${OPENSU_PODMAN}" run --rm --userns=keep-id
         -v "${root}/source:${root}/source:Z" -v "${root}/build:${root}/build:Z"
-        -e CC=clang -e CXX=clang++ "${image}")
+        -e CC=clang -e CXX=clang++ "${image}" PARENT_SCOPE)
+    set(${depends_out} DEPENDS opensu_gamescope_image PARENT_SCOPE)
+endfunction()
+
+function(opensu_add_gamescope)
+    find_package(Git REQUIRED)
+    set(root "${CMAKE_BINARY_DIR}/gamescope")
+    set(built "${root}/build/src/gamescope")
+    set(staged "${CMAKE_BINARY_DIR}/${OPENSU_GAMESCOPE_RELATIVE}")
+    set(pin_file "${root}/pin.txt")
+    # Rewritten only when the pin changes, so it dates the pin.
+    file(CONFIGURE OUTPUT "${pin_file}" CONTENT "${OPENSU_GAMESCOPE_COMMIT}\n")
+    opensu_gamescope_runner("${root}" runner image_dependency)
+    separate_arguments(extra_meson_options UNIX_COMMAND "${OPENSU_GAMESCOPE_MESON_OPTIONS}")
 
     ExternalProject_Add(opensu_gamescope
-        DEPENDS opensu_gamescope_image
+        ${image_dependency}
         GIT_REPOSITORY "${OPENSU_GAMESCOPE_REPOSITORY}"
         GIT_TAG "${OPENSU_GAMESCOPE_COMMIT}"
         GIT_SUBMODULES_RECURSE ON
@@ -102,9 +136,10 @@ function(opensu_add_gamescope)
         STAMP_DIR "${root}/stamp"
         TMP_DIR "${root}/tmp"
         DOWNLOAD_DIR "${root}/download"
-        CONFIGURE_COMMAND ${in_container} meson setup --reconfigure "${root}/build" "${root}/source"
+        CONFIGURE_COMMAND ${runner} meson setup --reconfigure "${root}/build" "${root}/source"
             --buildtype=release -Denable_gamescope_wsi_layer=false -Denable_tests=false
-        BUILD_COMMAND ${in_container} ninja -C "${root}/build" src/gamescope
+            ${extra_meson_options}
+        BUILD_COMMAND ${runner} ninja -C "${root}/build" src/gamescope
         BUILD_BYPRODUCTS "${built}"
         INSTALL_COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${built}" "${staged}"
         BUILD_ALWAYS OFF

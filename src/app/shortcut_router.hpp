@@ -1,6 +1,7 @@
 // shortcut_router — sends what the keyboard, the pad chords and the game-time key watcher say to
 // the shell. Button actions come out as the pad events they stand for, so there is one set of
-// handlers; the volume, quick menu and quit actions are done here. The table they all read is `Shortcuts`.
+// handlers; the volume, quick menu and quit actions are done here. The table they all read is
+// `Shortcuts`.
 #pragma once
 
 #include <functional>

@@ -114,6 +114,8 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     sources_ = std::move(snapshot.sources);
     preferences_.values().lastPlayed.apply(games_);
     preferences_.values().emulators.apply(games_);
+    plugins_.apply(games_);
+    plugins_.request(games_);
     artworkStore_.apply(games_);
     const std::vector<library::Console> consoles = library::consoles(games_);
     artworkFetcher_.request(games_, consoles, iisuAssets());
@@ -416,6 +418,11 @@ void ShellApp::actOn(gamepad::Button button) {
     }
     if (shell_.guidePanels().quick().isOpen()) {
         quickMenu_.act(button);
+        return;
+    }
+    // The consent dialog is the session install's too; the plugin asking has it first.
+    if (pluginSettings_.active()) {
+        pluginSettings_.act(button);
         return;
     }
     if (sessionInstall_.active()) {
@@ -1018,6 +1025,10 @@ void ShellApp::serviceRequests() {
         closePages();
         panels_.endLaunch();
         gameScreen_.setRunning(running);
+        if (!running) {
+            // Emulators write their play time as a game ends.
+            plugins_.request(games_);
+        }
     }
 
     if (hasPendingToast_) {
@@ -1096,6 +1107,7 @@ int ShellApp::run() {
         serviceControlRequests();
         serviceRequests();
         serviceCatalog();
+        plugins_.service();
         delivery_.service();
         serviceDevices(std::chrono::steady_clock::now());
         sessionInstall_.service();

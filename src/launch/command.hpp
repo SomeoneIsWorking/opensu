@@ -45,9 +45,9 @@ enum class CaptureErrors : std::uint8_t { Discarded, Merged };
 
 /// Runs `program` with stdin closed, collecting stdout until it exits; stderr is discarded, or
 /// merged into the output with `Merged`. Returns nothing when it could not be run.
-[[nodiscard]] std::optional<Captured>
-runCaptured(const std::string& program, const std::vector<std::string>& args,
-            CaptureErrors errors = CaptureErrors::Discarded);
+[[nodiscard]] std::optional<Captured> runCaptured(const std::string& program,
+                                                  const std::vector<std::string>& args,
+                                                  CaptureErrors errors = CaptureErrors::Discarded);
 
 /// Runs `program` with `line` and a newline on its stdin, then end of input, collecting stdout and
 /// stderr merged until it exits. `line` is written straight from the caller's buffer and is never

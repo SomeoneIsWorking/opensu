@@ -16,6 +16,7 @@
 #include "input/shortcuts.hpp"
 #include "library/library_query.hpp"
 #include "path_editor.hpp"
+#include "plugin_settings.hpp"
 #include "preferences.hpp"
 #include "settings/install_folders.hpp"
 #include "shortcut_editor.hpp"
@@ -52,6 +53,7 @@ class SettingsController {
         const input::Shortcuts& shortcuts;
         EmulatorSettings& emulators;
         SteamLibrarySettings& steamLibraries;
+        PluginSettings& plugins;
     };
 
     /// `defaults` is the environment's configuration, which the settings override.
@@ -59,8 +61,8 @@ class SettingsController {
                        Preferences& preferences, const config::Config& defaults, Hooks hooks)
         : page_{page}, paths_{services.paths}, shortcutEditor_{services.shortcutEditor},
           volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
-          steamLibraries_{services.steamLibraries}, sounds_{sounds}, preferences_{preferences},
-          defaults_{defaults}, hooks_{std::move(hooks)} {
+          steamLibraries_{services.steamLibraries}, plugins_{services.plugins}, sounds_{sounds},
+          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -112,6 +114,7 @@ class SettingsController {
     const input::Shortcuts& shortcuts_;
     EmulatorSettings& emulators_;
     SteamLibrarySettings& steamLibraries_;
+    PluginSettings& plugins_;
     audio::SoundPlayer& sounds_;
     Preferences& preferences_;
     const config::Config& defaults_;

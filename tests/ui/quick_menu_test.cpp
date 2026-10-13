@@ -76,8 +76,10 @@ void layoutIsOnTheRight() {
 
 void focusedRowScrollsIntoView() {
     const std::vector<SettingsRow> many(30, row("r", RowKind::Action));
-    const QuickLayout top = opensu::ui::layoutQuick({1280.0f, 600.0f, 1.0f}, {30.0f, 30.0f}, many, 0);
-    const QuickLayout end = opensu::ui::layoutQuick({1280.0f, 600.0f, 1.0f}, {30.0f, 30.0f}, many, 29);
+    const QuickLayout top =
+        opensu::ui::layoutQuick({1280.0f, 600.0f, 1.0f}, {30.0f, 30.0f}, many, 0);
+    const QuickLayout end =
+        opensu::ui::layoutQuick({1280.0f, 600.0f, 1.0f}, {30.0f, 30.0f}, many, 29);
     expect(end.rows[29].rect.bottom() <= end.content.bottom() + 0.5f,
            "the last row is scrolled whole into view");
     expect(end.rows[0].rect.y < top.rows[0].rect.y, "the rows moved up to show it");
