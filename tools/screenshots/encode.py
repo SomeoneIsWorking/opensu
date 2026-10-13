@@ -11,7 +11,7 @@ def require_magick() -> str:
     found = shutil.which("magick")
     if found is None:
         raise SystemExit(
-            "ImageMagick is needed to encode WebP: `sudo dnf install ImageMagick` (Fedora), "
+            "ImageMagick is needed: `sudo dnf install ImageMagick` (Fedora), "
             "`sudo apt install imagemagick` (Debian/Ubuntu)"
         )
     return found

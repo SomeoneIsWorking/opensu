@@ -6,6 +6,7 @@ import re
 import subprocess
 import time
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,6 +20,8 @@ class Profile:
     home: Path
     steam_root: Path
     rom_root: Path
+    # A directory put first on PATH, for host tools stood in by fixtures.
+    tools: Path | None = None
 
     def environment(self) -> dict[str, str]:
         env = {
@@ -36,6 +39,8 @@ class Profile:
             OPENSU_ROM_ROOTS=str(self.rom_root),
             LC_TIME="C.UTF-8",
         )
+        if self.tools is not None:
+            env["PATH"] = os.pathsep.join(filter(None, (str(self.tools), env.get("PATH"))))
         return env
 
 
@@ -109,10 +114,21 @@ class HiddenShell:
         self.post("/key", combo)
         time.sleep(settle)
 
-    def wait_for(self, field: str, value: object, timeout: float = 20.0) -> None:
+    def type_text(self, text: str) -> None:
+        self.post("/text", text)
+
+    def wait_until(
+        self, holds: Callable[[dict[str, object]], bool], what: str, timeout: float = 20.0
+    ) -> dict[str, object]:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            if self.state().get(field) == value:
-                return
-            time.sleep(0.2)
-        raise RuntimeError(f"state {field} never became {value!r}: {self.state()}")
+            state = self.state()
+            if holds(state):
+                return state
+            time.sleep(0.05)
+        raise RuntimeError(f"state never showed {what}: {self.state()}")
+
+    def wait_for(self, field: str, value: object, timeout: float = 20.0) -> dict[str, object]:
+        return self.wait_until(
+            lambda state: state.get(field) == value, f"{field}={value!r}", timeout
+        )
