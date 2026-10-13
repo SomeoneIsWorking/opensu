@@ -5,6 +5,7 @@
 #include "library/roms.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -12,6 +13,8 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <elf.h>
 #include <unistd.h>
@@ -61,6 +64,41 @@ void write(const fs::path& path, std::size_t bytes = 1) {
     out << std::string(bytes, 'x');
 }
 
+/// A PARAM.SFO holding `strings` as UTF-8 values and one integer, laid out as PS4 dumps do.
+void writeSfo(const fs::path& path,
+              const std::vector<std::pair<std::string, std::string>>& strings) {
+    const auto le = [](std::string& out, std::uint32_t value, int width) {
+        for (int i = 0; i < width; ++i) {
+            out.push_back(static_cast<char>((value >> (8 * i)) & 0xffU));
+        }
+    };
+    std::vector<std::pair<std::string, std::string>> entries = strings;
+    entries.emplace_back("APP_TYPE", std::string(4, '\0'));
+    std::string keys;
+    std::string data;
+    std::string table;
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        const bool integer = i + 1 == entries.size();
+        const std::string value = integer ? entries[i].second : entries[i].second + '\0';
+        le(table, static_cast<std::uint32_t>(keys.size()), 2);
+        le(table, integer ? 0x0404U : 0x0204U, 2);
+        le(table, static_cast<std::uint32_t>(value.size()), 4);
+        le(table, static_cast<std::uint32_t>(value.size()), 4);
+        le(table, static_cast<std::uint32_t>(data.size()), 4);
+        keys += entries[i].first + '\0';
+        data += value;
+    }
+    std::string sfo{"\0PSF", 4};
+    le(sfo, 0x0101, 4);
+    const auto keyTable = static_cast<std::uint32_t>(20 + table.size());
+    le(sfo, keyTable, 4);
+    le(sfo, static_cast<std::uint32_t>(keyTable + keys.size()), 4);
+    le(sfo, static_cast<std::uint32_t>(entries.size()), 4);
+    fs::create_directories(path.parent_path());
+    std::ofstream out{path, std::ios::binary};
+    out << sfo << table << keys << data;
+}
+
 void writeExecutable(const fs::path& path) {
     write(path);
     fs::permissions(path, fs::perms::owner_all);
@@ -93,7 +131,11 @@ struct Fixture {
         write(root / "Wii U" / "Breath of the Wild" / "code" / "U-King.rpx");
         write(root / "Wii U" / "Breath of the Wild" / "content" / "Actor" / "a.pack");
         write(root / "PS4" / "CUSA00900" / "eboot.bin");
-        write(root / "PS4" / "CUSA00900" / "sce_sys" / "param.sfo");
+        writeSfo(root / "PS4" / "CUSA00900" / "sce_sys" / "param.sfo",
+                 {{"TITLE", "Bloodborne\u2122"}, {"TITLE_ID", "CUSA00900"}});
+        write(root / "PS4" / "CUSA00900" / "sce_sys" / "icon0.png");
+        write(root / "PS4" / "CUSA01234" / "eboot.bin");
+        write(root / "PS4" / "CUSA01234" / "sce_sys" / "param.sfo", 40);
         write(root / "PS3" / "Time Crisis 4 (USA)" / "Time Crisis 4 (USA).iso");
         write(root / "PS3" / "Time Crisis 4 (USA)" / "README.TXT");
         write(root / "Android" / "game.apk");
@@ -214,10 +256,18 @@ void providerLists(const Fixture& f) {
            "the arcade listing is kept");
     const std::vector<Game> games = provider.list();
 
-    expect(games.size() == 11, "every game of every known system is listed once");
+    expect(games.size() == 12, "every game of every known system is listed once");
+    const Game* bloodborne = find(games, "Bloodborne");
+    expect(bloodborne != nullptr && bloodborne->artworkKey == "Bloodborne" &&
+               bloodborne->artwork == f.root / "PS4" / "CUSA00900" / "sce_sys" / "icon0.png",
+           "a PS4 dump is titled by its param.sfo and shows its own icon");
+    const Game* unread = find(games, "CUSA01234");
+    expect(unread != nullptr && unread->artwork.empty(),
+           "a PS4 dump whose param.sfo is unreadable keeps its folder name");
     const Game* sf2 = find(games, "Street Fighter II: The World Warrior");
-    expect(sf2 != nullptr && sf2->artworkKey == "sf2",
-           "an arcade short name is titled by the listing, cleaned of its tags");
+    expect(sf2 != nullptr &&
+               sf2->artworkKey == "Street Fighter II: The World Warrior (World 910522)",
+           "an arcade short name is titled and keyed for box art by the listing's description");
     expect(find(games, "unlisted") != nullptr, "a short name the listing lacks keeps its name");
     expect(find(games, "Black") != nullptr, "the listing only titles arcade games");
     const Game* kirby = find(games, "Kirby Star Allies");

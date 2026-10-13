@@ -280,8 +280,10 @@ and GoodTools region letters understood). A source's "not found" is kept as a
 `.miss` for 14 days; an unreachable source ends the round without one. Listings
 are kept for 30 days. Measured on this machine: 54 images on the first run, 10
 misses (libretro lists only 67 PS3 and 12 Xbox 360 boxes, a PS4 folder named by
-title id, two Steam apps without either image). Switch and arcade have no source;
-their ROM tiles keep iiSU's first-letter fallback.
+title id, two Steam apps without either image). An arcade game's box art is the `MAME` set's,
+matched by its listed description. A PS4 dump shows its own `sce_sys/icon0.png` and is titled by
+its `sce_sys/param.sfo` TITLE (trademark signs dropped), which is also its box art key. Switch has
+no source; its ROM tiles keep iiSU's first-letter fallback.
 
 A ROM's tile title is `library::roms::cleanTitle` of its file or folder name: everything from
 the first `(` or `[` goes (region, language, revision, dump flags, `Decrypted`, `-patched`), a
@@ -289,7 +291,8 @@ release number prefix goes, a trailing `, The` (also A, An, Le, La, Les, Il, El,
 Los, `L'`) moves to the front, and a name without spaces reads its underscores as spaces. The
 artwork key stays the untouched name, so box art matching is unchanged. An arcade system's zip
 is a MAME short name, so its title is the description libretro-database lists for it
-(`sf2` is "Street Fighter II: The World Warrior (World 910522)"), cleaned the same way. The
+(`sf2` is "Street Fighter II: The World Warrior (World 910522)"), cleaned the same way, and that
+description is its artwork key, the name libretro's MAME box art carries. The
 listings are `metadat/fbneo-split/FBNeo - Arcade Games.dat` (1,791,303 bytes, CRC-32 67cc252a)
 and `metadat/mame-split/MAME 2016.dat` (2,118,571 bytes, CRC-32 1ecf3c2e) of libretro-database
 commit `bf825e3ec48d` (CC-BY-SA-4.0), a short name in both read as FinalBurn Neo has it.
@@ -301,13 +304,12 @@ until the file exists an arcade game shows its short name, and the shell re-read
 when the names arrive (`Fetched::Kind::Names`). The pin and the cache file name change together
 with the commit. iiSU itself scrapes ScreenScraper/TheGamesDB with per-user credentials and
 ships only a Vita title-id table, so there was no iiSU name source to match.
-Gaps: a ROM whose file name is a code on a system other than arcade (a Vita `PCSE00905` pkg,
-a PS4 `CUSA` folder) keeps that name; the Vita table (`psvita_title_ids.json` in the APK) is
+Gaps: a ROM whose file name is a code on a system other than arcade (a Vita `PCSE00905` pkg)
+keeps that name; the Vita table (`psvita_title_ids.json` in the APK) is
 the candidate. A hash lookup is not done: the listings carry the CRC of the whole zip, which
 differs between a user's re-zipped copy and the listing (`armwar.zip` and `avspu.zip` here match
 neither), so it would only work for TorrentZipped sets. A game the two listings lack (newer than
-MAME 2016 and not in FinalBurn Neo) keeps its short name. Arcade box art has no source yet:
-libretro's MAME thumbnails are named by these descriptions, so the key could use them.
+MAME 2016 and not in FinalBurn Neo) keeps its short name.
 
 Console cards are `platforms/<system>.webp` (512x512, ES-DE system names) in iiSU's
 starter pack, `assets/iiSU_StarterPack.zip` inside the 0.0.7.4 release APK
