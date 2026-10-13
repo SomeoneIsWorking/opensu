@@ -81,7 +81,7 @@ class EmulatorDownloads {
     [[nodiscard]] std::string start(std::string_view id);
     /// Stops the running download of `id`; the version in use stays.
     void cancel(std::string_view id);
-    /// The running download, or nothing.
+    /// The running download, or nothing; a download runs until service() reports its end.
     [[nodiscard]] std::optional<Progress> progress() const;
 
     /// Reads the latest release or core build of every downloadable emulator, in the background.
