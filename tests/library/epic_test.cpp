@@ -55,8 +55,6 @@ void testInstallOutput() {
     expect(!installFailure("The ERROR: word alone"), "text mentioning an error is no failure");
 }
 
-} // namespace
-
 void legendaryDefaultFolder(const fs::path& dir) {
     using opensu::library::epic::legendaryInstallDir;
     const fs::path config = dir / "legendary-config";
@@ -72,6 +70,8 @@ void legendaryDefaultFolder(const fs::path& dir) {
     expect(legendaryInstallDir(config, "/home/p") == fs::path{"/home/p/Games"},
            "install_dir in another section is not legendary's");
 }
+
+} // namespace
 
 int main() {
     testInstallOutput();
