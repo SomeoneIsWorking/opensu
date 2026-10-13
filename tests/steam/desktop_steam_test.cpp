@@ -1,6 +1,8 @@
 // Desktop Steam detection against a fake home and real processes.
 #include "steam/desktop_steam.hpp"
 
+#include "launch/instance.hpp"
+
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -8,6 +10,7 @@
 #include <fstream>
 #include <string>
 
+#include <fcntl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -42,6 +45,11 @@ int main() {
     const pid_t child = fork();
     expect(child >= 0, "fork");
     if (child == 0) {
+        // Off the test's output, so a failed check does not leave ctest waiting on the sleep.
+        const int null = open("/dev/null", O_RDWR);
+        if (null < 0 || dup2(null, STDOUT_FILENO) < 0 || dup2(null, STDERR_FILENO) < 0) {
+            _exit(127);
+        }
         execl("/bin/sleep", "sleep", "60", static_cast<char*>(nullptr));
         _exit(127);
     }
@@ -50,13 +58,24 @@ int main() {
     expect(steam.runningOutside("opensu-game-none.scope"),
            "a live pid outside the instance's cgroup is the desktop's");
 
-    // The test process's own cgroup stands in for a Steam inside the instance.
-    std::ifstream cgroup{"/proc/self/cgroup"};
-    std::string line;
-    std::getline(cgroup, line);
-    const std::string own = line.substr(line.rfind('/') + 1);
-    writePid(home, std::to_string(getpid()));
-    expect(!steam.runningOutside(own), "a Steam inside the instance's scope is not the desktop's");
+    // A process in a real instance scope stands in for a Steam the instance started.
+    const std::string unit = "opensu-steam-test-" + std::to_string(getpid()) + ".scope";
+    const fs::path inside = home / "inside.pid";
+    opensu::launch::Instance instance;
+    std::string failure;
+    expect(instance.start(unit, "/bin/sh",
+                          {"-c", "echo $$ > \"$0\"; exec sleep 60", inside.string()}, failure),
+           "the instance starts");
+    std::string insidePid;
+    for (int tries = 0; tries < 100 && insidePid.empty(); ++tries) {
+        std::ifstream{inside} >> insidePid;
+        usleep(20000);
+    }
+    writePid(home, insidePid);
+    const bool outside = steam.runningOutside(unit);
+    instance.kill();
+    expect(!insidePid.empty() && !outside,
+           "a Steam inside the instance's scope is not the desktop's");
 
     writePid(home, std::to_string(child));
     kill(child, SIGKILL);
