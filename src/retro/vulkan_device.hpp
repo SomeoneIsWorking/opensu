@@ -22,6 +22,11 @@ class VulkanError : public std::runtime_error {
 /// Throws VulkanError naming `what` unless `result` is VK_SUCCESS.
 void check(VkResult result, const char* what);
 
+/// Whether a debug message is a validation error; the loader's own errors (a driver with no device
+/// here) are not.
+[[nodiscard]] bool isValidationError(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                                     VkDebugUtilsMessageTypeFlagsEXT types);
+
 class VulkanInstance {
   public:
     /// `extensions` are what the window system needs; empty for offscreen drawing. With
