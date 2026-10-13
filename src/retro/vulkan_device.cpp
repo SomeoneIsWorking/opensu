@@ -130,11 +130,17 @@ VulkanInstance::~VulkanInstance() {
     vkDestroyInstance(instance_, nullptr);
 }
 
+bool isValidationError(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                       VkDebugUtilsMessageTypeFlagsEXT types) {
+    return (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0 &&
+           (types & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) != 0;
+}
+
 VKAPI_ATTR VkBool32 VKAPI_CALL VulkanInstance::onMessage(
-    VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT /*types*/,
+    VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT types,
     const VkDebugUtilsMessengerCallbackDataEXT* data, void* self) {
     const char* message = data != nullptr && data->pMessage != nullptr ? data->pMessage : "";
-    if ((severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) != 0) {
+    if (isValidationError(severity, types)) {
         ++static_cast<VulkanInstance*>(self)->errors_;
         lucent::error("vulkan", "{}", message);
     } else {
