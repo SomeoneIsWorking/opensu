@@ -61,15 +61,20 @@ Visible deltas from the baseline:
 - The title pill names the focused tile on Home too; iiSU shows it only inside sections.
 - A signed-out GOG or Epic tile opens that store's sign-in page in the default browser.
 - No store client window is ever opened to reach a game.
-- Settings screen (START options, last row "Settings"): iiSU's settings dialog structure with eight
+- Settings screen (START options, last row "Settings"): iiSU's settings dialog structure with nine
   categories (Appearance, Library, Emulators, Steam libraries, Audio, Controls, Install folders,
-  About), own controller, model and painter. iiSU's Performance, Updates and Integrations sections
-  have no counterpart; Emulators (download, update, remove official AppImages, emulator per
-  system) and Steam libraries are openSU's own.
+  Plugins, About), own controller, model and painter. iiSU's Performance, Updates and Integrations
+  sections have no counterpart; Emulators (download, update, remove official AppImages, emulator
+  per system), Steam libraries and Plugins are openSU's own.
+- Switch games show the play time Eden recorded (the bundled Eden plugin), with no launch from
+  openSU needed; iiSU shows no emulator play time.
 - No volume overlay in iiSU (its main activity hands the volume keys to Android); openSU draws its
   own pill on every volume change. No display-scale setting in iiSU (it follows the Android
   density); openSU has "Interface size", 70 to 150 percent, clamped so every screen fits.
 - The grid is ours, so layout, tile sizes and page count are ours.
+- Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, or built from source. Linux
+  only: Windows is a possible future target, without Gamescope (nested mode, Alt+F4 handling and the
+  login session are Gamescope features with no Windows counterpart); macOS is not planned.
 
 ## Current focus
 
@@ -108,6 +113,9 @@ game has been observed running yet.
 | S025 | Quick menu on Guide + A over the home screen and a running game | partial | S024 | G002, G003 |
 | S026 | Emulator catalog, official AppImage download, update and removal, emulator per system | partial | S008, S020 | G001 |
 | S027 | Steam libraries page: list, add, make default, remove an empty library | partial | S020, S016 | G001 |
+| S028 | Sandboxed Lua plugins (API v1: play-time sources, emulator game lists), Settings › Plugins, bundled Eden play time | partial | S008, S020 | G001 |
+| S029 | CI: pinned sources, Clang build, clang-tidy, clang-format, ruff, ctest on every push | partial | — | — |
+| S030 | Linux AppImage release, signed, tested on clean Fedora 44 and Ubuntu 24.04 | partial | S029 | G004 |
 
 ## Capability details
 
@@ -725,7 +733,7 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `79db8c0d82f71e990ba9d604588032f5990797f3` (3.16.29 plus seven commits).
+to commit `6654c87f20eb212c159e3a22cfbf7ccc03af5dfd` (3.16.29 plus eight commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. The other three are upstream's
@@ -736,12 +744,16 @@ whenever a game quit to nothing (`docs/issues/nested-gamescope-dies-on-game-quit
 three end the session on a dead host connection instead of aborting: upstream PR 2393's
 `WaylandBackend` input thread shutdown (b35aaa12, cherry-picked), a failure exit status for that
 shutdown (`ShutdownGamescopeOnError`, 883b7842), and the host display's hangup left to the read
-that reports it (79db8c0d; `IWaitable::OnPollHangUp` aborted first). `cmake/Gamescope.cmake` builds the pin
+that reports it (79db8c0d; `IWaitable::OnPollHangUp` aborted first). 6654c87f includes `float.h`
+in `wlserver.cpp` for `DBL_MAX`, which the AppImage's Ubuntu 24.04 build (Clang 22, libstdc++ 14)
+does not get through other headers. `cmake/Gamescope.cmake` builds the pin
 as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
 configure and build steps run in a rootless podman container built from
 `packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;
 image tagged by the Containerfile hash), then checks the staged binary with `ldd` on the host
-(Fedora hosts only; no host-build fallback) and stages it where `Config::gamescope` finds it, in the build
+(Fedora hosts only; no host-build fallback; `OPENSU_GAMESCOPE_BUILD_ENV=native` runs meson directly
+inside an environment prepared for it, CI's Fedora 44 job container and the AppImage's Ubuntu 24.04
+build container) and stages it where `Config::gamescope` finds it, in the build
 tree and installed. A pin change fetches the commit into the existing clone
 (`cmake/GamescopeFetchPin.cmake`, before the disconnected update that would refuse it) and runs
 `meson setup --reconfigure`, so the version header (`git describe`) follows the pin. Verified in a
@@ -1019,3 +1031,72 @@ Steam's own UI does. Steam also exposes `MoveInstallFolderForApp`, `SetFolderLab
 `RepairInstallFolder` and `RefreshFolders`; moving games is not offered. Without a running Steam
 the page lists `libraryfolders.vdf` read-only and says Steam is not running. Verified against a
 fake DevTools Steam in tests; not against a live Steam.
+
+### S028 — Lua plugins and Eden play time
+
+`src/plugin/` runs sandboxed Lua 5.4 plugins (`docs/design/lua-plugins.md`): one state per plugin
+on its own worker, I/O on a shared pool, memory, instruction and run-time limits, three faults in a
+row stop a plugin. API v1 has play-time sources and emulator game lists. Settings › Plugins turns
+plugins on and off; a user plugin asks for consent in the session dialog first. The bundled
+`eden-playtime` reads `playtime.bin` and Eden's game-list cache.
+
+Verified: tests through the shipping host (sandbox escapes, limits, faults, read-path and HTTP
+refusals, the shipped Eden plugin against fixture files, the merge, the consent flow); a `--hidden`
+run with scratch `XDG_CONFIG_HOME` and `XDG_DATA_HOME` and Eden's real data reachable read-only
+logged "play time for 11 of 27 Switch games", and Super Mario Odyssey's details page showed
+"Play time 4 h 45 min" (17145 s). Settings › Plugins rendered with the plugin on, its state and
+its read paths.
+
+Gaps: Eden's game-list cache stores program IDs with no file paths, and titles only for NAND
+installs, so a Switch dump without a `[0100…]` tag in its name gets no play time (5 of the 16
+games Eden has time for on this machine: Mario Kart 8 Deluxe among them). The fix is reading the ID
+from the dump (NSP ticket names in the PFS0 header). Unverified: Flatpak Eden paths, HTTP against a
+real server (tests use a loopback host), a user plugin's consent flow on screen, and a C-side
+pattern stall (it would wedge only that plugin's worker). Settings › Plugins notes are truncated at
+the row width.
+
+### S029 — CI
+
+`.github/workflows/ci.yml` runs `tools.check ci`: the `packaging/ci` image (Fedora 44, the release
+the fork's local podman build uses) boots systemd, the user manager starts for the runner's uid,
+and `tools.check all --gamescope native` runs as that user: raylib and Lucent checked out by
+commit, configure with Clang (any other compiler is refused), build including the Gamescope fork,
+clang-format, clang-tidy, ruff, ctest. A second job builds and smoke-tests the AppImage (S030).
+Actions are pinned by SHA, uv by version and checksum, permissions are `contents: read`.
+No Windows or macOS jobs: openSU is Linux only (see the comparison baseline).
+
+raylib comes from the `opensu` branch of SomeoneIsWorking/raylib: raylib 6.0's miniaudio
+dereferenced the NULL info PulseAudio passes with an error (`endOfList < 0`), which crashed the
+first audio client after a fresh user manager (`sound_player` segfaulted in CI); the fork ends the
+list on any non-zero `endOfList`. Upstream miniaudio 0.11.25 still has the bug.
+
+Verified: the same steps locally through `tools.check ci`: Clang build including the fork, the
+three linters clean, 117 of 119 tests pass and 2 skip (`game_keys`, `pads`: no uinput in the
+container). Unverified: a run on GitHub's runners
+(rootless podman with systemd as PID 1 there).
+
+### S030 — AppImage
+
+`tools.appimage` builds in an Ubuntu 24.04 container, so glibc 2.39 is the floor (a check refuses
+any bundled ELF needing newer), with Clang 22 and wayland, wayland-protocols, libxkbcommon, pixman
+and libdrm headers from pinned tarballs for the fork's wlroots. Contents: openSU, its assets, the
+sign-in `.xpi`, the fork's `gamescope` in `usr/libexec/opensu/`, the desktop entry and icon, and
+the libraries not on every desktop (62, `bundle.HOST_PROVIDED` lists what the host supplies: glibc,
+libstdc++, GPU drivers, GL, EGL, Vulkan, libdrm, gbm, X11/xcb, udev, systemd, curl, PipeWire,
+ALSA, PulseAudio, GLib, D-Bus). Runtime: the static type 2 one, no libfuse2. `AppRun` is a
+symlink to `usr/bin/opensu`, so `/proc/self/exe`-relative assets and Gamescope resolve inside
+the mount. A `v*` tag runs `release.yml`: build, smoke, GitHub Release with the AppImage, its
+`.sha256`, `.zsync` and the `.xpi`; the AppImage is gpg-signed with the
+`OPENSU_APPIMAGE_SIGNING_KEY` secret (public key `packaging/appimage/signing-key.asc`).
+
+Verified (`tools.appimage smoke`, clean Fedora 44 and Ubuntu 24.04 containers with only the
+README's runtime libraries, no network): the runtime is static type 2 and libfuse2 is absent; it
+mounts through FUSE; every bundled ELF resolves; the fork's `gamescope --help` binds every symbol;
+`opensu --render` draws the home screen at 1280x800 with assets; the run writes only under the
+XDG directories. A signature from a throwaway key is embedded and checks out.
+
+Gaps: session mode is not installable from the AppImage (the `session` install component is left
+out; its entry would name a mount point that changes per run). Fedora's libcurl has no symbol
+versions, so the dynamic loader prints "no version information available" for libcurl on every
+start there. A Gamescope session itself (nested or own) from the AppImage is unverified, as is a
+release run on GitHub.

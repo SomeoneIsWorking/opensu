@@ -50,6 +50,8 @@
 #include "library/shelf.hpp"
 #include "panel_flow.hpp"
 #include "path_editor.hpp"
+#include "plugin_service.hpp"
+#include "plugin_settings.hpp"
 #include "pointer_router.hpp"
 #include "preferences.hpp"
 #include "quick_menu_controller.hpp"
@@ -385,11 +387,27 @@ class ShellApp final : private PointerHost {
                       [this](const std::string& text, bool isError) {
                           shell_.setToast(text, isError);
                       }};
+    /// The plugins, their play time and the Settings screen's Plugins category.
+    PluginService plugins_{environment_, preferences_,
+                           PluginService::Hooks{[this](const std::string& text, bool isError) {
+                                                    shell_.setToast(text, isError);
+                                                },
+                                                [this] {
+                                                    plugins_.apply(games_);
+                                                    showShelf(shell_.focusIndex());
+                                                },
+                                                [this] {
+                                                    settingsScreen_.refresh();
+                                                }}};
+    PluginSettings pluginSettings_{plugins_, shell_.sessionPanels().dialog(), sounds_,
+                                   environment_.home, [this] {
+                                       settingsScreen_.refresh();
+                                   }};
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{
         shell_.settingsPanels().page(),
         SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts(),
-                                     emulatorSettings_, steamLibrarySettings_},
+                                     emulatorSettings_, steamLibrarySettings_, pluginSettings_},
         sounds_,
         preferences_,
         environment_,

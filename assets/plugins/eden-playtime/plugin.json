@@ -1,0 +1,19 @@
+{
+  "id": "eden-playtime",
+  "name": "Eden play time",
+  "version": "1.0.0",
+  "api": 1,
+  "permissions": {
+    "read": {
+      "play_time": [
+        "{xdg_data}/eden/play_time",
+        "{flatpak_data:dev.eden_emu.eden}/eden/play_time"
+      ],
+      "game_list": [
+        "{xdg_cache}/eden/game_list",
+        "{flatpak_cache:dev.eden_emu.eden}/eden/game_list"
+      ]
+    },
+    "http": []
+  }
+}

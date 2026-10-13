@@ -28,7 +28,8 @@ std::vector<SettingsRow> QuickMenuController::build() {
     const audio::SystemVolume& volume = volume_.system();
     if (volume.available()) {
         const audio::VolumeState state = volume.state().value_or(audio::VolumeState{});
-        rows.push_back(ui::makeSlider(volumeId, "Volume", "", ui::SliderRange{state.percent, 0, 100}));
+        rows.push_back(
+            ui::makeSlider(volumeId, "Volume", "", ui::SliderRange{state.percent, 0, 100}));
         rows.push_back(ui::makeToggle(muteId, "Mute", "", state.muted));
         if (const audio::AudioSink* sink = outputs_.current()) {
             rows.push_back(ui::makeRow(outputId, RowKind::Choice, "Output", "", sink->name));
@@ -38,7 +39,8 @@ std::vector<SettingsRow> QuickMenuController::build() {
                                    volume.unavailable(), "Not available"));
     }
     if (const std::optional<int> level = brightness_.percent()) {
-        rows.push_back(ui::makeSlider(brightnessId, "Brightness", "", ui::SliderRange{*level, 1, 100}));
+        rows.push_back(
+            ui::makeSlider(brightnessId, "Brightness", "", ui::SliderRange{*level, 1, 100}));
     }
     const host::BluetoothState& state = bluetooth_.state();
     if (state.adapter) {

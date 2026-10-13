@@ -1,6 +1,7 @@
 // The Settings screen's controller and the folder editor under it, with the real preferences on a
 // scratch file: rows built from the saved settings, every change kept on disk, and the install
 // folders refused when they are missing or not writable.
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -100,7 +101,8 @@ struct Rig {
                          }},
           controller{page,
                      app::SettingsController::Services{paths, shortcutEditor, volume, shortcuts,
-                                                       emulatorSettings, steamLibrarySettings},
+                                                       emulatorSettings, steamLibrarySettings,
+                                                       pluginSettings},
                      sounds,
                      preferences,
                      config,
@@ -142,6 +144,10 @@ struct Rig {
         config.configDir = root / "config";
         config.dataDir = root / "data";
         config.cacheDir = root / "cache";
+        config.assetsDir = root / "assets";
+        config.xdgDataHome = root / "xdg-data";
+        config.xdgCacheHome = root / "xdg-cache";
+        config.xdgConfigHome = root / "xdg-config";
         config.legendaryConfigDir = root / "legendary";
         return config;
     }
@@ -233,6 +239,19 @@ struct Rig {
                                          [this] {
                                              controller.refresh();
                                          }}};
+    ui::SessionDialog dialog;
+    app::PluginService plugins{
+        config, preferences,
+        app::PluginService::Hooks{[this](const std::string& text, bool error) {
+                                      said.push_back({text, error});
+                                  },
+                                  [] {
+                                  },
+                                  [] {
+                                  }}};
+    app::PluginSettings pluginSettings{plugins, dialog, sounds, config.home, [this] {
+                                           controller.refresh();
+                                       }};
     app::SettingsController controller;
 };
 
@@ -246,8 +265,8 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators",
                                              "Steam libraries", "Audio", "Controls",
-                                             "Install folders", "About"},
-           "the eight categories");
+                                             "Install folders", "Plugins", "About"},
+           "the nine categories");
     expect(rig.controller.category() == "Appearance" && !rig.controller.changes(),
            "opens on Appearance with nothing to change yet");
     rig.enter("Steam libraries");
@@ -718,6 +737,63 @@ void steamLibrariesWhileSteamRuns(const fs::path& root) {
         "a chosen folder is added as a library");
 }
 
+void writeFile(const fs::path& file, const std::string& text) {
+    fs::create_directories(file.parent_path());
+    std::ofstream{file} << text;
+}
+
+/// A plugin the player added runs only after its permissions are accepted in the dialog, and a
+/// changed set of permissions asks again.
+void pluginsAskBeforeTheyRun(const fs::path& root) {
+    const fs::path dir = root / "data" / "plugins" / "probe";
+    const std::string manifest = R"({"id": "probe", "name": "Probe", "version": "0.1", "api": 1,
+        "permissions": {"read": {"data": ["{xdg_data}/probe"]}}})";
+    writeFile(dir / "plugin.json", manifest);
+    writeFile(dir / "main.lua", "opensu.register_playtime_source{claims = {source = 'rom', "
+                                "systems = {'switch'}}, read = function() return {} end}");
+    {
+        Rig rig{root};
+        rig.controller.open();
+        rig.enter("Plugins");
+        const ui::SettingsRow& row = rig.rowOf("plugins.probe");
+        expect(row.kind == ui::RowKind::Toggle && !row.on && row.note.starts_with("Added by you"),
+               "a plugin the player added starts off");
+        expect(rig.rowOf("plugins.probe.access").value ==
+                   "Reads " + (root / "xdg-data" / "probe").string(),
+               "its row says what it can read");
+        rig.focus("plugins.probe");
+        rig.controller.act(Button::A);
+        expect(rig.pluginSettings.active() && rig.dialog.text().title == "Turn on Probe?",
+               "turning it on asks first");
+        const auto& paragraphs = rig.dialog.text().paragraphs;
+        expect(std::ranges::find(paragraphs, "It can read what is in " +
+                                                 (root / "xdg-data" / "probe").string() + ".") !=
+                       paragraphs.end() &&
+                   std::ranges::find(paragraphs, "It does not use the network.") !=
+                       paragraphs.end(),
+               "the dialog lists every permission in words");
+        expect(!rig.onDisk().plugins.contains("probe"), "nothing is kept before the answer");
+        rig.pluginSettings.act(Button::B);
+        expect(!rig.dialog.isOpen() && !rig.rowOf("plugins.probe").on, "Cancel leaves it off");
+        rig.focus("plugins.probe");
+        rig.controller.act(Button::A);
+        rig.pluginSettings.act(Button::A);
+        expect(!rig.dialog.isOpen() && rig.rowOf("plugins.probe").on, "Accept turns it on");
+        const settings::PluginChoice kept = rig.onDisk().plugins.at("probe");
+        expect(kept.enabled && kept.granted == std::vector<std::string>{"read:{xdg_data}/probe"},
+               "the exact permissions accepted are kept");
+    }
+    writeFile(dir / "plugin.json",
+              R"({"id": "probe", "name": "Probe", "version": "0.2", "api": 1,
+        "permissions": {"read": {"data": ["{xdg_data}/probe", "{home}"]}}})");
+    Rig rig{root};
+    rig.controller.open();
+    rig.enter("Plugins");
+    expect(!rig.rowOf("plugins.probe").on &&
+               rig.rowOf("plugins.probe").note.ends_with("asks you to accept what it can use"),
+           "a plugin whose permissions grew is off until they are accepted again");
+}
+
 } // namespace
 
 int main() {
@@ -736,6 +812,7 @@ int main() {
     interfaceSizeCycles(root);
     shortcutsAreRemappedAndKept(root);
     steamLibrariesWhileSteamRuns(root / "steam");
+    pluginsAskBeforeTheyRun(root / "plugins");
     fs::remove_all(root);
     std::printf("settings_controller: all checks passed\n");
     return 0;

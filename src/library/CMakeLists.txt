@@ -17,6 +17,8 @@ add_library(opensu_library STATIC
     shelf.cpp
     library_query.cpp
     play_history.cpp
+    play_time.cpp
+    emulator_game_list.cpp
     emulator_choice.cpp
     text_fold.cpp
     sections.cpp

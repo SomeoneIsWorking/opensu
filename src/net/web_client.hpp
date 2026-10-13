@@ -1,6 +1,7 @@
 // web_client — HTTPS GETs over libcurl: artwork, the stores' account APIs and emulator downloads.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -28,6 +29,27 @@ class WebClient {
     /// server ignored the range.
     [[nodiscard]] std::optional<std::string> getRange(const std::string& url, std::uint64_t first,
                                                       std::uint64_t last, std::string& error) const;
+
+    /// A response of any status.
+    struct Answer {
+        long status{0};
+        std::string body;
+    };
+
+    /// What a guarded request may do: how large a body it takes, and which URLs it may reach.
+    struct Guard {
+        std::size_t maxBody{0};
+        /// Why `url` may not be requested, or empty when it may. Asked for the URL and for every
+        /// redirect before it is followed.
+        std::function<std::string(const std::string& url)> refusal;
+    };
+
+    /// The response to a GET of `url` with `headers` sent, following redirects that `guard`
+    /// allows. Nothing when a hop is refused, the body is over `guard.maxBody` or the transfer
+    /// fails; `error` says why.
+    [[nodiscard]] std::optional<Answer> request(const std::string& url,
+                                                const std::vector<std::string>& headers,
+                                                const Guard& guard, std::string& error) const;
 
     /// Bytes received and the size the server announced (0 when unknown); returns false to cancel.
     using Progress = std::function<bool(std::uint64_t received, std::uint64_t total)>;

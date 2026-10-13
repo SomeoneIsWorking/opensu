@@ -38,13 +38,15 @@ SettingsRow makeRow(std::string id, RowKind kind, std::string label, std::string
 }
 
 SettingsRow makeToggle(std::string id, std::string label, std::string note, bool on) {
-    SettingsRow row = makeRow(std::move(id), RowKind::Toggle, std::move(label), std::move(note), {});
+    SettingsRow row =
+        makeRow(std::move(id), RowKind::Toggle, std::move(label), std::move(note), {});
     row.on = on;
     return row;
 }
 
 SettingsRow makeSlider(std::string id, std::string label, std::string note, SliderRange range) {
-    SettingsRow row = makeRow(std::move(id), RowKind::Slider, std::move(label), std::move(note), {});
+    SettingsRow row =
+        makeRow(std::move(id), RowKind::Slider, std::move(label), std::move(note), {});
     row.level = range.level;
     row.low = range.low;
     row.high = range.high;

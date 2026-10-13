@@ -3,6 +3,7 @@
 #pragma once
 
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -30,6 +31,16 @@ inline constexpr int uiScaleStep = 5;
 
 /// The scale `step` choices from `current`, which A moves one forward, wrapping at either end.
 [[nodiscard]] int steppedUiScale(int current, int step) noexcept;
+
+/// What the player chose for one plugin.
+struct PluginChoice {
+    bool enabled{false};
+    /// The permissions the player accepted (`plugin::Manifest::permissions`); a plugin whose
+    /// permissions changed since does not run until they are accepted again.
+    std::vector<std::string> granted;
+
+    bool operator==(const PluginChoice&) const = default;
+};
 
 struct Settings {
     /// How Library lays out its folders (iiSU `romCategoryLayoutMode`).
@@ -76,6 +87,9 @@ struct Settings {
 
     /// The player's changes to the shortcut table.
     input::ShortcutOverrides shortcuts;
+
+    /// The plugins the player turned on or off, by id. A bundled plugin not listed runs.
+    std::map<std::string, PluginChoice> plugins;
 
     bool operator==(const Settings&) const = default;
 };

@@ -47,10 +47,10 @@ enum class Action : std::uint8_t {
 };
 
 inline constexpr std::array allActions{
-    Action::Up,         Action::Down,       Action::Left,   Action::Right,  Action::Confirm,
-    Action::Back,       Action::X,          Action::Y,      Action::Select, Action::Start,
-    Action::L1,         Action::R1,         Action::Search, Action::Guide,  Action::QuickMenu,
-    Action::VolumeUp,   Action::VolumeDown, Action::VolumeMute, Action::Quit};
+    Action::Up,       Action::Down,       Action::Left,       Action::Right,  Action::Confirm,
+    Action::Back,     Action::X,          Action::Y,          Action::Select, Action::Start,
+    Action::L1,       Action::R1,         Action::Search,     Action::Guide,  Action::QuickMenu,
+    Action::VolumeUp, Action::VolumeDown, Action::VolumeMute, Action::Quit};
 
 /// The action's name in the Settings screen.
 [[nodiscard]] std::string_view label(Action action) noexcept;

@@ -41,7 +41,8 @@ void devicesReplacesTheSectionTrail() {
     expect(trail[0].label == "Devices", "when both are named the Devices page, opened later, wins");
     state.devices.clear();
     state.settings.clear();
-    expect(app::trailOf(state)[0].label == "Library", "without the page the section's trail is back");
+    expect(app::trailOf(state)[0].label == "Library",
+           "without the page the section's trail is back");
 }
 
 } // namespace

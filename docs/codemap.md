@@ -32,6 +32,8 @@ gitignored `docs/reference/`).
 | `src/app/details_controller.*` | The details page's buttons: open for the focused game, Play or Install, the emulator pick, Download <emulator> (start or cancel the emulator download), Hide, Back; keeps the page current as the library changes |
 | `src/app/breadcrumb_trail.*` | The one computation of the breadcrumb trail from the shell's state (section, folder, search, filters, open game) |
 | `src/app/settings_controller.*` | The Settings screen's controller: rows per category, input routing, saving through `Preferences`, folder chooser and path entry; Install folders shows each store's resolved folder (override, default or the store's own) |
+| `src/app/plugin_service.*` | Which plugins run (bundled unless turned off, user plugins only when turned on with their exact permissions granted), refresh requests, play-time reports applied to the library, the stop toast |
+| `src/app/plugin_settings.*` | Settings › Plugins: a toggle and an access row per plugin, the consent dialog before a user plugin runs |
 | `src/app/emulator_downloads.*` | The emulator download job: one download at a time on a thread with progress and cancel, the update check (shows, never installs), removal of openSU's AppImages; news handed to the loop in `service` |
 | `src/app/emulator_settings.*` | Settings › Emulators: each emulator's install state, source and version with Download / Update / Remove (two presses), Check for updates, the emulator per system |
 | `src/app/steam_library_settings.*` | Settings › Steam libraries: the libraries with path, free space, games and size; add, make default, remove an empty one, on a worker thread; read-only from `libraryfolders.vdf` while Steam is not running |
@@ -50,8 +52,8 @@ gitignored `docs/reference/`).
 | `src/app/cli_install_job.*` | An install by a downloader program: run it, turn its logged progress into reports, fail with its reason; the base of the Epic and GOG jobs |
 | `src/app/steam_install_job.*`, `epic_install_job.*`, `gog_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install (`legendary install`); one GOG install (`gogdl download`: token handed over and taken back, Linux or Windows build, the install recorded) |
 | `src/app/installs.*` | The installers by store, one install at a time; which stores install; each store's own install folder (`ownFolders`: GOG under the data dir, legendary's, Steam's default library) |
-| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, legendary's config dir, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
-| `src/settings/settings.*` | The player's saved preferences (Library layout, dock pin, icon size, sort and filters, hidden games, last-played times, Settings-screen choices, interface scale, install folders, shortcut remaps) as JSON under the config dir; defaults on a missing or corrupt file |
+| `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, the XDG bases plugin paths expand from, legendary's config dir, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) |
+| `src/settings/settings.*` | The player's saved preferences (Library layout, dock pin, icon size, sort and filters, hidden games, last-played times, Settings-screen choices, interface scale, install folders, shortcut remaps, plugins turned on or off with the permissions granted) as JSON under the config dir; defaults on a missing or corrupt file |
 | `src/settings/install_folders.*` | The one resolver of where a store installs: a store's override, else the default, else none (the store's own choice); `resolve` adds the store's own folder and says which of the three applies; validation (exists, writable) |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
 | `extension/opensu-signin/`, `extension/CMakeLists.txt` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel; packed into `opensu-signin.xpi` and installed beside the assets |
@@ -68,7 +70,7 @@ gitignored `docs/reference/`).
 | `packaging/install-session.sh`, `packaging/opensu-session-select.sh` | The two root-run POSIX sh scripts, installed to `<prefix>/libexec/opensu/`: the one-sudo installer (session entry, `/usr/local/libexec/opensu-session-select`, `/etc/sudoers.d/zz-opensu-session-select`) and the selector (`opensu` or `restore`: SDDM drop-in `zz-opensu-session.conf` or the last session in `state.conf`) |
 | `src/session/gamescope.*` | The Gamescope command line, nested (`--close-focused-window` included) or top level (`--backend drm`) from `Output::native()` |
 | `packaging/opensu-session.desktop.in` | The Wayland session entry, installed to `<prefix>/share/wayland-sessions/opensu.desktop` (`install-session.sh` copies it where SDDM reads) |
-| `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman (commit, container steps, staging and install path); `OPENSU_BUILD_GAMESCOPE`. `cmake/GamescopeFetchPin.cmake` fetches a new pin into an existing clone, `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
+| `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman, or natively in an environment that already has its dependencies (`OPENSU_GAMESCOPE_BUILD_ENV`: CI's Fedora container, the AppImage container), with `OPENSU_GAMESCOPE_MESON_OPTIONS` for a distribution lacking some (commit, build steps, staging and install path); `OPENSU_BUILD_GAMESCOPE`. `cmake/GamescopeFetchPin.cmake` fetches a new pin into an existing clone, `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
 | `packaging/gamescope-build/Containerfile` | The Gamescope build image: host's Fedora release plus Gamescope's build dependencies |
 | `src/session/monitor.*` | The output's size and refresh |
 | `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game |
@@ -108,6 +110,8 @@ gitignored `docs/reference/`).
 | `src/library/text_fold.*` | Case, accent and white-space folding titles are compared in |
 | `src/library/emulator_choice.*` | The emulator picked per ROM and per system (`settings.json`): points the game's `launch` and `emulator` at the game's pick, else the system's; `unavailable` when it is not installed or cannot start |
 | `src/library/play_history.*` | When openSU last launched each game, for the recent sort of stores that do not say |
+| `src/library/play_time.*` | `PlayTimeReports`: each play-time source's latest report, summed into ROM games' play time |
+| `src/library/emulator_game_list.*` | An emulator's own game list (its id, title, path, metadata per game) matched to openSU's games by path, then by unique title key |
 | `src/library/titles.*` | The same title across stores: the comparison key, merged copies, preference order |
 | `src/library/rom_titles.*` | A ROM's display title from its name: tags, release numbers and the ", The" order (`cleanTitle`); the one title cleanup, also the release-number rule the libretro matcher uses |
 | `src/library/arcade_names.*` | Arcade short name to description: the libretro-database `.dat` parser and `NameDb`, the parsed names kept under `<cache>/names/` |
@@ -130,7 +134,7 @@ gitignored `docs/reference/`).
 | `src/audio/volume_backend.*` | PC output volume through wpctl or pactl (injectable runner), a read-only shadow for hidden runs, the install advice when no backend exists |
 | `src/audio/system_volume.*` | Volume and mute state, steps, one listener, async polling of changes made elsewhere |
 | `src/audio/sound_player.*` | raylib audio: the device opened once (silent with one warning when absent), the WAVs loaded from the store, `play` through the debounce |
-| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads |
+| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads; `request` with a body cap and each redirect hop checked |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`), raylib-free (`opensu_pad`) |
@@ -145,6 +149,24 @@ gitignored `docs/reference/`).
 | `src/input/prompts.hpp` | `Prompts`: the last device and the shortcuts, so key caps in hints follow remaps |
 | `src/input/keyboard_bindings.*` | `KeySource`, the frame's pressed `Combo`, and typed text; the keys themselves come from `Shortcuts` |
 | `src/input/last_device.*` | Which device (pad, or keyboard and mouse) gave the latest real input; read by the prompt painters |
+
+## Plugins
+
+Design and API: `docs/design/lua-plugins.md`.
+
+| Path | Owns |
+| --- | --- |
+| `cmake/Lua.cmake` | `opensu_lua`: Lua 5.4.9 fetched from lua.org by SHA-256, compiled as C++, only the libraries the sandbox opens |
+| `src/plugin/manifest.*` | `plugin.json`: parsing, validation, path tokens, the permission list |
+| `src/plugin/permissions.*` | A plugin's read paths and HTTP hosts, and the checks against them |
+| `src/plugin/lua_runtime.*` | One sandboxed `lua_State`: memory cap, instruction and run-time limits, protected calls, coroutine activations that wait on I/O |
+| `src/plugin/lua_json.*` | JSON to and from Lua values |
+| `src/plugin/sources.*` | Source claims and the Lua shape of games, game-list entries and play-time reports |
+| `src/plugin/host_api.*` | The `opensu` table (API v1) |
+| `src/plugin/io_pool.*` | The two I/O threads plugins' file reads and HTTP run on |
+| `src/plugin/plugin_worker.*` | One plugin's thread: load, refresh (game list, match, play time), fault counting |
+| `src/plugin/plugin_host.*` | Discovery of bundled and user plugins, start and stop, results taken by the loop |
+| `assets/plugins/` | Bundled plugins (`eden-playtime`: Eden's play time and game list) |
 
 ## Home UI (G002)
 
@@ -220,11 +242,23 @@ Painters and composition (`opensu_ui`):
 | `tools/vm/` | The headless Fedora 44 KDE guest for login-session tests (`docs/vm-harness.md`): `provision`/`kickstart`/`fetch`/`hostfiles`/`configure` (install and host-like setup), `machine` (qemu command line, PID lifecycle, overlays), `qmp` and `vnc` (screenshots, input), `guest` (SSH), `deploy` (build, install, ship), `control` (openSU's control channel in the guest), `cli` |
 | `tools/nested_remap/` | Headless checks of the nested Gamescope in a private `kwin_wayland --virtual` (`host`: own runtime dir and bus, KWin scripts): `cli` runs openSU's nested command line under `WAYLAND_DEBUG` (`run`) with a window scenario (`child`: cycle, rapid, steam), optionally `kwin/focus_flap.qml` or the host stopping mid-run, and judges exit and protocol error (`verdict`); `restart` runs the real `CompositorSession` with `tests/session/nested_session_driver` as the child and SIGABRTs Gamescope until the restart limit |
 | `pyproject.toml`, `uv.lock` | The one locked Python environment of the tools (`uv run --frozen`) |
+| `tools/check/` | Building and checking openSU from a clean checkout, locally and in CI: `pins` (raylib and Lucent commits), `deps` (checkout by commit, raylib built into a prefix), `cmake` (configure with Clang and refuse any other compiler, build, ctest, install a component), `lint` (clang-format, clang-tidy over `compile_commands.json`, ruff), `container` (`all` inside the systemd-booted `packaging/ci` image as the calling user, for CI), `cli` (`deps`, `configure`, `build`, `lint`, `test`, `all`, `ci`) |
+| `tools/appimage/` | The Linux AppImage: `config` (pins, names, layout, the signing key from the environment), `container` (the Ubuntu 24.04 build image and running in it), `inner` (in the container: build, install the default component; tests run in `tools.check ci`), `bundle` (the host-provided library list, copying the rest into `usr/lib`, runpaths, the glibc floor check), `appdir` (AppRun, desktop entry, icon), `pack` (appimagetool with the pinned static runtime, zsync update information, gpg signature), `smoke` (the AppImage on clean Fedora 44 and Ubuntu 24.04 containers with only the documented requirements) |
+| `tools/screenshots/` | The README screenshots: a demo library of freely licensed games (`demo`, art pinned by sha256), openSU run hidden with no network (`offline`, `shell`), the screens driven over the control channel (`scenes`), WebP output (`encode`); credits in `docs/screenshots/CREDITS.md` |
+| `tools/download.py` | The one checksum-verified download the tools share |
+| `tools/podman.py` | Container images the tools build, tagged by the hash of their recipe, and the worktree git dir a container must also mount |
+| `packaging/ci/Containerfile` | The CI image: Fedora 44 (the fork's podman build release) with openSU's and the fork's build dependencies and systemd as PID 1, so tests get a user manager |
+| `packaging/appimage/Containerfile` | The AppImage build image: Ubuntu 24.04 (the glibc 2.39 floor), openSU's and the fork's build dependencies, wayland, wayland-protocols, libxkbcommon, pixman and libdrm headers newer than 24.04's from pinned tarballs, uv |
+| `packaging/appimage/signing-key.asc` | The public half of the key release AppImages are signed with (private half: the `OPENSU_APPIMAGE_SIGNING_KEY` repository secret) |
+| `packaging/opensu.desktop.in`, `packaging/opensu.svg` | The application menu entry and openSU's icon, installed to `share/applications` and `share/icons/hicolor/scalable/apps`; the AppImage carries both at its top |
+| `.github/workflows/ci.yml` | CI on every push and pull request: `tools.check ci` (`all` in the `packaging/ci` container, fork built natively), and `tools.appimage all` (build and smoke) on Ubuntu 24.04 |
+| `.github/workflows/release.yml` | A `v*` tag: the signed AppImage built and smoke-tested, then a GitHub Release with the AppImage, its `.sha256`, `.zsync` and the sign-in `.xpi` |
 
 ## Tests and docs
 
 - `tests/<area>/`: one ctest suite per owner, through the shipping code.
 - `tests/support/`: shared fakes: `fake_steam.hpp` (a DevTools Steam), `release_server.hpp` (a release API and asset host), `loopback_server.hpp`; `scratch_dir.hpp`, a test's own empty directory under the test scratch.
-- `docs/design/`: proposals not yet built (`lua-plugins.md`: Lua plugin host).
+- `tests/plugin/`: the plugin host through the shipping runtime (`plugin_rig.hpp`), the shipped Eden plugin against fixture files.
+- `docs/design/`: designs (`lua-plugins.md`: the Lua plugin host, phase 1 built, later phases proposed).
 - `docs/re-frontier.md`: what is recovered from iiSU. `docs/reference/` (private `opensu-re`
   checkout): the evidence and the spec built on it.

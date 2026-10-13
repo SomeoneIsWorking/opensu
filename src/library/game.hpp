@@ -59,6 +59,8 @@ struct Game {
     /// or the system a ROM belongs to.
     std::string sourceId;
     std::string title;
+    /// A ROM's game file, the one its emulator starts; empty for a game of a store.
+    std::filesystem::path file;
 
     /// Whether the title can be launched now.
     bool installed{false};

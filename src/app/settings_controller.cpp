@@ -85,8 +85,9 @@ bool SettingsController::changes() const {
 }
 
 std::vector<ui::SettingsCategory> SettingsController::build() const {
-    return {appearancePage(), libraryPage(),  emulators_.page(), steamLibraries_.page(),
-            audioPage(),      controlsPage(), installPage(),     aboutPage()};
+    return {appearancePage(),       libraryPage(),   emulators_.page(),
+            steamLibraries_.page(), audioPage(),     controlsPage(),
+            installPage(),          plugins_.page(), aboutPage()};
 }
 
 ui::SettingsCategory SettingsController::appearancePage() const {
@@ -385,15 +386,17 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
         runControls(id);
         return;
     }
-    if (EmulatorSettings::owns(id) || SteamLibrarySettings::owns(id)) {
+    if (EmulatorSettings::owns(id) || SteamLibrarySettings::owns(id) || PluginSettings::owns(id)) {
         if (focused.kind == RowKind::Info) {
             return;
         }
         sounds_.play(audio::Effect::Navigation);
         if (EmulatorSettings::owns(id)) {
             emulators_.run(id, step);
-        } else {
+        } else if (SteamLibrarySettings::owns(id)) {
             steamLibraries_.run(id, step);
+        } else {
+            plugins_.run(id, step);
         }
         refresh();
         return;

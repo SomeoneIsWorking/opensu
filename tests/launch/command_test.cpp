@@ -75,8 +75,8 @@ int main() {
         expect(captured->status == 4, "a captured command's status is returned");
         expect(captured->output == "out\ntail\n", "only stdout is captured");
     }
-    const auto merged = runCaptured(
-        "/bin/sh", {"-c", "echo out; echo err >&2; exit 2"}, opensu::launch::CaptureErrors::Merged);
+    const auto merged = runCaptured("/bin/sh", {"-c", "echo out; echo err >&2; exit 2"},
+                                    opensu::launch::CaptureErrors::Merged);
     expect(merged && merged->status == 2 && merged->output == "out\nerr\n",
            "merged capture keeps stderr in the output");
     expect(!runCaptured("/no/such/program", {}).has_value(), "a captured missing program fails");

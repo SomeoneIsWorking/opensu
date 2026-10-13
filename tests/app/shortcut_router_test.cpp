@@ -24,11 +24,12 @@ gamepad::Event pad(Button button, bool pressed) {
 struct Rig {
     Rig()
         : volume{std::make_unique<test::FakeMixer>(), {}},
-          router{shortcuts, volume, app::ShortcutRouter::Hooks{[] {
-                                                                   },
-                                                               [this] {
-                                                                   ++quickMenus;
-                                                               }}} {
+          router{shortcuts, volume,
+                 app::ShortcutRouter::Hooks{[] {
+                                            },
+                                            [this] {
+                                                ++quickMenus;
+                                            }}} {
     }
 
     input::Shortcuts shortcuts;
@@ -39,7 +40,8 @@ struct Rig {
 
 void ctrlTabOpensTheQuickMenu() {
     Rig rig;
-    const std::vector<gamepad::Event> events = rig.router.fromCombo(input::Combo{KEY_TAB, true, false});
+    const std::vector<gamepad::Event> events =
+        rig.router.fromCombo(input::Combo{KEY_TAB, true, false});
     expect(rig.quickMenus == 1 && events.empty(), "Ctrl+Tab is the action, not a button");
 }
 

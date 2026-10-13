@@ -72,8 +72,8 @@ void TileArtwork::requestWindow(std::vector<Tile>& tiles, std::optional<Tile>& h
              return job.shelf == shelfSerial_ &&
                     (job.tile == headerTile || window.contains(job.tile));
          })) {
-        if (Tile* tile = dropped.shelf == shelfSerial_ ? tileOf(tiles, header, dropped.tile)
-                                                       : nullptr) {
+        if (Tile* tile =
+                dropped.shelf == shelfSerial_ ? tileOf(tiles, header, dropped.tile) : nullptr) {
             tile->artRequested = false;
         }
     }
@@ -85,10 +85,10 @@ void TileArtwork::requestWindow(std::vector<Tile>& tiles, std::optional<Tile>& h
     }
 }
 
-void TileArtwork::upload(std::vector<Tile>& tiles, std::optional<Tile>& header,
-                         std::size_t limit) {
+void TileArtwork::upload(std::vector<Tile>& tiles, std::optional<Tile>& header, std::size_t limit) {
     for (Decoded& done : decoder_.take(limit)) {
-        Tile* tile = done.job.shelf == shelfSerial_ ? tileOf(tiles, header, done.job.tile) : nullptr;
+        Tile* tile =
+            done.job.shelf == shelfSerial_ ? tileOf(tiles, header, done.job.tile) : nullptr;
         if (tile == nullptr || tile->ticket != done.job.ticket || tile->artLoaded) {
             continue;
         }

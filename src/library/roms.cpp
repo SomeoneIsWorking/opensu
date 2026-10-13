@@ -150,6 +150,7 @@ std::vector<Game> Provider::list() {
                 const std::string name = entryName(entry, fs::is_regular_file(entry, ec));
                 game.title = titleOf(name, system->key == "arcade" ? &arcade : nullptr);
                 game.artworkKey = name;
+                game.file = *file;
                 // The file itself is what makes the entry playable.
                 game.installed = true;
                 // The emulator's command line carries the game's file.

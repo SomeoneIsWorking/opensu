@@ -4,8 +4,8 @@
 #include <cstdio>
 #include <thread>
 
-#include "quick_menu_controller.hpp"
 #include "host_fakes.hpp"
+#include "quick_menu_controller.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -18,13 +18,13 @@ struct Rig {
     explicit Rig(bool gameRunning = false, bool backlight = true)
         : game{gameRunning}, brightness{backlight ? &light : nullptr},
           volume{std::make_unique<test::FakeMixer>(), {}}, outputs{volume.system()},
-          bluetooth{radio}, roster{{[] {
-                                        return std::vector<gamepad::PadInfo>{
-                                            {"/dev/input/event5", "Pro Pad", "aa"}};
-                                    },
-                                    [](const std::string&) {
-                                        return std::optional{device::BatteryStatus{64, true}};
-                                    }}},
+          bluetooth{radio},
+          roster{{[] {
+                      return std::vector<gamepad::PadInfo>{{"/dev/input/event5", "Pro Pad", "aa"}};
+                  },
+                  [](const std::string&) {
+                      return std::optional{device::BatteryStatus{64, true}};
+                  }}},
           controller{menu,
                      {volume, outputs, brightness, bluetooth, roster},
                      sounds,
@@ -87,7 +87,8 @@ void rowsFollowWhatTheMachineHas() {
     Rig rig;
     rig.controller.open();
     expect(rig.row("quick.volume") && rig.row("quick.mute") && rig.row("quick.output") &&
-               rig.row("quick.brightness") && rig.row("quick.bluetooth") && rig.row("quick.devices"),
+               rig.row("quick.brightness") && rig.row("quick.bluetooth") &&
+               rig.row("quick.devices"),
            "volume, mute, output, brightness, Bluetooth and Devices");
     expect(!rig.row("quick.closeGame"), "no Close game without a game");
     const ui::SettingsRow* pad = rig.row("quick.pad:/dev/input/event5");
