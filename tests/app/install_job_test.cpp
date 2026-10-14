@@ -164,10 +164,10 @@ void testCancelWhileAsking() {
     expect(!job.take(), "cancelling an ended job does nothing");
 
     expect(job.start("next", "Next"), "a cancelled job starts again");
-    expect(statusOf(job).serial == 2 && statusOf(job).phase == InstallJob::Phase::Running,
+    expect(statusOf(job).serial == 2 && reaches(job, InstallJob::Phase::Licence),
            "a new start is a new install");
     job.decide(true);
-    expect(drain(job).back().failure.empty() && statusOf(job).phase == InstallJob::Phase::Installed,
+    expect(drain(job).back().failure.empty() && statusOf(job).phase == InstallJob::Phase::Done,
            "the next install is not cancelled");
 }
 
@@ -444,6 +444,9 @@ void testInstalls(const fs::path& dir) {
                       [&asked](Source store) -> std::optional<fs::path> {
                           asked.push_back(store);
                           return std::nullopt;
+                      },
+                      [](const opensu::library::Game&) {
+                          return false;
                       }};
 
     opensu::library::Game epic;
@@ -470,7 +473,7 @@ void testInstalls(const fs::path& dir) {
     expect(installs.title() == "Fortnite", "the title outlives the install");
     const std::optional<Installs::Status> epicEnd = installs.status();
     expect(epicEnd && epicEnd->store == Source::Epic && epicEnd->job.appId == "Fortnite" &&
-               epicEnd->job.phase == InstallJob::Phase::Installed,
+               epicEnd->job.phase == InstallJob::Phase::Done,
            "the last install's store and state outlive it");
 
     // A cancel reaches the store's job that runs.
@@ -526,6 +529,9 @@ void testFolderRefusal(const fs::path& dir) {
     Installs installs{steam, stub.string(), GogInstallJob::Options{.dataDir = dir / "data"},
                       [&chosen](Source) {
                           return chosen;
+                      },
+                      [](const opensu::library::Game&) {
+                          return false;
                       }};
     expect(installs.folderRefusal(Source::Epic).empty(), "a store that chooses is not refused");
     chosen = good;
