@@ -31,7 +31,6 @@
 #include "control_channel.hpp"
 #include "controller_roster.hpp"
 #include "details_controller.hpp"
-#include "device/battery.hpp"
 #include "devices_controller.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
@@ -64,6 +63,7 @@
 #include "sign_in.hpp"
 #include "steam/client.hpp"
 #include "steam_library_settings.hpp"
+#include "top_bar_clock.hpp"
 #include "ui/shell.hpp"
 #include "volume_control.hpp"
 
@@ -220,8 +220,6 @@ class ShellApp final : private PointerHost {
     [[nodiscard]] std::optional<library::Game> shownGame(const std::string& id) const;
     /// What each button does now, for the corner prompts: the same tests the actions make.
     [[nodiscard]] ui::HintContext hints() const;
-    /// Re-reads the clock and the battery and schedules the next minute boundary.
-    void refreshClock();
     void pushCatalogToShell();
     const config::Config& environment_;
     Settings settings_;
@@ -243,12 +241,10 @@ class ShellApp final : private PointerHost {
     audio::SdlSoundPlayer sounds_;
     /// Opened by `run` or `renderToFile`; before the shell, whose textures live on its device.
     std::unique_ptr<ShellWindow> window_;
-    device::BatteryReader battery_;
-    /// When the clock next changes, on the minute boundary.
-    std::chrono::steady_clock::time_point nextClockTick_{};
     /// What the control channel's threads and the loop hand each other.
     ControlBridge bridge_;
     ui::Shell shell_;
+    TopBarClock clock_{shell_, environment_.clock24Hour};
     /// Hands the fetched artwork and the stored sounds on.
     ArtworkDelivery delivery_{shell_, sounds_, artworkStore_, artworkFetcher_, [this] {
                                   bridge_.requestCatalogReload({});
@@ -609,7 +605,11 @@ class ShellApp final : private PointerHost {
                                                store);
                                        }}};
     /// How the window relates to a running game: the overlay inside Gamescope, hidden elsewhere.
-    GameScreen gameScreen_{settings_.hidden};
+    GameScreen gameScreen_{settings_.hidden, [this](bool blocked) {
+                               if (padsHeld_) {
+                                   pads_.setBlocked(blocked);
+                               }
+                           }};
     /// The store sign-ins the control channel drives.
     StoreSignIn signIn_;
 

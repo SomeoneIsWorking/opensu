@@ -34,9 +34,13 @@ void promptsNameTheBoundKeys() {
     expect(shortcuts.keyLabelFor(Button::Search) == "/", "the search's cap is the slash");
     expect(shortcuts.keyLabelFor(Button::Guide) == "Shift+Tab", "Guide's cap is its chord");
     expect(!shortcuts.keyLabelForGlyph("LT") && !shortcuts.keyLabelForGlyph(""),
-           "an unknown glyph has no key");
+           "a button no key reaches, or an unknown glyph, has no key");
     expect(buttonOfGlyph("RB") == Button::R1 && buttonOfGlyph("Q") == Button::None,
            "glyph keys map to buttons");
+    expect(glyphOf(Button::Select) == "-" && glyphOf(Button::L2) == "LT" &&
+               glyphOf(Button::Up) == "UP" &&
+               buttonOfGlyph(glyphOf(Button::Start)) == Button::Start,
+           "every button has a glyph key, and it maps back");
 }
 
 /// A keyboard that holds the keys it is given: `held` are down, `fresh` went down this frame.
@@ -291,6 +295,48 @@ void triggersAreTheBoundChords() {
            "and follows a remap");
 }
 
+void chordsOnAModifier() {
+    Shortcuts s;
+    expect(s.chordsOn(Button::Guide) ==
+               std::vector<ChordBinding>{{Action::QuickMenu, {Button::Guide, Button::A}},
+                                         {Action::VolumeUp, {Button::Guide, Button::Up}},
+                                         {Action::VolumeDown, {Button::Guide, Button::Down}},
+                                         {Action::VolumeMute, {Button::Guide, Button::Left}}},
+           "Guide holds the shipped chords, in action order");
+    expect(s.rebind(Action::CloseGame, PadChord{Button::L2, Button::X}).empty() &&
+               s.rebind(Action::VolumeMute, PadChord{Button::L2, Button::Left}).empty(),
+           "two chords move to L2");
+    expect(s.chordsOn(Button::L2) ==
+               std::vector<ChordBinding>{{Action::VolumeMute, {Button::L2, Button::Left}},
+                                         {Action::CloseGame, {Button::L2, Button::X}}},
+           "L2 lists exactly its own");
+    expect(s.chordsOn(Button::Guide).size() == 3, "and Guide no longer the moved one");
+    expect(s.chordsOn(Button::A).empty(), "a button no chord starts with holds none");
+}
+
+void aLongHoldIsReportedUntilItEnds() {
+    const Shortcuts s;
+    PadChords chords{s};
+    static_cast<void>(chords.feed({press(Button::Guide)}, start));
+    expect(!chords.longHeld(start + holdDelay - std::chrono::milliseconds{1}),
+           "no long hold under the hold delay");
+    expect(chords.longHeld(start + holdDelay) == Button::Guide, "Guide held for the delay");
+    expect(chords.longHeld(start + std::chrono::seconds{3}) == Button::Guide, "until it ends");
+    auto fed = chords.feed({press(Button::A)}, start + std::chrono::seconds{3});
+    expect(fed.actions == std::vector{Action::QuickMenu} &&
+               !chords.longHeld(start + std::chrono::seconds{3}),
+           "a chord plays and ends it");
+    fed = chords.feed({press(Button::A, false), press(Button::Guide, false)},
+                      start + std::chrono::seconds{4});
+    expect(fed.events.empty() && fed.actions.empty(), "the releases are swallowed");
+
+    static_cast<void>(chords.feed({press(Button::Guide)}, start + std::chrono::seconds{5}));
+    expect(chords.longHeld(start + std::chrono::seconds{6}) == Button::Guide, "held again");
+    fed = chords.feed({press(Button::Guide, false)}, start + std::chrono::seconds{6});
+    expect(fed.events.empty() && !chords.longHeld(start + std::chrono::seconds{6}),
+           "a long Guide hold released alone ends it and is no Guide press");
+}
+
 } // namespace
 
 int main() {
@@ -305,6 +351,8 @@ int main() {
     triggersAreTheBoundChords();
     guideIsATapOrAModifier();
     quickMenuHasItsDefaults();
+    chordsOnAModifier();
+    aLongHoldIsReportedUntilItEnds();
     std::printf("shortcuts: all checks passed\n");
     return 0;
 }

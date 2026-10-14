@@ -81,4 +81,5 @@ the pads (`gamepad/pad_translator:PadTranslator`, chords given by `Pads::setChor
 - Downloads as an action, with the Downloads page.
 - On real hardware: an Xbox or DualSense trigger as L2, Guide + A and L2 + Up in a game sending
   nothing, a Start tap pausing a game, and a polling game seeing a replayed tap.
-- The chord-hint overlay (`chord-hold-overlay.md`) uses `holdDelay`.
+- The chord list shown on a long hold (`chord-hold-overlay.md`) reads its timing from the same gate
+  and `holdDelay`.

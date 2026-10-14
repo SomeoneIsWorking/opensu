@@ -11,6 +11,7 @@
 // answered there.
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <mutex>
@@ -59,6 +60,8 @@ struct ShellSnapshot {
     bool volumeMuted{false};
     /// Whether the volume display is up.
     bool volumeShown{false};
+    /// The modifier whose chord list is up ("guide"), or empty.
+    std::string chordHint;
     /// The interface size in percent.
     std::size_t uiScale{100};
     /// Where the shell is, as the top bar's trail reads: "Library > GOG > Search \"had\"".
@@ -88,6 +91,9 @@ struct ShellSnapshot {
     std::string inputDevice{"pad"};
 };
 
+/// The longest `POST /input` may hold a button, so no injected button stays down for good.
+inline constexpr std::chrono::milliseconds longestHold{10000};
+
 /// What the control channel may ask the shell to do. Implemented by the shell,
 /// so the channel holds no shell state and can be tested on its own.
 class ControlTarget {
@@ -101,8 +107,9 @@ class ControlTarget {
     virtual void typeText(std::string text) = 0;
 
     /// Queues `buttons` held together, as if from `device`: pressed in order, then released in
-    /// reverse. One button is a tap; Guide then A is the Guide + A chord.
-    virtual void inject(const std::vector<gamepad::Button>& buttons, input::Device device) = 0;
+    /// reverse once `hold` has passed. One button is a tap; Guide then A is the Guide + A chord.
+    virtual void inject(const std::vector<gamepad::Button>& buttons, input::Device device,
+                        std::chrono::milliseconds hold) = 0;
 
     /// Queues a key combination pressed on the keyboard, to be read through the shortcut table.
     virtual void injectKey(input::Combo combo) = 0;

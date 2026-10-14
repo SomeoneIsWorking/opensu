@@ -21,6 +21,8 @@
 #include "gpu2d/render_target.hpp"
 #include "gpu2d/surface.hpp"
 
+#include "chord_hint.hpp"
+#include "chord_hint_painter.hpp"
 #include "config/config.hpp"
 #include "context_menu.hpp"
 #include "context_menu_painter.hpp"
@@ -160,6 +162,17 @@ class Shell {
     }
     [[nodiscard]] const VolumeOsd& volumeOsd() const noexcept {
         return volumeOsd_;
+    }
+    /// Shows the chords of `modifier`, held long, or hides them for nothing.
+    void followChordHint(std::optional<gamepad::Button> modifier) {
+        chordHint_.follow(modifier, prompts_.shortcuts, now_);
+    }
+    [[nodiscard]] const ChordHint& chordHint() const noexcept {
+        return chordHint_;
+    }
+    /// Whether the chord list is drawn, fading out included.
+    [[nodiscard]] bool chordHintVisible() const noexcept {
+        return chordHint_.visible(now_);
     }
 
     /// The search panel and the context menu. They fade in and out as they open and close.
@@ -383,8 +396,10 @@ class Shell {
     void drawScene(Canvas& canvas);
     /// The Settings screen and the Devices page, whichever is shown.
     void drawPages(Canvas& canvas, Point size);
-    /// A frame over a running game: the Guide menus and the pages they open.
+    /// A frame over a running game: the Guide menus, the pages they open and the chord list.
     void drawOverGame(Canvas& canvas, Point size);
+    /// The held modifier's chords, while shown or fading out.
+    void drawChordHint(Canvas& canvas, Point size);
     void drawGrid(Canvas& canvas);
     void drawRail(Canvas& canvas);
     /// The rectangles an XMB's or a Carousel's layout `rects` are drawn at, tile by tile, for the
@@ -424,6 +439,7 @@ class Shell {
     input::Prompts prompts_;
     int uiScale_{100};
     VolumeOsd volumeOsd_;
+    ChordHint chordHint_;
     GlyphTextures glyphs_;
     /// The dock's icons, by `home`, `home_selected`, `library`, `library_selected`.
     GlyphTextures navIcons_;
@@ -460,6 +476,7 @@ class Shell {
     RailPainter railPainter_{typeface_};
     DetailsPagePainter detailsPainter_{typeface_};
     VolumeOsdPainter volumeOsdPainter_{typeface_};
+    ChordHintPainter chordHintPainter_{prompts_, typeface_};
     /// The frame up to the dock, which the dock's glass blurs.
     std::optional<gpu2d::RenderTarget> scene_;
     SDL_GPUDevice* device_{};

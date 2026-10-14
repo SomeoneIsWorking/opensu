@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <type_traits>
 
 #include "keyboard_bindings.hpp"
 
@@ -179,6 +180,16 @@ std::optional<PadChord> Shortcuts::padChord(Action action) const {
     return found == pads_.end() ? std::nullopt : std::optional<PadChord>{found->second};
 }
 
+std::vector<ChordBinding> Shortcuts::chordsOn(Button modifier) const {
+    std::vector<ChordBinding> chords;
+    for (const auto& [action, chord] : pads_) {
+        if (chord.modifier == modifier) {
+            chords.push_back(ChordBinding{action, chord});
+        }
+    }
+    return chords;
+}
+
 std::optional<Action> Shortcuts::actionFor(const Combo& combo) const {
     for (const KeyBinding& binding : bindings_) {
         if (binding.combo == combo) {
@@ -286,30 +297,25 @@ void Shortcuts::resetPads() {
     build();
 }
 
-Button buttonOfGlyph(std::string_view glyph) noexcept {
-    if (glyph == "A") {
-        return Button::A;
+std::string_view glyphOf(Button button) {
+    switch (button) {
+    case Button::Select:
+        return "-";
+    case Button::Start:
+        return "+";
+    default:
+        return gamepad::prompt(button);
     }
-    if (glyph == "B") {
-        return Button::B;
-    }
-    if (glyph == "X") {
-        return Button::X;
-    }
-    if (glyph == "Y") {
-        return Button::Y;
-    }
-    if (glyph == "-") {
-        return Button::Select;
-    }
-    if (glyph == "+") {
-        return Button::Start;
-    }
-    if (glyph == "LB") {
-        return Button::L1;
-    }
-    if (glyph == "RB") {
-        return Button::R1;
+}
+
+Button buttonOfGlyph(std::string_view glyph) {
+    using Value = std::underlying_type_t<Button>;
+    for (auto value = static_cast<Value>(Button::A); value <= static_cast<Value>(Button::Search);
+         ++value) {
+        const auto button = static_cast<Button>(value);
+        if (glyphOf(button) == glyph) {
+            return button;
+        }
     }
     return Button::None;
 }

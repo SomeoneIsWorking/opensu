@@ -15,7 +15,8 @@ gitignored `docs/reference/`).
 | `src/app/shell_window.*` | The shell's SDL window on gpu2d (`GpuWindow` and `Canvas`): resizable, translucent, 960x600 minimum, unmapped without vsync for `--hidden` and `--render`; logs the device, driver and translucency; the frame's keys, typed text, pointer and resize from SDL events; a frame presented at most 60 a second, or drawn offscreen and read back; the monitor's size and refresh and filling it for the Gamescope overlay |
 | `src/app/sdl_keys.*` | SDL scancodes onto the shell's key codes (`input::keys`) |
 | `src/app/control_bridge.*` | The hand-over between the control channel's threads and the loop: queued input, reload and close requests, the published `ShellSnapshot`, the frame handshake |
-| `src/app/game_screen.*` | The window's relation to a running game: the Gamescope overlay and game-time key watcher, or the hidden window flag; shows the window only while a menu or page is up |
+| `src/app/game_screen.*` | The window's relation to a running game: the Gamescope overlay and game-time key watcher, or the hidden window flag; interactive while a menu or page is up (keyboard taken, the game's pads rested), passive while the chord list is up (shown, the game keeps the keyboard and the pads), hidden otherwise |
+| `src/app/top_bar_clock.*` | The top bar's clock set again on each minute boundary, and the battery read on the same tick |
 | `src/app/guide_menu_controller.*` | The Guide menu's buttons and what each entry does (sections, Devices, Settings, close game, quit, the power button and list: `host::Power` with a second press for restart and shut down, `host::SessionMode` for Switch to session mode (second press), Install session mode (opens the dialog) and, in a login session, Switch to desktop) |
 | `src/app/session_install_controller.*` | The Install session mode flow: the dialog, then the password on the on-screen or physical keyboard, the root step on a worker, a wrong password asking again, the password wiped once sudo has had it |
 | `src/app/keyboard_walk.*` | A pad button on the on-screen keyboard for the entries that type a line (folder path, password): the one implementation `path_editor` and the session install share |
@@ -50,7 +51,7 @@ gitignored `docs/reference/`).
 | `src/app/frame_png.*` | The drawn shell as PNG bytes, for the control channel's frame and `--render` |
 | `src/app/panel_flow.*` | The launch/install panel flow taken out of `shell_app.cpp` |
 | `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page, breadcrumb and panel-button action), right click = the target's context menu (never B), wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
-| `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input (`guide+a` holds buttons together), frames, `/signin/<store>[/start]` |
+| `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input (`guide+a` holds buttons together, `guide 1500ms` holds them that long), frames, `/signin/<store>[/start]` |
 | `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
 | `src/app/install_job.*` | The store-neutral install job: its thread, the latest report the loop takes, the licence answer |
@@ -79,7 +80,7 @@ gitignored `docs/reference/`).
 | `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman, or natively in an environment that already has its dependencies (`OPENSU_GAMESCOPE_BUILD_ENV`: CI's Fedora container, the AppImage container), with `OPENSU_GAMESCOPE_MESON_OPTIONS` for a distribution lacking some (commit, build steps, staging and install path); `OPENSU_BUILD_GAMESCOPE`. `cmake/GamescopeFetchPin.cmake` fetches a new pin into an existing clone, `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
 | `packaging/gamescope-build/Containerfile` | The Gamescope build image: host's Fedora release plus Gamescope's build dependencies |
 | `src/session/monitor.*` | The output's size and refresh, from SDL's display modes (X11 video): the primary monitor before the window opens, the window's display after |
-| `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game |
+| `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game: hidden, passive (drawn, input left to the game) or interactive (`STEAM_INPUT_FOCUS`) |
 | `src/session/game_keys.*` | The shortcuts that work while a game has the keyboard (Guide, volume), matched against the `Shortcuts` table from XInput2 raw keys |
 | `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show; tells the handoff when a game is on screen |
 | `src/launch/instance.*` | One transient systemd user scope per launch, its program started with no signal blocked; stopping it ends the whole tree; how the started process ended (`exitStatus`) |
@@ -148,14 +149,14 @@ gitignored `docs/reference/`).
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`) (`opensu_pad`) |
 | `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls; analogue triggers as L2/R2 with hysteresis (`triggerPressAt`, `triggerReleaseAt`); what reaches the virtual pad passes the pad's `ChordGate` |
-| `src/gamepad/chord_gate.*` | The one chord rule (`Chord`, `ChordTriggers`, `ChordGate`): a bound modifier is held back, a bound trigger while it is held is the chord and both stay back, another button lets the modifier out first, a lone modifier released under the hold delay is a tap and after it nothing; used by the shell's controls and the game's virtual pad alike |
+| `src/gamepad/chord_gate.*` | The one chord rule (`Chord`, `ChordTriggers`, `ChordGate`): a bound modifier is held back, a bound trigger while it is held is the chord and both stay back, another button lets the modifier out first, a lone modifier released under the hold delay is a tap and after it nothing; a modifier held alone for the hold delay is reported once as a long hold, and its end once (`tick`); used by the shell's controls and the game's virtual pad alike |
 | `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads; whether a reader takes opensu's own virtual pads (`OwnVirtualPads`: the shell skips them, `opensu-retro` reads them) |
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
 | `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while a menu or page is up; keeps bound chords from the game (`setChords`); lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
-| `src/input/shortcuts.*` | The one chord table: every `Action` (pad buttons, Guide, volume, Quit, and the game actions Close game, Save state, Load state, Reset game, Devices, Home) with its default key combos and pad chords (any button may be the held one), the player's overrides (`rebind`, with conflict refusals), labels and settings spellings |
+| `src/input/shortcuts.*` | The one chord table: every `Action` (pad buttons, Guide, volume, Quit, and the game actions Close game, Save state, Load state, Reset game, Devices, Home) with its default key combos and pad chords (any button may be the held one), the player's overrides (`rebind`, with conflict refusals), labels and settings spellings, the chords on one modifier (`chordsOn`), each button's glyph key (`glyphOf`, `buttonOfGlyph`) |
 | `src/input/key_names.*` | The shell's key codes (`input::keys`, GLFW's numbering, letters as ASCII) and their names: `Combo`, modifiers, bindable keys, X11 key names for the in-game watcher |
-| `src/input/pad_chords.*` | Pad chords in the shell's controls: the bound chords as `ChordTriggers` (`chordTriggers`), the hold delay (`holdDelay`, 500 ms), one `ChordGate` per source, and the action each chord plays |
+| `src/input/pad_chords.*` | Pad chords in the shell's controls: the bound chords as `ChordTriggers` (`chordTriggers`), the hold delay (`holdDelay`, 500 ms), one `ChordGate` per source, the action each chord plays, and the modifier long held now (`longHeld`) |
 | `src/input/prompts.hpp` | `Prompts`: the last device and the shortcuts, so key caps in hints follow remaps |
 | `src/input/keyboard_bindings.*` | `KeyFrame` (one frame's key downs, ups, repeats and typed text), `KeySource`, the frame's pressed `Combo`, and typed text; the keys themselves come from `Shortcuts` |
 | `src/input/last_device.*` | Which device (pad, or keyboard and mouse) gave the latest real input; read by the prompt painters |
@@ -261,12 +262,13 @@ Painters and composition (`opensu_ui`):
 | `src/ui/settings_panels.*` | The Settings screen and what opens over it (folder chooser, on-screen keyboard): their state, fades and painters as one object |
 | `src/ui/folder_chooser.*`, `folder_chooser_painter.*` | The console-friendly folder chooser: model and painter |
 | `src/ui/volume_osd.*`, `volume_osd_painter.*` | The volume overlay: model (hold, fade) and painter |
+| `src/ui/chord_hint.*`, `chord_hint_painter.*` | The held modifier's chord list (partner glyph and action per chord, `chordHintRows`), shown while it is long held and faded out after; its centred panel painter |
 | `src/ui/status_pill.*`, `glass.*` | The one status pill painter: clock, battery and the launchers inline, on a glass body |
 | `src/ui/launcher_badges.*` | Launcher logos with status dots, the starting spinner and the download ring, drawn by the status pill painter; the hover light |
 | `src/ui/breadcrumb_painter.*`, `details_page_painter.*` | The breadcrumb pill; the details page (cover, backdrop, title, badge, rows, buttons) |
 | `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size |
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (a starting launcher's ring) |
-| `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included), or the bound key's cap when keyboard and mouse were last used |
+| `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included; LT/RT, d-pad arrows and named caps such as L3 and GUIDE are openSU's), or the bound key's cap when keyboard and mouse were last used |
 | `src/ui/dock_painter.*` | The dock capsule: glass, nav icons, LB/RB badges |
 | `src/ui/mode_chooser_painter.*` | The options panel: the cards after iiSU's chooser, with sketched previews, then the slider and switch rows |
 | `src/ui/search_panel_painter.*`, `context_menu_painter.*` | The search panel with its keyboard and the tile context menu |

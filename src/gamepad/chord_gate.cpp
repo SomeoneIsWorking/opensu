@@ -37,6 +37,25 @@ bool ChordGate::passes(Button button) const {
     return held != modifiers_.end() && held->second.hold == Hold::LetOut;
 }
 
+std::vector<ChordGate::Step> ChordGate::tick(Clock::time_point at) {
+    std::vector<Step> steps;
+    for (auto& [modifier, held] : modifiers_) {
+        if (held.hold == Hold::Pending && !held.longHeld &&
+            at - held.since >= triggers_.holdDelay) {
+            held.longHeld = true;
+            steps.push_back(Step{Step::Kind::LongHold, modifier, true, Chord{}});
+        }
+    }
+    return steps;
+}
+
+void ChordGate::endLongHold(Button modifier, Held& held, std::vector<Step>& steps) {
+    if (held.longHeld) {
+        held.longHeld = false;
+        steps.push_back(Step{Step::Kind::LongHoldEnded, modifier, false, Chord{}});
+    }
+}
+
 std::vector<ChordGate::Step> ChordGate::press(Button button, Clock::time_point at) {
     if (modifiers_.contains(button) || swallowed_.contains(button)) {
         return {};
@@ -46,13 +65,17 @@ std::vector<ChordGate::Step> ChordGate::press(Button button, Clock::time_point a
         if (held.hold != Hold::LetOut && triggers_.chords.contains(chord)) {
             held.hold = Hold::Chorded;
             swallowed_.insert(button);
-            return {Step{Step::Kind::Chord, Button::None, false, chord}};
+            std::vector<Step> steps;
+            endLongHold(modifier, held, steps);
+            steps.push_back(Step{Step::Kind::Chord, Button::None, false, chord});
+            return steps;
         }
     }
     std::vector<Step> steps;
     for (auto& [modifier, held] : modifiers_) {
         if (held.hold == Hold::Pending) {
             held.hold = Hold::LetOut;
+            endLongHold(modifier, held, steps);
             steps.push_back(edge(modifier, true));
         }
     }
@@ -72,20 +95,23 @@ std::vector<ChordGate::Step> ChordGate::release(Button button, Clock::time_point
     if (found == modifiers_.end()) {
         return {edge(button, false)};
     }
-    const Held held = found->second;
+    Held held = found->second;
     modifiers_.erase(found);
+    std::vector<Step> steps;
     switch (held.hold) {
     case Hold::Pending:
         if (at - held.since < triggers_.holdDelay) {
             return {edge(button, true), edge(button, false)};
         }
-        return {};
+        endLongHold(button, held, steps);
+        break;
     case Hold::Chorded:
-        return {};
+        break;
     case Hold::LetOut:
+        steps.push_back(edge(button, false));
         break;
     }
-    return {edge(button, false)};
+    return steps;
 }
 
 } // namespace opensu::gamepad

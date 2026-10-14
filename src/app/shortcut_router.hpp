@@ -5,6 +5,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -55,6 +56,10 @@ class ShortcutRouter {
     [[nodiscard]] std::vector<gamepad::Event>
     fromPad(const std::vector<gamepad::Event>& events,
             input::PadChords::Clock::time_point at = input::PadChords::Clock::now());
+    /// The pad modifier held alone for the hold delay as of `at`, whose chords the shell lists.
+    [[nodiscard]] std::optional<gamepad::Button> longHeld(input::PadChords::Clock::time_point at) {
+        return chords_.longHeld(at);
+    }
     /// Does what the game-time watcher heard.
     [[nodiscard]] std::vector<gamepad::Event> fromGame(session::GameKeys& keys);
 

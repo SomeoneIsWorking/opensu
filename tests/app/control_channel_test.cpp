@@ -1,6 +1,7 @@
 // The control channel's routing, with a fake shell and a fake sign-in.
 #include "control_channel.hpp"
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -38,9 +39,10 @@ class FakeShell final : public ControlTarget {
     void typeText(std::string text) override {
         typed.push_back(std::move(text));
     }
-    void inject(const std::vector<opensu::gamepad::Button>& buttons,
-                opensu::input::Device device) override {
+    void inject(const std::vector<opensu::gamepad::Button>& buttons, opensu::input::Device device,
+                std::chrono::milliseconds hold) override {
         held.push_back(buttons);
+        holds.push_back(hold);
         pressed.insert(pressed.end(), buttons.begin(), buttons.end());
         devices.push_back(device);
     }
@@ -62,6 +64,7 @@ class FakeShell final : public ControlTarget {
     std::vector<opensu::gamepad::Button> pressed;
     std::vector<std::vector<opensu::gamepad::Button>> held;
     std::vector<opensu::input::Device> devices;
+    std::vector<std::chrono::milliseconds> holds;
     ShellSnapshot state;
 };
 
@@ -267,20 +270,36 @@ void testKeysAndVolumeState() {
     expect(channel.handle(post("/input", "guide+nothing")).status == 400 &&
                channel.handle(post("/input", "guide+")).status == 400,
            "a chord with an unknown button is refused");
+    expect(shell.holds.back() == std::chrono::milliseconds{0}, "a press is a tap by default");
+    expect(channel.handle(post("/input", "guide 1500ms")).status == 200 &&
+               shell.holds.back() == std::chrono::milliseconds{1500},
+           "a hold in milliseconds keeps the button down that long");
+    expect(channel.handle(post("/input", "a 200ms keyboard")).status == 200 &&
+               shell.holds.back() == std::chrono::milliseconds{200} &&
+               shell.devices.back() == opensu::input::Device::KeyboardMouse,
+           "a hold and the keyboard together");
+    const std::size_t injected = shell.held.size();
+    expect(channel.handle(post("/input", "guide 10001ms")).status == 400 &&
+               channel.handle(post("/input", "guide 5s")).status == 400 &&
+               channel.handle(post("/input", "guide ms")).status == 400 &&
+               shell.held.size() == injected,
+           "a hold past the longest, or in another unit, is refused and injects nothing");
 
     shell.state.volumePercent = 45;
     shell.state.volumeMuted = true;
     shell.state.volumeShown = true;
     shell.state.uiScale = 125;
     shell.state.capturingShortcut = true;
+    shell.state.chordHint = "guide";
     const Response state =
         channel.handle(Request{.method = "GET", .target = "/state", .headers = {}, .body = {}});
     expect(contains(state.body, "\"volumePercent\":45") &&
                contains(state.body, "\"volumeMuted\":true") &&
                contains(state.body, "\"volumeShown\":true") &&
                contains(state.body, "\"uiScale\":125") &&
-               contains(state.body, "\"capturingShortcut\":true"),
-           "the state reports the volume, the scale and the shortcut capture");
+               contains(state.body, "\"capturingShortcut\":true") &&
+               contains(state.body, "\"chordHint\":\"guide\""),
+           "the state reports the volume, the scale, the shortcut capture and the chord list");
 }
 
 } // namespace

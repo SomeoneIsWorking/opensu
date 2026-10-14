@@ -17,6 +17,11 @@ VOLUME_SETTLE_SECONDS = 0.4
 # Bounds a walk through tiles or Settings categories, so a missing target fails instead of looping.
 LONGEST_WALK = 12
 SEARCH_TEXT = "Super"
+# Guide is held this long: past the 500 ms hold delay (input/pad_chords.hpp), the list's 110 ms
+# fade-in and the frame's capture.
+CHORD_HOLD = "3000ms"
+# The chord list's fade-in is 110 ms (ui/chord_hint.hpp); the frame must come well inside the hold.
+CHORD_SETTLE_SECONDS = 0.4
 
 
 @dataclass(frozen=True)
@@ -170,6 +175,16 @@ def _volume_gone(shell: HiddenShell) -> None:
     shell.wait_for("volumeShown", False)
 
 
+def _chord_hint(shell: HiddenShell) -> None:
+    shell.post("/input", f"guide {CHORD_HOLD}")
+    shell.wait_for("chordHint", "guide")
+
+
+def _chord_hint_gone(shell: HiddenShell) -> None:
+    shell.wait_for("chordHint", "")
+    shell.wait_for("guideMenuOpen", False)
+
+
 SCENES: tuple[Scene, ...] = (
     Scene("home", "Home: installed games from every store", _nothing, _nothing, readme=True),
     Scene(
@@ -198,6 +213,13 @@ SCENES: tuple[Scene, ...] = (
     Scene("options-panel", "Library's options panel", _options_panel, _close_options_panel),
     Scene("search", "Search with results", _search, _close_search),
     Scene("volume", "The volume display", _volume, _volume_gone, settle=VOLUME_SETTLE_SECONDS),
+    Scene(
+        "chord-hint",
+        "Guide held: its chords",
+        _chord_hint,
+        _chord_hint_gone,
+        settle=CHORD_SETTLE_SECONDS,
+    ),
 )
 
 README_SCENES: tuple[Scene, ...] = tuple(scene for scene in SCENES if scene.readme)

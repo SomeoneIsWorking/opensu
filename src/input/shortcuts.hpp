@@ -82,6 +82,14 @@ using PadChord = gamepad::Chord;
 /// `L2 + Up`: a name for the chord.
 [[nodiscard]] std::string describe(const PadChord& chord);
 
+/// An action and the pad chord that plays it.
+struct ChordBinding {
+    Action action;
+    PadChord chord;
+
+    bool operator==(const ChordBinding&) const = default;
+};
+
 /// One key binding.
 struct KeyBinding {
     Action action;
@@ -118,6 +126,8 @@ class Shortcuts {
     [[nodiscard]] std::optional<Combo> primary(Action action) const;
     /// The pad chord of the action, or nothing for none.
     [[nodiscard]] std::optional<PadChord> padChord(Action action) const;
+    /// Every chord held on `modifier`, in action order.
+    [[nodiscard]] std::vector<ChordBinding> chordsOn(gamepad::Button modifier) const;
 
     /// The action a combination performs, or nothing.
     [[nodiscard]] std::optional<Action> actionFor(const Combo& combo) const;
@@ -151,7 +161,10 @@ class Shortcuts {
     std::map<Action, PadChord> pads_;
 };
 
-/// The button of a glyph key: "A", "B", "X", "Y", "-", "+", "LB", "RB".
-[[nodiscard]] gamepad::Button buttonOfGlyph(std::string_view glyph) noexcept;
+/// The glyph key `ui::ButtonGlyphPainter` draws for a button: "A", "-" for Select, "+" for Start,
+/// "LB", "LT", "UP", and the button's prompt for the rest.
+[[nodiscard]] std::string_view glyphOf(gamepad::Button button);
+/// The button of a glyph key, or `None`.
+[[nodiscard]] gamepad::Button buttonOfGlyph(std::string_view glyph);
 
 } // namespace opensu::input

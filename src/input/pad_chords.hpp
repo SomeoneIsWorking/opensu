@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -40,8 +41,21 @@ class PadChords {
     /// `events`, all heard at `at`.
     [[nodiscard]] Result feed(const std::vector<gamepad::Event>& events, Clock::time_point at);
 
+    /// The modifier held alone for the hold delay as of `at`, until it is released, plays a chord
+    /// or is let out.
+    [[nodiscard]] std::optional<gamepad::Button> longHeld(Clock::time_point at);
+
   private:
+    struct LongHold {
+        std::string source;
+        gamepad::Button modifier;
+    };
+
+    /// Follows a gate's long-hold steps; false for any other step.
+    bool noteLongHold(const std::string& source, const gamepad::ChordGate::Step& step);
+
     const Shortcuts* shortcuts_;
+    std::optional<LongHold> longHold_;
     /// One gate per `Event::source`.
     std::map<std::string, gamepad::ChordGate> gates_;
 };

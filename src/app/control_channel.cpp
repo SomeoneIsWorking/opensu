@@ -5,8 +5,12 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <charconv>
+#include <chrono>
 #include <cstdio>
 #include <fstream>
+#include <optional>
+#include <string>
 #include <string_view>
 
 #include "lucent/log.h"
@@ -76,6 +80,22 @@ std::string_view trimmed(std::string_view text) {
     return text;
 }
 
+/// `1500ms` as a hold of at most `longestHold`, or nothing for another word.
+std::optional<std::chrono::milliseconds> holdNamed(std::string_view word) {
+    constexpr std::string_view unit = "ms";
+    if (!word.ends_with(unit)) {
+        return std::nullopt;
+    }
+    const std::string_view digits = word.substr(0, word.size() - unit.size());
+    long long count = 0;
+    const auto [end, error] = std::from_chars(digits.data(), digits.data() + digits.size(), count);
+    if (digits.empty() || error != std::errc{} || end != digits.data() + digits.size() ||
+        std::chrono::milliseconds{count} > longestHold) {
+        return std::nullopt;
+    }
+    return std::chrono::milliseconds{count};
+}
+
 /// Whether `text` can be a store's authorization code: a short token of letters, digits and
 /// `-_.~`, so it can never be taken for an option when it is handed to another program.
 bool isAuthorizationCode(std::string_view text) {
@@ -125,6 +145,7 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     number("volumePercent", snapshot.volumePercent);
     flag("volumeMuted", snapshot.volumeMuted);
     flag("volumeShown", snapshot.volumeShown);
+    text("chordHint", snapshot.chordHint);
     number("uiScale", snapshot.uiScale);
     number("iconSize", snapshot.iconSize);
     text("breadcrumb", snapshot.breadcrumb);
@@ -197,15 +218,26 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         }
         // The body is the button name, so a caller can drive the shell with
         // `curl -d left`, with no JSON to parse on either side.
-        std::string_view name = trimmed(request.body);
-        // An optional second word says the press came from the keyboard: `a keyboard`.
+        const std::string_view body = trimmed(request.body);
+        const std::size_t space = body.find_first_of(" \t");
+        const std::string_view name = body.substr(0, space);
+        // Optional words after it: `keyboard` says the press came from the keyboard, and `800ms`
+        // holds the buttons that long before they are released.
         input::Device device = input::Device::Pad;
-        if (const std::size_t space = name.find_first_of(" \t"); space != std::string_view::npos) {
-            if (trimmed(name.substr(space)) != "keyboard") {
-                return refuse("the only word after a button is \"keyboard\"");
+        std::chrono::milliseconds hold{0};
+        std::string_view rest = trimmed(body.substr(std::min(space, body.size())));
+        while (!rest.empty()) {
+            const std::size_t end = std::min(rest.find_first_of(" \t"), rest.size());
+            const std::string_view word = rest.substr(0, end);
+            if (word == "keyboard") {
+                device = input::Device::KeyboardMouse;
+            } else if (const std::optional<std::chrono::milliseconds> held = holdNamed(word)) {
+                hold = *held;
+            } else {
+                return refuse("the words after a button are \"keyboard\" and a hold up to " +
+                              std::to_string(longestHold.count()) + "ms");
             }
-            device = input::Device::KeyboardMouse;
-            name = name.substr(0, space);
+            rest = trimmed(rest.substr(end));
         }
         if (name.empty()) {
             return refuse("body must name a button: up down left right a b x y l1 r1 select start "
@@ -223,7 +255,7 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
             buttons.push_back(button);
             from = plus == std::string_view::npos ? plus : plus + 1;
         }
-        target_.inject(buttons, device);
+        target_.inject(buttons, device, hold);
         lucent::info("control", "injected {}", name);
         return lucent::http::Response::json(200, "OK", "{\"injected\":" + jsonString(name) + "}");
     }
