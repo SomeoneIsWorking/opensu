@@ -14,10 +14,11 @@ Requested: "downloads menu showing active downloads and progess".
 ## Behaviour
 
 - One page lists every download openSU knows of: Steam's queue (its own auto-updates included),
-  the store install openSU runs (Epic, GOG, Steam's install wizard) and the emulator or core
-  download. Each row shows the title, the source, the state (Queued, Downloading, Paused,
-  Installing, Finished, Failed, Cancelled), the figures the owner gives (percent; bytes and rate
-  for Steam and emulators; time left for Steam), a progress bar while measured, and its buttons.
+  the store install or uninstall openSU runs (Epic, GOG, Steam's install wizard; uninstalls in
+  `uninstall-games.md`) and the emulator or core download. Each row shows the title, the source,
+  the state (Queued, Downloading, Paused, Installing, Finished, Failed, Cancelled, Uninstalling,
+  Uninstalled), the figures the owner gives (percent; bytes and rate for Steam and emulators; time
+  left for Steam), a progress bar while measured, and its buttons. An uninstall has none.
 - Order: downloading and installing, then paused, then queued in Steam's order, then the ended
   ones, latest first. "No downloads" when empty.
 - Buttons, by owner:

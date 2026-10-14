@@ -37,7 +37,7 @@ GogInstallJob::~GogInstallJob() {
 }
 
 fs::path GogInstallJob::gameRoot(const std::string& gameId) const {
-    return (folder_ ? *folder_ : paths_.games) / gameId;
+    return paths_.gameRoot(folder_, gameId);
 }
 
 std::vector<std::string> GogInstallJob::arguments(const std::string& gameId) {

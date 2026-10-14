@@ -1,6 +1,6 @@
-// install_job — one game downloading, off the main loop: the thread, the latest report the loop
+// install_job — one store job on a game, off the main loop: the thread, the latest report the loop
 // takes, the state anyone may read, the licence answer a store may wait for, and the player's
-// cancel. A store's installer is a subclass that supplies run().
+// cancel. A store's installer, and the uninstaller, are subclasses that supply run().
 #pragma once
 
 #include <condition_variable>
@@ -23,17 +23,18 @@ class InstallJob {
         std::optional<double> fraction;
         /// A licence agreement waits on the player; answer with decide().
         bool licence{false};
-        /// The job is over: installed, or `failure` says why not, or the player cancelled it.
+        /// The job is over: done, or `failure` says why not, or the player cancelled it.
         bool finished{false};
         std::string failure;
         bool cancelled{false};
     };
 
-    enum class Phase : std::uint8_t { Running, Licence, Installed, Failed, Cancelled };
+    /// `Done` is the job's success: the game installed, or uninstalled.
+    enum class Phase : std::uint8_t { Running, Licence, Done, Failed, Cancelled };
 
     /// Where the job stands, kept after it ends until the next start.
     struct Status {
-        /// Counts starts, so each install is told apart.
+        /// Counts starts, so each job is told apart.
         std::uint64_t serial{0};
         std::string appId{};
         std::string title{};
@@ -47,7 +48,7 @@ class InstallJob {
     InstallJob(const InstallJob&) = delete;
     InstallJob& operator=(const InstallJob&) = delete;
 
-    /// Starts installing the store's `appId`, called `title`. False while another install runs.
+    /// Starts the job on the store's `appId`, called `title`. False while it runs.
     bool start(std::string appId, std::string title);
 
     /// True from start() until the job's last report has been taken.
@@ -60,7 +61,7 @@ class InstallJob {
     /// The job's state now, without taking a report; nothing before the first start.
     [[nodiscard]] std::optional<Status> status() const;
 
-    /// Stops the running install; it ends with a cancelled report. Nothing while idle.
+    /// Stops the running job; it ends with a cancelled report. Nothing while idle.
     void cancel();
 
     /// The player's answer to the licence agreement a report asked about.
@@ -74,8 +75,7 @@ class InstallJob {
     /// is gone before the subclass's members are.
     void halt();
 
-    /// The install, on the job's thread; it ends by posting a finished report unless `stop` was
-    /// requested.
+    /// The job, on its thread; it ends by posting a finished report unless `stop` was requested.
     virtual void run(const std::stop_token& stop, const std::string& appId) = 0;
 
     void post(Report report);

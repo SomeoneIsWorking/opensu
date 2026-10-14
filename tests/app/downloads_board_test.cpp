@@ -201,10 +201,41 @@ void testInstallStates() {
     expect(keys(shown) == std::vector<std::string>{"epic:Fortnite", "gog:1207"},
            "the latest ending comes first");
 
-    shown.update({.install = install(Source::Epic, "Fortnite", Phase::Installed, 3)});
+    shown.update({.install = install(Source::Epic, "Fortnite", Phase::Done, 3)});
     expect(shown.find("epic:Fortnite")->state == DownloadState::Finished &&
                shown.find("epic:Fortnite")->fraction == 1.0,
            "the same game installed again is listed once, finished");
+}
+
+void testUninstallStates() {
+    DownloadsBoard shown = board();
+    Installs::Status removing = install(Source::Gog, "1207", Phase::Running, 4);
+    removing.work = Installs::Work::Uninstall;
+    removing.job.line = "Removing its files";
+    shown.update({.install = removing});
+    const DownloadRow* row = shown.find("gog:1207");
+    expect(row != nullptr && row->state == DownloadState::Uninstalling && !row->fraction &&
+               row->detail == "Removing its files",
+           "a running uninstall is listed as uninstalling");
+    expect(actionsFor(*row).empty(), "an uninstall has no Cancel");
+
+    removing.job.phase = Phase::Done;
+    shown.update({.install = removing});
+    row = shown.find("gog:1207");
+    expect(row->state == DownloadState::Uninstalled && !row->fraction && ended(row->state) &&
+               actionsFor(*row).empty(),
+           "a done uninstall ends uninstalled, with no bar and no buttons");
+    expect(spelling(DownloadState::Uninstalling) == "uninstalling" &&
+               spelling(DownloadState::Uninstalled) == "uninstalled",
+           "both states have a spelling for the control channel");
+
+    removing.job.phase = Phase::Failed;
+    removing.job.failure = "cannot delete it";
+    removing.job.serial = 5;
+    shown.update({.install = removing});
+    expect(shown.find("gog:1207")->state == DownloadState::Failed &&
+               shown.find("gog:1207")->detail == "cannot delete it",
+           "a failed uninstall says why");
 }
 
 void testSteamInstallJoinsItsQueueRow() {
@@ -215,12 +246,12 @@ void testSteamInstallJoinsItsQueueRow() {
            "Steam's installer before its download is queued is cancelled through openSU");
     shown.update({.steamReady = true,
                   .steam = {Download{.appId = "480", .active = true, .queueIndex = 0}},
-                  .install = install(Source::Steam, "480", Phase::Installed)});
+                  .install = install(Source::Steam, "480", Phase::Done)});
     expect(shown.rows().size() == 1 &&
                shown.find("steam:480")->state == DownloadState::Downloading &&
                shown.find("steam:480")->inSteamQueue,
            "once Steam queues it the install and the download are one row");
-    shown.update({.steamReady = true, .install = install(Source::Steam, "480", Phase::Installed)});
+    shown.update({.steamReady = true, .install = install(Source::Steam, "480", Phase::Done)});
     expect(shown.find("steam:480")->state == DownloadState::Finished,
            "the row finishes when Steam's queue lets it go");
 }
@@ -302,6 +333,7 @@ int main() {
     testSteamStates();
     testSteamActions();
     testInstallStates();
+    testUninstallStates();
     testSteamInstallJoinsItsQueueRow();
     testSteamUnreadable();
     testRemoved();

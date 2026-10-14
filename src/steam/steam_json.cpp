@@ -1,5 +1,7 @@
 #include "steam_json.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <string>
 
@@ -20,6 +22,12 @@ std::uint64_t uint64Of(const nlohmann::json& object, const char* key) {
         return std::strtoull(found->get<std::string>().c_str(), nullptr, 10);
     }
     return 0;
+}
+
+bool isAppId(std::string_view text) noexcept {
+    return !text.empty() && std::ranges::all_of(text, [](char c) {
+        return std::isdigit(static_cast<unsigned char>(c)) != 0;
+    });
 }
 
 } // namespace opensu::steam

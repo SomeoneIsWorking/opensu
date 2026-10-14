@@ -1,5 +1,5 @@
-// The DevTools link, the download queue and the installer, against a fake Steam that serves
-// the DevTools page list and answers Runtime.evaluate like the SharedJSContext.
+// The DevTools link, the download queue, the installer and the uninstaller, against a fake Steam
+// that serves the DevTools page list and answers Runtime.evaluate like the SharedJSContext.
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -26,6 +26,7 @@
 #include "libraries.hpp"
 #include "lucent/http_client.h"
 #include "support/fake_steam.hpp"
+#include "uninstaller.hpp"
 
 namespace {
 
@@ -175,6 +176,34 @@ void testDownloadControlReportsAGoneSteam() {
     opensu::steam::DownloadControl control{devTools};
     expect(contains(control.pause(), "Steam would not pause downloads"),
            "a call Steam does not take says so");
+}
+
+void testUninstallCallsWhatSteamsLibraryCalls() {
+    FakeSteam steam{[](const std::string&) {
+        return json{};
+    }};
+    DevTools devTools{steam.port()};
+    opensu::steam::Uninstaller uninstaller{devTools};
+    expect(uninstaller.uninstall("292030").empty() &&
+               steam.calls() ==
+                   std::vector<std::string>{
+                       "SteamClient.Installs.OpenUninstallWizard([292030], true)"},
+           "an uninstall opens Steam's own uninstaller for the app");
+    expect(!uninstaller.uninstall("480]); Steam.Quit([").empty() &&
+               !uninstaller.uninstall("").empty() && steam.calls().size() == 1,
+           "what is not an app id is refused without asking Steam");
+
+    std::uint16_t port = 0;
+    {
+        const FakeSteam gone{[](const std::string&) {
+            return json{};
+        }};
+        port = gone.port();
+    }
+    DevTools goneTools{port};
+    opensu::steam::Uninstaller unreachable{goneTools};
+    expect(contains(unreachable.uninstall("480"), "Steam would not uninstall it"),
+           "an uninstall Steam does not take says so");
 }
 
 void testQueueReadsThroughDevTools() {
@@ -488,6 +517,7 @@ int main() {
         testDownloadsParseQueueAndBytes();
         testDownloadControlCallsWhatSteamsPageCalls();
         testDownloadControlReportsAGoneSteam();
+        testUninstallCallsWhatSteamsLibraryCalls();
         testQueueReadsThroughDevTools();
         testLaunchActivityParse();
         testLaunchActivityReadsThroughDevTools();

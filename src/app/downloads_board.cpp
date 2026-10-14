@@ -51,6 +51,7 @@ int group(DownloadState state) {
     switch (state) {
     case DownloadState::Downloading:
     case DownloadState::Installing:
+    case DownloadState::Uninstalling:
         return 0;
     case DownloadState::Paused:
         return 1;
@@ -59,6 +60,7 @@ int group(DownloadState state) {
     case DownloadState::Finished:
     case DownloadState::Failed:
     case DownloadState::Cancelled:
+    case DownloadState::Uninstalled:
         break;
     }
     return 3;
@@ -68,11 +70,12 @@ int group(DownloadState state) {
 
 bool ended(DownloadState state) noexcept {
     return state == DownloadState::Finished || state == DownloadState::Failed ||
-           state == DownloadState::Cancelled;
+           state == DownloadState::Cancelled || state == DownloadState::Uninstalled;
 }
 
 std::vector<DownloadAction> actionsFor(const DownloadRow& row) {
-    if (ended(row.state)) {
+    // An uninstall stopped half way leaves half a game, so it has no Cancel.
+    if (ended(row.state) || row.state == DownloadState::Uninstalling) {
         return {};
     }
     if (row.store != library::Source::Steam || !row.inSteamQueue) {
@@ -103,6 +106,8 @@ std::vector<DownloadAction> actionsFor(const DownloadRow& row) {
     case DownloadState::Finished:
     case DownloadState::Failed:
     case DownloadState::Cancelled:
+    case DownloadState::Uninstalling:
+    case DownloadState::Uninstalled:
         break;
     }
     return {};
@@ -144,6 +149,10 @@ std::string_view label(DownloadState state) noexcept {
         return "Failed";
     case DownloadState::Cancelled:
         return "Cancelled";
+    case DownloadState::Uninstalling:
+        return "Uninstalling";
+    case DownloadState::Uninstalled:
+        return "Uninstalled";
     }
     return "";
 }
@@ -164,6 +173,10 @@ std::string_view spelling(DownloadState state) noexcept {
         return "failed";
     case DownloadState::Cancelled:
         return "cancelled";
+    case DownloadState::Uninstalling:
+        return "uninstalling";
+    case DownloadState::Uninstalled:
+        return "uninstalled";
     }
     return "";
 }
@@ -204,6 +217,7 @@ void DownloadsBoard::update(const Sources& sources) {
 
 void DownloadsBoard::applyInstall(const Installs::Status& install, std::set<std::string>& live) {
     const InstallJob::Status& job = install.job;
+    const bool removing = install.work == Installs::Work::Uninstall;
     const std::string key = keyOf(install.store, job.appId);
     const bool running = job.phase == Phase::Running || job.phase == Phase::Licence;
     if (!running) {
@@ -225,13 +239,18 @@ void DownloadsBoard::applyInstall(const Installs::Status& install, std::set<std:
     switch (job.phase) {
     case Phase::Running:
     case Phase::Licence:
-        row.state = job.fraction ? DownloadState::Downloading : DownloadState::Queued;
+        if (removing) {
+            row.state = DownloadState::Uninstalling;
+            row.fraction.reset();
+        } else {
+            row.state = job.fraction ? DownloadState::Downloading : DownloadState::Queued;
+        }
         at.live = true;
         live.insert(key);
         return;
-    case Phase::Installed:
-        row.state = DownloadState::Finished;
-        row.fraction = 1.0;
+    case Phase::Done:
+        row.state = removing ? DownloadState::Uninstalled : DownloadState::Finished;
+        row.fraction = removing ? std::nullopt : std::optional{1.0};
         break;
     case Phase::Failed:
         row.state = DownloadState::Failed;

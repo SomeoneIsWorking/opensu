@@ -1,6 +1,8 @@
-// The details page: what it says about a game, its buttons, its geometry and its focus.
+// The details page: what it says about a game, its buttons, its geometry, its focus and the armed
+// Uninstall.
 #include "details_page.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 
@@ -68,10 +70,12 @@ void storeGame() {
     expect(valueOf(view, "Last played") == "3 hours ago", "last played");
     expect(valueOf(view, "Play time") == "2 h 5 min", "play time");
     expect(valueOf(view, "Emulator").empty(), "a store game has no emulator row");
-    expect(view.buttons.size() == 3 && view.buttons[0].label == "Play" &&
+    expect(view.buttons.size() == 4 && view.buttons[0].label == "Play" &&
                view.buttons[1].label == "Hide game" &&
-               view.buttons[2].action == DetailsAction::Back,
-           "Play, Hide, Back");
+               view.buttons[2].action == DetailsAction::Uninstall &&
+               view.buttons[2].label == "Uninstall" &&
+               view.buttons[3].action == DetailsAction::Back,
+           "Play, Hide, Uninstall, Back");
 }
 
 void states() {
@@ -81,6 +85,8 @@ void states() {
     expect(view.buttons[0].label == "Install", "a game that is not installed offers Install");
     expect(valueOf(view, "Status") == "Not installed, hidden", "hidden shows");
     expect(view.buttons[1].label == "Show game", "a hidden game offers to be shown");
+    expect(view.buttons.size() == 3 && view.buttons[2].action == DetailsAction::Back,
+           "a game that is not installed has nothing to uninstall");
 }
 
 void romEmulator() {
@@ -115,6 +121,44 @@ void layout() {
     expect(!page.buttonAt(page.art.centreX(), page.art.centreY()), "the cover is no button");
 }
 
+void uninstallTakesASecondPress() {
+    expect(std::ranges::none_of(detailsFor(kirby(true), false, now).buttons,
+                                [](const DetailsButton& button) {
+                                    return button.action == DetailsAction::Uninstall;
+                                }),
+           "a ROM is never uninstalled");
+    DetailsPage page;
+    page.open(detailsFor(hades(), false, now));
+    page.move(2);
+    expect(page.selected() == DetailsAction::Uninstall && !page.armed() &&
+               page.shown(2) == "Uninstall" && page.rows().size() == page.view().rows.size(),
+           "Uninstall reads as itself until pressed");
+    page.arm("Steam uninstalls the Steam copy");
+    expect(page.armed() && page.shown(2) == "Press A again to uninstall" && page.shown(0) == "Play",
+           "armed, the button asks for the second press");
+    expect(page.rows().front() == DetailsRow{"Uninstall", "Steam uninstalls the Steam copy"} &&
+               page.rows().size() == page.view().rows.size() + 1,
+           "and the page says first what it removes");
+    page.refresh(detailsFor(hades(), true, now));
+    expect(page.armed(), "a refresh that keeps the button focused keeps it armed");
+    expect(page.move(-1) && !page.armed() && page.shown(2) == "Uninstall",
+           "moving focus lets go of it");
+    page.move(1);
+    page.arm("x");
+    expect(page.focusButton(3) && !page.armed(), "a pointer moving focus lets go too");
+    page.focusButton(2);
+    page.arm("x");
+    Game gone = hades();
+    gone.installed = false;
+    page.refresh(detailsFor(gone, false, now));
+    expect(!page.armed() && page.selected() != DetailsAction::Uninstall,
+           "the button going away lets go of it");
+    page.arm("x");
+    page.close();
+    page.open(detailsFor(hades(), false, now));
+    expect(!page.armed(), "closing lets go");
+}
+
 void focus() {
     DetailsPage page;
     page.open(detailsFor(kirby(true), false, now));
@@ -138,6 +182,7 @@ int main() {
     storeGame();
     states();
     romEmulator();
+    uninstallTakesASecondPress();
     layout();
     focus();
     std::puts("details_page: ok");

@@ -67,6 +67,7 @@
 #include "steam_library_settings.hpp"
 #include "top_bar_clock.hpp"
 #include "ui/shell.hpp"
+#include "uninstall_prompt.hpp"
 #include "volume_control.hpp"
 
 namespace opensu::app {
@@ -276,8 +277,19 @@ class ShellApp final : private PointerHost {
                                                      [this](std::size_t index) {
                                                          openTile(index);
                                                      }}};
+    /// The two presses of Uninstall on the details page and the tile menu.
+    UninstallPrompt uninstallPrompt_{
+        UninstallPrompt::Hooks{[this](const library::Game& game) {
+                                   return panels_.installs().removal(game);
+                               },
+                               [this](const library::Game& game) {
+                                   return panels_.installs().uninstall(game);
+                               },
+                               [this](const std::string& text, bool isError) {
+                                   shell_.setToast(text, isError);
+                               }}};
     ContextMenuController contextMenu_{
-        shell_.contextMenu(), sounds_, preferences_,
+        shell_.contextMenu(), sounds_, preferences_, uninstallPrompt_,
         ContextMenuController::Hooks{[this] {
                                          return shell_.focusedItem();
                                      },
@@ -327,7 +339,11 @@ class ShellApp final : private PointerHost {
                                     reloadCatalog();
                                 }}};
     DetailsController details_{
-        shell_.detailsPage(), sounds_, preferences_, emulatorDownloads_,
+        shell_.detailsPage(),
+        sounds_,
+        preferences_,
+        emulatorDownloads_,
+        uninstallPrompt_,
         DetailsController::Hooks{[this] {
                                      return shell_.focusedGame();
                                  },
@@ -501,7 +517,7 @@ class ShellApp final : private PointerHost {
         shell_.guidePanels().guide(), *host_.power, *host_.session, sounds_,
         GuideMenuController::Hooks{[this] {
                                        return ui::GuideContext{
-                                           shell_.inGame(), runningTitle_, settings_.loginSession,
+                                           shell_.inGame(), running_.title, settings_.loginSession,
                                            !settings_.loginSession && host_.session->installed()};
                                    },
                                    [this](library::Section section) {
@@ -592,8 +608,8 @@ class ShellApp final : private PointerHost {
     /// Inside Gamescope, tells the handoff when a game shows a window. Null elsewhere.
     std::unique_ptr<session::GamescopeWindows> gameWindows_;
     launch::Handoff handoff_;
-    /// The running launch's title, for the Guide menu. Main loop only.
-    std::string runningTitle_;
+    /// The game launched last, for the Guide menu and the uninstall refusal. Main loop only.
+    library::Game running_;
     /// What the launch panel is up for, and the one install that runs. After steam_, so the
     /// install is stopped before the client it drives. Main loop only.
     PanelFlow panels_{shell_, sounds_, steam_, environment_.dataDir,
@@ -606,6 +622,10 @@ class ShellApp final : private PointerHost {
                                        [this](library::Source store) {
                                            return preferences_.values().installFolders.effective(
                                                store);
+                                       },
+                                       [this](const library::Game& game) {
+                                           const std::lock_guard lock{launchMutex_};
+                                           return launchRunning_ && running_.id == game.id;
                                        }}};
     /// The Downloads page: Steam's queue, the store install and the emulator download. After the
     /// sources it reads.

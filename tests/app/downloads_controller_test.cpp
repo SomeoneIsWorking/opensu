@@ -126,6 +126,9 @@ sleep 60
                            app::GogInstallJob::Options{.dataDir = root / "data"},
                            [](library::Source) {
                                return std::optional<fs::path>{};
+                           },
+                           [](const library::Game&) {
+                               return false;
                            }};
     std::vector<std::pair<std::string, bool>> said;
     app::EmulatorDownloads emulators{
@@ -363,6 +366,16 @@ void figures() {
     row.kind = app::DownloadKind::Core;
     row.store.reset();
     expect(app::entryOf(row).source == "Core", "a core is its own source");
+
+    const DownloadRow removing{.key = "gog:2",
+                               .store = library::Source::Gog,
+                               .title = "Gwent",
+                               .state = DownloadState::Uninstalling,
+                               .detail = "legendary is removing it"};
+    const ui::DownloadsEntry entry = app::entryOf(removing);
+    expect(entry.state == "Uninstalling" && entry.figures == "legendary is removing it" &&
+               !entry.ended && !entry.fraction && entry.actions.empty(),
+           "an uninstall reads as uninstalling, with no bar and no buttons");
 }
 
 } // namespace

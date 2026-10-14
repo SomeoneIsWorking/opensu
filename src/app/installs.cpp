@@ -8,10 +8,10 @@
 
 namespace opensu::app {
 
-Installs::Installs(steam::Client& steam, std::string legendary, GogInstallJob::Options gog,
-                   Folders folders)
-    : steam_{steam}, epic_{std::move(legendary)}, gog_{std::move(gog)},
-      folders_{std::move(folders)} {
+Installs::Installs(steam::Client& steam, const std::string& legendary,
+                   const GogInstallJob::Options& gog, Folders folders, Playing playing)
+    : steam_{steam}, epic_{legendary}, gog_{gog}, uninstall_{steam, legendary, gog.dataDir},
+      folders_{std::move(folders)}, playing_{std::move(playing)} {
 }
 
 bool Installs::supports(library::Source source) noexcept {
@@ -65,12 +65,54 @@ bool Installs::start(const library::Game& game) {
     return true;
 }
 
+std::string Installs::busy() {
+    if (!running()) {
+        return {};
+    }
+    return title_ + (last_ == &uninstall_ ? " is still uninstalling" : " is still installing");
+}
+
+Removal Installs::removal(const library::Game& game) {
+    if (!supports(game.source)) {
+        return Removal{.refusal = "openSU never deletes ROMs"};
+    }
+    if (!game.installed) {
+        return Removal{.refusal = game.title + " is not installed"};
+    }
+    if (playing_(game)) {
+        return Removal{.refusal = game.title + " is running"};
+    }
+    if (std::string refused = busy(); !refused.empty()) {
+        return Removal{.refusal = std::move(refused)};
+    }
+    return uninstall_.removal(game, folders_(game.source));
+}
+
+std::string Installs::uninstall(const library::Game& game) {
+    if (std::string refused = removal(game).refusal; !refused.empty()) {
+        return refused;
+    }
+    uninstall_.setStore(game.source, folders_(game.source));
+    if (!uninstall_.start(game.sourceId, game.title)) {
+        return title_ + " is still uninstalling";
+    }
+    title_ = game.title;
+    last_ = &uninstall_;
+    lastStore_ = game.source;
+    return {};
+}
+
 std::optional<Installs::Status> Installs::status() const {
     if (last_ == nullptr) {
         return std::nullopt;
     }
     std::optional<InstallJob::Status> job = last_->status();
-    return job ? std::optional{Status{lastStore_, std::move(*job)}} : std::nullopt;
+    if (!job) {
+        return std::nullopt;
+    }
+    return Status{.store = lastStore_,
+                  .work = last_ == &uninstall_ ? Work::Uninstall : Work::Install,
+                  .job = std::move(*job)};
 }
 
 void Installs::cancel() {
@@ -86,7 +128,10 @@ InstallJob* Installs::current() {
     if (epic_.running()) {
         return &epic_;
     }
-    return gog_.running() ? &gog_ : nullptr;
+    if (gog_.running()) {
+        return &gog_;
+    }
+    return uninstall_.running() ? &uninstall_ : nullptr;
 }
 
 bool Installs::running() {

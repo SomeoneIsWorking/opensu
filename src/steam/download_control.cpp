@@ -1,9 +1,7 @@
 #include "download_control.hpp"
 
-#include <algorithm>
-#include <cctype>
-
 #include "lucent/log.h"
+#include "steam_json.hpp"
 
 namespace opensu::steam {
 namespace {
@@ -13,10 +11,7 @@ constexpr std::string_view localClient = R"("0")";
 
 /// An app id as a JavaScript number, or empty when it is not one.
 std::string appNumber(const std::string& appId) {
-    const bool digits = !appId.empty() && std::ranges::all_of(appId, [](char c) {
-        return std::isdigit(static_cast<unsigned char>(c)) != 0;
-    });
-    return digits ? appId : std::string{};
+    return isAppId(appId) ? appId : std::string{};
 }
 
 } // namespace

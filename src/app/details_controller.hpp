@@ -1,6 +1,6 @@
 // details_controller — the details page's buttons and what they do: play or install the game, pick
-// its emulator, download the emulator it is missing, hide it, go back. Opens for the focused game
-// and keeps what it shows current while the library changes under it.
+// its emulator, download the emulator it is missing, hide it, uninstall it (two presses), go back.
+// Opens for the focused game and keeps what it shows current while the library changes under it.
 #pragma once
 
 #include <functional>
@@ -13,6 +13,7 @@
 #include "library/game.hpp"
 #include "preferences.hpp"
 #include "ui/details_page.hpp"
+#include "uninstall_prompt.hpp"
 
 namespace opensu::app {
 
@@ -35,9 +36,10 @@ class DetailsController {
     };
 
     DetailsController(ui::DetailsPage& page, audio::SdlSoundPlayer& sounds,
-                      const Preferences& preferences, EmulatorDownloads& downloads, Hooks hooks)
+                      const Preferences& preferences, EmulatorDownloads& downloads,
+                      UninstallPrompt& uninstall, Hooks hooks)
         : page_{page}, sounds_{sounds}, preferences_{preferences}, downloads_{downloads},
-          hooks_{std::move(hooks)} {
+          uninstall_{uninstall}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the page for the focused game; nothing when no game has focus.
@@ -56,11 +58,14 @@ class DetailsController {
     void cycleEmulator(const library::Game& game, int delta);
     /// Starts downloading the emulator `game` is missing, or cancels its download.
     void downloadEmulator(const library::Game& game);
+    /// Arms Uninstall with what it removes, or on the second press starts the uninstall.
+    void uninstall(const library::Game& game);
 
     ui::DetailsPage& page_;
     audio::SdlSoundPlayer& sounds_;
     const Preferences& preferences_;
     EmulatorDownloads& downloads_;
+    UninstallPrompt& uninstall_;
     Hooks hooks_;
 };
 

@@ -7,7 +7,8 @@ namespace opensu::app {
 PanelFlow::PanelFlow(ui::Shell& shell, audio::SdlSoundPlayer& sounds, steam::Client& steam,
                      const std::filesystem::path& dataDir, Hooks hooks)
     : shell_{shell}, sounds_{sounds},
-      install_{steam, "legendary", GogInstallJob::Options{.dataDir = dataDir}, hooks.installFolder},
+      install_{steam, "legendary", GogInstallJob::Options{.dataDir = dataDir}, hooks.installFolder,
+               hooks.playing},
       hooks_{std::move(hooks)} {
 }
 
@@ -93,7 +94,7 @@ void PanelFlow::startInstall(const library::Game& game) {
     } else {
         shell_.launchPanel().close();
         use_ = Use::None;
-        shell_.setToast(install_.title() + " is still installing", true);
+        shell_.setToast(install_.busy(), true);
     }
     offered_.clear();
 }
@@ -108,8 +109,8 @@ void PanelFlow::offerInstall(const library::Game& game, std::vector<library::Gam
         shell_.setToast(unsupported, true);
         return;
     }
-    if (install_.running()) {
-        shell_.setToast(install_.title() + " is still installing", true);
+    if (const std::string busy = install_.busy(); !busy.empty()) {
+        shell_.setToast(busy, true);
         return;
     }
     offered_ = std::move(copies);
@@ -145,6 +146,11 @@ void PanelFlow::service() {
     if (!report) {
         return;
     }
+    if (const std::optional<Installs::Status> status = install_.status();
+        status && status->work == Installs::Work::Uninstall) {
+        uninstallEnded(*report);
+        return;
+    }
     if (report->licence) {
         if (use_ == Use::Launch) {
             eulaWaiting_ = true;
@@ -172,6 +178,21 @@ void PanelFlow::service() {
         shell_.setToast(title + " installed");
     } else {
         shell_.setToast("cannot install " + title + ": " + report->failure, true);
+    }
+}
+
+void PanelFlow::uninstallEnded(const InstallJob::Report& report) {
+    if (!report.finished) {
+        return;
+    }
+    const std::string title = install_.title();
+    if (report.cancelled) {
+        shell_.setToast(title + " uninstall stopped", true);
+    } else if (report.failure.empty()) {
+        hooks_.reloadCatalog();
+        shell_.setToast(title + " " + report.line);
+    } else {
+        shell_.setToast("cannot uninstall " + title + ": " + report.failure, true);
     }
 }
 

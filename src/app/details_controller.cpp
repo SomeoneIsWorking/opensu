@@ -101,6 +101,9 @@ void DetailsController::run(ui::DetailsAction action) {
         // The game leaves or joins the shelf the page was opened over.
         close();
         break;
+    case ui::DetailsAction::Uninstall:
+        uninstall(*game);
+        break;
     case ui::DetailsAction::Back:
         break;
     }
@@ -119,6 +122,19 @@ void DetailsController::downloadEmulator(const library::Game& game) {
         hooks_.say(refused, true);
     }
     refresh();
+}
+
+void DetailsController::uninstall(const library::Game& game) {
+    if (page_.armed()) {
+        page_.disarm();
+        uninstall_.confirm(game);
+        return;
+    }
+    if (std::optional<std::string> what = uninstall_.arm(game)) {
+        // input-sound.md 3.4 Navigation: the button changes in place.
+        sounds_.play(audio::Effect::Navigation);
+        page_.arm(std::move(*what));
+    }
 }
 
 void DetailsController::cycleEmulator(const library::Game& game, int delta) {

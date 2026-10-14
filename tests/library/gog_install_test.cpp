@@ -1,4 +1,5 @@
-// The GOG install records and the token as gogdl's `--auth-config-path` file reads it.
+// The GOG install records, the folder an uninstall may delete, and the token as gogdl's
+// `--auth-config-path` file reads it.
 #include "library/gog_installs.hpp"
 #include "library/gogdl_auth.hpp"
 
@@ -7,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <system_error>
 
@@ -18,6 +20,7 @@ namespace fs = std::filesystem;
 using opensu::library::gog::GogdlAuthFile;
 using opensu::library::gog::Installed;
 using opensu::library::gog::InstallRecords;
+using opensu::library::gog::ownedFolder;
 using opensu::library::gog::Paths;
 using opensu::library::gog::Token;
 
@@ -41,6 +44,58 @@ void testRecords(const fs::path& dir) {
            "a record is replaced by the later install of its game");
     const auto two = again.find("2");
     expect(two && two->platform == "windows", "the others are kept");
+}
+
+void testRemove(const fs::path& dir) {
+    const InstallRecords records{Paths::under(dir).records};
+    records.remove("1");
+    expect(records.all().empty(), "forgetting a game with no record changes nothing");
+    records.add("1", Installed{.path = "/games/One", .platform = "linux"});
+    records.add("2", Installed{.path = "/games/Two", .platform = "windows"});
+    records.remove("1");
+    const InstallRecords again{Paths::under(dir).records};
+    expect(!again.find("1") && again.find("2"), "a removed record is gone and the rest kept");
+}
+
+void testGameRoot() {
+    const Paths paths = Paths::under("/data");
+    expect(paths.gameRoot(std::nullopt, "7") == fs::path{"/data/gog-games/7"},
+           "with no folder a game's root is under the data directory");
+    expect(paths.gameRoot(fs::path{"/mnt/games"}, "7") == fs::path{"/mnt/games/7"},
+           "with a folder it is under that folder");
+}
+
+void testOwnedFolder(const fs::path& dir) {
+    const fs::path root = dir / "games" / "7";
+    fs::create_directories(root / "Game");
+    const auto inside = ownedFolder(Installed{.path = root / "Game", .platform = "linux"}, root);
+    expect(inside && *inside == fs::canonical(root / "Game"),
+           "a folder inside the game's root may be deleted");
+    expect(!ownedFolder(Installed{.path = root, .platform = "linux"}, root),
+           "the root itself is not the game's folder");
+    fs::create_directories(dir / "elsewhere" / "Game");
+    expect(!ownedFolder(Installed{.path = dir / "elsewhere" / "Game", .platform = "linux"}, root),
+           "a folder outside the root is only forgotten");
+    fs::create_directory_symlink(dir / "elsewhere" / "Game", root / "Link");
+    expect(!ownedFolder(Installed{.path = root / "Link", .platform = "linux"}, root),
+           "a symlink in the root to a folder outside it is only forgotten");
+    fs::create_directories(dir / "games");
+    fs::create_directory_symlink(dir / "elsewhere", dir / "games" / "8");
+    expect(!ownedFolder(Installed{.path = dir / "games" / "8" / "Game", .platform = "linux"},
+                        dir / "games" / "8"),
+           "a game root that is itself a symlink out of the folder leads nowhere");
+    fs::create_directories(dir / "real-folder" / "9" / "Game");
+    fs::create_directory_symlink(dir / "real-folder", dir / "linked-folder");
+    expect(ownedFolder(Installed{.path = dir / "linked-folder" / "9" / "Game", .platform = "linux"},
+                       dir / "linked-folder" / "9")
+               .has_value(),
+           "an install folder reached through a symlink still holds its games");
+    expect(!ownedFolder(Installed{.path = root / "Missing", .platform = "linux"}, root),
+           "a folder that is gone has nothing to delete");
+    expect(!ownedFolder(
+               Installed{.path = root / ".." / ".." / "elsewhere" / "Game", .platform = "linux"},
+               root),
+           "a path that climbs out of the root is only forgotten");
 }
 
 void testAuthFile(const fs::path& dir) {
@@ -78,6 +133,9 @@ int main() {
     std::error_code ec;
     fs::remove_all(dir, ec);
     testRecords(dir / "records");
+    testRemove(dir / "remove");
+    testGameRoot();
+    testOwnedFolder(dir / "owned");
     testAuthFile(dir / "auth");
     fs::remove_all(dir, ec);
     std::printf("gog_install: all checks passed\n");

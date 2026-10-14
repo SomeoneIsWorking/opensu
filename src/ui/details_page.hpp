@@ -25,6 +25,8 @@ enum class DetailsAction : std::uint8_t {
     DownloadEmulator,
     /// Hide the game, or show it again.
     Hidden,
+    /// Uninstall an installed store game, on a second press.
+    Uninstall,
     Back,
 };
 
@@ -95,10 +97,12 @@ class DetailsPage {
     /// Opens on `view`, focused on the first button.
     void open(DetailsView view);
     /// Shows `view` in place of the one open, keeping focus on the same action when it is still
-    /// there. The page closes itself when `view` is for another game.
+    /// there, armed while that is still focused. The page closes itself when `view` is for another
+    /// game.
     void refresh(DetailsView view);
     void close() noexcept {
         open_ = false;
+        disarm();
     }
     [[nodiscard]] bool isOpen() const noexcept {
         return open_;
@@ -110,17 +114,37 @@ class DetailsPage {
     [[nodiscard]] std::size_t focus() const noexcept {
         return focus_;
     }
-    /// Moves focus by `delta` buttons, stopping at the ends; reports whether it moved.
+    /// Moves focus by `delta` buttons, stopping at the ends; reports whether it moved. Moving lets
+    /// go of an armed button.
     bool move(int delta) noexcept;
-    /// Focuses button `index`; reports whether focus changed.
+    /// Focuses button `index`; reports whether focus changed, which lets go of an armed button.
     bool focusButton(std::size_t index) noexcept;
     [[nodiscard]] DetailsAction selected() const noexcept {
         return view_.buttons[focus_].action;
     }
 
+    /// Asks the focused button for a second press; `confirm` says what that press does.
+    void arm(std::string confirm);
+    void disarm() noexcept {
+        confirm_.clear();
+    }
+    [[nodiscard]] bool armed() const noexcept {
+        return !confirm_.empty();
+    }
+    /// What the armed button's second press does; empty when none is armed.
+    [[nodiscard]] const std::string& confirm() const noexcept {
+        return confirm_;
+    }
+    /// Button `index`'s label as the page reads it: an armed one asks for the second press.
+    [[nodiscard]] std::string shown(std::size_t index) const;
+    /// The rows as the page reads them: an armed button puts what its second press does first.
+    [[nodiscard]] std::vector<DetailsRow> rows() const;
+
   private:
     DetailsView view_;
     std::size_t focus_{0};
+    /// What the armed button's second press does; empty when none is armed.
+    std::string confirm_;
     bool open_{false};
 };
 

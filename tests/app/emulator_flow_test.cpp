@@ -109,9 +109,22 @@ struct Rig {
                                      [this] {
                                          ++changes;
                                      }}};
+    /// ROMs are never uninstalled; the details page here offers no Uninstall.
+    app::UninstallPrompt uninstall{app::UninstallPrompt::Hooks{[](const library::Game&) {
+                                                                   return app::Removal{};
+                                                               },
+                                                               [](const library::Game&) {
+                                                                   return std::string{};
+                                                               },
+                                                               [](const std::string&, bool) {
+                                                               }}};
     library::Game shown = game();
     app::DetailsController details{
-        page, sounds, preferences, downloads,
+        page,
+        sounds,
+        preferences,
+        downloads,
+        uninstall,
         app::DetailsController::Hooks{[this] {
                                           return &shown;
                                       },

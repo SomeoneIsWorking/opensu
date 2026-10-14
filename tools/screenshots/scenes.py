@@ -196,8 +196,18 @@ def _downloading(state: dict[str, object]) -> bool:
     )
 
 
-def _start_epic_install(shell: HiddenShell) -> None:
-    """Library, into the Epic launcher, the stand-in's game, Install; the panel hidden."""
+def _download_state(key: str, wanted: str) -> Callable[[dict[str, object]], bool]:
+    def holds(state: dict[str, object]) -> bool:
+        downloads = state.get("downloads")
+        return isinstance(downloads, list) and any(
+            line.get("key") == key and line.get("state") == wanted for line in downloads
+        )
+
+    return holds
+
+
+def _epic_game(shell: HiddenShell, app_name: str) -> None:
+    """Library, into the Epic launcher, then along it to the stand-in's `app_name`."""
     _library(shell)
     # The launchers fill Library's first column, Steam first.
     for _ in range(LONGEST_WALK):
@@ -206,7 +216,38 @@ def _start_epic_install(shell: HiddenShell) -> None:
         shell.press("down")
     shell.wait_for("focusedId", "launcher:epic", timeout=1.0)
     shell.press("a")
-    shell.wait_for("focusedId", f"epic:{legendary.APP_NAME}")
+    shell.wait_until(
+        lambda state: str(state.get("focusedId", "")).startswith("epic:"), "an Epic game focused"
+    )
+    # Along the row, and down to the next one when the row ends.
+    for _ in range(LONGEST_WALK):
+        state = shell.state()
+        if state.get("focusedId") == f"epic:{app_name}":
+            return
+        shell.press("right")
+        if shell.state().get("focusIndex") == state.get("focusIndex"):
+            shell.press("down")
+    shell.wait_for("focusedId", f"epic:{app_name}", timeout=1.0)
+
+
+def _arm_uninstall(shell: HiddenShell) -> None:
+    """The installed stand-in game's details, and the first press on Uninstall."""
+    _epic_game(shell, legendary.INSTALLED_APP_NAME)
+    _details(shell)
+    # Its buttons: Play, Hide game, Uninstall, Back.
+    shell.press("down", "down", "a")
+    shell.wait_for("armed", True)
+
+
+def _leave_armed_details(shell: HiddenShell) -> None:
+    shell.press("b")
+    shell.wait_for("detailsOpen", False)
+    _leave_console_shelf(shell)
+
+
+def _start_epic_install(shell: HiddenShell) -> None:
+    """Library, into the Epic launcher, the stand-in's game, Install; the panel hidden."""
+    _epic_game(shell, legendary.APP_NAME)
     _details(shell)
     # Install on the details page, then Install on the panel it offers.
     shell.press("a", "a")
@@ -216,17 +257,50 @@ def _start_epic_install(shell: HiddenShell) -> None:
     shell.wait_for("detailsOpen", False)
 
 
-def _downloads(shell: HiddenShell) -> None:
-    _start_epic_install(shell)
+def _open_downloads(shell: HiddenShell) -> None:
     # Guide menu rows: Home, Library, Devices, Downloads, Settings.
     shell.press("guide", "down", "down", "down", "a")
     shell.wait_for("downloadsOpen", True)
 
 
-def _close_downloads(shell: HiddenShell) -> None:
+def _downloads(shell: HiddenShell) -> None:
+    _start_epic_install(shell)
+    _open_downloads(shell)
+
+
+def _close_downloads_page(shell: HiddenShell) -> None:
     shell.press("b")
     shell.wait_for("downloadsOpen", False)
+
+
+def _close_downloads(shell: HiddenShell) -> None:
+    """Downloads closed over the Epic launcher it was opened over, then back to Home."""
+    _close_downloads_page(shell)
     _leave_console_shelf(shell)
+
+
+def _downloads_uninstalling(shell: HiddenShell) -> None:
+    """The install the downloads scene left waiting cancelled (one store job runs at a time), then
+    the installed stand-in game uninstalled, then Downloads."""
+    _open_downloads(shell)
+    # The install's row is the only live one, focused with its one button, Cancel.
+    shell.press("a")
+    shell.wait_until(
+        _download_state(f"epic:{legendary.APP_NAME}", "cancelled"), "the Epic install cancelled"
+    )
+    _close_downloads_page(shell)
+    _arm_uninstall(shell)
+    shell.press("a")
+    shell.wait_until(
+        _download_state(f"epic:{legendary.INSTALLED_APP_NAME}", "uninstalling"),
+        "the stand-in game uninstalling",
+    )
+    shell.press("b")
+    shell.wait_for("detailsOpen", False)
+    _leave_console_shelf(shell)
+    # Its "uninstalling" toast would be caught mid-fade.
+    shell.wait_for("toast", "", timeout=10.0)
+    _open_downloads(shell)
 
 
 SCENES: tuple[Scene, ...] = (
@@ -268,8 +342,21 @@ SCENES: tuple[Scene, ...] = (
 
 README_SCENES: tuple[Scene, ...] = tuple(scene for scene in SCENES if scene.readme)
 
-# Each needs a run of its own with the stand-in `legendary` (legendary.py) on PATH: its Epic
+# They need a run of their own with the stand-in `legendary` (legendary.py) on PATH: its Epic
 # launcher would change every other scene.
+# In this order: the uninstall waits for the install, which only the last scene cancels.
 DOWNLOAD_SCENES: tuple[Scene, ...] = (
+    Scene(
+        "details-uninstall",
+        "Details: Uninstall waiting for its second press",
+        _arm_uninstall,
+        _leave_armed_details,
+    ),
     Scene("downloads", "Downloads: an Epic install in progress", _downloads, _close_downloads),
+    Scene(
+        "downloads-uninstalling",
+        "Downloads: an Epic uninstall in progress and a cancelled install",
+        _downloads_uninstalling,
+        _close_downloads_page,
+    ),
 )

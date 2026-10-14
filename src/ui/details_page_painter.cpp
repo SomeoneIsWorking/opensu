@@ -71,7 +71,7 @@ void DetailsPagePainter::paint(Canvas& canvas, const DetailsPage& page, const De
     }
     const DetailsView& view = page.view();
     paintCover(canvas, layout, art, view, alpha);
-    paintText(canvas, layout, view, dp, alpha);
+    paintText(canvas, layout, page, dp, alpha);
     paintButtons(canvas, page, layout, dp, alpha);
 }
 
@@ -97,7 +97,8 @@ void DetailsPagePainter::paintCover(Canvas& canvas, const DetailsLayout& layout,
 }
 
 void DetailsPagePainter::paintText(Canvas& canvas, const DetailsLayout& layout,
-                                   const DetailsView& view, float dp, float alpha) const {
+                                   const DetailsPage& page, float dp, float alpha) const {
+    const DetailsView& view = page.view();
     const Rect& text = layout.text;
     const TextStyle title{titleSp * dp};
     float y = text.y + typeface_.lineBox(title) * 0.5f;
@@ -119,7 +120,7 @@ void DetailsPagePainter::paintText(Canvas& canvas, const DetailsLayout& layout,
     const TextStyle label{rowLabelSp * dp};
     const TextStyle value{rowValueSp * dp};
     const float valueX = text.x + labelColumnDp * dp;
-    for (const DetailsRow& row : view.rows) {
+    for (const DetailsRow& row : page.rows()) {
         if (y + rowHeightDp * dp > text.bottom()) {
             break;
         }
@@ -148,8 +149,9 @@ void DetailsPagePainter::paintButtons(Canvas& canvas, const DetailsPage& page,
             });
         }
         const float pad = 16.0f * dp;
-        typeface_.drawCentred(canvas, buttons[i].label, rect.x + pad, rect.centreY(), text,
-                              withAlpha(ink, alpha));
+        typeface_.drawCentred(canvas,
+                              typeface_.fitted(page.shown(i), rect.width - 2.0f * pad, text),
+                              rect.x + pad, rect.centreY(), text, withAlpha(ink, alpha));
         if (!buttons[i].value.empty()) {
             // Only a choice steps with Left and Right; other values are read-outs.
             const std::string shown = buttons[i].action == DetailsAction::Emulator

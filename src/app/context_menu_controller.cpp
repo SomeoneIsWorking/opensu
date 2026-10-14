@@ -40,6 +40,10 @@ void ContextMenuController::act(gamepad::Button button) {
         break;
     case gamepad::Button::A: {
         const ui::ContextAction action = menu_.selected();
+        if (action == ui::ContextAction::Uninstall && !menu_.armed()) {
+            armUninstall();
+            break;
+        }
         menu_.close();
         run(action);
         target_.reset();
@@ -86,7 +90,26 @@ void ContextMenuController::run(ui::ContextAction action) {
             hooks_.signIn(launcher->source);
         }
         break;
+    case ui::ContextAction::Uninstall:
+        if (game != nullptr) {
+            uninstall_.confirm(*game);
+        }
+        break;
     }
+}
+
+void ContextMenuController::armUninstall() {
+    const auto* game = target_ ? std::get_if<library::Game>(&*target_) : nullptr;
+    if (game == nullptr) {
+        return;
+    }
+    if (std::optional<std::string> what = uninstall_.arm(*game)) {
+        // input-sound.md 3.4 Navigation: the entry changes in place.
+        sounds_.play(audio::Effect::Navigation);
+        menu_.arm(std::move(*what));
+        return;
+    }
+    close();
 }
 
 } // namespace opensu::app

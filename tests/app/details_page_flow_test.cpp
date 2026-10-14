@@ -1,5 +1,5 @@
-// The details page's buttons through the controller, and the breadcrumb trail built from the
-// shell's state.
+// The details page's buttons through the controller (the two-press Uninstall too), and the
+// breadcrumb trail built from the shell's state.
 #include "breadcrumb_trail.hpp"
 #include "details_controller.hpp"
 
@@ -37,7 +37,10 @@ struct Rig {
     app::Preferences preferences;
     library::Game game;
     std::vector<std::string> calls;
+    /// Why `Installs` would refuse the uninstall; empty when it would not.
+    std::string refusal;
     app::EmulatorDownloads downloads;
+    app::UninstallPrompt uninstall;
     app::DetailsController controller;
 
     explicit Rig(const fs::path& dir)
@@ -52,7 +55,23 @@ struct Rig {
                                                   },
                                                   [] {
                                                   }}},
-          controller{page, sounds, preferences, downloads,
+          uninstall{app::UninstallPrompt::Hooks{[this](const library::Game&) {
+                                                    return app::Removal{
+                                                        .refusal = refusal,
+                                                        .what = "legendary deletes the Epic copy"};
+                                                },
+                                                [this](const library::Game& removed) {
+                                                    calls.push_back("uninstall " + removed.id);
+                                                    return std::string{};
+                                                },
+                                                [this](const std::string& text, bool) {
+                                                    calls.push_back("say " + text);
+                                                }}},
+          controller{page,
+                     sounds,
+                     preferences,
+                     downloads,
+                     uninstall,
                      app::DetailsController::Hooks{
                          [this] {
                              return &game;
@@ -115,6 +134,42 @@ void backClosesWithoutActing(const fs::path& dir) {
     expect(rig.calls.empty(), "Select does nothing on the page");
 }
 
+void uninstallTakesTwoPresses(const fs::path& dir) {
+    Rig rig{dir};
+    rig.game = library::Game{};
+    rig.game.id = "epic:Fortnite";
+    rig.game.title = "Fortnite";
+    rig.game.source = library::Source::Epic;
+    rig.game.sourceId = "Fortnite";
+    rig.game.installed = true;
+    rig.controller.open();
+    rig.controller.act(Button::Down);
+    rig.controller.act(Button::Down);
+    expect(rig.page.selected() == ui::DetailsAction::Uninstall, "Uninstall follows Hide");
+    rig.controller.act(Button::A);
+    expect(rig.calls.empty() && rig.page.armed() &&
+               rig.page.confirm() == "legendary deletes the Epic copy" &&
+               rig.page.shown(rig.page.focus()) == "Press A again to uninstall",
+           "the first press arms it with what goes and removes nothing");
+    rig.controller.act(Button::Up);
+    expect(!rig.page.armed(), "moving focus lets go of it");
+    rig.controller.act(Button::Down);
+    rig.controller.act(Button::A);
+    rig.controller.act(Button::A);
+    expect((rig.calls ==
+            std::vector<std::string>{"uninstall epic:Fortnite", "say uninstalling Fortnite"}) &&
+               !rig.page.armed() && rig.page.isOpen(),
+           "the second press starts the uninstall and the page stays");
+    rig.calls.clear();
+    rig.refusal = "Fortnite is still installing";
+    rig.controller.act(Button::A);
+    expect(
+        (rig.calls ==
+         std::vector<std::string>{"say cannot uninstall Fortnite: Fortnite is still installing"}) &&
+            !rig.page.armed(),
+        "a refused first press says why and arms nothing");
+}
+
 void refreshFollowsTheGame(const fs::path& dir) {
     Rig rig{dir};
     rig.controller.open();
@@ -169,6 +224,7 @@ int main() {
     buttonsDoWhatTheyName(dir);
     backClosesWithoutActing(dir);
     refreshFollowsTheGame(dir);
+    uninstallTakesTwoPresses(dir);
     trail();
     filters();
     std::puts("details_page_flow: ok");

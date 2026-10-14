@@ -1,11 +1,10 @@
 #include "install_wizard.hpp"
 
-#include <algorithm>
-#include <cctype>
 #include <cstdint>
 #include <optional>
 
 #include "lucent/log.h"
+#include "steam_json.hpp"
 
 namespace opensu::steam {
 namespace {
@@ -36,12 +35,6 @@ enum InstallState : std::uint8_t {
     Failed = 15,
     Canceled = 16,
 };
-
-bool numeric(std::string_view text) {
-    return !text.empty() && std::ranges::all_of(text, [](char c) {
-        return std::isdigit(static_cast<unsigned char>(c)) != 0;
-    });
-}
 
 /// `folder` spelled without a trailing separator, as Steam lists its libraries.
 std::filesystem::path unslashed(const std::filesystem::path& folder) {
@@ -136,7 +129,7 @@ std::optional<std::string> InstallWizard::chooseFolder() {
 
 InstallStep InstallWizard::open(std::string_view appId,
                                 std::optional<std::filesystem::path> folder) {
-    if (!numeric(appId)) {
+    if (!isAppId(appId)) {
         return failed("not a Steam app id: " + std::string{appId});
     }
     appId_ = std::string{appId};

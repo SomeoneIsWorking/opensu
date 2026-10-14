@@ -575,7 +575,7 @@ void ShellApp::launch(const library::Game& game) {
 
     // input-sound.md 3.4 OpenAppRom: every game launch.
     sounds_.play(audio::Effect::OpenAppRom);
-    runningTitle_ = game.title;
+    running_ = game;
     panels_.showLaunch(game.title);
     recordLaunch(game);
 
@@ -630,7 +630,7 @@ void ShellApp::cancelLaunch() {
             return;
         }
     }
-    lucent::info("launch", "cancelling the launch of {}", runningTitle_);
+    lucent::info("launch", "cancelling the launch of {}", running_.title);
     handoff_.forceClose();
 }
 
@@ -653,7 +653,7 @@ bool ShellApp::menusBlocked() {
 }
 
 void ShellApp::closeRunningGame() {
-    lucent::info("launch", "closing {} from a menu", runningTitle_);
+    lucent::info("launch", "closing {} from a menu", running_.title);
     handoff_.forceClose();
 }
 
@@ -889,6 +889,7 @@ void ShellApp::publishSnapshot() {
     next.searchText = preferences_.values().view.search;
     next.contextMenuOpen = shell_.contextMenu().isOpen();
     next.detailsOpen = shell_.detailsPage().isOpen();
+    next.armed = shell_.detailsPage().armed() || shell_.contextMenu().armed();
     next.settingsOpen = shell_.settingsPanels().page().isOpen();
     next.folderPickerOpen = paths_.active();
     next.capturingShortcut = shortcutEditor_.capturing();
@@ -1011,7 +1012,6 @@ void ShellApp::serviceRequests() {
             plugins_.request(games_);
         }
     }
-
     if (std::optional<LaunchMailbox::Toast> toast = mailbox_.takeToast()) {
         shell_.setToast(std::move(toast->text), toast->error);
     }

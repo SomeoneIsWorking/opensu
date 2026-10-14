@@ -2,7 +2,9 @@
 //
 // gogdl downloads into a folder it names itself and keeps no list of installs, so opensu records
 // each finished install (game id, folder, platform) in `<data dir>/gog-installs.json`. The record
-// is what makes a GOG game installed and says how it launches.
+// is what makes a GOG game installed and says how it launches. An uninstall deletes a recorded
+// folder only when it lies inside the root openSU gave gogdl for that game; a record pointing
+// anywhere else is only forgotten.
 #pragma once
 
 #include <filesystem>
@@ -17,7 +19,8 @@ namespace opensu::library::gog {
 struct Paths {
     /// The install records.
     std::filesystem::path records;
-    /// gogdl downloads game `<id>` into `<games>/<id>/<folder gogdl names>`.
+    /// gogdl downloads game `<id>` into `<games>/<id>/<folder gogdl names>` when no install folder
+    /// is set.
     std::filesystem::path games;
     /// Wine prefixes of Windows installs, `<prefixes>/<id>`.
     std::filesystem::path prefixes;
@@ -25,6 +28,10 @@ struct Paths {
     std::filesystem::path gogdlAuth;
 
     [[nodiscard]] static Paths under(const std::filesystem::path& dataDir);
+
+    /// The folder gogdl is given for game `id`: `<folder>/<id>`, or `<games>/<id>` with none.
+    [[nodiscard]] std::filesystem::path gameRoot(const std::optional<std::filesystem::path>& folder,
+                                                 std::string_view id) const;
 };
 
 /// One finished install.
@@ -48,8 +55,20 @@ class InstallRecords {
     /// Adds or replaces the record of game `id`. Throws when it cannot be written.
     void add(const std::string& id, const Installed& installed) const;
 
+    /// Forgets game `id`; nothing when it has no record. Throws as `add` does.
+    void remove(std::string_view id) const;
+
   private:
+    void write(const std::map<std::string, Installed, std::less<>>& records) const;
+
     std::filesystem::path file_;
 };
+
+/// The folder an uninstall of `installed` may delete: its path with symlinks resolved, when that
+/// lies strictly inside `root` (`Paths::gameRoot`), whose last part is taken as it is, so a
+/// symlinked game root cannot lead outside the install folder. Nothing when it lies elsewhere or
+/// no longer exists, which leaves the record to be forgotten with no file touched.
+[[nodiscard]] std::optional<std::filesystem::path> ownedFolder(const Installed& installed,
+                                                               const std::filesystem::path& root);
 
 } // namespace opensu::library::gog

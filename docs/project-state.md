@@ -26,8 +26,9 @@ Visible deltas from the baseline:
   battery gets a pill that fits its clock. It stays right-aligned.
 - A details page replaces the direct launch: A (Enter, left click) on a game opens it, as do Y and
   the context menu's Details. It shows the cover (a Steam hero as a faded backdrop), title, store or
-  system badge, installed state, last played and play time, and Play or Install, Hide or Show, Back
-  as pointer targets (the Install flow is the launch panel's). A ROM's page names its emulator and
+  system badge, installed state, last played and play time, and Play or Install, Hide or Show,
+  Uninstall (an installed store game, two presses), Back as pointer targets (the Install flow is the
+  launch panel's). A ROM's page names its emulator and
   whether it is installed, and a button steps through the emulators for its system; the pick is
   kept per game in `settings.json` (`emulators`). iiSU launches on A with no page (launch.md 3,
   `handleRomActivated`) and only shows game details on a dual-display device's second screen
@@ -127,7 +128,7 @@ game has been observed running yet.
 | S034 | Holding a chord modifier shows its chords, over a game too (`docs/issues/chord-hold-overlay.md`) | partial | S022 | G003 |
 | S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | partial | S016, S026 | G001 |
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | missing | S035 | G001 |
-| S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | missing | S006, S007, S016 | G001 |
+| S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
 
 ## Capability details
 
@@ -534,7 +535,9 @@ Decisions:
   records `{path, platform}` in `<data dir>/gog-installs.json` (`gog::InstallRecords`); the
   provider reads it at each listing, marks the game installed and launches it with `gogdl launch
   <path> <id> --platform <p>`, plus `--wine wine --wine-prefix <data dir>/gog-prefixes/<id>` for
-  a Windows install. No uninstall, update or repair yet; a deleted game folder stays recorded.
+  a Windows install. Uninstall (S037) deletes the recorded folder only inside the root openSU
+  gave gogdl, else only forgets the record. No update or repair yet; a game folder deleted by hand
+  stays recorded.
 
 Unverified: no real GOG download was made. gogdl's output format, the folder layout under
 `--path` and `gogdl launch` come from reading gogdl 1.3.1's source and a fake gogdl in
@@ -1044,7 +1047,26 @@ time. `/state` lists the rows. Verified by unit tests through the shipping owner
 `legendary`, fake release host, fake Steam DevTools), a hidden run and the `downloads` parity
 scene. Unverified: Steam's buttons against a real Steam client, a real Epic or GOG cancel, the page
 over a game in Gamescope. Not done: cover art on rows, Epic and GOG bytes and time left. Details
-in `docs/issues/downloads-page.md`.
+in `docs/issues/downloads-page.md`. An uninstall (S037) is listed as Uninstalling, then
+Uninstalled, with no buttons.
+
+### S037 — Uninstall
+
+An installed store game's details page and tile menu offer Uninstall; the first press arms it
+with what goes ("legendary deletes the Epic copy", "deletes the GOG copy at <folder>", "forgets
+the GOG copy; <folder> is kept", "Steam uninstalls the Steam copy") and moving focus lets go; the
+second starts it. Steam's goes through `SteamClient.Installs.OpenUninstallWizard([app], true)`
+and waits for the manifest to go; Epic runs `legendary uninstall <app> -y`; GOG deletes the
+recorded folder only when it lies inside `<install folder>/<id>` once symlinks are resolved, then
+forgets the record. No Wine prefix and no ROM is deleted; a ROM has no Uninstall. It is refused
+while the game runs, while an install or another uninstall runs, while Steam is not running and
+for a GOG game without a record. On success the catalog reloads, so the game leaves Home. The
+Downloads page lists it; `/state` has `armed` and the row's `uninstalling` state. Verified by unit
+tests through the shipping owners (stub `legendary`, fake Steam DevTools, scratch GOG folders with
+symlinks) and the `details-uninstall` and `downloads-uninstalling` parity scenes against a
+stand-in `legendary`. Unverified: a real Steam uninstall (whether Steam raises its own confirm
+dialog for `OpenUninstallWizard(..., true)`), a real Epic or GOG uninstall. Details in
+`docs/issues/uninstall-games.md`.
 
 ### S026 — Emulator downloads
 

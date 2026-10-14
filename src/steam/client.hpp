@@ -27,6 +27,7 @@
 #include "launch_activity.hpp"
 #include "libraries.hpp"
 #include "orphaned_steam.hpp"
+#include "uninstaller.hpp"
 
 namespace opensu::steam {
 
@@ -66,6 +67,10 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] InstallWizard& installer() noexcept {
         return installer_;
     }
+    /// Steam's uninstaller, driven through the running client.
+    [[nodiscard]] Uninstaller& uninstaller() noexcept {
+        return uninstaller_;
+    }
     /// Steam's library folders, through the running client.
     [[nodiscard]] Libraries& libraries() noexcept {
         return libraries_;
@@ -76,6 +81,8 @@ class Client final : public launch::SteamGate {
     }
     /// True once the app's manifest says it is fully installed with no update pending.
     [[nodiscard]] bool installed(std::string_view appId) const;
+    /// True while any library holds the app's manifest, which Steam deletes when it uninstalls.
+    [[nodiscard]] bool hasManifest(std::string_view appId) const;
     /// Steam's unfinished downloads as last read, at most a second old while Steam is ready.
     [[nodiscard]] std::vector<Download> downloads() const;
 
@@ -108,6 +115,7 @@ class Client final : public launch::SteamGate {
     DevTools devTools_;
     DownloadQueue queue_{devTools_};
     InstallWizard installer_{devTools_};
+    Uninstaller uninstaller_{devTools_};
     LaunchActivity launches_{devTools_};
     Libraries libraries_{devTools_};
     DownloadControl downloadControl_{devTools_};
