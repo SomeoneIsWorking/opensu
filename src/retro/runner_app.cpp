@@ -17,9 +17,9 @@
 #include "core_environment.hpp"
 #include "fileio/atomic_write.hpp"
 #include "gamepad/pads.hpp"
+#include "gpu2d/image/png_encoder.hpp"
 #include "joypad.hpp"
 #include "lucent/log.h"
-#include "png_encoder.hpp"
 #include "presenter.hpp"
 #include "save_memory.hpp"
 #include "save_state.hpp"
@@ -122,24 +122,24 @@ std::unique_ptr<ControlServer> openControl(const RunnerOptions& options, const C
 }
 
 bool writeFramePng(Presenter& presenter, const std::filesystem::path& file) {
-    Readback image;
+    Readback frame;
     try {
-        image = presenter.readBack();
+        frame = presenter.readBack();
     } catch (const VulkanError& failure) {
         lucent::error("retro", "{}", failure.what());
         return false;
     }
-    if (image.rgba.empty()) {
+    if (frame.rgba.empty()) {
         lucent::error("retro", "no frame was shown to write to {}", file.string());
         return false;
     }
-    const std::string png = encodePng(image.rgba, image.width, image.height);
     std::string error;
+    const std::string png = gpu2d::image::encodePng(frame.rgba, frame.width, frame.height, error);
     if (png.empty() || !fileio::writeWhole(file, png, error)) {
         lucent::error("retro", "cannot write {}: {}", file.string(), error);
         return false;
     }
-    lucent::info("retro", "wrote {}x{} frame to {}", image.width, image.height, file.string());
+    lucent::info("retro", "wrote {}x{} frame to {}", frame.width, frame.height, file.string());
     return true;
 }
 

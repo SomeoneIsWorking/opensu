@@ -1,6 +1,6 @@
 """Command line: `uv run --frozen python -m tools.check <step> [--build-dir D] [--gamescope M]`.
 
-Steps run in order: deps (pinned raylib and Lucent), configure, build, lint, test; `all` runs
+Steps run in order: deps (pinned raylib, Lucent and gpu2d), configure, build, lint, test; `all` runs
 every one. `ci` runs `all --gamescope native` inside the CI image (packaging/ci, Fedora 44 with
 systemd), as the CI workflow does; a maintainer can run any step against the same tree.
 """

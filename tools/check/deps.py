@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools.check import process
-from tools.check.pins import LUCENT, RAYLIB, RAYLIB_CMAKE_OPTIONS, GitPin
+from tools.check.pins import GPU2D, LUCENT, RAYLIB, RAYLIB_CMAKE_OPTIONS, GitPin
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,10 @@ class Deps:
     @property
     def lucent(self) -> Path:
         return self.root / "lucent"
+
+    @property
+    def gpu2d(self) -> Path:
+        return self.root / "gpu2d"
 
 
 def checkout(pin: GitPin, dest: Path, env: Mapping[str, str]) -> None:
@@ -86,4 +90,5 @@ def fetch(deps: Deps, env: Mapping[str, str]) -> None:
     """Every pinned source in place and raylib installed."""
     checkout(RAYLIB, deps.raylib_source, env)
     checkout(LUCENT, deps.lucent, env)
+    checkout(GPU2D, deps.gpu2d, env)
     build_raylib(deps, env)

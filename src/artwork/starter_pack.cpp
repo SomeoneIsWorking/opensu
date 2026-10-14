@@ -1,29 +1,17 @@
 #include "starter_pack.hpp"
 
+#include <cstddef>
 #include <fstream>
-#include <memory>
+#include <span>
 #include <utility>
 
-#include <webp/decode.h>
-
+#include "gpu2d/image/decode.hpp"
+#include "gpu2d/image/png_encoder.hpp"
 #include "lucent/log.h"
-#include "raylib.h"
 #include "zip/zip_archive.hpp"
 
 namespace opensu::artwork {
 namespace {
-
-struct WebpFree {
-    void operator()(std::uint8_t* pixels) const noexcept {
-        WebPFree(pixels);
-    }
-};
-
-struct RaylibFree {
-    void operator()(unsigned char* data) const noexcept {
-        MemFree(data);
-    }
-};
 
 std::optional<std::string> readFile(const std::filesystem::path& file) {
     std::ifstream in{file, std::ios::binary};
@@ -35,22 +23,20 @@ std::optional<std::string> readFile(const std::filesystem::path& file) {
 
 /// A WebP image as PNG bytes.
 std::optional<std::string> toPng(std::string_view webp, std::string& error) {
-    int width = 0;
-    int height = 0;
-    const std::unique_ptr<std::uint8_t, WebpFree> pixels{WebPDecodeRGBA(
-        reinterpret_cast<const std::uint8_t*>(webp.data()), webp.size(), &width, &height)};
-    if (pixels == nullptr) {
-        error = "the card is not a WebP image";
+    std::string reason;
+    const std::optional<gpu2d::image::Bitmap> card =
+        gpu2d::image::decode(std::as_bytes(std::span{webp}), reason);
+    if (!card) {
+        error = "the card is not a WebP image: " + reason;
         return std::nullopt;
     }
-    const Image image{pixels.get(), width, height, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
-    int size = 0;
-    const std::unique_ptr<unsigned char, RaylibFree> png{ExportImageToMemory(image, ".png", &size)};
-    if (png == nullptr || size <= 0) {
-        error = "the card cannot be encoded as PNG";
+    std::string png = gpu2d::image::encodePng(card->rgba, static_cast<unsigned>(card->width),
+                                              static_cast<unsigned>(card->height), reason);
+    if (png.empty()) {
+        error = "the card cannot be encoded as PNG: " + reason;
         return std::nullopt;
     }
-    return std::string{reinterpret_cast<const char*>(png.get()), static_cast<std::size_t>(size)};
+    return png;
 }
 
 } // namespace

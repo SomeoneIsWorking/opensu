@@ -1,8 +1,17 @@
 # The shell on SDL3 GPU
 
-Status: in progress. The overlay spike (§6.1) passed: an SDL3 GPU window with
-`SDL_WINDOW_TRANSPARENT` on X11 gets a 32-bit visual and INHERIT composite alpha, and nested
-Gamescope showed the game through it.
+Status: in progress. Steps 1 and 3 are done: the overlay spike passed in nested Gamescope, and the
+gpu2d library (`gpu2d::render`, `gpu2d::image`, its own repository, consumed like Lucent) and the
+SDL sound player are built and tested beside raylib, which still draws the shell until step 4.
+
+The window's alpha: SDL 3.4.18's `SDL_ClaimWindowForGPUDevice` refuses any window created with
+`SDL_WINDOW_TRANSPARENT` ("The GPU API doesn't support transparent windows", `SDL_gpu.c`), and
+without that flag SDL's X11 backend gives a non-GL window the default 24-bit visual. gpu2d's
+`GpuWindow` therefore picks a 32-bit TrueColor visual itself and hands it to SDL through
+`SDL_HINT_VIDEO_X11_WINDOW_VISUALID`; on such a visual Mesa's X11 swapchain offers only INHERIT and
+PRE_MULTIPLIED composite alpha, and SDL takes INHERIT, so the window's premultiplied alpha is what
+the compositor blends. gpu2d's `tests/canvas_test` checks the depth; the overlay over a game is
+still to be seen by the player through this path (§5.4).
 
 ## 1. Goal
 
@@ -31,21 +40,27 @@ and no raylib; it does not change.
 
 ## 3. Shape after the port
 
+The 2D layer is gpu2d (`$GPU2D_ROOT`, pinned in `tools/check/pins.py`), title-neutral: nothing in it
+knows openSU, the fonts and the face options come from the caller. Its paths below are in that
+repository.
+
 | Owner | Owns |
 | --- | --- |
-| `src/render/gpu_window.*` | The SDL window and `SDL_GPUDevice` (Vulkan driver), claimed together; hidden, transparent, resize, present mode (vsync, or immediate when hidden); the X11 window number for the overlay |
-| `src/render/canvas.*` | The 2D drawing API the painters call: filled and outlined rounded rectangles, circles, rings and arcs, lines, triangles, textured quads with tint, a transform stack, a scissor stack, blend modes, render targets. Recorded per frame, drawn in as few passes as possible |
-| `src/render/shape_pipeline.*` | One SDF pipeline for every shape; per-shape data in a storage buffer (uniform pushes over 4 KB read 0 in SDL3 GPU) |
-| `src/render/texture.*` | GPU textures from RGBA pixels, uploads through transfer buffers, sampler choice |
-| `src/render/render_target.*` | Offscreen colour targets and their read-back to RGBA |
-| `src/render/text.*` | Cal Sans through SDL3_ttf (FreeType, HarfBuzz) and its GPU text engine: glyph atlas, measure, draw |
-| `src/render/shaders/` | GLSL compiled to SPIR-V by `glslc` at build time, embedded as headers |
-| `src/image/` | Decoding PNG, JPEG and WebP with SDL3_image, resizing, and the PNG encoder now in `retro/png_encoder` (moved, one owner for both executables), encoding to memory so `/frame.png` stops writing a temporary file under `/tmp` |
-| `src/audio/sound_player.*` | UI sounds on an SDL audio stream; WAV through `SDL_LoadWAV`, OGG through libvorbisfile |
+| gpu2d `gpu_window` | The SDL window and `SDL_GPUDevice` (Vulkan driver), claimed together; hidden, an ARGB visual for the alpha, resize, present mode (vsync, or immediate when hidden); the X11 window number for the overlay |
+| gpu2d `canvas` | The 2D drawing API the painters call: filled and outlined rounded rectangles, circles, rings and arcs, lines, triangles, vertex-coloured meshes (`round_shape`'s gradients), textured quads with tint, a transform stack, a scissor stack, blend modes, render targets, the backdrop blur. Recorded per frame, drawn in as few passes as possible |
+| gpu2d `mesh_pipeline`, `blur_pipeline`, `pipeline` | Textured vertex-coloured triangles; the dock blur's two passes (`ui/backdrop_blur`'s GLSL 330 ported); pipelines per target format and blend |
+| gpu2d `shape_pipeline` | One SDF pipeline for every shape; per-shape data in a storage buffer (uniform pushes over 4 KB read 0 in SDL3 GPU) |
+| gpu2d `texture` | GPU textures from RGBA pixels, uploads through transfer buffers, sampler choice |
+| gpu2d `render_target` | Offscreen colour targets and their read-back to RGBA |
+| gpu2d `text` | A face file through SDL3_ttf (FreeType, HarfBuzz) and its GPU text engine: glyph atlas, measure, draw. The shell passes Cal Sans unhinted and unkerned (`FaceOptions`), as stb_truetype drew it |
+| gpu2d `src/shaders/`, `cmake/Gpu2dShaders.cmake` | GLSL compiled to SPIR-V by `glslc` at build time, embedded as headers; `gpu2d_compile_shaders` also builds `opensu-retro`'s |
+| `gpu2d::image` | Decoding PNG, JPEG and WebP with SDL3_image, resizing, and the one PNG encoder (`opensu-retro` and the starter pack use it already), encoding to memory so `/frame.png` stops writing a temporary file under `/tmp`; no GPU |
+| `src/audio/sdl_sound_player.*`, `sound_clip.*` | UI sounds on SDL audio streams, one per effect; WAV through `SDL_LoadWAV`, OGG through libvorbisfile, decoded without a device |
 | `src/input/keyboard_bindings.*`, `app/pointer_router.*` | SDL keyboard, text and mouse events into the existing raylib-free key names and pointer actions |
 
-`ui/` painters keep their structure and switch their calls to `render::Canvas`. Nothing outside
-`src/render`, `src/image`, `src/audio` and the window owner includes SDL.
+`ui/` painters keep their structure and switch their calls to `gpu2d::Canvas`. In openSU nothing
+outside `src/audio`, `src/retro` and the window owner includes SDL; the rest reaches it only
+through gpu2d.
 
 ## 4. Contracts kept
 
@@ -76,8 +91,19 @@ and no raylib; it does not change.
 1. Spike: an SDL3 GPU window, transparent, as the overlay inside nested Gamescope, with a rounded
    rectangle and text. This is the one risk the rest depends on.
 2. Capture the reference screens (§5.1).
-3. Build `render/`, `image/` and the SDL sound player with their tests.
+3. Build gpu2d and the SDL sound player with their tests. Done: gpu2d's `canvas_test` (primitives,
+   scissor, blend, transform, texture tint, blur, read-back), `text_test` and `image_test`, and
+   openSU's `tests/audio/sdl_sound_player_test`, on RADV and lavapipe. `opensu-retro` and the
+   starter pack already use `gpu2d::image`.
 4. Move every painter, the window, input and sound to them, delete raylib from the shell and the
-   build, in one change; compare against the references.
+   build, in one change; compare against the references. Sound: `app/shell_app` holds an
+   `audio::SdlSoundPlayer` (same calls: `open`, `load`, `setMuted`, `play`) instead of
+   `audio::SoundPlayer`, `opensu_audio_sdl` is folded into `opensu_audio`, and the raylib
+   `sound_player.*` and its test are deleted. Known deltas for the comparison: the canvas
+   antialiases shape edges where raylib drew them aliased; a render target drawn back is treated as
+   premultiplied (raylib multiplied its colour by alpha a second time); text is unhinted and
+   unkerned as stb_truetype drew it (`gpu2d::FaceOptions{.hinted = false, .kerned = false}`), but
+   rasterised by FreeType. The shell logs what gpu2d reports (`GpuWindow::deviceName`, `driver`,
+   `translucent`; `Text::draw` false; decode and encode error strings), since gpu2d never logs.
 5. Update `docs/codemap.md` and the owners' docs, and CI and AppImage dependencies (SDL3_ttf,
    SDL3_image; raylib and the raylib fork pin go).

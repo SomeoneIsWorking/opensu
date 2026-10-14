@@ -132,13 +132,15 @@ gitignored `docs/reference/`).
 | `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, UI sounds (`sound/<file>`, WAV or OGG) and the dock's icons (`nav/`) |
 | `src/artwork/artwork_fetcher.*` | The background downloads (queue stages per game, on-screen games first, a settled game reported as not saved): Steam's CDN for Steam, gamesdb (else the library tile) for GOG, the key image URL for Epic, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs, the APK's sounds and nav drawables (`ApkAsset`) |
 | `src/artwork/apk_archive.*` | iiSU's release APK read by HTTP ranges: central directory once, any entry by range with its CRC checked; `fetch` is find and extract with a found/missing/failed result (glyphs, sounds and nav icons use it) |
-| `src/artwork/starter_pack.*` | iiSU's starter pack: its entry taken out of the APK against a pin, and a system's card as PNG |
+| `src/artwork/starter_pack.*` | iiSU's starter pack: its entry taken out of the APK against a pin, and a system's card (WebP, decoded and re-encoded by `gpu2d::image`) as PNG |
 | `src/artwork/console_glyphs.*` | iiSU's frame glyphs: `border_pack.json` read once, a system's `logo_*.png` out of the APK |
 | `src/artwork/iisu_assets.*` | Which APK entry is each UI sound and each dock icon (the nav table is valid for the pinned APK only) |
 | `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds openSU plays (`yp8`): effect to APK file name, the Domino cues and `dominoFor(tileCount)` (`xp8.a`), the 91 ms repeat rule for Enter/ExitConsolesApps and the Domino cues; pure (`opensu_audio_model`) |
 | `src/audio/volume_backend.*` | PC output volume through wpctl or pactl (injectable runner), a read-only shadow for hidden runs, the install advice when no backend exists |
 | `src/audio/system_volume.*` | Volume and mute state, steps, one listener, async polling of changes made elsewhere |
-| `src/audio/sound_player.*` | raylib audio: the device opened once (silent with one warning when absent), the WAVs loaded from the store, `play` through the debounce |
+| `src/audio/sound_player.*` | raylib audio: the device opened once (silent with one warning when absent), the WAVs loaded from the store, `play` through the debounce; replaced by `sdl_sound_player` when the shell moves to SDL3 |
+| `src/audio/sound_clip.*` | A UI sound decoded to PCM without a device: WAV through `SDL_LoadWAV`, OGG through libvorbisfile |
+| `src/audio/sdl_sound_player.*` | UI sounds on SDL audio (`opensu_audio_sdl`, not yet wired into the shell): clips decoded on `load` with or without a device, the default device opened once by `open` (never in hidden runs or tests), one bound stream per effect, `play` restarts the clip through the debounce |
 | `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads; `request` with a body cap, and `request` and `download` with each redirect hop checked (`Refusal`) |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
@@ -177,8 +179,7 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | `src/retro/save_memory.*` | Save RAM: load, change check, atomic `.srm` write |
 | `src/retro/presenter.*` | The SDL window and its events; Vulkan swapchain or hidden offscreen image, frame texture, letterboxed draw, read-back |
 | `src/retro/vulkan_device.*` | Vulkan instance (optional validation), device and graphics queue |
-| `src/retro/png_encoder.*` | RGBA to PNG through libpng |
-| `src/retro/shaders/` | GLSL for the frame, compiled by glslc into SPIR-V headers in the build tree |
+| `src/retro/shaders/` | GLSL for the frame, compiled by glslc into SPIR-V headers in the build tree (gpu2d's `gpu2d_compile_shaders`) |
 | `tests/retro/` | Fake cores (`fake_core.cpp`, built three times: serializing, crashing, stateless), unit tests of each owner, `core_test`, and `runner_test` running `opensu-retro --hidden` end to end, its control channel included |
 
 ## Plugins
@@ -198,6 +199,18 @@ Design and API: `docs/design/lua-plugins.md`.
 | `src/plugin/plugin_worker.*` | One plugin's thread: load, refresh (game list, match, play time), fault counting |
 | `src/plugin/plugin_host.*` | Discovery of bundled and user plugins, start and stop, results taken by the loop |
 | `assets/plugins/` | Bundled plugins (`eden-playtime`: Eden's play time and game list) |
+
+## Rendering and images
+
+Design: `docs/design/sdl3-gpu-shell.md`. The 2D layer and image codecs are the gpu2d library, its
+own repository (`GPU2D_ROOT`, default `~/repo/gpu2d`; pinned in `tools/check/pins.py` and fetched by
+`tools/check/deps.py` like Lucent), with its own codemap and tests. The shell still draws with
+raylib until the painters move over (§6.4).
+
+| Target | Owns |
+| --- | --- |
+| `gpu2d::image` | Decoding PNG, JPEG and WebP into RGBA, resizing, PNG encoding to memory; no GPU. Used by `opensu-retro` (`--frame-png`) and the starter pack |
+| `gpu2d::render` | The SDL window and Vulkan device, the 2D canvas, text through SDL3_ttf, offscreen targets; not linked by the shell yet |
 
 ## Home UI (G002)
 
@@ -279,7 +292,7 @@ Painters and composition (`opensu_ui`):
 | `tools/download.py` | The one checksum-verified download the tools share |
 | `tools/podman.py` | Container images the tools build, tagged by the hash of their recipe, and the worktree git dir a container must also mount |
 | `packaging/ci/Containerfile` | The CI image: Fedora 44 (the fork's podman build release) with openSU's and the fork's build dependencies and systemd as PID 1, so tests get a user manager |
-| `packaging/appimage/Containerfile` | The AppImage build image: Ubuntu 24.04 (the glibc 2.39 floor), openSU's and the fork's build dependencies, wayland, wayland-protocols, libxkbcommon, pixman and libdrm headers newer than 24.04's from pinned tarballs, uv |
+| `packaging/appimage/Containerfile` | The AppImage build image: Ubuntu 24.04 (the glibc 2.39 floor), openSU's and the fork's build dependencies, wayland, wayland-protocols, libxkbcommon, pixman and libdrm headers newer than 24.04's from pinned tarballs, SDL3, SDL3_ttf and SDL3_image built from pinned release tarballs, uv |
 | `packaging/appimage/signing-key.asc` | The public half of the key release AppImages are signed with (private half: the `OPENSU_APPIMAGE_SIGNING_KEY` repository secret) |
 | `packaging/opensu.desktop.in`, `packaging/opensu.svg` | The application menu entry and openSU's icon, installed to `share/applications` and `share/icons/hicolor/scalable/apps`; the AppImage carries both at its top |
 | `.github/workflows/ci.yml` | CI on every push and pull request: `tools.check ci` (`all` in the `packaging/ci` container, fork built natively), and `tools.appimage all` (build and smoke) on Ubuntu 24.04 |
