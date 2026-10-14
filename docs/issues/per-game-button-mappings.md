@@ -26,7 +26,7 @@ again allow chord buttons".
   whole through `fileio::writeWhole` (temp file and rename). A damaged file or entry is warned
   and left out.
 - **Forward path**: at launch the shell resolves the game's map (`MappingEditor::forGame`) and
-  `app/game_pads:GamePads::hold` gives the pads its `ForwardMap` and the chord set its chords.
+  `app/pad_owner:PadOwner::hold` gives the pads its `ForwardMap` and the chord set its chords.
   `PadTranslator` applies it to the virtual pad only; the shell's controls stay unmapped, so the
   Guide menu and every shell page navigate as before. A trigger mapped to a trigger keeps its
   travel. `opensu-retro` reads the virtual pad, so it gets the same mapping with

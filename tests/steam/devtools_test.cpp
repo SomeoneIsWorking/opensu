@@ -1,5 +1,6 @@
-// The DevTools link, the download queue, the installer and the uninstaller, against a fake Steam
-// that serves the DevTools page list and answers Runtime.evaluate like the SharedJSContext.
+// The DevTools link, the download queue, the installer, the uninstaller and Big Picture, against a
+// fake Steam that serves the DevTools page list and answers Runtime.evaluate like the
+// SharedJSContext.
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -18,6 +19,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "big_picture.hpp"
 #include "devtools.hpp"
 #include "download_control.hpp"
 #include "downloads.hpp"
@@ -204,6 +206,28 @@ void testUninstallCallsWhatSteamsLibraryCalls() {
     opensu::steam::Uninstaller unreachable{goneTools};
     expect(contains(unreachable.uninstall("480"), "Steam would not uninstall it"),
            "an uninstall Steam does not take says so");
+}
+
+void testBigPictureClosesTheWayItsWindowDoes() {
+    FakeSteam steam{[](const std::string&) {
+        return json{};
+    }};
+    DevTools devTools{steam.port()};
+    opensu::steam::BigPicture bigPicture{devTools};
+    expect(bigPicture.close() &&
+               steam.calls() == std::vector<std::string>{"SteamClient.UI.ExitBigPictureMode()"},
+           "closing Big Picture calls what its own window calls on close");
+
+    std::uint16_t port = 0;
+    {
+        const FakeSteam gone{[](const std::string&) {
+            return json{};
+        }};
+        port = gone.port();
+    }
+    DevTools goneTools{port};
+    opensu::steam::BigPicture unreachable{goneTools};
+    expect(!unreachable.close(), "a close Steam does not take says so");
 }
 
 void testQueueReadsThroughDevTools() {
@@ -518,6 +542,7 @@ int main() {
         testDownloadControlCallsWhatSteamsPageCalls();
         testDownloadControlReportsAGoneSteam();
         testUninstallCallsWhatSteamsLibraryCalls();
+        testBigPictureClosesTheWayItsWindowDoes();
         testQueueReadsThroughDevTools();
         testLaunchActivityParse();
         testLaunchActivityReadsThroughDevTools();

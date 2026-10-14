@@ -24,3 +24,8 @@ target_compile_definitions(login_session_test PRIVATE OPENSU_TEST_SCRATCH="${CMA
 # Not a test: tools/nested_remap's restart check runs it inside a headless KWin.
 add_executable(nested_session_driver nested_session_driver.cpp)
 target_link_libraries(nested_session_driver PRIVATE opensu::session opensu::config lucent::lucent)
+
+add_executable(window_focus_test window_focus_test.cpp)
+target_link_libraries(window_focus_test PRIVATE opensu::session)
+target_include_directories(window_focus_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+add_test(NAME window_focus COMMAND window_focus_test)

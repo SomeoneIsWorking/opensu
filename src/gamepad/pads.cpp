@@ -75,21 +75,29 @@ std::vector<PadInfo> Pads::connected() const {
 
 std::vector<std::string> Pads::hold(ForwardMap map) {
     std::unique_lock lock{mutex_};
-    wanted_.held = true;
     wanted_.map = std::move(map);
     wanted_.blocked = false;
-    awaitApplied(lock, ++wanted_.serial);
+    request(lock, Claim::Game);
     if (appliedMissed_) {
         return {};
     }
     return {"SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e"};
 }
 
-void Pads::release() {
+void Pads::release(Claim after) {
     std::unique_lock lock{mutex_};
-    wanted_.held = false;
     wanted_.map = {};
     wanted_.blocked = false;
+    request(lock, after);
+}
+
+void Pads::claim(Claim claim) {
+    std::unique_lock lock{mutex_};
+    request(lock, claim);
+}
+
+void Pads::request(std::unique_lock<std::mutex>& lock, Claim claim) {
+    wanted_.claim = claim;
     awaitApplied(lock, ++wanted_.serial);
 }
 
@@ -142,7 +150,7 @@ void Pads::add(const std::filesystem::path& node) {
     pad->translator.setChords(applied_.chords);
     pad->translator.setForwardMap(applied_.map);
     lucent::info("gamepad", "controller connected: {} ({})", pad->device.name(), node.string());
-    if (applied_.held && !apply(*pad, true, applied_.blocked)) {
+    if (!apply(*pad, applied_)) {
         missed_ = true;
     }
     const PadInfo info{node.string(), pad->device.name(), pad->device.uniq()};
@@ -156,28 +164,37 @@ void Pads::add(const std::filesystem::path& node) {
     pads_.push_back(std::move(pad));
 }
 
-bool Pads::apply(Pad& pad, bool held, bool blocked) {
-    if (!held) {
+bool Pads::apply(Pad& pad, const Wanted& wanted) {
+    const bool grab = wanted.claim == Claim::Shell || wanted.claim == Claim::Game;
+    const bool virtualPad = wanted.claim == Claim::Game || wanted.claim == Claim::Away;
+    bool held = true;
+    if (grab && !pad.grabbed) {
+        pad.grabbed = pad.device.grab();
+        held = pad.grabbed;
+    } else if (!grab && pad.grabbed) {
+        pad.device.ungrab();
+        pad.grabbed = false;
+    }
+    if (!virtualPad) {
         pad.output.reset();
-        pad.device.ungrab();
-        return true;
+        pad.live = false;
+    } else if (!pad.output) {
+        try {
+            pad.output = std::make_unique<VirtualPad>();
+        } catch (const std::system_error& failure) {
+            lucent::error("gamepad", "cannot give {} a virtual pad: {}", pad.device.name(),
+                          failure.what());
+            return false;
+        }
     }
-    if (!pad.device.grab()) {
-        return false;
+    const bool live = pad.output && wanted.claim == Claim::Game && !wanted.blocked;
+    if (live != pad.live) {
+        write(pad, live ? pad.translator.resume() : pad.translator.rest());
+        pad.live = live;
     }
-    try {
-        pad.output = std::make_unique<VirtualPad>();
-    } catch (const std::system_error& failure) {
-        lucent::error("gamepad", "cannot give {} a virtual pad: {}", pad.device.name(),
-                      failure.what());
-        pad.device.ungrab();
-        return false;
-    }
-    if (!blocked) {
-        write(pad, pad.translator.resume());
-    }
-    lucent::info("gamepad", "holding {} for the game", pad.device.name());
-    return true;
+    lucent::debug("gamepad", "{}: grabbed {}, virtual pad {}", pad.device.name(), pad.grabbed,
+                  pad.output != nullptr);
+    return held;
 }
 
 void Pads::write(Pad& pad, const std::vector<PadEvent>& events) {
@@ -238,16 +255,12 @@ void Pads::run(const std::stop_token& stop) {
                 pad->translator.setForwardMap(wanted.map);
             }
         }
-        if (wanted.held != applied_.held) {
+        if (wanted.claim != applied_.claim || wanted.blocked != applied_.blocked) {
             missed_ = false;
             for (const auto& pad : pads_) {
-                if (!apply(*pad, wanted.held, wanted.blocked)) {
+                if (!apply(*pad, wanted)) {
                     missed_ = true;
                 }
-            }
-        } else if (wanted.held && wanted.blocked != applied_.blocked) {
-            for (const auto& pad : pads_) {
-                write(*pad, wanted.blocked ? pad->translator.rest() : pad->translator.resume());
             }
         }
         applied_ = wanted;
@@ -289,7 +302,7 @@ void Pads::run(const std::stop_token& stop) {
             for (std::size_t i = before; i < events.size(); ++i) {
                 events[i].source = pad.device.node().string();
             }
-            if (!applied_.blocked) {
+            if (pad.live) {
                 write(pad, forward);
             }
         }

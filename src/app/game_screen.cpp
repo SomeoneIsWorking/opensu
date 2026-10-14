@@ -18,7 +18,15 @@ void GameScreen::showWindow(bool shown) {
     }
 }
 
+void GameScreen::takeFocus() {
+    if (overlay_ && !running_) {
+        showWindow(false);
+        showWindow(true);
+    }
+}
+
 void GameScreen::setRunning(bool running) {
+    running_ = running;
     mode_ = session::OverlayMode::Hidden;
     if (overlay_) {
         if (running) {

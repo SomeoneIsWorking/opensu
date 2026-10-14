@@ -15,7 +15,7 @@ gitignored `docs/reference/`).
 | `src/app/shell_window.*` | The shell's SDL window on gpu2d (`GpuWindow` and `Canvas`): resizable, translucent, 960x600 minimum, unmapped without vsync for `--hidden` and `--render`; logs the device, driver and translucency; the frame's keys, typed text, pointer and resize from SDL events; a frame presented at most 60 a second, or drawn offscreen and read back; the monitor's size and refresh and filling it for the Gamescope overlay |
 | `src/app/sdl_keys.*` | SDL scancodes onto the shell's key codes (`input::keys`) |
 | `src/app/control_bridge.*` | The hand-over between the control channel's threads and the loop: queued input, reload and close requests, the published `ShellSnapshot`, the frame handshake |
-| `src/app/game_screen.*` | The window's relation to a running game: the Gamescope overlay and game-time key watcher, or the hidden window flag; interactive while a menu or page is up (keyboard taken, the game's pads rested), passive while the chord list is up (shown, the game keeps the keyboard and the pads), hidden otherwise |
+| `src/app/game_screen.*` | The window's relation to a running game: the Gamescope overlay and game-time key watcher, or the hidden window flag; puts the shell back in front (`takeFocus`); interactive while a menu or page is up (keyboard taken, the game's pads rested), passive while the chord list is up (shown, the game keeps the keyboard and the pads), hidden otherwise |
 | `src/app/top_bar_clock.*` | The top bar's clock set again on each minute boundary, and the battery read on the same tick |
 | `src/app/guide_menu_controller.*` | The Guide menu's buttons and what each entry does (sections, Devices, Downloads, Settings, close game, quit, the power button and list: `host::Power` with a second press for restart and shut down, `host::SessionMode` for Switch to session mode (second press), Install session mode (opens the dialog) and, in a login session, Switch to desktop) |
 | `src/app/session_install_controller.*` | The Install session mode flow: the dialog, then the password on the on-screen or physical keyboard, the root step on a worker, a wrong password asking again, the password wiped once sudo has had it |
@@ -54,7 +54,8 @@ gitignored `docs/reference/`).
 | `src/app/shortcut_editor.*` | The remap capture: pick an action, press the new combo or pad chord (heard by `ChordCapture`), refusals; restores every shortcut or only the chords |
 | `src/app/chord_capture.*` | Hears one pad chord from raw pad events: the first button held, then another; B alone cancels on release (the shortcut and mapping editors) |
 | `src/app/mapping_editor.*` | The button mappings (`docs/issues/per-game-button-mappings.md`): loads and saves them through `MappingStore`, resolves a game's at launch (`forGame`, `mappingKeys`), and drives the mapping page for a game's, an emulator's or the global map (pick lists, chord capture, refusals, Steam Input); Settings › Controls' mapping rows |
-| `src/app/game_pads.*` | Holding the pads for a game with its mapping: the pads' `ForwardMap` and the game's chords in the `ChordSet`, released together |
+| `src/app/pad_owner.*` | Who has the pads (`gamepad::Claim`) from the game state and Gamescope's focus: the shell in front holds them inside Gamescope, another window gets them and the shell hears only Guide (`admit`); a game's mapping as the pads' `ForwardMap` and its chords in the `ChordSet`, released together; where pads are read from (`inputDirectory`) |
+| `src/app/focus_follow.*` | Follows Gamescope's focused window: closes Big Picture whenever it takes the focus and puts the shell back; Guide behind another window brings the shell back (`guideReturns`) |
 | `src/app/chord_settings.*` | Settings › Guide chords: one row per action a chord can do, its chord, the capture through `ShortcutEditor`, restore the shipped chords |
 | `src/app/shortcut_router.*` | Keys, pad events and game keys onto shell events and actions through `Shortcuts`; every action that is not a button is done here (quick menu, volume, quit, and the game actions, with a toast when no game runs) |
 | `src/app/frame_png.*` | The drawn shell as PNG bytes, for the control channel's frame and `--render` |
@@ -94,7 +95,8 @@ gitignored `docs/reference/`).
 | `src/session/monitor.*` | The output's size and refresh, from SDL's display modes (X11 video): the primary monitor before the window opens, the window's display after |
 | `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game: hidden, passive (drawn, input left to the game) or interactive (`STEAM_INPUT_FOCUS`) |
 | `src/session/game_keys.*` | The shortcuts that work while a game has the keyboard (Guide, volume), matched against the `Shortcuts` table from XInput2 raw keys |
-| `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show; tells the handoff when a game is on screen |
+| `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show (tells the handoff when a game is on screen), and the focused window's changes from the root's properties |
+| `src/session/window_focus.*` | Whose window Gamescope has focused (openSU, the launched game, Big Picture, another window), as pure rules over `GAMESCOPE_FOCUSED_WINDOW` and `GAMESCOPE_FOCUSABLE_WINDOWS` |
 | `src/launch/instance.*` | One transient systemd user scope per launch, its program started with no signal blocked; stopping it ends the whole tree; how the started process ended (`exitStatus`) |
 | `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends; how a game in an Instance ended (`Hooks::ended`), unless force-closed |
 | `src/launch/process_tree.*` | Finding processes by command line, ending trees |
@@ -113,6 +115,7 @@ gitignored `docs/reference/`).
 | `src/steam/launch_activity.*` | Steam's game actions and running state per app, recorded in its SharedJSContext |
 | `src/steam/install_wizard.*` | Installing a Steam app through Steam's own installer, licence steps to the player |
 | `src/steam/uninstaller.*` | Uninstalling a Steam app through `SteamClient.Installs.OpenUninstallWizard`, as Steam's library does |
+| `src/steam/big_picture.*` | Closing Big Picture through `SteamClient.UI.ExitBigPictureMode`, as its own window does |
 
 ## Library
 
@@ -170,7 +173,7 @@ gitignored `docs/reference/`).
 | `src/gamepad/forward_map.*` | `ForwardMap`: what each pad button and game chord sends to the virtual pad (`padButtons`), as the pads take it |
 | `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads; whether a reader takes opensu's own virtual pads (`OwnVirtualPads`: the shell skips them, `opensu-retro` reads them) |
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
-| `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game with its `ForwardMap` (`hold`) and blocks them while a menu or page is up; keeps bound chords from the game (`setChords`); never opens motion or hidraw nodes; lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
+| `src/gamepad/pads.*` | Every pad, read always and hot-plugged; claims them (`Claim`: Free, Shell grabbed, Game grabbed with virtual pads and its `ForwardMap`, Away) and blocks the virtual pads while a menu or page is up; keeps bound chords from the game (`setChords`); never opens motion or hidraw nodes; lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
 | `src/input/shortcuts.*` | The one chord table: every `Action` (pad buttons, Guide, volume, Quit, and the game actions Close game, Save state, Load state, Reset game, Devices, Downloads, Home) with its default key combos and pad chords (any button may be the held one), the player's overrides (`rebind`, with conflict refusals), labels and settings spellings, the chords on one modifier (`chordsOn`), each button's glyph key (`glyphOf`, `buttonOfGlyph`) |
 | `src/input/key_names.*` | The shell's key codes (`input::keys`, GLFW's numbering, letters as ASCII) and their names: `Combo`, modifiers, bindable keys, X11 key names for the in-game watcher |
