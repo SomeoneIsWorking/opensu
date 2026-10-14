@@ -189,9 +189,10 @@ void testSignalStopsTheSession() {
     std::future<int> done = std::async(std::launch::async, [&] {
         return session.run(Output{1280, 720, 0}, {});
     });
+    // The start count is the stand-in's last write before it sleeps.
     expect(waitUntil(
                [&fixture] {
-                   return fs::exists(fixture.envFile) && !slurp(fixture.envFile).empty();
+                   return starts(fixture.base) == 1;
                },
                std::chrono::seconds{20}),
            "Gamescope started");
