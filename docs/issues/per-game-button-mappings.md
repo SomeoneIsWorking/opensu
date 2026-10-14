@@ -79,6 +79,8 @@ again allow chord buttons".
 
 ## Not built
 
+- **Page look**: the board is not settled with the player. Options to revisit: labels only on
+  changed buttons, a two-step chord picker, a changes-only page with press-to-pick.
 - **Key outputs** (a standalone emulator's keyboard hotkeys via XTest or a uinput keyboard). A
   third `ChordOutput` alternative would carry them; nothing else in the model changes.
 - **How the switch reaches Steam.** openSU stores the switch and applies its own side (no mapping
