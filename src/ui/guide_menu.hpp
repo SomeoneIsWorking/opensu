@@ -1,9 +1,9 @@
 // guide_menu — the menu Guide opens: a panel down the left edge, after Steam's main menu, with
-// openSU's own entries. Outside a game it goes to Home, Library, Devices and Settings; over a
-// running game it resumes or closes the game first. A power button in the bottom-left corner,
-// reached by moving down past the last row, opens a second list of its own: Sleep, Restart, Shut
-// down, then the way to openSU's session mode (or back to the desktop from it). Pure state, so it
-// is tested without a window.
+// openSU's own entries. Outside a game it goes to Home, Library, Devices, Downloads and Settings;
+// over a running game it resumes or closes the game first. A power button in the bottom-left
+// corner, reached by moving down past the last row, opens a second list of its own: Sleep, Restart,
+// Shut down, then the way to openSU's session mode (or back to the desktop from it). Pure state, so
+// it is tested without a window.
 #pragma once
 
 #include <cstdint>
@@ -23,6 +23,7 @@ enum class GuideAction : std::uint8_t {
     Home,
     Library,
     Devices,
+    Downloads,
     Settings,
     Sleep,
     Restart,

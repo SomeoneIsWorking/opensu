@@ -108,6 +108,7 @@ void GuideMenu::build() {
         add(GuideAction::Library, "Library");
     }
     add(GuideAction::Devices, "Devices");
+    add(GuideAction::Downloads, "Downloads");
     add(GuideAction::Settings, "Settings");
 }
 

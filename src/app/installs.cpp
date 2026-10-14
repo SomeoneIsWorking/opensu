@@ -60,7 +60,23 @@ bool Installs::start(const library::Game& game) {
         return false;
     }
     title_ = game.title;
+    last_ = job;
+    lastStore_ = game.source;
     return true;
+}
+
+std::optional<Installs::Status> Installs::status() const {
+    if (last_ == nullptr) {
+        return std::nullopt;
+    }
+    std::optional<InstallJob::Status> job = last_->status();
+    return job ? std::optional{Status{lastStore_, std::move(*job)}} : std::nullopt;
+}
+
+void Installs::cancel() {
+    if (InstallJob* job = current()) {
+        job->cancel();
+    }
 }
 
 InstallJob* Installs::current() {

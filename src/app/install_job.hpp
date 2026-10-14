@@ -1,9 +1,10 @@
 // install_job — one game downloading, off the main loop: the thread, the latest report the loop
-// takes, and the licence answer a store may wait for. A store's installer is a subclass that
-// supplies run().
+// takes, the state anyone may read, the licence answer a store may wait for, and the player's
+// cancel. A store's installer is a subclass that supplies run().
 #pragma once
 
 #include <condition_variable>
+#include <cstdint>
 #include <mutex>
 #include <optional>
 #include <stop_token>
@@ -22,9 +23,25 @@ class InstallJob {
         std::optional<double> fraction;
         /// A licence agreement waits on the player; answer with decide().
         bool licence{false};
-        /// The job is over: installed, or `failure` says why not.
+        /// The job is over: installed, or `failure` says why not, or the player cancelled it.
         bool finished{false};
         std::string failure;
+        bool cancelled{false};
+    };
+
+    enum class Phase : std::uint8_t { Running, Licence, Installed, Failed, Cancelled };
+
+    /// Where the job stands, kept after it ends until the next start.
+    struct Status {
+        /// Counts starts, so each install is told apart.
+        std::uint64_t serial{0};
+        std::string appId{};
+        std::string title{};
+        Phase phase{Phase::Running};
+        /// The latest report's line and measure.
+        std::string line{};
+        std::optional<double> fraction{};
+        std::string failure{};
     };
 
     InstallJob(const InstallJob&) = delete;
@@ -39,6 +56,12 @@ class InstallJob {
 
     /// The latest report, once; nothing when there is no news.
     [[nodiscard]] std::optional<Report> take();
+
+    /// The job's state now, without taking a report; nothing before the first start.
+    [[nodiscard]] std::optional<Status> status() const;
+
+    /// Stops the running install; it ends with a cancelled report. Nothing while idle.
+    void cancel();
 
     /// The player's answer to the licence agreement a report asked about.
     void decide(bool accepted);
@@ -64,8 +87,11 @@ class InstallJob {
     std::condition_variable_any decided_;
     std::optional<bool> decision_;
     std::optional<Report> pending_;
+    std::optional<Status> status_;
     std::string title_;
     bool running_{false};
+    /// The running install has posted its finished report; later ones are dropped.
+    bool over_{false};
     /// Last, so it is stopped and joined before the rest goes.
     std::jthread thread_;
 };

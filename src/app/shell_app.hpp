@@ -2,8 +2,8 @@
 // shell, and is the only place the two halves meet.
 #pragma once
 
+#include <algorithm>
 #include <array>
-#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -32,6 +32,7 @@
 #include "controller_roster.hpp"
 #include "details_controller.hpp"
 #include "devices_controller.hpp"
+#include "downloads_controller.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
 #include "game_screen.hpp"
@@ -42,6 +43,7 @@
 #include "host_services.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "launch/handoff.hpp"
+#include "launch_mailbox.hpp"
 #include "layout_picker.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
@@ -117,14 +119,6 @@ class ShellApp final : private PointerHost {
     void serviceControlRequests();
     void serviceRequests();
 
-    /// Requests raised by the launch thread and applied by the main loop, because
-    /// the window and the shell's state belong to it. Each of these only sets
-    /// a flag: none of them touches the window or the shell from that thread.
-    void requestGameRunning(bool running);
-    void requestToast(std::string text, bool isError);
-    /// Hands the loop a launch's progress, for the launch panel. Any thread.
-    void requestLaunchProgress(const launch::LaunchProgress& progress);
-
     /// Asks every store to list again; the listings reach the shell as they arrive.
     void reloadCatalog();
     /// Takes the listings that arrived and shows them. Main loop only.
@@ -148,6 +142,8 @@ class ShellApp final : private PointerHost {
     void press(gamepad::Button button) override;
     void activateSection(library::Section section) override;
     void selectLauncher(library::Source source) override;
+    /// Opens the Downloads page in place of any other page.
+    void openDownloads() override;
     void activateCrumb(std::size_t index) override;
     void scroll(int steps) override;
     void chooseLevel(int level) override;
@@ -200,7 +196,7 @@ class ShellApp final : private PointerHost {
     void toggleGuide();
     /// The quick menu action: opens the quick menu, or closes it.
     void toggleQuickMenu();
-    /// Closes the details, Settings and Devices pages, which a Guide menu entry leaves.
+    /// Closes the details, Settings, Devices and Downloads pages, which a Guide menu entry leaves.
     void closePages();
     /// Shows the window over a running game while a menu or page is up, and only then.
     void syncOverlay();
@@ -397,6 +393,10 @@ class ShellApp final : private PointerHost {
                                                          closePages();
                                                          clickSection(library::Section::Home);
                                                      },
+                                                 .openDownloads =
+                                                     [this] {
+                                                         openDownloads();
+                                                     },
                                                  .say =
                                                      [this](const std::string& text, bool isError) {
                                                          shell_.setToast(text, isError);
@@ -513,6 +513,9 @@ class ShellApp final : private PointerHost {
                                        devicesScreen_.open();
                                    },
                                    [this] {
+                                       openDownloads();
+                                   },
+                                   [this] {
                                        closePages();
                                        settingsScreen_.open();
                                    },
@@ -604,6 +607,33 @@ class ShellApp final : private PointerHost {
                                            return preferences_.values().installFolders.effective(
                                                store);
                                        }}};
+    /// The Downloads page: Steam's queue, the store install and the emulator download. After the
+    /// sources it reads.
+    DownloadsController downloadsScreen_{
+        shell_.downloadsPanel().page(),
+        DownloadsController::Sources{
+            .installs = panels_.installs(),
+            .emulators = emulatorDownloads_,
+            .steam = steam_.downloadControl(),
+            .steamReady =
+                [this] {
+                    return steam_.state() == launch::SteamState::Ready;
+                },
+            .steamQueue =
+                [this] {
+                    return steam_.downloads();
+                },
+            .titles =
+                [this](library::Source store, const std::string& id) {
+                    const auto game =
+                        std::ranges::find_if(games_, [store, &id](const library::Game& one) {
+                            return one.source == store && one.sourceId == id;
+                        });
+                    return game != games_.end() ? game->title : std::string{};
+                }},
+        sounds_, DownloadsController::Hooks{[this](const std::string& text, bool isError) {
+            shell_.setToast(text, isError);
+        }}};
     /// How the window relates to a running game: the overlay inside Gamescope, hidden elsewhere.
     GameScreen gameScreen_{settings_.hidden, [this](bool blocked) {
                                if (padsHeld_) {
@@ -613,18 +643,10 @@ class ShellApp final : private PointerHost {
     /// The store sign-ins the control channel drives.
     StoreSignIn signIn_;
 
-    /// Whether a game is running. The launch thread sets it; only the loop acts on it.
-    std::atomic<bool> gameRunning_{false};
-    /// A toast raised off-thread, taken by the loop.
-    std::mutex toastMutex_;
-    std::string pendingToast_;
-    bool pendingToastError_{false};
-    bool hasPendingToast_{false};
-    /// Opens a store's sign-in page; after the toast it raises, so it is joined first.
+    /// What the launch and sign-in threads hand the loop.
+    LaunchMailbox mailbox_;
+    /// Opens a store's sign-in page; after the mailbox it posts to, so it is joined first.
     std::jthread signInOpener_;
-    /// The launch's latest progress, raised off-thread, taken by the loop.
-    std::mutex progressMutex_;
-    std::optional<launch::LaunchProgress> pendingProgress_;
 };
 
 } // namespace opensu::app

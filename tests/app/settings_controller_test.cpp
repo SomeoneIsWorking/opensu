@@ -654,11 +654,12 @@ void guideChordsAreSetOnTheirPage(const fs::path& root) {
     for (const ui::SettingsRow& row : rig.page.focusedCategory().rows) {
         labels.push_back(row.label + ": " + row.value);
     }
-    expect(labels ==
-               std::vector<std::string>{
-                   "Quick menu: Guide + A", "Volume up: Guide + Up", "Volume down: Guide + Down",
-                   "Mute: Guide + Left", "Close game: None", "Save state: None", "Load state: None",
-                   "Reset game: None", "Devices: None", "Home: None", "Restore default chords: "},
+    expect(labels == std::vector<std::string>{"Quick menu: Guide + A", "Volume up: Guide + Up",
+                                              "Volume down: Guide + Down", "Mute: Guide + Left",
+                                              "Close game: None", "Save state: None",
+                                              "Load state: None", "Reset game: None",
+                                              "Devices: None", "Home: None", "Downloads: None",
+                                              "Restore default chords: "},
            "one row per action a chord can do, with its chord");
 
     const auto event = [](Button button, bool pressed) {

@@ -13,6 +13,10 @@ std::string sectionLabel(library::Section section) {
 
 ui::Trail trailOf(const TrailState& state) {
     ui::Trail trail;
+    if (state.downloads) {
+        trail.push_back(ui::Crumb{"Downloads", ui::CrumbKind::Page});
+        return trail;
+    }
     if (!state.devices.empty()) {
         trail.push_back(ui::Crumb{"Devices", ui::CrumbKind::Devices});
         trail.push_back(ui::Crumb{state.devices, ui::CrumbKind::Page});

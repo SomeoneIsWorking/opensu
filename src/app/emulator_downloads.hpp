@@ -55,6 +55,17 @@ class EmulatorDownloads {
         bool operator==(const Build&) const = default;
     };
 
+    /// How a download ended, kept until the next one ends.
+    struct Finished {
+        enum class Outcome : std::uint8_t { Installed, Cancelled, Failed };
+        /// Counts the ends, so each is told apart.
+        std::uint64_t serial{0};
+        std::string id;
+        Outcome outcome{Outcome::Installed};
+        /// What the player was told.
+        std::string text;
+    };
+
     /// The update check's state.
     struct Check {
         bool running{false};
@@ -83,6 +94,8 @@ class EmulatorDownloads {
     void cancel(std::string_view id);
     /// The running download, or nothing; a download runs until service() reports its end.
     [[nodiscard]] std::optional<Progress> progress() const;
+    /// The download service() last reported the end of, or nothing before the first.
+    [[nodiscard]] std::optional<Finished> lastFinished() const;
 
     /// Reads the latest release or core build of every downloadable emulator, in the background.
     void checkUpdates();
@@ -104,9 +117,9 @@ class EmulatorDownloads {
 
   private:
     struct Ended {
+        std::string id;
         std::string text;
-        bool error{false};
-        bool installed{false};
+        Finished::Outcome outcome{Finished::Outcome::Installed};
     };
 
     void runDownload(const std::stop_token& stop, const library::roms::EmulatorEntry& entry);
@@ -138,6 +151,7 @@ class EmulatorDownloads {
     std::map<std::string, Build, std::less<>> latest_;
     Check check_;
     std::vector<Ended> ended_;
+    std::optional<Finished> finished_;
     /// The loop's last look, so progress refreshes once per percent.
     std::optional<int> shownPercent_;
     bool checkChanged_{false};

@@ -7,7 +7,7 @@ parity runs capture all of them.
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from tools.screenshots import mixer
+from tools.screenshots import legendary, mixer
 from tools.screenshots.shell import HiddenShell
 
 # Long enough for a panel's slide and the focus ring's entrance to finish.
@@ -69,8 +69,8 @@ def _close_guide(shell: HiddenShell) -> None:
 
 
 def _settings(shell: HiddenShell) -> None:
-    # Guide menu rows: Home, Library, Devices, Settings.
-    shell.press("guide", "down", "down", "down", "a")
+    # Guide menu rows: Home, Library, Devices, Downloads, Settings.
+    shell.press("guide", "down", "down", "down", "down", "a")
     shell.wait_for("settingsOpen", True)
 
 
@@ -119,6 +119,7 @@ def _console_shelf(shell: HiddenShell) -> None:
 
 
 def _leave_console_shelf(shell: HiddenShell) -> None:
+    """Back out of the shelf open in Library, to Home."""
     shell.press("b")
     shell.wait_for("shelf", "library")
     _home(shell)
@@ -185,6 +186,49 @@ def _chord_hint_gone(shell: HiddenShell) -> None:
     shell.wait_for("guideMenuOpen", False)
 
 
+def _downloading(state: dict[str, object]) -> bool:
+    downloads = state.get("downloads")
+    return isinstance(downloads, list) and any(
+        line.get("key") == f"epic:{legendary.APP_NAME}"
+        and line.get("state") == "downloading"
+        and line.get("percent") == legendary.PERCENT
+        for line in downloads
+    )
+
+
+def _start_epic_install(shell: HiddenShell) -> None:
+    """Library, into the Epic launcher, the stand-in's game, Install; the panel hidden."""
+    _library(shell)
+    # The launchers fill Library's first column, Steam first.
+    for _ in range(LONGEST_WALK):
+        if shell.state().get("focusedId") == "launcher:epic":
+            break
+        shell.press("down")
+    shell.wait_for("focusedId", "launcher:epic", timeout=1.0)
+    shell.press("a")
+    shell.wait_for("focusedId", f"epic:{legendary.APP_NAME}")
+    _details(shell)
+    # Install on the details page, then Install on the panel it offers.
+    shell.press("a", "a")
+    shell.wait_until(_downloading, "the Epic install at its stand-in's percent")
+    # B hides the install panel, B again closes the details page.
+    shell.press("b", "b")
+    shell.wait_for("detailsOpen", False)
+
+
+def _downloads(shell: HiddenShell) -> None:
+    _start_epic_install(shell)
+    # Guide menu rows: Home, Library, Devices, Downloads, Settings.
+    shell.press("guide", "down", "down", "down", "a")
+    shell.wait_for("downloadsOpen", True)
+
+
+def _close_downloads(shell: HiddenShell) -> None:
+    shell.press("b")
+    shell.wait_for("downloadsOpen", False)
+    _leave_console_shelf(shell)
+
+
 SCENES: tuple[Scene, ...] = (
     Scene("home", "Home: installed games from every store", _nothing, _nothing, readme=True),
     Scene(
@@ -223,3 +267,9 @@ SCENES: tuple[Scene, ...] = (
 )
 
 README_SCENES: tuple[Scene, ...] = tuple(scene for scene in SCENES if scene.readme)
+
+# Each needs a run of its own with the stand-in `legendary` (legendary.py) on PATH: its Epic
+# launcher would change every other scene.
+DOWNLOAD_SCENES: tuple[Scene, ...] = (
+    Scene("downloads", "Downloads: an Epic install in progress", _downloads, _close_downloads),
+)

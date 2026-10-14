@@ -32,8 +32,9 @@ void homeEntriesAreTheSectionsThenTheSystem() {
         actions.push_back(entry.action);
     }
     expect(actions == std::vector<GuideAction>({GuideAction::Home, GuideAction::Library,
-                                                GuideAction::Devices, GuideAction::Settings}),
-           "Home, Library, Devices, Settings");
+                                                GuideAction::Devices, GuideAction::Downloads,
+                                                GuideAction::Settings}),
+           "Home, Library, Devices, Downloads, Settings");
     expect(menu.title() == "openSU", "the heading names openSU outside a game");
     expect(menu.focus() == 0 && std::string{menu.backLabel()} == "Close",
            "it opens on the first entry and B closes it");
@@ -45,9 +46,10 @@ void gameEntriesResumeOrClose() {
     expect(menu.entries()[0].action == GuideAction::Resume &&
                menu.entries()[1].action == GuideAction::CloseGame,
            "over a game, Resume and Close game come first");
-    expect(menu.entries().size() == 4 && menu.entries()[2].action == GuideAction::Devices &&
-               menu.entries()[3].action == GuideAction::Settings,
-           "then Devices and Settings; no sections");
+    expect(menu.entries().size() == 5 && menu.entries()[2].action == GuideAction::Devices &&
+               menu.entries()[3].action == GuideAction::Downloads &&
+               menu.entries()[4].action == GuideAction::Settings,
+           "then Devices, Downloads and Settings; no sections");
     expect(menu.title() == "Celeste" && std::string{menu.backLabel()} == "Resume",
            "the game's title heads it and B resumes");
 }
@@ -72,7 +74,7 @@ void powerHasItsOwnList() {
     expect(!menu.powerFocused(), "moving a lot stops on the last row");
     expect(menu.move(1) && menu.powerFocused(), "down past the last row focuses the power button");
     expect(!menu.move(1) && menu.powerFocused(), "and stops there");
-    expect(menu.move(-1) && !menu.powerFocused() && menu.focus() == 3, "up returns to the list");
+    expect(menu.move(-1) && !menu.powerFocused() && menu.focus() == 4, "up returns to the list");
     menu.focusPower();
     menu.showPower();
     expect(menu.inPower() && menu.title() == "Power" && std::string{menu.backLabel()} == "Back",

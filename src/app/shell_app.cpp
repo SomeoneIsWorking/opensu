@@ -205,9 +205,9 @@ void ShellApp::startSignIn(Store store) {
     // The opener can take seconds to start a browser, so it runs off the loop.
     signInOpener_ = std::jthread{[this, store] {
         const SignInResult result = signIn_.open(store);
-        requestToast(result.ok ? "sign in there; the opensu sign-in extension finishes it"
-                               : result.message,
-                     !result.ok);
+        mailbox_.postToast(result.ok ? "sign in there; the opensu sign-in extension finishes it"
+                                     : result.message,
+                           !result.ok);
     }};
 }
 
@@ -459,6 +459,10 @@ void ShellApp::actOn(gamepad::Button button) {
         devicesScreen_.act(button);
         return;
     }
+    if (shell_.downloadsPanel().isOpen()) {
+        downloadsScreen_.act(button);
+        return;
+    }
     if (shell_.settingsPanels().page().isOpen()) {
         settingsScreen_.act(button);
         return;
@@ -587,15 +591,15 @@ void ShellApp::launch(const library::Game& game) {
         // loop does the work.
         const launch::Handoff::Hooks hooks{.hide =
                                                [this] {
-                                                   requestGameRunning(true);
+                                                   mailbox_.postGameRunning(true);
                                                },
                                            .show =
                                                [this] {
-                                                   requestGameRunning(false);
+                                                   mailbox_.postGameRunning(false);
                                                },
                                            .progress =
                                                [this](const launch::LaunchProgress& progress) {
-                                                   requestLaunchProgress(progress);
+                                                   mailbox_.postProgress(progress);
                                                },
                                            .ended =
                                                [&exitStatus](int status) {
@@ -608,7 +612,7 @@ void ShellApp::launch(const library::Game& game) {
         }
         const EndNotice notice = noticeOf(GameEnd{copy.title, failure, exitStatus, retro_.end()});
         lucent::info("launch", "{} is over: {}", copy.title, notice.text);
-        requestToast(notice.text, notice.error);
+        mailbox_.postToast(notice.text, notice.error);
     }}.detach();
 }
 
@@ -676,6 +680,12 @@ void ShellApp::closePages() {
     details_.close();
     settingsScreen_.close();
     devicesScreen_.close();
+    downloadsScreen_.close();
+}
+
+void ShellApp::openDownloads() {
+    closePages();
+    downloadsScreen_.open();
 }
 
 void ShellApp::syncOverlay() {
@@ -786,6 +796,7 @@ ui::Trail ShellApp::currentTrail() const {
     }
     state.settings = settingsScreen_.category();
     state.devices = devicesScreen_.tab();
+    state.downloads = shell_.downloadsPanel().isOpen();
     return trailOf(state);
 }
 
@@ -836,7 +847,7 @@ ui::HintContext ShellApp::hints() const {
     if (shell_.settingsPanels().page().isOpen()) {
         return ui::HintContext{.back = true, .select = settingsScreen_.changes(), .change = true};
     }
-    if (shell_.detailsPage().isOpen()) {
+    if (shell_.detailsPage().isOpen() || shell_.downloadsPanel().isOpen()) {
         return ui::HintContext{.back = true, .select = true};
     }
     const bool game = shell_.focusedGame() != nullptr;
@@ -856,24 +867,6 @@ void ShellApp::syncChrome() {
     // trail names where it is.
     shell_.setTitle(shell_.pillTitle());
     shell_.setTrail(currentTrail());
-}
-
-void ShellApp::requestGameRunning(bool running) {
-    gameRunning_.store(running);
-}
-
-void ShellApp::requestLaunchProgress(const launch::LaunchProgress& progress) {
-    const std::lock_guard lock{progressMutex_};
-    pendingProgress_ = progress;
-}
-
-void ShellApp::requestToast(std::string text, bool isError) {
-    {
-        const std::lock_guard lock{toastMutex_};
-        pendingToast_ = std::move(text);
-        pendingToastError_ = isError;
-        hasPendingToast_ = true;
-    }
 }
 
 void ShellApp::publishSnapshot() {
@@ -928,6 +921,8 @@ void ShellApp::publishSnapshot() {
     next.quickMenuOpen = shell_.guidePanels().quick().isOpen();
     next.devicesOpen = shell_.devicesPanel().isOpen();
     next.devicesTab = devicesScreen_.tab();
+    next.downloadsOpen = shell_.downloadsPanel().isOpen();
+    next.downloads = downloadsScreen_.lines();
     next.steam = std::string{launch::name(steam_.state())};
     next.inputDevice =
         shell_.inputDevice().current() == input::Device::KeyboardMouse ? "keyboard" : "pad";
@@ -988,12 +983,7 @@ void ShellApp::serviceRequests() {
         pads_.release();
         padsHeld_ = false;
     }
-    std::optional<launch::LaunchProgress> progress;
-    {
-        const std::lock_guard lock{progressMutex_};
-        progress = std::exchange(pendingProgress_, std::nullopt);
-    }
-    if (progress) {
+    if (const std::optional<launch::LaunchProgress> progress = mailbox_.takeProgress()) {
         const bool measured = progress->stage == launch::LaunchProgress::Stage::Updating;
         shell_.launchPanel().update(launch::describe(*progress),
                                     measured ? std::optional{progress->fraction} : std::nullopt);
@@ -1008,7 +998,7 @@ void ShellApp::serviceRequests() {
         }
         reloadCatalog();
     }
-    const bool running = gameRunning_.load();
+    const bool running = mailbox_.gameRunning();
     if (running != shell_.inGame()) {
         shell_.setInGame(running);
         guideMenu_.close();
@@ -1022,17 +1012,8 @@ void ShellApp::serviceRequests() {
         }
     }
 
-    if (hasPendingToast_) {
-        std::string text;
-        bool isError = false;
-        {
-            const std::lock_guard lock{toastMutex_};
-            text = std::move(pendingToast_);
-            isError = pendingToastError_;
-            pendingToast_.clear();
-            hasPendingToast_ = false;
-        }
-        shell_.setToast(std::move(text), isError);
+    if (std::optional<LaunchMailbox::Toast> toast = mailbox_.takeToast()) {
+        shell_.setToast(std::move(toast->text), toast->error);
     }
 }
 
@@ -1092,6 +1073,7 @@ int ShellApp::run() {
         serviceDevices(std::chrono::steady_clock::now());
         sessionInstall_.service();
         emulatorDownloads_.service();
+        downloadsScreen_.service();
         settingsScreen_.service();
         syncOverlay();
         syncChrome();

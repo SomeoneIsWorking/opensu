@@ -84,18 +84,18 @@ TopBarLayout Hud::topBarLayout() const {
                                     letters, content, visible});
 }
 
-std::optional<library::Source> Hud::launcherAt(float x, float y) const {
+const LauncherBadge* Hud::launcherAt(float x, float y) const {
     const std::optional<std::size_t> cell = topBarLayout().launcherAt(x, y);
     if (!cell) {
-        return std::nullopt;
+        return nullptr;
     }
     std::size_t seen = 0;
     for (const LauncherBadge& badge : launchers_) {
         if (badge.state != ServiceState::Hidden && seen++ == *cell) {
-            return badge.source;
+            return &badge;
         }
     }
-    return std::nullopt;
+    return nullptr;
 }
 
 void Hud::drawTopBar(Canvas& canvas) {

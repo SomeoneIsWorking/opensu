@@ -1,6 +1,7 @@
 // downloads — Steam's download queue, as its own client reports it live.
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -13,7 +14,7 @@ namespace opensu::steam {
 
 /// One app with an install or update Steam has not finished.
 struct Download {
-    std::string appId;
+    std::string appId{};
     /// 0 to 1.
     double progress{0.0};
     /// Steam is transferring it now.
@@ -22,12 +23,22 @@ struct Download {
     /// The active download is a first install rather than an update.
     bool installing{false};
     /// Seconds Steam expects the active download to take; nothing when it cannot say.
-    std::optional<int> secondsLeft;
+    std::optional<int> secondsLeft{};
+    /// Its place in the queue: 0 the head, -1 out of the queue (paused there by the player).
+    int queueIndex{-1};
+    /// Bytes downloaded and to download; 0 when Steam does not say.
+    std::uint64_t bytesDone{0};
+    std::uint64_t bytesTotal{0};
+    /// The active download's network rate.
+    std::optional<std::uint64_t> bytesPerSecond{};
+    /// What the active download is doing, in Steam's words ("Downloading", "Verifying"); empty
+    /// for the others.
+    std::string updateState{};
 };
 
 /// The unfinished downloads in Steam's answer to the query DownloadQueue sends: `items` from
 /// RegisterForDownloadItems and `overview` from RegisterForDownloadOverview. The active one takes
-/// its live figures from the overview.
+/// its live figures from the overview; the head of a paused queue is paused.
 [[nodiscard]] std::vector<Download> parseDownloads(const nlohmann::json& answer);
 
 class DownloadQueue {

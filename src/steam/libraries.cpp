@@ -1,28 +1,12 @@
 #include "libraries.hpp"
 
-#include <cstdlib>
-
 #include "lucent/log.h"
+#include "steam_json.hpp"
 
 namespace opensu::steam {
 namespace {
 
 using json = nlohmann::json;
-
-std::uint64_t bytes(const json& object, const char* key) {
-    const auto found = object.find(key);
-    if (found == object.end()) {
-        return 0;
-    }
-    if (found->is_number_unsigned() || found->is_number_integer()) {
-        return found->get<std::uint64_t>();
-    }
-    // Steam sends 64-bit sizes as strings.
-    if (found->is_string()) {
-        return std::strtoull(found->get<std::string>().c_str(), nullptr, 10);
-    }
-    return 0;
-}
 
 std::string textOf(const json& object, const char* key) {
     const auto found = object.find(key);
@@ -50,14 +34,14 @@ std::vector<SteamLibrary> librariesOf(const json& folders) {
         library.index = index != folder.end() && index->is_number_integer() ? index->get<int>() : 0;
         library.path = textOf(folder, "strFolderPath");
         library.label = textOf(folder, "strUserLabel");
-        library.capacity = bytes(folder, "nCapacity");
-        library.freeSpace = bytes(folder, "nFreeSpace");
+        library.capacity = uint64Of(folder, "nCapacity");
+        library.freeSpace = uint64Of(folder, "nFreeSpace");
         library.isDefault = flagOf(folder, "bIsDefaultFolder", false);
         library.mounted = flagOf(folder, "bIsMounted", true);
         if (const auto apps = folder.find("vecApps"); apps != folder.end() && apps->is_array()) {
             library.apps = apps->size();
             for (const json& app : *apps) {
-                library.appBytes += app.is_object() ? bytes(app, "nAppSize") : 0;
+                library.appBytes += app.is_object() ? uint64Of(app, "nAppSize") : 0;
             }
         }
         libraries.push_back(std::move(library));

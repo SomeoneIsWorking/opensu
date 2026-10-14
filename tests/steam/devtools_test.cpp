@@ -19,6 +19,7 @@
 #include <nlohmann/json.hpp>
 
 #include "devtools.hpp"
+#include "download_control.hpp"
 #include "downloads.hpp"
 #include "install_wizard.hpp"
 #include "launch_activity.hpp"
@@ -78,6 +79,102 @@ void testDownloadsParse() {
                downloads[1].progress == 0.10 && !downloads[1].secondsLeft,
            "a queued download keeps its own part's progress");
     expect(opensu::steam::parseDownloads(json::object()).empty(), "no answer, no downloads");
+}
+
+void testDownloadsParseQueueAndBytes() {
+    const json answer = json::parse(R"({
+      "overview": {"update_appid": 960090, "paused": false, "overall_percent_complete": 50,
+                   "update_network_bytes_per_second": 12500000, "update_state": "Downloading",
+                   "progress": [{}, {}, {"bytes_in_progress": "6000000000",
+                                         "bytes_total": "12000000000"}]},
+      "items": [{"remote_client_id": "0", "item_data": [
+        {"appid": 960090, "queue_index": 0, "completed": false,
+         "update_type_info": [{"has_update": true, "overall_percent_complete": 50,
+                               "progress": [{}, {}, {"bytes_in_progress": 1, "bytes_total": 2}]}]},
+        {"appid": 292030, "queue_index": 1, "completed": false,
+         "update_type_info": [{"has_update": true, "overall_percent_complete": 10,
+                               "progress": [{}, {}, {"bytes_in_progress": 100,
+                                                     "bytes_total": 1000}]},
+                              {"has_update": true, "overall_percent_complete": 0,
+                               "progress": [{}, {}, {"bytes_in_progress": "50",
+                                                     "bytes_total": "500"}]}]},
+        {"appid": 70, "queue_index": -1, "paused": true, "completed": false,
+         "update_type_info": [{"has_update": true, "overall_percent_complete": 0}]}]}]
+    })");
+    const std::vector<Download> downloads = opensu::steam::parseDownloads(answer);
+    expect(downloads.size() == 3, "every unfinished download is read");
+    expect(downloads[0].queueIndex == 0 && downloads[0].bytesDone == 6000000000ULL &&
+               downloads[0].bytesTotal == 12000000000ULL &&
+               downloads[0].bytesPerSecond == 12500000U &&
+               downloads[0].updateState == "Downloading",
+           "the active download takes its bytes, rate and stage from the overview");
+    expect(downloads[1].queueIndex == 1 && downloads[1].bytesDone == 150 &&
+               downloads[1].bytesTotal == 1500 && !downloads[1].bytesPerSecond &&
+               downloads[1].updateState.empty(),
+           "a waiting download adds up the bytes of its parts");
+    expect(downloads[2].queueIndex == -1 && downloads[2].paused && downloads[2].bytesTotal == 0,
+           "a download out of the queue has no place");
+
+    json paused = answer;
+    paused["overview"]["paused"] = true;
+    const std::vector<Download> held = opensu::steam::parseDownloads(paused);
+    expect(held[0].paused && !held[0].active && !held[0].bytesPerSecond && held[0].bytesTotal == 2,
+           "the head of a paused queue is paused, with no live figures");
+    expect(!held[1].paused, "the rest of a paused queue only waits");
+}
+
+void testDownloadControlCallsWhatSteamsPageCalls() {
+    FakeSteam steam{[](const std::string&) {
+        return json{};
+    }};
+    DevTools devTools{steam.port()};
+    opensu::steam::DownloadControl control{devTools};
+    expect(control.pause().empty() &&
+               steam.calls().back() == "SteamClient.Downloads.EnableAllDownloads(false, \"0\")",
+           "pause stops the whole queue on this machine");
+    expect(control.resume().empty() &&
+               steam.calls().back() == "SteamClient.Downloads.EnableAllDownloads(true, \"0\")",
+           "resume starts it again");
+    expect(control.moveToTop("292030").empty() &&
+               steam.calls().back() == "SteamClient.Downloads.ResumeAppUpdate(292030, \"0\")",
+           "a waiting download is started now");
+    expect(control.setQueueIndex("292030", 2).empty() &&
+               steam.calls().back() == "SteamClient.Downloads.SetQueueIndex(292030, 2, \"0\")",
+           "a download is moved to a place in the queue");
+
+    std::size_t calls = steam.calls().size();
+    expect(control.remove(Download{.appId = "292030", .queueIndex = 1}).empty() &&
+               steam.calls().size() == calls + 1 &&
+               steam.calls().back() ==
+                   "SteamClient.Downloads.RemoveFromDownloadList(292030, \"0\")",
+           "a waiting download is taken off the list");
+    calls = steam.calls().size();
+    expect(control.remove(Download{.appId = "960090", .paused = true, .queueIndex = 0}).empty() &&
+               steam.calls().size() == calls + 2 &&
+               steam.calls()[calls] ==
+                   "SteamClient.Downloads.RemoveFromDownloadList(960090, \"0\")" &&
+               steam.calls().back() == "SteamClient.Downloads.EnableAllDownloads(true, \"0\")",
+           "removing the paused head resumes the rest, as Steam's page does");
+
+    calls = steam.calls().size();
+    expect(!control.moveToTop("480); Steam.Quit(").empty() &&
+               !control.setQueueIndex("", 1).empty() && !control.setQueueIndex("7", -1).empty() &&
+               !control.remove(Download{.appId = "x"}).empty() && steam.calls().size() == calls,
+           "what is not an app id or a place is refused without asking Steam");
+}
+
+void testDownloadControlReportsAGoneSteam() {
+    std::uint16_t port = 0;
+    {
+        const FakeSteam gone{[](const std::string&) {
+            return json{};
+        }};
+        port = gone.port();
+    }
+    DevTools devTools{port};
+    opensu::steam::DownloadControl control{devTools};
+    expect(contains(control.pause(), "Steam would not pause downloads"),
+           "a call Steam does not take says so");
 }
 
 void testQueueReadsThroughDevTools() {
@@ -388,6 +485,9 @@ void testLibrariesThroughDevTools() {
 int main() {
     try {
         testDownloadsParse();
+        testDownloadsParseQueueAndBytes();
+        testDownloadControlCallsWhatSteamsPageCalls();
+        testDownloadControlReportsAGoneSteam();
         testQueueReadsThroughDevTools();
         testLaunchActivityParse();
         testLaunchActivityReadsThroughDevTools();

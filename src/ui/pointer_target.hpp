@@ -81,9 +81,10 @@ struct OnBackdrop {
     bool operator==(const OnBackdrop&) const = default;
 };
 
-/// A launcher's badge in the top bar.
+/// A launcher's badge in the top bar; `downloading` when it shows a download's ring.
 struct OnLauncher {
     library::Source source;
+    bool downloading{false};
     bool operator==(const OnLauncher&) const = default;
 };
 
@@ -149,12 +150,25 @@ struct OnDialogButton {
     bool operator==(const OnDialogButton&) const = default;
 };
 
+/// A row of the Downloads page, by its place in the list.
+struct OnDownloadRow {
+    std::size_t row;
+    bool operator==(const OnDownloadRow&) const = default;
+};
+
+/// An action button of a Downloads page row, by the row and the button's place on it.
+struct OnDownloadAction {
+    std::size_t row;
+    std::size_t action;
+    bool operator==(const OnDownloadAction&) const = default;
+};
+
 /// Nothing, or the element the pointer is on.
 using PointerTarget =
     std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnGuideEntry, OnGuidePower,
                  OnPanelButton, OnChooserRow, OnIconSize, OnSearchKey, OnSearchResult,
                  OnContextItem, OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton,
                  OnSettingsCategory, OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow,
-                 OnQuickSlider, OnDialogButton>;
+                 OnQuickSlider, OnDialogButton, OnDownloadRow, OnDownloadAction>;
 
 } // namespace opensu::ui

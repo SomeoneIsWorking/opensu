@@ -1,7 +1,7 @@
 # Guide chords and their configuration menu
 
-Status: partial. The two defects are fixed and the configuration page ships; Downloads is not an
-action yet (`downloads-page.md`), and nothing has been tried on a real pad.
+Status: partial. The two defects are fixed and the configuration page ships; nothing has been tried
+on a real pad.
 
 Requested: "Guide chord buttons with a configuration menu".
 
@@ -46,9 +46,9 @@ the pads (`gamepad/pad_translator:PadTranslator`, chords given by `Pads::setChor
 ## Actions and the page
 
 - Chord-capable actions (`takesPadChord`): Quick menu, Volume up, Volume down, Mute, Close game,
-  Save state, Load state, Reset game, Devices, Home. Adding one (Downloads) is an `Action`, its row
-  in `shortcuts.cpp:infos` and a case in `app/shortcut_router:ShortcutRouter::perform`, which the
-  compiler asks for. Close game and the retro actions toast "no game is running" without a game;
+  Save state, Load state, Reset game, Devices, Downloads (no chord shipped), Home. Adding one is an
+  `Action`, its row in `shortcuts.cpp:infos` and a case in
+  `app/shortcut_router:ShortcutRouter::perform`, which the compiler asks for. Close game and the retro actions toast "no game is running" without a game;
   save, load and reset go through `RetroSession::perform`, which the quick menu shares.
 - Shipped chords hold Guide, which no game receives: Guide + A quick menu, Guide + Up/Down/Left
   volume (L2 before; as a modifier it would have kept a held L2 from every game by default). The

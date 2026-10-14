@@ -25,6 +25,7 @@ class GuideMenuController {
         std::function<ui::GuideContext()> context;
         std::function<void(library::Section)> showSection;
         std::function<void()> openDevices;
+        std::function<void()> openDownloads;
         std::function<void()> openSettings;
         /// Ends the running game.
         std::function<void()> closeGame;

@@ -2,7 +2,8 @@
 
 Builds the demo library, then runs openSU --hidden offline in a throwaway home. By default writes
 one WebP per README scene to docs/screenshots/. With --parity DIR, writes a raw PNG of every scene
-to DIR instead, with a fixed system volume, as references for `tools.screenshots.compare`.
+to DIR instead, with a fixed system volume, as references for `tools.screenshots.compare`; the
+Downloads scenes run again in a home of their own with a stand-in `legendary`.
 """
 
 import argparse
@@ -11,8 +12,8 @@ import sys
 import time
 from pathlib import Path
 
-from tools.screenshots import demo, encode, mixer, offline
-from tools.screenshots.scenes import README_SCENES, SCENES, Scene
+from tools.screenshots import demo, encode, legendary, mixer, offline
+from tools.screenshots.scenes import DOWNLOAD_SCENES, README_SCENES, SCENES, Scene
 from tools.screenshots.shell import HiddenShell, Profile
 
 REPO = Path(__file__).resolve().parents[2]
@@ -45,12 +46,32 @@ def _capture(args: argparse.Namespace) -> int:
     if run.exists():
         shutil.rmtree(run)
     steam, roms = demo.build(run / "library", WORK / "downloads")
-    tools = mixer.install(run / "tools") if parity else None
-    profile = Profile(home=run / "home", steam_root=steam, rom_root=roms, tools=tools)
     frames = parity if parity else run / "frames"
     frames.mkdir(parents=True, exist_ok=True)
-    scenes: tuple[Scene, ...] = SCENES if parity else README_SCENES
-    with HiddenShell(args.opensu, profile, run / "opensu.log") as shell:
+    if not parity:
+        profile = Profile(home=run / "home", steam_root=steam, rom_root=roms)
+        _run(args.opensu, profile, run / "opensu.log", README_SCENES, frames, magick, args.out)
+        return 0
+    tools = mixer.install(run / "tools")
+    profile = Profile(home=run / "home", steam_root=steam, rom_root=roms, tools=tools)
+    _run(args.opensu, profile, run / "opensu.log", SCENES, frames, None, args.out)
+    store_tools = legendary.install(mixer.install(run / "store-tools"))
+    store = Profile(home=run / "store-home", steam_root=steam, rom_root=roms, tools=store_tools)
+    _run(args.opensu, store, run / "opensu-store.log", DOWNLOAD_SCENES, frames, None, args.out)
+    return 0
+
+
+def _run(
+    opensu: Path,
+    profile: Profile,
+    log: Path,
+    scenes: tuple[Scene, ...],
+    frames: Path,
+    magick: str | None,
+    out: Path,
+) -> None:
+    """One hidden openSU in `profile`, capturing each of `scenes` into `frames`."""
+    with HiddenShell(opensu, profile, log) as shell:
         shell.wait_for("installed", len(demo.STEAM_GAMES) + len(demo.ROM_GAMES))
         for scene in scenes:
             scene.reach(shell)
@@ -61,11 +82,10 @@ def _capture(args: argparse.Namespace) -> int:
             if magick is None:
                 print(f"{scene.name}: {png}")
             else:
-                webp = args.out / f"{scene.name}.webp"
+                webp = out / f"{scene.name}.webp"
                 encode.to_webp(magick, png, webp)
                 print(f"{scene.name}: {webp}")
             scene.leave(shell)
-    return 0
 
 
 def _absolute(args: argparse.Namespace) -> list[str]:

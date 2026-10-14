@@ -52,6 +52,12 @@ struct FocusesOnHover {
     bool operator()(const ui::OnSettingsSlider&) const {
         return true;
     }
+    bool operator()(const ui::OnDownloadRow&) const {
+        return true;
+    }
+    bool operator()(const ui::OnDownloadAction&) const {
+        return true;
+    }
     template <class Other> bool operator()(const Other&) const {
         return false;
     }
@@ -86,7 +92,11 @@ void PointerRouter::click(const ui::PointerTarget& target) {
     if (const auto* dock = std::get_if<ui::OnDock>(&target)) {
         host_.activateSection(dock->section);
     } else if (const auto* launcher = std::get_if<ui::OnLauncher>(&target)) {
-        host_.selectLauncher(launcher->source);
+        if (launcher->downloading) {
+            host_.openDownloads();
+        } else {
+            host_.selectLauncher(launcher->source);
+        }
     } else if (const auto* crumb = std::get_if<ui::OnCrumb>(&target)) {
         host_.activateCrumb(crumb->index);
     } else if (const auto* button = std::get_if<ui::OnPanelButton>(&target)) {
@@ -102,7 +112,9 @@ void PointerRouter::click(const ui::PointerTarget& target) {
         host_.chooseLevel(quick->level);
     } else if (std::holds_alternative<ui::OnBackdrop>(target)) {
         host_.press(gamepad::Button::B);
-    } else if (std::holds_alternative<ui::OnPage>(target)) {
+    } else if (std::holds_alternative<ui::OnPage>(target) ||
+               std::holds_alternative<ui::OnDownloadRow>(target)) {
+        // A page turns, and a download row is chosen; only its buttons act.
         host_.focus(target);
     } else if (!std::holds_alternative<std::monostate>(target)) {
         host_.focus(target);

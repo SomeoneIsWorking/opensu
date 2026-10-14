@@ -1,5 +1,6 @@
-// The breadcrumb trail on the Settings screen and the Devices page: the page then its category or
-// tab, in place of the section's levels, and the page's level is the only place.
+// The breadcrumb trail on the Settings screen, the Devices page and the Downloads page: the page
+// then its category or tab, in place of the section's levels, and the page's level is the only
+// place.
 #include <cstdio>
 
 #include "breadcrumb_trail.hpp"
@@ -45,10 +46,24 @@ void devicesReplacesTheSectionTrail() {
            "without the page the section's trail is back");
 }
 
+void downloadsReplacesEveryTrail() {
+    app::TrailState state;
+    state.section = library::Section::Library;
+    state.search = "hades";
+    state.devices = "Bluetooth";
+    state.downloads = true;
+    const ui::Trail trail = app::trailOf(state);
+    expect(trail.size() == 1 && trail[0].label == "Downloads" && !ui::isPlace(trail[0]),
+           "Downloads alone, a page, over whatever was open under it");
+    state.downloads = false;
+    expect(app::trailOf(state)[0].label == "Devices", "closing it brings back the trail below");
+}
+
 } // namespace
 
 int main() {
     devicesReplacesTheSectionTrail();
+    downloadsReplacesEveryTrail();
     settingsReplacesTheSectionTrail();
     std::printf("breadcrumb_trail: all checks passed\n");
     return 0;

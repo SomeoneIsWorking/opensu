@@ -51,6 +51,11 @@ class PanelFlow {
     /// Shows the install job's news on the panel and reloads the catalog when it finishes.
     void service();
 
+    /// The installs, which the Downloads page lists and cancels.
+    [[nodiscard]] Installs& installs() noexcept {
+        return install_;
+    }
+
   private:
     enum class Use : std::uint8_t { None, Launch, OfferInstall, Install, Eula };
 

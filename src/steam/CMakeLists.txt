@@ -1,4 +1,4 @@
-add_library(opensu_steam STATIC client.cpp desktop_steam.cpp devtools.cpp downloads.cpp
+add_library(opensu_steam STATIC client.cpp desktop_steam.cpp devtools.cpp downloads.cpp download_control.cpp steam_json.cpp
     install_wizard.cpp launch_activity.cpp orphaned_steam.cpp libraries.cpp)
 add_library(opensu::steam ALIAS opensu_steam)
 target_include_directories(opensu_steam PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
