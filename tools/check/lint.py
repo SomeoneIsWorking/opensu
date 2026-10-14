@@ -11,7 +11,7 @@ from tools.check import process
 from tools.check.cmake import REPO
 
 CXX_SUFFIXES = (".cpp", ".hpp")
-# Only openSU's own sources; Lucent and the fork are checked in their own repositories.
+# Only openSU's own sources; Lucent, gpu2d and the fork are checked in their own repositories.
 OWN_ROOTS = ("src/", "tests/")
 
 

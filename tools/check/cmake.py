@@ -49,6 +49,7 @@ class Plan:
             "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
             f"-DRAYLIB_ROOT={self.deps.raylib_prefix}",
             f"-DLUCENT_ROOT={self.deps.lucent}",
+            f"-DGPU2D_ROOT={self.deps.gpu2d}",
         ]
         if self.gamescope == "off":
             args.append("-DOPENSU_BUILD_GAMESCOPE=OFF")

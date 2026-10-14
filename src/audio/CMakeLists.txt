@@ -12,3 +12,14 @@ target_link_libraries(opensu_audio PUBLIC opensu::audio_model opensu::raylib
                                    PRIVATE lucent::lucent)
 target_compile_features(opensu_audio PUBLIC cxx_std_20)
 target_compile_options(opensu_audio PRIVATE -Wall -Wextra -Wpedantic)
+
+# The UI sounds on SDL audio, which replaces opensu_audio's raylib player when the shell moves to
+# SDL3 (docs/design/sdl3-gpu-shell.md §6.4).
+add_library(opensu_audio_sdl STATIC sound_clip.cpp sdl_sound_player.cpp)
+add_library(opensu::audio_sdl ALIAS opensu_audio_sdl)
+target_include_directories(opensu_audio_sdl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(opensu_audio_sdl
+    PUBLIC opensu::audio_model PkgConfig::SDL3
+    PRIVATE PkgConfig::VORBISFILE lucent::lucent)
+target_compile_features(opensu_audio_sdl PUBLIC cxx_std_20)
+target_compile_options(opensu_audio_sdl PRIVATE -Wall -Wextra -Wpedantic)

@@ -21,6 +21,11 @@ LUCENT = GitPin(
     "https://github.com/SomeoneIsWorking/lucent.git",
     "efb9a7bdacaf7c04663a225233dc7da125c491f3",
 )
+GPU2D = GitPin(
+    "gpu2d",
+    "https://github.com/SomeoneIsWorking/gpu2d.git",
+    "2796d96f6d87bccf6bed63da3f0ee5485f965429",
+)
 
 # Image decoding on and X11 only: openSU reads its X11 window to become Gamescope's overlay.
 RAYLIB_CMAKE_OPTIONS = (

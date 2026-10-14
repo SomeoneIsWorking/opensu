@@ -5,7 +5,7 @@ add_library(opensu::artwork ALIAS opensu_artwork)
 target_include_directories(opensu_artwork PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_artwork
     PUBLIC opensu::library opensu::net opensu::zip opensu::audio_model
-    PRIVATE ZLIB::ZLIB PkgConfig::WEBP opensu::fileio opensu::raylib lucent::lucent
+    PRIVATE ZLIB::ZLIB gpu2d::image opensu::fileio lucent::lucent
             Threads::Threads)
 target_compile_features(opensu_artwork PUBLIC cxx_std_20)
 target_compile_options(opensu_artwork PRIVATE -Wall -Wextra -Wpedantic)

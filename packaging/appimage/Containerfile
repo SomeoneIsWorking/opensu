@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libinput-dev libei-dev libpipewire-0.3-dev libvulkan-dev libseat-dev liblcms2-dev \
         libglm-dev libstb-dev libgbm-dev libegl-dev libgles-dev xwayland \
         libpng-dev glslc mesa-vulkan-drivers libpulse-dev libasound2-dev \
+        libfreetype-dev libharfbuzz-dev libvorbis-dev \
     && rm -rf /var/lib/apt/lists/* \
     && for tool in clang clang++ clang-scan-deps; do \
         ln -s "/usr/bin/$tool-22" "/usr/local/bin/$tool"; \
@@ -74,8 +75,8 @@ RUN set -eu; \
         -Dvalgrind=disabled -Dman-pages=disabled -Dtests=false; \
     ldconfig
 
-# SDL3, which 24.04 does not package, for opensu-retro; the AppImage bundles it. The release
-# tarball's sha256 is the one GitHub publishes for the asset.
+# SDL3, which 24.04 does not package, for opensu-retro and the shell; the AppImage bundles it. The
+# release tarball's sha256 is the one GitHub publishes for the asset.
 RUN set -eu; \
     curl -fsSL -o /tmp/sdl3.tar.gz \
         https://github.com/libsdl-org/SDL/releases/download/release-3.4.18/SDL3-3.4.18.tar.gz; \
@@ -87,6 +88,36 @@ RUN set -eu; \
         -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF; \
     ninja -C /tmp/sdl3/build install; \
     rm -rf /tmp/sdl3 /tmp/sdl3.tar.gz; \
+    ldconfig
+
+# SDL3_ttf (on 24.04's FreeType and HarfBuzz) and SDL3_image, which 24.04 does not package either,
+# for gpu2d (the shell's renderer and image codecs), built the same way. SDL3_ttf publishes no
+# digest, so its sha256 is the one measured on the downloaded release asset. SDL3_image links
+# libwebp and libpng rather than opening them at run time, so the AppImage's bundle step sees and
+# carries them; JPEG goes through stb.
+RUN set -eu; \
+    build() { \
+        name=$1; url=$2; sum=$3; shift 3; \
+        curl -fsSL -o "/tmp/$name.tar.gz" "$url"; \
+        echo "$sum  /tmp/$name.tar.gz" | sha256sum -c -; \
+        mkdir "/tmp/$name"; tar -xzf "/tmp/$name.tar.gz" -C "/tmp/$name" --strip-components=1; \
+        cmake -S "/tmp/$name" -B "/tmp/$name/build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_INSTALL_LIBDIR=lib/x86_64-linux-gnu "$@"; \
+        ninja -C "/tmp/$name/build" install; \
+        rm -rf "/tmp/$name" "/tmp/$name.tar.gz"; \
+    }; \
+    build sdl3-ttf \
+        https://github.com/libsdl-org/SDL_ttf/releases/download/release-3.2.2/SDL3_ttf-3.2.2.tar.gz \
+        63547d58d0185c833213885b635a2c0548201cc8f301e6587c0be1a67e1e045d \
+        -DSDLTTF_VENDORED=OFF -DSDLTTF_STRICT=ON -DSDLTTF_HARFBUZZ=ON -DSDLTTF_PLUTOSVG=OFF \
+        -DSDLTTF_SAMPLES=OFF; \
+    build sdl3-image \
+        https://github.com/libsdl-org/SDL_image/releases/download/release-3.4.6/SDL3_image-3.4.6.tar.gz \
+        d2e4637ae700f72e5196b8fbd749850ed2e5e1e09c5a5be8d06ff55aaccf3b01 \
+        -DSDLIMAGE_VENDORED=OFF -DSDLIMAGE_STRICT=ON -DSDLIMAGE_DEPS_SHARED=OFF \
+        -DSDLIMAGE_BACKEND_STB=ON -DSDLIMAGE_PNG_LIBPNG=ON -DSDLIMAGE_WEBP=ON \
+        -DSDLIMAGE_AVIF=OFF -DSDLIMAGE_JXL=OFF -DSDLIMAGE_TIF=OFF -DSDLIMAGE_SAMPLES=OFF \
+        -DSDLIMAGE_TESTS=OFF; \
     ldconfig
 
 ARG UV_VERSION
