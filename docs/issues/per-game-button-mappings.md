@@ -103,6 +103,27 @@ per game.
    ("No store client window is ever opened"). The editor must say so for Steam games. Hiding
    hidraw from Steam would need a udev rule (root) and is out of scope.
 
+### Steam Input (user direction)
+
+A Steam Input switch, global and per game, owned by the mapping store. While Steam Input is on for
+a game, openSU refuses button mappings for it and says why in the editor; shell chords still work.
+With it off, openSU's mapping applies. Open: how the switch reaches Steam (the per-app
+`UseSteamControllerConfig` in `localconfig.vdf`, or a `SteamClient` call; measure which one the
+client honours while running), and whether handing Steam openSU's virtual pad instead is
+workable (Steam would then see the remapped pad, but also the hidraw pad: doubled input).
+
+### Motion sensors (user requirement)
+
+Emulators with gyro support (Cemu, Dolphin, Eden, Citra and others) must still get the real pad's
+motion. `Pads::apply` grabs only the pad's gamepad evdev node; the kernel's separate
+"Motion Sensors" node and the hidraw node are never grabbed, so motion likely still reaches an
+emulator, but nobody has measured it. To measure on a DualSense or Switch Pro: run an emulator
+under openSU with the pad held and check its gyro input. Related risk to measure at the same time:
+SDL's HIDAPI drivers read hidraw directly, so an SDL emulator may see the real pad's buttons too
+(doubled input, and remaps bypassed). If so, the fix belongs here before remapping can be trusted:
+`SDL_JOYSTICK_HIDAPI=0` in the game's environment (motion then comes from the evdev motion node),
+or a virtual pad that carries motion.
+
 ### Editor (`app/mapping_editor.*`, `ui/mapping_page.*` with its painter)
 
 - It opens from the details page as a new `DetailsAction::Controls`, for the game's own map or, on
@@ -132,5 +153,5 @@ per game.
   emulators: built-in mGBA covers GB, GBC and GBA, and Mesen covers NES and SNES. Per system would
   add a scope between the game and the emulator.
 - Should the global profile apply to native store games, or only to emulated ones?
-- Does Steam Input's coexistence on hidraw pads (DualSense, Switch Pro) need solving now or only
-  documenting?
+- Steam Input: decided — a global and per-game switch; mappings refused while it is on, chords
+  kept (see above).
