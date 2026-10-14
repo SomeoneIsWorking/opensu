@@ -83,6 +83,8 @@ Visible deltas from the baseline:
   own pill on every volume change. No display-scale setting in iiSU (it follows the Android
   density); openSU has "Interface size", 70 to 150 percent, clamped so every screen fits.
 - The grid is ours, so layout, tile sizes and page count are ours.
+- Steam's Big Picture does not open inside openSU's session: Guide in the shell never reaches
+  Steam, and Big Picture opened any other way is closed and the shell put back in front.
 - Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, or built from source. Linux
   only: Windows is a possible future target, without Gamescope (nested mode, Alt+F4 handling and the
   login session are Gamescope features with no Windows counterpart); macOS is not planned.
@@ -423,6 +425,13 @@ once and then repeat after 400 ms every 100 ms (`gamepad::DirectionRepeat`, iiSU
 Steam's virtual pad ignored, disconnect, a game's mapping on the virtual pad, a motion node never
 grabbed), `direction_repeat`, `pad_translator`. A game's button mapping (S033) applies only to
 the virtual pad the game reads; the shell's controls are never mapped.
+
+Inside Gamescope the shell holds the pads while its own window is in front (`gamepad::Claim::Shell`,
+`app/pad_owner`), so the Steam client openSU runs never sees Guide; a Steam dialog in front gets
+them, and the shell then hears only Guide, which brings it back (`app/focus_follow`). Big Picture is
+closed whenever it takes the focus. Outside Gamescope the shell leaves the pads free.
+`docs/issues/guide-opens-steam-big-picture.md`. Tested: `pads` (Shell, Away, Free against another
+reader), `window_focus`, `focus_owner`. Gap: not yet seen on the real pad in the real session.
 
 The GLFW reader this replaced had no mapping for the xone driver's Xbox
 controller, so its buttons never registered, and counted a Logitech K400 Plus as a
@@ -977,7 +986,8 @@ the scope empties, Blocked when `$HOME/.steam/steam.pid` names a live client out
 opensu. Steam launches wait for Ready, and are refused with a named message when
 Blocked or Failed. On exit it runs `steam -shutdown`, waits up to 20 s, then stops
 the scope. The state shows as the Steam badge in the top bar's friends slot (S005)
-and in `/state` as `steam`. Tested with a fake home and fake `steam`; a real Steam
+and in `/state` as `steam`. Big Picture is closed through the client whenever it takes Gamescope's focus
+(`steam::BigPicture`, `docs/issues/guide-opens-steam-big-picture.md`). Tested with a fake home and fake `steam`; a real Steam
 has not been started by this code, and the ready marker is as measured on one
 machine.
 
@@ -1051,7 +1061,7 @@ path outside Xvfb, media keys.
 `input/button_map` (what each pad button sends, game chords sending pad buttons or a shell
 action), `input/mapping_scopes` (game, else its emulator, else global; a whole map per scope; the
 Steam Input switch, global and per game), `settings/mapping_store` (`mappings.json`, atomic). At
-launch the shell resolves the game's map and holds the pads with it (`app/game_pads`): the virtual
+launch the shell resolves the game's map and holds the pads with it (`app/pad_owner`): the virtual
 pad is remapped, the shell's controls are not, and `opensu-retro` reads the remapped virtual pad.
 Game chords follow the shell's chord rule and join the chord list. The editor opens from a game's
 details page (Controls) and Settings › Controls (global, per emulator, the Steam Input toggle)

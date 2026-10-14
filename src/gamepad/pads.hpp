@@ -1,10 +1,13 @@
 // pads — every controller, read from evdev for as long as opensu runs. A pad connected later is
-// picked up when its node appears. While a game runs the pads are held: grabbed, with the game
-// reading one virtual Xbox 360 pad per pad, and Guide reaching opensu alone. The buttons of a bound
-// chord never reach the game (`ChordGate`, through each pad's `PadTranslator`), and the game's
-// mapping (`ForwardMap`) applies to its virtual pads only. While blocked, the virtual pads rest, so
-// the Guide menu's input never reaches the game. Only gamepad nodes are opened: a pad's separate
-// motion sensor node and its hidraw node are never read or grabbed.
+// picked up when its node appears, and takes the claim in force. The claim says who else sees the
+// pads: Free leaves them to everyone; Shell grabs them so nothing else (Steam above all, which
+// opens Big Picture on Guide) sees them; Game grabs them and gives the game one virtual Xbox 360
+// pad per pad, Guide reaching opensu alone; Away lets them go while a game runs and another window
+// has the focus, its virtual pads resting. opensu reads every pad in every claim. The buttons of a
+// bound chord never reach the game (`ChordGate`, through each pad's `PadTranslator`), and the
+// game's mapping (`ForwardMap`) applies to its virtual pads only. While blocked, the virtual pads
+// rest, so the Guide menu's input never reaches the game. Only gamepad nodes are opened: a pad's
+// separate motion sensor node and its hidraw node are never read or grabbed.
 #pragma once
 
 #include <condition_variable>
@@ -35,10 +38,22 @@ struct PadInfo {
     bool operator==(const PadInfo&) const = default;
 };
 
+/// Who else sees the pads.
+enum class Claim : std::uint8_t {
+    /// Everyone reads them.
+    Free,
+    /// Grabbed for opensu's own screens.
+    Shell,
+    /// Grabbed, with a virtual pad each for the game.
+    Game,
+    /// A game runs under another window: everyone reads them, the virtual pads rest.
+    Away,
+};
+
 class Pads {
   public:
-    /// Reads every pad node in `inputDir`, now and as they appear, without grabbing any until
-    /// `hold`. Throws std::system_error when the directory cannot be watched.
+    /// Reads every pad node in `inputDir`, now and as they appear, unclaimed (Free).
+    /// Throws std::system_error when the directory cannot be watched.
     explicit Pads(std::filesystem::path inputDir = "/dev/input",
                   OwnVirtualPads own = OwnVirtualPads::Skip);
     Pads(const Pads&) = delete;
@@ -51,13 +66,17 @@ class Pads {
     /// The pads connected now, in the order they connected. Any thread.
     [[nodiscard]] std::vector<PadInfo> connected() const;
 
-    /// Holds every pad for a game, including pads that connect while held, its virtual pads sending
-    /// what `map` says. Returns what the game needs in its environment to read only the virtual
-    /// pads: SDL hides every other controller, the grabbed ones included. Empty when a pad could
-    /// not be held, since hiding it would leave the game without it.
+    /// Claims every pad for a game (Game), its virtual pads sending what `map` says. Returns what
+    /// the game needs in its environment to read only the virtual pads: SDL hides every other
+    /// controller, the grabbed ones included. Empty when a pad could not be grabbed, since hiding
+    /// it would leave the game without it.
     std::vector<std::string> hold(ForwardMap map);
-    /// Gives the pads back to everyone, the map dropped; the virtual pads are gone on return.
-    void release();
+    /// The game is over: the map is dropped and `after` (Free or Shell) applies; the virtual pads
+    /// are gone on return.
+    void release(Claim after);
+    /// Moves between claims of the same game state: Game and Away while a game runs, Shell and
+    /// Free otherwise. Returns once applied.
+    void claim(Claim claim);
 
     /// Rests the virtual pads while blocked; on unblocking they take up the pads' axes again.
     void setBlocked(bool blocked);
@@ -71,13 +90,16 @@ class Pads {
 
         EvdevDevice device;
         PadTranslator translator;
-        /// The game's view of this pad, while held.
+        /// The game's view of this pad, under Game and Away.
         std::unique_ptr<VirtualPad> output;
+        bool grabbed{false};
+        /// The virtual pad follows the pad, rather than resting.
+        bool live{false};
     };
 
     /// What the main thread asked for; applied by the reading thread.
     struct Wanted {
-        bool held{false};
+        Claim claim{Claim::Free};
         bool blocked{false};
         ChordTriggers chords;
         ForwardMap map;
@@ -89,10 +111,12 @@ class Pads {
     void wake() const;
     /// Wakes the worker and waits until it has applied `serial`.
     void awaitApplied(std::unique_lock<std::mutex>& lock, std::uint64_t serial);
+    /// Sets the claim and waits until it applies.
+    void request(std::unique_lock<std::mutex>& lock, Claim claim);
     void scan();
     void add(const std::filesystem::path& node);
-    /// Takes a pad into or out of the held state; false when it could not be held.
-    bool apply(Pad& pad, bool held, bool blocked);
+    /// Brings a pad to `wanted`; false when it could not be grabbed.
+    bool apply(Pad& pad, const Wanted& wanted);
     void write(Pad& pad, const std::vector<PadEvent>& events);
     void publish(std::vector<Event>& events);
 

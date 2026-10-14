@@ -36,7 +36,7 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
       handoff_{environment_.executablePath, environment_.session, steam_, gameWindows_.get()},
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
-    gamePads_.syncChords();
+    padOwner_.syncChords();
     clock_.service(std::chrono::steady_clock::now());
     applyLayout();
 }
@@ -68,15 +68,6 @@ std::vector<ui::SearchResult> ShellApp::searchResults() const {
 void ShellApp::openTile(std::size_t index) {
     shell_.focusTile(index);
     actOn(gamepad::Button::A);
-}
-
-std::filesystem::path ShellApp::padsDirectory(const std::filesystem::path& dataDir, bool hidden) {
-    if (!hidden) {
-        return "/dev/input";
-    }
-    const std::filesystem::path empty = dataDir / "hidden-pads";
-    std::filesystem::create_directories(empty);
-    return empty;
 }
 
 void ShellApp::reloadCatalog() {
@@ -302,7 +293,7 @@ template <class Entry> void ShellApp::typeInto(Entry& entry, const input::TextIn
 }
 
 void ShellApp::handlePads() {
-    const std::vector<gamepad::Event> events = pads_.takeEvents();
+    const std::vector<gamepad::Event> events = padOwner_.admit(pads_.takeEvents());
     for (const gamepad::Event& event : events) {
         shell_.inputDevice().notePad(event);
         if (roster_.note(event)) {
@@ -395,6 +386,10 @@ void ShellApp::handleGameKeys() {
 }
 
 void ShellApp::actOn(gamepad::Button button) {
+    if (button == gamepad::Button::Guide && focusFollow_.guideReturns(shell_.inGame())) {
+        gameScreen_.takeFocus();
+        return;
+    }
     if (button == gamepad::Button::Guide) {
         toggleGuide();
         return;
@@ -573,7 +568,7 @@ void ShellApp::launch(const library::Game& game) {
     panels_.showLaunch(game.title);
     recordLaunch(game);
 
-    std::vector<std::string> environment = gamePads_.hold(mappings_.forGame(game));
+    std::vector<std::string> environment = padOwner_.hold(mappings_.forGame(game));
     environment.push_back(retro_.begin());
 
     // The thread owns a copy because it outlives this call.
@@ -977,8 +972,8 @@ void ShellApp::serviceRequests() {
         const std::lock_guard lock{launchMutex_};
         launching = launchRunning_;
     }
-    if (gamePads_.held() && !launching) {
-        gamePads_.release();
+    if (padOwner_.held() && !launching) {
+        padOwner_.release();
     }
     if (const std::optional<launch::LaunchProgress> progress = mailbox_.takeProgress()) {
         const bool measured = progress->stage == launch::LaunchProgress::Stage::Updating;
@@ -1025,6 +1020,7 @@ int ShellApp::run() {
         const gpu2d::PixelSize size = window_->fillMonitor();
         shell_.setSize(size.width, size.height);
         gameScreen_.attachOverlay();
+        focusFollow_.attach(std::make_unique<session::GamescopeWindows>(), window_->x11Window());
     }
     // A hidden run makes no sound.
     if (!settings_.hidden) {
@@ -1052,6 +1048,9 @@ int ShellApp::run() {
             shell_.setSize(size->width, size->height);
         }
 
+        focusFollow_.service(padOwner_.held());
+        padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),
+                         gameScreen_.mode() == session::OverlayMode::Interactive);
         handlePads();
         handleKeyboard();
         handlePointer();

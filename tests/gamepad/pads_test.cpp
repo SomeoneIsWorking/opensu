@@ -1,10 +1,13 @@
 // Pads against real devices: uinput pads stand in for controllers, and the test reads the virtual
-// pad a game would read.
+// pad a game would read. Every Pads reads a private directory linking only the test's own nodes,
+// found through sysfs, so no other controller on the machine is opened, read or grabbed.
 #include "pads.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <filesystem>
+#include <fstream>
 #include <functional>
 #include <optional>
 #include <string>
@@ -24,6 +27,7 @@ using namespace std::chrono_literals;
 using opensu::gamepad::Button;
 using opensu::gamepad::Chord;
 using opensu::gamepad::ChordTriggers;
+using opensu::gamepad::Claim;
 using opensu::gamepad::EvdevDevice;
 using opensu::gamepad::Event;
 using opensu::gamepad::ForwardMap;
@@ -34,6 +38,87 @@ using opensu::gamepad::Pads;
 using opensu::gamepad::VirtualPad;
 using opensu::test::expect;
 using opensu::test::fail;
+namespace fs = std::filesystem;
+
+/// The event nodes of the input devices sysfs names `name`, once each is open to this user. No
+/// node is opened to find them.
+std::vector<fs::path> nodesNamed(std::string_view name) {
+    const auto deadline = std::chrono::steady_clock::now() + 3s;
+    while (std::chrono::steady_clock::now() < deadline) {
+        std::vector<fs::path> nodes;
+        std::error_code error;
+        for (const auto& device : fs::directory_iterator{"/sys/class/input", error}) {
+            std::string named;
+            std::getline(std::ifstream{device.path() / "name"}, named);
+            if (named != name) {
+                continue;
+            }
+            for (const auto& entry : fs::directory_iterator{device.path(), error}) {
+                const std::string leaf = entry.path().filename().string();
+                if (leaf.starts_with("event") &&
+                    ::access(("/dev/input/" + leaf).c_str(), R_OK) == 0) {
+                    nodes.push_back("/dev/input/" + leaf);
+                }
+            }
+        }
+        if (!nodes.empty()) {
+            return nodes;
+        }
+        std::this_thread::sleep_for(20ms);
+    }
+    return {};
+}
+
+/// The one node named `name`, opened.
+std::optional<EvdevDevice> openNamed(std::string_view name) {
+    const std::vector<fs::path> nodes = nodesNamed(name);
+    if (nodes.size() != 1) {
+        return std::nullopt;
+    }
+    return EvdevDevice{nodes.front()};
+}
+
+/// Every node named `name`, opened.
+std::vector<EvdevDevice> openAllNamed(std::string_view name) {
+    std::vector<EvdevDevice> devices;
+    for (const fs::path& node : nodesNamed(name)) {
+        devices.emplace_back(node);
+    }
+    return devices;
+}
+
+/// A directory of links to the nodes a Pads may read.
+class InputDir {
+  public:
+    explicit InputDir(std::string_view tag)
+        : path_{fs::path{OPENSU_TEST_SCRATCH} /
+                ("pads-" + std::string{tag} + "-" + std::to_string(::getpid()))} {
+        fs::remove_all(path_);
+        fs::create_directories(path_);
+    }
+    InputDir(const InputDir&) = delete;
+    InputDir& operator=(const InputDir&) = delete;
+    ~InputDir() {
+        std::error_code ignored;
+        fs::remove_all(path_, ignored);
+    }
+
+    [[nodiscard]] const fs::path& path() const {
+        return path_;
+    }
+    /// Links the node named `name` in, as udev would add it; returns the link.
+    fs::path add(std::string_view name) const {
+        const std::vector<fs::path> nodes = nodesNamed(name);
+        expect(nodes.size() == 1, "the test's node appears once");
+        const fs::path link = path_ / nodes.front().filename();
+        fs::remove(link);
+        fs::create_symlink(nodes.front(), link);
+        return link;
+    }
+
+  private:
+    fs::path path_;
+};
 
 /// A DualSense-shaped controller: 0..255 sticks, a hat, Guide, and a digital L2 as a Switch pad
 /// has.
@@ -159,45 +244,6 @@ bool pressed(const std::vector<Event>& seen, Button button) {
     });
 }
 
-/// The node of the device named `name`, opened for reading whatever it is.
-std::optional<EvdevDevice> openNamed(std::string_view name) {
-    const auto deadline = std::chrono::steady_clock::now() + 3s;
-    while (std::chrono::steady_clock::now() < deadline) {
-        for (int n = 0; n < 512; ++n) {
-            const std::string node = "/dev/input/event" + std::to_string(n);
-            if (::access(node.c_str(), R_OK) != 0) {
-                continue;
-            }
-            EvdevDevice device{node};
-            if (device.name() == name) {
-                return device;
-            }
-        }
-        std::this_thread::sleep_for(20ms);
-    }
-    return std::nullopt;
-}
-
-/// Every node named `name` once at least one exists. A real pad plugged in while the test runs
-/// is held too, so there can be more than one virtual pad.
-std::vector<EvdevDevice> openAllNamed(std::string_view name) {
-    std::vector<EvdevDevice> devices;
-    if (!openNamed(name)) {
-        return devices;
-    }
-    for (int n = 0; n < 512; ++n) {
-        const std::string node = "/dev/input/event" + std::to_string(n);
-        if (::access(node.c_str(), R_OK) != 0) {
-            continue;
-        }
-        EvdevDevice device{node};
-        if (device.name() == name) {
-            devices.push_back(std::move(device));
-        }
-    }
-    return devices;
-}
-
 /// Reads until `wanted` has been seen or a second passes, keeping everything seen.
 bool readUntil(EvdevDevice& device, PadEvent wanted, std::vector<PadEvent>& seen) {
     const auto deadline = std::chrono::steady_clock::now() + 1s;
@@ -218,11 +264,13 @@ int main() {
         std::printf("pads: skipped, /dev/uinput is not writable\n");
         return 77;
     }
-    Pads pads;
+    const InputDir inputs{"shell"};
+    Pads pads{inputs.path()};
     std::vector<Event> seen;
 
     // Connected after the reader started, as a pad switched on mid-session is.
     std::optional<FakePad> physical{std::in_place, "opensu test pad", 0x054c, 0x0ce6};
+    const fs::path testLink = inputs.add("opensu test pad");
     expect(collect(pads, seen,
                    [&] {
                        return has(seen, Event::Kind::Connected, "opensu test pad");
@@ -242,7 +290,7 @@ int main() {
             testId = event.source;
         }
     }
-    expect(testId.starts_with("/dev/input/event"), "a connection names the pad's node");
+    expect(testId == testLink.string(), "a connection names the pad's node");
     const auto listed = pads.connected();
     const auto mine = std::ranges::find(listed, testId, &PadInfo::id);
     expect(mine != listed.end() && mine->name == "opensu test pad", "connected() lists the pad");
@@ -254,6 +302,7 @@ int main() {
            "a button event names the pad that pressed it");
     {
         const FakePad second{"opensu second pad", 0x054c, 0x0ce6};
+        inputs.add("opensu second pad");
         expect(collect(pads, seen,
                        [&] {
                            return has(seen, Event::Kind::Connected, "opensu second pad");
@@ -279,10 +328,7 @@ int main() {
 
     {
         const FakePad steamVirtual{"Steam Virtual Gamepad", 0x28de, 0x11ff};
-        auto node = openNamed("Steam Virtual Gamepad");
-        if (!node) {
-            fail("Steam's virtual pad appears");
-        }
+        inputs.add("Steam Virtual Gamepad");
         std::this_thread::sleep_for(200ms);
         for (const Event& event : pads.takeEvents()) {
             expect(event.device != "Steam Virtual Gamepad", "Steam's virtual pad is not read");
@@ -291,6 +337,7 @@ int main() {
 
     // The test pad's motion node, made before the hold as a pad brings it up with its gamepad node.
     const FakeMotion motion{"opensu test pad Motion Sensors"};
+    inputs.add("opensu test pad Motion Sensors");
     std::optional<EvdevDevice> motionNode = openNamed("opensu test pad Motion Sensors");
     if (!motionNode) {
         fail("the motion node appears");
@@ -343,7 +390,11 @@ int main() {
 
     {
         // A game process reading pads, as opensu-retro does: the virtual pad is its controller.
-        Pads reader{"/dev/input", OwnVirtualPads::Read};
+        const InputDir gameInputs{"game"};
+        for (const fs::path& node : nodesNamed(VirtualPad::name)) {
+            fs::create_symlink(node, gameInputs.path() / node.filename());
+        }
+        Pads reader{gameInputs.path(), OwnVirtualPads::Read};
         std::vector<Event> heard;
         const std::string virtualName{VirtualPad::name};
         expect(collect(reader, heard,
@@ -436,11 +487,64 @@ int main() {
            "an L2 tap with no chord reaches the game on its release");
     pads.setChords({});
 
-    pads.release();
+    // Another window in front of the game: the pad is everyone's, the game's pad rests.
+    pads.claim(Claim::Away);
+    read.clear();
+    expect(readUntil(*game, {EV_ABS, ABS_X, 0}, read), "away, the game's stick centres");
+    seen.clear();
+    leaked.clear();
+    physical->send({{EV_KEY, BTN_NORTH, 1}});
+    expect(readUntil(*other, {EV_KEY, BTN_NORTH, 1}, leaked), "the focused window reads the pad");
+    expect(collect(pads, seen,
+                   [&] {
+                       return pressed(seen, Button::X);
+                   }),
+           "and opensu still hears it");
+    read.clear();
+    game->read(read);
+    expect(std::ranges::find(read, PadEvent{EV_KEY, BTN_NORTH, 1}) == read.end(),
+           "the game does not");
+    physical->send({{EV_KEY, BTN_NORTH, 0}});
+    expect(readUntil(*other, {EV_KEY, BTN_NORTH, 0}, leaked), "the release reaches it too");
+    pads.claim(Claim::Game);
+    read.clear();
+    expect(readUntil(*game, {EV_ABS, ABS_X, 32767}, read), "back in front, the game has the stick");
+    physical->send({{EV_KEY, BTN_NORTH, 1}});
+    expect(readUntil(*game, {EV_KEY, BTN_NORTH, 1}, read), "and the presses");
+    leaked.clear();
+    other->read(leaked);
+    expect(leaked.empty(), "which nothing else reads");
+    physical->send({{EV_KEY, BTN_NORTH, 0}});
+
+    pads.release(Claim::Free);
     physical->send({{EV_KEY, BTN_NORTH, 1}});
     leaked.clear();
     expect(readUntil(*other, {EV_KEY, BTN_NORTH, 1}, leaked), "a released pad reaches others");
     physical->send({{EV_KEY, BTN_NORTH, 0}});
+    expect(other->grab(), "a free pad is no one's");
+    other->ungrab();
+
+    // The shell's claim: opensu reads the pad and nothing else does, Guide above all.
+    pads.claim(Claim::Shell);
+    expect(!other->grab(), "a shell-held pad cannot be grabbed by another reader");
+    leaked.clear();
+    other->read(leaked);
+    seen.clear();
+    physical->send({{EV_KEY, BTN_MODE, 1}});
+    expect(collect(pads, seen,
+                   [&] {
+                       return pressed(seen, Button::Guide);
+                   }),
+           "the shell hears Guide");
+    physical->send({{EV_KEY, BTN_MODE, 0}});
+    std::this_thread::sleep_for(50ms);
+    leaked.clear();
+    other->read(leaked);
+    expect(leaked.empty(), "and nothing else does");
+    pads.claim(Claim::Free);
+    physical->send({{EV_KEY, BTN_MODE, 1}});
+    expect(readUntil(*other, {EV_KEY, BTN_MODE, 1}, leaked), "a freed pad reaches others again");
+    physical->send({{EV_KEY, BTN_MODE, 0}});
 
     // The game's mapping: A reaches the virtual pad as B, the shell still hears A.
     expect(!pads.hold(ForwardMap{{{Button::A, {Button::B}}}, {}}).empty(),
@@ -472,7 +576,7 @@ int main() {
                    }),
            "while opensu hears A");
     physical->send({{EV_KEY, BTN_SOUTH, 0}});
-    pads.release();
+    pads.release(Claim::Free);
 
     seen.clear();
     physical.reset();

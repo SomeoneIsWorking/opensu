@@ -194,3 +194,10 @@ target_include_directories(mapping_editor_test PRIVATE "${CMAKE_SOURCE_DIR}/test
 target_compile_options(mapping_editor_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(mapping_editor_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME mapping_editor COMMAND mapping_editor_test)
+
+add_executable(focus_owner_test focus_owner_test.cpp)
+target_link_libraries(focus_owner_test PRIVATE opensu::app)
+target_include_directories(focus_owner_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(focus_owner_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(focus_owner_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME focus_owner COMMAND focus_owner_test)

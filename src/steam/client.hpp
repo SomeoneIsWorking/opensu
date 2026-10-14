@@ -17,6 +17,7 @@
 #include <thread>
 #include <vector>
 
+#include "big_picture.hpp"
 #include "desktop_steam.hpp"
 #include "devtools.hpp"
 #include "download_control.hpp"
@@ -71,6 +72,10 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] Uninstaller& uninstaller() noexcept {
         return uninstaller_;
     }
+    /// Big Picture, closed through the running client.
+    [[nodiscard]] BigPicture& bigPicture() noexcept {
+        return bigPicture_;
+    }
     /// Steam's library folders, through the running client.
     [[nodiscard]] Libraries& libraries() noexcept {
         return libraries_;
@@ -116,6 +121,7 @@ class Client final : public launch::SteamGate {
     DownloadQueue queue_{devTools_};
     InstallWizard installer_{devTools_};
     Uninstaller uninstaller_{devTools_};
+    BigPicture bigPicture_{devTools_};
     LaunchActivity launches_{devTools_};
     Libraries libraries_{devTools_};
     DownloadControl downloadControl_{devTools_};

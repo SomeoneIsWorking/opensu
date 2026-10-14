@@ -35,7 +35,7 @@
 #include "downloads_controller.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
-#include "game_pads.hpp"
+#include "focus_follow.hpp"
 #include "game_screen.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pads.hpp"
@@ -44,12 +44,14 @@
 #include "host_services.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "launch/handoff.hpp"
+#include "launch/process_tree.hpp"
 #include "launch_mailbox.hpp"
 #include "layout_picker.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
 #include "library/shelf.hpp"
 #include "mapping_editor.hpp"
+#include "pad_owner.hpp"
 #include "panel_flow.hpp"
 #include "path_editor.hpp"
 #include "plugin_service.hpp"
@@ -114,9 +116,6 @@ class ShellApp final : private PointerHost {
     }
 
   private:
-    /// Where pads are read from: the system's, or an empty directory in a hidden run.
-    static std::filesystem::path padsDirectory(const std::filesystem::path& dataDir, bool hidden);
-
     /// Publishes state for the control channel, and serves any pending request.
     /// Main loop only.
     void publishSnapshot();
@@ -463,7 +462,7 @@ class ShellApp final : private PointerHost {
                                        settingsScreen_.refresh();
                                    },
                                    [this] {
-                                       gamePads_.syncChords();
+                                       padOwner_.syncChords();
                                    }};
     /// The Settings screen's Guide chords category.
     ChordSettings chordSettings_{shortcutEditor_, shell_.shortcuts()};
@@ -518,9 +517,10 @@ class ShellApp final : private PointerHost {
                                   [this](const std::string& text, bool isError) {
                                       shell_.setToast(text, isError);
                                   }}};
-    gamepad::Pads pads_{padsDirectory(environment_.dataDir, settings_.hidden)};
-    /// The pads as the running launch holds them, with its mapping. Main loop only.
-    GamePads gamePads_{pads_, shell_.chords()};
+    gamepad::Pads pads_{PadOwner::inputDirectory(environment_.dataDir, settings_.hidden)};
+    /// Who has the pads: the shell, the running launch with its mapping, or another window.
+    /// Main loop only.
+    PadOwner padOwner_{pads_, shell_.chords()};
     device::ControllerBatteries padBatteries_;
     /// The pads as the Devices page and the quick menu list them.
     ControllerRoster roster_{ControllerRoster::Sources{[this] {
@@ -695,8 +695,22 @@ class ShellApp final : private PointerHost {
         }}};
     /// How the window relates to a running game: the overlay inside Gamescope, hidden elsewhere.
     GameScreen gameScreen_{settings_.hidden, [this](bool blocked) {
-                               gamePads_.setBlocked(blocked);
+                               padOwner_.setBlocked(blocked);
                            }};
+    /// Gamescope's focus, inside it; after steam_, so a Big Picture close in flight ends first.
+    FocusFollow focusFollow_{FocusFollow::Hooks{.gamePids =
+                                                    [this] {
+                                                        return launch::ProcessTree::treesMatching(
+                                                            running_.processHint);
+                                                    },
+                                                .closeBigPicture =
+                                                    [this] {
+                                                        steam_.bigPicture().close();
+                                                    },
+                                                .takeFocus =
+                                                    [this] {
+                                                        gameScreen_.takeFocus();
+                                                    }}};
     /// The store sign-ins the control channel drives.
     StoreSignIn signIn_;
 

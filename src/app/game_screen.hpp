@@ -40,6 +40,10 @@ class GameScreen {
     [[nodiscard]] session::OverlayMode mode() const noexcept {
         return mode_;
     }
+    /// Inside Gamescope with no game running: puts the window back in front of whatever another
+    /// program mapped since. Gamescope focuses the most recently mapped window (steamcompmgr.cpp
+    /// is_focus_priority_greater), so the window is mapped again.
+    void takeFocus();
 
     /// The game-time key watcher, or null outside Gamescope.
     [[nodiscard]] session::GameKeys* keys() noexcept {
@@ -51,6 +55,7 @@ class GameScreen {
     void showWindow(bool shown);
 
     bool hidden_;
+    bool running_{false};
     std::function<void(bool blocked)> blockPads_;
     ShellWindow* window_{};
     session::OverlayMode mode_{session::OverlayMode::Hidden};
