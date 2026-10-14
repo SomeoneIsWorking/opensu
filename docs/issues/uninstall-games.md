@@ -20,7 +20,8 @@ Requested: "ability to uninstall games".
 - **GOG:**
   - gogdl has no uninstall command.
   - openSU's `library/gog_installs:InstallRecords` has `find`, `all` and `add`, but no removal.
-  - A Windows install also has a Wine prefix at `Paths::prefixes/<id>`.
+  - A Windows install also has a Wine prefix at `Paths::prefixes/<id>`; it becomes one shared
+    prefix (`windows-games-wine-prefix.md`).
   - project-state S007: "No uninstall … a deleted game folder stays recorded."
 - **Emulators and cores** downloaded by openSU are already removable (two presses,
   `EmulatorDownloads::remove`, S026/S031).
@@ -53,8 +54,9 @@ catalog reload after a removal.
      taken from the ERROR/CRITICAL line (`library/install_log`).
    - GOG, which removes the recorded folder, then the record. The folder is removed only if it lies
      under the root openSU gave gogdl (`GogInstallJob::gameRoot(id)`, under the resolved install
-     folder), and a record pointing anywhere else is only forgotten. The Wine prefix is removed
-     with it (see the open questions). `InstallRecords::remove(id)` is new.
+     folder), and a record pointing anywhere else is only forgotten. No Wine prefix is removed: games
+     share one prefix, and a game's own prefix is kept (`windows-games-wine-prefix.md`).
+     `InstallRecords::remove(id)` is new.
 
    `app/installs` refuses an uninstall while that game installs or runs. The one-at-a-time rule
    applies to installs and uninstalls together.
@@ -81,8 +83,6 @@ Live verification needs a signed-in store on this machine, or the VM (`docs/vm-h
 
 ## Open questions
 
-- Should a GOG uninstall delete the Wine prefix, which may hold saves (proposed: yes, after the
-  confirm names it), or keep it?
 - Should ROMs ever be deletable from openSU? iiSU deletes only ROMs it downloaded, and openSU
   downloads none.
 - Should Epic's `--keep-files` (remove from legendary's list, keep files) be offered?
