@@ -63,7 +63,7 @@ RUN set -eu; \
         -Denable-xkbregistry=false -Dxkb-config-root=/usr/share/X11/xkb \
         -Dx-locale-root=/usr/share/X11/locale; \
     build pixman \
-        https://www.cairographics.org/releases/pixman-0.46.4.tar.gz \
+        https://deb.debian.org/debian/pool/main/p/pixman/pixman_0.46.4.orig.tar.gz \
         d09c44ebc3bd5bee7021c79f922fe8fb2fb57f7320f55e97ff9914d2346a591c \
         -Dtests=disabled -Ddemos=disabled -Dgtk=disabled -Dlibpng=disabled; \
     build libdrm \
