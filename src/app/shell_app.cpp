@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
-#include <ctime>
 #include <fstream>
 #include <stdexcept>
 #include <thread>
@@ -22,7 +21,6 @@
 #include "launcher_status.hpp"
 #include "library/titles.hpp"
 #include "lucent/log.h"
-#include "ui/clock_text.hpp"
 #include "ui/section_view.hpp"
 
 namespace opensu::app {
@@ -55,7 +53,7 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
     pads_.setChords(input::chordTriggers(shell_.shortcuts()));
-    refreshClock();
+    clock_.service(std::chrono::steady_clock::now());
     applyLayout();
 }
 
@@ -681,10 +679,12 @@ void ShellApp::closePages() {
 }
 
 void ShellApp::syncOverlay() {
-    const bool wanted = shell_.inGame() && shell_.panelOpen();
-    if (gameScreen_.setShown(wanted) && padsHeld_) {
-        pads_.setBlocked(wanted);
-    }
+    using session::OverlayMode;
+    shell_.followChordHint(router_.longHeld(std::chrono::steady_clock::now()));
+    const OverlayMode over = shell_.panelOpen()          ? OverlayMode::Interactive
+                             : shell_.chordHintVisible() ? OverlayMode::Passive
+                                                         : OverlayMode::Hidden;
+    gameScreen_.show(shell_.inGame() ? over : OverlayMode::Hidden);
 }
 
 std::string ShellApp::outputLine() const {
@@ -858,22 +858,6 @@ void ShellApp::syncChrome() {
     shell_.setTrail(currentTrail());
 }
 
-void ShellApp::refreshClock() {
-    const auto now = std::chrono::system_clock::now();
-    const std::time_t seconds = std::chrono::system_clock::to_time_t(now);
-    std::tm parts{};
-    localtime_r(&seconds, &parts);
-    const auto millisecond = static_cast<int>(
-        std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count() %
-        1000);
-    shell_.setClock(ui::ClockText::format(parts.tm_hour, parts.tm_min, environment_.clock24Hour));
-    nextClockTick_ = std::chrono::steady_clock::now() +
-                     ui::ClockText::untilNextMinute(parts.tm_sec, millisecond);
-    // STOPGAP: the battery is re-read on the clock's minute tick because opensu has no
-    // power_supply uevent listener standing in for iiSU's ACTION_BATTERY_CHANGED receiver.
-    shell_.setBattery(battery_.read());
-}
-
 void ShellApp::requestGameRunning(bool running) {
     gameRunning_.store(running);
 }
@@ -916,6 +900,7 @@ void ShellApp::publishSnapshot() {
     next.folderPickerOpen = paths_.active();
     next.capturingShortcut = shortcutEditor_.capturing();
     next.volumeShown = shell_.volumeOsd().holding();
+    next.chordHint = gamepad::name(shell_.chordHint().modifier().value_or(gamepad::Button::None));
     next.uiScale = preferences_.values().uiScale;
     if (const auto& level = volume_.system().state()) {
         next.volumePercent = level->percent;
@@ -954,7 +939,7 @@ void ShellApp::publishSnapshot() {
 void ShellApp::serviceControlRequests() {
     // Buttons injected over the channel take the same path as a real press, so
     // what the channel exercises is the shell's own handling.
-    const ControlBridge::Input queued = bridge_.takeInput();
+    const ControlBridge::Input queued = bridge_.takeInput(std::chrono::steady_clock::now());
     for (const input::Combo& combo : queued.keys) {
         shell_.inputDevice().noteKey();
         if (shortcutEditor_.capturing()) {
@@ -1117,11 +1102,7 @@ int ShellApp::run() {
         window_->present([this](ui::Canvas& canvas, const gpu2d::Surface& target) {
             shell_.draw(canvas, target);
         });
-
-        // iiSU k42: the clock re-renders on the minute boundary.
-        if (std::chrono::steady_clock::now() >= nextClockTick_) {
-            refreshClock();
-        }
+        clock_.service(std::chrono::steady_clock::now());
     }
 
     // Anything waiting on a frame will never get one now.

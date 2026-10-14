@@ -40,6 +40,38 @@ constexpr int cornerSegments = 12;
 constexpr float capRoundness = 0.3f;
 constexpr float capLabelPadding = 0.18f;
 
+// A d-pad direction is the letter ring around a solid arrowhead, its tip this far from the centre
+// and its base this wide, in ring radii.
+constexpr float arrowReach = 0.5f;
+constexpr float arrowHalfBase = 0.45f;
+
+bool isShoulder(std::string_view key) {
+    return key == "LB" || key == "RB" || key == "LT" || key == "RT";
+}
+
+/// The arrow's direction for a d-pad key, or (0, 0) for any other.
+Point arrowOf(std::string_view key) {
+    if (key == "UP") {
+        return {0.0f, -1.0f};
+    }
+    if (key == "DOWN") {
+        return {0.0f, 1.0f};
+    }
+    if (key == "LEFT") {
+        return {-1.0f, 0.0f};
+    }
+    if (key == "RIGHT") {
+        return {1.0f, 0.0f};
+    }
+    return {0.0f, 0.0f};
+}
+
+/// Whether `key` has a glyph shape of its own; the rest (L3, GUIDE) draw as a cap with their name.
+bool hasShape(std::string_view key) {
+    const Point arrow = arrowOf(key);
+    return key.size() == 1 || isShoulder(key) || arrow.x != 0.0f || arrow.y != 0.0f;
+}
+
 void roundBar(Canvas& canvas, Point from, Point to, float stroke, Colour ink) {
     canvas.line(from, to, stroke, ink);
     canvas.fillCircle(from, stroke * 0.5f, ink);
@@ -88,7 +120,8 @@ std::vector<Point> shoulderOutline(Point centre, float side, bool bigOnLeft) {
 
 void paintShoulder(Canvas& canvas, Typeface& typeface, std::string_view key, Point centre,
                    float box, Colour ink) {
-    const std::vector<Point> outline = shoulderOutline(centre, shoulderSide * box, key == "LB");
+    const std::vector<Point> outline =
+        shoulderOutline(centre, shoulderSide * box, key == "LB" || key == "LT");
     const float stroke = shoulderStroke * box;
     for (std::size_t i = 0; i < outline.size(); ++i) {
         roundBar(canvas, outline[i], outline[(i + 1) % outline.size()], stroke, ink);
@@ -102,9 +135,38 @@ TextStyle capLabelStyle(float box) {
     return TextStyle{pngCapHeight * box / capHeightPerEm};
 }
 
-float capWidth(Typeface& typeface, const std::string& label, float box) {
+float capWidth(Typeface& typeface, std::string_view label, float box) {
     return std::max(2.0f * pngRingOuter * box,
                     typeface.measure(label, capLabelStyle(box)) + 2.0f * capLabelPadding * box);
+}
+
+/// `label` in a rounded outline the ring's height, as a key cap.
+void paintCap(Canvas& canvas, Typeface& typeface, std::string_view label, Point centre, float box,
+              Colour ink) {
+    const float height = 2.0f * pngRingOuter * box;
+    const float width = capWidth(typeface, label, box);
+    const Rect cap{centre.x - width * 0.5f, centre.y - height * 0.5f, width, height};
+    // The outline is drawn outside the cap's rectangle.
+    const float stroke = pngRingStroke * box;
+    canvas.strokeRoundRect(gpu2d::Rect{cap.x - stroke, cap.y - stroke, cap.width + 2.0f * stroke,
+                                       cap.height + 2.0f * stroke},
+                           cornerRadius(cap, capRoundness) + stroke, stroke, ink);
+    const TextStyle text = capLabelStyle(box);
+    const float textWidth = typeface.measure(label, text);
+    typeface.drawCentred(canvas, label, centre.x - textWidth * 0.5f, centre.y, text, ink);
+}
+
+void paintArrow(Canvas& canvas, Point direction, Point centre, float box, Colour ink) {
+    const float outer = pngRingOuter * box;
+    ring(canvas, centre, outer - pngRingStroke * box, outer, ink);
+    const float reach = arrowReach * outer;
+    const float half = arrowHalfBase * outer;
+    // The base sits as far behind the centre as half the reach, so the head is centred.
+    const Point tip{centre.x + direction.x * reach, centre.y + direction.y * reach};
+    const Point base{centre.x - direction.x * reach * 0.5f, centre.y - direction.y * reach * 0.5f};
+    const Point across{-direction.y * half, direction.x * half};
+    canvas.triangle(tip, Point{base.x + across.x, base.y + across.y},
+                    Point{base.x - across.x, base.y - across.y}, ink);
 }
 
 } // namespace
@@ -118,30 +180,29 @@ std::optional<std::string> ButtonGlyphPainter::capLabel(std::string_view key) co
 
 float ButtonGlyphPainter::advance(std::string_view key, float box) const {
     const std::optional<std::string> label = capLabel(key);
-    if (!label) {
+    if (!label && hasShape(key)) {
         return box;
     }
     // The slack around the ring that the square leaves, so a cap sits as a ring does.
-    return capWidth(typeface_, *label, box) + (box - 2.0f * pngRingOuter * box);
+    return capWidth(typeface_, label ? std::string_view{*label} : key, box) +
+           (box - 2.0f * pngRingOuter * box);
 }
 
 void ButtonGlyphPainter::paint(Canvas& canvas, std::string_view key, Point centre, float box,
                                Colour ink) const {
     if (const std::optional<std::string> label = capLabel(key)) {
-        const float height = 2.0f * pngRingOuter * box;
-        const float width = capWidth(typeface_, *label, box);
-        const Rect cap{centre.x - width * 0.5f, centre.y - height * 0.5f, width, height};
-        // The outline is drawn outside the cap's rectangle.
-        const float stroke = pngRingStroke * box;
-        canvas.strokeRoundRect(gpu2d::Rect{cap.x - stroke, cap.y - stroke,
-                                           cap.width + 2.0f * stroke, cap.height + 2.0f * stroke},
-                               cornerRadius(cap, capRoundness) + stroke, stroke, ink);
-        const TextStyle text = capLabelStyle(box);
-        const float textWidth = typeface_.measure(*label, text);
-        typeface_.drawCentred(canvas, *label, centre.x - textWidth * 0.5f, centre.y, text, ink);
+        paintCap(canvas, typeface_, *label, centre, box, ink);
         return;
     }
-    if (key == "LB" || key == "RB") {
+    if (!hasShape(key)) {
+        paintCap(canvas, typeface_, key, centre, box, ink);
+        return;
+    }
+    if (const Point arrow = arrowOf(key); arrow.x != 0.0f || arrow.y != 0.0f) {
+        paintArrow(canvas, arrow, centre, box, ink);
+        return;
+    }
+    if (isShoulder(key)) {
         paintShoulder(canvas, typeface_, key, centre, box, ink);
         return;
     }

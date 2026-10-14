@@ -19,7 +19,7 @@ void GameScreen::showWindow(bool shown) {
 }
 
 void GameScreen::setRunning(bool running) {
-    shown_ = false;
+    mode_ = session::OverlayMode::Hidden;
     if (overlay_) {
         if (running) {
             overlay_->enter();
@@ -31,17 +31,21 @@ void GameScreen::setRunning(bool running) {
     }
 }
 
-bool GameScreen::setShown(bool wanted) {
-    if (wanted == shown_) {
-        return false;
+void GameScreen::show(session::OverlayMode wanted) {
+    if (wanted == mode_) {
+        return;
     }
-    shown_ = wanted;
+    const bool wasInteractive = mode_ == session::OverlayMode::Interactive;
+    const bool interactive = wanted == session::OverlayMode::Interactive;
+    mode_ = wanted;
     if (overlay_) {
-        overlay_->setShown(wanted);
-    } else {
-        showWindow(wanted);
+        overlay_->show(wanted);
+    } else if (interactive != wasInteractive) {
+        showWindow(interactive);
     }
-    return true;
+    if (interactive != wasInteractive) {
+        blockPads_(interactive);
+    }
 }
 
 } // namespace opensu::app

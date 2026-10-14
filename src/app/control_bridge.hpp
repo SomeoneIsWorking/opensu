@@ -5,6 +5,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <optional>
@@ -29,7 +30,8 @@ class ControlBridge final : public ControlTarget {
     // ControlTarget. Each is callable from any thread.
     [[nodiscard]] ShellSnapshot snapshot() const override;
     void typeText(std::string text) override;
-    void inject(const std::vector<gamepad::Button>& buttons, input::Device device) override;
+    void inject(const std::vector<gamepad::Button>& buttons, input::Device device,
+                std::chrono::milliseconds hold) override;
     void injectKey(input::Combo combo) override;
     [[nodiscard]] bool captureFrame(std::string& png) override;
     void requestClose() override;
@@ -37,7 +39,10 @@ class ControlBridge final : public ControlTarget {
     void requestCatalogReload(std::string toast) override;
 
     // The loop's side.
-    [[nodiscard]] Input takeInput();
+    using Clock = std::chrono::steady_clock;
+    /// What was queued, the button edges up to the first one not due by `now` (a held button's
+    /// release, and whatever was queued after it).
+    [[nodiscard]] Input takeInput(Clock::time_point now);
     [[nodiscard]] bool closeRequested() const noexcept {
         return closeRequested_.load();
     }
@@ -57,8 +62,17 @@ class ControlBridge final : public ControlTarget {
     std::mutex reloadMutex_;
     std::optional<std::string> reload_;
 
+    /// A button edge and when it is due.
+    struct Edge {
+        Clock::time_point due;
+        gamepad::Event event;
+        input::Device device;
+    };
+
     std::mutex inputMutex_;
+    /// The keys and text; the buttons wait in `edges_` until due.
     Input input_;
+    std::vector<Edge> edges_;
 
     /// The published state and the frame-request handshake.
     mutable std::mutex stateMutex_;

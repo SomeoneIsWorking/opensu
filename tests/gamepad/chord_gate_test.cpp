@@ -28,6 +28,14 @@ Step played(Button modifier, Button trigger) {
     return {Step::Kind::Chord, Button::None, false, Chord{modifier, trigger}};
 }
 
+Step longHold(Button modifier) {
+    return {Step::Kind::LongHold, modifier, true, Chord{}};
+}
+
+Step longHoldEnded(Button modifier) {
+    return {Step::Kind::LongHoldEnded, modifier, false, Chord{}};
+}
+
 ChordGate gate() {
     ChordGate made;
     made.setTriggers(ChordTriggers{{Chord{Button::Guide, Button::A},
@@ -105,6 +113,48 @@ void anyButtonCanBeAModifier() {
            "Start held + Y is the chord");
 }
 
+void aLongHoldIsReportedOnce() {
+    ChordGate g = gate();
+    static_cast<void>(g.feed(Button::Guide, true, start));
+    expect(g.tick(start + 499ms).empty(), "no long hold under the hold delay");
+    expect(g.tick(start + 500ms) == Steps{longHold(Button::Guide)},
+           "a modifier held alone for the hold delay is a long hold");
+    expect(g.tick(start + 2s).empty(), "reported once");
+    expect(g.feed(Button::Guide, false, start + 2s) == Steps{longHoldEnded(Button::Guide)},
+           "its release ends the long hold and is no tap");
+    expect(g.tick(start + 3s).empty(), "nothing held, nothing reported");
+}
+
+void aChordEndsTheLongHold() {
+    ChordGate g = gate();
+    static_cast<void>(g.feed(Button::Guide, true, start));
+    static_cast<void>(g.tick(start + 600ms));
+    expect(g.feed(Button::A, true, start + 700ms) ==
+               Steps{longHoldEnded(Button::Guide), played(Button::Guide, Button::A)},
+           "a chord played during a long hold ends it, then plays");
+    expect(g.tick(start + 2s).empty(), "the modifier still held is no long hold again");
+    expect(g.feed(Button::A, false, start + 2s).empty() &&
+               g.feed(Button::Guide, false, start + 2s).empty(),
+           "and the releases are swallowed as after any chord");
+}
+
+void aLetOutEndsTheLongHold() {
+    ChordGate g = gate();
+    static_cast<void>(g.feed(Button::L2, true, start));
+    expect(g.tick(start + 500ms) == Steps{longHold(Button::L2)}, "L2 held is a long hold too");
+    expect(g.feed(Button::X, true, start + 600ms) ==
+               Steps{longHoldEnded(Button::L2), edge(Button::L2, true), edge(Button::X, true)},
+           "a button that is no chord ends it and lets the modifier out");
+    expect(g.tick(start + 2s).empty(), "a let-out modifier is no long hold");
+}
+
+void aQuickChordIsNoLongHold() {
+    ChordGate g = gate();
+    static_cast<void>(g.feed(Button::Guide, true, start));
+    static_cast<void>(g.feed(Button::A, true, start + 100ms));
+    expect(g.tick(start + 1s).empty(), "a chord under the hold delay shows nothing");
+}
+
 } // namespace
 
 int main() {
@@ -114,6 +164,10 @@ int main() {
     anotherButtonLetsTheModifierOut();
     modifiersStack();
     anyButtonCanBeAModifier();
+    aLongHoldIsReportedOnce();
+    aChordEndsTheLongHold();
+    aLetOutEndsTheLongHold();
+    aQuickChordIsNoLongHold();
     std::printf("chord_gate: all checks passed\n");
     return 0;
 }

@@ -1,5 +1,6 @@
 #include "control_bridge.hpp"
 
+#include <algorithm>
 #include <chrono>
 
 namespace opensu::app {
@@ -14,17 +15,19 @@ void ControlBridge::publish(ShellSnapshot snapshot) {
     published_ = std::move(snapshot);
 }
 
-void ControlBridge::inject(const std::vector<gamepad::Button>& buttons, input::Device device) {
+void ControlBridge::inject(const std::vector<gamepad::Button>& buttons, input::Device device,
+                           std::chrono::milliseconds hold) {
     const auto edge = [](gamepad::Button button, bool pressed) {
         return gamepad::Event{
             .kind = gamepad::Event::Kind::Button, .button = button, .pressed = pressed};
     };
+    const Clock::time_point now = Clock::now();
     const std::lock_guard lock{inputMutex_};
     for (const gamepad::Button button : buttons) {
-        input_.buttons.emplace_back(edge(button, true), device);
+        edges_.push_back(Edge{now, edge(button, true), device});
     }
     for (auto button = buttons.rbegin(); button != buttons.rend(); ++button) {
-        input_.buttons.emplace_back(edge(*button, false), device);
+        edges_.push_back(Edge{now + hold, edge(*button, false), device});
     }
 }
 
@@ -38,9 +41,18 @@ void ControlBridge::typeText(std::string text) {
     input_.text.push_back(std::move(text));
 }
 
-ControlBridge::Input ControlBridge::takeInput() {
+ControlBridge::Input ControlBridge::takeInput(Clock::time_point now) {
     const std::lock_guard lock{inputMutex_};
-    return std::exchange(input_, {});
+    Input taken = std::exchange(input_, {});
+    // Edges leave in the order they were queued, so none overtakes a held button's release.
+    const auto waiting = std::ranges::find_if(edges_, [now](const Edge& edge) {
+        return edge.due > now;
+    });
+    for (auto edge = edges_.begin(); edge != waiting; ++edge) {
+        taken.buttons.emplace_back(edge->event, edge->device);
+    }
+    edges_.erase(edges_.begin(), waiting);
+    return taken;
 }
 
 void ControlBridge::requestClose() {

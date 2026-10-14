@@ -1,70 +1,77 @@
 # Holding a chord button shows that button's chords
 
-Status: open.
+Status: partial. Built and verified in hidden runs; the list over a real game in Gamescope and on a
+real pad has not been seen.
 
 Requested: "holding a chord button can show mappings for that chord button".
 
-## Current state
+## Behaviour
 
-- `input/pad_chords:PadChords::feed` knows when a modifier is held (`held_`) and holds Guide back
-  until it is released (`guide_`). It has no notion of time. Holding Guide and letting go without a
-  chord comes out as a tap, which opens the Guide menu.
-- `input/shortcuts:Shortcuts::padChord` answers per action. There is no "every chord on this
-  modifier" query.
-- Over a game, the shell draws only through the Gamescope overlay. `app/game_screen` shows the
-  window while a menu or page is up, and `session/gamescope_overlay:setShown` sets
-  `STEAM_INPUT_FOCUS`, which hands it the keyboard. Opening a menu also blocks the pads
-  (`Pads::setBlocked`, which rests the virtual pads).
-- The direction-repeat timing (400 ms, `gamepad/direction_repeat`) is the only hold timing in the
-  input layer.
+- A modifier (a button some bound chord starts with; Guide by default) held alone for the hold
+  delay (`input::holdDelay`, 500 ms) shows a panel centred on the screen: the modifier's glyph,
+  "Hold and press", and one row per chord on it, the partner's glyph and the action's name.
+- It goes when the modifier is released, when a chord is played (the chord still plays), or when
+  another button lets the modifier out. It fades in 110 ms and out 160 ms.
+- Released after the long hold with no chord, the modifier does nothing (the gate's existing rule),
+  so a long Guide hold opens no Guide menu.
+- Over a game inside Gamescope the overlay is passive: drawn, with `STEAM_INPUT_FOCUS` 0 and the
+  pads not blocked, so the game keeps the keyboard, the pointer and every button that is not part
+  of a chord. A menu or page is interactive, as before. Outside Gamescope the window would take the
+  focus if mapped, so the list is not shown over a game there.
 
 ## iiSU reference
 
 None. `docs/reference/iisu/input-sound.md` records that no handler implements a hold or long press.
-The only hold is A to pick up a tile in reorder mode (`l80.java:357`). The closest feature is the
-static "Show Button Hint" setting (`dual_detail_button_hint`). The model for this card is SteamOS,
-where holding the STEAM button shows the button-chord list. That model has not been checked on a
-Deck here.
+The model is SteamOS, where holding the STEAM button shows the chord list. That model has not been
+checked on a Deck here, and the 500 ms delay is ours.
 
-## Gap
+## Owners
 
-Nothing detects a held modifier past a delay. There is no chord list model, no hint painter, and no
-way to show the overlay over a game without taking focus and blocking the pads.
+- `gamepad/chord_gate:ChordGate::tick` reports a modifier held alone for the hold delay once
+  (`Step::LongHold`); `press` and `release` report its end once (`Step::LongHoldEnded`) on a chord,
+  a let-out or a release. The timing is the gate's alone; `PadTranslator` ignores both steps.
+- `input/pad_chords:PadChords::longHeld(at)` ticks every pad's gate and answers the modifier long
+  held now; `app/shortcut_router` passes it on.
+- `input/shortcuts:Shortcuts::chordsOn(modifier)` lists the chords on a modifier, and `glyphOf`
+  names each button's glyph key (`buttonOfGlyph` is its inverse).
+- `ui/chord_hint` is the model (`chordHintRows`, `follow`, the fade); `ui/chord_hint_painter` draws
+  it in the volume display's colours. `ui/button_glyph` gained LT and RT (the shoulder shape), d-pad
+  arrows in the letter ring, and a named cap for the rest (L3, R3, GUIDE).
+- `session/gamescope_overlay:OverlayMode` (hidden, passive, interactive) and
+  `app/game_screen:GameScreen::show`, which also owns resting the game's pads: only an interactive
+  overlay blocks them. `ShellApp::syncOverlay` asks for interactive while a panel is open, passive
+  while the list is visible, else hidden.
+- `POST /input guide 3000ms` holds buttons for a duration (`app/control_bridge` keeps every later
+  edge queued behind the release), and `/state` reports `chordHint` ("guide" or empty).
+- To keep `shell_app.cpp` from growing, the clock and battery tick moved out into
+  `app/top_bar_clock`.
 
-## Proposed owners and design
+Game chords from per-game mappings (`per-game-button-mappings.md`) are not listed; that card adds
+them to `chordsOn`'s source when it lands.
 
-1. `input/pad_chords`: `feed` takes the frame's time. When a modifier has been held for 500 ms with
-   no trigger, it reports `hintShown{modifier}`, then `hintHidden` on release. Guide released after
-   the hint was shown is not a tap, so the Guide menu does not open (as on SteamOS). A chord made
-   while the hint is up works as usual and closes the hint. The logic is pure and is tested with
-   synthetic times.
-2. `input/shortcuts`: `chordsOn(modifier)` returns each trigger with its action label. When the
-   running game has a mapping (`per-game-button-mappings.md`), `input/mapping_scopes` adds its
-   chords for that modifier, with the output's name.
-3. `ui/chord_hint.*` and `chord_hint_painter.*`: a compact panel listing trigger glyph → label, in
-   the button glyphs of `ui/button_glyph`. Over the home screen it draws like the toast. Over a
-   game it goes through `GameScreen`.
-4. `app/game_screen` and `session/gamescope_overlay`: add a "shown without focus" state that maps
-   the overlay without `STEAM_INPUT_FOCUS` and without `Pads::setBlocked`. The trigger press has to
-   reach the chord matcher, and every other button has to keep reaching the game.
-5. Wiring is in `app/shortcut_router`, which already owns `PadChords`. `shell_app.cpp` is at its
-   line limit.
+## Evidence
 
-## Tests
+- Fail first: the new tests do not compile against d6ff921 (no `Step::Kind::LongHold`,
+  `ChordGate::tick`, `PadChords::longHeld`, `Shortcuts::chordsOn`, `glyphOf`, `ui/chord_hint`,
+  `session::OverlayMode`, `GameScreen::show`, or a hold on `ControlTarget::inject`); there was no
+  hold behaviour to fail at run time.
+- Unit tests, all passing: `chord_gate_test` (a long hold reported once at the delay, ended by a
+  release, a chord or a let-out, none for a quick chord), `shortcuts_test` (`chordsOn` lists exactly
+  a modifier's chords after a remap; `longHeld` until a chord or release; a long Guide release is
+  no Guide press), `chord_hint_test` (rows are exactly the modifier's chords with glyph and label;
+  shown and faded with the hold), `game_screen_test` (passive leaves the pads unblocked, a menu
+  blocks them, closing it under the list unblocks them), `control_bridge_test` and
+  `control_channel_test` (a hold keeps the release, and every later edge, back; holds over 10000 ms
+  or in other units are refused; `chordHint` in `/state`).
+- Hidden run (`scratch/chord-hint/verify.py`): `guide 2500ms` shows `chordHint: "guide"` 0.56 s
+  after the post (none at 0.25 s), hides it on release, and the Guide menu stays closed; a Guide tap
+  still opens the Guide menu; `guide+a 1500ms` opens the quick menu with no list at any point.
+- Parity scene `chord-hint` in `tools/screenshots`: the panel centred over Home, clear of the top
+  bar, dock and hints.
 
-- `pad_chords`: the hint after the delay, no hint for a quick chord, Guide hold-and-release not
-  being a tap, and the hint closing on a chord.
-- `shortcuts`: `chordsOn`.
-- A hidden-run `--render` of the hint.
-- An overlay check that the pads stay unblocked while the hint shows (`pads` against uinput).
+## Left
 
-## Depends on
-
-`guide-chord-configuration.md`: there are chords worth listing, and analogue L2 and R2 work as
-modifiers. `per-game-button-mappings.md` is needed for game chords in the list.
-
-## Open questions
-
-- Is 500 ms the right delay? SteamOS's is not measured here.
-- Should a long Guide hold followed by a release open nothing (proposed, as on SteamOS) or still
-  open the Guide menu?
+- On hardware, inside Gamescope over a running game: the list shows, the game keeps its input
+  (keyboard, pointer and the buttons that are not part of a chord), and a chord played under it
+  still works.
+- Whether 500 ms suits a real pad (SteamOS's delay is not measured here).

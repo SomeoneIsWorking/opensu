@@ -5,7 +5,9 @@
 // trigger while it is held is the chord: the trigger's press and release and the modifier's release
 // are swallowed. A press of any other button means no chord is coming: the modifier's press is let
 // out first, then that press. A modifier released alone comes out as a tap when it was held for
-// less than the hold delay, and not at all after it. Pure state with the time passed in.
+// less than the hold delay, and not at all after it. A modifier held alone that long is reported
+// once as a long hold, and its end once when it is released, plays a chord or is let out. Pure
+// state with the time passed in.
 #pragma once
 
 #include <chrono>
@@ -48,6 +50,10 @@ class ChordGate {
             Edge,
             /// `chord` was played.
             Chord,
+            /// `button`, a modifier, has been held alone for the hold delay.
+            LongHold,
+            /// `button`'s long hold is over: released, a chord played, or let out.
+            LongHoldEnded,
         };
 
         Kind kind{Kind::Edge};
@@ -65,6 +71,8 @@ class ChordGate {
 
     /// `button` went down or up at `at`: the edges to pass on and the chords played, in order.
     [[nodiscard]] std::vector<Step> feed(Button button, bool pressed, Clock::time_point at);
+    /// The long holds that began by `at`, each reported once.
+    [[nodiscard]] std::vector<Step> tick(Clock::time_point at);
 
     /// Whether `button`'s state passes now: false while it is a modifier not let out, or a
     /// trigger swallowed by a chord.
@@ -83,7 +91,12 @@ class ChordGate {
     struct Held {
         Hold hold{Hold::Pending};
         Clock::time_point since;
+        /// Reported as a long hold whose end is not reported yet.
+        bool longHeld{false};
     };
+
+    /// Leaves `held`'s long hold, adding its end to `steps` if it was reported.
+    static void endLongHold(Button modifier, Held& held, std::vector<Step>& steps);
 
     [[nodiscard]] std::vector<Step> press(Button button, Clock::time_point at);
     [[nodiscard]] std::vector<Step> release(Button button, Clock::time_point at);

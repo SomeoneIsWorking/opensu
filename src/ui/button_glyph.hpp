@@ -4,7 +4,9 @@
 // sign inside. The images cannot ship, so this draws the same shapes: + and - from their
 // 24-unit vectors (drawable-anydpi), the letters at the PNGs' measured proportions. The shoulder
 // buttons' (`lb_button.png`, `rb_button.png`) are a rounded outline with one large corner and the
-// button's two letters.
+// button's two letters; LT and RT take the same shape. iiSU has no d-pad, stick-click or Guide
+// glyph: openSU draws a direction as the ring around an arrowhead and the rest as a cap with the
+// button's name.
 #pragma once
 
 #include <optional>
@@ -30,8 +32,8 @@ class ButtonGlyphPainter {
     /// at least that for a key whose label is long.
     [[nodiscard]] float advance(std::string_view key, float box) const;
 
-    /// Draws the glyph for `key` ("A", "B", "X", "Y", "+", "-", "LB", "RB") in a `box`-sized square
-    /// centred on `centre`.
+    /// Draws the glyph for `key` (`input::glyphOf`: "A", "+", "LB", "LT", "UP", "L3", "GUIDE") in a
+    /// `box`-sized square centred on `centre`.
     void paint(Canvas& canvas, std::string_view key, Point centre, float box, Colour ink) const;
 
   private:

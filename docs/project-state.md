@@ -69,7 +69,8 @@ Visible deltas from the baseline:
 - Pad chords: iiSU has three fixed single-button shortcuts and fixed L2/R2 overlays; openSU lets
   any button be held for a chord (Guide + A quick menu, Guide + Up/Down/Left volume, game actions on
   Settings › Guide chords), keeps a chord's buttons from the game, and still passes a quick tap of
-  the held button to it.
+  the held button to it. Holding the button half a second lists its chords (iiSU has no hold;
+  SteamOS's held STEAM button is the model), over a game without taking its input.
 - Switch games show the play time Eden recorded (the bundled Eden plugin), with no launch from
   openSU needed; iiSU shows no emulator play time.
 - No volume overlay in iiSU (its main activity hands the volume keys to Android); openSU draws its
@@ -123,7 +124,7 @@ game has been observed running yet.
 | S031 | Built-in emulators: libretro cores found or downloaded from the buildbot, updated, removed, started on `opensu-retro` | partial | S026 | G001 |
 | S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the quick menu, crash and load-failure toasts | partial | S003 | G001 |
 | S033 | Button mappings per game and per emulator (shared by its games), with game chords (`docs/issues/per-game-button-mappings.md`) | missing | S003, S022 | G003 |
-| S034 | Holding a chord modifier shows its chords, over a game too (`docs/issues/chord-hold-overlay.md`) | missing | S022 | G003 |
+| S034 | Holding a chord modifier shows its chords, over a game too (`docs/issues/chord-hold-overlay.md`) | partial | S022 | G003 |
 | S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | missing | S016, S026 | G001 |
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | missing | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | missing | S006, S007, S016 | G001 |
@@ -577,7 +578,8 @@ A loopback HTTP channel, part of the product rather than a debug flag, so an
 automated run can drive the shell with no controller and no compositor in the way.
 `GET /state` returns the shell's state as JSON (`artworkPending`: tiles near the canvas still
 showing the loading placeholder, downloading or decoding or not yet uploaded), `POST /input` queues a tap (press and release) of a button by
-name, `GET /frame.png` returns the next frame as PNG bytes, `POST /quit` closes
+name (`guide+a` holds buttons together, `guide 1500ms` holds them up to 10000 ms, every later edge
+queued behind the release), `GET /frame.png` returns the next frame as PNG bytes, `POST /quit` closes
 the shell. `OPENSU_CONTROL_PORT` moves the port; it cannot be closed, because it
 is how the shell is driven. It binds loopback only and names no file to read or
 write — frames come back as bytes over the response.
@@ -1016,6 +1018,15 @@ The Install folders rows show the folder each store will use and where it comes 
 override, the default folder, or the store's own (GOG `<data>/opensu/gog-games/<id>`, Epic
 legendary's `[Legendary] install_dir` else `~/Games`, Steam its default library while Steam runs).
 The rows and the install flows read the same `InstallFolders::resolve`.
+
+Chord list (S034): a modifier held alone for the hold delay shows its chords (partner glyph and
+action) centred on the screen until it is released, plays a chord or is let out; the gate reports
+the long hold (`gamepad/chord_gate:ChordGate::tick`). Over a game inside Gamescope the overlay is
+passive: drawn without `STEAM_INPUT_FOCUS` and without resting the pads (`app/game_screen`).
+Verified by unit tests, a hidden run (`guide 2500ms` over the control channel shows `chordHint`
+after the delay, the release opens nothing) and the `chord-hint` parity scene. Unverified: the list
+over a real game in Gamescope and on a real pad. Outside Gamescope it is not shown over a game
+(mapping the window would take the focus).
 
 Unverified: live Steam, real Epic and GOG installs, volume writes on a real device, pad chords on
 hardware (analogue triggers, chords over a game, a replayed tap in a polling game), the in-game X11

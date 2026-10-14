@@ -1005,7 +1005,14 @@ void Shell::drawOverGame(Canvas& canvas, Point size) {
     settings_.drawOverlays(canvas, size, dp(), now_, seconds);
     guide_.draw(canvas, size, dp());
     session_.draw(canvas, size, dp(), now_, seconds);
+    drawChordHint(canvas, size);
     hud_.drawToast(canvas);
+}
+
+void Shell::drawChordHint(Canvas& canvas, Point size) {
+    if (chordHint_.visible(now_)) {
+        chordHintPainter_.paint(canvas, chordHint_, size, dp(), chordHint_.look(now_));
+    }
 }
 
 void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
@@ -1044,6 +1051,7 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
         volumeOsdPainter_.paint(canvas, volumeOsd_.level(), size, dp(), hud_.topInset(),
                                 volumeOsd_.look(now_));
     }
+    drawChordHint(canvas, size);
     hud_.drawToast(canvas);
 }
 
