@@ -8,6 +8,7 @@
 
 #include "gamescope_overlay.hpp"
 #include "session/game_keys.hpp"
+#include "shell_window.hpp"
 
 namespace opensu::app {
 
@@ -17,8 +18,12 @@ class GameScreen {
     explicit GameScreen(bool hidden) noexcept : hidden_{hidden} {
     }
 
-    /// Inside Gamescope: the window `handle` becomes the overlay and keys are watched in-game.
-    void attachOverlay(unsigned long handle);
+    /// The window it shows and hides, once it is open.
+    void attach(ShellWindow& window) noexcept {
+        window_ = &window;
+    }
+    /// Inside Gamescope: the attached window becomes the overlay and keys are watched in-game.
+    void attachOverlay();
 
     /// A game started or ended. The window and the overlay follow; nothing is shown.
     void setRunning(bool running);
@@ -32,7 +37,11 @@ class GameScreen {
     }
 
   private:
+    /// Shows or hides the attached window, which a hidden run never maps.
+    void showWindow(bool shown);
+
     bool hidden_;
+    ShellWindow* window_{};
     bool shown_{false};
     std::unique_ptr<session::GamescopeOverlay> overlay_;
     std::unique_ptr<session::GameKeys> keys_;

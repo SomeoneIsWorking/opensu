@@ -3,6 +3,7 @@
 #pragma once
 
 #include "home_layout.hpp"
+#include "paint.hpp"
 
 namespace opensu::ui {
 
@@ -21,11 +22,11 @@ struct PillStyle {
 class GlassPainter {
   public:
     /// A fully rounded pill over `body`, in the light theme's glass fill.
-    void paint(const Rect& body) const;
+    void paint(Canvas& canvas, const Rect& body) const;
     /// `body` with corners of `radius` pixels.
-    void paint(const Rect& body, float radius) const;
+    void paint(Canvas& canvas, const Rect& body, float radius) const;
     /// A capsule over `body` with the shadow, fill, tint and border of iiSU's `ia3.Pill`.
-    void paintPill(const Rect& body, const PillStyle& style) const;
+    void paintPill(Canvas& canvas, const Rect& body, const PillStyle& style) const;
 };
 
 } // namespace opensu::ui

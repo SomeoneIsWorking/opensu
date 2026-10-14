@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 #define NANOSVG_IMPLEMENTATION
@@ -94,37 +95,24 @@ std::optional<std::vector<unsigned char>> rasteriseMask(const std::filesystem::p
     return rgba;
 }
 
-IconAtlas::~IconAtlas() {
-    for (const Entry& entry : entries_) {
-        if (entry.loaded) {
-            UnloadTexture(entry.texture);
-        }
-    }
-}
-
-const Texture* IconAtlas::mask(Icon icon, int pixels) {
+const gpu2d::Texture* IconAtlas::mask(Icon icon, int pixels) {
     const auto found = std::ranges::find_if(entries_, [icon, pixels](const Entry& entry) {
         return entry.icon == icon && entry.pixels == pixels;
     });
     if (found != entries_.end()) {
-        return found->loaded ? &found->texture : nullptr;
+        return found->texture ? &*found->texture : nullptr;
     }
-    Entry entry{.icon = icon, .pixels = pixels};
+    if (device_ == nullptr) {
+        throw std::logic_error{"an icon was drawn before the atlas had a device"};
+    }
+    Entry& entry = entries_.emplace_back(Entry{.icon = icon, .pixels = pixels, .texture = {}});
     const std::filesystem::path path = assetsDir_ / iconFile(icon);
-    if (std::optional<std::vector<unsigned char>> rgba = rasteriseMask(path, pixels)) {
-        Image image{.data = rgba->data(),
-                    .width = pixels,
-                    .height = pixels,
-                    .mipmaps = 1,
-                    .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
-        entry.texture = LoadTextureFromImage(image);
-        entry.loaded = entry.texture.id != 0;
-        SetTextureFilter(entry.texture, TEXTURE_FILTER_BILINEAR);
+    if (const std::optional<std::vector<unsigned char>> rgba = rasteriseMask(path, pixels)) {
+        entry.texture.emplace(*device_, *rgba, pixels, pixels, gpu2d::Filter::Linear);
     } else {
         lucent::error("ui", "icon {} could not be read", path.string());
     }
-    entries_.push_back(entry);
-    return entries_.back().loaded ? &entries_.back().texture : nullptr;
+    return entry.texture ? &*entry.texture : nullptr;
 }
 
 } // namespace opensu::ui

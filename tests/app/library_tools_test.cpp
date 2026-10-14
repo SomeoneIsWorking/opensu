@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "context_menu_controller.hpp"
 #include "layout_picker.hpp"
 #include "preferences.hpp"
@@ -38,7 +38,7 @@ struct Rig {
                       }} {
     }
 
-    audio::SoundPlayer sounds;
+    audio::SdlSoundPlayer sounds;
     std::vector<std::string> failures;
     Preferences preferences;
 };

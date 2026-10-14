@@ -1,13 +1,15 @@
 #include "typeface.hpp"
 
-#include <algorithm>
+#include <array>
 #include <cmath>
 #include <fstream>
 #include <iterator>
 #include <optional>
-#include <string>
+#include <stdexcept>
 #include <utility>
 #include <vector>
+
+#include "gpu2d/gpu_error.hpp"
 
 #include "face_metrics.hpp"
 #include "lucent/log.h"
@@ -17,130 +19,63 @@ namespace {
 
 /// Candidate faces, in order. Cal Sans is iiSU's default face; the others are fallbacks for a
 /// machine without it.
-const char* const kFacePaths[] = {
+constexpr std::array<const char*, 3> facePaths{
     "CalSans-Regular.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/google-noto/NotoSans-Bold.ttf",
 };
 
-std::optional<FaceMetrics> readFaceFile(const std::string& path) {
+/// stb_truetype drew the outlines unhinted and placed glyphs by advance alone.
+constexpr gpu2d::FaceOptions faceOptions{.hinted = false, .kerned = false};
+
+std::optional<FaceMetrics> readFaceFile(const std::filesystem::path& path) {
     std::ifstream stream{path, std::ios::binary};
     if (!stream) {
         return std::nullopt;
     }
-    std::vector<char> bytes{std::istreambuf_iterator<char>{stream},
-                            std::istreambuf_iterator<char>{}};
+    const std::vector<char> bytes{std::istreambuf_iterator<char>{stream},
+                                  std::istreambuf_iterator<char>{}};
     return readFaceMetrics(std::as_bytes(std::span{bytes}));
-}
-
-/// UTF-8 labels are drawn and measured per decoded codepoint.
-template <typename Visit> void forEachCodepoint(std::string_view text, Visit visit) {
-    const std::string owned{text};
-    for (const char* p = owned.c_str(); *p != '\0';) {
-        int bytes = 0;
-        const int codepoint = GetCodepointNext(p, &bytes);
-        p += std::max(bytes, 1);
-        visit(codepoint);
-    }
 }
 
 } // namespace
 
-Typeface::Typeface(std::filesystem::path assetsDir)
-    : assetsDir_{std::move(assetsDir)}, cache_{new Entry[static_cast<std::size_t>(entries_)]} {
+Typeface::Typeface(std::filesystem::path assetsDir) : assetsDir_{std::move(assetsDir)} {
 }
 
-void Typeface::load() {
-    for (const char* candidate : kFacePaths) {
-        const std::string path =
-            candidate[0] == '/' ? std::string{candidate} : assetsDir_.string() + "/" + candidate;
+void Typeface::load(SDL_GPUDevice& device) {
+    for (const char* candidate : facePaths) {
+        const std::filesystem::path path =
+            candidate[0] == '/' ? std::filesystem::path{candidate} : assetsDir_ / candidate;
         std::optional<FaceMetrics> metrics = readFaceFile(path);
         if (!metrics) {
             continue;
         }
-        // Loaded once to validate: a face that fails here is reported rather than
-        // silently falling back at the first label.
-        const Font probe = LoadFontEx(path.c_str(), probeSize, nullptr, 0);
-        if (probe.texture.id != 0 && probe.glyphCount > 0) {
-            UnloadFont(probe);
-            path_ = path;
-            custom_ = true;
-            lineBoxPerEm_ = metrics->lineBoxPerEm();
-            ascentShare_ = metrics->ascent / (metrics->ascent - metrics->descent);
-            codepoints_ = std::move(metrics->codepoints);
-            lucent::info("ui", "typeface loaded from {}", path);
-            return;
-        }
-        if (probe.texture.id != 0) {
-            UnloadFont(probe);
-        }
+        text_ = std::make_unique<gpu2d::Text>(device, path, faceOptions);
+        face_ = std::move(*metrics);
+        lucent::info("ui", "typeface loaded from {}", path.string());
+        return;
     }
-    lucent::warn("ui", "no usable typeface found; falling back to the built-in font");
+    throw gpu2d::GpuError{"no usable typeface under " + assetsDir_.string()};
 }
 
-Typeface::~Typeface() {
-    for (Entry& entry : std::span{cache_, static_cast<std::size_t>(entries_)}) {
-        if (entry.loaded) {
-            UnloadFont(entry.font);
-        }
+gpu2d::Text& Typeface::text() {
+    if (text_ == nullptr) {
+        throw std::logic_error{"text drawn before the typeface was loaded"};
     }
-    delete[] cache_;
+    return *text_;
 }
 
 float Typeface::lineBox(const TextStyle& style) const noexcept {
-    return style.size * lineBoxPerEm_;
+    return style.size * face_.lineBoxPerEm();
 }
 
 float Typeface::emForLineBox(float height) const noexcept {
-    return height / lineBoxPerEm_;
+    return height / face_.lineBoxPerEm();
 }
 
-Font Typeface::face(int lineBoxPx) {
-    lineBoxPx = std::max(lineBoxPx, 1);
-    if (!custom_) {
-        return GetFontDefault();
-    }
-    for (Entry& entry : std::span{cache_, static_cast<std::size_t>(entries_)}) {
-        if (entry.loaded && entry.size == lineBoxPx) {
-            return entry.font;
-        }
-    }
-    for (Entry& entry : std::span{cache_, static_cast<std::size_t>(entries_)}) {
-        if (entry.loaded) {
-            continue;
-        }
-        // stb_truetype's pixel height is the line box, ascent to descent.
-        const Font loaded = LoadFontEx(path_.c_str(), lineBoxPx, codepoints_.data(),
-                                       static_cast<int>(codepoints_.size()));
-        if (loaded.texture.id == 0) {
-            return GetFontDefault();
-        }
-        entry.font = loaded;
-        entry.size = lineBoxPx;
-        entry.loaded = true;
-        return entry.font;
-    }
-    // Every cache slot is taken; the smallest loaded face is a better answer than
-    // the built-in font, since it at least matches the design.
-    for (Entry& entry : std::span{cache_, static_cast<std::size_t>(entries_)}) {
-        if (entry.loaded) {
-            return entry.font;
-        }
-    }
-    return GetFontDefault();
-}
-
-float Typeface::measure(std::string_view text, const TextStyle& style) {
-    const float box = lineBox(style);
-    const Font font = face(static_cast<int>(std::lround(box)));
-    const float tracking = style.tracking * style.size;
-    float width = 0.0f;
-    forEachCodepoint(text, [&](int codepoint) {
-        // raylib has no per-codepoint measure, so a one-element array is the way to get one
-        // glyph's advance.
-        width += MeasureTextCodepoints(font, &codepoint, 1, box, 0.0f).x + tracking;
-    });
-    return width;
+float Typeface::measure(std::string_view text, const TextStyle& style) const noexcept {
+    return TextGrid{face_, style}.measure(text);
 }
 
 std::string Typeface::fitted(std::string text, float room, const TextStyle& style) {
@@ -155,24 +90,38 @@ std::string Typeface::fitted(std::string text, float room, const TextStyle& styl
     return text + "...";
 }
 
-void Typeface::drawCentred(std::string_view text, float x, float centreY, const TextStyle& style,
-                           Color colour) {
-    const float box = lineBox(style);
-    const Font font = face(static_cast<int>(std::lround(box)));
-    const float tracking = style.tracking * style.size;
-    const float top = centreY - box * 0.5f;
-    float pen = x + tracking * 0.5f;
-    forEachCodepoint(text, [&](int codepoint) {
-        DrawTextCodepoint(font, codepoint, {pen, top}, box, colour);
-        pen += MeasureTextCodepoints(font, &codepoint, 1, box, 0.0f).x + tracking;
+void Typeface::drawCentred(Canvas& canvas, std::string_view text, float x, float centreY,
+                           const TextStyle& style, Colour colour) {
+    if (text.empty() || colour.a == 0) {
+        return;
+    }
+    gpu2d::Text& glyphs = this->text();
+    const TextGrid grid{face_, style};
+    const gpu2d::TextStyle glyphStyle{.size = grid.em()};
+    // A one-glyph run puts its baseline SDL_ttf's own ascent below its top.
+    const float baseline = centreY - grid.lineBox() * 0.5f + grid.ascent();
+    const float runTop = std::round(baseline - glyphs.metrics(grid.em()).ascent);
+    float pen = x + grid.lead();
+    forEachCodepoint(text, [&](char32_t codepoint, std::string_view bytes) {
+        if (!glyphs.draw(canvas, bytes, Point{std::round(pen), runTop}, glyphStyle, colour)) {
+            lucent::error("ui", "could not shape \"{}\": {}", bytes, SDL_GetError());
+        }
+        pen += grid.advance(codepoint);
     });
 }
 
-void Typeface::drawFromCapTop(std::string_view text, Vector2 origin, const TextStyle& style,
-                              Color colour) {
+void Typeface::drawFromCapTop(Canvas& canvas, std::string_view text, Point origin,
+                              const TextStyle& style, Colour colour) {
     const float box = lineBox(style);
     const float baseline = origin.y + capHeightPerEm * style.size;
-    drawCentred(text, origin.x, baseline - box * ascentShare_ + box * 0.5f, style, colour);
+    const float ascentShare = face_.ascent / (face_.ascent - face_.descent);
+    drawCentred(canvas, text, origin.x, baseline - box * ascentShare + box * 0.5f, style, colour);
+}
+
+void Typeface::retire() {
+    if (text_ != nullptr) {
+        text_->retire();
+    }
 }
 
 } // namespace opensu::ui

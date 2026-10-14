@@ -8,7 +8,7 @@
 #include <functional>
 #include <string>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "gamepad/event.hpp"
 #include "host/power.hpp"
 #include "host/session_mode.hpp"
@@ -37,7 +37,7 @@ class GuideMenuController {
     };
 
     GuideMenuController(ui::GuideMenu& menu, host::Power& power, host::SessionMode& session,
-                        audio::SoundPlayer& sounds, Hooks hooks)
+                        audio::SdlSoundPlayer& sounds, Hooks hooks)
         : menu_{menu}, power_{power}, session_{session}, sounds_{sounds}, hooks_{std::move(hooks)} {
     }
 
@@ -59,7 +59,7 @@ class GuideMenuController {
     ui::GuideMenu& menu_;
     host::Power& power_;
     host::SessionMode& session_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
 };
 

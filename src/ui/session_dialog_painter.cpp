@@ -6,15 +6,15 @@
 #include <vector>
 
 #include "hud.hpp"
-#include "panel_scope.hpp"
+#include "paint.hpp"
 #include "round_shape.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
 namespace {
 
-constexpr Color scrim{0, 0, 0, 115};
-constexpr Color outlineInk{0x4D, 0x46, 0x55, 255};
+constexpr Colour scrim{0, 0, 0, 115};
+constexpr Colour outlineInk{0x4D, 0x46, 0x55, 255};
 constexpr float titleSp = 24.0f;
 constexpr float bodySp = 16.0f;
 constexpr float buttonSp = 17.0f;
@@ -71,15 +71,15 @@ float heightOf(const std::vector<Paragraph>& wrapped, float lineBox, float dp) {
     return height;
 }
 
-void drawMiddle(Typeface& typeface, const std::string& text, float centreX, float centreY,
-                const TextStyle& style, Color colour) {
-    typeface.drawCentred(text, centreX - typeface.measure(text, style) * 0.5f, centreY, style,
-                         colour);
+void drawMiddle(Canvas& canvas, Typeface& typeface, const std::string& text, float centreX,
+                float centreY, const TextStyle& style, Colour colour) {
+    typeface.drawCentred(canvas, text, centreX - typeface.measure(text, style) * 0.5f, centreY,
+                         style, colour);
 }
 
 } // namespace
 
-SessionDialogLayout SessionDialogPainter::layout(const SessionDialog& dialog, Vector2 size,
+SessionDialogLayout SessionDialogPainter::layout(const SessionDialog& dialog, Point size,
                                                  float dp) const {
     const float lineBox = typeface_.lineBox(TextStyle{bodySp * dp});
     const std::vector<Paragraph> wrapped =
@@ -90,27 +90,27 @@ SessionDialogLayout SessionDialogPainter::layout(const SessionDialog& dialog, Ve
                                !dialog.busy());
 }
 
-void SessionDialogPainter::paint(const SessionDialog& dialog, Vector2 size, float dp,
+void SessionDialogPainter::paint(Canvas& canvas, const SessionDialog& dialog, Point size, float dp,
                                  const PanelLook& look) const {
     if (look.alpha <= 0.0f) {
         return;
     }
     const float alpha = look.alpha;
-    DrawRectangleRec(Rectangle{0.0f, 0.0f, size.x, size.y}, withAlpha(scrim, alpha));
+    canvas.fillRect(gpu2d::Rect{0.0f, 0.0f, size.x, size.y}, withAlpha(scrim, alpha));
     const SessionDialogLayout frame = layout(dialog, size, dp);
-    const PanelScope scope{Vector2{frame.card.centreX(), frame.card.centreY()}, look.scale};
-    fillRoundRect(RoundRect{frame.card, frame.radius}, [alpha](Vector2, float) {
+    const PanelScope scope{canvas, Point{frame.card.centreX(), frame.card.centreY()}, look.scale};
+    fillRoundRect(canvas, RoundRect{frame.card, frame.radius}, [alpha](Point, float) {
         return withAlpha(palette::panel, alpha);
     });
 
-    drawMiddle(typeface_, dialog.text().title, frame.card.centreX(), frame.titleY,
+    drawMiddle(canvas, typeface_, dialog.text().title, frame.card.centreX(), frame.titleY,
                TextStyle{titleSp * dp}, withAlpha(palette::ink, alpha));
     const TextStyle body{bodySp * dp};
     const float lineBox = typeface_.lineBox(body);
     float y = frame.body.y;
     for (const Paragraph& lines : wrapAll(typeface_, dialog, frame.body.width, dp)) {
         for (const std::string& line : lines) {
-            typeface_.drawCentred(line, frame.body.x, y + lineBox * 0.5f, body,
+            typeface_.drawCentred(canvas, line, frame.body.x, y + lineBox * 0.5f, body,
                                   withAlpha(palette::inkSoft, alpha));
             y += lineBox;
         }
@@ -118,7 +118,7 @@ void SessionDialogPainter::paint(const SessionDialog& dialog, Vector2 size, floa
     }
 
     if (const std::optional<std::string>& progress = dialog.progress()) {
-        drawMiddle(typeface_, *progress, frame.card.centreX(), frame.progressY, body,
+        drawMiddle(canvas, typeface_, *progress, frame.card.centreX(), frame.progressY, body,
                    withAlpha(palette::ink, alpha));
         return;
     }
@@ -129,19 +129,18 @@ void SessionDialogPainter::paint(const SessionDialog& dialog, Vector2 size, floa
         const Rect& box = frame.buttons[i];
         const bool focused = i == dialog.focus();
         const RoundRect shape{box, buttonRadiusDp * dp};
-        fillRoundRect(shape, [focused, alpha](Vector2, float) {
-            return withAlpha(
-                focused ? static_cast<Color>(palette::ink) : Color{0xEE, 0xED, 0xF3, 255}, alpha);
+        fillRoundRect(canvas, shape, [focused, alpha](Point, float) {
+            return withAlpha(focused ? palette::ink : Colour{0xEE, 0xED, 0xF3, 255}, alpha);
         });
-        const Color ink = focused ? WHITE : static_cast<Color>(palette::ink);
+        const Colour ink = focused ? white : palette::ink;
         const float glyph = glyphDp * dp;
         const float advance = glyphs_.advance(keys[i], glyph);
         const float text = typeface_.measure(*labels[i], label);
         float x = box.centreX() - (advance + glyphGapDp * dp + text) * 0.5f;
-        glyphs_.paint(keys[i], Vector2{x + advance * 0.5f, box.centreY()}, glyph,
+        glyphs_.paint(canvas, keys[i], Point{x + advance * 0.5f, box.centreY()}, glyph,
                       withAlpha(focused ? ink : outlineInk, alpha));
         x += advance + glyphGapDp * dp;
-        typeface_.drawCentred(*labels[i], x, box.centreY(), label, withAlpha(ink, alpha));
+        typeface_.drawCentred(canvas, *labels[i], x, box.centreY(), label, withAlpha(ink, alpha));
     }
 }
 

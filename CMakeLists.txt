@@ -11,30 +11,8 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-# raylib ships its headers and static library in a prefix. RAYLIB_ROOT points at
-# that prefix; the README says why the published prebuilt binary cannot be used.
-set(RAYLIB_ROOT "$ENV{HOME}/dev/raylib-built" CACHE PATH "Unpacked raylib prefix")
-if(NOT EXISTS "${RAYLIB_ROOT}/include/raylib.h")
-    message(FATAL_ERROR
-        "raylib not found under ${RAYLIB_ROOT}. Set RAYLIB_ROOT to a prefix "
-        "containing include/raylib.h and lib/libraylib.a")
-endif()
-
-# raylib's image decode path is compiled out unless these are defined, and the
-# archive alone is not enough: consumers need the same flags.
-set(RAYLIB_IMAGE_FLAGS STBI_REQUIRED SUPPORT_FILEFORMAT_JPG=1 SUPPORT_FILEFORMAT_TGA=1
-                      SUPPORT_FILEFORMAT_PSD=1)
-add_compile_definitions(${RAYLIB_IMAGE_FLAGS})
-
-# The one raylib dependency: headers, the static archive and the platform libraries it leaves to
-# its consumer.
+# The session reads X11 input and window properties.
 find_package(X11 REQUIRED)
-add_library(opensu_raylib INTERFACE)
-add_library(opensu::raylib ALIAS opensu_raylib)
-target_include_directories(opensu_raylib INTERFACE "${RAYLIB_ROOT}/include")
-target_link_directories(opensu_raylib INTERFACE "${RAYLIB_ROOT}/lib")
-target_link_libraries(opensu_raylib
-    INTERFACE raylib X11::X11 GL m Threads::Threads ${CMAKE_DL_LIBS})
 
 # nanosvg rasterises the shipped icons. Header-only: the distribution's package or a checkout.
 set(NANOSVG_ROOT "$ENV{HOME}/dev/nanosvg" CACHE PATH "nanosvg checkout")
@@ -56,7 +34,8 @@ find_package(ZLIB REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(WEBP REQUIRED IMPORTED_TARGET GLOBAL libwebp)
 
-# SDL3 and Vulkan draw opensu-retro; SDL3 audio and libvorbisfile play the UI sounds.
+# SDL3 gives the shell its window, input and sound and, with Vulkan, draws opensu-retro;
+# libvorbisfile decodes the UI sounds.
 pkg_check_modules(SDL3 IMPORTED_TARGET GLOBAL sdl3>=3.2)
 pkg_check_modules(VULKAN IMPORTED_TARGET GLOBAL vulkan)
 pkg_check_modules(VORBISFILE IMPORTED_TARGET GLOBAL vorbisfile)
@@ -73,8 +52,8 @@ set(LUCENT_ROOT "$ENV{HOME}/repo/lucent" CACHE PATH "Shared Lucent checkout")
 
 add_subdirectory("${LUCENT_ROOT}" "${CMAKE_BINARY_DIR}/lucent" EXCLUDE_FROM_ALL)
 
-# gpu2d draws 2D on SDL3 GPU and decodes, resizes and encodes images. Shared, not vendored; it
-# also provides gpu2d_compile_shaders.
+# gpu2d draws the shell on SDL3 GPU and decodes, resizes and encodes images. Shared, not vendored;
+# it also provides gpu2d_compile_shaders.
 set(GPU2D_ROOT "$ENV{HOME}/repo/gpu2d" CACHE PATH "Shared gpu2d checkout")
 
 add_subdirectory("${GPU2D_ROOT}" "${CMAKE_BINARY_DIR}/gpu2d" EXCLUDE_FROM_ALL)

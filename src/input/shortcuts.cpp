@@ -4,7 +4,6 @@
 #include <cctype>
 
 #include "keyboard_bindings.hpp"
-#include "raylib.h"
 
 namespace opensu::input {
 namespace {
@@ -49,34 +48,34 @@ const ActionInfo& infoOf(Action action) noexcept {
 
 /// The shipped key bindings; an action's first entry is the one its prompts show.
 constexpr std::array<KeyBinding, 28> defaultBindings{{
-    {Action::Up, {KEY_UP}},
-    {Action::Up, {KEY_W}},
-    {Action::Down, {KEY_DOWN}},
-    {Action::Down, {KEY_S}},
-    {Action::Left, {KEY_LEFT}},
-    {Action::Left, {KEY_A}},
-    {Action::Right, {KEY_RIGHT}},
-    {Action::Right, {KEY_D}},
-    {Action::Confirm, {KEY_ENTER}},
-    {Action::Confirm, {KEY_SPACE}},
-    {Action::Back, {KEY_ESCAPE}},
-    {Action::X, {KEY_F}},
-    {Action::Y, {KEY_Y}},
-    {Action::Select, {KEY_TAB}},
-    {Action::Select, {KEY_KB_MENU}},
-    {Action::Select, {KEY_F10, false, true}},
-    {Action::Start, {KEY_E}},
-    {Action::L1, {KEY_LEFT_BRACKET}},
-    {Action::R1, {KEY_RIGHT_BRACKET}},
-    {Action::R1, {KEY_R}},
-    {Action::Search, {KEY_SLASH}},
-    {Action::Search, {KEY_F, true, false}},
-    {Action::Guide, {KEY_TAB, false, true}},
-    {Action::QuickMenu, {KEY_TAB, true, false}},
-    {Action::VolumeUp, {KEY_UP, true, false}},
-    {Action::VolumeDown, {KEY_DOWN, true, false}},
-    {Action::VolumeMute, {KEY_M, true, false}},
-    {Action::Quit, {KEY_Q}},
+    {Action::Up, {keys::Up}},
+    {Action::Up, {keys::W}},
+    {Action::Down, {keys::Down}},
+    {Action::Down, {keys::S}},
+    {Action::Left, {keys::Left}},
+    {Action::Left, {keys::A}},
+    {Action::Right, {keys::Right}},
+    {Action::Right, {keys::D}},
+    {Action::Confirm, {keys::Enter}},
+    {Action::Confirm, {keys::Space}},
+    {Action::Back, {keys::Escape}},
+    {Action::X, {keys::F}},
+    {Action::Y, {keys::Y}},
+    {Action::Select, {keys::Tab}},
+    {Action::Select, {keys::Menu}},
+    {Action::Select, {keys::F10, false, true}},
+    {Action::Start, {keys::E}},
+    {Action::L1, {keys::LeftBracket}},
+    {Action::R1, {keys::RightBracket}},
+    {Action::R1, {keys::R}},
+    {Action::Search, {keys::Slash}},
+    {Action::Search, {keys::F, true, false}},
+    {Action::Guide, {keys::Tab, false, true}},
+    {Action::QuickMenu, {keys::Tab, true, false}},
+    {Action::VolumeUp, {keys::Up, true, false}},
+    {Action::VolumeDown, {keys::Down, true, false}},
+    {Action::VolumeMute, {keys::M, true, false}},
+    {Action::Quit, {keys::Q}},
 }};
 
 struct DefaultPad {
@@ -191,8 +190,8 @@ std::optional<Action> Shortcuts::actionFor(const PadChord& chord) const {
 }
 
 std::vector<ActionEdge> Shortcuts::keyEdges(const KeySource& keys) const {
-    const bool ctrl = keys.down(KEY_LEFT_CONTROL) || keys.down(KEY_RIGHT_CONTROL);
-    const bool shift = keys.down(KEY_LEFT_SHIFT) || keys.down(KEY_RIGHT_SHIFT);
+    const bool ctrl = keys.down(keys::LeftControl) || keys.down(keys::RightControl);
+    const bool shift = keys.down(keys::LeftShift) || keys.down(keys::RightShift);
     std::vector<ActionEdge> edges;
     for (const KeyBinding& binding : bindings_) {
         if (binding.combo.ctrl != ctrl || binding.combo.shift != shift) {

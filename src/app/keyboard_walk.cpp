@@ -15,7 +15,7 @@ ui::Direction directionOf(gamepad::Button button) noexcept {
 }
 
 KeyboardOutcome walkKeyboard(ui::SearchPanel& keyboard, gamepad::Button button,
-                             audio::SoundPlayer& sounds) {
+                             audio::SdlSoundPlayer& sounds) {
     switch (button) {
     case gamepad::Button::Up:
     case gamepad::Button::Down:

@@ -4,9 +4,8 @@
 #include <utility>
 #include <vector>
 
-#include "clip_stack.hpp"
 #include "hud.hpp"
-#include "panel_scope.hpp"
+#include "paint.hpp"
 #include "round_shape.hpp"
 #include "row_controls.hpp"
 #include "typeface.hpp"
@@ -14,9 +13,9 @@
 namespace opensu::ui {
 namespace {
 
-constexpr Color scrim{0, 0, 0, 115};
-constexpr Color panelFill{0xF8, 0xF8, 0xFB, 255};
-constexpr Color cardFill{0xFF, 0xFF, 0xFF, 255};
+constexpr Colour scrim{0, 0, 0, 115};
+constexpr Colour panelFill{0xF8, 0xF8, 0xFB, 255};
+constexpr Colour cardFill{0xFF, 0xFF, 0xFF, 255};
 constexpr float titleSp = 19.0f;
 constexpr float pathSp = 13.5f;
 constexpr float rowSp = 16.5f;
@@ -29,34 +28,34 @@ constexpr float outlineDp = 1.8f;
 
 } // namespace
 
-void FolderChooserPainter::paint(const FolderChooser& chooser, Vector2 size, float dp,
+void FolderChooserPainter::paint(Canvas& canvas, const FolderChooser& chooser, Point size, float dp,
                                  const PanelLook& look) const {
     if (look.alpha <= 0.0f) {
         return;
     }
     const float alpha = look.alpha;
-    DrawRectangleRec(Rectangle{0.0f, 0.0f, size.x, size.y}, withAlpha(scrim, alpha));
+    canvas.fillRect(gpu2d::Rect{0.0f, 0.0f, size.x, size.y}, withAlpha(scrim, alpha));
     const FolderChooserLayout layout = chooser.layout(Rect{0.0f, 0.0f, size.x, size.y}, dp);
-    const PanelScope scope{Vector2{layout.panel.centreX(), layout.panel.centreY()}, look.scale};
-    fillRoundRect(RoundRect{layout.panel, layout.radius}, [alpha](Vector2, float) {
+    const PanelScope scope{canvas, Point{layout.panel.centreX(), layout.panel.centreY()},
+                           look.scale};
+    fillRoundRect(canvas, RoundRect{layout.panel, layout.radius}, [alpha](Point, float) {
         return withAlpha(panelFill, alpha);
     });
     const TextStyle title{titleSp * dp};
-    typeface_.drawCentred(typeface_.fitted(chooser.title(), layout.title.width, title),
+    typeface_.drawCentred(canvas, typeface_.fitted(chooser.title(), layout.title.width, title),
                           layout.title.x, layout.title.centreY(), title,
                           withAlpha(palette::ink, alpha));
     const TextStyle path{pathSp * dp};
     const std::string shown =
         chooser.problem().empty() ? chooser.current().string() : chooser.problem();
     typeface_.drawCentred(
-        typeface_.fitted(shown, layout.path.width, path), layout.path.x, layout.path.centreY(),
-        path,
+        canvas, typeface_.fitted(shown, layout.path.width, path), layout.path.x,
+        layout.path.centreY(), path,
         withAlpha(chooser.problem().empty() ? palette::inkSoft : Colour{0xB3, 0x26, 0x1E, 255},
                   alpha));
 
-    ClipStack clips;
     {
-        const ScopedClip list{clips, layout.list};
+        const ScopedClip list{canvas, layout.list};
         const TextStyle row{rowSp * dp};
         for (std::size_t i = 0; i < chooser.entries().size(); ++i) {
             const Rect& box = layout.rows[i];
@@ -64,20 +63,21 @@ void FolderChooserPainter::paint(const FolderChooser& chooser, Vector2 size, flo
                 continue;
             }
             const RoundRect bar{box, layout.rowRadius};
-            fillRoundRect(bar, [alpha](Vector2, float) {
+            fillRoundRect(canvas, bar, [alpha](Point, float) {
                 return withAlpha(cardFill, alpha);
             });
             const FolderEntry& entry = chooser.entries()[i];
             const float x = box.x + insetDp * dp;
             const bool folder = entry.kind == FolderEntryKind::Folder;
-            typeface_.drawCentred(typeface_.fitted(entry.label + (folder ? "/" : ""),
+            typeface_.drawCentred(canvas,
+                                  typeface_.fitted(entry.label + (folder ? "/" : ""),
                                                    box.width - 3.0f * insetDp * dp, row),
                                   x, box.centreY(), row, withAlpha(palette::ink, alpha));
             if (entry.kind != FolderEntryKind::Use && entry.kind != FolderEntryKind::Clear) {
-                paintChevron(box.right() - insetDp * dp, box.centreY(), dp);
+                paintChevron(canvas, box.right() - insetDp * dp, box.centreY(), dp);
             }
             if (i == chooser.focus()) {
-                fillBand(bar, bar.grown(-outlineDp * dp), [alpha](Vector2, float) {
+                fillBand(canvas, bar, bar.grown(-outlineDp * dp), [alpha](Point, float) {
                     return withAlpha(rowInk, alpha);
                 });
             }
@@ -104,10 +104,11 @@ void FolderChooserPainter::paint(const FolderChooser& chooser, Vector2 size, flo
     float x = layout.hints.centreX() - (total - hintSpacingDp * dp) * 0.5f;
     for (const auto& [key, label] : hints) {
         const float advance = glyphs_.advance(key, glyph);
-        glyphs_.paint(key, Vector2{x + advance * 0.5f, layout.hints.centreY()}, glyph,
+        glyphs_.paint(canvas, key, Point{x + advance * 0.5f, layout.hints.centreY()}, glyph,
                       withAlpha(rowInk, alpha));
         x += advance + hintGapDp * dp;
-        typeface_.drawCentred(label, x, layout.hints.centreY(), hint, withAlpha(rowInk, alpha));
+        typeface_.drawCentred(canvas, label, x, layout.hints.centreY(), hint,
+                              withAlpha(rowInk, alpha));
         x += typeface_.measure(label, hint) + hintSpacingDp * dp;
     }
 }

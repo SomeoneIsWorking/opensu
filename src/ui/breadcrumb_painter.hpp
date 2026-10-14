@@ -20,8 +20,8 @@ class BreadcrumbPainter {
                                           const TitlePillMetrics& text) const;
 
     /// Draws `trail` at `layout`. `hovered` is the level under the pointer.
-    void paint(const Trail& trail, const BreadcrumbLayout& layout, const TitlePillMetrics& text,
-               float dp, std::optional<std::size_t> hovered) const;
+    void paint(Canvas& canvas, const Trail& trail, const BreadcrumbLayout& layout,
+               const TitlePillMetrics& text, float dp, std::optional<std::size_t> hovered) const;
 
   private:
     Typeface& typeface_;

@@ -2,49 +2,32 @@
 
 #include <algorithm>
 #include <iterator>
+#include <optional>
+#include <string>
 #include <utility>
+
+#include "gpu2d/image/decode.hpp"
+#include "gpu2d/image/resize.hpp"
+
+#include "lucent/log.h"
 
 namespace opensu::ui {
 namespace {
 
-Pixels decode(const std::filesystem::path& file) {
+gpu2d::image::Bitmap decode(const std::filesystem::path& file) {
     if (file.empty() || !std::filesystem::is_regular_file(file)) {
         return {};
     }
-    Pixels pixels{LoadImage(file.string().c_str())};
-    if (pixels.empty()) {
-        return pixels;
+    std::string error;
+    std::optional<gpu2d::image::Bitmap> pixels = gpu2d::image::decodeFile(file, error);
+    if (!pixels) {
+        lucent::warn("ui", "cover {} unreadable: {}", file.string(), error);
+        return {};
     }
-    Image image = pixels.release();
-    const int longest = std::max(image.width, image.height);
-    if (longest > maxCoverSide) {
-        const float scale = static_cast<float>(maxCoverSide) / static_cast<float>(longest);
-        ImageResize(&image, std::max(1, static_cast<int>(static_cast<float>(image.width) * scale)),
-                    std::max(1, static_cast<int>(static_cast<float>(image.height) * scale)));
-    }
-    return Pixels{image};
+    return gpu2d::image::fittedWithin(std::move(*pixels), maxCoverSide);
 }
 
 } // namespace
-
-Pixels::~Pixels() {
-    if (!empty()) {
-        UnloadImage(image_);
-    }
-}
-
-Pixels::Pixels(Pixels&& other) noexcept : image_{std::exchange(other.image_, Image{})} {
-}
-
-Pixels& Pixels::operator=(Pixels&& other) noexcept {
-    if (this != &other) {
-        if (!empty()) {
-            UnloadImage(image_);
-        }
-        image_ = std::exchange(other.image_, Image{});
-    }
-    return *this;
-}
 
 ImageDecoder::ImageDecoder()
     : worker_{[this](const std::stop_token& stop) {

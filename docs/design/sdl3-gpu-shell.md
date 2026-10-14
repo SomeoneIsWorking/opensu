@@ -1,8 +1,9 @@
 # The shell on SDL3 GPU
 
-Status: in progress. Steps 1 and 3 are done: the overlay spike passed in nested Gamescope, and the
-gpu2d library (`gpu2d::render`, `gpu2d::image`, its own repository, consumed like Lucent) and the
-SDL sound player are built and tested beside raylib, which still draws the shell until step 4.
+Status: steps 1 to 5 are done. The shell draws with gpu2d (`gpu2d::render`, `gpu2d::image`, its own
+repository, consumed like Lucent) and takes its window, keys, mouse and sound from SDL3; raylib is
+gone from the shell and the build. Open: the player's check of the overlay over a game in nested
+Gamescope (§5.4).
 
 The window's alpha: SDL 3.4.18's `SDL_ClaimWindowForGPUDevice` refuses any window created with
 `SDL_WINDOW_TRANSPARENT` ("The GPU API doesn't support transparent windows", `SDL_gpu.c`), and
@@ -22,7 +23,7 @@ the same as before within a small per-pixel tolerance.
 Non-goals: new visuals, a Windows build (SDL3 GPU keeps that possible), sharing a renderer with
 `opensu-retro`, which keeps raw Vulkan so phase 3 cores can draw on its device.
 
-## 2. What raylib does for the shell today
+## 2. What raylib did for the shell
 
 | Area | raylib use | Owners |
 | --- | --- | --- |
@@ -35,8 +36,8 @@ Non-goals: new visuals, a Windows build (SDL3 GPU keeps that possible), sharing 
 | Input | keys pressed, released and repeated, typed text, mouse position, buttons, wheel | `input/keyboard_bindings`, `input/key_names`, `app/pointer_router` |
 | Sound | the audio device, WAV and OGG UI sounds | `audio/sound_player` |
 
-The layout model (`ui/home_layout`, `rail_layout`, `dock_metrics`, ...) already uses its own `Rect`
-and no raylib; it does not change.
+The layout model (`ui/home_layout`, `rail_layout`, `dock_metrics`, ...) used its own `Rect` and
+did not change.
 
 ## 3. Shape after the port
 
@@ -52,9 +53,9 @@ repository.
 | gpu2d `shape_pipeline` | One SDF pipeline for every shape; per-shape data in a storage buffer (uniform pushes over 4 KB read 0 in SDL3 GPU) |
 | gpu2d `texture` | GPU textures from RGBA pixels, uploads through transfer buffers, sampler choice |
 | gpu2d `render_target` | Offscreen colour targets and their read-back to RGBA |
-| gpu2d `text` | A face file through SDL3_ttf (FreeType, HarfBuzz) and its GPU text engine: glyph atlas, measure, draw. The shell passes Cal Sans unhinted and unkerned (`FaceOptions`), as stb_truetype drew it |
+| gpu2d `text` | A face file through SDL3_ttf (FreeType, HarfBuzz) and its GPU text engine: glyph atlas, measure, draw. The shell passes Cal Sans unhinted (`FaceOptions`) and draws a glyph at a time where `ui/text_grid` puts it, on the pixel grid stb_truetype's atlas used |
 | gpu2d `src/shaders/`, `cmake/Gpu2dShaders.cmake` | GLSL compiled to SPIR-V by `glslc` at build time, embedded as headers; `gpu2d_compile_shaders` also builds `opensu-retro`'s |
-| `gpu2d::image` | Decoding PNG, JPEG and WebP with SDL3_image, resizing, and the one PNG encoder (`opensu-retro` and the starter pack use it already), encoding to memory so `/frame.png` stops writing a temporary file under `/tmp`; no GPU |
+| `gpu2d::image` | Decoding PNG, JPEG and WebP with SDL3_image, cubic resizing (Mitchell down, Catmull-Rom up, as stb_image_resize2 defaults), and the one PNG encoder (`opensu-retro` and the starter pack use it already), encoding to memory so `/frame.png` stops writing a temporary file under `/tmp`; no GPU |
 | `src/audio/sdl_sound_player.*`, `sound_clip.*` | UI sounds on SDL audio streams, one per effect; WAV through `SDL_LoadWAV`, OGG through libvorbisfile, decoded without a device |
 | `src/input/keyboard_bindings.*`, `app/pointer_router.*` | SDL keyboard, text and mouse events into the existing raylib-free key names and pointer actions |
 
@@ -105,5 +106,13 @@ through gpu2d.
    unkerned as stb_truetype drew it (`gpu2d::FaceOptions{.hinted = false, .kerned = false}`), but
    rasterised by FreeType. The shell logs what gpu2d reports (`GpuWindow::deviceName`, `driver`,
    `translucent`; `Text::draw` false; decode and encode error strings), since gpu2d never logs.
+   Done. Two owners keep raylib's look rather than SDL's defaults: `ui/text_grid` places each glyph
+   on stb_truetype's whole-pixel advances and baseline (SDL3_ttf's exact advances made labels
+   about half a pixel a glyph wider), and `gpu2d::image` resizes covers with stb_image_resize2's
+   cubic filters (SDL's bilinear changed the point-sampled covers). An unmapped window gets no
+   swapchain image, so the loop streams artwork itself rather than from the draw. The raylib
+   `Typeface` kept 16 sizes and drew any further size from the first one's atlas; the reference
+   frames show this at the Settings values and the breadcrumb, which the port draws at their own
+   size, so those scenes are compared against a reference with that cache widened.
 5. Update `docs/codemap.md` and the owners' docs, and CI and AppImage dependencies (SDL3_ttf,
-   SDL3_image; raylib and the raylib fork pin go).
+   SDL3_image; raylib and the raylib fork pin go). Done.

@@ -8,7 +8,7 @@ FROM registry.fedoraproject.org/fedora:44@sha256:959833699a2fb5da1bc70b4db659ab2
 RUN dnf -y install --setopt=install_weak_deps=False \
         systemd systemd-pam dbus sudo git clang clang-tools-extra cmake ninja-build meson glslang uv \
         dnf-plugins-core libcurl-devel zlib-ng-compat-devel libwebp-devel nanosvg-devel json-devel \
-        libX11-devel libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel mesa-libGL-devel \
+        libX11-devel libXi-devel \
         SDL3-devel SDL3_ttf-devel SDL3_image-devel libvorbis-devel libjpeg-turbo \
         vulkan-loader-devel libpng-devel glslc mesa-vulkan-drivers vulkan-validation-layers \
     && dnf -y builddep gamescope \

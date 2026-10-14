@@ -7,7 +7,7 @@
 #include <optional>
 #include <string>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "emulator_downloads.hpp"
 #include "gamepad/event.hpp"
 #include "library/game.hpp"
@@ -34,7 +34,7 @@ class DetailsController {
         std::function<void(const std::string& text, bool error)> say;
     };
 
-    DetailsController(ui::DetailsPage& page, audio::SoundPlayer& sounds,
+    DetailsController(ui::DetailsPage& page, audio::SdlSoundPlayer& sounds,
                       const Preferences& preferences, EmulatorDownloads& downloads, Hooks hooks)
         : page_{page}, sounds_{sounds}, preferences_{preferences}, downloads_{downloads},
           hooks_{std::move(hooks)} {
@@ -58,7 +58,7 @@ class DetailsController {
     void downloadEmulator(const library::Game& game);
 
     ui::DetailsPage& page_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     const Preferences& preferences_;
     EmulatorDownloads& downloads_;
     Hooks hooks_;

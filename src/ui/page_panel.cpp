@@ -6,17 +6,17 @@
 
 namespace opensu::ui {
 
-void PagePanel::draw(Vector2 size, float dp, float topInset, float bottomInset,
+void PagePanel::draw(Canvas& canvas, Point size, float dp, float topInset, float bottomInset,
                      Clock::time_point now) const {
     // A page that has not been opened has no categories to lay out.
     if (!fade_.visible(now)) {
         return;
     }
-    painter_.paint(page_, page_.layout(size.x, size.y, dp, topInset, bottomInset), size, dp,
+    painter_.paint(canvas, page_, page_.layout(size.x, size.y, dp, topInset, bottomInset), size, dp,
                    fade_.alpha(now));
 }
 
-PointerTarget PagePanel::pointAt(Vector2 point, Vector2 size, float dp, float topInset,
+PointerTarget PagePanel::pointAt(Point point, Point size, float dp, float topInset,
                                  float bottomInset) const {
     const SettingsLayout layout = page_.layout(size.x, size.y, dp, topInset, bottomInset);
     if (const std::optional<std::size_t> category = layout.categoryAt(point.x, point.y)) {

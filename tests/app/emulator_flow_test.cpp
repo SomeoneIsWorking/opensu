@@ -89,7 +89,7 @@ struct Rig {
     std::vector<std::string> launched;
     int changes{0};
     ui::DetailsPage page;
-    audio::SoundPlayer sounds;
+    audio::SdlSoundPlayer sounds;
     app::EmulatorDownloads downloads{
         setup(), app::EmulatorDownloads::Hooks{[this](const std::string& text, bool error) {
                                                    said.emplace_back(text, error);

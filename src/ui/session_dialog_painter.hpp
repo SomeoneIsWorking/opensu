@@ -4,6 +4,7 @@
 #pragma once
 
 #include "button_glyph.hpp"
+#include "paint.hpp"
 #include "panel_fade.hpp"
 #include "session_dialog.hpp"
 #include "typeface.hpp"
@@ -17,11 +18,12 @@ class SessionDialogPainter {
     }
 
     /// Where the card and its buttons stand in a `size` frame; what a pointer hits.
-    [[nodiscard]] SessionDialogLayout layout(const SessionDialog& dialog, Vector2 size,
+    [[nodiscard]] SessionDialogLayout layout(const SessionDialog& dialog, Point size,
                                              float dp) const;
 
     /// Draws `dialog` into a `size` frame at `dp` pixels per dp, as faded and scaled by `look`.
-    void paint(const SessionDialog& dialog, Vector2 size, float dp, const PanelLook& look) const;
+    void paint(Canvas& canvas, const SessionDialog& dialog, Point size, float dp,
+               const PanelLook& look) const;
 
   private:
     Typeface& typeface_;

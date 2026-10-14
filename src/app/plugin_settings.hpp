@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "gamepad/event.hpp"
 #include "plugin_service.hpp"
 #include "ui/session_dialog.hpp"
@@ -23,7 +23,7 @@ class PluginSettings {
     /// After a choice made in the dialog: the screen shows it.
     using Changed = std::function<void()>;
 
-    PluginSettings(PluginService& plugins, ui::SessionDialog& dialog, audio::SoundPlayer& sounds,
+    PluginSettings(PluginService& plugins, ui::SessionDialog& dialog, audio::SdlSoundPlayer& sounds,
                    std::filesystem::path home, Changed changed)
         : plugins_{plugins}, dialog_{dialog}, sounds_{sounds}, home_{std::move(home)},
           changed_{std::move(changed)} {
@@ -51,7 +51,7 @@ class PluginSettings {
 
     PluginService& plugins_;
     ui::SessionDialog& dialog_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     std::filesystem::path home_;
     Changed changed_;
     /// The plugin the dialog asks about.

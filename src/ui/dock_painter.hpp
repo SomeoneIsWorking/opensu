@@ -4,7 +4,7 @@
 
 #include <span>
 
-#include "raylib.h"
+#include "paint.hpp"
 
 #include "button_glyph.hpp"
 #include "dock_metrics.hpp"
@@ -16,7 +16,7 @@ namespace opensu::ui {
 /// One section's icon as it is drawn now.
 struct DockIcon {
     /// The icon's texture, or null while the APK's file has not arrived.
-    const Texture* texture{nullptr};
+    const gpu2d::Texture* texture{nullptr};
     /// The selected pop (1 to 1.06) about the icon's centre.
     float scale{1.0f};
     /// What stands in for the icon until its texture arrives: the section's initial.
@@ -43,7 +43,7 @@ class DockPainter {
     [[nodiscard]] static Rect barRect(const DockLayout& layout, const DockStyle& style) noexcept;
 
     /// Draws the bar of `layout`, `icons` in item order.
-    void paint(const DockLayout& layout, const DockMetrics& metrics,
+    void paint(Canvas& canvas, const DockLayout& layout, const DockMetrics& metrics,
                std::span<const DockIcon> icons, const DockStyle& style);
 
   private:

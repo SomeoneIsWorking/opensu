@@ -34,10 +34,10 @@ class GuidePanels {
     }
 
     /// Draws whichever menu is open into a `size` frame at `dp` pixels per dp.
-    void draw(Vector2 size, float dp) const;
+    void draw(Canvas& canvas, Point size, float dp) const;
     /// The entry, row or slider level under `point`, the backdrop outside the open menu, or
     /// nothing when no menu is open.
-    [[nodiscard]] PointerTarget pointAt(Vector2 point, Vector2 size, float dp) const;
+    [[nodiscard]] PointerTarget pointAt(Point point, Point size, float dp) const;
     /// Moves the open menu's focus to `target`, when it is one of its elements; reports whether it
     /// moved.
     bool focusTarget(const PointerTarget& target);

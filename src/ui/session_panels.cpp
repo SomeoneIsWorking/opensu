@@ -9,12 +9,13 @@ void SessionPanels::tick(Clock::time_point now) noexcept {
     passwordFade_.follow(password_.isOpen(), now);
 }
 
-void SessionPanels::draw(Vector2 size, float dp, Clock::time_point now, double seconds) const {
-    dialogPainter_.paint(dialog_, size, dp, dialogFade_.look(now));
-    passwordPainter_.paint(password_, size, dp, passwordFade_.look(now), seconds);
+void SessionPanels::draw(Canvas& canvas, Point size, float dp, Clock::time_point now,
+                         double seconds) const {
+    dialogPainter_.paint(canvas, dialog_, size, dp, dialogFade_.look(now));
+    passwordPainter_.paint(canvas, password_, size, dp, passwordFade_.look(now), seconds);
 }
 
-PointerTarget SessionPanels::pointAt(Vector2 point, Vector2 size, float dp) const {
+PointerTarget SessionPanels::pointAt(Point point, Point size, float dp) const {
     if (password_.isOpen()) {
         const SearchLayout panel =
             layoutSearch(Rect{0.0f, 0.0f, size.x, size.y}, dp, password_.lists());

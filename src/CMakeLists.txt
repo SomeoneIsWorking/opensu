@@ -36,7 +36,6 @@ target_link_libraries(opensu
         opensu::steam
         opensu::session
         opensu::library
-        opensu::raylib
         lucent::lucent
 )
 # Assets sit at share/opensu beside the executable's directory, in the build tree as installed.

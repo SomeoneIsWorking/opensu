@@ -3,6 +3,7 @@
 
 #include "button_glyph.hpp"
 #include "launch_panel.hpp"
+#include "paint.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
@@ -14,11 +15,12 @@ class LaunchPanelPainter {
     }
 
     /// Where the card and its hints stand in a `size` frame; what a pointer hits.
-    [[nodiscard]] PanelLayout layout(const LaunchPanel& panel, Vector2 size, float dp) const;
+    [[nodiscard]] PanelLayout layout(const LaunchPanel& panel, Point size, float dp) const;
 
     /// Draws `panel` into a `size` frame at `dp` pixels per dp. `seconds` drives the
     /// activity dots shown while the stage has no measure.
-    void paint(const LaunchPanel& panel, Vector2 size, float dp, double seconds) const;
+    void paint(Canvas& canvas, const LaunchPanel& panel, Point size, float dp,
+               double seconds) const;
 
   private:
     Typeface& typeface_;

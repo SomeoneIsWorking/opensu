@@ -16,12 +16,10 @@
 #include <utility>
 #include <vector>
 
-#include "raylib.h"
-
 #include "artwork_delivery.hpp"
 #include "artwork_fetcher.hpp"
 #include "artwork_store.hpp"
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "audio_outputs.hpp"
 #include "bluetooth_session.hpp"
 #include "breadcrumb_trail.hpp"
@@ -59,6 +57,7 @@
 #include "search_controller.hpp"
 #include "session_install_controller.hpp"
 #include "settings_controller.hpp"
+#include "shell_window.hpp"
 #include "shortcut_editor.hpp"
 #include "shortcut_router.hpp"
 #include "sign_in.hpp"
@@ -98,8 +97,8 @@ class ShellApp final : private PointerHost {
     /// Loads the library, then runs the window loop until it closes.
     int run();
 
-    /// Renders one frame offscreen and writes it to `path`, without opening a
-    /// window. This is what makes the layout checkable from a test.
+    /// Renders one frame offscreen and writes it to `path`, behind a window that is never mapped.
+    /// This is what makes the layout checkable from a test.
     bool renderToFile(const std::string& path, bool keyboardPrompts = false);
 
     /// The catalog as last read.
@@ -118,7 +117,7 @@ class ShellApp final : private PointerHost {
     void serviceRequests();
 
     /// Requests raised by the launch thread and applied by the main loop, because
-    /// the GL context and the shell's state belong to it. Each of these only sets
+    /// the window and the shell's state belong to it. Each of these only sets
     /// a flag: none of them touches the window or the shell from that thread.
     void requestGameRunning(bool running);
     void requestToast(std::string text, bool isError);
@@ -143,7 +142,7 @@ class ShellApp final : private PointerHost {
     /// The pointer: routed onto the shell's actions. Main loop only.
     void handlePointer();
     // PointerHost.
-    ui::PointerTarget pointAt(std::optional<Vector2> point) override;
+    ui::PointerTarget pointAt(std::optional<ui::Point> point) override;
     void focus(const ui::PointerTarget& target) override;
     void press(gamepad::Button button) override;
     void activateSection(library::Section section) override;
@@ -207,7 +206,9 @@ class ShellApp final : private PointerHost {
     /// Keeps Bluetooth read while something shows it and the Devices page current. Main loop only.
     void serviceDevices(std::chrono::steady_clock::time_point now);
     /// The output's size and refresh rate, for the Display tab.
-    [[nodiscard]] static std::string outputLine();
+    [[nodiscard]] std::string outputLine() const;
+    /// Opens the window and attaches the shell to its device; false, logged, when it cannot.
+    bool openWindow(const std::string& title, bool hidden);
     /// Gives the shell what its chrome shows now: prompts, launcher badges, title and trail.
     void syncChrome();
     /// The trail the top bar shows for where the shell is now.
@@ -238,7 +239,9 @@ class ShellApp final : private PointerHost {
     artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{},
                                             library::roms::NameDb::under(environment_.cacheDir)};
     /// iiSU's UI sounds, played from the loop's input handling.
-    audio::SoundPlayer sounds_;
+    audio::SdlSoundPlayer sounds_;
+    /// Opened by `run` or `renderToFile`; before the shell, whose textures live on its device.
+    std::unique_ptr<ShellWindow> window_;
     device::BatteryReader battery_;
     /// When the clock next changes, on the minute boundary.
     std::chrono::steady_clock::time_point nextClockTick_{};
@@ -457,7 +460,7 @@ class ShellApp final : private PointerHost {
                                      devicesScreen_.close();
                                      settingsScreen_.openCategory("controls");
                                  },
-                                 [] {
+                                 [this] {
                                      return outputLine();
                                  }}};
     /// Installing session mode: its dialog, the password keyboard and the root step.

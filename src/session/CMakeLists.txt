@@ -3,6 +3,6 @@ add_library(opensu::session ALIAS opensu_session)
 target_include_directories(opensu_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_session
     PUBLIC opensu::launch opensu::host opensu::input lucent::lucent
-    PRIVATE X11::X11 X11::Xi
+    PRIVATE X11::X11 X11::Xi PkgConfig::SDL3
 )
 target_compile_features(opensu_session PUBLIC cxx_std_20)

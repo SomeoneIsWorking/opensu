@@ -1,5 +1,5 @@
 // image_decoder — decodes cover art files into pixels on a worker thread, so the frame thread
-// only uploads them. Decoding needs no GL context; the texture upload that follows does.
+// only uploads them. Decoding needs no GPU; the texture upload that follows does.
 #pragma once
 
 #include <condition_variable>
@@ -13,41 +13,13 @@
 #include <utility>
 #include <vector>
 
-#include "raylib.h"
+#include "gpu2d/image/bitmap.hpp"
 
 namespace opensu::ui {
 
 /// The longest side a cover texture keeps; covers arrive up to 1200 x 1600 and more, and a tile
 /// is never drawn that large, so larger ones are scaled down while decoding.
 inline constexpr int maxCoverSide = 768;
-
-/// Decoded pixels, released with the owner.
-class Pixels {
-  public:
-    Pixels() = default;
-    explicit Pixels(Image image) noexcept : image_{image} {
-    }
-    ~Pixels();
-    Pixels(Pixels&& other) noexcept;
-    Pixels& operator=(Pixels&& other) noexcept;
-    Pixels(const Pixels&) = delete;
-    Pixels& operator=(const Pixels&) = delete;
-
-    [[nodiscard]] bool empty() const noexcept {
-        return image_.data == nullptr;
-    }
-    [[nodiscard]] const Image& image() const noexcept {
-        return image_;
-    }
-
-    /// Gives the pixels up to the caller, who unloads them.
-    [[nodiscard]] Image release() noexcept {
-        return std::exchange(image_, Image{});
-    }
-
-  private:
-    Image image_{};
-};
 
 /// One tile's art files to decode, and the tile they are for.
 struct DecodeJob {
@@ -64,8 +36,8 @@ struct DecodeJob {
 /// A job done; an unreadable or missing file gives empty pixels.
 struct Decoded {
     DecodeJob job;
-    Pixels portrait;
-    Pixels wide;
+    gpu2d::image::Bitmap portrait;
+    gpu2d::image::Bitmap wide;
 };
 
 class ImageDecoder {

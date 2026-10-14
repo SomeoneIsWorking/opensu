@@ -86,7 +86,7 @@ struct Rig {
     app::BluetoothSession bluetooth;
     app::ControllerRoster roster;
     ui::QuickMenu menu;
-    audio::SoundPlayer sounds;
+    audio::SdlSoundPlayer sounds;
     std::vector<std::string> calls;
     std::vector<std::string> said;
     bool lastWasError{false};

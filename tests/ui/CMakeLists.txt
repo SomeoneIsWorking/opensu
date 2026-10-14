@@ -13,11 +13,6 @@ foreach(name top_bar_metrics top_bar_layout corner_hints clock_text guide_menu q
     add_test(NAME ${name} COMMAND ${name}_test)
 endforeach()
 
-add_executable(clip_stack_test clip_stack_test.cpp)
-target_link_libraries(clip_stack_test PRIVATE opensu::ui)
-target_compile_options(clip_stack_test PRIVATE -Wall -Wextra -Wpedantic)
-add_test(NAME clip_stack COMMAND clip_stack_test)
-
 add_executable(round_shape_test round_shape_test.cpp)
 target_link_libraries(round_shape_test PRIVATE opensu::ui)
 target_compile_options(round_shape_test PRIVATE -Wall -Wextra -Wpedantic)
@@ -28,6 +23,12 @@ target_link_libraries(face_metrics_test PRIVATE opensu::ui)
 target_compile_options(face_metrics_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME face_metrics
     COMMAND face_metrics_test "${CMAKE_SOURCE_DIR}/assets/CalSans-Regular.ttf")
+
+add_executable(text_grid_test text_grid_test.cpp)
+target_link_libraries(text_grid_test PRIVATE opensu::ui)
+target_compile_options(text_grid_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME text_grid
+    COMMAND text_grid_test "${CMAKE_SOURCE_DIR}/assets/CalSans-Regular.ttf")
 
 add_executable(platform_test platform_test.cpp)
 target_link_libraries(platform_test PRIVATE opensu::ui)

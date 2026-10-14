@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "gamepad/event.hpp"
 #include "preferences.hpp"
 #include "ui/search_panel.hpp"
@@ -25,8 +25,8 @@ class SearchController {
         std::function<void(std::size_t index)> openTile;
     };
 
-    SearchController(ui::SearchPanel& panel, audio::SoundPlayer& sounds, Preferences& preferences,
-                     Hooks hooks)
+    SearchController(ui::SearchPanel& panel, audio::SdlSoundPlayer& sounds,
+                     Preferences& preferences, Hooks hooks)
         : panel_{panel}, sounds_{sounds}, preferences_{preferences}, hooks_{std::move(hooks)} {
     }
 
@@ -62,7 +62,7 @@ class SearchController {
     void applyPress(const ui::SearchPress& press);
 
     ui::SearchPanel& panel_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;
     Hooks hooks_;
 };

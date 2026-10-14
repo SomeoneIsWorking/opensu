@@ -26,7 +26,7 @@ class Recorder final : public PointerHost {
     bool pointerGiven{false};
     PointerTarget menuTarget;
 
-    PointerTarget pointAt(std::optional<Vector2> point) override {
+    PointerTarget pointAt(std::optional<opensu::ui::Point> point) override {
         pointerGiven = point.has_value();
         return point ? under : PointerTarget{};
     }
@@ -59,8 +59,8 @@ class Recorder final : public PointerHost {
 
 PointerFrame at(float x, float y, float dx = 0.0f) {
     PointerFrame frame;
-    frame.point = Vector2{x, y};
-    frame.delta = Vector2{dx, 0.0f};
+    frame.point = opensu::ui::Point{x, y};
+    frame.delta = opensu::ui::Point{dx, 0.0f};
     return frame;
 }
 

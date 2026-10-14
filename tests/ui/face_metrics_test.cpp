@@ -1,7 +1,6 @@
-// The shipped face's vertical metrics and characters, read the way Typeface reads them.
+// The shipped face's vertical metrics, read the way Typeface reads them.
 #include "face_metrics.hpp"
 
-#include <algorithm>
 #include <array>
 #include <cstdio>
 #include <fstream>
@@ -30,15 +29,11 @@ void calSans(const char* path) {
     near(metrics->unitsPerEm, 1000.0f, "units per em");
     near(metrics->ascent, 1000.0f, "ascent");
     near(metrics->descent, -300.0f, "descent");
-    near(metrics->lineBoxPerEm(), 1.3f, "stb's line box is 1.3 em");
-    // Store titles carry ™ and ®; the atlas once stopped at a hand list and drew them as "?".
-    const auto has = [&](int c) {
-        return std::ranges::binary_search(metrics->codepoints, c);
-    };
-    expect(has('A') && has(0xE9) && has(0x2122) && has(0xAE) && has(0x203A),
-           "the cmap gives ASCII, Latin-1, trade mark, registered and the single guillemet");
-    expect(metrics->codepoints.size() == 547, "Cal Sans maps 547 characters");
-    expect(std::ranges::is_sorted(metrics->codepoints), "characters are ascending");
+    near(metrics->lineBoxPerEm(), 1.3f, "the line box is 1.3 em");
+    near(metrics->advance(U'o'), 594.0f, "a mapped character's hmtx advance");
+    near(metrics->advance(U'\U0010FFFF'), static_cast<float>(metrics->missingAdvance),
+         "an unmapped character advances as the missing glyph");
+    expect(metrics->missingAdvance > 0, "the missing glyph has an advance");
 }
 
 void truncated() {

@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-#include "raylib.h"
+#include "paint.hpp"
 
 #include "input/prompts.hpp"
 #include "typeface.hpp"
@@ -32,7 +32,7 @@ class ButtonGlyphPainter {
 
     /// Draws the glyph for `key` ("A", "B", "X", "Y", "+", "-", "LB", "RB") in a `box`-sized square
     /// centred on `centre`.
-    void paint(std::string_view key, Vector2 centre, float box, Color ink) const;
+    void paint(Canvas& canvas, std::string_view key, Point centre, float box, Colour ink) const;
 
   private:
     /// The key cap text to draw for `key`, or nothing to draw the controller's glyph.

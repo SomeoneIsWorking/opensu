@@ -10,7 +10,7 @@
 
 #include "gamepad/event.hpp"
 #include "input/last_device.hpp"
-#include "raylib.h"
+#include "ui/paint.hpp"
 #include "ui/pointer_target.hpp"
 
 namespace opensu::app {
@@ -18,9 +18,9 @@ namespace opensu::app {
 /// The pointer as one frame saw it.
 struct PointerFrame {
     /// The pointer inside the window, or nothing.
-    std::optional<Vector2> point;
+    std::optional<ui::Point> point;
     /// How far it moved since the last frame.
-    Vector2 delta{};
+    ui::Point delta{};
     /// Wheel notches this frame: positive is away from the player.
     float wheel{};
     /// Buttons that went down this frame.
@@ -29,16 +29,13 @@ struct PointerFrame {
     bool middle{false};
 };
 
-/// Reads the pointer from raylib. Main loop only.
-[[nodiscard]] PointerFrame readPointerFrame();
-
 /// What the router asks of the shell.
 class PointerHost {
   public:
     virtual ~PointerHost() = default;
 
     /// What is under `point`, or nothing when the pointer is not driving the shell.
-    virtual ui::PointerTarget pointAt(std::optional<Vector2> point) = 0;
+    virtual ui::PointerTarget pointAt(std::optional<ui::Point> point) = 0;
     /// Moves the focus the pad moves to `target`.
     virtual void focus(const ui::PointerTarget& target) = 0;
     /// A button pressed as the pad would press it.

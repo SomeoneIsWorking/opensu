@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "audio_outputs.hpp"
 #include "bluetooth_session.hpp"
 #include "brightness_control.hpp"
@@ -48,7 +48,7 @@ class QuickMenuController {
         RetroSession& retro;
     };
 
-    QuickMenuController(ui::QuickMenu& menu, Services services, audio::SoundPlayer& sounds,
+    QuickMenuController(ui::QuickMenu& menu, Services services, audio::SdlSoundPlayer& sounds,
                         Hooks hooks)
         : menu_{menu}, volume_{services.volume}, outputs_{services.outputs},
           brightness_{services.brightness}, bluetooth_{services.bluetooth},
@@ -86,7 +86,7 @@ class QuickMenuController {
     BluetoothSession& bluetooth_;
     ControllerRoster& controllers_;
     RetroSession& retro_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
     /// The row waiting for its second press; empty when none.
     std::string armed_;

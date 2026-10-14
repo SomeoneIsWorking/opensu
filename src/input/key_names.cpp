@@ -4,8 +4,6 @@
 #include <array>
 #include <cctype>
 
-#include "raylib.h"
-
 namespace opensu::input {
 namespace {
 
@@ -15,17 +13,17 @@ struct NamedKey {
 };
 
 constexpr std::array<NamedKey, 22> namedKeys{{
-    {KEY_KB_MENU, "Menu"},   {KEY_UP, "Up"},
-    {KEY_DOWN, "Down"},      {KEY_LEFT, "Left"},
-    {KEY_RIGHT, "Right"},    {KEY_ENTER, "Enter"},
-    {KEY_SPACE, "Space"},    {KEY_ESCAPE, "Esc"},
-    {KEY_TAB, "Tab"},        {KEY_BACKSPACE, "Backspace"},
-    {KEY_LEFT_BRACKET, "["}, {KEY_RIGHT_BRACKET, "]"},
-    {KEY_SLASH, "/"},        {KEY_COMMA, ","},
-    {KEY_PERIOD, "."},       {KEY_SEMICOLON, ";"},
-    {KEY_MINUS, "-"},        {KEY_EQUAL, "="},
-    {KEY_HOME, "Home"},      {KEY_END, "End"},
-    {KEY_PAGE_UP, "PageUp"}, {KEY_PAGE_DOWN, "PageDown"},
+    {keys::Menu, "Menu"},     {keys::Up, "Up"},
+    {keys::Down, "Down"},     {keys::Left, "Left"},
+    {keys::Right, "Right"},   {keys::Enter, "Enter"},
+    {keys::Space, "Space"},   {keys::Escape, "Esc"},
+    {keys::Tab, "Tab"},       {keys::Backspace, "Backspace"},
+    {keys::LeftBracket, "["}, {keys::RightBracket, "]"},
+    {keys::Slash, "/"},       {keys::Comma, ","},
+    {keys::Period, "."},      {keys::Semicolon, ";"},
+    {keys::Minus, "-"},       {keys::Equal, "="},
+    {keys::Home, "Home"},     {keys::End, "End"},
+    {keys::PageUp, "PageUp"}, {keys::PageDown, "PageDown"},
 }};
 
 constexpr std::size_t bindableCount = namedKeys.size() + 26 + 10 + 12;
@@ -36,13 +34,13 @@ constexpr std::array<int, bindableCount> bindable = [] {
     for (const NamedKey& named : namedKeys) {
         out[at++] = named.key;
     }
-    for (int key = KEY_A; key <= KEY_Z; ++key) {
+    for (int key = keys::A; key <= keys::Z; ++key) {
         out[at++] = key;
     }
-    for (int key = KEY_ZERO; key <= KEY_NINE; ++key) {
+    for (int key = keys::Zero; key <= keys::Nine; ++key) {
         out[at++] = key;
     }
-    for (int key = KEY_F1; key <= KEY_F12; ++key) {
+    for (int key = keys::F1; key <= keys::F12; ++key) {
         out[at++] = key;
     }
     return out;
@@ -62,32 +60,32 @@ struct X11Name {
 };
 
 constexpr std::array<X11Name, 14> x11Specials{{
-    {KEY_ENTER, "Return"},
-    {KEY_ESCAPE, "Escape"},
-    {KEY_BACKSPACE, "BackSpace"},
-    {KEY_SPACE, "space"},
-    {KEY_LEFT_BRACKET, "bracketleft"},
-    {KEY_RIGHT_BRACKET, "bracketright"},
-    {KEY_SLASH, "slash"},
-    {KEY_COMMA, "comma"},
-    {KEY_PERIOD, "period"},
-    {KEY_SEMICOLON, "semicolon"},
-    {KEY_MINUS, "minus"},
-    {KEY_EQUAL, "equal"},
-    {KEY_PAGE_UP, "Prior"},
-    {KEY_PAGE_DOWN, "Next"},
+    {keys::Enter, "Return"},
+    {keys::Escape, "Escape"},
+    {keys::Backspace, "BackSpace"},
+    {keys::Space, "space"},
+    {keys::LeftBracket, "bracketleft"},
+    {keys::RightBracket, "bracketright"},
+    {keys::Slash, "slash"},
+    {keys::Comma, "comma"},
+    {keys::Period, "period"},
+    {keys::Semicolon, "semicolon"},
+    {keys::Minus, "minus"},
+    {keys::Equal, "equal"},
+    {keys::PageUp, "Prior"},
+    {keys::PageDown, "Next"},
 }};
 
-constexpr std::array<int, 4> modifiers{KEY_LEFT_SHIFT, KEY_RIGHT_SHIFT, KEY_LEFT_CONTROL,
-                                       KEY_RIGHT_CONTROL};
+constexpr std::array<int, 4> modifiers{keys::LeftShift, keys::RightShift, keys::LeftControl,
+                                       keys::RightControl};
 
 } // namespace
 
 Modifier modifierOf(int key) noexcept {
-    if (key == KEY_LEFT_CONTROL || key == KEY_RIGHT_CONTROL) {
+    if (key == keys::LeftControl || key == keys::RightControl) {
         return Modifier::Ctrl;
     }
-    if (key == KEY_LEFT_SHIFT || key == KEY_RIGHT_SHIFT) {
+    if (key == keys::LeftShift || key == keys::RightShift) {
         return Modifier::Shift;
     }
     return Modifier::Neither;
@@ -103,11 +101,11 @@ std::optional<std::string> keyName(int key) {
             return std::string{named.name};
         }
     }
-    if ((key >= KEY_A && key <= KEY_Z) || (key >= KEY_ZERO && key <= KEY_NINE)) {
+    if ((key >= keys::A && key <= keys::Z) || (key >= keys::Zero && key <= keys::Nine)) {
         return std::string(1, static_cast<char>(key));
     }
-    if (key >= KEY_F1 && key <= KEY_F12) {
-        return "F" + std::to_string(key - KEY_F1 + 1);
+    if (key >= keys::F1 && key <= keys::F12) {
+        return "F" + std::to_string(key - keys::F1 + 1);
     }
     return std::nullopt;
 }
@@ -147,13 +145,13 @@ std::optional<Combo> comboNamed(std::string_view text) {
 
 std::string x11Name(int key) {
     switch (key) {
-    case KEY_LEFT_SHIFT:
+    case keys::LeftShift:
         return "Shift_L";
-    case KEY_RIGHT_SHIFT:
+    case keys::RightShift:
         return "Shift_R";
-    case KEY_LEFT_CONTROL:
+    case keys::LeftControl:
         return "Control_L";
-    case KEY_RIGHT_CONTROL:
+    case keys::RightControl:
         return "Control_R";
     default:
         break;
@@ -163,7 +161,7 @@ std::string x11Name(int key) {
             return special.name;
         }
     }
-    if (key >= KEY_A && key <= KEY_Z) {
+    if (key >= keys::A && key <= keys::Z) {
         return std::string(1, static_cast<char>(std::tolower(key)));
     }
     // Digits, F-keys, the arrows, Tab, Menu, Home and End are spelled as their caps are.

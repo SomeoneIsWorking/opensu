@@ -9,7 +9,6 @@
 #include "check.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "input/pad_chords.hpp"
-#include "raylib.h"
 
 namespace {
 
@@ -72,29 +71,29 @@ bool presses(const Shortcuts& shortcuts, const FakeKeys& keys, Action action) {
 
 void shippedKeysAreUnchanged() {
     const Shortcuts s;
-    expect(presses(s, FakeKeys{{KEY_TAB}, {KEY_TAB}}, Action::Select), "Tab asks for the menu");
-    expect(presses(s, FakeKeys{{KEY_KB_MENU}, {KEY_KB_MENU}}, Action::Select), "so does Menu");
-    expect(presses(s, FakeKeys{{KEY_LEFT_SHIFT, KEY_F10}, {KEY_F10}}, Action::Select),
+    expect(presses(s, FakeKeys{{keys::Tab}, {keys::Tab}}, Action::Select), "Tab asks for the menu");
+    expect(presses(s, FakeKeys{{keys::Menu}, {keys::Menu}}, Action::Select), "so does Menu");
+    expect(presses(s, FakeKeys{{keys::LeftShift, keys::F10}, {keys::F10}}, Action::Select),
            "and Shift+F10");
-    expect(!presses(s, FakeKeys{{KEY_F10}, {KEY_F10}}, Action::Select), "a bare F10 does not");
-    expect(!presses(s, FakeKeys{{KEY_LEFT_SHIFT, KEY_TAB}, {KEY_TAB}}, Action::Select),
+    expect(!presses(s, FakeKeys{{keys::F10}, {keys::F10}}, Action::Select), "a bare F10 does not");
+    expect(!presses(s, FakeKeys{{keys::LeftShift, keys::Tab}, {keys::Tab}}, Action::Select),
            "Shift+Tab is Guide's chord and does not open the menu");
-    expect(presses(s, FakeKeys{{KEY_LEFT_SHIFT, KEY_TAB}, {KEY_TAB}}, Action::Guide),
+    expect(presses(s, FakeKeys{{keys::LeftShift, keys::Tab}, {keys::Tab}}, Action::Guide),
            "Shift+Tab is Guide");
-    expect(presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_TAB}, {KEY_TAB}}, Action::QuickMenu) &&
-               !presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_TAB}, {KEY_TAB}}, Action::Select),
+    expect(presses(s, FakeKeys{{keys::LeftControl, keys::Tab}, {keys::Tab}}, Action::QuickMenu) &&
+               !presses(s, FakeKeys{{keys::LeftControl, keys::Tab}, {keys::Tab}}, Action::Select),
            "Ctrl+Tab is the quick menu, not the menu");
-    expect(presses(s, FakeKeys{{KEY_ENTER}, {KEY_ENTER}}, Action::Confirm), "Enter confirms");
-    expect(presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_F}, {KEY_F}}, Action::Search) &&
-               !presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_F}, {KEY_F}}, Action::X),
+    expect(presses(s, FakeKeys{{keys::Enter}, {keys::Enter}}, Action::Confirm), "Enter confirms");
+    expect(presses(s, FakeKeys{{keys::LeftControl, keys::F}, {keys::F}}, Action::Search) &&
+               !presses(s, FakeKeys{{keys::LeftControl, keys::F}, {keys::F}}, Action::X),
            "Ctrl+F is the search, not X");
-    expect(presses(s, FakeKeys{{KEY_F}, {KEY_F}}, Action::X), "a bare F is X");
-    expect(presses(s, FakeKeys{{KEY_Q}, {KEY_Q}}, Action::Quit), "Q quits");
-    expect(presses(s, FakeKeys{{KEY_W}, {KEY_W}}, Action::Up), "W is up");
-    expect(!presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_UP}, {KEY_UP}}, Action::Up) &&
-               presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_UP}, {KEY_UP}}, Action::VolumeUp),
+    expect(presses(s, FakeKeys{{keys::F}, {keys::F}}, Action::X), "a bare F is X");
+    expect(presses(s, FakeKeys{{keys::Q}, {keys::Q}}, Action::Quit), "Q quits");
+    expect(presses(s, FakeKeys{{keys::W}, {keys::W}}, Action::Up), "W is up");
+    expect(!presses(s, FakeKeys{{keys::LeftControl, keys::Up}, {keys::Up}}, Action::Up) &&
+               presses(s, FakeKeys{{keys::LeftControl, keys::Up}, {keys::Up}}, Action::VolumeUp),
            "Ctrl+Up is the volume, not up");
-    expect(presses(s, FakeKeys{{KEY_LEFT_CONTROL, KEY_M}, {KEY_M}}, Action::VolumeMute),
+    expect(presses(s, FakeKeys{{keys::LeftControl, keys::M}, {keys::M}}, Action::VolumeMute),
            "Ctrl+M mutes");
 }
 
@@ -121,30 +120,30 @@ void everyActionHasAHandlerNameAndKey() {
 
 void remapReplacesTheFirstBinding() {
     Shortcuts s;
-    expect(s.rebind(Action::Quit, Combo{KEY_F9}).empty(), "a free key is taken");
-    expect(s.primary(Action::Quit) == Combo{KEY_F9} && !s.actionFor(Combo{KEY_Q}),
+    expect(s.rebind(Action::Quit, Combo{keys::F9}).empty(), "a free key is taken");
+    expect(s.primary(Action::Quit) == Combo{keys::F9} && !s.actionFor(Combo{keys::Q}),
            "the old key is gone");
     expect(s.overrides().keys.size() == 1, "one override is kept");
-    expect(s.rebind(Action::Quit, Combo{KEY_Q}).empty() && s.overrides().keys.empty(),
+    expect(s.rebind(Action::Quit, Combo{keys::Q}).empty() && s.overrides().keys.empty(),
            "choosing the default again keeps no override");
-    expect(s.rebind(Action::Up, Combo{KEY_I}).empty() && s.primary(Action::Up) == Combo{KEY_I} &&
-               s.actionFor(Combo{KEY_W}) == Action::Up,
+    expect(s.rebind(Action::Up, Combo{keys::I}).empty() &&
+               s.primary(Action::Up) == Combo{keys::I} && s.actionFor(Combo{keys::W}) == Action::Up,
            "an action's other keys stay");
     expect(s.keyLabelFor(Button::Up) == "I", "the prompts follow");
     s.reset(Action::Up);
-    expect(s.primary(Action::Up) == Combo{KEY_UP} && s.overrides().keys.empty(), "reset");
+    expect(s.primary(Action::Up) == Combo{keys::Up} && s.overrides().keys.empty(), "reset");
 }
 
 void conflictsAreRefused() {
     Shortcuts s;
-    const std::string taken = s.rebind(Action::VolumeMute, Combo{KEY_E});
+    const std::string taken = s.rebind(Action::VolumeMute, Combo{keys::E});
     expect(taken.find("already Options") != std::string::npos, "naming who has the key");
-    expect(s.primary(Action::VolumeMute) == Combo{KEY_M, true, false}, "and nothing changed");
-    expect(!s.rebind(Action::Quit, Combo{KEY_LEFT_SHIFT}).empty(), "a modifier alone is refused");
-    expect(!s.rebind(Action::Quit, Combo{KEY_LEFT_ALT}).empty(), "so is a key no cap names");
-    expect(s.rebind(Action::VolumeMute, Combo{KEY_E, true, false}).empty(),
+    expect(s.primary(Action::VolumeMute) == Combo{keys::M, true, false}, "and nothing changed");
+    expect(!s.rebind(Action::Quit, Combo{keys::LeftShift}).empty(), "a modifier alone is refused");
+    expect(!s.rebind(Action::Quit, Combo{keys::LeftAlt}).empty(), "so is a key no cap names");
+    expect(s.rebind(Action::VolumeMute, Combo{keys::E, true, false}).empty(),
            "the same key with Ctrl is another combination");
-    expect(s.rebind(Action::VolumeMute, Combo{KEY_E, true, false}).empty(), "again is fine");
+    expect(s.rebind(Action::VolumeMute, Combo{keys::E, true, false}).empty(), "again is fine");
 }
 
 void padChordsCanBeRemapped() {
@@ -170,21 +169,21 @@ void quickMenuHasItsDefaults() {
     const Shortcuts s;
     expect(s.padChord(Action::QuickMenu) == PadChord{Button::Guide, Button::A},
            "Guide + A is the quick menu on a pad");
-    expect(s.primary(Action::QuickMenu) == Combo{KEY_TAB, true, false}, "Ctrl+Tab on a keyboard");
+    expect(s.primary(Action::QuickMenu) == Combo{keys::Tab, true, false}, "Ctrl+Tab on a keyboard");
     expect(worksInGame(Action::QuickMenu) && takesPadChord(Action::QuickMenu),
            "it works over a game and takes a chord");
     Shortcuts changed;
-    expect(changed.rebind(Action::QuickMenu, Combo{KEY_F9}).empty() &&
-               changed.overrides().keys.at(Action::QuickMenu) == Combo{KEY_F9},
+    expect(changed.rebind(Action::QuickMenu, Combo{keys::F9}).empty() &&
+               changed.overrides().keys.at(Action::QuickMenu) == Combo{keys::F9},
            "it can be remapped like any action");
-    expect(!changed.rebind(Action::Guide, Combo{KEY_F9}).empty(), "and holds its key");
+    expect(!changed.rebind(Action::Guide, Combo{keys::F9}).empty(), "and holds its key");
 }
 
 void combosHaveNames() {
-    expect(describe(Combo{KEY_TAB, false, true}) == "Shift+Tab", "a modified cap");
-    expect(describe(Combo{KEY_F5, true, true}) == "Ctrl+Shift+F5", "both modifiers");
-    expect(comboNamed("ctrl+Up") == Combo{KEY_UP, true, false}, "a spelled combination");
-    expect(comboNamed("m") == Combo{KEY_M}, "a letter");
+    expect(describe(Combo{keys::Tab, false, true}) == "Shift+Tab", "a modified cap");
+    expect(describe(Combo{keys::F5, true, true}) == "Ctrl+Shift+F5", "both modifiers");
+    expect(comboNamed("ctrl+Up") == Combo{keys::Up, true, false}, "a spelled combination");
+    expect(comboNamed("m") == Combo{keys::M}, "a letter");
     expect(!comboNamed("ctrl+nothing") && !comboNamed(""), "unknown names");
     for (const int key : bindableKeys()) {
         const std::string name = need(keyName(key), "a key name");

@@ -3,10 +3,16 @@
 #include "image_decoder.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <fstream>
+#include <string>
 #include <thread>
+#include <vector>
+
+#include "gpu2d/image/png_encoder.hpp"
 
 #include "check.hpp"
 
@@ -19,9 +25,15 @@ using opensu::ui::ImageDecoder;
 
 fs::path writeCover(const fs::path& dir, const char* name, int width, int height) {
     const fs::path file = dir / name;
-    Image image = GenImageColor(width, height, Color{200, 40, 40, 255});
-    ExportImage(image, file.string().c_str());
-    UnloadImage(image);
+    std::vector<std::uint8_t> rgba;
+    for (int i = 0; i < width * height; ++i) {
+        rgba.insert(rgba.end(), {200, 40, 40, 255});
+    }
+    std::string error;
+    const std::string png = gpu2d::image::encodePng(rgba, static_cast<unsigned>(width),
+                                                    static_cast<unsigned>(height), error);
+    expect(!png.empty(), "the fixture encodes");
+    std::ofstream{file, std::ios::binary} << png;
     return file;
 }
 
@@ -40,10 +52,10 @@ void decodesOffThreadAndScalesDown(const fs::path& dir) {
     std::vector<opensu::ui::Decoded> done = decoder.take(10);
     expect(done.size() == 3, "every job finishes");
     expect(done[0].job.tile == 0 && done[0].job.ticket == 7, "a result carries its job");
-    expect(done[0].portrait.image().height == opensu::ui::maxCoverSide &&
-               done[0].portrait.image().width == opensu::ui::maxCoverSide * 3 / 4,
+    expect(done[0].portrait.height == opensu::ui::maxCoverSide &&
+               done[0].portrait.width == opensu::ui::maxCoverSide * 3 / 4,
            "a big cover is scaled down to the texture limit, keeping its aspect");
-    expect(done[1].portrait.image().width == 100, "a small cover is left as it is");
+    expect(done[1].portrait.width == 100, "a small cover is left as it is");
     expect(done[2].portrait.empty(), "a missing file gives no pixels");
     expect(decoder.idle(), "nothing is left");
 }
@@ -81,7 +93,6 @@ int main() {
     const fs::path dir = fs::path{OPENSU_TEST_SCRATCH} / "image-decoder";
     fs::remove_all(dir);
     fs::create_directories(dir);
-    SetTraceLogLevel(LOG_ERROR);
     decodesOffThreadAndScalesDown(dir);
     handsOverABoundedNumberAtATime(dir);
     dropsQueuedWorkOutsideTheWindow(dir);

@@ -4,6 +4,7 @@
 
 #include "button_glyph.hpp"
 #include "folder_chooser.hpp"
+#include "paint.hpp"
 #include "panel_fade.hpp"
 #include "typeface.hpp"
 
@@ -16,7 +17,8 @@ class FolderChooserPainter {
     }
 
     /// Draws `chooser` into a frame of `size` at `dp` pixels per dp, as faded and scaled by `look`.
-    void paint(const FolderChooser& chooser, Vector2 size, float dp, const PanelLook& look) const;
+    void paint(Canvas& canvas, const FolderChooser& chooser, Point size, float dp,
+               const PanelLook& look) const;
 
   private:
     Typeface& typeface_;

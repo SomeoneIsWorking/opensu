@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "gamepad/event.hpp"
 #include "ui/search_panel.hpp"
 
@@ -27,6 +27,6 @@ enum class KeyboardOutcome : std::uint8_t {
 /// Applies `button` to `keyboard`, with iiSU's Navigation sound for a focus move. X toggles
 /// capitals on a secret entry.
 KeyboardOutcome walkKeyboard(ui::SearchPanel& keyboard, gamepad::Button button,
-                             audio::SoundPlayer& sounds);
+                             audio::SdlSoundPlayer& sounds);
 
 } // namespace opensu::app

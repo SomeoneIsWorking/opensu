@@ -14,7 +14,7 @@ namespace opensu::ui {
 namespace {
 
 // iiSU res/drawable/bell_icon.png ink, which iiSU's hint glyphs and labels share.
-constexpr Color hintInk{0x4D, 0x46, 0x55, 255};
+constexpr Colour hintInk{0x4D, 0x46, 0x55, 255};
 
 } // namespace
 
@@ -53,17 +53,20 @@ void Hud::tick(Clock::time_point now) {
     }
 }
 
-void Hud::drawGround() const {
-    ClearBackground(palette::ground);
+void Hud::drawGround(Canvas& canvas) const {
+    canvas.fillRect(
+        gpu2d::Rect{0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_)},
+        palette::ground);
     const float u = unit();
     const float spacing = std::max(u * 2.2f, 8.0f);
     const float radius = std::max(spacing * 0.09f, 1.0f);
-    const Color dot{palette::ink.r, palette::ink.g, palette::ink.b, 24};
+    const Colour dot{palette::ink.r, palette::ink.g, palette::ink.b, 24};
     for (int row = 1; spacing * static_cast<float>(row) < static_cast<float>(height_); ++row) {
         for (int column = 1; spacing * static_cast<float>(column) < static_cast<float>(width_);
              ++column) {
-            DrawCircleV({spacing * static_cast<float>(column), spacing * static_cast<float>(row)},
-                        radius, dot);
+            canvas.fillCircle(
+                Point{spacing * static_cast<float>(column), spacing * static_cast<float>(row)},
+                radius, dot);
         }
     }
 }
@@ -95,20 +98,20 @@ std::optional<library::Source> Hud::launcherAt(float x, float y) const {
     return std::nullopt;
 }
 
-void Hud::drawTopBar() {
+void Hud::drawTopBar(Canvas& canvas) {
     // iiSU mw5.l single-screen Row: friends | title (weight 1) | status, all Top. opensu has no
     // friends; its launchers' badges stand in the status pill where iiSU has the bell.
     const TopBarLayout layout = topBarLayout();
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
-    statusPill_.paint(StatusPillView{layout.status, layout.pill, dp_, clock_, battery_,
-                                     layout.launcherColumn, layout.divider, launchers_,
-                                     BadgeRow{layout.launchers, launcherHover_, seconds}});
+    statusPill_.paint(canvas, StatusPillView{layout.status, layout.pill, dp_, clock_, battery_,
+                                             layout.launcherColumn, layout.divider, launchers_,
+                                             BadgeRow{layout.launchers, launcherHover_, seconds}});
     // STOPGAP: jj2.w's glass strip behind the status pill is not drawn because its geometry is
     // not in the spec.
 
-    drawTitlePill(layout.top);
+    drawTitlePill(canvas, layout.top);
     const BreadcrumbLayout trail = crumbs_.layout(trail_, crumbFrame(), metrics().titlePill());
-    crumbs_.paint(trail_, trail, metrics().titlePill(), dp_, crumbHover_);
+    crumbs_.paint(canvas, trail_, trail, metrics().titlePill(), dp_, crumbHover_);
 }
 
 Rect Hud::titlePillBody(float top) const {
@@ -141,7 +144,7 @@ std::optional<std::size_t> Hud::crumbAt(float x, float y) const {
     return crumbs_.layout(trail_, crumbFrame(), metrics().titlePill()).crumbAt(x, y);
 }
 
-void Hud::drawTitlePill(float top) const {
+void Hud::drawTitlePill(Canvas& canvas, float top) const {
     if (title_.empty()) {
         return;
     }
@@ -150,19 +153,20 @@ void Hud::drawTitlePill(float top) const {
     const TextStyle text{pill.fontSize * dp_};
     const float textWidth = std::min(typeface_.measure(title_, text), pill.maxTextWidth * dp_);
     const Rect body = titlePillBody(top);
-    glass_.paint(body);
-    typeface_.drawCentred(title_, body.centreX() - textWidth * 0.5f, body.centreY(), text, hintInk);
+    glass_.paint(canvas, body);
+    typeface_.drawCentred(canvas, title_, body.centreX() - textWidth * 0.5f, body.centreY(), text,
+                          hintInk);
 }
 
-void Hud::drawHints() const {
+void Hud::drawHints(Canvas& canvas) const {
     // iiSU mw5.h (BottomStart) and mw5.k (BottomEnd): jj2.b glass panels of a32.b entries.
     const HintPanelMetrics panel = metrics().hintPanels();
-    drawPromptPanel(panel, startPrompts(hints_), false);
-    drawPromptPanel(panel, endPrompts(hints_), true);
+    drawPromptPanel(canvas, panel, startPrompts(hints_), false);
+    drawPromptPanel(canvas, panel, endPrompts(hints_), true);
 }
 
-void Hud::drawPromptPanel(const HintPanelMetrics& panel, const std::vector<Prompt>& prompts,
-                          bool atEnd) const {
+void Hud::drawPromptPanel(Canvas& canvas, const HintPanelMetrics& panel,
+                          const std::vector<Prompt>& prompts, bool atEnd) const {
     if (prompts.empty()) {
         return;
     }
@@ -182,7 +186,7 @@ void Hud::drawPromptPanel(const HintPanelMetrics& panel, const std::vector<Promp
     const float x =
         atEnd ? static_cast<float>(width_) - panel.rightInset * dp - width : panel.leftInset * dp;
     const Rect body{x, static_cast<float>(height_) - bottom - height, width, height};
-    glass_.paint(body, panel.cornerRadius * dp);
+    glass_.paint(canvas, body, panel.cornerRadius * dp);
 
     // jj2.b: a Column of a32.b rows, centred vertically, rows centred on their tallest child.
     const float row = std::max(glyph, std::ceil(panel.labelLineHeight * dp));
@@ -192,14 +196,14 @@ void Hud::drawPromptPanel(const HintPanelMetrics& panel, const std::vector<Promp
     const float left = body.x + panel.paddingHorizontal * dp;
     for (const auto& [key, label] : prompts) {
         const float centreY = top + row * 0.5f;
-        glyphs_.paint(key, Vector2{left + column * 0.5f, centreY}, glyph, hintInk);
-        typeface_.drawCentred(label, left + column + gap, centreY + panel.labelShift(key) * dp,
-                              text, hintInk);
+        glyphs_.paint(canvas, key, Point{left + column * 0.5f, centreY}, glyph, hintInk);
+        typeface_.drawCentred(canvas, label, left + column + gap,
+                              centreY + panel.labelShift(key) * dp, text, hintInk);
         top += row + panel.entrySpacing * dp;
     }
 }
 
-void Hud::drawToast() const {
+void Hud::drawToast(Canvas& canvas) const {
     if (toast_.empty()) {
         return;
     }
@@ -207,16 +211,17 @@ void Hud::drawToast() const {
     const TextStyle text{typeface_.emForLineBox(u * 1.4f)};
     const float textWidth = typeface_.measure(toast_, text);
     const float padding = u * 2.0f;
-    const Rectangle box{
+    const Rect box{
         (static_cast<float>(width_) - textWidth - 2.0f * padding) / 2.0f,
         static_cast<float>(height_) - u * 8.0f,
         textWidth + 2.0f * padding,
         typeface_.lineBox(text) + padding,
     };
-    DrawRectangleRounded(box, 0.5f, 12,
-                         toastError_ ? Color{0xb3, 0x26, 0x1e, 240} : Color{0x2b, 0x27, 0x33, 240});
-    typeface_.drawCentred(toast_, box.x + padding / 2.0f,
-                          box.y + padding / 3.0f + typeface_.lineBox(text) * 0.5f, text, WHITE);
+    canvas.fillRoundRect(onCanvas(box), cornerRadius(box, 0.5f),
+                         toastError_ ? Colour{0xb3, 0x26, 0x1e, 240}
+                                     : Colour{0x2b, 0x27, 0x33, 240});
+    typeface_.drawCentred(canvas, toast_, box.x + padding / 2.0f,
+                          box.y + padding / 3.0f + typeface_.lineBox(text) * 0.5f, text, white);
 }
 
 } // namespace opensu::ui

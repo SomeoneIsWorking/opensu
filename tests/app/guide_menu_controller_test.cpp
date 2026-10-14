@@ -68,7 +68,7 @@ struct Rig {
     ui::GuideMenu menu;
     test::FakePower power;
     test::FakeSessionMode sessionMode;
-    audio::SoundPlayer sounds;
+    audio::SdlSoundPlayer sounds;
     std::vector<std::string> calls;
     std::vector<std::string> said;
     app::GuideMenuController controller;

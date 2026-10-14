@@ -9,7 +9,7 @@
 
 #include "artwork_fetcher.hpp"
 #include "artwork_store.hpp"
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "ui/shell.hpp"
 
 namespace opensu::app {
@@ -17,7 +17,7 @@ namespace opensu::app {
 class ArtworkDelivery {
   public:
     /// `namesArrived` is called when the arcade names were downloaded, which re-title the library.
-    ArtworkDelivery(ui::Shell& shell, audio::SoundPlayer& sounds, artwork::ArtworkStore& store,
+    ArtworkDelivery(ui::Shell& shell, audio::SdlSoundPlayer& sounds, artwork::ArtworkStore& store,
                     artwork::ArtworkFetcher& fetcher, std::function<void()> namesArrived)
         : shell_{shell}, sounds_{sounds}, store_{store}, fetcher_{fetcher},
           namesArrived_{std::move(namesArrived)} {
@@ -34,7 +34,7 @@ class ArtworkDelivery {
 
   private:
     ui::Shell& shell_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     artwork::ArtworkStore& store_;
     artwork::ArtworkFetcher& fetcher_;
     std::function<void()> namesArrived_;

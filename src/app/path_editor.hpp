@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "gamepad/event.hpp"
 #include "ui/folder_chooser.hpp"
 #include "ui/search_panel.hpp"
@@ -36,7 +36,7 @@ class PathEditor {
     /// What the editor tells the player: `error` marks a refusal.
     using Say = std::function<void(const std::string& text, bool error)>;
 
-    PathEditor(ui::FolderChooser& folders, ui::SearchPanel& entry, audio::SoundPlayer& sounds,
+    PathEditor(ui::FolderChooser& folders, ui::SearchPanel& entry, audio::SdlSoundPlayer& sounds,
                Say say)
         : folders_{folders}, entry_{entry}, sounds_{sounds}, say_{std::move(say)} {
     }
@@ -75,7 +75,7 @@ class PathEditor {
 
     ui::FolderChooser& folders_;
     ui::SearchPanel& entry_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     Say say_;
     Request request_;
 };

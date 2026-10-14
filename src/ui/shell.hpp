@@ -16,9 +16,11 @@
 #include <unordered_map>
 #include <vector>
 
-#include "raylib.h"
+#include <SDL3/SDL_gpu.h>
 
-#include "backdrop_blur.hpp"
+#include "gpu2d/render_target.hpp"
+#include "gpu2d/surface.hpp"
+
 #include "config/config.hpp"
 #include "context_menu.hpp"
 #include "context_menu_painter.hpp"
@@ -45,6 +47,7 @@
 #include "page_arrow.hpp"
 #include "page_panel.hpp"
 #include "page_pill.hpp"
+#include "paint.hpp"
 #include "panel_fade.hpp"
 #include "platform.hpp"
 #include "pointer_target.hpp"
@@ -91,18 +94,16 @@ class Shell {
 
     /// Streams the artwork of the tiles near the canvas: queues their files to decode on the
     /// decoder's thread and uploads at most `uploads` decoded images as textures, then releases
-    /// the textures of tiles far from the canvas once many are held. Drawing
-    /// does this itself; it needs the GL context.
+    /// the textures of tiles far from the canvas once many are held. Once a frame, drawn or not.
     void loadArtwork(std::size_t uploads = uploadsPerFrame);
 
     /// Loads the artwork of the tiles near the canvas and waits until it is all in; for a still
     /// render.
     void loadArtworkNow();
 
-    /// Loads the typeface. Needs a GL context, so it runs once the window is up.
-    void loadFonts() {
-        typeface_.load();
-    }
+    /// Draws on `device` from here on: loads the typeface and makes every texture there. Once, when
+    /// the window is up; throws gpu2d::GpuError when no typeface loads.
+    void attach(SDL_GPUDevice& device);
 
     /// Textures uploaded per frame, so a screenful of new covers spreads over a few frames.
     static constexpr std::size_t uploadsPerFrame = 4;
@@ -222,7 +223,7 @@ class Shell {
     /// The pointer at `point`, or away from the window with nothing. Hovers the dock item under
     /// it and slides a hidden dock in when the pointer rests where the dock is. Returns what the
     /// pointer is on.
-    PointerTarget pointAt(std::optional<Vector2> point);
+    PointerTarget pointAt(std::optional<Point> point);
 
     /// Moves the focus the D-pad moves to the element in `target`: a tile, a page, a layout card
     /// or a menu row. Reports whether it moved.
@@ -259,10 +260,9 @@ class Shell {
     /// Advances past every one-shot motion, for a still frame.
     void settle();
 
-    /// Draws one frame: the home screen, or while a game runs, only the Guide menus and the pages
-    /// they open over a transparent frame. With `target`, a render texture, the frame goes there
-    /// instead of the window (the window's buffers are still begun and ended, as a frame is).
-    void draw(const RenderTexture2D* target = nullptr);
+    /// Records one frame into `target` on `canvas`: the home screen, or while a game runs, only the
+    /// Guide menus and the pages they open over a transparent frame. The caller submits it.
+    void draw(Canvas& canvas, const gpu2d::Surface& target);
 
     /// Whether a game is running, which turns the home screen into the in-game overlay.
     void setInGame(bool inGame) noexcept {
@@ -380,22 +380,22 @@ class Shell {
     /// Points focus at `index`, restarting the focus scale and bringing it into view.
     void focusOn(std::size_t index, int dx);
     void startEntrance();
-    void drawScene();
+    void drawScene(Canvas& canvas);
     /// The Settings screen and the Devices page, whichever is shown.
-    void drawPages(Vector2 size);
+    void drawPages(Canvas& canvas, Point size);
     /// A frame over a running game: the Guide menus and the pages they open.
-    void drawOverGame(Vector2 size);
-    void drawGrid();
-    void drawRail();
+    void drawOverGame(Canvas& canvas, Point size);
+    void drawGrid(Canvas& canvas);
+    void drawRail(Canvas& canvas);
     /// The rectangles an XMB's or a Carousel's layout `rects` are drawn at, tile by tile, for the
     /// tiles from `first` on.
     [[nodiscard]] std::vector<Rect> railSlots(const std::vector<Rect>& rects,
                                               std::size_t first) const;
     /// What a click at `point` hits while a menu, a page, the launch panel or the layout picker is
     /// up.
-    [[nodiscard]] PointerTarget pointAtModal(Vector2 point) const;
+    [[nodiscard]] PointerTarget pointAtModal(Point point) const;
     /// What it hits on the home screen below the dock.
-    [[nodiscard]] PointerTarget pointAtHome(Vector2 point) const;
+    [[nodiscard]] PointerTarget pointAtHome(Point point) const;
     /// The dock as it stands this frame in a `width` x `height` target.
     struct DockFrame {
         DockMetrics metrics;
@@ -403,9 +403,11 @@ class Shell {
         DockStyle style;
     };
     [[nodiscard]] DockFrame dockFrame(float width, float height) const;
-    void drawDock(const DockFrame& frame, float frameHeight);
-    /// Makes `scene_` as big as the window.
-    void ensureScene();
+    /// The dock, its glass blurring `scene`.
+    void drawDock(Canvas& canvas, const gpu2d::RenderTarget& scene, const DockFrame& frame);
+    /// The scene's target, as big as the window.
+    [[nodiscard]] gpu2d::RenderTarget& sceneTarget();
+    [[nodiscard]] SDL_GPUDevice& device() const;
     [[nodiscard]] TileVisual visualFor(std::size_t slot, const Rect& rect) const;
 
     std::vector<Tile> tiles_;
@@ -458,9 +460,9 @@ class Shell {
     RailPainter railPainter_{typeface_};
     DetailsPagePainter detailsPainter_{typeface_};
     VolumeOsdPainter volumeOsdPainter_{typeface_};
-    BackdropBlur blur_;
     /// The frame up to the dock, which the dock's glass blurs.
-    RenderTexture2D scene_{};
+    std::optional<gpu2d::RenderTarget> scene_;
+    SDL_GPUDevice* device_{};
     ModeChooserPainter chooserPainter_{typeface_};
     PagePillPainter pillPainter_;
     PageArrowPainter arrowPainter_;

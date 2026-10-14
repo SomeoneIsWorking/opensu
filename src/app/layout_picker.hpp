@@ -6,7 +6,7 @@
 #include <functional>
 #include <vector>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "gamepad/event.hpp"
 #include "library/library_query.hpp"
 #include "preferences.hpp"
@@ -32,7 +32,7 @@ class LayoutPicker {
         std::function<void()> openSettings;
     };
 
-    LayoutPicker(ui::ModeChooser& chooser, audio::SoundPlayer& sounds, Preferences& preferences,
+    LayoutPicker(ui::ModeChooser& chooser, audio::SdlSoundPlayer& sounds, Preferences& preferences,
                  Hooks hooks)
         : chooser_{chooser}, sounds_{sounds}, preferences_{preferences}, hooks_{std::move(hooks)} {
     }
@@ -65,7 +65,7 @@ class LayoutPicker {
     void actOnRow(int step);
 
     ui::ModeChooser& chooser_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;
     Hooks hooks_;
     /// The icon size changed since it was saved; it is kept when the panel closes.

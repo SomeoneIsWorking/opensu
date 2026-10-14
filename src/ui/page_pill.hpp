@@ -2,6 +2,7 @@
 #pragma once
 
 #include "home_layout.hpp"
+#include "paint.hpp"
 
 namespace opensu::ui {
 
@@ -9,7 +10,7 @@ class PagePillPainter {
   public:
     /// Draws `pill` in the dark or light chrome variant; `dp` is pixels per dp. Nothing is drawn
     /// for a pill with no dots.
-    void paint(const PagePill& pill, float dp, bool dark) const;
+    void paint(Canvas& canvas, const PagePill& pill, float dp, bool dark) const;
 };
 
 } // namespace opensu::ui

@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "raylib.h"
+#include "paint.hpp"
 
 #include "breadcrumb_painter.hpp"
 #include "button_glyph.hpp"
@@ -29,18 +29,7 @@
 
 namespace opensu::ui {
 
-/// The HUD palette, as 8-bit-per-channel colours.
-struct Colour {
-    std::uint8_t r{};
-    std::uint8_t g{};
-    std::uint8_t b{};
-    std::uint8_t a{255};
-
-    [[nodiscard]] operator Color() const noexcept {
-        return Color{r, g, b, a};
-    }
-};
-
+/// The HUD palette.
 namespace palette {
 inline constexpr Colour ground{0xf4, 0xf3, 0xf7, 255};
 inline constexpr Colour panel{0xff, 0xff, 0xff, 255};
@@ -123,23 +112,23 @@ class Hud {
         return toastError_;
     }
 
-    void drawGround() const;
-    void drawTopBar();
-    void drawHints() const;
-    void drawToast() const;
+    void drawGround(Canvas& canvas) const;
+    void drawTopBar(Canvas& canvas);
+    void drawHints(Canvas& canvas) const;
+    void drawToast(Canvas& canvas) const;
 
   private:
     /// One hundredth of the window's shorter side, the unit of opensu's own chrome.
     [[nodiscard]] float unit() const noexcept;
     [[nodiscard]] TopBarMetrics metrics() const noexcept;
-    void drawTitlePill(float top) const;
+    void drawTitlePill(Canvas& canvas, float top) const;
     /// The title pill's body in a row whose top is `top`.
     [[nodiscard]] Rect titlePillBody(float top) const;
     /// Where the trail may stand: from the row's start to the title pill or the status pill.
     [[nodiscard]] BreadcrumbFrame crumbFrame() const;
     /// One corner prompt panel of (glyph, label) entries (iiSU jj2.b).
-    void drawPromptPanel(const HintPanelMetrics& panel, const std::vector<Prompt>& prompts,
-                         bool atEnd) const;
+    void drawPromptPanel(Canvas& canvas, const HintPanelMetrics& panel,
+                         const std::vector<Prompt>& prompts, bool atEnd) const;
     [[nodiscard]] TopBarLayout topBarLayout() const;
 
     int width_{};

@@ -59,10 +59,28 @@ std::optional<std::size_t> findTable(const BigEndian& file, std::uint32_t tag,
 
 constexpr std::uint32_t tagHead = 0x68656164; // 'head'
 constexpr std::uint32_t tagHhea = 0x68686561; // 'hhea'
+constexpr std::uint32_t tagHmtx = 0x686D7478; // 'hmtx'
 constexpr std::uint32_t tagCmap = 0x636D6170; // 'cmap'
 
+/// Each glyph's advance: hmtx holds numberOfHMetrics of them, and every later glyph takes the last.
+class Advances {
+  public:
+    Advances(const BigEndian& file, std::size_t hmtx, std::size_t count) noexcept
+        : file_{file}, hmtx_{hmtx}, count_{count} {
+    }
+    [[nodiscard]] std::uint16_t of(std::size_t glyph) const noexcept {
+        return file_.u16(hmtx_ + std::min(glyph, count_ - 1) * 4);
+    }
+
+  private:
+    const BigEndian& file_;
+    std::size_t hmtx_;
+    std::size_t count_;
+};
+
 /// Format 4: segments of 16-bit ranges; a range maps when its delta or glyph array gives a glyph.
-bool readFormat4(const BigEndian& file, std::size_t table, std::vector<int>& out) {
+bool readFormat4(const BigEndian& file, std::size_t table, const Advances& advances,
+                 std::unordered_map<char32_t, std::uint16_t>& out) {
     if (!file.has(table, 14)) {
         return false;
     }
@@ -93,7 +111,7 @@ bool readFormat4(const BigEndian& file, std::size_t table, std::vector<int>& out
                 glyph = glyph == 0 ? 0 : ((glyph + delta) & 0xFFFFU);
             }
             if (glyph != 0) {
-                out.push_back(static_cast<int>(c));
+                out.emplace(static_cast<char32_t>(c), advances.of(glyph));
             }
         }
     }
@@ -101,7 +119,8 @@ bool readFormat4(const BigEndian& file, std::size_t table, std::vector<int>& out
 }
 
 /// Format 12: groups of 32-bit ranges, each mapping to consecutive glyphs.
-bool readFormat12(const BigEndian& file, std::size_t table, std::vector<int>& out) {
+bool readFormat12(const BigEndian& file, std::size_t table, const Advances& advances,
+                  std::unordered_map<char32_t, std::uint16_t>& out) {
     if (!file.has(table, 16)) {
         return false;
     }
@@ -117,15 +136,17 @@ bool readFormat12(const BigEndian& file, std::size_t table, std::vector<int>& ou
         const std::uint32_t glyph = file.u32(group + 8);
         for (std::uint32_t c = start; c <= end; ++c) {
             if (glyph + (c - start) != 0) {
-                out.push_back(static_cast<int>(c));
+                out.emplace(static_cast<char32_t>(c), advances.of(glyph + (c - start)));
             }
         }
     }
     return true;
 }
 
-/// The Unicode subtable's characters: full-repertoire format 12 first, else BMP format 4.
-std::optional<std::vector<int>> readCodepoints(const BigEndian& file) {
+/// The Unicode subtable's characters and their advances: full-repertoire format 12 first, else
+/// BMP format 4.
+std::optional<std::unordered_map<char32_t, std::uint16_t>> readAdvances(const BigEndian& file,
+                                                                        const Advances& advances) {
     const auto cmap = findTable(file, tagCmap, 4);
     if (!cmap) {
         return std::nullopt;
@@ -152,37 +173,47 @@ std::optional<std::vector<int>> readCodepoints(const BigEndian& file) {
             bmp = table;
         }
     }
-    std::vector<int> codepoints;
-    const bool read =
-        full ? readFormat12(file, *full, codepoints) : bmp && readFormat4(file, *bmp, codepoints);
+    std::unordered_map<char32_t, std::uint16_t> out;
+    const bool read = full ? readFormat12(file, *full, advances, out)
+                           : bmp && readFormat4(file, *bmp, advances, out);
     if (!read) {
         return std::nullopt;
     }
-    std::ranges::sort(codepoints);
-    const auto [first, last] = std::ranges::unique(codepoints);
-    codepoints.erase(first, last);
-    return codepoints;
+    return out;
 }
 
 } // namespace
 
+float FaceMetrics::advance(char32_t codepoint) const noexcept {
+    const auto found = advances.find(codepoint);
+    return static_cast<float>(found == advances.end() ? missingAdvance : found->second);
+}
+
 std::optional<FaceMetrics> readFaceMetrics(std::span<const std::byte> data) {
     const BigEndian file{data};
-    // head.unitsPerEm is at 18; hhea ascender and descender at 4 and 6.
+    // head.unitsPerEm is at 18; hhea ascender and descender at 4 and 6, numberOfHMetrics at 34.
     const auto head = findTable(file, tagHead, 20);
-    const auto hhea = findTable(file, tagHhea, 8);
+    const auto hhea = findTable(file, tagHhea, 36);
     if (!head || !hhea) {
         return std::nullopt;
     }
     const std::uint16_t unitsPerEm = file.u16(*head + 18);
     const std::int16_t ascent = file.i16(*hhea + 4);
     const std::int16_t descent = file.i16(*hhea + 6);
-    std::optional<std::vector<int>> codepoints = readCodepoints(file);
-    if (unitsPerEm == 0 || ascent <= descent || !codepoints || codepoints->empty()) {
+    const std::uint16_t hMetrics = file.u16(*hhea + 34);
+    const auto hmtx =
+        hMetrics == 0 ? std::nullopt : findTable(file, tagHmtx, std::size_t{hMetrics} * 4U);
+    if (unitsPerEm == 0 || ascent <= descent || !hmtx) {
+        return std::nullopt;
+    }
+    const Advances glyphAdvances{file, *hmtx, hMetrics};
+    std::optional<std::unordered_map<char32_t, std::uint16_t>> advances =
+        readAdvances(file, glyphAdvances);
+    if (!advances || advances->empty()) {
         return std::nullopt;
     }
     return FaceMetrics{static_cast<float>(unitsPerEm), static_cast<float>(ascent),
-                       static_cast<float>(descent), std::move(*codepoints)};
+                       static_cast<float>(descent), std::move(*advances), glyphAdvances.of(0)};
 }
 
 } // namespace opensu::ui

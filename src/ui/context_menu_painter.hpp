@@ -16,7 +16,8 @@ class ContextMenuPainter {
     }
 
     /// Draws `menu` into a frame of `size` at `dp` pixels per dp, as faded and scaled by `look`.
-    void paint(const ContextMenu& menu, Vector2 size, float dp, const PanelLook& look) const;
+    void paint(Canvas& canvas, const ContextMenu& menu, Point size, float dp,
+               const PanelLook& look) const;
 
   private:
     Typeface& typeface_;

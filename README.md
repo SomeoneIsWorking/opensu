@@ -13,7 +13,8 @@ openSU runs Steam in the background with `-cef-enable-debugging`, which opens St
 DevTools on 127.0.0.1:8080; that is how it reads download progress and starts
 installs through Steam's own installer.
 
-Built with C++20 and raylib. The shell is drawn from geometry rather than
+Built with C++20, SDL3 and [gpu2d](https://github.com/SomeoneIsWorking/gpu2d), a 2D canvas on SDL3
+GPU (Vulkan on Linux). The shell is drawn from geometry rather than
 composed from images, so the layout is resolution independent and every size is
 derived from the window, following iiSU's own layout rules.
 
@@ -75,47 +76,38 @@ glibc floor) and runs the same checks; the AppImage lands in `build/appimage/out
 
 ## Building
 
-openSU needs raylib 6.0 built from source (the `opensu` branch of
-[our fork](https://github.com/SomeoneIsWorking/raylib), which fixes a miniaudio crash when
-PulseAudio answers a device query with an error), a checkout of
-[Lucent](https://github.com/SomeoneIsWorking/lucent), its logger, and
+openSU needs checkouts of [Lucent](https://github.com/SomeoneIsWorking/lucent), its logger, and
+[gpu2d](https://github.com/SomeoneIsWorking/gpu2d), its renderer, image codecs and text, and
 [nanosvg](https://github.com/memononen/nanosvg) for its icons: the distribution's
 package (`nanosvg-devel` on Fedora), else a checkout at `NANOSVG_ROOT`, by default
 `$HOME/dev/nanosvg`. The launcher logos are from [Simple Icons](https://simpleicons.org)
-(CC0). libcurl (`libcurl-devel` on Fedora) downloads missing artwork; zlib (`zlib-devel`) reads
-iiSU's starter pack, libwebp (`libwebp-devel`) decodes its console cards and nlohmann/json
-(`json-devel`) reads and writes the settings. `opensu-retro`, the built-in libretro runner, needs
-SDL3, the Vulkan loader, libpng and glslc (`SDL3-devel vulkan-loader-devel libpng-devel glslc` on
-Fedora); its tests draw on any Vulkan driver, lavapipe (`mesa-vulkan-drivers`) included, and use
-the validation layers (`vulkan-validation-layers`) when installed.
-
-The published `raylib-6.0_linux_amd64` binary cannot be used: it was built with
-`STBI_REQUIRED` undefined and `SUPPORT_FILEFORMAT_JPG=0`, so `LoadImage` reports
-"Data format not supported" for every file, and Steam's artwork is JPEG. Build it
-with image decoding on and X11 only (openSU reads its X11 window to become
-Gamescope's overlay), then install it to a prefix of its own:
+(CC0). The window, keyboard, mouse and sound are SDL3's; gpu2d draws with SDL3 GPU and reads
+faces and images through SDL3_ttf and SDL3_image (`SDL3-devel SDL3_ttf-devel SDL3_image-devel
+libpng-devel` on Fedora), and the UI sounds are Ogg Vorbis (`libvorbis-devel`). libcurl
+(`libcurl-devel`) downloads missing artwork; zlib (`zlib-devel`) reads iiSU's starter pack, libwebp
+(`libwebp-devel`) decodes its console cards, nlohmann/json (`json-devel`) reads and writes the
+settings and libX11 and libXi (`libX11-devel libXi-devel`) read the in-game shortcut keys.
+`opensu-retro`, the built-in libretro runner, also needs the Vulkan loader and glslc
+(`vulkan-loader-devel glslc` on Fedora); its tests and the shell's draw on any Vulkan driver,
+lavapipe (`mesa-vulkan-drivers`) included, and use the validation layers
+(`vulkan-validation-layers`) when installed.
 
 ```sh
-git clone --branch opensu https://github.com/SomeoneIsWorking/raylib.git
-cmake -S raylib -B raylib/build -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=OFF \
-      -DGLFW_BUILD_WAYLAND=OFF -DGLFW_BUILD_X11=ON -DCMAKE_INSTALL_LIBDIR=lib \
-      -DCMAKE_C_FLAGS="-DSTBI_REQUIRED -DSUPPORT_FILEFORMAT_JPG=1 -DSUPPORT_FILEFORMAT_TGA=1 -DSUPPORT_FILEFORMAT_PSD=1"
-cmake --build raylib/build
-cmake --install raylib/build --prefix "$PWD/raylib-prefix"
 git clone https://github.com/SomeoneIsWorking/lucent.git
+git clone https://github.com/SomeoneIsWorking/gpu2d.git
 ```
 
-Or let `uv run --frozen python -m tools.check all` do it: it checks out raylib and Lucent at the
-commits `tools/check/pins.py` pins, builds raylib into `build/check/deps`, then configures, builds,
+Or let `uv run --frozen python -m tools.check all` do it: it checks out Lucent and gpu2d at the
+commits `tools/check/pins.py` pins into `build/check/deps`, then configures, builds,
 lints (clang-format, clang-tidy, ruff) and tests openSU with Clang in `build/check`, as CI does
 (`--gamescope native` when Gamescope's build dependencies are installed, `off` to skip the fork).
 
-Then point openSU at both (`RAYLIB_ROOT` defaults to `$HOME/dev/raylib-built`,
-`LUCENT_ROOT` to `$HOME/repo/lucent`):
+Then point openSU at both (`LUCENT_ROOT` defaults to `$HOME/repo/lucent`, `GPU2D_ROOT` to
+`$HOME/repo/gpu2d`):
 
 ```sh
 cmake -S . -B build/cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
-      -DRAYLIB_ROOT="$PWD/raylib-prefix" -DLUCENT_ROOT="$PWD/lucent"
+      -DLUCENT_ROOT="$PWD/lucent" -DGPU2D_ROOT="$PWD/gpu2d"
 cmake --build build/cmake
 ```
 
@@ -212,7 +204,7 @@ application menu) go under the prefix:
 
 ```sh
 cmake -S . -B build/cmake -G Ninja -DCMAKE_CXX_COMPILER=clang++ \
-      -DRAYLIB_ROOT="$PWD/raylib-prefix" -DLUCENT_ROOT="$PWD/lucent" \
+      -DLUCENT_ROOT="$PWD/lucent" -DGPU2D_ROOT="$PWD/gpu2d" \
       -DCMAKE_INSTALL_PREFIX="$HOME/.local"
 cmake --build build/cmake
 cmake --install build/cmake

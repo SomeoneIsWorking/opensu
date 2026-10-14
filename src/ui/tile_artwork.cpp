@@ -5,9 +5,13 @@
 namespace opensu::ui {
 namespace {
 
-/// A texture from decoded pixels, or an empty one for none.
-Texture textureOf(const Pixels& pixels) {
-    return pixels.empty() ? Texture{} : LoadTextureFromImage(pixels.image());
+/// A texture from decoded pixels, or nothing for none.
+std::optional<gpu2d::Texture> textureOf(const TileArtwork::MakeTexture& make,
+                                        const gpu2d::image::Bitmap& pixels) {
+    if (pixels.empty()) {
+        return std::nullopt;
+    }
+    return make(pixels);
 }
 
 } // namespace
@@ -32,14 +36,8 @@ void TileArtwork::beginShelf(std::vector<Tile>& tiles, std::optional<Tile>& head
 }
 
 void TileArtwork::unload(Tile& tile) {
-    if (tile.hasPortrait) {
-        UnloadTexture(tile.portrait);
-        tile.hasPortrait = false;
-    }
-    if (tile.hasWide) {
-        UnloadTexture(tile.wide);
-        tile.hasWide = false;
-    }
+    tile.portrait.reset();
+    tile.wide.reset();
     tile.artLoaded = false;
     tile.artRequested = false;
     tile.ticket = ++lastTicket_;
@@ -85,20 +83,19 @@ void TileArtwork::requestWindow(std::vector<Tile>& tiles, std::optional<Tile>& h
     }
 }
 
-void TileArtwork::upload(std::vector<Tile>& tiles, std::optional<Tile>& header, std::size_t limit) {
+void TileArtwork::upload(const MakeTexture& make, std::vector<Tile>& tiles,
+                         std::optional<Tile>& header, std::size_t limit) {
     for (Decoded& done : decoder_.take(limit)) {
         Tile* tile =
             done.job.shelf == shelfSerial_ ? tileOf(tiles, header, done.job.tile) : nullptr;
         if (tile == nullptr || tile->ticket != done.job.ticket || tile->artLoaded) {
             continue;
         }
-        tile->portrait = textureOf(done.portrait);
-        tile->wide = textureOf(done.wide);
-        tile->hasPortrait = tile->portrait.id != 0;
-        tile->hasWide = tile->wide.id != 0;
+        tile->portrait = textureOf(make, done.portrait);
+        tile->wide = textureOf(make, done.wide);
         tile->artLoaded = true;
         tile->artRequested = false;
-        if (done.job.tile != headerTile && (tile->hasPortrait || tile->hasWide)) {
+        if (done.job.tile != headerTile && tile->art() != nullptr) {
             resident_.push_back(done.job.tile);
         }
     }
@@ -106,7 +103,7 @@ void TileArtwork::upload(std::vector<Tile>& tiles, std::optional<Tile>& header, 
 
 void TileArtwork::trim(std::vector<Tile>& tiles, const SlotRange& window) {
     std::erase_if(resident_, [&tiles](std::size_t index) {
-        return index >= tiles.size() || !(tiles[index].hasPortrait || tiles[index].hasWide);
+        return index >= tiles.size() || tiles[index].art() == nullptr;
     });
     // Oldest first: a tile outside the window gives its textures back until the limit holds.
     for (auto it = resident_.begin(); it != resident_.end() && resident_.size() > residentLimit;) {
@@ -128,10 +125,10 @@ std::size_t TileArtwork::pending(const std::vector<Tile>& tiles, const std::opti
     return count;
 }
 
-void TileArtwork::load(std::vector<Tile>& tiles, std::optional<Tile>& header,
-                       const SlotRange& window, std::size_t uploads) {
+void TileArtwork::load(const MakeTexture& make, std::vector<Tile>& tiles,
+                       std::optional<Tile>& header, const SlotRange& window, std::size_t uploads) {
     requestWindow(tiles, header, window);
-    upload(tiles, header, uploads);
+    upload(make, tiles, header, uploads);
     trim(tiles, window);
 }
 

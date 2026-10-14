@@ -1,30 +1,33 @@
 #include "game_screen.hpp"
 
-#include "raylib.h"
+#include <stdexcept>
 
 namespace opensu::app {
 
-void GameScreen::attachOverlay(unsigned long handle) {
-    overlay_ = std::make_unique<session::GamescopeOverlay>(handle);
+void GameScreen::attachOverlay() {
+    if (window_ == nullptr) {
+        throw std::logic_error{"the overlay was attached before the window"};
+    }
+    overlay_ = std::make_unique<session::GamescopeOverlay>(window_->x11Window());
     keys_ = std::make_unique<session::GameKeys>();
+}
+
+void GameScreen::showWindow(bool shown) {
+    if (!hidden_ && window_ != nullptr) {
+        window_->setShown(shown);
+    }
 }
 
 void GameScreen::setRunning(bool running) {
     shown_ = false;
-    // raylib has no ShowWindow or HideWindow: hiding is a window state flag, and showing is
-    // clearing it.
     if (overlay_) {
         if (running) {
             overlay_->enter();
         } else {
             overlay_->leave();
         }
-    } else if (!hidden_) {
-        if (running) {
-            SetWindowState(FLAG_WINDOW_HIDDEN);
-        } else {
-            ClearWindowState(FLAG_WINDOW_HIDDEN);
-        }
+    } else {
+        showWindow(!running);
     }
 }
 
@@ -35,12 +38,8 @@ bool GameScreen::setShown(bool wanted) {
     shown_ = wanted;
     if (overlay_) {
         overlay_->setShown(wanted);
-    } else if (!hidden_) {
-        if (wanted) {
-            ClearWindowState(FLAG_WINDOW_HIDDEN);
-        } else {
-            SetWindowState(FLAG_WINDOW_HIDDEN);
-        }
+    } else {
+        showWindow(wanted);
     }
     return true;
 }

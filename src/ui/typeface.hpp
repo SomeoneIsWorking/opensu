@@ -1,46 +1,33 @@
 // Text drawing, owned in one place.
 //
-// iiSU's default typeface is Cal Sans (pp4.a). raylib has no way to route DrawText through a
-// custom face, so labels are drawn glyph by glyph from a loaded Font. Sizes are Android's: the
-// em in pixels, with letter spacing in ems, so sizes recovered from iiSU apply unchanged.
+// iiSU's default typeface is Cal Sans (pp4.a), drawn a glyph at a time through gpu2d's text,
+// unhinted, each glyph on the whole pixel its TextGrid places it at. Sizes are Android's: the em in
+// pixels, with letter spacing in ems, so sizes recovered from iiSU apply unchanged.
 #pragma once
 
 #include <filesystem>
-#include <span>
+#include <memory>
 #include <string>
 #include <string_view>
-#include <vector>
 
-#include "raylib.h"
+#include <SDL3/SDL_gpu.h>
+
+#include "gpu2d/text.hpp"
+
+#include "face_metrics.hpp"
+#include "paint.hpp"
+#include "text_grid.hpp"
 
 namespace opensu::ui {
 
-/// A text size as Android takes it.
-struct TextStyle {
-    /// The em, in pixels.
-    float size{};
-    /// Letter spacing, in ems, added half before and half after each glyph.
-    float tracking{};
-};
-
-/// Owns the shell's typefaces.
+/// Owns the shell's typeface.
 class Typeface {
   public:
     /// Faces are read from `assetsDir`; nothing is loaded until `load`.
     explicit Typeface(std::filesystem::path assetsDir);
-    ~Typeface();
 
-    Typeface(const Typeface&) = delete;
-    Typeface& operator=(const Typeface&) = delete;
-
-    /// Picks and loads the first usable face. Needs a GL context, so it runs once the window is up.
-    void load();
-
-    /// The face in use, which is raylib's built-in one when no file could be
-    /// loaded.
-    [[nodiscard]] bool usingCustomFace() const noexcept {
-        return custom_;
-    }
+    /// Loads the first usable face onto `device`. Throws gpu2d::GpuError when none loads.
+    void load(SDL_GPUDevice& device);
 
     /// The height of the face's line box (ascent to descent) at a style.
     [[nodiscard]] float lineBox(const TextStyle& style) const noexcept;
@@ -48,45 +35,32 @@ class Typeface {
     [[nodiscard]] float emForLineBox(float height) const noexcept;
 
     /// The width a label advances.
-    [[nodiscard]] float measure(std::string_view text, const TextStyle& style);
+    [[nodiscard]] float measure(std::string_view text, const TextStyle& style) const noexcept;
 
     /// `text` cut to fit `room` pixels, ending in dots when it is cut.
     [[nodiscard]] std::string fitted(std::string text, float room, const TextStyle& style);
 
     /// Draws a label from `x`, its line box centred on `centreY`.
-    void drawCentred(std::string_view text, float x, float centreY, const TextStyle& style,
-                     Color colour);
+    void drawCentred(Canvas& canvas, std::string_view text, float x, float centreY,
+                     const TextStyle& style, Colour colour);
 
     /// Cal Sans's capital height as a share of the em (navigation.md §5.3).
     static constexpr float capHeightPerEm = 0.70f;
     /// Draws a label from `origin.x` with the tops of its capitals at `origin.y`.
-    void drawFromCapTop(std::string_view text, Vector2 origin, const TextStyle& style,
-                        Color colour);
+    void drawFromCapTop(Canvas& canvas, std::string_view text, Point origin, const TextStyle& style,
+                        Colour colour);
+
+    /// Releases the labels the last frame did not draw. Once per frame, after it was submitted.
+    void retire();
 
   private:
-    struct Entry {
-        Font font{};
-        int size{};
-        bool loaded{false};
-    };
-
-    /// The face loaded at a line box height, in pixels. Loaded once per size and cached.
-    [[nodiscard]] Font face(int lineBoxPx);
+    [[nodiscard]] gpu2d::Text& text();
 
     std::filesystem::path assetsDir_;
-    /// The file that was loaded, kept so per-size faces come from the same face.
-    std::string path_;
-    bool custom_{false};
-    /// stb_truetype's line box per em for the loaded face; 1 for the built-in font.
-    float lineBoxPerEm_{1.0f};
-    /// The baseline's depth in the line box, as a share of it; hhea ascender over its height.
-    float ascentShare_{0.8f};
-    static constexpr int probeSize = 16;
-    static constexpr int entries_ = 16;
-    Entry* cache_{};
-    /// The codepoints every per-size atlas holds.
-    /// The loaded face's cmap: the atlas holds every character the face can draw.
-    std::vector<int> codepoints_;
+    std::unique_ptr<gpu2d::Text> text_;
+    /// The loaded face's metrics; until then a line box of one em with the baseline at 0.8 of it.
+    FaceMetrics face_{
+        .unitsPerEm = 1.0f, .ascent = 0.8f, .descent = -0.2f, .advances = {}, .missingAdvance = 0};
 };
 
 } // namespace opensu::ui

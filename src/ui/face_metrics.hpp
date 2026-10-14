@@ -1,14 +1,14 @@
-// face_metrics — the vertical metrics a TrueType face declares in its head and hhea tables, and
-// the characters its cmap maps.
+// face_metrics — the metrics a TrueType face declares in its head, hhea, hmtx and cmap tables.
 //
-// Android sizes text by the em; stb_truetype, under raylib, sizes it by ascent minus descent.
-// These are what convert one to the other.
+// Android sizes text by the em; a line box runs from the hhea ascent to its descent. These convert
+// one to the other, and give each character's advance.
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <span>
-#include <vector>
+#include <unordered_map>
 
 namespace opensu::ui {
 
@@ -18,16 +18,20 @@ struct FaceMetrics {
     float ascent{};
     /// hhea descender, negative below the baseline.
     float descent{};
-    /// Every character the cmap maps to a glyph, ascending; the atlas loads exactly these.
-    std::vector<int> codepoints;
+    /// Each mapped character's advance, in font units.
+    std::unordered_map<char32_t, std::uint16_t> advances;
+    /// The missing glyph's advance, for a character the face does not map.
+    std::uint16_t missingAdvance{};
 
-    /// The line box stb_truetype fills for one em: (ascent - descent) / unitsPerEm.
+    /// The line box of one em: (ascent - descent) / unitsPerEm.
     [[nodiscard]] float lineBoxPerEm() const noexcept {
         return (ascent - descent) / unitsPerEm;
     }
+    /// `codepoint`'s advance in font units.
+    [[nodiscard]] float advance(char32_t codepoint) const noexcept;
 };
 
-/// Reads head.unitsPerEm, hhea ascender/descender and the Unicode cmap (format 4 or 12) from a
+/// Reads head.unitsPerEm, hhea ascender/descender and the Unicode characters' hmtx advances from a
 /// TrueType or OpenType file, or nothing when a table is missing or truncated.
 [[nodiscard]] std::optional<FaceMetrics> readFaceMetrics(std::span<const std::byte> file);
 

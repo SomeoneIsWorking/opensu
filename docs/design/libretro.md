@@ -31,7 +31,7 @@ Why a child window and not frames sent back to the shell: the overlay, scopes, g
 and orphan cleanup already exist for game windows; a GPU core in phase 3 draws with the child's own
 Vulkan device; there is no frame transport to build or to add latency.
 
-The runner does not use raylib: SDL3 gives it the window, keyboard and sound device, and it draws
+The runner does not use the shell's renderer: SDL3 gives it the window, keyboard and sound device, and it draws
 with Vulkan directly, so a core using libretro's Vulkan hardware interface
 (`retro_hw_render_interface_vulkan`) can later be handed the runner's instance, device and queue.
 

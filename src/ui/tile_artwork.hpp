@@ -4,9 +4,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <optional>
 #include <vector>
+
+#include "gpu2d/image/bitmap.hpp"
+#include "gpu2d/texture.hpp"
 
 #include "home_layout.hpp"
 #include "image_decoder.hpp"
@@ -20,6 +24,8 @@ class TileArtwork {
     static constexpr std::size_t headerTile = std::numeric_limits<std::size_t>::max();
     /// Textures held at most; the oldest outside the window are released beyond it.
     static constexpr std::size_t residentLimit = 120;
+    /// Uploads decoded pixels as a texture.
+    using MakeTexture = std::function<gpu2d::Texture(const gpu2d::image::Bitmap&)>;
 
     /// A new shelf replaces the old: its textures go and answers for the old one are dropped.
     void beginShelf(std::vector<Tile>& tiles, std::optional<Tile>& header);
@@ -31,9 +37,9 @@ class TileArtwork {
     void unload(Tile& tile);
 
     /// Queues the art of the window's tiles that has not been, uploads up to `uploads` decoded
-    /// images and releases textures beyond the limit. Needs the GL context.
-    void load(std::vector<Tile>& tiles, std::optional<Tile>& header, const SlotRange& window,
-              std::size_t uploads);
+    /// images through `make` and releases textures beyond the limit.
+    void load(const MakeTexture& make, std::vector<Tile>& tiles, std::optional<Tile>& header,
+              const SlotRange& window, std::size_t uploads);
     /// The window's tiles and the header still awaiting art: downloading, queued, decoding, or
     /// decoded and not yet uploaded.
     [[nodiscard]] static std::size_t pending(const std::vector<Tile>& tiles,
@@ -53,7 +59,8 @@ class TileArtwork {
     void request(Tile& tile, std::size_t index);
     void requestWindow(std::vector<Tile>& tiles, std::optional<Tile>& header,
                        const SlotRange& window);
-    void upload(std::vector<Tile>& tiles, std::optional<Tile>& header, std::size_t limit);
+    void upload(const MakeTexture& make, std::vector<Tile>& tiles, std::optional<Tile>& header,
+                std::size_t limit);
     void trim(std::vector<Tile>& tiles, const SlotRange& window);
 
     ImageDecoder decoder_;

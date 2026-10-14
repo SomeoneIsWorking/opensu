@@ -3,16 +3,17 @@
 #include <algorithm>
 
 #include "hud.hpp"
+#include "paint.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
 namespace {
 
 // What is under the menu shows through, dimmed, as under Steam's Guide menu.
-constexpr Color scrim{0, 0, 0, 115};
-constexpr Color panelFill{palette::ground.r, palette::ground.g, palette::ground.b, 245};
-constexpr Color selection{0x4d, 0x46, 0x55, 255};
-constexpr Color hintInk{0x4d, 0x46, 0x55, 255};
+constexpr Colour scrim{0, 0, 0, 115};
+constexpr Colour panelFill{palette::ground.r, palette::ground.g, palette::ground.b, 245};
+constexpr Colour selection{0x4d, 0x46, 0x55, 255};
+constexpr Colour hintInk{0x4d, 0x46, 0x55, 255};
 
 constexpr float titleSp = 22.0f;
 constexpr float itemSp = 18.0f;
@@ -35,58 +36,64 @@ GuideLayout GuideMenuPainter::layout(const GuideMenu& menu, float width, float h
                        menu.entries().size());
 }
 
-void GuideMenuPainter::paintPowerButton(const Rect& box, bool focused, float dp) const {
-    const Rectangle bounds{box.x, box.y, box.width, box.height};
+void GuideMenuPainter::paintPowerButton(Canvas& canvas, const Rect& box, bool focused,
+                                        float dp) const {
     // Focus is the rows' rounded selection, so the button reads as one of them.
     if (focused) {
-        DrawRectangleRounded(bounds, std::min(1.0f, 2.0f * itemRadiusDp * dp / box.height), 12,
-                             selection);
+        canvas.fillRoundRect(
+            onCanvas(box), cornerRadius(box, std::min(1.0f, 2.0f * itemRadiusDp * dp / box.height)),
+            selection);
     }
-    const Color ink = focused ? palette::panel : palette::ink;
-    const Vector2 centre{box.centreX(), box.centreY()};
+    const Colour ink = focused ? palette::panel : palette::ink;
+    const Point centre{box.centreX(), box.centreY()};
     // About the rows' cap height, with their text's stroke weight.
     const float radius = box.width * 0.22f;
     const float stroke = std::max(1.75f * dp, 1.0f);
     // The standard power symbol: a ring open at the top with a bar through the gap.
-    DrawRing(centre, radius - stroke * 0.5f, radius + stroke * 0.5f, powerRingStart, powerRingEnd,
-             36, ink);
-    const Vector2 top{centre.x, centre.y - radius * 1.1f};
-    const Vector2 mid{centre.x, centre.y - radius * 0.1f};
-    DrawLineEx(top, mid, stroke, ink);
-    DrawCircleV(top, stroke * 0.5f, ink);
-    DrawCircleV(mid, stroke * 0.5f, ink);
+    canvas.ring(gpu2d::Ring{.centre = centre,
+                            .inner = radius - stroke * 0.5f,
+                            .outer = radius + stroke * 0.5f,
+                            .startDegrees = powerRingStart,
+                            .endDegrees = powerRingEnd},
+                ink);
+    const Point top{centre.x, centre.y - radius * 1.1f};
+    const Point mid{centre.x, centre.y - radius * 0.1f};
+    canvas.line(top, mid, stroke, ink);
+    canvas.fillCircle(top, stroke * 0.5f, ink);
+    canvas.fillCircle(mid, stroke * 0.5f, ink);
 }
 
-void GuideMenuPainter::paint(const GuideMenu& menu, float width, float height, float dp) const {
+void GuideMenuPainter::paint(Canvas& canvas, const GuideMenu& menu, float width, float height,
+                             float dp) const {
     if (!menu.isOpen()) {
         return;
     }
-    DrawRectangleRec(Rectangle{0.0f, 0.0f, width, height}, scrim);
+    canvas.fillRect(gpu2d::Rect{0.0f, 0.0f, width, height}, scrim);
     const GuideLayout frame = layout(menu, width, height, dp);
-    DrawRectangleRec(Rectangle{frame.panel.x, frame.panel.y, frame.panel.width, frame.panel.height},
-                     panelFill);
+    canvas.fillRect(onCanvas(frame.panel), panelFill);
 
     const float pad = frame.padding;
     const TextStyle title{titleSp * dp};
     const float room = frame.panel.width - 2.0f * pad;
-    typeface_.drawCentred(typeface_.fitted(menu.title(), room, title), pad,
+    typeface_.drawCentred(canvas, typeface_.fitted(menu.title(), room, title), pad,
                           pad + typeface_.lineBox(title) * 0.5f, title, palette::ink);
 
     const TextStyle item{itemSp * dp};
     for (std::size_t i = 0; i < menu.entries().size() && i < frame.rows.size(); ++i) {
         const Rect& box = frame.rows[i];
-        const Rectangle row{box.x, box.y, box.width, box.height};
         const bool focused = i == menu.focus() && !menu.powerFocused();
         if (focused) {
-            DrawRectangleRounded(row, std::min(1.0f, 2.0f * itemRadiusDp * dp / box.height), 12,
-                                 selection);
+            canvas.fillRoundRect(
+                onCanvas(box),
+                cornerRadius(box, std::min(1.0f, 2.0f * itemRadiusDp * dp / box.height)),
+                selection);
         }
-        typeface_.drawCentred(typeface_.fitted(menu.shown(i), room, item), pad, box.centreY(), item,
-                              focused ? palette::panel : palette::ink);
+        typeface_.drawCentred(canvas, typeface_.fitted(menu.shown(i), room, item), pad,
+                              box.centreY(), item, focused ? palette::panel : palette::ink);
     }
 
     if (!menu.inPower()) {
-        paintPowerButton(frame.powerButton, menu.powerFocused(), dp);
+        paintPowerButton(canvas, frame.powerButton, menu.powerFocused(), dp);
     }
 
     // The hints stack at the footer's right end: A selects over B going back.
@@ -98,8 +105,8 @@ void GuideMenuPainter::paint(const GuideMenu& menu, float width, float height, f
         const float labelWidth = typeface_.measure(label, hint);
         const float advance = glyphs_.advance(key, glyph);
         const float x = right - labelWidth - hintGapDp * dp - advance;
-        glyphs_.paint(key, Vector2{x + advance * 0.5f, centreY}, glyph, hintInk);
-        typeface_.drawCentred(label, right - labelWidth, centreY, hint, hintInk);
+        glyphs_.paint(canvas, key, Point{x + advance * 0.5f, centreY}, glyph, hintInk);
+        typeface_.drawCentred(canvas, label, right - labelWidth, centreY, hint, hintInk);
         centreY += glyph + hintLineGapDp * dp;
     }
 }

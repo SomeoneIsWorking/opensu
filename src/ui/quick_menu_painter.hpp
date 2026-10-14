@@ -3,6 +3,7 @@
 #pragma once
 
 #include "button_glyph.hpp"
+#include "paint.hpp"
 #include "quick_menu.hpp"
 #include "settings_page_painter.hpp"
 #include "typeface.hpp"
@@ -20,7 +21,7 @@ class QuickMenuPainter {
                                      float dp) const;
 
     /// Draws `menu` into a `width` x `height` frame at `dp` pixels per dp.
-    void paint(const QuickMenu& menu, float width, float height, float dp) const;
+    void paint(Canvas& canvas, const QuickMenu& menu, float width, float height, float dp) const;
 
   private:
     Typeface& typeface_;

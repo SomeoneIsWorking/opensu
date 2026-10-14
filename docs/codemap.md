@@ -11,7 +11,9 @@ gitignored `docs/reference/`).
 | --- | --- |
 | `src/config/arguments.*` | The command line as typed values (`--render`, `--keyboard`, `--session`: openSU is the login session, `--hidden`: the shell with an unmapped window, no Gamescope session, no pads, free control port, no Steam client: `startsSteam()`) |
 | `src/main.cpp` | Starts the nested session or the shell; `--render FILE` renders one frame headless |
-| `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop; plays the UI sounds at the input events that iiSU plays them at |
+| `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, launches, the drawn shell, frame loop; plays the UI sounds at the input events that iiSU plays them at; streams artwork every loop pass, drawn frame or not |
+| `src/app/shell_window.*` | The shell's SDL window on gpu2d (`GpuWindow` and `Canvas`): resizable, translucent, 960x600 minimum, unmapped without vsync for `--hidden` and `--render`; logs the device, driver and translucency; the frame's keys, typed text, pointer and resize from SDL events; a frame presented at most 60 a second, or drawn offscreen and read back; the monitor's size and refresh and filling it for the Gamescope overlay |
+| `src/app/sdl_keys.*` | SDL scancodes onto the shell's key codes (`input::keys`) |
 | `src/app/control_bridge.*` | The hand-over between the control channel's threads and the loop: queued input, reload and close requests, the published `ShellSnapshot`, the frame handshake |
 | `src/app/game_screen.*` | The window's relation to a running game: the Gamescope overlay and game-time key watcher, or the hidden window flag; shows the window only while a menu or page is up |
 | `src/app/guide_menu_controller.*` | The Guide menu's buttons and what each entry does (sections, Devices, Settings, close game, quit, the power button and list: `host::Power` with a second press for restart and shut down, `host::SessionMode` for Switch to session mode (second press), Install session mode (opens the dialog) and, in a login session, Switch to desktop) |
@@ -75,7 +77,7 @@ gitignored `docs/reference/`).
 | `packaging/opensu-session.desktop.in` | The Wayland session entry, installed to `<prefix>/share/wayland-sessions/opensu.desktop` (`install-session.sh` copies it where SDDM reads) |
 | `cmake/Gamescope.cmake` | Building the pinned Gamescope fork in podman, or natively in an environment that already has its dependencies (`OPENSU_GAMESCOPE_BUILD_ENV`: CI's Fedora container, the AppImage container), with `OPENSU_GAMESCOPE_MESON_OPTIONS` for a distribution lacking some (commit, build steps, staging and install path); `OPENSU_BUILD_GAMESCOPE`. `cmake/GamescopeFetchPin.cmake` fetches a new pin into an existing clone, `cmake/GamescopeImage.cmake` builds the image if absent, `cmake/GamescopeLddCheck.cmake` checks the staged binary's libraries |
 | `packaging/gamescope-build/Containerfile` | The Gamescope build image: host's Fedora release plus Gamescope's build dependencies |
-| `src/session/monitor.*` | The output's size and refresh |
+| `src/session/monitor.*` | The output's size and refresh, from SDL's display modes (X11 video): the primary monitor before the window opens, the window's display after |
 | `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game |
 | `src/session/game_keys.*` | The shortcuts that work while a game has the keyboard (Guide, volume), matched against the `Shortcuts` table from XInput2 raw keys |
 | `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show; tells the handoff when a game is on screen |
@@ -138,29 +140,28 @@ gitignored `docs/reference/`).
 | `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds openSU plays (`yp8`): effect to APK file name, the Domino cues and `dominoFor(tileCount)` (`xp8.a`), the 91 ms repeat rule for Enter/ExitConsolesApps and the Domino cues; pure (`opensu_audio_model`) |
 | `src/audio/volume_backend.*` | PC output volume through wpctl or pactl (injectable runner), a read-only shadow for hidden runs, the install advice when no backend exists |
 | `src/audio/system_volume.*` | Volume and mute state, steps, one listener, async polling of changes made elsewhere |
-| `src/audio/sound_player.*` | raylib audio: the device opened once (silent with one warning when absent), the WAVs loaded from the store, `play` through the debounce; replaced by `sdl_sound_player` when the shell moves to SDL3 |
 | `src/audio/sound_clip.*` | A UI sound decoded to PCM without a device: WAV through `SDL_LoadWAV`, OGG through libvorbisfile |
-| `src/audio/sdl_sound_player.*` | UI sounds on SDL audio (`opensu_audio_sdl`, not yet wired into the shell): clips decoded on `load` with or without a device, the default device opened once by `open` (never in hidden runs or tests), one bound stream per effect, `play` restarts the clip through the debounce |
+| `src/audio/sdl_sound_player.*` | The shell's UI sounds on SDL audio (`opensu_audio`): clips decoded on `load` with or without a device, the default device opened once by `open` (never in hidden runs or tests), one bound stream per effect, `play` restarts the clip through the debounce |
 | `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads; `request` with a body cap, and `request` and `download` with each redirect hop checked (`Refusal`) |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
-| `src/gamepad/event.*` | The shell's controls (`Button`, `Event`), raylib-free (`opensu_pad`) |
+| `src/gamepad/event.*` | The shell's controls (`Button`, `Event`) (`opensu_pad`) |
 | `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls |
 | `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads; whether a reader takes opensu's own virtual pads (`OwnVirtualPads`: the shell skips them, `opensu-retro` reads them) |
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
 | `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while a menu or page is up; lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
 | `src/input/shortcuts.*` | The one chord table: every `Action` (pad buttons, Guide, volume, Quit) with its default key combos and pad chords, the player's overrides (`rebind`, with conflict refusals), labels and settings spellings |
-| `src/input/key_names.*` | raylib-free key names: `Combo`, modifiers, bindable keys, X11 key names for the in-game watcher |
+| `src/input/key_names.*` | The shell's key codes (`input::keys`, GLFW's numbering, letters as ASCII) and their names: `Combo`, modifiers, bindable keys, X11 key names for the in-game watcher |
 | `src/input/pad_chords.*` | Pad chords (L2, R2, L3, R3 or Guide plus a button): the held modifier swallows its trigger and emits the action; Guide alone is a tap that comes out on release |
 | `src/input/prompts.hpp` | `Prompts`: the last device and the shortcuts, so key caps in hints follow remaps |
-| `src/input/keyboard_bindings.*` | `KeySource`, the frame's pressed `Combo`, and typed text; the keys themselves come from `Shortcuts` |
+| `src/input/keyboard_bindings.*` | `KeyFrame` (one frame's key downs, ups, repeats and typed text), `KeySource`, the frame's pressed `Combo`, and typed text; the keys themselves come from `Shortcuts` |
 | `src/input/last_device.*` | Which device (pad, or keyboard and mouse) gave the latest real input; read by the prompt painters |
 
 ## Built-in libretro runner (`opensu-retro`)
 
 Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executable, built beside
-`opensu`; no raylib.
+`opensu`.
 
 | Path | Owns |
 | --- | --- |
@@ -204,17 +205,17 @@ Design and API: `docs/design/lua-plugins.md`.
 
 Design: `docs/design/sdl3-gpu-shell.md`. The 2D layer and image codecs are the gpu2d library, its
 own repository (`GPU2D_ROOT`, default `~/repo/gpu2d`; pinned in `tools/check/pins.py` and fetched by
-`tools/check/deps.py` like Lucent), with its own codemap and tests. The shell still draws with
-raylib until the painters move over (§6.4).
+`tools/check/deps.py` like Lucent), with its own codemap and tests. The shell draws, decodes and
+lays out text through it; the window, input and sound are SDL3's.
 
 | Target | Owns |
 | --- | --- |
-| `gpu2d::image` | Decoding PNG, JPEG and WebP into RGBA, resizing, PNG encoding to memory; no GPU. Used by `opensu-retro` (`--frame-png`) and the starter pack |
-| `gpu2d::render` | The SDL window and Vulkan device, the 2D canvas, text through SDL3_ttf, offscreen targets; not linked by the shell yet |
+| `gpu2d::image` | Decoding PNG, JPEG and WebP into RGBA, cubic resizing, PNG encoding to memory; no GPU. Used by the shell's covers and `/frame.png`, `opensu-retro` (`--frame-png`) and the starter pack |
+| `gpu2d::render` | The SDL window and Vulkan device, the 2D canvas, text through SDL3_ttf, offscreen targets and the backdrop blur; the shell's renderer |
 
 ## Home UI (G002)
 
-Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
+Pure model, unit-tested without a GPU (`opensu_grid`, `opensu_hud_model`):
 
 | Path | Owns |
 | --- | --- |
@@ -225,7 +226,6 @@ Pure model, unit-tested without raylib (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/rail_layout.*` | XMB and Carousel geometry (navigation.md 5.3): rectangles of the tiles near the canvas only (`first()`), from the fractional focus, left column, header card, marker and title anchors; the tile under a point (`railTileAt`) |
 | `src/ui/rail_painter.*` | XMB/Carousel chrome: the recoloured section icon, the header card, the markers and the shadowed title |
 | `src/ui/icon_recolour.*` | Reads a console card's border colours and recolours the section icon with them |
-| `src/ui/backdrop_blur.*` | The dock glass's 8 dp backdrop blur: scene texture, separable Gaussian, capsule mask |
 | `src/ui/dock_metrics.*` | The dock capsule's sizes and rectangles in dp (`gh3.i1/j1`, `jj2`); which item a pointer is on (`dockItemAt`) |
 | `src/ui/dock_motion.*` | The dock's show/hide (`dockPinned`: Home always, Library by the pin option; else 1200 ms after L1/R1 on Library; show 170 ms ease-out from below, hide 125 ms ease-in straight down) and the icon pop |
 | `src/ui/mode_chooser.*` | The options panel's state, focus row and scrolling layout (cards, icon size slider, pin, sort, source, filters, search); the card, row or slider level under a point |
@@ -253,7 +253,7 @@ Painters and composition (`opensu_ui`):
 
 | Path | Owns |
 | --- | --- |
-| `src/ui/shell.*` | The home screen: tiles, focus, paging, draw order |
+| `src/ui/shell.*` | The home screen: tiles, focus, paging, draw order; the scene into its own target so the dock glass blurs what lies behind it (`Canvas::blurBehind`, 8 dp) |
 | `src/ui/hud.*` | Chrome around the grid: ground, top bar, corner hints, toast; grid insets |
 | `src/ui/settings_page.*`, `settings_page_painter.*` | The Settings screen: categories, rows (toggle, choice, slider, path, action, info), focus, layout and hit-tests; its painter |
 | `src/ui/settings_panels.*` | The Settings screen and what opens over it (folder chooser, on-screen keyboard): their state, fades and painters as one object |
@@ -273,11 +273,14 @@ Painters and composition (`opensu_ui`):
 | `src/ui/session_dialog_painter.*`, `session_panels.*` | The dialog's painter (wrapped paragraphs, pill buttons with pad glyphs); the dialog and the password keyboard (a secret `SearchPanel`: dots, Caps, wiped on close) with their fades and one hit test |
 | `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art (a spinner while it is on its way), platform frame, store icons; the name cards of a console, a launcher and All games |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
+| `src/ui/paint.hpp` | What the painters draw with: gpu2d's `Canvas`, `Colour` and `Point`, the layout's `Rect` on the canvas, corner radii, and the `ScopedClip` and `PanelScope` (scale about a point) scopes |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |
 | `src/ui/platform.*`, `platform_stroke.hpp` | Console border sprites, logos, stroke colours |
 | `src/ui/image_decoder.*` | Cover decode and downscale on a worker thread; the frame only uploads what it takes |
 | `src/ui/glyph_textures.*` | The console glyphs drawn in a ROM tile's frame tab: files by system, textures on load |
-| `src/ui/typeface.*`, `face_metrics.*` | Text drawing at Android em sizes; the face's line metrics |
+| `src/ui/typeface.*` | Text drawing at Android em sizes: the face loaded into gpu2d's text, labels drawn a glyph at a time where `TextGrid` puts them, fitted with an ellipsis |
+| `src/ui/text_grid.*` | Where a label's glyphs go: the whole-pixel line box, advances and baseline the stb_truetype atlas used, letter spacing, UTF-8 decoding |
+| `src/ui/face_metrics.*` | The face's head, hhea, hmtx and cmap: line metrics and each character's advance |
 
 ## Maintainer tooling
 
@@ -286,7 +289,7 @@ Painters and composition (`opensu_ui`):
 | `tools/vm/` | The headless Fedora 44 KDE guest for login-session tests (`docs/vm-harness.md`): `provision`/`kickstart`/`fetch`/`hostfiles`/`configure` (install and host-like setup), `machine` (qemu command line, PID lifecycle, overlays), `qmp` and `vnc` (screenshots, input), `guest` (SSH), `deploy` (build, install, ship), `control` (openSU's control channel in the guest), `cli` |
 | `tools/nested_remap/` | Headless checks of the nested Gamescope in a private `kwin_wayland --virtual` (`host`: own runtime dir and bus, KWin scripts): `cli` runs openSU's nested command line under `WAYLAND_DEBUG` (`run`) with a window scenario (`child`: cycle, rapid, steam), optionally `kwin/focus_flap.qml` or the host stopping mid-run, and judges exit and protocol error (`verdict`); `restart` runs the real `CompositorSession` with `tests/session/nested_session_driver` as the child and SIGABRTs Gamescope until the restart limit |
 | `pyproject.toml`, `uv.lock` | The one locked Python environment of the tools (`uv run --frozen`) |
-| `tools/check/` | Building and checking openSU from a clean checkout, locally and in CI: `pins` (raylib and Lucent commits), `deps` (checkout by commit, raylib built into a prefix), `cmake` (configure with Clang and refuse any other compiler, build, ctest, install a component), `lint` (clang-format, clang-tidy over `compile_commands.json`, ruff), `container` (`all` inside the systemd-booted `packaging/ci` image as the calling user, for CI), `cli` (`deps`, `configure`, `build`, `lint`, `test`, `all`, `ci`) |
+| `tools/check/` | Building and checking openSU from a clean checkout, locally and in CI: `pins` (Lucent and gpu2d commits), `deps` (checkout by commit), `cmake` (configure with Clang and refuse any other compiler, build, ctest, install a component), `lint` (clang-format, clang-tidy over `compile_commands.json`, ruff), `container` (`all` inside the systemd-booted `packaging/ci` image as the calling user, for CI), `cli` (`deps`, `configure`, `build`, `lint`, `test`, `all`, `ci`) |
 | `tools/appimage/` | The Linux AppImage: `config` (pins, names, layout, the signing key from the environment), `container` (the Ubuntu 24.04 build image and running in it), `inner` (in the container: build, install the default component; tests run in `tools.check ci`), `bundle` (the host-provided library list, copying the rest into `usr/lib`, runpaths, the glibc floor check), `appdir` (AppRun, desktop entry, icon), `pack` (appimagetool with the pinned static runtime, zsync update information, gpg signature), `smoke` (the AppImage on clean Fedora 44 and Ubuntu 24.04 containers with only the documented requirements) |
 | `tools/screenshots/` | The README screenshots and the look-parity references (`docs/design/sdl3-gpu-shell.md` §5): a demo library of freely licensed games (`demo`, art pinned by sha256), openSU run hidden with no network (`offline`, `shell`), a fixed-volume `wpctl` stand-in for parity runs (`mixer`), the screens driven over the control channel, each reached on a `/state` field and taken once `artworkPending` is 0 (`scenes`, `readme` marks the README set), WebP output (`encode`), `--parity DIR` raw PNGs of every scene, and `compare` (per-scene mean, max and share of differing pixels, difference images, non-zero exit over thresholds); credits in `docs/screenshots/CREDITS.md` |
 | `tools/download.py` | The one checksum-verified download the tools share |

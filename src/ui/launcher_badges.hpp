@@ -7,7 +7,7 @@
 #include <optional>
 #include <span>
 
-#include "raylib.h"
+#include "paint.hpp"
 
 #include "home_layout.hpp"
 #include "library/game.hpp"
@@ -54,10 +54,11 @@ class LauncherBadgePainter {
     }
 
     /// Draws the visible badges, each in its cell of `row`.
-    void paint(std::span<const LauncherBadge> badges, const BadgeRow& row);
+    void paint(Canvas& canvas, std::span<const LauncherBadge> badges, const BadgeRow& row);
 
   private:
-    void paintOne(const LauncherBadge& badge, const BadgeRow& row, const Rect& cell);
+    void paintOne(Canvas& canvas, const LauncherBadge& badge, const BadgeRow& row,
+                  const Rect& cell);
 
     IconAtlas& icons_;
 };

@@ -3,14 +3,18 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
 #include <filesystem>
 #include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_gpu.h>
+
+#include "gpu2d/texture.hpp"
+
 #include "library/game.hpp"
-#include "raylib.h"
 
 namespace opensu::ui {
 
@@ -33,22 +37,25 @@ class IconAtlas {
     /// The icons are read from `assetsDir`.
     explicit IconAtlas(std::filesystem::path assetsDir) : assetsDir_{std::move(assetsDir)} {
     }
-    ~IconAtlas();
-    IconAtlas(const IconAtlas&) = delete;
-    IconAtlas& operator=(const IconAtlas&) = delete;
+
+    /// Makes the textures on `device` from here on.
+    void attach(SDL_GPUDevice& device) noexcept {
+        device_ = &device;
+    }
 
     /// The icon as a white mask `pixels` square, to draw tinted; null when it cannot be read.
-    [[nodiscard]] const Texture* mask(Icon icon, int pixels);
+    [[nodiscard]] const gpu2d::Texture* mask(Icon icon, int pixels);
 
   private:
     struct Entry {
         Icon icon{};
         int pixels{};
-        Texture texture{};
-        bool loaded{false};
+        std::optional<gpu2d::Texture> texture;
     };
     std::filesystem::path assetsDir_;
-    std::vector<Entry> entries_;
+    SDL_GPUDevice* device_{};
+    /// A deque, so a texture handed out stays put as more are made.
+    std::deque<Entry> entries_;
 };
 
 } // namespace opensu::ui

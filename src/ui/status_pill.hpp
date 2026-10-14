@@ -39,15 +39,15 @@ class StatusPillPainter {
         : typeface_{typeface}, badges_{icons} {
     }
 
-    void paint(const StatusPillView& view);
+    void paint(Canvas& canvas, const StatusPillView& view);
 
     /// The width of the text row (`clock | NN% battery`) the pill is sized to, in pixels.
     [[nodiscard]] float rowWidth(const StatusPillMetrics& metrics, float dp, std::string_view clock,
                                  const std::optional<device::BatteryStatus>& battery) const;
 
   private:
-    void paintLaunchers(const StatusPillView& view);
-    void paintBattery(float x, float centreY, float size,
+    void paintLaunchers(Canvas& canvas, const StatusPillView& view);
+    void paintBattery(Canvas& canvas, float x, float centreY, float size,
                       const device::BatteryStatus& battery) const;
 
     Typeface& typeface_;

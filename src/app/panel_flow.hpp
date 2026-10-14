@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "gamepad/event.hpp"
 #include "installs.hpp"
 #include "ui/shell.hpp"
@@ -29,7 +29,7 @@ class PanelFlow {
     };
 
     /// Installs go through `steam` for Steam titles, `legendary` for Epic's and gogdl for GOG's.
-    PanelFlow(ui::Shell& shell, audio::SoundPlayer& sounds, steam::Client& steam,
+    PanelFlow(ui::Shell& shell, audio::SdlSoundPlayer& sounds, steam::Client& steam,
               const std::filesystem::path& dataDir, Hooks hooks);
 
     /// Whether the panel is up for anything, which is when it takes every button.
@@ -62,7 +62,7 @@ class PanelFlow {
     void presentEula();
 
     ui::Shell& shell_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     Installs install_;
     Hooks hooks_;
     Use use_{Use::None};

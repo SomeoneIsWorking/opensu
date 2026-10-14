@@ -10,18 +10,18 @@ void SettingsPanels::tick(Clock::time_point now) noexcept {
     entryFade_.follow(entry_.isOpen(), now);
 }
 
-void SettingsPanels::drawPage(Vector2 size, float dp, float topInset, float bottomInset,
-                              Clock::time_point now) const {
-    page_.draw(size, dp, topInset, bottomInset, now);
+void SettingsPanels::drawPage(Canvas& canvas, Point size, float dp, float topInset,
+                              float bottomInset, Clock::time_point now) const {
+    page_.draw(canvas, size, dp, topInset, bottomInset, now);
 }
 
-void SettingsPanels::drawOverlays(Vector2 size, float dp, Clock::time_point now,
+void SettingsPanels::drawOverlays(Canvas& canvas, Point size, float dp, Clock::time_point now,
                                   double seconds) const {
-    folderPainter_.paint(folders_, size, dp, folderFade_.look(now));
-    entryPainter_.paint(entry_, size, dp, entryFade_.look(now), seconds);
+    folderPainter_.paint(canvas, folders_, size, dp, folderFade_.look(now));
+    entryPainter_.paint(canvas, entry_, size, dp, entryFade_.look(now), seconds);
 }
 
-PointerTarget SettingsPanels::pointAt(Vector2 point, Vector2 size, float dp, float topInset,
+PointerTarget SettingsPanels::pointAt(Point point, Point size, float dp, float topInset,
                                       float bottomInset) const {
     const Rect frame{0.0f, 0.0f, size.x, size.y};
     if (entry_.isOpen()) {

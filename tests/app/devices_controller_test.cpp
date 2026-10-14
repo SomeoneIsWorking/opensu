@@ -100,7 +100,7 @@ struct Rig {
     app::BrightnessControl brightness;
     std::vector<gamepad::PadInfo> pads;
     app::ControllerRoster roster;
-    audio::SoundPlayer sounds;
+    audio::SdlSoundPlayer sounds;
     std::vector<std::string> calls;
     std::vector<std::string> said;
     int layouts{0};

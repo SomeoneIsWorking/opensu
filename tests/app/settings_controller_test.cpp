@@ -13,7 +13,7 @@
 
 #include <unistd.h>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "audio/volume_backend.hpp"
 #include "installs.hpp"
 #include "path_editor.hpp"
@@ -186,7 +186,7 @@ struct Rig {
 
     fs::path file;
     config::Config config;
-    audio::SoundPlayer sounds;
+    audio::SdlSoundPlayer sounds;
     std::vector<std::string> failures;
     std::vector<Said> said;
     steam::DevTools devTools;
