@@ -87,6 +87,9 @@ void GuideMenuController::choose() {
     case ui::GuideAction::Devices:
         hooks_.openDevices();
         break;
+    case ui::GuideAction::Downloads:
+        hooks_.openDownloads();
+        break;
     case ui::GuideAction::Settings:
         hooks_.openSettings();
         break;

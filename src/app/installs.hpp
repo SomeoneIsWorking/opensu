@@ -57,6 +57,17 @@ class Installs {
     /// The player's answer to the licence agreement the install asked about.
     void decide(bool accepted);
 
+    /// The install started last and where it stands, kept after it ends; nothing before the
+    /// first.
+    struct Status {
+        library::Source store{library::Source::Steam};
+        InstallJob::Status job;
+    };
+    [[nodiscard]] std::optional<Status> status() const;
+
+    /// Stops the running install; it ends as cancelled.
+    void cancel();
+
   private:
     /// The job with an install running, or null.
     [[nodiscard]] InstallJob* current();
@@ -66,6 +77,9 @@ class Installs {
     GogInstallJob gog_;
     Folders folders_;
     std::string title_;
+    /// The job started last and its store.
+    InstallJob* last_{nullptr};
+    library::Source lastStore_{library::Source::Steam};
 };
 
 } // namespace opensu::app

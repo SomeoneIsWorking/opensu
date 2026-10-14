@@ -165,7 +165,9 @@ void PanelFlow::service() {
     }
     eulaWaiting_ = false;
     const std::string title = install_.title();
-    if (report->failure.empty()) {
+    if (report->cancelled) {
+        shell_.setToast(title + " install cancelled");
+    } else if (report->failure.empty()) {
         hooks_.reloadCatalog();
         shell_.setToast(title + " installed");
     } else {

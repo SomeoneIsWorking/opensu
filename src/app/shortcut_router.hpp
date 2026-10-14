@@ -31,6 +31,7 @@ class ShortcutRouter {
         std::function<void()> closeGame;
         std::function<void()> openDevices;
         std::function<void()> goHome;
+        std::function<void()> openDownloads;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
     };

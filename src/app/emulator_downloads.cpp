@@ -117,13 +117,15 @@ void EmulatorDownloads::runDownload(const std::stop_token& stop, const EmulatorE
     const std::optional<Build> installed = entry.builtIn()
                                                ? installCore(stop, entry, progress, error)
                                                : installRelease(stop, entry, progress, error);
+    using Outcome = Finished::Outcome;
     Ended ended;
     if (installed) {
-        ended = Ended{entry.name + " " + installed->version + " is installed", false, true};
+        ended = Ended{entry.id, entry.name + " " + installed->version + " is installed",
+                      Outcome::Installed};
     } else if (error == "cancelled") {
-        ended = Ended{entry.name + " download cancelled", false, false};
+        ended = Ended{entry.id, entry.name + " download cancelled", Outcome::Cancelled};
     } else {
-        ended = Ended{entry.name + " was not installed: " + error, true, false};
+        ended = Ended{entry.id, entry.name + " was not installed: " + error, Outcome::Failed};
         lucent::warn("emulators", "{}", ended.text);
     }
     const std::lock_guard lock{mutex_};
@@ -140,6 +142,11 @@ void EmulatorDownloads::cancel(std::string_view id) {
 std::optional<EmulatorDownloads::Progress> EmulatorDownloads::progress() const {
     const std::lock_guard lock{mutex_};
     return progress_;
+}
+
+std::optional<EmulatorDownloads::Finished> EmulatorDownloads::lastFinished() const {
+    const std::lock_guard lock{mutex_};
+    return finished_;
 }
 
 void EmulatorDownloads::checkUpdates() {
@@ -265,6 +272,11 @@ void EmulatorDownloads::service() {
         // A download runs until its end is reported here, on the caller's thread.
         if (!ended.empty()) {
             progress_.reset();
+            const Ended& last = ended.back();
+            finished_ = Finished{.serial = finished_ ? finished_->serial + 1 : 1,
+                                 .id = last.id,
+                                 .outcome = last.outcome,
+                                 .text = last.text};
         }
         const std::optional<int> percent =
             progress_ ? progress_->percent().value_or(0) : std::optional<int>{};
@@ -275,8 +287,8 @@ void EmulatorDownloads::service() {
         if (downloader_.joinable()) {
             downloader_.join();
         }
-        hooks_.say(one.text, one.error);
-        if (one.installed) {
+        hooks_.say(one.text, one.outcome == Finished::Outcome::Failed);
+        if (one.outcome == Finished::Outcome::Installed) {
             hooks_.installedChanged();
         }
     }

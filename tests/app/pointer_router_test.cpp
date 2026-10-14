@@ -42,6 +42,9 @@ class Recorder final : public PointerHost {
     void selectLauncher(opensu::library::Source) override {
         calls.emplace_back("launcher");
     }
+    void openDownloads() override {
+        calls.emplace_back("downloads");
+    }
     void activateCrumb(std::size_t index) override {
         calls.push_back("crumb" + std::to_string(index));
     }
@@ -141,6 +144,21 @@ void leftClickOnTheOthers() {
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"launcher"},
            "a launcher's badge selects its store");
+    host.calls.clear();
+    host.under = opensu::ui::OnLauncher{opensu::library::Source::Steam, true};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"downloads"},
+           "a badge showing a download opens the Downloads page");
+    host.calls.clear();
+    host.under = opensu::ui::OnDownloadRow{1};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"focus"},
+           "a download row is chosen, not acted on");
+    host.calls.clear();
+    host.under = opensu::ui::OnDownloadAction{1, 0};
+    router.route(frame);
+    expect(host.calls == std::vector<std::string>{"focus", "A"},
+           "a download row's button is focus, then the A press");
     host.calls.clear();
     host.under = opensu::ui::OnCrumb{1};
     router.route(frame);

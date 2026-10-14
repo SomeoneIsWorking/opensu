@@ -110,7 +110,8 @@ void everyActionHasAHandlerNameAndKey() {
         spellings.insert(std::string{spelling(action)});
         const bool gameAction = action == Action::CloseGame || action == Action::SaveState ||
                                 action == Action::LoadState || action == Action::ResetGame ||
-                                action == Action::Devices || action == Action::Home;
+                                action == Action::Devices || action == Action::Home ||
+                                action == Action::Downloads;
         expect(s.primary(action).has_value() != gameAction,
                "an action has a key, but the game actions ship without one");
         expect(buttonOf(action).has_value() ==

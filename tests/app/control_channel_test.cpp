@@ -1,9 +1,12 @@
 // The control channel's routing, with a fake shell and a fake sign-in.
+#include <nlohmann/json.hpp>
+
 #include "control_channel.hpp"
 
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -177,6 +180,33 @@ void testState() {
                contains(library.body, "\"modeChooserOpen\":true") &&
                contains(library.body, "\"shelf\":\"ps2\""),
            "the state follows the shell");
+
+    Response none = channel.handle(get);
+    expect(contains(none.body, "\"downloadsOpen\":false") &&
+               contains(none.body, "\"downloads\":[]") &&
+               nlohmann::json::parse(none.body).is_object(),
+           "no downloads is an empty list");
+    shell.state.downloadsOpen = true;
+    shell.state.downloads = {{.key = "steam:480",
+                              .title = "Spacewar",
+                              .source = "Steam",
+                              .state = "downloading",
+                              .percent = 42},
+                             {.key = "emulator:mgba",
+                              .title = "mGBA \"core\"",
+                              .source = "Core",
+                              .state = "queued",
+                              .percent = std::nullopt}};
+    const nlohmann::json listed = nlohmann::json::parse(channel.handle(get).body);
+    expect(listed["downloadsOpen"] == true && listed["downloads"].size() == 2 &&
+               listed["downloads"][0] == nlohmann::json{{"key", "steam:480"},
+                                                        {"title", "Spacewar"},
+                                                        {"source", "Steam"},
+                                                        {"state", "downloading"},
+                                                        {"percent", 42}} &&
+               listed["downloads"][1]["title"] == "mGBA \"core\"" &&
+               listed["downloads"][1]["percent"].is_null(),
+           "every download is listed in order with its source, state and percent");
 }
 
 void testSearchAndText() {
@@ -302,9 +332,7 @@ void testKeysAndVolumeState() {
            "the state reports the volume, the scale, the shortcut capture and the chord list");
 }
 
-} // namespace
-
-int main() {
+void run() {
     testKeysAndVolumeState();
     testState();
     testKeyboardInput();
@@ -313,6 +341,17 @@ int main() {
     testStart();
     testComplete();
     testRefusals();
+}
+
+} // namespace
+
+int main() {
+    try {
+        run();
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
+        return 1;
+    }
     std::printf("control channel: all checks passed\n");
     return 0;
 }

@@ -3,7 +3,7 @@
 Status: done except what is unverified below.
 
 Built: Guide opens a left menu (`ui::GuideMenu`, `app::GuideMenuController`) of Home, Library,
-Devices and Settings with a power button in the corner (the stores are not entries; Library has them), Devices is a page with
+Devices, Downloads (`downloads-page.md`) and Settings with a power button in the corner (the stores are not entries; Library has them), Devices is a page with
 Bluetooth, Controllers, Audio output and Display tabs (`app::DevicesController`), and Guide + A
 (Ctrl+Tab on a keyboard) opens a right quick menu (`app::QuickMenuController`). The title pill is
 hidden over Settings, Devices and the details page by one rule (`ui::Shell::pillTitle`). The

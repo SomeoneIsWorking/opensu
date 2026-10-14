@@ -285,6 +285,15 @@ It needs a C compiler, for its xdelta3 extension. A game with a Linux build is d
 that build; otherwise the Windows build is downloaded and run with `wine`. Games land in
 `$XDG_DATA_HOME/opensu/gog-games/<id>/`.
 
+## Downloads
+
+Guide › Downloads lists every download openSU knows of: Steam's queue (its updates too), the Epic,
+GOG or Steam install started from openSU, and an emulator or core download, each with its progress
+and state. Steam's downloads can be paused and resumed (the whole queue, as in Steam), started
+now, moved and removed; the others can be cancelled. Finished downloads stay listed until openSU
+quits. A click on the Steam badge in the top bar while it shows a download's progress ring opens it
+too.
+
 ## Controls
 
 | Input | Action |
@@ -302,7 +311,7 @@ that build; otherwise the Windows build is downloaded and run with `wine`. Games
 | Hold Guide (or any chord's held button) | After half a second, a list of that button's chords, also over a game in session mode; it goes when you let go or play a chord |
 
 Chords are set on Settings › Guide chords: Quick menu, the volume, Close game, Save state, Load
-state, Reset game, Devices and Home. Hold any button and press another to set one. A chord's buttons
+state, Reset game, Devices, Downloads and Home. Hold any button and press another to set one. A chord's buttons
 never reach the game. The held button still works on its own: tapped (released within 500 ms with
 no chord) it reaches the game as that button; held longer it shows its chords and, released alone,
 does nothing, and pressed with a button that is no chord it reaches the game before that button.

@@ -96,8 +96,8 @@ class Hud {
     void setLauncherHover(std::optional<library::Source> source) noexcept {
         launcherHover_ = source;
     }
-    /// The launcher whose badge is under the point, from the geometry the top bar paints at.
-    [[nodiscard]] std::optional<library::Source> launcherAt(float x, float y) const;
+    /// The badge under the point, from the geometry the top bar paints at, or null.
+    [[nodiscard]] const LauncherBadge* launcherAt(float x, float y) const;
     void setToast(std::string text, bool isError, Clock::time_point now);
     /// Clears a toast whose time is up.
     void tick(Clock::time_point now);

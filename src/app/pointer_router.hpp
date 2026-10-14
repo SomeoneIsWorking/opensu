@@ -44,6 +44,8 @@ class PointerHost {
     virtual void activateSection(library::Section section) = 0;
     /// A click on a launcher's badge in the top bar.
     virtual void selectLauncher(library::Source source) = 0;
+    /// A click on a launcher's badge that shows a download: the Downloads page.
+    virtual void openDownloads() = 0;
     /// A click on a level of the breadcrumb trail: go back to it.
     virtual void activateCrumb(std::size_t index) = 0;
     /// A click on a slider's track (the icon size, a page or quick menu slider) at `level`.

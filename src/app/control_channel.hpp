@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,18 @@
 #include "sign_in.hpp"
 
 namespace opensu::app {
+
+/// One download as `/state` lists it.
+struct DownloadLine {
+    std::string key{};
+    std::string title{};
+    std::string source{};
+    /// queued, downloading, paused, installing, finished, failed or cancelled.
+    std::string state{};
+    std::optional<int> percent{};
+
+    bool operator==(const DownloadLine&) const = default;
+};
 
 /// The shell's state as of the last frame, published so any thread can read it.
 struct ShellSnapshot {
@@ -83,6 +96,9 @@ struct ShellSnapshot {
     /// Whether the Devices page is open, and which tab it shows.
     bool devicesOpen{false};
     std::string devicesTab;
+    /// Whether the Downloads page is open, and every download it lists, in its order.
+    bool downloadsOpen{false};
+    std::vector<DownloadLine> downloads{};
     /// The Steam client's state: stopped, initializing, ready, failed or blocked.
     std::string steam{"stopped"};
     /// The launcher badges, as `steam=ready epic=failed`.

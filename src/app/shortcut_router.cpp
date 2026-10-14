@@ -51,6 +51,9 @@ void ShortcutRouter::perform(input::Action action) {
     case Action::Home:
         hooks_.goHome();
         break;
+    case Action::Downloads:
+        hooks_.openDownloads();
+        break;
     // The button actions come out as pad events in route.
     case Action::Up:
     case Action::Down:

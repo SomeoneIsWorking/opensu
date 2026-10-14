@@ -1,30 +1,69 @@
 # Downloads page: active downloads and their progress
 
-Status: open.
+Status: partial. Built and verified by unit tests, a hidden run and the `downloads` parity scene
+against stand-ins; real Steam pause, resume, reorder and remove, and a real Epic or GOG cancel, have
+not been seen.
 
 Requested: "downloads menu showing active downloads and progess".
 
-## Current state
+## Decisions
 
-- **Steam:** `steam/downloads:DownloadQueue` reads `SteamClient.Downloads` items and overview once a
-  second through DevTools. `steam::Download` carries app id, progress, active, paused,
-  installing-or-update and seconds left. `steam/client:Client::downloads()` exposes the last read.
-  It is used for the Steam badge's progress ring (`app/launcher_status:launcherBadges`) and for the
-  `Updating · N%` launch gate (`launch/handoff.cpp`, `Client::updateProgress`). No screen lists the
-  queue.
-- **Epic, GOG and Steam installs started from openSU:** `app/installs:Installs` runs one install at
-  a time.
-  - `InstallJob::take` hands out the latest report once.
-  - `app/panel_flow:PanelFlow::service` consumes it for the launch panel. B hides the panel (`{"B",
-    "Hide"}`), after which the progress is invisible until the success or failure toast.
-  - There is no cancel. `InstallJob` stops its thread only in `halt()` at destruction, although
-    `CliInstallJob::run` already passes a `stop_token` to `launch::runStreaming`.
-  - There is no queue: a second install is refused while one runs.
-- **Emulators and cores:** `app/emulator_downloads:EmulatorDownloads` runs one download at a time,
-  with `progress()` (bytes received and total) and `cancel(id)`. Progress shows on the details page
-  and in Settings › Emulators.
-- **Artwork:** `artwork/artwork_fetcher` queues per-game stages (`stageOf`). It is background work
-  and is not presented as downloads.
+- Epic and GOG installs stay one at a time; a second is refused while one runs, as before.
+- Finished, failed and cancelled downloads stay listed, latest first, until openSU quits.
+
+## Behaviour
+
+- One page lists every download openSU knows of: Steam's queue (its own auto-updates included),
+  the store install openSU runs (Epic, GOG, Steam's install wizard) and the emulator or core
+  download. Each row shows the title, the source, the state (Queued, Downloading, Paused,
+  Installing, Finished, Failed, Cancelled), the figures the owner gives (percent; bytes and rate
+  for Steam and emulators; time left for Steam), a progress bar while measured, and its buttons.
+- Order: downloading and installing, then paused, then queued in Steam's order, then the ended
+  ones, latest first. "No downloads" when empty.
+- Buttons, by owner:
+  - Steam, the active download: Pause (pauses Steam's queue, as Steam's own button does).
+  - Steam, the paused head: Resume, Remove. A paused download out of the queue: Download now,
+    Remove.
+  - Steam, queued: Download now, Move up (from place 2 on), Move down (not the last), Remove.
+  - Epic, GOG, Steam's wizard before Steam queues the download, an emulator or core: Cancel.
+  - Ended rows have none.
+- Up and Down move between rows, Left and Right between a row's buttons, A presses, B closes. A
+  click focuses a row or presses a button.
+- Entry points: the Guide menu's Downloads row (home and over a game), a click on a launcher badge
+  showing a progress ring, and the Downloads chord action (no chord by default; Settings › Guide
+  chords binds one).
+- `/state` has `downloadsOpen` and `downloads`, one `{key, title, source, state, percent}` per row.
+
+## Steam's own calls
+
+From Steam's downloads page (`~/.steam/steam/steamui/chunk~2dcc5aaf7.js`), with this machine's
+client id "0":
+
+- Pause and resume are `SteamClient.Downloads.EnableAllDownloads(false|true, "0")`; the page has
+  no per-item pause for the active download. `PauseAppUpdate` is what a drag out of the queue
+  calls, not the pause button, so the earlier proposal to pause with it was wrong.
+- Download now / Move to top is `ResumeAppUpdate(appid, "0")`; a drag within the queue is
+  `SetQueueIndex(appid, index, "0")`.
+- Remove is `RemoveFromDownloadList(appid, "0")`; removing the paused head (`queue_index` 0 while
+  the overview is paused) then resumes the queue. The page hides Remove on the active download.
+- Bytes are `update_type_info[k].progress[2].bytes_in_progress/bytes_total` summed per item (stage
+  2 is the transfer); the active download's live bytes, `update_network_bytes_per_second` and
+  `update_state` come from the overview.
+
+## Owners
+
+- `steam/downloads:parseDownloads` reads `queue_index`, bytes, rate and `update_state`.
+- `steam/download_control:DownloadControl` makes the calls above; app ids must be numeric.
+- `app/install_job:InstallJob::status()` and `cancel()`: a non-consuming state per start and a stop
+  that ends the job with a cancelled report (the store's process is stopped through its
+  `stop_token`). `app/installs:Installs::status()` and `cancel()` forward them.
+- `app/emulator_downloads:EmulatorDownloads::lastFinished()` keeps how the last download ended.
+- `app/downloads_board:DownloadsBoard` merges the sources each frame into rows, states, order and
+  actions. Pure.
+- `app/downloads_controller:DownloadsController` feeds the board, runs a pressed button on the
+  row's owner (Steam calls on a worker, one at a time) and fills the page.
+- `ui/downloads_page`, `ui/downloads_page_painter`, `ui/downloads_panel`: the page's state and
+  geometry, its drawing, and its fade and pointer targets.
 
 ## iiSU reference
 
@@ -41,56 +80,26 @@ iiSU has no Downloads screen. Background work appears as Active Tasks:
 openSU dropped the bell and the R2 overlay (project-state baseline), so the page is openSU's own.
 It follows iiSU's content: one row per task with its title, progress and a cancel.
 
-## Gap
-
-No screen aggregates downloads. Epic, GOG and Steam-wizard installs cannot be watched once the panel
-is hidden, and cannot be cancelled. Steam's queue cannot be paused, resumed, reordered or removed
-from openSU. The install job hands its state out once, so a second reader cannot see it.
-
-## Proposed owners and design
-
-1. `app/install_job`: add `status()`, a non-consuming snapshot (title, line, fraction, state), and
-   `cancel()`, which requests the thread's stop. `CliInstallJob` already stops on its token. Steam's
-   job cancels the wizard or removes the download (see 3). `Installs` forwards both.
-   `PanelFlow` keeps using `take`.
-2. Queue (optional, see the open questions): `Installs` holds a FIFO of pending games and starts
-   the next when one finishes. This matches Steam's own queue, which openSU then only mirrors.
-3. `steam/download_control.*` (new, beside `steam/downloads`): `pause`, `resume`, `remove` and
-   `moveToTop` through `SteamClient.Downloads.PauseAppUpdate(appId, clientId)`, `ResumeAppUpdate`,
-   `RemoveFromDownloadList` and `SetQueueIndex`. These are the calls Steam's own downloads page
-   makes (`~/.steam/steam/steamui/chunk~2dcc5aaf7.js`). Also `EnableAllDownloads(bool)` for
-   pause all.
-4. `app/downloads_board.*` (the model, no UI) builds one list of `DownloadRow` values each frame
-   from the sources:
-   - `Client::downloads()`, with titles from the catalog by app id. This includes Steam's
-     auto-updates and queued and paused items.
-   - `Installs::status()`.
-   - `EmulatorDownloads::progress()`.
-
-   Each `DownloadRow` holds source, game id, title, kind (install, update, emulator, core), state
-   (active, queued, paused, failed), fraction, bytes and seconds left. Artwork is not listed.
-5. `ui/downloads_page.*` and its painter: a `ui/page_panel` page like Devices. Each row shows cover,
-   title, store badge, a bar with percent and time left, and A for the row's actions (pause/resume
-   and move to top for Steam; cancel for all). An empty state says "No downloads". The controller
-   is `app/downloads_controller.*`.
-6. Entry points:
-   - a "Downloads" row in the Guide menu (`ui/guide_menu` `GuideAction::Downloads`, home and in
-     game);
-   - a click on a launcher badge that shows a progress ring;
-   - the `Downloads` chord action (`guide-chord-configuration.md`).
-
-   `/state` adds a `downloads` array for the control channel.
-
 ## Tests
 
-- `downloads_board` against fakes of each source.
-- `install_job` cancel for the CLI jobs (a stub `legendary` killed mid-run leaves no record).
-- `download_control` against `tests/support/fake_steam.hpp`.
-- `downloads_controller` rows and actions.
-- A hidden-run capture under `scratch/downloads-page/`.
+- `steam_devtools`: the new fields parsed; each `DownloadControl` expression exact against
+  `tests/support/fake_steam.hpp`, removing the paused head resumes, a bad app id asks nothing.
+- `install_job`: cancel while asking for a licence, a stub `legendary` cancelled mid-download ends
+  cancelled (not failed) and its process is gone, cancel through `Installs`.
+- `downloads_board`: merging, order, state mapping, Steam actions, install endings, the Steam
+  wizard joining its queue row, Steam unreadable, removal, emulator endings.
+- `downloads_controller`: Cancel reaches `Installs` (stub `legendary`) and `EmulatorDownloads`
+  (fake release host); each Steam button sends its call to a fake Steam; a refused call is told.
+- `downloads_page`, `control_channel`, `breadcrumb_trail`, the Guide menu, shortcut and pointer
+  tests.
+- Parity scene `downloads` (`tools/screenshots`, `--parity`): a run of its own with a stand-in
+  `legendary` whose install logs 42% and waits.
 
-## Open questions
+## Not done
 
-- Should Epic and GOG installs queue (proposed), or stay one at a time with a refusal?
-- Should finished downloads stay listed as a history for the session, like iiSU's notification
-  history, or disappear when done?
+- No cover art or store badge on a row; the source is text.
+- Epic and GOG rows show percent only: legendary's and gogdl's byte and ETA figures are not parsed.
+- A tile has no progress badge, so the badge entry point is the launcher badge's ring; A cannot
+  reach the top bar's badges.
+- Unverified: Steam's buttons against a real Steam client, a real Epic or GOG cancel, the page over
+  a game in Gamescope.

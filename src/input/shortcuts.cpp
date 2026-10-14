@@ -47,6 +47,7 @@ constexpr std::array<ActionInfo, allActions.size()> infos{{
     {Action::ResetGame, "resetGame", "Reset game", Button::None, true, true},
     {Action::Devices, "devices", "Devices", Button::None, true, true},
     {Action::Home, "home", "Home", Button::None, true, true},
+    {Action::Downloads, "downloads", "Downloads", Button::None, true, true},
 }};
 
 static_assert(std::ranges::all_of(allActions,

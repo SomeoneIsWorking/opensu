@@ -19,6 +19,7 @@
 
 #include "desktop_steam.hpp"
 #include "devtools.hpp"
+#include "download_control.hpp"
 #include "downloads.hpp"
 #include "install_wizard.hpp"
 #include "launch/instance.hpp"
@@ -69,6 +70,10 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] Libraries& libraries() noexcept {
         return libraries_;
     }
+    /// Pausing, resuming, reordering and removing Steam's downloads, through the running client.
+    [[nodiscard]] DownloadControl& downloadControl() noexcept {
+        return downloadControl_;
+    }
     /// True once the app's manifest says it is fully installed with no update pending.
     [[nodiscard]] bool installed(std::string_view appId) const;
     /// Steam's unfinished downloads as last read, at most a second old while Steam is ready.
@@ -105,6 +110,7 @@ class Client final : public launch::SteamGate {
     InstallWizard installer_{devTools_};
     LaunchActivity launches_{devTools_};
     Libraries libraries_{devTools_};
+    DownloadControl downloadControl_{devTools_};
 
     mutable std::mutex mutex_;
     std::condition_variable changed_;

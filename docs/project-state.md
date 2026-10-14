@@ -113,7 +113,7 @@ game has been observed running yet.
 | S020 | Settings screen with every user-meaningful preference, mouse, keyboard and pad | partial | S005 | G002 |
 | S021 | Install folders: one default plus Steam, Epic and GOG overrides from one resolver | partial | S020 | G001 |
 | S022 | PC volume and mute, volume overlay, remappable shortcut chords (game actions, Guide chords page, chords kept from the game), interface scale | partial | S020 | G002, G003 |
-| S023 | Guide menu (Home, Library, Devices, Settings, power button) over the home screen and a running game | partial | S020 | G002, G003 |
+| S023 | Guide menu (Home, Library, Devices, Downloads, Settings, power button) over the home screen and a running game | partial | S020 | G002, G003 |
 | S024 | Devices page: Bluetooth, controllers, audio output, display | partial | S023 | G002, G003 |
 | S025 | Quick menu on Guide + A over the home screen and a running game | partial | S024 | G002, G003 |
 | S026 | Emulator catalog, official AppImage download, update and removal, emulator per system | partial | S008, S020 | G001 |
@@ -125,7 +125,7 @@ game has been observed running yet.
 | S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the quick menu, crash and load-failure toasts | partial | S003 | G001 |
 | S033 | Button mappings per game and per emulator (shared by its games), with game chords (`docs/issues/per-game-button-mappings.md`) | missing | S003, S022 | G003 |
 | S034 | Holding a chord modifier shows its chords, over a game too (`docs/issues/chord-hold-overlay.md`) | partial | S022 | G003 |
-| S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | missing | S016, S026 | G001 |
+| S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | partial | S016, S026 | G001 |
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | missing | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | missing | S006, S007, S016 | G001 |
 
@@ -813,8 +813,8 @@ a real Steam launch is not yet exercised.
 
 Guide (a tap on the pad's Guide button, which comes out on release so Guide + A can be a chord, or
 Shift+Tab, Steam's overlay key, read by `session::GameKeys` over a game) opens a menu down the
-left edge: Home, Library, Devices and Settings outside a game; Resume, Close game, Devices and
-Settings over one. The stores are in Library, not here. Power is a power icon at the left end
+left edge: Home, Library, Devices, Downloads and Settings outside a game; Resume, Close game,
+Devices, Downloads and Settings over one. The stores are in Library, not here. Power is a power icon at the left end
 of the bottom row, with the A and B hints stacked at its right end: Down past the last row focuses
 it, Up returns, a click or A opens the power list
 (Sleep, Restart, Shut down, Install session mode or Switch to session mode, Quit to desktop).
@@ -1007,8 +1007,8 @@ shows the install command in the Audio page.
 Chords: `input/shortcuts` is the one table (defaults Shift+Tab Guide, Ctrl+Up/Down/M volume, Q quit,
 Guide+A quick menu, Guide+Up/Down/Left for volume on a pad), remapped on the Controls page with
 conflict refusal and saved. Esc cannot be captured. Pad chords take any button as the held one and
-can do the quick menu, the volume, Close game, Save state, Load state, Reset game, Devices and Home
-(`docs/issues/guide-chord-configuration.md`); Settings › Guide chords lists them. One rule
+can do the quick menu, the volume, Close game, Save state, Load state, Reset game, Devices, Downloads
+and Home (`docs/issues/guide-chord-configuration.md`); Settings › Guide chords lists them. One rule
 (`gamepad/chord_gate`) serves the shell and the game: a chord's buttons never reach the game, and a
 modifier tapped under 500 ms still reaches it as that button. Analogue triggers are L2/R2. Verified
 by unit tests (uinput `pads_test` included) and a hidden run that bound Guide + B to Devices on the
@@ -1030,7 +1030,21 @@ over a real game in Gamescope and on a real pad. Outside Gamescope it is not sho
 
 Unverified: live Steam, real Epic and GOG installs, volume writes on a real device, pad chords on
 hardware (analogue triggers, chords over a game, a replayed tap in a polling game), the in-game X11
-path outside Xvfb, media keys. Missing: Downloads as a chord action.
+path outside Xvfb, media keys.
+
+### S035 — Downloads page
+
+One page (Guide › Downloads, a click on a launcher badge's progress ring, or the Downloads chord
+action, unbound by default) lists Steam's queue, the store install openSU runs and the emulator or
+core download, with state, progress, figures and the buttons each owner allows: Pause, Resume,
+Download now, Move up, Move down and Remove for Steam through `SteamClient.Downloads` (the calls
+Steam's own downloads page makes), Cancel for Epic, GOG, Steam's install wizard and emulator
+downloads. Ended downloads stay listed until openSU quits; Epic and GOG installs stay one at a
+time. `/state` lists the rows. Verified by unit tests through the shipping owners (stub
+`legendary`, fake release host, fake Steam DevTools), a hidden run and the `downloads` parity
+scene. Unverified: Steam's buttons against a real Steam client, a real Epic or GOG cancel, the page
+over a game in Gamescope. Not done: cover art on rows, Epic and GOG bytes and time left. Details
+in `docs/issues/downloads-page.md`.
 
 ### S026 — Emulator downloads
 

@@ -492,6 +492,7 @@ void Shell::tick(Clock::time_point now) {
     settings_.tick(now_);
     session_.tick(now_);
     devices_.tick(now_);
+    downloads_.tick(now_);
     volumeOsd_.tick(now_);
     railFocus_.step(dt);
     if (layout_.mode() == ScrollMode::Flow) {
@@ -549,7 +550,7 @@ std::string Shell::focusedTitle() const {
 
 std::string Shell::pillTitle() const {
     // The grid names its focused tile; a page that replaces the grid names itself in the trail.
-    const bool page = details_.isOpen() || settings_.anyOpen() || devices_.isOpen();
+    const bool page = details_.isOpen() || settings_.anyOpen() || menuPageOpen();
     return presentation() == Presentation::Grid && !page ? focusedTitle() : std::string{};
 }
 
@@ -757,7 +758,7 @@ PointerTarget Shell::pointAt(std::optional<Point> point) {
         return {};
     }
     if (!inGame_ && !launchPanel_.isOpen() &&
-        (!panelOpen() || details_.isOpen() || settings_.onlyPage() || devices_.isOpen()) &&
+        (!panelOpen() || details_.isOpen() || settings_.onlyPage() || menuPageOpen()) &&
         !guide_.anyOpen()) {
         if (const std::optional<std::size_t> crumb = hud_.crumbAt(point->x, point->y)) {
             hud_.setCrumbHover(crumb);
@@ -767,9 +768,9 @@ PointerTarget Shell::pointAt(std::optional<Point> point) {
     if (inGame_ || launchPanel_.isOpen() || panelOpen()) {
         return pointAtModal(*point);
     }
-    if (const std::optional<library::Source> launcher = hud_.launcherAt(point->x, point->y)) {
-        hud_.setLauncherHover(launcher);
-        return OnLauncher{*launcher};
+    if (const LauncherBadge* badge = hud_.launcherAt(point->x, point->y)) {
+        hud_.setLauncherHover(badge->source);
+        return OnLauncher{badge->source, badge->progress.has_value()};
     }
     const DockFrame frame = dockFrame(static_cast<float>(width_), static_cast<float>(height_));
     if (onRestingDock(frame.layout, point->x, point->y)) {
@@ -793,7 +794,7 @@ PointerTarget Shell::pointAtModal(Point point) const {
     if (guide_.anyOpen()) {
         return guide_.pointAt(point, Point{width, height}, dp());
     }
-    if (inGame_ && !settings_.anyOpen() && !devices_.isOpen()) {
+    if (inGame_ && !settings_.anyOpen() && !menuPageOpen()) {
         return {};
     }
     if (launchPanel_.isOpen()) {
@@ -815,6 +816,10 @@ PointerTarget Shell::pointAtModal(Point point) const {
     if (devices_.isOpen()) {
         return devices_.pointAt(point, Point{width, height}, dp(), hud_.topInset(),
                                 hud_.bottomInset());
+    }
+    if (downloads_.isOpen()) {
+        return downloads_.pointAt(point, Point{width, height}, dp(), hud_.topInset(),
+                                  hud_.bottomInset());
     }
     if (details_.isOpen()) {
         if (const std::optional<std::size_t> button = detailsLayout().buttonAt(point.x, point.y)) {
@@ -932,6 +937,9 @@ bool Shell::focusTarget(const PointerTarget& target) {
                                  std::is_same_v<Target, OnQuickRow> ||
                                  std::is_same_v<Target, OnQuickSlider>) {
                 return guide_.focusTarget(at);
+            } else if constexpr (std::is_same_v<Target, OnDownloadRow> ||
+                                 std::is_same_v<Target, OnDownloadAction>) {
+                return downloads_.focusTarget(at);
             } else if constexpr (std::is_same_v<Target, OnSearchResult>) {
                 return search_.focusResult(at.index);
             } else if constexpr (std::is_same_v<Target, OnContextItem>) {
@@ -968,7 +976,7 @@ void Shell::drawDock(Canvas& canvas, const gpu2d::RenderTarget& scene, const Doc
 
 void Shell::drawScene(Canvas& canvas) {
     hud_.drawGround(canvas);
-    const bool settingsShown = settings_.pageVisible(now_) || devices_.visible(now_);
+    const bool settingsShown = settings_.pageVisible(now_) || menuPageVisible();
     const bool detailsShown = detailsFade_.visible(now_);
     if (presentation() == Presentation::Grid) {
         drawGrid(canvas);
@@ -992,12 +1000,13 @@ void Shell::drawScene(Canvas& canvas) {
 void Shell::drawPages(Canvas& canvas, Point size) {
     settings_.drawPage(canvas, size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
     devices_.draw(canvas, size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
+    downloads_.draw(canvas, size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
 }
 
 void Shell::drawOverGame(Canvas& canvas, Point size) {
     // Only what the Guide menus open is drawn; the game shows through everywhere else.
     drawPages(canvas, size);
-    if (settings_.pageVisible(now_) || devices_.visible(now_)) {
+    if (settings_.pageVisible(now_) || menuPageVisible()) {
         hud_.drawTopBar(canvas);
         hud_.drawHints(canvas);
     }
@@ -1036,7 +1045,7 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     const gpu2d::Rect whole{0.0f, 0.0f, static_cast<float>(scene.width()),
                             static_cast<float>(scene.height())};
     canvas.image(scene.view(gpu2d::Filter::Nearest), whole, whole, white);
-    if (!detailsFade_.visible(now_) && !settings_.pageVisible(now_) && !devices_.visible(now_)) {
+    if (!detailsFade_.visible(now_) && !settings_.pageVisible(now_) && !menuPageVisible()) {
         drawDock(canvas, scene, dockFrame(size.x, size.y));
     }
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();

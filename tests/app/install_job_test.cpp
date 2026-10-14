@@ -119,6 +119,58 @@ void testStoppedJob() {
     expect(true, "a job waiting on the player is stopped and joined when it goes");
 }
 
+/// The job's state, which it has once started.
+InstallJob::Status statusOf(const InstallJob& job) {
+    const std::optional<InstallJob::Status> status = job.status();
+    if (!status) {
+        std::fprintf(stderr, "FAIL: a started job has a state\n");
+        std::exit(1);
+    }
+    return *status;
+}
+
+/// Takes reports until the job's state reaches `phase`.
+bool reaches(InstallJob& job, InstallJob::Phase phase) {
+    const Clock::time_point until = Clock::now() + std::chrono::seconds{20};
+    while (Clock::now() < until) {
+        const std::optional<InstallJob::Status> status = job.status();
+        if (status && status->phase == phase) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    return false;
+}
+
+void testCancelWhileAsking() {
+    Asking job;
+    expect(!job.status(), "a job never started has no state");
+    job.cancel();
+    expect(!job.running() && !job.take(), "cancelling an idle job does nothing");
+
+    expect(job.start("game", "A Game"), "it starts");
+    expect(reaches(job, InstallJob::Phase::Licence), "it waits on the licence");
+    const std::optional<InstallJob::Status> asking = job.status();
+    expect(asking && asking->serial == 1 && asking->appId == "game" && asking->title == "A Game" &&
+               asking->line == "asking about game",
+           "the state names the install and its latest line");
+    job.cancel();
+    const std::vector<InstallJob::Report> reports = drain(job);
+    expect(reports.back().finished && reports.back().cancelled && reports.back().failure.empty(),
+           "a cancelled job ends with a cancelled report");
+    expect(statusOf(job).phase == InstallJob::Phase::Cancelled && !job.running(),
+           "and stays cancelled once it is over");
+    job.cancel();
+    expect(!job.take(), "cancelling an ended job does nothing");
+
+    expect(job.start("next", "Next"), "a cancelled job starts again");
+    expect(statusOf(job).serial == 2 && statusOf(job).phase == InstallJob::Phase::Running,
+           "a new start is a new install");
+    job.decide(true);
+    expect(drain(job).back().failure.empty() && statusOf(job).phase == InstallJob::Phase::Installed,
+           "the next install is not cancelled");
+}
+
 fs::path writeStub(const fs::path& path, const std::string& body) {
     fs::create_directories(path.parent_path());
     std::ofstream{path} << "#!/bin/sh\n" << body;
@@ -219,6 +271,33 @@ exit 1
     }
     expect(Clock::now() - began < std::chrono::seconds{10},
            "a job going away does not wait for legendary");
+
+    // The player cancels a download legendary is in the middle of.
+    const fs::path busy = writeStub(
+        dir / "legendary-busy",
+        R"(echo "[DLManager] INFO: = Progress: 42.00% (42/100), Running for 00:00:10, ETA: 00:00:14" >&2
+echo $$ > ')" +
+            (dir / "busy-pid").string() + R"('
+sleep 60
+)");
+    EpicInstallJob cancelled{busy.string()};
+    const Clock::time_point asked = Clock::now();
+    expect(cancelled.start("Game", "Game"), "a long Epic install starts");
+    const Clock::time_point until = Clock::now() + std::chrono::seconds{20};
+    while (!(statusOf(cancelled).fraction && fs::exists(dir / "busy-pid")) &&
+           Clock::now() < until) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    expect(statusOf(cancelled).fraction == 0.42, "the state carries legendary's progress");
+    cancelled.cancel();
+    const InstallJob::Report end = drain(cancelled).back();
+    expect(end.cancelled && end.failure.empty() &&
+               statusOf(cancelled).phase == InstallJob::Phase::Cancelled,
+           "a cancelled Epic install ends cancelled, not failed");
+    expect(Clock::now() - asked < std::chrono::seconds{10},
+           "the cancel does not wait for legendary");
+    const std::string pid = firstLine(dir / "busy-pid");
+    expect(!pid.empty() && !fs::exists("/proc/" + pid), "legendary is stopped");
 }
 
 /// A fake gogdl whose `download` records its arguments and the auth file's mode, makes a game
@@ -389,6 +468,29 @@ void testInstalls(const fs::path& dir) {
     }
     expect(finished && !installs.running(), "the report comes through the router");
     expect(installs.title() == "Fortnite", "the title outlives the install");
+    const std::optional<Installs::Status> epicEnd = installs.status();
+    expect(epicEnd && epicEnd->store == Source::Epic && epicEnd->job.appId == "Fortnite" &&
+               epicEnd->job.phase == InstallJob::Phase::Installed,
+           "the last install's store and state outlive it");
+
+    // A cancel reaches the store's job that runs.
+    expect(installs.start(epic), "another Epic install starts");
+    installs.cancel();
+    std::optional<InstallJob::Report> cancelledEnd;
+    const Clock::time_point cancelUntil = Clock::now() + std::chrono::seconds{20};
+    while ((!cancelledEnd || !cancelledEnd->finished) && Clock::now() < cancelUntil) {
+        if (std::optional<InstallJob::Report> report = installs.take()) {
+            cancelledEnd = report;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds{2});
+    }
+    const std::optional<Installs::Status> afterCancel = installs.status();
+    expect(cancelledEnd && cancelledEnd->cancelled && afterCancel &&
+               afterCancel->job.phase == InstallJob::Phase::Cancelled &&
+               afterCancel->job.serial == epicEnd->job.serial + 1,
+           "the running install is cancelled through the router");
+    installs.cancel();
+    expect(!installs.running(), "a cancel with nothing running does nothing");
 
     // The listing's builds reach the GOG job: with one the install goes on to need a sign-in.
     opensu::library::Game gog = epic;
@@ -449,6 +551,7 @@ int main() {
     fs::remove_all(dir);
     testJobLifecycle();
     testStoppedJob();
+    testCancelWhileAsking();
     testEpic(dir);
     testGog(dir);
     testInstalls(dir);

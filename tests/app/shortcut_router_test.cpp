@@ -50,6 +50,10 @@ struct Rig {
                                                 [this] {
                                                     ++homes;
                                                 },
+                                            .openDownloads =
+                                                [this] {
+                                                    ++downloads;
+                                                },
                                             .say =
                                                 [this](const std::string& text, bool error) {
                                                     said.emplace_back(text, error);
@@ -66,6 +70,7 @@ struct Rig {
     int closed{0};
     int devices{0};
     int homes{0};
+    int downloads{0};
     std::vector<std::pair<std::string, bool>> said;
 };
 
@@ -117,6 +122,13 @@ void gameActionsTakeChords() {
     expect(rig.devices == 1, "Guide + B opens Devices");
     chord(rig, Button::R3, Button::A);
     expect(rig.homes == 1, "R3 + A goes home");
+    expect(!rig.shortcuts.padChord(input::Action::Downloads) &&
+               rig.shortcuts
+                   .rebind(input::Action::Downloads, input::PadChord{Button::Guide, Button::R1})
+                   .empty(),
+           "Downloads ships with no chord and takes one");
+    chord(rig, Button::Guide, Button::R1);
+    expect(rig.downloads == 1, "Guide + R1 opens Downloads");
     chord(rig, Button::Guide, Button::X);
     expect(rig.closed == 0 &&
                rig.said.back() == std::pair<std::string, bool>{"no game is running", true},

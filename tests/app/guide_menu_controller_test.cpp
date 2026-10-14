@@ -27,6 +27,9 @@ struct Rig {
                              calls.emplace_back("devices");
                          },
                          [this] {
+                             calls.emplace_back("downloads");
+                         },
+                         [this] {
                              calls.emplace_back("settings");
                          },
                          [this] {
@@ -81,11 +84,12 @@ void entriesFollowWhereTheShellIs() {
     for (const ui::GuideEntry& entry : home.menu.entries()) {
         labels.push_back(entry.label);
     }
-    expect(labels == std::vector<std::string>{"Home", "Library", "Devices", "Settings"},
-           "home lists sections, devices and settings");
+    expect(labels ==
+               std::vector<std::string>{"Home", "Library", "Devices", "Downloads", "Settings"},
+           "home lists sections, devices, downloads and settings");
     Rig game{true};
     game.controller.open();
-    expect(game.menu.entries().size() == 4, "a running game lists four entries");
+    expect(game.menu.entries().size() == 5, "a running game lists five entries");
     expect(game.menu.entries().front().action == ui::GuideAction::Resume &&
                game.menu.entries()[1].action == ui::GuideAction::CloseGame,
            "a running game gets Resume and Close game first");
@@ -98,8 +102,10 @@ void entriesReachTheirHooks() {
     rig.controller.open();
     rig.choose("Devices");
     rig.controller.open();
+    rig.choose("Downloads");
+    rig.controller.open();
     rig.choose("Settings");
-    expect(rig.calls == std::vector<std::string>{"library", "devices", "settings"},
+    expect(rig.calls == std::vector<std::string>{"library", "devices", "downloads", "settings"},
            "each entry reaches its hook");
     expect(!rig.menu.isOpen(), "choosing closes the menu");
 }

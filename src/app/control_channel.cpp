@@ -159,6 +159,20 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     flag("quickMenuOpen", snapshot.quickMenuOpen);
     flag("devicesOpen", snapshot.devicesOpen);
     text("devicesTab", snapshot.devicesTab);
+    flag("downloadsOpen", snapshot.downloadsOpen);
+    out.append("\"downloads\":[");
+    for (std::size_t i = 0; i < snapshot.downloads.size(); ++i) {
+        const DownloadLine& line = snapshot.downloads[i];
+        out.append(i == 0 ? "{" : ",{");
+        text("key", line.key);
+        text("title", line.title);
+        text("source", line.source);
+        text("state", line.state);
+        out.append("\"percent\":")
+            .append(line.percent ? std::to_string(*line.percent) : std::string{"null"})
+            .append("}");
+    }
+    out.append("],");
     text("steam", snapshot.steam);
     text("launchers", snapshot.launchers);
     text("inputDevice", snapshot.inputDevice, true);
