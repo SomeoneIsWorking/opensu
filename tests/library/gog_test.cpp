@@ -287,12 +287,12 @@ void testLibrary() {
                 (std::vector<std::string>{"launch", (dir / "gog-games/1207658930/Alpha").string(),
                                           "1207658930", "--platform", "linux"}),
         "a Linux install launches through gogdl");
-    expect(installed[1].installed &&
+    expect(!installed[0].windowsInstall, "a Linux install runs without Wine");
+    expect(installed[1].installed && installed[1].windowsInstall &&
                installed[1].launch.args ==
                    (std::vector<std::string>{"launch", (dir / "gog-games/2/Beta").string(), "2",
-                                             "--platform", "windows", "--wine", "wine",
-                                             "--wine-prefix", (dir / "gog-prefixes/2").string()}),
-           "a Windows install launches under Wine in a prefix of its own");
+                                             "--platform", "windows"}),
+           "a Windows install is marked for Wine, which the launch adds");
     expect(gog.buildRequests() == 0 && !installed[0].updateAvailable &&
                !installed[1].updateAvailable,
            "an install whose build is unknown is not checked and shows no update");

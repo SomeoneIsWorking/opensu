@@ -86,9 +86,9 @@ bool SettingsController::changes() const {
 }
 
 std::vector<ui::SettingsCategory> SettingsController::build() const {
-    return {appearancePage(), libraryPage(),  emulators_.page(), steamLibraries_.page(),
-            audioPage(),      controlsPage(), chords_.page(),    installPage(),
-            plugins_.page(),  aboutPage()};
+    return {appearancePage(), libraryPage(),   emulators_.page(), steamLibraries_.page(),
+            audioPage(),      controlsPage(),  chords_.page(),    installPage(),
+            wine_.page(),     plugins_.page(), aboutPage()};
 }
 
 ui::SettingsCategory SettingsController::appearancePage() const {
@@ -249,6 +249,7 @@ ui::SettingsCategory SettingsController::aboutPage() const {
 void SettingsController::open() {
     emulators_.rescan();
     steamLibraries_.reload();
+    wine_.rescan();
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     page_.open(build());
@@ -421,7 +422,8 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
         }
         return;
     }
-    if (EmulatorSettings::owns(id) || SteamLibrarySettings::owns(id) || PluginSettings::owns(id)) {
+    if (EmulatorSettings::owns(id) || SteamLibrarySettings::owns(id) || PluginSettings::owns(id) ||
+        WineSettings::owns(id)) {
         if (focused.kind == RowKind::Info) {
             return;
         }
@@ -430,6 +432,8 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
             emulators_.run(id, step);
         } else if (SteamLibrarySettings::owns(id)) {
             steamLibraries_.run(id, step);
+        } else if (WineSettings::owns(id)) {
+            wine_.run(id, step);
         } else {
             plugins_.run(id, step);
         }

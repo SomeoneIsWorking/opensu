@@ -27,6 +27,7 @@
 #include "steam_library_settings.hpp"
 #include "ui/settings_page.hpp"
 #include "volume_control.hpp"
+#include "wine_settings.hpp"
 
 namespace opensu::app {
 
@@ -60,6 +61,7 @@ class SettingsController {
         PluginSettings& plugins;
         ChordSettings& chords;
         MappingEditor& mappings;
+        WineSettings& wine;
     };
 
     /// `defaults` is the environment's configuration, which the settings override.
@@ -68,8 +70,9 @@ class SettingsController {
         : page_{page}, paths_{services.paths}, shortcutEditor_{services.shortcutEditor},
           volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
           steamLibraries_{services.steamLibraries}, plugins_{services.plugins},
-          chords_{services.chords}, mappings_{services.mappings}, sounds_{sounds},
-          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
+          chords_{services.chords}, mappings_{services.mappings}, wine_{services.wine},
+          sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -127,6 +130,7 @@ class SettingsController {
     PluginSettings& plugins_;
     ChordSettings& chords_;
     MappingEditor& mappings_;
+    WineSettings& wine_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;
     const config::Config& defaults_;

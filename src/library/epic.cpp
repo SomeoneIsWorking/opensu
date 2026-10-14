@@ -168,6 +168,7 @@ std::vector<Game> Provider::list() {
         game.installed = install != installs.end();
         game.updateAvailable = game.installed && updateAvailable(title, install->second);
         game.launch = LaunchSpec{.program = "legendary", .args = {"launch", title.appName}};
+        game.windowsInstall = game.installed && install->second.platform == "Windows";
         if (game.installed && !install->second.installPath.empty()) {
             // The install folder name identifies the running game.
             game.processHint =

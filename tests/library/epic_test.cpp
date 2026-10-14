@@ -94,6 +94,8 @@ void testUpdates(const fs::path& dir) {
     const Game* fruit = find(games, "epic:Fruit");
     expect(fruit != nullptr && fruit->installed && !fruit->updateAvailable,
            "the build compared is the installed platform's, not Windows'");
+    expect(fortnite->windowsInstall && !fruit->windowsInstall,
+           "a Windows install runs under Wine, a Mac one does not");
     const Game* delisted = find(games, "epic:Delisted");
     expect(delisted != nullptr && delisted->installed && !delisted->updateAvailable,
            "no offered build is no update");
@@ -138,6 +140,7 @@ esac
     expect(fortnite->processHint == "Fortnite", "its install folder names its process");
     const Game* owned = find(games, "epic:Owned");
     expect(owned != nullptr && !owned->installed, "an owned title not installed is listed");
+    expect(!owned->windowsInstall, "a title not installed has no Windows install");
     expect(owned->title == "Owned Game", "the title is legendary's app_title");
     expect(owned->launch.args == std::vector<std::string>{"launch", "Owned"},
            "it launches through legendary");

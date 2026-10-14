@@ -31,6 +31,12 @@ target_compile_definitions(epic_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY
     OPENSU_LEGENDARY_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/legendary")
 add_test(NAME epic COMMAND epic_test)
 
+add_executable(wine_test wine_test.cpp)
+target_link_libraries(wine_test PRIVATE opensu::library)
+target_include_directories(wine_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(wine_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME wine COMMAND wine_test)
+
 add_executable(titles_test titles_test.cpp)
 target_link_libraries(titles_test PRIVATE opensu::library)
 add_test(NAME titles COMMAND titles_test)

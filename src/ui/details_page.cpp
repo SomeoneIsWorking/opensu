@@ -98,7 +98,8 @@ const library::EmulatorOption* emulatorToDownload(const library::Game& game) {
 }
 
 DetailsView detailsFor(const library::Game& game, bool hidden,
-                       std::chrono::system_clock::time_point now, const std::string& download) {
+                       std::chrono::system_clock::time_point now, const std::string& download,
+                       bool ownPrefix) {
     DetailsView view;
     view.gameId = game.id;
     view.title = game.title;
@@ -134,6 +135,10 @@ DetailsView detailsFor(const library::Game& game, bool hidden,
     }
     if (rom && game.emulatorOptions.size() > 1) {
         view.buttons.push_back(DetailsButton{DetailsAction::Emulator, "Emulator", game.emulator});
+    }
+    if (game.windowsInstall) {
+        view.buttons.push_back(
+            DetailsButton{DetailsAction::WinePrefix, "Wine prefix", ownPrefix ? "Own" : "Shared"});
     }
     view.buttons.push_back(
         DetailsButton{DetailsAction::Hidden, hidden ? "Show game" : "Hide game", ""});

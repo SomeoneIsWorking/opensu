@@ -15,6 +15,7 @@
 #include "library/library_query.hpp"
 #include "library/play_history.hpp"
 #include "library/sections.hpp"
+#include "library/wine.hpp"
 
 namespace opensu::settings {
 
@@ -81,6 +82,12 @@ struct Settings {
 
     /// Where games install.
     InstallFolders installFolders;
+
+    /// The Wine binary Windows GOG and Epic games run under; the first one found when empty.
+    std::filesystem::path wineRunner;
+
+    /// The games that run in a Wine prefix of their own instead of the shared one.
+    library::wine::OwnPrefixes ownWinePrefixes;
 
     /// How large the interface is drawn, in percent (`minUiScale` to `maxUiScale`).
     int uiScale{defaultUiScale};

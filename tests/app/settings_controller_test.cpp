@@ -103,9 +103,9 @@ struct Rig {
                              ++chordChanges;
                          }},
           controller{page,
-                     app::SettingsController::Services{paths, shortcutEditor, volume, shortcuts,
-                                                       emulatorSettings, steamLibrarySettings,
-                                                       pluginSettings, chordSettings, mappings},
+                     app::SettingsController::Services{
+                         paths, shortcutEditor, volume, shortcuts, emulatorSettings,
+                         steamLibrarySettings, pluginSettings, chordSettings, mappings, wine},
                      sounds,
                      preferences,
                      config,
@@ -271,6 +271,7 @@ struct Rig {
                                       return std::vector<app::MappingEditor::Emulator>{
                                           {"pcsx2", "PCSX2"}, {"mgba", "mGBA"}};
                                   }}};
+    app::WineSettings wine{preferences, config};
     app::SettingsController controller;
 };
 
@@ -284,8 +285,8 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators",
                                              "Steam libraries", "Audio", "Controls", "Guide chords",
-                                             "Install folders", "Plugins", "About"},
-           "the ten categories");
+                                             "Install folders", "Wine", "Plugins", "About"},
+           "the eleven categories");
     expect(rig.controller.category() == "Appearance" && !rig.controller.changes(),
            "opens on Appearance with nothing to change yet");
     rig.enter("Steam libraries");
@@ -848,6 +849,69 @@ void steamLibrariesWhileSteamRuns(const fs::path& root) {
         "a chosen folder is added as a library");
 }
 
+/// Every file under `dir` with its size, to show a folder was only read.
+std::vector<std::string> treeOf(const fs::path& dir) {
+    std::vector<std::string> tree;
+    for (const fs::directory_entry& entry : fs::recursive_directory_iterator{dir}) {
+        tree.push_back(entry.path().string() +
+                       (entry.is_regular_file() ? " " + std::to_string(entry.file_size()) : ""));
+    }
+    std::ranges::sort(tree);
+    return tree;
+}
+
+void wineRunnerIsPicked(const fs::path& root) {
+    Rig rig{root};
+    const auto binary = [](const fs::path& path) {
+        fs::create_directories(path.parent_path());
+        std::ofstream{path} << "#!/bin/sh\n";
+        fs::permissions(path, fs::perms::owner_all);
+        return path;
+    };
+    const fs::path system = binary(root / "bin" / "wine");
+    const fs::path steamRoot = root / "steam";
+    fs::create_directories(steamRoot / "config");
+    const fs::path ge = binary(steamRoot / "compatibilitytools.d/GE-Proton9-20/files/bin/wine");
+    const fs::path proton = binary(steamRoot / "steamapps/common/Proton 9.0/files/bin/wine");
+    rig.config.executablePath = {root / "bin"};
+    rig.config.steamRoots = {steamRoot};
+    const std::vector<std::string> steamBefore = treeOf(steamRoot);
+
+    rig.controller.open();
+    rig.enter("Wine");
+    expect(rig.rowOf("wine.runner").value == "Automatic: System Wine",
+           "the first runner found is the default");
+    expect(rig.rowOf("wine.prefix").value == (root / "data" / "wine-prefix").string(),
+           "one shared prefix under the data folder");
+    expect(rig.rowOf("wine.own").value == "None" &&
+               rig.rowOf("wine.steam").value == "Left to Steam",
+           "no game has its own prefix and Steam is left alone");
+    rig.focus("wine.runner");
+    std::vector<fs::path> picked;
+    for (int press = 0; press < 4; ++press) {
+        rig.controller.act(Button::Right);
+        picked.push_back(rig.onDisk().wineRunner);
+    }
+    expect(picked == std::vector<fs::path>{system, ge, proton, {}},
+           "Right steps through every runner found and back to Automatic, each kept");
+    rig.controller.act(Button::Left);
+    expect(rig.onDisk().wineRunner == proton && rig.rowOf("wine.runner").value == "Proton 9.0",
+           "Left steps back, wrapping");
+    expect(treeOf(steamRoot) == steamBefore, "Steam's folders are only read");
+
+    library::Game game;
+    game.id = "gog:2";
+    game.source = library::Source::Gog;
+    game.sourceId = "2";
+    game.windowsInstall = true;
+    game.launch = library::LaunchSpec{.program = "gogdl", .args = {"launch"}};
+    expect(rig.wine.prepare(game).empty() &&
+               game.launch.args ==
+                   std::vector<std::string>{"launch", "--wine", proton.string(), "--wine-prefix",
+                                            (root / "data" / "wine-prefix").string()},
+           "a launch gets the runner picked here and the shared prefix");
+}
+
 void writeFile(const fs::path& file, const std::string& text) {
     fs::create_directories(file.parent_path());
     std::ofstream{file} << text;
@@ -926,6 +990,7 @@ int main() {
     mappingsAreReachedFromControls(root);
     steamLibrariesWhileSteamRuns(root / "steam");
     pluginsAskBeforeTheyRun(root / "plugins");
+    wineRunnerIsPicked(root / "wine");
     fs::remove_all(root);
     std::printf("settings_controller: all checks passed\n");
     return 0;

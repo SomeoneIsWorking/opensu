@@ -81,11 +81,7 @@ void Provider::applyInstall(Game& game,
     game.launch = LaunchSpec{.program = setup_.gogdl,
                              .args = {"launch", install->second.path.string(), game.sourceId,
                                       "--platform", install->second.platform}};
-    if (install->second.platform == "windows") {
-        game.launch.args.insert(game.launch.args.end(),
-                                {"--wine", setup_.wine, "--wine-prefix",
-                                 (setup_.paths.prefixes / game.sourceId).string()});
-    }
+    game.windowsInstall = install->second.platform == "windows";
     // The install folder name identifies the running game.
     game.processHint = install->second.path.filename().string();
 }

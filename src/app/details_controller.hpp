@@ -1,5 +1,6 @@
 // details_controller — the details page's buttons and what they do: play or install the game,
-// update it, pick its emulator, download the emulator it is missing, hide it, uninstall it (two
+// update it, pick its emulator, download the emulator it is missing, give a Windows install its
+// own Wine prefix or the shared one, hide it, uninstall it (two
 // presses), open its button mapping, go back. Opens for the focused game and keeps what it shows
 // current while the library changes under it.
 #pragma once
@@ -40,7 +41,7 @@ class DetailsController {
     };
 
     DetailsController(ui::DetailsPage& page, audio::SdlSoundPlayer& sounds,
-                      const Preferences& preferences, EmulatorDownloads& downloads,
+                      Preferences& preferences, EmulatorDownloads& downloads,
                       UninstallPrompt& uninstall, UpdateRequest& update, Hooks hooks)
         : page_{page}, sounds_{sounds}, preferences_{preferences}, downloads_{downloads},
           uninstall_{uninstall}, update_{update}, hooks_{std::move(hooks)} {
@@ -62,12 +63,14 @@ class DetailsController {
     void cycleEmulator(const library::Game& game, int delta);
     /// Starts downloading the emulator `game` is missing, or cancels its download.
     void downloadEmulator(const library::Game& game);
+    /// Moves a Windows install between its own Wine prefix and the shared one.
+    void toggleOwnPrefix(const library::Game& game);
     /// Arms Uninstall with what it removes, or on the second press starts the uninstall.
     void uninstall(const library::Game& game);
 
     ui::DetailsPage& page_;
     audio::SdlSoundPlayer& sounds_;
-    const Preferences& preferences_;
+    Preferences& preferences_;
     EmulatorDownloads& downloads_;
     UninstallPrompt& uninstall_;
     UpdateRequest& update_;

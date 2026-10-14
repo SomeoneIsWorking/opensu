@@ -4,6 +4,8 @@
 #include <chrono>
 #include <string>
 
+#include "library/wine.hpp"
+
 namespace opensu::app {
 
 ui::DetailsView DetailsController::viewOf(const library::Game& game) const {
@@ -15,7 +17,8 @@ ui::DetailsView DetailsController::viewOf(const library::Game& game) const {
         download = percent ? std::to_string(*percent) + "% · A cancels" : "Starting · A cancels";
     }
     return ui::detailsFor(game, preferences_.values().hidden.contains(game),
-                          std::chrono::system_clock::now(), download);
+                          std::chrono::system_clock::now(), download,
+                          preferences_.values().ownWinePrefixes.contains(game.id));
 }
 
 void DetailsController::open() {
@@ -100,6 +103,9 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::DownloadEmulator:
         downloadEmulator(*game);
         break;
+    case ui::DetailsAction::WinePrefix:
+        toggleOwnPrefix(*game);
+        break;
     case ui::DetailsAction::Hidden:
         hooks_.setHidden(*game, !preferences_.values().hidden.contains(*game));
         // The game leaves or joins the shelf the page was opened over.
@@ -128,6 +134,18 @@ void DetailsController::downloadEmulator(const library::Game& game) {
     } else if (const std::string refused = downloads_.start(missing->id); !refused.empty()) {
         hooks_.say(refused, true);
     }
+    refresh();
+}
+
+void DetailsController::toggleOwnPrefix(const library::Game& game) {
+    library::wine::OwnPrefixes& own = preferences_.values().ownWinePrefixes;
+    const bool nowOwn = !own.contains(game.id);
+    own.set(game.id, nowOwn);
+    preferences_.save();
+    sounds_.play(audio::Effect::Navigation);
+    hooks_.say(game.title + (nowOwn ? " gets a Wine prefix of its own"
+                                    : " shares the Wine prefix again; its own is kept"),
+               false);
     refresh();
 }
 

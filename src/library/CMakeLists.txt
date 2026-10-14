@@ -32,6 +32,7 @@ add_library(opensu_library STATIC
     downloaded_emulators.cpp
     libretro_cores.cpp
     appimage_runtime.cpp
+    wine.cpp
 )
 add_library(opensu::library ALIAS opensu_library)
 target_include_directories(opensu_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

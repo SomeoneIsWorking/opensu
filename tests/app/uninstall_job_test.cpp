@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "library/gog_installs.hpp"
+#include "library/wine.hpp"
 #include "support/scratch_dir.hpp"
 
 namespace {
@@ -136,14 +137,17 @@ void testGog(const fs::path& dir) {
     const InstallRecords records{paths.records};
     const fs::path folder = dir / "gog-folder";
 
-    // Inside the root openSU gave gogdl: the folder goes, then the record; the prefix stays.
+    // Inside the root openSU gave gogdl: the folder goes, then the record; the prefixes stay.
     const fs::path inside = paths.gameRoot(folder, "1") / "Game One";
     fs::create_directories(inside / "bin");
     std::ofstream{inside / "bin" / "game"} << "x";
-    fs::create_directories(paths.prefixes / "1" / "drive_c");
     records.add("1", Installed{.path = inside, .platform = "windows"});
     UninstallJob job{steam, "legendary", data};
     const Game one = game(Source::Gog, "1", "One");
+    const fs::path shared = opensu::library::wine::sharedPrefix(data) / "drive_c";
+    const fs::path ownPrefix = opensu::library::wine::ownPrefix(data, one) / "drive_c";
+    fs::create_directories(shared);
+    fs::create_directories(ownPrefix);
     expect(job.removal(one, folder).what == "deletes the GOG copy at " + inside.string(),
            "the confirm names the folder it deletes");
     job.setStore(Source::Gog, folder);
@@ -153,7 +157,8 @@ void testGog(const fs::path& dir) {
     expect(!fs::exists(inside) && !fs::exists(paths.gameRoot(folder, "1")),
            "the game's folder and its emptied root are deleted");
     expect(!records.find("1"), "the record is forgotten");
-    expect(fs::exists(paths.prefixes / "1" / "drive_c"), "the Wine prefix is kept");
+    expect(fs::exists(shared) && fs::exists(ownPrefix),
+           "the shared and the game's own Wine prefix stay");
 
     // Outside the root: forgotten, nothing deleted.
     const fs::path outside = dir / "own-games" / "Game Two";

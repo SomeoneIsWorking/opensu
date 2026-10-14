@@ -553,6 +553,11 @@ void ShellApp::launch(const library::Game& game) {
             game.unavailable.empty() ? "no way to start " + game.title : game.unavailable, true);
         return;
     }
+    library::Game started = game;
+    if (const std::string refused = wineSettings_.prepare(started); !refused.empty()) {
+        shell_.setToast(refused, true);
+        return;
+    }
     {
         const std::lock_guard lock{launchMutex_};
         if (launchRunning_) {
@@ -572,7 +577,7 @@ void ShellApp::launch(const library::Game& game) {
     environment.push_back(retro_.begin());
 
     // The thread owns a copy because it outlives this call.
-    std::thread{[this, copy = game, environment = std::move(environment)] {
+    std::thread{[this, copy = std::move(started), environment = std::move(environment)] {
         std::string failure;
         int exitStatus = -1;
         // The window belongs to the loop's thread, so the handoff thread only raises flags and the

@@ -206,6 +206,21 @@ void scaleAndShortcuts(const fs::path& root) {
     expect(store.load().shortcuts == ShortcutOverrides{}, "a damaged table keeps the shipped one");
 }
 
+void wineChoices(const fs::path& root) {
+    const Store store{root / "wine" / "settings.json"};
+    expect(store.load().wineRunner.empty() && store.load().ownWinePrefixes.ids().empty(),
+           "by default the first runner found and one shared prefix");
+    Settings saved;
+    saved.wineRunner = "/opt/proton/files/bin/wine";
+    saved.ownWinePrefixes.set("gog:1", true);
+    std::string error;
+    expect(store.save(saved, error), "the Wine choices are saved");
+    expect(store.load() == saved, "the runner and the games with their own prefix read back");
+    write(store.file(), R"({"wineRunner": 3, "ownWinePrefix": "gog:1"})");
+    expect(store.load().wineRunner.empty() && store.load().ownWinePrefixes.ids().empty(),
+           "damaged Wine choices take the defaults");
+}
+
 void resolution() {
     opensu::config::Config env;
     env.homeMode = opensu::config::HomeMode::WiiSu;
@@ -248,6 +263,7 @@ int main() {
     libraryTools(root);
     installAndSources(root);
     scaleAndShortcuts(root);
+    wineChoices(root);
     resolution();
     unwritable(root);
     fs::remove_all(root);
