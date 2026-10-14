@@ -144,6 +144,7 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     flag("folderPickerOpen", snapshot.folderPickerOpen);
     flag("capturingShortcut", snapshot.capturingShortcut);
     text("mapping", snapshot.mapping);
+    text("mappingFocus", snapshot.mappingFocus);
     number("volumePercent", snapshot.volumePercent);
     flag("volumeMuted", snapshot.volumeMuted);
     flag("volumeShown", snapshot.volumeShown);

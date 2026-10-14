@@ -1,5 +1,5 @@
 # The home grid's model: layout, focus and motion. Pure, so tests link it alone.
-add_library(opensu_grid STATIC home_layout.cpp grid_focus.cpp tile_motion.cpp tile_geometry.cpp rail_layout.cpp icon_size.cpp)
+add_library(opensu_grid STATIC home_layout.cpp grid_focus.cpp spatial_focus.cpp tile_motion.cpp tile_geometry.cpp rail_layout.cpp icon_size.cpp)
 add_library(opensu::grid ALIAS opensu_grid)
 target_include_directories(opensu_grid PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(opensu_grid PUBLIC cxx_std_20)
@@ -10,7 +10,7 @@ add_library(opensu_hud_model STATIC top_bar_metrics.cpp top_bar_layout.cpp corne
     section_view.cpp mode_chooser.cpp dock_metrics.cpp dock_motion.cpp icon_recolour.cpp
     search_panel.cpp context_menu.cpp panel_fade.cpp breadcrumbs.cpp details_page.cpp
     settings_page.cpp folder_chooser.cpp volume_osd.cpp chord_hint.cpp session_dialog.cpp
-    downloads_page.cpp mapping_page.cpp)
+    downloads_page.cpp mapping_board_layout.cpp mapping_page.cpp)
 add_library(opensu::hud_model ALIAS opensu_hud_model)
 target_include_directories(opensu_hud_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_hud_model PUBLIC opensu::grid opensu::library opensu::input)

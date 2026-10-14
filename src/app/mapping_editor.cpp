@@ -1,7 +1,9 @@
 #include "mapping_editor.hpp"
 
 #include <algorithm>
+#include <array>
 #include <type_traits>
+#include <utility>
 
 #include "lucent/log.h"
 
@@ -19,7 +21,7 @@ constexpr std::string_view resetRow = "reset";
 constexpr std::string_view globalSetting = "mapping.global";
 constexpr std::string_view emulatorSetting = "mapping.emulator";
 constexpr std::string_view steamSetting = "mapping.steamInput";
-constexpr std::string_view listeningNote = "Hold a button and press another; B alone cancels";
+constexpr std::string_view listeningPrompt = "Hold a button, then press another";
 constexpr std::string_view steamRefusal =
     "Steam Input has this game's controls; turn it off here to map its buttons";
 
@@ -43,6 +45,42 @@ std::optional<input::PadChord> chordOfId(std::string_view id) {
 
 std::string onOff(bool on) {
     return on ? "On" : "Off";
+}
+
+/// The pad buttons as the picker groups their tiles: face, shoulders, d-pad, sticks, Select and
+/// Start.
+constexpr std::array<std::pair<Button, std::size_t>, 16> buttonTiles{{
+    {Button::A, 0},
+    {Button::B, 0},
+    {Button::X, 0},
+    {Button::Y, 0},
+    {Button::L2, 1},
+    {Button::L1, 1},
+    {Button::R1, 1},
+    {Button::R2, 1},
+    {Button::Up, 2},
+    {Button::Down, 2},
+    {Button::Left, 2},
+    {Button::Right, 2},
+    {Button::L3, 3},
+    {Button::R3, 3},
+    {Button::Select, 4},
+    {Button::Start, 4},
+}};
+constexpr std::size_t buttonGroups = 5;
+
+/// The glyph keys of `output`'s buttons, Select and Start first as a chord's modifier would be.
+std::vector<std::string> glyphsOf(const input::PadOutput& output) {
+    std::vector<Button> buttons{output.begin(), output.end()};
+    std::ranges::stable_partition(buttons, [](Button button) {
+        return button == Button::Select || button == Button::Start;
+    });
+    std::vector<std::string> glyphs;
+    glyphs.reserve(buttons.size());
+    for (const Button button : buttons) {
+        glyphs.emplace_back(input::glyphOf(button));
+    }
+    return glyphs;
 }
 
 } // namespace
@@ -83,7 +121,7 @@ void MappingEditor::open(Target target) {
     pickingSteam_ = false;
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    page_.open(target_.title, rows(), note());
+    page_.open(target_.title, items(), note());
 }
 
 void MappingEditor::close() {
@@ -139,44 +177,59 @@ std::string MappingEditor::note() const {
     return text;
 }
 
-std::vector<ui::MappingRow> MappingEditor::rows() const {
-    std::vector<ui::MappingRow> rows;
+std::vector<ui::MappingItem> MappingEditor::items() const {
+    std::vector<ui::MappingItem> items;
     if (target_.scope.kind == Kind::Game) {
         const std::optional<bool> own = scopes_.steamInputOf(target_.scope.id);
-        rows.push_back(ui::MappingRow{std::string{steamRow},
-                                      {},
-                                      "Steam Input",
-                                      own ? onOff(*own)
-                                          : onOff(scopes_.steamInputGlobal()) + " (every game)"});
+        ui::MappingItem steam;
+        steam.id = steamRow;
+        steam.trailing = true;
+        steam.label = "Steam Input";
+        steam.value = own ? onOff(*own) : onOff(scopes_.steamInputGlobal()) + " (every game)";
+        items.push_back(std::move(steam));
     }
     const input::ButtonMap map = shown();
     for (const Button button : gamepad::padButtons) {
-        rows.push_back(ui::MappingRow{std::string{buttonRow} + std::string{gamepad::name(button)},
-                                      {std::string{input::glyphOf(button)}},
-                                      input::buttonLabel(button),
-                                      input::describe(map.output(button))});
+        const input::PadOutput output = map.output(button);
+        items.push_back(ui::MappingItem{std::string{buttonRow} + std::string{gamepad::name(button)},
+                                        button,
+                                        false,
+                                        {std::string{input::glyphOf(button)}},
+                                        input::buttonLabel(button),
+                                        input::describe(output),
+                                        glyphsOf(output),
+                                        output != input::PadOutput{button}});
     }
     for (const input::ChordMapping& mapping : map.chords()) {
-        rows.push_back(ui::MappingRow{chordId(mapping.chord),
-                                      {std::string{input::glyphOf(mapping.chord.modifier)},
-                                       std::string{input::glyphOf(mapping.chord.trigger)}},
-                                      input::describe(mapping.chord),
-                                      input::describe(mapping.output)});
+        const auto* buttons = std::get_if<input::PadOutput>(&mapping.output);
+        items.push_back(
+            ui::MappingItem{chordId(mapping.chord),
+                            Button::None,
+                            false,
+                            {std::string{input::glyphOf(mapping.chord.modifier)},
+                             std::string{input::glyphOf(mapping.chord.trigger)}},
+                            input::describe(mapping.chord),
+                            input::describe(mapping.output),
+                            buttons != nullptr ? glyphsOf(*buttons) : std::vector<std::string>{},
+                            true});
     }
-    rows.push_back(ui::MappingRow{std::string{addRow}, {}, "Add a chord", ""});
+    ui::MappingItem add;
+    add.id = addRow;
+    add.label = "+ Add chord";
+    items.push_back(std::move(add));
     if (scopes_.at(target_.scope) != nullptr) {
-        rows.push_back(ui::MappingRow{std::string{resetRow},
-                                      {},
-                                      target_.scope.kind == Kind::Global
-                                          ? "Clear the mapping"
-                                          : "Use the mapping it would inherit",
-                                      ""});
+        ui::MappingItem reset;
+        reset.id = resetRow;
+        reset.trailing = true;
+        reset.label = target_.scope.kind == Kind::Global ? "Clear the mapping"
+                                                         : "Use the mapping it would inherit";
+        items.push_back(std::move(reset));
     }
-    return rows;
+    return items;
 }
 
 void MappingEditor::show() {
-    page_.refresh(rows(), note());
+    page_.refresh(items(), note());
 }
 
 void MappingEditor::act(Button button) {
@@ -187,23 +240,29 @@ void MappingEditor::act(Button button) {
     switch (button) {
     case Button::Up:
     case Button::Down:
-        // input-sound.md 3.4 Navigation: a focus move in a list.
-        if (page_.move(button == Button::Down ? 1 : -1)) {
+    case Button::Left:
+    case Button::Right:
+        // input-sound.md 3.4 Navigation: a focus move.
+        if (page_.move(button == Button::Up     ? ui::Direction::Up
+                       : button == Button::Down ? ui::Direction::Down
+                       : button == Button::Left ? ui::Direction::Left
+                                                : ui::Direction::Right)) {
             sounds_.play(audio::Effect::Navigation);
         }
         break;
     case Button::A:
         if (picking) {
             choose();
-        } else if (const ui::MappingRow* row = page_.focused()) {
-            runRow(*row);
+        } else if (const ui::MappingItem* item = page_.focused()) {
+            runItem(*item);
         }
         break;
     case Button::B:
         if (picking) {
             picking_ = std::monostate{};
             pickingSteam_ = false;
-            page_.showRows(note());
+            choices_.clear();
+            page_.showBoard(note());
         } else {
             close();
         }
@@ -213,16 +272,22 @@ void MappingEditor::act(Button button) {
     }
 }
 
-void MappingEditor::runRow(const ui::MappingRow& row) {
-    if (row.id == steamRow) {
+void MappingEditor::runItem(const ui::MappingItem& item) {
+    if (item.id == steamRow) {
         pickingSteam_ = true;
         const std::optional<bool> own = scopes_.steamInputOf(target_.scope.id);
-        const std::size_t at = !own ? 0 : *own ? 1 : 2;
-        page_.pick("Steam Input",
-                   {"As every game (" + onOff(scopes_.steamInputGlobal()) + ")", "On", "Off"}, at);
+        page_.pick(ui::MappingPick{
+            {},
+            "Steam Input",
+            {ui::MappingChoice{
+                 {}, "As every game (" + onOff(scopes_.steamInputGlobal()) + ")", 0, true},
+             ui::MappingChoice{{}, "On"}, ui::MappingChoice{{}, "Off"}},
+            !own   ? 0U
+            : *own ? 1U
+                   : 2U});
         return;
     }
-    if (row.id == resetRow) {
+    if (item.id == resetRow) {
         scopes_.clear(target_.scope);
         save();
         show();
@@ -232,41 +297,41 @@ void MappingEditor::runRow(const ui::MappingRow& row) {
         hooks_.say(std::string{steamRefusal}, true);
         return;
     }
-    if (row.id == addRow) {
+    if (item.id == addRow) {
         capture_.begin();
-        page_.listen(std::string{listeningNote});
-    } else if (row.id.starts_with(buttonRow)) {
-        pickButton(gamepad::buttonNamed(std::string_view{row.id}.substr(buttonRow.size())));
-    } else if (const std::optional<input::PadChord> chord = chordOfId(row.id)) {
+        page_.listen(std::string{listeningPrompt});
+    } else if (item.id.starts_with(buttonRow)) {
+        pickButton(gamepad::buttonNamed(std::string_view{item.id}.substr(buttonRow.size())));
+    } else if (const std::optional<input::PadChord> chord = chordOfId(item.id)) {
         pickChord(*chord);
     }
 }
 
 void MappingEditor::pickButton(Button button) {
-    std::vector<Choice> choices;
-    choices.reserve(gamepad::padButtons.size() + 2);
-    for (const Button out : gamepad::padButtons) {
-        choices.emplace_back(input::PadOutput{out});
+    std::vector<Tile> tiles;
+    tiles.reserve(buttonTiles.size() + 2);
+    for (const auto& [out, group] : buttonTiles) {
+        tiles.push_back(Tile{input::PadOutput{out}, group});
     }
-    choices.emplace_back(input::PadOutput{});
-    choices.emplace_back(input::PadOutput{Button::Select, Button::Start});
+    tiles.push_back(Tile{input::PadOutput{}, buttonGroups});
+    tiles.push_back(Tile{input::PadOutput{Button::Select, Button::Start}, buttonGroups});
     picking_ = button;
-    pick(input::buttonLabel(button) + " sends", std::move(choices), Choice{shown().output(button)});
+    pick({std::string{input::glyphOf(button)}}, tiles, Choice{shown().output(button)});
 }
 
 void MappingEditor::pickChord(const input::PadChord& chord) {
-    std::vector<Choice> choices;
+    std::vector<Tile> tiles;
     for (const input::Action action : input::allActions) {
         if (input::takesPadChord(action)) {
-            choices.emplace_back(action);
+            tiles.push_back(Tile{action, 0});
         }
     }
-    for (const Button out : gamepad::padButtons) {
-        choices.emplace_back(input::PadOutput{out});
+    for (const auto& [out, group] : buttonTiles) {
+        tiles.push_back(Tile{input::PadOutput{out}, 1 + group});
     }
-    for (const Button out : gamepad::padButtons) {
+    for (const auto& [out, group] : buttonTiles) {
         if (out != Button::Select) {
-            choices.emplace_back(input::PadOutput{Button::Select, out});
+            tiles.push_back(Tile{input::PadOutput{Button::Select, out}, 1 + buttonGroups});
         }
     }
     std::optional<Choice> current;
@@ -277,33 +342,36 @@ void MappingEditor::pickChord(const input::PadChord& chord) {
                 return Choice{value};
             },
             *does);
-        choices.emplace_back(Remove{});
+        tiles.push_back(Tile{Remove{}, 2 + buttonGroups});
     }
     picking_ = chord;
-    pick(input::describe(chord) + " does", std::move(choices), current);
+    pick({std::string{input::glyphOf(chord.modifier)}, std::string{input::glyphOf(chord.trigger)}},
+         tiles, current);
 }
 
-void MappingEditor::pick(std::string title, std::vector<Choice> choices,
+void MappingEditor::pick(std::vector<std::string> source, const std::vector<Tile>& tiles,
                          const std::optional<Choice>& current) {
-    const auto found = current ? std::ranges::find(choices, *current) : choices.end();
-    const std::size_t at =
-        found == choices.end() ? 0 : static_cast<std::size_t>(found - choices.begin());
-    std::vector<std::string> labels;
-    labels.reserve(choices.size());
-    for (const Choice& choice : choices) {
-        labels.push_back(std::visit(
-            [](const auto& value) -> std::string {
+    ui::MappingPick offered{std::move(source), {}, {}, 0};
+    choices_.clear();
+    for (const Tile& tile : tiles) {
+        if (current && tile.choice == *current) {
+            offered.current = choices_.size();
+        }
+        choices_.push_back(tile.choice);
+        offered.choices.push_back(std::visit(
+            [&tile](const auto& value) {
                 using Value = std::decay_t<decltype(value)>;
                 if constexpr (std::is_same_v<Value, Remove>) {
-                    return "Remove this chord";
+                    return ui::MappingChoice{{}, "Remove", tile.group};
+                } else if constexpr (std::is_same_v<Value, input::Action>) {
+                    return ui::MappingChoice{{}, std::string{input::label(value)}, tile.group};
                 } else {
-                    return input::describe(input::ChordOutput{value});
+                    return ui::MappingChoice{glyphsOf(value), input::describe(value), tile.group};
                 }
             },
-            choice));
+            tile.choice));
     }
-    choices_ = std::move(choices);
-    page_.pick(std::move(title), std::move(labels), at);
+    page_.pick(std::move(offered));
 }
 
 void MappingEditor::choose() {
@@ -336,7 +404,7 @@ void MappingEditor::choose() {
     }
     picking_ = std::monostate{};
     choices_.clear();
-    page_.showRows(note());
+    page_.showBoard(note());
     show();
 }
 
@@ -347,7 +415,7 @@ void MappingEditor::capturePad(const std::vector<gamepad::Event>& events) {
             continue;
         }
         if (heard->cancelled) {
-            page_.showRows(note());
+            page_.showBoard(note());
             return;
         }
         const input::PadChord chord = heard->chord;

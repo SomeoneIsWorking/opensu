@@ -3,10 +3,16 @@
 // Controls.
 #include "app/mapping_editor.hpp"
 
+#include <array>
 #include <cstdio>
+#include <deque>
 #include <exception>
 #include <filesystem>
+#include <functional>
+#include <optional>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "support/scratch_dir.hpp"
@@ -27,6 +33,56 @@ struct Said {
 
 gamepad::Event event(Button button, bool pressed) {
     return gamepad::Event{gamepad::Event::Kind::Button, button, pressed, {}, {}};
+}
+
+constexpr std::array<std::pair<ui::Direction, Button>, 4> moves{
+    {{ui::Direction::Up, Button::Up},
+     {ui::Direction::Down, Button::Down},
+     {ui::Direction::Left, Button::Left},
+     {ui::Direction::Right, Button::Right}}};
+
+/// The direction buttons that take `start`'s focus (its choice while picking) to where `arrived`
+/// holds, found on copies of the page; nothing when no path gets there.
+std::optional<std::vector<Button>>
+route(const ui::MappingPage& start, const std::function<bool(const ui::MappingPage&)>& arrived) {
+    const bool picking = start.mode() == ui::MappingMode::Picking;
+    const auto at = [picking](const ui::MappingPage& page) {
+        return picking ? page.choice() : page.focus();
+    };
+    std::deque<std::pair<ui::MappingPage, std::vector<Button>>> queue{{start, {}}};
+    std::set<std::size_t> seen{at(start)};
+    while (!queue.empty()) {
+        auto [page, path] = std::move(queue.front());
+        queue.pop_front();
+        if (arrived(page)) {
+            return path;
+        }
+        for (const auto& [direction, button] : moves) {
+            ui::MappingPage next = page;
+            if (next.move(direction) && seen.insert(at(next)).second) {
+                std::vector<Button> longer = path;
+                longer.push_back(button);
+                queue.emplace_back(std::move(next), std::move(longer));
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+/// How many items, or choices while picking, `page`'s focus can reach from where it is.
+std::size_t reachable(const ui::MappingPage& page) {
+    const bool picking = page.mode() == ui::MappingMode::Picking;
+    const std::size_t count = picking ? page.picker().choices.size() : page.items().size();
+    std::size_t reached = 0;
+    for (std::size_t i = 0; i < count; ++i) {
+        reached += route(page,
+                         [&](const ui::MappingPage& there) {
+                             return (picking ? there.choice() : there.focus()) == i;
+                         })
+                       ? 1
+                       : 0;
+    }
+    return reached;
 }
 
 library::Game romGame(std::string id) {
@@ -53,35 +109,40 @@ struct Rig {
     [[nodiscard]] input::MappingScopes onDisk() const {
         return settings::MappingStore{file}.load();
     }
+    /// Walks focus to the item `id` with the direction buttons.
     void focus(const std::string& id) {
-        for (std::size_t i = 0; i < page.rows().size(); ++i) {
-            if (page.rows()[i].id == id) {
-                while (page.focus() != i) {
-                    editor.act(page.focus() < i ? Button::Down : Button::Up);
-                }
-                return;
-            }
+        const std::optional<std::vector<Button>> path =
+            route(page, [&id](const ui::MappingPage& there) {
+                return there.focused() != nullptr && there.focused()->id == id;
+            });
+        expect(path.has_value(), "the item is on the page and focus reaches it");
+        for (const Button button : path.value_or(std::vector<Button>{})) {
+            editor.act(button);
         }
-        expect(false, "a row with that id is on the page");
+        expect(page.focusName() == id, "focus walked there");
     }
-    [[nodiscard]] const ui::MappingRow& row(const std::string& id) const {
-        for (const ui::MappingRow& shown : page.rows()) {
+    [[nodiscard]] const ui::MappingItem& row(const std::string& id) const {
+        for (const ui::MappingItem& shown : page.items()) {
             if (shown.id == id) {
                 return shown;
             }
         }
-        expect(false, "a row with that id is on the page");
-        return page.rows().front();
+        expect(false, "an item with that id is on the page");
+        return page.items().front();
     }
-    /// Picks the list entry labelled `label`.
+    [[nodiscard]] std::string current() const {
+        return page.picker().choices.at(page.choice()).label;
+    }
+    /// Walks the picker to the tile labelled `label` and picks it.
     void choose(const std::string& label) {
-        expect(page.mode() == ui::MappingMode::Picking, "a list is up");
-        while (page.choice() > 0) {
-            editor.act(Button::Up);
-        }
-        while (page.choices()[page.choice()] != label) {
-            expect(page.choice() + 1 < page.choices().size(), "the list has the entry");
-            editor.act(Button::Down);
+        expect(page.mode() == ui::MappingMode::Picking, "the picker is up");
+        const std::optional<std::vector<Button>> path =
+            route(page, [&label](const ui::MappingPage& there) {
+                return there.focusName() == label;
+            });
+        expect(path.has_value(), "the picker has the tile and focus reaches it");
+        for (const Button button : path.value_or(std::vector<Button>{})) {
+            editor.act(button);
         }
         editor.act(Button::A);
     }
@@ -112,25 +173,41 @@ void aGameGetsItsOwnMapping(const fs::path& dir) {
     expect(app::mappingKeys(game) == input::GameKeys{game.id, "mgba"},
            "a ROM's mapping is also found by its emulator's catalog id");
     rig.editor.openGame(game);
-    expect(rig.editor.active() && rig.page.state() == "rows" &&
-               rig.page.title() == "Controls · Kirby",
-           "the page opens on the game");
-    expect(rig.page.rows().front().id == "steam" && rig.row("button.a").value == "A" &&
+    expect(rig.editor.active() && rig.page.state() == "board" &&
+               rig.page.title() == "Controls · Kirby" && rig.page.focusName() == "button.a",
+           "the page opens on the game, focused on A");
+    expect(rig.page.items().front().id == "steam" && rig.row("button.a").value == "A" &&
+               !rig.row("button.a").changed &&
                rig.page.note().starts_with("Every button sends itself"),
            "with its Steam Input switch, then every button sending itself");
+    std::vector<std::string> ids;
+    for (const ui::MappingItem& item : rig.page.items()) {
+        ids.push_back(item.id);
+    }
+    expect(ids == std::vector<std::string>{"steam", "button.a", "button.b", "button.x", "button.y",
+                                           "button.l1", "button.r1", "button.l2", "button.r2",
+                                           "button.l3", "button.r3", "button.select",
+                                           "button.start", "button.up", "button.down",
+                                           "button.left", "button.right", "add"},
+           "the items keep the control channel's ids");
+    expect(reachable(rig.page) == rig.page.items().size(), "focus reaches every item");
 
-    rig.focus("button.a");
     rig.editor.act(Button::A);
-    expect(rig.page.state() == "picking" && rig.page.choices()[rig.page.choice()] == "A",
-           "A lists what the button can send, on what it sends now");
+    expect(rig.page.state() == "picking" && rig.current() == "A" &&
+               rig.page.picker().glyphs == std::vector<std::string>{"A"},
+           "A puts up what the button can send, headed by its glyph, on what it sends now");
+    expect(rig.page.picker().choices.size() == 18 && reachable(rig.page) == 18,
+           "a tile per pad button, Nothing and Select + Start, every one reachable");
     rig.editor.act(Button::B);
-    expect(rig.page.state() == "rows" && rig.onDisk() == input::MappingScopes{},
-           "B leaves the list without a change");
+    expect(rig.page.state() == "board" && rig.onDisk() == input::MappingScopes{},
+           "B closes the picker without a change");
 
     rig.editor.act(Button::A);
     rig.choose("B");
-    expect(rig.row("button.a").value == "B" && rig.page.state() == "rows",
-           "the row reads its new output");
+    expect(rig.row("button.a").value == "B" && rig.row("button.a").changed &&
+               rig.row("button.a").valueGlyphs == std::vector<std::string>{"B"} &&
+               rig.page.state() == "board",
+           "the chip reads its new output, as a glyph");
     const input::MappingScopes saved = rig.onDisk();
     const input::ButtonMap* own = saved.at(input::MappingScope{Kind::Game, game.id});
     expect(own != nullptr && own->output(Button::A) == input::PadOutput{Button::B} &&
@@ -143,7 +220,14 @@ void aGameGetsItsOwnMapping(const fs::path& dir) {
     rig.focus("button.x");
     rig.editor.act(Button::A);
     rig.choose("Select + Start");
-    expect(rig.row("button.x").value == "Select + Start", "a button can send two");
+    expect(rig.row("button.x").value == "Select + Start" &&
+               rig.row("button.x").valueGlyphs == std::vector<std::string>{"-", "+"},
+           "a button can send two");
+    rig.focus("button.y");
+    rig.editor.act(Button::A);
+    rig.choose("Nothing");
+    expect(rig.row("button.y").value == "Nothing" && rig.row("button.y").valueGlyphs.empty(),
+           "or nothing");
 
     rig.focus("reset");
     rig.editor.act(Button::A);
@@ -188,8 +272,9 @@ void aChordIsHeardThenGivenAnOutput(const fs::path& dir) {
     rig.editor.openGame(game);
     rig.focus("add");
     rig.editor.act(Button::A);
-    expect(rig.editor.capturing() && rig.page.state() == "listening",
-           "Add a chord listens for one");
+    expect(rig.editor.capturing() && rig.page.state() == "listening" &&
+               rig.page.prompt() == "Hold a button, then press another",
+           "Add chord listens for one");
 
     rig.editor.capturePad({event(Button::Guide, true), event(Button::X, true)});
     expect(rig.editor.capturing() && rig.said.back().error &&
@@ -209,8 +294,10 @@ void aChordIsHeardThenGivenAnOutput(const fs::path& dir) {
 
     rig.editor.capturePad({event(Button::Start, true), event(Button::L2, true)});
     expect(!rig.editor.capturing() && rig.page.state() == "picking" &&
-               rig.page.pickTitle() == "Start + L2 does",
-           "a free chord is heard and its outputs listed");
+               rig.page.picker().glyphs == std::vector<std::string>{"+", "LT"},
+           "a free chord is heard and its outputs put up, headed by its glyphs");
+    expect(rig.current() == "Quick menu" && reachable(rig.page) == rig.page.picker().choices.size(),
+           "the actions first, every tile reachable");
     rig.choose("Select + Start");
     const input::ButtonMap map = rig.editor.forGame(game);
     expect(map.chords().size() == 1 &&
@@ -218,7 +305,10 @@ void aChordIsHeardThenGivenAnOutput(const fs::path& dir) {
                map.chords().front().output ==
                    input::ChordOutput{input::PadOutput{Button::Select, Button::Start}},
            "the chord is the game's");
-    expect(rig.row("chord.start.l2").value == "Select + Start", "and has its row");
+    expect(rig.row("chord.start.l2").value == "Select + Start" &&
+               rig.row("chord.start.l2").glyphs == std::vector<std::string>{"+", "LT"},
+           "and has its chip");
+    expect(reachable(rig.page) == rig.page.items().size(), "which focus reaches");
 
     rig.focus("chord.start.l2");
     rig.editor.act(Button::A);
@@ -227,13 +317,15 @@ void aChordIsHeardThenGivenAnOutput(const fs::path& dir) {
                input::ChordOutput{input::Action::LoadState},
            "a chord can perform an action instead");
     rig.editor.act(Button::A);
-    rig.choose("Remove this chord");
+    expect(rig.current() == "Load state" && rig.page.picker().choices.back().label == "Remove",
+           "the picker opens on what the chord does, with Remove");
+    rig.choose("Remove");
     expect(rig.editor.forGame(game).chords().empty(), "and can be removed");
 
     rig.focus("add");
     rig.editor.act(Button::A);
     rig.editor.capturePad({event(Button::B, true), event(Button::B, false)});
-    expect(!rig.editor.capturing() && rig.page.state() == "rows", "B alone stops listening");
+    expect(!rig.editor.capturing() && rig.page.state() == "board", "B alone stops listening");
 }
 
 void steamInputRefusesTheMapping(const fs::path& dir) {
@@ -251,6 +343,9 @@ void steamInputRefusesTheMapping(const fs::path& dir) {
 
     rig.focus("steam");
     rig.editor.act(Button::A);
+    expect(rig.page.picker().label == "Steam Input" && rig.page.picker().choices.size() == 3 &&
+               rig.current() == "As every game (Off)",
+           "Steam Input puts up its three settings, on the one in force");
     rig.choose("On");
     expect(rig.row("steam").value == "On" && rig.onDisk().steamInputOf(game.id) == true,
            "Steam Input is turned on for the game and kept");
@@ -262,7 +357,7 @@ void steamInputRefusesTheMapping(const fs::path& dir) {
     const std::size_t before = rig.said.size();
     rig.focus("button.b");
     rig.editor.act(Button::A);
-    expect(rig.page.state() == "rows" && rig.said.size() == before + 1 && rig.said.back().error &&
+    expect(rig.page.state() == "board" && rig.said.size() == before + 1 && rig.said.back().error &&
                rig.said.back().text.find("Steam Input has this game's controls") !=
                    std::string::npos,
            "a button row is refused, saying why");
@@ -291,8 +386,8 @@ void settingsControlsHoldsTheOtherScopes(const fs::path& dir) {
     expect(rig.editor.settingsRows()[1].value == "mGBA", "Right picks the next emulator");
     rig.editor.runSetting("mapping.emulator", 0);
     expect(rig.editor.active() && rig.page.title() == "Controls · mGBA" &&
-               rig.page.rows().front().id == "button.a",
-           "A opens its mapping, which has no Steam Input row");
+               rig.page.items().front().id == "button.a",
+           "A opens its mapping, which has no Steam Input switch");
     rig.editor.close();
 
     rig.editor.runSetting("mapping.global", 0);

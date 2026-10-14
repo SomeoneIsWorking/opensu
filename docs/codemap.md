@@ -60,7 +60,7 @@ gitignored `docs/reference/`).
 | `src/app/panel_flow.*` | The launch/install panel flow taken out of `shell_app.cpp` |
 | `src/app/launch_mailbox.*` | What the launch and sign-in threads hand the loop: the game-running flag, the latest progress line, the next toast |
 | `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page, breadcrumb and panel-button action), right click = the target's context menu (never B), wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
-| `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input (`guide+a` holds buttons together, `guide 1500ms` holds them that long), frames, `/signin/<store>[/start]`; `/state` includes `armed` (a two-press button waiting), `mapping` (the mapping page: `rows`, `picking`, `listening` or empty) and the Downloads page's rows |
+| `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input (`guide+a` holds buttons together, `guide 1500ms` holds them that long), frames, `/signin/<store>[/start]`; `/state` includes `armed` (a two-press button waiting), `mapping` (the mapping page: `board`, `picking`, `listening` or empty), `mappingFocus` (its focused item id, or the focused tile's label while picking) and the Downloads page's rows |
 | `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
 | `src/app/install_job.*` | The store-neutral job on a game (each install, update and uninstall): its thread, the latest report the loop takes, its state for any reader (`status`), the licence answer, the player's cancel |
@@ -293,7 +293,9 @@ Painters and composition (`opensu_ui`):
 | `src/ui/mode_chooser_painter.*` | The options panel: the cards after iiSU's chooser, with sketched previews, then the slider and switch rows |
 | `src/ui/search_panel_painter.*`, `context_menu_painter.*` | The search panel with its keyboard and the tile context menu |
 | `src/ui/hint_row.*` | A row of button prompts with labels, centred in a band (`paintHintRow`), for the context menu and the mapping page |
-| `src/ui/mapping_page.*`, `mapping_page_painter.*` | The mapping page: title, note, rows (glyphs, label, what it sends), the pick list and the listening state, focus and scrolling layout; its card painter |
+| `src/ui/mapping_page.*`, `mapping_page_painter.*` | The mapping page: title, note, its items by id (pad buttons, chords, Add chord, Steam Input, Reset), the picker's tiles, the listening prompt, spatial focus; its painter (controller board with callouts, strip, picker popover, listening prompt) |
+| `src/ui/mapping_board_layout.*` | The mapping page's geometry at design size, scaled to the frame: each pad button's chip and callout on the controller board, the strip (chords scrolled to focus, Steam Input and Reset kept right), the picker's tile lines by group and its popover beside the focused chip inside the card |
+| `src/ui/spatial_focus.*` | Which box a direction press moves to among freely placed boxes (nearest within a cone, straight ahead before diagonal); the mapping board and its picker |
 | `src/ui/guide_menu_painter.*`, `quick_menu_painter.*` | The Guide menu on the left and the quick menu on the right, over the home screen or a running game |
 | `src/ui/guide_panels.*` | The Guide and quick menus with their painters and the one hit test |
 | `src/ui/session_dialog_painter.*`, `session_panels.*` | The dialog's painter (wrapped paragraphs, pill buttons with pad glyphs); the dialog and the password keyboard (a secret `SearchPanel`: dots, Caps, wiped on close) with their fades and one hit test |

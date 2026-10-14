@@ -321,11 +321,12 @@ LONGEST_DETAILS = 7
 
 
 def _game_mapping(shell: HiddenShell) -> None:
-    """The focused game's details, then Controls, the button before Back."""
+    """The focused game's details, then Controls, the button before Back; the board opens on A."""
     _details(shell)
     # Focus stops at the last button, so enough Downs reach Back.
     shell.press(*(["down"] * LONGEST_DETAILS), "up", "a")
-    shell.wait_for("mapping", "rows")
+    shell.wait_for("mapping", "board")
+    shell.wait_for("mappingFocus", "button.a")
 
 
 def _leave_game_mapping(shell: HiddenShell) -> None:
@@ -335,15 +336,80 @@ def _leave_game_mapping(shell: HiddenShell) -> None:
 
 
 def _mapping_picker(shell: HiddenShell) -> None:
-    """The game's mapping with A's outputs listed: A is the row under Steam Input."""
+    """The game's mapping with A's outputs up beside its chip."""
     _game_mapping(shell)
-    shell.press("down", "a")
+    shell.press("a")
     shell.wait_for("mapping", "picking")
 
 
 def _leave_mapping_picker(shell: HiddenShell) -> None:
     shell.press("b")
-    shell.wait_for("mapping", "rows")
+    shell.wait_for("mapping", "board")
+    _leave_game_mapping(shell)
+
+
+def _mapping_listening(shell: HiddenShell) -> None:
+    """The game's mapping listening for a chord: Add chord is left along the strip under A."""
+    _game_mapping(shell)
+    shell.press("down")
+    shell.wait_for("mappingFocus", "steam")
+    shell.press("left")
+    shell.wait_for("mappingFocus", "add")
+    shell.press("a")
+    shell.wait_for("mapping", "listening")
+
+
+def _leave_mapping_listening(shell: HiddenShell) -> None:
+    # B alone stops listening.
+    shell.press("b")
+    shell.wait_for("mapping", "board")
+    _leave_game_mapping(shell)
+
+
+def _chord_picker(shell: HiddenShell) -> None:
+    """L2 + A heard while listening, its outputs up: actions, buttons and Select + buttons."""
+    _mapping_listening(shell)
+    shell.press("l2+a")
+    shell.wait_for("mapping", "picking")
+
+
+def _steam_input_picker(shell: HiddenShell) -> None:
+    """The game's Steam Input settings, from its chip on the strip under A."""
+    _game_mapping(shell)
+    shell.press("down")
+    shell.wait_for("mappingFocus", "steam")
+    shell.press("a")
+    shell.wait_for("mapping", "picking")
+
+
+def _mapping_changed(shell: HiddenShell) -> None:
+    """A sending B and L2 + A opening the quick menu: the changed callout, a chord and Reset."""
+    _game_mapping(shell)
+    # B's tile is right of A's, where the picker opens.
+    shell.press("a", "right", "a")
+    shell.wait_for("mapping", "board")
+    shell.press("down")
+    shell.wait_for("mappingFocus", "steam")
+    shell.press("left")
+    shell.wait_for("mappingFocus", "add")
+    shell.press("a")
+    shell.wait_for("mapping", "listening")
+    shell.press("l2+a")
+    shell.wait_for("mapping", "picking")
+    # Quick menu, the first action, is where a new chord's picker opens.
+    shell.press("a")
+    shell.wait_for("mapping", "board")
+    shell.wait_for("mappingFocus", "add")
+
+
+def _leave_mapping_changed(shell: HiddenShell) -> None:
+    """Reset, the strip's last chip, gives the game back what it inherits."""
+    shell.press("right")
+    shell.wait_for("mappingFocus", "steam")
+    shell.press("right")
+    shell.wait_for("mappingFocus", "reset")
+    shell.press("a")
+    shell.wait_until(lambda state: state.get("mappingFocus") != "reset", "the reset done")
     _leave_game_mapping(shell)
 
 
@@ -351,7 +417,7 @@ def _global_mapping(shell: HiddenShell) -> None:
     """Settings › Controls, then its first row, the mapping for every game."""
     _settings_page("Controls")(shell)
     shell.press("a", "a")
-    shell.wait_for("mapping", "rows")
+    shell.wait_for("mapping", "board")
 
 
 def _leave_global_mapping(shell: HiddenShell) -> None:
@@ -392,6 +458,25 @@ SCENES: tuple[Scene, ...] = (
         "A button's outputs in a game's mapping",
         _mapping_picker,
         _leave_mapping_picker,
+    ),
+    Scene(
+        "mapping-listening",
+        "A game's mapping listening for a chord",
+        _mapping_listening,
+        _leave_mapping_listening,
+    ),
+    Scene("chord-picker", "A new chord's outputs", _chord_picker, _leave_mapping_picker),
+    Scene(
+        "steam-input-picker",
+        "A game's Steam Input settings",
+        _steam_input_picker,
+        _leave_mapping_picker,
+    ),
+    Scene(
+        "mapping-changed",
+        "A game's mapping with a changed button and a chord",
+        _mapping_changed,
+        _leave_mapping_changed,
     ),
     Scene(
         "global-mapping",
