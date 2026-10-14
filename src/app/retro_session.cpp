@@ -118,4 +118,24 @@ std::string RetroSession::reset() {
     return post("/reset");
 }
 
+RetroSession::Outcome RetroSession::perform(Command command) {
+    std::string refused;
+    std::string done;
+    switch (command) {
+    case Command::SaveState:
+        refused = saveState();
+        done = "State saved";
+        break;
+    case Command::LoadState:
+        refused = loadState();
+        done = "State loaded";
+        break;
+    case Command::Reset:
+        refused = reset();
+        done = "Game reset";
+        break;
+    }
+    return refused.empty() ? Outcome{std::move(done), false} : Outcome{std::move(refused), true};
+}
+
 } // namespace opensu::app

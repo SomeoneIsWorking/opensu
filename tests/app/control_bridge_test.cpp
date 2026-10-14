@@ -5,6 +5,8 @@
 #include <chrono>
 #include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include "ui/check.hpp"
 
@@ -17,19 +19,36 @@ using opensu::test::expect;
 
 void inputIsTakenOnceInOrder() {
     ControlBridge bridge;
-    bridge.inject(Button::A, Device::Pad);
-    bridge.inject(Button::B, Device::KeyboardMouse);
+    bridge.inject({Button::A}, Device::Pad);
+    bridge.inject({Button::B}, Device::KeyboardMouse);
     bridge.injectKey(opensu::input::Combo{1});
     bridge.typeText("ab");
     const ControlBridge::Input taken = bridge.takeInput();
-    expect(taken.buttons.size() == 2 && taken.buttons[0].first == Button::A &&
-               taken.buttons[1].second == Device::KeyboardMouse,
-           "buttons arrive in order with their device");
+    expect(taken.buttons.size() == 4 && taken.buttons[0].first.button == Button::A &&
+               taken.buttons[0].first.pressed && !taken.buttons[1].first.pressed &&
+               taken.buttons[3].second == Device::KeyboardMouse,
+           "a button is a press and a release, in order with its device");
     expect(taken.keys.size() == 1 && taken.text == std::vector<std::string>{"ab"},
            "keys and text arrive");
     const ControlBridge::Input again = bridge.takeInput();
     expect(again.buttons.empty() && again.keys.empty() && again.text.empty(),
            "input is taken once");
+}
+
+void heldButtonsAreAChord() {
+    ControlBridge bridge;
+    bridge.inject({Button::Guide, Button::A}, Device::Pad);
+    const ControlBridge::Input taken = bridge.takeInput();
+    std::vector<std::pair<Button, bool>> edges;
+    edges.reserve(taken.buttons.size());
+    for (const auto& [event, device] : taken.buttons) {
+        edges.emplace_back(event.button, event.pressed);
+    }
+    expect(edges == std::vector<std::pair<Button, bool>>{{Button::Guide, true},
+                                                         {Button::A, true},
+                                                         {Button::A, false},
+                                                         {Button::Guide, false}},
+           "held buttons go down in order and come up in reverse");
 }
 
 void reloadAndCloseAreRequests() {
@@ -97,6 +116,7 @@ void abandoningReleasesTheCaller() {
 
 int main() {
     inputIsTakenOnceInOrder();
+    heldButtonsAreAChord();
     reloadAndCloseAreRequests();
     snapshotIsWhatWasPublished();
     frameIsHandedAcross();

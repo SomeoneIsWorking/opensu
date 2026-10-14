@@ -20,7 +20,7 @@ gitignored `docs/reference/`).
 | `src/app/session_install_controller.*` | The Install session mode flow: the dialog, then the password on the on-screen or physical keyboard, the root step on a worker, a wrong password asking again, the password wiped once sudo has had it |
 | `src/app/keyboard_walk.*` | A pad button on the on-screen keyboard for the entries that type a line (folder path, password): the one implementation `path_editor` and the session install share |
 | `src/app/quick_menu_controller.*` | The quick menu's rows and buttons: volume, mute, output, brightness, Bluetooth, controller batteries, Devices, Save state, Load state and Reset game for a game on `opensu-retro` (Load and Reset on a second press), Close game |
-| `src/app/retro_session.*` | The shell's side of `opensu-retro`'s control channel: each launch's `OPENSU_RETRO_CONTROL` file under the runtime dir, the port read from it, `/status`, save, load and reset over `lucent::http` loopback, the load failure a runner leaves handed over and the file removed |
+| `src/app/retro_session.*` | The shell's side of `opensu-retro`'s control channel: each launch's `OPENSU_RETRO_CONTROL` file under the runtime dir, the port read from it, `/status`, save, load and reset over `lucent::http` loopback with the toast each comes to (`perform`), the load failure a runner leaves handed over and the file removed |
 | `src/app/game_end.*` | The toast for a launch that is over: a runner's load failure, `<title> crashed (SIGSEGV)` for a death by a signal the player did not send, the launch's failure, or `<title> closed` |
 | `src/app/devices_controller.*` | The Devices page: Bluetooth, Controllers, Audio output and Display tabs and what their rows do |
 | `src/app/host_services.*` | Power, session mode, Bluetooth and backlight backends for this machine; the one place a hidden run is made read-only |
@@ -44,12 +44,13 @@ gitignored `docs/reference/`).
 | `src/app/path_editor.*` | Choosing a folder on the chooser or typing a path; one request at a time, refusals shown with their reason |
 | `src/app/artwork_delivery.*` | Hands saved artwork, store contents and UI sounds to the shell and sound player |
 | `src/app/volume_control.*` | The volume actions onto `SystemVolume` and its backend; polling; the OSD listener |
-| `src/app/shortcut_editor.*` | The remap capture: pick an action, press the new combo or pad chord, refusals |
-| `src/app/shortcut_router.*` | Keys, pad events and game keys onto shell events and actions through `Shortcuts`; the quick menu and quit actions are done here |
+| `src/app/shortcut_editor.*` | The remap capture: pick an action, press the new combo or pad chord (the first button held, then another; B alone cancels on release), refusals; restores every shortcut or only the chords |
+| `src/app/chord_settings.*` | Settings › Guide chords: one row per action a chord can do, its chord, the capture through `ShortcutEditor`, restore the shipped chords |
+| `src/app/shortcut_router.*` | Keys, pad events and game keys onto shell events and actions through `Shortcuts`; every action that is not a button is done here (quick menu, volume, quit, and the game actions, with a toast when no game runs) |
 | `src/app/frame_png.*` | The drawn shell as PNG bytes, for the control channel's frame and `--render` |
 | `src/app/panel_flow.*` | The launch/install panel flow taken out of `shell_app.cpp` |
 | `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page, breadcrumb and panel-button action), right click = the target's context menu (never B), wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
-| `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input, frames, `/signin/<store>[/start]` |
+| `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input (`guide+a` holds buttons together), frames, `/signin/<store>[/start]` |
 | `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
 | `src/app/install_job.*` | The store-neutral install job: its thread, the latest report the loop takes, the licence answer |
@@ -146,14 +147,15 @@ gitignored `docs/reference/`).
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`) (`opensu_pad`) |
-| `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls |
+| `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls; analogue triggers as L2/R2 with hysteresis (`triggerPressAt`, `triggerReleaseAt`); what reaches the virtual pad passes the pad's `ChordGate` |
+| `src/gamepad/chord_gate.*` | The one chord rule (`Chord`, `ChordTriggers`, `ChordGate`): a bound modifier is held back, a bound trigger while it is held is the chord and both stay back, another button lets the modifier out first, a lone modifier released under the hold delay is a tap and after it nothing; used by the shell's controls and the game's virtual pad alike |
 | `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads; whether a reader takes opensu's own virtual pads (`OwnVirtualPads`: the shell skips them, `opensu-retro` reads them) |
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
-| `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while a menu or page is up; lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
+| `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while a menu or page is up; keeps bound chords from the game (`setChords`); lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
-| `src/input/shortcuts.*` | The one chord table: every `Action` (pad buttons, Guide, volume, Quit) with its default key combos and pad chords, the player's overrides (`rebind`, with conflict refusals), labels and settings spellings |
+| `src/input/shortcuts.*` | The one chord table: every `Action` (pad buttons, Guide, volume, Quit, and the game actions Close game, Save state, Load state, Reset game, Devices, Home) with its default key combos and pad chords (any button may be the held one), the player's overrides (`rebind`, with conflict refusals), labels and settings spellings |
 | `src/input/key_names.*` | The shell's key codes (`input::keys`, GLFW's numbering, letters as ASCII) and their names: `Combo`, modifiers, bindable keys, X11 key names for the in-game watcher |
-| `src/input/pad_chords.*` | Pad chords (L2, R2, L3, R3 or Guide plus a button): the held modifier swallows its trigger and emits the action; Guide alone is a tap that comes out on release |
+| `src/input/pad_chords.*` | Pad chords in the shell's controls: the bound chords as `ChordTriggers` (`chordTriggers`), the hold delay (`holdDelay`, 500 ms), one `ChordGate` per source, and the action each chord plays |
 | `src/input/prompts.hpp` | `Prompts`: the last device and the shortcuts, so key caps in hints follow remaps |
 | `src/input/keyboard_bindings.*` | `KeyFrame` (one frame's key downs, ups, repeats and typed text), `KeySource`, the frame's pressed `Combo`, and typed text; the keys themselves come from `Shortcuts` |
 | `src/input/last_device.*` | Which device (pad, or keyboard and mouse) gave the latest real input; read by the prompt painters |

@@ -20,7 +20,7 @@ struct ActionInfo {
     bool padChord;
 };
 
-constexpr std::array<ActionInfo, 19> infos{{
+constexpr std::array<ActionInfo, allActions.size()> infos{{
     {Action::Up, "up", "Up", Button::Up, false, false},
     {Action::Down, "down", "Down", Button::Down, false, false},
     {Action::Left, "left", "Left", Button::Left, false, false},
@@ -40,7 +40,20 @@ constexpr std::array<ActionInfo, 19> infos{{
     {Action::VolumeDown, "volumeDown", "Volume down", Button::None, true, true},
     {Action::VolumeMute, "volumeMute", "Mute", Button::None, true, true},
     {Action::Quit, "quit", "Quit openSU", Button::None, false, false},
+    {Action::CloseGame, "closeGame", "Close game", Button::None, true, true},
+    {Action::SaveState, "saveState", "Save state", Button::None, true, true},
+    {Action::LoadState, "loadState", "Load state", Button::None, true, true},
+    {Action::ResetGame, "resetGame", "Reset game", Button::None, true, true},
+    {Action::Devices, "devices", "Devices", Button::None, true, true},
+    {Action::Home, "home", "Home", Button::None, true, true},
 }};
+
+static_assert(std::ranges::all_of(allActions,
+                                  [](Action action) {
+                                      return infos[static_cast<std::size_t>(action)].action ==
+                                             action;
+                                  }),
+              "infos is in the order of Action");
 
 const ActionInfo& infoOf(Action action) noexcept {
     return infos[static_cast<std::size_t>(action)];
@@ -85,9 +98,9 @@ struct DefaultPad {
 
 constexpr std::array<DefaultPad, 4> defaultPads{{
     {Action::QuickMenu, {Button::Guide, Button::A}},
-    {Action::VolumeUp, {Button::L2, Button::Up}},
-    {Action::VolumeDown, {Button::L2, Button::Down}},
-    {Action::VolumeMute, {Button::L2, Button::Left}},
+    {Action::VolumeUp, {Button::Guide, Button::Up}},
+    {Action::VolumeDown, {Button::Guide, Button::Down}},
+    {Action::VolumeMute, {Button::Guide, Button::Left}},
 }};
 
 std::string capitalised(std::string_view word) {
@@ -128,11 +141,6 @@ bool worksInGame(Action action) noexcept {
 
 bool takesPadChord(Action action) noexcept {
     return infoOf(action).padChord;
-}
-
-bool canHold(Button button) noexcept {
-    return button == Button::L2 || button == Button::R2 || button == Button::L3 ||
-           button == Button::R3 || button == Button::Guide;
 }
 
 std::string describe(const PadChord& chord) {
@@ -246,9 +254,9 @@ std::string Shortcuts::rebind(Action action, const PadChord& chord) {
     if (!takesPadChord(action)) {
         return std::string{label(action)} + " has no pad chord";
     }
-    if (!canHold(chord.modifier) || chord.trigger == Button::None ||
+    if (chord.modifier == Button::None || chord.trigger == Button::None ||
         chord.trigger == chord.modifier) {
-        return "hold Guide, L2, R2, L3 or R3 and press another button";
+        return "hold a button and press another";
     }
     if (const std::optional<Action> holder = actionFor(chord); holder && *holder != action) {
         return describe(chord) + " is already " + std::string{label(*holder)};
@@ -270,6 +278,11 @@ void Shortcuts::reset(Action action) {
 
 void Shortcuts::resetAll() {
     overrides_ = {};
+    build();
+}
+
+void Shortcuts::resetPads() {
+    overrides_.pads.clear();
     build();
 }
 

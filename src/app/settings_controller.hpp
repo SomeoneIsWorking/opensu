@@ -6,10 +6,13 @@
 
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "audio/sdl_sound_player.hpp"
+#include "chord_settings.hpp"
 #include "config/config.hpp"
 #include "emulator_settings.hpp"
 #include "gamepad/event.hpp"
@@ -54,6 +57,7 @@ class SettingsController {
         EmulatorSettings& emulators;
         SteamLibrarySettings& steamLibraries;
         PluginSettings& plugins;
+        ChordSettings& chords;
     };
 
     /// `defaults` is the environment's configuration, which the settings override.
@@ -61,8 +65,9 @@ class SettingsController {
                        Preferences& preferences, const config::Config& defaults, Hooks hooks)
         : page_{page}, paths_{services.paths}, shortcutEditor_{services.shortcutEditor},
           volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
-          steamLibraries_{services.steamLibraries}, plugins_{services.plugins}, sounds_{sounds},
-          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
+          steamLibraries_{services.steamLibraries}, plugins_{services.plugins},
+          chords_{services.chords}, sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -102,6 +107,9 @@ class SettingsController {
     void runLibrary(const std::string& id, int step);
     void runAudio(const std::string& id, int step);
     void runControls(const std::string& id);
+    /// Focuses the rows of the category `id`; false when there is none.
+    bool showCategory(std::string_view id);
+    [[nodiscard]] std::optional<std::size_t> categoryIndex(std::string_view id) const;
     void chooseFolder(const std::string& id);
     void editInstallFolder(const std::string& title, const std::string& id);
     void addRoot(const std::string& id);
@@ -115,6 +123,7 @@ class SettingsController {
     EmulatorSettings& emulators_;
     SteamLibrarySettings& steamLibraries_;
     PluginSettings& plugins_;
+    ChordSettings& chords_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;
     const config::Config& defaults_;

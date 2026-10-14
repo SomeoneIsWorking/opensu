@@ -209,13 +209,21 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         }
         if (name.empty()) {
             return refuse("body must name a button: up down left right a b x y l1 r1 select start "
-                          "guide search");
+                          "guide search, or buttons held together: guide+a");
         }
-        const gamepad::Button button = gamepad::buttonNamed(name);
-        if (button == gamepad::Button::None) {
-            return refuse("unknown button \"" + std::string{name} + "\"");
+        // `guide+a` holds Guide while A is tapped: a chord.
+        std::vector<gamepad::Button> buttons;
+        for (std::size_t from = 0; from != std::string_view::npos;) {
+            const std::size_t plus = name.find('+', from);
+            const std::string_view part = name.substr(from, plus - from);
+            const gamepad::Button button = gamepad::buttonNamed(part);
+            if (button == gamepad::Button::None) {
+                return refuse("unknown button \"" + std::string{part} + "\"");
+            }
+            buttons.push_back(button);
+            from = plus == std::string_view::npos ? plus : plus + 1;
         }
-        target_.inject(button, device);
+        target_.inject(buttons, device);
         lucent::info("control", "injected {}", name);
         return lucent::http::Response::json(200, "OK", "{\"injected\":" + jsonString(name) + "}");
     }

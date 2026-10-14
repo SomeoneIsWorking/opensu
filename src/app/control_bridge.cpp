@@ -14,9 +14,18 @@ void ControlBridge::publish(ShellSnapshot snapshot) {
     published_ = std::move(snapshot);
 }
 
-void ControlBridge::inject(gamepad::Button button, input::Device device) {
+void ControlBridge::inject(const std::vector<gamepad::Button>& buttons, input::Device device) {
+    const auto edge = [](gamepad::Button button, bool pressed) {
+        return gamepad::Event{
+            .kind = gamepad::Event::Kind::Button, .button = button, .pressed = pressed};
+    };
     const std::lock_guard lock{inputMutex_};
-    input_.buttons.emplace_back(button, device);
+    for (const gamepad::Button button : buttons) {
+        input_.buttons.emplace_back(edge(button, true), device);
+    }
+    for (auto button = buttons.rbegin(); button != buttons.rend(); ++button) {
+        input_.buttons.emplace_back(edge(*button, false), device);
+    }
 }
 
 void ControlBridge::injectKey(input::Combo combo) {

@@ -98,19 +98,11 @@ void QuickMenuController::runRetro(const SettingsRow& row, bool confirmed) {
         armed_ = row.id;
         return;
     }
-    std::string refused;
-    std::string done;
-    if (row.id == saveStateId) {
-        refused = retro_.saveState();
-        done = "State saved";
-    } else if (row.id == loadStateId) {
-        refused = retro_.loadState();
-        done = "State loaded";
-    } else {
-        refused = retro_.reset();
-        done = "Game reset";
-    }
-    hooks_.say(refused.empty() ? done : refused, !refused.empty());
+    const RetroSession::Command command = row.id == saveStateId   ? RetroSession::Command::SaveState
+                                          : row.id == loadStateId ? RetroSession::Command::LoadState
+                                                                  : RetroSession::Command::Reset;
+    const RetroSession::Outcome outcome = retro_.perform(command);
+    hooks_.say(outcome.text, outcome.error);
 }
 
 void QuickMenuController::open() {

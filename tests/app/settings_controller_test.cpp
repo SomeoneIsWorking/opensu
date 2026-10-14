@@ -98,11 +98,14 @@ struct Rig {
                          },
                          [this] {
                              controller.refresh();
+                         },
+                         [this] {
+                             ++chordChanges;
                          }},
           controller{page,
                      app::SettingsController::Services{paths, shortcutEditor, volume, shortcuts,
                                                        emulatorSettings, steamLibrarySettings,
-                                                       pluginSettings},
+                                                       pluginSettings, chordSettings},
                      sounds,
                      preferences,
                      config,
@@ -193,6 +196,7 @@ struct Rig {
     bool steamReady{false};
     std::vector<library::steam::LibraryFolder> recorded;
     int applied{0};
+    int chordChanges{0};
     app::Preferences preferences;
     ui::SettingsPage page;
     ui::FolderChooser folders;
@@ -252,6 +256,7 @@ struct Rig {
     app::PluginSettings pluginSettings{plugins, dialog, sounds, config.home, [this] {
                                            controller.refresh();
                                        }};
+    app::ChordSettings chordSettings{shortcutEditor, shortcuts};
     app::SettingsController controller;
 };
 
@@ -264,9 +269,9 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
         names.push_back(category.label);
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators",
-                                             "Steam libraries", "Audio", "Controls",
+                                             "Steam libraries", "Audio", "Controls", "Guide chords",
                                              "Install folders", "Plugins", "About"},
-           "the nine categories");
+           "the ten categories");
     expect(rig.controller.category() == "Appearance" && !rig.controller.changes(),
            "opens on Appearance with nothing to change yet");
     rig.enter("Steam libraries");
@@ -560,7 +565,7 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
     rig.controller.open();
     rig.enter("Controls");
     expect(rig.rowOf("shortcut.quit").value == "Q", "a row reads its key");
-    expect(rig.rowOf("shortcut.volumeUp").value == "Ctrl+Up  L2 + Up", "and its pad chord");
+    expect(rig.rowOf("shortcut.volumeUp").value == "Ctrl+Up  Guide + Up", "and its pad chord");
 
     rig.focus("shortcut.quit");
     rig.controller.act(Button::A);
@@ -588,8 +593,9 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
 
     rig.focus("shortcut.volumeUp");
     rig.controller.act(Button::A);
-    expect(rig.rowOf("shortcut.volumeUp").value.find("L2") != std::string::npos,
-           "a volume row offers the pad");
+    expect(rig.rowOf("shortcut.volumeUp").value == "Press a key, or Guide + a button" &&
+               rig.rowOf("shortcut.volumeUp").note.find("Any button") != std::string::npos,
+           "a volume row offers the pad's chords");
     const auto event = [](Button button, bool pressed) {
         gamepad::Event made;
         made.button = button;
@@ -611,7 +617,16 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
     expect(rig.shortcutEditor.capturing() && rig.said.back().error, "a clashing chord is refused");
     rig.shortcutEditor.capturePad({event(Button::B, false), event(Button::Y, false),
                                    event(Button::R2, false), event(Button::B, true)});
-    expect(!rig.shortcutEditor.capturing(), "B cancels");
+    expect(rig.shortcutEditor.capturing(), "B may be the start of a chord");
+    rig.shortcutEditor.capturePad({event(Button::B, false)});
+    expect(!rig.shortcutEditor.capturing(), "B pressed and released alone cancels");
+
+    rig.focus("shortcut.volumeDown");
+    rig.controller.act(Button::A);
+    rig.shortcutEditor.capturePad({event(Button::Start, true), event(Button::B, true)});
+    expect(!rig.shortcutEditor.capturing() && rig.shortcuts.padChord(input::Action::VolumeDown) ==
+                                                  input::PadChord{Button::Start, Button::B},
+           "any button can be held for a chord, Start too, and B can be its partner");
 
     rig.focus("shortcut.confirm");
     rig.controller.act(Button::A);
@@ -624,6 +639,63 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
     expect(rig.onDisk().shortcuts == input::ShortcutOverrides{} &&
                rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("q"),
            "restore puts every shortcut back");
+}
+
+void guideChordsAreSetOnTheirPage(const fs::path& root) {
+    Rig rig{root / "chords"};
+    rig.controller.open();
+    rig.enter("Controls");
+    rig.focus("chords.open");
+    rig.controller.act(Button::A);
+    expect(rig.controller.category() == "Guide chords" && rig.page.zone() == ui::SettingsZone::Rows,
+           "the Controls page opens the Guide chords page");
+
+    std::vector<std::string> labels;
+    for (const ui::SettingsRow& row : rig.page.focusedCategory().rows) {
+        labels.push_back(row.label + ": " + row.value);
+    }
+    expect(labels ==
+               std::vector<std::string>{
+                   "Quick menu: Guide + A", "Volume up: Guide + Up", "Volume down: Guide + Down",
+                   "Mute: Guide + Left", "Close game: None", "Save state: None", "Load state: None",
+                   "Reset game: None", "Devices: None", "Home: None", "Restore default chords: "},
+           "one row per action a chord can do, with its chord");
+
+    const auto event = [](Button button, bool pressed) {
+        gamepad::Event made;
+        made.button = button;
+        made.pressed = pressed;
+        return made;
+    };
+    rig.focus("chord.devices");
+    rig.controller.act(Button::A);
+    expect(rig.shortcutEditor.capturing() &&
+               rig.rowOf("chord.devices").value == "Hold Guide and press a button",
+           "A listens for the chord");
+    rig.shortcutEditor.capturePad({event(Button::Guide, true), event(Button::B, true)});
+    expect(!rig.shortcutEditor.capturing() && rig.rowOf("chord.devices").value == "Guide + B" &&
+               rig.onDisk().shortcuts.pads.at(input::Action::Devices) ==
+                   input::PadChord{Button::Guide, Button::B} &&
+               rig.chordChanges == 1,
+           "Guide + B is kept, shown, and the pads are told");
+
+    rig.focus("chord.home");
+    rig.controller.act(Button::A);
+    rig.shortcutEditor.capturePad({event(Button::Guide, true), event(Button::A, true)});
+    expect(rig.shortcutEditor.capturing() &&
+               rig.said.back().text.find("already Quick menu") != std::string::npos,
+           "a chord another action has is refused");
+    rig.shortcutEditor.cancel();
+
+    expect(rig.shortcuts.rebind(input::Action::Quit, input::Combo{input::keys::F9}).empty(),
+           "a key is remapped too");
+    rig.focus("chords.reset");
+    rig.controller.act(Button::A);
+    expect(rig.onDisk().shortcuts.pads.empty() && rig.rowOf("chord.devices").value == "None" &&
+               rig.onDisk().shortcuts.keys.at(input::Action::Quit) ==
+                   input::Combo{input::keys::F9} &&
+               rig.chordChanges == 2,
+           "restoring the chords leaves the keys");
 }
 
 bool hasCall(const test::FakeSteam& steam, const std::string& part) {
@@ -811,6 +883,7 @@ int main() {
     withoutAMixerTheRowSaysHow(root);
     interfaceSizeCycles(root);
     shortcutsAreRemappedAndKept(root);
+    guideChordsAreSetOnTheirPage(root);
     steamLibrariesWhileSteamRuns(root / "steam");
     pluginsAskBeforeTheyRun(root / "plugins");
     fs::remove_all(root);

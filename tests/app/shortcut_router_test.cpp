@@ -1,6 +1,9 @@
 // The shortcut router: the quick menu action fires from Ctrl+Tab and from Guide + A, a lone Guide
 // tap still reaches the shell as Guide, and the chord does not leak its buttons.
 #include <cstdio>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "host_fakes.hpp"
 #include "shortcut_router.hpp"
@@ -23,18 +26,47 @@ gamepad::Event pad(Button button, bool pressed) {
 struct Rig {
     Rig()
         : volume{std::make_unique<test::FakeMixer>(), {}},
-          router{shortcuts, volume,
-                 app::ShortcutRouter::Hooks{[] {
-                                            },
-                                            [this] {
-                                                ++quickMenus;
-                                            }}} {
+          router{shortcuts, volume, retro,
+                 app::ShortcutRouter::Hooks{.quit =
+                                                [] {
+                                                },
+                                            .quickMenu =
+                                                [this] {
+                                                    ++quickMenus;
+                                                },
+                                            .gameRunning =
+                                                [this] {
+                                                    return gameRunning;
+                                                },
+                                            .closeGame =
+                                                [this] {
+                                                    ++closed;
+                                                },
+                                            .openDevices =
+                                                [this] {
+                                                    ++devices;
+                                                },
+                                            .goHome =
+                                                [this] {
+                                                    ++homes;
+                                                },
+                                            .say =
+                                                [this](const std::string& text, bool error) {
+                                                    said.emplace_back(text, error);
+                                                }}} {
     }
 
     input::Shortcuts shortcuts;
     app::VolumeControl volume;
+    /// No launch began, so the game has no control channel.
+    app::RetroSession retro{"unused"};
     app::ShortcutRouter router;
     int quickMenus{0};
+    bool gameRunning{false};
+    int closed{0};
+    int devices{0};
+    int homes{0};
+    std::vector<std::pair<std::string, bool>> said;
 };
 
 void ctrlTabOpensTheQuickMenu() {
@@ -63,12 +95,47 @@ void aLoneGuideTapIsGuide() {
            "a tap comes out as a press and release of Guide on release");
 }
 
+void chord(Rig& rig, Button modifier, Button trigger) {
+    static_cast<void>(rig.router.fromPad({pad(modifier, true), pad(trigger, true)}));
+    static_cast<void>(rig.router.fromPad({pad(trigger, false), pad(modifier, false)}));
+}
+
+void gameActionsTakeChords() {
+    Rig rig;
+    expect(rig.shortcuts.rebind(input::Action::Devices, input::PadChord{Button::Guide, Button::B})
+                   .empty() &&
+               rig.shortcuts
+                   .rebind(input::Action::CloseGame, input::PadChord{Button::Guide, Button::X})
+                   .empty() &&
+               rig.shortcuts
+                   .rebind(input::Action::SaveState, input::PadChord{Button::Guide, Button::Y})
+                   .empty() &&
+               rig.shortcuts.rebind(input::Action::Home, input::PadChord{Button::R3, Button::A})
+                   .empty(),
+           "the game actions take chords");
+    chord(rig, Button::Guide, Button::B);
+    expect(rig.devices == 1, "Guide + B opens Devices");
+    chord(rig, Button::R3, Button::A);
+    expect(rig.homes == 1, "R3 + A goes home");
+    chord(rig, Button::Guide, Button::X);
+    expect(rig.closed == 0 &&
+               rig.said.back() == std::pair<std::string, bool>{"no game is running", true},
+           "Close game with no game says so");
+    rig.gameRunning = true;
+    chord(rig, Button::Guide, Button::X);
+    expect(rig.closed == 1, "with a game it closes it");
+    chord(rig, Button::Guide, Button::Y);
+    expect(rig.said.back() == std::pair<std::string, bool>{"the game has no control channel", true},
+           "Save state on a game not on opensu-retro is refused with a toast");
+}
+
 } // namespace
 
 int main() {
     ctrlTabOpensTheQuickMenu();
     guidePlusAOpensTheQuickMenu();
     aLoneGuideTapIsGuide();
+    gameActionsTakeChords();
     std::printf("shortcut_router: all checks passed\n");
     return 0;
 }

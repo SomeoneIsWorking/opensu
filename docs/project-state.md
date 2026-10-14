@@ -61,11 +61,15 @@ Visible deltas from the baseline:
 - The title pill names the focused tile on Home too; iiSU shows it only inside sections.
 - A signed-out GOG or Epic tile opens that store's sign-in page in the default browser.
 - No store client window is ever opened to reach a game.
-- Settings screen (START options, last row "Settings"): iiSU's settings dialog structure with nine
-  categories (Appearance, Library, Emulators, Steam libraries, Audio, Controls, Install folders,
-  Plugins, About), own controller, model and painter. iiSU's Performance, Updates and Integrations
-  sections have no counterpart; Emulators (download, update, remove official AppImages, emulator
-  per system), Steam libraries and Plugins are openSU's own.
+- Settings screen (START options, last row "Settings"): iiSU's settings dialog structure with ten
+  categories (Appearance, Library, Emulators, Steam libraries, Audio, Controls, Guide chords,
+  Install folders, Plugins, About), own controller, model and painter. iiSU's Performance, Updates
+  and Integrations sections have no counterpart; Emulators (download, update, remove official
+  AppImages, emulator per system), Steam libraries, Guide chords and Plugins are openSU's own.
+- Pad chords: iiSU has three fixed single-button shortcuts and fixed L2/R2 overlays; openSU lets
+  any button be held for a chord (Guide + A quick menu, Guide + Up/Down/Left volume, game actions on
+  Settings › Guide chords), keeps a chord's buttons from the game, and still passes a quick tap of
+  the held button to it.
 - Switch games show the play time Eden recorded (the bundled Eden plugin), with no launch from
   openSU needed; iiSU shows no emulator play time.
 - No volume overlay in iiSU (its main activity hands the volume keys to Android); openSU draws its
@@ -107,7 +111,7 @@ game has been observed running yet.
 | S019 | iiSU's UI sounds on the events openSU shares with iiSU | partial | S005 | G002 |
 | S020 | Settings screen with every user-meaningful preference, mouse, keyboard and pad | partial | S005 | G002 |
 | S021 | Install folders: one default plus Steam, Epic and GOG overrides from one resolver | partial | S020 | G001 |
-| S022 | PC volume and mute, volume overlay, remappable shortcut chords, interface scale | partial | S020 | G002, G003 |
+| S022 | PC volume and mute, volume overlay, remappable shortcut chords (game actions, Guide chords page, chords kept from the game), interface scale | partial | S020 | G002, G003 |
 | S023 | Guide menu (Home, Library, Devices, Settings, power button) over the home screen and a running game | partial | S020 | G002, G003 |
 | S024 | Devices page: Bluetooth, controllers, audio output, display | partial | S023 | G002, G003 |
 | S025 | Quick menu on Guide + A over the home screen and a running game | partial | S024 | G002, G003 |
@@ -999,8 +1003,14 @@ polling, so one change is one step and one overlay. Missing backend
 shows the install command in the Audio page.
 
 Chords: `input/shortcuts` is the one table (defaults Shift+Tab Guide, Ctrl+Up/Down/M volume, Q quit,
-L2+Up/Down/Left for volume on a pad), remapped on the Controls page with conflict refusal and
-saved. Esc cannot be captured; pad chords are limited to the volume actions.
+Guide+A quick menu, Guide+Up/Down/Left for volume on a pad), remapped on the Controls page with
+conflict refusal and saved. Esc cannot be captured. Pad chords take any button as the held one and
+can do the quick menu, the volume, Close game, Save state, Load state, Reset game, Devices and Home
+(`docs/issues/guide-chord-configuration.md`); Settings › Guide chords lists them. One rule
+(`gamepad/chord_gate`) serves the shell and the game: a chord's buttons never reach the game, and a
+modifier tapped under 500 ms still reaches it as that button. Analogue triggers are L2/R2. Verified
+by unit tests (uinput `pads_test` included) and a hidden run that bound Guide + B to Devices on the
+page and opened Devices with it.
 
 The Install folders rows show the folder each store will use and where it comes from: the store's
 override, the default folder, or the store's own (GOG `<data>/opensu/gog-games/<id>`, Epic
@@ -1008,7 +1018,8 @@ legendary's `[Legendary] install_dir` else `~/Games`, Steam its default library 
 The rows and the install flows read the same `InstallFolders::resolve`.
 
 Unverified: live Steam, real Epic and GOG installs, volume writes on a real device, pad chords on
-hardware, the in-game X11 path outside Xvfb, media keys.
+hardware (analogue triggers, chords over a game, a replayed tap in a polling game), the in-game X11
+path outside Xvfb, media keys. Missing: Downloads as a chord action.
 
 ### S026 — Emulator downloads
 
@@ -1092,9 +1103,8 @@ also passes on lavapipe with validation.
 
 Unverified: a visible window under Gamescope with sound on a device, a real pad and the shell's
 virtual pad driving a game (`pads_test`'s new reader case cannot pass on this machine while the
-running openSU holds every new pad; the pre-change test binary fails the same way). Missing: L2/R2
-from analogue triggers (the translator reports them only for digital triggers), ports beyond the
-first, analogue sticks (`RETRO_DEVICE_ANALOG`), core option changes. Unverified: the quick menu's
+running openSU holds every new pad; the pre-change test binary fails the same way). Missing: ports
+beyond the first, analogue sticks (`RETRO_DEVICE_ANALOG`), core option changes. Unverified: the quick menu's
 state rows over a real game in Gamescope, and the crash toast after a real crash from the shell.
 Control requests run on the shell's loop, so a runner that stops answering holds the shell for up to
 5 s (the loopback client's socket timeout).

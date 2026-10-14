@@ -90,10 +90,8 @@ def _settings_page(label: str) -> Callable[[HiddenShell], None]:
 
 
 def _quick(shell: HiddenShell) -> None:
-    # The pad's Guide + A chord cannot be held over the channel; the keyboard shortcut opens the
-    # same menu, and a pad press after it brings back the pad's prompts.
-    shell.key("ctrl+tab")
-    shell.press("down", "up")
+    # The pad's Guide + A chord, held over the channel.
+    shell.press("guide+a")
     shell.wait_for("quickMenuOpen", True)
 
 
@@ -189,6 +187,12 @@ SCENES: tuple[Scene, ...] = (
     Scene("settings-library", "Settings: Library", _settings_page("Library"), _close_settings),
     Scene("settings-audio", "Settings: Audio", _settings_page("Audio"), _close_settings),
     Scene("settings-controls", "Settings: Controls", _settings_page("Controls"), _close_settings),
+    Scene(
+        "settings-guide-chords",
+        "Settings: Guide chords",
+        _settings_page("Guide chords"),
+        _close_settings,
+    ),
     Scene("settings-about", "Settings: About", _settings_page("About"), _close_settings),
     Scene("context-menu", "A game tile's menu", _context_menu, _close_context_menu),
     Scene("options-panel", "Library's options panel", _options_panel, _close_options_panel),

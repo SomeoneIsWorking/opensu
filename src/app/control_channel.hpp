@@ -100,8 +100,9 @@ class ControlTarget {
     /// Types `text` as a physical keyboard would, into the search field if it is open.
     virtual void typeText(std::string text) = 0;
 
-    /// Queues a button press, as if it came from `device`.
-    virtual void inject(gamepad::Button button, input::Device device) = 0;
+    /// Queues `buttons` held together, as if from `device`: pressed in order, then released in
+    /// reverse. One button is a tap; Guide then A is the Guide + A chord.
+    virtual void inject(const std::vector<gamepad::Button>& buttons, input::Device device) = 0;
 
     /// Queues a key combination pressed on the keyboard, to be read through the shortcut table.
     virtual void injectKey(input::Combo combo) = 0;

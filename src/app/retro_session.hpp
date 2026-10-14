@@ -1,6 +1,6 @@
 // retro_session — the shell's side of opensu-retro's control channel: the control file each launch
 // names in OPENSU_RETRO_CONTROL, the port read from it once the runner announces one, the requests
-// the quick menu sends, and the load failure a runner leaves there.
+// the quick menu and the game chords send, and the load failure a runner leaves there.
 #pragma once
 
 #include <cstdint>
@@ -41,6 +41,16 @@ class RetroSession {
     [[nodiscard]] std::string saveState();
     [[nodiscard]] std::string loadState();
     [[nodiscard]] std::string reset();
+
+    /// What the quick menu's game rows and the game chords ask for.
+    enum class Command : std::uint8_t { SaveState, LoadState, Reset };
+    /// How a command went, as the toast says it.
+    struct Outcome {
+        std::string text;
+        bool error{false};
+    };
+    /// Asks the runner for `command`: "State saved" and the like, or why it was not done.
+    [[nodiscard]] Outcome perform(Command command);
 
   private:
     /// The port the current control file announces, read once it does.

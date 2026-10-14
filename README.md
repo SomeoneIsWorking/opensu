@@ -178,7 +178,7 @@ sudo sh ~/.local/libexec/opensu/install-session.sh
 entry installed by hand still works: openSU leaves a note, ends its Gamescope and starts
 `startplasma-wayland` in the session's place.
 
-`--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`). A hidden run only reads the system volume and never starts the Steam client (Steam shows as stopped); it also never sleeps, restarts, shuts down, scans, pairs, connects or forgets Bluetooth devices, and never writes the brightness.
+`--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`; `guide+a` holds buttons together), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`). A hidden run only reads the system volume and never starts the Steam client (Steam shows as stopped); it also never sleeps, restarts, shuts down, scans, pairs, connects or forgets Bluetooth devices, and never writes the brightness.
 
 Overrides, all optional:
 
@@ -297,6 +297,14 @@ that build; otherwise the Windows build is downloaded and run with `wine`. Games
 | LB / RB | Previous / next page (`wiisu` mode only) |
 | Start | Back to the first tile |
 | Guide (in a game) | Menu over the game: Resume or Close game; B or Guide resumes. The game gets no controller input while it is open |
+| Guide + A | Quick menu, over a game too |
+| Guide + Up / Down / Left | Volume up / down / mute |
+
+Chords are set on Settings › Guide chords: Quick menu, the volume, Close game, Save state, Load
+state, Reset game, Devices and Home. Hold any button and press another to set one. A chord's buttons
+never reach the game. The held button still works on its own: tapped (released within 500 ms with
+no chord) it reaches the game as that button; held longer and released alone it does nothing, and
+pressed with a button that is no chord it reaches the game before that button.
 
 ## Documentation
 

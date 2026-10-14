@@ -26,7 +26,7 @@ Pads::Pad::Pad(EvdevDevice opened) : device{std::move(opened)}, translator{devic
     std::vector<PadEvent> ignored;
     std::vector<Event> controls;
     for (const PadEvent& event : device.state()) {
-        translator.translate(event, ignored, controls);
+        translator.translate(event, ignored, controls, ChordGate::Clock::now());
     }
 }
 
@@ -105,6 +105,12 @@ void Pads::setBlocked(bool blocked) {
     wake();
 }
 
+void Pads::setChords(ChordTriggers chords) {
+    std::unique_lock lock{mutex_};
+    wanted_.chords = std::move(chords);
+    awaitApplied(lock, ++wanted_.serial);
+}
+
 void Pads::wake() const {
     const std::uint64_t one = 1;
     [[maybe_unused]] const auto written = ::write(wake_, &one, sizeof(one));
@@ -131,6 +137,7 @@ void Pads::add(const std::filesystem::path& node) {
         return;
     }
     auto pad = std::make_unique<Pad>(std::move(*device));
+    pad->translator.setChords(applied_.chords);
     lucent::info("gamepad", "controller connected: {} ({})", pad->device.name(), node.string());
     if (applied_.held && !apply(*pad, true, applied_.blocked)) {
         missed_ = true;
@@ -217,6 +224,11 @@ void Pads::run(const std::stop_token& stop) {
             const std::lock_guard lock{mutex_};
             wanted = wanted_;
         }
+        if (wanted.chords != applied_.chords) {
+            for (const auto& pad : pads_) {
+                pad->translator.setChords(wanted.chords);
+            }
+        }
         if (wanted.held != applied_.held) {
             missed_ = false;
             for (const auto& pad : pads_) {
@@ -238,6 +250,7 @@ void Pads::run(const std::stop_token& stop) {
         appliedChanged_.notify_all();
 
         std::vector<Event> events;
+        const ChordGate::Clock::time_point now = ChordGate::Clock::now();
         // Pads first: fds index into pads_ as it was polled, before any new pad is added.
         for (std::size_t i = fds.size() - 1; i > 1; --i) {
             if (fds[i].revents == 0) {
@@ -262,7 +275,7 @@ void Pads::run(const std::stop_token& stop) {
             std::vector<PadEvent> forward;
             const std::size_t before = events.size();
             for (const PadEvent& event : read) {
-                pad.translator.translate(event, forward, events);
+                pad.translator.translate(event, forward, events, now);
             }
             for (std::size_t i = before; i < events.size(); ++i) {
                 events[i].source = pad.device.node().string();

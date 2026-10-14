@@ -2,58 +2,42 @@
 
 namespace opensu::input {
 
-PadChords::Result PadChords::feed(const std::vector<gamepad::Event>& events) {
+gamepad::ChordTriggers chordTriggers(const Shortcuts& shortcuts) {
+    gamepad::ChordTriggers triggers{{}, holdDelay};
+    for (const Action action : allActions) {
+        if (const std::optional<PadChord> chord = shortcuts.padChord(action)) {
+            triggers.chords.insert(*chord);
+        }
+    }
+    return triggers;
+}
+
+PadChords::Result PadChords::feed(const std::vector<gamepad::Event>& events, Clock::time_point at) {
     Result result;
+    const gamepad::ChordTriggers triggers = chordTriggers(*shortcuts_);
     for (const gamepad::Event& event : events) {
         if (event.kind != gamepad::Event::Kind::Button) {
             result.events.push_back(event);
             continue;
         }
-        if (event.button == gamepad::Button::Guide) {
-            holdGuide(event, result);
-            continue;
+        gamepad::ChordGate& gate = gates_[event.source];
+        if (gate.triggers() != triggers) {
+            gate.setTriggers(triggers);
         }
-        if (!event.pressed) {
-            held_.erase(event.button);
-            if (swallowed_.erase(event.button) == 0) {
-                result.events.push_back(event);
+        for (const gamepad::ChordGate::Step& step : gate.feed(event.button, event.pressed, at)) {
+            if (step.kind == gamepad::ChordGate::Step::Kind::Chord) {
+                if (const std::optional<Action> action = shortcuts_->actionFor(step.chord)) {
+                    result.actions.push_back(*action);
+                }
+                continue;
             }
-            continue;
-        }
-        std::optional<Action> chord;
-        gamepad::Button via = gamepad::Button::None;
-        for (const gamepad::Button modifier : held_) {
-            if (canHold(modifier) && !chord) {
-                chord = shortcuts_->actionFor(PadChord{modifier, event.button});
-                via = modifier;
-            }
-        }
-        held_.insert(event.button);
-        if (chord) {
-            swallowed_.insert(event.button);
-            result.actions.push_back(*chord);
-            if (via == gamepad::Button::Guide) {
-                guide_.reset();
-            }
-        } else {
-            result.events.push_back(event);
+            gamepad::Event out = event;
+            out.button = step.button;
+            out.pressed = step.pressed;
+            result.events.push_back(out);
         }
     }
     return result;
-}
-
-void PadChords::holdGuide(const gamepad::Event& event, Result& result) {
-    if (event.pressed) {
-        held_.insert(event.button);
-        guide_ = event;
-        return;
-    }
-    held_.erase(event.button);
-    if (guide_) {
-        result.events.push_back(*guide_);
-        result.events.push_back(event);
-        guide_.reset();
-    }
 }
 
 } // namespace opensu::input
