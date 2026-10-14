@@ -61,7 +61,6 @@ std::string installedBuild(const Installed& installed, std::string_view id) {
 Paths Paths::under(const fs::path& dataDir) {
     return Paths{.records = dataDir / "gog-installs.json",
                  .games = dataDir / "gog-games",
-                 .prefixes = dataDir / "gog-prefixes",
                  .gogdlAuth = dataDir / "gogdl-auth.json"};
 }
 

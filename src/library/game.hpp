@@ -84,6 +84,8 @@ struct Game {
         bool windows{false};
         bool linuxNative{false};
     } builds;
+    /// The installed build is a Windows one, which runs under Wine (`wine::prepare`); GOG and Epic.
+    bool windowsInstall{false};
 
     int playtimeMinutes{0};
     std::optional<std::chrono::system_clock::time_point> lastPlayed;

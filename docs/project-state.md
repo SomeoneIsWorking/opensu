@@ -134,6 +134,7 @@ game has been observed running yet.
 | S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | partial | S016, S026 | G001 |
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
+| S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
 
 ## Capability details
 
@@ -542,8 +543,8 @@ Decisions:
 - Installed state: gogdl keeps no list and picks the game folder itself, so on success the job
   records `{path, platform}` in `<data dir>/gog-installs.json` (`gog::InstallRecords`); the
   provider reads it at each listing, marks the game installed and launches it with `gogdl launch
-  <path> <id> --platform <p>`, plus `--wine wine --wine-prefix <data dir>/gog-prefixes/<id>` for
-  a Windows install. Uninstall (S037) deletes the recorded folder only inside the root openSU
+  <path> <id> --platform <p>`; a Windows install gets the Wine runner and prefix at launch
+  (S038). Uninstall (S037) deletes the recorded folder only inside the root openSU
   gave gogdl, else only forgets the record. The record also keeps the installed build (S036). No
   repair yet; a game folder deleted by hand stays recorded.
 
@@ -552,7 +553,7 @@ Unverified: no real GOG download was made. gogdl's output format, the folder lay
 `tests/app/install_job_test.cpp`; the `worksOn` field comes from minigalaxy's use of the same
 endpoint and is only exercised against the fake GOG server in `tests/library/gog_test.cpp`, so a
 real account's answer may differ (a product without it has no builds and cannot be installed).
-Windows installs run under the system `wine`, not Proton.
+Windows installs run under the Wine runner picked in Settings › Wine (S038).
 
 Sign-in is a browser flow (`app::StoreSignIn`, driven by the control channel's `/signin`
 routes). `open` runs `xdg-open <page>`, so the player's default browser (Zen here) is used
@@ -1123,7 +1124,7 @@ the GOG copy; <folder> is kept", "Steam uninstalls the Steam copy") and moving f
 second starts it. Steam's goes through `SteamClient.Installs.OpenUninstallWizard([app], true)`
 and waits for the manifest to go; Epic runs `legendary uninstall <app> -y`; GOG deletes the
 recorded folder only when it lies inside `<install folder>/<id>` once symlinks are resolved, then
-forgets the record. No Wine prefix and no ROM is deleted; a ROM has no Uninstall. It is refused
+forgets the record. No Wine prefix, shared or own, and no ROM is deleted; a ROM has no Uninstall. It is refused
 while the game runs, while an install or another uninstall runs, while Steam is not running and
 for a GOG game without a record. On success the catalog reloads, so the game leaves Home. The
 Downloads page lists it; `/state` has `armed` and the row's `uninstalling` state. Verified by unit
@@ -1132,6 +1133,22 @@ symlinks) and the `details-uninstall` and `downloads-uninstalling` parity scenes
 stand-in `legendary`. Unverified: a real Steam uninstall (whether Steam raises its own confirm
 dialog for `OpenUninstallWizard(..., true)`), a real Epic or GOG uninstall. Details in
 `docs/issues/uninstall-games.md`.
+
+### S038 — Windows games under Wine
+
+A GOG or Epic install of a Windows build launches with `--wine <runner> --wine-prefix <prefix>`
+(`library::wine::prepare`, from `ShellApp::launch` through `WineSettings`): gogdl and legendary
+both take those flags. Every such game shares `<data dir>/wine-prefix`; a game's details page has
+"Wine prefix: Shared/Own", and Own gives it `<data dir>/wine-prefixes/<store>-<id>`
+(`settings.json` `ownWinePrefix`). The runner is Settings › Wine › Wine runner: Automatic (the
+first found) or one of system `wine` and the Proton builds in Steam's `compatibilitytools.d` and
+`steamapps/common`, used as their bundled `wine` binary; Steam's folders are only read. No runner,
+or a picked one that is gone, refuses the launch with a toast. Steam games are left to Steam's own
+compatibility tool. Verified by unit tests through the shipping owners against a fake PATH, fake
+Steam folders and stub launches. Unverified: a real Windows GOG or Epic game launched this way;
+a Proton build's `wine` used without its `proton` script gets no DXVK/VKD3D setup in the prefix.
+Missing: "Use <compatibility tool>" for Steam games (writing `CompatToolMapping`), not built until
+the running client's handling is measured (the card lists what).
 
 ### S026 — Emulator downloads
 

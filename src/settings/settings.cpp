@@ -38,6 +38,8 @@ constexpr const char* defaultFolderKey = "default";
 constexpr const char* pluginsKey = "plugins";
 constexpr const char* enabledKey = "enabled";
 constexpr const char* grantedKey = "granted";
+constexpr const char* wineRunnerKey = "wineRunner";
+constexpr const char* ownWinePrefixKey = "ownWinePrefix";
 
 /// The key a store's own install folder is kept under.
 std::string storeKey(library::Source store) {
@@ -279,6 +281,12 @@ Settings Store::load() const {
     read.installFolders(installFoldersKey, settings.installFolders,
                         "every store installs where it chooses");
     read.integer(uiScaleKey, minUiScale, maxUiScale, settings.uiScale, "using 100%");
+    std::string runner;
+    read.text(wineRunnerKey, runner, "using the first Wine found");
+    settings.wineRunner = runner;
+    std::vector<std::string> ownPrefixes;
+    read.texts(ownWinePrefixKey, ownPrefixes, "every game shares the Wine prefix");
+    settings.ownWinePrefixes = library::wine::OwnPrefixes{{ownPrefixes.begin(), ownPrefixes.end()}};
     read.shortcuts(shortcutsKey, settings.shortcuts);
     read.plugins(pluginsKey, settings.plugins);
     read.boolean(installedOnlyKey, settings.view.installedOnly, "showing every game");
@@ -373,6 +381,8 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {steamRootsKey, listOf(settings.steamRoots)},
         {installFoldersKey, folders},
         {uiScaleKey, settings.uiScale},
+        {wineRunnerKey, settings.wineRunner.string()},
+        {ownWinePrefixKey, settings.ownWinePrefixes.ids()},
         {shortcutsKey, {{shortcutKeysKey, shortcutKeys}, {shortcutPadsKey, shortcutPads}}}};
     json plugins = json::object();
     for (const auto& [id, choice] : settings.plugins) {

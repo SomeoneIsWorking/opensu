@@ -488,12 +488,14 @@ class ShellApp final : private PointerHost {
                                    environment_.home, [this] {
                                        settingsScreen_.refresh();
                                    }};
+    /// Settings › Wine, and the runner and prefix a Windows launch gets.
+    WineSettings wineSettings_{preferences_, resolved_};
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{
         shell_.settingsPanels().page(),
         SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts(),
                                      emulatorSettings_, steamLibrarySettings_, pluginSettings_,
-                                     chordSettings_, mappings_},
+                                     chordSettings_, mappings_, wineSettings_},
         sounds_,
         preferences_,
         environment_,

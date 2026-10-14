@@ -3,6 +3,8 @@
 // Legendary owns authentication and downloads; this reads the account's owned titles
 // (`list --json`) and which of them are installed (`list-installed --json`). An installed title has
 // an update when its installed `version` differs from `asset_infos.<its platform>.build_version`.
+// A title launches with `legendary launch <app>`; a Windows install gets its Wine arguments at
+// launch (`wine::prepare`).
 #pragma once
 
 #include <filesystem>

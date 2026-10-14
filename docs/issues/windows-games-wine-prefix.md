@@ -1,38 +1,57 @@
 # Windows games share one Wine prefix; Steam's compatibility handling is a setting
 
-Status: open.
+Status: partial. The shared prefix, the per-game own prefix and the runner setting are built;
+Steam's "Use <compatibility tool>" is not built (below). Project state S038.
 
 Requested: "By default, use a common wineprefix for all games, no need to create separate
 prefixes unless specified, Steam can be left alone on how it handles it or we can also send
 proton path to Steam, can be configurable how Steam is handled".
 
-## Current state
+## Built
 
-- GOG: `library/gog.cpp:Provider` launches a Windows install with
-  `gogdl launch ... --wine <setup_.wine> --wine-prefix <data>/gog-prefixes/<id>`, one prefix per
-  game (`library/gog_installs`, `GogPaths::prefixes`). The Wine binary is `GogSetup::wine`,
-  default `wine` on PATH.
-- Epic: `library/epic.cpp` launches `legendary launch <app>` with no Wine arguments, so legendary's
-  own config decides the runner and prefix.
-- Steam: openSU never touches compatibility tools; Steam runs each game with whatever the user
-  picked in Steam.
+- One owner, `library/wine.*`: `prepare` adds `--wine <runner> --wine-prefix <prefix>` to the
+  launch of a GOG or Epic game whose install is a Windows build (`Game::windowsInstall`, set by
+  `gog.cpp` from the record's platform and by `epic.cpp` from legendary's `platform`) and makes the
+  prefix folder. Any other game, Steam's included, is left as it is. gogdl gets
+  `gogdl launch <path> <id> --platform windows --wine ... --wine-prefix ...`; legendary gets
+  `legendary launch <app> --wine ... --wine-prefix ...`.
+- Prefix: `<data dir>/wine-prefix` (`$XDG_DATA_HOME/opensu/wine-prefix`) for every game, or
+  `<data dir>/wine-prefixes/<store>-<id>` for a game set to its own (`settings.json`
+  `ownWinePrefix`, a list of game ids). The details page of a Windows install has a "Wine prefix"
+  button reading Shared or Own; A switches it. Going back to Shared keeps the own folder.
+- Runner: Settings › Wine › Wine runner steps through Automatic (the first found) and each runner
+  found; the pick is `settings.json` `wineRunner`. Found, in this order: `wine` on PATH ("System
+  Wine"), each `<Steam root>/compatibilitytools.d/*` and each `<Steam library>/steamapps/common/
+  Proton*` with `files/bin/wine` or `dist/bin/wine`. Steam's folders are only read. A Proton build
+  is used as its bundled Wine binary, not through its `proton` script, so the prefix does not get
+  Proton's DXVK/VKD3D setup or `STEAM_COMPAT_DATA_PATH`; running it through umu-launcher is open.
+- A launch is refused with a toast when no runner is found, or the picked runner is gone.
+- Settings › Wine also shows the shared prefix's path, how many games have their own, and "Steam
+  games: Left to Steam".
+- `GogPaths::prefixes` (`<data>/gog-prefixes/<id>`) is gone without a migration: no GOG Windows
+  game had been installed on a real account.
+- Uninstall never removes a prefix, shared or own (`uninstall-games.md`).
 
-## Gap and design
+Tests: `tests/library/wine_test.cpp` (discovery against a fake PATH and fake Steam folders,
+prefixes, arguments, refusals), `gog_test`, `epic_test` (`windowsInstall`), `settings_test`
+(round trip), `details_page_test` and `details_page_flow_test` (the button, kept on disk),
+`settings_controller_test` (the Wine category, runner stepping, Steam's folders unchanged, a launch
+prepared with the picked runner), `uninstall_job_test` (both prefixes kept).
 
-1. One shared prefix by default, `<data>/opensu/wine-prefix`, used by every Windows game openSU
-   launches outside Steam (GOG and Epic: `legendary launch <app> --wine <runner> --wine-prefix
-   <prefix>`). A per-game "own prefix" setting gives that game `<data>/opensu/wine-prefixes/
-   <store>-<id>`. The prefix choice has one owner (a resolver beside the other per-game settings),
-   used by both store providers; `GogPaths::prefixes` goes.
-2. The Wine runner is a setting (default system `wine`); a Proton build as the runner is an open
-   item: Proton outside Steam needs `STEAM_COMPAT_DATA_PATH` and its own launcher (umu-launcher is
-   the common one), not a bare `--wine` path.
-3. Steam: a setting with two choices, "Leave to Steam" (default) and "Use <compatibility tool>",
-   global with a per-game override. The second writes Steam's `CompatToolMapping` for the app;
-   measure whether the running client accepts it through `SteamClient` or only through
-   `config.vdf` while Steam is stopped.
-4. Uninstall (`uninstall-games.md`): the shared prefix is never removed by an uninstall; an own
-   prefix is kept by default, since it may hold saves.
+## Not built: "Use <compatibility tool>" for Steam games
 
-No GOG Windows game has been installed on a real account yet (project state, GOG section), so the
-per-game prefixes are dropped without a migration.
+Leaving Steam's own choice is the only behaviour, shown as an info row, so no setting exists yet.
+Writing Steam's `CompatToolMapping` (in `<Steam root>/config/config.vdf`, or through the client)
+is not built, because what the running client does with it is unmeasured. Before building it,
+measure on a test Steam install, never the player's:
+
+1. Whether `SteamClient.Apps.SpecifyCompatTool(appId, toolName)` (or what Steam's own
+   Properties › Compatibility page calls) exists in the SharedJSContext and takes effect for the
+   next launch without a restart.
+2. Whether an edit of `config.vdf` while Steam runs is overwritten when Steam exits, and whether
+   one made while Steam is stopped is read on the next start.
+3. The tool name Steam expects for a `compatibilitytools.d` tool (its `compatibilitytool.vdf`
+   key) and for Steam's own Proton builds (`proton_9`, `proton_experimental`).
+
+The setting would then be global with a per-game override, written only by the path proven, and
+tested against a fake Steam root and the fake DevTools Steam.

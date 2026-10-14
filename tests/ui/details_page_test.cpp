@@ -108,6 +108,24 @@ void romEmulator() {
            "one emulator leaves nothing to choose");
 }
 
+void winePrefix() {
+    Game windows = hades();
+    windows.id = "gog:2";
+    windows.source = Source::Gog;
+    windows.windowsInstall = true;
+    const DetailsView shared = detailsFor(windows, false, now);
+    expect(shared.buttons[1].action == DetailsAction::WinePrefix &&
+               shared.buttons[1].label == "Wine prefix" && shared.buttons[1].value == "Shared",
+           "a Windows install shows its prefix, shared by default");
+    expect(detailsFor(windows, false, now, {}, true).buttons[1].value == "Own",
+           "a game with its own prefix says so");
+    expect(std::ranges::none_of(detailsFor(hades(), false, now).buttons,
+                                [](const DetailsButton& button) {
+                                    return button.action == DetailsAction::WinePrefix;
+                                }),
+           "a game that does not run under Wine has no prefix button");
+}
+
 void layout() {
     const DetailsLayout page = layoutDetails(1280.0f, 800.0f, 1.5f, 90.0f, 70.0f, 3);
     expect(page.buttons.size() == 3 && page.art.y == 90.0f && page.art.bottom() == 730.0f,
@@ -185,6 +203,7 @@ int main() {
     states();
     romEmulator();
     uninstallTakesASecondPress();
+    winePrefix();
     layout();
     focus();
     std::puts("details_page: ok");

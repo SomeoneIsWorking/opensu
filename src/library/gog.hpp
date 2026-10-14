@@ -2,7 +2,8 @@
 //
 // opensu holds the sign-in itself (`gog_auth`) and lists the games from the account. A game is
 // installed when opensu recorded an install of it (`gog_installs`, made by gogdl through the
-// install job), and launches through `gogdl launch`. An installed game has an update when GOG
+// install job), and launches through `gogdl launch`; a Windows install gets its Wine arguments at
+// launch (`wine::prepare`). An installed game has an update when GOG
 // offers a build other than the installed one (`gog_builds`), asked once per installed game per
 // listing.
 #pragma once
@@ -23,8 +24,6 @@ struct Setup {
     Paths paths;
     /// The gogdl executable a launch runs.
     std::string gogdl{"gogdl"};
-    /// The Wine a Windows install runs under.
-    std::string wine{"wine"};
 };
 
 class Provider final : public library::Provider {

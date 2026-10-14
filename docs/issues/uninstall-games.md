@@ -53,8 +53,8 @@ Requested: "ability to uninstall games".
   out, or a missing folder is only forgotten. An accepted folder is deleted, then the root if it
   is empty, then the record (`InstallRecords::remove`). A game installed into a GOG folder that
   has since been changed is therefore only forgotten.
-- No Wine prefix is touched: `<data>/gog-prefixes/<id>` is outside every game root, and the shared
-  prefix of `windows-games-wine-prefix.md` will be too.
+- No Wine prefix is touched: the shared `<data>/wine-prefix` and a game's own
+  `<data>/wine-prefixes/<store>-<id>` (`windows-games-wine-prefix.md`) lie outside every game root.
 - ROMs are the player's own files; openSU deletes none (iiSU deletes only ROMs it downloaded from
   RomM, and openSU downloads none).
 

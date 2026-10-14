@@ -23,8 +23,6 @@ struct Paths {
     /// gogdl downloads game `<id>` into `<games>/<id>/<folder gogdl names>` when no install folder
     /// is set.
     std::filesystem::path games;
-    /// Wine prefixes of Windows installs, `<prefixes>/<id>`.
-    std::filesystem::path prefixes;
     /// The transient file the token is handed to gogdl in.
     std::filesystem::path gogdlAuth;
 

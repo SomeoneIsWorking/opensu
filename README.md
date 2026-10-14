@@ -282,8 +282,16 @@ uv tool install "git+https://github.com/Heroic-Games-Launcher/heroic-gogdl@ac158
 ```
 
 It needs a C compiler, for its xdelta3 extension. A game with a Linux build is downloaded as
-that build; otherwise the Windows build is downloaded and run with `wine`. Games land in
+that build; otherwise the Windows build is downloaded and run under Wine. Games land in
 `$XDG_DATA_HOME/opensu/gog-games/<id>/`.
+
+## Windows games and Wine
+
+Windows GOG and Epic games run under Wine in one shared prefix,
+`$XDG_DATA_HOME/opensu/wine-prefix`. A game's details page has "Wine prefix": switch it to Own and
+that game gets `$XDG_DATA_HOME/opensu/wine-prefixes/<store>-<id>` instead. Settings › Wine picks
+the runner: the system `wine`, or a Proton build found in Steam's `compatibilitytools.d` or
+`steamapps/common` (its bundled `wine`). Steam games keep the compatibility tool chosen in Steam.
 
 ## Downloads
 

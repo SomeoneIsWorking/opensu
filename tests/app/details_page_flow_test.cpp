@@ -222,6 +222,33 @@ void updateStartsWithOnePress(const fs::path& dir) {
            "a refused update says why");
 }
 
+void winePrefixIsChosenPerGame(const fs::path& dir) {
+    Rig rig{dir};
+    rig.game = library::Game{};
+    rig.game.id = "epic:Fortnite";
+    rig.game.title = "Fortnite";
+    rig.game.source = library::Source::Epic;
+    rig.game.sourceId = "Fortnite";
+    rig.game.installed = true;
+    rig.game.windowsInstall = true;
+    rig.controller.open();
+    rig.controller.act(Button::Down);
+    expect(rig.page.selected() == ui::DetailsAction::WinePrefix &&
+               rig.page.view().buttons[1].value == "Shared",
+           "a Windows install follows Play with its prefix, shared");
+    rig.controller.act(Button::A);
+    expect(
+        rig.page.view().buttons[1].value == "Own" &&
+            settings::Store{dir / "settings.json"}.load().ownWinePrefixes.contains("epic:Fortnite"),
+        "A gives the game its own prefix and keeps that");
+    expect(rig.calls == std::vector<std::string>{"say Fortnite gets a Wine prefix of its own"},
+           "the player is told");
+    rig.controller.act(Button::A);
+    expect(rig.page.view().buttons[1].value == "Shared" &&
+               settings::Store{dir / "settings.json"}.load().ownWinePrefixes.ids().empty(),
+           "a second A shares the prefix again");
+}
+
 void refreshFollowsTheGame(const fs::path& dir) {
     Rig rig{dir};
     rig.controller.open();
@@ -278,6 +305,7 @@ int main() {
     refreshFollowsTheGame(dir);
     uninstallTakesTwoPresses(dir);
     updateStartsWithOnePress(dir);
+    winePrefixIsChosenPerGame(dir / "wine");
     trail();
     filters();
     std::puts("details_page_flow: ok");
