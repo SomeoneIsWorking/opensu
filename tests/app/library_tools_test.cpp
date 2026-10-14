@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "audio/sdl_sound_player.hpp"
@@ -66,10 +67,20 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
              [&](const std::string& text, bool error) {
                  log.push_back((error ? "refused " : "said ") + text);
              }}};
+    app::UpdateRequest update{{.start =
+                                   [&](const library::Game& game) {
+                                       log.push_back("update " + game.id);
+                                       return std::string{};
+                                   },
+                               .say =
+                                   [&](const std::string& text, bool error) {
+                                       log.push_back((error ? "refused " : "said ") + text);
+                                   }}};
     ContextMenuController controller{menu,
                                      rig.sounds,
                                      rig.preferences,
                                      uninstall,
+                                     update,
                                      {.focused = [&]() -> const library::ShelfItem* {
                                           return noFocus ? nullptr : &focus;
                                       },
@@ -163,6 +174,20 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
     expect(log == std::vector<std::string>{"refused cannot uninstall Hades: Hades is running"} &&
                !menu.isOpen(),
            "a refused first press says why and closes the menu");
+
+    log.clear();
+    auto* updatable = std::get_if<library::Game>(&focus);
+    expect(updatable != nullptr, "the menu is still over Hades");
+    updatable->updateAvailable = true;
+    controller.open();
+    expect(menu.items().size() == 5 && menu.items()[1].action == ui::ContextAction::Update &&
+               menu.items()[4].action == ui::ContextAction::Uninstall,
+           "a game with an update offers Update after Launch");
+    controller.act(Button::Down);
+    controller.act(Button::A);
+    expect(log == std::vector<std::string>{"update steam:1", "said updating Hades"} &&
+               !menu.isOpen(),
+           "Update starts the menu's game's update at once and closes the menu");
 
     focus = library::Launcher{library::Source::Gog, 0, false, false};
     controller.open();

@@ -2,7 +2,9 @@
 //
 // opensu holds the sign-in itself (`gog_auth`) and lists the games from the account. A game is
 // installed when opensu recorded an install of it (`gog_installs`, made by gogdl through the
-// install job), and launches through `gogdl launch`.
+// install job), and launches through `gogdl launch`. An installed game has an update when GOG
+// offers a build other than the installed one (`gog_builds`), asked once per installed game per
+// listing.
 #pragma once
 
 #include <map>
@@ -41,6 +43,10 @@ class Provider final : public library::Provider {
     /// Marks `game` installed and says how it launches, when opensu installed it.
     void applyInstall(Game& game,
                       const std::map<std::string, Installed, std::less<>>& installs) const;
+    /// Marks installed `game` updatable when GOG offers another build; one that cannot be asked
+    /// is logged and left without.
+    void checkUpdate(Game& game, const Installed& install,
+                     const std::vector<std::string>& headers) const;
 
     net::WebClient web_;
     Auth auth_;

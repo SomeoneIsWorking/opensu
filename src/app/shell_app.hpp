@@ -68,6 +68,7 @@
 #include "top_bar_clock.hpp"
 #include "ui/shell.hpp"
 #include "uninstall_prompt.hpp"
+#include "update_request.hpp"
 #include "volume_control.hpp"
 
 namespace opensu::app {
@@ -288,8 +289,20 @@ class ShellApp final : private PointerHost {
                                [this](const std::string& text, bool isError) {
                                    shell_.setToast(text, isError);
                                }}};
+    /// Update on the details page and the tile menu.
+    UpdateRequest updateRequest_{
+        UpdateRequest::Hooks{[this](const library::Game& game) {
+                                 return panels_.installs().update(game);
+                             },
+                             [this](const std::string& text, bool isError) {
+                                 shell_.setToast(text, isError);
+                             }}};
     ContextMenuController contextMenu_{
-        shell_.contextMenu(), sounds_, preferences_, uninstallPrompt_,
+        shell_.contextMenu(),
+        sounds_,
+        preferences_,
+        uninstallPrompt_,
+        updateRequest_,
         ContextMenuController::Hooks{[this] {
                                          return shell_.focusedItem();
                                      },
@@ -344,6 +357,7 @@ class ShellApp final : private PointerHost {
         preferences_,
         emulatorDownloads_,
         uninstallPrompt_,
+        updateRequest_,
         DetailsController::Hooks{[this] {
                                      return shell_.focusedGame();
                                  },

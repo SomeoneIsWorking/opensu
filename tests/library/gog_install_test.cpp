@@ -19,6 +19,7 @@ namespace {
 namespace fs = std::filesystem;
 using opensu::library::gog::GogdlAuthFile;
 using opensu::library::gog::Installed;
+using opensu::library::gog::installedBuild;
 using opensu::library::gog::InstallRecords;
 using opensu::library::gog::ownedFolder;
 using opensu::library::gog::Paths;
@@ -55,6 +56,38 @@ void testRemove(const fs::path& dir) {
     records.remove("1");
     const InstallRecords again{Paths::under(dir).records};
     expect(!again.find("1") && again.find("2"), "a removed record is gone and the rest kept");
+}
+
+void writeFile(const fs::path& file, const std::string& body) {
+    fs::create_directories(file.parent_path());
+    std::ofstream{file, std::ios::binary} << body;
+}
+
+/// The build gogdl's `import` would report, from the files a gogdl install leaves.
+void testInstalledBuild(const fs::path& dir) {
+    const Installed windows{.path = dir / "Win", .platform = "windows"};
+    expect(installedBuild(windows, "7").empty(), "a folder without goggame files has no build");
+    writeFile(windows.path / "goggame-7.info",
+              R"({"buildId":"58745219","gameId":"7","rootGameId":"7","name":"Seven"})");
+    expect(installedBuild(windows, "7") == "58745219", "goggame-<id>.info carries the build id");
+    writeFile(windows.path / "goggame-7.id", R"({"buildId":"58800001"})");
+    expect(installedBuild(windows, "7") == "58800001", "goggame-<id>.id wins, as gogdl reads it");
+    writeFile(windows.path / "goggame-8.info", R"({"buildId":"1"})");
+    expect(installedBuild(windows, "9").empty(), "another game's files do not count");
+
+    const Installed native{.path = dir / "Lin", .platform = "linux"};
+    expect(installedBuild(native, "7").empty(), "a Linux folder without gameinfo has no build");
+    writeFile(native.path / "gameinfo", "Seven\r\n2.1.0.4\r\n20230101\r\nen-US\r\n7\r\n");
+    expect(installedBuild(native, "7") == "2.1.0.4",
+           "a Linux install's build is the installer version on gameinfo's second line");
+
+    const InstallRecords records{Paths::under(dir).records};
+    records.add("7", Installed{.path = windows.path, .platform = "windows", .build = "58800001"});
+    records.add("8", Installed{.path = native.path, .platform = "linux"});
+    const std::optional<Installed> seven = records.find("7");
+    expect(seven && seven->build == "58800001", "a record keeps its build");
+    const std::optional<Installed> eight = records.find("8");
+    expect(eight && eight->build.empty(), "a record without a build reads as unknown");
 }
 
 void testGameRoot() {
@@ -135,6 +168,7 @@ int main() {
     testRecords(dir / "records");
     testRemove(dir / "remove");
     testGameRoot();
+    testInstalledBuild(dir / "build");
     testOwnedFolder(dir / "owned");
     testAuthFile(dir / "auth");
     fs::remove_all(dir, ec);

@@ -27,7 +27,8 @@ Visible deltas from the baseline:
 - A details page replaces the direct launch: A (Enter, left click) on a game opens it, as do Y and
   the context menu's Details. It shows the cover (a Steam hero as a faded backdrop), title, store or
   system badge, installed state, last played and play time, and Play or Install, Hide or Show,
-  Uninstall (an installed store game, two presses), Back as pointer targets (the Install flow is the
+  Update (an installed store game its store has a newer build of, S036), Uninstall (an installed
+  store game, two presses), Back as pointer targets (the Install flow is the
   launch panel's). A ROM's page names its emulator and
   whether it is installed, and a button steps through the emulators for its system; the pick is
   kept per game in `settings.json` (`emulators`). iiSU launches on A with no page (launch.md 3,
@@ -127,7 +128,7 @@ game has been observed running yet.
 | S033 | Button mappings per game and per emulator (shared by its games), with game chords (`docs/issues/per-game-button-mappings.md`) | missing | S003, S022 | G003 |
 | S034 | Holding a chord modifier shows its chords, over a game too (`docs/issues/chord-hold-overlay.md`) | partial | S022 | G003 |
 | S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | partial | S016, S026 | G001 |
-| S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | missing | S035 | G001 |
+| S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
 
 ## Capability details
@@ -251,7 +252,8 @@ then Steam, GOG, Epic. A store game tile (Home, All games) carries small store i
 bottom-right corner for every store that owns it (`Game::ownedIn`,
 `ui::storeIconRow`); on a launcher page only the other stores are shown, and a game owned
 there alone shows none. ROM, console and launcher tiles never carry them. Inside any of the
-three the title pill names the focused game.
+three the title pill names the focused game. A store game with an update (S036) carries a down
+arrow on the store icons' disc in its top-right corner (`ui::updateBadge`), opensu's own.
 Nothing a large library does runs on the frame thread (measured on the 447-title Epic
 library: `legendary list --json` 2.3 s to 10 s; cover decode 113 ms and upload 16 ms per Epic
 image at full size, all of a shelf's tiles in one frame):
@@ -536,8 +538,8 @@ Decisions:
   provider reads it at each listing, marks the game installed and launches it with `gogdl launch
   <path> <id> --platform <p>`, plus `--wine wine --wine-prefix <data dir>/gog-prefixes/<id>` for
   a Windows install. Uninstall (S037) deletes the recorded folder only inside the root openSU
-  gave gogdl, else only forgets the record. No update or repair yet; a game folder deleted by hand
-  stays recorded.
+  gave gogdl, else only forgets the record. The record also keeps the installed build (S036). No
+  repair yet; a game folder deleted by hand stays recorded.
 
 Unverified: no real GOG download was made. gogdl's output format, the folder layout under
 `--path` and `gogdl launch` come from reading gogdl 1.3.1's source and a fake gogdl in
@@ -1049,6 +1051,41 @@ scene. Unverified: Steam's buttons against a real Steam client, a real Epic or G
 over a game in Gamescope. Not done: cover art on rows, Epic and GOG bytes and time left. Details
 in `docs/issues/downloads-page.md`. An uninstall (S037) is listed as Uninstalling, then
 Uninstalled, with no buttons.
+
+### S036 — Game updates
+
+Checked when the catalog loads; openSU never updates a game by itself and a launch does not ask
+first. An installed store game with an update has `Game::updateAvailable`: an arrow badge on its
+tile, "Installed, update available" and an Update button after Play on its details page, and
+Update after Launch in its tile menu. Update starts at once (`app::UpdateRequest`) through
+`Installs::update`, which refuses as an uninstall does (ROM, not installed, running, another job)
+and also with no update known, Steam not running, or a GOG game without a record.
+
+- Epic: the installed `version` (`list-installed --json`) against `asset_infos.<platform>
+  .build_version` (`list --json`), legendary's own `--check-updates` rule, from the two listings
+  `library::epic` already runs. The update runs `legendary update <app> --update-only -y
+  --skip-sdl` in `EpicInstallJob`.
+- GOG: `gog-installs.json` records the build gogdl left (`gog::installedBuild`: `goggame-<id>.id`,
+  else `.info` `buildId` for Windows; `gameinfo`'s version line for Linux, as `gogdl import`
+  reads them); a record without one is read from those files at each listing. `library::gog`
+  asks one request per installed game: the content system's builds for Windows (the build on no
+  branch), `api.gog.com/products/<id>?expand=downloads`'s Linux installer version for Linux, as
+  gogdl 1.3.1 downloads each (`gog_builds`). A failed request is logged and shows no update. The
+  update runs `gogdl update <id> --platform <recorded> --path <recorded folder>` in
+  `GogInstallJob` and records the new build.
+- Steam: a manifest's StateFlags with StateUpdateRequired (2) on an installed app (this machine's
+  `appmanifest_1628350.acf` reads 6 with `TargetBuildID` past `buildid`). Update asks
+  `SteamClient.Downloads.ResumeAppUpdate(<app>, "0")`, as Steam's library Update button does
+  (`steam::DownloadControl::moveToTop`,
+  `app::SteamUpdateJob`); Steam's queue row on the Downloads page then carries it.
+
+The Downloads page lists an Epic or GOG update as "Updating" with Cancel, like an install.
+Verified by unit tests through the shipping owners (legendary 0.20.35-shaped JSON fixtures, a fake
+GOG server, fixture manifests, stub `legendary` and `gogdl`, fake Steam DevTools) and the
+`update-badge` and `details-update` scenes of the store run against a stand-in `legendary`.
+Unverified: a real Epic, GOG or Steam update; whether Steam starts a queued update or leaves it
+waiting (Steam's own library starts one with `ResumeAppUpdate`); whether GOG's Linux installer
+version and `gameinfo` agree for every game. Details in `docs/issues/game-updates.md`.
 
 ### S037 — Uninstall
 

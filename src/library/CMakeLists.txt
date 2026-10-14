@@ -9,6 +9,7 @@ add_library(opensu_library STATIC
     gog_auth.cpp
     gog_token.cpp
     gogdl_auth.cpp
+    gog_builds.cpp
     gog_installs.cpp
     roms.cpp
     rom_systems.cpp

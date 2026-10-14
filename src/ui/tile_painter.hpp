@@ -7,7 +7,8 @@
 // colours with the console's name and game count. A launcher and the combined library are
 // opensu's own cards in the same shape, with the store's logo or a library glyph above the name.
 // A store game that is owned in more than one store carries a row of store icons in its
-// bottom-right corner.
+// bottom-right corner, and one its store has an update for a down arrow on the same disc in its
+// top-right corner (opensu's own).
 #pragma once
 
 #include <cstdint>
@@ -69,6 +70,8 @@ struct TileVisual {
     std::optional<Icon> logo;
     /// The stores a game is owned in, as icons in its corner.
     std::span<const Icon> stores;
+    /// The game's store has an update for it.
+    bool update{false};
     /// Whether the cover is on its way (downloading, queued or decoding): a spinner stands in for
     /// the no-art letter.
     bool loading{false};
@@ -107,6 +110,7 @@ class TilePainter {
                    Colour to);
     void paintMark(Canvas& canvas, const TileVisual& tile, const Rect& box, Colour ink);
     void paintStores(Canvas& canvas, const TileVisual& tile, const Rect& content);
+    void paintUpdate(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
 
     IconAtlas& icons_;
     Typeface& typeface_;

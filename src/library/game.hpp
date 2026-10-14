@@ -64,6 +64,8 @@ struct Game {
 
     /// Whether the title can be launched now.
     bool installed{false};
+    /// The store has a newer build than the installed one; set only for an installed store game.
+    bool updateAvailable{false};
 
     /// Artwork on disk. The shell reads it through the artwork service rather
     /// than opening these itself.

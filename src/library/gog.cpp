@@ -7,6 +7,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "gog_builds.hpp"
 #include "lucent/log.h"
 
 namespace opensu::library::gog {
@@ -89,6 +90,23 @@ void Provider::applyInstall(Game& game,
     game.processHint = install->second.path.filename().string();
 }
 
+void Provider::checkUpdate(Game& game, const Installed& install,
+                           const std::vector<std::string>& headers) const {
+    // A record older than build tracking is read from the files gogdl left.
+    const std::string build =
+        install.build.empty() ? installedBuild(install, game.sourceId) : install.build;
+    if (build.empty()) {
+        return;
+    }
+    try {
+        game.updateAvailable = behind(
+            build, offeredBuild(web_, auth_.endpoints(), headers, game.sourceId, install.platform));
+    } catch (const std::runtime_error& error) {
+        // The listing stands without it; the next catalog load asks again.
+        lucent::warn("gog", "no update check for {}: {}", game.title, error.what());
+    }
+}
+
 std::vector<Game> Provider::list() {
     const std::vector<std::string> headers{"Authorization: Bearer " + auth_.accessToken()};
     const std::map<std::string, Installed, std::less<>> installs =
@@ -108,6 +126,9 @@ std::vector<Game> Provider::list() {
         totalPages = parsed.totalPages;
         for (Game& game : parsed.games) {
             applyInstall(game, installs);
+            if (const auto install = installs.find(game.sourceId); install != installs.end()) {
+                checkUpdate(game, install->second, headers);
+            }
         }
         std::ranges::move(parsed.games, std::back_inserter(games));
     }

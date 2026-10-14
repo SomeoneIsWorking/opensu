@@ -1,8 +1,9 @@
 // downloads_board — every download openSU knows of as one list, the Downloads page's model: Steam's
-// queue (its own auto-updates included), the store install or uninstall that runs (Epic, GOG,
-// Steam's installer), and the emulator or core download. Each frame the sources' state goes in and
-// one row per download comes out, with its state, progress and the actions its owner supports. A
-// download that ended stays listed until openSU quits. Pure; no UI and no threads.
+// queue (its own auto-updates included), the store install, update or uninstall that runs (Epic,
+// GOG, Steam's installer; a Steam update joins Steam's queue row), and the emulator or core
+// download. Each frame the sources' state goes in and one row per download comes out, with its
+// state, progress and the actions its owner supports. A download that ended stays listed until
+// openSU quits. Pure; no UI and no threads.
 #pragma once
 
 #include <cstdint>
@@ -61,7 +62,8 @@ struct DownloadRow {
     std::string id{};
     std::string title{};
     DownloadState state{DownloadState::Queued};
-    /// Steam says the active download is an update rather than a first install.
+    /// An update rather than a first install: Steam says so of its active download, and an update
+    /// openSU runs is one.
     bool update{false};
     /// 0 to 1, when the owner measures it.
     std::optional<double> fraction{};

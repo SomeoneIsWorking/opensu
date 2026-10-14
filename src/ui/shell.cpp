@@ -561,6 +561,7 @@ void Shell::fillContent(TileVisual& visual, const Tile& tile) const {
     if (const auto* game = std::get_if<library::Game>(&tile.item)) {
         visual.title = game->title;
         visual.stores = tile.stores;
+        visual.update = game->updateAvailable;
         if (game->source == library::Source::Rom) {
             visual.glyph = glyphs_.find(game->sourceId);
         }

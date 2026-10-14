@@ -94,6 +94,13 @@ StoreIconRow storeIconRow(const Rect& content, std::size_t count) noexcept {
     return row;
 }
 
+Rect updateBadge(const Rect& content) noexcept {
+    const float side = std::min(content.width, content.height);
+    const float badge = side * storeBadgeSide;
+    const float margin = side * storeBadgeMargin;
+    return Rect{content.right() - margin - badge, content.y + margin, badge, badge};
+}
+
 Rect containFit(float width, float height, const Rect& slot) noexcept {
     if (width <= 0.0f || height <= 0.0f) {
         return Rect{slot.centreX(), slot.centreY(), 0.0f, 0.0f};

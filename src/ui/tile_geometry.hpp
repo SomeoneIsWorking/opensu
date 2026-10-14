@@ -56,6 +56,9 @@ struct StoreIconRow {
 /// The row for `count` icons (at most `maxStoreIcons`) on a tile whose content is `content`.
 [[nodiscard]] StoreIconRow storeIconRow(const Rect& content, std::size_t count) noexcept;
 
+/// Where a game tile's update badge sits: a store badge's disc in the content's top-right corner.
+[[nodiscard]] Rect updateBadge(const Rect& content) noexcept;
+
 /// The platform frame for a composition rectangle.
 [[nodiscard]] FrameGeometry frameGeometry(const Rect& rect) noexcept;
 

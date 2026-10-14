@@ -1,6 +1,6 @@
 // panel_flow — what the launch panel is up for and what the buttons do while it is: a launch on its
-// way, an offer to install, an install under way, or a licence question. Owns the one install or
-// uninstall that runs at a time, and tells how an uninstall ended.
+// way, an offer to install, an install under way, or a licence question. Owns the one install,
+// update or uninstall that runs at a time, and tells how an update or uninstall ended.
 #pragma once
 
 #include <cstdint>
@@ -22,7 +22,7 @@ class PanelFlow {
     struct Hooks {
         /// Abandons a launch whose game has not appeared yet.
         std::function<void()> cancelLaunch;
-        /// Reads the stores again, after an install or uninstall finished.
+        /// Reads the stores again, after an install, update or uninstall finished.
         std::function<void()> reloadCatalog;
         /// Where a store installs now, from the settings; nothing leaves the store's choice.
         Installs::Folders installFolder;
@@ -50,8 +50,8 @@ class PanelFlow {
     /// Asks whether to install `game`, from the stores that own it among `copies`.
     void offerInstall(const library::Game& game, std::vector<library::Game> copies);
 
-    /// Shows the install job's news on the panel and reloads the catalog when it or an uninstall
-    /// finishes.
+    /// Shows the install job's news on the panel and reloads the catalog when it, an update or an
+    /// uninstall finishes.
     void service();
 
     /// The installs and uninstalls, which the Downloads page lists and cancels.
@@ -68,8 +68,8 @@ class PanelFlow {
     void dismiss();
     void startInstall(const library::Game& game);
     void presentEula();
-    /// Tells how an uninstall ended; a done one reloads the catalog.
-    void uninstallEnded(const InstallJob::Report& report);
+    /// Tells how an update or uninstall ended; a done one reloads the catalog.
+    void workEnded(const InstallJob::Report& report, Installs::Work work);
 
     ui::Shell& shell_;
     audio::SdlSoundPlayer& sounds_;

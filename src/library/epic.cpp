@@ -22,12 +22,17 @@ struct Owned {
     std::string appName;
     std::string title;
     std::string artworkUrl;
+    /// `asset_infos.<platform>.build_version`: the build Epic offers per platform.
+    std::map<std::string, std::string, std::less<>> builds;
 };
 
 /// One installed title from `legendary list-installed --json`.
 struct Install {
     std::string installPath;
     bool dlc{false};
+    std::string version;
+    /// legendary's platform name, a key of `asset_infos`.
+    std::string platform;
 };
 
 /// Key image types in preference order: the portrait box, then the wide box, then the thumbnail.
@@ -63,12 +68,28 @@ std::string artworkUrl(const json& entry) {
     return {};
 }
 
+/// `asset_infos` as platform to build version.
+std::map<std::string, std::string, std::less<>> buildsOf(const json& entry) {
+    std::map<std::string, std::string, std::less<>> builds;
+    const json::const_iterator assets = entry.find("asset_infos");
+    if (assets == entry.end() || !assets->is_object()) {
+        return builds;
+    }
+    for (const auto& [platform, asset] : assets->items()) {
+        if (asset.is_object()) {
+            builds[platform] = asset.value("build_version", "");
+        }
+    }
+    return builds;
+}
+
 std::vector<Owned> parseOwned(std::string_view output) {
     std::vector<Owned> owned;
     for (const json& entry : json::parse(output)) {
         owned.push_back(Owned{.appName = entry.value("app_name", ""),
                               .title = entry.value("app_title", ""),
-                              .artworkUrl = artworkUrl(entry)});
+                              .artworkUrl = artworkUrl(entry),
+                              .builds = buildsOf(entry)});
     }
     return owned;
 }
@@ -76,10 +97,21 @@ std::vector<Owned> parseOwned(std::string_view output) {
 std::map<std::string, Install, std::less<>> parseInstalls(std::string_view output) {
     std::map<std::string, Install, std::less<>> installs;
     for (const json& entry : json::parse(output)) {
-        installs[entry.value("app_name", "")] = Install{
-            .installPath = entry.value("install_path", ""), .dlc = entry.value("is_dlc", false)};
+        installs[entry.value("app_name", "")] =
+            Install{.installPath = entry.value("install_path", ""),
+                    .dlc = entry.value("is_dlc", false),
+                    .version = entry.value("version", ""),
+                    .platform = entry.value("platform", "Windows")};
     }
     return installs;
+}
+
+/// legendary's own rule (`cli.py:list_installed`, the `--check-updates` column): the installed
+/// version differs from the build Epic offers for the installed platform. Unknown is no update.
+bool updateAvailable(const Owned& title, const Install& install) {
+    const auto offered = title.builds.find(install.platform);
+    return offered != title.builds.end() && !offered->second.empty() && !install.version.empty() &&
+           offered->second != install.version;
 }
 
 constexpr std::string_view failureMarker = " ! Failure: ";
@@ -134,6 +166,7 @@ std::vector<Game> Provider::list() {
         game.title = title.title.empty() ? title.appName : title.title;
         game.artworkUrl = title.artworkUrl;
         game.installed = install != installs.end();
+        game.updateAvailable = game.installed && updateAvailable(title, install->second);
         game.launch = LaunchSpec{.program = "legendary", .args = {"launch", title.appName}};
         if (game.installed && !install->second.installPath.empty()) {
             // The install folder name identifies the running game.
@@ -142,8 +175,9 @@ std::vector<Game> Provider::list() {
         }
         games.push_back(std::move(game));
     }
-    lucent::info("epic", "legendary listed {} owned titles, {} installed", games.size(),
-                 installs.size());
+    lucent::info("epic", "legendary listed {} owned titles, {} installed, {} with an update",
+                 games.size(), installs.size(),
+                 std::ranges::count_if(games, &Game::updateAvailable));
     return games;
 }
 

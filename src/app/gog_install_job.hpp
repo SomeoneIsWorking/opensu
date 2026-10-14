@@ -1,10 +1,13 @@
-// gog_install_job — one GOG install: runs `gogdl download` and shows the progress it logs.
+// gog_install_job — one GOG install or update: runs `gogdl download`, or `gogdl update` over a
+// recorded install, and shows the progress it logs.
 //
 // Authentication: opensu's TokenStore is the one saved token. Before the download the token is
 // refreshed through `gog::Auth` (opensu's own refresh) and handed to gogdl in a transient
 // owner-only file; whatever gogdl refreshed meanwhile is saved back and the file deleted. The
 // download takes the Linux build when the library listing says GOG has one, else the Windows
-// build, else the install fails.
+// build, else the install fails. An update keeps the recorded folder and platform; gogdl appends
+// its own folder name only for `download` (`gogdl/dl/managers/manager.py`). Either records the
+// build gogdl left on disk.
 #pragma once
 
 #include <filesystem>
@@ -45,6 +48,11 @@ class GogInstallJob final : public CliInstallJob {
         folder_ = std::move(folder);
     }
 
+    /// The recorded install the next start updates; none installs. Call before start(), while idle.
+    void setUpdate(std::optional<library::gog::Installed> installed) {
+        updating_ = std::move(installed);
+    }
+
   private:
     /// Where gogdl is told to put game `gameId`.
     [[nodiscard]] std::filesystem::path gameRoot(const std::string& gameId) const;
@@ -65,6 +73,8 @@ class GogInstallJob final : public CliInstallJob {
     library::Game::Builds builds_;
     /// The folder the install being started goes under. Set while idle.
     std::optional<std::filesystem::path> folder_;
+    /// The install being updated. Set while idle.
+    std::optional<library::gog::Installed> updating_;
     /// The platform being downloaded. Job thread only.
     std::string platform_;
 };

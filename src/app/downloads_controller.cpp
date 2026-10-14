@@ -69,7 +69,9 @@ ui::DownloadsEntry entryOf(const DownloadRow& row) {
     ui::DownloadsEntry entry{.key = row.key,
                              .title = row.title,
                              .source = sourceText(row),
-                             .state = std::string{label(row.state)},
+                             .state = row.update && row.state == DownloadState::Downloading
+                                          ? std::string{"Updating"}
+                                          : std::string{label(row.state)},
                              .fraction = row.fraction,
                              .failed = row.state == DownloadState::Failed,
                              .ended = ended(row.state)};

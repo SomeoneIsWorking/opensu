@@ -68,6 +68,11 @@ void ContextMenuController::run(ui::ContextAction action) {
     case ui::ContextAction::Install:
         hooks_.launch();
         break;
+    case ui::ContextAction::Update:
+        if (game != nullptr) {
+            update_.request(*game);
+        }
+        break;
     case ui::ContextAction::Details:
         hooks_.details();
         break;

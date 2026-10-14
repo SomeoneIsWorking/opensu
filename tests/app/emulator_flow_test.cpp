@@ -118,6 +118,12 @@ struct Rig {
                                                                },
                                                                [](const std::string&, bool) {
                                                                }}};
+    /// ROMs are never updated; the details page here offers no Update.
+    app::UpdateRequest update{app::UpdateRequest::Hooks{[](const library::Game&) {
+                                                            return std::string{};
+                                                        },
+                                                        [](const std::string&, bool) {
+                                                        }}};
     library::Game shown = game();
     app::DetailsController details{
         page,
@@ -125,6 +131,7 @@ struct Rig {
         preferences,
         downloads,
         uninstall,
+        update,
         app::DetailsController::Hooks{[this] {
                                           return &shown;
                                       },

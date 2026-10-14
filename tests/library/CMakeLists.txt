@@ -27,7 +27,8 @@ add_test(NAME gog COMMAND gog_test)
 
 add_executable(epic_test epic_test.cpp)
 target_link_libraries(epic_test PRIVATE opensu::library)
-target_compile_definitions(epic_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+target_compile_definitions(epic_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch"
+    OPENSU_LEGENDARY_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/legendary")
 add_test(NAME epic COMMAND epic_test)
 
 add_executable(titles_test titles_test.cpp)

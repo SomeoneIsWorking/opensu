@@ -1,6 +1,7 @@
-// details_controller — the details page's buttons and what they do: play or install the game, pick
-// its emulator, download the emulator it is missing, hide it, uninstall it (two presses), go back.
-// Opens for the focused game and keeps what it shows current while the library changes under it.
+// details_controller — the details page's buttons and what they do: play or install the game,
+// update it, pick its emulator, download the emulator it is missing, hide it, uninstall it (two
+// presses), go back. Opens for the focused game and keeps what it shows current while the library
+// changes under it.
 #pragma once
 
 #include <functional>
@@ -14,6 +15,7 @@
 #include "preferences.hpp"
 #include "ui/details_page.hpp"
 #include "uninstall_prompt.hpp"
+#include "update_request.hpp"
 
 namespace opensu::app {
 
@@ -37,9 +39,9 @@ class DetailsController {
 
     DetailsController(ui::DetailsPage& page, audio::SdlSoundPlayer& sounds,
                       const Preferences& preferences, EmulatorDownloads& downloads,
-                      UninstallPrompt& uninstall, Hooks hooks)
+                      UninstallPrompt& uninstall, UpdateRequest& update, Hooks hooks)
         : page_{page}, sounds_{sounds}, preferences_{preferences}, downloads_{downloads},
-          uninstall_{uninstall}, hooks_{std::move(hooks)} {
+          uninstall_{uninstall}, update_{update}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the page for the focused game; nothing when no game has focus.
@@ -66,6 +68,7 @@ class DetailsController {
     const Preferences& preferences_;
     EmulatorDownloads& downloads_;
     UninstallPrompt& uninstall_;
+    UpdateRequest& update_;
     Hooks hooks_;
 };
 

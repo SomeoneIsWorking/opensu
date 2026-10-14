@@ -304,6 +304,15 @@ Steam removes its own games through its own uninstaller; Epic games go through
 files kept. Wine prefixes and ROMs are never deleted. An uninstall is refused while the game runs
 or another install or uninstall is under way, and shows on the Downloads page while it runs.
 
+## Updating games
+
+When the library loads, openSU checks which installed Steam, Epic and GOG games have an update: a
+small arrow on the tile marks them, and their details page and tile menu offer Update. Nothing
+updates by itself, and launching a game with an update starts the installed version. Epic games
+update through `legendary update`, GOG games through `gogdl update` in the folder they were
+installed to, and a Steam game's update is put on Steam's own queue. An update is refused while the
+game runs or another install, update or uninstall is under way, and shows on the Downloads page.
+
 ## Controls
 
 | Input | Action |

@@ -349,6 +349,10 @@ void figures() {
                     .secondsLeft = 3 * 3600 + 125};
     expect(app::entryOf(row).figures == "42%  ·  900 B of 2.5 MB  ·  3 h 2 min left",
            "percent, bytes and time left, in that order");
+    expect(app::entryOf(row).state == "Downloading", "a first install downloads");
+    row.update = true;
+    expect(app::entryOf(row).state == "Updating", "an update that moves bytes reads Updating");
+    row.update = false;
     row.state = DownloadState::Queued;
     row.fraction.reset();
     row.bytesTotal = 0;

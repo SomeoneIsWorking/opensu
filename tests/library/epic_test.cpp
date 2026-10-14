@@ -71,6 +71,39 @@ void legendaryDefaultFolder(const fs::path& dir) {
            "install_dir in another section is not legendary's");
 }
 
+/// Update detection from `list --json` and `list-installed --json` in legendary 0.20.35's shape
+/// (`vars(Game)` and `vars(InstalledGame)`, fixtures/legendary).
+void testUpdates(const fs::path& dir) {
+    const fs::path fixtures{OPENSU_LEGENDARY_FIXTURES};
+    const fs::path legendary = writeStub(dir, "legendary-versions",
+                                         "case \"$1\" in\n"
+                                         "list) cat '" +
+                                             (fixtures / "list.json").string() +
+                                             "' ;;\n"
+                                             "list-installed) cat '" +
+                                             (fixtures / "list-installed.json").string() +
+                                             "' ;;\n"
+                                             "*) exit 2 ;;\nesac\n");
+    const std::vector<Game> games = Provider{legendary.string()}.list();
+    const Game* fortnite = find(games, "epic:Fortnite");
+    expect(fortnite != nullptr && fortnite->installed && fortnite->updateAvailable,
+           "an installed version older than the offered build has an update");
+    const Game* current = find(games, "epic:Current");
+    expect(current != nullptr && current->installed && !current->updateAvailable,
+           "an installed version equal to the offered build has none");
+    const Game* fruit = find(games, "epic:Fruit");
+    expect(fruit != nullptr && fruit->installed && !fruit->updateAvailable,
+           "the build compared is the installed platform's, not Windows'");
+    const Game* delisted = find(games, "epic:Delisted");
+    expect(delisted != nullptr && delisted->installed && !delisted->updateAvailable,
+           "no offered build is no update");
+    expect(std::ranges::none_of(games,
+                                [](const Game& game) {
+                                    return !game.installed && game.updateAvailable;
+                                }),
+           "a title that is not installed has no update");
+}
+
 } // namespace
 
 int main() {
@@ -78,6 +111,7 @@ int main() {
     const fs::path dir = fs::path{OPENSU_TEST_SCRATCH} / ("epic-" + std::to_string(getpid()));
     fs::remove_all(dir);
     legendaryDefaultFolder(dir);
+    testUpdates(dir);
 
     const fs::path legendary = writeStub(dir, "legendary", R"(echo "log line" >&2
 case "$1" in

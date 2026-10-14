@@ -1,4 +1,5 @@
-// epic_install_job — one Epic install: runs `legendary install` and shows the progress it logs.
+// epic_install_job — one Epic install or update: runs `legendary install`, or `legendary update`
+// for an installed game, and shows the progress it logs.
 #pragma once
 
 #include <filesystem>
@@ -24,12 +25,19 @@ class EpicInstallJob final : public CliInstallJob {
         folder_ = std::move(folder);
     }
 
+    /// Whether the next start updates the installed game rather than installing it. Call before
+    /// start(), while idle.
+    void setUpdate(bool update) noexcept {
+        update_ = update;
+    }
+
   private:
     std::vector<std::string> arguments(const std::string& appName) override;
     std::optional<double> progressIn(std::string_view line) const override;
     std::optional<std::string> failureIn(std::string_view line) const override;
 
     std::optional<std::filesystem::path> folder_;
+    bool update_{false};
 };
 
 } // namespace opensu::app

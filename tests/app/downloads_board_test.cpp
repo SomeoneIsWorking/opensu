@@ -238,6 +238,42 @@ void testUninstallStates() {
            "a failed uninstall says why");
 }
 
+void testUpdateStates() {
+    DownloadsBoard shown = board();
+    Installs::Status updating = install(Source::Epic, "Fortnite", Phase::Running, 6);
+    updating.work = Installs::Work::Update;
+    updating.job.fraction = 0.5;
+    shown.update({.install = updating});
+    const DownloadRow* row = shown.find("epic:Fortnite");
+    expect(row != nullptr && row->update && row->state == DownloadState::Downloading &&
+               actionsFor(*row) == std::vector{DownloadAction::Cancel},
+           "a store update openSU runs is listed as an update with Cancel");
+    updating.job.phase = Phase::Done;
+    shown.update({.install = updating});
+    expect(shown.find("epic:Fortnite")->state == DownloadState::Finished,
+           "a done update ends finished");
+
+    // A Steam update is Steam's to run: once queued, Steam's own row carries it.
+    Installs::Status queued = install(Source::Steam, "480", Phase::Running, 7);
+    queued.work = Installs::Work::Update;
+    shown.update({.steamReady = true, .install = queued});
+    expect(shown.find("steam:480") != nullptr, "asking Steam shows the row");
+    queued.job.phase = Phase::Done;
+    shown.update({.steamReady = true, .install = queued});
+    expect(shown.find("steam:480") == nullptr,
+           "a queued Steam update is not shown finished before Steam lists it");
+    shown.update({.steamReady = true,
+                  .steam = {Download{.appId = "480", .active = true, .queueIndex = 0}},
+                  .install = queued});
+    expect(shown.find("steam:480") != nullptr &&
+               shown.find("steam:480")->state == DownloadState::Downloading &&
+               shown.find("steam:480")->inSteamQueue,
+           "Steam's queue row carries it");
+    shown.update({.steamReady = true, .install = queued});
+    expect(shown.find("steam:480")->state == DownloadState::Finished,
+           "and finishes when Steam's queue lets it go");
+}
+
 void testSteamInstallJoinsItsQueueRow() {
     DownloadsBoard shown = board();
     shown.update({.steamReady = true, .install = install(Source::Steam, "480", Phase::Licence)});
@@ -334,6 +370,7 @@ int main() {
     testSteamActions();
     testInstallStates();
     testUninstallStates();
+    testUpdateStates();
     testSteamInstallJoinsItsQueueRow();
     testSteamUnreadable();
     testRemoved();

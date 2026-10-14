@@ -41,6 +41,9 @@ struct Rig {
     std::string refusal;
     app::EmulatorDownloads downloads;
     app::UninstallPrompt uninstall;
+    /// Why `Installs` would refuse the update; empty when it would not.
+    std::string updateRefusal;
+    app::UpdateRequest update;
     app::DetailsController controller;
 
     explicit Rig(const fs::path& dir)
@@ -67,11 +70,19 @@ struct Rig {
                                                 [this](const std::string& text, bool) {
                                                     calls.push_back("say " + text);
                                                 }}},
+          update{app::UpdateRequest::Hooks{[this](const library::Game& updated) {
+                                               calls.push_back("update " + updated.id);
+                                               return updateRefusal;
+                                           },
+                                           [this](const std::string& text, bool) {
+                                               calls.push_back("say " + text);
+                                           }}},
           controller{page,
                      sounds,
                      preferences,
                      downloads,
                      uninstall,
+                     update,
                      app::DetailsController::Hooks{
                          [this] {
                              return &game;
@@ -170,6 +181,39 @@ void uninstallTakesTwoPresses(const fs::path& dir) {
         "a refused first press says why and arms nothing");
 }
 
+void updateStartsWithOnePress(const fs::path& dir) {
+    Rig rig{dir};
+    rig.game = library::Game{};
+    rig.game.id = "gog:2";
+    rig.game.title = "Beta";
+    rig.game.source = library::Source::Gog;
+    rig.game.sourceId = "2";
+    rig.game.installed = true;
+    rig.controller.open();
+    expect(std::ranges::none_of(rig.page.view().buttons,
+                                [](const ui::DetailsButton& button) {
+                                    return button.action == ui::DetailsAction::Update;
+                                }),
+           "a game with no update known has no Update");
+    rig.controller.close();
+    rig.game.updateAvailable = true;
+    rig.controller.open();
+    rig.controller.act(Button::Down);
+    expect(rig.page.selected() == ui::DetailsAction::Update, "Update follows Play");
+    expect(rig.page.view().rows.front().value == "Installed, update available",
+           "the status says an update is there");
+    rig.controller.act(Button::A);
+    expect((rig.calls == std::vector<std::string>{"update gog:2", "say updating Beta"}) &&
+               rig.page.isOpen(),
+           "one press starts the update and the page stays");
+    rig.calls.clear();
+    rig.updateRefusal = "Beta is running";
+    rig.controller.act(Button::A);
+    expect((rig.calls ==
+            std::vector<std::string>{"update gog:2", "say cannot update Beta: Beta is running"}),
+           "a refused update says why");
+}
+
 void refreshFollowsTheGame(const fs::path& dir) {
     Rig rig{dir};
     rig.controller.open();
@@ -225,6 +269,7 @@ int main() {
     backClosesWithoutActing(dir);
     refreshFollowsTheGame(dir);
     uninstallTakesTwoPresses(dir);
+    updateStartsWithOnePress(dir);
     trail();
     filters();
     std::puts("details_page_flow: ok");

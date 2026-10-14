@@ -18,6 +18,10 @@ namespace opensu::library::gog {
 struct Endpoints {
     std::string auth{"https://auth.gog.com"};
     std::string embed{"https://embed.gog.com"};
+    /// Builds of Windows games (gogdl's GOG_CONTENT_SYSTEM).
+    std::string content{"https://content-system.gog.com"};
+    /// Products and their installers (gogdl's GOG_API).
+    std::string api{"https://api.gog.com"};
 };
 
 /// Thrown when no token is saved or the saved one can no longer be refreshed.
