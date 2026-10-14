@@ -1053,11 +1053,13 @@ Steam Input switch, global and per game), `settings/mapping_store` (`mappings.js
 launch the shell resolves the game's map and holds the pads with it (`app/game_pads`): the virtual
 pad is remapped, the shell's controls are not, and `opensu-retro` reads the remapped virtual pad.
 Game chords follow the shell's chord rule and join the chord list. The editor opens from a game's
-details page (Controls) and Settings › Controls (global, per emulator, the Steam Input toggle);
-while Steam Input has a game its mapping is refused and the page says why. Verified by unit tests
-through the shipping code (`button_map`, `mapping_store`, `mapping_editor`, `pad_translator`,
-uinput `pads_test`: a remapped A reaches the virtual pad as B and a motion node is never grabbed)
-and the `game-mapping`, `mapping-picker` and `global-mapping` parity scenes. Gaps: key outputs
+details page (Controls) and Settings › Controls (global, per emulator, the Steam Input toggle)
+as a controller board with a chip per button, a strip of chords, and a tile picker beside the
+focused chip; while Steam Input has a game its mapping is refused and the page says why. Verified
+by unit tests through the shipping code (`button_map`, `mapping_store`, `mapping_editor`,
+`mapping_page`, `pad_translator`, uinput `pads_test`: a remapped A reaches the virtual pad as B
+and a motion node is never grabbed) and the `game-mapping`, `mapping-picker`,
+`mapping-listening`, `chord-picker` and `global-mapping` parity scenes. Gaps: key outputs
 (XTest), how the switch reaches Steam (not measured against a running client), a quick menu
 Controls row, and every check on hardware: a remapped real pad in a game, a Steam game reading
 hidraw, gyro through the motion node, SDL HIDAPI doubled input

@@ -884,6 +884,7 @@ void ShellApp::publishSnapshot() {
     next.folderPickerOpen = paths_.active();
     next.capturingShortcut = shortcutEditor_.capturing();
     next.mapping = shell_.mappingPage().state();
+    next.mappingFocus = shell_.mappingPage().focusName();
     next.volumeShown = shell_.volumeOsd().holding();
     next.chordHint = gamepad::name(shell_.chordHint().modifier().value_or(gamepad::Button::None));
     next.uiScale = preferences_.values().uiScale;

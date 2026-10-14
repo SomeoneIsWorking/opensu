@@ -1,9 +1,10 @@
 // mapping_editor — the button mappings: kept in `mappings.json` (`settings::MappingStore`),
 // resolved for a game as it launches (`forGame`), and edited on the mapping page for one scope at a
 // time: a game's own (from its details page), an emulator's or the global one (from Settings ›
-// Controls, which also holds the global Steam Input switch). A row's output is picked from a list;
-// a chord is added by holding a button and pressing another (`ChordCapture`), then picking what it
-// does. While Steam Input has a game, its mapping is refused and the page says why.
+// Controls, which also holds the global Steam Input switch). A button's or chord's output is picked
+// from the page's tiles; a chord is added by holding a button and pressing another
+// (`ChordCapture`), then picking what it does. While Steam Input has a game, its mapping is refused
+// and the page says why.
 #pragma once
 
 #include <functional>
@@ -95,30 +96,36 @@ class MappingEditor {
         /// A Steam game, whose pads Steam may read itself.
         bool steamGame{false};
     };
-    /// One entry of an output list.
+    /// The picker's Remove tile.
     struct Remove {
         bool operator==(const Remove&) const = default;
     };
     using Choice = std::variant<input::PadOutput, input::Action, Remove>;
+    /// A choice and the picker group its tile is in.
+    struct Tile {
+        Choice choice;
+        std::size_t group{0};
+    };
 
     void open(Target target);
     /// The mapping the page shows: the scope's own, else the one it inherits.
     [[nodiscard]] input::ButtonMap shown() const;
     /// Where the shown mapping comes from, or why it cannot change.
     [[nodiscard]] std::string note() const;
-    [[nodiscard]] std::vector<ui::MappingRow> rows() const;
+    [[nodiscard]] std::vector<ui::MappingItem> items() const;
     /// Whether Steam Input has the game the page is on.
     [[nodiscard]] bool steamInputHasIt() const;
     void show();
-    /// Acts on the focused row.
-    void runRow(const ui::MappingRow& row);
+    /// Acts on the focused item.
+    void runItem(const ui::MappingItem& item);
     /// Puts up what `button` can send.
     void pickButton(gamepad::Button button);
     /// Puts up what `chord` can do, with Remove when the mapping has it.
     void pickChord(const input::PadChord& chord);
-    /// Puts up `choices` under `title`, focused on `current` where it is one.
-    void pick(std::string title, std::vector<Choice> choices, const std::optional<Choice>& current);
-    /// Acts on the focused choice of the list up.
+    /// Puts up `tiles` for the `source` glyphs, focused on `current` where it is one.
+    void pick(std::vector<std::string> source, const std::vector<Tile>& tiles,
+              const std::optional<Choice>& current);
+    /// Acts on the focused choice of the picker up.
     void choose();
     /// Applies `change` to the scope's mapping, made from the shown one if it had none, and keeps
     /// it; says why when it is refused.
@@ -134,7 +141,7 @@ class MappingEditor {
     /// What the page edits while it is open.
     Target target_;
     ChordCapture capture_;
-    /// What the list up picks for: a button, a chord, or the game's Steam Input.
+    /// What the picker up picks for: a button, a chord, or the game's Steam Input.
     std::variant<std::monostate, gamepad::Button, input::PadChord> picking_;
     bool pickingSteam_{false};
     std::vector<Choice> choices_;

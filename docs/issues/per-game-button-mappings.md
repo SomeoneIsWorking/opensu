@@ -39,14 +39,26 @@ again allow chord buttons".
   runs, its chords' modifiers are chord modifiers for the shell's gate too.
 - **Chord list**: holding a modifier lists the shell's chords on it, then the game's ("Sends
   Select + Start" for a pad chord, the action's name otherwise) (`ui/chord_hint`).
-- **Editor** (`app/mapping_editor`, `ui/mapping_page` with `ui/mapping_page_painter`): the
-  details page's Controls button opens the game's own map; Settings › Controls opens the global
-  map, an emulator's (Left and Right pick the emulator, A opens it), and has the global Steam
-  Input toggle. Rows: Steam Input (game page only: as every game, On, Off), one per pad button,
-  one per chord, Add a chord, and a reset to what the scope inherits. A button row and a chord
-  row put up a list to pick from; Add a chord listens for a held button and another
-  (`app/chord_capture`, shared with `ShortcutEditor`) and refuses Guide and the shell's chords.
-  The page shows the inherited map until the first change, which makes it the scope's own.
+- **Editor** (`app/mapping_editor`, `ui/mapping_page`, `ui/mapping_board_layout`,
+  `ui/spatial_focus`, `ui/mapping_page_painter`): the details page's Controls button opens the
+  game's own map; Settings › Controls opens the global map, an emulator's (Left and Right pick the
+  emulator, A opens it), and has the global Steam Input toggle. The card is a controller board: a
+  faint silhouette with a chip per pad button in its place (shoulders on top, d-pad and left stick
+  left, face diamond and right stick right, Select and Start between; no Guide) and beside each,
+  toward the nearest edge, what it sends: dim when it sends itself, in the accent when changed (its
+  glyphs, or "Nothing"). Under it a strip: one chip per chord (`[mod] + [trigger] → output`,
+  scrolled to focus), "+ Add chord", then at the right Steam Input (game page only) and the reset
+  to what the scope inherits (when the scope has its own map). The direction buttons move to the
+  nearest chip that way (`spatial_focus` on the design-size layout). Item ids are those of the
+  control channel: `steam`, `button.<name>`, `chord.<mod>.<trigger>`, `add`, `reset`. A on a chip
+  opens a picker popover beside it, flipped to stay inside the card, headed by the source glyphs
+  and an arrow, its tiles in lines by group and moved over in 2D, opened on the choice in force:
+  a button's outputs (face, shoulders, d-pad, sticks, Select and Start, then Nothing and Select +
+  Start); a chord's (openSU's actions, the pad buttons, Select + each, Remove when it exists);
+  Steam Input's three settings. B closes it. Add chord dims the board under "Hold a button, then
+  press another" (`app/chord_capture`, shared with `ShortcutEditor`), B alone cancels, and Guide and
+  the shell's chords are refused. The page shows the inherited map until the first change, which
+  makes it the scope's own.
 - **Steam Input**: while on for a game, its page says "no mapping applies; openSU's chords still
   work", and a button row or Add a chord is refused with "Steam Input has this game's controls;
   turn it off here to map its buttons". Shell chords keep working. A Steam game's page also notes
@@ -59,8 +71,8 @@ again allow chord buttons".
 ### Decisions
 
 - Shared config is per emulator, not per system.
-- A button row is edited by picking from a list, not by pressing the new output: B is both an
-  output and the way back.
+- A button is edited by picking from tiles, not by pressing the new output: B is both an output
+  and the way back.
 - A mapped chord on Start: a tap of Start under the hold delay sends Start's mapped single-press
   output, a hold plays the chord.
 - A changed mapping applies the next time the shell holds the pads (the next launch).
@@ -105,16 +117,22 @@ or a virtual pad that carries motion.
   resolution order, whole-map override, Steam Input global and per game.
 - `mapping_store`: round trip, missing and damaged file, damaged entries left out, a save into a
   folder that cannot be written fails and leaves the old file whole with nothing beside it.
-- `mapping_editor`: a game's page, a pick kept on disk, an emulator's map shared and copied into a
-  game's own, a chord heard then given an output or an action or removed, Guide and shell chords
-  refused, Steam Input refusing and dropping the mapping, Settings › Controls rows.
+- `mapping_editor`: a game's page (its item ids, every item and picker tile reachable by the
+  direction buttons), a pick kept on disk, an emulator's map shared and copied into a game's own,
+  a chord heard then given an output or an action or removed, Guide and shell chords refused,
+  Steam Input refusing and dropping the mapping, Settings › Controls rows.
+- `mapping_page`: spatial focus (straight ahead before diagonal, the cone), moves over the board
+  and strip, the strip scrolled to a chord with Reset kept apart, every chip and callout on the
+  board without overlaps at three frame sizes, the picker's lines and 2D moves, the popover inside
+  the card for every item and picker with the focused tile in view, and beside A's chip.
 - `pad_translator`: a mapped button, a mapped trigger's travel, Guide never mapped, a game chord
   holding its outputs, a mapped Start tap.
 - `pads` (uinput): a remapped A reaches the virtual pad as B while the shell hears A; a motion
   node is never grabbed.
 - `shortcuts`, `chord_hint`: game chords join the shell's, the list shows them.
 - `settings_controller`: the Controls page's mapping rows.
-- Parity scenes `game-mapping`, `mapping-picker`, `global-mapping`.
+- Parity scenes `game-mapping`, `mapping-picker`, `mapping-listening`, `chord-picker`,
+  `global-mapping`.
 
 ## Only on hardware
 
