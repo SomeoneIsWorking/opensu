@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Clang 22 from apt.llvm.org, the release Fedora 44 builds with: 24.04's Clang 18 cannot compile the
 # fork's sol2. The archive key is pinned by its sha256.
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
-    && curl -fsSL -o /tmp/llvm.key https://apt.llvm.org/llvm-snapshot.gpg.key \
+    && curl -fsSL --retry 5 --retry-all-errors -o /tmp/llvm.key https://apt.llvm.org/llvm-snapshot.gpg.key \
     && echo "8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d  /tmp/llvm.key" \
         | sha256sum -c - \
     && gpg --dearmor -o /usr/share/keyrings/llvm.gpg /tmp/llvm.key && rm /tmp/llvm.key \
@@ -36,11 +36,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     done
 ENV CC=clang CXX=clang++
 
-# Each source: download, check its sha256, build with meson into /usr/local.
+# Each source: download (retried: freedesktop.org hosts reset connections), check its sha256,
+# build with meson into /usr/local.
 RUN set -eu; \
     build() { \
         name=$1; url=$2; sum=$3; shift 3; \
-        curl -fsSL -o "/tmp/$name.tar" "$url"; \
+        curl -fsSL --retry 5 --retry-all-errors -o "/tmp/$name.tar" "$url"; \
         echo "$sum  /tmp/$name.tar" | sha256sum -c -; \
         mkdir "/tmp/$name"; tar -xf "/tmp/$name.tar" -C "/tmp/$name" --strip-components=1; \
         meson setup "/tmp/$name/build" "/tmp/$name" --prefix=/usr/local \
@@ -78,7 +79,7 @@ RUN set -eu; \
 # SDL3, which 24.04 does not package, for opensu-retro and the shell; the AppImage bundles it. The
 # release tarball's sha256 is the one GitHub publishes for the asset.
 RUN set -eu; \
-    curl -fsSL -o /tmp/sdl3.tar.gz \
+    curl -fsSL --retry 5 --retry-all-errors -o /tmp/sdl3.tar.gz \
         https://github.com/libsdl-org/SDL/releases/download/release-3.4.18/SDL3-3.4.18.tar.gz; \
     echo "9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3  /tmp/sdl3.tar.gz" \
         | sha256sum -c -; \
@@ -98,7 +99,7 @@ RUN set -eu; \
 RUN set -eu; \
     build() { \
         name=$1; url=$2; sum=$3; shift 3; \
-        curl -fsSL -o "/tmp/$name.tar.gz" "$url"; \
+        curl -fsSL --retry 5 --retry-all-errors -o "/tmp/$name.tar.gz" "$url"; \
         echo "$sum  /tmp/$name.tar.gz" | sha256sum -c -; \
         mkdir "/tmp/$name"; tar -xzf "/tmp/$name.tar.gz" -C "/tmp/$name" --strip-components=1; \
         cmake -S "/tmp/$name" -B "/tmp/$name/build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
@@ -122,7 +123,7 @@ RUN set -eu; \
 
 ARG UV_VERSION
 ARG UV_SHA256
-RUN curl -fsSL -o /tmp/uv.tar.gz \
+RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/uv.tar.gz \
         "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
     && echo "${UV_SHA256}  /tmp/uv.tar.gz" | sha256sum -c - \
     && tar -xzf /tmp/uv.tar.gz -C /usr/local/bin --strip-components=1 \
