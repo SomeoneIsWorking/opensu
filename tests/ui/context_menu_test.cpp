@@ -24,12 +24,42 @@ void gamesOfferLaunchOrInstallDetailsAndHide() {
     installed.installed = true;
     Game missing;
     using A = ContextAction;
-    expect((actions(installed, false) == std::vector<A>{A::Launch, A::Details, A::Hide}),
-           "an installed game launches, shows details and hides");
+    expect(
+        (actions(installed, false) == std::vector<A>{A::Launch, A::Details, A::Hide, A::Uninstall}),
+        "an installed store game launches, shows details, hides and uninstalls");
     expect((actions(missing, false) == std::vector<A>{A::Install, A::Details, A::Hide}),
-           "a missing game installs");
-    expect((actions(installed, true) == std::vector<A>{A::Launch, A::Details, A::Unhide}),
+           "a missing game installs and has nothing to uninstall");
+    expect((actions(installed, true) ==
+            std::vector<A>{A::Launch, A::Details, A::Unhide, A::Uninstall}),
            "a hidden game unhides");
+    Game rom;
+    rom.source = Source::Rom;
+    rom.installed = true;
+    expect((actions(rom, false) == std::vector<A>{A::Launch, A::Details, A::Hide}),
+           "a ROM is never uninstalled");
+}
+
+void uninstallTakesASecondPress() {
+    Game game;
+    game.installed = true;
+    ContextMenu menu;
+    menu.open("Hades", contextItemsFor(game, false));
+    expect(menu.move(3) && menu.selected() == ContextAction::Uninstall, "Uninstall is last");
+    expect(!menu.armed() && menu.shown(3) == "Uninstall", "it reads Uninstall until pressed");
+    menu.arm("Steam uninstalls the Steam copy");
+    expect(menu.armed() && menu.shown(3) == "Press A again: Steam uninstalls the Steam copy" &&
+               menu.shown(0) == "Launch",
+           "armed, it names what the second press removes");
+    expect(menu.move(-1) && !menu.armed() && menu.shown(3) == "Uninstall",
+           "moving focus lets go of it");
+    menu.move(1);
+    menu.arm("x");
+    expect(menu.focusItem(0) && !menu.armed(), "a pointer moving focus lets go too");
+    menu.focusItem(3);
+    menu.arm("x");
+    menu.close();
+    menu.open("Hades", contextItemsFor(game, false));
+    expect(!menu.armed(), "closing lets go");
 }
 
 void foldersAndStoresOfferTheirOwn() {
@@ -75,6 +105,7 @@ void layoutHitTests() {
 
 int main() {
     gamesOfferLaunchOrInstallDetailsAndHide();
+    uninstallTakesASecondPress();
     foldersAndStoresOfferTheirOwn();
     focusStopsAtTheEnds();
     layoutHitTests();

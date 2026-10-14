@@ -38,7 +38,7 @@ class DetailsPagePainter {
   private:
     void paintCover(Canvas& canvas, const DetailsLayout& layout, const DetailsArt& art,
                     const DetailsView& view, float alpha) const;
-    void paintText(Canvas& canvas, const DetailsLayout& layout, const DetailsView& view, float dp,
+    void paintText(Canvas& canvas, const DetailsLayout& layout, const DetailsPage& page, float dp,
                    float alpha) const;
     void paintButtons(Canvas& canvas, const DetailsPage& page, const DetailsLayout& layout,
                       float dp, float alpha) const;

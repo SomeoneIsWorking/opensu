@@ -30,6 +30,9 @@ std::vector<ContextItem> contextItemsFor(const library::ShelfItem& item, bool hi
         items.push_back(ContextItem{"Details", ContextAction::Details});
         items.push_back(hidden ? ContextItem{"Unhide game", ContextAction::Unhide}
                                : ContextItem{"Hide game", ContextAction::Hide});
+        if (game->installed && game->source != library::Source::Rom) {
+            items.push_back(ContextItem{"Uninstall", ContextAction::Uninstall});
+        }
         return items;
     }
     std::vector<ContextItem> items{ContextItem{"Open", ContextAction::Open}};
@@ -77,15 +80,19 @@ void ContextMenu::open(std::string title, std::vector<ContextItem> items) {
     items_ = std::move(items);
     focus_ = 0;
     open_ = true;
+    confirm_.clear();
 }
 
 bool ContextMenu::move(int delta) noexcept {
     const auto last = static_cast<long>(items_.size()) - 1;
     const auto next = static_cast<std::size_t>(
         std::clamp(static_cast<long>(focus_) + delta, 0L, std::max(last, 0L)));
-    const bool moved = next != focus_;
+    if (next == focus_) {
+        return false;
+    }
     focus_ = next;
-    return moved;
+    confirm_.clear();
+    return true;
 }
 
 bool ContextMenu::focusItem(std::size_t index) noexcept {
@@ -93,7 +100,18 @@ bool ContextMenu::focusItem(std::size_t index) noexcept {
         return false;
     }
     focus_ = index;
+    confirm_.clear();
     return true;
+}
+
+std::string ContextMenu::shown(std::size_t index) const {
+    if (index >= items_.size()) {
+        return {};
+    }
+    if (armed() && index == focus_) {
+        return "Press A again: " + confirm_;
+    }
+    return items_[index].label;
 }
 
 } // namespace opensu::ui

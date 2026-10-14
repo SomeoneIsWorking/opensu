@@ -1,6 +1,7 @@
 // context_menu_controller — the menu a focused tile opens (iiSU: SELECT on a ROM, `pb0.java:2086`;
 // right click on a tile) and what its entries do. The tile it is open for is kept, so an entry
-// acts on it whatever the grid does meanwhile.
+// acts on it whatever the grid does meanwhile. Uninstall takes a second press, the menu staying up
+// between them.
 #pragma once
 
 #include <functional>
@@ -11,6 +12,7 @@
 #include "library/shelf.hpp"
 #include "preferences.hpp"
 #include "ui/context_menu.hpp"
+#include "uninstall_prompt.hpp"
 
 namespace opensu::app {
 
@@ -31,8 +33,9 @@ class ContextMenuController {
     };
 
     ContextMenuController(ui::ContextMenu& menu, audio::SdlSoundPlayer& sounds,
-                          const Preferences& preferences, Hooks hooks)
-        : menu_{menu}, sounds_{sounds}, preferences_{preferences}, hooks_{std::move(hooks)} {
+                          const Preferences& preferences, UninstallPrompt& uninstall, Hooks hooks)
+        : menu_{menu}, sounds_{sounds}, preferences_{preferences}, uninstall_{uninstall},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the menu for the focused tile; nothing when no tile has focus.
@@ -45,10 +48,13 @@ class ContextMenuController {
   private:
     /// Does what entry `action` says to the tile the menu was opened for.
     void run(ui::ContextAction action);
+    /// The first press on Uninstall: arms it, or closes the menu when it cannot be.
+    void armUninstall();
 
     ui::ContextMenu& menu_;
     audio::SdlSoundPlayer& sounds_;
     const Preferences& preferences_;
+    UninstallPrompt& uninstall_;
     Hooks hooks_;
     /// The tile the menu is open for.
     std::optional<library::ShelfItem> target_;

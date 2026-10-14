@@ -196,16 +196,22 @@ void testState() {
                               .title = "mGBA \"core\"",
                               .source = "Core",
                               .state = "queued",
+                              .percent = std::nullopt},
+                             {.key = "gog:1207",
+                              .title = "Gwent",
+                              .source = "GOG",
+                              .state = "uninstalling",
                               .percent = std::nullopt}};
     const nlohmann::json listed = nlohmann::json::parse(channel.handle(get).body);
-    expect(listed["downloadsOpen"] == true && listed["downloads"].size() == 2 &&
+    expect(listed["downloadsOpen"] == true && listed["downloads"].size() == 3 &&
                listed["downloads"][0] == nlohmann::json{{"key", "steam:480"},
                                                         {"title", "Spacewar"},
                                                         {"source", "Steam"},
                                                         {"state", "downloading"},
                                                         {"percent", 42}} &&
                listed["downloads"][1]["title"] == "mGBA \"core\"" &&
-               listed["downloads"][1]["percent"].is_null(),
+               listed["downloads"][1]["percent"].is_null() &&
+               listed["downloads"][2]["state"] == "uninstalling",
            "every download is listed in order with its source, state and percent");
 }
 
@@ -229,6 +235,7 @@ void testSearchAndText() {
     shell.state.contextMenuOpen = true;
     shell.state.iconSize = 14;
     shell.state.detailsOpen = true;
+    shell.state.armed = true;
     shell.state.settingsOpen = true;
     shell.state.folderPickerOpen = true;
     shell.state.breadcrumb = "Library > GOG > Hades";
@@ -239,10 +246,12 @@ void testSearchAndText() {
                contains(state.body, "\"contextMenuOpen\":true") &&
                contains(state.body, "\"iconSize\":14") &&
                contains(state.body, "\"detailsOpen\":true") &&
+               contains(state.body, "\"armed\":true") &&
                contains(state.body, "\"settingsOpen\":true") &&
                contains(state.body, "\"folderPickerOpen\":true") &&
                contains(state.body, "\"breadcrumb\":\"Library > GOG > Hades\""),
-           "the state reports the search, the menu, the icon size, the details page and the trail");
+           "the state reports the search, the menu, the icon size, the details page, an armed "
+           "button and the trail");
 }
 
 void testSectionButtons() {

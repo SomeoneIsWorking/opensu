@@ -50,14 +50,23 @@ def _capture(args: argparse.Namespace) -> int:
     frames.mkdir(parents=True, exist_ok=True)
     if not parity:
         profile = Profile(home=run / "home", steam_root=steam, rom_root=roms)
-        _run(args.opensu, profile, run / "opensu.log", README_SCENES, frames, magick, args.out)
+        _run(args.opensu, profile, run / "opensu.log", README_SCENES, frames, magick, args.out, 0)
         return 0
     tools = mixer.install(run / "tools")
     profile = Profile(home=run / "home", steam_root=steam, rom_root=roms, tools=tools)
-    _run(args.opensu, profile, run / "opensu.log", SCENES, frames, None, args.out)
+    _run(args.opensu, profile, run / "opensu.log", SCENES, frames, None, args.out, 0)
     store_tools = legendary.install(mixer.install(run / "store-tools"))
     store = Profile(home=run / "store-home", steam_root=steam, rom_root=roms, tools=store_tools)
-    _run(args.opensu, store, run / "opensu-store.log", DOWNLOAD_SCENES, frames, None, args.out)
+    _run(
+        args.opensu,
+        store,
+        run / "opensu-store.log",
+        DOWNLOAD_SCENES,
+        frames,
+        None,
+        args.out,
+        legendary.INSTALLED_COUNT,
+    )
     return 0
 
 
@@ -69,10 +78,13 @@ def _run(
     frames: Path,
     magick: str | None,
     out: Path,
+    store_installed: int,
 ) -> None:
-    """One hidden openSU in `profile`, capturing each of `scenes` into `frames`."""
+    """One hidden openSU in `profile`, capturing each of `scenes` into `frames`; the profile's
+    stand-in stores have `store_installed` games installed beside the demo library."""
     with HiddenShell(opensu, profile, log) as shell:
-        shell.wait_for("installed", len(demo.STEAM_GAMES) + len(demo.ROM_GAMES))
+        installed = len(demo.STEAM_GAMES) + len(demo.ROM_GAMES) + store_installed
+        shell.wait_for("installed", installed)
         for scene in scenes:
             scene.reach(shell)
             time.sleep(scene.settle)

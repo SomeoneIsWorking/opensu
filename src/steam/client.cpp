@@ -163,6 +163,12 @@ bool Client::installed(std::string_view appId) const {
     return library::steam::Library::discover(options_.home, options_.steamRoots).installed(appId);
 }
 
+bool Client::hasManifest(std::string_view appId) const {
+    return library::steam::Library::discover(options_.home, options_.steamRoots)
+        .manifestOf(appId)
+        .has_value();
+}
+
 void Client::refreshFromClient() {
     std::string error;
     std::optional<std::vector<Download>> queue = queue_.read(error);

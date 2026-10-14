@@ -104,7 +104,7 @@ void InstallJob::post(Report report) {
         if (report.cancelled) {
             status_->phase = Phase::Cancelled;
         } else if (report.finished) {
-            status_->phase = report.failure.empty() ? Phase::Installed : Phase::Failed;
+            status_->phase = report.failure.empty() ? Phase::Done : Phase::Failed;
         } else {
             status_->phase = report.licence ? Phase::Licence : Phase::Running;
         }

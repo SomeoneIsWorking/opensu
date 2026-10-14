@@ -294,6 +294,16 @@ now, moved and removed; the others can be cancelled. Finished downloads stay lis
 quits. A click on the Steam badge in the top bar while it shows a download's progress ring opens it
 too.
 
+## Uninstalling games
+
+An installed Steam, Epic or GOG game's details page and tile menu (Select) have Uninstall. The
+first press says what will go, and a second press removes it; moving to another button cancels.
+Steam removes its own games through its own uninstaller; Epic games go through
+`legendary uninstall`. A GOG game's folder is deleted only when it is inside the folder openSU gave
+`gogdl` for it (`<install folder>/<id>/`); a game recorded anywhere else is only forgotten, its
+files kept. Wine prefixes and ROMs are never deleted. An uninstall is refused while the game runs
+or another install or uninstall is under way, and shows on the Downloads page while it runs.
+
 ## Controls
 
 | Input | Action |

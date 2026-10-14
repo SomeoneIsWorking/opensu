@@ -30,6 +30,8 @@ enum class ContextAction : std::uint8_t {
     Refresh,
     /// Sign in to the store a launcher stands for.
     SignIn,
+    /// Uninstall an installed store game, on a second press.
+    Uninstall,
 };
 
 struct ContextItem {
@@ -67,6 +69,7 @@ class ContextMenu {
     void open(std::string title, std::vector<ContextItem> items);
     void close() noexcept {
         open_ = false;
+        confirm_.clear();
     }
     [[nodiscard]] bool isOpen() const noexcept {
         return open_;
@@ -81,10 +84,21 @@ class ContextMenu {
     [[nodiscard]] std::size_t focus() const noexcept {
         return focus_;
     }
-    /// Moves focus by `delta` items, stopping at the ends; reports whether it moved.
+    /// Moves focus by `delta` items, stopping at the ends; reports whether it moved. Moving lets
+    /// go of an armed item.
     bool move(int delta) noexcept;
-    /// Focuses item `index`; reports whether focus changed.
+    /// Focuses item `index`; reports whether focus changed, which lets go of an armed item.
     bool focusItem(std::size_t index) noexcept;
+
+    /// Asks the focused item for a second press; `confirm` says what that press does.
+    void arm(std::string confirm) {
+        confirm_ = std::move(confirm);
+    }
+    [[nodiscard]] bool armed() const noexcept {
+        return !confirm_.empty();
+    }
+    /// Item `index`'s label as the menu reads it: an armed one says what the second press does.
+    [[nodiscard]] std::string shown(std::size_t index) const;
     [[nodiscard]] ContextAction selected() const noexcept {
         return items_[focus_].action;
     }
@@ -96,6 +110,8 @@ class ContextMenu {
     std::string title_;
     std::vector<ContextItem> items_;
     std::size_t focus_{0};
+    /// What the armed item's second press does; empty when none is armed.
+    std::string confirm_;
     bool open_{false};
 };
 

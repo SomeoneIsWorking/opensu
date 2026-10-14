@@ -1,6 +1,7 @@
 #include "details_page.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <ctime>
 #include <string>
 
@@ -132,6 +133,9 @@ DetailsView detailsFor(const library::Game& game, bool hidden,
     }
     view.buttons.push_back(
         DetailsButton{DetailsAction::Hidden, hidden ? "Show game" : "Hide game", ""});
+    if (game.installed && !rom) {
+        view.buttons.push_back(DetailsButton{DetailsAction::Uninstall, "Uninstall", ""});
+    }
     view.buttons.push_back(DetailsButton{DetailsAction::Back, "Back", ""});
     return view;
 }
@@ -174,6 +178,7 @@ void DetailsPage::open(DetailsView view) {
     view_ = std::move(view);
     focus_ = 0;
     open_ = true;
+    disarm();
 }
 
 void DetailsPage::refresh(DetailsView view) {
@@ -181,7 +186,7 @@ void DetailsPage::refresh(DetailsView view) {
         return;
     }
     if (view.gameId != view_.gameId) {
-        open_ = false;
+        close();
         return;
     }
     const DetailsAction was = selected();
@@ -189,7 +194,10 @@ void DetailsPage::refresh(DetailsView view) {
     const auto same = std::ranges::find(view_.buttons, was, &DetailsButton::action);
     if (same != view_.buttons.end()) {
         focus_ = static_cast<std::size_t>(same - view_.buttons.begin());
-    } else if (was == DetailsAction::DownloadEmulator) {
+        return;
+    }
+    disarm();
+    if (was == DetailsAction::DownloadEmulator) {
         // The emulator arrived: Play is what the player came for.
         focus_ = 0;
     } else {
@@ -208,7 +216,34 @@ bool DetailsPage::focusButton(std::size_t index) noexcept {
         return false;
     }
     focus_ = index;
+    disarm();
     return true;
+}
+
+void DetailsPage::arm(std::string confirm) {
+    confirm_ = std::move(confirm);
+}
+
+std::string DetailsPage::shown(std::size_t index) const {
+    if (index >= view_.buttons.size()) {
+        return {};
+    }
+    std::string label = view_.buttons[index].label;
+    if (armed() && index == focus_ && !label.empty()) {
+        label[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(label[0])));
+        return "Press A again to " + label;
+    }
+    return label;
+}
+
+std::vector<DetailsRow> DetailsPage::rows() const {
+    std::vector<DetailsRow> rows;
+    // First, so a short page that drops its last rows still shows it.
+    if (armed()) {
+        rows.push_back(DetailsRow{view_.buttons[focus_].label, confirm_});
+    }
+    rows.insert(rows.end(), view_.rows.begin(), view_.rows.end());
+    return rows;
 }
 
 } // namespace opensu::ui

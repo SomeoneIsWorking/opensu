@@ -65,8 +65,11 @@ void ContextMenuPainter::paint(Canvas& canvas, const ContextMenu& menu, Point si
         fillRoundRect(canvas, bar, [&](Point, float) {
             return withAlpha(rowFill, look.alpha);
         });
-        typeface_.drawCentred(canvas, menu.items()[i].label, layout.rows[i].x + rowInsetDp * dp,
-                              layout.rows[i].centreY(), row, withAlpha(palette::ink, look.alpha));
+        const float inset = rowInsetDp * dp;
+        typeface_.drawCentred(
+            canvas, typeface_.fitted(menu.shown(i), layout.rows[i].width - 2.0f * inset, row),
+            layout.rows[i].x + inset, layout.rows[i].centreY(), row,
+            withAlpha(palette::ink, look.alpha));
         if (i == menu.focus()) {
             fillBand(canvas, bar, bar.grown(-outlineDp * dp), [&](Point, float) {
                 return withAlpha(outlineInk, look.alpha);

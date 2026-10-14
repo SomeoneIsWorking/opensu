@@ -1,5 +1,6 @@
 // The search, context menu and options controllers, with the real preferences on a scratch file
-// and a silent sound player: routing of every button, hide persistence, icon size and filters.
+// and a silent sound player: routing of every button, hide persistence, the two-press Uninstall,
+// icon size and filters.
 #include <cstdio>
 #include <filesystem>
 #include <string>
@@ -50,9 +51,25 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
     library::ShelfItem focus = hades();
     bool noFocus = false;
     std::vector<std::string> log;
+    std::string refusal;
+    app::UninstallPrompt uninstall{
+        {.plan =
+             [&](const library::Game&) {
+                 return app::Removal{.refusal = refusal, .what = "Steam uninstalls the Steam copy"};
+             },
+         .start =
+             [&](const library::Game& game) {
+                 log.push_back("uninstall " + game.id);
+                 return std::string{};
+             },
+         .say =
+             [&](const std::string& text, bool error) {
+                 log.push_back((error ? "refused " : "said ") + text);
+             }}};
     ContextMenuController controller{menu,
                                      rig.sounds,
                                      rig.preferences,
+                                     uninstall,
                                      {.focused = [&]() -> const library::ShelfItem* {
                                           return noFocus ? nullptr : &focus;
                                       },
@@ -88,7 +105,7 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
     expect(!menu.isOpen(), "no focused tile, no menu");
     noFocus = false;
     controller.open();
-    expect(menu.isOpen() && menu.title() == "Hades" && menu.items().size() == 3, "a game's menu");
+    expect(menu.isOpen() && menu.title() == "Hades" && menu.items().size() == 4, "a game's menu");
     controller.act(Button::B);
     expect(!menu.isOpen() && log.empty(), "B closes without acting");
 
@@ -104,7 +121,7 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
     expect(settings::Store{file}.load().hidden.contains(hades()), "the hidden game is on disk");
 
     controller.open();
-    expect(menu.items().back().action == ui::ContextAction::Unhide, "a hidden game offers Unhide");
+    expect(menu.items()[2].action == ui::ContextAction::Unhide, "a hidden game offers Unhide");
     controller.act(Button::Down);
     controller.act(Button::Down);
     controller.act(Button::A);
@@ -118,6 +135,34 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
     controller.act(Button::Down);
     controller.act(Button::A);
     expect(log.back() == "details", "the second shows details");
+
+    log.clear();
+    controller.open();
+    controller.act(Button::Down);
+    controller.act(Button::Down);
+    controller.act(Button::Down);
+    controller.act(Button::A);
+    expect(menu.isOpen() && menu.armed() &&
+               menu.shown(3) == "Press A again: Steam uninstalls the Steam copy" && log.empty(),
+           "the first A on Uninstall arms it with what goes, and does nothing yet");
+    controller.act(Button::Up);
+    expect(menu.isOpen() && !menu.armed(), "moving away lets go of it");
+    controller.act(Button::Down);
+    controller.act(Button::A);
+    controller.act(Button::A);
+    expect(log == std::vector<std::string>{"uninstall steam:1", "said uninstalling Hades"} &&
+               !menu.isOpen(),
+           "the second A uninstalls the menu's game and closes the menu");
+    log.clear();
+    refusal = "Hades is running";
+    controller.open();
+    controller.act(Button::Down);
+    controller.act(Button::Down);
+    controller.act(Button::Down);
+    controller.act(Button::A);
+    expect(log == std::vector<std::string>{"refused cannot uninstall Hades: Hades is running"} &&
+               !menu.isOpen(),
+           "a refused first press says why and closes the menu");
 
     focus = library::Launcher{library::Source::Gog, 0, false, false};
     controller.open();

@@ -1,7 +1,7 @@
 // downloads_board — every download openSU knows of as one list, the Downloads page's model: Steam's
-// queue (its own auto-updates included), the store install that runs (Epic, GOG, Steam's
-// installer), and the emulator or core download. Each frame the sources' state goes in and one row
-// per download comes out, with its state, progress and the actions its owner supports. A
+// queue (its own auto-updates included), the store install or uninstall that runs (Epic, GOG,
+// Steam's installer), and the emulator or core download. Each frame the sources' state goes in and
+// one row per download comes out, with its state, progress and the actions its owner supports. A
 // download that ended stays listed until openSU quits. Pure; no UI and no threads.
 #pragma once
 
@@ -31,6 +31,9 @@ enum class DownloadState : std::uint8_t {
     Finished,
     Failed,
     Cancelled,
+    /// A store game being removed; it has no buttons.
+    Uninstalling,
+    Uninstalled,
 };
 
 enum class DownloadAction : std::uint8_t {
