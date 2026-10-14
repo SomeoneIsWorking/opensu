@@ -18,8 +18,8 @@ class SearchPanelPainter {
 
     /// Draws `panel` into a frame of `size` at `dp` pixels per dp, as faded and scaled by `look`;
     /// `seconds` blinks the caret.
-    void paint(const SearchPanel& panel, Vector2 size, float dp, const PanelLook& look,
-               double seconds) const;
+    void paint(Canvas& canvas, const SearchPanel& panel, Point size, float dp,
+               const PanelLook& look, double seconds) const;
 
   private:
     const input::Prompts* prompts_;

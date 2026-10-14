@@ -5,7 +5,7 @@
 
 #include <chrono>
 
-#include "raylib.h"
+#include "paint.hpp"
 
 #include "button_glyph.hpp"
 #include "folder_chooser.hpp"
@@ -64,13 +64,14 @@ class SettingsPanels {
     void tick(Clock::time_point now) noexcept;
 
     /// Draws the page between `topInset` and `bottomInset` in a `size` frame at `dp` pixels per dp.
-    void drawPage(Vector2 size, float dp, float topInset, float bottomInset,
+    void drawPage(Canvas& canvas, Point size, float dp, float topInset, float bottomInset,
                   Clock::time_point now) const;
     /// Draws the folder chooser and the keyboard over what is drawn; `seconds` blinks the caret.
-    void drawOverlays(Vector2 size, float dp, Clock::time_point now, double seconds) const;
+    void drawOverlays(Canvas& canvas, Point size, float dp, Clock::time_point now,
+                      double seconds) const;
 
     /// What the point at `point` is on while the page or a panel over it is up.
-    [[nodiscard]] PointerTarget pointAt(Vector2 point, Vector2 size, float dp, float topInset,
+    [[nodiscard]] PointerTarget pointAt(Point point, Point size, float dp, float topInset,
                                         float bottomInset) const;
     /// Moves the focus the D-pad moves to `target`, when it is one of these panels' elements.
     /// Reports whether it moved.

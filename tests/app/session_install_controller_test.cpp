@@ -48,7 +48,7 @@ struct Rig {
     ui::SessionDialog dialog;
     ui::SearchPanel password;
     test::FakeSessionMode session;
-    audio::SoundPlayer sounds;
+    audio::SdlSoundPlayer sounds;
     std::vector<std::string> said;
     app::SessionInstallController controller;
 };

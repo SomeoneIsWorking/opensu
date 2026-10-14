@@ -4,6 +4,7 @@
 
 #include "button_glyph.hpp"
 #include "guide_menu.hpp"
+#include "paint.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
@@ -19,10 +20,10 @@ class GuideMenuPainter {
                                      float dp) const;
 
     /// Draws `menu` into a `width` x `height` frame at `dp` pixels per dp.
-    void paint(const GuideMenu& menu, float width, float height, float dp) const;
+    void paint(Canvas& canvas, const GuideMenu& menu, float width, float height, float dp) const;
 
   private:
-    void paintPowerButton(const Rect& box, bool focused, float dp) const;
+    void paintPowerButton(Canvas& canvas, const Rect& box, bool focused, float dp) const;
     Typeface& typeface_;
     ButtonGlyphPainter glyphs_;
 };

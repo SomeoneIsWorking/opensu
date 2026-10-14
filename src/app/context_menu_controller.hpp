@@ -6,7 +6,7 @@
 #include <functional>
 #include <optional>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "gamepad/event.hpp"
 #include "library/shelf.hpp"
 #include "preferences.hpp"
@@ -30,7 +30,7 @@ class ContextMenuController {
         std::function<void(library::Source source)> signIn;
     };
 
-    ContextMenuController(ui::ContextMenu& menu, audio::SoundPlayer& sounds,
+    ContextMenuController(ui::ContextMenu& menu, audio::SdlSoundPlayer& sounds,
                           const Preferences& preferences, Hooks hooks)
         : menu_{menu}, sounds_{sounds}, preferences_{preferences}, hooks_{std::move(hooks)} {
     }
@@ -47,7 +47,7 @@ class ContextMenuController {
     void run(ui::ContextAction action);
 
     ui::ContextMenu& menu_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     const Preferences& preferences_;
     Hooks hooks_;
     /// The tile the menu is open for.

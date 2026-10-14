@@ -15,7 +15,7 @@
 #include <span>
 #include <string_view>
 
-#include "raylib.h"
+#include "paint.hpp"
 
 #include "home_layout.hpp"
 #include "platform.hpp"
@@ -56,11 +56,11 @@ struct TileVisual {
     bool dark{false};
     float ringDegrees{0.0f};
     /// Cover art, or a console's card, or null for none.
-    const Texture* art{nullptr};
+    const gpu2d::Texture* art{nullptr};
     /// The platform frame, or null for an unframed tile.
     const Platform* platform{nullptr};
     /// The console's glyph for the frame's tab, or null for none.
-    const Texture* glyph{nullptr};
+    const gpu2d::Texture* glyph{nullptr};
     std::string_view title;
     TileKind kind{TileKind::Game};
     /// A folder's second line, its game count.
@@ -84,33 +84,35 @@ class TilePainter {
         : icons_{icons}, typeface_{typeface} {
     }
 
-    void paint(const TileVisual& tile);
+    void paint(Canvas& canvas, const TileVisual& tile);
 
   private:
-    void paintShadow(const TileGeometry& geometry, const ChromeVariant& variant, float alpha) const;
+    void paintShadow(Canvas& canvas, const TileGeometry& geometry, const ChromeVariant& variant,
+                     float alpha) const;
     struct Ring {
         float inset;
         float degrees;
         float alpha;
     };
-    void paintRing(const TileGeometry& geometry, const Ring& ring) const;
-    void paintChrome(const TileGeometry& geometry, const ChromeVariant& variant, bool focused,
-                     float alpha) const;
-    void paintContent(const TileVisual& tile, const TileGeometry& geometry);
-    void paintFrame(const Rect& rect, const Platform& platform, const Texture* glyph,
-                    float alpha) const;
-    void paintFallback(const TileVisual& tile, const Rect& content) const;
-    void paintLoading(const TileVisual& tile, const Rect& content) const;
+    void paintRing(Canvas& canvas, const TileGeometry& geometry, const Ring& ring) const;
+    void paintChrome(Canvas& canvas, const TileGeometry& geometry, const ChromeVariant& variant,
+                     bool focused, float alpha) const;
+    void paintContent(Canvas& canvas, const TileVisual& tile, const TileGeometry& geometry);
+    void paintFrame(Canvas& canvas, const Rect& rect, const Platform& platform,
+                    const gpu2d::Texture* glyph, float alpha) const;
+    void paintFallback(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
+    void paintLoading(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
     /// A folder's card: a gradient with the mark, the name and the count centred on it.
-    void paintCard(const TileVisual& tile, const Rect& content, Color from, Color to);
-    void paintMark(const TileVisual& tile, const Rect& box, Color ink);
-    void paintStores(const TileVisual& tile, const Rect& content);
+    void paintCard(Canvas& canvas, const TileVisual& tile, const Rect& content, Colour from,
+                   Colour to);
+    void paintMark(Canvas& canvas, const TileVisual& tile, const Rect& box, Colour ink);
+    void paintStores(Canvas& canvas, const TileVisual& tile, const Rect& content);
 
     IconAtlas& icons_;
     Typeface& typeface_;
 };
 
 /// A cover crop of a `width` x `height` image for a `target` (iiSU e01.k, centred anchors).
-[[nodiscard]] Rectangle coverSource(float width, float height, const Rect& target) noexcept;
+[[nodiscard]] gpu2d::Rect coverSource(float width, float height, const Rect& target) noexcept;
 
 } // namespace opensu::ui

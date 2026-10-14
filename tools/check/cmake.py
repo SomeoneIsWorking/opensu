@@ -47,7 +47,6 @@ class Plan:
             f"-DCMAKE_BUILD_TYPE={self.build_type}",
             f"-DCMAKE_INSTALL_PREFIX={self.install_prefix}",
             "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
-            f"-DRAYLIB_ROOT={self.deps.raylib_prefix}",
             f"-DLUCENT_ROOT={self.deps.lucent}",
             f"-DGPU2D_ROOT={self.deps.gpu2d}",
         ]

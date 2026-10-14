@@ -3,8 +3,8 @@
 #pragma once
 
 #include "home_layout.hpp"
+#include "paint.hpp"
 #include "panel_fade.hpp"
-#include "raylib.h"
 #include "typeface.hpp"
 #include "volume_osd.hpp"
 
@@ -16,7 +16,7 @@ class VolumeOsdPainter {
     }
 
     /// Draws the pill in a frame of `size` at `dp` pixels per dp, `topInset` below the frame's top.
-    void paint(const VolumeLevel& level, Vector2 size, float dp, float topInset,
+    void paint(Canvas& canvas, const VolumeLevel& level, Point size, float dp, float topInset,
                const PanelLook& look) const;
 
   private:
@@ -24,6 +24,6 @@ class VolumeOsdPainter {
 };
 
 /// Where the pill stands at rest, in pixels.
-[[nodiscard]] Rect volumeOsdBody(Vector2 size, float dp, float topInset) noexcept;
+[[nodiscard]] Rect volumeOsdBody(Point size, float dp, float topInset) noexcept;
 
 } // namespace opensu::ui

@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <string>
 
-#include "clip_stack.hpp"
 #include "hud.hpp"
+#include "paint.hpp"
 #include "round_shape.hpp"
 #include "row_controls.hpp"
 #include "typeface.hpp"
@@ -12,9 +12,9 @@
 namespace opensu::ui {
 namespace {
 
-constexpr Color panelFill{0xF8, 0xF8, 0xFB, 255};
-constexpr Color cardFill{0xFF, 0xFF, 0xFF, 255};
-constexpr Color chosenFill{0xE6, 0xE4, 0xEE, 255};
+constexpr Colour panelFill{0xF8, 0xF8, 0xFB, 255};
+constexpr Colour cardFill{0xFF, 0xFF, 0xFF, 255};
+constexpr Colour chosenFill{0xE6, 0xE4, 0xEE, 255};
 constexpr float categorySp = 17.0f;
 constexpr float labelSp = 17.0f;
 constexpr float noteSp = 12.5f;
@@ -24,62 +24,63 @@ constexpr float outlineDp = 1.8f;
 constexpr float rowRadiusDp = 12.0f;
 constexpr float valueRoomShare = 0.5f;
 
-Color faded(Color colour, float alpha) {
+Colour faded(Colour colour, float alpha) {
     return withAlpha(colour, alpha);
 }
 
-void paintCategories(Typeface& typeface, const SettingsPage& page, const SettingsLayout& layout,
-                     float dp, float alpha) {
+void paintCategories(Canvas& canvas, Typeface& typeface, const SettingsPage& page,
+                     const SettingsLayout& layout, float dp, float alpha) {
     const TextStyle text{categorySp * dp};
     const bool inList = page.zone() == SettingsZone::Categories;
     for (std::size_t i = 0; i < layout.categoryCells.size(); ++i) {
         const Rect& cell = layout.categoryCells[i];
         const RoundRect body{cell, layout.cellRadius};
         const bool chosen = i == page.category();
-        fillRoundRect(body, [chosen, alpha](Vector2, float) {
+        fillRoundRect(canvas, body, [chosen, alpha](Point, float) {
             return faded(chosen ? chosenFill : cardFill, alpha * (chosen ? 1.0f : 0.92f));
         });
         if (chosen && inList) {
-            fillBand(body, body.grown(-outlineDp * dp), [alpha](Vector2, float) {
+            fillBand(canvas, body, body.grown(-outlineDp * dp), [alpha](Point, float) {
                 return faded(rowInk, alpha);
             });
         }
-        typeface.drawCentred(page.categories()[i].label, cell.x + insetDp * dp, cell.centreY(),
-                             text, faded(palette::ink, alpha));
+        typeface.drawCentred(canvas, page.categories()[i].label, cell.x + insetDp * dp,
+                             cell.centreY(), text, faded(palette::ink, alpha));
     }
 }
 
 /// What a row shows at its end, right-aligned inside `rect`; the room it needs is returned.
-void paintEnd(Typeface& typeface, const SettingsRow& row, const SettingsRowBox& box, float dp,
-              float alpha) {
+void paintEnd(Canvas& canvas, Typeface& typeface, const SettingsRow& row, const SettingsRowBox& box,
+              float dp, float alpha) {
     const TextStyle value{valueSp * dp};
     const float endX = box.rect.right() - insetDp * dp;
     const float room = box.rect.width * valueRoomShare;
     switch (row.kind) {
     case RowKind::Toggle:
-        paintSwitch(box.control, row.on, dp);
+        paintSwitch(canvas, box.control, row.on, dp);
         break;
     case RowKind::Slider:
-        paintSlider(typeface, box.control, row.level, row.low, row.high, dp);
+        paintSlider(canvas, typeface, box.control, row.level, row.low, row.high, dp);
         break;
     case RowKind::Choice: {
         const std::string shown = typeface.fitted("<  " + row.value + "  >", room, value);
-        typeface.drawCentred(shown, endX - typeface.measure(shown, value), box.rect.centreY(),
-                             value, faded(palette::inkSoft, alpha));
+        typeface.drawCentred(canvas, shown, endX - typeface.measure(shown, value),
+                             box.rect.centreY(), value, faded(palette::inkSoft, alpha));
         break;
     }
     case RowKind::Folder:
     case RowKind::Action: {
         const std::string shown = typeface.fitted(row.value, room - chevronWidthDp * dp, value);
-        typeface.drawCentred(shown, endX - chevronWidthDp * dp - typeface.measure(shown, value),
+        typeface.drawCentred(canvas, shown,
+                             endX - chevronWidthDp * dp - typeface.measure(shown, value),
                              box.rect.centreY(), value, faded(palette::inkSoft, alpha));
-        paintChevron(endX, box.rect.centreY(), dp);
+        paintChevron(canvas, endX, box.rect.centreY(), dp);
         break;
     }
     case RowKind::Info: {
         const std::string shown = typeface.fitted(row.value, room, value);
-        typeface.drawCentred(shown, endX - typeface.measure(shown, value), box.rect.centreY(),
-                             value, faded(palette::inkSoft, alpha));
+        typeface.drawCentred(canvas, shown, endX - typeface.measure(shown, value),
+                             box.rect.centreY(), value, faded(palette::inkSoft, alpha));
         break;
     }
     }
@@ -87,10 +88,11 @@ void paintEnd(Typeface& typeface, const SettingsRow& row, const SettingsRowBox& 
 
 } // namespace
 
-void SettingsPagePainter::paintRow(const SettingsRow& row, const SettingsRowBox& box, bool focused,
-                                   float dp, float alpha) const {
+void SettingsPagePainter::paintRow(Canvas& canvas, const SettingsRow& row,
+                                   const SettingsRowBox& box, bool focused, float dp,
+                                   float alpha) const {
     const RoundRect bar{box.rect, rowRadiusDp * dp};
-    fillRoundRect(bar, [alpha](Vector2, float) {
+    fillRoundRect(canvas, bar, [alpha](Point, float) {
         return faded(cardFill, alpha);
     });
     const TextStyle label{labelSp * dp};
@@ -102,44 +104,44 @@ void SettingsPagePainter::paintRow(const SettingsRow& row, const SettingsRowBox&
         room = std::min(room, box.control.x - x - insetDp * 0.5f * dp);
     }
     if (row.note.empty()) {
-        typeface_.drawCentred(typeface_.fitted(row.label, room, label), x, box.rect.centreY(),
-                              label, faded(palette::ink, alpha));
+        typeface_.drawCentred(canvas, typeface_.fitted(row.label, room, label), x,
+                              box.rect.centreY(), label, faded(palette::ink, alpha));
     } else {
         const float shift = typeface_.lineBox(note) * 0.5f + 1.0f * dp;
-        typeface_.drawCentred(typeface_.fitted(row.label, room, label), x,
+        typeface_.drawCentred(canvas, typeface_.fitted(row.label, room, label), x,
                               box.rect.centreY() - shift, label, faded(palette::ink, alpha));
-        typeface_.drawCentred(typeface_.fitted(row.note, room, note), x,
+        typeface_.drawCentred(canvas, typeface_.fitted(row.note, room, note), x,
                               box.rect.centreY() + shift * 1.4f, note,
                               faded(palette::inkSoft, alpha));
     }
-    paintEnd(typeface_, row, box, dp, alpha);
+    paintEnd(canvas, typeface_, row, box, dp, alpha);
     if (focused) {
-        fillBand(bar, bar.grown(-outlineDp * dp), [alpha](Vector2, float) {
+        fillBand(canvas, bar, bar.grown(-outlineDp * dp), [alpha](Point, float) {
             return faded(rowInk, alpha);
         });
     }
 }
 
-void SettingsPagePainter::paint(const SettingsPage& page, const SettingsLayout& layout,
-                                Vector2 size, float dp, float alpha) const {
+void SettingsPagePainter::paint(Canvas& canvas, const SettingsPage& page,
+                                const SettingsLayout& layout, Point size, float dp,
+                                float alpha) const {
     if (alpha <= 0.0f) {
         return;
     }
-    DrawRectangle(0, 0, static_cast<int>(size.x), static_cast<int>(size.y),
-                  faded(palette::ground, alpha));
-    paintCategories(typeface_, page, layout, dp, alpha);
-    fillRoundRect(RoundRect{layout.panel, layout.radius}, [alpha](Vector2, float) {
+    canvas.fillRect(gpu2d::Rect{0.0f, 0.0f, size.x, size.y}, faded(palette::ground, alpha));
+    paintCategories(canvas, typeface_, page, layout, dp, alpha);
+    fillRoundRect(canvas, RoundRect{layout.panel, layout.radius}, [alpha](Point, float) {
         return faded(panelFill, alpha);
     });
-    ClipStack clips;
-    const ScopedClip content{clips, layout.panel};
+    const ScopedClip content{canvas, layout.panel};
     const std::vector<SettingsRow>& rows = page.focusedCategory().rows;
     for (std::size_t i = 0; i < rows.size() && i < layout.rows.size(); ++i) {
         const SettingsRowBox& box = layout.rows[i];
         if (box.rect.bottom() < layout.panel.y || box.rect.y > layout.panel.bottom()) {
             continue;
         }
-        paintRow(rows[i], box, page.zone() == SettingsZone::Rows && i == page.row(), dp, alpha);
+        paintRow(canvas, rows[i], box, page.zone() == SettingsZone::Rows && i == page.row(), dp,
+                 alpha);
     }
 }
 

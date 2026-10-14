@@ -17,7 +17,6 @@ constexpr float baseRotationAngle = 286.0f;
 constexpr float jumpRotationAngle = 290.0f;
 constexpr float rotationAngleOffset = 216.0f;
 constexpr double headAndTailDuration = 0.666;
-constexpr int segmentsPerTurn = 64;
 
 /// A keyframe pair: 0 until `delay`, eased up to the jump over the next half rotation.
 float headOrTail(double phase, double delay) noexcept {
@@ -48,16 +47,19 @@ SpinnerArc spinnerArc(double seconds) noexcept {
     return SpinnerArc{.start = tail + offset, .sweep = std::abs(head - tail)};
 }
 
-void drawSpinner(Vector2 centre, float size, float stroke, Color colour, double seconds) {
+void drawSpinner(Canvas& canvas, Point centre, float size, float stroke, Colour colour,
+                 double seconds) {
     const SpinnerArc arc = spinnerArc(seconds);
     const float outer = size * 0.5f;
     // The square cap reaches half a stroke past each end of the arc.
     const float cap =
         (stroke * 0.5f) / (outer - stroke * 0.5f) * 180.0f / std::numbers::pi_v<float>;
-    const float from = arc.start - cap;
-    const float to = arc.start + arc.sweep + cap;
-    const int segments = std::max(2, static_cast<int>((to - from) / 360.0f * segmentsPerTurn));
-    DrawRing(centre, outer - stroke, outer, from, to, segments, colour);
+    canvas.ring(gpu2d::Ring{.centre = centre,
+                            .inner = outer - stroke,
+                            .outer = outer,
+                            .startDegrees = arc.start - cap,
+                            .endDegrees = arc.start + arc.sweep + cap},
+                colour);
 }
 
 } // namespace opensu::ui

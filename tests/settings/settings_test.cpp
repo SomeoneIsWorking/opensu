@@ -7,7 +7,6 @@
 #include <fstream>
 #include <string>
 
-#include "raylib.h"
 #include "ui/check.hpp"
 
 namespace {
@@ -180,7 +179,7 @@ void scaleAndShortcuts(const fs::path& root) {
     Settings saved;
     saved.uiScale = 125;
     Shortcuts table;
-    expect(table.rebind(Action::Quit, Combo{KEY_F9}).empty(), "a remap");
+    expect(table.rebind(Action::Quit, Combo{keys::F9}).empty(), "a remap");
     expect(table
                .rebind(Action::VolumeUp,
                        PadChord{opensu::gamepad::Button::R2, opensu::gamepad::Button::Up})

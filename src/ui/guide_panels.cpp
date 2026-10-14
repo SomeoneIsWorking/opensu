@@ -4,12 +4,12 @@
 
 namespace opensu::ui {
 
-void GuidePanels::draw(Vector2 size, float dp) const {
-    guidePainter_.paint(guide_, size.x, size.y, dp);
-    quickPainter_.paint(quick_, size.x, size.y, dp);
+void GuidePanels::draw(Canvas& canvas, Point size, float dp) const {
+    guidePainter_.paint(canvas, guide_, size.x, size.y, dp);
+    quickPainter_.paint(canvas, quick_, size.x, size.y, dp);
 }
 
-PointerTarget GuidePanels::pointAt(Vector2 point, Vector2 size, float dp) const {
+PointerTarget GuidePanels::pointAt(Point point, Point size, float dp) const {
     if (guide_.isOpen()) {
         const GuideLayout layout = guidePainter_.layout(guide_, size.x, size.y, dp);
         if (const std::optional<std::size_t> row = layout.rowAt(point.x, point.y)) {

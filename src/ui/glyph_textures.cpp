@@ -1,46 +1,42 @@
 #include "glyph_textures.hpp"
 
+#include <string>
+
+#include "gpu2d/image/decode.hpp"
+
+#include "lucent/log.h"
+
 namespace opensu::ui {
-
-GlyphTextures::~GlyphTextures() {
-    for (auto& [system, entry] : entries_) {
-        unload(entry);
-    }
-}
-
-void GlyphTextures::unload(Entry& entry) {
-    if (entry.loaded && entry.texture.id != 0) {
-        UnloadTexture(entry.texture);
-    }
-    entry.texture = Texture{};
-    entry.loaded = false;
-}
 
 void GlyphTextures::set(std::string_view system, const std::filesystem::path& file) {
     Entry& entry = entries_[std::string{system}];
-    unload(entry);
+    entry.texture.reset();
+    entry.loaded = false;
     entry.file = file;
 }
 
-void GlyphTextures::load() {
+void GlyphTextures::load(SDL_GPUDevice& device) {
     for (auto& [system, entry] : entries_) {
         if (entry.loaded) {
             continue;
         }
         entry.loaded = true;
-        entry.texture = LoadTexture(entry.file.string().c_str());
-        if (entry.texture.id != 0) {
-            // The glyph is drawn far smaller than its file, so mipmaps keep it clean.
-            GenTextureMipmaps(&entry.texture);
-            SetTextureFilter(entry.texture, TEXTURE_FILTER_TRILINEAR);
+        std::string error;
+        const std::optional<gpu2d::image::Bitmap> pixels =
+            gpu2d::image::decodeFile(entry.file, error);
+        if (!pixels) {
+            lucent::warn("ui", "glyph {} unreadable: {}", entry.file.string(), error);
+            continue;
         }
+        // The glyph is drawn far smaller than its file, so mipmaps keep it clean.
+        entry.texture.emplace(device, pixels->rgba, pixels->width, pixels->height,
+                              gpu2d::Filter::Trilinear);
     }
 }
 
-const Texture* GlyphTextures::find(std::string_view system) const {
+const gpu2d::Texture* GlyphTextures::find(std::string_view system) const {
     const auto found = entries_.find(system);
-    return found != entries_.end() && found->second.texture.id != 0 ? &found->second.texture
-                                                                    : nullptr;
+    return found != entries_.end() && found->second.texture ? &*found->second.texture : nullptr;
 }
 
 } // namespace opensu::ui

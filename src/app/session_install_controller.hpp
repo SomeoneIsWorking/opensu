@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "gamepad/event.hpp"
 #include "host/session_mode.hpp"
 #include "ui/search_panel.hpp"
@@ -24,7 +24,7 @@ class SessionInstallController {
     using Say = std::function<void(const std::string& text, bool error)>;
 
     SessionInstallController(ui::SessionDialog& dialog, ui::SearchPanel& password,
-                             host::SessionMode& session, audio::SoundPlayer& sounds, Say say)
+                             host::SessionMode& session, audio::SdlSoundPlayer& sounds, Say say)
         : dialog_{dialog}, password_{password}, session_{session}, sounds_{sounds},
           say_{std::move(say)} {
     }
@@ -67,7 +67,7 @@ class SessionInstallController {
     ui::SessionDialog& dialog_;
     ui::SearchPanel& password_;
     host::SessionMode& session_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     Say say_;
     std::future<host::InstallResult> job_;
 };

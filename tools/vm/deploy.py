@@ -28,13 +28,13 @@ def _cache_value(cache: Path, name: str) -> str:
 
 
 def build(fork_build: Path = FORK_BUILD) -> None:
-    """Configure build/vm like the maintainer build (same raylib and Lucent) and build opensu."""
+    """Configure build/vm like the maintainer build (same Lucent and gpu2d) and build opensu."""
     cache = fork_build / "CMakeCache.txt"
     subprocess.run(
         ["cmake", "-S", str(REPO), "-B", str(BUILD_DIR), "-G", "Ninja",
          "-DCMAKE_CXX_COMPILER=clang++", "-DCMAKE_C_COMPILER=clang",
-         f"-DRAYLIB_ROOT={_cache_value(cache, 'RAYLIB_ROOT')}",
          f"-DLUCENT_ROOT={_cache_value(cache, 'LUCENT_ROOT')}",
+         f"-DGPU2D_ROOT={_cache_value(cache, 'GPU2D_ROOT')}",
          "-DOPENSU_BUILD_GAMESCOPE=OFF", f"-DCMAKE_INSTALL_PREFIX={GUEST_PREFIX}"],
         check=True,
         env=_environ(),

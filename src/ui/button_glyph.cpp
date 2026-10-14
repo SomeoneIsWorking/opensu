@@ -39,53 +39,63 @@ constexpr int cornerSegments = 12;
 // label.
 constexpr float capRoundness = 0.3f;
 constexpr float capLabelPadding = 0.18f;
-constexpr int capSegments = 12;
 
-void roundBar(Vector2 from, Vector2 to, float stroke, Color ink) {
-    DrawLineEx(from, to, stroke, ink);
-    DrawCircleV(from, stroke * 0.5f, ink);
-    DrawCircleV(to, stroke * 0.5f, ink);
+void roundBar(Canvas& canvas, Point from, Point to, float stroke, Colour ink) {
+    canvas.line(from, to, stroke, ink);
+    canvas.fillCircle(from, stroke * 0.5f, ink);
+    canvas.fillCircle(to, stroke * 0.5f, ink);
+}
+
+/// A full ring between `inner` and `outer`.
+void ring(Canvas& canvas, Point centre, float inner, float outer, Colour ink) {
+    canvas.ring(gpu2d::Ring{.centre = centre,
+                            .inner = inner,
+                            .outer = outer,
+                            .startDegrees = 0.0f,
+                            .endDegrees = 360.0f},
+                ink);
 }
 
 /// The outline of a square of `side` about `centre` whose top corner on the `bigSide` has the large
 /// radius, as points clockwise from the top-left.
-std::vector<Vector2> shoulderOutline(Vector2 centre, float side, bool bigOnLeft) {
+std::vector<Point> shoulderOutline(Point centre, float side, bool bigOnLeft) {
     const float half = side * 0.5f;
     const float big = shoulderBigCorner * side;
     const float small = shoulderSmallCorner * side;
     // Radius per corner, clockwise from the top-left, and each corner's arc centre.
     const std::array<float, 4> radius{bigOnLeft ? big : small, bigOnLeft ? small : big, small,
                                       small};
-    const std::array<Vector2, 4> corner{
-        Vector2{centre.x - half, centre.y - half}, Vector2{centre.x + half, centre.y - half},
-        Vector2{centre.x + half, centre.y + half}, Vector2{centre.x - half, centre.y + half}};
-    const std::array<Vector2, 4> inward{Vector2{1.0f, 1.0f}, Vector2{-1.0f, 1.0f},
-                                        Vector2{-1.0f, -1.0f}, Vector2{1.0f, -1.0f}};
-    std::vector<Vector2> points;
+    const std::array<Point, 4> corner{
+        Point{centre.x - half, centre.y - half}, Point{centre.x + half, centre.y - half},
+        Point{centre.x + half, centre.y + half}, Point{centre.x - half, centre.y + half}};
+    const std::array<Point, 4> inward{Point{1.0f, 1.0f}, Point{-1.0f, 1.0f}, Point{-1.0f, -1.0f},
+                                      Point{1.0f, -1.0f}};
+    std::vector<Point> points;
     for (std::size_t i = 0; i < corner.size(); ++i) {
-        const Vector2 arc{corner[i].x + inward[i].x * radius[i],
-                          corner[i].y + inward[i].y * radius[i]};
+        const Point arc{corner[i].x + inward[i].x * radius[i],
+                        corner[i].y + inward[i].y * radius[i]};
         // The arc starts at 180, 270, 0 and 90 degrees and turns a quarter clockwise.
         const float start = std::numbers::pi_v<float> * (1.0f + 0.5f * static_cast<float>(i));
         for (int step = 0; step <= cornerSegments; ++step) {
             const float angle = start + std::numbers::pi_v<float> * 0.5f *
                                             static_cast<float>(step) / cornerSegments;
             points.push_back(
-                Vector2{arc.x + radius[i] * std::cos(angle), arc.y + radius[i] * std::sin(angle)});
+                Point{arc.x + radius[i] * std::cos(angle), arc.y + radius[i] * std::sin(angle)});
         }
     }
     return points;
 }
 
-void paintShoulder(Typeface& typeface, std::string_view key, Vector2 centre, float box, Color ink) {
-    const std::vector<Vector2> outline = shoulderOutline(centre, shoulderSide * box, key == "LB");
+void paintShoulder(Canvas& canvas, Typeface& typeface, std::string_view key, Point centre,
+                   float box, Colour ink) {
+    const std::vector<Point> outline = shoulderOutline(centre, shoulderSide * box, key == "LB");
     const float stroke = shoulderStroke * box;
     for (std::size_t i = 0; i < outline.size(); ++i) {
-        roundBar(outline[i], outline[(i + 1) % outline.size()], stroke, ink);
+        roundBar(canvas, outline[i], outline[(i + 1) % outline.size()], stroke, ink);
     }
     const TextStyle letters{shoulderCapHeight * box / capHeightPerEm};
     const float width = typeface.measure(key, letters);
-    typeface.drawCentred(key, centre.x - width * 0.5f, centre.y, letters, ink);
+    typeface.drawCentred(canvas, key, centre.x - width * 0.5f, centre.y, letters, ink);
 }
 
 TextStyle capLabelStyle(float box) {
@@ -115,39 +125,44 @@ float ButtonGlyphPainter::advance(std::string_view key, float box) const {
     return capWidth(typeface_, *label, box) + (box - 2.0f * pngRingOuter * box);
 }
 
-void ButtonGlyphPainter::paint(std::string_view key, Vector2 centre, float box, Color ink) const {
+void ButtonGlyphPainter::paint(Canvas& canvas, std::string_view key, Point centre, float box,
+                               Colour ink) const {
     if (const std::optional<std::string> label = capLabel(key)) {
         const float height = 2.0f * pngRingOuter * box;
         const float width = capWidth(typeface_, *label, box);
-        const Rectangle cap{centre.x - width * 0.5f, centre.y - height * 0.5f, width, height};
-        DrawRectangleRoundedLinesEx(cap, capRoundness, capSegments, pngRingStroke * box, ink);
+        const Rect cap{centre.x - width * 0.5f, centre.y - height * 0.5f, width, height};
+        // The outline is drawn outside the cap's rectangle.
+        const float stroke = pngRingStroke * box;
+        canvas.strokeRoundRect(gpu2d::Rect{cap.x - stroke, cap.y - stroke,
+                                           cap.width + 2.0f * stroke, cap.height + 2.0f * stroke},
+                               cornerRadius(cap, capRoundness) + stroke, stroke, ink);
         const TextStyle text = capLabelStyle(box);
         const float textWidth = typeface_.measure(*label, text);
-        typeface_.drawCentred(*label, centre.x - textWidth * 0.5f, centre.y, text, ink);
+        typeface_.drawCentred(canvas, *label, centre.x - textWidth * 0.5f, centre.y, text, ink);
         return;
     }
     if (key == "LB" || key == "RB") {
-        paintShoulder(typeface_, key, centre, box, ink);
+        paintShoulder(canvas, typeface_, key, centre, box, ink);
         return;
     }
     if (key == "-" || key == "+") {
         const float unit = box / vectorViewport;
-        const float ring = vectorRingRadius * unit;
+        const float radius = vectorRingRadius * unit;
         const float half = vectorRingStroke * unit * 0.5f;
-        DrawRing(centre, ring - half, ring + half, 0.0f, 360.0f, 48, ink);
+        ring(canvas, centre, radius - half, radius + half, ink);
         const float bar = vectorBarHalf * unit;
         const float stroke = vectorBarStroke * unit;
-        roundBar({centre.x - bar, centre.y}, {centre.x + bar, centre.y}, stroke, ink);
+        roundBar(canvas, {centre.x - bar, centre.y}, {centre.x + bar, centre.y}, stroke, ink);
         if (key == "+") {
-            roundBar({centre.x, centre.y - bar}, {centre.x, centre.y + bar}, stroke, ink);
+            roundBar(canvas, {centre.x, centre.y - bar}, {centre.x, centre.y + bar}, stroke, ink);
         }
         return;
     }
     const float outer = pngRingOuter * box;
-    DrawRing(centre, outer - pngRingStroke * box, outer, 0.0f, 360.0f, 48, ink);
+    ring(canvas, centre, outer - pngRingStroke * box, outer, ink);
     const TextStyle letter{pngCapHeight * box / capHeightPerEm};
     const float width = typeface_.measure(key, letter);
-    typeface_.drawCentred(key, centre.x - width * 0.5f, centre.y, letter, ink);
+    typeface_.drawCentred(canvas, key, centre.x - width * 0.5f, centre.y, letter, ink);
 }
 
 } // namespace opensu::ui

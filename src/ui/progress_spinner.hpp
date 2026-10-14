@@ -3,7 +3,7 @@
 // launcher's badge.
 #pragma once
 
-#include "raylib.h"
+#include "paint.hpp"
 
 namespace opensu::ui {
 
@@ -17,6 +17,7 @@ struct SpinnerArc {
 [[nodiscard]] SpinnerArc spinnerArc(double seconds) noexcept;
 
 /// Draws the spinner in a `size` box centred on `centre`, with a `stroke` wide line.
-void drawSpinner(Vector2 centre, float size, float stroke, Color colour, double seconds);
+void drawSpinner(Canvas& canvas, Point centre, float size, float stroke, Colour colour,
+                 double seconds);
 
 } // namespace opensu::ui

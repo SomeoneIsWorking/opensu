@@ -16,6 +16,8 @@
 #include "config/config.hpp"
 #include "frame_png.hpp"
 #include "game_end.hpp"
+#include "gpu2d/gpu_error.hpp"
+#include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "launcher_status.hpp"
 #include "library/titles.hpp"
@@ -247,7 +249,8 @@ void ShellApp::handleKeyboard() {
     const bool searching = shell_.searchPanel().isOpen();
     const bool typingPath = paths_.typing();
     const bool typingPassword = sessionInstall_.typing();
-    const input::TextInput typed = input::readTextInput();
+    const input::KeyFrame& frame = window_->keys();
+    const input::TextInput typed = input::readTextInput(frame);
     if (searching) {
         handleSearchText(typed);
         return;
@@ -261,16 +264,15 @@ void ShellApp::handleKeyboard() {
         return;
     }
     if (shortcutEditor_.capturing()) {
-        if (IsKeyPressed(KEY_ESCAPE)) {
+        if (frame.pressed(input::keys::Escape)) {
             shortcutEditor_.cancel();
-        } else if (const std::optional<input::Combo> combo =
-                       input::pressedCombo(input::raylibKeys())) {
+        } else if (const std::optional<input::Combo> combo = input::pressedCombo(frame)) {
             shell_.inputDevice().noteKey();
             shortcutEditor_.captureKey(*combo);
         }
         return;
     }
-    const ShortcutRouter::Keys keys = router_.fromKeys(input::raylibKeys());
+    const ShortcutRouter::Keys keys = router_.fromKeys(frame);
     if (keys.any) {
         shell_.inputDevice().noteKey();
     }
@@ -327,10 +329,10 @@ void ShellApp::handlePads() {
 }
 
 void ShellApp::handlePointer() {
-    pointer_.route(readPointerFrame());
+    pointer_.route(window_->pointer());
 }
 
-ui::PointerTarget ShellApp::pointAt(std::optional<Vector2> point) {
+ui::PointerTarget ShellApp::pointAt(std::optional<ui::Point> point) {
     return shell_.pointAt(point);
 }
 
@@ -582,8 +584,8 @@ void ShellApp::launch(const library::Game& game) {
     std::thread{[this, copy = game, environment = std::move(environment)] {
         std::string failure;
         int exitStatus = -1;
-        // raylib's window calls belong to the thread that owns the GL context, so the handoff
-        // thread only raises flags and the loop does the work.
+        // The window belongs to the loop's thread, so the handoff thread only raises flags and the
+        // loop does the work.
         const launch::Handoff::Hooks hooks{.hide =
                                                [this] {
                                                    requestGameRunning(true);
@@ -684,11 +686,13 @@ void ShellApp::syncOverlay() {
     }
 }
 
-std::string ShellApp::outputLine() {
-    const int monitor = GetCurrentMonitor();
-    return std::to_string(GetMonitorWidth(monitor)) + " x " +
-           std::to_string(GetMonitorHeight(monitor)) + " at " +
-           std::to_string(GetMonitorRefreshRate(monitor)) + " Hz";
+std::string ShellApp::outputLine() const {
+    const std::optional<session::Output> output = window_ ? window_->output() : std::nullopt;
+    if (!output) {
+        return {};
+    }
+    return std::to_string(output->width) + " x " + std::to_string(output->height) + " at " +
+           std::to_string(output->refreshHz) + " Hz";
 }
 
 void ShellApp::serviceDevices(std::chrono::steady_clock::time_point now) {
@@ -987,7 +991,7 @@ void ShellApp::serviceControlRequests() {
         return;
     }
     std::string png;
-    bridge_.answerFrame(renderShellPng(shell_, png) ? std::move(png) : std::string{});
+    bridge_.answerFrame(renderShellPng(*window_, shell_, png) ? std::move(png) : std::string{});
 }
 
 /// Applies what the launch thread and the control channel asked for. Everything
@@ -1053,34 +1057,21 @@ void ShellApp::serviceRequests() {
 int ShellApp::run() {
     reloadCatalog();
 
-    // Resizable, because the layout is computed from the window size rather than
-    // baked at 1280x800, and because a fixed window on a scaled desktop is
-    // unusable. The scale factor is applied by the window manager on the way in,
-    // so what the shell draws in is already in its own pixels.
-    // Transparent, so the Guide menu can draw over a game with the game showing through. No
-    // MSAA: with it, Gamescope's Xwayland gave a 24-bit window, which it composites as opaque.
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_TRANSPARENT |
-                   (settings_.hidden ? FLAG_WINDOW_HIDDEN : 0u));
-    InitWindow(settings_.width, settings_.height, "openSU");
-    if (!IsWindowReady()) {
-        lucent::error("shell", "could not open a window");
+    if (!openWindow("openSU", settings_.hidden)) {
         return 1;
     }
-    SetWindowMinSize(960, 600);
-    shell_.loadFonts();
     if (environment_.insideGamescope && !settings_.hidden) {
         // Gamescope composites a window as the overlay only when it spans the whole screen,
         // which also draws the home screen at the output's own resolution.
-        const int monitor = GetCurrentMonitor();
-        SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
-        shell_.setSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
-        gameScreen_.attachOverlay(*static_cast<const unsigned long*>(GetWindowHandle()));
+        const gpu2d::PixelSize size = window_->fillMonitor();
+        shell_.setSize(size.width, size.height);
+        gameScreen_.attachOverlay();
     }
-    sounds_.open();
+    // A hidden run makes no sound.
+    if (!settings_.hidden) {
+        sounds_.open();
+    }
     delivery_.loadStoredSounds();
-    // Textures need a GL context; the shell streams artwork in as frames are drawn.
-    SetTargetFPS(60);
-    SetExitKey(KEY_NULL);
 
     // The control channel is part of the product, not a debug flag: it is how an
     // automated run drives the shell without a controller.
@@ -1096,12 +1087,10 @@ int ShellApp::run() {
         steam_.start();
     }
 
-    while (!bridge_.closeRequested() && !WindowShouldClose()) {
-        // A resize changes the framebuffer, so the layout has to be recomputed
-        // before anything is drawn into it. Checked every frame because there is
-        // no resize callback worth relying on across platforms.
-        if (IsWindowResized()) {
-            shell_.setSize(GetScreenWidth(), GetScreenHeight());
+    while (!bridge_.closeRequested() && window_->pollEvents()) {
+        // A resize changes the framebuffer, so the layout is recomputed before anything is drawn.
+        if (const std::optional<gpu2d::PixelSize> size = window_->takeResize()) {
+            shell_.setSize(size->width, size->height);
         }
 
         handlePads();
@@ -1126,7 +1115,11 @@ int ShellApp::run() {
         syncChrome();
         shell_.tick(std::chrono::steady_clock::now());
         publishSnapshot();
-        shell_.draw();
+        // An unmapped window draws nothing, and its artwork still streams in.
+        shell_.loadArtwork();
+        window_->present([this](ui::Canvas& canvas, const gpu2d::Surface& target) {
+            shell_.draw(canvas, target);
+        });
 
         // iiSU k42: the clock re-renders on the minute boundary.
         if (std::chrono::steady_clock::now() >= nextClockTick_) {
@@ -1139,8 +1132,21 @@ int ShellApp::run() {
     if (control_) {
         control_->stop();
     }
-    CloseWindow();
     return 0;
+}
+
+bool ShellApp::openWindow(const std::string& title, bool hidden) {
+    try {
+        window_ = std::make_unique<ShellWindow>(
+            ShellWindow::Options{title, settings_.width, settings_.height, hidden});
+        shell_.attach(window_->device());
+    } catch (const gpu2d::GpuError& error) {
+        lucent::error("shell", "could not open a window: {}", error.what());
+        window_.reset();
+        return false;
+    }
+    gameScreen_.attach(*window_);
+    return true;
 }
 
 bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
@@ -1153,16 +1159,10 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
         pushCatalogToShell();
     }
 
-    // raylib needs a GL context before any texture work, and a context needs a
-    // window. The window is never shown and nothing is presented, so a render
-    // still lands on no screen.
-    SetConfigFlags(FLAG_WINDOW_HIDDEN);
-    InitWindow(settings_.width, settings_.height, "opensu render");
-    if (!IsWindowReady()) {
-        lucent::error("render", "could not open a window for the GL context");
+    // Textures need a device, and the device a window, which is never mapped.
+    if (!openWindow("opensu render", true)) {
         return false;
     }
-    shell_.loadFonts();
     shell_.loadArtworkNow();
     lucent::info("render", "loaded artwork for {} of {} tiles", shell_.loadedArtwork(),
                  shell_.tiles().size());
@@ -1172,8 +1172,7 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
     shell_.settle();
 
     std::string png;
-    const bool ok = renderShellPng(shell_, png);
-    CloseWindow();
+    const bool ok = renderShellPng(*window_, shell_, png);
     if (!ok) {
         lucent::error("render", "could not render a frame");
         return false;

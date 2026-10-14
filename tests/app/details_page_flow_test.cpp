@@ -33,7 +33,7 @@ library::Game rom(const std::string& id) {
 
 struct Rig {
     ui::DetailsPage page;
-    audio::SoundPlayer sounds;
+    audio::SdlSoundPlayer sounds;
     app::Preferences preferences;
     library::Game game;
     std::vector<std::string> calls;

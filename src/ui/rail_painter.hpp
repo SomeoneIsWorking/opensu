@@ -6,10 +6,11 @@
 
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 
-#include "raylib.h"
+#include "paint.hpp"
 
 #include "library/shelf.hpp"
 #include "platform.hpp"
@@ -38,9 +39,11 @@ class RailPainter {
   public:
     explicit RailPainter(Typeface& typeface) noexcept : typeface_{typeface} {
     }
-    ~RailPainter();
-    RailPainter(const RailPainter&) = delete;
-    RailPainter& operator=(const RailPainter&) = delete;
+
+    /// The device the recoloured icons are made on; needed before the first column is painted.
+    void attach(SDL_GPUDevice& device) noexcept {
+        device_ = &device;
+    }
 
     /// The gamepad icon's file the left column draws; replaces the textures made from the last.
     void setSectionIcon(const std::filesystem::path& file);
@@ -48,22 +51,24 @@ class RailPainter {
     /// The XMB's left column at a console list: the icon in the colours of the focused tile's
     /// border (a console's own card, else its platform's stroke, else the icon's own) with the
     /// marker beside it.
-    void paintColumn(const XmbLayout& layout, const Focused& focused, const RailStyle& style);
+    void paintColumn(Canvas& canvas, const XmbLayout& layout, const Focused& focused,
+                     const RailStyle& style);
 
     /// The marker alone, for the column inside a console, where a card stands in the icon's place.
-    void paintColumnMarker(const XmbLayout& layout, const RailStyle& style) const;
+    void paintColumnMarker(Canvas& canvas, const XmbLayout& layout, const RailStyle& style) const;
 
     /// The focused tile's title, right of it in an XMB or centred over a Carousel.
-    void paintTitle(const XmbLayout& layout, std::string_view title, const RailStyle& style);
-    void paintTitle(const CarouselLayout& layout, std::string_view title, const RailStyle& style);
+    void paintTitle(Canvas& canvas, const XmbLayout& layout, std::string_view title,
+                    const RailStyle& style);
+    void paintTitle(Canvas& canvas, const CarouselLayout& layout, std::string_view title,
+                    const RailStyle& style);
 
     /// The marker under the Carousel's focused game.
-    void paintRowMarker(const CarouselLayout& layout, const RailStyle& style) const;
+    void paintRowMarker(Canvas& canvas, const CarouselLayout& layout, const RailStyle& style) const;
 
   private:
     /// The icon recoloured for `focused`, made on first use; null while there is no icon file.
-    const Texture* tinted(const Focused& focused);
-    void unloadTints();
+    const gpu2d::Texture* tinted(const Focused& focused);
     /// Where a title stands: its x (left edge, or centre when `centred`), its capitals' top and
     /// height, and the dp the shadow is sized by.
     struct TitleBox {
@@ -73,11 +78,13 @@ class RailPainter {
         float dp;
         bool centred;
     };
-    void drawTitle(std::string_view title, const TitleBox& box, const RailStyle& style);
+    void drawTitle(Canvas& canvas, std::string_view title, const TitleBox& box,
+                   const RailStyle& style);
 
     Typeface& typeface_;
+    SDL_GPUDevice* device_{};
     std::filesystem::path sectionIcon_;
-    std::map<std::string, Texture, std::less<>> tints_;
+    std::map<std::string, std::optional<gpu2d::Texture>, std::less<>> tints_;
 };
 
 } // namespace opensu::ui

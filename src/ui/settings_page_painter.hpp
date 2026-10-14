@@ -1,8 +1,8 @@
 // settings_page_painter — draws the Settings screen: the category list, and the focused category's
-// rows on a card, clipped to it with the clip stack as they scroll.
+// rows on a card, clipped to it as they scroll.
 #pragma once
 
-#include "raylib.h"
+#include "paint.hpp"
 
 #include "settings_page.hpp"
 #include "typeface.hpp"
@@ -15,12 +15,12 @@ class SettingsPagePainter {
     }
 
     /// Draws `page` in `layout` over a `size` frame at `dp` pixels per dp, at opacity `alpha`.
-    void paint(const SettingsPage& page, const SettingsLayout& layout, Vector2 size, float dp,
-               float alpha) const;
+    void paint(Canvas& canvas, const SettingsPage& page, const SettingsLayout& layout, Point size,
+               float dp, float alpha) const;
 
     /// Draws one row in `box`, outlined when `focused`.
-    void paintRow(const SettingsRow& row, const SettingsRowBox& box, bool focused, float dp,
-                  float alpha) const;
+    void paintRow(Canvas& canvas, const SettingsRow& row, const SettingsRowBox& box, bool focused,
+                  float dp, float alpha) const;
 
   private:
     Typeface& typeface_;

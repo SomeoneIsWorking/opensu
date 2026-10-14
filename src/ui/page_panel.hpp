@@ -4,7 +4,7 @@
 
 #include <chrono>
 
-#include "raylib.h"
+#include "paint.hpp"
 
 #include "panel_fade.hpp"
 #include "pointer_target.hpp"
@@ -40,11 +40,11 @@ class PagePanel {
     }
 
     /// Draws the page between `topInset` and `bottomInset` in a `size` frame at `dp` pixels per dp.
-    void draw(Vector2 size, float dp, float topInset, float bottomInset,
+    void draw(Canvas& canvas, Point size, float dp, float topInset, float bottomInset,
               Clock::time_point now) const;
 
     /// The category, row or slider level under `point`, or nothing.
-    [[nodiscard]] PointerTarget pointAt(Vector2 point, Vector2 size, float dp, float topInset,
+    [[nodiscard]] PointerTarget pointAt(Point point, Point size, float dp, float topInset,
                                         float bottomInset) const;
     /// Moves the page's focus to `target`, when it is one of its elements; reports whether it
     /// moved.

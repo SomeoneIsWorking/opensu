@@ -143,7 +143,8 @@ game's playtime was zeroed.
 
 The twelve iiSU effects that have an openSU event are fetched by range from the pinned APK's
 `assets/` into `<cache>/artwork/sound/` (about 1 MB, CRC checked, same worker as the cards) and
-played through raylib's audio device (`audio::SoundPlayer`). Always on; there is no volume or
+played on SDL audio, one stream per effect (`audio::SdlSoundPlayer`); a `--hidden` run opens no
+device. Always on; there is no volume or
 mute setting. Events (`input-sound.md` 3.4): Navigation on a D-pad focus move in the grid and the
 Guide menu; EnterConsolesApps on A opening a console, launcher or All games; ExitConsolesApps on B
 back to Library; OpenAppRom on a game launch; Open / Close on the install and licence panels
@@ -377,14 +378,16 @@ arrangement; WiiSu placeholders do not take focus as they do in iiSU; held
 keyboard directions repeat every frame.
 
 Offscreen rendering is how the layout became checkable at all: the shell is a
-Wayland window, which this machine's screenshot tooling cannot see. raylib
-renders to a texture and exports it, so a frame is a file.
+Wayland window, which this machine's screenshot tooling cannot see. The shell draws the frame into
+an offscreen gpu2d target and encodes it as PNG in memory, so a frame is a file.
 
 Type is Cal Sans 1.000, iiSU's default face (`pp4.a`; the others it offers are Console Sans
 and Arctainium), shipped in `assets/` under the OFL with the licence beside it. The file is the
 Google Fonts build, which matches the one in iiSU's APK in metrics and Latin-1 outlines. Text
-sizes are Android's: the em in pixels, with letter spacing in ems; `Typeface` converts to
-stb_truetype's ascent-to-descent pixel height from the face's `hhea` table.
+sizes are Android's: the em in pixels, with letter spacing in ems; `TextGrid` sizes the face so its
+`hhea` ascent-to-descent line box is whole pixels and cuts each advance to whole pixels, as the
+stb_truetype atlas the shell drew from before did, and `Typeface` draws each glyph there through
+SDL3_ttf, unhinted.
 
 Gap: the per-platform HSL tinting the reference applies to artwork is not
 implemented, so covers are shown at their store's own colours.
@@ -401,7 +404,7 @@ once and then repeat after 400 ms every 100 ms (`gamepad::DirectionRepeat`, iiSU
 95 ms throttle on Android's repeats). Tested: `pads` against uinput pads (hotplug,
 Steam's virtual pad ignored, disconnect), `direction_repeat`, `pad_translator`.
 
-The raylib/GLFW reader this replaced had no mapping for the xone driver's Xbox
+The GLFW reader this replaced had no mapping for the xone driver's Xbox
 controller, so its buttons never registered, and counted a Logitech K400 Plus as a
 controller; the keyboard path moved focus on every frame a key was down.
 
@@ -450,9 +453,9 @@ the pid found by Gamescope); outside it there is no display to watch and a runni
 process counts. A game that leaves before it shows a window is reported as such.
 Verified in a headless Gamescope with an emulator that sleeps 6 s before opening
 glxgears: the panel showed Loading and the shell hid at 7 s.
-Hiding is a request to the main loop, not a call from the handoff thread: raylib's
-window calls belong to the thread holding the GL context, and there is no queue
-that makes them safe from elsewhere. The launch thread only raises a flag. Every source records a `processHint` — the
+Hiding is a request to the main loop, not a call from the handoff thread: the
+window belongs to the loop's thread, and there is no queue that makes its calls
+safe from elsewhere. The launch thread only raises a flag. Every source records a `processHint` — the
 Wine prefix path for Steam, the install folder for the others — which is what
 identifies the game in the process table.
 
@@ -590,7 +593,7 @@ the S004 wait defect.
 
 ### S009 — Rumble
 
-Missing: the raylib reader that had it is gone; evdev force feedback is the way back.
+Missing: the GLFW reader that had it is gone; evdev force feedback is the way back.
 
 ### S010 — Own login session
 
@@ -706,7 +709,7 @@ player's own).
 
 Outside Gamescope (`Config::insideGamescope`, from `GAMESCOPE_WAYLAND_DISPLAY`)
 `session::CompositorSession` runs openSU itself as `gamescope -W -H -w -h -r -f --
-opensu ...` with the current monitor's size and refresh from raylib
+opensu ...` with the current monitor's size and refresh from SDL's display modes
 (`session::readMonitor`), in the scope `<session>-compositor.scope` with
 `OPENSU_SESSION` set for the inner opensu. When Gamescope ends it stops every
 other scope named `<session>-*`, and SIGINT/SIGTERM (blocked for the whole run; `launch::Instance`
@@ -767,9 +770,8 @@ rebuilt and reported `3.16.29-4-geea763bd`, and the unchanged rebuild after it h
 bump to `79db8c0d` did the same in `build/clang` (`3.16.29-7-g79db8c0d`).
 
 With no game running, the focused app window is openSU's own, so Alt+F4 reaches
-raylib as a window close: `WindowShouldClose` ends the frame loop in
-`ShellApp::run`, which stops the control channel, calls `CloseWindow` and
-returns, the inner openSU exits, Gamescope ends with its only client and
+SDL as a window close request: `ShellWindow::pollEvents` returns false, which ends the frame loop in
+`ShellApp::run`; it stops the control channel and returns, the window closes with `ShellApp`, the inner openSU exits, Gamescope ends with its only client and
 `CompositorSession` stops the session's scopes. That is the intended desktop behaviour.
 
 Verified (virtual `kwin_wayland`, a KWin script closing Gamescope's window, an
@@ -988,7 +990,7 @@ Verified against the steamui JS and a fake DevTools Steam in tests, not live Ste
 
 Volume: `audio/volume_backend` (wpctl, pactl, read-only shadow for hidden runs) behind
 `audio/system_volume`. openSU applies its own shortcuts; the desktop's media keys are observed by
-polling (raylib does not deliver them), so one change is one step and one overlay. Missing backend
+polling, so one change is one step and one overlay. Missing backend
 shows the install command in the Audio page.
 
 Chords: `input/shortcuts` is the one table (defaults Shift+Tab Guide, Ctrl+Up/Down/M volume, Q quit,
@@ -1130,16 +1132,11 @@ the row width.
 
 `.github/workflows/ci.yml` runs `tools.check ci`: the `packaging/ci` image (Fedora 44, the release
 the fork's local podman build uses) boots systemd, the user manager starts for the runner's uid,
-and `tools.check all --gamescope native` runs as that user: raylib and Lucent checked out by
+and `tools.check all --gamescope native` runs as that user: Lucent and gpu2d checked out by
 commit, configure with Clang (any other compiler is refused), build including the Gamescope fork,
 clang-format, clang-tidy, ruff, ctest. A second job builds and smoke-tests the AppImage (S030).
 Actions are pinned by SHA, uv by version and checksum, permissions are `contents: read`.
 No Windows or macOS jobs: openSU is Linux only (see the comparison baseline).
-
-raylib comes from the `opensu` branch of SomeoneIsWorking/raylib: raylib 6.0's miniaudio
-dereferenced the NULL info PulseAudio passes with an error (`endOfList < 0`), which crashed the
-first audio client after a fresh user manager (`sound_player` segfaulted in CI); the fork ends the
-list on any non-zero `endOfList`. Upstream miniaudio 0.11.25 still has the bug.
 
 Verified: the same steps locally through `tools.check ci`: Clang build including the fork, the
 three linters clean, 117 of 119 tests pass and 2 skip (`game_keys`, `pads`: no uinput in the

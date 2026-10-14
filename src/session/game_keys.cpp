@@ -31,7 +31,7 @@ std::optional<input::Combo> ShortcutChord::key(int key, bool pressed) {
 struct GameKeys::Connection {
     Display* display{};
     int xinputOpcode{};
-    /// Raylib's key for each X keycode that has one.
+    /// The shell's key code (input::keys) for each X keycode that has one.
     std::map<int, int> keys;
 };
 

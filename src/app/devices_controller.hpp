@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "audio_outputs.hpp"
 #include "bluetooth_session.hpp"
 #include "brightness_control.hpp"
@@ -51,7 +51,7 @@ class DevicesController {
         BrightnessControl& brightness;
     };
 
-    DevicesController(ui::SettingsPage& page, Services services, audio::SoundPlayer& sounds,
+    DevicesController(ui::SettingsPage& page, Services services, audio::SdlSoundPlayer& sounds,
                       Preferences& preferences, Hooks hooks)
         : page_{page}, bluetooth_{services.bluetooth}, controllers_{services.controllers},
           outputs_{services.outputs}, volume_{services.volume}, brightness_{services.brightness},
@@ -109,7 +109,7 @@ class DevicesController {
     AudioOutputs& outputs_;
     VolumeControl& volume_;
     BrightnessControl& brightness_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;
     Hooks hooks_;
     /// The device whose row asked to be forgotten and waits for the second press.

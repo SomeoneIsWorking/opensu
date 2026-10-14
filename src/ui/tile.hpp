@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "raylib.h"
+#include "gpu2d/texture.hpp"
 
 #include "library/shelf.hpp"
 #include "platform.hpp"
@@ -25,11 +25,9 @@ struct Tile {
     std::optional<Icon> logo;
     /// The stores a game is owned in, as icons in its corner.
     std::vector<Icon> stores;
-    /// Artwork loaded as textures, or zero for none.
-    Texture portrait{};
-    Texture wide{};
-    bool hasPortrait{false};
-    bool hasWide{false};
+    /// Artwork loaded as textures, or nothing for none.
+    std::optional<gpu2d::Texture> portrait;
+    std::optional<gpu2d::Texture> wide;
     /// Whether its artwork files have been read into the textures.
     bool artLoaded{false};
     /// Whether its files are queued to decode or decoding.
@@ -43,7 +41,14 @@ struct Tile {
 
     /// Whether it shows the loading placeholder: no texture yet, and art downloading or decoding.
     [[nodiscard]] bool awaitingArt() const noexcept {
-        return !hasPortrait && !hasWide && (artDownloading || artRequested);
+        return !portrait && !wide && (artDownloading || artRequested);
+    }
+    /// The art it shows: the portrait, else the wide image, else null.
+    [[nodiscard]] const gpu2d::Texture* art() const noexcept {
+        if (portrait) {
+            return &*portrait;
+        }
+        return wide ? &*wide : nullptr;
     }
 };
 

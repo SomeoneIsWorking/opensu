@@ -4,12 +4,12 @@
 #include <array>
 #include <cmath>
 #include <filesystem>
+#include <stdexcept>
 #include <type_traits>
 #include <variant>
 
 #include "input/keyboard_bindings.hpp"
 #include "lucent/log.h"
-#include "rlgl.h"
 #include "tile_geometry.hpp"
 
 namespace opensu::ui {
@@ -72,9 +72,20 @@ Shell::Shell(int width, int height, config::HomeMode mode, const std::filesystem
 
 Shell::~Shell() {
     artwork_.beginShelf(tiles_, header_);
-    if (scene_.id != 0) {
-        UnloadRenderTexture(scene_);
+}
+
+void Shell::attach(SDL_GPUDevice& device) {
+    typeface_.load(device);
+    icons_.attach(device);
+    railPainter_.attach(device);
+    device_ = &device;
+}
+
+SDL_GPUDevice& Shell::device() const {
+    if (device_ == nullptr) {
+        throw std::logic_error{"the shell drew before it was attached to a device"};
     }
+    return *device_;
 }
 
 bool Shell::chromeDark() noexcept {
@@ -208,9 +219,16 @@ SlotRange Shell::artWindow() const {
 }
 
 void Shell::loadArtwork(std::size_t uploads) {
-    glyphs_.load();
-    navIcons_.load();
-    artwork_.load(tiles_, header_, artWindow(), uploads);
+    SDL_GPUDevice& gpu = device();
+    glyphs_.load(gpu);
+    navIcons_.load(gpu);
+    // Covers are point-sampled.
+    artwork_.load(
+        [&gpu](const gpu2d::image::Bitmap& pixels) {
+            return gpu2d::Texture{gpu, pixels.rgba, pixels.width, pixels.height,
+                                  gpu2d::Filter::Nearest};
+        },
+        tiles_, header_, artWindow(), uploads);
 }
 
 void Shell::loadArtworkNow() {
@@ -227,7 +245,7 @@ std::size_t Shell::artworkPending() const {
 
 std::size_t Shell::loadedArtwork() const noexcept {
     return static_cast<std::size_t>(std::ranges::count_if(tiles_, [](const Tile& tile) {
-        return tile.hasPortrait;
+        return tile.portrait.has_value();
     }));
 }
 
@@ -536,11 +554,7 @@ std::string Shell::pillTitle() const {
 }
 
 void Shell::fillContent(TileVisual& visual, const Tile& tile) const {
-    if (tile.hasPortrait) {
-        visual.art = &tile.portrait;
-    } else if (tile.hasWide) {
-        visual.art = &tile.wide;
-    }
+    visual.art = tile.art();
     visual.platform = tile.platform;
     visual.loading = tile.awaitingArt();
     if (const auto* game = std::get_if<library::Game>(&tile.item)) {
@@ -592,7 +606,7 @@ TileVisual Shell::visualFor(std::size_t slot, const Rect& rect) const {
     return visual;
 }
 
-void Shell::drawGrid() {
+void Shell::drawGrid(Canvas& canvas) {
     // iiSU nx2.d: unfocused tiles first, the focused tile last, over its neighbours.
     const SlotRange seen = layout_.visibleSlots(scroll(), static_cast<float>(width_));
     const std::size_t focused = focus_.index();
@@ -602,19 +616,19 @@ void Shell::drawGrid() {
         }
         const TileVisual visual = visualFor(slot, layout_.canvasRect(slot, scroll()));
         if (intersectsCanvas(visual.rect, width_, height_)) {
-            tilePainter_.paint(visual);
+            tilePainter_.paint(canvas, visual);
         }
     }
     const TileVisual visual = visualFor(focused, layout_.canvasRect(focused, scroll()));
     if (intersectsCanvas(visual.rect, width_, height_)) {
-        tilePainter_.paint(visual);
+        tilePainter_.paint(canvas, visual);
     }
 }
 
 float Shell::aspectOf(const Tile& tile) const noexcept {
-    const Texture* art = tile.hasPortrait ? &tile.portrait : (tile.hasWide ? &tile.wide : nullptr);
-    return art != nullptr && art->height > 0
-               ? static_cast<float>(art->width) / static_cast<float>(art->height)
+    const gpu2d::Texture* art = tile.art();
+    return art != nullptr && art->height() > 0
+               ? static_cast<float>(art->width()) / static_cast<float>(art->height())
                : 1.0f;
 }
 
@@ -654,7 +668,7 @@ std::vector<Rect> Shell::railSlots(const std::vector<Rect>& rects, std::size_t f
     return slots;
 }
 
-void Shell::drawRail() {
+void Shell::drawRail(Canvas& canvas) {
     const bool xmb = presentation() == Presentation::Xmb;
     const RailInput input = railInput();
     const XmbLayout column{input};
@@ -672,7 +686,7 @@ void Shell::drawRail() {
     });
     for (const std::size_t slot : order) {
         if (intersectsCanvas(rects[slot], width_, height_)) {
-            tilePainter_.paint(visualFor(first + slot, rects[slot]));
+            tilePainter_.paint(canvas, visualFor(first + slot, rects[slot]));
         }
     }
     if (tiles_.empty()) {
@@ -682,13 +696,13 @@ void Shell::drawRail() {
     const std::string title = focusedTitle();
     const RailStyle style{chromeDark(), railAlpha(1)};
     if (!xmb) {
-        railPainter_.paintTitle(row, title, style);
+        railPainter_.paintTitle(canvas, row, title, style);
         if (header_) {
-            railPainter_.paintRowMarker(row, style);
+            railPainter_.paintRowMarker(canvas, row, style);
         }
         return;
     }
-    railPainter_.paintTitle(column, title, style);
+    railPainter_.paintTitle(canvas, column, title, style);
     const RailStyle columnStyle{style.dark, railAlpha(0)};
     if (header_) {
         TileVisual card;
@@ -698,8 +712,8 @@ void Shell::drawRail() {
         card.selectionRing = false;
         card.alpha = columnStyle.alpha;
         fillContent(card, *header_);
-        tilePainter_.paint(card);
-        railPainter_.paintColumnMarker(column, columnStyle);
+        tilePainter_.paint(canvas, card);
+        railPainter_.paintColumnMarker(canvas, column, columnStyle);
         return;
     }
     Focused source;
@@ -708,17 +722,14 @@ void Shell::drawRail() {
         source.key = console->system;
         source.card = console->artwork;
     }
-    railPainter_.paintColumn(column, source, columnStyle);
+    railPainter_.paintColumn(canvas, column, source, columnStyle);
 }
 
-void Shell::ensureScene() {
-    if (scene_.id != 0 && scene_.texture.width == width_ && scene_.texture.height == height_) {
-        return;
+gpu2d::RenderTarget& Shell::sceneTarget() {
+    if (!scene_ || scene_->width() != width_ || scene_->height() != height_) {
+        scene_.emplace(device(), width_, height_);
     }
-    if (scene_.id != 0) {
-        UnloadRenderTexture(scene_);
-    }
-    scene_ = LoadRenderTexture(width_, height_);
+    return *scene_;
 }
 
 Shell::DockFrame Shell::dockFrame(float width, float height) const {
@@ -734,11 +745,11 @@ DetailsArt Shell::detailsArt() const {
         return {};
     }
     const Tile& tile = tiles_[focus_.index()];
-    return DetailsArt::of(tile.hasPortrait ? &tile.portrait : nullptr,
-                          tile.hasWide ? &tile.wide : nullptr);
+    return DetailsArt::of(tile.portrait ? &*tile.portrait : nullptr,
+                          tile.wide ? &*tile.wide : nullptr);
 }
 
-PointerTarget Shell::pointAt(std::optional<Vector2> point) {
+PointerTarget Shell::pointAt(std::optional<Point> point) {
     dockHover_.reset();
     hud_.setLauncherHover(std::nullopt);
     hud_.setCrumbHover(std::nullopt);
@@ -773,21 +784,21 @@ PointerTarget Shell::pointAt(std::optional<Vector2> point) {
     return pointAtHome(*point);
 }
 
-PointerTarget Shell::pointAtModal(Vector2 point) const {
+PointerTarget Shell::pointAtModal(Point point) const {
     const auto width = static_cast<float>(width_);
     const auto height = static_cast<float>(height_);
     if (session_.anyOpen()) {
-        return session_.pointAt(point, Vector2{width, height}, dp());
+        return session_.pointAt(point, Point{width, height}, dp());
     }
     if (guide_.anyOpen()) {
-        return guide_.pointAt(point, Vector2{width, height}, dp());
+        return guide_.pointAt(point, Point{width, height}, dp());
     }
     if (inGame_ && !settings_.anyOpen() && !devices_.isOpen()) {
         return {};
     }
     if (launchPanel_.isOpen()) {
         const PanelLayout panel =
-            launchPanelPainter_.layout(launchPanel_, Vector2{width, height}, dp());
+            launchPanelPainter_.layout(launchPanel_, Point{width, height}, dp());
         if (const std::optional<std::size_t> hint = panel.hintAt(point.x, point.y)) {
             const gamepad::Button button = input::buttonOfGlyph(launchPanel_.hints()[*hint].button);
             if (button != gamepad::Button::None) {
@@ -798,11 +809,11 @@ PointerTarget Shell::pointAtModal(Vector2 point) const {
     }
     const Rect frame{0.0f, 0.0f, width, height};
     if (settings_.anyOpen()) {
-        return settings_.pointAt(point, Vector2{width, height}, dp(), hud_.topInset(),
+        return settings_.pointAt(point, Point{width, height}, dp(), hud_.topInset(),
                                  hud_.bottomInset());
     }
     if (devices_.isOpen()) {
-        return devices_.pointAt(point, Vector2{width, height}, dp(), hud_.topInset(),
+        return devices_.pointAt(point, Point{width, height}, dp(), hud_.topInset(),
                                 hud_.bottomInset());
     }
     if (details_.isOpen()) {
@@ -843,7 +854,7 @@ PointerTarget Shell::pointAtModal(Vector2 point) const {
     return {};
 }
 
-PointerTarget Shell::pointAtHome(Vector2 point) const {
+PointerTarget Shell::pointAtHome(Point point) const {
     if (presentation() != Presentation::Grid) {
         const RailInput input = railInput();
         const bool xmb = presentation() == Presentation::Xmb;
@@ -938,130 +949,102 @@ bool Shell::focusTarget(const PointerTarget& target) {
         target);
 }
 
-void Shell::drawDock(const DockFrame& frame, float frameHeight) {
+void Shell::drawDock(Canvas& canvas, const gpu2d::RenderTarget& scene, const DockFrame& frame) {
     const double now = nowMs();
-    blur_.draw(DockPainter::barRect(frame.layout, frame.style),
-               BackdropBlur::Placement{frameHeight, std::clamp(frame.style.progress, 0.0f, 1.0f)});
+    const Rect bar = DockPainter::barRect(frame.layout, frame.style);
+    canvas.blurBehind(gpu2d::Backdrop{.scene = &scene,
+                                      .body = onCanvas(bar),
+                                      .radius = bar.height * 0.5f,
+                                      .sigma = glassBlurSigmaDp * dp(),
+                                      .opacity = std::clamp(frame.style.progress, 0.0f, 1.0f)});
     std::array<DockIcon, library::allSections.size()> icons;
     for (std::size_t i = 0; i < icons.size(); ++i) {
         const library::Section section = library::allSections[i];
         icons[i] = DockIcon{navIcons_.find(navKey(section, section == section_)),
                             iconPops_[i].scale(now), initialOf(section), dockHover_ == section};
     }
-    dockPainter_.paint(frame.layout, frame.metrics, icons, frame.style);
+    dockPainter_.paint(canvas, frame.layout, frame.metrics, icons, frame.style);
 }
 
-void Shell::drawScene() {
-    hud_.drawGround();
+void Shell::drawScene(Canvas& canvas) {
+    hud_.drawGround(canvas);
     const bool settingsShown = settings_.pageVisible(now_) || devices_.visible(now_);
     const bool detailsShown = detailsFade_.visible(now_);
     if (presentation() == Presentation::Grid) {
-        drawGrid();
+        drawGrid(canvas);
         if (!detailsShown && !settingsShown) {
-            pillPainter_.paint(layout_.pagePill(page_), dp(), chromeDark());
-            arrowPainter_.paint(layout_.pageArrows(page_), chromeDark());
+            pillPainter_.paint(canvas, layout_.pagePill(page_), dp(), chromeDark());
+            arrowPainter_.paint(canvas, layout_.pageArrows(page_), chromeDark());
         }
     } else {
-        drawRail();
+        drawRail(canvas);
     }
     if (detailsShown) {
-        detailsPainter_.paint(details_, detailsLayout(), detailsArt(),
-                              Vector2{static_cast<float>(width_), static_cast<float>(height_)},
-                              dp(), detailsFade_.alpha(now_));
+        detailsPainter_.paint(canvas, details_, detailsLayout(), detailsArt(),
+                              Point{static_cast<float>(width_), static_cast<float>(height_)}, dp(),
+                              detailsFade_.alpha(now_));
     }
-    drawPages(Vector2{static_cast<float>(width_), static_cast<float>(height_)});
-    hud_.drawTopBar();
-    hud_.drawHints();
+    drawPages(canvas, Point{static_cast<float>(width_), static_cast<float>(height_)});
+    hud_.drawTopBar(canvas);
+    hud_.drawHints(canvas);
 }
 
-void Shell::drawPages(Vector2 size) {
-    settings_.drawPage(size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
-    devices_.draw(size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
+void Shell::drawPages(Canvas& canvas, Point size) {
+    settings_.drawPage(canvas, size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
+    devices_.draw(canvas, size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
 }
 
-void Shell::drawOverGame(Vector2 size) {
+void Shell::drawOverGame(Canvas& canvas, Point size) {
     // Only what the Guide menus open is drawn; the game shows through everywhere else.
-    drawPages(size);
+    drawPages(canvas, size);
     if (settings_.pageVisible(now_) || devices_.visible(now_)) {
-        hud_.drawTopBar();
-        hud_.drawHints();
+        hud_.drawTopBar(canvas);
+        hud_.drawHints(canvas);
     }
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
-    settings_.drawOverlays(size, dp(), now_, seconds);
-    guide_.draw(size, dp());
-    session_.draw(size, dp(), now_, seconds);
-    hud_.drawToast();
+    settings_.drawOverlays(canvas, size, dp(), now_, seconds);
+    guide_.draw(canvas, size, dp());
+    session_.draw(canvas, size, dp(), now_, seconds);
+    hud_.drawToast(canvas);
 }
 
-void Shell::draw(const RenderTexture2D* target) {
-    // Textures need the GL context, which only the drawing thread has.
-    loadArtwork();
-    const auto frameWidth = static_cast<float>(target != nullptr ? target->texture.width : width_);
-    const auto frameHeight =
-        static_cast<float>(target != nullptr ? target->texture.height : height_);
-    BeginDrawing();
-    // Alpha accumulates as over-compositing does, so the window's own alpha is what Gamescope
-    // and an ARGB visual blend with; raylib's BLEND_ALPHA would square it.
-    rlSetBlendFactorsSeparate(RL_SRC_ALPHA, RL_ONE_MINUS_SRC_ALPHA, RL_ONE, RL_ONE_MINUS_SRC_ALPHA,
-                              RL_FUNC_ADD, RL_FUNC_ADD);
+void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
+    // The previous frame was submitted, so the labels it did not draw can go.
+    typeface_.retire();
+    const Point size{static_cast<float>(target.width), static_cast<float>(target.height)};
+    // Transparent, so a compositor shows what lies below wherever nothing is drawn.
+    constexpr Colour clear{0, 0, 0, 0};
     if (inGame_) {
-        if (target != nullptr) {
-            BeginTextureMode(*target);
-        }
-        BeginBlendMode(BLEND_CUSTOM_SEPARATE);
-        ClearBackground(BLANK);
-        drawOverGame(Vector2{frameWidth, frameHeight});
-        EndBlendMode();
-        if (target != nullptr) {
-            EndTextureMode();
-        }
-        EndDrawing();
+        canvas.begin(target, clear);
+        drawOverGame(canvas, size);
         return;
     }
 
-    // The scene goes to its own texture so the dock's glass can blur what is behind it.
-    ensureScene();
-    BeginTextureMode(scene_);
-    BeginBlendMode(BLEND_CUSTOM_SEPARATE);
-    drawScene();
-    EndBlendMode();
-    EndTextureMode();
-    const DockFrame dock = dockFrame(frameWidth, frameHeight);
-    blur_.prepare(scene_.texture, DockPainter::barRect(dock.layout, dock.style),
-                  glassBlurSigmaDp * dp());
+    // The scene goes to its own target so the dock's glass can blur what is behind it.
+    const gpu2d::RenderTarget& scene = sceneTarget();
+    canvas.begin(scene.surface(), clear);
+    drawScene(canvas);
 
-    if (target != nullptr) {
-        BeginTextureMode(*target);
-    }
-    BeginBlendMode(BLEND_CUSTOM_SEPARATE);
-    DrawTextureRec(scene_.texture,
-                   Rectangle{0.0f, 0.0f, static_cast<float>(scene_.texture.width),
-                             -static_cast<float>(scene_.texture.height)},
-                   Vector2{0.0f, 0.0f}, WHITE);
+    canvas.begin(target, clear);
+    const gpu2d::Rect whole{0.0f, 0.0f, static_cast<float>(scene.width()),
+                            static_cast<float>(scene.height())};
+    canvas.image(scene.view(gpu2d::Filter::Nearest), whole, whole, white);
     if (!detailsFade_.visible(now_) && !settings_.pageVisible(now_) && !devices_.visible(now_)) {
-        drawDock(dock, frameHeight);
+        drawDock(canvas, scene, dockFrame(size.x, size.y));
     }
-    launchPanelPainter_.paint(launchPanel_, Vector2{frameWidth, frameHeight}, dp(),
-                              std::chrono::duration<double>(now_.time_since_epoch()).count());
-    chooserPainter_.paint(chooser_, Vector2{frameWidth, frameHeight}, dp());
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
-    searchPainter_.paint(search_, Vector2{frameWidth, frameHeight}, dp(), searchFade_.look(now_),
-                         seconds);
-    contextPainter_.paint(context_, Vector2{frameWidth, frameHeight}, dp(),
-                          contextFade_.look(now_));
-    settings_.drawOverlays(Vector2{frameWidth, frameHeight}, dp(), now_, seconds);
-    guide_.draw(Vector2{frameWidth, frameHeight}, dp());
-    session_.draw(Vector2{frameWidth, frameHeight}, dp(), now_, seconds);
+    launchPanelPainter_.paint(canvas, launchPanel_, size, dp(), seconds);
+    chooserPainter_.paint(canvas, chooser_, size, dp());
+    searchPainter_.paint(canvas, search_, size, dp(), searchFade_.look(now_), seconds);
+    contextPainter_.paint(canvas, context_, size, dp(), contextFade_.look(now_));
+    settings_.drawOverlays(canvas, size, dp(), now_, seconds);
+    guide_.draw(canvas, size, dp());
+    session_.draw(canvas, size, dp(), now_, seconds);
     if (volumeOsd_.visible(now_)) {
-        volumeOsdPainter_.paint(volumeOsd_.level(), Vector2{frameWidth, frameHeight}, dp(),
-                                hud_.topInset(), volumeOsd_.look(now_));
+        volumeOsdPainter_.paint(canvas, volumeOsd_.level(), size, dp(), hud_.topInset(),
+                                volumeOsd_.look(now_));
     }
-    hud_.drawToast();
-    EndBlendMode();
-    if (target != nullptr) {
-        EndTextureMode();
-    }
-    EndDrawing();
+    hud_.drawToast(canvas);
 }
 
 } // namespace opensu::ui

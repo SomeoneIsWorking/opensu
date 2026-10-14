@@ -3,7 +3,6 @@
 #include <cstdio>
 
 #include "host_fakes.hpp"
-#include "raylib.h"
 #include "shortcut_router.hpp"
 #include "ui/check.hpp"
 
@@ -41,7 +40,7 @@ struct Rig {
 void ctrlTabOpensTheQuickMenu() {
     Rig rig;
     const std::vector<gamepad::Event> events =
-        rig.router.fromCombo(input::Combo{KEY_TAB, true, false});
+        rig.router.fromCombo(input::Combo{input::keys::Tab, true, false});
     expect(rig.quickMenus == 1 && events.empty(), "Ctrl+Tab is the action, not a button");
 }
 

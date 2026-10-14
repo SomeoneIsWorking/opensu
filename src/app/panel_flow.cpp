@@ -4,7 +4,7 @@
 
 namespace opensu::app {
 
-PanelFlow::PanelFlow(ui::Shell& shell, audio::SoundPlayer& sounds, steam::Client& steam,
+PanelFlow::PanelFlow(ui::Shell& shell, audio::SdlSoundPlayer& sounds, steam::Client& steam,
                      const std::filesystem::path& dataDir, Hooks hooks)
     : shell_{shell}, sounds_{sounds},
       install_{steam, "legendary", GogInstallJob::Options{.dataDir = dataDir}, hooks.installFolder},

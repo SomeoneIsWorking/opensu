@@ -3,12 +3,14 @@
 
 #include <string>
 
+#include "shell_window.hpp"
 #include "ui/shell.hpp"
 
 namespace opensu::app {
 
-/// Draws `shell` into an offscreen target the size of the window and encodes it as PNG. Main loop
-/// only, with a live GL context. False, with the reason logged, when it cannot.
-[[nodiscard]] bool renderShellPng(ui::Shell& shell, std::string& png);
+/// Draws `shell` into an offscreen target the size of `window` and encodes it as PNG, in memory.
+/// Main loop only. False, with the reason logged, when it cannot encode; a GPU failure throws
+/// gpu2d::GpuError.
+[[nodiscard]] bool renderShellPng(ShellWindow& window, ui::Shell& shell, std::string& png);
 
 } // namespace opensu::app

@@ -21,7 +21,7 @@ namespace opensu::session {
 /// fires nothing.
 class ShortcutChord {
   public:
-    /// `key` is a raylib key code; the combination it completes when it goes down.
+    /// `key` is a key code; the combination it completes when it goes down.
     [[nodiscard]] std::optional<input::Combo> key(int key, bool pressed);
 
   private:

@@ -5,7 +5,7 @@
 
 #include <chrono>
 
-#include "raylib.h"
+#include "paint.hpp"
 
 #include "panel_fade.hpp"
 #include "pointer_target.hpp"
@@ -45,10 +45,10 @@ class SessionPanels {
     /// Starts the fades the panels' open states call for.
     void tick(Clock::time_point now) noexcept;
     /// Draws what is open into a `size` frame at `dp` pixels per dp; `seconds` blinks the caret.
-    void draw(Vector2 size, float dp, Clock::time_point now, double seconds) const;
+    void draw(Canvas& canvas, Point size, float dp, Clock::time_point now, double seconds) const;
 
     /// The dialog button or keyboard key under `point`, or nothing.
-    [[nodiscard]] PointerTarget pointAt(Vector2 point, Vector2 size, float dp) const;
+    [[nodiscard]] PointerTarget pointAt(Point point, Point size, float dp) const;
     /// Moves the focus the D-pad moves to `target`, when it is one of these panels' elements;
     /// reports whether it moved.
     bool focusTarget(const PointerTarget& target);

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "audio/sound_player.hpp"
+#include "audio/sdl_sound_player.hpp"
 #include "config/config.hpp"
 #include "emulator_settings.hpp"
 #include "gamepad/event.hpp"
@@ -57,7 +57,7 @@ class SettingsController {
     };
 
     /// `defaults` is the environment's configuration, which the settings override.
-    SettingsController(ui::SettingsPage& page, Services services, audio::SoundPlayer& sounds,
+    SettingsController(ui::SettingsPage& page, Services services, audio::SdlSoundPlayer& sounds,
                        Preferences& preferences, const config::Config& defaults, Hooks hooks)
         : page_{page}, paths_{services.paths}, shortcutEditor_{services.shortcutEditor},
           volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
@@ -115,7 +115,7 @@ class SettingsController {
     EmulatorSettings& emulators_;
     SteamLibrarySettings& steamLibraries_;
     PluginSettings& plugins_;
-    audio::SoundPlayer& sounds_;
+    audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;
     const config::Config& defaults_;
     Hooks hooks_;

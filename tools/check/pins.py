@@ -10,12 +10,6 @@ class GitPin:
     commit: str
 
 
-# raylib 6.0 plus the fork's miniaudio PulseAudio fix. The published binary has no image decoding.
-RAYLIB = GitPin(
-    "raylib",
-    "https://github.com/SomeoneIsWorking/raylib.git",
-    "7503d6557c3fa8796994e8a1a673556e437143e6",
-)
 LUCENT = GitPin(
     "lucent",
     "https://github.com/SomeoneIsWorking/lucent.git",
@@ -24,16 +18,5 @@ LUCENT = GitPin(
 GPU2D = GitPin(
     "gpu2d",
     "https://github.com/SomeoneIsWorking/gpu2d.git",
-    "2796d96f6d87bccf6bed63da3f0ee5485f965429",
-)
-
-# Image decoding on and X11 only: openSU reads its X11 window to become Gamescope's overlay.
-RAYLIB_CMAKE_OPTIONS = (
-    "-DCMAKE_BUILD_TYPE=Release",
-    "-DBUILD_EXAMPLES=OFF",
-    "-DGLFW_BUILD_WAYLAND=OFF",
-    "-DGLFW_BUILD_X11=ON",
-    "-DCMAKE_INSTALL_LIBDIR=lib",
-    "-DCMAKE_C_FLAGS=-DSTBI_REQUIRED -DSUPPORT_FILEFORMAT_JPG=1 -DSUPPORT_FILEFORMAT_TGA=1"
-    " -DSUPPORT_FILEFORMAT_PSD=1",
+    "0ea5d082cf3d5318b66cf8830c7de27dad4b87c9",
 )

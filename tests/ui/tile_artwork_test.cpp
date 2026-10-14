@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <limits>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <variant>
 #include <vector>
@@ -20,6 +21,10 @@ using opensu::ui::TileArtwork;
 
 constexpr std::size_t everyUpload = std::numeric_limits<std::size_t>::max();
 
+gpu2d::Texture noUpload(const gpu2d::image::Bitmap&) {
+    throw std::logic_error{"a missing cover was uploaded"};
+}
+
 std::vector<Tile> shelf(TileArtwork& artwork, std::size_t count) {
     std::vector<Tile> tiles;
     for (std::size_t index = 0; index < count; ++index) {
@@ -28,7 +33,7 @@ std::vector<Tile> shelf(TileArtwork& artwork, std::size_t count) {
         // A default item is a game.
         if (auto* game = std::get_if<opensu::library::Game>(&tile.item)) {
             game->id = "steam:" + std::to_string(index);
-            // A file that is not there decodes to no pixels, so uploading needs no GL context.
+            // A file that is not there decodes to no pixels, so uploading needs no GPU.
             game->artwork = "missing-cover.png";
         }
     }
@@ -44,16 +49,16 @@ void pendingUntilUploaded() {
     tiles[3].artDownloading = true;
     expect(TileArtwork::pending(tiles, header, window) == 0, "nothing awaits before a request");
 
-    artwork.load(tiles, header, window, 0);
+    artwork.load(noUpload, tiles, header, window, 0);
     expect(TileArtwork::pending(tiles, header, window) == 3,
            "every requested tile in the window awaits its art; the one outside does not count");
     artwork.waitDecoded();
     expect(TileArtwork::pending(tiles, header, window) == 3,
            "a decoded cover still awaits until a frame uploads it");
 
-    artwork.load(tiles, header, window, 1);
+    artwork.load(noUpload, tiles, header, window, 1);
     expect(TileArtwork::pending(tiles, header, window) == 2, "an upload settles its tile");
-    artwork.load(tiles, header, window, everyUpload);
+    artwork.load(noUpload, tiles, header, window, everyUpload);
     expect(TileArtwork::pending(tiles, header, window) == 0, "every upload settles the window");
 
     tiles[1].artDownloading = true;
@@ -72,7 +77,6 @@ void headerCounts() {
 } // namespace
 
 int main() {
-    SetTraceLogLevel(LOG_ERROR);
     pendingUntilUploaded();
     headerCounts();
     std::printf("tile_artwork: all checks passed\n");

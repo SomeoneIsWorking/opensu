@@ -8,17 +8,17 @@
 #include <vector>
 
 #include "hud.hpp"
-#include "panel_scope.hpp"
+#include "paint.hpp"
 #include "round_shape.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
 namespace {
 
-constexpr Color scrim{0, 0, 0, 115};
-constexpr Color panelFill{0xF8, 0xF8, 0xFB, 255};
-constexpr Color cardFill{0xFF, 0xFF, 0xFF, 255};
-constexpr Color outlineInk{0x4D, 0x46, 0x55, 255};
+constexpr Colour scrim{0, 0, 0, 115};
+constexpr Colour panelFill{0xF8, 0xF8, 0xFB, 255};
+constexpr Colour cardFill{0xFF, 0xFF, 0xFF, 255};
+constexpr Colour outlineInk{0x4D, 0x46, 0x55, 255};
 constexpr float fieldSp = 18.0f;
 constexpr float resultSp = 16.0f;
 constexpr float keySp = 16.0f;
@@ -33,8 +33,8 @@ constexpr float iconDp = 9.0f;
 constexpr double caretPeriod = 1.0;
 
 /// Draws `text` cut to `room` pixels, ending in dots when it is cut.
-void drawFitted(Typeface& typeface, std::string text, float x, float centreY, float room,
-                const TextStyle& style, Color colour) {
+void drawFitted(Canvas& canvas, Typeface& typeface, std::string text, float x, float centreY,
+                float room, const TextStyle& style, Colour colour) {
     while (text.size() > 1 && typeface.measure(text, style) > room) {
         std::size_t cut = text.size() - 1;
         while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0U) == 0x80U) {
@@ -46,7 +46,7 @@ void drawFitted(Typeface& typeface, std::string text, float x, float centreY, fl
             break;
         }
     }
-    typeface.drawCentred(text, x, centreY, style, colour);
+    typeface.drawCentred(canvas, text, x, centreY, style, colour);
 }
 
 /// One dot for each character of a password.
@@ -61,47 +61,54 @@ std::string dotsFor(const std::string& secret) {
 }
 
 /// A white rounded bar; outlined when `focused`.
-void paintBar(const Rect& rect, bool focused, float dp, float alpha) {
+void paintBar(Canvas& canvas, const Rect& rect, bool focused, float dp, float alpha) {
     const RoundRect bar{rect, cornerDp * dp};
-    fillRoundRect(bar, [alpha](Vector2, float) {
+    fillRoundRect(canvas, bar, [alpha](Point, float) {
         return withAlpha(cardFill, alpha);
     });
     if (focused) {
-        fillBand(bar, bar.grown(-outlineDp * dp), [alpha](Vector2, float) {
+        fillBand(canvas, bar, bar.grown(-outlineDp * dp), [alpha](Point, float) {
             return withAlpha(outlineInk, alpha);
         });
     }
 }
 
 /// A magnifying glass: a ring and a handle.
-void paintGlass(Vector2 centre, float dp, Color ink) {
+void paintGlass(Canvas& canvas, Point centre, float dp, Colour ink) {
     const float radius = iconDp * dp * 0.55f;
-    const Vector2 ringCentre{centre.x - radius * 0.35f, centre.y - radius * 0.35f};
-    DrawRing(ringCentre, radius - dp * 0.9f, radius, 0.0f, 360.0f, 24, ink);
-    DrawLineEx(Vector2{ringCentre.x + radius * 0.7f, ringCentre.y + radius * 0.7f},
-               Vector2{centre.x + radius * 1.0f, centre.y + radius * 1.0f}, dp * 1.8f, ink);
+    const Point ringCentre{centre.x - radius * 0.35f, centre.y - radius * 0.35f};
+    canvas.ring(gpu2d::Ring{.centre = ringCentre,
+                            .inner = radius - dp * 0.9f,
+                            .outer = radius,
+                            .startDegrees = 0.0f,
+                            .endDegrees = 360.0f},
+                ink);
+    canvas.line(Point{ringCentre.x + radius * 0.7f, ringCentre.y + radius * 0.7f},
+                Point{centre.x + radius * 1.0f, centre.y + radius * 1.0f}, dp * 1.8f, ink);
 }
 
 } // namespace
 
-void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
+void SearchPanelPainter::paint(Canvas& canvas, const SearchPanel& panel, Point size, float dp,
                                const PanelLook& look, double seconds) const {
     if (look.alpha <= 0.0f) {
         return;
     }
     const float alpha = look.alpha;
-    DrawRectangleRec(Rectangle{0.0f, 0.0f, size.x, size.y}, withAlpha(scrim, alpha));
+    canvas.fillRect(gpu2d::Rect{0.0f, 0.0f, size.x, size.y}, withAlpha(scrim, alpha));
     const SearchLayout layout = layoutSearch(Rect{0.0f, 0.0f, size.x, size.y}, dp, panel.lists());
-    const PanelScope scope{Vector2{layout.panel.centreX(), layout.panel.centreY()}, look.scale};
-    fillRoundRect(RoundRect{layout.panel, layout.panelRadius}, [alpha](Vector2, float) {
+    const PanelScope scope{canvas, Point{layout.panel.centreX(), layout.panel.centreY()},
+                           look.scale};
+    fillRoundRect(canvas, RoundRect{layout.panel, layout.panelRadius}, [alpha](Point, float) {
         return withAlpha(panelFill, alpha);
     });
 
     // The field: the glass, then the text (or what to type) and the caret.
-    paintBar(layout.field, false, dp, alpha);
+    paintBar(canvas, layout.field, false, dp, alpha);
     const float inset = insetDp * dp;
     if (!panel.secret()) {
-        paintGlass(Vector2{layout.field.x + inset + iconDp * dp * 0.5f, layout.field.centreY()}, dp,
+        paintGlass(canvas,
+                   Point{layout.field.x + inset + iconDp * dp * 0.5f, layout.field.centreY()}, dp,
                    withAlpha(palette::inkSoft, alpha));
     }
     const TextStyle field{fieldSp * dp};
@@ -110,26 +117,26 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
     const float room = layout.field.right() - inset - textX;
     const std::string shown = panel.secret() ? dotsFor(panel.text()) : panel.text();
     if (shown.empty()) {
-        drawFitted(typeface_, panel.prompt(), textX, layout.field.centreY(), room, field,
+        drawFitted(canvas, typeface_, panel.prompt(), textX, layout.field.centreY(), room, field,
                    withAlpha(palette::inkSoft, alpha));
     } else {
-        drawFitted(typeface_, shown, textX, layout.field.centreY(), room, field,
+        drawFitted(canvas, typeface_, shown, textX, layout.field.centreY(), room, field,
                    withAlpha(palette::ink, alpha));
     }
     if (std::fmod(seconds, caretPeriod) < caretPeriod * 0.5) {
         const float caretX =
             textX + (shown.empty() ? 0.0f : std::min(typeface_.measure(shown, field), room));
         const float caretHeight = typeface_.lineBox(field) * 0.8f;
-        DrawRectangleRec(Rectangle{caretX + dp, layout.field.centreY() - caretHeight * 0.5f,
-                                   1.6f * dp, caretHeight},
-                         withAlpha(palette::ink, alpha));
+        canvas.fillRect(gpu2d::Rect{caretX + dp, layout.field.centreY() - caretHeight * 0.5f,
+                                    1.6f * dp, caretHeight},
+                        withAlpha(palette::ink, alpha));
     }
 
     // The results: as many rows as fit, from the first in view.
     const TextStyle result{resultSp * dp};
     const bool inResults = panel.zone() == SearchZone::Results;
     if (panel.lists() && panel.results().empty() && !panel.text().empty()) {
-        typeface_.drawCentred("No results", layout.results[0].x + inset,
+        typeface_.drawCentred(canvas, "No results", layout.results[0].x + inset,
                               layout.results[0].centreY(), result,
                               withAlpha(palette::inkSoft, alpha));
     }
@@ -139,12 +146,12 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
             break;
         }
         const Rect& box = layout.results[row];
-        paintBar(box, inResults && index == panel.resultFocus(), dp, alpha);
+        paintBar(canvas, box, inResults && index == panel.resultFocus(), dp, alpha);
         const SearchResult& entry = panel.results()[index];
         const float detail = typeface_.measure(entry.detail, result);
-        typeface_.drawCentred(entry.detail, box.right() - inset - detail, box.centreY(), result,
-                              withAlpha(palette::inkSoft, alpha));
-        drawFitted(typeface_, entry.title, box.x + inset, box.centreY(),
+        typeface_.drawCentred(canvas, entry.detail, box.right() - inset - detail, box.centreY(),
+                              result, withAlpha(palette::inkSoft, alpha));
+        drawFitted(canvas, typeface_, entry.title, box.x + inset, box.centreY(),
                    box.width - detail - inset * 3.0f, result, withAlpha(palette::ink, alpha));
     }
 
@@ -155,22 +162,22 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
         const bool focused = !inResults && i == panel.keyFocus();
         const bool done = keys[i].kind == KeyKind::Done;
         const RoundRect keyShape{layout.keys[i], cornerDp * dp};
-        paintBar(layout.keys[i], focused && !done, dp, alpha);
+        paintBar(canvas, layout.keys[i], focused && !done, dp, alpha);
         if (done) {
-            fillRoundRect(keyShape, [alpha](Vector2, float) {
+            fillRoundRect(canvas, keyShape, [alpha](Point, float) {
                 return withAlpha(outlineInk, alpha);
             });
             if (focused) {
-                fillBand(keyShape, keyShape.grown(-outlineDp * dp), [alpha](Vector2, float) {
+                fillBand(canvas, keyShape, keyShape.grown(-outlineDp * dp), [alpha](Point, float) {
                     return withAlpha(palette::ink, alpha);
                 });
             }
         }
         const std::string label{keys[i].label};
         const float width = typeface_.measure(label, cap);
-        typeface_.drawCentred(label, layout.keys[i].centreX() - width * 0.5f,
+        typeface_.drawCentred(canvas, label, layout.keys[i].centreX() - width * 0.5f,
                               layout.keys[i].centreY(), cap,
-                              withAlpha(done ? WHITE : static_cast<Color>(palette::ink), alpha));
+                              withAlpha(done ? white : palette::ink, alpha));
     }
 
     // The buttons along the foot.
@@ -199,10 +206,10 @@ void SearchPanelPainter::paint(const SearchPanel& panel, Vector2 size, float dp,
     float x = layout.hints.centreX() - (total - hintSpacingDp * dp) * 0.5f;
     for (const auto& [key, label] : hints) {
         const float advance = glyphs_.advance(key, glyph);
-        glyphs_.paint(key, Vector2{x + advance * 0.5f, centreY}, glyph,
+        glyphs_.paint(canvas, key, Point{x + advance * 0.5f, centreY}, glyph,
                       withAlpha(outlineInk, alpha));
         x += advance + hintGapDp * dp;
-        typeface_.drawCentred(label, x, centreY, hint, withAlpha(outlineInk, alpha));
+        typeface_.drawCentred(canvas, label, x, centreY, hint, withAlpha(outlineInk, alpha));
         x += typeface_.measure(label, hint) + hintSpacingDp * dp;
     }
 }

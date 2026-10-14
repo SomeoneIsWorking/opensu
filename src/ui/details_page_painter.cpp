@@ -1,6 +1,7 @@
 #include "details_page_painter.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 
 #include "hud.hpp"
@@ -10,12 +11,12 @@
 namespace opensu::ui {
 namespace {
 
-constexpr Color ink{0x2B, 0x27, 0x33, 255};
-constexpr Color inkSoft{0x6F, 0x68, 0x80, 255};
-constexpr Color cardFill{0xFF, 0xFF, 0xFF, 255};
-constexpr Color badgeFill{0x2B, 0x27, 0x33, 22};
+constexpr Colour ink{0x2B, 0x27, 0x33, 255};
+constexpr Colour inkSoft{0x6F, 0x68, 0x80, 255};
+constexpr Colour cardFill{0xFF, 0xFF, 0xFF, 255};
+constexpr Colour badgeFill{0x2B, 0x27, 0x33, 22};
 // iiSU xe4.h's blue, the focus ring's.
-constexpr Color focusInk{0x2C, 0x88, 0xFF, 255};
+constexpr Colour focusInk{0x2C, 0x88, 0xFF, 255};
 constexpr float titleSp = 30.0f;
 constexpr float badgeSp = 13.0f;
 constexpr float rowLabelSp = 14.0f;
@@ -28,88 +29,90 @@ constexpr float backdropAlpha = 0.14f;
 
 /// `texture` scaled to fill `box` with its middle showing, or to sit whole inside it when it is
 /// much wider than tall.
-void drawCover(const Texture& texture, const Rect& box, float radius, float alpha) {
-    const auto width = static_cast<float>(texture.width);
-    const auto height = static_cast<float>(texture.height);
-    const Color tint = withAlpha(WHITE, alpha);
+void drawCover(Canvas& canvas, const gpu2d::Texture& texture, const Rect& box, float radius,
+               float alpha) {
+    const auto width = static_cast<float>(texture.width());
+    const auto height = static_cast<float>(texture.height());
+    const Colour tint = withAlpha(white, alpha);
     if (width > height * 1.2f) {
         const float scale = box.width / width;
         const Rect inside{box.x, box.centreY() - height * scale * 0.5f, box.width, height * scale};
-        drawTextureRound(RoundRect{inside, radius}, texture, Rectangle{0, 0, width, height}, tint);
+        drawTextureRound(canvas, RoundRect{inside, radius}, texture.view(),
+                         gpu2d::Rect{0, 0, width, height}, tint);
         return;
     }
     const float boxAspect = box.width / box.height;
     const float cropWidth = std::min(width, height * boxAspect);
     const float cropHeight = cropWidth / boxAspect;
-    drawTextureRound(
-        RoundRect{box, radius}, texture,
-        Rectangle{(width - cropWidth) * 0.5f, (height - cropHeight) * 0.5f, cropWidth, cropHeight},
-        tint);
+    drawTextureRound(canvas, RoundRect{box, radius}, texture.view(),
+                     gpu2d::Rect{(width - cropWidth) * 0.5f, (height - cropHeight) * 0.5f,
+                                 cropWidth, cropHeight},
+                     tint);
 }
 
 } // namespace
 
-void DetailsPagePainter::paint(const DetailsPage& page, const DetailsLayout& layout,
-                               const DetailsArt& art, Vector2 size, float dp, float alpha) const {
+void DetailsPagePainter::paint(Canvas& canvas, const DetailsPage& page, const DetailsLayout& layout,
+                               const DetailsArt& art, Point size, float dp, float alpha) const {
     if (alpha <= 0.0f) {
         return;
     }
-    DrawRectangle(0, 0, static_cast<int>(size.x), static_cast<int>(size.y),
-                  withAlpha(palette::ground, alpha));
+    canvas.fillRect(gpu2d::Rect{0.0f, 0.0f, std::floor(size.x), std::floor(size.y)},
+                    withAlpha(palette::ground, alpha));
     if (art.hero != nullptr) {
-        const Texture& hero = *art.hero;
-        const float scale = std::max(size.x / static_cast<float>(hero.width),
-                                     size.y / static_cast<float>(hero.height));
-        const float drawn = static_cast<float>(hero.width) * scale;
-        const float tall = static_cast<float>(hero.height) * scale;
-        DrawTexturePro(
-            hero, Rectangle{0, 0, static_cast<float>(hero.width), static_cast<float>(hero.height)},
-            Rectangle{(size.x - drawn) * 0.5f, (size.y - tall) * 0.5f, drawn, tall}, Vector2{0, 0},
-            0.0f, withAlpha(WHITE, backdropAlpha * alpha));
+        const gpu2d::Texture& hero = *art.hero;
+        const float scale = std::max(size.x / static_cast<float>(hero.width()),
+                                     size.y / static_cast<float>(hero.height()));
+        const float drawn = static_cast<float>(hero.width()) * scale;
+        const float tall = static_cast<float>(hero.height()) * scale;
+        canvas.image(hero.view(), wholeOf(hero),
+                     gpu2d::Rect{(size.x - drawn) * 0.5f, (size.y - tall) * 0.5f, drawn, tall},
+                     withAlpha(white, backdropAlpha * alpha));
     }
     const DetailsView& view = page.view();
-    paintCover(layout, art, view, alpha);
-    paintText(layout, view, dp, alpha);
-    paintButtons(page, layout, dp, alpha);
+    paintCover(canvas, layout, art, view, alpha);
+    paintText(canvas, layout, view, dp, alpha);
+    paintButtons(canvas, page, layout, dp, alpha);
 }
 
-void DetailsPagePainter::paintCover(const DetailsLayout& layout, const DetailsArt& art,
-                                    const DetailsView& view, float alpha) const {
+void DetailsPagePainter::paintCover(Canvas& canvas, const DetailsLayout& layout,
+                                    const DetailsArt& art, const DetailsView& view,
+                                    float alpha) const {
     const RoundRect frame{layout.art, layout.radius};
-    fillSoft(frame.grown(2.0f), 10.0f, [alpha](Vector2, float) {
-        return withAlpha(Color{0, 0, 0, 60}, alpha);
+    fillSoft(canvas, frame.grown(2.0f), 10.0f, [alpha](Point, float) {
+        return withAlpha(Colour{0, 0, 0, 60}, alpha);
     });
     if (art.cover != nullptr) {
-        drawCover(*art.cover, layout.art, layout.radius, alpha);
+        drawCover(canvas, *art.cover, layout.art, layout.radius, alpha);
         return;
     }
-    fillRoundRect(frame, [alpha](Vector2, float) {
-        return withAlpha(Color{0xDD, 0xE1, 0xEA, 255}, alpha);
+    fillRoundRect(canvas, frame, [alpha](Point, float) {
+        return withAlpha(Colour{0xDD, 0xE1, 0xEA, 255}, alpha);
     });
     const TextStyle letter{layout.art.width * 0.4f};
     const std::string initial = view.title.empty() ? "?" : view.title.substr(0, 1);
     const float width = typeface_.measure(initial, letter);
-    typeface_.drawCentred(initial, layout.art.centreX() - width * 0.5f, layout.art.centreY(),
-                          letter, withAlpha(inkSoft, alpha));
+    typeface_.drawCentred(canvas, initial, layout.art.centreX() - width * 0.5f,
+                          layout.art.centreY(), letter, withAlpha(inkSoft, alpha));
 }
 
-void DetailsPagePainter::paintText(const DetailsLayout& layout, const DetailsView& view, float dp,
-                                   float alpha) const {
+void DetailsPagePainter::paintText(Canvas& canvas, const DetailsLayout& layout,
+                                   const DetailsView& view, float dp, float alpha) const {
     const Rect& text = layout.text;
     const TextStyle title{titleSp * dp};
     float y = text.y + typeface_.lineBox(title) * 0.5f;
-    typeface_.drawCentred(typeface_.fitted(view.title, text.width, title), text.x, y, title,
+    typeface_.drawCentred(canvas, typeface_.fitted(view.title, text.width, title), text.x, y, title,
                           withAlpha(ink, alpha));
     y += typeface_.lineBox(title) * 0.5f + 10.0f * dp;
 
     const TextStyle badge{badgeSp * dp};
     const float badgeWidth = typeface_.measure(view.badge, badge) + 20.0f * dp;
     const float badgeHeight = typeface_.lineBox(badge) + 8.0f * dp;
-    fillRoundRect(RoundRect{Rect{text.x, y, badgeWidth, badgeHeight}, badgeHeight * 0.5f},
-                  [alpha](Vector2, float) {
+    fillRoundRect(canvas, RoundRect{Rect{text.x, y, badgeWidth, badgeHeight}, badgeHeight * 0.5f},
+                  [alpha](Point, float) {
                       return withAlpha(badgeFill, alpha);
                   });
-    typeface_.drawCentred(view.badge, text.x + 10.0f * dp, y + badgeHeight * 0.5f, badge,
+    typeface_.drawCentred(canvas, view.badge, text.x + 10.0f * dp, y + badgeHeight * 0.5f, badge,
                           withAlpha(ink, alpha));
     y += badgeHeight + 18.0f * dp;
 
@@ -121,31 +124,31 @@ void DetailsPagePainter::paintText(const DetailsLayout& layout, const DetailsVie
             break;
         }
         const float centre = y + rowHeightDp * dp * 0.5f;
-        typeface_.drawCentred(row.label, text.x, centre, label, withAlpha(inkSoft, alpha));
-        typeface_.drawCentred(typeface_.fitted(row.value, text.right() - valueX, value), valueX,
-                              centre, value, withAlpha(ink, alpha));
+        typeface_.drawCentred(canvas, row.label, text.x, centre, label, withAlpha(inkSoft, alpha));
+        typeface_.drawCentred(canvas, typeface_.fitted(row.value, text.right() - valueX, value),
+                              valueX, centre, value, withAlpha(ink, alpha));
         y += rowHeightDp * dp;
     }
 }
 
-void DetailsPagePainter::paintButtons(const DetailsPage& page, const DetailsLayout& layout,
-                                      float dp, float alpha) const {
+void DetailsPagePainter::paintButtons(Canvas& canvas, const DetailsPage& page,
+                                      const DetailsLayout& layout, float dp, float alpha) const {
     const TextStyle text{buttonSp * dp};
     const auto& buttons = page.view().buttons;
     for (std::size_t i = 0; i < buttons.size() && i < layout.buttons.size(); ++i) {
         const Rect& rect = layout.buttons[i];
         const RoundRect body{rect, rect.height * 0.35f};
         const bool focused = i == page.focus();
-        fillRoundRect(body, [alpha](Vector2, float) {
+        fillRoundRect(canvas, body, [alpha](Point, float) {
             return withAlpha(cardFill, alpha * 0.92f);
         });
         if (focused) {
-            fillBand(body, body.grown(-outlineDp * dp), [alpha](Vector2, float) {
+            fillBand(canvas, body, body.grown(-outlineDp * dp), [alpha](Point, float) {
                 return withAlpha(focusInk, alpha);
             });
         }
         const float pad = 16.0f * dp;
-        typeface_.drawCentred(buttons[i].label, rect.x + pad, rect.centreY(), text,
+        typeface_.drawCentred(canvas, buttons[i].label, rect.x + pad, rect.centreY(), text,
                               withAlpha(ink, alpha));
         if (!buttons[i].value.empty()) {
             // Only a choice steps with Left and Right; other values are read-outs.
@@ -154,7 +157,7 @@ void DetailsPagePainter::paintButtons(const DetailsPage& page, const DetailsLayo
                                           : buttons[i].value;
             const float width = typeface_.measure(shown, text);
             typeface_.drawCentred(
-                typeface_.fitted(shown, rect.width - 2.0f * pad - 90.0f * dp, text),
+                canvas, typeface_.fitted(shown, rect.width - 2.0f * pad - 90.0f * dp, text),
                 rect.right() - pad - width, rect.centreY(), text, withAlpha(inkSoft, alpha));
         }
     }
