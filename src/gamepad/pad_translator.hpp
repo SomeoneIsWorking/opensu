@@ -6,7 +6,9 @@
 // rescaled to the virtual pad's and a d-pad reported as buttons becomes the hat. Analogue triggers
 // are also L2 and R2 controls, with hysteresis. Guide is never forwarded: it belongs to opensu.
 // What the virtual pad gets passes a `ChordGate`, so a bound chord's buttons stay with opensu,
-// while the controls carry every edge. Pure state, so it is tested without devices.
+// while the controls carry every edge. The game's mapping (`ForwardMap`) applies to the virtual
+// pad only: a button presses its mapped buttons, a tap of a modifier taps them, and a game chord
+// holds its buttons while its partner is down. Pure state, so it is tested without devices.
 #pragma once
 
 #include <chrono>
@@ -17,6 +19,7 @@
 
 #include "chord_gate.hpp"
 #include "event.hpp"
+#include "forward_map.hpp"
 
 namespace opensu::gamepad {
 
@@ -57,6 +60,9 @@ class PadTranslator {
 
     /// The chords whose buttons are kept from the virtual pad.
     void setChords(ChordTriggers chords);
+    /// What the virtual pad sends for each button and game chord from now on. The game chords are
+    /// kept from the virtual pad as `setChords`'s are.
+    void setForwardMap(ForwardMap map);
 
     /// Translates one physical event read at `at`: what the virtual pad should receive goes to
     /// `forward`, control presses and releases for opensu to `controls`.
@@ -76,19 +82,33 @@ class PadTranslator {
     /// what the gate lets pass.
     void gate(const std::vector<Event>& edges, std::vector<PadEvent>& forward,
               std::vector<Event>& controls, ChordGate::Clock::time_point at);
-    /// Gives the virtual pad `button` as the physical pad holds it, or at rest where the gate
-    /// keeps it back.
+    /// The gate's chords: `setChords`'s and the forward map's.
+    void applyTriggers();
+    /// Gives the virtual pad what physical `button` presses, as the pad holds it, or at rest where
+    /// the gate keeps it back.
     void sync(Button button, std::vector<PadEvent>& forward);
-    /// A press of `button` in a report of its own, for a modifier let out as a tap.
+    /// Gives the virtual pad each of `outputs` as every source of it stands now.
+    void syncOutputs(const std::set<Button>& outputs, std::vector<PadEvent>& forward);
+    /// What `button` presses, in a report of its own, for a modifier let out as a tap.
     void tap(Button button, std::vector<PadEvent>& forward);
-    /// The hat's value on one axis from the directions held and let through.
-    [[nodiscard]] std::int32_t hatValue(Button negative, Button positive) const;
+    /// Holds the buttons of game chord `chord` until its partner is released.
+    void holdChord(const Chord& chord, std::vector<PadEvent>& forward);
+    /// Whether the physical pad holds `button`; an analogue trigger past its press point.
+    [[nodiscard]] bool held(Button button) const;
+    /// Virtual button `out`'s value from every source of it: 0 or 1, or a trigger's travel.
+    [[nodiscard]] std::int32_t level(Button out) const;
     void control(Button button, bool pressed, std::vector<Event>& controls);
     void hatControls(const PadEvent& axis, std::vector<Event>& controls);
     void stickControls(const PadEvent& axis, std::vector<Event>& controls);
 
     PadCapabilities physical_;
     ChordGate gate_;
+    ChordTriggers chords_;
+    ForwardMap map_;
+    /// The buttons of each game chord played, by its partner, until the partner is released.
+    std::map<Button, std::set<Button>> chordHeld_;
+    /// The buttons a tap presses for the length of its report.
+    std::set<Button> tapping_;
     /// The virtual pad's state as last forwarded, by (type, code).
     std::map<std::pair<std::uint16_t, std::uint16_t>, std::int32_t> state_;
     /// The physical pad's keys held, by code.

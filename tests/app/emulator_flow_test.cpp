@@ -148,6 +148,8 @@ struct Rig {
                                       },
                                       [this](const std::string& text, bool error) {
                                           said.emplace_back(text, error);
+                                      },
+                                      [](const library::Game&) {
                                       }}};
 };
 
@@ -175,7 +177,7 @@ void detailsDownloadsTheMissingEmulator(const fs::path& root) {
            "a ROM without its emulator cannot start");
     rig.details.open();
     const auto& buttons = rig.page.view().buttons;
-    expect(buttons.size() == 4 && buttons[1].action == ui::DetailsAction::DownloadEmulator &&
+    expect(buttons.size() == 5 && buttons[1].action == ui::DetailsAction::DownloadEmulator &&
                buttons[1].label == "Download Emu",
            "the details page offers the missing emulator right there");
     rig.details.act(Button::Down);
@@ -194,7 +196,7 @@ void detailsDownloadsTheMissingEmulator(const fs::path& root) {
                rig.changes == 1,
            "it is installed and the library is asked to read again");
     rig.details.refresh();
-    expect(rig.page.view().buttons.size() == 3 && rig.page.selected() == ui::DetailsAction::Launch,
+    expect(rig.page.view().buttons.size() == 4 && rig.page.selected() == ui::DetailsAction::Launch,
            "the Download button goes and focus is on Play");
     rig.details.act(Button::A);
     expect(rig.launched.size() == 1 && rig.launched[0].ends_with("Emu-1.AppImage"),

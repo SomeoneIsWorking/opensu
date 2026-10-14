@@ -1,4 +1,4 @@
-foreach(name last_device shortcuts)
+foreach(name button_map last_device shortcuts)
     add_executable(${name}_test ${name}_test.cpp)
     target_link_libraries(${name}_test PRIVATE opensu::input)
     target_include_directories(${name}_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui")

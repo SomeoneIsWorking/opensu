@@ -10,6 +10,7 @@
 #include <string_view>
 #include <vector>
 
+#include "chord_capture.hpp"
 #include "gamepad/event.hpp"
 #include "input/shortcuts.hpp"
 #include "preferences.hpp"
@@ -66,11 +67,7 @@ class ShortcutEditor {
     std::function<void()> stopped_;
     std::function<void()> changed_;
     std::optional<input::Action> target_;
-    /// The buttons held while listening, in the order they went down; the first is a chord's
-    /// modifier.
-    std::vector<gamepad::Button> held_;
-    /// B went down with nothing held: its release alone cancels.
-    bool loneB_{false};
+    ChordCapture capture_;
 };
 
 } // namespace opensu::app

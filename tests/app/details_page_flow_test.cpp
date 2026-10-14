@@ -101,6 +101,9 @@ struct Rig {
                          },
                          [this](const std::string& text, bool) {
                              calls.push_back("say " + text);
+                         },
+                         [this](const library::Game& opened) {
+                             calls.push_back("controls " + opened.id);
                          }}} {
     }
 };
@@ -138,6 +141,11 @@ void backClosesWithoutActing(const fs::path& dir) {
     rig.controller.open();
     rig.controller.act(Button::Down);
     rig.controller.act(Button::Down);
+    rig.controller.act(Button::Down);
+    rig.controller.act(Button::A);
+    expect(rig.calls == std::vector<std::string>{"controls rom:/r/Kirby.nsp"} && rig.page.isOpen(),
+           "Controls opens the game's mapping over the page");
+    rig.calls.clear();
     rig.controller.act(Button::Down);
     rig.controller.act(Button::A);
     expect(!rig.page.isOpen() && rig.calls.empty(), "the Back button closes it too");

@@ -36,9 +36,10 @@ class ShortcutRouter {
         std::function<void(const std::string& text, bool error)> say;
     };
 
-    ShortcutRouter(input::Shortcuts& shortcuts, VolumeControl& volume, RetroSession& retro,
-                   Hooks hooks)
-        : shortcuts_{shortcuts}, volume_{volume}, retro_{retro}, chords_{shortcuts},
+    /// `chords` are the chords in force: the table's and the running game's.
+    ShortcutRouter(input::Shortcuts& shortcuts, const input::ChordSet& chords,
+                   VolumeControl& volume, RetroSession& retro, Hooks hooks)
+        : shortcuts_{shortcuts}, volume_{volume}, retro_{retro}, chords_{chords},
           hooks_{std::move(hooks)} {
     }
 

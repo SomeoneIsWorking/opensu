@@ -26,6 +26,7 @@ using opensu::gamepad::Chord;
 using opensu::gamepad::ChordTriggers;
 using opensu::gamepad::EvdevDevice;
 using opensu::gamepad::Event;
+using opensu::gamepad::ForwardMap;
 using opensu::gamepad::OwnVirtualPads;
 using opensu::gamepad::PadEvent;
 using opensu::gamepad::PadInfo;
@@ -81,6 +82,49 @@ class FakePad {
             out.code = event.code;
             out.value = event.value;
             expect(::write(fd_, &out, sizeof(out)) == sizeof(out), "the fake pad takes input");
+        }
+    }
+
+  private:
+    int fd_{-1};
+};
+
+/// A pad's motion sensor node as hid-playstation and hid-nintendo make it: accelerometer and gyro
+/// axes, the accelerometer property, no buttons.
+class FakeMotion {
+  public:
+    explicit FakeMotion(const char* name) {
+        fd_ = ::open("/dev/uinput", O_WRONLY | O_CLOEXEC);
+        expect(fd_ >= 0, "/dev/uinput opens");
+        ioctl(fd_, UI_SET_EVBIT, EV_ABS);
+        ioctl(fd_, UI_SET_PROPBIT, INPUT_PROP_ACCELEROMETER);
+        for (const int axis : {ABS_X, ABS_Y, ABS_Z, ABS_RX, ABS_RY, ABS_RZ}) {
+            ioctl(fd_, UI_SET_ABSBIT, axis);
+            uinput_abs_setup setup{};
+            setup.code = static_cast<std::uint16_t>(axis);
+            setup.absinfo.minimum = -32768;
+            setup.absinfo.maximum = 32767;
+            ioctl(fd_, UI_ABS_SETUP, &setup);
+        }
+        uinput_setup setup{};
+        setup.id.bustype = BUS_USB;
+        setup.id.vendor = 0x054c;
+        setup.id.product = 0x0ce6;
+        std::snprintf(setup.name, sizeof(setup.name), "%s", name);
+        expect(ioctl(fd_, UI_DEV_SETUP, &setup) == 0, "the fake motion node is set up");
+        expect(ioctl(fd_, UI_DEV_CREATE) == 0, "the fake motion node is created");
+    }
+    FakeMotion(const FakeMotion&) = delete;
+    FakeMotion& operator=(const FakeMotion&) = delete;
+    ~FakeMotion() {
+        ioctl(fd_, UI_DEV_DESTROY);
+        ::close(fd_);
+    }
+
+    void tilt(std::int32_t value) const {
+        for (const input_event out :
+             {input_event{{}, EV_ABS, ABS_RX, value}, input_event{{}, EV_SYN, SYN_REPORT, 0}}) {
+            expect(::write(fd_, &out, sizeof(out)) == sizeof(out), "the motion node takes input");
         }
     }
 
@@ -245,7 +289,13 @@ int main() {
         }
     }
 
-    expect(!pads.hold().empty(), "the game is told to read only the virtual pads");
+    // The test pad's motion node, made before the hold as a pad brings it up with its gamepad node.
+    const FakeMotion motion{"opensu test pad Motion Sensors"};
+    std::optional<EvdevDevice> motionNode = openNamed("opensu test pad Motion Sensors");
+    if (!motionNode) {
+        fail("the motion node appears");
+    }
+    expect(!pads.hold({}).empty(), "the game is told to read only the virtual pads");
     std::vector<EvdevDevice> virtualPads = openAllNamed(VirtualPad::name);
     expect(!virtualPads.empty(), "holding gives the pad a virtual pad");
     auto other = openNamed("opensu test pad");
@@ -278,6 +328,18 @@ int main() {
     std::vector<PadEvent> leaked;
     other->read(leaked);
     expect(leaked.empty(), "nothing else reads a held pad");
+    expect(std::ranges::none_of(pads.connected(),
+                                [](const PadInfo& info) {
+                                    return info.name == "opensu test pad Motion Sensors";
+                                }),
+           "a motion node is no pad");
+    // EVIOCGRAB fails with EBUSY while another reader holds the grab.
+    expect(motionNode->grab(), "holding the pads leaves the motion node ungrabbed");
+    motionNode->ungrab();
+    std::vector<PadEvent> tilted;
+    motion.tilt(1200);
+    expect(readUntil(*motionNode, {EV_ABS, ABS_RX, 1200}, tilted),
+           "and its motion reaches a game's reader while the pads are held");
 
     {
         // A game process reading pads, as opensu-retro does: the virtual pad is its controller.
@@ -378,6 +440,39 @@ int main() {
     physical->send({{EV_KEY, BTN_NORTH, 1}});
     leaked.clear();
     expect(readUntil(*other, {EV_KEY, BTN_NORTH, 1}, leaked), "a released pad reaches others");
+    physical->send({{EV_KEY, BTN_NORTH, 0}});
+
+    // The game's mapping: A reaches the virtual pad as B, the shell still hears A.
+    expect(!pads.hold(ForwardMap{{{Button::A, {Button::B}}}, {}}).empty(),
+           "the pads are held with a mapping");
+    std::vector<EvdevDevice> mappedPads = openAllNamed(VirtualPad::name);
+    expect(!mappedPads.empty(), "the mapped hold gives the pad a virtual pad");
+    seen.clear();
+    physical->send({{EV_KEY, BTN_SOUTH, 1}});
+    std::vector<std::vector<PadEvent>> mappedReads(mappedPads.size());
+    bool remapped = false;
+    const auto mappedDeadline = std::chrono::steady_clock::now() + 1s;
+    while (!remapped && std::chrono::steady_clock::now() < mappedDeadline) {
+        for (std::size_t i = 0; i < mappedPads.size(); ++i) {
+            mappedPads[i].read(mappedReads[i]);
+            remapped =
+                remapped || std::ranges::find(mappedReads[i], PadEvent{EV_KEY, BTN_EAST, 1}) !=
+                                mappedReads[i].end();
+        }
+        std::this_thread::sleep_for(5ms);
+    }
+    expect(remapped, "a remapped A reaches the virtual pad as B");
+    for (const auto& reads : mappedReads) {
+        expect(std::ranges::find(reads, PadEvent{EV_KEY, BTN_SOUTH, 1}) == reads.end(),
+               "and never as A");
+    }
+    expect(collect(pads, seen,
+                   [&] {
+                       return pressed(seen, Button::A);
+                   }),
+           "while opensu hears A");
+    physical->send({{EV_KEY, BTN_SOUTH, 0}});
+    pads.release();
 
     seen.clear();
     physical.reset();

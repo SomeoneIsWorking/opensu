@@ -32,6 +32,10 @@ class EmulatorSettings {
 
     /// Searches for the emulators again; the category shows what was found.
     void rescan();
+    /// The catalog's emulators.
+    [[nodiscard]] const library::roms::EmulatorCatalog& catalog() const noexcept {
+        return found_.catalog();
+    }
     [[nodiscard]] ui::SettingsCategory page() const;
     /// Whether the row with `id` is one of this category's.
     [[nodiscard]] static bool owns(const std::string& id);

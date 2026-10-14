@@ -1,7 +1,7 @@
 # Controllers through evdev and uinput: the shell's controls, the pads, the virtual pads a game
 # reads while they are held, and key repeat.
 add_library(opensu_pad STATIC
-    event.cpp chord_gate.cpp direction_repeat.cpp pad_translator.cpp evdev_device.cpp virtual_pad.cpp pads.cpp)
+    event.cpp chord_gate.cpp forward_map.cpp direction_repeat.cpp pad_translator.cpp evdev_device.cpp virtual_pad.cpp pads.cpp)
 add_library(opensu::pad ALIAS opensu_pad)
 target_include_directories(opensu_pad PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_pad PRIVATE lucent::lucent)

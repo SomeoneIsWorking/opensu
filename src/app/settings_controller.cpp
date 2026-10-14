@@ -175,7 +175,7 @@ ui::SettingsCategory SettingsController::audioPage() const {
 }
 
 ui::SettingsCategory SettingsController::controlsPage() const {
-    ui::SettingsCategory page{"controls", "Controls", {}};
+    ui::SettingsCategory page{"controls", "Controls", mappings_.settingsRows()};
     for (const input::Action action : input::allActions) {
         const bool listening = shortcutEditor_.target() == action;
         std::string value = shortcutValue(shortcuts_, action);
@@ -405,6 +405,12 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
     }
     if (id.starts_with(shortcutId) || id == shortcutsResetId || id == chordsOpenId) {
         runControls(id);
+        return;
+    }
+    if (MappingEditor::owns(id)) {
+        sounds_.play(audio::Effect::Navigation);
+        mappings_.runSetting(id, step);
+        refresh();
         return;
     }
     if (ChordSettings::owns(id)) {

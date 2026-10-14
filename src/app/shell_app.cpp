@@ -24,22 +24,6 @@
 #include "ui/section_view.hpp"
 
 namespace opensu::app {
-namespace {
-
-/// The APK files opensu keeps: every UI sound and the dock's icons.
-std::vector<artwork::ApkAsset> iisuAssets() {
-    std::vector<artwork::ApkAsset> assets;
-    assets.reserve(audio::allEffects.size() + artwork::allNavIcons.size());
-    for (const audio::Effect effect : audio::allEffects) {
-        assets.push_back(artwork::soundAsset(effect));
-    }
-    for (const artwork::NavIcon icon : artwork::allNavIcons) {
-        assets.push_back(artwork::navAsset(icon));
-    }
-    return assets;
-}
-
-} // namespace
 
 ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     : environment_{environment}, settings_{settings},
@@ -52,7 +36,7 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
       handoff_{environment_.executablePath, environment_.session, steam_, gameWindows_.get()},
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
-    pads_.setChords(input::chordTriggers(shell_.shortcuts()));
+    gamePads_.syncChords();
     clock_.service(std::chrono::steady_clock::now());
     applyLayout();
 }
@@ -120,7 +104,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     plugins_.request(games_);
     artworkStore_.apply(games_);
     const std::vector<library::Console> consoles = library::consoles(games_);
-    artworkFetcher_.request(games_, consoles, iisuAssets());
+    artworkFetcher_.request(games_, consoles, artwork::allApkAssets());
     delivery_.restart();
     for (const library::Console& console : consoles) {
         const std::filesystem::path glyph = artworkStore_.storedGlyph(console.system);
@@ -212,8 +196,9 @@ void ShellApp::startSignIn(Store store) {
 }
 
 void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
-    if (shortcutEditor_.capturing()) {
+    if (shortcutEditor_.capturing() || mappings_.capturing()) {
         shortcutEditor_.capturePad(incoming);
+        mappings_.capturePad(incoming);
         return;
     }
     const std::vector<gamepad::Event> events = router_.fromPad(incoming);
@@ -455,6 +440,10 @@ void ShellApp::actOn(gamepad::Button button) {
         paths_.act(button);
         return;
     }
+    if (mappings_.active()) {
+        mappings_.act(button);
+        return;
+    }
     if (shell_.devicesPanel().isOpen()) {
         devicesScreen_.act(button);
         return;
@@ -579,9 +568,8 @@ void ShellApp::launch(const library::Game& game) {
     panels_.showLaunch(game.title);
     recordLaunch(game);
 
-    std::vector<std::string> environment = pads_.hold();
+    std::vector<std::string> environment = gamePads_.hold(mappings_.forGame(game));
     environment.push_back(retro_.begin());
-    padsHeld_ = true;
 
     // The thread owns a copy because it outlives this call.
     std::thread{[this, copy = game, environment = std::move(environment)] {
@@ -677,6 +665,7 @@ void ShellApp::toggleQuickMenu() {
 }
 
 void ShellApp::closePages() {
+    mappings_.close();
     details_.close();
     settingsScreen_.close();
     devicesScreen_.close();
@@ -832,7 +821,8 @@ void ShellApp::activateCrumb(std::size_t index) {
 
 ui::HintContext ShellApp::hints() const {
     // The menus draw their own prompts.
-    if (paths_.active() || sessionInstall_.active() || shell_.guidePanels().anyOpen()) {
+    if (paths_.active() || sessionInstall_.active() || shell_.guidePanels().anyOpen() ||
+        mappings_.active()) {
         return ui::HintContext{};
     }
     if (shortcutEditor_.capturing()) {
@@ -893,6 +883,7 @@ void ShellApp::publishSnapshot() {
     next.settingsOpen = shell_.settingsPanels().page().isOpen();
     next.folderPickerOpen = paths_.active();
     next.capturingShortcut = shortcutEditor_.capturing();
+    next.mapping = shell_.mappingPage().state();
     next.volumeShown = shell_.volumeOsd().holding();
     next.chordHint = gamepad::name(shell_.chordHint().modifier().value_or(gamepad::Button::None));
     next.uiScale = preferences_.values().uiScale;
@@ -980,9 +971,8 @@ void ShellApp::serviceRequests() {
         const std::lock_guard lock{launchMutex_};
         launching = launchRunning_;
     }
-    if (padsHeld_ && !launching) {
-        pads_.release();
-        padsHeld_ = false;
+    if (gamePads_.held() && !launching) {
+        gamePads_.release();
     }
     if (const std::optional<launch::LaunchProgress> progress = mailbox_.takeProgress()) {
         const bool measured = progress->stage == launch::LaunchProgress::Stage::Updating;

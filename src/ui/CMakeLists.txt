@@ -5,12 +5,12 @@ target_include_directories(opensu_grid PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(opensu_grid PUBLIC cxx_std_20)
 target_compile_options(opensu_grid PRIVATE -Wall -Wextra -Wpedantic)
 
-# The chrome's models: top bar sizing, clock text, battery icon choice, the Guide menus and the chord list. Pure, so tests link it alone.
+# The chrome's models: top bar sizing, clock text, battery icon choice, the Guide menus, the chord list and the mapping editor. Pure, so tests link it alone.
 add_library(opensu_hud_model STATIC top_bar_metrics.cpp top_bar_layout.cpp corner_hints.cpp clock_text.cpp battery_icon.cpp guide_menu.cpp quick_menu.cpp launch_panel.cpp
     section_view.cpp mode_chooser.cpp dock_metrics.cpp dock_motion.cpp icon_recolour.cpp
     search_panel.cpp context_menu.cpp panel_fade.cpp breadcrumbs.cpp details_page.cpp
     settings_page.cpp folder_chooser.cpp volume_osd.cpp chord_hint.cpp session_dialog.cpp
-    downloads_page.cpp)
+    downloads_page.cpp mapping_page.cpp)
 add_library(opensu::hud_model ALIAS opensu_hud_model)
 target_include_directories(opensu_hud_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_hud_model PUBLIC opensu::grid opensu::library opensu::input)
@@ -23,6 +23,7 @@ add_library(opensu_ui STATIC
     round_shape.cpp image_decoder.cpp row_controls.cpp
     settings_page_painter.cpp folder_chooser_painter.cpp settings_panels.cpp volume_osd_painter.cpp chord_hint_painter.cpp
     session_dialog_painter.cpp session_panels.cpp downloads_page_painter.cpp downloads_panel.cpp
+    mapping_page_painter.cpp hint_row.cpp
     typeface.cpp text_grid.cpp face_metrics.cpp platform.cpp glyph_textures.cpp)
 add_library(opensu::ui ALIAS opensu_ui)
 target_include_directories(opensu_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

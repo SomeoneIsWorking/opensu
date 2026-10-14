@@ -35,6 +35,7 @@
 #include "downloads_controller.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
+#include "game_pads.hpp"
 #include "game_screen.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pads.hpp"
@@ -48,6 +49,7 @@
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
 #include "library/shelf.hpp"
+#include "mapping_editor.hpp"
 #include "panel_flow.hpp"
 #include "path_editor.hpp"
 #include "plugin_service.hpp"
@@ -351,6 +353,24 @@ class ShellApp final : private PointerHost {
                                 [this] {
                                     reloadCatalog();
                                 }}};
+    /// The button mappings, and their page over the details page and Settings › Controls.
+    MappingEditor mappings_{
+        shell_.mappingPage(),
+        settings::MappingStore{environment_.configDir / settings::mappingsFile}, sounds_,
+        shell_.shortcuts(),
+        MappingEditor::Hooks{[this](const std::string& text, bool isError) {
+                                 shell_.setToast(text, isError);
+                             },
+                             [this] {
+                                 settingsScreen_.refresh();
+                             },
+                             [this] {
+                                 std::vector<MappingEditor::Emulator> emulators;
+                                 for (const auto& entry : emulatorSettings_.catalog().entries()) {
+                                     emulators.push_back({entry.id, entry.name});
+                                 }
+                                 return emulators;
+                             }}};
     DetailsController details_{
         shell_.detailsPage(),
         sounds_,
@@ -375,6 +395,9 @@ class ShellApp final : private PointerHost {
                                  },
                                  [this](const std::string& text, bool isError) {
                                      shell_.setToast(text, isError);
+                                 },
+                                 [this](const library::Game& game) {
+                                     mappings_.openGame(game);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
@@ -396,7 +419,7 @@ class ShellApp final : private PointerHost {
     /// The running game's opensu-retro control channel, when it runs on one.
     RetroSession retro_{environment_.runtimeDir};
     /// Where keys, pad chords and the game-time watcher come out as the shell's buttons.
-    ShortcutRouter router_{shell_.shortcuts(), volume_, retro_,
+    ShortcutRouter router_{shell_.shortcuts(), shell_.chords(), volume_, retro_,
                            ShortcutRouter::Hooks{.quit =
                                                      [this] {
                                                          bridge_.requestClose();
@@ -440,7 +463,7 @@ class ShellApp final : private PointerHost {
                                        settingsScreen_.refresh();
                                    },
                                    [this] {
-                                       pads_.setChords(input::chordTriggers(shell_.shortcuts()));
+                                       gamePads_.syncChords();
                                    }};
     /// The Settings screen's Guide chords category.
     ChordSettings chordSettings_{shortcutEditor_, shell_.shortcuts()};
@@ -470,7 +493,7 @@ class ShellApp final : private PointerHost {
         shell_.settingsPanels().page(),
         SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts(),
                                      emulatorSettings_, steamLibrarySettings_, pluginSettings_,
-                                     chordSettings_},
+                                     chordSettings_, mappings_},
         sounds_,
         preferences_,
         environment_,
@@ -494,6 +517,8 @@ class ShellApp final : private PointerHost {
                                       shell_.setToast(text, isError);
                                   }}};
     gamepad::Pads pads_{padsDirectory(environment_.dataDir, settings_.hidden)};
+    /// The pads as the running launch holds them, with its mapping. Main loop only.
+    GamePads gamePads_{pads_, shell_.chords()};
     device::ControllerBatteries padBatteries_;
     /// The pads as the Devices page and the quick menu list them.
     ControllerRoster roster_{ControllerRoster::Sources{[this] {
@@ -583,8 +608,6 @@ class ShellApp final : private PointerHost {
     PointerRouter pointer_{shell_.inputDevice(), *this};
     /// Held directions, from a pad or the keyboard, repeat on one schedule.
     gamepad::DirectionRepeat repeat_;
-    /// The pads are held for the running launch. Main loop only.
-    bool padsHeld_{false};
 
     /// Created after construction, because it drives this shell.
     std::unique_ptr<ControlChannel> control_;
@@ -670,9 +693,7 @@ class ShellApp final : private PointerHost {
         }}};
     /// How the window relates to a running game: the overlay inside Gamescope, hidden elsewhere.
     GameScreen gameScreen_{settings_.hidden, [this](bool blocked) {
-                               if (padsHeld_) {
-                                   pads_.setBlocked(blocked);
-                               }
+                               gamePads_.setBlocked(blocked);
                            }};
     /// The store sign-ins the control channel drives.
     StoreSignIn signIn_;

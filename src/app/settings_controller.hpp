@@ -18,6 +18,7 @@
 #include "gamepad/event.hpp"
 #include "input/shortcuts.hpp"
 #include "library/library_query.hpp"
+#include "mapping_editor.hpp"
 #include "path_editor.hpp"
 #include "plugin_settings.hpp"
 #include "preferences.hpp"
@@ -58,6 +59,7 @@ class SettingsController {
         SteamLibrarySettings& steamLibraries;
         PluginSettings& plugins;
         ChordSettings& chords;
+        MappingEditor& mappings;
     };
 
     /// `defaults` is the environment's configuration, which the settings override.
@@ -66,8 +68,8 @@ class SettingsController {
         : page_{page}, paths_{services.paths}, shortcutEditor_{services.shortcutEditor},
           volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
           steamLibraries_{services.steamLibraries}, plugins_{services.plugins},
-          chords_{services.chords}, sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
-          hooks_{std::move(hooks)} {
+          chords_{services.chords}, mappings_{services.mappings}, sounds_{sounds},
+          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -124,6 +126,7 @@ class SettingsController {
     SteamLibrarySettings& steamLibraries_;
     PluginSettings& plugins_;
     ChordSettings& chords_;
+    MappingEditor& mappings_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;
     const config::Config& defaults_;

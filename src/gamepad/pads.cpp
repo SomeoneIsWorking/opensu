@@ -73,9 +73,10 @@ std::vector<PadInfo> Pads::connected() const {
     return connected_;
 }
 
-std::vector<std::string> Pads::hold() {
+std::vector<std::string> Pads::hold(ForwardMap map) {
     std::unique_lock lock{mutex_};
     wanted_.held = true;
+    wanted_.map = std::move(map);
     wanted_.blocked = false;
     awaitApplied(lock, ++wanted_.serial);
     if (appliedMissed_) {
@@ -87,6 +88,7 @@ std::vector<std::string> Pads::hold() {
 void Pads::release() {
     std::unique_lock lock{mutex_};
     wanted_.held = false;
+    wanted_.map = {};
     wanted_.blocked = false;
     awaitApplied(lock, ++wanted_.serial);
 }
@@ -138,6 +140,7 @@ void Pads::add(const std::filesystem::path& node) {
     }
     auto pad = std::make_unique<Pad>(std::move(*device));
     pad->translator.setChords(applied_.chords);
+    pad->translator.setForwardMap(applied_.map);
     lucent::info("gamepad", "controller connected: {} ({})", pad->device.name(), node.string());
     if (applied_.held && !apply(*pad, true, applied_.blocked)) {
         missed_ = true;
@@ -227,6 +230,12 @@ void Pads::run(const std::stop_token& stop) {
         if (wanted.chords != applied_.chords) {
             for (const auto& pad : pads_) {
                 pad->translator.setChords(wanted.chords);
+            }
+        }
+        if (wanted.map != applied_.map) {
+            // Before a hold, so a new virtual pad resumes from the mapped state.
+            for (const auto& pad : pads_) {
+                pad->translator.setForwardMap(wanted.map);
             }
         }
         if (wanted.held != applied_.held) {

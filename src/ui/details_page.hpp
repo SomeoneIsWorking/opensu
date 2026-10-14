@@ -29,6 +29,8 @@ enum class DetailsAction : std::uint8_t {
     Hidden,
     /// Uninstall an installed store game, on a second press.
     Uninstall,
+    /// Edit the game's button mapping.
+    Controls,
     Back,
 };
 

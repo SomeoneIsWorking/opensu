@@ -2,17 +2,16 @@
 
 namespace opensu::ui {
 
-std::vector<ChordHintRow> chordHintRows(const input::Shortcuts& shortcuts,
-                                        gamepad::Button modifier) {
+std::vector<ChordHintRow> chordHintRows(const input::ChordSet& chords, gamepad::Button modifier) {
     std::vector<ChordHintRow> rows;
-    for (const input::ChordBinding& binding : shortcuts.chordsOn(modifier)) {
-        rows.push_back(ChordHintRow{std::string{input::glyphOf(binding.chord.trigger)},
-                                    std::string{input::label(binding.action)}});
+    for (const input::ChordListing& listing : chords.on(modifier)) {
+        rows.push_back(
+            ChordHintRow{std::string{input::glyphOf(listing.chord.trigger)}, listing.label});
     }
     return rows;
 }
 
-void ChordHint::follow(std::optional<gamepad::Button> modifier, const input::Shortcuts& shortcuts,
+void ChordHint::follow(std::optional<gamepad::Button> modifier, const input::ChordSet& chords,
                        Clock::time_point now) {
     if (modifier == modifier_) {
         return;
@@ -23,7 +22,7 @@ void ChordHint::follow(std::optional<gamepad::Button> modifier, const input::Sho
         return;
     }
     modifierGlyph_ = input::glyphOf(*modifier);
-    rows_ = chordHintRows(shortcuts, *modifier);
+    rows_ = chordHintRows(chords, *modifier);
     fade_.show(now);
 }
 

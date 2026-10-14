@@ -39,6 +39,18 @@ ApkAsset soundAsset(audio::Effect effect) {
     return ApkAsset{AssetKind::Sound, file, std::string{soundDirectory} + file};
 }
 
+std::vector<ApkAsset> allApkAssets() {
+    std::vector<ApkAsset> assets;
+    assets.reserve(audio::allEffects.size() + allNavIcons.size());
+    for (const audio::Effect effect : audio::allEffects) {
+        assets.push_back(soundAsset(effect));
+    }
+    for (const NavIcon icon : allNavIcons) {
+        assets.push_back(navAsset(icon));
+    }
+    return assets;
+}
+
 ApkAsset navAsset(NavIcon icon) {
     const NavEntry& found = *std::ranges::find(navEntries, icon, &NavEntry::icon);
     return ApkAsset{AssetKind::NavIcon, std::string{found.file}, std::string{found.entry}};

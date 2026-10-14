@@ -105,7 +105,7 @@ struct Rig {
           controller{page,
                      app::SettingsController::Services{paths, shortcutEditor, volume, shortcuts,
                                                        emulatorSettings, steamLibrarySettings,
-                                                       pluginSettings, chordSettings},
+                                                       pluginSettings, chordSettings, mappings},
                      sounds,
                      preferences,
                      config,
@@ -257,6 +257,20 @@ struct Rig {
                                            controller.refresh();
                                        }};
     app::ChordSettings chordSettings{shortcutEditor, shortcuts};
+    ui::MappingPage mappingPage;
+    app::MappingEditor mappings{
+        mappingPage, settings::MappingStore{config.configDir / settings::mappingsFile}, sounds,
+        shortcuts,
+        app::MappingEditor::Hooks{[this](const std::string& text, bool error) {
+                                      said.push_back({text, error});
+                                  },
+                                  [this] {
+                                      controller.refresh();
+                                  },
+                                  [] {
+                                      return std::vector<app::MappingEditor::Emulator>{
+                                          {"pcsx2", "PCSX2"}, {"mgba", "mGBA"}};
+                                  }}};
     app::SettingsController controller;
 };
 
@@ -641,6 +655,30 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
            "restore puts every shortcut back");
 }
 
+void mappingsAreReachedFromControls(const fs::path& root) {
+    Rig rig{root / "mappings"};
+    rig.controller.open();
+    rig.enter("Controls");
+    const auto& rows = rig.page.focusedCategory().rows;
+    expect(rows.size() > 3 && rows[0].id == "mapping.global" && rows[1].id == "mapping.emulator" &&
+               rows[1].value == "PCSX2" && rows[2].id == "mapping.steamInput",
+           "the Controls page starts with the mappings and the Steam Input switch");
+    rig.focus("mapping.emulator");
+    rig.controller.act(Button::Right);
+    expect(rig.rowOf("mapping.emulator").value == "mGBA", "Right picks the emulator");
+    rig.focus("mapping.steamInput");
+    rig.controller.act(Button::A);
+    expect(rig.rowOf("mapping.steamInput").on &&
+               settings::MappingStore{rig.config.configDir / settings::mappingsFile}
+                   .load()
+                   .steamInputGlobal(),
+           "A turns Steam Input on for every game and keeps it");
+    rig.focus("mapping.global");
+    rig.controller.act(Button::A);
+    expect(rig.mappings.active() && rig.mappingPage.title() == "Controls · every game",
+           "A opens the global mapping");
+}
+
 void guideChordsAreSetOnTheirPage(const fs::path& root) {
     Rig rig{root / "chords"};
     rig.controller.open();
@@ -885,6 +923,7 @@ int main() {
     interfaceSizeCycles(root);
     shortcutsAreRemappedAndKept(root);
     guideChordsAreSetOnTheirPage(root);
+    mappingsAreReachedFromControls(root);
     steamLibrariesWhileSteamRuns(root / "steam");
     pluginsAskBeforeTheyRun(root / "plugins");
     fs::remove_all(root);

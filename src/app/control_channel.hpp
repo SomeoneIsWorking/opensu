@@ -71,6 +71,8 @@ struct ShellSnapshot {
     bool folderPickerOpen{false};
     /// Whether the Settings screen is waiting for a new shortcut.
     bool capturingShortcut{false};
+    /// The mapping editor's state (`ui::MappingPage::state`), empty while it is closed.
+    std::string mapping;
     /// The system volume as last read (0 to 100) and whether it is muted.
     std::size_t volumePercent{0};
     bool volumeMuted{false};

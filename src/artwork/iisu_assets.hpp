@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "audio/effect.hpp"
 #include "library/sections.hpp"
@@ -51,6 +52,9 @@ inline constexpr std::array allNavIcons{
 /// A dock icon's PNG in the APK. iiSU 0.0.7.4 ships its resources under shrunk names
 /// (`res/TG.png` is `drawable/home.png`), so these are valid for the pinned APK only.
 [[nodiscard]] ApkAsset navAsset(NavIcon icon);
+
+/// Every APK file opensu keeps: each UI sound and each dock icon.
+[[nodiscard]] std::vector<ApkAsset> allApkAssets();
 
 /// The dock icon whose store file is `file`, or nothing.
 [[nodiscard]] std::optional<NavIcon> navIconOfFile(std::string_view file) noexcept;

@@ -7,6 +7,7 @@
 #include <string>
 
 #include "check.hpp"
+#include "input/chord_set.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "input/pad_chords.hpp"
 
@@ -217,7 +218,8 @@ constexpr PadChords::Clock::time_point start{};
 void guideIsATapOrAModifier() {
     using namespace std::chrono_literals;
     const Shortcuts s;
-    PadChords chords{s};
+    const ChordSet set{s};
+    PadChords chords{set};
     auto fed = chords.feed({press(Button::Guide)}, start);
     expect(fed.events.empty() && fed.actions.empty(), "Guide waits for its release");
     fed = chords.feed({press(Button::Guide, false)}, start + 100ms);
@@ -252,7 +254,8 @@ void chordsAreToldFromPresses() {
     expect(s.rebind(Action::VolumeUp, PadChord{Button::L2, Button::Up}).empty() &&
                s.rebind(Action::VolumeMute, PadChord{Button::L2, Button::Left}).empty(),
            "the volume chords move to L2");
-    PadChords chords{s};
+    const ChordSet set{s};
+    PadChords chords{set};
     auto fed = chords.feed({press(Button::Up), press(Button::Up, false)}, start);
     expect(fed.events.size() == 2 && fed.actions.empty(), "Up alone is Up");
     fed = chords.feed({press(Button::L2)}, start);
@@ -286,13 +289,14 @@ void chordsAreToldFromPresses() {
 
 void triggersAreTheBoundChords() {
     Shortcuts s;
-    const opensu::gamepad::ChordTriggers shipped = chordTriggers(s);
+    const ChordSet set{s};
+    const opensu::gamepad::ChordTriggers shipped = set.triggers();
     expect(shipped.holdDelay == holdDelay && shipped.chords.size() == 4 &&
                shipped.chords.contains(PadChord{Button::Guide, Button::A}),
            "the gate is given every bound chord and the hold delay");
     expect(s.rebind(Action::VolumeUp, PadChord{Button::R3, Button::Up}).empty() &&
-               chordTriggers(s).chords.contains(PadChord{Button::R3, Button::Up}) &&
-               !chordTriggers(s).chords.contains(PadChord{Button::L2, Button::Up}),
+               set.triggers().chords.contains(PadChord{Button::R3, Button::Up}) &&
+               !set.triggers().chords.contains(PadChord{Button::L2, Button::Up}),
            "and follows a remap");
 }
 
@@ -317,7 +321,8 @@ void chordsOnAModifier() {
 
 void aLongHoldIsReportedUntilItEnds() {
     const Shortcuts s;
-    PadChords chords{s};
+    const ChordSet set{s};
+    PadChords chords{set};
     static_cast<void>(chords.feed({press(Button::Guide)}, start));
     expect(!chords.longHeld(start + holdDelay - std::chrono::milliseconds{1}),
            "no long hold under the hold delay");
@@ -338,6 +343,51 @@ void aLongHoldIsReportedUntilItEnds() {
            "a long Guide hold released alone ends it and is no Guide press");
 }
 
+void gameChordsJoinTheShells() {
+    using namespace std::chrono_literals;
+    const Shortcuts s;
+    ChordSet set{s};
+    const PadChord save{Button::Select, Button::R1};
+    const PadChord hotkey{Button::Start, Button::A};
+    const PadChord taken{Button::Guide, Button::A};
+    set.setGame({ChordMapping{save, Action::SaveState},
+                 ChordMapping{hotkey, PadOutput{Button::Select, Button::Start}},
+                 ChordMapping{taken, PadOutput{Button::X}}});
+    const opensu::gamepad::ChordTriggers triggers = set.triggers();
+    expect(triggers.chords.contains(save) && triggers.chords.contains(hotkey) &&
+               triggers.chords.size() == 6,
+           "the gates are given the game's chords beside the shell's");
+    expect(set.actionFor(save) == Action::SaveState && !set.actionFor(hotkey) &&
+               set.actionFor(taken) == Action::QuickMenu,
+           "a game chord's action plays, one that sends buttons does not, and the shell's wins");
+    expect(set.on(Button::Start) ==
+               std::vector<ChordListing>{{hotkey, "Sends Select + Start", true}},
+           "Start lists the game chord it holds");
+    expect(set.on(Button::Guide).size() == 4, "a game chord the shell has is not listed");
+
+    PadChords chords{set};
+    auto fed = chords.feed({press(Button::Select), press(Button::R1)}, start);
+    expect(fed.events.empty() && fed.actions == std::vector{Action::SaveState},
+           "Select + R1 saves the state");
+    static_cast<void>(chords.feed({press(Button::R1, false), press(Button::Select, false)}, start));
+    fed = chords.feed({press(Button::Start), press(Button::A)}, start + 1s);
+    expect(fed.events.empty() && fed.actions.empty(),
+           "Start + A reaches neither the shell's buttons nor its actions");
+    static_cast<void>(
+        chords.feed({press(Button::A, false), press(Button::Start, false)}, start + 1s));
+    fed = chords.feed({press(Button::Start)}, start + 2s);
+    fed = chords.feed({press(Button::Start, false)}, start + 2s + 100ms);
+    expect(fed.events.size() == 2 && fed.events[0].button == Button::Start,
+           "a Start tap is still Start");
+    static_cast<void>(chords.feed({press(Button::Start)}, start + 3s));
+    expect(chords.longHeld(start + 3s + holdDelay) == Button::Start,
+           "Start held long is reported, so its chords are listed");
+
+    set.setGame({});
+    expect(set.triggers().chords.size() == 4 && set.on(Button::Start).empty(),
+           "the game's chords go with it");
+}
+
 } // namespace
 
 int main() {
@@ -354,6 +404,7 @@ int main() {
     quickMenuHasItsDefaults();
     chordsOnAModifier();
     aLongHoldIsReportedUntilItEnds();
+    gameChordsJoinTheShells();
     std::printf("shortcuts: all checks passed\n");
     return 0;
 }

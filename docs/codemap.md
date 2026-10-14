@@ -36,7 +36,7 @@ gitignored `docs/reference/`).
 | `src/app/preferences.*` | The loaded `settings::Settings` and saving them, with a toast when the file cannot be written |
 | `src/app/search_controller.*` | The search panel's pad buttons and keyboard text; the typed text is the view's search |
 | `src/app/context_menu_controller.*` | Opening the focused tile's menu and what its entries do (launch, update, details, hide/unhide, open, refresh, sign in, uninstall on a second press) |
-| `src/app/details_controller.*` | The details page's buttons: open for the focused game, Play or Install, Update, the emulator pick, Download <emulator> (start or cancel the emulator download), Hide, Uninstall (two presses), Back; keeps the page current as the library changes |
+| `src/app/details_controller.*` | The details page's buttons: open for the focused game, Play or Install, Update, the emulator pick, Download <emulator> (start or cancel the emulator download), Hide, Uninstall (two presses), Controls (the game's mapping), Back; keeps the page current as the library changes |
 | `src/app/update_request.*` | Update on the details page and the tile menu: one press starts `Installs::update` and tells the player, or tells why not |
 | `src/app/steam_update_job.*` | A Steam update asked for, as an `InstallJob`: starts the pending update as Steam's library Update button does (`DownloadControl::moveToTop`, `ResumeAppUpdate`) and ends; Steam's queue row carries it |
 | `src/app/uninstall_prompt.*` | The two presses of Uninstall the details page and the tile menu share: the first asks `Installs` what goes (or says why not), the second starts it |
@@ -50,14 +50,17 @@ gitignored `docs/reference/`).
 | `src/app/path_editor.*` | Choosing a folder on the chooser or typing a path; one request at a time, refusals shown with their reason |
 | `src/app/artwork_delivery.*` | Hands saved artwork, store contents and UI sounds to the shell and sound player |
 | `src/app/volume_control.*` | The volume actions onto `SystemVolume` and its backend; polling; the OSD listener |
-| `src/app/shortcut_editor.*` | The remap capture: pick an action, press the new combo or pad chord (the first button held, then another; B alone cancels on release), refusals; restores every shortcut or only the chords |
+| `src/app/shortcut_editor.*` | The remap capture: pick an action, press the new combo or pad chord (heard by `ChordCapture`), refusals; restores every shortcut or only the chords |
+| `src/app/chord_capture.*` | Hears one pad chord from raw pad events: the first button held, then another; B alone cancels on release (the shortcut and mapping editors) |
+| `src/app/mapping_editor.*` | The button mappings (`docs/issues/per-game-button-mappings.md`): loads and saves them through `MappingStore`, resolves a game's at launch (`forGame`, `mappingKeys`), and drives the mapping page for a game's, an emulator's or the global map (pick lists, chord capture, refusals, Steam Input); Settings › Controls' mapping rows |
+| `src/app/game_pads.*` | Holding the pads for a game with its mapping: the pads' `ForwardMap` and the game's chords in the `ChordSet`, released together |
 | `src/app/chord_settings.*` | Settings › Guide chords: one row per action a chord can do, its chord, the capture through `ShortcutEditor`, restore the shipped chords |
 | `src/app/shortcut_router.*` | Keys, pad events and game keys onto shell events and actions through `Shortcuts`; every action that is not a button is done here (quick menu, volume, quit, and the game actions, with a toast when no game runs) |
 | `src/app/frame_png.*` | The drawn shell as PNG bytes, for the control channel's frame and `--render` |
 | `src/app/panel_flow.*` | The launch/install panel flow taken out of `shell_app.cpp` |
 | `src/app/launch_mailbox.*` | What the launch and sign-in threads hand the loop: the game-running flag, the latest progress line, the next toast |
 | `src/app/pointer_router.*` | The mouse onto the shell's actions: hover focus on a moved pointer, left click = focus + A (or the dock, page, breadcrumb and panel-button action), right click = the target's context menu (never B), wheel = a pad step; asks `PointerHost` (`ShellApp`) what is under the pointer |
-| `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input (`guide+a` holds buttons together, `guide 1500ms` holds them that long), frames, `/signin/<store>[/start]`; `/state` includes `armed` (a two-press button waiting) and the Downloads page's rows |
+| `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input (`guide+a` holds buttons together, `guide 1500ms` holds them that long), frames, `/signin/<store>[/start]`; `/state` includes `armed` (a two-press button waiting), `mapping` (the mapping page: `rows`, `picking`, `listening` or empty) and the Downloads page's rows |
 | `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
 | `src/app/install_job.*` | The store-neutral job on a game (each install, update and uninstall): its thread, the latest report the loop takes, its state for any reader (`status`), the licence answer, the player's cancel |
@@ -67,6 +70,7 @@ gitignored `docs/reference/`).
 | `src/app/uninstall_job.*` | One store game uninstalled as an `InstallJob`: Steam through `steam::Uninstaller` until its manifest goes, Epic with `legendary uninstall <app> -y`, GOG by deleting the recorded folder only inside its gogdl root, then forgetting the record; never a Wine prefix or a ROM |
 | `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, the XDG bases plugin paths expand from, legendary's config dir, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) and the libretro runner beside the executable (`retroRunnerBeside`); the runner's saves and system folders (`savesDir`, `retroSystemDir`); the runtime dir (`runtimeDir`) and the runner's control file (`retroControl`, from `OPENSU_RETRO_CONTROL`) |
 | `src/settings/settings.*` | The player's saved preferences (Library layout, dock pin, icon size, sort and filters, hidden games, last-played times, Settings-screen choices, interface scale, install folders, shortcut remaps, plugins turned on or off with the permissions granted) as JSON under the config dir; defaults on a missing or corrupt file |
+| `src/settings/mapping_store.*` | `mappings.json` under the config dir: every scope's `ButtonMap` and the Steam Input switch, written whole and atomically; a damaged file or entry warned and left out |
 | `src/settings/install_folders.*` | The one resolver of where a store installs: a store's override, else the default, else none (the store's own choice); `resolve` adds the store's own folder and says which of the three applies; validation (exists, writable) |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
 | `src/zip/zip_archive.*` | The one zip reader: end record, central directory, local header offset, checked extraction, an in-memory archive, and the CRC-32 (`crc32Of`) zips and libretro listings are checked with; used by artwork and core downloads |
@@ -149,7 +153,7 @@ gitignored `docs/reference/`).
 | `src/artwork/apk_archive.*` | iiSU's release APK read by HTTP ranges: central directory once, any entry by range with its CRC checked; `fetch` is find and extract with a found/missing/failed result (glyphs, sounds and nav icons use it) |
 | `src/artwork/starter_pack.*` | iiSU's starter pack: its entry taken out of the APK against a pin, and a system's card (WebP, decoded and re-encoded by `gpu2d::image`) as PNG |
 | `src/artwork/console_glyphs.*` | iiSU's frame glyphs: `border_pack.json` read once, a system's `logo_*.png` out of the APK |
-| `src/artwork/iisu_assets.*` | Which APK entry is each UI sound and each dock icon (the nav table is valid for the pinned APK only) |
+| `src/artwork/iisu_assets.*` | Which APK entry is each UI sound and each dock icon (the nav table is valid for the pinned APK only), and all of them (`allApkAssets`) |
 | `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds openSU plays (`yp8`): effect to APK file name, the Domino cues and `dominoFor(tileCount)` (`xp8.a`), the 91 ms repeat rule for Enter/ExitConsolesApps and the Domino cues; pure (`opensu_audio_model`) |
 | `src/audio/volume_backend.*` | PC output volume through wpctl or pactl (injectable runner), a read-only shadow for hidden runs, the install advice when no backend exists |
 | `src/audio/system_volume.*` | Volume and mute state, steps, one listener, async polling of changes made elsewhere |
@@ -159,15 +163,19 @@ gitignored `docs/reference/`).
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`) (`opensu_pad`) |
-| `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls; analogue triggers as L2/R2 with hysteresis (`triggerPressAt`, `triggerReleaseAt`); what reaches the virtual pad passes the pad's `ChordGate` |
+| `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls; analogue triggers as L2/R2 with hysteresis (`triggerPressAt`, `triggerReleaseAt`); what reaches the virtual pad passes the pad's `ChordGate` and the game's `ForwardMap` (remapped buttons, a game chord's outputs held while it is); the shell's controls are never mapped |
 | `src/gamepad/chord_gate.*` | The one chord rule (`Chord`, `ChordTriggers`, `ChordGate`): a bound modifier is held back, a bound trigger while it is held is the chord and both stay back, another button lets the modifier out first, a lone modifier released under the hold delay is a tap and after it nothing; a modifier held alone for the hold delay is reported once as a long hold, and its end once (`tick`); used by the shell's controls and the game's virtual pad alike |
+| `src/gamepad/forward_map.*` | `ForwardMap`: what each pad button and game chord sends to the virtual pad (`padButtons`), as the pads take it |
 | `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads; whether a reader takes opensu's own virtual pads (`OwnVirtualPads`: the shell skips them, `opensu-retro` reads them) |
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
-| `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game and blocks them while a menu or page is up; keeps bound chords from the game (`setChords`); lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
+| `src/gamepad/pads.*` | Every pad, read always and hot-plugged; holds them during a game with its `ForwardMap` (`hold`) and blocks them while a menu or page is up; keeps bound chords from the game (`setChords`); never opens motion or hidraw nodes; lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
 | `src/input/shortcuts.*` | The one chord table: every `Action` (pad buttons, Guide, volume, Quit, and the game actions Close game, Save state, Load state, Reset game, Devices, Downloads, Home) with its default key combos and pad chords (any button may be the held one), the player's overrides (`rebind`, with conflict refusals), labels and settings spellings, the chords on one modifier (`chordsOn`), each button's glyph key (`glyphOf`, `buttonOfGlyph`) |
 | `src/input/key_names.*` | The shell's key codes (`input::keys`, GLFW's numbering, letters as ASCII) and their names: `Combo`, modifiers, bindable keys, X11 key names for the in-game watcher |
-| `src/input/pad_chords.*` | Pad chords in the shell's controls: the bound chords as `ChordTriggers` (`chordTriggers`), the hold delay (`holdDelay`, 500 ms), one `ChordGate` per source, the action each chord plays, and the modifier long held now (`longHeld`) |
+| `src/input/pad_chords.*` | Pad chords in the shell's controls: the `ChordSet`'s triggers, one `ChordGate` per source, the action each chord plays, and the modifier long held now (`longHeld`) |
+| `src/input/chord_set.*` | The chords in force: the shell's and the running game's (a chord both bind is the shell's), the hold delay (`holdDelay`, 500 ms), the action a chord plays (`actionFor`) and the chords on one modifier for the chord list (`on`) |
+| `src/input/button_map.*` | `ButtonMap`: what each pad button sends and the game chords (pad buttons or an action), refusals (Guide is openSU's), names (`describe`), and the pads' `ForwardMap` made from it (`forwardMap`) |
+| `src/input/mapping_scopes.*` | The mapping scopes (game, emulator, global) and the Steam Input switch (global, per game); `resolve` picks a game's map, none while Steam Input has it |
 | `src/input/prompts.hpp` | `Prompts`: the last device and the shortcuts, so key caps in hints follow remaps |
 | `src/input/keyboard_bindings.*` | `KeyFrame` (one frame's key downs, ups, repeats and typed text), `KeySource`, the frame's pressed `Combo`, and typed text; the keys themselves come from `Shortcuts` |
 | `src/input/last_device.*` | Which device (pad, or keyboard and mouse) gave the latest real input; read by the prompt painters |
@@ -274,7 +282,7 @@ Painters and composition (`opensu_ui`):
 | `src/ui/settings_panels.*` | The Settings screen and what opens over it (folder chooser, on-screen keyboard): their state, fades and painters as one object |
 | `src/ui/folder_chooser.*`, `folder_chooser_painter.*` | The console-friendly folder chooser: model and painter |
 | `src/ui/volume_osd.*`, `volume_osd_painter.*` | The volume overlay: model (hold, fade) and painter |
-| `src/ui/chord_hint.*`, `chord_hint_painter.*` | The held modifier's chord list (partner glyph and action per chord, `chordHintRows`), shown while it is long held and faded out after; its centred panel painter |
+| `src/ui/chord_hint.*`, `chord_hint_painter.*` | The held modifier's chord list from the `ChordSet` (partner glyph and action, or what a game chord sends, per chord, `chordHintRows`), shown while it is long held and faded out after; its centred panel painter |
 | `src/ui/status_pill.*`, `glass.*` | The one status pill painter: clock, battery and the launchers inline, on a glass body |
 | `src/ui/launcher_badges.*` | Launcher logos with status dots, the starting spinner and the download ring, drawn by the status pill painter; the hover light |
 | `src/ui/breadcrumb_painter.*`, `details_page_painter.*` | The breadcrumb pill; the details page (cover, backdrop, title, badge, rows, buttons) |
@@ -284,6 +292,8 @@ Painters and composition (`opensu_ui`):
 | `src/ui/dock_painter.*` | The dock capsule: glass, nav icons, LB/RB badges |
 | `src/ui/mode_chooser_painter.*` | The options panel: the cards after iiSU's chooser, with sketched previews, then the slider and switch rows |
 | `src/ui/search_panel_painter.*`, `context_menu_painter.*` | The search panel with its keyboard and the tile context menu |
+| `src/ui/hint_row.*` | A row of button prompts with labels, centred in a band (`paintHintRow`), for the context menu and the mapping page |
+| `src/ui/mapping_page.*`, `mapping_page_painter.*` | The mapping page: title, note, rows (glyphs, label, what it sends), the pick list and the listening state, focus and scrolling layout; its card painter |
 | `src/ui/guide_menu_painter.*`, `quick_menu_painter.*` | The Guide menu on the left and the quick menu on the right, over the home screen or a running game |
 | `src/ui/guide_panels.*` | The Guide and quick menus with their painters and the one hit test |
 | `src/ui/session_dialog_painter.*`, `session_panels.*` | The dialog's painter (wrapped paragraphs, pill buttons with pad glyphs); the dialog and the password keyboard (a secret `SearchPanel`: dots, Caps, wiped on close) with their fades and one hit test |
