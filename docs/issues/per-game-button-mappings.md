@@ -1,35 +1,83 @@
 # Custom button mappings per game and per emulator, with chords
 
-Status: open.
+Status: partial. Model, store, scopes, forward path, game chords, editor and the Steam Input
+switch are built and tested; key outputs, the switch reaching Steam and the hardware checks below
+are not.
 
 Requested: "custom button mappings for games and emulators (emulated games can share config) and
 again allow chord buttons".
 
-## Current state
+## Built
 
-- **Native games** read one uinput Xbox 360 pad (045e:028e) per physical pad
-  (`gamepad/virtual_pad`). `gamepad/pad_translator:PadTranslator::translate` fills it with a fixed
-  code-for-code mapping (`forwardedKeys`, axes rescaled, button d-pad turned into the hat). Nothing
-  can be remapped. SDL games get `SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e` from
-  `Pads::hold`.
-- **Built-in emulator games** (`opensu-retro`) read every pad without grabbing, the shell's virtual
-  pad included (`retro/runner_app.cpp:openPads`, `OwnVirtualPads::Read`). While the shell holds the
-  pads, the physical ones are grabbed, so the runner only sees the virtual pads.
-  `retro/joypad:Joypad` maps `gamepad::Button` to `RETRO_DEVICE_ID_JOYPAD_*` with one fixed table
-  (`buttonIds`, Xbox positions) and a fixed keyboard table. `docs/design/libretro.md` §1 states "one
-  controller mapping for every core" as the goal, so this card changes that goal. Every pad is
-  merged into port 0, and there are no analogue sticks (S032 gaps).
-- **Standalone emulators** (`library/emulators`, `assets/emulators.json`) read the virtual pad
-  through their own input config. The catalog knows each emulator's settings folder
-  (`EmulatorEntry::config`), but openSU never writes it.
-- **Steam games** get Steam's environment, not the SDL hint. Steam Input reads hidraw where a pad
-  has it, and a grab does not cover hidraw (project-state S023 to S025 gaps). An xone pad has no
-  hidraw, so Steam reads the virtual pad.
-- The precedent for "a game's own setting, else a shared one" is
-  `library/emulator_choice:EmulatorChoices`, which picks a game's emulator, else its system's, and
-  keeps both in `settings.json`.
-- Shell chords exist (`input/shortcuts`, `input/pad_chords`; see `guide-chord-configuration.md`).
-  Game chords do not.
+- **Model** (`input/button_map`): a `ButtonMap` keeps what each pad button sends (`PadOutput`, a
+  set of pad buttons: one, several such as Select + Start, or none) and a list of chords, each
+  sending a `PadOutput` or performing a shell `Action` a chord can do (`takesPadChord`). Guide is
+  openSU's: it is never mapped, never an output, and never part of a game chord. A button row
+  takes pad outputs only; actions are only on chords. `forwardMap` turns a map into the pads'
+  `gamepad::ForwardMap` (`gamepad/forward_map`), leaving out action chords and any chord the
+  shell binds.
+- **Scopes** (`input/mapping_scopes`): game, else its emulator (catalog id, from
+  `app/mapping_editor:mappingKeys`), else global, else every button sends itself. Each scope's
+  map is whole: a game's own map replaces its emulator's, it does not merge. The Steam Input
+  switch is global plus an optional per-game choice; while it has a game, `resolve` gives no
+  mapping.
+- **Store** (`settings/mapping_store`): `<config>/opensu/mappings.json`
+  (`{"global", "emulators": {id}, "games": {id}, "steamInput": {"global", "games"}}`), written
+  whole through `fileio::writeWhole` (temp file and rename). A damaged file or entry is warned
+  and left out.
+- **Forward path**: at launch the shell resolves the game's map (`MappingEditor::forGame`) and
+  `app/game_pads:GamePads::hold` gives the pads its `ForwardMap` and the chord set its chords.
+  `PadTranslator` applies it to the virtual pad only; the shell's controls stay unmapped, so the
+  Guide menu and every shell page navigate as before. A trigger mapped to a trigger keeps its
+  travel. `opensu-retro` reads the virtual pad, so it gets the same mapping with
+  `retro/joypad`'s one fixed table unchanged.
+- **Game chords** (`input/chord_set:ChordSet`): the shell's chords plus the running game's. A
+  chord both bind is the shell's. The gate's rule applies to game chords too: the modifier tapped
+  under the hold delay reaches the game (as its mapped output), held it is a modifier, and a
+  chord's buttons never reach the game. A pad chord's outputs are held until either button is
+  released. An action chord goes through `app/shortcut_router` like a shell chord. While a game
+  runs, its chords' modifiers are chord modifiers for the shell's gate too.
+- **Chord list**: holding a modifier lists the shell's chords on it, then the game's ("Sends
+  Select + Start" for a pad chord, the action's name otherwise) (`ui/chord_hint`).
+- **Editor** (`app/mapping_editor`, `ui/mapping_page` with `ui/mapping_page_painter`): the
+  details page's Controls button opens the game's own map; Settings › Controls opens the global
+  map, an emulator's (Left and Right pick the emulator, A opens it), and has the global Steam
+  Input toggle. Rows: Steam Input (game page only: as every game, On, Off), one per pad button,
+  one per chord, Add a chord, and a reset to what the scope inherits. A button row and a chord
+  row put up a list to pick from; Add a chord listens for a held button and another
+  (`app/chord_capture`, shared with `ShortcutEditor`) and refuses Guide and the shell's chords.
+  The page shows the inherited map until the first change, which makes it the scope's own.
+- **Steam Input**: while on for a game, its page says "no mapping applies; openSU's chords still
+  work", and a button row or Add a chord is refused with "Steam Input has this game's controls;
+  turn it off here to map its buttons". Shell chords keep working. A Steam game's page also notes
+  that Steam may read the pad itself.
+- **Motion**: `Pads` grabs a pad's gamepad evdev node only. A "Motion Sensors" node has no
+  `BTN_SOUTH` and is never opened; hidraw is never opened. `pads_test` holds a fake motion node
+  (`INPUT_PROP_ACCELEROMETER`) while the pads are held: it is not a pad, the test's own grab of it
+  succeeds, and its events stay readable.
+
+### Decisions
+
+- Shared config is per emulator, not per system.
+- A button row is edited by picking from a list, not by pressing the new output: B is both an
+  output and the way back.
+- A mapped chord on Start: a tap of Start under the hold delay sends Start's mapped single-press
+  output, a hold plays the chord.
+- A changed mapping applies the next time the shell holds the pads (the next launch).
+
+## Not built
+
+- **Key outputs** (a standalone emulator's keyboard hotkeys via XTest or a uinput keyboard). A
+  third `ChordOutput` alternative would carry them; nothing else in the model changes.
+- **How the switch reaches Steam.** openSU stores the switch and applies its own side (no mapping
+  while on). Still to measure on a running client: whether Steam honours the per-app
+  `UseSteamControllerConfig` in `localconfig.vdf` or needs a `SteamClient` call, and whether
+  handing Steam openSU's virtual pad is workable (Steam would also see the hidraw pad: doubled
+  input).
+- A quick menu Controls row for editing in game, and a live re-apply while the pads are held.
+- Pointer input on the mapping page (pad and keyboard only).
+- A `runner_test` run of `opensu-retro` against a remapped virtual pad; `pads_test` covers the
+  virtual pad it reads.
 
 ## iiSU reference
 
@@ -40,118 +88,38 @@ only input mapping is the global "Swap A/B and X/Y" (`swap_abxy`, `jj2.V`, `so7.
 card is therefore openSU's own design. iiSU's swap A/B maps onto a global profile with A↔B and X↔Y
 swapped.
 
-## Gap
-
-There is no mapping model, no store, no scope resolution, no editor, and no place where a mapping is
-applied. Game chords (a held modifier plus a button producing an output for the game) do not exist.
-
-## Proposed owners and design
-
-### Data model (`input/button_map.*`)
-
-- A `ButtonMap` has the following parts:
-  - `buttons`: a map from a physical `gamepad::Button` to an `Output`.
-  - `chords`: a list of `{PadChord, Output}`.
-  - Later, `swapSticks` and `invertY` flags.
-- An `Output` is one of:
-  - a virtual pad button (or none, which disables the button);
-  - a set of virtual pad buttons pressed together, so one chord can send an emulator hotkey such as
-    Select + Start;
-  - a key with modifiers (`input::Combo`), for a standalone emulator's keyboard hotkeys;
-  - a shell `Action` (Save state, Load state, Close game, and so on).
-- The mapping is expressed in the controls `Event` already names, so it stays independent of
-  device and core.
-
-### Scopes and "emulated games share config" (`input/mapping_scopes.*`)
-
-Resolution is: game override, else emulator profile, else global profile, else identity.
-
-- The game key is `Game::id`.
-- The emulator key is the catalog id of the emulator the ROM launches with (`Game::emulator` after
-  `EmulatorChoices::apply`). Every game that runs on PCSX2, or on the built-in mGBA, shares that
-  profile. A per-game override replaces the whole map, not single buttons, so what applies is
-  always one visible map.
-- Native store games have only the game and global scopes.
-- One `ButtonMap` per scope, stored separately from the shell's shortcut table.
-
-### Store (`settings/mapping_store.*`)
-
-`<config>/opensu/mappings.json`, written atomically like `settings::Store`, with keys
-`global`, `emulators.<id>` and `games.<id>`. It is kept out of `settings.json` because profiles grow
-per game.
-
-### Where a mapping is applied
-
-1. **Every game the shell holds pads for** (native, standalone emulators, `opensu-retro`):
-   `Pads::hold` takes a `gamepad::ForwardMap`. This is a plain struct in the gamepad layer, made
-   from the resolved `ButtonMap` by the shell (it holds the button remaps plus the chord triggers
-   from `guide-chord-configuration.md`). `PadTranslator` applies it on the forward path only. The
-   controls the shell reads stay unmapped, so Guide-menu navigation never changes. A button
-   output, or a set of buttons, is written to the virtual pad. A chord's trigger is held back.
-   Because `opensu-retro` reads the virtual pad, one mechanism covers built-in games, with no
-   second mapping in `retro/joypad`.
-2. **Key outputs** (standalone emulator hotkeys such as F1 for a save state) are injected into the
-   game's X display with XTest by a new `session/game_key_injector.*`. It sits beside
-   `session/game_keys`, which already opens that display with XInput2. This needs a measurement
-   under nested and session Gamescope first. The alternative is a second uinput device, a keyboard,
-   which works without X but is seen by the desktop in nested mode.
-3. **Action outputs** go to `app/shortcut_router` on the loop. Retro state actions go through
-   `app/retro_session`.
-4. **Steam games** get the virtual pad mapping only where Steam reads the virtual pad (no hidraw).
-   Where Steam Input reads hidraw, Steam's own per-game configuration wins and openSU cannot
-   override it without running Steam's configurator, which is a Steam window the baseline forbids
-   ("No store client window is ever opened"). The editor must say so for Steam games. Hiding
-   hidraw from Steam would need a udev rule (root) and is out of scope.
-
-### Steam Input (user direction)
-
-A Steam Input switch, global and per game, owned by the mapping store. While Steam Input is on for
-a game, openSU refuses button mappings for it and says why in the editor; shell chords still work.
-With it off, openSU's mapping applies. Open: how the switch reaches Steam (the per-app
-`UseSteamControllerConfig` in `localconfig.vdf`, or a `SteamClient` call; measure which one the
-client honours while running), and whether handing Steam openSU's virtual pad instead is
-workable (Steam would then see the remapped pad, but also the hidraw pad: doubled input).
-
-### Motion sensors (user requirement)
+## Motion sensors: measurement still needed
 
 Emulators with gyro support (Cemu, Dolphin, Eden, Citra and others) must still get the real pad's
-motion. `Pads::apply` grabs only the pad's gamepad evdev node; the kernel's separate
-"Motion Sensors" node and the hidraw node are never grabbed, so motion likely still reaches an
-emulator, but nobody has measured it. To measure on a DualSense or Switch Pro: run an emulator
-under openSU with the pad held and check its gyro input. Related risk to measure at the same time:
-SDL's HIDAPI drivers read hidraw directly, so an SDL emulator may see the real pad's buttons too
-(doubled input, and remaps bypassed). If so, the fix belongs here before remapping can be trusted:
+motion. `pads_test` shows a motion node is never grabbed and stays readable while the pads are
+held; whether an emulator then reads it has not been seen. To measure on a DualSense or Switch
+Pro: run an emulator under openSU with the pad held and check its gyro input. Measure at the same
+time whether SDL's HIDAPI drivers, which read hidraw directly, let an SDL emulator see the real
+pad's buttons too (doubled input, and the mapping bypassed). If so, the fix belongs here:
 `SDL_JOYSTICK_HIDAPI=0` in the game's environment (motion then comes from the evdev motion node),
 or a virtual pad that carries motion.
 
-### Editor (`app/mapping_editor.*`, `ui/mapping_page.*` with its painter)
-
-- It opens from the details page as a new `DetailsAction::Controls`, for the game's own map or, on
-  a ROM, its emulator's. It also opens from Settings › Controls for the global profile, and from
-  Settings › Emulators for each emulator's profile.
-- It has one row per physical button showing its output. A captures the next button press as the
-  new output, mirroring `ShortcutEditor`. Chords are added by holding a modifier and pressing a
-  button, then picking the output from a list.
-- Key outputs are typed on the existing on-screen keyboard walk.
-- "Reset to emulator profile" and "Reset to global" are offered.
-- While a game runs, the quick menu gains a "Controls" row so a mapping can be edited in game. It
-  applies on the next `hold`. A live re-apply needs `Pads` to accept a new map while held.
-
 ## Tests
 
-- `button_map` and `mapping_scopes` unit tests: resolution order and that an override is a whole
-  map.
-- `mapping_store`: round trip and corrupt-file defaults.
-- `pad_translator` with a `ForwardMap`: a remapped forward, the controls left unmapped, a chord
-  output, and a held-back trigger.
-- `pads` against uinput: a remapped A reaches the virtual pad as B.
-- `runner_test`: `opensu-retro` reading a remapped virtual pad.
+- `button_map`: what a map takes and refuses, names, `forwardMap` (shell chords left out), scope
+  resolution order, whole-map override, Steam Input global and per game.
+- `mapping_store`: round trip, missing and damaged file, damaged entries left out, a save into a
+  folder that cannot be written fails and leaves the old file whole with nothing beside it.
+- `mapping_editor`: a game's page, a pick kept on disk, an emulator's map shared and copied into a
+  game's own, a chord heard then given an output or an action or removed, Guide and shell chords
+  refused, Steam Input refusing and dropping the mapping, Settings › Controls rows.
+- `pad_translator`: a mapped button, a mapped trigger's travel, Guide never mapped, a game chord
+  holding its outputs, a mapped Start tap.
+- `pads` (uinput): a remapped A reaches the virtual pad as B while the shell hears A; a motion
+  node is never grabbed.
+- `shortcuts`, `chord_hint`: game chords join the shell's, the list shows them.
+- `settings_controller`: the Controls page's mapping rows.
+- Parity scenes `game-mapping`, `mapping-picker`, `global-mapping`.
 
-## Open questions
+## Only on hardware
 
-- Should "share config" be per emulator (proposed) or per system? It matters for multi-system
-  emulators: built-in mGBA covers GB, GBC and GBA, and Mesen covers NES and SNES. Per system would
-  add a scope between the game and the emulator.
-- Global profile: decided — it applies to native games and emulators alike.
-- Steam Input: decided — a global and per-game switch; mappings refused while it is on, chords
-  kept (see above).
+- A real pad remapped in a native game, an SDL game and a standalone emulator.
+- A Steam game whose pad Steam reads through hidraw (the mapping does not reach it).
+- Gyro in Cemu, Dolphin or Eden with the pad held (the motion node above).
+- A Start tap in a game that polls.
+- Doubled input from SDL's HIDAPI drivers reading hidraw in an emulator.

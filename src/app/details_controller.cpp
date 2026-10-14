@@ -108,6 +108,9 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::Uninstall:
         uninstall(*game);
         break;
+    case ui::DetailsAction::Controls:
+        hooks_.controls(*game);
+        break;
     case ui::DetailsAction::Back:
         break;
     }

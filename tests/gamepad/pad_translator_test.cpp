@@ -18,6 +18,7 @@ using opensu::gamepad::Chord;
 using opensu::gamepad::ChordGate;
 using opensu::gamepad::ChordTriggers;
 using opensu::gamepad::Event;
+using opensu::gamepad::ForwardMap;
 using opensu::gamepad::PadCapabilities;
 using opensu::gamepad::PadEvent;
 using opensu::gamepad::PadTranslator;
@@ -250,6 +251,95 @@ void unknownCodesDropped() {
     expect(run.forward.empty() && run.controls.empty(), "scan codes and touchpad stay behind");
 }
 
+void aMappedButtonSendsItsOutput() {
+    PadTranslator pad{switchPro()};
+    pad.setForwardMap(ForwardMap{{{Button::A, {Button::B}}, {Button::B, {}}}, {}});
+    Run run = feed(pad, {{EV_KEY, BTN_SOUTH, 1}});
+    expect(run.forward == Events{{EV_KEY, BTN_EAST, 1}}, "A mapped to B reaches the game as B");
+    expect(reports(run, Button::A, true) && !reports(run, Button::B, true),
+           "while opensu's own controls still hear A");
+    run = feed(pad, {{EV_KEY, BTN_EAST, 1}});
+    expect(run.forward.empty() && reports(run, Button::B, true),
+           "B mapped to nothing sends nothing, and opensu still hears B");
+    run = feed(pad, {{EV_KEY, BTN_SOUTH, 0}});
+    expect(run.forward == Events{{EV_KEY, BTN_EAST, 0}}, "A's release releases B");
+    feed(pad, {{EV_KEY, BTN_EAST, 0}});
+
+    pad.setForwardMap(ForwardMap{{{Button::Up, {Button::A}}, {Button::L2, {Button::R2}}}, {}});
+    run = feed(pad, {{EV_KEY, BTN_DPAD_UP, 1}, {EV_KEY, BTN_TL2, 1}});
+    expect(run.forward == Events{{EV_KEY, BTN_SOUTH, 1}, {EV_ABS, ABS_RZ, 255}},
+           "d-pad Up can send A and L2 can send R2, with no hat and no L2");
+    expect(reports(run, Button::Up, true) && reports(run, Button::L2, true),
+           "and opensu hears Up and L2");
+    feed(pad, {{EV_KEY, BTN_DPAD_UP, 0}, {EV_KEY, BTN_TL2, 0}});
+
+    pad.setForwardMap({});
+    run = feed(pad, {{EV_KEY, BTN_SOUTH, 1}});
+    expect(run.forward == Events{{EV_KEY, BTN_SOUTH, 1}}, "with no map A is A again");
+}
+
+void aMappedTriggerKeepsItsTravel() {
+    PadTranslator pad{dualSense()};
+    pad.setForwardMap(ForwardMap{{{Button::L2, {Button::R2}}, {Button::R2, {Button::L2}}}, {}});
+    const Run run = feed(pad, {{EV_ABS, ABS_Z, 100}, {EV_ABS, ABS_RZ, 255}});
+    expect(run.forward == Events{{EV_ABS, ABS_RZ, 100}, {EV_ABS, ABS_Z, 255}},
+           "swapped triggers carry their travel to the other side");
+}
+
+void guideIsNeverMapped() {
+    PadTranslator pad{dualSense()};
+    pad.setForwardMap(ForwardMap{{{Button::Guide, {Button::A}}}, {}});
+    const Run run = feed(pad, {{EV_KEY, BTN_MODE, 1}, {EV_KEY, BTN_MODE, 0}});
+    expect(run.forward.empty() && reports(run, Button::Guide, true),
+           "Guide sends nothing to the game whatever the map says");
+}
+
+void aGameChordHoldsItsButtons() {
+    PadTranslator pad{switchPro()};
+    pad.setChords(shippedChords());
+    pad.setForwardMap(
+        ForwardMap{{}, {{Chord{Button::Select, Button::R1}, {Button::Select, Button::Start}}}});
+    Run run = feed(pad, {{EV_KEY, BTN_SELECT, 1}});
+    expect(run.forward.empty(), "Select waits: a game chord starts with it");
+    run = feed(pad, {{EV_KEY, BTN_TR, 1}}, start + 50ms);
+    expect(run.forward == Events{{EV_KEY, BTN_SELECT, 1}, {EV_KEY, BTN_START, 1}},
+           "Select + R1 holds Select and Start on the virtual pad, and no R1");
+    expect(reports(run, Button::R1, true), "opensu hears every edge");
+    run = feed(pad, {{EV_KEY, BTN_TR, 0}}, start + 100ms);
+    expect(run.forward == Events{{EV_KEY, BTN_SELECT, 0}, {EV_KEY, BTN_START, 0}},
+           "releasing R1 releases them");
+    run = feed(pad, {{EV_KEY, BTN_SELECT, 0}}, start + 150ms);
+    expect(run.forward.empty(), "and Select's own release is swallowed with the chord");
+    run = feed(pad, {{EV_KEY, BTN_MODE, 1}, {EV_KEY, BTN_SOUTH, 1}}, start + 1s);
+    expect(run.forward.empty(), "the shell's chords stay kept from the game beside the game's");
+    feed(pad, {{EV_KEY, BTN_SOUTH, 0}, {EV_KEY, BTN_MODE, 0}}, start + 1s);
+}
+
+void aMappedStartTapSendsItsOutput() {
+    // Start sends X and starts a game chord: a tap is Start's mapped press, X.
+    PadTranslator pad{switchPro()};
+    pad.setChords(ChordTriggers{{}, 500ms});
+    pad.setForwardMap(ForwardMap{{{Button::Start, {Button::X}}},
+                                 {{Chord{Button::Start, Button::A}, {Button::Select}}}});
+    feed(pad, {{EV_KEY, BTN_START, 1}});
+    Run run = feed(pad, {{EV_KEY, BTN_START, 0}}, start + 80ms);
+    expect(run.forward ==
+               Events{{EV_KEY, BTN_NORTH, 1}, {EV_SYN, SYN_REPORT, 0}, {EV_KEY, BTN_NORTH, 0}},
+           "a Start tap reaches the game as X, in two reports, and never as Start");
+    feed(pad, {{EV_KEY, BTN_START, 1}}, start + 1s);
+    run = feed(pad, {{EV_KEY, BTN_SOUTH, 1}}, start + 1s + 50ms);
+    expect(run.forward == Events{{EV_KEY, BTN_SELECT, 1}}, "Start + A sends the chord's Select");
+    run = feed(pad, {{EV_KEY, BTN_SOUTH, 0}, {EV_KEY, BTN_START, 0}}, start + 1s + 100ms);
+    expect(run.forward == Events{{EV_KEY, BTN_SELECT, 0}}, "and nothing else on release");
+    feed(pad, {{EV_KEY, BTN_START, 1}}, start + 2s);
+    run = feed(pad, {{EV_KEY, BTN_SOUTH, 1}}, start + 2s + 600ms);
+    expect(run.forward == Events{{EV_KEY, BTN_SELECT, 1}}, "a chord still plays after a long hold");
+    feed(pad, {{EV_KEY, BTN_SOUTH, 0}, {EV_KEY, BTN_START, 0}}, start + 3s);
+    feed(pad, {{EV_KEY, BTN_START, 1}}, start + 4s);
+    run = feed(pad, {{EV_KEY, BTN_START, 0}}, start + 4s + 600ms);
+    expect(run.forward.empty(), "Start held long and released alone sends nothing");
+}
+
 } // namespace
 
 int main() {
@@ -265,6 +355,11 @@ int main() {
     analogueTriggersAreModifiers();
     restAndResume();
     unknownCodesDropped();
+    aMappedButtonSendsItsOutput();
+    aMappedTriggerKeepsItsTravel();
+    guideIsNeverMapped();
+    aGameChordHoldsItsButtons();
+    aMappedStartTapSendsItsOutput();
     std::printf("pad_translator: all checks passed\n");
     return 0;
 }

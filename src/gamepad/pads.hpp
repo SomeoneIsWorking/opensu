@@ -1,8 +1,10 @@
 // pads — every controller, read from evdev for as long as opensu runs. A pad connected later is
 // picked up when its node appears. While a game runs the pads are held: grabbed, with the game
 // reading one virtual Xbox 360 pad per pad, and Guide reaching opensu alone. The buttons of a bound
-// chord never reach the game (`ChordGate`, through each pad's `PadTranslator`). While blocked, the
-// virtual pads rest, so the Guide menu's input never reaches the game.
+// chord never reach the game (`ChordGate`, through each pad's `PadTranslator`), and the game's
+// mapping (`ForwardMap`) applies to its virtual pads only. While blocked, the virtual pads rest, so
+// the Guide menu's input never reaches the game. Only gamepad nodes are opened: a pad's separate
+// motion sensor node and its hidraw node are never read or grabbed.
 #pragma once
 
 #include <condition_variable>
@@ -16,6 +18,7 @@
 
 #include "evdev_device.hpp"
 #include "event.hpp"
+#include "forward_map.hpp"
 #include "pad_translator.hpp"
 #include "virtual_pad.hpp"
 
@@ -48,12 +51,12 @@ class Pads {
     /// The pads connected now, in the order they connected. Any thread.
     [[nodiscard]] std::vector<PadInfo> connected() const;
 
-    /// Holds every pad for a game, including pads that connect while held. Returns what the game
-    /// needs in its environment to read only the virtual pads: SDL hides every other controller,
-    /// the grabbed ones included. Empty when a pad could not be held, since hiding it would leave
-    /// the game without it.
-    std::vector<std::string> hold();
-    /// Gives the pads back to everyone; the virtual pads are gone on return.
+    /// Holds every pad for a game, including pads that connect while held, its virtual pads sending
+    /// what `map` says. Returns what the game needs in its environment to read only the virtual
+    /// pads: SDL hides every other controller, the grabbed ones included. Empty when a pad could
+    /// not be held, since hiding it would leave the game without it.
+    std::vector<std::string> hold(ForwardMap map);
+    /// Gives the pads back to everyone, the map dropped; the virtual pads are gone on return.
     void release();
 
     /// Rests the virtual pads while blocked; on unblocking they take up the pads' axes again.
@@ -77,6 +80,7 @@ class Pads {
         bool held{false};
         bool blocked{false};
         ChordTriggers chords;
+        ForwardMap map;
         /// Bumped per request, so a caller can wait for its own to be applied.
         std::uint64_t serial{0};
     };

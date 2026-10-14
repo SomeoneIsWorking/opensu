@@ -145,9 +145,12 @@ bool takesPadChord(Action action) noexcept {
     return infoOf(action).padChord;
 }
 
+std::string buttonLabel(Button button) {
+    return capitalised(gamepad::name(button));
+}
+
 std::string describe(const PadChord& chord) {
-    return capitalised(gamepad::name(chord.modifier)) + " + " +
-           capitalised(gamepad::name(chord.trigger));
+    return buttonLabel(chord.modifier) + " + " + buttonLabel(chord.trigger);
 }
 
 Shortcuts::Shortcuts(ShortcutOverrides overrides) : overrides_{std::move(overrides)} {

@@ -20,7 +20,7 @@ the pads (`gamepad/pad_translator:PadTranslator`, chords given by `Pads::setChor
 - Any other button pressed while the modifier is held means no chord is coming: the modifier's
   press is let out first, then that button. From then on the modifier is an ordinary held button
   until it is released.
-- A modifier released alone under the hold delay (`input/pad_chords:holdDelay`, 500 ms) is a tap: its
+- A modifier released alone under the hold delay (`input/chord_set:holdDelay`, 500 ms) is a tap: its
   press and its release come out together, the release in a report of its own. Held for the hold
   delay or longer and released alone, it does nothing. So Start bound as a modifier still pauses
   a game with a tap.

@@ -178,7 +178,7 @@ sudo sh ~/.local/libexec/opensu/install-session.sh
 entry installed by hand still works: openSU leaves a note, ends its Gamescope and starts
 `startplasma-wayland` in the session's place.
 
-`--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`; `guide+a` holds buttons together; `guide 1500ms` holds them that long, up to 10000ms), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `chordHint`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`). A hidden run only reads the system volume and never starts the Steam client (Steam shows as stopped); it also never sleeps, restarts, shuts down, scans, pairs, connects or forgets Bluetooth devices, and never writes the brightness.
+`--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`; `guide+a` holds buttons together; `guide 1500ms` holds them that long, up to 10000ms), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `chordHint`, `mapping`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`). A hidden run only reads the system volume and never starts the Steam client (Steam shows as stopped); it also never sleeps, restarts, shuts down, scans, pairs, connects or forgets Bluetooth devices, and never writes the brightness.
 
 Overrides, all optional:
 
@@ -335,6 +335,15 @@ never reach the game. The held button still works on its own: tapped (released w
 no chord) it reaches the game as that button; held longer it shows its chords and, released alone,
 does nothing, and pressed with a button that is no chord it reaches the game before that button.
 Over a game the list leaves the controller and the keyboard with the game.
+
+Button mappings change what a game gets from the controller, never how openSU itself is driven.
+A game's details page has Controls for the game's own mapping; Settings › Controls has the
+mapping for every game and one per emulator, shared by every game it runs. A game's own mapping
+replaces its emulator's, which replaces the one for every game. Each button can send another,
+two together (Select + Start) or nothing, and a mapping can add chords that send buttons or do a
+chord action; they behave like the Guide chords and are listed when their button is held. With
+Steam Input on (for every game, or per game), Steam has the game's controls and openSU applies
+no mapping to it.
 
 ## Documentation
 

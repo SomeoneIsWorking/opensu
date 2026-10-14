@@ -82,6 +82,8 @@ inline constexpr std::array allActions{
 /// does what the button does (`gamepad::ChordGate`).
 using PadChord = gamepad::Chord;
 
+/// A button's name for the player: "A", "L2", "Select".
+[[nodiscard]] std::string buttonLabel(gamepad::Button button);
 /// `L2 + Up`: a name for the chord.
 [[nodiscard]] std::string describe(const PadChord& chord);
 

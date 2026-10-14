@@ -39,12 +39,15 @@
 #include "home_layout.hpp"
 #include "hud.hpp"
 #include "image_decoder.hpp"
+#include "input/chord_set.hpp"
 #include "input/prompts.hpp"
 #include "launch_panel.hpp"
 #include "launch_panel_painter.hpp"
 #include "library/game.hpp"
 #include "library/sections.hpp"
 #include "library/shelf.hpp"
+#include "mapping_page.hpp"
+#include "mapping_page_painter.hpp"
 #include "mode_chooser.hpp"
 #include "mode_chooser_painter.hpp"
 #include "page_arrow.hpp"
@@ -166,7 +169,7 @@ class Shell {
     }
     /// Shows the chords of `modifier`, held long, or hides them for nothing.
     void followChordHint(std::optional<gamepad::Button> modifier) {
-        chordHint_.follow(modifier, prompts_.shortcuts, now_);
+        chordHint_.follow(modifier, chords_, now_);
     }
     [[nodiscard]] const ChordHint& chordHint() const noexcept {
         return chordHint_;
@@ -226,10 +229,12 @@ class Shell {
         return guide_;
     }
     /// Whether a panel that takes every button is up: the options, the search, a context menu, the
-    /// details page, the Settings screen, the Devices or Downloads page or a Guide menu.
+    /// details page, the Settings screen, the Devices or Downloads page, the mapping editor or a
+    /// Guide menu.
     [[nodiscard]] bool panelOpen() const noexcept {
         return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || details_.isOpen() ||
-               settings_.anyOpen() || menuPageOpen() || guide_.anyOpen() || session_.anyOpen();
+               settings_.anyOpen() || menuPageOpen() || mapping_.isOpen() || guide_.anyOpen() ||
+               session_.anyOpen();
     }
 
     /// Which device the prompts name. The caller feeds it; the painters read it.
@@ -239,6 +244,17 @@ class Shell {
     /// The shortcut table the prompts name keys from; the app rebinds it.
     [[nodiscard]] input::Shortcuts& shortcuts() noexcept {
         return prompts_.shortcuts;
+    }
+    /// The chords in force: the shortcut table's and the running game's.
+    [[nodiscard]] input::ChordSet& chords() noexcept {
+        return chords_;
+    }
+    /// The button mapping editor, a card over the details page or the Settings screen.
+    [[nodiscard]] MappingPage& mappingPage() noexcept {
+        return mapping_;
+    }
+    [[nodiscard]] const MappingPage& mappingPage() const noexcept {
+        return mapping_;
     }
 
     /// The pointer at `point`, or away from the window with nothing. Hovers the dock item under
@@ -452,6 +468,7 @@ class Shell {
     IconAtlas icons_;
     /// Before the painters that read it.
     input::Prompts prompts_;
+    input::ChordSet chords_{prompts_.shortcuts};
     int uiScale_{100};
     VolumeOsd volumeOsd_;
     ChordHint chordHint_;
@@ -478,6 +495,9 @@ class Shell {
 
     DetailsPage details_;
     PanelFade detailsFade_{FadeSpec{140.0f, 110.0f, 1.0f, 0.0f, 1.0f}};
+    MappingPage mapping_;
+    PanelFade mappingFade_{FadeSpec{110.0f, 95.0f, 0.96f, 110.0f, 0.985f}};
+    MappingPagePainter mappingPainter_{prompts_, typeface_};
 
     Clock::time_point now_{Clock::now()};
     Clock::time_point lastTick_{now_};
@@ -521,6 +541,7 @@ class Shell {
     bool searchWasOpen_{false};
     bool contextWasOpen_{false};
     bool detailsWasOpen_{false};
+    bool mappingWasOpen_{false};
 };
 
 } // namespace opensu::ui

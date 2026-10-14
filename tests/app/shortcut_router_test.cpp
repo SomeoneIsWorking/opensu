@@ -26,7 +26,7 @@ gamepad::Event pad(Button button, bool pressed) {
 struct Rig {
     Rig()
         : volume{std::make_unique<test::FakeMixer>(), {}},
-          router{shortcuts, volume, retro,
+          router{shortcuts, chords, volume, retro,
                  app::ShortcutRouter::Hooks{.quit =
                                                 [] {
                                                 },
@@ -61,6 +61,7 @@ struct Rig {
     }
 
     input::Shortcuts shortcuts;
+    input::ChordSet chords{shortcuts};
     app::VolumeControl volume;
     /// No launch began, so the game has no control channel.
     app::RetroSession retro{"unused"};

@@ -11,3 +11,10 @@ target_include_directories(install_folders_test PRIVATE "${CMAKE_SOURCE_DIR}/tes
 target_compile_definitions(install_folders_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 target_compile_options(install_folders_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME install_folders COMMAND install_folders_test)
+
+add_executable(mapping_store_test mapping_store_test.cpp)
+target_link_libraries(mapping_store_test PRIVATE opensu::settings lucent::lucent)
+target_include_directories(mapping_store_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(mapping_store_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+target_compile_options(mapping_store_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME mapping_store COMMAND mapping_store_test)

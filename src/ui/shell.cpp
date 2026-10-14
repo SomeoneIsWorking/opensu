@@ -489,6 +489,7 @@ void Shell::tick(Clock::time_point now) {
     followFade(searchFade_, search_.isOpen(), searchWasOpen_);
     followFade(contextFade_, context_.isOpen(), contextWasOpen_);
     followFade(detailsFade_, details_.isOpen(), detailsWasOpen_);
+    followFade(mappingFade_, mapping_.isOpen(), mappingWasOpen_);
     settings_.tick(now_);
     session_.tick(now_);
     devices_.tick(now_);
@@ -760,7 +761,7 @@ PointerTarget Shell::pointAt(std::optional<Point> point) {
     }
     if (!inGame_ && !launchPanel_.isOpen() &&
         (!panelOpen() || details_.isOpen() || settings_.onlyPage() || menuPageOpen()) &&
-        !guide_.anyOpen()) {
+        !guide_.anyOpen() && !mapping_.isOpen()) {
         if (const std::optional<std::size_t> crumb = hud_.crumbAt(point->x, point->y)) {
             hud_.setCrumbHover(crumb);
             return OnCrumb{*crumb};
@@ -795,7 +796,8 @@ PointerTarget Shell::pointAtModal(Point point) const {
     if (guide_.anyOpen()) {
         return guide_.pointAt(point, Point{width, height}, dp());
     }
-    if (inGame_ && !settings_.anyOpen() && !menuPageOpen()) {
+    // The mapping editor takes the pad only.
+    if (mapping_.isOpen() || (inGame_ && !settings_.anyOpen() && !menuPageOpen())) {
         return {};
     }
     if (launchPanel_.isOpen()) {
@@ -1013,6 +1015,7 @@ void Shell::drawOverGame(Canvas& canvas, Point size) {
     }
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
     settings_.drawOverlays(canvas, size, dp(), now_, seconds);
+    mappingPainter_.paint(canvas, mapping_, size, dp(), mappingFade_.look(now_));
     guide_.draw(canvas, size, dp());
     session_.draw(canvas, size, dp(), now_, seconds);
     drawChordHint(canvas, size);
@@ -1055,6 +1058,7 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     searchPainter_.paint(canvas, search_, size, dp(), searchFade_.look(now_), seconds);
     contextPainter_.paint(canvas, context_, size, dp(), contextFade_.look(now_));
     settings_.drawOverlays(canvas, size, dp(), now_, seconds);
+    mappingPainter_.paint(canvas, mapping_, size, dp(), mappingFade_.look(now_));
     guide_.draw(canvas, size, dp());
     session_.draw(canvas, size, dp(), now_, seconds);
     if (volumeOsd_.visible(now_)) {

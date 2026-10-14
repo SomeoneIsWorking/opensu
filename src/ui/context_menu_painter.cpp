@@ -2,8 +2,8 @@
 
 #include <array>
 #include <string>
-#include <utility>
 
+#include "hint_row.hpp"
 #include "hud.hpp"
 #include "paint.hpp"
 #include "round_shape.hpp"
@@ -21,10 +21,6 @@ constexpr float rowSp = 17.0f;
 constexpr float rowInsetDp = 16.0f;
 constexpr float rowRadiusDp = 12.0f;
 constexpr float outlineDp = 1.8f;
-constexpr float hintSp = 13.0f;
-constexpr float hintGlyphDp = 18.0f;
-constexpr float hintGapDp = 6.0f;
-constexpr float hintSpacingDp = 18.0f;
 
 } // namespace
 
@@ -78,25 +74,10 @@ void ContextMenuPainter::paint(Canvas& canvas, const ContextMenu& menu, Point si
     }
 
     // The buttons along the foot, under the card.
-    const TextStyle hint{hintSp * dp};
-    const float glyph = hintGlyphDp * dp;
-    const float centreY = layout.hints.centreY();
-    float width = 0.0f;
-    constexpr std::array<std::pair<const char*, const char*>, 2> hints{
-        {{"A", "Select"}, {"B", "Close"}}};
-    for (const auto& [key, label] : hints) {
-        width += glyphs_.advance(key, glyph) + hintGapDp * dp + typeface_.measure(label, hint) +
-                 hintSpacingDp * dp;
-    }
-    float x = layout.card.centreX() - (width - hintSpacingDp * dp) * 0.5f;
-    for (const auto& [key, label] : hints) {
-        const float advance = glyphs_.advance(key, glyph);
-        glyphs_.paint(canvas, key, Point{x + advance * 0.5f, centreY}, glyph,
-                      withAlpha(outlineInk, look.alpha));
-        x += advance + hintGapDp * dp;
-        typeface_.drawCentred(canvas, label, x, centreY, hint, withAlpha(outlineInk, look.alpha));
-        x += typeface_.measure(label, hint) + hintSpacingDp * dp;
-    }
+    constexpr std::array<HintPrompt, 2> hints{{{"A", "Select"}, {"B", "Close"}}};
+    paintHintRow(canvas, glyphs_, typeface_, hints,
+                 Point{layout.card.centreX(), layout.hints.centreY()}, dp,
+                 withAlpha(outlineInk, look.alpha));
 }
 
 } // namespace opensu::ui

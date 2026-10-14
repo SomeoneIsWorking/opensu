@@ -17,7 +17,7 @@ VOLUME_SETTLE_SECONDS = 0.4
 # Bounds a walk through tiles or Settings categories, so a missing target fails instead of looping.
 LONGEST_WALK = 12
 SEARCH_TEXT = "Super"
-# Guide is held this long: past the 500 ms hold delay (input/pad_chords.hpp), the list's 110 ms
+# Guide is held this long: past the 500 ms hold delay (input/chord_set.hpp), the list's 110 ms
 # fade-in and the frame's capture.
 CHORD_HOLD = "3000ms"
 # The chord list's fade-in is 110 ms (ui/chord_hint.hpp); the frame must come well inside the hold.
@@ -239,7 +239,7 @@ def _details_update(shell: HiddenShell) -> None:
     """The installed stand-in game's details with Update focused."""
     _epic_game(shell, legendary.INSTALLED_APP_NAME)
     _details(shell)
-    # Its buttons: Play, Update, Hide game, Uninstall, Back.
+    # Its buttons: Play, Update, Hide game, Uninstall, Controls, Back.
     shell.press("down")
 
 
@@ -247,7 +247,7 @@ def _arm_uninstall(shell: HiddenShell) -> None:
     """The installed stand-in game's details, and the first press on Uninstall."""
     _epic_game(shell, legendary.INSTALLED_APP_NAME)
     _details(shell)
-    # Its buttons: Play, Update, Hide game, Uninstall, Back.
+    # Its buttons: Play, Update, Hide game, Uninstall, Controls, Back.
     shell.press("down", "down", "down", "a")
     shell.wait_for("armed", True)
 
@@ -316,6 +316,52 @@ def _downloads_uninstalling(shell: HiddenShell) -> None:
     _open_downloads(shell)
 
 
+# The most buttons a details page has: Play, Update, Emulator, Hide game, Uninstall, Controls, Back.
+LONGEST_DETAILS = 7
+
+
+def _game_mapping(shell: HiddenShell) -> None:
+    """The focused game's details, then Controls, the button before Back."""
+    _details(shell)
+    # Focus stops at the last button, so enough Downs reach Back.
+    shell.press(*(["down"] * LONGEST_DETAILS), "up", "a")
+    shell.wait_for("mapping", "rows")
+
+
+def _leave_game_mapping(shell: HiddenShell) -> None:
+    shell.press("b")
+    shell.wait_for("mapping", "")
+    _back_from_details(shell)
+
+
+def _mapping_picker(shell: HiddenShell) -> None:
+    """The game's mapping with A's outputs listed: A is the row under Steam Input."""
+    _game_mapping(shell)
+    shell.press("down", "a")
+    shell.wait_for("mapping", "picking")
+
+
+def _leave_mapping_picker(shell: HiddenShell) -> None:
+    shell.press("b")
+    shell.wait_for("mapping", "rows")
+    _leave_game_mapping(shell)
+
+
+def _global_mapping(shell: HiddenShell) -> None:
+    """Settings › Controls, then its first row, the mapping for every game."""
+    _settings_page("Controls")(shell)
+    shell.press("a", "a")
+    shell.wait_for("mapping", "rows")
+
+
+def _leave_global_mapping(shell: HiddenShell) -> None:
+    shell.press("b")
+    shell.wait_for("mapping", "")
+    # B leaves the rows for the categories, then closes Settings.
+    shell.press("b")
+    _close_settings(shell)
+
+
 SCENES: tuple[Scene, ...] = (
     Scene("home", "Home: installed games from every store", _nothing, _nothing, readme=True),
     Scene(
@@ -340,6 +386,19 @@ SCENES: tuple[Scene, ...] = (
         _close_settings,
     ),
     Scene("settings-about", "Settings: About", _settings_page("About"), _close_settings),
+    Scene("game-mapping", "A game's button mapping", _game_mapping, _leave_game_mapping),
+    Scene(
+        "mapping-picker",
+        "A button's outputs in a game's mapping",
+        _mapping_picker,
+        _leave_mapping_picker,
+    ),
+    Scene(
+        "global-mapping",
+        "Settings: the button mapping for every game",
+        _global_mapping,
+        _leave_global_mapping,
+    ),
     Scene("context-menu", "A game tile's menu", _context_menu, _close_context_menu),
     Scene("options-panel", "Library's options panel", _options_panel, _close_options_panel),
     Scene("search", "Search with results", _search, _close_search),

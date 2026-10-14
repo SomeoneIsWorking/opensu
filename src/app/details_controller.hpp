@@ -1,7 +1,7 @@
 // details_controller — the details page's buttons and what they do: play or install the game,
 // update it, pick its emulator, download the emulator it is missing, hide it, uninstall it (two
-// presses), go back. Opens for the focused game and keeps what it shows current while the library
-// changes under it.
+// presses), open its button mapping, go back. Opens for the focused game and keeps what it shows
+// current while the library changes under it.
 #pragma once
 
 #include <functional>
@@ -35,6 +35,8 @@ class DetailsController {
         std::function<void(const library::Game& game, const std::string& name)> chooseEmulator;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
+        /// Opens `game`'s button mapping over the page.
+        std::function<void(const library::Game& game)> controls;
     };
 
     DetailsController(ui::DetailsPage& page, audio::SdlSoundPlayer& sounds,

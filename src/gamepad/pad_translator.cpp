@@ -51,7 +51,25 @@ PadTranslator::PadTranslator(PadCapabilities physical) : physical_{std::move(phy
 }
 
 void PadTranslator::setChords(ChordTriggers chords) {
-    gate_.setTriggers(std::move(chords));
+    chords_ = std::move(chords);
+    applyTriggers();
+}
+
+void PadTranslator::setForwardMap(ForwardMap map) {
+    map_ = std::move(map);
+    chordHeld_.clear();
+    applyTriggers();
+    // The state follows the new map; the virtual pad takes it up on its next resume.
+    std::vector<PadEvent> unsent;
+    syncOutputs({padButtons.begin(), padButtons.end()}, unsent);
+}
+
+void PadTranslator::applyTriggers() {
+    ChordTriggers triggers = chords_;
+    for (const auto& [chord, buttons] : map_.chords) {
+        triggers.chords.insert(chord);
+    }
+    gate_.setTriggers(std::move(triggers));
 }
 
 void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward,
@@ -89,6 +107,7 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
             // A digital trigger drives the analogue one fully.
             const Button button = in.code == BTN_TL2 ? Button::L2 : Button::R2;
             triggers_[button] = pressed ? virtualTrigger.max : 0;
+            triggerHeld_[button] = pressed;
             control(button, pressed, edges);
         } else if (const auto key = std::ranges::find(forwardedKeys, in.code, &KeyButton::first);
                    key != std::end(forwardedKeys)) {
@@ -129,56 +148,112 @@ void PadTranslator::gate(const std::vector<Event>& edges, std::vector<PadEvent>&
         // opensu hears every edge; it plays the chords from them with its own gate.
         controls.push_back(edge);
         for (const ChordGate::Step& step : gate_.feed(edge.button, edge.pressed, at)) {
-            if (step.kind != ChordGate::Step::Kind::Edge) {
+            if (step.kind == ChordGate::Step::Kind::Chord) {
+                holdChord(step.chord, forward);
+            } else if (step.kind != ChordGate::Step::Kind::Edge) {
                 continue;
-            }
-            if (step.button == edge.button && step.pressed && !edge.pressed) {
+            } else if (step.button == edge.button && step.pressed && !edge.pressed) {
                 tap(step.button, forward);
             } else {
                 sync(step.button, forward);
             }
+        }
+        if (const auto chord = chordHeld_.find(edge.button);
+            !edge.pressed && chord != chordHeld_.end()) {
+            const std::set<Button> outputs = std::move(chord->second);
+            chordHeld_.erase(chord);
+            syncOutputs(outputs, forward);
         }
         sync(edge.button, forward);
     }
 }
 
 void PadTranslator::sync(Button button, std::vector<PadEvent>& forward) {
-    const bool passes = gate_.passes(button);
-    if (button == Button::L2 || button == Button::R2) {
-        forwardAxis(button == Button::L2 ? ABS_Z : ABS_RZ, passes ? triggers_[button] : 0, forward);
-    } else if (button == Button::Up || button == Button::Down) {
-        forwardAxis(ABS_HAT0Y, hatValue(Button::Up, Button::Down), forward);
-    } else if (button == Button::Left || button == Button::Right) {
-        forwardAxis(ABS_HAT0X, hatValue(Button::Left, Button::Right), forward);
-    } else if (const auto key = std::ranges::find(forwardedKeys, button, &KeyButton::second);
-               key != std::end(forwardedKeys)) {
-        forwardKey(key->first, passes && keys_[key->first] ? 1 : 0, forward);
+    syncOutputs(map_.outputOf(button), forward);
+}
+
+void PadTranslator::syncOutputs(const std::set<Button>& outputs, std::vector<PadEvent>& forward) {
+    const auto on = [this](Button button) {
+        return level(button) > 0 ? 1 : 0;
+    };
+    for (const Button out : outputs) {
+        if (out == Button::L2 || out == Button::R2) {
+            forwardAxis(out == Button::L2 ? ABS_Z : ABS_RZ, level(out), forward);
+        } else if (out == Button::Up || out == Button::Down) {
+            forwardAxis(ABS_HAT0Y, on(Button::Down) - on(Button::Up), forward);
+        } else if (out == Button::Left || out == Button::Right) {
+            forwardAxis(ABS_HAT0X, on(Button::Right) - on(Button::Left), forward);
+        } else if (const auto key = std::ranges::find(forwardedKeys, out, &KeyButton::second);
+                   key != std::end(forwardedKeys)) {
+            forwardKey(key->first, on(out), forward);
+        }
     }
 }
 
 void PadTranslator::tap(Button button, std::vector<PadEvent>& forward) {
-    if (button == Button::L2 || button == Button::R2) {
-        forwardAxis(button == Button::L2 ? ABS_Z : ABS_RZ, virtualTrigger.max, forward);
-    } else if (button == Button::Up || button == Button::Down) {
-        forwardAxis(ABS_HAT0Y, button == Button::Up ? -1 : 1, forward);
-    } else if (button == Button::Left || button == Button::Right) {
-        forwardAxis(ABS_HAT0X, button == Button::Left ? -1 : 1, forward);
-    } else if (const auto key = std::ranges::find(forwardedKeys, button, &KeyButton::second);
-               key != std::end(forwardedKeys)) {
-        forwardKey(key->first, 1, forward);
-    } else {
+    tapping_ = map_.outputOf(button);
+    tapping_.erase(Button::Guide);
+    if (tapping_.empty()) {
         return;
     }
+    syncOutputs(tapping_, forward);
+    tapping_.clear();
     // The release follows in a report of its own, so a game that polls sees the press.
     forward.push_back(PadEvent{EV_SYN, SYN_REPORT, 0});
 }
 
-std::int32_t PadTranslator::hatValue(Button negative, Button positive) const {
-    const auto on = [this](Button button) {
-        const auto found = hatHeld_.find(button);
-        return found != hatHeld_.end() && found->second && gate_.passes(button);
+void PadTranslator::holdChord(const Chord& chord, std::vector<PadEvent>& forward) {
+    const auto found = map_.chords.find(chord);
+    if (found == map_.chords.end()) {
+        return;
+    }
+    chordHeld_[chord.trigger] = found->second;
+    syncOutputs(found->second, forward);
+}
+
+bool PadTranslator::held(Button button) const {
+    const auto in = [button](const std::map<Button, bool>& states) {
+        const auto found = states.find(button);
+        return found != states.end() && found->second;
     };
-    return (on(positive) ? 1 : 0) - (on(negative) ? 1 : 0);
+    if (button == Button::L2 || button == Button::R2) {
+        return in(triggerHeld_);
+    }
+    if (button == Button::Up || button == Button::Down || button == Button::Left ||
+        button == Button::Right) {
+        return in(hatHeld_);
+    }
+    const auto key = std::ranges::find(forwardedKeys, button, &KeyButton::second);
+    if (key == std::end(forwardedKeys)) {
+        return false;
+    }
+    const auto found = keys_.find(key->first);
+    return found != keys_.end() && found->second;
+}
+
+std::int32_t PadTranslator::level(Button out) const {
+    const bool trigger = out == Button::L2 || out == Button::R2;
+    const std::int32_t full = trigger ? virtualTrigger.max : 1;
+    const bool chorded = std::ranges::any_of(chordHeld_, [out](const auto& chord) {
+        return chord.second.contains(out);
+    });
+    if (tapping_.contains(out) || chorded) {
+        return full;
+    }
+    std::int32_t value = 0;
+    for (const Button source : padButtons) {
+        if (!map_.sends(source, out) || !gate_.passes(source)) {
+            continue;
+        }
+        if (trigger && (source == Button::L2 || source == Button::R2)) {
+            // A trigger sent to a trigger keeps its travel.
+            const auto travel = triggers_.find(source);
+            value = std::max(value, travel != triggers_.end() ? travel->second : 0);
+        } else if (held(source)) {
+            value = full;
+        }
+    }
+    return value;
 }
 
 std::vector<PadEvent> PadTranslator::rest() const {

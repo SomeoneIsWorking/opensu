@@ -4,15 +4,13 @@ namespace opensu::app {
 
 void ShortcutEditor::begin(input::Action action) {
     target_ = action;
-    held_.clear();
-    loneB_ = false;
+    capture_.begin();
 }
 
 void ShortcutEditor::cancel() {
     const bool was = target_.has_value();
     target_.reset();
-    held_.clear();
-    loneB_ = false;
+    capture_.begin();
     if (was) {
         stopped_();
     }
@@ -41,25 +39,21 @@ void ShortcutEditor::capturePad(const std::vector<gamepad::Event>& events) {
         if (!target_ || event.kind != gamepad::Event::Kind::Button) {
             continue;
         }
-        if (!event.pressed) {
-            std::erase(held_, event.button);
-            // B alone cancels on its release, so B can still be held for a chord.
-            if (event.button == gamepad::Button::B && loneB_) {
+        if (!input::takesPadChord(*target_)) {
+            // Only keys reach an action without a chord; B on the pad cancels.
+            if (event.pressed && event.button == gamepad::Button::B && !capture_.holding()) {
                 cancel();
+            } else {
+                static_cast<void>(capture_.feed(event));
             }
             continue;
         }
-        const bool chords = input::takesPadChord(*target_);
-        if (event.button == gamepad::Button::B && held_.empty() && !chords) {
+        const std::optional<ChordCapture::Heard> heard = capture_.feed(event);
+        if (heard && heard->cancelled) {
             cancel();
-            continue;
+        } else if (heard) {
+            keep(shortcuts_.rebind(*target_, heard->chord), input::describe(heard->chord));
         }
-        loneB_ = event.button == gamepad::Button::B && held_.empty();
-        if (chords && !held_.empty()) {
-            const input::PadChord chord{held_.front(), event.button};
-            keep(shortcuts_.rebind(*target_, chord), input::describe(chord));
-        }
-        held_.push_back(event.button);
     }
 }
 

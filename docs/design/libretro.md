@@ -5,9 +5,10 @@ launch are S031.
 
 ## 1. Goal
 
-Retro systems play inside openSU with one controller mapping for every core, saves that survive any
-crash, and the Guide overlay and quick menu working as they do over any game. A core that crashes
-ends its game, never the shell.
+Retro systems play inside openSU with one fixed controller mapping in the runner for every core
+(a player's button mapping, S033, is applied by the shell to the virtual pad the runner reads),
+saves that survive any crash, and the Guide overlay and quick menu working as they do over any
+game. A core that crashes ends its game, never the shell.
 
 Non-goals for now: shaders, rewind, run-ahead, netplay, achievements, cores that draw with the GPU
 (phase 2), anything a standalone emulator already does better (Switch, PS2 and later, Wii U,

@@ -146,6 +146,8 @@ struct Rig {
                                       },
                                       [this](const std::string& text, bool error) {
                                           said.emplace_back(text, error);
+                                      },
+                                      [](const library::Game&) {
                                       }}};
 };
 
@@ -181,7 +183,7 @@ void detailsDownloadsTheCore(const fs::path& root) {
            "a Game Boy ROM lists the built-in emulator, not yet downloaded");
     rig.details.open();
     const auto& buttons = rig.page.view().buttons;
-    expect(buttons.size() == 4 && buttons[1].action == ui::DetailsAction::DownloadEmulator &&
+    expect(buttons.size() == 5 && buttons[1].action == ui::DetailsAction::DownloadEmulator &&
                buttons[1].label == "Download GB (built-in)",
            "the details page offers its core");
     rig.details.act(Button::Down);

@@ -2,19 +2,9 @@
 
 namespace opensu::input {
 
-gamepad::ChordTriggers chordTriggers(const Shortcuts& shortcuts) {
-    gamepad::ChordTriggers triggers{{}, holdDelay};
-    for (const Action action : allActions) {
-        if (const std::optional<PadChord> chord = shortcuts.padChord(action)) {
-            triggers.chords.insert(*chord);
-        }
-    }
-    return triggers;
-}
-
 PadChords::Result PadChords::feed(const std::vector<gamepad::Event>& events, Clock::time_point at) {
     Result result;
-    const gamepad::ChordTriggers triggers = chordTriggers(*shortcuts_);
+    const gamepad::ChordTriggers triggers = chords_->triggers();
     for (const gamepad::Event& event : events) {
         if (event.kind != gamepad::Event::Kind::Button) {
             result.events.push_back(event);
@@ -29,7 +19,7 @@ PadChords::Result PadChords::feed(const std::vector<gamepad::Event>& events, Clo
                 continue;
             }
             if (step.kind == gamepad::ChordGate::Step::Kind::Chord) {
-                if (const std::optional<Action> action = shortcuts_->actionFor(step.chord)) {
+                if (const std::optional<Action> action = chords_->actionFor(step.chord)) {
                     result.actions.push_back(*action);
                 }
                 continue;

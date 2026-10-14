@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "gamepad/event.hpp"
-#include "input/shortcuts.hpp"
+#include "input/chord_set.hpp"
 #include "panel_fade.hpp"
 
 namespace opensu::ui {
@@ -22,8 +22,9 @@ struct ChordHintRow {
     bool operator==(const ChordHintRow&) const = default;
 };
 
-/// The rows for every chord `shortcuts` binds on `modifier`, in action order.
-[[nodiscard]] std::vector<ChordHintRow> chordHintRows(const input::Shortcuts& shortcuts,
+/// The rows for every chord in force on `modifier`: the shell's in action order, then the running
+/// game's.
+[[nodiscard]] std::vector<ChordHintRow> chordHintRows(const input::ChordSet& chords,
                                                       gamepad::Button modifier);
 
 class ChordHint {
@@ -32,7 +33,7 @@ class ChordHint {
 
     /// Follows the long hold: `modifier`'s chords are shown while it is held, nothing once it is
     /// not. A change of modifier replaces the list.
-    void follow(std::optional<gamepad::Button> modifier, const input::Shortcuts& shortcuts,
+    void follow(std::optional<gamepad::Button> modifier, const input::ChordSet& chords,
                 Clock::time_point now);
 
     /// The modifier whose chords are up, or nothing while hidden or fading out.

@@ -73,6 +73,10 @@ Visible deltas from the baseline:
   Settings › Guide chords), keeps a chord's buttons from the game, and still passes a quick tap of
   the held button to it. Holding the button half a second lists its chords (iiSU has no hold;
   SteamOS's held STEAM button is the model), over a game without taking its input.
+- Button mappings: iiSU has only a global Swap A/B and X/Y; openSU maps every pad button and adds
+  game chords, globally, per emulator (shared by its games) and per game, edited from a game's
+  details page (Controls) and Settings › Controls, with a Steam Input switch that hands a game's
+  controls to Steam.
 - Switch games show the play time Eden recorded (the bundled Eden plugin), with no launch from
   openSU needed; iiSU shows no emulator play time.
 - No volume overlay in iiSU (its main activity hands the volume keys to Android); openSU draws its
@@ -125,7 +129,7 @@ game has been observed running yet.
 | S030 | Linux AppImage release, signed, tested on clean Fedora 44 and Ubuntu 24.04 | partial | S029 | G004 |
 | S031 | Built-in emulators: libretro cores found or downloaded from the buildbot, updated, removed, started on `opensu-retro` | partial | S026 | G001 |
 | S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the quick menu, crash and load-failure toasts | partial | S003 | G001 |
-| S033 | Button mappings per game and per emulator (shared by its games), with game chords (`docs/issues/per-game-button-mappings.md`) | missing | S003, S022 | G003 |
+| S033 | Button mappings per game and per emulator (shared by its games), with game chords (`docs/issues/per-game-button-mappings.md`) | partial | S003, S022 | G003 |
 | S034 | Holding a chord modifier shows its chords, over a game too (`docs/issues/chord-hold-overlay.md`) | partial | S022 | G003 |
 | S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | partial | S016, S026 | G001 |
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
@@ -415,7 +419,9 @@ the left stick and hat included, so any driver following them works (xpad, xone,
 hid-playstation, hid-nintendo). Held directions, from a pad or the keyboard, move
 once and then repeat after 400 ms every 100 ms (`gamepad::DirectionRepeat`, iiSU's
 95 ms throttle on Android's repeats). Tested: `pads` against uinput pads (hotplug,
-Steam's virtual pad ignored, disconnect), `direction_repeat`, `pad_translator`.
+Steam's virtual pad ignored, disconnect, a game's mapping on the virtual pad, a motion node never
+grabbed), `direction_repeat`, `pad_translator`. A game's button mapping (S033) applies only to
+the virtual pad the game reads; the shell's controls are never mapped.
 
 The GLFW reader this replaced had no mapping for the xone driver's Xbox
 controller, so its buttons never registered, and counted a Logitech K400 Plus as a
@@ -1026,7 +1032,8 @@ The rows and the install flows read the same `InstallFolders::resolve`.
 
 Chord list (S034): a modifier held alone for the hold delay shows its chords (partner glyph and
 action) centred on the screen until it is released, plays a chord or is let out; the gate reports
-the long hold (`gamepad/chord_gate:ChordGate::tick`). Over a game inside Gamescope the overlay is
+the long hold (`gamepad/chord_gate:ChordGate::tick`). While a game runs, its mapping's chords
+(S033) are listed after the shell's. Over a game inside Gamescope the overlay is
 passive: drawn without `STEAM_INPUT_FOCUS` and without resting the pads (`app/game_screen`).
 Verified by unit tests, a hidden run (`guide 2500ms` over the control channel shows `chordHint`
 after the delay, the release opens nothing) and the `chord-hint` parity scene. Unverified: the list
@@ -1034,8 +1041,27 @@ over a real game in Gamescope and on a real pad. Outside Gamescope it is not sho
 (mapping the window would take the focus).
 
 Unverified: live Steam, real Epic and GOG installs, volume writes on a real device, pad chords on
-hardware (analogue triggers, chords over a game, a replayed tap in a polling game), the in-game X11
+hardware (analogue triggers, chords over a game, game chords from a mapping (S033), a replayed tap
+in a polling game), the in-game X11
 path outside Xvfb, media keys.
+
+### S033 — Button mappings
+
+`input/button_map` (what each pad button sends, game chords sending pad buttons or a shell
+action), `input/mapping_scopes` (game, else its emulator, else global; a whole map per scope; the
+Steam Input switch, global and per game), `settings/mapping_store` (`mappings.json`, atomic). At
+launch the shell resolves the game's map and holds the pads with it (`app/game_pads`): the virtual
+pad is remapped, the shell's controls are not, and `opensu-retro` reads the remapped virtual pad.
+Game chords follow the shell's chord rule and join the chord list. The editor opens from a game's
+details page (Controls) and Settings › Controls (global, per emulator, the Steam Input toggle);
+while Steam Input has a game its mapping is refused and the page says why. Verified by unit tests
+through the shipping code (`button_map`, `mapping_store`, `mapping_editor`, `pad_translator`,
+uinput `pads_test`: a remapped A reaches the virtual pad as B and a motion node is never grabbed)
+and the `game-mapping`, `mapping-picker` and `global-mapping` parity scenes. Gaps: key outputs
+(XTest), how the switch reaches Steam (not measured against a running client), a quick menu
+Controls row, and every check on hardware: a remapped real pad in a game, a Steam game reading
+hidraw, gyro through the motion node, SDL HIDAPI doubled input
+(`docs/issues/per-game-button-mappings.md`).
 
 ### S035 — Downloads page
 
@@ -1165,7 +1191,8 @@ loopback port announced in that file, runs each command between frames, keeps on
 `retro/save_state`). The quick menu shows Save state, Load state and Reset game for such a game
 (`app/retro_session`, `app/quick_menu_controller`); a game in an Instance that dies by a signal
 other than TERM, KILL, INT or HUP is toasted as crashed, by name, and a runner's load failure by its
-reason (`launch/handoff` `Hooks::ended`, `app/game_end`).
+reason (`launch/handoff` `Hooks::ended`, `app/game_end`). A game's button mapping (S033) reaches
+the runner through the shell's virtual pad, so `retro/joypad` keeps one fixed table.
 
 Verified: unit tests through the shipping code (pixel formats, rate control against a device 0.3 %
 fast and slow, the joypad mapping, save RAM round trip, failed and wrong-size writes, every answered
