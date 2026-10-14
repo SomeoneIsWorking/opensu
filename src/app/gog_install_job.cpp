@@ -41,7 +41,9 @@ fs::path GogInstallJob::gameRoot(const std::string& gameId) const {
 }
 
 std::vector<std::string> GogInstallJob::arguments(const std::string& gameId) {
-    if (builds_.linuxNative) {
+    if (updating_) {
+        platform_ = updating_->platform;
+    } else if (builds_.linuxNative) {
         platform_ = "linux";
     } else if (builds_.windows) {
         platform_ = "windows";
@@ -56,6 +58,16 @@ std::vector<std::string> GogInstallJob::arguments(const std::string& gameId) {
     }
     handedRefreshToken_ = token->refreshToken;
     authFile_.write(*token, now());
+    if (updating_) {
+        return {"--auth-config-path",
+                authFile_.file().string(),
+                "update",
+                gameId,
+                "--platform",
+                platform_,
+                "--path",
+                updating_->path.string()};
+    }
     return {"--auth-config-path",
             authFile_.file().string(),
             "download",
@@ -92,6 +104,12 @@ std::optional<std::string> GogInstallJob::ended(const std::string& gameId, bool 
     if (!installed) {
         return std::nullopt;
     }
+    if (updating_) {
+        library::gog::Installed updated = *updating_;
+        updated.build = library::gog::installedBuild(updated, gameId);
+        records_.add(gameId, updated);
+        return std::nullopt;
+    }
     // gogdl names the folder inside the one it was given; there is exactly one.
     std::vector<fs::path> folders;
     std::error_code ec;
@@ -103,7 +121,9 @@ std::optional<std::string> GogInstallJob::ended(const std::string& gameId, bool 
     if (folders.size() != 1) {
         return "gogdl left no install folder under " + gameRoot(gameId).string();
     }
-    records_.add(gameId, library::gog::Installed{.path = folders.front(), .platform = platform_});
+    library::gog::Installed added{.path = folders.front(), .platform = platform_};
+    added.build = library::gog::installedBuild(added, gameId);
+    records_.add(gameId, added);
     return std::nullopt;
 }
 

@@ -15,7 +15,48 @@ namespace {
 namespace fs = std::filesystem;
 using nlohmann::json;
 
+/// `buildId` of a goggame JSON file; empty when it has none.
+std::string buildIdIn(const fs::path& file) {
+    std::ifstream in{file};
+    if (!in) {
+        return {};
+    }
+    const json document = json::parse(in, nullptr, false);
+    if (!document.is_object()) {
+        return {};
+    }
+    const json::const_iterator build = document.find("buildId");
+    if (build == document.end()) {
+        return {};
+    }
+    return build->is_string() ? build->get<std::string>() : std::string{};
+}
+
+/// The version line of a Linux installer's `gameinfo`: title, then version.
+std::string gameinfoVersion(const fs::path& file) {
+    std::ifstream in{file};
+    std::string line;
+    if (!std::getline(in, line) || !std::getline(in, line)) {
+        return {};
+    }
+    if (!line.empty() && line.back() == '\r') {
+        line.pop_back();
+    }
+    return line;
+}
+
 } // namespace
+
+std::string installedBuild(const Installed& installed, std::string_view id) {
+    if (installed.platform == "linux") {
+        return gameinfoVersion(installed.path / "gameinfo");
+    }
+    const std::string stem = "goggame-" + std::string{id};
+    if (std::string build = buildIdIn(installed.path / (stem + ".id")); !build.empty()) {
+        return build;
+    }
+    return buildIdIn(installed.path / (stem + ".info"));
+}
 
 Paths Paths::under(const fs::path& dataDir) {
     return Paths{.records = dataDir / "gog-installs.json",
@@ -44,8 +85,9 @@ std::map<std::string, Installed, std::less<>> InstallRecords::all() const {
     }
     for (const auto& [id, entry] : document.items()) {
         if (entry.is_object() && entry.contains("path") && entry.contains("platform")) {
-            records[id] =
-                Installed{.path = entry.value("path", ""), .platform = entry.value("platform", "")};
+            records[id] = Installed{.path = entry.value("path", ""),
+                                    .platform = entry.value("platform", ""),
+                                    .build = entry.value("build", "")};
         }
     }
     return records;
@@ -80,6 +122,9 @@ void InstallRecords::write(const std::map<std::string, Installed, std::less<>>& 
     json document = json::object();
     for (const auto& [known, entry] : records) {
         document[known] = {{"path", entry.path.string()}, {"platform", entry.platform}};
+        if (!entry.build.empty()) {
+            document[known]["build"] = entry.build;
+        }
     }
     std::string error;
     if (!fileio::writeWhole(file_, document.dump(2), error)) {

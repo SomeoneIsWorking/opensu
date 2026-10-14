@@ -79,6 +79,10 @@ constexpr Colour libraryTo{0x2F, 0x28, 0x5E, 255};
 // A store badge's disc, dark so a white logo reads over any cover.
 constexpr Colour badgeDisc{0x16, 0x13, 0x1E, 200};
 constexpr float badgeLogo = 0.62f;
+/// The update arrow against the badge's radius: half its length, its shaft, its head.
+constexpr float updateArrowReach = 0.55f;
+constexpr float updateArrowWidth = 0.22f;
+constexpr float updateArrowHead = 0.42f;
 // A folder card's mark is a quarter of the card; the library glyph is four tiles of it.
 constexpr float markSide = 0.26f;
 constexpr float markGap = 0.05f;
@@ -349,6 +353,24 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
         paintFallback(canvas, tile, content);
     }
     paintStores(canvas, tile, content);
+    if (tile.update) {
+        paintUpdate(canvas, tile, content);
+    }
+}
+
+void TilePainter::paintUpdate(Canvas& canvas, const TileVisual& tile, const Rect& content) const {
+    const Rect badge = updateBadge(content);
+    const Point centre{badge.centreX(), badge.centreY()};
+    const float r = badge.width * 0.5f;
+    canvas.fillCircle(centre, r, withAlpha(badgeDisc, tile.alpha));
+    // A down arrow: the shaft, then the head below it.
+    const Colour ink = withAlpha(white, tile.alpha);
+    const float head = r * updateArrowHead;
+    canvas.line(Point{centre.x, centre.y - r * updateArrowReach},
+                Point{centre.x, centre.y + r * updateArrowReach - head}, r * updateArrowWidth, ink);
+    canvas.triangle(Point{centre.x - head, centre.y + r * updateArrowReach - head},
+                    Point{centre.x + head, centre.y + r * updateArrowReach - head},
+                    Point{centre.x, centre.y + r * updateArrowReach}, ink);
 }
 
 void TilePainter::paintStores(Canvas& canvas, const TileVisual& tile, const Rect& content) {

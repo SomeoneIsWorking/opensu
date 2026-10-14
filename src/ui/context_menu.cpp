@@ -27,6 +27,9 @@ std::vector<ContextItem> contextItemsFor(const library::ShelfItem& item, bool hi
         std::vector<ContextItem> items;
         items.push_back(game->installed ? ContextItem{"Launch", ContextAction::Launch}
                                         : ContextItem{"Install", ContextAction::Install});
+        if (game->installed && game->updateAvailable && game->source != library::Source::Rom) {
+            items.push_back(ContextItem{"Update", ContextAction::Update});
+        }
         items.push_back(ContextItem{"Details", ContextAction::Details});
         items.push_back(hidden ? ContextItem{"Unhide game", ContextAction::Unhide}
                                : ContextItem{"Hide game", ContextAction::Hide});

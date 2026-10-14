@@ -90,6 +90,10 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::Launch:
         hooks_.launch(*game);
         break;
+    case ui::DetailsAction::Update:
+        sounds_.play(audio::Effect::Navigation);
+        update_.request(*game);
+        break;
     case ui::DetailsAction::Emulator:
         cycleEmulator(*game, 1);
         break;

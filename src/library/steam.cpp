@@ -148,6 +148,12 @@ bool stateFlagsInstalled(const Node& state) {
     return flags.has_value() && (*flags & kFullyInstalled) != 0;
 }
 
+/// StateUpdateRequired: Steam has a newer build (TargetBuildID) to apply over buildid.
+bool stateFlagsUpdatePending(const Node& state) {
+    const std::optional<long long> flags = state.integer({"StateFlags"});
+    return flags.has_value() && (*flags & kUpdateRequired) != 0;
+}
+
 /// Merges every user profile's app data. Later profiles win, which matches how
 /// Steam treats a shared machine.
 std::map<std::string, PlayRecord, std::less<>> loadUserData(const fs::path& root) {
@@ -284,6 +290,7 @@ std::optional<Game> readManifest(const LibraryLocation& library, const fs::path&
     game.sourceId = appId;
     game.title = *name;
     game.installed = installed;
+    game.updateAvailable = installed && stateFlagsUpdatePending(*state);
     game.launch = LaunchSpec{.program = "steam", .args = {"-applaunch", appId}};
     // Steam runs every game, native or Proton, under `reaper SteamLaunch AppId=<id>`;
     // the trailing NUL ends the argument so AppId=44 cannot match AppId=440.

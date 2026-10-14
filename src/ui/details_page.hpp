@@ -19,6 +19,8 @@ namespace opensu::ui {
 enum class DetailsAction : std::uint8_t {
     /// Play an installed game, or offer to install one that is not.
     Launch,
+    /// Update an installed store game its store has a newer build of.
+    Update,
     /// Choose the next emulator for a ROM.
     Emulator,
     /// Download the emulator a ROM is missing, or cancel its download.

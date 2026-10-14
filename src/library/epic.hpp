@@ -1,7 +1,8 @@
 // epic — lists Epic Games Store titles from the local Legendary installation.
 //
 // Legendary owns authentication and downloads; this reads the account's owned titles
-// (`list --json`) and which of them are installed (`list-installed --json`).
+// (`list --json`) and which of them are installed (`list-installed --json`). An installed title has
+// an update when its installed `version` differs from `asset_infos.<its platform>.build_version`.
 #pragma once
 
 #include <filesystem>

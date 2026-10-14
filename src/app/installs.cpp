@@ -1,5 +1,6 @@
 #include "installs.hpp"
 
+#include <stdexcept>
 #include <utility>
 
 #include "library/epic.hpp"
@@ -10,8 +11,13 @@ namespace opensu::app {
 
 Installs::Installs(steam::Client& steam, const std::string& legendary,
                    const GogInstallJob::Options& gog, Folders folders, Playing playing)
-    : steam_{steam}, epic_{legendary}, gog_{gog}, uninstall_{steam, legendary, gog.dataDir},
-      folders_{std::move(folders)}, playing_{std::move(playing)} {
+    : steamReady_{[&steam] {
+          return steam.state() == launch::SteamState::Ready;
+      }},
+      steam_{steam}, steamUpdate_{steamReady_, steam.downloadControl()}, epic_{legendary},
+      gog_{gog}, uninstall_{steam, legendary, gog.dataDir},
+      gogRecords_{library::gog::Paths::under(gog.dataDir).records}, folders_{std::move(folders)},
+      playing_{std::move(playing)} {
 }
 
 bool Installs::supports(library::Source source) noexcept {
@@ -50,39 +56,101 @@ bool Installs::start(const library::Game& game) {
         job = &steam_;
     } else if (game.source == library::Source::Epic) {
         epic_.setFolder(folder);
+        epic_.setUpdate(false);
         job = &epic_;
     } else if (game.source == library::Source::Gog) {
         gog_.setBuilds(game.builds);
         gog_.setFolder(folder);
+        gog_.setUpdate(std::nullopt);
         job = &gog_;
     }
-    if (job == nullptr || !job->start(game.sourceId, game.title)) {
+    return job != nullptr && begin(*job, game, Work::Install);
+}
+
+bool Installs::begin(InstallJob& job, const library::Game& game, Work work) {
+    if (!job.start(game.sourceId, game.title)) {
         return false;
     }
     title_ = game.title;
-    last_ = job;
+    last_ = &job;
     lastStore_ = game.source;
+    lastWork_ = work;
     return true;
+}
+
+std::string Installs::update(const library::Game& game) {
+    if (std::string refused = refusal(game, Work::Update); !refused.empty()) {
+        return refused;
+    }
+    if (!game.updateAvailable) {
+        return game.title + " is up to date";
+    }
+    InstallJob* job = nullptr;
+    switch (game.source) {
+    case library::Source::Steam:
+        if (!steamReady_()) {
+            return "Steam is not running";
+        }
+        job = &steamUpdate_;
+        break;
+    case library::Source::Epic:
+        epic_.setUpdate(true);
+        job = &epic_;
+        break;
+    case library::Source::Gog: {
+        std::optional<library::gog::Installed> record;
+        try {
+            record = gogRecords_.find(game.sourceId);
+        } catch (const std::runtime_error& error) {
+            return error.what();
+        }
+        if (!record) {
+            return "openSU has no record of the GOG install";
+        }
+        gog_.setUpdate(std::move(record));
+        job = &gog_;
+        break;
+    }
+    case library::Source::Rom:
+        break;
+    }
+    if (job == nullptr || !begin(*job, game, Work::Update)) {
+        return busy();
+    }
+    return {};
 }
 
 std::string Installs::busy() {
     if (!running()) {
         return {};
     }
-    return title_ + (last_ == &uninstall_ ? " is still uninstalling" : " is still installing");
+    switch (lastWork_) {
+    case Work::Install:
+        break;
+    case Work::Update:
+        return title_ + " is still updating";
+    case Work::Uninstall:
+        return title_ + " is still uninstalling";
+    }
+    return title_ + " is still installing";
+}
+
+std::string Installs::refusal(const library::Game& game, Work work) {
+    if (!supports(game.source)) {
+        return work == Work::Uninstall ? "openSU never deletes ROMs"
+                                       : "openSU does not update ROMs";
+    }
+    if (!game.installed) {
+        return game.title + " is not installed";
+    }
+    if (playing_(game)) {
+        return game.title + " is running";
+    }
+    return busy();
 }
 
 Removal Installs::removal(const library::Game& game) {
-    if (!supports(game.source)) {
-        return Removal{.refusal = "openSU never deletes ROMs"};
-    }
-    if (!game.installed) {
-        return Removal{.refusal = game.title + " is not installed"};
-    }
-    if (playing_(game)) {
-        return Removal{.refusal = game.title + " is running"};
-    }
-    if (std::string refused = busy(); !refused.empty()) {
+    if (std::string refused = refusal(game, Work::Uninstall); !refused.empty()) {
         return Removal{.refusal = std::move(refused)};
     }
     return uninstall_.removal(game, folders_(game.source));
@@ -93,12 +161,9 @@ std::string Installs::uninstall(const library::Game& game) {
         return refused;
     }
     uninstall_.setStore(game.source, folders_(game.source));
-    if (!uninstall_.start(game.sourceId, game.title)) {
-        return title_ + " is still uninstalling";
+    if (!begin(uninstall_, game, Work::Uninstall)) {
+        return busy();
     }
-    title_ = game.title;
-    last_ = &uninstall_;
-    lastStore_ = game.source;
     return {};
 }
 
@@ -110,9 +175,7 @@ std::optional<Installs::Status> Installs::status() const {
     if (!job) {
         return std::nullopt;
     }
-    return Status{.store = lastStore_,
-                  .work = last_ == &uninstall_ ? Work::Uninstall : Work::Install,
-                  .job = std::move(*job)};
+    return Status{.store = lastStore_, .work = lastWork_, .job = std::move(*job)};
 }
 
 void Installs::cancel() {
@@ -124,6 +187,9 @@ void Installs::cancel() {
 InstallJob* Installs::current() {
     if (steam_.running()) {
         return &steam_;
+    }
+    if (steamUpdate_.running()) {
+        return &steamUpdate_;
     }
     if (epic_.running()) {
         return &epic_;

@@ -2,7 +2,8 @@
 //
 // gogdl downloads into a folder it names itself and keeps no list of installs, so opensu records
 // each finished install (game id, folder, platform) in `<data dir>/gog-installs.json`. The record
-// is what makes a GOG game installed and says how it launches. An uninstall deletes a recorded
+// is what makes a GOG game installed and says how it launches; its build is what an update check
+// compares with what GOG offers now. An uninstall deletes a recorded
 // folder only when it lies inside the root openSU gave gogdl for that game; a record pointing
 // anywhere else is only forgotten.
 #pragma once
@@ -39,7 +40,15 @@ struct Installed {
     std::filesystem::path path;
     /// The gogdl platform it was downloaded for: "linux" or "windows".
     std::string platform;
+    /// What was installed, as `installedBuild` reads it; empty when unknown.
+    std::string build{};
 };
+
+/// The build installed at `installed.path` for game `id`, as gogdl's `import` reads it
+/// (`gogdl/imports.py:get_info`): for Windows the content system's build id, from
+/// `goggame-<id>.id`, else `goggame-<id>.info`; for Linux the installer's version, the second line
+/// of `gameinfo`. Empty when the files do not say.
+[[nodiscard]] std::string installedBuild(const Installed& installed, std::string_view id);
 
 class InstallRecords {
   public:

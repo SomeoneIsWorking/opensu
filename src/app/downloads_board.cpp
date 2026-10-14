@@ -220,6 +220,15 @@ void DownloadsBoard::applyInstall(const Installs::Status& install, std::set<std:
     const bool removing = install.work == Installs::Work::Uninstall;
     const std::string key = keyOf(install.store, job.appId);
     const bool running = job.phase == Phase::Running || job.phase == Phase::Licence;
+    if (install.store == library::Source::Steam && install.work == Installs::Work::Update &&
+        job.phase == Phase::Done) {
+        // The update is on Steam's queue now, and Steam's row carries it.
+        if (const auto found = entries_.find(key);
+            found != entries_.end() && !found->second.row.inSteamQueue) {
+            entries_.erase(found);
+        }
+        return;
+    }
     if (!running) {
         const auto found = entries_.find(key);
         if (found != entries_.end() && found->second.endSerial == job.serial) {
@@ -233,6 +242,7 @@ void DownloadsBoard::applyInstall(const Installs::Status& install, std::set<std:
     row.id = job.appId;
     row.title = job.title;
     row.fraction = job.fraction;
+    row.update = install.work == Installs::Work::Update;
     row.detail = job.phase == Phase::Failed ? job.failure : job.line;
     row.inSteamQueue = false;
     row.queueIndex = -1;

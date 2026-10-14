@@ -2,7 +2,8 @@
 // Steam's own downloads page makes (`steamui/chunk~2dcc5aaf7.js`): its pause and resume button
 // (`EnableAllDownloads`, the whole queue), Download / Move to top on a waiting item
 // (`ResumeAppUpdate`), a drag within the queue (`SetQueueIndex`) and the remove button
-// (`RemoveFromDownloadList`). Each names this machine's client, id "0".
+// (`RemoveFromDownloadList`); `ResumeAppUpdate` is also what the library's Update button calls.
+// Each names this machine's client, id "0".
 #pragma once
 
 #include <string>
@@ -22,7 +23,8 @@ class DownloadControl {
     [[nodiscard]] std::string pause();
     /// Resumes the queue.
     [[nodiscard]] std::string resume();
-    /// Starts `appId` now, ahead of the rest of the queue.
+    /// Starts `appId`'s download or pending update now, ahead of the rest of the queue, as
+    /// Steam's own library Update and Resume buttons do.
     [[nodiscard]] std::string moveToTop(const std::string& appId);
     /// Puts `appId` at `index` of the queue; the active download is index 0.
     [[nodiscard]] std::string setQueueIndex(const std::string& appId, int index);

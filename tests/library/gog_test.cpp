@@ -65,7 +65,13 @@ class FakeGog {
     }
 
     [[nodiscard]] Endpoints endpoints() const {
-        return {server_.base(), server_.base()};
+        return {server_.base(), server_.base(), server_.base(), server_.base()};
+    }
+    [[nodiscard]] int buildRequests() const {
+        return buildRequests_;
+    }
+    void failBuilds(bool fail) {
+        failBuilds_ = fail;
     }
     [[nodiscard]] int tokenRequests() const {
         return tokenRequests_;
@@ -110,6 +116,25 @@ class FakeGog {
                 {"id":2,"title":"Beta","image":"//images-2.gog.com/bbb",
                  "worksOn":{"Windows":true,"Mac":true,"Linux":false}}]})");
         }
+        if (target == "/products/2/os/windows/builds?generation=2" ||
+            target == "/products/1207658930?expand=downloads") {
+            ++buildRequests_;
+            if (failBuilds_ ||
+                !request.header("Authorization").value_or("").starts_with("Bearer ACCESS-")) {
+                return reply(503, "");
+            }
+            if (contains(target, "/builds?")) {
+                // gogdl takes the first build on no branch (dl/managers/manager.py).
+                return reply(200, R"({"total_count":2,"count":2,"items":[
+                    {"build_id":"BETA-1","product_id":"2","os":"windows","branch":"beta",
+                     "version_name":"1.1 beta","public":true,"generation":2},
+                    {"build_id":"B-NEW","product_id":"2","os":"windows","branch":null,
+                     "version_name":"1.0.4","public":true,"generation":2}]})");
+            }
+            return reply(200, R"({"id":1207658930,"title":"Alpha","downloads":{"installers":[
+                {"id":"installer_windows_en","os":"windows","language":"en","version":"9.9"},
+                {"id":"installer_linux_en","os":"linux","language":"en","version":"1.2.0"}]}})");
+        }
         return reply(404, "");
     }
 
@@ -117,6 +142,8 @@ class FakeGog {
     std::string lastTokenTarget_;
     std::atomic<int> tokenRequests_{0};
     std::atomic<int> libraryRequests_{0};
+    std::atomic<int> buildRequests_{0};
+    std::atomic<bool> failBuilds_{false};
     LoopbackServer server_;
 };
 
@@ -266,6 +293,38 @@ void testLibrary() {
                                              "--platform", "windows", "--wine", "wine",
                                              "--wine-prefix", (dir / "gog-prefixes/2").string()}),
            "a Windows install launches under Wine in a prefix of its own");
+    expect(gog.buildRequests() == 0 && !installed[0].updateAvailable &&
+               !installed[1].updateAvailable,
+           "an install whose build is unknown is not checked and shows no update");
+
+    // A record with its build, and an older record whose build is read from gogdl's files.
+    records.add("1207658930", Installed{.path = dir / "gog-games/1207658930/Alpha",
+                                        .platform = "linux",
+                                        .build = "1.1.0"});
+    fs::create_directories(dir / "gog-games/2/Beta");
+    std::ofstream{dir / "gog-games/2/Beta/goggame-2.info"}
+        << R"({"buildId":"B-OLD","gameId":"2","rootGameId":"2","name":"Beta"})";
+    const std::vector<Game> behind = provider.list();
+    expect(gog.buildRequests() == 2, "one request per installed game with a known build");
+    expect(behind[0].updateAvailable,
+           "a Linux install older than GOG's Linux installer version has an update");
+    expect(behind[1].updateAvailable,
+           "a Windows install whose build is not the one on no branch has an update");
+
+    records.add("1207658930", Installed{.path = dir / "gog-games/1207658930/Alpha",
+                                        .platform = "linux",
+                                        .build = "1.2.0"});
+    records.add(
+        "2", Installed{.path = dir / "gog-games/2/Beta", .platform = "windows", .build = "B-NEW"});
+    const std::vector<Game> current = provider.list();
+    expect(!current[0].updateAvailable && !current[1].updateAvailable,
+           "an install of the offered build has no update");
+
+    gog.failBuilds(true);
+    const std::vector<Game> unknown = provider.list();
+    expect(unknown.size() == 2 && unknown[0].installed && !unknown[0].updateAvailable,
+           "a builds answer GOG will not give leaves the listing whole and shows no update");
+    gog.failBuilds(false);
 
     TokenStore::under(dir).save(Token{"WRONG", "REFRESH-1", "4242", 4'000'000'000});
     bool failed = false;

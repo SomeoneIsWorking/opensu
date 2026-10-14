@@ -24,7 +24,7 @@ gitignored `docs/reference/`).
 | `src/app/retro_session.*` | The shell's side of `opensu-retro`'s control channel: each launch's `OPENSU_RETRO_CONTROL` file under the runtime dir, the port read from it, `/status`, save, load and reset over `lucent::http` loopback with the toast each comes to (`perform`), the load failure a runner leaves handed over and the file removed |
 | `src/app/game_end.*` | The toast for a launch that is over: a runner's load failure, `<title> crashed (SIGSEGV)` for a death by a signal the player did not send, the launch's failure, or `<title> closed` |
 | `src/app/devices_controller.*` | The Devices page: Bluetooth, Controllers, Audio output and Display tabs and what their rows do |
-| `src/app/downloads_board.*` | The Downloads page's model: Steam's queue, the store install or uninstall and the emulator download merged each frame into rows with state, order and the actions each owner allows; ended rows kept until quit. Pure |
+| `src/app/downloads_board.*` | The Downloads page's model: Steam's queue, the store install, update or uninstall and the emulator download merged each frame into rows with state, order and the actions each owner allows; ended rows kept until quit. Pure |
 | `src/app/downloads_controller.*` | The Downloads page's controller: feeds the board, fills the page, sends a pressed button to the row's owner (`Installs`, `EmulatorDownloads`, `steam::DownloadControl` on a worker) |
 | `src/app/host_services.*` | Power, session mode, Bluetooth and backlight backends for this machine; the one place a hidden run is made read-only |
 | `src/app/bluetooth_session.*` | BlueZ reads off the loop and one change at a time, with notices; pairing is pair, trust, connect |
@@ -35,8 +35,10 @@ gitignored `docs/reference/`).
 | `src/app/layout_picker.*` | START: the options panel's buttons (layout cards, icon size, pin, sort, source, installed, hidden, search row) and saving what is chosen |
 | `src/app/preferences.*` | The loaded `settings::Settings` and saving them, with a toast when the file cannot be written |
 | `src/app/search_controller.*` | The search panel's pad buttons and keyboard text; the typed text is the view's search |
-| `src/app/context_menu_controller.*` | Opening the focused tile's menu and what its entries do (launch, details, hide/unhide, open, refresh, sign in, uninstall on a second press) |
-| `src/app/details_controller.*` | The details page's buttons: open for the focused game, Play or Install, the emulator pick, Download <emulator> (start or cancel the emulator download), Hide, Uninstall (two presses), Back; keeps the page current as the library changes |
+| `src/app/context_menu_controller.*` | Opening the focused tile's menu and what its entries do (launch, update, details, hide/unhide, open, refresh, sign in, uninstall on a second press) |
+| `src/app/details_controller.*` | The details page's buttons: open for the focused game, Play or Install, Update, the emulator pick, Download <emulator> (start or cancel the emulator download), Hide, Uninstall (two presses), Back; keeps the page current as the library changes |
+| `src/app/update_request.*` | Update on the details page and the tile menu: one press starts `Installs::update` and tells the player, or tells why not |
+| `src/app/steam_update_job.*` | A Steam update asked for, as an `InstallJob`: starts the pending update as Steam's library Update button does (`DownloadControl::moveToTop`, `ResumeAppUpdate`) and ends; Steam's queue row carries it |
 | `src/app/uninstall_prompt.*` | The two presses of Uninstall the details page and the tile menu share: the first asks `Installs` what goes (or says why not), the second starts it |
 | `src/app/breadcrumb_trail.*` | The one computation of the breadcrumb trail from the shell's state (section, folder, search, filters, open game, Settings, Devices, Downloads) |
 | `src/app/settings_controller.*` | The Settings screen's controller: rows per category, input routing, saving through `Preferences`, folder chooser and path entry; Install folders shows each store's resolved folder (override, default or the store's own) |
@@ -58,10 +60,10 @@ gitignored `docs/reference/`).
 | `src/app/control_channel.*` | Loopback HTTP control channel (`lucent::http::Server`): shell state, input (`guide+a` holds buttons together, `guide 1500ms` holds them that long), frames, `/signin/<store>[/start]`; `/state` includes `armed` (a two-press button waiting) and the Downloads page's rows |
 | `src/app/sign_in.*` | Store sign-in steps: open the sign-in page in the default browser, finish with the code (GOG token, Epic via `legendary auth --code`) |
 | `src/app/launcher_status.*` | The launcher badges' states from the Steam client, its downloads and the catalog's store statuses |
-| `src/app/install_job.*` | The store-neutral job on a game (each install, and the uninstall): its thread, the latest report the loop takes, its state for any reader (`status`), the licence answer, the player's cancel |
+| `src/app/install_job.*` | The store-neutral job on a game (each install, update and uninstall): its thread, the latest report the loop takes, its state for any reader (`status`), the licence answer, the player's cancel |
 | `src/app/cli_install_job.*` | An install by a downloader program: run it, turn its logged progress into reports, fail with its reason; the base of the Epic and GOG jobs |
-| `src/app/steam_install_job.*`, `epic_install_job.*`, `gog_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install (`legendary install`); one GOG install (`gogdl download`: token handed over and taken back, Linux or Windows build, the install recorded) |
-| `src/app/installs.*` | The installers by store and the uninstaller, one install or uninstall at a time, the last one's state (install or uninstall) and its cancel; which stores install; the uninstall refusals (ROM, not installed, running, busy) and what an uninstall removes (`removal`); each store's own install folder (`ownFolders`: GOG under the data dir, legendary's, Steam's default library) |
+| `src/app/steam_install_job.*`, `epic_install_job.*`, `gog_install_job.*` | One Steam install (walks Steam's installer, follows its queue); one Epic install or update (`legendary install`, `legendary update`); one GOG install or update (`gogdl download`, `gogdl update` over the recorded folder: token handed over and taken back, Linux or Windows build, the install and its build recorded) |
+| `src/app/installs.*` | The installers and updaters by store and the uninstaller, one install, update or uninstall at a time, the last one's state (`Work`) and its cancel; which stores install; the refusals updates and uninstalls share (ROM, not installed, running, busy), the update's own (none known, Steam not running, no GOG record) and what an uninstall removes (`removal`); each store's own install folder (`ownFolders`: GOG under the data dir, legendary's, Steam's default library) |
 | `src/app/uninstall_job.*` | One store game uninstalled as an `InstallJob`: Steam through `steam::Uninstaller` until its manifest goes, Epic with `legendary uninstall <app> -y`, GOG by deleting the recorded folder only inside its gogdl root, then forgetting the record; never a Wine prefix or a ROM |
 | `src/config/config.*` | The one reader of the environment, into typed immutable config (cache, data and config dirs included, the XDG bases plugin paths expand from, legendary's config dir, the logind session id); where the Gamescope fork binary is (`gamescopeBeside`, relative to `/proc/self/exe`) and the libretro runner beside the executable (`retroRunnerBeside`); the runner's saves and system folders (`savesDir`, `retroSystemDir`); the runtime dir (`runtimeDir`) and the runner's control file (`retroControl`, from `OPENSU_RETRO_CONTROL`) |
 | `src/settings/settings.*` | The player's saved preferences (Library layout, dock pin, icon size, sort and filters, hidden games, last-played times, Settings-screen choices, interface scale, install folders, shortcut remaps, plugins turned on or off with the permissions granted) as JSON under the config dir; defaults on a missing or corrupt file |
@@ -101,7 +103,7 @@ gitignored `docs/reference/`).
 | `src/steam/devtools.*` | Running JavaScript in Steam's SharedJSContext over Chrome DevTools |
 | `src/steam/libraries.*` | Steam's library folders through `SteamClient.InstallFolder`: read, add, set default, remove (refused for Steam's own library or one that holds games) |
 | `src/steam/downloads.*` | Steam's live download queue: parsing and reading it (place, bytes, rate, stage) |
-| `src/steam/download_control.*` | Changes to Steam's queue through `SteamClient.Downloads`, the calls Steam's downloads page makes: pause and resume all, start now, move, remove |
+| `src/steam/download_control.*` | Changes to Steam's queue through `SteamClient.Downloads`, the calls Steam's downloads page makes: pause and resume all, start now, move, remove; queueing an app's pending update |
 | `src/steam/steam_json.*` | Reading values the SharedJSContext returns (sizes as numbers or strings); the one app id check (`isAppId`) before an id goes into a script |
 | `src/steam/launch_activity.*` | Steam's game actions and running state per app, recorded in its SharedJSContext |
 | `src/steam/install_wizard.*` | Installing a Steam app through Steam's own installer, licence steps to the player |
@@ -114,10 +116,11 @@ gitignored `docs/reference/`).
 | `src/library/game.*` | The launchable `Game` record |
 | `src/library/catalog.*` | Building the catalog's providers from all sources (`game.*` holds `readProvider` and `assemble`, the merge) |
 | `src/library/catalog_loader.*` | Listing every store off the frame thread: one thread per provider, listings handed over as they arrive, `Loading` until a store's first one |
-| `src/library/steam.*`, `epic.*`, `gog.*`, `roms.*` | One source each |
+| `src/library/steam.*`, `epic.*`, `gog.*`, `roms.*` | One source each; the stores' sources also say which installed games have an update (`Game::updateAvailable`) |
 | `src/library/gog_auth.*`, `gog_token.*` | GOG's OAuth sign-in and the saved token (`<data dir>/gog-token.json`); `writeOwnerOnly`, the one owner-only atomic write |
 | `src/library/gogdl_auth.*` | The token as gogdl's `--auth-config-path` file, written for an install and read back |
-| `src/library/gog_installs.*` | Where GOG files live under the data dir (`Paths`, a game's gogdl root `gameRoot`), the record of finished GOG installs (add, find, remove) and the folder an uninstall may delete (`ownedFolder`) |
+| `src/library/gog_installs.*` | Where GOG files live under the data dir (`Paths`, a game's gogdl root `gameRoot`), the record of finished GOG installs with their build (add, find, remove), the build gogdl left on disk (`installedBuild`) and the folder an uninstall may delete (`ownedFolder`) |
+| `src/library/gog_builds.*` | The build GOG offers now for an installed game, where gogdl reads it: the content system's builds for Windows, the product's Linux installer version for Linux; whether an install is behind |
 | `src/library/install_log.*` | What legendary and gogdl log while installing: progress fraction, ERROR/CRITICAL lines |
 | `src/library/sections.*` | The dock's sections (Home, Library), the active one and L1/R1 cycling with wrap; Library's layout modes and their keys |
 | `src/library/shelf.*` | What the grid holds: Home's installed store games (`homeShelf`); Library's launchers, All games and consoles (`libraryShelf`); a console's ROMs, a launcher's library, the combined library; moving between them and between sections |
@@ -246,7 +249,7 @@ Pure model, unit-tested without a GPU (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/breadcrumbs.*` | The breadcrumb trail's levels and geometry: cells, chevrons, fitting to the room, the level under a point |
 | `src/ui/context_menu.*` | The tile context menu: entries per tile (`contextItemsFor`), focus, the armed entry (let go when focus moves), layout and hit-tests |
 | `src/ui/panel_fade.*` | The fade and scale a panel shows and hides with |
-| `src/ui/tile_geometry.*` | One tile's rectangles and radii (and `outerForContent`, the inverse of the frame inset); where a game tile's store icons sit |
+| `src/ui/tile_geometry.*` | One tile's rectangles and radii (and `outerForContent`, the inverse of the frame inset); where a game tile's store icons and update badge sit |
 | `src/ui/top_bar_metrics.*` | Top bar sizes in dp (`is7`, `hs7`, `dl3`) |
 | `src/ui/top_bar_layout.*` | The status pill and the launcher badge cells in it, in pixels; the launcher under a point. The Hud paints and hit-tests from it |
 | `src/ui/corner_hints.*` | Which prompts the bottom corners name, from what each button does now (`HintContext`) |
@@ -284,7 +287,7 @@ Painters and composition (`opensu_ui`):
 | `src/ui/guide_menu_painter.*`, `quick_menu_painter.*` | The Guide menu on the left and the quick menu on the right, over the home screen or a running game |
 | `src/ui/guide_panels.*` | The Guide and quick menus with their painters and the one hit test |
 | `src/ui/session_dialog_painter.*`, `session_panels.*` | The dialog's painter (wrapped paragraphs, pill buttons with pad glyphs); the dialog and the password keyboard (a secret `SearchPanel`: dots, Caps, wiped on close) with their fades and one hit test |
-| `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art (a spinner while it is on its way), platform frame, store icons; the name cards of a console, a launcher and All games |
+| `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art (a spinner while it is on its way), platform frame, store icons, the update badge; the name cards of a console, a launcher and All games |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
 | `src/ui/paint.hpp` | What the painters draw with: gpu2d's `Canvas`, `Colour` and `Point`, the layout's `Rect` on the canvas, corner radii, and the `ScopedClip` and `PanelScope` (scale about a point) scopes |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |

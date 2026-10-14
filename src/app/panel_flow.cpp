@@ -147,8 +147,8 @@ void PanelFlow::service() {
         return;
     }
     if (const std::optional<Installs::Status> status = install_.status();
-        status && status->work == Installs::Work::Uninstall) {
-        uninstallEnded(*report);
+        status && status->work != Installs::Work::Install) {
+        workEnded(*report, status->work);
         return;
     }
     if (report->licence) {
@@ -181,18 +181,20 @@ void PanelFlow::service() {
     }
 }
 
-void PanelFlow::uninstallEnded(const InstallJob::Report& report) {
+void PanelFlow::workEnded(const InstallJob::Report& report, Installs::Work work) {
     if (!report.finished) {
         return;
     }
     const std::string title = install_.title();
+    const std::string verb = work == Installs::Work::Update ? "update" : "uninstall";
     if (report.cancelled) {
-        shell_.setToast(title + " uninstall stopped", true);
+        shell_.setToast(title + " " + verb + " stopped", true);
     } else if (report.failure.empty()) {
         hooks_.reloadCatalog();
-        shell_.setToast(title + " " + report.line);
+        // An uninstall's and Steam's line says how it ended; a store's update says nothing.
+        shell_.setToast(title + " " + (report.line.empty() ? "updated" : report.line));
     } else {
-        shell_.setToast("cannot uninstall " + title + ": " + report.failure, true);
+        shell_.setToast("cannot " + verb + " " + title + ": " + report.failure, true);
     }
 }
 

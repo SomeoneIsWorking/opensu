@@ -20,6 +20,8 @@ enum class ContextAction : std::uint8_t {
     Launch,
     /// Offer to install a game that is not.
     Install,
+    /// Update an installed store game its store has a newer build of.
+    Update,
     /// Show a game's details.
     Details,
     Hide,

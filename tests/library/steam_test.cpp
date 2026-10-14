@@ -78,9 +78,12 @@ struct Fixture {
               "\"AppState\"\n{\n\t\"appid\"\t\t\"2805730\"\n\t\"name\"\t\t\"Proton 9.0\"\n"
               "\t\"installdir\"\t\t\"Proton 9.0 (Beta)\"\n\t\"StateFlags\"\t\t\"4\"\n}\n");
 
+        // Installed with an update Steam has not applied yet, as a manifest Steam wrote reads.
         write(extra / "steamapps" / "appmanifest_999.acf",
               "\"AppState\"\n{\n\t\"appid\"\t\t\"999\"\n\t\"name\"\t\t\"Deep Game\"\n"
-              "\t\"installdir\"\t\t\"Deep Game\"\n\t\"StateFlags\"\t\t\"4\"\n}\n");
+              "\t\"installdir\"\t\t\"Deep Game\"\n\t\"StateFlags\"\t\t\"6\"\n"
+              "\t\"buildid\"\t\t\"24599756\"\n\t\"UpdateResult\"\t\t\"0\"\n"
+              "\t\"TargetBuildID\"\t\t\"25607578\"\n}\n");
 
         write(root / "appcache" / "librarycache" / "440" / "library_600x900.jpg", "portrait");
         write(root / "appcache" / "librarycache" / "440" / "library_hero.jpg", "landscape");
@@ -179,6 +182,11 @@ int main() {
 
     const Game* deep = find(games, "steam:999");
     expect(deep != nullptr, "game from the extra library listed");
+    expect(deep->installed && deep->updateAvailable,
+           "an installed game whose manifest says an update is required has one pending");
+    expect(!portal->updateAvailable && !hashed->updateAvailable,
+           "a fully installed game with no update required has none");
+    expect(!missing->updateAvailable, "a game that is not installed has no update");
     expect(deep->artwork.empty(), "a game with no artwork reports none");
 
     // The install root is listed as library 0, so nothing may appear twice.

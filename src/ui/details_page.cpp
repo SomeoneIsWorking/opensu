@@ -104,9 +104,10 @@ DetailsView detailsFor(const library::Game& game, bool hidden,
     view.title = game.title;
     view.badge = badgeOf(game);
     const bool rom = game.source == library::Source::Rom;
-    view.rows.push_back(
-        DetailsRow{"Status", std::string{game.installed ? "Installed" : "Not installed"} +
-                                 (hidden ? ", hidden" : "")});
+    const bool updatable = game.installed && game.updateAvailable && !rom;
+    view.rows.push_back(DetailsRow{
+        "Status", std::string{game.installed ? "Installed" : "Not installed"} +
+                      (updatable ? ", update available" : "") + (hidden ? ", hidden" : "")});
     if (game.ownedIn.size() > 1) {
         std::string owned;
         for (const library::Source source : game.ownedIn) {
@@ -124,6 +125,9 @@ DetailsView detailsFor(const library::Game& game, bool hidden,
 
     view.buttons.push_back(
         DetailsButton{DetailsAction::Launch, game.installed ? "Play" : "Install", ""});
+    if (updatable) {
+        view.buttons.push_back(DetailsButton{DetailsAction::Update, "Update", ""});
+    }
     if (const library::EmulatorOption* missing = emulatorToDownload(game)) {
         view.buttons.push_back(
             DetailsButton{DetailsAction::DownloadEmulator, "Download " + missing->name, download});

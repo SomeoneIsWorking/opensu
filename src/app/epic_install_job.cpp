@@ -19,6 +19,11 @@ EpicInstallJob::~EpicInstallJob() {
 }
 
 std::vector<std::string> EpicInstallJob::arguments(const std::string& appName) {
+    if (update_) {
+        // An alias of install that refuses a game not installed (--update-only); legendary keeps
+        // the install's folder, platform and chosen packs.
+        return {"update", appName, "--update-only", "-y", "--skip-sdl"};
+    }
     // -y answers legendary's prompts; --skip-sdl keeps it from asking which optional packs to
     // fetch, as its stdin is closed.
     std::vector<std::string> arguments{"install", appName, "-y", "--skip-sdl"};

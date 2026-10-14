@@ -179,3 +179,11 @@ target_compile_options(downloads_controller_test PRIVATE -Wall -Wextra -Wpedanti
 target_compile_definitions(downloads_controller_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME downloads_controller COMMAND downloads_controller_test)
 set_tests_properties(downloads_controller PROPERTIES TIMEOUT 120)
+
+add_executable(update_job_test update_job_test.cpp)
+target_link_libraries(update_job_test PRIVATE opensu::app)
+target_include_directories(update_job_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(update_job_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(update_job_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME update_job COMMAND update_job_test)
+set_tests_properties(update_job PROPERTIES TIMEOUT 120)

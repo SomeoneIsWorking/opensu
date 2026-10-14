@@ -97,6 +97,16 @@ void storeIcons() {
     opensu::test::expect(many.badges[0].x > content.x, "the row stays on the tile");
 }
 
+void updateBadge() {
+    const Rect content{100, 200, 200, 300};
+    const Rect badge = opensu::ui::updateBadge(content);
+    const opensu::ui::StoreIconRow one = opensu::ui::storeIconRow(content, 1);
+    near(badge.width, one.badges[0].width, "the update badge is a store badge's size");
+    near(badge.right(), one.badges[0].right(), "it lines up with the store badges' right edge");
+    near(badge.y, content.y + 10.0f, "it is 5% down from the top");
+    opensu::test::expect(badge.bottom() < one.badges[0].y, "it clears the store badges");
+}
+
 } // namespace
 
 int main() {
@@ -107,6 +117,7 @@ int main() {
     glyph();
     contain();
     storeIcons();
+    updateBadge();
     std::printf("tile_geometry: all checks passed\n");
     return 0;
 }

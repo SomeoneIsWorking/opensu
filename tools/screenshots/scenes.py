@@ -230,16 +230,29 @@ def _epic_game(shell: HiddenShell, app_name: str) -> None:
     shell.wait_for("focusedId", f"epic:{app_name}", timeout=1.0)
 
 
+def _update_badge(shell: HiddenShell) -> None:
+    """The installed stand-in game focused in the Epic launcher, its tile showing the update."""
+    _epic_game(shell, legendary.INSTALLED_APP_NAME)
+
+
+def _details_update(shell: HiddenShell) -> None:
+    """The installed stand-in game's details with Update focused."""
+    _epic_game(shell, legendary.INSTALLED_APP_NAME)
+    _details(shell)
+    # Its buttons: Play, Update, Hide game, Uninstall, Back.
+    shell.press("down")
+
+
 def _arm_uninstall(shell: HiddenShell) -> None:
     """The installed stand-in game's details, and the first press on Uninstall."""
     _epic_game(shell, legendary.INSTALLED_APP_NAME)
     _details(shell)
-    # Its buttons: Play, Hide game, Uninstall, Back.
-    shell.press("down", "down", "a")
+    # Its buttons: Play, Update, Hide game, Uninstall, Back.
+    shell.press("down", "down", "down", "a")
     shell.wait_for("armed", True)
 
 
-def _leave_armed_details(shell: HiddenShell) -> None:
+def _leave_store_details(shell: HiddenShell) -> None:
     shell.press("b")
     shell.wait_for("detailsOpen", False)
     _leave_console_shelf(shell)
@@ -347,10 +360,22 @@ README_SCENES: tuple[Scene, ...] = tuple(scene for scene in SCENES if scene.read
 # In this order: the uninstall waits for the install, which only the last scene cancels.
 DOWNLOAD_SCENES: tuple[Scene, ...] = (
     Scene(
+        "update-badge",
+        "An installed Epic game with an update: the badge on its tile",
+        _update_badge,
+        _leave_console_shelf,
+    ),
+    Scene(
+        "details-update",
+        "Details: Update for an installed Epic game a build behind",
+        _details_update,
+        _leave_store_details,
+    ),
+    Scene(
         "details-uninstall",
         "Details: Uninstall waiting for its second press",
         _arm_uninstall,
-        _leave_armed_details,
+        _leave_store_details,
     ),
     Scene("downloads", "Downloads: an Epic install in progress", _downloads, _close_downloads),
     Scene(
