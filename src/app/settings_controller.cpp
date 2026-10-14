@@ -22,6 +22,7 @@ constexpr const char* volumeId = "volume";
 constexpr const char* muteId = "volumeMute";
 constexpr const char* shortcutId = "shortcut.";
 constexpr const char* shortcutsResetId = "shortcuts.reset";
+constexpr const char* chordsOpenId = "chords.open";
 constexpr const char* sortId = "sort";
 constexpr const char* sourceId = "source";
 constexpr const char* installedId = "installedOnly";
@@ -85,9 +86,9 @@ bool SettingsController::changes() const {
 }
 
 std::vector<ui::SettingsCategory> SettingsController::build() const {
-    return {appearancePage(),       libraryPage(),   emulators_.page(),
-            steamLibraries_.page(), audioPage(),     controlsPage(),
-            installPage(),          plugins_.page(), aboutPage()};
+    return {appearancePage(), libraryPage(),  emulators_.page(), steamLibraries_.page(),
+            audioPage(),      controlsPage(), chords_.page(),    installPage(),
+            plugins_.page(),  aboutPage()};
 }
 
 ui::SettingsCategory SettingsController::appearancePage() const {
@@ -178,15 +179,20 @@ ui::SettingsCategory SettingsController::controlsPage() const {
     for (const input::Action action : input::allActions) {
         const bool listening = shortcutEditor_.target() == action;
         std::string value = shortcutValue(shortcuts_, action);
-        if (listening) {
-            value = input::takesPadChord(action) ? "Press a key, or L2 + a button"
-                                                 : "Press the new key";
+        std::string note;
+        if (listening && input::takesPadChord(action)) {
+            value = "Press a key, or Guide + a button";
+            note = ShortcutEditor::listeningNote;
+        } else if (listening) {
+            value = "Press the new key";
+            note = "Esc or B cancels";
         }
         page.rows.push_back(
             ui::makeRow((std::string{shortcutId} + std::string{input::spelling(action)}).c_str(),
-                        RowKind::Action, std::string{input::label(action)},
-                        listening ? "Esc or B cancels" : "", value));
+                        RowKind::Action, std::string{input::label(action)}, note, value));
     }
+    page.rows.push_back(ui::makeRow(chordsOpenId, RowKind::Action, "Guide chords",
+                                    "What Guide and a button do, over a game too", "Open"));
     page.rows.push_back(ui::makeRow(shortcutsResetId, RowKind::Action, "Restore default shortcuts",
                                     "Every key and chord back to how it shipped", ""));
     return page;
@@ -250,13 +256,28 @@ void SettingsController::open() {
 
 void SettingsController::openCategory(const std::string& id) {
     open();
+    if (const std::optional<std::size_t> index = categoryIndex(id)) {
+        page_.focusCategory(*index);
+    }
+}
+
+bool SettingsController::showCategory(std::string_view id) {
+    const std::optional<std::size_t> index = categoryIndex(id);
+    if (!index) {
+        return false;
+    }
+    page_.focusCategory(*index);
+    return page_.enterRows();
+}
+
+std::optional<std::size_t> SettingsController::categoryIndex(std::string_view id) const {
     const std::vector<ui::SettingsCategory>& categories = page_.categories();
     for (std::size_t index = 0; index < categories.size(); ++index) {
         if (categories[index].id == id) {
-            page_.focusCategory(index);
-            return;
+            return index;
         }
     }
+    return std::nullopt;
 }
 
 void SettingsController::close() {
@@ -382,8 +403,16 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
         runAudio(id, step);
         return;
     }
-    if (id.starts_with(shortcutId) || id == shortcutsResetId) {
+    if (id.starts_with(shortcutId) || id == shortcutsResetId || id == chordsOpenId) {
         runControls(id);
+        return;
+    }
+    if (ChordSettings::owns(id)) {
+        if (step == 0) {
+            sounds_.play(audio::Effect::Navigation);
+            chords_.run(id, step);
+            refresh();
+        }
         return;
     }
     if (EmulatorSettings::owns(id) || SteamLibrarySettings::owns(id) || PluginSettings::owns(id)) {
@@ -459,6 +488,12 @@ void SettingsController::runAudio(const std::string& id, int step) {
 }
 
 void SettingsController::runControls(const std::string& id) {
+    if (id == chordsOpenId) {
+        if (showCategory(ChordSettings::categoryId)) {
+            sounds_.play(audio::Effect::Navigation);
+        }
+        return;
+    }
     if (id == shortcutsResetId) {
         shortcutEditor_.resetAll();
     } else if (const std::optional<input::Action> action = input::actionOf(

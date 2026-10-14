@@ -24,6 +24,7 @@
 #include "bluetooth_session.hpp"
 #include "breadcrumb_trail.hpp"
 #include "brightness_control.hpp"
+#include "chord_settings.hpp"
 #include "config/config.hpp"
 #include "context_menu_controller.hpp"
 #include "control_bridge.hpp"
@@ -373,21 +374,50 @@ class ShellApp final : private PointerHost {
     /// The running game's opensu-retro control channel, when it runs on one.
     RetroSession retro_{environment_.runtimeDir};
     /// Where keys, pad chords and the game-time watcher come out as the shell's buttons.
-    ShortcutRouter router_{shell_.shortcuts(), volume_,
-                           ShortcutRouter::Hooks{[this] {
-                                                     bridge_.requestClose();
-                                                 },
-                                                 [this] {
-                                                     toggleQuickMenu();
-                                                 }}};
-    /// Remaps a shortcut on the Settings screen.
+    ShortcutRouter router_{shell_.shortcuts(), volume_, retro_,
+                           ShortcutRouter::Hooks{.quit =
+                                                     [this] {
+                                                         bridge_.requestClose();
+                                                     },
+                                                 .quickMenu =
+                                                     [this] {
+                                                         toggleQuickMenu();
+                                                     },
+                                                 .gameRunning =
+                                                     [this] {
+                                                         return shell_.inGame();
+                                                     },
+                                                 .closeGame =
+                                                     [this] {
+                                                         closeRunningGame();
+                                                     },
+                                                 .openDevices =
+                                                     [this] {
+                                                         closePages();
+                                                         devicesScreen_.open();
+                                                     },
+                                                 .goHome =
+                                                     [this] {
+                                                         closePages();
+                                                         clickSection(library::Section::Home);
+                                                     },
+                                                 .say =
+                                                     [this](const std::string& text, bool isError) {
+                                                         shell_.setToast(text, isError);
+                                                     }}};
+    /// Remaps a shortcut on the Settings screen; the pads keep the chords from the game.
     ShortcutEditor shortcutEditor_{shell_.shortcuts(), preferences_,
                                    [this](const std::string& text, bool isError) {
                                        shell_.setToast(text, isError);
                                    },
                                    [this] {
                                        settingsScreen_.refresh();
+                                   },
+                                   [this] {
+                                       pads_.setChords(input::chordTriggers(shell_.shortcuts()));
                                    }};
+    /// The Settings screen's Guide chords category.
+    ChordSettings chordSettings_{shortcutEditor_, shell_.shortcuts()};
     /// Chooses the folders the Settings screen asks for.
     PathEditor paths_{shell_.settingsPanels().folders(), shell_.settingsPanels().entry(), sounds_,
                       [this](const std::string& text, bool isError) {
@@ -413,7 +443,8 @@ class ShellApp final : private PointerHost {
     SettingsController settingsScreen_{
         shell_.settingsPanels().page(),
         SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts(),
-                                     emulatorSettings_, steamLibrarySettings_, pluginSettings_},
+                                     emulatorSettings_, steamLibrarySettings_, pluginSettings_,
+                                     chordSettings_},
         sounds_,
         preferences_,
         environment_,

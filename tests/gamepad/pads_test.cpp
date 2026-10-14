@@ -22,6 +22,8 @@ namespace {
 
 using namespace std::chrono_literals;
 using opensu::gamepad::Button;
+using opensu::gamepad::Chord;
+using opensu::gamepad::ChordTriggers;
 using opensu::gamepad::EvdevDevice;
 using opensu::gamepad::Event;
 using opensu::gamepad::OwnVirtualPads;
@@ -32,7 +34,8 @@ using opensu::gamepad::VirtualPad;
 using opensu::test::expect;
 using opensu::test::fail;
 
-/// A DualSense-shaped controller: 0..255 sticks, a hat, Guide.
+/// A DualSense-shaped controller: 0..255 sticks, a hat, Guide, and a digital L2 as a Switch pad
+/// has.
 class FakePad {
   public:
     FakePad(const char* name, std::uint16_t vendor, std::uint16_t product) {
@@ -40,7 +43,7 @@ class FakePad {
         expect(fd_ >= 0, "/dev/uinput opens");
         ioctl(fd_, UI_SET_EVBIT, EV_KEY);
         ioctl(fd_, UI_SET_EVBIT, EV_ABS);
-        for (const int key : {BTN_SOUTH, BTN_EAST, BTN_NORTH, BTN_WEST, BTN_MODE}) {
+        for (const int key : {BTN_SOUTH, BTN_EAST, BTN_NORTH, BTN_WEST, BTN_MODE, BTN_TL2}) {
             ioctl(fd_, UI_SET_KEYBIT, key);
         }
         for (const int axis : {ABS_X, ABS_Y, ABS_HAT0X, ABS_HAT0Y}) {
@@ -343,6 +346,33 @@ int main() {
     for (const PadEvent& event : read) {
         expect(event.type != EV_KEY, "B, pressed while blocked, stays up");
     }
+
+    // Chords: Guide + A and L2 + X are bound, so none of their buttons reach the game.
+    physical->send({{EV_KEY, BTN_SOUTH, 0}, {EV_KEY, BTN_EAST, 0}, {EV_KEY, BTN_MODE, 0}});
+    pads.setChords(ChordTriggers{{Chord{Button::Guide, Button::A}, Chord{Button::L2, Button::X}},
+                                 std::chrono::seconds{5}});
+    physical->send({{EV_KEY, BTN_MODE, 1}, {EV_KEY, BTN_SOUTH, 1}});
+    physical->send({{EV_KEY, BTN_SOUTH, 0}, {EV_KEY, BTN_MODE, 0}});
+    physical->send({{EV_KEY, BTN_TL2, 1}, {EV_KEY, BTN_NORTH, 1}});
+    physical->send({{EV_KEY, BTN_NORTH, 0}, {EV_KEY, BTN_TL2, 0}});
+    physical->send({{EV_KEY, BTN_WEST, 1}});
+    read.clear();
+    expect(readUntil(*game, {EV_KEY, BTN_WEST, 1}, read), "a plain press after the chords arrives");
+    for (const PadEvent& event : read) {
+        expect(!(event.type == EV_KEY && event.code == BTN_SOUTH && event.value == 1),
+               "Guide + A sends no A to the game");
+        expect(!(event.type == EV_KEY && event.code == BTN_NORTH && event.value == 1),
+               "L2 + X sends no X");
+        expect(!(event.type == EV_ABS && event.code == ABS_Z && event.value != 0), "and no L2");
+    }
+    physical->send({{EV_KEY, BTN_WEST, 0}});
+    physical->send({{EV_KEY, BTN_TL2, 1}});
+    physical->send({{EV_KEY, BTN_TL2, 0}});
+    read.clear();
+    expect(readUntil(*game, {EV_ABS, ABS_Z, 255}, read) &&
+               readUntil(*game, {EV_ABS, ABS_Z, 0}, read),
+           "an L2 tap with no chord reaches the game on its release");
+    pads.setChords({});
 
     pads.release();
     physical->send({{EV_KEY, BTN_NORTH, 1}});

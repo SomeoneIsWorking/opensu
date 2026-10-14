@@ -38,8 +38,10 @@ class FakeShell final : public ControlTarget {
     void typeText(std::string text) override {
         typed.push_back(std::move(text));
     }
-    void inject(opensu::gamepad::Button button, opensu::input::Device device) override {
-        pressed.push_back(button);
+    void inject(const std::vector<opensu::gamepad::Button>& buttons,
+                opensu::input::Device device) override {
+        held.push_back(buttons);
+        pressed.insert(pressed.end(), buttons.begin(), buttons.end());
         devices.push_back(device);
     }
     void injectKey(opensu::input::Combo combo) override {
@@ -58,6 +60,7 @@ class FakeShell final : public ControlTarget {
     std::vector<std::string> typed;
     std::vector<opensu::input::Combo> keys;
     std::vector<opensu::gamepad::Button> pressed;
+    std::vector<std::vector<opensu::gamepad::Button>> held;
     std::vector<opensu::input::Device> devices;
     ShellSnapshot state;
 };
@@ -257,6 +260,13 @@ void testKeysAndVolumeState() {
            "an unknown key is refused");
     expect(shell.keys.size() == 2, "a refused key reaches nobody");
     expect(channel.handle(post("/input", "l2")).status == 200, "L2 can be injected too");
+    expect(channel.handle(post("/input", "guide+a")).status == 200 &&
+               shell.held.back() ==
+                   std::vector{opensu::gamepad::Button::Guide, opensu::gamepad::Button::A},
+           "buttons joined by + are held together, a chord");
+    expect(channel.handle(post("/input", "guide+nothing")).status == 400 &&
+               channel.handle(post("/input", "guide+")).status == 400,
+           "a chord with an unknown button is refused");
 
     shell.state.volumePercent = 45;
     shell.state.volumeMuted = true;

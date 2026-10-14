@@ -195,7 +195,7 @@ void scaleAndShortcuts(const fs::path& root) {
     write(
         file,
         R"({"uiScale": 400, "shortcuts": {"keys": {"quit": {"key": 81, "ctrl": false, "shift": false},
-        "nothing": {"key": 65}, "volumeUp": {"key": 69}, "volumeDown": 7}, "pads": {"volumeUp": ["a", "b"], "volumeMute": ["r2"]}}})");
+        "nothing": {"key": 65}, "volumeUp": {"key": 69}, "volumeDown": 7}, "pads": {"volumeUp": ["a", "nothing"], "volumeMute": ["r2"]}}})");
     const Settings damagedFile = store.load();
     expect(damagedFile.uiScale == opensu::settings::defaultUiScale,
            "an out-of-range scale is dropped");

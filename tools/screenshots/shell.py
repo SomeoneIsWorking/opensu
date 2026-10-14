@@ -106,6 +106,7 @@ class HiddenShell:
         return self._request("/frame.png", None)
 
     def press(self, *buttons: str, settle: float = 0.35) -> None:
+        """Taps each button in turn; `guide+a` holds Guide while A is tapped."""
         for button in buttons:
             self.post("/input", button)
             time.sleep(settle)

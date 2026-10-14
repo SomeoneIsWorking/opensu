@@ -1,6 +1,7 @@
 // pads — every controller, read from evdev for as long as opensu runs. A pad connected later is
 // picked up when its node appears. While a game runs the pads are held: grabbed, with the game
-// reading one virtual Xbox 360 pad per pad, and Guide reaching opensu alone. While blocked, the
+// reading one virtual Xbox 360 pad per pad, and Guide reaching opensu alone. The buttons of a bound
+// chord never reach the game (`ChordGate`, through each pad's `PadTranslator`). While blocked, the
 // virtual pads rest, so the Guide menu's input never reaches the game.
 #pragma once
 
@@ -58,6 +59,9 @@ class Pads {
     /// Rests the virtual pads while blocked; on unblocking they take up the pads' axes again.
     void setBlocked(bool blocked);
 
+    /// The chords whose buttons never reach the game (`ChordGate`); returns once applied.
+    void setChords(ChordTriggers chords);
+
   private:
     struct Pad {
         explicit Pad(EvdevDevice opened);
@@ -72,6 +76,7 @@ class Pads {
     struct Wanted {
         bool held{false};
         bool blocked{false};
+        ChordTriggers chords;
         /// Bumped per request, so a caller can wait for its own to be applied.
         std::uint64_t serial{0};
     };

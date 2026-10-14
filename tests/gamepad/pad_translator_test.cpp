@@ -1,6 +1,8 @@
 // One physical pad's events as the virtual Xbox 360 pad and opensu's controls see them.
 #include "pad_translator.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <vector>
 
@@ -10,7 +12,11 @@
 
 namespace {
 
+using namespace std::chrono_literals;
 using opensu::gamepad::Button;
+using opensu::gamepad::Chord;
+using opensu::gamepad::ChordGate;
+using opensu::gamepad::ChordTriggers;
 using opensu::gamepad::Event;
 using opensu::gamepad::PadCapabilities;
 using opensu::gamepad::PadEvent;
@@ -49,12 +55,28 @@ struct Run {
     std::vector<Event> controls;
 };
 
-Run feed(PadTranslator& pad, const Events& in) {
+constexpr ChordGate::Clock::time_point start{};
+
+Run feed(PadTranslator& pad, const Events& in, ChordGate::Clock::time_point at = start) {
     Run run;
     for (const auto& event : in) {
-        pad.translate(event, run.forward, run.controls);
+        pad.translate(event, run.forward, run.controls, at);
     }
     return run;
+}
+
+/// Whether the virtual pad was given `code` at a value other than rest.
+bool moved(const Run& run, std::uint16_t type, std::uint16_t code) {
+    return std::ranges::any_of(run.forward, [type, code](const PadEvent& event) {
+        return event.type == type && event.code == code && event.value != 0;
+    });
+}
+
+/// Chords on a digital modifier (Guide) and an analogue one (L2).
+ChordTriggers shippedChords() {
+    return ChordTriggers{{Chord{Button::Guide, Button::A}, Chord{Button::L2, Button::Up},
+                          Chord{Button::L2, Button::Down}, Chord{Button::L2, Button::Left}},
+                         500ms};
 }
 
 bool reports(const Run& run, Button button, bool pressed) {
@@ -113,6 +135,102 @@ void digitalTriggersDriveAxes() {
     expect(reports(run, Button::R2, true), "and is R2 for opensu");
 }
 
+void chordsStayFromTheGame() {
+    PadTranslator pad{switchPro()};
+    pad.setChords(shippedChords());
+    Run run = feed(pad, {{EV_KEY, BTN_MODE, 1}, {EV_KEY, BTN_SOUTH, 1}});
+    expect(run.forward.empty(), "Guide + A sends no A to the game");
+    expect(reports(run, Button::A, true), "opensu still hears the edges, to play the chord");
+    run = feed(pad, {{EV_KEY, BTN_SOUTH, 0}, {EV_KEY, BTN_MODE, 0}}, start + 50ms);
+    expect(run.forward.empty(), "nor its release");
+
+    run = feed(pad, {{EV_KEY, BTN_TL2, 1}, {EV_KEY, BTN_DPAD_UP, 1}});
+    expect(!moved(run, EV_ABS, ABS_Z) && !moved(run, EV_ABS, ABS_HAT0Y),
+           "L2 + Up sends neither L2 nor Up");
+    run = feed(pad, {{EV_KEY, BTN_DPAD_UP, 0}, {EV_KEY, BTN_TL2, 0}}, start + 50ms);
+    expect(run.forward.empty(), "nor their releases");
+
+    run = feed(pad, {{EV_KEY, BTN_SOUTH, 1}});
+    expect(run.forward == Events{{EV_KEY, BTN_SOUTH, 1}},
+           "a button no chord starts with is at once");
+    feed(pad, {{EV_KEY, BTN_SOUTH, 0}});
+}
+
+void aLoneModifierIsATapOrNothing() {
+    PadTranslator pad{switchPro()};
+    pad.setChords(shippedChords());
+    Run run = feed(pad, {{EV_KEY, BTN_TL2, 1}});
+    expect(run.forward.empty(), "L2 waits to see whether a chord follows");
+    run = feed(pad, {{EV_KEY, BTN_TL2, 0}}, start + 120ms);
+    expect(run.forward == Events{{EV_ABS, ABS_Z, 255}, {EV_SYN, SYN_REPORT, 0}, {EV_ABS, ABS_Z, 0}},
+           "released under the hold delay it is a tap, in two reports");
+    feed(pad, {{EV_KEY, BTN_TL2, 1}}, start + 1s);
+    run = feed(pad, {{EV_KEY, BTN_TL2, 0}}, start + 1s + 500ms);
+    expect(run.forward.empty(), "held for the hold delay and released alone it is nothing");
+
+    feed(pad, {{EV_KEY, BTN_TL2, 1}}, start + 2s);
+    run = feed(pad, {{EV_KEY, BTN_SOUTH, 1}}, start + 2s + 10ms);
+    expect(run.forward == Events{{EV_ABS, ABS_Z, 255}, {EV_KEY, BTN_SOUTH, 1}},
+           "a button that is no chord with it lets L2 out first, then itself");
+    run = feed(pad, {{EV_KEY, BTN_DPAD_UP, 1}}, start + 2s + 20ms);
+    expect(run.forward == Events{{EV_ABS, ABS_HAT0Y, -1}}, "once let out, L2 starts no chord");
+    run = feed(pad, {{EV_KEY, BTN_TL2, 0}}, start + 3s);
+    expect(run.forward == Events{{EV_ABS, ABS_Z, 0}}, "and its release reaches the game");
+}
+
+void startIsAModifierWhenBound() {
+    PadTranslator pad{switchPro()};
+    pad.setChords(ChordTriggers{{Chord{Button::Start, Button::Y}}, 500ms});
+    Run run = feed(pad, {{EV_KEY, BTN_START, 1}});
+    expect(run.forward.empty(), "Start waits while it may start a chord");
+    run = feed(pad, {{EV_KEY, BTN_START, 0}}, start + 80ms);
+    expect(run.forward ==
+               Events{{EV_KEY, BTN_START, 1}, {EV_SYN, SYN_REPORT, 0}, {EV_KEY, BTN_START, 0}},
+           "a Start tap still reaches the game as Start");
+    run = feed(pad, {{EV_KEY, BTN_START, 1}, {EV_KEY, BTN_WEST, 1}}, start + 1s);
+    expect(run.forward.empty() && reports(run, Button::Y, true),
+           "Start held + Y is the chord, and neither reaches the game");
+    run = feed(pad, {{EV_KEY, BTN_WEST, 0}, {EV_KEY, BTN_START, 0}}, start + 1s + 50ms);
+    expect(run.forward.empty(), "nor do their releases");
+    feed(pad, {{EV_KEY, BTN_START, 1}}, start + 2s);
+    run = feed(pad, {{EV_KEY, BTN_START, 0}}, start + 2s + 600ms);
+    expect(run.forward.empty(), "Start held past the hold delay with no partner is nothing");
+}
+
+void analogueTriggersPressWithHysteresis() {
+    PadTranslator pad{dualSense()};
+    Run run = feed(pad, {{EV_ABS, ABS_Z, 100}});
+    expect(run.forward == Events{{EV_ABS, ABS_Z, 100}} && run.controls.empty(),
+           "a light pull moves the trigger and presses nothing");
+    run = feed(pad, {{EV_ABS, ABS_Z, 140}});
+    expect(reports(run, Button::L2, true), "past half its travel it is L2");
+    run = feed(pad, {{EV_ABS, ABS_Z, 90}});
+    expect(run.controls.empty() && run.forward == Events{{EV_ABS, ABS_Z, 90}},
+           "easing off a little keeps it pressed");
+    run = feed(pad, {{EV_ABS, ABS_Z, 70}});
+    expect(reports(run, Button::L2, false), "under three tenths it is released");
+    run = feed(pad, {{EV_ABS, ABS_RZ, 255}});
+    expect(reports(run, Button::R2, true), "the right trigger is R2");
+}
+
+void analogueTriggersAreModifiers() {
+    PadTranslator pad{dualSense()};
+    pad.setChords(shippedChords());
+    Run run = feed(pad, {{EV_ABS, ABS_Z, 100}, {EV_ABS, ABS_Z, 200}});
+    expect(run.forward.empty() && reports(run, Button::L2, true),
+           "a modifier trigger is kept from the game while it may start a chord");
+    run = feed(pad, {{EV_ABS, ABS_HAT0Y, -1}, {EV_ABS, ABS_HAT0Y, 0}, {EV_ABS, ABS_Z, 0}});
+    expect(run.forward.empty() && reports(run, Button::Up, true),
+           "an analogue L2 + Up is a chord the game never sees");
+    feed(pad, {{EV_ABS, ABS_Z, 200}});
+    run = feed(pad, {{EV_KEY, BTN_SOUTH, 1}, {EV_ABS, ABS_Z, 180}});
+    expect(run.forward ==
+               Events{{EV_ABS, ABS_Z, 200}, {EV_KEY, BTN_SOUTH, 1}, {EV_ABS, ABS_Z, 180}},
+           "let out by another button, the trigger reaches the game where it stands");
+    run = feed(pad, {{EV_KEY, BTN_SOUTH, 0}, {EV_ABS, ABS_Z, 0}}, start + 2s);
+    expect(run.forward == Events{{EV_KEY, BTN_SOUTH, 0}, {EV_ABS, ABS_Z, 0}}, "and follows it");
+}
+
 void restAndResume() {
     PadTranslator pad{dualSense()};
     feed(pad, {{EV_KEY, BTN_EAST, 1},
@@ -140,6 +258,11 @@ int main() {
     axesRescale();
     dpadButtonsBecomeHat();
     digitalTriggersDriveAxes();
+    chordsStayFromTheGame();
+    aLoneModifierIsATapOrNothing();
+    startIsAModifierWhenBound();
+    analogueTriggersPressWithHysteresis();
+    analogueTriggersAreModifiers();
     restAndResume();
     unknownCodesDropped();
     std::printf("pad_translator: all checks passed\n");

@@ -54,6 +54,7 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
       handoff_{environment_.executablePath, environment_.session, steam_, gameWindows_.get()},
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
+    pads_.setChords(input::chordTriggers(shell_.shortcuts()));
     refreshClock();
     applyLayout();
 }
@@ -973,18 +974,14 @@ void ShellApp::serviceControlRequests() {
             sessionInstall_.typeText(text);
         }
     }
-    // An injected button is a tap: without its release a direction would repeat forever.
-    for (const auto& [button, device] : queued.buttons) {
+    // An injection carries its releases: without them a direction would repeat forever.
+    for (const auto& [event, device] : queued.buttons) {
         if (device == input::Device::KeyboardMouse) {
             shell_.inputDevice().noteKey();
         } else {
-            shell_.inputDevice().notePad(gamepad::Event{.button = button, .pressed = true});
+            shell_.inputDevice().notePad(event);
         }
-        handleEvents({gamepad::Event{
-                          .kind = gamepad::Event::Kind::Button, .button = button, .pressed = true},
-                      gamepad::Event{.kind = gamepad::Event::Kind::Button,
-                                     .button = button,
-                                     .pressed = false}});
+        handleEvents({event});
     }
 
     if (!bridge_.frameWanted()) {

@@ -20,7 +20,8 @@ class ControlBridge final : public ControlTarget {
   public:
     /// What the channel queued since the loop last took it.
     struct Input {
-        std::vector<std::pair<gamepad::Button, input::Device>> buttons;
+        /// Presses and releases, each with the device it is from.
+        std::vector<std::pair<gamepad::Event, input::Device>> buttons;
         std::vector<input::Combo> keys;
         std::vector<std::string> text;
     };
@@ -28,7 +29,7 @@ class ControlBridge final : public ControlTarget {
     // ControlTarget. Each is callable from any thread.
     [[nodiscard]] ShellSnapshot snapshot() const override;
     void typeText(std::string text) override;
-    void inject(gamepad::Button button, input::Device device) override;
+    void inject(const std::vector<gamepad::Button>& buttons, input::Device device) override;
     void injectKey(input::Combo combo) override;
     [[nodiscard]] bool captureFrame(std::string& png) override;
     void requestClose() override;

@@ -104,12 +104,18 @@ void everyActionHasAHandlerNameAndKey() {
         expect(!label(action).empty() && actionOf(spelling(action)) == action,
                "an action has a label and a spelling that finds it");
         spellings.insert(std::string{spelling(action)});
-        expect(s.primary(action).has_value(), "an action has a key");
+        const bool gameAction = action == Action::CloseGame || action == Action::SaveState ||
+                                action == Action::LoadState || action == Action::ResetGame ||
+                                action == Action::Devices || action == Action::Home;
+        expect(s.primary(action).has_value() != gameAction,
+               "an action has a key, but the game actions ship without one");
         expect(buttonOf(action).has_value() ==
                    !(action == Action::VolumeUp || action == Action::VolumeDown ||
                      action == Action::VolumeMute || action == Action::Quit ||
-                     action == Action::QuickMenu),
+                     action == Action::QuickMenu || gameAction),
                "an action is a pad button or one of the shell's own");
+        expect(!gameAction || (worksInGame(action) && takesPadChord(action) && !s.padChord(action)),
+               "a game action works over a game and takes a chord, none shipped");
     }
     expect(spellings.size() == allActions.size(), "spellings are distinct");
     expect(!actionOf("nothing"), "an unknown spelling is none");
@@ -148,19 +154,22 @@ void conflictsAreRefused() {
 
 void padChordsCanBeRemapped() {
     Shortcuts s;
-    expect(s.padChord(Action::VolumeUp) == PadChord{Button::L2, Button::Up}, "the default chord");
+    expect(s.padChord(Action::VolumeUp) == PadChord{Button::Guide, Button::Up},
+           "the default chord");
     expect(!s.padChord(Action::Confirm), "a button action has none");
     expect(!s.rebind(Action::Confirm, PadChord{Button::L2, Button::A}).empty(),
            "a button action takes no chord");
-    expect(!s.rebind(Action::VolumeUp, PadChord{Button::A, Button::B}).empty(),
-           "the modifier must be one that does nothing alone");
+    expect(!s.rebind(Action::VolumeUp, PadChord{Button::None, Button::B}).empty(),
+           "a chord needs a held button");
     expect(!s.rebind(Action::VolumeUp, PadChord{Button::L2, Button::L2}).empty(), "not itself");
-    expect(!s.rebind(Action::VolumeUp, PadChord{Button::L2, Button::Down}).empty(),
+    expect(!s.rebind(Action::VolumeUp, PadChord{Button::Guide, Button::Down}).empty(),
            "another action's chord is refused");
     expect(s.rebind(Action::VolumeUp, PadChord{Button::R2, Button::Up}).empty() &&
                s.padChord(Action::VolumeUp) == PadChord{Button::R2, Button::Up},
            "a free chord is taken");
     expect(describe(need(s.padChord(Action::VolumeUp), "a chord")) == "R2 + Up", "its name");
+    expect(s.rebind(Action::VolumeDown, PadChord{Button::Start, Button::A}).empty(),
+           "any button can be the held one, Start too");
     s.resetAll();
     expect(s.overrides() == ShortcutOverrides{}, "reset puts back the defaults");
 }
@@ -198,55 +207,88 @@ Event press(Button button, bool pressed = true) {
     return event;
 }
 
+constexpr PadChords::Clock::time_point start{};
+
 void guideIsATapOrAModifier() {
+    using namespace std::chrono_literals;
     const Shortcuts s;
     PadChords chords{s};
-    auto fed = chords.feed({press(Button::Guide)});
+    auto fed = chords.feed({press(Button::Guide)}, start);
     expect(fed.events.empty() && fed.actions.empty(), "Guide waits for its release");
-    fed = chords.feed({press(Button::Guide, false)});
+    fed = chords.feed({press(Button::Guide, false)}, start + 100ms);
     expect(fed.events.size() == 2 && fed.events[0].button == Button::Guide &&
                fed.events[0].pressed && fed.events[1].button == Button::Guide &&
                !fed.events[1].pressed,
            "a tap comes out as a press and a release");
-    fed = chords.feed({press(Button::Guide)});
-    fed = chords.feed({press(Button::A)});
+    fed = chords.feed({press(Button::Guide)}, start + 1s);
+    fed = chords.feed({press(Button::Guide, false)}, start + 1s + holdDelay);
+    expect(fed.events.empty(), "held for the hold delay and let go alone, Guide does nothing");
+    fed = chords.feed({press(Button::Guide)}, start + 2s);
+    fed = chords.feed({press(Button::A)}, start + 2s);
     expect(fed.events.empty() && fed.actions == std::vector{Action::QuickMenu},
            "Guide with A is the quick menu and no A press");
-    fed = chords.feed({press(Button::A, false), press(Button::Guide, false)});
+    fed = chords.feed({press(Button::A, false), press(Button::Guide, false)}, start + 2s);
     expect(fed.events.empty() && fed.actions.empty(), "its release is swallowed with the chord");
-    fed = chords.feed({press(Button::Guide), press(Button::Up), press(Button::Up, false)});
-    expect(fed.events.size() == 2 && fed.actions.empty(),
-           "Guide with a non-chord button passes it");
-    fed = chords.feed({press(Button::Guide, false)});
-    expect(fed.events.size() == 2 && fed.events[0].button == Button::Guide,
-           "and Guide is still a tap on release");
+    fed = chords.feed({press(Button::Guide), press(Button::Right), press(Button::Right, false)},
+                      start + 3s);
+    expect(fed.events.size() == 3 && fed.events[0].button == Button::Guide &&
+               fed.events[0].pressed && fed.events[1].button == Button::Right &&
+               fed.actions.empty(),
+           "Guide with a button that is no chord lets Guide out first, then the button");
+    fed = chords.feed({press(Button::Guide, false)}, start + 3s);
+    expect(fed.events.size() == 1 && fed.events[0].button == Button::Guide &&
+               !fed.events[0].pressed,
+           "and then Guide's release is a plain release");
 }
 
 void chordsAreToldFromPresses() {
-    const Shortcuts s;
+    // L2 as a modifier is the player's choice; the shipped chords hold Guide.
+    Shortcuts s;
+    expect(s.rebind(Action::VolumeUp, PadChord{Button::L2, Button::Up}).empty() &&
+               s.rebind(Action::VolumeMute, PadChord{Button::L2, Button::Left}).empty(),
+           "the volume chords move to L2");
     PadChords chords{s};
-    auto fed = chords.feed({press(Button::Up), press(Button::Up, false)});
+    auto fed = chords.feed({press(Button::Up), press(Button::Up, false)}, start);
     expect(fed.events.size() == 2 && fed.actions.empty(), "Up alone is Up");
-    fed = chords.feed({press(Button::L2)});
-    expect(fed.events.size() == 1 && fed.actions.empty(), "the modifier alone passes through");
-    fed = chords.feed({press(Button::Up), press(Button::Up, false)});
+    fed = chords.feed({press(Button::L2)}, start);
+    expect(fed.events.empty() && fed.actions.empty(), "the modifier waits");
+    fed = chords.feed({press(Button::Up), press(Button::Up, false)}, start);
     expect(fed.events.empty() && fed.actions == std::vector{Action::VolumeUp},
            "Up with L2 held is the volume and no button press");
-    fed = chords.feed({press(Button::Left)});
+    fed = chords.feed({press(Button::Left)}, start);
     expect(fed.actions == std::vector{Action::VolumeMute}, "Left is mute");
-    fed = chords.feed({press(Button::Left, false), press(Button::A), press(Button::A, false)});
+    fed =
+        chords.feed({press(Button::Left, false), press(Button::A), press(Button::A, false)}, start);
     expect(fed.actions.empty() && fed.events.size() == 2,
            "a button that is no chord with L2 passes, its swallowed twin released silently");
-    fed = chords.feed({press(Button::L2, false), press(Button::Up)});
-    expect(fed.events.size() == 2 && fed.events[1].button == Button::Up && fed.actions.empty(),
-           "with L2 released Up is Up again");
-    fed = chords.feed({press(Button::Up, false)});
+    fed = chords.feed({press(Button::L2, false), press(Button::Up)}, start);
+    expect(fed.events.size() == 1 && fed.events[0].button == Button::Up && fed.actions.empty(),
+           "after a chord L2's release is swallowed, and Up is Up again");
+    fed = chords.feed({press(Button::Up, false)}, start);
     expect(fed.events.size() == 1, "and its release passes");
+
+    Event otherPad = press(Button::L2);
+    otherPad.source = "/dev/input/event7";
+    fed = chords.feed({otherPad, press(Button::Up)}, start);
+    expect(fed.actions.empty() && fed.events.size() == 1 && fed.events[0].button == Button::Up,
+           "a modifier on one pad starts no chord on another");
 
     Event connected;
     connected.kind = Event::Kind::Connected;
-    fed = chords.feed({connected});
+    fed = chords.feed({connected}, start);
     expect(fed.events.size() == 1, "other events pass through");
+}
+
+void triggersAreTheBoundChords() {
+    Shortcuts s;
+    const opensu::gamepad::ChordTriggers shipped = chordTriggers(s);
+    expect(shipped.holdDelay == holdDelay && shipped.chords.size() == 4 &&
+               shipped.chords.contains(PadChord{Button::Guide, Button::A}),
+           "the gate is given every bound chord and the hold delay");
+    expect(s.rebind(Action::VolumeUp, PadChord{Button::R3, Button::Up}).empty() &&
+               chordTriggers(s).chords.contains(PadChord{Button::R3, Button::Up}) &&
+               !chordTriggers(s).chords.contains(PadChord{Button::L2, Button::Up}),
+           "and follows a remap");
 }
 
 } // namespace
@@ -260,6 +302,7 @@ int main() {
     padChordsCanBeRemapped();
     combosHaveNames();
     chordsAreToldFromPresses();
+    triggersAreTheBoundChords();
     guideIsATapOrAModifier();
     quickMenuHasItsDefaults();
     std::printf("shortcuts: all checks passed\n");

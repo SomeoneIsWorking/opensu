@@ -13,6 +13,7 @@
 #include <string_view>
 #include <vector>
 
+#include "gamepad/chord_gate.hpp"
 #include "gamepad/event.hpp"
 #include "key_names.hpp"
 
@@ -44,13 +45,23 @@ enum class Action : std::uint8_t {
     VolumeMute,
     /// Closes openSU.
     Quit,
+    /// The game actions, for a chord over a running game; save, load and reset need opensu-retro.
+    CloseGame,
+    SaveState,
+    LoadState,
+    ResetGame,
+    /// The Devices page.
+    Devices,
+    /// The home screen.
+    Home,
 };
 
 inline constexpr std::array allActions{
-    Action::Up,       Action::Down,       Action::Left,       Action::Right,  Action::Confirm,
-    Action::Back,     Action::X,          Action::Y,          Action::Select, Action::Start,
-    Action::L1,       Action::R1,         Action::Search,     Action::Guide,  Action::QuickMenu,
-    Action::VolumeUp, Action::VolumeDown, Action::VolumeMute, Action::Quit};
+    Action::Up,        Action::Down,       Action::Left,       Action::Right,   Action::Confirm,
+    Action::Back,      Action::X,          Action::Y,          Action::Select,  Action::Start,
+    Action::L1,        Action::R1,         Action::Search,     Action::Guide,   Action::QuickMenu,
+    Action::VolumeUp,  Action::VolumeDown, Action::VolumeMute, Action::Quit,    Action::CloseGame,
+    Action::SaveState, Action::LoadState,  Action::ResetGame,  Action::Devices, Action::Home};
 
 /// The action's name in the Settings screen.
 [[nodiscard]] std::string_view label(Action action) noexcept;
@@ -64,17 +75,9 @@ inline constexpr std::array allActions{
 /// Whether a pad chord can be set for the action.
 [[nodiscard]] bool takesPadChord(Action action) noexcept;
 
-/// A pad button held (L2, R2, L3 or R3) while another is pressed.
-struct PadChord {
-    gamepad::Button modifier{gamepad::Button::None};
-    gamepad::Button trigger{gamepad::Button::None};
-
-    bool operator==(const PadChord&) const = default;
-};
-
-/// Buttons that can be held for a chord: L2, R2, L3 and R3 do nothing of their own in the shell,
-/// and Guide waits for its release to say whether it was a chord.
-[[nodiscard]] bool canHold(gamepad::Button button) noexcept;
+/// A pad button held while another is pressed. Any button can be the held one; a tap of it still
+/// does what the button does (`gamepad::ChordGate`).
+using PadChord = gamepad::Chord;
 
 /// `L2 + Up`: a name for the chord.
 [[nodiscard]] std::string describe(const PadChord& chord);
@@ -137,6 +140,8 @@ class Shortcuts {
     /// Puts the action's key and pad chord back to the defaults.
     void reset(Action action);
     void resetAll();
+    /// Puts every pad chord back to the defaults, keys as they are.
+    void resetPads();
 
   private:
     void build();

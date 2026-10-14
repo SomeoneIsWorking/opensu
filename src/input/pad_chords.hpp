@@ -1,20 +1,31 @@
-// pad_chords — pad chords told apart from plain button presses. While a chord's modifier (L2, R2,
-// L3 or R3) is held, the second button of a chord is an action and not a button press, and its
-// release is swallowed too. Guide is held back until its release: with a chord it is the chord's
-// modifier, alone it is a tap that comes out as a press and a release when it is let go.
+// pad_chords — pad chords told apart from plain button presses in the shell's controls, by the
+// same `gamepad::ChordGate` that keeps chords from a running game. The chords are the ones the
+// `Shortcuts` table binds; each source (a pad, or the keys and the control channel together) has
+// its own gate, so a modifier on one pad starts no chord on another.
 #pragma once
 
-#include <optional>
-#include <set>
+#include <chrono>
+#include <map>
+#include <string>
 #include <vector>
 
+#include "gamepad/chord_gate.hpp"
 #include "gamepad/event.hpp"
 #include "shortcuts.hpp"
 
 namespace opensu::input {
 
+/// How long a modifier held alone may be and still be a tap when released. Longer, its release
+/// does nothing.
+inline constexpr std::chrono::milliseconds holdDelay{500};
+
+/// Every pad chord `shortcuts` binds, with the hold delay: what a gate needs.
+[[nodiscard]] gamepad::ChordTriggers chordTriggers(const Shortcuts& shortcuts);
+
 class PadChords {
   public:
+    using Clock = gamepad::ChordGate::Clock;
+
     explicit PadChords(const Shortcuts& shortcuts) noexcept : shortcuts_{&shortcuts} {
     }
 
@@ -26,17 +37,13 @@ class PadChords {
         std::vector<Action> actions;
     };
 
-    [[nodiscard]] Result feed(const std::vector<gamepad::Event>& events);
+    /// `events`, all heard at `at`.
+    [[nodiscard]] Result feed(const std::vector<gamepad::Event>& events, Clock::time_point at);
 
   private:
-    /// Guide's press or release: kept back, and let out as a tap when no chord used it.
-    void holdGuide(const gamepad::Event& event, Result& result);
-
     const Shortcuts* shortcuts_;
-    std::set<gamepad::Button> held_;
-    std::set<gamepad::Button> swallowed_;
-    /// Guide's press, kept until its release says whether a chord used it.
-    std::optional<gamepad::Event> guide_;
+    /// One gate per `Event::source`.
+    std::map<std::string, gamepad::ChordGate> gates_;
 };
 
 } // namespace opensu::input
