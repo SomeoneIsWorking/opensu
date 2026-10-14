@@ -118,6 +118,11 @@ game has been observed running yet.
 | S030 | Linux AppImage release, signed, tested on clean Fedora 44 and Ubuntu 24.04 | partial | S029 | G004 |
 | S031 | Built-in emulators: libretro cores found or downloaded from the buildbot, updated, removed, started on `opensu-retro` | partial | S026 | G001 |
 | S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the quick menu, crash and load-failure toasts | partial | S003 | G001 |
+| S033 | Button mappings per game and per emulator (shared by its games), with game chords (`docs/issues/per-game-button-mappings.md`) | missing | S003, S022 | G003 |
+| S034 | Holding a chord modifier shows its chords, over a game too (`docs/issues/chord-hold-overlay.md`) | missing | S022 | G003 |
+| S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | missing | S016, S026 | G001 |
+| S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | missing | S035 | G001 |
+| S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | missing | S006, S007, S016 | G001 |
 
 ## Capability details
 
