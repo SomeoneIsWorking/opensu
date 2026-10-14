@@ -152,6 +152,6 @@ or a virtual pad that carries motion.
 - Should "share config" be per emulator (proposed) or per system? It matters for multi-system
   emulators: built-in mGBA covers GB, GBC and GBA, and Mesen covers NES and SNES. Per system would
   add a scope between the game and the emulator.
-- Should the global profile apply to native store games, or only to emulated ones?
+- Global profile: decided — it applies to native games and emulators alike.
 - Steam Input: decided — a global and per-game switch; mappings refused while it is on, chords
   kept (see above).
