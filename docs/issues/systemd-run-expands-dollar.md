@@ -20,3 +20,6 @@ load. After the fix (`scratch/dollar/runs/dollar-after/`), `/proc/<runner pid>/c
 name unchanged, the runner's `/status` frames rise (189, 248, 308) and Close game ends it.
 `instance_test` starts a program whose path and arguments hold `$HOME`, `${HOME}`, `$$` and `$`
 and checks they arrive unchanged.
+
+Still open: `steam/client.cpp` starts Steam with `systemd-run --user`, where systemd expands `$`
+as well; a Steam path holding `$` would be changed the same way.
