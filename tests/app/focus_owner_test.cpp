@@ -1,9 +1,13 @@
 // Who has the pads and what Guide does, from whose window Gamescope has focused: the pad claim
 // rule, the shell ignoring the pads behind another window, Big Picture closed whenever it takes the
 // focus, and Guide bringing the shell back.
+#include <atomic>
+#include <chrono>
 #include <cstdio>
+#include <future>
 #include <memory>
 #include <optional>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -29,6 +33,14 @@ using opensu::test::expect;
 constexpr std::uint64_t ownWindow = 0x400002;
 constexpr pid_t steam = 300;
 constexpr pid_t game = 200;
+
+/// Waits up to two seconds for `count` to reach `wanted`.
+bool reaches(const std::atomic<int>& count, int wanted) {
+    for (int tries = 0; tries < 200 && count.load() < wanted; ++tries) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
+    return count.load() >= wanted;
+}
 
 void theClaimFollowsTheFocus() {
     using S = PadOwner::Situation;
@@ -105,7 +117,7 @@ class FakeFocus final : public opensu::session::FocusSource {
 };
 
 void bigPictureIsClosedAndGuideComesBack() {
-    int closes = 0;
+    std::atomic<int> closes{0};
     int returns = 0;
     std::optional<FocusedWindow> next = FocusedWindow{.window = ownWindow, .appId = {}, .pid = {}};
     {
@@ -141,6 +153,7 @@ void bigPictureIsClosedAndGuideComesBack() {
         follow.service(false);
         expect(follow.holder() == FocusHolder::BigPicture, "Big Picture takes the focus");
         expect(returns == 1, "the shell takes it back, once");
+        expect(reaches(closes, 1), "Big Picture is closed through Steam");
 
         next = FocusedWindow{.window = 0x700001, .appId = 0x700001, .pid = game};
         follow.service(true);
@@ -152,6 +165,47 @@ void bigPictureIsClosedAndGuideComesBack() {
         expect(follow.holder() == FocusHolder::BigPicture, "a game's end alone changes nothing");
     }
     expect(closes == 2, "each time Big Picture took the focus it was closed through Steam");
+}
+
+/// Big Picture taking the focus while Steam is still closing it never waits for that close; it
+/// gets one more close once the first returns.
+void aSlowCloseDoesNotHoldTheNextFocus() {
+    std::atomic<int> closes{0};
+    std::promise<void> release;
+    const std::shared_future<void> released = release.get_future().share();
+    std::optional<FocusedWindow> next = FocusedWindow{.window = ownWindow, .appId = {}, .pid = {}};
+    {
+        FocusFollow follow{FocusFollow::Hooks{.gamePids =
+                                                  [] {
+                                                      return std::vector<pid_t>{};
+                                                  },
+                                              .closeBigPicture =
+                                                  [&closes, released] {
+                                                      ++closes;
+                                                      released.wait();
+                                                  },
+                                              .takeFocus =
+                                                  [] {
+                                                  }}};
+        follow.attach(std::make_unique<FakeFocus>(next), ownWindow);
+        follow.service(false);
+        next = FocusedWindow{.window = 0x600004, .appId = steamAppId, .pid = steam};
+        follow.service(false);
+        expect(reaches(closes, 1), "the first close is under way");
+
+        next = FocusedWindow{.window = ownWindow, .appId = {}, .pid = {}};
+        follow.service(false);
+        next = FocusedWindow{.window = 0x600004, .appId = steamAppId, .pid = steam};
+        std::future<void> second = std::async(std::launch::async, [&follow] {
+            follow.service(false);
+        });
+        const bool returned = second.wait_for(std::chrono::seconds{1}) == std::future_status::ready;
+        release.set_value();
+        second.wait();
+        expect(returned, "the second focus is answered while the first close runs");
+        expect(follow.holder() == FocusHolder::BigPicture, "Big Picture has the focus again");
+    }
+    expect(closes == 2, "the second focus got a close of its own after the first");
 }
 
 /// The desktop's Big Picture is the player's: it is never closed, and the shell stays put.
@@ -189,6 +243,7 @@ int main() {
     theClaimFollowsTheFocus();
     behindAnotherWindowOnlyGuideIsHeard();
     bigPictureIsClosedAndGuideComesBack();
+    aSlowCloseDoesNotHoldTheNextFocus();
     std::printf("focus_owner: all checks passed\n");
     return 0;
 }

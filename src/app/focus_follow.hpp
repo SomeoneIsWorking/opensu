@@ -6,10 +6,13 @@
 // source (outside Gamescope, a hidden run) openSU always holds the focus.
 #pragma once
 
+#include <condition_variable>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <stop_token>
 #include <thread>
 #include <vector>
 
@@ -24,7 +27,8 @@ class FocusFollow {
     struct Hooks {
         /// The running game's processes.
         std::function<std::vector<pid_t>()> gamePids;
-        /// Asks Steam to leave Big Picture; called on a thread of its own, as Steam may be slow.
+        /// Asks Steam to leave Big Picture; called on FocusFollow's own thread, one close at a
+        /// time, as Steam may be slow.
         std::function<void()> closeBigPicture;
         /// Puts the shell's window in front (`GameScreen::takeFocus`); over a running game it does
         /// nothing, as Gamescope gives the game back the focus once Big Picture is gone.
@@ -56,6 +60,11 @@ class FocusFollow {
     [[nodiscard]] bool guideReturns(bool inGame) const noexcept;
 
   private:
+    /// Has the closer call `closeBigPicture` once more, after any close already running; never
+    /// waits for one.
+    void requestClose();
+    void closeOnRequest(const std::stop_token& stop);
+
     Hooks hooks_;
     std::unique_ptr<session::FocusSource> source_;
     std::uint64_t ownWindow_{};
@@ -63,7 +72,11 @@ class FocusFollow {
     bool game_{false};
     session::FocusHolder holder_{session::FocusHolder::OpenSU};
     bool closesBigPicture_{true};
-    /// Last, so a close in flight ends before the hooks it calls go.
+    std::mutex closeMutex_;
+    std::condition_variable_any closeWanted_;
+    /// Big Picture took the focus since the closer last began a close.
+    bool closePending_{false};
+    /// Started on the first close; last, so a close in flight ends before what it uses goes.
     std::jthread closer_;
 };
 
