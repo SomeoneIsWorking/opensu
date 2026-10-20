@@ -120,7 +120,15 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
         CURL* curl = handle.get();
         curl_easy_setopt(curl, CURLOPT_URL, next.c_str());
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSeconds);
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeoutSeconds);
+        if (guard.progress) {
+            curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, stallBytesPerSecond);
+            curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, stallSeconds);
+            curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+            curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, report);
+            curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &guard.progress);
+        } else {
+            curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeoutSeconds);
+        }
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "opensu");
         curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, appendCapped);
@@ -131,6 +139,10 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
         const CURLcode result = curl_easy_perform(curl);
         if (body.over) {
             error = "the answer is over " + std::to_string(guard.maxBody) + " bytes";
+            return std::nullopt;
+        }
+        if (result == CURLE_ABORTED_BY_CALLBACK) {
+            error = "cancelled";
             return std::nullopt;
         }
         if (result != CURLE_OK) {

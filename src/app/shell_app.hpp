@@ -230,6 +230,9 @@ class ShellApp final : private PointerHost {
     /// The environment's configuration with what the player set in place of it: the roots the
     /// catalog and Steam read, fixed for the run.
     config::Config resolved_{settings::resolved(environment_, preferences_.values())};
+    /// The arcade cores' romset lists, fetched off the library scan; before the catalog that
+    /// matches with them.
+    library::roms::RomsetLists romsetLists_{resolved_.cacheDir};
     /// Lists every store off the loop; the loop takes what has arrived.
     library::CatalogLoader catalogLoader_;
     /// Downloaded artwork, and the worker that fills it in.
@@ -666,13 +669,14 @@ class ShellApp final : private PointerHost {
                                            const std::lock_guard lock{launchMutex_};
                                            return launchRunning_ && running_.id == game.id;
                                        }}};
-    /// The Downloads page: Steam's queue, the store install and the emulator download. After the
-    /// sources it reads.
+    /// The Downloads page: Steam's queue, the store install, the emulator download and the romset
+    /// lists. After the sources it reads.
     DownloadsController downloadsScreen_{
         shell_.downloadsPanel().page(),
         DownloadsController::Sources{
             .installs = panels_.installs(),
             .emulators = emulatorDownloads_,
+            .romsetLists = romsetLists_,
             .steam = steam_.downloadControl(),
             .steamReady =
                 [this] {
@@ -690,9 +694,15 @@ class ShellApp final : private PointerHost {
                         });
                     return game != games_.end() ? game->title : std::string{};
                 }},
-        sounds_, DownloadsController::Hooks{[this](const std::string& text, bool isError) {
-            shell_.setToast(text, isError);
-        }}};
+        sounds_,
+        DownloadsController::Hooks{.say =
+                                       [this](const std::string& text, bool isError) {
+                                           shell_.setToast(text, isError);
+                                       },
+                                   .romsetListsEnded =
+                                       [this] {
+                                           reloadCatalog();
+                                       }}};
     /// How the window relates to a running game: the overlay inside Gamescope, hidden elsewhere.
     GameScreen gameScreen_{settings_.hidden, [this](bool blocked) {
                                padOwner_.setBlocked(blocked);

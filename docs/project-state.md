@@ -15,6 +15,8 @@ Visible deltas from the baseline:
   each store and the combined "All games" library behind a tile of its own there.
 - A dock (Home, Library) switches sections with L1/R1; Library has Standard, XMB and Carousel
   layouts, chosen with START and kept in the config dir.
+- Delta from iiSU: the dock's Home and Library icons (and the XMB's section icon) are openSU's own
+  drawings, a house and a controller, shipped as SVG, not iiSU's nav drawables.
 - Each launcher's state is a small logo with a status dot, inline in the top-right status pill
   with the clock and battery (a divider between them), where iiSU has its notification bell (openSU
   has no notifications, so the bell and its R2 glyph are gone). iiSU's pill is the bell column then
@@ -202,9 +204,12 @@ The battery comes from `device::BatteryReader` (sysfs, system scope only); the
 names the focused tile everywhere, Home included, where iiSU's Home shows none. There are no feature tiles or badges on game tiles.
 
 The dock (`ui::DockPainter`, metrics `DockMetrics`, motion `DockVisibility`/`IconPop`,
-`navigation.md` 1.2-1.5, 4) is a bottom-centre glass capsule with Home and Library icons (iiSU's
-own nav drawables, taken from the pinned APK into `<cache>/artwork/nav/`) and LB/RB badges, in the
-variant matching the chrome (light). It is shown always on Home, and on Library while pinned (default) or else for 1200 ms after
+`navigation.md` 1.2-1.5, 4) is a bottom-centre glass capsule with Home and Library icons and LB/RB badges, in the
+variant matching the chrome (light). The icons are openSU's own SVGs (`assets/icons/home*.svg`,
+`library*.svg`: a house and a controller, gradient body, white face, extruded edge; the active
+section's `_selected` variant has a brighter gradient and a glowing face), shipped in the repo and
+rasterised by `ui::IconAtlas` at the size each rests at, so every install, CI and the README draw
+them sharp at any UI scale. It is shown always on Home, and on Library while pinned (default) or else for 1200 ms after
 L1/R1 or a pointer resting where it is, with a 250 ms tween; it is not focusable. L1/R1 used to turn grid pages; they now cycle
 `library::Sections` (Home, Library, wrapping), each section remembering its focus. Page turns
 are D-pad only. The slide follows the dock capture (navigation.md 5.1): straight down while fading
@@ -216,7 +221,7 @@ Library's modes (`ui::section_view`, `rail_layout`, `rail_painter`; navigation.m
 3 rows x 4 columns, column-major, paged horizontally ("Horizontal Mode"); the earlier single-row
 render came from stale persisted settings in the capture driver, not the layout. XMB: slots start at
 340.5 px of 1920, focused 434 px, others 217, gap 17; the left column shows the section icon
-recoloured with the focused console's border colours and a marker, and inside a console a 72 dp card
+(openSU's `library.svg`, its gradient and edge swapped for the focused console's border colours) and a marker, and inside a console a 72 dp card
 for the console; the focused title sits right of the card (cap 25.8 dp, #4D4655 light, soft shadow).
 Carousel: focused item at 0.5 W (also the first), shared bottom edge at 918/1080, title centred at
 cap top 364/1080 (cap 12.9 dp), a marker under the focused game; the entrance fades the focused
@@ -1255,6 +1260,22 @@ FinalBurn Neo, MAME 2003-Plus and MAME (a 416 MB core) downloaded and loaded arm
 FinalBurn Neo ran it without its key, MAME 2003-Plus refused `armwar.key` and MAME
 `armwar.key`, `dl-1425.bin`, the files the match named. Unverified: a romset that matches
 FinalBurn Neo, MAME 2003-Plus or current MAME running to gameplay (none in the player's folder).
+
+The listings download off the library scan (`library/romset_lists`): arcade games are listed at
+once, a game with no match yet while a listing downloads shows "Checking romset…" and its Play says
+the lists are downloading, each listing is a Downloads page row ("Romset list · <core>", bytes and
+percent, then Finished with its size or Failed with the reason and when it is tried again), each
+end is toasted and the catalog is read again. Verified (2026-10-20, `scratch/romset-downloads/`,
+empty cache, `OPENSU_ROM_ROOTS=/mnt/Boy/ROM`, hidden shell): the first catalog (87 games) logged all
+eight armwar/avspu verdicts `pending` while FinalBurn Neo's list downloaded; the Library showed the
+Arcade folder while MAME 2010's list was at 37 % (`02-…`); armwar's details read "Checking romset…"
+and Play toasted the reason (`10-…`, `11-…`); the page showed MAME 2003-Plus at 55 % then 77 % of
+22.6 MB with the rest queued (`12-…`, `13-…`) and all four finished (17.1, 22.6, 43.4, 19.7 MB,
+`09-…`, `14-…`); armwar then read "Matches MAME 2010 (built-in)" (`04-…`, `15-…`), played on MAME
+2010 (`armwar-runner-status.txt`, runner frames 1470, 1589, 1709 two seconds apart) and closed from
+the quick menu ("armwar closed"). Tests: `romset_match_test` (`RomsetLists` against a loopback
+host, pending verdicts), `downloads_board_test`, `downloads_controller_test`, `web_client_test`.
+Gap: the toast's text draws very small (also in the earlier `scratch/arcade/` frames).
 
 ### S032 — The libretro runner
 

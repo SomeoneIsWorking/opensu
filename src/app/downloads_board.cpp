@@ -32,6 +32,10 @@ std::string emulatorKey(const std::string& id) {
     return "emulator:" + id;
 }
 
+std::string romsetListKey(const std::string& id) {
+    return "romsets:" + id;
+}
+
 DownloadState steamState(const steam::Download& download) {
     if (download.active && !download.paused) {
         const bool moving =
@@ -74,8 +78,10 @@ bool ended(DownloadState state) noexcept {
 }
 
 std::vector<DownloadAction> actionsFor(const DownloadRow& row) {
-    // An uninstall stopped half way leaves half a game, so it has no Cancel.
-    if (ended(row.state) || row.state == DownloadState::Uninstalling) {
+    // An uninstall stopped half way leaves half a game, so it has no Cancel; a romset list is
+    // fetched for the library, not on the player's request.
+    if (ended(row.state) || row.state == DownloadState::Uninstalling ||
+        row.kind == DownloadKind::RomsetList) {
         return {};
     }
     if (row.store != library::Source::Steam || !row.inSteamQueue) {
@@ -211,6 +217,7 @@ void DownloadsBoard::update(const Sources& sources) {
         applySteam(sources.steam, live);
     }
     applyEmulator(sources, live);
+    applyRomsetLists(sources.romsetLists, live);
     settle(live, sources.steamReady);
     order();
 }
@@ -357,6 +364,37 @@ void DownloadsBoard::applyEmulator(const Sources& sources, std::set<std::string>
     at.live = false;
     at.endSerial = end->serial;
     at.endedAt = tick_;
+}
+
+void DownloadsBoard::applyRomsetLists(const std::vector<RomsetListLook>& lists,
+                                      std::set<std::string>& live) {
+    for (std::size_t place = 0; place < lists.size(); ++place) {
+        const RomsetListLook& list = lists[place];
+        Entry& at = entry(romsetListKey(list.id));
+        DownloadRow& row = at.row;
+        const bool wasLive = at.live || at.endedAt == 0;
+        row.kind = DownloadKind::RomsetList;
+        row.id = list.id;
+        row.title = "Romset list · " + list.name;
+        row.bytesDone = list.received;
+        row.bytesTotal = list.total;
+        row.fraction = list.total > 0 ? std::optional{static_cast<double>(list.received) /
+                                                      static_cast<double>(list.total)}
+                                      : std::nullopt;
+        row.state = list.state == DownloadState::Downloading && list.total > 0 &&
+                            list.received >= list.total
+                        ? DownloadState::Installing
+                        : list.state;
+        row.detail = list.detail;
+        // The lists wait in the order they are fetched in.
+        row.queueIndex = static_cast<int>(place);
+        at.live = !ended(row.state);
+        if (at.live) {
+            live.insert(row.key);
+        } else if (wasLive) {
+            at.endedAt = tick_;
+        }
+    }
 }
 
 void DownloadsBoard::settle(const std::set<std::string>& live, bool steamReady) {

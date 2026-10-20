@@ -1,6 +1,6 @@
 // artwork_delivery — hands what the artwork fetcher saved, and what the store already holds, to the
-// shell and the sound player: covers, console cards, glyphs, dock icons and UI sounds. Keeps the
-// fetcher working on the games on screen first.
+// shell and the sound player: covers, console cards, glyphs and UI sounds. Keeps the fetcher
+// working on the games on screen first.
 #pragma once
 
 #include <functional>
@@ -27,8 +27,6 @@ class ArtworkDelivery {
     void service();
     /// Loads every UI sound the store holds. Main loop only, once the audio device is open.
     void loadStoredSounds();
-    /// Gives the shell the dock icons the store holds. Needs no GL context.
-    void loadStoredNavIcons();
     /// A new catalog was requested from the fetcher: its queue order starts over.
     void restart();
 

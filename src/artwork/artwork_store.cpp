@@ -91,7 +91,7 @@ fs::path ArtworkStore::storedGlyph(std::string_view system) const {
 }
 
 fs::path ArtworkStore::assetPath(const ApkAsset& asset) const {
-    return root_ / folder(asset.kind) / asset.file;
+    return root_ / "sound" / asset.file;
 }
 
 fs::path ArtworkStore::storedAsset(const ApkAsset& asset) const {

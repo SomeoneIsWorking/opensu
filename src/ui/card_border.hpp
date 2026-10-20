@@ -1,6 +1,5 @@
-// icon_recolour — gives iiSU's gamepad icon a console's colours. The icon is a white body with
-// its outline, pad and buttons in a cyan to blue gradient and a darker base; the XMB's left column
-// draws it in the focused console's border colours instead (navigation.md §5.3).
+// card_border — the two colours a console card's border runs between, which the XMB's left column
+// draws the section icon in (navigation.md §5.3).
 #pragma once
 
 #include <cstdint>
@@ -25,10 +24,5 @@ struct Gradient {
 /// middle is 13/1024 of the side in from the edge, averaged over a short run.
 [[nodiscard]] Gradient borderColours(std::span<const std::uint8_t> rgba, int width,
                                      int height) noexcept;
-
-/// Recolours RGBA pixels of a `width` x `height` icon in place: white stays white, and the icon's
-/// own cyan to blue gradient becomes `from` to `to`, its dark base a darker `to`. Alpha is
-/// untouched.
-void recolourIcon(std::span<std::uint8_t> rgba, int width, int height, Rgb from, Rgb to) noexcept;
 
 } // namespace opensu::ui

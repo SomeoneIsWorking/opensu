@@ -171,6 +171,7 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
         text("title", line.title);
         text("source", line.source);
         text("state", line.state);
+        text("figures", line.figures);
         out.append("\"percent\":")
             .append(line.percent ? std::to_string(*line.percent) : std::string{"null"})
             .append("}");

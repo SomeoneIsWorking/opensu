@@ -97,7 +97,7 @@ target_compile_definitions(libretro_cores_test PRIVATE OPENSU_TEST_SCRATCH="${CM
 add_test(NAME libretro_cores COMMAND libretro_cores_test)
 
 add_executable(romset_match_test romset_match_test.cpp)
-target_link_libraries(romset_match_test PRIVATE opensu::library ZLIB::ZLIB)
+target_link_libraries(romset_match_test PRIVATE opensu::library lucent::lucent ZLIB::ZLIB)
 target_include_directories(romset_match_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_options(romset_match_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(romset_match_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")

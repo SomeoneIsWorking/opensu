@@ -271,9 +271,6 @@ class Shell {
     /// whether it turned.
     bool focusPage(int page);
 
-    /// Gives a dock icon's file, which arrives from the APK after the shell is up.
-    void setNavIcon(library::Section section, bool selected, const std::filesystem::path& file);
-
     /// The picker for Library's layout, and whether it is up.
     [[nodiscard]] ModeChooser& modeChooser() noexcept {
         return chooser_;
@@ -473,8 +470,6 @@ class Shell {
     VolumeOsd volumeOsd_;
     ChordHint chordHint_;
     GlyphTextures glyphs_;
-    /// The dock's icons, by `home`, `home_selected`, `library`, `library_selected`.
-    GlyphTextures navIcons_;
     HomeLayout layout_;
     GridFocus focus_;
     motion::ScrollEaser scroller_;
@@ -507,8 +502,8 @@ class Shell {
     std::optional<Clock::time_point> entranceAt_;
 
     TilePainter tilePainter_{icons_, typeface_};
-    DockPainter dockPainter_{prompts_, typeface_};
-    RailPainter railPainter_{typeface_};
+    DockPainter dockPainter_{prompts_, typeface_, icons_};
+    RailPainter railPainter_{typeface_, icons_};
     DetailsPagePainter detailsPainter_{typeface_};
     VolumeOsdPainter volumeOsdPainter_{typeface_};
     ChordHintPainter chordHintPainter_{prompts_, typeface_};

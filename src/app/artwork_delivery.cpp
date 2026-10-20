@@ -8,7 +8,6 @@ namespace opensu::app {
 
 void ArtworkDelivery::restart() {
     prioritised_.clear();
-    loadStoredNavIcons();
 }
 
 void ArtworkDelivery::loadStoredSounds() {
@@ -16,15 +15,6 @@ void ArtworkDelivery::loadStoredSounds() {
         if (const std::filesystem::path file = store_.storedAsset(artwork::soundAsset(effect));
             !file.empty()) {
             sounds_.load(effect, file);
-        }
-    }
-}
-
-void ArtworkDelivery::loadStoredNavIcons() {
-    for (const artwork::NavIcon icon : artwork::allNavIcons) {
-        if (const std::filesystem::path file = store_.storedAsset(artwork::navAsset(icon));
-            !file.empty()) {
-            shell_.setNavIcon(icon.section, icon.selected, file);
         }
     }
 }
@@ -38,12 +28,6 @@ void ArtworkDelivery::service() {
         if (fetched.kind == artwork::Fetched::Kind::Sound) {
             if (const std::optional<audio::Effect> effect = audio::effectOfFile(fetched.id)) {
                 sounds_.load(*effect, fetched.artwork);
-            }
-            continue;
-        }
-        if (fetched.kind == artwork::Fetched::Kind::NavIcon) {
-            if (const std::optional<artwork::NavIcon> icon = artwork::navIconOfFile(fetched.id)) {
-                shell_.setNavIcon(icon->section, icon->selected, fetched.artwork);
             }
             continue;
         }

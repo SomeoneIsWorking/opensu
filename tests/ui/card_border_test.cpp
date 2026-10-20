@@ -1,5 +1,5 @@
-// Recolouring the gamepad icon: white stays, the gradient takes the console's colours.
-#include "icon_recolour.hpp"
+// A console card's border colours, read off its top and bottom edges.
+#include "card_border.hpp"
 
 #include <cstdio>
 #include <vector>
@@ -9,20 +9,6 @@
 namespace {
 
 using opensu::test::expect;
-using opensu::ui::Rgb;
-
-void recolour() {
-    // 2 x 2: a white pixel, a cyan one, a dark blue one (the base), and a half-covered white one.
-    std::vector<std::uint8_t> pixels{255, 255, 255, 255, 64, 240, 255, 255,
-                                     255, 255, 255, 90,  0,  60,  140, 255};
-    opensu::ui::recolourIcon(pixels, 2, 2, Rgb{0, 200, 0}, Rgb{255, 0, 0});
-    expect(pixels[0] == 255 && pixels[1] == 255 && pixels[2] == 255, "white stays white");
-    expect(pixels[3] == 255 && pixels[7] == 255 && pixels[11] == 90 && pixels[15] == 255,
-           "alpha is untouched");
-    expect(pixels[4] < 40 && pixels[5] > 170, "the cyan top becomes the gradient's start, green");
-    expect(pixels[12] > 100 && pixels[12] < 200 && pixels[13] < 30,
-           "the dark base is the gradient's end, red, and darker than the face would be");
-}
 
 void borders() {
     // A 32 x 32 card whose top stroke row is green and bottom stroke row red; the stroke's middle
@@ -46,18 +32,10 @@ void borders() {
     expect(none.from.r == 0 && none.to.r == 0, "too few pixels read as nothing");
 }
 
-void empty() {
-    std::vector<std::uint8_t> none;
-    opensu::ui::recolourIcon(none, 0, 0, Rgb{}, Rgb{});
-    expect(none.empty(), "nothing to recolour");
-}
-
 } // namespace
 
 int main() {
-    recolour();
     borders();
-    empty();
-    std::printf("icon_recolour: all checks passed\n");
+    std::printf("card_border: all checks passed\n");
     return 0;
 }

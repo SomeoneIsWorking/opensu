@@ -1,9 +1,10 @@
 // downloads_board — every download openSU knows of as one list, the Downloads page's model: Steam's
 // queue (its own auto-updates included), the store install, update or uninstall that runs (Epic,
-// GOG, Steam's installer; a Steam update joins Steam's queue row), and the emulator or core
-// download. Each frame the sources' state goes in and one row per download comes out, with its
-// state, progress and the actions its owner supports. A download that ended stays listed until
-// openSU quits. Pure; no UI and no threads.
+// GOG, Steam's installer; a Steam update joins Steam's queue row), the emulator or core
+// download, and the arcade cores' romset lists (`library::roms::RomsetLists`). Each frame the
+// sources' state goes in and one row per download comes out, with its state, progress and the
+// actions its owner supports. A download that ended stays listed until openSU quits. Pure; no UI
+// and no threads.
 #pragma once
 
 #include <cstdint>
@@ -21,7 +22,7 @@
 
 namespace opensu::app {
 
-enum class DownloadKind : std::uint8_t { Game, Emulator, Core };
+enum class DownloadKind : std::uint8_t { Game, Emulator, Core, RomsetList };
 
 enum class DownloadState : std::uint8_t {
     Queued,
@@ -53,7 +54,8 @@ enum class DownloadAction : std::uint8_t {
 
 /// One download as the page lists it.
 struct DownloadRow {
-    /// `steam:<app id>`, `epic:<app name>`, `gog:<id>`, `emulator:<id>`: stable across frames.
+    /// `steam:<app id>`, `epic:<app name>`, `gog:<id>`, `emulator:<id>`, `romsets:<core id>`:
+    /// stable across frames.
     std::string key{};
     /// The store, for a game; nothing for an emulator or a core.
     std::optional<library::Source> store{};
@@ -102,6 +104,20 @@ struct EmulatorLook {
     std::uint64_t total{0};
 };
 
+/// One arcade core's romset list fetch, as `RomsetLists` has it.
+struct RomsetListLook {
+    /// The core's catalog id and name.
+    std::string id{};
+    std::string name{};
+    /// Queued, Downloading, Finished or Failed.
+    DownloadState state{DownloadState::Queued};
+    std::uint64_t received{0};
+    /// 0 until the size is known.
+    std::uint64_t total{0};
+    /// Why it failed and when it is tried again.
+    std::string detail{};
+};
+
 /// How the last emulator or core download ended.
 struct EmulatorEnd {
     /// Counts ends, so one is applied once.
@@ -126,6 +142,7 @@ class DownloadsBoard {
         std::optional<Installs::Status> install{};
         std::optional<EmulatorLook> emulator{};
         std::optional<EmulatorEnd> emulatorEnded{};
+        std::vector<RomsetListLook> romsetLists{};
     };
 
     explicit DownloadsBoard(TitleOf titles) : titles_{std::move(titles)} {
@@ -161,6 +178,7 @@ class DownloadsBoard {
     void applyInstall(const Installs::Status& install, std::set<std::string>& live);
     void applySteam(const std::vector<steam::Download>& queue, std::set<std::string>& live);
     void applyEmulator(const Sources& sources, std::set<std::string>& live);
+    void applyRomsetLists(const std::vector<RomsetListLook>& lists, std::set<std::string>& live);
     /// Settles what was live and is gone now.
     void settle(const std::set<std::string>& live, bool steamReady);
     void order();

@@ -7,7 +7,7 @@ target_compile_options(opensu_grid PRIVATE -Wall -Wextra -Wpedantic)
 
 # The chrome's models: top bar sizing, clock text, battery icon choice, the Guide menus, the chord list and the mapping editor. Pure, so tests link it alone.
 add_library(opensu_hud_model STATIC top_bar_metrics.cpp top_bar_layout.cpp corner_hints.cpp clock_text.cpp battery_icon.cpp guide_menu.cpp quick_menu.cpp launch_panel.cpp
-    section_view.cpp mode_chooser.cpp dock_metrics.cpp dock_motion.cpp icon_recolour.cpp
+    section_view.cpp mode_chooser.cpp dock_metrics.cpp dock_motion.cpp card_border.cpp
     search_panel.cpp context_menu.cpp panel_fade.cpp breadcrumbs.cpp details_page.cpp
     settings_page.cpp folder_chooser.cpp volume_osd.cpp chord_hint.cpp session_dialog.cpp
     downloads_page.cpp mapping_board_layout.cpp mapping_page.cpp)

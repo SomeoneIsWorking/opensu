@@ -4,8 +4,8 @@
 // Layout under the root: steam/<appid>.jpg, rom/<system>/<thumbnail name>.png,
 // console/<system>.png, glyph/<system>.png for a console's white frame glyph, a `.miss` file
 // beside any that the source does not have, libretro/<system>.txt for a listing and
-// iisu/<pack> for iiSU's starter pack, and sound/<file> and nav/<file> for an APK asset: a UI
-// sound, a dock icon. switch/ is library::roms::SwitchInfo's, a Switch game's own title and icon.
+// iisu/<pack> for iiSU's starter pack, and sound/<file> for an APK asset, a UI sound. switch/
+// is library::roms::SwitchInfo's, a Switch game's own title and icon.
 #pragma once
 
 #include <chrono>
@@ -43,7 +43,7 @@ class ArtworkStore {
     /// A system's glyph file when it is stored, else empty.
     [[nodiscard]] std::filesystem::path storedGlyph(std::string_view system) const;
 
-    /// The file an APK asset (a UI sound, a dock icon) is kept in.
+    /// The file an APK asset (a UI sound) is kept in.
     [[nodiscard]] std::filesystem::path assetPath(const ApkAsset& asset) const;
 
     /// An asset's file when it is stored, else empty.

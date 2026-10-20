@@ -1,15 +1,16 @@
 #include "rail_painter.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <numbers>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "card_border.hpp"
 #include "gpu2d/image/decode.hpp"
-#include "icon_recolour.hpp"
 #include "lucent/log.h"
 #include "round_shape.hpp"
 #include "typeface.hpp"
@@ -34,6 +35,20 @@ Colour inkOf(bool dark, float alpha) noexcept {
     return withAlpha(dark ? darkInk : lightInk, alpha);
 }
 
+// library.svg's edge is its body's bottom colour at about this brightness.
+constexpr float edgeShade = 0.66f;
+
+Colour colourOf(Rgb rgb) noexcept {
+    return Colour{rgb.r, rgb.g, rgb.b, 255};
+}
+
+Colour shaded(Colour colour, float by) noexcept {
+    const auto scale = [by](std::uint8_t channel) {
+        return static_cast<std::uint8_t>(std::lround(static_cast<float>(channel) * by));
+    };
+    return Colour{scale(colour.r), scale(colour.g), scale(colour.b), colour.a};
+}
+
 Rgb rgbOf(std::uint32_t colour) noexcept {
     return Rgb{static_cast<std::uint8_t>((colour >> 16) & 0xFF),
                static_cast<std::uint8_t>((colour >> 8) & 0xFF),
@@ -41,14 +56,6 @@ Rgb rgbOf(std::uint32_t colour) noexcept {
 }
 
 } // namespace
-
-void RailPainter::setSectionIcon(const std::filesystem::path& file) {
-    if (file == sectionIcon_) {
-        return;
-    }
-    tints_.clear();
-    sectionIcon_ = file;
-}
 
 namespace {
 
@@ -68,44 +75,39 @@ std::optional<Gradient> cardGradient(const std::filesystem::path& card) {
 
 } // namespace
 
-const gpu2d::Texture* RailPainter::tinted(const Focused& focused) {
-    if (sectionIcon_.empty()) {
-        return nullptr;
-    }
+const std::vector<ColourSwap>& RailPainter::swapsFor(const Focused& focused) {
     std::string key = focused.key;
     if (key.empty() && focused.platform != nullptr) {
         key = focused.platform->key;
     }
-    if (const auto found = tints_.find(key); found != tints_.end()) {
-        return found->second ? &*found->second : nullptr;
-    }
-    if (device_ == nullptr) {
-        throw std::logic_error{"RailPainter needs a device before it paints the section icon"};
+    if (const auto found = swaps_.find(key); found != swaps_.end()) {
+        return found->second;
     }
     std::optional<Gradient> colours = cardGradient(focused.card);
     if (!colours && focused.platform != nullptr) {
         colours = Gradient{rgbOf(focused.platform->strokeFrom), rgbOf(focused.platform->strokeTo)};
     }
-    std::string error;
-    std::optional<gpu2d::image::Bitmap> image = gpu2d::image::decodeFile(sectionIcon_, error);
-    std::optional<gpu2d::Texture> texture;
-    if (image) {
-        if (colours) {
-            recolourIcon(image->rgba, image->width, image->height, colours->from, colours->to);
-        }
-        texture.emplace(*device_, image->rgba, image->width, image->height, gpu2d::Filter::Linear);
-    } else {
-        lucent::warn("ui", "{}: {}", sectionIcon_.string(), error);
+    std::vector<ColourSwap> swaps;
+    if (colours) {
+        const Colour top = colourOf(colours->from);
+        const Colour bottom = colourOf(colours->to);
+        swaps = {ColourSwap{libraryTop, top}, ColourSwap{libraryBottom, bottom},
+                 ColourSwap{libraryEdge, shaded(bottom, edgeShade)}};
     }
-    const auto inserted = tints_.emplace(key, std::move(texture)).first;
-    return inserted->second ? &*inserted->second : nullptr;
+    return swaps_.emplace(key, std::move(swaps)).first->second;
 }
 
 void RailPainter::paintColumn(Canvas& canvas, const XmbLayout& layout, const Focused& focused,
                               const RailStyle& style) {
-    if (const gpu2d::Texture* icon = tinted(focused)) {
-        const Rect& box = layout.sectionIcon();
-        canvas.image(icon->view(), wholeOf(*icon), onCanvas(box), withAlpha(white, style.alpha));
+    const Rect& box = layout.sectionIcon();
+    const int width = std::max(1, static_cast<int>(std::lround(box.width)));
+    const int height = std::max(1, static_cast<int>(std::lround(box.height)));
+    const std::vector<ColourSwap>& swaps = swapsFor(focused);
+    if (const gpu2d::Texture* icon = icons_.image(Icon::Library, width, height, swaps)) {
+        canvas.image(icon->view(), wholeOf(*icon),
+                     gpu2d::Rect{std::round(box.x), std::round(box.y), static_cast<float>(width),
+                                 static_cast<float>(height)},
+                     withAlpha(white, style.alpha));
     }
     paintColumnMarker(canvas, layout, style);
 }

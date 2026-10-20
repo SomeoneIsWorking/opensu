@@ -58,6 +58,16 @@ std::string hexOf(std::uint32_t value) {
     return std::format("{:08x}", value);
 }
 
+/// `progress` told of one file's bytes after `before` bytes of the files read already.
+net::WebClient::Progress sumOf(const net::WebClient::Progress& progress, std::uint64_t before) {
+    if (!progress) {
+        return {};
+    }
+    return [&progress, before](std::uint64_t received, std::uint64_t total) {
+        return progress(before + received, total != 0 ? before + total : 0);
+    };
+}
+
 } // namespace
 
 RomsetDats RomsetDats::under(const fs::path& cacheDir, const net::WebClient* web) {
@@ -80,18 +90,23 @@ std::optional<DatStamp> RomsetDats::stamp(const EmulatorEntry& entry) const {
     return stampOf(line);
 }
 
-bool RomsetDats::refresh(const EmulatorEntry& entry, Clock::time_point now,
-                         std::string& error) const {
+bool RomsetDats::due(const EmulatorEntry& entry, Clock::time_point now) const {
     const std::optional<DatStamp> kept = stamp(entry);
     const auto lifetime = std::chrono::duration_cast<std::chrono::seconds>(romsetDatLifetime);
-    if (kept && secondsOf(now) - kept->fetched < lifetime.count()) {
+    return !kept || secondsOf(now) - kept->fetched >= lifetime.count();
+}
+
+bool RomsetDats::refresh(const EmulatorEntry& entry, Clock::time_point now, std::string& error,
+                         const net::WebClient::Progress& progress) const {
+    if (!due(entry, now)) {
         return true;
     }
+    const std::optional<DatStamp> kept = stamp(entry);
     if (web_ == nullptr || !enabled()) {
         error = "no listing of " + entry.name + "'s romsets is kept";
         return kept.has_value();
     }
-    std::optional<std::pair<RomsetDat, std::uint32_t>> fetched = fetch(entry, error);
+    std::optional<std::pair<RomsetDat, std::uint32_t>> fetched = fetch(entry, progress, error);
     if (!fetched) {
         error = entry.name + "'s romset listing cannot be fetched: " + error +
                 (kept ? "; the older listing stays" : "");
@@ -105,20 +120,26 @@ bool RomsetDats::refresh(const EmulatorEntry& entry, Clock::time_point now,
     return true;
 }
 
-std::optional<std::pair<RomsetDat, std::uint32_t>> RomsetDats::fetch(const EmulatorEntry& entry,
-                                                                     std::string& error) const {
+std::optional<std::pair<RomsetDat, std::uint32_t>>
+RomsetDats::fetch(const EmulatorEntry& entry, const net::WebClient::Progress& progress,
+                  std::string& error) const {
     if (entry.romsets.release) {
-        return fetchRelease(*entry.romsets.release, error);
+        return fetchRelease(*entry.romsets.release, progress, error);
     }
     RomsetDat dat;
     std::string crcs;
+    // The bytes of the files already read, so the progress counts the listing as a whole.
+    std::uint64_t before = 0;
     for (const std::string& url : entry.romsets.files) {
         const std::string origin = net::originOf(url);
         const net::WebClient::Guard guard{
-            maxListingBytes, [origin](const std::string& hop) {
-                return hop.starts_with(origin) ? std::string{}
-                                               : std::format("{} is not on {}", hop, origin);
-            }};
+            .maxBody = maxListingBytes,
+            .refusal =
+                [origin](const std::string& hop) {
+                    return hop.starts_with(origin) ? std::string{}
+                                                   : std::format("{} is not on {}", hop, origin);
+                },
+            .progress = sumOf(progress, before)};
         std::optional<net::WebClient::Answer> answer = web_->request(url, {}, guard, error);
         if (!answer) {
             error = std::format("{}: {}", url, error);
@@ -128,6 +149,7 @@ std::optional<std::pair<RomsetDat, std::uint32_t>> RomsetDats::fetch(const Emula
             error = url + ": HTTP " + std::to_string(answer->status);
             return std::nullopt;
         }
+        before += answer->body.size();
         dat.addXml(answer->body);
         crcs += hexOf(zip::crc32Of(answer->body));
     }
@@ -135,30 +157,46 @@ std::optional<std::pair<RomsetDat, std::uint32_t>> RomsetDats::fetch(const Emula
 }
 
 std::optional<std::pair<RomsetDat, std::uint32_t>>
-RomsetDats::fetchRelease(const ReleaseSource& release, std::string& error) const {
+RomsetDats::fetchRelease(const ReleaseSource& release, const net::WebClient::Progress& progress,
+                         std::string& error) const {
     const std::optional<ReleaseAsset> asset = EmulatorRelease{*web_}.latest(release, error);
     if (!asset) {
         return std::nullopt;
     }
-    std::optional<std::string> bytes = web_->get(asset->url, error);
-    if (!bytes) {
-        error = asset->url + ": " + error;
+    const net::WebClient::Progress sized = [&progress, &asset](std::uint64_t received,
+                                                               std::uint64_t total) {
+        return !progress || progress(received, total != 0 ? total : asset->size);
+    };
+    // The asset redirects to the host GitHub keeps release files on, as an emulator's does.
+    const std::string scheme = asset->url.substr(0, asset->url.find(':') + 1);
+    const net::WebClient::Guard guard{.maxBody = maxListingBytes,
+                                      .refusal =
+                                          [&scheme](const std::string& hop) {
+                                              return hop.starts_with(scheme)
+                                                         ? std::string{}
+                                                         : hop + " leaves " + scheme;
+                                          },
+                                      .progress = sized};
+    std::optional<net::WebClient::Answer> answer = web_->request(asset->url, {}, guard, error);
+    if (!answer || answer->status != httpOk) {
+        error = asset->url + ": " + (answer ? "HTTP " + std::to_string(answer->status) : error);
         return std::nullopt;
     }
-    if (asset->size != 0 && bytes->size() != asset->size) {
-        error = std::format("{} is {} bytes, the release says {}", asset->url, bytes->size(),
+    std::string bytes = std::move(answer->body);
+    if (asset->size != 0 && bytes.size() != asset->size) {
+        error = std::format("{} is {} bytes, the release says {}", asset->url, bytes.size(),
                             asset->size);
         return std::nullopt;
     }
     if (!asset->sha256.empty()) {
         const std::string seen = lucent::content::sha256_hex(
-            lucent::content::sha256(std::as_bytes(std::span{bytes->data(), bytes->size()})));
+            lucent::content::sha256(std::as_bytes(std::span{bytes.data(), bytes.size()})));
         if (seen != asset->sha256) {
             error = asset->url + "'s SHA-256 " + seen + " is not the release's " + asset->sha256;
             return std::nullopt;
         }
     }
-    std::optional<zip::Archive> archive = zip::Archive::open(std::move(*bytes), error);
+    std::optional<zip::Archive> archive = zip::Archive::open(std::move(bytes), error);
     if (!archive) {
         return std::nullopt;
     }

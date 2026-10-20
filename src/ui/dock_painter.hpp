@@ -9,18 +9,19 @@
 #include "button_glyph.hpp"
 #include "dock_metrics.hpp"
 #include "glass.hpp"
+#include "library/sections.hpp"
 #include "typeface.hpp"
+#include "vector_icon.hpp"
 
 namespace opensu::ui {
 
 /// One section's icon as it is drawn now.
 struct DockIcon {
-    /// The icon's texture, or null while the APK's file has not arrived.
-    const gpu2d::Texture* texture{nullptr};
+    library::Section section{library::Section::Home};
+    /// Whether it is the active section, which draws its selected icon.
+    bool selected{false};
     /// The selected pop (1 to 1.06) about the icon's centre.
     float scale{1.0f};
-    /// What stands in for the icon until its texture arrives: the section's initial.
-    const char* initial{""};
     /// Whether the pointer is over the item.
     bool hovered{false};
 };
@@ -35,8 +36,8 @@ struct DockStyle {
 
 class DockPainter {
   public:
-    DockPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
-        : typeface_{typeface}, glyphs_{prompts, typeface} {
+    DockPainter(const input::Prompts& prompts, Typeface& typeface, IconAtlas& icons) noexcept
+        : icons_{icons}, glyphs_{prompts, typeface} {
     }
 
     /// The bar where this frame draws it, slid down by how far it has left.
@@ -51,7 +52,7 @@ class DockPainter {
                                            const DockStyle& style) noexcept;
 
     GlassPainter glass_;
-    Typeface& typeface_;
+    IconAtlas& icons_;
     ButtonGlyphPainter glyphs_;
 };
 

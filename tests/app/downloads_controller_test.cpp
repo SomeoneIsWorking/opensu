@@ -3,6 +3,7 @@
 // Steam's DevTools. Each button reaches the owner of its row.
 #include "downloads_controller.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <exception>
@@ -139,6 +140,8 @@ sleep 60
                                                },
                                                [] {
                                                }}};
+    library::roms::RomsetLists romsetLists{root / "cache"};
+    int listsEnded{0};
     ui::DownloadsPage page;
     audio::SdlSoundPlayer sounds;
     app::DownloadsController controller{
@@ -146,6 +149,7 @@ sleep 60
         app::DownloadsController::Sources{
             .installs = installs,
             .emulators = emulators,
+            .romsetLists = romsetLists,
             .steam = steamControl,
             .steamReady =
                 [this] {
@@ -158,9 +162,15 @@ sleep 60
             .titles = [](library::Source store, const std::string& id) -> std::string {
                 return store == library::Source::Steam && id == "480" ? "Spacewar" : "";
             }},
-        sounds, app::DownloadsController::Hooks{[this](const std::string& text, bool error) {
-            said.emplace_back(text, error);
-        }}};
+        sounds,
+        app::DownloadsController::Hooks{.say =
+                                            [this](const std::string& text, bool error) {
+                                                said.emplace_back(text, error);
+                                            },
+                                        .romsetListsEnded =
+                                            [this] {
+                                                ++listsEnded;
+                                            }}};
 };
 
 library::Game epicGame() {
@@ -307,6 +317,7 @@ void steamRefusalIsSaid(const fs::path& root) {
         app::DownloadsController::Sources{
             .installs = rig.installs,
             .emulators = rig.emulators,
+            .romsetLists = rig.romsetLists,
             .steam = control,
             .steamReady =
                 [] {
@@ -321,9 +332,14 @@ void steamRefusalIsSaid(const fs::path& root) {
                 [](library::Source, const std::string&) {
                     return std::string{};
                 }},
-        rig.sounds, app::DownloadsController::Hooks{[&rig](const std::string& text, bool error) {
-            rig.said.emplace_back(text, error);
-        }}};
+        rig.sounds,
+        app::DownloadsController::Hooks{.say =
+                                            [&rig](const std::string& text, bool error) {
+                                                rig.said.emplace_back(text, error);
+                                            },
+                                        .romsetListsEnded =
+                                            [] {
+                                            }}};
     controller.open();
     controller.act(Button::A);
     const Clock::time_point stop = Clock::now() + wait;
@@ -382,6 +398,73 @@ void figures() {
            "an uninstall reads as uninstalling, with no bar and no buttons");
 }
 
+library::roms::EmulatorEntry arcadeCore(std::string id, std::string name, std::string url) {
+    library::roms::EmulatorEntry entry;
+    entry.id = std::move(id);
+    entry.name = std::move(name);
+    entry.systems = {"arcade"};
+    entry.core = entry.id + "_libretro";
+    entry.romsets = library::roms::RomsetSource{{std::move(url)}, std::nullopt};
+    return entry;
+}
+
+void romsetListsAreRows(const fs::path& root) {
+    Rig rig{root};
+    const std::string listing =
+        R"(<datafile><game name="a"><rom name="a.1" size="1" crc="12345678"/></game></datafile>)";
+    rig.server.put("/lists/mame2010.xml", listing);
+    const auto now = library::roms::RomsetLists::Clock::now();
+    rig.romsetLists.want(
+        arcadeCore("mame2010-core", "MAME 2010", rig.server.base() + "/lists/mame2010.xml"), now);
+    rig.romsetLists.want(
+        arcadeCore("fbneo-core", "FinalBurn Neo", rig.server.base() + "/lists/none.dat"), now);
+    rig.controller.open();
+    rig.until(
+        [&rig] {
+            const DownloadRow* done = rig.controller.board().find("romsets:mame2010-core");
+            const DownloadRow* failed = rig.controller.board().find("romsets:fbneo-core");
+            return done != nullptr && failed != nullptr && done->state == DownloadState::Finished &&
+                   failed->state == DownloadState::Failed;
+        },
+        "both romset lists end on the page");
+    const std::vector<ui::DownloadsEntry>& entries = rig.page.entries();
+    const auto entry = [&entries](const std::string& key) {
+        const auto found = std::ranges::find(entries, key, &ui::DownloadsEntry::key);
+        if (found == entries.end()) {
+            test::fail("the romset list is on the page");
+        }
+        return *found;
+    };
+    const ui::DownloadsEntry done = entry("romsets:mame2010-core");
+    expect(done.title == "Romset list · MAME 2010" && done.source == "Arcade" &&
+               done.state == "Finished" && done.ended && done.actions.empty() &&
+               done.figures == std::to_string(listing.size()) + " B",
+           "a fetched list stays as a finished row with its size and no buttons");
+    const ui::DownloadsEntry failed = entry("romsets:fbneo-core");
+    expect(failed.state == "Failed" && failed.failed &&
+               failed.figures.find("HTTP 404") != std::string::npos &&
+               failed.figures.ends_with("tried again in 60 min"),
+           "a failed list says why and when it is tried again");
+    expect(std::ranges::find(rig.said,
+                             std::pair<std::string, bool>{"Romset list of MAME 2010 downloaded",
+                                                          false}) != rig.said.end() &&
+               std::ranges::any_of(rig.said,
+                                   [](const std::pair<std::string, bool>& one) {
+                                       return one.second &&
+                                              one.first.find("HTTP 404") != std::string::npos;
+                                   }) &&
+               rig.listsEnded >= 1,
+           "each end is told to the player and the library is matched again");
+    const std::vector<app::DownloadLine> lines = rig.controller.lines();
+    expect(std::ranges::any_of(lines,
+                               [](const app::DownloadLine& line) {
+                                   return line.key == "romsets:fbneo-core" &&
+                                          line.state == "failed" &&
+                                          line.figures.find("HTTP 404") != std::string::npos;
+                               }),
+           "the control channel sees the romset rows with their figures");
+}
+
 } // namespace
 
 int main() {
@@ -393,6 +476,7 @@ int main() {
         steamButtonsCallSteam(root / "steam");
         steamRefusalIsSaid(root / "refusal");
         figures();
+        romsetListsAreRows(root / "romsets");
         fs::remove_all(root, ec);
         std::puts("downloads_controller: ok");
         return 0;
