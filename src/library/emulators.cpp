@@ -130,6 +130,9 @@ std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
     const std::string file = core->file.string();
     const bool ours = core->downloaded.has_value();
     std::vector<std::string> command{search.runner.string(), "--core", file};
+    if (search.hiddenRunner) {
+        command.emplace_back("--hidden");
+    }
     if (!search.saves.empty()) {
         command.insert(command.end(), {"--saves", (search.saves / "{system}").string()});
     }
@@ -225,7 +228,7 @@ bool downloadedByOpensu(InstallSource source) noexcept {
 
 EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& dataDir,
                                         std::vector<fs::path> executablePath, fs::path runner,
-                                        fs::path saves) {
+                                        fs::path saves, bool hiddenRunner) {
     FuseSupport fuse = FuseSupport::detect(executablePath);
     return EmulatorSearch{
         .executablePath = std::move(executablePath),
@@ -236,14 +239,15 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
         .cores = CoreSearch::standard(home, dataDir),
         .runner = std::move(runner),
         .saves = std::move(saves),
+        .hiddenRunner = hiddenRunner,
     };
 }
 
-EmulatorSetup EmulatorSetup::standard(const config::Config& config) {
+EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden) {
     return EmulatorSetup{EmulatorCatalog::shipped(config.assetsDir, config.home),
                          EmulatorSearch::standard(config.home, config.dataDir,
                                                   config.executablePath, config.retroRunner,
-                                                  config.savesDir),
+                                                  config.savesDir, hidden),
                          config.emulators};
 }
 

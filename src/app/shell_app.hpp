@@ -331,7 +331,7 @@ class ShellApp final : private PointerHost {
                                      }}};
     /// Emulator downloads, updates and removals, off the loop.
     EmulatorDownloads emulatorDownloads_{
-        library::roms::EmulatorSetup::standard(resolved_),
+        library::roms::EmulatorSetup::standard(resolved_, settings_.hidden),
         EmulatorDownloads::Hooks{[this](const std::string& text, bool isError) {
                                      shell_.setToast(text, isError);
                                  },

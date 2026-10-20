@@ -6,7 +6,7 @@
 
 namespace opensu::library {
 
-Catalog makeCatalog(const config::Config& config) {
+Catalog makeCatalog(const config::Config& config, bool hidden) {
     Catalog catalog;
     catalog.add(std::make_unique<steam::Provider>(
         steam::Library::discover(config.home, config.steamRoots)));
@@ -19,7 +19,7 @@ Catalog makeCatalog(const config::Config& config) {
         romRoots = roms::discoverRoots(config.home, roms::standardMountDirs(config.home));
     }
     catalog.add(std::make_unique<roms::Provider>(std::move(romRoots),
-                                                 roms::EmulatorSetup::standard(config),
+                                                 roms::EmulatorSetup::standard(config, hidden),
                                                  roms::NameDb::under(config.cacheDir)));
     return catalog;
 }
