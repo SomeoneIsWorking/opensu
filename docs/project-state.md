@@ -129,7 +129,7 @@ game has been observed running yet.
 | S026 | Emulator catalog, official AppImage download, update and removal, emulator per system | partial | S008, S020 | G001 |
 | S027 | Steam libraries page: list, add, make default, remove an empty library | partial | S020, S016 | G001 |
 | S028 | Sandboxed Lua plugins (API v1: play-time sources, emulator game lists), Settings › Plugins, bundled Eden play time | partial | S008, S020 | G001 |
-| S029 | CI: pinned sources, Clang build, clang-tidy, clang-format, ruff, ctest on every push | partial | — | — |
+| S029 | CI: pinned sources, Clang build, clang-tidy, clang-format, ruff, ctest on each release tag and on demand; local gates before every commit | partial | — | — |
 | S030 | Linux AppImage release, signed, tested on clean Fedora 44 and Ubuntu 24.04 | partial | S029 | G004 |
 | S031 | Built-in emulators: libretro cores found or downloaded from the buildbot, updated, removed, started on `opensu-retro`; an arcade zip's core picked by its romset | partial | S026 | G001 |
 | S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the quick menu, crash and load-failure toasts | partial | S003 | G001 |

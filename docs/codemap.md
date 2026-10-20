@@ -340,7 +340,7 @@ Painters and composition (`opensu_ui`):
 | `packaging/appimage/Containerfile` | The AppImage build image: Ubuntu 24.04 (the glibc 2.39 floor), openSU's and the fork's build dependencies, wayland, wayland-protocols, libxkbcommon, pixman and libdrm headers newer than 24.04's from pinned tarballs, SDL3, SDL3_ttf and SDL3_image built from pinned release tarballs, uv |
 | `packaging/appimage/signing-key.asc` | The public half of the key release AppImages are signed with (private half: the `OPENSU_APPIMAGE_SIGNING_KEY` repository secret) |
 | `packaging/opensu.desktop.in`, `packaging/opensu.svg` | The application menu entry and openSU's icon, installed to `share/applications` and `share/icons/hicolor/scalable/apps`; the AppImage carries both at its top |
-| `.github/workflows/ci.yml` | CI on every push and pull request: `tools.check ci` (`all` in the `packaging/ci` container, fork built natively), and `tools.appimage all` (build and smoke) on Ubuntu 24.04 |
+| `.github/workflows/ci.yml` | CI on a release tag (`v*`) or a manual run: `tools.check ci` (`all` in the `packaging/ci` container, fork built natively), and `tools.appimage all` (build and smoke) on Ubuntu 24.04 |
 | `.github/workflows/release.yml` | A `v*` tag: the signed AppImage built and smoke-tested, then a GitHub Release with the AppImage, its `.sha256`, `.zsync` and the sign-in `.xpi` |
 
 ## Tests and docs
