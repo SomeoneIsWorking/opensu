@@ -38,7 +38,8 @@ struct RomSystem {
 
 /// The file to start for one game: `entry` itself when it is a file of the system's, or the
 /// file inside a game folder. In a folder a marker wins; otherwise the game file that is no
-/// update or DLC, the largest when several are. Nothing when the entry holds no game.
+/// update or DLC (by its name, version tag, or a Switch title id not ending in 000), the largest
+/// when several are. Nothing when the entry holds no game.
 [[nodiscard]] std::optional<std::filesystem::path> gameFile(const RomSystem& system,
                                                             const std::filesystem::path& entry);
 

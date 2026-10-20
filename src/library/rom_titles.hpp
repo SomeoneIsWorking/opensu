@@ -17,4 +17,7 @@ namespace opensu::library::roms {
 /// that is nothing but tags is returned as it is.
 [[nodiscard]] std::string cleanTitle(std::string_view name);
 
+/// `title` without the trademark signs (™, ®) a game's own metadata carries.
+[[nodiscard]] std::string withoutTrademarks(std::string title);
+
 } // namespace opensu::library::roms

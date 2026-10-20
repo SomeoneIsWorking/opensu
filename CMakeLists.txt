@@ -47,6 +47,14 @@ if(NOT SDL3_FOUND OR NOT VULKAN_FOUND OR NOT VORBISFILE_FOUND)
         "`sudo apt install libvulkan-dev libvorbis-dev`")
 endif()
 
+# libcrypto decrypts the Switch game files whose own title and icon a Switch tile shows.
+find_package(OpenSSL 3.0 COMPONENTS Crypto)
+if(NOT OPENSSL_FOUND)
+    message(FATAL_ERROR
+        "openSU needs libcrypto (OpenSSL 3). Install it with `sudo dnf install openssl-devel` "
+        "(Fedora) or `sudo apt install libssl-dev` (Debian/Ubuntu)")
+endif()
+
 # Lucent is the project logger. Shared, not vendored.
 set(LUCENT_ROOT "$ENV{HOME}/repo/lucent" CACHE PATH "Shared Lucent checkout")
 

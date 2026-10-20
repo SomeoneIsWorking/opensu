@@ -116,10 +116,11 @@ std::vector<fs::path> discoverRoots(const fs::path& home, const std::vector<fs::
 }
 
 Provider::Provider(std::vector<fs::path> roots, EmulatorSetup emulators, NameDb names,
-                   const fs::path& cacheDir)
+                   const fs::path& cacheDir, SwitchInfo switchInfo)
     : roots_{std::move(roots)}, emulators_{std::move(emulators)}, names_{std::move(names)},
       romsets_{cacheDir.empty() ? RomsetMatcher{}
-                                : RomsetMatcher{RomsetDats::under(cacheDir, &web_)}} {
+                                : RomsetMatcher{RomsetDats::under(cacheDir, &web_)}},
+      switch_{std::move(switchInfo)} {
 }
 
 std::vector<Game> Provider::list() {
@@ -133,6 +134,7 @@ std::vector<Game> Provider::list() {
         }
     }
     romsets_.begin(RomsetMatcher::Clock::now());
+    switch_.begin();
     for (const fs::path& root : roots_) {
         std::error_code ec;
         if (!fs::is_directory(root, ec)) {
@@ -161,7 +163,8 @@ std::vector<Game> Provider::list() {
                 const std::string name = entryName(entry, fs::is_regular_file(entry, ec));
                 const std::string listed =
                     listedName(name, system->key == "arcade" ? &arcade : nullptr);
-                const std::optional<DumpInfo> dump = readDumpInfo(*system, entry);
+                const std::optional<DumpInfo> dump =
+                    system->key == "switch" ? switch_.read(*file) : readDumpInfo(*system, entry);
                 const bool titled = dump && !dump->title.empty();
                 game.title = titled ? dump->title : cleanTitle(listed);
                 game.artworkKey = titled ? dump->title : listed;
@@ -189,6 +192,7 @@ std::vector<Game> Provider::list() {
         }
     }
     romsets_.save();
+    switch_.finish();
     return games;
 }
 

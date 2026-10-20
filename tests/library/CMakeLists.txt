@@ -102,3 +102,11 @@ target_include_directories(romset_match_test PRIVATE "${CMAKE_SOURCE_DIR}/tests"
 target_compile_options(romset_match_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(romset_match_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME romset_match COMMAND romset_match_test)
+
+add_executable(switch_info_test switch_info_test.cpp)
+target_link_libraries(switch_info_test PRIVATE opensu::library OpenSSL::Crypto)
+target_include_directories(switch_info_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(switch_info_test PRIVATE
+    OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch"
+    OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
+add_test(NAME switch_info COMMAND switch_info_test)

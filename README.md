@@ -59,10 +59,11 @@ Requirements, which a desktop install of a current distribution already has:
 - x86_64 Linux with glibc 2.39 or newer
 - OpenGL and Vulkan drivers for the GPU (Mesa or the vendor's), and Xwayland
 - FUSE 3 (`fusermount3`); libfuse2 is not needed, the runtime is the static type 2 one
-- libcurl, the PipeWire, ALSA and PulseAudio client libraries and a systemd user session
+- libcurl, libcrypto (OpenSSL 3), the PipeWire, ALSA and PulseAudio client libraries and a systemd
+  user session
 
-On Fedora: `sudo dnf install fuse3 libcurl pipewire-libs alsa-lib pulseaudio-libs mesa-vulkan-drivers
-xorg-x11-server-Xwayland`. On Ubuntu: `sudo apt install fuse3 libcurl4t64 libpipewire-0.3-0t64
+On Fedora: `sudo dnf install fuse3 libcurl openssl-libs pipewire-libs alsa-lib pulseaudio-libs mesa-vulkan-drivers
+xorg-x11-server-Xwayland`. On Ubuntu: `sudo apt install fuse3 libcurl4t64 libssl3t64 libpipewire-0.3-0t64
 libasound2t64 libpulse0 mesa-vulkan-drivers xwayland`.
 
 Tested on Fedora 44 and Ubuntu 24.04 (clean containers with only the runtime libraries above: the
@@ -84,7 +85,8 @@ package (`nanosvg-devel` on Fedora), else a checkout at `NANOSVG_ROOT`, by defau
 (CC0). The window, keyboard, mouse and sound are SDL3's; gpu2d draws with SDL3 GPU and reads
 faces and images through SDL3_ttf and SDL3_image (`SDL3-devel SDL3_ttf-devel SDL3_image-devel
 libpng-devel` on Fedora), and the UI sounds are Ogg Vorbis (`libvorbis-devel`). libcurl
-(`libcurl-devel`) downloads missing artwork; zlib (`zlib-devel`) reads iiSU's starter pack, libwebp
+(`libcurl-devel`) downloads missing artwork; libcrypto (`openssl-devel`) decrypts a Switch game's
+own title and icon with the player's keys; zlib (`zlib-devel`) reads iiSU's starter pack, libwebp
 (`libwebp-devel`) decodes its console cards, nlohmann/json (`json-devel`) reads and writes the
 settings and libX11 and libXi (`libX11-devel libXi-devel`) read the in-game shortcut keys.
 `opensu-retro`, the built-in libretro runner, also needs the Vulkan loader and glslc
@@ -224,7 +226,9 @@ base game is started rather than its updates and DLC. Emulators are found on PAT
 in `~/Applications`, `~/AppImages` or `~/.local/bin`, or as Flatpaks: Dolphin, Cemu, Eden,
 Ryujinx, PCSX2, RPCS3, shadPS4, DuckStation, PPSSPP, melonDS, Azahar, mGBA, xemu and Xenia
 Canary. A game whose system has no emulator still appears, and pressing play names the
-emulator to install.
+emulator to install. A PS4 dump and a Switch game are titled and shown by their own files: a
+Switch NSP or XCI is read with the keys Eden uses (`~/.local/share/eden/keys/prod.keys` and
+`title.keys`), offline; the keys are only read, never copied, logged or sent.
 
 Emulators that publish an official AppImage (Cemu, Eden, PCSX2, RPCS3, DuckStation, PPSSPP,
 Azahar, mGBA, xemu) can be downloaded from a ROM's details page ("Download <emulator>") or from

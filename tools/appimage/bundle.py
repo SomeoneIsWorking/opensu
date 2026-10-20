@@ -25,8 +25,9 @@ HOST_PROVIDED = frozenset(
         # core X11, shared with the host's GL driver
         "libX11.so.6", "libX11-xcb.so.1", "libxcb.so.1", "libXau.so.6", "libXdmcp.so.6",
         # system libraries tied to the host's daemons, plugins or trust store
-        "libudev.so.1", "libsystemd.so.0", "libz.so.1", "libcurl.so.4", "libpipewire-0.3.so.0",
-        "libglib-2.0.so.0", "libgobject-2.0.so.0", "libgio-2.0.so.0", "libgmodule-2.0.so.0",
+        "libudev.so.1", "libsystemd.so.0", "libz.so.1", "libcurl.so.4", "libcrypto.so.3",
+        "libpipewire-0.3.so.0", "libglib-2.0.so.0", "libgobject-2.0.so.0", "libgio-2.0.so.0",
+        "libgmodule-2.0.so.0",
         "libffi.so.8", "libexpat.so.1", "libcap.so.2", "libdbus-1.so.3", "libasound.so.2",
         "libpulse.so.0",
     }

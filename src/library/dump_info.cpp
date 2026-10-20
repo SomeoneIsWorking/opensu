@@ -9,6 +9,7 @@
 #include <system_error>
 
 #include "param_sfo.hpp"
+#include "rom_titles.hpp"
 
 namespace opensu::library::roms {
 namespace {
@@ -17,17 +18,6 @@ namespace fs = std::filesystem;
 
 /// A param.sfo is a few kilobytes; anything far larger is not one.
 constexpr std::uintmax_t largestSfo = std::uintmax_t{64} * 1024;
-
-constexpr std::array<std::string_view, 2> trademarkSigns{"™", "®"};
-
-std::string withoutTrademarks(std::string title) {
-    for (const std::string_view sign : trademarkSigns) {
-        for (std::size_t at = title.find(sign); at != std::string::npos; at = title.find(sign)) {
-            title.erase(at, sign.size());
-        }
-    }
-    return title;
-}
 
 std::string readSmall(const fs::path& file) {
     std::error_code ec;

@@ -140,9 +140,14 @@ gitignored `docs/reference/`).
 | `src/library/play_time.*` | `PlayTimeReports`: each play-time source's latest report, summed into ROM games' play time |
 | `src/library/emulator_game_list.*` | An emulator's own game list (its id, title, path, metadata per game) matched to openSU's games by path, then by unique title key |
 | `src/library/titles.*` | The same title across stores: the comparison key, merged copies, preference order |
-| `src/library/rom_titles.*` | A ROM's display title from its name: tags, release numbers and the ", The" order (`cleanTitle`); the one title cleanup, also the release-number rule the libretro matcher uses |
+| `src/library/rom_titles.*` | A ROM's display title from its name: tags, release numbers and the ", The" order (`cleanTitle`); the one title cleanup, also the release-number rule the libretro matcher uses; trademark signs off a game's own title (`withoutTrademarks`) |
 | `src/library/param_sfo.*` | The PlayStation PARAM.SFO reader (`sfoStrings`): its UTF-8 values by key |
 | `src/library/dump_info.*` | What a game folder says about itself (`readDumpInfo`): a PS4 dump's `sce_sys/param.sfo` title and `icon0.png` |
+| `src/library/switch_info.*` | What a Switch game file says about itself (`SwitchInfo`): Eden's key folders, the Control NCA (the base title's first), `control.nacp`'s title and the icon, kept under `<cache>/artwork/switch/` by file size and mtime; a listing's count of games titled and the failures with file and step |
+| `src/library/switch_keys.*` | The player's Switch keys (`SwitchKeys`): prod.keys and title.keys parsed, the header, key area and titlekek keys a file lacks derived from the master keys as hactool does; never logged or written, wiped when dropped |
+| `src/library/switch_package.*` | The files in an NSP (PFS0) or an XCI's secure partition (HFS0, with or without the key area in front), positioned reads, a common ticket's title key |
+| `src/library/switch_nca.*` | One NCA (`Nca`): its header decrypted (AES-XTS, Nintendo's tweak), content type, program id, key generation, rights id; its RomFS section's key (key area or title key) and files (IVFC data level, AES-CTR) |
+| `src/library/switch_crypto.*` | AES-128 ECB, CTR and XTS over libcrypto, and `KeyBytes`, key material wiped on destruction |
 | `src/library/arcade_names.*` | Arcade short name to description: the libretro-database `.dat` parser and `NameDb`, the parsed names kept under `<cache>/names/` |
 | `src/library/romset_dat.*` | An arcade core's ROM-set listing (`RomsetDat`): each set's ROMs (name, size, CRC-32, BIOS choice), `romof`, default BIOS, devices and disks, read from a Logiqx datafile or a MAME `-listxml` and kept in a line format of its own |
 | `src/library/romset_dats.*` | The arcade cores' listings under `<cache>/romsets/<id>.tsv`: fetched over HTTPS from the catalog's `"romsets"` (files on their own origin, or a release's `.xml` zip, SHA-256 checked), fetched again after `romsetDatLifetime`, the old one kept when a fetch fails |

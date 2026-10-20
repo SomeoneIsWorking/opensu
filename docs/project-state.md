@@ -305,8 +305,22 @@ are kept for 30 days. Measured on this machine: 54 images on the first run, 10
 misses (libretro lists only 67 PS3 and 12 Xbox 360 boxes, a PS4 folder named by
 title id, two Steam apps without either image). An arcade game's box art is the `MAME` set's,
 matched by its listed description. A PS4 dump shows its own `sce_sys/icon0.png` and is titled by
-its `sce_sys/param.sfo` TITLE (trademark signs dropped), which is also its box art key. Switch has
-no source; its ROM tiles keep iiSU's first-letter fallback.
+its `sce_sys/param.sfo` TITLE (trademark signs dropped), which is also its box art key. A Switch
+game shows its own icon and is titled by its own `control.nacp` (`library::roms::SwitchInfo`,
+`docs/issues/switch-art.md`): the folder's base file (title id ending `000`, else the largest
+non-update), an NSP's PFS0 or an XCI's secure HFS0 partition, its Control NCA (the base title's
+when an XCI also carries the update's) decrypted offline with the player's own keys from Eden's
+`keys/prod.keys` and `title.keys` (`$XDG_DATA_HOME/eden/keys`, else Eden's Flatpak), a key the
+file lacks derived from the master keys as hactool does. The American English title (else the
+first language's) and `icon_AmericanEnglish.dat` (else the first icon) are kept as
+`<cache>/artwork/switch/<size>-<mtime>.title` and `.jpg`, and the square icon goes through the
+same tile and details cover path as a PS4 `icon0.png`. Without keys the tiles keep their file
+names and iiSU's first-letter fallback, with one warning per listing. Verified on this machine:
+27 of 27 Switch games under `/mnt/Boy/ROM/Switch` (NSP, trimmed XCI, folders of base, update and
+DLC files) titled and shown with their own icons in a hidden run in 0.5 s, then 27 from the cache
+on the next start (`scratch/switch-art/frame.png`, `shell-*.log`); the key derivation matches
+every derived key in a real prod.keys (header key, 21 key area keys, 21 titlekeks). Not read: an
+NSZ/XCZ whose Control NCA is compressed (`.ncz`), and NCA2 or older headers.
 
 A ROM's tile title is `library::roms::cleanTitle` of its file or folder name: everything from
 the first `(` or `[` goes (region, language, revision, dump flags, `Decrypted`, `-patched`), a

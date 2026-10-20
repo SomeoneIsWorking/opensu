@@ -10,6 +10,7 @@
 #include "game.hpp"
 #include "net/web_client.hpp"
 #include "romset_match.hpp"
+#include "switch_info.hpp"
 
 namespace opensu::library::roms {
 
@@ -27,8 +28,9 @@ standardMountDirs(const std::filesystem::path& home);
 class Provider final : public library::Provider {
   public:
     /// Arcade romsets are matched with listings kept under `cacheDir`; an empty one matches none.
+    /// Switch games are titled by `switchInfo`.
     Provider(std::vector<std::filesystem::path> roots, EmulatorSetup emulators, NameDb names,
-             const std::filesystem::path& cacheDir);
+             const std::filesystem::path& cacheDir, SwitchInfo switchInfo);
 
     [[nodiscard]] Source source() const override {
         return Source::Rom;
@@ -36,6 +38,7 @@ class Provider final : public library::Provider {
 
     /// Every game in every known system's folder under the roots, titled from its name with the
     /// dump tags cleaned off, and an arcade game from the kept listing when it has its short name.
+    /// A PS4 dump or a Switch game file that names itself is titled and shown by what it says.
     /// A game whose system has no emulator is listed, with `unavailable` naming what to install.
     /// An arcade zip's emulator is the one its romset matches (`applyRomsets`).
     /// The emulators are searched for on every call, so one installed since shows.
@@ -51,6 +54,7 @@ class Provider final : public library::Provider {
     NameDb names_;
     net::WebClient web_;
     RomsetMatcher romsets_;
+    SwitchInfo switch_;
 };
 
 } // namespace opensu::library::roms

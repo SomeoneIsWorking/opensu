@@ -124,6 +124,9 @@ struct Fixture {
         write(root / "Switch" / "Kirby Star Allies" /
                   "Kirby Star Allies[01007E3006DDA800][US][v327680].nsp",
               20);
+        write(root / "Switch" / "Kirby Star Allies" /
+                  "Kirby Star Allies Pack [01007E3006DDB001][v0].nsp",
+              30);
         write(root / "Switch" / "Kirby Star Allies" / "ROMSIM.url");
         write(root / "Switch" / "Metroid Dread" / "Metroid Dread.nsp", 10);
         write(root / "Switch" / "Metroid Dread" / "Update 2.0.0.nsp", 30);
@@ -166,7 +169,7 @@ void gameFiles(const Fixture& f) {
     const auto& sw = *systemForFolder("Switch");
     expect(need(gameFile(sw, f.root / "Switch" / "Kirby Star Allies"), "Kirby has a file")
                    .filename() == "Kirby Star Allies[01007E3006DDA000][US][v0].nsp",
-           "a Switch folder starts its [v0] base, not the larger update");
+           "a Switch folder starts its base title (id ending 000), not a larger update or add-on");
     expect(
         need(gameFile(sw, f.root / "Switch" / "Metroid Dread"), "Metroid has a file").filename() ==
             "Metroid Dread.nsp",
@@ -243,8 +246,11 @@ void providerLists(const Fixture& f) {
     writeExecutable(bin / "rpcs3");
     const fs::path cache = f.base / "cache";
     const NameDb names = NameDb::under(cache);
-    Provider provider{
-        {f.root}, EmulatorSetup{shipped(), EmulatorSearch{.executablePath = {bin}}, {}}, names, {}};
+    Provider provider{{f.root},
+                      EmulatorSetup{shipped(), EmulatorSearch{.executablePath = {bin}}, {}},
+                      names,
+                      {},
+                      {}};
     const std::vector<Game> before = provider.list();
     expect(find(before, "sf2") != nullptr && find(before, "unlisted") != nullptr,
            "an arcade short name is its own title until the listing is kept");
