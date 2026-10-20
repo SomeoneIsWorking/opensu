@@ -39,6 +39,15 @@ normally, no isolation".
 3. Whether Steam runs at all in the sandbox (its runtime is itself a container: pressure-vessel
    inside bwrap), and Steam Input and the overlay there.
 
+### Which mode applies
+
+- The player on Normal: "if someone has Steam already running and they don't want isolated Steam,
+  they should just be able to use it". Normal attaches to a Steam already running on the desktop
+  and never starts a second one.
+- In session mode there is no desktop Steam to attach to, so Normal is not offered there; Managed
+  (as SteamOS runs Steam) is the default and Isolated stays a choice. Session mode does not need
+  Isolated.
+
 ## Open questions for the player
 
 - Isolated Steam: its own login and its own installs, or share the existing library folders?
