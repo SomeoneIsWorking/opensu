@@ -63,7 +63,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/main.cpp` | `opensu-retro`'s command line |
 | `src/library/libretro_cores.*` | Finding a core; core downloads from the libretro buildbot under `<data>/opensu/cores/` and their record |
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release |
-| `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> <rom>` |
+| `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> <rom>`, with `--hidden` from a hidden shell |
 | `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core, on the same paths as an AppImage |
 | `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests, the load failure handed over and the file removed |
 | `src/app/quick_menu_controller.*` | Save state, Load state and Reset game while the running game answers on a control channel |

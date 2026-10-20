@@ -41,15 +41,18 @@ struct EmulatorSearch {
     std::filesystem::path runner;
     /// Where the runner keeps save RAM, one folder per system; empty leaves it the runner's.
     std::filesystem::path saves;
+    /// Whether the runner starts hidden: an unmapped window, no sound, no pads.
+    bool hiddenRunner{false};
 
     /// PATH, then openSU's downloads under `dataDir`, ~/Applications, ~/AppImages and
     /// ~/.local/bin for AppImages, then the user's and the system's Flatpak installations; cores
-    /// as `CoreSearch::standard` looks for them, run by `runner` with save RAM under `saves`.
+    /// as `CoreSearch::standard` looks for them, run by `runner` with save RAM under `saves`,
+    /// hidden when `hiddenRunner`.
     [[nodiscard]] static EmulatorSearch standard(const std::filesystem::path& home,
                                                  const std::filesystem::path& dataDir,
                                                  std::vector<std::filesystem::path> executablePath,
                                                  std::filesystem::path runner,
-                                                 std::filesystem::path saves);
+                                                 std::filesystem::path saves, bool hiddenRunner);
 };
 
 /// How an emulator got onto this machine.
@@ -139,8 +142,9 @@ struct EmulatorSetup {
     /// The buildbot folder cores are downloaded from, ending in /.
     std::string coreSource{buildbotNightly};
 
-    /// The standard search for `config`, with the catalog shipped in its assets folder.
-    [[nodiscard]] static EmulatorSetup standard(const config::Config& config);
+    /// The standard search for `config`, with the catalog shipped in its assets folder; a
+    /// `hidden` shell starts the runner hidden.
+    [[nodiscard]] static EmulatorSetup standard(const config::Config& config, bool hidden);
 
     /// Searches now; what is installed changes as the player installs and removes.
     [[nodiscard]] Emulators discover() const {

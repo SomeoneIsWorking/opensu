@@ -10,7 +10,7 @@
 
 namespace opensu::library {
 
-/// Builds the catalog's providers from the configuration.
-[[nodiscard]] Catalog makeCatalog(const config::Config& config);
+/// Builds the catalog's providers from the configuration; a `hidden` shell's ROMs start hidden.
+[[nodiscard]] Catalog makeCatalog(const config::Config& config, bool hidden);
 
 } // namespace opensu::library

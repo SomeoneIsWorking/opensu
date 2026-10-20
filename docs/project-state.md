@@ -1192,7 +1192,7 @@ openSU has no Mega Drive, Master System or Game Gear system. A core is found in
 `<data>/opensu/cores/` (openSU's, with a `<core>.json` record), then `~/.config/retroarch/cores`,
 `/usr/lib64/libretro`, `/usr/lib/libretro`, `/usr/lib/x86_64-linux-gnu/libretro`
 (`library/libretro_cores`); the emulator is installed when its core is found and runs as
-`opensu-retro --core <core> --saves <data>/opensu/saves/<system> <rom>`, which cannot start, with the reason, when `opensu-retro` is not
+`opensu-retro --core <core> [--hidden] --saves <data>/opensu/saves/<system> <rom>` (`--hidden` when the shell is), which cannot start, with the reason, when `opensu-retro` is not
 beside `opensu`. Downloads use the Settings › Emulators and details page paths of S026: the
 buildbot's `.index-extended` is read, the zip is fetched with every hop on the buildbot's origin,
 its one `.so` is checked against the listed CRC-32, which is the library's and not the zip's
@@ -1202,9 +1202,10 @@ Verified: tests through the shipping code against a fake buildbot (listing parse
 CRC-32 match and mismatch, off-host redirect and off-host listing refused with nothing kept, an
 on-host redirect followed, cancel, update detection and update, removal, LaunchSpec shape, the
 ROM's emulator options, the details page Download then Play, Settings source, update and two-press
-Remove). Every launch carries `OPENSU_RETRO_CONTROL` (S032). Unverified: a real buildbot download,
-a real core launched from the shell through `opensu-retro` (the shell starts it visible, which
-agents do not run).
+Remove). Every launch carries `OPENSU_RETRO_CONTROL` (S032). A hidden shell launched Kirby & the
+Amazing Mirror from `/mnt/Boy/ROM/GBA/` on the mGBA core through `opensu-retro --hidden` (its
+`/proc/<pid>/cmdline`, no `/dev/input` or sound fds) and closed it from the quick menu
+(`scratch/retro-hidden/`). Unverified: a real buildbot download.
 
 ### S032 — The libretro runner
 
