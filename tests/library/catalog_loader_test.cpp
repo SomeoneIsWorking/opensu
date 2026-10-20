@@ -146,11 +146,44 @@ void refreshKeepsWhatIsKnown() {
            "a second read replaces the listing without a Loading gap");
 }
 
+/// Replacing the catalog drops a store at once, and a listing of the replaced provider that was
+/// still under way is not shown when it ends.
+void replaceDropsAStore() {
+    Gate gate;
+    opensu::library::Catalog first;
+    first.add(std::make_unique<FakeProvider>(Source::Epic, "epic:slow", &gate));
+    first.add(std::make_unique<FakeProvider>(Source::Rom, "rom:a", nullptr));
+    CatalogLoader loader{std::move(first)};
+    loader.refresh();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{5};
+    std::optional<opensu::library::CatalogSnapshot> early;
+    while (!early && std::chrono::steady_clock::now() < deadline) {
+        early = loader.take();
+        std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    }
+    expect(early && early->sources.size() == 2, "both stores are listed before the replace");
+
+    opensu::library::Catalog second;
+    second.add(std::make_unique<FakeProvider>(Source::Rom, "rom:b", nullptr));
+    loader.replace(std::move(second));
+    const std::optional<opensu::library::CatalogSnapshot> taken = loader.take();
+    const opensu::library::CatalogSnapshot& at =
+        required(taken, "a replace hands over a snapshot at once");
+    expect(at.sources.size() == 1 && at.sources[0].source == Source::Rom,
+           "the dropped store is gone from the snapshot");
+    gate.open();
+    loader.waitIdle();
+    const auto later = loader.take();
+    expect(later && later->games.size() == 1 && later->games[0].id == "rom:b",
+           "only the new provider's listing is shown");
+}
+
 } // namespace
 
 int main() {
     blockedStoreDoesNotBlockTheCaller();
     refreshKeepsWhatIsKnown();
+    replaceDropsAStore();
     std::printf("catalog_loader: all checks passed\n");
     return 0;
 }

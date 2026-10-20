@@ -86,9 +86,25 @@ bool SettingsController::changes() const {
 }
 
 std::vector<ui::SettingsCategory> SettingsController::build() const {
-    return {appearancePage(), libraryPage(),   emulators_.page(), steamLibraries_.page(),
-            audioPage(),      controlsPage(),  chords_.page(),    installPage(),
-            wine_.page(),     plugins_.page(), aboutPage()};
+    const settings::Integrations& in = inForce_.current();
+    std::vector<ui::SettingsCategory> pages{appearancePage(), libraryPage(), integrations_.page(),
+                                            emulators_.page()};
+    if (in.lists(library::Source::Steam)) {
+        pages.push_back(steamLibraries_.page());
+    }
+    pages.push_back(audioPage());
+    pages.push_back(controlsPage());
+    pages.push_back(chords_.page());
+    pages.push_back(installPage());
+    // Wine runs the Windows builds of GOG and Epic games.
+    if (in.epic || in.gog) {
+        pages.push_back(wine_.page());
+    }
+    if (in.plugins) {
+        pages.push_back(plugins_.page());
+    }
+    pages.push_back(aboutPage());
+    return pages;
 }
 
 ui::SettingsCategory SettingsController::appearancePage() const {
@@ -144,6 +160,9 @@ ui::SettingsCategory SettingsController::libraryPage() const {
                                     "A folder with one subfolder per system", ""));
     page.rows.push_back(ui::makeRow(romResetId, RowKind::Action, "Find ROM folders automatically",
                                     "Forgets the folders you added", ""));
+    if (!inForce_.current().lists(library::Source::Steam)) {
+        return page;
+    }
     page.rows.push_back(ui::makeRow(
         "steam.list", RowKind::Info, "Steam install folders",
         v.steamRoots.empty() && !defaults_.steamRoots.empty() ? "From OPENSU_STEAM_ROOTS"
@@ -208,6 +227,9 @@ ui::SettingsCategory SettingsController::installPage() const {
                                         ? "Not set: each store's own"
                                         : folders.defaultFolder().string()));
     for (const library::Source store : settings::installStores) {
+        if (!inForce_.current().lists(store)) {
+            continue;
+        }
         const settings::Destination destination = folders.resolve(store, own);
         std::string note;
         switch (destination.origin) {
@@ -248,8 +270,12 @@ ui::SettingsCategory SettingsController::aboutPage() const {
 
 void SettingsController::open() {
     emulators_.rescan();
-    steamLibraries_.reload();
-    wine_.rescan();
+    if (inForce_.current().lists(library::Source::Steam)) {
+        steamLibraries_.reload();
+    }
+    if (inForce_.current().epic || inForce_.current().gog) {
+        wine_.rescan();
+    }
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     page_.open(build());
@@ -419,6 +445,13 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
             sounds_.play(audio::Effect::Navigation);
             chords_.run(id, step);
             refresh();
+        }
+        return;
+    }
+    if (IntegrationSettings::owns(id)) {
+        if (focused.kind != RowKind::Info) {
+            sounds_.play(audio::Effect::Navigation);
+            integrations_.run(id, step);
         }
         return;
     }

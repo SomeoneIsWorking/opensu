@@ -2,11 +2,12 @@
 // Gamescope has focused (`session::FocusHolder`).
 //
 // Inside Gamescope the shell grabs the pads while its own window is in front, so the Steam client
-// it runs never sees them (Guide would open Big Picture). A game openSU launched gets them as
-// virtual pads. Any other window in front gets the real pads, and the shell then acts only on
-// Guide, which always belongs to openSU. A menu up over a game is openSU's, whatever is focused
-// under it. Outside Gamescope there is no focus to follow and nothing else to keep the pads from,
-// so the shell leaves them free; a game still holds them.
+// it runs (Managed) never sees them (Guide would open Big Picture). With no Steam of openSU's to
+// guard against (Steam off, or the desktop's Steam in Normal mode) the shell leaves them free. A
+// game openSU launched gets them as virtual pads. Any other window in front gets the real pads, and
+// the shell then acts only on Guide, which always belongs to openSU. A menu up over a game is
+// openSU's, whatever is focused under it. Outside Gamescope there is no focus to follow and nothing
+// else to keep the pads from, so the shell leaves them free; a game still holds them.
 //
 // At launch the game's mapping goes to the chords in force (its game chords) and to the pads
 // (`gamepad::ForwardMap`); at its end both are dropped. The chords in force reach the pads whenever
@@ -36,6 +37,8 @@ class PadOwner {
         session::FocusHolder holder{session::FocusHolder::OpenSU};
         /// A menu or page of openSU's is up over the game.
         bool menuOver{false};
+        /// openSU's own Steam runs in its Gamescope, which the shell keeps the pads from.
+        bool guardsSteam{true};
     };
 
     /// Where pads are read from: the system's, or an empty directory in a hidden run, which keeps
@@ -65,6 +68,10 @@ class PadOwner {
 
     /// Applies the focus as it is now; the pads change hands only when the claim does.
     void follow(bool followsFocus, session::FocusHolder holder, bool menuOver);
+    /// Whether the shell keeps the pads from openSU's own Steam; applied with the next `follow`.
+    void guardSteam(bool guards) noexcept {
+        situation_.guardsSteam = guards;
+    }
     /// The events the shell acts on: all of them while it listens, else Guide and controllers
     /// coming and going.
     [[nodiscard]] std::vector<gamepad::Event> admit(std::vector<gamepad::Event> events) const;

@@ -36,6 +36,8 @@ void theClaimFollowsTheFocus() {
            "inside Gamescope the shell in front grabs the pads, so Steam never sees Guide");
     expect(PadOwner::claimFor(S{.followsFocus = false}) == Claim::Free,
            "outside Gamescope the shell leaves them free");
+    expect(PadOwner::claimFor(S{.followsFocus = true, .guardsSteam = false}) == Claim::Free,
+           "with no Steam of openSU's to guard against the shell leaves them free");
     expect(PadOwner::claimFor(S{.followsFocus = true, .holder = FocusHolder::Other}) == Claim::Free,
            "a Steam dialog in front gets the pads");
     expect(PadOwner::claimFor(S{.followsFocus = true, .holder = FocusHolder::BigPicture}) ==
@@ -152,9 +154,38 @@ void bigPictureIsClosedAndGuideComesBack() {
     expect(closes == 2, "each time Big Picture took the focus it was closed through Steam");
 }
 
+/// The desktop's Big Picture is the player's: it is never closed, and the shell stays put.
+void aDesktopBigPictureIsLeftAlone() {
+    int closes = 0;
+    int returns = 0;
+    std::optional<FocusedWindow> next = FocusedWindow{.window = ownWindow, .appId = {}, .pid = {}};
+    {
+        FocusFollow follow{FocusFollow::Hooks{.gamePids =
+                                                  [] {
+                                                      return std::vector<pid_t>{};
+                                                  },
+                                              .closeBigPicture =
+                                                  [&closes] {
+                                                      ++closes;
+                                                  },
+                                              .takeFocus =
+                                                  [&returns] {
+                                                      ++returns;
+                                                  }}};
+        follow.closeBigPicture(false);
+        follow.attach(std::make_unique<FakeFocus>(next), ownWindow);
+        follow.service(false);
+        next = FocusedWindow{.window = 0x600004, .appId = steamAppId, .pid = steam};
+        follow.service(false);
+        expect(follow.holder() == FocusHolder::BigPicture, "Big Picture has the focus");
+    }
+    expect(closes == 0 && returns == 0, "it is neither closed nor taken back");
+}
+
 } // namespace
 
 int main() {
+    aDesktopBigPictureIsLeftAlone();
     theClaimFollowsTheFocus();
     behindAnotherWindowOnlyGuideIsHeard();
     bigPictureIsClosedAndGuideComesBack();

@@ -137,6 +137,10 @@ class FakeSteam final : public SteamGate {
         return activity_;
     }
 
+    bool showsInSession() const override {
+        return inSession_;
+    }
+
     SteamState waitReady(std::chrono::milliseconds timeout,
                          const std::function<bool()>& cancelled) override {
         const Clock::time_point until = Clock::now() + timeout;
@@ -146,11 +150,17 @@ class FakeSteam final : public SteamGate {
         return state_.load();
     }
 
+    /// A desktop Steam's games show outside openSU's Gamescope.
+    void setInSession(bool inSession) {
+        inSession_.store(inSession);
+    }
+
   private:
     std::atomic<SteamState> state_;
     std::atomic<double> update_{-1.0};
     mutable std::mutex activityMutex_;
     SteamAppActivity activity_;
+    std::atomic<bool> inSession_{true};
 };
 
 /// A display whose windows the test opens: none until show().
@@ -833,6 +843,29 @@ void testSteamWaitsForReadiness() {
     expect(steam.state() == SteamState::Ready, "the client is left ready");
 }
 
+/// A desktop Steam's game is on its way once it runs: its window opens on the desktop, where
+/// openSU's Gamescope cannot see it.
+void testDesktopSteamGameNeedsNoSessionWindow() {
+    const Fixture fixture;
+    const FakeSteamProgram steamProgram{fixture, 3};
+    FakeSteam steam;
+    steam.setInSession(false);
+    FakeWindows windows;
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, &windows};
+    Shell shell;
+    std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
+    awaitRecordedPid(steamProgram.gamePid, "the desktop Steam started the game");
+    expect(waitUntil(
+               [&shell] {
+                   return shell.hidden.load() == 1;
+               },
+               std::chrono::seconds{10}),
+           "the shell steps aside without a window in its Gamescope");
+    expect(windows.asked().empty(), "openSU's Gamescope is not asked about the game");
+    const Outcome outcome = awaitStart(pending, "start() returns when the game exits");
+    expect(outcome.ok, "the desktop Steam's game ran");
+}
+
 /// A Steam game that has to be updated first keeps the shell up, reporting the update, for as
 /// long as Steam downloads it; the shell hides once the game runs.
 void testSteamUpdateKeepsTheShellUp() {
@@ -1146,6 +1179,7 @@ int main() {
     testEnvironmentReachesTheGame();
     testExitStatusIsReported();
     testSteamWaitsForReadiness();
+    testDesktopSteamGameNeedsNoSessionWindow();
     testSteamUpdateKeepsTheShellUp();
     testSteamLaunchSpansSetupAndGap();
     testSteamLaunchErrorIsTheFailure();

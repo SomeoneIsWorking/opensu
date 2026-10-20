@@ -136,6 +136,8 @@ Handoff::Shown Handoff::awaitSteamWindow(const library::Game& game, int baseline
                                          const Report& report, std::string& failure) {
     Clock::time_point deadline = Clock::now() + Handoff::startTimeout;
     bool appeared = false;
+    // A desktop Steam's game opens its window on the desktop, which Gamescope never shows.
+    GameWindows* windows = steam_.showsInSession() ? windows_ : nullptr;
     while (!forced_.load()) {
         const SteamAppActivity steam = steam_.activity(game.sourceId);
         const std::vector<pid_t> processes = ProcessTree::treesMatching(game.processHint);
@@ -145,7 +147,7 @@ Handoff::Shown Handoff::awaitSteamWindow(const library::Game& game, int baseline
                 lucent::info("launch", "{} is running", game.title);
             }
             appeared = true;
-            if (windows_ == nullptr || windows_->anyOwnedBy(processes)) {
+            if (windows == nullptr || windows->anyOwnedBy(processes)) {
                 return Shown::Window;
             }
         }

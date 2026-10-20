@@ -1,6 +1,7 @@
 // focus_follow — follows the window Gamescope has focused (`session::FocusSource`) and answers it.
-// Steam's Big Picture is never wanted: whenever it takes the focus, by Guide, a steam:// link or
-// Steam itself, it is closed through the Steam client and the shell's window is put back in front.
+// openSU's own Steam's Big Picture is never wanted (Managed): whenever it takes the focus, by
+// Guide, a steam:// link or Steam itself, it is closed through the Steam client and the shell's
+// window is put back in front. The desktop's Steam (Normal) is never closed.
 // Guide pressed while another window is in front of the shell brings the shell back. Without a
 // source (outside Gamescope, a hidden run) openSU always holds the focus.
 #pragma once
@@ -38,6 +39,10 @@ class FocusFollow {
     [[nodiscard]] bool following() const noexcept {
         return source_ != nullptr;
     }
+    /// Whether Big Picture taking the focus is closed: only openSU's own Steam's.
+    void closeBigPicture(bool closes) noexcept {
+        closesBigPicture_ = closes;
+    }
 
     /// Reads a focus change and answers it. `game` is whether a game is launching or running;
     /// its start and end also count as a change.
@@ -57,6 +62,7 @@ class FocusFollow {
     std::optional<session::FocusedWindow> focused_;
     bool game_{false};
     session::FocusHolder holder_{session::FocusHolder::OpenSU};
+    bool closesBigPicture_{true};
     /// Last, so a close in flight ends before the hooks it calls go.
     std::jthread closer_;
 };

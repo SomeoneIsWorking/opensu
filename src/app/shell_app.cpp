@@ -27,10 +27,14 @@ namespace opensu::app {
 
 ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     : environment_{environment}, settings_{settings},
-      catalogLoader_{library::makeCatalog(resolved_, settings_.hidden, romsetLists_)},
+      catalogLoader_{library::makeCatalog(resolved_, settings_.hidden, romsetLists_,
+                                          integrations_.catalogStores())},
       shell_{settings_.width, settings_.height, settings_.homeMode, environment_.assetsDir},
-      steam_{steam::Client::Options{resolved_.home, resolved_.executablePath, resolved_.session,
-                                    resolved_.steamRoots}},
+      steam_{steam::Client::Options{.home = resolved_.home,
+                                    .executablePath = resolved_.executablePath,
+                                    .session = resolved_.session,
+                                    .steamRoots = resolved_.steamRoots,
+                                    .mayStart = settings_.startSteam}},
       gameWindows_{environment_.insideGamescope ? std::make_unique<session::GamescopeWindows>()
                                                 : nullptr},
       handoff_{environment_.executablePath, environment_.session, steam_, gameWindows_.get()},
@@ -39,6 +43,12 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     padOwner_.syncChords();
     clock_.service(std::chrono::steady_clock::now());
     applyLayout();
+    firstRun_.openIfUnchosen();
+}
+
+void ShellApp::applyIntegrations() {
+    integrationSwitch_.apply();
+    settingsScreen_.refresh();
 }
 
 void ShellApp::applyLayout() {
@@ -394,6 +404,10 @@ void ShellApp::actOn(gamepad::Button button) {
         toggleGuide();
         return;
     }
+    if (firstRun_.active()) {
+        firstRun_.act(button);
+        return;
+    }
     if (shell_.guidePanels().guide().isOpen()) {
         guideMenu_.act(button);
         return;
@@ -553,55 +567,19 @@ void ShellApp::launch(const library::Game& game) {
         shell_.setToast(refused, true);
         return;
     }
-    {
-        const std::lock_guard lock{launchMutex_};
-        if (launchRunning_) {
-            shell_.setToast("a game is already running", true);
-            return;
-        }
-        launchRunning_ = true;
+    if (launches_.running()) {
+        shell_.setToast("a game is already running", true);
+        return;
     }
 
     // input-sound.md 3.4 OpenAppRom: every game launch.
     sounds_.play(audio::Effect::OpenAppRom);
-    running_ = game;
     panels_.showLaunch(game.title);
     recordLaunch(game);
 
     std::vector<std::string> environment = padOwner_.hold(mappings_.forGame(game));
     environment.push_back(retro_.begin());
-
-    // The thread owns a copy because it outlives this call.
-    std::thread{[this, copy = std::move(started), environment = std::move(environment)] {
-        std::string failure;
-        int exitStatus = -1;
-        // The window belongs to the loop's thread, so the handoff thread only raises flags and the
-        // loop does the work.
-        const launch::Handoff::Hooks hooks{.hide =
-                                               [this] {
-                                                   mailbox_.postGameRunning(true);
-                                               },
-                                           .show =
-                                               [this] {
-                                                   mailbox_.postGameRunning(false);
-                                               },
-                                           .progress =
-                                               [this](const launch::LaunchProgress& progress) {
-                                                   mailbox_.postProgress(progress);
-                                               },
-                                           .ended =
-                                               [&exitStatus](int status) {
-                                                   exitStatus = status;
-                                               }};
-        handoff_.start(copy, hooks, environment, failure);
-        {
-            const std::lock_guard lock{launchMutex_};
-            launchRunning_ = false;
-        }
-        const EndNotice notice = noticeOf(GameEnd{copy.title, failure, exitStatus, retro_.end()});
-        lucent::info("launch", "{} is over: {}", copy.title, notice.text);
-        mailbox_.postToast(notice.text, notice.error);
-    }}.detach();
+    launches_.start(std::move(started), std::move(environment));
 }
 
 void ShellApp::offerInstall(const library::Game& game) {
@@ -612,14 +590,7 @@ void ShellApp::offerInstall(const library::Game& game) {
 }
 
 void ShellApp::cancelLaunch() {
-    {
-        const std::lock_guard lock{launchMutex_};
-        if (!launchRunning_) {
-            return;
-        }
-    }
-    lucent::info("launch", "cancelling the launch of {}", running_.title);
-    handoff_.forceClose();
+    launches_.cancel();
 }
 
 void ShellApp::chooseLevel(int level) {
@@ -635,14 +606,13 @@ void ShellApp::chooseLevel(int level) {
 }
 
 bool ShellApp::menusBlocked() {
-    return panels_.active() || paths_.active() || sessionInstall_.active() ||
+    return panels_.active() || paths_.active() || sessionInstall_.active() || firstRun_.active() ||
            shortcutEditor_.capturing() || shell_.searchPanel().isOpen() ||
            shell_.modeChooser().isOpen() || shell_.contextMenu().isOpen();
 }
 
 void ShellApp::closeRunningGame() {
-    lucent::info("launch", "closing {} from a menu", running_.title);
-    handoff_.forceClose();
+    launches_.close();
 }
 
 void ShellApp::toggleGuide() {
@@ -822,7 +792,7 @@ void ShellApp::activateCrumb(std::size_t index) {
 ui::HintContext ShellApp::hints() const {
     // The menus draw their own prompts.
     if (paths_.active() || sessionInstall_.active() || shell_.guidePanels().anyOpen() ||
-        mappings_.active()) {
+        mappings_.active() || firstRun_.active()) {
         return ui::HintContext{};
     }
     if (shortcutEditor_.capturing()) {
@@ -881,6 +851,7 @@ void ShellApp::publishSnapshot() {
     next.detailsOpen = shell_.detailsPage().isOpen();
     next.armed = shell_.detailsPage().armed() || shell_.contextMenu().armed();
     next.settingsOpen = shell_.settingsPanels().page().isOpen();
+    next.firstRunOpen = firstRun_.active();
     next.folderPickerOpen = paths_.active();
     next.capturingShortcut = shortcutEditor_.capturing();
     next.mapping = shell_.mappingPage().state();
@@ -903,10 +874,7 @@ void ShellApp::publishSnapshot() {
     next.status = shell_.status();
     next.toast = shell_.toast();
     next.toastIsError = shell_.toastIsError();
-    {
-        const std::lock_guard lock{launchMutex_};
-        next.launching = launchRunning_;
-    }
+    next.launching = launches_.running();
     // What the loop has applied, not what was asked for, so a request that never reached the
     // loop cannot read as in game.
     next.inGame = shell_.inGame();
@@ -967,11 +935,7 @@ void ShellApp::serviceControlRequests() {
 /// Applies what the launch thread and the control channel asked for. Everything
 /// that touches the window or the shell happens here, on the loop's thread.
 void ShellApp::serviceRequests() {
-    bool launching = false;
-    {
-        const std::lock_guard lock{launchMutex_};
-        launching = launchRunning_;
-    }
+    const bool launching = launches_.running();
     if (padOwner_.held() && !launching) {
         padOwner_.release();
     }
@@ -1035,12 +999,8 @@ int ShellApp::run() {
         control_->start();
     }
 
-    // Steam comes up in the background while the shell is already usable. A machine
-    // without a Steam install has nothing to start, and shows no Steam icon.
-    if (settings_.startSteam &&
-        !library::steam::Library::discover(resolved_.home, resolved_.steamRoots).roots().empty()) {
-        steam_.start();
-    }
+    // Steam comes up in the background, in its mode, while the shell is already usable.
+    integrationSwitch_.begin();
 
     while (!bridge_.closeRequested() && window_->pollEvents()) {
         // A resize changes the framebuffer, so the layout is recomputed before anything is drawn.

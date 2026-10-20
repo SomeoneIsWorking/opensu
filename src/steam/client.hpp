@@ -1,8 +1,9 @@
-// steam — the Steam client opensu owns.
+// steam — the Steam client openSU launches through, in one of two modes.
 //
-// Steam starts in the background when opensu does, inside a scope of the session,
-// so closing opensu closes Steam. Games are then launched through that client, and
-// a launch waits until it is logged on.
+// Managed: openSU's own Steam starts in the background inside a scope of the session, so closing
+// openSU closes Steam. Normal: the player's Steam on the desktop is attached to when it runs, or
+// started on the desktop, outside openSU's scope, and never ended by openSU. Games are launched
+// through the client either way, and a launch waits until it is logged on.
 #pragma once
 
 #include <chrono>
@@ -38,6 +39,8 @@ inline constexpr std::chrono::seconds shutdownWait{20};
 /// Starts, watches and stops the background Steam client.
 class Client final : public launch::SteamGate {
   public:
+    enum class Mode : std::uint8_t { Managed, Normal };
+
     struct Options {
         /// Where `.steam/` lives: the client's pid file and its connection log.
         std::filesystem::path home;
@@ -47,6 +50,11 @@ class Client final : public launch::SteamGate {
         std::string session;
         /// Install roots holding the app manifests; discovered under `home` when empty.
         std::vector<std::filesystem::path> steamRoots;
+        /// False for a hidden run: `start` decides and logs what it would do, and starts and
+        /// attaches to nothing.
+        bool mayStart{true};
+        /// Where the client's DevTools listen.
+        std::uint16_t devToolsPort{steam::devToolsPort};
     };
 
     explicit Client(Options options);
@@ -54,15 +62,22 @@ class Client final : public launch::SteamGate {
     Client& operator=(const Client&) = delete;
     ~Client() override;
 
-    /// First ends a Steam left in `opensu-<pid>-steam.scope` by an openSU that died, then starts
-    /// `steam -silent -cef-enable-debugging` in its scope, on the desktop's session bus, and
-    /// begins watching it. The state is Blocked when a Steam client already runs outside
-    /// opensu, and Failed when Steam cannot be started. Does nothing unless the state is Stopped.
-    void start();
+    /// Managed: first ends a Steam left in `opensu-<pid>-steam.scope` by an openSU that died, then
+    /// starts `steam -silent -cef-enable-debugging` in its scope, on the desktop's session bus,
+    /// and begins watching it. The state is Blocked when a Steam client already runs outside
+    /// opensu, and Failed when Steam cannot be started.
+    /// Normal: attaches to the desktop's running Steam (Ready at once), or starts `steam` on the
+    /// desktop through `systemd-run --user` and waits for its logon. Never a second Steam.
+    /// Does nothing unless the state is Stopped.
+    void start(Mode mode);
 
-    /// Asks the client to exit with `steam -shutdown`, waits up to shutdownWait for
-    /// it, then stops the scope. The state ends as Stopped.
+    /// Managed: asks the client to exit with `steam -shutdown`, waits up to shutdownWait for
+    /// it, then stops the scope. Normal: stops watching; the desktop's Steam keeps running. The
+    /// state ends as Stopped.
     void shutdown();
+
+    /// The mode of the last start.
+    [[nodiscard]] Mode mode() const;
 
     /// Steam's installer, driven through the running client.
     [[nodiscard]] InstallWizard& installer() noexcept {
@@ -96,8 +111,14 @@ class Client final : public launch::SteamGate {
                                                const std::function<bool()>& cancelled) override;
     [[nodiscard]] std::optional<double> updateProgress(std::string_view appId) const override;
     [[nodiscard]] launch::SteamAppActivity activity(std::string_view appId) const override;
+    [[nodiscard]] bool showsInSession() const override;
 
   private:
+    void startManaged();
+    void startNormal();
+    /// Whether the client watched is there: the scope, or the desktop's Steam process.
+    [[nodiscard]] bool clientAlive();
+    void beginWatching(launch::SteamState state);
     /// The watcher thread: polls the scope and the connection log until stopped.
     void watch();
 
@@ -117,7 +138,7 @@ class Client final : public launch::SteamGate {
     /// How much of the connection log predates this client; only later lines count.
     std::uintmax_t logOffset_{0};
     launch::Instance instance_;
-    DevTools devTools_;
+    DevTools devTools_{options_.devToolsPort};
     DownloadQueue queue_{devTools_};
     InstallWizard installer_{devTools_};
     Uninstaller uninstaller_{devTools_};
@@ -129,6 +150,7 @@ class Client final : public launch::SteamGate {
     mutable std::mutex mutex_;
     std::condition_variable changed_;
     launch::SteamState state_{launch::SteamState::Stopped};
+    Mode mode_{Mode::Managed};
     bool stopping_{false};
     std::vector<Download> downloads_;
     Activities activities_;

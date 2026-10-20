@@ -27,7 +27,7 @@ Claim PadOwner::claimFor(const Situation& situation) {
     if (situation.game) {
         return ours ? Claim::Game : Claim::Away;
     }
-    return ours && situation.followsFocus ? Claim::Shell : Claim::Free;
+    return ours && situation.followsFocus && situation.guardsSteam ? Claim::Shell : Claim::Free;
 }
 
 std::vector<std::string> PadOwner::hold(const input::ButtonMap& map) {

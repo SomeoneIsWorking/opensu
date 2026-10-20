@@ -11,15 +11,18 @@
 #include "library/game.hpp"
 #include "library/wine.hpp"
 #include "preferences.hpp"
+#include "settings/integrations.hpp"
 #include "ui/settings_page.hpp"
 
 namespace opensu::app {
 
 class WineSettings {
   public:
-    /// `config` gives the data dir, PATH and the Steam roots searched for runners.
-    WineSettings(Preferences& preferences, const config::Config& config)
-        : preferences_{preferences}, config_{config} {
+    /// `config` gives the data dir, PATH and the Steam roots searched for runners, which are
+    /// searched only while Steam is in force in `integrations`.
+    WineSettings(Preferences& preferences, const config::Config& config,
+                 const settings::Integrations& integrations)
+        : preferences_{preferences}, config_{config}, integrations_{integrations} {
     }
 
     static constexpr std::string_view categoryId = "wine";
@@ -40,6 +43,7 @@ class WineSettings {
 
     Preferences& preferences_;
     const config::Config& config_;
+    const settings::Integrations& integrations_;
     std::vector<library::wine::Runner> found_;
 };
 

@@ -2,7 +2,10 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
+
+#include <sys/types.h>
 
 namespace opensu::steam {
 
@@ -16,6 +19,10 @@ class DesktopSteam {
     /// not contain `instanceUnit`. An empty unit means no instance runs, so any
     /// live Steam counts.
     [[nodiscard]] bool runningOutside(const std::string& instanceUnit) const;
+
+    /// The Steam client running now: the live process `<home>/.steam/steam.pid` names, when it is
+    /// a `steam` process. Nothing when there is none.
+    [[nodiscard]] std::optional<pid_t> running() const;
 
   private:
     std::filesystem::path pidFile_;

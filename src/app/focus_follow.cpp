@@ -39,7 +39,7 @@ void FocusFollow::service(bool game) {
                  : holder_ == FocusHolder::Game       ? "the game"
                  : holder_ == FocusHolder::BigPicture ? "Big Picture"
                                                       : "another window");
-    if (holder_ == FocusHolder::BigPicture) {
+    if (holder_ == FocusHolder::BigPicture && closesBigPicture_) {
         closer_ = std::jthread{[close = hooks_.closeBigPicture] {
             close();
         }};

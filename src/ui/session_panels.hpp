@@ -1,12 +1,16 @@
-// session_panels — the session install flow's two panels: the dialog that explains it and the
-// on-screen keyboard the administrator password is typed on. Owns their state, fades and painters,
-// so the shell composes one object for them and the pointer reads one hit test.
+// session_panels — the cards that ask the player before openSU changes how it runs: the consent
+// dialog (installing session mode, a plugin's permissions), the on-screen keyboard the
+// administrator password is typed on, and the first-run integration chooser. Owns their state,
+// fades and painters, so the shell composes one object for them and the pointer reads one hit
+// test.
 #pragma once
 
 #include <chrono>
 
 #include "paint.hpp"
 
+#include "integration_chooser.hpp"
+#include "integration_chooser_painter.hpp"
 #include "panel_fade.hpp"
 #include "pointer_target.hpp"
 #include "search_panel.hpp"
@@ -21,7 +25,8 @@ class SessionPanels {
     using Clock = std::chrono::steady_clock;
 
     SessionPanels(const input::Prompts& prompts, Typeface& typeface) noexcept
-        : dialogPainter_{prompts, typeface}, passwordPainter_{prompts, typeface} {
+        : dialogPainter_{prompts, typeface}, passwordPainter_{prompts, typeface},
+          chooserPainter_{prompts, typeface} {
     }
 
     [[nodiscard]] SessionDialog& dialog() noexcept {
@@ -38,8 +43,16 @@ class SessionPanels {
         return password_;
     }
 
+    /// The first-run integration chooser.
+    [[nodiscard]] IntegrationChooser& integrations() noexcept {
+        return chooser_;
+    }
+    [[nodiscard]] const IntegrationChooser& integrations() const noexcept {
+        return chooser_;
+    }
+
     [[nodiscard]] bool anyOpen() const noexcept {
-        return dialog_.isOpen() || password_.isOpen();
+        return dialog_.isOpen() || password_.isOpen() || chooser_.isOpen();
     }
 
     /// Starts the fades the panels' open states call for.
@@ -60,6 +73,9 @@ class SessionPanels {
     SearchPanel password_;
     PanelFade passwordFade_{FadeSpec{150.0f, 150.0f, 1.0f, 0.0f, 1.0f}};
     SearchPanelPainter passwordPainter_;
+    IntegrationChooser chooser_;
+    PanelFade chooserFade_{FadeSpec{150.0f, 150.0f, 1.0f, 0.0f, 1.0f}};
+    IntegrationChooserPainter chooserPainter_;
 };
 
 } // namespace opensu::ui

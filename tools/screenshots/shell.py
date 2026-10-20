@@ -12,6 +12,18 @@ from pathlib import Path
 
 PORT_LINE = re.compile(r"control channel on http://127\.0\.0\.1:(\d+)/")
 
+# Every integration on, chosen ahead so the first-run chooser stays away and every store shows.
+INTEGRATIONS = {
+    "integrations": {
+        "steam": True,
+        "steamMode": "managed",
+        "epic": True,
+        "gog": True,
+        "emulators": True,
+        "plugins": True,
+    }
+}
+
 
 @dataclass(frozen=True)
 class Profile:
@@ -56,6 +68,10 @@ class HiddenShell:
 
     def __enter__(self) -> "HiddenShell":
         (self._profile.home / "run").mkdir(parents=True, exist_ok=True, mode=0o700)
+        settings = self._profile.home / ".config" / "opensu" / "settings.json"
+        if not settings.exists():
+            settings.parent.mkdir(parents=True, exist_ok=True)
+            settings.write_text(json.dumps(INTEGRATIONS))
         self._log.parent.mkdir(parents=True, exist_ok=True)
         with self._log.open("wb") as log:
             self._process = subprocess.Popen(

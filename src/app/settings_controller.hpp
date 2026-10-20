@@ -17,6 +17,8 @@
 #include "emulator_settings.hpp"
 #include "gamepad/event.hpp"
 #include "input/shortcuts.hpp"
+#include "integration_settings.hpp"
+#include "integrations_in_force.hpp"
 #include "library/library_query.hpp"
 #include "mapping_editor.hpp"
 #include "path_editor.hpp"
@@ -62,6 +64,9 @@ class SettingsController {
         ChordSettings& chords;
         MappingEditor& mappings;
         WineSettings& wine;
+        IntegrationSettings& integrations;
+        /// Which pages and rows show: those of the integrations in force.
+        const IntegrationsInForce& inForce;
     };
 
     /// `defaults` is the environment's configuration, which the settings override.
@@ -71,8 +76,8 @@ class SettingsController {
           volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
           steamLibraries_{services.steamLibraries}, plugins_{services.plugins},
           chords_{services.chords}, mappings_{services.mappings}, wine_{services.wine},
-          sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
-          hooks_{std::move(hooks)} {
+          integrations_{services.integrations}, inForce_{services.inForce}, sounds_{sounds},
+          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -131,6 +136,8 @@ class SettingsController {
     ChordSettings& chords_;
     MappingEditor& mappings_;
     WineSettings& wine_;
+    IntegrationSettings& integrations_;
+    const IntegrationsInForce& inForce_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;
     const config::Config& defaults_;

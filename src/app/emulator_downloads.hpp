@@ -82,9 +82,14 @@ class EmulatorDownloads {
     [[nodiscard]] const library::roms::EmulatorSetup& setup() const noexcept {
         return setup_;
     }
-    /// Searches for the emulators now.
+    /// Searches for the emulators now: only the built-in ones while standalone emulators are off.
     [[nodiscard]] library::roms::Emulators discover() const {
         return setup_.discover();
+    }
+    /// Turns standalone emulators on or off: off, they are neither searched for, downloaded nor
+    /// checked for updates. Main loop only.
+    void setStandalone(bool standalone) noexcept {
+        setup_.standalone = standalone;
     }
 
     /// Downloads the latest release or core build of `id` and switches to it. Refused, with the
@@ -133,7 +138,8 @@ class EmulatorDownloads {
                                                    const library::roms::EmulatorEntry& entry,
                                                    const net::WebClient::Progress& progress,
                                                    std::string& error);
-    void runCheck(const std::stop_token& stop);
+    /// Reads the latest builds; releases of standalone emulators only when `standalone`.
+    void runCheck(const std::stop_token& stop, bool standalone);
     /// Reads the buildbot's listing once for every built-in emulator.
     void checkCores(std::vector<std::string>& failures);
     void remember(const std::string& id, Build build);

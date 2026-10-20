@@ -141,13 +141,25 @@ struct EmulatorSetup {
     Emulators::Commands overrides;
     /// The buildbot folder cores are downloaded from, ending in /.
     std::string coreSource{buildbotNightly};
+    /// Whether standalone emulators and the configured overrides count; without them only the
+    /// built-in emulators are searched for.
+    bool standalone{true};
 
     /// The standard search for `config`, with the catalog shipped in its assets folder; a
     /// `hidden` shell starts the runner hidden.
-    [[nodiscard]] static EmulatorSetup standard(const config::Config& config, bool hidden);
+    [[nodiscard]] static EmulatorSetup standard(const config::Config& config, bool hidden,
+                                                bool standalone);
+
+    /// Whether `entry` counts in this setup.
+    [[nodiscard]] bool counts(const EmulatorEntry& entry) const noexcept {
+        return standalone || entry.builtIn();
+    }
 
     /// Searches now; what is installed changes as the player installs and removes.
     [[nodiscard]] Emulators discover() const {
+        if (!standalone) {
+            return Emulators::discover(catalog.builtInOnly(), search, {});
+        }
         return Emulators::discover(catalog, search, overrides);
     }
 };

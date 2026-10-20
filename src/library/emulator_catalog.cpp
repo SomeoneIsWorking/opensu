@@ -206,6 +206,12 @@ EmulatorCatalog EmulatorCatalog::shipped(const fs::path& assetsDir, const fs::pa
     return std::move(*catalog);
 }
 
+EmulatorCatalog EmulatorCatalog::builtInOnly() const {
+    std::vector<EmulatorEntry> kept;
+    std::ranges::copy_if(entries_, std::back_inserter(kept), &EmulatorEntry::builtIn);
+    return EmulatorCatalog{std::move(kept)};
+}
+
 const EmulatorEntry* EmulatorCatalog::find(std::string_view id) const {
     const auto found = std::ranges::find(entries_, id, &EmulatorEntry::id);
     return found == entries_.end() ? nullptr : &*found;

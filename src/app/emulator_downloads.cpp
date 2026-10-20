@@ -35,6 +35,9 @@ std::string EmulatorDownloads::start(std::string_view id) {
     if (entry == nullptr || !entry->downloadable()) {
         return "openSU cannot download " + std::string{entry == nullptr ? id : entry->name};
     }
+    if (!setup_.counts(*entry)) {
+        return "standalone emulators are off in Settings > Integrations";
+    }
     if (entry->builtIn() && cores_.root().empty()) {
         return "openSU has no folder to keep " + entry->name + "'s core in";
     }
@@ -158,19 +161,19 @@ void EmulatorDownloads::checkUpdates() {
         check_ = Check{.running = true};
         checkChanged_ = true;
     }
-    checker_ = std::jthread{[this](const std::stop_token& stop) {
-        runCheck(stop);
+    checker_ = std::jthread{[this, standalone = setup_.standalone](const std::stop_token& stop) {
+        runCheck(stop, standalone);
     }};
 }
 
-void EmulatorDownloads::runCheck(const std::stop_token& stop) {
+void EmulatorDownloads::runCheck(const std::stop_token& stop, bool standalone) {
     std::vector<std::string> failures;
     checkCores(failures);
     for (const EmulatorEntry& entry : setup_.catalog.entries()) {
         if (stop.stop_requested()) {
             return;
         }
-        if (!entry.release) {
+        if (!entry.release || (!standalone && !entry.builtIn())) {
             continue;
         }
         std::string error;

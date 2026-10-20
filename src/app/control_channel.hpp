@@ -71,6 +71,8 @@ struct ShellSnapshot {
     /// Whether the Settings screen is up, and whether a folder chooser or its keyboard is over it.
     bool settingsOpen{false};
     bool folderPickerOpen{false};
+    /// Whether the first-run integration chooser is up.
+    bool firstRunOpen{false};
     /// Whether the Settings screen is waiting for a new shortcut.
     bool capturingShortcut{false};
     /// The mapping editor's state (`ui::MappingPage::state`), empty while it is closed.

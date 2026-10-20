@@ -150,6 +150,12 @@ struct OnDialogButton {
     bool operator==(const OnDialogButton&) const = default;
 };
 
+/// An option of the first-run integration chooser by its place, or Done after the last.
+struct OnIntegrationItem {
+    std::size_t index;
+    bool operator==(const OnIntegrationItem&) const = default;
+};
+
 /// A row of the Downloads page, by its place in the list.
 struct OnDownloadRow {
     std::size_t row;
@@ -169,6 +175,6 @@ using PointerTarget =
                  OnPanelButton, OnChooserRow, OnIconSize, OnSearchKey, OnSearchResult,
                  OnContextItem, OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton,
                  OnSettingsCategory, OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow,
-                 OnQuickSlider, OnDialogButton, OnDownloadRow, OnDownloadAction>;
+                 OnQuickSlider, OnDialogButton, OnIntegrationItem, OnDownloadRow, OnDownloadAction>;
 
 } // namespace opensu::ui

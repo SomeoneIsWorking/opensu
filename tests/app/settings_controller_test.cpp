@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -103,9 +104,10 @@ struct Rig {
                              ++chordChanges;
                          }},
           controller{page,
-                     app::SettingsController::Services{
-                         paths, shortcutEditor, volume, shortcuts, emulatorSettings,
-                         steamLibrarySettings, pluginSettings, chordSettings, mappings, wine},
+                     app::SettingsController::Services{paths, shortcutEditor, volume, shortcuts,
+                                                       emulatorSettings, steamLibrarySettings,
+                                                       pluginSettings, chordSettings, mappings,
+                                                       wine, integrationSettings, inForce},
                      sounds,
                      preferences,
                      config,
@@ -127,7 +129,7 @@ struct Rig {
                       .storeFolders =
                           [this] {
                               return app::Installs::ownFolders(
-                                  config, steamLibrarySettings.defaultLibrary());
+                                  config, steamLibrarySettings.defaultLibrary(), inForce.current());
                           },
                       .say =
                           [this](const std::string& text, bool error) {
@@ -183,6 +185,17 @@ struct Rig {
         expect(false, "a row with that id exists");
         return page.focusedCategory().rows.front();
     }
+    /// Every integration on, as the pages these checks read need them.
+    static app::Preferences& everyIntegration(app::Preferences& preferences) {
+        preferences.values().integrations = settings::IntegrationChoices{.steam = true,
+                                                                         .steamMode = std::nullopt,
+                                                                         .epic = true,
+                                                                         .gog = true,
+                                                                         .emulators = true,
+                                                                         .plugins = true};
+        return preferences;
+    }
+
     [[nodiscard]] settings::Settings onDisk() const {
         return settings::Store{file}.load();
     }
@@ -198,6 +211,10 @@ struct Rig {
     int applied{0};
     int chordChanges{0};
     app::Preferences preferences;
+    app::IntegrationsInForce inForce{everyIntegration(preferences), false};
+    app::IntegrationSettings integrationSettings{inForce, [this] {
+                                                     controller.refresh();
+                                                 }};
     ui::SettingsPage page;
     ui::FolderChooser folders;
     ui::SearchPanel entry;
@@ -245,7 +262,7 @@ struct Rig {
                                          }}};
     ui::SessionDialog dialog;
     app::PluginService plugins{
-        config, preferences,
+        config, preferences, true,
         app::PluginService::Hooks{[this](const std::string& text, bool error) {
                                       said.push_back({text, error});
                                   },
@@ -271,9 +288,47 @@ struct Rig {
                                       return std::vector<app::MappingEditor::Emulator>{
                                           {"pcsx2", "PCSX2"}, {"mgba", "mGBA"}};
                                   }}};
-    app::WineSettings wine{preferences, config};
+    app::WineSettings wine{preferences, config, inForce.current()};
     app::SettingsController controller;
 };
+
+/// With an integration off its pages and rows are gone; turning it on in Settings > Integrations
+/// brings them back at once.
+void pagesFollowTheIntegrations(const fs::path& root) {
+    Rig rig{root / "integrations"};
+    rig.inForce.choose(settings::IntegrationChoices{});
+    rig.controller.open();
+    std::vector<std::string> names;
+    for (const ui::SettingsCategory& category : rig.page.categories()) {
+        names.push_back(category.label);
+    }
+    expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
+                                             "Audio", "Controls", "Guide chords", "Install folders",
+                                             "About"},
+           "no Steam libraries, Wine or Plugins with their integrations off");
+    rig.enter("Library");
+    expect(std::ranges::none_of(rig.page.focusedCategory().rows,
+                                [](const ui::SettingsRow& row) {
+                                    return row.id.starts_with("steam.");
+                                }),
+           "no Steam folders on the Library page");
+    rig.controller.showCategories();
+    rig.enter("Install folders");
+    expect(rig.page.focusedCategory().rows.size() == 1, "only the default install folder");
+    rig.controller.showCategories();
+    rig.enter("Integrations");
+    rig.focus("integrations.steam");
+    rig.controller.act(Button::A);
+    const std::optional<settings::IntegrationChoices> kept = rig.onDisk().integrations;
+    expect(kept && kept->steam, "Steam on is kept");
+    expect(rig.rowOf("integrations.steamMode").value == "Normal", "its mode shows");
+    const auto& categories = rig.page.categories();
+    expect(std::ranges::any_of(categories,
+                               [](const ui::SettingsCategory& category) {
+                                   return category.label == "Steam libraries";
+                               }),
+           "Steam libraries is back");
+}
 
 void categoriesFollowTheSavedSettings(const fs::path& root) {
     Rig rig{root / "categories"};
@@ -283,10 +338,10 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
     for (const ui::SettingsCategory& category : rig.page.categories()) {
         names.push_back(category.label);
     }
-    expect(names == std::vector<std::string>{"Appearance", "Library", "Emulators",
+    expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
                                              "Steam libraries", "Audio", "Controls", "Guide chords",
                                              "Install folders", "Wine", "Plugins", "About"},
-           "the eleven categories");
+           "the twelve categories");
     expect(rig.controller.category() == "Appearance" && !rig.controller.changes(),
            "opens on Appearance with nothing to change yet");
     rig.enter("Steam libraries");
@@ -975,6 +1030,7 @@ int main() {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "settings_controller";
     fs::remove_all(root);
     categoriesFollowTheSavedSettings(root);
+    pagesFollowTheIntegrations(root);
     togglesChoicesAndSliderPersist(root);
     backAndStartLeave(root);
     installFoldersPersistPerStore(root);

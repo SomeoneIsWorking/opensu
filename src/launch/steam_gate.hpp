@@ -78,6 +78,10 @@ class SteamGate {
 
     /// Steam's launch and run state for `appId`. Callable from any thread.
     [[nodiscard]] virtual SteamAppActivity activity(std::string_view appId) const = 0;
+
+    /// Whether Steam's games show in openSU's Gamescope, where the handoff can see their windows;
+    /// a desktop Steam's show on the desktop.
+    [[nodiscard]] virtual bool showsInSession() const = 0;
 };
 
 } // namespace opensu::launch

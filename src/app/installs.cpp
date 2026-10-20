@@ -26,12 +26,17 @@ bool Installs::supports(library::Source source) noexcept {
 }
 
 settings::StoreFolders Installs::ownFolders(const config::Config& config,
-                                            std::optional<std::filesystem::path> steamDefault) {
-    settings::StoreFolders own{
-        {library::Source::Gog, library::gog::Paths::under(config.dataDir).games},
-        {library::Source::Epic,
-         library::epic::legendaryInstallDir(config.legendaryConfigDir, config.home)}};
-    if (steamDefault) {
+                                            std::optional<std::filesystem::path> steamDefault,
+                                            const settings::Integrations& integrations) {
+    settings::StoreFolders own;
+    if (integrations.gog) {
+        own.emplace(library::Source::Gog, library::gog::Paths::under(config.dataDir).games);
+    }
+    if (integrations.epic) {
+        own.emplace(library::Source::Epic,
+                    library::epic::legendaryInstallDir(config.legendaryConfigDir, config.home));
+    }
+    if (steamDefault && integrations.lists(library::Source::Steam)) {
         own.emplace(library::Source::Steam, std::move(*steamDefault));
     }
     return own;
