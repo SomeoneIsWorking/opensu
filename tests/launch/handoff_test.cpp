@@ -721,6 +721,39 @@ void testForceCloseEndsTheRunPhase() {
     expect(stoppedWithin(pid, std::chrono::seconds{5}), "the game is gone");
 }
 
+/// forceClose() returns at once, from the caller's thread, although the scope's kill takes long:
+/// the thread in start() does the kill.
+void testForceCloseReturnsWhileTheKillIsSlow() {
+    const Fixture fixture;
+    const fs::path shims = fixture.base / "slow-kill";
+    write(shims / "systemctl", "#!/bin/sh\ncase \" $* \" in *\" kill \"*) sleep 3 ;; esac\n"
+                               "exec /usr/bin/systemctl \"$@\"\n");
+    fs::permissions(shims / "systemctl", fs::perms::owner_all);
+    setenv("PATH", (shims.string() + ":/usr/bin:/bin").c_str(), 1);
+    const RunningGame child = runningGame(fixture, "slow-kill", 600);
+    Shell shell;
+    FakeSteam steam;
+    Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
+    std::future<Outcome> pending = startOnWorker(handoff, child.game, shell);
+    const pid_t pid = awaitRecordedPid(child.pidFile, "the game started");
+    expect(waitUntil(
+               [&shell] {
+                   return shell.hidden.load() == 1;
+               },
+               std::chrono::seconds{10}),
+           "the game is running");
+
+    const Clock::time_point began = Clock::now();
+    handoff.forceClose();
+    expect(since(began) < std::chrono::milliseconds{100}, "forceClose() returns at once");
+    const Outcome outcome =
+        awaitStart(pending, "start() returns after forceClose()", std::chrono::seconds{15});
+    expect(outcome.ok && outcome.failure.empty(), "a forced close is not a failure");
+    expect(shell.shown.load() == 1, "show() fired once");
+    expect(stoppedWithin(pid, std::chrono::seconds{5}), "the game is gone");
+    setenv("PATH", "/usr/bin:/bin", 1);
+}
+
 /// forceClose() before the game ever appears also ends the wait.
 void testForceCloseEndsTheStartPhase() {
     const Fixture fixture;
@@ -1175,6 +1208,7 @@ int main() {
     testMissingProgramReportsFailurePromptly();
     testForceCloseEndsTheRunPhase();
     testForceCloseEndsTheStartPhase();
+    testForceCloseReturnsWhileTheKillIsSlow();
     testInstanceExitEndsTheWait();
     testEnvironmentReachesTheGame();
     testExitStatusIsReported();

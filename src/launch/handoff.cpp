@@ -44,13 +44,6 @@ void Handoff::pause() {
 
 void Handoff::forceClose() {
     forced_.store(true);
-    instance_.kill();
-    std::string hint;
-    {
-        const std::lock_guard lock{hintMutex_};
-        hint = steamHint_;
-    }
-    ProcessTree::killMatching(hint);
     const std::lock_guard lock{wakeMutex_};
     wake_.notify_all();
 }
@@ -62,16 +55,6 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
         failure = "could not start " + game.launch.program;
         return Begun::Failed;
     }
-    {
-        // Set before the request, so a force-close finds a game that appears at once.
-        const std::lock_guard lock{hintMutex_};
-        steamHint_ = game.processHint;
-    }
-    const auto forgetHint = [this] {
-        const std::lock_guard lock{hintMutex_};
-        steamHint_.clear();
-    };
-
     if (steam_.state() == SteamState::Initializing && hooks.progress) {
         hooks.progress(LaunchProgress{.stage = LaunchProgress::Stage::WaitingForSteam});
     }
@@ -79,11 +62,9 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
         return forced_.load();
     });
     if (forced_.load()) {
-        forgetHint();
         return Begun::Cancelled;
     }
     if (state != SteamState::Ready) {
-        forgetHint();
         switch (state) {
         case SteamState::Blocked:
             failure = "Steam is running on the desktop; quit it to use it inside opensu";
@@ -109,7 +90,6 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
         runCommand(program.string(), game.launch.args,
                    std::chrono::duration_cast<std::chrono::milliseconds>(applaunchWait));
     if (!status) {
-        forgetHint();
         failure = "could not ask Steam to start " + game.title;
         return Begun::Failed;
     }
@@ -275,9 +255,10 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
             if (forced_.load()) {
                 ProcessTree::killMatching(game.processHint);
             }
-            const std::lock_guard lock{hintMutex_};
-            steamHint_.clear();
         } else {
+            if (forced_.load()) {
+                instance_.kill();
+            }
             instance_.stop();
             if (!forced_.load() && hooks.ended) {
                 hooks.ended(instance_.exitStatus());

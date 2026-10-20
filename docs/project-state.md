@@ -850,9 +850,11 @@ stay owned. A non-Steam game runs in its own scope,
 stopped when the game leaves. A Steam game is handed to the background client
 (`steam -applaunch`). Close game in the Guide menu force-closes either: the scope,
 or for Steam the reaper whose command line carries `AppId=<id>` and everything below
-it (`launch::ProcessTree`), leaving the client up. Scope ownership, escape-proof
-stop, tree kill and force-close are tested with real processes and a fake `steam`;
-a real Steam launch is not yet exercised.
+it (`launch::ProcessTree`), leaving the client up. The menu only raises the request; the
+launch's own thread does the kill and the wait, so the shell keeps drawing however long the
+game takes to go. A game's program path and arguments reach it as given, `$` included
+(`--expand-environment=no`). Scope ownership, escape-proof stop, tree kill and force-close are
+tested with real processes and a fake `steam`; a real Steam launch is not yet exercised.
 
 ### S023 — Guide menu, S024 — Devices page, S025 — quick menu
 

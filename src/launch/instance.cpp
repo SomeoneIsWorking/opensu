@@ -65,8 +65,10 @@ bool Instance::start(const std::string& unit, const std::string& program,
         failure = "an instance is already running";
         return false;
     }
-    std::vector<std::string> runArgs{"--user",         "--scope", "--collect",       "--quiet",
-                                     "--unit=" + unit, "-p",      "TimeoutStopSec=5"};
+    // systemd 258 and later expand "$" in a scope's command unless told not to.
+    std::vector<std::string> runArgs{
+        "--user",         "--scope", "--collect",       "--quiet", "--expand-environment=no",
+        "--unit=" + unit, "-p",      "TimeoutStopSec=5"};
     for (const std::string& entry : environment) {
         runArgs.push_back("--setenv=" + entry);
     }
@@ -164,6 +166,7 @@ void Instance::endScope(const std::vector<std::string>& systemctlArgs) {
     if (unit_.empty()) {
         return;
     }
+    lucent::info("launch", "{} {}", systemctlArgs.front(), unit_);
     // A scope that already ended on its own is not a failure to stop.
     if (systemctl(systemctlArgs) != 0 && systemctl({"is-active", "--quiet", unit_}) == 0) {
         lucent::warn("launch", "systemctl {} {} failed", systemctlArgs.front(), unit_);
