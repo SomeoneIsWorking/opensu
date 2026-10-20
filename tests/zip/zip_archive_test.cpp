@@ -1,6 +1,7 @@
 // The zip reader on zips built in memory.
 #include "zip/zip_archive.hpp"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -51,6 +52,10 @@ void testArchive() {
     expect(archive->read("packed.txt", error) == packed, "a deflated entry inflates");
     expect(!archive->read("missing.txt", error) && error.empty(),
            "an entry the zip lacks is nothing, without an error");
+    expect(!archive->read("packed.txt", error, 100) && mentions(error, "too large"),
+           "a file over the caller's cap is refused");
+    expect(archive->read("packed.txt", error, static_cast<std::uint32_t>(packed.size())) == packed,
+           "a file at the caller's cap reads");
 }
 
 void testChecks() {

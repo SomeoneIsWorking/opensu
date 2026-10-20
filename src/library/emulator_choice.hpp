@@ -28,8 +28,8 @@ class EmulatorChoices {
 
     /// Points each ROM with a pick, its own or its system's, at that emulator: the game's
     /// `launch` and `emulator` follow the pick, and `unavailable` says so when the pick is not
-    /// installed. A ROM with no pick, or one whose emulator is no longer listed for it, keeps
-    /// what the search found.
+    /// installed. A ROM with no pick, one whose emulator is no longer listed for it, or a
+    /// system's pick its arcade romset does not match, keeps what the search found.
     void apply(std::vector<Game>& games) const;
 
     /// The games' picks.

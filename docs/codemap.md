@@ -75,7 +75,7 @@ gitignored `docs/reference/`).
 | `src/settings/mapping_store.*` | `mappings.json` under the config dir: every scope's `ButtonMap` and the Steam Input switch, written whole and atomically; a damaged file or entry warned and left out |
 | `src/settings/install_folders.*` | The one resolver of where a store installs: a store's override, else the default, else none (the store's own choice); `resolve` adds the store's own folder and says which of the three applies; validation (exists, writable) |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
-| `src/zip/zip_archive.*` | The one zip reader: end record, central directory, local header offset, checked extraction, an in-memory archive, and the CRC-32 (`crc32Of`) zips and libretro listings are checked with; used by artwork and core downloads |
+| `src/zip/zip_archive.*` | The one zip reader: end record, central directory, local header offset, checked extraction (256 MB unless the caller allows more), an in-memory archive, and the CRC-32 (`crc32Of`) zips and libretro listings are checked with; used by artwork, core downloads and arcade romsets |
 | `extension/opensu-signin/`, `extension/CMakeLists.txt` | Firefox/Zen WebExtension that hands a GOG or Epic sign-in code to the control channel; packed into `opensu-signin.xpi` and installed beside the assets |
 
 ## Session and processes (G003, G004)
@@ -124,7 +124,7 @@ gitignored `docs/reference/`).
 | `src/library/game.*` | The launchable `Game` record |
 | `src/library/catalog.*` | Building the catalog's providers from all sources (`game.*` holds `readProvider` and `assemble`, the merge) |
 | `src/library/catalog_loader.*` | Listing every store off the frame thread: one thread per provider, listings handed over as they arrive, `Loading` until a store's first one |
-| `src/library/steam.*`, `epic.*`, `gog.*`, `roms.*` | One source each; the stores' sources also say which installed games have an update (`Game::updateAvailable`) |
+| `src/library/steam.*`, `epic.*`, `gog.*`, `roms.*` | One source each; the stores' sources also say which installed games have an update (`Game::updateAvailable`); an arcade zip's emulator is picked by its romset (`romset_match`) |
 | `src/library/gog_auth.*`, `gog_token.*` | GOG's OAuth sign-in and the saved token (`<data dir>/gog-token.json`); `writeOwnerOnly`, the one owner-only atomic write |
 | `src/library/gogdl_auth.*` | The token as gogdl's `--auth-config-path` file, written for an install and read back |
 | `src/library/wine.*` | Windows GOG and Epic installs under Wine: the runners found (system `wine`, Proton builds in Steam's `compatibilitytools.d` and `steamapps/common`, read only), the shared prefix `<data dir>/wine-prefix` and a game's own `<data dir>/wine-prefixes/<store>-<id>` (`OwnPrefixes`), and `prepare`, which adds `--wine`/`--wine-prefix` to the launch |
@@ -135,7 +135,7 @@ gitignored `docs/reference/`).
 | `src/library/shelf.*` | What the grid holds: Home's installed store games (`homeShelf`); Library's launchers, All games and consoles (`libraryShelf`); a console's ROMs, a launcher's library, the combined library; moving between them and between sections |
 | `src/library/library_query.*` | The one owner of what the library shows: the search ranking, the filters (installed, source, hidden), the sort, `HiddenGames`; Home, Library, folders and All games take their games from `visibleShelf` |
 | `src/library/text_fold.*` | Case, accent and white-space folding titles are compared in |
-| `src/library/emulator_choice.*` | The emulator picked per ROM and per system (`settings.json`): points the game's `launch` and `emulator` at the game's pick, else the system's; `unavailable` when it is not installed or cannot start |
+| `src/library/emulator_choice.*` | The emulator picked per ROM and per system (`settings.json`): points the game's `launch` and `emulator` at the game's pick, else the system's unless the game's arcade romset does not match it; `unavailable` when it is not installed or cannot start |
 | `src/library/play_history.*` | When openSU last launched each game, for the recent sort of stores that do not say |
 | `src/library/play_time.*` | `PlayTimeReports`: each play-time source's latest report, summed into ROM games' play time |
 | `src/library/emulator_game_list.*` | An emulator's own game list (its id, title, path, metadata per game) matched to openSU's games by path, then by unique title key |
@@ -144,9 +144,12 @@ gitignored `docs/reference/`).
 | `src/library/param_sfo.*` | The PlayStation PARAM.SFO reader (`sfoStrings`): its UTF-8 values by key |
 | `src/library/dump_info.*` | What a game folder says about itself (`readDumpInfo`): a PS4 dump's `sce_sys/param.sfo` title and `icon0.png` |
 | `src/library/arcade_names.*` | Arcade short name to description: the libretro-database `.dat` parser and `NameDb`, the parsed names kept under `<cache>/names/` |
+| `src/library/romset_dat.*` | An arcade core's ROM-set listing (`RomsetDat`): each set's ROMs (name, size, CRC-32, BIOS choice), `romof`, default BIOS, devices and disks, read from a Logiqx datafile or a MAME `-listxml` and kept in a line format of its own |
+| `src/library/romset_dats.*` | The arcade cores' listings under `<cache>/romsets/<id>.tsv`: fetched over HTTPS from the catalog's `"romsets"` (files on their own origin, or a release's `.xml` zip, SHA-256 checked), fetched again after `romsetDatLifetime`, the old one kept when a fetch fails |
+| `src/library/romset_match.*` | Which arcade core a zip's romset is for: its central directory read (`readZipMembers`), matched against each listing with the parent, BIOS and device zips of its folder (`matchSet`), verdicts kept in `<cache>/romsets/matches.json` by file stamps (`RomsetMatcher`), the game's emulator, "No arcade core matches this romset" and the nearest core's gap set from them (`applyRomsets`) |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts; the tables are `constexpr` (`name_list.hpp`) |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line, from the catalog: openSU's downloaded AppImage, else a package on `PATH`, an AppImage in the usual folders, a Flatpak; a built-in emulator when its core is found and `opensu-retro` is there (`opensu-retro --core <core> <rom>`); every emulator of a system, installed or not (`options`), which a ROM's details page lists |
-| `src/library/emulator_catalog.*`, `assets/emulators.json` | The emulator catalog: id, name, systems, settings folder, launchers (programs, AppImage name, Flatpak id, arguments) and, for emulators with an official AppImage, the release API, asset pattern and download host; a built-in emulator names its libretro core (`"core": "mgba_libretro"`) instead of launchers |
+| `src/library/emulator_catalog.*`, `assets/emulators.json` | The emulator catalog: id, name, systems, settings folder, launchers (programs, AppImage name, Flatpak id, arguments) and, for emulators with an official AppImage, the release API, asset pattern and download host; a built-in emulator names its libretro core (`"core": "mgba_libretro"`) instead of launchers, an arcade core also its ROM-set listings (`"romsets"`) |
 | `src/library/libretro_cores.*` | Built-in emulators' cores: the lookup (openSU's `<data>/opensu/cores/`, then RetroArch's and the system's core folders), the buildbot's `.index-extended` parsed, a core zip downloaded on the buildbot's origin only, its one `.so` taken out, checked against the listed CRC-32 (the library's, not the zip's) and written whole, its `<core>.json` record (build date, CRC-32), removal |
 | `src/library/emulator_release.*` | An emulator's latest official AppImage from its GitHub or Forgejo release JSON, downloaded beside the one in use, checked against the published SHA-256 (or recorded as seen, HTTPS from the project's host only), made executable and switched to |
 | `src/library/downloaded_emulators.*` | The AppImages openSU downloaded under `<data>/opensu/emulators/<id>/<asset id>/`: the `installed.json` record (the atomic switch), old versions cleared, removal |
@@ -164,7 +167,7 @@ gitignored `docs/reference/`).
 | `src/audio/system_volume.*` | Volume and mute state, steps, one listener, async polling of changes made elsewhere |
 | `src/audio/sound_clip.*` | A UI sound decoded to PCM without a device: WAV through `SDL_LoadWAV`, OGG through libvorbisfile |
 | `src/audio/sdl_sound_player.*` | The shell's UI sounds on SDL audio (`opensu_audio`): clips decoded on `load` with or without a device, the default device opened once by `open` (never in hidden runs or tests), one bound stream per effect, `play` restarts the clip through the debounce |
-| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads; `request` with a body cap, and `request` and `download` with each redirect hop checked (`Refusal`) |
+| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads; `request` with a body cap, and `request` and `download` with each redirect hop checked (`Refusal`); a URL's origin (`originOf`) |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`) (`opensu_pad`) |
@@ -258,7 +261,7 @@ Pure model, unit-tested without a GPU (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/mode_chooser.*` | The options panel's state, focus row and scrolling layout (cards, icon size slider, pin, sort, source, filters, search); the card, row or slider level under a point |
 | `src/ui/icon_size.*` | iiSU's icon size levels 1 to 20 and their scale formulas; shared by `home_layout` and `rail_layout` |
 | `src/ui/search_panel.*` | Global Search state: field, drawn keyboard walk, results list, layout and hit-tests |
-| `src/ui/details_page.*` | The details page: what it says about a game (`detailsFor`, `lastPlayedText`), its buttons, geometry, focus, the armed button (its label and what it does, let go when focus moves) |
+| `src/ui/details_page.*` | The details page: what it says about a game (`detailsFor`, `lastPlayedText`; an arcade game's Romset and Nearest rows), its buttons, geometry (the column beside the buttons the rows go to when they do not fit above them), focus, the armed button (its label and what it does, let go when focus moves) |
 | `src/ui/breadcrumbs.*` | The breadcrumb trail's levels and geometry: cells, chevrons, fitting to the room, the level under a point |
 | `src/ui/context_menu.*` | The tile context menu: entries per tile (`contextItemsFor`), focus, the armed entry (let go when focus moves), layout and hit-tests |
 | `src/ui/panel_fade.*` | The fade and scale a panel shows and hides with |
@@ -290,7 +293,7 @@ Painters and composition (`opensu_ui`):
 | `src/ui/chord_hint.*`, `chord_hint_painter.*` | The held modifier's chord list from the `ChordSet` (partner glyph and action, or what a game chord sends, per chord, `chordHintRows`), shown while it is long held and faded out after; its centred panel painter |
 | `src/ui/status_pill.*`, `glass.*` | The one status pill painter: clock, battery and the launchers inline, on a glass body |
 | `src/ui/launcher_badges.*` | Launcher logos with status dots, the starting spinner and the download ring, drawn by the status pill painter; the hover light |
-| `src/ui/breadcrumb_painter.*`, `details_page_painter.*` | The breadcrumb pill; the details page (cover, backdrop, title, badge, rows, buttons) |
+| `src/ui/breadcrumb_painter.*`, `details_page_painter.*` | The breadcrumb pill; the details page (cover, backdrop, title, badge, rows above the buttons or wrapped beside them, buttons with their value fitted after the label) |
 | `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size |
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (a starting launcher's ring) |
 | `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included; LT/RT, d-pad arrows and named caps such as L3 and GUIDE are openSU's), or the bound key's cap when keyboard and mouse were last used |
@@ -311,7 +314,7 @@ Painters and composition (`opensu_ui`):
 | `src/ui/platform.*`, `platform_stroke.hpp` | Console border sprites, logos, stroke colours |
 | `src/ui/image_decoder.*` | Cover decode and downscale on a worker thread; the frame only uploads what it takes |
 | `src/ui/glyph_textures.*` | The console glyphs drawn in a ROM tile's frame tab: files by system, textures on load |
-| `src/ui/typeface.*` | Text drawing at Android em sizes: the face loaded into gpu2d's text, labels drawn a glyph at a time where `TextGrid` puts them, fitted with an ellipsis |
+| `src/ui/typeface.*` | Text drawing at Android em sizes: the face loaded into gpu2d's text, labels drawn a glyph at a time where `TextGrid` puts them, fitted with an ellipsis, wrapped at spaces (`wrapped`) |
 | `src/ui/text_grid.*` | Where a label's glyphs go: the whole-pixel line box, advances and baseline the stb_truetype atlas used, letter spacing, UTF-8 decoding |
 | `src/ui/face_metrics.*` | The face's head, hhea, hmtx and cmap: line metrics and each character's advance |
 

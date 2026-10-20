@@ -25,39 +25,11 @@ constexpr float buttonRadiusDp = 22.0f;
 
 using Paragraph = std::vector<std::string>;
 
-/// `text` broken into lines no wider than `room`, at spaces.
-Paragraph wrap(Typeface& typeface, const std::string& text, float room, const TextStyle& style) {
-    Paragraph lines;
-    std::string line;
-    std::size_t at = 0;
-    while (at <= text.size()) {
-        std::size_t end = text.find(' ', at);
-        end = end == std::string::npos ? text.size() : end;
-        const std::string word = text.substr(at, end - at);
-        std::string joined = line;
-        if (!joined.empty()) {
-            joined += ' ';
-        }
-        joined += word;
-        if (!line.empty() && typeface.measure(joined, style) > room) {
-            lines.push_back(line);
-            line = word;
-        } else {
-            line = joined;
-        }
-        at = end + 1;
-    }
-    if (!line.empty()) {
-        lines.push_back(line);
-    }
-    return lines;
-}
-
 std::vector<Paragraph> wrapAll(Typeface& typeface, const SessionDialog& dialog, float room,
                                float dp) {
     std::vector<Paragraph> wrapped;
     for (const std::string& paragraph : dialog.text().paragraphs) {
-        wrapped.push_back(wrap(typeface, paragraph, room, TextStyle{bodySp * dp}));
+        wrapped.push_back(typeface.wrapped(paragraph, room, TextStyle{bodySp * dp}));
     }
     return wrapped;
 }

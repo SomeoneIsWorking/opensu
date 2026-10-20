@@ -73,6 +73,33 @@ ReleaseSource releaseOf(const json& object, const std::string& where) {
     return release;
 }
 
+/// An arcade core's listings: HTTPS files, or a release.
+RomsetSource romsetsOf(const json& object, const std::string& where) {
+    const auto found = object.find("romsets");
+    if (found == object.end()) {
+        return {};
+    }
+    if (!found->is_object()) {
+        throw Malformed{where + ": \"romsets\" is not an object"};
+    }
+    RomsetSource source{words(*found, "files", where), std::nullopt};
+    if (const auto release = found->find("release"); release != found->end()) {
+        if (!release->is_object()) {
+            throw Malformed{where + ": \"romsets\" \"release\" is not an object"};
+        }
+        source.release = releaseOf(*release, where);
+    }
+    if (source.empty() || (!source.files.empty() && source.release)) {
+        throw Malformed{where + ": \"romsets\" needs \"files\" or a \"release\""};
+    }
+    for (const std::string& file : source.files) {
+        if (!file.starts_with("https://")) {
+            throw Malformed{where + ": a romset listing must be fetched over HTTPS"};
+        }
+    }
+    return source;
+}
+
 /// A built-in emulator's core: a file name of the buildbot's, and nothing else to start it with.
 void checkCore(const json& object, const std::string& core, const std::string& where) {
     const bool named = core.ends_with(coreSuffix) && core.size() > coreSuffix.size() &&
@@ -104,6 +131,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
     entry.core = text(object, "core", where, false);
     if (entry.builtIn()) {
         checkCore(object, entry.core, where);
+        entry.romsets = romsetsOf(object, where);
         return entry;
     }
     const auto launchers = object.find("launchers");

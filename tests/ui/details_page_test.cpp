@@ -49,8 +49,8 @@ Game kirby(bool edenInstalled) {
     game.title = "Kirby";
     game.installed = true;
     game.emulatorOptions = {
-        EmulatorOption{"Eden", edenInstalled, LaunchSpec{"eden", {}}, "eden", false, {}},
-        EmulatorOption{"Ryujinx", false, {}, "ryujinx", false, {}}};
+        EmulatorOption{"Eden", edenInstalled, LaunchSpec{"eden", {}}, "eden", false, {}, {}, {}},
+        EmulatorOption{"Ryujinx", false, {}, "ryujinx", false, {}, {}, {}}};
     game.emulator = "Eden";
     return game;
 }
@@ -108,6 +108,50 @@ void romEmulator() {
            "one emulator leaves nothing to choose");
 }
 
+void arcadeRomset() {
+    Game avsp;
+    avsp.id = "rom:/r/Arcade/avsp.zip";
+    avsp.source = Source::Rom;
+    avsp.sourceId = "arcade";
+    avsp.installed = true;
+    avsp.emulatorOptions = {EmulatorOption{"FinalBurn Neo",
+                                           false,
+                                           {},
+                                           "fbneo",
+                                           true,
+                                           {},
+                                           opensu::library::RomsetFit::Mismatch,
+                                           "lacks 1 of 16 files: avsp.key"},
+                            EmulatorOption{"MAME 2010",
+                                           false,
+                                           {},
+                                           "mame2010",
+                                           true,
+                                           {},
+                                           opensu::library::RomsetFit::Mismatch,
+                                           "lacks 2 of 15 files: a, b"}};
+    avsp.romset = "No arcade core matches this romset";
+    avsp.romsetNearest = "MAME 2010 lacks 2 of 15 files: a, b";
+    avsp.unavailable = avsp.romset;
+    const DetailsView none = detailsFor(avsp, false, now);
+    expect(valueOf(none, "Romset") == "No arcade core matches this romset" &&
+               valueOf(none, "Nearest") == "MAME 2010 lacks 2 of 15 files: a, b" &&
+               valueOf(none, "Emulator") == "none for this romset",
+           "a romset no core matches says so and names the nearest core's gap");
+    expect(emulatorToDownload(avsp) == nullptr,
+           "a core the romset does not match is not offered for download");
+    avsp.emulator = "FinalBurn Neo";
+    expect(emulatorToDownload(avsp) == &avsp.emulatorOptions[0] &&
+               valueOf(detailsFor(avsp, false, now), "Emulator") ==
+                   "FinalBurn Neo · not installed · romset does not match",
+           "a core the player picked is offered even when the romset does not match");
+    avsp.emulatorOptions[1].romset = opensu::library::RomsetFit::Matches;
+    avsp.emulator = "MAME 2010";
+    expect(valueOf(detailsFor(avsp, false, now), "Emulator") ==
+               "MAME 2010 · not installed · romset matches",
+           "the emulator row says the romset matches");
+}
+
 void winePrefix() {
     Game windows = hades();
     windows.id = "gog:2";
@@ -133,6 +177,9 @@ void layout() {
     expect(page.buttons[0].x >= page.art.right() && page.buttons[2].bottom() == page.art.bottom(),
            "the buttons stack right of the cover, ending at its foot");
     expect(page.text.bottom() <= page.buttons[0].y, "the text stops above the buttons");
+    expect(page.side.x > page.buttons[0].right() && page.side.right() <= 1280.0f &&
+               page.side.bottom() == page.art.bottom(),
+           "the column beside the buttons runs to the cover's foot");
     for (std::size_t i = 0; i < page.buttons.size(); ++i) {
         expect(need(page.buttonAt(page.buttons[i].centreX(), page.buttons[i].centreY()), "hit") ==
                    i,
@@ -202,6 +249,7 @@ int main() {
     storeGame();
     states();
     romEmulator();
+    arcadeRomset();
     uninstallTakesASecondPress();
     winePrefix();
     layout();

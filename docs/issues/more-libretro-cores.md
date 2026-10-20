@@ -1,6 +1,6 @@
 # More libretro cores, arcade on every romset version
 
-Status: open.
+Status: open. Arcade is done (below); the Sega cores and the rest of the list are next.
 
 The player: "more libretro options, I noticed I can't play Arcade games ... since no libretro option
 for it is there right now", and "new emulator versions make it so the older rom sets don't work, I
@@ -8,12 +8,18 @@ also want to make it so we can support all romset versions".
 
 ## Cores
 
-Today `assets/emulators.json` lists five software cores (mGBA, Gambatte, snes9x, Mesen, PCSX
-ReARMed). Next, by what the runner can already host (software rendering):
+`assets/emulators.json` lists mGBA, Gambatte, snes9x, Mesen, PCSX ReARMed and, for Arcade,
+FinalBurn Neo (`fbneo_libretro`), MAME 2003-Plus (`mame2003_plus_libretro`, 0.78 sets), MAME 2010
+(`mame2010_libretro`, 0.139) and MAME (`mame_libretro`, 0.289). All four are on the buildbot's
+x86_64 Linux nightly folder, their core info says `hw_render = "false"`, and each loaded in
+`opensu-retro` (2026-10-20); none was dropped. Current MAME's core is 416 MB, so the core zip reader
+takes libraries up to 1 GB.
 
-- Arcade: FinalBurn Neo, MAME 2003-Plus (0.78 sets), MAME 2010 (0.139), MAME (current).
-- Genesis Plus GX and PicoDrive, once `rom_systems` has Mega Drive, Master System, Game Gear,
-  Sega CD and 32X.
+Next, by what the runner can already host (software rendering):
+
+- Genesis Plus GX and PicoDrive (both on the buildbot, `hw_render = "false"`), once `rom_systems`
+  has Mega Drive, Master System, Game Gear, Sega CD and 32X. Left for the next change: the
+  player's ROM folder has none of those systems to prove them with.
 - Beetle PCE, Beetle NGP, Beetle WonderSwan, Stella, Handy, ProSystem, melonDS DS / DeSmuME (NDS).
 
 GPU cores (Mupen64Plus-Next, Beetle PSX HW, Flycast, PPSSPP) wait for phase 3 of
@@ -21,8 +27,9 @@ GPU cores (Mupen64Plus-Next, Beetle PSX HW, Flycast, PPSSPP) wait for phase 3 of
 
 ## Arcade romsets
 
-A MAME romset matches one MAME version; a zip made for 0.78 fails on current MAME and the reverse.
-openSU picks the core per game rather than per system:
+Built (`library/romset_dat`, `romset_dats`, `romset_match`; `docs/design/libretro.md` §4
+Romsets). A MAME romset matches one MAME version; a zip made for 0.78 fails on current MAME and the
+reverse. openSU picks the core per game rather than per system:
 
 1. Read each zip's central directory: member names, sizes and CRC32s, without decompressing.
 2. Compare with each arcade core's DAT (libretro-database `metadat/mame-*`, FBNeo's own DAT): the
@@ -32,7 +39,20 @@ openSU picks the core per game rather than per system:
    game with "No arcade core matches this romset" and the nearest version's missing files.
 4. The DAT matches are cached by zip size and mtime, so a library scan reads each zip once.
 
-The player's arcade folder holds `armwar.zip` and `avspu.zip` to check against.
+The listings: FinalBurn Neo's `dats/` arcade and Neo Geo datafiles (libretro-database's copy is
+v1.0.0.03, older than the nightly), `metadata/mame2003-plus.xml` and `metadata/mame2010.xml` of the
+cores' libretro repositories, and current MAME's `-listxml` from the latest mamedev release
+(`mame0289lx.zip`, SHA-256 checked; the core can trail a new release for a few days). Fetched over
+HTTPS, kept under `<cache>/romsets/` for 30 days.
+
+The player's arcade folder holds `armwar.zip` and `avspu.zip`. Both are 0.139-era sets: MAME 2010
+matches them and runs them; FinalBurn Neo, MAME 2003-Plus and MAME want the CPS2 `.key` files (and
+MAME `qsound.zip`'s `dl-1425.bin`), avspu also the later 1 MB `avp.14m`-`avp.20m` dumps. The cores'
+own load errors named the same files. Proof: `scratch/arcade/` (frames and logs) and
+`docs/project-state.md` S031.
+
+Not done: samples are never required; 7z sets are not matched (the arcade system lists `.zip`
+only).
 
 ## Steam modes in session mode
 

@@ -244,7 +244,7 @@ void providerLists(const Fixture& f) {
     const fs::path cache = f.base / "cache";
     const NameDb names = NameDb::under(cache);
     Provider provider{
-        {f.root}, EmulatorSetup{shipped(), EmulatorSearch{.executablePath = {bin}}, {}}, names};
+        {f.root}, EmulatorSetup{shipped(), EmulatorSearch{.executablePath = {bin}}, {}}, names, {}};
     const std::vector<Game> before = provider.list();
     expect(find(before, "sf2") != nullptr && find(before, "unlisted") != nullptr,
            "an arcade short name is its own title until the listing is kept");

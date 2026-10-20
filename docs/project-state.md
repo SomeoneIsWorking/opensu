@@ -129,7 +129,7 @@ game has been observed running yet.
 | S028 | Sandboxed Lua plugins (API v1: play-time sources, emulator game lists), Settings › Plugins, bundled Eden play time | partial | S008, S020 | G001 |
 | S029 | CI: pinned sources, Clang build, clang-tidy, clang-format, ruff, ctest on every push | partial | — | — |
 | S030 | Linux AppImage release, signed, tested on clean Fedora 44 and Ubuntu 24.04 | partial | S029 | G004 |
-| S031 | Built-in emulators: libretro cores found or downloaded from the buildbot, updated, removed, started on `opensu-retro` | partial | S026 | G001 |
+| S031 | Built-in emulators: libretro cores found or downloaded from the buildbot, updated, removed, started on `opensu-retro`; an arcade zip's core picked by its romset | partial | S026 | G001 |
 | S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the quick menu, crash and load-failure toasts | partial | S003 | G001 |
 | S033 | Button mappings per game and per emulator (shared by its games), with game chords (`docs/issues/per-game-button-mappings.md`) | partial | S003, S022 | G003 |
 | S034 | Holding a chord modifier shows its chords, over a game too (`docs/issues/chord-hold-overlay.md`) | partial | S022 | G003 |
@@ -1186,9 +1186,11 @@ download, launching a downloaded AppImage, versions of packaged emulators (not s
 ### S031 — Built-in emulator cores
 
 A catalog entry with `"core"` is a built-in emulator (`library/emulator_catalog`): mGBA (GB, GBC,
-GBA), Gambatte (GB, GBC), Snes9x, Mesen and PCSX ReARMed, listed after the standalone emulators so
-a system's automatic emulator does not change where one is installed. Genesis Plus GX is not listed:
-openSU has no Mega Drive, Master System or Game Gear system. A core is found in
+GBA), Gambatte (GB, GBC), Snes9x, Mesen, PCSX ReARMed, and for Arcade FinalBurn Neo, MAME 2003-Plus,
+MAME 2010 and MAME (current), listed after the standalone emulators so a system's automatic
+emulator does not change where one is installed. Genesis Plus GX and PicoDrive are not listed:
+openSU has no Mega Drive, Master System, Game Gear, Sega CD or 32X system
+(`docs/issues/more-libretro-cores.md`). A core is found in
 `<data>/opensu/cores/` (openSU's, with a `<core>.json` record), then `~/.config/retroarch/cores`,
 `/usr/lib64/libretro`, `/usr/lib/libretro`, `/usr/lib/x86_64-linux-gnu/libretro`
 (`library/libretro_cores`); the emulator is installed when its core is found and runs as
@@ -1206,6 +1208,39 @@ Remove). Every launch carries `OPENSU_RETRO_CONTROL` (S032). A hidden shell laun
 Amazing Mirror from `/mnt/Boy/ROM/GBA/` on the mGBA core through `opensu-retro --hidden` (its
 `/proc/<pid>/cmdline`, no `/dev/input` or sound fds) and closed it from the quick menu
 (`scratch/retro-hidden/`). Unverified: a real buildbot download.
+
+Arcade romsets: each arcade core names its ROM-set listing in the catalog (`"romsets"`: FinalBurn
+Neo's arcade and Neo Geo datafiles and MAME 2003-Plus's and MAME 2010's `-listxml` from their
+libretro repositories, current MAME's from the `mame*lx.zip` of mamedev's latest release, SHA-256
+checked). They are fetched over HTTPS, kept under `<cache>/romsets/<id>.tsv` and fetched again
+after 30 days (`library/romset_dats`). Each arcade zip's central directory is matched against
+every listing, the parent's, BIOS's and devices' zips in the same folder counting, the default
+BIOS choice only, disks as `<set>/<disk>.chd`; verdicts are kept in `<cache>/romsets/matches.json`
+by the size and modification time of every file looked at (`library/romset_match`). The game runs
+on the search's pick when it matches, else the first matching core installed, else the first
+matching core is offered for download; with none the game is listed, cannot start ("No arcade
+core matches this romset") and the details page names the nearest core and the files it lacks. A
+system's emulator pick gives way to a matching core; a game's own pick does not. The details page's
+rows go beside the buttons when they do not fit above them.
+
+Verified (arcade, 2026-10-20, `scratch/arcade/`): unit tests (`romset_match_test`: datafile and
+`-listxml` parsing, the line format round trip, parent, renamed member, BIOS choice, device of a
+device, disk, kept verdicts invalidated by a parent zip appearing and by a new listing, the pick
+and the no-match text; `details_page_test`, `emulator_catalog_test`, `zip_archive_test`). A hidden
+shell with `OPENSU_ROM_ROOTS=/mnt/Boy/ROM` fetched the four listings (8,456, 5,409, 8,833 and
+50,368 sets) and logged `romset armwar: MAME 2010 (built-in) matches` and `romset avspu: MAME 2010
+(built-in) matches`, the others lacking `armwar.key` (FinalBurn Neo, MAME 2003-Plus) and
+`armwar.key, dl-1425.bin` (MAME), and for avspu the 1 MB `avp.14m`-`avp.20m` of the later sets. The
+details page Download fetched MAME 2010 into the scratch data dir; avspu and armwar ran on it
+(`/status` frame counts rising about 59.6 a second) and closed from the quick menu
+(`final-avspu-details.png`, `final-armwar-details.png`, `final-armwar-status.txt`,
+`avspu-runner-frame.png`, `armwar-runner-frame.png`). A copy of avspu named `avsp.zip` showed "No
+arcade core matches this romset" with "MAME 2010 (built-in) lacks 2 of 15 files: avpe.03d,
+avpe.04d" and refused Play with that toast (`final-avsp-play-refused.png`). Overridden per game,
+FinalBurn Neo, MAME 2003-Plus and MAME (a 416 MB core) downloaded and loaded armwar in the runner:
+FinalBurn Neo ran it without its key, MAME 2003-Plus refused `armwar.key` and MAME
+`armwar.key`, `dl-1425.bin`, the files the match named. Unverified: a romset that matches
+FinalBurn Neo, MAME 2003-Plus or current MAME running to gameplay (none in the player's folder).
 
 ### S032 — The libretro runner
 

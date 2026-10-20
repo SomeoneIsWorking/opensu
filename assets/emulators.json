@@ -214,6 +214,53 @@
       "name": "PCSX ReARMed (built-in)",
       "systems": ["psx"],
       "core": "pcsx_rearmed_libretro"
+    },
+    {
+      "id": "fbneo-core",
+      "name": "FinalBurn Neo (built-in)",
+      "systems": ["arcade"],
+      "core": "fbneo_libretro",
+      "romsets": {
+        "files": [
+          "https://raw.githubusercontent.com/libretro/FBNeo/master/dats/FinalBurn%20Neo%20(ClrMame%20Pro%20XML,%20Arcade%20only).dat",
+          "https://raw.githubusercontent.com/libretro/FBNeo/master/dats/FinalBurn%20Neo%20(ClrMame%20Pro%20XML,%20Neogeo%20only).dat"
+        ]
+      }
+    },
+    {
+      "id": "mame2003-plus-core",
+      "name": "MAME 2003-Plus (built-in)",
+      "systems": ["arcade"],
+      "core": "mame2003_plus_libretro",
+      "romsets": {
+        "files": [
+          "https://raw.githubusercontent.com/libretro/mame2003-plus-libretro/master/metadata/mame2003-plus.xml"
+        ]
+      }
+    },
+    {
+      "id": "mame2010-core",
+      "name": "MAME 2010 (built-in)",
+      "systems": ["arcade"],
+      "core": "mame2010_libretro",
+      "romsets": {
+        "files": [
+          "https://raw.githubusercontent.com/libretro/mame2010-libretro/master/metadata/mame2010.xml"
+        ]
+      }
+    },
+    {
+      "id": "mame-core",
+      "name": "MAME (built-in)",
+      "systems": ["arcade"],
+      "core": "mame_libretro",
+      "romsets": {
+        "release": {
+          "api": "https://api.github.com/repos/mamedev/mame/releases/latest",
+          "asset": "^mame[0-9]+lx\\.zip$",
+          "downloads": "https://github.com/mamedev/mame/releases/download/"
+        }
+      }
     }
   ]
 }

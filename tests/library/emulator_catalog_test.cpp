@@ -41,6 +41,40 @@ void shippedCatalogParses() {
            "a built-in emulator names its core and is downloadable");
     expect(catalog.find("mgba") != nullptr && !catalog.find("mgba")->builtIn(),
            "the standalone mGBA stays beside it");
+    for (const char* id : {"fbneo-core", "mame2003-plus-core", "mame2010-core", "mame-core"}) {
+        const EmulatorEntry* arcade = catalog.find(id);
+        expect(arcade != nullptr && arcade->builtIn() && arcade->serves("arcade") &&
+                   !arcade->romsets.empty(),
+               "each arcade core is built in and names its romset listings");
+    }
+    const std::optional<ReleaseSource>& mameListing = catalog.find("mame-core")->romsets.release;
+    expect(catalog.find("fbneo-core")->romsets.files.size() == 2 &&
+               mameListing.value_or(ReleaseSource{}).downloads ==
+                   "https://github.com/mamedev/mame/releases/download/",
+           "FinalBurn Neo's arcade and Neo Geo listings, MAME's from its release");
+    expect(catalog.find("mgba-core")->romsets.empty(), "a console core has no romset listing");
+}
+
+void romsetSources() {
+    std::string error;
+    const std::optional<EmulatorCatalog> parsed = EmulatorCatalog::parse(
+        R"({"emulators":[{"id":"a","name":"A","systems":["arcade"],"core":"fbneo_libretro",
+            "romsets":{"files":["https://example.org/a.dat"]}}]})",
+        "/h", error);
+    expect(parsed && parsed->find("a")->romsets.files.front() == "https://example.org/a.dat",
+           "a core's romset listings parse");
+    expect(!EmulatorCatalog::parse(
+               R"({"emulators":[{"id":"a","name":"A","systems":["arcade"],"core":"fbneo_libretro",
+                   "romsets":{"files":["http://example.org/a.dat"]}}]})",
+               "/h", error) &&
+               error.find("HTTPS") != std::string::npos,
+           "a listing that is not fetched over HTTPS is refused");
+    expect(!EmulatorCatalog::parse(
+               R"({"emulators":[{"id":"a","name":"A","systems":["arcade"],"core":"fbneo_libretro",
+                   "romsets":{}}]})",
+               "/h", error) &&
+               error.starts_with("a:"),
+           "empty romsets are refused, naming the entry");
 }
 
 void coreEntries() {
@@ -98,6 +132,7 @@ int main() {
     shippedCatalogParses();
     malformedIsRefused();
     coreEntries();
+    romsetSources();
     std::puts("emulator_catalog: ok");
     return 0;
 }
