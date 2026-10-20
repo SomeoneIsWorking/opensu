@@ -27,16 +27,6 @@ constexpr float railCardInsetDp = 2.0f;
 // iiSU's backdrop blur radius for glass (`homeGlassBlurRadiusDp`), as a Gaussian's sigma.
 constexpr float glassBlurSigmaDp = 8.0f;
 
-/// The dock's keys for the icon files: `home`, `home_selected`, `library`, `library_selected`.
-std::string navKey(library::Section section, bool selected) {
-    return std::string{library::key(section)} + (selected ? "_selected" : "");
-}
-
-/// The dock's stand-in letter for a section, until its icon arrives.
-const char* initialOf(library::Section section) noexcept {
-    return section == library::Section::Home ? "H" : "L";
-}
-
 std::string gameCount(std::size_t games) {
     return std::to_string(games) + (games == 1 ? " game" : " games");
 }
@@ -77,7 +67,6 @@ Shell::~Shell() {
 void Shell::attach(SDL_GPUDevice& device) {
     typeface_.load(device);
     icons_.attach(device);
-    railPainter_.attach(device);
     device_ = &device;
 }
 
@@ -221,7 +210,6 @@ SlotRange Shell::artWindow() const {
 void Shell::loadArtwork(std::size_t uploads) {
     SDL_GPUDevice& gpu = device();
     glyphs_.load(gpu);
-    navIcons_.load(gpu);
     // Covers are point-sampled.
     artwork_.load(
         [&gpu](const gpu2d::image::Bitmap& pixels) {
@@ -309,13 +297,6 @@ void Shell::setConsoleArtwork(std::string_view system, const std::filesystem::pa
 
 void Shell::setGlyph(std::string_view system, const std::filesystem::path& glyph) {
     glyphs_.set(system, glyph);
-}
-
-void Shell::setNavIcon(library::Section section, bool selected, const std::filesystem::path& file) {
-    navIcons_.set(navKey(section, selected), file);
-    if (section == library::Section::Library && !selected) {
-        railPainter_.setSectionIcon(file);
-    }
 }
 
 void Shell::setSection(library::Section section, bool revealDock) {
@@ -971,8 +952,10 @@ void Shell::drawDock(Canvas& canvas, const gpu2d::RenderTarget& scene, const Doc
     std::array<DockIcon, library::allSections.size()> icons;
     for (std::size_t i = 0; i < icons.size(); ++i) {
         const library::Section section = library::allSections[i];
-        icons[i] = DockIcon{navIcons_.find(navKey(section, section == section_)),
-                            iconPops_[i].scale(now), initialOf(section), dockHover_ == section};
+        icons[i] = DockIcon{.section = section,
+                            .selected = section == section_,
+                            .scale = iconPops_[i].scale(now),
+                            .hovered = dockHover_ == section};
     }
     dockPainter_.paint(canvas, frame.layout, frame.metrics, icons, frame.style);
 }

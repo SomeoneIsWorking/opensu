@@ -116,10 +116,9 @@ std::vector<fs::path> discoverRoots(const fs::path& home, const std::vector<fs::
 }
 
 Provider::Provider(std::vector<fs::path> roots, EmulatorSetup emulators, NameDb names,
-                   const fs::path& cacheDir, SwitchInfo switchInfo)
+                   RomsetLists* romsets, SwitchInfo switchInfo)
     : roots_{std::move(roots)}, emulators_{std::move(emulators)}, names_{std::move(names)},
-      romsets_{cacheDir.empty() ? RomsetMatcher{}
-                                : RomsetMatcher{RomsetDats::under(cacheDir, &web_)}},
+      romsets_{romsets == nullptr ? RomsetMatcher{} : RomsetMatcher{*romsets}},
       switch_{std::move(switchInfo)} {
 }
 

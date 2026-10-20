@@ -24,6 +24,7 @@ add_library(opensu_library STATIC
     arcade_names.cpp
     romset_dat.cpp
     romset_dats.cpp
+    romset_lists.cpp
     romset_match.cpp
     shelf.cpp
     library_query.cpp

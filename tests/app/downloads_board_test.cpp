@@ -361,6 +361,54 @@ void testLabels() {
     expect(ended(DownloadState::Cancelled) && !ended(DownloadState::Paused), "what is over");
 }
 
+void testRomsetLists() {
+    using opensu::app::RomsetListLook;
+    DownloadsBoard shown = board();
+    const auto look = [](std::string id, DownloadState state, std::uint64_t received,
+                         std::uint64_t total, std::string detail = {}) {
+        std::string name = "Core " + id;
+        return RomsetListLook{.id = std::move(id),
+                              .name = std::move(name),
+                              .state = state,
+                              .received = received,
+                              .total = total,
+                              .detail = std::move(detail)};
+    };
+    shown.update({.romsetLists = {look("a", DownloadState::Downloading, 25, 100),
+                                  look("b", DownloadState::Queued, 0, 0)}});
+    const DownloadRow* a = shown.find("romsets:a");
+    expect(a != nullptr && a->kind == DownloadKind::RomsetList &&
+               a->title == "Romset list · Core a" && a->state == DownloadState::Downloading &&
+               a->fraction == 0.25 && a->bytesDone == 25 && a->bytesTotal == 100,
+           "a romset list downloading is a row with its bytes");
+    expect(opensu::app::actionsFor(*a).empty(), "a romset list has no buttons");
+    expect(shown.find("romsets:b")->state == DownloadState::Queued, "a waiting list is queued");
+    shown.update({.romsetLists = {look("a", DownloadState::Queued, 0, 0),
+                                  look("b", DownloadState::Queued, 0, 0),
+                                  look("c", DownloadState::Queued, 0, 0)}});
+    shown.update({.romsetLists = {look("c", DownloadState::Queued, 0, 0),
+                                  look("b", DownloadState::Queued, 0, 0),
+                                  look("a", DownloadState::Queued, 0, 0)}});
+    expect(shown.rows()[0].key == "romsets:c" && shown.rows()[2].key == "romsets:a",
+           "waiting lists are in the order they are fetched in");
+    shown = board();
+    shown.update({.romsetLists = {look("a", DownloadState::Downloading, 25, 100),
+                                  look("b", DownloadState::Queued, 0, 0)}});
+
+    shown.update({.romsetLists = {look("a", DownloadState::Downloading, 100, 100),
+                                  look("b", DownloadState::Downloading, 0, 0)}});
+    expect(shown.find("romsets:a")->state == DownloadState::Installing,
+           "a list fully received is being read");
+
+    shown.update({.romsetLists = {look("a", DownloadState::Finished, 100, 100),
+                                  look("b", DownloadState::Failed, 0, 0, "HTTP 404")}});
+    shown.update({.romsetLists = {look("a", DownloadState::Finished, 100, 100),
+                                  look("b", DownloadState::Failed, 0, 0, "HTTP 404")}});
+    expect(shown.rows().size() == 2 && shown.rows()[0].state == DownloadState::Finished &&
+               shown.rows()[1].key == "romsets:b" && shown.rows()[1].detail == "HTTP 404",
+           "ended lists stay, a failure with its reason");
+}
+
 } // namespace
 
 int main() {
@@ -376,6 +424,7 @@ int main() {
     testRemoved();
     testEmulatorEnds();
     testLabels();
+    testRomsetLists();
     std::printf("downloads_board: all checks passed\n");
     return 0;
 }

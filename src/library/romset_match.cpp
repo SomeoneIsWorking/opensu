@@ -7,7 +7,6 @@
 #include <iterator>
 #include <set>
 #include <system_error>
-#include <tuple>
 #include <utility>
 
 #include <nlohmann/json.hpp>
@@ -47,6 +46,8 @@ std::string_view fitName(RomsetFit fit) {
         return "matches";
     case RomsetFit::Mismatch:
         return "mismatch";
+    case RomsetFit::Pending:
+        return "pending";
     case RomsetFit::Unchecked:
         return "unchecked";
     }
@@ -312,11 +313,20 @@ void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerd
     const bool unchecked = std::ranges::any_of(game.emulatorOptions, [](const auto& option) {
         return !option.id.empty() && option.romset == RomsetFit::Unchecked;
     });
-    game.romset = std::string{noRomsetMatch};
+    const bool pending = std::ranges::any_of(game.emulatorOptions, [](const auto& option) {
+        return option.romset == RomsetFit::Pending;
+    });
+    game.romset = std::string{pending ? checkingRomset : noRomsetMatch};
     if (nearest != nullptr) {
         const auto owner =
             std::ranges::find(game.emulatorOptions, nearest->emulatorId, &EmulatorOption::id);
         game.romsetNearest = owner->name + " " + gapOf(*nearest, set);
+    }
+    if (pending) {
+        game.emulator.clear();
+        game.launch = {};
+        game.unavailable = std::string{romsetListsDownloading};
+        return;
     }
     if (unchecked) {
         return;
@@ -326,7 +336,7 @@ void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerd
     game.unavailable = std::string{noRomsetMatch};
 }
 
-RomsetMatcher::RomsetMatcher(RomsetDats dats) : dats_{std::move(dats)} {
+RomsetMatcher::RomsetMatcher(RomsetLists& lists) : lists_{&lists}, dats_{lists.dats()} {
 }
 
 fs::path RomsetMatcher::keptFile() const {
@@ -335,6 +345,7 @@ fs::path RomsetMatcher::keptFile() const {
 
 void RomsetMatcher::begin(Clock::time_point now) {
     now_ = now;
+    stamps_.clear();
     loaded_.clear();
     loadedFolder_.clear();
 }
@@ -379,18 +390,13 @@ std::map<std::string, std::uint32_t, std::less<>>
 RomsetMatcher::stampsOf(std::span<const EmulatorEntry* const> cores) {
     std::map<std::string, std::uint32_t, std::less<>> stamps;
     for (const EmulatorEntry* entry : cores) {
-        auto found = refreshed_.find(entry->id);
-        if (found == refreshed_.end() || now_ - found->second.tried >= romsetRetryAfter) {
-            std::string error;
-            std::ignore = dats_.refresh(*entry, now_, error);
-            if (!error.empty()) {
-                lucent::warn("roms", "{}", error);
-            }
-            found =
-                refreshed_.insert_or_assign(entry->id, Refresh{now_, dats_.stamp(*entry)}).first;
+        auto found = stamps_.find(entry->id);
+        if (found == stamps_.end()) {
+            lists_->want(*entry, now_);
+            found = stamps_.emplace(entry->id, dats_.stamp(*entry)).first;
         }
-        if (found->second.stamp) {
-            stamps.emplace(entry->id, found->second.stamp->source);
+        if (found->second) {
+            stamps.emplace(entry->id, found->second->source);
         }
     }
     return stamps;
@@ -430,9 +436,13 @@ std::vector<RomsetVerdict> RomsetMatcher::check(const fs::path& zip,
         loadKept();
     }
     const std::map<std::string, std::uint32_t, std::less<>> stamps = stampsOf(cores);
+    const bool pending = std::ranges::any_of(cores, [&](const EmulatorEntry* entry) {
+        return !stamps.contains(entry->id) && lists_->fetching(entry->id);
+    });
     const FileStamp stamp = FileStamp::of(zip);
     if (const auto kept = kept_.find(zip.string());
-        kept != kept_.end() && kept->second.zip == stamp && kept->second.stamps == stamps &&
+        !pending && kept != kept_.end() && kept->second.zip == stamp &&
+        kept->second.stamps == stamps &&
         std::ranges::all_of(kept->second.looked, [](const FileStamp& looked) {
             return FileStamp::of(looked.path) == looked;
         })) {
@@ -445,6 +455,8 @@ std::vector<RomsetVerdict> RomsetMatcher::check(const fs::path& zip,
         if (const RomsetDat* dat =
                 stamps.contains(entry->id) ? datFor(*entry, zip.parent_path()) : nullptr) {
             verdict = matchSet(set, *dat, zips);
+        } else if (lists_->fetching(entry->id)) {
+            verdict.fit = RomsetFit::Pending;
         }
         verdict.emulatorId = entry->id;
         lucent::info("roms", "romset {}: {} {}{}", set, entry->name, fitName(verdict.fit),
@@ -452,8 +464,11 @@ std::vector<RomsetVerdict> RomsetMatcher::check(const fs::path& zip,
                                                         : std::string{});
         verdicts.push_back(std::move(verdict));
     }
-    kept_.insert_or_assign(zip.string(), Kept{stamp, stamps, zips.looked(), verdicts});
-    changed_ = true;
+    // A pending verdict is not kept: a fetch that fails leaves every stamp as it was.
+    if (!pending) {
+        kept_.insert_or_assign(zip.string(), Kept{stamp, stamps, zips.looked(), verdicts});
+        changed_ = true;
+    }
     return verdicts;
 }
 

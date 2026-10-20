@@ -191,7 +191,8 @@ void testState() {
                               .title = "Spacewar",
                               .source = "Steam",
                               .state = "downloading",
-                              .percent = 42},
+                              .percent = 42,
+                              .figures = "42%  ·  1.0 GB of 2.4 GB"},
                              {.key = "emulator:mgba",
                               .title = "mGBA \"core\"",
                               .source = "Core",
@@ -208,11 +209,12 @@ void testState() {
                                                         {"title", "Spacewar"},
                                                         {"source", "Steam"},
                                                         {"state", "downloading"},
+                                                        {"figures", "42%  ·  1.0 GB of 2.4 GB"},
                                                         {"percent", 42}} &&
                listed["downloads"][1]["title"] == "mGBA \"core\"" &&
                listed["downloads"][1]["percent"].is_null() &&
                listed["downloads"][2]["state"] == "uninstalling",
-           "every download is listed in order with its source, state and percent");
+           "every download is listed in order with its source, state, figures and percent");
 }
 
 void testSearchAndText() {

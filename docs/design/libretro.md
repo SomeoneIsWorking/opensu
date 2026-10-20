@@ -64,6 +64,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/library/libretro_cores.*` | Finding a core; core downloads from the libretro buildbot under `<data>/opensu/cores/` and their record |
 | `src/library/romset_dat.*` | An arcade core's ROM-set listing: a Logiqx datafile or MAME `-listxml` parsed, its line format under the cache |
 | `src/library/romset_dats.*` | The arcade cores' listings fetched over HTTPS from the catalog's `"romsets"` and kept under `<cache>/romsets/` for 30 days |
+| `src/library/romset_lists.*` | Those fetches off the library scan, one at a time on a thread, each one's state (bytes, done, failed and when it is tried again) for the Downloads page |
 | `src/library/romset_match.*` | An arcade zip's central directory against each listing, the verdicts kept by file stamps, the game's emulator picked by them |
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release |
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> <rom>`, with `--hidden` from a hidden shell |
@@ -169,7 +170,15 @@ automatic emulator stays the standalone one where it is installed.
 (HTTPS datafiles merged in order) or `"romsets": {"release": {api, asset, downloads}}` (the latest
 release's zip holding one `.xml`, size and SHA-256 checked). `RomsetDats::refresh` fetches a
 listing that is missing or older than 30 days, every redirect hop on the file's origin, and keeps
-the old one when the fetch fails; a matcher tries again no sooner than an hour later. A zip's set is
+the old one when the fetch fails. A library scan never waits on a fetch: `RomsetMatcher` asks
+`RomsetLists` for each due listing and matches with what is kept; `RomsetLists` fetches them in
+turn on its own thread, a failed one again no sooner than an hour later, and keeps every fetch's
+state for the session. While a core's listing downloads and none is kept its verdict is `Pending`;
+with no match yet and a verdict pending the game's romset reads "Checking romset…", it cannot start
+(`unavailable` says the lists are downloading) and a system's emulator pick waits. Each fetch is a
+row of the Downloads page ("Romset list · <core>", bytes, then Finished, or Failed with the reason
+and the retry time) and its end is toasted; the shell then reads the catalog again, which gives the
+verdicts. A pending verdict is never kept in `matches.json`. A zip's set is
 its stem, lower case. A set matches a core when every ROM it needs (a `nodump`, optional or
 CRC-less ROM is not needed; of BIOS-choice ROMs only the default choice's) is found by CRC-32 and
 size in the zip, its `romof` chain's zips or its devices' zips (a device's own devices included)
@@ -224,5 +233,7 @@ nothing more of a zip whose stamps all hold.
   (`tools/podman.display_words`), and the image has lavapipe and the validation layers.
 - `romset_match_test` matches zips built in its scratch folder against a datafile and a
   `-listxml` written in the test: parent, renamed member, BIOS choice, device of a device, disk,
-  kept verdicts and what invalidates them, the pick and the no-match text.
+  kept verdicts and what invalidates them, the pick and the no-match text; and `RomsetLists`
+  against a loopback host: two files' bytes counted together, a release zip, a 404 with its retry
+  time, and a scan that gets `Pending` from a listing held back by the host instead of waiting.
 - A real core and ROM are checked by hand on this machine, never in CI (no ROMs in CI).

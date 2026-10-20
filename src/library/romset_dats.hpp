@@ -1,7 +1,8 @@
 // romset_dats — the arcade cores' ROM-set listings kept under `<cache>/romsets/`, one file per
 // core in `RomsetDat`'s line format behind a header naming the source's CRC-32 and when it was
 // fetched. A listing older than `romsetDatLifetime` is fetched again over HTTPS from the
-// catalog's sources (`RomsetSource`); a failed fetch keeps the old one.
+// catalog's sources (`RomsetSource`); a failed fetch keeps the old one. `RomsetLists` runs the
+// fetches off the library scan.
 #pragma once
 
 #include <chrono>
@@ -54,11 +55,16 @@ class RomsetDats {
     /// The header of `entry`'s kept listing; nothing when none is kept.
     [[nodiscard]] std::optional<DatStamp> stamp(const EmulatorEntry& entry) const;
 
-    /// Fetches `entry`'s listing again when none is kept or the kept one is older than
-    /// `romsetDatLifetime` at `now`. `error` says why a due fetch failed; false when no listing
-    /// is kept afterwards.
+    /// Whether `entry`'s listing is to be fetched at `now`: none is kept, or the kept one is
+    /// older than `romsetDatLifetime`.
+    [[nodiscard]] bool due(const EmulatorEntry& entry, Clock::time_point now) const;
+
+    /// Fetches `entry`'s listing again when it is `due`, telling `progress` of the bytes of all
+    /// its files together (it cancels by returning false). `error` says why a due fetch failed;
+    /// false when no listing is kept afterwards.
     [[nodiscard]] bool refresh(const EmulatorEntry& entry, Clock::time_point now,
-                               std::string& error) const;
+                               std::string& error,
+                               const net::WebClient::Progress& progress = {}) const;
 
     /// The kept listing of `entry`, with only the `wanted` sets' ROMs.
     [[nodiscard]] std::optional<RomsetDat>
@@ -72,9 +78,11 @@ class RomsetDats {
     [[nodiscard]] std::filesystem::path file(const EmulatorEntry& entry) const;
     /// The listing at `entry`'s sources and the CRC-32 of what it was read from.
     [[nodiscard]] std::optional<std::pair<RomsetDat, std::uint32_t>>
-    fetch(const EmulatorEntry& entry, std::string& error) const;
+    fetch(const EmulatorEntry& entry, const net::WebClient::Progress& progress,
+          std::string& error) const;
     [[nodiscard]] std::optional<std::pair<RomsetDat, std::uint32_t>>
-    fetchRelease(const ReleaseSource& release, std::string& error) const;
+    fetchRelease(const ReleaseSource& release, const net::WebClient::Progress& progress,
+                 std::string& error) const;
 
     std::filesystem::path dir_;
     const net::WebClient* web_{nullptr};

@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "paint.hpp"
 
@@ -16,6 +17,7 @@
 #include "platform.hpp"
 #include "rail_layout.hpp"
 #include "typeface.hpp"
+#include "vector_icon.hpp"
 
 namespace opensu::ui {
 
@@ -37,16 +39,9 @@ struct Focused {
 
 class RailPainter {
   public:
-    explicit RailPainter(Typeface& typeface) noexcept : typeface_{typeface} {
+    RailPainter(Typeface& typeface, IconAtlas& icons) noexcept
+        : typeface_{typeface}, icons_{icons} {
     }
-
-    /// The device the recoloured icons are made on; needed before the first column is painted.
-    void attach(SDL_GPUDevice& device) noexcept {
-        device_ = &device;
-    }
-
-    /// The gamepad icon's file the left column draws; replaces the textures made from the last.
-    void setSectionIcon(const std::filesystem::path& file);
 
     /// The XMB's left column at a console list: the icon in the colours of the focused tile's
     /// border (a console's own card, else its platform's stroke, else the icon's own) with the
@@ -67,8 +62,9 @@ class RailPainter {
     void paintRowMarker(Canvas& canvas, const CarouselLayout& layout, const RailStyle& style) const;
 
   private:
-    /// The icon recoloured for `focused`, made on first use; null while there is no icon file.
-    const gpu2d::Texture* tinted(const Focused& focused);
+    /// The Library icon's colours swapped for `focused`'s border, read once per key; none keeps
+    /// its own.
+    const std::vector<ColourSwap>& swapsFor(const Focused& focused);
     /// Where a title stands: its x (left edge, or centre when `centred`), its capitals' top and
     /// height, and the dp the shadow is sized by.
     struct TitleBox {
@@ -82,9 +78,8 @@ class RailPainter {
                    const RailStyle& style);
 
     Typeface& typeface_;
-    SDL_GPUDevice* device_{};
-    std::filesystem::path sectionIcon_;
-    std::map<std::string, std::optional<gpu2d::Texture>, std::less<>> tints_;
+    IconAtlas& icons_;
+    std::map<std::string, std::vector<ColourSwap>, std::less<>> swaps_;
 };
 
 } // namespace opensu::ui

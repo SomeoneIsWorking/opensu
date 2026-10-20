@@ -27,7 +27,7 @@ namespace opensu::app {
 
 ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     : environment_{environment}, settings_{settings},
-      catalogLoader_{library::makeCatalog(resolved_, settings_.hidden)},
+      catalogLoader_{library::makeCatalog(resolved_, settings_.hidden, romsetLists_)},
       shell_{settings_.width, settings_.height, settings_.homeMode, environment_.assetsDir},
       steam_{steam::Client::Options{resolved_.home, resolved_.executablePath, resolved_.session,
                                     resolved_.steamRoots}},

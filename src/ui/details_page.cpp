@@ -47,6 +47,11 @@ std::string emulatorText(const library::Game& game) {
     const auto chosen =
         std::ranges::find(game.emulatorOptions, game.emulator, &library::EmulatorOption::name);
     if (chosen == game.emulatorOptions.end()) {
+        if (std::ranges::any_of(game.emulatorOptions, [](const library::EmulatorOption& option) {
+                return option.romset == library::RomsetFit::Pending;
+            })) {
+            return "picked once the romset is checked";
+        }
         if (!game.romset.empty()) {
             return "none for this romset";
         }
@@ -102,9 +107,10 @@ const library::EmulatorOption* emulatorToDownload(const library::Game& game) {
         chosen != options.end()) {
         return missing(*chosen) ? &*chosen : nullptr;
     }
-    // Unpicked, a core the romset does not match is not offered.
+    // Unpicked, a core the romset does not match, or is not checked against yet, is not offered.
     const auto first = std::ranges::find_if(options, [&missing](const auto& option) {
-        return missing(option) && option.romset != library::RomsetFit::Mismatch;
+        return missing(option) && option.romset != library::RomsetFit::Mismatch &&
+               option.romset != library::RomsetFit::Pending;
     });
     return first == options.end() ? nullptr : &*first;
 }

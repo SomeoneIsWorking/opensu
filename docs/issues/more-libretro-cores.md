@@ -51,8 +51,17 @@ MAME `qsound.zip`'s `dl-1425.bin`), avspu also the later 1 MB `avp.14m`-`avp.20m
 own load errors named the same files. Proof: `scratch/arcade/` (frames and logs) and
 `docs/project-state.md` S031.
 
+The first scan, and each after a listing's 30 days, downloaded about 100 MB of listings (17.1,
+22.6, 43.4 and 19.7 MB) inside the ROM scan, so the whole ROM library stayed hidden until they were
+in. The player: "Make sure to reflect this as downloading somewhere". Now `library/romset_lists`
+fetches them off the scan: arcade games are listed at once with "Checking romset…" (Play says the
+lists are downloading), each list is a Downloads page row with its bytes and end state, each end is
+toasted, and the catalog is read again when one ends. Proof: `scratch/romset-downloads/` (empty
+cache; frames `02`, `10`-`15`, `armwar-runner-status.txt`, `shell-run1.log`, `shell-run2.log`).
+
 Not done: samples are never required; 7z sets are not matched (the arcade system lists `.zip`
-only).
+only). A romset list row has no Cancel or Retry button; a failed list is asked for again by the
+first scan an hour later.
 
 ## Steam modes in session mode
 

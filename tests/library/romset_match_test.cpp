@@ -1,21 +1,31 @@
 // Arcade romsets: a listing read from a datafile and a -listxml, kept and read back, matched
 // against zips on disk (parent, BIOS choice, device, disk, renamed members), the verdicts kept by
-// file stamps, and the game's emulator picked by them.
+// file stamps, and the game's emulator picked by them. The listings are fetched off the scan from
+// a loopback host: in turn, with their bytes, failures retried after their time, and a scan while
+// one downloads gives a pending verdict without waiting.
 #include "library/romset_match.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <mutex>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #include "library/emulator_choice.hpp"
 #include "library/romset_dat.hpp"
 #include "library/romset_dats.hpp"
+#include "library/romset_lists.hpp"
+#include "support/loopback_server.hpp"
+#include "support/release_server.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/zip_fixture.hpp"
 
@@ -29,16 +39,24 @@ using opensu::library::LaunchSpec;
 using opensu::library::RomsetFit;
 using opensu::library::Source;
 using opensu::library::roms::applyRomsets;
+using opensu::library::roms::checkingRomset;
 using opensu::library::roms::EmulatorEntry;
 using opensu::library::roms::FolderZips;
 using opensu::library::roms::matchSet;
 using opensu::library::roms::noRomsetMatch;
 using opensu::library::roms::readZipMembers;
+using opensu::library::roms::ReleaseSource;
 using opensu::library::roms::RomsetDat;
 using opensu::library::roms::RomsetDats;
+using opensu::library::roms::RomsetFetch;
+using opensu::library::roms::RomsetLists;
+using opensu::library::roms::romsetListsDownloading;
 using opensu::library::roms::RomsetMatcher;
+using opensu::library::roms::romsetRetryAfter;
 using opensu::library::roms::RomsetSource;
 using opensu::library::roms::RomsetVerdict;
+using opensu::test::LoopbackServer;
+using opensu::test::ReleaseServer;
 using opensu::test::ScratchDir;
 using opensu::test::zipfixture::buildZip;
 using opensu::test::zipfixture::crcOf;
@@ -274,8 +292,9 @@ void keepsVerdicts(const fs::path& base) {
 
     writeZip(folder / "clone.zip", {member("c.1", cloneProgram)});
     const std::vector<const EmulatorEntry*> cores{&fbneo, &mame};
+    RomsetLists lists{cache};
     {
-        RomsetMatcher matcher{dats};
+        RomsetMatcher matcher{lists};
         matcher.begin(now);
         const std::vector<RomsetVerdict> verdicts = matcher.check(folder / "clone.zip", cores);
         expect(verdicts.size() == 2 && verdicts[0].emulatorId == "fbneo" &&
@@ -288,7 +307,7 @@ void keepsVerdicts(const fs::path& base) {
     RomsetDat empty;
     expect(dats.save(fbneo, empty, 1, now, error), "a listing is replaced under the same stamp");
     {
-        RomsetMatcher matcher{dats};
+        RomsetMatcher matcher{lists};
         matcher.begin(now);
         expect(matcher.check(folder / "clone.zip", cores)[0].listed,
                "an unchanged zip's verdict is the kept one");
@@ -298,7 +317,7 @@ void keepsVerdicts(const fs::path& base) {
     }
     expect(dats.save(fbneo, fbneoDat, 3, now, error), "a changed listing is kept");
     {
-        RomsetMatcher matcher{dats};
+        RomsetMatcher matcher{lists};
         matcher.begin(now);
         expect(matcher.check(folder / "clone.zip", cores)[0].fit == RomsetFit::Matches,
                "a listing with a new stamp matches the zip again");
@@ -309,6 +328,128 @@ void keepsVerdicts(const fs::path& base) {
         expect(nowhere.check(folder / "clone.zip", cores).empty(),
                "a matcher that is nowhere gives no verdicts");
     }
+}
+
+/// A host of listings: `/a.dat` and `/b.dat`, and `/slow.dat`, which answers once released.
+class ListingHost {
+  public:
+    [[nodiscard]] std::string base() const {
+        return server_.base();
+    }
+    void release() {
+        {
+            const std::lock_guard lock{mutex_};
+            open_ = true;
+        }
+        opened_.notify_all();
+    }
+
+  private:
+    lucent::http::Response answer(const lucent::http::Request& request) {
+        const std::string path{request.path()};
+        if (path == "/a.dat") {
+            return opensu::test::reply(200, datafile());
+        }
+        if (path == "/b.dat") {
+            return opensu::test::reply(200, listxml());
+        }
+        if (path == "/slow.dat") {
+            std::unique_lock lock{mutex_};
+            opened_.wait(lock, [this] {
+                return open_;
+            });
+            return opensu::test::reply(200, datafile());
+        }
+        return opensu::test::reply(404, "");
+    }
+
+    std::mutex mutex_;
+    std::condition_variable opened_;
+    bool open_{false};
+    LoopbackServer server_{[this](const lucent::http::Request& request) {
+        return answer(request);
+    }};
+};
+
+template <typename Done> void until(Done done, const char* what) {
+    const auto stop = std::chrono::steady_clock::now() + std::chrono::seconds{20};
+    while (!done() && std::chrono::steady_clock::now() < stop) {
+        std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    }
+    expect(done(), what);
+}
+
+void fetchesOffTheScan(const fs::path& base) {
+    ListingHost host;
+    ReleaseServer releases;
+    const std::string lx = buildZip({member("mame0289.xml", listxml(), true)});
+    releases.publish("mame", "mame0289", 7, "mame0289lx.zip", lx);
+    EmulatorEntry two = core("fbneo", "FinalBurn Neo");
+    two.romsets = RomsetSource{{host.base() + "/a.dat", host.base() + "/b.dat"}, std::nullopt};
+    EmulatorEntry mame = core("mame", "MAME");
+    mame.romsets = RomsetSource{{},
+                                ReleaseSource{releases.base() + "/api/mame", "^mame[0-9]+lx\\.zip$",
+                                              releases.base() + "/dl/"}};
+    EmulatorEntry broken = core("broken", "Broken");
+    broken.romsets = RomsetSource{{host.base() + "/missing.dat"}, std::nullopt};
+
+    RomsetLists lists{base / "fetched"};
+    const auto now = RomsetLists::Clock::now();
+    lists.want(two, now);
+    lists.want(mame, now);
+    lists.want(broken, now);
+    until(
+        [&lists] {
+            return lists.ended() == 3;
+        },
+        "each listing asked for is fetched");
+    const std::vector<RomsetFetch> fetches = lists.fetches();
+    expect(fetches.size() == 3 && fetches[0].id == "fbneo" && fetches[1].id == "mame" &&
+               fetches[2].id == "broken",
+           "the fetches are listed in the order asked for");
+    expect(fetches[0].phase == RomsetFetch::Phase::Done &&
+               fetches[0].received == datafile().size() + listxml().size() &&
+               fetches[0].total == fetches[0].received && lists.dats().stamp(two).has_value(),
+           "a listing of two files is kept, its bytes counted together");
+    expect(fetches[1].phase == RomsetFetch::Phase::Done && fetches[1].total == lx.size() &&
+               lists.dats().stamp(mame).has_value(),
+           "a release's listing is read from its zip, its bytes counted");
+    expect(fetches[2].phase == RomsetFetch::Phase::Failed &&
+               fetches[2].error.find("HTTP 404") != std::string::npos &&
+               fetches[2].retryAt >= now + romsetRetryAfter && !lists.dats().stamp(broken),
+           "a failed fetch says why and when it is tried again");
+
+    lists.want(broken, now);
+    lists.want(two, now);
+    expect(!lists.fetching("broken") && !lists.fetching("fbneo") && lists.ended() == 3,
+           "a failed listing waits for its retry time and a kept one is not fetched again");
+    lists.want(broken, now + romsetRetryAfter + std::chrono::minutes{1});
+    until(
+        [&lists] {
+            return lists.ended() == 4;
+        },
+        "a failed listing is fetched again after its retry time");
+
+    EmulatorEntry slow = core("slow", "Slow");
+    slow.romsets = RomsetSource{{host.base() + "/slow.dat"}, std::nullopt};
+    const fs::path folder = base / "pending";
+    writeZip(folder / "clone.zip", {member("c.1", cloneProgram)});
+    writeZip(folder / "parent.zip", {member("p.1", program), member("g.1", graphics)});
+    const std::vector<const EmulatorEntry*> cores{&slow};
+    RomsetMatcher matcher{lists};
+    matcher.begin(now);
+    expect(matcher.check(folder / "clone.zip", cores)[0].fit == RomsetFit::Pending &&
+               lists.fetching("slow"),
+           "a scan does not wait for a listing that downloads; its verdict is pending");
+    host.release();
+    until(
+        [&lists] {
+            return lists.ended() == 5;
+        },
+        "the slow listing arrives");
+    matcher.begin(now);
+    expect(matcher.check(folder / "clone.zip", cores)[0].fit == RomsetFit::Matches,
+           "the next scan matches with the listing that arrived");
 }
 
 Game arcadeGame() {
@@ -383,6 +524,30 @@ void picksTheEmulator() {
     expect(partly.romset == noRomsetMatch && !partly.launch.empty(),
            "a core that could not be checked keeps the game playable");
 
+    Game waiting = arcadeGame();
+    applyRomsets(waiting, "clone",
+                 {verdict("fbneo", RomsetFit::Mismatch, {"a"}),
+                  verdict("mame2010", RomsetFit::Pending), verdict("mame", RomsetFit::Unchecked)});
+    expect(waiting.romset == checkingRomset && waiting.launch.empty() && waiting.emulator.empty() &&
+               waiting.unavailable == romsetListsDownloading &&
+               waiting.romsetNearest == "FinalBurn Neo lacks 1 of 4 files: a",
+           "with no match yet and a listing downloading, the game waits and says why");
+    Game early = arcadeGame();
+    applyRomsets(early, "clone",
+                 {verdict("fbneo", RomsetFit::Pending), verdict("mame2010", RomsetFit::Pending),
+                  verdict("mame", RomsetFit::Matches)});
+    expect(early.romset == "Matches MAME" && early.launch.program == "mame",
+           "a match runs the game while other listings still download");
+
+    std::vector<Game> pendingGames{waiting, waiting};
+    pendingGames[1].id = "rom:/r/Arcade/own.zip";
+    EmulatorChoices{{{"rom:/r/Arcade/own.zip", "FinalBurn Neo"}}, {{"arcade", "MAME 2010"}}}.apply(
+        pendingGames);
+    expect(pendingGames[0].launch.empty() && pendingGames[0].emulator.empty(),
+           "a system's pick waits while the romset is checked");
+    expect(pendingGames[1].launch.program == "fbneo",
+           "the game's own pick runs it while the romset is checked");
+
     std::vector<Game> games{other, other};
     games[1].id = "rom:/r/Arcade/own.zip";
     EmulatorChoices choices{{{"rom:/r/Arcade/own.zip", "FinalBurn Neo"}},
@@ -396,11 +561,17 @@ void picksTheEmulator() {
 } // namespace
 
 int main() {
-    const ScratchDir scratch{OPENSU_TEST_SCRATCH, "romset_match"};
-    parsesListings();
-    matchesZips(scratch.path());
-    keepsVerdicts(scratch.path());
-    picksTheEmulator();
-    std::puts("romset_match: ok");
-    return 0;
+    try {
+        const ScratchDir scratch{OPENSU_TEST_SCRATCH, "romset_match"};
+        parsesListings();
+        matchesZips(scratch.path());
+        keepsVerdicts(scratch.path());
+        fetchesOffTheScan(scratch.path());
+        picksTheEmulator();
+        std::puts("romset_match: ok");
+        return 0;
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
+        return 1;
+    }
 }

@@ -209,8 +209,7 @@ Fetched ArtworkFetcher::arrived(const Work& work) const {
         return Fetched{Fetched::Kind::Names, {}, {}};
     }
     const ApkAsset& asset = std::get<ApkAsset>(work);
-    return Fetched{asset.kind == AssetKind::Sound ? Fetched::Kind::Sound : Fetched::Kind::NavIcon,
-                   asset.file, store_.assetPath(asset)};
+    return Fetched{Fetched::Kind::Sound, asset.file, store_.assetPath(asset)};
 }
 
 void ArtworkFetcher::recordMiss(const Work& work) const {

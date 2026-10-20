@@ -3,7 +3,9 @@
 // the set of the zip's name matches a core when every ROM it needs is in the zip, in the zips of
 // its parent and BIOS, or in its devices' zips, all in the same folder, and its disks are there.
 // Verdicts are kept under `<cache>/romsets/matches.json` by the size and modification time of
-// the zip and of every file the match looked at, so a library scan reads each zip once.
+// the zip and of every file the match looked at, so a library scan reads each zip once. A scan
+// never waits on a listing: one not kept yet is asked of `RomsetLists`, and its verdict is
+// pending while it downloads.
 #pragma once
 
 #include <chrono>
@@ -20,6 +22,7 @@
 #include "game.hpp"
 #include "romset_dat.hpp"
 #include "romset_dats.hpp"
+#include "romset_lists.hpp"
 
 namespace opensu::library::roms {
 
@@ -90,15 +93,18 @@ struct RomsetVerdict {
 /// Marks each of the game's emulators with its verdict and picks the emulator by them: the one
 /// the search picked when it matches, else the first matching one installed, else the first
 /// matching one (to download). With no match and every core checked the game cannot start and
-/// says so; `romset` names the matches, `romsetNearest` the nearest core's gap. Unchecked
-/// verdicts change nothing.
+/// says so; `romset` names the matches, `romsetNearest` the nearest core's gap. With no match
+/// while a core's verdict is pending the game waits: `romset` is `checkingRomset` and it cannot
+/// start until the listings are in. Unchecked verdicts change nothing.
 void applyRomsets(Game& game, std::string_view set, const std::vector<RomsetVerdict>& verdicts);
-
-/// How long a matcher waits before it refreshes a listing again.
-inline constexpr std::chrono::hours romsetRetryAfter{1};
 
 /// The text a game shows when no arcade core matches its romset.
 inline constexpr std::string_view noRomsetMatch = "No arcade core matches this romset";
+/// The text a game shows while the listings it is matched with download.
+inline constexpr std::string_view checkingRomset = "Checking romset…";
+/// Why such a game cannot start yet.
+inline constexpr std::string_view romsetListsDownloading =
+    "The romset is checked once its lists download (see Downloads)";
 
 class RomsetMatcher {
   public:
@@ -106,14 +112,15 @@ class RomsetMatcher {
 
     /// A matcher that is nowhere: every verdict is unchecked.
     RomsetMatcher() = default;
-    explicit RomsetMatcher(RomsetDats dats);
+    /// Matches with the listings `lists` keeps, asking it for those that are due.
+    explicit RomsetMatcher(RomsetLists& lists);
 
-    /// Starts a library scan at `now`. A listing is refreshed when a scan first needs it and
-    /// again no sooner than `romsetRetryAfter` later, so a failing fetch is not repeated per scan.
+    /// Starts a library scan at `now`.
     void begin(Clock::time_point now);
 
     /// Each of `cores`' verdicts on `zip`, kept from an earlier scan when nothing it was matched
-    /// with has changed.
+    /// with has changed. A core whose listing is not kept is pending while `RomsetLists` fetches
+    /// it, else unchecked.
     [[nodiscard]] std::vector<RomsetVerdict> check(const std::filesystem::path& zip,
                                                    std::span<const EmulatorEntry* const> cores);
 
@@ -130,24 +137,21 @@ class RomsetMatcher {
 
     [[nodiscard]] std::filesystem::path keptFile() const;
     void loadKept();
-    /// The stamp of each of `cores`' listings, refreshed first in this scan.
+    /// The stamp of each of `cores`' kept listings, read once a scan; a due one is asked for.
     [[nodiscard]] std::map<std::string, std::uint32_t, std::less<>>
     stampsOf(std::span<const EmulatorEntry* const> cores);
     /// `entry`'s listing with the sets of `folder`'s zips; null when it cannot be had.
     [[nodiscard]] const RomsetDat* datFor(const EmulatorEntry& entry,
                                           const std::filesystem::path& folder);
 
+    RomsetLists* lists_{nullptr};
     RomsetDats dats_;
     Clock::time_point now_{};
     bool keptLoaded_{false};
     bool changed_{false};
     std::map<std::string, Kept, std::less<>> kept_;
-    /// When each listing was last refreshed, and its stamp then.
-    struct Refresh {
-        Clock::time_point tried;
-        std::optional<DatStamp> stamp;
-    };
-    std::map<std::string, Refresh, std::less<>> refreshed_;
+    /// Each listing's stamp as this scan read it.
+    std::map<std::string, std::optional<DatStamp>, std::less<>> stamps_;
     std::filesystem::path loadedFolder_;
     std::map<std::string, std::optional<RomsetDat>, std::less<>> loaded_;
 };

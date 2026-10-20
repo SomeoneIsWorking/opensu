@@ -35,6 +35,8 @@ struct DownloadLine {
     /// queued, downloading, paused, installing, finished, failed or cancelled.
     std::string state{};
     std::optional<int> percent{};
+    /// The page's figures: bytes and rate, or why it failed.
+    std::string figures{};
 
     bool operator==(const DownloadLine&) const = default;
 };

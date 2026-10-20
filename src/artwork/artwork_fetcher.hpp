@@ -48,7 +48,7 @@ struct RemoteSources {
 /// A game's, console's, system glyph's, UI sound's or dock icon's file, or the arcade names, now
 /// on disk.
 struct Fetched {
-    enum class Kind : std::uint8_t { Game, Console, Glyph, Sound, NavIcon, Names };
+    enum class Kind : std::uint8_t { Game, Console, Glyph, Sound, Names };
 
     Kind kind;
     /// The game's id, the console's or glyph's system, or the sound's or icon's file name; empty

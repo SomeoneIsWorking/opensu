@@ -8,7 +8,6 @@
 #include "arcade_names.hpp"
 #include "emulators.hpp"
 #include "game.hpp"
-#include "net/web_client.hpp"
 #include "romset_match.hpp"
 #include "switch_info.hpp"
 
@@ -27,10 +26,10 @@ standardMountDirs(const std::filesystem::path& home);
 
 class Provider final : public library::Provider {
   public:
-    /// Arcade romsets are matched with listings kept under `cacheDir`; an empty one matches none.
-    /// Switch games are titled by `switchInfo`.
+    /// Arcade romsets are matched with the listings `romsets` keeps and fetches, which outlives
+    /// the provider; null matches none. Switch games are titled by `switchInfo`.
     Provider(std::vector<std::filesystem::path> roots, EmulatorSetup emulators, NameDb names,
-             const std::filesystem::path& cacheDir, SwitchInfo switchInfo);
+             RomsetLists* romsets, SwitchInfo switchInfo);
 
     [[nodiscard]] Source source() const override {
         return Source::Rom;
@@ -40,7 +39,8 @@ class Provider final : public library::Provider {
     /// dump tags cleaned off, and an arcade game from the kept listing when it has its short name.
     /// A PS4 dump or a Switch game file that names itself is titled and shown by what it says.
     /// A game whose system has no emulator is listed, with `unavailable` naming what to install.
-    /// An arcade zip's emulator is the one its romset matches (`applyRomsets`).
+    /// An arcade zip's emulator is the one its romset matches (`applyRomsets`); a listing not
+    /// kept yet is fetched in the background and never waited on.
     /// The emulators are searched for on every call, so one installed since shows.
     [[nodiscard]] std::vector<Game> list() override;
 
@@ -52,7 +52,6 @@ class Provider final : public library::Provider {
     std::vector<std::filesystem::path> roots_;
     EmulatorSetup emulators_;
     NameDb names_;
-    net::WebClient web_;
     RomsetMatcher romsets_;
     SwitchInfo switch_;
 };

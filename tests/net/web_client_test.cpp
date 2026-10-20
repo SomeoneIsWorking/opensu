@@ -1,6 +1,7 @@
 // The guarded request plugins fetch through: every redirect is asked about before it is followed,
 // a body over the cap is refused, and any status comes back with its body. A download asks about
-// its redirects the same way, and only the last hop's body is kept.
+// its redirects the same way, and only the last hop's body is kept. A request with progress is
+// told of its bytes and can be cancelled.
 #include <cstdio>
 #include <fstream>
 #include <iterator>
@@ -59,6 +60,25 @@ int main() {
     const auto missing = web.request(server.base() + "/nothing", {}, open, error);
     expect(missing && missing->status == 404 && missing->body == "none",
            "another status comes back with its body");
+
+    std::uint64_t seen = 0;
+    std::uint64_t announced = 0;
+    const net::WebClient::Guard told{.maxBody = 8192,
+                                     .refusal = open.refusal,
+                                     .progress = [&](std::uint64_t received, std::uint64_t total) {
+                                         seen = received;
+                                         announced = total;
+                                         return true;
+                                     }};
+    const auto big = web.request(server.base() + "/big", {}, told, error);
+    expect(big && big->body.size() == 4096 && seen == 4096 && announced == 4096,
+           "a request with progress is told of its bytes and the announced size");
+    const net::WebClient::Guard stopped{
+        .maxBody = 8192, .refusal = open.refusal, .progress = [](std::uint64_t, std::uint64_t) {
+            return false;
+        }};
+    expect(!web.request(server.base() + "/big", {}, stopped, error) && error == "cancelled",
+           "a request its progress stops is cancelled");
 
     const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "web_client"};
     const std::filesystem::path file = scratch.path() / "body";

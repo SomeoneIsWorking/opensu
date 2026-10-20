@@ -40,25 +40,28 @@ class WebClient {
         std::string body;
     };
 
+    /// Bytes received and the size the server announced (0 when unknown); returns false to cancel.
+    using Progress = std::function<bool(std::uint64_t received, std::uint64_t total)>;
+
     /// Why `url` may not be requested, or empty when it may. Asked for the URL and for every
     /// redirect before it is followed.
     using Refusal = std::function<std::string(const std::string& url)>;
 
     /// What a guarded request may do: how large a body it takes, and which URLs it may reach.
+    /// With `progress` it is told of each hop's bytes as they arrive, may be cancelled, and has
+    /// only a stall limit instead of an overall time limit.
     struct Guard {
         std::size_t maxBody{0};
         Refusal refusal;
+        Progress progress{};
     };
 
     /// The response to a GET of `url` with `headers` sent, following redirects that `guard`
-    /// allows. Nothing when a hop is refused, the body is over `guard.maxBody` or the transfer
-    /// fails; `error` says why.
+    /// allows. Nothing when a hop is refused, the body is over `guard.maxBody`, the transfer
+    /// fails or `guard.progress` cancels it; `error` says why ("cancelled" for the last).
     [[nodiscard]] std::optional<Answer> request(const std::string& url,
                                                 const std::vector<std::string>& headers,
                                                 const Guard& guard, std::string& error) const;
-
-    /// Bytes received and the size the server announced (0 when unknown); returns false to cancel.
-    using Progress = std::function<bool(std::uint64_t received, std::uint64_t total)>;
 
     /// Streams the body of a 200 response to `file`, following redirects that `refusal` allows,
     /// or without one, only those within the URL's own scheme. `progress` is called as bytes

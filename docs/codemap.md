@@ -24,8 +24,8 @@ gitignored `docs/reference/`).
 | `src/app/retro_session.*` | The shell's side of `opensu-retro`'s control channel: each launch's `OPENSU_RETRO_CONTROL` file under the runtime dir, the port read from it, `/status`, save, load and reset over `lucent::http` loopback with the toast each comes to (`perform`), the load failure a runner leaves handed over and the file removed |
 | `src/app/game_end.*` | The toast for a launch that is over: a runner's load failure, `<title> crashed (SIGSEGV)` for a death by a signal the player did not send, the launch's failure, or `<title> closed` |
 | `src/app/devices_controller.*` | The Devices page: Bluetooth, Controllers, Audio output and Display tabs and what their rows do |
-| `src/app/downloads_board.*` | The Downloads page's model: Steam's queue, the store install, update or uninstall and the emulator download merged each frame into rows with state, order and the actions each owner allows; ended rows kept until quit. Pure |
-| `src/app/downloads_controller.*` | The Downloads page's controller: feeds the board, fills the page, sends a pressed button to the row's owner (`Installs`, `EmulatorDownloads`, `steam::DownloadControl` on a worker) |
+| `src/app/downloads_board.*` | The Downloads page's model: Steam's queue, the store install, update or uninstall, the emulator download and the arcade romset list fetches (`romsets:<core id>`, in fetch order, no buttons) merged each frame into rows with state, order and the actions each owner allows; ended rows kept until quit. Pure |
+| `src/app/downloads_controller.*` | The Downloads page's controller: feeds the board (the romset lists from `RomsetLists`, a failure's reason and retry time; each list's end toasted and the catalog read again), fills the page, sends a pressed button to the row's owner (`Installs`, `EmulatorDownloads`, `steam::DownloadControl` on a worker) |
 | `src/app/host_services.*` | Power, session mode, Bluetooth and backlight backends for this machine; the one place a hidden run is made read-only |
 | `src/app/bluetooth_session.*` | BlueZ reads off the loop and one change at a time, with notices; pairing is pair, trust, connect |
 | `src/app/controller_roster.*` | The pads connected now in player order, with battery and held buttons (the live button test) |
@@ -150,8 +150,9 @@ gitignored `docs/reference/`).
 | `src/library/switch_crypto.*` | AES-128 ECB, CTR and XTS over libcrypto, and `KeyBytes`, key material wiped on destruction |
 | `src/library/arcade_names.*` | Arcade short name to description: the libretro-database `.dat` parser and `NameDb`, the parsed names kept under `<cache>/names/` |
 | `src/library/romset_dat.*` | An arcade core's ROM-set listing (`RomsetDat`): each set's ROMs (name, size, CRC-32, BIOS choice), `romof`, default BIOS, devices and disks, read from a Logiqx datafile or a MAME `-listxml` and kept in a line format of its own |
-| `src/library/romset_dats.*` | The arcade cores' listings under `<cache>/romsets/<id>.tsv`: fetched over HTTPS from the catalog's `"romsets"` (files on their own origin, or a release's `.xml` zip, SHA-256 checked), fetched again after `romsetDatLifetime`, the old one kept when a fetch fails |
-| `src/library/romset_match.*` | Which arcade core a zip's romset is for: its central directory read (`readZipMembers`), matched against each listing with the parent, BIOS and device zips of its folder (`matchSet`), verdicts kept in `<cache>/romsets/matches.json` by file stamps (`RomsetMatcher`), the game's emulator, "No arcade core matches this romset" and the nearest core's gap set from them (`applyRomsets`) |
+| `src/library/romset_dats.*` | The arcade cores' listings under `<cache>/romsets/<id>.tsv`: fetched over HTTPS from the catalog's `"romsets"` (files on their own origin, or a release's `.xml` zip, SHA-256 checked) with the bytes of all its files reported, due again after `romsetDatLifetime`, the old one kept when a fetch fails |
+| `src/library/romset_lists.*` | The one owner of fetching those listings: off the library scan, one thread, each due listing in turn (`want`), every fetch's state for the session (queued, downloading with bytes, done, failed with why and `romsetRetryAfter`), `ended` counting ends so the shell matches again |
+| `src/library/romset_match.*` | Which arcade core a zip's romset is for: its central directory read (`readZipMembers`), matched against each listing with the parent, BIOS and device zips of its folder (`matchSet`), verdicts kept in `<cache>/romsets/matches.json` by file stamps (`RomsetMatcher`, which never waits on a listing: one `RomsetLists` is fetching is `Pending`), the game's emulator, "No arcade core matches this romset", "Checking romset…" (cannot start yet) and the nearest core's gap set from them (`applyRomsets`) |
 | `src/library/rom_systems.*` | Known systems: folder names, game files, the file a game folder starts; the tables are `constexpr` (`name_list.hpp`) |
 | `src/library/emulators.*` | Which emulator runs each system here, and its command line, from the catalog: openSU's downloaded AppImage, else a package on `PATH`, an AppImage in the usual folders, a Flatpak; a built-in emulator when its core is found and `opensu-retro` is there (`opensu-retro --core <core> <rom>`); every emulator of a system, installed or not (`options`), which a ROM's details page lists |
 | `src/library/emulator_catalog.*`, `assets/emulators.json` | The emulator catalog: id, name, systems, settings folder, launchers (programs, AppImage name, Flatpak id, arguments) and, for emulators with an official AppImage, the release API, asset pattern and download host; a built-in emulator names its libretro core (`"core": "mgba_libretro"`) instead of launchers, an arcade core also its ROM-set listings (`"romsets"`) |
@@ -161,18 +162,18 @@ gitignored `docs/reference/`).
 | `src/library/appimage_runtime.*` | Whether an AppImage can run here: its runtime's libfuse2 need, `/dev/fuse`, `fusermount`; the refusal names the install command for the distribution |
 | `src/artwork/libretro_index.*` | Matching a ROM's name to libretro-thumbnails' box art listing |
 | `src/artwork/arcade_dat.*` | The pinned libretro-database arcade listings (FinalBurn Neo, MAME 2016): download against size and CRC-32, parse, merge; the fetcher keeps the result in `NameDb` |
-| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, UI sounds (`sound/<file>`, WAV or OGG) and the dock's icons (`nav/`) |
-| `src/artwork/artwork_fetcher.*` | The background downloads (queue stages per game, on-screen games first, a settled game reported as not saved): Steam's CDN for Steam, gamesdb (else the library tile) for GOG, the key image URL for Epic, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs, the APK's sounds and nav drawables (`ApkAsset`) |
+| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, and UI sounds (`sound/<file>`, WAV or OGG) |
+| `src/artwork/artwork_fetcher.*` | The background downloads (queue stages per game, on-screen games first, a settled game reported as not saved): Steam's CDN for Steam, gamesdb (else the library tile) for GOG, the key image URL for Epic, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs, the APK's sounds (`ApkAsset`) |
 | `src/artwork/apk_archive.*` | iiSU's release APK read by HTTP ranges: central directory once, any entry by range with its CRC checked; `fetch` is find and extract with a found/missing/failed result (glyphs, sounds and nav icons use it) |
 | `src/artwork/starter_pack.*` | iiSU's starter pack: its entry taken out of the APK against a pin, and a system's card (WebP, decoded and re-encoded by `gpu2d::image`) as PNG |
 | `src/artwork/console_glyphs.*` | iiSU's frame glyphs: `border_pack.json` read once, a system's `logo_*.png` out of the APK |
-| `src/artwork/iisu_assets.*` | Which APK entry is each UI sound and each dock icon (the nav table is valid for the pinned APK only), and all of them (`allApkAssets`) |
+| `src/artwork/iisu_assets.*` | Which APK entry is each UI sound, and all of them (`allApkAssets`) |
 | `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds openSU plays (`yp8`): effect to APK file name, the Domino cues and `dominoFor(tileCount)` (`xp8.a`), the 91 ms repeat rule for Enter/ExitConsolesApps and the Domino cues; pure (`opensu_audio_model`) |
 | `src/audio/volume_backend.*` | PC output volume through wpctl or pactl (injectable runner), a read-only shadow for hidden runs, the install advice when no backend exists |
 | `src/audio/system_volume.*` | Volume and mute state, steps, one listener, async polling of changes made elsewhere |
 | `src/audio/sound_clip.*` | A UI sound decoded to PCM without a device: WAV through `SDL_LoadWAV`, OGG through libvorbisfile |
 | `src/audio/sdl_sound_player.*` | The shell's UI sounds on SDL audio (`opensu_audio`): clips decoded on `load` with or without a device, the default device opened once by `open` (never in hidden runs or tests), one bound stream per effect, `play` restarts the clip through the debounce |
-| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads; `request` with a body cap, and `request` and `download` with each redirect hop checked (`Refusal`); a URL's origin (`originOf`) |
+| `src/net/web_client.*` | HTTPS GETs over libcurl, with headers, and streamed file downloads with progress and cancel; shared by artwork, the stores and emulator downloads; `request` with a body cap (and, with `Guard::progress`, progress, cancel and a stall limit instead of a time limit), and `request` and `download` with each redirect hop checked (`Refusal`); a URL's origin (`originOf`) |
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`) (`opensu_pad`) |
@@ -259,8 +260,8 @@ Pure model, unit-tested without a GPU (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/tile_motion.*` | Focus scale, domino entrance, press pulse, ring rotation, FastOutSlowIn, the rail's visual-index easing |
 | `src/ui/section_view.*` | Per section: the grid viewport (3 rows x 4 columns, column-major, horizontal paging, both sections) and the presentation (Grid, XMB, Carousel) |
 | `src/ui/rail_layout.*` | XMB and Carousel geometry (navigation.md 5.3): rectangles of the tiles near the canvas only (`first()`), from the fractional focus, left column, header card, marker and title anchors; the tile under a point (`railTileAt`) |
-| `src/ui/rail_painter.*` | XMB/Carousel chrome: the recoloured section icon, the header card, the markers and the shadowed title |
-| `src/ui/icon_recolour.*` | Reads a console card's border colours and recolours the section icon with them |
+| `src/ui/rail_painter.*` | XMB/Carousel chrome: the section icon (`library.svg` with its colours swapped for the focused console's border), the header card, the markers and the shadowed title |
+| `src/ui/card_border.*` | Reads a console card's border colours, which the section icon is drawn in |
 | `src/ui/dock_metrics.*` | The dock capsule's sizes and rectangles in dp (`gh3.i1/j1`, `jj2`); which item a pointer is on (`dockItemAt`) |
 | `src/ui/dock_motion.*` | The dock's show/hide (`dockPinned`: Home always, Library by the pin option; else 1200 ms after L1/R1 on Library; show 170 ms ease-out from below, hide 125 ms ease-in straight down) and the icon pop |
 | `src/ui/mode_chooser.*` | The options panel's state, focus row and scrolling layout (cards, icon size slider, pin, sort, source, filters, search); the card, row or slider level under a point |
@@ -299,10 +300,10 @@ Painters and composition (`opensu_ui`):
 | `src/ui/status_pill.*`, `glass.*` | The one status pill painter: clock, battery and the launchers inline, on a glass body |
 | `src/ui/launcher_badges.*` | Launcher logos with status dots, the starting spinner and the download ring, drawn by the status pill painter; the hover light |
 | `src/ui/breadcrumb_painter.*`, `details_page_painter.*` | The breadcrumb pill; the details page (cover, backdrop, title, badge, rows above the buttons or wrapped beside them, buttons with their value fitted after the label) |
-| `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size |
+| `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size: launcher logos as white masks, openSU's own Home and Library icons (each with a `_selected` variant) in colour, with paint colours swapped on request (`ColourSwap`) |
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (a starting launcher's ring) |
 | `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included; LT/RT, d-pad arrows and named caps such as L3 and GUIDE are openSU's), or the bound key's cap when keyboard and mouse were last used |
-| `src/ui/dock_painter.*` | The dock capsule: glass, nav icons, LB/RB badges |
+| `src/ui/dock_painter.*` | The dock capsule: glass, the sections' icons (from `IconAtlas`, rasterised at their resting size), LB/RB badges |
 | `src/ui/mode_chooser_painter.*` | The options panel: the cards after iiSU's chooser, with sketched previews, then the slider and switch rows |
 | `src/ui/search_panel_painter.*`, `context_menu_painter.*` | The search panel with its keyboard and the tile context menu |
 | `src/ui/hint_row.*` | A row of button prompts with labels, centred in a band (`paintHintRow`), for the context menu and the mapping page |

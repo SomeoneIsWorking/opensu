@@ -1,5 +1,5 @@
 // downloads_controller — the Downloads page's contents and buttons. Each frame it reads every
-// download source (Steam's queue, the store install, the emulator download) into
+// download source (Steam's queue, the store install, the emulator download, the romset lists) into
 // `DownloadsBoard`, shows the board's rows on the page while it is up, and sends a chosen action to
 // the row's owner: a cancel to `Installs` or `EmulatorDownloads`, a pause, resume, move or remove
 // to Steam through `steam::DownloadControl`, which runs off the loop as Steam answers.
@@ -18,6 +18,7 @@
 #include "emulator_downloads.hpp"
 #include "gamepad/event.hpp"
 #include "installs.hpp"
+#include "library/romset_lists.hpp"
 #include "steam/download_control.hpp"
 #include "ui/downloads_page.hpp"
 
@@ -32,6 +33,7 @@ class DownloadsController {
     struct Sources {
         Installs& installs;
         EmulatorDownloads& emulators;
+        const library::roms::RomsetLists& romsetLists;
         steam::DownloadControl& steam;
         /// Whether Steam runs and can be asked.
         std::function<bool()> steamReady;
@@ -44,6 +46,8 @@ class DownloadsController {
     struct Hooks {
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
+        /// A romset list fetch ended: the library is matched again.
+        std::function<void()> romsetListsEnded;
     };
 
     DownloadsController(ui::DownloadsPage& page, Sources sources, audio::SdlSoundPlayer& sounds,
@@ -81,6 +85,8 @@ class DownloadsController {
     };
 
     [[nodiscard]] std::vector<ui::DownloadsEntry> entries() const;
+    /// The romset list fetches as the board takes them; tells the player of each that ended.
+    [[nodiscard]] std::vector<RomsetListLook> lookAtRomsetLists();
     /// Does `action` to `row` through its owner.
     void perform(const DownloadRow& row, DownloadAction action);
     /// Cancels the store install of `row`, if it is the one that runs.
@@ -96,6 +102,9 @@ class DownloadsController {
     std::mutex mutex_;
     std::optional<SteamAnswer> answer_;
     bool asking_{false};
+    /// `RomsetLists::ended` as last seen, and the fetches then.
+    std::uint64_t romsetListsEnded_{0};
+    std::vector<library::roms::RomsetFetch> romsetFetches_;
     /// Last, so it is joined before what it uses goes.
     std::jthread worker_;
 };

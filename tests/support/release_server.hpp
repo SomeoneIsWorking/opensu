@@ -47,6 +47,12 @@ class ReleaseServer {
         files_["/dl/" + std::to_string(assetId) + "/" + name] = body;
     }
 
+    /// Serves `body` at `path`.
+    void put(const std::string& path, std::string body) {
+        const std::lock_guard lock{mutex_};
+        files_[path] = std::move(body);
+    }
+
     /// What a test names of an emulator; the rest of its catalog entry points here.
     struct Emulator {
         std::string id;

@@ -42,6 +42,8 @@ enum class RomsetFit : std::uint8_t {
     Unchecked,
     Matches,
     Mismatch,
+    /// Its listing is downloading.
+    Pending,
 };
 
 /// One emulator that can run a ROM's system, installed here or not.
@@ -118,8 +120,8 @@ struct Game {
     std::string emulator;
     /// Why `launch` is empty for a game that is there to play, in words for the player.
     std::string unavailable;
-    /// An arcade zip's romset: the cores it matches, or that none does; empty when it was not
-    /// checked.
+    /// An arcade zip's romset: the cores it matches, that none does, or that it is being checked;
+    /// empty when it was not checked.
     std::string romset;
     /// With no core matching, the nearest one and what the set lacks for it.
     std::string romsetNearest;

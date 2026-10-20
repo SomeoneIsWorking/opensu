@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <utility>
@@ -46,7 +47,39 @@ std::string sourceText(const DownloadRow& row) {
     if (row.store) {
         return std::string{library::label(*row.store)};
     }
-    return row.kind == DownloadKind::Core ? "Core" : "Emulator";
+    switch (row.kind) {
+    case DownloadKind::Core:
+        return "Core";
+    case DownloadKind::RomsetList:
+        return "Arcade";
+    case DownloadKind::Game:
+    case DownloadKind::Emulator:
+        break;
+    }
+    return "Emulator";
+}
+
+/// Why a fetch failed and when it is tried again.
+std::string failureText(const library::roms::RomsetFetch& fetch,
+                        library::roms::RomsetLists::Clock::time_point now) {
+    const auto minutes =
+        std::chrono::ceil<std::chrono::minutes>(std::max(fetch.retryAt - now, {})).count();
+    return fetch.error + "  ·  tried again in " + std::to_string(minutes) + " min";
+}
+
+DownloadState stateOf(library::roms::RomsetFetch::Phase phase) {
+    using Phase = library::roms::RomsetFetch::Phase;
+    switch (phase) {
+    case Phase::Queued:
+        return DownloadState::Queued;
+    case Phase::Downloading:
+        return DownloadState::Downloading;
+    case Phase::Done:
+        return DownloadState::Finished;
+    case Phase::Failed:
+        break;
+    }
+    return DownloadState::Failed;
 }
 
 std::optional<int> percentOf(const DownloadRow& row) {
@@ -192,6 +225,7 @@ void DownloadsController::service() {
         }
     }
 
+    look.romsetLists = lookAtRomsetLists();
     board_.update(look);
     if (page_.isOpen()) {
         std::vector<ui::DownloadsEntry> shown = entries();
@@ -199,6 +233,42 @@ void DownloadsController::service() {
             page_.refresh(std::move(shown));
         }
     }
+}
+
+std::vector<RomsetListLook> DownloadsController::lookAtRomsetLists() {
+    using Phase = library::roms::RomsetFetch::Phase;
+    const library::roms::RomsetLists& lists = sources_.romsetLists;
+    const std::uint64_t endedNow = lists.ended();
+    std::vector<library::roms::RomsetFetch> fetches = lists.fetches();
+    if (endedNow != romsetListsEnded_) {
+        romsetListsEnded_ = endedNow;
+        for (const library::roms::RomsetFetch& fetch : fetches) {
+            const auto before =
+                std::ranges::find(romsetFetches_, fetch.id, &library::roms::RomsetFetch::id);
+            const bool wasEnded = before != romsetFetches_.end() && before->phase == fetch.phase;
+            if (wasEnded || (fetch.phase != Phase::Done && fetch.phase != Phase::Failed)) {
+                continue;
+            }
+            hooks_.say(fetch.phase == Phase::Done ? "Romset list of " + fetch.name + " downloaded"
+                                                  : fetch.error,
+                       fetch.phase == Phase::Failed);
+        }
+        hooks_.romsetListsEnded();
+    }
+    const auto now = library::roms::RomsetLists::Clock::now();
+    std::vector<RomsetListLook> looks;
+    looks.reserve(fetches.size());
+    for (const library::roms::RomsetFetch& fetch : fetches) {
+        looks.push_back(RomsetListLook{
+            .id = fetch.id,
+            .name = fetch.name,
+            .state = stateOf(fetch.phase),
+            .received = fetch.received,
+            .total = fetch.total,
+            .detail = fetch.phase == Phase::Failed ? failureText(fetch, now) : std::string{}});
+    }
+    romsetFetches_ = std::move(fetches);
+    return looks;
 }
 
 void DownloadsController::act(gamepad::Button button) {
@@ -307,7 +377,8 @@ std::vector<DownloadLine> DownloadsController::lines() const {
                                    .title = row.title,
                                    .source = sourceText(row),
                                    .state = std::string{spelling(row.state)},
-                                   .percent = percentOf(row)});
+                                   .percent = percentOf(row),
+                                   .figures = entryOf(row).figures});
     }
     return out;
 }
