@@ -40,10 +40,33 @@ void FocusFollow::service(bool game) {
                  : holder_ == FocusHolder::BigPicture ? "Big Picture"
                                                       : "another window");
     if (holder_ == FocusHolder::BigPicture && closesBigPicture_) {
-        closer_ = std::jthread{[close = hooks_.closeBigPicture] {
-            close();
-        }};
+        requestClose();
         hooks_.takeFocus();
+    }
+}
+
+void FocusFollow::requestClose() {
+    {
+        const std::lock_guard lock{closeMutex_};
+        closePending_ = true;
+    }
+    closeWanted_.notify_one();
+    if (!closer_.joinable()) {
+        closer_ = std::jthread{[this](const std::stop_token& stop) {
+            closeOnRequest(stop);
+        }};
+    }
+}
+
+void FocusFollow::closeOnRequest(const std::stop_token& stop) {
+    std::unique_lock lock{closeMutex_};
+    while (closeWanted_.wait(lock, stop, [this] {
+        return closePending_;
+    })) {
+        closePending_ = false;
+        lock.unlock();
+        hooks_.closeBigPicture();
+        lock.lock();
     }
 }
 
