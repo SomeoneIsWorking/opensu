@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "argv.hpp"
+#include "child_environment.hpp"
 #include "lucent/log.h"
 
 namespace opensu::launch {
@@ -100,6 +101,7 @@ fs::path resolveExecutable(const std::string& program, const std::vector<fs::pat
 std::optional<int> runCommand(const std::string& program, const std::vector<std::string>& args,
                               std::chrono::milliseconds timeout) {
     Argv argv{program, args};
+    ChildEnvironment environment{environ};
 
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
@@ -107,7 +109,7 @@ std::optional<int> runCommand(const std::string& program, const std::vector<std:
     posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
     pid_t pid = -1;
     const int spawned =
-        posix_spawnp(&pid, program.c_str(), &actions, nullptr, argv.data(), environ);
+        posix_spawnp(&pid, program.c_str(), &actions, nullptr, argv.data(), environment.data());
     posix_spawn_file_actions_destroy(&actions);
     if (spawned != 0) {
         lucent::warn("launch", "cannot run {}: {}", program, std::strerror(spawned));
@@ -185,6 +187,7 @@ std::optional<int> stream(const std::string& program, const std::vector<std::str
     Descriptor stdinWriter{inEnds[1]};
 
     Argv argv{program, args};
+    ChildEnvironment environment{environ};
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     if (stdinLine) {
@@ -205,7 +208,7 @@ std::optional<int> stream(const std::string& program, const std::vector<std::str
     posix_spawnattr_setpgroup(&attributes, 0);
     pid_t pid = -1;
     const int spawned =
-        posix_spawnp(&pid, program.c_str(), &actions, &attributes, argv.data(), environ);
+        posix_spawnp(&pid, program.c_str(), &actions, &attributes, argv.data(), environment.data());
     posix_spawn_file_actions_destroy(&actions);
     posix_spawnattr_destroy(&attributes);
     if (spawned != 0) {

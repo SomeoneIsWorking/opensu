@@ -89,7 +89,7 @@ gitignored `docs/reference/`).
 
 | Path | Owns |
 | --- | --- |
-| `src/session/compositor_session.*` | Re-running openSU inside its own Gamescope when not already in one: nested at the monitor's size on a desktop, top level on DRM at the native mode for `--session`; starting a fresh Gamescope after an abnormal end nobody asked for |
+| `src/session/compositor_session.*` | Re-running openSU inside its own Gamescope when not already in one, without the Gamescope WSI layer so its window reaches Gamescope through Xwayland with alpha: nested at the monitor's size on a desktop, top level on DRM at the native mode for `--session`; starting a fresh Gamescope after an abnormal end nobody asked for |
 | `src/session/restart_budget.*` | How often a crashed compositor is started again (3 restarts in any 2 minutes) |
 | `src/host/session_mode.*` | Session mode, the one owner of switching sessions: `installed()` (an entry for this openSU in a directory SDDM reads, and the selector), the root step (`sudo -S -k` with the password on stdin, one `install-session.sh`), Switch to session mode (selector `opensu`, then KDE's `org.kde.Shutdown.logout`) and Switch to desktop (selector `restore`, then stopping the Gamescope scope); read-only wrapper for hidden runs |
 | `src/host/login_session_end.*`, `src/session/login_session.*` | What the next login is when the login session ends: an abnormal end (Gamescope non-zero, by a signal, or within 30 s) runs `sudo -n <selector> restore` so SDDM autologin cannot relogin in a loop; a logout or shutdown signal and a deliberate Switch to desktop (the note) leave it alone; `LoginSession` composes the top-level `CompositorSession` with the judgement and the desktop fallback |
@@ -107,7 +107,7 @@ gitignored `docs/reference/`).
 | `src/launch/instance.*` | One transient systemd user scope per launch, its program started with no signal blocked; stopping it ends the whole tree; how the started process ended (`exitStatus`) |
 | `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends; how a game in an Instance ended (`Hooks::ended`), unless force-closed |
 | `src/launch/process_tree.*` | Finding processes by command line, ending trees |
-| `src/launch/command.*`, `argv.hpp` | Short-lived children, a child streamed line by line, its stdout captured or fed one line on stdin (`runCapturedWithLine`, the sudo password) (own `opensu_command` target, so `library` can run `legendary`), executable lookup, exec argv |
+| `src/launch/command.*`, `argv.hpp`, `child_environment.*` | The environment every started program gets (openSU's own less `DISABLE_GAMESCOPE_WSI`, which is the shell's alone), short-lived children, a child streamed line by line, its stdout captured or fed one line on stdin (`runCapturedWithLine`, the sudo password) (own `opensu_command` target, so `library` can run `legendary`), executable lookup, exec argv |
 | `src/launch/steam_gate.hpp` | What a Steam launch waits for from the owned Steam client; whether a Steam game shows in openSU's Gamescope (Managed) or on the desktop |
 | `src/launch/launch_progress.*` | A launch's stage before its window (waiting for Steam, updating, starting, loading) and its line of text |
 | `src/launch/game_windows.hpp` | What the handoff asks the display: does the game show a window yet |

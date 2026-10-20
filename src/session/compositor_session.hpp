@@ -30,7 +30,8 @@ class CompositorSession {
                       host::DesktopRequest desktopRequest, RestartLimit restarts = {});
 
     /// Runs `<this executable> <args>` in a Gamescope sized to `output` (top level when it is
-    /// native), in the scope `<session>-compositor.scope`, and waits for it to end. Then stops
+    /// native), in the scope `<session>-compositor.scope`, with the Gamescope WSI layer off
+    /// for it (`launch::gamescopeWsiOff`), and waits for it to end. Then stops
     /// every other scope of the session. When Gamescope ended abnormally (a signal or a non-zero
     /// exit) and nobody asked for the end, a fresh Gamescope is started, within `restarts`.
     /// Returns the last Gamescope's exit status, or 1 when it could not be started, among it a

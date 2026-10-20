@@ -10,9 +10,16 @@ The window's alpha: SDL 3.4.18's `SDL_ClaimWindowForGPUDevice` refuses any windo
 without that flag SDL's X11 backend gives a non-GL window the default 24-bit visual. gpu2d's
 `GpuWindow` therefore picks a 32-bit TrueColor visual itself and hands it to SDL through
 `SDL_HINT_VIDEO_X11_WINDOW_VISUALID`; on such a visual Mesa's X11 swapchain offers only INHERIT and
-PRE_MULTIPLIED composite alpha, and SDL takes INHERIT, so the window's premultiplied alpha is what
-the compositor blends. gpu2d's `tests/canvas_test` checks the depth; the overlay over a game is
-still to be seen by the player through this path (§5.4).
+PRE_MULTIPLIED composite alpha, and SDL takes INHERIT, so Xwayland gives Gamescope an ARGB buffer and
+the window's premultiplied alpha is what Gamescope blends. That holds only through Xwayland. The
+Gamescope WSI layer, which Gamescope enables for its children, moves the swapchain to a Wayland
+surface, where Mesa offers OPAQUE and PRE_MULTIPLIED, SDL takes OPAQUE (it looks further only for
+`SDL_WINDOW_TRANSPARENT`), and Mesa makes the buffer XRGB: Gamescope then draws the overlay opaque
+and the game turns black under it. So `CompositorSession` runs the shell with
+`DISABLE_GAMESCOPE_WSI=1`, and `launch::ChildEnvironment` keeps that variable from every program the
+shell starts, so games keep the layer (`docs/issues/overlay-blacks-out-game.md`). gpu2d's
+`tests/canvas_test` checks the depth; the blend over a game is verified in a headless Gamescope,
+not yet by the player on the desktop (§5.4).
 
 ## 1. Goal
 
@@ -86,7 +93,9 @@ through gpu2d.
 3. Unit tests for the canvas render primitives offscreen and check pixels (a rounded rectangle's
    inside, edge and outside; a ring's gap; scissor; blend).
 4. The overlay over a game in nested Gamescope is checked on the player's desktop by the player;
-   agents cannot open a visible Gamescope.
+   agents cannot open a visible Gamescope. Agents check the blend in a headless Gamescope
+   (`--backend headless`) from its own full-composition screenshot (`gamescope_control`
+   `take_screenshot`), as in `docs/issues/overlay-blacks-out-game.md`.
 
 ## 6. Order
 

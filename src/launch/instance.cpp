@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "argv.hpp"
+#include "child_environment.hpp"
 #include "command.hpp"
 #include "lucent/log.h"
 
@@ -73,6 +74,7 @@ bool Instance::start(const std::string& unit, const std::string& program,
     runArgs.push_back(program);
     runArgs.insert(runArgs.end(), args.begin(), args.end());
     Argv argv{"systemd-run", runArgs};
+    ChildEnvironment childEnvironment{environ};
 
     const pid_t pid = fork();
     if (pid < 0) {
@@ -84,7 +86,7 @@ bool Instance::start(const std::string& unit, const std::string& program,
         sigset_t none;
         sigemptyset(&none);
         sigprocmask(SIG_SETMASK, &none, nullptr);
-        execvp("systemd-run", argv.data());
+        execvpe("systemd-run", argv.data(), childEnvironment.data());
         std::_Exit(127);
     }
     child_ = pid;

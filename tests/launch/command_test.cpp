@@ -107,6 +107,23 @@ int main() {
     expect(Clock::now() - streamed < std::chrono::seconds{8},
            "stopping does not wait for the child");
 
+    // The shell's own Gamescope WSI switch is not handed to what it runs; the rest is.
+    setenv("DISABLE_GAMESCOPE_WSI", "1", 1);
+    setenv("OPENSU_COMMAND_TEST", "kept", 1);
+    const std::string probe = "echo ${DISABLE_GAMESCOPE_WSI-unset} $OPENSU_COMMAND_TEST";
+    const auto environment = runCaptured("/bin/sh", {"-c", probe});
+    const fs::path ranFile = scratch / "ran-environment";
+    const auto ran =
+        runCommand("/bin/sh", {"-c", probe + " > " + ranFile.string()}, std::chrono::seconds{10});
+    unsetenv("DISABLE_GAMESCOPE_WSI");
+    expect(environment && environment->output == "unset kept\n",
+           "a captured child has no DISABLE_GAMESCOPE_WSI and keeps the rest");
+    std::ifstream ranIn{ranFile};
+    std::string ranLine;
+    std::getline(ranIn, ranLine);
+    expect(ran == 0 && ranLine == "unset kept",
+           "a short-lived child has no DISABLE_GAMESCOPE_WSI and keeps the rest");
+
     fs::remove_all(scratch);
     std::printf("command: all checks passed\n");
     return 0;

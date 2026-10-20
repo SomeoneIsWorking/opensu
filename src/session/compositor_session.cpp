@@ -7,6 +7,7 @@
 
 #include <pthread.h>
 
+#include "launch/child_environment.hpp"
 #include "launch/command.hpp"
 #include "launch/instance.hpp"
 #include "lucent/log.h"
@@ -88,7 +89,8 @@ int CompositorSession::runOnce(const Output& output, const std::string& self,
     std::string failure;
     if (!compositor.start(session_ + "-compositor.scope", gamescope_.string(),
                           gamescopeArgs(output, self, args), failure,
-                          {std::string{sessionVariable} + "=" + session_})) {
+                          {std::string{sessionVariable} + "=" + session_,
+                           std::string{launch::gamescopeWsiOff} + "=1"})) {
         lucent::error("session", "{}", failure);
         return -1;
     }

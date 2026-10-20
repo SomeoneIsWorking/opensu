@@ -5,6 +5,8 @@
 // focus. All three are read on PropertyNotify, so they change while the window stays mapped.
 // The window must be at least as wide as the root and have an ARGB visual
 // (FLAG_WINDOW_TRANSPARENT). Gamescope 3.16.29, steamcompmgr.cpp:2689, 3300-3306, 4592-4621.
+// It must be presented through Xwayland: the Gamescope WSI layer's Wayland swapchain is opaque
+// for it, so CompositorSession turns the layer off for the shell.
 // A full-width overlay is painted whenever it is not transparent; without STEAM_INPUT_FOCUS the
 // game keeps the keyboard and the pointer (steamcompmgr.cpp:3340, 4632, 5247).
 #pragma once

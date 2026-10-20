@@ -177,6 +177,34 @@ int main() {
                "the started program does not inherit a blocked SIGTERM");
     }
 
+    {
+        // The shell's own Gamescope WSI switch stays with the shell; a game gets the layer.
+        setenv("DISABLE_GAMESCOPE_WSI", "1", 1);
+        const fs::path seen = scratch / "wsi";
+        Instance instance;
+        std::string failure;
+        // systemd-run expands $ in the command line itself, so the probe dumps it whole.
+        expect(instance.start(unitName("wsi"), "/bin/sh", {"-c", "env > " + seen.string()}, failure,
+                              {"FROM_CALLER=given"}),
+               "the environment probe starts");
+        unsetenv("DISABLE_GAMESCOPE_WSI");
+        expect(waitUntil(
+                   [&instance] {
+                       return !instance.running();
+                   },
+                   std::chrono::seconds{10}),
+               "the environment probe ends");
+        std::ifstream in{seen};
+        bool disabled = false;
+        bool given = false;
+        for (std::string line; std::getline(in, line);) {
+            disabled = disabled || line.starts_with("DISABLE_GAMESCOPE_WSI=");
+            given = given || line == "FROM_CALLER=given";
+        }
+        expect(!disabled, "a started program has no DISABLE_GAMESCOPE_WSI");
+        expect(given, "a started program keeps what the caller adds");
+    }
+
     fs::remove_all(scratch);
     std::printf("instance: all checks passed\n");
     return 0;
