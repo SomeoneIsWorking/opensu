@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <utility>
 
+#include "lucent/log.h"
+
 namespace opensu::app {
 namespace {
 
@@ -19,11 +21,36 @@ plugin::PluginHost::Locations locationsFor(const config::Config& environment) {
 } // namespace
 
 PluginService::PluginService(const config::Config& environment, Preferences& preferences,
-                             Hooks hooks)
-    : preferences_{preferences}, hooks_{std::move(hooks)}, host_{locationsFor(environment)} {
-    for (const plugin::PluginInfo& info : host_.plugins()) {
+                             bool active, Hooks hooks)
+    : locations_{locationsFor(environment)}, preferences_{preferences}, hooks_{std::move(hooks)} {
+    if (active) {
+        host_ = std::make_unique<plugin::PluginHost>(locations_);
+        startChosen();
+    }
+}
+
+void PluginService::setActive(bool active) {
+    if (active == (host_ != nullptr)) {
+        return;
+    }
+    if (active) {
+        host_ = std::make_unique<plugin::PluginHost>(locations_);
+        startChosen();
+    } else {
+        for (const plugin::PluginInfo& info : host_->plugins()) {
+            reports_.erase(info.manifest.id);
+        }
+        host_.reset();
+        turnedOff_ = true;
+    }
+    lucent::info("plugins", "Lua plugins {}", active ? "on" : "off");
+    hooks_.statusChanged();
+}
+
+void PluginService::startChosen() {
+    for (const plugin::PluginInfo& info : host_->plugins()) {
         if (enabled(info)) {
-            host_.start(info.manifest.id);
+            host_->start(info.manifest.id);
         }
     }
 }
@@ -50,10 +77,13 @@ bool PluginService::needsConsent(const plugin::PluginInfo& info) const {
 }
 
 void PluginService::setEnabled(const std::string& id, bool on) {
-    const auto info = std::ranges::find_if(host_.plugins(), [&id](const plugin::PluginInfo& it) {
+    if (!host_) {
+        return;
+    }
+    const auto info = std::ranges::find_if(host_->plugins(), [&id](const plugin::PluginInfo& it) {
         return it.manifest.id == id;
     });
-    if (info == host_.plugins().end() || info->state == plugin::PluginInfo::State::Refused) {
+    if (info == host_->plugins().end() || info->state == plugin::PluginInfo::State::Refused) {
         return;
     }
     auto& choices = preferences_.values().plugins;
@@ -66,9 +96,9 @@ void PluginService::setEnabled(const std::string& id, bool on) {
     }
     preferences_.save();
     if (on) {
-        host_.start(id);
+        host_->start(id);
     } else {
-        host_.stop(id);
+        host_->stop(id);
         reports_.erase(id);
         turnedOff_ = true;
     }
@@ -76,14 +106,19 @@ void PluginService::setEnabled(const std::string& id, bool on) {
 }
 
 void PluginService::request(const std::vector<library::Game>& games) {
-    host_.refresh(games);
+    if (host_) {
+        host_->refresh(games);
+    }
 }
 
 void PluginService::service() {
     if (std::exchange(turnedOff_, false)) {
         hooks_.playTimeChanged();
     }
-    std::optional<plugin::PluginHost::Update> update = host_.take();
+    if (!host_) {
+        return;
+    }
+    std::optional<plugin::PluginHost::Update> update = host_->take();
     if (!update) {
         return;
     }
@@ -91,10 +126,10 @@ void PluginService::service() {
         reports_.set(id, std::move(report));
     }
     for (const auto& [id, reason] : update->stopped) {
-        const auto info = std::ranges::find_if(host_.plugins(), [&id](const auto& it) {
+        const auto info = std::ranges::find_if(host_->plugins(), [&id](const auto& it) {
             return it.manifest.id == id;
         });
-        std::string text = info != host_.plugins().end() ? info->manifest.name : id;
+        std::string text = info != host_->plugins().end() ? info->manifest.name : id;
         text += " stopped: ";
         text += reason;
         hooks_.say(text, true);

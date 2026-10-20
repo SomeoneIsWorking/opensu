@@ -903,7 +903,8 @@ bool Shell::focusTarget(const PointerTarget& target) {
                 return chooser_.focusRow(at.row);
             } else if constexpr (std::is_same_v<Target, OnIconSize>) {
                 return chooser_.focusRow(ChooserRow::IconSize);
-            } else if constexpr (std::is_same_v<Target, OnDialogButton>) {
+            } else if constexpr (std::is_same_v<Target, OnDialogButton> ||
+                                 std::is_same_v<Target, OnIntegrationItem>) {
                 return session_.focusTarget(PointerTarget{at});
             } else if constexpr (std::is_same_v<Target, OnSearchKey>) {
                 if (session_.password().isOpen()) {

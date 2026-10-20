@@ -25,11 +25,14 @@ std::string runnerName(const std::vector<library::wine::Runner>& found, const fs
 } // namespace
 
 library::wine::Search WineSettings::search() const {
+    library::wine::Search search{
+        .executablePath = config_.executablePath, .steamRoots = {}, .steamLibraries = {}};
+    if (!integrations_.lists(library::Source::Steam)) {
+        return search;
+    }
     const library::steam::Library steam =
         library::steam::Library::discover(config_.home, config_.steamRoots);
-    library::wine::Search search{.executablePath = config_.executablePath,
-                                 .steamRoots = steam.roots(),
-                                 .steamLibraries = {}};
+    search.steamRoots = steam.roots();
     for (const library::steam::LibraryFolder& folder : steam.libraryFolders()) {
         search.steamLibraries.push_back(folder.path);
     }
@@ -58,9 +61,11 @@ ui::SettingsCategory WineSettings::page() const {
     page.rows.push_back(
         ui::makeRow(ownId, RowKind::Info, "Own Wine prefixes", "Set per game on its details page",
                     own == 0 ? "None" : std::to_string(own) + (own == 1 ? " game" : " games")));
-    page.rows.push_back(ui::makeRow(steamId, RowKind::Info, "Steam games",
-                                    "Steam runs them with the tool picked in Steam",
-                                    "Left to Steam"));
+    if (integrations_.lists(library::Source::Steam)) {
+        page.rows.push_back(ui::makeRow(steamId, RowKind::Info, "Steam games",
+                                        "Steam runs them with the tool picked in Steam",
+                                        "Left to Steam"));
+    }
     return page;
 }
 

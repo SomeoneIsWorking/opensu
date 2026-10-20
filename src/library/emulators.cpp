@@ -243,12 +243,13 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
     };
 }
 
-EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden) {
-    return EmulatorSetup{EmulatorCatalog::shipped(config.assetsDir, config.home),
-                         EmulatorSearch::standard(config.home, config.dataDir,
-                                                  config.executablePath, config.retroRunner,
-                                                  config.savesDir, hidden),
-                         config.emulators};
+EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden, bool standalone) {
+    return EmulatorSetup{
+        .catalog = EmulatorCatalog::shipped(config.assetsDir, config.home),
+        .search = EmulatorSearch::standard(config.home, config.dataDir, config.executablePath,
+                                           config.retroRunner, config.savesDir, hidden),
+        .overrides = config.emulators,
+        .standalone = standalone};
 }
 
 Emulators Emulators::discover(EmulatorCatalog catalog, const EmulatorSearch& search,

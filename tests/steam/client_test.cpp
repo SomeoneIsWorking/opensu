@@ -111,8 +111,10 @@ struct Fixture {
         fs::remove_all(base);
     }
 
+    /// Nothing listens on DevTools port 1, so no real Steam is asked.
     Client::Options options() const {
-        return Client::Options{home, {bin}, session};
+        return Client::Options{
+            .home = home, .executablePath = {bin}, .session = session, .devToolsPort = 1};
     }
 
     std::string unit() const {
@@ -161,7 +163,7 @@ void testReadyThenShutdown() {
     const Fixture fixture{Mode::Ready};
     Client client{fixture.options()};
     expect(client.state() == SteamState::Stopped, "a new client is stopped");
-    client.start();
+    client.start(Client::Mode::Managed);
     expect(client.state() == SteamState::Initializing, "a started client is initializing");
     expect(scopeActive(fixture.unit()), "steam runs in the session's scope");
     expect(waitUntil(
@@ -207,7 +209,7 @@ void testReadyThenShutdown() {
 void testExitIsAFailure() {
     const Fixture fixture{Mode::Exits};
     Client client{fixture.options()};
-    client.start();
+    client.start(Client::Mode::Managed);
     expect(client.waitReady(std::chrono::seconds{30}, never) == SteamState::Failed,
            "a steam that exits fails");
     expect(client.state() == SteamState::Failed, "the state reads failed");
@@ -216,8 +218,9 @@ void testExitIsAFailure() {
 /// No `steam` to run is a failure too.
 void testMissingSteamIsAFailure() {
     const Fixture fixture{Mode::Ready};
-    Client client{Client::Options{fixture.home, {}, fixture.session}};
-    client.start();
+    Client client{Client::Options{
+        .home = fixture.home, .executablePath = {}, .session = fixture.session, .devToolsPort = 1}};
+    client.start(Client::Mode::Managed);
     expect(client.state() == SteamState::Failed, "no steam program fails");
 }
 
@@ -233,7 +236,7 @@ void testDesktopSteamBlocks() {
     std::ofstream{fixture.home / ".steam" / "steam.pid"} << desktop;
 
     Client client{fixture.options()};
-    client.start();
+    client.start(Client::Mode::Managed);
     expect(client.state() == SteamState::Blocked, "a desktop Steam blocks");
     expect(client.waitReady(std::chrono::seconds{5}, never) == SteamState::Blocked,
            "waiting on a blocked client returns at once");
@@ -296,7 +299,7 @@ void testOrphanedScopeIsEnded() {
     // Its pid file names the orphan's steam, which would have blocked the start.
     expect(fixture.pidFile != live.pidFile, "separate fixtures");
     Client client{fixture.options()};
-    client.start();
+    client.start(Client::Mode::Managed);
     expect(client.state() == SteamState::Initializing, "the orphan did not block the start");
     expect(!scopeActive(orphan), "the orphan scope is gone");
     waitpid(orphanSteam, nullptr, 0);
@@ -315,7 +318,7 @@ void testOrphanedScopeIsEnded() {
 void testWaitIsBounded() {
     const Fixture fixture{Mode::Slow};
     Client client{fixture.options()};
-    client.start();
+    client.start(Client::Mode::Managed);
 
     Clock::time_point began = Clock::now();
     expect(client.waitReady(std::chrono::milliseconds{300}, never) == SteamState::Initializing,
@@ -341,7 +344,7 @@ void testWaitIsBounded() {
 void testStubbornSteamIsStopped() {
     const Fixture fixture{Mode::Stubborn};
     Client client{fixture.options()};
-    client.start();
+    client.start(Client::Mode::Managed);
     expect(client.waitReady(std::chrono::seconds{30}, never) == SteamState::Ready, "it logs on");
     const pid_t steam = recordedPid(fixture.pidFile);
 
@@ -365,10 +368,105 @@ void testDestructorShutsDown() {
     const Fixture fixture{Mode::Slow};
     {
         Client client{fixture.options()};
-        client.start();
+        client.start(Client::Mode::Managed);
         expect(scopeActive(fixture.unit()), "the scope is up");
     }
     expect(!scopeActive(fixture.unit()), "destroying the client ended the scope");
+}
+
+/// A process named `steam` that sleeps, standing in for the desktop's Steam; its pid file is
+/// written. The caller kills and reaps it.
+pid_t startDesktopSteam(const Fixture& fixture) {
+    const fs::path desk = fixture.base / "desktop";
+    fs::create_directories(desk);
+    fs::copy_file("/bin/sleep", desk / "steam", fs::copy_options::overwrite_existing);
+    const pid_t desktop = fork();
+    expect(desktop >= 0, "fork");
+    if (desktop == 0) {
+        const std::string program = (desk / "steam").string();
+        execl(program.c_str(), "steam", "60", static_cast<char*>(nullptr));
+        _exit(127);
+    }
+    std::ofstream{fixture.home / ".steam" / "steam.pid"} << desktop;
+    expect(waitUntil(
+               [desktop] {
+                   std::ifstream comm{"/proc/" + std::to_string(desktop) + "/comm"};
+                   std::string name;
+                   std::getline(comm, name);
+                   return name == "steam";
+               },
+               std::chrono::seconds{5}),
+           "the stand-in desktop Steam runs");
+    return desktop;
+}
+
+/// Normal attaches to the desktop's running Steam: ready at once, nothing started, and the
+/// desktop's Steam outlives the client.
+void testNormalAttachesToTheDesktopSteam() {
+    const Fixture fixture{Mode::Ready};
+    const pid_t desktop = startDesktopSteam(fixture);
+    Client client{fixture.options()};
+    client.start(Client::Mode::Normal);
+    expect(client.state() == SteamState::Ready, "the desktop Steam is attached to at once");
+    expect(!client.showsInSession(), "its games show on the desktop");
+    expect(!scopeActive(fixture.unit()), "no scope was started");
+    expect(!fs::exists(fixture.pidFile), "no second steam ran");
+    client.shutdown();
+    expect(client.state() == SteamState::Stopped, "the client stops watching");
+    expect(alive(desktop), "the desktop Steam keeps running");
+    kill(desktop, SIGKILL);
+    waitpid(desktop, nullptr, 0);
+}
+
+/// A run that may not start Steam decides and does nothing, in either mode.
+void testHiddenRunStartsNothing() {
+    const Fixture fixture{Mode::Ready};
+    Client::Options options = fixture.options();
+    options.mayStart = false;
+    {
+        Client client{options};
+        client.start(Client::Mode::Managed);
+        expect(client.state() == SteamState::Stopped, "managed: nothing is started");
+        expect(!scopeActive(fixture.unit()), "managed: no scope");
+    }
+    const pid_t desktop = startDesktopSteam(fixture);
+    {
+        Client client{options};
+        client.start(Client::Mode::Normal);
+        expect(client.state() == SteamState::Stopped, "normal: the desktop Steam is not attached");
+    }
+    expect(!fs::exists(fixture.pidFile), "the fake steam never ran");
+    kill(desktop, SIGKILL);
+    waitpid(desktop, nullptr, 0);
+}
+
+/// With no desktop Steam running, Normal starts one on the desktop, outside the session's
+/// scope, and leaves it running when the client stops.
+void testNormalStartsTheDesktopSteam() {
+    const Fixture fixture{Mode::Ready};
+    // Stays a `steam` process, as the desktop client does, and logs on.
+    const std::string body = "#!/bin/sh\n"
+                             "echo $$ > \"" +
+                             fixture.pidFile.string() +
+                             "\"\n"
+                             "echo $$ > \"" +
+                             (fixture.home / ".steam" / "steam.pid").string() +
+                             "\"\n"
+                             "echo '" +
+                             std::string{logonLine} + "' >> \"" + fixture.log.string() +
+                             "\"\n"
+                             "while :; do sleep 1; done\n";
+    std::ofstream{fixture.bin / "steam", std::ios::trunc} << body;
+    Client client{fixture.options()};
+    client.start(Client::Mode::Normal);
+    expect(client.waitReady(std::chrono::seconds{30}, never) == SteamState::Ready,
+           "the desktop Steam started and logged on");
+    const pid_t steam = recordedPid(fixture.pidFile);
+    expect(steam > 0 && alive(steam), "it runs");
+    expect(!scopeActive(fixture.unit()), "outside the session's scope");
+    client.shutdown();
+    expect(alive(steam), "it is not ended with the client");
+    kill(steam, SIGKILL);
 }
 
 } // namespace
@@ -383,6 +481,9 @@ int main() {
     testDestructorShutsDown();
     testStubbornSteamIsStopped();
     testOrphanedScopeIsEnded();
+    testNormalAttachesToTheDesktopSteam();
+    testHiddenRunStartsNothing();
+    testNormalStartsTheDesktopSteam();
     std::printf("steam client: all checks passed\n");
     return 0;
 }

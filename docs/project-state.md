@@ -10,6 +10,10 @@ ROMs have no home at all.
 
 Visible deltas from the baseline:
 
+- Only ROMs and the libretro runner are on out of the box; Steam, Epic, GOG, standalone emulators
+  and Lua plugins are each opted into, from a first-run chooser or Settings › Integrations (S039).
+  Steam Big Picture has no such choice. Steam can be the player's own desktop Steam (Normal) or
+  openSU's own (Managed, the only mode in the login session).
 - Epic games (Legendary) and the player's GOG library (openSU's own sign-in) sit in the
   same grid as Steam; emulator ROMs sit behind one tile per console in the Library section, and
   each store and the combined "All games" library behind a tile of its own there.
@@ -139,6 +143,7 @@ game has been observed running yet.
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
 | S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
+| S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal or Managed (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 
 ## Capability details
 
@@ -1394,3 +1399,22 @@ out; its entry would name a mount point that changes per run). Fedora's libcurl 
 versions, so the dynamic loader prints "no version information available" for libcurl on every
 start there. A Gamescope session itself (nested or own) from the AppImage is unverified, as is a
 release run on GitHub.
+
+### S039 — Opt-in integrations and Steam modes
+
+`settings::Integrations::inForce` turns the saved `integrations` choices into what is in force: no
+choices is everything off and opens the first-run chooser (`app::FirstRunChooser`); Steam's mode is
+Normal or Managed on a desktop, Managed alone with `--session`. `app::IntegrationSwitch` applies a
+change live: the catalog's providers are replaced, the plugins host is made or dropped, standalone
+emulator discovery and downloads follow, and Steam is stopped and started in its new mode. Normal
+attaches to the desktop Steam (`~/.steam/steam.pid`, a live `steam` process) or starts one on the
+desktop outside openSU's scope; the shell then neither holds the pads against it nor closes Big
+Picture. Verified by unit tests (`integrations`, `integration_flow`, `integration_chooser`,
+`settings_controller`, `client`, `handoff`, `catalog_loader`, `focus_owner`) and a hidden run driven
+over the control channel with a scratch home (`scratch/integrations/drive.py`): the chooser on a
+fresh settings file, only ROM shelves and no Steam process with all off, Steam tiles from a fake
+root in Normal and Managed with the mode in the log, Epic tiles and `legendary` calls only while
+Epic is on, and a fake desktop Steam pid file found and logged (a hidden run attaches to nothing and starts nothing). Gap:
+Isolated mode is not built (needs the sandbox measurements in the card); Normal mode has not run
+against a real desktop Steam, and its installs need the desktop Steam started with
+`-cef-enable-debugging`.

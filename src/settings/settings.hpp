@@ -11,6 +11,7 @@
 #include "config/config.hpp"
 #include "input/shortcuts.hpp"
 #include "install_folders.hpp"
+#include "integrations.hpp"
 #include "library/emulator_choice.hpp"
 #include "library/library_query.hpp"
 #include "library/play_history.hpp"
@@ -97,6 +98,9 @@ struct Settings {
 
     /// The plugins the player turned on or off, by id. A bundled plugin not listed runs.
     std::map<std::string, PluginChoice> plugins;
+
+    /// The integrations the player chose; absent until the first-run chooser was answered.
+    std::optional<IntegrationChoices> integrations;
 
     bool operator==(const Settings&) const = default;
 };

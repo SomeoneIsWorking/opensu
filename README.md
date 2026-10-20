@@ -9,9 +9,17 @@ authentication, downloading and cloud sync; openSU reads what they have installe
 hands launches back to them. GOG is signed in by openSU itself (see Signing in to GOG and
 Epic), its owned games are listed, and `gogdl` downloads them (see below).
 
-openSU runs Steam in the background with `-cef-enable-debugging`, which opens Steam's
-DevTools on 127.0.0.1:8080; that is how it reads download progress and starts
-installs through Steam's own installer.
+Only the ROM library and the built-in libretro runner are on by default. Steam, Epic, GOG,
+standalone emulators and Lua plugins are each turned on in Settings › Integrations; one that is
+off starts nothing, reads nothing and shows nothing. The first run (and the first run after an
+update, while the settings file has no choices) shows a chooser with all of them off.
+
+Steam runs in one of two modes. Normal uses the player's own desktop Steam: openSU attaches to
+the one running, or starts Steam on the desktop and leaves it running, and launches through
+`steam -applaunch`. Managed (the only mode with `--session`) runs openSU's own Steam in the
+background with `-cef-enable-debugging`, which opens Steam's DevTools on 127.0.0.1:8080; that is
+how it reads download progress and starts installs through Steam's own installer, and openSU
+ends it on exit. A desktop Steam serves those DevTools only when started with that flag.
 
 Built with C++20, SDL3 and [gpu2d](https://github.com/SomeoneIsWorking/gpu2d), a 2D canvas on SDL3
 GPU (Vulkan on Linux). The shell is drawn from geometry rather than
@@ -180,7 +188,7 @@ sudo sh ~/.local/libexec/opensu/install-session.sh
 entry installed by hand still works: openSU leaves a note, ends its Gamescope and starts
 `startplasma-wayland` in the session's place.
 
-`--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`; `guide+a` holds buttons together; `guide 1500ms` holds them that long, up to 10000ms), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `capturingShortcut`, `volumeShown`, `chordHint`, `mapping`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`). A hidden run only reads the system volume and never starts the Steam client (Steam shows as stopped); it also never sleeps, restarts, shuts down, scans, pairs, connects or forgets Bluetooth devices, and never writes the brightness.
+`--hidden` logs its control channel port; drive it with `POST /input` (buttons incl. `l2 r2 l3 r3`; `guide+a` holds buttons together; `guide 1500ms` holds them that long, up to 10000ms), `POST /key` (e.g. `ctrl+up`), `POST /text`, and read `GET /state` (adds `settingsOpen`, `folderPickerOpen`, `firstRunOpen`, `capturingShortcut`, `volumeShown`, `chordHint`, `mapping`, `volumePercent`, `volumeMuted`, `uiScale`, `artworkPending`). A hidden run only reads the system volume and never starts the Steam client (Steam shows as stopped); it also never sleeps, restarts, shuts down, scans, pairs, connects or forgets Bluetooth devices, and never writes the brightness.
 
 Overrides, all optional:
 

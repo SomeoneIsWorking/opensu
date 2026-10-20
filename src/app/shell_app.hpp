@@ -35,7 +35,9 @@
 #include "downloads_controller.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
+#include "first_run_chooser.hpp"
 #include "focus_follow.hpp"
+#include "game_launch.hpp"
 #include "game_screen.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pads.hpp"
@@ -43,6 +45,9 @@
 #include "guide_menu_controller.hpp"
 #include "host_services.hpp"
 #include "input/keyboard_bindings.hpp"
+#include "integration_settings.hpp"
+#include "integration_switch.hpp"
+#include "integrations_in_force.hpp"
 #include "launch/handoff.hpp"
 #include "launch/process_tree.hpp"
 #include "launch_mailbox.hpp"
@@ -220,6 +225,8 @@ class ShellApp final : private PointerHost {
     /// What each button does now, for the corner prompts: the same tests the actions make.
     [[nodiscard]] ui::HintContext hints() const;
     void pushCatalogToShell();
+    /// Puts a change of the integrations into effect and shows it.
+    void applyIntegrations();
     const config::Config& environment_;
     Settings settings_;
     /// What the player chose, read at start and saved when it changes.
@@ -227,6 +234,8 @@ class ShellApp final : private PointerHost {
                              [this](const std::string& why) {
                                  shell_.setToast(why, true);
                              }};
+    /// Which integrations and which Steam mode are in force; before everything that asks.
+    IntegrationsInForce integrations_{preferences_, settings_.loginSession};
     /// The environment's configuration with what the player set in place of it: the roots the
     /// catalog and Steam read, fixed for the run.
     config::Config resolved_{settings::resolved(environment_, preferences_.values())};
@@ -334,7 +343,8 @@ class ShellApp final : private PointerHost {
                                      }}};
     /// Emulator downloads, updates and removals, off the loop.
     EmulatorDownloads emulatorDownloads_{
-        library::roms::EmulatorSetup::standard(resolved_, settings_.hidden),
+        library::roms::EmulatorSetup::standard(resolved_, settings_.hidden,
+                                               integrations_.current().emulators),
         EmulatorDownloads::Hooks{[this](const std::string& text, bool isError) {
                                      shell_.setToast(text, isError);
                                  },
@@ -475,7 +485,7 @@ class ShellApp final : private PointerHost {
                           shell_.setToast(text, isError);
                       }};
     /// The plugins, their play time and the Settings screen's Plugins category.
-    PluginService plugins_{environment_, preferences_,
+    PluginService plugins_{environment_, preferences_, integrations_.current().plugins,
                            PluginService::Hooks{[this](const std::string& text, bool isError) {
                                                     shell_.setToast(text, isError);
                                                 },
@@ -491,13 +501,18 @@ class ShellApp final : private PointerHost {
                                        settingsScreen_.refresh();
                                    }};
     /// Settings › Wine, and the runner and prefix a Windows launch gets.
-    WineSettings wineSettings_{preferences_, resolved_};
+    WineSettings wineSettings_{preferences_, resolved_, integrations_.current()};
+    /// Settings › Integrations.
+    IntegrationSettings integrationSettings_{integrations_, [this] {
+                                                 applyIntegrations();
+                                             }};
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{
         shell_.settingsPanels().page(),
         SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts(),
                                      emulatorSettings_, steamLibrarySettings_, pluginSettings_,
-                                     chordSettings_, mappings_, wineSettings_},
+                                     chordSettings_, mappings_, wineSettings_, integrationSettings_,
+                                     integrations_},
         sounds_,
         preferences_,
         environment_,
@@ -515,7 +530,8 @@ class ShellApp final : private PointerHost {
                                   },
                                   [this] {
                                       return Installs::ownFolders(
-                                          resolved_, steamLibrarySettings_.defaultLibrary());
+                                          resolved_, steamLibrarySettings_.defaultLibrary(),
+                                          integrations_.current());
                                   },
                                   [this](const std::string& text, bool isError) {
                                       shell_.setToast(text, isError);
@@ -561,7 +577,8 @@ class ShellApp final : private PointerHost {
         shell_.guidePanels().guide(), *host_.power, *host_.session, sounds_,
         GuideMenuController::Hooks{[this] {
                                        return ui::GuideContext{
-                                           shell_.inGame(), running_.title, settings_.loginSession,
+                                           shell_.inGame(), launches_.game().title,
+                                           settings_.loginSession,
                                            !settings_.loginSession && host_.session->installed()};
                                    },
                                    [this](library::Section section) {
@@ -624,9 +641,6 @@ class ShellApp final : private PointerHost {
     std::vector<library::SourceStatus> sources_;
     /// Home or the open folder. Main loop only.
     library::ShelfBrowser browser_;
-    /// Guards the handoff thread, which touches the window.
-    std::mutex launchMutex_;
-    bool launchRunning_{false};
     /// Started in run(), before the loop, and shut down with the app.
     steam::Client steam_;
     /// The Settings screen's Steam libraries category; after the client it asks.
@@ -650,8 +664,6 @@ class ShellApp final : private PointerHost {
     /// Inside Gamescope, tells the handoff when a game shows a window. Null elsewhere.
     std::unique_ptr<session::GamescopeWindows> gameWindows_;
     launch::Handoff handoff_;
-    /// The game launched last, for the Guide menu and the uninstall refusal. Main loop only.
-    library::Game running_;
     /// What the launch panel is up for, and the one install that runs. After steam_, so the
     /// install is stopped before the client it drives. Main loop only.
     PanelFlow panels_{shell_, sounds_, steam_, environment_.dataDir,
@@ -666,8 +678,7 @@ class ShellApp final : private PointerHost {
                                                store);
                                        },
                                        [this](const library::Game& game) {
-                                           const std::lock_guard lock{launchMutex_};
-                                           return launchRunning_ && running_.id == game.id;
+                                           return launches_.runs(game);
                                        }}};
     /// The Downloads page: Steam's queue, the store install, the emulator download and the romset
     /// lists. After the sources it reads.
@@ -711,7 +722,7 @@ class ShellApp final : private PointerHost {
     FocusFollow focusFollow_{FocusFollow::Hooks{.gamePids =
                                                     [this] {
                                                         return launch::ProcessTree::treesMatching(
-                                                            running_.processHint);
+                                                            launches_.game().processHint);
                                                     },
                                                 .closeBigPicture =
                                                     [this] {
@@ -721,11 +732,38 @@ class ShellApp final : private PointerHost {
                                                     [this] {
                                                         gameScreen_.takeFocus();
                                                     }}};
+    /// Puts the integrations in force into effect; after everything it drives.
+    IntegrationSwitch integrationSwitch_{
+        integrations_,
+        IntegrationSwitch::Targets{steam_, catalogLoader_, plugins_, emulatorDownloads_, padOwner_,
+                                   focusFollow_},
+        IntegrationSwitch::Hooks{
+            .catalog =
+                [this](const library::CatalogStores& stores) {
+                    return library::makeCatalog(resolved_, settings_.hidden, romsetLists_, stores);
+                },
+            .steamInstalled =
+                [this] {
+                    return !library::steam::Library::discover(resolved_.home, resolved_.steamRoots)
+                                .roots()
+                                .empty();
+                },
+            .emulatorsChanged =
+                [this] {
+                    emulatorSettings_.rescan();
+                }}};
+    /// The first-run card that asks which integrations to use.
+    FirstRunChooser firstRun_{shell_.sessionPanels().integrations(), integrations_, sounds_,
+                              [this] {
+                                  applyIntegrations();
+                              }};
     /// The store sign-ins the control channel drives.
     StoreSignIn signIn_;
 
     /// What the launch and sign-in threads hand the loop.
     LaunchMailbox mailbox_;
+    /// The game the shell runs; after the handoff and the mailbox it drives.
+    GameLaunch launches_{handoff_, mailbox_, retro_};
     /// Opens a store's sign-in page; after the mailbox it posts to, so it is joined first.
     std::jthread signInOpener_;
 };

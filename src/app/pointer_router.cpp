@@ -40,6 +40,9 @@ struct FocusesOnHover {
     bool operator()(const ui::OnDialogButton&) const {
         return true;
     }
+    bool operator()(const ui::OnIntegrationItem&) const {
+        return true;
+    }
     bool operator()(const ui::OnQuickRow&) const {
         return true;
     }

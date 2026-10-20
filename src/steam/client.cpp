@@ -55,8 +55,86 @@ void Client::setState(SteamState state) {
     changed_.notify_all();
 }
 
-void Client::start() {
+Client::Mode Client::mode() const {
+    const std::lock_guard lock{mutex_};
+    return mode_;
+}
+
+bool Client::showsInSession() const {
+    return mode() == Mode::Managed;
+}
+
+void Client::start(Mode mode) {
     if (state() != SteamState::Stopped) {
+        return;
+    }
+    {
+        const std::lock_guard lock{mutex_};
+        mode_ = mode;
+    }
+    if (mode == Mode::Normal) {
+        startNormal();
+    } else {
+        startManaged();
+    }
+}
+
+void Client::beginWatching(SteamState state) {
+    {
+        const std::lock_guard lock{mutex_};
+        state_ = state;
+        stopping_ = false;
+    }
+    changed_.notify_all();
+    watcher_ = std::thread{[this] {
+        watch();
+    }};
+}
+
+void Client::startNormal() {
+    const std::optional<pid_t> running = desktop_.running();
+    if (!options_.mayStart) {
+        if (running) {
+            lucent::info("steam",
+                         "Normal mode: the desktop Steam runs (pid {}); this run does "
+                         "not attach to it",
+                         *running);
+        } else {
+            lucent::info("steam", "Normal mode: no desktop Steam runs; this run does not start it");
+        }
+        return;
+    }
+    if (running) {
+        lucent::info("steam", "Normal mode: attached to the desktop Steam (pid {})", *running);
+        beginWatching(SteamState::Ready);
+        return;
+    }
+    program_ = launch::resolveExecutable("steam", options_.executablePath);
+    if (program_.empty()) {
+        lucent::error("steam", "steam is not on PATH");
+        setState(SteamState::Failed);
+        return;
+    }
+    std::error_code ec;
+    const std::uintmax_t size = fs::file_size(connectionLog_, ec);
+    logOffset_ = ec ? 0 : size;
+    // A user service of its own: on the desktop's display, outside openSU's scope, and left
+    // running when openSU ends.
+    const std::optional<int> status = launch::runCommand(
+        "systemd-run", {"--user", "--collect", "--quiet", "--", program_.string()},
+        shutdownCommandWait);
+    if (status != 0) {
+        lucent::error("steam", "could not start Steam on the desktop");
+        setState(SteamState::Failed);
+        return;
+    }
+    lucent::info("steam", "Normal mode: started Steam on the desktop");
+    beginWatching(SteamState::Initializing);
+}
+
+void Client::startManaged() {
+    if (!options_.mayStart) {
+        lucent::info("steam", "Managed mode: this run starts no Steam client");
         return;
     }
     program_ = launch::resolveExecutable("steam", options_.executablePath);
@@ -85,14 +163,16 @@ void Client::start() {
         setState(SteamState::Failed);
         return;
     }
-    {
-        const std::lock_guard lock{mutex_};
-        state_ = SteamState::Initializing;
-        stopping_ = false;
+    lucent::info("steam", "Managed mode: started Steam in {}", options_.session + "-steam.scope");
+    beginWatching(SteamState::Initializing);
+}
+
+bool Client::clientAlive() {
+    if (mode() == Mode::Managed) {
+        return instance_.running();
     }
-    watcher_ = std::thread{[this] {
-        watch();
-    }};
+    // A desktop Steam being started has not written its pid file yet.
+    return desktop_.running().has_value() || state() == SteamState::Initializing;
 }
 
 bool Client::logonCompleted() {
@@ -132,7 +212,7 @@ void Client::watch() {
     while (!stopping_) {
         const SteamState current = state_;
         lock.unlock();
-        const bool alive = instance_.running();
+        const bool alive = clientAlive();
         const bool ready = alive && current == SteamState::Initializing && logonCompleted();
         if (alive && (ready || current == SteamState::Ready)) {
             refreshFromClient();
@@ -142,7 +222,8 @@ void Client::watch() {
             break;
         }
         if (!alive) {
-            lucent::error("steam", "the Steam client is gone");
+            lucent::error("steam", "the {} Steam client is gone",
+                          mode_ == Mode::Managed ? "managed" : "desktop");
             state_ = SteamState::Failed;
             changed_.notify_all();
             break;

@@ -250,6 +250,37 @@ void steppedScale() {
            "the sizes wrap");
 }
 
+/// Integration choices: absent until chosen, kept as chosen, a damaged entry asks again.
+void integrationChoices(const fs::path& root) {
+    const Store store{root / "integrations" / "settings.json"};
+    expect(!store.load().integrations, "no file has no integration choices");
+    Settings chosen;
+    chosen.integrations =
+        opensu::settings::IntegrationChoices{.steam = true,
+                                             .steamMode = opensu::settings::SteamMode::Managed,
+                                             .epic = false,
+                                             .gog = true,
+                                             .emulators = false,
+                                             .plugins = true};
+    std::string error;
+    expect(store.save(chosen, error), "choices save");
+    expect(store.load().integrations == chosen.integrations, "choices read back");
+    expect(read(store.file()).find("\"steamMode\": \"managed\"") != std::string::npos,
+           "the mode is kept by name");
+
+    Settings allOff;
+    allOff.integrations = opensu::settings::IntegrationChoices{};
+    expect(store.save(allOff, error), "all off saves");
+    expect(store.load().integrations == opensu::settings::IntegrationChoices{},
+           "all off is a choice, not the absence of one");
+
+    write(store.file(), R"({"integrations": "everything"})");
+    expect(!store.load().integrations, "a damaged entry leaves the choices to be asked again");
+    write(store.file(), R"({"integrations": {"steam": true, "steamMode": "isolated"}})");
+    const auto odd = store.load().integrations;
+    expect(odd && odd->steam && !odd->steamMode, "an unknown mode takes the default");
+}
+
 } // namespace
 
 int main() {
@@ -264,6 +295,7 @@ int main() {
     installAndSources(root);
     scaleAndShortcuts(root);
     wineChoices(root);
+    integrationChoices(root);
     resolution();
     unwritable(root);
     fs::remove_all(root);

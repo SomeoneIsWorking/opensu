@@ -1,6 +1,7 @@
 # Integrations are opt-in, Steam has modes
 
-Status: open, design.
+Status: partial. Integrations, the first-run chooser and the Off, Normal and Managed Steam modes
+are built; Isolated is not (it needs the sandbox measurements below first).
 
 The player's words: "I think we shouldn't enable all integrations initially, we can add an option
 to integrate Steam for example ... maybe they just wanna use it as libretro", and for Steam: keep
@@ -52,6 +53,35 @@ normally, no isolation".
   the login state from the player's Steam data, not a separate account. Library folders are shared
   too unless the player says otherwise.
 
-## Open questions for the player
+## As built
 
-- Normal mode: keep openSU's Guide chords over Steam games (needs the pad held during a game)?
+- `settings::Integrations::inForce` (`src/settings/integrations.hpp`) is the one rule: no saved
+  choices is everything off; Steam's mode falls back to the default when the saved one is not
+  offered (Normal on a desktop, Managed alone in `--session`). `app::IntegrationsInForce` holds it
+  for the run and saves a new choice; `app::IntegrationSwitch` applies a change live (catalog
+  `replace`, plugins host, standalone emulator discovery and downloads, pad and Big Picture guards,
+  Steam stopped and started in its mode on a worker).
+- Chooser: `app::FirstRunChooser` over `ui::IntegrationChooser`; opens when `settings.json` has no
+  `integrations` key or a damaged one. The control channel reports it as `firstRunOpen`.
+- Settings › Integrations: `app::IntegrationSettings`. Steam libraries, the Library page's Steam
+  rows, Wine (Epic or GOG), Plugins and each store's install folder show only with their
+  integration on.
+- Normal mode (`steam::Client::startNormal`): attaches to a desktop Steam found by
+  `~/.steam/steam.pid`, a live pid and `/proc/<pid>/comm == steam`; if none runs it starts `steam`
+  with `systemd-run --user --collect`, outside openSU's scope, never ended by openSU. A hidden run
+  logs the decision and starts nothing. The shell does not hold the pad against it or close Big
+  Picture, and the handoff does not wait for a Steam window in openSU's Gamescope.
+- A game openSU launched still holds the pads in every mode, so Guide chords stay over Normal-mode
+  games.
+- Proof: `scratch/integrations/drive.py` (`fresh`, `normal`) drives a hidden run with a scratch
+  HOME/XDG, a fake Steam root through `OPENSU_STEAM_ROOTS`, and stand-in `steam`, `legendary`,
+  `gogdl`; tests `integrations`, `integration_flow`, `integration_chooser`, `settings_controller`,
+  `client`, `handoff`, `catalog_loader`, `focus_owner`.
+
+## Left
+
+- Isolated mode: the sandbox measurements above, then a design.
+- Normal-mode installs and the download queue go through Steam's CEF DevTools, which a desktop
+  Steam only serves when started with `-cef-enable-debugging`; without it those fail with an error.
+- Normal mode has not been run against a real desktop Steam.
+- Open question for the player: keep Guide chords over Normal-mode games (today: kept)?

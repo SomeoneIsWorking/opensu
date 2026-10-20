@@ -6,6 +6,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -28,8 +29,17 @@ class PluginService {
         std::function<void()> statusChanged;
     };
 
-    /// Reads every plugin and starts the ones that are on.
-    PluginService(const config::Config& environment, Preferences& preferences, Hooks hooks);
+    /// While `active` (Lua plugins are on), reads every plugin and starts the ones that are on.
+    /// Inactive, no plugin folder is read and nothing runs.
+    PluginService(const config::Config& environment, Preferences& preferences, bool active,
+                  Hooks hooks);
+
+    /// Turns Lua plugins on or off as a whole: on reads them and starts the ones that are on, off
+    /// stops every plugin and drops their play time.
+    void setActive(bool active);
+    [[nodiscard]] bool active() const noexcept {
+        return host_ != nullptr;
+    }
 
     /// Asks the running plugins to read again for `games`.
     void request(const std::vector<library::Game>& games);
@@ -40,8 +50,9 @@ class PluginService {
         reports_.apply(games);
     }
 
+    /// Every plugin read; none while inactive.
     [[nodiscard]] const std::vector<plugin::PluginInfo>& plugins() const noexcept {
-        return host_.plugins();
+        return host_ ? host_->plugins() : none_;
     }
     /// Whether the player has `info` on.
     [[nodiscard]] bool enabled(const plugin::PluginInfo& info) const;
@@ -51,9 +62,13 @@ class PluginService {
     void setEnabled(const std::string& id, bool on);
 
   private:
+    void startChosen();
+
+    plugin::PluginHost::Locations locations_;
     Preferences& preferences_;
     Hooks hooks_;
-    plugin::PluginHost host_;
+    std::vector<plugin::PluginInfo> none_;
+    std::unique_ptr<plugin::PluginHost> host_;
     library::PlayTimeReports reports_;
     /// A plugin was turned off since the last `service`: its play time and state changed.
     bool turnedOff_{false};

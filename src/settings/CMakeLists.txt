@@ -1,4 +1,4 @@
-add_library(opensu_settings STATIC settings.cpp install_folders.cpp mapping_store.cpp)
+add_library(opensu_settings STATIC settings.cpp install_folders.cpp integrations.cpp mapping_store.cpp)
 add_library(opensu::settings ALIAS opensu_settings)
 target_include_directories(opensu_settings PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(opensu_settings PUBLIC opensu::library opensu::input PRIVATE opensu::fileio lucent::lucent)

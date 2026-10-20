@@ -40,6 +40,13 @@ constexpr const char* enabledKey = "enabled";
 constexpr const char* grantedKey = "granted";
 constexpr const char* wineRunnerKey = "wineRunner";
 constexpr const char* ownWinePrefixKey = "ownWinePrefix";
+constexpr const char* integrationsKey = "integrations";
+constexpr const char* steamKey = "steam";
+constexpr const char* steamModeKey = "steamMode";
+constexpr const char* epicKey = "epic";
+constexpr const char* gogKey = "gog";
+constexpr const char* standaloneEmulatorsKey = "emulators";
+constexpr const char* luaPluginsKey = "plugins";
 
 /// The key a store's own install folder is kept under.
 std::string storeKey(library::Source store) {
@@ -245,6 +252,37 @@ class Reader {
         }
     }
 
+    /// The integration choices; a damaged entry is reported and leaves them unchosen, so the
+    /// first-run chooser asks again.
+    void integrations(const char* name, std::optional<IntegrationChoices>& out) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        const char* fallback = "asking again";
+        if (!found->is_object()) {
+            reject(name, *found, fallback);
+            return;
+        }
+        IntegrationChoices choices;
+        const Reader entry{*found, file_};
+        entry.boolean(steamKey, choices.steam, fallback);
+        entry.boolean(epicKey, choices.epic, fallback);
+        entry.boolean(gogKey, choices.gog, fallback);
+        entry.boolean(standaloneEmulatorsKey, choices.emulators, fallback);
+        entry.boolean(luaPluginsKey, choices.plugins, fallback);
+        std::string mode;
+        entry.text(steamModeKey, mode, "using the default Steam mode");
+        if (!mode.empty()) {
+            choices.steamMode = steamModeOf(mode);
+            if (!choices.steamMode) {
+                lucent::warn("settings", "{}: {} is not a Steam mode; using the default", file_,
+                             mode);
+            }
+        }
+        out = choices;
+    }
+
     void reject(const char* name, const json& value, const char* fallback) const {
         lucent::warn("settings", "{}: {} is not a valid {}; {}", file_, value.dump(), name,
                      fallback);
@@ -289,6 +327,7 @@ Settings Store::load() const {
     settings.ownWinePrefixes = library::wine::OwnPrefixes{{ownPrefixes.begin(), ownPrefixes.end()}};
     read.shortcuts(shortcutsKey, settings.shortcuts);
     read.plugins(pluginsKey, settings.plugins);
+    read.integrations(integrationsKey, settings.integrations);
     read.boolean(installedOnlyKey, settings.view.installedOnly, "showing every game");
     read.text(sourceKey, settings.view.source, "showing every source");
     std::vector<std::string> hidden;
@@ -389,6 +428,17 @@ bool Store::save(const Settings& settings, std::string& error) const {
         plugins[id] = {{enabledKey, choice.enabled}, {grantedKey, choice.granted}};
     }
     document[pluginsKey] = plugins;
+    if (const std::optional<IntegrationChoices>& chosen = settings.integrations) {
+        json integrations{{steamKey, chosen->steam},
+                          {epicKey, chosen->epic},
+                          {gogKey, chosen->gog},
+                          {standaloneEmulatorsKey, chosen->emulators},
+                          {luaPluginsKey, chosen->plugins}};
+        if (chosen->steamMode) {
+            integrations[steamModeKey] = std::string{key(*chosen->steamMode)};
+        }
+        document[integrationsKey] = integrations;
+    }
     if (settings.homeMode) {
         document[homeModeKey] = std::string{config::key(*settings.homeMode)};
     }
