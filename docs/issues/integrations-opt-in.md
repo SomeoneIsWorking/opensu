@@ -84,4 +84,4 @@ normally, no isolation".
 - Normal-mode installs and the download queue go through Steam's CEF DevTools, which a desktop
   Steam only serves when started with `-cef-enable-debugging`; without it those fail with an error.
 - Normal mode has not been run against a real desktop Steam.
-- Open question for the player: keep Guide chords over Normal-mode games (today: kept)?
+- The player wants the pad held over Normal-mode games: "Sure if it works, I'd rather Steam not grab the device"; kept.
