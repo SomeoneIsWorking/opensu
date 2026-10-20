@@ -5,7 +5,7 @@
 // console/<system>.png, glyph/<system>.png for a console's white frame glyph, a `.miss` file
 // beside any that the source does not have, libretro/<system>.txt for a listing and
 // iisu/<pack> for iiSU's starter pack, and sound/<file> and nav/<file> for an APK asset: a UI
-// sound, a dock icon.
+// sound, a dock icon. switch/ is library::roms::SwitchInfo's, a Switch game's own title and icon.
 #pragma once
 
 #include <chrono>

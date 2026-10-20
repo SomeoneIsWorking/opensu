@@ -16,6 +16,9 @@ namespace fs = std::filesystem;
 /// games two.
 constexpr int folderDepth = 3;
 
+/// A Switch title id in a dump's name: `[0100ABCD12345000]`.
+constexpr std::size_t titleIdDigits = 16;
+
 std::string lower(std::string_view text) {
     std::string out{text};
     std::ranges::transform(out, out.begin(), [](unsigned char c) {
@@ -88,6 +91,20 @@ bool isAddOn(const fs::path& file) {
     const std::string name = lower(file.filename().string());
     if (name.find("update") != std::string::npos || name.find("dlc") != std::string::npos) {
         return true;
+    }
+    // A Switch title id not ending in 000 is an update (800) or an add-on.
+    for (std::size_t open = name.find('['); open != std::string::npos;
+         open = name.find('[', open + 1)) {
+        const std::string_view id = std::string_view{name}.substr(open + 1, titleIdDigits);
+        if (id.size() == titleIdDigits && open + 1 + titleIdDigits < name.size() &&
+            name[open + 1 + titleIdDigits] == ']' &&
+            std::ranges::all_of(
+                id,
+                [](unsigned char c) {
+                    return std::isxdigit(c) != 0;
+                })) {
+            return !id.ends_with("000");
+        }
     }
     // A version tag other than [v0] marks an update.
     const std::size_t tag = name.find("[v");

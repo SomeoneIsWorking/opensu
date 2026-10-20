@@ -11,6 +11,8 @@ namespace {
 constexpr std::array<std::string_view, 12> articles{"The", "A",  "An",  "Le",  "La",  "Les",
                                                     "Il",  "El", "Der", "Die", "Das", "Los"};
 
+constexpr std::array<std::string_view, 2> trademarkSigns{"™", "®"};
+
 std::string_view trimmed(std::string_view text) {
     while (!text.empty() && text.front() == ' ') {
         text.remove_prefix(1);
@@ -80,6 +82,15 @@ std::string cleanTitle(std::string_view name) {
         }
     }
     return out;
+}
+
+std::string withoutTrademarks(std::string title) {
+    for (const std::string_view sign : trademarkSigns) {
+        for (std::size_t at = title.find(sign); at != std::string::npos; at = title.find(sign)) {
+            title.erase(at, sign.size());
+        }
+    }
+    return title;
 }
 
 } // namespace opensu::library::roms

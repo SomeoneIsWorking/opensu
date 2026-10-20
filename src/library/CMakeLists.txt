@@ -16,6 +16,11 @@ add_library(opensu_library STATIC
     rom_titles.cpp
     param_sfo.cpp
     dump_info.cpp
+    switch_crypto.cpp
+    switch_keys.cpp
+    switch_package.cpp
+    switch_nca.cpp
+    switch_info.cpp
     arcade_names.cpp
     romset_dat.cpp
     romset_dats.cpp
@@ -43,6 +48,6 @@ target_link_libraries(opensu_library
     PUBLIC opensu::vdf
         opensu::config
         opensu::net
-    PRIVATE opensu::command opensu::fileio opensu::zip lucent::lucent
+    PRIVATE opensu::command opensu::fileio opensu::zip lucent::lucent OpenSSL::Crypto
 )
 target_compile_features(opensu_library PUBLIC cxx_std_20)

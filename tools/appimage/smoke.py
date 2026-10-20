@@ -37,7 +37,8 @@ DISTROS = {
         (
             "mesa-dri-drivers", "mesa-vulkan-drivers", "mesa-libgbm", "vulkan-loader",
             "libglvnd-glx", "libglvnd-egl", "libdrm", "libX11", "libX11-xcb", "libxcb",
-            "libcurl", "glib2", "pipewire-libs", "systemd-libs", "libcap", "expat", "libffi",
+            "libcurl", "openssl-libs", "glib2", "pipewire-libs", "systemd-libs", "libcap", "expat",
+            "libffi",
             "zlib-ng-compat", "libstdc++", "dbus-libs", "alsa-lib", "pulseaudio-libs", "fuse3",
             "xkeyboard-config",
             "ca-certificates", "findutils",
@@ -51,6 +52,7 @@ DISTROS = {
         (
             "libgl1", "libegl1", "libgl1-mesa-dri", "mesa-vulkan-drivers", "libgbm1",
             "libvulkan1", "libdrm2", "libx11-6", "libx11-xcb1", "libxcb1", "libcurl4t64",
+            "libssl3t64",
             "libglib2.0-0t64", "libpipewire-0.3-0t64", "libudev1", "libsystemd0", "libcap2",
             "libexpat1", "libffi8", "zlib1g", "libstdc++6", "libdbus-1-3", "libasound2t64",
             "libpulse0", "fuse3", "xkb-data",

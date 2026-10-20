@@ -62,7 +62,7 @@ struct Rig {
     }
 
     [[nodiscard]] library::Game game() const {
-        library::roms::Provider provider{{root / "ROM"}, setup(), library::roms::NameDb{}, {}};
+        library::roms::Provider provider{{root / "ROM"}, setup(), library::roms::NameDb{}, {}, {}};
         std::vector<library::Game> games = provider.list();
         preferences.values().emulators.apply(games);
         return games.at(0);

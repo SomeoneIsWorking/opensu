@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         clang-22 clang-tools-22 lld-22 libstdc++-14-dev \
         cmake ninja-build meson pkg-config bison python3 glslang-tools hwdata \
         libexpat1-dev libffi-dev libxml2-dev xkb-data \
-        libcurl4-openssl-dev zlib1g-dev libwebp-dev libnanosvg-dev nlohmann-json3-dev \
+        libcurl4-openssl-dev libssl-dev zlib1g-dev libwebp-dev libnanosvg-dev nlohmann-json3-dev \
         libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev \
         libxdamage-dev libxcomposite-dev libxrender-dev libxext-dev libxfixes-dev libxxf86vm-dev \
         libxtst-dev libxres-dev libxmu-dev libxcb1-dev libxcb-composite0-dev libxcb-icccm4-dev \
