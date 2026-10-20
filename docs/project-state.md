@@ -886,8 +886,9 @@ and never starts Steam (`host_services`, `Arguments::startsSteam`). Tested with 
 `shortcut_router`, `pointer_router`, `guide_menu`, `quick_menu`, `game_keys` (Ctrl+Tab). Verified
 headless (`--hidden`, captures under `scratch/guide-menu/` and `scratch/guide-trim/`): Guide menu, power list and armed
 restart, Devices tabs reading the real adapter, quick menu, Settings without the title pill, a
-hidden Restart refused. Unverified: real power actions, scan, pairing and connect, the overlay over
-a real game under Gamescope, mouse clicks on the new pages (routed and unit-tested only), a
+hidden Restart refused. The overlay's blend over a game (dimmed, not black) is verified in a headless
+Gamescope with a stand-in game (`docs/issues/overlay-blacks-out-game.md`). Unverified: real power
+actions, scan, pairing and connect, the overlay over a real game under the player's Gamescope, mouse clicks on the new pages (routed and unit-tested only), a
 physical pad's battery and button test, a backlight (this machine has none).
 
 From launch until the launch ends, `gamepad::Pads` holds every gamepad, including one

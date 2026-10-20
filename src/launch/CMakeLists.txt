@@ -1,4 +1,4 @@
-add_library(opensu_command STATIC command.cpp)
+add_library(opensu_command STATIC command.cpp child_environment.cpp)
 add_library(opensu::command ALIAS opensu_command)
 target_include_directories(opensu_command PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_command PUBLIC lucent::lucent)

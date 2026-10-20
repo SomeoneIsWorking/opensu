@@ -98,12 +98,13 @@ struct Fixture {
         envFile = base / "env";
         desktopNote = base / "desktop";
         const fs::path program = bin / "gamescope";
-        std::ofstream{program} << "#!/bin/sh\n"
-                                  "printf '%s\\n' \"$@\" > \"" +
-                                      argsFile.string() +
-                                      "\"\n"
-                                      "echo \"$OPENSU_SESSION\" > \"" +
-                                      envFile.string() + "\"\n" + tail;
+        std::ofstream{program}
+            << "#!/bin/sh\n"
+               "printf '%s\\n' \"$@\" > \"" +
+                   argsFile.string() +
+                   "\"\n"
+                   "echo \"$OPENSU_SESSION ${DISABLE_GAMESCOPE_WSI-unset}\" > \"" +
+                   envFile.string() + "\"\n" + tail;
         fs::permissions(program, fs::perms::owner_all);
     }
 
@@ -133,7 +134,8 @@ void testRunPassesArgumentsAndStopsLeftovers() {
     const int status = session.run(output, {"--flag"});
 
     expect(status == 3, "Gamescope's exit status is returned");
-    expect(slurp(fixture.envFile) == fixture.session + "\n", "OPENSU_SESSION names the session");
+    expect(slurp(fixture.envFile) == fixture.session + " 1\n",
+           "OPENSU_SESSION names the session and the Gamescope WSI layer is off for the shell");
 
     std::error_code ec;
     const std::string self = fs::read_symlink("/proc/self/exe", ec).string();
@@ -153,7 +155,8 @@ void testLoginSessionIsTopLevel() {
     const Fixture fixture{"login", "exit 0\n"};
     CompositorSession session = fixture.compositor();
     expect(session.run(Output{}, {"--session"}) == 0, "the top-level run ends with Gamescope");
-    expect(slurp(fixture.envFile) == fixture.session + "\n", "OPENSU_SESSION names the session");
+    expect(slurp(fixture.envFile) == fixture.session + " 1\n",
+           "OPENSU_SESSION names the session and the Gamescope WSI layer is off for the shell");
 
     std::error_code ec;
     const std::string self = fs::read_symlink("/proc/self/exe", ec).string();

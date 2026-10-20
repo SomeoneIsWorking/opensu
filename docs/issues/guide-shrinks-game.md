@@ -11,8 +11,10 @@ Expected: the game keeps filling the screen under the menu.
 Tried: Cuphead at 3840x2160 in a headless Gamescope with the user's arguments
 (`-W 3840 -H 2160 -w 3840 -h 2160 -r 60 -f`), Guide opened and closed. The game window
 stayed 3840x2160 and focused (`GAMESCOPE_FOCUSED_WINDOW`) throughout. Headless Gamescope
-screenshots (`GAMESCOPECTRL_REQUEST_SCREENSHOT`) come back black, so the composite itself
-was not seen.
+screenshots (`GAMESCOPECTRL_REQUEST_SCREENSHOT`) came back black, so the composite itself
+was not seen; that request saves the base plane to `/tmp/gamescope.png`, while
+`gamescope_control` `take_screenshot` with `full_composition` to a chosen path shows the headless
+composite (`docs/issues/overlay-blacks-out-game.md`).
 
 What the Guide does: `session/gamescope_overlay.cpp:setShown` sets `_NET_WM_WINDOW_OPACITY`
 and `STEAM_INPUT_FOCUS` on openSU's own window; it touches no game window.
