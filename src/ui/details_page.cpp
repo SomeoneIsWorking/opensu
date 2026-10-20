@@ -47,9 +47,18 @@ std::string emulatorText(const library::Game& game) {
     const auto chosen =
         std::ranges::find(game.emulatorOptions, game.emulator, &library::EmulatorOption::name);
     if (chosen == game.emulatorOptions.end()) {
+        if (!game.romset.empty()) {
+            return "none for this romset";
+        }
         return game.unavailable.empty() ? "none installed" : game.unavailable;
     }
-    return chosen->name + (chosen->installed ? " · installed" : " · not installed");
+    std::string text = chosen->name + (chosen->installed ? " · installed" : " · not installed");
+    if (chosen->romset == library::RomsetFit::Matches) {
+        text += " · romset matches";
+    } else if (chosen->romset == library::RomsetFit::Mismatch) {
+        text += " · romset does not match";
+    }
+    return text;
 }
 
 } // namespace
@@ -93,7 +102,10 @@ const library::EmulatorOption* emulatorToDownload(const library::Game& game) {
         chosen != options.end()) {
         return missing(*chosen) ? &*chosen : nullptr;
     }
-    const auto first = std::ranges::find_if(options, missing);
+    // Unpicked, a core the romset does not match is not offered.
+    const auto first = std::ranges::find_if(options, [&missing](const auto& option) {
+        return missing(option) && option.romset != library::RomsetFit::Mismatch;
+    });
     return first == options.end() ? nullptr : &*first;
 }
 
@@ -122,6 +134,12 @@ DetailsView detailsFor(const library::Game& game, bool hidden,
     }
     if (rom) {
         view.rows.push_back(DetailsRow{"Emulator", emulatorText(game)});
+        if (!game.romset.empty()) {
+            view.rows.push_back(DetailsRow{"Romset", game.romset});
+        }
+        if (!game.romsetNearest.empty()) {
+            view.rows.push_back(DetailsRow{"Nearest", game.romsetNearest});
+        }
     }
 
     view.buttons.push_back(
@@ -179,6 +197,9 @@ DetailsLayout layoutDetails(float width, float height, float dp, float topInset,
         layout.buttons.push_back(Rect{left, y, columnWidth, buttonHeightDp * dp});
         y += (buttonHeightDp + buttonGapDp) * dp;
     }
+    const float sideX = left + columnWidth + gutterDp * dp;
+    layout.side =
+        Rect{sideX, top, std::max(width - sideX - margin, 0.0f), layout.art.bottom() - top};
     layout.text = Rect{left, top, std::max(width - left - margin, 0.0f),
                        std::max(layout.art.bottom() - stack - top - gutterDp * 0.5f * dp, 0.0f)};
     return layout;

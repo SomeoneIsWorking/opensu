@@ -18,9 +18,9 @@ Catalog makeCatalog(const config::Config& config, bool hidden) {
     if (romRoots.empty()) {
         romRoots = roms::discoverRoots(config.home, roms::standardMountDirs(config.home));
     }
-    catalog.add(std::make_unique<roms::Provider>(std::move(romRoots),
-                                                 roms::EmulatorSetup::standard(config, hidden),
-                                                 roms::NameDb::under(config.cacheDir)));
+    catalog.add(std::make_unique<roms::Provider>(
+        std::move(romRoots), roms::EmulatorSetup::standard(config, hidden),
+        roms::NameDb::under(config.cacheDir), config.cacheDir));
     return catalog;
 }
 

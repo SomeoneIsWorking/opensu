@@ -19,8 +19,6 @@ constexpr std::size_t directoryHeaderSize = 46;
 constexpr std::uint16_t methodStored = 0;
 constexpr std::uint16_t methodDeflate = 8;
 constexpr std::uint16_t encryptedFlag = 0x1;
-// A file larger than this is not something opensu reads out of a zip.
-constexpr std::uint32_t maxFileSize = 256U * 1024U * 1024U;
 
 std::uint32_t le16(std::string_view bytes, std::size_t at) {
     return static_cast<std::uint8_t>(bytes[at]) |
@@ -125,8 +123,9 @@ std::optional<std::uint64_t> dataOffset(const Entry& entry, std::string_view hea
     return entry.localHeaderOffset + localHeaderSize + le16(header, 26) + le16(header, 28);
 }
 
-std::optional<std::string> extract(const Entry& entry, std::string_view data, std::string& error) {
-    if (entry.size > maxFileSize) {
+std::optional<std::string> extract(const Entry& entry, std::string_view data, std::string& error,
+                                   std::uint32_t maxSize) {
+    if (entry.size > maxSize) {
         fail(error, entry.name + " is too large");
         return std::nullopt;
     }
@@ -188,7 +187,8 @@ std::optional<Archive> Archive::open(std::string bytes, std::string& error) {
     return Archive{std::move(bytes), std::move(*entries)};
 }
 
-std::optional<std::string> Archive::read(std::string_view name, std::string& error) const {
+std::optional<std::string> Archive::read(std::string_view name, std::string& error,
+                                         std::uint32_t maxSize) const {
     error.clear();
     const auto found = std::ranges::find(entries_, name, &Entry::name);
     if (found == entries_.end()) {
@@ -204,7 +204,8 @@ std::optional<std::string> Archive::read(std::string_view name, std::string& err
         fail(error, found->name + " data runs past the end of the zip");
         return std::nullopt;
     }
-    return extract(*found, std::string_view{bytes_}.substr(*start, found->compressedSize), error);
+    return extract(*found, std::string_view{bytes_}.substr(*start, found->compressedSize), error,
+                   maxSize);
 }
 
 } // namespace opensu::zip

@@ -40,6 +40,9 @@ class DetailsPagePainter {
                     const DetailsView& view, float alpha) const;
     void paintText(Canvas& canvas, const DetailsLayout& layout, const DetailsPage& page, float dp,
                    float alpha) const;
+    /// The rows in the column beside the buttons, each label over its wrapped value.
+    void paintSideRows(Canvas& canvas, const Rect& side, const DetailsPage& page, float dp,
+                       float alpha) const;
     void paintButtons(Canvas& canvas, const DetailsPage& page, const DetailsLayout& layout,
                       float dp, float alpha) const;
 

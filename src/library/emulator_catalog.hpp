@@ -34,6 +34,17 @@ struct ReleaseSource {
     std::string downloads;
 };
 
+/// Where an arcade core's ROM-set listings come from: datafiles at fixed HTTPS URLs, merged in
+/// order, or the latest release's asset, a zip holding one listing.
+struct RomsetSource {
+    std::vector<std::string> files;
+    std::optional<ReleaseSource> release;
+
+    [[nodiscard]] bool empty() const noexcept {
+        return files.empty() && !release;
+    }
+};
+
 struct EmulatorEntry {
     /// Stable key: the download folder's name and the settings' spelling.
     std::string id;
@@ -48,6 +59,8 @@ struct EmulatorEntry {
     std::optional<ReleaseSource> release;
     /// The libretro core a built-in emulator runs ("mgba_libretro"); empty for a standalone one.
     std::string core;
+    /// An arcade core's ROM-set listings; empty for every other emulator.
+    RomsetSource romsets;
 
     [[nodiscard]] bool serves(std::string_view system) const;
     [[nodiscard]] bool builtIn() const noexcept {

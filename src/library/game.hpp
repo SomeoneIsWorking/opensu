@@ -36,6 +36,14 @@ struct LaunchSpec {
     }
 };
 
+/// Whether an arcade core's listing has every ROM of the game's set.
+enum class RomsetFit : std::uint8_t {
+    /// Not an arcade core, or its listing could not be had.
+    Unchecked,
+    Matches,
+    Mismatch,
+};
+
 /// One emulator that can run a ROM's system, installed here or not.
 struct EmulatorOption {
     std::string name;
@@ -48,6 +56,10 @@ struct EmulatorOption {
     bool downloadable{false};
     /// Why an emulator that is there cannot start, with what fixes it; empty otherwise.
     std::string problem;
+    RomsetFit romset{RomsetFit::Unchecked};
+    /// What the set lacks for this core ("lacks 2 of 16 files: a.bin, b.bin"); empty unless
+    /// `romset` is `Mismatch`.
+    std::string romsetGap;
 };
 
 /// One launchable entry.
@@ -106,6 +118,11 @@ struct Game {
     std::string emulator;
     /// Why `launch` is empty for a game that is there to play, in words for the player.
     std::string unavailable;
+    /// An arcade zip's romset: the cores it matches, or that none does; empty when it was not
+    /// checked.
+    std::string romset;
+    /// With no core matching, the nearest one and what the set lacks for it.
+    std::string romsetNearest;
 };
 
 /// Thrown by a provider whose store is not on this machine at all, which is not a fault.

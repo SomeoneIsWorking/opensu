@@ -90,6 +90,34 @@ std::string Typeface::fitted(std::string text, float room, const TextStyle& styl
     return text + "...";
 }
 
+std::vector<std::string> Typeface::wrapped(const std::string& text, float room,
+                                           const TextStyle& style) const {
+    std::vector<std::string> lines;
+    std::string line;
+    std::size_t at = 0;
+    while (at <= text.size()) {
+        std::size_t end = text.find(' ', at);
+        end = end == std::string::npos ? text.size() : end;
+        const std::string word = text.substr(at, end - at);
+        std::string joined = line;
+        if (!joined.empty()) {
+            joined += ' ';
+        }
+        joined += word;
+        if (!line.empty() && measure(joined, style) > room) {
+            lines.push_back(line);
+            line = word;
+        } else {
+            line = joined;
+        }
+        at = end + 1;
+    }
+    if (!line.empty()) {
+        lines.push_back(line);
+    }
+    return lines;
+}
+
 void Typeface::drawCentred(Canvas& canvas, std::string_view text, float x, float centreY,
                            const TextStyle& style, Colour colour) {
     if (text.empty() || colour.a == 0) {

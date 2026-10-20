@@ -24,9 +24,10 @@ library::Game rom(const std::string& id) {
     game.sourceId = "switch";
     game.installed = true;
     game.emulatorOptions = {
-        library::EmulatorOption{"Eden", true, library::LaunchSpec{"eden", {}}, "eden", false, {}},
         library::EmulatorOption{
-            "Ryujinx", true, library::LaunchSpec{"ryujinx", {}}, "ryujinx", false, {}}};
+            "Eden", true, library::LaunchSpec{"eden", {}}, "eden", false, {}, {}, {}},
+        library::EmulatorOption{
+            "Ryujinx", true, library::LaunchSpec{"ryujinx", {}}, "ryujinx", false, {}, {}, {}}};
     game.emulator = "Eden";
     return game;
 }

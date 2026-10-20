@@ -87,6 +87,9 @@ struct DetailsLayout {
     Rect art;
     /// Where the title, badge and rows flow, right of the cover and above the buttons.
     Rect text;
+    /// The column right of the buttons, from the top to the cover's bottom: where the rows go,
+    /// below the title and badge, when they do not fit above the buttons.
+    Rect side;
     std::vector<Rect> buttons;
     float radius{};
 

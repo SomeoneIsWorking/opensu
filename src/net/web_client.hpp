@@ -7,9 +7,13 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace opensu::net {
+
+/// `scheme://authority/` of `url`, or empty when it has none.
+[[nodiscard]] std::string originOf(std::string_view url);
 
 class WebClient {
   public:

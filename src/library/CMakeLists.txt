@@ -17,6 +17,9 @@ add_library(opensu_library STATIC
     param_sfo.cpp
     dump_info.cpp
     arcade_names.cpp
+    romset_dat.cpp
+    romset_dats.cpp
+    romset_match.cpp
     shelf.cpp
     library_query.cpp
     play_history.cpp

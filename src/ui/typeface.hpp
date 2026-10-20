@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <SDL3/SDL_gpu.h>
 
@@ -39,6 +40,11 @@ class Typeface {
 
     /// `text` cut to fit `room` pixels, ending in dots when it is cut.
     [[nodiscard]] std::string fitted(std::string text, float room, const TextStyle& style);
+
+    /// `text` broken into lines no wider than `room`, at spaces; a word wider than `room` keeps a
+    /// line of its own.
+    [[nodiscard]] std::vector<std::string> wrapped(const std::string& text, float room,
+                                                   const TextStyle& style) const;
 
     /// Draws a label from `x`, its line box centred on `centreY`.
     void drawCentred(Canvas& canvas, std::string_view text, float x, float centreY,

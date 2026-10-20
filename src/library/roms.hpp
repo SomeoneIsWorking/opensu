@@ -8,6 +8,8 @@
 #include "arcade_names.hpp"
 #include "emulators.hpp"
 #include "game.hpp"
+#include "net/web_client.hpp"
+#include "romset_match.hpp"
 
 namespace opensu::library::roms {
 
@@ -24,7 +26,9 @@ standardMountDirs(const std::filesystem::path& home);
 
 class Provider final : public library::Provider {
   public:
-    Provider(std::vector<std::filesystem::path> roots, EmulatorSetup emulators, NameDb names);
+    /// Arcade romsets are matched with listings kept under `cacheDir`; an empty one matches none.
+    Provider(std::vector<std::filesystem::path> roots, EmulatorSetup emulators, NameDb names,
+             const std::filesystem::path& cacheDir);
 
     [[nodiscard]] Source source() const override {
         return Source::Rom;
@@ -33,6 +37,7 @@ class Provider final : public library::Provider {
     /// Every game in every known system's folder under the roots, titled from its name with the
     /// dump tags cleaned off, and an arcade game from the kept listing when it has its short name.
     /// A game whose system has no emulator is listed, with `unavailable` naming what to install.
+    /// An arcade zip's emulator is the one its romset matches (`applyRomsets`).
     /// The emulators are searched for on every call, so one installed since shows.
     [[nodiscard]] std::vector<Game> list() override;
 
@@ -44,6 +49,8 @@ class Provider final : public library::Provider {
     std::vector<std::filesystem::path> roots_;
     EmulatorSetup emulators_;
     NameDb names_;
+    net::WebClient web_;
+    RomsetMatcher romsets_;
 };
 
 } // namespace opensu::library::roms

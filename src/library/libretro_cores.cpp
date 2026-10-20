@@ -28,6 +28,8 @@ constexpr std::size_t crcDigits = 8;
 /// The listing of every core is tens of kilobytes.
 constexpr std::size_t maxIndexBytes = std::size_t{4} * 1024 * 1024;
 constexpr long httpOk = 200;
+/// Current MAME's core is larger than the zip reader's usual cap.
+constexpr std::uint32_t maxCoreBytes = 1024U * 1024U * 1024U;
 
 std::string textOf(const json& object, const char* key) {
     const auto found = object.find(key);
@@ -64,16 +66,6 @@ std::vector<std::string_view> wordsOf(std::string_view line) {
     return words;
 }
 
-/// `scheme://authority/` of `url`, or empty when it has none.
-std::string originOf(std::string_view url) {
-    const std::size_t scheme = url.find("://");
-    if (scheme == std::string_view::npos) {
-        return {};
-    }
-    const std::size_t path = url.find('/', scheme + 3);
-    return std::string{url.substr(0, path == std::string_view::npos ? url.size() : path)} + "/";
-}
-
 std::optional<std::string> readWhole(const fs::path& file, std::string& error) {
     std::ifstream in{file, std::ios::binary};
     if (!in) {
@@ -100,7 +92,7 @@ std::optional<std::string> coreIn(std::string bytes, const std::string& core, st
         error = "the zip does not hold just " + name;
         return std::nullopt;
     }
-    std::optional<std::string> library = archive->read(name, error);
+    std::optional<std::string> library = archive->read(name, error, maxCoreBytes);
     if (!library) {
         error = name + " cannot be taken out of the zip: " + error;
     }
@@ -216,7 +208,7 @@ std::optional<FoundCore> CoreSearch::find(std::string_view core) const {
 }
 
 std::string CoreDownload::refusal(const std::string& url) const {
-    const std::string origin = originOf(base_);
+    const std::string origin = net::originOf(base_);
     if (origin.empty() || !url.starts_with(origin)) {
         return url + " is not on the buildbot " + origin;
     }

@@ -49,9 +49,14 @@ parseDirectory(std::string_view bytes, const Directory& directory, std::string& 
 [[nodiscard]] std::optional<std::uint64_t> dataOffset(const Entry& entry, std::string_view header,
                                                       std::string& error);
 
-/// An entry's data (as stored in the zip) turned back into its file, its size and CRC-32 checked.
+/// The largest file read out of a zip unless the caller expects a larger one.
+inline constexpr std::uint32_t maxFileSize = 256U * 1024U * 1024U;
+
+/// An entry's data (as stored in the zip) turned back into its file, its size and CRC-32 checked;
+/// a file over `maxSize` is refused.
 [[nodiscard]] std::optional<std::string> extract(const Entry& entry, std::string_view data,
-                                                 std::string& error);
+                                                 std::string& error,
+                                                 std::uint32_t maxSize = maxFileSize);
 
 /// A whole zip held in memory.
 class Archive {
@@ -63,7 +68,8 @@ class Archive {
     }
     /// The named entry's file, or nothing: `error` is empty when the zip has no such entry and
     /// says why otherwise.
-    [[nodiscard]] std::optional<std::string> read(std::string_view name, std::string& error) const;
+    [[nodiscard]] std::optional<std::string> read(std::string_view name, std::string& error,
+                                                  std::uint32_t maxSize = maxFileSize) const;
 
   private:
     Archive(std::string bytes, std::vector<Entry> entries)

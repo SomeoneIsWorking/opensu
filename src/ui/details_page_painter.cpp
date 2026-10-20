@@ -24,6 +24,11 @@ constexpr float rowValueSp = 16.0f;
 constexpr float buttonSp = 17.0f;
 constexpr float rowHeightDp = 27.0f;
 constexpr float labelColumnDp = 120.0f;
+/// Rows that do not fit above the buttons go beside them when that column is this wide.
+constexpr float sideMinimumDp = 120.0f;
+constexpr float sideGapDp = 8.0f;
+/// The least room between a button's label and its value.
+constexpr float valueGapDp = 12.0f;
 constexpr float outlineDp = 2.5f;
 constexpr float backdropAlpha = 0.14f;
 
@@ -120,6 +125,12 @@ void DetailsPagePainter::paintText(Canvas& canvas, const DetailsLayout& layout,
     const TextStyle label{rowLabelSp * dp};
     const TextStyle value{rowValueSp * dp};
     const float valueX = text.x + labelColumnDp * dp;
+    const auto rows = static_cast<float>(page.rows().size());
+    if (y + rows * rowHeightDp * dp > text.bottom() && layout.side.width >= sideMinimumDp * dp) {
+        paintSideRows(canvas, Rect{layout.side.x, y, layout.side.width, layout.side.bottom() - y},
+                      page, dp, alpha);
+        return;
+    }
     for (const DetailsRow& row : page.rows()) {
         if (y + rowHeightDp * dp > text.bottom()) {
             break;
@@ -129,6 +140,32 @@ void DetailsPagePainter::paintText(Canvas& canvas, const DetailsLayout& layout,
         typeface_.drawCentred(canvas, typeface_.fitted(row.value, text.right() - valueX, value),
                               valueX, centre, value, withAlpha(ink, alpha));
         y += rowHeightDp * dp;
+    }
+}
+
+void DetailsPagePainter::paintSideRows(Canvas& canvas, const Rect& side, const DetailsPage& page,
+                                       float dp, float alpha) const {
+    const TextStyle label{rowLabelSp * dp};
+    const TextStyle value{rowValueSp * dp};
+    const float labelBox = typeface_.lineBox(label);
+    const float valueBox = typeface_.lineBox(value);
+    float y = side.y;
+    for (const DetailsRow& row : page.rows()) {
+        if (y + labelBox + valueBox > side.bottom()) {
+            break;
+        }
+        typeface_.drawCentred(canvas, row.label, side.x, y + labelBox * 0.5f, label,
+                              withAlpha(inkSoft, alpha));
+        y += labelBox;
+        for (const std::string& line : typeface_.wrapped(row.value, side.width, value)) {
+            if (y + valueBox > side.bottom()) {
+                break;
+            }
+            typeface_.drawCentred(canvas, typeface_.fitted(line, side.width, value), side.x,
+                                  y + valueBox * 0.5f, value, withAlpha(ink, alpha));
+            y += valueBox;
+        }
+        y += sideGapDp * dp;
     }
 }
 
@@ -157,10 +194,12 @@ void DetailsPagePainter::paintButtons(Canvas& canvas, const DetailsPage& page,
             const std::string shown = buttons[i].action == DetailsAction::Emulator
                                           ? "<  " + buttons[i].value + "  >"
                                           : buttons[i].value;
-            const float width = typeface_.measure(shown, text);
-            typeface_.drawCentred(
-                canvas, typeface_.fitted(shown, rect.width - 2.0f * pad - 90.0f * dp, text),
-                rect.right() - pad - width, rect.centreY(), text, withAlpha(inkSoft, alpha));
+            const float label = typeface_.measure(page.shown(i), text);
+            const std::string fitted =
+                typeface_.fitted(shown, rect.width - 2.0f * pad - label - valueGapDp * dp, text);
+            typeface_.drawCentred(canvas, fitted,
+                                  rect.right() - pad - typeface_.measure(fitted, text),
+                                  rect.centreY(), text, withAlpha(inkSoft, alpha));
         }
     }
 }

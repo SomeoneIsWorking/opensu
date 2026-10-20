@@ -42,6 +42,10 @@ void EmulatorChoices::apply(std::vector<Game>& games) const {
         if (option == game.emulatorOptions.end()) {
             continue;
         }
+        // A system's pick gives way to a core the romset matches; the game's own pick does not.
+        if (option->romset == RomsetFit::Mismatch && !entries_.contains(game.id)) {
+            continue;
+        }
         game.emulator = option->name;
         game.launch = option->launch;
         if (option->installed) {

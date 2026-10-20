@@ -115,14 +115,24 @@ std::vector<fs::path> discoverRoots(const fs::path& home, const std::vector<fs::
     return roots;
 }
 
-Provider::Provider(std::vector<fs::path> roots, EmulatorSetup emulators, NameDb names)
-    : roots_{std::move(roots)}, emulators_{std::move(emulators)}, names_{std::move(names)} {
+Provider::Provider(std::vector<fs::path> roots, EmulatorSetup emulators, NameDb names,
+                   const fs::path& cacheDir)
+    : roots_{std::move(roots)}, emulators_{std::move(emulators)}, names_{std::move(names)},
+      romsets_{cacheDir.empty() ? RomsetMatcher{}
+                                : RomsetMatcher{RomsetDats::under(cacheDir, &web_)}} {
 }
 
 std::vector<Game> Provider::list() {
     std::vector<Game> games;
     const NameMap arcade = names_.load();
     const Emulators emulators = emulators_.discover();
+    std::vector<const EmulatorEntry*> arcadeCores;
+    for (const EmulatorEntry& entry : emulators.catalog().entries()) {
+        if (entry.serves("arcade") && !entry.romsets.empty()) {
+            arcadeCores.push_back(&entry);
+        }
+    }
+    romsets_.begin(RomsetMatcher::Clock::now());
     for (const fs::path& root : roots_) {
         std::error_code ec;
         if (!fs::is_directory(root, ec)) {
@@ -170,10 +180,15 @@ std::vector<Game> Provider::list() {
                 } else {
                     game.unavailable = missingEmulator(*system, emulators);
                 }
+                if (system->key == "arcade" && file->extension() == ".zip") {
+                    applyRomsets(game, lowerAscii(file->stem().string()),
+                                 romsets_.check(*file, arcadeCores));
+                }
                 games.push_back(std::move(game));
             }
         }
     }
+    romsets_.save();
     return games;
 }
 

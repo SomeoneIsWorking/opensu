@@ -62,6 +62,9 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, control commands between frames, the hidden mode for tests |
 | `src/retro/main.cpp` | `opensu-retro`'s command line |
 | `src/library/libretro_cores.*` | Finding a core; core downloads from the libretro buildbot under `<data>/opensu/cores/` and their record |
+| `src/library/romset_dat.*` | An arcade core's ROM-set listing: a Logiqx datafile or MAME `-listxml` parsed, its line format under the cache |
+| `src/library/romset_dats.*` | The arcade cores' listings fetched over HTTPS from the catalog's `"romsets"` and kept under `<cache>/romsets/` for 30 days |
+| `src/library/romset_match.*` | An arcade zip's central directory against each listing, the verdicts kept by file stamps, the game's emulator picked by them |
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release |
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> <rom>`, with `--hidden` from a hidden shell |
 | `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core, on the same paths as an AppImage |
@@ -162,10 +165,30 @@ update check compares the listed CRC-32 with the record's. Only a core with a re
 update and remove. Built-in entries come after the standalone ones in the catalog, so a system's
 automatic emulator stays the standalone one where it is installed.
 
+**Romsets.** An arcade core's catalog entry names its listing: `"romsets": {"files": [...]}`
+(HTTPS datafiles merged in order) or `"romsets": {"release": {api, asset, downloads}}` (the latest
+release's zip holding one `.xml`, size and SHA-256 checked). `RomsetDats::refresh` fetches a
+listing that is missing or older than 30 days, every redirect hop on the file's origin, and keeps
+the old one when the fetch fails; a matcher tries again no sooner than an hour later. A zip's set is
+its stem, lower case. A set matches a core when every ROM it needs (a `nodump`, optional or
+CRC-less ROM is not needed; of BIOS-choice ROMs only the default choice's) is found by CRC-32 and
+size in the zip, its `romof` chain's zips or its devices' zips (a device's own devices included)
+in the same folder, and each disk is at `<set>/<disk>.chd`. `applyRomsets` keeps the search's
+emulator when it matches, else takes the first matching one installed, else names the first
+matching one as not installed (the details page offers its download); with every core checked and
+none matching the game's `launch` is empty and `unavailable` is "No arcade core matches this
+romset", with `romsetNearest` the core that lacks the fewest files and which. A core whose listing
+cannot be had is unchecked and changes nothing. `EmulatorChoices::apply` skips a system's pick the
+romset does not match; a game's own pick always applies. Verdicts are kept in
+`<cache>/romsets/matches.json` with the stamp (size, modification time) of the zip and of every
+file the match looked at, absent ones included, and the listings' source CRC-32s; a scan reads
+nothing more of a zip whose stamps all hold.
+
 ## 5. Phases
 
-1. Software cores: mGBA (GB, GBC, GBA), then Gambatte, snes9x, Mesen, Genesis Plus GX and PCSX
-   ReARMed. Genesis Plus GX waits for Mega Drive, Master System and Game Gear systems in
+1. Software cores: mGBA (GB, GBC, GBA), then Gambatte, snes9x, Mesen, PCSX ReARMed, and for
+   Arcade FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME, picked per game by romset. Genesis Plus
+   GX and PicoDrive wait for Mega Drive, Master System, Game Gear, Sega CD and 32X systems in
    `rom_systems`. Runner, input, audio, save RAM, core downloads through Settings › Emulators and the
    details page.
 2. Built: save states and reset from the quick menu over a loopback `lucent::http::Server` in the
@@ -199,4 +222,7 @@ automatic emulator stays the standalone one where it is installed.
 - The tests need a display for the hidden SDL window and any Vulkan driver: the CI workflow wraps
   `tools.check ci` in `xvfb-run`, the check container gets that display forwarded in
   (`tools/podman.display_words`), and the image has lavapipe and the validation layers.
+- `romset_match_test` matches zips built in its scratch folder against a datafile and a
+  `-listxml` written in the test: parent, renamed member, BIOS choice, device of a device, disk,
+  kept verdicts and what invalidates them, the pick and the no-match text.
 - A real core and ROM are checked by hand on this machine, never in CI (no ROMs in CI).

@@ -69,6 +69,15 @@ constexpr long httpPartial = 206;
 
 } // namespace
 
+std::string originOf(std::string_view url) {
+    const std::size_t scheme = url.find("://");
+    if (scheme == std::string_view::npos) {
+        return {};
+    }
+    const std::size_t path = url.find('/', scheme + 3);
+    return std::string{url.substr(0, path == std::string_view::npos ? url.size() : path)} + "/";
+}
+
 WebClient::WebClient() {
     curl_global_init(CURL_GLOBAL_DEFAULT);
 }
