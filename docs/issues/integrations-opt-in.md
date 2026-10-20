@@ -48,7 +48,10 @@ normally, no isolation".
   (as SteamOS runs Steam) is the default and Isolated stays a choice. Session mode does not need
   Isolated.
 
+- Isolated reuses the player's Steam login ("isolated Steam should reuse login"): the sandbox gets
+  the login state from the player's Steam data, not a separate account. Library folders are shared
+  too unless the player says otherwise.
+
 ## Open questions for the player
 
-- Isolated Steam: its own login and its own installs, or share the existing library folders?
 - Normal mode: keep openSU's Guide chords over Steam games (needs the pad held during a game)?
