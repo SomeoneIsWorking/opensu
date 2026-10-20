@@ -80,9 +80,9 @@ class Handoff {
     bool start(const library::Game& game, const Hooks& hooks,
                const std::vector<std::string>& environment, std::string& failure);
 
-    /// SIGKILLs everything the current launch started: the instance, or a Steam
-    /// game's whole process tree (the client stays). Safe from any thread; start()
-    /// then returns promptly and calls `show`.
+    /// Ends the current launch and returns at once, from any thread: the thread in start()
+    /// SIGKILLs everything the launch started (the instance, or a Steam game's whole process
+    /// tree; the client stays), waits for it to go, calls `show` and returns.
     void forceClose();
 
   private:
@@ -121,9 +121,6 @@ class Handoff {
     std::atomic<bool> forced_{false};
     std::mutex wakeMutex_;
     std::condition_variable wake_;
-    /// The running Steam game's hint, empty when none; forceClose() reads it.
-    std::mutex hintMutex_;
-    std::string steamHint_;
 };
 
 } // namespace opensu::launch

@@ -56,14 +56,20 @@ Attach to the shell's main thread first: thread 1 in `info threads` is where the
 
 ## Side defects found on the way
 
-Not fixed here; each can block the main thread, but neither matches this journal.
+Both fixed; neither matched this journal, so the freeze itself stays open.
 
-- `src/app/shell_app.cpp:ShellApp::closeRunningGame` calls `Handoff::forceClose`, which calls
-  `src/launch/instance.cpp:Instance::kill` on the main thread. `Instance::endScope` then calls
-  `Instance::reapChild`, which polls `waitpid` for up to 10 s (`reapWait`), then sends SIGKILL and
-  calls a blocking `waitpid` with no timeout. A child stuck in uninterruptible sleep blocks the
-  shell forever. Here the close returned within 62 ms.
-- `src/app/focus_follow.cpp:FocusFollow::service` assigns a new `std::jthread` to `closer_` when
-  Big Picture takes focus. If the previous `closeBigPicture` thread is still running, the move
-  assignment joins it on the main thread, so a second Big Picture focus during a slow Steam
-  blocks the shell until the first close returns. No Big Picture focus was logged here.
+- Close game waited on the main thread. `Handoff::forceClose` now only raises the request and wakes
+  the launch's thread, which kills the scope (`Instance::kill`), waits for the started process
+  (`reapChild`: up to 10 s, then SIGKILL and a blocking `waitpid`) and ends the launch through the
+  usual game-end path. A hidden run with a stand-in emulator that ignores SIGTERM and a `systemctl`
+  whose `kill` does nothing, so the process outlives its scope for the full 10 s
+  (`scratch/dollar/runs/close-fault-before/` and `close-fault-after/`): before, `/frame.png`, which
+  only the main loop answers, timed out twice at 5 s and the loop drew nothing for 12 s; after, it
+  answered 174 times in those 15 s, slowest 84 ms. `/state` stays under 25 ms in both, because it
+  is a snapshot the loop publishes and cannot show a stalled loop.
+- `FocusFollow::service` no longer assigns over a running `std::jthread`. One closer thread,
+  started on the first Big Picture focus, calls `closeBigPicture` one at a time; a focus while a
+  close runs marks one more close after it, so the main thread never waits for Steam.
+  `focus_owner_test` holds the first close and checks the second focus is answered while it
+  runs. There is no seam for this in a hidden run: `FocusFollow` gets a focus source only inside
+  Gamescope.

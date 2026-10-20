@@ -9,6 +9,7 @@
 #include <functional>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <pthread.h>
 #include <signal.h>
@@ -183,7 +184,6 @@ int main() {
         const fs::path seen = scratch / "wsi";
         Instance instance;
         std::string failure;
-        // systemd-run expands $ in the command line itself, so the probe dumps it whole.
         expect(instance.start(unitName("wsi"), "/bin/sh", {"-c", "env > " + seen.string()}, failure,
                               {"FROM_CALLER=given"}),
                "the environment probe starts");
@@ -203,6 +203,39 @@ int main() {
         }
         expect(!disabled, "a started program has no DISABLE_GAMESCOPE_WSI");
         expect(given, "a started program keeps what the caller adds");
+    }
+
+    {
+        // "$" in the program's path and in its arguments reaches it as given.
+        const fs::path folder = scratch / "dollar $HOME ${HOME}";
+        fs::create_directories(folder);
+        const fs::path seen = scratch / "argv";
+        const fs::path program = folder / "probe ${X}.sh";
+        {
+            std::ofstream out{program};
+            out << "#!/bin/sh\nfor word in \"$0\" \"$@\"; do printf '%s\\n' \"$word\"; done > '"
+                << seen.string() << "'\n";
+        }
+        fs::permissions(program, fs::perms::owner_all);
+        const std::vector<std::string> args{"$HOME", "${HOME}", "a$$b", "x${X}y", "$"};
+        Instance instance;
+        std::string failure;
+        expect(instance.start(unitName("dollar"), program.string(), args, failure),
+               "a program with $ in its path starts");
+        expect(waitUntil(
+                   [&instance] {
+                       return !instance.running();
+                   },
+                   std::chrono::seconds{10}),
+               "the argument probe ends");
+        std::ifstream in{seen};
+        std::vector<std::string> words;
+        for (std::string line; std::getline(in, line);) {
+            words.push_back(line);
+        }
+        std::vector<std::string> expected{program.string()};
+        expected.insert(expected.end(), args.begin(), args.end());
+        expect(words == expected, "the program's path and arguments arrive unchanged");
     }
 
     fs::remove_all(scratch);
