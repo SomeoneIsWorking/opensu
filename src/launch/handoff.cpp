@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -84,7 +85,7 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
     if (before.running == true) {
         // A second -applaunch only gets Steam's "Game already running" dialog.
         lucent::info("launch", "Steam already runs {}; returning to it", game.title);
-        return Begun::Started;
+        return Begun::Returned;
     }
     const std::optional<int> status =
         runCommand(program.string(), game.launch.args,
@@ -211,6 +212,42 @@ Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Report
     return Shown::Forced;
 }
 
+void Handoff::endSteamLaunch(const library::Game& game, int baseline, bool requested) {
+    const Clock::time_point deadline = Clock::now() + Handoff::startTimeout;
+    int cancelled = baseline;
+    bool taken = !requested;
+    while (true) {
+        const SteamAppActivity steam = steam_.activity(game.sourceId);
+        const bool ours = steam.actionId > baseline;
+        const bool pending = ours && !steam.actionEnded;
+        if (pending && steam.actionId > cancelled) {
+            steam_.cancelLaunch(game.sourceId);
+            cancelled = steam.actionId;
+        }
+        const bool running = steam.running.value_or(false);
+        const bool present = ProcessTree::anyMatches(game.processHint);
+        if (present) {
+            ProcessTree::killMatching(game.processHint);
+        }
+        taken = taken || ours || running || present;
+        if (taken && !pending && !running && !present) {
+            lucent::info("launch", "Steam let go of {}", game.title);
+            return;
+        }
+        if (steam_.state() != SteamState::Ready) {
+            lucent::warn("launch", "Steam stopped before it let go of {}", game.title);
+            return;
+        }
+        if (Clock::now() >= deadline) {
+            lucent::warn("launch", "Steam did not let go of {} within {}", game.title,
+                         Handoff::startTimeout);
+            return;
+        }
+        // pause() returns at once now that forced_ is set; Steam's record changes once a second.
+        std::this_thread::sleep_for(pollInterval);
+    }
+}
+
 bool Handoff::stillRunning(const library::Game& game, bool viaSteam) {
     if (!viaSteam) {
         return instance_.running() && ProcessTree::anyMatches(game.processHint);
@@ -241,6 +278,7 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
     if (begun == Begun::Failed) {
         return false;
     }
+    const bool requested = begun == Begun::Started;
     if (begun == Begun::Cancelled) {
         lucent::info("launch", "{} was cancelled before it started", game.title);
         return true;
@@ -251,9 +289,9 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
     bool hidden = false;
     const auto finish = [&] {
         if (viaSteam) {
-            // The client keeps running; only this game's tree is ours to end.
+            // The client keeps running; only this launch and this game's tree are ours to end.
             if (forced_.load()) {
-                ProcessTree::killMatching(game.processHint);
+                endSteamLaunch(game, baseline, requested);
             }
         } else {
             // SIGTERM first so the game can save; the scope SIGKILLs what is left after 5 s.
@@ -281,6 +319,9 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
     // because the player closed it is not a failure.
     if (shown == Shown::Forced || forced_.load()) {
         failure.clear();
+        if (viaSteam) {
+            report(LaunchProgress{.stage = LaunchProgress::Stage::Cancelling});
+        }
         finish();
         lucent::info("launch", "{} was force-closed", game.title);
         return true;

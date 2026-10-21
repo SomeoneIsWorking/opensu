@@ -55,6 +55,9 @@ EndNotice noticeOf(const GameEnd& end) {
     if (const std::string signal = crashSignal(end.exitStatus); !signal.empty()) {
         return {end.title + " crashed (" + signal + ")", true};
     }
+    if (end.cancelled) {
+        return {end.title + " launch cancelled", false};
+    }
     if (!end.failure.empty()) {
         return {end.failure, true};
     }

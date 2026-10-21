@@ -141,6 +141,15 @@ class FakeSteam final : public SteamGate {
         return inSession_;
     }
 
+    void cancelLaunch(std::string_view) override {
+        ++cancels_;
+    }
+
+    /// How many times the handoff asked Steam to drop a launch.
+    int cancels() const {
+        return cancels_.load();
+    }
+
     SteamState waitReady(std::chrono::milliseconds timeout,
                          const std::function<bool()>& cancelled) override {
         const Clock::time_point until = Clock::now() + timeout;
@@ -161,6 +170,7 @@ class FakeSteam final : public SteamGate {
     mutable std::mutex activityMutex_;
     SteamAppActivity activity_;
     std::atomic<bool> inSession_{true};
+    std::atomic<int> cancels_{0};
 };
 
 /// A display whose windows the test opens: none until show().
@@ -1127,6 +1137,53 @@ void testSteamForceCloseKillsTheGameNotTheClient() {
     waitpid(client, nullptr, 0);
 }
 
+/// forceClose() while Steam works through the launch it accepted asks Steam to drop it, and
+/// start() holds until Steam has: a game Steam starts regardless is ended, not left running unseen.
+void testSteamForceCloseCancelsSteamsLaunch() {
+    const Fixture fixture;
+    const FakeSteamProgram steamProgram{fixture, 600};
+    fs::remove(steamProgram.gate);
+    FakeSteam steam;
+    Handoff handoff{{steamProgram.bin}, fixture.session(), steam, nullptr};
+    Shell shell;
+    std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
+    expect(waitUntil(
+               [&steamProgram] {
+                   return fs::exists(steamProgram.launchLog);
+               },
+               std::chrono::seconds{10}),
+           "steam -applaunch was run");
+    steam.setActivity(SteamAppActivity{
+        .actionId = 1, .task = "Synchronizing cloud", .actionEnded = false, .running = false});
+    expect(!shell.returnedWithin(std::chrono::milliseconds{1000}), "the launch waits for Steam");
+
+    handoff.forceClose();
+    expect(waitUntil(
+               [&steam] {
+                   return steam.cancels() == 1;
+               },
+               std::chrono::seconds{5}),
+           "Steam was asked once to drop the launch");
+    expect(!shell.returnedWithin(std::chrono::milliseconds{1500}),
+           "start() holds while Steam's action is unfinished");
+    const std::optional<LaunchProgress> reported = shell.latestProgress();
+    expect(reported && reported->stage == LaunchProgress::Stage::Cancelling,
+           "the progress line says the launch is cancelling");
+
+    write(steamProgram.gate, "");
+    const pid_t game = awaitRecordedPid(steamProgram.gamePid, "Steam starts the game anyway");
+    steam.setActivity(SteamAppActivity{.actionId = 1, .actionEnded = true, .running = true});
+    expect(stoppedWithin(game, std::chrono::seconds{5}), "the game Steam started is ended");
+    expect(!shell.returnedWithin(std::chrono::milliseconds{1000}),
+           "start() holds while Steam says the game runs");
+    steam.setActivity(SteamAppActivity{.actionId = 1, .actionEnded = true, .running = false});
+    const Outcome outcome =
+        awaitStart(pending, "start() returns once Steam let go", std::chrono::seconds{10});
+    expect(outcome.ok && outcome.failure.empty(), "a cancelled launch is not a failure");
+    expect(shell.hidden.load() == 0 && shell.shown.load() == 0, "the shell was never hidden");
+    expect(steam.cancels() == 1, "one action, one cancel");
+}
+
 /// forceClose() while the launch waits for Steam ends the wait without starting anything.
 void testSteamForceCloseCancelsTheWait() {
     const Fixture fixture;
@@ -1223,6 +1280,7 @@ int main() {
     testSteamBlockedAndFailedAreRefused();
     testSteamForceCloseKillsTheGameNotTheClient();
     testSteamForceCloseCancelsTheWait();
+    testSteamForceCloseCancelsSteamsLaunch();
     testEmptyHintIsRefusedPromptly();
 
     std::printf("handoff: all checks passed\n");

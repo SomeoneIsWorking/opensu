@@ -17,7 +17,12 @@ void PanelFlow::act(gamepad::Button button) {
     case Use::Launch:
         if (button == gamepad::Button::B) {
             hooks_.cancelLaunch();
+            // Nothing is left to press while the launch winds down.
+            shell_.launchPanel().setHints({});
+            use_ = Use::Cancelling;
         }
+        break;
+    case Use::Cancelling:
         break;
     case Use::OfferInstall:
         if (button == gamepad::Button::A || button == gamepad::Button::X) {
@@ -60,7 +65,7 @@ void PanelFlow::showLaunch(const std::string& title) {
 }
 
 void PanelFlow::endLaunch() {
-    if (use_ == Use::Launch) {
+    if (forLaunch()) {
         shell_.launchPanel().close();
         use_ = Use::None;
     }
@@ -139,7 +144,7 @@ void PanelFlow::presentEula() {
 }
 
 void PanelFlow::service() {
-    if (eulaWaiting_ && use_ != Use::Launch) {
+    if (eulaWaiting_ && !forLaunch()) {
         presentEula();
     }
     const std::optional<InstallJob::Report> report = install_.take();
@@ -152,7 +157,7 @@ void PanelFlow::service() {
         return;
     }
     if (report->licence) {
-        if (use_ == Use::Launch) {
+        if (forLaunch()) {
             eulaWaiting_ = true;
         } else {
             presentEula();

@@ -20,6 +20,8 @@ struct LaunchProgress {
         Preparing,
         /// The game runs but has no window yet.
         Loading,
+        /// The player cancelled; Steam is letting go of the launch.
+        Cancelling,
     };
 
     Stage stage{Stage::Starting};
