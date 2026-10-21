@@ -1,4 +1,5 @@
-// video_settings — how opensu-retro shows a game's frame: its aspect, integer scaling and sampling.
+// video_settings — how opensu-retro shows a game's frame: its aspect, integer scaling, sampling and
+// filter.
 // The keys and choices the setting layers keep them under, a game's values resolved from those
 // layers, and the per-launch file the shell writes and `opensu-retro --settings` reads.
 #pragma once
@@ -40,10 +41,22 @@ enum class Sampling : std::uint8_t {
     SharpBilinear,
 };
 
+/// A pass over the placed frame.
+enum class Filter : std::uint8_t {
+    None,
+    /// A dark band along the bottom of every source row.
+    Scanlines,
+    /// A dark band along the right and bottom of every source pixel.
+    LcdGrid,
+    /// crt-lottes: scanlines, bloom, curvature and a shadow mask; it does its own sampling.
+    Crt,
+};
+
 struct VideoSettings {
     Aspect aspect{Aspect::Core};
     IntegerScale integer{IntegerScale::Off};
     Sampling sampling{Sampling::Nearest};
+    Filter filter{Filter::None};
 
     bool operator==(const VideoSettings&) const = default;
 };
@@ -79,10 +92,18 @@ inline constexpr std::array<ChoiceText, 3> samplingChoices{{
     {"sharp-bilinear", "Sharp bilinear"},
 }};
 
-inline constexpr std::array<VideoKey, 3> videoKeys{{
+inline constexpr std::array<ChoiceText, 4> filterChoices{{
+    {"none", "None"},
+    {"scanlines", "Scanlines"},
+    {"lcd-grid", "LCD grid"},
+    {"crt", "CRT"},
+}};
+
+inline constexpr std::array<VideoKey, 4> videoKeys{{
     {"video.aspect", "Aspect", aspectChoices},
     {"video.integer", "Integer scale", integerChoices},
     {"video.sampling", "Sampling", samplingChoices},
+    {"video.filter", "Filter", filterChoices},
 }};
 
 /// The video key `key` names, or null.

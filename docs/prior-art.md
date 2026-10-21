@@ -23,3 +23,10 @@ Not found (2026-10-13): an iiSU source release, decompile, design spec or layout
 | RPCS3 | https://github.com/rpcs3/rpcs3 (`rpcs3/Loader/PUP.cpp`, `rpcs3/Crypto/unself.cpp`, `rpcs3/Crypto/key_vault.h`, `rpcs3qt/main_window.cpp` `HandlePupInstallation`) | PS3 firmware installer | GPL-2.0 | master 4b1a801f | not run | the format as facts; keys only fetched at run time, never committed; no code copied | PUP entry 0x300, SCE package decryption |
 | consolespec | https://github.com/SnowflakePowered/consolespec (`SONY_PS3/dev_flash/*.mtree`) | dev_flash file listings per firmware | none stated | PS3 4.93, 4.00, 3.74 | `ps1_rom.bin` 524 288 bytes MD5 81bbe60b… in 4.x, matching libretro System.dat | facts: sizes, hashes, no PS2 BIOS file in `ps2emu` | psdevwiki was unreachable (Cloudflare) |
 | avpe | `~/repo/ps2/avpe` (the player's) | HLE BIOS for one PS2 game | the player's | Aliens vs. Predator: Extinction | not applicable | reference for PS2 HLE | covers that game's calls only |
+
+## Video filters (`docs/issues/retro-shaders-overlays.md`, checked 2026-10-21)
+
+| project | URL | kind | license | target | build match | what we may take | notes |
+|---|---|---|---|---|---|---|---|
+| crt-lottes (libretro slang-shaders) | https://github.com/libretro/slang-shaders, `crt/shaders/crt-lottes.slang` at `890a1e95b205210165a7e75f501ba81ca06ae487` (blob `cc0fcca7`), read with `gh api` | single-pass CRT shader by Timothy Lottes | public domain (file header "PUBLIC DOMAIN CRT STYLED SCAN-LINE SHADER … Please take and use, change, or whatever") | our runner's frame pass | not applicable (a shader) | the code: ported to `src/retro/shaders/crt_lottes.frag` with its parameter defaults in `retro/frame_filter.hpp` | the repository has no licence of its own; crt-geom, crt-royale and crt-easymode are GPL and are not copied |
+| RetroArch `gfx/video_filters` | https://github.com/libretro/RetroArch | CPU softfilter plugins (scanline, dot-matrix grids) | GPL-3.0 | not used | not applicable | nothing; the scanline and LCD grid filters are written from scratch | CPU filters, software cores only |

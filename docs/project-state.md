@@ -45,8 +45,8 @@ Visible deltas from the baseline:
   missing offers "Download <emulator>" for one with an official AppImage, with progress, and Play
   works on the same page once it is in. iiSU installs no emulators. The size on disk is not shown because no store source records it.
 - A game on a built-in core has Aspect (core, 4:3, pixel 1:1, stretch), Integer scale (off, on,
-  overscale) and Sampling (nearest, bilinear, sharp-bilinear), kept per game, per core, per console
-  and Everywhere, each value saying where it comes from (S040). iiSU has no video settings for its
+  overscale), Sampling (nearest, bilinear, sharp-bilinear) and Filter (none, scanlines, LCD grid,
+  CRT), kept per game, per core, per console and Everywhere, each value saying where it comes from (S040). iiSU has no video settings for its
   emulators.
 - A breadcrumb trail in the top bar's start (`Library > GOG > Search "had" > Installed > <game>`)
   names where the player is; each place in it is a pointer target that goes back to that level.
@@ -148,7 +148,7 @@ game has been observed running yet.
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
 | S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
-| S040 | Video settings for built-in cores (aspect, integer scale, sampling) in setting layers per game, core, console and Everywhere, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
+| S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter) in setting layers per game, core, console and Everywhere, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 
 ## Capability details
@@ -1447,7 +1447,9 @@ default and names its layer. The `emulator` key lives at the Game and System lay
 `settings.json`'s old `emulators` and `systemEmulators` move in once at start
 (`settings/emulator_pick_migration`). Button mappings use the same `Layer` and keep their whole-map
 rule. At launch the shell writes the resolved video settings to a per-launch file and starts
-`opensu-retro --settings <file>`; `retro/frame_compositor` places and samples the frame.
+`opensu-retro --settings <file>`; `retro/frame_compositor` places and samples the frame and
+`retro/frame_filter` picks the shader for the sampling and the filter (scanlines and LCD grid as
+bands on the source pixel grid, CRT ported from crt-lottes).
 
 Verified, hidden, 2026-10-21 (`scratch/setting-layers/`): `step1/` the presenter split leaves the
 runner's frames byte-identical (Kirby frame 600 on mGBA, armwar frame 900 on MAME 2010, before and
@@ -1463,8 +1465,20 @@ moved (log line, files); Kirby's moved pick reading "Set for this game" and Clea
 returning it to Automatic; armwar still "MAME 2010 (built-in) · Automatic (romset)" and launched on
 `mame2010_libretro.so`.
 
-Unverified: a visible window under Gamescope. Missing: built-in filters, the quick menu's live
-changes, core options per layer, shader presets, bezels, touch overlays (the card's steps 4–9).
+Filters verified, hidden, 2026-10-21 (`scratch/video-filters/`): `runner/` a frame per filter for
+Kirby & the Amazing Mirror (mGBA, frame 600) and Chrono Trigger (Snes9x, frame 1500) in 1280 × 720
+at integer scale (pixel aspect, GBA 4×, SNES 3×) and non-integer (core aspect, GBA 4.5×, SNES
+3.75 × 3.214), each with validation on and exit 0; `grid-check.txt` divides each scanline and
+LCD-grid frame by the unfiltered one and every lit pixel matches 1 − shade × band coverage on the
+source grid within 0.011; `crops/*-zoom.png` 8× crops showing the bands on source pixel edges;
+the CRT curved with black corners and the shadow mask. Filter None leaves frames pixel-identical
+to before the change (`regress/`). `shell/` and `launch/`: Super Nintendo set to Scanlines on its
+console page, Chrono Trigger to CRT on its details page ("CRT · Set for this game") while Super
+Metroid reads "Scanlines · From Super Nintendo"; their launches' settings files (`crt`,
+`scanlines`) and the runner frames from those command lines.
+
+Unverified: a visible window under Gamescope; the CRT's cost on Deck-class hardware. Missing: the
+quick menu's live changes, core options per layer, shader presets, bezels, touch overlays (the card's steps 5–9).
 
 ### S039 — Opt-in integrations and Steam modes
 

@@ -10,7 +10,7 @@ Retro systems play inside openSU with one fixed controller mapping in the runner
 saves that survive any crash, and the Guide overlay and quick menu working as they do over any
 game. A core that crashes ends its game, never the shell.
 
-Non-goals for now: shaders, rewind, run-ahead, netplay, achievements, cores that draw with the GPU
+Non-goals for now: shader presets (slang), rewind, run-ahead, netplay, achievements, cores that draw with the GPU
 (phase 2), anything a standalone emulator already does better (Switch, PS2 and later, Wii U,
 GameCube/Wii, Xbox, Xbox 360).
 
@@ -54,16 +54,17 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame, written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
 | `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png` |
-| `src/retro/frame_compositor.*` | What is drawn into a target: the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame, one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling, black around it |
+| `src/retro/frame_compositor.*` | What is drawn into a target: the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame, one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling and filter, black around it |
+| `src/retro/frame_filter.*` | The fragment shader for a sampling and filter, the built-in filters' parameters (`scanlineGrid`, `lcdGrid`, `crtLottes`) and the push block each draw hands the shader |
 | `src/retro/vulkan_device.*` | The Vulkan instance (validation layer and its error count on request) and the one device and graphics queue, the objects a Vulkan core will be handed in phase 3 |
 | `src/retro/png_encoder.*` | RGBA to PNG bytes through libpng |
-| `src/retro/shaders/frame.{vert,frag}`, `sharp_bilinear.frag` | The frame's shaders (sharp-bilinear: integer prescale then bilinear), compiled by glslc at build time into SPIR-V headers under the build tree |
+| `src/retro/shaders/frame.{vert,frag}`, `sharp_bilinear.frag`, `frame_grid.glsl`, `crt_lottes.frag` | The frame's shaders (sharp-bilinear: integer prescale then bilinear; `frame_grid.glsl`: the scanline and LCD-grid bands both sampling shaders apply; crt-lottes), compiled by glslc at build time into SPIR-V headers under the build tree |
 | `src/retro/save_state.*` | The one state slot `<saves>/<rom stem>.state`: `retro_serialize` written whole, read back through `retro_unserialize` |
 | `src/retro/control_server.*` | The runner's loopback `lucent::http::Server`: the control file (port and pid, or the load failure), the routes, the hand-over of each command and of the control pad's input to the frame loop |
 | `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, control commands between frames, the hidden mode for tests |
 | `src/retro/main.cpp` | `opensu-retro`'s command line, the `--settings` file read into `settings::VideoSettings` |
 | `src/settings/setting_layers.*` | The setting layers (Global, System, Emulator — the core layer —, Game) and the one resolution rule, each value with the layer it came from |
-| `src/settings/video_settings.*` | `video.aspect`, `video.integer`, `video.sampling`: their choices and labels, resolution to typed values, the per-launch settings file |
+| `src/settings/video_settings.*` | `video.aspect`, `video.integer`, `video.sampling`, `video.filter`: their choices and labels, resolution to typed values, the per-launch settings file |
 | `src/settings/game_settings_store.*` | `<config>/opensu/game-settings.json`, every layer of every key |
 | `src/settings/emulator_pick_migration.*` | The one-time move of `settings.json`'s `emulators` and `systemEmulators` into the game settings |
 | `src/app/game_settings.*` | The layers as the shell holds them, saved with a toast on failure; the words a source reads with |
@@ -93,7 +94,7 @@ video; `audio_output` includes SDL audio; `joypad` uses SDL's scancode values on
 **Command line.** `opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings
 <file>] [--hidden] [--validate] [--frames N] [--frame-png <file>] <rom>`. `--settings` names a JSON
 object of resolved video settings (`{"video.aspect": "4:3", "video.integer": "off",
-"video.sampling": "nearest"}`); a key it lacks keeps its default, a value that is no choice is exit
+"video.sampling": "nearest", "video.filter": "none"}`); a key it lacks keeps its default, a value that is no choice is exit
 1. The runner never reads `game-settings.json`. `--saves` defaults to
 `<data>/opensu/saves/<core name>/` (the core file's stem without `_libretro`; the launcher passes
 the system's folder), `--system` to `<data>/opensu/system/`, both from `config::Config`. `--hidden`,
@@ -162,7 +163,13 @@ screen is its joystick mode, the right stick moving its cursor and R2 touching.
 **Video settings.** Aspect (`core`: the core's `aspect_ratio`; `4:3`; `pixel`: 1:1 pixels;
 `stretch`: the whole target), integer scale (`off`; `on`: the largest whole multiple of the frame's
 height that fits, width from the aspect; `overscale`: the next multiple up, clipped to the target)
-and sampling (`nearest`, `bilinear`, `sharp-bilinear`). They are kept in the setting layers
+sampling (`nearest`, `bilinear`, `sharp-bilinear`) and filter, a pass over the placed frame
+(`none`; `scanlines`: a band 0.5 source pixels high at the bottom of every source row, taking half
+its light; `lcd-grid`: a band 0.25 source pixels wide at the right and bottom of every source pixel,
+taking 45 %; `crt`: crt-lottes at its defaults, which does its own sampling, so `sampling` does not
+change it). The scanline and grid bands follow the source pixel grid at any scale: an output pixel
+is darkened by the share of its footprint they cover, so a band always sits on a source pixel edge
+and the picture's mean brightness does not depend on the scale. They are kept in the setting layers
 (`settings/setting_layers`, `<config>/opensu/game-settings.json`): a game's own value, else its
 core's (the `Emulator` layer, by catalog id), else its console's, else Everywhere's, else the
 default; a layer keeps only what it sets and clearing deletes the key. At launch the shell
@@ -172,7 +179,8 @@ file is removed when the session ends. A launch whose file cannot be written doe
 Settings › Emulators has a page for Everywhere, each console (its emulator too) and each built-in
 core; a game's details page has its own values, the source of each value a layer keeps and "Clear
 game settings". To check: `opensu-retro --hidden --settings <file> --frames N --frame-png <png>`
-and compare the picture's box in the PNG.
+and compare the picture's box in the PNG; for a filter, divide its frame by the `none` frame inside
+the box and compare each pixel with 1 − shade × band coverage.
 
 **Pacing.** Frames run at the core's rate on a clock (`sleep_until`; more than four frames behind,
 the clock restarts rather than bursting); the swapchain presents in mailbox, else immediate, else

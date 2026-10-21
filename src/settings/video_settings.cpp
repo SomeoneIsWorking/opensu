@@ -18,6 +18,9 @@ const VideoKey& integerKey() {
 const VideoKey& samplingKey() {
     return videoKeys[2];
 }
+const VideoKey& filterKey() {
+    return videoKeys[3];
+}
 
 /// `spelling`'s place among `video`'s choices, or the default's (0) with a warning naming `where`.
 std::size_t indexOrDefault(const VideoKey& video, std::string_view spelling,
@@ -60,6 +63,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys) {
         .aspect = static_cast<Aspect>(index(aspectKey())),
         .integer = static_cast<IntegerScale>(index(integerKey())),
         .sampling = static_cast<Sampling>(index(samplingKey())),
+        .filter = static_cast<Filter>(index(filterKey())),
     };
 }
 
@@ -71,6 +75,7 @@ std::string launchFileText(const VideoSettings& video) {
         {std::string{aspectKey().key}, spelling(aspectKey(), video.aspect)},
         {std::string{integerKey().key}, spelling(integerKey(), video.integer)},
         {std::string{samplingKey().key}, spelling(samplingKey(), video.sampling)},
+        {std::string{filterKey().key}, spelling(filterKey(), video.filter)},
     };
     return document.dump(2) + "\n";
 }
@@ -100,6 +105,7 @@ std::optional<VideoSettings> parseLaunchFile(std::string_view text, std::string&
         .aspect = static_cast<Aspect>(chosen[0]),
         .integer = static_cast<IntegerScale>(chosen[1]),
         .sampling = static_cast<Sampling>(chosen[2]),
+        .filter = static_cast<Filter>(chosen[3]),
     };
 }
 

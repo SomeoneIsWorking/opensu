@@ -110,7 +110,8 @@ void picksMoveOnce(const fs::path& root) {
 }
 
 void launchFile() {
-    const VideoSettings video{Aspect::FourThree, IntegerScale::Overscale, Sampling::SharpBilinear};
+    const VideoSettings video{Aspect::FourThree, IntegerScale::Overscale, Sampling::SharpBilinear,
+                              Filter::LcdGrid};
     std::string error;
     expect(parseLaunchFile(launchFileText(video), error) == video, "the launch file round trips");
     expect(parseLaunchFile("{}", error) == VideoSettings{}, "a key it lacks keeps its default");

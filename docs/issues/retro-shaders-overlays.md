@@ -1,6 +1,6 @@
 # Shaders, filters, overlays and per-console/core/game settings for opensu-retro
 
-Status: open. Build order steps 1–3 built (with the step 2 UI); steps 4–9 not started.
+Status: open. Build order steps 1–4 built (with the step 2 UI); steps 5–9 not started.
 
 The player: "filters and shaders like RetroArch", "overlays", "selectable per console/core/game,
 different config layers with override support", and "core per console configuration and per game
@@ -11,12 +11,11 @@ override".
 - `retro/presenter` owns the window, swapchain or hidden offscreen image, submission and read-back;
   `retro/frame_compositor` owns what is drawn: render pass, frame texture, one pipeline, the
   sampler and the placement (`placeFrame`). Both are raw Vulkan, not gpu2d or SDL GPU.
-- Aspect (core, 4:3, pixel 1:1, stretch), integer scale (off, on, overscale) and sampling (nearest,
-  bilinear, sharp-bilinear in `shaders/sharp_bilinear.frag`) come from `--settings <file>`, which
-  the shell writes per launch.
+- Aspect (core, 4:3, pixel 1:1, stretch), integer scale (off, on, overscale), sampling (nearest,
+  bilinear, sharp-bilinear in `shaders/sharp_bilinear.frag`) and filter (none, scanlines, LCD grid,
+  CRT; `retro/frame_filter`) come from `--settings <file>`, which the shell writes per launch.
 - `retro/core_options` holds the core's defaults only; `GET_VARIABLE_UPDATE` never reports a change.
 - openSU has no touch UI; the runner takes no mouse or touch (`RETRO_DEVICE_POINTER` reads 0).
-- `docs/design/libretro.md` lists shaders as a non-goal; that line goes when stage 4 lands.
 
 ## What steps 1–3 built
 
@@ -40,6 +39,28 @@ override".
   source on its row ("Automatic (romset)", "From <console>", "Set for this game") and "Clear game
   settings" while the game keeps any.
 - Video settings apply to built-in cores only; standalone emulators keep their own.
+
+## What step 4 built
+
+- `video.filter` (`none`, `scanlines`, `lcd-grid`, `crt`) in `settings/video_settings`, at every
+  layer, with its row on the Settings › Emulators pages and its button and source row on the
+  details page (both iterate `videoKeys`, so nothing else changed there).
+- `retro/frame_filter` picks the fragment shader for the sampling and filter and builds the push
+  block; the parameters are `inline constexpr` in `frame_filter.hpp` (`scanlineGrid`, `lcdGrid`,
+  `crtLottes`). No user parameters yet.
+- Scanlines and LCD grid (`shaders/frame_grid.glsl`, included by `frame.frag` and
+  `sharp_bilinear.frag`): a dark band of fixed width in source pixels at the bottom (scanlines:
+  0.5 px, shade 0.5) or the right and bottom (LCD: 0.25 px, shade 0.45) of every source pixel. Each
+  output pixel is darkened by the exact share of its footprint the bands cover, so the bands stay
+  on source pixel edges at any scale, integer or not, and compose with every sampling.
+- CRT (`shaders/crt_lottes.frag`): crt-lottes ported from libretro slang-shaders `890a1e95`
+  (public domain), its defaults; it samples the source itself, so the sampling setting does not
+  change it. Fetches off the frame are black (RetroArch's border sampler) and the shadow mask runs
+  on target pixels.
+- With the filter at None the frames are pixel-identical to before (Kirby frame 600, nearest,
+  bilinear and sharp-bilinear, `magick compare -metric AE` 0).
+- Proof: `scratch/video-filters/` (`runner/`, `crops/`, `sheets/`, `grid-check.txt`, `shell/`,
+  `launch/`).
 
 ## Layered settings: one owner
 
@@ -252,7 +273,7 @@ All of these use the existing `settings_page` row types (choice, toggle, slider,
    sharp-bilinear), passed by `--settings`. Details-page and Settings › Emulators rows.
 3. Done: `emulator_choice` in the layers, `settings.json` migrated, the core layer, and
    `mapping_scopes` on the shared `Layer`.
-4. Built-in filters: scanlines, LCD grid, a CRT ported from crt-lottes.
+4. Done: built-in filters: scanlines, LCD grid, a CRT ported from crt-lottes.
 5. Quick menu live changes and "Save to…" (`POST /video`).
 6. Core options per layer (`options.<core>.<key>`), `GET_VARIABLE_UPDATE`, `POST /options`.
 7. librashader from a pinned fork, the `shaders_slang.zip` download, preset parameters as sliders.
