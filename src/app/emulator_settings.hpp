@@ -1,7 +1,7 @@
 // emulator_settings — the Settings screen's Emulators category: every emulator of the catalog,
 // whether and how it is installed, Download, Update and Remove (Remove only for an AppImage openSU
-// downloaded, and only on a second press), the update check, the emulator each system's games
-// run on unless a game has its own pick, and the BIOS each chosen built-in core runs on (its
+// downloaded, and only on a second press), the update check, the rows that open each setting
+// layer's page (`LayerSettings`), and the BIOS each chosen built-in core runs on (its
 // core info's files, present or missing in the runner's system folder, or HLE, an open BIOS built
 // in, or none needed when none is there).
 #pragma once
@@ -9,9 +9,9 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "emulator_downloads.hpp"
-#include "preferences.hpp"
 #include "ui/settings_page.hpp"
 
 namespace opensu::app {
@@ -21,12 +21,10 @@ class EmulatorSettings {
     struct Hooks {
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
-        /// A system's pick changed: the library applies it.
-        std::function<void()> picksChanged;
     };
 
-    EmulatorSettings(EmulatorDownloads& downloads, Preferences& preferences, Hooks hooks)
-        : downloads_{downloads}, preferences_{preferences}, hooks_{std::move(hooks)} {
+    EmulatorSettings(EmulatorDownloads& downloads, Hooks hooks)
+        : downloads_{downloads}, hooks_{std::move(hooks)} {
     }
 
     /// The category's id, which its rows' ids start with.
@@ -38,7 +36,12 @@ class EmulatorSettings {
     [[nodiscard]] const library::roms::EmulatorCatalog& catalog() const noexcept {
         return found_.catalog();
     }
-    [[nodiscard]] ui::SettingsCategory page() const;
+    /// What the search found: each emulator's install and each system's automatic one.
+    [[nodiscard]] const library::roms::Emulators& found() const noexcept {
+        return found_;
+    }
+    /// The category, with `layerRows` after Check for updates.
+    [[nodiscard]] ui::SettingsCategory page(std::vector<ui::SettingsRow> layerRows = {}) const;
     /// Whether the row with `id` is one of this category's.
     [[nodiscard]] static bool owns(const std::string& id);
     /// Acts on row `id`: `step` is 0 for A and -1 or 1 for Left and Right.
@@ -51,14 +54,12 @@ class EmulatorSettings {
   private:
     void runEmulator(const library::roms::EmulatorEntry& entry);
     void runRemove(const library::roms::EmulatorEntry& entry);
-    void stepSystem(const std::string& system, int step);
     /// Each chosen built-in core's BIOS: what it runs on, and each file it looks for.
     void addBiosRows(ui::SettingsCategory& page) const;
     [[nodiscard]] std::string valueOf(const library::roms::EmulatorEntry& entry) const;
     [[nodiscard]] std::string noteOf(const library::roms::EmulatorEntry& entry) const;
 
     EmulatorDownloads& downloads_;
-    Preferences& preferences_;
     Hooks hooks_;
     library::roms::Emulators found_{downloads_.discover()};
     /// The emulator whose Remove was pressed once.

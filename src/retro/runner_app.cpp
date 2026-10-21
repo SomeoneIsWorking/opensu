@@ -200,6 +200,7 @@ RunnerExit RunnerApp::run() {
             .width = options_.width,
             .height = options_.height,
             .validation = options_.validation,
+            .video = options_.video,
         });
     } catch (const std::exception& failure) {
         lucent::error("retro", "{}", failure.what());

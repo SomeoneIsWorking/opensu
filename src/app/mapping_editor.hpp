@@ -19,15 +19,14 @@
 #include "gamepad/event.hpp"
 #include "input/button_map.hpp"
 #include "input/mapping_scopes.hpp"
+#include "library/emulator_choice.hpp"
 #include "library/game.hpp"
 #include "settings/mapping_store.hpp"
+#include "settings/setting_layers.hpp"
 #include "ui/mapping_page.hpp"
 #include "ui/settings_page.hpp"
 
 namespace opensu::app {
-
-/// The keys `game`'s mapping is found by: its id and the catalog id of the emulator it runs on.
-[[nodiscard]] input::GameKeys mappingKeys(const library::Game& game);
 
 class MappingEditor {
   public:
@@ -55,7 +54,7 @@ class MappingEditor {
     }
     /// The mapping `game` plays with: none while Steam Input has it.
     [[nodiscard]] input::ButtonMap forGame(const library::Game& game) const {
-        return scopes_.resolve(mappingKeys(game));
+        return scopes_.resolve(library::layerKeysOf(game));
     }
 
     /// Opens the page on `game`'s own mapping.
@@ -89,10 +88,10 @@ class MappingEditor {
   private:
     /// What the page edits.
     struct Target {
-        input::MappingScope scope;
+        settings::Layer scope;
         std::string title;
         /// For a game's: the keys its inherited mapping is found by.
-        input::GameKeys keys;
+        settings::LayerKeys keys;
         /// A Steam game, whose pads Steam may read itself.
         bool steamGame{false};
     };
@@ -108,6 +107,9 @@ class MappingEditor {
     };
 
     void open(Target target);
+    /// The keys of the layers under the target's own: a game's emulator, system and the global
+    /// one; the global one alone under an emulator's.
+    [[nodiscard]] settings::LayerKeys under() const;
     /// The mapping the page shows: the scope's own, else the one it inherits.
     [[nodiscard]] input::ButtonMap shown() const;
     /// Where the shown mapping comes from, or why it cannot change.

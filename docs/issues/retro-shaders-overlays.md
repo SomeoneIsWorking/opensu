@@ -1,6 +1,6 @@
 # Shaders, filters, overlays and per-console/core/game settings for opensu-retro
 
-Status: open, design. Nothing built.
+Status: open. Build order steps 1–3 built (with the step 2 UI); steps 4–9 not started.
 
 The player: "filters and shaders like RetroArch", "overlays", "selectable per console/core/game,
 different config layers with override support", and "core per console configuration and per game
@@ -8,14 +8,38 @@ override".
 
 ## Where the runner stands
 
-- `retro/presenter` is raw Vulkan, not gpu2d or SDL GPU: its own render pass, one pipeline
-  (`shaders/frame.{vert,frag}`, glslc at build time), a fixed `VK_FILTER_NEAREST` sampler, the frame
-  letterboxed by `letterbox()` to the core's `aspect_ratio`. There is no scaling choice.
+- `retro/presenter` owns the window, swapchain or hidden offscreen image, submission and read-back;
+  `retro/frame_compositor` owns what is drawn: render pass, frame texture, one pipeline, the
+  sampler and the placement (`placeFrame`). Both are raw Vulkan, not gpu2d or SDL GPU.
+- Aspect (core, 4:3, pixel 1:1, stretch), integer scale (off, on, overscale) and sampling (nearest,
+  bilinear, sharp-bilinear in `shaders/sharp_bilinear.frag`) come from `--settings <file>`, which
+  the shell writes per launch.
 - `retro/core_options` holds the core's defaults only; `GET_VARIABLE_UPDATE` never reports a change.
-- The runner reads no settings: the shell starts it as `opensu-retro --core <so> <rom>`
-  (`library/emulators`), and `config` is read by `main.cpp` only.
 - openSU has no touch UI; the runner takes no mouse or touch (`RETRO_DEVICE_POINTER` reads 0).
-- `docs/design/libretro.md` lists shaders as a non-goal; that line goes when stage 1 lands.
+- `docs/design/libretro.md` lists shaders as a non-goal; that line goes when stage 4 lands.
+
+## What steps 1–3 built
+
+- `settings/setting_layers`: `Layer{Global, System, Emulator, Game}`; the core layer is the
+  `Emulator` kind keyed by catalog id (`snes9x-core`). Resolution Game → Emulator → System → Global
+  → default; `Resolved::from` names the layer. Stored by `settings/game_settings_store` in
+  `game-settings.json` (`global`, `systems`, `emulators`, `games`).
+- `settings/video_settings`: the three keys, their choices and labels, `resolveVideo`, the
+  per-launch file. `app/retro_launch` resolves them for a game on a built-in core and adds
+  `--settings`; `app/retro_session` names and removes the file.
+- `library/emulator_choice`: the `emulator` key at the Game and System layers; source Game, Romset
+  (the game layer's automatic value), System or Search. `settings/emulator_pick_migration` moves
+  `settings.json`'s `emulators` and `systemEmulators` into the store once and drops the keys.
+- `input/mapping_scopes` and `settings/mapping_store` use the same `Layer`, keep the whole-map rule
+  and gained the System layer.
+- UI: Settings › Emulators lists an Everywhere row, one per served console (emulator and video)
+  and one per built-in core (video); each opens a page (`app/layer_settings`) where a value steps
+  through "not set" too, with a Clear row. The details page (`app/details_controller`) gives a game
+  on a built-in core Aspect, Integer scale and Sampling buttons (game layer, "not set" clears the
+  key), a row per value a layer keeps ("From Super Nintendo", "Set for this game"), the emulator's
+  source on its row ("Automatic (romset)", "From <console>", "Set for this game") and "Clear game
+  settings" while the game keeps any.
+- Video settings apply to built-in cores only; standalone emulators keep their own.
 
 ## Layered settings: one owner
 
@@ -33,10 +57,10 @@ to these would break the one-owner rule.
 
 ### The owner: `settings/setting_layers` (new), store `<config>/opensu/game-settings.json`
 
-- `Layer { Global, System(key), Core(core name), Game(id) }`. Resolution per key: Game → Core →
-  System → Global → built-in default. Each layer keeps only the keys it sets, so "inherit" is
+- `Layer { Global, System(key), Emulator(catalog id), Game(id) }` (the core layer is `Emulator`).
+  Resolution per key: Game → Emulator → System → Global → built-in default. Each layer keeps only the keys it sets, so "inherit" is
   just a missing key and "Clear" deletes it.
-- `resolve(GameKeys{game, system, core})` returns each key's value and the layer it came from. The
+- `resolve(LayerKeys{game, system, emulator}, key, default)` returns each key's value and the layer it came from. The
   UI shows that layer, and the quick menu saves to a chosen one.
 - Keys:
   - `emulator`: System and Game layers only, since the core is what picks the Core layer.
@@ -222,14 +246,12 @@ All of these use the existing `settings_page` row types (choice, toggle, slider,
 
 ## Build order
 
-1. Split `retro/presenter` (829 lines) at the composition boundary: window and swapchain stay;
-   a new `retro/frame_compositor` takes the frame, the plan (rect, passes, bezel) and the target.
-   This goes in its own commit.
-2. `settings/setting_layers` with `video.aspect`, `video.integer` and `video.sampling` (with
-   sharp-bilinear) at Global, System and Game, passed by `--settings`. Details-page and Settings ›
-   Emulators rows.
-3. Move `emulator_choice` into the layers (System and Game, romset as the game's automatic value)
-   and migrate `settings.json`; then add the Core layer and `mapping_scopes` on the shared `Layer`.
+1. Done: split `retro/presenter` at the composition boundary into the presenter (window,
+   swapchain) and `retro/frame_compositor`. Runner frames byte-identical before and after.
+2. Done: `settings/setting_layers` with `video.aspect`, `video.integer` and `video.sampling` (with
+   sharp-bilinear), passed by `--settings`. Details-page and Settings › Emulators rows.
+3. Done: `emulator_choice` in the layers, `settings.json` migrated, the core layer, and
+   `mapping_scopes` on the shared `Layer`.
 4. Built-in filters: scanlines, LCD grid, a CRT ported from crt-lottes.
 5. Quick menu live changes and "Save to…" (`POST /video`).
 6. Core options per layer (`options.<core>.<key>`), `GET_VARIABLE_UPDATE`, `POST /options`.

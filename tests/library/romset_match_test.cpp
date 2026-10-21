@@ -32,8 +32,10 @@
 namespace {
 
 namespace fs = std::filesystem;
-using opensu::library::EmulatorChoices;
+using opensu::library::applyEmulatorPicks;
+using opensu::library::emulatorKey;
 using opensu::library::EmulatorOption;
+using opensu::library::EmulatorSource;
 using opensu::library::Game;
 using opensu::library::LaunchSpec;
 using opensu::library::RomsetFit;
@@ -55,6 +57,8 @@ using opensu::library::roms::RomsetMatcher;
 using opensu::library::roms::romsetRetryAfter;
 using opensu::library::roms::RomsetSource;
 using opensu::library::roms::RomsetVerdict;
+using opensu::settings::Layer;
+using opensu::settings::SettingLayers;
 using opensu::test::LoopbackServer;
 using opensu::test::ReleaseServer;
 using opensu::test::ScratchDir;
@@ -541,8 +545,10 @@ void picksTheEmulator() {
 
     std::vector<Game> pendingGames{waiting, waiting};
     pendingGames[1].id = "rom:/r/Arcade/own.zip";
-    EmulatorChoices{{{"rom:/r/Arcade/own.zip", "FinalBurn Neo"}}, {{"arcade", "MAME 2010"}}}.apply(
-        pendingGames);
+    SettingLayers pending;
+    pending.set(Layer{Layer::Kind::Game, "rom:/r/Arcade/own.zip"}, emulatorKey, "FinalBurn Neo");
+    pending.set(Layer{Layer::Kind::System, "arcade"}, emulatorKey, "MAME 2010");
+    applyEmulatorPicks(pending, pendingGames);
     expect(pendingGames[0].launch.empty() && pendingGames[0].emulator.empty(),
            "a system's pick waits while the romset is checked");
     expect(pendingGames[1].launch.program == "fbneo",
@@ -550,10 +556,13 @@ void picksTheEmulator() {
 
     std::vector<Game> games{other, other};
     games[1].id = "rom:/r/Arcade/own.zip";
-    EmulatorChoices choices{{{"rom:/r/Arcade/own.zip", "FinalBurn Neo"}},
-                            {{"arcade", "FinalBurn Neo"}}};
-    choices.apply(games);
-    expect(games[0].emulator == "MAME", "a system's pick gives way to the core the romset matches");
+    SettingLayers layers;
+    layers.set(Layer{Layer::Kind::Game, "rom:/r/Arcade/own.zip"}, emulatorKey, "FinalBurn Neo");
+    layers.set(Layer{Layer::Kind::System, "arcade"}, emulatorKey, "FinalBurn Neo");
+    applyEmulatorPicks(layers, games);
+    expect(games[0].emulator == "MAME" &&
+               opensu::library::pickFor(layers, games[0]).source == EmulatorSource::Romset,
+           "a system's pick gives way to the core the romset matches, the game's automatic value");
     expect(games[1].emulator == "FinalBurn Neo" && games[1].launch.program == "fbneo",
            "the game's own pick runs it even when the romset does not match");
 }

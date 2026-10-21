@@ -16,6 +16,38 @@ constexpr std::uint32_t fragmentCode[] = {
 #include "frame.frag.inc"
 };
 
+constexpr std::uint32_t sharpBilinearCode[] = {
+#include "sharp_bilinear.frag.inc"
+};
+
+/// What `sharp_bilinear.frag` takes.
+struct SharpScale {
+    std::array<float, 2> texels;
+    std::array<float, 2> prescale;
+};
+
+/// The whole multiple of `size` that fits `room`, or with `overscale` the one that fills it; at
+/// least 1.
+float wholeScale(float room, float size, bool overscale) {
+    const float fit = room / size;
+    return std::max(1.0F, overscale ? std::ceil(fit) : std::floor(fit));
+}
+
+/// The part of `rect` inside `extent`.
+VkRect2D clipped(VkRect2D rect, VkExtent2D extent) {
+    const auto left = std::max<std::int64_t>(rect.offset.x, 0);
+    const auto top = std::max<std::int64_t>(rect.offset.y, 0);
+    const auto right =
+        std::min<std::int64_t>(rect.offset.x + std::int64_t{rect.extent.width}, extent.width);
+    const auto bottom =
+        std::min<std::int64_t>(rect.offset.y + std::int64_t{rect.extent.height}, extent.height);
+    VkRect2D inside{};
+    inside.offset = {static_cast<std::int32_t>(left), static_cast<std::int32_t>(top)};
+    inside.extent = {static_cast<std::uint32_t>(std::max<std::int64_t>(right - left, 0)),
+                     static_cast<std::uint32_t>(std::max<std::int64_t>(bottom - top, 0))};
+    return inside;
+}
+
 VkShaderModule makeShader(VkDevice device, std::span<const std::uint32_t> code) {
     VkShaderModuleCreateInfo create{};
     create.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -65,9 +97,57 @@ VkRect2D letterbox(VkExtent2D extent, float aspect) {
     return rect;
 }
 
+VkRect2D placeFrame(VkExtent2D extent, const FrameImage& frame,
+                    const settings::VideoSettings& video) {
+    using settings::Aspect;
+    using settings::IntegerScale;
+    const auto width = static_cast<float>(frame.width);
+    const auto height = static_cast<float>(frame.height);
+    const auto roomWidth = static_cast<float>(extent.width);
+    const auto roomHeight = static_cast<float>(extent.height);
+    const float square = frame.height == 0 ? 0.0F : width / height;
+    float aspect = 0.0F;
+    switch (video.aspect) {
+    case Aspect::Core:
+        aspect = frame.aspect > 0.0F ? frame.aspect : square;
+        break;
+    case Aspect::FourThree:
+        aspect = 4.0F / 3.0F;
+        break;
+    case Aspect::Square:
+        aspect = square;
+        break;
+    case Aspect::Stretch:
+        break;
+    }
+    if (video.integer == IntegerScale::Off || frame.width == 0 || frame.height == 0) {
+        return letterbox(extent, aspect);
+    }
+    const bool overscale = video.integer == IntegerScale::Overscale;
+    float drawnWidth = 0.0F;
+    float drawnHeight = 0.0F;
+    if (video.aspect == Aspect::Stretch) {
+        drawnWidth = width * wholeScale(roomWidth, width, overscale);
+        drawnHeight = height * wholeScale(roomHeight, height, overscale);
+    } else {
+        // Whole multiples of the frame's height, its width following at the aspect.
+        const float scale = wholeScale(std::min(roomHeight, roomWidth / aspect), height, overscale);
+        drawnHeight = height * scale;
+        drawnWidth = video.aspect == Aspect::Square ? width * scale : drawnHeight * aspect;
+    }
+    VkRect2D rect{};
+    rect.extent.width = std::max(1U, static_cast<std::uint32_t>(std::lround(drawnWidth)));
+    rect.extent.height = std::max(1U, static_cast<std::uint32_t>(std::lround(drawnHeight)));
+    rect.offset.x = static_cast<std::int32_t>(
+        (static_cast<std::int64_t>(extent.width) - rect.extent.width) / 2);
+    rect.offset.y = static_cast<std::int32_t>(
+        (static_cast<std::int64_t>(extent.height) - rect.extent.height) / 2);
+    return rect;
+}
+
 FrameCompositor::FrameCompositor(const VulkanDevice& device, VkFormat format,
-                                 VkImageLayout finalLayout)
-    : device_{device}, vk_{device.handle()} {
+                                 VkImageLayout finalLayout, const settings::VideoSettings& video)
+    : device_{device}, vk_{device.handle()}, video_{video} {
     try {
         open(format, finalLayout);
     } catch (...) {
@@ -157,17 +237,22 @@ void FrameCompositor::createPipeline() {
     setLayout.pBindings = &binding;
     check(vkCreateDescriptorSetLayout(vk_, &setLayout, nullptr, &setLayout_),
           "vkCreateDescriptorSetLayout");
+    const VkPushConstantRange scale{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SharpScale)};
     VkPipelineLayoutCreateInfo layout{};
     layout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layout.setLayoutCount = 1;
     layout.pSetLayouts = &setLayout_;
+    layout.pushConstantRangeCount = 1;
+    layout.pPushConstantRanges = &scale;
     check(vkCreatePipelineLayout(vk_, &layout, nullptr, &pipelineLayout_),
           "vkCreatePipelineLayout");
 
     const VkShaderModule vertex = makeShader(vk_, vertexCode);
     VkShaderModule fragment = VK_NULL_HANDLE;
     try {
-        fragment = makeShader(vk_, fragmentCode);
+        fragment = video_.sampling == settings::Sampling::SharpBilinear
+                       ? makeShader(vk_, sharpBilinearCode)
+                       : makeShader(vk_, fragmentCode);
     } catch (...) {
         vkDestroyShaderModule(vk_, vertex, nullptr);
         throw;
@@ -243,11 +328,12 @@ void FrameCompositor::createPipeline() {
     vkDestroyShaderModule(vk_, fragment, nullptr);
     check(made, "vkCreateGraphicsPipelines");
 
-    // Nearest, so the core's pixels stay sharp.
+    const VkFilter filter =
+        video_.sampling == settings::Sampling::Nearest ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
     VkSamplerCreateInfo sampler{};
     sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler.magFilter = VK_FILTER_NEAREST;
-    sampler.minFilter = VK_FILTER_NEAREST;
+    sampler.magFilter = filter;
+    sampler.minFilter = filter;
     sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -291,8 +377,8 @@ void FrameCompositor::ensureTexture(unsigned width, unsigned height) {
     buffer.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     check(vkCreateBuffer(vk_, &buffer, nullptr, &staging_), "vkCreateBuffer");
     vkGetBufferMemoryRequirements(vk_, staging_, &needs);
-    stagingMemory_ = device_.allocate(
-        needs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    stagingMemory_ = device_.allocate(needs, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     check(vkBindBufferMemory(vk_, staging_, stagingMemory_, 0), "vkBindBufferMemory");
     check(vkMapMemory(vk_, stagingMemory_, 0, VK_WHOLE_SIZE, 0, &stagingMapped_), "vkMapMemory");
     textureWidth_ = width;
@@ -351,8 +437,8 @@ void FrameCompositor::recordUpload(VkCommandBuffer commands, const FrameImage& f
     textureReady_ = true;
 }
 
-void FrameCompositor::recordDraw(VkCommandBuffer commands, VkFramebuffer target,
-                                 VkExtent2D extent, float aspect) {
+void FrameCompositor::recordDraw(VkCommandBuffer commands, VkFramebuffer target, VkExtent2D extent,
+                                 const FrameImage& frame) {
     VkClearValue black{};
     black.color = {{0.0F, 0.0F, 0.0F, 1.0F}};
     VkRenderPassBeginInfo begin{};
@@ -363,8 +449,9 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, VkFramebuffer target,
     begin.clearValueCount = 1;
     begin.pClearValues = &black;
     vkCmdBeginRenderPass(commands, &begin, VK_SUBPASS_CONTENTS_INLINE);
-    if (textureReady_) {
-        const VkRect2D rect = letterbox(extent, aspect);
+    const VkRect2D rect = placeFrame(extent, frame, video_);
+    const VkRect2D scissor = clipped(rect, extent);
+    if (textureReady_ && scissor.extent.width > 0 && scissor.extent.height > 0) {
         VkViewport viewport{};
         viewport.x = static_cast<float>(rect.offset.x);
         viewport.y = static_cast<float>(rect.offset.y);
@@ -375,7 +462,16 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, VkFramebuffer target,
         vkCmdBindDescriptorSets(commands, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1,
                                 &descriptorSet_, 0, nullptr);
         vkCmdSetViewport(commands, 0, 1, &viewport);
-        vkCmdSetScissor(commands, 0, 1, &rect);
+        vkCmdSetScissor(commands, 0, 1, &scissor);
+        if (video_.sampling == settings::Sampling::SharpBilinear) {
+            const auto texelsWide = static_cast<float>(textureWidth_);
+            const auto texelsHigh = static_cast<float>(textureHeight_);
+            const SharpScale scale{{texelsWide, texelsHigh},
+                                   {wholeScale(viewport.width, texelsWide, false),
+                                    wholeScale(viewport.height, texelsHigh, false)}};
+            vkCmdPushConstants(commands, pipelineLayout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                               sizeof(scale), &scale);
+        }
         vkCmdDraw(commands, 3, 1, 0, 0);
     }
     vkCmdEndRenderPass(commands);
@@ -390,10 +486,7 @@ bool FrameCompositor::record(VkCommandBuffer commands, const FrameImage& frame, 
     if (uploaded) {
         recordUpload(commands, frame);
     }
-    const float aspect = frame.aspect > 0.0F || frame.height == 0
-                             ? frame.aspect
-                             : static_cast<float>(frame.width) / static_cast<float>(frame.height);
-    recordDraw(commands, target, extent, aspect);
+    recordDraw(commands, target, extent, frame);
     return uploaded;
 }
 

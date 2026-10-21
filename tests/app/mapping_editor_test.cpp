@@ -24,7 +24,7 @@ namespace fs = std::filesystem;
 using namespace opensu;
 using gamepad::Button;
 using test::expect;
-using Kind = input::MappingScope::Kind;
+using Kind = settings::Layer::Kind;
 
 struct Said {
     std::string text;
@@ -89,6 +89,7 @@ library::Game romGame(std::string id) {
     library::Game game;
     game.id = std::move(id);
     game.source = library::Source::Rom;
+    game.sourceId = "gba";
     game.title = "Kirby";
     game.emulator = "mGBA";
     game.emulatorOptions = {library::EmulatorOption{"mGBA", true, {}, "mgba", false, {}, {}, {}}};
@@ -170,8 +171,8 @@ struct Rig {
 void aGameGetsItsOwnMapping(const fs::path& dir) {
     Rig rig{dir};
     const library::Game game = romGame("rom:/r/Kirby.gba");
-    expect(app::mappingKeys(game) == input::GameKeys{game.id, "mgba"},
-           "a ROM's mapping is also found by its emulator's catalog id");
+    expect(library::layerKeysOf(game) == settings::LayerKeys{game.id, "gba", "mgba"},
+           "a ROM's mapping is also found by its system and its emulator's catalog id");
     rig.editor.openGame(game);
     expect(rig.editor.active() && rig.page.state() == "board" &&
                rig.page.title() == "Controls · Kirby" && rig.page.focusName() == "button.a",
@@ -209,7 +210,7 @@ void aGameGetsItsOwnMapping(const fs::path& dir) {
                rig.page.state() == "board",
            "the chip reads its new output, as a glyph");
     const input::MappingScopes saved = rig.onDisk();
-    const input::ButtonMap* own = saved.at(input::MappingScope{Kind::Game, game.id});
+    const input::ButtonMap* own = saved.at(settings::Layer{Kind::Game, game.id});
     expect(own != nullptr && own->output(Button::A) == input::PadOutput{Button::B} &&
                rig.changes == 1,
            "the game's own mapping is on disk and the shell told");
@@ -261,7 +262,7 @@ void anEmulatorsMappingIsSharedAndCopied(const fs::path& dir) {
     expect(rig.editor.forGame(kirby).output(Button::L1) == input::PadOutput{Button::R1} &&
                rig.editor.forGame(kirby).output(Button::A) == input::PadOutput{Button::Y},
            "a change makes the game's own from the one it showed");
-    expect(rig.onDisk().at(input::MappingScope{Kind::Emulator, "mgba"})->output(Button::A) ==
+    expect(rig.onDisk().at(settings::Layer{Kind::Emulator, "mgba"})->output(Button::A) ==
                input::PadOutput{Button::A},
            "and leaves the emulator's alone");
 }

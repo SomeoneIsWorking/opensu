@@ -4,9 +4,61 @@
 #include <chrono>
 #include <string>
 
+#include "library/emulator_choice.hpp"
+#include "library/rom_systems.hpp"
 #include "library/wine.hpp"
+#include "retro_launch.hpp"
+#include "settings/video_settings.hpp"
 
 namespace opensu::app {
+namespace {
+
+std::string emulatorSourceText(library::EmulatorSource source, const library::Game& game) {
+    switch (source) {
+    case library::EmulatorSource::Game:
+        return "Set for this game";
+    case library::EmulatorSource::Romset:
+        return "Automatic (romset)";
+    case library::EmulatorSource::System:
+        return "From " + library::roms::systemLabel(game.sourceId);
+    case library::EmulatorSource::Search:
+        break;
+    }
+    return "Automatic";
+}
+
+} // namespace
+
+ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) const {
+    ui::GameSettingsView view;
+    if (game.emulatorOptions.empty()) {
+        return view;
+    }
+    const settings::SettingLayers& layers = gameSettings_.layers();
+    view.emulatorSource = emulatorSourceText(library::pickFor(layers, game).source, game);
+    const library::roms::EmulatorCatalog& catalog = downloads_.setup().catalog;
+    if (builtInOf(game, catalog) != nullptr) {
+        const settings::LayerKeys keys = library::layerKeysOf(game);
+        for (const settings::VideoKey& video : settings::videoKeys) {
+            const settings::Resolved resolved =
+                layers.resolve(keys, video.key, std::string{video.choices[0].key});
+            const std::string shown{settings::choiceLabel(video, resolved.value)};
+            // A default needs no row: its button shows the value.
+            if (resolved.from) {
+                view.rows.push_back(ui::DetailsRow{
+                    std::string{video.label}, shown + " · " + sourceText(resolved.from, catalog)});
+            }
+            view.buttons.push_back(ui::DetailsButton{ui::DetailsAction::Setting,
+                                                     std::string{video.label}, shown,
+                                                     std::string{video.key}});
+        }
+    }
+    if (layers.layers().contains(settings::Layer{settings::Layer::Kind::Game, game.id})) {
+        view.buttons.push_back(
+            ui::DetailsButton{ui::DetailsAction::ClearSettings, "Clear game settings", "", ""});
+    }
+    return view;
+}
 
 ui::DetailsView DetailsController::viewOf(const library::Game& game) const {
     std::string download;
@@ -16,9 +68,9 @@ ui::DetailsView DetailsController::viewOf(const library::Game& game) const {
         const std::optional<int> percent = progress->percent();
         download = percent ? std::to_string(*percent) + "% · A cancels" : "Starting · A cancels";
     }
-    return ui::detailsFor(game, preferences_.values().hidden.contains(game),
-                          std::chrono::system_clock::now(), download,
-                          preferences_.values().ownWinePrefixes.contains(game.id));
+    return ui::detailsFor(
+        game, preferences_.values().hidden.contains(game), std::chrono::system_clock::now(),
+        download, preferences_.values().ownWinePrefixes.contains(game.id), settingsOf(game));
 }
 
 void DetailsController::open() {
@@ -62,9 +114,15 @@ void DetailsController::act(gamepad::Button button) {
         break;
     case gamepad::Button::Left:
     case gamepad::Button::Right:
-        if (page_.selected() == ui::DetailsAction::Emulator) {
+        if (page_.selected() == ui::DetailsAction::Emulator ||
+            page_.selected() == ui::DetailsAction::Setting) {
             if (const std::optional<library::Game> game = hooks_.find(page_.view().gameId)) {
-                cycleEmulator(*game, button == gamepad::Button::Right ? 1 : -1);
+                const int delta = button == gamepad::Button::Right ? 1 : -1;
+                if (page_.selected() == ui::DetailsAction::Emulator) {
+                    cycleEmulator(*game, delta);
+                } else {
+                    stepSetting(*game, page_.selectedSetting(), delta);
+                }
             }
         }
         break;
@@ -100,6 +158,12 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::Emulator:
         cycleEmulator(*game, 1);
         break;
+    case ui::DetailsAction::Setting:
+        stepSetting(*game, page_.selectedSetting(), 1);
+        break;
+    case ui::DetailsAction::ClearSettings:
+        clearSettings(*game);
+        break;
     case ui::DetailsAction::DownloadEmulator:
         downloadEmulator(*game);
         break;
@@ -120,6 +184,47 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::Back:
         break;
     }
+}
+
+void DetailsController::stepSetting(const library::Game& game, const std::string& key, int delta) {
+    const settings::VideoKey* video = settings::videoKey(key);
+    if (video == nullptr) {
+        return;
+    }
+    const settings::Layer own{settings::Layer::Kind::Game, game.id};
+    settings::SettingLayers& layers = gameSettings_.layers();
+    // Place 0 is "not set"; place n + 1 is choice n.
+    const auto count = static_cast<int>(video->choices.size()) + 1;
+    int from = 0;
+    if (const std::string* kept = layers.at(own, key)) {
+        from = static_cast<int>(settings::choiceIndex(*video, *kept).value_or(0)) + 1;
+    }
+    const int next = (from + delta + count) % count;
+    if (next == 0) {
+        layers.clear(own, key);
+    } else {
+        layers.set(own, key, std::string{video->choices[static_cast<std::size_t>(next - 1)].key});
+    }
+    gameSettings_.save();
+    sounds_.play(audio::Effect::Navigation);
+    refresh();
+}
+
+void DetailsController::clearSettings(const library::Game& game) {
+    const settings::Layer own{settings::Layer::Kind::Game, game.id};
+    settings::SettingLayers& layers = gameSettings_.layers();
+    const bool picked = layers.at(own, library::emulatorKey) != nullptr;
+    for (const settings::VideoKey& video : settings::videoKeys) {
+        layers.clear(own, video.key);
+    }
+    sounds_.play(audio::Effect::Navigation);
+    if (picked) {
+        // Saves, and reads the library again for the choice under the pick.
+        hooks_.chooseEmulator(game, "");
+    } else {
+        gameSettings_.save();
+    }
+    refresh();
 }
 
 void DetailsController::downloadEmulator(const library::Game& game) {

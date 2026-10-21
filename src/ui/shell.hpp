@@ -407,8 +407,10 @@ class Shell {
     [[nodiscard]] Tile makeTile(library::ShelfItem item) const;
     /// The details page's geometry this frame.
     [[nodiscard]] DetailsLayout detailsLayout() const {
-        return layoutDetails(static_cast<float>(width_), static_cast<float>(height_), dp(),
-                             hud_.topInset(), hud_.bottomInset(), details_.view().buttons.size());
+        return layoutDetails(
+            static_cast<float>(width_), static_cast<float>(height_), dp(), hud_.topInset(),
+            hud_.bottomInset(),
+            DetailsParts{detailsPainter_.headerHeight(dp()), details_.view().buttons.size()});
     }
     /// Starts `fade` when a panel's `open` state changed from `wasOpen`, which it then records.
     void followFade(PanelFade& fade, bool open, bool& wasOpen) const;

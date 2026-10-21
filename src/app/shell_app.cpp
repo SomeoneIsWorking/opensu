@@ -19,8 +19,10 @@
 #include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "launcher_status.hpp"
+#include "library/emulator_choice.hpp"
 #include "library/titles.hpp"
 #include "lucent/log.h"
+#include "retro_launch.hpp"
 #include "ui/section_view.hpp"
 
 namespace opensu::app {
@@ -30,19 +32,18 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
       catalogLoader_{library::makeCatalog(resolved_, settings_.hidden, romsetLists_,
                                           integrations_.catalogStores())},
       shell_{settings_.width, settings_.height, settings_.homeMode, environment_.assetsDir},
-      steam_{steam::Client::Options{.home = resolved_.home,
-                                    .executablePath = resolved_.executablePath,
-                                    .session = resolved_.session,
-                                    .steamRoots = resolved_.steamRoots,
-                                    .mayStart = settings_.startSteam,
-                                    .sandbox = steam::SandboxPlaces{
-                                        .runtimeDir = environment_.runtimeDir.parent_path(),
-                                        .display = environment_.x11Display,
-                                        .gamescopeWayland = environment_.gamescopeWaylandDisplay,
-                                        .gpu = steam::gpuNodes("/dev")},
-                                    .desktopBus = environment_.sessionBus,
-                                    .secretBusSocket = environment_.runtimeDir /
-                                                       (resolved_.session + "-secret-bus")}},
+      steam_{steam::Client::Options{
+          .home = resolved_.home,
+          .executablePath = resolved_.executablePath,
+          .session = resolved_.session,
+          .steamRoots = resolved_.steamRoots,
+          .mayStart = settings_.startSteam,
+          .sandbox = steam::SandboxPlaces{.runtimeDir = environment_.runtimeDir.parent_path(),
+                                          .display = environment_.x11Display,
+                                          .gamescopeWayland = environment_.gamescopeWaylandDisplay,
+                                          .gpu = steam::gpuNodes("/dev")},
+          .desktopBus = environment_.sessionBus,
+          .secretBusSocket = environment_.runtimeDir / (resolved_.session + "-secret-bus")}},
       gameWindows_{environment_.insideGamescope ? std::make_unique<session::GamescopeWindows>()
                                                 : nullptr},
       steamWindowHiding_{
@@ -110,7 +111,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     games_ = std::move(snapshot.games);
     sources_ = std::move(snapshot.sources);
     preferences_.values().lastPlayed.apply(games_);
-    preferences_.values().emulators.apply(games_);
+    library::applyEmulatorPicks(gameSettings_.layers(), games_);
     plugins_.apply(games_);
     plugins_.request(games_);
     artworkStore_.apply(games_);
@@ -581,6 +582,14 @@ void ShellApp::launch(const library::Game& game) {
         shell_.setToast("a game is already running", true);
         return;
     }
+    std::string control = retro_.begin();
+    if (const std::string refused = prepareRetroLaunch(
+            started, gameSettings_.layers(), emulatorSettings_.catalog(), retro_.settingsFile());
+        !refused.empty()) {
+        static_cast<void>(retro_.end());
+        shell_.setToast("cannot write " + game.title + "'s settings: " + refused, true);
+        return;
+    }
 
     // input-sound.md 3.4 OpenAppRom: every game launch.
     sounds_.play(audio::Effect::OpenAppRom);
@@ -588,7 +597,7 @@ void ShellApp::launch(const library::Game& game) {
     recordLaunch(game);
 
     std::vector<std::string> environment = padOwner_.hold(mappings_.forGame(game));
-    environment.push_back(retro_.begin());
+    environment.push_back(std::move(control));
     launches_.start(std::move(started), std::move(environment));
 }
 
@@ -730,9 +739,17 @@ void ShellApp::recordLaunch(const library::Game& game) {
 }
 
 void ShellApp::chooseEmulator(const library::Game& game, const std::string& name) {
-    preferences_.values().emulators.set(game.id, name);
-    preferences_.save();
-    preferences_.values().emulators.apply(games_);
+    const settings::Layer own{settings::Layer::Kind::Game, game.id};
+    if (name.empty()) {
+        gameSettings_.layers().clear(own, library::emulatorKey);
+        gameSettings_.save();
+        // The search's choice is found again by a fresh read.
+        reloadCatalog();
+        return;
+    }
+    gameSettings_.layers().set(own, library::emulatorKey, name);
+    gameSettings_.save();
+    library::applyEmulatorPicks(gameSettings_.layers(), games_);
     showShelf(shell_.focusIndex());
 }
 

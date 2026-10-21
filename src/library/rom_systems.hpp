@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -35,6 +36,8 @@ struct RomSystem {
 
 /// The system with ES-DE name `key`, or null.
 [[nodiscard]] const RomSystem* systemByKey(std::string_view key);
+/// The system's label, or `key` itself for a system not listed.
+[[nodiscard]] std::string systemLabel(std::string_view key);
 
 /// The file to start for one game: `entry` itself when it is a file of the system's, or the
 /// file inside a game folder. In a folder a marker wins; otherwise the game file that is no

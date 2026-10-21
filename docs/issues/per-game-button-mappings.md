@@ -16,13 +16,15 @@ again allow chord buttons".
   takes pad outputs only; actions are only on chords. `forwardMap` turns a map into the pads'
   `gamepad::ForwardMap` (`gamepad/forward_map`), leaving out action chords and any chord the
   shell binds.
-- **Scopes** (`input/mapping_scopes`): game, else its emulator (catalog id, from
-  `app/mapping_editor:mappingKeys`), else global, else every button sends itself. Each scope's
+- **Scopes** (`input/mapping_scopes`, on `settings::Layer`): game, else its emulator (catalog id),
+  else its system, else global, else every button sends itself; the keys come from
+  `library::layerKeysOf`. The editor offers no system map yet. Each scope's
   map is whole: a game's own map replaces its emulator's, it does not merge. The Steam Input
   switch is global plus an optional per-game choice; while it has a game, `resolve` gives no
   mapping.
 - **Store** (`settings/mapping_store`): `<config>/opensu/mappings.json`
-  (`{"global", "emulators": {id}, "games": {id}, "steamInput": {"global", "games"}}`), written
+  (`{"global", "systems": {key}, "emulators": {id}, "games": {id}, "steamInput": {"global",
+  "games"}}`), written
   whole through `fileio::writeWhole` (temp file and rename). A damaged file or entry is warned
   and left out.
 - **Forward path**: at launch the shell resolves the game's map (`MappingEditor::forGame`) and

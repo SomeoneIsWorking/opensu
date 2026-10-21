@@ -17,6 +17,7 @@
 #include "details_controller.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
+#include "library/emulator_choice.hpp"
 #include "library/roms.hpp"
 #include "support/buildbot_server.hpp"
 #include "support/scratch_dir.hpp"
@@ -71,7 +72,7 @@ struct Rig {
     [[nodiscard]] library::Game game() const {
         library::roms::Provider provider{{root / "ROM"}, setup(), library::roms::NameDb{}, {}, {}};
         std::vector<library::Game> games = provider.list();
-        preferences.values().emulators.apply(games);
+        library::applyEmulatorPicks(gameSettings.layers(), games);
         return games.at(0);
     }
 
@@ -93,6 +94,9 @@ struct Rig {
     fs::path root;
     test::BuildbotServer buildbot;
     app::Preferences preferences;
+    app::GameSettings gameSettings{settings::GameSettingsStore{root / "game-settings.json"},
+                                   root / "settings.json", [](const std::string&) {
+                                   }};
     std::vector<std::pair<std::string, bool>> said;
     std::vector<library::LaunchSpec> launched;
     ui::DetailsPage page;
@@ -108,12 +112,9 @@ struct Rig {
                                                    details.refresh();
                                                }}};
     app::EmulatorSettings emulators{
-        downloads, preferences,
-        app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
-                                         said.emplace_back(text, error);
-                                     },
-                                     [] {
-                                     }}};
+        downloads, app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
+            said.emplace_back(text, error);
+        }}};
     /// ROMs are never uninstalled; the details page here offers no Uninstall.
     app::UninstallPrompt uninstall{app::UninstallPrompt::Hooks{[](const library::Game&) {
                                                                    return app::Removal{};
@@ -134,6 +135,7 @@ struct Rig {
         page,
         sounds,
         preferences,
+        gameSettings,
         downloads,
         uninstall,
         update,

@@ -1,5 +1,6 @@
 // Button mappings: what a mapping takes, what the pads are given for it, and which mapping applies
-// to a game: its own, else its emulator's, else the global one, none while Steam Input has it.
+// to a game: its own, else its emulator's, else its system's, else the global one, none while Steam
+// Input has it.
 #include "input/button_map.hpp"
 
 #include <cstdio>
@@ -12,8 +13,10 @@ namespace {
 using namespace opensu::input;
 using opensu::gamepad::Button;
 using opensu::gamepad::Chord;
+using opensu::settings::Layer;
+using opensu::settings::LayerKeys;
 using opensu::test::expect;
-using Kind = MappingScope::Kind;
+using Kind = Layer::Kind;
 
 ButtonMap sending(Button from, PadOutput to) {
     ButtonMap map;
@@ -74,18 +77,25 @@ void thePadsGetButtonsAndPadChords() {
 
 void theNearestScopeApplies() {
     MappingScopes scopes;
-    const GameKeys rom{"rom:/r/Kirby.gba", "mgba"};
-    const GameKeys other{"rom:/r/Metroid.gba", "mgba"};
-    const GameKeys native{"steam:620", ""};
+    const LayerKeys rom{"rom:/r/Kirby.gba", "gba", "mgba"};
+    const LayerKeys other{"rom:/r/Metroid.gba", "gba", "mgba"};
+    const LayerKeys gambatte{"rom:/r/Tetris.gb", "gb", "gambatte"};
+    const LayerKeys native{"steam:620", "", ""};
     expect(scopes.resolve(rom).empty() && !scopes.source(rom),
            "with nothing kept, nothing applies");
 
-    scopes.set(MappingScope{}, sending(Button::A, {Button::B}));
+    scopes.set(Layer{}, sending(Button::A, {Button::B}));
     expect(scopes.resolve(native).output(Button::A) == PadOutput{Button::B} &&
                scopes.resolve(rom).output(Button::A) == PadOutput{Button::B},
            "the global mapping applies to native and emulated games alike");
 
-    scopes.set(MappingScope{Kind::Emulator, "mgba"}, sending(Button::X, {Button::Y}));
+    scopes.set(Layer{Kind::System, "gb"}, sending(Button::Y, {Button::X}));
+    expect(scopes.resolve(gambatte).output(Button::Y) == PadOutput{Button::X} &&
+               scopes.resolve(gambatte).output(Button::A) == PadOutput{Button::A} &&
+               scopes.resolve(rom).output(Button::Y) == PadOutput{Button::Y},
+           "a system's mapping replaces the global one whole for that system's games alone");
+
+    scopes.set(Layer{Kind::Emulator, "mgba"}, sending(Button::X, {Button::Y}));
     expect(scopes.resolve(rom).output(Button::X) == PadOutput{Button::Y} &&
                scopes.resolve(other).output(Button::X) == PadOutput{Button::Y},
            "every game an emulator runs shares its mapping");
@@ -94,27 +104,27 @@ void theNearestScopeApplies() {
     expect(scopes.resolve(native).output(Button::A) == PadOutput{Button::B},
            "a native game keeps the global one");
 
-    scopes.set(MappingScope{Kind::Game, rom.game}, sending(Button::L1, {Button::R1}));
+    scopes.set(Layer{Kind::Game, rom.game}, sending(Button::L1, {Button::R1}));
     expect(scopes.resolve(rom).output(Button::L1) == PadOutput{Button::R1} &&
                scopes.resolve(rom).output(Button::X) == PadOutput{Button::X},
            "a game's own mapping replaces its emulator's whole");
-    expect(scopes.source(rom) == MappingScope{Kind::Game, rom.game} &&
-               scopes.source(other) == MappingScope{Kind::Emulator, "mgba"} &&
-               scopes.source(native) == MappingScope{},
+    expect(scopes.source(rom) == Layer{Kind::Game, rom.game} &&
+               scopes.source(other) == Layer{Kind::Emulator, "mgba"} &&
+               scopes.source(native) == Layer{},
            "the source is the nearest scope that keeps one");
     expect(scopes.resolve(other).output(Button::L1) == PadOutput{Button::L1},
            "the other game of the emulator is not touched");
 
-    scopes.clear(MappingScope{Kind::Game, rom.game});
+    scopes.clear(Layer{Kind::Game, rom.game});
     expect(scopes.resolve(rom).output(Button::X) == PadOutput{Button::Y},
            "clearing the game's mapping gives it its emulator's again");
 }
 
 void steamInputTakesTheGame() {
     MappingScopes scopes;
-    const GameKeys game{"steam:620", ""};
-    scopes.set(MappingScope{}, sending(Button::A, {Button::B}));
-    scopes.set(MappingScope{Kind::Game, game.game}, sending(Button::X, {Button::Y}));
+    const LayerKeys game{"steam:620", "", ""};
+    scopes.set(Layer{}, sending(Button::A, {Button::B}));
+    scopes.set(Layer{Kind::Game, game.game}, sending(Button::X, {Button::Y}));
     expect(!scopes.steamInput(game.game), "Steam Input is off unless chosen");
     scopes.setSteamInputGlobal(true);
     expect(scopes.steamInput(game.game) && scopes.resolve(game).empty(),

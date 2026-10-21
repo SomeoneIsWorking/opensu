@@ -1,6 +1,7 @@
 // retro_session — the shell's side of opensu-retro's control channel: the control file each launch
-// names in OPENSU_RETRO_CONTROL, the port read from it once the runner announces one, the requests
-// the quick menu and the game chords send, and the load failure a runner leaves there.
+// names in OPENSU_RETRO_CONTROL and the settings file beside it, the port read from the control
+// file once the runner announces one, the requests the quick menu and the game chords send, and the
+// load failure a runner leaves there.
 #pragma once
 
 #include <cstdint>
@@ -31,8 +32,11 @@ class RetroSession {
     /// A new launch's control file, as the `NAME=value` entry for the game's environment. Any
     /// thread.
     [[nodiscard]] std::string begin();
-    /// The launch is over: the load failure the runner left, empty when none. The file is removed.
-    /// Any thread.
+    /// The launch begun last's settings file for `opensu-retro --settings`, beside its control
+    /// file. Any thread.
+    [[nodiscard]] std::filesystem::path settingsFile();
+    /// The launch is over: the load failure the runner left, empty when none. Its files are
+    /// removed. Any thread.
     [[nodiscard]] std::string end();
 
     /// The running game's state when it runs on opensu-retro and answers; nothing otherwise.

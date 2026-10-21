@@ -117,7 +117,7 @@ const library::EmulatorOption* emulatorToDownload(const library::Game& game) {
 
 DetailsView detailsFor(const library::Game& game, bool hidden,
                        std::chrono::system_clock::time_point now, const std::string& download,
-                       bool ownPrefix) {
+                       bool ownPrefix, const GameSettingsView& settings) {
     DetailsView view;
     view.gameId = game.id;
     view.title = game.title;
@@ -139,7 +139,11 @@ DetailsView detailsFor(const library::Game& game, bool hidden,
         view.rows.push_back(DetailsRow{"Play time", playtimeText(game.playtimeMinutes)});
     }
     if (rom) {
-        view.rows.push_back(DetailsRow{"Emulator", emulatorText(game)});
+        view.rows.push_back(
+            DetailsRow{"Emulator", emulatorText(game) + (settings.emulatorSource.empty()
+                                                             ? std::string{}
+                                                             : " · " + settings.emulatorSource)});
+        view.rows.insert(view.rows.end(), settings.rows.begin(), settings.rows.end());
         if (!game.romset.empty()) {
             view.rows.push_back(DetailsRow{"Romset", game.romset});
         }
@@ -149,28 +153,30 @@ DetailsView detailsFor(const library::Game& game, bool hidden,
     }
 
     view.buttons.push_back(
-        DetailsButton{DetailsAction::Launch, game.installed ? "Play" : "Install", ""});
+        DetailsButton{DetailsAction::Launch, game.installed ? "Play" : "Install", "", ""});
     if (updatable) {
-        view.buttons.push_back(DetailsButton{DetailsAction::Update, "Update", ""});
+        view.buttons.push_back(DetailsButton{DetailsAction::Update, "Update", "", ""});
     }
     if (const library::EmulatorOption* missing = emulatorToDownload(game)) {
-        view.buttons.push_back(
-            DetailsButton{DetailsAction::DownloadEmulator, "Download " + missing->name, download});
+        view.buttons.push_back(DetailsButton{DetailsAction::DownloadEmulator,
+                                             "Download " + missing->name, download, ""});
     }
     if (rom && game.emulatorOptions.size() > 1) {
-        view.buttons.push_back(DetailsButton{DetailsAction::Emulator, "Emulator", game.emulator});
-    }
-    if (game.windowsInstall) {
         view.buttons.push_back(
-            DetailsButton{DetailsAction::WinePrefix, "Wine prefix", ownPrefix ? "Own" : "Shared"});
+            DetailsButton{DetailsAction::Emulator, "Emulator", game.emulator, ""});
+    }
+    view.buttons.insert(view.buttons.end(), settings.buttons.begin(), settings.buttons.end());
+    if (game.windowsInstall) {
+        view.buttons.push_back(DetailsButton{DetailsAction::WinePrefix, "Wine prefix",
+                                             ownPrefix ? "Own" : "Shared", ""});
     }
     view.buttons.push_back(
-        DetailsButton{DetailsAction::Hidden, hidden ? "Show game" : "Hide game", ""});
+        DetailsButton{DetailsAction::Hidden, hidden ? "Show game" : "Hide game", "", ""});
     if (game.installed && !rom) {
-        view.buttons.push_back(DetailsButton{DetailsAction::Uninstall, "Uninstall", ""});
+        view.buttons.push_back(DetailsButton{DetailsAction::Uninstall, "Uninstall", "", ""});
     }
-    view.buttons.push_back(DetailsButton{DetailsAction::Controls, "Controls", ""});
-    view.buttons.push_back(DetailsButton{DetailsAction::Back, "Back", ""});
+    view.buttons.push_back(DetailsButton{DetailsAction::Controls, "Controls", "", ""});
+    view.buttons.push_back(DetailsButton{DetailsAction::Back, "Back", "", ""});
     return view;
 }
 
@@ -184,7 +190,7 @@ std::optional<std::size_t> DetailsLayout::buttonAt(float x, float y) const noexc
 }
 
 DetailsLayout layoutDetails(float width, float height, float dp, float topInset, float bottomInset,
-                            std::size_t buttons) {
+                            DetailsParts parts) {
     DetailsLayout layout;
     const float margin = marginDp * dp;
     const float top = topInset;
@@ -195,13 +201,16 @@ DetailsLayout layoutDetails(float width, float height, float dp, float topInset,
     layout.radius = radiusDp * dp;
     const float left = layout.art.right() + gutterDp * dp;
     const float columnWidth = std::min(buttonWidthDp * dp, std::max(width - left - margin, 0.0f));
-    const auto count = static_cast<float>(buttons);
-    const float stack =
+    const auto count = static_cast<float>(parts.buttons);
+    const float natural =
         count * buttonHeightDp * dp + std::max(count - 1.0f, 0.0f) * buttonGapDp * dp;
+    const float below = std::max(room - parts.header, 0.0f);
+    const float shrink = natural > below ? below / natural : 1.0f;
+    const float stack = natural * shrink;
     float y = layout.art.bottom() - stack;
-    for (std::size_t i = 0; i < buttons; ++i) {
-        layout.buttons.push_back(Rect{left, y, columnWidth, buttonHeightDp * dp});
-        y += (buttonHeightDp + buttonGapDp) * dp;
+    for (std::size_t i = 0; i < parts.buttons; ++i) {
+        layout.buttons.push_back(Rect{left, y, columnWidth, buttonHeightDp * dp * shrink});
+        y += (buttonHeightDp + buttonGapDp) * dp * shrink;
     }
     const float sideX = left + columnWidth + gutterDp * dp;
     layout.side =
@@ -227,8 +236,11 @@ void DetailsPage::refresh(DetailsView view) {
         return;
     }
     const DetailsAction was = selected();
+    const std::string wasSetting = selectedSetting();
     view_ = std::move(view);
-    const auto same = std::ranges::find(view_.buttons, was, &DetailsButton::action);
+    const auto same = std::ranges::find_if(view_.buttons, [&](const DetailsButton& button) {
+        return button.action == was && button.setting == wasSetting;
+    });
     if (same != view_.buttons.end()) {
         focus_ = static_cast<std::size_t>(same - view_.buttons.begin());
         return;

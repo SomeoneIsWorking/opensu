@@ -19,6 +19,7 @@
 #include "input/shortcuts.hpp"
 #include "integration_settings.hpp"
 #include "integrations_in_force.hpp"
+#include "layer_settings.hpp"
 #include "library/library_query.hpp"
 #include "mapping_editor.hpp"
 #include "path_editor.hpp"
@@ -59,6 +60,7 @@ class SettingsController {
         VolumeControl& volume;
         const input::Shortcuts& shortcuts;
         EmulatorSettings& emulators;
+        LayerSettings& layers;
         SteamLibrarySettings& steamLibraries;
         PluginSettings& plugins;
         ChordSettings& chords;
@@ -74,10 +76,11 @@ class SettingsController {
                        Preferences& preferences, const config::Config& defaults, Hooks hooks)
         : page_{page}, paths_{services.paths}, shortcutEditor_{services.shortcutEditor},
           volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
-          steamLibraries_{services.steamLibraries}, plugins_{services.plugins},
-          chords_{services.chords}, mappings_{services.mappings}, wine_{services.wine},
-          integrations_{services.integrations}, inForce_{services.inForce}, sounds_{sounds},
-          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
+          layers_{services.layers}, steamLibraries_{services.steamLibraries},
+          plugins_{services.plugins}, chords_{services.chords}, mappings_{services.mappings},
+          wine_{services.wine}, integrations_{services.integrations}, inForce_{services.inForce},
+          sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -96,7 +99,8 @@ class SettingsController {
     void service();
     /// The pad goes back to the list of categories; the trail's "Settings" level does this.
     void showCategories();
-    /// The focused category's name, or empty when the screen is closed.
+    /// The focused category's name, then the open emulator layer's ("Emulators › Super
+    /// Nintendo"); empty when the screen is closed.
     [[nodiscard]] std::string category() const;
     /// Whether a button now changes the focused setting, which the corner prompt says.
     [[nodiscard]] bool changes() const;
@@ -109,6 +113,8 @@ class SettingsController {
     [[nodiscard]] ui::SettingsCategory controlsPage() const;
     [[nodiscard]] ui::SettingsCategory installPage() const;
     [[nodiscard]] ui::SettingsCategory aboutPage() const;
+    /// Back from a layer's page to the Emulators page, on the row that opened it.
+    void closeLayer();
     /// Keeps the preferences and shows the change.
     void changed();
     /// Acts on `row`: `step` is 0 for A and -1 or 1 for Left and Right.
@@ -131,6 +137,7 @@ class SettingsController {
     VolumeControl& volume_;
     const input::Shortcuts& shortcuts_;
     EmulatorSettings& emulators_;
+    LayerSettings& layers_;
     SteamLibrarySettings& steamLibraries_;
     PluginSettings& plugins_;
     ChordSettings& chords_;

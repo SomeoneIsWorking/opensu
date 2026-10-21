@@ -1,13 +1,15 @@
 // Command opensu-retro runs one game in a libretro core, in its own window: the built-in emulator
 // openSU launches like any other.
 //
-//   opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--hidden] [--validate]
-//                [--frames N] [--frame-png <file>] <rom>
+//   opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings <file>] [--hidden]
+//                [--validate] [--frames N] [--frame-png <file>] <rom>
 //
 // Exit status: 0 on quit, 1 for a bad command line or a window, Vulkan or frame-file failure, 2
 // when the core or game cannot be loaded, 3 when --validate saw Vulkan validation errors.
 // OPENSU_RETRO_CONTROL names the file the control channel's port, or a load failure, is left in.
 #include <charconv>
+#include <fstream>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <string>
@@ -17,8 +19,26 @@
 #include "config/config.hpp"
 #include "lucent/log.h"
 #include "retro/runner_app.hpp"
+#include "settings/video_settings.hpp"
 
 namespace {
+
+/// The shell's per-launch settings in `file`; nothing (the reason logged) when they cannot be read.
+std::optional<opensu::settings::VideoSettings> readSettings(const std::filesystem::path& file) {
+    std::ifstream in{file, std::ios::binary};
+    if (!in) {
+        lucent::error("retro", "cannot read the settings file {}", file.string());
+        return std::nullopt;
+    }
+    const std::string text{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+    std::string error;
+    std::optional<opensu::settings::VideoSettings> video =
+        opensu::settings::parseLaunchFile(text, error);
+    if (!video) {
+        lucent::error("retro", "{}: {}", file.string(), error);
+    }
+    return video;
+}
 
 /// The command line, or nothing (the reason logged) when it is malformed.
 std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> args) {
@@ -38,7 +58,7 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
         } else if (arg == "--validate") {
             options.validation = true;
         } else if (arg == "--core" || arg == "--saves" || arg == "--system" ||
-                   arg == "--frame-png" || arg == "--frames") {
+                   arg == "--settings" || arg == "--frame-png" || arg == "--frames") {
             const std::optional<std::string> given = value();
             if (!given) {
                 return std::nullopt;
@@ -49,6 +69,12 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
                 options.saves = *given;
             } else if (arg == "--system") {
                 options.system = *given;
+            } else if (arg == "--settings") {
+                const std::optional<opensu::settings::VideoSettings> video = readSettings(*given);
+                if (!video) {
+                    return std::nullopt;
+                }
+                options.video = *video;
             } else if (arg == "--frame-png") {
                 options.framePng = *given;
             } else {
@@ -70,8 +96,8 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
     }
     if (options.core.empty() || !rom) {
         lucent::error("retro", "usage: opensu-retro --core <path.so> [--saves <dir>] "
-                               "[--system <dir>] [--hidden] [--validate] [--frames N] "
-                               "[--frame-png <file>] <rom>");
+                               "[--system <dir>] [--settings <file>] [--hidden] [--validate] "
+                               "[--frames N] [--frame-png <file>] <rom>");
         return std::nullopt;
     }
     if (options.framePng && !options.hidden) {

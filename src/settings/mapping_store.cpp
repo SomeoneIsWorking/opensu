@@ -1,5 +1,6 @@
 #include "mapping_store.hpp"
 
+#include <array>
 #include <fstream>
 #include <iterator>
 #include <optional>
@@ -17,8 +18,20 @@ using json = nlohmann::json;
 using gamepad::Button;
 
 constexpr const char* globalKey = "global";
+constexpr const char* systemsKey = "systems";
 constexpr const char* emulatorsKey = "emulators";
 constexpr const char* gamesKey = "games";
+
+/// The section each kind of layer but the global one keeps its mappings in, by id.
+struct Section {
+    const char* key;
+    Layer::Kind kind;
+};
+constexpr std::array<Section, 3> sections{{
+    {systemsKey, Layer::Kind::System},
+    {emulatorsKey, Layer::Kind::Emulator},
+    {gamesKey, Layer::Kind::Game},
+}};
 constexpr const char* steamInputKey = "steamInput";
 constexpr const char* buttonsKey = "buttons";
 constexpr const char* chordsKey = "chords";
@@ -170,11 +183,10 @@ input::MappingScopes MappingStore::load() const {
     }
     if (const auto global = document.find(globalKey); global != document.end()) {
         if (std::optional<input::ButtonMap> map = MapReader{file, globalKey}.read(*global)) {
-            scopes.set(input::MappingScope{}, std::move(*map));
+            scopes.set(Layer{}, std::move(*map));
         }
     }
-    for (const auto& [key, kind] : {std::pair{emulatorsKey, input::MappingScope::Kind::Emulator},
-                                    std::pair{gamesKey, input::MappingScope::Kind::Game}}) {
+    for (const auto& [key, kind] : sections) {
         const json entries = document.value(key, json::object());
         if (!entries.is_object()) {
             lucent::warn("settings", "{}: {} is not an object; left out", file, key);
@@ -183,7 +195,7 @@ input::MappingScopes MappingStore::load() const {
         for (const auto& [id, value] : entries.items()) {
             if (std::optional<input::ButtonMap> map =
                     MapReader{file, std::string{key} + "." + id}.read(value)) {
-                scopes.set(input::MappingScope{kind, id}, std::move(*map));
+                scopes.set(Layer{kind, id}, std::move(*map));
             }
         }
     }
@@ -212,23 +224,24 @@ input::MappingScopes MappingStore::load() const {
 
 bool MappingStore::save(const input::MappingScopes& scopes, std::string& error) const {
     json document = json::object();
-    if (scopes.global()) {
-        document[globalKey] = mapJson(*scopes.global());
+    for (const Section& section : sections) {
+        document[section.key] = json::object();
     }
-    json emulators = json::object();
-    for (const auto& [id, map] : scopes.emulators()) {
-        emulators[id] = mapJson(map);
-    }
-    json games = json::object();
-    for (const auto& [id, map] : scopes.games()) {
-        games[id] = mapJson(map);
+    for (const auto& [layer, map] : scopes.maps()) {
+        if (layer.kind == Layer::Kind::Global) {
+            document[globalKey] = mapJson(map);
+            continue;
+        }
+        for (const Section& section : sections) {
+            if (section.kind == layer.kind) {
+                document[section.key][layer.id] = mapJson(map);
+            }
+        }
     }
     json steamGames = json::object();
     for (const auto& [id, on] : scopes.steamInputGames()) {
         steamGames[id] = on;
     }
-    document[emulatorsKey] = std::move(emulators);
-    document[gamesKey] = std::move(games);
     document[steamInputKey] =
         json{{globalKey, scopes.steamInputGlobal()}, {gamesKey, std::move(steamGames)}};
     return fileio::writeWhole(file_, document.dump(2) + "\n", error);

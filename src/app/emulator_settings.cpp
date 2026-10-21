@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <iterator>
 #include <vector>
 
 #include "library/core_bios.hpp"
@@ -18,45 +19,14 @@ using ui::RowKind;
 constexpr std::string_view checkId = "emulators.check";
 constexpr std::string_view emulatorId = "emulators.run.";
 constexpr std::string_view removeId = "emulators.remove.";
-constexpr std::string_view systemId = "emulators.system.";
 constexpr std::string_view biosId = "emulators.bios.";
-
-std::string systemLabel(std::string_view key) {
-    const library::roms::RomSystem* system = library::roms::systemByKey(key);
-    return system != nullptr ? std::string{system->label} : std::string{key};
-}
 
 std::string systemsOf(const EmulatorEntry& entry) {
     std::string text;
     for (const std::string& system : entry.systems) {
-        text += (text.empty() ? "" : ", ") + systemLabel(system);
+        text += (text.empty() ? "" : ", ") + library::roms::systemLabel(system);
     }
     return text;
-}
-
-/// The systems the catalog serves, in the order the library lists systems.
-std::vector<std::string> servedSystems(const library::roms::EmulatorCatalog& catalog) {
-    std::vector<std::string> systems;
-    for (const library::roms::RomSystem& system : library::roms::romSystems()) {
-        const bool served = std::ranges::any_of(catalog.entries(), [&system](const auto& entry) {
-            return entry.serves(system.key);
-        });
-        if (served) {
-            systems.emplace_back(system.key);
-        }
-    }
-    return systems;
-}
-
-std::vector<std::string> namesFor(const library::roms::EmulatorCatalog& catalog,
-                                  std::string_view system) {
-    std::vector<std::string> names{""};
-    for (const EmulatorEntry& entry : catalog.entries()) {
-        if (entry.serves(system)) {
-            names.push_back(entry.name);
-        }
-    }
-    return names;
 }
 
 std::string checkValue(const EmulatorDownloads::Check& check, std::size_t updates) {
@@ -128,7 +98,7 @@ std::string EmulatorSettings::valueOf(const EmulatorEntry& entry) const {
     return entry.downloadable() ? "Download" : "Install it yourself";
 }
 
-ui::SettingsCategory EmulatorSettings::page() const {
+ui::SettingsCategory EmulatorSettings::page(std::vector<ui::SettingsRow> layerRows) const {
     ui::SettingsCategory page{std::string{categoryId}, "Emulators", {}};
     std::size_t updates = 0;
     for (const EmulatorEntry& entry : found_.catalog().entries()) {
@@ -138,6 +108,7 @@ ui::SettingsCategory EmulatorSettings::page() const {
         ui::makeRow(std::string{checkId}, RowKind::Action, "Check for updates",
                     "Reads each emulator's latest release; nothing updates by itself",
                     checkValue(downloads_.check(), updates)));
+    std::ranges::move(layerRows, std::back_inserter(page.rows));
     for (const EmulatorEntry& entry : found_.catalog().entries()) {
         page.rows.push_back(ui::makeRow(std::string{emulatorId} + entry.id, RowKind::Action,
                                         entry.name, noteOf(entry), valueOf(entry)));
@@ -149,18 +120,6 @@ ui::SettingsCategory EmulatorSettings::page() const {
                                 : "Deletes the AppImage openSU downloaded; its settings stay",
                 armed_ == entry.id ? "Press again to remove" : "Remove"));
         }
-    }
-    const settings::Settings& chosen = preferences_.values();
-    for (const std::string& system : servedSystems(found_.catalog())) {
-        const auto pick = chosen.emulators.systems().find(system);
-        const std::string automatic = found_.chosenName(system);
-        const std::string value =
-            pick != chosen.emulators.systems().end()
-                ? pick->second
-                : "Automatic" + (automatic.empty() ? std::string{} : " (" + automatic + ")");
-        page.rows.push_back(ui::makeRow(std::string{systemId} + system, RowKind::Choice,
-                                        systemLabel(system) + " games",
-                                        "Runs games that have no emulator of their own", value));
     }
     addBiosRows(page);
     return page;
@@ -183,16 +142,16 @@ std::string biosValue(const library::roms::CoreBios::File& file) {
 void EmulatorSettings::addBiosRows(ui::SettingsCategory& page) const {
     // Each chosen built-in core once, with the systems it runs; arcade BIOS sets are romsets.
     std::vector<std::pair<const EmulatorEntry*, std::string>> chosen;
-    for (const std::string& system : servedSystems(found_.catalog())) {
+    for (const std::string& system : found_.catalog().servedSystems()) {
         const EmulatorEntry* entry = found_.catalog().findByName(found_.chosenName(system));
         if (entry == nullptr || !entry->builtIn() || !entry->romsets.empty()) {
             continue;
         }
         const auto at = std::ranges::find(chosen, entry, &decltype(chosen)::value_type::first);
         if (at == chosen.end()) {
-            chosen.emplace_back(entry, systemLabel(system));
+            chosen.emplace_back(entry, library::roms::systemLabel(system));
         } else {
-            at->second += ", " + systemLabel(system);
+            at->second += ", " + library::roms::systemLabel(system);
         }
     }
     const library::roms::EmulatorSearch& search = downloads_.setup().search;
@@ -231,10 +190,6 @@ void EmulatorSettings::run(const std::string& id, int step) {
         if (step == 0) {
             downloads_.checkUpdates();
         }
-        return;
-    }
-    if (row.starts_with(systemId)) {
-        stepSystem(std::string{row.substr(systemId.size())}, step);
         return;
     }
     if (step != 0) {
@@ -291,20 +246,6 @@ void EmulatorSettings::runRemove(const EmulatorEntry& entry) {
     }
     hooks_.say(entry.name + " removed", false);
     rescan();
-}
-
-void EmulatorSettings::stepSystem(const std::string& system, int step) {
-    const std::vector<std::string> names = namesFor(found_.catalog(), system);
-    library::EmulatorChoices& choices = preferences_.values().emulators;
-    const auto pick = choices.systems().find(system);
-    const auto at =
-        std::ranges::find(names, pick == choices.systems().end() ? std::string{} : pick->second);
-    const auto from = at == names.end() ? 0 : static_cast<int>(at - names.begin());
-    const auto count = static_cast<int>(names.size());
-    const int next = (from + (step == 0 ? 1 : step) + count) % count;
-    choices.setSystem(system, names[static_cast<std::size_t>(next)]);
-    preferences_.save();
-    hooks_.picksChanged();
 }
 
 } // namespace opensu::app

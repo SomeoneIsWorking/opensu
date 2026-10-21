@@ -17,6 +17,8 @@
 #include "details_controller.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
+#include "layer_settings.hpp"
+#include "library/emulator_choice.hpp"
 #include "library/roms.hpp"
 #include "support/release_server.hpp"
 #include "ui/check.hpp"
@@ -61,7 +63,7 @@ struct Rig {
     library::Game game() const {
         library::roms::Provider provider{{root / "ROM"}, setup(), library::roms::NameDb{}, {}, {}};
         std::vector<library::Game> games = provider.list();
-        preferences.values().emulators.apply(games);
+        library::applyEmulatorPicks(gameSettings.layers(), games);
         return games.at(0);
     }
 
@@ -85,6 +87,9 @@ struct Rig {
     fs::path root;
     test::ReleaseServer server;
     app::Preferences preferences;
+    app::GameSettings gameSettings{settings::GameSettingsStore{root / "game-settings.json"},
+                                   root / "settings.json", [](const std::string&) {
+                                   }};
     std::vector<std::pair<std::string, bool>> said;
     std::vector<std::string> launched;
     int changes{0};
@@ -102,13 +107,16 @@ struct Rig {
                                                    details.refresh();
                                                }}};
     app::EmulatorSettings emulators{
-        downloads, preferences,
-        app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
-                                         said.emplace_back(text, error);
-                                     },
-                                     [this] {
-                                         ++changes;
-                                     }}};
+        downloads, app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
+            said.emplace_back(text, error);
+        }}};
+    app::LayerSettings layers{gameSettings,
+                              [this]() -> const library::roms::Emulators& {
+                                  return emulators.found();
+                              },
+                              app::LayerSettings::Hooks{[this] {
+                                  ++changes;
+                              }}};
     /// ROMs are never uninstalled; the details page here offers no Uninstall.
     app::UninstallPrompt uninstall{app::UninstallPrompt::Hooks{[](const library::Game&) {
                                                                    return app::Removal{};
@@ -129,6 +137,7 @@ struct Rig {
         page,
         sounds,
         preferences,
+        gameSettings,
         downloads,
         uninstall,
         update,
@@ -268,15 +277,18 @@ void settingsUpdateRemoveAndDefault(const fs::path& root) {
                !hasRow(rig.emulators.page(), "emulators.remove.emu"),
            "the second press removes it");
 
-    rig.emulators.run("emulators.system.gba", 1);
-    expect(rig.preferences.values().emulators.systems().at("gba") == "Emu" &&
-               settings::Store{root / "settings.json"}.load().emulators.systems().at("gba") ==
-                   "Emu",
+    rig.layers.run("layers.open.system.gba", 0);
+    rig.layers.run("layers.emulator", 1);
+    const settings::Layer gba{settings::Layer::Kind::System, "gba"};
+    const std::string* kept = settings::GameSettingsStore{root / "game-settings.json"}.load().at(
+        gba, library::emulatorKey);
+    expect(rig.gameSettings.layers().at(gba, library::emulatorKey) != nullptr &&
+               *rig.gameSettings.layers().at(gba, library::emulatorKey) == "Emu" &&
+               kept != nullptr && *kept == "Emu",
            "a system's emulator is picked and kept");
     expect(rig.game().unavailable == "Emu is not installed", "the system's pick reaches its games");
-    rig.emulators.run("emulators.system.gba", 1);
-    expect(rig.preferences.values().emulators.systems().empty(),
-           "stepping on goes back to Automatic");
+    rig.layers.run("layers.emulator", 1);
+    expect(rig.gameSettings.layers().layers().empty(), "stepping on goes back to Automatic");
 }
 
 } // namespace
