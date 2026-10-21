@@ -797,7 +797,7 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `6654c87f20eb212c159e3a22cfbf7ccc03af5dfd` (3.16.29 plus eight commits).
+to commit `e297b6484f4200efd23e7323ffc293a8eaf45ee2` (3.16.29 plus nine commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. The other three are upstream's
@@ -810,7 +810,12 @@ three end the session on a dead host connection instead of aborting: upstream PR
 shutdown (`ShutdownGamescopeOnError`, 883b7842), and the host display's hangup left to the read
 that reports it (79db8c0d; `IWaitable::OnPollHangUp` aborted first). 6654c87f includes `float.h`
 in `wlserver.cpp` for `DBL_MAX`, which the AppImage's Ubuntu 24.04 build (Clang 22, libstdc++ 14)
-does not get through other headers. `cmake/Gamescope.cmake` builds the pin
+does not get through other headers. e297b648 adds `GAMESCOPE_HIDE_STEAM_CLIENT`, a root CARDINAL:
+at 1 Steam's own windows (app id 769 or `STEAM_GAME` 769, `STEAM_BIGPICTURE`, or owned by a `steam`
+or `steamwebhelper` process, `window_is_steam_client`) are left out of the focus candidates
+(`GetPossibleFocusWindows`), so out of focus, the composite and `GAMESCOPE_FOCUSABLE_WINDOWS`, and
+out of the overlay and notification picks; games Steam starts are untouched. openSU sets it to 1
+while its Managed Steam is logged on (`docs/issues/integrations-opt-in.md`). `cmake/Gamescope.cmake` builds the pin
 as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
 configure and build steps run in a rootless podman container built from
 `packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;

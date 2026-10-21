@@ -251,6 +251,9 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                       .emulatorsChanged =
                                           [&emulatorChanges] {
                                               ++emulatorChanges;
+                                          },
+                                      .hideSteamWindows =
+                                          [](bool) {
                                           }}};
     integrationSwitch.begin();
     expect(!plugins.active() && !emulators.setup().standalone, "all off: no plugins, no emulators");

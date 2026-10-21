@@ -2,7 +2,8 @@
 // the player changes it: the stores the catalog reads (the catalog is rebuilt and read again),
 // whether standalone emulators are searched and downloaded, whether Lua plugins run, the Steam
 // client in its mode (started, attached or stopped on a worker, as Managed's shutdown can take
-// seconds), and the pad and focus guards only Managed asks for.
+// seconds), the pad and focus guards only Managed asks for, and Steam's windows hidden in
+// Gamescope while Managed Steam is logged on.
 #pragma once
 
 #include <functional>
@@ -37,6 +38,8 @@ class IntegrationSwitch {
         std::function<bool()> steamInstalled;
         /// Standalone emulators came or went: the screens that list emulators read them again.
         std::function<void()> emulatorsChanged;
+        /// Whether Gamescope leaves Steam's own windows out of focus and the composite.
+        std::function<void(bool)> hideSteamWindows;
     };
 
     IntegrationSwitch(const IntegrationsInForce& integrations, Targets targets, Hooks hooks);
@@ -48,6 +51,9 @@ class IntegrationSwitch {
     void begin();
     /// Applies a change: only what differs from what was applied last. Main loop only.
     void apply();
+    /// Hides Steam's windows while openSU's own Steam is logged on (Managed and Ready), and shows
+    /// them otherwise; tells the hook only of a change. Every frame, main loop only.
+    void service();
 
   private:
     void guard();
@@ -58,6 +64,8 @@ class IntegrationSwitch {
     Targets targets_;
     Hooks hooks_;
     settings::Integrations applied_;
+    /// What the hook was last told; nothing before the first `service`.
+    std::optional<bool> hidesSteamWindows_;
     /// Last, so a Steam start or stop under way ends before the client is used by nothing.
     std::jthread steamWorker_;
 };

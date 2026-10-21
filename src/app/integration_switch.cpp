@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "launch/steam_gate.hpp"
 #include "lucent/log.h"
 
 namespace opensu::app {
@@ -57,6 +58,17 @@ void IntegrationSwitch::apply() {
     if (now.steam != was.steam) {
         moveSteam(integrations_.steamMode());
     }
+}
+
+void IntegrationSwitch::service() {
+    // Until it is logged on, Steam's login and update windows are the player's to answer.
+    const bool hides =
+        integrations_.guardsSteam() && targets_.steam.state() == launch::SteamState::Ready;
+    if (hidesSteamWindows_ == hides) {
+        return;
+    }
+    hidesSteamWindows_ = hides;
+    hooks_.hideSteamWindows(hides);
 }
 
 void IntegrationSwitch::moveSteam(std::optional<steam::Client::Mode> mode) {

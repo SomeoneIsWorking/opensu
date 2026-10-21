@@ -37,6 +37,8 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
                                     .mayStart = settings_.startSteam}},
       gameWindows_{environment_.insideGamescope ? std::make_unique<session::GamescopeWindows>()
                                                 : nullptr},
+      steamWindowHiding_{
+          environment_.insideGamescope ? std::make_unique<session::SteamWindowHiding>() : nullptr},
       handoff_{environment_.executablePath, environment_.session, steam_, gameWindows_.get()},
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
@@ -1008,6 +1010,7 @@ int ShellApp::run() {
             shell_.setSize(size->width, size->height);
         }
 
+        integrationSwitch_.service();
         focusFollow_.service(padOwner_.held());
         padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),
                          gameScreen_.mode() == session::OverlayMode::Interactive);
