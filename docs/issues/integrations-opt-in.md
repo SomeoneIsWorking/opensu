@@ -1,7 +1,7 @@
 # Integrations are opt-in, Steam has modes
 
 Status: partial. Integrations, the first-run chooser and the Off, Normal and Managed Steam modes
-are built; Isolated is not (it needs the sandbox measurements below first).
+are built; Isolated is measured (below) but not built.
 
 The player's words: "I think we shouldn't enable all integrations initially, we can add an option
 to integrate Steam for example ... maybe they just wanna use it as libretro", and for Steam: keep
@@ -29,16 +29,96 @@ normally, no isolation".
 | Managed (today's behaviour) | Starts Steam in the background inside openSU's Gamescope, ends it with openSU, holds the pad in the shell so Steam never sees Guide, closes Big Picture. |
 | Isolated | A separate Steam that cannot see the desktop, the real pads or the player's files: its own home, its own headless display, only openSU's virtual pads; openSU shows its games. |
 
-### Isolated without Docker: to measure first
+### Isolated: measured 2026-10-21
 
-1. Sandbox: `bwrap` (unprivileged user namespaces) or `systemd-run --user` with a private home and
-   device list; the Steam data dir separate from the player's, library folders shared or not.
-2. Display: a headless Gamescope for that Steam. Showing its games to the player, either
-   a. Steam Remote Play from the isolated Steam to a client in openSU's session (Steam Link), or
-   b. the headless Gamescope's PipeWire stream drawn by openSU, with input through the virtual pads
-      inside the sandbox; no network involved.
-3. Whether Steam runs at all in the sandbox (its runtime is itself a container: pressure-vessel
-   inside bwrap), and Steam Input and the overlay there.
+Run with the player's real Steam client and login, tools in `scratch/isolated-steam/tools/`,
+logs in `scratch/isolated-steam/logs/`, frames in `scratch/isolated-steam/shots/`. No system
+setting was changed and no OS protection (SELinux, userns limits, seccomp, ptrace, polkit) refused
+any step; `user.max_user_namespaces = 63182`, `kernel.unprivileged_userns_clone` does not exist on
+this kernel, `bwrap` 0.12.0 is installed.
+
+What worked:
+
+- Display: openSU's Gamescope fork headless outside any sandbox
+  (`gamescope --backend headless -W 1280 -H 720 -w 1280 -h 720 -r 60 -- sleep infinity`, runtime
+  dir of its own, `PIPEWIRE_RUNTIME_DIR` the player's). It starts Xwayland `:1` and a PipeWire
+  node `gamescope` (Video/Source). Steam with `DISPLAY=:1` drew its library there
+  (`shots/steam-library-2.png`); nothing appeared on the desktop.
+- Login: the player's own client and data logged on by itself both runs, no Steam Guard prompt
+  (`connection_log.txt` `[Logged On ...] processing complete` 25 s after start). DevTools
+  (`-cef-enable-debugging`, 127.0.0.1:8080, SharedJSContext) answered: logged in, 403 games,
+  installed list (`logs/q2-library.json`).
+- Game: Hamsteria Demo (4440600, native, no cloud) launched with `SteamClient.Apps.RunGame`, ran in
+  Steam Linux Runtime 2.0 (soldier) pressure-vessel, drew into the headless Gamescope
+  (`shots/game-hamsteria.png`), closed with `SteamClient.Apps.TerminateApp`. It sticks at 34 % on
+  a missing texture in its own pack (its Godot log), not a sandbox fault.
+- PipeWire capture (`tools/pw_capture.py`, GStreamer `pipewiresrc path=<node>`): BGRx 1280x720,
+  58–60 fps steady (`logs/q3a-pw-*.log`, `shots/pw-*.png`). X commit to frame on the consumer side:
+  min 6.7, median 19.9, max 24.0 ms over 20 flips (`tools/flip.c`, `logs/q3a-latency.txt`).
+  Remote Play was not needed.
+- Shutdown: `steam -shutdown` run in the same sandbox ended the client in under a minute.
+
+Sandbox (`tools/sandbox.py`, bwrap): `/` read-only, `/proc` the host's bound read-write, `/dev`
+minimal plus `/dev/dri` and only the given `/dev/input/eventN`, `/dev/shm` and `/tmp` private with
+just Gamescope's `X1` socket bound in, `/run/user/1000` an empty tmpfs (no Wayland, PipeWire,
+Pulse or session D-Bus), `/run/udev` hidden, HOME a tmpfs with `~/.local/share/Steam`, `~/.steam`
+and `/mnt/Boy/SteamLibrary` bound read-write, network shared, `--clearenv`.
+
+- Nesting: Steam's webhelper (sniper) and the game (soldier) pressure-vessel containers ran inside.
+  The one failure was this sandbox's own mount, not an OS protection: with `/proc` bound read-only,
+  pressure-vessel's bwrap failed `bwrap: setting up uid map: Read-only file system`
+  (`logs/q1-pv-nested.log`); `/proc` bound read-write, or `--unshare-pid --proc /proc`, fixes it.
+- Input (`tools/vpad.c`, uinput Xbox 360 ids): inside, `/dev/input` held only the exposed
+  `event20`; the second virtual pad `event21` was `No such file or directory`; a press on
+  `event20` arrived inside (`logs/q4-sandbox-read.log`). Steam and the game held only `event20`
+  (`logs/q4-input-fds.log`); Steam's log: `Xbox 360 Controller`, opened for index 0. No `/dev/uinput`
+  or `/dev/hidraw*` inside, so Steam Input cannot create its own virtual pad and hidraw-only pads
+  are invisible. Nodes are bound at start, so pads must exist before Steam starts (fixed slots).
+  Host programs see the virtual pads too: Godot editors of other agents opened them.
+- Audio off: Steam logged `PulseAudio connect failed (used only for Mic Volume Control) with error:
+  Access denied` and ran on; the game's Godot fell back to its dummy driver after ALSA
+  `ERR_CANT_OPEN`.
+- Display reach: the desktop Xwayland's abstract socket is reachable (shared network namespace) but
+  refused `Authorization required` because its cookie stays hidden. The system bus is reachable.
+  Steam autolaunched a private session D-Bus through X (`dbus-launch --autolaunch`), which outlives
+  the sandbox and has to be ended with it.
+
+Blockers found:
+
+- A private HOME breaks saves. With HOME on a tmpfs, Steam Cloud downloaded the cloud saves of
+  Baba Is You, Celeste, Upload Labs and others into the throwaway HOME at start; a game's progress
+  there would vanish or race the real files through the cloud. This contradicts the player's
+  decision anyway (same data): Isolated must give Steam the player's real HOME.
+- Gamescope fork crash: SIGSEGV after a PipeWire consumer disconnected while a frame was being
+  copied (`logs/gamescope-segv.txt`: `radv_handle_image_transition` from `vulkan_screenshot` on
+  the compositor thread, `destroy_buffer` on the PipeWire thread). Steam lost its display and died
+  uncleanly with it. The fork needs the PipeWire buffer lifetime guarded before openSU consumes the
+  stream.
+- Steam's first start after a while spends ~40 s verifying and updating its own client files.
+
+Alternative measured: `systemd-run --user -p PrivateDevices=yes -p ProtectHome=tmpfs -p
+BindPaths=... -p PrivateUsers=yes` runs unprivileged but `PrivateDevices` also drops `/dev/dri`
+and offers no per-node input list (`logs/q1-systemd-run.log`).
+
+### Isolated: recommended design
+
+What the player asked to isolate is the screen and the devices, not the files, so the mode needs
+no namespace at all:
+
+1. openSU starts its Gamescope fork headless (above) as its own child in openSU's scope.
+2. Steam starts with `DISPLAY=:<that Xwayland>`, `WAYLAND_DISPLAY`, `XAUTHORITY` and
+   `GAMESCOPE_WAYLAND_DISPLAY` unset, the player's PipeWire for game audio,
+   `-silent -cef-enable-debugging`, in a
+   `systemd-run --user --scope` like Managed. Same HOME, login and libraries: nothing to bind.
+3. openSU draws the Gamescope PipeWire node in its window and forwards the player's input into
+   fixed uinput pads it owns. Without a device namespace Steam can still open the real pads (the
+   user is in group `input`); hiding them needs either the bwrap layer above (real HOME bound
+   read-write, `/dev/input` reduced to the virtual nodes, `/proc` read-write) or Steam's own
+   `SDL_GAMECONTROLLER_IGNORE_DEVICES`/controller settings, which are weaker.
+4. The fork's PipeWire teardown race is fixed first.
+
+The bwrap layer is unprivileged and worked here; it is optional on top of 1–3 and only buys device
+hiding. The Docker idea is not needed.
 
 ### Which mode applies
 
@@ -82,7 +162,7 @@ normally, no isolation".
 
 ## Left
 
-- Isolated mode: the sandbox measurements above, then a design.
+- Isolated mode: build the design above; first fix the Gamescope fork's PipeWire teardown crash.
 - Normal-mode installs and the download queue go through Steam's CEF DevTools, which a desktop
   Steam only serves when started with `-cef-enable-debugging`; without it those fail with an error.
 - Normal mode has not been run against a real desktop Steam.
