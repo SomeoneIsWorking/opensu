@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <optional>
 
+#include "core_options.hpp"
 #include "settings/video_settings.hpp"
 
 namespace opensu::retro {
@@ -45,6 +46,8 @@ struct RunnerOptions {
     settings::VideoSettings video;
     /// The librashader a shader preset runs on.
     std::filesystem::path librashader;
+    /// Core option values chosen for this launch (a GPU core's renderer among them).
+    OptionValues coreOptions;
 };
 
 class RunnerApp {

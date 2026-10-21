@@ -1,5 +1,7 @@
 #include "core_options.hpp"
 
+#include <algorithm>
+
 #include "lucent/log.h"
 
 namespace opensu::retro {
@@ -16,7 +18,33 @@ std::string defaultOf(const char* named, const retro_core_option_value* values) 
     return {};
 }
 
+/// The values a definition offers.
+std::vector<std::string> offeredBy(const retro_core_option_value* values) {
+    std::vector<std::string> offered;
+    for (const retro_core_option_value* value = values; value->value != nullptr; ++value) {
+        offered.emplace_back(value->value);
+    }
+    return offered;
+}
+
 } // namespace
+
+void CoreOptions::define(const std::string& key, const std::string& fallback,
+                         const std::vector<std::string>& offered) {
+    const auto chosen = chosen_.find(key);
+    if (chosen == chosen_.end()) {
+        values_.insert_or_assign(key, fallback);
+        return;
+    }
+    if (std::ranges::find(offered, chosen->second) == offered.end()) {
+        lucent::warn("retro", "core option {} has no value {}; keeping {}", key, chosen->second,
+                     fallback);
+        values_.insert_or_assign(key, fallback);
+        return;
+    }
+    lucent::info("retro", "core option {} = {}", key, chosen->second);
+    values_.insert_or_assign(key, chosen->second);
+}
 
 void CoreOptions::defineVariables(const retro_variable* variables) {
     values_.clear();
@@ -29,7 +57,13 @@ void CoreOptions::defineVariables(const retro_variable* variables) {
             continue;
         }
         const std::string_view choices = text.substr(separator + 2);
-        values_.insert_or_assign(variable->key, std::string{choices.substr(0, choices.find('|'))});
+        std::vector<std::string> offered;
+        for (std::size_t at = 0; at <= choices.size();) {
+            const std::size_t bar = std::min(choices.find('|', at), choices.size());
+            offered.emplace_back(choices.substr(at, bar - at));
+            at = bar + 1;
+        }
+        define(variable->key, offered.front(), offered);
     }
 }
 
@@ -37,8 +71,8 @@ void CoreOptions::defineDefinitions(const retro_core_option_definition* definiti
     values_.clear();
     for (const retro_core_option_definition* definition = definitions;
          definition != nullptr && definition->key != nullptr; ++definition) {
-        values_.insert_or_assign(definition->key,
-                                 defaultOf(definition->default_value, definition->values));
+        define(definition->key, defaultOf(definition->default_value, definition->values),
+               offeredBy(definition->values));
     }
 }
 
@@ -46,8 +80,8 @@ void CoreOptions::defineV2(const retro_core_options_v2& options) {
     values_.clear();
     for (const retro_core_option_v2_definition* definition = options.definitions;
          definition != nullptr && definition->key != nullptr; ++definition) {
-        values_.insert_or_assign(definition->key,
-                                 defaultOf(definition->default_value, definition->values));
+        define(definition->key, defaultOf(definition->default_value, definition->values),
+               offeredBy(definition->values));
     }
 }
 

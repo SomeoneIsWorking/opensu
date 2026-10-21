@@ -109,11 +109,15 @@ Core::~Core() {
     close();
 }
 
-void Core::close() {
+void Core::unloadGame() {
     if (loaded_) {
         api_.unloadGame();
         loaded_ = false;
     }
+}
+
+void Core::close() {
+    unloadGame();
     if (initialised_) {
         api_.deinit();
         initialised_ = false;
@@ -189,6 +193,10 @@ bool Core::environment(unsigned command, void* data) {
 }
 
 void Core::video(const void* data, unsigned width, unsigned height, std::size_t pitch) {
+    if (data == RETRO_HW_FRAME_BUFFER_VALID) {
+        host_.environment.hardware().frameReady(width, height);
+        return;
+    }
     host_.video.take(data, width, height, pitch, host_.environment.pixelFormat());
 }
 

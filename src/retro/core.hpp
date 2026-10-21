@@ -55,6 +55,9 @@ class Core {
     /// Loads the game; throws CoreError when the file cannot be read or the core refuses it.
     void loadGame(const std::filesystem::path& rom);
 
+    /// Unloads the game, if loaded; a GPU core's context is destroyed before this.
+    void unloadGame();
+
     /// One frame.
     void run();
 

@@ -1,14 +1,15 @@
-// frame_compositor — what the runner draws into a target: the core's frame uploaded to a texture
-// and drawn at the aspect, integer scale, sampling and filter of the game's video settings, the
-// rest of the target black. With a shader preset, `shader_chain` draws the placed rectangle in
-// place of the sampling and filter. The presenter owns the window, the targets and the submission;
-// this owns the render pass every target's framebuffer is made for. `frame_filter` picks the
-// built-in shader.
+// frame_compositor — what the runner draws into a target: the core's frame, uploaded to a texture
+// or, from a Vulkan core, its own image read where it is, drawn at the aspect, integer scale,
+// sampling and filter of the game's video settings, the rest of the target black. With a shader
+// preset, `shader_chain` draws the placed rectangle from either in place of the sampling and
+// filter. The presenter owns the window, the targets and the submission; this owns the render pass
+// every target's framebuffer is made for. `frame_filter` picks the built-in shader.
 #pragma once
 
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <span>
 
 #include <vulkan/vulkan.h>
@@ -19,12 +20,24 @@
 
 namespace opensu::retro {
 
-/// A frame to show: rows of `width` RGBA pixels, top first, displayed `aspect` wide per unit high.
+/// A Vulkan core's image of a frame (set_image), read in the layout the core left it in.
+struct CoreImage {
+    VkImage image{VK_NULL_HANDLE};
+    VkImageView view{VK_NULL_HANDLE};
+    VkFormat format{VK_FORMAT_UNDEFINED};
+    VkImageLayout layout{VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    /// The queue family that owns it; VK_QUEUE_FAMILY_IGNORED or the runner's own for no transfer.
+    std::uint32_t queueFamily{VK_QUEUE_FAMILY_IGNORED};
+};
+
+/// A frame to show, `width` by `height` and displayed `aspect` wide per unit high: rows of RGBA
+/// pixels, top first, or a Vulkan core's image in `gpu`.
 struct FrameImage {
     std::span<const std::uint8_t> rgba;
     unsigned width{0};
     unsigned height{0};
     float aspect{0.0F};
+    std::optional<CoreImage> gpu;
 };
 
 /// The largest rectangle of `aspect` centred in `extent`; all of it when `aspect` is not positive.
@@ -46,7 +59,7 @@ class FrameCompositor {
     /// Targets are images of `format`, left in `finalLayout`. A shader preset in `video` is built
     /// with the librashader at `librashader` on `instance`'s `device`. Throws VulkanError, or
     /// ShaderError when the preset cannot run.
-    FrameCompositor(VkInstance instance, const VulkanDevice& device, VkFormat format,
+    FrameCompositor(VkInstance instance, VulkanDevice& device, VkFormat format,
                     VkImageLayout finalLayout, const settings::VideoSettings& video,
                     const std::filesystem::path& librashader);
     FrameCompositor(const FrameCompositor&) = delete;
@@ -61,7 +74,8 @@ class FrameCompositor {
     }
 
     /// Records drawing `frame` into `target` of `extent`, uploading it first when `upload` and the
-    /// frame is whole. Reports whether it uploaded. Throws VulkanError or ShaderError.
+    /// frame is whole. Reports whether it uploaded. A core's image is read where it is, and the
+    /// core's next writes to it wait for that read. Throws VulkanError or ShaderError.
     bool record(VkCommandBuffer commands, const FrameImage& frame, bool upload,
                 const DrawTarget& target, VkExtent2D extent);
 
@@ -73,14 +87,24 @@ class FrameCompositor {
     void createPipeline();
     void ensureTexture(unsigned width, unsigned height);
     void destroyTexture();
+    /// Points the descriptor at `view`; the previous frame's commands must be done.
+    void bindSource(VkImageView view, VkImageLayout layout);
     void recordUpload(VkCommandBuffer commands, const FrameImage& frame);
+    /// The core's image into the frame texture, converted; for a preset when the core keeps the
+    /// image in GENERAL, which the runner may not change.
+    void recordCopy(VkCommandBuffer commands, const FrameImage& frame, const CoreImage& image);
+    void recordCoreImage(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
+                         const FrameImage& frame, const CoreImage& image);
+    /// The frame from `source` (the bound descriptor, or the preset's input).
     void recordDraw(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
-                    const FrameImage& frame);
-    /// The preset's passes into `target`, which ends in the render pass's final layout.
+                    const FrameImage& frame, const ChainImage& source, bool ready);
+    /// The preset's passes from `source` into `target`, which ends in the render pass's final
+    /// layout.
     void recordChain(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
-                     const FrameImage& frame);
+                     const FrameImage& frame, const ChainImage& source);
+    [[nodiscard]] ChainImage textureImage() const;
 
-    const VulkanDevice& device_;
+    VulkanDevice& device_;
     VkDevice vk_{VK_NULL_HANDLE};
     settings::VideoSettings video_;
     VkFormat format_{VK_FORMAT_UNDEFINED};
@@ -94,6 +118,7 @@ class FrameCompositor {
     VkSampler sampler_{VK_NULL_HANDLE};
     VkDescriptorPool descriptorPool_{VK_NULL_HANDLE};
     VkDescriptorSet descriptorSet_{VK_NULL_HANDLE};
+    VkImageView boundView_{VK_NULL_HANDLE};
 
     VkImage texture_{VK_NULL_HANDLE};
     VkDeviceMemory textureMemory_{VK_NULL_HANDLE};

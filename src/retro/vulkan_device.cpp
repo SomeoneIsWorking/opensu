@@ -1,5 +1,6 @@
 #include "vulkan_device.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <optional>
 #include <vector>
@@ -61,6 +62,20 @@ std::optional<std::uint32_t> drawingFamily(VkPhysicalDevice device, VkSurfaceKHR
     return std::nullopt;
 }
 
+/// `wanted` with each of `required` it lacks appended.
+std::vector<const char*> withAll(std::span<const char* const> wanted,
+                                 std::span<const char* const> required) {
+    std::vector<const char*> all(wanted.begin(), wanted.end());
+    for (const char* name : required) {
+        if (std::ranges::none_of(all, [name](const char* had) {
+                return std::strcmp(had, name) == 0;
+            })) {
+            all.push_back(name);
+        }
+    }
+    return all;
+}
+
 } // namespace
 
 void check(VkResult result, const char* what) {
@@ -70,13 +85,14 @@ void check(VkResult result, const char* what) {
     }
 }
 
-VulkanInstance::VulkanInstance(std::span<const char* const> extensions, bool validation) {
-    std::vector<const char*> enabled(extensions.begin(), extensions.end());
-    std::vector<const char*> layers;
+VulkanInstance::VulkanInstance(
+    std::span<const char* const> extensions, bool validation,
+    const retro_hw_render_context_negotiation_interface_vulkan* negotiation)
+    : extensions_(extensions.begin(), extensions.end()) {
     if (validation) {
         if (layerInstalled(validationLayer)) {
-            layers.push_back(validationLayer);
-            enabled.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            layers_.push_back(validationLayer);
+            extensions_.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         } else {
             lucent::warn("vulkan", "{} is not installed; running without validation",
                          validationLayer);
@@ -87,15 +103,30 @@ VulkanInstance::VulkanInstance(std::span<const char* const> extensions, bool val
     application.pApplicationName = "opensu-retro";
     application.pEngineName = "opensu";
     application.apiVersion = VK_API_VERSION_1_1;
-    VkInstanceCreateInfo create{};
-    create.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    create.pApplicationInfo = &application;
-    create.enabledLayerCount = static_cast<std::uint32_t>(layers.size());
-    create.ppEnabledLayerNames = layers.data();
-    create.enabledExtensionCount = static_cast<std::uint32_t>(enabled.size());
-    create.ppEnabledExtensionNames = enabled.data();
-    check(vkCreateInstance(&create, nullptr, &instance_), "vkCreateInstance");
-    if (layers.empty()) {
+    if (negotiation != nullptr && negotiation->get_application_info != nullptr) {
+        if (const VkApplicationInfo* wanted = negotiation->get_application_info()) {
+            application = *wanted;
+            application.apiVersion = std::max(application.apiVersion, VK_API_VERSION_1_1);
+        }
+    }
+    if (negotiation != nullptr && negotiation->interface_version >= 2 &&
+        negotiation->create_instance != nullptr) {
+        instance_ =
+            negotiation->create_instance(vkGetInstanceProcAddr, &application, createWrapped, this);
+        if (instance_ == VK_NULL_HANDLE) {
+            throw VulkanError{"the core could not create its Vulkan instance"};
+        }
+    } else {
+        VkInstanceCreateInfo create{};
+        create.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        create.pApplicationInfo = &application;
+        create.enabledLayerCount = static_cast<std::uint32_t>(layers_.size());
+        create.ppEnabledLayerNames = layers_.data();
+        create.enabledExtensionCount = static_cast<std::uint32_t>(extensions_.size());
+        create.ppEnabledExtensionNames = extensions_.data();
+        check(vkCreateInstance(&create, nullptr, &instance_), "vkCreateInstance");
+    }
+    if (layers_.empty()) {
         return;
     }
     VkDebugUtilsMessengerCreateInfoEXT messenger{};
@@ -119,6 +150,27 @@ VulkanInstance::VulkanInstance(std::span<const char* const> extensions, bool val
         check(made, "vkCreateDebugUtilsMessengerEXT");
     }
     lucent::info("vulkan", "validation on");
+}
+
+VkInstance VulkanInstance::createWrapped(void* self, const VkInstanceCreateInfo* create) {
+    const auto& runner = *static_cast<VulkanInstance*>(self);
+    std::vector<const char*> extensions = withAll(
+        {create->ppEnabledExtensionNames, create->enabledExtensionCount}, runner.extensions_);
+    std::vector<const char*> layers =
+        withAll({create->ppEnabledLayerNames, create->enabledLayerCount}, runner.layers_);
+    VkInstanceCreateInfo merged = *create;
+    merged.enabledExtensionCount = static_cast<std::uint32_t>(extensions.size());
+    merged.ppEnabledExtensionNames = extensions.data();
+    merged.enabledLayerCount = static_cast<std::uint32_t>(layers.size());
+    merged.ppEnabledLayerNames = layers.data();
+    VkInstance instance = VK_NULL_HANDLE;
+    const VkResult made = vkCreateInstance(&merged, nullptr, &instance);
+    if (made != VK_SUCCESS) {
+        lucent::error("vulkan", "the core's vkCreateInstance failed: VkResult {}",
+                      static_cast<int>(made));
+        return VK_NULL_HANDLE;
+    }
+    return instance;
 }
 
 VulkanInstance::~VulkanInstance() {
@@ -149,7 +201,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanInstance::onMessage(
     return VK_FALSE;
 }
 
-VulkanDevice::VulkanDevice(const VulkanInstance& instance, VkSurfaceKHR surface) {
+VulkanDevice::VulkanDevice(const VulkanInstance& instance, VkSurfaceKHR surface,
+                           const retro_hw_render_context_negotiation_interface_vulkan* negotiation)
+    : negotiation_{negotiation} {
     std::uint32_t count = 0;
     vkEnumeratePhysicalDevices(instance.handle(), &count, nullptr);
     std::vector<VkPhysicalDevice> devices(count);
@@ -171,31 +225,110 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, VkSurfaceKHR surface)
     if (physical_ == VK_NULL_HANDLE) {
         throw VulkanError{"no Vulkan device can draw to this window"};
     }
+    if (surface != VK_NULL_HANDLE) {
+        extensions_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    }
+    if (negotiation_ == nullptr || !negotiate(instance, surface)) {
+        createOwn();
+    }
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(physical_, &properties);
-    lucent::info("vulkan", "drawing on {}", properties.deviceName);
+    lucent::info("vulkan", "drawing on {}{}", properties.deviceName,
+                 negotiated_ ? ", the device made by the core" : "");
+}
 
+bool VulkanDevice::negotiate(const VulkanInstance& instance, VkSurfaceKHR surface) {
+    retro_vulkan_context context{};
+    bool made = false;
+    if (negotiation_->interface_version >= 2 && negotiation_->create_device2 != nullptr) {
+        made = negotiation_->create_device2(&context, instance.handle(), physical_, surface,
+                                            vkGetInstanceProcAddr, createWrapped, this);
+        if (!made) {
+            lucent::warn("vulkan", "the core cannot use this GPU; letting it choose");
+            context = {};
+            made =
+                negotiation_->create_device2(&context, instance.handle(), VK_NULL_HANDLE, surface,
+                                             vkGetInstanceProcAddr, createWrapped, this);
+        }
+    } else if (negotiation_->create_device != nullptr) {
+        // The runner needs no features; cores read the struct, so it is never null.
+        const VkPhysicalDeviceFeatures features{};
+        made = negotiation_->create_device(
+            &context, instance.handle(), physical_, surface, vkGetInstanceProcAddr,
+            extensions_.data(), static_cast<unsigned>(extensions_.size()), nullptr, 0, &features);
+    } else {
+        return false;
+    }
+    if (!made) {
+        lucent::warn("vulkan", "the core made no device; the runner makes its own");
+        return false;
+    }
+    negotiated_ = true;
+    physical_ = context.gpu;
+    device_ = context.device;
+    queue_ = context.queue;
+    queueFamily_ = context.queue_family_index;
+    presentQueue_ =
+        context.presentation_queue != VK_NULL_HANDLE ? context.presentation_queue : context.queue;
+    return true;
+}
+
+VkDevice VulkanDevice::createWrapped(VkPhysicalDevice gpu, void* self,
+                                     const VkDeviceCreateInfo* create) {
+    const auto& runner = *static_cast<VulkanDevice*>(self);
+    std::vector<const char*> extensions = withAll(
+        {create->ppEnabledExtensionNames, create->enabledExtensionCount}, runner.extensions_);
+    VkDeviceCreateInfo merged = *create;
+    merged.enabledExtensionCount = static_cast<std::uint32_t>(extensions.size());
+    merged.ppEnabledExtensionNames = extensions.data();
+    VkDevice device = VK_NULL_HANDLE;
+    const VkResult made = vkCreateDevice(gpu, &merged, nullptr, &device);
+    if (made != VK_SUCCESS) {
+        lucent::error("vulkan", "the core's vkCreateDevice failed: VkResult {}",
+                      static_cast<int>(made));
+        return VK_NULL_HANDLE;
+    }
+    return device;
+}
+
+void VulkanDevice::createOwn() {
     const float priority = 1.0F;
     VkDeviceQueueCreateInfo queue{};
     queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queue.queueFamilyIndex = queueFamily_;
     queue.queueCount = 1;
     queue.pQueuePriorities = &priority;
-    const char* swapchain = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
     VkDeviceCreateInfo create{};
     create.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     create.queueCreateInfoCount = 1;
     create.pQueueCreateInfos = &queue;
-    if (surface != VK_NULL_HANDLE) {
-        create.enabledExtensionCount = 1;
-        create.ppEnabledExtensionNames = &swapchain;
-    }
+    create.enabledExtensionCount = static_cast<std::uint32_t>(extensions_.size());
+    create.ppEnabledExtensionNames = extensions_.data();
     check(vkCreateDevice(physical_, &create, nullptr, &device_), "vkCreateDevice");
     vkGetDeviceQueue(device_, queueFamily_, 0, &queue_);
+    presentQueue_ = queue_;
 }
 
 VulkanDevice::~VulkanDevice() {
     vkDestroyDevice(device_, nullptr);
+    if (negotiated_ && negotiation_->destroy_device != nullptr) {
+        negotiation_->destroy_device();
+    }
+}
+
+VkResult VulkanDevice::submit(const VkSubmitInfo& submit, VkFence fence) {
+    const std::scoped_lock held{queueLock_};
+    return vkQueueSubmit(queue_, 1, &submit, fence);
+}
+
+VkResult VulkanDevice::present(const VkPresentInfoKHR& present) {
+    const std::scoped_lock held{queueLock_};
+    return vkQueuePresentKHR(presentQueue_, &present);
+}
+
+VkResult VulkanDevice::waitIdle() {
+    const std::scoped_lock held{queueLock_};
+    return vkDeviceWaitIdle(device_);
 }
 
 std::uint32_t VulkanDevice::memoryType(std::uint32_t typeBits,

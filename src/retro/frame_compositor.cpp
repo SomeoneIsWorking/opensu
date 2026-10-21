@@ -133,7 +133,7 @@ VkRect2D placeFrame(VkExtent2D extent, const FrameImage& frame,
     return rect;
 }
 
-FrameCompositor::FrameCompositor(VkInstance instance, const VulkanDevice& device, VkFormat format,
+FrameCompositor::FrameCompositor(VkInstance instance, VulkanDevice& device, VkFormat format,
                                  VkImageLayout finalLayout, const settings::VideoSettings& video,
                                  const std::filesystem::path& librashader)
     : device_{device}, vk_{device.handle()}, video_{video}, format_{format},
@@ -160,7 +160,7 @@ void FrameCompositor::open(VkFormat format, VkImageLayout finalLayout) {
 }
 
 void FrameCompositor::release() {
-    vkDeviceWaitIdle(vk_);
+    device_.waitIdle();
     chain_.reset();
     destroyTexture();
     vkDestroyDescriptorPool(vk_, descriptorPool_, nullptr);
@@ -351,7 +351,7 @@ void FrameCompositor::ensureTexture(unsigned width, unsigned height) {
     if (texture_ != VK_NULL_HANDLE && width == textureWidth_ && height == textureHeight_) {
         return;
     }
-    check(vkDeviceWaitIdle(vk_), "vkDeviceWaitIdle");
+    check(device_.waitIdle(), "vkDeviceWaitIdle");
     destroyTexture();
     // librashader copies the frame into a preset's OriginalHistory.
     const VkImageCreateInfo create =
@@ -379,8 +379,12 @@ void FrameCompositor::ensureTexture(unsigned width, unsigned height) {
     textureWidth_ = width;
     textureHeight_ = height;
     textureReady_ = false;
+    bindSource(textureView_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
 
-    VkDescriptorImageInfo image{sampler_, textureView_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+void FrameCompositor::bindSource(VkImageView view, VkImageLayout layout) {
+    boundView_ = view;
+    VkDescriptorImageInfo image{sampler_, view, layout};
     VkWriteDescriptorSet write{};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.dstSet = descriptorSet_;
@@ -411,6 +415,9 @@ void FrameCompositor::destroyTexture() {
 
 void FrameCompositor::recordUpload(VkCommandBuffer commands, const FrameImage& frame) {
     ensureTexture(frame.width, frame.height);
+    if (boundView_ != textureView_) {
+        bindSource(textureView_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
     std::memcpy(stagingMapped_, frame.rgba.data(),
                 static_cast<std::size_t>(frame.width) * frame.height * 4);
     imageBarrier(
@@ -433,16 +440,16 @@ void FrameCompositor::recordUpload(VkCommandBuffer commands, const FrameImage& f
 }
 
 void FrameCompositor::recordChain(VkCommandBuffer commands, const DrawTarget& target,
-                                  VkExtent2D extent, const FrameImage& frame) {
+                                  VkExtent2D extent, const FrameImage& frame,
+                                  const ChainImage& source) {
     // The chain clears the whole target itself, so what it held before is not kept.
     imageBarrier(commands, target.image, VK_IMAGE_LAYOUT_UNDEFINED,
                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                  VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-    chain_->record(
-        commands, ChainImage{texture_, VK_FORMAT_R8G8B8A8_UNORM, {textureWidth_, textureHeight_}},
-        ChainImage{target.image, format_, extent}, placeFrame(extent, frame, video_), frame.aspect);
+    chain_->record(commands, source, ChainImage{target.image, format_, extent},
+                   placeFrame(extent, frame, video_), frame.aspect);
     const bool readBack = finalLayout_ == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
     imageBarrier(commands, target.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, finalLayout_,
                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -452,9 +459,10 @@ void FrameCompositor::recordChain(VkCommandBuffer commands, const DrawTarget& ta
 }
 
 void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& target,
-                                 VkExtent2D extent, const FrameImage& frame) {
-    if (chain_ && textureReady_) {
-        recordChain(commands, target, extent, frame);
+                                 VkExtent2D extent, const FrameImage& frame,
+                                 const ChainImage& source, bool ready) {
+    if (chain_ && ready) {
+        recordChain(commands, target, extent, frame, source);
         return;
     }
     VkClearValue black{};
@@ -469,7 +477,7 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& tar
     vkCmdBeginRenderPass(commands, &begin, VK_SUBPASS_CONTENTS_INLINE);
     const VkRect2D rect = placeFrame(extent, frame, video_);
     const VkRect2D scissor = clipped(rect, extent);
-    if (textureReady_ && scissor.extent.width > 0 && scissor.extent.height > 0) {
+    if (ready && scissor.extent.width > 0 && scissor.extent.height > 0) {
         VkViewport viewport{};
         viewport.x = static_cast<float>(rect.offset.x);
         viewport.y = static_cast<float>(rect.offset.y);
@@ -481,8 +489,8 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& tar
                                 &descriptorSet_, 0, nullptr);
         vkCmdSetViewport(commands, 0, 1, &viewport);
         vkCmdSetScissor(commands, 0, 1, &scissor);
-        const auto texelsWide = static_cast<float>(textureWidth_);
-        const auto texelsHigh = static_cast<float>(textureHeight_);
+        const auto texelsWide = static_cast<float>(source.extent.width);
+        const auto texelsHigh = static_cast<float>(source.extent.height);
         const FramePush push = framePush(video_, {texelsWide, texelsHigh},
                                          {wholeScale(viewport.width, texelsWide, false),
                                           wholeScale(viewport.height, texelsHigh, false)});
@@ -493,16 +501,101 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& tar
     vkCmdEndRenderPass(commands);
 }
 
+ChainImage FrameCompositor::textureImage() const {
+    return ChainImage{texture_, VK_FORMAT_R8G8B8A8_UNORM, {textureWidth_, textureHeight_}};
+}
+
+void FrameCompositor::recordCopy(VkCommandBuffer commands, const FrameImage& frame,
+                                 const CoreImage& image) {
+    ensureTexture(frame.width, frame.height);
+    imageBarrier(
+        commands, texture_,
+        textureReady_ ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        textureReady_ ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        textureReady_ ? VK_ACCESS_SHADER_READ_BIT : 0, VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_ACCESS_TRANSFER_WRITE_BIT);
+    const auto wide = static_cast<std::int32_t>(frame.width);
+    const auto high = static_cast<std::int32_t>(frame.height);
+    VkImageBlit region{};
+    region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    region.srcOffsets[1] = {wide, high, 1};
+    region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    region.dstOffsets[1] = {wide, high, 1};
+    vkCmdBlitImage(commands, image.image, image.layout, texture_,
+                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_NEAREST);
+    imageBarrier(commands, texture_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                 VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                 VK_ACCESS_SHADER_READ_BIT);
+    textureReady_ = true;
+}
+
+void FrameCompositor::recordCoreImage(VkCommandBuffer commands, const DrawTarget& target,
+                                      VkExtent2D extent, const FrameImage& frame,
+                                      const CoreImage& image) {
+    const std::uint32_t own = device_.queueFamily();
+    const bool transfer = image.queueFamily != VK_QUEUE_FAMILY_IGNORED && image.queueFamily != own;
+    VkImageMemoryBarrier ownership{};
+    ownership.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    ownership.oldLayout = image.layout;
+    ownership.newLayout = image.layout;
+    ownership.image = image.image;
+    ownership.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, VK_REMAINING_MIP_LEVELS, 0,
+                                  VK_REMAINING_ARRAY_LAYERS};
+    if (transfer) {
+        ownership.srcQueueFamilyIndex = image.queueFamily;
+        ownership.dstQueueFamilyIndex = own;
+        ownership.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+        vkCmdPipelineBarrier(commands, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &ownership);
+    }
+    const VkExtent2D size{frame.width, frame.height};
+    if (!chain_) {
+        // Every frame: a view the core destroyed and made again can come back with the same handle.
+        bindSource(image.view, image.layout);
+        recordDraw(commands, target, extent, frame, ChainImage{image.image, image.format, size},
+                   true);
+    } else if (image.layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        // librashader reads it there and copies it for the preset's history (TRANSFER_SRC).
+        recordDraw(commands, target, extent, frame, ChainImage{image.image, image.format, size},
+                   true);
+    } else {
+        recordCopy(commands, frame, image);
+        recordDraw(commands, target, extent, frame, textureImage(), true);
+    }
+    if (transfer) {
+        ownership.srcQueueFamilyIndex = own;
+        ownership.dstQueueFamilyIndex = image.queueFamily;
+        ownership.srcAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+        ownership.dstAccessMask = 0;
+        vkCmdPipelineBarrier(
+            commands, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr, 1, &ownership);
+    }
+    // The core's next writes to the image, in later submissions, wait for this read.
+    vkCmdPipelineBarrier(commands,
+                         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 0, nullptr, 0, nullptr, 0, nullptr);
+}
+
 bool FrameCompositor::record(VkCommandBuffer commands, const FrameImage& frame, bool upload,
                              const DrawTarget& target, VkExtent2D extent) {
+    if (frame.gpu) {
+        recordCoreImage(commands, target, extent, frame, *frame.gpu);
+        return false;
+    }
     const bool complete =
         frame.width > 0 && frame.height > 0 &&
         frame.rgba.size() >= static_cast<std::size_t>(frame.width) * frame.height * 4;
     const bool uploaded = upload && complete;
     if (uploaded) {
         recordUpload(commands, frame);
+    } else if (textureReady_ && boundView_ != textureView_) {
+        bindSource(textureView_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
-    recordDraw(commands, target, extent, frame);
+    recordDraw(commands, target, extent, frame, textureImage(), textureReady_);
     return uploaded;
 }
 
