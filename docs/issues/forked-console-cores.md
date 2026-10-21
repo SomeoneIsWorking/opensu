@@ -27,6 +27,7 @@ runs. GitLab-hosted cores are built and downloaded from GitLab; nothing of them 
 
 ## Later: the PSX ports
 
-The player would like the psxport titles (`~/repo/psx`) as cores too, "but that's not feasible right
-now". Parked: each port would need a libretro target in its own repo, and the ports come first as
-products of their own. Revisit when a port is playable end to end.
+The player would like the psxport titles (`~/repo/psx`) in openSU, "but that's not feasible right
+now". Not a core per port: one combined psxport core that identifies the disc and runs that title's
+port, so openSU picks it like any PS1 core and falls back to the emulator core for discs it does not
+know. Parked until a port is playable end to end; the ports come first as products of their own.
