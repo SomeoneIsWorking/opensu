@@ -14,7 +14,7 @@ All of these draw with the GPU, so each waits for phase 3 of `docs/design/libret
 |---|---|---|---|
 | Eden | the player's fork, `gitlab.com/bobbyjunior/eden` | GitLab only | Switch; keys from the player's `prod.keys`/`title.keys`, read-only as `library/switch_keys` does |
 | Ryujinx | the player's Ryubing fork, `gitlab.com/bobbyjunior/ryubing` | GitLab only | C#/.NET: the core is a native shim hosting the runtime; the largest of the set |
-| Cemu | `wiiuport` (`github.com/SomeoneIsWorking/wiiuport`), already a Cemu fork | GitHub | the Wii U core is built from wiiuport, not a second Cemu fork |
+| Cemu | `wiiuport` (`github.com/SomeoneIsWorking/wiiuport`), Cemu fork as its `external/cemu` submodule | GitHub | the Wii U core is built from wiiuport, not a second Cemu fork |
 | setsail | setsail's interpolated presentation, moved into wiiuport | GitHub | Wind Waker HD at 60 Hz becomes a per-game option of the Cemu core, not its own core |
 | Sunbright | `github.com/SomeoneIsWorking/sunbright` | GitHub | Super Mario Sunshine; waits until Sunbright itself boots gameplay |
 
