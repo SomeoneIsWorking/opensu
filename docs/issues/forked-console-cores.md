@@ -28,6 +28,15 @@ runs. GitLab-hosted cores are built and downloaded from GitLab; nothing of them 
 ## Later: the PSX ports
 
 The player would like the psxport titles (`~/repo/psx`) in openSU, "but that's not feasible right
-now". Not a core per port: one combined psxport core that identifies the disc and runs that title's
-port, so openSU picks it like any PS1 core and falls back to the emulator core for discs it does not
-know. Parked until a port is playable end to end; the ports come first as products of their own.
+now". Not a core per port: psxport (`~/repo/psx/psxport`) is already the shared PS1 runtime
+(Lightrec dynarec, devices, HLE, rendering, audio), so the core is psxport itself, a PS1 emulator
+that runs any disc. Each title's native overrides and enhancements load as that game's enhancement
+pack when its disc is recognised. That makes it openSU's PS1 core outright, with no fallback core,
+and psxport's HLE is the PS1 HLE BIOS (`bios-provisioning.md`). Enhancement packs are the game
+layer of the layered settings (`retro-shaders-overlays.md`): on by default, switchable per game.
+
+The same shape fits the others: wiiuport is the Cemu core and setsail is Wind Waker HD's pack;
+gcnport with Dolphin's JIT is a GameCube core and Sunbright is Super Mario Sunshine's pack.
+
+Parked until psxport runs a game end to end as a plain emulator; until then PCSX ReARMed stays
+the PS1 core.
