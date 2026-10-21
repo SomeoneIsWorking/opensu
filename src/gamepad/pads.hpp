@@ -7,7 +7,10 @@
 // bound chord never reach the game (`ChordGate`, through each pad's `PadTranslator`), and the
 // game's mapping (`ForwardMap`) applies to its virtual pads only. While blocked, the virtual pads
 // rest, so the Guide menu's input never reaches the game. Only gamepad nodes are opened: a pad's
-// separate motion sensor node and its hidraw node are never read or grabbed.
+// separate motion sensor node and its hidraw node are never read or grabbed. Virtual pads can be
+// kept: they exist, at rest, until let go, and under Game the pads drive them in connection order
+// before any other is made, so a program given only their nodes up front (Isolated Steam's
+// sandbox) still gets the game's input.
 #pragma once
 
 #include <condition_variable>
@@ -88,14 +91,20 @@ class Pads {
     /// The chords whose buttons never reach the game (`ChordGate`); returns once applied.
     void setChords(ChordTriggers chords);
 
+    /// Keeps `count` virtual pads, making or ending them, and returns their nodes once applied;
+    /// fewer when uinput refuses one. 0 lets every kept pad go. Any thread.
+    std::vector<std::filesystem::path> keepVirtualPads(std::size_t count);
+
   private:
     struct Pad {
         explicit Pad(EvdevDevice opened);
 
         EvdevDevice device;
         PadTranslator translator;
-        /// The game's view of this pad, under Game and Away.
-        std::unique_ptr<VirtualPad> output;
+        /// The game's view of this pad, under Game and Away: a kept pad, or `made`.
+        VirtualPad* output{nullptr};
+        /// The virtual pad made for this pad when no kept one was free.
+        std::unique_ptr<VirtualPad> made;
         bool grabbed{false};
         /// The virtual pad follows the pad, rather than resting.
         bool live{false};
@@ -107,6 +116,8 @@ class Pads {
         bool blocked{false};
         ChordTriggers chords;
         ForwardMap map;
+        /// How many virtual pads are kept.
+        std::size_t keep{0};
         /// Bumped per request, so a caller can wait for its own to be applied.
         std::uint64_t serial{0};
     };
@@ -121,6 +132,11 @@ class Pads {
     void add(const std::filesystem::path& node);
     /// Brings a pad to `wanted`; false when it could not be grabbed.
     bool apply(Pad& pad, const Wanted& wanted);
+    /// Makes or ends kept virtual pads until `count` are kept; a pad whose kept one ends is left
+    /// without one, for `apply` to give it another.
+    void keep(std::size_t count);
+    /// A kept virtual pad no pad drives, or null.
+    [[nodiscard]] VirtualPad* freeKept() const;
     void write(Pad& pad, const std::vector<PadEvent>& events);
     void publish(std::vector<Event>& events);
 
@@ -131,6 +147,7 @@ class Pads {
 
     // Reading thread only.
     std::vector<std::unique_ptr<Pad>> pads_;
+    std::vector<std::unique_ptr<VirtualPad>> kept_;
     Wanted applied_;
     bool missed_{false};
 
@@ -142,6 +159,7 @@ class Pads {
     std::vector<Event> events_;
     std::vector<PadInfo> connected_;
     std::map<std::string, Sticks> sticks_;
+    std::vector<std::filesystem::path> keptNodes_;
 
     std::jthread thread_;
 };

@@ -257,7 +257,8 @@ void integrationChoices(const fs::path& root) {
     Settings chosen;
     chosen.integrations =
         opensu::settings::IntegrationChoices{.steam = true,
-                                             .steamMode = opensu::settings::SteamMode::Managed,
+                                             .steamMode = opensu::settings::SteamMode::Isolated,
+                                             .steamPads = opensu::settings::SteamPads::All,
                                              .epic = false,
                                              .gog = true,
                                              .emulators = false,
@@ -265,8 +266,9 @@ void integrationChoices(const fs::path& root) {
     std::string error;
     expect(store.save(chosen, error), "choices save");
     expect(store.load().integrations == chosen.integrations, "choices read back");
-    expect(read(store.file()).find("\"steamMode\": \"managed\"") != std::string::npos,
-           "the mode is kept by name");
+    expect(read(store.file()).find("\"steamMode\": \"isolated\"") != std::string::npos &&
+               read(store.file()).find("\"steamPads\": \"all\"") != std::string::npos,
+           "the mode and Isolated's controllers are kept by name");
 
     Settings allOff;
     allOff.integrations = opensu::settings::IntegrationChoices{};
@@ -276,7 +278,7 @@ void integrationChoices(const fs::path& root) {
 
     write(store.file(), R"({"integrations": "everything"})");
     expect(!store.load().integrations, "a damaged entry leaves the choices to be asked again");
-    write(store.file(), R"({"integrations": {"steam": true, "steamMode": "isolated"}})");
+    write(store.file(), R"({"integrations": {"steam": true, "steamMode": "sandboxed"}})");
     const auto odd = store.load().integrations;
     expect(odd && odd->steam && !odd->steamMode, "an unknown mode takes the default");
 }

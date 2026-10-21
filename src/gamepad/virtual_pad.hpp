@@ -2,6 +2,7 @@
 // in place of the grabbed physical pad.
 #pragma once
 
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -29,12 +30,18 @@ class VirtualPad {
     /// Writes the events as the pad's input.
     void write(const std::vector<PadEvent>& events);
 
+    /// Its evdev node, `/dev/input/event21`; empty when uinput did not say.
+    [[nodiscard]] const std::filesystem::path& node() const noexcept {
+        return node_;
+    }
+
   private:
-    /// Waits for udev to grant access to the new node; a game that enumerates before then
-    /// cannot open it.
-    void awaitAccess() const;
+    /// Finds the new node and waits for udev to grant access to it; a game that enumerates
+    /// before then cannot open it.
+    void awaitAccess();
 
     int fd_{-1};
+    std::filesystem::path node_;
 };
 
 } // namespace opensu::gamepad

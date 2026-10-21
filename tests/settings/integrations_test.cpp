@@ -45,6 +45,19 @@ void choicesInForce() {
     normal.steamMode = SteamMode::Normal;
     expect(Integrations::inForce(normal, true).steam == SteamUse::Managed,
            "Normal is not offered in a login session");
+    IntegrationChoices isolated = chosen;
+    isolated.steamMode = SteamMode::Isolated;
+    const Integrations sandboxed = Integrations::inForce(isolated, false);
+    expect(sandboxed.steam == SteamUse::Isolated &&
+               sandboxed.steamPads == opensu::settings::SteamPads::VirtualOnly,
+           "Isolated gives Steam openSU's virtual pads by default");
+    isolated.steamPads = opensu::settings::SteamPads::All;
+    expect(Integrations::inForce(isolated, true).steamPads == opensu::settings::SteamPads::All,
+           "a picked controller choice is in force, in a login session too");
+    managed.steamPads = opensu::settings::SteamPads::All;
+    expect(Integrations::inForce(managed, false).steamPads ==
+               opensu::settings::SteamPads::VirtualOnly,
+           "only Isolated takes the controller choice");
     normal.steam = false;
     expect(Integrations::inForce(normal, false).steam == SteamUse::Off,
            "Steam off is off whatever its mode");
@@ -52,10 +65,11 @@ void choicesInForce() {
 
 void modesOffered() {
     expect(Integrations::modesOffered(false) ==
-               std::vector<SteamMode>{SteamMode::Normal, SteamMode::Managed},
-           "a desktop offers Normal and Managed");
-    expect(Integrations::modesOffered(true) == std::vector<SteamMode>{SteamMode::Managed},
-           "a login session offers Managed alone");
+               std::vector<SteamMode>{SteamMode::Normal, SteamMode::Managed, SteamMode::Isolated},
+           "a desktop offers Normal, Managed and Isolated");
+    expect(Integrations::modesOffered(true) ==
+               std::vector<SteamMode>{SteamMode::Managed, SteamMode::Isolated},
+           "a login session offers Managed and Isolated");
 }
 
 } // namespace

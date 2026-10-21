@@ -2,8 +2,9 @@
 // the player changes it: the stores the catalog reads (the catalog is rebuilt and read again),
 // whether standalone emulators are searched and downloaded, whether Lua plugins run, the Steam
 // client in its mode (started, attached or stopped on a worker, as Managed's shutdown can take
-// seconds), the pad and focus guards only Managed asks for, and Steam's windows hidden in
-// Gamescope while Managed Steam is logged on.
+// seconds), the fixed virtual pads Isolated Steam's sandbox holds in place of the player's
+// controllers, the pad and focus guards openSU's own Steam asks for (Managed, Isolated), and
+// Steam's windows hidden in Gamescope while that Steam is logged on.
 #pragma once
 
 #include <functional>
@@ -12,6 +13,7 @@
 
 #include "emulator_downloads.hpp"
 #include "focus_follow.hpp"
+#include "gamepad/pads.hpp"
 #include "integrations_in_force.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
@@ -29,6 +31,8 @@ class IntegrationSwitch {
         PluginService& plugins;
         EmulatorDownloads& emulators;
         PadOwner& pads;
+        /// The controllers themselves, which keep Isolated Steam's virtual pads.
+        gamepad::Pads& controllers;
         FocusFollow& focus;
     };
     struct Hooks {
@@ -51,14 +55,16 @@ class IntegrationSwitch {
     void begin();
     /// Applies a change: only what differs from what was applied last. Main loop only.
     void apply();
-    /// Hides Steam's windows while openSU's own Steam is logged on (Managed and Ready), and shows
-    /// them otherwise; tells the hook only of a change. Every frame, main loop only.
+    /// Hides Steam's windows while openSU's own Steam is logged on (Managed or Isolated, and
+    /// Ready), and shows them otherwise; tells the hook only of a change. Every frame, main loop
+    /// only.
     void service();
 
   private:
     void guard();
-    /// Moves the client to `mode` on the worker, after any move still under way.
-    void moveSteam(std::optional<steam::Client::Mode> mode);
+    /// Moves the client to the mode in force on the worker, after any move still under way: the
+    /// client stops, Isolated's virtual pads are kept or dropped, and the client starts.
+    void moveSteam();
 
     const IntegrationsInForce& integrations_;
     Targets targets_;

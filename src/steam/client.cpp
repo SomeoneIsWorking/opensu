@@ -61,10 +61,10 @@ Client::Mode Client::mode() const {
 }
 
 bool Client::showsInSession() const {
-    return mode() == Mode::Managed;
+    return mode() != Mode::Normal;
 }
 
-void Client::start(Mode mode) {
+void Client::start(Mode mode, const SandboxDevices& devices) {
     if (state() != SteamState::Stopped) {
         return;
     }
@@ -75,7 +75,7 @@ void Client::start(Mode mode) {
     if (mode == Mode::Normal) {
         startNormal();
     } else {
-        startManaged();
+        startOwn(mode, devices);
     }
 }
 
@@ -132,14 +132,53 @@ void Client::startNormal() {
     beginWatching(SteamState::Initializing);
 }
 
-void Client::startManaged() {
+bool Client::sandbox(const SandboxDevices& devices, std::string& command,
+                     std::vector<std::string>& args, std::filesystem::path& proxy) const {
+    const std::filesystem::path bwrap = launch::resolveExecutable("bwrap", options_.executablePath);
+    if (bwrap.empty()) {
+        lucent::error("steam", "Isolated Steam needs bwrap: install bubblewrap (Fedora: sudo dnf "
+                               "install bubblewrap; Debian, Ubuntu: sudo apt install bubblewrap; "
+                               "Arch: sudo pacman -S bubblewrap)");
+        return false;
+    }
+    proxy = launch::resolveExecutable("xdg-dbus-proxy", options_.executablePath);
+    if (proxy.empty()) {
+        lucent::error("steam", "Isolated Steam needs xdg-dbus-proxy for its login: install it "
+                               "(Fedora: sudo dnf install xdg-dbus-proxy; Debian, Ubuntu: sudo "
+                               "apt install xdg-dbus-proxy; Arch: sudo pacman -S xdg-dbus-proxy)");
+        return false;
+    }
+    std::string failure;
+    std::vector<std::string> wrapped =
+        sandboxArguments(options_.sandbox, devices, options_.secretBusSocket, failure);
+    if (wrapped.empty()) {
+        lucent::error("steam", "{}", failure);
+        return false;
+    }
+    wrapped.push_back(command);
+    wrapped.insert(wrapped.end(), args.begin(), args.end());
+    command = bwrap.string();
+    args = std::move(wrapped);
+    return true;
+}
+
+void Client::startOwn(Mode mode, const SandboxDevices& devices) {
+    const bool isolated = mode == Mode::Isolated;
     if (!options_.mayStart) {
-        lucent::info("steam", "Managed mode: this run starts no Steam client");
+        lucent::info("steam", "{} mode: this run starts no Steam client",
+                     isolated ? "Isolated" : "Managed");
         return;
     }
     program_ = launch::resolveExecutable("steam", options_.executablePath);
     if (program_.empty()) {
         lucent::error("steam", "steam is not on PATH");
+        setState(SteamState::Failed);
+        return;
+    }
+    std::string command = program_.string();
+    std::vector<std::string> args{"-silent", "-cef-enable-debugging"};
+    std::filesystem::path proxy;
+    if (isolated && !sandbox(devices, command, args, proxy)) {
         setState(SteamState::Failed);
         return;
     }
@@ -154,21 +193,35 @@ void Client::startManaged() {
     const std::uintmax_t size = fs::file_size(connectionLog_, ec);
     logOffset_ = ec ? 0 : size;
 
-    // Steam's tray icon needs the desktop's StatusNotifierWatcher: on a bus of its own Steam falls
-    // back to XEmbed, which the desktop's proxy shows as an icon that ignores clicks.
     std::string failure;
-    if (!instance_.start(options_.session + "-steam.scope", program_.string(),
-                         {"-silent", "-cef-enable-debugging"}, failure)) {
+    if (isolated && !secretBus_.start(options_.session + "-steam-bus.scope", proxy,
+                                      options_.desktopBus, options_.secretBusSocket, failure)) {
         lucent::error("steam", "{}", failure);
         setState(SteamState::Failed);
         return;
     }
-    lucent::info("steam", "Managed mode: started Steam in {}", options_.session + "-steam.scope");
+    // Managed: Steam's tray icon needs the desktop's StatusNotifierWatcher: on a bus of its own
+    // Steam falls back to XEmbed, which the desktop's proxy shows as an icon that ignores clicks.
+    const std::string scope = options_.session + "-steam.scope";
+    if (!instance_.start(scope, command, args, failure)) {
+        lucent::error("steam", "{}", failure);
+        secretBus_.stop();
+        setState(SteamState::Failed);
+        return;
+    }
+    if (isolated) {
+        lucent::info("steam", "Isolated mode: started Steam in {} in a sandbox with {}", scope,
+                     devices.allInput ? std::string{"every input node"}
+                                      : std::to_string(devices.inputNodes.size()) +
+                                            " virtual pad nodes");
+    } else {
+        lucent::info("steam", "Managed mode: started Steam in {}", scope);
+    }
     beginWatching(SteamState::Initializing);
 }
 
 bool Client::clientAlive() {
-    if (mode() == Mode::Managed) {
+    if (mode() != Mode::Normal) {
         return instance_.running();
     }
     // A desktop Steam being started has not written its pid file yet.
@@ -223,7 +276,9 @@ void Client::watch() {
         }
         if (!alive) {
             lucent::error("steam", "the {} Steam client is gone",
-                          mode_ == Mode::Managed ? "managed" : "desktop");
+                          mode_ == Mode::Normal     ? "desktop"
+                          : mode_ == Mode::Isolated ? "isolated"
+                                                    : "managed");
             state_ = SteamState::Failed;
             changed_.notify_all();
             break;
@@ -323,6 +378,7 @@ void Client::shutdown() {
         }
     }
     instance_.stop();
+    secretBus_.stop();
     {
         const std::lock_guard lock{mutex_};
         downloads_.clear();

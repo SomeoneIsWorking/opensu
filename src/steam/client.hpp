@@ -1,9 +1,11 @@
-// steam — the Steam client openSU launches through, in one of two modes.
+// steam — the Steam client openSU launches through, in one of three modes.
 //
 // Managed: openSU's own Steam starts in the background inside a scope of the session, so closing
-// openSU closes Steam. Normal: the player's Steam on the desktop is attached to when it runs, or
-// started on the desktop, outside openSU's scope, and never ended by openSU. Games are launched
-// through the client either way, and a launch waits until it is logged on.
+// openSU closes Steam. Isolated: the same, with the client inside the bwrap sandbox
+// (`sandbox.hpp`), which shows it only openSU's Gamescope and the controllers it is given. Normal:
+// the player's Steam on the desktop is attached to when it runs, or started on the desktop,
+// outside openSU's scope, and never ended by openSU. Games are launched through the client in
+// every mode, and a launch waits until it is logged on.
 #pragma once
 
 #include <chrono>
@@ -29,6 +31,8 @@
 #include "launch_activity.hpp"
 #include "libraries.hpp"
 #include "orphaned_steam.hpp"
+#include "sandbox.hpp"
+#include "secret_bus.hpp"
 #include "uninstaller.hpp"
 
 namespace opensu::steam {
@@ -39,7 +43,7 @@ inline constexpr std::chrono::seconds shutdownWait{20};
 /// Starts, watches and stops the background Steam client.
 class Client final : public launch::SteamGate {
   public:
-    enum class Mode : std::uint8_t { Managed, Normal };
+    enum class Mode : std::uint8_t { Managed, Normal, Isolated };
 
     struct Options {
         /// Where `.steam/` lives: the client's pid file and its connection log.
@@ -55,6 +59,13 @@ class Client final : public launch::SteamGate {
         bool mayStart{true};
         /// Where the client's DevTools listen.
         std::uint16_t devToolsPort{steam::devToolsPort};
+        /// The session Isolated's sandbox lets Steam reach: openSU's Gamescope display, the
+        /// runtime dir and the GPU.
+        SandboxPlaces sandbox{};
+        /// The desktop's session bus, which Isolated relays only the Secret Service of.
+        std::string desktopBus{};
+        /// Where Isolated's Secret Service proxy listens.
+        std::filesystem::path secretBusSocket{};
     };
 
     explicit Client(Options options);
@@ -66,18 +77,26 @@ class Client final : public launch::SteamGate {
     /// starts `steam -silent -cef-enable-debugging` in its scope, on the desktop's session bus,
     /// and begins watching it. The state is Blocked when a Steam client already runs outside
     /// opensu, and Failed when Steam cannot be started.
+    /// Isolated: as Managed, with Steam inside bwrap holding the controllers `devices` names and a
+    /// session bus that reaches only the desktop's Secret Service (`SecretBus`, in
+    /// `<session>-steam-bus.scope`); Failed when bwrap or xdg-dbus-proxy is missing or openSU
+    /// has no Gamescope display.
     /// Normal: attaches to the desktop's running Steam (Ready at once), or starts `steam` on the
     /// desktop through `systemd-run --user` and waits for its logon. Never a second Steam.
     /// Does nothing unless the state is Stopped.
-    void start(Mode mode);
+    void start(Mode mode, const SandboxDevices& devices = {});
 
-    /// Managed: asks the client to exit with `steam -shutdown`, waits up to shutdownWait for
-    /// it, then stops the scope. Normal: stops watching; the desktop's Steam keeps running. The
-    /// state ends as Stopped.
+    /// Managed and Isolated: asks the client to exit with `steam -shutdown`, waits up to
+    /// shutdownWait for it, then stops the scope. Normal: stops watching; the desktop's Steam keeps
+    /// running. The state ends as Stopped.
     void shutdown();
 
     /// The mode of the last start.
     [[nodiscard]] Mode mode() const;
+    /// Whether `start` starts or attaches to a client at all; false in a hidden run.
+    [[nodiscard]] bool startsClient() const noexcept {
+        return options_.mayStart;
+    }
 
     /// Steam's installer, driven through the running client.
     [[nodiscard]] InstallWizard& installer() noexcept {
@@ -114,7 +133,12 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] bool showsInSession() const override;
 
   private:
-    void startManaged();
+    /// Managed and Isolated: Steam in openSU's scope, sandboxed with `devices` when Isolated.
+    void startOwn(Mode mode, const SandboxDevices& devices);
+    /// Wraps `command` and `args` in Isolated's bwrap and names the proxy for its Secret Service;
+    /// false, logged, when bwrap or the proxy is missing or there is no Gamescope display.
+    [[nodiscard]] bool sandbox(const SandboxDevices& devices, std::string& command,
+                               std::vector<std::string>& args, std::filesystem::path& proxy) const;
     void startNormal();
     /// Whether the client watched is there: the scope, or the desktop's Steam process.
     [[nodiscard]] bool clientAlive();
@@ -138,6 +162,8 @@ class Client final : public launch::SteamGate {
     /// How much of the connection log predates this client; only later lines count.
     std::uintmax_t logOffset_{0};
     launch::Instance instance_;
+    /// Isolated only: the Secret Service relay; ended after the client.
+    SecretBus secretBus_;
     DevTools devTools_{options_.devToolsPort};
     DownloadQueue queue_{devTools_};
     InstallWizard installer_{devTools_};

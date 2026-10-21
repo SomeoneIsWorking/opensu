@@ -12,8 +12,9 @@ Visible deltas from the baseline:
 
 - Only ROMs and the libretro runner are on out of the box; Steam, Epic, GOG, standalone emulators
   and Lua plugins are each opted into, from a first-run chooser or Settings › Integrations (S039).
-  Steam Big Picture has no such choice. Steam can be the player's own desktop Steam (Normal) or
-  openSU's own (Managed, the only mode in the login session).
+  Steam Big Picture has no such choice. Steam can be the player's own desktop Steam (Normal),
+  openSU's own (Managed), or openSU's own in a sandbox that sees only openSU's virtual pads
+  (Isolated); the login session offers Managed and Isolated.
 - Epic games (Legendary) and the player's GOG library (openSU's own sign-in) sit in the
   same grid as Steam; emulator ROMs sit behind one tile per console in the Library section, and
   each store and the combined "All games" library behind a tile of its own there.
@@ -143,7 +144,7 @@ game has been observed running yet.
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
 | S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
-| S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal or Managed (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
+| S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 
 ## Capability details
 
@@ -815,7 +816,7 @@ at 1 Steam's own windows (app id 769 or `STEAM_GAME` 769, `STEAM_BIGPICTURE`, or
 or `steamwebhelper` process, `window_is_steam_client`) are left out of the focus candidates
 (`GetPossibleFocusWindows`), so out of focus, the composite and `GAMESCOPE_FOCUSABLE_WINDOWS`, and
 out of the overlay and notification picks; games Steam starts are untouched. openSU sets it to 1
-while its Managed Steam is logged on (`docs/issues/integrations-opt-in.md`). `cmake/Gamescope.cmake` builds the pin
+while its own Steam (Managed or Isolated) is logged on (`docs/issues/integrations-opt-in.md`). `cmake/Gamescope.cmake` builds the pin
 as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
 configure and build steps run in a rootless podman container built from
 `packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;
@@ -1425,7 +1426,7 @@ release run on GitHub.
 
 `settings::Integrations::inForce` turns the saved `integrations` choices into what is in force: no
 choices is everything off and opens the first-run chooser (`app::FirstRunChooser`); Steam's mode is
-Normal or Managed on a desktop, Managed alone with `--session`. `app::IntegrationSwitch` applies a
+Normal, Managed or Isolated on a desktop, Managed or Isolated with `--session`. `app::IntegrationSwitch` applies a
 change live: the catalog's providers are replaced, the plugins host is made or dropped, standalone
 emulator discovery and downloads follow, and Steam is stopped and started in its new mode. Normal
 attaches to the desktop Steam (`~/.steam/steam.pid`, a live `steam` process) or starts one on the
@@ -1435,7 +1436,14 @@ Picture. Verified by unit tests (`integrations`, `integration_flow`, `integratio
 over the control channel with a scratch home (`scratch/integrations/drive.py`): the chooser on a
 fresh settings file, only ROM shelves and no Steam process with all off, Steam tiles from a fake
 root in Normal and Managed with the mode in the log, Epic tiles and `legendary` calls only while
-Epic is on, and a fake desktop Steam pid file found and logged (a hidden run attaches to nothing and starts nothing). Gap:
-Isolated mode is not built (needs the sandbox measurements in the card); Normal mode has not run
-against a real desktop Steam, and its installs need the desktop Steam started with
-`-cef-enable-debugging`.
+Epic is on, and a fake desktop Steam pid file found and logged (a hidden run attaches to nothing and starts nothing).
+Isolated runs openSU's Steam in bwrap (`steam::sandboxArguments`) with the real HOME and login, a
+Secret-Service-only session bus (`steam::SecretBus`) and either openSU's four kept virtual pads
+(default) or every input node. Verified with the player's real Steam in a hidden run
+(`--hidden --steam`, `scratch/isolated-steam/tools/isolated_proof.py`): logon with the existing
+login in 11.5 s and 14.6 s, the hide atom 0 then 1 at logon, a launch through openSU focused the
+game (`shots/proof-{virtual,all}-game.jpg`), Steam's process saw only `event20`–`event23`
+(virtual) or the host's input nodes (every controller), and Steam ended with openSU in ~3 s. Gap:
+not yet run are Isolated's "Every controller" and kept-pad forwarding with a real pad, game audio
+in the sandbox, Isolated in `--session` and NVIDIA nodes; Normal mode has not run against a real
+desktop Steam, and its installs need the desktop Steam started with `-cef-enable-debugging`.

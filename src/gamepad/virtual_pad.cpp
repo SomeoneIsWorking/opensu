@@ -82,7 +82,7 @@ VirtualPad::VirtualPad() {
     awaitAccess();
 }
 
-void VirtualPad::awaitAccess() const {
+void VirtualPad::awaitAccess() {
     std::array<char, 64> sysname{};
     if (ioctl(fd_, UI_GET_SYSNAME(sysname.size()), sysname.data()) < 0) {
         return;
@@ -94,8 +94,11 @@ void VirtualPad::awaitAccess() const {
         std::error_code error;
         for (const auto& entry : std::filesystem::directory_iterator{device, error}) {
             const std::string name = entry.path().filename().string();
-            if (name.starts_with("event") &&
-                ::access(("/dev/input/" + name).c_str(), R_OK | W_OK) == 0) {
+            if (!name.starts_with("event")) {
+                continue;
+            }
+            node_ = std::filesystem::path{"/dev/input"} / name;
+            if (::access(node_.c_str(), R_OK | W_OK) == 0) {
                 return;
             }
         }

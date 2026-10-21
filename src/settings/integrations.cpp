@@ -5,21 +5,58 @@
 namespace opensu::settings {
 
 std::string_view key(SteamMode mode) noexcept {
-    return mode == SteamMode::Managed ? "managed" : "normal";
+    switch (mode) {
+    case SteamMode::Managed:
+        return "managed";
+    case SteamMode::Isolated:
+        return "isolated";
+    case SteamMode::Normal:
+        break;
+    }
+    return "normal";
 }
 
 std::optional<SteamMode> steamModeOf(std::string_view spelling) noexcept {
-    if (spelling == "normal") {
-        return SteamMode::Normal;
-    }
-    if (spelling == "managed") {
-        return SteamMode::Managed;
+    for (const SteamMode mode : {SteamMode::Normal, SteamMode::Managed, SteamMode::Isolated}) {
+        if (spelling == key(mode)) {
+            return mode;
+        }
     }
     return std::nullopt;
 }
 
 std::string_view label(SteamMode mode) noexcept {
-    return mode == SteamMode::Managed ? "Managed" : "Normal";
+    switch (mode) {
+    case SteamMode::Managed:
+        return "Managed";
+    case SteamMode::Isolated:
+        return "Isolated";
+    case SteamMode::Normal:
+        break;
+    }
+    return "Normal";
+}
+
+std::string_view key(SteamPads pads) noexcept {
+    return pads == SteamPads::All ? "all" : "virtual";
+}
+
+std::optional<SteamPads> steamPadsOf(std::string_view spelling) noexcept {
+    for (const SteamPads pads : {SteamPads::VirtualOnly, SteamPads::All}) {
+        if (spelling == key(pads)) {
+            return pads;
+        }
+    }
+    return std::nullopt;
+}
+
+std::string_view label(SteamPads pads) noexcept {
+    return pads == SteamPads::All ? "Every controller" : "openSU's virtual pads";
+}
+
+std::string_view note(SteamPads pads) noexcept {
+    return pads == SteamPads::All ? "openSU grabs them while it is in front"
+                                  : "Your controllers stay hidden from Steam";
 }
 
 std::string_view label(SteamUse use) noexcept {
@@ -28,6 +65,8 @@ std::string_view label(SteamUse use) noexcept {
         return "Normal";
     case SteamUse::Managed:
         return "Managed";
+    case SteamUse::Isolated:
+        return "Isolated";
     case SteamUse::Off:
         break;
     }
@@ -36,13 +75,17 @@ std::string_view label(SteamUse use) noexcept {
 
 std::vector<SteamMode> Integrations::modesOffered(bool loginSession) {
     if (loginSession) {
-        return {SteamMode::Managed};
+        return {SteamMode::Managed, SteamMode::Isolated};
     }
-    return {SteamMode::Normal, SteamMode::Managed};
+    return {SteamMode::Normal, SteamMode::Managed, SteamMode::Isolated};
 }
 
 SteamMode Integrations::defaultMode(bool loginSession) noexcept {
     return loginSession ? SteamMode::Managed : SteamMode::Normal;
+}
+
+std::vector<SteamPads> Integrations::padsOffered() {
+    return {SteamPads::VirtualOnly, SteamPads::All};
 }
 
 Integrations Integrations::inForce(const std::optional<IntegrationChoices>& choices,
@@ -60,7 +103,18 @@ Integrations Integrations::inForce(const std::optional<IntegrationChoices>& choi
         if (std::ranges::find(offered, mode) == offered.end()) {
             mode = defaultMode(loginSession);
         }
-        in.steam = mode == SteamMode::Managed ? SteamUse::Managed : SteamUse::Normal;
+        switch (mode) {
+        case SteamMode::Normal:
+            in.steam = SteamUse::Normal;
+            break;
+        case SteamMode::Managed:
+            in.steam = SteamUse::Managed;
+            break;
+        case SteamMode::Isolated:
+            in.steam = SteamUse::Isolated;
+            in.steamPads = choices->steamPads.value_or(padsOffered().front());
+            break;
+        }
     }
     return in;
 }

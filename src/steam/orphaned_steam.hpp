@@ -8,15 +8,17 @@
 
 namespace opensu::steam {
 
-/// openSU runs Steam in `opensu-<pid>-steam.scope`, which outlives a killed openSU. The scope is
-/// an orphan when `<pid>` is no longer a live openSU. A Steam started outside openSU never sits
+/// openSU runs Steam in `opensu-<pid>-steam.scope`, and Isolated's Secret Service relay in
+/// `opensu-<pid>-steam-bus.scope`; both outlive a killed openSU. A scope is an orphan when `<pid>`
+/// is no longer a live openSU. A Steam started outside openSU never sits
 /// in such a scope, so it is never an orphan.
 class OrphanedSteam {
   public:
     explicit OrphanedSteam(const std::filesystem::path& home);
 
-    /// Active scopes named `opensu-<pid>-steam.scope` whose pid is not a live process of this
-    /// program, which also excludes the caller's own.
+    /// Active scopes named `opensu-<pid>-steam.scope` or `opensu-<pid>-steam-bus.scope` whose pid
+    /// is not a live process of this program, which also excludes the caller's own; client scopes
+    /// first.
     [[nodiscard]] std::vector<std::string> find() const;
 
     /// Ends every orphan: `steam -shutdown` when the pid file names a process in it, waiting up to

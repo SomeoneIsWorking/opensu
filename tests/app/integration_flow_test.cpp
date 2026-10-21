@@ -1,6 +1,6 @@
 // The opt-in integrations through the shipping owners on a scratch settings file: the first-run
 // card (shown while nothing is chosen, all off, A toggles, Done keeps), Settings > Integrations
-// (switches, Steam's mode, Managed alone in a login session) and the switch that puts a change
+// (switches, Steam's mode, no Normal in a login session, Isolated's controllers) and the switch that puts a change
 // into effect (the catalog's stores, standalone emulators, Lua plugins, the Steam client's mode),
 // with no Steam started.
 #include <chrono>
@@ -123,14 +123,21 @@ void settingsSwitchesAndModes(const fs::path& root) {
     expect(changes == 1 && mode != nullptr && mode->kind == ui::RowKind::Choice &&
                mode->value == "Normal",
            "Steam on: its mode is a choice, Normal by default on a desktop");
-    const ui::SettingsRow* isolated = rowOf(shown, "integrations.isolated");
-    expect(isolated != nullptr && isolated->kind == ui::RowKind::Info &&
-               isolated->value == "Not available yet",
-           "Isolated is listed, not offered");
+    expect(rowOf(shown, "integrations.steamPads") == nullptr, "controllers only for Isolated");
     page.run("integrations.steamMode", 1);
     expect(inForce.current().steam == SteamUse::Managed, "Right steps to Managed");
     page.run("integrations.steamMode", 1);
-    expect(inForce.current().steam == SteamUse::Normal, "and round to Normal");
+    expect(inForce.current().steam == SteamUse::Isolated, "then Isolated");
+    shown = page.page();
+    const ui::SettingsRow* pads = rowOf(shown, "integrations.steamPads");
+    expect(pads != nullptr && pads->kind == ui::RowKind::Choice &&
+               pads->value == "openSU's virtual pads" &&
+               inForce.current().steamPads == settings::SteamPads::VirtualOnly,
+           "Isolated shows what Steam sees, openSU's virtual pads by default");
+    page.run("integrations.steamPads", 1);
+    expect(inForce.current().steamPads == settings::SteamPads::All, "Right steps to every pad");
+    page.run("integrations.steamMode", 1);
+    expect(inForce.current().steam == SteamUse::Normal, "and the mode round to Normal");
     page.run("integrations.epic", 1);
     expect(!inForce.current().epic, "Left and Right do not flip a switch");
     page.run("integrations.epic", 0);
@@ -148,9 +155,13 @@ void settingsSwitchesAndModes(const fs::path& root) {
                                          }};
     const ui::SettingsCategory sessionShown = sessionPage.page();
     const ui::SettingsRow* sessionMode = rowOf(sessionShown, "integrations.steamMode");
-    expect(sessionMode != nullptr && sessionMode->kind == ui::RowKind::Info &&
-               sessionMode->value == "Managed" && sessionForce.current().steam == SteamUse::Managed,
-           "a login session runs Managed and offers nothing else");
+    expect(sessionMode != nullptr && sessionMode->value == "Managed" &&
+               sessionForce.current().steam == SteamUse::Managed,
+           "a login session runs Managed in place of Normal");
+    sessionPage.run("integrations.steamMode", 1);
+    sessionPage.run("integrations.steamMode", 1);
+    expect(sessionForce.current().steam == SteamUse::Managed,
+           "and offers Managed and Isolated alone");
 }
 
 /// A provider that only records that it was read.
@@ -242,7 +253,7 @@ void theSwitchAppliesAChange(const fs::path& root) {
     int emulatorChanges = 0;
     app::IntegrationSwitch integrationSwitch{
         inForce,
-        app::IntegrationSwitch::Targets{client, loader, plugins, emulators, padOwner, focus},
+        app::IntegrationSwitch::Targets{client, loader, plugins, emulators, padOwner, pads, focus},
         app::IntegrationSwitch::Hooks{.catalog = catalogOf,
                                       .steamInstalled =
                                           [] {

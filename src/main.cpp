@@ -35,6 +35,8 @@ void printHelp() {
         "        --keyboard      with --render, draw the keyboard's prompts\n"
         "  opensu --hidden       the shell with an unmapped window, no Gamescope, no pads\n"
         "                        and a free control port (logged), for maintainer runs\n"
+        "        --steam         with --hidden, start the Steam client in its mode; end the\n"
+        "                        run with POST /quit so Steam shuts down with it\n"
         "  opensu --session      openSU is the login session, started by the display manager\n"
         "                        on a top-level Gamescope; the power list offers Switch to\n"
         "                        desktop instead of Quit to desktop\n"

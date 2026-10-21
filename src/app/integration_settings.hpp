@@ -1,7 +1,7 @@
 // integration_settings — Settings > Integrations: ROMs and libretro as always on, a switch for each
-// opt-in integration, Steam's mode while Steam is on (Normal and Managed on a desktop, Managed
-// alone in a login session), and Isolated as not available yet. A change is kept and applied at
-// once.
+// opt-in integration, Steam's mode while Steam is on (Normal, Managed and Isolated on a desktop; no
+// Normal in a login session) and, for Isolated, which controllers its sandbox gives Steam. A change
+// is kept and applied at once.
 #pragma once
 
 #include <functional>
@@ -27,7 +27,7 @@ class IntegrationSettings {
 
     [[nodiscard]] ui::SettingsCategory page() const;
     [[nodiscard]] static bool owns(const std::string& id);
-    /// Acts on row `id`: A flips a switch; A, Left and Right step Steam's mode.
+    /// Acts on row `id`: A flips a switch; A, Left and Right step Steam's mode or controllers.
     void run(const std::string& id, int step);
 
   private:

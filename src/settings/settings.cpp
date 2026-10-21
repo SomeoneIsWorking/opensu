@@ -43,6 +43,7 @@ constexpr const char* ownWinePrefixKey = "ownWinePrefix";
 constexpr const char* integrationsKey = "integrations";
 constexpr const char* steamKey = "steam";
 constexpr const char* steamModeKey = "steamMode";
+constexpr const char* steamPadsKey = "steamPads";
 constexpr const char* epicKey = "epic";
 constexpr const char* gogKey = "gog";
 constexpr const char* standaloneEmulatorsKey = "emulators";
@@ -280,6 +281,15 @@ class Reader {
                              mode);
             }
         }
+        std::string pads;
+        entry.text(steamPadsKey, pads, "using the default Steam controllers");
+        if (!pads.empty()) {
+            choices.steamPads = steamPadsOf(pads);
+            if (!choices.steamPads) {
+                lucent::warn("settings", "{}: {} is not a Steam controller choice; using the default",
+                             file_, pads);
+            }
+        }
         out = choices;
     }
 
@@ -436,6 +446,9 @@ bool Store::save(const Settings& settings, std::string& error) const {
                           {luaPluginsKey, chosen->plugins}};
         if (chosen->steamMode) {
             integrations[steamModeKey] = std::string{key(*chosen->steamMode)};
+        }
+        if (chosen->steamPads) {
+            integrations[steamPadsKey] = std::string{key(*chosen->steamPads)};
         }
         document[integrationsKey] = integrations;
     }
