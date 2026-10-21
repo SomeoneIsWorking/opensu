@@ -216,6 +216,12 @@
       "core": "pcsx_rearmed_libretro"
     },
     {
+      "id": "melondsds-core",
+      "name": "melonDS DS (built-in)",
+      "systems": ["nds"],
+      "core": "melondsds_libretro"
+    },
+    {
       "id": "fbneo-core",
       "name": "FinalBurn Neo (built-in)",
       "systems": ["arcade"],

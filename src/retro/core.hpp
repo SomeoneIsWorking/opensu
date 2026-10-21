@@ -24,6 +24,14 @@ class CoreError : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+/// One retro_input_state_t call: which control of which device on which port.
+struct InputQuery {
+    unsigned port{};
+    unsigned device{};
+    unsigned index{};
+    unsigned id{};
+};
+
 /// Where the core's callbacks go.
 struct CoreHost {
     CoreEnvironment& environment;
@@ -73,7 +81,7 @@ class Core {
     bool environment(unsigned command, void* data);
     void video(const void* data, unsigned width, unsigned height, std::size_t pitch);
     void audio(std::span<const std::int16_t> interleaved);
-    [[nodiscard]] std::int16_t input(unsigned port, unsigned device, unsigned id) const;
+    [[nodiscard]] std::int16_t input(const InputQuery& query) const;
 
   private:
     struct Api {

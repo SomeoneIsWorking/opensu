@@ -203,7 +203,7 @@ void Hud::drawPromptPanel(Canvas& canvas, const HintPanelMetrics& panel,
     }
 }
 
-void Hud::drawToast(Canvas& canvas) const {
+void Hud::drawToast(Canvas& canvas, float floor) const {
     if (toast_.empty()) {
         return;
     }
@@ -211,11 +211,12 @@ void Hud::drawToast(Canvas& canvas) const {
     const TextStyle text{typeface_.emForLineBox(u * 1.4f)};
     const float textWidth = typeface_.measure(toast_, text);
     const float padding = u * 2.0f;
+    const float boxHeight = typeface_.lineBox(text) + padding;
     const Rect box{
         (static_cast<float>(width_) - textWidth - 2.0f * padding) / 2.0f,
-        static_cast<float>(height_) - u * 8.0f,
+        std::min(static_cast<float>(height_) - u * 8.0f, floor - u - boxHeight),
         textWidth + 2.0f * padding,
-        typeface_.lineBox(text) + padding,
+        boxHeight,
     };
     canvas.fillRoundRect(onCanvas(box), cornerRadius(box, 0.5f),
                          toastError_ ? Colour{0xb3, 0x26, 0x1e, 240}

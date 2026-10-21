@@ -117,6 +117,8 @@ void axesRescale() {
     expect(reports(run, Button::Left, true), "the left stick held left is Left");
     const auto centre = feed(pad, {{EV_ABS, ABS_X, 128}});
     expect(reports(centre, Button::Left, false), "centring the stick releases Left");
+    expect(pad.sticks().rightY == 32767 && pad.sticks().leftY == 0,
+           "the sticks stand where the pad last put them");
 }
 
 void dpadButtonsBecomeHat() {

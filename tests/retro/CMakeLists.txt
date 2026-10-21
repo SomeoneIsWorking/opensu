@@ -25,7 +25,8 @@ endforeach()
 add_test(NAME retro_core COMMAND retro_core_test "$<TARGET_FILE:fake_core>")
 
 add_executable(retro_runner_test runner_test.cpp)
-target_link_libraries(retro_runner_test PRIVATE PkgConfig::TEST_PNG lucent::lucent)
+target_link_libraries(retro_runner_test
+    PRIVATE PkgConfig::TEST_PNG lucent::lucent opensu::libretro_header)
 target_include_directories(retro_runner_test
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui" "${CMAKE_CURRENT_SOURCE_DIR}/../support")
 target_compile_definitions(retro_runner_test

@@ -1,5 +1,7 @@
 #include "control_server.hpp"
 
+#include <cmath>
+#include <optional>
 #include <system_error>
 #include <utility>
 
@@ -20,6 +22,8 @@ std::string reasonPhrase(int status) {
     switch (status) {
     case 200:
         return "OK";
+    case 400:
+        return "Bad Request";
     case 404:
         return "Not Found";
     case 409:
@@ -29,6 +33,55 @@ std::string reasonPhrase(int status) {
     default:
         return "Internal Server Error";
     }
+}
+
+/// A stick posted as `[x, y]`, each from -1 to 1, on the pad's scale; false when malformed.
+bool readStick(const nlohmann::json& posted, std::int32_t& x, std::int32_t& y) {
+    if (!posted.is_array() || posted.size() != 2 || !posted[0].is_number() ||
+        !posted[1].is_number()) {
+        return false;
+    }
+    const double px = posted[0].get<double>();
+    const double py = posted[1].get<double>();
+    if (px < -1.0 || px > 1.0 || py < -1.0 || py > 1.0) {
+        return false;
+    }
+    x = static_cast<std::int32_t>(std::lround(px * gamepad::virtualStick.max));
+    y = static_cast<std::int32_t>(std::lround(py * gamepad::virtualStick.max));
+    return true;
+}
+
+/// The body of `POST /input`: `{"buttons": ["r2"], "left": [x, y], "right": [x, y]}`, each
+/// part optional; nothing when malformed or naming Guide, which belongs to the shell.
+std::optional<ControlInput> readInput(const std::string& body) {
+    const nlohmann::json posted = nlohmann::json::parse(body, nullptr, false);
+    if (!posted.is_object()) {
+        return std::nullopt;
+    }
+    ControlInput input;
+    if (const auto buttons = posted.find("buttons"); buttons != posted.end()) {
+        if (!buttons->is_array()) {
+            return std::nullopt;
+        }
+        for (const nlohmann::json& name : *buttons) {
+            const gamepad::Button button = name.is_string()
+                                               ? gamepad::buttonNamed(name.get<std::string>())
+                                               : gamepad::Button::None;
+            if (button == gamepad::Button::None || button == gamepad::Button::Guide) {
+                return std::nullopt;
+            }
+            input.buttons.push_back(button);
+        }
+    }
+    if (const auto left = posted.find("left");
+        left != posted.end() && !readStick(*left, input.sticks.leftX, input.sticks.leftY)) {
+        return std::nullopt;
+    }
+    if (const auto right = posted.find("right");
+        right != posted.end() && !readStick(*right, input.sticks.rightX, input.sticks.rightY)) {
+        return std::nullopt;
+    }
+    return input;
 }
 
 } // namespace
@@ -102,6 +155,11 @@ void ControlServer::serve(const std::function<ControlAnswer(ControlCommand)>& pe
     }
 }
 
+std::optional<ControlInput> ControlServer::takeInput() {
+    const std::lock_guard lock{mutex_};
+    return std::exchange(input_, std::nullopt);
+}
+
 void ControlServer::reportLoadFailure(const std::filesystem::path& file,
                                       const std::string& reason) {
     const nlohmann::json report{{"error", reason}};
@@ -149,6 +207,19 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         const nlohmann::json status{
             {"core", core_}, {"rom", rom_}, {"frame", frame_}, {"hasState", hasState_}};
         return lucent::http::Response::json(200, "OK", status.dump());
+    }
+    if (path == "/input") {
+        if (request.method != "POST") {
+            return text(405, "Method Not Allowed", "POST only");
+        }
+        std::optional<ControlInput> input = readInput(request.body);
+        if (!input) {
+            return text(400, "Bad Request",
+                        R"(expected {"buttons": [names], "left": [x, y], "right": [x, y]})");
+        }
+        const std::lock_guard lock{mutex_};
+        input_ = std::move(input);
+        return text(200, "OK", "held");
     }
     ControlCommand command{};
     if (path == "/state/save") {

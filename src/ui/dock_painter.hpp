@@ -42,6 +42,8 @@ class DockPainter {
 
     /// The bar where this frame draws it, slid down by how far it has left.
     [[nodiscard]] static Rect barRect(const DockLayout& layout, const DockStyle& style) noexcept;
+    /// The highest point this frame draws the dock at, its shoulder badges included.
+    [[nodiscard]] static float top(const DockLayout& layout, const DockStyle& style) noexcept;
 
     /// Draws the bar of `layout`, `icons` in item order.
     void paint(Canvas& canvas, const DockLayout& layout, const DockMetrics& metrics,

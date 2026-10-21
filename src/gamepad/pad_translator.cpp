@@ -26,6 +26,20 @@ bool isStick(std::uint16_t code) {
     return code == ABS_X || code == ABS_Y || code == ABS_RX || code == ABS_RY;
 }
 
+/// The member of `sticks` that stick axis `code` sets.
+std::int32_t& stickAxis(Sticks& sticks, std::uint16_t code) {
+    switch (code) {
+    case ABS_X:
+        return sticks.leftX;
+    case ABS_Y:
+        return sticks.leftY;
+    case ABS_RX:
+        return sticks.rightX;
+    default:
+        return sticks.rightY;
+    }
+}
+
 /// The virtual trigger axis a physical trigger axis drives; older Xbox One firmware reports
 /// triggers as brake and gas.
 std::uint16_t triggerAxis(std::uint16_t code) {
@@ -120,7 +134,9 @@ void PadTranslator::translate(const PadEvent& in, std::vector<PadEvent>& forward
             return;
         }
         if (isStick(in.code)) {
-            forwardAxis(in.code, rescale(in.value, range->second, virtualStick), forward);
+            const std::int32_t value = rescale(in.value, range->second, virtualStick);
+            stickAxis(sticks_, in.code) = value;
+            forwardAxis(in.code, value, forward);
             stickControls(in, edges);
         } else if (in.code == ABS_Z || in.code == ABS_RZ || in.code == ABS_BRAKE ||
                    in.code == ABS_GAS) {

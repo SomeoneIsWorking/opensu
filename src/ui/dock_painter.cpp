@@ -28,6 +28,11 @@ Rect DockPainter::barRect(const DockLayout& layout, const DockStyle& style) noex
     return shifted(layout.bar, slideOffset(layout, style));
 }
 
+float DockPainter::top(const DockLayout& layout, const DockStyle& style) noexcept {
+    return std::min({layout.bar.y, layout.leftBadge.y, layout.rightBadge.y}) +
+           slideOffset(layout, style);
+}
+
 void DockPainter::paint(Canvas& canvas, const DockLayout& layout, const DockMetrics& metrics,
                         std::span<const DockIcon> icons, const DockStyle& style) {
     const float alpha = std::clamp(style.progress, 0.0f, 1.0f);

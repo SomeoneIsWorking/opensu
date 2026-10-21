@@ -115,7 +115,9 @@ class Hud {
     void drawGround(Canvas& canvas) const;
     void drawTopBar(Canvas& canvas);
     void drawHints(Canvas& canvas) const;
-    void drawToast(Canvas& canvas) const;
+    /// The toast, centred low on the screen and kept above `floor`, the top of what the shell
+    /// draws along the bottom edge (the dock).
+    void drawToast(Canvas& canvas, float floor) const;
 
   private:
     /// One hundredth of the window's shorter side, the unit of opensu's own chrome.

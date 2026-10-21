@@ -48,6 +48,16 @@ struct PadCapabilities {
 
 /// The virtual pad's ranges (xpad's): sticks signed 16-bit, triggers 8-bit.
 inline constexpr AxisRange virtualStick{-32768, 32767};
+
+/// Where a pad's two sticks stand, on `virtualStick`'s scale; y grows downwards.
+struct Sticks {
+    std::int32_t leftX{};
+    std::int32_t leftY{};
+    std::int32_t rightX{};
+    std::int32_t rightY{};
+
+    friend bool operator==(const Sticks&, const Sticks&) = default;
+};
 inline constexpr AxisRange virtualTrigger{0, 255};
 /// How far an analogue trigger travels before it is L2 or R2, and how far back before it is
 /// released; the gap keeps a trigger resting near one point from chattering.
@@ -74,6 +84,11 @@ class PadTranslator {
     /// Events that take the virtual pad from rest to the physical pad's axes. Held keys stay up
     /// until pressed again, so the press that closed the menu does not reach the game.
     [[nodiscard]] std::vector<PadEvent> resume() const;
+
+    /// The physical pad's sticks as last translated.
+    [[nodiscard]] const Sticks& sticks() const {
+        return sticks_;
+    }
 
   private:
     void forwardKey(std::uint16_t code, std::int32_t value, std::vector<PadEvent>& forward);
@@ -121,6 +136,7 @@ class PadTranslator {
     /// Directions held from the hat and from the left stick, so each reports once.
     std::map<Button, bool> hatHeld_;
     std::map<Button, bool> stickHeld_;
+    Sticks sticks_;
 };
 
 } // namespace opensu::gamepad

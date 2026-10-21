@@ -84,12 +84,33 @@ void twoSources() {
     expect(joypad.state(RETRO_DEVICE_ID_JOYPAD_MASK) == 0, "Guide reaches no core button");
 }
 
+void sticks() {
+    Joypad joypad;
+    joypad.sticks("one", {.leftX = 1000, .leftY = -20000, .rightX = 0, .rightY = 0});
+    joypad.sticks("two", {.leftX = -3000, .leftY = 0, .rightX = 0, .rightY = 32767});
+    expect(joypad.analog(RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) == -3000,
+           "of two pads the stick further out wins");
+    expect(joypad.analog(RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) == -20000,
+           "the left stick's y");
+    expect(joypad.analog(RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) == 32767,
+           "the right stick's y");
+    expect(joypad.analog(RETRO_DEVICE_INDEX_ANALOG_BUTTON, RETRO_DEVICE_ID_JOYPAD_R2) == 0,
+           "analogue buttons read 0");
+    Event gone;
+    gone.kind = Event::Kind::Disconnected;
+    gone.source = "two";
+    joypad.apply(gone);
+    expect(joypad.analog(RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) == 0,
+           "a pad leaving centres its sticks");
+}
+
 } // namespace
 
 int main() {
     mapping();
     state();
     twoSources();
+    sticks();
     std::printf("joypad: all checks passed\n");
     return 0;
 }
