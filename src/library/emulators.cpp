@@ -136,6 +136,9 @@ std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
     if (!search.saves.empty()) {
         command.insert(command.end(), {"--saves", (search.saves / "{system}").string()});
     }
+    for (const CoreOption& option : entry.coreOptions) {
+        command.insert(command.end(), {"--option", option.key + "=" + option.value});
+    }
     command.emplace_back("{rom}");
     return EmulatorInstall{entry.id,
                            ours ? InstallSource::DownloadedCore : InstallSource::Core,

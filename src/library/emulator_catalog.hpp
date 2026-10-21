@@ -47,6 +47,12 @@ struct RomsetSource {
     }
 };
 
+/// A core option a built-in emulator's core starts with, as the core spells key and value.
+struct CoreOption {
+    std::string key;
+    std::string value;
+};
+
 struct EmulatorEntry {
     /// Stable key: the download folder's name and the settings' spelling.
     std::string id;
@@ -67,6 +73,8 @@ struct EmulatorEntry {
     WithoutBios withoutBios{WithoutBios::Needed};
     /// How its core chooses a BIOS from the system folder (`"biosScan"`).
     BiosScan biosScan{BiosScan::Listed};
+    /// Core options it starts with (`"coreOptions"`): a GPU core's Vulkan renderer.
+    std::vector<CoreOption> coreOptions;
 
     [[nodiscard]] bool serves(std::string_view system) const;
     [[nodiscard]] bool builtIn() const noexcept {

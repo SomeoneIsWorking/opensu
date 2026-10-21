@@ -367,9 +367,9 @@ void downloadsMergeWithDetected(const Fixture& f) {
            "an AppImage whose runtime needs a missing libfuse2 names the install command");
     expect(!found.launch("psp", "/p.iso"), "and runs nothing");
     const auto psp = found.options("psp", "/p.iso");
-    expect(psp.size() == 1 && !psp[0].installed && !psp[0].problem.empty() && psp[0].downloadable &&
-               psp[0].id == "ppsspp",
-           "its option says why it cannot start and that it can be downloaded");
+    expect(psp.size() == 2 && !psp[0].installed && !psp[0].problem.empty() && psp[0].downloadable &&
+               psp[0].id == "ppsspp" && psp[1].id == "ppsspp-core",
+           "its option says why it cannot start and that it can be downloaded, the core after it");
 
     const auto* cemu = found.installed("cemu");
     expect(cemu != nullptr && cemu->problem.empty(),
