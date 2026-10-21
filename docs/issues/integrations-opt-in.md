@@ -167,3 +167,14 @@ hiding. The Docker idea is not needed.
   Steam only serves when started with `-cef-enable-debugging`; without it those fail with an error.
 - Normal mode has not been run against a real desktop Steam.
 - The player wants the pad held over Normal-mode games: "Sure if it works, I'd rather Steam not grab the device"; kept.
+
+### Hiding Steam inside openSU's own Gamescope (preferred over a second Gamescope)
+
+The player: "Can't we make Gamescope support hidden things?". The fork already tells Steam's
+windows apart: `steamcompmgr.cpp` marks a window `bIsSteamPid` / `bIsSteamWebHelperPid` from its
+process and `window_is_steam` for Big Picture (app id 769 or `STEAM_BIGPICTURE`). A fork commit can
+keep those windows out of focus and out of the composite whenever openSU asks (a root window atom
+openSU sets, so it can still show a Steam dialog it wants). Games Steam starts carry their own app
+ids and are shown as usual, drawn straight by Gamescope with no capture: no second Gamescope, no
+PipeWire stream, no added latency, and the PipeWire crash above stops mattering for Steam. Device
+isolation stays separate (the optional bwrap layer, or Steam Input off and the pads held).
