@@ -1,14 +1,19 @@
 # Forked cores: Switch, Wii U, setsail, Sunbright
 
-Status: open, planned.
+Status: open, planned; phase 3, which they wait for, is built.
 
 The player: "eden and ryujinx cores and cemu core, integrate setsail work as a core and integrate
 sunbright work as a core too", "Ryujinx and Eden can't be on GitHub, maybe can be on gitlab",
 "Convert setsail work to be a cemu fork core".
 
-All of these draw with the GPU, so each waits for phase 3 of `docs/design/libretro.md`
+All of these draw with the GPU. Phase 3 of `docs/design/libretro.md` is built
 (`RETRO_ENVIRONMENT_SET_HW_RENDER` with `RETRO_HW_CONTEXT_VULKAN` on the runner's own
-`retro/vulkan_device`). Phase 3 comes first and is proven with an existing Vulkan core.
+`retro/vulkan_device`, the core's extensions and features through context negotiation v2): proven
+2026-10-21 with Mupen64Plus-Next, ParaLLEl N64, Beetle PSX HW and SwanStation, validation clean
+(`docs/project-state.md` S032). A forked core must ask for Vulkan; an OpenGL request is refused.
+What the runner does not do yet and a Switch or Wii U core may need: more than one frame in flight
+(`get_sync_index` is always 0), an image on another queue family (handled, not proven), a core that
+submits its own command buffers through `set_command_buffers` (handled, not proven).
 
 | Core | Source | Host | Notes |
 |---|---|---|---|

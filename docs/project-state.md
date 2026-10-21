@@ -143,7 +143,7 @@ game has been observed running yet.
 | S029 | CI: pinned sources, Clang build, clang-tidy, clang-format, ruff, ctest on each release tag and on demand; local gates before every commit | partial | — | — |
 | S030 | Linux AppImage release, signed, tested on clean Fedora 44 and Ubuntu 24.04 | partial | S029 | G004 |
 | S031 | Built-in emulators: libretro cores found or downloaded from the buildbot, updated, removed, started on `opensu-retro`; an arcade zip's core picked by its romset | partial | S026 | G001 |
-| S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the quick menu, crash and load-failure toasts | partial | S003 | G001 |
+| S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the quick menu, crash and load-failure toasts, GPU cores on the runner's Vulkan device | partial | S003 | G001 |
 | S033 | Button mappings per game and per emulator (shared by its games), with game chords (`docs/issues/per-game-button-mappings.md`) | partial | S003, S022 | G003 |
 | S034 | Holding a chord modifier shows its chords, over a game too (`docs/issues/chord-hold-overlay.md`) | partial | S022 | G003 |
 | S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | partial | S016, S026 | G001 |
@@ -1227,15 +1227,17 @@ download, launching a downloaded AppImage, versions of packaged emulators (not s
 ### S031 — Built-in emulator cores
 
 A catalog entry with `"core"` is a built-in emulator (`library/emulator_catalog`): mGBA (GB, GBC,
-GBA), Gambatte (GB, GBC), Snes9x, Mesen, PCSX ReARMed, melonDS DS (Nintendo DS), and for Arcade
-FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME (current), listed after the standalone emulators so a system's automatic
+GBA), Gambatte (GB, GBC), Snes9x, Mesen, PCSX ReARMed, Beetle PSX HW and SwanStation (PlayStation),
+Mupen64Plus-Next and ParaLLEl N64 (Nintendo 64), PPSSPP (PSP), Flycast (Dreamcast, a system added
+for it), melonDS DS (Nintendo DS), and for Arcade FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME
+(current), listed after the standalone emulators so a system's automatic
 emulator does not change where one is installed. Genesis Plus GX and PicoDrive are not listed:
 openSU has no Mega Drive, Master System, Game Gear, Sega CD or 32X system
 (`docs/issues/more-libretro-cores.md`). A core is found in
 `<data>/opensu/cores/` (openSU's, with a `<core>.json` record), then `~/.config/retroarch/cores`,
 `/usr/lib64/libretro`, `/usr/lib/libretro`, `/usr/lib/x86_64-linux-gnu/libretro`
 (`library/libretro_cores`); the emulator is installed when its core is found and runs as
-`opensu-retro --core <core> [--hidden] --saves <data>/opensu/saves/<system> <rom>` (`--hidden` when the shell is), which cannot start, with the reason, when `opensu-retro` is not
+`opensu-retro --core <core> [--hidden] --saves <data>/opensu/saves/<system> [--option <key>=<value>]... <rom>` (`--hidden` when the shell is; the options are the catalog's `"coreOptions"`, a GPU core's Vulkan renderer), which cannot start, with the reason, when `opensu-retro` is not
 beside `opensu`. Downloads use the Settings › Emulators and details page paths of S026: the
 buildbot's `.index-extended` is read, the zip is fetched with every hop on the buildbot's origin,
 its one `.so` is checked against the listed CRC-32, which is the library's and not the zip's
@@ -1321,6 +1323,41 @@ to a title, menu, intro or demo. A file PCSX ReARMed takes by scanning the folde
 The PS3 system software extraction is not built and waits for a game HLE fails.
 
 ### S032 — The libretro runner
+
+Phase 3, GPU cores (2026-10-21, `scratch/gpu-cores/proof/` in the `gpu-cores` worktree):
+`retro/hardware_render` answers `SET_HW_RENDER` for Vulkan (OpenGL, GLES and Direct3D refused by
+name), the preferred context (Vulkan), the context negotiation interface (version 2) and
+`GET_HW_RENDER_INTERFACE`; `retro/vulkan_device` makes the instance and device through the core's
+`create_instance` and `create_device2`/`create_device` with the runner's extensions and validation
+added; the core's image is drawn by the same compositor as a software frame (design §4 GPU cores).
+Verified hidden with validation on, 0 validation errors and warnings each, the device made by the
+core on the RX 6700 XT: Beetle PSX HW (`hardware_vk`) Crash Bandicoot to the Naughty Dog logo at
+frame 2400, Mupen64Plus-Next (ParaLLEl-RDP, ParaLLEl-RSP) Ocarina of Time to the title at 1500,
+ParaLLEl N64 Majora's Mask's intro at 1500, SwanStation (Vulkan) Crash Bandicoot 2's intro at 2400
+(`sheet-cores.png`; the PlayStation cores on the OpenBIOS image copied as `scph5501.bin` in a
+scratch system folder, Beetle warning its SHA-1 is not Sony's). Integer scale on with scanlines
+and with crt-lottes over Mupen64Plus-Next's frame: its frame drawn 960 × 720 at (160, 40), a
+whole multiple of its height where integer off fills the 800 rows, scanline rows between 0.50 and 1.0 of the unfiltered frame
+(`sheet-integer-filters.png`). Mupen64Plus-Next by default asks for OpenGL core 3.3 and fails to load
+with "it asks for OpenGL core 3.3, and openSU draws with Vulkan only" (`mupen-default-gl-refused.log`). Save
+state at frame 706, a second run loading it at 1413 shows the frame-706 picture, a third run
+without the load shows the title; each closed by SIGTERM with exit 0 after `context_destroy`
+(`state/`). From a hidden shell: Majora's Mask's details page downloaded Mupen64Plus-Next
+(`shell/06-core-installed.png`), Play started `opensu-retro --hidden … --option
+mupen64plus-rdp-plugin=parallel --option mupen64plus-rsp-plugin=parallel` (`08-runner-args.txt`),
+`/status` frames 1673, 1794, 1914 two seconds apart, the quick menu's Save state and Load state
+toasted "State saved" and "State loaded" (`11-…`, `12-…`) and Close game ended it ("… closed").
+Shader presets over a GPU core's image (`scratch/gpu-cores/rebase/`, validation on, 0 errors and
+warnings): Mupen64Plus-Next Ocarina of Time at 1500 plain (`mupen-plain-f1500.png`) and with
+crt-royale (`mupen-royale-f1500.png`, mask and bloom over the title), Beetle PSX HW with crt-royale
+at 2400 (`beetle-royale-f2400.png`), mGBA Kirby with crt-royale at 900 (`mgba-royale-f900.png`).
+All four GPU cores hand over `SHADER_READ_ONLY_OPTIMAL` `R8G8B8A8_UNORM` images, so the chain
+reads them in place. Unverified: PPSSPP and Flycast (no PSP or Dreamcast games here), a real
+PlayStation BIOS, a visible window and swapchain with a GPU core, a core using
+`set_command_buffers`, another queue family, or a `GENERAL` image (the copy into the frame texture
+before a preset).
+The shell's Close game kills the scope with SIGKILL, so a GPU core closed from the menu gets no
+`context_destroy` (the process ends; save RAM is as of the last one-second check).
 
 `opensu-retro` (`src/retro/`, design in `docs/design/libretro.md`) loads one core, answers its
 environment (directories, pixel formats, core option defaults v0 to v2, log, geometry and timing),
