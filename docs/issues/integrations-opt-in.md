@@ -178,3 +178,17 @@ openSU sets, so it can still show a Steam dialog it wants). Games Steam starts c
 ids and are shown as usual, drawn straight by Gamescope with no capture: no second Gamescope, no
 PipeWire stream, no added latency, and the PipeWire crash above stops mattering for Steam. Device
 isolation stays separate (the optional bwrap layer, or Steam Input off and the pads held).
+
+### Steam's view of the controller: an option, several ways to try
+
+The player: "we can try a few things to get the controller to work the way we want and we can make
+it an option". Candidates, each measured on the player's pad before it becomes a choice:
+
+1. openSU holds the real pads (today): Steam and its games see only openSU's virtual pads.
+2. The bwrap layer: Steam's process only has openSU's virtual pad nodes (measured above: works;
+   Steam Input cannot add its own pad without `/dev/uinput`).
+3. Steam Input on a virtual pad openSU hands it: Steam remaps that pad for its games while openSU
+   keeps the real one and its Guide chords.
+4. Steam sees the real pads (no isolation), for players who want Steam to have them.
+
+The option lives in Integrations › Steam beside the mode; each choice says what Steam can see.
