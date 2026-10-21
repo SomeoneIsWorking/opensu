@@ -1,5 +1,7 @@
 #include "setting_layers.hpp"
 
+#include <algorithm>
+
 namespace opensu::settings {
 
 std::vector<Layer> layersOf(const LayerKeys& keys) {
@@ -58,6 +60,34 @@ Resolved SettingLayers::resolve(const LayerKeys& keys, std::string_view key,
         return Resolved{*at(*from, key), from};
     }
     return Resolved{std::move(fallback), std::nullopt};
+}
+
+Resolved SettingLayers::inherited(const LayerKeys& keys, const Layer& layer, std::string_view key,
+                                  std::string fallback) const {
+    const std::vector<Layer> order = layersOf(keys);
+    auto below = std::ranges::find(order, layer);
+    if (below != order.end()) {
+        ++below;
+    }
+    for (; below != order.end(); ++below) {
+        if (const std::string* value = at(*below, key)) {
+            return Resolved{*value, *below};
+        }
+    }
+    return Resolved{std::move(fallback), std::nullopt};
+}
+
+std::optional<Layer> SettingLayers::over(const LayerKeys& keys, const Layer& layer,
+                                         std::string_view key) const {
+    for (const Layer& above : layersOf(keys)) {
+        if (above == layer) {
+            break;
+        }
+        if (at(above, key) != nullptr) {
+            return above;
+        }
+    }
+    return std::nullopt;
 }
 
 } // namespace opensu::settings

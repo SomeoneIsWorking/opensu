@@ -40,6 +40,7 @@
 #include "game_launch.hpp"
 #include "game_screen.hpp"
 #include "game_settings.hpp"
+#include "game_settings_page.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pads.hpp"
 #include "gamescope_windows.hpp"
@@ -157,6 +158,7 @@ class ShellApp final : private PointerHost {
     void activateCrumb(std::size_t index) override;
     void scroll(int steps) override;
     void chooseLevel(int level) override;
+    void chooseTab(std::size_t index) override;
     void contextMenu(const ui::PointerTarget& target) override;
     /// A click on a dock item: the same section change as L1 and R1.
     void clickSection(library::Section section);
@@ -220,6 +222,9 @@ class ShellApp final : private PointerHost {
     void syncChrome();
     /// The trail the top bar shows for where the shell is now.
     [[nodiscard]] ui::Trail currentTrail() const;
+    /// Shows the running game under its video settings again after `game`'s layers changed, when
+    /// it is that game on a built-in core.
+    void applyVideo(const library::Game& game);
     /// Runs ROM `game` on emulator `name` from now on, and keeps the pick.
     void chooseEmulator(const library::Game& game, const std::string& name);
     /// The game with `id` as the grid shows it now.
@@ -369,7 +374,7 @@ class ShellApp final : private PointerHost {
         emulatorDownloads_, EmulatorSettings::Hooks{[this](const std::string& text, bool isError) {
             shell_.setToast(text, isError);
         }}};
-    /// Settings › Emulators' pages for Everywhere, each console and each core.
+    /// Settings › Emulators' pages for Global, each console and each core.
     LayerSettings layerSettings_{gameSettings_,
                                  [this]() -> const library::roms::Emulators& {
                                      return emulatorSettings_.found();
@@ -428,10 +433,8 @@ class ShellApp final : private PointerHost {
                                  [this](const library::Game& game) {
                                      mappings_.openGame(game);
                                  },
-                                 [this](const library::Game& game, const std::string& inherited) {
-                                     settingsScreen_.openShaderPicker(
-                                         settings::Layer{settings::Layer::Kind::Game, game.id},
-                                         game.title, inherited);
+                                 [this](const library::Game& game) {
+                                     gameSettingsPage_.open(game, nullptr);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
@@ -647,7 +650,19 @@ class ShellApp final : private PointerHost {
                                    },
                                    [this](const std::string& text, bool isError) {
                                        shell_.setToast(text, isError);
+                                   },
+                                   [this] {
+                                       gameSettingsPage_.open(launches_.game(), [this] {
+                                           quickMenu_.reopenOnGameSettings();
+                                       });
                                    }}};
+    /// The game settings tabs, from the quick menu over a running game or over the details page.
+    GameSettingsPage gameSettingsPage_{shell_.guidePanels().tabs(), gameSettings_,
+                                       emulatorDownloads_, sounds_,
+                                       GameSettingsPage::Hooks{[this](const library::Game& game) {
+                                           details_.refresh();
+                                           applyVideo(game);
+                                       }}};
     /// After shell_ and the host it drives.
     PointerRouter pointer_{shell_.inputDevice(), *this};
     /// Held directions, from a pad or the keyboard, repeat on one schedule.

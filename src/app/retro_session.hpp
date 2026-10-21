@@ -11,6 +11,8 @@
 #include <string>
 #include <string_view>
 
+#include "settings/video_settings.hpp"
+
 namespace opensu::app {
 
 class RetroSession {
@@ -45,6 +47,8 @@ class RetroSession {
     [[nodiscard]] std::string saveState();
     [[nodiscard]] std::string loadState();
     [[nodiscard]] std::string reset();
+    /// Shows the game under `video` from its next frame.
+    [[nodiscard]] std::string setVideo(const settings::VideoSettings& video);
 
     /// What the quick menu's game rows and the game chords ask for.
     enum class Command : std::uint8_t { SaveState, LoadState, Reset };
@@ -59,7 +63,7 @@ class RetroSession {
   private:
     /// The port the current control file announces, read once it does.
     [[nodiscard]] std::optional<std::uint16_t> port();
-    [[nodiscard]] std::string post(std::string_view target);
+    [[nodiscard]] std::string post(std::string_view target, const std::string& body = {});
 
     std::filesystem::path directory_;
     std::mutex mutex_;

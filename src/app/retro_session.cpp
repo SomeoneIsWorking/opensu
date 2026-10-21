@@ -102,14 +102,14 @@ std::optional<RetroSession::Status> RetroSession::status() {
                   .hasState = body.value("hasState", false)};
 }
 
-std::string RetroSession::post(std::string_view target) {
+std::string RetroSession::post(std::string_view target, const std::string& body) {
     const std::optional<std::uint16_t> at = port();
     if (!at) {
         return "the game has no control channel";
     }
     lucent::http::FetchResult result;
     std::string error;
-    if (!lucent::http::post_loopback(*at, target, "", result, error)) {
+    if (!lucent::http::post_loopback(*at, target, body, result, error)) {
         lucent::warn("retro", "POST {} to the runner failed: {}", target, error);
         return "the game does not answer";
     }
@@ -130,6 +130,10 @@ std::string RetroSession::loadState() {
 
 std::string RetroSession::reset() {
     return post("/reset");
+}
+
+std::string RetroSession::setVideo(const settings::VideoSettings& video) {
+    return post("/video", settings::videoJson(video));
 }
 
 RetroSession::Outcome RetroSession::perform(Command command) {

@@ -1,6 +1,6 @@
 // details_controller — the details page's buttons and what they do: play or install the game,
-// update it, pick its emulator, step its video settings, pick its shader preset (on the Settings
-// screen's picker) or clear the settings it keeps of its own,
+// update it, pick its emulator, open its settings tabs (`GameSettingsPage`) or clear the settings
+// it keeps of its own,
 // download the emulator it is missing, give a Windows install its own Wine prefix or the shared
 // one, hide it, uninstall it (two presses), open its button mapping, go back. Opens for the focused
 // game and keeps what it shows current while the library changes under it.
@@ -40,9 +40,8 @@ class DetailsController {
         std::function<void(const std::string& text, bool error)> say;
         /// Opens `game`'s button mapping over the page.
         std::function<void(const library::Game& game)> controls;
-        /// Opens the shader preset picker for `game`'s own layer over the page; `inherited` is
-        /// the preset it gets without one of its own.
-        std::function<void(const library::Game& game, const std::string& inherited)> pickShader;
+        /// Opens `game`'s settings tabs over the page.
+        std::function<void(const library::Game& game)> openGameSettings;
     };
 
     DetailsController(ui::DetailsPage& page, audio::SdlSoundPlayer& sounds,
@@ -69,10 +68,6 @@ class DetailsController {
     void run(ui::DetailsAction action);
     /// Picks the emulator `delta` places along the game's list, wrapping.
     void cycleEmulator(const library::Game& game, int delta);
-    /// Steps the game's own `key` `delta` places along "not set" then its choices, wrapping.
-    void stepSetting(const library::Game& game, const std::string& key, int delta);
-    /// Opens the shader preset picker for the game's own layer.
-    void pickShader(const library::Game& game);
     /// Forgets every setting the game keeps of its own.
     void clearSettings(const library::Game& game);
     /// Starts downloading the emulator `game` is missing, or cancels its download.

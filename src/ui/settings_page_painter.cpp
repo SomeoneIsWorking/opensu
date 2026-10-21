@@ -14,7 +14,6 @@ namespace {
 
 constexpr Colour panelFill{0xF8, 0xF8, 0xFB, 255};
 constexpr Colour cardFill{0xFF, 0xFF, 0xFF, 255};
-constexpr Colour chosenFill{0xE6, 0xE4, 0xEE, 255};
 constexpr float categorySp = 17.0f;
 constexpr float labelSp = 17.0f;
 constexpr float noteSp = 12.5f;
@@ -23,6 +22,9 @@ constexpr float insetDp = 16.0f;
 constexpr float outlineDp = 1.8f;
 constexpr float rowRadiusDp = 12.0f;
 constexpr float valueRoomShare = 0.5f;
+constexpr float litInsetDp = 6.0f;
+/// An inherited value reads fainter than one the layer keeps.
+constexpr float inheritedAlpha = 0.6f;
 
 Colour faded(Colour colour, float alpha) {
     return withAlpha(colour, alpha);
@@ -37,7 +39,7 @@ void paintCategories(Canvas& canvas, Typeface& typeface, const SettingsPage& pag
         const RoundRect body{cell, layout.cellRadius};
         const bool chosen = i == page.category();
         fillRoundRect(canvas, body, [chosen, alpha](Point, float) {
-            return faded(chosen ? chosenFill : cardFill, alpha * (chosen ? 1.0f : 0.92f));
+            return faded(chosen ? rowChosen : cardFill, alpha * (chosen ? 1.0f : 0.92f));
         });
         if (chosen && inList) {
             fillBand(canvas, body, body.grown(-outlineDp * dp), [alpha](Point, float) {
@@ -118,6 +120,64 @@ void SettingsPagePainter::paintRow(Canvas& canvas, const SettingsRow& row,
     if (focused) {
         fillBand(canvas, bar, bar.grown(-outlineDp * dp), [alpha](Point, float) {
             return faded(rowInk, alpha);
+        });
+    }
+}
+
+void SettingsPagePainter::paintTabRow(Canvas& canvas, const TabRow& row, const TabRowBox& box,
+                                      bool focused, TabColumn column, float dp) const {
+    const RoundRect bar{box.rect, rowRadiusDp * dp};
+    fillRoundRect(canvas, bar, [](Point, float) {
+        return cardFill;
+    });
+    const bool own = !row.overridable || row.overridden;
+    const TextStyle value{valueSp * dp};
+    const float endX = box.rect.right() - insetDp * dp;
+    const float chevron = own ? chevronWidthDp * dp : 0.0f;
+    const SettingsRow& text = row.row;
+    const float valueRoom = box.value.width - insetDp * 1.5f * dp - chevron;
+    const std::string shown = typeface_.fitted(text.value, valueRoom, value);
+    const float valueX = endX - chevron - typeface_.measure(shown, value);
+    if (focused && row.overridable) {
+        const Rect lit =
+            column == TabColumn::Override
+                ? Rect{box.checkbox.x - litInsetDp * dp, box.rect.y + litInsetDp * dp,
+                       box.checkbox.width + 2.0f * litInsetDp * dp,
+                       box.rect.height - 2.0f * litInsetDp * dp}
+                : Rect{valueX - litInsetDp * 1.5f * dp, box.rect.y + litInsetDp * dp,
+                       box.rect.right() - litInsetDp * dp - valueX + litInsetDp * 1.5f * dp,
+                       box.rect.height - 2.0f * litInsetDp * dp};
+        fillRoundRect(canvas, RoundRect{lit, rowRadiusDp * 0.7f * dp}, [](Point, float) {
+            return rowChosen;
+        });
+    }
+    if (row.overridable) {
+        paintCheckbox(canvas, box.checkbox, row.overridden, dp);
+    }
+    const TextStyle label{labelSp * dp};
+    const TextStyle note{noteSp * dp};
+    const float x =
+        row.overridable ? box.checkbox.right() + insetDp * 0.75f * dp : box.rect.x + insetDp * dp;
+    // The label and note have every pixel the value does not need.
+    const float room = valueX - x - insetDp * dp;
+    if (text.note.empty()) {
+        typeface_.drawCentred(canvas, typeface_.fitted(text.label, room, label), x,
+                              box.rect.centreY(), label, palette::ink);
+    } else {
+        const float shift = typeface_.lineBox(note) * 0.5f + 1.0f * dp;
+        typeface_.drawCentred(canvas, typeface_.fitted(text.label, room, label), x,
+                              box.rect.centreY() - shift, label, palette::ink);
+        typeface_.drawCentred(canvas, typeface_.fitted(text.note, room, note), x,
+                              box.rect.centreY() + shift * 1.4f, note, palette::inkSoft);
+    }
+    typeface_.drawCentred(canvas, shown, valueX, box.rect.centreY(), value,
+                          own ? palette::inkSoft : withAlpha(palette::inkSoft, inheritedAlpha));
+    if (own) {
+        paintChevron(canvas, endX, box.rect.centreY(), dp);
+    }
+    if (focused) {
+        fillBand(canvas, bar, bar.grown(-outlineDp * dp), [](Point, float) {
+            return rowInk;
         });
     }
 }

@@ -13,6 +13,8 @@ constexpr float valueSp = 16.0f;
 constexpr float chevronHalfHeightDp = 5.5f;
 constexpr float chevronStrokeDp = 2.0f;
 constexpr float sliderBarDp = 4.0f;
+constexpr float checkboxRadiusDp = 5.0f;
+constexpr float checkboxStrokeDp = 2.0f;
 constexpr float sliderThumbDp = 8.0f;
 constexpr float sliderNumberGapDp = 14.0f;
 
@@ -26,6 +28,25 @@ void paintSwitch(Canvas& canvas, const Rect& track, bool on, float dp) {
     const float thumb = radius - 3.0f * dp;
     const float thumbX = on ? track.right() - radius : track.x + radius;
     canvas.fillCircle(Point{thumbX, track.centreY()}, thumb, white);
+}
+
+void paintCheckbox(Canvas& canvas, const Rect& box, bool checked, float dp) {
+    const RoundRect shape{box, checkboxRadiusDp * dp};
+    if (checked) {
+        fillRoundRect(canvas, shape, [](Point, float) {
+            return rowInk;
+        });
+        const float thickness = chevronStrokeDp * dp;
+        const Point foot{box.x + box.width * 0.42f, box.y + box.height * 0.72f};
+        canvas.line(Point{box.x + box.width * 0.22f, box.y + box.height * 0.5f}, foot, thickness,
+                    white);
+        canvas.line(foot, Point{box.x + box.width * 0.8f, box.y + box.height * 0.28f}, thickness,
+                    white);
+        return;
+    }
+    fillBand(canvas, shape, shape.grown(-checkboxStrokeDp * dp), [](Point, float) {
+        return rowInk;
+    });
 }
 
 void paintSlider(Canvas& canvas, Typeface& typeface, const Rect& track, int level, int low,

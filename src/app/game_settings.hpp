@@ -1,6 +1,6 @@
 // game_settings — the setting layers as the shell holds them: loaded from `game-settings.json`
 // (with the emulator picks an older `settings.json` kept moved in once), saved with a toast when
-// the file cannot be written, and the words a value's layer is shown with.
+// the file cannot be written, and the words a layer and a value's source are shown with.
 #pragma once
 
 #include <filesystem>
@@ -14,8 +14,11 @@
 
 namespace opensu::app {
 
+/// A layer as the player reads it: "Global", "Super Nintendo", "Snes9x", "this game".
+[[nodiscard]] std::string layerName(const settings::Layer& layer,
+                                    const library::roms::EmulatorCatalog& catalog);
 /// What a game's value reads beside it for where it comes from: "From Super Nintendo", "From
-/// Snes9x (built-in)", "Set for this game", "Set everywhere", or "Default" for none.
+/// Snes9x", "From Global", "Set for this game", or "Default" for none.
 [[nodiscard]] std::string sourceText(const std::optional<settings::Layer>& from,
                                      const library::roms::EmulatorCatalog& catalog);
 

@@ -119,6 +119,19 @@ struct OnQuickSlider {
     bool operator==(const OnQuickSlider&) const = default;
 };
 
+/// A tab of the game settings page, by its place in the strip.
+struct OnSettingsTab {
+    std::size_t index;
+    bool operator==(const OnSettingsTab&) const = default;
+};
+
+/// A row of the game settings page by its place, and whether on its Override checkbox.
+struct OnTabRow {
+    std::size_t index;
+    bool checkbox{false};
+    bool operator==(const OnTabRow&) const = default;
+};
+
 /// A category of the Settings screen or the Devices page, by its place in the list.
 struct OnSettingsCategory {
     std::size_t index;
@@ -175,6 +188,7 @@ using PointerTarget =
                  OnPanelButton, OnChooserRow, OnIconSize, OnSearchKey, OnSearchResult,
                  OnContextItem, OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton,
                  OnSettingsCategory, OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow,
-                 OnQuickSlider, OnDialogButton, OnIntegrationItem, OnDownloadRow, OnDownloadAction>;
+                 OnQuickSlider, OnSettingsTab, OnTabRow, OnDialogButton, OnIntegrationItem,
+                 OnDownloadRow, OnDownloadAction>;
 
 } // namespace opensu::ui

@@ -105,6 +105,12 @@ struct ShellSnapshot {
     bool guideMenuOpen{false};
     /// Whether the quick menu is open.
     bool quickMenuOpen{false};
+    /// The quick menu's focused row id; empty while it is closed.
+    std::string quickFocus;
+    /// The game settings page's tab on show and its focus (`<row id>:override` or `:value`);
+    /// empty while it is closed.
+    std::string settingsTab;
+    std::string settingsFocus;
     /// Whether the Devices page is open, and which tab it shows.
     bool devicesOpen{false};
     std::string devicesTab;

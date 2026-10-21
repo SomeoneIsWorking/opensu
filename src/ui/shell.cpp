@@ -920,7 +920,8 @@ bool Shell::focusTarget(const PointerTarget& target) {
             } else if constexpr (std::is_same_v<Target, OnGuideEntry> ||
                                  std::is_same_v<Target, OnGuidePower> ||
                                  std::is_same_v<Target, OnQuickRow> ||
-                                 std::is_same_v<Target, OnQuickSlider>) {
+                                 std::is_same_v<Target, OnQuickSlider> ||
+                                 std::is_same_v<Target, OnTabRow>) {
                 return guide_.focusTarget(at);
             } else if constexpr (std::is_same_v<Target, OnDownloadRow> ||
                                  std::is_same_v<Target, OnDownloadAction>) {

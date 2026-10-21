@@ -68,6 +68,12 @@ class FrameCompositor {
     FrameCompositor& operator=(FrameCompositor&&) = delete;
     ~FrameCompositor();
 
+    /// Shows frames under `video` from the next one drawn: the pipeline and sampler made again,
+    /// and a different shader preset built on `instance` first, so one that cannot run throws
+    /// ShaderError and leaves the settings in force. Waits for the GPU. Throws VulkanError.
+    void change(const settings::VideoSettings& video, VkInstance instance,
+                const std::filesystem::path& librashader);
+
     /// The render pass a target's framebuffer is made for.
     [[nodiscard]] VkRenderPass renderPass() const {
         return renderPass_;
@@ -85,6 +91,8 @@ class FrameCompositor {
     void release();
     void createRenderPass(VkFormat format, VkImageLayout finalLayout);
     void createPipeline();
+    /// What `createPipeline` made, in reverse; safe when partly made.
+    void destroyPipeline();
     void ensureTexture(unsigned width, unsigned height);
     void destroyTexture();
     /// Points the descriptor at `view`; the previous frame's commands must be done.

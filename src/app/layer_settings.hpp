@@ -1,11 +1,11 @@
-// layer_settings — Settings › Emulators' pages for the setting layers: Everywhere, each console
-// (its emulator and its video settings) and each built-in core (its video settings). The Emulators
-// page lists a row opening each; an open page takes the category's place until B closes it. A
-// value set on the page reads "Set for <layer>", one inherited reads where it comes from, and each
-// choice steps through "not set" too, which clears it. The Shader preset row opens the preset
-// picker (`ShaderPresetPicker`) in the page's place; the details page opens that picker straight
-// for a game's layer, and the screen closes once it is left. Every game's own emulator pick is
-// reset here.
+// layer_settings — Settings › Emulators' pages for the setting layers: Global, each console (its
+// emulator and its video settings) and each built-in core (its video settings). The Emulators page
+// lists a row opening each; an open page takes the category's place until B closes it. A value set
+// on the page reads "Set for <layer>", one inherited reads where it comes from, and each choice
+// steps through "not set" too, which clears it. The Shader preset row opens the preset picker
+// (`ShaderPresetPicker`) in the page's place. The core layer is set only here; a game's own values
+// and its console's are also on the game settings tabs (`GameSettingsPage`). Every game's own
+// emulator pick is reset here.
 #pragma once
 
 #include <cstdint>
@@ -39,8 +39,6 @@ class LayerSettings {
         Within,
         /// The layer's page is to close, back to the Emulators page.
         Layer,
-        /// The picker opened for a game was left: the screen is to close.
-        Screen,
     };
 
     /// `found` is what the emulator search found, read as the page is built; `pack` the shader
@@ -66,14 +64,6 @@ class LayerSettings {
     void close() noexcept {
         open_.reset();
         picker_.close();
-        direct_ = false;
-    }
-    /// Opens the shader preset picker straight for `layer`, named `name` (a game's title), over
-    /// `inherited`, the preset that applies without it.
-    void pickShader(settings::Layer layer, std::string name, std::string inherited);
-    /// Whether the open picker was opened straight for a game.
-    [[nodiscard]] bool direct() const noexcept {
-        return direct_;
     }
     /// B on the open page.
     [[nodiscard]] Back back();
@@ -91,7 +81,7 @@ class LayerSettings {
     void clearGamePicks();
 
   private:
-    /// The layer's name: "Everywhere", the console's or the core's.
+    /// The layer's name: "Global", the console's or the core's.
     [[nodiscard]] std::string nameOf(const settings::Layer& layer) const;
     [[nodiscard]] ui::SettingsRow emulatorRow(const std::string& system) const;
     [[nodiscard]] ui::SettingsRow videoRow(const settings::Layer& layer,
@@ -102,7 +92,7 @@ class LayerSettings {
     void stepEmulator(const std::string& system, int step);
     void stepVideo(const settings::Layer& layer, std::string_view key, int step);
     [[nodiscard]] ui::SettingsRow shaderRow(const settings::Layer& layer) const;
-    /// The preset that applies at `layer` without its own value: Everywhere's under a console.
+    /// The preset that applies at `layer` without its own value: Global's under a console.
     [[nodiscard]] std::string inheritedShader(const settings::Layer& layer) const;
     void pressPicker(const settings::Layer& layer, const std::string& id);
     void saveVideo();
@@ -113,11 +103,6 @@ class LayerSettings {
     ShaderPresetPicker picker_;
     Hooks hooks_;
     std::optional<settings::Layer> open_;
-    /// The open game layer's name.
-    std::string gameName_;
-    /// What the game gets without its own preset, for the directly opened picker.
-    std::string directInherited_;
-    bool direct_{false};
     /// The picker was just left for its layer's page.
     bool leftPicker_{false};
 };

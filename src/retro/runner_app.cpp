@@ -92,21 +92,71 @@ ControlAnswer answerOf(const StateOutcome& outcome) {
     return {500, outcome.reason};
 }
 
-ControlAnswer perform(ControlCommand command, Core& core, SaveState& state) {
+/// The last image `presenter` showed as PNG; empty with `error` when there is none or it fails.
+std::string framePng(Presenter& presenter, std::string& error) {
+    Readback frame;
+    try {
+        frame = presenter.readBack();
+    } catch (const VulkanError& failure) {
+        error = failure.what();
+        return {};
+    }
+    if (frame.rgba.empty()) {
+        error = "no frame was shown";
+        return {};
+    }
+    return gpu2d::image::encodePng(frame.rgba, frame.width, frame.height, error);
+}
+
+/// What the frame loop runs a control command on.
+struct Commanded {
+    Core& core;
+    SaveState& state;
+    Presenter& presenter;
+    bool hidden;
+};
+
+ControlAnswer changeVideo(Presenter& presenter, const settings::VideoSettings& video) {
+    try {
+        presenter.change(video);
+    } catch (const ShaderError& failure) {
+        lucent::error("retro", "{}", failure.what());
+        return {409, failure.what()};
+    }
+    lucent::info("retro", "video now {}", settings::videoJson(video));
+    return {};
+}
+
+ControlAnswer perform(const ControlRequest& request, const Commanded& on) {
     ControlAnswer answer;
-    switch (command) {
+    switch (request.command) {
     case ControlCommand::SaveState:
-        answer = answerOf(state.save(core));
+        answer = answerOf(on.state.save(on.core));
         break;
     case ControlCommand::LoadState:
-        answer = answerOf(state.load(core));
+        answer = answerOf(on.state.load(on.core));
         break;
     case ControlCommand::Reset:
-        core.reset();
+        on.core.reset();
         lucent::info("retro", "game reset");
         break;
+    case ControlCommand::Video:
+        answer = changeVideo(on.presenter, request.video);
+        break;
+    case ControlCommand::Frame: {
+        if (!on.hidden) {
+            answer = {409, "the frame is read back in hidden runs only"};
+            break;
+        }
+        std::string error;
+        answer.png = framePng(on.presenter, error);
+        if (answer.png.empty()) {
+            answer = {500, error};
+        }
+        break;
     }
-    answer.hasState = state.exists();
+    }
+    answer.hasState = on.state.exists();
     return answer;
 }
 
@@ -142,24 +192,13 @@ std::unique_ptr<ControlServer> openControl(const RunnerOptions& options, const C
 }
 
 bool writeFramePng(Presenter& presenter, const std::filesystem::path& file) {
-    Readback frame;
-    try {
-        frame = presenter.readBack();
-    } catch (const VulkanError& failure) {
-        lucent::error("retro", "{}", failure.what());
-        return false;
-    }
-    if (frame.rgba.empty()) {
-        lucent::error("retro", "no frame was shown to write to {}", file.string());
-        return false;
-    }
     std::string error;
-    const std::string png = gpu2d::image::encodePng(frame.rgba, frame.width, frame.height, error);
+    const std::string png = framePng(presenter, error);
     if (png.empty() || !fileio::writeWhole(file, png, error)) {
         lucent::error("retro", "cannot write {}: {}", file.string(), error);
         return false;
     }
-    lucent::info("retro", "wrote {}x{} frame to {}", frame.width, frame.height, file.string());
+    lucent::info("retro", "wrote the last frame to {}", file.string());
     return true;
 }
 
@@ -258,8 +297,8 @@ RunnerExit RunnerApp::run() {
             if (const std::optional<ControlInput> held = control->takeInput()) {
                 holdControlPad(joypad, *held);
             }
-            control->serve([&core, &state](ControlCommand command) {
-                return perform(command, *core, state);
+            control->serve([&](const ControlRequest& request) {
+                return perform(request, Commanded{*core, state, *presenter, options_.hidden});
             });
         }
         core->run();

@@ -1,7 +1,7 @@
 # Shaders, filters, overlays and per-console/core/game settings for opensu-retro
 
-Status: open. Build order steps 1–4 built (with the step 2 UI); step 7 built except preset
-parameters; steps 5, 6, 8 and 9 not started.
+Status: open. Build order steps 1–5 built; step 7 built except preset parameters; steps 6, 8 and
+9 not started.
 
 The player: "filters and shaders like RetroArch", "overlays", "selectable per console/core/game,
 different config layers with override support", and "core per console configuration and per game
@@ -32,13 +32,13 @@ override".
   `settings.json`'s `emulators` and `systemEmulators` into the store once and drops the keys.
 - `input/mapping_scopes` and `settings/mapping_store` use the same `Layer`, keep the whole-map rule
   and gained the System layer.
-- UI: Settings › Emulators lists an Everywhere row, one per served console (emulator and video)
+- UI: Settings › Emulators lists a Global row, one per served console (emulator and video)
   and one per built-in core (video); each opens a page (`app/layer_settings`) where a value steps
   through "not set" too, with a Clear row. The details page (`app/details_controller`) gives a game
-  on a built-in core Aspect, Integer scale and Sampling buttons (game layer, "not set" clears the
-  key), a row per value a layer keeps ("From Super Nintendo", "Set for this game"), the emulator's
-  source on its row ("Automatic (romset)", "From <console>", "Set for this game") and "Clear game
-  settings" while the game keeps any.
+  on a built-in core a row per value a layer keeps ("From Super Nintendo", "Set for this game"),
+  the emulator's source on its row ("Automatic (romset)", "From <console>", "Set for this game"),
+  a "Game settings" button that opens the tabs of step 5 and "Clear game settings" while the game
+  keeps any.
 - Video settings apply to built-in cores only; standalone emulators keep their own.
 
 ## What step 4 built
@@ -106,10 +106,9 @@ override".
 - The picker (`app/shader_preset_picker`) walks the pack's folder tree (5210 files, 2659 presets;
   `bezel/` alone has 1494, so a flat folder list does not work): "Not set" and "None" at the top,
   then each level's folders with their preset counts and its presets. From a layer page it
-  replaces the page; from the details page it opens over it on the game's layer and closes back
-  to it.
-- Not built: preset parameters as sliders (`libra_preset_get_param`/`set_param`, `GET /status`),
-  which needs the quick menu of step 5. The AppImage and CI containers gained Rust
+  replaces the page; from the game settings tabs it replaces the tab's rows and B goes back to
+  them.
+- Not built: preset parameters as sliders (`libra_preset_get_param`/`set_param`, `GET /status`). The AppImage and CI containers gained Rust
   (`packaging/appimage`: rustup-init 1.28.2 by SHA-256, toolchain 1.90.0; `packaging/ci`: Fedora's
   `cargo`) but neither image has been rebuilt with it.
 - Proof (`scratch/shader-presets/`, hidden, scratch HOME and XDG dirs, validation on, 0 errors in
@@ -123,6 +122,54 @@ override".
   and history), `runner/missing-library.log` and `shell/21-*` (the refusal and its toast).
 - The task named `interpolation/sharp-bilinear-simple`; in the pack it is
   `pixel-art-scaling/sharp-bilinear-simple.slangp`.
+
+## What step 5 built
+
+The player turned down "Save to…": "Save to... doesn't sit with me because per setting override,
+maybe we can add tabs, global / system / game and if not in global, they can have an inherit option
+or an override checkbox". So there is no unsaved state and no save step.
+
+- One page, two doors: the quick menu's "Game settings" row (while a game runs on `opensu-retro`)
+  and the details page's "Game settings" button open `app/game_settings_page` on the Game tab. It
+  replaces the details page's per-button "not set" cycling.
+- Tabs Global, the game's console ("Super Nintendo") and Game, each with Aspect, Integer scale,
+  Sampling, Filter and Shader preset. L1/R1 switch tabs, A ticks Override or opens the value, Left
+  and Right move between the checkbox and the value, B backs out (picker, then list, then the page,
+  back to the quick menu or the details page). A tap is focus plus A, a tap on a tab shows it.
+- Global rows are plain values. System and Game rows carry an Override checkbox: unticked, the row
+  shows the value it inherits, dimmed, and where it comes from ("From Global", "From Snes9x
+  (built-in)", "Default"); ticking copies that value into the layer and opens it for editing;
+  unticking deletes the key. A row a higher layer overrides says so ("Overridden by Snes9x
+  (built-in)"); with a preset, Sampling and Filter say "Not used with a shader preset".
+- The core layer is not a tab. It sits between System and Game, stays editable in Settings ›
+  Emulators, and shows here only as a source. The System tab inherits from Global and the default
+  only (`SettingLayers::inherited`, `SettingLayers::over`).
+- Every change is written to `game-settings.json` at once; while that game runs the shell resolves
+  its layers again (`app/retro_launch: retroVideoOf`) and sends them as `POST /video` through
+  `app/retro_session: setVideo`. The runner (`retro/runner_app`) applies them between frames:
+  `FrameCompositor::change` builds a new preset chain first, so a bad preset answers 409 and keeps
+  what is drawn, then rebuilds the pipeline. The body is `settings::videoJson`, the launch file's
+  format.
+- `GET /frame.png` on the runner's channel (hidden runs only, 409 otherwise) returns the last frame;
+  the proof reads runner frames there.
+- Proof (`scratch/settings-tabs/`, shell `--hidden`, scratch HOME and XDG dirs, Chrono Trigger
+  and Super Metroid from `/mnt/Boy/ROM/SNES`; the shell's frame shows the panel over grey, since a
+  hidden shell does not show the runner's window):
+  - `proof/02`–`04`: the details page's tabs; `proof/11`–`14`: the quick menu and its tabs over
+    the running game.
+  - `proof/20`–`22`: System Filter ticked (store gains `systems.snes.video.filter: none`), set to
+    Scanlines; `22-runner-system-scanlines.png` shows it live.
+  - `proof/23`–`26`: Game tab shows "Scanlines · From Super Nintendo", ticked, set to CRT;
+    `26-runner-game-crt.png` shows the CRT mask live.
+  - `proof/27`: unticked, the store drops the game's key and `27-runner-game-unchecked.png` is
+    back to scanlines; the shell log's `video now` lines show each change.
+  - `proof/31`–`33`: Super Metroid launched afterwards draws scanlines and its Game tab reads
+    "Scanlines · From Super Nintendo".
+  - `runner/smoke-*`: `POST /video` none → crt → crt-royale → none on a hidden runner with
+    validation on (0 errors), a bad value (400) and a missing preset (409, settings kept).
+  - Each `proof/*.json` is the store after that step.
+- Not proven: touch on the tabs (the control channel has no pointer input), the quick menu over a
+  game nested in Gamescope.
 
 ## Layered settings: one owner
 
@@ -144,7 +191,7 @@ to these would break the one-owner rule.
   Resolution per key: Game → Emulator → System → Global → built-in default. Each layer keeps only the keys it sets, so "inherit" is
   just a missing key and "Clear" deletes it.
 - `resolve(LayerKeys{game, system, emulator}, key, default)` returns each key's value and the layer it came from. The
-  UI shows that layer, and the quick menu saves to a chosen one.
+  UI shows that layer; the game settings tabs write each change to the tab's layer.
 - Keys:
   - `emulator`: System and Game layers only, since the core is what picks the Core layer.
     Resolution: game's manual pick → the game's automatic value (the core its romset matches,
@@ -186,8 +233,9 @@ to these would break the one-owner rule.
 - At launch the shell resolves the layers (beside `MappingEditor::forGame`) and writes the
   resolved values to a per-launch file next to the control file. It passes that file as
   `opensu-retro --settings <file>`, which `main.cpp` reads into typed options.
-- Live changes from the quick menu go over the control channel:
-  - `POST /video` re-plans the presenter between frames.
+- Live changes from the game settings tabs go over the control channel:
+  - `POST /video` (built) takes the resolved video settings and rebuilds the compositor between
+    frames.
   - `POST /options` sets the values in `CoreOptions`, and `GET_VARIABLE_UPDATE` then returns true
     once.
   - `GET /status` gains the preset's parameters (name, label, min, max, step, value).
@@ -313,16 +361,13 @@ All of these use the existing `settings_page` row types (choice, toggle, slider,
   per system with Emulator, Aspect, Integer scale, Sampling, Filter, Shader preset, Bezel, Bezel
   opacity, and Core options (a sub-page from the system's core definitions, which the shell learns
   from the runner's `/status`, or from the last run kept per core). A core's page gets "Core
-  options (all systems)" for the Core layer. "Everywhere" (Global) is one page at the top.
+  options (all systems)" for the Core layer. Global is one page at the top.
 - **Details page** (`app/details_controller`): "Game settings" with the same rows. Each value
   reads "From Super Nintendo", "From snes9x", "Automatic (romset)" or "Set for this game". The
   row's action menu has "Clear (use <layer below>)".
 - **Quick menu** (`app/quick_menu_controller`, only while a game answers on `opensu-retro`'s
-  channel): a Display group (Aspect, Integer scale, Sampling, Filter, Shader, its parameters as
-  sliders, Bezel) and Core options. Changes apply live and are marked unsaved. Each row shows its
-  source layer. "Save to…" offers This game, the system, the core, or Everywhere, and "Clear game
-  overrides" removes the Game layer. Closing with unsaved changes keeps them for this session only
-  and says so in a toast.
+  channel): a "Game settings" row opens the tabs of step 5; changes apply live and are saved to
+  the tab's layer at once. Still to come there: preset parameters as sliders, Bezel, Core options.
 - The shader picker browses `<data>/opensu/shaders/slang/` by folder; the built-in filters keep
   their own Filter row. The bezel picker will browse the overlay folders.
 
@@ -335,10 +380,11 @@ All of these use the existing `settings_page` row types (choice, toggle, slider,
 3. Done: `emulator_choice` in the layers, `settings.json` migrated, the core layer, and
    `mapping_scopes` on the shared `Layer`.
 4. Done: built-in filters: scanlines, LCD grid, a CRT ported from crt-lottes.
-5. Quick menu live changes and "Save to…" (`POST /video`).
+5. Done: the Global / System / Game settings tabs with Override checkboxes, in the quick menu and
+   on the details page, applied live through `POST /video`.
 6. Core options per layer (`options.<core>.<key>`), `GET_VARIABLE_UPDATE`, `POST /options`.
 7. Done except parameters: librashader from a pinned fork, the `shaders_slang.zip` download and
-   the preset picker. Preset parameters as sliders wait for step 5.
+   the preset picker. Preset parameters as sliders not built.
 8. Bezels: the common-overlays download, folder import for Bezel Project packs, the game rect from
    the viewport or the hole.
 9. Touch overlays.

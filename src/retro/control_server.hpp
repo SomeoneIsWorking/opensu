@@ -17,12 +17,28 @@
 
 #include "gamepad/event.hpp"
 #include "gamepad/pad_translator.hpp"
+#include "settings/video_settings.hpp"
 
 #include "lucent/http.h"
 
 namespace opensu::retro {
 
-enum class ControlCommand : std::uint8_t { SaveState, LoadState, Reset };
+enum class ControlCommand : std::uint8_t {
+    SaveState,
+    LoadState,
+    Reset,
+    /// Show frames under `ControlRequest::video` from the next one.
+    Video,
+    /// The last image shown, as PNG; hidden runs only.
+    Frame,
+};
+
+/// A command for the frame loop and what it carries.
+struct ControlRequest {
+    ControlCommand command{};
+    /// `Video`'s settings.
+    settings::VideoSettings video;
+};
 
 /// What a command came to: an HTTP status and, unless it is 200, the reason.
 struct ControlAnswer {
@@ -30,6 +46,8 @@ struct ControlAnswer {
     std::string reason;
     /// Whether the state slot holds a state once the command ran.
     bool hasState{};
+    /// `Frame`'s image.
+    std::string png{};
 };
 
 /// What `POST /input` holds on the control pad until the next one: its buttons and sticks.
@@ -60,7 +78,7 @@ class ControlServer {
     void publish(std::uint64_t frame, bool hasState);
 
     /// Runs every command waiting, on the calling thread. Frame loop only, between frames.
-    void serve(const std::function<ControlAnswer(ControlCommand)>& perform);
+    void serve(const std::function<ControlAnswer(const ControlRequest&)>& perform);
 
     /// The control pad's input posted since the last call, if any. Frame loop only.
     [[nodiscard]] std::optional<ControlInput> takeInput();
@@ -73,13 +91,13 @@ class ControlServer {
 
   private:
     struct Pending {
-        ControlCommand command{};
+        ControlRequest request;
         bool taken{false};
         bool answered{false};
         ControlAnswer answer;
     };
 
-    [[nodiscard]] lucent::http::Response run(ControlCommand command);
+    [[nodiscard]] lucent::http::Response run(ControlRequest request);
 
     std::filesystem::path file_;
     std::string core_;

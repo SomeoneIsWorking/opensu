@@ -18,6 +18,7 @@ constexpr const char* closeGameId = "quick.closeGame";
 constexpr const char* saveStateId = "quick.saveState";
 constexpr const char* loadStateId = "quick.loadState";
 constexpr const char* resetGameId = "quick.resetGame";
+constexpr const char* gameSettingsId = "quick.gameSettings";
 
 std::string percentOf(int percent) {
     return std::to_string(percent) + "%";
@@ -79,6 +80,8 @@ void QuickMenuController::addRetroRows(std::vector<SettingsRow>& rows) {
     if (!status) {
         return;
     }
+    rows.push_back(ui::makeRow(gameSettingsId, RowKind::Action, "Game settings",
+                               "Aspect, filter, shader", "Open"));
     rows.push_back(ui::makeRow(saveStateId, RowKind::Action, "Save state", "", ""));
     if (status->hasState) {
         rows.push_back(ui::makeRow(loadStateId, RowKind::Action, "Load state", "",
@@ -112,6 +115,15 @@ void QuickMenuController::open() {
     outputs_.refresh();
     bluetooth_.readSoon();
     menu_.open(build());
+}
+
+void QuickMenuController::reopenOnGameSettings() {
+    armed_.clear();
+    menu_.open(build());
+    const auto at = std::ranges::find(menu_.rows(), std::string{gameSettingsId}, &SettingsRow::id);
+    if (at != menu_.rows().end()) {
+        menu_.focusRow(static_cast<std::size_t>(at - menu_.rows().begin()));
+    }
 }
 
 void QuickMenuController::close() {
@@ -225,6 +237,13 @@ void QuickMenuController::run(const SettingsRow& focused, int step) {
                 bluetooth_.state().adapter ? &*bluetooth_.state().adapter : nullptr;
             refuse(bluetooth_.setPowered(adapter == nullptr || !adapter->powered));
         }
+    } else if (id == gameSettingsId) {
+        if (step == 0) {
+            // The tabs take the menu's place; no Close sound.
+            menu_.close();
+            hooks_.openGameSettings();
+        }
+        return;
     } else if (id == devicesId) {
         if (step == 0) {
             close();

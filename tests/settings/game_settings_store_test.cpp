@@ -113,9 +113,9 @@ void launchFile() {
     const VideoSettings video{Aspect::FourThree, IntegerScale::Overscale, Sampling::SharpBilinear,
                               Filter::LcdGrid, "/data/shaders/slang/crt/crt-royale.slangp"};
     std::string error;
-    expect(parseLaunchFile(launchFileText(video), error) == video, "the launch file round trips");
-    expect(parseLaunchFile("{}", error) == VideoSettings{}, "a key it lacks keeps its default");
-    expect(!parseLaunchFile(R"({"video.aspect": "wide"})", error) && !error.empty(),
+    expect(parseVideoJson(videoJson(video), error) == video, "the launch file round trips");
+    expect(parseVideoJson("{}", error) == VideoSettings{}, "a key it lacks keeps its default");
+    expect(!parseVideoJson(R"({"video.aspect": "wide"})", error) && !error.empty(),
            "a value that is no choice is refused");
 }
 

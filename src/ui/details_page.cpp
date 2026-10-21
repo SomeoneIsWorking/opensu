@@ -153,30 +153,29 @@ DetailsView detailsFor(const library::Game& game, bool hidden,
     }
 
     view.buttons.push_back(
-        DetailsButton{DetailsAction::Launch, game.installed ? "Play" : "Install", "", ""});
+        DetailsButton{DetailsAction::Launch, game.installed ? "Play" : "Install", ""});
     if (updatable) {
-        view.buttons.push_back(DetailsButton{DetailsAction::Update, "Update", "", ""});
+        view.buttons.push_back(DetailsButton{DetailsAction::Update, "Update", ""});
     }
     if (const library::EmulatorOption* missing = emulatorToDownload(game)) {
-        view.buttons.push_back(DetailsButton{DetailsAction::DownloadEmulator,
-                                             "Download " + missing->name, download, ""});
+        view.buttons.push_back(
+            DetailsButton{DetailsAction::DownloadEmulator, "Download " + missing->name, download});
     }
     if (rom && game.emulatorOptions.size() > 1) {
-        view.buttons.push_back(
-            DetailsButton{DetailsAction::Emulator, "Emulator", game.emulator, ""});
+        view.buttons.push_back(DetailsButton{DetailsAction::Emulator, "Emulator", game.emulator});
     }
     view.buttons.insert(view.buttons.end(), settings.buttons.begin(), settings.buttons.end());
     if (game.windowsInstall) {
-        view.buttons.push_back(DetailsButton{DetailsAction::WinePrefix, "Wine prefix",
-                                             ownPrefix ? "Own" : "Shared", ""});
+        view.buttons.push_back(
+            DetailsButton{DetailsAction::WinePrefix, "Wine prefix", ownPrefix ? "Own" : "Shared"});
     }
     view.buttons.push_back(
-        DetailsButton{DetailsAction::Hidden, hidden ? "Show game" : "Hide game", "", ""});
+        DetailsButton{DetailsAction::Hidden, hidden ? "Show game" : "Hide game", ""});
     if (game.installed && !rom) {
-        view.buttons.push_back(DetailsButton{DetailsAction::Uninstall, "Uninstall", "", ""});
+        view.buttons.push_back(DetailsButton{DetailsAction::Uninstall, "Uninstall", ""});
     }
-    view.buttons.push_back(DetailsButton{DetailsAction::Controls, "Controls", "", ""});
-    view.buttons.push_back(DetailsButton{DetailsAction::Back, "Back", "", ""});
+    view.buttons.push_back(DetailsButton{DetailsAction::Controls, "Controls", ""});
+    view.buttons.push_back(DetailsButton{DetailsAction::Back, "Back", ""});
     return view;
 }
 
@@ -236,10 +235,9 @@ void DetailsPage::refresh(DetailsView view) {
         return;
     }
     const DetailsAction was = selected();
-    const std::string wasSetting = selectedSetting();
     view_ = std::move(view);
     const auto same = std::ranges::find_if(view_.buttons, [&](const DetailsButton& button) {
-        return button.action == was && button.setting == wasSetting;
+        return button.action == was;
     });
     if (same != view_.buttons.end()) {
         focus_ = static_cast<std::size_t>(same - view_.buttons.begin());

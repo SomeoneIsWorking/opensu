@@ -56,7 +56,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame, written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
 | `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission (a GPU core's semaphores waited, its command buffers first, its signal semaphore signalled) and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png`; the wait on the last frame a core's `wait_sync_index` is |
-| `src/retro/frame_compositor.*` | What is drawn into a target: the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame or a GPU core's own image sampled in its layout (queue family ownership taken and given back when it names another family, then a barrier so the core's next writes wait for the read), one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling and filter, black around it; with a shader preset its chain draws into that rectangle instead, from the texture or the core's image |
+| `src/retro/frame_compositor.*` | What is drawn into a target (`change` swaps the video settings between frames, the new preset built before the old one goes): the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame or a GPU core's own image sampled in its layout (queue family ownership taken and given back when it names another family, then a barrier so the core's next writes wait for the read), one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling and filter, black around it; with a shader preset its chain draws into that rectangle instead, from the texture or the core's image |
 | `src/retro/frame_filter.*` | The fragment shader for a sampling and filter, the built-in filters' parameters (`scanlineGrid`, `lcdGrid`, `crtLottes`) and the push block each draw hands the shader |
 | `src/retro/librashader_library.*` | librashader opened by its path (`Config::librashader`), ABI and API checked, its calls with their errors as `ShaderError`; a missing file refuses the preset |
 | `src/retro/shader_chain.*` | One slang preset built on the runner's device (render passes, one frame in flight) and recorded from the frame image into the placed rectangle; history (cleared on the first frame), feedback and LUTs are librashader's |
@@ -68,12 +68,14 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, control commands between frames, the hidden mode for tests |
 | `src/retro/main.cpp` | `opensu-retro`'s command line, the `--settings` file read into `settings::VideoSettings` |
 | `src/settings/setting_layers.*` | The setting layers (Global, System, Emulator — the core layer —, Game) and the one resolution rule, each value with the layer it came from |
-| `src/settings/video_settings.*` | `video.aspect`, `video.integer`, `video.sampling`, `video.filter`, `video.shader` (a path in the pack, `""` for None; a preset replaces sampling and filter): their choices and labels, resolution to typed values, the per-launch settings file |
+| `src/settings/video_settings.*` | `video.aspect`, `video.integer`, `video.sampling`, `video.filter`, `video.shader` (a path in the pack, `""` for None; a preset replaces sampling and filter): their choices and labels, resolution to typed values, the per-launch settings file and `POST /video`'s body (`videoJson`, `parseVideoJson`) |
 | `src/settings/game_settings_store.*` | `<config>/opensu/game-settings.json`, every layer of every key |
 | `src/settings/emulator_pick_migration.*` | The one-time move of `settings.json`'s `emulators` and `systemEmulators` into the game settings |
 | `src/app/game_settings.*` | The layers as the shell holds them, saved with a toast on failure; the words a source reads with |
 | `src/app/retro_launch.*` | A launch on a built-in core: its video settings resolved, written to the launch's settings file, `--settings` added |
-| `src/app/layer_settings.*` | Settings › Emulators' Everywhere, console and core pages |
+| `src/app/layer_settings.*` | Settings › Emulators' Global, console and core pages; the only place the core layer is set |
+| `src/app/game_settings_page.*` | The game settings tabs (Global, console, Game) with Override checkboxes, each change saved and sent to the running game |
+| `src/ui/settings_tabs.*`, `settings_tabs_painter.*` | The tabbed side panel's state, layout and drawing: tabs, rows with an Override checkbox and their two focus places |
 | `src/app/shader_preset_picker.*` | The Shader preset picker: Not set, None, then the pack's folder tree |
 | `src/library/shader_pack.*` | libretro's `shaders_slang.zip`: the latest build (HEAD: `Last-Modified` and size), the download checked by length and each member's CRC-32, unpacked into `<data>/opensu/shaders/slang/` with its record, removal, the presets it holds |
 | `src/library/libretro_cores.*` | Finding a core and its info file; core downloads from the libretro buildbot under `<data>/opensu/cores/`, with their info and record |
@@ -85,9 +87,9 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/library/emulator_choice.*` | The `emulator` key at the Game and System layers: game pick, romset, system pick, search; the layer keys a game reads its settings through |
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release; `"coreOptions"` the core options it starts with (a GPU core's Vulkan renderer) |
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> [--option <key>=<value>]... <rom>`, with `--hidden` from a hidden shell |
-| `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core and of the shader pack, on the same paths as an AppImage; the Shader presets rows; the details page's video buttons, sources and Clear |
-| `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests, the load failure handed over and the file removed |
-| `src/app/quick_menu_controller.*` | Save state, Load state and Reset game while the running game answers on a control channel |
+| `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core and of the shader pack, on the same paths as an AppImage; the Shader presets rows; the details page's video sources, Game settings button and Clear |
+| `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests (`setVideo` for `POST /video`), the load failure handed over and the file removed |
+| `src/app/quick_menu_controller.*` | Game settings, Save state, Load state and Reset game while the running game answers on a control channel |
 | `src/app/game_end.*`, `src/launch/handoff.*` | How a game ended (`Hooks::ended`, the scope's exit status) and the toast it gets |
 
 `retro` depends on `gamepad`, `fileio`, Lucent, nlohmann/json, SDL3, the Vulkan loader and libpng;
@@ -142,9 +144,11 @@ cannot be set up (exit 1), it writes `{"error": "<reason>"}` there instead and l
 | `POST /state/save` | 200; 409 with the reason when the core cannot serialize (`retro_serialize_size` 0 or `retro_serialize` false); 500 when the slot cannot be written |
 | `POST /state/load` | 200; 404 when no state is saved; 409 when the core refuses it |
 | `POST /reset` | 200 after `retro_reset` |
+| `POST /video` | 200 once the video settings in the body (`settings::videoJson`, the `--settings` file's format) are drawn from the next frame; 400 for a body that does not parse; 409 with the reason when the shader preset cannot be built, the settings drawn before kept |
+| `GET /frame.png` | The last frame shown as PNG, letterboxing included (hidden runs only; 409 otherwise) |
 | `POST /input` | 200: the control pad holds `{"buttons": [names], "left": [x, y], "right": [x, y]}` (each part optional, sticks from -1 to 1, y down) until the next post, `{}` letting go; 400 for anything else or Guide |
 
-Every other POST is queued for the frame loop, which runs it between frames, never beside `retro_run`;
+Every route but `GET /status` and `POST /input` is queued for the frame loop, which runs it between frames, never beside `retro_run`;
 the request waits for the answer, and is answered 503 when the loop has not taken it within 3 s or
 the runner is closing. Error bodies are the reason as plain text. The slot is
 `<saves>/<rom stem>.state`, written whole, so a crash mid-write keeps the previous state. The shell
@@ -156,7 +160,8 @@ socket timeout.
 state (one press), Load state (a second press confirms; an Info row reading "No state saved" when
 the slot is empty) and Reset game (a second press confirms) above Close game. A focus move takes the
 first press back. The results are toasts: "State saved", "State loaded", "Game reset", or the
-runner's reason as an error.
+runner's reason as an error. Its "Game settings" row opens the game settings tabs (below) over the
+game; B from them comes back to the quick menu on that row.
 
 **Input.** The runner reads every evdev pad without grabbing it. While the shell holds the real
 pads during a game, the only pad that moves is the shell's virtual Xbox 360 pad, so the Guide
@@ -183,14 +188,26 @@ change it). The scanline and grid bands follow the source pixel grid at any scal
 is darkened by the share of its footprint they cover, so a band always sits on a source pixel edge
 and the picture's mean brightness does not depend on the scale. They are kept in the setting layers
 (`settings/setting_layers`, `<config>/opensu/game-settings.json`): a game's own value, else its
-core's (the `Emulator` layer, by catalog id), else its console's, else Everywhere's, else the
+core's (the `Emulator` layer, by catalog id), else its console's, else Global's, else the
 default; a layer keeps only what it sets and clearing deletes the key. At launch the shell
 (`app/retro_launch`) resolves them for a game on a built-in core, writes
 `<runtime>/opensu/retro-<shell pid>-<n>.settings.json` and starts the runner with `--settings`; the
 file is removed when the session ends. A launch whose file cannot be written does not start.
-Settings › Emulators has a page for Everywhere, each console (its emulator too) and each built-in
-core; a game's details page has its own values, the source of each value a layer keeps and "Clear
-game settings". To check: `opensu-retro --hidden --settings <file> --frames N --frame-png <png>`
+Settings › Emulators has a page for Global, each console (its emulator too) and each built-in
+core; a game's details page shows the source of each value a layer keeps and "Clear game
+settings".
+
+The game settings tabs (`app/game_settings_page`, from the details page's "Game settings" button
+and the quick menu's row) show Global, the game's console and Game, each with the five video rows.
+Global rows are plain values; console and Game rows have an Override checkbox: unticked the row
+shows the inherited value dimmed with its source ("From Global", "From Snes9x (built-in)",
+"Default"), ticked the value is the layer's own and opens for editing, and unticking deletes the
+key. The core layer is not a tab: it is set in Settings › Emulators and shows only as a source
+(the console tab inherits Global and the default, `SettingLayers::inherited`; a row a layer above
+overrides says "Overridden by <layer>"). L1/R1 switch tabs, A ticks or opens, Left/Right move
+between the checkbox and the value, B backs out; a tap focuses and presses A. Each change is
+saved at once and, when that game is running, resolved again (`retroVideoOf`) and sent as
+`POST /video`, so it shows on the next frame. To check: `opensu-retro --hidden --settings <file> --frames N --frame-png <png>`
 and compare the picture's box in the PNG; for a filter, divide its frame by the `none` frame inside
 the box and compare each pixel with 1 − shade × band coverage.
 

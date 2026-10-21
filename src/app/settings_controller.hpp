@@ -89,10 +89,6 @@ class SettingsController {
     void openCategory(const std::string& id);
     /// Closes the screen with iiSU's Close sound.
     void close();
-    /// Opens the screen on the shader preset picker of `layer`, named `name`, over `inherited`;
-    /// leaving the picker closes the screen.
-    void openShaderPicker(const settings::Layer& layer, const std::string& name,
-                          const std::string& inherited);
     /// A button while the screen is up and no chooser is over it.
     void act(gamepad::Button button);
     /// A click on a slider's track at `level`.
