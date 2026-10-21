@@ -225,8 +225,9 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | `src/retro/audio_output.*` | The sink on the SDL playback device, or drained by the clock when hidden |
 | `src/retro/joypad.*` | `gamepad::Button` and SDL scancodes to `RETRO_DEVICE_JOYPAD`; the pads' and the control pad's sticks to `RETRO_DEVICE_ANALOG` (analogue stick, touch cursor) |
 | `src/retro/save_memory.*` | Save RAM: load, change check, atomic `.srm` write |
-| `src/retro/presenter.*` | The SDL window and its events; Vulkan swapchain or hidden offscreen image, frame texture, letterboxed draw, read-back |
-| `src/retro/vulkan_device.*` | Vulkan instance (optional validation), device and graphics queue |
+| `src/retro/presenter.*` | The SDL window and its events; Vulkan swapchain or hidden offscreen image, each frame's submission and present, read-back |
+| `src/retro/frame_compositor.*` | What a target shows: render pass, frame texture upload, the letterboxed draw (`letterbox`) |
+| `src/retro/vulkan_device.*` | Vulkan instance (optional validation), device and graphics queue; memory, image views and 2D image descriptions for its owners |
 | `src/retro/shaders/` | GLSL for the frame, compiled by glslc into SPIR-V headers in the build tree (gpu2d's `gpu2d_compile_shaders`) |
 | `tests/retro/` | Fake cores (`fake_core.cpp`, built three times: serializing, crashing, stateless), unit tests of each owner, `core_test`, and `runner_test` running `opensu-retro --hidden` end to end, its control channel included |
 
