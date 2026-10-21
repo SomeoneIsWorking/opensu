@@ -1,54 +1,33 @@
-// mapping_scopes — every button mapping the player keeps and which one applies to a game: the
-// game's own, else its emulator's (every game an emulator runs shares that one), else the global
-// one, else none. A mapping replaces the one under it whole, so what applies is always one visible
-// map. Also the Steam Input switch, global and per game: while Steam Input has a game, no mapping
-// applies to it, and the game's own mapping cannot be changed.
+// mapping_scopes — every button mapping the player keeps, one per setting layer
+// (`settings::Layer`), and which one applies to a game: the first of the game's own, its
+// emulator's (every game an emulator runs shares that one), its system's and the global one that
+// keeps a mapping, else none. A mapping replaces the one under it whole, so what applies is always
+// one visible map. Also the Steam Input switch, global and per game: while Steam Input has a game,
+// no mapping applies to it, and the game's own mapping cannot be changed.
 #pragma once
 
-#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
 
 #include "button_map.hpp"
+#include "settings/setting_layers.hpp"
 
 namespace opensu::input {
 
-/// Where a mapping is kept.
-struct MappingScope {
-    enum class Kind : std::uint8_t { Global, Emulator, Game };
-
-    Kind kind{Kind::Global};
-    /// The emulator's catalog id or the game's id; empty for the global scope.
-    std::string id;
-
-    bool operator==(const MappingScope&) const = default;
-};
-
-/// The keys a game's mapping is found by.
-struct GameKeys {
-    /// `library::Game::id`.
-    std::string game;
-    /// The catalog id of the emulator it runs on; empty for a native game.
-    std::string emulator;
-
-    bool operator==(const GameKeys&) const = default;
-};
-
 class MappingScopes {
   public:
-    /// The mapping kept at `scope`, or null when it keeps none.
-    [[nodiscard]] const ButtonMap* at(const MappingScope& scope) const;
-    /// Keeps `map` at `scope`.
-    void set(const MappingScope& scope, ButtonMap map);
-    /// Keeps nothing at `scope`, so the scope under it applies.
-    void clear(const MappingScope& scope);
+    /// The mapping kept at `layer`, or null when it keeps none.
+    [[nodiscard]] const ButtonMap* at(const settings::Layer& layer) const;
+    /// Keeps `map` at `layer`.
+    void set(const settings::Layer& layer, ButtonMap map);
+    /// Keeps nothing at `layer`, so the layer under it applies.
+    void clear(const settings::Layer& layer);
 
-    /// The scope whose mapping applies to `keys`: the first of game, emulator and global that keeps
-    /// one, or nothing.
-    [[nodiscard]] std::optional<MappingScope> source(const GameKeys& keys) const;
+    /// The layer whose mapping applies to `keys`: the first of them that keeps one, or nothing.
+    [[nodiscard]] std::optional<settings::Layer> source(const settings::LayerKeys& keys) const;
     /// The mapping that applies to `keys`; empty while Steam Input has the game.
-    [[nodiscard]] ButtonMap resolve(const GameKeys& keys) const;
+    [[nodiscard]] ButtonMap resolve(const settings::LayerKeys& keys) const;
 
     [[nodiscard]] bool steamInputGlobal() const noexcept {
         return steamInputGlobal_;
@@ -62,14 +41,9 @@ class MappingScopes {
     /// Whether Steam Input has the game: its own choice, else the global one.
     [[nodiscard]] bool steamInput(const std::string& game) const;
 
-    [[nodiscard]] const std::optional<ButtonMap>& global() const noexcept {
-        return global_;
-    }
-    [[nodiscard]] const std::map<std::string, ButtonMap>& emulators() const noexcept {
-        return emulators_;
-    }
-    [[nodiscard]] const std::map<std::string, ButtonMap>& games() const noexcept {
-        return games_;
+    /// Every layer that keeps a mapping.
+    [[nodiscard]] const std::map<settings::Layer, ButtonMap>& maps() const noexcept {
+        return maps_;
     }
     [[nodiscard]] const std::map<std::string, bool>& steamInputGames() const noexcept {
         return steamInputGames_;
@@ -78,9 +52,7 @@ class MappingScopes {
     bool operator==(const MappingScopes&) const = default;
 
   private:
-    std::optional<ButtonMap> global_;
-    std::map<std::string, ButtonMap> emulators_;
-    std::map<std::string, ButtonMap> games_;
+    std::map<settings::Layer, ButtonMap> maps_;
     bool steamInputGlobal_{false};
     std::map<std::string, bool> steamInputGames_;
 };

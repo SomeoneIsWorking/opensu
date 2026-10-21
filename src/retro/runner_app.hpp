@@ -6,6 +6,8 @@
 #include <filesystem>
 #include <optional>
 
+#include "settings/video_settings.hpp"
+
 namespace opensu::retro {
 
 /// How a run ends.
@@ -39,6 +41,8 @@ struct RunnerOptions {
     std::optional<std::filesystem::path> framePng;
     /// Where the control channel is announced, or a load failure reported; none when empty.
     std::filesystem::path control;
+    /// How the frame is shown: the shell's per-launch settings, else the defaults.
+    settings::VideoSettings video;
 };
 
 class RunnerApp {

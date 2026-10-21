@@ -262,4 +262,9 @@ std::optional<fs::path> gameFile(const RomSystem& system, const fs::path& entry)
     return *std::ranges::max_element(pool, {}, sizeOf);
 }
 
+std::string systemLabel(std::string_view key) {
+    const RomSystem* system = systemByKey(key);
+    return system != nullptr ? std::string{system->label} : std::string{key};
+}
+
 } // namespace opensu::library::roms

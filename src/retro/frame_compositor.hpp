@@ -1,6 +1,7 @@
 // frame_compositor — what the runner draws into a target: the core's frame uploaded to a texture
-// and drawn with its aspect kept, letterboxed in black. The presenter owns the window, the targets
-// and the submission; this owns the render pass every target's framebuffer is made for.
+// and drawn at the aspect, integer scale and sampling of the game's video settings, the rest of the
+// target black. The presenter owns the window, the targets and the submission; this owns the
+// render pass every target's framebuffer is made for.
 #pragma once
 
 #include <cstdint>
@@ -8,6 +9,7 @@
 
 #include <vulkan/vulkan.h>
 
+#include "settings/video_settings.hpp"
 #include "vulkan_device.hpp"
 
 namespace opensu::retro {
@@ -23,10 +25,16 @@ struct FrameImage {
 /// The largest rectangle of `aspect` centred in `extent`; all of it when `aspect` is not positive.
 [[nodiscard]] VkRect2D letterbox(VkExtent2D extent, float aspect);
 
+/// Where `frame` is drawn in `extent` under `video`, centred. An overscaled frame is larger than
+/// `extent` and starts before it.
+[[nodiscard]] VkRect2D placeFrame(VkExtent2D extent, const FrameImage& frame,
+                                  const settings::VideoSettings& video);
+
 class FrameCompositor {
   public:
     /// Targets are images of `format`, left in `finalLayout`; throws VulkanError.
-    FrameCompositor(const VulkanDevice& device, VkFormat format, VkImageLayout finalLayout);
+    FrameCompositor(const VulkanDevice& device, VkFormat format, VkImageLayout finalLayout,
+                    const settings::VideoSettings& video);
     FrameCompositor(const FrameCompositor&) = delete;
     FrameCompositor& operator=(const FrameCompositor&) = delete;
     FrameCompositor(FrameCompositor&&) = delete;
@@ -53,10 +61,11 @@ class FrameCompositor {
     void destroyTexture();
     void recordUpload(VkCommandBuffer commands, const FrameImage& frame);
     void recordDraw(VkCommandBuffer commands, VkFramebuffer target, VkExtent2D extent,
-                    float aspect);
+                    const FrameImage& frame);
 
     const VulkanDevice& device_;
     VkDevice vk_{VK_NULL_HANDLE};
+    settings::VideoSettings video_;
     VkRenderPass renderPass_{VK_NULL_HANDLE};
     VkDescriptorSetLayout setLayout_{VK_NULL_HANDLE};
     VkPipelineLayout pipelineLayout_{VK_NULL_HANDLE};

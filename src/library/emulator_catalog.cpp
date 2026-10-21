@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 
 #include "lucent/log.h"
+#include "rom_systems.hpp"
 
 namespace opensu::library::roms {
 namespace {
@@ -227,6 +228,19 @@ EmulatorCatalog EmulatorCatalog::builtInOnly() const {
     std::vector<EmulatorEntry> kept;
     std::ranges::copy_if(entries_, std::back_inserter(kept), &EmulatorEntry::builtIn);
     return EmulatorCatalog{std::move(kept)};
+}
+
+std::vector<std::string> EmulatorCatalog::servedSystems() const {
+    std::vector<std::string> systems;
+    for (const RomSystem& system : romSystems()) {
+        const bool served = std::ranges::any_of(entries_, [&system](const EmulatorEntry& entry) {
+            return entry.serves(system.key);
+        });
+        if (served) {
+            systems.emplace_back(system.key);
+        }
+    }
+    return systems;
 }
 
 const EmulatorEntry* EmulatorCatalog::find(std::string_view id) const {

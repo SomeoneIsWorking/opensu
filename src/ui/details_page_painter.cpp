@@ -22,6 +22,10 @@ constexpr float badgeSp = 13.0f;
 constexpr float rowLabelSp = 14.0f;
 constexpr float rowValueSp = 16.0f;
 constexpr float buttonSp = 17.0f;
+/// Between the title and the badge, around the badge's text, and below the badge.
+constexpr float titleGapDp = 10.0f;
+constexpr float badgePadDp = 8.0f;
+constexpr float badgeGapDp = 18.0f;
 constexpr float rowHeightDp = 27.0f;
 constexpr float labelColumnDp = 120.0f;
 /// Rows that do not fit above the buttons go beside them when that column is this wide.
@@ -101,6 +105,11 @@ void DetailsPagePainter::paintCover(Canvas& canvas, const DetailsLayout& layout,
                           layout.art.centreY(), letter, withAlpha(inkSoft, alpha));
 }
 
+float DetailsPagePainter::headerHeight(float dp) const noexcept {
+    return typeface_.lineBox(TextStyle{titleSp * dp}) + titleGapDp * dp +
+           typeface_.lineBox(TextStyle{badgeSp * dp}) + badgePadDp * dp + badgeGapDp * dp;
+}
+
 void DetailsPagePainter::paintText(Canvas& canvas, const DetailsLayout& layout,
                                    const DetailsPage& page, float dp, float alpha) const {
     const DetailsView& view = page.view();
@@ -109,18 +118,18 @@ void DetailsPagePainter::paintText(Canvas& canvas, const DetailsLayout& layout,
     float y = text.y + typeface_.lineBox(title) * 0.5f;
     typeface_.drawCentred(canvas, typeface_.fitted(view.title, text.width, title), text.x, y, title,
                           withAlpha(ink, alpha));
-    y += typeface_.lineBox(title) * 0.5f + 10.0f * dp;
+    y += typeface_.lineBox(title) * 0.5f + titleGapDp * dp;
 
     const TextStyle badge{badgeSp * dp};
     const float badgeWidth = typeface_.measure(view.badge, badge) + 20.0f * dp;
-    const float badgeHeight = typeface_.lineBox(badge) + 8.0f * dp;
+    const float badgeHeight = typeface_.lineBox(badge) + badgePadDp * dp;
     fillRoundRect(canvas, RoundRect{Rect{text.x, y, badgeWidth, badgeHeight}, badgeHeight * 0.5f},
                   [alpha](Point, float) {
                       return withAlpha(badgeFill, alpha);
                   });
     typeface_.drawCentred(canvas, view.badge, text.x + 10.0f * dp, y + badgeHeight * 0.5f, badge,
                           withAlpha(ink, alpha));
-    y += badgeHeight + 18.0f * dp;
+    y += badgeHeight + badgeGapDp * dp;
 
     const TextStyle label{rowLabelSp * dp};
     const TextStyle value{rowValueSp * dp};
@@ -191,9 +200,9 @@ void DetailsPagePainter::paintButtons(Canvas& canvas, const DetailsPage& page,
                               rect.x + pad, rect.centreY(), text, withAlpha(ink, alpha));
         if (!buttons[i].value.empty()) {
             // Only a choice steps with Left and Right; other values are read-outs.
-            const std::string shown = buttons[i].action == DetailsAction::Emulator
-                                          ? "<  " + buttons[i].value + "  >"
-                                          : buttons[i].value;
+            const bool steps = buttons[i].action == DetailsAction::Emulator ||
+                               buttons[i].action == DetailsAction::Setting;
+            const std::string shown = steps ? "<  " + buttons[i].value + "  >" : buttons[i].value;
             const float label = typeface_.measure(page.shown(i), text);
             const std::string fitted =
                 typeface_.fitted(shown, rect.width - 2.0f * pad - label - valueGapDp * dp, text);

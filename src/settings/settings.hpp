@@ -6,19 +6,22 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "config/config.hpp"
 #include "input/shortcuts.hpp"
 #include "install_folders.hpp"
 #include "integrations.hpp"
-#include "library/emulator_choice.hpp"
 #include "library/library_query.hpp"
 #include "library/play_history.hpp"
 #include "library/sections.hpp"
 #include "library/wine.hpp"
 
 namespace opensu::settings {
+
+/// The file's name in the config directory.
+inline constexpr std::string_view settingsFile = "settings.json";
 
 /// iiSU's icon size level bounds and default (`xmbIconSizeLevel`, navigation.md §2.2).
 inline constexpr int minIconSize = 1;
@@ -64,9 +67,6 @@ struct Settings {
 
     /// When each game was last launched from opensu.
     library::PlayHistory lastPlayed;
-
-    /// The emulator picked for each ROM that has a pick.
-    library::EmulatorChoices emulators;
 
     /// How the home grid scrolls, when the player chose; else OPENSU_HOME_MODE (iiSU
     /// `singleScreenHomeDashboardMode`).

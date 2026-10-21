@@ -1,51 +1,53 @@
 #include "emulator_choice.hpp"
 
 #include <algorithm>
+#include <string>
 
 namespace opensu::library {
 namespace {
 
-/// The pick for `game`: its own, else its system's; null when it has none.
-const std::string* pickFor(const Game& game, const EmulatorChoices::Entries& games,
-                           const EmulatorChoices::Entries& systems) {
-    if (const auto own = games.find(game.id); own != games.end()) {
-        return &own->second;
-    }
-    if (game.source != Source::Rom) {
+using settings::Layer;
+
+/// The option `game` lists by the name `layer` keeps, or null.
+const EmulatorOption* listed(const settings::SettingLayers& layers, const Layer& layer,
+                             const Game& game) {
+    const std::string* name = layers.at(layer, emulatorKey);
+    if (name == nullptr) {
         return nullptr;
     }
-    const auto system = systems.find(game.sourceId);
-    return system == systems.end() ? nullptr : &system->second;
+    const auto option = std::ranges::find(game.emulatorOptions, *name, &EmulatorOption::name);
+    return option == game.emulatorOptions.end() ? nullptr : &*option;
 }
 
 } // namespace
 
-void EmulatorChoices::set(const std::string& gameId, const std::string& emulator) {
-    entries_.insert_or_assign(gameId, emulator);
-}
-
-void EmulatorChoices::setSystem(const std::string& system, const std::string& emulator) {
-    if (emulator.empty()) {
-        systems_.erase(system);
-    } else {
-        systems_.insert_or_assign(system, emulator);
+EmulatorPick pickFor(const settings::SettingLayers& layers, const Game& game) {
+    const EmulatorSource automatic =
+        game.romset.empty() ? EmulatorSource::Search : EmulatorSource::Romset;
+    const Layer own{Layer::Kind::Game, game.id};
+    if (layers.at(own, emulatorKey) != nullptr) {
+        // A pick of an emulator no longer listed keeps what the search found.
+        const EmulatorOption* option = listed(layers, own, game);
+        return option != nullptr ? EmulatorPick{option, EmulatorSource::Game}
+                                 : EmulatorPick{nullptr, automatic};
     }
+    if (game.source != Source::Rom) {
+        return EmulatorPick{nullptr, automatic};
+    }
+    const EmulatorOption* system = listed(layers, Layer{Layer::Kind::System, game.sourceId}, game);
+    // A system's pick gives way to a core the romset matches, or waits for the romset to be
+    // checked.
+    if (system == nullptr || system->romset == RomsetFit::Mismatch ||
+        system->romset == RomsetFit::Pending) {
+        return EmulatorPick{nullptr, automatic};
+    }
+    return EmulatorPick{system, EmulatorSource::System};
 }
 
-void EmulatorChoices::apply(std::vector<Game>& games) const {
+void applyEmulatorPicks(const settings::SettingLayers& layers, std::vector<Game>& games) {
     for (Game& game : games) {
-        const std::string* pick = pickFor(game, entries_, systems_);
-        if (pick == nullptr) {
-            continue;
-        }
-        const auto option = std::ranges::find(game.emulatorOptions, *pick, &EmulatorOption::name);
-        if (option == game.emulatorOptions.end()) {
-            continue;
-        }
-        // A system's pick gives way to a core the romset matches, or waits for the romset to be
-        // checked; the game's own pick does not.
-        if ((option->romset == RomsetFit::Mismatch || option->romset == RomsetFit::Pending) &&
-            !entries_.contains(game.id)) {
+        const EmulatorOption* option = pickFor(layers, game).option;
+        if (option == nullptr) {
             continue;
         }
         game.emulator = option->name;
@@ -58,6 +60,18 @@ void EmulatorChoices::apply(std::vector<Game>& games) const {
             game.unavailable = option->name + " is not installed";
         }
     }
+}
+
+settings::LayerKeys layerKeysOf(const Game& game) {
+    settings::LayerKeys keys{game.id, {}, {}};
+    if (game.source == Source::Rom) {
+        keys.system = game.sourceId;
+    }
+    const auto runs = std::ranges::find(game.emulatorOptions, game.emulator, &EmulatorOption::name);
+    if (!game.emulator.empty() && runs != game.emulatorOptions.end()) {
+        keys.emulator = runs->id;
+    }
+    return keys;
 }
 
 } // namespace opensu::library

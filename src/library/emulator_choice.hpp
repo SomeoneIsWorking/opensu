@@ -1,55 +1,49 @@
-// emulator_choice — the emulator the player picked, kept per game and per system. A game's own
-// pick comes first, then its system's, then the emulator the search found for the system.
+// emulator_choice — the `emulator` setting: which emulator a ROM runs on, kept at the game and
+// system setting layers. A game's own pick comes first; then its arcade romset's verdict, which a
+// system's pick gives way to when the romset does not match it (the game layer's automatic value);
+// then its system's pick; then the emulator the search found. Also the layer keys a game reads its
+// settings through.
 #pragma once
 
-#include <map>
-#include <string>
+#include <cstdint>
+#include <string_view>
 #include <vector>
 
 #include "game.hpp"
+#include "settings/setting_layers.hpp"
 
 namespace opensu::library {
 
-class EmulatorChoices {
-  public:
-    /// Game id, or system key, to the emulator's name.
-    using Entries = std::map<std::string, std::string>;
+/// The key the pick is kept under at the game and system layers.
+inline constexpr std::string_view emulatorKey = "emulator";
 
-    EmulatorChoices() = default;
-    explicit EmulatorChoices(Entries games, Entries systems = {})
-        : entries_{std::move(games)}, systems_{std::move(systems)} {
-    }
-
-    /// Picks `emulator` for the game `gameId`.
-    void set(const std::string& gameId, const std::string& emulator);
-    /// Picks `emulator` for every game of `system` without a pick of its own; an empty name goes
-    /// back to the emulator the search finds.
-    void setSystem(const std::string& system, const std::string& emulator);
-
-    /// Points each ROM with a pick, its own or its system's, at that emulator: the game's
-    /// `launch` and `emulator` follow the pick, and `unavailable` says so when the pick is not
-    /// installed. A ROM with no pick, one whose emulator is no longer listed for it, or a
-    /// system's pick its arcade romset does not match, keeps what the search found.
-    void apply(std::vector<Game>& games) const;
-
-    /// The games' picks.
-    [[nodiscard]] const Entries& entries() const noexcept {
-        return entries_;
-    }
-    /// The systems' picks.
-    [[nodiscard]] const Entries& systems() const noexcept {
-        return systems_;
-    }
-    /// Forgets every game's pick; the systems' stay.
-    void clearGames() noexcept {
-        entries_.clear();
-    }
-
-    bool operator==(const EmulatorChoices&) const = default;
-
-  private:
-    Entries entries_;
-    Entries systems_;
+/// Where a game's emulator comes from.
+enum class EmulatorSource : std::uint8_t {
+    /// The game's own pick.
+    Game,
+    /// The core the game's arcade romset matched.
+    Romset,
+    /// Its system's pick.
+    System,
+    /// What the search found for its system.
+    Search,
 };
+
+/// A game's emulator and where it comes from. `option` is the pick when one applies; null when
+/// the game keeps what the search and its romset chose.
+struct EmulatorPick {
+    const EmulatorOption* option{nullptr};
+    EmulatorSource source{EmulatorSource::Search};
+};
+
+/// The pick that applies to `game`: a pick naming an emulator no longer listed for it is none.
+[[nodiscard]] EmulatorPick pickFor(const settings::SettingLayers& layers, const Game& game);
+
+/// Points each ROM with a pick that applies at that emulator: the game's `launch` and `emulator`
+/// follow the pick, and `unavailable` says so when the pick is not installed.
+void applyEmulatorPicks(const settings::SettingLayers& layers, std::vector<Game>& games);
+
+/// The layers `game` reads its settings through: its own, its emulator's, its system's.
+[[nodiscard]] settings::LayerKeys layerKeysOf(const Game& game);
 
 } // namespace opensu::library

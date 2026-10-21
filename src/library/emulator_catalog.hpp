@@ -100,6 +100,8 @@ class EmulatorCatalog {
     [[nodiscard]] const EmulatorEntry* findByName(std::string_view name) const;
     /// The built-in emulators alone, which openSU's runner plays.
     [[nodiscard]] EmulatorCatalog builtInOnly() const;
+    /// The keys of the systems an entry serves, in the order the library lists systems.
+    [[nodiscard]] std::vector<std::string> servedSystems() const;
 
   private:
     std::vector<EmulatorEntry> entries_;

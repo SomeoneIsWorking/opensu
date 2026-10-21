@@ -48,6 +48,7 @@ add_library(opensu::library ALIAS opensu_library)
 target_include_directories(opensu_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_library
     PUBLIC opensu::vdf
+        opensu::setting_layers
         opensu::config
         opensu::net
     PRIVATE opensu::command opensu::fileio opensu::zip lucent::lucent OpenSSL::Crypto

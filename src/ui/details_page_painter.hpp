@@ -31,6 +31,9 @@ class DetailsPagePainter {
     explicit DetailsPagePainter(Typeface& typeface) noexcept : typeface_{typeface} {
     }
 
+    /// The height the title and badge take at the top of the page at `dp` pixels per dp.
+    [[nodiscard]] float headerHeight(float dp) const noexcept;
+
     /// Draws `page` in `layout` over a `size` frame at `dp` pixels per dp, at opacity `alpha`.
     void paint(Canvas& canvas, const DetailsPage& page, const DetailsLayout& layout,
                const DetailsArt& art, Point size, float dp, float alpha) const;

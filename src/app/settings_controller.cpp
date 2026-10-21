@@ -77,7 +77,13 @@ std::size_t around(std::size_t value, int step, std::size_t count) {
 } // namespace
 
 std::string SettingsController::category() const {
-    return page_.isOpen() ? page_.focusedCategory().label : std::string{};
+    if (!page_.isOpen()) {
+        return {};
+    }
+    const ui::SettingsCategory& focused = page_.focusedCategory();
+    return layers_.isOpen() && focused.id == EmulatorSettings::categoryId
+               ? focused.label + " › " + layers_.openName()
+               : focused.label;
 }
 
 bool SettingsController::changes() const {
@@ -87,8 +93,12 @@ bool SettingsController::changes() const {
 
 std::vector<ui::SettingsCategory> SettingsController::build() const {
     const settings::Integrations& in = inForce_.current();
+    ui::SettingsCategory emulators = emulators_.page(layers_.openRows());
+    if (std::optional<ui::SettingsCategory> layer = layers_.page(emulators.id, emulators.label)) {
+        emulators = std::move(*layer);
+    }
     std::vector<ui::SettingsCategory> pages{appearancePage(), libraryPage(), integrations_.page(),
-                                            emulators_.page()};
+                                            std::move(emulators)};
     if (in.lists(library::Source::Steam)) {
         pages.push_back(steamLibraries_.page());
     }
@@ -146,11 +156,10 @@ ui::SettingsCategory SettingsController::libraryPage() const {
     page.rows.push_back(ui::makeRow(
         hiddenId, RowKind::Action, "Show hidden games again", "Brings back every game you hid",
         v.hidden.keys().empty() ? "None hidden" : countOf(v.hidden.keys().size(), "game")));
-    page.rows.push_back(ui::makeRow(emulatorsId, RowKind::Action, "Reset emulator choices",
-                                    "Every ROM goes back to its default emulator",
-                                    v.emulators.entries().empty()
-                                        ? "None chosen"
-                                        : countOf(v.emulators.entries().size(), "game")));
+    page.rows.push_back(ui::makeRow(
+        emulatorsId, RowKind::Action, "Reset emulator choices",
+        "Every ROM goes back to its default emulator",
+        layers_.gamePicks() == 0 ? "None chosen" : countOf(layers_.gamePicks(), "game")));
     page.rows.push_back(ui::makeRow(
         "roms.list", RowKind::Info, "ROM folders",
         v.romFolders.empty() && !defaults_.romRoots.empty() ? "From OPENSU_ROM_ROOTS"
@@ -270,6 +279,7 @@ ui::SettingsCategory SettingsController::aboutPage() const {
 
 void SettingsController::open() {
     emulators_.rescan();
+    layers_.close();
     if (inForce_.current().lists(library::Source::Steam)) {
         steamLibraries_.reload();
     }
@@ -332,6 +342,16 @@ void SettingsController::changed() {
     refresh();
 }
 
+void SettingsController::closeLayer() {
+    const std::string opener = layers_.openRowId();
+    layers_.close();
+    sounds_.play(audio::Effect::Navigation);
+    refresh();
+    const std::vector<ui::SettingsRow>& rows = page_.focusedCategory().rows;
+    const auto at = std::ranges::find(rows, opener, &ui::SettingsRow::id);
+    page_.focusRow(at == rows.end() ? 0 : static_cast<std::size_t>(at - rows.begin()));
+}
+
 void SettingsController::showCategories() {
     if (page_.leaveRows()) {
         sounds_.play(audio::Effect::Navigation);
@@ -380,7 +400,10 @@ void SettingsController::act(gamepad::Button button) {
         }
         break;
     case gamepad::Button::B:
-        if (inRows) {
+        if (inRows && layers_.isOpen() &&
+            page_.focusedCategory().id == EmulatorSettings::categoryId) {
+            closeLayer();
+        } else if (inRows) {
             showCategories();
         } else {
             close();
@@ -445,6 +468,19 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
             sounds_.play(audio::Effect::Navigation);
             chords_.run(id, step);
             refresh();
+        }
+        return;
+    }
+    if (LayerSettings::owns(id)) {
+        if (focused.kind == RowKind::Info) {
+            return;
+        }
+        sounds_.play(audio::Effect::Navigation);
+        const bool wasOpen = layers_.isOpen();
+        layers_.run(id, step);
+        refresh();
+        if (!wasOpen && layers_.isOpen()) {
+            page_.focusRow(0);
         }
         return;
     }
@@ -574,7 +610,7 @@ void SettingsController::runLibrary(const std::string& id, int step) {
         v.hidden = library::HiddenGames{};
         hooks_.reshow();
     } else if (id == emulatorsId) {
-        v.emulators.clearGames();
+        layers_.clearGamePicks();
         hooks_.reloadCatalog();
     } else if (id == romResetId) {
         v.romFolders.clear();

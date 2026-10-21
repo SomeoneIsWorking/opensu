@@ -31,6 +31,10 @@ enum class DetailsAction : std::uint8_t {
     Hidden,
     /// Uninstall an installed store game, on a second press.
     Uninstall,
+    /// Step one of the game's settings (`DetailsButton::setting`) to its next value.
+    Setting,
+    /// Clear every setting the game keeps of its own.
+    ClearSettings,
     /// Edit the game's button mapping.
     Controls,
     Back,
@@ -41,6 +45,8 @@ struct DetailsButton {
     DetailsAction action{DetailsAction::Back};
     std::string label;
     std::string value;
+    /// The setting a `Setting` button steps; empty for the others.
+    std::string setting;
 
     bool operator==(const DetailsButton&) const = default;
 };
@@ -74,12 +80,25 @@ lastPlayedText(const std::optional<std::chrono::system_clock::time_point>& at,
 /// can download it, else the first such emulator of its system; null for none.
 [[nodiscard]] const library::EmulatorOption* emulatorToDownload(const library::Game& game);
 
+/// The game's settings as the page shows them.
+struct GameSettingsView {
+    /// Where the game's emulator comes from ("Automatic (romset)", "From Super Nintendo"), added
+    /// to the Emulator row; empty for none.
+    std::string emulatorSource;
+    /// After the Emulator row: the value of each setting a layer keeps and where it comes from.
+    std::vector<DetailsRow> rows;
+    /// After the Emulator button: a `Setting` button per setting, then `ClearSettings` when the
+    /// game keeps any of its own.
+    std::vector<DetailsButton> buttons;
+};
+
 /// What the page shows for `game`; `hidden` is whether the player hid it. `download` is what the
 /// Download button reads beside its label: the running download's progress, or empty.
 /// `ownPrefix` is whether a Windows install runs in a Wine prefix of its own.
 [[nodiscard]] DetailsView detailsFor(const library::Game& game, bool hidden,
                                      std::chrono::system_clock::time_point now,
-                                     const std::string& download = {}, bool ownPrefix = false);
+                                     const std::string& download = {}, bool ownPrefix = false,
+                                     const GameSettingsView& settings = {});
 
 /// The page and its buttons in pixels.
 struct DetailsLayout {
@@ -97,10 +116,17 @@ struct DetailsLayout {
     [[nodiscard]] std::optional<std::size_t> buttonAt(float x, float y) const noexcept;
 };
 
+/// What the page lays out besides its frame.
+struct DetailsParts {
+    /// The pixels the title and badge take above the buttons.
+    float header{};
+    std::size_t buttons{};
+};
+
 /// The page between `topInset` and `bottomInset` in a `width` x `height` frame at `dp` pixels per
-/// dp, with `buttons` buttons.
+/// dp. The buttons stay below the header, growing shorter when they would not fit beneath it.
 [[nodiscard]] DetailsLayout layoutDetails(float width, float height, float dp, float topInset,
-                                          float bottomInset, std::size_t buttons);
+                                          float bottomInset, DetailsParts parts);
 
 class DetailsPage {
   public:
@@ -131,6 +157,10 @@ class DetailsPage {
     bool focusButton(std::size_t index) noexcept;
     [[nodiscard]] DetailsAction selected() const noexcept {
         return view_.buttons[focus_].action;
+    }
+    /// The focused button's setting; empty unless it is a `Setting` button.
+    [[nodiscard]] const std::string& selectedSetting() const noexcept {
+        return view_.buttons[focus_].setting;
     }
 
     /// Asks the focused button for a second press; `confirm` says what that press does.

@@ -16,9 +16,10 @@ namespace {
 namespace fs = std::filesystem;
 using namespace opensu::input;
 using opensu::gamepad::Button;
+using opensu::settings::Layer;
 using opensu::settings::MappingStore;
 using opensu::test::expect;
-using Kind = MappingScope::Kind;
+using Kind = Layer::Kind;
 
 void write(const fs::path& file, const std::string& text) {
     fs::create_directories(file.parent_path());
@@ -37,7 +38,7 @@ MappingScopes sample() {
                global.setButton(Button::B, {Button::A}).empty() &&
                global.setButton(Button::X, {}).empty(),
            "the global swap");
-    scopes.set(MappingScope{}, global);
+    scopes.set(Layer{}, global);
     ButtonMap emulator;
     expect(emulator.setChord(PadChord{Button::Select, Button::R1}, Action::SaveState).empty() &&
                emulator
@@ -45,8 +46,8 @@ MappingScopes sample() {
                              PadOutput{Button::Select, Button::Start})
                    .empty(),
            "an emulator's chords");
-    scopes.set(MappingScope{Kind::Emulator, "pcsx2"}, emulator);
-    scopes.set(MappingScope{Kind::Game, "rom:/r/Kirby.gba"}, ButtonMap{});
+    scopes.set(Layer{Kind::Emulator, "pcsx2"}, emulator);
+    scopes.set(Layer{Kind::Game, "rom:/r/Kirby.gba"}, ButtonMap{});
     scopes.setSteamInputGlobal(true);
     scopes.setSteamInput("steam:620", false);
     return scopes;
@@ -58,7 +59,7 @@ void roundTrip(const fs::path& dir) {
     std::string error;
     expect(store.save(sample(), error) && error.empty(), "the mappings are written");
     expect(store.load() == sample(), "and read back as they were");
-    expect(store.load().at(MappingScope{Kind::Game, "rom:/r/Kirby.gba"}) != nullptr,
+    expect(store.load().at(Layer{Kind::Game, "rom:/r/Kirby.gba"}) != nullptr,
            "a game's empty mapping is kept: it still replaces its emulator's");
     expect(read(store.file()).find("\"saveState\"") != std::string::npos,
            "actions are kept by their settings spelling");
@@ -78,15 +79,14 @@ void damage(const fs::path& dir) {
         "steamInput": {"global": "yes", "games": {"steam:1": true, "steam:2": 3}}
     })");
     const MappingScopes loaded = store.load();
-    const ButtonMap* global = loaded.at(MappingScope{});
+    const ButtonMap* global = loaded.at(Layer{});
     expect(global != nullptr && global->buttons().size() == 1 &&
                global->output(Button::A) == PadOutput{Button::B},
            "the good button stays and the damaged ones are left out");
     expect(global->chords().size() == 1 &&
                global->chords().front().output == ChordOutput{Action::LoadState},
            "as do the damaged chords");
-    expect(loaded.emulators().empty() && loaded.games().empty(),
-           "a mapping that is not one is left out");
+    expect(loaded.maps().size() == 1, "a mapping that is not one is left out");
     expect(!loaded.steamInputGlobal() && loaded.steamInputOf("steam:1") == true &&
                !loaded.steamInputOf("steam:2"),
            "and so are Steam Input values that are not true or false");
@@ -100,7 +100,7 @@ void aFailedSaveKeepsTheOldFile(const fs::path& dir) {
     const std::string before = read(store.file());
     fs::permissions(folder, fs::perms::owner_read | fs::perms::owner_exec);
     MappingScopes changed = sample();
-    changed.clear(MappingScope{});
+    changed.clear(Layer{});
     const bool saved = store.save(changed, error);
     fs::permissions(folder, fs::perms::owner_all);
     expect(!saved && !error.empty(), "a save into a folder that cannot be written fails");

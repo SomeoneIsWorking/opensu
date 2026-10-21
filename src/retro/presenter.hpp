@@ -24,6 +24,8 @@ struct PresenterOptions {
     int height{800};
     /// The Vulkan validation layer, with its errors counted.
     bool validation{false};
+    /// How the frame is shown.
+    settings::VideoSettings video;
 };
 
 /// What the window reported since the last poll.

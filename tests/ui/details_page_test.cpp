@@ -171,7 +171,8 @@ void winePrefix() {
 }
 
 void layout() {
-    const DetailsLayout page = layoutDetails(1280.0f, 800.0f, 1.5f, 90.0f, 70.0f, 3);
+    const DetailsLayout page =
+        layoutDetails(1280.0f, 800.0f, 1.5f, 90.0f, 70.0f, DetailsParts{140.0f, 3});
     expect(page.buttons.size() == 3 && page.art.y == 90.0f && page.art.bottom() == 730.0f,
            "the cover fills the room between the bars");
     expect(page.buttons[0].x >= page.art.right() && page.buttons[2].bottom() == page.art.bottom(),
@@ -186,6 +187,12 @@ void layout() {
                "a button's centre hits it");
     }
     expect(!page.buttonAt(page.art.centreX(), page.art.centreY()), "the cover is no button");
+    const DetailsLayout crowded =
+        layoutDetails(1280.0f, 800.0f, 1.5f, 90.0f, 70.0f, DetailsParts{140.0f, 10});
+    expect(crowded.buttons.front().y >= 90.0f + 140.0f - 0.01f &&
+               crowded.buttons.back().bottom() <= crowded.art.bottom() + 0.01f &&
+               crowded.buttons[1].y > crowded.buttons[0].bottom(),
+           "buttons too many for the room shrink below the title and badge, still apart");
 }
 
 void uninstallTakesASecondPress() {

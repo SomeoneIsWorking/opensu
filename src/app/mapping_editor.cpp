@@ -11,7 +11,7 @@ namespace opensu::app {
 namespace {
 
 using gamepad::Button;
-using Kind = input::MappingScope::Kind;
+using Kind = settings::Layer::Kind;
 
 constexpr std::string_view steamRow = "steam";
 constexpr std::string_view buttonRow = "button.";
@@ -85,16 +85,6 @@ std::vector<std::string> glyphsOf(const input::PadOutput& output) {
 
 } // namespace
 
-input::GameKeys mappingKeys(const library::Game& game) {
-    input::GameKeys keys{game.id, {}};
-    const auto runs =
-        std::ranges::find(game.emulatorOptions, game.emulator, &library::EmulatorOption::name);
-    if (!game.emulator.empty() && runs != game.emulatorOptions.end()) {
-        keys.emulator = runs->id;
-    }
-    return keys;
-}
-
 MappingEditor::MappingEditor(ui::MappingPage& page, settings::MappingStore store,
                              audio::SdlSoundPlayer& sounds, const input::Shortcuts& shell,
                              Hooks hooks)
@@ -103,16 +93,23 @@ MappingEditor::MappingEditor(ui::MappingPage& page, settings::MappingStore store
 }
 
 void MappingEditor::openGame(const library::Game& game) {
-    open(Target{input::MappingScope{Kind::Game, game.id}, "Controls · " + game.title,
-                mappingKeys(game), game.source == library::Source::Steam});
+    open(Target{settings::Layer{Kind::Game, game.id}, "Controls · " + game.title,
+                library::layerKeysOf(game), game.source == library::Source::Steam});
 }
 
 void MappingEditor::openEmulator(const std::string& id, const std::string& name) {
-    open(Target{input::MappingScope{Kind::Emulator, id}, "Controls · " + name, {}, false});
+    open(Target{settings::Layer{Kind::Emulator, id}, "Controls · " + name, {}, false});
 }
 
 void MappingEditor::openGlobal() {
-    open(Target{input::MappingScope{}, "Controls · every game", {}, false});
+    open(Target{settings::Layer{}, "Controls · every game", {}, false});
+}
+
+settings::LayerKeys MappingEditor::under() const {
+    if (target_.scope.kind != Kind::Game) {
+        return {};
+    }
+    return settings::LayerKeys{{}, target_.keys.system, target_.keys.emulator};
 }
 
 void MappingEditor::open(Target target) {
@@ -146,9 +143,7 @@ input::ButtonMap MappingEditor::shown() const {
     if (target_.scope.kind == Kind::Global) {
         return {};
     }
-    const input::GameKeys under{
-        {}, target_.scope.kind == Kind::Game ? target_.keys.emulator : std::string{}};
-    const std::optional<input::MappingScope> from = scopes_.source(under);
+    const std::optional<settings::Layer> from = scopes_.source(under());
     return from ? *scopes_.at(*from) : input::ButtonMap{};
 }
 
@@ -163,10 +158,10 @@ std::string MappingEditor::note() const {
                : kind == Kind::Emulator ? "Shared by every game this emulator runs"
                                         : "Every game's, unless its emulator or the game has one";
     } else {
-        const input::GameKeys under{{}, kind == Kind::Game ? target_.keys.emulator : ""};
-        const std::optional<input::MappingScope> from = scopes_.source(under);
+        const std::optional<settings::Layer> from = scopes_.source(under());
         text = !from                          ? "Every button sends itself"
                : from->kind == Kind::Emulator ? "From its emulator's mapping"
+               : from->kind == Kind::System   ? "From its system's mapping"
                                               : "From the mapping for every game";
         text += "; a change makes ";
         text += kind == Kind::Game ? "this game's own" : "its own";
@@ -457,11 +452,13 @@ std::vector<ui::SettingsRow> MappingEditor::settingsRows() const {
     std::vector<ui::SettingsRow> rows;
     rows.push_back(ui::makeRow(std::string{globalSetting}, ui::RowKind::Action, "Button mapping",
                                "Every game's, unless it has its own",
-                               scopes_.global() ? "Custom" : "None"));
+                               scopes_.at(settings::Layer{}) != nullptr ? "Custom" : "None"));
     std::string value = "No emulators";
     if (!emulators.empty()) {
         const Emulator& picked = emulators[std::min(emulator_, emulators.size() - 1)];
-        value = picked.name + (scopes_.emulators().contains(picked.id) ? " · custom" : "");
+        value =
+            picked.name +
+            (scopes_.at(settings::Layer{Kind::Emulator, picked.id}) != nullptr ? " · custom" : "");
     }
     rows.push_back(ui::makeRow(std::string{emulatorSetting}, ui::RowKind::Choice,
                                "Emulator mapping", "Shared by the emulator's games", value));

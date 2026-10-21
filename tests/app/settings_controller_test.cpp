@@ -104,10 +104,10 @@ struct Rig {
                              ++chordChanges;
                          }},
           controller{page,
-                     app::SettingsController::Services{paths, shortcutEditor, volume, shortcuts,
-                                                       emulatorSettings, steamLibrarySettings,
-                                                       pluginSettings, chordSettings, mappings,
-                                                       wine, integrationSettings, inForce},
+                     app::SettingsController::Services{
+                         paths, shortcutEditor, volume, shortcuts, emulatorSettings, layerSettings,
+                         steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
+                         integrationSettings, inForce},
                      sounds,
                      preferences,
                      config,
@@ -237,12 +237,20 @@ struct Rig {
                                       },
                                       [] {
                                       }}};
+    app::GameSettings gameSettings{
+        settings::GameSettingsStore{file.parent_path() / settings::gameSettingsFile}, file,
+        [this](const std::string& why) {
+            failures.push_back(why);
+        }};
     app::EmulatorSettings emulatorSettings{
-        downloads, preferences,
-        app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
-                                         said.push_back({text, error});
+        downloads, app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
+            said.push_back({text, error});
+        }}};
+    app::LayerSettings layerSettings{gameSettings,
+                                     [this]() -> const library::roms::Emulators& {
+                                         return emulatorSettings.found();
                                      },
-                                     [] {
+                                     app::LayerSettings::Hooks{[] {
                                      }}};
     steam::Libraries steamLibraries{devTools};
     app::SteamLibrarySettings steamLibrarySettings{

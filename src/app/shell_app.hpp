@@ -39,6 +39,7 @@
 #include "focus_follow.hpp"
 #include "game_launch.hpp"
 #include "game_screen.hpp"
+#include "game_settings.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pads.hpp"
 #include "gamescope_windows.hpp"
@@ -231,10 +232,16 @@ class ShellApp final : private PointerHost {
     const config::Config& environment_;
     Settings settings_;
     /// What the player chose, read at start and saved when it changes.
-    Preferences preferences_{settings::Store{environment_.configDir / "settings.json"},
+    Preferences preferences_{settings::Store{environment_.configDir / settings::settingsFile},
                              [this](const std::string& why) {
                                  shell_.setToast(why, true);
                              }};
+    /// The per-console, per-core and per-game setting layers, read at start and saved on change.
+    GameSettings gameSettings_{
+        settings::GameSettingsStore{environment_.configDir / settings::gameSettingsFile},
+        environment_.configDir / settings::settingsFile, [this](const std::string& why) {
+            shell_.setToast(why, true);
+        }};
     /// Which integrations and which Steam mode are in force; before everything that asks.
     IntegrationsInForce integrations_{preferences_, settings_.loginSession};
     /// The environment's configuration with what the player set in place of it: the roots the
@@ -359,13 +366,17 @@ class ShellApp final : private PointerHost {
                                  }}};
     /// The Settings screen's Emulators category.
     EmulatorSettings emulatorSettings_{
-        emulatorDownloads_, preferences_,
-        EmulatorSettings::Hooks{[this](const std::string& text, bool isError) {
-                                    shell_.setToast(text, isError);
-                                },
-                                [this] {
-                                    reloadCatalog();
-                                }}};
+        emulatorDownloads_, EmulatorSettings::Hooks{[this](const std::string& text, bool isError) {
+            shell_.setToast(text, isError);
+        }}};
+    /// Settings › Emulators' pages for Everywhere, each console and each core.
+    LayerSettings layerSettings_{gameSettings_,
+                                 [this]() -> const library::roms::Emulators& {
+                                     return emulatorSettings_.found();
+                                 },
+                                 LayerSettings::Hooks{[this] {
+                                     reloadCatalog();
+                                 }}};
     /// The button mappings, and their page over the details page and Settings › Controls.
     MappingEditor mappings_{
         shell_.mappingPage(),
@@ -388,6 +399,7 @@ class ShellApp final : private PointerHost {
         shell_.detailsPage(),
         sounds_,
         preferences_,
+        gameSettings_,
         emulatorDownloads_,
         uninstallPrompt_,
         updateRequest_,
@@ -511,9 +523,9 @@ class ShellApp final : private PointerHost {
     SettingsController settingsScreen_{
         shell_.settingsPanels().page(),
         SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts(),
-                                     emulatorSettings_, steamLibrarySettings_, pluginSettings_,
-                                     chordSettings_, mappings_, wineSettings_, integrationSettings_,
-                                     integrations_},
+                                     emulatorSettings_, layerSettings_, steamLibrarySettings_,
+                                     pluginSettings_, chordSettings_, mappings_, wineSettings_,
+                                     integrationSettings_, integrations_},
         sounds_,
         preferences_,
         environment_,

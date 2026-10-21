@@ -54,23 +54,31 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame, written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
 | `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png` |
-| `src/retro/frame_compositor.*` | What is drawn into a target: the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame, one pipeline drawing it with its aspect kept and letterboxed black |
+| `src/retro/frame_compositor.*` | What is drawn into a target: the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame, one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling, black around it |
 | `src/retro/vulkan_device.*` | The Vulkan instance (validation layer and its error count on request) and the one device and graphics queue, the objects a Vulkan core will be handed in phase 3 |
 | `src/retro/png_encoder.*` | RGBA to PNG bytes through libpng |
-| `src/retro/shaders/frame.{vert,frag}` | The frame's two shaders, compiled by glslc at build time into SPIR-V headers under the build tree |
+| `src/retro/shaders/frame.{vert,frag}`, `sharp_bilinear.frag` | The frame's shaders (sharp-bilinear: integer prescale then bilinear), compiled by glslc at build time into SPIR-V headers under the build tree |
 | `src/retro/save_state.*` | The one state slot `<saves>/<rom stem>.state`: `retro_serialize` written whole, read back through `retro_unserialize` |
 | `src/retro/control_server.*` | The runner's loopback `lucent::http::Server`: the control file (port and pid, or the load failure), the routes, the hand-over of each command and of the control pad's input to the frame loop |
 | `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, control commands between frames, the hidden mode for tests |
-| `src/retro/main.cpp` | `opensu-retro`'s command line |
+| `src/retro/main.cpp` | `opensu-retro`'s command line, the `--settings` file read into `settings::VideoSettings` |
+| `src/settings/setting_layers.*` | The setting layers (Global, System, Emulator — the core layer —, Game) and the one resolution rule, each value with the layer it came from |
+| `src/settings/video_settings.*` | `video.aspect`, `video.integer`, `video.sampling`: their choices and labels, resolution to typed values, the per-launch settings file |
+| `src/settings/game_settings_store.*` | `<config>/opensu/game-settings.json`, every layer of every key |
+| `src/settings/emulator_pick_migration.*` | The one-time move of `settings.json`'s `emulators` and `systemEmulators` into the game settings |
+| `src/app/game_settings.*` | The layers as the shell holds them, saved with a toast on failure; the words a source reads with |
+| `src/app/retro_launch.*` | A launch on a built-in core: its video settings resolved, written to the launch's settings file, `--settings` added |
+| `src/app/layer_settings.*` | Settings › Emulators' Everywhere, console and core pages |
 | `src/library/libretro_cores.*` | Finding a core and its info file; core downloads from the libretro buildbot under `<data>/opensu/cores/`, with their info and record |
 | `src/library/core_bios.*` | A core's BIOS files from its core info, what it does without them, which are in the system folder |
 | `src/library/romset_dat.*` | An arcade core's ROM-set listing: a Logiqx datafile or MAME `-listxml` parsed, its line format under the cache |
 | `src/library/romset_dats.*` | The arcade cores' listings fetched over HTTPS from the catalog's `"romsets"` and kept under `<cache>/romsets/` for 30 days |
 | `src/library/romset_lists.*` | Those fetches off the library scan, one at a time on a thread, each one's state (bytes, done, failed and when it is tried again) for the Downloads page |
 | `src/library/romset_match.*` | An arcade zip's central directory against each listing, the verdicts kept by file stamps, the game's emulator picked by them |
+| `src/library/emulator_choice.*` | The `emulator` key at the Game and System layers: game pick, romset, system pick, search; the layer keys a game reads its settings through |
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release |
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> <rom>`, with `--hidden` from a hidden shell |
-| `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core, on the same paths as an AppImage |
+| `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core, on the same paths as an AppImage; the details page's video buttons, sources and Clear |
 | `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests, the load failure handed over and the file removed |
 | `src/app/quick_menu_controller.*` | Save state, Load state and Reset game while the running game answers on a control channel |
 | `src/app/game_end.*`, `src/launch/handoff.*` | How a game ended (`Hooks::ended`, the scope's exit status) and the toast it gets |
@@ -82,8 +90,11 @@ video; `audio_output` includes SDL audio; `joypad` uses SDL's scancode values on
 
 ## 4. Contracts
 
-**Command line.** `opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--hidden]
-[--validate] [--frames N] [--frame-png <file>] <rom>`. `--saves` defaults to
+**Command line.** `opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings
+<file>] [--hidden] [--validate] [--frames N] [--frame-png <file>] <rom>`. `--settings` names a JSON
+object of resolved video settings (`{"video.aspect": "4:3", "video.integer": "off",
+"video.sampling": "nearest"}`); a key it lacks keeps its default, a value that is no choice is exit
+1. The runner never reads `game-settings.json`. `--saves` defaults to
 `<data>/opensu/saves/<core name>/` (the core file's stem without `_libretro`; the launcher passes
 the system's folder), `--system` to `<data>/opensu/system/`, both from `config::Config`. `--hidden`,
 `--validate`, `--frames` and `--frame-png` are for tests and tools: `--hidden` is an unmapped SDL
@@ -148,6 +159,21 @@ on the virtual pad's -32768 to 32767, y down; of several pads, each axis the one
 source beside the pads. There is no mouse, so `RETRO_DEVICE_POINTER` reads 0: melonDS DS's touch
 screen is its joystick mode, the right stick moving its cursor and R2 touching.
 
+**Video settings.** Aspect (`core`: the core's `aspect_ratio`; `4:3`; `pixel`: 1:1 pixels;
+`stretch`: the whole target), integer scale (`off`; `on`: the largest whole multiple of the frame's
+height that fits, width from the aspect; `overscale`: the next multiple up, clipped to the target)
+and sampling (`nearest`, `bilinear`, `sharp-bilinear`). They are kept in the setting layers
+(`settings/setting_layers`, `<config>/opensu/game-settings.json`): a game's own value, else its
+core's (the `Emulator` layer, by catalog id), else its console's, else Everywhere's, else the
+default; a layer keeps only what it sets and clearing deletes the key. At launch the shell
+(`app/retro_launch`) resolves them for a game on a built-in core, writes
+`<runtime>/opensu/retro-<shell pid>-<n>.settings.json` and starts the runner with `--settings`; the
+file is removed when the session ends. A launch whose file cannot be written does not start.
+Settings › Emulators has a page for Everywhere, each console (its emulator too) and each built-in
+core; a game's details page has its own values, the source of each value a layer keeps and "Clear
+game settings". To check: `opensu-retro --hidden --settings <file> --frames N --frame-png <png>`
+and compare the picture's box in the PNG.
+
 **Pacing.** Frames run at the core's rate on a clock (`sleep_until`; more than four frames behind,
 the clock restarts rather than bursting); the swapchain presents in mailbox, else immediate, else
 FIFO mode, so presenting does not hold the clock to vblank. Audio goes out at 48 kHz stereo: the
@@ -209,8 +235,8 @@ emulator when it matches, else takes the first matching one installed, else name
 matching one as not installed (the details page offers its download); with every core checked and
 none matching the game's `launch` is empty and `unavailable` is "No arcade core matches this
 romset", with `romsetNearest` the core that lacks the fewest files and which. A core whose listing
-cannot be had is unchecked and changes nothing. `EmulatorChoices::apply` skips a system's pick the
-romset does not match; a game's own pick always applies. Verdicts are kept in
+cannot be had is unchecked and changes nothing. `library::applyEmulatorPicks` skips a system's pick
+the romset does not match (the game layer's automatic value); a game's own pick always applies. Verdicts are kept in
 `<cache>/romsets/matches.json` with the stamp (size, modification time) of the zip and of every
 file the match looked at, absent ones included, and the listings' source CRC-32s; a scan reads
 nothing more of a zip whose stamps all hold.

@@ -24,6 +24,13 @@ nlohmann::json readControl(const std::filesystem::path& file) {
     return nlohmann::json::parse(text, nullptr, false);
 }
 
+/// The settings file beside control file `control`.
+std::filesystem::path settingsBeside(const std::filesystem::path& control) {
+    std::filesystem::path file = control;
+    file.replace_extension(".settings.json");
+    return file;
+}
+
 } // namespace
 
 RetroSession::RetroSession(std::filesystem::path directory) : directory_{std::move(directory)} {
@@ -36,7 +43,13 @@ std::string RetroSession::begin() {
     port_.reset();
     std::error_code error;
     std::filesystem::remove(file_, error);
+    std::filesystem::remove(settingsBeside(file_), error);
     return std::string{variable} + "=" + file_.string();
+}
+
+std::filesystem::path RetroSession::settingsFile() {
+    const std::lock_guard lock{mutex_};
+    return file_.empty() ? std::filesystem::path{} : settingsBeside(file_);
 }
 
 std::string RetroSession::end() {
@@ -51,6 +64,7 @@ std::string RetroSession::end() {
     }
     std::error_code error;
     std::filesystem::remove(file_, error);
+    std::filesystem::remove(settingsBeside(file_), error);
     file_.clear();
     port_.reset();
     return failure;

@@ -36,6 +36,7 @@ struct Rig {
     ui::DetailsPage page;
     audio::SdlSoundPlayer sounds;
     app::Preferences preferences;
+    app::GameSettings gameSettings;
     library::Game game;
     std::vector<std::string> calls;
     /// Why `Installs` would refuse the uninstall; empty when it would not.
@@ -51,6 +52,10 @@ struct Rig {
         : preferences{settings::Store{dir / "settings.json"},
                       [](const std::string&) {
                       }},
+          gameSettings{settings::GameSettingsStore{dir / settings::gameSettingsFile},
+                       dir / settings::settingsFile,
+                       [](const std::string&) {
+                       }},
           game{rom("rom:/r/Kirby.nsp")},
           downloads{library::roms::EmulatorSetup{},
                     app::EmulatorDownloads::Hooks{[](const std::string&, bool) {
@@ -81,6 +86,7 @@ struct Rig {
           controller{page,
                      sounds,
                      preferences,
+                     gameSettings,
                      downloads,
                      uninstall,
                      update,

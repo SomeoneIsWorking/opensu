@@ -99,7 +99,8 @@ void Presenter::open() {
     }
     compositor_ = std::make_unique<FrameCompositor>(
         *device_, format_,
-        options_.hidden ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        options_.hidden ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        options_.video);
 
     VkCommandPoolCreateInfo pool{};
     pool.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
