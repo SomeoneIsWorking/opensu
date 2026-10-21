@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -65,6 +66,9 @@ class Pads {
 
     /// The pads connected now, in the order they connected. Any thread.
     [[nodiscard]] std::vector<PadInfo> connected() const;
+
+    /// Where each connected pad's sticks stand now, by `PadInfo::id`. Any thread.
+    [[nodiscard]] std::map<std::string, Sticks> sticks() const;
 
     /// Claims every pad for a game (Game), its virtual pads sending what `map` says. Returns what
     /// the game needs in its environment to read only the virtual pads: SDL hides every other
@@ -137,6 +141,7 @@ class Pads {
     bool appliedMissed_{false};
     std::vector<Event> events_;
     std::vector<PadInfo> connected_;
+    std::map<std::string, Sticks> sticks_;
 
     std::jthread thread_;
 };

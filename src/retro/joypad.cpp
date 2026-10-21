@@ -1,6 +1,7 @@
 #include "joypad.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <utility>
 
 #include <SDL3/SDL_scancode.h>
@@ -60,6 +61,7 @@ std::optional<unsigned> Joypad::idOfKey(int scancode) {
 void Joypad::apply(const gamepad::Event& event) {
     if (event.kind == gamepad::Event::Kind::Disconnected) {
         pads_.erase(event.source);
+        sticks_.erase(event.source);
         return;
     }
     if (event.kind != gamepad::Event::Kind::Button) {
@@ -75,6 +77,10 @@ void Joypad::apply(const gamepad::Event& event) {
     }
     int& presses = pad->second[*id];
     presses = event.pressed ? presses + 1 : std::max(presses - 1, 0);
+}
+
+void Joypad::sticks(const std::string& source, const gamepad::Sticks& sticks) {
+    sticks_.insert_or_assign(source, sticks);
 }
 
 void Joypad::key(int scancode, bool down) {
@@ -106,6 +112,24 @@ std::int16_t Joypad::state(unsigned id) const {
         return 0;
     }
     return static_cast<std::int16_t>((bits >> id) & 1U);
+}
+
+std::int16_t Joypad::analog(unsigned index, unsigned id) const {
+    // RETRO_DEVICE_INDEX_ANALOG_BUTTON, analogue buttons, is not reported.
+    if (index > RETRO_DEVICE_INDEX_ANALOG_RIGHT || id > RETRO_DEVICE_ID_ANALOG_Y) {
+        return 0;
+    }
+    const bool left = index == RETRO_DEVICE_INDEX_ANALOG_LEFT;
+    const bool x = id == RETRO_DEVICE_ID_ANALOG_X;
+    std::int32_t furthest = 0;
+    for (const auto& [source, sticks] : sticks_) {
+        const std::int32_t value =
+            left ? (x ? sticks.leftX : sticks.leftY) : (x ? sticks.rightX : sticks.rightY);
+        if (std::abs(value) > std::abs(furthest)) {
+            furthest = value;
+        }
+    }
+    return static_cast<std::int16_t>(std::clamp(furthest, -32768, 32767));
 }
 
 } // namespace opensu::retro

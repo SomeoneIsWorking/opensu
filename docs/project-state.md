@@ -1213,8 +1213,8 @@ download, launching a downloaded AppImage, versions of packaged emulators (not s
 ### S031 — Built-in emulator cores
 
 A catalog entry with `"core"` is a built-in emulator (`library/emulator_catalog`): mGBA (GB, GBC,
-GBA), Gambatte (GB, GBC), Snes9x, Mesen, PCSX ReARMed, and for Arcade FinalBurn Neo, MAME 2003-Plus,
-MAME 2010 and MAME (current), listed after the standalone emulators so a system's automatic
+GBA), Gambatte (GB, GBC), Snes9x, Mesen, PCSX ReARMed, melonDS DS (Nintendo DS), and for Arcade
+FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME (current), listed after the standalone emulators so a system's automatic
 emulator does not change where one is installed. Genesis Plus GX and PicoDrive are not listed:
 openSU has no Mega Drive, Master System, Game Gear, Sega CD or 32X system
 (`docs/issues/more-libretro-cores.md`). A core is found in
@@ -1285,6 +1285,18 @@ the quick menu ("armwar closed"). Tests: `romset_match_test` (`RomsetLists` agai
 host, pending verdicts), `downloads_board_test`, `downloads_controller_test`, `web_client_test`.
 Gap: the toast's text draws very small (also in the earlier `scratch/arcade/` frames).
 
+Nintendo DS (2026-10-21, `scratch/nds/evidence/`, hidden shell, `OPENSU_ROM_ROOTS=/mnt/Boy/ROM`):
+the Nintendo DS shelf listed the four Castlevania ROMs (`shell-02-nds-shelf.png`); the details page
+downloaded melonDS DS into the scratch data dir (`melondsds_libretro 2026-10-20 installed … (CRC-32
+78c08a1d)`, `shell-05-core-installed.png`); Dawn of Sorrow ran on `opensu-retro --hidden` (`/status`
+frame 155, 276, 397 two seconds apart, `shell-06-runner-status.txt`) and closed from the quick menu
+("Castlevania - Dawn of Sorrow closed", an 8 KB `.srm`). The core needs no BIOS or firmware files
+(FreeBIOS and its built-in firmware) and never asks for a hardware renderer. Touch on a pad: the
+right stick and R2 opened Delete Data from the save menu, the same run without R2 did not
+(`touch-1-…`, `touch-2-…`, `touch-3-…`). Details in `docs/issues/more-libretro-cores.md`.
+Unverified: a DS game with a real pad under Gamescope; mouse touch is missing (the runner takes no
+mouse).
+
 ### S032 — The libretro runner
 
 `opensu-retro` (`src/retro/`, design in `docs/design/libretro.md`) loads one core, answers its
@@ -1322,8 +1334,9 @@ also passes on lavapipe with validation.
 
 Unverified: a visible window under Gamescope with sound on a device, a real pad and the shell's
 virtual pad driving a game (`pads_test`'s new reader case cannot pass on this machine while the
-running openSU holds every new pad; the pre-change test binary fails the same way). Missing: ports
-beyond the first, analogue sticks (`RETRO_DEVICE_ANALOG`), core option changes. Unverified: the quick menu's
+running openSU holds every new pad; the pre-change test binary fails the same way). Both sticks reach cores as `RETRO_DEVICE_ANALOG` from the pads and from the control
+channel's `POST /input` pad (Dawn of Sorrow's touch cursor moved by the right stick, S031).
+Missing: ports beyond the first, a mouse (`RETRO_DEVICE_POINTER`), core option changes. Unverified: the quick menu's
 state rows over a real game in Gamescope, and the crash toast after a real crash from the shell.
 Control requests run on the shell's loop, so a runner that stops answering holds the shell for up to
 5 s (the loopback client's socket timeout).

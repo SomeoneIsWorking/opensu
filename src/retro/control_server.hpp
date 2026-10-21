@@ -11,7 +11,12 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <vector>
+
+#include "gamepad/event.hpp"
+#include "gamepad/pad_translator.hpp"
 
 #include "lucent/http.h"
 
@@ -25,6 +30,12 @@ struct ControlAnswer {
     std::string reason;
     /// Whether the state slot holds a state once the command ran.
     bool hasState{};
+};
+
+/// What `POST /input` holds on the control pad until the next one: its buttons and sticks.
+struct ControlInput {
+    std::vector<gamepad::Button> buttons;
+    gamepad::Sticks sticks;
 };
 
 class ControlServer {
@@ -50,6 +61,9 @@ class ControlServer {
 
     /// Runs every command waiting, on the calling thread. Frame loop only, between frames.
     void serve(const std::function<ControlAnswer(ControlCommand)>& perform);
+
+    /// The control pad's input posted since the last call, if any. Frame loop only.
+    [[nodiscard]] std::optional<ControlInput> takeInput();
 
     /// Leaves `{"error": reason}` in `file` for the shell, which removes it; logged when it cannot.
     static void reportLoadFailure(const std::filesystem::path& file, const std::string& reason);
@@ -77,6 +91,7 @@ class ControlServer {
     std::uint64_t frame_{0};
     bool hasState_{false};
     bool announced_{false};
+    std::optional<ControlInput> input_;
     /// Last, so its handler threads stop before the members they use go.
     lucent::http::Server server_;
 };

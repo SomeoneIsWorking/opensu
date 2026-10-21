@@ -1003,7 +1003,7 @@ void Shell::drawOverGame(Canvas& canvas, Point size) {
     guide_.draw(canvas, size, dp());
     session_.draw(canvas, size, dp(), now_, seconds);
     drawChordHint(canvas, size);
-    hud_.drawToast(canvas);
+    hud_.drawToast(canvas, size.y);
 }
 
 void Shell::drawChordHint(Canvas& canvas, Point size) {
@@ -1033,8 +1033,11 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     const gpu2d::Rect whole{0.0f, 0.0f, static_cast<float>(scene.width()),
                             static_cast<float>(scene.height())};
     canvas.image(scene.view(gpu2d::Filter::Nearest), whole, whole, white);
+    float toastFloor = size.y;
     if (!detailsFade_.visible(now_) && !settings_.pageVisible(now_) && !menuPageVisible()) {
-        drawDock(canvas, scene, dockFrame(size.x, size.y));
+        const DockFrame dock = dockFrame(size.x, size.y);
+        drawDock(canvas, scene, dock);
+        toastFloor = std::min(toastFloor, DockPainter::top(dock.layout, dock.style));
     }
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
     launchPanelPainter_.paint(canvas, launchPanel_, size, dp(), seconds);
@@ -1050,7 +1053,7 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
                                 volumeOsd_.look(now_));
     }
     drawChordHint(canvas, size);
-    hud_.drawToast(canvas);
+    hud_.drawToast(canvas, toastFloor);
 }
 
 } // namespace opensu::ui

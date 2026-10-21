@@ -1,6 +1,7 @@
 # More libretro cores, arcade on every romset version
 
-Status: open. Arcade is done (below); the Sega cores and the rest of the list are next.
+Status: open. Arcade and Nintendo DS are done (below); the Sega cores and the rest of the list are
+next.
 
 The player: "more libretro options, I noticed I can't play Arcade games ... since no libretro option
 for it is there right now", and "new emulator versions make it so the older rom sets don't work, I
@@ -20,10 +21,61 @@ Next, by what the runner can already host (software rendering):
 - Genesis Plus GX and PicoDrive (both on the buildbot, `hw_render = "false"`), once `rom_systems`
   has Mega Drive, Master System, Game Gear, Sega CD and 32X. Left for the next change: the
   player's ROM folder has none of those systems to prove them with.
-- Beetle PCE, Beetle NGP, Beetle WonderSwan, Stella, Handy, ProSystem, melonDS DS / DeSmuME (NDS).
+- Beetle PCE, Beetle NGP, Beetle WonderSwan, Stella, Handy, ProSystem.
 
 GPU cores (Mupen64Plus-Next, Beetle PSX HW, Flycast, PPSSPP) wait for phase 3 of
 `docs/design/libretro.md` (`RETRO_ENVIRONMENT_SET_HW_RENDER`).
+
+## Nintendo DS
+
+`assets/emulators.json` lists melonDS DS (`melondsds_libretro`, 1.4.0) as "melonDS DS (built-in)"
+for the existing `nds` system (`.nds`), after the standalone melonDS. The other candidate was
+DeSmuME (`desmume_libretro`). Both are in the buildbot's x86_64 Linux nightly folder (2026-10-20,
+CRC-32 78c08a1d and 75dcc4c4) and both core infos say `hw_render = "true"` with every BIOS and
+firmware file optional. Both ran Dawn of Sorrow in `opensu-retro --hidden` as it is: neither asked
+for `RETRO_ENVIRONMENT_SET_HW_RENDER` (melonDS DS's Render Mode defaults to Software; the refused
+commands, with `LUCENT_DEBUG=retro`, are rotation, rumble, username, language, controller and
+subsystem info and the like). melonDS DS is taken: it boots without any file ("Falling back to
+built-in firmware", "Falling back to FreeBIOS"), it reads the right stick and a pointer for the
+touch screen, and it is the maintained one (DeSmuME's libretro core reports "git 95b4d79" and needs
+an option to use real BIOS files). So no refusal is needed: a player's `bios7.bin`, `bios9.bin`
+and `firmware.bin` would go in `<data>/opensu/system/` (not tried).
+
+Touch screen: melonDS DS's Touch Mode defaults to Auto, joystick or pointer whichever moved last.
+In joystick mode the right stick moves its cursor and R2 touches (R3 cycles its screen layouts, L2
+speeds the cursor, L3 is the microphone). The runner now gives cores `RETRO_DEVICE_ANALOG`: the pads'
+sticks (`gamepad::PadTranslator::sticks`, `gamepad::Pads::sticks`) through `retro/joypad`, so on a
+pad the right stick and R2 work as the core intends. The runner takes no mouse, so
+`RETRO_DEVICE_POINTER` reads 0 and mouse touch is not there. The layout is the core's default,
+Top/Bottom, 256 × 384, letterboxed on the screen (533 × 800 at 1280 × 800); kept.
+
+The runner's control channel has `POST /input` (`{"buttons": [...], "left": [x, y], "right":
+[x, y]}`), held on a pad of its own until the next post, so a hidden run can be driven.
+
+Proof (`scratch/nds/evidence/`, hidden shell, `OPENSU_ROM_ROOTS=/mnt/Boy/ROM`, XDG and HOME under
+`scratch/nds/`): the Library's Nintendo DS tile reads 4 games and its shelf lists the four ROMs
+(`shell-01-nds-console.png`, `shell-02-nds-shelf.png`); the details page offered "Download melonDS
+DS (built-in)" and downloaded it into `scratch/nds/data/opensu/cores/` (log `melondsds_libretro
+2026-10-20 installed … (CRC-32 78c08a1d)`, `shell-05-core-installed.png`); Play started
+`opensu-retro --core …/melondsds_libretro.so --hidden --saves …/saves/nds` (`shell-06-runner-args.txt`)
+whose `/status` frame went 155, 276, 397 two seconds apart (`shell-06-runner-status.txt`, again in
+`run2-runner-status.txt`), and Close game from the quick menu ended it ("Castlevania - Dawn of
+Sorrow closed", an 8 KB `.srm` kept; `shell-08-quickmenu-close.png`, `run2-04-closed-toast.png`).
+The runner's frames of the same core show both screens (`runner-title-menu-f1300.png`; the two
+cores' frame 600 and refused commands: `runner-melondsds-*`, `runner-desmume-*`). Touch: on the save menu the right stick held at (1, 1) for 20 frames then (1, 0) for 9 put the
+cursor on DELETE DATA (`touch-1-cursor-on-delete-data-f1534.png`); R2 for 10 frames opened Delete
+Data (`touch-2-after-r2-touch-f1600.png`, again with the final build `touch-final-after-r2.png`); the
+same run without R2 stays on the menu (`touch-3-same-without-touch-f1600.png`,
+`touch-final-without.png`); the runner log has `control pad holds 0 buttons, … right stick
+32767,32767`.
+
+The toast was drawn over the dock's icons (`probe.png`, `shell-04-downloading.png`,
+`shell-09-after-close.png`); it now sits above the dock (`ui/hud` `drawToast` with the dock's
+`DockPainter::top`; `run2-04-closed-toast.png`).
+
+Not done: mouse touch (the runner takes no mouse), the core's options (Touch Mode, layouts) are its
+defaults with no way to change them, DSi mode and real BIOS files were not tried, the microphone
+reads silence.
 
 ## Arcade romsets
 

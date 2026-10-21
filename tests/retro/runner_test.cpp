@@ -17,6 +17,7 @@
 #include <thread>
 #include <vector>
 
+#include <libretro.h>
 #include <nlohmann/json.hpp>
 #include <png.h>
 #include <sys/resource.h>
@@ -173,10 +174,11 @@ nlohmann::json status(std::uint16_t port) {
     return nlohmann::json::parse(result.body);
 }
 
-lucent::http::FetchResult post(std::uint16_t port, const char* target) {
+lucent::http::FetchResult post(std::uint16_t port, const char* target,
+                               const std::string& body = {}) {
     lucent::http::FetchResult result;
     std::string error;
-    expect(lucent::http::post_loopback(port, target, "", result, error), "the POST is answered");
+    expect(lucent::http::post_loopback(port, target, body, result, error), "the POST is answered");
     return result;
 }
 
@@ -257,9 +259,20 @@ void statelessCoreRefuses(const Paths& paths, const std::string& stateless) {
            "a core that cannot serialize is 409 with the reason");
     expect(!std::filesystem::exists(saves / "game.state"), "nothing is written for it");
     expect(post(port, "/nowhere").status == 404, "an unknown route is 404");
+    expect(post(port, "/input", R"({"buttons": ["start"], "right": [0.5, -1]})").status == 200,
+           "the control pad takes buttons and sticks");
+    expect(post(port, "/input", R"({"buttons": ["guide"]})").status == 400,
+           "Guide is not the control pad's");
+    expect(post(port, "/input", R"({"left": [2, 0]})").status == 400,
+           "a stick past its travel is refused");
+    awaitFrame(port, status(port)["frame"].get<std::uint64_t>() + 5);
     kill(child, SIGTERM);
     const Status ended = wait(child);
     expect(ended.exited && ended.code == 0, "SIGTERM quits the runner cleanly");
+    const std::string saved = read(saves / "game.srm");
+    expect(saved.size() > 4 &&
+               (static_cast<unsigned char>(saved[4]) & (1U << RETRO_DEVICE_ID_JOYPAD_START)) != 0,
+           "the control pad's Start reached the core");
     expect(!std::filesystem::exists(control), "the control file goes at exit");
 }
 

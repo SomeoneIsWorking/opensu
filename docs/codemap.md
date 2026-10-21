@@ -184,12 +184,12 @@ gitignored `docs/reference/`).
 | `src/vdf/` | Valve KeyValues parser |
 | `src/device/battery.*` | Battery level and charging state from sysfs |
 | `src/gamepad/event.*` | The shell's controls (`Button`, `Event`) (`opensu_pad`) |
-| `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls; analogue triggers as L2/R2 with hysteresis (`triggerPressAt`, `triggerReleaseAt`); what reaches the virtual pad passes the pad's `ChordGate` and the game's `ForwardMap` (remapped buttons, a game chord's outputs held while it is); the shell's controls are never mapped |
+| `src/gamepad/pad_translator.*` | One physical pad's evdev events as the virtual pad's and as controls; analogue triggers as L2/R2 with hysteresis (`triggerPressAt`, `triggerReleaseAt`); where the two sticks stand (`Sticks`, `sticks()`); what reaches the virtual pad passes the pad's `ChordGate` and the game's `ForwardMap` (remapped buttons, a game chord's outputs held while it is); the shell's controls are never mapped |
 | `src/gamepad/chord_gate.*` | The one chord rule (`Chord`, `ChordTriggers`, `ChordGate`): a bound modifier is held back, a bound trigger while it is held is the chord and both stay back, another button lets the modifier out first, a lone modifier released under the hold delay is a tap and after it nothing; a modifier held alone for the hold delay is reported once as a long hold, and its end once (`tick`); used by the shell's controls and the game's virtual pad alike |
 | `src/gamepad/forward_map.*` | `ForwardMap`: what each pad button and game chord sends to the virtual pad (`padButtons`), as the pads take it |
 | `src/gamepad/evdev_device.*` | An evdev node: capabilities, grab, state, reads; whether a reader takes opensu's own virtual pads (`OwnVirtualPads`: the shell skips them, `opensu-retro` reads them) |
 | `src/gamepad/virtual_pad.*` | The uinput Xbox 360 pad a game reads |
-| `src/gamepad/pads.*` | Every pad, read always and hot-plugged; claims them (`Claim`: Free, Shell grabbed, Game grabbed with virtual pads and its `ForwardMap`, Away) and blocks the virtual pads while a menu or page is up; keeps bound chords from the game (`setChords`); never opens motion or hidraw nodes; lists the connected pads (`connected()`), and every event names its pad (`Event::source`) |
+| `src/gamepad/pads.*` | Every pad, read always and hot-plugged; claims them (`Claim`: Free, Shell grabbed, Game grabbed with virtual pads and its `ForwardMap`, Away) and blocks the virtual pads while a menu or page is up; keeps bound chords from the game (`setChords`); never opens motion or hidraw nodes; lists the connected pads (`connected()`) and where each pad's sticks stand (`sticks()`), and every event names its pad (`Event::source`) |
 | `src/gamepad/direction_repeat.*` | Held-direction repeat for pads and keys |
 | `src/input/shortcuts.*` | The one chord table: every `Action` (pad buttons, Guide, volume, Quit, and the game actions Close game, Save state, Load state, Reset game, Devices, Downloads, Home) with its default key combos and pad chords (any button may be the held one), the player's overrides (`rebind`, with conflict refusals), labels and settings spellings, the chords on one modifier (`chordsOn`), each button's glyph key (`glyphOf`, `buttonOfGlyph`) |
 | `src/input/key_names.*` | The shell's key codes (`input::keys`, GLFW's numbering, letters as ASCII) and their names: `Combo`, modifiers, bindable keys, X11 key names for the in-game watcher |
@@ -211,15 +211,15 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | `cmake/Libretro.cmake` | `libretro.h` from libretro-common at a pinned commit, SHA-256 checked (`opensu::libretro_header`) |
 | `src/retro/main.cpp` | The command line; the default saves (`Config::savesDir`) and system (`Config::retroSystemDir`) folders |
 | `src/retro/runner_app.*` | Composition and the frame loop: pacing on a clock at the core's rate, input, sound, save checks, control commands between frames, `--hidden` |
-| `src/retro/control_server.*` | The runner's loopback control channel: `{"port", "pid"}` (or `{"error"}` on a load failure) in the `OPENSU_RETRO_CONTROL` file, `/status`, `/state/save`, `/state/load`, `/reset`, each POST run on the frame loop |
+| `src/retro/control_server.*` | The runner's loopback control channel: `{"port", "pid"}` (or `{"error"}` on a load failure) in the `OPENSU_RETRO_CONTROL` file, `/status`, `/state/save`, `/state/load`, `/reset`, each POST run on the frame loop; `/input`, the control pad's buttons and sticks (`ControlInput`) taken by the loop |
 | `src/retro/save_state.*` | The state slot `<saves>/<rom stem>.state`: serialize, atomic write, unserialize |
-| `src/retro/core.*` | One core: `dlopen`, `retro_*` symbols, init/load/run/unload, the context-free callback trampolines (one file-scope pointer) |
+| `src/retro/core.*` | One core: `dlopen`, `retro_*` symbols, init/load/run/unload, the context-free callback trampolines (one file-scope pointer), input queries (`InputQuery`) routed by device |
 | `src/retro/core_environment.*` | The environment commands answered; everything else refused |
 | `src/retro/core_options.*` | Core option definitions (v0, v1, v2, intl) and their default values |
 | `src/retro/video_frame.*` | 0RGB1555, XRGB8888, RGB565 to RGBA; duplicate frames |
 | `src/retro/audio_sink.*` | Resampling ring with ±0.5 % dynamic rate control |
 | `src/retro/audio_output.*` | The sink on the SDL playback device, or drained by the clock when hidden |
-| `src/retro/joypad.*` | `gamepad::Button` and SDL scancodes to `RETRO_DEVICE_JOYPAD` |
+| `src/retro/joypad.*` | `gamepad::Button` and SDL scancodes to `RETRO_DEVICE_JOYPAD`; the pads' and the control pad's sticks to `RETRO_DEVICE_ANALOG` (analogue stick, touch cursor) |
 | `src/retro/save_memory.*` | Save RAM: load, change check, atomic `.srm` write |
 | `src/retro/presenter.*` | The SDL window and its events; Vulkan swapchain or hidden offscreen image, frame texture, letterboxed draw, read-back |
 | `src/retro/vulkan_device.*` | Vulkan instance (optional validation), device and graphics queue |
@@ -298,7 +298,7 @@ Painters and composition (`opensu_ui`):
 | Path | Owns |
 | --- | --- |
 | `src/ui/shell.*` | The home screen: tiles, focus, paging, draw order; the scene into its own target so the dock glass blurs what lies behind it (`Canvas::blurBehind`, 8 dp) |
-| `src/ui/hud.*` | Chrome around the grid: ground, top bar, corner hints, toast; grid insets |
+| `src/ui/hud.*` | Chrome around the grid: ground, top bar, corner hints, toast (kept above the dock); grid insets |
 | `src/ui/settings_page.*`, `settings_page_painter.*` | The Settings screen: categories, rows (toggle, choice, slider, path, action, info), focus, layout and hit-tests; its painter |
 | `src/ui/settings_panels.*` | The Settings screen and what opens over it (folder chooser, on-screen keyboard): their state, fades and painters as one object |
 | `src/ui/folder_chooser.*`, `folder_chooser_painter.*` | The console-friendly folder chooser: model and painter |
@@ -310,7 +310,7 @@ Painters and composition (`opensu_ui`):
 | `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size: launcher logos as white masks, openSU's own Home and Library icons (each with a `_selected` variant) in colour, with paint colours swapped on request (`ColourSwap`) |
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (a starting launcher's ring) |
 | `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included; LT/RT, d-pad arrows and named caps such as L3 and GUIDE are openSU's), or the bound key's cap when keyboard and mouse were last used |
-| `src/ui/dock_painter.*` | The dock capsule: glass, the sections' icons (from `IconAtlas`, rasterised at their resting size), LB/RB badges |
+| `src/ui/dock_painter.*` | The dock capsule: glass, the sections' icons (from `IconAtlas`, rasterised at their resting size), LB/RB badges; the dock's top as drawn (`top`) |
 | `src/ui/mode_chooser_painter.*` | The options panel: the cards after iiSU's chooser, with sketched previews, then the slider and switch rows |
 | `src/ui/search_panel_painter.*`, `context_menu_painter.*` | The search panel with its keyboard and the tile context menu |
 | `src/ui/hint_row.*` | A row of button prompts with labels, centred in a band (`paintHintRow`), for the context menu and the mapping page |

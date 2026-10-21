@@ -35,8 +35,8 @@ std::size_t batchTrampoline(const std::int16_t* data, std::size_t frames) {
 void pollTrampoline() {
 }
 
-std::int16_t inputTrampoline(unsigned port, unsigned device, unsigned /*index*/, unsigned id) {
-    return active->input(port, device, id);
+std::int16_t inputTrampoline(unsigned port, unsigned device, unsigned index, unsigned id) {
+    return active->input({.port = port, .device = device, .index = index, .id = id});
 }
 
 template <class Function> void bind(void* library, const char* name, Function& out) {
@@ -196,11 +196,18 @@ void Core::audio(std::span<const std::int16_t> interleaved) {
     host_.audio.push(interleaved);
 }
 
-std::int16_t Core::input(unsigned port, unsigned device, unsigned id) const {
-    if (port != 0 || device != RETRO_DEVICE_JOYPAD) {
+std::int16_t Core::input(const InputQuery& query) const {
+    if (query.port != 0) {
         return 0;
     }
-    return host_.joypad.state(id);
+    switch (query.device & RETRO_DEVICE_MASK) {
+    case RETRO_DEVICE_JOYPAD:
+        return host_.joypad.state(query.id);
+    case RETRO_DEVICE_ANALOG:
+        return host_.joypad.analog(query.index, query.id);
+    default:
+        return 0;
+    }
 }
 
 } // namespace opensu::retro

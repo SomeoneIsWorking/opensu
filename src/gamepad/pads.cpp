@@ -68,6 +68,11 @@ std::vector<Event> Pads::takeEvents() {
     return std::exchange(events_, {});
 }
 
+std::map<std::string, Sticks> Pads::sticks() const {
+    const std::lock_guard lock{mutex_};
+    return sticks_;
+}
+
 std::vector<PadInfo> Pads::connected() const {
     const std::lock_guard lock{mutex_};
     return connected_;
@@ -159,6 +164,7 @@ void Pads::add(const std::filesystem::path& node) {
     {
         const std::lock_guard lock{mutex_};
         connected_.push_back(info);
+        sticks_[info.id] = pad->translator.sticks();
     }
     publish(events);
     pads_.push_back(std::move(pad));
@@ -290,6 +296,7 @@ void Pads::run(const std::stop_token& stop) {
                     std::erase_if(connected_, [&id](const PadInfo& info) {
                         return info.id == id;
                     });
+                    sticks_.erase(id);
                 }
                 pads_.erase(pads_.begin() + static_cast<std::ptrdiff_t>(i - 2));
                 continue;
@@ -301,6 +308,10 @@ void Pads::run(const std::stop_token& stop) {
             }
             for (std::size_t i = before; i < events.size(); ++i) {
                 events[i].source = pad.device.node().string();
+            }
+            {
+                const std::lock_guard lock{mutex_};
+                sticks_[pad.device.node().string()] = pad.translator.sticks();
             }
             if (pad.live) {
                 write(pad, forward);

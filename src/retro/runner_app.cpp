@@ -108,6 +108,24 @@ ControlAnswer perform(ControlCommand command, Core& core, SaveState& state) {
     return answer;
 }
 
+/// The control channel's pad holds `held` alone: what it held before is let go.
+void holdControlPad(Joypad& joypad, const ControlInput& held) {
+    gamepad::Event event;
+    event.source = "control";
+    event.kind = gamepad::Event::Kind::Disconnected;
+    joypad.apply(event);
+    event.kind = gamepad::Event::Kind::Button;
+    event.pressed = true;
+    for (const gamepad::Button button : held.buttons) {
+        event.button = button;
+        joypad.apply(event);
+    }
+    joypad.sticks(event.source, held.sticks);
+    lucent::info("retro", "control pad holds {} buttons, left stick {},{}, right stick {},{}",
+                 held.buttons.size(), held.sticks.leftX, held.sticks.leftY, held.sticks.rightX,
+                 held.sticks.rightY);
+}
+
 /// The control channel when the shell asked for one and it listens; none otherwise.
 std::unique_ptr<ControlServer> openControl(const RunnerOptions& options, const Core& core) {
     if (options.control.empty()) {
@@ -214,9 +232,15 @@ RunnerExit RunnerApp::run() {
             for (const gamepad::Event& event : pads->takeEvents()) {
                 joypad.apply(event);
             }
+            for (const auto& [source, sticks] : pads->sticks()) {
+                joypad.sticks(source, sticks);
+            }
         }
 
         if (control) {
+            if (const std::optional<ControlInput> held = control->takeInput()) {
+                holdControlPad(joypad, *held);
+            }
             control->serve([&core, &state](ControlCommand command) {
                 return perform(command, *core, state);
             });

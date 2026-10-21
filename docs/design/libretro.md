@@ -50,7 +50,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/core_options.*` | The core's option definitions (v0 variables, v1, v2) and their current values (the defaults in phase 1) |
 | `src/retro/video_frame.*` | A frame in the core's pixel format (0RGB1555, XRGB8888, RGB565) to RGBA, duplicate frames kept |
 | `src/retro/audio_sink.*` | The core's samples into a ring, resampled with dynamic rate control so the buffer stays near its target |
-| `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping |
+| `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG` |
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame, written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
 | `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), the frame texture uploaded each fresh frame, one pipeline drawing it with its aspect kept and letterboxed black; hidden, an offscreen image instead of a swapchain, read back for `--frame-png` |
@@ -58,7 +58,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/png_encoder.*` | RGBA to PNG bytes through libpng |
 | `src/retro/shaders/frame.{vert,frag}` | The frame's two shaders, compiled by glslc at build time into SPIR-V headers under the build tree |
 | `src/retro/save_state.*` | The one state slot `<saves>/<rom stem>.state`: `retro_serialize` written whole, read back through `retro_unserialize` |
-| `src/retro/control_server.*` | The runner's loopback `lucent::http::Server`: the control file (port and pid, or the load failure), the routes, the hand-over of each command to the frame loop |
+| `src/retro/control_server.*` | The runner's loopback `lucent::http::Server`: the control file (port and pid, or the load failure), the routes, the hand-over of each command and of the control pad's input to the frame loop |
 | `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, control commands between frames, the hidden mode for tests |
 | `src/retro/main.cpp` | `opensu-retro`'s command line |
 | `src/library/libretro_cores.*` | Finding a core; core downloads from the libretro buildbot under `<data>/opensu/cores/` and their record |
@@ -116,8 +116,9 @@ instead and leaves it; the shell reads it once the launch is over and deletes it
 | `POST /state/save` | 200; 409 with the reason when the core cannot serialize (`retro_serialize_size` 0 or `retro_serialize` false); 500 when the slot cannot be written |
 | `POST /state/load` | 200; 404 when no state is saved; 409 when the core refuses it |
 | `POST /reset` | 200 after `retro_reset` |
+| `POST /input` | 200: the control pad holds `{"buttons": [names], "left": [x, y], "right": [x, y]}` (each part optional, sticks from -1 to 1, y down) until the next post, `{}` letting go; 400 for anything else or Guide |
 
-Every POST is queued for the frame loop, which runs it between frames, never beside `retro_run`;
+Every other POST is queued for the frame loop, which runs it between frames, never beside `retro_run`;
 the request waits for the answer, and is answered 503 when the loop has not taken it within 3 s or
 the runner is closing. Error bodies are the reason as plain text. The slot is
 `<saves>/<rom stem>.state`, written whole, so a crash mid-write keeps the previous state. The shell
@@ -138,8 +139,12 @@ through the same translator (`gamepad::Pads` with `OwnVirtualPads::Read`, never 
 positions follow the Xbox layout: A (bottom) is libretro's B, B is A, X (left) is Y, Y is X; L1/R1
 are L/R, L2/R2, L3/R3, Select, Start and the d-pad and left stick are themselves; Guide reaches no
 core. Keyboard: arrows, Z (B), X (A), A (Y), S (X), Q/W (L/R), Enter (Start), Right Shift (Select);
-Escape quits. Port 0 only. Analogue triggers produce no L2/R2 (the translator reports L2/R2 only
-for digital triggers), which matters for PCSX ReARMed.
+Escape quits. Port 0 only. An analogue trigger is L2 or R2 past half its travel
+(`gamepad::triggerPressAt`). Both sticks are also `RETRO_DEVICE_ANALOG` (`gamepad::Pads::sticks`,
+on the virtual pad's -32768 to 32767, y down; of several pads, each axis the one furthest out);
+`RETRO_DEVICE_INDEX_ANALOG_BUTTON` reads 0. The control channel's pad (`POST /input`) is one more
+source beside the pads. There is no mouse, so `RETRO_DEVICE_POINTER` reads 0: melonDS DS's touch
+screen is its joystick mode, the right stick moving its cursor and R2 touching.
 
 **Pacing.** Frames run at the core's rate on a clock (`sleep_until`; more than four frames behind,
 the clock restarts rather than bursting); the swapchain presents in mailbox, else immediate, else
@@ -195,11 +200,12 @@ nothing more of a zip whose stamps all hold.
 
 ## 5. Phases
 
-1. Software cores: mGBA (GB, GBC, GBA), then Gambatte, snes9x, Mesen, PCSX ReARMed, and for
-   Arcade FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME, picked per game by romset. Genesis Plus
-   GX and PicoDrive wait for Mega Drive, Master System, Game Gear, Sega CD and 32X systems in
-   `rom_systems`. Runner, input, audio, save RAM, core downloads through Settings › Emulators and the
-   details page.
+1. Software cores: mGBA (GB, GBC, GBA), then Gambatte, snes9x, Mesen, PCSX ReARMed, melonDS DS
+   (NDS; its software renderer by default, FreeBIOS and built-in firmware when no files are
+   given), and for Arcade FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME, picked per game by
+   romset. Genesis Plus GX and PicoDrive wait for Mega Drive, Master System, Game Gear, Sega CD
+   and 32X systems in `rom_systems`. Runner, input, audio, save RAM, core downloads through
+   Settings › Emulators and the details page.
 2. Built: save states and reset from the quick menu over a loopback `lucent::http::Server` in the
    runner; a crash named in the shell's toast, a load failure told by its reason.
 3. GPU cores (`RETRO_ENVIRONMENT_SET_HW_RENDER` with `RETRO_HW_CONTEXT_VULKAN`, handed the
@@ -210,7 +216,8 @@ nothing more of a zip whose stamps all hold.
 - `tests/retro/` builds three fake cores as shared libraries from one source: one draws a known
   pattern, plays a tone, reads the joypad, writes save RAM and serializes its save RAM and frame
   counter (reset zeroes the count); one crashes in `retro_run`; one cannot serialize.
-- Unit tests through the shipping code: pixel conversion, resampler fill control, joypad mapping,
+- Unit tests through the shipping code: pixel conversion, resampler fill control, joypad mapping
+  and sticks (the furthest of two pads, a pad leaving),
   save RAM round trip and atomic write, environment answers.
 - `core_test` loads the fake core through `Core` with the real owners: frames, samples, the
   joypad and save RAM reach them, a second core and a missing library or ROM are `CoreError`s.
@@ -221,7 +228,8 @@ nothing more of a zip whose stamps all hold.
   appears with the runner's pid and port, `/status` names the game, loading before a save is 404, a
   save writes the `.state`, a later load leaves the `.srm`'s frame count showing the frames between
   them undone, a reset zeroes it, the stateless core's save is 409 with its reason, an unknown
-  route 404, SIGTERM exits 0 and removes the file, and a missing ROM exits 2 leaving the error.
+  route 404, `/input` holding Start reaches the core's `.srm` and Guide or a stick past 1 is 400,
+  SIGTERM exits 0 and removes the file, and a missing ROM exits 2 leaving the error.
 - `retro_session_test` and `quick_menu_controller_test` run `RetroSession` against a fake runner
   (`tests/support/fake_runner.hpp`): the per-launch file, the port read once announced, reasons
   passed through, the load failure handed over once; the rows, the disabled Load state, the two
