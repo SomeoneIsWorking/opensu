@@ -1,7 +1,7 @@
 # More libretro cores, arcade on every romset version
 
-Status: open. Arcade and Nintendo DS are done (below); the Sega cores and the rest of the list are
-next.
+Status: open. Arcade, Nintendo DS and the Vulkan GPU cores are done (below); the Sega cores and the
+rest of the list are next.
 
 The player: "more libretro options, I noticed I can't play Arcade games ... since no libretro option
 for it is there right now", and "new emulator versions make it so the older rom sets don't work, I
@@ -23,8 +23,28 @@ Next, by what the runner can already host (software rendering):
   player's ROM folder has none of those systems to prove them with.
 - Beetle PCE, Beetle NGP, Beetle WonderSwan, Stella, Handy, ProSystem.
 
-GPU cores (Mupen64Plus-Next, Beetle PSX HW, Flycast, PPSSPP) wait for phase 3 of
-`docs/design/libretro.md` (`RETRO_ENVIRONMENT_SET_HW_RENDER`).
+## GPU cores (Vulkan)
+
+Built with phase 3 of `docs/design/libretro.md` (§4 GPU cores). Every buildbot core whose
+`required_hw_api` lists Vulkan, or whose options offer a Vulkan renderer, for a system openSU has:
+
+| Entry | Core | System | Vulkan by | Proof |
+|---|---|---|---|---|
+| `beetle-psx-hw-core` | `mednafen_psx_hw_libretro` | psx | `beetle_psx_hw_renderer=hardware_vk` (its "hardware" default also picks Vulkan from the preferred context) | Crash Bandicoot |
+| `swanstation-core` | `swanstation_libretro` | psx | `swanstation_GPU_Renderer=Vulkan` | Crash Bandicoot 2 |
+| `mupen64plus-next-core` | `mupen64plus_next_libretro` | n64 | `mupen64plus-rdp-plugin=parallel`, `mupen64plus-rsp-plugin=parallel` (default GLideN64 is OpenGL; its core info lists OpenGL only) | Ocarina of Time, Majora's Mask from the shell |
+| `parallel-n64-core` | `parallel_n64_libretro` | n64 | `parallel-n64-gfxplugin=parallel`, `parallel-n64-rspplugin=parallel` | Majora's Mask |
+| `ppsspp-core` | `ppsspp_libretro` | psp | `ppsspp_backend=vulkan` | none: no PSP games here |
+| `flycast-core` | `flycast_libretro` | dreamcast (added to `rom_systems`: `.chd`, `.gdi`, `.cdi`) | no option; the preferred context | none: no Dreamcast games here |
+
+The keys and values were read from the cores (2026-10-21 nightlies) and each proven one logged
+`core option <key> = <value>` with no "has no value" warning. Proof in
+`docs/project-state.md` S032 and the worktree's `scratch/gpu-cores/proof/`. Beetle PSX HW and
+SwanStation need a real PS1 BIOS (`withoutBios` needed); the runs used the OpenBIOS image copied as
+`scph5501.bin`, which Beetle accepts with a SHA-1 warning. PPSSPP needs its `PPSSPP/` system files
+(`ppge_atlas.zim`), not downloaded with the core. Flycast's `withoutBios` is `hle` from its core
+info (every BIOS optional, `reicast_hle_bios`), not run. Unverified: PPSSPP and Flycast on a game,
+and whether Flycast really picks Vulkan here.
 
 ## Nintendo DS
 

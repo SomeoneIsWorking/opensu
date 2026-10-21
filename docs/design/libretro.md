@@ -1,7 +1,7 @@
 # Built-in libretro runner
 
-Status: phases 1 and 2 built (`opensu-retro` with its control channel, S032); core downloads and
-launch are S031.
+Status: phases 1, 2 and 3 built (`opensu-retro` with its control channel and Vulkan GPU cores,
+S032); core downloads and launch are S031.
 
 ## 1. Goal
 
@@ -10,9 +10,9 @@ Retro systems play inside openSU with one fixed controller mapping in the runner
 saves that survive any crash, and the Guide overlay and quick menu working as they do over any
 game. A core that crashes ends its game, never the shell.
 
-Non-goals for now: rewind, run-ahead, netplay, achievements, cores that draw with the GPU
-(phase 2), anything a standalone emulator already does better (Switch, PS2 and later, Wii U,
-GameCube/Wii, Xbox, Xbox 360).
+Non-goals for now: rewind, run-ahead, netplay, achievements, cores that draw with OpenGL, GLES or
+Direct3D (refused by name; the runner has no GL path), anything a standalone emulator already does
+better (Switch, PS2 and later, Wii U, GameCube/Wii, Xbox, Xbox 360).
 
 ## 2. Shape
 
@@ -29,12 +29,12 @@ shell ── Handoff (scope) ──▶ opensu-retro --core <so> [options] <rom>
 ```
 
 Why a child window and not frames sent back to the shell: the overlay, scopes, game-quit handling
-and orphan cleanup already exist for game windows; a GPU core in phase 3 draws with the child's own
-Vulkan device; there is no frame transport to build or to add latency.
+and orphan cleanup already exist for game windows; a GPU core draws with the child's own Vulkan
+device; there is no frame transport to build or to add latency.
 
 The runner does not use the shell's renderer: SDL3 gives it the window, keyboard and sound device, and it draws
 with Vulkan directly, so a core using libretro's Vulkan hardware interface
-(`retro_hw_render_interface_vulkan`) can later be handed the runner's instance, device and queue.
+(`retro_hw_render_interface_vulkan`) is handed the runner's instance, device and queue.
 
 One core per process is also what libretro's callbacks assume: they carry no context pointer, so
 the runner's callback trampolines reach the one loaded core through a single pointer in
@@ -44,22 +44,23 @@ the runner's callback trampolines reach the one loaded core through a single poi
 
 | Owner | Owns |
 | --- | --- |
-| `cmake/Libretro.cmake` | `libretro.h` (MIT) from libretro-common at a pinned commit, SHA-256 checked |
+| `cmake/Libretro.cmake` | `libretro.h` and `libretro_vulkan.h` (MIT) from libretro-common at a pinned commit, SHA-256 checked |
 | `cmake/Librashader.cmake` | librashader from the `SomeoneIsWorking/librashader` fork at a pinned commit: its header (MIT, SHA-256 checked), and `librashader-capi` built with cargo (Rust 1.88 or newer) into `<libdir>/opensu/librashader.so`, staged in the build tree and installed |
 | `src/retro/core.*` | One loaded core: `dlopen`, the `retro_*` symbols, init/load/run/unload in order, the callback trampolines |
-| `src/retro/core_environment.*` | The environment commands answered: directories, pixel format, core options (defaults), log, input descriptors, geometry and timing changes; anything else is refused |
-| `src/retro/core_options.*` | The core's option definitions (v0 variables, v1, v2) and their current values (the defaults in phase 1) |
+| `src/retro/core_environment.*` | The environment commands answered: directories, pixel format, core options, log, input descriptors, geometry and timing changes, the hardware-render commands (through its `HardwareRender`); anything else is refused |
+| `src/retro/core_options.*` | The core's option definitions (v0 variables, v1, v2) and their current values: the defaults, except a value the launch chose (`--option`) that the core offers for that key |
+| `src/retro/hardware_render.*` | A GPU core: `SET_HW_RENDER` (Vulkan taken, any other context refused with its name kept as the load failure's reason), `GET_PREFERRED_HW_RENDER` (Vulkan), the context negotiation interface kept for the device, `GET_HW_RENDER_INTERFACE` (`retro_hw_render_interface_vulkan` on the presenter's instance, device and queue), `set_image`, semaphores, command buffers, the signal semaphore, the queue lock, the sync index; `context_reset` once the presenter is up, `context_destroy` before the game is unloaded; the image of each `RETRO_HW_FRAME_BUFFER_VALID` frame, kept for duplicated frames |
 | `src/retro/video_frame.*` | A frame in the core's pixel format (0RGB1555, XRGB8888, RGB565) to RGBA, duplicate frames kept |
 | `src/retro/audio_sink.*` | The core's samples into a ring, resampled with dynamic rate control so the buffer stays near its target |
 | `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG` |
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame, written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
-| `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png` |
-| `src/retro/frame_compositor.*` | What is drawn into a target: the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame, one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling and filter, black around it; with a shader preset its chain draws into that rectangle instead |
+| `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission (a GPU core's semaphores waited, its command buffers first, its signal semaphore signalled) and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png`; the wait on the last frame a core's `wait_sync_index` is |
+| `src/retro/frame_compositor.*` | What is drawn into a target: the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame or a GPU core's own image sampled in its layout (queue family ownership taken and given back when it names another family, then a barrier so the core's next writes wait for the read), one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling and filter, black around it; with a shader preset its chain draws into that rectangle instead, from the texture or the core's image |
 | `src/retro/frame_filter.*` | The fragment shader for a sampling and filter, the built-in filters' parameters (`scanlineGrid`, `lcdGrid`, `crtLottes`) and the push block each draw hands the shader |
 | `src/retro/librashader_library.*` | librashader opened by its path (`Config::librashader`), ABI and API checked, its calls with their errors as `ShaderError`; a missing file refuses the preset |
-| `src/retro/shader_chain.*` | One slang preset built on the runner's device (render passes, one frame in flight) and recorded from the frame texture into the placed rectangle; history (cleared on the first frame), feedback and LUTs are librashader's |
-| `src/retro/vulkan_device.*` | The Vulkan instance (validation layer and its error count on request) and the one device and graphics queue, the objects a Vulkan core will be handed in phase 3 |
+| `src/retro/shader_chain.*` | One slang preset built on the runner's device (render passes, one frame in flight) and recorded from the frame image into the placed rectangle; history (cleared on the first frame), feedback and LUTs are librashader's |
+| `src/retro/vulkan_device.*` | The Vulkan instance (validation layer and its error count on request) and the one device and graphics queue, made through a GPU core's context negotiation when it has one (its `get_application_info`; `create_instance`, `create_device2` or `create_device` with the runner's extensions and layers added), `destroy_device` before the instance goes; the queue's lock, held for every submit, present and device wait |
 | `src/retro/png_encoder.*` | RGBA to PNG bytes through libpng |
 | `src/retro/shaders/frame.{vert,frag}`, `sharp_bilinear.frag`, `frame_grid.glsl`, `crt_lottes.frag` | The frame's shaders (sharp-bilinear: integer prescale then bilinear; `frame_grid.glsl`: the scanline and LCD-grid bands both sampling shaders apply; crt-lottes), compiled by glslc at build time into SPIR-V headers under the build tree |
 | `src/retro/save_state.*` | The one state slot `<saves>/<rom stem>.state`: `retro_serialize` written whole, read back through `retro_unserialize` |
@@ -82,8 +83,8 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/library/romset_lists.*` | Those fetches off the library scan, one at a time on a thread, each one's state (bytes, done, failed and when it is tried again) for the Downloads page |
 | `src/library/romset_match.*` | An arcade zip's central directory against each listing, the verdicts kept by file stamps, the game's emulator picked by them |
 | `src/library/emulator_choice.*` | The `emulator` key at the Game and System layers: game pick, romset, system pick, search; the layer keys a game reads its settings through |
-| `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release |
-| `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> <rom>`, with `--hidden` from a hidden shell |
+| `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release; `"coreOptions"` the core options it starts with (a GPU core's Vulkan renderer) |
+| `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> [--option <key>=<value>]... <rom>`, with `--hidden` from a hidden shell |
 | `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core and of the shader pack, on the same paths as an AppImage; the Shader presets rows; the details page's video buttons, sources and Clear |
 | `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests, the load failure handed over and the file removed |
 | `src/app/quick_menu_controller.*` | Save state, Load state and Reset game while the running game answers on a control channel |
@@ -91,13 +92,17 @@ the runner's callback trampolines reach the one loaded core through a single poi
 
 `retro` depends on `gamepad`, `fileio`, Lucent, nlohmann/json, SDL3, the Vulkan loader and libpng;
 `config` is read by `main.cpp` only. Nothing outside `retro` and the `opensu-retro` executable links
-it. Only `presenter`, `frame_compositor`, `shader_chain`, `librashader_library` and `vulkan_device` include Vulkan, and only `presenter` SDL
-video; `audio_output` includes SDL audio; `joypad` uses SDL's scancode values only.
+it. Only `presenter`, `frame_compositor`, `shader_chain`, `librashader_library`, `vulkan_device`
+and `hardware_render` (and through it `core_environment`) include Vulkan, only the last two
+`libretro_vulkan.h`, and only `presenter` uses SDL video; `audio_output` includes SDL audio;
+`joypad` uses SDL's scancode values only.
 
 ## 4. Contracts
 
 **Command line.** `opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings
-<file>] [--hidden] [--validate] [--frames N] [--frame-png <file>] <rom>`. `--settings` names a JSON
+<file>] [--option <key>=<value>]... [--hidden] [--validate] [--frames N] [--frame-png <file>]
+<rom>`. `--option` sets a core option for this run: the core's value for that key when it offers
+it, else (a warning logged) its default. `--settings` names a JSON
 object of resolved video settings (`{"video.aspect": "4:3", "video.integer": "off",
 "video.sampling": "nearest", "video.filter": "none", "video.shader": "<absolute .slangp path>"}`);
 a key it lacks keeps its default, a value that is no choice is exit 1. The runner never reads `game-settings.json`. `--saves` defaults to
@@ -188,6 +193,40 @@ game settings". To check: `opensu-retro --hidden --settings <file> --frames N --
 and compare the picture's box in the PNG; for a filter, divide its frame by the `none` frame inside
 the box and compare each pixel with 1 − shade × band coverage.
 
+**GPU cores.** A core asking for Vulkan (`SET_HW_RENDER`, `RETRO_HW_CONTEXT_VULKAN`; the runner
+answers `GET_PREFERRED_HW_RENDER` with Vulkan, which cores whose renderer option is "auto" go by)
+gets the runner's one device: the presenter is made after `retro_load_game`, and when the core set
+a context negotiation interface (`GET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_SUPPORT` answers
+version 2) the instance comes from its `create_instance` and the device from `create_device2` on
+the runner's chosen GPU (again with no GPU if it declines), else `create_device` (v1, a zeroed
+feature struct, the swapchain extension when there is a window); the runner's own extensions and
+layers (validation) are added in the wrappers. Then `context_reset`. `GET_HW_RENDER_INTERFACE`
+gives `retro_hw_render_interface_vulkan` version 5 with one frame in flight: `get_sync_index` is
+0, the mask 1, and `wait_sync_index` waits for the last frame the presenter submitted, which is
+also what the presenter waits for before recording the next. A `RETRO_HW_FRAME_BUFFER_VALID`
+refresh shows the image of the last `set_image` (`width` × `height`, the whole image), sampled in
+the layout the core gave, its semaphores waited once at the fragment stage; a null refresh shows
+the same image again without them; `set_command_buffers` are submitted once before the runner's,
+and then the semaphores are not waited; `set_signal_semaphore` is signalled by the next
+submission. The core's frame goes through the same `placeFrame`, sampling and filter as a
+software frame, or the same shader preset: an image in `SHADER_READ_ONLY_OPTIMAL` is the chain's
+input as it is (librashader copies it into the history, which the `TRANSFER_SRC` usage libretro
+requires of `set_image` images allows, and gives it back in that layout); one in `GENERAL`, which
+the runner may not move, is blitted into the frame texture first and the chain reads that. Every submit, present and device wait holds the queue lock the core's
+`lock_queue` takes. At exit: the last frame read back, then `context_destroy` (GPU idle), then
+`retro_unload_game`, then the device (`destroy_device`, `vkDestroyDevice`) and the instance,
+then `retro_deinit`. A core asking for OpenGL, GLES or Direct3D is refused; the load fails with
+`<core> cannot load <rom>: it asks for OpenGL core 3.3, and openSU draws with Vulkan only`, which
+the shell toasts. Cores whose renderer is an option get it from the catalog's `"coreOptions"`:
+Mupen64Plus-Next `mupen64plus-rdp-plugin=parallel`, `mupen64plus-rsp-plugin=parallel` (its default
+is GLideN64, OpenGL); ParaLLEl N64 `parallel-n64-gfxplugin=parallel`,
+`parallel-n64-rspplugin=parallel`; Beetle PSX HW `beetle_psx_hw_renderer=hardware_vk`; SwanStation
+`swanstation_GPU_Renderer=Vulkan`; PPSSPP `ppsspp_backend=vulkan`; Flycast has no renderer option
+and picks its context from the preferred one (PPSSPP and Flycast not yet run here: no PSP or
+Dreamcast games). To check: `opensu-retro --hidden --validate --option ...
+--frames N --frame-png <png>` logs `the core draws with Vulkan` and `drawing on <GPU>, the device
+made by the core`, and exits 3 on any validation error.
+
 **Pacing.** Frames run at the core's rate on a clock (`sleep_until`; more than four frames behind,
 the clock restarts rather than bursting); the swapchain presents in mailbox, else immediate, else
 FIFO mode, so presenting does not hold the clock to vblank. Audio goes out at 48 kHz stereo: the
@@ -265,8 +304,10 @@ nothing more of a zip whose stamps all hold.
    Settings › Emulators and the details page.
 2. Built: save states and reset from the quick menu over a loopback `lucent::http::Server` in the
    runner; a crash named in the shell's toast, a load failure told by its reason.
-3. GPU cores (`RETRO_ENVIRONMENT_SET_HW_RENDER` with `RETRO_HW_CONTEXT_VULKAN`, handed the
-   presenter's device): Mupen64Plus-Next, Beetle PSX HW, Flycast.
+3. Built: GPU cores (`RETRO_ENVIRONMENT_SET_HW_RENDER` with `RETRO_HW_CONTEXT_VULKAN` on the
+   presenter's negotiated device, **GPU cores** in §4): Mupen64Plus-Next and ParaLLEl N64
+   (ParaLLEl-RDP and ParaLLEl-RSP), Beetle PSX HW and SwanStation (their Vulkan renderers),
+   PPSSPP (PSP) and Flycast (Dreamcast).
 
 ## 6. Testing
 
@@ -275,7 +316,8 @@ nothing more of a zip whose stamps all hold.
   counter (reset zeroes the count); one crashes in `retro_run`; one cannot serialize.
 - Unit tests through the shipping code: pixel conversion, resampler fill control, joypad mapping
   and sticks (the furthest of two pads, a pad leaving),
-  save RAM round trip and atomic write, environment answers.
+  save RAM round trip and atomic write, environment answers (an OpenGL context refused by name, a
+  Vulkan one taken, Vulkan preferred).
 - `core_test` loads the fake core through `Core` with the real owners: frames, samples, the
   joypad and save RAM reach them, a second core and a missing library or ROM are `CoreError`s.
 - `runner_test` runs `opensu-retro --hidden --validate --frames 30 --frame-png` against the fake
