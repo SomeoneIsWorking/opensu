@@ -2,7 +2,9 @@
 // downloads under `<data>/opensu/cores/`, else in RetroArch's and the system's core folders. A
 // download comes from the libretro buildbot's nightly folder over the folder's own origin only,
 // is checked against the CRC-32 the folder's `.index-extended` lists, and is recorded beside the
-// core (`<core>.json`: build date, CRC-32, URL) so a newer build can be told apart.
+// core (`<core>.json`: build date, CRC-32, URL) so a newer build can be told apart. Its libretro
+// core info (`<core>.info`, which lists its BIOS files) comes from the buildbot's info archive with
+// it and is kept beside it; a core installed another way has its info in RetroArch's folders.
 #pragma once
 
 #include <cstdint>
@@ -64,16 +66,22 @@ class DownloadedCores {
     /// The record of `core`, or nothing when openSU did not download it or its file is gone.
     [[nodiscard]] std::optional<DownloadedCore> find(std::string_view core) const;
 
-    /// Replaces `build.core`'s file with `library` whole, then records `build`. False with
-    /// `error` when the file cannot be written; the core before stays then.
+    /// Replaces `build.core`'s file with `library` whole and its info with `info`, then records
+    /// `build`. False with `error` when a file cannot be written; the core before stays then.
     [[nodiscard]] bool install(const CoreBuild& build, std::string_view library,
-                               std::string& error) const;
+                               std::string_view info, std::string& error) const;
 
-    /// Removes `core` and its record. False with `error` when something stays behind.
+    /// Writes `core`'s info file whole. False with `error` when it cannot be written.
+    [[nodiscard]] bool installInfo(std::string_view core, std::string_view info,
+                                   std::string& error) const;
+
+    /// Removes `core`, its info and its record. False with `error` when something stays behind.
     [[nodiscard]] bool remove(std::string_view core, std::string& error) const;
 
     /// Where `core`'s file goes.
     [[nodiscard]] std::filesystem::path file(std::string_view core) const;
+    /// Where `core`'s info file goes.
+    [[nodiscard]] std::filesystem::path info(std::string_view core) const;
 
   private:
     [[nodiscard]] std::filesystem::path record(std::string_view core) const;
@@ -93,13 +101,18 @@ struct CoreSearch {
     /// openSU's downloads; empty for none.
     std::filesystem::path downloads;
     std::vector<std::filesystem::path> folders;
+    /// Where the info files of cores installed another way are, after openSU's downloads.
+    std::vector<std::filesystem::path> infoFolders;
 
     /// openSU's downloads under `dataDir`, then ~/.config/retroarch/cores, /usr/lib64/libretro,
-    /// /usr/lib/libretro and /usr/lib/x86_64-linux-gnu/libretro.
+    /// /usr/lib/libretro and /usr/lib/x86_64-linux-gnu/libretro; info files in openSU's
+    /// downloads, then ~/.config/retroarch/info and /usr/share/libretro/info.
     [[nodiscard]] static CoreSearch standard(const std::filesystem::path& home,
                                              const std::filesystem::path& dataDir);
 
     [[nodiscard]] std::optional<FoundCore> find(std::string_view core) const;
+    /// `core`'s info file text, or nothing when none is found.
+    [[nodiscard]] std::optional<std::string> info(std::string_view core) const;
 };
 
 class CoreDownload {
@@ -114,9 +127,12 @@ class CoreDownload {
     /// The latest build of `core`.
     [[nodiscard]] std::optional<CoreBuild> latest(std::string_view core, std::string& error) const;
 
-    /// Downloads `build`, checks the zip against its CRC-32, takes the one core out of it and
-    /// switches to it. On any failure, a cancel included, nothing of the download stays, the core
-    /// in use stays, and `error` says why.
+    /// The buildbot's archive of every core's info file, as zip bytes.
+    [[nodiscard]] std::optional<std::string> infoArchive(std::string& error) const;
+
+    /// Downloads `build` and its info, checks the zip against its CRC-32, takes the one core out
+    /// of it and switches to it. On any failure, a cancel included, nothing of the download stays,
+    /// the core in use stays, and `error` says why.
     [[nodiscard]] std::optional<DownloadedCore> install(const CoreBuild& build,
                                                         const DownloadedCores& store,
                                                         const net::WebClient::Progress& progress,

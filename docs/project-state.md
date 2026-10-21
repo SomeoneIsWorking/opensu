@@ -1303,6 +1303,15 @@ right stick and R2 opened Delete Data from the save menu, the same run without R
 Unverified: a DS game with a real pad under Gamescope; mouse touch is missing (the runner takes no
 mouse).
 
+BIOS (`docs/issues/bios-provisioning.md`): verified 2026-10-21 in a hidden shell on a scratch data
+dir (`scratch/bios/proof/`). PCSX ReARMed downloaded through Settings came with its core info. The
+PlayStation BIOS row read "HLE built in" with four files Missing, and "Your BIOS file
+scph5501.bin" once a file was there. Tekken 3 started from the shell logged `found US BIOS file`
+with the file and `HLE BIOS initialized.` without it. HLE brought all 19 of the player's PS1 games
+to a title, menu, intro or demo. A file PCSX ReARMed takes by scanning the folder is named too:
+`openbios.bin` read "Your BIOS file openbios.bin", "In use · US", and the core logged loading it.
+The PS3 system software extraction is not built and waits for a game HLE fails.
+
 ### S032 — The libretro runner
 
 `opensu-retro` (`src/retro/`, design in `docs/design/libretro.md`) loads one core, answers its

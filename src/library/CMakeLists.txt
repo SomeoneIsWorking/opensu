@@ -40,6 +40,7 @@ add_library(opensu_library STATIC
     emulator_release.cpp
     downloaded_emulators.cpp
     libretro_cores.cpp
+    core_bios.cpp
     appimage_runtime.cpp
     wine.cpp
 )

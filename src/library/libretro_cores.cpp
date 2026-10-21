@@ -10,6 +10,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "core_bios.hpp"
 #include "fileio/atomic_write.hpp"
 #include "lucent/log.h"
 #include "zip/zip_archive.hpp"
@@ -28,6 +29,8 @@ constexpr std::size_t crcDigits = 8;
 /// The listing of every core is tens of kilobytes.
 constexpr std::size_t maxIndexBytes = std::size_t{4} * 1024 * 1024;
 constexpr long httpOk = 200;
+/// Every core's info file zipped is a few hundred kilobytes.
+constexpr std::size_t maxInfoArchiveBytes = std::size_t{16} * 1024 * 1024;
 /// Current MAME's core is larger than the zip reader's usual cap.
 constexpr std::uint32_t maxCoreBytes = 1024U * 1024U * 1024U;
 
@@ -131,6 +134,10 @@ fs::path DownloadedCores::file(std::string_view core) const {
     return root_ / (std::string{core} + std::string{libraryExtension});
 }
 
+fs::path DownloadedCores::info(std::string_view core) const {
+    return root_ / (std::string{core} + std::string{coreInfoExtension});
+}
+
 fs::path DownloadedCores::record(std::string_view core) const {
     return root_ / (std::string{core} + std::string{recordExtension});
 }
@@ -157,9 +164,15 @@ std::optional<DownloadedCore> DownloadedCores::find(std::string_view core) const
                           textOf(root, "url")};
 }
 
+bool DownloadedCores::installInfo(std::string_view core, std::string_view text,
+                                  std::string& error) const {
+    return fileio::writeWhole(info(core), text, error);
+}
+
 bool DownloadedCores::install(const CoreBuild& build, std::string_view library,
-                              std::string& error) const {
-    if (!fileio::writeWhole(file(build.core), library, error)) {
+                              std::string_view text, std::string& error) const {
+    if (!fileio::writeWhole(file(build.core), library, error) ||
+        !installInfo(build.core, text, error)) {
         return false;
     }
     const json body{{"date", build.date}, {"crc32", hexOf(build.crc32)}, {"url", build.url}};
@@ -172,7 +185,7 @@ bool DownloadedCores::install(const CoreBuild& build, std::string_view library,
 }
 
 bool DownloadedCores::remove(std::string_view core, std::string& error) const {
-    for (const fs::path& path : {record(core), file(core)}) {
+    for (const fs::path& path : {record(core), info(core), file(core)}) {
         std::error_code ec;
         fs::remove(path, ec);
         if (ec) {
@@ -187,7 +200,30 @@ bool DownloadedCores::remove(std::string_view core, std::string& error) const {
 CoreSearch CoreSearch::standard(const fs::path& home, const fs::path& dataDir) {
     return CoreSearch{DownloadedCores::under(dataDir).root(),
                       {home / ".config" / "retroarch" / "cores", "/usr/lib64/libretro",
-                       "/usr/lib/libretro", "/usr/lib/x86_64-linux-gnu/libretro"}};
+                       "/usr/lib/libretro", "/usr/lib/x86_64-linux-gnu/libretro"},
+                      {home / ".config" / "retroarch" / "info", "/usr/share/libretro/info"}};
+}
+
+std::optional<std::string> CoreSearch::info(std::string_view core) const {
+    std::vector<fs::path> files;
+    if (!downloads.empty()) {
+        files.push_back(DownloadedCores{downloads}.info(core));
+    }
+    for (const fs::path& folder : infoFolders) {
+        files.push_back(folder / (std::string{core} + std::string{coreInfoExtension}));
+    }
+    for (const fs::path& file : files) {
+        std::error_code ec;
+        if (!fs::is_regular_file(file, ec)) {
+            continue;
+        }
+        std::string error;
+        if (std::optional<std::string> text = readWhole(file, error)) {
+            return text;
+        }
+        lucent::warn("emulators", "{}", error);
+    }
+    return std::nullopt;
 }
 
 std::optional<FoundCore> CoreSearch::find(std::string_view core) const {
@@ -240,6 +276,23 @@ std::optional<CoreBuild> CoreDownload::latest(std::string_view core, std::string
     return coreBuildIn(*listing, core, base_, error);
 }
 
+std::optional<std::string> CoreDownload::infoArchive(std::string& error) const {
+    const net::WebClient::Guard guard{maxInfoArchiveBytes, [this](const std::string& url) {
+                                          return refusal(url);
+                                      }};
+    std::optional<net::WebClient::Answer> answer =
+        web_.request(net::originOf(base_) + std::string{coreInfoArchive}, {}, guard, error);
+    if (!answer) {
+        error = "the buildbot's core info cannot be read: " + error;
+        return std::nullopt;
+    }
+    if (answer->status != httpOk) {
+        error = "the buildbot's core info cannot be read: HTTP " + std::to_string(answer->status);
+        return std::nullopt;
+    }
+    return std::move(answer->body);
+}
+
 std::optional<DownloadedCore> CoreDownload::install(const CoreBuild& build,
                                                     const DownloadedCores& store,
                                                     const net::WebClient::Progress& progress,
@@ -248,6 +301,14 @@ std::optional<DownloadedCore> CoreDownload::install(const CoreBuild& build,
     fs::create_directories(store.root(), ec);
     if (ec) {
         error = "cannot make " + store.root().string() + ": " + ec.message();
+        return std::nullopt;
+    }
+    std::optional<std::string> infoBytes = infoArchive(error);
+    const std::optional<CoreInfoArchive> archive =
+        infoBytes ? CoreInfoArchive::open(std::move(*infoBytes), error) : std::nullopt;
+    const std::optional<std::string> info =
+        archive ? archive->info(build.core, error) : std::nullopt;
+    if (!info) {
         return std::nullopt;
     }
     const fs::path part = store.root() / (build.core + std::string{zipExtension} + ".part");
@@ -276,7 +337,7 @@ std::optional<DownloadedCore> CoreDownload::install(const CoreBuild& build,
         lucent::warn("emulators", "{} {}: {}", build.core, build.date, error);
         return std::nullopt;
     }
-    if (!store.install(build, *library, error)) {
+    if (!store.install(build, *library, *info, error)) {
         return std::nullopt;
     }
     return store.find(build.core);

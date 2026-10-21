@@ -61,7 +61,8 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/control_server.*` | The runner's loopback `lucent::http::Server`: the control file (port and pid, or the load failure), the routes, the hand-over of each command and of the control pad's input to the frame loop |
 | `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, control commands between frames, the hidden mode for tests |
 | `src/retro/main.cpp` | `opensu-retro`'s command line |
-| `src/library/libretro_cores.*` | Finding a core; core downloads from the libretro buildbot under `<data>/opensu/cores/` and their record |
+| `src/library/libretro_cores.*` | Finding a core and its info file; core downloads from the libretro buildbot under `<data>/opensu/cores/`, with their info and record |
+| `src/library/core_bios.*` | A core's BIOS files from its core info, what it does without them, which are in the system folder |
 | `src/library/romset_dat.*` | An arcade core's ROM-set listing: a Logiqx datafile or MAME `-listxml` parsed, its line format under the cache |
 | `src/library/romset_dats.*` | The arcade cores' listings fetched over HTTPS from the catalog's `"romsets"` and kept under `<cache>/romsets/` for 30 days |
 | `src/library/romset_lists.*` | Those fetches off the library scan, one at a time on a thread, each one's state (bytes, done, failed and when it is tried again) for the Downloads page |
@@ -168,7 +169,22 @@ digest, so this catches corruption, not a compromised host. The listing and the 
 every redirect hop on the folder's own origin. The zip must hold exactly `<core>.so`, which is
 written whole (`fileio::writeWhole`), then its record `<core>.json` (build date, CRC-32, URL); the
 update check compares the listed CRC-32 with the record's. Only a core with a record is openSU's to
-update and remove. Built-in entries come after the standalone ones in the catalog, so a system's
+update and remove. With the zip, the core's libretro core info `<core>.info` is taken out of the
+buildbot's `assets/frontend/info.zip` (same origin) and written beside it; the update check fetches
+it for a core downloaded without one. A core installed another way has its info in
+`~/.config/retroarch/info` or `/usr/share/libretro/info`.
+
+**BIOS.** A core's BIOS files are its info's `firmware*` entries, looked for in the runner's
+system folder (`<data>/opensu/system/`). The catalog's `"withoutBios"` says what the core does
+when none is there: `hle` (mGBA, PCSX ReARMed), `open` (melonDS DS's FreeBIOS), `skipped` (boot
+ROMs and add-on BIOSes: Gambatte, Snes9x, Mesen), `needed` by default. Settings › Emulators shows,
+for each chosen built-in core but the arcade ones, the mode ("HLE built in", "Your BIOS file
+<name>", ...) and each file in use, there but not used, or missing. A core that takes images from
+the folder by its own rule has `"biosScan"` in the catalog; `pcsx_rearmed` applies PCSX ReARMed's
+`loadPSXBios` rule (its own names, then every file; exactly 512 KiB, the reset or "PS compatible"
+signature, one per region), so the rows name the file it will load, listed or not. Check it in the product: Settings ›
+Emulators, the "<System> BIOS" rows; the runner's log line for the core's choice (PCSX ReARMed:
+`found US BIOS file` or `HLE BIOS initialized.`). Built-in entries come after the standalone ones in the catalog, so a system's
 automatic emulator stays the standalone one where it is installed.
 
 **Romsets.** An arcade core's catalog entry names its listing: `"romsets": {"files": [...]}`

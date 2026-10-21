@@ -10,6 +10,8 @@
 #include <string_view>
 #include <vector>
 
+#include "core_bios.hpp"
+
 namespace opensu::library::roms {
 
 /// One way an emulator is installed and started.
@@ -61,6 +63,10 @@ struct EmulatorEntry {
     std::string core;
     /// An arcade core's ROM-set listings; empty for every other emulator.
     RomsetSource romsets;
+    /// What a built-in emulator's core does without its BIOS files (`"withoutBios"`).
+    WithoutBios withoutBios{WithoutBios::Needed};
+    /// How its core chooses a BIOS from the system folder (`"biosScan"`).
+    BiosScan biosScan{BiosScan::Listed};
 
     [[nodiscard]] bool serves(std::string_view system) const;
     [[nodiscard]] bool builtIn() const noexcept {

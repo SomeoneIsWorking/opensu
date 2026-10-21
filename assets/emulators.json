@@ -189,37 +189,44 @@
       "id": "mgba-core",
       "name": "mGBA (built-in)",
       "systems": ["gb", "gbc", "gba"],
-      "core": "mgba_libretro"
+      "core": "mgba_libretro",
+      "withoutBios": "hle"
     },
     {
       "id": "gambatte-core",
       "name": "Gambatte (built-in)",
       "systems": ["gb", "gbc"],
-      "core": "gambatte_libretro"
+      "core": "gambatte_libretro",
+      "withoutBios": "skipped"
     },
     {
       "id": "snes9x-core",
       "name": "Snes9x (built-in)",
       "systems": ["snes"],
-      "core": "snes9x_libretro"
+      "core": "snes9x_libretro",
+      "withoutBios": "skipped"
     },
     {
       "id": "mesen-core",
       "name": "Mesen (built-in)",
       "systems": ["nes"],
-      "core": "mesen_libretro"
+      "core": "mesen_libretro",
+      "withoutBios": "skipped"
     },
     {
       "id": "pcsx-rearmed-core",
       "name": "PCSX ReARMed (built-in)",
       "systems": ["psx"],
-      "core": "pcsx_rearmed_libretro"
+      "core": "pcsx_rearmed_libretro",
+      "withoutBios": "hle",
+      "biosScan": "pcsx_rearmed"
     },
     {
       "id": "melondsds-core",
       "name": "melonDS DS (built-in)",
       "systems": ["nds"],
-      "core": "melondsds_libretro"
+      "core": "melondsds_libretro",
+      "withoutBios": "open"
     },
     {
       "id": "fbneo-core",

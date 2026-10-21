@@ -1,7 +1,10 @@
 #include "emulator_downloads.hpp"
 
 #include <algorithm>
+#include <filesystem>
+#include <system_error>
 
+#include "library/core_bios.hpp"
 #include "lucent/log.h"
 
 namespace opensu::app {
@@ -211,6 +214,33 @@ void EmulatorDownloads::checkCores(std::vector<std::string>& failures) {
         } else {
             lucent::warn("emulators", "{}: {}", entry.name, error);
             failures.push_back(entry.name + ": " + error);
+        }
+    }
+    fetchMissingInfo(failures);
+}
+
+void EmulatorDownloads::fetchMissingInfo(std::vector<std::string>& failures) {
+    std::optional<library::roms::CoreInfoArchive> archive;
+    for (const EmulatorEntry& entry : setup_.catalog.entries()) {
+        std::error_code ec;
+        if (!entry.builtIn() || !cores_.find(entry.core) ||
+            std::filesystem::is_regular_file(cores_.info(entry.core), ec)) {
+            continue;
+        }
+        std::string error;
+        if (!archive) {
+            std::optional<std::string> bytes = coreDownload_.infoArchive(error);
+            archive = bytes ? library::roms::CoreInfoArchive::open(std::move(*bytes), error)
+                            : std::nullopt;
+        }
+        const std::optional<std::string> info =
+            archive ? archive->info(entry.core, error) : std::nullopt;
+        if (!info || !cores_.installInfo(entry.core, *info, error)) {
+            lucent::warn("emulators", "{}: {}", entry.name, error);
+            failures.push_back(entry.name + ": " + error);
+            if (!archive) {
+                return;
+            }
         }
     }
 }

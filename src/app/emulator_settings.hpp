@@ -1,7 +1,9 @@
 // emulator_settings — the Settings screen's Emulators category: every emulator of the catalog,
 // whether and how it is installed, Download, Update and Remove (Remove only for an AppImage openSU
-// downloaded, and only on a second press), the update check, and the emulator each system's games
-// run on unless a game has its own pick.
+// downloaded, and only on a second press), the update check, the emulator each system's games
+// run on unless a game has its own pick, and the BIOS each chosen built-in core runs on (its
+// core info's files, present or missing in the runner's system folder, or HLE, an open BIOS built
+// in, or none needed when none is there).
 #pragma once
 
 #include <functional>
@@ -50,6 +52,8 @@ class EmulatorSettings {
     void runEmulator(const library::roms::EmulatorEntry& entry);
     void runRemove(const library::roms::EmulatorEntry& entry);
     void stepSystem(const std::string& system, int step);
+    /// Each chosen built-in core's BIOS: what it runs on, and each file it looks for.
+    void addBiosRows(ui::SettingsCategory& page) const;
     [[nodiscard]] std::string valueOf(const library::roms::EmulatorEntry& entry) const;
     [[nodiscard]] std::string noteOf(const library::roms::EmulatorEntry& entry) const;
 
