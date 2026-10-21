@@ -28,3 +28,12 @@ maybe".
    firmware installer is the reference for the format).
 2. Whether the PS1 image from the PUP boots in each PS1 core, and what region it is.
 3. Each open BIOS's licence and current release, fetched as data with a checksum.
+
+## PS2 notes
+
+- The player is unsure how far the open PS2 BIOS gets: "it might need more work". Measure it on
+  the player's PS2 games before offering it as the default; the PS3 firmware or the player's own
+  dump stays the choice that works.
+- Prior art in the player's repos: `ps2/avpe` built an HLE BIOS for one game (Aliens vs. Predator:
+  Extinction), with an EE BIOS and IOP service inventory (`docs/issues/0020-inventory-bios-iop-service-surface.md`
+  there). It covers that title's calls only, so it is reference material, not a general BIOS.
