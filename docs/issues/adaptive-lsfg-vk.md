@@ -1,6 +1,7 @@
 # Adaptive frame generation through lsfg-vk
 
-Status: open, research done; nothing built.
+Status: open. Build-order step 1 answered (2026-10-22, "Step 1 result" below); nothing in
+openSU built.
 
 The player: "Another request I have is adaptive LSFG-VK". lsfg-vk is the Vulkan layer that runs
 Lossless Scaling's frame generation on Linux; the player has a fork (`SomeoneIsWorking/lsfg-vk`).
@@ -83,7 +84,8 @@ From the player, the bar for adaptive:
   of the game. In openSU every game keeps that layer (`launch/child_environment` strips
   `DISABLE_GAMESCOPE_WSI`, which only the shell sets). So inside our nested Gamescope, the layer's
   extra presents go through the Gamescope WSI layer, and implicit-layer order decides which layer
-  sees which present. Neither is tested.
+  sees which present. Tested in step 1: the layer sits above Gamescope WSI, and Gamescope drops
+  the generated commits (see "Step 1 result").
 
 ## The fork `SomeoneIsWorking/lsfg-vk`
 
@@ -207,7 +209,9 @@ math. It covers nothing on pacing.
    - Size: 1-3 weeks with qualification.
 4. **Gamescope.** In our fork of Gamescope, check that FIFO holds through its WSI for nested
    games, that present-wait or timing is exposed, and the order of the lsfg layer against the
-   Gamescope WSI layer. Fix it in our Gamescope fork if needed.
+   Gamescope WSI layer. Fix it in our Gamescope fork if needed. Step 1 answered the order and
+   FIFO: the FIFO latch has to keep commit order (see "Step 1 result"); present-wait and timing
+   are still unchecked.
 
 An alternative, not a substitute: Lossless Scaling's own model is a compositor that captures the
 game and paces its own output. openSU already owns a Gamescope fork that sees every game commit
@@ -217,6 +221,111 @@ openSU root atom.
 - Cost: porting the lsfg-vk backend into Gamescope's Vulkan renderer, per-surface frame history,
   and the Gamescope fork becoming GPL-3 by linking it.
 - Size: comparable to step 3, and it replaces steps 3-4 and the delivery work below.
+
+## Step 1 result
+
+Build-order step 1, run on 2026-10-22. Evidence and scripts are in gitignored
+`scratch/lsfg-step1/`.
+
+**Setup**
+- Layer: the fork's `develop` at `8efd7ede48edc86966d9d3d2c9a1130977f13a80`, unmodified. It was
+  cloned to `build/lsfg-vk-src` and built Release with Clang (`CMAKE_CXX_COMPILER_ID=Clang`) into
+  `build/lsfg-vk/install`. Each run loads it through `VK_ADD_IMPLICIT_LAYER_PATH`.
+- Config: `LSFGVK_CONFIG` points at `scratch/lsfg-step1/conf.toml`, with one profile
+  (`active_in = 'vkcube'`, multiplier 2, flow scale 1.0, pacing `none`). Its `dll` names
+  `~/.local/share/Steam/steamapps/common/Lossless Scaling/Lossless.dll` (default branch, build
+  19655272), read in place. The DLL's SHA-256 is in `lossless-dll.sha256`.
+- Gamescope: openSU's pinned fork `e297b648` on `--backend headless -W 1280 -H 720 -w 1280 -h 720
+  -r 60`. The game is Gamescope's child with Gamescope WSI on, as openSU's child environment has
+  it. Hardware: RX 6700 XT, RADV, Mesa 26.2.5.
+- The game: `vkcube --c N` (vulkan-tools 1.4.341). Its spin advances per frame, not per time, so a
+  generated frame shows as a half step.
+- Why not `opensu-retro`: with `--hidden` the runner draws into an offscreen image and never
+  creates a swapchain (`retro/presenter`). The layer works only in `vkCreateSwapchainKHR` and
+  `vkQueuePresentKHR`, so it has nothing to apply to. The runner was therefore not used.
+- The player's desktop-wide lsfg-vk v1 layer
+  (`~/.local/share/vulkan/implicit_layer.d/VkLayer_LS_frame_generation.json`, no
+  `enable_environment`) loads into every Vulkan process, openSU's games included. Its profile only
+  matches `decky-lsfg-vk`. The runs kept it out with `DISABLE_LSFG=1`, and delivery has to do the
+  same for any game that gets the fork's layer.
+
+**How it was measured**
+- Presented rate: `WAYLAND_DEBUG=server` on Gamescope logs every request it receives:
+  `wl_surface.commit`, `gamescope_swapchain.set_present_mode` and its `wl_buffer.release` events.
+  `lifetimes.py` turns the log into per-commit buffer lifetimes.
+- Real rate: vkcube's fixed frame count over its wall time.
+- Frames: Gamescope's PipeWire stream, read with `gst-launch-1.0 pipewiresrc`. That gives
+  consecutive composited frames, one per vblank.
+- Latch order: a scratch build of the same Gamescope commit with three stderr prints
+  (`gamescope-debug-instrumentation.diff`, built in `build/lsfg-gs-debug`), read with `shown.py`.
+
+| Run | Real frames | Commits at Gamescope (steady) | Shown |
+|-----|-------------|-------------------------------|-------|
+| vkcube alone, WSI on (`base`) | 59.8/s | 60.0/s | every commit |
+| Layer 2x, WSI on, openSU's default (`fg2x`) | 60/s, one pair per vblank | 120/s | 60/s, about 3 in 4 generated frames dropped |
+| Layer 2x, `DISABLE_GAMESCOPE_WSI=1` (`fg2x-nowsi`) | 29.9/s | 60.0/s (Xwayland's surface) | every commit, generated and real alternating |
+
+**Answers**
+- **Layer order.** App, then `VK_LAYER_LSFGVK_frame_generation`, then
+  `VK_LAYER_FROG_gamescope_wsi_x86_64`, then `VK_LAYER_MESA_device_select`, then RADV. A layer
+  added through `VK_ADD_IMPLICIT_LAYER_PATH` lands above the system's implicit layers.
+  - Every present the layer makes, generated and real, goes through Gamescope WSI: 1200
+    `set_present_mode` calls for 600 game frames.
+  - The backend's own instance (created under `DISABLE_LSFGVK=1`) also gets Gamescope WSI, but it
+    has no swapchain.
+- **Present mode.**
+  - The layer forces FIFO at swapchain creation, which also raises `minImageCount` from 3 to 5,
+    and again on every present.
+  - Gamescope WSI then sends MAILBOX to the driver and `set_present_mode(2)` (FIFO) to Gamescope
+    before each commit, so Gamescope flags every commit FIFO.
+- **Generated: yes.** The backend runs on the player's `Lossless.dll`, and the layer makes two
+  presents per game present.
+- **Presented under WSI: no.** `steamcompmgr.cpp:handle_done_commits_xwayland` latches FIFO
+  commits one per vblank, but in the order they complete. `commit_t::Signal` appends to
+  `listCommitsDone` on completion. `handle_done_commit` then erases every older commit in the
+  window's queue.
+  - The real frame's buffer completes before the generated one, which is presented ahead of it
+    but still waits on the backend's compute.
+  - Gamescope therefore latches the real frame and throws the generated one away unseen.
+  - Instrumented run: 238 of about 300 generated commits were dropped this way, and no real ones.
+  - Plain run: 413 of 545 generated buffers were released 33 ms after their commit, so they were
+    never scanned out. Every real buffer lived about 49.5 ms. All 12 captured frames are sharp
+    real frames, one cube step apart (`wsi-leftface-004-007.png`).
+  - Nothing throttles the game: it runs at 60 real frames per second, and the GPU generates
+    frames nobody sees.
+- **Presented without WSI: yes.** This is lsfg-vk's documented workaround.
+  - Xwayland's Present queue keeps commit order, and FIFO throttles the game to 30.
+  - Gamescope shows 60 frames per second, and consecutive captures alternate soft generated and
+    sharp real frames, a half cube step apart (`nowsi-leftface-004-007.png`: 004 and 006 are
+    generated).
+- **Validation.** `VK_LAYER_KHRONOS_validation` from `VK_INSTANCE_LAYERS` lands next to the
+  driver, below the layer. So it checks every call the layer makes on the game's device and the
+  whole backend device, but not the game's own calls.
+  - With WSI off there were 0 errors.
+  - With WSI on, two errors also show with vkcube alone, so they are Gamescope WSI's: it enables
+    `VK_EXT_swapchain_maintenance1` without `VK_EXT_surface_maintenance1`, and every present
+    carries a `VkSwapchainPresentModeInfoKHR` with `swapchainCount` 0.
+  - Also with WSI on, `VK_KHR_wayland_surface` and `VK_KHR_xcb_surface` are enabled without
+    `VK_KHR_surface` in the backend's instance, where Gamescope WSI adds them.
+  - None of the errors come from the layer.
+- **Not checked.** The nested (Wayland backend) Gamescope: the latch code is the same and only
+  the vblank source differs. Also unchecked: present-wait and present timing through the WSI, a
+  game openSU's shell starts itself, and Steam or pressure-vessel.
+
+**For the layer-or-Gamescope decision**
+- The layer route needs a change in our Gamescope fork before any generated frame shows with WSI
+  on.
+  - The change: a FIFO commit must not be latched while an older commit of the same window is
+    still pending. It sits in `handle_done_commits_xwayland` and `handle_done_commit`. It looks
+    small but has not been tried.
+  - Turning WSI off for frame-gen games works today. It gives up what openSU keeps WSI for, and
+    real frames go through Xwayland.
+- Even with that fix, both images of a pair arrive back to back from one `vkQueuePresentKHR`, so
+  Gamescope paces them only by FIFO vblank. That suits fixed integer multipliers. Adaptive output
+  still needs the layer's own present thread (step 3 of "What adaptive takes").
+- The compositor-side alternative avoids this queue, because Gamescope would hold both real
+  frames itself. Step 1 does not settle the choice. It adds one Gamescope fix to the layer route's
+  cost and shows that route working today only with WSI off.
 
 ## Lossless.dll for openSU
 
@@ -269,7 +378,8 @@ Never copied. openSU resolves the path inside the player's install and passes it
 1. Fork layer, fixed mode, delivery only. Load the unmodified fork layer into one game openSU
    starts itself (a libretro or Wine game) inside our Gamescope, with the DLL resolved from the
    player's install. Prove generated presents reach the screen (presented-rate log, frame). This
-   settles the Gamescope WSI and FIFO questions first.
+   settles the Gamescope WSI and FIFO questions first. Answered in "Step 1 result": with WSI
+   on, Gamescope drops the generated frames; with WSI off they show.
 2. Backend per-frame timestamps (step 1 above). Prove fractional output with a fixed float
    multiplier (2.5x) in the product.
 3. Pacer with target, max, tolerance and the 10 fps floor (step 2). Prove it with a 43 fps game
