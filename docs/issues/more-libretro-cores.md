@@ -118,3 +118,12 @@ first scan an hour later.
 ## Steam modes in session mode
 
 See `integrations-opt-in.md`.
+
+## A FinalBurn Neo fork for older romsets
+
+The player: "we can make a finalburn fork that can play older ROM sets". Rather than a MAME core per
+romset version, a FinalBurn Neo fork whose drivers also accept the older dumps (other CRCs, names,
+sizes and split files, as MAME 2003-Plus and 2010 sets carry them), so one core plays sets
+across versions. The DAT matcher then lists the fork's alternates as matches. The player's armwar
+and avspu (0.139 sets) are the first two to prove it; the CPS2 `.key` files they lack must still
+come from the player.
