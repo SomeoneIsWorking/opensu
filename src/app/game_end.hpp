@@ -1,5 +1,6 @@
 // game_end — what the player is told when a launch is over: the built-in runner's load failure, a
-// crash named by its signal, the launch's own failure, or that the game closed.
+// crash named by its signal, that the player cancelled it, the launch's own failure, or that the
+// game closed.
 #pragma once
 
 #include <string>
@@ -14,6 +15,8 @@ struct GameEnd {
     int exitStatus{-1};
     /// The load failure opensu-retro left in its control file.
     std::string runnerError;
+    /// The player cancelled the launch from its panel.
+    bool cancelled{false};
 };
 
 struct EndNotice {

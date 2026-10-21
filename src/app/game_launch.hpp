@@ -31,7 +31,8 @@ class GameLaunch {
     [[nodiscard]] const library::Game& game() const noexcept {
         return game_;
     }
-    /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
+    /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update;
+    /// its end is told as cancelled.
     void cancel();
     /// Ends the running game, from a menu.
     void close();
@@ -43,6 +44,7 @@ class GameLaunch {
     library::Game game_;
     mutable std::mutex mutex_;
     bool running_{false};
+    bool cancelled_{false};
 };
 
 } // namespace opensu::app

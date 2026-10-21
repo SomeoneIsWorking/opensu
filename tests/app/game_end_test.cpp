@@ -46,6 +46,10 @@ void noticesSayHowTheGameEnded() {
     expect(closed.text == "Metroid closed" && !closed.error, "a game the player closed neither");
     const app::EndNotice stopped = app::noticeOf(app::GameEnd{"Metroid", "", 128 + SIGTERM, ""});
     expect(!stopped.error, "a game ended by SIGTERM is no crash");
+    const app::EndNotice cancelled = app::noticeOf(app::GameEnd{
+        .title = "Metroid", .failure = "", .exitStatus = -1, .runnerError = "", .cancelled = true});
+    expect(cancelled.text == "Metroid launch cancelled" && !cancelled.error,
+           "a cancelled launch says so, not that the game closed");
 }
 
 } // namespace

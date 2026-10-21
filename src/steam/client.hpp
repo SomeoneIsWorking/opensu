@@ -130,6 +130,7 @@ class Client final : public launch::SteamGate {
                                                const std::function<bool()>& cancelled) override;
     [[nodiscard]] std::optional<double> updateProgress(std::string_view appId) const override;
     [[nodiscard]] launch::SteamAppActivity activity(std::string_view appId) const override;
+    void cancelLaunch(std::string_view appId) override;
     [[nodiscard]] bool showsInSession() const override;
 
   private:

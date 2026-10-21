@@ -60,7 +60,13 @@ class PanelFlow {
     }
 
   private:
-    enum class Use : std::uint8_t { None, Launch, OfferInstall, Install, Eula };
+    /// Cancelling: the player cancelled the launch, which goes on until it is over.
+    enum class Use : std::uint8_t { None, Launch, Cancelling, OfferInstall, Install, Eula };
+
+    /// Whether the panel is up for a launch, cancelled or not.
+    [[nodiscard]] bool forLaunch() const noexcept {
+        return use_ == Use::Launch || use_ == Use::Cancelling;
+    }
 
     /// Shows the panel for `title` with iiSU's Open sound.
     void open(const std::string& title);

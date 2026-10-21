@@ -82,13 +82,14 @@ class Handoff {
 
     /// Ends the current launch and returns at once, from any thread: the thread in start()
     /// stops the instance (SIGTERM to every process in it, SIGKILL to what is left after the
-    /// scope's 5 s), or SIGKILLs a Steam game's whole process tree (the client stays), waits for
-    /// it to go, calls `show` and returns.
+    /// scope's 5 s), or ends a Steam launch (`endSteamLaunch`: Steam's launch cancelled, the
+    /// game's whole process tree SIGKILLed, the client left running), waits for it to go, calls
+    /// `show` and returns.
     void forceClose();
 
   private:
-    /// How a launch got on.
-    enum class Begun : std::uint8_t { Started, Cancelled, Failed };
+    /// How a launch got on: Returned is a game Steam already ran, which was not asked for again.
+    enum class Begun : std::uint8_t { Started, Returned, Cancelled, Failed };
     /// How the wait for the game's window ended.
     enum class Shown : std::uint8_t { Window, Forced, Failed };
     /// Reports a progress line once per change.
@@ -107,6 +108,11 @@ class Handoff {
                            std::string& failure);
     /// Phase one for a game in an Instance: it appears, then shows a window.
     Shown awaitScopeWindow(const library::Game& game, const Report& report, std::string& failure);
+    /// Ends a Steam launch after forceClose(): asks Steam to drop each unfinished action of this
+    /// launch and ends the game's processes whenever they show, until Steam has taken the request
+    /// (`requested`: this launch asked it to run the game), has no action of it pending, does not
+    /// run the game and none of its processes remain.
+    void endSteamLaunch(const library::Game& game, int baseline, bool requested);
     /// Phase two: whether the game is still there.
     [[nodiscard]] bool stillRunning(const library::Game& game, bool viaSteam);
 

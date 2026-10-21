@@ -25,6 +25,7 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
             return false;
         }
         running_ = true;
+        cancelled_ = false;
         game_ = game;
     }
     // The thread owns a copy because it outlives this call.
@@ -50,11 +51,17 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
                                                    exitStatus = status;
                                                }};
         handoff_.start(copy, hooks, environment, failure);
+        bool cancelled = false;
         {
             const std::lock_guard lock{mutex_};
             running_ = false;
+            cancelled = cancelled_;
         }
-        const EndNotice notice = noticeOf(GameEnd{copy.title, failure, exitStatus, retro_.end()});
+        const EndNotice notice = noticeOf(GameEnd{.title = copy.title,
+                                                  .failure = failure,
+                                                  .exitStatus = exitStatus,
+                                                  .runnerError = retro_.end(),
+                                                  .cancelled = cancelled});
         lucent::info("launch", "{} is over: {}", copy.title, notice.text);
         mailbox_.postToast(notice.text, notice.error);
     }}.detach();
@@ -62,8 +69,12 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
 }
 
 void GameLaunch::cancel() {
-    if (!running()) {
-        return;
+    {
+        const std::lock_guard lock{mutex_};
+        if (!running_) {
+            return;
+        }
+        cancelled_ = true;
     }
     lucent::info("launch", "cancelling the launch of {}", game_.title);
     handoff_.forceClose();

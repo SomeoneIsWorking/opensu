@@ -331,6 +331,15 @@ launch::SteamAppActivity Client::activity(std::string_view appId) const {
     return found == activities_.end() ? launch::SteamAppActivity{} : found->second;
 }
 
+void Client::cancelLaunch(std::string_view appId) {
+    std::string error;
+    if (!launches_.cancel(appId, error)) {
+        lucent::warn("steam", "could not cancel the launch of {}: {}", appId, error);
+        return;
+    }
+    lucent::info("steam", "cancelled the launch of {}", appId);
+}
+
 std::vector<Download> Client::downloads() const {
     const std::lock_guard lock{mutex_};
     return downloads_;

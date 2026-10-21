@@ -23,6 +23,8 @@ std::string describe(const LaunchProgress& progress) {
         return progress.task.empty() ? "Starting" : progress.task;
     case LaunchProgress::Stage::Loading:
         return "Loading";
+    case LaunchProgress::Stage::Cancelling:
+        return "Cancelling";
     }
     return "Starting";
 }

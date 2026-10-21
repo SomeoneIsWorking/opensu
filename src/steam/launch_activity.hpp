@@ -6,6 +6,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include <nlohmann/json.hpp>
 
@@ -27,6 +28,10 @@ class LaunchActivity {
     /// Installs the recorder if Steam has none yet, then reads it. Nothing when Steam cannot
     /// be asked; `error` says why.
     [[nodiscard]] std::optional<Activities> read(std::string& error);
+
+    /// `SteamClient.Apps.CancelLaunch`, Steam's library Cancel while a game launches: ends the
+    /// app's launch action before it runs the game. False when Steam cannot be asked.
+    [[nodiscard]] bool cancel(std::string_view appId, std::string& error);
 
   private:
     DevTools& devTools_;

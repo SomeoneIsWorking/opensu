@@ -79,6 +79,10 @@ class SteamGate {
     /// Steam's launch and run state for `appId`. Callable from any thread.
     [[nodiscard]] virtual SteamAppActivity activity(std::string_view appId) const = 0;
 
+    /// Asks Steam to drop its launch of `appId`, as the Cancel on its library's Play button does.
+    /// Callable from any thread.
+    virtual void cancelLaunch(std::string_view appId) = 0;
+
     /// Whether Steam's games show in openSU's Gamescope, where the handoff can see their windows;
     /// a desktop Steam's show on the desktop.
     [[nodiscard]] virtual bool showsInSession() const = 0;

@@ -871,7 +871,8 @@ exits, and a game that ignores SIGTERM or hangs is gone within 5 s. A Wine game 
 SIGTERM and the same 5 s bound; whether a Windows game under Wine saves on SIGTERM is
 unproven. A Steam game does not take this path: it has no scope of openSU's, and the reaper whose
 command line carries `AppId=<id>` and everything below it are SIGKILLed at once
-(`launch::ProcessTree::killMatching`), leaving the client up. The menu only raises the request;
+(`launch::ProcessTree::killMatching`), leaving the client up, and the close returns once Steam no
+longer says the game runs (`Handoff::endSteamLaunch`). The menu only raises the request;
 the launch's own thread does the stop and the wait, so the shell keeps drawing however long the
 game takes to go. Proof (`scratch/close-game/runs/`, hidden shell, scratch XDG dirs): before the
 change Close game ran `systemctl kill --signal=SIGKILL` and the runner logged no exit
@@ -942,8 +943,15 @@ hidraw where a pad has it, which a grab does not cover (an xone pad has none, an
 Steam then reads the virtual pad); a non-SDL game that enumerates every evdev pad
 sees the grabbed, silent one too.
 
-Gap: a force-close while the client is still starting the game cannot cancel the
-request it already handed to Steam.
+B on the launch panel of a Steam launch Steam has accepted (`docs/issues/steam-cancel-still-launches.md`)
+asks Steam to drop it with `SteamClient.Apps.CancelLaunch`, as the library's Cancel does, SIGKILLs the
+game's tree if it shows anyway, and keeps the panel up reading "Cancelling" until Steam's action of
+the launch is over, Steam does not say the game runs and none of its processes remain (bounded by
+the launch's 3 min). The panel offers nothing to press once B is in, and the launch ends with the
+toast "<title> launch cancelled". Proof: `scratch/steam-cancel/` (Managed, the player's Steam,
+Hamsteria Demo). Unproven: B while Steam updates the game first. Gap: a `-applaunch` Steam drops
+leaves no trace in its launch record, so a cancel before any action of the launch is seen waits on
+the 3 min bound.
 
 ### Installing Steam games
 

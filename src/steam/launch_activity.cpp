@@ -1,6 +1,9 @@
 #include "launch_activity.hpp"
 
+#include <string>
 #include <string_view>
+
+#include "steam_json.hpp"
 
 namespace opensu::steam {
 namespace {
@@ -86,6 +89,17 @@ std::optional<Activities> LaunchActivity::read(std::string& error) {
         return std::nullopt;
     }
     return parseActivities(*record);
+}
+
+bool LaunchActivity::cancel(std::string_view appId, std::string& error) {
+    if (!isAppId(appId)) {
+        error = "not a Steam app id: " + std::string{appId};
+        return false;
+    }
+    // The library passes the game id, which for a Steam app is its app id as a string.
+    return devTools_
+        .evaluate("SteamClient.Apps.CancelLaunch(\"" + std::string{appId} + "\")", error)
+        .has_value();
 }
 
 } // namespace opensu::steam
