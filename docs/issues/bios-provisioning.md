@@ -162,6 +162,11 @@ other.
   - An alternative, not the default.
 - Prior art: the player's `ps2/avpe` HLE BIOS covers one game's EE/IOP calls (Aliens vs. Predator:
   Extinction). It is reference material, not a general BIOS.
+- From the PS3 firmware: the player points at a comment in the r/emulation thread "Open source PS2
+  BIOS" (`old.reddit.com/r/emulation/comments/1x8iv0c/`, not readable from here) saying the PS2
+  BIOS is in the PS3 firmware. That fits the PUP findings above: no BIOS file, but the `ps2emu`
+  programs carry one inside, which unofficial scripts cut out. To measure when a PS2 core exists:
+  whether such an image passes PCSX2's ROMDIR/ROMVER check and boots the player's games.
 
 ## Other systems
 
