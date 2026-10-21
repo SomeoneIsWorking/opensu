@@ -36,6 +36,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     done
 ENV CC=clang CXX=clang++
 
+# Rust for librashader (cmake/Librashader.cmake needs cargo 1.88 or newer; 24.04 ships 1.75): rustup-init
+# pinned by its sha256, the toolchain by version.
+ENV RUSTUP_HOME=/usr/local/rustup PATH=/usr/local/cargo/bin:$PATH
+RUN curl -fsSL --retry 5 --retry-all-errors -o /tmp/rustup-init \
+        https://static.rust-lang.org/rustup/archive/1.28.2/x86_64-unknown-linux-gnu/rustup-init \
+    && echo "20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c  /tmp/rustup-init" \
+        | sha256sum -c - \
+    && chmod +x /tmp/rustup-init \
+    && CARGO_HOME=/usr/local/cargo /tmp/rustup-init -y --no-modify-path --profile minimal \
+        --default-toolchain 1.90.0 \
+    && rm /tmp/rustup-init
+
 # Each source: download (retried: freedesktop.org hosts reset connections), check its sha256,
 # build with meson into /usr/local.
 RUN set -eu; \

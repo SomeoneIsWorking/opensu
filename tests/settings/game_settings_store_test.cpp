@@ -59,8 +59,8 @@ void theNearestLayerWins() {
     expect(layers.resolve(chrono, "video.aspect", "core").value == "pixel" &&
                !layers.layers().contains(Layer{Kind::Game, chrono.game}),
            "clearing deletes the key, the layer under applies, and an empty layer goes");
-    expect(resolveVideo(layers, metroid).aspect == Aspect::Square &&
-               resolveVideo(layers, metroid).sampling == Sampling::Nearest,
+    expect(resolveVideo(layers, metroid, {}).aspect == Aspect::Square &&
+               resolveVideo(layers, metroid, {}).sampling == Sampling::Nearest,
            "video settings resolve to their typed values, defaults where nothing is kept");
 }
 
@@ -111,7 +111,7 @@ void picksMoveOnce(const fs::path& root) {
 
 void launchFile() {
     const VideoSettings video{Aspect::FourThree, IntegerScale::Overscale, Sampling::SharpBilinear,
-                              Filter::LcdGrid};
+                              Filter::LcdGrid, "/data/shaders/slang/crt/crt-royale.slangp"};
     std::string error;
     expect(parseLaunchFile(launchFileText(video), error) == video, "the launch file round trips");
     expect(parseLaunchFile("{}", error) == VideoSettings{}, "a key it lacks keeps its default");

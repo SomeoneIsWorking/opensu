@@ -329,7 +329,7 @@ void DownloadsBoard::applyEmulator(const Sources& sources, std::set<std::string>
     if (const std::optional<EmulatorLook>& running = sources.emulator) {
         Entry& at = entry(emulatorKey(running->id));
         DownloadRow& row = at.row;
-        row.kind = running->core ? DownloadKind::Core : DownloadKind::Emulator;
+        row.kind = running->kind;
         row.id = running->id;
         row.title = running->name;
         row.bytesDone = running->received;
@@ -353,7 +353,7 @@ void DownloadsBoard::applyEmulator(const Sources& sources, std::set<std::string>
         return;
     }
     Entry& at = entry(emulatorKey(end->id));
-    at.row.kind = end->core ? DownloadKind::Core : DownloadKind::Emulator;
+    at.row.kind = end->kind;
     at.row.id = end->id;
     at.row.title = end->name;
     at.row.state = end->state;

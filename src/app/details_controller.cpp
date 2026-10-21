@@ -9,6 +9,7 @@
 #include "library/wine.hpp"
 #include "retro_launch.hpp"
 #include "settings/video_settings.hpp"
+#include "shader_preset_picker.hpp"
 
 namespace opensu::app {
 namespace {
@@ -39,19 +40,31 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
     const library::roms::EmulatorCatalog& catalog = downloads_.setup().catalog;
     if (builtInOf(game, catalog) != nullptr) {
         const settings::LayerKeys keys = library::layerKeysOf(game);
+        const settings::Resolved shader = settings::resolveShader(layers, keys);
         for (const settings::VideoKey& video : settings::videoKeys) {
             const settings::Resolved resolved =
                 layers.resolve(keys, video.key, std::string{video.choices[0].key});
-            const std::string shown{settings::choiceLabel(video, resolved.value)};
+            std::string shown{settings::choiceLabel(video, resolved.value)};
             // A default needs no row: its button shows the value.
             if (resolved.from) {
                 view.rows.push_back(ui::DetailsRow{
                     std::string{video.label}, shown + " · " + sourceText(resolved.from, catalog)});
             }
+            if (!shader.value.empty() && settings::replacedByShader(video.key)) {
+                shown = "Not used";
+            }
             view.buttons.push_back(ui::DetailsButton{ui::DetailsAction::Setting,
                                                      std::string{video.label}, shown,
                                                      std::string{video.key}});
         }
+        if (shader.from) {
+            view.rows.push_back(ui::DetailsRow{std::string{settings::shaderLabel},
+                                               presetLabel(shader.value) + " · " +
+                                                   sourceText(shader.from, catalog)});
+        }
+        view.buttons.push_back(ui::DetailsButton{ui::DetailsAction::ShaderPreset,
+                                                 std::string{settings::shaderLabel},
+                                                 presetLabel(shader.value), ""});
     }
     if (layers.layers().contains(settings::Layer{settings::Layer::Kind::Game, game.id})) {
         view.buttons.push_back(
@@ -161,6 +174,9 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::Setting:
         stepSetting(*game, page_.selectedSetting(), 1);
         break;
+    case ui::DetailsAction::ShaderPreset:
+        pickShader(*game);
+        break;
     case ui::DetailsAction::ClearSettings:
         clearSettings(*game);
         break;
@@ -217,6 +233,7 @@ void DetailsController::clearSettings(const library::Game& game) {
     for (const settings::VideoKey& video : settings::videoKeys) {
         layers.clear(own, video.key);
     }
+    layers.clear(own, settings::shaderKey);
     sounds_.play(audio::Effect::Navigation);
     if (picked) {
         // Saves, and reads the library again for the choice under the pick.
@@ -225,6 +242,12 @@ void DetailsController::clearSettings(const library::Game& game) {
         gameSettings_.save();
     }
     refresh();
+}
+
+void DetailsController::pickShader(const library::Game& game) {
+    settings::LayerKeys below = library::layerKeysOf(game);
+    below.game.clear();
+    hooks_.pickShader(game, settings::resolveShader(gameSettings_.layers(), below).value);
 }
 
 void DetailsController::downloadEmulator(const library::Game& game) {

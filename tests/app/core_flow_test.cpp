@@ -157,6 +157,8 @@ struct Rig {
                                           said.emplace_back(text, error);
                                       },
                                       [](const library::Game&) {
+                                      },
+                                      [](const library::Game&, const std::string&) {
                                       }}};
 };
 

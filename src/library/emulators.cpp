@@ -250,6 +250,7 @@ EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden,
                              config.home, config.dataDir, config.executablePath, config.retroRunner,
                              config.savesDir, config.retroSystemDir, hidden),
                          .overrides = config.emulators,
+                         .shaders = ShaderPack::under(config.dataDir),
                          .standalone = standalone};
 }
 

@@ -13,7 +13,7 @@ namespace opensu::retro {
 /// How a run ends.
 enum class RunnerExit : std::uint8_t {
     Quit = 0,
-    /// The window or Vulkan could not be set up, or drawing failed.
+    /// The window, Vulkan or the shader preset could not be set up, or drawing failed.
     PresenterFailed = 1,
     /// The core or game could not be loaded.
     LoadFailed = 2,
@@ -43,6 +43,8 @@ struct RunnerOptions {
     std::filesystem::path control;
     /// How the frame is shown: the shell's per-launch settings, else the defaults.
     settings::VideoSettings video;
+    /// The librashader a shader preset runs on.
+    std::filesystem::path librashader;
 };
 
 class RunnerApp {

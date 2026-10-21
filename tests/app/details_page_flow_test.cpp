@@ -111,6 +111,9 @@ struct Rig {
                          },
                          [this](const library::Game& opened) {
                              calls.push_back("controls " + opened.id);
+                         },
+                         [this](const library::Game& opened, const std::string& inherited) {
+                             calls.push_back("shader " + opened.id + " " + inherited);
                          }}} {
     }
 };

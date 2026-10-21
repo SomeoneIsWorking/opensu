@@ -2,10 +2,13 @@
 // (its emulator and its video settings) and each built-in core (its video settings). The Emulators
 // page lists a row opening each; an open page takes the category's place until B closes it. A
 // value set on the page reads "Set for <layer>", one inherited reads where it comes from, and each
-// choice steps through "not set" too, which clears it. Every game's own emulator pick is reset
-// here.
+// choice steps through "not set" too, which clears it. The Shader preset row opens the preset
+// picker (`ShaderPresetPicker`) in the page's place; the details page opens that picker straight
+// for a game's layer, and the screen closes once it is left. Every game's own emulator pick is
+// reset here.
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
@@ -16,6 +19,7 @@
 #include "library/emulators.hpp"
 #include "settings/setting_layers.hpp"
 #include "settings/video_settings.hpp"
+#include "shader_preset_picker.hpp"
 #include "ui/settings_page.hpp"
 
 namespace opensu::app {
@@ -25,12 +29,27 @@ class LayerSettings {
     struct Hooks {
         /// An emulator pick changed: the library applies it.
         std::function<void()> picksChanged;
+        /// A video setting changed: the details page shows it.
+        std::function<void()> videoChanged;
     };
 
-    /// `found` is what the emulator search found, read as the page is built.
+    /// What B did on an open page.
+    enum class Back : std::uint8_t {
+        /// Moved back within the picker, or from it to its layer's page.
+        Within,
+        /// The layer's page is to close, back to the Emulators page.
+        Layer,
+        /// The picker opened for a game was left: the screen is to close.
+        Screen,
+    };
+
+    /// `found` is what the emulator search found, read as the page is built; `pack` the shader
+    /// presets the picker lists.
     LayerSettings(GameSettings& gameSettings,
-                  std::function<const library::roms::Emulators&()> found, Hooks hooks)
-        : gameSettings_{gameSettings}, found_{std::move(found)}, hooks_{std::move(hooks)} {
+                  std::function<const library::roms::Emulators&()> found,
+                  const library::roms::ShaderPack& pack, Hooks hooks)
+        : gameSettings_{gameSettings}, found_{std::move(found)}, picker_{pack},
+          hooks_{std::move(hooks)} {
     }
 
     /// The rows the Emulators page opens each layer's page with.
@@ -46,7 +65,20 @@ class LayerSettings {
     }
     void close() noexcept {
         open_.reset();
+        picker_.close();
+        direct_ = false;
     }
+    /// Opens the shader preset picker straight for `layer`, named `name` (a game's title), over
+    /// `inherited`, the preset that applies without it.
+    void pickShader(settings::Layer layer, std::string name, std::string inherited);
+    /// Whether the open picker was opened straight for a game.
+    [[nodiscard]] bool direct() const noexcept {
+        return direct_;
+    }
+    /// B on the open page.
+    [[nodiscard]] Back back();
+    /// The row to focus after the page changed: the picker's row just left; empty for the first.
+    [[nodiscard]] std::string returnRow() const;
     /// The Emulators page's row that opens the open layer's page.
     [[nodiscard]] std::string openRowId() const;
     [[nodiscard]] static bool owns(const std::string& id);
@@ -64,14 +96,30 @@ class LayerSettings {
     [[nodiscard]] ui::SettingsRow emulatorRow(const std::string& system) const;
     [[nodiscard]] ui::SettingsRow videoRow(const settings::Layer& layer,
                                            const settings::VideoKey& video) const;
+    /// The row before the note that a shader preset replaces it.
+    [[nodiscard]] ui::SettingsRow videoRowOf(const settings::Layer& layer,
+                                             const settings::VideoKey& video) const;
     void stepEmulator(const std::string& system, int step);
     void stepVideo(const settings::Layer& layer, std::string_view key, int step);
+    [[nodiscard]] ui::SettingsRow shaderRow(const settings::Layer& layer) const;
+    /// The preset that applies at `layer` without its own value: Everywhere's under a console.
+    [[nodiscard]] std::string inheritedShader(const settings::Layer& layer) const;
+    void pressPicker(const settings::Layer& layer, const std::string& id);
+    void saveVideo();
     void clearLayer(const settings::Layer& layer);
 
     GameSettings& gameSettings_;
     std::function<const library::roms::Emulators&()> found_;
+    ShaderPresetPicker picker_;
     Hooks hooks_;
     std::optional<settings::Layer> open_;
+    /// The open game layer's name.
+    std::string gameName_;
+    /// What the game gets without its own preset, for the directly opened picker.
+    std::string directInherited_;
+    bool direct_{false};
+    /// The picker was just left for its layer's page.
+    bool leftPicker_{false};
 };
 
 } // namespace opensu::app

@@ -23,12 +23,13 @@ const library::roms::EmulatorEntry* builtInOf(const library::Game& game,
 
 std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayers& layers,
                                const library::roms::EmulatorCatalog& catalog,
-                               const std::filesystem::path& file) {
+                               const std::filesystem::path& file,
+                               const std::filesystem::path& presets) {
     if (builtInOf(game, catalog) == nullptr) {
         return {};
     }
     const settings::VideoSettings video =
-        settings::resolveVideo(layers, library::layerKeysOf(game));
+        settings::resolveVideo(layers, library::layerKeysOf(game), presets);
     std::string error;
     if (!fileio::writeWhole(file, settings::launchFileText(video), error)) {
         return error;

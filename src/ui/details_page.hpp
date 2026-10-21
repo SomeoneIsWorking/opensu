@@ -33,6 +33,8 @@ enum class DetailsAction : std::uint8_t {
     Uninstall,
     /// Step one of the game's settings (`DetailsButton::setting`) to its next value.
     Setting,
+    /// Pick the game's own shader preset on the preset picker.
+    ShaderPreset,
     /// Clear every setting the game keeps of its own.
     ClearSettings,
     /// Edit the game's button mapping.

@@ -35,6 +35,10 @@ std::size_t indexOrDefault(const VideoKey& video, std::string_view spelling,
 
 } // namespace
 
+bool replacedByShader(std::string_view key) noexcept {
+    return key == samplingKey().key || key == filterKey().key;
+}
+
 const VideoKey* videoKey(std::string_view key) {
     const auto found = std::ranges::find(videoKeys, key, &VideoKey::key);
     return found == videoKeys.end() ? nullptr : &*found;
@@ -53,17 +57,24 @@ std::string_view choiceLabel(const VideoKey& video, std::string_view spelling) {
     return index ? video.choices[*index].label : spelling;
 }
 
-VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys) {
+Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys) {
+    return layers.resolve(keys, shaderKey, std::string{});
+}
+
+VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
+                           const std::filesystem::path& presets) {
     const auto index = [&](const VideoKey& video) {
         const Resolved resolved =
             layers.resolve(keys, video.key, std::string{video.choices.front().key});
         return indexOrDefault(video, resolved.value, keys.game);
     };
+    const std::string shader = resolveShader(layers, keys).value;
     return VideoSettings{
         .aspect = static_cast<Aspect>(index(aspectKey())),
         .integer = static_cast<IntegerScale>(index(integerKey())),
         .sampling = static_cast<Sampling>(index(samplingKey())),
         .filter = static_cast<Filter>(index(filterKey())),
+        .shaderPreset = shader.empty() ? std::filesystem::path{} : presets / shader,
     };
 }
 
@@ -76,6 +87,7 @@ std::string launchFileText(const VideoSettings& video) {
         {std::string{integerKey().key}, spelling(integerKey(), video.integer)},
         {std::string{samplingKey().key}, spelling(samplingKey(), video.sampling)},
         {std::string{filterKey().key}, spelling(filterKey(), video.filter)},
+        {std::string{shaderKey}, video.shaderPreset.string()},
     };
     return document.dump(2) + "\n";
 }
@@ -101,11 +113,20 @@ std::optional<VideoSettings> parseLaunchFile(std::string_view text, std::string&
         }
         chosen[at] = *index;
     }
+    std::filesystem::path shader;
+    if (const auto found = document.find(std::string{shaderKey}); found != document.end()) {
+        if (!found->is_string()) {
+            error = found->dump() + " is not a " + std::string{shaderKey} + " path";
+            return std::nullopt;
+        }
+        shader = found->get<std::string>();
+    }
     return VideoSettings{
         .aspect = static_cast<Aspect>(chosen[0]),
         .integer = static_cast<IntegerScale>(chosen[1]),
         .sampling = static_cast<Sampling>(chosen[2]),
         .filter = static_cast<Filter>(chosen[3]),
+        .shaderPreset = std::move(shader),
     };
 }
 

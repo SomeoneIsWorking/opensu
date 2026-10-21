@@ -6,7 +6,7 @@
 FROM registry.fedoraproject.org/fedora:44@sha256:959833699a2fb5da1bc70b4db659ab229252c2ba1ed8e2fa29d4b30a704c0f63
 
 RUN dnf -y install --setopt=install_weak_deps=False \
-        systemd systemd-pam dbus sudo git clang clang-tools-extra cmake ninja-build meson glslang uv \
+        systemd systemd-pam dbus sudo git clang clang-tools-extra cmake ninja-build meson glslang uv cargo \
         dnf-plugins-core libcurl-devel openssl-devel zlib-ng-compat-devel libwebp-devel nanosvg-devel json-devel \
         libX11-devel libXi-devel \
         SDL3-devel SDL3_ttf-devel SDL3_image-devel libvorbis-devel libjpeg-turbo \

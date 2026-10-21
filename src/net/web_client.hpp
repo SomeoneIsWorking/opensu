@@ -63,14 +63,28 @@ class WebClient {
                                                 const std::vector<std::string>& headers,
                                                 const Guard& guard, std::string& error) const;
 
+    /// What a 200 response says of its body.
+    struct BodyFacts {
+        /// Last-Modified as Unix time; -1 when the server sent none.
+        std::int64_t modified{-1};
+        /// Content-Length; -1 when the server sent none.
+        std::int64_t length{-1};
+    };
+
+    /// The facts of a HEAD of `url`, following redirects that `refusal` allows. Nothing unless the
+    /// answer is 200; `error` says why.
+    [[nodiscard]] std::optional<BodyFacts> head(const std::string& url, const Refusal& refusal,
+                                                std::string& error) const;
+
     /// Streams the body of a 200 response to `file`, following redirects that `refusal` allows,
     /// or without one, only those within the URL's own scheme. `progress` is called as bytes
-    /// arrive and cancels the transfer by returning false. On failure `error` says why
+    /// arrive and cancels the transfer by returning false. A body shorter than its Content-Length
+    /// fails. With `facts`, the response's facts are put there. On failure `error` says why
     /// ("cancelled", "HTTP 404", the refusal or libcurl's reason) and `file` may hold a partial
     /// body, which the caller removes.
     [[nodiscard]] bool download(const std::string& url, const std::filesystem::path& file,
                                 const Progress& progress, std::string& error,
-                                const Refusal& refusal = {}) const;
+                                const Refusal& refusal = {}, BodyFacts* facts = nullptr) const;
 
   private:
     /// One GET following redirects, answered by `expected`; `range` is "first-last" or empty.

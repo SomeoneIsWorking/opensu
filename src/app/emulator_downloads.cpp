@@ -34,6 +34,15 @@ EmulatorDownloads::~EmulatorDownloads() {
 }
 
 std::string EmulatorDownloads::start(std::string_view id) {
+    using library::roms::shaderPackId;
+    if (id == shaderPackId) {
+        if (setup_.shaders.root().parent_path().empty()) {
+            return "openSU has no folder to keep the shader presets in";
+        }
+        return launch(id, [this](const std::stop_token& stop, const auto& progress, auto& error) {
+            return installPack(stop, progress, error);
+        });
+    }
     const EmulatorEntry* entry = setup_.catalog.find(id);
     if (entry == nullptr || !entry->downloadable()) {
         return "openSU cannot download " + std::string{entry == nullptr ? id : entry->name};
@@ -44,20 +53,35 @@ std::string EmulatorDownloads::start(std::string_view id) {
     if (entry->builtIn() && cores_.root().empty()) {
         return "openSU has no folder to keep " + entry->name + "'s core in";
     }
+    return launch(id,
+                  [this, entry](const std::stop_token& stop, const auto& progress, auto& error) {
+                      return entry->builtIn() ? installCore(stop, *entry, progress, error)
+                                              : installRelease(stop, *entry, progress, error);
+                  });
+}
+
+std::string EmulatorDownloads::launch(std::string_view id, Installer install) {
     {
         const std::lock_guard lock{mutex_};
         if (progress_) {
-            const EmulatorEntry* running = setup_.catalog.find(progress_->id);
-            return (running != nullptr ? running->name : progress_->id) +
-                   " is downloading; one emulator downloads at a time";
+            return nameOf(progress_->id) + " is downloading; one download runs at a time";
         }
         progress_ = Progress{std::string{id}, 0, 0};
         shownPercent_.reset();
     }
-    downloader_ = std::jthread{[this, entry](const std::stop_token& stop) {
-        runDownload(stop, *entry);
-    }};
+    downloader_ = std::jthread{
+        [this, id = std::string{id}, install = std::move(install)](const std::stop_token& stop) {
+            runDownload(stop, id, install);
+        }};
     return {};
+}
+
+std::string EmulatorDownloads::nameOf(std::string_view id) const {
+    if (id == library::roms::shaderPackId) {
+        return std::string{library::roms::shaderPackName};
+    }
+    const EmulatorEntry* entry = setup_.catalog.find(id);
+    return entry != nullptr ? entry->name : std::string{id};
 }
 
 void EmulatorDownloads::remember(const std::string& id, Build build) {
@@ -109,7 +133,25 @@ EmulatorDownloads::installCore(const std::stop_token& stop, const EmulatorEntry&
     return Build{installed->date, std::to_string(installed->crc32)};
 }
 
-void EmulatorDownloads::runDownload(const std::stop_token& stop, const EmulatorEntry& entry) {
+std::optional<EmulatorDownloads::Build>
+EmulatorDownloads::installPack(const std::stop_token& stop,
+                               const net::WebClient::Progress& progress, std::string& error) {
+    if (stop.stop_requested()) {
+        error = "cancelled";
+        return std::nullopt;
+    }
+    const std::optional<library::roms::ShaderPackBuild> installed =
+        packDownload_.install(setup_.shaders, progress, error);
+    if (!installed) {
+        return std::nullopt;
+    }
+    Build build{installed->version(), installed->key()};
+    remember(std::string{library::roms::shaderPackId}, build);
+    return build;
+}
+
+void EmulatorDownloads::runDownload(const std::stop_token& stop, const std::string& id,
+                                    const Installer& install) {
     const net::WebClient::Progress progress = [this, &stop](std::uint64_t received,
                                                             std::uint64_t total) {
         const std::lock_guard lock{mutex_};
@@ -120,18 +162,16 @@ void EmulatorDownloads::runDownload(const std::stop_token& stop, const EmulatorE
         return !stop.stop_requested();
     };
     std::string error;
-    const std::optional<Build> installed = entry.builtIn()
-                                               ? installCore(stop, entry, progress, error)
-                                               : installRelease(stop, entry, progress, error);
+    const std::optional<Build> installed = install(stop, progress, error);
+    const std::string name = nameOf(id);
     using Outcome = Finished::Outcome;
     Ended ended;
     if (installed) {
-        ended = Ended{entry.id, entry.name + " " + installed->version + " is installed",
-                      Outcome::Installed};
+        ended = Ended{id, name + " " + installed->version + " is installed", Outcome::Installed};
     } else if (error == "cancelled") {
-        ended = Ended{entry.id, entry.name + " download cancelled", Outcome::Cancelled};
+        ended = Ended{id, name + " download cancelled", Outcome::Cancelled};
     } else {
-        ended = Ended{entry.id, entry.name + " was not installed: " + error, Outcome::Failed};
+        ended = Ended{id, name + " was not installed: " + error, Outcome::Failed};
         lucent::warn("emulators", "{}", ended.text);
     }
     const std::lock_guard lock{mutex_};
@@ -172,6 +212,16 @@ void EmulatorDownloads::checkUpdates() {
 void EmulatorDownloads::runCheck(const std::stop_token& stop, bool standalone) {
     std::vector<std::string> failures;
     checkCores(failures);
+    if (!setup_.shaders.root().parent_path().empty()) {
+        std::string error;
+        if (const std::optional<library::roms::ShaderPackBuild> pack =
+                packDownload_.latest(error)) {
+            remember(std::string{library::roms::shaderPackId}, Build{pack->version(), pack->key()});
+        } else {
+            lucent::warn("emulators", "{}", error);
+            failures.push_back(std::string{library::roms::shaderPackName} + ": " + error);
+        }
+    }
     for (const EmulatorEntry& entry : setup_.catalog.entries()) {
         if (stop.stop_requested()) {
             return;
@@ -257,6 +307,10 @@ std::optional<EmulatorDownloads::Build> EmulatorDownloads::latest(std::string_vi
 }
 
 std::optional<EmulatorDownloads::Build> EmulatorDownloads::downloaded(std::string_view id) const {
+    if (id == library::roms::shaderPackId) {
+        const std::optional<library::roms::ShaderPackBuild> pack = setup_.shaders.installed();
+        return pack ? std::optional{Build{pack->version(), pack->key()}} : std::nullopt;
+    }
     const EmulatorEntry* entry = setup_.catalog.find(id);
     if (entry == nullptr) {
         return std::nullopt;
@@ -282,12 +336,18 @@ std::string EmulatorDownloads::remove(std::string_view id) {
             return "it is downloading; cancel the download first";
         }
     }
-    const EmulatorEntry* entry = setup_.catalog.find(id);
-    if (entry == nullptr || !downloaded(id)) {
+    if (!downloaded(id)) {
         return "openSU did not download it";
     }
     std::string error;
-    if (!(entry->builtIn() ? cores_.remove(entry->core, error) : store_.remove(id, error))) {
+    const EmulatorEntry* entry = setup_.catalog.find(id);
+    bool removed = false;
+    if (id == library::roms::shaderPackId) {
+        removed = setup_.shaders.remove(error);
+    } else if (entry != nullptr) {
+        removed = entry->builtIn() ? cores_.remove(entry->core, error) : store_.remove(id, error);
+    }
+    if (!removed) {
         return error;
     }
     if (hooks_.installedChanged) {

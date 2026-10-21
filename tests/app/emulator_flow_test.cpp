@@ -114,9 +114,12 @@ struct Rig {
                               [this]() -> const library::roms::Emulators& {
                                   return emulators.found();
                               },
+                              downloads.shaderPack(),
                               app::LayerSettings::Hooks{[this] {
-                                  ++changes;
-                              }}};
+                                                            ++changes;
+                                                        },
+                                                        [] {
+                                                        }}};
     /// ROMs are never uninstalled; the details page here offers no Uninstall.
     app::UninstallPrompt uninstall{app::UninstallPrompt::Hooks{[](const library::Game&) {
                                                                    return app::Removal{};
@@ -159,6 +162,8 @@ struct Rig {
                                           said.emplace_back(text, error);
                                       },
                                       [](const library::Game&) {
+                                      },
+                                      [](const library::Game&, const std::string&) {
                                       }}};
 };
 

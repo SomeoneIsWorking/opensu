@@ -342,6 +342,22 @@ void SettingsController::changed() {
     refresh();
 }
 
+void SettingsController::openShaderPicker(const settings::Layer& layer, const std::string& name,
+                                          const std::string& inherited) {
+    open();
+    layers_.pickShader(layer, name, inherited);
+    page_.refresh(build());
+    showCategory(EmulatorSettings::categoryId);
+    page_.focusRow(0);
+}
+
+void SettingsController::focusLayerRow() {
+    const std::string target = layers_.returnRow();
+    const std::vector<ui::SettingsRow>& rows = page_.focusedCategory().rows;
+    const auto at = std::ranges::find(rows, target, &ui::SettingsRow::id);
+    page_.focusRow(at == rows.end() ? 0 : static_cast<std::size_t>(at - rows.begin()));
+}
+
 void SettingsController::closeLayer() {
     const std::string opener = layers_.openRowId();
     layers_.close();
@@ -402,7 +418,19 @@ void SettingsController::act(gamepad::Button button) {
     case gamepad::Button::B:
         if (inRows && layers_.isOpen() &&
             page_.focusedCategory().id == EmulatorSettings::categoryId) {
-            closeLayer();
+            switch (layers_.back()) {
+            case LayerSettings::Back::Within:
+                sounds_.play(audio::Effect::Navigation);
+                refresh();
+                focusLayerRow();
+                break;
+            case LayerSettings::Back::Layer:
+                closeLayer();
+                break;
+            case LayerSettings::Back::Screen:
+                close();
+                break;
+            }
         } else if (inRows) {
             showCategories();
         } else {
@@ -477,10 +505,18 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
         }
         sounds_.play(audio::Effect::Navigation);
         const bool wasOpen = layers_.isOpen();
+        const bool direct = layers_.direct();
+        const std::string before = layers_.openName();
         layers_.run(id, step);
+        if (direct && !layers_.isOpen()) {
+            close();
+            return;
+        }
         refresh();
         if (!wasOpen && layers_.isOpen()) {
             page_.focusRow(0);
+        } else if (layers_.openName() != before) {
+            focusLayerRow();
         }
         return;
     }

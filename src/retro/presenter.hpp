@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -26,6 +27,8 @@ struct PresenterOptions {
     bool validation{false};
     /// How the frame is shown.
     settings::VideoSettings video;
+    /// The librashader a shader preset runs on.
+    std::filesystem::path librashader;
 };
 
 /// What the window reported since the last poll.
@@ -49,7 +52,8 @@ struct Readback {
 
 class Presenter {
   public:
-    /// Opens the window and the Vulkan device; throws VulkanError or std::runtime_error.
+    /// Opens the window and the Vulkan device; throws VulkanError, ShaderError for a shader preset
+    /// that cannot run, or std::runtime_error.
     explicit Presenter(const PresenterOptions& options);
     Presenter(const Presenter&) = delete;
     Presenter& operator=(const Presenter&) = delete;
@@ -62,7 +66,8 @@ class Presenter {
     /// Draws `frame`, uploading it first when `fresh`. Throws VulkanError when drawing fails.
     void present(const FrameImage& frame, bool fresh);
 
-    /// Hidden only: the last image presented; empty before the first.
+    /// Hidden only: the last image presented, opaque as the window shows it; empty before the
+    /// first.
     [[nodiscard]] Readback readBack();
 
     [[nodiscard]] std::size_t validationErrors() const {

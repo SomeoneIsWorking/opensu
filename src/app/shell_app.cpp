@@ -583,8 +583,9 @@ void ShellApp::launch(const library::Game& game) {
         return;
     }
     std::string control = retro_.begin();
-    if (const std::string refused = prepareRetroLaunch(
-            started, gameSettings_.layers(), emulatorSettings_.catalog(), retro_.settingsFile());
+    if (const std::string refused =
+            prepareRetroLaunch(started, gameSettings_.layers(), emulatorSettings_.catalog(),
+                               retro_.settingsFile(), emulatorDownloads_.shaderPack().root());
         !refused.empty()) {
         static_cast<void>(retro_.end());
         shell_.setToast("cannot write " + game.title + "'s settings: " + refused, true);

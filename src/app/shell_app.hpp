@@ -374,9 +374,13 @@ class ShellApp final : private PointerHost {
                                  [this]() -> const library::roms::Emulators& {
                                      return emulatorSettings_.found();
                                  },
+                                 emulatorDownloads_.shaderPack(),
                                  LayerSettings::Hooks{[this] {
-                                     reloadCatalog();
-                                 }}};
+                                                          reloadCatalog();
+                                                      },
+                                                      [this] {
+                                                          details_.refresh();
+                                                      }}};
     /// The button mappings, and their page over the details page and Settings › Controls.
     MappingEditor mappings_{
         shell_.mappingPage(),
@@ -423,6 +427,11 @@ class ShellApp final : private PointerHost {
                                  },
                                  [this](const library::Game& game) {
                                      mappings_.openGame(game);
+                                 },
+                                 [this](const library::Game& game, const std::string& inherited) {
+                                     settingsScreen_.openShaderPicker(
+                                         settings::Layer{settings::Layer::Kind::Game, game.id},
+                                         game.title, inherited);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),

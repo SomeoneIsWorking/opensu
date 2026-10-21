@@ -197,6 +197,13 @@ std::filesystem::path retroRunnerBeside(const std::filesystem::path& executable)
     return executable.parent_path() / "opensu-retro";
 }
 
+std::filesystem::path librashaderBeside(const std::filesystem::path& executable) {
+    if (executable.empty()) {
+        return {};
+    }
+    return executable.parent_path().parent_path() / OPENSU_LIBRASHADER_RELATIVE;
+}
+
 Config read() {
     Config value;
     if (const std::string_view home = env("HOME"); !home.empty()) {
@@ -215,6 +222,7 @@ Config read() {
     value.executable = self;
     value.gamescope = gamescopeBeside(self);
     value.retroRunner = retroRunnerBeside(self);
+    value.librashader = librashaderBeside(self);
     const auto base = [&value](const char* variable, const char* fallback) {
         const std::string_view set = env(variable);
         return set.empty() ? value.home / fallback : std::filesystem::path{set};

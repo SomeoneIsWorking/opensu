@@ -98,9 +98,9 @@ void Presenter::open() {
         format_ = chooseFormat(device_->physical(), surface_).format;
     }
     compositor_ = std::make_unique<FrameCompositor>(
-        *device_, format_,
+        instance_->handle(), *device_, format_,
         options_.hidden ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        options_.video);
+        options_.video, options_.librashader);
 
     VkCommandPoolCreateInfo pool{};
     pool.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -334,7 +334,8 @@ void Presenter::present(const FrameImage& frame, bool fresh) {
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     check(vkBeginCommandBuffer(commands_, &begin), "vkBeginCommandBuffer");
-    if (compositor_->record(commands_, frame, uploadPending_, targets_[index].framebuffer,
+    if (compositor_->record(commands_, frame, uploadPending_,
+                            DrawTarget{targets_[index].image, targets_[index].framebuffer},
                             extent_)) {
         uploadPending_ = false;
     }
@@ -416,6 +417,10 @@ Readback Presenter::readBack() {
         const auto* bytes = static_cast<const std::uint8_t*>(mapped);
         result.rgba.assign(bytes, bytes + size);
         vkUnmapMemory(vk_, memory);
+        // The swapchain is composited opaque; a shader preset may leave alpha below 1.
+        for (std::size_t at = 3; at < result.rgba.size(); at += 4) {
+            result.rgba[at] = 0xFF;
+        }
         result.width = extent_.width;
         result.height = extent_.height;
     } catch (...) {

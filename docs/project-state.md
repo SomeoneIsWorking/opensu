@@ -46,7 +46,9 @@ Visible deltas from the baseline:
   works on the same page once it is in. iiSU installs no emulators. The size on disk is not shown because no store source records it.
 - A game on a built-in core has Aspect (core, 4:3, pixel 1:1, stretch), Integer scale (off, on,
   overscale), Sampling (nearest, bilinear, sharp-bilinear) and Filter (none, scanlines, LCD grid,
-  CRT), kept per game, per core, per console and Everywhere, each value saying where it comes from (S040). iiSU has no video settings for its
+  CRT) or a slang Shader preset from libretro's pack (downloaded in Settings › Emulators, run by
+  librashader; it replaces Sampling and Filter), kept per game, per core, per console and
+  Everywhere, each value saying where it comes from (S040). iiSU has no video settings for its
   emulators.
 - A breadcrumb trail in the top bar's start (`Library > GOG > Search "had" > Installed > <game>`)
   names where the player is; each place in it is a pointer target that goes back to that level.
@@ -148,7 +150,7 @@ game has been observed running yet.
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
 | S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
-| S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter) in setting layers per game, core, console and Everywhere, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
+| S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) in setting layers per game, core, console and Everywhere, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 
 ## Capability details
@@ -830,7 +832,7 @@ image tagged by the Containerfile hash), then checks the staged binary with `ldd
 inside an environment prepared for it, CI's Fedora 44 job container and the AppImage's Ubuntu 24.04
 build container) and stages it where `Config::gamescope` finds it, in the build
 tree and installed. A pin change fetches the commit into the existing clone
-(`cmake/GamescopeFetchPin.cmake`, before the disconnected update that would refuse it) and runs
+(`cmake/GitFetchPin.cmake`, before the disconnected update that would refuse it) and runs
 `meson setup --reconfigure`, so the version header (`git describe`) follows the pin. Verified in a
 scratch tree configured at `41e84d4f` with the new pin absent from its clone: the bump fetched,
 rebuilt and reported `3.16.29-4-geea763bd`, and the unchanged rebuild after it had no work; the
@@ -1449,7 +1451,11 @@ default and names its layer. The `emulator` key lives at the Game and System lay
 rule. At launch the shell writes the resolved video settings to a per-launch file and starts
 `opensu-retro --settings <file>`; `retro/frame_compositor` places and samples the frame and
 `retro/frame_filter` picks the shader for the sampling and the filter (scanlines and LCD grid as
-bands on the source pixel grid, CRT ported from crt-lottes).
+bands on the source pixel grid, CRT ported from crt-lottes). `video.shader` names a `.slangp` in
+the pack `library/shader_pack` downloads into `<data>/opensu/shaders/slang/`; the runner builds it
+with librashader (`retro/shader_chain`, the pinned `SomeoneIsWorking/librashader` fork built by
+`cmake/Librashader.cmake`), which replaces sampling and filter, and refuses the launch when the
+library is missing.
 
 Verified, hidden, 2026-10-21 (`scratch/setting-layers/`): `step1/` the presenter split leaves the
 runner's frames byte-identical (Kirby frame 600 on mGBA, armwar frame 900 on MAME 2010, before and
@@ -1477,8 +1483,24 @@ console page, Chrono Trigger to CRT on its details page ("CRT · Set for this ga
 Metroid reads "Scanlines · From Super Nintendo"; their launches' settings files (`crt`,
 `scanlines`) and the runner frames from those command lines.
 
-Unverified: a visible window under Gamescope; the CRT's cost on Deck-class hardware. Missing: the
-quick menu's live changes, core options per layer, shader presets, bezels, touch overlays (the card's steps 5–9).
+Shader presets verified, hidden, 2026-10-21 (`scratch/shader-presets/`, validation on, 0 errors
+in every run): `shell/` the Shader presets row before, during (17 %) and after the 54 MB download,
+the Downloads page during (15 %, 8.7 of 54.3 MB) and finished, Check for updates offering the
+newer build and the update installing it, Remove; Super Nintendo set to `crt › crt-royale` on its
+console page through the picker (nested `bezel › Mega_Bezel` folders shown), Chrono Trigger
+overridden to `pixel-art-scaling › sharp-bilinear-simple` from its details page while Super
+Metroid reads "crt › crt-royale · From Super Nintendo"; `launch/` their settings files. `runner/`
+Super Metroid crt-royale (and overscaled), Chrono Trigger sharp-bilinear-simple, Kirby (mGBA)
+with lcd-grid-v2, crt-guest-advanced (LUTs), sharp-bilinear-simple and gba-lcd-grid-v2 (border,
+history). A runner without `librashader.so` beside it exits 1 with "shader presets need
+librashader, which is not installed (<path>)", which the shell toasts (`shell/21-*`).
+
+Unverified: a visible window under Gamescope; the CRT's and the presets' cost on Deck-class
+hardware; the AppImage and CI images with Rust added (not rebuilt); a preset that fails while
+drawing (not reproduced; the runner ends with saves written and exit 1, and the shell shows
+the ordinary end, not the reason). Missing: the quick menu's live changes, core
+options per layer, preset parameters, bezels, touch overlays (the card's steps 5, 6, 8, 9 and
+the rest of 7).
 
 ### S039 — Opt-in integrations and Steam modes
 

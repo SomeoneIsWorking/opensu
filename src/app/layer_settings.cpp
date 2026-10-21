@@ -18,6 +18,7 @@ constexpr std::string_view openSystemId = "layers.open.system.";
 constexpr std::string_view openEmulatorId = "layers.open.emulator.";
 constexpr std::string_view emulatorRowId = "layers.emulator";
 constexpr std::string_view videoRowId = "layers.video.";
+constexpr std::string_view shaderRowId = "layers.shader";
 constexpr std::string_view clearId = "layers.clear";
 
 /// `count` keys set, as a row's value.
@@ -50,7 +51,7 @@ std::vector<std::string> namesFor(const library::roms::EmulatorCatalog& catalog,
 } // namespace
 
 bool LayerSettings::owns(const std::string& id) {
-    return id.starts_with(prefix);
+    return id.starts_with(prefix) || ShaderPresetPicker::owns(id);
 }
 
 std::string LayerSettings::nameOf(const Layer& layer) const {
@@ -64,7 +65,7 @@ std::string LayerSettings::nameOf(const Layer& layer) const {
         return entry != nullptr ? entry->name : layer.id;
     }
     case Layer::Kind::Game:
-        break;
+        return gameName_;
     }
     return layer.id;
 }
@@ -111,6 +112,18 @@ ui::SettingsRow LayerSettings::emulatorRow(const std::string& system) const {
 }
 
 ui::SettingsRow LayerSettings::videoRow(const Layer& layer, const settings::VideoKey& video) const {
+    ui::SettingsRow row = videoRowOf(layer, video);
+    if (settings::replacedByShader(video.key)) {
+        const std::string* own = gameSettings_.layers().at(layer, settings::shaderKey);
+        if (!(own != nullptr ? *own : inheritedShader(layer)).empty()) {
+            row.note += " · not used with a shader preset";
+        }
+    }
+    return row;
+}
+
+ui::SettingsRow LayerSettings::videoRowOf(const Layer& layer,
+                                          const settings::VideoKey& video) const {
     const settings::SettingLayers& layers = gameSettings_.layers();
     const std::string id = std::string{videoRowId} + std::string{video.key};
     if (const std::string* own = layers.at(layer, video.key)) {
@@ -131,8 +144,95 @@ ui::SettingsRow LayerSettings::videoRow(const Layer& layer, const settings::Vide
     return ui::makeRow(id, RowKind::Choice, std::string{video.label}, note, std::string{inherited});
 }
 
+std::string LayerSettings::inheritedShader(const Layer& layer) const {
+    if (direct_) {
+        return directInherited_;
+    }
+    const std::string* everywhere = gameSettings_.layers().at(Layer{}, settings::shaderKey);
+    return layer.kind == Layer::Kind::System && everywhere != nullptr ? *everywhere : std::string{};
+}
+
+ui::SettingsRow LayerSettings::shaderRow(const Layer& layer) const {
+    const std::string id{shaderRowId};
+    const std::string label{settings::shaderLabel};
+    if (const std::string* own = gameSettings_.layers().at(layer, settings::shaderKey)) {
+        return ui::makeRow(id, RowKind::Action, label,
+                           "Set for " + nameOf(layer) + "; replaces Sampling and Filter",
+                           presetLabel(*own));
+    }
+    std::string note =
+        picker_.packInstalled() ? "Default" : "Default; Download Shader presets to choose one";
+    if (layer.kind == Layer::Kind::Emulator) {
+        note = "Not set; from each game's console";
+    } else if (layer.kind == Layer::Kind::System &&
+               gameSettings_.layers().at(Layer{}, settings::shaderKey) != nullptr) {
+        note = "From Everywhere";
+    }
+    return ui::makeRow(id, RowKind::Action, label, note, presetLabel(inheritedShader(layer)));
+}
+
 std::string LayerSettings::openName() const {
-    return open_ ? nameOf(*open_) : std::string{};
+    if (!open_) {
+        return {};
+    }
+    return picker_.isOpen() ? nameOf(*open_) + " › " + picker_.openName() : nameOf(*open_);
+}
+
+void LayerSettings::pickShader(Layer layer, std::string name, std::string inherited) {
+    open_ = std::move(layer);
+    gameName_ = std::move(name);
+    directInherited_ = std::move(inherited);
+    direct_ = true;
+    leftPicker_ = false;
+    picker_.open();
+}
+
+LayerSettings::Back LayerSettings::back() {
+    leftPicker_ = false;
+    if (!picker_.isOpen()) {
+        return Back::Layer;
+    }
+    if (picker_.back()) {
+        return Back::Within;
+    }
+    if (direct_) {
+        close();
+        return Back::Screen;
+    }
+    leftPicker_ = true;
+    return Back::Within;
+}
+
+std::string LayerSettings::returnRow() const {
+    if (picker_.isOpen()) {
+        return picker_.returnRow();
+    }
+    return leftPicker_ ? std::string{shaderRowId} : std::string{};
+}
+
+void LayerSettings::pressPicker(const Layer& layer, const std::string& id) {
+    const ShaderPresetPicker::Pick pick = picker_.press(id);
+    using Kind = ShaderPresetPicker::Pick::Kind;
+    if (pick.kind == Kind::Nothing) {
+        return;
+    }
+    if (pick.kind == Kind::Clear) {
+        gameSettings_.layers().clear(layer, settings::shaderKey);
+    } else {
+        gameSettings_.layers().set(layer, settings::shaderKey, pick.value);
+    }
+    saveVideo();
+    picker_.close();
+    if (direct_) {
+        close();
+    } else {
+        leftPicker_ = true;
+    }
+}
+
+void LayerSettings::saveVideo() {
+    gameSettings_.save();
+    hooks_.videoChanged();
 }
 
 std::optional<ui::SettingsCategory> LayerSettings::page(const std::string& id,
@@ -141,12 +241,18 @@ std::optional<ui::SettingsCategory> LayerSettings::page(const std::string& id,
         return std::nullopt;
     }
     ui::SettingsCategory page{id, label, {}};
+    if (picker_.isOpen()) {
+        page.rows = picker_.rows(gameSettings_.layers().at(*open_, settings::shaderKey),
+                                 inheritedShader(*open_));
+        return page;
+    }
     if (open_->kind == Layer::Kind::System) {
         page.rows.push_back(emulatorRow(open_->id));
     }
     for (const settings::VideoKey& video : settings::videoKeys) {
         page.rows.push_back(videoRow(*open_, video));
     }
+    page.rows.push_back(shaderRow(*open_));
     page.rows.push_back(ui::makeRow(std::string{clearId}, RowKind::Action,
                                     "Clear " + nameOf(*open_) + " settings",
                                     "Every value here goes back to the layer under it", "Clear"));
@@ -171,8 +277,17 @@ void LayerSettings::run(const std::string& id, int step) {
     if (!open_) {
         return;
     }
+    leftPicker_ = false;
     const Layer layer = *open_;
-    if (row == emulatorRowId && layer.kind == Layer::Kind::System) {
+    if (picker_.isOpen()) {
+        if (ShaderPresetPicker::owns(id) && step == 0) {
+            pressPicker(layer, id);
+        }
+        return;
+    }
+    if (row == shaderRowId && step == 0) {
+        picker_.open();
+    } else if (row == emulatorRowId && layer.kind == Layer::Kind::System) {
         stepEmulator(layer.id, step);
     } else if (row.starts_with(videoRowId)) {
         stepVideo(layer, row.substr(videoRowId.size()), step);
@@ -215,7 +330,7 @@ void LayerSettings::stepVideo(const Layer& layer, std::string_view key, int step
     } else {
         layers.set(layer, key, std::string{video->choices[next - 1].key});
     }
-    gameSettings_.save();
+    saveVideo();
 }
 
 void LayerSettings::clearLayer(const Layer& layer) {
@@ -225,7 +340,8 @@ void LayerSettings::clearLayer(const Layer& layer) {
     for (const settings::VideoKey& video : settings::videoKeys) {
         layers.clear(layer, video.key);
     }
-    gameSettings_.save();
+    layers.clear(layer, settings::shaderKey);
+    saveVideo();
     if (picked) {
         hooks_.picksChanged();
     }

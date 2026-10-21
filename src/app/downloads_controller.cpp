@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "library/emulator_catalog.hpp"
+#include "library/shader_pack.hpp"
 
 namespace opensu::app {
 namespace {
@@ -50,6 +51,8 @@ std::string sourceText(const DownloadRow& row) {
     switch (row.kind) {
     case DownloadKind::Core:
         return "Core";
+    case DownloadKind::ShaderPack:
+        return "Shaders";
     case DownloadKind::RomsetList:
         return "Arcade";
     case DownloadKind::Game:
@@ -185,23 +188,25 @@ void DownloadsController::service() {
         look.install = std::move(*install);
     }
     const library::roms::EmulatorCatalog& catalog = sources_.emulators.setup().catalog;
-    const auto nameOf = [&catalog](const std::string& id) {
+    const auto kindOf = [&catalog](const std::string& id) {
+        if (id == library::roms::shaderPackId) {
+            return DownloadKind::ShaderPack;
+        }
         const library::roms::EmulatorEntry* entry = catalog.find(id);
-        return std::pair{entry != nullptr ? entry->name : id, entry != nullptr && entry->builtIn()};
+        return entry != nullptr && entry->builtIn() ? DownloadKind::Core : DownloadKind::Emulator;
     };
     if (const std::optional<EmulatorDownloads::Progress> running = sources_.emulators.progress()) {
-        const auto [name, core] = nameOf(running->id);
-        look.emulator = EmulatorLook{running->id, name, core, running->received, running->total};
+        look.emulator = EmulatorLook{running->id, sources_.emulators.nameOf(running->id),
+                                     kindOf(running->id), running->received, running->total};
     }
     if (const std::optional<EmulatorDownloads::Finished> finished =
             sources_.emulators.lastFinished()) {
         using Outcome = EmulatorDownloads::Finished::Outcome;
-        const auto [name, core] = nameOf(finished->id);
         look.emulatorEnded = EmulatorEnd{
             .serial = finished->serial,
             .id = finished->id,
-            .name = name,
-            .core = core,
+            .name = sources_.emulators.nameOf(finished->id),
+            .kind = kindOf(finished->id),
             .state = finished->outcome == Outcome::Installed   ? DownloadState::Finished
                      : finished->outcome == Outcome::Cancelled ? DownloadState::Cancelled
                                                                : DownloadState::Failed,

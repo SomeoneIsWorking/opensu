@@ -60,6 +60,10 @@ struct Config {
     /// The libretro runner built-in emulators start; see `retroRunnerBeside`.
     std::filesystem::path retroRunner;
 
+    /// The librashader the runner loads for a shader preset; see `librashaderBeside`. Missing when
+    /// openSU was built without it.
+    std::filesystem::path librashader;
+
     /// The XDG base directories, each `$XDG_<NAME>_HOME` or its default under `home`. Plugins
     /// name their read paths relative to these (`{xdg_cache}` and so on).
     std::filesystem::path xdgCacheHome;
@@ -154,6 +158,11 @@ struct Config {
 /// Where the libretro runner sits for an opensu at `executable`: `opensu-retro` in the same
 /// directory. Empty when `executable` is empty.
 [[nodiscard]] std::filesystem::path retroRunnerBeside(const std::filesystem::path& executable);
+
+/// Where librashader sits for an executable at `executable`:
+/// `<prefix>/<libdir>/opensu/librashader.so` for `<prefix>/bin/opensu-retro`, and
+/// `<build>/<libdir>/opensu/librashader.so` in the build tree. Empty when `executable` is empty.
+[[nodiscard]] std::filesystem::path librashaderBeside(const std::filesystem::path& executable);
 
 /// Reads the environment into a configuration. Values that cannot be parsed fall back to the
 /// default and are reported. `main` reads it once and hands the value to whoever needs it.

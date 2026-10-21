@@ -67,6 +67,15 @@ constexpr long redirectLimit = 5;
 constexpr long httpOk = 200;
 constexpr long httpPartial = 206;
 
+WebClient::BodyFacts factsOf(CURL* curl) {
+    curl_off_t modified = -1;
+    curl_off_t length = -1;
+    curl_easy_getinfo(curl, CURLINFO_FILETIME_T, &modified);
+    curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &length);
+    return WebClient::BodyFacts{static_cast<std::int64_t>(modified),
+                                static_cast<std::int64_t>(length)};
+}
+
 } // namespace
 
 std::string originOf(std::string_view url) {
@@ -162,9 +171,53 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
     return std::nullopt;
 }
 
+std::optional<WebClient::BodyFacts> WebClient::head(const std::string& url, const Refusal& refusal,
+                                                    std::string& error) const {
+    std::string next = url;
+    for (long hop = 0; hop <= redirectLimit; ++hop) {
+        if (std::string refused = refusal(next); !refused.empty()) {
+            error = std::move(refused);
+            return std::nullopt;
+        }
+        const std::unique_ptr<CURL, EasyDeleter> handle{curl_easy_init()};
+        if (handle == nullptr) {
+            error = "libcurl could not start a request";
+            return std::nullopt;
+        }
+        CURL* curl = handle.get();
+        curl_easy_setopt(curl, CURLOPT_URL, next.c_str());
+        curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+        curl_easy_setopt(curl, CURLOPT_FILETIME, 1L);
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, connectTimeoutSeconds);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeoutSeconds);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "opensu");
+        curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+        const CURLcode result = curl_easy_perform(curl);
+        if (result != CURLE_OK) {
+            error = curl_easy_strerror(result);
+            return std::nullopt;
+        }
+        char* location = nullptr;
+        curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &location);
+        if (location != nullptr) {
+            next = location;
+            continue;
+        }
+        long status = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+        if (status != httpOk) {
+            error = "HTTP " + std::to_string(status);
+            return std::nullopt;
+        }
+        return factsOf(curl);
+    }
+    error = "more than " + std::to_string(redirectLimit) + " redirects";
+    return std::nullopt;
+}
+
 bool WebClient::download(const std::string& url, const std::filesystem::path& file,
-                         const Progress& progress, std::string& error,
-                         const Refusal& refusal) const {
+                         const Progress& progress, std::string& error, const Refusal& refusal,
+                         BodyFacts* facts) const {
     const std::string scheme = url.substr(0, url.find(':') + 1);
     const Refusal sameScheme = [&scheme](const std::string& next) {
         return next.starts_with(scheme) ? std::string{} : next + " leaves " + scheme;
@@ -199,6 +252,7 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
         curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, report);
         curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &progress);
+        curl_easy_setopt(curl, CURLOPT_FILETIME, 1L);
         const CURLcode result = curl_easy_perform(curl);
         if (result == CURLE_ABORTED_BY_CALLBACK) {
             error = "cancelled";
@@ -223,6 +277,9 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
         if (std::fflush(out.get()) != 0) {
             error = "cannot write " + file.string();
             return false;
+        }
+        if (facts != nullptr) {
+            *facts = factsOf(curl);
         }
         return true;
     }
