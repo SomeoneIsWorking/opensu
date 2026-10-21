@@ -106,6 +106,13 @@ struct Config {
     /// Whether opensu itself runs inside a Gamescope; when not, it starts one.
     bool insideGamescope{false};
 
+    /// The X display opensu's window is on (DISPLAY): inside Gamescope, its Xwayland.
+    std::string x11Display;
+
+    /// Gamescope's own Wayland socket under XDG_RUNTIME_DIR (GAMESCOPE_WAYLAND_DISPLAY), for the
+    /// games it shows; empty outside Gamescope.
+    std::string gamescopeWaylandDisplay;
+
     /// Names every scope opensu creates, `<session>-<role>[-N].scope`. From
     /// OPENSU_SESSION, which a nested session sets for the opensu inside it;
     /// otherwise `opensu-<pid>`.
@@ -120,6 +127,9 @@ struct Config {
 
     /// opensu's per-login files: `$XDG_RUNTIME_DIR/opensu`, else `/run/user/<uid>/opensu`.
     std::filesystem::path runtimeDir;
+
+    /// The desktop's session bus: DBUS_SESSION_BUS_ADDRESS, else `unix:path=<XDG_RUNTIME_DIR>/bus`.
+    std::string sessionBus;
 
     /// The note a login session's Switch to desktop leaves: `<runtimeDir>/desktop`.
     std::filesystem::path desktopRequest;

@@ -2,12 +2,12 @@
 // Gamescope has focused (`session::FocusHolder`).
 //
 // Inside Gamescope the shell grabs the pads while its own window is in front, so the Steam client
-// it runs (Managed) never sees them (Guide would open Big Picture). With no Steam of openSU's to
-// guard against (Steam off, or the desktop's Steam in Normal mode) the shell leaves them free. A
-// game openSU launched gets them as virtual pads. Any other window in front gets the real pads, and
-// the shell then acts only on Guide, which always belongs to openSU. A menu up over a game is
-// openSU's, whatever is focused under it. Outside Gamescope there is no focus to follow and nothing
-// else to keep the pads from, so the shell leaves them free; a game still holds them.
+// it runs (Managed, Isolated) never sees them (Guide would open Big Picture). With no Steam of
+// openSU's to guard against (Steam off, or the desktop's Steam in Normal mode) the shell leaves
+// them free. A game openSU launched gets them as virtual pads. Any other window in front gets the
+// real pads, and the shell then acts only on Guide, which always belongs to openSU. A menu up over
+// a game is openSU's, whatever is focused under it. Outside Gamescope there is no focus to follow
+// and nothing else to keep the pads from, so the shell leaves them free; a game still holds them.
 //
 // At launch the game's mapping goes to the chords in force (its game chords) and to the pads
 // (`gamepad::ForwardMap`); at its end both are dropped. The chords in force reach the pads whenever

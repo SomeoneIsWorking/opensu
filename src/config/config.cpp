@@ -238,7 +238,9 @@ Config read() {
     value.height = envInt("OPENSU_HEIGHT", value.height);
     value.controlPort = envPort("OPENSU_CONTROL_PORT", value.controlPort);
     value.controlChannel = envBool("OPENSU_CONTROL_CHANNEL", value.controlChannel);
-    value.insideGamescope = !env("GAMESCOPE_WAYLAND_DISPLAY").empty();
+    value.gamescopeWaylandDisplay = std::string{env("GAMESCOPE_WAYLAND_DISPLAY")};
+    value.insideGamescope = !value.gamescopeWaylandDisplay.empty();
+    value.x11Display = std::string{env("DISPLAY")};
     value.session = std::string{env("OPENSU_SESSION")};
     value.sessionInherited = !value.session.empty();
     if (value.session.empty()) {
@@ -248,6 +250,10 @@ Config read() {
         value.runtimeDir = std::filesystem::path{runtime} / "opensu";
     } else {
         value.runtimeDir = std::filesystem::path{"/run/user"} / std::to_string(getuid()) / "opensu";
+    }
+    value.sessionBus = std::string{env("DBUS_SESSION_BUS_ADDRESS")};
+    if (value.sessionBus.empty()) {
+        value.sessionBus = "unix:path=" + (value.runtimeDir.parent_path() / "bus").string();
     }
     value.desktopRequest = value.runtimeDir / "desktop";
     value.retroControl = std::filesystem::path{env("OPENSU_RETRO_CONTROL")};

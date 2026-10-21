@@ -18,7 +18,8 @@ namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 
 constexpr std::string_view prefix = "opensu-";
-constexpr std::string_view suffix = "-steam.scope";
+/// The client's scope, then Isolated's Secret Service relay, in the order they are ended.
+constexpr std::string_view suffixes[] = {"-steam.scope", "-steam-bus.scope"};
 constexpr auto systemctlWait = std::chrono::seconds{30};
 constexpr auto shutdownCommandWait = std::chrono::seconds{30};
 constexpr auto scopePoll = std::chrono::milliseconds{200};
@@ -30,8 +31,8 @@ std::string firstLine(const fs::path& path) {
     return line;
 }
 
-/// The pid in `opensu-<pid>-steam.scope`, or 0 when the name has another shape.
-long ownerPid(const std::string& unit) {
+/// The pid in `opensu-<pid><suffix>`, or 0 when the name has another shape.
+long ownerPid(const std::string& unit, std::string_view suffix) {
     if (unit.size() <= prefix.size() + suffix.size() ||
         unit.compare(0, prefix.size(), prefix) != 0 ||
         unit.compare(unit.size() - suffix.size(), suffix.size(), suffix) != 0) {
@@ -80,21 +81,23 @@ OrphanedSteam::OrphanedSteam(const fs::path& home) : pidFile_{home / ".steam" / 
 }
 
 std::vector<std::string> OrphanedSteam::find() const {
-    const auto listed = launch::runCaptured(
-        "systemctl", {"--user", "list-units", "--type=scope", "--state=active", "--plain",
-                      "--no-legend", "--no-pager", "opensu-*-steam.scope"});
     std::vector<std::string> orphans;
-    if (!listed) {
-        return orphans;
-    }
-    std::istringstream lines{listed->output};
-    std::string unit;
-    while (lines >> unit) {
-        const long pid = ownerPid(unit);
-        if (pid > 0 && pid != getpid() && !liveSameProgram(pid)) {
-            orphans.push_back(unit);
+    for (const std::string_view suffix : suffixes) {
+        const auto listed = launch::runCaptured(
+            "systemctl", {"--user", "list-units", "--type=scope", "--state=active", "--plain",
+                          "--no-legend", "--no-pager", "opensu-*" + std::string{suffix}});
+        if (!listed) {
+            continue;
         }
-        lines.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::istringstream lines{listed->output};
+        std::string unit;
+        while (lines >> unit) {
+            const long pid = ownerPid(unit, suffix);
+            if (pid > 0 && pid != getpid() && !liveSameProgram(pid)) {
+                orphans.push_back(unit);
+            }
+            lines.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        }
     }
     return orphans;
 }

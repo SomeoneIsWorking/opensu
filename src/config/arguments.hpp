@@ -19,12 +19,15 @@ struct Arguments {
     /// manager, rather than an app on a desktop: Gamescope runs top level. The power list then
     /// offers Switch to desktop.
     bool loginSession{false};
+    /// `--steam`: a hidden run starts the Steam client in its mode as an ordinary run does; the
+    /// maintainer ends the run with POST /quit so Steam is shut down with it.
+    bool steam{false};
     bool help{false};
 
-    /// Whether the shell starts the Steam client: a hidden run never does, so it leaves no Steam
-    /// behind when it is killed.
+    /// Whether the shell starts the Steam client: a hidden run only with `--steam`, so a killed
+    /// one leaves no Steam behind.
     [[nodiscard]] bool startsSteam() const noexcept {
-        return !hidden;
+        return !hidden || steam;
     }
 
     [[nodiscard]] static Arguments parse(std::span<const std::string> args);

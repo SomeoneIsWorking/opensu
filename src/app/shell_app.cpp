@@ -34,7 +34,15 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
                                     .executablePath = resolved_.executablePath,
                                     .session = resolved_.session,
                                     .steamRoots = resolved_.steamRoots,
-                                    .mayStart = settings_.startSteam}},
+                                    .mayStart = settings_.startSteam,
+                                    .sandbox = steam::SandboxPlaces{
+                                        .runtimeDir = environment_.runtimeDir.parent_path(),
+                                        .display = environment_.x11Display,
+                                        .gamescopeWayland = environment_.gamescopeWaylandDisplay,
+                                        .gpu = steam::gpuNodes("/dev")},
+                                    .desktopBus = environment_.sessionBus,
+                                    .secretBusSocket = environment_.runtimeDir /
+                                                       (resolved_.session + "-secret-bus")}},
       gameWindows_{environment_.insideGamescope ? std::make_unique<session::GamescopeWindows>()
                                                 : nullptr},
       steamWindowHiding_{

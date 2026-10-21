@@ -46,9 +46,10 @@ class IntegrationsInForce {
     /// The mode the Steam client runs in, or nothing while Steam is off.
     [[nodiscard]] std::optional<steam::Client::Mode> steamMode() const noexcept;
     /// Whether openSU's own Steam runs in its Gamescope, which the shell guards the pads and the
-    /// focus against (Managed).
+    /// focus against (Managed and Isolated).
     [[nodiscard]] bool guardsSteam() const noexcept {
-        return current_.steam == settings::SteamUse::Managed;
+        return current_.steam == settings::SteamUse::Managed ||
+               current_.steam == settings::SteamUse::Isolated;
     }
 
   private:

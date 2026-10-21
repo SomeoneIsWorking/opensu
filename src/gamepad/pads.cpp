@@ -1,5 +1,6 @@
 #include "pads.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <system_error>
@@ -126,6 +127,55 @@ void Pads::setChords(ChordTriggers chords) {
     awaitApplied(lock, ++wanted_.serial);
 }
 
+std::vector<std::filesystem::path> Pads::keepVirtualPads(std::size_t count) {
+    std::unique_lock lock{mutex_};
+    wanted_.keep = count;
+    awaitApplied(lock, ++wanted_.serial);
+    return keptNodes_;
+}
+
+void Pads::keep(std::size_t count) {
+    while (kept_.size() > count) {
+        const VirtualPad* going = kept_.back().get();
+        for (const auto& pad : pads_) {
+            if (pad->output == going) {
+                pad->output = nullptr;
+                pad->live = false;
+            }
+        }
+        kept_.pop_back();
+    }
+    while (kept_.size() < count) {
+        try {
+            kept_.push_back(std::make_unique<VirtualPad>());
+        } catch (const std::system_error& failure) {
+            lucent::error("gamepad", "cannot keep a virtual pad: {}", failure.what());
+            break;
+        }
+    }
+    std::vector<std::filesystem::path> nodes;
+    std::string names;
+    for (const auto& pad : kept_) {
+        nodes.push_back(pad->node());
+        names += (names.empty() ? "" : " ") + pad->node().string();
+    }
+    lucent::info("gamepad", "{} virtual pads kept: {}", kept_.size(), names);
+    const std::lock_guard lock{mutex_};
+    keptNodes_ = std::move(nodes);
+}
+
+VirtualPad* Pads::freeKept() const {
+    for (const auto& kept : kept_) {
+        const bool driven = std::ranges::any_of(pads_, [&kept](const auto& pad) {
+            return pad->output == kept.get();
+        });
+        if (!driven) {
+            return kept.get();
+        }
+    }
+    return nullptr;
+}
+
 void Pads::wake() const {
     const std::uint64_t one = 1;
     [[maybe_unused]] const auto written = ::write(wake_, &one, sizeof(one));
@@ -182,15 +232,24 @@ bool Pads::apply(Pad& pad, const Wanted& wanted) {
         pad.grabbed = false;
     }
     if (!virtualPad) {
-        pad.output.reset();
+        // A kept pad outlives this claim, so it must not keep the last press.
+        if (pad.live) {
+            write(pad, pad.translator.rest());
+        }
+        pad.output = nullptr;
+        pad.made.reset();
         pad.live = false;
-    } else if (!pad.output) {
-        try {
-            pad.output = std::make_unique<VirtualPad>();
-        } catch (const std::system_error& failure) {
-            lucent::error("gamepad", "cannot give {} a virtual pad: {}", pad.device.name(),
-                          failure.what());
-            return false;
+    } else if (pad.output == nullptr) {
+        pad.output = freeKept();
+        if (pad.output == nullptr) {
+            try {
+                pad.made = std::make_unique<VirtualPad>();
+            } catch (const std::system_error& failure) {
+                lucent::error("gamepad", "cannot give {} a virtual pad: {}", pad.device.name(),
+                              failure.what());
+                return false;
+            }
+            pad.output = pad.made.get();
         }
     }
     const bool live = pad.output && wanted.claim == Claim::Game && !wanted.blocked;
@@ -261,7 +320,11 @@ void Pads::run(const std::stop_token& stop) {
                 pad->translator.setForwardMap(wanted.map);
             }
         }
-        if (wanted.claim != applied_.claim || wanted.blocked != applied_.blocked) {
+        const bool keepChanged = wanted.keep != applied_.keep;
+        if (keepChanged) {
+            keep(wanted.keep);
+        }
+        if (keepChanged || wanted.claim != applied_.claim || wanted.blocked != applied_.blocked) {
             missed_ = false;
             for (const auto& pad : pads_) {
                 if (!apply(*pad, wanted)) {
@@ -288,6 +351,9 @@ void Pads::run(const std::stop_token& stop) {
             std::vector<PadEvent> read;
             if (!pad.device.read(read) || (fds[i].revents & (POLLHUP | POLLERR)) != 0) {
                 lucent::info("gamepad", "controller disconnected: {}", pad.device.name());
+                if (pad.live) {
+                    write(pad, pad.translator.rest());
+                }
                 const std::string id = pad.device.node().string();
                 events.push_back(Event{
                     .kind = Event::Kind::Disconnected, .device = pad.device.name(), .source = id});

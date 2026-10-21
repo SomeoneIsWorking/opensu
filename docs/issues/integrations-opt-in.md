@@ -1,7 +1,8 @@
 # Integrations are opt-in, Steam has modes
 
-Status: partial. Integrations, the first-run chooser and the Off, Normal and Managed Steam modes
-are built; Isolated is measured (below) but not built.
+Status: partial. Integrations, the first-run chooser and all four Steam modes are built; Isolated
+and its controller option are shown working with the player's real Steam (As built); what is left
+is listed under Left.
 
 The player's words: "I think we shouldn't enable all integrations initially, we can add an option
 to integrate Steam for example ... maybe they just wanna use it as libretro", and for Steam: keep
@@ -27,7 +28,7 @@ normally, no isolation".
 | Off | Nothing; no Steam games listed. |
 | Normal | Uses the player's own Steam as it is: starts it on the desktop if it is not running, launches games through it, never holds the pad against it, never closes its windows. |
 | Managed (today's behaviour) | Starts Steam in the background inside openSU's Gamescope, ends it with openSU, holds the pad in the shell so Steam never sees Guide, closes Big Picture. |
-| Isolated | A separate Steam that cannot see the desktop, the real pads or the player's files: its own home, its own headless display, only openSU's virtual pads; openSU shows its games. |
+| Isolated | Managed in a bwrap sandbox: the player's own Steam, HOME and login, inside openSU's Gamescope with its windows hidden once logged on; it cannot reach the desktop's display, session bus (only the Secret Service) or runtime sockets, and sees only openSU's virtual pads unless the player chooses every controller. |
 
 ### Isolated: measured 2026-10-21
 
@@ -100,25 +101,10 @@ Alternative measured: `systemd-run --user -p PrivateDevices=yes -p ProtectHome=t
 BindPaths=... -p PrivateUsers=yes` runs unprivileged but `PrivateDevices` also drops `/dev/dri`
 and offers no per-node input list (`logs/q1-systemd-run.log`).
 
-### Isolated: recommended design
-
-What the player asked to isolate is the screen and the devices, not the files, so the mode needs
-no namespace at all:
-
-1. openSU starts its Gamescope fork headless (above) as its own child in openSU's scope.
-2. Steam starts with `DISPLAY=:<that Xwayland>`, `WAYLAND_DISPLAY`, `XAUTHORITY` and
-   `GAMESCOPE_WAYLAND_DISPLAY` unset, the player's PipeWire for game audio,
-   `-silent -cef-enable-debugging`, in a
-   `systemd-run --user --scope` like Managed. Same HOME, login and libraries: nothing to bind.
-3. openSU draws the Gamescope PipeWire node in its window and forwards the player's input into
-   fixed uinput pads it owns. Without a device namespace Steam can still open the real pads (the
-   user is in group `input`); hiding them needs either the bwrap layer above (real HOME bound
-   read-write, `/dev/input` reduced to the virtual nodes, `/proc` read-write) or Steam's own
-   `SDL_GAMECONTROLLER_IGNORE_DEVICES`/controller settings, which are weaker.
-4. The fork's PipeWire teardown race is fixed first.
-
-The bwrap layer is unprivileged and worked here; it is optional on top of 1–3 and only buys device
-hiding. The Docker idea is not needed.
+The design that followed from these measurements, a second headless Gamescope whose PipeWire node
+openSU draws, was dropped for hiding Steam inside openSU's own Gamescope (below): no capture, no
+added latency, and the fork's PipeWire teardown crash no longer matters for Steam. The bwrap layer
+was kept for the devices and the desktop, with the real HOME. The Docker idea is not needed.
 
 ### Which mode applies
 
@@ -126,8 +112,7 @@ hiding. The Docker idea is not needed.
   they should just be able to use it". Normal attaches to a Steam already running on the desktop
   and never starts a second one.
 - In session mode there is no desktop Steam to attach to, so Normal is not offered there; Managed
-  (as SteamOS runs Steam) is the default and Isolated stays a choice. Session mode does not need
-  Isolated.
+  (as SteamOS runs Steam) is the default and Isolated stays a choice.
 
 - Isolated uses the player's own Steam install and data, not a copy ("isolated Steam should reuse
   login", "Steam should use the same thing so it shouldn't be THAT isolated"): same login, same
@@ -139,7 +124,9 @@ hiding. The Docker idea is not needed.
 
 - `settings::Integrations::inForce` (`src/settings/integrations.hpp`) is the one rule: no saved
   choices is everything off; Steam's mode falls back to the default when the saved one is not
-  offered (Normal on a desktop, Managed alone in `--session`). `app::IntegrationsInForce` holds it
+  offered (Normal on a desktop, Managed in `--session`, where Managed and Isolated are offered).
+  The Steam pads choice (`settings::SteamPads`) applies only in Isolated and defaults to
+  openSU's virtual pads. `app::IntegrationsInForce` holds it
   for the run and saves a new choice; `app::IntegrationSwitch` applies a change live (catalog
   `replace`, plugins host, standalone emulator discovery and downloads, pad and Big Picture guards,
   Steam stopped and started in its mode on a worker).
@@ -153,12 +140,12 @@ hiding. The Docker idea is not needed.
   with `systemd-run --user --collect`, outside openSU's scope, never ended by openSU. A hidden run
   logs the decision and starts nothing. The shell does not hold the pad against it or close Big
   Picture, and the handoff does not wait for a Steam window in openSU's Gamescope.
-- Managed mode hides Steam's windows in openSU's Gamescope once Steam is logged on:
+- Managed and Isolated hide Steam's windows in openSU's Gamescope once Steam is logged on:
   `IntegrationSwitch::service`, every frame, sets the fork's root `GAMESCOPE_HIDE_STEAM_CLIENT`
-  through `session::SteamWindowHiding` to 1 for Managed and `SteamState::Ready`, and to 0 otherwise
-  (starting, not logged on, gone, stopped, another mode), so a login or client update window stays
-  visible. The fork then leaves windows of `steam`/`steamwebhelper` processes, app id 769 and
-  `STEAM_BIGPICTURE` out of focus, the composite, the overlay pick and
+  through `session::SteamWindowHiding` to 1 for Managed or Isolated and `SteamState::Ready`, and
+  to 0 otherwise (starting, not logged on, gone, stopped, another mode), so a login or client
+  update window stays visible. The fork then leaves windows of `steam`/`steamwebhelper`
+  processes, app id 769 and `STEAM_BIGPICTURE` out of focus, the composite, the overlay pick and
   `GAMESCOPE_FOCUSABLE_WINDOWS`; the games Steam starts are focused and drawn as usual. Proof:
   `scratch/gamescope-hide/` (`tools/drive.py`, headless fork, an `xmessage` copy named `steam` in
   red and one named `game` in blue): unset or 0, the Steam window is focused and drawn and both are
@@ -169,6 +156,61 @@ hiding. The Docker idea is not needed.
   HOME, DevTools port 1; a hidden openSU never starts Steam): Stopped and Initializing 0, Ready 1,
   Steam turned off 0, Managed again 0 until Ready, 1, the client gone 0 (`logs/ready.txt`,
   `shots/ready-*.png`: red Steam window shown at 0, blue game at 1).
+- Isolated mode (`steam::Client::startOwn` with `Mode::Isolated`): the Managed start (orphan
+  check, refusal while a desktop Steam runs, `systemd-run --user --scope` unit
+  `<session>-steam.scope`, `-silent -cef-enable-debugging`) with the command wrapped in bwrap
+  (`steam::sandboxArguments`, `src/steam/sandbox.cpp`). Window hiding is Managed's: `guardsSteam`
+  is true for Managed and Isolated, so the atom goes to 1 once Steam is logged on, the shell holds
+  the pads and Big Picture is closed. The sandbox, unprivileged, no pid or net namespace:
+  - `--bind / /`: the real HOME, Steam install, library folders and login, read-write.
+  - `--dev /dev` plus the GPU nodes (`/dev/dri`, `/dev/nvidia*`), no `/dev/uinput` or hidraw.
+  - `/dev/input`: openSU's virtual pad nodes only, with `/run/udev` a tmpfs (virtual), or the
+    host's `/dev/input` and udev db (every controller).
+  - `/tmp` private with only openSU's Gamescope X socket; `DISPLAY` that Xwayland,
+    `WAYLAND_DISPLAY`, `XAUTHORITY`, `SESSION_MANAGER` unset, so the desktop's display is
+    unreachable (its abstract socket refuses without the cookie).
+  - The runtime dir a 0700 tmpfs with only `pipewire-0`, `pulse/native` and `gamescope-0` bound in
+    (game audio, openSU's Gamescope); `/dev/shm` private; `--new-session`.
+  - Session bus: a socket of `xdg-dbus-proxy <desktop bus> --filter
+    --talk=org.freedesktop.secrets` (`steam::SecretBus`, unit `<session>-steam-bus.scope`). Steam
+    reads its login from the Secret Service: with no bus it never logged on (240 s); with none set
+    it autolaunched a private bus that started a second `ksecretd` on the player's wallet, portals
+    and gvfsd that outlived Steam. Through the proxy it logs on in ~12 s and nothing lingers.
+  Missing `bwrap` or `xdg-dbus-proxy` refuses the start with the install command per platform.
+- Isolated controllers: bwrap binds nodes once at start, so pads cannot appear later.
+  `gamepad::Pads::keepVirtualPads(4)` keeps four uinput Xbox 360 pads alive for Steam's run and
+  `IntegrationSwitch::moveSteam` hands their nodes to the sandbox; under the Game claim real pads
+  drive the kept pads first, and a kept pad is rested when its real pad leaves or the claim ends.
+  Choices in Integrations › Steam, "Steam sees":
+  - openSU's virtual pads (default): "Your controllers stay hidden from Steam". Steam and its
+    games can never see the real pads or Guide, even when the shell lets the pads go.
+  - Every controller: "openSU grabs them while it is in front". Steam sees every input node; the
+    shell's grab still keeps them from Steam while openSU holds them. No pads are kept.
+  Left out: Steam Input on a virtual pad openSU hands it needs `/dev/uinput` and nodes made after
+  start, which a static bind cannot expose without the real pads, and turning Steam Input on for
+  that pad is a Steam setting; Steam owning the real pads contradicts "I'd rather Steam not grab
+  the device". Neither was measured.
+- `--steam` makes a `--hidden` run start Steam in its mode (a hidden run otherwise starts none).
+- Steam imports screenshots taken through Gamescope (`gamescope_control take_screenshot`) into
+  its own screenshot library for the running app and removes the originals.
+- Proof, 2026-10-21, `scratch/isolated-steam/tools/isolated_proof.py run {virtual|all} 4440600`:
+  openSU `--hidden --steam` in the headless Gamescope fork, the player's real HOME and Steam,
+  scratch XDG dirs, audio off (`PULSE_SERVER` unreachable, `SDL_AUDIODRIVER=dummy`); desktop Steam
+  not running before either run. PipeWire capture was not used (Gamescope logged
+  `pw_context_connect failed`; games drew straight into openSU's Gamescope).
+  - Logon with the existing login, no prompt: `[steam] logged on` 11.5 s (virtual) and 14.6 s
+    (all) after start; the atom read 0 while initializing and 1 at logon
+    (`logs/proof-virtual.txt`, `logs/proof-all.txt`).
+  - Launch through openSU (A on the tile, A on Play): Hamsteria Demo focused, the only focusable
+    window (`GAMESCOPE_FOCUSED_WINDOW` = `GAMESCOPE_FOCUSABLE_APPS`); frames
+    `shots/proof-{virtual,all}-ready.jpg` (Steam hidden: black), `-game.jpg` (the game's loading
+    screen), `-after-game.jpg`.
+  - Virtual: the sandbox's `/dev/input` held `event20`–`event23` (the kept pads), no hidraw,
+    uinput or udev db; Steam, its `winedevice.exe` and the game held only those four.
+  - Every controller: the sandbox's `/dev/input` matched the host's (`event0`–`event19`, mice, the
+    Logitech receiver; no gamepad was connected) with the udev db; Steam held no input node.
+  - Shutdown with openSU: Steam ended in ~3 s, both scopes gone, the kept pads destroyed.
+  - UI: `shots/proof-ui-integrations-{virtual,all}.png`.
 - A game openSU launched still holds the pads in every mode, so Guide chords stay over Normal-mode
   games.
 - Proof: `scratch/integrations/drive.py` (`fresh`, `normal`) drives a hidden run with a scratch
@@ -178,8 +220,11 @@ hiding. The Docker idea is not needed.
 
 ## Left
 
-- Isolated mode: build the design above (Steam in openSU's own Gamescope with its windows hidden,
-  as Managed now does); first fix the Gamescope fork's PipeWire teardown crash.
+- Isolated, unproven: "Every controller" with a real pad connected (the grab and release against
+  Steam); real pad input forwarded into a game through the kept pads; game audio through the
+  bound PipeWire and Pulse sockets; Isolated in `--session`; NVIDIA nodes.
+- Isolated with every controller: Steam sees the real pads while the shell has let them go
+  (another window in front), by design of that choice.
 - Managed hides every Steam window once Steam is logged on, so a dialog Steam shows after logon
   (EULA, cloud conflict, a launch option or error) is invisible. openSU should show Steam's windows
   while Steam shows a dialog the player must answer. Not run against the real client.
@@ -211,4 +256,5 @@ it an option". Candidates, each measured on the player's pad before it becomes a
    keeps the real one and its Guide chords.
 4. Steam sees the real pads (no isolation), for players who want Steam to have them.
 
-The option lives in Integrations › Steam beside the mode; each choice says what Steam can see.
+Built for Isolated as "Steam sees" (As built): 2 is the default, 1 is "Every controller"; 3 and 4
+are left out with the reasons there.

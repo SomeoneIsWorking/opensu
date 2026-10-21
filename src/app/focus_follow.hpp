@@ -1,9 +1,9 @@
 // focus_follow — follows the window Gamescope has focused (`session::FocusSource`) and answers it.
-// openSU's own Steam's Big Picture is never wanted (Managed): whenever it takes the focus, by
-// Guide, a steam:// link or Steam itself, it is closed through the Steam client and the shell's
-// window is put back in front. The desktop's Steam (Normal) is never closed.
-// Guide pressed while another window is in front of the shell brings the shell back. Without a
-// source (outside Gamescope, a hidden run) openSU always holds the focus.
+// openSU's own Steam's Big Picture is never wanted (Managed, Isolated): whenever it takes the
+// focus, by Guide, a steam:// link or Steam itself, it is closed through the Steam client and the
+// shell's window is put back in front. The desktop's Steam (Normal) is never closed. Guide pressed
+// while another window is in front of the shell brings the shell back. Without a source (outside
+// Gamescope, a hidden run) openSU always holds the focus.
 #pragma once
 
 #include <condition_variable>

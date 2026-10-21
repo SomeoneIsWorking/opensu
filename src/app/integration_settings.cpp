@@ -9,11 +9,13 @@ namespace opensu::app {
 namespace {
 
 using settings::SteamMode;
+using settings::SteamPads;
+using settings::SteamUse;
 using ui::RowKind;
 
 constexpr std::string_view prefix = "integrations.";
 constexpr const char* modeId = "integrations.steamMode";
-constexpr const char* isolatedId = "integrations.isolated";
+constexpr const char* padsId = "integrations.steamPads";
 constexpr const char* alwaysId = "integrations.always";
 
 std::string rowId(std::string_view entry) {
@@ -21,15 +23,44 @@ std::string rowId(std::string_view entry) {
 }
 
 std::string_view modeNote(SteamMode mode) {
-    return mode == SteamMode::Managed ? "openSU's own Steam, ended with openSU"
-                                      : "Your desktop Steam, left running as it is";
+    switch (mode) {
+    case SteamMode::Managed:
+        return "openSU's own Steam, ended with openSU";
+    case SteamMode::Isolated:
+        return "openSU's own Steam, kept off the desktop";
+    case SteamMode::Normal:
+        break;
+    }
+    return "Your desktop Steam, left running as it is";
+}
+
+SteamMode modeOf(SteamUse use) {
+    switch (use) {
+    case SteamUse::Managed:
+        return SteamMode::Managed;
+    case SteamUse::Isolated:
+        return SteamMode::Isolated;
+    case SteamUse::Normal:
+    case SteamUse::Off:
+        break;
+    }
+    return SteamMode::Normal;
+}
+
+/// The entry `step` places from `now` in `offered`, wrapping; A steps forward.
+template <typename T> T stepped(const std::vector<T>& offered, T now, int step) {
+    const auto at = std::ranges::find(offered, now);
+    const auto from = at == offered.end() ? 0 : at - offered.begin();
+    const auto count = static_cast<long>(offered.size());
+    const long next = (from + (step == 0 ? 1 : step) % count + count) % count;
+    return offered[static_cast<std::size_t>(next)];
 }
 
 } // namespace
 
 ui::SettingsCategory IntegrationSettings::page() const {
     const settings::IntegrationChoices choices = integrations_.choices();
-    const bool session = integrations_.loginSession();
+    const settings::Integrations& now = integrations_.current();
     ui::SettingsCategory page{std::string{categoryId}, "Integrations", {}};
     page.rows.push_back(ui::makeRow(alwaysId, RowKind::Info, "ROMs and libretro",
                                     "ROM folders, played on libretro", "Always on"));
@@ -39,22 +70,15 @@ ui::SettingsCategory IntegrationSettings::page() const {
         if (entry.id != "steam" || !choices.steam) {
             continue;
         }
-        const std::vector<SteamMode> offered = settings::Integrations::modesOffered(session);
-        const SteamMode mode = integrations_.current().steam == settings::SteamUse::Managed
-                                   ? SteamMode::Managed
-                                   : SteamMode::Normal;
-        if (offered.size() > 1) {
-            page.rows.push_back(ui::makeRow(modeId, RowKind::Choice, "Steam mode",
-                                            std::string{modeNote(mode)},
-                                            std::string{settings::label(mode)}));
-        } else {
-            page.rows.push_back(ui::makeRow(modeId, RowKind::Info, "Steam mode",
-                                            "A login session has no desktop Steam",
-                                            std::string{settings::label(mode)}));
+        const SteamMode mode = modeOf(now.steam);
+        page.rows.push_back(ui::makeRow(modeId, RowKind::Choice, "Steam mode",
+                                        std::string{modeNote(mode)},
+                                        std::string{settings::label(mode)}));
+        if (mode == SteamMode::Isolated) {
+            page.rows.push_back(ui::makeRow(padsId, RowKind::Choice, "Steam sees",
+                                            std::string{settings::note(now.steamPads)},
+                                            std::string{settings::label(now.steamPads)}));
         }
-        page.rows.push_back(ui::makeRow(isolatedId, RowKind::Info, "Isolated Steam",
-                                        "Needs a sandbox check before it can be built",
-                                        "Not available yet"));
     }
     return page;
 }
@@ -65,17 +89,13 @@ bool IntegrationSettings::owns(const std::string& id) {
 
 void IntegrationSettings::run(const std::string& id, int step) {
     settings::IntegrationChoices choices = integrations_.choices();
+    const settings::Integrations& now = integrations_.current();
     if (id == modeId) {
-        const std::vector<SteamMode> offered =
-            settings::Integrations::modesOffered(integrations_.loginSession());
-        const SteamMode now = integrations_.current().steam == settings::SteamUse::Managed
-                                  ? SteamMode::Managed
-                                  : SteamMode::Normal;
-        const auto at = std::ranges::find(offered, now);
-        const auto from = at == offered.end() ? 0 : at - offered.begin();
-        const auto count = static_cast<long>(offered.size());
-        const long next = (from + (step == 0 ? 1 : step) + count) % count;
-        choices.steamMode = offered[static_cast<std::size_t>(next)];
+        choices.steamMode =
+            stepped(settings::Integrations::modesOffered(integrations_.loginSession()),
+                    modeOf(now.steam), step);
+    } else if (id == padsId) {
+        choices.steamPads = stepped(settings::Integrations::padsOffered(), now.steamPads, step);
     } else if (bool* on = switchOf(choices, id.substr(prefix.size())); on != nullptr && step == 0) {
         *on = !*on;
     } else {

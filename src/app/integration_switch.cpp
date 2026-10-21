@@ -27,11 +27,13 @@ void IntegrationSwitch::guard() {
 
 void IntegrationSwitch::begin() {
     const settings::Integrations& now = integrations_.current();
-    lucent::info("integrations", "in force: steam={} epic={} gog={} emulators={} plugins={}",
-                 settings::label(now.steam), now.epic, now.gog, now.emulators, now.plugins);
+    lucent::info("integrations",
+                 "in force: steam={} steamPads={} epic={} gog={} emulators={} plugins={}",
+                 settings::label(now.steam), settings::key(now.steamPads), now.epic, now.gog,
+                 now.emulators, now.plugins);
     applied_ = now;
     guard();
-    moveSteam(integrations_.steamMode());
+    moveSteam();
 }
 
 void IntegrationSwitch::apply() {
@@ -55,8 +57,8 @@ void IntegrationSwitch::apply() {
         targets_.catalog.replace(hooks_.catalog(stores));
     }
     guard();
-    if (now.steam != was.steam) {
-        moveSteam(integrations_.steamMode());
+    if (now.steam != was.steam || now.steamPads != was.steamPads) {
+        moveSteam();
     }
 }
 
@@ -71,18 +73,25 @@ void IntegrationSwitch::service() {
     hooks_.hideSteamWindows(hides);
 }
 
-void IntegrationSwitch::moveSteam(std::optional<steam::Client::Mode> mode) {
+void IntegrationSwitch::moveSteam() {
     if (steamWorker_.joinable()) {
         steamWorker_.join();
     }
+    std::optional<steam::Client::Mode> mode = integrations_.steamMode();
     if (mode && !hooks_.steamInstalled()) {
         lucent::info("steam", "no Steam install found; nothing to start");
         mode.reset();
     }
-    steamWorker_ = std::jthread{[&client = targets_.steam, mode] {
+    const bool all = integrations_.current().steamPads == settings::SteamPads::All;
+    const bool keepsPads =
+        mode == steam::Client::Mode::Isolated && !all && targets_.steam.startsClient();
+    steamWorker_ = std::jthread{[&client = targets_.steam, &controllers = targets_.controllers,
+                                 mode, all, keepsPads] {
         client.shutdown();
+        steam::SandboxDevices devices{.allInput = all};
+        devices.inputNodes = controllers.keepVirtualPads(keepsPads ? steam::isolatedPadSlots : 0);
         if (mode) {
-            client.start(*mode);
+            client.start(*mode, devices);
         }
     }};
 }

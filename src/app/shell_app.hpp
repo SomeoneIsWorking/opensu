@@ -739,7 +739,7 @@ class ShellApp final : private PointerHost {
     IntegrationSwitch integrationSwitch_{
         integrations_,
         IntegrationSwitch::Targets{steam_, catalogLoader_, plugins_, emulatorDownloads_, padOwner_,
-                                   focusFollow_},
+                                   pads_, focusFollow_},
         IntegrationSwitch::Hooks{
             .catalog =
                 [this](const library::CatalogStores& stores) {

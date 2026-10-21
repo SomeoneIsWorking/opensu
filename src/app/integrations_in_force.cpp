@@ -13,9 +13,10 @@ bool IntegrationsInForce::choose(const settings::IntegrationChoices& choices) {
         return false;
     }
     current_ = next;
-    lucent::info("integrations", "in force: steam={} epic={} gog={} emulators={} plugins={}",
-                 settings::label(current_.steam), current_.epic, current_.gog, current_.emulators,
-                 current_.plugins);
+    lucent::info("integrations",
+                 "in force: steam={} steamPads={} epic={} gog={} emulators={} plugins={}",
+                 settings::label(current_.steam), settings::key(current_.steamPads), current_.epic,
+                 current_.gog, current_.emulators, current_.plugins);
     return true;
 }
 
@@ -32,6 +33,8 @@ std::optional<steam::Client::Mode> IntegrationsInForce::steamMode() const noexce
         return steam::Client::Mode::Normal;
     case settings::SteamUse::Managed:
         return steam::Client::Mode::Managed;
+    case settings::SteamUse::Isolated:
+        return steam::Client::Mode::Isolated;
     case settings::SteamUse::Off:
         break;
     }
