@@ -9,6 +9,7 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -29,13 +30,17 @@ using gamepad::Button;
 using test::expect;
 
 constexpr auto wait = std::chrono::seconds{10};
+constexpr std::string_view gbInfo =
+    "firmware_count = 1\nfirmware0_path = \"gb_bios.bin\"\n"
+    "firmware0_desc = \"Game Boy BIOS\"\nfirmware0_opt = \"true\"\n";
 
 struct Rig {
     explicit Rig(const fs::path& root)
         : root{prepared(root)},
           preferences{settings::Store{root / "settings.json"}, [](const std::string&) {
                       }} {
-        buildbot.publish("mgba_libretro", "2026-10-01", "core one");
+        buildbot.publish("mgba_libretro", "2026-10-01", "core one", std::nullopt,
+                         std::string{gbInfo});
     }
 
     /// `root` with a Game Boy ROM and an opensu-retro to start.
@@ -54,8 +59,10 @@ struct Rig {
         entry.name = "GB (built-in)";
         entry.systems = {"gb"};
         entry.core = "mgba_libretro";
+        entry.withoutBios = library::roms::WithoutBios::Hle;
         library::roms::EmulatorSearch search;
-        search.cores = library::roms::CoreSearch{root / "cores", {root / "system"}};
+        search.system = root / "bios";
+        search.cores = library::roms::CoreSearch{root / "cores", {root / "system"}, {}};
         search.runner = root / "bin" / "opensu-retro";
         return library::roms::EmulatorSetup{
             library::roms::EmulatorCatalog{{entry}}, search, {}, buildbot.base()};
@@ -265,6 +272,35 @@ void systemCoreIsNotOurs(const fs::path& root) {
            "a core openSU did not download is never removed");
 }
 
+void settingsShowTheBios(const fs::path& root) {
+    Rig rig{root};
+    expect(!hasRow(rig.emulators.page(), "emulators.bios.gb-core"),
+           "a core not installed shows no BIOS");
+    rig.emulators.run("emulators.run.gb-core", 0);
+    rig.settle();
+    ui::SettingsCategory page = rig.emulators.page();
+    expect(rowOf(page, "emulators.bios.gb-core").value == "HLE built in" &&
+               rowOf(page, "emulators.bios.gb-core").label == "Game Boy BIOS" &&
+               rowOf(page, "emulators.bios.gb-core/gb_bios.bin").value == "Missing" &&
+               rowOf(page, "emulators.bios.gb-core/gb_bios.bin").note == "Game Boy BIOS",
+           "the downloaded core's info lists its BIOS, missing, so it runs its HLE");
+    fs::create_directories(root / "bios");
+    std::ofstream{root / "bios" / "gb_bios.bin"} << "bios";
+    page = rig.emulators.page();
+    expect(rowOf(page, "emulators.bios.gb-core").value == "Your BIOS file gb_bios.bin" &&
+               rowOf(page, "emulators.bios.gb-core/gb_bios.bin").value == "In use",
+           "a file in the system folder is the one in use");
+
+    fs::remove(root / "cores" / "mgba_libretro.info");
+    expect(rowOf(rig.emulators.page(), "emulators.bios.gb-core").value == "Not listed",
+           "a core downloaded without its info says so");
+    rig.emulators.run("emulators.check", 0);
+    waitForCheck(rig);
+    expect(rig.downloads.check().failures.empty() &&
+               rowOf(rig.emulators.page(), "emulators.bios.gb-core/gb_bios.bin").value == "In use",
+           "the update check fetches the missing info");
+}
+
 } // namespace
 
 int main() {
@@ -273,6 +309,7 @@ int main() {
         detailsDownloadsTheCore(scratch.path() / "details");
         settingsUpdateAndRemove(scratch.path() / "settings");
         systemCoreIsNotOurs(scratch.path() / "system");
+        settingsShowTheBios(scratch.path() / "bios");
         std::puts("core_flow: ok");
         return 0;
     } catch (const std::exception& error) {

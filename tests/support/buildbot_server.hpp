@@ -1,5 +1,6 @@
 // A fake libretro buildbot: the nightly folder's `.index-extended` and each core's zip under
-// `/nightly/`, with one-shot redirects on request, on a loopback server.
+// `/nightly/`, every published core's info file in `/assets/frontend/info.zip`, with one-shot
+// redirects on request, on a loopback server.
 #pragma once
 
 #include <array>
@@ -9,6 +10,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "lucent/http.h"
 #include "support/loopback_server.hpp"
@@ -24,12 +26,15 @@ class BuildbotServer {
           }} {
     }
 
-    /// Publishes `library` zipped as `core`'s build of `date`. Like the real buildbot, the listing
-    /// states the CRC-32 of the library inside the zip, or `listedCrc` when given.
+    /// Publishes `library` zipped as `core`'s build of `date`, and `info` as its info file. Like
+    /// the real buildbot, the listing states the CRC-32 of the library inside the zip, or
+    /// `listedCrc` when given.
     void publish(const std::string& core, const std::string& date, const std::string& library,
-                 std::optional<std::uint32_t> listedCrc = std::nullopt) {
+                 std::optional<std::uint32_t> listedCrc = std::nullopt,
+                 const std::string& info = "firmware_count = \"0\"\n") {
         const std::string zip = zipfixture::buildZip({{core + ".so", library, true, {}}});
         const std::lock_guard lock{mutex_};
+        infos_[core + ".info"] = info;
         files_["/nightly/" + core + ".so.zip"] = zip;
         listed_[core] = date + " " + hex(listedCrc.value_or(zipfixture::crcOf(library))) + " " +
                         core + ".so.zip";
@@ -76,6 +81,15 @@ class BuildbotServer {
             }
             return lucent::http::Response::binary(200, "OK", "text/plain", index);
         }
+        if (path == "/assets/frontend/info.zip") {
+            std::vector<zipfixture::FixtureEntry> members;
+            members.reserve(infos_.size());
+            for (const auto& [name, text] : infos_) {
+                members.push_back({name, text, true, {}});
+            }
+            return lucent::http::Response::binary(200, "OK", "application/zip",
+                                                  zipfixture::buildZip(members));
+        }
         const auto found = files_.find(path);
         if (found == files_.end()) {
             return reply(404, "");
@@ -86,6 +100,7 @@ class BuildbotServer {
     std::mutex mutex_;
     std::map<std::string, std::string> files_;
     std::map<std::string, std::string> listed_;
+    std::map<std::string, std::string> infos_;
     std::map<std::string, std::string> redirects_;
     LoopbackServer server_;
 };

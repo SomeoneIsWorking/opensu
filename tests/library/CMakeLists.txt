@@ -96,6 +96,13 @@ target_compile_options(libretro_cores_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(libretro_cores_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME libretro_cores COMMAND libretro_cores_test)
 
+add_executable(core_bios_test core_bios_test.cpp)
+target_link_libraries(core_bios_test PRIVATE opensu::library lucent::lucent ZLIB::ZLIB)
+target_include_directories(core_bios_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(core_bios_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(core_bios_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME core_bios COMMAND core_bios_test)
+
 add_executable(romset_match_test romset_match_test.cpp)
 target_link_libraries(romset_match_test PRIVATE opensu::library lucent::lucent ZLIB::ZLIB)
 target_include_directories(romset_match_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")

@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <vector>
 
+#include "library/core_bios.hpp"
 #include "library/rom_systems.hpp"
 
 namespace opensu::app {
@@ -18,6 +19,7 @@ constexpr std::string_view checkId = "emulators.check";
 constexpr std::string_view emulatorId = "emulators.run.";
 constexpr std::string_view removeId = "emulators.remove.";
 constexpr std::string_view systemId = "emulators.system.";
+constexpr std::string_view biosId = "emulators.bios.";
 
 std::string systemLabel(std::string_view key) {
     const library::roms::RomSystem* system = library::roms::systemByKey(key);
@@ -160,7 +162,64 @@ ui::SettingsCategory EmulatorSettings::page() const {
                                         systemLabel(system) + " games",
                                         "Runs games that have no emulator of their own", value));
     }
+    addBiosRows(page);
     return page;
+}
+
+namespace {
+
+/// A BIOS file's row value: in use (with the region a scanning core files it under), there but
+/// not taken, or missing.
+std::string biosValue(const library::roms::CoreBios::File& file) {
+    std::string value = file.used ? "In use" : file.present ? "Not used" : "Missing";
+    if (!file.region.empty()) {
+        value += " · " + file.region;
+    }
+    return value;
+}
+
+} // namespace
+
+void EmulatorSettings::addBiosRows(ui::SettingsCategory& page) const {
+    // Each chosen built-in core once, with the systems it runs; arcade BIOS sets are romsets.
+    std::vector<std::pair<const EmulatorEntry*, std::string>> chosen;
+    for (const std::string& system : servedSystems(found_.catalog())) {
+        const EmulatorEntry* entry = found_.catalog().findByName(found_.chosenName(system));
+        if (entry == nullptr || !entry->builtIn() || !entry->romsets.empty()) {
+            continue;
+        }
+        const auto at = std::ranges::find(chosen, entry, &decltype(chosen)::value_type::first);
+        if (at == chosen.end()) {
+            chosen.emplace_back(entry, systemLabel(system));
+        } else {
+            at->second += ", " + systemLabel(system);
+        }
+    }
+    const library::roms::EmulatorSearch& search = downloads_.setup().search;
+    for (const auto& [entry, systems] : chosen) {
+        const std::string row = std::string{biosId} + entry->id;
+        const std::optional<std::string> info = search.cores.info(entry->core);
+        if (!info) {
+            page.rows.push_back(ui::makeRow(
+                row, RowKind::Info, systems + " BIOS",
+                entry->name + " has no core info; Check for updates fetches it", "Not listed"));
+            continue;
+        }
+        const library::roms::CoreBios bios = library::roms::biosIn(
+            library::roms::firmwareIn(*info), entry->withoutBios, entry->biosScan, search.system);
+        if (bios.files.empty()) {
+            continue;
+        }
+        page.rows.push_back(ui::makeRow(row, RowKind::Info, systems + " BIOS",
+                                        entry->name + " · files in " + search.system.string(),
+                                        bios.mode()));
+        for (const library::roms::CoreBios::File& file : bios.files) {
+            page.rows.push_back(ui::makeRow(
+                row + "/" + file.firmware.path, RowKind::Info, file.firmware.path,
+                file.firmware.description + (file.firmware.optional ? "" : " · required"),
+                biosValue(file)));
+        }
+    }
 }
 
 void EmulatorSettings::run(const std::string& id, int step) {

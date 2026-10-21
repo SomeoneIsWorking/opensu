@@ -132,7 +132,24 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
     if (entry.builtIn()) {
         checkCore(object, entry.core, where);
         entry.romsets = romsetsOf(object, where);
+        const std::string without = text(object, "withoutBios", where, false);
+        const std::optional<WithoutBios> mode =
+            without.empty() ? WithoutBios::Needed : withoutBiosNamed(without);
+        if (!mode) {
+            throw Malformed{where + ": \"withoutBios\" must be needed, hle, open or skipped"};
+        }
+        entry.withoutBios = *mode;
+        const std::string scan = text(object, "biosScan", where, false);
+        const std::optional<BiosScan> rule = scan.empty() ? BiosScan::Listed : biosScanNamed(scan);
+        if (!rule) {
+            throw Malformed{where + ": \"biosScan\" must be pcsx_rearmed"};
+        }
+        entry.biosScan = *rule;
         return entry;
+    }
+    if (object.contains("withoutBios") || object.contains("biosScan")) {
+        throw Malformed{where + ": \"withoutBios\" and \"biosScan\" are for a built-in "
+                                "emulator's core"};
     }
     const auto launchers = object.find("launchers");
     if (launchers == object.end() || !launchers->is_array() || launchers->empty()) {

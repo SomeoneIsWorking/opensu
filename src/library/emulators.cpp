@@ -228,7 +228,7 @@ bool downloadedByOpensu(InstallSource source) noexcept {
 
 EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& dataDir,
                                         std::vector<fs::path> executablePath, fs::path runner,
-                                        fs::path saves, bool hiddenRunner) {
+                                        fs::path saves, fs::path system, bool hiddenRunner) {
     FuseSupport fuse = FuseSupport::detect(executablePath);
     return EmulatorSearch{
         .executablePath = std::move(executablePath),
@@ -239,17 +239,18 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
         .cores = CoreSearch::standard(home, dataDir),
         .runner = std::move(runner),
         .saves = std::move(saves),
+        .system = std::move(system),
         .hiddenRunner = hiddenRunner,
     };
 }
 
 EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden, bool standalone) {
-    return EmulatorSetup{
-        .catalog = EmulatorCatalog::shipped(config.assetsDir, config.home),
-        .search = EmulatorSearch::standard(config.home, config.dataDir, config.executablePath,
-                                           config.retroRunner, config.savesDir, hidden),
-        .overrides = config.emulators,
-        .standalone = standalone};
+    return EmulatorSetup{.catalog = EmulatorCatalog::shipped(config.assetsDir, config.home),
+                         .search = EmulatorSearch::standard(
+                             config.home, config.dataDir, config.executablePath, config.retroRunner,
+                             config.savesDir, config.retroSystemDir, hidden),
+                         .overrides = config.emulators,
+                         .standalone = standalone};
 }
 
 Emulators Emulators::discover(EmulatorCatalog catalog, const EmulatorSearch& search,
