@@ -53,6 +53,7 @@ bool SaveMemory::flush(std::span<const std::byte> ram) {
         return false;
     }
     written_.assign(ram.begin(), ram.end());
+    lucent::info("retro", "wrote save {}", file_.string());
     return true;
 }
 

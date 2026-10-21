@@ -256,9 +256,7 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
                 ProcessTree::killMatching(game.processHint);
             }
         } else {
-            if (forced_.load()) {
-                instance_.kill();
-            }
+            // SIGTERM first so the game can save; the scope SIGKILLs what is left after 5 s.
             instance_.stop();
             if (!forced_.load() && hooks.ended) {
                 hooks.ended(instance_.exitStatus());
@@ -279,7 +277,7 @@ bool Handoff::start(const library::Game& game, const Hooks& hooks,
 
     const Shown shown = viaSteam ? awaitSteamWindow(game, baseline, report, failure)
                                  : awaitScopeWindow(game, report, failure);
-    // Read after the wait: forceClose() sets forced_ before it kills, so a game that vanished
+    // Read after the wait: forceClose() sets forced_ before the game is ended, so one that vanished
     // because the player closed it is not a failure.
     if (shown == Shown::Forced || forced_.load()) {
         failure.clear();

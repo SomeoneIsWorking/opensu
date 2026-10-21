@@ -122,6 +122,7 @@ void HardwareRender::detach() {
     if (callback_.context_destroy != nullptr) {
         callback_.context_destroy();
     }
+    lucent::info("retro", "the core's Vulkan context is destroyed");
     contextUp_ = false;
     presenter_ = nullptr;
     image_.reset();

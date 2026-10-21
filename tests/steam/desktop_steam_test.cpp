@@ -73,7 +73,7 @@ int main() {
     }
     writePid(home, insidePid);
     const bool outside = steam.runningOutside(unit);
-    instance.kill();
+    instance.stop();
     expect(!insidePid.empty() && !outside,
            "a Steam inside the instance's scope is not the desktop's");
 

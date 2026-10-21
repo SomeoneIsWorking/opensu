@@ -692,7 +692,7 @@ void testMissingProgramReportsFailurePromptly() {
     expect(shell.hidden.load() == 0, "the shell was never hidden for a refused launch");
 }
 
-/// forceClose() during the run phase kills the instance, so start() returns and
+/// forceClose() during the run phase stops the instance, so start() returns and
 /// shows the shell although the game had hours left.
 void testForceCloseEndsTheRunPhase() {
     const Fixture fixture;
@@ -721,16 +721,16 @@ void testForceCloseEndsTheRunPhase() {
     expect(stoppedWithin(pid, std::chrono::seconds{5}), "the game is gone");
 }
 
-/// forceClose() returns at once, from the caller's thread, although the scope's kill takes long:
-/// the thread in start() does the kill.
-void testForceCloseReturnsWhileTheKillIsSlow() {
+/// forceClose() returns at once, from the caller's thread, although the scope's stop takes long:
+/// the thread in start() does the stop.
+void testForceCloseReturnsWhileTheStopIsSlow() {
     const Fixture fixture;
-    const fs::path shims = fixture.base / "slow-kill";
-    write(shims / "systemctl", "#!/bin/sh\ncase \" $* \" in *\" kill \"*) sleep 3 ;; esac\n"
+    const fs::path shims = fixture.base / "slow-stop";
+    write(shims / "systemctl", "#!/bin/sh\ncase \" $* \" in *\" stop \"*) sleep 3 ;; esac\n"
                                "exec /usr/bin/systemctl \"$@\"\n");
     fs::permissions(shims / "systemctl", fs::perms::owner_all);
     setenv("PATH", (shims.string() + ":/usr/bin:/bin").c_str(), 1);
-    const RunningGame child = runningGame(fixture, "slow-kill", 600);
+    const RunningGame child = runningGame(fixture, "slow-stop", 600);
     Shell shell;
     FakeSteam steam;
     Handoff handoff{searchPath(), fixture.session(), steam, nullptr};
@@ -1208,7 +1208,7 @@ int main() {
     testMissingProgramReportsFailurePromptly();
     testForceCloseEndsTheRunPhase();
     testForceCloseEndsTheStartPhase();
-    testForceCloseReturnsWhileTheKillIsSlow();
+    testForceCloseReturnsWhileTheStopIsSlow();
     testInstanceExitEndsTheWait();
     testEnvironmentReachesTheGame();
     testExitStatusIsReported();

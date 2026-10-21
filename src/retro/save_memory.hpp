@@ -17,8 +17,8 @@ class SaveMemory {
     /// file stays as it is until the core changes the RAM.
     void load(std::span<std::byte> ram);
 
-    /// Writes `ram` when it changed since the load or the last write. False, logged, when the
-    /// write fails; the next call tries again.
+    /// Writes `ram` when it changed since the load or the last write, and logs the write. False,
+    /// logged, when the write fails; the next call tries again.
     bool flush(std::span<const std::byte> ram);
 
     [[nodiscard]] const std::filesystem::path& file() const {

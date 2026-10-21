@@ -81,8 +81,9 @@ class Handoff {
                const std::vector<std::string>& environment, std::string& failure);
 
     /// Ends the current launch and returns at once, from any thread: the thread in start()
-    /// SIGKILLs everything the launch started (the instance, or a Steam game's whole process
-    /// tree; the client stays), waits for it to go, calls `show` and returns.
+    /// stops the instance (SIGTERM to every process in it, SIGKILL to what is left after the
+    /// scope's 5 s), or SIGKILLs a Steam game's whole process tree (the client stays), waits for
+    /// it to go, calls `show` and returns.
     void forceClose();
 
   private:

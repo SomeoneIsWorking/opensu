@@ -110,24 +110,6 @@ int main() {
 
     {
         Instance instance;
-        const pid_t grandchild = startEscaper(instance, "kill", scratch / "kill.pid");
-        instance.kill();
-        expect(waitUntil(
-                   [grandchild] {
-                       return !alive(grandchild);
-                   },
-                   std::chrono::seconds{8}),
-               "kill() ends a process that escaped through setsid");
-        expect(waitUntil(
-                   [&instance] {
-                       return !instance.running();
-                   },
-                   std::chrono::seconds{8}),
-               "a killed instance stops running");
-    }
-
-    {
-        Instance instance;
         std::string failure;
         expect(!instance.start(unitName("missing"), "/no/such/program", {}, failure),
                "a missing program is refused");

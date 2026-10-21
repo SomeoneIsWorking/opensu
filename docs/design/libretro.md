@@ -117,7 +117,8 @@ size (`OPENSU_WIDTH` × `OPENSU_HEIGHT`, 1280 × 800 by default). Inside Gamesco
 fullscreen.
 
 **Exit status.** 0 when the player quits (window closed, Escape, SIGTERM or SIGINT, which SDL turns
-into a quit so save RAM is written) or the frame count is reached; 1 for a bad command line or a
+into a quit so save RAM is written; the shell's Close game stops the scope, which is SIGTERM) or
+the frame count is reached; 1 for a bad command line or a
 window, Vulkan, shader preset or frame-file failure (the reason also goes to the control file,
 so the shell toasts it); 2 when the core or game cannot be loaded (the reason logged);
 3 when `--validate` saw validation errors; a crash is the signal it died of. The shell learns how a
