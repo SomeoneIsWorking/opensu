@@ -1,5 +1,6 @@
 // core_environment — the environment commands a core may ask: directories, pixel format, core
-// options, logging, input descriptors, geometry and timing changes. Anything else is refused.
+// options, logging, input descriptors, geometry and timing changes, and the hardware-render ones
+// `HardwareRender` answers. Anything else is refused.
 #pragma once
 
 #include <filesystem>
@@ -9,12 +10,15 @@
 #include <libretro.h>
 
 #include "core_options.hpp"
+#include "hardware_render.hpp"
 
 namespace opensu::retro {
 
 class CoreEnvironment {
   public:
-    CoreEnvironment(const std::filesystem::path& systemDir, const std::filesystem::path& saveDir);
+    /// `options` are the launch's chosen core option values.
+    CoreEnvironment(const std::filesystem::path& systemDir, const std::filesystem::path& saveDir,
+                    OptionValues options = {});
 
     /// Answers one command as libretro's environment callback does: false when refused.
     bool answer(unsigned command, void* data);
@@ -24,6 +28,9 @@ class CoreEnvironment {
     }
     [[nodiscard]] const CoreOptions& options() const {
         return options_;
+    }
+    [[nodiscard]] HardwareRender& hardware() {
+        return hardware_;
     }
 
     /// Timing the core changed since the last call (SET_SYSTEM_AV_INFO).
@@ -36,6 +43,7 @@ class CoreEnvironment {
     std::string saveDir_;
     retro_pixel_format pixelFormat_{RETRO_PIXEL_FORMAT_0RGB1555};
     CoreOptions options_;
+    HardwareRender hardware_;
     std::optional<retro_system_timing> timing_;
     std::optional<retro_game_geometry> geometry_;
 };

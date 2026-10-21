@@ -47,8 +47,8 @@ void logLine(retro_log_level level, const char* format, ...) {
 } // namespace
 
 CoreEnvironment::CoreEnvironment(const std::filesystem::path& systemDir,
-                                 const std::filesystem::path& saveDir)
-    : systemDir_{systemDir.string()}, saveDir_{saveDir.string()} {
+                                 const std::filesystem::path& saveDir, OptionValues options)
+    : systemDir_{systemDir.string()}, saveDir_{saveDir.string()}, options_{std::move(options)} {
 }
 
 bool CoreEnvironment::answer(unsigned command, void* data) {
@@ -113,6 +113,20 @@ bool CoreEnvironment::answer(unsigned command, void* data) {
         geometry_ = info.geometry;
         return true;
     }
+    case RETRO_ENVIRONMENT_SET_HW_RENDER:
+        return hardware_.setRender(*static_cast<const retro_hw_render_callback*>(data));
+    case RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER:
+        *static_cast<unsigned*>(data) = RETRO_HW_CONTEXT_VULKAN;
+        return true;
+    case RETRO_ENVIRONMENT_SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE:
+        return hardware_.setNegotiation(
+            *static_cast<const retro_hw_render_context_negotiation_interface*>(data));
+    case RETRO_ENVIRONMENT_GET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_SUPPORT:
+        HardwareRender::negotiationSupport(
+            *static_cast<retro_hw_render_context_negotiation_interface*>(data));
+        return true;
+    case RETRO_ENVIRONMENT_GET_HW_RENDER_INTERFACE:
+        return hardware_.renderInterface(static_cast<const retro_hw_render_interface**>(data));
     default:
         lucent::debug("retro", "refused environment command {}", command);
         return false;

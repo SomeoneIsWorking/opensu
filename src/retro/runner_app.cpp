@@ -18,6 +18,7 @@
 #include "fileio/atomic_write.hpp"
 #include "gamepad/pads.hpp"
 #include "gpu2d/image/png_encoder.hpp"
+#include "hardware_render.hpp"
 #include "joypad.hpp"
 #include "librashader_library.hpp"
 #include "lucent/log.h"
@@ -170,7 +171,8 @@ RunnerApp::RunnerApp(RunnerOptions options) : options_{std::move(options)} {
 RunnerExit RunnerApp::run() {
     makeDirectory(options_.saves);
     makeDirectory(options_.system);
-    CoreEnvironment environment{options_.system, options_.saves};
+    CoreEnvironment environment{options_.system, options_.saves, options_.coreOptions};
+    HardwareRender& hardware = environment.hardware();
     VideoFrame video;
     AudioSink sink{outputRate, audioTarget};
     Joypad joypad;
@@ -179,9 +181,13 @@ RunnerExit RunnerApp::run() {
         core = std::make_unique<Core>(options_.core, CoreHost{environment, video, sink, joypad});
         core->loadGame(options_.rom);
     } catch (const CoreError& failure) {
-        lucent::error("retro", "{}", failure.what());
+        std::string reason = failure.what();
+        if (!hardware.refusal().empty()) {
+            reason += ": " + hardware.refusal();
+        }
+        lucent::error("retro", "{}", reason);
         if (!options_.control.empty()) {
-            ControlServer::reportLoadFailure(options_.control, failure.what());
+            ControlServer::reportLoadFailure(options_.control, reason);
         }
         return RunnerExit::LoadFailed;
     }
@@ -201,6 +207,7 @@ RunnerExit RunnerApp::run() {
             .width = options_.width,
             .height = options_.height,
             .validation = options_.validation,
+            .negotiation = hardware.requested() ? hardware.negotiation() : nullptr,
             .video = options_.video,
             .librashader = options_.librashader,
         });
@@ -212,12 +219,15 @@ RunnerExit RunnerApp::run() {
         }
         return RunnerExit::PresenterFailed;
     }
+    hardware.attach(*presenter);
     const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.hidden);
     const std::unique_ptr<gamepad::Pads> pads = options_.hidden ? nullptr : openPads();
     const std::unique_ptr<ControlServer> control = openControl(options_, *core);
 
     RunnerExit exit = RunnerExit::Quit;
     std::uint64_t frame = 0;
+    /// Whether the last frame came as the core's Vulkan image rather than pixels.
+    bool showingCoreImage = false;
     Clock::time_point next = Clock::now();
     Clock::time_point nextSave = next + saveInterval;
     while (!options_.frames || frame < *options_.frames) {
@@ -266,10 +276,18 @@ RunnerExit RunnerApp::run() {
         }
         const Clock::time_point now = Clock::now();
         audio->service(now);
+        const bool coreImageFresh = hardware.takeFresh();
+        const bool pixelsFresh = video.takeFresh();
+        if (coreImageFresh || pixelsFresh) {
+            showingCoreImage = coreImageFresh;
+        }
+        const float aspect = aspectOf(geometry);
+        const std::optional<FrameImage> coreImage =
+            showingCoreImage ? hardware.frame(aspect) : std::nullopt;
         try {
-            presenter->present(
-                FrameImage{video.rgba(), video.width(), video.height(), aspectOf(geometry)},
-                video.takeFresh());
+            presenter->present(coreImage.value_or(FrameImage{
+                                   video.rgba(), video.width(), video.height(), aspect, {}}),
+                               coreImageFresh || pixelsFresh, hardware.takeSync());
         } catch (const VulkanError& failure) {
             lucent::error("retro", "{}", failure.what());
             exit = RunnerExit::PresenterFailed;
@@ -302,11 +320,15 @@ RunnerExit RunnerApp::run() {
         !writeFramePng(*presenter, *options_.framePng)) {
         exit = RunnerExit::PresenterFailed;
     }
+    // A GPU core's context goes before its game, and the device after both.
+    hardware.detach();
+    core->unloadGame();
     if (exit == RunnerExit::Quit && presenter->validationErrors() > 0) {
         lucent::error("retro", "Vulkan validation reported {} errors",
                       presenter->validationErrors());
         exit = RunnerExit::ValidationErrors;
     }
+    presenter.reset();
     return exit;
 }
 

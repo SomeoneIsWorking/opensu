@@ -1,8 +1,9 @@
 // Command opensu-retro runs one game in a libretro core, in its own window: the built-in emulator
 // openSU launches like any other.
 //
-//   opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings <file>] [--hidden]
-//                [--validate] [--frames N] [--frame-png <file>] <rom>
+//   opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings <file>]
+//                [--option <key>=<value>]... [--hidden] [--validate] [--frames N]
+//                [--frame-png <file>] <rom>
 //
 // Exit status: 0 on quit, 1 for a bad command line or a window, Vulkan or frame-file failure, 2
 // when the core or game cannot be loaded, 3 when --validate saw Vulkan validation errors.
@@ -58,7 +59,8 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
         } else if (arg == "--validate") {
             options.validation = true;
         } else if (arg == "--core" || arg == "--saves" || arg == "--system" ||
-                   arg == "--settings" || arg == "--frame-png" || arg == "--frames") {
+                   arg == "--settings" || arg == "--frame-png" || arg == "--frames" ||
+                   arg == "--option") {
             const std::optional<std::string> given = value();
             if (!given) {
                 return std::nullopt;
@@ -75,6 +77,14 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
                     return std::nullopt;
                 }
                 options.video = *video;
+            } else if (arg == "--option") {
+                const std::size_t equals = given->find('=');
+                if (equals == std::string::npos || equals == 0) {
+                    lucent::error("retro", "--option takes key=value, not {}", *given);
+                    return std::nullopt;
+                }
+                options.coreOptions.insert_or_assign(given->substr(0, equals),
+                                                     given->substr(equals + 1));
             } else if (arg == "--frame-png") {
                 options.framePng = *given;
             } else {
@@ -96,8 +106,8 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
     }
     if (options.core.empty() || !rom) {
         lucent::error("retro", "usage: opensu-retro --core <path.so> [--saves <dir>] "
-                               "[--system <dir>] [--settings <file>] [--hidden] [--validate] "
-                               "[--frames N] [--frame-png <file>] <rom>");
+                               "[--system <dir>] [--settings <file>] [--option <key>=<value>]... "
+                               "[--hidden] [--validate] [--frames N] [--frame-png <file>] <rom>");
         return std::nullopt;
     }
     if (options.framePng && !options.hidden) {

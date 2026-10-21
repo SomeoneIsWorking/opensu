@@ -87,12 +87,13 @@ void Presenter::open() {
         }
         extensions = {names, count};
     }
-    instance_ = std::make_unique<VulkanInstance>(extensions, options_.validation);
+    instance_ =
+        std::make_unique<VulkanInstance>(extensions, options_.validation, options_.negotiation);
     if (!options_.hidden &&
         !SDL_Vulkan_CreateSurface(window_, instance_->handle(), nullptr, &surface_)) {
         throw std::runtime_error{std::string{"Vulkan surface: "} + SDL_GetError()};
     }
-    device_ = std::make_unique<VulkanDevice>(*instance_, surface_);
+    device_ = std::make_unique<VulkanDevice>(*instance_, surface_, options_.negotiation);
     vk_ = device_->handle();
     if (!options_.hidden) {
         format_ = chooseFormat(device_->physical(), surface_).format;
@@ -130,7 +131,7 @@ void Presenter::open() {
 
 void Presenter::release() {
     if (vk_ != VK_NULL_HANDLE) {
-        vkDeviceWaitIdle(vk_);
+        device_->waitIdle();
         destroyTargets();
         // Without the swapchain extension (hidden) the loader has no entry point to call.
         if (swapchain_ != VK_NULL_HANDLE) {
@@ -304,10 +305,20 @@ void Presenter::destroyTargets() {
     offscreenMemory_ = VK_NULL_HANDLE;
 }
 
-void Presenter::present(const FrameImage& frame, bool fresh) {
+VkResult Presenter::waitForFrame() {
+    return vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX);
+}
+
+void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync) {
     uploadPending_ = uploadPending_ || fresh;
+    syncPending_.waits.insert(syncPending_.waits.end(), sync.waits.begin(), sync.waits.end());
+    syncPending_.commands.insert(syncPending_.commands.end(), sync.commands.begin(),
+                                 sync.commands.end());
+    if (sync.signal != VK_NULL_HANDLE) {
+        syncPending_.signal = sync.signal;
+    }
     if (!options_.hidden && stale_) {
-        check(vkDeviceWaitIdle(vk_), "vkDeviceWaitIdle");
+        check(device_->waitIdle(), "vkDeviceWaitIdle");
         createSwapchain();
     }
     if (targets_.empty()) {
@@ -341,19 +352,34 @@ void Presenter::present(const FrameImage& frame, bool fresh) {
     }
     check(vkEndCommandBuffer(commands_), "vkEndCommandBuffer");
 
-    const VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    std::vector<VkSemaphore> waits;
+    std::vector<VkPipelineStageFlags> waitStages;
+    std::vector<VkSemaphore> signals;
+    if (!options_.hidden) {
+        waits.push_back(acquired_);
+        waitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        signals.push_back(targets_[index].drawn);
+    }
+    for (VkSemaphore wait : syncPending_.waits) {
+        waits.push_back(wait);
+        waitStages.push_back(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    }
+    if (syncPending_.signal != VK_NULL_HANDLE) {
+        signals.push_back(syncPending_.signal);
+    }
+    std::vector<VkCommandBuffer> buffers = std::move(syncPending_.commands);
+    buffers.push_back(commands_);
+    syncPending_ = {};
     VkSubmitInfo submit{};
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit.commandBufferCount = 1;
-    submit.pCommandBuffers = &commands_;
-    if (!options_.hidden) {
-        submit.waitSemaphoreCount = 1;
-        submit.pWaitSemaphores = &acquired_;
-        submit.pWaitDstStageMask = &waitStage;
-        submit.signalSemaphoreCount = 1;
-        submit.pSignalSemaphores = &targets_[index].drawn;
-    }
-    check(vkQueueSubmit(device_->queue(), 1, &submit, done_), "vkQueueSubmit");
+    submit.commandBufferCount = static_cast<std::uint32_t>(buffers.size());
+    submit.pCommandBuffers = buffers.data();
+    submit.waitSemaphoreCount = static_cast<std::uint32_t>(waits.size());
+    submit.pWaitSemaphores = waits.data();
+    submit.pWaitDstStageMask = waitStages.data();
+    submit.signalSemaphoreCount = static_cast<std::uint32_t>(signals.size());
+    submit.pSignalSemaphores = signals.data();
+    check(device_->submit(submit, done_), "vkQueueSubmit");
     if (options_.hidden) {
         drawnOffscreen_ = true;
         return;
@@ -365,7 +391,7 @@ void Presenter::present(const FrameImage& frame, bool fresh) {
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &swapchain_;
     presentInfo.pImageIndices = &index;
-    const VkResult presented = vkQueuePresentKHR(device_->queue(), &presentInfo);
+    const VkResult presented = device_->present(presentInfo);
     if (presented == VK_ERROR_OUT_OF_DATE_KHR || presented == VK_SUBOPTIMAL_KHR) {
         stale_ = true;
     } else {
@@ -410,7 +436,7 @@ Readback Presenter::readBack() {
         submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submit.commandBufferCount = 1;
         submit.pCommandBuffers = &commands_;
-        check(vkQueueSubmit(device_->queue(), 1, &submit, done_), "vkQueueSubmit");
+        check(device_->submit(submit, done_), "vkQueueSubmit");
         check(vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX), "vkWaitForFences");
         void* mapped = nullptr;
         check(vkMapMemory(vk_, memory, 0, VK_WHOLE_SIZE, 0, &mapped), "vkMapMemory");

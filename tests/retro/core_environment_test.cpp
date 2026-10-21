@@ -61,7 +61,21 @@ void flags() {
     retro_input_descriptor descriptors[] = {{0, 0, 0, 0, nullptr}};
     expect(environment.answer(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, descriptors),
            "input descriptors are accepted");
-    expect(!environment.answer(RETRO_ENVIRONMENT_SET_HW_RENDER, nullptr), "GPU cores are refused");
+    retro_hw_render_callback render{};
+    render.context_type = RETRO_HW_CONTEXT_OPENGL_CORE;
+    render.version_major = 3;
+    render.version_minor = 3;
+    expect(!environment.answer(RETRO_ENVIRONMENT_SET_HW_RENDER, &render) &&
+               environment.hardware().refusal().find("OpenGL core 3.3") != std::string::npos,
+           "an OpenGL core is refused, named in the reason");
+    render.context_type = RETRO_HW_CONTEXT_VULKAN;
+    expect(environment.answer(RETRO_ENVIRONMENT_SET_HW_RENDER, &render) &&
+               environment.hardware().requested() && environment.hardware().refusal().empty(),
+           "a Vulkan core is taken");
+    unsigned preferred = 0;
+    expect(environment.answer(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER, &preferred) &&
+               preferred == RETRO_HW_CONTEXT_VULKAN,
+           "Vulkan is the preferred context");
     expect(!environment.answer(RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE, nullptr),
            "anything else is refused");
 }

@@ -25,6 +25,8 @@ struct PresenterOptions {
     int height{800};
     /// The Vulkan validation layer, with its errors counted.
     bool validation{false};
+    /// A Vulkan core's context negotiation: the instance and device are made through it.
+    const retro_hw_render_context_negotiation_interface_vulkan* negotiation{nullptr};
     /// How the frame is shown.
     settings::VideoSettings video;
     /// The librashader a shader preset runs on.
@@ -41,6 +43,15 @@ struct WindowInput {
 
     bool quit{false};
     std::vector<Key> keys;
+};
+
+/// What a Vulkan core hands over with its frames, each used once: semaphores the drawing waits
+/// for, command buffers submitted before the runner's, a semaphore signalled once its image is
+/// read.
+struct CoreSync {
+    std::vector<VkSemaphore> waits;
+    std::vector<VkCommandBuffer> commands;
+    VkSemaphore signal{VK_NULL_HANDLE};
 };
 
 /// An image read back from the GPU, RGBA rows top first.
@@ -63,8 +74,12 @@ class Presenter {
 
     [[nodiscard]] WindowInput poll();
 
-    /// Draws `frame`, uploading it first when `fresh`. Throws VulkanError when drawing fails.
-    void present(const FrameImage& frame, bool fresh);
+    /// Draws `frame`, uploading it first when `fresh`, with what a Vulkan core handed over (kept
+    /// for the next frame drawn when this one is skipped). Throws VulkanError when drawing fails.
+    void present(const FrameImage& frame, bool fresh, CoreSync sync = {});
+
+    /// Waits until the last frame submitted is done on the GPU (a core's wait_sync_index).
+    [[nodiscard]] VkResult waitForFrame();
 
     /// Hidden only: the last image presented, opaque as the window shows it; empty before the
     /// first.
@@ -73,8 +88,11 @@ class Presenter {
     [[nodiscard]] std::size_t validationErrors() const {
         return instance_->validationErrors();
     }
-    [[nodiscard]] const VulkanDevice& device() const {
+    [[nodiscard]] VulkanDevice& device() {
         return *device_;
+    }
+    [[nodiscard]] VkInstance instance() const {
+        return instance_->handle();
     }
 
   private:
@@ -118,6 +136,8 @@ class Presenter {
     bool drawnOffscreen_{false};
     /// A fresh frame not yet uploaded, kept across a frame skipped for a stale swapchain.
     bool uploadPending_{false};
+    /// A core's hand-over not yet submitted, kept the same way.
+    CoreSync syncPending_;
 };
 
 } // namespace opensu::retro
