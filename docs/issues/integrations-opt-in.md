@@ -153,6 +153,22 @@ hiding. The Docker idea is not needed.
   with `systemd-run --user --collect`, outside openSU's scope, never ended by openSU. A hidden run
   logs the decision and starts nothing. The shell does not hold the pad against it or close Big
   Picture, and the handoff does not wait for a Steam window in openSU's Gamescope.
+- Managed mode hides Steam's windows in openSU's Gamescope once Steam is logged on:
+  `IntegrationSwitch::service`, every frame, sets the fork's root `GAMESCOPE_HIDE_STEAM_CLIENT`
+  through `session::SteamWindowHiding` to 1 for Managed and `SteamState::Ready`, and to 0 otherwise
+  (starting, not logged on, gone, stopped, another mode), so a login or client update window stays
+  visible. The fork then leaves windows of `steam`/`steamwebhelper` processes, app id 769 and
+  `STEAM_BIGPICTURE` out of focus, the composite, the overlay pick and
+  `GAMESCOPE_FOCUSABLE_WINDOWS`; the games Steam starts are focused and drawn as usual. Proof:
+  `scratch/gamescope-hide/` (`tools/drive.py`, headless fork, an `xmessage` copy named `steam` in
+  red and one named `game` in blue): unset or 0, the Steam window is focused and drawn and both are
+  focusable, as with the old pin (`logs/baseline.txt`); 1, the game is focused and drawn and only it
+  is focusable (`logs/fork.txt`, `shots/fork-*.png`). A hidden openSU set to Managed, with no
+  Steam started, sets 0 (`logs/opensu.txt`). The shipping `IntegrationSwitch`, `steam::Client` and
+  `SteamWindowHiding` with a stand-in `steam` in its own scope (`tools/ready_driver.cpp`, scratch
+  HOME, DevTools port 1; a hidden openSU never starts Steam): Stopped and Initializing 0, Ready 1,
+  Steam turned off 0, Managed again 0 until Ready, 1, the client gone 0 (`logs/ready.txt`,
+  `shots/ready-*.png`: red Steam window shown at 0, blue game at 1).
 - A game openSU launched still holds the pads in every mode, so Guide chords stay over Normal-mode
   games.
 - Proof: `scratch/integrations/drive.py` (`fresh`, `normal`) drives a hidden run with a scratch
@@ -162,7 +178,11 @@ hiding. The Docker idea is not needed.
 
 ## Left
 
-- Isolated mode: build the design above; first fix the Gamescope fork's PipeWire teardown crash.
+- Isolated mode: build the design above (Steam in openSU's own Gamescope with its windows hidden,
+  as Managed now does); first fix the Gamescope fork's PipeWire teardown crash.
+- Managed hides every Steam window once Steam is logged on, so a dialog Steam shows after logon
+  (EULA, cloud conflict, a launch option or error) is invisible. openSU should show Steam's windows
+  while Steam shows a dialog the player must answer. Not run against the real client.
 - Normal-mode installs and the download queue go through Steam's CEF DevTools, which a desktop
   Steam only serves when started with `-cef-enable-debugging`; without it those fail with an error.
 - Normal mode has not been run against a real desktop Steam.

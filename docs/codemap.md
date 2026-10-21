@@ -14,7 +14,7 @@ gitignored `docs/reference/`).
 | `src/app/shell_app.*` | Composition: catalog, controller reader, Steam client, the drawn shell, frame loop; builds every integration from `IntegrationsInForce` and applies a change through `IntegrationSwitch`; plays the UI sounds at the input events that iiSU plays them at; streams artwork every loop pass, drawn frame or not |
 | `src/app/game_launch.*` | One launch at a time on its thread: the game launched, whether it runs, cancel and close through `Handoff` |
 | `src/app/integrations_in_force.*` | The `settings::Integrations` in force for this run, from the saved choices and `--session`; saving a new choice; what the catalog lists, the Steam mode, whether the shell guards openSU's own Steam |
-| `src/app/integration_switch.*` | Applying the integrations in force: at start and on each change, only what differs (catalog `replace`, plugins host, standalone emulators, pad and Big Picture guards, Steam stopped and started in its mode on a worker) |
+| `src/app/integration_switch.*` | Applying the integrations in force: at start and on each change, only what differs (catalog `replace`, plugins host, standalone emulators, pad and Big Picture guards, Steam's windows hidden while Managed Steam is Ready (`service`, each frame), Steam stopped and started in its mode on a worker) |
 | `src/app/integration_options.*` | The optional integrations' ids, labels and notes, and the switch each one is in `IntegrationChoices` |
 | `src/app/first_run_chooser.*` | The first-run chooser's controller: opens when no choices are saved, A toggles, Done saves |
 | `src/app/integration_settings.*` | Settings › Integrations: ROMs and libretro always on, a switch per integration, Steam mode (Normal or Managed; Managed alone in a session), Isolated not available yet |
@@ -103,6 +103,7 @@ gitignored `docs/reference/`).
 | `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game: hidden, passive (drawn, input left to the game) or interactive (`STEAM_INPUT_FOCUS`) |
 | `src/session/game_keys.*` | The shortcuts that work while a game has the keyboard (Guide, volume), matched against the `Shortcuts` table from XInput2 raw keys |
 | `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show (tells the handoff when a game is on screen), and the focused window's changes from the root's properties |
+| `src/session/steam_window_hiding.*` | Hiding Steam's own client windows (Big Picture, steamwebhelper) from Gamescope's focus and composite: the fork's root `GAMESCOPE_HIDE_STEAM_CLIENT`, set by `IntegrationSwitch` while Managed Steam is logged on |
 | `src/session/window_focus.*` | Whose window Gamescope has focused (openSU, the launched game, Big Picture, another window), as pure rules over `GAMESCOPE_FOCUSED_WINDOW` and `GAMESCOPE_FOCUSABLE_WINDOWS` |
 | `src/launch/instance.*` | One transient systemd user scope per launch, its program started with no signal blocked; stopping it ends the whole tree; how the started process ended (`exitStatus`) |
 | `src/launch/handoff.*` | Starting a game, reporting its progress until it shows a window, hiding the shell until it ends; how a game in an Instance ended (`Hooks::ended`), unless force-closed |

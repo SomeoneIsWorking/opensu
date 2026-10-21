@@ -74,6 +74,7 @@
 #include "sign_in.hpp"
 #include "steam/client.hpp"
 #include "steam_library_settings.hpp"
+#include "steam_window_hiding.hpp"
 #include "top_bar_clock.hpp"
 #include "ui/shell.hpp"
 #include "uninstall_prompt.hpp"
@@ -663,6 +664,8 @@ class ShellApp final : private PointerHost {
                                     }}};
     /// Inside Gamescope, tells the handoff when a game shows a window. Null elsewhere.
     std::unique_ptr<session::GamescopeWindows> gameWindows_;
+    /// Inside Gamescope, keeps openSU's own Steam's windows out of sight. Null elsewhere.
+    std::unique_ptr<session::SteamWindowHiding> steamWindowHiding_;
     launch::Handoff handoff_;
     /// What the launch panel is up for, and the one install that runs. After steam_, so the
     /// install is stopped before the client it drives. Main loop only.
@@ -751,6 +754,12 @@ class ShellApp final : private PointerHost {
             .emulatorsChanged =
                 [this] {
                     emulatorSettings_.rescan();
+                },
+            .hideSteamWindows =
+                [this](bool hides) {
+                    if (steamWindowHiding_) {
+                        steamWindowHiding_->hide(hides);
+                    }
                 }}};
     /// The first-run card that asks which integrations to use.
     FirstRunChooser firstRun_{shell_.sessionPanels().integrations(), integrations_, sounds_,
