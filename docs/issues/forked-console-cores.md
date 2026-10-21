@@ -51,8 +51,21 @@ when the disc is recognised and switched per game in the layered settings.
 |---|---|---|
 | PS1 | psxport | the psx-* titles |
 | Wii U | wiiuport (Cemu) | setsail (Wind Waker HD) |
-| GameCube | Dolphin (Aurora likely cannot run discs; undecided) | Sunbright (Super Mario Sunshine) |
+| GameCube | the player's Dolphin fork, `github.com/SomeoneIsWorking/dolphin` | Sunbright (Super Mario Sunshine) |
 
 The interpolator itself (the game renders real in-between frames by blending camera and actor
 transforms between simulation ticks) is the shared part; each pack supplies only its title's
 tick, camera and actor hooks.
+
+### The GameCube core from the player's Dolphin fork
+
+`SomeoneIsWorking/dolphin` (fork of `dolphin-emu/dolphin`) already carries Sunbright work on two
+branches (2026-10-21): `sunbright`, 33 commits ahead of `master` (GX draw and colour capture, an
+indexed-XF seam, per-frame present in headless), and `sunbright-oracle`, 159 ahead (headless
+FIFO record, scripted pad input, save/load state at a field, game-state JSON dumps, HTTP probes
+for debugging the 60 fps interpolation). Upstream Dolphin has no libretro target; libretro's own
+`dolphin` core is a separate, older fork, so the core is a libretro frontend added to this fork.
+
+- Shipped in the core: Dolphin plus the Sunshine pack (the native operations and the interpolator).
+- Kept out of the shipped core: the probes, oracle and headless capture tools; they stay
+  maintainer builds for working on packs.
