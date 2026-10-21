@@ -1,6 +1,7 @@
 # Shaders, filters, overlays and per-console/core/game settings for opensu-retro
 
-Status: open. Build order steps 1–4 built (with the step 2 UI); steps 5–9 not started.
+Status: open. Build order steps 1–4 built (with the step 2 UI); step 7 built except preset
+parameters; steps 5, 6, 8 and 9 not started.
 
 The player: "filters and shaders like RetroArch", "overlays", "selectable per console/core/game,
 different config layers with override support", and "core per console configuration and per game
@@ -61,6 +62,67 @@ override".
   bilinear and sharp-bilinear, `magick compare -metric AE` 0).
 - Proof: `scratch/video-filters/` (`runner/`, `crops/`, `sheets/`, `grid-check.txt`, `shell/`,
   `launch/`).
+
+## What step 7 built
+
+- librashader comes from `SomeoneIsWorking/librashader` (forked from SnowflakePowered `07ac790c`,
+  v0.12.1), pinned in `cmake/Librashader.cmake`. The fork's commits:
+  - `73bf79af`: each pass's scissor is clipped to non-negative offsets, so an overscaled viewport
+    that overhangs the output draws instead of failing validation.
+  - `41211fab`: a pass's render passes, pipeline layout, descriptor pool and set layout, and each
+    LUT's image and view, are destroyed with the chain (upstream leaks them; validation reports
+    them at `vkDestroyDevice`).
+- The build runs `cargo build --locked --profile optimized --features runtime-vulkan` for
+  `librashader-capi` (Rust 1.88 or newer; refused with the install command otherwise, or
+  `-DOPENSU_BUILD_LIBRASHADER=OFF`), stages `<libdir>/opensu/librashader.so` in the build tree and
+  installs it there. The header comes from the same revision, checked by SHA-256.
+- `retro/librashader_library` opens that file by its path (`Config::librashader`, beside the
+  runner), checks ABI and API, and turns librashader errors into `ShaderError`. Without the file
+  the runner refuses: "shader presets need librashader, which is not installed (<path>)"; the
+  shell shows that as the launch's error toast. It never draws without the preset.
+- `retro/shader_chain` builds the preset on the runner's device (render passes, one frame in
+  flight) and records it from the frame texture into the placed rectangle of the target;
+  `retro/frame_compositor` uses it in place of its own pipeline when `video.shaderPreset` is set.
+  The frame texture carries `TRANSFER_SRC` because librashader copies it into `OriginalHistory`,
+  and the first frame clears the history images.
+- `video.shader` at every layer holds a path in the pack (`crt/crt-royale.slangp`); `""` is an
+  explicit None, so a game can turn off a console's preset. The shell resolves it against
+  `<data>/opensu/shaders/slang/` and writes the absolute path into the launch file.
+- How it combines with the built-ins: a preset replaces Sampling and Filter (the rows say "not
+  used with a shader preset" and the details buttons read "Not used"). Aspect and Integer scale
+  still place the preset's output rectangle.
+- The pack (`library/shader_pack`): Settings › Emulators has a "Shader presets" row (Download,
+  progress, Installed, Up to date, Update to <date>) and a two-press Remove row; the download shows
+  on the Downloads page as a "Shaders" row with bytes. Check for updates reads the pack too.
+  - The buildbot publishes no checksum for `shaders_slang.zip`: `.md5`, `.sha256`, `.sha1` and
+    `.index-extended` are 404 and the listing gives only date and size. What is checked: HTTPS from
+    the buildbot origin only, the body length against the response's `Content-Length`, and every
+    member's CRC-32 as it is unpacked. Members that would land outside the pack are refused.
+  - The version is the response's `Last-Modified`; the record (`shaders/slang.json`) keeps that,
+    the size and the URL. The buildbot's CDN edges serve different builds at once (54283163 and
+    54283881 bytes, 10:01 and 14:05 on 2026-10-21), so Check for updates can offer an update a
+    download then does not get; the row then still says "Update to".
+  - Unpacked into `slang.part`, then swapped for `slang/`, so a failed download keeps the old pack.
+- The picker (`app/shader_preset_picker`) walks the pack's folder tree (5210 files, 2659 presets;
+  `bezel/` alone has 1494, so a flat folder list does not work): "Not set" and "None" at the top,
+  then each level's folders with their preset counts and its presets. From a layer page it
+  replaces the page; from the details page it opens over it on the game's layer and closes back
+  to it.
+- Not built: preset parameters as sliders (`libra_preset_get_param`/`set_param`, `GET /status`),
+  which needs the quick menu of step 5. The AppImage and CI containers gained Rust
+  (`packaging/appimage`: rustup-init 1.28.2 by SHA-256, toolchain 1.90.0; `packaging/ci`: Fedora's
+  `cargo`) but neither image has been rebuilt with it.
+- Proof (`scratch/shader-presets/`, hidden, scratch HOME and XDG dirs, validation on, 0 errors in
+  every run): `shell/03`–`08` and `22`–`26` (row before, during, after, update, remove, Downloads page
+  during and after),
+  `shell/09`–`15` (Super Nintendo layer → crt-royale, nested folders), `shell/16`–`20` (Chrono
+  Trigger overridden to sharp-bilinear-simple on its details page, Super Metroid inheriting),
+  `launch/*.settings.json` (the files the shell wrote), `runner/*.png` and `runner/*.log`
+  (Super Metroid crt-royale with and without overscale, Chrono Trigger sharp-bilinear-simple, Kirby
+  GBA lcd-grid-v2, crt-guest-advanced, sharp-bilinear-simple and gba-lcd-grid-v2 with its border
+  and history), `runner/missing-library.log` and `shell/21-*` (the refusal and its toast).
+- The task named `interpolation/sharp-bilinear-simple`; in the pack it is
+  `pixel-art-scaling/sharp-bilinear-simple.slangp`.
 
 ## Layered settings: one owner
 
@@ -202,8 +264,7 @@ to these would break the one-owner rule.
   - It would be downloaded on request through the core download path (HTTPS, same-origin
     redirects, a Downloads page row) into `<data>/opensu/shaders/slang/`, with a record for
     update and removal.
-  - The folder listing shows no digest for asset zips. That is the same trust level as cores,
-    and is to be checked before building.
+  - The buildbot publishes no digest for it (see "What step 7 built" for what is checked).
   - `libretro/slang-shaders` has no repository licence (GitHub reports none). Each shader carries
     its own: crt-lottes public domain, crt-geom GPL-2+, crt-royale GPL-2+, crt-easymode GPL, many
     with no header at all. The player downloads them at run time like cores, and the tree never
@@ -262,8 +323,8 @@ All of these use the existing `settings_page` row types (choice, toggle, slider,
   source layer. "Save to…" offers This game, the system, the core, or Everywhere, and "Clear game
   overrides" removes the Game layer. Closing with unsaved changes keeps them for this session only
   and says so in a toast.
-- Shader and bezel pickers browse `<data>/opensu/shaders/slang/` and the overlay folders. The
-  built-ins are listed first.
+- The shader picker browses `<data>/opensu/shaders/slang/` by folder; the built-in filters keep
+  their own Filter row. The bezel picker will browse the overlay folders.
 
 ## Build order
 
@@ -276,7 +337,8 @@ All of these use the existing `settings_page` row types (choice, toggle, slider,
 4. Done: built-in filters: scanlines, LCD grid, a CRT ported from crt-lottes.
 5. Quick menu live changes and "Save to…" (`POST /video`).
 6. Core options per layer (`options.<core>.<key>`), `GET_VARIABLE_UPDATE`, `POST /options`.
-7. librashader from a pinned fork, the `shaders_slang.zip` download, preset parameters as sliders.
+7. Done except parameters: librashader from a pinned fork, the `shaders_slang.zip` download and
+   the preset picker. Preset parameters as sliders wait for step 5.
 8. Bezels: the common-overlays download, folder import for Bezel Project packs, the game rect from
    the viewport or the hole.
 9. Touch overlays.

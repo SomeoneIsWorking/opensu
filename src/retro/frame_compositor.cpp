@@ -133,11 +133,17 @@ VkRect2D placeFrame(VkExtent2D extent, const FrameImage& frame,
     return rect;
 }
 
-FrameCompositor::FrameCompositor(const VulkanDevice& device, VkFormat format,
-                                 VkImageLayout finalLayout, const settings::VideoSettings& video)
-    : device_{device}, vk_{device.handle()}, video_{video} {
+FrameCompositor::FrameCompositor(VkInstance instance, const VulkanDevice& device, VkFormat format,
+                                 VkImageLayout finalLayout, const settings::VideoSettings& video,
+                                 const std::filesystem::path& librashader)
+    : device_{device}, vk_{device.handle()}, video_{video}, format_{format},
+      finalLayout_{finalLayout} {
     try {
         open(format, finalLayout);
+        if (!video_.shaderPreset.empty()) {
+            chain_ =
+                std::make_unique<ShaderChain>(librashader, video_.shaderPreset, instance, device_);
+        }
     } catch (...) {
         release();
         throw;
@@ -155,6 +161,7 @@ void FrameCompositor::open(VkFormat format, VkImageLayout finalLayout) {
 
 void FrameCompositor::release() {
     vkDeviceWaitIdle(vk_);
+    chain_.reset();
     destroyTexture();
     vkDestroyDescriptorPool(vk_, descriptorPool_, nullptr);
     vkDestroySampler(vk_, sampler_, nullptr);
@@ -346,9 +353,11 @@ void FrameCompositor::ensureTexture(unsigned width, unsigned height) {
     }
     check(vkDeviceWaitIdle(vk_), "vkDeviceWaitIdle");
     destroyTexture();
+    // librashader copies the frame into a preset's OriginalHistory.
     const VkImageCreateInfo create =
         imageInfo(VK_FORMAT_R8G8B8A8_UNORM, {width, height},
-                  VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+                  VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                      VK_IMAGE_USAGE_SAMPLED_BIT);
     check(vkCreateImage(vk_, &create, nullptr, &texture_), "vkCreateImage");
     VkMemoryRequirements needs{};
     vkGetImageMemoryRequirements(vk_, texture_, &needs);
@@ -423,14 +432,37 @@ void FrameCompositor::recordUpload(VkCommandBuffer commands, const FrameImage& f
     textureReady_ = true;
 }
 
-void FrameCompositor::recordDraw(VkCommandBuffer commands, VkFramebuffer target, VkExtent2D extent,
-                                 const FrameImage& frame) {
+void FrameCompositor::recordChain(VkCommandBuffer commands, const DrawTarget& target,
+                                  VkExtent2D extent, const FrameImage& frame) {
+    // The chain clears the whole target itself, so what it held before is not kept.
+    imageBarrier(commands, target.image, VK_IMAGE_LAYOUT_UNDEFINED,
+                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                 VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT, 0,
+                 VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                 VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    chain_->record(
+        commands, ChainImage{texture_, VK_FORMAT_R8G8B8A8_UNORM, {textureWidth_, textureHeight_}},
+        ChainImage{target.image, format_, extent}, placeFrame(extent, frame, video_), frame.aspect);
+    const bool readBack = finalLayout_ == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    imageBarrier(commands, target.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, finalLayout_,
+                 VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                 VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                 readBack ? VK_PIPELINE_STAGE_TRANSFER_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                 readBack ? VK_ACCESS_TRANSFER_READ_BIT : 0);
+}
+
+void FrameCompositor::recordDraw(VkCommandBuffer commands, const DrawTarget& target,
+                                 VkExtent2D extent, const FrameImage& frame) {
+    if (chain_ && textureReady_) {
+        recordChain(commands, target, extent, frame);
+        return;
+    }
     VkClearValue black{};
     black.color = {{0.0F, 0.0F, 0.0F, 1.0F}};
     VkRenderPassBeginInfo begin{};
     begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     begin.renderPass = renderPass_;
-    begin.framebuffer = target;
+    begin.framebuffer = target.framebuffer;
     begin.renderArea.extent = extent;
     begin.clearValueCount = 1;
     begin.pClearValues = &black;
@@ -462,7 +494,7 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, VkFramebuffer target,
 }
 
 bool FrameCompositor::record(VkCommandBuffer commands, const FrameImage& frame, bool upload,
-                             VkFramebuffer target, VkExtent2D extent) {
+                             const DrawTarget& target, VkExtent2D extent) {
     const bool complete =
         frame.width > 0 && frame.height > 0 &&
         frame.rgba.size() >= static_cast<std::size_t>(frame.width) * frame.height * 4;

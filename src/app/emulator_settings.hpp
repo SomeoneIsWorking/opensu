@@ -1,9 +1,9 @@
 // emulator_settings — the Settings screen's Emulators category: every emulator of the catalog,
 // whether and how it is installed, Download, Update and Remove (Remove only for an AppImage openSU
-// downloaded, and only on a second press), the update check, the rows that open each setting
-// layer's page (`LayerSettings`), and the BIOS each chosen built-in core runs on (its
-// core info's files, present or missing in the runner's system folder, or HLE, an open BIOS built
-// in, or none needed when none is there).
+// downloaded, and only on a second press), the same for libretro's shader pack, the update check,
+// the rows that open each setting layer's page (`LayerSettings`), and the BIOS each chosen built-in
+// core runs on (its core info's files, present or missing in the runner's system folder, or HLE, an
+// open BIOS built in, or none needed when none is there).
 #pragma once
 
 #include <functional>
@@ -53,7 +53,15 @@ class EmulatorSettings {
 
   private:
     void runEmulator(const library::roms::EmulatorEntry& entry);
-    void runRemove(const library::roms::EmulatorEntry& entry);
+    /// Cancels `id`'s download, says it is up to date, or starts it; `ours` is whether openSU
+    /// downloaded what is there.
+    void runDownload(std::string_view id, const std::string& name, bool ours);
+    /// Arms Remove of `id`, or on the second press removes it.
+    void runRemove(std::string_view id, const std::string& name);
+    /// The shader pack's Download / Update row and its Remove.
+    void addShaderPackRows(ui::SettingsCategory& page) const;
+    /// What `id`'s row reads while it downloads or when `ours`; nothing otherwise.
+    [[nodiscard]] std::optional<std::string> downloadValue(std::string_view id, bool ours) const;
     /// Each chosen built-in core's BIOS: what it runs on, and each file it looks for.
     void addBiosRows(ui::SettingsCategory& page) const;
     [[nodiscard]] std::string valueOf(const library::roms::EmulatorEntry& entry) const;

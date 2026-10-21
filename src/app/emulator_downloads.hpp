@@ -1,7 +1,7 @@
-// emulator_downloads — downloading, updating and removing the emulators openSU installs, off the
-// main loop: official AppImages and built-in emulators' libretro cores, one download at a time
-// with its progress and cancel, the update check, and the news the loop hands to the screens
-// (`service`). Nothing updates unless the player asks.
+// emulator_downloads — downloading, updating and removing what openSU installs for emulators, off
+// the main loop: official AppImages, built-in emulators' libretro cores and libretro's shader pack
+// (`shaderPackId`), one download at a time with its progress and cancel, the update check, and the
+// news the loop hands to the screens (`service`). Nothing updates unless the player asks.
 #pragma once
 
 #include <cstdint>
@@ -92,8 +92,9 @@ class EmulatorDownloads {
         setup_.standalone = standalone;
     }
 
-    /// Downloads the latest release or core build of `id` and switches to it. Refused, with the
-    /// reason, while another download runs or for an emulator openSU cannot download.
+    /// Downloads the latest release, core build or shader pack (`shaderPackId`) of `id` and
+    /// switches to it. Refused, with the reason, while another download runs or for an emulator
+    /// openSU cannot download.
     [[nodiscard]] std::string start(std::string_view id);
     /// Stops the running download of `id`; the version in use stays.
     void cancel(std::string_view id);
@@ -117,6 +118,13 @@ class EmulatorDownloads {
     /// The version openSU downloaded for `id`.
     [[nodiscard]] std::optional<Build> downloaded(std::string_view id) const;
 
+    /// `id`'s name as the player reads it: the emulator's, or the shader pack's.
+    [[nodiscard]] std::string nameOf(std::string_view id) const;
+    /// The shader pack on disk.
+    [[nodiscard]] const library::roms::ShaderPack& shaderPack() const noexcept {
+        return setup_.shaders;
+    }
+
     /// Hands what happened on the threads to the loop through the hooks. Main loop only.
     void service();
 
@@ -127,7 +135,13 @@ class EmulatorDownloads {
         Finished::Outcome outcome{Finished::Outcome::Installed};
     };
 
-    void runDownload(const std::stop_token& stop, const library::roms::EmulatorEntry& entry);
+    /// One download's work: the version it installed, or nothing with `error`.
+    using Installer = std::function<std::optional<Build>(
+        const std::stop_token&, const net::WebClient::Progress&, std::string&)>;
+
+    /// Starts `install` on the download thread as the download of `id`; refused while one runs.
+    [[nodiscard]] std::string launch(std::string_view id, Installer install);
+    void runDownload(const std::stop_token& stop, const std::string& id, const Installer& install);
     /// Installs the latest release of `entry`; nothing, with `error`, when it is not installed.
     [[nodiscard]] std::optional<Build> installRelease(const std::stop_token& stop,
                                                       const library::roms::EmulatorEntry& entry,
@@ -136,6 +150,10 @@ class EmulatorDownloads {
     /// Installs the latest build of `entry`'s core.
     [[nodiscard]] std::optional<Build> installCore(const std::stop_token& stop,
                                                    const library::roms::EmulatorEntry& entry,
+                                                   const net::WebClient::Progress& progress,
+                                                   std::string& error);
+    /// Installs the shader pack the buildbot serves now.
+    [[nodiscard]] std::optional<Build> installPack(const std::stop_token& stop,
                                                    const net::WebClient::Progress& progress,
                                                    std::string& error);
     /// Reads the latest builds; releases of standalone emulators only when `standalone`.
@@ -153,6 +171,7 @@ class EmulatorDownloads {
     net::WebClient web_;
     library::roms::EmulatorRelease release_{web_};
     library::roms::CoreDownload coreDownload_{web_, setup_.coreSource};
+    library::roms::ShaderPackDownload packDownload_{web_, setup_.shaderSource};
 
     mutable std::mutex mutex_;
     std::optional<Progress> progress_;

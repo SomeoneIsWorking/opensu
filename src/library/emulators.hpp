@@ -22,6 +22,7 @@
 #include "emulator_catalog.hpp"
 #include "game.hpp"
 #include "libretro_cores.hpp"
+#include "shader_pack.hpp"
 
 namespace opensu::library::roms {
 
@@ -142,6 +143,10 @@ struct EmulatorSetup {
     Emulators::Commands overrides;
     /// The buildbot folder cores are downloaded from, ending in /.
     std::string coreSource{buildbotNightly};
+    /// openSU's shader pack; an empty folder for none.
+    ShaderPack shaders{std::filesystem::path{}};
+    /// The shader pack zip downloaded.
+    std::string shaderSource{shaderPackUrl};
     /// Whether standalone emulators and the configured overrides count; without them only the
     /// built-in emulators are searched for.
     bool standalone{true};

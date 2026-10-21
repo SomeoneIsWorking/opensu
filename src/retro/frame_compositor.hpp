@@ -1,15 +1,20 @@
 // frame_compositor — what the runner draws into a target: the core's frame uploaded to a texture
 // and drawn at the aspect, integer scale, sampling and filter of the game's video settings, the
-// rest of the target black. The presenter owns the window, the targets and the submission; this
-// owns the render pass every target's framebuffer is made for. `frame_filter` picks the shader.
+// rest of the target black. With a shader preset, `shader_chain` draws the placed rectangle in
+// place of the sampling and filter. The presenter owns the window, the targets and the submission;
+// this owns the render pass every target's framebuffer is made for. `frame_filter` picks the
+// built-in shader.
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
+#include <memory>
 #include <span>
 
 #include <vulkan/vulkan.h>
 
 #include "settings/video_settings.hpp"
+#include "shader_chain.hpp"
 #include "vulkan_device.hpp"
 
 namespace opensu::retro {
@@ -30,11 +35,20 @@ struct FrameImage {
 [[nodiscard]] VkRect2D placeFrame(VkExtent2D extent, const FrameImage& frame,
                                   const settings::VideoSettings& video);
 
+/// An image the compositor draws into, with the framebuffer made for its render pass.
+struct DrawTarget {
+    VkImage image{VK_NULL_HANDLE};
+    VkFramebuffer framebuffer{VK_NULL_HANDLE};
+};
+
 class FrameCompositor {
   public:
-    /// Targets are images of `format`, left in `finalLayout`; throws VulkanError.
-    FrameCompositor(const VulkanDevice& device, VkFormat format, VkImageLayout finalLayout,
-                    const settings::VideoSettings& video);
+    /// Targets are images of `format`, left in `finalLayout`. A shader preset in `video` is built
+    /// with the librashader at `librashader` on `instance`'s `device`. Throws VulkanError, or
+    /// ShaderError when the preset cannot run.
+    FrameCompositor(VkInstance instance, const VulkanDevice& device, VkFormat format,
+                    VkImageLayout finalLayout, const settings::VideoSettings& video,
+                    const std::filesystem::path& librashader);
     FrameCompositor(const FrameCompositor&) = delete;
     FrameCompositor& operator=(const FrameCompositor&) = delete;
     FrameCompositor(FrameCompositor&&) = delete;
@@ -47,9 +61,9 @@ class FrameCompositor {
     }
 
     /// Records drawing `frame` into `target` of `extent`, uploading it first when `upload` and the
-    /// frame is whole. Reports whether it uploaded. Throws VulkanError.
+    /// frame is whole. Reports whether it uploaded. Throws VulkanError or ShaderError.
     bool record(VkCommandBuffer commands, const FrameImage& frame, bool upload,
-                VkFramebuffer target, VkExtent2D extent);
+                const DrawTarget& target, VkExtent2D extent);
 
   private:
     void open(VkFormat format, VkImageLayout finalLayout);
@@ -60,12 +74,19 @@ class FrameCompositor {
     void ensureTexture(unsigned width, unsigned height);
     void destroyTexture();
     void recordUpload(VkCommandBuffer commands, const FrameImage& frame);
-    void recordDraw(VkCommandBuffer commands, VkFramebuffer target, VkExtent2D extent,
+    void recordDraw(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
                     const FrameImage& frame);
+    /// The preset's passes into `target`, which ends in the render pass's final layout.
+    void recordChain(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
+                     const FrameImage& frame);
 
     const VulkanDevice& device_;
     VkDevice vk_{VK_NULL_HANDLE};
     settings::VideoSettings video_;
+    VkFormat format_{VK_FORMAT_UNDEFINED};
+    VkImageLayout finalLayout_{VK_IMAGE_LAYOUT_UNDEFINED};
+    /// The shader preset's chain; none without a preset.
+    std::unique_ptr<ShaderChain> chain_;
     VkRenderPass renderPass_{VK_NULL_HANDLE};
     VkDescriptorSetLayout setLayout_{VK_NULL_HANDLE};
     VkPipelineLayout pipelineLayout_{VK_NULL_HANDLE};

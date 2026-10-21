@@ -150,9 +150,9 @@ function(opensu_add_gamescope)
     # The disconnected update refuses a commit the clone does not have.
     ExternalProject_Add_Step(opensu_gamescope fetch_pin
         COMMAND "${CMAKE_COMMAND}" "-DGIT=${GIT_EXECUTABLE}" "-DSOURCE=${root}/source"
-            "-DCOMMIT=${OPENSU_GAMESCOPE_COMMIT}"
-            -P "${CMAKE_SOURCE_DIR}/cmake/GamescopeFetchPin.cmake"
-        DEPENDS "${pin_file}" "${CMAKE_SOURCE_DIR}/cmake/GamescopeFetchPin.cmake"
+            "-DCOMMIT=${OPENSU_GAMESCOPE_COMMIT}" -DNAME=Gamescope
+            -P "${CMAKE_SOURCE_DIR}/cmake/GitFetchPin.cmake"
+        DEPENDS "${pin_file}" "${CMAKE_SOURCE_DIR}/cmake/GitFetchPin.cmake"
         DEPENDEES download
         DEPENDERS update_disconnected
         INDEPENDENT TRUE

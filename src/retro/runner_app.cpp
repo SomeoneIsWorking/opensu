@@ -19,6 +19,7 @@
 #include "gamepad/pads.hpp"
 #include "gpu2d/image/png_encoder.hpp"
 #include "joypad.hpp"
+#include "librashader_library.hpp"
 #include "lucent/log.h"
 #include "presenter.hpp"
 #include "save_memory.hpp"
@@ -201,9 +202,14 @@ RunnerExit RunnerApp::run() {
             .height = options_.height,
             .validation = options_.validation,
             .video = options_.video,
+            .librashader = options_.librashader,
         });
     } catch (const std::exception& failure) {
         lucent::error("retro", "{}", failure.what());
+        // A refused shader preset is the player's to read; the shell shows it.
+        if (!options_.control.empty()) {
+            ControlServer::reportLoadFailure(options_.control, failure.what());
+        }
         return RunnerExit::PresenterFailed;
     }
     const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.hidden);
@@ -265,6 +271,10 @@ RunnerExit RunnerApp::run() {
                 FrameImage{video.rgba(), video.width(), video.height(), aspectOf(geometry)},
                 video.takeFresh());
         } catch (const VulkanError& failure) {
+            lucent::error("retro", "{}", failure.what());
+            exit = RunnerExit::PresenterFailed;
+            break;
+        } catch (const ShaderError& failure) {
             lucent::error("retro", "{}", failure.what());
             exit = RunnerExit::PresenterFailed;
             break;

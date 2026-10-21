@@ -89,6 +89,10 @@ class SettingsController {
     void openCategory(const std::string& id);
     /// Closes the screen with iiSU's Close sound.
     void close();
+    /// Opens the screen on the shader preset picker of `layer`, named `name`, over `inherited`;
+    /// leaving the picker closes the screen.
+    void openShaderPicker(const settings::Layer& layer, const std::string& name,
+                          const std::string& inherited);
     /// A button while the screen is up and no chooser is over it.
     void act(gamepad::Button button);
     /// A click on a slider's track at `level`.
@@ -115,6 +119,8 @@ class SettingsController {
     [[nodiscard]] ui::SettingsCategory aboutPage() const;
     /// Back from a layer's page to the Emulators page, on the row that opened it.
     void closeLayer();
+    /// Focuses the row the layer page names after it changed, else the first.
+    void focusLayerRow();
     /// Keeps the preferences and shows the change.
     void changed();
     /// Acts on `row`: `step` is 0 for A and -1 or 1 for Left and Right.

@@ -1,11 +1,13 @@
-// video_settings — how opensu-retro shows a game's frame: its aspect, integer scaling, sampling and
-// filter.
+// video_settings — how opensu-retro shows a game's frame: its aspect, integer scaling, sampling,
+// filter and shader preset.
 // The keys and choices the setting layers keep them under, a game's values resolved from those
-// layers, and the per-launch file the shell writes and `opensu-retro --settings` reads.
+// layers, and the per-launch file the shell writes and `opensu-retro --settings` reads. A shader
+// preset replaces the sampling and the filter; aspect and integer scale still place its output.
 #pragma once
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -57,6 +59,8 @@ struct VideoSettings {
     IntegerScale integer{IntegerScale::Off};
     Sampling sampling{Sampling::Nearest};
     Filter filter{Filter::None};
+    /// A slang preset (`.slangp`) run in place of the sampling and filter; empty for none.
+    std::filesystem::path shaderPreset;
 
     bool operator==(const VideoSettings&) const = default;
 };
@@ -106,6 +110,13 @@ inline constexpr std::array<VideoKey, 4> videoKeys{{
     {"video.filter", "Filter", filterChoices},
 }};
 
+/// The shader preset: a `.slangp` path relative to the shader pack, or "" for none at this layer.
+inline constexpr std::string_view shaderKey = "video.shader";
+inline constexpr std::string_view shaderLabel = "Shader preset";
+
+/// Whether a shader preset takes the place of video key `key` (sampling and filter).
+[[nodiscard]] bool replacedByShader(std::string_view key) noexcept;
+
 /// The video key `key` names, or null.
 [[nodiscard]] const VideoKey* videoKey(std::string_view key);
 /// Where `spelling` stands among `video`'s choices, or nothing when it is none of them.
@@ -115,8 +126,11 @@ inline constexpr std::array<VideoKey, 4> videoKeys{{
 [[nodiscard]] std::string_view choiceLabel(const VideoKey& video, std::string_view spelling);
 
 /// `keys`' video settings, each from its winning layer; a kept value that is no choice is
-/// reported and the default used.
-[[nodiscard]] VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys);
+/// reported and the default used. The shader preset is found under `presets`, the shader pack.
+[[nodiscard]] VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
+                                         const std::filesystem::path& presets);
+/// The preset `keys` resolve to, relative to the shader pack, with its layer; "" for none.
+[[nodiscard]] Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys);
 
 /// The per-launch file's text for `video`.
 [[nodiscard]] std::string launchFileText(const VideoSettings& video);

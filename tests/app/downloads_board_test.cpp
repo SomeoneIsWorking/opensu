@@ -72,8 +72,11 @@ void testMergesEverySource() {
                                      .updateState = "Downloading"},
                             Download{.appId = "999", .queueIndex = 1}},
                   .install = epic,
-                  .emulator = EmulatorLook{
-                      .id = "mgba", .name = "mGBA", .core = true, .received = 25, .total = 100}});
+                  .emulator = EmulatorLook{.id = "mgba",
+                                           .name = "mGBA",
+                                           .kind = DownloadKind::Core,
+                                           .received = 25,
+                                           .total = 100}});
     expect(shown.rows().size() == 4, "one row per download from every source");
     const DownloadRow* steam = shown.find("steam:480");
     expect(steam != nullptr && steam->title == "Spacewar" && steam->store == Source::Steam &&

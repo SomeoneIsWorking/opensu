@@ -250,8 +250,11 @@ struct Rig {
                                      [this]() -> const library::roms::Emulators& {
                                          return emulatorSettings.found();
                                      },
+                                     downloads.shaderPack(),
                                      app::LayerSettings::Hooks{[] {
-                                     }}};
+                                                               },
+                                                               [] {
+                                                               }}};
     steam::Libraries steamLibraries{devTools};
     app::SteamLibrarySettings steamLibrarySettings{
         app::SteamLibrarySettings::Sources{steamLibraries,

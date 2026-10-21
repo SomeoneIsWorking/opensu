@@ -137,6 +137,7 @@ int main(int argc, char** argv) {
     options->height = config.height;
     options->fullscreen = config.insideGamescope && !options->hidden;
     options->control = config.retroControl;
+    options->librashader = config.librashader;
     opensu::retro::RunnerApp app{std::move(*options)};
     return static_cast<int>(app.run());
 }

@@ -10,7 +10,7 @@ Retro systems play inside openSU with one fixed controller mapping in the runner
 saves that survive any crash, and the Guide overlay and quick menu working as they do over any
 game. A core that crashes ends its game, never the shell.
 
-Non-goals for now: shader presets (slang), rewind, run-ahead, netplay, achievements, cores that draw with the GPU
+Non-goals for now: rewind, run-ahead, netplay, achievements, cores that draw with the GPU
 (phase 2), anything a standalone emulator already does better (Switch, PS2 and later, Wii U,
 GameCube/Wii, Xbox, Xbox 360).
 
@@ -45,6 +45,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | Owner | Owns |
 | --- | --- |
 | `cmake/Libretro.cmake` | `libretro.h` (MIT) from libretro-common at a pinned commit, SHA-256 checked |
+| `cmake/Librashader.cmake` | librashader from the `SomeoneIsWorking/librashader` fork at a pinned commit: its header (MIT, SHA-256 checked), and `librashader-capi` built with cargo (Rust 1.88 or newer) into `<libdir>/opensu/librashader.so`, staged in the build tree and installed |
 | `src/retro/core.*` | One loaded core: `dlopen`, the `retro_*` symbols, init/load/run/unload in order, the callback trampolines |
 | `src/retro/core_environment.*` | The environment commands answered: directories, pixel format, core options (defaults), log, input descriptors, geometry and timing changes; anything else is refused |
 | `src/retro/core_options.*` | The core's option definitions (v0 variables, v1, v2) and their current values (the defaults in phase 1) |
@@ -54,8 +55,10 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame, written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
 | `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png` |
-| `src/retro/frame_compositor.*` | What is drawn into a target: the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame, one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling and filter, black around it |
+| `src/retro/frame_compositor.*` | What is drawn into a target: the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame, one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling and filter, black around it; with a shader preset its chain draws into that rectangle instead |
 | `src/retro/frame_filter.*` | The fragment shader for a sampling and filter, the built-in filters' parameters (`scanlineGrid`, `lcdGrid`, `crtLottes`) and the push block each draw hands the shader |
+| `src/retro/librashader_library.*` | librashader opened by its path (`Config::librashader`), ABI and API checked, its calls with their errors as `ShaderError`; a missing file refuses the preset |
+| `src/retro/shader_chain.*` | One slang preset built on the runner's device (render passes, one frame in flight) and recorded from the frame texture into the placed rectangle; history (cleared on the first frame), feedback and LUTs are librashader's |
 | `src/retro/vulkan_device.*` | The Vulkan instance (validation layer and its error count on request) and the one device and graphics queue, the objects a Vulkan core will be handed in phase 3 |
 | `src/retro/png_encoder.*` | RGBA to PNG bytes through libpng |
 | `src/retro/shaders/frame.{vert,frag}`, `sharp_bilinear.frag`, `frame_grid.glsl`, `crt_lottes.frag` | The frame's shaders (sharp-bilinear: integer prescale then bilinear; `frame_grid.glsl`: the scanline and LCD-grid bands both sampling shaders apply; crt-lottes), compiled by glslc at build time into SPIR-V headers under the build tree |
@@ -64,12 +67,14 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, control commands between frames, the hidden mode for tests |
 | `src/retro/main.cpp` | `opensu-retro`'s command line, the `--settings` file read into `settings::VideoSettings` |
 | `src/settings/setting_layers.*` | The setting layers (Global, System, Emulator — the core layer —, Game) and the one resolution rule, each value with the layer it came from |
-| `src/settings/video_settings.*` | `video.aspect`, `video.integer`, `video.sampling`, `video.filter`: their choices and labels, resolution to typed values, the per-launch settings file |
+| `src/settings/video_settings.*` | `video.aspect`, `video.integer`, `video.sampling`, `video.filter`, `video.shader` (a path in the pack, `""` for None; a preset replaces sampling and filter): their choices and labels, resolution to typed values, the per-launch settings file |
 | `src/settings/game_settings_store.*` | `<config>/opensu/game-settings.json`, every layer of every key |
 | `src/settings/emulator_pick_migration.*` | The one-time move of `settings.json`'s `emulators` and `systemEmulators` into the game settings |
 | `src/app/game_settings.*` | The layers as the shell holds them, saved with a toast on failure; the words a source reads with |
 | `src/app/retro_launch.*` | A launch on a built-in core: its video settings resolved, written to the launch's settings file, `--settings` added |
 | `src/app/layer_settings.*` | Settings › Emulators' Everywhere, console and core pages |
+| `src/app/shader_preset_picker.*` | The Shader preset picker: Not set, None, then the pack's folder tree |
+| `src/library/shader_pack.*` | libretro's `shaders_slang.zip`: the latest build (HEAD: `Last-Modified` and size), the download checked by length and each member's CRC-32, unpacked into `<data>/opensu/shaders/slang/` with its record, removal, the presets it holds |
 | `src/library/libretro_cores.*` | Finding a core and its info file; core downloads from the libretro buildbot under `<data>/opensu/cores/`, with their info and record |
 | `src/library/core_bios.*` | A core's BIOS files from its core info, what it does without them, which are in the system folder |
 | `src/library/romset_dat.*` | An arcade core's ROM-set listing: a Logiqx datafile or MAME `-listxml` parsed, its line format under the cache |
@@ -79,14 +84,14 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/library/emulator_choice.*` | The `emulator` key at the Game and System layers: game pick, romset, system pick, search; the layer keys a game reads its settings through |
 | `assets/emulators.json`, `src/library/emulator_catalog.*` | A built-in emulator is an entry with `"core": "<name>_libretro"` and no launchers or release |
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> <rom>`, with `--hidden` from a hidden shell |
-| `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core, on the same paths as an AppImage; the details page's video buttons, sources and Clear |
+| `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core and of the shader pack, on the same paths as an AppImage; the Shader presets rows; the details page's video buttons, sources and Clear |
 | `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests, the load failure handed over and the file removed |
 | `src/app/quick_menu_controller.*` | Save state, Load state and Reset game while the running game answers on a control channel |
 | `src/app/game_end.*`, `src/launch/handoff.*` | How a game ended (`Hooks::ended`, the scope's exit status) and the toast it gets |
 
 `retro` depends on `gamepad`, `fileio`, Lucent, nlohmann/json, SDL3, the Vulkan loader and libpng;
 `config` is read by `main.cpp` only. Nothing outside `retro` and the `opensu-retro` executable links
-it. Only `presenter`, `frame_compositor` and `vulkan_device` include Vulkan, and only `presenter` SDL
+it. Only `presenter`, `frame_compositor`, `shader_chain`, `librashader_library` and `vulkan_device` include Vulkan, and only `presenter` SDL
 video; `audio_output` includes SDL audio; `joypad` uses SDL's scancode values only.
 
 ## 4. Contracts
@@ -94,8 +99,8 @@ video; `audio_output` includes SDL audio; `joypad` uses SDL's scancode values on
 **Command line.** `opensu-retro --core <path.so> [--saves <dir>] [--system <dir>] [--settings
 <file>] [--hidden] [--validate] [--frames N] [--frame-png <file>] <rom>`. `--settings` names a JSON
 object of resolved video settings (`{"video.aspect": "4:3", "video.integer": "off",
-"video.sampling": "nearest", "video.filter": "none"}`); a key it lacks keeps its default, a value that is no choice is exit
-1. The runner never reads `game-settings.json`. `--saves` defaults to
+"video.sampling": "nearest", "video.filter": "none", "video.shader": "<absolute .slangp path>"}`);
+a key it lacks keeps its default, a value that is no choice is exit 1. The runner never reads `game-settings.json`. `--saves` defaults to
 `<data>/opensu/saves/<core name>/` (the core file's stem without `_libretro`; the launcher passes
 the system's folder), `--system` to `<data>/opensu/system/`, both from `config::Config`. `--hidden`,
 `--validate`, `--frames` and `--frame-png` are for tests and tools: `--hidden` is an unmapped SDL
@@ -108,7 +113,8 @@ fullscreen.
 
 **Exit status.** 0 when the player quits (window closed, Escape, SIGTERM or SIGINT, which SDL turns
 into a quit so save RAM is written) or the frame count is reached; 1 for a bad command line or a
-window, Vulkan or frame-file failure; 2 when the core or game cannot be loaded (the reason logged);
+window, Vulkan, shader preset or frame-file failure (the reason also goes to the control file,
+so the shell toasts it); 2 when the core or game cannot be loaded (the reason logged);
 3 when `--validate` saw validation errors; a crash is the signal it died of. The shell learns how a
 game ended from the scope: the handoff reports the started process's status (`Instance::exitStatus`,
 128 plus the signal) through `Handoff::Hooks::ended`, except for a game force-closed from a menu.
@@ -121,8 +127,8 @@ Other ends keep the launch's own toast (`<title> closed`, or its failure).
 how the runner reads it. With it set, once the game has loaded and the window is up, the runner
 listens on a free loopback port (`lucent::http::Server`, port 0) and writes
 `{"port": N, "pid": P}` to that file atomically (`fileio::writeWhole`); it removes the file when it
-exits. When the core or game cannot be loaded (exit 2) it writes `{"error": "<reason>"}` there
-instead and leaves it; the shell reads it once the launch is over and deletes it. Routes:
+exits. When the core or game cannot be loaded (exit 2), or the presenter or its shader preset
+cannot be set up (exit 1), it writes `{"error": "<reason>"}` there instead and leaves it; the shell reads it once the launch is over and deletes it. Routes:
 
 | Route | Answer |
 | --- | --- |

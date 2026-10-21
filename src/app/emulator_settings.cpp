@@ -7,6 +7,7 @@
 
 #include "library/core_bios.hpp"
 #include "library/rom_systems.hpp"
+#include "library/shader_pack.hpp"
 
 namespace opensu::app {
 namespace {
@@ -14,6 +15,8 @@ namespace {
 using library::roms::EmulatorEntry;
 using library::roms::EmulatorInstall;
 using library::roms::InstallSource;
+using library::roms::shaderPackId;
+using library::roms::shaderPackName;
 using ui::RowKind;
 
 constexpr std::string_view checkId = "emulators.check";
@@ -77,20 +80,28 @@ std::string EmulatorSettings::noteOf(const EmulatorEntry& entry) const {
     return note;
 }
 
-std::string EmulatorSettings::valueOf(const EmulatorEntry& entry) const {
+std::optional<std::string> EmulatorSettings::downloadValue(std::string_view id, bool ours) const {
     if (const std::optional<EmulatorDownloads::Progress> progress = downloads_.progress();
-        progress && progress->id == entry.id) {
+        progress && progress->id == id) {
         const std::optional<int> percent = progress->percent();
         return "Downloading" + (percent ? " " + std::to_string(*percent) + "%" : std::string{}) +
                " · A cancels";
     }
+    if (!ours) {
+        return std::nullopt;
+    }
+    const std::optional<EmulatorDownloads::Build> newest = downloads_.latest(id);
+    if (!newest) {
+        return "Installed";
+    }
+    return downloads_.updateAvailable(id) ? "Update to " + newest->version : "Up to date";
+}
+
+std::string EmulatorSettings::valueOf(const EmulatorEntry& entry) const {
     const EmulatorInstall* install = found_.installed(entry.id);
-    if (install != nullptr && library::roms::downloadedByOpensu(install->source)) {
-        const std::optional<EmulatorDownloads::Build> newest = downloads_.latest(entry.id);
-        if (!newest) {
-            return "Installed";
-        }
-        return downloads_.updateAvailable(entry.id) ? "Update to " + newest->version : "Up to date";
+    if (std::optional<std::string> value = downloadValue(
+            entry.id, install != nullptr && library::roms::downloadedByOpensu(install->source))) {
+        return std::move(*value);
     }
     if (install != nullptr && install->problem.empty()) {
         return "Installed";
@@ -104,11 +115,13 @@ ui::SettingsCategory EmulatorSettings::page(std::vector<ui::SettingsRow> layerRo
     for (const EmulatorEntry& entry : found_.catalog().entries()) {
         updates += downloads_.updateAvailable(entry.id) ? 1 : 0;
     }
+    updates += downloads_.updateAvailable(shaderPackId) ? 1 : 0;
     page.rows.push_back(
         ui::makeRow(std::string{checkId}, RowKind::Action, "Check for updates",
                     "Reads each emulator's latest release; nothing updates by itself",
                     checkValue(downloads_.check(), updates)));
     std::ranges::move(layerRows, std::back_inserter(page.rows));
+    addShaderPackRows(page);
     for (const EmulatorEntry& entry : found_.catalog().entries()) {
         page.rows.push_back(ui::makeRow(std::string{emulatorId} + entry.id, RowKind::Action,
                                         entry.name, noteOf(entry), valueOf(entry)));
@@ -181,6 +194,28 @@ void EmulatorSettings::addBiosRows(ui::SettingsCategory& page) const {
     }
 }
 
+void EmulatorSettings::addShaderPackRows(ui::SettingsCategory& page) const {
+    const library::roms::ShaderPack& pack = downloads_.shaderPack();
+    const std::optional<library::roms::ShaderPackBuild> installed = pack.installed();
+    std::string note = "libretro's slang shader pack from the buildbot, about 54 MB; each shader "
+                       "keeps its own licence";
+    if (installed) {
+        note = std::to_string(pack.presets().size()) + " presets · " + installed->version() +
+               " · in " + pack.root().string();
+    }
+    page.rows.push_back(
+        ui::makeRow(std::string{emulatorId} + std::string{shaderPackId}, RowKind::Action,
+                    std::string{shaderPackName}, note,
+                    downloadValue(shaderPackId, installed.has_value()).value_or("Download")));
+    if (installed) {
+        page.rows.push_back(ui::makeRow(
+            std::string{removeId} + std::string{shaderPackId}, RowKind::Action,
+            "Remove " + std::string{shaderPackName},
+            "Deletes the pack; a preset set for a game is kept and refused until it is back",
+            armed_ == shaderPackId ? "Press again to remove" : "Remove"));
+    }
+}
+
 void EmulatorSettings::run(const std::string& id, int step) {
     const std::string_view row{id};
     if (!row.starts_with(removeId)) {
@@ -197,54 +232,68 @@ void EmulatorSettings::run(const std::string& id, int step) {
     }
     const bool remove = row.starts_with(removeId);
     const std::string_view key = row.substr(remove ? removeId.size() : emulatorId.size());
+    if (key == shaderPackId) {
+        if (remove) {
+            runRemove(key, std::string{shaderPackName});
+        } else {
+            runDownload(key, std::string{shaderPackName},
+                        downloads_.shaderPack().installed().has_value());
+        }
+        return;
+    }
     const EmulatorEntry* entry = found_.catalog().find(key);
     if (entry == nullptr) {
         return;
     }
     if (remove) {
-        runRemove(*entry);
+        runRemove(entry->id, entry->name);
     } else {
         runEmulator(*entry);
     }
 }
 
 void EmulatorSettings::runEmulator(const EmulatorEntry& entry) {
-    if (const std::optional<EmulatorDownloads::Progress> progress = downloads_.progress();
-        progress && progress->id == entry.id) {
-        downloads_.cancel(entry.id);
-        return;
-    }
     const EmulatorInstall* install = found_.installed(entry.id);
     const bool ours = install != nullptr && library::roms::downloadedByOpensu(install->source);
-    if (install != nullptr && install->problem.empty() && !ours) {
+    const bool downloading = downloads_.progress() && downloads_.progress()->id == entry.id;
+    if (!downloading && install != nullptr && install->problem.empty() && !ours) {
         hooks_.say(entry.name + " is installed as " +
                        std::string{library::roms::label(install->source)} + ": " + install->where,
                    false);
         return;
     }
-    if (ours && !downloads_.updateAvailable(entry.id)) {
-        hooks_.say(downloads_.latest(entry.id)
-                       ? entry.name + " is up to date"
-                       : "Check for updates to see if " + entry.name + " has a newer release",
+    runDownload(entry.id, entry.name, ours);
+}
+
+void EmulatorSettings::runDownload(std::string_view id, const std::string& name, bool ours) {
+    if (const std::optional<EmulatorDownloads::Progress> progress = downloads_.progress();
+        progress && progress->id == id) {
+        downloads_.cancel(id);
+        return;
+    }
+    if (ours && !downloads_.updateAvailable(id)) {
+        hooks_.say(downloads_.latest(id)
+                       ? name + " is up to date"
+                       : "Check for updates to see if " + name + " has a newer release",
                    false);
         return;
     }
-    if (const std::string refused = downloads_.start(entry.id); !refused.empty()) {
+    if (const std::string refused = downloads_.start(id); !refused.empty()) {
         hooks_.say(refused, true);
     }
 }
 
-void EmulatorSettings::runRemove(const EmulatorEntry& entry) {
-    if (armed_ != entry.id) {
-        armed_ = entry.id;
+void EmulatorSettings::runRemove(std::string_view id, const std::string& name) {
+    if (armed_ != id) {
+        armed_ = std::string{id};
         return;
     }
     armed_.reset();
-    if (const std::string refused = downloads_.remove(entry.id); !refused.empty()) {
-        hooks_.say(entry.name + " was not removed: " + refused, true);
+    if (const std::string refused = downloads_.remove(id); !refused.empty()) {
+        hooks_.say(name + " was not removed: " + refused, true);
         return;
     }
-    hooks_.say(entry.name + " removed", false);
+    hooks_.say(name + " removed", false);
     rescan();
 }
 

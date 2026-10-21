@@ -1,7 +1,7 @@
 // downloads_board — every download openSU knows of as one list, the Downloads page's model: Steam's
 // queue (its own auto-updates included), the store install, update or uninstall that runs (Epic,
-// GOG, Steam's installer; a Steam update joins Steam's queue row), the emulator or core
-// download, and the arcade cores' romset lists (`library::roms::RomsetLists`). Each frame the
+// GOG, Steam's installer; a Steam update joins Steam's queue row), the emulator, core or shader
+// pack download, and the arcade cores' romset lists (`library::roms::RomsetLists`). Each frame the
 // sources' state goes in and one row per download comes out, with its state, progress and the
 // actions its owner supports. A download that ended stays listed until openSU quits. Pure; no UI
 // and no threads.
@@ -22,7 +22,7 @@
 
 namespace opensu::app {
 
-enum class DownloadKind : std::uint8_t { Game, Emulator, Core, RomsetList };
+enum class DownloadKind : std::uint8_t { Game, Emulator, Core, ShaderPack, RomsetList };
 
 enum class DownloadState : std::uint8_t {
     Queued,
@@ -94,11 +94,11 @@ struct DownloadRow {
 /// Whether the download is over.
 [[nodiscard]] bool ended(DownloadState state) noexcept;
 
-/// The emulator or core downloading now.
+/// The emulator, core or shader pack downloading now.
 struct EmulatorLook {
     std::string id{};
     std::string name{};
-    bool core{false};
+    DownloadKind kind{DownloadKind::Emulator};
     std::uint64_t received{0};
     /// 0 until the size is known.
     std::uint64_t total{0};
@@ -118,13 +118,13 @@ struct RomsetListLook {
     std::string detail{};
 };
 
-/// How the last emulator or core download ended.
+/// How the last emulator, core or shader pack download ended.
 struct EmulatorEnd {
     /// Counts ends, so one is applied once.
     std::uint64_t serial{0};
     std::string id{};
     std::string name{};
-    bool core{false};
+    DownloadKind kind{DownloadKind::Emulator};
     DownloadState state{DownloadState::Finished};
     std::string text{};
 };
