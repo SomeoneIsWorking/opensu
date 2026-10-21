@@ -16,11 +16,11 @@ All of these draw with the GPU, so each waits for phase 3 of `docs/design/libret
 | Ryujinx | the player's Ryubing fork, `gitlab.com/bobbyjunior/ryubing` | GitLab only | C#/.NET: the core is a native shim hosting the runtime; the largest of the set |
 | Cemu | `wiiuport` (`github.com/SomeoneIsWorking/wiiuport`), Cemu fork as its `external/cemu` submodule | GitHub | the Wii U core is built from wiiuport, not a second Cemu fork |
 | setsail | setsail's interpolated presentation, moved into wiiuport | GitHub | Wind Waker HD at 60 Hz becomes a per-game option of the Cemu core, not its own core |
-| Sunbright | `github.com/SomeoneIsWorking/sunbright` | GitHub | Super Mario Sunshine; waits until Sunbright itself boots gameplay |
+| Sunbright | `github.com/SomeoneIsWorking/sunbright` | GitHub | Aurora (the GameCube runtime) plus Super Mario Sunshine at 60 Hz; the GameCube core with Sunshine as its pack, not a core of its own |
 
 Each core is a libretro build target in its fork, pinned by revision in openSU the way the Gamescope
-fork is, and listed in `assets/emulators.json` beside the standalone emulators. A core only for one
-title (Sunbright) is picked per game by the layered core choice in `retro-shaders-overlays.md`.
+fork is, and listed in `assets/emulators.json` beside the standalone emulators. A title's
+enhancement pack is switched per game by the layered settings in `retro-shaders-overlays.md`.
 
 Order: phase 3, then Cemu (wiiuport) with setsail, then Eden, then Ryujinx, then Sunbright when it
 runs. GitLab-hosted cores are built and downloaded from GitLab; nothing of them goes on GitHub.
@@ -35,8 +35,24 @@ pack when its disc is recognised. That makes it openSU's PS1 core outright, with
 and psxport's HLE is the PS1 HLE BIOS (`bios-provisioning.md`). Enhancement packs are the game
 layer of the layered settings (`retro-shaders-overlays.md`): on by default, switchable per game.
 
-The same shape fits the others: wiiuport is the Cemu core and setsail is Wind Waker HD's pack;
-gcnport with Dolphin's JIT is a GameCube core and Sunbright is Super Mario Sunshine's pack.
 
 Parked until psxport runs a game end to end as a plain emulator; until then PCSX ReARMed stays
 the PS1 core.
+
+## Emulator plus enhancements
+
+The player: setsail is Cemu plus a Wind Waker HD 60 fps interpolator, Sunbright is Aurora plus a
+Sunshine 60 fps interpolator; "they don't differ that much, I'm considering making them emulator +
+enhancements". So every one of these is the same shape: one emulator core per console, and each
+title's work (interpolated frames, native overrides, fixes) is that game's enhancement pack, loaded
+when the disc is recognised and switched per game in the layered settings.
+
+| Console | Emulator | Packs |
+|---|---|---|
+| PS1 | psxport | the psx-* titles |
+| Wii U | wiiuport (Cemu) | setsail (Wind Waker HD) |
+| GameCube | Aurora | Sunbright (Super Mario Sunshine) |
+
+The interpolator itself (the game renders real in-between frames by blending camera and actor
+transforms between simulation ticks) is the shared part; each pack supplies only its title's
+tick, camera and actor hooks.
