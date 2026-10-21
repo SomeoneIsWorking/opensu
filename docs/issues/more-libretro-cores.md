@@ -39,7 +39,7 @@ Built with phase 3 of `docs/design/libretro.md` (§4 GPU cores). Every buildbot 
 
 The keys and values were read from the cores (2026-10-21 nightlies) and each proven one logged
 `core option <key> = <value>` with no "has no value" warning. Proof in
-`docs/project-state.md` S032 and the worktree's `scratch/gpu-cores/proof/`. Beetle PSX HW and
+`docs/project-state.md` S032 and `scratch/gpu-cores/proof/`. Beetle PSX HW and
 SwanStation need a real PS1 BIOS (`withoutBios` needed); the runs used the OpenBIOS image copied as
 `scph5501.bin`, which Beetle accepts with a SHA-1 warning. PPSSPP needs its `PPSSPP/` system files
 (`ppge_atlas.zim`), not downloaded with the core. Flycast's `withoutBios` is `hle` from its core

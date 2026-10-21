@@ -145,11 +145,6 @@ void Instance::stop() {
     endScope({"stop", unit_});
 }
 
-void Instance::kill() {
-    const std::lock_guard lock{mutex_};
-    endScope({"kill", "--signal=SIGKILL", unit_});
-}
-
 int Instance::exitStatus() const {
     const std::lock_guard lock{mutex_};
     return exitStatus_;

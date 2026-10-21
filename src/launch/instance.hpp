@@ -12,7 +12,7 @@ namespace opensu::launch {
 /// Runs a command inside its own systemd scope. The scope's cgroup is the
 /// ownership: processes that setsid or double-fork stay in it, so stopping the
 /// scope ends all of them. Every call is thread-safe, so a controller handler
-/// can kill an instance another thread is waiting on.
+/// can stop an instance another thread is waiting on.
 class Instance {
   public:
     Instance() = default;
@@ -22,7 +22,7 @@ class Instance {
 
     /// Starts `program` in the scope `unit`, with each "NAME=value" of `environment`
     /// added to its environment. Returns once the scope exists, so a following
-    /// stop() or kill() always reaches it. The program starts with no signal blocked.
+    /// stop() always reaches it. The program starts with no signal blocked.
     [[nodiscard]] bool start(const std::string& unit, const std::string& program,
                              const std::vector<std::string>& args, std::string& failure,
                              const std::vector<std::string>& environment = {});
@@ -31,14 +31,12 @@ class Instance {
     /// while processes it spawned carry on, which still counts as running.
     [[nodiscard]] bool running();
 
-    /// Asks every process in the scope to terminate, then reaps the started one.
+    /// SIGTERMs every process in the scope and returns once the scope is gone: systemd
+    /// SIGKILLs whatever is left after TimeoutStopSec (5 s). Then reaps the started one.
     void stop();
 
-    /// SIGKILLs every process in the scope, then reaps the started one.
-    void kill();
-
     /// How the started process ended (128 plus the signal when a signal did it), or
-    /// -1 while it has not been seen to exit. Observed by running(), stop() and kill().
+    /// -1 while it has not been seen to exit. Observed by running() and stop().
     [[nodiscard]] int exitStatus() const;
 
     /// The current scope's unit name, empty when nothing was started.

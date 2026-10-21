@@ -59,7 +59,7 @@ Attach to the shell's main thread first: thread 1 in `info threads` is where the
 Both fixed; neither matched this journal, so the freeze itself stays open.
 
 - Close game waited on the main thread. `Handoff::forceClose` now only raises the request and wakes
-  the launch's thread, which kills the scope (`Instance::kill`), waits for the started process
+  the launch's thread, which stops the scope (`Instance::stop`: SIGTERM, SIGKILL after 5 s), waits for the started process
   (`reapChild`: up to 10 s, then SIGKILL and a blocking `waitpid`) and ends the launch through the
   usual game-end path. A hidden run with a stand-in emulator that ignores SIGTERM and a `systemctl`
   whose `kill` does nothing, so the process outlives its scope for the full 10 s

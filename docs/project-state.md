@@ -861,11 +861,24 @@ Every scope openSU creates is named `<session>-<role>[-N].scope`
 systemd user scope (`launch::Instance`), so processes that setsid or double-fork
 stay owned. A non-Steam game runs in its own scope,
 stopped when the game leaves. A Steam game is handed to the background client
-(`steam -applaunch`). Close game in the Guide menu force-closes either: the scope,
-or for Steam the reaper whose command line carries `AppId=<id>` and everything below
-it (`launch::ProcessTree`), leaving the client up. The menu only raises the request; the
-launch's own thread does the kill and the wait, so the shell keeps drawing however long the
-game takes to go. A game's program path and arguments reach it as given, `$` included
+(`steam -applaunch`). Close game in the Guide or quick menu ends either. A game in a scope
+(ROMs on `opensu-retro` or a standalone emulator, GOG and Epic games under Wine) is stopped:
+`systemctl stop` SIGTERMs every process in the scope, and systemd SIGKILLs what is left after
+`TimeoutStopSec=5`, so `opensu-retro` writes save RAM and destroys a GPU core's context before it
+exits, and a game that ignores SIGTERM or hangs is gone within 5 s. A Wine game gets the same
+SIGTERM and the same 5 s bound; whether a Windows game under Wine saves on SIGTERM is
+unproven. A Steam game does not take this path: it has no scope of openSU's, and the reaper whose
+command line carries `AppId=<id>` and everything below it are SIGKILLed at once
+(`launch::ProcessTree::killMatching`), leaving the client up. The menu only raises the request;
+the launch's own thread does the stop and the wait, so the shell keeps drawing however long the
+game takes to go. Proof (`scratch/close-game/runs/`, hidden shell, scratch XDG dirs): before the
+change Close game ran `systemctl kill --signal=SIGKILL` and the runner logged no exit
+(`before-mgba/`); after it, mGBA Kirby logged `ran 693 frames` (`after-mgba/`), Mupen64Plus-Next
+Ocarina of Time `ran 1699 frames` then `the core's Vulkan context is destroyed` (`after-mupen/`),
+a close 0.6 s after launch wrote Kirby's `.srm` at exit, its mtime the close (`after-mgba-quick/`),
+each toasted "… closed" with the scope `Stopped`, not killed, in the journal; a stand-in emulator
+that ignores SIGTERM got it at 18:40:18.588 UTC and systemd's "Stopping timed out. Killing." at
+18:40:23.599 (`after-term-ignoring/`). Unproven: a Wine game closed this way. A game's program path and arguments reach it as given, `$` included
 (`--expand-environment=no`). Scope ownership, escape-proof stop, tree kill and force-close are
 tested with real processes and a fake `steam`; a real Steam launch is not yet exercised.
 
@@ -1324,7 +1337,8 @@ The PS3 system software extraction is not built and waits for a game HLE fails.
 
 ### S032 — The libretro runner
 
-Phase 3, GPU cores (2026-10-21, `scratch/gpu-cores/proof/` in the `gpu-cores` worktree):
+Phase 3, GPU cores (2026-10-21, `scratch/gpu-cores/proof/`, each run's command, log and frame;
+buildbot cores of 2026-10-20/21 with the catalog's core options, `tools/prove.py` beside it):
 `retro/hardware_render` answers `SET_HW_RENDER` for Vulkan (OpenGL, GLES and Direct3D refused by
 name), the preferred context (Vulkan), the context negotiation interface (version 2) and
 `GET_HW_RENDER_INTERFACE`; `retro/vulkan_device` makes the instance and device through the core's
@@ -1337,18 +1351,18 @@ ParaLLEl N64 Majora's Mask's intro at 1500, SwanStation (Vulkan) Crash Bandicoot
 (`sheet-cores.png`; the PlayStation cores on the OpenBIOS image copied as `scph5501.bin` in a
 scratch system folder, Beetle warning its SHA-1 is not Sony's). Integer scale on with scanlines
 and with crt-lottes over Mupen64Plus-Next's frame: its frame drawn 960 × 720 at (160, 40), a
-whole multiple of its height where integer off fills the 800 rows, scanline rows between 0.50 and 1.0 of the unfiltered frame
-(`sheet-integer-filters.png`). Mupen64Plus-Next by default asks for OpenGL core 3.3 and fails to load
+whole multiple of its height where integer off fills the 800 rows, with scanlines and with
+crt-lottes over it (`sheet-integer-filters.png`). Mupen64Plus-Next by default asks for OpenGL core 3.3 and fails to load
 with "it asks for OpenGL core 3.3, and openSU draws with Vulkan only" (`mupen-default-gl-refused.log`). Save
 state at frame 706, a second run loading it at 1413 shows the frame-706 picture, a third run
 without the load shows the title; each closed by SIGTERM with exit 0 after `context_destroy`
-(`state/`). From a hidden shell: Majora's Mask's details page downloaded Mupen64Plus-Next
+(`state/`, lost with the `gpu-cores` worktree and not regenerated). From a hidden shell (also lost): Majora's Mask's details page downloaded Mupen64Plus-Next
 (`shell/06-core-installed.png`), Play started `opensu-retro --hidden … --option
 mupen64plus-rdp-plugin=parallel --option mupen64plus-rsp-plugin=parallel` (`08-runner-args.txt`),
 `/status` frames 1673, 1794, 1914 two seconds apart, the quick menu's Save state and Load state
 toasted "State saved" and "State loaded" (`11-…`, `12-…`) and Close game ended it ("… closed").
-Shader presets over a GPU core's image (`scratch/gpu-cores/rebase/`, validation on, 0 errors and
-warnings): Mupen64Plus-Next Ocarina of Time at 1500 plain (`mupen-plain-f1500.png`) and with
+Shader presets over a GPU core's image (`sheet-royale.png`, validation on, 0 errors and
+warnings): Mupen64Plus-Next Ocarina of Time at 1500 plain (`mupen-oot-f1500.png`) and with
 crt-royale (`mupen-royale-f1500.png`, mask and bloom over the title), Beetle PSX HW with crt-royale
 at 2400 (`beetle-royale-f2400.png`), mGBA Kirby with crt-royale at 900 (`mgba-royale-f900.png`).
 All four GPU cores hand over `SHADER_READ_ONLY_OPTIMAL` `R8G8B8A8_UNORM` images, so the chain
@@ -1356,8 +1370,8 @@ reads them in place. Unverified: PPSSPP and Flycast (no PSP or Dreamcast games h
 PlayStation BIOS, a visible window and swapchain with a GPU core, a core using
 `set_command_buffers`, another queue family, or a `GENERAL` image (the copy into the frame texture
 before a preset).
-The shell's Close game kills the scope with SIGKILL, so a GPU core closed from the menu gets no
-`context_destroy` (the process ends; save RAM is as of the last one-second check).
+The shell's Close game stops the scope with SIGTERM (S015), so a GPU core closed from the menu
+writes save RAM and gets `context_destroy` before it exits (`scratch/close-game/runs/after-mupen/`).
 
 `opensu-retro` (`src/retro/`, design in `docs/design/libretro.md`) loads one core, answers its
 environment (directories, pixel formats, core option defaults v0 to v2, log, geometry and timing),
