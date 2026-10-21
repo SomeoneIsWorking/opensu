@@ -41,34 +41,32 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
     if (builtInOf(game, catalog) != nullptr) {
         const settings::LayerKeys keys = library::layerKeysOf(game);
         const settings::Resolved shader = settings::resolveShader(layers, keys);
+        std::size_t own = 0;
         for (const settings::VideoKey& video : settings::videoKeys) {
             const settings::Resolved resolved =
                 layers.resolve(keys, video.key, std::string{video.choices[0].key});
-            std::string shown{settings::choiceLabel(video, resolved.value)};
-            // A default needs no row: its button shows the value.
             if (resolved.from) {
-                view.rows.push_back(ui::DetailsRow{
-                    std::string{video.label}, shown + " · " + sourceText(resolved.from, catalog)});
+                view.rows.push_back(
+                    ui::DetailsRow{std::string{video.label},
+                                   std::string{settings::choiceLabel(video, resolved.value)} +
+                                       " · " + sourceText(resolved.from, catalog)});
             }
-            if (!shader.value.empty() && settings::replacedByShader(video.key)) {
-                shown = "Not used";
-            }
-            view.buttons.push_back(ui::DetailsButton{ui::DetailsAction::Setting,
-                                                     std::string{video.label}, shown,
-                                                     std::string{video.key}});
+            own += resolved.from && resolved.from->kind == settings::Layer::Kind::Game ? 1 : 0;
         }
         if (shader.from) {
             view.rows.push_back(ui::DetailsRow{std::string{settings::shaderLabel},
                                                presetLabel(shader.value) + " · " +
                                                    sourceText(shader.from, catalog)});
         }
-        view.buttons.push_back(ui::DetailsButton{ui::DetailsAction::ShaderPreset,
-                                                 std::string{settings::shaderLabel},
-                                                 presetLabel(shader.value), ""});
+        own += shader.from && shader.from->kind == settings::Layer::Kind::Game ? 1 : 0;
+        view.buttons.push_back(ui::DetailsButton{
+            ui::DetailsAction::GameSettings, "Game settings",
+            own == 0 ? std::string{"Inherited"}
+                     : std::to_string(own) + (own == 1 ? " override" : " overrides")});
     }
     if (layers.layers().contains(settings::Layer{settings::Layer::Kind::Game, game.id})) {
         view.buttons.push_back(
-            ui::DetailsButton{ui::DetailsAction::ClearSettings, "Clear game settings", "", ""});
+            ui::DetailsButton{ui::DetailsAction::ClearSettings, "Clear game settings", ""});
     }
     return view;
 }
@@ -127,15 +125,9 @@ void DetailsController::act(gamepad::Button button) {
         break;
     case gamepad::Button::Left:
     case gamepad::Button::Right:
-        if (page_.selected() == ui::DetailsAction::Emulator ||
-            page_.selected() == ui::DetailsAction::Setting) {
+        if (page_.selected() == ui::DetailsAction::Emulator) {
             if (const std::optional<library::Game> game = hooks_.find(page_.view().gameId)) {
-                const int delta = button == gamepad::Button::Right ? 1 : -1;
-                if (page_.selected() == ui::DetailsAction::Emulator) {
-                    cycleEmulator(*game, delta);
-                } else {
-                    stepSetting(*game, page_.selectedSetting(), delta);
-                }
+                cycleEmulator(*game, button == gamepad::Button::Right ? 1 : -1);
             }
         }
         break;
@@ -171,11 +163,8 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::Emulator:
         cycleEmulator(*game, 1);
         break;
-    case ui::DetailsAction::Setting:
-        stepSetting(*game, page_.selectedSetting(), 1);
-        break;
-    case ui::DetailsAction::ShaderPreset:
-        pickShader(*game);
+    case ui::DetailsAction::GameSettings:
+        hooks_.openGameSettings(*game);
         break;
     case ui::DetailsAction::ClearSettings:
         clearSettings(*game);
@@ -202,30 +191,6 @@ void DetailsController::run(ui::DetailsAction action) {
     }
 }
 
-void DetailsController::stepSetting(const library::Game& game, const std::string& key, int delta) {
-    const settings::VideoKey* video = settings::videoKey(key);
-    if (video == nullptr) {
-        return;
-    }
-    const settings::Layer own{settings::Layer::Kind::Game, game.id};
-    settings::SettingLayers& layers = gameSettings_.layers();
-    // Place 0 is "not set"; place n + 1 is choice n.
-    const auto count = static_cast<int>(video->choices.size()) + 1;
-    int from = 0;
-    if (const std::string* kept = layers.at(own, key)) {
-        from = static_cast<int>(settings::choiceIndex(*video, *kept).value_or(0)) + 1;
-    }
-    const int next = (from + delta + count) % count;
-    if (next == 0) {
-        layers.clear(own, key);
-    } else {
-        layers.set(own, key, std::string{video->choices[static_cast<std::size_t>(next - 1)].key});
-    }
-    gameSettings_.save();
-    sounds_.play(audio::Effect::Navigation);
-    refresh();
-}
-
 void DetailsController::clearSettings(const library::Game& game) {
     const settings::Layer own{settings::Layer::Kind::Game, game.id};
     settings::SettingLayers& layers = gameSettings_.layers();
@@ -242,12 +207,6 @@ void DetailsController::clearSettings(const library::Game& game) {
         gameSettings_.save();
     }
     refresh();
-}
-
-void DetailsController::pickShader(const library::Game& game) {
-    settings::LayerKeys below = library::layerKeysOf(game);
-    below.game.clear();
-    hooks_.pickShader(game, settings::resolveShader(gameSettings_.layers(), below).value);
 }
 
 void DetailsController::downloadEmulator(const library::Game& game) {

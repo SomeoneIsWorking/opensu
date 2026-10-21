@@ -6,24 +6,31 @@
 
 namespace opensu::app {
 
+std::string layerName(const settings::Layer& layer, const library::roms::EmulatorCatalog& catalog) {
+    switch (layer.kind) {
+    case settings::Layer::Kind::Global:
+        return "Global";
+    case settings::Layer::Kind::System:
+        return library::roms::systemLabel(layer.id);
+    case settings::Layer::Kind::Emulator: {
+        const library::roms::EmulatorEntry* entry = catalog.find(layer.id);
+        return entry != nullptr ? entry->name : layer.id;
+    }
+    case settings::Layer::Kind::Game:
+        return "this game";
+    }
+    return layer.id;
+}
+
 std::string sourceText(const std::optional<settings::Layer>& from,
                        const library::roms::EmulatorCatalog& catalog) {
     if (!from) {
         return "Default";
     }
-    switch (from->kind) {
-    case settings::Layer::Kind::Global:
-        return "Set everywhere";
-    case settings::Layer::Kind::System:
-        return "From " + library::roms::systemLabel(from->id);
-    case settings::Layer::Kind::Emulator: {
-        const library::roms::EmulatorEntry* entry = catalog.find(from->id);
-        return "From " + (entry != nullptr ? entry->name : from->id);
-    }
-    case settings::Layer::Kind::Game:
+    if (from->kind == settings::Layer::Kind::Game) {
         return "Set for this game";
     }
-    return {};
+    return "From " + layerName(*from, catalog);
 }
 
 GameSettings::GameSettings(settings::GameSettingsStore store,

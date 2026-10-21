@@ -49,6 +49,9 @@ struct FocusesOnHover {
     bool operator()(const ui::OnQuickSlider&) const {
         return true;
     }
+    bool operator()(const ui::OnTabRow&) const {
+        return true;
+    }
     bool operator()(const ui::OnSettingsRow&) const {
         return true;
     }
@@ -113,6 +116,8 @@ void PointerRouter::click(const ui::PointerTarget& target) {
     } else if (const auto* quick = std::get_if<ui::OnQuickSlider>(&target)) {
         host_.focus(target);
         host_.chooseLevel(quick->level);
+    } else if (const auto* tab = std::get_if<ui::OnSettingsTab>(&target)) {
+        host_.chooseTab(tab->index);
     } else if (std::holds_alternative<ui::OnBackdrop>(target)) {
         host_.press(gamepad::Button::B);
     } else if (std::holds_alternative<ui::OnPage>(target) ||

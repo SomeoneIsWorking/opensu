@@ -1,7 +1,8 @@
 // video_settings — how opensu-retro shows a game's frame: its aspect, integer scaling, sampling,
 // filter and shader preset.
 // The keys and choices the setting layers keep them under, a game's values resolved from those
-// layers, and the per-launch file the shell writes and `opensu-retro --settings` reads. A shader
+// layers, and their JSON: the per-launch file the shell writes and `opensu-retro --settings`
+// reads, and the body of the runner's `POST /video`. A shader
 // preset replaces the sampling and the filter; aspect and integer scale still place its output.
 #pragma once
 
@@ -132,11 +133,12 @@ inline constexpr std::string_view shaderLabel = "Shader preset";
 /// The preset `keys` resolve to, relative to the shader pack, with its layer; "" for none.
 [[nodiscard]] Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys);
 
-/// The per-launch file's text for `video`.
-[[nodiscard]] std::string launchFileText(const VideoSettings& video);
-/// The settings in a per-launch file; nothing with `error` when it is not one. A key it lacks keeps
-/// its default.
-[[nodiscard]] std::optional<VideoSettings> parseLaunchFile(std::string_view text,
-                                                           std::string& error);
+/// `video` as one line of JSON: the per-launch file's text and the body of the runner's
+/// `POST /video`.
+[[nodiscard]] std::string videoJson(const VideoSettings& video);
+/// The settings in such JSON; nothing with `error` when it is not that. A key it lacks keeps its
+/// default.
+[[nodiscard]] std::optional<VideoSettings> parseVideoJson(std::string_view text,
+                                                          std::string& error);
 
 } // namespace opensu::settings

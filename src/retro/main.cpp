@@ -34,7 +34,7 @@ std::optional<opensu::settings::VideoSettings> readSettings(const std::filesyste
     const std::string text{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
     std::string error;
     std::optional<opensu::settings::VideoSettings> video =
-        opensu::settings::parseLaunchFile(text, error);
+        opensu::settings::parseVideoJson(text, error);
     if (!video) {
         lucent::error("retro", "{}: {}", file.string(), error);
     }

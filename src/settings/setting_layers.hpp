@@ -66,6 +66,14 @@ class SettingLayers {
     /// `key` for `keys`: the winning layer's value, else `fallback`.
     [[nodiscard]] Resolved resolve(const LayerKeys& keys, std::string_view key,
                                    std::string fallback) const;
+    /// `key` for `keys` as it would be without `layer` and the layers that win over it: what
+    /// `layer` inherits.
+    [[nodiscard]] Resolved inherited(const LayerKeys& keys, const Layer& layer,
+                                     std::string_view key, std::string fallback) const;
+    /// The layer of `keys` that wins over `layer` for `key`, or nothing when none above it keeps
+    /// one.
+    [[nodiscard]] std::optional<Layer> over(const LayerKeys& keys, const Layer& layer,
+                                            std::string_view key) const;
 
     /// Every layer that keeps a key.
     [[nodiscard]] const std::map<Layer, Values>& layers() const noexcept {

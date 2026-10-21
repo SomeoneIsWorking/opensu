@@ -46,6 +46,9 @@ struct Rig {
                       [this](const std::string& text, bool error) {
                           said.push_back(text);
                           lastWasError = error;
+                      },
+                      [this] {
+                          calls.emplace_back("gameSettings");
                       }}} {
         radio.state = test::pairedPadAndHeadset();
         for (int attempt = 0; attempt < 2000 && !bluetooth.known(); ++attempt) {

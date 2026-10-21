@@ -48,7 +48,9 @@ Visible deltas from the baseline:
   overscale), Sampling (nearest, bilinear, sharp-bilinear) and Filter (none, scanlines, LCD grid,
   CRT) or a slang Shader preset from libretro's pack (downloaded in Settings › Emulators, run by
   librashader; it replaces Sampling and Filter), kept per game, per core, per console and
-  Everywhere, each value saying where it comes from (S040). iiSU has no video settings for its
+  globally, each value saying where it comes from, set from Global / console / Game tabs with an
+  Override checkbox per setting, on the details page and from the quick menu while the game runs,
+  where each change shows at once (S040). iiSU has no video settings for its
   emulators.
 - A breadcrumb trail in the top bar's start (`Library > GOG > Search "had" > Installed > <game>`)
   names where the player is; each place in it is a pointer target that goes back to that level.
@@ -150,7 +152,7 @@ game has been observed running yet.
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
 | S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
-| S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) in setting layers per game, core, console and Everywhere, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
+| S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) in setting layers per game, core, console and Global, set live from the quick menu's tabs, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 
 ## Capability details
@@ -1549,9 +1551,21 @@ librashader, which is not installed (<path>)", which the shell toasts (`shell/21
 Unverified: a visible window under Gamescope; the CRT's and the presets' cost on Deck-class
 hardware; the AppImage and CI images with Rust added (not rebuilt); a preset that fails while
 drawing (not reproduced; the runner ends with saves written and exit 1, and the shell shows
-the ordinary end, not the reason). Missing: the quick menu's live changes, core
-options per layer, preset parameters, bezels, touch overlays (the card's steps 5, 6, 8, 9 and
-the rest of 7).
+the ordinary end, not the reason).
+
+The game settings tabs (`app/game_settings_page`, card step 5): the quick menu's Game settings row
+and the details page's Game settings button open Global, console and Game tabs; console and Game
+rows have an Override checkbox (unticked: the inherited value and its source; ticked: the
+layer's own value; unticked again: the key deleted). Each change is saved at once and sent to the
+running game as `POST /video`, which the runner applies between frames. Evidence
+(`scratch/settings-tabs/proof/`, hidden shell, Chrono Trigger and Super Metroid): System Filter
+Scanlines drawn live (`22-runner-system-scanlines.png`), Game Filter CRT ticked over it
+(`26-runner-game-crt.png`), unticked back to scanlines (`27-runner-game-unchecked.png`), Super
+Metroid launched after draws scanlines and reads "From Super Nintendo" (`31`, `32`), the store
+after each step (`*.json`); `runner/smoke-*` for the route alone (400, 409 keeping the settings, 0
+validation errors). Unverified: touch on the tabs, the tabs over a game nested in Gamescope.
+Missing: core options per layer, preset parameters, bezels, touch overlays (the card's steps 6,
+8, 9 and the rest of 7).
 
 ### S039 — Opt-in integrations and Steam modes
 

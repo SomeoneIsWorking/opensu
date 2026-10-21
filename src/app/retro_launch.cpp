@@ -21,17 +21,27 @@ const library::roms::EmulatorEntry* builtInOf(const library::Game& game,
     return entry != nullptr && entry->builtIn() ? entry : nullptr;
 }
 
+std::optional<settings::VideoSettings> retroVideoOf(const library::Game& game,
+                                                    const settings::SettingLayers& layers,
+                                                    const library::roms::EmulatorCatalog& catalog,
+                                                    const std::filesystem::path& presets) {
+    if (builtInOf(game, catalog) == nullptr) {
+        return std::nullopt;
+    }
+    return settings::resolveVideo(layers, library::layerKeysOf(game), presets);
+}
+
 std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayers& layers,
                                const library::roms::EmulatorCatalog& catalog,
                                const std::filesystem::path& file,
                                const std::filesystem::path& presets) {
-    if (builtInOf(game, catalog) == nullptr) {
+    const std::optional<settings::VideoSettings> video =
+        retroVideoOf(game, layers, catalog, presets);
+    if (!video) {
         return {};
     }
-    const settings::VideoSettings video =
-        settings::resolveVideo(layers, library::layerKeysOf(game), presets);
     std::string error;
-    if (!fileio::writeWhole(file, settings::launchFileText(video), error)) {
+    if (!fileio::writeWhole(file, settings::videoJson(*video), error)) {
         return error;
     }
     const std::array<std::string, 2> option{"--settings", file.string()};

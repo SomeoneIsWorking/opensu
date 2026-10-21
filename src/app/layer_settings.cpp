@@ -55,19 +55,7 @@ bool LayerSettings::owns(const std::string& id) {
 }
 
 std::string LayerSettings::nameOf(const Layer& layer) const {
-    switch (layer.kind) {
-    case Layer::Kind::Global:
-        return "Everywhere";
-    case Layer::Kind::System:
-        return library::roms::systemLabel(layer.id);
-    case Layer::Kind::Emulator: {
-        const library::roms::EmulatorEntry* entry = found_().catalog().find(layer.id);
-        return entry != nullptr ? entry->name : layer.id;
-    }
-    case Layer::Kind::Game:
-        return gameName_;
-    }
-    return layer.id;
+    return layerName(layer, found_().catalog());
 }
 
 std::vector<ui::SettingsRow> LayerSettings::openRows() const {
@@ -77,7 +65,7 @@ std::vector<ui::SettingsRow> LayerSettings::openRows() const {
         return keptText(found == layers.layers().end() ? 0 : found->second.size());
     };
     std::vector<ui::SettingsRow> rows;
-    rows.push_back(ui::makeRow(std::string{openGlobalId}, RowKind::Action, "Everywhere",
+    rows.push_back(ui::makeRow(std::string{openGlobalId}, RowKind::Action, "Global",
                                "Video for every game on a built-in core", kept(Layer{})));
     const library::roms::EmulatorCatalog& catalog = found_().catalog();
     for (const std::string& system : catalog.servedSystems()) {
@@ -134,20 +122,17 @@ ui::SettingsRow LayerSettings::videoRowOf(const Layer& layer,
     const std::string* everywhere = layers.at(Layer{}, video.key);
     const std::string_view inherited =
         everywhere != nullptr ? settings::choiceLabel(video, *everywhere) : video.choices[0].label;
-    // Under a core come each game's console, then Everywhere.
+    // Under a core come each game's console, then Global.
     std::string note = "Default";
     if (layer.kind == Layer::Kind::Emulator) {
         note = "Not set; from each game's console";
     } else if (layer.kind == Layer::Kind::System && everywhere != nullptr) {
-        note = "From Everywhere";
+        note = "From Global";
     }
     return ui::makeRow(id, RowKind::Choice, std::string{video.label}, note, std::string{inherited});
 }
 
 std::string LayerSettings::inheritedShader(const Layer& layer) const {
-    if (direct_) {
-        return directInherited_;
-    }
     const std::string* everywhere = gameSettings_.layers().at(Layer{}, settings::shaderKey);
     return layer.kind == Layer::Kind::System && everywhere != nullptr ? *everywhere : std::string{};
 }
@@ -166,7 +151,7 @@ ui::SettingsRow LayerSettings::shaderRow(const Layer& layer) const {
         note = "Not set; from each game's console";
     } else if (layer.kind == Layer::Kind::System &&
                gameSettings_.layers().at(Layer{}, settings::shaderKey) != nullptr) {
-        note = "From Everywhere";
+        note = "From Global";
     }
     return ui::makeRow(id, RowKind::Action, label, note, presetLabel(inheritedShader(layer)));
 }
@@ -178,15 +163,6 @@ std::string LayerSettings::openName() const {
     return picker_.isOpen() ? nameOf(*open_) + " › " + picker_.openName() : nameOf(*open_);
 }
 
-void LayerSettings::pickShader(Layer layer, std::string name, std::string inherited) {
-    open_ = std::move(layer);
-    gameName_ = std::move(name);
-    directInherited_ = std::move(inherited);
-    direct_ = true;
-    leftPicker_ = false;
-    picker_.open();
-}
-
 LayerSettings::Back LayerSettings::back() {
     leftPicker_ = false;
     if (!picker_.isOpen()) {
@@ -194,10 +170,6 @@ LayerSettings::Back LayerSettings::back() {
     }
     if (picker_.back()) {
         return Back::Within;
-    }
-    if (direct_) {
-        close();
-        return Back::Screen;
     }
     leftPicker_ = true;
     return Back::Within;
@@ -223,11 +195,7 @@ void LayerSettings::pressPicker(const Layer& layer, const std::string& id) {
     }
     saveVideo();
     picker_.close();
-    if (direct_) {
-        close();
-    } else {
-        leftPicker_ = true;
-    }
+    leftPicker_ = true;
 }
 
 void LayerSettings::saveVideo() {

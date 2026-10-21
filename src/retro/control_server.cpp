@@ -134,7 +134,7 @@ void ControlServer::publish(std::uint64_t frame, bool hasState) {
     hasState_ = hasState;
 }
 
-void ControlServer::serve(const std::function<ControlAnswer(ControlCommand)>& perform) {
+void ControlServer::serve(const std::function<ControlAnswer(const ControlRequest&)>& perform) {
     std::deque<std::shared_ptr<Pending>> waiting;
     {
         const std::lock_guard lock{mutex_};
@@ -144,7 +144,7 @@ void ControlServer::serve(const std::function<ControlAnswer(ControlCommand)>& pe
         }
     }
     for (const std::shared_ptr<Pending>& pending : waiting) {
-        ControlAnswer answer = perform(pending->command);
+        ControlAnswer answer = perform(pending->request);
         {
             const std::lock_guard lock{mutex_};
             hasState_ = answer.hasState;
@@ -169,9 +169,9 @@ void ControlServer::reportLoadFailure(const std::filesystem::path& file,
     }
 }
 
-lucent::http::Response ControlServer::run(ControlCommand command) {
+lucent::http::Response ControlServer::run(ControlRequest request) {
     const auto pending = std::make_shared<Pending>();
-    pending->command = command;
+    pending->request = std::move(request);
     std::unique_lock lock{mutex_};
     if (closing_) {
         return text(503, "Service Unavailable", "the game is closing");
@@ -193,6 +193,9 @@ lucent::http::Response ControlServer::run(ControlCommand command) {
         return text(503, "Service Unavailable", "the game is closing");
     }
     const ControlAnswer& answer = pending->answer;
+    if (answer.status == 200 && !answer.png.empty()) {
+        return lucent::http::Response::binary(200, "OK", "image/png", answer.png);
+    }
     return text(answer.status, reasonPhrase(answer.status),
                 answer.status == 200 ? std::string{"done"} : answer.reason);
 }
@@ -221,20 +224,37 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         input_ = std::move(input);
         return text(200, "OK", "held");
     }
-    ControlCommand command{};
+    if (path == "/frame.png") {
+        if (request.method != "GET") {
+            return text(405, "Method Not Allowed", "GET only");
+        }
+        return run(ControlRequest{.command = ControlCommand::Frame, .video = {}});
+    }
+    ControlRequest command;
     if (path == "/state/save") {
-        command = ControlCommand::SaveState;
+        command.command = ControlCommand::SaveState;
     } else if (path == "/state/load") {
-        command = ControlCommand::LoadState;
+        command.command = ControlCommand::LoadState;
     } else if (path == "/reset") {
-        command = ControlCommand::Reset;
+        command.command = ControlCommand::Reset;
+    } else if (path == "/video") {
+        command.command = ControlCommand::Video;
     } else {
         return text(404, "Not Found", "no such route");
     }
     if (request.method != "POST") {
         return text(405, "Method Not Allowed", "POST only");
     }
-    return run(command);
+    if (command.command == ControlCommand::Video) {
+        std::string error;
+        std::optional<settings::VideoSettings> video =
+            settings::parseVideoJson(request.body, error);
+        if (!video) {
+            return text(400, "Bad Request", error);
+        }
+        command.video = std::move(*video);
+    }
+    return run(std::move(command));
 }
 
 } // namespace opensu::retro

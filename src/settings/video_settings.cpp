@@ -78,7 +78,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
     };
 }
 
-std::string launchFileText(const VideoSettings& video) {
+std::string videoJson(const VideoSettings& video) {
     const auto spelling = [](const VideoKey& key, auto value) {
         return std::string{key.choices[static_cast<std::size_t>(value)].key};
     };
@@ -89,10 +89,10 @@ std::string launchFileText(const VideoSettings& video) {
         {std::string{filterKey().key}, spelling(filterKey(), video.filter)},
         {std::string{shaderKey}, video.shaderPreset.string()},
     };
-    return document.dump(2) + "\n";
+    return document.dump();
 }
 
-std::optional<VideoSettings> parseLaunchFile(std::string_view text, std::string& error) {
+std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& error) {
     const nlohmann::json document = nlohmann::json::parse(text, nullptr, false);
     if (!document.is_object()) {
         error = "not a JSON object";

@@ -200,8 +200,7 @@ void DetailsPagePainter::paintButtons(Canvas& canvas, const DetailsPage& page,
                               rect.x + pad, rect.centreY(), text, withAlpha(ink, alpha));
         if (!buttons[i].value.empty()) {
             // Only a choice steps with Left and Right; other values are read-outs.
-            const bool steps = buttons[i].action == DetailsAction::Emulator ||
-                               buttons[i].action == DetailsAction::Setting;
+            const bool steps = buttons[i].action == DetailsAction::Emulator;
             const std::string shown = steps ? "<  " + buttons[i].value + "  >" : buttons[i].value;
             const float label = typeface_.measure(page.shown(i), text);
             const std::string fitted =

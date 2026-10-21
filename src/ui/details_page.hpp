@@ -31,10 +31,8 @@ enum class DetailsAction : std::uint8_t {
     Hidden,
     /// Uninstall an installed store game, on a second press.
     Uninstall,
-    /// Step one of the game's settings (`DetailsButton::setting`) to its next value.
-    Setting,
-    /// Pick the game's own shader preset on the preset picker.
-    ShaderPreset,
+    /// Open the game settings tabs over the page.
+    GameSettings,
     /// Clear every setting the game keeps of its own.
     ClearSettings,
     /// Edit the game's button mapping.
@@ -47,8 +45,6 @@ struct DetailsButton {
     DetailsAction action{DetailsAction::Back};
     std::string label;
     std::string value;
-    /// The setting a `Setting` button steps; empty for the others.
-    std::string setting;
 
     bool operator==(const DetailsButton&) const = default;
 };
@@ -89,7 +85,7 @@ struct GameSettingsView {
     std::string emulatorSource;
     /// After the Emulator row: the value of each setting a layer keeps and where it comes from.
     std::vector<DetailsRow> rows;
-    /// After the Emulator button: a `Setting` button per setting, then `ClearSettings` when the
+    /// After the Emulator button: `GameSettings` on a built-in core, then `ClearSettings` when the
     /// game keeps any of its own.
     std::vector<DetailsButton> buttons;
 };
@@ -159,10 +155,6 @@ class DetailsPage {
     bool focusButton(std::size_t index) noexcept;
     [[nodiscard]] DetailsAction selected() const noexcept {
         return view_.buttons[focus_].action;
-    }
-    /// The focused button's setting; empty unless it is a `Setting` button.
-    [[nodiscard]] const std::string& selectedSetting() const noexcept {
-        return view_.buttons[focus_].setting;
     }
 
     /// Asks the focused button for a second press; `confirm` says what that press does.

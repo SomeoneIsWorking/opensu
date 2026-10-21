@@ -2,10 +2,10 @@
 // game, its rows painted as the Settings screen paints them.
 #pragma once
 
-#include "button_glyph.hpp"
 #include "paint.hpp"
 #include "quick_menu.hpp"
 #include "settings_page_painter.hpp"
+#include "side_panel_painter.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
@@ -13,7 +13,7 @@ namespace opensu::ui {
 class QuickMenuPainter {
   public:
     QuickMenuPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
-        : typeface_{typeface}, glyphs_{prompts, typeface}, rows_{typeface} {
+        : chrome_{prompts, typeface}, rows_{typeface} {
     }
 
     /// Where the panel and its rows stand in a `width` x `height` frame; what a pointer hits.
@@ -24,8 +24,7 @@ class QuickMenuPainter {
     void paint(Canvas& canvas, const QuickMenu& menu, float width, float height, float dp) const;
 
   private:
-    Typeface& typeface_;
-    ButtonGlyphPainter glyphs_;
+    SidePanelPainter chrome_;
     SettingsPagePainter rows_;
 };
 

@@ -163,18 +163,40 @@ void FrameCompositor::release() {
     device_.waitIdle();
     chain_.reset();
     destroyTexture();
+    destroyPipeline();
+    vkDestroyRenderPass(vk_, renderPass_, nullptr);
+    renderPass_ = VK_NULL_HANDLE;
+}
+
+void FrameCompositor::destroyPipeline() {
     vkDestroyDescriptorPool(vk_, descriptorPool_, nullptr);
     vkDestroySampler(vk_, sampler_, nullptr);
     vkDestroyPipeline(vk_, pipeline_, nullptr);
     vkDestroyPipelineLayout(vk_, pipelineLayout_, nullptr);
     vkDestroyDescriptorSetLayout(vk_, setLayout_, nullptr);
-    vkDestroyRenderPass(vk_, renderPass_, nullptr);
     descriptorPool_ = VK_NULL_HANDLE;
+    descriptorSet_ = VK_NULL_HANDLE;
     sampler_ = VK_NULL_HANDLE;
     pipeline_ = VK_NULL_HANDLE;
     pipelineLayout_ = VK_NULL_HANDLE;
     setLayout_ = VK_NULL_HANDLE;
-    renderPass_ = VK_NULL_HANDLE;
+    boundView_ = VK_NULL_HANDLE;
+}
+
+void FrameCompositor::change(const settings::VideoSettings& video, VkInstance instance,
+                             const std::filesystem::path& librashader) {
+    std::unique_ptr<ShaderChain> chain;
+    const bool samePreset = video.shaderPreset == video_.shaderPreset;
+    if (!video.shaderPreset.empty() && !samePreset) {
+        chain = std::make_unique<ShaderChain>(librashader, video.shaderPreset, instance, device_);
+    }
+    check(device_.waitIdle(), "vkDeviceWaitIdle");
+    destroyPipeline();
+    video_ = video;
+    if (!samePreset) {
+        chain_ = std::move(chain);
+    }
+    createPipeline();
 }
 
 void FrameCompositor::createRenderPass(VkFormat format, VkImageLayout finalLayout) {

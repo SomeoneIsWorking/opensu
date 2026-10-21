@@ -423,6 +423,10 @@ void ShellApp::actOn(gamepad::Button button) {
         guideMenu_.act(button);
         return;
     }
+    if (gameSettingsPage_.isOpen()) {
+        gameSettingsPage_.act(button);
+        return;
+    }
     if (shell_.guidePanels().quick().isOpen()) {
         quickMenu_.act(button);
         return;
@@ -625,6 +629,27 @@ void ShellApp::chooseLevel(int level) {
     }
 }
 
+void ShellApp::chooseTab(std::size_t index) {
+    if (gameSettingsPage_.isOpen()) {
+        gameSettingsPage_.showTab(index);
+    }
+}
+
+void ShellApp::applyVideo(const library::Game& game) {
+    if (!shell_.inGame() || launches_.game().id != game.id) {
+        return;
+    }
+    const std::optional<settings::VideoSettings> video =
+        retroVideoOf(launches_.game(), gameSettings_.layers(), emulatorSettings_.catalog(),
+                     emulatorDownloads_.shaderPack().root());
+    if (!video) {
+        return;
+    }
+    if (const std::string refused = retro_.setVideo(*video); !refused.empty()) {
+        shell_.setToast(refused, true);
+    }
+}
+
 bool ShellApp::menusBlocked() {
     return panels_.active() || paths_.active() || sessionInstall_.active() || firstRun_.active() ||
            shortcutEditor_.capturing() || shell_.searchPanel().isOpen() ||
@@ -637,7 +662,9 @@ void ShellApp::closeRunningGame() {
 
 void ShellApp::toggleGuide() {
     ui::GuidePanels& menus = shell_.guidePanels();
-    if (menus.quick().isOpen()) {
+    if (gameSettingsPage_.isOpen()) {
+        gameSettingsPage_.close();
+    } else if (menus.quick().isOpen()) {
         quickMenu_.close();
     } else if (menus.guide().isOpen() || !menusBlocked()) {
         guideMenu_.toggle();
@@ -648,6 +675,10 @@ void ShellApp::toggleQuickMenu() {
     ui::GuidePanels& menus = shell_.guidePanels();
     if (menus.guide().isOpen()) {
         guideMenu_.close();
+    }
+    if (gameSettingsPage_.isOpen()) {
+        gameSettingsPage_.close();
+        return;
     }
     if (menus.quick().isOpen() || !menusBlocked()) {
         quickMenu_.toggle();
@@ -908,6 +939,12 @@ void ShellApp::publishSnapshot() {
     next.inGame = shell_.inGame();
     next.guideMenuOpen = shell_.guidePanels().guide().isOpen();
     next.quickMenuOpen = shell_.guidePanels().quick().isOpen();
+    if (const ui::SettingsRow* row = shell_.guidePanels().quick().focusedRow();
+        row != nullptr && next.quickMenuOpen) {
+        next.quickFocus = row->id;
+    }
+    next.settingsTab = gameSettingsPage_.tabName();
+    next.settingsFocus = gameSettingsPage_.focusName();
     next.devicesOpen = shell_.devicesPanel().isOpen();
     next.devicesTab = devicesScreen_.tab();
     next.downloadsOpen = shell_.downloadsPanel().isOpen();
@@ -987,6 +1024,7 @@ void ShellApp::serviceRequests() {
         shell_.setInGame(running);
         guideMenu_.close();
         quickMenu_.close();
+        gameSettingsPage_.close();
         closePages();
         panels_.endLaunch();
         gameScreen_.setRunning(running);

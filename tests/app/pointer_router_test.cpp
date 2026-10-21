@@ -51,6 +51,9 @@ class Recorder final : public PointerHost {
     void chooseLevel(int level) override {
         calls.push_back("size" + std::to_string(level));
     }
+    void chooseTab(std::size_t index) override {
+        calls.push_back("tab" + std::to_string(index));
+    }
     void contextMenu(const PointerTarget& target) override {
         calls.emplace_back("menu");
         menuTarget = target;

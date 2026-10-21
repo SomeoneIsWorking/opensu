@@ -1,6 +1,7 @@
-// guide_panels — the two menus Guide opens, over the home screen or over a running game: the left
-// menu and the quick menu on the right. Owns their state and painters, so the shell composes one
-// object for them and the pointer reads one hit test.
+// guide_panels — the menus Guide opens, over the home screen or over a running game: the left menu
+// and the quick menu on the right, and the game settings tabs that open in the quick menu's place
+// (from it, or over a game's details page). Owns their state and painters, so the shell composes
+// one object for them and the pointer reads one hit test.
 #pragma once
 
 #include "guide_menu.hpp"
@@ -8,13 +9,16 @@
 #include "pointer_target.hpp"
 #include "quick_menu.hpp"
 #include "quick_menu_painter.hpp"
+#include "settings_tabs.hpp"
+#include "settings_tabs_painter.hpp"
 
 namespace opensu::ui {
 
 class GuidePanels {
   public:
     GuidePanels(const input::Prompts& prompts, Typeface& typeface) noexcept
-        : guidePainter_{prompts, typeface}, quickPainter_{prompts, typeface} {
+        : guidePainter_{prompts, typeface}, quickPainter_{prompts, typeface},
+          tabsPainter_{prompts, typeface} {
     }
 
     [[nodiscard]] GuideMenu& guide() noexcept {
@@ -29,8 +33,14 @@ class GuidePanels {
     [[nodiscard]] const QuickMenu& quick() const noexcept {
         return quick_;
     }
+    [[nodiscard]] SettingsTabs& tabs() noexcept {
+        return tabs_;
+    }
+    [[nodiscard]] const SettingsTabs& tabs() const noexcept {
+        return tabs_;
+    }
     [[nodiscard]] bool anyOpen() const noexcept {
-        return guide_.isOpen() || quick_.isOpen();
+        return guide_.isOpen() || quick_.isOpen() || tabs_.isOpen();
     }
 
     /// Draws whichever menu is open into a `size` frame at `dp` pixels per dp.
@@ -47,6 +57,8 @@ class GuidePanels {
     GuideMenuPainter guidePainter_;
     QuickMenu quick_;
     QuickMenuPainter quickPainter_;
+    SettingsTabs tabs_;
+    SettingsTabsPainter tabsPainter_;
 };
 
 } // namespace opensu::ui

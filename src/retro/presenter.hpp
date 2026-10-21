@@ -78,6 +78,10 @@ class Presenter {
     /// for the next frame drawn when this one is skipped). Throws VulkanError when drawing fails.
     void present(const FrameImage& frame, bool fresh, CoreSync sync = {});
 
+    /// Shows frames under `video` from the next one drawn (`FrameCompositor::change`); a shader
+    /// preset that cannot run throws ShaderError and the settings in force stay.
+    void change(const settings::VideoSettings& video);
+
     /// Waits until the last frame submitted is done on the GPU (a core's wait_sync_index).
     [[nodiscard]] VkResult waitForFrame();
 
