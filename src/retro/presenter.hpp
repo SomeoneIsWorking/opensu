@@ -1,17 +1,17 @@
-// presenter — the runner's window and what it shows: an SDL window and its events, and the core's
-// frame drawn with Vulkan, scaled to the window with its aspect kept and letterboxed in black. A
-// hidden presenter draws into an offscreen image that can be read back instead of a swapchain.
+// presenter — the runner's window and where its frames go: an SDL window and its events, the
+// Vulkan swapchain (or, hidden, an offscreen image that can be read back) and each frame's
+// submission. What is drawn into a target is `FrameCompositor`'s.
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <span>
 #include <vector>
 
 #include <SDL3/SDL_video.h>
 #include <vulkan/vulkan.h>
 
+#include "frame_compositor.hpp"
 #include "vulkan_device.hpp"
 
 namespace opensu::retro {
@@ -36,14 +36,6 @@ struct WindowInput {
 
     bool quit{false};
     std::vector<Key> keys;
-};
-
-/// A frame to show: rows of `width` RGBA pixels, top first, displayed `aspect` wide per unit high.
-struct FrameImage {
-    std::span<const std::uint8_t> rgba;
-    unsigned width{0};
-    unsigned height{0};
-    float aspect{0.0F};
 };
 
 /// An image read back from the GPU, RGBA rows top first.
@@ -90,18 +82,10 @@ class Presenter {
     void open();
     /// Everything `open` made, in reverse; safe on a partly opened presenter.
     void release();
-    void createRenderPass();
-    void createPipeline();
     void createOffscreen();
     void createSwapchain();
+    [[nodiscard]] VkFramebuffer makeFramebuffer(VkImageView view) const;
     void destroyTargets();
-    void ensureTexture(unsigned width, unsigned height);
-    void destroyTexture();
-    void recordUpload(VkCommandBuffer commands, const FrameImage& frame);
-    void recordDraw(VkCommandBuffer commands, const Target& target, float aspect);
-    [[nodiscard]] VkImageView makeView(VkImage image, VkFormat format) const;
-    [[nodiscard]] VkDeviceMemory allocate(VkMemoryRequirements needs,
-                                          VkMemoryPropertyFlags properties) const;
 
     PresenterOptions options_;
     bool videoUp_{false};
@@ -113,13 +97,7 @@ class Presenter {
 
     VkFormat format_{VK_FORMAT_R8G8B8A8_UNORM};
     VkExtent2D extent_{};
-    VkRenderPass renderPass_{VK_NULL_HANDLE};
-    VkDescriptorSetLayout setLayout_{VK_NULL_HANDLE};
-    VkPipelineLayout pipelineLayout_{VK_NULL_HANDLE};
-    VkPipeline pipeline_{VK_NULL_HANDLE};
-    VkSampler sampler_{VK_NULL_HANDLE};
-    VkDescriptorPool descriptorPool_{VK_NULL_HANDLE};
-    VkDescriptorSet descriptorSet_{VK_NULL_HANDLE};
+    std::unique_ptr<FrameCompositor> compositor_;
     VkCommandPool commandPool_{VK_NULL_HANDLE};
     VkCommandBuffer commands_{VK_NULL_HANDLE};
     VkFence done_{VK_NULL_HANDLE};
@@ -131,18 +109,8 @@ class Presenter {
     /// The hidden presenter's one target and its memory.
     VkDeviceMemory offscreenMemory_{VK_NULL_HANDLE};
     bool drawnOffscreen_{false};
-
-    VkImage texture_{VK_NULL_HANDLE};
-    VkDeviceMemory textureMemory_{VK_NULL_HANDLE};
-    VkImageView textureView_{VK_NULL_HANDLE};
-    unsigned textureWidth_{0};
-    unsigned textureHeight_{0};
-    bool textureReady_{false};
     /// A fresh frame not yet uploaded, kept across a frame skipped for a stale swapchain.
     bool uploadPending_{false};
-    VkBuffer staging_{VK_NULL_HANDLE};
-    VkDeviceMemory stagingMemory_{VK_NULL_HANDLE};
-    void* stagingMapped_{nullptr};
 };
 
 } // namespace opensu::retro

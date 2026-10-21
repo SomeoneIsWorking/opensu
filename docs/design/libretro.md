@@ -53,7 +53,8 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG` |
 | `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame, written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
-| `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), the frame texture uploaded each fresh frame, one pipeline drawing it with its aspect kept and letterboxed black; hidden, an offscreen image instead of a swapchain, read back for `--frame-png` |
+| `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png` |
+| `src/retro/frame_compositor.*` | What is drawn into a target: the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame, one pipeline drawing it with its aspect kept and letterboxed black |
 | `src/retro/vulkan_device.*` | The Vulkan instance (validation layer and its error count on request) and the one device and graphics queue, the objects a Vulkan core will be handed in phase 3 |
 | `src/retro/png_encoder.*` | RGBA to PNG bytes through libpng |
 | `src/retro/shaders/frame.{vert,frag}` | The frame's two shaders, compiled by glslc at build time into SPIR-V headers under the build tree |
@@ -74,10 +75,10 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/app/quick_menu_controller.*` | Save state, Load state and Reset game while the running game answers on a control channel |
 | `src/app/game_end.*`, `src/launch/handoff.*` | How a game ended (`Hooks::ended`, the scope's exit status) and the toast it gets |
 
-`retro` depends on `gamepad`, `fileio`, Lucent, nlohmann/json, SDL3, the Vulkan loader and libpng; `config` is
-read by `main.cpp` only. Nothing outside `retro` and the `opensu-retro` executable links it. Only
-`presenter` and `vulkan_device` include Vulkan or SDL video; `audio_output` includes SDL audio;
-`joypad` uses SDL's scancode values only.
+`retro` depends on `gamepad`, `fileio`, Lucent, nlohmann/json, SDL3, the Vulkan loader and libpng;
+`config` is read by `main.cpp` only. Nothing outside `retro` and the `opensu-retro` executable links
+it. Only `presenter`, `frame_compositor` and `vulkan_device` include Vulkan, and only `presenter` SDL
+video; `audio_output` includes SDL audio; `joypad` uses SDL's scancode values only.
 
 ## 4. Contracts
 

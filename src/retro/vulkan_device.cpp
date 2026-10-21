@@ -211,4 +211,47 @@ std::uint32_t VulkanDevice::memoryType(std::uint32_t typeBits,
     throw VulkanError{"no suitable Vulkan memory type"};
 }
 
+VkDeviceMemory VulkanDevice::allocate(VkMemoryRequirements needs,
+                                      VkMemoryPropertyFlags properties) const {
+    VkMemoryAllocateInfo allocate{};
+    allocate.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocate.allocationSize = needs.size;
+    allocate.memoryTypeIndex = memoryType(needs.memoryTypeBits, properties);
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    check(vkAllocateMemory(device_, &allocate, nullptr, &memory), "vkAllocateMemory");
+    return memory;
+}
+
+VkImageView VulkanDevice::makeView(VkImage image, VkFormat format) const {
+    VkImageViewCreateInfo create{};
+    create.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    create.image = image;
+    create.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    create.format = format;
+    create.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    VkImageView view = VK_NULL_HANDLE;
+    check(vkCreateImageView(device_, &create, nullptr, &view), "vkCreateImageView");
+    return view;
+}
+
+VkImageCreateInfo imageInfo(VkFormat format, VkExtent2D extent, VkImageUsageFlags usage) {
+    return VkImageCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = format,
+        .extent = {extent.width, extent.height, 1},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .queueFamilyIndexCount = 0,
+        .pQueueFamilyIndices = nullptr,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+}
+
 } // namespace opensu::retro

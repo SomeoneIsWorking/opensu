@@ -27,6 +27,10 @@ void check(VkResult result, const char* what);
 [[nodiscard]] bool isValidationError(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
                                      VkDebugUtilsMessageTypeFlagsEXT types);
 
+/// A single-sampled, single-level 2D image description.
+[[nodiscard]] VkImageCreateInfo imageInfo(VkFormat format, VkExtent2D extent,
+                                          VkImageUsageFlags usage);
+
 class VulkanInstance {
   public:
     /// `extensions` are what the window system needs; empty for offscreen drawing. With
@@ -82,6 +86,11 @@ class VulkanDevice {
     /// A memory type allowed by `typeBits` with all of `properties`; throws VulkanError if none.
     [[nodiscard]] std::uint32_t memoryType(std::uint32_t typeBits,
                                            VkMemoryPropertyFlags properties) const;
+    /// Memory meeting `needs` with all of `properties`; throws VulkanError.
+    [[nodiscard]] VkDeviceMemory allocate(VkMemoryRequirements needs,
+                                          VkMemoryPropertyFlags properties) const;
+    /// A colour view of the whole of single-level 2D `image`; throws VulkanError.
+    [[nodiscard]] VkImageView makeView(VkImage image, VkFormat format) const;
 
   private:
     VkPhysicalDevice physical_{VK_NULL_HANDLE};
