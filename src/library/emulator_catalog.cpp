@@ -101,6 +101,25 @@ RomsetSource romsetsOf(const json& object, const std::string& where) {
     return source;
 }
 
+/// A built-in core's `"coreOptions"`: option key to value, both strings.
+std::vector<CoreOption> coreOptionsOf(const json& object, const std::string& where) {
+    const auto found = object.find("coreOptions");
+    if (found == object.end()) {
+        return {};
+    }
+    if (!found->is_object()) {
+        throw Malformed{where + ": \"coreOptions\" is not an object"};
+    }
+    std::vector<CoreOption> options;
+    for (const auto& [key, value] : found->items()) {
+        if (key.empty() || key.find('=') != std::string::npos || !value.is_string()) {
+            throw Malformed{where + ": \"coreOptions\" maps option keys to string values"};
+        }
+        options.push_back({key, value.get<std::string>()});
+    }
+    return options;
+}
+
 /// A built-in emulator's core: a file name of the buildbot's, and nothing else to start it with.
 void checkCore(const json& object, const std::string& core, const std::string& where) {
     const bool named = core.ends_with(coreSuffix) && core.size() > coreSuffix.size() &&
@@ -133,6 +152,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
     if (entry.builtIn()) {
         checkCore(object, entry.core, where);
         entry.romsets = romsetsOf(object, where);
+        entry.coreOptions = coreOptionsOf(object, where);
         const std::string without = text(object, "withoutBios", where, false);
         const std::optional<WithoutBios> mode =
             without.empty() ? WithoutBios::Needed : withoutBiosNamed(without);
@@ -148,9 +168,10 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
         entry.biosScan = *rule;
         return entry;
     }
-    if (object.contains("withoutBios") || object.contains("biosScan")) {
-        throw Malformed{where + ": \"withoutBios\" and \"biosScan\" are for a built-in "
-                                "emulator's core"};
+    if (object.contains("withoutBios") || object.contains("biosScan") ||
+        object.contains("coreOptions")) {
+        throw Malformed{where + ": \"withoutBios\", \"biosScan\" and \"coreOptions\" are for a "
+                                "built-in emulator's core"};
     }
     const auto launchers = object.find("launchers");
     if (launchers == object.end() || !launchers->is_array() || launchers->empty()) {

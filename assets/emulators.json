@@ -222,6 +222,50 @@
       "biosScan": "pcsx_rearmed"
     },
     {
+      "id": "beetle-psx-hw-core",
+      "name": "Beetle PSX HW (built-in)",
+      "systems": ["psx"],
+      "core": "mednafen_psx_hw_libretro",
+      "coreOptions": {"beetle_psx_hw_renderer": "hardware_vk"}
+    },
+    {
+      "id": "swanstation-core",
+      "name": "SwanStation (built-in)",
+      "systems": ["psx"],
+      "core": "swanstation_libretro",
+      "coreOptions": {"swanstation_GPU_Renderer": "Vulkan"}
+    },
+    {
+      "id": "mupen64plus-next-core",
+      "name": "Mupen64Plus-Next (built-in)",
+      "systems": ["n64"],
+      "core": "mupen64plus_next_libretro",
+      "withoutBios": "skipped",
+      "coreOptions": {"mupen64plus-rdp-plugin": "parallel", "mupen64plus-rsp-plugin": "parallel"}
+    },
+    {
+      "id": "parallel-n64-core",
+      "name": "ParaLLEl N64 (built-in)",
+      "systems": ["n64"],
+      "core": "parallel_n64_libretro",
+      "withoutBios": "skipped",
+      "coreOptions": {"parallel-n64-gfxplugin": "parallel", "parallel-n64-rspplugin": "parallel"}
+    },
+    {
+      "id": "flycast-core",
+      "name": "Flycast (built-in)",
+      "systems": ["dreamcast"],
+      "core": "flycast_libretro",
+      "withoutBios": "hle"
+    },
+    {
+      "id": "ppsspp-core",
+      "name": "PPSSPP (built-in)",
+      "systems": ["psp"],
+      "core": "ppsspp_libretro",
+      "coreOptions": {"ppsspp_backend": "vulkan"}
+    },
+    {
       "id": "melondsds-core",
       "name": "melonDS DS (built-in)",
       "systems": ["nds"],
