@@ -24,3 +24,9 @@ title (Sunbright) is picked per game by the layered core choice in `retro-shader
 
 Order: phase 3, then Cemu (wiiuport) with setsail, then Eden, then Ryujinx, then Sunbright when it
 runs. GitLab-hosted cores are built and downloaded from GitLab; nothing of them goes on GitHub.
+
+## Later: the PSX ports
+
+The player would like the psxport titles (`~/repo/psx`) as cores too, "but that's not feasible right
+now". Parked: each port would need a libretro target in its own repo, and the ports come first as
+products of their own. Revisit when a port is playable end to end.
