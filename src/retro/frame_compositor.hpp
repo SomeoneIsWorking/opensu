@@ -1,7 +1,7 @@
 // frame_compositor — what the runner draws into a target: the core's frame uploaded to a texture
-// and drawn at the aspect, integer scale and sampling of the game's video settings, the rest of the
-// target black. The presenter owns the window, the targets and the submission; this owns the
-// render pass every target's framebuffer is made for.
+// and drawn at the aspect, integer scale, sampling and filter of the game's video settings, the
+// rest of the target black. The presenter owns the window, the targets and the submission; this
+// owns the render pass every target's framebuffer is made for. `frame_filter` picks the shader.
 #pragma once
 
 #include <cstdint>

@@ -5,25 +5,13 @@
 #include <cmath>
 #include <cstring>
 
+#include "frame_filter.hpp"
+
 namespace opensu::retro {
 namespace {
 
 constexpr std::uint32_t vertexCode[] = {
 #include "frame.vert.inc"
-};
-
-constexpr std::uint32_t fragmentCode[] = {
-#include "frame.frag.inc"
-};
-
-constexpr std::uint32_t sharpBilinearCode[] = {
-#include "sharp_bilinear.frag.inc"
-};
-
-/// What `sharp_bilinear.frag` takes.
-struct SharpScale {
-    std::array<float, 2> texels;
-    std::array<float, 2> prescale;
 };
 
 /// The whole multiple of `size` that fits `room`, or with `overscale` the one that fills it; at
@@ -237,22 +225,20 @@ void FrameCompositor::createPipeline() {
     setLayout.pBindings = &binding;
     check(vkCreateDescriptorSetLayout(vk_, &setLayout, nullptr, &setLayout_),
           "vkCreateDescriptorSetLayout");
-    const VkPushConstantRange scale{VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SharpScale)};
+    const VkPushConstantRange push{VK_SHADER_STAGE_FRAGMENT_BIT, 0, framePushSize};
     VkPipelineLayoutCreateInfo layout{};
     layout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layout.setLayoutCount = 1;
     layout.pSetLayouts = &setLayout_;
     layout.pushConstantRangeCount = 1;
-    layout.pPushConstantRanges = &scale;
+    layout.pPushConstantRanges = &push;
     check(vkCreatePipelineLayout(vk_, &layout, nullptr, &pipelineLayout_),
           "vkCreatePipelineLayout");
 
     const VkShaderModule vertex = makeShader(vk_, vertexCode);
     VkShaderModule fragment = VK_NULL_HANDLE;
     try {
-        fragment = video_.sampling == settings::Sampling::SharpBilinear
-                       ? makeShader(vk_, sharpBilinearCode)
-                       : makeShader(vk_, fragmentCode);
+        fragment = makeShader(vk_, fragmentShader(video_));
     } catch (...) {
         vkDestroyShaderModule(vk_, vertex, nullptr);
         throw;
@@ -463,15 +449,13 @@ void FrameCompositor::recordDraw(VkCommandBuffer commands, VkFramebuffer target,
                                 &descriptorSet_, 0, nullptr);
         vkCmdSetViewport(commands, 0, 1, &viewport);
         vkCmdSetScissor(commands, 0, 1, &scissor);
-        if (video_.sampling == settings::Sampling::SharpBilinear) {
-            const auto texelsWide = static_cast<float>(textureWidth_);
-            const auto texelsHigh = static_cast<float>(textureHeight_);
-            const SharpScale scale{{texelsWide, texelsHigh},
-                                   {wholeScale(viewport.width, texelsWide, false),
-                                    wholeScale(viewport.height, texelsHigh, false)}};
-            vkCmdPushConstants(commands, pipelineLayout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                               sizeof(scale), &scale);
-        }
+        const auto texelsWide = static_cast<float>(textureWidth_);
+        const auto texelsHigh = static_cast<float>(textureHeight_);
+        const FramePush push = framePush(video_, {texelsWide, texelsHigh},
+                                         {wholeScale(viewport.width, texelsWide, false),
+                                          wholeScale(viewport.height, texelsHigh, false)});
+        vkCmdPushConstants(commands, pipelineLayout_, VK_SHADER_STAGE_FRAGMENT_BIT, 0, push.size,
+                           push.bytes.data());
         vkCmdDraw(commands, 3, 1, 0, 0);
     }
     vkCmdEndRenderPass(commands);

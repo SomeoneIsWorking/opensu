@@ -83,7 +83,7 @@ gitignored `docs/reference/`).
 | `src/settings/settings.*` | The player's saved preferences (Library layout, dock pin, icon size, sort and filters, hidden games, last-played times, Settings-screen choices, interface scale, install folders, the Wine runner and the games with their own Wine prefix, shortcut remaps, plugins turned on or off with the permissions granted) as JSON under the config dir; defaults on a missing or corrupt file; the integration choices (`integrations`), absent until chosen |
 | `src/settings/integrations.*` | The integration choices and the one rule for what is in force from them (`Integrations::inForce`): ROMs and libretro always, the rest only when chosen; Steam Off, Normal, Managed or Isolated, no Normal in a login session; Isolated's controller choice (`SteamPads`: openSU's virtual pads, the default, or every controller) with its label and note |
 | `src/settings/setting_layers.*` | Setting layers (Global, System, Emulator = the core layer, Game), `LayerKeys`, `layersOf`, one resolve rule with the source layer (`Resolved::from`); missing key inherits, clear deletes |
-| `src/settings/video_settings.*` | Video settings `video.aspect` / `video.integer` / `video.sampling`: choices and labels (`videoKeys`, `choiceLabel`), `resolveVideo` to `VideoSettings`, the runner's per-launch file (`launchFileText`, `parseLaunchFile`) |
+| `src/settings/video_settings.*` | Video settings `video.aspect` / `video.integer` / `video.sampling` / `video.filter`: choices and labels (`videoKeys`, `choiceLabel`), `resolveVideo` to `VideoSettings`, the runner's per-launch file (`launchFileText`, `parseLaunchFile`) |
 | `src/settings/game_settings_store.*` | `game-settings.json` under the config dir: every layer's keys (`global`, `systems`, `emulators`, `games`), written atomically; damaged entries left out |
 | `src/settings/emulator_pick_migration.*` | One-time move of `settings.json`'s `emulators` / `systemEmulators` picks into the game settings, the old keys then dropped |
 | `src/settings/mapping_store.*` | `mappings.json` under the config dir: every scope's `ButtonMap` and the Steam Input switch, written whole and atomically; a damaged file or entry warned and left out |
@@ -234,8 +234,9 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | `src/retro/save_memory.*` | Save RAM: load, change check, atomic `.srm` write |
 | `src/retro/presenter.*` | The SDL window and its events; Vulkan swapchain or hidden offscreen image, each frame's submission and present, read-back |
 | `src/retro/frame_compositor.*` | What a target shows: render pass, frame texture upload, placement for aspect and integer scale / overscale (`placeFrame`, `letterbox`), nearest / bilinear / sharp-bilinear sampling |
+| `src/retro/frame_filter.*` | Built-in video filters (none, scanlines, LCD grid, CRT / crt-lottes): which fragment shader a sampling and filter draw with, the filters' parameters as constants, the push-constant block per draw |
 | `src/retro/vulkan_device.*` | Vulkan instance (optional validation), device and graphics queue; memory, image views and 2D image descriptions for its owners |
-| `src/retro/shaders/` | GLSL for the frame, compiled by glslc into SPIR-V headers in the build tree (gpu2d's `gpu2d_compile_shaders`) |
+| `src/retro/shaders/` | GLSL for the frame (nearest/bilinear, sharp bilinear, the scanline and LCD-grid bands on the source pixel grid in `frame_grid.glsl`, crt-lottes), compiled by glslc into SPIR-V headers in the build tree (gpu2d's `gpu2d_compile_shaders`) |
 | `tests/retro/` | Fake cores (`fake_core.cpp`, built three times: serializing, crashing, stateless), unit tests of each owner, `core_test`, and `runner_test` running `opensu-retro --hidden` end to end, its control channel included |
 
 ## Plugins
