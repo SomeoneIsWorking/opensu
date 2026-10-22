@@ -9,6 +9,7 @@ namespace {
 
 constexpr float resultSp = 16.0f;
 constexpr float insetDp = 14.0f;
+constexpr Colour cardFill{0xF8, 0xF8, 0xFB, 240};
 
 } // namespace
 
@@ -32,14 +33,27 @@ std::vector<HintPrompt> SearchPanelPainter::hints(const SearchPanel& panel) cons
 
 void SearchPanelPainter::paint(Canvas& canvas, const SearchPanel& panel, Point size, float dp,
                                const PanelLook& look, double seconds) const {
+    if (look.alpha <= 0.0f) {
+        return;
+    }
     const SearchLayout layout =
         layoutSearch(Rect{0.0f, 0.0f, size.x, size.y}, dp, panel.keyboard().style());
     const bool inResults = panel.zone() == SearchZone::Results;
-    const float inset = insetDp * dp;
-    // The results: as many rows as fit, from the first in view.
-    const auto results = [&](float alpha) {
+    const float alpha = look.alpha;
+    {
+        const PanelScope scope{canvas, Point{layout.card.centreX(), layout.card.centreY()},
+                               look.scale};
+        const bool none = panel.results().empty() && !panel.keyboard().text().empty();
+        // "No results" takes a row of its own.
+        const std::size_t listed =
+            none ? 1
+                 : panel.results().size() - std::min(panel.results().size(), panel.firstListed());
+        canvas.fillRoundRect(onCanvas(layout.cardFor(listed)), layout.cardRadius,
+                             withAlpha(cardFill, alpha));
+        keyboard_.paintField(canvas, panel.keyboard(), layout.field, alpha, seconds);
+        const float inset = insetDp * dp;
         const TextStyle result{resultSp * dp};
-        if (panel.results().empty() && !panel.keyboard().text().empty()) {
+        if (none) {
             typeface_.drawCentred(canvas, "No results", layout.results[0].x + inset,
                                   layout.results[0].centreY(), result,
                                   withAlpha(palette::inkSoft, alpha));
@@ -56,14 +70,13 @@ void SearchPanelPainter::paint(Canvas& canvas, const SearchPanel& panel, Point s
             const float detail = typeface_.measure(entry.detail, result);
             typeface_.drawCentred(canvas, entry.detail, box.right() - inset - detail, box.centreY(),
                                   result, withAlpha(palette::inkSoft, alpha));
-            keyboard_.drawFitted(canvas, entry.title, box.x + inset, box.centreY(),
-                                 box.width - detail - inset * 3.0f, result,
-                                 withAlpha(palette::ink, alpha));
+            typeface_.drawCentred(
+                canvas, typeface_.fitted(entry.title, box.width - detail - inset * 3.0f, result),
+                box.x + inset, box.centreY(), result, withAlpha(palette::ink, alpha));
         }
-    };
-    keyboard_.paint(
-        canvas, panel.keyboard(), layout.keyboard, size, dp, look, seconds,
-        KeyboardExtras{.reserved = results, .hints = hints(panel), .keysFocused = !inResults});
+    }
+    keyboard_.paint(canvas, panel.keyboard(), layout.keyboard, look, seconds,
+                    KeyboardExtras{.hints = hints(panel), .keysFocused = !inResults});
 }
 
 } // namespace opensu::ui

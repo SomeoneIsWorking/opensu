@@ -50,6 +50,10 @@ class Typeface {
     void drawCentred(Canvas& canvas, std::string_view text, float x, float centreY,
                      const TextStyle& style, Colour colour);
 
+    /// Draws the first character of `character` with the middle of its ink on `centre`.
+    void drawInkCentred(Canvas& canvas, std::string_view character, Point centre,
+                        const TextStyle& style, Colour colour);
+
     /// Cal Sans's capital height as a share of the em (navigation.md §5.3).
     static constexpr float capHeightPerEm = 0.70f;
     /// Draws a label from `origin.x` with the tops of its capitals at `origin.y`.

@@ -1,7 +1,7 @@
-// search_panel — iiSU's Global Search panel (`g73.b`, `kl2.a`; screens.md): the on-screen keyboard
-// with the results listed between its field and its keys. The panel fades and grows in over about
-// 120 ms (motion.md §2.5; the Friends search's 180/120 is another panel). Pure state, tested
-// without a window.
+// search_panel — iiSU's Global Search panel (`g73.b`, `kl2.a`; screens.md): a card with the field
+// and the results standing above the on-screen keyboard docked along the bottom edge. The panel
+// fades and grows in over about 120 ms (motion.md §2.5; the Friends search's 180/120 is another
+// panel). Pure state, tested without a window.
 #pragma once
 
 #include <array>
@@ -17,7 +17,7 @@
 namespace opensu::ui {
 
 /// The results listed at once.
-inline constexpr std::size_t searchResultRows = 3;
+inline constexpr std::size_t searchResultRows = 5;
 
 /// A line of the results list: a title and what it is.
 struct SearchResult {
@@ -27,13 +27,18 @@ struct SearchResult {
     bool operator==(const SearchResult&) const = default;
 };
 
-/// Where the panel's parts stand in a frame, in pixels: the keyboard's, and the results in the
-/// room it keeps for them.
+/// Where the panel's parts stand in a frame, in pixels: the docked keyboard, and above it the card
+/// with the field and the results.
 struct SearchLayout {
     KeyboardLayout keyboard;
+    Rect card;
+    float cardRadius{};
+    Rect field;
     /// The results listed, top to bottom.
     std::array<Rect, searchResultRows> results;
 
+    /// The card holding the field and `listed` rows; it grows down from where the field stands.
+    [[nodiscard]] Rect cardFor(std::size_t listed) const noexcept;
     /// The listed row under the point (0 is the first listed), or nothing.
     [[nodiscard]] std::optional<std::size_t> resultAt(float x, float y) const noexcept;
 };

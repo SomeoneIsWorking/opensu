@@ -82,6 +82,19 @@ bool Shell::chromeDark() noexcept {
     return luminance(palette::ground) < 0.5f;
 }
 
+const OnScreenKeyboard* Shell::dockedKeyboard() const noexcept {
+    if (search_.isOpen()) {
+        return &search_.keyboard();
+    }
+    if (settings_.entry().isOpen()) {
+        return &settings_.entry();
+    }
+    if (session_.password().isOpen()) {
+        return &session_.password();
+    }
+    return nullptr;
+}
+
 float Shell::dp() const noexcept {
     return std::min(static_cast<float>(width_) / referenceWidthDp,
                     static_cast<float>(height_) / referenceHeightDp) *
@@ -1038,7 +1051,10 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
                             static_cast<float>(scene.height())};
     canvas.image(scene.view(gpu2d::Filter::Nearest), whole, whole, white);
     float toastFloor = size.y;
-    if (!detailsFade_.visible(now_) && !settings_.pageVisible(now_) && !menuPageVisible()) {
+    if (const OnScreenKeyboard* keyboard = dockedKeyboard()) {
+        toastFloor =
+            layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp(), keyboard->style()).panel.y;
+    } else if (!detailsFade_.visible(now_) && !settings_.pageVisible(now_) && !menuPageVisible()) {
         const DockFrame dock = dockFrame(size.x, size.y);
         drawDock(canvas, scene, dock);
         toastFloor = std::min(toastFloor, DockPainter::top(dock.layout, dock.style));

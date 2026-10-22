@@ -1,6 +1,6 @@
-// search_panel_painter — draws the Global Search panel: the on-screen keyboard
-// (`on_screen_keyboard_painter`) with white result rows between its field and its keys, the
-// focused one outlined in ink.
+// search_panel_painter — draws the Global Search panel: a pale card with the field and white result
+// rows, the focused one outlined in ink, above the docked on-screen keyboard
+// (`on_screen_keyboard_painter`).
 #pragma once
 
 #include "on_screen_keyboard_painter.hpp"

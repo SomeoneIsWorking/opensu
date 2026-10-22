@@ -22,13 +22,14 @@ void resultsZone() {
                       {"Game 1", "Steam"},
                       {"Game 2", "Steam"},
                       {"Game 3", "Steam"},
-                      {"Game 4", "Steam"}});
+                      {"Game 4", "Steam"},
+                      {"Game 5", "Steam"},
+                      {"Game 6", "Steam"}});
     expect(panel.enterResults() && panel.zone() == SearchZone::Results, "the results take focus");
-    panel.moveInResults(Direction::Down);
-    panel.moveInResults(Direction::Down);
-    panel.moveInResults(Direction::Down);
-    expect(panel.resultFocus() == 3 && panel.firstListed() == 1, "the list scrolls to the focus");
-    panel.moveInResults(Direction::Down);
+    for (int step = 0; step < 6; ++step) {
+        panel.moveInResults(Direction::Down);
+    }
+    expect(panel.resultFocus() == 6 && panel.firstListed() == 2, "the list scrolls to the focus");
     expect(panel.moveInResults(Direction::Down) && panel.zone() == SearchZone::Keys,
            "down from the last result returns to the keys");
     expect(panel.switchZone() && panel.zone() == SearchZone::Results, "X switches to the results");
@@ -51,8 +52,17 @@ void layoutHitTests() {
             expect(!layout.keyboard.keyAt(layout.results[i].centreX(), layout.results[i].y + 1.0f),
                    "and no key");
         }
-        expect(layout.results.back().bottom() <= layout.keyboard.reserved.bottom(),
-               "the results fill the keyboard's reserved room");
+        expect(layout.field.bottom() <= layout.results.front().y &&
+                   layout.results.back().bottom() <= layout.card.bottom() &&
+                   layout.card.bottom() <= layout.keyboard.panel.y,
+               "the field and the results stand in the card above the docked keyboard");
+        expect(layout.keyboard.preview.height == 0.0f, "the card's field replaces the preview");
+        expect(layout.cardFor(0).bottom() > layout.field.bottom() &&
+                   layout.cardFor(0).bottom() < layout.cardFor(1).bottom() &&
+                   layout.cardFor(1).bottom() > layout.results[0].bottom() &&
+                   layout.cardFor(99).height == layout.card.height &&
+                   layout.cardFor(2).y == layout.card.y,
+               "the card holds the rows listed, growing down from the field");
     }
 }
 

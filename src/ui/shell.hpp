@@ -237,6 +237,9 @@ class Shell {
     /// Whether a panel that takes every button is up: the options, the search, a context menu, the
     /// details page, the Settings screen, the Devices or Downloads page, the mapping editor or a
     /// Guide menu.
+    /// The on-screen keyboard docked along the bottom edge (search, a path, a password), which
+    /// takes the place of the nav dock and the corner hints; nullptr when none is open.
+    [[nodiscard]] const OnScreenKeyboard* dockedKeyboard() const noexcept;
     [[nodiscard]] bool panelOpen() const noexcept {
         return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || details_.isOpen() ||
                settings_.anyOpen() || menuPageOpen() || mapping_.isOpen() || guide_.anyOpen() ||

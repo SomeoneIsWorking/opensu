@@ -66,8 +66,8 @@ Visible deltas from the baseline:
 - Library tools, openSU's own (iiSU has none of the filters or the sort). Global Search is iiSU's
   panel (Ctrl+F, `/`, or a row of the START options): case- and accent-insensitive substring on the
   title, prefix matches first, narrowing as typed; a keyboard types straight into the field, a pad
-  gets the on-screen keyboard (daisy wheel by default, regular grid in Settings › Controls ›
-  Keyboard; `docs/design/on-screen-keyboard.md`). The START options (Home and Library) add a sort (recently played,
+  gets the on-screen keyboard docked along the bottom fifth with the results above it (compact
+  daisy wheel by default, regular grid in Settings › Controls › Keyboard; `docs/design/on-screen-keyboard.md`). The START options (Home and Library) add a sort (recently played,
   name, store), a source filter (a store or a ROM system), installed only and hidden games only;
   sort, source and installed are kept in `settings.json`, the search and the hidden filter are not.
   Hide/Unhide is in the context menu (Select on a pad; Tab, the Menu key or Shift+F10 on a keyboard;

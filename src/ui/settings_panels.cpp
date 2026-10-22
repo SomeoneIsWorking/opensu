@@ -17,8 +17,14 @@ void SettingsPanels::drawPage(Canvas& canvas, Point size, float dp, float topIns
 
 void SettingsPanels::drawOverlays(Canvas& canvas, Point size, float dp, Clock::time_point now,
                                   double seconds) const {
-    folderPainter_.paint(canvas, folders_, size, dp, folderFade_.look(now));
+    folderPainter_.paint(canvas, folders_, folderFrame(size, dp), size, dp, folderFade_.look(now));
     entryPainter_.paint(canvas, entry_, size, dp, entryFade_.look(now), seconds);
+}
+
+Rect SettingsPanels::folderFrame(Point size, float dp) const {
+    // Its "Type a path" keyboard docks under it, so it stands above the dock even before that.
+    return Rect{0.0f, 0.0f, size.x,
+                layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp, entry_.style()).panel.y};
 }
 
 PointerTarget SettingsPanels::pointAt(Point point, Point size, float dp, float topInset,
@@ -33,7 +39,7 @@ PointerTarget SettingsPanels::pointAt(Point point, Point size, float dp, float t
     }
     if (folders_.isOpen()) {
         if (const std::optional<std::size_t> row =
-                folders_.layout(frame, dp).rowAt(point.x, point.y)) {
+                folders_.layout(folderFrame(size, dp), dp).rowAt(point.x, point.y)) {
             return OnFolderEntry{*row};
         }
         return {};

@@ -28,14 +28,14 @@ constexpr float outlineDp = 1.8f;
 
 } // namespace
 
-void FolderChooserPainter::paint(Canvas& canvas, const FolderChooser& chooser, Point size, float dp,
-                                 const PanelLook& look) const {
+void FolderChooserPainter::paint(Canvas& canvas, const FolderChooser& chooser, const Rect& frame,
+                                 Point size, float dp, const PanelLook& look) const {
     if (look.alpha <= 0.0f) {
         return;
     }
     const float alpha = look.alpha;
     canvas.fillRect(gpu2d::Rect{0.0f, 0.0f, size.x, size.y}, withAlpha(scrim, alpha));
-    const FolderChooserLayout layout = chooser.layout(Rect{0.0f, 0.0f, size.x, size.y}, dp);
+    const FolderChooserLayout layout = chooser.layout(frame, dp);
     const PanelScope scope{canvas, Point{layout.panel.centreX(), layout.panel.centreY()},
                            look.scale};
     fillRoundRect(canvas, RoundRect{layout.panel, layout.radius}, [alpha](Point, float) {

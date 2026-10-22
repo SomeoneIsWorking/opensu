@@ -79,6 +79,9 @@ class SettingsPanels {
 
   private:
     PagePanel page_;
+    /// Where the folder chooser stands: the screen above where the path keyboard docks.
+    [[nodiscard]] Rect folderFrame(Point size, float dp) const;
+
     FolderChooser folders_;
     PanelFade folderFade_{FadeSpec{150.0f, 150.0f, 1.0f, 0.0f, 1.0f}};
     FolderChooserPainter folderPainter_;

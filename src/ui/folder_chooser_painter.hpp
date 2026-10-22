@@ -16,9 +16,10 @@ class FolderChooserPainter {
         : typeface_{typeface}, glyphs_{prompts, typeface} {
     }
 
-    /// Draws `chooser` into a frame of `size` at `dp` pixels per dp, as faded and scaled by `look`.
-    void paint(Canvas& canvas, const FolderChooser& chooser, Point size, float dp,
-               const PanelLook& look) const;
+    /// Draws `chooser` centred in `frame` over a screen of `size` at `dp` pixels per dp, as faded
+    /// and scaled by `look`.
+    void paint(Canvas& canvas, const FolderChooser& chooser, const Rect& frame, Point size,
+               float dp, const PanelLook& look) const;
 
   private:
     Typeface& typeface_;
