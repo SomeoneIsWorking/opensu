@@ -1,4 +1,4 @@
-add_library(opensu_fileio STATIC atomic_write.cpp)
+add_library(opensu_fileio STATIC atomic_write.cpp owner_only_write.cpp)
 add_library(opensu::fileio ALIAS opensu_fileio)
 target_include_directories(opensu_fileio PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_compile_features(opensu_fileio PUBLIC cxx_std_20)

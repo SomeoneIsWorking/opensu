@@ -11,6 +11,7 @@
 #include <string_view>
 #include <vector>
 
+#include "artwork_settings.hpp"
 #include "audio/sdl_sound_player.hpp"
 #include "chord_settings.hpp"
 #include "config/config.hpp"
@@ -67,6 +68,7 @@ class SettingsController {
         MappingEditor& mappings;
         WineSettings& wine;
         IntegrationSettings& integrations;
+        ArtworkSettings& artwork;
         /// Which pages and rows show: those of the integrations in force.
         const IntegrationsInForce& inForce;
     };
@@ -78,9 +80,9 @@ class SettingsController {
           volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
           layers_{services.layers}, steamLibraries_{services.steamLibraries},
           plugins_{services.plugins}, chords_{services.chords}, mappings_{services.mappings},
-          wine_{services.wine}, integrations_{services.integrations}, inForce_{services.inForce},
-          sounds_{sounds}, preferences_{preferences}, defaults_{defaults},
-          hooks_{std::move(hooks)} {
+          wine_{services.wine}, integrations_{services.integrations}, artwork_{services.artwork},
+          inForce_{services.inForce}, sounds_{sounds}, preferences_{preferences},
+          defaults_{defaults}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -95,7 +97,7 @@ class SettingsController {
     void chooseLevel(int level);
     /// Shows the rows again after something outside the screen changed one.
     void refresh();
-    /// Takes what the Steam libraries' worker finished. Main loop only.
+    /// Takes what the Steam libraries' and SteamGridDB's workers finished. Main loop only.
     void service();
     /// The pad goes back to the list of categories; the trail's "Settings" level does this.
     void showCategories();
@@ -146,6 +148,7 @@ class SettingsController {
     MappingEditor& mappings_;
     WineSettings& wine_;
     IntegrationSettings& integrations_;
+    ArtworkSettings& artwork_;
     const IntegrationsInForce& inForce_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;

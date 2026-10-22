@@ -70,13 +70,15 @@ void storeGame() {
     expect(valueOf(view, "Last played") == "3 hours ago", "last played");
     expect(valueOf(view, "Play time") == "2 h 5 min", "play time");
     expect(valueOf(view, "Emulator").empty(), "a store game has no emulator row");
-    expect(view.buttons.size() == 5 && view.buttons[0].label == "Play" &&
+    expect(view.buttons.size() == 6 && view.buttons[0].label == "Play" &&
                view.buttons[1].label == "Hide game" &&
                view.buttons[2].action == DetailsAction::Uninstall &&
                view.buttons[2].label == "Uninstall" &&
-               view.buttons[3].action == DetailsAction::Controls &&
-               view.buttons[3].label == "Controls" && view.buttons[4].action == DetailsAction::Back,
-           "Play, Hide, Uninstall, Controls, Back");
+               view.buttons[3].action == DetailsAction::ChooseArtwork &&
+               view.buttons[3].label == "Choose artwork" &&
+               view.buttons[4].action == DetailsAction::Controls &&
+               view.buttons[4].label == "Controls" && view.buttons[5].action == DetailsAction::Back,
+           "Play, Hide, Uninstall, Choose artwork, Controls, Back");
 }
 
 void states() {
@@ -86,8 +88,8 @@ void states() {
     expect(view.buttons[0].label == "Install", "a game that is not installed offers Install");
     expect(valueOf(view, "Status") == "Not installed, hidden", "hidden shows");
     expect(view.buttons[1].label == "Show game", "a hidden game offers to be shown");
-    expect(view.buttons.size() == 4 && view.buttons[2].action == DetailsAction::Controls &&
-               view.buttons[3].action == DetailsAction::Back,
+    expect(view.buttons.size() == 5 && view.buttons[3].action == DetailsAction::Controls &&
+               view.buttons[4].action == DetailsAction::Back,
            "a game that is not installed has nothing to uninstall");
 }
 
@@ -104,7 +106,7 @@ void romEmulator() {
            "an emulator that is not installed says so");
     Game single = kirby(true);
     single.emulatorOptions.pop_back();
-    expect(detailsFor(single, false, now).buttons.size() == 4,
+    expect(detailsFor(single, false, now).buttons.size() == 5,
            "one emulator leaves nothing to choose");
 }
 

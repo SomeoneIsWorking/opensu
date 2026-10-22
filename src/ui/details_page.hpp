@@ -35,6 +35,8 @@ enum class DetailsAction : std::uint8_t {
     GameSettings,
     /// Clear every setting the game keeps of its own.
     ClearSettings,
+    /// Pick the game's cover from SteamGridDB's.
+    ChooseArtwork,
     /// Edit the game's button mapping.
     Controls,
     Back,

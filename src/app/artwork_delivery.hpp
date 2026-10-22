@@ -3,6 +3,7 @@
 // working on the games on screen first.
 #pragma once
 
+#include <filesystem>
 #include <functional>
 #include <string>
 #include <vector>
@@ -16,11 +17,17 @@ namespace opensu::app {
 
 class ArtworkDelivery {
   public:
-    /// `namesArrived` is called when the arcade names were downloaded, which re-title the library.
+    struct Hooks {
+        /// The arcade names were downloaded, which re-title the library.
+        std::function<void()> namesArrived;
+        /// Game `id`'s cover was saved as `file`; the hook shows it.
+        std::function<void(const std::string& id, const std::filesystem::path& file)> coverArrived;
+    };
+
     ArtworkDelivery(ui::Shell& shell, audio::SdlSoundPlayer& sounds, artwork::ArtworkStore& store,
-                    artwork::ArtworkFetcher& fetcher, std::function<void()> namesArrived)
+                    artwork::ArtworkFetcher& fetcher, Hooks hooks)
         : shell_{shell}, sounds_{sounds}, store_{store}, fetcher_{fetcher},
-          namesArrived_{std::move(namesArrived)} {
+          hooks_{std::move(hooks)} {
     }
 
     /// Shows artwork and loads sounds the fetcher has downloaded. Main loop only.
@@ -35,7 +42,7 @@ class ArtworkDelivery {
     audio::SdlSoundPlayer& sounds_;
     artwork::ArtworkStore& store_;
     artwork::ArtworkFetcher& fetcher_;
-    std::function<void()> namesArrived_;
+    Hooks hooks_;
     /// The games whose art the shell wants first, as last sent to the fetcher.
     std::vector<std::string> prioritised_;
 };

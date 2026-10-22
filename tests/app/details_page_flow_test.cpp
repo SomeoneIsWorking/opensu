@@ -117,6 +117,9 @@ struct Rig {
                          },
                          [] {
                              return false;
+                         },
+                         [this](const library::Game& opened) {
+                             calls.push_back("artwork " + opened.id);
                          }}} {
     }
 };
@@ -154,6 +157,11 @@ void backClosesWithoutActing(const fs::path& dir) {
     rig.controller.open();
     rig.controller.act(Button::Down);
     rig.controller.act(Button::Down);
+    rig.controller.act(Button::Down);
+    rig.controller.act(Button::A);
+    expect(rig.calls == std::vector<std::string>{"artwork rom:/r/Kirby.nsp"} && rig.page.isOpen(),
+           "Choose artwork opens the cover picker over the page");
+    rig.calls.clear();
     rig.controller.act(Button::Down);
     rig.controller.act(Button::A);
     expect(rig.calls == std::vector<std::string>{"controls rom:/r/Kirby.nsp"} && rig.page.isOpen(),

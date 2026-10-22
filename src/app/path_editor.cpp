@@ -39,7 +39,7 @@ void PathEditor::closeEntry() {
 }
 
 void PathEditor::act(gamepad::Button button) {
-    if (entry_.isOpen()) {
+    if (typing()) {
         actOnKeys(button);
     } else if (folders_.isOpen()) {
         actInChooser(button);

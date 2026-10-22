@@ -107,6 +107,7 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
     pages.push_back(controlsPage());
     pages.push_back(chords_.page());
     pages.push_back(installPage());
+    pages.push_back(artwork_.page());
     // Wine runs the Windows builds of GOG and Epic games.
     if (in.epic || in.gog) {
         pages.push_back(wine_.page());
@@ -338,6 +339,7 @@ void SettingsController::refresh() {
 
 void SettingsController::service() {
     steamLibraries_.service();
+    artwork_.service();
 }
 
 void SettingsController::changed() {
@@ -520,6 +522,13 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
         if (focused.kind != RowKind::Info) {
             sounds_.play(audio::Effect::Navigation);
             integrations_.run(id, step);
+        }
+        return;
+    }
+    if (ArtworkSettings::owns(id)) {
+        if (focused.kind != RowKind::Info && step == 0) {
+            sounds_.play(audio::Effect::Navigation);
+            artwork_.run(id, step);
         }
         return;
     }

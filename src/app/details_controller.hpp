@@ -2,8 +2,8 @@
 // update it, pick its emulator, open its settings tabs (`GameSettingsPage`) or clear the settings
 // it keeps of its own,
 // download the emulator it is missing, give a Windows install its own Wine prefix or the shared
-// one, hide it, uninstall it (two presses), open its button mapping, go back. Opens for the focused
-// game and keeps what it shows current while the library changes under it.
+// one, hide it, uninstall it (two presses), open its button mapping, choose its cover, go back.
+// Opens for the focused game and keeps what it shows current while the library changes under it.
 #pragma once
 
 #include <functional>
@@ -44,6 +44,8 @@ class DetailsController {
         std::function<void(const library::Game& game)> openGameSettings;
         /// Whether frame generation can be set here (`FrameGeneration::available`).
         std::function<bool()> frameGeneration;
+        /// Opens "Choose artwork" for `game` over the page.
+        std::function<void(const library::Game& game)> chooseArtwork;
     };
 
     DetailsController(ui::DetailsPage& page, audio::SdlSoundPlayer& sounds,

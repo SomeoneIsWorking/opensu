@@ -20,3 +20,23 @@ target_link_libraries(iisu_assets_test PRIVATE opensu::artwork)
 target_include_directories(iisu_assets_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_options(iisu_assets_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME iisu_assets COMMAND iisu_assets_test)
+
+add_executable(steamgriddb_test steamgriddb_test.cpp)
+target_link_libraries(steamgriddb_test PRIVATE opensu::artwork lucent::lucent Threads::Threads)
+target_include_directories(steamgriddb_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(steamgriddb_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME steamgriddb COMMAND steamgriddb_test)
+
+add_executable(steamgriddb_covers_test steamgriddb_covers_test.cpp)
+target_link_libraries(steamgriddb_covers_test PRIVATE opensu::artwork gpu2d::image lucent::lucent
+                                                      Threads::Threads)
+target_include_directories(steamgriddb_covers_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(steamgriddb_covers_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+target_compile_options(steamgriddb_covers_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME steamgriddb_covers COMMAND steamgriddb_covers_test)
+
+# Not a test: the API a hidden openSU is pointed at to show SteamGridDB's covers in a frame.
+add_executable(steamgriddb_api_stand_in "${CMAKE_SOURCE_DIR}/tests/support/steamgriddb_api_stand_in.cpp")
+target_link_libraries(steamgriddb_api_stand_in PRIVATE gpu2d::image lucent::lucent Threads::Threads)
+target_include_directories(steamgriddb_api_stand_in PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(steamgriddb_api_stand_in PRIVATE -Wall -Wextra -Wpedantic)

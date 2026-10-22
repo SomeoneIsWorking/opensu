@@ -316,8 +316,9 @@ def _downloads_uninstalling(shell: HiddenShell) -> None:
     _open_downloads(shell)
 
 
-# The most buttons a details page has: Play, Update, Emulator, Hide game, Uninstall, Controls, Back.
-LONGEST_DETAILS = 7
+# The most buttons a details page has: Play, Update, Emulator, Hide game, Uninstall, Choose artwork,
+# Controls, Back.
+LONGEST_DETAILS = 8
 
 
 def _game_mapping(shell: HiddenShell) -> None:
