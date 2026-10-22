@@ -953,7 +953,10 @@ command line carries `AppId=<id>` and everything below it are SIGKILLed at once
 (`launch::ProcessTree::killMatching`), leaving the client up, and the close returns once Steam no
 longer says the game runs (`Handoff::endSteamLaunch`). The menu only raises the request;
 the launch's own thread does the stop and the wait, so the shell keeps drawing however long the
-game takes to go. Proof (`scratch/close-game/runs/`, hidden shell, scratch XDG dirs): before the
+game takes to go. The shell's own exit (SIGTERM, Quit) closes a running game the same way and
+waits for its end before it tears down: `GameLaunch` owns the launch thread and joins it, so a
+hidden shell SIGTERMed over mGBA Kirby exits 0 with the `.srm` written, 19 of 19 that reached the game
+(`scratch/sigterm-crash/runs/fixed-summary.txt`; before, 5 of 6 SIGSEGV). Proof (`scratch/close-game/runs/`, hidden shell, scratch XDG dirs): before the
 change Close game ran `systemctl kill --signal=SIGKILL` and the runner logged no exit
 (`before-mgba/`); after it, mGBA Kirby logged `ran 693 frames` (`after-mgba/`), Mupen64Plus-Next
 Ocarina of Time `ran 1699 frames` then `the core's Vulkan context is destroyed` (`after-mupen/`),
