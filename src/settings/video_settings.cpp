@@ -4,33 +4,20 @@
 
 #include <nlohmann/json.hpp>
 
-#include "lucent/log.h"
-
 namespace opensu::settings {
 namespace {
 
-const VideoKey& aspectKey() {
+const ChoiceKey& aspectKey() {
     return videoKeys[0];
 }
-const VideoKey& integerKey() {
+const ChoiceKey& integerKey() {
     return videoKeys[1];
 }
-const VideoKey& samplingKey() {
+const ChoiceKey& samplingKey() {
     return videoKeys[2];
 }
-const VideoKey& filterKey() {
+const ChoiceKey& filterKey() {
     return videoKeys[3];
-}
-
-/// `spelling`'s place among `video`'s choices, or the default's (0) with a warning naming `where`.
-std::size_t indexOrDefault(const VideoKey& video, std::string_view spelling,
-                           std::string_view where) {
-    if (const std::optional<std::size_t> index = choiceIndex(video, spelling)) {
-        return *index;
-    }
-    lucent::warn("settings", "{}: {} is not a {} choice; using {}", where, spelling, video.key,
-                 video.choices.front().key);
-    return 0;
 }
 
 } // namespace
@@ -39,22 +26,9 @@ bool replacedByShader(std::string_view key) noexcept {
     return key == samplingKey().key || key == filterKey().key;
 }
 
-const VideoKey* videoKey(std::string_view key) {
-    const auto found = std::ranges::find(videoKeys, key, &VideoKey::key);
+const ChoiceKey* videoKey(std::string_view key) {
+    const auto found = std::ranges::find(videoKeys, key, &ChoiceKey::key);
     return found == videoKeys.end() ? nullptr : &*found;
-}
-
-std::optional<std::size_t> choiceIndex(const VideoKey& video, std::string_view spelling) {
-    const auto found = std::ranges::find(video.choices, spelling, &ChoiceText::key);
-    if (found == video.choices.end()) {
-        return std::nullopt;
-    }
-    return static_cast<std::size_t>(found - video.choices.begin());
-}
-
-std::string_view choiceLabel(const VideoKey& video, std::string_view spelling) {
-    const std::optional<std::size_t> index = choiceIndex(video, spelling);
-    return index ? video.choices[*index].label : spelling;
 }
 
 Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys) {
@@ -63,10 +37,10 @@ Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys) {
 
 VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
                            const std::filesystem::path& presets) {
-    const auto index = [&](const VideoKey& video) {
+    const auto index = [&](const ChoiceKey& video) {
         const Resolved resolved =
             layers.resolve(keys, video.key, std::string{video.choices.front().key});
-        return indexOrDefault(video, resolved.value, keys.game);
+        return choiceIndexOrDefault(video, resolved.value, keys.game);
     };
     const std::string shader = resolveShader(layers, keys).value;
     return VideoSettings{
@@ -79,7 +53,7 @@ VideoSettings resolveVideo(const SettingLayers& layers, const LayerKeys& keys,
 }
 
 std::string videoJson(const VideoSettings& video) {
-    const auto spelling = [](const VideoKey& key, auto value) {
+    const auto spelling = [](const ChoiceKey& key, auto value) {
         return std::string{key.choices[static_cast<std::size_t>(value)].key};
     };
     const nlohmann::json document{
@@ -100,7 +74,7 @@ std::optional<VideoSettings> parseVideoJson(std::string_view text, std::string& 
     }
     std::array<std::size_t, videoKeys.size()> chosen{};
     for (std::size_t at = 0; at < videoKeys.size(); ++at) {
-        const VideoKey& video = videoKeys[at];
+        const ChoiceKey& video = videoKeys[at];
         const auto found = document.find(std::string{video.key});
         if (found == document.end()) {
             continue;

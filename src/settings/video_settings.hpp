@@ -10,10 +10,10 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
-#include <span>
 #include <string>
 #include <string_view>
 
+#include "setting_choices.hpp"
 #include "setting_layers.hpp"
 
 namespace opensu::settings {
@@ -66,20 +66,6 @@ struct VideoSettings {
     bool operator==(const VideoSettings&) const = default;
 };
 
-/// A choice as it is kept and as the player reads it.
-struct ChoiceText {
-    std::string_view key;
-    std::string_view label;
-};
-
-/// One video setting: its key in the layers, its label, and its choices in the order of its enum,
-/// the first being the built-in default.
-struct VideoKey {
-    std::string_view key;
-    std::string_view label;
-    std::span<const ChoiceText> choices;
-};
-
 inline constexpr std::array<ChoiceText, 4> aspectChoices{{
     {"core", "Core"},
     {"4:3", "4:3"},
@@ -104,7 +90,8 @@ inline constexpr std::array<ChoiceText, 4> filterChoices{{
     {"crt", "CRT"},
 }};
 
-inline constexpr std::array<VideoKey, 4> videoKeys{{
+/// The video settings, each with its choices in the order of its enum.
+inline constexpr std::array<ChoiceKey, 4> videoKeys{{
     {"video.aspect", "Aspect", aspectChoices},
     {"video.integer", "Integer scale", integerChoices},
     {"video.sampling", "Sampling", samplingChoices},
@@ -119,12 +106,7 @@ inline constexpr std::string_view shaderLabel = "Shader preset";
 [[nodiscard]] bool replacedByShader(std::string_view key) noexcept;
 
 /// The video key `key` names, or null.
-[[nodiscard]] const VideoKey* videoKey(std::string_view key);
-/// Where `spelling` stands among `video`'s choices, or nothing when it is none of them.
-[[nodiscard]] std::optional<std::size_t> choiceIndex(const VideoKey& video,
-                                                     std::string_view spelling);
-/// The label of `spelling` among `video`'s choices; the spelling itself when it is none of them.
-[[nodiscard]] std::string_view choiceLabel(const VideoKey& video, std::string_view spelling);
+[[nodiscard]] const ChoiceKey* videoKey(std::string_view key);
 
 /// `keys`' video settings, each from its winning layer; a kept value that is no choice is
 /// reported and the default used. The shader preset is found under `presets`, the shader pack.

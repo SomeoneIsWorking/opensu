@@ -37,6 +37,7 @@
 #include "emulator_settings.hpp"
 #include "first_run_chooser.hpp"
 #include "focus_follow.hpp"
+#include "frame_generation.hpp"
 #include "game_launch.hpp"
 #include "game_screen.hpp"
 #include "game_settings.hpp"
@@ -56,6 +57,7 @@
 #include "layout_picker.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
+#include "library/lossless_scaling.hpp"
 #include "library/shelf.hpp"
 #include "mapping_editor.hpp"
 #include "pad_owner.hpp"
@@ -225,6 +227,9 @@ class ShellApp final : private PointerHost {
     /// Shows the running game under its video settings again after `game`'s layers changed, when
     /// it is that game on a built-in core.
     void applyVideo(const library::Game& game);
+    /// The game whose window is in front: the running game, unless Gamescope's focus is on
+    /// another window; null when none.
+    [[nodiscard]] const library::Game* gameInFront() const;
     /// Runs ROM `game` on emulator `name` from now on, and keeps the pick.
     void chooseEmulator(const library::Game& game, const std::string& name);
     /// The game with `id` as the grid shows it now.
@@ -255,6 +260,12 @@ class ShellApp final : private PointerHost {
     /// The arcade cores' romset lists, fetched off the library scan; before the catalog that
     /// matches with them.
     library::roms::RomsetLists romsetLists_{resolved_.cacheDir};
+    /// Frame generation for the game in front: the Gamescope fork's atoms, set from its layers.
+    FrameGeneration frameGeneration_{
+        gameSettings_, openFrameGenOutput(environment_.insideGamescope), [this] {
+            return library::findLosslessDll(
+                library::steam::Library::discover(resolved_.home, resolved_.steamRoots));
+        }};
     /// Lists every store off the loop; the loop takes what has arrived.
     library::CatalogLoader catalogLoader_;
     /// Downloaded artwork, and the worker that fills it in.
@@ -435,6 +446,9 @@ class ShellApp final : private PointerHost {
                                  },
                                  [this](const library::Game& game) {
                                      gameSettingsPage_.open(game, nullptr);
+                                 },
+                                 [this] {
+                                     return frameGeneration_.available();
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
@@ -656,13 +670,20 @@ class ShellApp final : private PointerHost {
                                        gameSettingsPage_.open(launches_.game(), [this] {
                                            quickMenu_.reopenOnGameSettings();
                                        });
+                                   },
+                                   [this] {
+                                       return frameGeneration_.available();
                                    }}};
     /// The game settings tabs, from the quick menu over a running game or over the details page.
-    GameSettingsPage gameSettingsPage_{shell_.guidePanels().tabs(), gameSettings_,
-                                       emulatorDownloads_, sounds_,
+    GameSettingsPage gameSettingsPage_{shell_.guidePanels().tabs(),
+                                       gameSettings_,
+                                       emulatorDownloads_,
+                                       frameGeneration_,
+                                       sounds_,
                                        GameSettingsPage::Hooks{[this](const library::Game& game) {
                                            details_.refresh();
                                            applyVideo(game);
+                                           frameGeneration_.changed();
                                        }}};
     /// After shell_ and the host it drives.
     PointerRouter pointer_{shell_.inputDevice(), *this};

@@ -101,6 +101,10 @@ void SettingsPagePainter::paintRow(Canvas& canvas, const SettingsRow& row,
     const TextStyle note{noteSp * dp};
     const float x = box.rect.x + insetDp * dp;
     float room = box.rect.width * (1.0f - valueRoomShare) - insetDp * dp;
+    if (row.kind == RowKind::Info && row.value.empty()) {
+        // Nothing at the end: the text has the row.
+        room = box.rect.width - 2.0f * insetDp * dp;
+    }
     if (box.control.width > 0.0f) {
         // A toggle or a slider's track starts where the text must end.
         room = std::min(room, box.control.x - x - insetDp * 0.5f * dp);

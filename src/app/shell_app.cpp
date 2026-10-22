@@ -650,6 +650,16 @@ void ShellApp::applyVideo(const library::Game& game) {
     }
 }
 
+const library::Game* ShellApp::gameInFront() const {
+    if (!shell_.inGame()) {
+        return nullptr;
+    }
+    if (focusFollow_.following() && focusFollow_.holder() != session::FocusHolder::Game) {
+        return nullptr;
+    }
+    return &launches_.game();
+}
+
 bool ShellApp::menusBlocked() {
     return panels_.active() || paths_.active() || sessionInstall_.active() || firstRun_.active() ||
            shortcutEditor_.capturing() || shell_.searchPanel().isOpen() ||
@@ -1076,6 +1086,7 @@ int ShellApp::run() {
 
         integrationSwitch_.service();
         focusFollow_.service(padOwner_.held());
+        frameGeneration_.follow(gameInFront());
         padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),
                          gameScreen_.mode() == session::OverlayMode::Interactive);
         handlePads();

@@ -4,10 +4,12 @@
 #include <chrono>
 #include <string>
 
+#include "game_settings_page.hpp"
 #include "library/emulator_choice.hpp"
 #include "library/rom_systems.hpp"
 #include "library/wine.hpp"
 #include "retro_launch.hpp"
+#include "settings/framegen_settings.hpp"
 #include "settings/video_settings.hpp"
 #include "shader_preset_picker.hpp"
 
@@ -32,17 +34,17 @@ std::string emulatorSourceText(library::EmulatorSource source, const library::Ga
 
 ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) const {
     ui::GameSettingsView view;
-    if (game.emulatorOptions.empty()) {
-        return view;
-    }
     const settings::SettingLayers& layers = gameSettings_.layers();
-    view.emulatorSource = emulatorSourceText(library::pickFor(layers, game).source, game);
+    if (!game.emulatorOptions.empty()) {
+        view.emulatorSource = emulatorSourceText(library::pickFor(layers, game).source, game);
+    }
     const library::roms::EmulatorCatalog& catalog = downloads_.setup().catalog;
+    const settings::LayerKeys keys = library::layerKeysOf(game);
+    const settings::Layer gameLayer{settings::Layer::Kind::Game, game.id};
+    std::size_t own = 0;
     if (builtInOf(game, catalog) != nullptr) {
-        const settings::LayerKeys keys = library::layerKeysOf(game);
         const settings::Resolved shader = settings::resolveShader(layers, keys);
-        std::size_t own = 0;
-        for (const settings::VideoKey& video : settings::videoKeys) {
+        for (const settings::ChoiceKey& video : settings::videoKeys) {
             const settings::Resolved resolved =
                 layers.resolve(keys, video.key, std::string{video.choices[0].key});
             if (resolved.from) {
@@ -59,12 +61,17 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
                                                    sourceText(shader.from, catalog)});
         }
         own += shader.from && shader.from->kind == settings::Layer::Kind::Game ? 1 : 0;
+    }
+    if (offersGameSettings(game, catalog, hooks_.frameGeneration())) {
+        for (const settings::ChoiceKey& key : settings::frameGenKeys) {
+            own += layers.at(gameLayer, key.key) != nullptr ? 1 : 0;
+        }
         view.buttons.push_back(ui::DetailsButton{
             ui::DetailsAction::GameSettings, "Game settings",
             own == 0 ? std::string{"Inherited"}
                      : std::to_string(own) + (own == 1 ? " override" : " overrides")});
     }
-    if (layers.layers().contains(settings::Layer{settings::Layer::Kind::Game, game.id})) {
+    if (layers.layers().contains(gameLayer)) {
         view.buttons.push_back(
             ui::DetailsButton{ui::DetailsAction::ClearSettings, "Clear game settings", ""});
     }
@@ -195,7 +202,7 @@ void DetailsController::clearSettings(const library::Game& game) {
     const settings::Layer own{settings::Layer::Kind::Game, game.id};
     settings::SettingLayers& layers = gameSettings_.layers();
     const bool picked = layers.at(own, library::emulatorKey) != nullptr;
-    for (const settings::VideoKey& video : settings::videoKeys) {
+    for (const settings::ChoiceKey& video : settings::videoKeys) {
         layers.clear(own, video.key);
     }
     layers.clear(own, settings::shaderKey);

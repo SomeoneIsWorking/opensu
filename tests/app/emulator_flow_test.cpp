@@ -164,6 +164,9 @@ struct Rig {
                                       [](const library::Game&) {
                                       },
                                       [](const library::Game&) {
+                                      },
+                                      [] {
+                                          return false;
                                       }}};
 };
 

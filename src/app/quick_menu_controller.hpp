@@ -1,9 +1,10 @@
 // quick_menu_controller — the quick menu's rows and buttons: the changes made in place. Volume,
 // mute and the output go through the volume owner, brightness through `BrightnessControl`,
 // Bluetooth through the shared `BluetoothSession`, and Close game ends the running game as the
-// Guide menu does. The controller batteries come from `ControllerRoster`. A game on opensu-retro
-// adds Game settings (the settings tabs, `GameSettingsPage`, in the menu's place), Save state,
-// Load state and Reset game through `RetroSession`; Load and Reset take a second press.
+// Guide menu does. The controller batteries come from `ControllerRoster`. A running game has Game
+// settings (the settings tabs, `GameSettingsPage`, in the menu's place) when it is on opensu-retro
+// or frame generation can be set; a game on opensu-retro adds Save state, Load state and Reset game
+// through `RetroSession`; Load and Reset take a second press.
 #pragma once
 
 #include <chrono>
@@ -39,6 +40,8 @@ class QuickMenuController {
         std::function<void(const std::string& text, bool error)> say;
         /// Opens the running game's settings tabs in the menu's place.
         std::function<void()> openGameSettings;
+        /// Whether frame generation can be set here (`FrameGeneration::available`).
+        std::function<bool()> frameGeneration;
     };
 
     struct Services {
@@ -78,6 +81,8 @@ class QuickMenuController {
     /// Acts on `row`: `step` is 0 for A and -1 or 1 for Left and Right.
     void run(const ui::SettingsRow& row, int step);
     void refuse(const std::string& reason);
+    /// Game settings, when the running game has anything to set.
+    void addGameSettingsRow(std::vector<ui::SettingsRow>& rows);
     /// The rows a game on opensu-retro adds; none for any other game.
     void addRetroRows(std::vector<ui::SettingsRow>& rows);
     /// Runs a game row: Save at once, Load and Reset on the second press.

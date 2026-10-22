@@ -1,6 +1,7 @@
-# The setting layers and the video settings they hold: no shell dependencies, so opensu-retro
-# reads the per-launch file with the same owner the shell writes it with.
-add_library(opensu_setting_layers STATIC setting_layers.cpp video_settings.cpp)
+# The setting layers and the video and frame generation settings they hold: no shell dependencies,
+# so opensu-retro reads the per-launch file with the same owner the shell writes it with.
+add_library(opensu_setting_layers STATIC setting_layers.cpp setting_choices.cpp video_settings.cpp
+    framegen_settings.cpp)
 add_library(opensu::setting_layers ALIAS opensu_setting_layers)
 target_include_directories(opensu_setting_layers PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(opensu_setting_layers PRIVATE lucent::lucent)

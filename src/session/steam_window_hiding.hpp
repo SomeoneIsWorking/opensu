@@ -4,7 +4,7 @@
 // `steamwebhelper` processes, app id 769, STEAM_BIGPICTURE); the games Steam starts still show.
 #pragma once
 
-#include <memory>
+#include "root_properties.hpp"
 
 namespace opensu::session {
 
@@ -13,16 +13,11 @@ class SteamWindowHiding {
     /// Opens a connection to the X display opensu's window lives on.
     /// Throws std::runtime_error when the display cannot be opened.
     SteamWindowHiding();
-    ~SteamWindowHiding();
-
-    SteamWindowHiding(const SteamWindowHiding&) = delete;
-    SteamWindowHiding& operator=(const SteamWindowHiding&) = delete;
 
     void hide(bool hides);
 
   private:
-    struct Connection;
-    std::unique_ptr<Connection> connection_;
+    RootProperties root_;
 };
 
 } // namespace opensu::session

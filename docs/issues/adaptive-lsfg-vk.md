@@ -2,7 +2,9 @@
 
 Status: open. Decided 2026-10-22: frame generation runs inside our Gamescope fork with our own MIT
 generator (see "Decision"). Phases A (mechanism), B (adaptive pacing) and the generator
-(`CLosslessSynthesizer`) are in the fork at `25cb24bb` and pinned; phase C (openSU UI) is not built.
+(`CLosslessSynthesizer`) are in the fork at `25cb24bb` and pinned. Phase C (openSU settings and the
+atoms for the game in front) is built and shown with a libretro game in headless Gamescope
+(`docs/project-state.md` S041); Settings › Emulators rows and a store game are still open.
 
 The player: "Another request I have is adaptive LSFG-VK". lsfg-vk is the Vulkan layer that runs
 Lossless Scaling's frame generation on Linux; the player has a fork (`SomeoneIsWorking/lsfg-vk`).
@@ -498,16 +500,15 @@ Build-order step 1, run on 2026-10-22. Evidence and scripts are in gitignored
 
 ## Lossless.dll for openSU
 
-Never copied. openSU resolves the path inside the player's install and passes it on. It writes
-`dll = '<path>'` in the config it generates, or `LSFGVK_DLL_PATH` (honoured only with
-`LSFGVK_ENV=1`).
-- The resolver walks every Steam library that Settings › Steam libraries already reads
-  (`libraryfolders.vdf`, `app/steam_library_settings`) for
-  `steamapps/common/Lossless Scaling/Lossless.dll`. That covers libraries such as
-  `/mnt/Boy/SteamLibrary`, which the fork's resolver misses.
-- No install gives a refusal naming Lossless Scaling on Steam (app 993090).
-- Path visibility: the Steam Runtime container may hide other partitions (upstream's `dll`
-  option note). Isolated Steam's bwrap must bind the folder.
+Never copied. `library/lossless_scaling` looks for
+`steamapps/common/Lossless Scaling/Lossless.dll` in every library folder the Steam library owner
+(`library/steam`, `libraryfolders.vdf`) lists, so libraries such as `/mnt/Boy/SteamLibrary`,
+which the fork's resolver misses, count. It is looked up again each time a game comes in front and
+when the game settings tabs open. The path goes to Gamescope in `GAMESCOPE_FRAMEGEN_DLL`.
+- Without it the "Frame generation" heading reads "Needs Lossless Scaling installed through
+  Steam", no row below it shows, and the atoms stay off.
+- Path visibility: the Steam Runtime container does not matter here, since Gamescope reads the
+  DLL outside every game's container.
 
 ## Per game in openSU
 
@@ -536,14 +537,20 @@ layer, `conf.toml` and per-process environment are not needed.
     repeated frames, so it gains nothing.
   - Runner caveat: the runner's own frame pacing to the core rate must stay off the game's
     present path once the layer paces.
-- **Layered settings.** This fits `settings/setting_layers` as-is: `framegen.mode`
-  (off/fixed/adaptive), `framegen.target` (a number or `display`), `framegen.max_generated`,
-  `framegen.tolerance`, `framegen.flow_scale`, `framegen.performance` at Global, System,
-  Emulator and Game.
+- **Layered settings** (built). `settings/framegen_settings` owns the keys and their choices on
+  `settings/setting_layers`: `framegen.mode` (off/fixed/adaptive), `framegen.ratio` (1.25 to 5),
+  `framegen.target` (`display` or 30 to 240), `framegen.max` (1 to 8), `framegen.tolerance`
+  (0 to 10 fps), `framegen.performance`, `framegen.flow-scale` (100 to 25%), at Global, System,
+  Emulator and Game; every default is off.
   - A store game has only Global and Game, because its system and emulator keys are empty.
-  - openSU resolves `display` to the monitor's refresh, which `app/shell_window` already reads.
-  - A new `settings/framegen_settings`, beside `video_settings`, owns the keys and the profile
-    writer.
+  - `display` is written as target 0; the fork resolves it to the output's refresh.
+  - `app/frame_generation` (`FrameGeneration`) is the one owner of the atoms: it resolves the
+    settings of the game in front and writes them when that game or a value changes, and writes
+    `GAMESCOPE_FRAMEGEN` 0 with no game in front. Its Gamescope backend exists on Linux only;
+    elsewhere, and outside Gamescope, the group is hidden.
+  - Rows: the game settings tabs (quick menu and the details page's Game settings) show the group
+    under its heading with an Override box per row; a row the chosen mode ignores is hidden.
+    Settings › Emulators has no frame generation rows yet.
 
 ## Build order
 
@@ -554,8 +561,9 @@ superseded by "Decision". Step 1's finding stands as the reason.
 2. Phase B, adaptive pacing in `FramePacer`: done ("Proof").
 3. Our MIT generator behind `IFrameSynthesizer`, clean-room from the `Lossless.dll` behaviour spec:
    done ("Lossless generator").
-4. Phase C, openSU: the `framegen.*` setting keys on the layers, the atoms set for the focused
-   game, rows on the game settings tabs and Settings › Emulators.
+4. Phase C, openSU: the `framegen.*` setting keys on the layers, the atoms set for the game in
+   front, rows on the game settings tabs: done (`docs/project-state.md` S041). Open: rows on
+   Settings › Emulators, and a store game shown in the product.
 5. Record: the codemap rows, project-state rows, this card closed.
 
 Web pages read for this card gave no instructions aimed at an agent. The upstream README only

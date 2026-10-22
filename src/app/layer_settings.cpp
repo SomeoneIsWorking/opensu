@@ -99,7 +99,8 @@ ui::SettingsRow LayerSettings::emulatorRow(const std::string& system) const {
                        "Automatic" + (automatic.empty() ? std::string{} : " (" + automatic + ")"));
 }
 
-ui::SettingsRow LayerSettings::videoRow(const Layer& layer, const settings::VideoKey& video) const {
+ui::SettingsRow LayerSettings::videoRow(const Layer& layer,
+                                        const settings::ChoiceKey& video) const {
     ui::SettingsRow row = videoRowOf(layer, video);
     if (settings::replacedByShader(video.key)) {
         const std::string* own = gameSettings_.layers().at(layer, settings::shaderKey);
@@ -111,7 +112,7 @@ ui::SettingsRow LayerSettings::videoRow(const Layer& layer, const settings::Vide
 }
 
 ui::SettingsRow LayerSettings::videoRowOf(const Layer& layer,
-                                          const settings::VideoKey& video) const {
+                                          const settings::ChoiceKey& video) const {
     const settings::SettingLayers& layers = gameSettings_.layers();
     const std::string id = std::string{videoRowId} + std::string{video.key};
     if (const std::string* own = layers.at(layer, video.key)) {
@@ -217,7 +218,7 @@ std::optional<ui::SettingsCategory> LayerSettings::page(const std::string& id,
     if (open_->kind == Layer::Kind::System) {
         page.rows.push_back(emulatorRow(open_->id));
     }
-    for (const settings::VideoKey& video : settings::videoKeys) {
+    for (const settings::ChoiceKey& video : settings::videoKeys) {
         page.rows.push_back(videoRow(*open_, video));
     }
     page.rows.push_back(shaderRow(*open_));
@@ -282,7 +283,7 @@ void LayerSettings::stepEmulator(const std::string& system, int step) {
 }
 
 void LayerSettings::stepVideo(const Layer& layer, std::string_view key, int step) {
-    const settings::VideoKey* video = settings::videoKey(key);
+    const settings::ChoiceKey* video = settings::videoKey(key);
     if (video == nullptr) {
         return;
     }
@@ -305,7 +306,7 @@ void LayerSettings::clearLayer(const Layer& layer) {
     settings::SettingLayers& layers = gameSettings_.layers();
     const bool picked = layers.at(layer, library::emulatorKey) != nullptr;
     layers.clear(layer, library::emulatorKey);
-    for (const settings::VideoKey& video : settings::videoKeys) {
+    for (const settings::ChoiceKey& video : settings::videoKeys) {
         layers.clear(layer, video.key);
     }
     layers.clear(layer, settings::shaderKey);

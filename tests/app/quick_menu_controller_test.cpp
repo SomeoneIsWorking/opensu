@@ -49,6 +49,9 @@ struct Rig {
                       },
                       [this] {
                           calls.emplace_back("gameSettings");
+                      },
+                      [] {
+                          return false;
                       }}} {
         radio.state = test::pairedPadAndHeadset();
         for (int attempt = 0; attempt < 2000 && !bluetooth.known(); ++attempt) {
