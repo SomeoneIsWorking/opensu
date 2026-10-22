@@ -73,3 +73,11 @@ Both fixed; neither matched this journal, so the freeze itself stays open.
   `focus_owner_test` holds the first close and checks the second focus is answered while it
   runs. There is no seam for this in a hidden run: `FocusFollow` gets a focus source only inside
   Gamescope.
+
+## Not the SIGTERM lifetime crash
+
+`shell-sigterm-crash-with-game.md` is a launch thread outliving `ShellApp`; it ends in SIGSEGV,
+only while the shell is being torn down. In this journal `ShellApp` is alive: the launch's end
+notice was posted (`is over … closed`), the Steam watcher thread still logs 40 s later, and only
+the main loop stopped. A use after free would have crashed the process, not stalled one thread,
+so that fix does not explain this freeze.

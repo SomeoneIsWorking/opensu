@@ -829,7 +829,8 @@ class ShellApp final : private PointerHost {
 
     /// What the launch and sign-in threads hand the loop.
     LaunchMailbox mailbox_;
-    /// The game the shell runs; after the handoff and the mailbox it drives.
+    /// The game the shell runs; after the handoff, the mailbox and the runner session its thread
+    /// uses, so destroying it closes the game and joins that thread before they go.
     GameLaunch launches_{handoff_, mailbox_, retro_};
     /// Opens a store's sign-in page; after the mailbox it posts to, so it is joined first.
     std::jthread signInOpener_;

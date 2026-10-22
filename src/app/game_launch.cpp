@@ -1,12 +1,17 @@
 #include "game_launch.hpp"
 
-#include <thread>
 #include <utility>
 
 #include "game_end.hpp"
 #include "lucent/log.h"
 
 namespace opensu::app {
+
+GameLaunch::~GameLaunch() {
+    if (thread_.joinable()) {
+        handoff_.forceClose();
+    }
+}
 
 bool GameLaunch::running() const {
     const std::lock_guard lock{mutex_};
@@ -28,8 +33,12 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
         cancelled_ = false;
         game_ = game;
     }
+    // The last launch's thread has only its end left to tell.
+    if (thread_.joinable()) {
+        thread_.join();
+    }
     // The thread owns a copy because it outlives this call.
-    std::thread{[this, copy = std::move(game), environment = std::move(environment)] {
+    thread_ = std::jthread{[this, copy = std::move(game), environment = std::move(environment)] {
         std::string failure;
         int exitStatus = -1;
         // The window belongs to the loop's thread, so the handoff thread only raises flags and the
@@ -64,7 +73,7 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
                                                   .cancelled = cancelled});
         lucent::info("launch", "{} is over: {}", copy.title, notice.text);
         mailbox_.postToast(notice.text, notice.error);
-    }}.detach();
+    }};
     return true;
 }
 
