@@ -1607,6 +1607,10 @@ mounts through FUSE; every bundled ELF resolves; the fork's `gamescope --help` b
 `opensu --render` draws the home screen at 1280x800 with assets; the run writes only under the
 XDG directories. A signature from a throwaway key is embedded and checks out.
 
+First release: v0.1.0 (2026-10-22, run 39784082662), the published AppImage downloaded, its
+`.sha256` checked, and smoked again on Fedora 44 and Ubuntu 24.04 (first-run integrations dialog
+drawn; `docs/issues/dialog-overlaps-nav-dock.md` seen in that frame).
+
 Gaps: session mode is not installable from the AppImage (the `session` install component is left
 out; its entry would name a mount point that changes per run). Fedora's libcurl has no symbol
 versions, so the dynamic loader prints "no version information available" for libcurl on every
