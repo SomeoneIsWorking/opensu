@@ -1,7 +1,7 @@
 // Desktop Steam detection against a fake home and real processes.
 #include "steam/desktop_steam.hpp"
 
-#include "launch/instance.hpp"
+#include "launch/process_launcher.hpp"
 
 #include <csignal>
 #include <cstdio>
@@ -61,7 +61,7 @@ int main() {
     // A process in a real instance scope stands in for a Steam the instance started.
     const std::string unit = "opensu-steam-test-" + std::to_string(getpid()) + ".scope";
     const fs::path inside = home / "inside.pid";
-    opensu::launch::Instance instance;
+    opensu::launch::ProcessLauncher instance;
     std::string failure;
     expect(instance.start(unit, "/bin/sh",
                           {"-c", "echo $$ > \"$0\"; exec sleep 60", inside.string()}, failure),

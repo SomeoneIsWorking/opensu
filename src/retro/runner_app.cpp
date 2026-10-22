@@ -16,7 +16,7 @@
 #include "core.hpp"
 #include "core_environment.hpp"
 #include "fileio/atomic_write.hpp"
-#include "gamepad/pads.hpp"
+#include "gamepad/pad_source.hpp"
 #include "gpu2d/image/png_encoder.hpp"
 #include "hardware_render.hpp"
 #include "joypad.hpp"
@@ -57,10 +57,10 @@ void makeDirectory(const std::filesystem::path& directory) {
 }
 
 /// The pads read without grabbing, the shell's virtual pads among them; none when unreadable.
-std::unique_ptr<gamepad::Pads> openPads() {
+std::unique_ptr<gamepad::PadSource> openPads() {
     try {
-        return std::make_unique<gamepad::Pads>("/dev/input", gamepad::OwnVirtualPads::Read);
-    } catch (const std::system_error& failure) {
+        return gamepad::openPadSource({.own = gamepad::OwnVirtualPads::Read});
+    } catch (const std::runtime_error& failure) {
         lucent::warn("retro", "no pads: {}", failure.what());
         return nullptr;
     }
@@ -260,7 +260,7 @@ RunnerExit RunnerApp::run() {
     }
     hardware.attach(*presenter);
     const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.hidden);
-    const std::unique_ptr<gamepad::Pads> pads = options_.hidden ? nullptr : openPads();
+    const std::unique_ptr<gamepad::PadSource> pads = options_.hidden ? nullptr : openPads();
     const std::unique_ptr<ControlServer> control = openControl(options_, *core);
 
     RunnerExit exit = RunnerExit::Quit;

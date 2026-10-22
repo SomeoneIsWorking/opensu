@@ -8,16 +8,10 @@
 #include <string>
 #include <vector>
 
+#include "pad_source.hpp"
 #include "pad_translator.hpp"
 
 namespace opensu::gamepad {
-
-/// Whether a reader takes opensu's own virtual pads: the shell skips them, a game process reads
-/// them.
-enum class OwnVirtualPads : std::uint8_t {
-    Skip,
-    Read,
-};
 
 class EvdevDevice {
   public:

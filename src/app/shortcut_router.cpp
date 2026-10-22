@@ -109,9 +109,9 @@ std::vector<gamepad::Event> ShortcutRouter::fromPad(const std::vector<gamepad::E
     return std::move(result.events);
 }
 
-std::vector<gamepad::Event> ShortcutRouter::fromGame(session::GameKeys& keys) {
+std::vector<gamepad::Event> ShortcutRouter::fromGame(GameOverlay& overlay) {
     std::vector<gamepad::Event> events;
-    for (const input::Action action : keys.poll(shortcuts_)) {
+    for (const input::Action action : overlay.gameKeys(shortcuts_)) {
         route(action, true, events);
         route(action, false, events);
     }

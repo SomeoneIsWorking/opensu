@@ -9,7 +9,7 @@
 
 #include "launch/child_environment.hpp"
 #include "launch/command.hpp"
-#include "launch/instance.hpp"
+#include "launch/process_launcher.hpp"
 #include "lucent/log.h"
 
 namespace opensu::session {
@@ -85,7 +85,7 @@ int CompositorSession::run(const Output& output, const std::vector<std::string>&
 
 int CompositorSession::runOnce(const Output& output, const std::string& self,
                                const std::vector<std::string>& args, const sigset_t& signals) {
-    launch::Instance compositor;
+    launch::ProcessLauncher compositor;
     std::string failure;
     if (!compositor.start(session_ + "-compositor.scope", gamescope_.string(),
                           gamescopeArgs(output, self, args), failure,

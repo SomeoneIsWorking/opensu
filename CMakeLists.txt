@@ -11,9 +11,6 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-# The session reads X11 input and window properties.
-find_package(X11 REQUIRED)
-
 # nanosvg rasterises the shipped icons. Header-only: the distribution's package or a checkout.
 set(NANOSVG_ROOT "$ENV{HOME}/dev/nanosvg" CACHE PATH "nanosvg checkout")
 find_path(NANOSVG_INCLUDE_DIR nanosvg.h
@@ -67,20 +64,21 @@ set(GPU2D_ROOT "$ENV{HOME}/repo/gpu2d" CACHE PATH "Shared gpu2d checkout")
 add_subdirectory("${GPU2D_ROOT}" "${CMAKE_BINARY_DIR}/gpu2d" EXCLUDE_FROM_ALL)
 
 # The Gamescope fork the nested session runs; the running binary looks for it by the
-# relative path below, in the build tree and installed alike.
+# relative path below, in the build tree and installed alike. Gamescope, the session and X11 are
+# Linux's alone.
 include(GNUInstallDirs)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(Gamescope)
 include(Lua)
 include(Libretro)
 include(Librashader)
-if(OPENSU_BUILD_GAMESCOPE)
+if(OPENSU_BUILD_GAMESCOPE AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
     opensu_add_gamescope()
 endif()
 
 add_subdirectory(src)
 add_subdirectory(extension)
-if(OPENSU_BUILD_GAMESCOPE)
+if(TARGET opensu_gamescope)
     add_dependencies(opensu opensu_gamescope)
 endif()
 

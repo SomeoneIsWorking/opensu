@@ -11,7 +11,7 @@ struct GameEnd {
     std::string title;
     /// Why the launch failed; empty when it ran.
     std::string failure;
-    /// `Instance::exitStatus` from the handoff's `ended`; -1 when not reported.
+    /// `ProcessLauncher::exitStatus` from the handoff's `ended`; -1 when not reported.
     int exitStatus{-1};
     /// The load failure opensu-retro left in its control file.
     std::string runnerError;

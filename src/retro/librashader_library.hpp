@@ -6,12 +6,15 @@
 #pragma once
 
 #include <filesystem>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 
 #define LIBRA_RUNTIME_VULKAN
 #include <librashader.h>
+
+#include "shared_library.hpp"
 
 namespace opensu::retro {
 
@@ -29,7 +32,7 @@ class Librashader {
     Librashader& operator=(const Librashader&) = delete;
     Librashader(Librashader&&) = delete;
     Librashader& operator=(Librashader&&) = delete;
-    ~Librashader();
+    ~Librashader() = default;
 
     /// The preset in `file`, with the original-aspect uniforms on; throws ShaderError.
     [[nodiscard]] libra_shader_preset_t loadPreset(const std::filesystem::path& file) const;
@@ -48,12 +51,12 @@ class Librashader {
 
   private:
     /// The symbol `name` of the library; throws ShaderError when it is missing.
-    [[nodiscard]] void* symbol(const char* name) const;
+    [[nodiscard]] SDL_FunctionPointer symbol(const char* name) const;
     /// Throws ShaderError saying `what` failed and why, freeing `error`; nothing for no error.
     void check(libra_error_t error, std::string_view what) const;
 
     std::filesystem::path file_;
-    void* handle_{nullptr};
+    std::unique_ptr<SharedLibrary> library_;
     PFN_libra_error_write errorWrite_{nullptr};
     PFN_libra_error_free_string errorFreeString_{nullptr};
     PFN_libra_error_free errorFree_{nullptr};

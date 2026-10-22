@@ -4,8 +4,6 @@
 #include <iterator>
 #include <system_error>
 
-#include <dlfcn.h>
-
 #include "lucent/log.h"
 
 namespace opensu::retro {
@@ -39,8 +37,8 @@ std::int16_t inputTrampoline(unsigned port, unsigned device, unsigned index, uns
     return active->input({.port = port, .device = device, .index = index, .id = id});
 }
 
-template <class Function> void bind(void* library, const char* name, Function& out) {
-    void* found = dlsym(library, name);
+template <class Function> void bind(const SharedLibrary& library, const char* name, Function& out) {
+    const SDL_FunctionPointer found = library.symbol(name);
     if (found == nullptr) {
         throw CoreError{std::string{"the core has no "} + name};
     }
@@ -53,41 +51,35 @@ Core::Core(const std::filesystem::path& library, CoreHost host) : host_{host} {
     if (active != nullptr) {
         throw CoreError{"another core is already loaded"};
     }
-    library_ = dlopen(library.c_str(), RTLD_NOW | RTLD_LOCAL);
+    std::string reason;
+    library_ = SharedLibrary::open(library, reason);
     if (library_ == nullptr) {
-        const char* reason = dlerror();
-        throw CoreError{"cannot open " + library.string() + ": " +
-                        (reason != nullptr ? reason : "unknown error")};
+        throw CoreError{"cannot open " + library.string() + ": " + reason};
     }
-    try {
-        bind(library_, "retro_init", api_.init);
-        bind(library_, "retro_deinit", api_.deinit);
-        bind(library_, "retro_api_version", api_.apiVersion);
-        bind(library_, "retro_get_system_info", api_.getSystemInfo);
-        bind(library_, "retro_get_system_av_info", api_.getSystemAvInfo);
-        bind(library_, "retro_set_environment", api_.setEnvironment);
-        bind(library_, "retro_set_video_refresh", api_.setVideoRefresh);
-        bind(library_, "retro_set_audio_sample", api_.setAudioSample);
-        bind(library_, "retro_set_audio_sample_batch", api_.setAudioSampleBatch);
-        bind(library_, "retro_set_input_poll", api_.setInputPoll);
-        bind(library_, "retro_set_input_state", api_.setInputState);
-        bind(library_, "retro_set_controller_port_device", api_.setControllerPortDevice);
-        bind(library_, "retro_load_game", api_.loadGame);
-        bind(library_, "retro_unload_game", api_.unloadGame);
-        bind(library_, "retro_run", api_.run);
-        bind(library_, "retro_reset", api_.reset);
-        bind(library_, "retro_serialize_size", api_.serializeSize);
-        bind(library_, "retro_serialize", api_.serialize);
-        bind(library_, "retro_unserialize", api_.unserialize);
-        bind(library_, "retro_get_memory_data", api_.getMemoryData);
-        bind(library_, "retro_get_memory_size", api_.getMemorySize);
-        if (api_.apiVersion() != RETRO_API_VERSION) {
-            throw CoreError{"the core speaks libretro API " + std::to_string(api_.apiVersion()) +
-                            ", not " + std::to_string(RETRO_API_VERSION)};
-        }
-    } catch (...) {
-        dlclose(library_);
-        throw;
+    bind(*library_, "retro_init", api_.init);
+    bind(*library_, "retro_deinit", api_.deinit);
+    bind(*library_, "retro_api_version", api_.apiVersion);
+    bind(*library_, "retro_get_system_info", api_.getSystemInfo);
+    bind(*library_, "retro_get_system_av_info", api_.getSystemAvInfo);
+    bind(*library_, "retro_set_environment", api_.setEnvironment);
+    bind(*library_, "retro_set_video_refresh", api_.setVideoRefresh);
+    bind(*library_, "retro_set_audio_sample", api_.setAudioSample);
+    bind(*library_, "retro_set_audio_sample_batch", api_.setAudioSampleBatch);
+    bind(*library_, "retro_set_input_poll", api_.setInputPoll);
+    bind(*library_, "retro_set_input_state", api_.setInputState);
+    bind(*library_, "retro_set_controller_port_device", api_.setControllerPortDevice);
+    bind(*library_, "retro_load_game", api_.loadGame);
+    bind(*library_, "retro_unload_game", api_.unloadGame);
+    bind(*library_, "retro_run", api_.run);
+    bind(*library_, "retro_reset", api_.reset);
+    bind(*library_, "retro_serialize_size", api_.serializeSize);
+    bind(*library_, "retro_serialize", api_.serialize);
+    bind(*library_, "retro_unserialize", api_.unserialize);
+    bind(*library_, "retro_get_memory_data", api_.getMemoryData);
+    bind(*library_, "retro_get_memory_size", api_.getMemorySize);
+    if (api_.apiVersion() != RETRO_API_VERSION) {
+        throw CoreError{"the core speaks libretro API " + std::to_string(api_.apiVersion()) +
+                        ", not " + std::to_string(RETRO_API_VERSION)};
     }
     active = this;
     retro_system_info info{};
@@ -122,10 +114,7 @@ void Core::close() {
         api_.deinit();
         initialised_ = false;
     }
-    if (library_ != nullptr) {
-        dlclose(library_);
-        library_ = nullptr;
-    }
+    library_.reset();
     active = nullptr;
 }
 

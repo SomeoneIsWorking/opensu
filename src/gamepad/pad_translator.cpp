@@ -19,9 +19,6 @@ constexpr KeyButton forwardedKeys[] = {
     {BTN_THUMBR, Button::R3},
 };
 
-/// How far the left stick must move before it counts as a direction, as the shell's reader uses.
-constexpr float stickThreshold = 0.5f;
-
 bool isStick(std::uint16_t code) {
     return code == ABS_X || code == ABS_Y || code == ABS_RX || code == ABS_RY;
 }
@@ -350,8 +347,8 @@ void PadTranslator::stickControls(const PadEvent& axis, std::vector<Event>& cont
     const bool vertical = code == ABS_Y;
     const Button negative = vertical ? Button::Up : Button::Left;
     const Button positive = vertical ? Button::Down : Button::Right;
-    for (const auto& [button, on] : {std::pair{negative, centred < -stickThreshold},
-                                     std::pair{positive, centred > stickThreshold}}) {
+    for (const auto& [button, on] : {std::pair{negative, centred < -stickDirectionAt},
+                                     std::pair{positive, centred > stickDirectionAt}}) {
         bool& held = stickHeld_[button];
         if (held != on) {
             held = on;

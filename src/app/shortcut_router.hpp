@@ -9,12 +9,12 @@
 #include <string>
 #include <vector>
 
+#include "game_overlay.hpp"
 #include "gamepad/event.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "input/pad_chords.hpp"
 #include "input/shortcuts.hpp"
 #include "retro_session.hpp"
-#include "session/game_keys.hpp"
 #include "volume_control.hpp"
 
 namespace opensu::app {
@@ -63,7 +63,7 @@ class ShortcutRouter {
         return chords_.longHeld(at);
     }
     /// Does what the game-time watcher heard.
-    [[nodiscard]] std::vector<gamepad::Event> fromGame(session::GameKeys& keys);
+    [[nodiscard]] std::vector<gamepad::Event> fromGame(GameOverlay& overlay);
 
   private:
     /// The events of `action`'s edge if it is a button, else does it on a press.

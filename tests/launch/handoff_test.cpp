@@ -497,8 +497,8 @@ void testEnvironmentReachesTheGame() {
     expect(value == "from-the-shell", "the game saw the variable it was given");
 }
 
-/// How a game in an Instance ended reaches the caller: a crash as 128 plus its signal, a clean
-/// exit as 0, and a game closed through forceClose() not at all.
+/// How a game in a ProcessLauncher ended reaches the caller: a crash as 128 plus its signal, a
+/// clean exit as 0, and a game closed through forceClose() not at all.
 void testExitStatusIsReported() {
     const Fixture fixture;
     const auto launchScript = [&fixture](const std::string& stem, const std::string& body) {

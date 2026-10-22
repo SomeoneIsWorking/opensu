@@ -70,16 +70,16 @@ struct Config {
     std::filesystem::path xdgDataHome;
     std::filesystem::path xdgConfigHome;
 
-    /// opensu's cache, downloaded artwork among it: `$XDG_CACHE_HOME/opensu`, else
-    /// `~/.cache/opensu`.
+    /// opensu's cache, downloaded artwork among it (`Locations`): `$XDG_CACHE_HOME/opensu`, else
+    /// `~/.cache/opensu`, on Linux.
     std::filesystem::path cacheDir;
 
-    /// opensu's own data, the store sign-ins among it: `$XDG_DATA_HOME/opensu`, else
-    /// `~/.local/share/opensu`.
+    /// opensu's own data, the store sign-ins among it (`Locations`): `$XDG_DATA_HOME/opensu`, else
+    /// `~/.local/share/opensu`, on Linux.
     std::filesystem::path dataDir;
 
-    /// opensu's settings, which the player's choices are saved in: `$XDG_CONFIG_HOME/opensu`, else
-    /// `~/.config/opensu`.
+    /// opensu's settings, which the player's choices are saved in (`Locations`):
+    /// `$XDG_CONFIG_HOME/opensu`, else `~/.config/opensu`, on Linux.
     std::filesystem::path configDir;
 
     /// Save RAM of games the built-in libretro runner plays, one folder per system:
@@ -129,7 +129,8 @@ struct Config {
     /// `$XDG_CONFIG_HOME/legendary`, else `~/.config/legendary`.
     std::filesystem::path legendaryConfigDir;
 
-    /// opensu's per-login files: `$XDG_RUNTIME_DIR/opensu`, else `/run/user/<uid>/opensu`.
+    /// opensu's per-login files (`Locations`): `$XDG_RUNTIME_DIR/opensu`, else
+    /// `/run/user/<uid>/opensu`, on Linux.
     std::filesystem::path runtimeDir;
 
     /// The desktop's session bus: DBUS_SESSION_BUS_ADDRESS, else `unix:path=<XDG_RUNTIME_DIR>/bus`.

@@ -13,7 +13,7 @@
 
 #include "emulator_downloads.hpp"
 #include "focus_follow.hpp"
-#include "gamepad/pads.hpp"
+#include "gamepad/pad_source.hpp"
 #include "integrations_in_force.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
@@ -32,7 +32,7 @@ class IntegrationSwitch {
         EmulatorDownloads& emulators;
         PadOwner& pads;
         /// The controllers themselves, which keep Isolated Steam's virtual pads.
-        gamepad::Pads& controllers;
+        gamepad::PadSource& controllers;
         FocusFollow& focus;
     };
     struct Hooks {

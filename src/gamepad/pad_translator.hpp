@@ -63,6 +63,9 @@ inline constexpr AxisRange virtualTrigger{0, 255};
 /// released; the gap keeps a trigger resting near one point from chattering.
 inline constexpr float triggerPressAt = 0.5f;
 inline constexpr float triggerReleaseAt = 0.3f;
+/// How far the left stick must move from centre, as a fraction of its travel, before it is a
+/// direction.
+inline constexpr float stickDirectionAt = 0.5f;
 
 class PadTranslator {
   public:

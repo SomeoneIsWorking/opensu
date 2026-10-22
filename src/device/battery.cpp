@@ -21,9 +21,8 @@ std::string attribute(const fs::path& supply, const char* name) {
     return line;
 }
 
-std::optional<BatteryStatus> parse(const fs::path& supply, bool controller) {
-    if (attribute(supply, "type") != "Battery" ||
-        (attribute(supply, "scope") == "Device") != controller) {
+std::optional<BatteryStatus> parse(const fs::path& supply) {
+    if (attribute(supply, "type") != "Battery" || attribute(supply, "scope") != "Device") {
         return std::nullopt;
     }
     const std::string capacity = attribute(supply, "capacity");
@@ -61,17 +60,19 @@ std::vector<fs::path> suppliesUnder(const fs::path& root) {
 
 } // namespace
 
-BatteryReader::BatteryReader(std::filesystem::path root) : root_{std::move(root)} {
+std::optional<BatteryStatus> BatteryReader::read() const {
+    int percent = -1;
+    const SDL_PowerState state = SDL_GetPowerInfo(nullptr, &percent);
+    return statusOf(state, percent);
 }
 
-std::optional<BatteryStatus> BatteryReader::read() const {
-    // A machine without a power_supply class has no battery; that is not an error.
-    for (const fs::path& supply : suppliesUnder(root_)) {
-        if (std::optional<BatteryStatus> status = parse(supply, false)) {
-            return status;
-        }
+std::optional<BatteryStatus> BatteryReader::statusOf(SDL_PowerState state, int percent) {
+    const bool onBattery = state == SDL_POWERSTATE_ON_BATTERY || state == SDL_POWERSTATE_CHARGING ||
+                           state == SDL_POWERSTATE_CHARGED;
+    if (!onBattery || percent < 0) {
+        return std::nullopt;
     }
-    return std::nullopt;
+    return BatteryStatus{std::clamp(percent, 0, 100), state == SDL_POWERSTATE_CHARGING};
 }
 
 ControllerBatteries::ControllerBatteries(std::filesystem::path root) : root_{std::move(root)} {
@@ -86,7 +87,7 @@ std::optional<BatteryStatus> ControllerBatteries::read(std::string_view uniq) co
         if (squeezed(supply.filename().string()).find(wanted) == std::string::npos) {
             continue;
         }
-        if (std::optional<BatteryStatus> status = parse(supply, true)) {
+        if (std::optional<BatteryStatus> status = parse(supply)) {
             return status;
         }
     }

@@ -12,9 +12,9 @@
 #include <vector>
 
 #include "game_windows.hpp"
-#include "instance.hpp"
 #include "launch_progress.hpp"
 #include "library/game.hpp"
+#include "process_launcher.hpp"
 #include "steam_gate.hpp"
 
 namespace opensu::launch {
@@ -28,7 +28,7 @@ struct Error {
 };
 
 /// Starts games, one at a time. A Steam game is handed to the Steam client opensu
-/// owns, which runs it in its own scope; any other game runs in an Instance of its own.
+/// owns, which runs it in its own scope; any other game runs in a ProcessLauncher of its own.
 class Handoff {
   public:
     /// How long a game has to appear in the process table after the launcher
@@ -52,8 +52,8 @@ class Handoff {
         std::function<void()> show;
         /// How the launch is getting on until then; called on each change.
         std::function<void(const LaunchProgress&)> progress;
-        /// A game in an Instance is over without forceClose(): how its started process ended
-        /// (`Instance::exitStatus`), called before start() returns.
+        /// A game in a ProcessLauncher is over without forceClose(): how its started process ended
+        /// (`ProcessLauncher::exitStatus`), called before start() returns.
         std::function<void(int exitStatus)> ended;
     };
 
@@ -64,7 +64,7 @@ class Handoff {
     ///
     /// A Steam game first waits for the client to be ready (cancellable by
     /// forceClose()), then runs `steam -applaunch`; the client is left running when
-    /// the game ends. Anything else runs directly in an Instance, stopped when the
+    /// the game ends. Anything else runs directly in a ProcessLauncher, stopped when the
     /// game leaves.
     ///
     /// The wait is two phases, not a wait on the child: a launcher may hand off
@@ -99,14 +99,14 @@ class Handoff {
     /// launch action for the game before this one.
     Begun beginSteam(const library::Game& game, const Hooks& hooks, int& baseline,
                      std::string& failure);
-    /// Starts the game in an Instance of its own.
+    /// Starts the game in a ProcessLauncher of its own.
     Begun beginScope(const library::Game& game, const std::vector<std::string>& environment,
                      std::string& failure);
 
     /// Phase one for a Steam game: Steam's launch, then the game's window.
     Shown awaitSteamWindow(const library::Game& game, int baseline, const Report& report,
                            std::string& failure);
-    /// Phase one for a game in an Instance: it appears, then shows a window.
+    /// Phase one for a game in a ProcessLauncher: it appears, then shows a window.
     Shown awaitScopeWindow(const library::Game& game, const Report& report, std::string& failure);
     /// Ends a Steam launch after forceClose(): asks Steam to drop each unfinished action of this
     /// launch and ends the game's processes whenever they show, until Steam has taken the request
@@ -123,7 +123,7 @@ class Handoff {
     std::string session_;
     SteamGate& steam_;
     GameWindows* windows_;
-    Instance instance_;
+    ProcessLauncher instance_;
     std::atomic<unsigned> launches_{0};
     std::atomic<bool> forced_{false};
     std::mutex wakeMutex_;

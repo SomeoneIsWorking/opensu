@@ -21,7 +21,7 @@
 #include <unistd.h>
 
 #include "launch/command.hpp"
-#include "launch/instance.hpp"
+#include "launch/process_launcher.hpp"
 
 namespace {
 
@@ -124,7 +124,7 @@ struct Fixture {
 void testRunPassesArgumentsAndStopsLeftovers() {
     const Fixture fixture{"run", "exit 3\n"};
     const std::string steamUnit = fixture.session + "-steam.scope";
-    opensu::launch::Instance leftover;
+    opensu::launch::ProcessLauncher leftover;
     std::string failure;
     expect(leftover.start(steamUnit, "/bin/sleep", {"600"}, failure), "the leftover scope starts");
 
@@ -176,7 +176,7 @@ void testMissingGamescope() {
 void testSignalStopsTheSession() {
     const Fixture fixture{"signal", crashing(0, "exec sleep 600\n")};
     const std::string steamUnit = fixture.session + "-steam.scope";
-    opensu::launch::Instance leftover;
+    opensu::launch::ProcessLauncher leftover;
     std::string failure;
     expect(leftover.start(steamUnit, "/bin/sleep", {"600"}, failure), "the leftover scope starts");
 
@@ -216,7 +216,7 @@ void testSignalStopsTheSession() {
 void testCrashedGamescopeRestarts() {
     const Fixture fixture{"restart", crashing(2, "exit 0\n")};
     const std::string steamUnit = fixture.session + "-steam.scope";
-    opensu::launch::Instance leftover;
+    opensu::launch::ProcessLauncher leftover;
     std::string failure;
     expect(leftover.start(steamUnit, "/bin/sleep", {"600"}, failure), "the leftover scope starts");
 

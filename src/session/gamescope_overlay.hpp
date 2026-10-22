@@ -14,17 +14,9 @@
 #include <cstdint>
 #include <memory>
 
-namespace opensu::session {
+#include "overlay_mode.hpp"
 
-/// What the overlay shows over the game.
-enum class OverlayMode : std::uint8_t {
-    /// Nothing; the game has the input.
-    Hidden,
-    /// Drawn, and the game keeps the keyboard and the pointer.
-    Passive,
-    /// Drawn, with the keyboard.
-    Interactive,
-};
+namespace opensu::session {
 
 class GamescopeOverlay {
   public:

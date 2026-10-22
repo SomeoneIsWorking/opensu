@@ -1,10 +1,12 @@
 // integrations_in_force — the one owner of which integrations and which Steam mode are in force:
-// the player's choices from the preferences under `settings::Integrations::inForce`, what each
-// consumer is given of them (the catalog's stores, the Steam client's mode), and a new choice
-// kept. Everything that starts, reads or shows an integration asks this, nothing else.
+// the player's choices from the preferences under `settings::Integrations::inForce`, among the
+// Steam modes this build's client has (`steam::clientModes`), what each consumer is given of them
+// (the catalog's stores, the Steam client's mode), and a new choice kept. Everything that starts,
+// reads or shows an integration asks this, nothing else.
 #pragma once
 
 #include <optional>
+#include <vector>
 
 #include "library/catalog.hpp"
 #include "preferences.hpp"
@@ -16,11 +18,7 @@ namespace opensu::app {
 class IntegrationsInForce {
   public:
     /// `loginSession` is openSU running as the login session (`--session`).
-    IntegrationsInForce(Preferences& preferences, bool loginSession)
-        : preferences_{preferences}, loginSession_{loginSession},
-          current_{
-              settings::Integrations::inForce(preferences.values().integrations, loginSession)} {
-    }
+    IntegrationsInForce(Preferences& preferences, bool loginSession);
 
     [[nodiscard]] const settings::Integrations& current() const noexcept {
         return current_;
@@ -36,6 +34,10 @@ class IntegrationsInForce {
     }
     [[nodiscard]] bool loginSession() const noexcept {
         return loginSession_;
+    }
+    /// The Steam modes the player can pick here.
+    [[nodiscard]] std::vector<settings::SteamMode> modesOffered() const {
+        return settings::Integrations::modesOffered(loginSession_, built_);
     }
 
     /// Keeps `choices` and puts them in force; true when what is in force changed.
@@ -55,6 +57,8 @@ class IntegrationsInForce {
   private:
     Preferences& preferences_;
     bool loginSession_;
+    /// The Steam modes the build's client has.
+    std::vector<settings::SteamMode> built_;
     settings::Integrations current_;
 };
 

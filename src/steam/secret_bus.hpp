@@ -9,7 +9,7 @@
 #include <filesystem>
 #include <string>
 
-#include "launch/instance.hpp"
+#include "launch/process_launcher.hpp"
 
 namespace opensu::steam {
 
@@ -28,7 +28,7 @@ class SecretBus {
     void stop();
 
   private:
-    launch::Instance instance_;
+    launch::ProcessLauncher instance_;
     std::filesystem::path socket_;
 };
 

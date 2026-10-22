@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "gamepad/event.hpp"
-#include "gamepad/pads.hpp"
+#include "gamepad/pad_source.hpp"
 #include "input/button_map.hpp"
 #include "input/chord_set.hpp"
 #include "session/window_focus.hpp"
@@ -39,22 +39,27 @@ class PadOwner {
         bool menuOver{false};
         /// openSU's own Steam runs in its Gamescope, which the shell keeps the pads from.
         bool guardsSteam{true};
+        /// The pads can be grabbed and forwarded (`gamepad::PadSource::grabs`); without it the
+        /// claim is only ever Free or Away.
+        bool grabs{true};
     };
 
-    /// Where pads are read from: the system's, or an empty directory in a hidden run, which keeps
-    /// no pads.
-    [[nodiscard]] static std::filesystem::path inputDirectory(const std::filesystem::path& dataDir,
-                                                              bool hidden);
+    /// Which pads a run reads: the system's, or in a hidden run only what is linked into
+    /// `<dataDir>/hidden-pads`, which nothing is unless a maintainer tool puts a test pad there.
+    [[nodiscard]] static gamepad::PadSourceOptions padsFor(const std::filesystem::path& dataDir,
+                                                           bool hidden);
     /// The claim for `situation`.
     [[nodiscard]] static gamepad::Claim claimFor(const Situation& situation);
     /// Whether the shell acts on every pad event, rather than on Guide alone.
     [[nodiscard]] static bool listens(const Situation& situation);
 
-    PadOwner(gamepad::Pads& pads, input::ChordSet& chords) noexcept : pads_{pads}, chords_{chords} {
+    PadOwner(gamepad::PadSource& pads, input::ChordSet& chords) noexcept
+        : pads_{pads}, chords_{chords} {
+        situation_.grabs = pads.grabs();
     }
 
     /// Holds the pads for a game playing with `map`; returns what the game's environment needs
-    /// (`gamepad::Pads::hold`).
+    /// (`gamepad::PadSource::hold`).
     std::vector<std::string> hold(const input::ButtonMap& map);
     /// The game is over: its chords are dropped and the pads go back to the shell's claim.
     void release();
@@ -77,7 +82,7 @@ class PadOwner {
     [[nodiscard]] std::vector<gamepad::Event> admit(std::vector<gamepad::Event> events) const;
 
   private:
-    gamepad::Pads& pads_;
+    gamepad::PadSource& pads_;
     input::ChordSet& chords_;
     Situation situation_;
     gamepad::Claim claim_{gamepad::Claim::Free};

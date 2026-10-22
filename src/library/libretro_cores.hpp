@@ -18,9 +18,6 @@
 
 namespace opensu::library::roms {
 
-/// The buildbot folder shipped cores are downloaded from.
-inline constexpr std::string_view buildbotNightly =
-    "https://buildbot.libretro.com/nightly/linux/x86_64/latest/";
 /// The folder's listing: one "YYYY-MM-DD <crc32 hex> <file>" line per build.
 inline constexpr std::string_view coreIndexFile = ".index-extended";
 
@@ -52,7 +49,8 @@ struct DownloadedCore {
     bool operator==(const DownloadedCore&) const = default;
 };
 
-/// The cores openSU downloaded: `<core>.so` and its record `<core>.json` in one folder.
+/// The cores openSU downloaded: `<core><suffix>` (`coreTarget`) and its record `<core>.json` in one
+/// folder.
 class DownloadedCores {
   public:
     explicit DownloadedCores(std::filesystem::path root) : root_{std::move(root)} {
