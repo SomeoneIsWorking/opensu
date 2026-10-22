@@ -1,30 +1,29 @@
 # Windows, macOS and Android releases beside the Linux AppImage
 
-Status: open, plan. Goal G005. Nothing built.
+Status: open. Goal G005. Step 1 in progress (S042): the seams below exist with Linux unchanged;
+the non-Linux configure is not reached yet (see "Step 1 as built").
 
 Requested: "I want Windows/Linux/macOS/Android releases, ofc the isolation and gamescope features
 only work in Linux, other platforms just act as a launcher".
 
-Today openSU configures only on Linux: the top-level `find_package(X11 REQUIRED)`, the Gamescope
-fork, `opensu_session` linking `X11::Xi`, POSIX/Linux headers in 15+ translation units, and
-gpu2d's window including `X11/Xlib.h`. CI and `release.yml` build Linux only, and project-state's
-comparison baseline still says "macOS is not planned"; that line and S029's "No Windows or macOS
-jobs" change in step 1.
+Before step 1 openSU configured only on Linux: the top-level `find_package(X11 REQUIRED)`, the
+Gamescope fork, `opensu_session` linking `X11::Xi`, POSIX/Linux headers in 15+ translation units,
+and gpu2d's window including `X11/Xlib.h`. CI and `release.yml` build Linux only.
 
 ## 1. What is Linux-only, by owner
 
 | Owner | Linux-only part | Elsewhere |
 | --- | --- | --- |
-| `src/launch/instance.*` | One `systemd-run --user --scope` per launch, `systemctl stop` of the scope, signal mask, exit status | Windows: `CreateProcessW` in a Job Object (`KILL_ON_JOB_CLOSE`), which is a real counterpart: the tree stays owned. macOS: `posix_spawn` with its own process group. Android: an `Intent` (no tree to own) |
+| `src/launch/process_launcher_*` (was `instance.*`) | One `systemd-run --user --scope` per launch, `systemctl stop` of the scope, signal mask, exit status | Windows: `CreateProcessW` in a Job Object (`KILL_ON_JOB_CLOSE`), which is a real counterpart: the tree stays owned. macOS: `posix_spawn` with its own process group. Android: an `Intent` (no tree to own) |
 | `src/launch/command.*`, `argv.hpp` | `fork`/`execv`, `poll` on pipes, `pthread` sigmask | Windows: `CreateProcessW` with pipes and a quoted command line. macOS: the POSIX path as is. Android: none (only the runner and intents) |
 | `src/launch/process_tree.*` | `/proc` scans by command line | Windows: Toolhelp32; macOS: `proc_listpids`/`sysctl`; only needed where Steam and Wine are, so Linux-only by use |
 | `src/launch/handoff.*`, `game_windows.hpp` | Window-shown check through Gamescope's root properties | `GameWindows` is already an interface: Windows `EnumWindows` + `GetWindowThreadProcessId`, macOS `CGWindowListCopyWindowInfo` (owner pid needs no permission), Android: our Activity paused |
 | `src/session/*` (all), `cmake/Gamescope.cmake`, `packaging/gamescope-build/` | Nested and DRM Gamescope, overlay atoms, XInput2 game keys, focus, Steam window hiding, X11 monitor read, restart budget | None. Not built outside Linux |
 | `src/host/session_mode.*`, `login_session_end.*`, `desktop_request.*`, `packaging/install-session.sh`, `opensu-session-select.sh`, `opensu-session.desktop.in` | Login session, SDDM, sudo | None |
 | `src/host/power.*`, `bluetooth.*`, `backlight.*`, `runner.*`; `app/bluetooth_session.*`, `brightness_control.*` | logind over `busctl`, `bluetoothctl`, sysfs backlight | Off; the OS's own settings own them |
-| `src/device/battery.*` | sysfs | `SDL_GetPowerInfo` works on every target, Linux included: one backend, not two |
+| `src/device/battery.*` | controller batteries from sysfs | The system battery is `SDL_GetPowerInfo` on every OS since step 1 |
 | `src/audio/volume_backend.*` | `wpctl`/`pactl` | Windows `IAudioEndpointVolume`, macOS CoreAudio, Android `AudioManager`, or off in the first release of each |
-| `src/gamepad/evdev_device.*`, `virtual_pad.*`, `pads.*`, `pad_translator.*` (evdev in) | evdev reads, `EVIOCGRAB`, uinput Xbox 360 pads, `/sys` | SDL3 gamepad events into the same `Event`/`Button`; no grab, no virtual pads. `chord_gate`, `forward_map`, `direction_repeat` are pure and stay |
+| `src/gamepad/evdev_device.*`, `virtual_pad.*`, `evdev_pads.*` (was `pads.*`), `pad_translator.*` (evdev in) | evdev reads, `EVIOCGRAB`, uinput Xbox 360 pads, `/sys` | SDL3 gamepad events into the same `Event`/`Button`; no grab, no virtual pads. `chord_gate`, `forward_map`, `direction_repeat` are pure and stay |
 | `src/app/pad_owner.*`, `focus_follow.*`, `game_screen.*` | Claims over grabbed pads, Gamescope focus, overlay modes | Shell window raised and lowered; Guide heard in the background through `SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS` |
 | `src/steam/client.*` (Managed, Isolated), `sandbox.*`, `secret_bus.*`, `orphaned_steam.*` | `systemd-run` scopes, bwrap, `xdg-dbus-proxy` | None; Steam mode is Normal only |
 | `src/steam/desktop_steam.*`, `library/steam.cpp` roots | `~/.steam/steam.pid`, `~/.local/share/Steam` and the Flatpak root | Windows: `HKCU\Software\Valve\Steam\SteamPath`; macOS: `~/Library/Application Support/Steam`. `steam://rungameid/<id>` to launch |
@@ -32,8 +31,8 @@ jobs" change in step 1.
 | `src/library/wine.*`, `app/wine_settings.*`, `gog_install_job.*` (Windows build under Wine) | Wine and Proton runners and prefixes | Windows: the Windows build runs natively, no Wine. macOS: off (Wine on macOS is a non-goal); GOG and Epic list macOS builds where the store has them |
 | `src/library/epic.*`, `gog*.cpp`, `app/epic_install_job.*`, `sign_in.*` | `xdg-open` for the browser; legendary and gogdl found on `PATH` | legendary and gogdl run on Windows and macOS; the browser through `SDL_OpenURL`. Android: off |
 | `src/library/emulators.*`, `emulator_release.*`, `downloaded_emulators.*`, `appimage_runtime.*`, `assets/emulators.json` | AppImage, Flatpak and `PATH` launchers, libfuse2 check | Catalog launchers gain per-OS entries: Windows `.exe` (zip release assets), macOS `.app` in `/Applications`, Android package + activity templates (iiSU's `||`-split command templates, `launch.md` 2.1). AppImage download and `appimage_runtime` stay Linux |
-| `src/library/libretro_cores.*` | `buildbotNightly` is `nightly/linux/x86_64/latest/`; `.so`; RetroArch's Linux core folders | Per OS/arch base: `windows/x86_64` (`.dll`), `apple/osx/arm64` (`.dylib`), `android/latest/arm64-v8a` (and `x86_64` for the AVD). `info.zip` and `shader_pack.*` are platform-neutral |
-| `src/retro/core.*`, `librashader_library.*` | `dlopen`, `librashader.so` | `SDL_LoadObject`/`SDL_LoadFunction`, already linked, one loader for every OS |
+| `src/library/core_target.hpp`, `libretro_cores.*` (`CoreSearch`) | `nightly/linux/x86_64/latest/` and `.so` (now `coreTarget`, per OS/arch in CMake); RetroArch's Linux core folders | Per OS/arch base: `windows/x86_64` (`.dll`), `apple/osx/arm64` (`.dylib`), `android/latest/arm64-v8a` (and `x86_64` for the AVD). `info.zip` and `shader_pack.*` are platform-neutral |
+| `src/retro/shared_library.*` (core, librashader) | `librashader.so` | `SDL_LoadObject`/`SDL_LoadFunction` everywhere since step 1 |
 | `cmake/Librashader.cmake` | cargo for the host target, staged as `.so` | cargo targets `x86_64-pc-windows-msvc` (`.dll`), `aarch64-apple-darwin` (`.dylib`), `aarch64-linux-android` and `x86_64-linux-android` (NDK linker) |
 | `src/retro/presenter.*`, `vulkan_device.*`, `hardware_render.*` | Nothing Linux in the code; Vulkan loader from the system | Windows: driver Vulkan. macOS: MoltenVK bundled, `VK_KHR_portability_enumeration` and the portability subset at instance and device creation; GPU cores checked one by one. Android: system Vulkan, the runner's API version and features checked on named devices |
 | gpu2d `src/render/gpu_window.cpp` | `X11/Xlib.h` for the translucent visual; `SDL_CreateGPUDevice(SPIRV, "vulkan")` | Translucency through `SDL_WINDOW_TRANSPARENT` where the OS has it, the X11 visual only on X11. Windows and Android stay Vulkan/SPIR-V. macOS: SDL GPU's Apple backend is Metal, so gpu2d also ships MSL from the same GLSL (`gpu2d_compile_shaders` adds spirv-cross or SDL_shadercross output) and picks the driver per OS. A gpu2d change, in its own repo |
@@ -210,3 +209,28 @@ Each step lands and is pushed on its own; "shown working" is a run of the real p
 - macOS: arm64 only (decided 2026-10-22). Intel Macs can be added later as a universal build.
 - Android: the GitHub APK first, downloading cores like the desktop (decided 2026-10-22). A Play build later delivers cores the way RetroArch's Play version does, as Play Feature Delivery modules, since Play forbids downloading executable code.
 - Android release key: generated by the agent, stored as repo secrets, and a copy kept outside any repo for the player to back up.
+
+## Step 1 as built
+
+Landed in the working tree, Linux behaviour unchanged (evidence in project-state S042):
+`launch::ProcessLauncher` with `systemd_scope` and `unavailable` backends; `gamepad::PadSource`
+with `EvdevPads` and `SdlPads` (`PadSource::grabs()` is the claim capability: false collapses
+claims to Free and Away; forwarding needs no separate flag yet since only evdev has virtual pads);
+`app::GameOverlay` (the plan's `session::Presentation`: Gamescope on Linux, none elsewhere; the
+raised-window behaviour is step 2's); `steam::clientModes()` taken by `Integrations::inForce` and
+`modesOffered`; `config::Locations` on Lucent's new data, cache and runtime resolvers;
+`library::coreTarget`; `retro::SharedLibrary`; battery on `SDL_GetPowerInfo`; gpu2d's
+`window_platform` seam (gpu2d `b0379eb`, Lucent `1a212bc`, pinned in `tools/check/pins.py`).
+
+Not yet done in step 1, each blocking a non-Linux configure or a non-Linux build:
+
+- `src/session` is added on every OS and requires X11. `main.cpp` (compositor and login session,
+  `readMonitor`), `ShellWindow::output`, `FocusFollow`/`PadOwner`'s `FocusHolder`, and
+  `ShellApp`'s `GamescopeWindows` and `SteamWindowHiding` use it directly; they need one session
+  owner with a none backend before `src/session` can be Linux-only.
+- `src/host` (logind, `bluetoothctl`, backlight) is linked on every OS; `HostServices` has no
+  absent set, so the tabs cannot hide yet.
+- `launch/command.*` is `fork`/`execv` only (`posix_child`/`win32_child` split).
+- `/proc/self/exe` (`config`), `getpid` (`config`, `retro_session`, `control_server`), RetroArch's
+  Linux core folders in the core search, controller batteries from sysfs.
+

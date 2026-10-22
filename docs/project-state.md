@@ -100,9 +100,13 @@ Visible deltas from the baseline:
 - The grid is ours, so layout, tile sizes and page count are ours.
 - Steam's Big Picture does not open inside openSU's session: Guide in the shell never reaches
   Steam, and Big Picture opened any other way is closed and the shell put back in front.
-- Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, or built from source. Linux
-  only: Windows is a possible future target, without Gamescope (nested mode, Alt+F4 handling and the
-  login session are Gamescope features with no Windows counterpart); macOS is not planned.
+- Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, or built from source. Windows,
+  macOS (arm64) and Android packages are planned as launchers (G005, S042); nothing is built for
+  them yet. On each of them openSU will have no: Gamescope (nested session, login session, FSR,
+  frame generation, Alt+F4 handling); Managed or Isolated Steam (Steam is the player's own, Normal);
+  virtual pads remapping another program's input; Wine; the Power, Bluetooth and brightness tabs.
+  Android will also have no Steam, Epic, GOG or sign-in extension. Until each OS's backends land,
+  a launch there refuses with "launching is not available on <OS>".
 
 ## Current focus
 
@@ -154,6 +158,7 @@ game has been observed running yet.
 | S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
 | S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) in setting layers per game, core, console and Global, set live from the quick menu's tabs, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
+| S042 | Platform seams: every Linux-only concept behind one owner with a per-OS backend picked in CMake (process launching, pads, the shell over a game, Steam modes, user directories, buildbot folder, library loading, battery), Linux unchanged (`docs/issues/cross-platform-releases.md` step 1) | partial | — | G005 |
 | S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU settings and atoms missing | partial | S013 | G004 |
 
 ## Capability details
@@ -215,7 +220,7 @@ fixes `darkHeroScrim`) and `PagePillPainter` (dark variant). The shell composes
 them under `Hud`: iiSU's single-screen top bar (`TopBarMetrics` for is7/hs7/a32.o
 sizes, `StatusPillPainter` for the clock and battery, `TopBarLayout` for the pill and the launcher cells it paints and hit-tests at, `ClockText`
 for o28.g's format and k42's minute tick), the corner hints and openSU's toast.
-The battery comes from `device::BatteryReader` (sysfs, system scope only); the
+The battery comes from `device::BatteryReader` (`SDL_GetPowerInfo`, the system battery only); the
 12/24-hour choice from the LC_TIME locale in `config`. The title pill (`jj2.c`)
 names the focused tile everywhere, Home included, where iiSU's Home shows none. There are no feature tiles or badges on game tiles.
 
@@ -411,7 +416,7 @@ to the console.
 Verified by `tests/ui` (layout numbers hand-computed from `hx2.g` and `zj2`,
 neighbour and page-crossing rules, motion curves, tile geometry from `tj2.V`,
 top-bar sizes at 640/853/1280 dp, clock formats and battery icon slots),
-`tests/device` (battery parsing from a fake sysfs) and by rendering both modes
+`tests/device` (SDL's power states as the battery, controller batteries from a fake sysfs) and by rendering both modes
 offscreen at 1280×800 and 1920×1080 and looking at them.
 
 Stopgaps, each marked in code:
@@ -449,7 +454,8 @@ implemented, so covers are shown at their store's own colours.
 
 ### S003 — Gamepad input
 
-`gamepad::Pads` reads every evdev node that is a gamepad (`BTN_SOUTH` and a left
+On Linux the pads come from `gamepad::EvdevPads` (the `PadSource` `openPadSource` opens there;
+other OSes get `SdlPads`, S042). It reads every evdev node that is a gamepad (`BTN_SOUTH` and a left
 stick), so a keyboard is never one, and watches `/dev/input` with inotify so a pad
 switched on later is picked up; it skips openSU's own and Steam Input's virtual pads.
 `gamepad::PadTranslator` maps the kernel's gamepad codes to the shell's controls,
@@ -779,7 +785,7 @@ Outside Gamescope (`Config::insideGamescope`, from `GAMESCOPE_WAYLAND_DISPLAY`)
 opensu ...` with the current monitor's size and refresh from SDL's display modes
 (`session::readMonitor`), in the scope `<session>-compositor.scope` with
 `OPENSU_SESSION` set for the inner opensu. When Gamescope ends it stops every
-other scope named `<session>-*`, and SIGINT/SIGTERM (blocked for the whole run; `launch::Instance`
+other scope named `<session>-*`, and SIGINT/SIGTERM (blocked for the whole run; `launch::ProcessLauncher`
 starts every program with no signal blocked) stop the session through its scopes. When Gamescope
 ends abnormally (a signal or a non-zero exit) and neither a signal nor Switch to desktop's note
 (`DesktopRequest::pending`) asked for it, the session's leftovers are stopped (the game and Steam
@@ -875,7 +881,7 @@ nested is untested.
 
 Every scope openSU creates is named `<session>-<role>[-N].scope`
 (`Config::session`: `OPENSU_SESSION`, else `opensu-<pid>`), and is a transient
-systemd user scope (`launch::Instance`), so processes that setsid or double-fork
+systemd user scope (`launch::ProcessLauncher`'s Linux backend), so processes that setsid or double-fork
 stay owned. A non-Steam game runs in its own scope,
 stopped when the game leaves. A Steam game is handed to the background client
 (`steam -applaunch`). Close game in the Guide or quick menu ends either. A game in a scope
@@ -937,7 +943,7 @@ Gamescope with a stand-in game (`docs/issues/overlay-blacks-out-game.md`). Unver
 actions, scan, pairing and connect, the overlay over a real game under the player's Gamescope, mouse clicks on the new pages (routed and unit-tested only), a
 physical pad's battery and button test, a backlight (this machine has none).
 
-From launch until the launch ends, `gamepad::Pads` holds every gamepad, including one
+From launch until the launch ends, `gamepad::EvdevPads` holds every gamepad, including one
 connected meanwhile: each
 physical pad is grabbed (`EVIOCGRAB`) and the game reads one uinput Xbox 360 pad
 (045e:028e) per physical pad instead, translated by `gamepad::PadTranslator` (axes
@@ -1040,7 +1046,7 @@ A Steam left running when openSU dies without `Client::shutdown` (killed by PID)
 such scopes first (`steam::OrphanedSteam`): an active `opensu-<pid>-steam.scope` whose `<pid>` is
 not a live process of the same program is stopped, through `steam -shutdown` first when the pid file
 names a process inside it. Ending rather than adopting: the orphan's flags, bus and log position
-are unknown, and `Instance` owns a child it started. A Steam outside openSU is in no such scope, so
+are unknown, and `ProcessLauncher` owns a child it started. A Steam outside openSU is in no such scope, so
 it still blocks. Tested with fake scopes of a dead pid and of a live one.
 
 Steam's downloads are read live from the client itself: Steam is started with
@@ -1409,7 +1415,7 @@ sets it for every launch) it serves `/status`, `/state/save`, `/state/load` and 
 loopback port announced in that file, runs each command between frames, keeps one state slot
 `<saves>/<rom>.state`, and leaves a load failure in the file (`retro/control_server`,
 `retro/save_state`). The quick menu shows Save state, Load state and Reset game for such a game
-(`app/retro_session`, `app/quick_menu_controller`); a game in an Instance that dies by a signal
+(`app/retro_session`, `app/quick_menu_controller`); a game in a `ProcessLauncher` that dies by a signal
 other than TERM, KILL, INT or HUP is toasted as crashed, by name, and a runner's load failure by its
 reason (`launch/handoff` `Hooks::ended`, `app/game_end`). A game's button mapping (S033) reaches
 the runner through the shell's virtual pad, so `retro/joypad` keeps one fixed table.
@@ -1483,7 +1489,8 @@ and `tools.check all --gamescope native` runs as that user: Lucent and gpu2d che
 commit, configure with Clang (any other compiler is refused), build including the Gamescope fork,
 clang-format, clang-tidy, ruff, ctest. A second job builds and smoke-tests the AppImage (S030).
 Actions are pinned by SHA, uv by version and checksum, permissions are `contents: read`.
-No Windows or macOS jobs: openSU is Linux only (see the comparison baseline).
+No Windows, macOS or Android jobs yet: they come with G005's steps 2 to 4 (S042,
+`docs/issues/cross-platform-releases.md`).
 
 Verified: the same steps locally through `tools.check ci`: Clang build including the fork, the
 three linters clean, 117 of 119 tests pass and 2 skip (`game_keys`, `pads`: no uinput in the
@@ -1594,7 +1601,8 @@ Missing: core options per layer, preset parameters, bezels, touch overlays (the 
 
 `settings::Integrations::inForce` turns the saved `integrations` choices into what is in force: no
 choices is everything off and opens the first-run chooser (`app::FirstRunChooser`); Steam's mode is
-Normal, Managed or Isolated on a desktop, Managed or Isolated with `--session`. `app::IntegrationSwitch` applies a
+one the build offers (`steam::clientModes`: Normal, Managed and Isolated on Linux, Normal elsewhere),
+without Normal under `--session`; the Steam mode row shows only when more than one is offered. `app::IntegrationSwitch` applies a
 change live: the catalog's providers are replaced, the plugins host is made or dropped, standalone
 emulator discovery and downloads follow, and Steam is stopped and started in its new mode. Normal
 attaches to the desktop Steam (`~/.steam/steam.pid`, a live `steam` process) or starts one on the
@@ -1615,3 +1623,48 @@ game (`shots/proof-{virtual,all}-game.jpg`), Steam's process saw only `event20`�
 not yet run are Isolated's "Every controller" and kept-pad forwarding with a real pad, game audio
 in the sandbox, Isolated in `--session` and NVIDIA nodes; Normal mode has not run against a real
 desktop Steam, and its installs need the desktop Steam started with `-cef-enable-debugging`.
+
+### S042 — Platform seams
+
+Each Linux-only concept has one owner whose CMake picks a backend source per `CMAKE_SYSTEM_NAME`;
+callers have no `#ifdef`. Linux backends are the previous code moved:
+
+| Owner | Linux | Elsewhere |
+| --- | --- | --- |
+| `launch::ProcessLauncher` (was `Instance`) | `process_launcher_systemd_scope.cpp` | `process_launcher_unavailable.cpp`: `start` fails with "<program> cannot be started: launching is not available on <OS>" |
+| `gamepad::PadSource`, `openPadSource` | `EvdevPads` (was `Pads`): grabs, virtual pads | `SdlPads`: SDL gamepad events, no grab, no virtual pads; `PadOwner`'s claims collapse to Free and Away |
+| `app::GameOverlay`, `openGameOverlay` | Gamescope overlay atoms and XInput2 game keys | none (null) |
+| `steam::clientModes` | Normal, Managed, Isolated | Normal; the Steam mode row is hidden |
+| `config::Locations` on `lucent::platform` | `$XDG_*_HOME/opensu`, `/run/user/<uid>/opensu`, as before | APPDATA/LOCALAPPDATA, Application Support/Caches/TMPDIR as `openSU` |
+| `library::coreTarget` | `nightly/linux/x86_64/latest/`, `.so` | `windows/x86_64` `.dll`, `apple/osx/arm64` `.dylib`, `android/latest/<abi>` `.so`; any other OS/arch refuses to configure |
+| `retro::SharedLibrary` | `SDL_LoadObject` (cores, librashader) | same |
+| `device::BatteryReader` | `SDL_GetPowerInfo` | same |
+| gpu2d `window_platform` | the 32-bit X11 visual for translucency | none |
+
+The top-level `find_package(X11)` is gone; `src/session` and `tests/session` require X11 themselves
+and Gamescope is built only on Linux. Verified on this machine against the pre-change tree
+(`c49f8b2` built in `build/agent-seams-baseline`) with hidden runs on scratch HOME and XDG dirs
+(`scratch/platform-seams/tools/{start,proof,stop}.py`, logs and frames in `runs/{baseline,new-3}`):
+a GBA ROM runs in `opensu-<pid>-game-0.scope`, a uinput test pad is grabbed (our `EVIOCGRAB` gets
+EBUSY) with one `opensu virtual pad` while it plays, Close game ends the scope and releases the pad;
+Settings › Integrations offers Normal, Managed and Isolated; Gambatte downloads from
+`nightly/linux/x86_64/latest/` and shows on the Downloads page; Settings and Downloads frames
+differ only in the clock pill, Home also in its animated focus ring (`framediff.log`); no battery
+icon either way (the only power supply here is a mouse's). `opensu-retro` loads librashader and builds
+crt-royale through `SharedLibrary` with a frame identical to the baseline's (`retro-shader/`). The
+overlay stand-in in a headless Gamescope (`overlay/`, `gamescope_control` screenshots) gives the
+same pixels before and after in interactive, passive and hidden modes. 160 tests pass
+(`ctest-2.log`, `game_keys` not run). Non-Linux backends pass `-fsyntax-only` and clang-tidy with
+the Linux flags (`non-linux-backends-syntax.log`, `tidy-nonlinux.log`).
+
+Gaps: a non-Linux configure still fails: `src/session` (X11, required by `main.cpp`'s compositor
+and login session, `ShellWindow::output`, `FocusFollow`, `GamescopeWindows` and
+`SteamWindowHiding` in `ShellApp`) and `src/host` are added and linked on every OS. Still Linux-only
+and unseamed: `launch/command.*` (`fork`/`execv`), `HostServices` has no absent set, `/proc/self/exe`
+and `getpid` in `config`, `retro_session`, `control_server`; RetroArch's Linux core folders in the
+core search; controller batteries from sysfs. Not run here: a Steam game launch and an AppImage
+emulator under nested Gamescope, the real shell's overlay (only `--hidden` runs, which never attach
+it), `SdlPads` with a real pad, and the AppImage: `tools.appimage all` stopped twice in the fork's
+submodule clones (GitHub refusing anonymous clones of different repos each time), with 1378 of
+1406 build steps done in the Ubuntu container and no openSU compile error.
+
