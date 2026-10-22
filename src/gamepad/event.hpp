@@ -52,6 +52,8 @@ struct Event {
     Kind kind{Kind::Button};
     Button button{Button::None};
     bool pressed{false};
+    /// A direction from the left stick rather than the d-pad.
+    bool stick{false};
     /// The controller's name, for Connected and Disconnected.
     std::string device;
     /// Which pad the event came from (`PadInfo::id`); empty for keys and the control channel.

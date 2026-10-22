@@ -34,6 +34,8 @@ class SdlPadState {
 
   private:
     void set(Button button, bool on, std::map<Button, bool>& held, std::vector<Event>& controls);
+    /// `set` for a left stick direction, its event marked as from the stick.
+    void stick(Button button, bool on, std::map<Button, bool>& held, std::vector<Event>& controls);
 
     Sticks sticks_;
     std::map<Button, bool> buttonHeld_;

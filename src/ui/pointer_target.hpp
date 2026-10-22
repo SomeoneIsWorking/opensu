@@ -58,10 +58,10 @@ struct OnIconSize {
     bool operator==(const OnIconSize&) const = default;
 };
 
-/// A key of the search panel's keyboard, by its index in `searchKeys()`.
-struct OnSearchKey {
+/// A key of the on-screen keyboard, by its index in `KeyboardLayout::keys`.
+struct OnKeyboardKey {
     std::size_t index;
-    bool operator==(const OnSearchKey&) const = default;
+    bool operator==(const OnKeyboardKey&) const = default;
 };
 
 /// A listed result of the search panel, by its index in the results.
@@ -185,7 +185,7 @@ struct OnDownloadAction {
 /// Nothing, or the element the pointer is on.
 using PointerTarget =
     std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnGuideEntry, OnGuidePower,
-                 OnPanelButton, OnChooserRow, OnIconSize, OnSearchKey, OnSearchResult,
+                 OnPanelButton, OnChooserRow, OnIconSize, OnKeyboardKey, OnSearchResult,
                  OnContextItem, OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton,
                  OnSettingsCategory, OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow,
                  OnQuickSlider, OnSettingsTab, OnTabRow, OnDialogButton, OnIntegrationItem,

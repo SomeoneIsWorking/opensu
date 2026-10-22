@@ -13,7 +13,7 @@
 #include "audio/sdl_sound_player.hpp"
 #include "gamepad/event.hpp"
 #include "host/session_mode.hpp"
-#include "ui/search_panel.hpp"
+#include "ui/on_screen_keyboard.hpp"
 #include "ui/session_dialog.hpp"
 
 namespace opensu::app {
@@ -23,7 +23,7 @@ class SessionInstallController {
     /// What the flow tells the player: `error` marks a refusal.
     using Say = std::function<void(const std::string& text, bool error)>;
 
-    SessionInstallController(ui::SessionDialog& dialog, ui::SearchPanel& password,
+    SessionInstallController(ui::SessionDialog& dialog, ui::OnScreenKeyboard& password,
                              host::SessionMode& session, audio::SdlSoundPlayer& sounds, Say say)
         : dialog_{dialog}, password_{password}, session_{session}, sounds_{sounds},
           say_{std::move(say)} {
@@ -65,7 +65,7 @@ class SessionInstallController {
     void finish(const host::InstallResult& result);
 
     ui::SessionDialog& dialog_;
-    ui::SearchPanel& password_;
+    ui::OnScreenKeyboard& password_;
     host::SessionMode& session_;
     audio::SdlSoundPlayer& sounds_;
     Say say_;

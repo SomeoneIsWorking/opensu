@@ -27,6 +27,7 @@ PadChords::Result PadChords::feed(const std::vector<gamepad::Event>& events, Clo
             gamepad::Event out = event;
             out.button = step.button;
             out.pressed = step.pressed;
+            out.stick = event.stick && step.button == event.button;
             result.events.push_back(out);
         }
     }

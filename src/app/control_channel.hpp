@@ -142,8 +142,9 @@ class ControlTarget {
 
     /// Queues `buttons` held together, as if from `device`: pressed in order, then released in
     /// reverse once `hold` has passed. One button is a tap; Guide then A is the Guide + A chord.
+    /// With `stick`, the directions among them come from the left stick instead of the d-pad.
     virtual void inject(const std::vector<gamepad::Button>& buttons, input::Device device,
-                        std::chrono::milliseconds hold) = 0;
+                        std::chrono::milliseconds hold, bool stick) = 0;
 
     /// Queues a key combination pressed on the keyboard, to be read through the shortcut table.
     virtual void injectKey(input::Combo combo) = 0;

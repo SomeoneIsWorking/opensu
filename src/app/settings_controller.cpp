@@ -23,6 +23,7 @@ constexpr const char* muteId = "volumeMute";
 constexpr const char* shortcutId = "shortcut.";
 constexpr const char* shortcutsResetId = "shortcuts.reset";
 constexpr const char* chordsOpenId = "chords.open";
+constexpr const char* keyboardId = "keyboard";
 constexpr const char* sortId = "sort";
 constexpr const char* sourceId = "source";
 constexpr const char* installedId = "installedOnly";
@@ -204,6 +205,9 @@ ui::SettingsCategory SettingsController::audioPage() const {
 
 ui::SettingsCategory SettingsController::controlsPage() const {
     ui::SettingsCategory page{"controls", "Controls", mappings_.settingsRows()};
+    page.rows.push_back(ui::makeRow(
+        keyboardId, RowKind::Choice, "Keyboard", "The on-screen keyboard the fields open",
+        std::string{input::label(preferences_.values().keyboardStyle)}));
     for (const input::Action action : input::allActions) {
         const bool listening = shortcutEditor_.target() == action;
         std::string value = shortcutValue(shortcuts_, action);
@@ -467,6 +471,15 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
     }
     if (id == volumeId || id == muteId) {
         runAudio(id, step);
+        return;
+    }
+    if (id == keyboardId) {
+        settings::Settings& v = preferences_.values();
+        sounds_.play(audio::Effect::Navigation);
+        const auto from = static_cast<std::size_t>(v.keyboardStyle);
+        v.keyboardStyle =
+            input::allKeyboardStyles[around(from, step, input::allKeyboardStyles.size())];
+        changed();
         return;
     }
     if (id.starts_with(shortcutId) || id == shortcutsResetId || id == chordsOpenId) {

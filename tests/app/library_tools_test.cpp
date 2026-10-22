@@ -206,6 +206,7 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
 void searchTypesAndCloses(const fs::path& root) {
     Rig rig{root / "search" / "settings.json"};
     ui::SearchPanel panel;
+    panel.keyboard().setStyle(input::KeyboardStyle::Regular);
     std::size_t reshown = 0;
     std::vector<std::size_t> opened;
     SearchController controller{panel,
@@ -244,21 +245,40 @@ void searchTypesAndCloses(const fs::path& root) {
 
     controller.open();
     controller.act(Button::A);
-    expect(panel.text() == "1", "A types the focused key");
+    expect(panel.keyboard().text() == "1", "A types the focused key");
     controller.act(Button::B);
-    expect(panel.text().empty(), "B deletes a character");
+    expect(panel.keyboard().text().empty(), "B deletes a character");
     controller.act(Button::B);
     expect(!panel.isOpen(), "B on an empty field closes");
 
     controller.open();
     controller.typeText("x");
     controller.act(Button::Select);
-    expect(panel.text().empty() && !controller.searching(), "Select clears the field");
+    expect(panel.keyboard().text().empty() && !controller.searching(), "Select clears the field");
     controller.dismiss();
     expect(!panel.isOpen(), "Escape closes");
     controller.open();
     controller.confirm();
     expect(!panel.isOpen() && opened.size() == 1, "Enter on the keys only closes");
+
+    // The daisy wheel: the stick's petal and the face buttons type, Down enters the results.
+    panel.keyboard().setStyle(input::KeyboardStyle::DaisyWheel);
+    controller.open();
+    panel.keyboard().stick(ui::Direction::Right, true);
+    controller.act(Button::Y);
+    controller.act(Button::A);
+    expect(rig.preferences.values().view.search == "jl" && panel.results().size() == 2,
+           "a petal's characters are the search");
+    panel.keyboard().stick(ui::Direction::Right, false);
+    controller.act(Button::Left);
+    controller.act(Button::X);
+    expect(panel.keyboard().text() == "l", "the D-pad moves the cursor, X deletes before it");
+    controller.act(Button::Down);
+    expect(panel.zone() == ui::SearchZone::Results, "Down enters the results");
+    controller.act(Button::X);
+    expect(panel.zone() == ui::SearchZone::Keys, "X goes back to the wheel");
+    controller.act(Button::B);
+    expect(!panel.isOpen() && controller.searching(), "B with no petal closes, the search kept");
 }
 
 void optionsChangeAndKeep(const fs::path& root) {

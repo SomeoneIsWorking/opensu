@@ -43,8 +43,9 @@ class FakeShell final : public ControlTarget {
         typed.push_back(std::move(text));
     }
     void inject(const std::vector<opensu::gamepad::Button>& buttons, opensu::input::Device device,
-                std::chrono::milliseconds hold) override {
+                std::chrono::milliseconds hold, bool stick) override {
         held.push_back(buttons);
+        sticks.push_back(stick);
         holds.push_back(hold);
         pressed.insert(pressed.end(), buttons.begin(), buttons.end());
         devices.push_back(device);
@@ -67,6 +68,7 @@ class FakeShell final : public ControlTarget {
     std::vector<opensu::gamepad::Button> pressed;
     std::vector<std::vector<opensu::gamepad::Button>> held;
     std::vector<opensu::input::Device> devices;
+    std::vector<bool> sticks;
     std::vector<std::chrono::milliseconds> holds;
     ShellSnapshot state;
 };
@@ -315,6 +317,9 @@ void testKeysAndVolumeState() {
     expect(channel.handle(post("/input", "guide 1500ms")).status == 200 &&
                shell.holds.back() == std::chrono::milliseconds{1500},
            "a hold in milliseconds keeps the button down that long");
+    expect(channel.handle(post("/input", "up+right+a stick 400ms")).status == 200 &&
+               shell.sticks.back() && shell.holds.back() == std::chrono::milliseconds{400},
+           "the word stick says the directions are the left stick's");
     expect(channel.handle(post("/input", "a 200ms keyboard")).status == 200 &&
                shell.holds.back() == std::chrono::milliseconds{200} &&
                shell.devices.back() == opensu::input::Device::KeyboardMouse,

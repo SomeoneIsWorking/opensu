@@ -31,7 +31,7 @@ class ControlBridge final : public ControlTarget {
     [[nodiscard]] ShellSnapshot snapshot() const override;
     void typeText(std::string text) override;
     void inject(const std::vector<gamepad::Button>& buttons, input::Device device,
-                std::chrono::milliseconds hold) override;
+                std::chrono::milliseconds hold, bool stick) override;
     void injectKey(input::Combo combo) override;
     [[nodiscard]] bool captureFrame(std::string& png) override;
     void requestClose() override;

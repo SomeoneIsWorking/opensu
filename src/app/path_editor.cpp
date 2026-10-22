@@ -1,6 +1,6 @@
 #include "path_editor.hpp"
 
-#include "keyboard_walk.hpp"
+#include "keyboard_pad.hpp"
 
 namespace opensu::app {
 
@@ -29,7 +29,7 @@ void PathEditor::choose(const std::filesystem::path& folder) {
 
 void PathEditor::openEntry() {
     sounds_.play(audio::Effect::Open);
-    entry_.configure("Type a folder path", false);
+    entry_.configure("Type a folder path", ui::EntryKind::Path);
     entry_.open(folders_.current().string());
 }
 
@@ -85,13 +85,14 @@ void PathEditor::actInChooser(gamepad::Button button) {
 }
 
 void PathEditor::actOnKeys(gamepad::Button button) {
-    switch (walkKeyboard(entry_, button, sounds_)) {
+    switch (actOnKeyboard(entry_, button, sounds_)) {
     case KeyboardOutcome::Confirm:
         confirm();
         break;
     case KeyboardOutcome::Leave:
         closeEntry();
         break;
+    case KeyboardOutcome::Edited:
     case KeyboardOutcome::Handled:
         break;
     }

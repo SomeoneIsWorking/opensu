@@ -4,7 +4,7 @@
 #include <utility>
 
 #include "host/secret.hpp"
-#include "keyboard_walk.hpp"
+#include "keyboard_pad.hpp"
 
 namespace opensu::app {
 namespace {
@@ -52,7 +52,7 @@ void SessionInstallController::cancel() {
 void SessionInstallController::openPassword() {
     sounds_.play(audio::Effect::Open);
     dialog_.close();
-    password_.configure("Administrator password", false, true);
+    password_.configure("Administrator password", ui::EntryKind::Password);
     password_.open({});
 }
 
@@ -61,13 +61,14 @@ void SessionInstallController::act(gamepad::Button button) {
         return;
     }
     if (password_.isOpen()) {
-        switch (walkKeyboard(password_, button, sounds_)) {
+        switch (actOnKeyboard(password_, button, sounds_)) {
         case KeyboardOutcome::Confirm:
             submit();
             break;
         case KeyboardOutcome::Leave:
             cancel();
             break;
+        case KeyboardOutcome::Edited:
         case KeyboardOutcome::Handled:
             break;
         }

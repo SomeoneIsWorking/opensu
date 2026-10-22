@@ -66,7 +66,8 @@ Visible deltas from the baseline:
 - Library tools, openSU's own (iiSU has none of the filters or the sort). Global Search is iiSU's
   panel (Ctrl+F, `/`, or a row of the START options): case- and accent-insensitive substring on the
   title, prefix matches first, narrowing as typed; a keyboard types straight into the field, a pad
-  gets an on-screen keyboard. The START options (Home and Library) add a sort (recently played,
+  gets the on-screen keyboard (daisy wheel by default, regular grid in Settings › Controls ›
+  Keyboard; `docs/design/on-screen-keyboard.md`). The START options (Home and Library) add a sort (recently played,
   name, store), a source filter (a store or a ROM system), installed only and hidden games only;
   sort, source and installed are kept in `settings.json`, the search and the hidden filter are not.
   Hide/Unhide is in the context menu (Select on a pad; Tab, the Menu key or Shift+F10 on a keyboard;
@@ -692,8 +693,8 @@ missing; "Switch to session mode" once both are there. Install opens a dialog (w
 openSU becomes its own login session on Gamescope with no desktop, that Power then Switch to
 desktop comes back, what is installed where, that an administrator password is needed; Accept and
 Cancel by pad, keyboard or mouse; a right click is never Back). Accept opens a masked password
-field with the on-screen keyboard (Caps on X; letters, digits and `- . & ' /` only, the physical
-keyboard types anything) or the physical keyboard. The password goes to `sudo -S -k -p ''
+field with the on-screen keyboard (the daisy wheel's four sets, or the regular grid with Caps on X;
+the physical keyboard types anything) or the physical keyboard. The password goes to `sudo -S -k -p ''
 /bin/sh <prefix>/libexec/opensu/install-session.sh` on stdin only (never argv, log, settings or
 control channel), from a worker; the buffer is wiped as soon as sudo has had it. A wrong password
 shows sudo's line and asks again; the installer's first output line (`opensu-install: start`) is

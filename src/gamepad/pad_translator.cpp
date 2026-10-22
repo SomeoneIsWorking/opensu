@@ -330,6 +330,7 @@ void PadTranslator::hatControls(const PadEvent& axis, std::vector<Event>& contro
         if (held != on) {
             held = on;
             control(button, on, controls);
+            controls.back().stick = true;
         }
     }
 }
@@ -353,6 +354,7 @@ void PadTranslator::stickControls(const PadEvent& axis, std::vector<Event>& cont
         if (held != on) {
             held = on;
             control(button, on, controls);
+            controls.back().stick = true;
         }
     }
 }

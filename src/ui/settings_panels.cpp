@@ -25,9 +25,9 @@ PointerTarget SettingsPanels::pointAt(Point point, Point size, float dp, float t
                                       float bottomInset) const {
     const Rect frame{0.0f, 0.0f, size.x, size.y};
     if (entry_.isOpen()) {
-        const SearchLayout panel = layoutSearch(frame, dp, entry_.lists());
+        const KeyboardLayout panel = layoutKeyboard(frame, dp, entry_.style());
         if (const std::optional<std::size_t> key = panel.keyAt(point.x, point.y)) {
-            return OnSearchKey{*key};
+            return OnKeyboardKey{*key};
         }
         return {};
     }
@@ -45,7 +45,7 @@ bool SettingsPanels::focusTarget(const PointerTarget& target) {
     if (const auto* entry = std::get_if<OnFolderEntry>(&target)) {
         return folders_.focusEntry(entry->index);
     }
-    if (const auto* key = std::get_if<OnSearchKey>(&target); key != nullptr && entry_.isOpen()) {
+    if (const auto* key = std::get_if<OnKeyboardKey>(&target); key != nullptr && entry_.isOpen()) {
         return entry_.focusKey(key->index);
     }
     return page_.focusTarget(target);

@@ -11,10 +11,10 @@
 
 #include "integration_chooser.hpp"
 #include "integration_chooser_painter.hpp"
+#include "on_screen_keyboard.hpp"
+#include "on_screen_keyboard_painter.hpp"
 #include "panel_fade.hpp"
 #include "pointer_target.hpp"
-#include "search_panel.hpp"
-#include "search_panel_painter.hpp"
 #include "session_dialog.hpp"
 #include "session_dialog_painter.hpp"
 
@@ -36,10 +36,10 @@ class SessionPanels {
         return dialog_;
     }
     /// The on-screen keyboard the password is typed on.
-    [[nodiscard]] SearchPanel& password() noexcept {
+    [[nodiscard]] OnScreenKeyboard& password() noexcept {
         return password_;
     }
-    [[nodiscard]] const SearchPanel& password() const noexcept {
+    [[nodiscard]] const OnScreenKeyboard& password() const noexcept {
         return password_;
     }
 
@@ -70,9 +70,9 @@ class SessionPanels {
     SessionDialog dialog_;
     PanelFade dialogFade_{FadeSpec{150.0f, 150.0f, 1.0f, 0.0f, 1.0f}};
     SessionDialogPainter dialogPainter_;
-    SearchPanel password_;
+    OnScreenKeyboard password_;
     PanelFade passwordFade_{FadeSpec{150.0f, 150.0f, 1.0f, 0.0f, 1.0f}};
-    SearchPanelPainter passwordPainter_;
+    OnScreenKeyboardPainter passwordPainter_;
     IntegrationChooser chooser_;
     PanelFade chooserFade_{FadeSpec{150.0f, 150.0f, 1.0f, 0.0f, 1.0f}};
     IntegrationChooserPainter chooserPainter_;

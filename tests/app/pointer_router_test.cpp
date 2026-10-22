@@ -256,7 +256,7 @@ void hoverFocusesThePanelTargets() {
     LastDevice device;
     PointerRouter router{device, host};
     for (const PointerTarget target :
-         {PointerTarget{opensu::ui::OnIconSize{3}}, PointerTarget{opensu::ui::OnSearchKey{2}},
+         {PointerTarget{opensu::ui::OnIconSize{3}}, PointerTarget{opensu::ui::OnKeyboardKey{2}},
           PointerTarget{opensu::ui::OnSearchResult{1}}, PointerTarget{opensu::ui::OnContextItem{0}},
           PointerTarget{opensu::ui::OnDetailsButton{1}},
           PointerTarget{opensu::ui::OnDialogButton{1}}}) {

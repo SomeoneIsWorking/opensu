@@ -1,6 +1,7 @@
-// search_controller — the buttons and keys of the search panel. A pad walks the drawn keyboard; a
-// physical keyboard types into the field. The text goes into the view's search, so the grid
-// behind narrows as it is typed, and closing the panel leaves the results showing.
+// search_controller — the buttons and keys of the search panel. A pad types on the on-screen
+// keyboard (`keyboard_pad`) and walks the results; a physical keyboard types into the field. The
+// text goes into the view's search, so the grid behind narrows as it is typed, and closing the
+// panel leaves the results showing.
 #pragma once
 
 #include <functional>
@@ -59,7 +60,8 @@ class SearchController {
     /// Opens result `index`: closes the panel and presses A on its tile.
     void openResult(std::size_t index);
     void moved(bool changed);
-    void applyPress(const ui::SearchPress& press);
+    /// A button while the results are focused; reports whether it took it.
+    bool actInResults(gamepad::Button button);
 
     ui::SearchPanel& panel_;
     audio::SdlSoundPlayer& sounds_;

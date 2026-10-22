@@ -140,6 +140,10 @@ class ShellApp final : private PointerHost {
     void loadCatalogNow();
     void applyCatalog(library::CatalogSnapshot snapshot);
     void handleEvents(const std::vector<gamepad::Event>& events);
+    /// The daisy wheel that takes the left stick's directions now: the open keyboard the pad
+    /// types on, when it shows the wheel; else nothing, and the stick moves focus as the d-pad
+    /// does.
+    [[nodiscard]] ui::OnScreenKeyboard* wheelTakingStick();
     /// Maps held keys onto the buttons they stand in for, so the keyboard reaches
     /// the same actions a controller does rather than a parallel set.
     void handleKeyboard();
