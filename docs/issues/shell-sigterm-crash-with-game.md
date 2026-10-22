@@ -1,6 +1,6 @@
 # Shell crashes on SIGTERM while a game runs
 
-Status: fixed in the tree, not committed.
+Status: fixed (5603e2e).
 
 Observed: SIGTERM to a hidden `opensu` while a libretro game runs ends it with SIGSEGV instead of a
 clean exit. Expected: the shell closes the game and exits 0.

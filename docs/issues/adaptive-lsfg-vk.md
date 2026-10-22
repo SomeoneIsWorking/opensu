@@ -2,7 +2,7 @@
 
 Status: open. Decided 2026-10-22: frame generation runs inside our Gamescope fork with our own MIT
 generator (see "Decision"). Phases A (mechanism), B (adaptive pacing) and the generator
-(`CLosslessSynthesizer`) are in the fork at `25cb24bb` and pinned. Phase C (openSU settings and the
+(`CLosslessSynthesizer`) are in the fork and pinned at `d155d8c9`. Phase C (openSU settings and the
 atoms for the game in front) is built and shown with a libretro game in headless Gamescope
 (`docs/project-state.md` S041); Settings › Emulators rows and a store game are still open.
 
@@ -29,19 +29,23 @@ discarding the fork". So:
 
 ## Frame generation in the fork
 
-The fork's `src/FrameGen/` (pinned `25cb24bb`):
+The fork's `src/FrameGen/` (pinned `d155d8c9`):
 - `FramePacer`: the one owner of how many images each real frame gets, their timestamps and when
   each is shown.
-  - Base rate: the mean of the last 15 real-frame intervals; an interval 6x off the mean restarts
-    the history. Lossless Scaling's `frametime_buffer_size` and
+  - Base rate: the mean of the last 15 intervals between the times the real frames' buffers
+    became ready (the commit's `present_time`, not when Gamescope took it, so a commit taken again
+    after a restart keeps its own time). An interval 6x off the mean restarts the history without
+    itself: a stall or a burst measures no rate. Lossless Scaling's `frametime_buffer_size` and
     `frametime_buffer_reset_multiplier` (see "Lossless Scaling's Adaptive mode").
+  - Nothing is generated, in either mode, until the history is full: after a settings change or
+    a restart the first 15 real frames show as they come.
   - Count and timestamps: a phase accumulator steps by `1 / ratio` (fixed) or
     `base rate / target` (adaptive, never below `1 / (max + 1)`), carried over between real
     frames, so fractional ratios work. An output within 0.05 of a real frame shows that real frame
     (`real_timestamp_tolerance`). When a carried phase would put more than `max` generated images
     in one interval, the phase realigns so the real frame is one of the outputs.
   - Adaptive decision: the target is the set rate, or the display's refresh when 0, and never above
-    the refresh. Nothing is decided until the history is full. Generation stops once the base
+    the refresh. Generation stops once the base
     rate reaches `target - tolerance` and restarts only below `target - 1.5 * tolerance`, and
     either change needs the base rate past its threshold for 15 real frames in a row. Below
     10 fps (`base_framerate_threshold`) only real frames show, in both modes.
@@ -178,6 +182,32 @@ Not proven: the FP32 modules (this GPU has FP16), HDR or 10-bit input (refused b
 generator), UI detection's effect on a real HUD, quality against Lossless Scaling's own output on
 the same input, RenderDoc (installed, but headless Gamescope has no present to delimit a capture),
 DRM and nested backends, and a game in openSU.
+
+## Base rate after a change (2026-10-22)
+
+Found by phase C (`scratch/framegen-settings/runs/found-2`): the first pacing line after each
+switch into Fixed read a base of 210 to 1735 fps, and one adaptive restart read 297.57 fps.
+- Causes, both in the fork's `src/FrameGen/`: `FrameGenerator::Capture` stamped each real frame
+  with the time Gamescope took it, so after a restart the commit already on screen was taken again
+  as real frame 0 at the moment of the change, and the next interval was only the rest of one
+  frame. `CFrameIntervalEstimator::AddFrame` restarted the history on a 6x outlier but kept the
+  outlier as its first interval (a 3.4 ms catch-up after a 36 ms frame read 297 fps), and fixed
+  mode planned from a single interval, so a burst after a stall read 180 fps.
+- Fix, `d155d8c9`: the history takes the commit's ready time, drops the outlier that restarts it,
+  and both modes wait for it to be full; the output timeline still uses arrival times.
+- Proof (`scratch/fg-pacer/`, `scripts/live.sh` switching Fixed and Adaptive, ratio, target, max
+  and tolerance 33 times a run, `scripts/analyze.py`; headless 1280x720 at 60 Hz, Lossless,
+  `DISABLE_LSFG=1`): bar at 40 fps, before `runs/baseline-bar40`: pacing lines up to 376.78 fps,
+  267 of 1556 frames over 44; after `runs/fixed2-bar40`: every nonzero line from a switch 39.98 to 40.03,
+  the only higher one 44.13 at the game's own start, when ffplay delivered at 60 for 5 frames.
+  vkcube at 40, before `runs/baseline-vk40`: up to 461.01; after `runs/fixed-vk40`: 39.29 to 40.46,
+  no frame over 43.07. Steady runs (`runs/{baseline,fixed}_{f40x15,f30x2,a43to60,vka43to60}`,
+  `scripts/steady.sh`, `scripts/steady_analyze.py`): the same advance per shown frame (0.667,
+  0.500, 0.717), 60 shown/s, the same generated counts per real frame.
+- Gamescope's exit: the -11 in phase C's reports is openSU's (`docs/issues/shell-sigterm-crash-with-game.md`),
+  not Gamescope's, which exited 0 in every run. `scripts/exit.sh` (`runs/exit-*`): SIGTERM to
+  Gamescope, with and without the client ended first, frame generation on and off at `d155d8c9`
+  and off at `e297b648`: 18 of 18 exit 0, no core.
 
 ## The bar
 

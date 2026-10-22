@@ -818,7 +818,7 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `25cb24bbed60f1b4e3c567d5493bf0a5be98c46e` (3.16.29 plus thirteen commits).
+to commit `d155d8c9ddff3746234d968c7efe8d6ba12d449d` (3.16.29 plus fourteen commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. The other three are upstream's
@@ -846,7 +846,9 @@ timestamps into `CGpuTimestamps`; 25cb24bb adds the generator, `CLosslessSynthes
 code, `docs/design/frame-generation-spec.md`): it reads the LSFG 3 SPIR-V from the player's
 `Lossless.dll` named by `_DLL`, checks every module's interface against the spec and otherwise
 refuses (logged once, real frames only), and runs the per-real-frame and per-generated-frame passes
-on Gamescope's device, FP16 when the device has it. New atoms `_GENERATOR` (1 is the linear blend,
+on Gamescope's device, FP16 when the device has it. d155d8c9 measures the base rate from the
+commits' ready times over a full 15-interval history in both modes, without the outlier that
+restarts it (`docs/issues/adaptive-lsfg-vk.md`, "Base rate after a change"). New atoms `_GENERATOR` (1 is the linear blend,
 kept as an explicit test choice), `_PERFORMANCE` and `_FLOW_SCALE` (percent). Verified headless:
 motion-interpolated frames with fixed 2x and adaptive 43 to 60, unchanged pacing, no validation
 message from the generator, GPU time per generated frame (`docs/issues/adaptive-lsfg-vk.md`,
@@ -931,9 +933,10 @@ to the player's):
 
 Not run: a store game (no Steam in the proof), the quick menu over a game in the real nested or
 DRM session, Settings › Emulators rows for these keys (not built), and a non-Linux build (the
-none backend passes `-fsyntax-only`). The fixed mode's first pacing line after a change reports
-a base of over 1500 fps (fork side, `FramePacer`, one interval of history); the rate lines after
-it are right.
+none backend passes `-fsyntax-only`). The fixed mode's first pacing line after a change read a base of over 1500 fps (fork side,
+`FramePacer`); fixed at `d155d8c9`, shown headless with live switching but not yet rerun in
+this proof. The -11 exit in the proof's reports was openSU's, from builds before 5603e2e
+(`docs/issues/shell-sigterm-crash-with-game.md`); Gamescope exits 0.
 
 ### S015 — Owned instances
 
