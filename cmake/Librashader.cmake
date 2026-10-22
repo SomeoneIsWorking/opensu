@@ -57,7 +57,19 @@ without shader presets, configure with -DOPENSU_BUILD_LIBRASHADER=OFF.")
         message(FATAL_ERROR "librashader needs Rust ${OPENSU_LIBRASHADER_RUST_MINIMUM}; this is "
             "${version}. ${install_hint}")
     endif()
+    get_filename_component(cargo_dir "${OPENSU_CARGO}" DIRECTORY)
+    find_program(OPENSU_RUSTC rustc HINTS "${cargo_dir}" NO_DEFAULT_PATH)
+    find_program(OPENSU_RUSTC rustc)
+    execute_process(COMMAND "${OPENSU_RUSTC}" -vV
+        OUTPUT_VARIABLE rustc_info RESULT_VARIABLE failed)
+    if(failed OR NOT rustc_info MATCHES "host: ([^\n]+)")
+        message(FATAL_ERROR "${OPENSU_RUSTC} -vV failed (${rustc_info}). ${install_hint}")
+    endif()
+    string(TOUPPER "${CMAKE_MATCH_1}" host)
+    string(REPLACE "-" "_" host "${host}")
     set(${out} "${OPENSU_CARGO}" PARENT_SCOPE)
+    # Cargo links build scripts with `cc` unless told otherwise; images with only Clang have none.
+    set(${out}_linker_variable "CARGO_TARGET_${host}_LINKER" PARENT_SCOPE)
 endfunction()
 
 function(opensu_add_librashader)
@@ -68,12 +80,6 @@ function(opensu_add_librashader)
     set(staged "${CMAKE_BINARY_DIR}/${OPENSU_LIBRASHADER_RELATIVE}")
     set(pin_file "${root}/pin.txt")
     file(CONFIGURE OUTPUT "${pin_file}" CONTENT "${OPENSU_LIBRASHADER_COMMIT}\n")
-    # The glslang and SPIRV-Cross crates compile C++ with the project's compiler.
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        set(c_compiler clang)
-    else()
-        set(c_compiler cc)
-    endif()
 
     ExternalProject_Add(opensu_librashader
         GIT_REPOSITORY "${OPENSU_LIBRASHADER_REPOSITORY}"
@@ -87,8 +93,9 @@ function(opensu_add_librashader)
         TMP_DIR "${root}/tmp"
         DOWNLOAD_DIR "${root}/download"
         CONFIGURE_COMMAND ""
-        BUILD_COMMAND "${CMAKE_COMMAND}" -E env "CC=${c_compiler}" "CXX=${CMAKE_CXX_COMPILER}"
-            "CARGO_TARGET_DIR=${root}/target"
+        # The glslang and SPIRV-Cross crates compile C and C++ with the project's compilers.
+        BUILD_COMMAND "${CMAKE_COMMAND}" -E env "CC=${CMAKE_C_COMPILER}" "CXX=${CMAKE_CXX_COMPILER}"
+            "${cargo_linker_variable}=${CMAKE_C_COMPILER}" "CARGO_TARGET_DIR=${root}/target"
             "${cargo}" build --locked --manifest-path "${root}/source/Cargo.toml"
             --package librashader-capi --profile optimized --no-default-features
             --features runtime-vulkan
