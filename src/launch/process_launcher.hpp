@@ -34,6 +34,10 @@ class ProcessLauncher {
     /// spawned carry on, which still counts as running.
     [[nodiscard]] bool running();
 
+    /// True until the started process itself exits. It keeps its pid through every exec, so this
+    /// holds while its command line is being replaced.
+    [[nodiscard]] bool startedRunning();
+
     /// Asks every process in the group to end and returns once the group is gone: on Linux
     /// SIGTERM, and systemd SIGKILLs whatever is left after TimeoutStopSec (5 s). Then reaps the
     /// started one.

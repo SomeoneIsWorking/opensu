@@ -535,7 +535,11 @@ Wine prefix path for Steam, the install folder for the others — which is what
 identifies the game in the process table.
 
 Waiting is two phases: the game must appear, then it must leave. Neither is a wait
-on the child: `steam.sh` lives for hours and a launcher that hands off exits at once.
+on the child alone: `steam.sh` lives for hours and a launcher that hands off exits at once. A game
+in a scope is there while its started process runs (`ProcessLauncher::startedRunning`), then while
+the scope holds a process matching the hint. A command line is never the only word on the started
+process: `/proc/<pid>/cmdline` reads empty while it execs, as `systemd-run` does into the program
+(`docs/issues/launch-ends-as-it-starts.md`).
 
 For a Steam game the handoff follows Steam's own launch (`steam/launch_activity.*`):
 a recorder in Steam's SharedJSContext keeps each app's latest game action (id,

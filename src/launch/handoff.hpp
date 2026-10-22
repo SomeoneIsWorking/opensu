@@ -113,7 +113,8 @@ class Handoff {
     /// (`requested`: this launch asked it to run the game), has no action of it pending, does not
     /// run the game and none of its processes remain.
     void endSteamLaunch(const library::Game& game, int baseline, bool requested);
-    /// Phase two: whether the game is still there.
+    /// Phase two: whether the game is still there. A game in a ProcessLauncher is there while its
+    /// started process runs, then while the group holds a process matching the hint.
     [[nodiscard]] bool stillRunning(const library::Game& game, bool viaSteam);
 
     /// Sleeps one poll interval, or less when forceClose() wakes it.

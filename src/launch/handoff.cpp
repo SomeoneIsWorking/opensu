@@ -193,8 +193,13 @@ Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Report
             continue;
         }
         if (appeared) {
-            failure = game.title + " closed before it showed a window";
-            return Shown::Failed;
+            if (!instance_.startedRunning()) {
+                failure = game.title + " closed before it showed a window";
+                return Shown::Failed;
+            }
+            report(LaunchProgress{.stage = LaunchProgress::Stage::Loading});
+            pause();
+            continue;
         }
         report(LaunchProgress{.stage = LaunchProgress::Stage::Starting});
         if (!instance_.running()) {
@@ -250,7 +255,10 @@ void Handoff::endSteamLaunch(const library::Game& game, int baseline, bool reque
 
 bool Handoff::stillRunning(const library::Game& game, bool viaSteam) {
     if (!viaSteam) {
-        return instance_.running() && ProcessTree::anyMatches(game.processHint);
+        // A command line reads empty while its process execs; the started process's pid does not
+        // change.
+        return instance_.startedRunning() ||
+               (instance_.running() && ProcessTree::anyMatches(game.processHint));
     }
     // Steam's word, or a process of the game's: either alone can lag the other.
     return steam_.activity(game.sourceId).running.value_or(false) ||
