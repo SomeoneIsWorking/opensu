@@ -37,6 +37,23 @@ or a custom compositor and owns the screen from login with no desktop under it.
 As on the Steam Deck, a game can run below the output resolution while the one
 Gamescope upscales it with FSR (or another of its filters), chosen per game.
 
+## G005 — Linux, Windows, macOS and Android releases
+
+Every release ships a Linux AppImage, a Windows installer, a macOS `.app` archive and a signed
+Android APK from the same source. Outside Linux openSU is a launcher: the library, artwork, the
+built-in libretro runner with its shaders, filters and setting layers, BIOS and core downloads,
+standalone emulators, and Steam, Epic and GOG games started through their own clients where that
+OS has them. A feature an OS cannot have is absent from its UI, not shown disabled.
+
+Success: each package installs on a clean machine of its OS, finds the player's ROMs and store
+libraries, runs a ROM on a built-in core with a shader preset, launches a standalone emulator and
+a store game, and returns to the shell when it exits; saves and settings sit in that OS's
+user-data location. Plan: `docs/issues/cross-platform-releases.md`.
+
+Not part of G005: Gamescope (nested, login session, FSR, frame generation), Isolated and Managed
+Steam, virtual pads remapping another program's input, Wine and session installs outside Linux;
+iOS and tvOS.
+
 ## Non-goals
 
 - Replacing Steam or Legendary as clients for their own stores. openSU signs in to GOG itself,
