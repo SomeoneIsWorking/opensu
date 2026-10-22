@@ -138,6 +138,23 @@ void Typeface::drawCentred(Canvas& canvas, std::string_view text, float x, float
     });
 }
 
+void Typeface::drawInkCentred(Canvas& canvas, std::string_view character, Point centre,
+                              const TextStyle& style, Colour colour) {
+    if (character.empty() || colour.a == 0) {
+        return;
+    }
+    gpu2d::Text& glyphs = this->text();
+    const TextGrid grid{face_, style};
+    const gpu2d::TextStyle glyphStyle{.size = grid.em()};
+    const auto [codepoint, length] = firstCodepoint(character);
+    const gpu2d::GlyphInk ink = glyphs.ink(codepoint, glyphStyle);
+    const Point at{std::round(centre.x - ink.centreX()),
+                   std::round(centre.y + ink.centreY() - glyphs.metrics(grid.em()).ascent)};
+    if (!glyphs.draw(canvas, character.substr(0, length), at, glyphStyle, colour)) {
+        lucent::error("ui", "could not shape \"{}\": {}", character, SDL_GetError());
+    }
+}
+
 void Typeface::drawFromCapTop(Canvas& canvas, std::string_view text, Point origin,
                               const TextStyle& style, Colour colour) {
     const float box = lineBox(style);

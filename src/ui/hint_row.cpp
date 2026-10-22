@@ -10,8 +10,8 @@ constexpr float hintSpacingDp = 18.0f;
 
 } // namespace
 
-void paintHintRow(Canvas& canvas, const ButtonGlyphPainter& glyphs, Typeface& typeface,
-                  std::span<const HintPrompt> hints, Point centre, float dp, Colour ink) {
+float hintRowWidth(const ButtonGlyphPainter& glyphs, Typeface& typeface,
+                   std::span<const HintPrompt> hints, float dp) {
     const TextStyle hint{hintSp * dp};
     const float glyph = hintGlyphDp * dp;
     float width = 0.0f;
@@ -19,7 +19,14 @@ void paintHintRow(Canvas& canvas, const ButtonGlyphPainter& glyphs, Typeface& ty
         width += glyphs.advance(key, glyph) + hintGapDp * dp + typeface.measure(label, hint) +
                  hintSpacingDp * dp;
     }
-    float x = centre.x - (width - hintSpacingDp * dp) * 0.5f;
+    return hints.empty() ? 0.0f : width - hintSpacingDp * dp;
+}
+
+void paintHintRow(Canvas& canvas, const ButtonGlyphPainter& glyphs, Typeface& typeface,
+                  std::span<const HintPrompt> hints, Point centre, float dp, Colour ink) {
+    const TextStyle hint{hintSp * dp};
+    const float glyph = hintGlyphDp * dp;
+    float x = centre.x - hintRowWidth(glyphs, typeface, hints, dp) * 0.5f;
     for (const auto& [key, label] : hints) {
         const float advance = glyphs.advance(key, glyph);
         glyphs.paint(canvas, key, Point{x + advance * 0.5f, centre.y}, glyph, ink);

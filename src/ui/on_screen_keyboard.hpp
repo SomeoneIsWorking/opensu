@@ -77,32 +77,49 @@ inline constexpr std::size_t daisySets = 4;
 [[nodiscard]] std::optional<std::size_t> petalPointedAt(bool up, bool down, bool left,
                                                         bool right) noexcept;
 
-/// Where the keyboard's parts stand in a frame, in pixels.
+/// The wheel's keys a pointer can press: the eight petals, then the four faces of the picked one
+/// in `DaisyFace` order.
+inline constexpr std::size_t daisyKeys = daisyPetals + daisyFaces;
+
+/// Where the keyboard's parts stand in a frame, in pixels. It docks along the bottom edge, centred,
+/// no taller than a fifth of the frame.
 struct KeyboardLayout {
     Rect panel;
     float panelRadius{};
-    Rect field;
-    /// The room the caller asked for between the field and the keys (the search results).
-    Rect reserved;
-    /// The keys a pointer can press: one per `gridKeys()` entry, or on the wheel one per petal
-    /// character (`petal * daisyFaces + face`).
+    /// Pixels per dp inside the dock: the frame's, shrunk when the dock would not fit.
+    float unit{};
+    /// The keys a pointer can press: one per `gridKeys()` entry, or the wheel's `daisyKeys`.
     std::vector<Rect> keys;
-    /// The square the wheel fills, the distance from its centre to each petal's centre and a
-    /// petal's radius.
-    Rect wheel;
+    /// The square the wheel's ring of petals fills, the distance from its centre to each petal and
+    /// a petal's radius.
+    Rect ring;
     float petalDistance{};
     float petalRadius{};
+    /// The square the picked petal's characters fill in the A/B/X/Y diamond, the distance from its
+    /// centre to each face and a face's radius.
+    Rect diamond;
+    float faceDistance{};
+    float faceRadius{};
+    /// The one-line preview of the text; empty when the caller shows its own field.
+    Rect preview;
+    /// The wheel's sets and shoulder buttons, or the grid's first line of hints.
+    Rect strip;
     /// The line the button hints stand on.
     Rect hints;
 
     [[nodiscard]] std::optional<std::size_t> keyAt(float x, float y) const noexcept;
-    /// The square `petal` fills.
+    /// The circle `petal` fills.
     [[nodiscard]] Rect petalBounds(std::size_t petal) const noexcept;
+    /// The circle `face` fills in the diamond.
+    [[nodiscard]] Rect faceBounds(DaisyFace face) const noexcept;
 };
 
-/// The keyboard in `style` centred in `frame`, with `reserved` pixels of room under the field.
+/// Where `face` sits on a petal or in the diamond, as a unit step from its centre (y down).
+[[nodiscard]] std::pair<float, float> faceStep(DaisyFace face) noexcept;
+
+/// The keyboard in `style` docked in `frame`, with a preview line when `preview`.
 [[nodiscard]] KeyboardLayout layoutKeyboard(const Rect& frame, float dp, input::KeyboardStyle style,
-                                            float reserved = 0.0f);
+                                            bool preview = true);
 
 /// What pressing the focused key asked for.
 struct KeyPress {
@@ -175,8 +192,8 @@ class OnScreenKeyboard {
     /// Moves the cursor one character left (`step` -1) or right (1); reports whether it moved.
     bool moveCursor(int step) noexcept;
 
-    /// The focused key: a `gridKeys()` index, or on the wheel `petal * daisyFaces + face` of the
-    /// character the pointer is on.
+    /// The focused key: a `gridKeys()` index, or the wheel key the pointer is on (a petal, or
+    /// `daisyPetals + face`).
     [[nodiscard]] std::size_t keyFocus() const noexcept {
         return key_;
     }
@@ -186,7 +203,8 @@ class OnScreenKeyboard {
     bool move(Direction direction);
     /// Whether the grid's focus is on its top row, from which Up leaves the keys.
     [[nodiscard]] bool onTopRow() const noexcept;
-    /// Presses the focused key: the grid's, or the wheel character the pointer is on.
+    /// Presses the focused key: the grid's, or the wheel face the pointer is on (a petal under the
+    /// pointer is already picked, so pressing it types nothing).
     KeyPress press();
 
     /// The wheel's set, and LT or RT stepping it (`step` -1 or 1), wrapping.
@@ -196,9 +214,9 @@ class OnScreenKeyboard {
     void cycleSet(int step) noexcept;
     /// A left stick direction held or let go; reports whether the picked petal changed.
     bool stick(Direction direction, bool held) noexcept;
-    /// The petal picked: the stick's, else the one the pointer is on.
+    /// The petal picked: the stick's, else the last one the pointer rested on.
     [[nodiscard]] std::optional<std::size_t> petal() const noexcept;
-    /// Whether the pointer is on a wheel character, which A then types.
+    /// Whether the pointer is on a wheel key, which A then presses.
     [[nodiscard]] bool pointed() const noexcept {
         return pointed_;
     }
@@ -220,6 +238,8 @@ class OnScreenKeyboard {
     /// The stick directions held: up, down, left, right.
     std::array<bool, 4> stick_{};
     bool pointed_{false};
+    /// The petal the pointer last rested on, kept until the stick picks one.
+    std::optional<std::size_t> pointerPetal_;
     bool open_{false};
 };
 

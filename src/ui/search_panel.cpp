@@ -5,21 +5,45 @@
 namespace opensu::ui {
 namespace {
 
+constexpr float cardWidthDp = 600.0f;
+constexpr float cardPaddingDp = 12.0f;
+constexpr float cardRadiusDp = 17.0f;
+constexpr float cardGapDp = 10.0f;
+constexpr float fieldHeightDp = 40.0f;
+constexpr float sectionGapDp = 8.0f;
 constexpr float resultHeightDp = 28.0f;
 
 } // namespace
 
 SearchLayout layoutSearch(const Rect& frame, float dp, input::KeyboardStyle style) {
     SearchLayout layout;
-    layout.keyboard = layoutKeyboard(frame, dp, style,
-                                     static_cast<float>(searchResultRows) * resultHeightDp * dp);
-    float y = layout.keyboard.reserved.y;
+    // The card brings its own field, so the keyboard needs no preview line.
+    layout.keyboard = layoutKeyboard(frame, dp, style, false);
+    const float pad = cardPaddingDp * dp;
+    const float width = std::min(cardWidthDp * dp, frame.width);
+    const float height = 2.0f * pad + fieldHeightDp * dp + sectionGapDp * dp +
+                         static_cast<float>(searchResultRows) * resultHeightDp * dp;
+    const float bottom = layout.keyboard.panel.y - cardGapDp * dp;
+    layout.card = Rect{frame.x + (frame.width - width) * 0.5f, std::max(frame.y, bottom - height),
+                       width, height};
+    layout.cardRadius = cardRadiusDp * dp;
+    const float inner = width - 2.0f * pad;
+    float y = layout.card.y + pad;
+    layout.field = Rect{layout.card.x + pad, y, inner, fieldHeightDp * dp};
+    y += (fieldHeightDp + sectionGapDp) * dp;
     for (Rect& row : layout.results) {
-        row = Rect{layout.keyboard.reserved.x, y, layout.keyboard.reserved.width,
-                   resultHeightDp * dp};
+        row = Rect{layout.card.x + pad, y, inner, resultHeightDp * dp};
         y += resultHeightDp * dp;
     }
     return layout;
+}
+
+Rect SearchLayout::cardFor(std::size_t listed) const noexcept {
+    const std::size_t shown = std::min(listed, searchResultRows);
+    // With nothing listed the card ends a padding under the field, as it does under the last row.
+    const float last = shown == 0 ? field.bottom() : results[shown - 1].bottom();
+    return Rect{card.x, card.y, card.width,
+                card.height - (results[searchResultRows - 1].bottom() - last)};
 }
 
 std::optional<std::size_t> SearchLayout::resultAt(float x, float y) const noexcept {

@@ -887,7 +887,7 @@ void ShellApp::activateCrumb(std::size_t index) {
 ui::HintContext ShellApp::hints() const {
     // The menus draw their own prompts.
     if (paths_.active() || sessionInstall_.active() || shell_.guidePanels().anyOpen() ||
-        mappings_.active() || firstRun_.active()) {
+        mappings_.active() || firstRun_.active() || shell_.dockedKeyboard() != nullptr) {
         return ui::HintContext{};
     }
     if (shortcutEditor_.capturing()) {

@@ -1,7 +1,9 @@
 # An on-screen keyboard for everything: daisy wheel by default
 
 Status: open. Step 1 (openSU's own fields) built: one keyboard owner with both layouts and the
-Settings › Controls › Keyboard row (`docs/design/on-screen-keyboard.md`). Still to do: typing into
+Settings › Controls › Keyboard row (`docs/design/on-screen-keyboard.md`). Step 2 built: both
+layouts dock along the bottom fifth, the compact wheel, the preview line, anti-aliased shapes and
+ink-centred characters. Still to do: typing into
 other apps (XTest inside Gamescope), opening it from a Guide chord or the quick menu, layouts per
 language, the right stick as a cursor, and the regular grid extended to a full layout.
 

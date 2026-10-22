@@ -1,7 +1,9 @@
 // The on-screen keyboard: the line and its cursor, the regular grid's D-pad walk, the daisy
-// wheel's petals and sets, a secret line, and the layouts the pointer hit-tests.
+// wheel's petals and sets, a secret line, and the docked layouts the pointer hit-tests.
 #include "on_screen_keyboard.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 #include "check.hpp"
@@ -153,16 +155,23 @@ void theSetsCycle() {
 
 void thePointerTypesAWheelCharacter() {
     OnScreenKeyboard keyboard = opened(KeyboardStyle::DaisyWheel);
-    const std::size_t yOnSecond = 1 * daisyFaces + static_cast<std::size_t>(DaisyFace::Y);
-    expect(keyboard.focusKey(yOnSecond) && keyboard.pointed(), "the pointer rests on a character");
-    expect(keyboard.petal() == std::optional<std::size_t>{1}, "which picks its petal");
+    const std::size_t yFace = daisyPetals + static_cast<std::size_t>(DaisyFace::Y);
+    expect(keyboard.focusKey(1) && keyboard.pointed(), "the pointer rests on a petal");
+    expect(keyboard.petal() == std::optional<std::size_t>{1}, "which picks it");
+    expect(!keyboard.press().edited && keyboard.text().empty(), "a click on a petal types nothing");
+    keyboard.focusKey(yFace);
+    expect(keyboard.petal() == std::optional<std::size_t>{1},
+           "the petal stays picked while the pointer moves to its characters");
     expect(keyboard.press().edited && keyboard.text() == "f", "a click types that character");
-    expect(!keyboard.pointed() && !keyboard.petal(), "once");
-    keyboard.focusKey(yOnSecond);
+    expect(!keyboard.pointed(), "once");
+    keyboard.focusKey(yFace);
+    expect(keyboard.press().edited && keyboard.text() == "ff", "and again on the next click");
     keyboard.stick(Direction::Down, true);
     expect(!keyboard.pointed() && keyboard.petal() == std::optional<std::size_t>{4},
            "the stick takes the petal from the pointer");
-    expect(!keyboard.focusKey(daisyPetals * daisyFaces), "no character past the wheel");
+    keyboard.stick(Direction::Down, false);
+    expect(!keyboard.petal(), "and lets go of it");
+    expect(!keyboard.focusKey(daisyKeys), "no key past the wheel");
 }
 
 void styleTakesEffectOnOpen() {
@@ -206,35 +215,46 @@ void aSecretLineWipesAndCapitalises() {
 }
 
 void layoutsHitTest() {
-    const Rect frame{0.0f, 0.0f, 1280.0f, 720.0f};
-    for (const KeyboardStyle style : opensu::input::allKeyboardStyles) {
-        const KeyboardLayout layout = layoutKeyboard(frame, 1.0f, style, 84.0f);
-        const std::size_t keys =
-            style == KeyboardStyle::Regular ? gridKeys().size() : daisyPetals * daisyFaces;
-        expect(layout.keys.size() == keys, "a rectangle per key");
-        expect(layout.panel.x >= 0.0f && layout.panel.right() <= frame.width &&
-                   layout.panel.y >= 0.0f && layout.panel.bottom() <= frame.height,
-               "the panel fits the frame");
-        expect(layout.reserved.height == 84.0f && layout.reserved.y >= layout.field.bottom(),
-               "the reserved room sits under the field");
-        for (std::size_t i = 0; i < layout.keys.size(); ++i) {
-            const auto hit = layout.keyAt(layout.keys[i].centreX(), layout.keys[i].centreY());
-            expect(hit && *hit == i, "a key's centre hits that key");
-            expect(layout.keys[i].y >= layout.reserved.bottom() &&
-                       layout.keys[i].bottom() <= layout.hints.y,
-                   "keys sit between the reserved room and the hints");
+    for (const Rect frame : {Rect{0.0f, 0.0f, 1280.0f, 800.0f}, Rect{0.0f, 0.0f, 1920.0f, 1080.0f},
+                             Rect{0.0f, 0.0f, 400.0f, 300.0f}}) {
+        const float dp = std::min(frame.width / 853.0f, frame.height / 480.0f);
+        for (const KeyboardStyle style : opensu::input::allKeyboardStyles) {
+            const KeyboardLayout layout = layoutKeyboard(frame, dp, style);
+            const std::size_t keys =
+                style == KeyboardStyle::Regular ? gridKeys().size() : daisyKeys;
+            expect(layout.keys.size() == keys, "a rectangle per key");
+            expect(layout.panel.x >= 0.0f && layout.panel.right() <= frame.width &&
+                       layout.panel.bottom() <= frame.height,
+                   "the dock fits the frame");
+            expect(frame.height - layout.panel.y <= frame.height / 5.0f + 0.01f,
+                   "and covers at most the bottom fifth");
+            expect(std::abs(layout.panel.centreX() - frame.centreX()) < 0.01f, "centred");
+            expect(layout.preview.height > 0.0f && layout.preview.bottom() <= layout.strip.y &&
+                       layout.strip.bottom() <= layout.hints.y,
+                   "the preview stands over the strip and the hints");
+            for (std::size_t i = 0; i < layout.keys.size(); ++i) {
+                const auto hit = layout.keyAt(layout.keys[i].centreX(), layout.keys[i].centreY());
+                expect(hit && *hit == i, "a key's centre hits that key");
+                expect(layout.keys[i].y >= layout.panel.y &&
+                           layout.keys[i].bottom() <= layout.panel.bottom() &&
+                           (layout.keys[i].right() <= layout.strip.x ||
+                            layout.keys[i].x >= layout.strip.right()),
+                       "keys sit in the dock beside the strip and hints");
+            }
+            expect(!layout.keyAt(1.0f, 1.0f), "outside hits nothing");
+            expect(layoutKeyboard(frame, dp, style, false).preview.height == 0.0f,
+                   "a caller with its own field takes no preview");
         }
-        expect(!layout.keyAt(1.0f, 1.0f), "outside hits nothing");
     }
-    const KeyboardLayout wheel = layoutKeyboard(frame, 1.0f, KeyboardStyle::DaisyWheel);
-    expect(wheel.panel.height == layoutKeyboard(frame, 1.0f, KeyboardStyle::Regular).panel.height,
-           "both styles stand as tall, so neither covers more of the screen");
-    expect(wheel.petalBounds(0).centreY() < wheel.wheel.centreY() &&
-               wheel.petalBounds(2).centreX() > wheel.wheel.centreX(),
+    const KeyboardLayout wheel =
+        layoutKeyboard(Rect{0.0f, 0.0f, 1280.0f, 800.0f}, 1.5f, KeyboardStyle::DaisyWheel);
+    expect(wheel.petalBounds(0).centreY() < wheel.ring.centreY() &&
+               wheel.petalBounds(2).centreX() > wheel.ring.centreX(),
            "the first petal is on top and the third on the right");
-    const KeyboardLayout narrow =
-        layoutKeyboard(Rect{0.0f, 0.0f, 400.0f, 300.0f}, 1.0f, KeyboardStyle::Regular);
-    expect(narrow.panel.width <= 400.0f, "the panel never exceeds a narrow frame");
+    expect(wheel.faceBounds(DaisyFace::Y).centreY() < wheel.diamond.centreY() &&
+               wheel.faceBounds(DaisyFace::X).centreX() < wheel.diamond.centreX() &&
+               wheel.ring.right() <= wheel.strip.x && wheel.strip.right() <= wheel.diamond.x,
+           "the ring on the left, the diamond on the right with Y on top and X on the left");
 }
 
 } // namespace

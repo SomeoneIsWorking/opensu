@@ -1,10 +1,10 @@
-// on_screen_keyboard_painter — draws the on-screen keyboard in the look of iiSU's other panels: a
-// pale card over the dimmed screen, a white field with the caret at the cursor, and the keys: white
-// grid keys with the focused one outlined in ink, or the daisy wheel's white petals with the picked
-// one filled in ink, the sets on its left and the shoulder buttons on its right.
+// on_screen_keyboard_painter — draws the on-screen keyboard docked along the bottom edge on a
+// translucent card: the daisy wheel's ring of petals with their characters in miniature, the
+// picked petal's characters large in the A/B/X/Y diamond and between them the set strip and the
+// hints; or the regular grid's keys beside the hints. Without a field of the caller's own on
+// screen, a one-line preview of the text sits above the strip.
 #pragma once
 
-#include <functional>
 #include <vector>
 
 #include "button_glyph.hpp"
@@ -15,11 +15,9 @@
 
 namespace opensu::ui {
 
-/// What a caller adds to the keyboard it draws.
+/// What a caller changes about the keyboard it draws.
 struct KeyboardExtras {
-    /// Draws into the layout's `reserved` room, at the panel's alpha.
-    std::function<void(float alpha)> reserved;
-    /// The hints along the foot in place of the keyboard's own; empty keeps them.
+    /// The hints in place of the keyboard's own; empty keeps them.
     std::vector<HintPrompt> hints;
     /// Whether the keys hold the pad's focus, which outlines the focused grid key.
     bool keysFocused{true};
@@ -31,31 +29,36 @@ class OnScreenKeyboardPainter {
         : prompts_{&prompts}, typeface_{typeface}, glyphs_{prompts, typeface} {
     }
 
-    /// Draws `keyboard` in its own layout of a `size` frame at `dp` pixels per dp, as faded and
-    /// scaled by `look`; `seconds` blinks the caret.
+    /// Draws `keyboard` docked in a `size` frame at `dp` pixels per dp with its preview line, as
+    /// faded and scaled by `look`; `seconds` blinks the caret.
     void paint(Canvas& canvas, const OnScreenKeyboard& keyboard, Point size, float dp,
                const PanelLook& look, double seconds) const;
-    /// The same in `layout`, with what `extras` adds.
+    /// The same in `layout`, with what `extras` changes.
     void paint(Canvas& canvas, const OnScreenKeyboard& keyboard, const KeyboardLayout& layout,
-               Point size, float dp, const PanelLook& look, double seconds,
-               const KeyboardExtras& extras) const;
+               const PanelLook& look, double seconds, const KeyboardExtras& extras) const;
 
-    /// The hints the keyboard shows along its foot for the device last used.
+    /// The hints the keyboard shows for the device last used.
     [[nodiscard]] std::vector<HintPrompt> hints(const OnScreenKeyboard& keyboard) const;
 
     /// A white rounded bar; outlined when `focused`.
     static void paintBar(Canvas& canvas, const Rect& rect, bool focused, float dp, float alpha);
-    /// Draws `text` from `x` cut to `room` pixels, ending in dots when it is cut.
-    void drawFitted(Canvas& canvas, std::string text, float x, float centreY, float room,
-                    const TextStyle& style, Colour colour) const;
+    /// The line in a white bar sized by `field`'s height: a search glass, the text or the prompt
+    /// (dots for a secret) and the caret at the cursor.
+    void paintField(Canvas& canvas, const OnScreenKeyboard& keyboard, const Rect& field,
+                    float alpha, double seconds) const;
 
   private:
-    void paintField(Canvas& canvas, const OnScreenKeyboard& keyboard, const Rect& field, float dp,
-                    float alpha, double seconds) const;
     void paintGrid(Canvas& canvas, const OnScreenKeyboard& keyboard, const KeyboardLayout& layout,
-                   float dp, float alpha, bool focused) const;
+                   float alpha, bool focused) const;
     void paintWheel(Canvas& canvas, const OnScreenKeyboard& keyboard, const KeyboardLayout& layout,
-                    float dp, float alpha) const;
+                    float alpha) const;
+    /// The sets between LT and RT and the shoulder buttons' actions, centred on `centre` at `unit`
+    /// pixels per dp; returns their width. Only measures when `draw` is false.
+    float paintStrip(Canvas& canvas, const OnScreenKeyboard& keyboard, Point centre, float unit,
+                     float alpha, bool draw) const;
+    /// `hints` centred in `line`, shrunk from `unit` to fit its width.
+    void paintHints(Canvas& canvas, std::span<const HintPrompt> hints, const Rect& line, float unit,
+                    float alpha) const;
 
     const input::Prompts* prompts_;
     Typeface& typeface_;

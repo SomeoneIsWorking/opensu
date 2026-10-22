@@ -18,5 +18,5 @@ LUCENT = GitPin(
 GPU2D = GitPin(
     "gpu2d",
     "https://github.com/SomeoneIsWorking/gpu2d.git",
-    "b0379eb53bb7cb113a76c5c28e5e8e91143be56a",
+    "05b727de8c1d9d8dc0a724225cdde6ea6a801e59",
 )
