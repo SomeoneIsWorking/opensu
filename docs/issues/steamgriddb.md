@@ -23,5 +23,7 @@ Decided:
   - Art that does not fit: when a game's saved cover has a shape other than its tile's (it would
     be letterboxed or cropped), openSU fetches a SteamGridDB grid of the tile's shape (by Steam app
     id, else by title search) and shows that instead; the original stays on disk.
-  - Alternatives: a per-game "Choose artwork" picker (cover, hero, logo, icon) listing SteamGridDB's
-    options beside the current art; the choice is kept per game and survives refreshes.
+  - Alternatives: a per-game "Choose artwork" picker listing SteamGridDB's covers beside the
+    current one; the choice is kept per game and survives refreshes. Covers only for now, since
+    the cover is what openSU shows; heroes and logos join the picker with the Steam-style details
+    theme (`details-themes.md`).
