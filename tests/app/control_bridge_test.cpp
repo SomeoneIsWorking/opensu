@@ -25,8 +25,8 @@ ControlBridge::Input takeLater(ControlBridge& bridge) {
 
 void inputIsTakenOnceInOrder() {
     ControlBridge bridge;
-    bridge.inject({Button::A}, Device::Pad, 0ms);
-    bridge.inject({Button::B}, Device::KeyboardMouse, 0ms);
+    bridge.inject({Button::A}, Device::Pad, 0ms, false);
+    bridge.inject({Button::B}, Device::KeyboardMouse, 0ms, false);
     bridge.injectKey(opensu::input::Combo{1});
     bridge.typeText("ab");
     const ControlBridge::Input taken = takeLater(bridge);
@@ -43,7 +43,7 @@ void inputIsTakenOnceInOrder() {
 
 void heldButtonsAreAChord() {
     ControlBridge bridge;
-    bridge.inject({Button::Guide, Button::A}, Device::Pad, 0ms);
+    bridge.inject({Button::Guide, Button::A}, Device::Pad, 0ms, false);
     const ControlBridge::Input taken = takeLater(bridge);
     std::vector<std::pair<Button, bool>> edges;
     edges.reserve(taken.buttons.size());
@@ -57,11 +57,21 @@ void heldButtonsAreAChord() {
            "held buttons go down in order and come up in reverse");
 }
 
+void stickMarksOnlyTheDirections() {
+    ControlBridge bridge;
+    bridge.inject({Button::Up, Button::A}, Device::Pad, 0ms, true);
+    const ControlBridge::Input taken = takeLater(bridge);
+    expect(taken.buttons.size() == 4 && taken.buttons[0].first.stick &&
+               !taken.buttons[1].first.stick && !taken.buttons[2].first.stick &&
+               taken.buttons[3].first.stick,
+           "the stick's directions are marked as the stick's, the face button is not");
+}
+
 void aHoldKeepsTheReleaseBack() {
     ControlBridge bridge;
     const ControlBridge::Clock::time_point start = ControlBridge::Clock::now();
-    bridge.inject({Button::Guide}, Device::Pad, 3s);
-    bridge.inject({Button::A}, Device::Pad, 0ms);
+    bridge.inject({Button::Guide}, Device::Pad, 3s, false);
+    bridge.inject({Button::A}, Device::Pad, 0ms, false);
     const ControlBridge::Input first = bridge.takeInput(start + 1s);
     expect(first.buttons.size() == 1 && first.buttons[0].first.button == Button::Guide &&
                first.buttons[0].first.pressed,
@@ -138,6 +148,7 @@ void abandoningReleasesTheCaller() {
 int main() {
     inputIsTakenOnceInOrder();
     heldButtonsAreAChord();
+    stickMarksOnlyTheDirections();
     aHoldKeepsTheReleaseBack();
     reloadAndCloseAreRequests();
     snapshotIsWhatWasPublished();

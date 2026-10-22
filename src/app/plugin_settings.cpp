@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "keyboard_walk.hpp"
+#include "keyboard_pad.hpp"
 
 namespace opensu::app {
 namespace {

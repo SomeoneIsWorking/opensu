@@ -73,13 +73,13 @@ void SdlPadState::axis(SDL_GamepadAxis axis, std::int16_t value, std::vector<Eve
     switch (axis) {
     case SDL_GAMEPAD_AXIS_LEFTX:
         sticks_.leftX = value;
-        set(Button::Left, travel < -stickDirectionAt, stickHeld_, controls);
-        set(Button::Right, travel > stickDirectionAt, stickHeld_, controls);
+        stick(Button::Left, travel < -stickDirectionAt, stickHeld_, controls);
+        stick(Button::Right, travel > stickDirectionAt, stickHeld_, controls);
         break;
     case SDL_GAMEPAD_AXIS_LEFTY:
         sticks_.leftY = value;
-        set(Button::Up, travel < -stickDirectionAt, stickHeld_, controls);
-        set(Button::Down, travel > stickDirectionAt, stickHeld_, controls);
+        stick(Button::Up, travel < -stickDirectionAt, stickHeld_, controls);
+        stick(Button::Down, travel > stickDirectionAt, stickHeld_, controls);
         break;
     case SDL_GAMEPAD_AXIS_RIGHTX:
         sticks_.rightX = value;
@@ -113,6 +113,15 @@ void SdlPadState::set(Button button, bool on, std::map<Button, bool>& held,
     event.button = button;
     event.pressed = on;
     controls.push_back(event);
+}
+
+void SdlPadState::stick(Button button, bool on, std::map<Button, bool>& held,
+                        std::vector<Event>& controls) {
+    const std::size_t before = controls.size();
+    set(button, on, held, controls);
+    if (controls.size() > before) {
+        controls.back().stick = true;
+    }
 }
 
 SdlPads::SdlPads(bool reads) : reads_{reads} {

@@ -28,6 +28,7 @@ constexpr const char* uiSoundsKey = "uiSounds";
 constexpr const char* romFoldersKey = "romFolders";
 constexpr const char* steamRootsKey = "steamRoots";
 constexpr const char* uiScaleKey = "uiScale";
+constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* shortcutsKey = "shortcuts";
 constexpr const char* shortcutKeysKey = "keys";
 constexpr const char* shortcutPadsKey = "pads";
@@ -339,6 +340,17 @@ Settings Store::load() const {
                          spelling);
         }
     }
+    std::string keyboardSpelling;
+    read.text(keyboardStyleKey, keyboardSpelling, "using the daisy wheel");
+    if (!keyboardSpelling.empty()) {
+        if (const std::optional<input::KeyboardStyle> style =
+                input::keyboardStyleOf(keyboardSpelling)) {
+            settings.keyboardStyle = *style;
+        } else {
+            lucent::warn("settings", "{}: {} is not a keyboard; using the daisy wheel",
+                         file_.string(), keyboardSpelling);
+        }
+    }
     std::string homeSpelling;
     read.text(homeModeKey, homeSpelling, "using the environment's");
     if (!homeSpelling.empty()) {
@@ -405,6 +417,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {steamRootsKey, listOf(settings.steamRoots)},
         {installFoldersKey, folders},
         {uiScaleKey, settings.uiScale},
+        {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},
         {shortcutsKey, {{shortcutKeysKey, shortcutKeys}, {shortcutPadsKey, shortcutPads}}}};

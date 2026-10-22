@@ -19,10 +19,10 @@ void SessionPanels::draw(Canvas& canvas, Point size, float dp, Clock::time_point
 
 PointerTarget SessionPanels::pointAt(Point point, Point size, float dp) const {
     if (password_.isOpen()) {
-        const SearchLayout panel =
-            layoutSearch(Rect{0.0f, 0.0f, size.x, size.y}, dp, password_.lists());
+        const KeyboardLayout panel =
+            layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp, password_.style());
         if (const std::optional<std::size_t> key = panel.keyAt(point.x, point.y)) {
-            return OnSearchKey{*key};
+            return OnKeyboardKey{*key};
         }
         return {};
     }
@@ -43,7 +43,8 @@ PointerTarget SessionPanels::pointAt(Point point, Point size, float dp) const {
 }
 
 bool SessionPanels::focusTarget(const PointerTarget& target) {
-    if (const auto* key = std::get_if<OnSearchKey>(&target); key != nullptr && password_.isOpen()) {
+    if (const auto* key = std::get_if<OnKeyboardKey>(&target);
+        key != nullptr && password_.isOpen()) {
         return password_.focusKey(key->index);
     }
     if (const auto* item = std::get_if<OnIntegrationItem>(&target)) {

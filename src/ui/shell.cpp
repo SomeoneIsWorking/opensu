@@ -819,9 +819,9 @@ PointerTarget Shell::pointAtModal(Point point) const {
         return menu.contains(point.x, point.y) ? PointerTarget{} : OnBackdrop{};
     }
     if (search_.isOpen()) {
-        const SearchLayout panel = layoutSearch(frame, dp());
-        if (const std::optional<std::size_t> key = panel.keyAt(point.x, point.y)) {
-            return OnSearchKey{*key};
+        const SearchLayout panel = layoutSearch(frame, dp(), search_.keyboard().style());
+        if (const std::optional<std::size_t> key = panel.keyboard.keyAt(point.x, point.y)) {
+            return OnKeyboardKey{*key};
         }
         if (const std::optional<std::size_t> row = panel.resultAt(point.x, point.y)) {
             const std::size_t result = search_.firstListed() + *row;
@@ -906,12 +906,15 @@ bool Shell::focusTarget(const PointerTarget& target) {
             } else if constexpr (std::is_same_v<Target, OnDialogButton> ||
                                  std::is_same_v<Target, OnIntegrationItem>) {
                 return session_.focusTarget(PointerTarget{at});
-            } else if constexpr (std::is_same_v<Target, OnSearchKey>) {
+            } else if constexpr (std::is_same_v<Target, OnKeyboardKey>) {
                 if (session_.password().isOpen()) {
                     return session_.focusTarget(PointerTarget{at});
                 }
-                return settings_.entry().isOpen() ? settings_.entry().focusKey(at.index)
-                                                  : search_.focusKey(at.index);
+                if (settings_.entry().isOpen()) {
+                    return settings_.entry().focusKey(at.index);
+                }
+                const bool entered = search_.enterKeys();
+                return search_.keyboard().focusKey(at.index) || entered;
             } else if constexpr (std::is_same_v<Target, OnSettingsCategory> ||
                                  std::is_same_v<Target, OnSettingsRow> ||
                                  std::is_same_v<Target, OnSettingsSlider> ||

@@ -243,9 +243,11 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         const std::string_view body = trimmed(request.body);
         const std::size_t space = body.find_first_of(" \t");
         const std::string_view name = body.substr(0, space);
-        // Optional words after it: `keyboard` says the press came from the keyboard, and `800ms`
-        // holds the buttons that long before they are released.
+        // Optional words after it: `keyboard` says the press came from the keyboard, `stick` that
+        // its directions are the left stick's, and `800ms` holds the buttons that long before
+        // they are released.
         input::Device device = input::Device::Pad;
+        bool stick = false;
         std::chrono::milliseconds hold{0};
         std::string_view rest = trimmed(body.substr(std::min(space, body.size())));
         while (!rest.empty()) {
@@ -253,11 +255,14 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
             const std::string_view word = rest.substr(0, end);
             if (word == "keyboard") {
                 device = input::Device::KeyboardMouse;
+            } else if (word == "stick") {
+                stick = true;
             } else if (const std::optional<std::chrono::milliseconds> held = holdNamed(word)) {
                 hold = *held;
             } else {
-                return refuse("the words after a button are \"keyboard\" and a hold up to " +
-                              std::to_string(longestHold.count()) + "ms");
+                return refuse(
+                    "the words after a button are \"keyboard\", \"stick\" and a hold up to " +
+                    std::to_string(longestHold.count()) + "ms");
             }
             rest = trimmed(rest.substr(end));
         }
@@ -277,7 +282,7 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
             buttons.push_back(button);
             from = plus == std::string_view::npos ? plus : plus + 1;
         }
-        target_.inject(buttons, device, hold);
+        target_.inject(buttons, device, hold, stick);
         lucent::info("control", "injected {}", name);
         return lucent::http::Response::json(200, "OK", "{\"injected\":" + jsonString(name) + "}");
     }

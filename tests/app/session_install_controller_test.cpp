@@ -46,7 +46,7 @@ struct Rig {
     }
 
     ui::SessionDialog dialog;
-    ui::SearchPanel password;
+    ui::OnScreenKeyboard password;
     test::FakeSessionMode session;
     audio::SdlSoundPlayer sounds;
     std::vector<std::string> said;
@@ -98,6 +98,7 @@ void theDialogExplainsAndCancelAborts() {
 
 void cancellingAtThePasswordWipesIt() {
     Rig rig;
+    rig.password.setStyle(input::KeyboardStyle::Regular);
     rig.accept();
     rig.controller.typeText("abc");
     rig.controller.act(Button::B);
@@ -149,8 +150,9 @@ void aWrongPasswordAsksAgainAndTheRightOneInstalls() {
 
 void thePadTypesAndDoneSubmits() {
     Rig rig;
+    rig.password.setStyle(input::KeyboardStyle::Regular);
     rig.accept();
-    const auto keys = ui::searchKeys();
+    const auto keys = ui::gridKeys();
     for (std::size_t i = 0; i < keys.size(); ++i) {
         if (keys[i].kind == ui::KeyKind::Character && keys[i].character == 'k') {
             rig.password.focusKey(i);
@@ -168,6 +170,7 @@ void thePadTypesAndDoneSubmits() {
     expect(rig.session.passwords == std::vector<std::string>{"kK "}, "Start submits");
 
     Rig done;
+    done.password.setStyle(input::KeyboardStyle::Regular);
     done.accept();
     done.controller.typeText("pw");
     for (std::size_t i = 0; i < keys.size(); ++i) {
@@ -178,6 +181,35 @@ void thePadTypesAndDoneSubmits() {
     done.controller.act(Button::A);
     done.finishInstall();
     expect(done.session.passwords == std::vector<std::string>{"pw"}, "the Done key submits");
+}
+
+void theWheelTypesThePassword() {
+    Rig rig;
+    rig.accept();
+    expect(rig.password.style() == input::KeyboardStyle::DaisyWheel, "the daisy wheel by default");
+    rig.password.stick(ui::Direction::Up, true);
+    rig.controller.act(Button::X);
+    rig.controller.act(Button::A);
+    rig.controller.act(Button::R2);
+    rig.controller.act(Button::B);
+    expect(rig.password.text() == "adC" && rig.controller.typing(),
+           "the face buttons type the petal's characters, B too, and RT steps to capitals");
+    rig.password.stick(ui::Direction::Up, false);
+    rig.controller.act(Button::Y);
+    rig.controller.act(Button::L1);
+    rig.controller.act(Button::X);
+    expect(rig.password.text() == "ad", "with no petal Y types a space, LB and X delete");
+    rig.controller.act(Button::Start);
+    rig.finishInstall();
+    expect(rig.session.passwords == std::vector<std::string>{"ad"}, "Start submits");
+
+    Rig leave;
+    leave.accept();
+    leave.controller.typeText("secret");
+    leave.controller.act(Button::B);
+    expect(!leave.controller.active() && leave.password.text().empty() &&
+               leave.session.passwords.empty(),
+           "B with no petal leaves and wipes the field");
 }
 
 void anInstallFailureEndsTheFlowWithItsReason() {
@@ -202,6 +234,7 @@ int main() {
     anEmptyPasswordIsNotSent();
     aWrongPasswordAsksAgainAndTheRightOneInstalls();
     thePadTypesAndDoneSubmits();
+    theWheelTypesThePassword();
     anInstallFailureEndsTheFlowWithItsReason();
     std::printf("session_install_controller: all checks passed\n");
     return 0;

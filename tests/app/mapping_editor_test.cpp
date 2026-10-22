@@ -32,7 +32,10 @@ struct Said {
 };
 
 gamepad::Event event(Button button, bool pressed) {
-    return gamepad::Event{gamepad::Event::Kind::Button, button, pressed, {}, {}};
+    gamepad::Event event;
+    event.button = button;
+    event.pressed = pressed;
+    return event;
 }
 
 constexpr std::array<std::pair<ui::Direction, Button>, 4> moves{

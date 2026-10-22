@@ -160,6 +160,12 @@ class Shell {
     void setHomeMode(config::HomeMode mode);
     /// Draws everything at `percent` of its size: 100 is the size the layouts are drawn at.
     void setUiScale(int percent);
+    /// The on-screen keyboard style every field opens with from now on.
+    void setKeyboardStyle(input::KeyboardStyle style) noexcept {
+        search_.keyboard().setStyle(style);
+        settings_.entry().setStyle(style);
+        session_.password().setStyle(style);
+    }
     /// Shows the volume display with `level`.
     void showVolume(const VolumeLevel& level) {
         volumeOsd_.show(level, now_);

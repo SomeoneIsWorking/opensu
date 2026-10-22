@@ -217,7 +217,7 @@ struct Rig {
                                                  }};
     ui::SettingsPage page;
     ui::FolderChooser folders;
-    ui::SearchPanel entry;
+    ui::OnScreenKeyboard entry;
     app::PathEditor paths;
     audio::VolumeState mixerState{40, false};
     std::vector<std::string> mixerLog;

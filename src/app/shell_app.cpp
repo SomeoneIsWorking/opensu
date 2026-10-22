@@ -18,6 +18,7 @@
 #include "gpu2d/gpu_error.hpp"
 #include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
+#include "keyboard_pad.hpp"
 #include "launcher_status.hpp"
 #include "library/emulator_choice.hpp"
 #include "library/titles.hpp"
@@ -73,6 +74,7 @@ void ShellApp::applyLayout() {
     }
     shell_.setHomeMode(chosen.homeMode.value_or(settings_.homeMode));
     shell_.setUiScale(chosen.uiScale);
+    shell_.setKeyboardStyle(chosen.keyboardStyle);
     sounds_.setMuted(!chosen.uiSounds);
 }
 
@@ -223,7 +225,12 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
             shell_.setToast("controller disconnected", true);
             break;
         case gamepad::Event::Kind::Button:
-            if (gamepad::DirectionRepeat::repeats(event.button)) {
+            if (ui::OnScreenKeyboard* wheel = event.stick ? wheelTakingStick() : nullptr) {
+                // input-sound.md 3.4 Navigation: a focus move.
+                if (wheel->stick(directionOf(event.button), event.pressed)) {
+                    sounds_.play(audio::Effect::Navigation);
+                }
+            } else if (gamepad::DirectionRepeat::repeats(event.button)) {
                 if (event.pressed) {
                     repeat_.press(event.button, std::chrono::steady_clock::now());
                 } else {
@@ -235,6 +242,25 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
             break;
         }
     }
+}
+
+ui::OnScreenKeyboard* ShellApp::wheelTakingStick() {
+    // The panels actOn hands buttons to before any keyboard.
+    if (firstRun_.active() || shell_.guidePanels().guide().isOpen() || gameSettingsPage_.isOpen() ||
+        shell_.guidePanels().quick().isOpen() || pluginSettings_.active()) {
+        return nullptr;
+    }
+    ui::OnScreenKeyboard* keyboard = nullptr;
+    if (sessionInstall_.typing()) {
+        keyboard = &shell_.sessionPanels().password();
+    } else if (shell_.searchPanel().isOpen() &&
+               shell_.searchPanel().zone() == ui::SearchZone::Keys) {
+        keyboard = &shell_.searchPanel().keyboard();
+    } else if (paths_.typing()) {
+        keyboard = &shell_.settingsPanels().entry();
+    }
+    return keyboard != nullptr && keyboard->style() == input::KeyboardStyle::DaisyWheel ? keyboard
+                                                                                        : nullptr;
 }
 
 /// Keyboard input, so the shell is usable without a controller. Every key maps

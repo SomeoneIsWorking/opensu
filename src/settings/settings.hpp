@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "config/config.hpp"
+#include "input/keyboard_style.hpp"
 #include "input/shortcuts.hpp"
 #include "install_folders.hpp"
 #include "integrations.hpp"
@@ -92,6 +93,9 @@ struct Settings {
 
     /// How large the interface is drawn, in percent (`minUiScale` to `maxUiScale`).
     int uiScale{defaultUiScale};
+
+    /// Which on-screen keyboard openSU's fields open.
+    input::KeyboardStyle keyboardStyle{input::KeyboardStyle::DaisyWheel};
 
     /// The player's changes to the shortcut table.
     input::ShortcutOverrides shortcuts;

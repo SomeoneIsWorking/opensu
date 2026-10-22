@@ -1,5 +1,5 @@
 # Which device the player last used, and the keys the shell binds. Pure, so tests link it alone.
-add_library(opensu_input STATIC last_device.cpp keyboard_bindings.cpp key_names.cpp shortcuts.cpp button_map.cpp chord_set.cpp mapping_scopes.cpp pad_chords.cpp)
+add_library(opensu_input STATIC last_device.cpp keyboard_bindings.cpp key_names.cpp shortcuts.cpp button_map.cpp chord_set.cpp mapping_scopes.cpp pad_chords.cpp keyboard_style.cpp)
 add_library(opensu::input ALIAS opensu_input)
 target_include_directories(opensu_input PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_input PUBLIC opensu::pad opensu::setting_layers)

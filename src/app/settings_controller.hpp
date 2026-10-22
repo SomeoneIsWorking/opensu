@@ -38,8 +38,8 @@ class SettingsController {
   public:
     /// What the screen asks of the shell app.
     struct Hooks {
-        /// Gives the screen the layout, pin, icon size, scroll mode and sound setting the
-        /// preferences now hold.
+        /// Gives the screen the layout, pin, icon size, scroll mode, sound and keyboard settings
+        /// the preferences now hold.
         std::function<void()> applyLayout;
         /// Shows the shelf again from its start, after what the library shows changed.
         std::function<void()> reshow;

@@ -25,7 +25,7 @@ struct FocusesOnHover {
     bool operator()(const ui::OnIconSize&) const {
         return true;
     }
-    bool operator()(const ui::OnSearchKey&) const {
+    bool operator()(const ui::OnKeyboardKey&) const {
         return true;
     }
     bool operator()(const ui::OnSearchResult&) const {

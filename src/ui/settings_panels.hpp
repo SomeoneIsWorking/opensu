@@ -10,11 +10,11 @@
 #include "button_glyph.hpp"
 #include "folder_chooser.hpp"
 #include "folder_chooser_painter.hpp"
+#include "on_screen_keyboard.hpp"
+#include "on_screen_keyboard_painter.hpp"
 #include "page_panel.hpp"
 #include "panel_fade.hpp"
 #include "pointer_target.hpp"
-#include "search_panel.hpp"
-#include "search_panel_painter.hpp"
 #include "settings_page.hpp"
 
 namespace opensu::ui {
@@ -40,10 +40,10 @@ class SettingsPanels {
         return folders_;
     }
     /// The on-screen keyboard a path is typed on.
-    [[nodiscard]] SearchPanel& entry() noexcept {
+    [[nodiscard]] OnScreenKeyboard& entry() noexcept {
         return entry_;
     }
-    [[nodiscard]] const SearchPanel& entry() const noexcept {
+    [[nodiscard]] const OnScreenKeyboard& entry() const noexcept {
         return entry_;
     }
 
@@ -82,9 +82,9 @@ class SettingsPanels {
     FolderChooser folders_;
     PanelFade folderFade_{FadeSpec{150.0f, 150.0f, 1.0f, 0.0f, 1.0f}};
     FolderChooserPainter folderPainter_;
-    SearchPanel entry_;
+    OnScreenKeyboard entry_;
     PanelFade entryFade_{FadeSpec{150.0f, 150.0f, 1.0f, 0.0f, 1.0f}};
-    SearchPanelPainter entryPainter_;
+    OnScreenKeyboardPainter entryPainter_;
 };
 
 } // namespace opensu::ui

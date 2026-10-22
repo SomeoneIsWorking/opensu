@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <chrono>
 
+#include "gamepad/direction_repeat.hpp"
+
 namespace opensu::app {
 
 ShellSnapshot ControlBridge::snapshot() const {
@@ -16,10 +18,12 @@ void ControlBridge::publish(ShellSnapshot snapshot) {
 }
 
 void ControlBridge::inject(const std::vector<gamepad::Button>& buttons, input::Device device,
-                           std::chrono::milliseconds hold) {
-    const auto edge = [](gamepad::Button button, bool pressed) {
-        return gamepad::Event{
-            .kind = gamepad::Event::Kind::Button, .button = button, .pressed = pressed};
+                           std::chrono::milliseconds hold, bool stick) {
+    const auto edge = [stick](gamepad::Button button, bool pressed) {
+        return gamepad::Event{.kind = gamepad::Event::Kind::Button,
+                              .button = button,
+                              .pressed = pressed,
+                              .stick = stick && gamepad::DirectionRepeat::repeats(button)};
     };
     const Clock::time_point now = Clock::now();
     const std::lock_guard lock{inputMutex_};

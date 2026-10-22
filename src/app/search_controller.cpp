@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "keyboard_pad.hpp"
 #include "library/library_query.hpp"
 
 namespace opensu::app {
@@ -20,7 +21,7 @@ void SearchController::close() {
 }
 
 void SearchController::edited() {
-    preferences_.values().view.search = panel_.text();
+    preferences_.values().view.search = panel_.keyboard().text();
     hooks_.reshow(0);
     panel_.setResults(searching() ? hooks_.results() : std::vector<ui::SearchResult>{});
 }
@@ -37,80 +38,75 @@ void SearchController::openResult(std::size_t index) {
     hooks_.openTile(index);
 }
 
-void SearchController::applyPress(const ui::SearchPress& press) {
-    if (press.edited) {
-        edited();
-    }
-    if (press.open) {
-        openResult(*press.open);
-    } else if (press.close) {
-        close();
+bool SearchController::actInResults(gamepad::Button button) {
+    switch (button) {
+    case gamepad::Button::Up:
+    case gamepad::Button::Down:
+        moved(panel_.moveInResults(directionOf(button)));
+        return true;
+    case gamepad::Button::Left:
+    case gamepad::Button::Right:
+        return true;
+    case gamepad::Button::A:
+        if (!panel_.results().empty()) {
+            openResult(panel_.resultFocus());
+        }
+        return true;
+    case gamepad::Button::X:
+        moved(panel_.enterKeys());
+        return true;
+    default:
+        return false;
     }
 }
 
 void SearchController::act(gamepad::Button button) {
     ui::SearchPanel& panel = panel_;
-    switch (button) {
-    case gamepad::Button::Up:
-        moved(panel.move(ui::Direction::Up));
-        break;
-    case gamepad::Button::Down:
-        moved(panel.move(ui::Direction::Down));
-        break;
-    case gamepad::Button::Left:
-        moved(panel.move(ui::Direction::Left));
-        break;
-    case gamepad::Button::Right:
-        moved(panel.move(ui::Direction::Right));
-        break;
-    case gamepad::Button::A:
-        applyPress(panel.press());
-        break;
-    case gamepad::Button::B:
-        // The text is deleted a character at a time; with none left B closes, as iiSU's B does.
-        if (panel.text().empty()) {
-            close();
-        } else if (panel.backspace()) {
-            edited();
+    const ui::OnScreenKeyboard& keyboard = panel.keyboard();
+    if (panel.zone() == ui::SearchZone::Results) {
+        if (actInResults(button)) {
+            return;
         }
-        break;
-    case gamepad::Button::X:
-        moved(panel.switchZone());
-        break;
-    case gamepad::Button::Y:
-        if (!panel.text().empty() && panel.text().back() != ' ' && panel.type(" ")) {
-            edited();
+    } else if (keyboard.style() == input::KeyboardStyle::Regular) {
+        // The grid's X is iiSU's "navigate", and Up from its top row enters the results.
+        if (button == gamepad::Button::X ||
+            (button == gamepad::Button::Up && keyboard.onTopRow() && !panel.results().empty())) {
+            moved(panel.switchZone());
+            return;
         }
+    } else if (button == gamepad::Button::Down) {
+        // The wheel's D-pad moves the cursor across; Down enters the results.
+        moved(panel.enterResults());
+        return;
+    }
+    switch (actOnKeyboard(panel.keyboard(), button, sounds_)) {
+    case KeyboardOutcome::Edited:
+        edited();
         break;
-    case gamepad::Button::Select:
-        if (panel.clear()) {
-            edited();
-        }
-        break;
-    case gamepad::Button::Start:
+    case KeyboardOutcome::Confirm:
+    case KeyboardOutcome::Leave:
         close();
         break;
-    default:
+    case KeyboardOutcome::Handled:
         break;
     }
 }
 
 void SearchController::typeText(std::string_view text) {
-    if (panel_.type(text)) {
+    if (panel_.keyboard().type(text)) {
         edited();
     }
 }
 
 void SearchController::backspace() {
-    if (panel_.backspace()) {
+    if (panel_.keyboard().backspace()) {
         edited();
     }
 }
 
 void SearchController::confirm() {
-    ui::SearchPanel& panel = panel_;
-    if (panel.zone() == ui::SearchZone::Results) {
-        applyPress(panel.press());
+    if (panel_.zone() == ui::SearchZone::Results && !panel_.results().empty()) {
+        openResult(panel_.resultFocus());
         return;
     }
     close();
@@ -122,25 +118,26 @@ void SearchController::dismiss() {
 
 void SearchController::walk(ui::Direction direction) {
     ui::SearchPanel& panel = panel_;
-    // The keyboard has no drawn keys to walk, so Down enters the results and Up leaves them.
+    // The physical keyboard has no drawn keys to walk, so Down enters the results and Up leaves
+    // them.
     if (panel.zone() == ui::SearchZone::Keys) {
-        if (direction == ui::Direction::Down && !panel.results().empty()) {
-            moved(panel.focusResult(panel.resultFocus()));
+        if (direction == ui::Direction::Down) {
+            moved(panel.enterResults());
         }
         return;
     }
     if (direction == ui::Direction::Up && panel.resultFocus() == 0) {
-        moved(panel.switchZone());
+        moved(panel.enterKeys());
         return;
     }
-    moved(panel.move(direction));
+    moved(panel.moveInResults(direction));
 }
 
 bool SearchController::clear() {
     if (!searching()) {
         return false;
     }
-    panel_.clear();
+    panel_.keyboard().clear();
     preferences_.values().view.search.clear();
     panel_.setResults({});
     hooks_.reshow(0);
