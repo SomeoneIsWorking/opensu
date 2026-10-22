@@ -154,6 +154,7 @@ game has been observed running yet.
 | S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
 | S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) in setting layers per game, core, console and Global, set live from the quick menu's tabs, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
+| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`) | partial | S013 | G004 |
 
 ## Capability details
 
@@ -797,7 +798,7 @@ The binary is the pinned fork of S014, at `Config::gamescope`; a missing binary 
 configured with `OPENSU_BUILD_GAMESCOPE=OFF`) is a one-line error, not a PATH lookup. The
 fork is built in podman (S014), so the host needs podman and nothing else.
 
-### S014 — Alt+F4 in nested mode
+### S014 — Alt+F4 in nested mode, S041 — frame generation (fork side)
 
 KWin handles Alt+F4 and Alt+Tab as its own global shortcuts before nested
 Gamescope sees them. KWin's Alt+F4 sends Gamescope's window a close, and stock
@@ -807,7 +808,7 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `e297b6484f4200efd23e7323ffc293a8eaf45ee2` (3.16.29 plus nine commits).
+to commit `f220aa562b4875d88503c5d4387c8de662f75c39` (3.16.29 plus ten commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. The other three are upstream's
@@ -825,7 +826,12 @@ at 1 Steam's own windows (app id 769 or `STEAM_GAME` 769, `STEAM_BIGPICTURE`, or
 or `steamwebhelper` process, `window_is_steam_client`) are left out of the focus candidates
 (`GetPossibleFocusWindows`), so out of focus, the composite and `GAMESCOPE_FOCUSABLE_WINDOWS`, and
 out of the overlay and notification picks; games Steam starts are untouched. openSU sets it to 1
-while its own Steam (Managed or Isolated) is logged on (`docs/issues/integrations-opt-in.md`). `cmake/Gamescope.cmake` builds the pin
+while its own Steam (Managed or Isolated) is logged on (`docs/issues/integrations-opt-in.md`). f220aa56 adds frame generation for the focused window (`src/FrameGen/`): root `GAMESCOPE_FRAMEGEN`
+(0/1), `GAMESCOPE_FRAMEGEN_RATIO` (thousandths) and `GAMESCOPE_FRAMEGEN_DLL`; Gamescope copies
+the window's last two commits, `FramePacer` plans the in-between timestamps for any fractional
+ratio and picks one image per vblank, and `paint_window` shows it (PipeWire too). The generator is
+a linear-blend stand-in until our own MIT generator exists; off is byte-identical to the previous
+pin. openSU does not set the atoms yet (`docs/issues/adaptive-lsfg-vk.md`, "Phase A result"). `cmake/Gamescope.cmake` builds the pin
 as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
 configure and build steps run in a rootless podman container built from
 `packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;
