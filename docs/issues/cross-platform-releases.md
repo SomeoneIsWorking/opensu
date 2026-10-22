@@ -206,6 +206,6 @@ Each step lands and is pushed on its own; "shown working" is a run of the real p
 
 ## Open decisions for the player
 
-- Windows and macOS signing: unsigned/ad-hoc, or paid identities.
+- Windows and macOS signing: decided 2026-10-22, the player: "ad-hoc signed is fine". macOS ships ad-hoc (`codesign -s -`); Windows ships without Authenticode (Windows has no ad-hoc signature), so first runs show SmartScreen and Gatekeeper warnings. No paid identities.
 - macOS Intel builds, or arm64 only.
 - Google Play (cores in the APK) or GitHub APK only.
