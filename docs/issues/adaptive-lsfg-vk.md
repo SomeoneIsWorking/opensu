@@ -1,12 +1,68 @@
 # Adaptive frame generation through lsfg-vk
 
-Status: open. Build-order step 1 answered (2026-10-22, "Step 1 result" below); nothing in
-openSU built.
+Status: open. Decided 2026-10-22: frame generation runs inside our Gamescope fork with our own MIT
+generator (see "Decision"). Phase A (mechanism, linear-blend stand-in) is in the fork at
+`f220aa56` and pinned; the generator, phase B (adaptive) and phase C (openSU UI) are not built.
 
 The player: "Another request I have is adaptive LSFG-VK". lsfg-vk is the Vulkan layer that runs
 Lossless Scaling's frame generation on Linux; the player has a fork (`SomeoneIsWorking/lsfg-vk`).
 It needs the player's own `Lossless.dll` from their Lossless Scaling install on Steam, which is
 never copied or shipped.
+
+## Decision
+
+The player chose the compositor-side route and then: "We can make our own LSFG-VK as MIT,
+discarding the fork". So:
+
+- Frame generation lives in the Gamescope fork (BSD-2, like the rest of Gamescope). Gamescope keeps
+  the focused window's previous and current committed images, has a generator make the images in
+  between at any timestamp in (0, 1), and shows them on its own vblank. Nothing per game process,
+  no layer, no WSI or FIFO latch change.
+- Nothing from lsfg-vk (GPL-3) goes into the fork, and the fork does not link it. The pushed
+  `SomeoneIsWorking/lsfg-vk` commit `a7edf87` (branch `opensu`, per-frame timestamps in its
+  backend) is not used.
+- The generator is our own MIT code, written clean-room from a behaviour spec derived from the
+  player's own `Lossless.dll` (Ghidra) and public docs, by an implementer who has not read lsfg-vk.
+  It goes behind `IFrameSynthesizer::Generate(previous, current, t, output)`.
+
+## Phase A result (2026-10-22)
+
+The fork's `src/FrameGen/` (pinned `f220aa562b48`):
+- `FramePacer`: the one owner of how many images each real frame gets, their timestamps and when
+  each is shown. A phase accumulator steps by `1 / ratio` and carries over between real frames,
+  so fractional ratios work. Outputs within 0.05 of a real frame show that real frame. Outputs are
+  placed one real interval late on a smoothed real-frame timeline (the mean of 15 intervals; each
+  arrival moves the timeline by 0.1 of its error), and at most one is shown per vblank. Phase B's
+  target, maximum, tolerance with hysteresis and low-fps floor go into `PacingSettings_t` and
+  `OnRealFrame`'s count; presentation does not change.
+- `FrameGenerator`: copies each new commit of the focused window (8-bit SDR only), runs the
+  synthesizer for the planned timestamps, and gives `paint_window` the image for the current vblank
+  in place of the commit's texture. PipeWire follows it.
+- `LinearBlendSynthesizer`: the stand-in generator, `previous * (1 - t) + current * t` through
+  Gamescope's own compositor. It moves nothing; it makes each image's timestamp measurable.
+- Root atoms set by openSU: `GAMESCOPE_FRAMEGEN` (CARDINAL, 0/1), `GAMESCOPE_FRAMEGEN_RATIO`
+  (CARDINAL, thousandths, default 2000) and `GAMESCOPE_FRAMEGEN_DLL` (string, the player's
+  `Lossless.dll`, unused until the generator).
+
+Proof: headless Gamescope 1280x720, ffplay showing a 32 px bar that moves 16 px per frame, frames
+read from Gamescope's PipeWire stream (`scratch/fg-phaseA/`, `run.sh` and `analyze.py`):
+- 60 Hz, 30 fps, 2x: the bar steps 0.500 per captured frame (stdev 0), alternating real and a
+  half-weight cross-fade; 60.0 shown/s, 0 dropped; shown spacing 16.67 ms (stdev 0.01).
+- 60 Hz, 40 fps, 1.5x: steps of 0.667 at positions .00/.33/.67, sequence `g0.333 R g0.667`;
+  60.0 shown/s. Late ffplay frames (10+ ms) cost 9 holds in 14 s, because the image for that
+  interval could not exist yet.
+- vkcube through the WSI layer capped by MangoHud (arrivals quantized to 33/17 ms): 40 fps 1.5x
+  and 30 fps 2x both 60.0 shown/s, 0 dropped. Desired times taken from raw arrivals dropped a
+  third of the outputs here (40 shown/s), which is why the pacer smooths the timeline.
+- 120 Hz: 30 fps 4x gives 120.0 shown/s, steps of 0.250, spacing 8.33 ms (stdev 0.01). 30 fps 2x
+  and 40 fps 1.5x give 60/s on 120 Hz, 612 of 620 gaps exactly two vblanks.
+- Off (atoms unset, or `GAMESCOPE_FRAMEGEN=0`): the same 78 distinct images, byte for byte, as
+  the previous pin `e297b648`, at 30/s.
+- `VK_LAYER_KHRONOS_validation`: the on runs report exactly the IDs and counts of the off run (134,
+  dmabuf import and private pNext IDs), and the off run matches the previous pin. No new IDs.
+
+Not proven: DRM and nested (Wayland) backends; HDR and 10-bit content (refused, shown unchanged);
+windows with non-opaque alpha (the blend assumes opaque); the real generator; a game in openSU.
 
 ## The bar
 
@@ -342,6 +398,9 @@ Never copied. openSU resolves the path inside the player's install and passes it
 
 ## Per game in openSU
 
+Written for the layer route. Under "Decision" only the layered settings below still hold; the
+layer, `conf.toml` and per-process environment are not needed.
+
 - **The layer.** Ship the fork's layer beside the runner with its own manifest in openSU's data
   dir. Load it only in processes openSU starts, through `VK_ADD_IMPLICIT_LAYER_PATH` or an
   `enable_environment` key in the fork's manifest, never the player's desktop-wide
@@ -375,23 +434,18 @@ Never copied. openSU resolves the path inside the player's install and passes it
 
 ## Build order
 
-1. Fork layer, fixed mode, delivery only. Load the unmodified fork layer into one game openSU
-   starts itself (a libretro or Wine game) inside our Gamescope, with the DLL resolved from the
-   player's install. Prove generated presents reach the screen (presented-rate log, frame). This
-   settles the Gamescope WSI and FIFO questions first. Answered in "Step 1 result": with WSI
-   on, Gamescope drops the generated frames; with WSI off they show.
-2. Backend per-frame timestamps (step 1 above). Prove fractional output with a fixed float
-   multiplier (2.5x) in the product.
-3. Pacer with target, max, tolerance and the 10 fps floor (step 2). Prove it with a 43 fps game
-   against a 60 target, and with a 55 fps game passing through.
-4. Present pacing (step 3), judged by the presented-rate and frame-time log under Gamescope.
-   Decide here between the layer and the Gamescope-side alternative before sinking weeks into
-   either.
-5. Delivery to Steam games (client environment, App ID matching) and Isolated Steam's bwrap
-   binds.
-6. `framegen.*` setting keys on the layers, the generated `conf.toml`, and rows on the game
-   settings tabs and Settings › Emulators.
-7. Record: the codemap rows, project-state rows, this card closed.
+The layer route's steps (the fork layer, its backend timestamps, its present thread) are
+superseded by "Decision". Step 1's finding stands as the reason.
+
+1. Mechanism in the Gamescope fork with the linear-blend stand-in: done, "Phase A result".
+2. Our MIT generator behind `IFrameSynthesizer`, clean-room from the `Lossless.dll` behaviour spec.
+3. Phase B, adaptive pacing in `FramePacer`: target (a number or the display's refresh), maximum
+   generated per real frame, tolerance with hysteresis (55 fps against 60 generates nothing), the
+   low-fps floor, as root atoms. Prove with a 43 fps game against 60 and a 55 fps game passing
+   through.
+4. Phase C, openSU: the `framegen.*` setting keys on the layers, the atoms set for the focused
+   game, rows on the game settings tabs and Settings › Emulators.
+5. Record: the codemap rows, project-state rows, this card closed.
 
 Web pages read for this card gave no instructions aimed at an agent. The upstream README only
 points to the new site.

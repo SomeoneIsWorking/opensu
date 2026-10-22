@@ -33,7 +33,7 @@ set(OPENSU_GAMESCOPE_MESON_OPTIONS "" CACHE STRING
 dependencies (-Dforce_fallback_for=...)")
 
 set(OPENSU_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.git")
-set(OPENSU_GAMESCOPE_COMMIT "e297b6484f4200efd23e7323ffc293a8eaf45ee2")
+set(OPENSU_GAMESCOPE_COMMIT "f220aa562b4875d88503c5d4387c8de662f75c39")
 
 # Where the running opensu finds the binary, relative to the directory above its own.
 set(OPENSU_GAMESCOPE_RELATIVE "${CMAKE_INSTALL_LIBEXECDIR}/opensu/gamescope")
