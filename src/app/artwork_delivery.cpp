@@ -32,7 +32,7 @@ void ArtworkDelivery::service() {
             continue;
         }
         if (fetched.kind == artwork::Fetched::Kind::Names) {
-            namesArrived_();
+            hooks_.namesArrived();
             continue;
         }
         if (fetched.kind == artwork::Fetched::Kind::Glyph) {
@@ -43,7 +43,7 @@ void ArtworkDelivery::service() {
             shell_.setConsoleArtwork(fetched.id, fetched.artwork);
             continue;
         }
-        shell_.setArtwork(fetched.id, fetched.artwork);
+        hooks_.coverArrived(fetched.id, fetched.artwork);
     }
     // The queue goes to the games on screen first.
     std::vector<std::string> onScreen = shell_.downloadingOnScreen();

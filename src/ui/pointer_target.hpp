@@ -76,6 +76,12 @@ struct OnContextItem {
     bool operator==(const OnContextItem&) const = default;
 };
 
+/// A cell of "Choose artwork", by its index in the picks.
+struct OnCoverPick {
+    std::size_t index;
+    bool operator==(const OnCoverPick&) const = default;
+};
+
 /// The screen outside the open context menu, Guide menu or quick menu.
 struct OnBackdrop {
     bool operator==(const OnBackdrop&) const = default;
@@ -189,6 +195,6 @@ using PointerTarget =
                  OnContextItem, OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton,
                  OnSettingsCategory, OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow,
                  OnQuickSlider, OnSettingsTab, OnTabRow, OnDialogButton, OnIntegrationItem,
-                 OnDownloadRow, OnDownloadAction>;
+                 OnDownloadRow, OnDownloadAction, OnCoverPick>;
 
 } // namespace opensu::ui

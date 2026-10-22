@@ -1,6 +1,7 @@
 # SteamGridDB artwork, its API key got through the Steam login
 
-Status: open, step 1 started.
+Status: open; built and checked against stand-ins, not yet against the real site, API or a real
+Steam client.
 
 The player: "add SteamGridDB but automate the API key process by using Steam login".
 
@@ -27,3 +28,26 @@ Decided:
     current one; the choice is kept per game and survives refreshes. Covers only for now, since
     the cover is what openSU shows; heroes and logos join the picker with the Steam-style details
     theme (`details-themes.md`).
+
+Built:
+- `steam/steamgriddb_sign_in` (the Steam browser flow over DevTools), `host/secret_store` (Secret
+  Service through libsecret when built with it, else a 0600 file), `app/steamgriddb_account` and
+  Settings › Artwork (`app/artwork_settings`): Connect, Enter a key, Cancel, Disconnect.
+- `artwork/steamgriddb` (API v2, bearer to the API origin only), `artwork/cover_overrides`,
+  `artwork/cover_fitter` (Home's tiles are square, so any non-square cover is fitted),
+  `artwork/cover_offers`, `app/steamgriddb_covers`, "Choose artwork" on the details page
+  (`ui/cover_picker*`, `app/cover_picker_controller`).
+
+Checked:
+- Unit: the DevTools flow against `tests/support/fake_steam.hpp` with browser pages (sign-in,
+  generate, read, window closed by the player, cancel, time limit, no Steam); the API, fitting
+  and the picker against `tests/support/steamgriddb_server.hpp`; the secret file's modes.
+- Hidden run (`opensu --hidden`, offline, `OPENSU_STEAMGRIDDB_API` at
+  `steamgriddb_api_stand_in`, `OPENSU_SECRET_STORE=file`): a key typed in Settings › Artwork,
+  six demo covers replaced by square grids, the picker open, a pick shown on the details page.
+
+Not checked:
+- The real SteamGridDB site: the "Login via Steam" button, the API page's key field and
+  Generate button are matched by text and shape, not seen.
+- That `steam://openurl` makes a DevTools page in a real Steam client, and the real OpenID step.
+- The real API's answers, and the libsecret keyring at run time.

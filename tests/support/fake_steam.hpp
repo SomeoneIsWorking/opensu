@@ -1,5 +1,7 @@
 // A fake Steam client: serves the DevTools page list and answers Runtime.evaluate in the
-// SharedJSContext with one scripted answer per expression, recording each in order.
+// SharedJSContext with one scripted answer per expression, recording each in order. Browser views
+// are pages a test adds (`putPage`), each with its own scripted answers; `/json/close/<id>` closes
+// one. Every connection is served on its own thread, as DevTools serves several at once.
 #pragma once
 
 #include <netinet/in.h>
@@ -12,6 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -36,6 +39,15 @@ class FakeSteam {
   public:
     using json = nlohmann::json;
     using Answer = std::function<json(const std::string& expression)>;
+    /// The answer a browser view gives: its id and the expression.
+    using PageAnswer = std::function<json(const std::string& page, const std::string& expression)>;
+
+    /// One expression a browser view was asked, with the URL it showed then.
+    struct PageCall {
+        std::string page;
+        std::string url;
+        std::string expression;
+    };
 
     explicit FakeSteam(Answer answer) : answer_{std::move(answer)} {
         listener_ = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -58,6 +70,18 @@ class FakeSteam {
         ::shutdown(listener_, SHUT_RDWR);
         ::close(listener_);
         thread_.join();
+        {
+            const std::lock_guard lock{mutex_};
+            for (const int client : clients_) {
+                ::shutdown(client, SHUT_RDWR);
+            }
+        }
+        for (std::thread& connection : connections_) {
+            connection.join();
+        }
+        for (const int client : clients_) {
+            ::close(client);
+        }
     }
     FakeSteam(const FakeSteam&) = delete;
     FakeSteam& operator=(const FakeSteam&) = delete;
@@ -72,6 +96,42 @@ class FakeSteam {
         return calls_;
     }
 
+    /// The browser views' answers.
+    void answerPages(PageAnswer answer) {
+        const std::lock_guard lock{mutex_};
+        pageAnswer_ = std::move(answer);
+    }
+    /// Lists a browser view `id` showing `url`, or moves it there.
+    void putPage(const std::string& id, const std::string& url) {
+        const std::lock_guard lock{mutex_};
+        pages_[id] = url;
+    }
+    /// The URL view `id` shows; empty once it is closed.
+    [[nodiscard]] std::string pageUrl(const std::string& id) const {
+        const std::lock_guard lock{mutex_};
+        const auto found = pages_.find(id);
+        return found == pages_.end() ? std::string{} : found->second;
+    }
+    /// Takes view `id` off the list, as the player closing its window does.
+    void removePage(const std::string& id) {
+        const std::lock_guard lock{mutex_};
+        pages_.erase(id);
+    }
+    [[nodiscard]] std::vector<PageCall> pageCalls() const {
+        const std::lock_guard lock{mutex_};
+        return pageCalls_;
+    }
+    /// The views closed through `/json/close`.
+    [[nodiscard]] std::vector<std::string> closed() const {
+        const std::lock_guard lock{mutex_};
+        return closed_;
+    }
+    /// How many times the page list was read.
+    [[nodiscard]] int listings() const {
+        const std::lock_guard lock{mutex_};
+        return listings_;
+    }
+
   private:
     void serve() {
         while (!stopping_) {
@@ -79,8 +139,12 @@ class FakeSteam {
             if (client < 0) {
                 return;
             }
-            handle(client);
-            ::close(client);
+            const std::lock_guard lock{mutex_};
+            clients_.push_back(client);
+            connections_.emplace_back([this, client] {
+                handle(client);
+                ::shutdown(client, SHUT_RDWR);
+            });
         }
     }
 
@@ -110,17 +174,47 @@ class FakeSteam {
         const std::string head = buffer.substr(0, buffer.find("\r\n\r\n"));
         buffer.erase(0, head.size() + 4);
         if (head.starts_with("GET /json ")) {
-            const json pages = json::array(
-                {{{"title", "Steam"}, {"webSocketDebuggerUrl", url("/devtools/page/MAIN")}},
-                 {{"title", "SharedJSContext"},
-                  {"webSocketDebuggerUrl", url("/devtools/page/SHARED")}}});
-            const std::string body = pages.dump();
-            sendAll(client, "HTTP/1.1 200 OK\r\nContent-Length:" + std::to_string(body.size()) +
-                                "\r\nContent-Type:application/json\r\n\r\n" + body);
+            json pages = json::array({{{"id", "MAIN"},
+                                       {"type", "page"},
+                                       {"title", "Steam"},
+                                       {"url", "https://steamloopback.host/routes/library"},
+                                       {"webSocketDebuggerUrl", url("/devtools/page/MAIN")}},
+                                      {{"id", "SHARED"},
+                                       {"type", "page"},
+                                       {"title", "SharedJSContext"},
+                                       {"url", "https://steamloopback.host/index.html"},
+                                       {"webSocketDebuggerUrl", url("/devtools/page/SHARED")}}});
+            {
+                const std::lock_guard lock{mutex_};
+                ++listings_;
+                for (const auto& [id, at] : pages_) {
+                    pages.push_back({{"id", id},
+                                     {"type", "page"},
+                                     {"title", at},
+                                     {"url", at},
+                                     {"webSocketDebuggerUrl", url("/devtools/page/" + id)}});
+                }
+            }
+            sendBody(client, 200, pages.dump());
             return;
         }
-        fakeSteamCheck(head.starts_with("GET /devtools/page/SHARED "),
-                       "the shared context is opened");
+        const std::string closePrefix = "GET /json/close/";
+        if (head.starts_with(closePrefix)) {
+            const std::size_t end = head.find(' ', closePrefix.size());
+            const std::string id = head.substr(closePrefix.size(), end - closePrefix.size());
+            bool known = false;
+            {
+                const std::lock_guard lock{mutex_};
+                known = pages_.erase(id) > 0;
+                closed_.push_back(id);
+            }
+            sendBody(client, known ? 200 : 404, known ? "Target is closing" : "No such target");
+            return;
+        }
+        const std::string pagePrefix = "GET /devtools/page/";
+        fakeSteamCheck(head.starts_with(pagePrefix), "a page is opened");
+        const std::string page =
+            head.substr(pagePrefix.size(), head.find(' ', pagePrefix.size()) - pagePrefix.size());
         const std::string marker = "Sec-WebSocket-Key: ";
         const std::size_t at = head.find(marker) + marker.size();
         const std::string key = head.substr(at, head.find("\r\n", at) - at);
@@ -134,17 +228,36 @@ class FakeSteam {
             }
             const json request = json::parse(*message);
             const std::string expression = request["params"]["expression"];
-            {
-                const std::lock_guard lock{mutex_};
-                calls_.push_back(expression);
+            json value;
+            if (page == "SHARED") {
+                {
+                    const std::lock_guard lock{mutex_};
+                    calls_.push_back(expression);
+                }
+                value = answer_(expression);
+            } else {
+                PageAnswer answer;
+                {
+                    const std::lock_guard lock{mutex_};
+                    const auto shown = pages_.find(page);
+                    pageCalls_.push_back(
+                        {page, shown == pages_.end() ? std::string{} : shown->second, expression});
+                    answer = pageAnswer_;
+                }
+                value = answer ? answer(page, expression) : json{};
             }
             // An unrelated event first, as DevTools sends them on the same socket.
             sendFrame(client, json{{"method", "Runtime.consoleAPICalled"}}.dump());
-            const json reply{
-                {"id", request["id"]},
-                {"result", {{"result", {{"type", "object"}, {"value", answer_(expression)}}}}}};
+            const json reply{{"id", request["id"]},
+                             {"result", {{"result", {{"type", "object"}, {"value", value}}}}}};
             sendFrame(client, reply.dump());
         }
+    }
+
+    static void sendBody(int client, int status, const std::string& body) {
+        sendAll(client, "HTTP/1.1 " + std::to_string(status) +
+                            " Fake\r\nContent-Length:" + std::to_string(body.size()) +
+                            "\r\nContent-Type:application/json\r\n\r\n" + body);
     }
 
     static std::optional<std::string> readFrame(int client, std::string& buffer) {
@@ -206,6 +319,13 @@ class FakeSteam {
     std::atomic<bool> stopping_{false};
     mutable std::mutex mutex_;
     std::vector<std::string> calls_;
+    PageAnswer pageAnswer_;
+    std::map<std::string, std::string> pages_;
+    std::vector<PageCall> pageCalls_;
+    std::vector<std::string> closed_;
+    int listings_{0};
+    std::vector<int> clients_;
+    std::vector<std::thread> connections_;
     std::thread thread_;
 };
 

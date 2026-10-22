@@ -15,3 +15,8 @@ add_executable(steam_devtools_test devtools_test.cpp)
 target_link_libraries(steam_devtools_test PRIVATE opensu::steam lucent::lucent Threads::Threads)
 add_test(NAME steam_devtools COMMAND steam_devtools_test)
 target_include_directories(steam_devtools_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+
+add_executable(steamgriddb_sign_in_test steamgriddb_sign_in_test.cpp)
+target_link_libraries(steamgriddb_sign_in_test PRIVATE opensu::steam lucent::lucent Threads::Threads)
+target_include_directories(steamgriddb_sign_in_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+add_test(NAME steamgriddb_sign_in COMMAND steamgriddb_sign_in_test)

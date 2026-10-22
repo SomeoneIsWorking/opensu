@@ -273,6 +273,8 @@ Config read() {
     value.desktopRequest = value.runtimeDir / "desktop";
     value.retroControl = std::filesystem::path{env("OPENSU_RETRO_CONTROL")};
     value.executablePath = splitPaths(env("PATH"));
+    value.steamGridDbApi = std::string{env("OPENSU_STEAMGRIDDB_API")};
+    value.keyring = env("OPENSU_SECRET_STORE") != "file";
     return value;
 }
 

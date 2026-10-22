@@ -145,6 +145,14 @@ struct Config {
 
     /// The directories searched for a launch's program, from PATH.
     std::vector<std::filesystem::path> executablePath;
+
+    /// SteamGridDB's API root, from OPENSU_STEAMGRIDDB_API, which points a test run at a stand-in;
+    /// empty for SteamGridDB's own.
+    std::string steamGridDbApi;
+
+    /// Whether secrets go to the desktop's keyring; OPENSU_SECRET_STORE=file keeps them in an
+    /// owner-only file under the config dir instead.
+    bool keyring{true};
 };
 
 /// Whether a POSIX time format (nl_langinfo T_FMT) is 24-hour, i.e. has no 12-hour directive

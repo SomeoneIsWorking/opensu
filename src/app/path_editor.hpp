@@ -43,13 +43,14 @@ class PathEditor {
 
     /// Opens the chooser for `request`.
     void begin(Request request);
-    /// Whether a chooser or the keyboard is up, which is when it takes every button.
+    /// Whether the chooser is up, with or without its keyboard, which is when it takes every
+    /// button. The keyboard is shared, and is this editor's only over its chooser.
     [[nodiscard]] bool active() const noexcept {
-        return folders_.isOpen() || entry_.isOpen();
+        return folders_.isOpen();
     }
-    /// Whether the keyboard is up, which a physical keyboard types into.
+    /// Whether its keyboard is up, which a physical keyboard types into.
     [[nodiscard]] bool typing() const noexcept {
-        return entry_.isOpen();
+        return folders_.isOpen() && entry_.isOpen();
     }
 
     /// A pad button while it is up.

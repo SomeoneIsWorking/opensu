@@ -200,6 +200,7 @@ Overrides, all optional:
 | `OPENSU_WIDTH`, `OPENSU_HEIGHT` | Window size, default 1280x800. |
 | `OPENSU_ASSETS` | Directory holding the typeface. Defaults to `share/opensu` beside the executable's directory. |
 | `OPENSU_HOME_MODE` | `standard` (scrolling grid, default) or `wiisu` (paged grid). |
+| `OPENSU_SECRET_STORE` | `file` keeps secrets (the SteamGridDB key) in an owner-only file under the config dir instead of the desktop keyring. |
 
 The environment seeds defaults; the Settings screen (START, last row) saves the player's choices
 (interface size, volume, shortcuts, install folders) in `settings.json`, and those win.

@@ -34,6 +34,9 @@ struct FocusesOnHover {
     bool operator()(const ui::OnContextItem&) const {
         return true;
     }
+    bool operator()(const ui::OnCoverPick&) const {
+        return true;
+    }
     bool operator()(const ui::OnDetailsButton&) const {
         return true;
     }

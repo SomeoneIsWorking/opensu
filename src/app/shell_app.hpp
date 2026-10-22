@@ -18,6 +18,7 @@
 
 #include "artwork_delivery.hpp"
 #include "artwork_fetcher.hpp"
+#include "artwork_settings.hpp"
 #include "artwork_store.hpp"
 #include "audio/sdl_sound_player.hpp"
 #include "audio_outputs.hpp"
@@ -79,6 +80,7 @@
 #include "steam/client.hpp"
 #include "steam_library_settings.hpp"
 #include "steam_window_hiding.hpp"
+#include "steamgriddb_covers.hpp"
 #include "top_bar_clock.hpp"
 #include "ui/shell.hpp"
 #include "uninstall_prompt.hpp"
@@ -238,6 +240,8 @@ class ShellApp final : private PointerHost {
     void chooseEmulator(const library::Game& game, const std::string& name);
     /// The game with `id` as the grid shows it now.
     [[nodiscard]] std::optional<library::Game> shownGame(const std::string& id) const;
+    /// The game with `id` as its source lists it, its own cover in `artwork`; null when gone.
+    [[nodiscard]] const library::Game* ownGame(const std::string& id) const;
     /// What each button does now, for the corner prompts: the same tests the actions make.
     [[nodiscard]] ui::HintContext hints() const;
     void pushCatalogToShell();
@@ -276,6 +280,13 @@ class ShellApp final : private PointerHost {
     artwork::ArtworkStore artworkStore_{environment_.cacheDir / "artwork"};
     artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{},
                                             library::roms::NameDb::under(environment_.cacheDir)};
+    /// SteamGridDB's API, asked only with the player's key.
+    artwork::SteamGridDb steamGridDb_{environment_.steamGridDbApi.empty()
+                                          ? std::string{artwork::steamGridDbApi}
+                                          : environment_.steamGridDbApi};
+    /// The player's SteamGridDB key, handed to `steamGridDb_`.
+    SteamGridDbAccount steamGridDbAccount_{SteamGridDbAccount::Parts{
+        host::SecretStore{environment_.configDir / "secrets", environment_.keyring}, steamGridDb_}};
     /// iiSU's UI sounds, played from the loop's input handling.
     audio::SdlSoundPlayer sounds_;
     /// Opened by `run` or `renderToFile`; before the shell, whose textures live on its device.
@@ -285,9 +296,26 @@ class ShellApp final : private PointerHost {
     ui::Shell shell_;
     TopBarClock clock_{shell_, environment_.clock24Hour};
     /// Hands the fetched artwork and the stored sounds on.
-    ArtworkDelivery delivery_{shell_, sounds_, artworkStore_, artworkFetcher_, [this] {
-                                  bridge_.requestCatalogReload({});
-                              }};
+    /// Covers the player chose or SteamGridDB fitted, and "Choose artwork".
+    SteamGridDbCovers covers_{
+        shell_, sounds_, steamGridDb_,
+        SteamGridDbCovers::Places{environment_.dataDir / "artwork" / "chosen",
+                                  environment_.cacheDir / "artwork" / "fitted",
+                                  environment_.cacheDir / "artwork" / "steamgriddb-thumbs"},
+        SteamGridDbCovers::Hooks{[this](const std::string& id) {
+                                     return ownGame(id);
+                                 },
+                                 [this](const std::string& text, bool isError) {
+                                     shell_.setToast(text, isError);
+                                 }}};
+    ArtworkDelivery delivery_{
+        shell_, sounds_, artworkStore_, artworkFetcher_,
+        ArtworkDelivery::Hooks{[this] {
+                                   bridge_.requestCatalogReload({});
+                               },
+                               [this](const std::string& id, const std::filesystem::path& file) {
+                                   covers_.coverArrived(id, file);
+                               }}};
     /// After the preferences they keep and the shelf they re-show.
     LayoutPicker layoutPicker_{shell_.modeChooser(), sounds_, preferences_,
                                LayoutPicker::Hooks{[this](std::size_t focus) {
@@ -453,6 +481,9 @@ class ShellApp final : private PointerHost {
                                  },
                                  [this] {
                                      return frameGeneration_.available();
+                                 },
+                                 [this](const library::Game& game) {
+                                     covers_.choose(game.id);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
@@ -549,13 +580,25 @@ class ShellApp final : private PointerHost {
     IntegrationSettings integrationSettings_{integrations_, [this] {
                                                  applyIntegrations();
                                              }};
+    /// Settings › Artwork and its key keyboard.
+    ArtworkSettings artworkSettings_{
+        steamGridDbAccount_, shell_.settingsPanels().entry(), sounds_,
+        ArtworkSettings::Hooks{[this](const std::string& text, bool isError) {
+                                   shell_.setToast(text, isError);
+                               },
+                               [this] {
+                                   reloadCatalog();
+                               },
+                               [this] {
+                                   settingsScreen_.refresh();
+                               }}};
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{
         shell_.settingsPanels().page(),
         SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts(),
                                      emulatorSettings_, layerSettings_, steamLibrarySettings_,
                                      pluginSettings_, chordSettings_, mappings_, wineSettings_,
-                                     integrationSettings_, integrations_},
+                                     integrationSettings_, artworkSettings_, integrations_},
         sounds_,
         preferences_,
         environment_,

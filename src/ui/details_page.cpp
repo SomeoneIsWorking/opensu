@@ -174,6 +174,7 @@ DetailsView detailsFor(const library::Game& game, bool hidden,
     if (game.installed && !rom) {
         view.buttons.push_back(DetailsButton{DetailsAction::Uninstall, "Uninstall", ""});
     }
+    view.buttons.push_back(DetailsButton{DetailsAction::ChooseArtwork, "Choose artwork", ""});
     view.buttons.push_back(DetailsButton{DetailsAction::Controls, "Controls", ""});
     view.buttons.push_back(DetailsButton{DetailsAction::Back, "Back", ""});
     return view;

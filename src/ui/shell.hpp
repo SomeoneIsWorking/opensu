@@ -27,6 +27,9 @@
 #include "context_menu.hpp"
 #include "context_menu_painter.hpp"
 #include "corner_hints.hpp"
+#include "cover_picker.hpp"
+#include "cover_picker_art.hpp"
+#include "cover_picker_painter.hpp"
 #include "details_page.hpp"
 #include "details_page_painter.hpp"
 #include "dock_metrics.hpp"
@@ -192,6 +195,10 @@ class Shell {
     [[nodiscard]] ContextMenu& contextMenu() noexcept {
         return context_;
     }
+    /// "Choose artwork", the card over the details page listing a game's covers.
+    [[nodiscard]] CoverPicker& coverPicker() noexcept {
+        return cover_;
+    }
     /// The details page of a game, which replaces the grid while it is open.
     [[nodiscard]] DetailsPage& detailsPage() noexcept {
         return details_;
@@ -241,9 +248,9 @@ class Shell {
     /// takes the place of the nav dock and the corner hints; nullptr when none is open.
     [[nodiscard]] const OnScreenKeyboard* dockedKeyboard() const noexcept;
     [[nodiscard]] bool panelOpen() const noexcept {
-        return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || details_.isOpen() ||
-               settings_.anyOpen() || menuPageOpen() || mapping_.isOpen() || guide_.anyOpen() ||
-               session_.anyOpen();
+        return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || cover_.isOpen() ||
+               details_.isOpen() || settings_.anyOpen() || menuPageOpen() || mapping_.isOpen() ||
+               guide_.anyOpen() || session_.anyOpen();
     }
 
     /// Which device the prompts name. The caller feeds it; the painters read it.
@@ -498,6 +505,10 @@ class Shell {
     ContextMenu context_;
     PanelFade contextFade_{FadeSpec{110.0f, 95.0f, 0.96f, 110.0f, 0.985f}};
     ContextMenuPainter contextPainter_{prompts_, typeface_};
+    CoverPicker cover_;
+    CoverPickerArt coverArt_;
+    PanelFade coverFade_{FadeSpec{110.0f, 95.0f, 0.96f, 110.0f, 0.985f}};
+    CoverPickerPainter coverPainter_{prompts_, typeface_};
 
     DetailsPage details_;
     PanelFade detailsFade_{FadeSpec{140.0f, 110.0f, 1.0f, 0.0f, 1.0f}};
@@ -546,6 +557,7 @@ class Shell {
     bool pinLibraryDock_{true};
     bool searchWasOpen_{false};
     bool contextWasOpen_{false};
+    bool coverWasOpen_{false};
     bool detailsWasOpen_{false};
     bool mappingWasOpen_{false};
 };

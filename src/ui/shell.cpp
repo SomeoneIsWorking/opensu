@@ -230,6 +230,9 @@ void Shell::loadArtwork(std::size_t uploads) {
                                   gpu2d::Filter::Nearest};
         },
         tiles_, header_, artWindow(), uploads);
+    coverArt_.load(cover_, [&gpu](const gpu2d::image::Bitmap& pixels) {
+        return gpu2d::Texture{gpu, pixels.rgba, pixels.width, pixels.height, gpu2d::Filter::Linear};
+    });
 }
 
 void Shell::loadArtworkNow() {
@@ -482,6 +485,11 @@ void Shell::tick(Clock::time_point now) {
     // A panel's fade starts when its state says it opened or closed.
     followFade(searchFade_, search_.isOpen(), searchWasOpen_);
     followFade(contextFade_, context_.isOpen(), contextWasOpen_);
+    followFade(coverFade_, cover_.isOpen(), coverWasOpen_);
+    cover_.setCapacity(
+        cover_
+            .layout(Rect{0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_)}, dp())
+            .capacity);
     followFade(detailsFade_, details_.isOpen(), detailsWasOpen_);
     followFade(mappingFade_, mapping_.isOpen(), mappingWasOpen_);
     settings_.tick(now_);
@@ -818,6 +826,13 @@ PointerTarget Shell::pointAtModal(Point point) const {
         return downloads_.pointAt(point, Point{width, height}, dp(), hud_.topInset(),
                                   hud_.bottomInset());
     }
+    if (cover_.isOpen()) {
+        const CoverPickerLayout picker = cover_.layout(frame, dp());
+        if (const std::optional<std::size_t> pick = picker.pickAt(point.x, point.y)) {
+            return OnCoverPick{*pick};
+        }
+        return picker.card.contains(point.x, point.y) ? PointerTarget{} : OnBackdrop{};
+    }
     if (details_.isOpen()) {
         if (const std::optional<std::size_t> button = detailsLayout().buttonAt(point.x, point.y)) {
             return OnDetailsButton{*button};
@@ -946,6 +961,8 @@ bool Shell::focusTarget(const PointerTarget& target) {
                 return search_.focusResult(at.index);
             } else if constexpr (std::is_same_v<Target, OnContextItem>) {
                 return context_.focusItem(at.index);
+            } else if constexpr (std::is_same_v<Target, OnCoverPick>) {
+                return cover_.focusPick(at.index);
             } else if constexpr (std::is_same_v<Target, OnTile>) {
                 return focusTile(at.index);
             } else if constexpr (std::is_same_v<Target, OnPage>) {
@@ -1064,6 +1081,7 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     chooserPainter_.paint(canvas, chooser_, size, dp());
     searchPainter_.paint(canvas, search_, size, dp(), searchFade_.look(now_), seconds);
     contextPainter_.paint(canvas, context_, size, dp(), contextFade_.look(now_));
+    coverPainter_.paint(canvas, cover_, coverArt_, size, dp(), coverFade_.look(now_));
     settings_.drawOverlays(canvas, size, dp(), now_, seconds);
     mappingPainter_.paint(canvas, mapping_, size, dp(), mappingFade_.look(now_));
     guide_.draw(canvas, size, dp());

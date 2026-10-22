@@ -103,6 +103,8 @@ Visible deltas from the baseline:
   own pill on every volume change. No display-scale setting in iiSU (it follows the Android
   density); openSU has "Interface size", 70 to 150 percent, clamped so every screen fits.
 - The grid is ours, so layout, tile sizes and page count are ours.
+- With a SteamGridDB key, a cover Home's square tiles would crop is replaced by SteamGridDB's
+  square one, and a game's details offer "Choose artwork" (SteamGridDB's covers); iiSU has neither.
 - Steam's Big Picture does not open inside openSU's session: Guide in the shell never reaches
   Steam, and Big Picture opened any other way is closed and the shell put back in front.
 - Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, or built from source. Windows,
@@ -165,6 +167,7 @@ game has been observed running yet.
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 | S042 | Platform seams: every Linux-only concept behind one owner with a per-OS backend picked in CMake (process launching, pads, the shell over a game, Steam modes, user directories, buildbot folder, library loading, battery), Linux unchanged (`docs/issues/cross-platform-releases.md` step 1) | partial | — | G005 |
 | S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings on the game settings tabs and the atoms for the game in front verified with a ROM game in the headless fork; a store game, Settings › Emulators rows and the nested and DRM backends not run | partial | S013 | G004 |
+| S043 | SteamGridDB: the API key through Steam's browser or typed in, kept in the keyring or a 0600 file; covers fitted to Home's square tiles; "Choose artwork" per game (`docs/issues/steamgriddb.md`) | partial | S002, S020 | G001, G002 |
 
 ## Capability details
 
@@ -316,7 +319,25 @@ image at full size, all of a shelf's tiles in one frame):
 
 A tile loads its artwork when it comes near the canvas, so a shelf change or a download needs
 no separate load step. A shelf holds copies of the catalog's games made before later downloads, so every rebuild
-(`ShellApp::showShelf`) takes each game's file from `ArtworkStore::apply(shelf)`.
+(`ShellApp::showShelf`) takes each game's file from `ArtworkStore::apply(shelf)`, then
+`SteamGridDbCovers::apply(shelf)`.
+
+SteamGridDB (`docs/issues/steamgriddb.md`) never replaces a source; with the player's key it
+stands in for a cover in two cases. A cover whose shape is not Home's square tile (portrait if
+width*5 < height*4, landscape if width*4 > height*5) gets SteamGridDB's first square grid (by
+Steam app id, else by title search), kept as `<cache>/artwork/fitted/<id>`; a game SteamGridDB
+has none for is kept as a `.miss` for 14 days (`artwork::CoverFitter`). "Choose artwork" on the
+details page lists the cover shown now, the game's own when replaced, and SteamGridDB's covers
+of every shape; the pick is kept as `<data>/artwork/chosen/<id>` (or `<id>.own` for the game's
+own) and wins over fitting (`artwork::CoverOverrides`). The game's own file is never touched.
+The key is read back at start from the Secret Service (else `<config>/secrets/steamgriddb-api-key`,
+0600; `OPENSU_SECRET_STORE=file` forces the file) and goes only to the API origin as a bearer
+token. Checked in a hidden run against the API stand-in (`tests/support/steamgriddb_api_stand_in`,
+`OPENSU_STEAMGRIDDB_API`): the key typed in Settings › Artwork, six of the seven demo covers
+(landscape screenshots) replaced by square grids, the square one left alone, the picker open with
+its offers, and a picked cover shown on the details page and Home. Not yet checked: the real
+SteamGridDB API and site, the sign-in through a real Steam client, the libsecret keyring at run
+time.
 
 Artwork that no source has on disk is downloaded in the background
 (`artwork::ArtworkFetcher`) into `<cache>/artwork` (`$XDG_CACHE_HOME/opensu`):

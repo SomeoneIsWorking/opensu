@@ -11,35 +11,82 @@ using nlohmann::json;
 constexpr std::string_view sharedContextTitle = "SharedJSContext";
 constexpr std::string_view devToolsPrefix = "ws://127.0.0.1:";
 
+/// The `/json` page list on `port`; nothing when it cannot be read.
+std::optional<json> pageList(std::uint16_t port, std::string& error) {
+    lucent::http::FetchResult targets;
+    if (!lucent::http::get_loopback(port, "/json", targets, error)) {
+        error = "Steam DevTools unreachable: " + error;
+        return std::nullopt;
+    }
+    json list = json::parse(targets.body, nullptr, false);
+    if (targets.status != 200 || !list.is_array()) {
+        error = "Steam DevTools listed no pages";
+        return std::nullopt;
+    }
+    return list;
+}
+
 } // namespace
+
+std::optional<std::vector<DevToolsTarget>> devToolsTargets(std::uint16_t port, std::string& error) {
+    const std::optional<json> list = pageList(port, error);
+    if (!list) {
+        return std::nullopt;
+    }
+    std::vector<DevToolsTarget> targets;
+    for (const json& target : *list) {
+        if (target.is_object()) {
+            targets.push_back(DevToolsTarget{target.value("id", ""), target.value("type", ""),
+                                             target.value("title", ""), target.value("url", "")});
+        }
+    }
+    return targets;
+}
+
+bool closeDevToolsTarget(std::uint16_t port, std::string_view id, std::string& error) {
+    lucent::http::FetchResult answer;
+    if (!lucent::http::get_loopback(port, "/json/close/" + std::string{id}, answer, error)) {
+        error = "Steam DevTools unreachable: " + error;
+        return false;
+    }
+    if (answer.status != 200) {
+        error =
+            "Steam DevTools did not close the page (HTTP " + std::to_string(answer.status) + ")";
+        return false;
+    }
+    return true;
+}
 
 DevTools::DevTools(std::uint16_t port) : port_{port} {
 }
 
+DevTools::DevTools(std::uint16_t port, std::string targetId)
+    : port_{port}, targetId_{std::move(targetId)} {
+}
+
+bool DevTools::isTarget(const json& target) const {
+    return targetId_.empty() ? target.value("title", "") == sharedContextTitle
+                             : target.value("id", "") == targetId_;
+}
+
 bool DevTools::connect(std::string& error) {
-    lucent::http::FetchResult targets;
-    if (!lucent::http::get_loopback(port_, "/json", targets, error)) {
-        error = "Steam DevTools unreachable: " + error;
+    const std::optional<json> list = pageList(port_, error);
+    if (!list) {
         return false;
     }
-    const json list = json::parse(targets.body, nullptr, false);
-    if (targets.status != 200 || !list.is_array()) {
-        error = "Steam DevTools listed no pages";
-        return false;
-    }
-    for (const json& target : list) {
-        if (target.value("title", "") != sharedContextTitle) {
+    for (const json& target : *list) {
+        if (!target.is_object() || !isTarget(target)) {
             continue;
         }
         const std::string url = target.value("webSocketDebuggerUrl", "");
         const std::string prefix = std::string{devToolsPrefix} + std::to_string(port_);
         if (!url.starts_with(prefix)) {
-            error = "Steam's SharedJSContext is not on loopback: " + url;
+            error = "Steam's page is not on loopback: " + url;
             return false;
         }
         return socket_.connect_loopback(port_, url.substr(prefix.size()), error);
     }
-    error = "Steam has no SharedJSContext yet";
+    error = targetId_.empty() ? "Steam has no SharedJSContext yet" : "the page is closed";
     return false;
 }
 

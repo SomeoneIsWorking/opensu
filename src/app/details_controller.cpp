@@ -193,6 +193,9 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::Controls:
         hooks_.controls(*game);
         break;
+    case ui::DetailsAction::ChooseArtwork:
+        hooks_.chooseArtwork(*game);
+        break;
     case ui::DetailsAction::Back:
         break;
     }

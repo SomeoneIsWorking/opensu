@@ -84,6 +84,21 @@ struct Rig {
                 [this](const std::string& text, bool error) {
                     said.push_back({text, error});
                 }},
+          steamGridDbAccount{app::SteamGridDbAccount::Parts{
+              host::SecretStore{config.configDir / "secrets", false}, steamGridDb, steamPort,
+              steam::SteamGridDbSignIn::Timing{std::chrono::milliseconds{10},
+                                               std::chrono::seconds{10}},
+              "true"}},
+          artworkSettings{steamGridDbAccount, entry, sounds,
+                          app::ArtworkSettings::Hooks{[this](const std::string& text, bool error) {
+                                                          said.push_back({text, error});
+                                                      },
+                                                      [this] {
+                                                          ++artworkRequests;
+                                                      },
+                                                      [this] {
+                                                          controller.refresh();
+                                                      }}},
           volume{mixer ? std::unique_ptr<audio::VolumeBackend>{std::make_unique<FakeMixer>(
                              &mixerState, &mixerLog)}
                        : nullptr,
@@ -107,7 +122,7 @@ struct Rig {
                      app::SettingsController::Services{
                          paths, shortcutEditor, volume, shortcuts, emulatorSettings, layerSettings,
                          steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
-                         integrationSettings, inForce},
+                         integrationSettings, artworkSettings, inForce},
                      sounds,
                      preferences,
                      config,
@@ -219,6 +234,11 @@ struct Rig {
     ui::FolderChooser folders;
     ui::OnScreenKeyboard entry;
     app::PathEditor paths;
+    /// SteamGridDB with no API behind it: these checks keep and forget keys, never fetch.
+    artwork::SteamGridDb steamGridDb{"http://127.0.0.1:1/api/v2"};
+    app::SteamGridDbAccount steamGridDbAccount;
+    app::ArtworkSettings artworkSettings;
+    int artworkRequests{0};
     audio::VolumeState mixerState{40, false};
     std::vector<std::string> mixerLog;
     std::vector<audio::VolumeState> shown;
@@ -315,7 +335,7 @@ void pagesFollowTheIntegrations(const fs::path& root) {
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
                                              "Audio", "Controls", "Guide chords", "Install folders",
-                                             "About"},
+                                             "Artwork", "About"},
            "no Steam libraries, Wine or Plugins with their integrations off");
     rig.enter("Library");
     expect(std::ranges::none_of(rig.page.focusedCategory().rows,
@@ -351,8 +371,9 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
                                              "Steam libraries", "Audio", "Controls", "Guide chords",
-                                             "Install folders", "Wine", "Plugins", "About"},
-           "the twelve categories");
+                                             "Install folders", "Artwork", "Wine", "Plugins",
+                                             "About"},
+           "the thirteen categories");
     expect(rig.controller.category() == "Appearance" && !rig.controller.changes(),
            "opens on Appearance with nothing to change yet");
     rig.enter("Steam libraries");
@@ -1037,6 +1058,162 @@ void pluginsAskBeforeTheyRun(const fs::path& root) {
 
 } // namespace
 
+/// Services the screen until `done` holds, as the loop does each pass; false after five seconds.
+template <class Done> bool serviceUntil(Rig& rig, Done done) {
+    for (int pass = 0; pass < 500; ++pass) {
+        rig.controller.service();
+        if (done()) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
+    return false;
+}
+
+bool saidSomething(const Rig& rig, const std::string& part, bool error) {
+    return std::ranges::any_of(rig.said, [&](const Said& said) {
+        return said.error == error && said.text.find(part) != std::string::npos;
+    });
+}
+
+constexpr const char* steamGridDbKey = "0123456789abcdef0123456789abcdef";
+
+/// Settings > Artwork: a key typed in is kept owner-only and handed to the source; Disconnect
+/// forgets it; a typed line that is not a key is refused.
+void steamGridDbKeyIsEnteredAndForgotten(const fs::path& root) {
+    Rig rig{root};
+    rig.controller.open();
+    rig.enter("Artwork");
+    expect(serviceUntil(rig,
+                        [&] {
+                            return rig.rowOf("artwork.steamgriddb").value == "Not connected";
+                        }),
+           "with no saved key SteamGridDB is not connected");
+    rig.focus("artwork.steamgriddb.enter");
+    rig.controller.act(Button::A);
+    expect(rig.artworkSettings.typing() && rig.entry.secret(),
+           "Enter a key opens the keyboard, showing dots");
+    rig.artworkSettings.typeText("not a key");
+    rig.artworkSettings.confirm();
+    expect(!rig.artworkSettings.typing(), "Done closes the keyboard");
+    expect(serviceUntil(rig,
+                        [&] {
+                            return saidSomething(rig, "not a SteamGridDB key", true);
+                        }),
+           "a line that is not a key is refused");
+
+    rig.focus("artwork.steamgriddb.enter");
+    rig.controller.act(Button::A);
+    rig.artworkSettings.typeText(std::string{" "} + steamGridDbKey + "\n");
+    rig.artworkSettings.confirm();
+    expect(serviceUntil(rig,
+                        [&] {
+                            return rig.rowOf("artwork.steamgriddb").value == "Connected";
+                        }),
+           "a pasted key connects, its spaces dropped");
+    expect(rig.rowOf("artwork.steamgriddb").note == "Key kept in a private file",
+           "the row says where the key is");
+    const fs::path kept = rig.config.configDir / "secrets" / "steamgriddb-api-key";
+    expect(fs::status(kept).permissions() == (fs::perms::owner_read | fs::perms::owner_write),
+           "the key file is the owner's alone");
+    expect(rig.steamGridDb.connected(), "the source has the key");
+    expect(rig.artworkRequests == 1 && saidSomething(rig, "SteamGridDB connected", false),
+           "artwork is asked for again");
+    for (const Said& said : rig.said) {
+        expect(said.text.find(steamGridDbKey) == std::string::npos, "the key is never shown");
+    }
+
+    rig.focus("artwork.steamgriddb.disconnect");
+    rig.controller.act(Button::A);
+    expect(serviceUntil(rig,
+                        [&] {
+                            return rig.rowOf("artwork.steamgriddb").value == "Not connected";
+                        }),
+           "Disconnect ends the connection");
+    expect(!fs::exists(kept) && !rig.steamGridDb.connected(), "and forgets the key");
+    expect(rig.artworkRequests == 2, "artwork is asked for again without it");
+}
+
+/// A key kept by an earlier run is read back at start.
+void steamGridDbKeyIsReadBack(const fs::path& root) {
+    {
+        const host::SecretStore secrets{root / "config" / "secrets", false};
+        std::string error;
+        expect(secrets.save("steamgriddb-api-key", "key", steamGridDbKey, error).has_value(),
+               "a key is kept");
+    }
+    Rig rig{root};
+    rig.controller.open();
+    rig.enter("Artwork");
+    expect(serviceUntil(rig,
+                        [&] {
+                            return rig.rowOf("artwork.steamgriddb").value == "Connected";
+                        }),
+           "the kept key connects at start");
+    expect(rig.steamGridDb.connected(), "and goes to the source");
+}
+
+/// Connect with no Steam to ask opens SteamGridDB's page in the browser and the keyboard.
+void steamGridDbWithoutSteamAsksForTheKey(const fs::path& root) {
+    Rig rig{root};
+    rig.controller.open();
+    rig.enter("Artwork");
+    expect(serviceUntil(rig,
+                        [&] {
+                            return rig.rowOf("artwork.steamgriddb").value == "Not connected";
+                        }),
+           "not connected");
+    rig.focus("artwork.steamgriddb.connect");
+    rig.controller.act(Button::A);
+    expect(serviceUntil(rig,
+                        [&] {
+                            return rig.artworkSettings.typing();
+                        }),
+           "without Steam the keyboard opens for the key");
+    expect(saidSomething(rig, "Steam is not available", false), "the player hears why");
+    rig.artworkSettings.dismiss();
+    expect(!rig.artworkSettings.typing(), "Escape closes it");
+}
+
+/// Connect through a running Steam: the key is read from SteamGridDB's page in Steam's browser.
+void steamGridDbThroughSteam(const fs::path& root) {
+    test::FakeSteam* self = nullptr;
+    test::FakeSteam steam{[&self](const std::string& expression) {
+        if (expression.find("ExecuteSteamURL") != std::string::npos) {
+            self->putPage("VIEW", "https://www.steamgriddb.com/login");
+        }
+        return nlohmann::json(true);
+    }};
+    self = &steam;
+    steam.answerPages([&steam](const std::string& page, const std::string&) -> nlohmann::json {
+        if (steam.pageUrl(page) == "https://www.steamgriddb.com/profile/preferences/api") {
+            return {{"state", "key"}, {"key", steamGridDbKey}};
+        }
+        steam.putPage(page, "https://www.steamgriddb.com/profile/preferences/api");
+        return {{"state", "navigating"}};
+    });
+    Rig rig{root, true, steam.port()};
+    rig.controller.open();
+    rig.enter("Artwork");
+    expect(serviceUntil(rig,
+                        [&] {
+                            return rig.rowOf("artwork.steamgriddb").value == "Not connected";
+                        }),
+           "not connected");
+    rig.focus("artwork.steamgriddb.connect");
+    rig.controller.act(Button::A);
+    expect(rig.page.focusedCategory().rows.size() == 2 &&
+               rig.rowOf("artwork.steamgriddb.cancel").label == "Cancel",
+           "while Steam signs in the page offers Cancel");
+    expect(serviceUntil(rig,
+                        [&] {
+                            return rig.rowOf("artwork.steamgriddb").value == "Connected";
+                        }),
+           "the key read through Steam connects");
+    expect(rig.steamGridDb.connected() && steam.closed() == std::vector<std::string>{"VIEW"},
+           "the key is handed on and Steam's view closed");
+}
+
 int main() {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "settings_controller";
     fs::remove_all(root);
@@ -1058,6 +1235,10 @@ int main() {
     steamLibrariesWhileSteamRuns(root / "steam");
     pluginsAskBeforeTheyRun(root / "plugins");
     wineRunnerIsPicked(root / "wine");
+    steamGridDbKeyIsEnteredAndForgotten(root / "steamgriddb");
+    steamGridDbKeyIsReadBack(root / "steamgriddb-kept");
+    steamGridDbWithoutSteamAsksForTheKey(root / "steamgriddb-no-steam");
+    steamGridDbThroughSteam(root / "steamgriddb-steam");
     fs::remove_all(root);
     std::printf("settings_controller: all checks passed\n");
     return 0;
