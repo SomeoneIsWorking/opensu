@@ -1,8 +1,8 @@
 # Adaptive frame generation through lsfg-vk
 
 Status: open. Decided 2026-10-22: frame generation runs inside our Gamescope fork with our own MIT
-generator (see "Decision"). Phases A (mechanism, linear-blend stand-in) and B (adaptive pacing) are
-in the fork at `7b41ee21` and pinned; the generator and phase C (openSU UI) are not built.
+generator (see "Decision"). Phases A (mechanism), B (adaptive pacing) and the generator
+(`CLosslessSynthesizer`) are in the fork at `25cb24bb` and pinned; phase C (openSU UI) is not built.
 
 The player: "Another request I have is adaptive LSFG-VK". lsfg-vk is the Vulkan layer that runs
 Lossless Scaling's frame generation on Linux; the player has a fork (`SomeoneIsWorking/lsfg-vk`).
@@ -27,7 +27,7 @@ discarding the fork". So:
 
 ## Frame generation in the fork
 
-The fork's `src/FrameGen/` (pinned `7b41ee21`):
+The fork's `src/FrameGen/` (pinned `25cb24bb`):
 - `FramePacer`: the one owner of how many images each real frame gets, their timestamps and when
   each is shown.
   - Base rate: the mean of the last 15 real-frame intervals; an interval 6x off the mean restarts
@@ -53,14 +53,37 @@ The fork's `src/FrameGen/` (pinned `7b41ee21`):
   of images, and gives `paint_window` the image for the current vblank in place of the commit's
   texture. PipeWire follows it. Logs `Pacing <state> at real N` whenever the state (measuring,
   below the floor, at the target, within the tolerance, generating) changes.
-- `LinearBlendSynthesizer`: the stand-in generator, `previous * (1 - t) + current * t` through
-  Gamescope's own compositor. It moves nothing; it makes each image's timestamp measurable.
+- `IFrameSynthesizer`: `BeginSession(w, h)` (forgets history), `AddRealFrame(frame)` for every
+  real frame in order, `Generate(previous, current, t, output)`.
+- `LosslessSynthesizer` (MIT, the default generator): runs the LSFG 3 SPIR-V modules of the
+  player's `Lossless.dll` on Gamescope's device as `docs/design/frame-generation-spec.md` section 4
+  describes: per real frame Copy, the luma and feature pyramids and the UI mask; per generated frame
+  the three flow fields coarse to fine and Compose, written straight into the presenter's image.
+  FP16 modules when the device has `shaderFloat16`, else FP32. A memory barrier between every two
+  dispatches, one against earlier submissions at the start and one for the readers at the end.
+  Constants per (submission, level) in a 16-slot ring with dynamic offsets; missing inputs are null
+  descriptors (zero reads, like D3D11's null views).
+  - `LosslessShaders` loads the 26 modules of the size mode and precision and checks each one's
+    interface (bindings, names, kinds, storage format, cb offsets, local size, `Float16`) against
+    the spec; `PeResources` reads the DLL's resource directory and FileVersion in place;
+    `SpirvInterface` reflects a module.
+  - Any mismatch, a missing DLL, or a device without the needed features or formats: frame
+    generation stays off (real frames only) and one line names the DLL version, size, resource
+    and first difference.
+  - Timing: with the `lossless` log scope at debug, GPU microseconds per ingest and per
+    generated frame every 2 s (`CGpuTimestamps`, shared with `composite_timing`).
+- `LinearBlendSynthesizer`: `previous * (1 - t) + current * t` through Gamescope's own compositor,
+  only when chosen with `GAMESCOPE_FRAMEGEN_GENERATOR` 1. It moves nothing; it makes each image's
+  timestamp measurable apart from the generator.
 - Root atoms, all CARDINAL, set by openSU: `GAMESCOPE_FRAMEGEN` (0/1), `GAMESCOPE_FRAMEGEN_MODE`
   (0 fixed, 1 adaptive), `GAMESCOPE_FRAMEGEN_RATIO` (thousandths, default 2000),
   `GAMESCOPE_FRAMEGEN_TARGET` (thousandths of fps, 0 the display's refresh),
   `GAMESCOPE_FRAMEGEN_MAX` (generated per real frame, default 3, 1 to 15),
   `GAMESCOPE_FRAMEGEN_TOLERANCE` (thousandths of fps, default 0); `GAMESCOPE_FRAMEGEN_DLL`
-  (string, the player's `Lossless.dll`, unused until the generator).
+  (string, the player's `Lossless.dll`); `GAMESCOPE_FRAMEGEN_GENERATOR` (0 Lossless, 1 linear
+  blend); `GAMESCOPE_FRAMEGEN_PERFORMANCE` (0 balanced, 1 performance);
+  `GAMESCOPE_FRAMEGEN_FLOW_SCALE` (percent, default 100, clamped to 25..100). UI detection is on,
+  Lossless Scaling's shipped default; no atom.
 
 ## Proof (2026-10-22)
 
@@ -109,6 +132,50 @@ Not proven: DRM and nested (Wayland) backends; HDR and 10-bit content (refused, 
 windows with non-opaque alpha (the blend assumes opaque); the real generator; a game in openSU.
 Under heavy machine load the sources stall and burst; the history then restarts and real frames
 show until it refills, which the log shows as `Pacing measuring`.
+
+## Lossless generator (2026-10-22)
+
+Clean-room: written from the spec, the player's `Lossless.dll` and Vulkan/SPIR-V docs only; no
+lsfg-vk source was read. Fork commits `04dbe4f1` (timestamps refactor) and `25cb24bb` (generator).
+Built with Clang 22 in the fork's podman image (`build/agent-lossless`). Headless Gamescope on an
+RX 6700 XT (RADV), `DISABLE_LSFG=1`, frames from its PipeWire stream. Scripts and every run:
+`scratch/fg-lossless/` (`scripts/run.sh`, `matrix.sh`, `analyze.py`, `bars.py`, `corrupt.py`;
+`runs/<name>/`, `proof/`). The DLL loaded as `3.2.2.0`, balanced, FP16.
+
+- **Motion-interpolated, not blended.** The bar (32 px, 16 px per real frame) at 30 fps fixed 2x:
+  every captured frame shows one full-brightness 32 px bar, advancing 0.500 step per shown frame
+  (stdev 0.016), the generated ones at half-step positions (`runs/final_bar_2x`). The linear
+  blend in the same setup shows a 16 px full core and two half-bright edges in every generated
+  frame (`runs/bar_blend_2x`). vkcube at 30 fps 2x: four consecutive frames
+  (`proof/vk_lossless_2x_20-23.png`) show one sharp cube at in-between angles; the blend's
+  generated frames (`proof/vk_blend_2x_20-23.png`) double-expose the logo text.
+- **Adaptive 43 to 60** (`runs/bar_lossless_a43`): 1, 2, 1, 2 generated per real frame, 60.0 shown/s,
+  0 dropped, shown spacing 16.67 ms (stdev 0.02), the bar advancing 0.717 per shown frame (stdev
+  0.016) through fractional positions 0.05..0.93: the same as phase B. vkcube 43 to 60 runs too
+  (`runs/vk_lossless_a43`).
+- **Fixed 2x pacing**: 60 shown/s, spacing 16.67 ms stdev 0.01 (`runs/final_bar_2x`), as the blend.
+  Two earlier runs while other agents' games loaded the GPU and CPU showed holds after late real
+  frames from ffplay (`runs/bar_lossless_2x`, `_r2`); the vblanks themselves stayed on time.
+- **GPU time** (timestamps, 2 s averages; GPU shared with other work, so the quiet windows):
+  720p balanced 2.2 ms per generated frame and 1.0 ms per real frame; 1080p balanced 3.5 ms and
+  1.5 ms; 1080p performance 0.8 to 1.0 ms and 0.5 ms; 1080p balanced at flow scale 0.5 1.0 ms and
+  0.44 ms (`runs/bar1080_*`).
+- **Validation** (`VK_LAYER_KHRONOS_validation`, with and without the duplicate limit,
+  `runs/val_*`, `runs/valfull_*`): no message from any generator call. The on runs add only
+  `VkWriteDescriptorSet-descriptorType-09506`, a `COMBINED_IMAGE_SAMPLER` write by Gamescope's own
+  composite of the frame copy (the generator writes no combined samplers); the ffplay off run and
+  phase B's linear-blend run have it too. Every validation run, off included and on the pin
+  before this work, ends with Gamescope aborting at exit (status 134).
+- **Refusal**: a scratch copy of the DLL with resource 306's LocalSize changed
+  (`baddll/`, `scripts/corrupt.py`) logs once "Frame generation refused, showing real frames only:
+  Lossless.dll 3.2.2.0 (7521280 bytes): resource 306 (FlowEntry): local size 4x8x1, expected 8x8x1"
+  and shows the real frames (`runs/refused_bad`); a missing path logs "cannot open"
+  (`runs/refused_missing`).
+
+Not proven: the FP32 modules (this GPU has FP16), HDR or 10-bit input (refused before the
+generator), UI detection's effect on a real HUD, quality against Lossless Scaling's own output on
+the same input, RenderDoc (installed, but headless Gamescope has no present to delimit a capture),
+DRM and nested backends, and a game in openSU.
 
 ## The bar
 
@@ -485,7 +552,8 @@ superseded by "Decision". Step 1's finding stands as the reason.
 
 1. Mechanism in the Gamescope fork with the linear-blend stand-in: done ("Proof").
 2. Phase B, adaptive pacing in `FramePacer`: done ("Proof").
-3. Our MIT generator behind `IFrameSynthesizer`, clean-room from the `Lossless.dll` behaviour spec.
+3. Our MIT generator behind `IFrameSynthesizer`, clean-room from the `Lossless.dll` behaviour spec:
+   done ("Lossless generator").
 4. Phase C, openSU: the `framegen.*` setting keys on the layers, the atoms set for the focused
    game, rows on the game settings tabs and Settings › Emulators.
 5. Record: the codemap rows, project-state rows, this card closed.

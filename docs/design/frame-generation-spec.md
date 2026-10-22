@@ -1,6 +1,8 @@
 # Frame generation behaviour specification (LSFG 3 shaders from the player's Lossless.dll)
 
-Status: specification only; nothing here has run under Vulkan yet. It describes what Lossless
+Status: implemented by the Gamescope fork's `CLosslessSynthesizer` (`src/FrameGen/`), which runs
+the SPIR-V modules of the player's DLL on Gamescope's device; proof in
+`docs/issues/adaptive-lsfg-vk.md`, "Lossless generator". It describes what Lossless
 Scaling 3.2.2 (Steam build 19655272) does with the frame-generation shaders in its `Lossless.dll`,
 so that our MIT generator behind the Gamescope fork's `IFrameSynthesizer::Generate(previous,
 current, t, output)` (`docs/issues/adaptive-lsfg-vk.md`, "Decision") can run the same shaders from
@@ -92,9 +94,11 @@ code itself was not proven. Ids 101..253 are LSFG 1/2, LSFI and the upscalers (`
 
 ### 2.3 Interface of every LSFG 3 shader
 
-All read the same constant buffer `cb` (register b0), 32 bytes, or 48 for the UI mask shader; the
-CPU always fills a 48-byte block (`FUN_18001e890`, `CreateBuffer` ByteWidth 0x30). Layout from the
-DXBC RDEF chunk and identical `OpMemberDecorate Offset`s in the SPIR-V:
+Every DXBC shader declares the same constant buffer `cb` (register b0), 32 bytes, or 48 for the UI
+mask shader; the CPU always fills a 48-byte block (`FUN_18001e890`, `CreateBuffer` ByteWidth 0x30).
+The SPIR-V modules keep `cb` only where the shader reads a field of it (Copy, LumaPyramid, Compose,
+the flow entry and resolve shaders, the UI mask); the filter, feature and UI stages declare no
+binding 0. Layout from the DXBC RDEF chunk and identical `OpMemberDecorate Offset`s in the SPIR-V:
 
 | Offset | Field | Type | Meaning and value written |
 |---|---|---|---|
@@ -116,6 +120,32 @@ Fields used per shader (RDEF "used" flag): Copy uses `InputOffset`; LumaPyramid 
 Thread groups (DXBC `dcl_thread_group` = SPIR-V `LocalSize`): Copy 8x8, LumaPyramid 32x32, Compose
 16x16, UI mask 32x32, every other shader 8x8 (`out/table.txt`).
 
+Interface of each SPIR-V module, balanced / performance where they differ (`out/table.txt`; the
+same counts as the src/dst columns of section 4). "cb" is the number of members (7, or 8 with
+`UiThreshold`), samplers are `Sampler` then `Sampler1`, inputs `Input1..`, outputs `Output1..`
+except LumaPyramid (`Output0..6`) and UI mask (`OutputMip0..5`):
+
+| Shader | cb | Samplers | Inputs | Outputs | Output format |
+|---|---|---|---|---|---|
+| Copy | 7 | 0 | 1 | 1 | Rgba32f |
+| LumaPyramid | 7 | 1 | 1 | 7 | R8 |
+| Compose | 7 | 2 | 5 | 1 | Unknown |
+| FlowEntry (G1, H1) | 7 | 2 | 9 / 5 | 3 | Rgba8 |
+| FlowBEntry2 (H6) | 7 | 2 | 10 / 6 | 2 / 1 | Rgba8 |
+| FlowA/B filter 1 (G2, H2) | - | 1 | 3 | 4 / 2 | Rgba8 |
+| FlowA/B filters 2, 3 | - | 1 | 4 / 2 | 4 / 2 | Rgba8 |
+| FlowA/B resolve (G5, H5) | 7 | 2 | 6 / 4 | 1 | Rgba16f |
+| Feature I2, I3 | - | 1 | 1 / 1, 2 / 1 | 2 / 1 | Rgba8 |
+| Feature I4, I5 | - | 1 | 2 / 1, 4 / 2 | 4 / 2 | Rgba8 |
+| FlowC filters (H7..H9) | - | 1 | 2 / 1 | 2 / 1 | Rgba8 |
+| FlowC resolve (H10) | 7 | 2 | 3 / 2 | 1 | Rgba16f |
+| UI U0 | - | 1 | 12 / 6 | 2 | Rgba8 |
+| UI U1..U3 | - | 1 | 2 | 2 | Rgba8 |
+| UI mask (U4) | 8 | 1 | 2 | 6 | R8 |
+
+A shader with one sampler gets the pass's s0 only; the s1 = `Sc` of the pass tables matters only to
+the two-sampler shaders. U0 (one sampler) therefore samples with `S1`.
+
 Bindings, all in descriptor set 0 in the SPIR-V modules (DXC's register shifts, observed):
 
 | D3D register | SPIR-V binding | Vulkan descriptor type |
@@ -129,11 +159,15 @@ Storage image formats declared in the SPIR-V: `Rgba8` for every RGBA8 intermedia
 the three flow fields, `R8` for the luma pyramid and UI mask, `Unknown` for Compose's output
 (needs `shaderStorageImageWriteWithoutFormat`), and `Rgba32f` for Copy's output (303/352). The last
 does not match the RGBA8 or RGBA16F image Lossless Scaling writes it to on D3D11 (§3); with the
-embedded SPIR-V the copy target must be `R32G32B32A32_SFLOAT`, or Copy must come from the DXBC
-path. **Inferred**: Compose samples the copies through a sampler, so their format is free.
+embedded SPIR-V the copy target must be `R32G32B32A32_SFLOAT`, and our generator makes it so (it
+needs linear filtering of that format, which LumaPyramid and Compose sample). Compose samples the
+copies through a sampler, so their format is otherwise free.
 
 Capabilities: the FP16 set (306..351) declares `Float16` (needs `shaderFloat16`, Vulkan 1.2 or
-`VK_KHR_shader_float16_int8`); 303..305 and the FP32 set do not. `StorageImageExtendedFormats`
+`VK_KHR_shader_float16_int8`; no 16-bit integers or 16-bit storage); 303..305 and the FP32 set do
+not. Compose's `Unknown` output needs `shaderStorageImageWriteWithoutFormat`, the R8 outputs
+`shaderStorageImageExtendedFormats`, and binding a missing input as a null descriptor
+(`VK_EXT_robustness2` `nullDescriptor`, which Gamescope's device enables) gives D3D11's zero reads. `StorageImageExtendedFormats`
 (R8 storage) appears in the luma and UI-mask modules. All 98 modules pass `spirv-val --target-env
 vulkan1.2`; a sample also passes vulkan1.0. The DXBC versions of 257..302 carry the
 `enableMinimumPrecision` global flag (min16float); 254..256 do not.
@@ -376,8 +410,8 @@ Lifetimes:
   read within one Ingest, UI or Generate call, except that `FlowA/B/C[l+1]` are read at level `l`
   after being written at level `l+1` of the same Generate call.
 - `Output[o]` alternates, so the presenter can still read the previous output while the next is
-  written. Our presenter must keep its own copy, or extend the ring, if it shows an output longer
-  than one generated frame.
+  written. Our generator has no `Output` ring: Compose writes straight into the presenter's image
+  for that output, of which Gamescope keeps one per generated frame of the last three real frames.
 
 Barriers: D3D11 orders dispatches implicitly; Lossless Scaling unbinds all slots after each
 dispatch (null arrays at object +0x168 for SRVs and +0x78 for UAVs). On Vulkan, record all passes on
@@ -411,12 +445,14 @@ Observed on the player's install:
 - Each DXBC resource also carries its own 16-byte checksum at bytes 4..19.
 
 How to detect a mismatched DLL (our design): do not require the hash, since a rebuild with the same
-interface is fine. At load, for every id in §2.2 require that the resource exists with the right
-magic, and that its interface matches this spec: binding names and slots (§2.3), the `cb` member
-offsets 0x00..0x1c (0x20 for the UI mask shaders), storage formats, and local size. For SPIR-V read
-`OpName`, `OpDecorate Binding`, `OpMemberDecorate Offset` and `OpExecutionMode LocalSize`; for DXBC
-read the RDEF chunk and `dcl_thread_group`. Any difference: refuse frame generation and name the
-DLL's FileVersion. Log the full-file SHA-256 so a report shows the build. Any difference in the
+interface is fine. At load, for every id the chosen size mode and precision use (26 SPIR-V modules
+of §2.2) require that the resource exists, is SPIR-V with one compute entry point, and that its
+interface matches the table in §2.3 exactly: binding names, kinds and slots in set 0 and nothing
+else, the `cb` member offsets 0x00..0x1c (0x20 for the UI mask shader), storage formats, local
+size, and the `Float16` capability. For SPIR-V read `OpName`, `OpDecorate Binding`/`DescriptorSet`,
+`OpMemberDecorate Offset`, `OpTypeImage` and `OpExecutionMode LocalSize`; for DXBC read the RDEF
+chunk and `dcl_thread_group`. Any difference: refuse frame generation, show real frames only, and
+log once the DLL's FileVersion, its size, the resource id and the first difference. Any difference in the
 pass graph itself (§4) cannot be seen from the resources; it shows up as a changed interface or a
 changed id set (e.g. a missing 303..400, or a new `FUN_18001fe10`-style table), which is why the
 check covers every id.
@@ -428,9 +464,11 @@ DLL was not examined; this spec covers the default branch's `Lossless.dll` only.
 ## 9. Gaps
 
 1. The SPIR-V modules (303..400) are assumed to compute the same thing as the DXBC Lossless Scaling
-   runs. Interfaces match for all 98 pairs; the code was not compared and no frame was produced
-   from either.
-2. Copy's SPIR-V declares an `Rgba32f` output, unlike D3D11's RGBA8/RGBA16F target (§2.3).
+   runs. Interfaces match for all 98 pairs. The FP16 balanced and performance sets produce
+   motion-interpolated frames on RADV (card, "Lossless generator"); no frame was compared with
+   Lossless Scaling's own output, and the FP32 set has not run.
+2. Copy's SPIR-V declares an `Rgba32f` output, unlike D3D11's RGBA8/RGBA16F target (§2.3); our
+   copies are `R32G32B32A32_SFLOAT`.
 3. `InputOffset` and `AdvancedColorKind` were traced to object fields, not to their UI origin.
    Ours are 0 for an uncropped 8-bit SDR frame. The HDR path (RGBA16F copies, `HdrSupport` = 1) is
    unexplored.
@@ -438,6 +476,5 @@ DLL was not examined; this spec covers the default branch's `Lossless.dll` only.
    code read (§7).
 5. FP16 (`Float16`) against FP32 output differences are unknown; D3D11's min16float lets the driver
    choose, so either is within what Lossless Scaling ships.
-6. Nothing here was checked on a GPU. The first proof is one generated frame from our Vulkan port
-   compared against the two real frames (§4.3 roles), then RenderDoc against Lossless Scaling under
-   Wine/DXVK on the same input if a closer comparison is wanted.
+6. Checked on one GPU (RX 6700 XT, RADV) against the two real frames only. A closer comparison is
+   RenderDoc against Lossless Scaling under Wine/DXVK on the same input.

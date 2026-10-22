@@ -154,7 +154,7 @@ game has been observed running yet.
 | S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
 | S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) in setting layers per game, core, console and Global, set live from the quick menu's tabs, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
-| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`) | partial | S013 | G004 |
+| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU settings and atoms missing | partial | S013 | G004 |
 
 ## Capability details
 
@@ -808,7 +808,7 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `7b41ee219d1a1c335f89162f78d0b72b9cd2c50e` (3.16.29 plus eleven commits).
+to commit `25cb24bbed60f1b4e3c567d5493bf0a5be98c46e` (3.16.29 plus thirteen commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. The other three are upstream's
@@ -831,9 +831,16 @@ root atoms: `GAMESCOPE_FRAMEGEN` (0/1), `_MODE` (fixed or adaptive), `_RATIO`, `
 display's refresh), `_MAX`, `_TOLERANCE` and `_DLL`. Gamescope copies the window's last three
 commits; `FramePacer` plans the in-between timestamps (any fractional ratio, or adaptive to a
 target with a maximum per real frame, tolerance with hysteresis and a 10 fps floor) and picks one
-image per vblank; `paint_window` shows it, PipeWire too. The generator is a linear-blend stand-in
-until our own MIT generator exists; off is byte-identical to `e297b648`. openSU does not set the
-atoms yet (`docs/issues/adaptive-lsfg-vk.md`, "Frame generation in the fork" and "Proof"). `cmake/Gamescope.cmake` builds the pin
+image per vblank; `paint_window` shows it, PipeWire too. 04dbe4f1 moves the composite GPU
+timestamps into `CGpuTimestamps`; 25cb24bb adds the generator, `CLosslessSynthesizer` (our MIT
+code, `docs/design/frame-generation-spec.md`): it reads the LSFG 3 SPIR-V from the player's
+`Lossless.dll` named by `_DLL`, checks every module's interface against the spec and otherwise
+refuses (logged once, real frames only), and runs the per-real-frame and per-generated-frame passes
+on Gamescope's device, FP16 when the device has it. New atoms `_GENERATOR` (1 is the linear blend,
+kept as an explicit test choice), `_PERFORMANCE` and `_FLOW_SCALE` (percent). Verified headless:
+motion-interpolated frames with fixed 2x and adaptive 43 to 60, unchanged pacing, no validation
+message from the generator, GPU time per generated frame (`docs/issues/adaptive-lsfg-vk.md`,
+"Lossless generator"). openSU does not set the atoms yet. `cmake/Gamescope.cmake` builds the pin
 as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
 configure and build steps run in a rootless podman container built from
 `packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;
