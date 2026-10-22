@@ -5,6 +5,8 @@
 
 #include "library/emulator_choice.hpp"
 #include "library/rom_systems.hpp"
+#include "retro_launch.hpp"
+#include "settings/framegen_settings.hpp"
 #include "settings/video_settings.hpp"
 
 namespace opensu::app {
@@ -16,6 +18,8 @@ using ui::TabColumn;
 
 constexpr std::string_view videoRowId = "tabs.video.";
 constexpr std::string_view shaderRowId = "tabs.shader";
+constexpr std::string_view frameGenRowId = "tabs.framegen.";
+constexpr std::string_view frameGenHeadingId = "tabs.framegen";
 constexpr std::string_view choiceRowId = "tabs.choice.";
 constexpr std::string_view title = "Game settings";
 constexpr std::string_view crumb = " › ";
@@ -24,11 +28,48 @@ ui::TabRow plain(ui::SettingsRow row) {
     return ui::TabRow{std::move(row), false, false};
 }
 
+/// The video or frame generation key `key` names, or null.
+const settings::ChoiceKey* choiceKeyOf(std::string_view key) {
+    const settings::ChoiceKey* video = settings::videoKey(key);
+    return video != nullptr ? video : settings::frameGenKey(key);
+}
+
+/// The row of choice key `key`.
+std::string rowIdOf(std::string_view key) {
+    return std::string{settings::videoKey(key) != nullptr ? videoRowId : frameGenRowId} +
+           std::string{key};
+}
+
+/// The key row `id` sets: the shader's, a video key's or a frame generation key's.
+std::string keyOfRow(std::string_view id) {
+    if (id == shaderRowId) {
+        return std::string{settings::shaderKey};
+    }
+    if (id.starts_with(videoRowId)) {
+        return std::string{id.substr(videoRowId.size())};
+    }
+    if (id.starts_with(frameGenRowId)) {
+        return std::string{id.substr(frameGenRowId.size())};
+    }
+    return {};
+}
+
 } // namespace
+
+bool offersGameSettings(const library::Game& game, const library::roms::EmulatorCatalog& catalog,
+                        bool frameGeneration) {
+    return frameGeneration || builtInOf(game, catalog) != nullptr;
+}
+
+bool GameSettingsPage::offers(const library::Game& game) const {
+    return offersGameSettings(game, downloads_.setup().catalog, frameGeneration_.available());
+}
 
 void GameSettingsPage::open(const library::Game& game, std::function<void()> back) {
     game_ = game;
     keys_ = library::layerKeysOf(game);
+    video_ = builtInOf(game, downloads_.setup().catalog) != nullptr;
+    frameGeneration_.findDll();
     back_ = std::move(back);
     tab_ = Tab::Game;
     listing_.clear();
@@ -90,15 +131,16 @@ std::string GameSettingsPage::focusName() const {
     return row->row.id + (page_.column() == TabColumn::Override ? ":override" : ":value");
 }
 
-std::string GameSettingsPage::shaderAt(const Layer& layer) const {
+std::string GameSettingsPage::valueAt(const Layer& layer, std::string_view key,
+                                      const std::string& fallback) const {
     const settings::SettingLayers& layers = gameSettings_.layers();
-    if (const std::string* own = layers.at(layer, settings::shaderKey)) {
+    if (const std::string* own = layers.at(layer, key)) {
         return *own;
     }
     if (layer.kind == Layer::Kind::Global) {
-        return {};
+        return fallback;
     }
-    return layers.inherited(keys_, layer, settings::shaderKey, std::string{}).value;
+    return layers.inherited(keys_, layer, key, fallback).value;
 }
 
 ui::TabRow
@@ -115,7 +157,8 @@ GameSettingsPage::settingRow(const std::string& id, std::string_view label, std:
     std::string note;
     if (const std::optional<Layer> over = layers.over(keys_, layer, key)) {
         note = "Overridden by " + layerName(*over, catalog);
-    } else if (settings::replacedByShader(key) && !shaderAt(layer).empty()) {
+    } else if (settings::replacedByShader(key) &&
+               !valueAt(layer, settings::shaderKey, {}).empty()) {
         note = "Not used with a shader preset";
     } else if (own != nullptr) {
         note = global ? std::string{} : "Set for " + layerName(layer, catalog);
@@ -129,19 +172,46 @@ GameSettingsPage::settingRow(const std::string& id, std::string_view label, std:
 
 std::vector<ui::TabRow> GameSettingsPage::tabRows() const {
     std::vector<ui::TabRow> rows;
-    rows.reserve(settings::videoKeys.size() + 1);
-    for (const settings::VideoKey& video : settings::videoKeys) {
-        rows.push_back(settingRow(std::string{videoRowId} + std::string{video.key}, video.label,
-                                  video.key, std::string{video.choices.front().key},
-                                  [&video](const std::string& value) {
-                                      return std::string{settings::choiceLabel(video, value)};
+    if (video_) {
+        for (const settings::ChoiceKey& video : settings::videoKeys) {
+            rows.push_back(settingRow(rowIdOf(video.key), video.label, video.key,
+                                      std::string{video.defaultKey()},
+                                      [&video](const std::string& value) {
+                                          return std::string{settings::choiceLabel(video, value)};
+                                      }));
+        }
+        rows.push_back(settingRow(std::string{shaderRowId}, settings::shaderLabel,
+                                  settings::shaderKey, std::string{}, [](const std::string& value) {
+                                      return presetLabel(value);
                                   }));
     }
-    rows.push_back(settingRow(std::string{shaderRowId}, settings::shaderLabel, settings::shaderKey,
-                              std::string{}, [](const std::string& value) {
-                                  return presetLabel(value);
-                              }));
+    if (frameGeneration_.available()) {
+        addFrameGenRows(rows);
+    }
     return rows;
+}
+
+void GameSettingsPage::addFrameGenRows(std::vector<ui::TabRow>& rows) const {
+    const bool found = frameGeneration_.dll().has_value();
+    rows.push_back(plain(ui::makeRow(
+        std::string{frameGenHeadingId}, RowKind::Info, "Frame generation",
+        found ? "Lossless Scaling, from Steam" : "Needs Lossless Scaling installed through Steam",
+        "")));
+    if (!found) {
+        return;
+    }
+    const settings::ChoiceKey& modeKey = settings::frameGenKeys.front();
+    const settings::FrameGenMode mode = settings::frameGenModeOf(
+        valueAt(layerOf(tab_), modeKey.key, std::string{modeKey.defaultKey()}));
+    for (const settings::ChoiceKey& key : settings::frameGenKeys) {
+        if (!settings::frameGenKeyUsedIn(key.key, mode)) {
+            continue;
+        }
+        rows.push_back(settingRow(rowIdOf(key.key), key.label, key.key,
+                                  std::string{key.defaultKey()}, [&key](const std::string& value) {
+                                      return std::string{settings::choiceLabel(key, value)};
+                                  }));
+    }
 }
 
 std::vector<ui::TabRow> GameSettingsPage::listRows() const {
@@ -158,16 +228,12 @@ std::vector<ui::TabRow> GameSettingsPage::listRows() const {
         }
         return rows;
     }
-    const settings::VideoKey* video = settings::videoKey(listing_);
-    if (video == nullptr) {
+    const settings::ChoiceKey* listed = choiceKeyOf(listing_);
+    if (listed == nullptr) {
         return rows;
     }
-    const std::string* own = layers.at(layer, listing_);
-    const std::string current =
-        own != nullptr
-            ? *own
-            : layers.inherited(keys_, layer, listing_, std::string{video->choices[0].key}).value;
-    for (const settings::ChoiceText& choice : video->choices) {
+    const std::string current = valueAt(layer, listing_, std::string{listed->defaultKey()});
+    for (const settings::ChoiceText& choice : listed->choices) {
         rows.push_back(plain(ui::makeRow(std::string{choiceRowId} + std::string{choice.key},
                                          RowKind::Action, std::string{choice.label}, "",
                                          choice.key == current ? "Chosen" : "")));
@@ -180,8 +246,8 @@ ui::TabsView GameSettingsPage::view() const {
     shown.title = std::string{title};
     if (picker_.isOpen()) {
         shown.title += std::string{crumb} + picker_.openName();
-    } else if (const settings::VideoKey* video = settings::videoKey(listing_)) {
-        shown.title += std::string{crumb} + std::string{video->label};
+    } else if (const settings::ChoiceKey* listed = choiceKeyOf(listing_)) {
+        shown.title += std::string{crumb} + std::string{listed->label};
     }
     const std::vector<Tab> order = tabs();
     for (const Tab tab : order) {
@@ -253,7 +319,7 @@ void GameSettingsPage::pick(const std::string& id) {
         return;
     }
     layers.set(layer, listing_, std::string{row.substr(choiceRowId.size())});
-    const std::string back = std::string{videoRowId} + listing_;
+    const std::string back = rowIdOf(listing_);
     listing_.clear();
     changed();
     const std::vector<ui::TabRow>& rows = page_.view().rows;
@@ -276,13 +342,14 @@ void GameSettingsPage::press() {
         pick(id);
         return;
     }
-    const std::string_view row{id};
-    const bool shader = row == shaderRowId;
-    const std::string key =
-        shader ? std::string{settings::shaderKey} : std::string{row.substr(videoRowId.size())};
+    const bool shader = id == shaderRowId;
+    const std::string key = keyOfRow(id);
+    if (key.empty()) {
+        return;
+    }
     if (page_.column() == TabColumn::Override) {
-        const settings::VideoKey* video = settings::videoKey(key);
-        toggleOverride(key, video != nullptr ? std::string{video->choices[0].key} : std::string{});
+        const settings::ChoiceKey* choice = choiceKeyOf(key);
+        toggleOverride(key, choice != nullptr ? std::string{choice->defaultKey()} : std::string{});
         return;
     }
     if (shader) {
@@ -340,7 +407,7 @@ void GameSettingsPage::act(gamepad::Button button) {
             break;
         }
         if (!listing_.empty()) {
-            const std::string back = std::string{videoRowId} + listing_;
+            const std::string back = rowIdOf(listing_);
             listing_.clear();
             show();
             const std::vector<ui::TabRow>& rows = page_.view().rows;

@@ -3,6 +3,7 @@ add_library(opensu_library STATIC
     catalog.cpp
     catalog_loader.cpp
     steam.cpp
+    lossless_scaling.cpp
     epic.cpp
     install_log.cpp
     gog.cpp

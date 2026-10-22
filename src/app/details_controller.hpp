@@ -42,6 +42,8 @@ class DetailsController {
         std::function<void(const library::Game& game)> controls;
         /// Opens `game`'s settings tabs over the page.
         std::function<void(const library::Game& game)> openGameSettings;
+        /// Whether frame generation can be set here (`FrameGeneration::available`).
+        std::function<bool()> frameGeneration;
     };
 
     DetailsController(ui::DetailsPage& page, audio::SdlSoundPlayer& sounds,
@@ -63,7 +65,8 @@ class DetailsController {
 
   private:
     [[nodiscard]] ui::DetailsView viewOf(const library::Game& game) const;
-    /// The game's emulator source and, on a built-in core, its video settings.
+    /// The game's emulator source, on a built-in core its video settings, and the Game settings
+    /// button when the tabs have anything for it.
     [[nodiscard]] ui::GameSettingsView settingsOf(const library::Game& game) const;
     void run(ui::DetailsAction action);
     /// Picks the emulator `delta` places along the game's list, wrapping.

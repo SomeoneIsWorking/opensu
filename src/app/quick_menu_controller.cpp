@@ -69,10 +69,23 @@ std::vector<SettingsRow> QuickMenuController::build() {
     }
     rows.push_back(ui::makeRow(devicesId, RowKind::Action, "Devices", "", "Open"));
     if (hooks_.gameRunning()) {
+        addGameSettingsRow(rows);
         addRetroRows(rows);
         rows.push_back(ui::makeRow(closeGameId, RowKind::Action, "Close game", "", ""));
     }
     return rows;
+}
+
+void QuickMenuController::addGameSettingsRow(std::vector<SettingsRow>& rows) {
+    const bool video = retro_.status().has_value();
+    const bool frameGeneration = hooks_.frameGeneration();
+    if (!video && !frameGeneration) {
+        return;
+    }
+    const std::string note = video && frameGeneration ? "Aspect, filter, shader, frame generation"
+                             : video                  ? "Aspect, filter, shader"
+                                                      : "Frame generation";
+    rows.push_back(ui::makeRow(gameSettingsId, RowKind::Action, "Game settings", note, "Open"));
 }
 
 void QuickMenuController::addRetroRows(std::vector<SettingsRow>& rows) {
@@ -80,8 +93,6 @@ void QuickMenuController::addRetroRows(std::vector<SettingsRow>& rows) {
     if (!status) {
         return;
     }
-    rows.push_back(ui::makeRow(gameSettingsId, RowKind::Action, "Game settings",
-                               "Aspect, filter, shader", "Open"));
     rows.push_back(ui::makeRow(saveStateId, RowKind::Action, "Save state", "", ""));
     if (status->hasState) {
         rows.push_back(ui::makeRow(loadStateId, RowKind::Action, "Load state", "",

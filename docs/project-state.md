@@ -10,6 +10,10 @@ ROMs have no home at all.
 
 Visible deltas from the baseline:
 
+- Frame generation for the game in front, off by default: fixed ratios or adaptive to a target
+  (or the display's refresh), set per game, per console or globally on the game settings tabs,
+  inside openSU's Gamescope on Linux only. It needs the player's own Lossless Scaling from Steam
+  (its `Lossless.dll`, read in place); Big Picture has nothing like it (S041).
 - Only ROMs and the libretro runner are on out of the box; Steam, Epic, GOG, standalone emulators
   and Lua plugins are each opted into, from a first-run chooser or Settings › Integrations (S039).
   Steam Big Picture has no such choice. Steam can be the player's own desktop Steam (Normal),
@@ -159,7 +163,7 @@ game has been observed running yet.
 | S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) in setting layers per game, core, console and Global, set live from the quick menu's tabs, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 | S042 | Platform seams: every Linux-only concept behind one owner with a per-OS backend picked in CMake (process launching, pads, the shell over a game, Steam modes, user directories, buildbot folder, library loading, battery), Linux unchanged (`docs/issues/cross-platform-releases.md` step 1) | partial | — | G005 |
-| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU settings and atoms missing | partial | S013 | G004 |
+| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings on the game settings tabs and the atoms for the game in front verified with a ROM game in the headless fork; a store game, Settings › Emulators rows and the nested and DRM backends not run | partial | S013 | G004 |
 
 ## Capability details
 
@@ -846,7 +850,7 @@ on Gamescope's device, FP16 when the device has it. New atoms `_GENERATOR` (1 is
 kept as an explicit test choice), `_PERFORMANCE` and `_FLOW_SCALE` (percent). Verified headless:
 motion-interpolated frames with fixed 2x and adaptive 43 to 60, unchanged pacing, no validation
 message from the generator, GPU time per generated frame (`docs/issues/adaptive-lsfg-vk.md`,
-"Lossless generator"). openSU does not set the atoms yet. `cmake/Gamescope.cmake` builds the pin
+"Lossless generator"). openSU sets the atoms for the game in front (below). `cmake/Gamescope.cmake` builds the pin
 as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
 configure and build steps run in a rootless podman container built from
 `packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;
@@ -876,6 +880,60 @@ a second build compiled nothing. Not verified: a nested session in the real KDE
 session, the shell's own window closing there, and Alt+Tab staying with KDE. The
 fork is built without Gamescope's Vulkan WSI layer; whether a game needs it
 nested is untested.
+
+### S041 — Frame generation settings and the game in front
+
+`settings::framegen_settings` owns the keys, kept on the setting layers like the video keys
+(`settings::setting_choices` is the choice-list owner both use): `framegen.mode` (off, fixed,
+adaptive), `framegen.ratio` (1.25x to 5x), `framegen.target` (`display` or 30 to 240 fps),
+`framegen.max` (1 to 8), `framegen.tolerance` (0 to 10 fps), `framegen.performance`,
+`framegen.flow-scale` (25 to 100 %). Every default is off. A store game has the Global and Game
+layers; a ROM game also its console's and its emulator's (the core layer, shown only as a source).
+
+`app::FrameGeneration` is the one owner of the atoms. Each frame the loop hands it the game in
+front (`ShellApp::gameInFront`: the running game, unless `FocusFollow` sees another window in
+front); when that changes, or the tabs change a value, it resolves the game's keys and writes
+`GAMESCOPE_FRAMEGEN_DLL`, `_MODE`, `_RATIO`, `_TARGET`, `_MAX`, `_TOLERANCE`, `_PERFORMANCE`,
+`_FLOW_SCALE` and then `GAMESCOPE_FRAMEGEN` 1 on the root (`session::RootProperties`), or only
+`GAMESCOPE_FRAMEGEN` 0 for off, no game in front, or no DLL. `library::findLosslessDll` looks in
+every folder `steam::Library::libraryFolders` reads from `libraryfolders.vdf`, at start, when a
+game comes in front and when the tabs open. The output exists only on Linux inside Gamescope
+(`frame_generation_gamescope.cpp`; `frame_generation_none.cpp` elsewhere); without it the group,
+the quick menu's Game settings row for a game off the runner and the details button for it are not
+shown.
+
+The tabs' Frame generation group: a heading row, then Mode and the rows the mode uses (Fixed:
+ratio; Adaptive: target, most generated, tolerance; both: performance mode, flow scale), each with
+the same Override checkbox and source note as the video rows. Without the DLL the heading reads
+"Needs Lossless Scaling installed through Steam" and no row can be set.
+
+Verified (`scratch/framegen-settings/`, `tools/proof.py`, `tools/frames.py`): a hidden openSU in
+the headless fork (`build/agent-lossless`, 25cb24bb, 1280x720 at 60 Hz, `DISABLE_LSFG=1`), with the
+environment Gamescope gives its child, launches Super Metroid (Europe), 50 fps, on Snes9x. The
+proof's copy of the runner drops `--hidden` so its window is inside the headless Gamescope; no
+process held a socket to the desktop's display (checked while the game came up). Run
+`runs/found-2`, scratch HOME whose Steam lists a second library holding `Lossless.dll` (a symlink
+to the player's):
+- Game in front, nothing set: `GAMESCOPE_FRAMEGEN` 0; PipeWire 49.5 shown/s, at most 51 new
+  images in a second.
+- Super Nintendo tab Fixed 1.25x: the atoms read `FRAMEGEN 1, MODE 0, RATIO 1250` and the DLL
+  path in `library2`; the Game tab shows Mode "Fixed, From Super Nintendo".
+- Game tab Mode override Adaptive, Target override 60 fps: `MODE 1, TARGET 60000`; Gamescope logs
+  "Pacing generating at real 16: base 50.26 fps, target 60.00 fps" and, every 2 s, 50.0 real/s,
+  58.5 to 60.0 shown/s, about 50 generated/s, 0 or 1 dropped; PipeWire 60.0 shown/s, up to 62 new
+  images in a second (`frames/adaptive60-*.png`: four consecutive shown frames of the attract demo).
+- Game tab Mode override off, live: `MODE 0, RATIO 1250` again, "From Super Nintendo".
+- Close game: `GAMESCOPE_FRAMEGEN` 0; openSU logs "frame generation off: no game in front".
+- `runs/missing-3`, no Lossless Scaling in any library: the group shows only its heading with the
+  explanation on the Game and Global tabs; `GAMESCOPE_FRAMEGEN` 0.
+- `runs/outside-tabs`, the hidden shell outside Gamescope: the tabs show the video rows only.
+- No overlap in any shell frame (`frames/shell-*.png`).
+
+Not run: a store game (no Steam in the proof), the quick menu over a game in the real nested or
+DRM session, Settings › Emulators rows for these keys (not built), and a non-Linux build (the
+none backend passes `-fsyntax-only`). The fixed mode's first pacing line after a change reports
+a base of over 1500 fps (fork side, `FramePacer`, one interval of history); the rate lines after
+it are right.
 
 ### S015 — Owned instances
 

@@ -85,10 +85,10 @@ class LayerSettings {
     [[nodiscard]] std::string nameOf(const settings::Layer& layer) const;
     [[nodiscard]] ui::SettingsRow emulatorRow(const std::string& system) const;
     [[nodiscard]] ui::SettingsRow videoRow(const settings::Layer& layer,
-                                           const settings::VideoKey& video) const;
+                                           const settings::ChoiceKey& video) const;
     /// The row before the note that a shader preset replaces it.
     [[nodiscard]] ui::SettingsRow videoRowOf(const settings::Layer& layer,
-                                             const settings::VideoKey& video) const;
+                                             const settings::ChoiceKey& video) const;
     void stepEmulator(const std::string& system, int step);
     void stepVideo(const settings::Layer& layer, std::string_view key, int step);
     [[nodiscard]] ui::SettingsRow shaderRow(const settings::Layer& layer) const;

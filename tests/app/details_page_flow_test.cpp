@@ -114,6 +114,9 @@ struct Rig {
                          },
                          [this](const library::Game& opened) {
                              calls.push_back("settings " + opened.id);
+                         },
+                         [] {
+                             return false;
                          }}} {
     }
 };
