@@ -18,7 +18,10 @@ Decided:
   browser and a field to paste the key with the on-screen keyboard.
 - The key is a secret: kept in the Secret Service (else a 0600 file under the config dir), never
   logged or shown in full; "Disconnect" forgets it.
-- Use: with a key, SteamGridDB is an artwork source for every game: covers (grids), heroes, logos,
-  icons. Steam games keep Steam's CDN first; ROMs, GOG, Epic and non-Steam games try SteamGridDB
-  before the current sources' fallbacks, matched by Steam app id, else by title search. A per-game
-  "Choose artwork" picker is a later step.
+- Use: the existing sources already give every game art, so SteamGridDB does not replace them.
+  It is for two things:
+  - Art that does not fit: when a game's saved cover has a shape other than its tile's (it would
+    be letterboxed or cropped), openSU fetches a SteamGridDB grid of the tile's shape (by Steam app
+    id, else by title search) and shows that instead; the original stays on disk.
+  - Alternatives: a per-game "Choose artwork" picker (cover, hero, logo, icon) listing SteamGridDB's
+    options beside the current art; the choice is kept per game and survives refreshes.
