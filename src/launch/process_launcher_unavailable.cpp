@@ -20,6 +20,10 @@ bool ProcessLauncher::running() {
     return false;
 }
 
+bool ProcessLauncher::startedRunning() {
+    return false;
+}
+
 void ProcessLauncher::stop() {
 }
 

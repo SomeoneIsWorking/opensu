@@ -62,6 +62,8 @@ struct ProcessLauncher::Group {
 
     /// Runs the systemctl verb against the scope, then reaps the started process.
     void end(const std::vector<std::string>& systemctlArgs, int& exitStatus);
+    /// True until the started process exits; reaps it then.
+    bool childRunning(int& exitStatus);
     /// Waits for the started process to exit, and SIGKILLs it if the scope could not.
     void reapChild(int& exitStatus);
 };
@@ -140,20 +142,19 @@ bool ProcessLauncher::running() {
     if (group_->unit.empty()) {
         return false;
     }
-    if (group_->child >= 0) {
-        int status = 0;
-        const pid_t done = waitpid(group_->child, &status, WNOHANG);
-        if (done == 0) {
-            return true;
-        }
-        group_->child = -1;
-        exitStatus_ = statusOf(status);
+    if (group_->childRunning(exitStatus_)) {
+        return true;
     }
     if (systemctl({"is-active", "--quiet", group_->unit}) == 0) {
         return true;
     }
     group_->unit.clear();
     return false;
+}
+
+bool ProcessLauncher::startedRunning() {
+    const std::lock_guard lock{mutex_};
+    return group_->childRunning(exitStatus_);
 }
 
 void ProcessLauncher::stop() {
@@ -180,6 +181,20 @@ void ProcessLauncher::Group::end(const std::vector<std::string>& systemctlArgs, 
     if (systemctlArgs.front() == "stop") {
         unit.clear();
     }
+}
+
+/// Caller holds the launcher's mutex.
+bool ProcessLauncher::Group::childRunning(int& exitStatus) {
+    if (child < 0) {
+        return false;
+    }
+    int status = 0;
+    if (waitpid(child, &status, WNOHANG) == 0) {
+        return true;
+    }
+    child = -1;
+    exitStatus = statusOf(status);
+    return false;
 }
 
 /// Caller holds the launcher's mutex.
