@@ -1,4 +1,5 @@
-// BatteryReader against a fake /sys/class/power_supply.
+// The system battery from SDL's power states, and ControllerBatteries against a fake
+// /sys/class/power_supply.
 #include "device/battery.hpp"
 
 #include <cstdio>
@@ -57,46 +58,18 @@ void supply(const fs::path& root, const char* name, const char* type, const char
 }
 
 void systemBattery() {
-    const fs::path root = freshRoot("system");
-    supply(root, "AC", "Mains", nullptr, nullptr, nullptr);
-    supply(root, "BAT0", "Battery", nullptr, "73", "Discharging");
-    const std::optional<BatteryStatus> status = BatteryReader{root}.read();
-    expect(status && status->percent == 73 && !status->charging, "BAT0 at 73%, discharging");
-}
-
-void charging() {
-    const fs::path root = freshRoot("charging");
-    supply(root, "BAT1", "Battery", "System", "100", "Charging");
-    const std::optional<BatteryStatus> status = BatteryReader{root}.read();
-    expect(status && status->percent == 100 && status->charging, "Charging is charging");
-
-    const fs::path full = freshRoot("full");
-    supply(full, "BAT0", "Battery", nullptr, "100", "Full");
-    expect(!need(BatteryReader{full}.read(), "Full reads").charging, "Full is not charging");
-}
-
-void deviceBatteriesIgnored() {
-    const fs::path root = freshRoot("device");
-    supply(root, "hidpp_battery_0", "Battery", "Device", "40", "Discharging");
-    expect(!BatteryReader{root}.read(), "a mouse battery is not the system battery");
-}
-
-void unreadable() {
-    const fs::path root = freshRoot("unreadable");
-    supply(root, "BAT0", "Battery", nullptr, "abc", "Discharging");
-    expect(!BatteryReader{root}.read(), "a capacity that is not a number is no battery");
-    supply(root, "BAT1", "Battery", nullptr, "140", "Discharging");
-    expect(need(BatteryReader{root}.read(), "a clamped capacity reads").percent == 100,
-           "capacity is clamped to 100");
-    expect(!BatteryReader{root / "missing"}.read(), "no power_supply class, no battery");
-}
-
-void firstByName() {
-    const fs::path root = freshRoot("order");
-    supply(root, "BAT1", "Battery", nullptr, "20", "Discharging");
-    supply(root, "BAT0", "Battery", nullptr, "60", "Discharging");
-    expect(need(BatteryReader{root}.read(), "a battery reads").percent == 60,
-           "the first battery by name");
+    const auto status = BatteryReader::statusOf;
+    expect(!status(SDL_POWERSTATE_NO_BATTERY, -1), "a desktop has no battery");
+    expect(!status(SDL_POWERSTATE_UNKNOWN, 50), "an unknown state is no battery");
+    expect(!status(SDL_POWERSTATE_ERROR, -1), "an error is no battery");
+    expect(!status(SDL_POWERSTATE_ON_BATTERY, -1), "an unknown level is no battery");
+    const BatteryStatus draining = need(status(SDL_POWERSTATE_ON_BATTERY, 42), "draining reads");
+    expect(draining.percent == 42 && !draining.charging, "on battery is not charging");
+    expect(need(status(SDL_POWERSTATE_CHARGING, 80), "charging reads").charging, "charging");
+    expect(!need(status(SDL_POWERSTATE_CHARGED, 100), "charged reads").charging,
+           "a full battery is not charging");
+    expect(need(status(SDL_POWERSTATE_ON_BATTERY, 120), "a clamped level reads").percent == 100,
+           "the level is clamped to 100");
 }
 
 void controllerBattery() {
@@ -115,8 +88,7 @@ void controllerBattery() {
     expect(!batteries.read(""), "a pad without an id has no battery");
     expect(!ControllerBatteries{root / "missing"}.read("e8:48:b8:c8:20:00"),
            "no power_supply class, no battery");
-    const std::optional<BatteryStatus> system = BatteryReader{root}.read();
-    expect(system && system->percent == 90, "controller batteries are not the system's");
+    expect(!batteries.read("BAT0"), "the system battery is no controller's");
 }
 
 } // namespace
@@ -124,10 +96,6 @@ void controllerBattery() {
 int main() {
     controllerBattery();
     systemBattery();
-    charging();
-    deviceBatteriesIgnored();
-    unreadable();
-    firstByName();
     std::printf("battery: all checks passed\n");
     return 0;
 }

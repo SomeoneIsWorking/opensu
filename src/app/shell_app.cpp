@@ -314,7 +314,7 @@ template <class Entry> void ShellApp::typeInto(Entry& entry, const input::TextIn
 }
 
 void ShellApp::handlePads() {
-    const std::vector<gamepad::Event> events = padOwner_.admit(pads_.takeEvents());
+    const std::vector<gamepad::Event> events = padOwner_.admit(pads_->takeEvents());
     for (const gamepad::Event& event : events) {
         shell_.inputDevice().notePad(event);
         if (roster_.note(event)) {
@@ -401,8 +401,8 @@ void ShellApp::clickSection(library::Section section) {
 }
 
 void ShellApp::handleGameKeys() {
-    if (session::GameKeys* keys = gameScreen_.keys()) {
-        handleEvents(router_.fromGame(*keys));
+    if (GameOverlay* overlay = gameScreen_.overlay()) {
+        handleEvents(router_.fromGame(*overlay));
     }
 }
 

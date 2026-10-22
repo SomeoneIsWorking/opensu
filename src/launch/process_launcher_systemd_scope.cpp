@@ -1,10 +1,12 @@
-#include "instance.hpp"
+#include "process_launcher.hpp"
 
 #include <cerrno>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <memory>
+#include <string>
 #include <thread>
 
 #include <signal.h>
@@ -53,15 +55,29 @@ bool inScope(pid_t pid, const std::string& unit) {
 
 } // namespace
 
-Instance::~Instance() {
+/// The scope a launch runs in and the systemd-run process that joined it.
+struct ProcessLauncher::Group {
+    std::string unit;
+    pid_t child{-1};
+
+    /// Runs the systemctl verb against the scope, then reaps the started process.
+    void end(const std::vector<std::string>& systemctlArgs, int& exitStatus);
+    /// Waits for the started process to exit, and SIGKILLs it if the scope could not.
+    void reapChild(int& exitStatus);
+};
+
+ProcessLauncher::ProcessLauncher() : group_{std::make_unique<Group>()} {
+}
+
+ProcessLauncher::~ProcessLauncher() {
     stop();
 }
 
-bool Instance::start(const std::string& unit, const std::string& program,
-                     const std::vector<std::string>& args, std::string& failure,
-                     const std::vector<std::string>& environment) {
+bool ProcessLauncher::start(const std::string& unit, const std::string& program,
+                            const std::vector<std::string>& args, std::string& failure,
+                            const std::vector<std::string>& environment) {
     const std::lock_guard lock{mutex_};
-    if (!unit_.empty()) {
+    if (!group_->unit.empty()) {
         failure = "an instance is already running";
         return false;
     }
@@ -91,9 +107,9 @@ bool Instance::start(const std::string& unit, const std::string& program,
         execvpe("systemd-run", argv.data(), childEnvironment.data());
         std::_Exit(127);
     }
-    child_ = pid;
+    group_->child = pid;
     exitStatus_ = -1;
-    unit_ = unit;
+    group_->unit = unit;
 
     // systemd-run joins the scope before it execs, so the scope is up once the
     // child's cgroup names it.
@@ -101,15 +117,15 @@ bool Instance::start(const std::string& unit, const std::string& program,
     while (!inScope(pid, unit)) {
         int status = 0;
         if (waitpid(pid, &status, WNOHANG) == pid) {
-            child_ = -1;
-            unit_.clear();
+            group_->child = -1;
+            group_->unit.clear();
             failure = "could not start " + program;
             return false;
         }
         if (Clock::now() >= until) {
             lucent::error("launch", "scope {} did not appear", unit);
-            endScope({"kill", "--signal=SIGKILL", unit});
-            unit_.clear();
+            group_->end({"kill", "--signal=SIGKILL", unit}, exitStatus_);
+            group_->unit.clear();
             failure = "could not create a scope for " + program;
             return false;
         }
@@ -119,82 +135,75 @@ bool Instance::start(const std::string& unit, const std::string& program,
     return true;
 }
 
-bool Instance::running() {
+bool ProcessLauncher::running() {
     const std::lock_guard lock{mutex_};
-    if (unit_.empty()) {
+    if (group_->unit.empty()) {
         return false;
     }
-    if (child_ >= 0) {
+    if (group_->child >= 0) {
         int status = 0;
-        const pid_t done = waitpid(child_, &status, WNOHANG);
+        const pid_t done = waitpid(group_->child, &status, WNOHANG);
         if (done == 0) {
             return true;
         }
-        child_ = -1;
+        group_->child = -1;
         exitStatus_ = statusOf(status);
     }
-    if (systemctl({"is-active", "--quiet", unit_}) == 0) {
+    if (systemctl({"is-active", "--quiet", group_->unit}) == 0) {
         return true;
     }
-    unit_.clear();
+    group_->unit.clear();
     return false;
 }
 
-void Instance::stop() {
+void ProcessLauncher::stop() {
     const std::lock_guard lock{mutex_};
-    endScope({"stop", unit_});
+    group_->end({"stop", group_->unit}, exitStatus_);
 }
 
-int Instance::exitStatus() const {
+int ProcessLauncher::exitStatus() const {
     const std::lock_guard lock{mutex_};
     return exitStatus_;
 }
 
-std::string Instance::unit() const {
-    const std::lock_guard lock{mutex_};
-    return unit_;
-}
-
-/// Runs the systemctl verb against the scope, then reaps the started process.
-/// Caller holds the mutex.
-void Instance::endScope(const std::vector<std::string>& systemctlArgs) {
-    if (unit_.empty()) {
+/// Caller holds the launcher's mutex.
+void ProcessLauncher::Group::end(const std::vector<std::string>& systemctlArgs, int& exitStatus) {
+    if (unit.empty()) {
         return;
     }
-    lucent::info("launch", "{} {}", systemctlArgs.front(), unit_);
+    lucent::info("launch", "{} {}", systemctlArgs.front(), unit);
     // A scope that already ended on its own is not a failure to stop.
-    if (systemctl(systemctlArgs) != 0 && systemctl({"is-active", "--quiet", unit_}) == 0) {
-        lucent::warn("launch", "systemctl {} {} failed", systemctlArgs.front(), unit_);
+    if (systemctl(systemctlArgs) != 0 && systemctl({"is-active", "--quiet", unit}) == 0) {
+        lucent::warn("launch", "systemctl {} {} failed", systemctlArgs.front(), unit);
     }
-    reapChild();
+    reapChild(exitStatus);
     if (systemctlArgs.front() == "stop") {
-        unit_.clear();
+        unit.clear();
     }
 }
 
-/// Waits for the started process to exit, and SIGKILLs it if the scope could not.
-/// Caller holds the mutex.
-void Instance::reapChild() {
-    if (child_ < 0) {
+/// Caller holds the launcher's mutex.
+void ProcessLauncher::Group::reapChild(int& exitStatus) {
+    if (child < 0) {
         return;
     }
     int status = 0;
     const Clock::time_point until = Clock::now() + reapWait;
     pid_t done = 0;
-    while ((done = waitpid(child_, &status, WNOHANG)) == 0) {
+    while ((done = waitpid(child, &status, WNOHANG)) == 0) {
         if (Clock::now() >= until) {
-            lucent::error("launch", "pid {} outlived its scope; killing it", child_);
-            ::kill(child_, SIGKILL);
-            while ((done = waitpid(child_, &status, 0)) < 0 && errno == EINTR) {
+            lucent::error("launch", "pid {} outlived its scope; killing it", child);
+            ::kill(child, SIGKILL);
+            while ((done = waitpid(child, &status, 0)) < 0 && errno == EINTR) {
             }
             break;
         }
         std::this_thread::sleep_for(step);
     }
-    if (done == child_) {
-        exitStatus_ = statusOf(status);
+    if (done == child) {
+        exitStatus = statusOf(status);
     }
-    child_ = -1;
+    child = -1;
 }
 
 } // namespace opensu::launch

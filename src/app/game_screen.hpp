@@ -3,16 +3,16 @@
 // the game's pads, and passive while the chord list is up, which leaves both to the game (the
 // shell still hears every pad edge, so chords play). Elsewhere the window is hidden while the game
 // runs and shown only for a menu or page; mapping it would take the focus, so it stays hidden for
-// a passive overlay. One owner of the window flag, the overlay, the pads' block and the game-time
-// key watcher.
+// a passive overlay. One owner of the window flag, the overlay (`GameOverlay`, which also watches
+// the game-time keys) and the pads' block.
 #pragma once
 
 #include <functional>
 #include <memory>
 #include <utility>
 
-#include "gamescope_overlay.hpp"
-#include "session/game_keys.hpp"
+#include "game_overlay.hpp"
+#include "session/overlay_mode.hpp"
 #include "shell_window.hpp"
 
 namespace opensu::app {
@@ -29,7 +29,8 @@ class GameScreen {
     void attach(ShellWindow& window) noexcept {
         window_ = &window;
     }
-    /// Inside Gamescope: the attached window becomes the overlay and keys are watched in-game.
+    /// Inside Gamescope: the attached window becomes the overlay and keys are watched in-game,
+    /// where the platform has the overlay (`openGameOverlay`).
     void attachOverlay();
 
     /// A game started or ended. The window and the overlay follow; nothing is shown.
@@ -45,9 +46,9 @@ class GameScreen {
     /// is_focus_priority_greater), so the window is mapped again.
     void takeFocus();
 
-    /// The game-time key watcher, or null outside Gamescope.
-    [[nodiscard]] session::GameKeys* keys() noexcept {
-        return keys_.get();
+    /// The overlay, which watches the game-time keys; null outside Gamescope.
+    [[nodiscard]] GameOverlay* overlay() noexcept {
+        return overlay_.get();
     }
 
   private:
@@ -59,8 +60,7 @@ class GameScreen {
     std::function<void(bool blocked)> blockPads_;
     ShellWindow* window_{};
     session::OverlayMode mode_{session::OverlayMode::Hidden};
-    std::unique_ptr<session::GamescopeOverlay> overlay_;
-    std::unique_ptr<session::GameKeys> keys_;
+    std::unique_ptr<GameOverlay> overlay_;
 };
 
 } // namespace opensu::app

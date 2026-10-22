@@ -1,7 +1,7 @@
-// Pads against real devices: uinput pads stand in for controllers, and the test reads the virtual
-// pad a game would read. Every Pads reads a private directory linking only the test's own nodes,
-// found through sysfs, so no other controller on the machine is opened, read or grabbed.
-#include "pads.hpp"
+// EvdevPads against real devices: uinput pads stand in for controllers, and the test reads the
+// virtual pad a game would read. Every EvdevPads reads a private directory linking only the test's
+// own nodes, found through sysfs, so no other controller on the machine is opened, read or grabbed.
+#include "evdev_pads.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -29,12 +29,12 @@ using opensu::gamepad::Chord;
 using opensu::gamepad::ChordTriggers;
 using opensu::gamepad::Claim;
 using opensu::gamepad::EvdevDevice;
+using opensu::gamepad::EvdevPads;
 using opensu::gamepad::Event;
 using opensu::gamepad::ForwardMap;
 using opensu::gamepad::OwnVirtualPads;
 using opensu::gamepad::PadEvent;
 using opensu::gamepad::PadInfo;
-using opensu::gamepad::Pads;
 using opensu::gamepad::VirtualPad;
 using opensu::test::expect;
 using opensu::test::fail;
@@ -87,7 +87,7 @@ std::vector<EvdevDevice> openAllNamed(std::string_view name) {
     return devices;
 }
 
-/// A directory of links to the nodes a Pads may read.
+/// A directory of links to the nodes an EvdevPads may read.
 class InputDir {
   public:
     explicit InputDir(std::string_view tag)
@@ -218,7 +218,7 @@ class FakeMotion {
 };
 
 /// Collects the pads' events until `done` holds or two seconds pass.
-bool collect(Pads& pads, std::vector<Event>& seen, const std::function<bool()>& done) {
+bool collect(EvdevPads& pads, std::vector<Event>& seen, const std::function<bool()>& done) {
     const auto deadline = std::chrono::steady_clock::now() + 2s;
     while (std::chrono::steady_clock::now() < deadline) {
         for (Event& event : pads.takeEvents()) {
@@ -265,7 +265,7 @@ int main() {
         return 77;
     }
     const InputDir inputs{"shell"};
-    Pads pads{inputs.path()};
+    EvdevPads pads{inputs.path()};
     std::vector<Event> seen;
 
     // Connected after the reader started, as a pad switched on mid-session is.
@@ -394,7 +394,7 @@ int main() {
         for (const fs::path& node : nodesNamed(VirtualPad::name)) {
             fs::create_symlink(node, gameInputs.path() / node.filename());
         }
-        Pads reader{gameInputs.path(), OwnVirtualPads::Read};
+        EvdevPads reader{gameInputs.path(), OwnVirtualPads::Read};
         std::vector<Event> heard;
         const std::string virtualName{VirtualPad::name};
         expect(collect(reader, heard,

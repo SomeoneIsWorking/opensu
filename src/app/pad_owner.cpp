@@ -7,13 +7,11 @@ namespace opensu::app {
 using gamepad::Claim;
 using session::FocusHolder;
 
-std::filesystem::path PadOwner::inputDirectory(const std::filesystem::path& dataDir, bool hidden) {
+gamepad::PadSourceOptions PadOwner::padsFor(const std::filesystem::path& dataDir, bool hidden) {
     if (!hidden) {
-        return "/dev/input";
+        return {};
     }
-    const std::filesystem::path empty = dataDir / "hidden-pads";
-    std::filesystem::create_directories(empty);
-    return empty;
+    return {.hiddenInputs = dataDir / "hidden-pads"};
 }
 
 bool PadOwner::listens(const Situation& situation) {
@@ -23,6 +21,9 @@ bool PadOwner::listens(const Situation& situation) {
 }
 
 Claim PadOwner::claimFor(const Situation& situation) {
+    if (!situation.grabs) {
+        return situation.game ? Claim::Away : Claim::Free;
+    }
     const bool ours = listens(situation);
     if (situation.game) {
         return ours ? Claim::Game : Claim::Away;

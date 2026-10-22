@@ -1,5 +1,5 @@
-// The instance, against real systemd scopes and real processes.
-#include "launch/instance.hpp"
+// The process launcher, against real systemd scopes and real processes.
+#include "launch/process_launcher.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -19,7 +19,7 @@ namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
-using opensu::launch::Instance;
+using opensu::launch::ProcessLauncher;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -60,7 +60,7 @@ pid_t readPid(const fs::path& path) {
 
 /// Starts a command that leaves a grandchild in its own session, and returns the
 /// grandchild's pid once recorded.
-pid_t startEscaper(Instance& instance, const char* stem, const fs::path& pidFile) {
+pid_t startEscaper(ProcessLauncher& instance, const char* stem, const fs::path& pidFile) {
     fs::remove(pidFile);
     std::string failure;
     expect(instance.start(unitName(stem), "/bin/sh",
@@ -86,7 +86,7 @@ int main() {
     fs::create_directories(scratch);
 
     {
-        Instance instance;
+        ProcessLauncher instance;
         std::string failure;
         expect(instance.start(unitName("plain"), "/bin/sleep", {"60"}, failure), "sleep starts");
         expect(instance.running(), "a started instance is running");
@@ -97,7 +97,7 @@ int main() {
     }
 
     {
-        Instance instance;
+        ProcessLauncher instance;
         const pid_t grandchild = startEscaper(instance, "stop", scratch / "stop.pid");
         instance.stop();
         expect(waitUntil(
@@ -109,7 +109,7 @@ int main() {
     }
 
     {
-        Instance instance;
+        ProcessLauncher instance;
         std::string failure;
         expect(!instance.start(unitName("missing"), "/no/such/program", {}, failure),
                "a missing program is refused");
@@ -119,7 +119,7 @@ int main() {
     {
         pid_t grandchild = 0;
         {
-            Instance instance;
+            ProcessLauncher instance;
             grandchild = startEscaper(instance, "dtor", scratch / "dtor.pid");
         }
         expect(waitUntil(
@@ -138,7 +138,7 @@ int main() {
         sigset_t previous;
         pthread_sigmask(SIG_BLOCK, &term, &previous);
         const fs::path mask = scratch / "mask";
-        Instance instance;
+        ProcessLauncher instance;
         std::string failure;
         expect(instance.start(unitName("mask"), "/bin/sh",
                               {"-c", "grep SigBlk /proc/self/status > " + mask.string()}, failure),
@@ -164,7 +164,7 @@ int main() {
         // The shell's own Gamescope WSI switch stays with the shell; a game gets the layer.
         setenv("DISABLE_GAMESCOPE_WSI", "1", 1);
         const fs::path seen = scratch / "wsi";
-        Instance instance;
+        ProcessLauncher instance;
         std::string failure;
         expect(instance.start(unitName("wsi"), "/bin/sh", {"-c", "env > " + seen.string()}, failure,
                               {"FROM_CALLER=given"}),
@@ -200,7 +200,7 @@ int main() {
         }
         fs::permissions(program, fs::perms::owner_all);
         const std::vector<std::string> args{"$HOME", "${HOME}", "a$$b", "x${X}y", "$"};
-        Instance instance;
+        ProcessLauncher instance;
         std::string failure;
         expect(instance.start(unitName("dollar"), program.string(), args, failure),
                "a program with $ in its path starts");

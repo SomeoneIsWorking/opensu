@@ -1,13 +1,13 @@
-// battery — the machine's own battery level and charging state, from sysfs.
-//
-// Reads /sys/class/power_supply the way the kernel documents it: a supply whose
-// `type` is Battery and whose `scope` is not Device (a controller or mouse battery
-// reports scope Device) is the system battery.
+// battery — the machine's own battery level and charging state, from SDL's power info on every OS
+// (on Linux SDL asks UPower, then /sys/class/power_supply, leaving device batteries out), and a
+// wireless controller's from sysfs.
 #pragma once
 
 #include <filesystem>
 #include <optional>
 #include <string_view>
+
+#include <SDL3/SDL_power.h>
 
 namespace opensu::device {
 
@@ -19,17 +19,16 @@ struct BatteryStatus {
 
 class BatteryReader {
   public:
-    explicit BatteryReader(std::filesystem::path root = "/sys/class/power_supply");
-
-    /// The first system battery by supply name, or nothing when the machine has none.
+    /// The system battery, or nothing when the machine has none or its level is unknown.
     [[nodiscard]] std::optional<BatteryStatus> read() const;
 
-  private:
-    std::filesystem::path root_;
+    /// What SDL's `state` and `percent` (-1 when unknown) say of the system battery.
+    [[nodiscard]] static std::optional<BatteryStatus> statusOf(SDL_PowerState state, int percent);
 };
 
 /// The battery of a wireless controller, found by the controller's unique id (its Bluetooth
-/// address): the kernel names such a supply after it ("ps-controller-battery-e8:48:b8:c8:20:00").
+/// address): the kernel names such a supply after it ("ps-controller-battery-e8:48:b8:c8:20:00"),
+/// with `type` Battery and `scope` Device.
 class ControllerBatteries {
   public:
     explicit ControllerBatteries(std::filesystem::path root = "/sys/class/power_supply");

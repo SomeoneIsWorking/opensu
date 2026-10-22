@@ -1,7 +1,5 @@
 #include "librashader_library.hpp"
 
-#include <dlfcn.h>
-
 #include <system_error>
 
 #include "lucent/log.h"
@@ -14,50 +12,40 @@ Librashader::Librashader(const std::filesystem::path& file) : file_{file} {
         throw ShaderError{"shader presets need librashader, which is not installed (" +
                           file.string() + ")"};
     }
-    handle_ = dlopen(file.c_str(), RTLD_NOW | RTLD_LOCAL);
-    if (handle_ == nullptr) {
-        const char* reason = dlerror();
-        throw ShaderError{"librashader cannot be loaded: " +
-                          std::string{reason != nullptr ? reason : file.string()}};
+    std::string reason;
+    library_ = SharedLibrary::open(file, reason);
+    if (library_ == nullptr) {
+        throw ShaderError{"librashader cannot be loaded: " + reason};
     }
-    try {
-        const auto abi = reinterpret_cast<PFN_libra_instance_abi_version>(
-            symbol("libra_instance_abi_version"))();
-        const auto api = reinterpret_cast<PFN_libra_instance_api_version>(
-            symbol("libra_instance_api_version"))();
-        if (abi != LIBRASHADER_CURRENT_ABI || api < LIBRASHADER_CURRENT_VERSION) {
-            throw ShaderError{"librashader at " + file.string() + " has ABI " +
-                              std::to_string(abi) + " API " + std::to_string(api) +
-                              "; the runner needs ABI " + std::to_string(LIBRASHADER_CURRENT_ABI) +
-                              " API " + std::to_string(LIBRASHADER_CURRENT_VERSION)};
-        }
-        errorWrite_ = reinterpret_cast<PFN_libra_error_write>(symbol("libra_error_write"));
-        errorFreeString_ =
-            reinterpret_cast<PFN_libra_error_free_string>(symbol("libra_error_free_string"));
-        errorFree_ = reinterpret_cast<PFN_libra_error_free>(symbol("libra_error_free"));
-        presetCreate_ = reinterpret_cast<PFN_libra_preset_create_with_options>(
-            symbol("libra_preset_create_with_options"));
-        presetFree_ = reinterpret_cast<PFN_libra_preset_free>(symbol("libra_preset_free"));
-        chainCreate_ = reinterpret_cast<PFN_libra_vk_filter_chain_create>(
-            symbol("libra_vk_filter_chain_create"));
-        chainFrame_ = reinterpret_cast<PFN_libra_vk_filter_chain_frame>(
-            symbol("libra_vk_filter_chain_frame"));
-        chainFree_ =
-            reinterpret_cast<PFN_libra_vk_filter_chain_free>(symbol("libra_vk_filter_chain_free"));
-    } catch (...) {
-        dlclose(handle_);
-        throw;
+    const auto abi =
+        reinterpret_cast<PFN_libra_instance_abi_version>(symbol("libra_instance_abi_version"))();
+    const auto api =
+        reinterpret_cast<PFN_libra_instance_api_version>(symbol("libra_instance_api_version"))();
+    if (abi != LIBRASHADER_CURRENT_ABI || api < LIBRASHADER_CURRENT_VERSION) {
+        throw ShaderError{"librashader at " + file.string() + " has ABI " + std::to_string(abi) +
+                          " API " + std::to_string(api) + "; the runner needs ABI " +
+                          std::to_string(LIBRASHADER_CURRENT_ABI) + " API " +
+                          std::to_string(LIBRASHADER_CURRENT_VERSION)};
     }
+    errorWrite_ = reinterpret_cast<PFN_libra_error_write>(symbol("libra_error_write"));
+    errorFreeString_ =
+        reinterpret_cast<PFN_libra_error_free_string>(symbol("libra_error_free_string"));
+    errorFree_ = reinterpret_cast<PFN_libra_error_free>(symbol("libra_error_free"));
+    presetCreate_ = reinterpret_cast<PFN_libra_preset_create_with_options>(
+        symbol("libra_preset_create_with_options"));
+    presetFree_ = reinterpret_cast<PFN_libra_preset_free>(symbol("libra_preset_free"));
+    chainCreate_ =
+        reinterpret_cast<PFN_libra_vk_filter_chain_create>(symbol("libra_vk_filter_chain_create"));
+    chainFrame_ =
+        reinterpret_cast<PFN_libra_vk_filter_chain_frame>(symbol("libra_vk_filter_chain_frame"));
+    chainFree_ =
+        reinterpret_cast<PFN_libra_vk_filter_chain_free>(symbol("libra_vk_filter_chain_free"));
     lucent::info("retro", "librashader ABI {} API {} loaded from {}", LIBRASHADER_CURRENT_ABI,
                  LIBRASHADER_CURRENT_VERSION, file.string());
 }
 
-Librashader::~Librashader() {
-    dlclose(handle_);
-}
-
-void* Librashader::symbol(const char* name) const {
-    void* found = dlsym(handle_, name);
+SDL_FunctionPointer Librashader::symbol(const char* name) const {
+    const SDL_FunctionPointer found = library_->symbol(name);
     if (found == nullptr) {
         throw ShaderError{"librashader at " + file_.string() + " lacks " + name};
     }

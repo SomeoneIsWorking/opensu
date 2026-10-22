@@ -18,6 +18,7 @@
 
 #include "appimage_runtime.hpp"
 #include "config/config.hpp"
+#include "core_target.hpp"
 #include "downloaded_emulators.hpp"
 #include "emulator_catalog.hpp"
 #include "game.hpp"
@@ -142,7 +143,7 @@ struct EmulatorSetup {
     EmulatorSearch search;
     Emulators::Commands overrides;
     /// The buildbot folder cores are downloaded from, ending in /.
-    std::string coreSource{buildbotNightly};
+    std::string coreSource{coreTarget.buildbotFolder};
     /// openSU's shader pack; an empty folder for none.
     ShaderPack shaders{std::filesystem::path{}};
     /// The shader pack zip downloaded.

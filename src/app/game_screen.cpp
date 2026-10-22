@@ -8,8 +8,7 @@ void GameScreen::attachOverlay() {
     if (window_ == nullptr) {
         throw std::logic_error{"the overlay was attached before the window"};
     }
-    overlay_ = std::make_unique<session::GamescopeOverlay>(window_->x11Window());
-    keys_ = std::make_unique<session::GameKeys>();
+    overlay_ = openGameOverlay(*window_);
 }
 
 void GameScreen::showWindow(bool shown) {

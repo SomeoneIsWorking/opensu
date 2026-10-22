@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "focus_follow.hpp"
-#include "gamepad/pads.hpp"
+#include "gamepad/pad_source.hpp"
 #include "input/chord_set.hpp"
 #include "input/shortcuts.hpp"
 #include "pad_owner.hpp"
@@ -80,8 +80,9 @@ void behindAnotherWindowOnlyGuideIsHeard() {
     const opensu::input::Shortcuts shortcuts;
     opensu::input::ChordSet chords{shortcuts};
     // The directory a hidden run reads: no pads, so nothing on the machine is touched.
-    opensu::gamepad::Pads pads{PadOwner::inputDirectory(OPENSU_TEST_SCRATCH, true)};
-    PadOwner owner{pads, chords};
+    const std::unique_ptr<opensu::gamepad::PadSource> pads =
+        opensu::gamepad::openPadSource(PadOwner::padsFor(OPENSU_TEST_SCRATCH, true));
+    PadOwner owner{*pads, chords};
     const auto press = [](Button button) {
         Event event;
         event.button = button;

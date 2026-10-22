@@ -1,8 +1,8 @@
 // The opt-in integrations through the shipping owners on a scratch settings file: the first-run
 // card (shown while nothing is chosen, all off, A toggles, Done keeps), Settings > Integrations
-// (switches, Steam's mode, no Normal in a login session, Isolated's controllers) and the switch that puts a change
-// into effect (the catalog's stores, standalone emulators, Lua plugins, the Steam client's mode),
-// with no Steam started.
+// (switches, Steam's mode, no Normal in a login session, Isolated's controllers) and the switch
+// that puts a change into effect (the catalog's stores, standalone emulators, Lua plugins, the
+// Steam client's mode), with no Steam started.
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -238,8 +238,9 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                                                    }}};
     const input::Shortcuts shortcuts;
     input::ChordSet chords{shortcuts};
-    gamepad::Pads pads{app::PadOwner::inputDirectory(OPENSU_TEST_SCRATCH, true)};
-    app::PadOwner padOwner{pads, chords};
+    const std::unique_ptr<gamepad::PadSource> pads =
+        gamepad::openPadSource(app::PadOwner::padsFor(OPENSU_TEST_SCRATCH, true));
+    app::PadOwner padOwner{*pads, chords};
     app::FocusFollow focus{app::FocusFollow::Hooks{.gamePids =
                                                        [] {
                                                            return std::vector<pid_t>{};
@@ -253,7 +254,7 @@ void theSwitchAppliesAChange(const fs::path& root) {
     int emulatorChanges = 0;
     app::IntegrationSwitch integrationSwitch{
         inForce,
-        app::IntegrationSwitch::Targets{client, loader, plugins, emulators, padOwner, pads, focus},
+        app::IntegrationSwitch::Targets{client, loader, plugins, emulators, padOwner, *pads, focus},
         app::IntegrationSwitch::Hooks{.catalog = catalogOf,
                                       .steamInstalled =
                                           [] {

@@ -14,7 +14,7 @@
 
 #include "device/battery.hpp"
 #include "gamepad/event.hpp"
-#include "gamepad/pads.hpp"
+#include "gamepad/pad_source.hpp"
 
 namespace opensu::app {
 

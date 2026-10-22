@@ -1,3 +1,5 @@
+# The game-time keys test sends X11 key events.
+find_package(X11 REQUIRED)
 add_executable(gamescope_test gamescope_test.cpp)
 target_link_libraries(gamescope_test PRIVATE opensu::session)
 add_test(NAME gamescope COMMAND gamescope_test)

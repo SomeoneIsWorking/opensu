@@ -42,7 +42,7 @@
 #include "game_settings.hpp"
 #include "game_settings_page.hpp"
 #include "gamepad/direction_repeat.hpp"
-#include "gamepad/pads.hpp"
+#include "gamepad/pad_source.hpp"
 #include "gamescope_windows.hpp"
 #include "guide_menu_controller.hpp"
 #include "host_services.hpp"
@@ -561,14 +561,15 @@ class ShellApp final : private PointerHost {
                                   [this](const std::string& text, bool isError) {
                                       shell_.setToast(text, isError);
                                   }}};
-    gamepad::Pads pads_{PadOwner::inputDirectory(environment_.dataDir, settings_.hidden)};
+    std::unique_ptr<gamepad::PadSource> pads_{
+        gamepad::openPadSource(PadOwner::padsFor(environment_.dataDir, settings_.hidden))};
     /// Who has the pads: the shell, the running launch with its mapping, or another window.
     /// Main loop only.
-    PadOwner padOwner_{pads_, shell_.chords()};
+    PadOwner padOwner_{*pads_, shell_.chords()};
     device::ControllerBatteries padBatteries_;
     /// The pads as the Devices page and the quick menu list them.
     ControllerRoster roster_{ControllerRoster::Sources{[this] {
-                                                           return pads_.connected();
+                                                           return pads_->connected();
                                                        },
                                                        [this](const std::string& uniq) {
                                                            return padBatteries_.read(uniq);
@@ -775,7 +776,7 @@ class ShellApp final : private PointerHost {
     IntegrationSwitch integrationSwitch_{
         integrations_,
         IntegrationSwitch::Targets{steam_, catalogLoader_, plugins_, emulatorDownloads_, padOwner_,
-                                   pads_, focusFollow_},
+                                   *pads_, focusFollow_},
         IntegrationSwitch::Hooks{
             .catalog =
                 [this](const library::CatalogStores& stores) {

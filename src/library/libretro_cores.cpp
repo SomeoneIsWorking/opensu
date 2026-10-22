@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 
 #include "core_bios.hpp"
+#include "core_target.hpp"
 #include "fileio/atomic_write.hpp"
 #include "lucent/log.h"
 #include "zip/zip_archive.hpp"
@@ -21,8 +22,7 @@ namespace {
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 
-constexpr std::string_view libraryExtension = ".so";
-constexpr std::string_view zipExtension = ".so.zip";
+constexpr std::string_view libraryExtension = coreTarget.librarySuffix;
 constexpr std::string_view recordExtension = ".json";
 constexpr std::size_t dateLength = 10;
 constexpr std::size_t crcDigits = 8;
@@ -106,7 +106,7 @@ std::optional<std::string> coreIn(std::string bytes, const std::string& core, st
 
 std::optional<CoreBuild> coreBuildIn(std::string_view index, std::string_view core,
                                      std::string_view base, std::string& error) {
-    const std::string file = std::string{core} + std::string{zipExtension};
+    const std::string file = std::string{core} + std::string{libraryExtension} + ".zip";
     std::size_t at = 0;
     while (at < index.size()) {
         const std::size_t end = std::min(index.find('\n', at), index.size());
@@ -311,7 +311,7 @@ std::optional<DownloadedCore> CoreDownload::install(const CoreBuild& build,
     if (!info) {
         return std::nullopt;
     }
-    const fs::path part = store.root() / (build.core + std::string{zipExtension} + ".part");
+    const fs::path part = store.root() / (build.core + std::string{libraryExtension} + ".zip.part");
     lucent::info("emulators", "downloading {} {} from {}", build.core, build.date, build.url);
     const bool fetched = web_.download(build.url, part, progress, error, [this](const auto& url) {
         return refusal(url);

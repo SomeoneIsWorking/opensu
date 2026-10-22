@@ -1,9 +1,11 @@
-// core — one libretro core loaded with dlopen: its retro_* symbols, init, load, run and unload in
-// order, and the callbacks that hand its frames, samples and input queries to the runner's owners.
+// core — one libretro core loaded as a `SharedLibrary`: its retro_* symbols, init, load, run and
+// unload in order, and the callbacks that hand its frames, samples and input queries to the
+// runner's owners.
 #pragma once
 
 #include <cstddef>
 #include <filesystem>
+#include <memory>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -14,6 +16,7 @@
 #include "audio_sink.hpp"
 #include "core_environment.hpp"
 #include "joypad.hpp"
+#include "shared_library.hpp"
 #include "video_frame.hpp"
 
 namespace opensu::retro {
@@ -114,7 +117,7 @@ class Core {
     void close();
 
     CoreHost host_;
-    void* library_{nullptr};
+    std::unique_ptr<SharedLibrary> library_;
     Api api_{};
     bool initialised_{false};
     bool loaded_{false};

@@ -12,6 +12,7 @@
 #include <locale.h>
 #include <unistd.h>
 
+#include "locations.hpp"
 #include "lucent/log.h"
 
 namespace opensu::config {
@@ -230,9 +231,20 @@ Config read() {
     value.xdgCacheHome = base("XDG_CACHE_HOME", ".cache");
     value.xdgDataHome = base("XDG_DATA_HOME", ".local/share");
     value.xdgConfigHome = base("XDG_CONFIG_HOME", ".config");
-    value.cacheDir = value.xdgCacheHome / "opensu";
-    value.dataDir = value.xdgDataHome / "opensu";
-    value.configDir = value.xdgConfigHome / "opensu";
+    const Locations locations = Locations::resolve({
+        .home = env("HOME"),
+        .xdg_config_home = env("XDG_CONFIG_HOME"),
+        .appdata = env("APPDATA"),
+        .xdg_data_home = env("XDG_DATA_HOME"),
+        .xdg_cache_home = env("XDG_CACHE_HOME"),
+        .xdg_runtime_dir = env("XDG_RUNTIME_DIR"),
+        .local_appdata = env("LOCALAPPDATA"),
+        .tmpdir = env("TMPDIR"),
+    });
+    value.cacheDir = locations.cacheDir;
+    value.dataDir = locations.dataDir;
+    value.configDir = locations.configDir;
+    value.runtimeDir = locations.runtimeDir;
     value.savesDir = value.dataDir / "saves";
     value.retroSystemDir = value.dataDir / "system";
     if (const std::string_view legendary = env("LEGENDARY_CONFIG_PATH"); !legendary.empty()) {
@@ -253,11 +265,6 @@ Config read() {
     value.sessionInherited = !value.session.empty();
     if (value.session.empty()) {
         value.session = "opensu-" + std::to_string(getpid());
-    }
-    if (const std::string_view runtime = env("XDG_RUNTIME_DIR"); !runtime.empty()) {
-        value.runtimeDir = std::filesystem::path{runtime} / "opensu";
-    } else {
-        value.runtimeDir = std::filesystem::path{"/run/user"} / std::to_string(getuid()) / "opensu";
     }
     value.sessionBus = std::string{env("DBUS_SESSION_BUS_ADDRESS")};
     if (value.sessionBus.empty()) {

@@ -73,11 +73,15 @@ std::string_view label(SteamUse use) noexcept {
     return "Off";
 }
 
-std::vector<SteamMode> Integrations::modesOffered(bool loginSession) {
-    if (loginSession) {
-        return {SteamMode::Managed, SteamMode::Isolated};
+std::vector<SteamMode> Integrations::modesOffered(bool loginSession,
+                                                  std::span<const SteamMode> built) {
+    std::vector<SteamMode> offered;
+    for (const SteamMode mode : built) {
+        if (!(loginSession && mode == SteamMode::Normal)) {
+            offered.push_back(mode);
+        }
     }
-    return {SteamMode::Normal, SteamMode::Managed, SteamMode::Isolated};
+    return offered;
 }
 
 SteamMode Integrations::defaultMode(bool loginSession) noexcept {
@@ -89,7 +93,7 @@ std::vector<SteamPads> Integrations::padsOffered() {
 }
 
 Integrations Integrations::inForce(const std::optional<IntegrationChoices>& choices,
-                                   bool loginSession) noexcept {
+                                   bool loginSession, std::span<const SteamMode> built) {
     if (!choices) {
         return {};
     }
@@ -99,7 +103,7 @@ Integrations Integrations::inForce(const std::optional<IntegrationChoices>& choi
                     .plugins = choices->plugins};
     if (choices->steam) {
         SteamMode mode = choices->steamMode.value_or(defaultMode(loginSession));
-        const std::vector<SteamMode> offered = modesOffered(loginSession);
+        const std::vector<SteamMode> offered = modesOffered(loginSession, built);
         if (std::ranges::find(offered, mode) == offered.end()) {
             mode = defaultMode(loginSession);
         }

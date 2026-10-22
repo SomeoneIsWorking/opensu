@@ -71,9 +71,12 @@ ui::SettingsCategory IntegrationSettings::page() const {
             continue;
         }
         const SteamMode mode = modeOf(now.steam);
-        page.rows.push_back(ui::makeRow(modeId, RowKind::Choice, "Steam mode",
-                                        std::string{modeNote(mode)},
-                                        std::string{settings::label(mode)}));
+        // A build whose Steam has one mode has nothing to choose.
+        if (integrations_.modesOffered().size() > 1) {
+            page.rows.push_back(ui::makeRow(modeId, RowKind::Choice, "Steam mode",
+                                            std::string{modeNote(mode)},
+                                            std::string{settings::label(mode)}));
+        }
         if (mode == SteamMode::Isolated) {
             page.rows.push_back(ui::makeRow(padsId, RowKind::Choice, "Steam sees",
                                             std::string{settings::note(now.steamPads)},
@@ -91,9 +94,7 @@ void IntegrationSettings::run(const std::string& id, int step) {
     settings::IntegrationChoices choices = integrations_.choices();
     const settings::Integrations& now = integrations_.current();
     if (id == modeId) {
-        choices.steamMode =
-            stepped(settings::Integrations::modesOffered(integrations_.loginSession()),
-                    modeOf(now.steam), step);
+        choices.steamMode = stepped(integrations_.modesOffered(), modeOf(now.steam), step);
     } else if (id == padsId) {
         choices.steamPads = stepped(settings::Integrations::padsOffered(), now.steamPads, step);
     } else if (bool* on = switchOf(choices, id.substr(prefix.size())); on != nullptr && step == 0) {

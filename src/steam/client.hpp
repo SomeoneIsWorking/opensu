@@ -26,7 +26,7 @@
 #include "download_control.hpp"
 #include "downloads.hpp"
 #include "install_wizard.hpp"
-#include "launch/instance.hpp"
+#include "launch/process_launcher.hpp"
 #include "launch/steam_gate.hpp"
 #include "launch_activity.hpp"
 #include "libraries.hpp"
@@ -162,7 +162,7 @@ class Client final : public launch::SteamGate {
     std::filesystem::path connectionLog_;
     /// How much of the connection log predates this client; only later lines count.
     std::uintmax_t logOffset_{0};
-    launch::Instance instance_;
+    launch::ProcessLauncher instance_;
     /// Isolated only: the Secret Service relay; ended after the client.
     SecretBus secretBus_;
     DevTools devTools_{options_.devToolsPort};

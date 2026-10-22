@@ -1,4 +1,4 @@
-#include "pads.hpp"
+#include "evdev_pads.hpp"
 
 #include <algorithm>
 #include <array>
@@ -22,7 +22,8 @@ std::system_error lastError(const char* what) {
 
 } // namespace
 
-Pads::Pad::Pad(EvdevDevice opened) : device{std::move(opened)}, translator{device.capabilities()} {
+EvdevPads::Pad::Pad(EvdevDevice opened)
+    : device{std::move(opened)}, translator{device.capabilities()} {
     // The translator starts from the pad's present state, so the first resume is right.
     std::vector<PadEvent> ignored;
     std::vector<Event> controls;
@@ -31,7 +32,7 @@ Pads::Pad::Pad(EvdevDevice opened) : device{std::move(opened)}, translator{devic
     }
 }
 
-Pads::Pads(std::filesystem::path inputDir, OwnVirtualPads own)
+EvdevPads::EvdevPads(std::filesystem::path inputDir, OwnVirtualPads own)
     : inputDir_{std::move(inputDir)}, own_{own} {
     wake_ = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if (wake_ < 0) {
@@ -56,7 +57,7 @@ Pads::Pads(std::filesystem::path inputDir, OwnVirtualPads own)
     }};
 }
 
-Pads::~Pads() {
+EvdevPads::~EvdevPads() {
     thread_.request_stop();
     wake();
     thread_.join();
@@ -64,22 +65,22 @@ Pads::~Pads() {
     ::close(wake_);
 }
 
-std::vector<Event> Pads::takeEvents() {
+std::vector<Event> EvdevPads::takeEvents() {
     const std::lock_guard lock{mutex_};
     return std::exchange(events_, {});
 }
 
-std::map<std::string, Sticks> Pads::sticks() const {
+std::map<std::string, Sticks> EvdevPads::sticks() const {
     const std::lock_guard lock{mutex_};
     return sticks_;
 }
 
-std::vector<PadInfo> Pads::connected() const {
+std::vector<PadInfo> EvdevPads::connected() const {
     const std::lock_guard lock{mutex_};
     return connected_;
 }
 
-std::vector<std::string> Pads::hold(ForwardMap map) {
+std::vector<std::string> EvdevPads::hold(ForwardMap map) {
     std::unique_lock lock{mutex_};
     wanted_.map = std::move(map);
     wanted_.blocked = false;
@@ -90,51 +91,51 @@ std::vector<std::string> Pads::hold(ForwardMap map) {
     return {"SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x045e/0x028e"};
 }
 
-void Pads::release(Claim after) {
+void EvdevPads::release(Claim after) {
     std::unique_lock lock{mutex_};
     wanted_.map = {};
     wanted_.blocked = false;
     request(lock, after);
 }
 
-void Pads::claim(Claim claim) {
+void EvdevPads::claim(Claim claim) {
     std::unique_lock lock{mutex_};
     request(lock, claim);
 }
 
-void Pads::request(std::unique_lock<std::mutex>& lock, Claim claim) {
+void EvdevPads::request(std::unique_lock<std::mutex>& lock, Claim claim) {
     wanted_.claim = claim;
     awaitApplied(lock, ++wanted_.serial);
 }
 
-void Pads::awaitApplied(std::unique_lock<std::mutex>& lock, std::uint64_t serial) {
+void EvdevPads::awaitApplied(std::unique_lock<std::mutex>& lock, std::uint64_t serial) {
     wake();
     appliedChanged_.wait(lock, [this, serial] {
         return appliedSerial_ >= serial;
     });
 }
 
-void Pads::setBlocked(bool blocked) {
+void EvdevPads::setBlocked(bool blocked) {
     const std::lock_guard lock{mutex_};
     wanted_.blocked = blocked;
     ++wanted_.serial;
     wake();
 }
 
-void Pads::setChords(ChordTriggers chords) {
+void EvdevPads::setChords(ChordTriggers chords) {
     std::unique_lock lock{mutex_};
     wanted_.chords = std::move(chords);
     awaitApplied(lock, ++wanted_.serial);
 }
 
-std::vector<std::filesystem::path> Pads::keepVirtualPads(std::size_t count) {
+std::vector<std::filesystem::path> EvdevPads::keepVirtualPads(std::size_t count) {
     std::unique_lock lock{mutex_};
     wanted_.keep = count;
     awaitApplied(lock, ++wanted_.serial);
     return keptNodes_;
 }
 
-void Pads::keep(std::size_t count) {
+void EvdevPads::keep(std::size_t count) {
     while (kept_.size() > count) {
         const VirtualPad* going = kept_.back().get();
         for (const auto& pad : pads_) {
@@ -164,7 +165,7 @@ void Pads::keep(std::size_t count) {
     keptNodes_ = std::move(nodes);
 }
 
-VirtualPad* Pads::freeKept() const {
+VirtualPad* EvdevPads::freeKept() const {
     for (const auto& kept : kept_) {
         const bool driven = std::ranges::any_of(pads_, [&kept](const auto& pad) {
             return pad->output == kept.get();
@@ -176,19 +177,19 @@ VirtualPad* Pads::freeKept() const {
     return nullptr;
 }
 
-void Pads::wake() const {
+void EvdevPads::wake() const {
     const std::uint64_t one = 1;
     [[maybe_unused]] const auto written = ::write(wake_, &one, sizeof(one));
 }
 
-void Pads::scan() {
+void EvdevPads::scan() {
     std::error_code error;
     for (const auto& entry : std::filesystem::directory_iterator{inputDir_, error}) {
         add(entry.path());
     }
 }
 
-void Pads::add(const std::filesystem::path& node) {
+void EvdevPads::add(const std::filesystem::path& node) {
     if (!node.filename().string().starts_with("event")) {
         return;
     }
@@ -220,7 +221,7 @@ void Pads::add(const std::filesystem::path& node) {
     pads_.push_back(std::move(pad));
 }
 
-bool Pads::apply(Pad& pad, const Wanted& wanted) {
+bool EvdevPads::apply(Pad& pad, const Wanted& wanted) {
     const bool grab = wanted.claim == Claim::Shell || wanted.claim == Claim::Game;
     const bool virtualPad = wanted.claim == Claim::Game || wanted.claim == Claim::Away;
     bool held = true;
@@ -262,7 +263,7 @@ bool Pads::apply(Pad& pad, const Wanted& wanted) {
     return held;
 }
 
-void Pads::write(Pad& pad, const std::vector<PadEvent>& events) {
+void EvdevPads::write(Pad& pad, const std::vector<PadEvent>& events) {
     if (!pad.output) {
         return;
     }
@@ -275,7 +276,7 @@ void Pads::write(Pad& pad, const std::vector<PadEvent>& events) {
     }
 }
 
-void Pads::publish(std::vector<Event>& events) {
+void EvdevPads::publish(std::vector<Event>& events) {
     if (events.empty()) {
         return;
     }
@@ -284,7 +285,7 @@ void Pads::publish(std::vector<Event>& events) {
                    std::make_move_iterator(events.end()));
 }
 
-void Pads::run(const std::stop_token& stop) {
+void EvdevPads::run(const std::stop_token& stop) {
     while (!stop.stop_requested()) {
         std::vector<pollfd> fds;
         fds.push_back(pollfd{wake_, POLLIN, 0});
