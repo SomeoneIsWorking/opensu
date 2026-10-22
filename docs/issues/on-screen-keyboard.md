@@ -22,3 +22,19 @@ Decided:
   a Guide chord or from the quick menu, and automatically when Steam or a game asks for one if that
   request can be seen.
 - Other platforms: the shell's fields only at first; Android keeps the system keyboard.
+
+## Step 2: a compact wheel that leaves the screen visible
+
+The player on step 1: "Daisy wheel has alignment and aliasing issues and I was thinking of
+something that will also be usable without covering the screen".
+
+Decided:
+- The keyboard docks along the bottom edge, at most a fifth of the window's height, centred, on a
+  translucent backing; nothing above it moves. The search panel no longer reserves room for it.
+- Compact wheel: a small ring of the eight petals (each a dot with its characters in miniature) and,
+  beside it, the picked petal's four characters drawn large in the A/B/X/Y diamond; the set strip
+  (abc, ABC, 123, #+=) and Delete/Space hints in one row. Over a game, where openSU has no field on
+  screen, a one-line preview of the text sits on the strip.
+- The regular grid docks the same way, a phone-style bottom keyboard.
+- Drawing: discs and rings anti-aliased (fixed in gpu2d if its rounded shapes are not), each
+  character centred on its ink bounds, not its advance box and baseline.
