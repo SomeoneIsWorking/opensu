@@ -1,11 +1,14 @@
 # An on-screen keyboard for everything: daisy wheel by default
 
-Status: open, planned.
+Status: open. Step 1 (openSU's own fields) built: one keyboard owner with both layouts and the
+Settings › Controls › Keyboard row (`docs/design/on-screen-keyboard.md`). Still to do: typing into
+other apps (XTest inside Gamescope), opening it from a Guide chord or the quick menu, layouts per
+language, the right stick as a cursor, and the regular grid extended to a full layout.
 
 The player: "I want a daisy wheel keyboard (like in Xbox) as default and a regular keyboard as an
 option".
 
-Today openSU has a grid keyboard only for its own fields (`app/keyboard_walk`, `ui/search_panel`).
+openSU's own fields type on `ui/on_screen_keyboard` (`app/keyboard_pad` for its buttons).
 
 Decided:
 - One keyboard owner with two layouts, chosen in Settings: Daisy wheel (default) and Regular (the
