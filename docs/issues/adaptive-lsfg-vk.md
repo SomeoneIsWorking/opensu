@@ -1,8 +1,8 @@
 # Adaptive frame generation through lsfg-vk
 
 Status: open. Decided 2026-10-22: frame generation runs inside our Gamescope fork with our own MIT
-generator (see "Decision"). Phase A (mechanism, linear-blend stand-in) is in the fork at
-`f220aa56` and pinned; the generator, phase B (adaptive) and phase C (openSU UI) are not built.
+generator (see "Decision"). Phases A (mechanism, linear-blend stand-in) and B (adaptive pacing) are
+in the fork at `7b41ee21` and pinned; the generator and phase C (openSU UI) are not built.
 
 The player: "Another request I have is adaptive LSFG-VK". lsfg-vk is the Vulkan layer that runs
 Lossless Scaling's frame generation on Linux; the player has a fork (`SomeoneIsWorking/lsfg-vk`).
@@ -25,44 +25,90 @@ discarding the fork". So:
   player's own `Lossless.dll` (Ghidra) and public docs, by an implementer who has not read lsfg-vk.
   It goes behind `IFrameSynthesizer::Generate(previous, current, t, output)`.
 
-## Phase A result (2026-10-22)
+## Frame generation in the fork
 
-The fork's `src/FrameGen/` (pinned `f220aa562b48`):
+The fork's `src/FrameGen/` (pinned `7b41ee21`):
 - `FramePacer`: the one owner of how many images each real frame gets, their timestamps and when
-  each is shown. A phase accumulator steps by `1 / ratio` and carries over between real frames,
-  so fractional ratios work. Outputs within 0.05 of a real frame show that real frame. Outputs are
-  placed one real interval late on a smoothed real-frame timeline (the mean of 15 intervals; each
-  arrival moves the timeline by 0.1 of its error), and at most one is shown per vblank. Phase B's
-  target, maximum, tolerance with hysteresis and low-fps floor go into `PacingSettings_t` and
-  `OnRealFrame`'s count; presentation does not change.
-- `FrameGenerator`: copies each new commit of the focused window (8-bit SDR only), runs the
-  synthesizer for the planned timestamps, and gives `paint_window` the image for the current vblank
-  in place of the commit's texture. PipeWire follows it.
+  each is shown.
+  - Base rate: the mean of the last 15 real-frame intervals; an interval 6x off the mean restarts
+    the history. Lossless Scaling's `frametime_buffer_size` and
+    `frametime_buffer_reset_multiplier` (see "Lossless Scaling's Adaptive mode").
+  - Count and timestamps: a phase accumulator steps by `1 / ratio` (fixed) or
+    `base rate / target` (adaptive, never below `1 / (max + 1)`), carried over between real
+    frames, so fractional ratios work. An output within 0.05 of a real frame shows that real frame
+    (`real_timestamp_tolerance`). When a carried phase would put more than `max` generated images
+    in one interval, the phase realigns so the real frame is one of the outputs.
+  - Adaptive decision: the target is the set rate, or the display's refresh when 0, and never above
+    the refresh. Nothing is decided until the history is full. Generation stops once the base
+    rate reaches `target - tolerance` and restarts only below `target - 1.5 * tolerance`, and
+    either change needs the base rate past its threshold for 15 real frames in a row. Below
+    10 fps (`base_framerate_threshold`) only real frames show, in both modes.
+  - Presentation: an output shows one real interval after its content on a timeline of the real
+    frames smoothed by 0.1 of each arrival's error, later by the largest arrival lag of the last
+    15 frames and half a refresh, so the vblank it lands on is after its real frame arrived. At
+    most one output per vblank, and an output whose vblank an earlier one already holds is not
+    made. Without generation each real frame shows at the next vblank.
+- `FrameGenerator`: copies each new commit of the focused window (8-bit SDR only) into one of
+  three buffered frames, runs the synthesizer for the planned timestamps into that interval's set
+  of images, and gives `paint_window` the image for the current vblank in place of the commit's
+  texture. PipeWire follows it. Logs `Pacing <state> at real N` whenever the state (measuring,
+  below the floor, at the target, within the tolerance, generating) changes.
 - `LinearBlendSynthesizer`: the stand-in generator, `previous * (1 - t) + current * t` through
   Gamescope's own compositor. It moves nothing; it makes each image's timestamp measurable.
-- Root atoms set by openSU: `GAMESCOPE_FRAMEGEN` (CARDINAL, 0/1), `GAMESCOPE_FRAMEGEN_RATIO`
-  (CARDINAL, thousandths, default 2000) and `GAMESCOPE_FRAMEGEN_DLL` (string, the player's
-  `Lossless.dll`, unused until the generator).
+- Root atoms, all CARDINAL, set by openSU: `GAMESCOPE_FRAMEGEN` (0/1), `GAMESCOPE_FRAMEGEN_MODE`
+  (0 fixed, 1 adaptive), `GAMESCOPE_FRAMEGEN_RATIO` (thousandths, default 2000),
+  `GAMESCOPE_FRAMEGEN_TARGET` (thousandths of fps, 0 the display's refresh),
+  `GAMESCOPE_FRAMEGEN_MAX` (generated per real frame, default 3, 1 to 15),
+  `GAMESCOPE_FRAMEGEN_TOLERANCE` (thousandths of fps, default 0); `GAMESCOPE_FRAMEGEN_DLL`
+  (string, the player's `Lossless.dll`, unused until the generator).
 
-Proof: headless Gamescope 1280x720, ffplay showing a 32 px bar that moves 16 px per frame, frames
-read from Gamescope's PipeWire stream (`scratch/fg-phaseA/`, `run.sh` and `analyze.py`):
-- 60 Hz, 30 fps, 2x: the bar steps 0.500 per captured frame (stdev 0), alternating real and a
-  half-weight cross-fade; 60.0 shown/s, 0 dropped; shown spacing 16.67 ms (stdev 0.01).
-- 60 Hz, 40 fps, 1.5x: steps of 0.667 at positions .00/.33/.67, sequence `g0.333 R g0.667`;
-  60.0 shown/s. Late ffplay frames (10+ ms) cost 9 holds in 14 s, because the image for that
-  interval could not exist yet.
-- vkcube through the WSI layer capped by MangoHud (arrivals quantized to 33/17 ms): 40 fps 1.5x
-  and 30 fps 2x both 60.0 shown/s, 0 dropped. Desired times taken from raw arrivals dropped a
-  third of the outputs here (40 shown/s), which is why the pacer smooths the timeline.
-- 120 Hz: 30 fps 4x gives 120.0 shown/s, steps of 0.250, spacing 8.33 ms (stdev 0.01). 30 fps 2x
-  and 40 fps 1.5x give 60/s on 120 Hz, 612 of 620 gaps exactly two vblanks.
-- Off (atoms unset, or `GAMESCOPE_FRAMEGEN=0`): the same 78 distinct images, byte for byte, as
-  the previous pin `e297b648`, at 30/s.
-- `VK_LAYER_KHRONOS_validation`: the on runs report exactly the IDs and counts of the off run (134,
-  dmabuf import and private pNext IDs), and the off run matches the previous pin. No new IDs.
+## Proof (2026-10-22)
+
+Headless Gamescope 1280x720; the game is ffplay showing a 32 px bar that moves 16 px per frame (a
+lavfi source at a fixed rate, or a pre-rendered file with variable timestamps), or vkcube through
+the WSI layer capped by MangoHud, whose frames arrive on its own vsync (33/17 ms). Frames are
+read from Gamescope's PipeWire stream (`scratch/fg-phaseA/`: `runb.sh`, `analyze.py`,
+`matrixb.sh`). Per-run results are in `scratch/fg-phaseA/b_*`.
+
+Adaptive:
+- 43 fps, target 60, at 60 Hz: outputs per real frame 1, 2, 1, 2, 1 (mean 60/43); 60.0 shown/s,
+  0 dropped; the bar advances 0.717 per shown frame (stdev 0.02); shown spacing 16.67 ms (stdev
+  0.02 ffplay, 0.08 vkcube).
+- 30 fps, target 60, max 1: 2 outputs per real frame (one real), 60 shown/s.
+- 30 fps, target 120 at 120 Hz, max 2: 3 per real frame (one real), 90.0 shown/s, never more;
+  ffplay and vkcube alike.
+- Target 0 at 120 Hz, 30 fps, max 3: the target resolves to 120; 4 per real frame, 120.0 shown/s.
+- 55 fps, target 60, tolerance 6: `Pacing within the tolerance`, no generated image.
+- 50 to 62.5 fps (mean 56) with tolerance 6: within the tolerance for the whole run. With
+  tolerance 4 the measured base crossed the stop threshold (56) 454 times in 1084 frames; it never
+  fell below the restart threshold (54), so generation never started: one decision line.
+- 30 and 50 fps alternating every 100 frames: the count follows over the 15-frame history. After a
+  rise, outputs show up to one vblank late until the history catches up, and one generated image
+  in 27 s was dropped; after a fall, about 5 fewer outputs a second for a second (holds with
+  nothing due). Shown 55.5 to 60/s per 2 s window.
+- 8 fps: `Pacing below the floor`, real frames only.
+
+Fixed (phase A behaviour): 30 fps 2x and 40 fps 1.5x at 60 Hz, ffplay and vkcube, and 30 fps 4x at
+120 Hz show the same steps (0.500, 0.667, 0.250), sequences and 60 or 120 shown/s as phase A.
+
+Off (atoms unset, or `GAMESCOPE_FRAMEGEN=0`): byte-identical frames to the pin before frame
+generation, `e297b648`. `VK_LAYER_KHRONOS_validation`: the on runs report only the IDs and counts
+of the off run, which match that pin (dmabuf import and private pNext IDs at start-up).
+
+Found while proving, all fixed in `FramePacer` and `FrameGenerator`:
+- Output times taken from raw arrivals put an image before its own real frame when arrivals are
+  vsync-quantized and timestamps small, so it missed its vblank: hence the arrival-lag delay.
+- Two buffered frames reclaimed an interval's images while they were still queued once the
+  delay passed one interval: hence three.
+- A carried phase could leave every output between real frames and the maximum then discarded
+  one: hence the realignment.
+- While the history lags a rising rate the plan asked for more outputs than vblanks and they piled
+  up late: hence one claimed vblank per output.
 
 Not proven: DRM and nested (Wayland) backends; HDR and 10-bit content (refused, shown unchanged);
 windows with non-opaque alpha (the blend assumes opaque); the real generator; a game in openSU.
+Under heavy machine load the sources stall and burst; the history then restarts and real frames
+show until it refills, which the log shows as `Pacing measuring`.
 
 ## The bar
 
@@ -437,12 +483,9 @@ layer, `conf.toml` and per-process environment are not needed.
 The layer route's steps (the fork layer, its backend timestamps, its present thread) are
 superseded by "Decision". Step 1's finding stands as the reason.
 
-1. Mechanism in the Gamescope fork with the linear-blend stand-in: done, "Phase A result".
-2. Our MIT generator behind `IFrameSynthesizer`, clean-room from the `Lossless.dll` behaviour spec.
-3. Phase B, adaptive pacing in `FramePacer`: target (a number or the display's refresh), maximum
-   generated per real frame, tolerance with hysteresis (55 fps against 60 generates nothing), the
-   low-fps floor, as root atoms. Prove with a 43 fps game against 60 and a 55 fps game passing
-   through.
+1. Mechanism in the Gamescope fork with the linear-blend stand-in: done ("Proof").
+2. Phase B, adaptive pacing in `FramePacer`: done ("Proof").
+3. Our MIT generator behind `IFrameSynthesizer`, clean-room from the `Lossless.dll` behaviour spec.
 4. Phase C, openSU: the `framegen.*` setting keys on the layers, the atoms set for the focused
    game, rows on the game settings tabs and Settings › Emulators.
 5. Record: the codemap rows, project-state rows, this card closed.

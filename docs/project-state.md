@@ -808,7 +808,7 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `f220aa562b4875d88503c5d4387c8de662f75c39` (3.16.29 plus ten commits).
+to commit `7b41ee219d1a1c335f89162f78d0b72b9cd2c50e` (3.16.29 plus eleven commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. The other three are upstream's
@@ -826,12 +826,14 @@ at 1 Steam's own windows (app id 769 or `STEAM_GAME` 769, `STEAM_BIGPICTURE`, or
 or `steamwebhelper` process, `window_is_steam_client`) are left out of the focus candidates
 (`GetPossibleFocusWindows`), so out of focus, the composite and `GAMESCOPE_FOCUSABLE_WINDOWS`, and
 out of the overlay and notification picks; games Steam starts are untouched. openSU sets it to 1
-while its own Steam (Managed or Isolated) is logged on (`docs/issues/integrations-opt-in.md`). f220aa56 adds frame generation for the focused window (`src/FrameGen/`): root `GAMESCOPE_FRAMEGEN`
-(0/1), `GAMESCOPE_FRAMEGEN_RATIO` (thousandths) and `GAMESCOPE_FRAMEGEN_DLL`; Gamescope copies
-the window's last two commits, `FramePacer` plans the in-between timestamps for any fractional
-ratio and picks one image per vblank, and `paint_window` shows it (PipeWire too). The generator is
-a linear-blend stand-in until our own MIT generator exists; off is byte-identical to the previous
-pin. openSU does not set the atoms yet (`docs/issues/adaptive-lsfg-vk.md`, "Phase A result"). `cmake/Gamescope.cmake` builds the pin
+while its own Steam (Managed or Isolated) is logged on (`docs/issues/integrations-opt-in.md`). f220aa56 and 7b41ee21 add frame generation for the focused window (`src/FrameGen/`), driven by
+root atoms: `GAMESCOPE_FRAMEGEN` (0/1), `_MODE` (fixed or adaptive), `_RATIO`, `_TARGET` (0 the
+display's refresh), `_MAX`, `_TOLERANCE` and `_DLL`. Gamescope copies the window's last three
+commits; `FramePacer` plans the in-between timestamps (any fractional ratio, or adaptive to a
+target with a maximum per real frame, tolerance with hysteresis and a 10 fps floor) and picks one
+image per vblank; `paint_window` shows it, PipeWire too. The generator is a linear-blend stand-in
+until our own MIT generator exists; off is byte-identical to `e297b648`. openSU does not set the
+atoms yet (`docs/issues/adaptive-lsfg-vk.md`, "Frame generation in the fork" and "Proof"). `cmake/Gamescope.cmake` builds the pin
 as an ExternalProject (meson, release, Clang; the layer and the tests are off) whose
 configure and build steps run in a rootless podman container built from
 `packaging/gamescope-build/Containerfile` (host's Fedora release, `dnf builddep gamescope`;
