@@ -452,7 +452,9 @@ void ShellApp::handleGameKeys() {
         // the ones to act on, and acting on both would fire every shortcut twice.
         const bool gameHasKeyboard =
             shell_.inGame() && gameScreen_.mode() != session::OverlayMode::Interactive;
-        handleEvents(router_.fromGame(*overlay, gameHasKeyboard));
+        const bool backOpensMenu =
+            gameHasKeyboard && builtInOf(launches_.game(), emulatorSettings_.catalog()) != nullptr;
+        handleEvents(router_.fromGame(*overlay, gameHasKeyboard, backOpensMenu));
     }
 }
 
