@@ -17,6 +17,7 @@ constexpr std::string_view prefix = "integrations.";
 constexpr const char* modeId = "integrations.steamMode";
 constexpr const char* padsId = "integrations.steamPads";
 constexpr const char* alwaysId = "integrations.always";
+constexpr const char* applyId = "integrations.apply";
 
 std::string rowId(std::string_view entry) {
     return std::string{prefix} + std::string{entry};
@@ -31,7 +32,7 @@ std::string_view modeNote(SteamMode mode) {
     case SteamMode::Normal:
         break;
     }
-    return "Your desktop Steam, left running as it is";
+    return "Your desktop Steam, left as it is";
 }
 
 SteamMode modeOf(SteamUse use) {
@@ -59,8 +60,8 @@ template <typename T> T stepped(const std::vector<T>& offered, T now, int step) 
 } // namespace
 
 ui::SettingsCategory IntegrationSettings::page() const {
-    const settings::IntegrationChoices choices = integrations_.choices();
-    const settings::Integrations& now = integrations_.current();
+    const settings::IntegrationChoices choices = effective();
+    const settings::Integrations& now = integrations_.preview(choices);
     ui::SettingsCategory page{std::string{categoryId}, "Integrations", {}};
     page.rows.push_back(ui::makeRow(alwaysId, RowKind::Info, "ROMs and libretro",
                                     "ROM folders, played on libretro", "Always on"));
@@ -83,6 +84,9 @@ ui::SettingsCategory IntegrationSettings::page() const {
                                             std::string{settings::label(now.steamPads)}));
         }
     }
+    page.rows.push_back(ui::makeRow(applyId, RowKind::Action, "Apply",
+                                    "Restarts the integrations you changed",
+                                    pending_ ? "Apply" : "Saved"));
     return page;
 }
 
@@ -91,8 +95,16 @@ bool IntegrationSettings::owns(const std::string& id) {
 }
 
 void IntegrationSettings::run(const std::string& id, int step) {
-    settings::IntegrationChoices choices = integrations_.choices();
-    const settings::Integrations& now = integrations_.current();
+    if (id == applyId) {
+        if (step == 0 && pending_) {
+            integrations_.choose(*pending_);
+            pending_.reset();
+            changed_();
+        }
+        return;
+    }
+    settings::IntegrationChoices choices = effective();
+    const settings::Integrations& now = integrations_.preview(choices);
     if (id == modeId) {
         choices.steamMode = stepped(integrations_.modesOffered(), modeOf(now.steam), step);
     } else if (id == padsId) {
@@ -102,8 +114,7 @@ void IntegrationSettings::run(const std::string& id, int step) {
     } else {
         return;
     }
-    integrations_.choose(choices);
-    changed_();
+    pending_ = choices;
 }
 
 } // namespace opensu::app

@@ -107,7 +107,7 @@ void allOffIsAChoice(const fs::path& root) {
     expect(inForce.current() == settings::Integrations{}, "and nothing is in force");
 }
 
-void settingsSwitchesAndModes(const fs::path& root) {
+void settingsStagesThenApplies(const fs::path& root) {
     app::Preferences preferences = preferencesIn(root / "page");
     app::IntegrationsInForce inForce{preferences, false};
     int changes = 0;
@@ -120,28 +120,34 @@ void settingsSwitchesAndModes(const fs::path& root) {
     page.run("integrations.steam", 0);
     shown = page.page();
     const ui::SettingsRow* mode = rowOf(shown, "integrations.steamMode");
-    expect(changes == 1 && mode != nullptr && mode->kind == ui::RowKind::Choice &&
-               mode->value == "Normal",
+    expect(changes == 0 && inForce.current().steam == SteamUse::Off,
+           "a switch is staged: nothing is in force until Apply");
+    expect(mode != nullptr && mode->kind == ui::RowKind::Choice && mode->value == "Normal",
            "Steam on: its mode is a choice, Normal by default on a desktop");
     expect(rowOf(shown, "integrations.steamPads") == nullptr, "controllers only for Isolated");
     page.run("integrations.steamMode", 1);
-    expect(inForce.current().steam == SteamUse::Managed, "Right steps to Managed");
     page.run("integrations.steamMode", 1);
-    expect(inForce.current().steam == SteamUse::Isolated, "then Isolated");
+    expect(inForce.current().steam == SteamUse::Off, "Left and Right stage the mode");
     shown = page.page();
     const ui::SettingsRow* pads = rowOf(shown, "integrations.steamPads");
     expect(pads != nullptr && pads->kind == ui::RowKind::Choice &&
-               pads->value == "openSU's virtual pads" &&
-               inForce.current().steamPads == settings::SteamPads::VirtualOnly,
+               pads->value == "openSU's virtual pads",
            "Isolated shows what Steam sees, openSU's virtual pads by default");
     page.run("integrations.steamPads", 1);
-    expect(inForce.current().steamPads == settings::SteamPads::All, "Right steps to every pad");
-    page.run("integrations.steamMode", 1);
-    expect(inForce.current().steam == SteamUse::Normal, "and the mode round to Normal");
-    page.run("integrations.epic", 1);
-    expect(!inForce.current().epic, "Left and Right do not flip a switch");
     page.run("integrations.epic", 0);
-    expect(inForce.current().epic, "A does");
+    expect(rowOf(page.page(), "integrations.apply")->value == "Apply",
+           "the Apply row says there is something to apply");
+    page.run("integrations.apply", 0);
+    expect(changes == 1 && inForce.current().steam == SteamUse::Isolated &&
+               inForce.current().steamPads == settings::SteamPads::All && inForce.current().epic,
+           "Apply keeps every staged choice at once");
+    expect(rowOf(page.page(), "integrations.apply")->value == "Saved",
+           "and nothing is left to apply");
+    page.run("integrations.epic", 1);
+    expect(inForce.current().epic, "Left and Right do not flip a switch");
+    page.run("integrations.epic", 0);
+    page.run("integrations.apply", 0);
+    expect(!inForce.current().epic, "A stages the flip, applied on Apply");
 
     app::Preferences session = preferencesIn(root / "session");
     session.values().integrations = IntegrationChoices{.steam = true,
@@ -159,9 +165,14 @@ void settingsSwitchesAndModes(const fs::path& root) {
                sessionForce.current().steam == SteamUse::Managed,
            "a login session runs Managed in place of Normal");
     sessionPage.run("integrations.steamMode", 1);
-    sessionPage.run("integrations.steamMode", 1);
-    expect(sessionForce.current().steam == SteamUse::Managed,
+    expect(rowOf(sessionPage.page(), "integrations.steamMode")->value == "Isolated",
            "and offers Managed and Isolated alone");
+    sessionPage.run("integrations.steamMode", 1);
+    expect(rowOf(sessionPage.page(), "integrations.steamMode")->value == "Managed",
+           "wrapping within the offered modes");
+    sessionPage.sync();
+    expect(rowOf(sessionPage.page(), "integrations.apply")->value == "Saved",
+           "sync drops a staged edit that was never applied");
 }
 
 /// A provider that only records that it was read.
@@ -307,7 +318,7 @@ int main() {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "integration-flow";
     theChooserAsksUntilDone(root);
     allOffIsAChoice(root);
-    settingsSwitchesAndModes(root);
+    settingsStagesThenApplies(root);
     theSwitchAppliesAChange(root);
     fs::remove_all(root);
     std::printf("integration_flow: all checks passed\n");

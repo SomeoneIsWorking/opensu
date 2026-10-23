@@ -285,6 +285,7 @@ ui::SettingsCategory SettingsController::aboutPage() const {
 void SettingsController::open() {
     emulators_.rescan();
     layers_.close();
+    integrations_.sync();
     if (inForce_.current().lists(library::Source::Steam)) {
         steamLibraries_.reload();
     }
@@ -522,6 +523,7 @@ void SettingsController::run(const ui::SettingsRow& focused, int step) {
         if (focused.kind != RowKind::Info) {
             sounds_.play(audio::Effect::Navigation);
             integrations_.run(id, step);
+            refresh();
         }
         return;
     }
