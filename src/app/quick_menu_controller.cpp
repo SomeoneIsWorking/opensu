@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "ui/row_activation.hpp"
+
 namespace opensu::app {
 namespace {
 
@@ -189,18 +191,35 @@ void QuickMenuController::act(gamepad::Button button) {
         }
         break;
     case gamepad::Button::Left:
-    case gamepad::Button::Right:
-        if (focused != nullptr &&
-            (focused->kind == RowKind::Slider || focused->kind == RowKind::Choice)) {
-            run(*focused, button == gamepad::Button::Left ? -1 : 1);
+    case gamepad::Button::Right: {
+        const ui::RowStep effect = ui::rowEffect(button, focused, menu_.editing(), false);
+        if (effect.effect == ui::RowEffect::Change && focused != nullptr) {
+            run(*focused, effect.step);
         }
         break;
-    case gamepad::Button::A:
-        if (focused != nullptr) {
+    }
+    case gamepad::Button::A: {
+        const ui::RowStep effect = ui::rowEffect(button, focused, menu_.editing(), false);
+        if (effect.effect == ui::RowEffect::Close) {
+            menu_.endEdit();
+            sounds_.play(audio::Effect::Navigation);
+        } else if (effect.effect == ui::RowEffect::Open) {
+            if (menu_.beginEdit()) {
+                sounds_.play(audio::Effect::Navigation);
+            }
+        } else if (effect.effect == ui::RowEffect::Act && focused != nullptr) {
             run(*focused, 0);
         }
         break;
+    }
     case gamepad::Button::B:
+        if (ui::rowEffect(button, focused, menu_.editing(), false).effect == ui::RowEffect::Close) {
+            menu_.endEdit();
+            sounds_.play(audio::Effect::Navigation);
+        } else {
+            close();
+        }
+        break;
     case gamepad::Button::Start:
         close();
         break;

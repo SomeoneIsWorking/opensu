@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "row_activation.hpp"
 
 namespace {
 
@@ -152,6 +153,48 @@ void sliderMapsToLevels() {
     expect(!layout.levelAt(toggle, 0, track.centreX(), y), "only a slider has levels");
 }
 
+void oneRuleForEveryRow() {
+    using opensu::gamepad::Button;
+    expect(rowOpens(RowKind::Choice) && rowOpens(RowKind::Slider), "a choice and a slider open");
+    expect(!rowOpens(RowKind::Toggle) && !rowOpens(RowKind::Action) && !rowOpens(RowKind::Info) &&
+               !rowOpens(RowKind::Folder),
+           "nothing else does");
+    RowEditing editing;
+    expect(!editing.end() && editing.begin(RowKind::Choice) && editing.open() && editing.end() &&
+               !editing.end(),
+           "the open state begins and ends once");
+    expect(!editing.begin(RowKind::Toggle), "a switch does not open");
+
+    SettingsRow choice = row("c", RowKind::Choice);
+    SettingsRow toggle = row("t", RowKind::Toggle);
+    // In the categories, with no row focused: Right and A enter the rows.
+    expect(rowEffect(Button::Right, nullptr, false, true).effect == RowEffect::Enter &&
+               rowEffect(Button::A, nullptr, false, true).effect == RowEffect::Enter,
+           "Right and A enter the rows");
+    // In the rows, closed.
+    expect(rowEffect(Button::Left, &choice, false, true).effect == RowEffect::Leave,
+           "Left leaves them, whatever the row is");
+    expect(rowEffect(Button::A, &choice, false, true).effect == RowEffect::Open,
+           "A opens a choice");
+    expect(rowEffect(Button::A, &toggle, false, true).effect == RowEffect::Act,
+           "A acts on a switch");
+    expect(rowEffect(Button::Right, &choice, false, true).effect == RowEffect::Nothing,
+           "Right does nothing until A opens the row");
+    // Open.
+    const RowStep step = rowEffect(Button::Right, &choice, true, true);
+    expect(step.effect == RowEffect::Change && step.step == 1, "Right changes it");
+    expect(rowEffect(Button::Left, &choice, true, true).effect == RowEffect::Change &&
+               rowEffect(Button::Left, &choice, true, true).step == -1,
+           "Left changes it back");
+    expect(rowEffect(Button::A, &choice, true, true).effect == RowEffect::Close &&
+               rowEffect(Button::B, &choice, true, true).effect == RowEffect::Close,
+           "A and B close it");
+    // A screen with no categories has no rows to enter.
+    expect(rowEffect(Button::Right, &choice, false, false).effect == RowEffect::Nothing &&
+               rowEffect(Button::A, nullptr, false, false).effect == RowEffect::Nothing,
+           "a screen without categories has nothing to enter");
+}
+
 } // namespace
 
 int main() {
@@ -161,6 +204,7 @@ int main() {
     layoutFitsAndScrolls();
     categoriesScrollIntoView();
     onlyAChoiceOrSliderOpens();
+    oneRuleForEveryRow();
     sliderTrackLeavesTheLabelRoom();
     sliderMapsToLevels();
     std::printf("settings_page: all checks passed\n");

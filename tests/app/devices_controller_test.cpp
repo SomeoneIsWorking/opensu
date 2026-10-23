@@ -202,6 +202,7 @@ void audioListsAndChoosesTheOutput() {
     expect(rig.row("sink:2").note == "In use" && rig.row("sink:1").note.empty(),
            "choosing makes the output the one in use");
     rig.focusRow("volume");
+    rig.controller.act(Button::A);
     rig.controller.act(Button::Right);
     expect(test::need(rig.volume.system().state(), "a volume").percent == 45, "the volume steps");
 }
@@ -211,6 +212,7 @@ void displayHasSizeOutputAndBrightness() {
     rig.openOn("display");
     expect(rig.row("output").value == "1920 x 1080 at 60 Hz", "the output line");
     rig.focusRow("scale");
+    rig.controller.act(Button::A);
     rig.controller.act(Button::Right);
     expect(rig.layouts == 1 && rig.preferences.values().uiScale > 100,
            "the size steps and applies");

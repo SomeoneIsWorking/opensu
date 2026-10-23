@@ -5,6 +5,7 @@
 #include "library/steam.hpp"
 #include "settings/install_folders.hpp"
 #include "ui/icon_size.hpp"
+#include "ui/row_activation.hpp"
 
 namespace opensu::app {
 namespace {
@@ -396,39 +397,38 @@ void SettingsController::act(gamepad::Button button) {
         break;
     case gamepad::Button::Left:
     case gamepad::Button::Right: {
-        const int step = button == gamepad::Button::Left ? -1 : 1;
-        if (!inRows) {
-            if (step > 0 && page_.enterRows()) {
+        const ui::RowStep effect = ui::rowEffect(button, focused, page_.editing(), true);
+        if (effect.effect == ui::RowEffect::Enter) {
+            if (page_.enterRows()) {
                 sounds_.play(audio::Effect::Navigation);
             }
-        } else if (page_.editing() && focused != nullptr) {
-            // A opened the row; Left and Right change its value.
-            run(*focused, step);
-        } else if (step < 0) {
-            // Not open: Left leaves the rows, whatever the row is.
+        } else if (effect.effect == ui::RowEffect::Change && focused != nullptr) {
+            run(*focused, effect.step);
+        } else if (effect.effect == ui::RowEffect::Leave) {
             showCategories();
         }
         break;
     }
-    case gamepad::Button::A:
-        if (!inRows) {
+    case gamepad::Button::A: {
+        const ui::RowStep effect = ui::rowEffect(button, focused, page_.editing(), true);
+        if (effect.effect == ui::RowEffect::Enter) {
             if (page_.enterRows()) {
                 sounds_.play(audio::Effect::Navigation);
             }
-        } else if (page_.editing()) {
+        } else if (effect.effect == ui::RowEffect::Close) {
             page_.endEdit();
             sounds_.play(audio::Effect::Navigation);
-        } else if (focused != nullptr) {
-            const bool opens = focused->kind == RowKind::Choice || focused->kind == RowKind::Slider;
-            if (opens && page_.beginEdit()) {
+        } else if (effect.effect == ui::RowEffect::Open) {
+            if (page_.beginEdit()) {
                 sounds_.play(audio::Effect::Navigation);
-            } else {
-                run(*focused, 0);
             }
+        } else if (effect.effect == ui::RowEffect::Act && focused != nullptr) {
+            run(*focused, 0);
         }
         break;
+    }
     case gamepad::Button::B:
-        if (page_.editing()) {
+        if (ui::rowEffect(button, focused, page_.editing(), true).effect == ui::RowEffect::Close) {
             page_.endEdit();
             sounds_.play(audio::Effect::Navigation);
         } else if (inRows && layers_.isOpen() &&

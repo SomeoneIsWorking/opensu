@@ -25,6 +25,21 @@ constexpr float sliderInsetDp = 52.0f;
 
 } // namespace
 
+bool rowOpens(RowKind kind) noexcept {
+    return kind == RowKind::Choice || kind == RowKind::Slider;
+}
+
+bool RowEditing::begin(RowKind kind) noexcept {
+    open_ = rowOpens(kind);
+    return open_;
+}
+
+bool RowEditing::end() noexcept {
+    const bool was = open_;
+    open_ = false;
+    return was;
+}
+
 SettingsRow makeRow(std::string id, RowKind kind, std::string label, std::string note,
                     std::string value) {
     SettingsRow row;
@@ -177,7 +192,7 @@ void SettingsPage::open(std::vector<SettingsCategory> categories) {
     category_ = 0;
     row_ = 0;
     zone_ = SettingsZone::Categories;
-    editing_ = false;
+    editing_.end();
     open_ = true;
 }
 
@@ -204,24 +219,18 @@ void SettingsPage::refresh(std::vector<SettingsCategory> categories) {
     }
     // An edited value is saved as it changes, so a refresh keeps the row open.
     const SettingsRow* now = focusedRow();
-    if (now == nullptr || (now->kind != RowKind::Choice && now->kind != RowKind::Slider)) {
-        editing_ = false;
+    if (now == nullptr || !rowOpens(now->kind)) {
+        editing_.end();
     }
 }
 
 bool SettingsPage::beginEdit() noexcept {
     const SettingsRow* row = focusedRow();
-    if (row == nullptr || (row->kind != RowKind::Choice && row->kind != RowKind::Slider)) {
-        return false;
-    }
-    editing_ = true;
-    return true;
+    return row != nullptr && editing_.begin(row->kind);
 }
 
 bool SettingsPage::endEdit() noexcept {
-    const bool was = editing_;
-    editing_ = false;
-    return was;
+    return editing_.end();
 }
 
 const SettingsRow* SettingsPage::focusedRow() const {
@@ -233,7 +242,7 @@ const SettingsRow* SettingsPage::focusedRow() const {
 }
 
 bool SettingsPage::move(int delta) noexcept {
-    editing_ = false;
+    editing_.end();
     const std::size_t count =
         zone_ == SettingsZone::Categories ? categories_.size() : categories_[category_].rows.size();
     std::size_t& at = zone_ == SettingsZone::Categories ? category_ : row_;
@@ -254,7 +263,7 @@ bool SettingsPage::enterRows() noexcept {
     }
     zone_ = SettingsZone::Rows;
     row_ = 0;
-    editing_ = false;
+    editing_.end();
     return true;
 }
 
@@ -263,7 +272,7 @@ bool SettingsPage::leaveRows() noexcept {
         return false;
     }
     zone_ = SettingsZone::Categories;
-    editing_ = false;
+    editing_.end();
     return true;
 }
 
@@ -277,7 +286,7 @@ bool SettingsPage::focusCategory(std::size_t index) noexcept {
     }
     category_ = index;
     zone_ = SettingsZone::Categories;
-    editing_ = false;
+    editing_.end();
     return changed;
 }
 
@@ -288,7 +297,7 @@ bool SettingsPage::focusRow(std::size_t index) noexcept {
     const bool changed = index != row_ || zone_ != SettingsZone::Rows;
     row_ = index;
     zone_ = SettingsZone::Rows;
-    editing_ = false;
+    editing_.end();
     return changed;
 }
 
