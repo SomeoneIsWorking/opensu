@@ -209,9 +209,9 @@ void Client::startOwn(Mode mode, const SandboxDevices& devices) {
     }
     if (isolated) {
         lucent::info("steam", "Isolated mode: started Steam in {} in a sandbox with {}", scope,
-                     devices.allInput ? std::string{"every input node"}
-                                      : std::to_string(devices.inputNodes.size()) +
-                                            " virtual pad nodes");
+                     devices.allInput
+                         ? std::string{"every input node"}
+                         : std::to_string(devices.inputNodes.size()) + " virtual pad nodes");
     } else {
         lucent::info("steam", "Managed mode: started Steam in {}", scope);
     }
