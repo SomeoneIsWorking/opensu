@@ -62,6 +62,8 @@ void GuideMenuController::choose() {
     case ui::GuideAction::Restart:
     case ui::GuideAction::ShutDown:
     case ui::GuideAction::SwitchToSession:
+    case ui::GuideAction::LoadState:
+    case ui::GuideAction::ResetGame:
         if (!menu_.armed()) {
             sounds_.play(audio::Effect::Navigation);
             menu_.arm();
@@ -77,6 +79,18 @@ void GuideMenuController::choose() {
         break;
     case ui::GuideAction::CloseGame:
         hooks_.closeGame();
+        break;
+    case ui::GuideAction::GameSettings:
+        hooks_.openGameSettings();
+        break;
+    case ui::GuideAction::SaveState:
+        hooks_.saveState();
+        break;
+    case ui::GuideAction::LoadState:
+        hooks_.loadState();
+        break;
+    case ui::GuideAction::ResetGame:
+        hooks_.resetGame();
         break;
     case ui::GuideAction::Home:
         hooks_.showSection(library::Section::Home);

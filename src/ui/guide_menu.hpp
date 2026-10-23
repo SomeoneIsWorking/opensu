@@ -20,6 +20,10 @@ namespace opensu::ui {
 enum class GuideAction : std::uint8_t {
     Resume,
     CloseGame,
+    GameSettings,
+    SaveState,
+    LoadState,
+    ResetGame,
     Home,
     Library,
     Devices,
@@ -44,6 +48,10 @@ struct GuideContext {
     /// A game is running; its title heads the menu.
     bool inGame{false};
     std::string title;
+    /// The running game has settings tabs to open (video, core options or frame generation).
+    bool gameSettings{false};
+    /// The running game is on opensu-retro, so it has state commands.
+    bool retro{false};
     /// openSU is the login session: the power list ends with Switch to desktop, not Quit.
     bool loginSession{false};
     /// Session mode is installed: the power list offers Switch to session mode, else Install

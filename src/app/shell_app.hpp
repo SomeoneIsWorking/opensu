@@ -666,39 +666,63 @@ class ShellApp final : private PointerHost {
     /// The menu Guide opens.
     GuideMenuController guideMenu_{
         shell_.guidePanels().guide(), *host_.power, *host_.session, sounds_,
-        GuideMenuController::Hooks{[this] {
-                                       return ui::GuideContext{
-                                           shell_.inGame(), launches_.game().title,
-                                           settings_.loginSession,
-                                           !settings_.loginSession && host_.session->installed()};
-                                   },
-                                   [this](library::Section section) {
-                                       closePages();
-                                       clickSection(section);
-                                   },
-                                   [this] {
-                                       closePages();
-                                       devicesScreen_.open();
-                                   },
-                                   [this] {
-                                       openDownloads();
-                                   },
-                                   [this] {
-                                       closePages();
-                                       settingsScreen_.open();
-                                   },
-                                   [this] {
-                                       closeRunningGame();
-                                   },
-                                   [this] {
-                                       bridge_.requestClose();
-                                   },
-                                   [this] {
-                                       sessionInstall_.begin();
-                                   },
-                                   [this](const std::string& text, bool isError) {
-                                       shell_.setToast(text, isError);
-                                   }}};
+        GuideMenuController::Hooks{
+            [this] {
+                const bool inGame = shell_.inGame();
+                const bool retro = inGame && retro_.status().has_value();
+                const bool settings = inGame && (retro || frameGeneration_.available());
+                return ui::GuideContext{inGame,
+                                        launches_.game().title,
+                                        settings,
+                                        retro,
+                                        settings_.loginSession,
+                                        !settings_.loginSession && host_.session->installed()};
+            },
+            [this](library::Section section) {
+                closePages();
+                clickSection(section);
+            },
+            [this] {
+                closePages();
+                devicesScreen_.open();
+            },
+            [this] {
+                openDownloads();
+            },
+            [this] {
+                closePages();
+                settingsScreen_.open();
+            },
+            [this] {
+                closeRunningGame();
+            },
+            [this] {
+                closePages();
+                gameSettingsPage_.open(launches_.game(), nullptr);
+            },
+            [this] {
+                const RetroSession::Outcome outcome =
+                    retro_.perform(RetroSession::Command::SaveState);
+                shell_.setToast(outcome.text, outcome.error);
+            },
+            [this] {
+                const RetroSession::Outcome outcome =
+                    retro_.perform(RetroSession::Command::LoadState);
+                shell_.setToast(outcome.text, outcome.error);
+            },
+            [this] {
+                const RetroSession::Outcome outcome = retro_.perform(RetroSession::Command::Reset);
+                shell_.setToast(outcome.text, outcome.error);
+            },
+            [this] {
+                bridge_.requestClose();
+            },
+            [this] {
+                sessionInstall_.begin();
+            },
+            [this](const std::string& text, bool isError) {
+                shell_.setToast(text, isError);
+            }}};
     /// The quick menu: Guide + A, over the home screen or a running game.
     QuickMenuController quickMenu_{
         shell_.guidePanels().quick(),

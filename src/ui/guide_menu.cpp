@@ -103,6 +103,14 @@ void GuideMenu::build() {
     if (context_.inGame) {
         add(GuideAction::Resume, "Resume");
         add(GuideAction::CloseGame, "Close game");
+        if (context_.gameSettings) {
+            add(GuideAction::GameSettings, "Game settings");
+        }
+        if (context_.retro) {
+            add(GuideAction::SaveState, "Save state");
+            add(GuideAction::LoadState, "Load state");
+            add(GuideAction::ResetGame, "Reset game");
+        }
     } else {
         add(GuideAction::Home, "Home");
         add(GuideAction::Library, "Library");

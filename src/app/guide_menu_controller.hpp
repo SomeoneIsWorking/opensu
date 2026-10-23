@@ -29,6 +29,12 @@ class GuideMenuController {
         std::function<void()> openSettings;
         /// Ends the running game.
         std::function<void()> closeGame;
+        /// Opens the running game's settings tabs.
+        std::function<void()> openGameSettings;
+        /// The running game's state commands (opensu-retro).
+        std::function<void()> saveState;
+        std::function<void()> loadState;
+        std::function<void()> resetGame;
         /// Closes openSU, back to the desktop.
         std::function<void()> quit;
         /// Opens the Install session mode dialog.
