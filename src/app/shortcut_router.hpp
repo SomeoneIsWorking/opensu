@@ -63,8 +63,10 @@ class ShortcutRouter {
         return chords_.longHeld(at);
     }
     /// Does what the game-time watcher heard, when a game has the keyboard; the watcher is drained
-    /// either way, so the shell's own keys are not acted on twice.
-    [[nodiscard]] std::vector<gamepad::Event> fromGame(GameOverlay& overlay, bool gameHasKeyboard);
+    /// either way, so the shell's own keys are not acted on twice. Over a libretro game
+    /// (`backOpensMenu`) Back opens the Guide menu; over any other game it does nothing.
+    [[nodiscard]] std::vector<gamepad::Event> fromGame(GameOverlay& overlay, bool gameHasKeyboard,
+                                                       bool backOpensMenu);
 
   private:
     /// The events of `action`'s edge if it is a button, else does it on a press.
