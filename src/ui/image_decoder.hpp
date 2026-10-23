@@ -25,8 +25,8 @@ inline constexpr int maxCoverSide = 768;
 struct DecodeJob {
     /// The shelf the tile was in, so an answer for a shelf since replaced is dropped.
     std::uint64_t shelf{};
-    /// The tile's place in that shelf.
-    std::size_t tile{};
+    /// The tile's id (an index for the cover picker), so aspect-following is possible.
+    std::uint64_t tile{};
     /// Changes whenever the tile's files do.
     std::uint64_t ticket{};
     std::filesystem::path portrait;

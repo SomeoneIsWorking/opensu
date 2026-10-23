@@ -29,6 +29,7 @@ std::vector<Tile> shelf(TileArtwork& artwork, std::size_t count) {
     std::vector<Tile> tiles;
     for (std::size_t index = 0; index < count; ++index) {
         Tile& tile = tiles.emplace_back();
+        tile.id = index + 1;
         tile.ticket = artwork.ticket();
         // A default item is a game.
         if (auto* game = std::get_if<opensu::library::Game>(&tile.item)) {

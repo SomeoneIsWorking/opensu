@@ -17,11 +17,12 @@ std::optional<gpu2d::Texture> textureOf(const TileArtwork::MakeTexture& make,
 } // namespace
 
 Tile* TileArtwork::tileOf(std::vector<Tile>& tiles, std::optional<Tile>& header,
-                          std::size_t index) const {
-    if (index == headerTile) {
-        return header ? &*header : nullptr;
+                          std::uint64_t id) const {
+    if (header && header->id == id) {
+        return &*header;
     }
-    return index < tiles.size() ? &tiles[index] : nullptr;
+    const auto at = std::ranges::find(tiles, id, &Tile::id);
+    return at == tiles.end() ? nullptr : &*at;
 }
 
 void TileArtwork::beginShelf(std::vector<Tile>& tiles, std::optional<Tile>& header) {
@@ -43,12 +44,12 @@ void TileArtwork::unload(Tile& tile) {
     tile.ticket = ++lastTicket_;
 }
 
-void TileArtwork::request(Tile& tile, std::size_t index) {
+void TileArtwork::request(Tile& tile, std::uint64_t id) {
     if (tile.artLoaded || tile.artRequested) {
         return;
     }
     DecodeJob job{
-        .shelf = shelfSerial_, .tile = index, .ticket = tile.ticket, .portrait = {}, .wide = {}};
+        .shelf = shelfSerial_, .tile = id, .ticket = tile.ticket, .portrait = {}, .wide = {}};
     if (const auto* console = std::get_if<library::Console>(&tile.item)) {
         job.portrait = console->artwork;
     } else if (const auto* game = std::get_if<library::Game>(&tile.item)) {
@@ -67,19 +68,26 @@ void TileArtwork::requestWindow(std::vector<Tile>& tiles, std::optional<Tile>& h
                                 const SlotRange& window) {
     // Art queued for tiles that have since left the window is not worth decoding.
     for (const DecodeJob& dropped : decoder_.prune([&](const DecodeJob& job) {
-             return job.shelf == shelfSerial_ &&
-                    (job.tile == headerTile || window.contains(job.tile));
+             if (job.shelf != shelfSerial_) {
+                 return false;
+             }
+             if (header && job.tile == header->id) {
+                 return true;
+             }
+             const auto at = std::ranges::find(tiles, job.tile, &Tile::id);
+             return at != tiles.end() &&
+                    window.contains(static_cast<std::size_t>(at - tiles.begin()));
          })) {
         if (Tile* tile =
                 dropped.shelf == shelfSerial_ ? tileOf(tiles, header, dropped.tile) : nullptr) {
             tile->artRequested = false;
         }
     }
-    for (std::size_t index = window.first; index < window.last; ++index) {
-        request(tiles[index], index);
+    for (std::size_t index = window.first; index < window.last && index < tiles.size(); ++index) {
+        request(tiles[index], tiles[index].id);
     }
     if (header) {
-        request(*header, headerTile);
+        request(*header, header->id);
     }
 }
 
@@ -95,23 +103,29 @@ void TileArtwork::upload(const MakeTexture& make, std::vector<Tile>& tiles,
         tile->wide = textureOf(make, done.wide);
         tile->artLoaded = true;
         tile->artRequested = false;
-        if (done.job.tile != headerTile && tile->art() != nullptr) {
+        if ((header == std::nullopt || done.job.tile != header->id) && tile->art() != nullptr) {
             resident_.push_back(done.job.tile);
         }
     }
 }
 
 void TileArtwork::trim(std::vector<Tile>& tiles, const SlotRange& window) {
-    std::erase_if(resident_, [&tiles](std::size_t index) {
-        return index >= tiles.size() || tiles[index].art() == nullptr;
+    std::erase_if(resident_, [&tiles](std::uint64_t id) {
+        const auto at = std::ranges::find(tiles, id, &Tile::id);
+        return at == tiles.end() || at->art() == nullptr;
     });
     // Oldest first: a tile outside the window gives its textures back until the limit holds.
     for (auto it = resident_.begin(); it != resident_.end() && resident_.size() > residentLimit;) {
-        if (window.contains(*it)) {
+        const auto at = std::ranges::find(tiles, *it, &Tile::id);
+        if (at == tiles.end()) {
+            it = resident_.erase(it);
+            continue;
+        }
+        if (window.contains(static_cast<std::size_t>(at - tiles.begin()))) {
             ++it;
             continue;
         }
-        unload(tiles[*it]);
+        unload(*at);
         it = resident_.erase(it);
     }
 }
