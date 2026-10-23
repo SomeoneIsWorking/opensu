@@ -93,11 +93,10 @@ class Shell {
     /// Reports a new window size and re-flows the grid.
     void setSize(int width, int height);
 
-    /// Replaces the grid's entries, releasing the artwork already loaded, focuses `focus` and
+    /// Replaces the grid's entries, releasing their artwork, focuses `focus` and, when `animate`,
     /// plays the entrance.
-    void setShelf(std::vector<library::ShelfItem> items, std::size_t focus = 0);
-
-    /// Updates the grid in place (no dropped artwork, no entrance) as the catalogue fills in.
+    void setShelf(std::vector<library::ShelfItem> items, std::size_t focus = 0,
+                  bool animate = true);
     void updateShelf(std::vector<library::ShelfItem> items);
 
     /// Sets the card the XMB's left column shows inside a folder, standing for the folder, or
@@ -424,8 +423,6 @@ class Shell {
     /// How far the entrance has run for a tile `distance` from the focus, or 1 when none runs.
     [[nodiscard]] float railAlpha(int distance) const noexcept;
     [[nodiscard]] Tile makeTile(library::ShelfItem item) const;
-    /// Gives `tile` what `item` shows, leaving the artwork it already holds.
-    void fillTile(Tile& tile, library::ShelfItem item) const;
     /// The details page's geometry this frame.
     [[nodiscard]] DetailsLayout detailsLayout() const {
         return layoutDetails(

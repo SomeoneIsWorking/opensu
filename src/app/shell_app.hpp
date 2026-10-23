@@ -569,7 +569,7 @@ class ShellApp final : private PointerHost {
                                                 },
                                                 [this] {
                                                     plugins_.apply(games_);
-                                                    showShelf(shell_.focusIndex());
+                                                    refreshShelf();
                                                 },
                                                 [this] {
                                                     settingsScreen_.refresh();
@@ -610,7 +610,7 @@ class ShellApp final : private PointerHost {
                                       applyLayout();
                                   },
                                   [this] {
-                                      showShelf(0);
+                                      refreshShelf();
                                   },
                                   [this] {
                                       reloadCatalog();
