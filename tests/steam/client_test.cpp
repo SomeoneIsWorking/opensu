@@ -440,33 +440,17 @@ void testHiddenRunStartsNothing() {
     waitpid(desktop, nullptr, 0);
 }
 
-/// With no desktop Steam running, Normal starts one on the desktop, outside the session's
-/// scope, and leaves it running when the client stops.
-void testNormalStartsTheDesktopSteam() {
+/// With no desktop Steam running, Normal starts nothing of its own: it is a launcher, and a
+/// launch asks Steam itself, which starts the desktop client.
+void testNormalStartsNothing() {
     const Fixture fixture{Mode::Ready};
-    // Stays a `steam` process, as the desktop client does, and logs on.
-    const std::string body = "#!/bin/sh\n"
-                             "echo $$ > \"" +
-                             fixture.pidFile.string() +
-                             "\"\n"
-                             "echo $$ > \"" +
-                             (fixture.home / ".steam" / "steam.pid").string() +
-                             "\"\n"
-                             "echo '" +
-                             std::string{logonLine} + "' >> \"" + fixture.log.string() +
-                             "\"\n"
-                             "while :; do sleep 1; done\n";
-    std::ofstream{fixture.bin / "steam", std::ios::trunc} << body;
     Client client{fixture.options()};
     client.start(Client::Mode::Normal);
-    expect(client.waitReady(std::chrono::seconds{30}, never) == SteamState::Ready,
-           "the desktop Steam started and logged on");
-    const pid_t steam = recordedPid(fixture.pidFile);
-    expect(steam > 0 && alive(steam), "it runs");
-    expect(!scopeActive(fixture.unit()), "outside the session's scope");
+    expect(client.state() == SteamState::Stopped, "normal starts no Steam of its own");
+    expect(!scopeActive(fixture.unit()), "no scope was started");
+    expect(!fs::exists(fixture.pidFile), "no steam ran");
     client.shutdown();
-    expect(alive(steam), "it is not ended with the client");
-    kill(steam, SIGKILL);
+    expect(client.state() == SteamState::Stopped, "and it stops clean");
 }
 
 } // namespace
@@ -483,7 +467,7 @@ int main() {
     testOrphanedScopeIsEnded();
     testNormalAttachesToTheDesktopSteam();
     testHiddenRunStartsNothing();
-    testNormalStartsTheDesktopSteam();
+    testNormalStartsNothing();
     std::printf("steam client: all checks passed\n");
     return 0;
 }

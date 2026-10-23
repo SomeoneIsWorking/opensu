@@ -67,6 +67,15 @@ class SteamGate {
     /// The current state. Callable from any thread.
     [[nodiscard]] virtual SteamState state() const = 0;
 
+    /// Starts the client if openSU owns it and it is not running, so a launch can wait for it. A
+    /// desktop Steam (Normal) is never started this way; its launch goes to Steam itself. Callable
+    /// from any thread.
+    virtual void ensureStarted() = 0;
+
+    /// Whether openSU starts and stops this client (Managed, Isolated); false for the desktop
+    /// Steam (Normal), which openSU only launches through. Callable from any thread.
+    [[nodiscard]] virtual bool ownsClient() const = 0;
+
     /// Blocks while the client is initializing, until it is ready, fails, `timeout`
     /// passes or `cancelled` returns true. Returns the state it stopped at.
     [[nodiscard]] virtual SteamState waitReady(std::chrono::milliseconds timeout,

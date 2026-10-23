@@ -126,6 +126,12 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] std::vector<Download> downloads() const;
 
     [[nodiscard]] launch::SteamState state() const override;
+    /// Managed and Isolated: starts the client again in its last mode when it is not up, so a
+    /// launch that arrives with no client running starts one. Normal starts nothing; its games go
+    /// to the desktop Steam.
+    void ensureStarted() override;
+    /// True in every mode but Normal: openSU starts and stops that client.
+    [[nodiscard]] bool ownsClient() const override;
     [[nodiscard]] launch::SteamState waitReady(std::chrono::milliseconds timeout,
                                                const std::function<bool()>& cancelled) override;
     [[nodiscard]] std::optional<double> updateProgress(std::string_view appId) const override;
@@ -179,6 +185,8 @@ class Client final : public launch::SteamGate {
     launch::SteamState state_{launch::SteamState::Stopped};
     Mode mode_{Mode::Managed};
     bool stopping_{false};
+    /// What the last start was given, so a launch can start the client again on its own.
+    SandboxDevices devices_{};
     std::vector<Download> downloads_;
     Activities activities_;
     /// The last reason the queue could not be read, logged once per change.
