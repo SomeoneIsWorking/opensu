@@ -248,21 +248,25 @@ void testQueueReadsThroughDevTools() {
 }
 
 void testLaunchActivityParse() {
-    const json record = json::parse(R"({
+    const json record = json::parse(R"json({
       "actions": {
         "268910": {"id": 5, "name": "LaunchApp", "task": "ProcessingInstallScript",
                    "taskText": "", "error": "", "ended": false},
+        "570": {"id": 7, "name": "LaunchApp", "task": "DownloadingDepots",
+                "taskText": "Downloading content (%1$s%)", "error": "", "ended": false},
         "960090": {"id": 3, "name": "LaunchApp", "task": "SynchronizingCloud",
                    "taskText": "Synchronizing cloud", "error": "Game already running",
                    "ended": true}},
       "running": {"960090": true, "480": false}
-    })");
+    })json");
     const opensu::steam::Activities activities = opensu::steam::parseActivities(record);
-    expect(activities.size() == 3, "every app the record names is read");
+    expect(activities.size() == 4, "every app the record names is read");
     const auto& setup = activities.at("268910");
     expect(setup.actionId == 5 && setup.task == "Running first-time setup" && !setup.actionEnded &&
                !setup.running,
            "the install script gets a line Steam has none for");
+    expect(activities.at("570").task == "Downloading content",
+           "Steam's unfilled format parameter is not shown");
     const auto& other = activities.at("960090");
     expect(other.task == "Synchronizing cloud" && other.error == "Game already running" &&
                other.actionEnded && other.running == true,

@@ -1,5 +1,6 @@
 #include "launch_activity.hpp"
 
+#include <cctype>
 #include <string>
 #include <string_view>
 
@@ -9,6 +10,64 @@ namespace opensu::steam {
 namespace {
 
 using nlohmann::json;
+
+/// True for `%1$s` / `%2$d`: a positional parameter Steam fills in when it formats the line.
+bool isParameter(std::string_view text, std::size_t at, std::size_t& end) noexcept {
+    if (text[at] != '%' || at + 2 >= text.size() ||
+        !std::isdigit(static_cast<unsigned char>(text[at + 1]))) {
+        return false;
+    }
+    std::size_t j = at + 1;
+    while (j < text.size() && std::isdigit(static_cast<unsigned char>(text[j]))) {
+        ++j;
+    }
+    if (j >= text.size() || text[j] != '$') {
+        return false;
+    }
+    ++j;
+    if (j >= text.size() || !std::isalpha(static_cast<unsigned char>(text[j]))) {
+        return false;
+    }
+    end = j + 1;
+    return true;
+}
+
+/// Steam's localized line without the parameters it has not filled in yet ("Downloading content
+/// (%1$s%)"): the value is the launch progress the shell already shows beside the line, and the
+/// brackets that held it go too.
+std::string withoutParameters(std::string_view text) {
+    std::string out;
+    for (std::size_t i = 0; i < text.size();) {
+        std::size_t end = 0;
+        if (isParameter(text, i, end)) {
+            i = end;
+            continue;
+        }
+        if (text[i] == '(') {
+            const std::size_t close = text.find(')', i);
+            if (close != std::string_view::npos) {
+                bool parameter = false;
+                for (std::size_t j = i + 1; j < close; ++j) {
+                    std::size_t stop = 0;
+                    if (isParameter(text, j, stop)) {
+                        parameter = true;
+                        break;
+                    }
+                }
+                if (parameter) {
+                    i = close + 1;
+                    continue;
+                }
+            }
+        }
+        out.push_back(text[i++]);
+    }
+    // A removed group leaves the space before it, and a bare `%` from "(%1$s%)".
+    while (!out.empty() && (out.back() == ' ' || out.back() == '%')) {
+        out.pop_back();
+    }
+    return out;
+}
 
 // Kept on window so it survives between reads; a new SharedJSContext starts without it.
 constexpr std::string_view recordAndRead = R"js((() => {
@@ -43,7 +102,7 @@ constexpr std::string_view recordAndRead = R"js((() => {
 
 /// Tasks Steam has no localized line for.
 std::string taskLine(const json& action) {
-    std::string localized = action.value("taskText", "");
+    std::string localized = withoutParameters(action.value("taskText", ""));
     if (!localized.empty()) {
         return localized;
     }
