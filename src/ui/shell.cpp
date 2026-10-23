@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
 #include "input/keyboard_bindings.hpp"
@@ -52,6 +53,16 @@ std::string shelfKey(const library::ShelfItem& item) {
     }
     const std::optional<library::Folder> folder = library::folderOf(item);
     return folder ? "folder:" + library::key(*folder) : std::string{};
+}
+
+std::pair<std::filesystem::path, std::filesystem::path> artPaths(const library::ShelfItem& item) {
+    if (const auto* console = std::get_if<library::Console>(&item)) {
+        return {console->artwork, {}};
+    }
+    if (const auto* game = std::get_if<library::Game>(&item)) {
+        return {game->artwork, game->artworkWide};
+    }
+    return {{}, {}};
 }
 
 bool intersectsCanvas(const Rect& rect, int width, int height) noexcept {
@@ -151,8 +162,17 @@ void Shell::setSize(int width, int height) {
 
 Tile Shell::makeTile(library::ShelfItem item) const {
     Tile tile;
+    fillTile(tile, std::move(item));
+    return tile;
+}
+
+void Shell::fillTile(Tile& tile, library::ShelfItem item) const {
     tile.item = std::move(item);
     tile.platform = platforms_.forItem(tile.item);
+    tile.title.clear();
+    tile.caption.clear();
+    tile.logo.reset();
+    tile.stores.clear();
     if (const std::optional<library::Folder> folder = library::folderOf(tile.item)) {
         tile.title = library::name(*folder);
     }
@@ -172,7 +192,6 @@ Tile Shell::makeTile(library::ShelfItem item) const {
             }
         }
     }
-    return tile;
 }
 
 void Shell::setHeader(std::optional<library::ShelfItem> header) {
@@ -182,11 +201,12 @@ void Shell::setHeader(std::optional<library::ShelfItem> header) {
     header_.reset();
     if (header) {
         header_ = makeTile(std::move(*header));
+        header_->id = nextTileId_++;
         header_->ticket = artwork_.ticket();
     }
 }
 
-void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus, bool animate) {
+void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
     artwork_.beginShelf(tiles_, header_);
     tiles_.clear();
     tiles_.reserve(items.size());
@@ -196,6 +216,7 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus, b
             gameTiles_.emplace(game->id, tiles_.size());
         }
         tiles_.push_back(makeTile(std::move(item)));
+        tiles_.back().id = nextTileId_++;
         tiles_.back().ticket = artwork_.ticket();
     }
     relayout();
@@ -205,35 +226,44 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus, b
     scroller_.snap(layout_.scrollTarget({start, 0.0f, 0}));
     railFocus_.snap(static_cast<float>(start));
     focusAt_ = now_;
-    entrancePending_ = animate;
+    entrancePending_ = true;
 }
 
 void Shell::updateShelf(std::vector<library::ShelfItem> items) {
     const bool first = tiles_.empty() && !items.empty();
     const std::string focused =
         focus_.index() < tiles_.size() ? shelfKey(tiles_[focus_.index()].item) : std::string{};
-    std::size_t start = 0;
-    if (!focused.empty()) {
-        const auto at = std::ranges::find_if(items, [&focused](const library::ShelfItem& item) {
-            return shelfKey(item) == focused;
-        });
-        if (at != items.end()) {
-            start = static_cast<std::size_t>(at - items.begin());
+    std::unordered_map<std::string, std::size_t> before;
+    for (std::size_t i = 0; i < tiles_.size(); ++i) {
+        before.emplace(shelfKey(tiles_[i].item), i);
+    }
+    std::vector<Tile> next;
+    next.reserve(items.size());
+    std::vector<bool> carried(tiles_.size(), false);
+    for (library::ShelfItem& item : items) {
+        const std::string key = shelfKey(item);
+        const auto found = before.find(key);
+        if (found != before.end() && !carried[found->second]) {
+            carried[found->second] = true;
+            Tile& tile = tiles_[found->second];
+            const auto art = artPaths(tile.item);
+            fillTile(tile, std::move(item));
+            if (artPaths(tile.item) != art) {
+                artwork_.unload(tile);
+            }
+            next.push_back(std::move(tile));
+        } else {
+            next.push_back(makeTile(std::move(item)));
+            next.back().id = nextTileId_++;
+            next.back().ticket = artwork_.ticket();
         }
     }
-    const bool extended = tiles_.size() <= items.size() &&
-                          std::equal(tiles_.begin(), tiles_.end(), items.begin(),
-                                     [](const Tile& tile, const library::ShelfItem& item) {
-                                         return shelfKey(tile.item) == shelfKey(item);
-                                     });
-    if (!extended) {
-        setShelf(std::move(items), start, first);
-        return;
+    for (std::size_t i = 0; i < tiles_.size(); ++i) {
+        if (!carried[i]) {
+            artwork_.unload(tiles_[i]);
+        }
     }
-    for (std::size_t i = tiles_.size(); i < items.size(); ++i) {
-        tiles_.push_back(makeTile(std::move(items[i])));
-        tiles_.back().ticket = artwork_.ticket();
-    }
+    tiles_ = std::move(next);
     gameTiles_.clear();
     for (std::size_t i = 0; i < tiles_.size(); ++i) {
         if (const auto* game = std::get_if<library::Game>(&tiles_[i].item)) {
@@ -241,6 +271,15 @@ void Shell::updateShelf(std::vector<library::ShelfItem> items) {
         }
     }
     relayout();
+    std::size_t start = 0;
+    if (!focused.empty()) {
+        const auto at = std::ranges::find_if(tiles_, [&focused](const Tile& tile) {
+            return shelfKey(tile.item) == focused;
+        });
+        if (at != tiles_.end()) {
+            start = static_cast<std::size_t>(at - tiles_.begin());
+        }
+    }
     if (start >= tiles_.size()) {
         start = tiles_.empty() ? 0 : tiles_.size() - 1;
     }

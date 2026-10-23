@@ -20,8 +20,6 @@ namespace opensu::ui {
 
 class TileArtwork {
   public:
-    /// Stands for the header tile in a decode job's tile index.
-    static constexpr std::size_t headerTile = std::numeric_limits<std::size_t>::max();
     /// Textures held at most; the oldest outside the window are released beyond it.
     static constexpr std::size_t residentLimit = 120;
     /// Uploads decoded pixels as a texture.
@@ -55,8 +53,8 @@ class TileArtwork {
 
   private:
     [[nodiscard]] Tile* tileOf(std::vector<Tile>& tiles, std::optional<Tile>& header,
-                               std::size_t index) const;
-    void request(Tile& tile, std::size_t index);
+                               std::uint64_t id) const;
+    void request(Tile& tile, std::uint64_t id);
     void requestWindow(std::vector<Tile>& tiles, std::optional<Tile>& header,
                        const SlotRange& window);
     void upload(const MakeTexture& make, std::vector<Tile>& tiles, std::optional<Tile>& header,
@@ -68,7 +66,7 @@ class TileArtwork {
     std::uint64_t shelfSerial_{};
     std::uint64_t lastTicket_{};
     /// Tiles holding textures, the oldest first.
-    std::vector<std::size_t> resident_;
+    std::vector<std::uint64_t> resident_;
 };
 
 } // namespace opensu::ui

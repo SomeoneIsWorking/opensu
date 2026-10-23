@@ -93,10 +93,9 @@ class Shell {
     /// Reports a new window size and re-flows the grid.
     void setSize(int width, int height);
 
-    /// Replaces the grid's entries, releasing their artwork, focuses `focus` and, when `animate`,
-    /// plays the entrance.
-    void setShelf(std::vector<library::ShelfItem> items, std::size_t focus = 0,
-                  bool animate = true);
+    /// Replaces the grid's entries, releasing their artwork, focuses `focus` and plays the
+    /// entrance.
+    void setShelf(std::vector<library::ShelfItem> items, std::size_t focus = 0);
     void updateShelf(std::vector<library::ShelfItem> items);
 
     /// Sets the card the XMB's left column shows inside a folder, standing for the folder, or
@@ -423,6 +422,8 @@ class Shell {
     /// How far the entrance has run for a tile `distance` from the focus, or 1 when none runs.
     [[nodiscard]] float railAlpha(int distance) const noexcept;
     [[nodiscard]] Tile makeTile(library::ShelfItem item) const;
+    /// What `item` shows, leaving `tile`'s artwork and id.
+    void fillTile(Tile& tile, library::ShelfItem item) const;
     /// The details page's geometry this frame.
     [[nodiscard]] DetailsLayout detailsLayout() const {
         return layoutDetails(
@@ -476,6 +477,8 @@ class Shell {
     std::vector<Tile> tiles_;
     /// A game's tile in `tiles_`, by game id.
     std::unordered_map<std::string, std::size_t> gameTiles_;
+    /// The id the next tile takes.
+    std::uint64_t nextTileId_{1};
     TileArtwork artwork_;
     /// What stands for the folder in the XMB's left column.
     std::optional<Tile> header_;

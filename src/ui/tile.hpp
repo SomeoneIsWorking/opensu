@@ -17,6 +17,8 @@ namespace opensu::ui {
 /// One entry in the grid, with the artwork loaded for it.
 struct Tile {
     library::ShelfItem item;
+    /// Stable while the tile lives, so its art follows it as the shelf reorders.
+    std::uint64_t id{};
     /// A folder's name, as its tile reads it.
     std::string title;
     /// A folder's game count, as its tile reads it.
