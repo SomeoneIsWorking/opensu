@@ -27,7 +27,7 @@ constexpr std::array<ActionInfo, allActions.size()> infos{{
     {Action::Left, "left", "Left", Button::Left, false, false},
     {Action::Right, "right", "Right", Button::Right, false, false},
     {Action::Confirm, "confirm", "Confirm", Button::A, false, false},
-    {Action::Back, "back", "Back", Button::B, false, false},
+    {Action::Back, "back", "Back", Button::B, true, false},
     {Action::X, "x", "Refresh", Button::X, false, false},
     {Action::Y, "y", "Details", Button::Y, false, false},
     {Action::Select, "select", "Menu", Button::Select, false, false},

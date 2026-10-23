@@ -577,6 +577,9 @@ void ShellApp::actOn(gamepad::Button button) {
             // collection.
             sounds_.play(audio::Effect::ExitConsolesApps);
             showShelf(*focus);
+        } else if (shell_.inputDevice().current() == input::Device::KeyboardMouse) {
+            // ESC at the root of the shell has nothing to go back to; it opens the quick menu.
+            toggleQuickMenu();
         }
         break;
     default:

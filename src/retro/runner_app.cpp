@@ -275,13 +275,8 @@ RunnerExit RunnerApp::run() {
             break;
         }
         if (!options_.hidden) {
-            bool escape = false;
             for (const WindowInput::Key& key : input.keys) {
-                escape = escape || (key.down && key.scancode == SDL_SCANCODE_ESCAPE);
                 joypad.key(key.scancode, key.down);
-            }
-            if (escape) {
-                break;
             }
         }
         if (pads) {
