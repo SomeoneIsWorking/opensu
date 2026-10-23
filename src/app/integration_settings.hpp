@@ -1,8 +1,7 @@
 // integration_settings — Settings > Integrations: ROMs and libretro as always on, a switch for each
 // opt-in integration, Steam's mode while Steam is on and the build's client has more than one
 // (Normal, Managed and Isolated on a Linux desktop; no Normal in a login session) and, for
-// Isolated, which controllers its sandbox gives Steam. Edits are staged and kept by the Apply row,
-// so moving through the choices does not restart an integration in the middle of the screen.
+// Isolated, which controllers its sandbox gives Steam. Edits are staged and kept by the Apply row.
 #pragma once
 
 #include <functional>
@@ -29,8 +28,7 @@ class IntegrationSettings {
 
     [[nodiscard]] ui::SettingsCategory page() const;
     [[nodiscard]] static bool owns(const std::string& id);
-    /// Acts on row `id`: A flips a switch or applies the staged choices; A, Left and Right step
-    /// Steam's mode or controllers.
+    /// Acts on row `id`: A flips a switch or applies; Left and Right step a choice.
     void run(const std::string& id, int step);
     /// Drops anything staged and shows the saved choices again, when the screen is opened.
     void sync() noexcept {

@@ -440,8 +440,7 @@ void testHiddenRunStartsNothing() {
     waitpid(desktop, nullptr, 0);
 }
 
-/// With no desktop Steam running, Normal starts nothing of its own: it is a launcher, and a
-/// launch asks Steam itself, which starts the desktop client.
+/// With no desktop Steam running, Normal starts nothing of its own.
 void testNormalStartsNothing() {
     const Fixture fixture{Mode::Ready};
     Client client{fixture.options()};

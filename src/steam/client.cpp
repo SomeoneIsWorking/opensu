@@ -52,8 +52,7 @@ void Client::ensureStarted() {
     SandboxDevices devices;
     {
         const std::lock_guard lock{mutex_};
-        // A client that is coming up or already up is what the launch will wait on; a desktop
-        // Steam (Normal) is never started here.
+        // Nothing to do while it is up; Normal is not openSU's to start.
         if (state_ != SteamState::Stopped || mode_ == Mode::Normal) {
             return;
         }
@@ -114,9 +113,7 @@ void Client::beginWatching(SteamState state) {
 }
 
 void Client::startNormal() {
-    // Normal is a launcher: openSU does not start Steam itself. A desktop Steam already running
-    // is attached to for its launches and downloads; otherwise a launch asks Steam directly and
-    // Steam starts itself.
+    // Normal is a launcher: attach to a running Steam, start nothing.
     if (!options_.mayStart) {
         lucent::info("steam", "Normal mode: this run starts and attaches to no Steam");
         return;
