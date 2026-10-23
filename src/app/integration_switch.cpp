@@ -11,12 +11,15 @@ IntegrationSwitch::IntegrationSwitch(const IntegrationsInForce& integrations, Ta
                                      Hooks hooks)
     : integrations_{integrations}, targets_{targets}, hooks_{std::move(hooks)},
       applied_{integrations.current()} {
+    steamWorker_ = std::jthread{[this](const std::stop_token& stop) {
+        steamLoop(stop);
+    }};
 }
 
 IntegrationSwitch::~IntegrationSwitch() {
-    if (steamWorker_.joinable()) {
-        steamWorker_.join();
-    }
+    // The worker waits on the stop token; its thread joins as the member is destroyed.
+    steamWorker_.request_stop();
+    steamWake_.notify_all();
 }
 
 void IntegrationSwitch::guard() {
@@ -74,9 +77,6 @@ void IntegrationSwitch::service() {
 }
 
 void IntegrationSwitch::moveSteam() {
-    if (steamWorker_.joinable()) {
-        steamWorker_.join();
-    }
     std::optional<steam::Client::Mode> mode = integrations_.steamMode();
     if (mode && !hooks_.steamInstalled()) {
         lucent::info("steam", "no Steam install found; nothing to start");
@@ -85,15 +85,38 @@ void IntegrationSwitch::moveSteam() {
     const bool all = integrations_.current().steamPads == settings::SteamPads::All;
     const bool keepsPads =
         mode == steam::Client::Mode::Isolated && !all && targets_.steam.startsClient();
-    steamWorker_ = std::jthread{[&client = targets_.steam, &controllers = targets_.controllers,
-                                 mode, all, keepsPads] {
-        client.shutdown();
-        steam::SandboxDevices devices{.allInput = all};
-        devices.inputNodes = controllers.keepVirtualPads(keepsPads ? steam::isolatedPadSlots : 0);
-        if (mode) {
-            client.start(*mode, devices);
+    {
+        const std::lock_guard lock{steamMutex_};
+        steamRequest_ = SteamMove{.serial = steamRequest_.serial + 1,
+                                  .mode = mode,
+                                  .all = all,
+                                  .keepsPads = keepsPads};
+    }
+    steamWake_.notify_all();
+}
+
+void IntegrationSwitch::steamLoop(const std::stop_token& stop) {
+    std::unique_lock lock{steamMutex_};
+    std::uint64_t done = 0;
+    while (true) {
+        steamWake_.wait(lock, stop, [this, done] {
+            return steamRequest_.serial != done;
+        });
+        if (stop.stop_requested()) {
+            return;
         }
-    }};
+        const SteamMove move = steamRequest_;
+        done = move.serial;
+        lock.unlock();
+        targets_.steam.shutdown();
+        steam::SandboxDevices devices{.allInput = move.all};
+        devices.inputNodes = targets_.controllers.keepVirtualPads(
+            move.keepsPads ? steam::isolatedPadSlots : 0);
+        if (move.mode) {
+            targets_.steam.start(*move.mode, devices);
+        }
+        lock.lock();
+    }
 }
 
 } // namespace opensu::app

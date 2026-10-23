@@ -126,6 +126,19 @@ class FakeSteam final : public SteamGate {
         return state_.load();
     }
 
+    /// The test drives the state itself; a launch does not start it.
+    void ensureStarted() override {
+    }
+
+    bool ownsClient() const override {
+        return owns_.load();
+    }
+
+    /// Whether openSU is to start and stop this client; false models a desktop Steam (Normal).
+    void setOwnsClient(bool owns) {
+        owns_.store(owns);
+    }
+
     /// What Steam says about every app from now on.
     void setActivity(SteamAppActivity activity) {
         const std::lock_guard lock{activityMutex_};
@@ -170,6 +183,7 @@ class FakeSteam final : public SteamGate {
     mutable std::mutex activityMutex_;
     SteamAppActivity activity_;
     std::atomic<bool> inSession_{true};
+    std::atomic<bool> owns_{true};
     std::atomic<int> cancels_{0};
 };
 

@@ -47,6 +47,27 @@ SteamState Client::state() const {
     return state_;
 }
 
+void Client::ensureStarted() {
+    std::optional<Mode> mode;
+    SandboxDevices devices;
+    {
+        const std::lock_guard lock{mutex_};
+        // A client that is coming up or already up is what the launch will wait on; a desktop
+        // Steam (Normal) is never started here.
+        if (state_ != SteamState::Stopped || mode_ == Mode::Normal) {
+            return;
+        }
+        mode = mode_;
+        devices = devices_;
+    }
+    lucent::info("steam", "a launch needs Steam; starting it in its mode");
+    start(*mode, devices);
+}
+
+bool Client::ownsClient() const {
+    return mode() != Mode::Normal;
+}
+
 void Client::setState(SteamState state) {
     {
         const std::lock_guard lock{mutex_};
@@ -71,6 +92,7 @@ void Client::start(Mode mode, const SandboxDevices& devices) {
     {
         const std::lock_guard lock{mutex_};
         mode_ = mode;
+        devices_ = devices;
     }
     if (mode == Mode::Normal) {
         startNormal();
@@ -92,44 +114,20 @@ void Client::beginWatching(SteamState state) {
 }
 
 void Client::startNormal() {
-    const std::optional<pid_t> running = desktop_.running();
+    // Normal is a launcher: openSU does not start Steam itself. A desktop Steam already running
+    // is attached to for its launches and downloads; otherwise a launch asks Steam directly and
+    // Steam starts itself.
     if (!options_.mayStart) {
-        if (running) {
-            lucent::info("steam",
-                         "Normal mode: the desktop Steam runs (pid {}); this run does "
-                         "not attach to it",
-                         *running);
-        } else {
-            lucent::info("steam", "Normal mode: no desktop Steam runs; this run does not start it");
-        }
+        lucent::info("steam", "Normal mode: this run starts and attaches to no Steam");
         return;
     }
+    const std::optional<pid_t> running = desktop_.running();
     if (running) {
         lucent::info("steam", "Normal mode: attached to the desktop Steam (pid {})", *running);
         beginWatching(SteamState::Ready);
         return;
     }
-    program_ = launch::resolveExecutable("steam", options_.executablePath);
-    if (program_.empty()) {
-        lucent::error("steam", "steam is not on PATH");
-        setState(SteamState::Failed);
-        return;
-    }
-    std::error_code ec;
-    const std::uintmax_t size = fs::file_size(connectionLog_, ec);
-    logOffset_ = ec ? 0 : size;
-    // A user service of its own: on the desktop's display, outside openSU's scope, and left
-    // running when openSU ends.
-    const std::optional<int> status = launch::runCommand(
-        "systemd-run", {"--user", "--collect", "--quiet", "--", program_.string()},
-        shutdownCommandWait);
-    if (status != 0) {
-        lucent::error("steam", "could not start Steam on the desktop");
-        setState(SteamState::Failed);
-        return;
-    }
-    lucent::info("steam", "Normal mode: started Steam on the desktop");
-    beginWatching(SteamState::Initializing);
+    lucent::info("steam", "Normal mode: no desktop Steam runs; a launch will start it");
 }
 
 bool Client::sandbox(const SandboxDevices& devices, std::string& command,

@@ -7,7 +7,10 @@
 // Steam's windows hidden in Gamescope while that Steam is logged on.
 #pragma once
 
+#include <condition_variable>
+#include <cstdint>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <thread>
 
@@ -62,9 +65,20 @@ class IntegrationSwitch {
 
   private:
     void guard();
-    /// Moves the client to the mode in force on the worker, after any move still under way: the
-    /// client stops, Isolated's virtual pads are kept or dropped, and the client starts.
+    /// Asks the worker for the mode in force: the client stops, Isolated's virtual pads are kept or
+    /// dropped, and the client starts. Returns at once; the worker serialises the slow work.
     void moveSteam();
+    /// The worker: waits for the requested mode and moves the client to it, one move at a time.
+    void steamLoop(const std::stop_token& stop);
+
+    /// What the worker is asked to do: the client's mode, what Isolated's sandbox sees, and whether
+    /// it keeps openSU's virtual pads. `serial` lets a newer request replace an unstarted one.
+    struct SteamMove {
+        std::uint64_t serial{0};
+        std::optional<steam::Client::Mode> mode;
+        bool all{false};
+        bool keepsPads{false};
+    };
 
     const IntegrationsInForce& integrations_;
     Targets targets_;
@@ -72,6 +86,9 @@ class IntegrationSwitch {
     settings::Integrations applied_;
     /// What the hook was last told; nothing before the first `service`.
     std::optional<bool> hidesSteamWindows_;
+    std::mutex steamMutex_;
+    std::condition_variable_any steamWake_;
+    SteamMove steamRequest_{};
     /// Last, so a Steam start or stop under way ends before the client is used by nothing.
     std::jthread steamWorker_;
 };

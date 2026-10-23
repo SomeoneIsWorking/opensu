@@ -56,28 +56,33 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
         failure = "could not start " + game.launch.program;
         return Begun::Failed;
     }
-    if (steam_.state() == SteamState::Initializing && hooks.progress) {
-        hooks.progress(LaunchProgress{.stage = LaunchProgress::Stage::WaitingForSteam});
-    }
-    const SteamState state = steam_.waitReady(startTimeout, [this] {
-        return forced_.load();
-    });
-    if (forced_.load()) {
-        return Begun::Cancelled;
-    }
-    if (state != SteamState::Ready) {
-        switch (state) {
-        case SteamState::Blocked:
-            failure = "Steam is running on the desktop; quit it to use it inside opensu";
-            break;
-        case SteamState::Initializing:
-            failure = "Steam did not become ready";
-            break;
-        default:
-            failure = "Steam failed to start";
-            break;
+    // openSU's own Steam may have been stopped since it started; a launch starts it again. A
+    // desktop Steam (Normal) is not openSU's to start, so a launch goes to Steam itself.
+    if (steam_.ownsClient()) {
+        steam_.ensureStarted();
+        if (steam_.state() == SteamState::Initializing && hooks.progress) {
+            hooks.progress(LaunchProgress{.stage = LaunchProgress::Stage::WaitingForSteam});
         }
-        return Begun::Failed;
+        const SteamState state = steam_.waitReady(startTimeout, [this] {
+            return forced_.load();
+        });
+        if (forced_.load()) {
+            return Begun::Cancelled;
+        }
+        if (state != SteamState::Ready) {
+            switch (state) {
+            case SteamState::Blocked:
+                failure = "Steam is running on the desktop; quit it to use it inside opensu";
+                break;
+            case SteamState::Initializing:
+                failure = "Steam did not become ready";
+                break;
+            default:
+                failure = "Steam failed to start";
+                break;
+            }
+            return Begun::Failed;
+        }
     }
 
     const SteamAppActivity before = steam_.activity(game.sourceId);
@@ -157,7 +162,7 @@ Handoff::Shown Handoff::awaitSteamWindow(const library::Game& game, int baseline
             failure = game.title + " closed before it showed a window";
             return Shown::Failed;
         }
-        if (steam_.state() != SteamState::Ready) {
+        if (steam_.ownsClient() && steam_.state() != SteamState::Ready) {
             failure = game.title + " did not start";
             return Shown::Failed;
         }
@@ -239,7 +244,7 @@ void Handoff::endSteamLaunch(const library::Game& game, int baseline, bool reque
             lucent::info("launch", "Steam let go of {}", game.title);
             return;
         }
-        if (steam_.state() != SteamState::Ready) {
+        if (steam_.ownsClient() && steam_.state() != SteamState::Ready) {
             lucent::warn("launch", "Steam stopped before it let go of {}", game.title);
             return;
         }
