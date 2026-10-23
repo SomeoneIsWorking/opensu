@@ -45,6 +45,15 @@ ScrollMode scrollModeFor(config::HomeMode mode) noexcept {
     return mode == config::HomeMode::WiiSu ? ScrollMode::Paged : ScrollMode::Flow;
 }
 
+/// What a tile stands for across a catalogue update: a game by its id, a folder by its key.
+std::string shelfKey(const library::ShelfItem& item) {
+    if (const auto* game = std::get_if<library::Game>(&item)) {
+        return game->id;
+    }
+    const std::optional<library::Folder> folder = library::folderOf(item);
+    return folder ? "folder:" + library::key(*folder) : std::string{};
+}
+
 bool intersectsCanvas(const Rect& rect, int width, int height) noexcept {
     // Scaled tiles grow past their cell, so the test is one tile wide on each side.
     return rect.right() + rect.width > 0.0f && rect.x - rect.width < static_cast<float>(width) &&
@@ -142,8 +151,17 @@ void Shell::setSize(int width, int height) {
 
 Tile Shell::makeTile(library::ShelfItem item) const {
     Tile tile;
+    fillTile(tile, std::move(item));
+    return tile;
+}
+
+void Shell::fillTile(Tile& tile, library::ShelfItem item) const {
     tile.item = std::move(item);
     tile.platform = platforms_.forItem(tile.item);
+    tile.title.clear();
+    tile.caption.clear();
+    tile.logo.reset();
+    tile.stores.clear();
     if (const std::optional<library::Folder> folder = library::folderOf(tile.item)) {
         tile.title = library::name(*folder);
     }
@@ -163,7 +181,6 @@ Tile Shell::makeTile(library::ShelfItem item) const {
             }
         }
     }
-    return tile;
 }
 
 void Shell::setHeader(std::optional<library::ShelfItem> header) {
@@ -198,6 +215,67 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
     focusAt_ = now_;
     // The catalog can arrive before the first frame, so the entrance starts on the next tick.
     entrancePending_ = true;
+}
+
+void Shell::updateShelf(std::vector<library::ShelfItem> items) {
+    // The first fill still rises in as one shelf.
+    if (tiles_.empty() && !items.empty()) {
+        setShelf(std::move(items), 0);
+        return;
+    }
+    const std::string focused =
+        focus_.index() < tiles_.size() ? shelfKey(tiles_[focus_.index()].item) : std::string{};
+    std::unordered_map<std::string, std::size_t> before;
+    for (std::size_t i = 0; i < tiles_.size(); ++i) {
+        before.emplace(shelfKey(tiles_[i].item), i);
+    }
+    std::vector<Tile> next;
+    next.reserve(items.size());
+    std::vector<bool> carried(tiles_.size(), false);
+    for (library::ShelfItem& item : items) {
+        const std::string key = shelfKey(item);
+        const auto found = before.find(key);
+        if (found != before.end() && !carried[found->second]) {
+            // The tile is already there: keep its textures, refresh what it shows.
+            carried[found->second] = true;
+            fillTile(tiles_[found->second], std::move(item));
+            next.push_back(std::move(tiles_[found->second]));
+        } else {
+            next.push_back(makeTile(std::move(item)));
+            next.back().ticket = artwork_.ticket();
+        }
+    }
+    for (std::size_t i = 0; i < tiles_.size(); ++i) {
+        if (!carried[i]) {
+            artwork_.unload(tiles_[i]);
+        }
+    }
+    tiles_ = std::move(next);
+    gameTiles_.clear();
+    for (std::size_t i = 0; i < tiles_.size(); ++i) {
+        if (const auto* game = std::get_if<library::Game>(&tiles_[i].item)) {
+            gameTiles_.emplace(game->id, i);
+        }
+    }
+    relayout();
+    std::size_t start = 0;
+    if (!focused.empty()) {
+        const auto at = std::ranges::find_if(tiles_, [&focused](const Tile& tile) {
+            return shelfKey(tile.item) == focused;
+        });
+        if (at != tiles_.end()) {
+            start = static_cast<std::size_t>(at - tiles_.begin());
+        }
+    }
+    if (start >= tiles_.size()) {
+        start = tiles_.empty() ? 0 : tiles_.size() - 1;
+    }
+    focus_.reset(start, layout_.cellOf(start));
+    page_ = layout_.mode() == ScrollMode::Paged ? layout_.pageOf(start) : 0;
+    scroller_.snap(layout_.scrollTarget({start, 0.0f, 0}));
+    railFocus_.snap(static_cast<float>(start));
+    focusAt_ = now_;
+    // No entrance: the catalogue filling in must not replay the domino.
 }
 
 SlotRange Shell::artWindow() const {
