@@ -96,7 +96,7 @@ void powerHasItsOwnList() {
 
 void sessionModeSwitchesInsteadOfQuitting() {
     GuideMenu menu;
-    menu.open(GuideContext{false, {}, true});
+    menu.open(GuideContext{false, {}, false, false, true});
     menu.focusPower();
     menu.showPower();
     expect(menu.entries().size() == 4 && menu.entries()[3].action == GuideAction::SwitchToDesktop &&
@@ -109,13 +109,13 @@ void sessionModeSwitchesInsteadOfQuitting() {
 
 void sessionModeIsOfferedOutsideItAsInstallOrSwitch() {
     GuideMenu menu;
-    menu.open(GuideContext{false, {}, false, true});
+    menu.open(GuideContext{false, {}, false, false, false, true});
     menu.showPower();
     expect(menu.entries().size() == 5 && menu.entries()[3].action == GuideAction::SwitchToSession &&
                menu.entries()[3].label == "Switch to session mode" &&
                menu.entries()[4].action == GuideAction::QuitToDesktop,
            "once installed the list offers Switch to session mode");
-    menu.open(GuideContext{false, {}, true, true});
+    menu.open(GuideContext{false, {}, false, false, true, true});
     menu.showPower();
     for (const auto& entry : menu.entries()) {
         expect(entry.action != GuideAction::SwitchToSession &&

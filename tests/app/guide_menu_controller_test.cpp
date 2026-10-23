@@ -13,11 +13,13 @@ using gamepad::Button;
 using test::expect;
 
 struct Rig {
-    explicit Rig(bool inGame = false, bool session = false, bool installed = false)
+    explicit Rig(bool inGame = false, bool session = false, bool installed = false,
+                 bool gameSettings = false, bool retro = false)
         : controller{menu, power, sessionMode, sounds,
                      app::GuideMenuController::Hooks{
-                         [inGame, session, installed] {
-                             return ui::GuideContext{inGame, "Roboquest", session, installed};
+                         [inGame, session, installed, gameSettings, retro] {
+                             return ui::GuideContext{inGame, "Roboquest", gameSettings,
+                                                     retro,  session,     installed};
                          },
                          [this](library::Section section) {
                              calls.push_back(section == library::Section::Home ? "home"
@@ -34,6 +36,18 @@ struct Rig {
                          },
                          [this] {
                              calls.emplace_back("closeGame");
+                         },
+                         [this] {
+                             calls.emplace_back("gameSettings");
+                         },
+                         [this] {
+                             calls.emplace_back("saveState");
+                         },
+                         [this] {
+                             calls.emplace_back("loadState");
+                         },
+                         [this] {
+                             calls.emplace_back("resetGame");
                          },
                          [this] {
                              calls.emplace_back("quit");
@@ -219,6 +233,26 @@ void closeGameAndResume() {
            "Close game reaches its hook and Resume only closes");
 }
 
+void gameRowsReachTheirHooks() {
+    Rig rig{true, false, false, /*gameSettings=*/true, /*retro=*/true};
+    rig.controller.open();
+    rig.choose("Game settings");
+    rig.controller.open();
+    rig.choose("Save state");
+    rig.controller.open();
+    rig.choose("Load state");
+    rig.controller.act(Button::A);
+    rig.controller.open();
+    rig.choose("Reset game");
+    rig.controller.act(Button::A);
+    expect(rig.calls ==
+               std::vector<std::string>{"gameSettings", "saveState", "loadState", "resetGame"},
+           "the game rows reach their hooks");
+    Rig plain{true};
+    plain.controller.open();
+    expect(plain.menu.entries().size() == 5, "a game with nothing to set keeps five entries");
+}
+
 } // namespace
 
 int main() {
@@ -231,6 +265,7 @@ int main() {
     installSessionModeOpensItsDialogAtOnce();
     backLeavesThePowerListBeforeTheMenu();
     closeGameAndResume();
+    gameRowsReachTheirHooks();
     std::printf("guide_menu_controller: all checks passed\n");
     return 0;
 }
