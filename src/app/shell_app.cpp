@@ -592,8 +592,8 @@ void ShellApp::actOn(gamepad::Button button) {
             sounds_.play(audio::Effect::ExitConsolesApps);
             showShelf(*focus);
         } else if (shell_.inputDevice().current() == input::Device::KeyboardMouse) {
-            // ESC at the root of the shell has nothing to go back to; it opens the quick menu.
-            toggleQuickMenu();
+            // ESC at the root of the shell has nothing to go back to; it opens the Guide menu.
+            toggleGuide();
         }
         break;
     default:
@@ -828,7 +828,7 @@ void ShellApp::contextMenu(const ui::PointerTarget& target) {
 void ShellApp::setHidden(const library::Game& game, bool hidden) {
     preferences_.values().hidden.set(game, hidden);
     preferences_.save();
-    showShelf(shell_.focusIndex());
+    refreshShelf();
     shell_.setToast(game.title + (hidden ? " hidden" : " shown again"));
 }
 
@@ -850,7 +850,7 @@ void ShellApp::chooseEmulator(const library::Game& game, const std::string& name
     gameSettings_.layers().set(own, library::emulatorKey, name);
     gameSettings_.save();
     library::applyEmulatorPicks(gameSettings_.layers(), games_);
-    showShelf(shell_.focusIndex());
+    refreshShelf();
 }
 
 std::optional<library::Game> ShellApp::shownGame(const std::string& id) const {

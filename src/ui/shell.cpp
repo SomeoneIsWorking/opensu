@@ -151,17 +151,8 @@ void Shell::setSize(int width, int height) {
 
 Tile Shell::makeTile(library::ShelfItem item) const {
     Tile tile;
-    fillTile(tile, std::move(item));
-    return tile;
-}
-
-void Shell::fillTile(Tile& tile, library::ShelfItem item) const {
     tile.item = std::move(item);
     tile.platform = platforms_.forItem(tile.item);
-    tile.title.clear();
-    tile.caption.clear();
-    tile.logo.reset();
-    tile.stores.clear();
     if (const std::optional<library::Folder> folder = library::folderOf(tile.item)) {
         tile.title = library::name(*folder);
     }
@@ -181,6 +172,7 @@ void Shell::fillTile(Tile& tile, library::ShelfItem item) const {
             }
         }
     }
+    return tile;
 }
 
 void Shell::setHeader(std::optional<library::ShelfItem> header) {
@@ -194,7 +186,7 @@ void Shell::setHeader(std::optional<library::ShelfItem> header) {
     }
 }
 
-void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
+void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus, bool animate) {
     artwork_.beginShelf(tiles_, header_);
     tiles_.clear();
     tiles_.reserve(items.size());
@@ -213,44 +205,35 @@ void Shell::setShelf(std::vector<library::ShelfItem> items, std::size_t focus) {
     scroller_.snap(layout_.scrollTarget({start, 0.0f, 0}));
     railFocus_.snap(static_cast<float>(start));
     focusAt_ = now_;
-    // The catalog can arrive before the first frame, so the entrance starts on the next tick.
-    entrancePending_ = true;
+    entrancePending_ = animate;
 }
 
 void Shell::updateShelf(std::vector<library::ShelfItem> items) {
-    // The first fill still rises in as one shelf.
-    if (tiles_.empty() && !items.empty()) {
-        setShelf(std::move(items), 0);
-        return;
-    }
+    const bool first = tiles_.empty() && !items.empty();
     const std::string focused =
         focus_.index() < tiles_.size() ? shelfKey(tiles_[focus_.index()].item) : std::string{};
-    std::unordered_map<std::string, std::size_t> before;
-    for (std::size_t i = 0; i < tiles_.size(); ++i) {
-        before.emplace(shelfKey(tiles_[i].item), i);
-    }
-    std::vector<Tile> next;
-    next.reserve(items.size());
-    std::vector<bool> carried(tiles_.size(), false);
-    for (library::ShelfItem& item : items) {
-        const std::string key = shelfKey(item);
-        const auto found = before.find(key);
-        if (found != before.end() && !carried[found->second]) {
-            // The tile is already there: keep its textures, refresh what it shows.
-            carried[found->second] = true;
-            fillTile(tiles_[found->second], std::move(item));
-            next.push_back(std::move(tiles_[found->second]));
-        } else {
-            next.push_back(makeTile(std::move(item)));
-            next.back().ticket = artwork_.ticket();
+    std::size_t start = 0;
+    if (!focused.empty()) {
+        const auto at = std::ranges::find_if(items, [&focused](const library::ShelfItem& item) {
+            return shelfKey(item) == focused;
+        });
+        if (at != items.end()) {
+            start = static_cast<std::size_t>(at - items.begin());
         }
     }
-    for (std::size_t i = 0; i < tiles_.size(); ++i) {
-        if (!carried[i]) {
-            artwork_.unload(tiles_[i]);
-        }
+    const bool extended = tiles_.size() <= items.size() &&
+                          std::equal(tiles_.begin(), tiles_.end(), items.begin(),
+                                     [](const Tile& tile, const library::ShelfItem& item) {
+                                         return shelfKey(tile.item) == shelfKey(item);
+                                     });
+    if (!extended) {
+        setShelf(std::move(items), start, first);
+        return;
     }
-    tiles_ = std::move(next);
+    for (std::size_t i = tiles_.size(); i < items.size(); ++i) {
+        tiles_.push_back(makeTile(std::move(items[i])));
+        tiles_.back().ticket = artwork_.ticket();
+    }
     gameTiles_.clear();
     for (std::size_t i = 0; i < tiles_.size(); ++i) {
         if (const auto* game = std::get_if<library::Game>(&tiles_[i].item)) {
@@ -258,15 +241,6 @@ void Shell::updateShelf(std::vector<library::ShelfItem> items) {
         }
     }
     relayout();
-    std::size_t start = 0;
-    if (!focused.empty()) {
-        const auto at = std::ranges::find_if(tiles_, [&focused](const Tile& tile) {
-            return shelfKey(tile.item) == focused;
-        });
-        if (at != tiles_.end()) {
-            start = static_cast<std::size_t>(at - tiles_.begin());
-        }
-    }
     if (start >= tiles_.size()) {
         start = tiles_.empty() ? 0 : tiles_.size() - 1;
     }
@@ -275,7 +249,7 @@ void Shell::updateShelf(std::vector<library::ShelfItem> items) {
     scroller_.snap(layout_.scrollTarget({start, 0.0f, 0}));
     railFocus_.snap(static_cast<float>(start));
     focusAt_ = now_;
-    // No entrance: the catalogue filling in must not replay the domino.
+    entrancePending_ = first;
 }
 
 SlotRange Shell::artWindow() const {
