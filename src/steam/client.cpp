@@ -48,19 +48,28 @@ SteamState Client::state() const {
 }
 
 void Client::ensureStarted() {
-    std::optional<Mode> mode;
+    const std::lock_guard lock{moveMutex_};
+    if (state() == SteamState::Initializing || state() == SteamState::Ready) {
+        return;
+    }
+    if (mode() == Mode::Normal) {
+        return;
+    }
+    if (state() == SteamState::Failed) {
+        shutdownLocked();
+    }
+    if (state() != SteamState::Stopped) {
+        return;
+    }
+    Mode mode;
     SandboxDevices devices;
     {
-        const std::lock_guard lock{mutex_};
-        // Nothing to do while it is up; Normal is not openSU's to start.
-        if (state_ != SteamState::Stopped || mode_ == Mode::Normal) {
-            return;
-        }
+        const std::lock_guard guard{mutex_};
         mode = mode_;
         devices = devices_;
     }
     lucent::info("steam", "a launch needs Steam; starting it in its mode");
-    start(*mode, devices);
+    startLocked(mode, devices);
 }
 
 bool Client::ownsClient() const {
@@ -85,6 +94,11 @@ bool Client::showsInSession() const {
 }
 
 void Client::start(Mode mode, const SandboxDevices& devices) {
+    const std::lock_guard lock{moveMutex_};
+    startLocked(mode, devices);
+}
+
+void Client::startLocked(Mode mode, const SandboxDevices& devices) {
     if (state() != SteamState::Stopped) {
         return;
     }
@@ -363,6 +377,11 @@ SteamState Client::waitReady(std::chrono::milliseconds timeout,
 }
 
 void Client::shutdown() {
+    const std::lock_guard lock{moveMutex_};
+    shutdownLocked();
+}
+
+void Client::shutdownLocked() {
     {
         const std::lock_guard lock{mutex_};
         stopping_ = true;
