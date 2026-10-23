@@ -39,6 +39,10 @@ class IntegrationsInForce {
     [[nodiscard]] std::vector<settings::SteamMode> modesOffered() const {
         return settings::Integrations::modesOffered(loginSession_, built_);
     }
+    /// What `choices` would put in force, for showing an edit before it is kept.
+    [[nodiscard]] settings::Integrations preview(const settings::IntegrationChoices& choices) const {
+        return settings::Integrations::inForce(choices, loginSession_, built_);
+    }
 
     /// Keeps `choices` and puts them in force; true when what is in force changed.
     bool choose(const settings::IntegrationChoices& choices);

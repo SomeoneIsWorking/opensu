@@ -350,9 +350,13 @@ void pagesFollowTheIntegrations(const fs::path& root) {
     rig.enter("Integrations");
     rig.focus("integrations.steam");
     rig.controller.act(Button::A);
-    const std::optional<settings::IntegrationChoices> kept = rig.onDisk().integrations;
-    expect(kept && kept->steam, "Steam on is kept");
+    expect(rig.onDisk().integrations && !rig.onDisk().integrations->steam,
+           "a staged switch is not kept until Apply");
     expect(rig.rowOf("integrations.steamMode").value == "Normal", "its mode shows");
+    rig.focus("integrations.apply");
+    rig.controller.act(Button::A);
+    const std::optional<settings::IntegrationChoices> kept = rig.onDisk().integrations;
+    expect(kept && kept->steam, "Steam on is kept once applied");
     const auto& categories = rig.page.categories();
     expect(std::ranges::any_of(categories,
                                [](const ui::SettingsCategory& category) {
