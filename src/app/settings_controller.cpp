@@ -89,7 +89,12 @@ std::string SettingsController::category() const {
 
 bool SettingsController::changes() const {
     const ui::SettingsRow* focused = page_.focusedRow();
-    return focused != nullptr && focused->kind != RowKind::Info;
+    if (focused == nullptr) {
+        return false;
+    }
+    // A changes a switch outright; a choice or slider is opened first, then Left and Right change
+    // it.
+    return page_.editing() || focused->kind == RowKind::Toggle;
 }
 
 std::vector<ui::SettingsCategory> SettingsController::build() const {
@@ -126,7 +131,7 @@ ui::SettingsCategory SettingsController::appearancePage() const {
                                     "How Library lays out its tiles",
                                     std::string{library::label(v.libraryMode)}));
     page.rows.push_back(
-        ui::makeSlider(iconSizeId, "Icon size", "How large Library's tiles are",
+        ui::makeSlider(iconSizeId, "Icon size", "How large the shelf's tiles are",
                        ui::SliderRange{v.iconSize, ui::minIconLevel, ui::maxIconLevel}));
     const config::HomeMode mode = v.homeMode.value_or(defaults_.homeMode);
     page.rows.push_back(
@@ -396,10 +401,11 @@ void SettingsController::act(gamepad::Button button) {
             if (step > 0 && page_.enterRows()) {
                 sounds_.play(audio::Effect::Navigation);
             }
-        } else if (focused != nullptr &&
-                   (focused->kind == RowKind::Choice || focused->kind == RowKind::Slider)) {
+        } else if (page_.editing() && focused != nullptr) {
+            // A opened the row; Left and Right change its value.
             run(*focused, step);
         } else if (step < 0) {
+            // Not open: Left leaves the rows, whatever the row is.
             showCategories();
         }
         break;
@@ -409,13 +415,24 @@ void SettingsController::act(gamepad::Button button) {
             if (page_.enterRows()) {
                 sounds_.play(audio::Effect::Navigation);
             }
+        } else if (page_.editing()) {
+            page_.endEdit();
+            sounds_.play(audio::Effect::Navigation);
         } else if (focused != nullptr) {
-            run(*focused, 0);
+            const bool opens = focused->kind == RowKind::Choice || focused->kind == RowKind::Slider;
+            if (opens && page_.beginEdit()) {
+                sounds_.play(audio::Effect::Navigation);
+            } else {
+                run(*focused, 0);
+            }
         }
         break;
     case gamepad::Button::B:
-        if (inRows && layers_.isOpen() &&
-            page_.focusedCategory().id == EmulatorSettings::categoryId) {
+        if (page_.editing()) {
+            page_.endEdit();
+            sounds_.play(audio::Effect::Navigation);
+        } else if (inRows && layers_.isOpen() &&
+                   page_.focusedCategory().id == EmulatorSettings::categoryId) {
             switch (layers_.back()) {
             case LayerSettings::Back::Within:
                 sounds_.play(audio::Effect::Navigation);

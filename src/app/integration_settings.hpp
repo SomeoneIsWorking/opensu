@@ -40,6 +40,8 @@ class IntegrationSettings {
     [[nodiscard]] settings::IntegrationChoices effective() const {
         return pending_.value_or(integrations_.choices());
     }
+    /// How many staged choices differ from the saved ones.
+    [[nodiscard]] std::size_t pendingCount() const;
 
     IntegrationsInForce& integrations_;
     Changed changed_;

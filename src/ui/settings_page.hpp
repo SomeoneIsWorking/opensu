@@ -106,9 +106,11 @@ struct SettingsLayout {
                                               float x, float y) noexcept;
 
 /// The page between `topInset` and `bottomInset` in a `width` x `height` frame at `dp` pixels per
-/// dp, showing `rows` of the category, with row `focused` scrolled whole into view.
+/// dp, showing `rows` of the focused category: the category cells keep their size, scrolled so
+/// `focusedCategory` is whole, and the rows are scrolled so `focused` is whole.
 [[nodiscard]] SettingsLayout layoutSettings(float width, float height, float dp, float topInset,
                                             float bottomInset, std::size_t categories,
+                                            std::size_t focusedCategory,
                                             const std::vector<SettingsRow>& rows,
                                             std::size_t focused);
 
@@ -142,8 +144,17 @@ class SettingsPage {
     [[nodiscard]] SettingsZone zone() const noexcept {
         return zone_;
     }
+    /// Whether A opened the focused choice or slider for Left and Right to change.
+    [[nodiscard]] bool editing() const noexcept {
+        return editing_;
+    }
     /// The focused row, or null in the list of categories or when the category has none.
     [[nodiscard]] const SettingsRow* focusedRow() const;
+
+    /// Opens the focused choice or slider for Left and Right; false when the row is not one.
+    bool beginEdit() noexcept;
+    /// Closes the open row; false when none was open.
+    bool endEdit() noexcept;
 
     /// Moves focus `delta` places along the zone's list, stopping at the ends; reports whether
     /// it moved.
@@ -167,6 +178,7 @@ class SettingsPage {
     std::size_t category_{0};
     std::size_t row_{0};
     SettingsZone zone_{SettingsZone::Categories};
+    bool editing_{false};
     bool open_{false};
 };
 

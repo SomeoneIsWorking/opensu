@@ -118,7 +118,7 @@ const OnScreenKeyboard* Shell::dockedKeyboard() const noexcept {
 float Shell::dp() const noexcept {
     return std::min(static_cast<float>(width_) / referenceWidthDp,
                     static_cast<float>(height_) / referenceHeightDp) *
-           static_cast<float>(uiScale_) / 100.0f;
+           uiScale_;
 }
 
 HomeLayout Shell::computeLayout() const {
@@ -133,7 +133,7 @@ HomeLayout Shell::computeLayout() const {
         .topInset = hud_.topInset(),
         .bottomInset = hud_.bottomInset(),
         .fillSlots = section_ == library::Section::Home,
-        .iconLevel = section_ == library::Section::Library ? iconSize_ : defaultIconLevel,
+        .iconLevel = iconSize_,
     }};
 }
 
@@ -436,9 +436,9 @@ void Shell::setIconSize(int level) {
     relayout();
 }
 
-void Shell::setUiScale(int percent) {
-    if (percent != uiScale_) {
-        uiScale_ = percent;
+void Shell::setUiScale(float factor) {
+    if (factor != uiScale_) {
+        uiScale_ = factor;
         hud_.setSize({width_, height_, dp()});
         relayout();
     }
