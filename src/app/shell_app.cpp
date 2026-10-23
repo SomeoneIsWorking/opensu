@@ -448,7 +448,11 @@ void ShellApp::clickSection(library::Section section) {
 
 void ShellApp::handleGameKeys() {
     if (GameOverlay* overlay = gameScreen_.overlay()) {
-        handleEvents(router_.fromGame(*overlay));
+        // The watcher is for a game that has the keyboard; otherwise the shell's window keys are
+        // the ones to act on, and acting on both would fire every shortcut twice.
+        const bool gameHasKeyboard =
+            shell_.inGame() && gameScreen_.mode() != session::OverlayMode::Interactive;
+        handleEvents(router_.fromGame(*overlay, gameHasKeyboard));
     }
 }
 
