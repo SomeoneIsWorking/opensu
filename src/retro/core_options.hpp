@@ -1,6 +1,5 @@
 // core_options — the options a core defines (v0 variables, v1 and v2 definitions), their values and
-// the current one: the core's default, except where the launch chose one of the option's own values
-// or the player changed it during play.
+// the current one.
 #pragma once
 
 #include <cstddef>
@@ -19,7 +18,6 @@ using OptionValues = std::map<std::string, std::string, std::less<>>;
 
 class CoreOptions {
   public:
-    /// One option as the shell lists it.
     struct Option {
         std::string key;
         std::string label;
@@ -40,14 +38,10 @@ class CoreOptions {
 
     /// The option's value, or null for a key the core never defined.
     [[nodiscard]] const char* value(std::string_view key) const;
-    /// Every option the core defined, in the order it defined them.
     [[nodiscard]] const std::vector<Option>& options() const noexcept {
         return options_;
     }
-    /// Makes `value` the option's current one when the core offers it and it differs; true when it
-    /// changed, so the core is told to read its variables again.
     bool set(std::string_view key, std::string_view value);
-    /// Whether a variable changed since the last call, clearing it.
     bool takeUpdated() noexcept {
         return std::exchange(updated_, false);
     }
@@ -57,12 +51,10 @@ class CoreOptions {
     }
 
   private:
-    /// Adds an option `key`: the chosen value when `offered` holds it, else `fallback`.
     void define(const std::string& key, const std::string& label, const std::string& fallback,
                 const std::vector<std::string>& offered);
 
     OptionValues chosen_;
-    /// Each define replaces what the core defined before.
     std::vector<Option> options_;
     bool updated_{false};
 };

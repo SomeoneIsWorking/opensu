@@ -31,9 +31,7 @@ enum class ControlCommand : std::uint8_t {
     Video,
     /// The last image shown, as PNG; hidden runs only.
     Frame,
-    /// The core's options and their current values.
     Options,
-    /// Set the core option `ControlRequest::key` to `ControlRequest::value`.
     Option,
 };
 
@@ -42,7 +40,6 @@ struct ControlRequest {
     ControlCommand command{};
     /// `Video`'s settings.
     settings::VideoSettings video;
-    /// `Option`'s key and value.
     std::string key;
     std::string value;
 };
@@ -55,7 +52,6 @@ struct ControlAnswer {
     bool hasState{};
     /// `Frame`'s image.
     std::string png{};
-    /// `Options`' or `Option`'s answer, as JSON.
     std::string json{};
 };
 
