@@ -41,7 +41,6 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
     const library::roms::EmulatorCatalog& catalog = downloads_.setup().catalog;
     const settings::LayerKeys keys = library::layerKeysOf(game);
     const settings::Layer gameLayer{settings::Layer::Kind::Game, game.id};
-    std::size_t own = 0;
     if (builtInOf(game, catalog) != nullptr) {
         const settings::Resolved shader = settings::resolveShader(layers, keys);
         for (const settings::ChoiceKey& video : settings::videoKeys) {
@@ -53,23 +52,23 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
                                    std::string{settings::choiceLabel(video, resolved.value)} +
                                        " · " + sourceText(resolved.from, catalog)});
             }
-            own += resolved.from && resolved.from->kind == settings::Layer::Kind::Game ? 1 : 0;
         }
         if (shader.from) {
             view.rows.push_back(ui::DetailsRow{std::string{settings::shaderLabel},
                                                presetLabel(shader.value) + " · " +
                                                    sourceText(shader.from, catalog)});
         }
-        own += shader.from && shader.from->kind == settings::Layer::Kind::Game ? 1 : 0;
     }
     if (offersGameSettings(game, catalog, hooks_.frameGeneration())) {
-        for (const settings::ChoiceKey& key : settings::frameGenKeys) {
-            own += layers.at(gameLayer, key.key) != nullptr ? 1 : 0;
-        }
-        view.buttons.push_back(ui::DetailsButton{
-            ui::DetailsAction::GameSettings, "Game settings",
-            own == 0 ? std::string{"Inherited"}
-                     : std::to_string(own) + (own == 1 ? " override" : " overrides")});
+        // Inheritance is per setting: the button counts what this game keeps of its own, and says
+        // "Inherited" only when it keeps nothing.
+        const auto kept = layers.layers().find(gameLayer);
+        const std::size_t custom = kept == layers.layers().end() ? 0 : kept->second.size();
+        view.buttons.push_back(
+            ui::DetailsButton{ui::DetailsAction::GameSettings, "Game settings",
+                              custom == 0 ? std::string{"Inherited"}
+                                          : std::to_string(custom) + " custom setting" +
+                                                (custom == 1 ? "" : "s")});
     }
     if (layers.layers().contains(gameLayer)) {
         view.buttons.push_back(
