@@ -112,8 +112,11 @@ std::vector<gamepad::Event> ShortcutRouter::fromPad(const std::vector<gamepad::E
 std::vector<gamepad::Event> ShortcutRouter::fromGame(GameOverlay& overlay) {
     std::vector<gamepad::Event> events;
     for (const input::Action action : overlay.gameKeys(shortcuts_)) {
-        route(action, true, events);
-        route(action, false, events);
+        // Over a game there is nothing to go back to, so Back (ESC) opens the quick menu instead.
+        const input::Action effective =
+            action == input::Action::Back ? input::Action::QuickMenu : action;
+        route(effective, true, events);
+        route(effective, false, events);
     }
     return events;
 }
