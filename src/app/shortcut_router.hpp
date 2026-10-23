@@ -62,8 +62,9 @@ class ShortcutRouter {
     [[nodiscard]] std::optional<gamepad::Button> longHeld(input::PadChords::Clock::time_point at) {
         return chords_.longHeld(at);
     }
-    /// Does what the game-time watcher heard.
-    [[nodiscard]] std::vector<gamepad::Event> fromGame(GameOverlay& overlay);
+    /// Does what the game-time watcher heard, when a game has the keyboard; the watcher is drained
+    /// either way, so the shell's own keys are not acted on twice.
+    [[nodiscard]] std::vector<gamepad::Event> fromGame(GameOverlay& overlay, bool gameHasKeyboard);
 
   private:
     /// The events of `action`'s edge if it is a button, else does it on a press.
