@@ -15,6 +15,7 @@
 #include "config/arguments.hpp"
 #include "config/config.hpp"
 #include "host/desktop_request.hpp"
+#include "host/instance_lock.hpp"
 #include "host/login_session_end.hpp"
 #include "host/runner.hpp"
 #include "host/session_mode.hpp"
@@ -76,6 +77,18 @@ int main(int argc, char** argv) {
         return 0;
     }
     const std::optional<std::string>& renderPath = arguments.renderPath;
+
+    // One openSU at a time: a second would run a second shell and a second Steam client.
+    const bool interactive =
+        !renderPath && !arguments.hidden && !config.insideGamescope && !config.sessionInherited;
+    std::optional<opensu::host::InstanceLock> lock;
+    if (interactive) {
+        lock.emplace(config.runtimeDir / "instance.lock");
+        if (!lock->held()) {
+            lucent::info("openSU", "another openSU is running; leaving it to it");
+            return 0;
+        }
+    }
 
     // Without a Gamescope of its own, opensu makes one and runs inside it, so that
     // Steam and every game share the one compositor that closing opensu ends.
