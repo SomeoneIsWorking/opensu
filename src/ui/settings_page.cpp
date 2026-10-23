@@ -7,11 +7,10 @@ namespace opensu::ui {
 namespace {
 
 constexpr float marginDp = 40.0f;
-constexpr float categoriesWidthDp = 200.0f;
+constexpr float categoriesWidthDp = 260.0f;
 constexpr float columnGapDp = 22.0f;
 constexpr float cellHeightDp = 44.0f;
 constexpr float cellGapDp = 6.0f;
-constexpr float minCellShare = 0.5f;
 constexpr float panelPaddingDp = 12.0f;
 constexpr float rowHeightDp = 54.0f;
 constexpr float rowGapDp = 4.0f;
@@ -71,22 +70,33 @@ SettingsRowBox settingsRowBox(const Rect& rect, RowKind kind, float dp) {
 
 SettingsLayout layoutSettings(float width, float height, float dp, float topInset,
                               float bottomInset, std::size_t categories,
-                              const std::vector<SettingsRow>& rows, std::size_t focused) {
+                              std::size_t focusedCategory, const std::vector<SettingsRow>& rows,
+                              std::size_t focused) {
     SettingsLayout layout;
     const float margin = marginDp * dp;
     const float room = std::max(height - topInset - bottomInset, 0.0f);
-    const float listWidth = std::min(categoriesWidthDp * dp, width * 0.3f);
+    const float listWidth = std::min(categoriesWidthDp * dp, width * 0.34f);
     layout.categories = Rect{margin, topInset, listWidth, room};
     layout.radius = radiusDp * dp;
     layout.cellRadius = cellRadiusDp * dp;
-    // The cells shrink together when the list would run past the page, down to half their size.
+    // The cells keep their size; the list scrolls so the focused one is whole.
+    const float cellHeight = cellHeightDp * dp;
     const float step = (cellHeightDp + cellGapDp) * dp;
-    const float wanted = static_cast<float>(categories) * step;
-    const float squeeze = wanted > room ? std::max(room / wanted, minCellShare) : 1.0f;
-    float y = topInset;
+    const float listGap = cellGapDp * dp;
+    const float listHeight =
+        static_cast<float>(categories) * step - (categories == 0 ? 0.0f : listGap);
+    float listScroll = 0.0f;
+    if (focusedCategory < categories) {
+        const float bottom = static_cast<float>(focusedCategory + 1) * step - listGap;
+        if (bottom > room) {
+            listScroll = bottom - room;
+        }
+    }
+    listScroll = std::min(listScroll, std::max(listHeight - room, 0.0f));
+    float y = topInset - listScroll;
     for (std::size_t i = 0; i < categories; ++i) {
-        layout.categoryCells.push_back(Rect{margin, y, listWidth, cellHeightDp * dp * squeeze});
-        y += step * squeeze;
+        layout.categoryCells.push_back(Rect{margin, y, listWidth, cellHeight});
+        y += step;
     }
     const float left = margin + listWidth + columnGapDp * dp;
     layout.panel = Rect{left, topInset, std::max(width - left - margin, 0.0f), room};
@@ -116,6 +126,9 @@ SettingsLayout layoutSettings(float width, float height, float dp, float topInse
 }
 
 std::optional<std::size_t> SettingsLayout::categoryAt(float x, float y) const noexcept {
+    if (!categories.contains(x, y)) {
+        return std::nullopt;
+    }
     for (std::size_t i = 0; i < categoryCells.size(); ++i) {
         if (categoryCells[i].contains(x, y)) {
             return i;
@@ -164,6 +177,7 @@ void SettingsPage::open(std::vector<SettingsCategory> categories) {
     category_ = 0;
     row_ = 0;
     zone_ = SettingsZone::Categories;
+    editing_ = false;
     open_ = true;
 }
 
@@ -188,6 +202,26 @@ void SettingsPage::refresh(std::vector<SettingsCategory> categories) {
     if (zone_ == SettingsZone::Rows && rows.empty()) {
         zone_ = SettingsZone::Categories;
     }
+    // An edited value is saved as it changes, so a refresh keeps the row open.
+    const SettingsRow* now = focusedRow();
+    if (now == nullptr || (now->kind != RowKind::Choice && now->kind != RowKind::Slider)) {
+        editing_ = false;
+    }
+}
+
+bool SettingsPage::beginEdit() noexcept {
+    const SettingsRow* row = focusedRow();
+    if (row == nullptr || (row->kind != RowKind::Choice && row->kind != RowKind::Slider)) {
+        return false;
+    }
+    editing_ = true;
+    return true;
+}
+
+bool SettingsPage::endEdit() noexcept {
+    const bool was = editing_;
+    editing_ = false;
+    return was;
 }
 
 const SettingsRow* SettingsPage::focusedRow() const {
@@ -199,6 +233,7 @@ const SettingsRow* SettingsPage::focusedRow() const {
 }
 
 bool SettingsPage::move(int delta) noexcept {
+    editing_ = false;
     const std::size_t count =
         zone_ == SettingsZone::Categories ? categories_.size() : categories_[category_].rows.size();
     std::size_t& at = zone_ == SettingsZone::Categories ? category_ : row_;
@@ -219,6 +254,7 @@ bool SettingsPage::enterRows() noexcept {
     }
     zone_ = SettingsZone::Rows;
     row_ = 0;
+    editing_ = false;
     return true;
 }
 
@@ -227,6 +263,7 @@ bool SettingsPage::leaveRows() noexcept {
         return false;
     }
     zone_ = SettingsZone::Categories;
+    editing_ = false;
     return true;
 }
 
@@ -240,6 +277,7 @@ bool SettingsPage::focusCategory(std::size_t index) noexcept {
     }
     category_ = index;
     zone_ = SettingsZone::Categories;
+    editing_ = false;
     return changed;
 }
 
@@ -250,12 +288,13 @@ bool SettingsPage::focusRow(std::size_t index) noexcept {
     const bool changed = index != row_ || zone_ != SettingsZone::Rows;
     row_ = index;
     zone_ = SettingsZone::Rows;
+    editing_ = false;
     return changed;
 }
 
 SettingsLayout SettingsPage::layout(float width, float height, float dp, float topInset,
                                     float bottomInset) const {
-    return layoutSettings(width, height, dp, topInset, bottomInset, categories_.size(),
+    return layoutSettings(width, height, dp, topInset, bottomInset, categories_.size(), category_,
                           categories_[category_].rows, row_);
 }
 

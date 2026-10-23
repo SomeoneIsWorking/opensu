@@ -394,7 +394,8 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
     Rig rig{root / "persist"};
     rig.controller.open();
     rig.controller.act(Button::A);
-    expect(rig.controller.changes(), "in the rows a button changes a setting");
+    expect(rig.page.zone() == ui::SettingsZone::Rows && !rig.controller.changes(),
+           "a choice row is opened before a button changes it");
 
     rig.focus("pinDock");
     const bool pinned = rig.preferences.values().pinLibraryDock;
@@ -405,6 +406,7 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
 
     rig.focus("iconSize");
     const int size = rig.preferences.values().iconSize;
+    rig.controller.act(Button::A);
     rig.controller.act(Button::Right);
     rig.controller.act(Button::Right);
     expect(rig.onDisk().iconSize == size + 2, "right grows the icons, kept");
@@ -413,10 +415,12 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
 
     rig.focus("scrollMode");
     rig.controller.act(Button::A);
+    rig.controller.act(Button::Right);
     expect(rig.onDisk().homeMode.has_value(), "choosing a scroll mode overrides the environment");
     const config::HomeMode first = need(rig.onDisk().homeMode, "a scroll mode");
     rig.controller.act(Button::Right);
     expect(need(rig.onDisk().homeMode, "a scroll mode") != first, "and stepping changes it");
+    rig.controller.act(Button::A);
 
     rig.controller.act(Button::B);
     rig.enter("Audio");
@@ -431,6 +435,7 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
     expect(rig.onDisk().view.installedOnly, "a view filter is kept");
     rig.focus("source");
     rig.controller.act(Button::A);
+    rig.controller.act(Button::Right);
     expect(rig.onDisk().view.source == "launcher:epic", "the source choice is kept");
     expect(rig.failures.empty(), "nothing failed to save");
 }
@@ -611,6 +616,7 @@ void volumeRowsDriveTheMixer(const fs::path& root) {
     expect(rig.rowOf("volume").level == 40 && !rig.rowOf("volumeMute").on,
            "the rows read the mixer");
     rig.focus("volume");
+    rig.controller.act(Button::A);
     rig.controller.act(Button::Right);
     expect(rig.mixerState.percent == 45 && rig.rowOf("volume").level == 45,
            "right raises the volume five percent and the row follows");
@@ -649,6 +655,7 @@ void interfaceSizeCycles(const fs::path& root) {
     rig.controller.act(Button::A);
     rig.focus("uiScale");
     expect(rig.rowOf("uiScale").value == "100%", "100% by default");
+    rig.controller.act(Button::A);
     rig.controller.act(Button::Right);
     expect(rig.onDisk().uiScale == 105 && rig.rowOf("uiScale").value == "105%", "right grows it");
     rig.controller.act(Button::Left);
@@ -756,6 +763,7 @@ void mappingsAreReachedFromControls(const fs::path& root) {
                rows[1].value == "PCSX2" && rows[2].id == "mapping.steamInput",
            "the Controls page starts with the mappings and the Steam Input switch");
     rig.focus("mapping.emulator");
+    rig.controller.act(Button::A);
     rig.controller.act(Button::Right);
     expect(rig.rowOf("mapping.emulator").value == "mGBA", "Right picks the emulator");
     rig.focus("mapping.steamInput");
@@ -978,6 +986,7 @@ void wineRunnerIsPicked(const fs::path& root) {
                rig.rowOf("wine.steam").value == "Left to Steam",
            "no game has its own prefix and Steam is left alone");
     rig.focus("wine.runner");
+    rig.controller.act(Button::A);
     std::vector<fs::path> picked;
     for (int press = 0; press < 4; ++press) {
         rig.controller.act(Button::Right);

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <fstream>
 #include <iterator>
 
@@ -28,6 +29,7 @@ constexpr const char* uiSoundsKey = "uiSounds";
 constexpr const char* romFoldersKey = "romFolders";
 constexpr const char* steamRootsKey = "steamRoots";
 constexpr const char* uiScaleKey = "uiScale";
+constexpr const char* uiScaleBaseKey = "uiScaleBase";
 constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* shortcutsKey = "shortcuts";
 constexpr const char* shortcutKeysKey = "keys";
@@ -311,7 +313,22 @@ Settings Store::load() const {
     read.paths(steamRootsKey, settings.steamRoots, "using the discovered Steam roots");
     read.installFolders(installFoldersKey, settings.installFolders,
                         "every store installs where it chooses");
-    read.integer(uiScaleKey, minUiScale, maxUiScale, settings.uiScale, "using 100%");
+    // The interface size's base changed: a percent draws at 80% of what it used to, so a size
+    // saved before the change is moved up to keep the size the player chose.
+    const bool based = document.value(uiScaleBaseKey, 1) >= uiScaleBaseVersion;
+    int storedScale = -1;
+    read.integer(uiScaleKey, minUiScale, maxUiScale, storedScale, "using 100%");
+    if (storedScale >= 0) {
+        if (based) {
+            settings.uiScale = storedScale;
+        } else {
+            const float moved = static_cast<float>(storedScale) / uiScaleBase;
+            settings.uiScale =
+                std::clamp(static_cast<int>(std::lround(moved / static_cast<float>(uiScaleStep))) *
+                               uiScaleStep,
+                           minUiScale, maxUiScale);
+        }
+    }
     std::string runner;
     read.text(wineRunnerKey, runner, "using the first Wine found");
     settings.wineRunner = runner;
@@ -417,6 +434,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {steamRootsKey, listOf(settings.steamRoots)},
         {installFoldersKey, folders},
         {uiScaleKey, settings.uiScale},
+        {uiScaleBaseKey, uiScaleBaseVersion},
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},
@@ -457,6 +475,10 @@ config::Config resolved(config::Config base, const Settings& settings) {
         base.steamRoots = settings.steamRoots;
     }
     return base;
+}
+
+float uiScaleFactor(int percent) noexcept {
+    return static_cast<float>(percent) / 100.0f * uiScaleBase;
 }
 
 int steppedUiScale(int current, int step) noexcept {

@@ -73,7 +73,7 @@ void ShellApp::applyLayout() {
         shell_.setIconSize(chosen.iconSize);
     }
     shell_.setHomeMode(chosen.homeMode.value_or(settings_.homeMode));
-    shell_.setUiScale(chosen.uiScale);
+    shell_.setUiScale(settings::uiScaleFactor(chosen.uiScale));
     shell_.setKeyboardStyle(chosen.keyboardStyle);
     sounds_.setMuted(!chosen.uiSounds);
 }
@@ -944,7 +944,7 @@ ui::HintContext ShellApp::hints() const {
                                .forget = devicesScreen_.forgets()};
     }
     if (shell_.settingsPanels().page().isOpen()) {
-        return ui::HintContext{.back = true, .select = settingsScreen_.changes(), .change = true};
+        return ui::HintContext{.back = true, .select = true, .change = settingsScreen_.changes()};
     }
     if (shell_.detailsPage().isOpen() || shell_.downloadsPanel().isOpen()) {
         return ui::HintContext{.back = true, .select = true};

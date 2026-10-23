@@ -59,6 +59,21 @@ template <typename T> T stepped(const std::vector<T>& offered, T now, int step) 
 
 } // namespace
 
+std::size_t IntegrationSettings::pendingCount() const {
+    if (!pending_) {
+        return 0;
+    }
+    const settings::IntegrationChoices& now = integrations_.choices();
+    const settings::IntegrationChoices& edit = *pending_;
+    return static_cast<std::size_t>(now.steam != edit.steam) +
+           static_cast<std::size_t>(now.steamMode != edit.steamMode) +
+           static_cast<std::size_t>(now.steamPads != edit.steamPads) +
+           static_cast<std::size_t>(now.epic != edit.epic) +
+           static_cast<std::size_t>(now.gog != edit.gog) +
+           static_cast<std::size_t>(now.emulators != edit.emulators) +
+           static_cast<std::size_t>(now.plugins != edit.plugins);
+}
+
 ui::SettingsCategory IntegrationSettings::page() const {
     const settings::IntegrationChoices choices = effective();
     const settings::Integrations& now = integrations_.preview(choices);
@@ -84,9 +99,17 @@ ui::SettingsCategory IntegrationSettings::page() const {
                                             std::string{settings::label(now.steamPads)}));
         }
     }
-    page.rows.push_back(ui::makeRow(applyId, RowKind::Action, "Apply",
-                                    "Restarts the integrations you changed",
-                                    pending_ ? "Apply" : "Saved"));
+    const std::size_t waiting = pendingCount();
+    if (waiting > 0) {
+        page.rows.push_back(ui::makeRow(applyId, RowKind::Action, "Apply changes",
+                                        std::to_string(waiting) +
+                                            (waiting == 1 ? " change is" : " changes are") +
+                                            " waiting to be applied",
+                                        "Apply"));
+    } else {
+        page.rows.push_back(ui::makeRow(applyId, RowKind::Info, "Apply changes",
+                                        "Every change is already in effect", "Saved"));
+    }
     return page;
 }
 

@@ -281,6 +281,20 @@ void integrationChoices(const fs::path& root) {
     expect(odd && odd->steam && !odd->steamMode, "an unknown mode takes the default");
 }
 
+void anOldInterfaceSizeKeepsItsSize(const fs::path& root) {
+    using opensu::settings::uiScaleBase;
+    using opensu::settings::uiScaleFactor;
+    const fs::path file = root / "uiscale" / "settings.json";
+    const Store store{file};
+    expect(uiScaleFactor(100) == uiScaleBase && uiScaleFactor(0) == 0.0f,
+           "the drawn scale is the percent over the base");
+    write(file, R"({"uiScale": 80})");
+    expect(store.load().uiScale == 100,
+           "a size saved before the base changed is moved up to keep it");
+    write(file, R"({"uiScale": 80, "uiScaleBase": 2})");
+    expect(store.load().uiScale == 80, "a size written since is left alone");
+}
+
 } // namespace
 
 int main() {
@@ -294,6 +308,7 @@ int main() {
     libraryTools(root);
     installAndSources(root);
     scaleAndShortcuts(root);
+    anOldInterfaceSizeKeepsItsSize(root);
     wineChoices(root);
     integrationChoices(root);
     resolution();

@@ -20,9 +20,9 @@ class SettingsPagePainter {
     void paint(Canvas& canvas, const SettingsPage& page, const SettingsLayout& layout, Point size,
                float dp, float alpha) const;
 
-    /// Draws one row in `box`, outlined when `focused`.
+    /// Draws one row in `box`, outlined when `focused` and with its control lit when `editing`.
     void paintRow(Canvas& canvas, const SettingsRow& row, const SettingsRowBox& box, bool focused,
-                  float dp, float alpha) const;
+                  float dp, float alpha, bool editing = false) const;
 
     /// Where a settings tabs row stands: the row, its checkbox (empty without one) and its value.
     struct TabRowBox {

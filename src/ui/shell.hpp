@@ -162,8 +162,8 @@ class Shell {
 
     /// Sets how the home grid scrolls; takes effect in place.
     void setHomeMode(config::HomeMode mode);
-    /// Draws everything at `percent` of its size: 100 is the size the layouts are drawn at.
-    void setUiScale(int percent);
+    /// Draws everything at `factor` of its size; the layouts are drawn at 1.
+    void setUiScale(float factor);
     /// The on-screen keyboard style every field opens with from now on.
     void setKeyboardStyle(input::KeyboardStyle style) noexcept {
         search_.keyboard().setStyle(style);
@@ -489,7 +489,7 @@ class Shell {
     /// Before the painters that read it.
     input::Prompts prompts_;
     input::ChordSet chords_{prompts_.shortcuts};
-    int uiScale_{100};
+    float uiScale_{1.0f};
     VolumeOsd volumeOsd_;
     ChordHint chordHint_;
     GlyphTextures glyphs_;

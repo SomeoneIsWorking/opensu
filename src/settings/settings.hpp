@@ -34,6 +34,14 @@ inline constexpr int minUiScale = 70;
 inline constexpr int maxUiScale = 150;
 inline constexpr int defaultUiScale = 100;
 inline constexpr int uiScaleStep = 5;
+/// The interface size's base: a percent draws at this share of the reference size, so the default
+/// 100% is the comfortable size that 80% used to be.
+inline constexpr float uiScaleBase = 0.8f;
+/// The version of that base a settings file is written with, so an older size can be moved up.
+inline constexpr int uiScaleBaseVersion = 2;
+
+/// The scale the interface is drawn at for `percent`: `uiScaleBase` at 100%.
+[[nodiscard]] float uiScaleFactor(int percent) noexcept;
 
 /// The scale `step` choices from `current`, which A moves one forward, wrapping at either end.
 [[nodiscard]] int steppedUiScale(int current, int step) noexcept;

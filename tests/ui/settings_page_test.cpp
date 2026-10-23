@@ -81,8 +81,8 @@ void layoutFitsAndScrolls() {
     for (int i = 0; i < 30; ++i) {
         many.push_back(row("r", i == 3 ? RowKind::Slider : RowKind::Toggle));
     }
-    const SettingsLayout top = layoutSettings(1920, 1080, 2.25f, 100, 100, 5, many, 0);
-    const SettingsLayout bottom = layoutSettings(1920, 1080, 2.25f, 100, 100, 5, many, 29);
+    const SettingsLayout top = layoutSettings(1920, 1080, 2.25f, 100, 100, 5, 0, many, 0);
+    const SettingsLayout bottom = layoutSettings(1920, 1080, 2.25f, 100, 100, 5, 0, many, 29);
     expect(top.categoryCells.size() == 5 && top.rows.size() == 30, "a cell and a box each");
     expect(top.panel.y >= 100 && top.panel.bottom() <= 1080 - 100 + 0.5f, "inside the insets");
     expect(bottom.rows[29].rect.y >= bottom.panel.y &&
@@ -98,24 +98,38 @@ void layoutFitsAndScrolls() {
     expect(!top.categoryAt(top.panel.centreX(), top.panel.centreY()), "the panel is no category");
 }
 
-void categoriesShrinkToFit() {
-    const SettingsLayout roomy = layoutSettings(1920, 1080, 1.5f, 100, 100, 6, {}, 0);
-    const SettingsLayout cramped = layoutSettings(1280, 800, 2.25f, 130, 130, 6, {}, 0);
-    expect(roomy.categoryCells[0].height > cramped.categoryCells[0].height / 2.25f * 1.5f - 0.1f,
-           "with room the cells keep their size");
-    expect(cramped.categoryCells[5].bottom() <= 800 - 130 + 0.5f,
-           "a list that would run past the page is squeezed into it");
-    expect(cramped.categoryCells[0].height >= 44.0f * 2.25f * 0.5f - 0.1f, "but never below half");
-    const SettingsLayout absurd = layoutSettings(1280, 800, 2.25f, 300, 300, 6, {}, 0);
-    expect(absurd.categoryCells[0].height >= 44.0f * 2.25f * 0.5f - 0.1f,
-           "even when there is no room");
+void categoriesScrollIntoView() {
+    const SettingsLayout top = layoutSettings(1920, 1080, 2.25f, 100, 100, 40, 0, {}, 0);
+    const SettingsLayout bottom = layoutSettings(1920, 1080, 2.25f, 100, 100, 40, 39, {}, 0);
+    expect(top.categoryCells[0].height == bottom.categoryCells[0].height,
+           "the category cells keep their size");
+    expect(bottom.categoryCells[39].bottom() <= 1080.0f - 100.0f + 0.5f,
+           "the focused last one is whole inside the page");
+    expect(bottom.categoryCells[0].y < top.categoryCells[0].y, "the list scrolled up");
+    expect(!bottom.categoryAt(bottom.categoryCells[0].centreX(), bottom.categoryCells[0].centreY()),
+           "a scrolled-off category is not hit");
+    expect(top.categoryAt(top.categoryCells[0].centreX(), top.categoryCells[0].centreY()) == 0,
+           "the first is hit at the top");
+}
+
+void onlyAChoiceOrSliderOpens() {
+    SettingsPage page;
+    page.open(categories());
+    expect(page.focusRow(0) && !page.beginEdit(), "a toggle is not opened for Left and Right");
+    expect(page.focusRow(1) && page.beginEdit() && page.editing(), "a choice is");
+    expect(page.move(-1) && !page.editing(), "moving off the row closes it");
+    expect(page.focusCategory(2) && page.focusRow(0) && page.beginEdit() && page.editing(),
+           "a slider is opened too");
+    expect(page.leaveRows() && !page.editing(), "leaving the rows closes it");
+    expect(page.focusRow(0) && page.beginEdit() && page.endEdit() && !page.endEdit(),
+           "and it closes once");
 }
 
 void sliderTrackLeavesTheLabelRoom() {
     SettingsRow slider = row("s", RowKind::Slider);
     slider.low = 0;
     slider.high = 10;
-    const SettingsLayout narrow = layoutSettings(1280, 800, 2.25f, 130, 130, 1, {slider}, 0);
+    const SettingsLayout narrow = layoutSettings(1280, 800, 2.25f, 130, 130, 1, 0, {slider}, 0);
     const SettingsRowBox& box = narrow.rows[0];
     expect(box.control.width <= box.rect.width * 0.4f + 0.1f,
            "the track is at most two fifths of the row");
@@ -128,7 +142,7 @@ void sliderMapsToLevels() {
     slider.low = 1;
     slider.high = 20;
     std::vector<SettingsRow> rows{slider};
-    const SettingsLayout layout = layoutSettings(1920, 1080, 2.25f, 100, 100, 1, rows, 0);
+    const SettingsLayout layout = layoutSettings(1920, 1080, 2.25f, 100, 100, 1, 0, rows, 0);
     const Rect& track = layout.rows[0].control;
     const float y = track.centreY();
     expect(layout.levelAt(slider, 0, track.x, y) == 1, "the start is the low level");
@@ -145,7 +159,8 @@ int main() {
     focusByPointer();
     refreshKeepsFocusById();
     layoutFitsAndScrolls();
-    categoriesShrinkToFit();
+    categoriesScrollIntoView();
+    onlyAChoiceOrSliderOpens();
     sliderTrackLeavesTheLabelRoom();
     sliderMapsToLevels();
     std::printf("settings_page: all checks passed\n");

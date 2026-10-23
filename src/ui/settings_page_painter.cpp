@@ -46,8 +46,10 @@ void paintCategories(Canvas& canvas, Typeface& typeface, const SettingsPage& pag
                 return faded(rowInk, alpha);
             });
         }
-        typeface.drawCentred(canvas, page.categories()[i].label, cell.x + insetDp * dp,
-                             cell.centreY(), text, faded(palette::ink, alpha));
+        typeface.drawCentred(
+            canvas,
+            typeface.fitted(page.categories()[i].label, cell.width - 2.0f * insetDp * dp, text),
+            cell.x + insetDp * dp, cell.centreY(), text, faded(palette::ink, alpha));
     }
 }
 
@@ -91,12 +93,28 @@ void paintEnd(Canvas& canvas, Typeface& typeface, const SettingsRow& row, const 
 } // namespace
 
 void SettingsPagePainter::paintRow(Canvas& canvas, const SettingsRow& row,
-                                   const SettingsRowBox& box, bool focused, float dp,
-                                   float alpha) const {
+                                   const SettingsRowBox& box, bool focused, float dp, float alpha,
+                                   bool editing) const {
     const RoundRect bar{box.rect, rowRadiusDp * dp};
     fillRoundRect(canvas, bar, [alpha](Point, float) {
         return faded(cardFill, alpha);
     });
+    if (editing) {
+        // The row A opened for Left and Right: its control lit.
+        const float grow = 7.0f * dp;
+        const float valueRoom = box.rect.width * valueRoomShare;
+        Rect lit;
+        if (box.control.width > 0.0f) {
+            lit = Rect{box.control.x - grow, box.control.y - grow, box.control.width + 2.0f * grow,
+                       box.control.height + 2.0f * grow};
+        } else {
+            lit = Rect{box.rect.right() - insetDp * dp - valueRoom, box.rect.y + grow, valueRoom,
+                       box.rect.height - 2.0f * grow};
+        }
+        fillRoundRect(canvas, RoundRect{lit, rowRadiusDp * 0.7f * dp}, [alpha](Point, float) {
+            return faded(rowChosen, alpha);
+        });
+    }
     const TextStyle label{labelSp * dp};
     const TextStyle note{noteSp * dp};
     const float x = box.rect.x + insetDp * dp;
@@ -193,7 +211,10 @@ void SettingsPagePainter::paint(Canvas& canvas, const SettingsPage& page,
         return;
     }
     canvas.fillRect(gpu2d::Rect{0.0f, 0.0f, size.x, size.y}, faded(palette::ground, alpha));
-    paintCategories(canvas, typeface_, page, layout, dp, alpha);
+    {
+        const ScopedClip list{canvas, layout.categories};
+        paintCategories(canvas, typeface_, page, layout, dp, alpha);
+    }
     fillRoundRect(canvas, RoundRect{layout.panel, layout.radius}, [alpha](Point, float) {
         return faded(panelFill, alpha);
     });
@@ -204,8 +225,9 @@ void SettingsPagePainter::paint(Canvas& canvas, const SettingsPage& page,
         if (box.rect.bottom() < layout.panel.y || box.rect.y > layout.panel.bottom()) {
             continue;
         }
+        const bool editing = page.editing() && page.zone() == SettingsZone::Rows && i == page.row();
         paintRow(canvas, rows[i], box, page.zone() == SettingsZone::Rows && i == page.row(), dp,
-                 alpha);
+                 alpha, editing);
     }
 }
 
