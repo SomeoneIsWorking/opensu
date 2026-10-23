@@ -1092,7 +1092,7 @@ void testSteamBlockedAndFailedAreRefused() {
         std::future<Outcome> pending = startOnWorker(handoff, steamProgram.game, shell);
         const Outcome outcome =
             awaitStart(pending, "a failed Steam refuses the launch", std::chrono::seconds{10});
-        expect(!outcome.ok && outcome.failure == "Steam failed to start",
+        expect(!outcome.ok && outcome.failure == "Steam did not start (failed)",
                "a failed Steam is named");
         expect(shell.hidden.load() == 0, "the shell was never hidden");
     }

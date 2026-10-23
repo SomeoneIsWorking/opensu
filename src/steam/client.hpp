@@ -140,6 +140,10 @@ class Client final : public launch::SteamGate {
   private:
     /// Managed and Isolated: Steam in openSU's scope, sandboxed with `devices` when Isolated.
     void startOwn(Mode mode, const SandboxDevices& devices);
+    /// The start and the stop, under `moveMutex_`, so a launch and a mode switch cannot start or
+    /// stop the client at the same time.
+    void startLocked(Mode mode, const SandboxDevices& devices);
+    void shutdownLocked();
     /// Wraps `command` and `args` in Isolated's bwrap and names the proxy for its Secret Service;
     /// false, logged, when bwrap or the proxy is missing or there is no Gamescope display.
     [[nodiscard]] bool sandbox(const SandboxDevices& devices, std::string& command,
@@ -179,6 +183,8 @@ class Client final : public launch::SteamGate {
     DownloadControl downloadControl_{devTools_};
 
     mutable std::mutex mutex_;
+    /// Serialises start and shutdown, which a launch (`ensureStarted`) and a mode switch both call.
+    std::mutex moveMutex_;
     std::condition_variable changed_;
     launch::SteamState state_{launch::SteamState::Stopped};
     Mode mode_{Mode::Managed};

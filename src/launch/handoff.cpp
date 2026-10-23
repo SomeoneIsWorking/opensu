@@ -77,7 +77,7 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
                 failure = "Steam did not become ready";
                 break;
             default:
-                failure = "Steam failed to start";
+                failure = "Steam did not start (" + std::string{name(state)} + ")";
                 break;
             }
             return Begun::Failed;
