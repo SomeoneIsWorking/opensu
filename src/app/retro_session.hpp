@@ -44,16 +44,13 @@ class RetroSession {
 
     /// The running game's state when it runs on opensu-retro and answers; nothing otherwise.
     [[nodiscard]] std::optional<Status> status();
-    /// One option the running core defines.
     struct CoreOption {
         std::string key;
         std::string label;
         std::vector<std::string> values;
         std::string value;
     };
-    /// The running core's options, empty when it has none or does not answer.
     [[nodiscard]] std::vector<CoreOption> options();
-    /// Sets the core option `key` to `value`: empty when done, else why not.
     [[nodiscard]] std::string setOption(const std::string& key, const std::string& value);
     /// Each asks the runner and answers empty when it was done, else why not.
     [[nodiscard]] std::string saveState();
@@ -76,7 +73,6 @@ class RetroSession {
     /// The port the current control file announces, read once it does.
     [[nodiscard]] std::optional<std::uint16_t> port();
     [[nodiscard]] std::string post(std::string_view target, const std::string& body = {});
-    /// The body of `GET target` when the runner answers 200; nothing otherwise.
     [[nodiscard]] std::optional<std::string> get(std::string_view target);
 
     std::filesystem::path directory_;

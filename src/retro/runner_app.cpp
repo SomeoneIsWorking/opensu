@@ -118,7 +118,6 @@ struct Commanded {
     bool hidden;
 };
 
-/// The core's options as the shell lists them.
 std::string optionsJson(const CoreOptions& options) {
     nlohmann::json list = nlohmann::json::array();
     for (const CoreOptions::Option& option : options.options()) {

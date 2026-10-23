@@ -27,7 +27,6 @@ std::vector<std::string> offeredBy(const retro_core_option_value* values) {
     return offered;
 }
 
-/// A v2 definition's label: its own, else the categorized one, else the key.
 std::string labelOf(const retro_core_option_v2_definition& definition) {
     if (definition.desc != nullptr && definition.desc[0] != '\0') {
         return definition.desc;

@@ -84,7 +84,6 @@ std::optional<ControlInput> readInput(const std::string& body) {
     return input;
 }
 
-/// The body of `POST /option`: `{"key": "...", "value": "..."}`; false when malformed.
 bool readOption(const std::string& body, std::string& key, std::string& value) {
     const nlohmann::json posted = nlohmann::json::parse(body, nullptr, false);
     if (!posted.is_object() || !posted.contains("key") || !posted.contains("value") ||
