@@ -120,6 +120,54 @@ std::string RetroSession::post(std::string_view target, const std::string& body)
     return {};
 }
 
+std::optional<std::string> RetroSession::get(std::string_view target) {
+    const std::optional<std::uint16_t> at = port();
+    if (!at) {
+        return std::nullopt;
+    }
+    lucent::http::FetchResult result;
+    std::string error;
+    if (!lucent::http::get_loopback(*at, target, result, error) || result.status != 200) {
+        return std::nullopt;
+    }
+    return result.body;
+}
+
+std::vector<RetroSession::CoreOption> RetroSession::options() {
+    std::vector<CoreOption> out;
+    const std::optional<std::string> body = get("/options");
+    if (!body) {
+        return out;
+    }
+    const nlohmann::json list = nlohmann::json::parse(*body, nullptr, false);
+    if (!list.is_array()) {
+        return out;
+    }
+    for (const nlohmann::json& entry : list) {
+        if (!entry.is_object()) {
+            continue;
+        }
+        CoreOption option{.key = entry.value("key", std::string{}),
+                          .label = entry.value("label", std::string{}),
+                          .value = entry.value("value", std::string{})};
+        if (entry.contains("values") && entry["values"].is_array()) {
+            for (const nlohmann::json& value : entry["values"]) {
+                if (value.is_string()) {
+                    option.values.push_back(value.get<std::string>());
+                }
+            }
+        }
+        if (!option.key.empty()) {
+            out.push_back(std::move(option));
+        }
+    }
+    return out;
+}
+
+std::string RetroSession::setOption(const std::string& key, const std::string& value) {
+    return post("/option", nlohmann::json{{"key", key}, {"value", value}}.dump());
+}
+
 std::string RetroSession::saveState() {
     return post("/state/save");
 }

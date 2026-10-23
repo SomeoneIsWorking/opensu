@@ -182,6 +182,13 @@ lucent::http::FetchResult post(std::uint16_t port, const char* target,
     return result;
 }
 
+lucent::http::FetchResult get(std::uint16_t port, const char* target) {
+    lucent::http::FetchResult result;
+    std::string error;
+    expect(lucent::http::get_loopback(port, target, result, error), "the GET is answered");
+    return result;
+}
+
 /// Waits until the runner has run `frames` frames.
 void awaitFrame(std::uint16_t port, std::uint64_t frames) {
     const auto until = std::chrono::steady_clock::now() + std::chrono::seconds{30};
@@ -265,6 +272,16 @@ void statelessCoreRefuses(const Paths& paths, const std::string& stateless) {
            "Guide is not the control pad's");
     expect(post(port, "/input", R"({"left": [2, 0]})").status == 400,
            "a stick past its travel is refused");
+    const lucent::http::FetchResult listed = get(port, "/options");
+    expect(listed.status == 200 && listed.body.find("\"fake_pattern\"") != std::string::npos &&
+               listed.body.find("\"bars\"") != std::string::npos,
+           "the core's options are listed");
+    expect(post(port, "/option", R"({"key": "fake_pattern", "value": "yellow"})").status == 200,
+           "a core option is set");
+    expect(get(port, "/options").body.find("\"yellow\"") != std::string::npos,
+           "the new value is kept");
+    expect(post(port, "/option", R"({"key": "fake_pattern", "value": "nope"})").status == 409,
+           "an unoffered value is refused");
     awaitFrame(port, status(port)["frame"].get<std::uint64_t>() + 5);
     kill(child, SIGTERM);
     const Status ended = wait(child);

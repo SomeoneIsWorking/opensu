@@ -21,6 +21,8 @@ constexpr std::string_view shaderRowId = "tabs.shader";
 constexpr std::string_view frameGenRowId = "tabs.framegen.";
 constexpr std::string_view frameGenHeadingId = "tabs.framegen";
 constexpr std::string_view choiceRowId = "tabs.choice.";
+constexpr std::string_view coreRowId = "tabs.core.";
+constexpr std::string_view coreChoiceRowId = "tabs.coreChoice.";
 constexpr std::string_view title = "Game settings";
 constexpr std::string_view crumb = " › ";
 
@@ -51,6 +53,9 @@ std::string keyOfRow(std::string_view id) {
     if (id.starts_with(frameGenRowId)) {
         return std::string{id.substr(frameGenRowId.size())};
     }
+    if (id.starts_with(coreRowId)) {
+        return std::string{id.substr(coreRowId.size())};
+    }
     return {};
 }
 
@@ -70,6 +75,10 @@ void GameSettingsPage::open(const library::Game& game, std::function<void()> bac
     keys_ = library::layerKeysOf(game);
     video_ = builtInOf(game, downloads_.setup().catalog) != nullptr;
     frameGeneration_.findDll();
+    coreOptions_.clear();
+    if (retro_.status()) {
+        coreOptions_ = retro_.options();
+    }
     back_ = std::move(back);
     tab_ = Tab::Game;
     listing_.clear();
@@ -91,6 +100,9 @@ std::vector<GameSettingsPage::Tab> GameSettingsPage::tabs() const {
     if (!keys_.system.empty()) {
         shown.push_back(Tab::System);
     }
+    if (!coreOptions_.empty()) {
+        shown.push_back(Tab::Core);
+    }
     shown.push_back(Tab::Game);
     return shown;
 }
@@ -101,6 +113,8 @@ Layer GameSettingsPage::layerOf(Tab tab) const {
         break;
     case Tab::System:
         return Layer{Layer::Kind::System, keys_.system};
+    case Tab::Core:
+        return Layer{Layer::Kind::Emulator, keys_.emulator};
     case Tab::Game:
         return Layer{Layer::Kind::Game, keys_.game};
     }
@@ -117,6 +131,8 @@ std::string GameSettingsPage::labelOf(Tab tab) const {
         return "Global";
     case Tab::System:
         return library::roms::systemLabel(keys_.system);
+    case Tab::Core:
+        return layerName(Layer{Layer::Kind::Emulator, keys_.emulator}, downloads_.setup().catalog);
     case Tab::Game:
         break;
     }
@@ -171,6 +187,9 @@ GameSettingsPage::settingRow(const std::string& id, std::string_view label, std:
 }
 
 std::vector<ui::TabRow> GameSettingsPage::tabRows() const {
+    if (tab_ == Tab::Core) {
+        return coreRows();
+    }
     std::vector<ui::TabRow> rows;
     if (video_) {
         for (const settings::ChoiceKey& video : settings::videoKeys) {
@@ -187,6 +206,16 @@ std::vector<ui::TabRow> GameSettingsPage::tabRows() const {
     }
     if (frameGeneration_.available()) {
         addFrameGenRows(rows);
+    }
+    return rows;
+}
+
+std::vector<ui::TabRow> GameSettingsPage::coreRows() const {
+    std::vector<ui::TabRow> rows;
+    rows.reserve(coreOptions_.size());
+    for (const RetroSession::CoreOption& option : coreOptions_) {
+        rows.push_back(plain(ui::makeRow(std::string{coreRowId} + option.key, RowKind::Action,
+                                         option.label, "", option.value)));
     }
     return rows;
 }
@@ -215,6 +244,20 @@ void GameSettingsPage::addFrameGenRows(std::vector<ui::TabRow>& rows) const {
 }
 
 std::vector<ui::TabRow> GameSettingsPage::listRows() const {
+    if (tab_ == Tab::Core) {
+        std::vector<ui::TabRow> rows;
+        const auto option =
+            std::ranges::find(coreOptions_, listing_, &RetroSession::CoreOption::key);
+        if (option == coreOptions_.end()) {
+            return rows;
+        }
+        rows.reserve(option->values.size());
+        for (const std::string& value : option->values) {
+            rows.push_back(plain(ui::makeRow(std::string{coreChoiceRowId} + value, RowKind::Action,
+                                             value, "", value == option->value ? "Chosen" : "")));
+        }
+        return rows;
+    }
     const settings::SettingLayers& layers = gameSettings_.layers();
     const Layer layer = layerOf(tab_);
     std::vector<ui::TabRow> rows;
@@ -295,6 +338,28 @@ void GameSettingsPage::toggleOverride(std::string_view key, const std::string& f
 }
 
 void GameSettingsPage::pick(const std::string& id) {
+    if (tab_ == Tab::Core) {
+        const std::string_view row{id};
+        if (!row.starts_with(coreChoiceRowId)) {
+            return;
+        }
+        const std::string back = std::string{coreRowId} + listing_;
+        const std::string refused =
+            retro_.setOption(listing_, std::string{row.substr(coreChoiceRowId.size())});
+        if (!refused.empty()) {
+            hooks_.say(refused, true);
+        }
+        coreOptions_ = retro_.options();
+        listing_.clear();
+        show();
+        const std::vector<ui::TabRow>& rows = page_.view().rows;
+        const auto at = std::ranges::find_if(rows, [&back](const ui::TabRow& each) {
+            return each.row.id == back;
+        });
+        page_.focusRow(at == rows.end() ? 0 : static_cast<std::size_t>(at - rows.begin()),
+                       TabColumn::Value);
+        return;
+    }
     const Layer layer = layerOf(tab_);
     settings::SettingLayers& layers = gameSettings_.layers();
     if (picker_.isOpen()) {

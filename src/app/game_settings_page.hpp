@@ -1,14 +1,14 @@
 // game_settings_page — the game settings tabs, from the quick menu over the running game or from
-// its details page: Global, its console (the System layer; ROM games only) and Game. A game on a
-// built-in core has Aspect, Integer scale, Sampling, Filter and Shader preset; every game has the
-// Frame generation group where the platform has frame generation (`FrameGeneration::available`):
-// Mode, then the values the mode uses, or only why it cannot be set when the player's
-// `Lossless.dll` is not found. Global's are plain values.
+// its details page: Global, its console (the System layer; ROM games only), the running core
+// (Core; its own options) and Game. A game on a built-in core has Aspect, Integer scale, Sampling,
+// Filter and Shader preset; every game has the Frame generation group where the platform has frame
+// generation (`FrameGeneration::available`): Mode, then the values the mode uses, or only why it
+// cannot be set when the player's `Lossless.dll` is not found. Global's are plain values.
 // On the System and Game tabs a value is inherited until its Override is ticked, which copies what
 // it inherited into that layer; unticking deletes the key there. A value opens its list of choices
 // (the preset picker for the shader). Every change is written to the store at once and handed to
-// `changed`, which applies it to the running game. The core layer is no tab: Settings › Emulators
-// sets it, and here it shows only as where a value comes from.
+// `changed`, which applies it to the running game. The Core tab lists the running core's options
+// and changes them live through the runner; it is there only while the game runs.
 #pragma once
 
 #include <cstddef>
@@ -23,6 +23,7 @@
 #include "game_settings.hpp"
 #include "gamepad/event.hpp"
 #include "library/game.hpp"
+#include "retro_session.hpp"
 #include "settings/setting_layers.hpp"
 #include "shader_preset_picker.hpp"
 #include "ui/settings_tabs.hpp"
@@ -40,17 +41,19 @@ class GameSettingsPage {
     struct Hooks {
         /// A value of `game`'s layers changed and was saved.
         std::function<void(const library::Game& game)> changed;
+        /// Tells the player something; `error` marks a refusal.
+        std::function<void(const std::string& text, bool error)> say;
     };
 
     /// The tabs, in the order the strip shows them.
-    enum class Tab : std::uint8_t { Global, System, Game };
+    enum class Tab : std::uint8_t { Global, System, Core, Game };
 
     GameSettingsPage(ui::SettingsTabs& page, GameSettings& gameSettings,
                      const EmulatorDownloads& downloads, FrameGeneration& frameGeneration,
-                     audio::SdlSoundPlayer& sounds, Hooks hooks)
+                     RetroSession& retro, audio::SdlSoundPlayer& sounds, Hooks hooks)
         : page_{page}, gameSettings_{gameSettings}, downloads_{downloads},
-          frameGeneration_{frameGeneration}, picker_{downloads.shaderPack()}, sounds_{sounds},
-          hooks_{std::move(hooks)} {
+          frameGeneration_{frameGeneration}, retro_{retro}, picker_{downloads.shaderPack()},
+          sounds_{sounds}, hooks_{std::move(hooks)} {
     }
 
     /// Whether `game` has anything to set here.
@@ -76,10 +79,12 @@ class GameSettingsPage {
   private:
     [[nodiscard]] settings::Layer layerOf(Tab tab) const;
     [[nodiscard]] std::vector<Tab> tabs() const;
-    /// The strip's name for `tab`: "Global", the console's, "Game".
+    /// The strip's name for `tab`: "Global", the console's, the core's, "Game".
     [[nodiscard]] std::string labelOf(Tab tab) const;
     [[nodiscard]] ui::TabsView view() const;
     [[nodiscard]] std::vector<ui::TabRow> tabRows() const;
+    /// The Core tab's rows: the running core's options and their current values.
+    [[nodiscard]] std::vector<ui::TabRow> coreRows() const;
     /// The Frame generation group: its heading, then Mode and the values the mode uses.
     void addFrameGenRows(std::vector<ui::TabRow>& rows) const;
     [[nodiscard]] std::vector<ui::TabRow> listRows() const;
@@ -102,6 +107,7 @@ class GameSettingsPage {
     GameSettings& gameSettings_;
     const EmulatorDownloads& downloads_;
     FrameGeneration& frameGeneration_;
+    RetroSession& retro_;
     ShaderPresetPicker picker_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
@@ -111,6 +117,8 @@ class GameSettingsPage {
     Tab tab_{Tab::Game};
     /// The game runs on a built-in core, so it has the video rows.
     bool video_{false};
+    /// The running core's options, read when the page opened and after a change.
+    std::vector<RetroSession::CoreOption> coreOptions_;
     /// The key whose choices are listed; empty when none is.
     std::string listing_;
 };

@@ -82,9 +82,11 @@ void QuickMenuController::addGameSettingsRow(std::vector<SettingsRow>& rows) {
     if (!video && !frameGeneration) {
         return;
     }
-    const std::string note = video && frameGeneration ? "Aspect, filter, shader, frame generation"
-                             : video                  ? "Aspect, filter, shader"
-                                                      : "Frame generation";
+    const std::string_view videoNote = "Aspect, filter, shader, core options";
+    const std::string note = video && frameGeneration
+                                 ? std::string{videoNote} + ", frame generation"
+                             : video ? std::string{videoNote}
+                                     : "Frame generation";
     rows.push_back(ui::makeRow(gameSettingsId, RowKind::Action, "Game settings", note, "Open"));
 }
 

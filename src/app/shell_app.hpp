@@ -726,16 +726,21 @@ class ShellApp final : private PointerHost {
                                        return frameGeneration_.available();
                                    }}};
     /// The game settings tabs, from the quick menu over a running game or over the details page.
-    GameSettingsPage gameSettingsPage_{shell_.guidePanels().tabs(),
-                                       gameSettings_,
-                                       emulatorDownloads_,
-                                       frameGeneration_,
-                                       sounds_,
-                                       GameSettingsPage::Hooks{[this](const library::Game& game) {
-                                           details_.refresh();
-                                           applyVideo(game);
-                                           frameGeneration_.changed();
-                                       }}};
+    GameSettingsPage gameSettingsPage_{
+        shell_.guidePanels().tabs(),
+        gameSettings_,
+        emulatorDownloads_,
+        frameGeneration_,
+        retro_,
+        sounds_,
+        GameSettingsPage::Hooks{[this](const library::Game& game) {
+                                    details_.refresh();
+                                    applyVideo(game);
+                                    frameGeneration_.changed();
+                                },
+                                [this](const std::string& text, bool isError) {
+                                    shell_.setToast(text, isError);
+                                }}};
     /// After shell_ and the host it drives.
     PointerRouter pointer_{shell_.inputDevice(), *this};
     /// Held directions, from a pad or the keyboard, repeat on one schedule.

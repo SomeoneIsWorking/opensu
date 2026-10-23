@@ -9,6 +9,7 @@
 namespace {
 
 using opensu::retro::CoreEnvironment;
+using opensu::retro::CoreOptions;
 using opensu::test::expect;
 
 bool same(const char* a, const char* b) {
@@ -150,6 +151,24 @@ void definitions() {
     expect(environment.answer(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_V2_INTL, &v2intl) &&
                environment.options().size() == 1,
            "v2 international options are taken");
+    const CoreOptions::Option& listed = environment.options().options().front();
+    expect(listed.key == "core_v2" && listed.label == "V2" && listed.current == "off" &&
+               listed.values.size() == 2,
+           "the option's label, values and current value are listed");
+    expect(environment.options().set("core_v2", "on") &&
+               !environment.options().set("core_v2", "on"),
+           "setting an option changes it once");
+    bool updated = false;
+    expect(environment.answer(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated,
+           "the core is told its variables changed");
+    expect(environment.answer(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && !updated,
+           "and told once");
+    query = {"core_v2", nullptr};
+    expect(environment.answer(RETRO_ENVIRONMENT_GET_VARIABLE, &query) && same(query.value, "on"),
+           "the core reads the new value");
+    expect(!environment.options().set("core_v2", "maybe") &&
+               !environment.options().set("nope", "on"),
+           "an offered value on a known key is required");
 }
 
 void avChanges() {
