@@ -84,6 +84,18 @@ std::optional<ControlInput> readInput(const std::string& body) {
     return input;
 }
 
+/// The body of `POST /option`: `{"key": "...", "value": "..."}`; false when malformed.
+bool readOption(const std::string& body, std::string& key, std::string& value) {
+    const nlohmann::json posted = nlohmann::json::parse(body, nullptr, false);
+    if (!posted.is_object() || !posted.contains("key") || !posted.contains("value") ||
+        !posted["key"].is_string() || !posted["value"].is_string()) {
+        return false;
+    }
+    key = posted["key"].get<std::string>();
+    value = posted["value"].get<std::string>();
+    return !key.empty();
+}
+
 } // namespace
 
 ControlServer::ControlServer(std::filesystem::path file, std::string core, std::string rom)
@@ -196,6 +208,9 @@ lucent::http::Response ControlServer::run(ControlRequest request) {
     if (answer.status == 200 && !answer.png.empty()) {
         return lucent::http::Response::binary(200, "OK", "image/png", answer.png);
     }
+    if (answer.status == 200 && !answer.json.empty()) {
+        return lucent::http::Response::json(200, "OK", answer.json);
+    }
     return text(answer.status, reasonPhrase(answer.status),
                 answer.status == 200 ? std::string{"done"} : answer.reason);
 }
@@ -228,7 +243,17 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         if (request.method != "GET") {
             return text(405, "Method Not Allowed", "GET only");
         }
-        return run(ControlRequest{.command = ControlCommand::Frame, .video = {}});
+        ControlRequest command;
+        command.command = ControlCommand::Frame;
+        return run(std::move(command));
+    }
+    if (path == "/options") {
+        if (request.method != "GET") {
+            return text(405, "Method Not Allowed", "GET only");
+        }
+        ControlRequest command;
+        command.command = ControlCommand::Options;
+        return run(std::move(command));
     }
     ControlRequest command;
     if (path == "/state/save") {
@@ -239,6 +264,8 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         command.command = ControlCommand::Reset;
     } else if (path == "/video") {
         command.command = ControlCommand::Video;
+    } else if (path == "/option") {
+        command.command = ControlCommand::Option;
     } else {
         return text(404, "Not Found", "no such route");
     }
@@ -253,6 +280,9 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
             return text(400, "Bad Request", error);
         }
         command.video = std::move(*video);
+    } else if (command.command == ControlCommand::Option &&
+               !readOption(request.body, command.key, command.value)) {
+        return text(400, "Bad Request", R"(expected {"key": "...", "value": "..."})");
     }
     return run(std::move(command));
 }

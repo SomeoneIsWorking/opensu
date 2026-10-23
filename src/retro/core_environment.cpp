@@ -102,7 +102,7 @@ bool CoreEnvironment::answer(unsigned command, void* data) {
         return variable->value != nullptr;
     }
     case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
-        *static_cast<bool*>(data) = false;
+        *static_cast<bool*>(data) = options_.takeUpdated();
         return true;
     case RETRO_ENVIRONMENT_SET_GEOMETRY:
         geometry_ = *static_cast<const retro_game_geometry*>(data);

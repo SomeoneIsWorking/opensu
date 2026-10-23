@@ -9,6 +9,7 @@
 #include <utility>
 
 #include <SDL3/SDL_scancode.h>
+#include <nlohmann/json.hpp>
 
 #include "audio_output.hpp"
 #include "audio_sink.hpp"
@@ -113,8 +114,21 @@ struct Commanded {
     Core& core;
     SaveState& state;
     Presenter& presenter;
+    CoreOptions& options;
     bool hidden;
 };
+
+/// The core's options as the shell lists them.
+std::string optionsJson(const CoreOptions& options) {
+    nlohmann::json list = nlohmann::json::array();
+    for (const CoreOptions::Option& option : options.options()) {
+        list.push_back(nlohmann::json{{"key", option.key},
+                                      {"label", option.label},
+                                      {"values", option.values},
+                                      {"value", option.current}});
+    }
+    return list.dump();
+}
 
 ControlAnswer changeVideo(Presenter& presenter, const settings::VideoSettings& video) {
     try {
@@ -142,6 +156,16 @@ ControlAnswer perform(const ControlRequest& request, const Commanded& on) {
         break;
     case ControlCommand::Video:
         answer = changeVideo(on.presenter, request.video);
+        break;
+    case ControlCommand::Options:
+        answer.json = optionsJson(on.options);
+        break;
+    case ControlCommand::Option:
+        if (!on.options.set(request.key, request.value)) {
+            answer = {409, "no such core option or value"};
+            break;
+        }
+        answer.json = optionsJson(on.options);
         break;
     case ControlCommand::Frame: {
         if (!on.hidden) {
@@ -293,7 +317,8 @@ RunnerExit RunnerApp::run() {
                 holdControlPad(joypad, *held);
             }
             control->serve([&](const ControlRequest& request) {
-                return perform(request, Commanded{*core, state, *presenter, options_.hidden});
+                return perform(request, Commanded{*core, state, *presenter, environment.options(),
+                                                  options_.hidden});
             });
         }
         core->run();

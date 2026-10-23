@@ -27,27 +27,38 @@ std::vector<std::string> offeredBy(const retro_core_option_value* values) {
     return offered;
 }
 
+/// A v2 definition's label: its own, else the categorized one, else the key.
+std::string labelOf(const retro_core_option_v2_definition& definition) {
+    if (definition.desc != nullptr && definition.desc[0] != '\0') {
+        return definition.desc;
+    }
+    if (definition.desc_categorized != nullptr && definition.desc_categorized[0] != '\0') {
+        return definition.desc_categorized;
+    }
+    return definition.key;
+}
+
 } // namespace
 
-void CoreOptions::define(const std::string& key, const std::string& fallback,
-                         const std::vector<std::string>& offered) {
+void CoreOptions::define(const std::string& key, const std::string& label,
+                         const std::string& fallback, const std::vector<std::string>& offered) {
     const auto chosen = chosen_.find(key);
-    if (chosen == chosen_.end()) {
-        values_.insert_or_assign(key, fallback);
-        return;
-    }
-    if (std::ranges::find(offered, chosen->second) == offered.end()) {
+    const bool keep =
+        chosen != chosen_.end() && std::ranges::find(offered, chosen->second) != offered.end();
+    if (chosen != chosen_.end() && !keep) {
         lucent::warn("retro", "core option {} has no value {}; keeping {}", key, chosen->second,
                      fallback);
-        values_.insert_or_assign(key, fallback);
-        return;
+    } else if (keep) {
+        lucent::info("retro", "core option {} = {}", key, chosen->second);
     }
-    lucent::info("retro", "core option {} = {}", key, chosen->second);
-    values_.insert_or_assign(key, chosen->second);
+    options_.push_back(Option{.key = key,
+                              .label = label.empty() ? key : label,
+                              .values = offered,
+                              .current = keep ? chosen->second : fallback});
 }
 
 void CoreOptions::defineVariables(const retro_variable* variables) {
-    values_.clear();
+    options_.clear();
     for (const retro_variable* variable = variables;
          variable != nullptr && variable->key != nullptr; ++variable) {
         const std::string_view text = variable->value != nullptr ? variable->value : "";
@@ -63,31 +74,54 @@ void CoreOptions::defineVariables(const retro_variable* variables) {
             offered.emplace_back(choices.substr(at, bar - at));
             at = bar + 1;
         }
-        define(variable->key, offered.front(), offered);
+        define(variable->key, std::string{text.substr(0, separator)}, offered.front(), offered);
     }
 }
 
 void CoreOptions::defineDefinitions(const retro_core_option_definition* definitions) {
-    values_.clear();
+    options_.clear();
     for (const retro_core_option_definition* definition = definitions;
          definition != nullptr && definition->key != nullptr; ++definition) {
-        define(definition->key, defaultOf(definition->default_value, definition->values),
+        define(definition->key, definition->desc != nullptr ? definition->desc : "",
+               defaultOf(definition->default_value, definition->values),
                offeredBy(definition->values));
     }
 }
 
 void CoreOptions::defineV2(const retro_core_options_v2& options) {
-    values_.clear();
+    options_.clear();
     for (const retro_core_option_v2_definition* definition = options.definitions;
          definition != nullptr && definition->key != nullptr; ++definition) {
-        define(definition->key, defaultOf(definition->default_value, definition->values),
+        define(definition->key, labelOf(*definition),
+               defaultOf(definition->default_value, definition->values),
                offeredBy(definition->values));
     }
 }
 
 const char* CoreOptions::value(std::string_view key) const {
-    const auto found = values_.find(key);
-    return found != values_.end() ? found->second.c_str() : nullptr;
+    for (const Option& option : options_) {
+        if (option.key == key) {
+            return option.current.c_str();
+        }
+    }
+    return nullptr;
+}
+
+bool CoreOptions::set(std::string_view key, std::string_view value) {
+    for (Option& option : options_) {
+        if (option.key != key) {
+            continue;
+        }
+        if (std::ranges::find(option.values, value) == option.values.end() ||
+            option.current == value) {
+            return false;
+        }
+        option.current = value;
+        updated_ = true;
+        lucent::info("retro", "core option {} = {}", key, value);
+        return true;
+    }
+    return false;
 }
 
 } // namespace opensu::retro

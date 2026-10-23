@@ -31,6 +31,10 @@ enum class ControlCommand : std::uint8_t {
     Video,
     /// The last image shown, as PNG; hidden runs only.
     Frame,
+    /// The core's options and their current values.
+    Options,
+    /// Set the core option `ControlRequest::key` to `ControlRequest::value`.
+    Option,
 };
 
 /// A command for the frame loop and what it carries.
@@ -38,6 +42,9 @@ struct ControlRequest {
     ControlCommand command{};
     /// `Video`'s settings.
     settings::VideoSettings video;
+    /// `Option`'s key and value.
+    std::string key;
+    std::string value;
 };
 
 /// What a command came to: an HTTP status and, unless it is 200, the reason.
@@ -48,6 +55,8 @@ struct ControlAnswer {
     bool hasState{};
     /// `Frame`'s image.
     std::string png{};
+    /// `Options`' or `Option`'s answer, as JSON.
+    std::string json{};
 };
 
 /// What `POST /input` holds on the control pad until the next one: its buttons and sticks.

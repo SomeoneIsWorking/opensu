@@ -29,6 +29,9 @@ class CoreEnvironment {
     [[nodiscard]] const CoreOptions& options() const {
         return options_;
     }
+    [[nodiscard]] CoreOptions& options() noexcept {
+        return options_;
+    }
     [[nodiscard]] HardwareRender& hardware() {
         return hardware_;
     }

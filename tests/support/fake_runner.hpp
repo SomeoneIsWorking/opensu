@@ -64,6 +64,21 @@ class FakeRunner {
             const std::lock_guard lock{mutex_};
             calls_.push_back(path);
         }
+        if (path == "/options") {
+            const nlohmann::json options = nlohmann::json::array({{{"key", "mgba_color"},
+                                                                   {"label", "Color correction"},
+                                                                   {"values", {"OFF", "GBA"}},
+                                                                   {"value", optionValue_}}});
+            return lucent::http::Response::json(200, "OK", options.dump());
+        }
+        if (path == "/option") {
+            const nlohmann::json posted = nlohmann::json::parse(request.body, nullptr, false);
+            if (!posted.is_object()) {
+                return lucent::http::Response::text(400, "Bad Request", "expected {key, value}");
+            }
+            optionValue_ = posted.value("value", optionValue_);
+            return lucent::http::Response::text(200, "OK", "done");
+        }
         if (path == "/state/save" && !refusal_.empty()) {
             return lucent::http::Response::text(409, "Conflict", refusal_);
         }
@@ -78,6 +93,7 @@ class FakeRunner {
     }
 
     std::string refusal_;
+    std::string optionValue_{"OFF"};
     mutable std::mutex mutex_;
     std::vector<std::string> calls_;
     lucent::http::Server server_;
