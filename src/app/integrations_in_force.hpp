@@ -40,7 +40,8 @@ class IntegrationsInForce {
         return settings::Integrations::modesOffered(loginSession_, built_);
     }
     /// What `choices` would put in force, for showing an edit before it is kept.
-    [[nodiscard]] settings::Integrations preview(const settings::IntegrationChoices& choices) const {
+    [[nodiscard]] settings::Integrations
+    preview(const settings::IntegrationChoices& choices) const {
         return settings::Integrations::inForce(choices, loginSession_, built_);
     }
 

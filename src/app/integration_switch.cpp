@@ -87,10 +87,8 @@ void IntegrationSwitch::moveSteam() {
         mode == steam::Client::Mode::Isolated && !all && targets_.steam.startsClient();
     {
         const std::lock_guard lock{steamMutex_};
-        steamRequest_ = SteamMove{.serial = steamRequest_.serial + 1,
-                                  .mode = mode,
-                                  .all = all,
-                                  .keepsPads = keepsPads};
+        steamRequest_ = SteamMove{
+            .serial = steamRequest_.serial + 1, .mode = mode, .all = all, .keepsPads = keepsPads};
     }
     steamWake_.notify_all();
 }
@@ -110,8 +108,8 @@ void IntegrationSwitch::steamLoop(const std::stop_token& stop) {
         lock.unlock();
         targets_.steam.shutdown();
         steam::SandboxDevices devices{.allInput = move.all};
-        devices.inputNodes = targets_.controllers.keepVirtualPads(
-            move.keepsPads ? steam::isolatedPadSlots : 0);
+        devices.inputNodes =
+            targets_.controllers.keepVirtualPads(move.keepsPads ? steam::isolatedPadSlots : 0);
         if (move.mode) {
             targets_.steam.start(*move.mode, devices);
         }

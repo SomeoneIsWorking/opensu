@@ -1,8 +1,8 @@
 // integration_settings — Settings > Integrations: ROMs and libretro as always on, a switch for each
 // opt-in integration, Steam's mode while Steam is on and the build's client has more than one
-// (Normal, Managed and Isolated on a Linux desktop; no Normal in a login session) and, for Isolated,
-// which controllers its sandbox gives Steam. Edits are staged and kept by the Apply row, so moving
-// through the choices does not restart an integration in the middle of the screen.
+// (Normal, Managed and Isolated on a Linux desktop; no Normal in a login session) and, for
+// Isolated, which controllers its sandbox gives Steam. Edits are staged and kept by the Apply row,
+// so moving through the choices does not restart an integration in the middle of the screen.
 #pragma once
 
 #include <functional>
