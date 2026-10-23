@@ -24,12 +24,13 @@ void QuickMenuPainter::paint(Canvas& canvas, const QuickMenu& menu, float width,
             if (box.rect.bottom() < frame.content.y || box.rect.y > frame.content.bottom()) {
                 continue;
             }
-            rows_.paintRow(canvas, menu.rows()[i], box, i == menu.focus(), dp, 1.0f);
+            rows_.paintRow(canvas, menu.rows()[i], box, i == menu.focus(), dp, 1.0f,
+                           menu.editing() && i == menu.focus());
         }
     }
-    // A changes or selects, B closes.
+    // A changes a switch outright or the row A opened; B closes.
     const SettingsRow* focused = menu.focusedRow();
-    const bool changes = focused != nullptr && focused->kind != RowKind::Info;
+    const bool changes = menu.editing() || (focused != nullptr && focused->kind == RowKind::Toggle);
     chrome_.paintHints(canvas, {{"A", changes ? "Change" : "Select"}, {"B", "Close"}},
                        frame.heading.x, height, frame.padding, dp);
 }

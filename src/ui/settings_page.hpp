@@ -30,6 +30,26 @@ enum class RowKind : std::uint8_t {
     Info,
 };
 
+/// Whether A opens the row of `kind` so Left and Right can change it: a choice or a slider.
+[[nodiscard]] bool rowOpens(RowKind kind) noexcept;
+
+/// Whether a row is open for Left and Right: the state A sets and A or B clears. The Settings
+/// screen, the Devices page and the quick menu each keep one, so a row behaves the same wherever
+/// it is.
+class RowEditing {
+  public:
+    [[nodiscard]] bool open() const noexcept {
+        return open_;
+    }
+    /// Opens a row of `kind`; false when it is not one Left and Right change.
+    bool begin(RowKind kind) noexcept;
+    /// Closes the open row; false when none was open.
+    bool end() noexcept;
+
+  private:
+    bool open_{false};
+};
+
 /// One line of a category.
 struct SettingsRow {
     /// The controller's name for the row, stable across refreshes.
@@ -146,7 +166,7 @@ class SettingsPage {
     }
     /// Whether A opened the focused choice or slider for Left and Right to change.
     [[nodiscard]] bool editing() const noexcept {
-        return editing_;
+        return editing_.open();
     }
     /// The focused row, or null in the list of categories or when the category has none.
     [[nodiscard]] const SettingsRow* focusedRow() const;
@@ -178,7 +198,7 @@ class SettingsPage {
     std::size_t category_{0};
     std::size_t row_{0};
     SettingsZone zone_{SettingsZone::Categories};
-    bool editing_{false};
+    RowEditing editing_;
     bool open_{false};
 };
 

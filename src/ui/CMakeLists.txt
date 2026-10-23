@@ -9,7 +9,7 @@ target_compile_options(opensu_grid PRIVATE -Wall -Wextra -Wpedantic)
 add_library(opensu_hud_model STATIC top_bar_metrics.cpp top_bar_layout.cpp corner_hints.cpp clock_text.cpp battery_icon.cpp guide_menu.cpp quick_menu.cpp launch_panel.cpp
     section_view.cpp mode_chooser.cpp dock_metrics.cpp dock_motion.cpp card_border.cpp
     search_panel.cpp on_screen_keyboard.cpp context_menu.cpp panel_fade.cpp breadcrumbs.cpp details_page.cpp
-    settings_page.cpp folder_chooser.cpp volume_osd.cpp chord_hint.cpp session_dialog.cpp integration_chooser.cpp
+    settings_page.cpp row_activation.cpp folder_chooser.cpp volume_osd.cpp chord_hint.cpp session_dialog.cpp integration_chooser.cpp
     downloads_page.cpp mapping_board_layout.cpp mapping_page.cpp cover_picker.cpp)
 add_library(opensu::hud_model ALIAS opensu_hud_model)
 target_include_directories(opensu_hud_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

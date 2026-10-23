@@ -85,11 +85,25 @@ void focusedRowScrollsIntoView() {
     expect(end.rows[0].rect.y < top.rows[0].rect.y, "the rows moved up to show it");
 }
 
+void theOpenRowSurvivesARefreshAndMovingOffClosesIt() {
+    QuickMenu menu;
+    menu.open(rows());
+    expect(!menu.editing() && menu.beginEdit() && menu.editing(), "A opens the first row");
+    menu.refresh(rows());
+    expect(menu.editing(), "a refresh keeps it open");
+    menu.move(1);
+    expect(!menu.editing() && !menu.beginEdit(), "moving to a switch closes it and cannot reopen");
+    menu.focusRow(2);
+    expect(menu.beginEdit() && menu.endEdit() && !menu.editing() && !menu.endEdit(),
+           "a choice opens on the focused row, and closes once");
+}
+
 } // namespace
 
 int main() {
     focusMovesAndStops();
     refreshKeepsTheFocusedRow();
+    theOpenRowSurvivesARefreshAndMovingOffClosesIt();
     layoutIsOnTheRight();
     focusedRowScrollsIntoView();
     std::printf("quick_menu: all checks passed\n");

@@ -57,6 +57,14 @@ class QuickMenu {
         return focus_;
     }
     [[nodiscard]] const SettingsRow* focusedRow() const;
+    /// Whether A opened the focused choice or slider for Left and Right to change.
+    [[nodiscard]] bool editing() const noexcept {
+        return editing_.open();
+    }
+    /// Opens the focused choice or slider for Left and Right; false when the row is not one.
+    bool beginEdit() noexcept;
+    /// Closes the open row; false when none was open.
+    bool endEdit() noexcept;
     /// Moves focus `delta` rows, stopping at the ends; reports whether it moved.
     bool move(int delta) noexcept;
     /// Focuses row `index`; reports whether focus changed.
@@ -65,6 +73,7 @@ class QuickMenu {
   private:
     std::vector<SettingsRow> rows_;
     std::size_t focus_{0};
+    RowEditing editing_;
     bool open_{false};
 };
 

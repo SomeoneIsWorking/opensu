@@ -68,6 +68,7 @@ QuickLayout layoutQuick(const PanelFrame& frame, const PanelChrome& chrome,
 void QuickMenu::open(std::vector<SettingsRow> rows) {
     rows_ = std::move(rows);
     focus_ = 0;
+    editing_.end();
     open_ = true;
 }
 
@@ -83,16 +84,31 @@ void QuickMenu::refresh(std::vector<SettingsRow> rows) {
     } else {
         focus_ = std::min(focus_, rows_.empty() ? std::size_t{0} : rows_.size() - 1);
     }
+    // An open value is saved as it changes, so a refresh keeps the row open.
+    const SettingsRow* now = focusedRow();
+    if (now == nullptr || !rowOpens(now->kind)) {
+        editing_.end();
+    }
 }
 
 const SettingsRow* QuickMenu::focusedRow() const {
     return focus_ < rows_.size() ? &rows_[focus_] : nullptr;
 }
 
+bool QuickMenu::beginEdit() noexcept {
+    const SettingsRow* row = focusedRow();
+    return row != nullptr && editing_.begin(row->kind);
+}
+
+bool QuickMenu::endEdit() noexcept {
+    return editing_.end();
+}
+
 bool QuickMenu::move(int delta) noexcept {
     if (rows_.empty()) {
         return false;
     }
+    editing_.end();
     const auto last = static_cast<long>(rows_.size()) - 1;
     const auto next =
         static_cast<std::size_t>(std::clamp(static_cast<long>(focus_) + delta, 0L, last));
@@ -105,6 +121,7 @@ bool QuickMenu::focusRow(std::size_t index) noexcept {
     if (index >= rows_.size() || index == focus_) {
         return false;
     }
+    editing_.end();
     focus_ = index;
     return true;
 }

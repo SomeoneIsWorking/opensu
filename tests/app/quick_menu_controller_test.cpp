@@ -119,6 +119,7 @@ void volumeMuteAndOutputReachTheMixer() {
     Rig rig;
     rig.controller.open();
     rig.focus("quick.volume");
+    rig.controller.act(Button::A);
     rig.controller.act(Button::Right);
     expect(rig.mixer().percent == 45, "Right steps the volume up");
     rig.controller.chooseLevel(80);
@@ -128,13 +129,15 @@ void volumeMuteAndOutputReachTheMixer() {
     expect(rig.mixer().muted && rig.row("quick.mute")->on, "A mutes and the row shows it");
     rig.focus("quick.output");
     rig.controller.act(Button::A);
-    expect(rig.row("quick.output")->value == "Headphones", "A moves to the next output");
+    rig.controller.act(Button::Right);
+    expect(rig.row("quick.output")->value == "Headphones", "A opens the output, Right picks");
 }
 
 void brightnessStepsAndBluetoothToggles() {
     Rig rig;
     rig.controller.open();
     rig.focus("quick.brightness");
+    rig.controller.act(Button::A);
     rig.controller.act(Button::Left);
     expect(rig.light.level == 45, "Left lowers the brightness");
     rig.focus("quick.bluetooth");

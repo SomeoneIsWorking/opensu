@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "settings/settings.hpp"
+#include "ui/row_activation.hpp"
 
 namespace opensu::app {
 namespace {
@@ -287,33 +288,44 @@ void DevicesController::act(gamepad::Button button) {
         break;
     case gamepad::Button::Left:
     case gamepad::Button::Right: {
-        const int step = button == gamepad::Button::Left ? -1 : 1;
-        if (!inRows) {
-            if (step > 0 && page_.enterRows()) {
+        const ui::RowStep effect = ui::rowEffect(button, focused, page_.editing(), true);
+        if (effect.effect == ui::RowEffect::Enter) {
+            if (page_.enterRows()) {
                 sounds_.play(audio::Effect::Navigation);
             }
-        } else if (focused != nullptr &&
-                   (focused->kind == RowKind::Choice || focused->kind == RowKind::Slider)) {
-            run(*focused, step);
-        } else if (step < 0) {
+        } else if (effect.effect == ui::RowEffect::Change && focused != nullptr) {
+            run(*focused, effect.step);
+        } else if (effect.effect == ui::RowEffect::Leave) {
             showTabs();
         }
         break;
     }
-    case gamepad::Button::A:
-        if (!inRows) {
+    case gamepad::Button::A: {
+        const ui::RowStep effect = ui::rowEffect(button, focused, page_.editing(), true);
+        if (effect.effect == ui::RowEffect::Enter) {
             if (page_.enterRows()) {
                 sounds_.play(audio::Effect::Navigation);
             }
-        } else if (focused != nullptr) {
+        } else if (effect.effect == ui::RowEffect::Close) {
+            page_.endEdit();
+            sounds_.play(audio::Effect::Navigation);
+        } else if (effect.effect == ui::RowEffect::Open) {
+            if (page_.beginEdit()) {
+                sounds_.play(audio::Effect::Navigation);
+            }
+        } else if (effect.effect == ui::RowEffect::Act && focused != nullptr) {
             run(*focused, 0);
         }
         break;
+    }
     case gamepad::Button::Select:
         forgetFocused();
         break;
     case gamepad::Button::B:
-        if (inRows) {
+        if (ui::rowEffect(button, focused, page_.editing(), true).effect == ui::RowEffect::Close) {
+            page_.endEdit();
+            sounds_.play(audio::Effect::Navigation);
+        } else if (inRows) {
             showTabs();
         } else {
             close();
