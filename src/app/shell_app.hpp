@@ -185,6 +185,10 @@ class ShellApp final : private PointerHost {
     void offerInstall(const library::Game& game);
     /// Shows the shelf the browser is on, focusing `focus`.
     void showShelf(std::size_t focus);
+    /// Updates the shelf in place as the catalogue fills in, without replaying the entrance.
+    void refreshShelf();
+    /// The chrome the shelf's cards, title and status show, after either shelf update.
+    void finishShelf(const settings::Settings& chosen);
     /// The folder open now as the tile that stands for it, or nothing in a section.
     [[nodiscard]] std::optional<library::ShelfItem> folderCard() const;
     /// Opens a console, a launcher or the combined library on its games.

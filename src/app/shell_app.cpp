@@ -137,7 +137,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
 
     installedCount_ =
         static_cast<std::size_t>(std::ranges::count_if(games_, &library::Game::installed));
-    showShelf(shell_.focusIndex());
+    refreshShelf();
 }
 
 void ShellApp::pushCatalogToShell() {
@@ -151,6 +151,20 @@ void ShellApp::showShelf(std::size_t focus) {
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
     shell_.setShelf(std::move(shelf), focus);
+    finishShelf(chosen);
+}
+
+void ShellApp::refreshShelf() {
+    const settings::Settings& chosen = preferences_.values();
+    std::vector<library::ShelfItem> shelf =
+        library::visibleShelf(browser_, games_, sources_, chosen.view, chosen.hidden);
+    artworkStore_.apply(shelf);
+    covers_.apply(shelf);
+    shell_.updateShelf(std::move(shelf));
+    finishShelf(chosen);
+}
+
+void ShellApp::finishShelf(const settings::Settings& chosen) {
     shell_.setHeader(folderCard());
     shell_.setStatus(std::to_string(games_.size()) + " games · " + std::to_string(installedCount_) +
                      " installed" + (library::narrowing(chosen.view) ? " · filtered" : ""));
