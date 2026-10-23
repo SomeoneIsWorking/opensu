@@ -126,9 +126,7 @@ class Client final : public launch::SteamGate {
     [[nodiscard]] std::vector<Download> downloads() const;
 
     [[nodiscard]] launch::SteamState state() const override;
-    /// Managed and Isolated: starts the client again in its last mode when it is not up, so a
-    /// launch that arrives with no client running starts one. Normal starts nothing; its games go
-    /// to the desktop Steam.
+    /// Managed and Isolated: starts the client again when it is not up. Normal starts nothing.
     void ensureStarted() override;
     /// True in every mode but Normal: openSU starts and stops that client.
     [[nodiscard]] bool ownsClient() const override;

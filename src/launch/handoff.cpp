@@ -56,8 +56,7 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
         failure = "could not start " + game.launch.program;
         return Begun::Failed;
     }
-    // openSU's own Steam may have been stopped since it started; a launch starts it again. A
-    // desktop Steam (Normal) is not openSU's to start, so a launch goes to Steam itself.
+    // A launch starts openSU's own Steam if it stopped; Normal's is not openSU's to start.
     if (steam_.ownsClient()) {
         steam_.ensureStarted();
         if (steam_.state() == SteamState::Initializing && hooks.progress) {

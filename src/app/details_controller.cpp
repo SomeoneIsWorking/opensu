@@ -60,8 +60,7 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
         }
     }
     if (offersGameSettings(game, catalog, hooks_.frameGeneration())) {
-        // Inheritance is per setting: the button counts what this game keeps of its own, and says
-        // "Inherited" only when it keeps nothing.
+        // "Inherited" only when the game keeps none of its own.
         const auto kept = layers.layers().find(gameLayer);
         const std::size_t custom = kept == layers.layers().end() ? 0 : kept->second.size();
         view.buttons.push_back(

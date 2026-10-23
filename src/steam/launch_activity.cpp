@@ -32,9 +32,7 @@ bool isParameter(std::string_view text, std::size_t at, std::size_t& end) noexce
     return true;
 }
 
-/// Steam's localized line without the parameters it has not filled in yet ("Downloading content
-/// (%1$s%)"): the value is the launch progress the shell already shows beside the line, and the
-/// brackets that held it go too.
+/// Steam's line without the `%1$s` parameters it has not filled in.
 std::string withoutParameters(std::string_view text) {
     std::string out;
     for (std::size_t i = 0; i < text.size();) {

@@ -65,14 +65,12 @@ class IntegrationSwitch {
 
   private:
     void guard();
-    /// Asks the worker for the mode in force: the client stops, Isolated's virtual pads are kept or
-    /// dropped, and the client starts. Returns at once; the worker serialises the slow work.
+    /// Posts the mode in force to the worker and returns; the worker does the slow part.
     void moveSteam();
     /// The worker: waits for the requested mode and moves the client to it, one move at a time.
     void steamLoop(const std::stop_token& stop);
 
-    /// What the worker is asked to do: the client's mode, what Isolated's sandbox sees, and whether
-    /// it keeps openSU's virtual pads. `serial` lets a newer request replace an unstarted one.
+    /// One posted move; `serial` lets a newer one replace a request not yet started.
     struct SteamMove {
         std::uint64_t serial{0};
         std::optional<steam::Client::Mode> mode;

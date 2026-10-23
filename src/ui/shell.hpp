@@ -97,9 +97,7 @@ class Shell {
     /// plays the entrance.
     void setShelf(std::vector<library::ShelfItem> items, std::size_t focus = 0);
 
-    /// Updates the grid in place as the catalogue fills in: tiles already shown keep their artwork
-    /// (nothing is dropped and re-decoded), only the entries that appeared or left change, focus
-    /// stays on the same item, and the entrance does not replay. The first fill still rises in.
+    /// Updates the grid in place (no dropped artwork, no entrance) as the catalogue fills in.
     void updateShelf(std::vector<library::ShelfItem> items);
 
     /// Sets the card the XMB's left column shows inside a folder, standing for the folder, or
