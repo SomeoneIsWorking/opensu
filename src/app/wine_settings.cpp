@@ -3,11 +3,16 @@
 #include <algorithm>
 #include <cstddef>
 #include <filesystem>
+#include <iterator>
 #include <map>
+#include <optional>
+#include <system_error>
+#include <utility>
 
 #include "library/ge_proton.hpp"
 #include "library/lutris_wine.hpp"
 #include "library/steam.hpp"
+#include "library/steam_compat.hpp"
 #include "lucent/log.h"
 #include "steam_library_settings.hpp"
 
@@ -18,6 +23,7 @@ namespace fs = std::filesystem;
 using ui::RowKind;
 
 constexpr const char* runnerId = "wine.runner";
+constexpr const char* keepId = "wine.keep";
 constexpr const char* checkId = "wine.check";
 constexpr const char* testId = "wine.test";
 constexpr const char* prefixId = "wine.prefix";
@@ -33,6 +39,60 @@ constexpr const char* testProgram[] = {"cmd", "/c", "ver"};
 
 std::string countText(std::size_t count) {
     return std::to_string(count) + (count == 1 ? " game" : " games");
+}
+
+constexpr library::Source storeOrder[] = {library::Source::Steam, library::Source::Gog,
+                                          library::Source::Epic};
+
+/// How many games use a runner by store: "3 games from Steam, 1 from Epic", or "Not used".
+std::string usageText(const std::vector<library::Game>& games) {
+    std::string text;
+    for (const library::Source source : storeOrder) {
+        const auto count =
+            static_cast<std::size_t>(std::ranges::count(games, source, &library::Game::source));
+        if (count == 0) {
+            continue;
+        }
+        text += text.empty() ? countText(count) : ", " + std::to_string(count);
+        text += " from " + std::string{library::label(source)};
+    }
+    return text.empty() ? "Not used" : text;
+}
+
+/// `games` of one store.
+std::vector<library::Game> fromStore(std::vector<library::Game> games, library::Source source) {
+    std::erase_if(games, [source](const library::Game& game) {
+        return game.source != source;
+    });
+    return games;
+}
+
+fs::path realPath(const fs::path& dir) {
+    std::error_code ec;
+    fs::path real = fs::weakly_canonical(dir, ec);
+    return ec ? dir : real;
+}
+
+/// The installed Steam games among `games` that Steam runs under a tool, by the tool's folder.
+std::map<fs::path, std::vector<library::Game>>
+steamGamesByTool(const library::steam::Library& steam, std::vector<library::Game> games) {
+    std::erase_if(games, [](const library::Game& game) {
+        return game.source != library::Source::Steam || !game.installed;
+    });
+    std::vector<std::string> apps;
+    apps.reserve(games.size());
+    for (const library::Game& game : games) {
+        apps.push_back(game.sourceId);
+    }
+    const auto tools = library::steam::compatTools(steam, apps);
+    std::map<fs::path, std::vector<library::Game>> byTool;
+    for (library::Game& game : games) {
+        if (const auto tool = tools.find(game.sourceId);
+            tool != tools.end() && !tool->second.dir.empty()) {
+            byTool[realPath(tool->second.dir)].push_back(std::move(game));
+        }
+    }
+    return byTool;
 }
 
 /// Where a runner lives, as the player reads it.
@@ -56,29 +116,33 @@ bool isManaged(const library::wine::Runner& runner) {
 
 } // namespace
 
-library::wine::Search WineSettings::search() const {
+library::wine::Search WineSettings::search(const library::steam::Library* steam) const {
     library::wine::Search search{.executablePath = config_.executablePath,
                                  .steamRoots = {},
                                  .steamLibraries = {},
                                  .managed = library::ge_proton::runnersDir(config_.dataDir),
                                  .lutris = library::lutris::dataDir(config_.xdgDataHome)};
-    if (!integrations_.lists(library::Source::Steam)) {
+    if (steam == nullptr) {
         return search;
     }
-    const library::steam::Library steam =
-        library::steam::Library::discover(config_.home, config_.steamRoots);
-    search.steamRoots = steam.roots();
-    for (const library::steam::LibraryFolder& folder : steam.libraryFolders()) {
+    search.steamRoots = steam->roots();
+    for (const library::steam::LibraryFolder& folder : steam->libraryFolders()) {
         search.steamLibraries.push_back(folder.path);
     }
     return search;
 }
 
 void WineSettings::rescan() {
-    const library::wine::Search where = search();
+    std::optional<library::steam::Library> steam;
+    if (integrations_.lists(library::Source::Steam)) {
+        steam = library::steam::Library::discover(config_.home, config_.steamRoots);
+    }
+    const library::wine::Search where = search(steam ? &*steam : nullptr);
     found_ = library::wine::discover(where);
     lutris_ = library::wine::lutrisDefault(where.lutris, found_);
     umuRun_ = library::wine::umuRunOf(runners_.umuRun(), where);
+    steamOn_ = steam ? steamGamesByTool(*steam, hooks_.games())
+                     : std::map<fs::path, std::vector<library::Game>>{};
 }
 
 library::wine::Choice WineSettings::choice() const {
@@ -110,6 +174,14 @@ std::vector<library::Game> WineSettings::gamesOn(const fs::path& wine) const {
         return !runner || (wine.empty() ? runner->proton.empty() : runner->wine != wine);
     });
     return games;
+}
+
+std::vector<library::Game> WineSettings::steamGamesOn(const library::wine::Runner& runner) const {
+    if (runner.proton.empty()) {
+        return {};
+    }
+    const auto found = steamOn_.find(realPath(runner.proton));
+    return found != steamOn_.end() ? found->second : std::vector<library::Game>{};
 }
 
 WineRunners::InUse WineSettings::inUse() const {
@@ -182,8 +254,14 @@ ui::SettingsCategory WineSettings::page() const {
     } else if (look.checking) {
         status = "Checking for updates…";
     }
+    page.rows.push_back(ui::makeToggle(keepId, "Keep GE-Proton up to date",
+                                       "Downloads the newest in the background and removes all "
+                                       "but the newest two",
+                                       v.keepGeProtonCurrent));
     page.rows.push_back(ui::makeRow(checkId, RowKind::Action, "Check for GE-Proton now",
-                                    "Also checked at start and every day", status));
+                                    v.keepGeProtonCurrent ? "Also checked at start and every day"
+                                                          : "Downloads only when pressed",
+                                    status));
     page.rows.push_back(ui::makeRow(testId, RowKind::Action, "Test the runner",
                                     "Starts a small Windows program with the runner",
                                     look.testing            ? "Running…"
@@ -202,21 +280,22 @@ ui::SettingsCategory WineSettings::page() const {
             isManaged(runner) && kept != look.kept.end()) {
             note = kept->second;
         }
+        std::vector<library::Game> using_ = steamGamesOn(runner);
+        std::ranges::move(gamesOn(runner.wine), std::back_inserter(using_));
         page.rows.push_back(ui::makePage(std::string{runtimePage} + runner.wine.string(),
                                          library::wine::displayName(runner.name), note,
-                                         countText(gamesOn(runner.wine).size())));
+                                         usageText(using_)));
     }
-    const std::size_t onProton = gamesOn({}).size();
+    const std::string onProton = usageText(gamesOn({}));
     if (look.umu) {
         page.rows.push_back(ui::makePage(
             std::string{runtimePage} + std::string{umuKey}, look.umu->name,
-            "Runs Proton games outside Steam · " + sizeText(look.umu->bytes), countText(onProton)));
+            "Runs Proton games outside Steam · " + sizeText(look.umu->bytes), onProton));
     }
     if (look.steamRuntime) {
         page.rows.push_back(ui::makePage(
             std::string{runtimePage} + std::string{steamRuntimeKey}, look.steamRuntime->name,
-            "The container Proton games run in · " + sizeText(look.steamRuntime->bytes),
-            countText(onProton)));
+            "The container Proton games run in · " + sizeText(look.steamRuntime->bytes), onProton));
     }
 
     page.rows.push_back(ui::makeHeading("Prefixes"));
@@ -253,10 +332,19 @@ std::optional<ui::SettingsCategory> WineSettings::subPage(const std::string& id)
                                         "Downloaded by openSU", piece->dir.string()));
         page.rows.push_back(
             ui::makeRow("wine.size", RowKind::Info, "Size", "On disk", sizeText(piece->bytes)));
-        page.rows.push_back(ui::makeHeading("Games that run on Proton"));
-        for (const library::Game& game : gamesOn({})) {
-            page.rows.push_back(
-                ui::makeRow("wine.game:" + game.id, RowKind::Info, game.title, "", ""));
+        const std::vector<library::Game> onProton = gamesOn({});
+        for (const library::Source source : storeOrder) {
+            const std::vector<library::Game> games = fromStore(onProton, source);
+            if (!games.empty()) {
+                page.rows.push_back(ui::makeHeading("From " + std::string{library::label(source)}));
+            }
+            for (const library::Game& game : games) {
+                page.rows.push_back(
+                    ui::makeRow("wine.game:" + game.id, RowKind::Info, game.title, "", ""));
+            }
+        }
+        if (onProton.empty()) {
+            page.rows.push_back(ui::makeRow("wine.none", RowKind::Info, "No games use it", "", ""));
         }
         return page;
     }
@@ -282,22 +370,40 @@ std::optional<ui::SettingsCategory> WineSettings::subPage(const std::string& id)
                                         "openSU keeps only the newest two GE-Proton builds",
                                         kept->second));
     }
-    page.rows.push_back(ui::makeHeading("Games using it"));
-    const std::vector<library::Game> using_ = gamesOn(wine);
-    for (const library::Game& game : using_) {
-        const bool pinned = v.wineRunnerPins.contains(game.id);
-        page.rows.push_back(ui::makeRow(std::string{pinId} + game.id + "\t",
-                                        pinned ? RowKind::Action : RowKind::Info, game.title,
-                                        pinned ? "Pinned to this runner; press A to unpin"
-                                               : "Uses it for every game",
-                                        pinned ? "Pinned" : "Default"));
+    const std::vector<library::Game> fromSteam = steamGamesOn(*runner);
+    if (!fromSteam.empty()) {
+        page.rows.push_back(ui::makeHeading("From Steam"));
     }
-    bool listed = !using_.empty();
+    for (const library::Game& game : fromSteam) {
+        page.rows.push_back(ui::makeRow("wine.steamGame:" + game.id, RowKind::Info, game.title,
+                                        "Change it in Steam; it can't be pinned here",
+                                        "Set in Steam"));
+    }
+    const std::vector<library::Game> using_ = gamesOn(wine);
+    for (const library::Source source : {library::Source::Gog, library::Source::Epic}) {
+        const std::vector<library::Game> games = fromStore(using_, source);
+        if (!games.empty()) {
+            page.rows.push_back(ui::makeHeading("From " + std::string{library::label(source)}));
+        }
+        for (const library::Game& game : games) {
+            const bool pinned = v.wineRunnerPins.contains(game.id);
+            page.rows.push_back(ui::makeRow(std::string{pinId} + game.id + "\t",
+                                            pinned ? RowKind::Action : RowKind::Info, game.title,
+                                            pinned ? "Pinned to this runner; press A to unpin"
+                                                   : "Uses it for every game",
+                                            pinned ? "Pinned" : "Default"));
+        }
+    }
+    bool listed = !fromSteam.empty() || !using_.empty();
+    bool headed = false;
     // A pin of a game the library does not list now still keeps the runner.
     for (const auto& [game, pinned] : v.wineRunnerPins) {
         if (pinned == wine && std::ranges::find(using_, game, &library::Game::id) == using_.end()) {
+            if (!std::exchange(headed, true)) {
+                page.rows.push_back(ui::makeHeading("Pinned, not in the library now"));
+            }
             page.rows.push_back(ui::makeRow(std::string{pinId} + game + "\t", RowKind::Action, game,
-                                            "Not in the library now; press A to unpin", "Pinned"));
+                                            "Press A to unpin", "Pinned"));
             listed = true;
         }
     }
@@ -326,6 +432,11 @@ bool WineSettings::owns(const std::string& id) {
 void WineSettings::run(const std::string& id, int step) {
     if (id == runnerId) {
         stepRunner(step);
+    } else if (id == keepId) {
+        bool& keep = preferences_.values().keepGeProtonCurrent;
+        keep = !keep;
+        lucent::info("wine", "keeping GE-Proton up to date {}", keep ? "on" : "off");
+        preferences_.save();
     } else if (id == checkId) {
         if (const std::string refused = runners_.checkNow(); !refused.empty()) {
             hooks_.say(refused, true);

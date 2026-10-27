@@ -619,6 +619,10 @@ class ShellApp final : private PointerHost {
                                    return library::isReady(sources_, library::Source::Gog) ||
                                           library::isReady(sources_, library::Source::Epic);
                                },
+                           .keepCurrent =
+                               [this] {
+                                   return preferences_.values().keepGeProtonCurrent;
+                               },
                            .inUse =
                                [this] {
                                    return wineSettings_.inUse();

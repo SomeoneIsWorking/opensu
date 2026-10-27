@@ -96,6 +96,9 @@ struct Settings {
     /// The Wine binary Windows GOG and Epic games run under; the newest GE-Proton openSU keeps up
     /// to date when empty.
     std::filesystem::path wineRunner;
+    /// Whether openSU checks for GE-Proton at start and daily, downloads the newest and removes
+    /// all but the newest two; off, it checks only when asked and removes nothing.
+    bool keepGeProtonCurrent{true};
     /// The games pinned to a runner of their own, by game id: its Wine binary.
     std::map<std::string, std::filesystem::path> wineRunnerPins;
 

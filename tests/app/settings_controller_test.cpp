@@ -421,6 +421,10 @@ struct Rig {
                                                          [] {
                                                              return false;
                                                          },
+                                                     .keepCurrent =
+                                                         [] {
+                                                             return true;
+                                                         },
                                                      .inUse =
                                                          [] {
                                                              return app::WineRunners::InUse{};
@@ -1158,6 +1162,15 @@ void wineRunnerIsPicked(const fs::path& root) {
     rig.act(Button::Left);
     expect(rig.onDisk().wineRunner == system && rig.rowOf("wine.runner").value == "System Wine",
            "Left steps back, wrapping");
+    expect(rig.rowOf("wine.runtime:" + ge.string()).value == "Not used",
+           "a runner no game uses says so");
+    rig.focus("wine.keep");
+    rig.act(Button::A);
+    expect(!rig.onDisk().keepGeProtonCurrent &&
+               rig.rowOf("wine.check").note == "Downloads only when pressed",
+           "keeping GE-Proton up to date turns off, kept, and Check now says it is the only way");
+    rig.act(Button::A);
+    expect(rig.onDisk().keepGeProtonCurrent, "and back on");
     expect(treeOf(steamRoot) == steamBefore, "Steam's folders are only read");
 
     library::Game game;

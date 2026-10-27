@@ -41,6 +41,7 @@ constexpr const char* grantedKey = "granted";
 constexpr const char* wineRunnerKey = "wineRunner";
 constexpr const char* ownWinePrefixKey = "ownWinePrefix";
 constexpr const char* wineRunnerPinsKey = "wineRunnerPins";
+constexpr const char* keepGeProtonKey = "keepGeProtonCurrent";
 constexpr const char* integrationsKey = "integrations";
 constexpr const char* steamKey = "steam";
 constexpr const char* steamModeKey = "steamMode";
@@ -341,6 +342,7 @@ Settings Store::load() const {
     read.text(wineRunnerKey, runner, "using the newest GE-Proton");
     settings.wineRunner = runner;
     read.pathsByName(wineRunnerPinsKey, settings.wineRunnerPins, "no game is pinned to a runner");
+    read.boolean(keepGeProtonKey, settings.keepGeProtonCurrent, "keeping GE-Proton up to date");
     std::vector<std::string> ownPrefixes;
     read.texts(ownWinePrefixKey, ownPrefixes, "every game shares the Wine prefix");
     settings.ownWinePrefixes = library::wine::OwnPrefixes{{ownPrefixes.begin(), ownPrefixes.end()}};
@@ -452,6 +454,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},
         {wineRunnerPinsKey, pins},
+        {keepGeProtonKey, settings.keepGeProtonCurrent},
         {shortcutsKey, {{shortcutKeysKey, shortcutKeys}, {shortcutPadsKey, shortcutPads}}}};
     json plugins = json::object();
     for (const auto& [id, choice] : settings.plugins) {
