@@ -18,4 +18,5 @@ Decided:
   offer's store page (Epic in the browser, Steam in Steam's own browser like the SteamGridDB
   sign-in); nothing is bought or claimed without the player pressing Claim.
 - Refreshed in the background a few times a day; a new offer can show a toast.
-- Adult-rated offers hidden unless the player turns them on.
+- Offers with sexual content (Steam descriptors 3 and 4, the other stores' equivalent) hidden unless
+  the player turns them on; violence and age ratings do not hide anything.
