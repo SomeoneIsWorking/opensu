@@ -48,7 +48,7 @@ struct GuideContext {
     /// A game is running; its title heads the menu.
     bool inGame{false};
     std::string title;
-    /// The running game has settings tabs to open (video, core options or frame generation).
+    /// The running game has settings to open (video, core options or frame generation).
     bool gameSettings{false};
     /// The running game is on opensu-retro, so it has state commands.
     bool retro{false};

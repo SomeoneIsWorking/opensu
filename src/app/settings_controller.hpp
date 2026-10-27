@@ -27,6 +27,7 @@
 #include "integration_settings.hpp"
 #include "integrations_in_force.hpp"
 #include "layer_settings.hpp"
+#include "layered_settings.hpp"
 #include "library/library_query.hpp"
 #include "mapping_editor.hpp"
 #include "path_editor.hpp"
@@ -69,6 +70,7 @@ class SettingsController {
         const input::Shortcuts& shortcuts;
         EmulatorSettings& emulators;
         LayerSettings& layers;
+        LayeredSettings& layered;
         SteamLibrarySettings& steamLibraries;
         PluginSettings& plugins;
         ChordSettings& chords;
@@ -85,9 +87,10 @@ class SettingsController {
     SettingsController(gpu2d::ui::Navigator& navigator, const ui::Chrome& chrome, Services services,
                        audio::SdlSoundPlayer& sounds, Preferences& preferences,
                        const config::Config& defaults, Hooks hooks)
-        : navigator_{navigator}, chrome_{chrome}, paths_{services.paths}, shortcutEditor_{services.shortcutEditor},
-          volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
-          layers_{services.layers}, steamLibraries_{services.steamLibraries},
+        : navigator_{navigator}, chrome_{chrome}, paths_{services.paths},
+          shortcutEditor_{services.shortcutEditor}, volume_{services.volume},
+          shortcuts_{services.shortcuts}, emulators_{services.emulators}, layers_{services.layers},
+          layered_{services.layered}, steamLibraries_{services.steamLibraries},
           plugins_{services.plugins}, chords_{services.chords}, mappings_{services.mappings},
           wine_{services.wine}, integrations_{services.integrations}, artwork_{services.artwork},
           inForce_{services.inForce}, sounds_{sounds}, preferences_{preferences},
@@ -128,8 +131,6 @@ class SettingsController {
     void confirm(const ui::SettingsRow& row);
     /// Opens the page row `id` leads to.
     void openPage(const std::string& id);
-    /// Back on the page `id`: stays when it stepped back within the page.
-    [[nodiscard]] gpu2d::ui::Screen::BackReply backFrom(const std::string& id);
     /// Back on the categories, or the menu button anywhere: closes Settings, asking first when
     /// Integrations has changes not applied. Stays when it asked.
     [[nodiscard]] gpu2d::ui::Screen::BackReply leave();
@@ -157,7 +158,6 @@ class SettingsController {
     void runLibrary(const std::string& id, int step);
     void runAudio(const std::string& id, int step);
     void runControls(const std::string& id);
-    void runLayer(const std::string& id, int step);
     void chooseFolder(const std::string& id);
     void editInstallFolder(const std::string& title, const std::string& id);
     void addRoot(const std::string& id);
@@ -170,6 +170,7 @@ class SettingsController {
     const input::Shortcuts& shortcuts_;
     EmulatorSettings& emulators_;
     LayerSettings& layers_;
+    LayeredSettings& layered_;
     SteamLibrarySettings& steamLibraries_;
     PluginSettings& plugins_;
     ChordSettings& chords_;

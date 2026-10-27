@@ -33,11 +33,16 @@ struct TrailState {
     std::string devices;
     /// The Downloads page is open.
     bool downloads{false};
+    /// The Giveaways screen is open, and the title of the offer whose details are open over it
+    /// (empty for none).
+    bool giveaways{false};
+    std::string offer;
 };
 
 /// The trail for `state`, first level first: the section, its folder, the search, the filters, the
 /// game. The Settings screen and the Devices page replace them all: "Settings" or "Devices", then
-/// the category or tab; the Downloads page is "Downloads" alone.
+/// the category or tab; the Downloads page is "Downloads" alone; Giveaways is Library, then
+/// "Giveaways" and the offer.
 [[nodiscard]] ui::Trail trailOf(const TrailState& state);
 
 /// The filters of `options` as the player reads them. `sources` names each source filter.

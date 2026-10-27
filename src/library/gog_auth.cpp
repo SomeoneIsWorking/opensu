@@ -1,8 +1,6 @@
 #include "gog_auth.hpp"
 
-#include <array>
 #include <chrono>
-#include <cstdio>
 
 #include <nlohmann/json.hpp>
 
@@ -29,23 +27,6 @@ std::int64_t now() {
         .count();
 }
 
-/// Percent-encodes everything but RFC 3986's unreserved characters.
-std::string encode(std::string_view text) {
-    std::string out;
-    for (const char c : text) {
-        const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-                           (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~';
-        if (plain) {
-            out.push_back(c);
-        } else {
-            std::array<char, 4> escape{};
-            std::snprintf(escape.data(), escape.size(), "%%%02X", static_cast<unsigned char>(c));
-            out.append(escape.data());
-        }
-    }
-    return out;
-}
-
 } // namespace
 
 Auth::Auth(TokenStore store, Endpoints endpoints, const net::WebClient& web)
@@ -58,7 +39,7 @@ std::string Auth::loginUrl() const {
 }
 
 void Auth::signIn(std::string_view code) const {
-    request("grant_type=authorization_code&code=" + encode(code) +
+    request("grant_type=authorization_code&code=" + net::percentEncode(code) +
             "&redirect_uri=" + std::string{redirectUri});
 }
 
@@ -68,7 +49,8 @@ std::string Auth::accessToken() const {
         throw NotSignedIn{"GOG is not signed in"};
     }
     if (token->expiresAt - refreshMarginSeconds <= now()) {
-        return request("grant_type=refresh_token&refresh_token=" + encode(token->refreshToken))
+        return request("grant_type=refresh_token&refresh_token=" +
+                       net::percentEncode(token->refreshToken))
             .accessToken;
     }
     return token->accessToken;

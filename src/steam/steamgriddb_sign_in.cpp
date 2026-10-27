@@ -1,9 +1,7 @@
 #include "steamgriddb_sign_in.hpp"
 
 #include <algorithm>
-#include <condition_variable>
 #include <memory>
-#include <mutex>
 #include <vector>
 
 #include "lucent/log.h"
@@ -72,12 +70,6 @@ bool onSteamGridDb(std::string_view url) {
     return url.starts_with(std::string{steamGridDbOrigin} + "/");
 }
 
-std::string openScript() {
-    const std::string url =
-        "steam://openurl/" + std::string{steamGridDbOrigin} + std::string{loginPath};
-    return "SteamClient.URL.ExecuteSteamURL(" + jsString(url) + "), true";
-}
-
 /// The browser view the sign-in opened: a page on SteamGridDB that was not there before, else a
 /// page already on SteamGridDB's sign-in, which Steam may have reused. Steam opens popups of its
 /// own at any time, so a new page counts only once it shows SteamGridDB.
@@ -98,34 +90,6 @@ std::optional<std::string> openedView(const std::vector<DevToolsTarget>& now,
     return std::nullopt;
 }
 
-/// Waits `poll`; false when `stop` came first.
-bool rest(const std::stop_token& stop, std::chrono::milliseconds poll) {
-    std::mutex mutex;
-    std::condition_variable_any wake;
-    std::unique_lock lock{mutex};
-    static_cast<void>(wake.wait_for(lock, stop, poll, [] {
-        return false;
-    }));
-    return !stop.stop_requested();
-}
-
-/// Closes Big Picture on the way out when the sign-in opened it.
-struct LeaveBigPicture {
-    explicit LeaveBigPicture(BigPicture& shown) : bigPicture{shown} {
-    }
-    LeaveBigPicture(const LeaveBigPicture&) = delete;
-    LeaveBigPicture(LeaveBigPicture&&) = delete;
-    LeaveBigPicture& operator=(LeaveBigPicture&&) = delete;
-    LeaveBigPicture& operator=(const LeaveBigPicture&) = delete;
-    ~LeaveBigPicture() {
-        if (opened) {
-            bigPicture.close();
-        }
-    }
-    BigPicture& bigPicture;
-    bool opened{false};
-};
-
 } // namespace
 
 bool isSteamGridDbKey(std::string_view key) noexcept {
@@ -139,36 +103,6 @@ SteamGridDbSignIn::SteamGridDbSignIn(std::uint16_t port, Timing timing, View vie
     : port_{port}, timing_{timing}, view_{view}, shared_{port} {
 }
 
-bool SteamGridDbSignIn::showBigPicture(const std::stop_token& stop, Clock::time_point deadline,
-                                       bool& opened, std::string& error) {
-    std::optional<bool> shown = bigPicture_.shown(error);
-    if (!shown) {
-        return false;
-    }
-    if (*shown) {
-        return true;
-    }
-    if (!bigPicture_.open(error)) {
-        return false;
-    }
-    opened = true;
-    while (rest(stop, timing_.poll)) {
-        if (Clock::now() > deadline) {
-            error = "Steam's Big Picture did not open";
-            return false;
-        }
-        shown = bigPicture_.shown(error);
-        if (!shown) {
-            return false;
-        }
-        if (*shown) {
-            return true;
-        }
-    }
-    error = "cancelled";
-    return false;
-}
-
 bool SteamGridDbSignIn::reachable(std::string& error) {
     return shared_.evaluate("true", error).has_value();
 }
@@ -177,8 +111,9 @@ std::optional<std::string> SteamGridDbSignIn::run(const std::stop_token& stop,
                                                   const std::function<void(Step)>& step,
                                                   std::string& error) {
     const Clock::time_point deadline = Clock::now() + timing_.limit;
-    LeaveBigPicture leave{bigPicture_};
-    if (view_ == View::BigPicture && !showBigPicture(stop, deadline, leave.opened, error)) {
+    BigPicture::Leave leave{bigPicture_};
+    if (view_ == View::BigPicture &&
+        !bigPicture_.show(stop, deadline, timing_.poll, leave.opened, error)) {
         return std::nullopt;
     }
     const std::optional<std::vector<DevToolsTarget>> before = devToolsTargets(port_, error);
@@ -189,7 +124,8 @@ std::optional<std::string> SteamGridDbSignIn::run(const std::stop_token& stop,
     for (const DevToolsTarget& target : *before) {
         known.push_back(target.id);
     }
-    if (!shared_.evaluate(openScript(), error)) {
+    if (!openInSteamBrowser(shared_, std::string{steamGridDbOrigin} + std::string{loginPath},
+                            error)) {
         return std::nullopt;
     }
     std::optional<std::string> view;

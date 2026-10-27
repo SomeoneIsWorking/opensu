@@ -91,8 +91,8 @@ openSU needs checkouts of [Lucent](https://github.com/SomeoneIsWorking/lucent), 
 package (`nanosvg-devel` on Fedora), else a checkout at `NANOSVG_ROOT`, by default
 `$HOME/dev/nanosvg`. The launcher logos are from [Simple Icons](https://simpleicons.org)
 (CC0). The window, keyboard, mouse and sound are SDL3's; gpu2d draws with SDL3 GPU and reads
-faces and images through SDL3_ttf and SDL3_image (`SDL3-devel SDL3_ttf-devel SDL3_image-devel
-libpng-devel` on Fedora), and the UI sounds are Ogg Vorbis (`libvorbis-devel`). libcurl
+faces and images through HarfBuzz, SDL3_ttf and SDL3_image (`SDL3-devel SDL3_ttf-devel
+harfbuzz-devel SDL3_image-devel libpng-devel` on Fedora), and the UI sounds are Ogg Vorbis (`libvorbis-devel`). libcurl
 (`libcurl-devel`) downloads missing artwork; libcrypto (`openssl-devel`) decrypts a Switch game's
 own title and icon with the player's keys; zlib (`zlib-devel`) reads iiSU's starter pack, libwebp
 (`libwebp-devel`) decodes its console cards, nlohmann/json (`json-devel`) reads and writes the

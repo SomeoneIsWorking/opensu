@@ -1,6 +1,6 @@
 // setting_row — a settings-like row as its owner describes it: what kind it is, its words and its
-// value. The Settings screen turns each into the toolkit's widget of that kind; the Devices page,
-// the quick menu and the game settings tabs still draw them their own way.
+// value. The Settings screen turns each into the toolkit's widget of that kind; the Devices page
+// and the quick menu still draw them their own way.
 #pragma once
 
 #include <cstddef>

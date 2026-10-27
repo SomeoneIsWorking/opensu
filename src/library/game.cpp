@@ -47,6 +47,14 @@ std::string_view label(Source source) {
     return "Unknown";
 }
 
+std::string key(Source source) {
+    std::string out;
+    for (const char c : label(source)) {
+        out += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+    }
+    return out;
+}
+
 void Catalog::add(std::unique_ptr<Provider> provider) {
     if (provider != nullptr) {
         providers_.push_back(std::move(provider));

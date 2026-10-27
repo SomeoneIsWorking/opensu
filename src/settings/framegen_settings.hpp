@@ -1,16 +1,22 @@
-// framegen_settings — frame generation for a game, as the setting layers keep it: off, a fixed
-// ratio, or adaptive to a target rate (a number, or the display's refresh) with a maximum of
-// generated frames per real frame and a tolerance; the Lossless generator's performance mode and
-// flow scale. The keys and their choices, and a game's values resolved from its layers into what
-// the Gamescope fork's GAMESCOPE_FRAMEGEN_* root atoms take. Every default is off.
+// framegen_settings — frame generation for a game, as the setting layers keep it. `framegen.preset`
+// decides first: Off, Smooth 60 (adaptive to 60 fps), Match display (adaptive to the display's
+// refresh) or Custom, which reads the detail keys: a fixed ratio or adaptive to a target rate with
+// a maximum of generated frames per real frame and a tolerance, and the Lossless generator's
+// performance mode and flow scale. The keys, their schema declarations, a game's values resolved
+// into what the Gamescope fork's GAMESCOPE_FRAMEGEN_* root atoms take, and the one-line summary
+// the editor shows. Every default is off.
 #pragma once
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "setting_choices.hpp"
 #include "setting_layers.hpp"
+#include "setting_schema.hpp"
 
 namespace opensu::settings {
 
@@ -35,9 +41,14 @@ struct FrameGenSettings {
     bool operator==(const FrameGenSettings&) const = default;
 };
 
-inline constexpr std::array<ChoiceText, 3> frameGenModeChoices{{
+inline constexpr std::array<ChoiceText, 4> frameGenPresetChoices{{
     {"off", "Off"},
-    {"fixed", "Fixed"},
+    {"smooth-60", "Smooth 60"},
+    {"display", "Match display"},
+    {"custom", "Custom"},
+}};
+inline constexpr std::array<ChoiceText, 2> frameGenModeChoices{{
+    {"fixed", "Fixed ratio"},
     {"adaptive", "Adaptive"},
 }};
 inline constexpr std::array<ChoiceText, 7> frameGenRatioChoices{{
@@ -65,15 +76,16 @@ inline constexpr std::array<ChoiceText, 14> frameGenTargetChoices{{
     {"165", "165 fps"},
     {"240", "240 fps"},
 }};
+/// Kept as generated frames per real frame; read as the most frames shown per real one.
 inline constexpr std::array<ChoiceText, 8> frameGenMaxChoices{{
-    {"1", "1"},
-    {"2", "2"},
-    {"3", "3"},
-    {"4", "4"},
-    {"5", "5"},
-    {"6", "6"},
-    {"7", "7"},
-    {"8", "8"},
+    {"1", "2x"},
+    {"2", "3x"},
+    {"3", "4x"},
+    {"4", "5x"},
+    {"5", "6x"},
+    {"6", "7x"},
+    {"7", "8x"},
+    {"8", "9x"},
 }};
 inline constexpr std::array<ChoiceText, 9> frameGenToleranceChoices{{
     {"0", "None"},
@@ -90,47 +102,46 @@ inline constexpr std::array<ChoiceText, 2> frameGenPerformanceChoices{{
     {"off", "Off"},
     {"on", "On"},
 }};
-/// Lossless Scaling's slider: 25 to 100 in steps of 5.
-inline constexpr std::array<ChoiceText, 16> frameGenFlowScaleChoices{{
-    {"100", "100%"},
-    {"95", "95%"},
-    {"90", "90%"},
-    {"85", "85%"},
-    {"80", "80%"},
-    {"75", "75%"},
-    {"70", "70%"},
-    {"65", "65%"},
-    {"60", "60%"},
-    {"55", "55%"},
-    {"50", "50%"},
-    {"45", "45%"},
-    {"40", "40%"},
-    {"35", "35%"},
-    {"30", "30%"},
-    {"25", "25%"},
-}};
 
-/// The frame generation keys in the order the settings show them, the mode first.
+/// The frame generation keys kept as one of a list, in the order the editor shows them.
 inline constexpr std::array<ChoiceKey, 7> frameGenKeys{{
-    {"framegen.mode", "Mode", frameGenModeChoices, 0},
+    {"framegen.preset", "Frame generation", frameGenPresetChoices, 0},
+    {"framegen.mode", "Pacing", frameGenModeChoices, 1},
     {"framegen.ratio", "Ratio", frameGenRatioChoices, 2},
     {"framegen.target", "Target", frameGenTargetChoices, 0},
-    {"framegen.max", "Most generated per frame", frameGenMaxChoices, 2},
+    {"framegen.max", "Most frames per real one", frameGenMaxChoices, 2},
     {"framegen.tolerance", "Tolerance", frameGenToleranceChoices, 0},
     {"framegen.performance", "Performance mode", frameGenPerformanceChoices, 0},
-    {"framegen.flow-scale", "Flow scale", frameGenFlowScaleChoices, 0},
 }};
+/// Lossless Scaling's flow scale slider: 25 to 100 percent in steps of 5.
+inline constexpr std::string_view frameGenFlowScaleKey = "framegen.flow-scale";
+inline constexpr Setting::Range frameGenFlowScaleRange{25, 100, 5};
+inline constexpr int frameGenFlowScaleDefault = 100;
+/// The heading frame generation stands under.
+inline constexpr std::string_view frameGenSection = "Frame generation";
 
-/// The frame generation key `key` names, or null.
-[[nodiscard]] const ChoiceKey* frameGenKey(std::string_view key);
-/// Whether key `key` does anything in `mode`: none in Off, the ratio in Fixed, the target, most
-/// and tolerance in Adaptive, the generator's two in both; the mode itself always.
-[[nodiscard]] bool frameGenKeyUsedIn(std::string_view key, FrameGenMode mode) noexcept;
-/// The mode a kept spelling names, Off for one that is none.
-[[nodiscard]] FrameGenMode frameGenModeOf(std::string_view spelling) noexcept;
+/// Declares frame generation's settings in `schema`: the preset, then the detail rows Custom shows.
+void declareFrameGen(Schema& schema);
 
 /// `keys`' frame generation, each value from its winning layer; a kept value that is no choice is
 /// reported and the default used.
 [[nodiscard]] FrameGenSettings resolveFrameGen(const SettingLayers& layers, const LayerKeys& keys);
+/// The same from the values `applies` reads (a scope's in the editor); `where` names them in a
+/// report.
+[[nodiscard]] FrameGenSettings resolveFrameGen(const SettingLookup& applies,
+                                               std::string_view where);
+
+/// What `settings` does in one line: "Off", "Fixed ratio · 2x", "Adaptive · target 60 fps · up to
+/// 3x · tolerance 5 fps".
+[[nodiscard]] std::string frameGenSummary(const FrameGenSettings& settings);
+
+/// The detail keys and values a named preset (`smooth-60`, `display`) stands for, so choosing
+/// Custom over one starts from what it did; empty for another spelling.
+[[nodiscard]] std::vector<std::pair<std::string_view, std::string_view>>
+frameGenPresetValues(std::string_view preset);
+
+/// Moves layers an older openSU wrote (`framegen.mode` off, fixed or adaptive, no preset) onto the
+/// preset: off becomes the Off preset, a mode becomes Custom with it. True when anything moved.
+bool moveFrameGenModesToPresets(SettingLayers& layers);
 
 } // namespace opensu::settings

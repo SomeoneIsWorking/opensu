@@ -19,12 +19,12 @@ target_compile_options(opensu_hud_model PRIVATE -Wall -Wextra -Wpedantic)
 
 add_library(opensu_ui STATIC
     shell.cpp hud.cpp breadcrumb_painter.cpp details_page_painter.cpp launcher_badges.cpp vector_icon.cpp status_pill.cpp progress_spinner.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
-    button_glyph.cpp guide_menu_painter.cpp quick_menu_painter.cpp guide_panels.cpp side_panel_painter.cpp settings_tabs.cpp settings_tabs_painter.cpp page_panel.cpp tile_artwork.cpp launch_panel_painter.cpp dock_painter.cpp mode_chooser_painter.cpp on_screen_keyboard_painter.cpp search_panel_painter.cpp context_menu_painter.cpp rail_painter.cpp
+    button_glyph.cpp guide_menu_painter.cpp quick_menu_painter.cpp guide_panels.cpp side_panel_painter.cpp page_panel.cpp tile_artwork.cpp launch_panel_painter.cpp dock_painter.cpp mode_chooser_painter.cpp on_screen_keyboard_painter.cpp search_panel_painter.cpp context_menu_painter.cpp rail_painter.cpp
     round_shape.cpp image_decoder.cpp row_controls.cpp
     settings_page_painter.cpp folder_chooser_painter.cpp settings_panels.cpp volume_osd_painter.cpp chord_hint_painter.cpp
     session_dialog_painter.cpp integration_chooser_painter.cpp session_panels.cpp downloads_page_painter.cpp downloads_panel.cpp
     mapping_page_painter.cpp hint_row.cpp cover_picker_art.cpp cover_picker_painter.cpp
-    interface_input.cpp interface_theme.cpp interface_text.cpp screen_stack.cpp
+    interface_input.cpp interface_theme.cpp interface_text.cpp screen_stack.cpp screen_images.cpp image_view.cpp offer_card.cpp
     typeface.cpp text_grid.cpp face_metrics.cpp platform.cpp glyph_textures.cpp)
 add_library(opensu::ui ALIAS opensu_ui)
 target_include_directories(opensu_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

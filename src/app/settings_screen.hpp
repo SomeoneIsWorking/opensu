@@ -44,7 +44,7 @@ class SettingsScreen final : public gpu2d::ui::Screen {
     std::string label_;
 };
 
-/// A page of rows a row opened: an emulator layer's settings, the list of consoles, the BIOS files.
+/// A page of rows a row opened: the list of consoles, the BIOS files.
 class SettingsSubPage final : public gpu2d::ui::Screen {
   public:
     SettingsSubPage(SettingsController& controller, const ui::Chrome& chrome, std::string id)
@@ -55,13 +55,12 @@ class SettingsSubPage final : public gpu2d::ui::Screen {
         return title_;
     }
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
-    [[nodiscard]] BackReply back(gpu2d::ui::ActContext& context) override;
     bool act(gpu2d::ui::Action action, gpu2d::ui::ActContext& context) override;
 
   private:
     SettingsController& controller_;
     const ui::Chrome& chrome_;
-    /// The page's title as last built; a layer's changes while its shader picker is open.
+    /// The page's title as last built.
     std::string title_;
 };
 

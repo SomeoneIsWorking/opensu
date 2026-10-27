@@ -1,5 +1,5 @@
 // emulator_settings — the Settings screen's Emulators category, in headed sections: the update
-// check; the rows that open the setting layers' pages (`LayerSettings`); Downloads, a page with
+// check; the rows that open the layered settings editor (`LayerSettings`); Downloads, a page with
 // every emulator of the catalog (whether and how it is installed, Download, Update and Remove, the
 // last only for what openSU downloaded and only once confirmed) and libretro's shader pack; and
 // BIOS files, a page with the BIOS each chosen built-in core runs on (its core info's files,

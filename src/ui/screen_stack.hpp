@@ -1,6 +1,7 @@
 // screen_stack — the shell's one stack of interface-toolkit screens (Settings, and what opens over
-// it), with the face, glyphs and theme they are drawn with. The shell lays it out each tick over
-// the whole window and draws it under the top bar; the app pushes screens and hands it input.
+// it), with the face, glyphs and theme they are drawn with and the pictures they show. The shell
+// lays it out each tick over the whole window and draws it under the top bar; the app pushes
+// screens and hands it input.
 #pragma once
 
 #include <chrono>
@@ -10,6 +11,7 @@
 #include "button_glyph.hpp"
 #include "interface_text.hpp"
 #include "paint.hpp"
+#include "screen_images.hpp"
 #include "typeface.hpp"
 
 namespace opensu::ui {
@@ -38,6 +40,9 @@ class ScreenStack {
     [[nodiscard]] const Chrome& chrome() const noexcept {
         return chrome_;
     }
+    [[nodiscard]] ScreenImages& images() noexcept {
+        return images_;
+    }
     /// Whether a screen is open.
     [[nodiscard]] bool active() const noexcept {
         return navigator_.active();
@@ -46,8 +51,11 @@ class ScreenStack {
     [[nodiscard]] bool visible() const noexcept {
         return navigator_.visible();
     }
+    /// Whether an open screen fills the window, rather than standing over what is under it.
+    [[nodiscard]] bool paged() const;
 
-    /// Sets the clock and theme and lays the screens out over `window`, under `chrome`.
+    /// Sets the clock and theme and lays the screens out over `window`, under `chrome`; drops the
+    /// pictures once nothing is drawn.
     void layout(Clock::time_point now, const gpu2d::Rect& window, float dp, Chrome chrome);
     void paint(Canvas& canvas);
 
@@ -57,6 +65,7 @@ class ScreenStack {
     InterfacePrompts prompts_;
     gpu2d::ui::Navigator navigator_;
     Chrome chrome_;
+    ScreenImages images_;
 };
 
 } // namespace opensu::ui

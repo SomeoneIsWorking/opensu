@@ -1,7 +1,6 @@
 // details_controller — the details page's buttons and what they do: play or install the game,
-// update it, pick its emulator, open its settings tabs (`GameSettingsPage`) or clear the settings
-// it keeps of its own,
-// download the emulator it is missing, give a Windows install its own Wine prefix or the shared
+// update it, pick its emulator, open its settings (`LayeredEditor`), download the emulator it is
+// missing, give a Windows install its own Wine prefix or the shared
 // one, hide it, uninstall it (two presses), open its button mapping, choose its cover, go back.
 // Opens for the focused game and keeps what it shows current while the library changes under it.
 #pragma once
@@ -40,10 +39,10 @@ class DetailsController {
         std::function<void(const std::string& text, bool error)> say;
         /// Opens `game`'s button mapping over the page.
         std::function<void(const library::Game& game)> controls;
-        /// Opens `game`'s settings tabs over the page.
+        /// Opens `game`'s settings over the page.
         std::function<void(const library::Game& game)> openGameSettings;
-        /// Whether frame generation can be set here (`FrameGeneration::available`).
-        std::function<bool()> frameGeneration;
+        /// How many settings `game` keeps of its own; nothing when it has nothing to set.
+        std::function<std::optional<std::size_t>(const library::Game& game)> gameSettings;
         /// Opens "Choose artwork" for `game` over the page.
         std::function<void(const library::Game& game)> chooseArtwork;
     };
@@ -68,13 +67,11 @@ class DetailsController {
   private:
     [[nodiscard]] ui::DetailsView viewOf(const library::Game& game) const;
     /// The game's emulator source, on a built-in core its video settings, and the Game settings
-    /// button when the tabs have anything for it.
+    /// button when the game has anything to set.
     [[nodiscard]] ui::GameSettingsView settingsOf(const library::Game& game) const;
     void run(ui::DetailsAction action);
     /// Picks the emulator `delta` places along the game's list, wrapping.
     void cycleEmulator(const library::Game& game, int delta);
-    /// Forgets every setting the game keeps of its own.
-    void clearSettings(const library::Game& game);
     /// Starts downloading the emulator `game` is missing, or cancels its download.
     void downloadEmulator(const library::Game& game);
     /// Moves a Windows install between its own Wine prefix and the shared one.

@@ -123,7 +123,10 @@ std::string optionsJson(const CoreOptions& options) {
     for (const CoreOptions::Option& option : options.options()) {
         list.push_back(nlohmann::json{{"key", option.key},
                                       {"label", option.label},
+                                      {"info", option.info},
                                       {"values", option.values},
+                                      {"labels", option.valueLabels},
+                                      {"default", option.fallback},
                                       {"value", option.current}});
     }
     return list.dump();

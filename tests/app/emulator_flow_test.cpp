@@ -17,7 +17,7 @@
 #include "details_controller.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
-#include "layer_settings.hpp"
+#include "layered_settings.hpp"
 #include "library/emulator_choice.hpp"
 #include "library/roms.hpp"
 #include "support/release_server.hpp"
@@ -110,16 +110,31 @@ struct Rig {
         downloads, app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
             said.emplace_back(text, error);
         }}};
-    app::LayerSettings layers{gameSettings,
-                              [this]() -> const library::roms::Emulators& {
-                                  return emulators.found();
-                              },
-                              downloads.shaderPack(),
-                              app::LayerSettings::Hooks{[this] {
-                                                            ++changes;
-                                                        },
-                                                        [] {
-                                                        }}};
+    app::FrameGeneration frameGeneration{gameSettings, nullptr, [] {
+                                             return std::optional<fs::path>{};
+                                         }};
+    app::RetroSession retro{root / "run"};
+    app::LayeredSettings layered{
+        app::LayeredSettings::Sources{gameSettings,
+                                      [this]() -> const library::roms::Emulators& {
+                                          return emulators.found();
+                                      },
+                                      downloads.shaderPack(), frameGeneration, retro,
+                                      app::CoreOptionStore{root / "core-options"}},
+        app::LayeredSettings::Hooks{[this](const std::string&) {
+                                        return std::optional{game()};
+                                    },
+                                    []() -> const library::Game* {
+                                        return nullptr;
+                                    },
+                                    [this] {
+                                        ++changes;
+                                    },
+                                    [] {
+                                    },
+                                    [this](const std::string& text, bool error) {
+                                        said.emplace_back(text, error);
+                                    }}};
     /// ROMs are never uninstalled; the details page here offers no Uninstall.
     app::UninstallPrompt uninstall{app::UninstallPrompt::Hooks{[](const library::Game&) {
                                                                    return app::Removal{};
@@ -165,8 +180,8 @@ struct Rig {
                                       },
                                       [](const library::Game&) {
                                       },
-                                      [] {
-                                          return false;
+                                      [](const library::Game&) {
+                                          return std::optional<std::size_t>{};
                                       },
                                       [](const library::Game&) {
                                       }}};
@@ -287,9 +302,8 @@ void settingsUpdateRemoveAndDefault(const fs::path& root) {
                !hasRow(downloadsOf(rig.emulators), "emulators.remove.emu"),
            "once confirmed, Remove removes it");
 
-    rig.layers.run("layers.open.system.gba", 0);
-    rig.layers.run("layers.emulator", 1);
     const settings::Layer gba{settings::Layer::Kind::System, "gba"};
+    rig.layered.set(rig.layered.forSystem("gba"), gba, std::string{library::emulatorKey}, "Emu");
     const std::string* kept = settings::GameSettingsStore{root / "game-settings.json"}.load().at(
         gba, library::emulatorKey);
     expect(rig.gameSettings.layers().at(gba, library::emulatorKey) != nullptr &&
@@ -297,8 +311,8 @@ void settingsUpdateRemoveAndDefault(const fs::path& root) {
                kept != nullptr && *kept == "Emu",
            "a system's emulator is picked and kept");
     expect(rig.game().unavailable == "Emu is not installed", "the system's pick reaches its games");
-    rig.layers.run("layers.emulator", 1);
-    expect(rig.gameSettings.layers().layers().empty(), "stepping on goes back to Automatic");
+    rig.layered.remove(gba, std::string{library::emulatorKey});
+    expect(rig.gameSettings.layers().layers().empty(), "removing the pick goes back to Automatic");
 }
 
 } // namespace

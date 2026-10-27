@@ -115,8 +115,8 @@ struct Rig {
                          [this](const library::Game& opened) {
                              calls.push_back("settings " + opened.id);
                          },
-                         [] {
-                             return false;
+                         [](const library::Game&) {
+                             return std::optional<std::size_t>{};
                          },
                          [this](const library::Game& opened) {
                              calls.push_back("artwork " + opened.id);

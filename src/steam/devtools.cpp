@@ -1,5 +1,6 @@
 #include "devtools.hpp"
 
+#include <condition_variable>
 #include <string>
 
 namespace opensu::steam {
@@ -27,6 +28,16 @@ std::optional<json> pageList(std::uint16_t port, std::string& error) {
 }
 
 } // namespace
+
+bool rest(const std::stop_token& stop, std::chrono::milliseconds poll) {
+    std::mutex mutex;
+    std::condition_variable_any wake;
+    std::unique_lock lock{mutex};
+    static_cast<void>(wake.wait_for(lock, stop, poll, [] {
+        return false;
+    }));
+    return !stop.stop_requested();
+}
 
 std::optional<std::vector<DevToolsTarget>> devToolsTargets(std::uint16_t port, std::string& error) {
     const std::optional<json> list = pageList(port, error);

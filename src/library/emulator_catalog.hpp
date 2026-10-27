@@ -47,6 +47,9 @@ struct RomsetSource {
     }
 };
 
+/// What the catalog appends to a built-in emulator's name.
+inline constexpr std::string_view builtInMark = " (built-in)";
+
 /// A core option a built-in emulator's core starts with, as the core spells key and value.
 struct CoreOption {
     std::string key;
@@ -80,6 +83,9 @@ struct EmulatorEntry {
     [[nodiscard]] bool builtIn() const noexcept {
         return !core.empty();
     }
+    /// Its name without the catalog's " (built-in)" mark, where the context says it is the core:
+    /// "mGBA" for "mGBA (built-in)".
+    [[nodiscard]] std::string_view shortName() const noexcept;
     /// Whether openSU can download it: an official AppImage or a core.
     [[nodiscard]] bool downloadable() const noexcept {
         return release.has_value() || builtIn();

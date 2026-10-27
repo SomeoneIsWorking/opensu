@@ -29,7 +29,7 @@ class GuideMenuController {
         std::function<void()> openSettings;
         /// Ends the running game.
         std::function<void()> closeGame;
-        /// Opens the running game's settings tabs.
+        /// Opens the running game's settings in the layered editor.
         std::function<void()> openGameSettings;
         /// The running game's state commands (opensu-retro).
         std::function<void()> saveState;

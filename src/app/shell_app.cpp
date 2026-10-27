@@ -24,6 +24,7 @@
 #include "library/titles.hpp"
 #include "lucent/log.h"
 #include "retro_launch.hpp"
+#include "ui/interface_input.hpp"
 #include "ui/section_view.hpp"
 
 namespace opensu::app {
@@ -273,7 +274,7 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
 
 ui::OnScreenKeyboard* ShellApp::wheelTakingStick() {
     // The panels actOn hands buttons to before any keyboard.
-    if (firstRun_.active() || shell_.guidePanels().guide().isOpen() || gameSettingsPage_.isOpen() ||
+    if (firstRun_.active() || shell_.guidePanels().guide().isOpen() ||
         shell_.guidePanels().quick().isOpen() || pluginSettings_.active()) {
         return nullptr;
     }
@@ -503,10 +504,6 @@ void ShellApp::actOn(gamepad::Button button) {
         guideMenu_.act(button);
         return;
     }
-    if (gameSettingsPage_.isOpen()) {
-        gameSettingsPage_.act(button);
-        return;
-    }
     if (shell_.guidePanels().quick().isOpen()) {
         quickMenu_.act(button);
         return;
@@ -560,8 +557,15 @@ void ShellApp::actOn(gamepad::Button button) {
         downloadsScreen_.act(button);
         return;
     }
-    if (settingsScreen_.isOpen()) {
-        settingsScreen_.act(button);
+    if (giveaways_.isOpen()) {
+        giveaways_.act(button);
+        return;
+    }
+    if (shell_.screens().active()) {
+        if (const std::optional<gpu2d::ui::Action> action = ui::interfaceActionOf(button);
+            action && !shortcutEditor_.capturing()) {
+            shell_.screens().navigator().act(*action);
+        }
         return;
     }
     if (covers_.picker().isOpen()) {
@@ -589,6 +593,9 @@ void ShellApp::actOn(gamepad::Button button) {
         shell_.pressFocused();
         if (const std::optional<library::Folder> folder = shell_.focusedFolder()) {
             openFolder(*folder);
+        } else if (shell_.focusedGiveaways()) {
+            sounds_.play(audio::Effect::EnterConsolesApps);
+            giveaways_.open();
         } else {
             details_.open();
         }
@@ -718,25 +725,14 @@ void ShellApp::chooseLevel(int level) {
     }
 }
 
-void ShellApp::chooseTab(std::size_t index) {
-    if (gameSettingsPage_.isOpen()) {
-        gameSettingsPage_.showTab(index);
-    }
-}
-
-void ShellApp::applyVideo(const library::Game& game) {
-    if (!shell_.inGame() || launches_.game().id != game.id) {
-        return;
-    }
-    const std::optional<settings::VideoSettings> video =
-        retroVideoOf(launches_.game(), gameSettings_.layers(), emulatorSettings_.catalog(),
-                     emulatorDownloads_.shaderPack().root());
-    if (!video) {
-        return;
-    }
-    if (const std::string refused = retro_.setVideo(*video); !refused.empty()) {
-        shell_.setToast(refused, true);
-    }
+void ShellApp::openGameSettings(const library::Game& game, EditorLook look,
+                                std::function<void()> closed) {
+    // input-sound.md 3.4 Open: a panel appears.
+    sounds_.play(audio::Effect::Open);
+    gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
+    navigator.push(std::make_unique<LayeredEditor>(layered_, navigator, shell_.screens().chrome(),
+                                                   layered_.forGame(game), look, game.title,
+                                                   std::move(closed)));
 }
 
 const library::Game* ShellApp::gameInFront() const {
@@ -762,9 +758,7 @@ void ShellApp::closeRunningGame() {
 
 void ShellApp::toggleGuide() {
     ui::GuidePanels& menus = shell_.guidePanels();
-    if (gameSettingsPage_.isOpen()) {
-        gameSettingsPage_.close();
-    } else if (menus.quick().isOpen()) {
+    if (menus.quick().isOpen()) {
         quickMenu_.close();
     } else if (menus.guide().isOpen() || !menusBlocked()) {
         guideMenu_.toggle();
@@ -776,10 +770,6 @@ void ShellApp::toggleQuickMenu() {
     if (menus.guide().isOpen()) {
         guideMenu_.close();
     }
-    if (gameSettingsPage_.isOpen()) {
-        gameSettingsPage_.close();
-        return;
-    }
     if (menus.quick().isOpen() || !menusBlocked()) {
         quickMenu_.toggle();
     }
@@ -789,8 +779,11 @@ void ShellApp::closePages() {
     mappings_.close();
     details_.close();
     settingsScreen_.close();
+    giveaways_.close();
     devicesScreen_.close();
     downloadsScreen_.close();
+    // A game's settings, opened over its details or the running game.
+    shell_.screens().navigator().clear();
 }
 
 void ShellApp::openDownloads() {
@@ -918,6 +911,8 @@ ui::Trail ShellApp::currentTrail() const {
         state.game = shell_.detailsPage().view().title;
     }
     state.settings = settingsScreen_.category();
+    state.giveaways = giveaways_.isOpen();
+    state.offer = giveaways_.openOffer();
     state.devices = devicesScreen_.tab();
     state.downloads = shell_.downloadsPanel().isOpen();
     return trailOf(state);
@@ -960,8 +955,8 @@ ui::HintContext ShellApp::hints() const {
         covers_.picker().isOpen() || shell_.dockedKeyboard() != nullptr) {
         return ui::HintContext{};
     }
-    // The Settings screens' hint bar names what their focus does.
-    if (settingsScreen_.isOpen()) {
+    // The toolkit screens' hint bar names what their focus does.
+    if (shell_.screens().active() || giveaways_.isOpen()) {
         return ui::HintContext{};
     }
     if (shortcutEditor_.capturing()) {
@@ -980,7 +975,7 @@ ui::HintContext ShellApp::hints() const {
     const bool folder = shell_.focusedFolder().has_value();
     return ui::HintContext{.back = browser_.canBack(),
                            .clearSearch = search_.searching(),
-                           .select = game || folder,
+                           .select = game || folder || shell_.focusedGiveaways(),
                            .details = game,
                            .options = game || folder,
                            .menu = true};
@@ -1006,6 +1001,8 @@ void ShellApp::publishSnapshot() {
         next.focusedId = std::holds_alternative<library::Console>(*folder)
                              ? "console:" + library::key(*folder)
                              : library::key(*folder);
+    } else if (shell_.focusedGiveaways()) {
+        next.focusedId = "giveaways";
     }
     next.focusedTitle = shell_.focusedTitle();
     next.section = std::string{library::key(browser_.section())};
@@ -1054,8 +1051,11 @@ void ShellApp::publishSnapshot() {
         row != nullptr && next.quickMenuOpen) {
         next.quickFocus = row->id;
     }
-    next.settingsTab = gameSettingsPage_.tabName();
-    next.settingsFocus = gameSettingsPage_.focusName();
+    for (const gpu2d::ui::Screen* screen : shell_.screens().navigator().screens()) {
+        if (const auto* editor = dynamic_cast<const LayeredEditor*>(screen)) {
+            next.settingsScope = editor->scopeName();
+        }
+    }
     next.devicesOpen = shell_.devicesPanel().isOpen();
     next.devicesTab = devicesScreen_.tab();
     next.downloadsOpen = shell_.downloadsPanel().isOpen();
@@ -1149,7 +1149,6 @@ void ShellApp::serviceRequests() {
         shell_.setInGame(running);
         guideMenu_.close();
         quickMenu_.close();
-        gameSettingsPage_.close();
         closePages();
         panels_.endLaunch();
         gameScreen_.setRunning(running);
@@ -1200,7 +1199,7 @@ int ShellApp::run() {
         }
 
         integrationSwitch_.service();
-        padOwner_.lendToSteam(steamGridDbAccount_.signingIn());
+        padOwner_.lendToSteam(steamGridDbAccount_.signingIn() || offerClaim_.inSteam());
         focusFollow_.service(padOwner_.held());
         frameGeneration_.follow(gameInFront());
         padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),
@@ -1225,6 +1224,7 @@ int ShellApp::run() {
         emulatorDownloads_.service();
         downloadsScreen_.service();
         settingsScreen_.service();
+        giveaways_.service();
         syncOverlay();
         syncChrome();
         shell_.tick(std::chrono::steady_clock::now());

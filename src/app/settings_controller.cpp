@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "build_version.hpp"
+#include "layered_editor.hpp"
 #include "library/steam.hpp"
 #include "settings/install_folders.hpp"
 #include "settings_screen.hpp"
@@ -129,16 +130,10 @@ std::optional<ui::SettingsCategory> SettingsController::subPage(const std::strin
     if (std::optional<ui::SettingsCategory> found = layers_.listPage(id)) {
         return found;
     }
-    if (layers_.isOpen() && id == layers_.openRowId()) {
-        return layers_.page();
-    }
     return mappings_.settingsPage(id);
 }
 
 std::string SettingsController::pageTitle(const std::string& id) {
-    if (layers_.isOpen() && id == layers_.openRowId()) {
-        return layers_.openName();
-    }
     return page(id).label;
 }
 
@@ -150,7 +145,7 @@ std::string SettingsController::category() const {
         }
         if (const auto* root = dynamic_cast<const SettingsScreen*>(screen)) {
             trail = root->categoryLabel();
-        } else if (dynamic_cast<const SettingsSubPage*>(screen) != nullptr && !trail.empty()) {
+        } else if (!trail.empty()) {
             trail += " › " + screen->title();
         }
     }
@@ -221,11 +216,11 @@ ui::SettingsCategory SettingsController::libraryPage() const {
     const settings::Settings& v = preferences_.values();
     ui::SettingsCategory page{"library", "Library", {}};
     page.rows.push_back(ui::makeHeading("What shows"));
-    page.rows.push_back(ui::makeChoice(
-        sortId, "Sort by", "How games are ordered",
-        optionsOf(library::allSortKeys, v.view.sort, [](library::SortKey key) {
-            return std::string{library::label(key)};
-        })));
+    page.rows.push_back(
+        ui::makeChoice(sortId, "Sort by", "How games are ordered",
+                       optionsOf(library::allSortKeys, v.view.sort, [](library::SortKey key) {
+                           return std::string{library::label(key)};
+                       })));
     ui::Options sources;
     for (const library::SourceChoice& choice : hooks_.sourceChoices()) {
         if (choice.key == v.view.source) {
@@ -301,12 +296,12 @@ ui::SettingsCategory SettingsController::controlsPage() const {
     ui::SettingsCategory page{"controls", "Controls", {}};
     page.rows.push_back(ui::makeHeading("Controllers"));
     std::ranges::move(mappings_.settingsRows(), std::back_inserter(page.rows));
-    page.rows.push_back(ui::makeChoice(
-        keyboardId, "Keyboard", "The on-screen keyboard the fields open",
-        optionsOf(input::allKeyboardStyles, preferences_.values().keyboardStyle,
-                  [](input::KeyboardStyle style) {
-                      return std::string{input::label(style)};
-                  })));
+    page.rows.push_back(
+        ui::makeChoice(keyboardId, "Keyboard", "The on-screen keyboard the fields open",
+                       optionsOf(input::allKeyboardStyles, preferences_.values().keyboardStyle,
+                                 [](input::KeyboardStyle style) {
+                                     return std::string{input::label(style)};
+                                 })));
     page.rows.push_back(ui::makeHeading("Shortcuts"));
     for (const input::Action action : input::allActions) {
         const bool listening = shortcutEditor_.target() == action;
@@ -395,7 +390,6 @@ void SettingsController::openCategory(const std::string& id) {
 
 void SettingsController::show(const std::string& category) {
     emulators_.rescan();
-    layers_.close();
     integrations_.sync();
     if (inForce_.current().lists(library::Source::Steam)) {
         steamLibraries_.reload();
@@ -413,8 +407,8 @@ void SettingsController::show(const std::string& category) {
     });
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    navigator_.push(std::make_unique<SettingsScreen>(*this, chrome_,
-                                                    known ? category : all.front().id));
+    navigator_.push(
+        std::make_unique<SettingsScreen>(*this, chrome_, known ? category : all.front().id));
 }
 
 void SettingsController::close() {
@@ -427,7 +421,6 @@ void SettingsController::close() {
 void SettingsController::closeAll() {
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
-    layers_.close();
     navigator_.clear();
 }
 
@@ -438,12 +431,14 @@ Screen::BackReply SettingsController::leave() {
         return Screen::BackReply::Stay;
     }
     std::vector<gpu2d::ui::Dialog::Choice> choices{
-        {"Apply", [this] {
+        {"Apply",
+         [this] {
              applyIntegrations();
              closeAll();
          },
          gpu2d::ui::ButtonKind::Primary},
-        {"Discard", [this] {
+        {"Discard",
+         [this] {
              integrations_.sync();
              closeAll();
          },
@@ -495,7 +490,6 @@ void SettingsController::showCategories() {
     const auto* root = dynamic_cast<const SettingsScreen*>(navigator_.top());
     if (root == nullptr) {
         // Pages and what is over them close; the root shows its categories.
-        layers_.close();
         while (navigator_.top() != nullptr &&
                dynamic_cast<const SettingsScreen*>(navigator_.top()) == nullptr) {
             navigator_.pop();
@@ -508,39 +502,21 @@ void SettingsController::showCategories() {
 }
 
 void SettingsController::confirm(const ui::SettingsRow& row) {
-    navigator_.push(gpu2d::ui::confirm(row.label + "?", row.confirm, verbOf(row.label),
-                                                 [this, id = row.id] {
-                                                     run(id, 0);
-                                                 }));
+    navigator_.push(
+        gpu2d::ui::confirm(row.label + "?", row.confirm, verbOf(row.label), [this, id = row.id] {
+            run(id, 0);
+        }));
 }
 
 void SettingsController::openPage(const std::string& id) {
-    if (LayerSettings::owns(id)) {
-        layers_.run(id, 0);
-        refresh();
+    if (std::optional<EditorContext> context = layers_.contextOf(id)) {
+        std::string title = layered_.scopeName(context->scopes.back());
+        navigator_.push(std::make_unique<LayeredEditor>(layered_, navigator_, chrome_,
+                                                        std::move(*context), EditorLook::Page,
+                                                        std::move(title)));
+        return;
     }
     navigator_.push(std::make_unique<SettingsSubPage>(*this, chrome_, id));
-}
-
-Screen::BackReply SettingsController::backFrom(const std::string& id) {
-    if (!layers_.isOpen() || id != layers_.openRowId()) {
-        return Screen::BackReply::Pop;
-    }
-    switch (layers_.back()) {
-    case LayerSettings::Back::Within: {
-        refresh();
-        sounds_.play(audio::Effect::Navigation);
-        if (const std::string target = layers_.returnRow(); !target.empty()) {
-            navigator_.focus(target);
-        }
-        return Screen::BackReply::Stay;
-    }
-    case LayerSettings::Back::Layer:
-        layers_.close();
-        refresh();
-        break;
-    }
-    return Screen::BackReply::Pop;
 }
 
 void SettingsController::setLevel(const std::string& id, int level) {
@@ -586,10 +562,6 @@ void SettingsController::run(const std::string& id, int step) {
         refresh();
         return;
     }
-    if (LayerSettings::owns(id)) {
-        runLayer(id, step);
-        return;
-    }
     if (IntegrationSettings::applies(id)) {
         applyIntegrations();
         return;
@@ -623,14 +595,6 @@ void SettingsController::run(const std::string& id, int step) {
         return;
     }
     refresh();
-}
-
-void SettingsController::runLayer(const std::string& id, int step) {
-    layers_.run(id, step);
-    refresh();
-    if (const std::string target = layers_.returnRow(); !target.empty()) {
-        navigator_.focus(target);
-    }
 }
 
 void SettingsController::runAppearance(const std::string& id, int step) {

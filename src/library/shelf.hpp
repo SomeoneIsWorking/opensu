@@ -1,6 +1,6 @@
 // shelf — what one screen of the grid holds. Home holds the store games installed here. Library
-// holds one tile per launcher, the combined library and one per console with ROMs. Opening one of
-// those holds its games.
+// holds one tile per launcher, the stores' giveaways, the combined library and one per console
+// with ROMs. Opening one of the folders holds its games; Giveaways opens a screen of its own.
 #pragma once
 
 #include <array>
@@ -49,9 +49,17 @@ struct AllGames {
     bool operator==(const AllGames&) const = default;
 };
 
+/// The stores' free-to-keep offers, beside the launchers; it opens the Giveaways screen.
+struct Giveaways {
+    bool operator==(const Giveaways&) const = default;
+};
+
+/// The Giveaways tile's and screen's name.
+inline constexpr std::string_view giveawaysName = "Giveaways";
+
 /// A tile that opens a shelf of its own.
 using Folder = std::variant<Console, Launcher, AllGames>;
-using ShelfItem = std::variant<Game, Console, Launcher, AllGames>;
+using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways>;
 
 /// The folder a shelf item opens, or nothing for a game.
 [[nodiscard]] std::optional<Folder> folderOf(const ShelfItem& item);
@@ -68,8 +76,9 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames>;
 /// Home: the store games installed here, a title installed in several stores once.
 [[nodiscard]] std::vector<ShelfItem> homeShelf(const std::vector<Game>& games);
 
-/// Library: one launcher per store that is not absent, Steam, Epic, GOG; the combined library when
-/// a store has games; then one console per system with ROMs, in the known systems' order.
+/// Library: one launcher per store that is not absent, Steam, Epic, GOG; Giveaways when there is a
+/// launcher; the combined library when a store has games; then one console per system with ROMs,
+/// in the known systems' order.
 [[nodiscard]] std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
                                                   const std::vector<SourceStatus>& sources);
 

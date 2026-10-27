@@ -1,11 +1,13 @@
 #include "retro_launch.hpp"
 
 #include <algorithm>
-#include <array>
+#include <format>
+#include <vector>
 
 #include "fileio/atomic_write.hpp"
 #include "library/emulator_choice.hpp"
 #include "lucent/log.h"
+#include "settings/core_option_settings.hpp"
 #include "settings/video_settings.hpp"
 
 namespace opensu::app {
@@ -44,8 +46,14 @@ std::string prepareRetroLaunch(library::Game& game, const settings::SettingLayer
     if (!fileio::writeWhole(file, settings::videoJson(*video), error)) {
         return error;
     }
-    const std::array<std::string, 2> option{"--settings", file.string()};
-    game.launch.args.insert(game.launch.args.begin(), option.begin(), option.end());
+    std::vector<std::string> options{"--settings", file.string()};
+    for (const auto& [key, value] :
+         settings::resolveCoreOptions(layers, library::layerKeysOf(game))) {
+        options.emplace_back("--option");
+        options.push_back(std::format("{}={}", key, value));
+    }
+    // First, so an option the catalog's command gives wins.
+    game.launch.args.insert(game.launch.args.begin(), options.begin(), options.end());
     lucent::info("retro", "{} starts with {}", game.title, file.string());
     return {};
 }

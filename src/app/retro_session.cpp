@@ -147,17 +147,26 @@ std::vector<RetroSession::CoreOption> RetroSession::options() {
         if (!entry.is_object()) {
             continue;
         }
-        CoreOption option{.key = entry.value("key", std::string{}),
-                          .label = entry.value("label", std::string{}),
+        CoreOption option{.definition = {.key = entry.value("key", std::string{}),
+                                         .label = entry.value("label", std::string{}),
+                                         .help = entry.value("info", std::string{}),
+                                         .fallback = entry.value("default", std::string{})},
                           .value = entry.value("value", std::string{})};
-        if (entry.contains("values") && entry["values"].is_array()) {
-            for (const nlohmann::json& value : entry["values"]) {
-                if (value.is_string()) {
-                    option.values.push_back(value.get<std::string>());
-                }
+        const nlohmann::json values = entry.value("values", nlohmann::json::array());
+        const nlohmann::json labels = entry.value("labels", nlohmann::json::array());
+        for (std::size_t at = 0; values.is_array() && at < values.size(); ++at) {
+            if (!values[at].is_string()) {
+                continue;
             }
+            const std::string value = values[at].get<std::string>();
+            const bool labelled = labels.is_array() && at < labels.size() && labels[at].is_string();
+            option.definition.values.push_back(
+                settings::SettingChoice{value, labelled ? labels[at].get<std::string>() : value});
         }
-        if (!option.key.empty()) {
+        if (option.definition.fallback.empty() && !option.definition.values.empty()) {
+            option.definition.fallback = option.definition.values.front().key;
+        }
+        if (!option.definition.key.empty()) {
             out.push_back(std::move(option));
         }
     }

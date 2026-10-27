@@ -1,7 +1,6 @@
 #include "settings.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <fstream>
 #include <iterator>
@@ -49,15 +48,6 @@ constexpr const char* epicKey = "epic";
 constexpr const char* gogKey = "gog";
 constexpr const char* standaloneEmulatorsKey = "emulators";
 constexpr const char* luaPluginsKey = "plugins";
-
-/// The key a store's own install folder is kept under.
-std::string storeKey(library::Source store) {
-    std::string key{library::label(store)};
-    std::ranges::transform(key, key.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    return key;
-}
 
 /// Reads a file's fields, each on its own: one that is damaged is reported and keeps its default.
 class Reader {
@@ -139,7 +129,7 @@ class Reader {
         }
         out.setDefault(found->value(defaultFolderKey, std::string{}));
         for (const library::Source store : installStores) {
-            out.setStore(store, found->value(storeKey(store), std::string{}));
+            out.setStore(store, found->value(library::key(store), std::string{}));
         }
     }
 
@@ -400,7 +390,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
     for (const library::Source store : installStores) {
         if (const std::filesystem::path own = settings.installFolders.storeFolder(store);
             !own.empty()) {
-            folders[storeKey(store)] = own.string();
+            folders[library::key(store)] = own.string();
         }
     }
     const auto listOf = [](const std::vector<std::filesystem::path>& paths) {

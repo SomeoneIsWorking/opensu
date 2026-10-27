@@ -15,6 +15,7 @@
 
 #include "setting_choices.hpp"
 #include "setting_layers.hpp"
+#include "setting_schema.hpp"
 
 namespace opensu::settings {
 
@@ -102,11 +103,12 @@ inline constexpr std::array<ChoiceKey, 4> videoKeys{{
 inline constexpr std::string_view shaderKey = "video.shader";
 inline constexpr std::string_view shaderLabel = "Shader preset";
 
-/// Whether a shader preset takes the place of video key `key` (sampling and filter).
-[[nodiscard]] bool replacedByShader(std::string_view key) noexcept;
+/// The heading the video settings stand under.
+inline constexpr std::string_view videoSection = "Video";
 
-/// The video key `key` names, or null.
-[[nodiscard]] const ChoiceKey* videoKey(std::string_view key);
+/// Declares the video settings in `schema`: Aspect, Integer scale, Sampling and Filter (both
+/// hidden while a shader preset applies, which replaces them), then the shader preset.
+void declareVideo(Schema& schema);
 
 /// `keys`' video settings, each from its winning layer; a kept value that is no choice is
 /// reported and the default used. The shader preset is found under `presets`, the shader pack.
