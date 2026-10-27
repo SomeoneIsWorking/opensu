@@ -121,9 +121,9 @@ fs::path firstExisting(const fs::path& root, std::span<const std::string_view> p
 }
 
 /// Steam's own components are not games. App manifests carry no tool-versus-game
-/// marker; that lives in appinfo.vdf, whose v29 layout is not decoded yet, so
-/// these are matched by the directory names Steam installs its components
-/// under. Narrow and documented rather than silent, and recorded as a
+/// marker; that lives in appinfo.vdf (`common/type`, `steam_appinfo`), not read
+/// here yet, so these are matched by the directory names Steam installs its
+/// components under. Narrow and documented rather than silent, and recorded as a
 /// stopgap in docs/project-state.md.
 bool isSteamComponent(const std::string& installDir) {
     constexpr std::string_view prefixes[]{

@@ -157,6 +157,10 @@ sleep 60
                                                          [] {
                                                              return false;
                                                          },
+                                                     .keepCurrent =
+                                                         [] {
+                                                             return true;
+                                                         },
                                                      .inUse =
                                                          [] {
                                                              return app::WineRunners::InUse{};

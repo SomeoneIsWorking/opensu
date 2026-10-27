@@ -1195,11 +1195,11 @@ machine.
 ### S011 — Steam's own components
 
 **Stopgap.** App manifests carry no tool-versus-game marker; that lives in
-`appinfo.vdf`, whose v29 layout wraps the app section in a header block that is
-not plain KeyValues and was not decoded. Components are therefore matched by the
-directory names Steam installs them under, which removed 9 entries from this
-machine's grid. The list drifts as Valve adds runtimes, so decoding `appinfo.vdf`
-is the real fix.
+`appinfo.vdf` (`common/type`), which `library/steam_appinfo` now decodes but the
+listing does not read yet. Components are therefore matched by the directory
+names Steam installs them under, which removed 9 entries from this machine's
+grid. The list drifts as Valve adds runtimes, so reading `common/type` through
+`steam_appinfo` is the real fix.
 ### S017 — Per-game resolution and FSR
 
 Not built. The installed Gamescope exposes the Deck's runtime controls as root

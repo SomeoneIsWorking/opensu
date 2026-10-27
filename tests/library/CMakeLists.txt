@@ -117,3 +117,9 @@ target_compile_definitions(switch_info_test PRIVATE
     OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch"
     OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
 add_test(NAME switch_info COMMAND switch_info_test)
+
+add_executable(steam_compat_test steam_compat_test.cpp)
+target_link_libraries(steam_compat_test PRIVATE opensu::library)
+target_include_directories(steam_compat_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(steam_compat_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME steam_compat COMMAND steam_compat_test)

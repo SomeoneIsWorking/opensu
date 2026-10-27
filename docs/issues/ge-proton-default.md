@@ -54,11 +54,13 @@ you can fallback to Steam Proton which falls back to what Lutris uses which fall
   or cancel removes the staging folder and leaves the installed builds alone. SHA-512 is Lucent's
   (`lucent::content::sha512_file`, added for this).
 - `app/wine_runners`: the check runs in the background at start and every 24 h while GOG or Epic is
-  signed in (`library::isReady`; an hour after a failed start) and on "Check for GE-Proton now",
+  signed in (`library::isReady`; an hour after a failed start) and "Keep GE-Proton up to date" is
+  on, and on "Check for GE-Proton now",
   and downloads the latest GE-Proton and umu-launcher when they are missing or older. A scheduled
   check that cannot read the release (HTTP 403, GitHub's rate limit) logs it once and waits for
   the next scheduled check. Sizes are measured again when a game ends, which is when the Steam
-  Linux Runtime umu fetched on a first Proton launch shows up. After a successful check the rotation runs on the main loop: builds past the newest
+  Linux Runtime umu fetched on a first Proton launch shows up. After a successful check, while
+  "Keep GE-Proton up to date" is on, the rotation runs on the main loop: builds past the newest
   two are renamed into `<data>/wine/.trash` and removed on a thread; a build kept back says why
   ("Kept because 1 game is pinned to it", "Kept because a game is running on it", "Kept because it
   runs every game"). Progress and
@@ -68,10 +70,22 @@ you can fallback to Steam Proton which falls back to what Lutris uses which fall
   progress ("Downloading GE-Proton 11-11 · 7%") or the last outcome ("Up to date: GE-Proton 11-11"); Test the runner (`cmd /c ver` in
   `<data>/wine/test-prefix` through the same invocation a launch uses), then "Runners and
   runtimes": every runner with where it lives (kept up to date by openSU, found in Steam's
-  folders, system), size for openSU's builds, and how many games use it; umu-launcher and the
-  Steam Linux Runtime with their sizes. Each opens a page: where, size, why kept, the games using
-  it (A unpins a pinned one, pins of games the library does not list now included) and "Pin a
+  folders, system), size for openSU's builds, and how many games use it by store ("3 games from
+  Steam, 1 from Epic", "Not used"); umu-launcher and the Steam Linux Runtime with their sizes and
+  the GOG and Epic games openSU runs on Proton. Each opens a page: where, size, why kept, the
+  games using it under a heading per store (Steam's "Change it in Steam; it can't be pinned here";
+  A unpins a pinned GOG or Epic one; pins of games the library does not list now) and "Pin a
   game to it" for the other Windows games.
+- Steam's games are counted by Steam's own choice (`library/steam_compat`): the game's entry in
+  `config/config.vdf` CompatToolMapping, else the default (entry `0`) for an installed game whose
+  `appinfo.vdf` `common/oslist` has no `linux`; Steam's tool names come from app 891390's
+  `extended/compat_tools`, a custom tool's folder from its `compatibilitytool.vdf`, an official
+  Proton's from its app manifest. A tool Steam names but that is not installed counts nowhere.
+  Valve's own per-game mappings (891390 `app_mappings`, e.g. a native game forced to
+  `proton-stable`) are not read. "Kept because …" still counts only openSU's pins and pick.
+- "Keep GE-Proton up to date" (`keepGeProtonCurrent`, default on): off, no scheduled check,
+  background download or rotation (`WineRunners::service`); the installed builds stay and
+  Automatic still uses them; "Check for GE-Proton now" reads "Downloads only when pressed".
 - Migration: an empty `wineRunner` means Automatic; an explicit pick stays as it was. Nothing is
   rewritten.
 - Prefixes (`library::wine::readyPrefix`, for launches and the test):
@@ -150,6 +164,16 @@ openSU's GE-Proton moved aside, "Automatic (GE-Proton 11-5)" with "Downloading G
 GE-Proton 11-11" (`idle-0.png`); every pick stepped through, Proton 9.0 Beta and Automatic
 (GE-Proton 11-11) fit between the arrows at 1280x800 (`idle-picks-strip.png`).
 
+Counts by store and the toggle, same setup (`scratch/ge-proton-real/ge5/`): Settings › Wine shows
+GE-Proton 11-11 with Nuclear Throne from Epic, Steam's other builds "Not used" and Proton 10.0
+"19 games from Steam", Steam's default for its Windows-only games plus Borderlands 2 picked per game
+(`frames/look-wine.png`, `look-rows.png`); Proton 10.0's page lists them under "From Steam"
+(`look-page.png`, `look-page-down.png`), GE-Proton 11-11's lists Nuclear Throne under "From Epic"
+(`off-page.png`). The games Steam maps to GE-Proton10-29 and 10-34, not installed, count nowhere.
+"Keep GE-Proton up to date" turned off and openSU restarted: no `[wine]` line in 40 s and Check
+now reads "Downloads only when pressed", "Not checked yet" (`logs/restart-off.log`,
+`frames/restart-off-wine.png`); turned back on, the check ran at once (`logs/on.log`).
+
 "None → system" is case 2 on this machine: with no Proton the Lutris step finds nothing on disk.
 
 Earlier (before the fallback chain), on the same setup: the Steam Linux Runtime row appears once a
@@ -158,6 +182,10 @@ against a release URL answering HTTP 403 logged one `[wine:warn]` line, no toast
 (`ge2/x403/run.log`).
 
 ## Open
+
+- A short usage value is cut ("1 game from Ep…") where a longer one fits. Suspected, not yet
+  traced: gpu2d `Item::arrange` gives the value the measured width plus the chevron minus the
+  chevron, which can round below the measured width that `fitted` compares against.
 
 - A system Wine's version is not shown (its name is "System Wine"); Steam's Proton builds show no
   size (not measured, too many files to walk on the loop).

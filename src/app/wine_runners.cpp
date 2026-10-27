@@ -397,7 +397,8 @@ void WineRunners::service(Clock::time_point now) {
     for (const Finished& finished : news) {
         hooks_.say(finished.text, finished.outcome == Outcome::Failed);
     }
-    if (checked) {
+    const bool keepCurrent = hooks_.keepCurrent();
+    if (checked && keepCurrent) {
         rotate();
     }
     if (!news.empty() || checked || measured) {
@@ -417,7 +418,7 @@ void WineRunners::service(Clock::time_point now) {
     if (!nextCheck_) {
         nextCheck_ = now;
     }
-    if (now >= *nextCheck_ && !busyNow && hooks_.wanted()) {
+    if (now >= *nextCheck_ && !busyNow && keepCurrent && hooks_.wanted()) {
         lucent::info("wine", "checking for a newer GE-Proton and umu-launcher");
         nextCheck_ = now + (check(CheckMode::Scheduled).empty() ? checkEvery : retryFailedAfter);
     }

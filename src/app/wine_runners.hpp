@@ -1,9 +1,10 @@
 // wine_runners — keeping openSU's own Wine runners current off the main loop: the latest GE-Proton
 // and umu-launcher downloaded, checked and unpacked under `<data>/wine` (`ge_proton`, `umu`,
-// `runtime_archive`), checked in the background at start and daily while GOG or Epic is signed in,
-// and on "Check now"; a launch never waits for it and picks a build up once installed. After a
-// check the GE-Proton builds past the newest two are removed unless a game runs on one or is set to
-// it, which keeps it with the reason. Also runs a Windows program through a runner for Settings'
+// `runtime_archive`), checked in the background at start and daily while GOG or Epic is signed in
+// and the player keeps GE-Proton up to date, and on "Check now"; a launch never waits for it and
+// picks a build up once installed. After a check, while the player keeps GE-Proton up to date, the
+// builds past the newest two are removed unless a game runs on one or is set to it, which keeps it
+// with the reason. Also runs a Windows program through a runner for Settings'
 // "Test" row. One job at a time, with progress and cancel for the Downloads page.
 #pragma once
 
@@ -43,6 +44,9 @@ class WineRunners {
         std::function<void()> refresh;
         /// Whether GOG or Epic is signed in, which the background check waits for.
         std::function<bool()> wanted;
+        /// Whether openSU keeps GE-Proton up to date by itself; off, it checks only when asked and
+        /// removes nothing.
+        std::function<bool()> keepCurrent;
         /// The builds that must stay. Main loop only.
         std::function<InUse()> inUse;
         /// Whether a game runs now, which keeps every umu-launcher install.
@@ -102,8 +106,9 @@ class WineRunners {
     WineRunners(const WineRunners&) = delete;
     WineRunners& operator=(const WineRunners&) = delete;
 
-    /// Starts the check when it is due, hands ended jobs to the hooks, rotates after a check,
-    /// sweeps what a rotation removed and measures again when a game ends. Main loop only.
+    /// Starts the check when it is due and rotates after a check, both only while `keepCurrent`;
+    /// hands ended jobs to the hooks, sweeps what a rotation removed and measures again when a
+    /// game ends. Main loop only.
     void service(Clock::time_point now);
     /// Checks now, the player asking; refused, with the reason, while a job runs.
     [[nodiscard]] std::string checkNow();
