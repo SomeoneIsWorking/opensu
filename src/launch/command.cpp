@@ -85,6 +85,10 @@ void endGroup(pid_t pid) {
 
 } // namespace
 
+std::string programName(const std::string& program) {
+    return fs::path{program}.filename().string();
+}
+
 fs::path resolveExecutable(const std::string& program, const std::vector<fs::path>& path) {
     if (program.empty()) {
         return {};

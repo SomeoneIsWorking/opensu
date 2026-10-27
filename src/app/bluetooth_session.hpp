@@ -1,7 +1,7 @@
 // bluetooth_session — the Bluetooth state the shell shows and the changes it asks for, off the
 // loop. BlueZ answers a read in milliseconds but a pairing takes up to half a minute, so reads and
-// changes run on a worker, one at a time, and the loop takes what they found. The Devices page and
-// the quick menu share one session, so they never disagree.
+// changes run on a worker, one at a time, and the loop takes what they found. The Devices screen
+// reads this one session.
 #pragma once
 
 #include <chrono>

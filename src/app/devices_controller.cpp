@@ -1,9 +1,10 @@
 #include "devices_controller.hpp"
 
 #include <algorithm>
+#include <memory>
 
-#include "settings/settings.hpp"
-#include "ui/row_activation.hpp"
+#include "devices_screen.hpp"
+#include "gpu2d/ui/screen.hpp"
 
 namespace opensu::app {
 namespace {
@@ -18,6 +19,7 @@ constexpr const char* displayTabId = "display";
 constexpr const char* devicePrefix = "bt:";
 constexpr const char* padPrefix = "pad:";
 constexpr const char* sinkPrefix = "sink:";
+constexpr const char* remapId = "pads.remap";
 
 std::string joined(const std::vector<std::string>& parts, const char* between) {
     std::string text;
@@ -62,23 +64,23 @@ std::string heldText(const std::vector<gamepad::Button>& held) {
 
 } // namespace
 
+bool DevicesController::isOpen() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    return std::ranges::any_of(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const DevicesScreen*>(screen) != nullptr;
+    });
+}
+
 std::string DevicesController::tab() const {
-    return page_.isOpen() ? page_.focusedCategory().label : std::string{};
+    if (!isOpen() || !tabs_) {
+        return {};
+    }
+    const auto found = std::ranges::find(*tabs_, chosen_, &ui::SettingsCategory::id);
+    return found == tabs_->end() ? std::string{} : found->label;
 }
 
 bool DevicesController::showsBluetooth() const {
-    return page_.isOpen() && page_.focusedCategory().id == bluetoothTabId;
-}
-
-bool DevicesController::changes() const {
-    const SettingsRow* focused = page_.focusedRow();
-    return focused != nullptr && focused->kind != RowKind::Info;
-}
-
-bool DevicesController::forgets() const {
-    const SettingsRow* focused = page_.focusedRow();
-    const host::BluetoothDevice* device = focused != nullptr ? deviceOf(focused->id) : nullptr;
-    return device != nullptr && device->paired;
+    return isOpen() && chosen_ == bluetoothTabId;
 }
 
 const host::BluetoothDevice* DevicesController::deviceOf(const std::string& id) const {
@@ -91,12 +93,16 @@ const host::BluetoothDevice* DevicesController::deviceOf(const std::string& id) 
     return found == devices.end() ? nullptr : &*found;
 }
 
-std::vector<ui::SettingsCategory> DevicesController::build() {
-    refreshedAt_ = Clock::now();
-    return {bluetoothTab(), controllersTab(), audioTab(), displayTab()};
+const std::vector<ui::SettingsCategory>& DevicesController::tabs() {
+    if (!tabs_) {
+        refreshedAt_ = Clock::now();
+        tabs_ = std::vector<ui::SettingsCategory>{bluetoothTab(), controllersTab(), audioTab(),
+                                                  displayTab()};
+    }
+    return *tabs_;
 }
 
-ui::SettingsCategory DevicesController::bluetoothTab() {
+ui::SettingsCategory DevicesController::bluetoothTab() const {
     ui::SettingsCategory tab{bluetoothTabId, "Bluetooth", {}};
     const host::BluetoothState& state = bluetooth_.state();
     if (!bluetooth_.known()) {
@@ -128,16 +134,17 @@ ui::SettingsCategory DevicesController::bluetoothTab() {
             ui::makeRow("bluetooth.none", RowKind::Info, "No devices yet", "Scan to find one", ""));
     }
     for (const host::BluetoothDevice& device : state.devices) {
-        const std::string id = devicePrefix + device.path;
-        tab.rows.push_back(ui::makeRow(id, RowKind::Action, device.name,
-                                       armed_ == device.path ? "Press Select again to forget it"
-                                                             : deviceNote(device),
-                                       deviceVerb(device)));
+        ui::SettingsRow row = ui::makeRow(devicePrefix + device.path, RowKind::Action, device.name,
+                                          deviceNote(device), deviceVerb(device));
+        if (device.paired) {
+            row.secondary = "Forget";
+        }
+        tab.rows.push_back(std::move(row));
     }
     return tab;
 }
 
-ui::SettingsCategory DevicesController::controllersTab() {
+ui::SettingsCategory DevicesController::controllersTab() const {
     ui::SettingsCategory tab{controllersTabId, "Controllers", {}};
     const std::vector<ControllerStatus> pads = controllers_.controllers(Clock::now());
     if (pads.empty()) {
@@ -153,92 +160,103 @@ ui::SettingsCategory DevicesController::controllersTab() {
         tab.rows.push_back(ui::makeRow(padPrefix + pad.id, RowKind::Info, pad.name,
                                        joined(parts, " · "), heldText(pad.held)));
     }
-    tab.rows.push_back(ui::makeRow("pads.remap", RowKind::Action, "Shortcut remapping",
-                                   "Buttons and chords, the quick menu's included", "Open"));
+    tab.rows.push_back(ui::makeRow(remapId, RowKind::Action, "Shortcut remapping",
+                                   "Buttons and chords, the Guide menu's included", "Open"));
     return tab;
 }
 
-ui::SettingsCategory DevicesController::audioTab() {
+ui::SettingsCategory DevicesController::audioTab() const {
     ui::SettingsCategory tab{audioTabId, "Audio output", {}};
-    const audio::SystemVolume& volume = volume_.system();
-    if (!volume.available()) {
-        tab.rows.push_back(ui::makeRow("audio.missing", RowKind::Info, "Audio output",
-                                       volume.unavailable(), "Not available"));
+    if (const std::string why = outputs_.unavailable(); !why.empty()) {
+        tab.rows.push_back(
+            ui::makeRow("audio.missing", RowKind::Info, "Audio output", why, "Not available"));
         return tab;
     }
-    const audio::VolumeState state = volume.state().value_or(audio::VolumeState{});
-    tab.rows.push_back(ui::makeSlider("volume", "Volume", "The output volume of this computer",
-                                      ui::SliderRange{state.percent, 0, 100}));
-    tab.rows.push_back(ui::makeToggle("mute", "Mute", "Silences the output", state.muted));
     if (outputs_.sinks().empty()) {
         tab.rows.push_back(ui::makeRow("audio.none", RowKind::Info, "No output found",
                                        "The mixer lists none", ""));
     }
     for (const audio::AudioSink& sink : outputs_.sinks()) {
-        tab.rows.push_back(ui::makeRow(sinkPrefix + sink.id, RowKind::Action, sink.name,
-                                       sink.isDefault ? "In use" : "",
-                                       sink.isDefault ? "" : "Use"));
+        tab.rows.push_back(ui::makeRow(sinkPrefix + sink.id,
+                                       sink.isDefault ? RowKind::Info : RowKind::Action, sink.name,
+                                       {}, sink.isDefault ? "In use" : "Use"));
     }
+    tab.rows.push_back(
+        ui::makeRow("audio.volume", RowKind::Info, "Volume", {}, "In the Guide menu"));
     return tab;
 }
 
-ui::SettingsCategory DevicesController::displayTab() {
+ui::SettingsCategory DevicesController::displayTab() const {
     ui::SettingsCategory tab{displayTabId, "Display", {}};
-    tab.rows.push_back(ui::makeRow("scale", RowKind::Choice, "Interface size",
-                                   "Scales everything on screen",
-                                   percentOf(preferences_.values().uiScale)));
     tab.rows.push_back(ui::makeRow("output", RowKind::Info, "Output",
                                    "Set by the session that runs openSU", hooks_.output()));
-    if (const std::optional<int> level = brightness_.percent()) {
-        tab.rows.push_back(ui::makeSlider("brightness", "Brightness", "The built-in display",
-                                          ui::SliderRange{*level, 1, 100}));
-    }
+    tab.rows.push_back(ui::makeRow("display.scale", RowKind::Info, "Brightness and interface size",
+                                   {}, "In the Guide menu"));
     return tab;
 }
 
 void DevicesController::open() {
+    if (isOpen()) {
+        return;
+    }
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    armed_.clear();
     outputs_.refresh();
     bluetooth_.readSoon();
-    page_.open(build());
+    chosen_ = bluetoothTabId;
+    refresh();
+    navigator_.push(std::make_unique<DevicesScreen>(*this, chrome_));
 }
 
 void DevicesController::close() {
-    if (!page_.isOpen()) {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto found = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const DevicesScreen*>(screen) != nullptr;
+    });
+    if (found == open.end()) {
         return;
     }
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
     bluetooth_.stopScan();
-    armed_.clear();
-    page_.close();
+    navigator_.closeFrom(**found);
 }
 
 void DevicesController::refresh() {
-    if (page_.isOpen()) {
-        page_.refresh(build());
+    tabs_.reset();
+}
+
+void DevicesController::choose(const std::string& tab) {
+    if (tab == chosen_) {
+        return;
     }
+    chosen_ = tab;
+    if (tab == audioTabId) {
+        // The outputs are read when the tab is reached, not on a timer.
+        outputs_.refresh();
+    }
+    refresh();
 }
 
 void DevicesController::showTabs() {
-    if (page_.leaveRows()) {
+    while (navigator_.top() != nullptr &&
+           dynamic_cast<const DevicesScreen*>(navigator_.top()) == nullptr) {
+        navigator_.pop();
+    }
+    const auto* screen = dynamic_cast<const DevicesScreen*>(navigator_.top());
+    if (screen != nullptr && navigator_.focus(screen->tabId())) {
         sounds_.play(audio::Effect::Navigation);
     }
 }
 
 void DevicesController::tick(Clock::time_point now) {
-    if (!page_.isOpen()) {
-        return;
-    }
-    if (page_.focusedCategory().id == controllersTabId && now - refreshedAt_ >= controllerRefresh) {
+    if (isOpen() && chosen_ == controllersTabId && now - refreshedAt_ >= controllerRefresh) {
         refresh();
     }
 }
 
 void DevicesController::controllerChanged() {
-    if (page_.isOpen() && page_.focusedCategory().id == controllersTabId) {
+    if (isOpen() && chosen_ == controllersTabId) {
         refresh();
     }
 }
@@ -249,135 +267,18 @@ void DevicesController::refuse(const std::string& reason) {
     }
 }
 
-void DevicesController::forgetFocused() {
-    const SettingsRow* focused = page_.focusedRow();
-    const host::BluetoothDevice* device = focused != nullptr ? deviceOf(focused->id) : nullptr;
-    if (device == nullptr || !device->paired) {
-        return;
-    }
-    if (armed_ != device->path) {
-        armed_ = device->path;
-        sounds_.play(audio::Effect::Navigation);
-        refresh();
-        return;
-    }
-    armed_.clear();
-    refuse(bluetooth_.forget(*device));
-    refresh();
-}
-
-void DevicesController::act(gamepad::Button button) {
-    if (button != gamepad::Button::Select && !armed_.empty()) {
-        armed_.clear();
-        refresh();
-    }
-    const bool inRows = page_.zone() == ui::SettingsZone::Rows;
-    const SettingsRow* focused = page_.focusedRow();
-    switch (button) {
-    case gamepad::Button::Up:
-    case gamepad::Button::Down:
-        // input-sound.md 3.4 Navigation: the first press of a D-pad key on a page.
-        if (page_.move(button == gamepad::Button::Down ? 1 : -1)) {
-            sounds_.play(audio::Effect::Navigation);
-            if (!inRows && page_.focusedCategory().id == audioTabId) {
-                // The outputs are read when the tab is reached, not on a timer.
-                outputs_.refresh();
-                refresh();
-            }
-        }
-        break;
-    case gamepad::Button::Left:
-    case gamepad::Button::Right: {
-        const ui::RowStep effect = ui::rowEffect(button, focused, page_.editing(), true);
-        if (effect.effect == ui::RowEffect::Enter) {
-            if (page_.enterRows()) {
-                sounds_.play(audio::Effect::Navigation);
-            }
-        } else if (effect.effect == ui::RowEffect::Change && focused != nullptr) {
-            run(*focused, effect.step);
-        } else if (effect.effect == ui::RowEffect::Leave) {
-            showTabs();
-        }
-        break;
-    }
-    case gamepad::Button::A: {
-        const ui::RowStep effect = ui::rowEffect(button, focused, page_.editing(), true);
-        if (effect.effect == ui::RowEffect::Enter) {
-            if (page_.enterRows()) {
-                sounds_.play(audio::Effect::Navigation);
-            }
-        } else if (effect.effect == ui::RowEffect::Close) {
-            page_.endEdit();
-            sounds_.play(audio::Effect::Navigation);
-        } else if (effect.effect == ui::RowEffect::Open) {
-            if (page_.beginEdit()) {
-                sounds_.play(audio::Effect::Navigation);
-            }
-        } else if (effect.effect == ui::RowEffect::Act && focused != nullptr) {
-            run(*focused, 0);
-        }
-        break;
-    }
-    case gamepad::Button::Select:
-        forgetFocused();
-        break;
-    case gamepad::Button::B:
-        if (ui::rowEffect(button, focused, page_.editing(), true).effect == ui::RowEffect::Close) {
-            page_.endEdit();
-            sounds_.play(audio::Effect::Navigation);
-        } else if (inRows) {
-            showTabs();
-        } else {
-            close();
-        }
-        break;
-    case gamepad::Button::Start:
-        close();
-        break;
-    default:
-        break;
-    }
-}
-
-void DevicesController::chooseLevel(int level) {
-    const SettingsRow* focused = page_.focusedRow();
-    if (focused == nullptr || focused->kind != RowKind::Slider) {
-        return;
-    }
-    const int next = std::clamp(level, focused->low, focused->high);
-    if (focused->id == "volume") {
-        refuse(volume_.system().setPercent(next));
-    } else if (focused->id == "brightness") {
-        refuse(brightness_.set(next));
-    }
-    refresh();
-}
-
-void DevicesController::run(const SettingsRow& focused, int step) {
-    // The row is a reference into the page, which a change rebuilds.
-    const std::string id = focused.id;
-    if (focused.kind == RowKind::Info) {
-        return;
-    }
-    if (id == "pads.remap") {
-        if (step == 0) {
-            hooks_.openShortcuts();
-        }
+void DevicesController::run(const std::string& id, int /*step*/) {
+    if (id == remapId) {
+        hooks_.openShortcuts();
     } else if (id.starts_with("bluetooth") || id.starts_with(devicePrefix)) {
-        runBluetooth(id, step);
-    } else if (id == "volume" || id == "mute" || id.starts_with(sinkPrefix)) {
-        runAudio(id, step);
-    } else {
-        runDisplay(id, step);
+        runBluetooth(id);
+    } else if (id.starts_with(sinkPrefix)) {
+        refuse(outputs_.choose(id.substr(std::string_view{sinkPrefix}.size())));
     }
     refresh();
 }
 
-void DevicesController::runBluetooth(const std::string& id, int step) {
-    if (step != 0) {
-        return;
-    }
-    sounds_.play(audio::Effect::Navigation);
+void DevicesController::runBluetooth(const std::string& id) {
     if (id == "bluetooth.power") {
         const host::BluetoothAdapter* adapter =
             bluetooth_.state().adapter ? &*bluetooth_.state().adapter : nullptr;
@@ -395,31 +296,19 @@ void DevicesController::runBluetooth(const std::string& id, int step) {
     }
 }
 
-void DevicesController::runAudio(const std::string& id, int step) {
-    if (id == "volume") {
-        if (step != 0) {
-            refuse(volume_.system().step(step * audio::volumeStep));
-        }
-    } else if (id == "mute") {
-        if (step == 0) {
-            refuse(volume_.system().toggleMute());
-        }
-    } else if (step == 0) {
-        sounds_.play(audio::Effect::Navigation);
-        refuse(outputs_.choose(id.substr(std::string_view{sinkPrefix}.size())));
+void DevicesController::secondary(const std::string& id) {
+    const host::BluetoothDevice* device = deviceOf(id);
+    if (device == nullptr || !device->paired) {
+        return;
     }
-}
-
-void DevicesController::runDisplay(const std::string& id, int step) {
-    if (id == "scale") {
-        sounds_.play(audio::Effect::Navigation);
-        settings::Settings& values = preferences_.values();
-        values.uiScale = settings::steppedUiScale(values.uiScale, step);
-        preferences_.save();
-        hooks_.applyLayout();
-    } else if (id == "brightness" && step != 0) {
-        refuse(brightness_.step(step * brightnessStep));
-    }
+    navigator_.push(gpu2d::ui::confirm("Forget " + device->name + "?",
+                                       "It has to be paired again before it connects.", "Forget",
+                                       [this, id] {
+                                           if (const host::BluetoothDevice* gone = deviceOf(id)) {
+                                               refuse(bluetooth_.forget(*gone));
+                                           }
+                                           refresh();
+                                       }));
 }
 
 } // namespace opensu::app

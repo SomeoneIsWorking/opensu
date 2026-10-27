@@ -1,44 +1,35 @@
-// The Devices page's controller: a tab per area, Bluetooth actions through the session with a
-// two-step forget, the controllers' live button test, the audio output choice, and the display
-// tab's rows.
+// The Devices screen on the interface toolkit, driven as the shell drives it: a tab per area,
+// Bluetooth actions through the session with forgetting asked first, the controllers' live button
+// test, the audio output choice, and Back from the rows to the tabs, then out.
 #include <chrono>
 #include <cstdio>
-#include <filesystem>
 #include <thread>
 
 #include "devices_controller.hpp"
 #include "host_fakes.hpp"
-#include "support/scratch_dir.hpp"
+#include "support/fake_interface_text.hpp"
 #include "ui/check.hpp"
 
 namespace {
 
 using namespace opensu;
-using gamepad::Button;
+using gpu2d::ui::Action;
 using test::expect;
 
 struct Rig {
     Rig()
-        : scratch{OPENSU_TEST_SCRATCH, "devices"},
-          preferences{settings::Store{scratch.path() / "settings.json"},
-                      [](const std::string&) {
-                      }},
-          volume{std::make_unique<test::FakeMixer>(), {}}, outputs{volume.system()},
-          bluetooth{radio}, brightness{&light},
+        : volume{std::make_unique<test::FakeMixer>()}, outputs{volume}, bluetooth{radio},
           roster{{[this] {
                       return pads;
                   },
                   [](const std::string&) {
                       return std::optional{device::BatteryStatus{90, false}};
                   }}},
-          controller{page,
-                     {bluetooth, roster, outputs, volume, brightness},
+          controller{ui.navigator,
+                     chrome,
+                     {bluetooth, roster, outputs},
                      sounds,
-                     preferences,
-                     {[this] {
-                          ++layouts;
-                      },
-                      [this](const std::string& text, bool) {
+                     {[this](const std::string& text, bool) {
                           said.push_back(text);
                       },
                       [this] {
@@ -61,65 +52,78 @@ struct Rig {
             std::this_thread::sleep_for(std::chrono::milliseconds{1});
         }
         controller.refresh();
+        ui.frame(1.0);
     }
+    void press(Action action) {
+        ui.navigator.act(action);
+        ui.frame(1.0);
+    }
+    /// Opens the screen and moves down the tabs to `tab`.
     void openOn(const std::string& tab) {
         controller.open();
+        ui.frame(1.0);
         settle();
-        while (page.focusedCategory().id != tab) {
-            controller.act(Button::Down);
+        for (int i = 0; i < 4 && controller.chosen() != tab; ++i) {
+            press(Action::Down);
         }
-        controller.act(Button::A);
+        expect(controller.chosen() == tab, ("the tab " + tab).c_str());
     }
-    void focusRow(const std::string& id) {
-        for (std::size_t index = 0; index < page.focusedCategory().rows.size(); ++index) {
-            if (page.focusedCategory().rows[index].id == id) {
-                page.focusRow(index);
-                return;
+    /// Focuses row `id` and presses `action` on it.
+    void on(const std::string& id, Action action) {
+        expect(ui.navigator.focus(id), ("a row " + id).c_str());
+        ui.frame(1.0);
+        press(action);
+    }
+    [[nodiscard]] ui::SettingsRow row(const std::string& id) {
+        for (const ui::SettingsCategory& tab : controller.tabs()) {
+            for (const ui::SettingsRow& candidate : tab.rows) {
+                if (candidate.id == id) {
+                    return candidate;
+                }
             }
         }
         expect(false, ("a row " + id).c_str());
+        return {};
     }
-    [[nodiscard]] const ui::SettingsRow& row(const std::string& id) const {
-        for (const ui::SettingsRow& candidate : page.focusedCategory().rows) {
-            if (candidate.id == id) {
-                return candidate;
+    [[nodiscard]] const ui::SettingsCategory& shown() {
+        for (const ui::SettingsCategory& tab : controller.tabs()) {
+            if (tab.id == controller.chosen()) {
+                return tab;
             }
         }
-        expect(false, ("a row " + id).c_str());
-        return page.focusedCategory().rows.front();
+        return controller.tabs().front();
     }
 
-    test::ScratchDir scratch;
-    app::Preferences preferences;
-    ui::SettingsPage page;
-    app::VolumeControl volume;
+    test::InterfaceRig ui;
+    ui::Chrome chrome;
+    audio::SystemVolume volume;
     app::AudioOutputs outputs;
     test::FakeBluetooth radio;
     app::BluetoothSession bluetooth;
-    test::FakeBacklight light;
-    app::BrightnessControl brightness;
     std::vector<gamepad::PadInfo> pads;
     app::ControllerRoster roster;
     audio::SdlSoundPlayer sounds;
     std::vector<std::string> calls;
     std::vector<std::string> said;
-    int layouts{0};
     app::DevicesController controller;
 };
 
 void hasFourTabs() {
     Rig rig;
     rig.controller.open();
+    rig.ui.frame(1.0);
     std::vector<std::string> labels;
-    for (const ui::SettingsCategory& tab : rig.page.categories()) {
+    for (const ui::SettingsCategory& tab : rig.controller.tabs()) {
         labels.push_back(tab.label);
     }
     expect(labels ==
                std::vector<std::string>{"Bluetooth", "Controllers", "Audio output", "Display"},
            "the tabs");
-    expect(rig.controller.tab() == "Bluetooth" && rig.controller.showsBluetooth(),
+    expect(rig.controller.tab() == "Bluetooth" && rig.controller.showsBluetooth() &&
+               rig.ui.navigator.focused() == "tabs/bluetooth",
            "it opens on Bluetooth, which is then read");
     rig.controller.close();
+    rig.ui.frame(1.0);
     expect(rig.controller.tab().empty() && !rig.controller.showsBluetooth(),
            "closed it has no tab");
 }
@@ -127,48 +131,44 @@ void hasFourTabs() {
 void bluetoothActionsGoThroughTheSession() {
     Rig rig;
     rig.openOn("bluetooth");
-    rig.focusRow("bt:/d/buds");
     expect(rig.row("bt:/d/buds").value == "Pair", "an unpaired device offers Pair");
-    rig.controller.act(Button::A);
+    rig.on("bt:/d/buds", Action::Accept);
     rig.settle();
     expect(rig.radio.log.front() == "pair /d/buds", "A pairs it");
     expect(rig.row("bt:/d/buds").value == "Disconnect", "and it is connected after");
-    rig.focusRow("bt:/d/pad");
     expect(rig.row("bt:/d/pad").value == "Connect", "a paired device offers Connect");
-    rig.focusRow("bluetooth.scan");
-    rig.controller.act(Button::A);
+    rig.on("bluetooth.scan", Action::Accept);
     rig.settle();
     expect(test::need(rig.radio.state.adapter, "an adapter").discovering,
            "the scan row starts a scan");
-    rig.focusRow("bluetooth.power");
-    rig.controller.act(Button::A);
+    rig.on("bluetooth.power", Action::Accept);
     rig.settle();
     expect(!test::need(rig.radio.state.adapter, "an adapter").powered,
            "the power row switches the adapter off");
-    expect(rig.page.focusedCategory().rows.size() == 1, "an adapter that is off lists no devices");
+    expect(rig.shown().rows.size() == 1, "an adapter that is off lists no devices");
 }
 
-void forgettingNeedsASecondSelect() {
+void forgettingAsksFirst() {
     Rig rig;
     rig.openOn("bluetooth");
-    rig.focusRow("bt:/d/pad");
-    expect(rig.controller.forgets(), "Select forgets a paired device");
-    rig.controller.act(Button::Select);
-    expect(rig.radio.log.empty() && rig.row("bt:/d/pad").note.find("again") != std::string::npos,
-           "the first Select asks again");
-    rig.controller.act(Button::Select);
+    expect(rig.row("bt:/d/pad").secondary == "Forget" && rig.row("bt:/d/buds").secondary.empty(),
+           "only a paired device can be forgotten");
+    rig.on("bt:/d/pad", Action::Secondary);
+    expect(rig.radio.log.empty() && rig.ui.navigator.top() != nullptr &&
+               rig.ui.navigator.top()->id() == "dialog",
+           "X asks first");
+    rig.press(Action::Right);
+    rig.press(Action::Accept);
     rig.settle();
-    expect(rig.radio.log == std::vector<std::string>{"remove /d/pad"}, "the second forgets it");
-    rig.focusRow("bt:/d/buds");
-    expect(!rig.controller.forgets(), "an unpaired device cannot be forgotten");
+    expect(rig.radio.log == std::vector<std::string>{"remove /d/pad"},
+           "confirmed, it is forgotten");
 }
 
 void aRefusalIsSaid() {
     Rig rig;
     rig.radio.refusal = "org.bluez.Error.Failed";
     rig.openOn("bluetooth");
-    rig.focusRow("bt:/d/pad");
-    rig.controller.act(Button::A);
+    rig.on("bt:/d/pad", Action::Accept);
     rig.settle();
     expect(test::need(rig.bluetooth.takeNotice(), "a notice").error,
            "the session carries the reason to the player");
@@ -183,52 +183,40 @@ void controllersShowTheLiveButtonTest() {
            "name, player and battery");
     gamepad::Event event;
     event.kind = gamepad::Event::Kind::Button;
-    event.button = Button::A;
+    event.button = gamepad::Button::A;
     event.pressed = true;
     event.source = "/dev/input/event5";
     expect(rig.roster.note(event), "the press is noted");
     rig.controller.controllerChanged();
     expect(rig.row(id).value != "Press a button", "the held button shows");
-    rig.focusRow("pads.remap");
-    rig.controller.act(Button::A);
+    rig.on("pads.remap", Action::Accept);
     expect(rig.calls == std::vector<std::string>{"shortcuts"}, "the remapping link opens");
 }
 
-void audioListsAndChoosesTheOutput() {
+void audioChoosesTheOutput() {
     Rig rig;
     rig.openOn("audio");
-    rig.focusRow("sink:2");
-    rig.controller.act(Button::A);
-    expect(rig.row("sink:2").note == "In use" && rig.row("sink:1").note.empty(),
+    rig.on("sink:2", Action::Accept);
+    expect(rig.row("sink:2").value == "In use" && rig.row("sink:1").value == "Use",
            "choosing makes the output the one in use");
-    rig.focusRow("volume");
-    rig.controller.act(Button::A);
-    rig.controller.act(Button::Right);
-    expect(test::need(rig.volume.system().state(), "a volume").percent == 45, "the volume steps");
 }
 
-void displayHasSizeOutputAndBrightness() {
+void displayShowsTheOutput() {
     Rig rig;
     rig.openOn("display");
     expect(rig.row("output").value == "1920 x 1080 at 60 Hz", "the output line");
-    rig.focusRow("scale");
-    rig.controller.act(Button::A);
-    rig.controller.act(Button::Right);
-    expect(rig.layouts == 1 && rig.preferences.values().uiScale > 100,
-           "the size steps and applies");
-    rig.focusRow("brightness");
-    rig.controller.chooseLevel(30);
-    expect(rig.light.level == 30, "a click sets the brightness");
 }
 
 void backGoesToTheTabsThenCloses() {
     Rig rig;
     rig.openOn("audio");
-    rig.controller.act(Button::B);
-    expect(rig.page.isOpen() && rig.page.zone() == ui::SettingsZone::Categories,
-           "B leaves the rows");
-    rig.controller.act(Button::B);
-    expect(!rig.page.isOpen(), "B closes the page");
+    rig.press(Action::Right);
+    expect(!rig.ui.navigator.focused().starts_with("tabs/"), "Right reaches the rows");
+    rig.press(Action::Back);
+    expect(rig.controller.isOpen() && rig.ui.navigator.focused() == "tabs/audio",
+           "Back leaves the rows for the tab");
+    rig.press(Action::Back);
+    expect(!rig.controller.isOpen(), "Back again closes the screen");
 }
 
 } // namespace
@@ -236,11 +224,11 @@ void backGoesToTheTabsThenCloses() {
 int main() {
     hasFourTabs();
     bluetoothActionsGoThroughTheSession();
-    forgettingNeedsASecondSelect();
+    forgettingAsksFirst();
     aRefusalIsSaid();
     controllersShowTheLiveButtonTest();
-    audioListsAndChoosesTheOutput();
-    displayHasSizeOutputAndBrightness();
+    audioChoosesTheOutput();
+    displayShowsTheOutput();
     backGoesToTheTabsThenCloses();
     std::printf("devices_controller: all checks passed\n");
     return 0;

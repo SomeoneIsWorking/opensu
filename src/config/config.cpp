@@ -279,4 +279,13 @@ Config read() {
     return value;
 }
 
+std::string shownPath(const std::filesystem::path& path, const std::filesystem::path& home) {
+    std::string text = path.string();
+    const std::string root = home.string();
+    if (!root.empty() && text.starts_with(root + "/")) {
+        return "~" + text.substr(root.size());
+    }
+    return text;
+}
+
 } // namespace opensu::config

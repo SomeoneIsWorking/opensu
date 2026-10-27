@@ -72,7 +72,6 @@
 #include "plugin_settings.hpp"
 #include "pointer_router.hpp"
 #include "preferences.hpp"
-#include "quick_menu_controller.hpp"
 #include "retro_session.hpp"
 #include "search_controller.hpp"
 #include "session_install_controller.hpp"
@@ -223,10 +222,8 @@ class ShellApp final : private PointerHost {
     [[nodiscard]] bool menusBlocked();
     /// Ends the running game from a menu.
     void closeRunningGame();
-    /// Guide: opens the Guide menu, or closes whichever menu is open.
-    void toggleGuide();
-    /// The quick menu action: opens the quick menu, or closes it.
-    void toggleQuickMenu();
+    /// Guide, or Guide + A on Volume: opens the Guide menu, or closes it.
+    void toggleGuide(GuideMenuController::Landing landing);
     /// Closes the details, Settings, Devices and Downloads pages, which a Guide menu entry leaves.
     void closePages();
     /// Shows the window over a running game while a menu or page is up, and only then.
@@ -241,10 +238,8 @@ class ShellApp final : private PointerHost {
     void syncChrome();
     /// The trail the top bar shows for where the shell is now.
     [[nodiscard]] ui::Trail currentTrail() const;
-    /// Opens `game`'s settings in the layered editor, as a page or a panel over the running game;
-    /// `closed` runs when Back closes it.
-    void openGameSettings(const library::Game& game, EditorLook look,
-                          std::function<void()> closed = {});
+    /// Opens `game`'s settings in the layered editor, as a page or a panel over the running game.
+    void openGameSettings(const library::Game& game, EditorLook look);
     /// The game whose window is in front: the running game, unless Gamescope's focus is on
     /// another window; null when none.
     [[nodiscard]] const library::Game* gameInFront() const;
@@ -318,7 +313,9 @@ class ShellApp final : private PointerHost {
                                      shell_.setToast(text, isError);
                                  },
                                  [this] {
-                                     settingsScreen_.openCategory(std::string{ArtworkSettings::categoryId});
+                                     settingsScreen_.openCategory(
+                                         std::string{ArtworkSettings::categoryId});
+                                     artworkSettings_.connect();
                                  }}};
     ArtworkDelivery delivery_{
         shell_, sounds_, artworkStore_, artworkFetcher_,
@@ -429,7 +426,7 @@ class ShellApp final : private PointerHost {
         emulatorDownloads_, EmulatorSettings::Hooks{[this](const std::string& text, bool isError) {
             shell_.setToast(text, isError);
         }}};
-    /// What the layered editor edits, from Settings, a game's details or the quick menu.
+    /// What the layered editor edits, from Settings, a game's details or the Guide menu.
     LayeredSettings layered_{
         LayeredSettings::Sources{gameSettings_,
                                  [this]() -> const library::roms::Emulators& {
@@ -452,7 +449,6 @@ class ShellApp final : private PointerHost {
                                [this] {
                                    details_.refresh();
                                    settingsScreen_.refresh();
-                                   quickMenu_.refresh();
                                },
                                [this](const std::string& text, bool isError) {
                                    shell_.setToast(text, isError);
@@ -527,9 +523,6 @@ class ShellApp final : private PointerHost {
                           VolumeControl::Hooks{[this](const audio::VolumeState& state) {
                                                    shell_.showVolume(
                                                        ui::VolumeLevel{state.percent, state.muted});
-                                                   settingsScreen_.refresh();
-                                                   devicesScreen_.refresh();
-                                                   quickMenu_.refresh();
                                                },
                                                [this](const std::string& text, bool isError) {
                                                    shell_.setToast(text, isError);
@@ -549,7 +542,8 @@ class ShellApp final : private PointerHost {
                                                      },
                                                  .quickMenu =
                                                      [this] {
-                                                         toggleQuickMenu();
+                                                         toggleGuide(
+                                                             GuideMenuController::Landing::Volume);
                                                      },
                                                  .gameRunning =
                                                      [this] {
@@ -674,10 +668,10 @@ class ShellApp final : private PointerHost {
     SettingsController settingsScreen_{
         shell_.screens().navigator(),
         shell_.screens().chrome(),
-        SettingsController::Services{
-            paths_, shortcutEditor_, volume_, shell_.shortcuts(), emulatorSettings_, layerSettings_,
-            layered_, steamLibrarySettings_, pluginSettings_, chordSettings_, mappings_,
-            wineSettings_, integrationSettings_, artworkSettings_, integrations_},
+        SettingsController::Services{paths_, shortcutEditor_, shell_.shortcuts(), emulatorSettings_,
+                                     layerSettings_, layered_, steamLibrarySettings_,
+                                     pluginSettings_, chordSettings_, mappings_, wineSettings_,
+                                     integrationSettings_, artworkSettings_, integrations_},
         sounds_,
         preferences_,
         environment_,
@@ -707,22 +701,18 @@ class ShellApp final : private PointerHost {
     /// Main loop only.
     PadOwner padOwner_{*pads_, shell_.chords()};
     device::ControllerBatteries padBatteries_;
-    /// The pads as the Devices page and the quick menu list them.
+    /// The pads as the Devices page lists them.
     ControllerRoster roster_{ControllerRoster::Sources{[this] {
                                                            return pads_->connected();
                                                        },
                                                        [this](const std::string& uniq) {
                                                            return padBatteries_.read(uniq);
                                                        }}};
-    /// The Devices page, reached from the Guide menu and the quick menu.
+    /// The Devices page, reached from the Guide menu.
     DevicesController devicesScreen_{
-        shell_.devicesPanel().page(),
-        DevicesController::Services{bluetooth_, roster_, outputs_, volume_, brightness_}, sounds_,
-        preferences_,
-        DevicesController::Hooks{[this] {
-                                     applyLayout();
-                                 },
-                                 [this](const std::string& text, bool isError) {
+        shell_.screens().navigator(), shell_.screens().chrome(),
+        DevicesController::Services{bluetooth_, roster_, outputs_}, sounds_,
+        DevicesController::Hooks{[this](const std::string& text, bool isError) {
                                      shell_.setToast(text, isError);
                                  },
                                  [this] {
@@ -738,94 +728,66 @@ class ShellApp final : private PointerHost {
         [this](const std::string& text, bool isError) {
             shell_.setToast(text, isError);
         }};
-    /// The menu Guide opens.
+    /// The menu Guide opens, over the home screen or a running game.
     GuideMenuController guideMenu_{
-        shell_.guidePanels().guide(), *host_.power, *host_.session, sounds_,
-        GuideMenuController::Hooks{
-            [this] {
-                const bool inGame = shell_.inGame();
-                const bool retro = inGame && retro_.status().has_value();
-                const bool settings = inGame && !layered_.sectionsOf(launches_.game()).empty();
-                return ui::GuideContext{inGame,
-                                        launches_.game().title,
-                                        settings,
-                                        retro,
-                                        settings_.loginSession,
-                                        !settings_.loginSession && host_.session->installed()};
-            },
-            [this](library::Section section) {
-                closePages();
-                clickSection(section);
-            },
-            [this] {
-                closePages();
-                devicesScreen_.open();
-            },
-            [this] {
-                openDownloads();
-            },
-            [this] {
-                closePages();
-                settingsScreen_.open();
-            },
-            [this] {
-                closeRunningGame();
-            },
-            [this] {
-                closePages();
-                openGameSettings(launches_.game(), EditorLook::Panel);
-            },
-            [this] {
-                const RetroSession::Outcome outcome =
-                    retro_.perform(RetroSession::Command::SaveState);
-                shell_.setToast(outcome.text, outcome.error);
-            },
-            [this] {
-                const RetroSession::Outcome outcome =
-                    retro_.perform(RetroSession::Command::LoadState);
-                shell_.setToast(outcome.text, outcome.error);
-            },
-            [this] {
-                const RetroSession::Outcome outcome = retro_.perform(RetroSession::Command::Reset);
-                shell_.setToast(outcome.text, outcome.error);
-            },
-            [this] {
-                bridge_.requestClose();
-            },
-            [this] {
-                sessionInstall_.begin();
-            },
-            [this](const std::string& text, bool isError) {
-                shell_.setToast(text, isError);
-            }}};
-    /// The quick menu: Guide + A, over the home screen or a running game.
-    QuickMenuController quickMenu_{
-        shell_.guidePanels().quick(),
-        QuickMenuController::Services{volume_, outputs_, brightness_, bluetooth_, roster_, retro_},
+        shell_.screens().navigator(),
+        GuideMenuController::Services{*host_.power, *host_.session, volume_, brightness_, retro_,
+                                      preferences_},
         sounds_,
-        QuickMenuController::Hooks{[this] {
-                                       return shell_.inGame();
-                                   },
-                                   [this] {
-                                       closeRunningGame();
-                                   },
-                                   [this] {
-                                       closePages();
-                                       devicesScreen_.open();
-                                   },
-                                   [this](const std::string& text, bool isError) {
-                                       shell_.setToast(text, isError);
-                                   },
-                                   [this] {
-                                       quickMenu_.close();
-                                       openGameSettings(launches_.game(), EditorLook::Panel,
-                                                        [this] {
-                                                            quickMenu_.reopenOnGameSettings();
-                                                        });
-                                   },
-                                   [this] {
-                                       return layered_.sectionsOf(launches_.game());
-                                   }}};
+        GuideMenuController::Hooks{
+            .context =
+                [this] {
+                    const bool inGame = shell_.inGame();
+                    return GuideContext{
+                        .inGame = inGame,
+                        .title = launches_.game().title,
+                        .gameSettings = inGame && !layered_.sectionsOf(launches_.game()).empty(),
+                        .loginSession = settings_.loginSession,
+                        .sessionInstalled = !settings_.loginSession && host_.session->installed()};
+                },
+            .showSection =
+                [this](library::Section section) {
+                    closePages();
+                    clickSection(section);
+                },
+            .openDevices =
+                [this] {
+                    closePages();
+                    devicesScreen_.open();
+                },
+            .openDownloads =
+                [this] {
+                    openDownloads();
+                },
+            .openSettings =
+                [this] {
+                    closePages();
+                    settingsScreen_.open();
+                },
+            .closeGame =
+                [this] {
+                    closeRunningGame();
+                },
+            .openGameSettings =
+                [this] {
+                    openGameSettings(launches_.game(), EditorLook::Panel);
+                },
+            .applyLayout =
+                [this] {
+                    applyLayout();
+                },
+            .quit =
+                [this] {
+                    bridge_.requestClose();
+                },
+            .installSession =
+                [this] {
+                    sessionInstall_.begin();
+                },
+            .say =
+                [this](const std::string& text, bool isError) {
+                    shell_.setToast(text, isError);
+                }}};
     /// After shell_ and the host it drives.
     PointerRouter pointer_{shell_.inputDevice(), *this};
     /// Held directions, from a pad or the keyboard, repeat on one schedule.
@@ -924,7 +886,7 @@ class ShellApp final : private PointerHost {
     /// The Downloads page: Steam's queue, the store install, the emulator download and the romset
     /// lists. After the sources it reads.
     DownloadsController downloadsScreen_{
-        shell_.downloadsPanel().page(),
+        shell_.screens().navigator(), shell_.screens().chrome(),
         DownloadsController::Sources{
             .installs = panels_.installs(),
             .emulators = emulatorDownloads_,

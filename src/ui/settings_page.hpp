@@ -1,7 +1,7 @@
 // settings_page — a page of categories on the left and the focused category's rows on the right,
-// as iiSU's settings dialog lays its sections and pages out (screens.md §3.4); the Devices page.
-// Pure state and geometry, tested without a window; `SettingsPagePainter` draws it and
-// `app::DevicesController` fills and acts on it.
+// as iiSU's settings dialog lays its sections and pages out (screens.md §3.4); what is left of it
+// draws the integration chooser's rows until that moves onto the toolkit. Pure state and geometry,
+// tested without a window; `SettingsPagePainter` draws it.
 #pragma once
 
 #include <cstddef>

@@ -23,9 +23,6 @@ constexpr const char* layoutId = "layout";
 constexpr const char* iconSizeId = "iconSize";
 constexpr const char* scrollModeId = "scrollMode";
 constexpr const char* pinDockId = "pinDock";
-constexpr const char* uiScaleId = "uiScale";
-constexpr const char* volumeId = "volume";
-constexpr const char* muteId = "volumeMute";
 constexpr const char* shortcutId = "shortcut.";
 constexpr const char* shortcutsResetId = "shortcuts.reset";
 constexpr const char* keyboardId = "keyboard";
@@ -93,11 +90,6 @@ ui::Options optionsOf(const std::array<T, N>& all, T now, Label label) {
         }
     }
     return options;
-}
-
-/// The first word of `label`: what a question's button does ("Remove", "Clear").
-std::string verbOf(const std::string& label) {
-    return label.substr(0, label.find(' '));
 }
 
 } // namespace
@@ -202,16 +194,8 @@ ui::SettingsCategory SettingsController::appearancePage() const {
         ui::Options{{"Scrolling", "Pages"}, mode == config::HomeMode::WiiSu ? 1U : 0U}));
     page.rows.push_back(ui::makeToggle(pinDockId, "Pin navigation bar on Library",
                                        "Keep the dock up on Library", v.pinLibraryDock));
-    ui::Options scales;
-    for (int percent = settings::minUiScale; percent <= settings::maxUiScale;
-         percent += settings::uiScaleStep) {
-        if (percent <= v.uiScale) {
-            scales.chosen = scales.labels.size();
-        }
-        scales.labels.push_back(percentOf(percent));
-    }
-    page.rows.push_back(ui::makeChoice(uiScaleId, "Interface size", "Scales everything on screen",
-                                       std::move(scales)));
+    page.rows.push_back(
+        ui::makeRow("appearance.scale", RowKind::Info, "Interface size", "In the Guide menu", ""));
     return page;
 }
 
@@ -281,17 +265,8 @@ ui::SettingsCategory SettingsController::audioPage() const {
     ui::SettingsCategory page{"audio", "Audio", {}};
     page.rows.push_back(ui::makeToggle(soundsId, "UI sounds", "The sounds menus and launches make",
                                        preferences_.values().uiSounds));
-    const audio::SystemVolume& volume = volume_.system();
-    if (!volume.available()) {
-        page.rows.push_back(ui::makeRow("volume.missing", RowKind::Info, "System volume",
-                                        volume.unavailable(), "Not available"));
-        return page;
-    }
-    const audio::VolumeState state = volume.state().value_or(audio::VolumeState{});
-    page.rows.push_back(ui::makeSlider(volumeId, "System volume",
-                                       "The output volume of this computer",
-                                       ui::SliderRange{state.percent, 0, 100, audio::volumeStep}));
-    page.rows.push_back(ui::makeToggle(muteId, "Mute", "Silences the output", state.muted));
+    page.rows.push_back(
+        ui::makeRow("audio.volume", RowKind::Info, "Volume", "In the Guide menu", ""));
     return page;
 }
 
@@ -370,17 +345,18 @@ ui::SettingsCategory SettingsController::installPage() const {
 }
 
 ui::SettingsCategory SettingsController::aboutPage() const {
-    return {"about",
-            "About",
-            {ui::makeRow("about.version", RowKind::Info, "Version", "This build of openSU",
-                         buildVersion.empty() ? "Unknown" : std::string{buildVersion}),
-             ui::makeHeading("Where openSU keeps things"),
-             ui::makeRow("about.settings", RowKind::Info, "Settings file", "What you choose here",
-                         (defaults_.configDir / "settings.json").string()),
-             ui::makeRow("about.data", RowKind::Info, "Data folder", "Sign-ins and GOG installs",
-                         defaults_.dataDir.string()),
-             ui::makeRow("about.cache", RowKind::Info, "Cache folder", "Artwork and sounds",
-                         defaults_.cacheDir.string())}};
+    return {
+        "about",
+        "About",
+        {ui::makeRow("about.version", RowKind::Info, "Version", "This build of openSU",
+                     buildVersion.empty() ? "Unknown" : std::string{buildVersion}),
+         ui::makeHeading("Where openSU keeps things"),
+         ui::makeRow("about.settings", RowKind::Info, "Settings file",
+                     config::shownPath(defaults_.configDir / "settings.json", defaults_.home), ""),
+         ui::makeRow("about.data", RowKind::Info, "Data folder: sign-ins and GOG installs",
+                     config::shownPath(defaults_.dataDir, defaults_.home), ""),
+         ui::makeRow("about.cache", RowKind::Info, "Cache folder: artwork and sounds",
+                     config::shownPath(defaults_.cacheDir, defaults_.home), "")}};
 }
 
 void SettingsController::open() {
@@ -504,13 +480,6 @@ void SettingsController::showCategories() {
     }
 }
 
-void SettingsController::confirm(const ui::SettingsRow& row) {
-    navigator_.push(
-        gpu2d::ui::confirm(row.label + "?", row.confirm, verbOf(row.label), [this, id = row.id] {
-            run(id, 0);
-        }));
-}
-
 void SettingsController::openPage(const std::string& id) {
     if (std::optional<EditorContext> context = layers_.contextOf(id)) {
         std::string title = layered_.scopeName(context->scopes.back());
@@ -523,14 +492,6 @@ void SettingsController::openPage(const std::string& id) {
 }
 
 void SettingsController::setLevel(const std::string& id, int level) {
-    if (id == volumeId) {
-        if (const std::string refused = volume_.system().setPercent(std::clamp(level, 0, 100));
-            !refused.empty()) {
-            hooks_.say(refused, true);
-        }
-        refresh();
-        return;
-    }
     const int next = std::clamp(level, ui::minIconLevel, ui::maxIconLevel);
     if (id == iconSizeId && next != preferences_.values().iconSize) {
         preferences_.values().iconSize = next;
@@ -539,10 +500,6 @@ void SettingsController::setLevel(const std::string& id, int level) {
 }
 
 void SettingsController::run(const std::string& id, int step) {
-    if (id == muteId) {
-        runAudio(id, step);
-        return;
-    }
     if (id == keyboardId) {
         settings::Settings& v = preferences_.values();
         const auto from = static_cast<std::size_t>(v.keyboardStyle);
@@ -589,8 +546,7 @@ void SettingsController::run(const std::string& id, int step) {
         plugins_.run(id, step);
     } else if (id == romAddId || id == steamAddId || id.starts_with(installStoreId)) {
         chooseFolder(id);
-    } else if (id == layoutId || id == scrollModeId || id == pinDockId || id == soundsId ||
-               id == uiScaleId) {
+    } else if (id == layoutId || id == scrollModeId || id == pinDockId || id == soundsId) {
         runAppearance(id, step);
         return;
     } else {
@@ -612,23 +568,10 @@ void SettingsController::runAppearance(const std::string& id, int step) {
                          : config::HomeMode::WiiSu;
     } else if (id == pinDockId) {
         v.pinLibraryDock = !v.pinLibraryDock;
-    } else if (id == uiScaleId) {
-        v.uiScale = settings::steppedUiScale(v.uiScale, step);
     } else {
         v.uiSounds = !v.uiSounds;
     }
     changed();
-}
-
-void SettingsController::runAudio(const std::string& id, int step) {
-    std::string refused;
-    if (id == muteId && step == 0) {
-        refused = volume_.system().toggleMute();
-    }
-    if (!refused.empty()) {
-        hooks_.say(refused, true);
-    }
-    refresh();
 }
 
 void SettingsController::runControls(const std::string& id) {

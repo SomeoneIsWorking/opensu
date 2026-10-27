@@ -1,4 +1,4 @@
-// controller_roster — the pads connected now as the Devices page and the quick menu list them: in
+// controller_roster — the pads connected now as the Devices screen lists them: in
 // player order (the order they connected in), with the battery each reports and the buttons held
 // on each right now, which is the live button test. Reads the pad layer through a function, so
 // tests hand it fake pads.

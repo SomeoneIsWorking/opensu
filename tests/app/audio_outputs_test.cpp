@@ -1,4 +1,5 @@
-// The audio outputs through the volume owner: the list, the default, choosing and cycling.
+// The audio outputs through the volume owner: the list, the default, choosing, and why there are
+// none.
 #include <cstdio>
 
 #include "audio_outputs.hpp"
@@ -10,7 +11,7 @@ namespace {
 using namespace opensu;
 using test::expect;
 
-void listsChoosesAndCycles() {
+void listsAndChooses() {
     auto mixer = std::make_unique<test::FakeMixer>();
     audio::SystemVolume volume{std::move(mixer)};
     app::AudioOutputs outputs{volume};
@@ -19,24 +20,20 @@ void listsChoosesAndCycles() {
     expect(outputs.sinks().size() == 2 && outputs.current()->name == "Speakers", "the default");
     expect(outputs.choose("2").empty() && outputs.current()->name == "Headphones",
            "choosing makes it the default");
-    expect(outputs.cycle(0).empty() && outputs.current()->name == "Speakers", "A wraps around");
-    expect(outputs.cycle(-1).empty() && outputs.current()->name == "Headphones", "Left steps back");
+    expect(outputs.unavailable().empty(), "a mixer lists outputs");
 }
 
-void oneOutputHasNoOtherToCycleTo() {
-    auto mixer = std::make_unique<test::FakeMixer>();
-    mixer->outputs.pop_back();
-    audio::SystemVolume volume{std::move(mixer)};
-    app::AudioOutputs outputs{volume};
-    outputs.refresh();
-    expect(!outputs.cycle(1).empty(), "a single output is said");
+void withoutAMixerSaysWhy() {
+    audio::SystemVolume volume{nullptr};
+    const app::AudioOutputs outputs{volume};
+    expect(!outputs.unavailable().empty(), "no mixer is said");
 }
 
 } // namespace
 
 int main() {
-    listsChoosesAndCycles();
-    oneOutputHasNoOtherToCycleTo();
+    listsAndChooses();
+    withoutAMixerSaysWhy();
     std::printf("audio_outputs: all checks passed\n");
     return 0;
 }

@@ -76,8 +76,10 @@ void ArtworkSettings::run(const std::string& id, int step) {
         return;
     }
     if (id == connectId) {
-        account_.connect();
-    } else if (id == cancelId) {
+        connect();
+        return;
+    }
+    if (id == cancelId) {
         account_.cancel();
     } else if (id == enterId) {
         account_.openKeyPage();
@@ -85,6 +87,11 @@ void ArtworkSettings::run(const std::string& id, int step) {
     } else if (id == disconnectId) {
         account_.disconnect();
     }
+    hooks_.refresh();
+}
+
+void ArtworkSettings::connect() {
+    account_.connect();
     hooks_.refresh();
 }
 

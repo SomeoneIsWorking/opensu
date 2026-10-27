@@ -113,7 +113,6 @@ void leftClickIsFocusThenA() {
     for (const PointerTarget target :
          {PointerTarget{opensu::ui::OnTile{1}},
           PointerTarget{opensu::ui::OnLayoutCard{opensu::library::LibraryMode::Xmb}},
-          PointerTarget{opensu::ui::OnGuideEntry{1}},
           PointerTarget{opensu::ui::OnChooserRow{opensu::ui::ChooserRow::Pin}}}) {
         host.under = target;
         host.calls.clear();
@@ -152,16 +151,6 @@ void leftClickOnTheOthers() {
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"downloads"},
            "a badge showing a download opens the Downloads page");
-    host.calls.clear();
-    host.under = opensu::ui::OnDownloadRow{1};
-    router.route(frame);
-    expect(host.calls == std::vector<std::string>{"focus"},
-           "a download row is chosen, not acted on");
-    host.calls.clear();
-    host.under = opensu::ui::OnDownloadAction{1, 0};
-    router.route(frame);
-    expect(host.calls == std::vector<std::string>{"focus", "A"},
-           "a download row's button is focus, then the A press");
     host.calls.clear();
     host.under = opensu::ui::OnCrumb{1};
     router.route(frame);
@@ -217,23 +206,6 @@ void iconSizeAndBackdropClicks() {
     expect(host.calls == std::vector<std::string>{"B"}, "a click outside a menu closes it");
 }
 
-void sliderClicksChooseTheirLevel() {
-    Recorder host;
-    LastDevice device;
-    PointerRouter router{device, host};
-    PointerFrame frame = at(10.0f, 10.0f);
-    frame.left = true;
-    host.under = opensu::ui::OnSettingsSlider{2, 40};
-    router.route(frame);
-    expect(host.calls == std::vector<std::string>{"focus", "size40"},
-           "a page slider sets its level");
-    host.calls.clear();
-    host.under = opensu::ui::OnQuickSlider{0, 70};
-    router.route(frame);
-    expect(host.calls == std::vector<std::string>{"focus", "size70"},
-           "a quick slider sets its level");
-}
-
 void rightClickIsNeverBackOnTheNewMenus() {
     Recorder host;
     LastDevice device;
@@ -241,8 +213,7 @@ void rightClickIsNeverBackOnTheNewMenus() {
     PointerFrame frame = at(10.0f, 10.0f);
     frame.right = true;
     for (const PointerTarget target :
-         {PointerTarget{opensu::ui::OnGuideEntry{1}}, PointerTarget{opensu::ui::OnQuickRow{1}},
-          PointerTarget{opensu::ui::OnBackdrop{}}}) {
+         {PointerTarget{opensu::ui::OnContextItem{1}}, PointerTarget{opensu::ui::OnBackdrop{}}}) {
         host.under = target;
         host.calls.clear();
         router.route(frame);
@@ -309,7 +280,6 @@ int main() {
     leftClickOnTheOthers();
     rightClickAndWheel();
     iconSizeAndBackdropClicks();
-    sliderClicksChooseTheirLevel();
     rightClickIsNeverBackOnTheNewMenus();
     hoverFocusesThePanelTargets();
     padKeepsFocusFromAStillPointer();

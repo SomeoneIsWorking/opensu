@@ -36,14 +36,14 @@
 #include "settings/install_folders.hpp"
 #include "shortcut_editor.hpp"
 #include "steam_library_settings.hpp"
+#include "ui/row_widgets.hpp"
 #include "ui/screen_stack.hpp"
 #include "ui/setting_row.hpp"
-#include "volume_control.hpp"
 #include "wine_settings.hpp"
 
 namespace opensu::app {
 
-class SettingsController {
+class SettingsController final : public ui::RowActions {
   public:
     /// What the screen asks of the shell app.
     struct Hooks {
@@ -66,7 +66,6 @@ class SettingsController {
     struct Services {
         PathEditor& paths;
         ShortcutEditor& shortcutEditor;
-        VolumeControl& volume;
         const input::Shortcuts& shortcuts;
         EmulatorSettings& emulators;
         LayerSettings& layers;
@@ -88,11 +87,11 @@ class SettingsController {
                        audio::SdlSoundPlayer& sounds, Preferences& preferences,
                        const config::Config& defaults, Hooks hooks)
         : navigator_{navigator}, chrome_{chrome}, paths_{services.paths},
-          shortcutEditor_{services.shortcutEditor}, volume_{services.volume},
-          shortcuts_{services.shortcuts}, emulators_{services.emulators}, layers_{services.layers},
-          layered_{services.layered}, steamLibraries_{services.steamLibraries},
-          plugins_{services.plugins}, chords_{services.chords}, mappings_{services.mappings},
-          wine_{services.wine}, integrations_{services.integrations}, artwork_{services.artwork},
+          shortcutEditor_{services.shortcutEditor}, shortcuts_{services.shortcuts},
+          emulators_{services.emulators}, layers_{services.layers}, layered_{services.layered},
+          steamLibraries_{services.steamLibraries}, plugins_{services.plugins},
+          chords_{services.chords}, mappings_{services.mappings}, wine_{services.wine},
+          integrations_{services.integrations}, artwork_{services.artwork},
           inForce_{services.inForce}, sounds_{sounds}, preferences_{preferences},
           defaults_{defaults}, hooks_{std::move(hooks)} {
     }
@@ -123,14 +122,9 @@ class SettingsController {
     [[nodiscard]] const ui::SettingsCategory& page(const std::string& id);
     /// The title of the page `id`.
     [[nodiscard]] std::string pageTitle(const std::string& id);
-    /// Acts on row `id`: `step` is 0 for A, else how many places a choice moves.
-    void run(const std::string& id, int step);
-    /// Sets the slider `id` to `level`.
-    void setLevel(const std::string& id, int level);
-    /// Asks the row's question, then runs it.
-    void confirm(const ui::SettingsRow& row);
-    /// Opens the page row `id` leads to.
-    void openPage(const std::string& id);
+    void run(const std::string& id, int step) override;
+    void setLevel(const std::string& id, int level) override;
+    void openPage(const std::string& id) override;
     /// Back on the categories, or the menu button anywhere: closes Settings, asking first when
     /// Integrations has changes not applied. Stays when it asked.
     [[nodiscard]] gpu2d::ui::Screen::BackReply leave();
@@ -156,7 +150,6 @@ class SettingsController {
     void applyIntegrations();
     void runAppearance(const std::string& id, int step);
     void runLibrary(const std::string& id, int step);
-    void runAudio(const std::string& id, int step);
     void runControls(const std::string& id);
     void chooseFolder(const std::string& id);
     void editInstallFolder(const std::string& title, const std::string& id);
@@ -166,7 +159,6 @@ class SettingsController {
     const ui::Chrome& chrome_;
     PathEditor& paths_;
     ShortcutEditor& shortcutEditor_;
-    VolumeControl& volume_;
     const input::Shortcuts& shortcuts_;
     EmulatorSettings& emulators_;
     LayerSettings& layers_;

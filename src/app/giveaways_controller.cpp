@@ -6,7 +6,6 @@
 #include <utility>
 
 #include "giveaways_screen.hpp"
-#include "ui/interface_input.hpp"
 
 namespace opensu::app {
 namespace {
@@ -48,12 +47,6 @@ bool GiveawaysController::isOpen() const {
     });
 }
 
-void GiveawaysController::act(gamepad::Button button) {
-    if (const std::optional<gpu2d::ui::Action> action = ui::interfaceActionOf(button)) {
-        parts_.navigator.act(*action);
-    }
-}
-
 void GiveawaysController::refresh() {
     parts_.board.refresh();
     parts_.say("Checking the stores for free games", false);
@@ -72,9 +65,8 @@ void GiveawaysController::service() {
 }
 
 void GiveawaysController::rebuild() {
-    shown_ = giveaways::shownOffers(
-        board_, parts_.games(),
-        giveaways::ListRules{parts_.turnedOn(), now()});
+    shown_ = giveaways::shownOffers(board_, parts_.games(),
+                                    giveaways::ListRules{parts_.turnedOn(), now()});
 }
 
 void GiveawaysController::announce() {

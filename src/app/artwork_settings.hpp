@@ -38,6 +38,8 @@ class ArtworkSettings {
     [[nodiscard]] static bool owns(const std::string& id);
     /// Acts on row `id` (A only).
     void run(const std::string& id, int step);
+    /// Starts connecting SteamGridDB through Steam, as the Connect row does.
+    void connect();
     /// Takes what the account did. Main loop only.
     void service();
 

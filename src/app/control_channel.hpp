@@ -103,10 +103,6 @@ struct ShellSnapshot {
     bool inGame{false};
     /// Whether the Guide menu is open, over the home screen or a running game.
     bool guideMenuOpen{false};
-    /// Whether the quick menu is open.
-    bool quickMenuOpen{false};
-    /// The quick menu's focused row id; empty while it is closed.
-    std::string quickFocus;
     /// The layered editor's scope on show ("Global", "This game"); empty while it is closed.
     std::string settingsScope;
     /// The interface toolkit's top screen (`settings`, a page's id, `dialog`, `choice`) and its

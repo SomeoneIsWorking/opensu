@@ -25,10 +25,12 @@ bool ScreenStack::paged() const {
     });
 }
 
-void ScreenStack::paint(Canvas& canvas) {
-    if (navigator_.visible()) {
-        navigator_.paint(canvas);
-    }
+void ScreenStack::paintPages(Canvas& canvas) {
+    navigator_.paintPages(canvas);
+}
+
+void ScreenStack::paintOverlays(Canvas& canvas) {
+    navigator_.paintOverlays(canvas);
 }
 
 } // namespace opensu::ui

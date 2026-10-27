@@ -1,16 +1,15 @@
 # UI toolkit and settings schema
 
-Status: steps 1 and 2 built. `gpu2d::ui` (gpu2d `docs/ui-toolkit.md`) has the theme, layout, widget
+Status: steps 1 and 2 built, step 3 in part (see 5). `gpu2d::ui` (gpu2d `docs/ui-toolkit.md`) has the theme, layout, widget
 tree, focus, `Navigator`, the widgets and motion; openSU's Settings screen runs on it
 (`src/app/settings_screen.*`, `src/ui/screen_stack.*`, `src/ui/interface_*`). Step 2: every
 layered setting is declared once in `settings::Schema` (`src/settings/setting_schema.*`: video,
 shader preset, frame generation, the emulator pick, each core's options), and one editor
 (`src/app/layered_editor.*` over `src/app/layered_settings.*`) edits any scope from Settings ›
-Emulators, a game's details and the quick menu (a panel over the game, changes applied live);
+Emulators, a game's details and the Guide menu (a panel over the game, changes applied live);
 `game_settings_page`, `shader_preset_picker`, `settings_tabs` and their painters and hit tests are
 deleted. Not yet: a TextField widget (the folder chooser and its keyboard still open over Settings
-from `ui::SettingsPanels`); `SettingsPage`, `PagePanel` and `rowEffect` stay for Devices and the
-quick menu until step 3; core options' `SET_CORE_OPTIONS_DISPLAY` is not honoured, so options a
+from `ui::SettingsPanels`); core options' `SET_CORE_OPTIONS_DISPLAY` is not honoured, so options a
 core hides for the loaded game (mGBA's Game Boy ones on a GBA game) are listed.
 
 The player: menus "aren't intuitive", it "looks rushed", "layered
@@ -134,4 +133,14 @@ Each step deletes the code it replaces before the next starts.
    `game_settings_page`, `settings_tabs` and their painters deleted.
 3. Guide and quick menu merged into one in-game menu on the toolkit; Devices, details, context
    menu, cover picker, downloads, START panel, dialogs and search moved over.
+   Done: the Guide menu (one screen; Close game, Load state, Reset game and the power steps ask
+   through `confirm`; volume, mute, brightness and interface size only there, Guide + A lands on
+   Volume), Devices (X forgets a device after `confirm`), Downloads (gpu2d `Progress`, raised
+   `Card`), a shared row mapping (`ui::addRow`, `RowActions`) and page frame (`ui::pageFrame`);
+   `GuideMenu`, `QuickMenu`, their painters and `GuidePanels`, `QuickMenuController`, `PagePanel`,
+   `DownloadsPage`/`DownloadsPanel`, `rowEffect` and the Devices and Downloads pointer targets
+   deleted. Open: details' settings and controls, the context menu, the cover picker, the START
+   panel, the dialogs (session, plugin consent, uninstall, install offer, launch panel, integration
+   chooser, which still draws with `SettingsPage`), search and a TextField widget for it and the
+   folder chooser.
 4. Home grid, rails and dock last: they already ease and work; they join the screen stack.

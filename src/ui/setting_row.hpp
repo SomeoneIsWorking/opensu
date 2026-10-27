@@ -1,6 +1,6 @@
 // setting_row — a settings-like row as its owner describes it: what kind it is, its words and its
-// value. The Settings screen turns each into the toolkit's widget of that kind; the Devices page
-// and the quick menu still draw them their own way.
+// value. Every toolkit screen of rows turns each into the widget of its kind (`row_widgets`); the
+// integration chooser still draws them its own way.
 #pragma once
 
 #include <cstddef>
@@ -32,8 +32,8 @@ enum class RowKind : std::uint8_t {
 /// Whether A opens the row of `kind` so Left and Right can change it: a choice or a slider.
 [[nodiscard]] bool rowOpens(RowKind kind) noexcept;
 
-/// Whether a row is open for Left and Right: the state A sets and A or B clears. The Devices page
-/// and the quick menu each keep one, so a row behaves the same wherever it is.
+/// Whether a row is open for Left and Right: the state A sets and A or B clears, as the
+/// integration chooser's rows keep it.
 class RowEditing {
   public:
     [[nodiscard]] bool open() const noexcept {
@@ -67,8 +67,12 @@ struct SettingsRow {
     /// A choice's options; its owner moves `step` places among them for Left, Right or a pick.
     std::vector<std::string> choices;
     std::size_t chosen{0};
-    /// For an action that throws something away: the question asked before it runs.
+    /// For an action that throws something away: what the question asked before it runs says.
     std::string confirm;
+    /// The question's button; empty for the label's first word ("Remove").
+    std::string confirmVerb;
+    /// What X does to the row, as its hint names it ("Forget"); empty when nothing.
+    std::string secondary;
 
     bool operator==(const SettingsRow&) const = default;
 };

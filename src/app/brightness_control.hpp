@@ -1,4 +1,4 @@
-// brightness_control — the display brightness the quick menu and the Devices page change. Wraps the
+// brightness_control — the display brightness the Guide menu changes. Wraps the
 // backlight, which a machine may not have; without one there is no brightness row anywhere.
 #pragma once
 

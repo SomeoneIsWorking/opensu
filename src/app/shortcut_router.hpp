@@ -1,6 +1,6 @@
 // shortcut_router — sends what the keyboard, the pad chords and the game-time key watcher say to
 // the shell. Button actions come out as the pad events they stand for, so there is one set of
-// handlers; every other action (the volume, the quick menu, quit, and the game actions a chord
+// handlers; every other action (the volume, the Guide menu on Volume, quit, and the game actions a chord
 // performs over a running game) is done here. The table they all read is `Shortcuts`.
 #pragma once
 
@@ -24,7 +24,7 @@ class ShortcutRouter {
     struct Hooks {
         /// Closes openSU.
         std::function<void()> quit;
-        /// Opens or closes the quick menu.
+        /// Opens the Guide menu on Volume, or closes it.
         std::function<void()> quickMenu;
         /// Whether a game is running, which the game actions need.
         std::function<bool()> gameRunning;

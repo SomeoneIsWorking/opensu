@@ -113,7 +113,7 @@ int main() {
         std::string failure;
         expect(!instance.start(unitName("missing"), "/no/such/program", {}, failure),
                "a missing program is refused");
-        expect(failure.find("/no/such/program") != std::string::npos, "the failure names it");
+        expect(failure == "could not start program", "the failure names it, not its folder");
     }
 
     {

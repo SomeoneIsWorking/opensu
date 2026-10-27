@@ -8,6 +8,7 @@
 #include "library/shelf.hpp"
 #include "ui/image_view.hpp"
 #include "ui/offer_card.hpp"
+#include "ui/page_frame.hpp"
 
 namespace opensu::app {
 namespace {
@@ -16,25 +17,6 @@ namespace tk = gpu2d::ui;
 
 constexpr const char* claimId = "claim";
 constexpr std::size_t columns = 3;
-
-/// The screen's frame: the top bar's room, `body`, then the hint bar.
-struct Frame {
-    std::unique_ptr<tk::Backdrop> root;
-    tk::Column* body{};
-};
-
-Frame frameFor(const tk::Theme& theme, const ui::Chrome& chrome) {
-    Frame frame{std::make_unique<tk::Backdrop>(), nullptr};
-    frame.root->space(theme.spacing.gap);
-    frame.root->add<tk::Spacer>(0.0f).fixHeight(chrome.top / theme.scale);
-    tk::Column& body = frame.root->add<tk::Column>();
-    body.pad(tk::Insets{theme.spacing.pad * 2.0f, 0.0f, theme.spacing.pad * 2.0f, 0.0f})
-        .space(theme.spacing.pad);
-    body.grow();
-    frame.body = &body;
-    frame.root->add<tk::HintBar>().fixHeight(theme.spacing.hintBarHeight);
-    return frame;
-}
 
 std::string kindText(const giveaways::Offer& offer) {
     return offer.kind == giveaways::OfferKind::Dlc ? "DLC: needs the base game" : "Game";
@@ -67,7 +49,7 @@ GiveawaysScreen::GiveawaysScreen(GiveawaysController& controller, const ui::Chro
 }
 
 std::unique_ptr<tk::Widget> GiveawaysScreen::build(const tk::Theme& theme) {
-    Frame frame = frameFor(theme, chrome_);
+    ui::PageFrame<tk::Column> frame = ui::pageFrame<tk::Column>(theme, chrome_);
     tk::Row& heading = frame.body->add<tk::Row>();
     heading.add<tk::Label>(std::string{library::giveawaysName}, tk::TextRole::Title);
     heading.add<tk::Spacer>();
@@ -128,7 +110,7 @@ std::string GiveawayDetails::initialFocus() const {
 }
 
 std::unique_ptr<tk::Widget> GiveawayDetails::build(const tk::Theme& theme) {
-    Frame frame = frameFor(theme, chrome_);
+    ui::PageFrame<tk::Column> frame = ui::pageFrame<tk::Column>(theme, chrome_);
     const giveaways::ShownOffer* shown = controller_.find(offer_);
     if (shown == nullptr) {
         // The offer ended or was hidden while its details were open.

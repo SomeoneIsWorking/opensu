@@ -54,16 +54,16 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
     // input-sound.md 3.4: Navigation for a focus move or a press, Close for a page dismissed.
-    shell_.screens().navigator().setSounds(gpu2d::ui::Navigator::Sounds{
-        [this] {
-            sounds_.play(audio::Effect::Navigation);
-        },
-        [this] {
-            sounds_.play(audio::Effect::Navigation);
-        },
-        [this] {
-            sounds_.play(audio::Effect::Close);
-        }});
+    shell_.screens().navigator().setSounds(
+        gpu2d::ui::Navigator::Sounds{[this] {
+                                         sounds_.play(audio::Effect::Navigation);
+                                     },
+                                     [this] {
+                                         sounds_.play(audio::Effect::Navigation);
+                                     },
+                                     [this] {
+                                         sounds_.play(audio::Effect::Close);
+                                     }});
     padOwner_.syncChords();
     clock_.service(std::chrono::steady_clock::now());
     applyLayout();
@@ -274,8 +274,7 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
 
 ui::OnScreenKeyboard* ShellApp::wheelTakingStick() {
     // The panels actOn hands buttons to before any keyboard.
-    if (firstRun_.active() || shell_.guidePanels().guide().isOpen() ||
-        shell_.guidePanels().quick().isOpen() || pluginSettings_.active()) {
+    if (firstRun_.active() || guideMenu_.isOpen() || pluginSettings_.active()) {
         return nullptr;
     }
     ui::OnScreenKeyboard* keyboard = nullptr;
@@ -398,6 +397,11 @@ void ShellApp::screens(const PointerFrame& frame) {
     if (frame.left) {
         navigator.pointer(gpu2d::ui::PointerEvent{gpu2d::ui::PointerKind::Press, at, 0.0f});
     }
+    // A right click is the second action (X) of what it is over.
+    if (frame.right) {
+        navigator.pointer(gpu2d::ui::PointerEvent{gpu2d::ui::PointerKind::Move, at, 0.0f});
+        navigator.act(gpu2d::ui::Action::Secondary);
+    }
     if (frame.wheel != 0.0f) {
         navigator.pointer(gpu2d::ui::PointerEvent{gpu2d::ui::PointerKind::Wheel, at, frame.wheel});
     }
@@ -493,19 +497,11 @@ void ShellApp::actOn(gamepad::Button button) {
         return;
     }
     if (button == gamepad::Button::Guide) {
-        toggleGuide();
+        toggleGuide(GuideMenuController::Landing::Places);
         return;
     }
     if (firstRun_.active()) {
         firstRun_.act(button);
-        return;
-    }
-    if (shell_.guidePanels().guide().isOpen()) {
-        guideMenu_.act(button);
-        return;
-    }
-    if (shell_.guidePanels().quick().isOpen()) {
-        quickMenu_.act(button);
         return;
     }
     // The consent dialog is the session install's too; the plugin asking has it first.
@@ -547,18 +543,6 @@ void ShellApp::actOn(gamepad::Button button) {
     }
     if (mappings_.active()) {
         mappings_.act(button);
-        return;
-    }
-    if (shell_.devicesPanel().isOpen()) {
-        devicesScreen_.act(button);
-        return;
-    }
-    if (shell_.downloadsPanel().isOpen()) {
-        downloadsScreen_.act(button);
-        return;
-    }
-    if (giveaways_.isOpen()) {
-        giveaways_.act(button);
         return;
     }
     if (shell_.screens().active()) {
@@ -634,7 +618,7 @@ void ShellApp::actOn(gamepad::Button button) {
             showShelf(*focus);
         } else if (shell_.inputDevice().current() == input::Device::KeyboardMouse) {
             // ESC at the root of the shell has nothing to go back to; it opens the Guide menu.
-            toggleGuide();
+            toggleGuide(GuideMenuController::Landing::Places);
         }
         break;
     default:
@@ -738,23 +722,17 @@ void ShellApp::serviceHeldLaunch() {
 }
 
 void ShellApp::chooseLevel(int level) {
-    if (shell_.guidePanels().quick().isOpen()) {
-        quickMenu_.chooseLevel(level);
-    } else if (shell_.modeChooser().isOpen()) {
+    if (shell_.modeChooser().isOpen()) {
         layoutPicker_.chooseIconSize(level);
-    } else if (shell_.devicesPanel().isOpen()) {
-        devicesScreen_.chooseLevel(level);
     }
 }
 
-void ShellApp::openGameSettings(const library::Game& game, EditorLook look,
-                                std::function<void()> closed) {
+void ShellApp::openGameSettings(const library::Game& game, EditorLook look) {
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
     navigator.push(std::make_unique<LayeredEditor>(layered_, navigator, shell_.screens().chrome(),
-                                                   layered_.forGame(game), look, game.title,
-                                                   std::move(closed)));
+                                                   layered_.forGame(game), look, game.title));
 }
 
 const library::Game* ShellApp::gameInFront() const {
@@ -768,7 +746,7 @@ const library::Game* ShellApp::gameInFront() const {
 }
 
 bool ShellApp::menusBlocked() {
-    return panels_.active() || paths_.active() || artworkSettings_.typing() ||
+    return panels_.active() || paths_.active() || artworkSettings_.typing() || mappings_.active() ||
            sessionInstall_.active() || firstRun_.active() || shortcutEditor_.capturing() ||
            shell_.searchPanel().isOpen() || shell_.modeChooser().isOpen() ||
            shell_.contextMenu().isOpen() || covers_.picker().isOpen();
@@ -778,22 +756,9 @@ void ShellApp::closeRunningGame() {
     launches_.close();
 }
 
-void ShellApp::toggleGuide() {
-    ui::GuidePanels& menus = shell_.guidePanels();
-    if (menus.quick().isOpen()) {
-        quickMenu_.close();
-    } else if (menus.guide().isOpen() || !menusBlocked()) {
-        guideMenu_.toggle();
-    }
-}
-
-void ShellApp::toggleQuickMenu() {
-    ui::GuidePanels& menus = shell_.guidePanels();
-    if (menus.guide().isOpen()) {
-        guideMenu_.close();
-    }
-    if (menus.quick().isOpen() || !menusBlocked()) {
-        quickMenu_.toggle();
+void ShellApp::toggleGuide(GuideMenuController::Landing landing) {
+    if (guideMenu_.isOpen() || !menusBlocked()) {
+        guideMenu_.toggle(landing);
     }
 }
 
@@ -832,29 +797,17 @@ std::string ShellApp::outputLine() const {
 }
 
 void ShellApp::serviceDevices(std::chrono::steady_clock::time_point now) {
-    const bool quickOpen = shell_.guidePanels().quick().isOpen();
-    if (bluetooth_.poll(now, devicesScreen_.showsBluetooth() || quickOpen)) {
+    if (bluetooth_.poll(now, devicesScreen_.showsBluetooth())) {
         devicesScreen_.refresh();
-        quickMenu_.refresh();
     }
     if (const std::optional<BluetoothNotice> notice = bluetooth_.takeNotice()) {
         shell_.setToast(notice->text, notice->error);
     }
     devicesScreen_.tick(now);
-    quickMenu_.tick(now);
 }
 
 void ShellApp::contextMenu(const ui::PointerTarget& target) {
-    if (shell_.inGame() || panels_.active() || shell_.guidePanels().anyOpen() ||
-        sessionInstall_.active()) {
-        return;
-    }
-    if (shell_.devicesPanel().isOpen()) {
-        // A right click on a Bluetooth device forgets it, as Select does.
-        if (std::holds_alternative<ui::OnSettingsRow>(target)) {
-            focus(target);
-            devicesScreen_.forgetFocused();
-        }
+    if (shell_.inGame() || panels_.active() || sessionInstall_.active()) {
         return;
     }
     // Right click dismisses an open menu from outside it, and opens a tile's menu; it is never
@@ -936,7 +889,7 @@ ui::Trail ShellApp::currentTrail() const {
     state.giveaways = giveaways_.isOpen();
     state.offer = giveaways_.openOffer();
     state.devices = devicesScreen_.tab();
-    state.downloads = shell_.downloadsPanel().isOpen();
+    state.downloads = downloadsScreen_.isOpen();
     return trailOf(state);
 }
 
@@ -950,7 +903,7 @@ void ShellApp::activateCrumb(std::size_t index) {
     // stays clickable over.
     details_.close();
     const bool settingsAlone = settingsScreen_.isOpen() && !shell_.settingsPanels().anyOpen();
-    if (shell_.panelOpen() && !settingsAlone && !shell_.devicesPanel().isOpen()) {
+    if (shell_.panelOpen() && !settingsAlone && !devicesScreen_.isOpen()) {
         return;
     }
     const ui::Crumb& crumb = trail[index];
@@ -973,8 +926,8 @@ void ShellApp::activateCrumb(std::size_t index) {
 ui::HintContext ShellApp::hints() const {
     // The menus draw their own prompts.
     if (paths_.active() || artworkSettings_.typing() || sessionInstall_.active() ||
-        shell_.guidePanels().anyOpen() || mappings_.active() || firstRun_.active() ||
-        covers_.picker().isOpen() || shell_.dockedKeyboard() != nullptr) {
+        mappings_.active() || firstRun_.active() || covers_.picker().isOpen() ||
+        shell_.dockedKeyboard() != nullptr) {
         return ui::HintContext{};
     }
     // The toolkit screens' hint bar names what their focus does.
@@ -984,13 +937,7 @@ ui::HintContext ShellApp::hints() const {
     if (shortcutEditor_.capturing()) {
         return ui::HintContext{.back = true};
     }
-    if (shell_.devicesPanel().isOpen()) {
-        return ui::HintContext{.back = true,
-                               .select = true,
-                               .change = devicesScreen_.changes(),
-                               .forget = devicesScreen_.forgets()};
-    }
-    if (shell_.detailsPage().isOpen() || shell_.downloadsPanel().isOpen()) {
+    if (shell_.detailsPage().isOpen()) {
         return ui::HintContext{.back = true, .select = true};
     }
     const bool game = shell_.focusedGame() != nullptr;
@@ -1067,20 +1014,15 @@ void ShellApp::publishSnapshot() {
     // What the loop has applied, not what was asked for, so a request that never reached the
     // loop cannot read as in game.
     next.inGame = shell_.inGame();
-    next.guideMenuOpen = shell_.guidePanels().guide().isOpen();
-    next.quickMenuOpen = shell_.guidePanels().quick().isOpen();
-    if (const ui::SettingsRow* row = shell_.guidePanels().quick().focusedRow();
-        row != nullptr && next.quickMenuOpen) {
-        next.quickFocus = row->id;
-    }
+    next.guideMenuOpen = guideMenu_.isOpen();
     for (const gpu2d::ui::Screen* screen : shell_.screens().navigator().screens()) {
         if (const auto* editor = dynamic_cast<const LayeredEditor*>(screen)) {
             next.settingsScope = editor->scopeName();
         }
     }
-    next.devicesOpen = shell_.devicesPanel().isOpen();
+    next.devicesOpen = devicesScreen_.isOpen();
     next.devicesTab = devicesScreen_.tab();
-    next.downloadsOpen = shell_.downloadsPanel().isOpen();
+    next.downloadsOpen = downloadsScreen_.isOpen();
     next.downloads = downloadsScreen_.lines();
     next.steam = std::string{launch::name(steam_.state())};
     next.inputDevice =
@@ -1169,8 +1111,6 @@ void ShellApp::serviceRequests() {
     const bool running = mailbox_.gameRunning();
     if (running != shell_.inGame()) {
         shell_.setInGame(running);
-        guideMenu_.close();
-        quickMenu_.close();
         closePages();
         panels_.endLaunch();
         gameScreen_.setRunning(running);

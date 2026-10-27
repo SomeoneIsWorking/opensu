@@ -97,9 +97,9 @@ int levelOf(const std::string& value, const Setting::Range& range) {
 
 LayeredEditor::LayeredEditor(LayeredSettings& settings, tk::Navigator& navigator,
                              const ui::Chrome& chrome, EditorContext context, EditorLook look,
-                             std::string title, std::function<void()> closed)
+                             std::string title)
     : Screen{"layered", std::move(title)}, settings_{settings}, navigator_{navigator},
-      chrome_{chrome}, context_{std::move(context)}, look_{look}, closed_{std::move(closed)},
+      chrome_{chrome}, context_{std::move(context)}, look_{look},
       schema_{settings_.schemaOf(context_)}, scope_{context_.scopes.size() - 1} {
 }
 
@@ -317,13 +317,6 @@ void LayeredEditor::addClear(tk::Column& rows) {
 
 gpu2d::Rect LayeredEditor::area(const gpu2d::Rect& viewport, const tk::Theme& theme) const {
     return areaFor(look_, viewport, theme);
-}
-
-tk::Screen::BackReply LayeredEditor::back(tk::ActContext& /*context*/) {
-    if (closed_) {
-        closed_();
-    }
-    return BackReply::Pop;
 }
 
 std::vector<tk::Hint> LayeredEditor::hints() const {

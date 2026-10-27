@@ -10,7 +10,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -32,10 +31,10 @@ enum class EditorLook : std::uint8_t {
 
 class LayeredEditor final : public gpu2d::ui::Screen {
   public:
-    /// `title` names what it edits; `closed` runs when Back closes it.
+    /// `title` names what it edits.
     LayeredEditor(LayeredSettings& settings, gpu2d::ui::Navigator& navigator,
                   const ui::Chrome& chrome, EditorContext context, EditorLook look,
-                  std::string title, std::function<void()> closed = {});
+                  std::string title);
 
     [[nodiscard]] std::unique_ptr<gpu2d::ui::Widget> build(const gpu2d::ui::Theme& theme) override;
     [[nodiscard]] gpu2d::Rect area(const gpu2d::Rect& viewport,
@@ -43,7 +42,6 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     [[nodiscard]] bool overlay() const override {
         return look_ == EditorLook::Panel;
     }
-    [[nodiscard]] BackReply back(gpu2d::ui::ActContext& context) override;
     [[nodiscard]] std::vector<gpu2d::ui::Hint> hints() const override;
     [[nodiscard]] std::string initialFocus() const override;
 
@@ -75,7 +73,6 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     const ui::Chrome& chrome_;
     EditorContext context_;
     EditorLook look_;
-    std::function<void()> closed_;
     /// What may be set here, read once as the editor opens.
     settings::Schema schema_;
     std::size_t scope_;
