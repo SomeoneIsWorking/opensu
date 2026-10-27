@@ -357,7 +357,7 @@ void WineSettings::test() {
     const library::wine::Choice resolved = choice();
     const std::optional<library::wine::Runner> runner = library::wine::runnerOf(resolved, {});
     if (!runner || (!runner->proton.empty() && resolved.umuRun.empty())) {
-        const std::string refused = runners_.checkNow();
+        const std::string refused = runners_.ensure();
         hooks_.say(refused.empty() ? "Installing GE-Proton first; test again when it is installed"
                                    : refused,
                    !refused.empty());
@@ -396,7 +396,7 @@ WineSettings::Prepared WineSettings::prepare(library::Game& game) {
         lucent::info("wine", "{} waits for GE-Proton and umu-launcher to install", game.title);
         held_ = game;
         heldDropped_ = false;
-        heldChecking_ = runners_.checkNow().empty() || runners_.busy();
+        heldChecking_ = runners_.ensure().empty() || runners_.busy();
         return {.refusal = {}, .environment = {}, .waiting = true};
     }
     library::wine::Prepared prepared = library::wine::prepare(game, resolved);
@@ -433,7 +433,7 @@ std::optional<WineSettings::Held> WineSettings::serviceHeld() {
         return held;
     }
     if (!heldChecking_) {
-        heldChecking_ = runners_.checkNow().empty();
+        heldChecking_ = runners_.ensure().empty();
         return Held{.line = "Getting GE-Proton", .fraction = {}, .ready = {}, .failed = false};
     }
     library::Game game = std::move(*held_);

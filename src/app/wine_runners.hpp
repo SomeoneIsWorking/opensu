@@ -102,13 +102,14 @@ class WineRunners {
     WineRunners(const WineRunners&) = delete;
     WineRunners& operator=(const WineRunners&) = delete;
 
-    /// Starts the check when it is due, hands ended jobs to the hooks, rotates after a check and
-    /// sweeps what a rotation removed. Main loop only.
+    /// Starts the check when it is due, hands ended jobs to the hooks, rotates after a check,
+    /// sweeps what a rotation removed and measures again when a game ends. Main loop only.
     void service(Clock::time_point now);
-    /// Checks now; refused, with the reason, while a job runs.
+    /// Checks now, the player asking; refused, with the reason, while a job runs.
     [[nodiscard]] std::string checkNow();
-    /// A launch needs a GE-Proton build and umu-launcher: checks now unless a job runs already.
-    void ensure();
+    /// A launch or a test needs a GE-Proton build and umu-launcher: checks now and downloads them
+    /// even when none is installed; refused, with the reason, while a job runs.
+    [[nodiscard]] std::string ensure();
     /// Stops the running download; what is installed stays.
     void cancel();
     /// Runs `command` (`env NAME=value ... program args`) as the test of a runner, its output
@@ -127,14 +128,23 @@ class WineRunners {
 
   private:
     using Job = std::function<void(const std::stop_token&)>;
+    /// Who started a check. With no GE-Proton installed only `Needed` downloads; a `Scheduled`
+    /// check's failures are logged, not shown.
+    enum class CheckMode : std::uint8_t { Scheduled, Asked, Needed };
 
     /// Starts `job` on the job thread; false while one runs.
     bool start(Job job);
-    void runCheck(const std::stop_token& stop);
-    /// Installs the latest GE-Proton unless it is installed; false when it failed.
-    bool updateGeProton(const std::stop_token& stop);
+    [[nodiscard]] std::string check(CheckMode mode);
+    void runCheck(const std::stop_token& stop, CheckMode mode);
+    /// Looks up the latest GE-Proton and installs it unless it is installed or `fetch` is false;
+    /// false when it failed.
+    bool updateGeProton(const std::stop_token& stop, CheckMode mode, bool fetch);
     /// Installs the latest umu-launcher unless it is installed; false when it failed.
-    bool updateUmu(const std::stop_token& stop);
+    bool updateUmu(const std::stop_token& stop, CheckMode mode);
+    /// A check could not finish: shown on Downloads unless `mode` is `Scheduled`, then only
+    /// logged, so a refused lookup waits for the next scheduled check.
+    void checkFailed(CheckMode mode, const std::string& id, const std::string& name,
+                     const std::string& text);
     /// Installs `archive` into `into` as the job `id` named `name`.
     bool install(const std::stop_token& stop, const std::string& id, const std::string& name,
                  const library::RuntimeArchive& archive, const std::filesystem::path& into);
@@ -161,6 +171,12 @@ class WineRunners {
     Look look_;
     bool running_{false};
     bool checked_{false};
+    /// Why the running check failed; empty while it has not.
+    std::string checkFailure_;
+    /// `measure` ran since the loop last looked.
+    bool measured_{false};
+    /// A game ran at the last `service`: umu fetches the Steam Linux Runtime on a Proton launch.
+    bool gameWasRunning_{false};
     std::uint64_t serial_{0};
     std::optional<int> shownPercent_;
     std::optional<Clock::time_point> nextCheck_;

@@ -87,16 +87,33 @@ bool WineRunners::start(Job job) {
 }
 
 std::string WineRunners::checkNow() {
-    if (!start([this](const std::stop_token& stop) {
-            runCheck(stop);
+    return check(CheckMode::Asked);
+}
+
+std::string WineRunners::ensure() {
+    return check(CheckMode::Needed);
+}
+
+std::string WineRunners::check(CheckMode mode) {
+    if (!start([this, mode](const std::stop_token& stop) {
+            runCheck(stop, mode);
         })) {
         return "A Wine runner download or test is running; try again when it ends";
     }
     return {};
 }
 
-void WineRunners::ensure() {
-    static_cast<void>(checkNow());
+void WineRunners::checkFailed(CheckMode mode, const std::string& id, const std::string& name,
+                              const std::string& text) {
+    {
+        const std::lock_guard lock{mutex_};
+        checkFailure_ = text;
+    }
+    if (mode == CheckMode::Scheduled) {
+        lucent::warn("wine", "{}; trying again at the next scheduled check", text);
+        return;
+    }
+    ended(Outcome::Failed, id, name, text);
 }
 
 void WineRunners::cancel() {
@@ -141,20 +158,29 @@ fs::path WineRunners::umuRun() const {
     return installs.empty() ? fs::path{} : installs.front().umuRun;
 }
 
-void WineRunners::runCheck(const std::stop_token& stop) {
+void WineRunners::runCheck(const std::stop_token& stop, CheckMode mode) {
     {
         const std::lock_guard lock{mutex_};
         look_.checking = true;
+        checkFailure_.clear();
     }
-    const bool ge = updateGeProton(stop);
-    const bool umu = !stop.stop_requested() && updateUmu(stop);
+    // The first GE-Proton (565 MB) waits for a game or a test that needs it.
+    const bool fetch =
+        mode == CheckMode::Needed ||
+        !library::ge_proton::installed(library::ge_proton::runnersDir(dataDir_)).empty();
+    const bool ge = updateGeProton(stop, mode, fetch);
+    const bool umu = !stop.stop_requested() && (!fetch || updateUmu(stop, mode));
     measure();
     const std::lock_guard lock{mutex_};
     look_.checking = false;
     checked_ = ge && umu;
-    if (ge && umu) {
+    if (ge && umu && !fetch) {
+        // updateGeProton left the latest tag's news.
+    } else if (ge && umu) {
         look_.lastCheck =
             look_.builds.empty() ? "Checked" : "Up to date: " + look_.builds.front().name;
+    } else if (!checkFailure_.empty()) {
+        look_.lastCheck = "Check failed: " + checkFailure_;
     } else if (finished_ && finished_->outcome == Outcome::Failed) {
         look_.lastCheck = "Check failed: " + finished_->text;
     } else {
@@ -162,20 +188,18 @@ void WineRunners::runCheck(const std::stop_token& stop) {
     }
 }
 
-bool WineRunners::updateGeProton(const std::stop_token& stop) {
+bool WineRunners::updateGeProton(const std::stop_token& stop, CheckMode mode, bool fetch) {
     std::string error;
     const library::roms::EmulatorRelease releases{web_};
     const std::optional<library::roms::ReleaseAsset> tarball =
         releases.latest(library::ge_proton::tarballSource(geApi_), error);
-    const std::optional<library::roms::ReleaseAsset> sums =
-        tarball ? releases.latest(library::ge_proton::checksumSource(geApi_), error) : std::nullopt;
-    if (!tarball || !sums) {
-        ended(Outcome::Failed, geId, "GE-Proton", "GE-Proton's release cannot be read: " + error);
+    if (!tarball) {
+        checkFailed(mode, geId, "GE-Proton", "GE-Proton's release cannot be read: " + error);
         return false;
     }
     const std::string tag = tarball->version;
     if (!library::ge_proton::versionOf(tag)) {
-        ended(Outcome::Failed, geId, tag, "GE-Proton's release " + tag + " is not a build name");
+        checkFailed(mode, geId, tag, "GE-Proton's release " + tag + " is not a build name");
         return false;
     }
     const fs::path runners = library::ge_proton::runnersDir(dataDir_);
@@ -184,13 +208,31 @@ bool WineRunners::updateGeProton(const std::stop_token& stop) {
         lucent::info("wine", "{} is the latest GE-Proton and installed", tag);
         return true;
     }
+    if (!fetch) {
+        const std::string text = tag + " is the latest GE-Proton; it downloads when a Windows game "
+                                       "or Test the runner first needs it";
+        lucent::info("wine", "{}", text);
+        const std::lock_guard lock{mutex_};
+        look_.lastCheck = tag + " · downloads on first use";
+        if (mode == CheckMode::Asked) {
+            news_.push_back(Finished{
+                .serial = 0, .id = geId, .name = tag, .outcome = Outcome::Installed, .text = text});
+        }
+        return true;
+    }
+    const std::optional<library::roms::ReleaseAsset> sums =
+        releases.latest(library::ge_proton::checksumSource(geApi_), error);
+    if (!sums) {
+        checkFailed(mode, geId, tag, "GE-Proton's release cannot be read: " + error);
+        return false;
+    }
     const std::optional<std::string> listing = web_.get(sums->url, error);
     const std::optional<std::string> sha512 =
         listing ? library::ge_proton::sha512Listed(*listing, tarball->name) : std::nullopt;
     if (!sha512) {
-        ended(Outcome::Failed, geId, tag,
-              listing ? sums->name + " lists no SHA-512 for " + tarball->name
-                      : "GE-Proton's checksum cannot be read: " + error);
+        checkFailed(mode, geId, tag,
+                    listing ? sums->name + " lists no SHA-512 for " + tarball->name
+                            : "GE-Proton's checksum cannot be read: " + error);
         return false;
     }
     return install(stop, geId, tag,
@@ -205,19 +247,20 @@ bool WineRunners::updateGeProton(const std::stop_token& stop) {
                    runners);
 }
 
-bool WineRunners::updateUmu(const std::stop_token& stop) {
+bool WineRunners::updateUmu(const std::stop_token& stop, CheckMode mode) {
     std::string error;
     const std::optional<library::roms::ReleaseAsset> zipapp =
         library::roms::EmulatorRelease{web_}.latest(library::umu::zipappSource(), error);
     const std::string name = zipapp ? "umu-launcher " + zipapp->version : "umu-launcher";
     if (!zipapp) {
-        ended(Outcome::Failed, umuId, name, "umu-launcher's release cannot be read: " + error);
+        checkFailed(mode, umuId, name, "umu-launcher's release cannot be read: " + error);
         return false;
     }
     if (zipapp->sha256.empty() || zipapp->version.find('/') != std::string::npos ||
         zipapp->version.starts_with('.')) {
-        ended(Outcome::Failed, umuId, name,
-              "umu-launcher " + zipapp->version + " publishes no SHA-256 to check it against");
+        checkFailed(mode, umuId, name,
+                    "umu-launcher " + zipapp->version +
+                        " publishes no SHA-256 to check it against");
         return false;
     }
     const fs::path into = library::umu::launcherDir(dataDir_) / zipapp->version;
@@ -309,6 +352,7 @@ void WineRunners::runTest(const std::stop_token& stop, const std::string& runner
                  (last.empty() ? std::string{} : ": " + last);
     }
     lucent::info("wine", "test of {}: {}", runner, result);
+    measure();
     const std::lock_guard lock{mutex_};
     look_.testing = false;
     look_.lastTest = result;
@@ -344,6 +388,7 @@ void WineRunners::measure() {
     look_.builds = std::move(measured.builds);
     look_.umu = std::move(measured.umu);
     look_.steamRuntime = std::move(measured.steamRuntime);
+    measured_ = true;
 }
 
 void WineRunners::ended(Outcome outcome, const std::string& id, const std::string& name,
@@ -359,10 +404,12 @@ void WineRunners::service(Clock::time_point now) {
     bool checked = false;
     std::optional<int> percent;
     bool busyNow = false;
+    bool measured = false;
     {
         const std::lock_guard lock{mutex_};
         news = std::exchange(news_, {});
         checked = std::exchange(checked_, false);
+        measured = std::exchange(measured_, false);
         busyNow = running_;
         if (progress_ && progress_->total > 0) {
             percent = static_cast<int>(progress_->received * fullPercent / progress_->total);
@@ -374,8 +421,15 @@ void WineRunners::service(Clock::time_point now) {
     if (checked) {
         rotate();
     }
-    if (!news.empty() || checked) {
+    if (!news.empty() || checked || measured) {
         hooks_.changed();
+    }
+    const bool gameRunning = hooks_.gameRunning();
+    if (std::exchange(gameWasRunning_, gameRunning) && !gameRunning) {
+        // A check already running measures when it ends.
+        static_cast<void>(start([this](const std::stop_token&) {
+            measure();
+        }));
     }
     if (percent != shownPercent_) {
         shownPercent_ = percent;
@@ -386,7 +440,7 @@ void WineRunners::service(Clock::time_point now) {
     }
     if (now >= *nextCheck_ && !busyNow && hooks_.wanted()) {
         lucent::info("wine", "checking for a newer GE-Proton and umu-launcher");
-        nextCheck_ = now + (checkNow().empty() ? checkEvery : retryFailedAfter);
+        nextCheck_ = now + (check(CheckMode::Scheduled).empty() ? checkEvery : retryFailedAfter);
     }
 }
 

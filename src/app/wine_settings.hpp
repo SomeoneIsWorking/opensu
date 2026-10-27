@@ -80,6 +80,10 @@ class WineSettings {
     [[nodiscard]] std::optional<Held> serviceHeld();
     /// Drops the held launch; false when none was held.
     bool dropHeld();
+    /// A launch waits for its runner.
+    [[nodiscard]] bool holding() const noexcept {
+        return held_.has_value();
+    }
 
     /// The GE-Proton builds a rotation must keep and why: a running game's, the player's pick,
     /// the games pinned to one.
