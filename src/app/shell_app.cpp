@@ -1098,7 +1098,7 @@ void ShellApp::serviceRequests() {
         shell_.launchPanel().update(launch::describe(*progress),
                                     measured ? std::optional{progress->fraction} : std::nullopt);
     }
-    if (!launching) {
+    if (!launching && !wineSettings_.holding()) {
         panels_.endLaunch();
     }
     panels_.service();

@@ -1380,8 +1380,10 @@ count, each with a page of its games and pins. A plain-Wine prefix's saves are c
 Proton first runs in it. Verified in the hidden product (`docs/issues/ge-proton-default.md`): three
 real GE-Proton releases installed and checked, the rotation keeping a pinned build and then
 removing it, `cmd /c ver` answered through GE-Proton 11-9, 11-10 and 11-11 and system Wine in a
-scratch prefix, a plain-Wine prefix upgraded with its save intact. Unverified: a real Windows GOG
-or Epic game launched this way and the held launch's panel (no signed-in store in the run).
+scratch prefix, a plain-Wine prefix upgraded with its save intact; on the player's setup Nuclear
+Throne (Epic) held on the launch panel while GE-Proton downloaded, then ran through umu-run, and
+the Steam Linux Runtime umu fetched showed in Settings › Wine once the game closed. The first
+GE-Proton downloads only when a launch or Test the runner needs it. Unverified: a GOG game.
 Missing: "Use <compatibility tool>" for Steam games (writing `CompatToolMapping`), not built until
 the running client's handling is measured (the card lists what).
 

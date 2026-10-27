@@ -39,13 +39,18 @@ add a list of installed runtimes and show how many games using them".
   or cancel removes the staging folder and leaves the installed builds alone. SHA-512 is Lucent's
   (`lucent::content::sha512_file`, added for this).
 - `app/wine_runners`: the check runs at start and every 24 h while GOG or Epic is in force (an
-  hour after a failed start), on "Check for GE-Proton now", and when a Windows launch finds no
-  GE-Proton. After a successful check the rotation runs on the main loop: builds past the newest
+  hour after a failed start), on "Check for GE-Proton now", and when a Windows launch or Test the
+  runner finds no GE-Proton. With no GE-Proton installed only those last two download it (565 MB);
+  the others look up the latest release ("GE-Proton11-11 · downloads on first use"). A scheduled
+  check that cannot read the release (HTTP 403, GitHub's rate limit) logs it once and waits for
+  the next scheduled check. Sizes are measured again when a game ends, which is when the Steam
+  Linux Runtime umu fetched on a first Proton launch shows up. After a successful check the rotation runs on the main loop: builds past the newest
   two are renamed into `<data>/wine/.trash` and removed on a thread; a build kept back says why
   ("Kept: 1 game pinned to it", "Kept: a game runs on it", "Picked for every game"). Progress and
   Cancel on the Downloads page (`wine:ge-proton`, `wine:umu-launcher`, "Wine runner").
 - A Windows launch with no GE-Proton yet is held: the launch panel shows "Getting GE-Proton11-11 ·
-  45%", B drops it, and the game starts when the install ends (`WineSettings::serviceHeld`).
+  45%", B drops it, and the game starts when the install ends (`WineSettings::serviceHeld`); the
+  panel stays up while held (`ShellApp::serviceRequests` counts `WineSettings::holding`).
 - Settings › Wine: Wine runner (Latest GE-Proton (11-11), each GE build, other runners found,
   System Wine), Check for GE-Proton now with the last outcome, Test the runner (`cmd /c ver` in
   `<data>/wine/test-prefix` through the same invocation a launch uses), then "Runners and
@@ -97,11 +102,19 @@ The exact wrapper and environment a GOG launch gets were also run by hand throug
 holding `cmd.exe`: gogdl ran umu-run with the exe, Proton started it and everything exited 0
 (`logs/gogdl-wrapper.log`); cmd's own output did not reach that log.
 
+On the player's own setup (installed data dirs, `--hidden` inside a headless Gamescope;
+`scratch/ge-proton-real/ge2/`), with GE-Proton11-11 and `wine/umu` moved aside for the run and
+restored after: the start check only looked up GE-Proton11-11 (`01-settings-wine-start.png`, no
+Steam Linux Runtime row); Play on Nuclear Throne (Epic) held the launch on the panel, "Getting
+GE-Proton11-11 · 3%" (`07-held-launch-later.png`), the SHA-512 matched, the game started through
+umu-run and showed its window; Settings › Wine during the game counted it on umu-launcher and still
+had no runtime row (`11-settings-wine-in-game.png`); after Close game the row "Steam Linux Runtime
+(steamrt4) · 1.3 GB · 1 game" is there (`14-settings-wine-after-game.png`). A start check against a
+release URL answering HTTP 403 logged one `[wine:warn]` line, no toast, no Downloads row
+(`x403/run.log`).
+
 ## Open
 
-- A real GOG or Epic Windows game launched by openSU through GE-Proton: needs a signed-in store in
-  a run; the held launch with its panel progress is unshown for the same reason, and so are game
-  counts above zero.
 - A system Wine's version is not shown (its name is "System Wine"); Steam's Proton builds show no
   size (not measured, too many files to walk on the loop).
 - `GAMEID` is `umu-0` for every game: umu's per-game fixes (protonfixes by store id) are not
