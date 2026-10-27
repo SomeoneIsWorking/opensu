@@ -12,6 +12,12 @@
 // At launch the game's mapping goes to the chords in force (its game chords) and to the pads
 // (`gamepad::ForwardMap`); at its end both are dropped. The chords in force reach the pads whenever
 // they change, and the game's virtual pads rest while a menu is up.
+//
+// While a page of openSU's own Steam waits on the player in Big Picture (the SteamGridDB sign-in),
+// the pads are lent to Steam under the same rule as a game, with Big Picture as the window they
+// serve: held as virtual pads with no mapping (Isolated's sandbox sees only those), Game while Big
+// Picture is in front, the shell hearing only Guide there, and the virtual pads resting while the
+// shell is in front again. Lending ends with the sign-in; a game's hold is never replaced.
 #pragma once
 
 #include <filesystem>
@@ -30,8 +36,10 @@ class PadOwner {
   public:
     /// What decides the claim.
     struct Situation {
-        /// A game is launching or running.
+        /// A game is launching or running, or the pads are lent to Steam.
         bool game{false};
+        /// The window the held pads serve: the game's, or Big Picture's while lent to Steam.
+        session::FocusHolder serves{session::FocusHolder::Game};
         /// Gamescope's focus is followed, so the shell may grab.
         bool followsFocus{false};
         session::FocusHolder holder{session::FocusHolder::OpenSU};
@@ -63,9 +71,13 @@ class PadOwner {
     std::vector<std::string> hold(const input::ButtonMap& map);
     /// The game is over: its chords are dropped and the pads go back to the shell's claim.
     void release();
+    /// Whether a game holds the pads.
     [[nodiscard]] bool held() const noexcept {
-        return situation_.game;
+        return situation_.game && situation_.serves == session::FocusHolder::Game;
     }
+    /// Lends the pads to openSU's own Steam while `lend`, as to a game shown by Big Picture, and
+    /// takes them back after; nothing while a game holds them or Steam is not openSU's.
+    void lendToSteam(bool lend);
     /// Rests the game's virtual pads while a menu is up; nothing while no game holds them.
     void setBlocked(bool blocked);
     /// Gives the pads the chords in force now.
@@ -82,10 +94,17 @@ class PadOwner {
     [[nodiscard]] std::vector<gamepad::Event> admit(std::vector<gamepad::Event> events) const;
 
   private:
+    /// Holds the pads with `map` for the window `serves`.
+    std::vector<std::string> take(const input::ButtonMap& map, session::FocusHolder serves);
+    /// Lent to Steam: the virtual pads rest unless Big Picture is in front.
+    void restOutsideBigPicture();
+
     gamepad::PadSource& pads_;
     input::ChordSet& chords_;
     Situation situation_;
     gamepad::Claim claim_{gamepad::Claim::Free};
+    /// Whether the lent virtual pads rest.
+    bool resting_{false};
 };
 
 } // namespace opensu::app

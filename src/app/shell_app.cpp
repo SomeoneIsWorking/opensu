@@ -1158,6 +1158,7 @@ int ShellApp::run() {
         }
 
         integrationSwitch_.service();
+        padOwner_.lendToSteam(steamGridDbAccount_.signingIn());
         focusFollow_.service(padOwner_.held());
         frameGeneration_.follow(gameInFront());
         padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),
