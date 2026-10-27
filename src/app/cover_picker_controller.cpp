@@ -1,10 +1,29 @@
 #include "cover_picker_controller.hpp"
 
+#include <algorithm>
+#include <memory>
 #include <utility>
+
+#include "cover_picker_screen.hpp"
 
 namespace opensu::app {
 
+const gpu2d::ui::Screen* CoverPickerController::picker() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto found = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const CoverPickerScreen*>(screen) != nullptr;
+    });
+    return found == open.end() ? nullptr : *found;
+}
+
+bool CoverPickerController::isOpen() const {
+    return picker() != nullptr;
+}
+
 void CoverPickerController::open(const library::Game& game) {
+    if (isOpen()) {
+        return;
+    }
     gameId_ = game.id;
     title_ = "Choose artwork: " + game.title;
     own_ = game.artwork;
@@ -13,49 +32,31 @@ void CoverPickerController::open(const library::Game& game) {
     offers_.list(game);
     sounds_.play(audio::Effect::OpenContextMenu);
     show();
+    navigator_.push(std::make_unique<CoverPickerScreen>(*this, images_));
 }
 
 void CoverPickerController::close() {
-    picker_.close();
-    gameId_.clear();
-    listing_.reset();
-    sounds_.play(audio::Effect::Close);
-}
-
-void CoverPickerController::act(gamepad::Button button) {
-    switch (button) {
-    case gamepad::Button::Left:
-        if (picker_.move(-1)) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::Right:
-        if (picker_.move(1)) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::A:
-        choose();
-        break;
-    case gamepad::Button::Y:
-        if (disconnected()) {
-            close();
-            hooks_.connect();
-        }
-        break;
-    case gamepad::Button::B:
-        close();
-        break;
-    default:
-        break;
-    }
-}
-
-void CoverPickerController::choose() {
-    if (saving_ || picker_.focus() >= entries_.size()) {
+    const gpu2d::ui::Screen* open = picker();
+    if (open == nullptr) {
         return;
     }
-    const Entry entry = entries_[picker_.focus()];
+    sounds_.play(audio::Effect::Close);
+    navigator_.closeFrom(*open);
+}
+
+void CoverPickerController::connect() {
+    if (!disconnected()) {
+        return;
+    }
+    close();
+    hooks_.connect();
+}
+
+void CoverPickerController::choose(std::size_t index) {
+    if (saving_ || index >= entries_.size()) {
+        return;
+    }
+    const Entry entry = entries_[index];
     switch (entry.kind) {
     case Entry::Kind::Now:
         close();
@@ -71,13 +72,12 @@ void CoverPickerController::choose() {
         break;
     }
     saving_ = true;
-    sounds_.play(audio::Effect::Navigation);
     show();
 }
 
 void CoverPickerController::service() {
     if (std::optional<artwork::CoverListing> listing = offers_.takeListing();
-        listing && listing->gameId == gameId_ && picker_.isOpen()) {
+        listing && listing->gameId == gameId_ && isOpen()) {
         listing_ = std::move(listing);
         show();
     }
@@ -87,7 +87,7 @@ void CoverPickerController::service() {
         } else {
             hooks_.changed(choice.gameId);
         }
-        if (choice.gameId == gameId_ && picker_.isOpen()) {
+        if (choice.gameId == gameId_ && isOpen()) {
             saving_ = false;
             if (choice.kept) {
                 close();
@@ -99,35 +99,30 @@ void CoverPickerController::service() {
 }
 
 void CoverPickerController::show() {
-    std::vector<ui::CoverPick> picks;
+    picks_.clear();
     entries_.clear();
     const std::filesystem::path replaced = overrides_.shown(gameId_);
-    picks.push_back(ui::CoverPick{"Now", replaced.empty() ? own_ : replaced});
+    picks_.push_back(Pick{"Now", replaced.empty() ? own_ : replaced});
     entries_.push_back(Entry{Entry::Kind::Now});
     if (!replaced.empty() && !own_.empty()) {
-        picks.push_back(ui::CoverPick{"Own", own_});
+        picks_.push_back(Pick{"Own", own_});
         entries_.push_back(Entry{Entry::Kind::Own});
     }
     if (listing_) {
         for (std::size_t i = 0; i < listing_->offers.size(); ++i) {
             const artwork::CoverOffer& offer = listing_->offers[i];
-            picks.push_back(ui::CoverPick{std::to_string(offer.cover.width) + "x" +
-                                              std::to_string(offer.cover.height),
-                                          offer.thumb});
+            picks_.push_back(
+                Pick{std::to_string(offer.cover.width) + "x" + std::to_string(offer.cover.height),
+                     offer.thumb});
             entries_.push_back(Entry{Entry::Kind::Offer, i});
         }
     }
-    if (picker_.isOpen()) {
-        picker_.update(std::move(picks), status());
-    } else {
-        picker_.open(title_, std::move(picks), status());
-    }
-    picker_.offerConnect(disconnected());
 }
 
 bool CoverPickerController::disconnected() const {
     using Status = artwork::SteamGridDb::Covers::Status;
-    return listing_ && (listing_->status == Status::Disconnected || listing_->status == Status::Refused);
+    return listing_ &&
+           (listing_->status == Status::Disconnected || listing_->status == Status::Refused);
 }
 
 std::string CoverPickerController::status() const {

@@ -1,6 +1,11 @@
 #include "artwork_settings.hpp"
 
-#include "keyboard_pad.hpp"
+#include <algorithm>
+#include <memory>
+#include <vector>
+
+#include "host/secret.hpp"
+#include "ui/entry_screen.hpp"
 
 namespace opensu::app {
 namespace {
@@ -13,6 +18,9 @@ constexpr const char* connectId = "artwork.steamgriddb.connect";
 constexpr const char* cancelId = "artwork.steamgriddb.cancel";
 constexpr const char* enterId = "artwork.steamgriddb.enter";
 constexpr const char* disconnectId = "artwork.steamgriddb.disconnect";
+constexpr std::string_view keyCardId = "artwork.key";
+/// The most bytes a key holds.
+constexpr std::size_t keyMostLength = 256;
 
 std::string statusText(const SteamGridDbAccount::Status& status) {
     switch (status.state) {
@@ -111,61 +119,69 @@ void ArtworkSettings::service() {
     }
 }
 
-bool ArtworkSettings::typing() const noexcept {
-    return entering_ && entry_.isOpen();
+ArtworkSettings::~ArtworkSettings() {
+    host::wipe(key_);
+}
+
+const gpu2d::ui::Screen* ArtworkSettings::keyCard() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto found = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {
+        return screen->id() == keyCardId && !screen->closing();
+    });
+    return found == open.end() ? nullptr : *found;
+}
+
+bool ArtworkSettings::typing() const {
+    return keyCard() != nullptr;
 }
 
 void ArtworkSettings::openEntry() {
+    if (typing()) {
+        return;
+    }
     sounds_.play(audio::Effect::Open);
-    entry_.configure("SteamGridDB API key", ui::EntryKind::Password);
-    entry_.open({});
-    entering_ = true;
-}
-
-void ArtworkSettings::act(gamepad::Button button) {
-    switch (actOnKeyboard(entry_, button, sounds_)) {
-    case KeyboardOutcome::Confirm:
-        confirm();
-        break;
-    case KeyboardOutcome::Leave:
-        dismiss();
-        break;
-    case KeyboardOutcome::Edited:
-    case KeyboardOutcome::Handled:
-        break;
-    }
-}
-
-void ArtworkSettings::typeText(std::string_view text) {
-    if (typing()) {
-        static_cast<void>(entry_.type(text));
-    }
-}
-
-void ArtworkSettings::backspace() {
-    if (typing()) {
-        static_cast<void>(entry_.backspace());
-    }
+    host::wipe(key_);
+    navigator_.push(std::make_unique<ui::EntryScreen>(
+        ui::Entry{.id = std::string{keyCardId},
+                  .title = "SteamGridDB API key",
+                  .note = "Paste or type the key from SteamGridDB's API page.",
+                  .label = "API key",
+                  .placeholder = "Key",
+                  .secret = true,
+                  .mostBytes = keyMostLength,
+                  .text = [this]() -> const std::string& {
+                      return key_;
+                  },
+                  .changed =
+                      [this](std::string text) {
+                          host::wipe(key_);
+                          key_ = std::move(text);
+                      },
+                  .submitted =
+                      [this] {
+                          confirm();
+                      },
+                  .cancelled =
+                      [this] {
+                          dismiss();
+                      }}));
+    keyboard_.open();
 }
 
 void ArtworkSettings::confirm() {
-    if (!typing()) {
-        return;
+    if (const gpu2d::ui::Screen* card = keyCard()) {
+        navigator_.closeFrom(*card);
     }
-    std::string key = entry_.takeText();
-    entering_ = false;
-    entry_.close();
     sounds_.play(audio::Effect::Close);
-    account_.useKey(std::move(key));
+    account_.useKey(std::exchange(key_, std::string{}));
 }
 
 void ArtworkSettings::dismiss() {
-    if (!typing()) {
-        return;
+    if (const gpu2d::ui::Screen* card = keyCard()) {
+        navigator_.closeFrom(*card);
     }
-    entering_ = false;
-    entry_.close();
     sounds_.play(audio::Effect::Close);
+    host::wipe(key_);
 }
 
 } // namespace opensu::app

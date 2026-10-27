@@ -157,7 +157,6 @@ void forgettingAsksFirst() {
     expect(rig.radio.log.empty() && rig.ui.navigator.top() != nullptr &&
                rig.ui.navigator.top()->id() == "dialog",
            "X asks first");
-    rig.press(Action::Right);
     rig.press(Action::Accept);
     rig.settle();
     expect(rig.radio.log == std::vector<std::string>{"remove /d/pad"},

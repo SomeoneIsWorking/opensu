@@ -24,7 +24,10 @@ constexpr std::array<std::pair<gamepad::Button, Action>, 11> pairs{{
 
 } // namespace
 
-std::optional<Action> interfaceActionOf(gamepad::Button button) noexcept {
+std::optional<Action> interfaceActionOf(gamepad::Button button, bool typing) noexcept {
+    if (typing && button == gamepad::Button::Start) {
+        return Action::Submit;
+    }
     for (const auto& [from, action] : pairs) {
         if (from == button) {
             return action;
@@ -34,6 +37,9 @@ std::optional<Action> interfaceActionOf(gamepad::Button button) noexcept {
 }
 
 gamepad::Button buttonOfInterfaceAction(Action action) noexcept {
+    if (action == Action::Submit) {
+        return gamepad::Button::Start;
+    }
     for (const auto& [button, to] : pairs) {
         if (to == action) {
             return button;

@@ -13,7 +13,6 @@
 #include "gpu2d/image/decode.hpp"
 #include "lucent/log.h"
 #include "round_shape.hpp"
-#include "typeface.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -141,19 +140,19 @@ void RailPainter::drawTitle(Canvas& canvas, std::string_view title, const TitleB
     if (title.empty() || style.alpha <= 0.0f) {
         return;
     }
-    const TextStyle text{box.capHeight / Typeface::capHeightPerEm};
-    const float left = box.centred ? box.x - typeface_.measure(title, text) * 0.5f : box.x;
+    const float size = box.capHeight / capHeightPerEm;
+    const float left = box.centred ? box.x - text_.measure(title, size) * 0.5f : box.x;
     const float step = 2.0f * std::numbers::pi_v<float> / static_cast<float>(shadowTaps);
     for (int tap = 0; tap < shadowTaps; ++tap) {
         const float angle = step * static_cast<float>(tap);
-        typeface_.drawFromCapTop(
+        text_.drawFromCapTop(
             canvas, title,
             Point{left + (shadowOffsetDp + shadowRadiusDp * std::cos(angle)) * box.dp,
                   box.capTop + (shadowOffsetDp + shadowRadiusDp * std::sin(angle)) * box.dp},
-            text, withAlpha(black, shadowAlpha * style.alpha));
+            size, withAlpha(black, shadowAlpha * style.alpha));
     }
-    typeface_.drawFromCapTop(canvas, title, Point{left, box.capTop}, text,
-                             inkOf(style.dark, style.alpha));
+    text_.drawFromCapTop(canvas, title, Point{left, box.capTop}, size,
+                         inkOf(style.dark, style.alpha));
 }
 
 void RailPainter::paintTitle(Canvas& canvas, const XmbLayout& layout, std::string_view title,

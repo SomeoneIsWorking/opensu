@@ -2,8 +2,13 @@
 
 #include <algorithm>
 #include <chrono>
+#include <memory>
 #include <string>
+#include <vector>
 
+#include "gpu2d/ui/screen.hpp"
+
+#include "details_screen.hpp"
 #include "library/emulator_choice.hpp"
 #include "library/rom_systems.hpp"
 #include "library/wine.hpp"
@@ -30,6 +35,22 @@ std::string emulatorSourceText(library::EmulatorSource source, const library::Ga
 
 } // namespace
 
+const gpu2d::ui::Screen* DetailsController::page() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto found = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const DetailsScreen*>(screen) != nullptr;
+    });
+    return found == open.end() ? nullptr : *found;
+}
+
+bool DetailsController::isOpen() const {
+    return page() != nullptr;
+}
+
+const ui::GameDetails* DetailsController::details() const {
+    return isOpen() && details_ ? &*details_ : nullptr;
+}
+
 ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) const {
     ui::GameSettingsView view;
     const settings::SettingLayers& layers = gameSettings_.layers();
@@ -44,29 +65,28 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
             const settings::Resolved resolved =
                 layers.resolve(keys, video.key, std::string{video.choices[0].key});
             if (resolved.from) {
-                view.rows.push_back(
-                    ui::DetailsRow{std::string{video.label},
-                                   std::string{settings::choiceLabel(video, resolved.value)} +
-                                       " · " + sourceText(resolved.from, catalog)});
+                view.facts.push_back(
+                    ui::detailsFact(std::string{video.label},
+                                    std::string{settings::choiceLabel(video, resolved.value)} +
+                                        " · " + sourceText(resolved.from, catalog)));
             }
         }
         if (shader.from) {
-            view.rows.push_back(ui::DetailsRow{std::string{settings::shaderLabel},
-                                               presetLabel(shader.value) + " · " +
-                                                   sourceText(shader.from, catalog)});
+            view.facts.push_back(ui::detailsFact(std::string{settings::shaderLabel},
+                                                 presetLabel(shader.value) + " · " +
+                                                     sourceText(shader.from, catalog)));
         }
     }
     if (const std::optional<std::size_t> kept = hooks_.gameSettings(game)) {
         const std::size_t custom = *kept;
-        view.buttons.push_back(ui::DetailsButton{
-            ui::DetailsAction::GameSettings, "Game settings",
+        view.gameSettings =
             custom == 0 ? std::string{"Inherited"}
-                        : std::to_string(custom) + " custom setting" + (custom == 1 ? "" : "s")});
+                        : std::to_string(custom) + " custom setting" + (custom == 1 ? "" : "s");
     }
     return view;
 }
 
-ui::DetailsView DetailsController::viewOf(const library::Game& game) const {
+ui::GameDetails DetailsController::detailsOf(const library::Game& game) const {
     std::string download;
     const std::optional<EmulatorDownloads::Progress> progress = downloads_.progress();
     if (const library::EmulatorOption* missing = ui::emulatorToDownload(game);
@@ -74,9 +94,9 @@ ui::DetailsView DetailsController::viewOf(const library::Game& game) const {
         const std::optional<int> percent = progress->percent();
         download = percent ? std::to_string(*percent) + "% · A cancels" : "Starting · A cancels";
     }
-    return ui::detailsFor(
-        game, preferences_.values().hidden.contains(game), std::chrono::system_clock::now(),
-        download, preferences_.values().ownWinePrefixes.contains(game.id), settingsOf(game));
+    return ui::detailsOf(game, preferences_.values().hidden.contains(game),
+                         std::chrono::system_clock::now(), download,
+                         preferences_.values().ownWinePrefixes.contains(game.id), settingsOf(game));
 }
 
 void DetailsController::open() {
@@ -84,105 +104,114 @@ void DetailsController::open() {
     if (game == nullptr) {
         return;
     }
+    if (const gpu2d::ui::Screen* shown = page()) {
+        navigator_.closeFrom(*shown);
+    }
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    page_.open(viewOf(*game));
+    details_ = detailsOf(*game);
+    navigator_.push(std::make_unique<DetailsScreen>(*this, chrome_, images_));
 }
 
 void DetailsController::close() {
-    if (!page_.isOpen()) {
+    const gpu2d::ui::Screen* shown = page();
+    if (shown == nullptr) {
         return;
     }
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
-    page_.close();
+    navigator_.closeFrom(*shown);
 }
 
 void DetailsController::refresh() {
-    if (!page_.isOpen()) {
+    if (!isOpen() || !details_) {
         return;
     }
-    if (const std::optional<library::Game> game = hooks_.find(page_.view().gameId)) {
-        page_.refresh(viewOf(*game));
-    } else {
-        page_.close();
+    const std::optional<library::Game> game = hooks_.find(details_->gameId);
+    if (!game) {
+        navigator_.closeFrom(*page());
+        return;
+    }
+    const bool downloading = ui::actionOf(*details_, ui::detailsDownloadId) != nullptr;
+    details_ = detailsOf(*game);
+    // The emulator arrived: Play is what the player came for.
+    if (downloading && ui::actionOf(*details_, ui::detailsDownloadId) == nullptr &&
+        navigator_.top() == page() && navigator_.focused() == ui::detailsDownloadId) {
+        navigator_.focus(ui::detailsLaunchId);
     }
 }
 
-void DetailsController::act(gamepad::Button button) {
-    switch (button) {
-    case gamepad::Button::Up:
-    case gamepad::Button::Down:
-        // input-sound.md 3.4 Navigation: a focus move in a list.
-        if (page_.move(button == gamepad::Button::Down ? 1 : -1)) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::Left:
-    case gamepad::Button::Right:
-        if (page_.selected() == ui::DetailsAction::Emulator) {
-            if (const std::optional<library::Game> game = hooks_.find(page_.view().gameId)) {
-                cycleEmulator(*game, button == gamepad::Button::Right ? 1 : -1);
-            }
-        }
-        break;
-    case gamepad::Button::A:
-        run(page_.selected());
-        break;
-    case gamepad::Button::B:
-        close();
-        break;
-    default:
-        break;
+std::optional<library::Game> DetailsController::current() {
+    if (!details_) {
+        return std::nullopt;
     }
-}
-
-void DetailsController::run(ui::DetailsAction action) {
-    if (action == ui::DetailsAction::Back) {
-        close();
-        return;
-    }
-    const std::optional<library::Game> game = hooks_.find(page_.view().gameId);
+    std::optional<library::Game> game = hooks_.find(details_->gameId);
     if (!game) {
         close();
+    }
+    return game;
+}
+
+void DetailsController::launch() {
+    if (const std::optional<library::Game> game = current()) {
+        hooks_.launch(*game);
+    }
+}
+
+void DetailsController::run(const std::string& id, int step) {
+    if (id == ui::detailsBackId) {
+        close();
         return;
     }
-    switch (action) {
-    case ui::DetailsAction::Launch:
-        hooks_.launch(*game);
-        break;
-    case ui::DetailsAction::Update:
-        sounds_.play(audio::Effect::Navigation);
+    const std::optional<library::Game> game = current();
+    if (!game) {
+        return;
+    }
+    if (id == ui::detailsUpdateId) {
         update_.request(*game);
-        break;
-    case ui::DetailsAction::Emulator:
-        cycleEmulator(*game, 1);
-        break;
-    case ui::DetailsAction::GameSettings:
-        hooks_.openGameSettings(*game);
-        break;
-    case ui::DetailsAction::DownloadEmulator:
+    } else if (id == ui::detailsDownloadId) {
         downloadEmulator(*game);
-        break;
-    case ui::DetailsAction::WinePrefix:
+    } else if (id == ui::detailsEmulatorId) {
+        chooseEmulator(*game, step);
+    } else if (id == ui::detailsWinePrefixId) {
         toggleOwnPrefix(*game);
-        break;
-    case ui::DetailsAction::Hidden:
+    } else if (id == ui::detailsHiddenId) {
         hooks_.setHidden(*game, !preferences_.values().hidden.contains(*game));
         // The game leaves or joins the shelf the page was opened over.
         close();
-        break;
-    case ui::DetailsAction::Uninstall:
+    } else if (id == ui::detailsUninstallId) {
         uninstall(*game);
-        break;
-    case ui::DetailsAction::Controls:
-        hooks_.controls(*game);
-        break;
-    case ui::DetailsAction::ChooseArtwork:
+    }
+}
+
+void DetailsController::openPage(const std::string& id) {
+    const std::optional<library::Game> game = current();
+    if (!game) {
+        return;
+    }
+    if (id == ui::detailsSettingsId) {
+        hooks_.openGameSettings(*game);
+    } else if (id == ui::detailsArtworkId) {
         hooks_.chooseArtwork(*game);
-        break;
-    case ui::DetailsAction::Back:
-        break;
+    } else if (id == ui::detailsControlsId) {
+        hooks_.controls(*game);
+    }
+}
+
+void DetailsController::chooseEmulator(const library::Game& game, int step) {
+    if (!details_) {
+        return;
+    }
+    const ui::SettingsRow* row = ui::actionOf(*details_, ui::detailsEmulatorId);
+    if (row == nullptr || row->choices.empty()) {
+        return;
+    }
+    const auto count = static_cast<int>(row->choices.size());
+    const auto next =
+        static_cast<std::size_t>(((static_cast<int>(row->chosen) + step) % count + count) % count);
+    const std::string& name = row->choices[next];
+    if (name != ui::noEmulator) {
+        hooks_.chooseEmulator(game, name);
     }
 }
 
@@ -191,7 +220,6 @@ void DetailsController::downloadEmulator(const library::Game& game) {
     if (missing == nullptr) {
         return;
     }
-    sounds_.play(audio::Effect::Navigation);
     if (const std::optional<EmulatorDownloads::Progress> progress = downloads_.progress();
         progress && progress->id == missing->id) {
         downloads_.cancel(missing->id);
@@ -206,7 +234,6 @@ void DetailsController::toggleOwnPrefix(const library::Game& game) {
     const bool nowOwn = !own.contains(game.id);
     own.set(game.id, nowOwn);
     preferences_.save();
-    sounds_.play(audio::Effect::Navigation);
     hooks_.say(game.title + (nowOwn ? " gets a Wine prefix of its own"
                                     : " shares the Wine prefix again; its own is kept"),
                false);
@@ -214,29 +241,16 @@ void DetailsController::toggleOwnPrefix(const library::Game& game) {
 }
 
 void DetailsController::uninstall(const library::Game& game) {
-    if (page_.armed()) {
-        page_.disarm();
-        uninstall_.confirm(game);
+    const std::optional<std::string> what = uninstall_.removal(game);
+    if (!what) {
         return;
     }
-    if (std::optional<std::string> what = uninstall_.arm(game)) {
-        // input-sound.md 3.4 Navigation: the button changes in place.
-        sounds_.play(audio::Effect::Navigation);
-        page_.arm(std::move(*what));
-    }
-}
-
-void DetailsController::cycleEmulator(const library::Game& game, int delta) {
-    const auto& options = game.emulatorOptions;
-    if (options.size() < 2) {
-        return;
-    }
-    const auto at = std::ranges::find(options, game.emulator, &library::EmulatorOption::name);
-    const auto from = at == options.end() ? 0 : static_cast<int>(at - options.begin());
-    const auto count = static_cast<int>(options.size());
-    const auto next = static_cast<std::size_t>((from + delta + count) % count);
-    sounds_.play(audio::Effect::Navigation);
-    hooks_.chooseEmulator(game, options[next].name);
+    navigator_.push(gpu2d::ui::confirm(
+        "Uninstall " + game.title + "?", *what, "Uninstall", [this, id = game.id] {
+            if (const std::optional<library::Game> gone = hooks_.find(id)) {
+                uninstall_.start(*gone);
+            }
+        }));
 }
 
 } // namespace opensu::app

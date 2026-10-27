@@ -4,21 +4,6 @@
 
 namespace opensu::ui {
 
-bool rowOpens(RowKind kind) noexcept {
-    return kind == RowKind::Choice || kind == RowKind::Slider;
-}
-
-bool RowEditing::begin(RowKind kind) noexcept {
-    open_ = rowOpens(kind);
-    return open_;
-}
-
-bool RowEditing::end() noexcept {
-    const bool was = open_;
-    open_ = false;
-    return was;
-}
-
 SettingsRow makeRow(std::string id, RowKind kind, std::string label, std::string note,
                     std::string value) {
     SettingsRow row;

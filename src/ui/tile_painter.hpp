@@ -22,7 +22,7 @@
 #include "platform.hpp"
 #include "round_shape.hpp"
 #include "tile_geometry.hpp"
-#include "typeface.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -85,8 +85,8 @@ struct ChromeVariant;
 
 class TilePainter {
   public:
-    TilePainter(IconAtlas& icons, Typeface& typeface) noexcept
-        : icons_{icons}, typeface_{typeface} {
+    TilePainter(IconAtlas& icons, gpu2d::ui::Typesetter& text) noexcept
+        : icons_{icons}, text_{text} {
     }
 
     void paint(Canvas& canvas, const TileVisual& tile);
@@ -115,7 +115,7 @@ class TilePainter {
     void paintUpdate(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
 
     IconAtlas& icons_;
-    Typeface& typeface_;
+    gpu2d::ui::Typesetter& text_;
 };
 
 /// A cover crop of a `width` x `height` image for a `target` (iiSU e01.k, centred anchors).

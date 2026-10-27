@@ -1,29 +1,32 @@
-// details_controller — the details page's buttons and what they do: play or install the game,
+// details_controller — a game's details page and what its rows do: play or install the game,
 // update it, pick its emulator, open its settings (`LayeredEditor`), download the emulator it is
-// missing, give a Windows install its own Wine prefix or the shared
-// one, hide it, uninstall it (two presses), open its button mapping, choose its cover, go back.
-// Opens for the focused game and keeps what it shows current while the library changes under it.
+// missing, give a Windows install its own Wine prefix or the shared one, hide it, uninstall it
+// (asking first), choose its cover, open its button mapping, go back. Opens for the focused game
+// and keeps what it shows current while the library changes under it.
 #pragma once
 
 #include <functional>
 #include <optional>
 #include <string>
 
+#include "gpu2d/ui/navigator.hpp"
+
 #include "audio/sdl_sound_player.hpp"
 #include "emulator_downloads.hpp"
 #include "game_settings.hpp"
-#include "gamepad/event.hpp"
 #include "library/game.hpp"
 #include "preferences.hpp"
-#include "ui/details_page.hpp"
+#include "ui/game_details.hpp"
+#include "ui/row_widgets.hpp"
+#include "ui/screen_stack.hpp"
 #include "uninstall_prompt.hpp"
 #include "update_request.hpp"
 
 namespace opensu::app {
 
-class DetailsController {
+class DetailsController final : public ui::RowActions {
   public:
-    /// What the buttons do, in the shell app's terms.
+    /// What the rows do, in the shell app's terms.
     struct Hooks {
         /// The game the grid has focused, or null when none.
         std::function<const library::Game*()> focused;
@@ -33,7 +36,7 @@ class DetailsController {
         std::function<void(const library::Game& game)> launch;
         /// Hides or shows `game`, and shows the shelf again.
         std::function<void(const library::Game& game, bool hidden)> setHidden;
-        /// Runs ROM `game` on emulator `name` from now on; empty forgets its own pick.
+        /// Runs ROM `game` on emulator `name` from now on.
         std::function<void(const library::Game& game, const std::string& name)> chooseEmulator;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
@@ -47,39 +50,66 @@ class DetailsController {
         std::function<void(const library::Game& game)> chooseArtwork;
     };
 
-    DetailsController(ui::DetailsPage& page, audio::SdlSoundPlayer& sounds,
-                      Preferences& preferences, GameSettings& gameSettings,
-                      EmulatorDownloads& downloads, UninstallPrompt& uninstall,
-                      UpdateRequest& update, Hooks hooks)
-        : page_{page}, sounds_{sounds}, preferences_{preferences}, gameSettings_{gameSettings},
-          downloads_{downloads}, uninstall_{uninstall}, update_{update}, hooks_{std::move(hooks)} {
+    /// What the rows act on.
+    struct Services {
+        Preferences& preferences;
+        GameSettings& gameSettings;
+        EmulatorDownloads& downloads;
+        UninstallPrompt& uninstall;
+        UpdateRequest& update;
+    };
+
+    /// Where the page goes: the stack, the chrome it leaves room for and the pictures it shows.
+    struct Place {
+        gpu2d::ui::Navigator& navigator;
+        const ui::Chrome& chrome;
+        ui::ScreenImages& images;
+    };
+
+    DetailsController(Place place, audio::SdlSoundPlayer& sounds, Services services, Hooks hooks)
+        : navigator_{place.navigator}, chrome_{place.chrome}, images_{place.images},
+          sounds_{sounds}, preferences_{services.preferences}, gameSettings_{services.gameSettings},
+          downloads_{services.downloads}, uninstall_{services.uninstall}, update_{services.update},
+          hooks_{std::move(hooks)} {
     }
 
     /// Opens the page for the focused game; nothing when no game has focus.
     void open();
-    /// Closes the page with iiSU's Close sound.
+    /// Closes the page and what is over it with iiSU's Close sound.
     void close();
-    /// A button while the page is up: it takes them all.
-    void act(gamepad::Button button);
+    [[nodiscard]] bool isOpen() const;
     /// Shows the game again as the grid has it now; the page closes when the game is gone.
     void refresh();
+    /// What the page shows; null while it is closed.
+    [[nodiscard]] const ui::GameDetails* details() const;
+
+    // What the page asks.
+    /// The launch button: Play, or offer to install.
+    void launch();
+    void run(const std::string& id, int step) override;
+    void openPage(const std::string& id) override;
 
   private:
-    [[nodiscard]] ui::DetailsView viewOf(const library::Game& game) const;
-    /// The game's emulator source, on a built-in core its video settings, and the Game settings
-    /// button when the game has anything to set.
+    /// The page on the stack, or null.
+    [[nodiscard]] const gpu2d::ui::Screen* page() const;
+    [[nodiscard]] ui::GameDetails detailsOf(const library::Game& game) const;
+    /// The game's emulator source, on a built-in core its video settings, and what the Game
+    /// settings row reads when the game has anything to set.
     [[nodiscard]] ui::GameSettingsView settingsOf(const library::Game& game) const;
-    void run(ui::DetailsAction action);
-    /// Picks the emulator `delta` places along the game's list, wrapping.
-    void cycleEmulator(const library::Game& game, int delta);
+    /// The page's game as the grid shows it now; the page closes when it is gone.
+    [[nodiscard]] std::optional<library::Game> current();
+    /// Picks the Emulator choice's option `step` places on, wrapping.
+    void chooseEmulator(const library::Game& game, int step);
     /// Starts downloading the emulator `game` is missing, or cancels its download.
     void downloadEmulator(const library::Game& game);
     /// Moves a Windows install between its own Wine prefix and the shared one.
     void toggleOwnPrefix(const library::Game& game);
-    /// Arms Uninstall with what it removes, or on the second press starts the uninstall.
+    /// Asks before uninstalling `game`, saying what goes, or says why it cannot be.
     void uninstall(const library::Game& game);
 
-    ui::DetailsPage& page_;
+    gpu2d::ui::Navigator& navigator_;
+    const ui::Chrome& chrome_;
+    ui::ScreenImages& images_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;
     GameSettings& gameSettings_;
@@ -87,6 +117,8 @@ class DetailsController {
     UninstallPrompt& uninstall_;
     UpdateRequest& update_;
     Hooks hooks_;
+    /// What the page shows, as last read.
+    std::optional<ui::GameDetails> details_;
 };
 
 } // namespace opensu::app

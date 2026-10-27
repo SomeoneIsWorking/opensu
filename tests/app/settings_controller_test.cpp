@@ -16,7 +16,10 @@
 
 #include "audio/sdl_sound_player.hpp"
 #include "audio/volume_backend.hpp"
+#include "folder_chooser_screen.hpp"
+#include "gpu2d/ui/widgets.hpp"
 #include "installs.hpp"
+#include "keyboard_pad.hpp"
 #include "path_editor.hpp"
 #include "preferences.hpp"
 #include "settings_controller.hpp"
@@ -26,6 +29,7 @@
 #include "support/fake_steam.hpp"
 #include "support/fake_steam_gate.hpp"
 #include "ui/check.hpp"
+#include "ui/entry_screen.hpp"
 #include "volume_control.hpp"
 
 namespace {
@@ -83,7 +87,7 @@ struct Rig {
                       [this](const std::string& why) {
                           failures.push_back(why);
                       }},
-          paths{folders, entry, sounds,
+          paths{screens.navigator, chrome, sounds,
                 [this](const std::string& text, bool error) {
                     said.push_back({text, error});
                 }},
@@ -95,7 +99,8 @@ struct Rig {
               [this, steamPort]() -> launch::SteamGate* {
                   return steamPort == 1 ? nullptr : &steamGate;
               }}},
-          artworkSettings{steamGridDbAccount, entry, sounds,
+          artworkSettings{steamGridDbAccount, app::ArtworkSettings::Entry{screens.navigator, pad},
+                          sounds,
                           app::ArtworkSettings::Hooks{[this](const std::string& text, bool error) {
                                                           said.push_back({text, error});
                                                       },
@@ -157,6 +162,9 @@ struct Rig {
                           [this](const std::string& text, bool error) {
                               said.push_back({text, error});
                           }}} {
+        screens.navigator.setKeyboard([this] {
+            pad.open();
+        });
         screens.frame();
     }
 
@@ -183,7 +191,28 @@ struct Rig {
     /// A button on the screen, then the next frame.
     void act(Button button) {
         controller.act(button);
+        frame();
+    }
+    /// A frame of the loop: the stack laid out, the keyboard following the focus.
+    void frame() {
         screens.frame();
+        pad.follow();
+    }
+    /// The text field `id` on the top screen, or null.
+    [[nodiscard]] const gpu2d::ui::TextField* field(const std::string& id) {
+        return dynamic_cast<const gpu2d::ui::TextField*>(screens.navigator.find(id));
+    }
+    /// Replaces what the focused field holds with `text` from the physical keyboard, and presses
+    /// Enter.
+    void typeAndSubmit(const std::string& text) {
+        const gpu2d::ui::TextField* shown = field(screens.navigator.focused());
+        expect(shown != nullptr, "a field has the focus");
+        for (std::size_t left = shown->text().size(); left > 0; --left) {
+            screens.navigator.act(gpu2d::ui::Action::Erase);
+        }
+        screens.navigator.text(text);
+        screens.navigator.act(gpu2d::ui::Action::Submit);
+        frame();
     }
     /// Focuses the tab of the category called `label`, which chooses it, and goes into its rows.
     void enter(const std::string& label) {
@@ -269,8 +298,8 @@ struct Rig {
                                                  }};
     test::InterfaceRig screens;
     ui::Chrome chrome;
-    ui::FolderChooser folders;
-    ui::OnScreenKeyboard entry;
+    ui::OnScreenKeyboard keyboard;
+    app::KeyboardPad pad{keyboard, screens.navigator, sounds};
     app::PathEditor paths;
     /// SteamGridDB with no API behind it: these checks keep and forget keys, never fetch.
     artwork::SteamGridDb steamGridDb{"http://127.0.0.1:1/api/v2"};
@@ -351,7 +380,6 @@ struct Rig {
                                          [this] {
                                              controller.refresh();
                                          }}};
-    ui::SessionDialog dialog;
     app::PluginService plugins{
         config, preferences, true,
         app::PluginService::Hooks{[this](const std::string& text, bool error) {
@@ -361,7 +389,7 @@ struct Rig {
                                   },
                                   [] {
                                   }}};
-    app::PluginSettings pluginSettings{plugins, dialog, sounds, config.home, [this] {
+    app::PluginSettings pluginSettings{plugins, screens.navigator, sounds, config.home, [this] {
                                            controller.refresh();
                                        }};
     app::ChordSettings chordSettings{shortcutEditor, shortcuts};
@@ -628,16 +656,16 @@ void backAndStartLeave(const fs::path& root) {
     expect(!rig.controller.isOpen(), "Start closes it from anywhere");
 }
 
-/// Presses Use on the chooser, which is open on the folder it should choose.
+/// Types `folder` into the chooser's path field and submits it.
 void choose(Rig& rig, const fs::path& folder) {
-    expect(rig.folders.isOpen(), "the chooser is up");
-    rig.folders.open("", folder);
-    rig.paths.act(Button::A);
+    expect(rig.paths.active(), "the chooser is up");
+    rig.focus(app::FolderChooserScreen::fieldId);
+    rig.typeAndSubmit(folder.string());
 }
 
 void installFoldersPersistPerStore(const fs::path& root) {
     Rig rig{root / "installs"};
-    const fs::path library = root / "installs" / "games";
+    const fs::path library = rig.config.home / "games";
     const fs::path epic = root / "installs" / "epic";
     fs::create_directories(library);
     fs::create_directories(epic);
@@ -655,9 +683,24 @@ void installFoldersPersistPerStore(const fs::path& root) {
 
     rig.focus("install.default");
     rig.act(Button::A);
-    expect(rig.paths.active(), "A on a folder row opens the chooser");
-    choose(rig, library);
-    expect(rig.onDisk().installFolders.defaultFolder() == library, "the default is kept");
+    expect(rig.paths.active() && rig.focused() == app::FolderChooserScreen::useId,
+           "A on a folder row opens the chooser on Use this folder");
+    const gpu2d::ui::TextField* path = rig.field(app::FolderChooserScreen::fieldId);
+    expect(path != nullptr && path->text() == rig.config.home.string(),
+           "the path field shows the folder shown");
+    rig.focus("folders/dir/games");
+    rig.act(Button::A);
+    expect(rig.focused() == app::FolderChooserScreen::useId &&
+               rig.field(app::FolderChooserScreen::fieldId)->text() == library.string(),
+           "A on a folder goes into it, back on Use this folder");
+    rig.act(Button::Left);
+    expect(rig.field(app::FolderChooserScreen::fieldId)->text() == rig.config.home.string(),
+           "Left goes up a level");
+    rig.focus("folders/dir/games");
+    rig.act(Button::A);
+    rig.act(Button::A);
+    expect(!rig.paths.active() && rig.onDisk().installFolders.defaultFolder() == library,
+           "Use this folder takes it and the default is kept");
     expect(rig.onDisk().installFolders.effective(library::Source::Gog) == library,
            "a store follows it");
     expect(rig.rowOf("install.Epic").value == library.string() &&
@@ -673,17 +716,15 @@ void installFoldersPersistPerStore(const fs::path& root) {
 
     rig.focus("install.Epic");
     rig.act(Button::A);
-    rig.folders.open("", epic, "Follow the default");
-    rig.folders.focusEntry(2);
-    rig.paths.act(Button::A);
+    rig.focus("folders/drop");
+    rig.act(Button::A);
     expect(rig.onDisk().installFolders.effective(library::Source::Epic) == library,
            "the clear entry makes the store follow the default again");
-    expect(!rig.paths.active() || rig.failures.empty(), "no failure");
+    expect(!rig.paths.active() && rig.failures.empty(), "no failure");
 }
 
 void refusedFoldersStayOpen(const fs::path& root) {
     Rig rig{root / "refused"};
-    const fs::path missing = root / "refused" / "nowhere";
     const fs::path readonly = root / "refused" / "readonly";
     fs::create_directories(readonly);
     fs::permissions(readonly, fs::perms::owner_read | fs::perms::owner_exec);
@@ -692,14 +733,12 @@ void refusedFoldersStayOpen(const fs::path& root) {
     rig.focus("install.default");
     rig.act(Button::A);
 
-    rig.folders.open("", missing);
-    rig.folders.open("", readonly);
-    rig.paths.act(Button::A);
+    choose(rig, readonly);
     const bool root0 = ::geteuid() == 0;
-    expect(root0 || (rig.folders.isOpen() && !rig.said.empty() && rig.said.back().error &&
+    expect(root0 || (rig.paths.active() && !rig.said.empty() && rig.said.back().error &&
                      rig.onDisk().installFolders.defaultFolder().empty()),
            "a folder that cannot be written is refused with a message and nothing is kept");
-    rig.paths.act(Button::B);
+    rig.act(Button::B);
     expect(!rig.paths.active(), "B cancels the chooser");
     expect(rig.onDisk().installFolders.defaultFolder().empty(), "cancelling keeps nothing");
     fs::permissions(readonly, fs::perms::owner_all);
@@ -713,27 +752,20 @@ void typedPathIsValidated(const fs::path& root) {
     rig.enter("Install folders");
     rig.focus("install.GOG");
     rig.act(Button::A);
-    rig.paths.act(Button::Down);
-    rig.paths.act(Button::A);
-    expect(rig.paths.typing(), "the Type entry opens the keyboard");
-    rig.paths.act(Button::Select);
-    rig.paths.typeText((root / "typed" / "absent").string());
-    expect(rig.paths.typing(), "typing");
-    rig.paths.confirm();
-    expect(rig.paths.typing() && !rig.said.empty() && rig.said.back().error,
+    rig.focus(app::FolderChooserScreen::fieldId);
+    rig.act(Button::A);
+    expect(rig.pad.isOpen() && rig.screens.navigator.typing(),
+           "A on the path field brings up the keyboard");
+    rig.pad.act(Button::B);
+    rig.frame();
+    expect(!rig.pad.isOpen() && rig.paths.active(), "B on the keyboard closes it, not the chooser");
+    rig.typeAndSubmit((root / "typed" / "absent").string());
+    expect(rig.paths.active() && !rig.said.empty() && rig.said.back().error,
            "a missing typed path is refused and stays up");
-    rig.paths.act(Button::Select);
-    rig.paths.typeText(good.string());
-    rig.paths.confirm();
+    rig.typeAndSubmit(good.string());
     expect(!rig.paths.active() &&
                rig.onDisk().installFolders.storeFolder(library::Source::Gog) == good,
            "a good typed path is taken");
-    rig.focus("install.GOG");
-    rig.act(Button::A);
-    rig.paths.act(Button::Down);
-    rig.paths.act(Button::A);
-    rig.paths.dismiss();
-    expect(!rig.paths.typing() && rig.folders.isOpen(), "Escape returns to the chooser");
 }
 
 void rootsAreAddedAndReset(const fs::path& root) {
@@ -853,9 +885,9 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
 
     rig.focus("shortcuts.reset");
     rig.act(Button::A);
-    expect(rig.top() == "dialog" && rig.focused() == "dialog/0" &&
+    expect(rig.top() == "dialog" && rig.focused() == "dialog/1" &&
                rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("shift+f9"),
-           "restoring asks first, Cancel focused, and nothing is restored yet");
+           "restoring asks first, Restore focused, and nothing is restored yet");
     rig.act(Button::B);
     expect(rig.top() == "settings" && rig.focused() == "shortcuts.reset" &&
                rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("shift+f9"),
@@ -1053,9 +1085,9 @@ void steamLibrariesWhileSteamRuns(const fs::path& root) {
            "removing a library with games is refused with the reason");
     rig.focus("steamLibraries.remove.1");
     rig.act(Button::A);
-    expect(rig.top() == "dialog" && rig.focused() == "dialog/0" &&
+    expect(rig.top() == "dialog" && rig.focused() == "dialog/1" &&
                !hasCall(steam, "RemoveInstallFolder"),
-           "removing an empty library asks first, Cancel focused");
+           "removing an empty library asks first, Remove focused");
     rig.focus("dialog/1");
     rig.act(Button::A);
     settle(
@@ -1167,22 +1199,22 @@ void pluginsAskBeforeTheyRun(const fs::path& root) {
                "its row says what it can read");
         rig.focus("plugins.probe");
         rig.act(Button::A);
-        expect(rig.pluginSettings.active() && rig.dialog.text().title == "Turn on Probe?",
-               "turning it on asks first");
-        const auto& paragraphs = rig.dialog.text().paragraphs;
-        expect(std::ranges::find(paragraphs, "It can read what is in " +
-                                                 (root / "xdg-data" / "probe").string() + ".") !=
-                       paragraphs.end() &&
-                   std::ranges::find(paragraphs, "It does not use the network.") !=
-                       paragraphs.end(),
-               "the dialog lists every permission in words");
+        const auto* question = dynamic_cast<const gpu2d::ui::Dialog*>(rig.screens.navigator.top());
+        expect(question != nullptr && question->title() == "Turn on Probe?" &&
+                   rig.focused() == "dialog/1",
+               "turning it on asks first, on Turn on");
+        const std::string& body = question->body();
+        expect(body.find("It can read what is in " + (root / "xdg-data" / "probe").string() +
+                         ".") != std::string::npos &&
+                   body.find("It does not use the network.") != std::string::npos,
+               "the question lists every permission in words");
         expect(!rig.onDisk().plugins.contains("probe"), "nothing is kept before the answer");
-        rig.pluginSettings.act(Button::B);
-        expect(!rig.dialog.isOpen() && !rig.rowOf("plugins.probe").on, "Cancel leaves it off");
+        rig.act(Button::B);
+        expect(rig.top() != "dialog" && !rig.rowOf("plugins.probe").on, "Back leaves it off");
         rig.focus("plugins.probe");
         rig.act(Button::A);
-        rig.pluginSettings.act(Button::A);
-        expect(!rig.dialog.isOpen() && rig.rowOf("plugins.probe").on, "Accept turns it on");
+        rig.act(Button::A);
+        expect(rig.top() != "dialog" && rig.rowOf("plugins.probe").on, "Turn on turns it on");
         const settings::PluginChoice kept = rig.onDisk().plugins.at("probe");
         expect(kept.enabled && kept.granted == std::vector<std::string>{"read:{xdg_data}/probe"},
                "the exact permissions accepted are kept");
@@ -1233,11 +1265,11 @@ void steamGridDbKeyIsEnteredAndForgotten(const fs::path& root) {
            "with no saved key SteamGridDB is not connected");
     rig.focus("artwork.steamgriddb.enter");
     rig.act(Button::A);
-    expect(rig.artworkSettings.typing() && rig.entry.secret(),
-           "Enter a key opens the keyboard, showing dots");
-    rig.artworkSettings.typeText("not a key");
-    rig.artworkSettings.confirm();
-    expect(!rig.artworkSettings.typing(), "Done closes the keyboard");
+    const gpu2d::ui::TextField* key = rig.field(ui::EntryScreen::fieldId);
+    expect(rig.artworkSettings.typing() && rig.pad.isOpen() && key != nullptr && key->masked(),
+           "Enter a key opens a masked field with the keyboard up");
+    rig.typeAndSubmit("not a key");
+    expect(!rig.artworkSettings.typing() && !rig.pad.isOpen(), "Submit closes the card");
     expect(serviceUntil(rig,
                         [&] {
                             return saidSomething(rig, "not a SteamGridDB key", true);
@@ -1246,8 +1278,7 @@ void steamGridDbKeyIsEnteredAndForgotten(const fs::path& root) {
 
     rig.focus("artwork.steamgriddb.enter");
     rig.act(Button::A);
-    rig.artworkSettings.typeText(std::string{" "} + steamGridDbKey + "\n");
-    rig.artworkSettings.confirm();
+    rig.typeAndSubmit(std::string{" "} + steamGridDbKey + "\n");
     expect(serviceUntil(rig,
                         [&] {
                             return rig.rowOf("artwork.steamgriddb").value == "Connected";
@@ -1317,8 +1348,10 @@ void steamGridDbWithoutSteamAsksForTheKey(const fs::path& root) {
                         }),
            "without Steam the keyboard opens for the key");
     expect(saidSomething(rig, "Steam is not available", false), "the player hears why");
-    rig.artworkSettings.dismiss();
-    expect(!rig.artworkSettings.typing(), "Escape closes it");
+    rig.frame();
+    rig.screens.navigator.act(gpu2d::ui::Action::Back);
+    rig.frame();
+    expect(!rig.artworkSettings.typing() && !rig.pad.isOpen(), "Escape closes it");
 }
 
 /// Connect through a running Steam: the key is read from SteamGridDB's page in Steam's browser.

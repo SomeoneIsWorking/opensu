@@ -10,16 +10,13 @@ Requested: "ability to uninstall games".
 
 - An installed Steam, Epic or GOG game has Uninstall on its details page (after Hide) and in its
   tile menu (last). A ROM and a game that is not installed have none.
-- First press: openSU asks `Installs` what would go. A refusal is a toast ("cannot uninstall
-  <title>: <why>") and arms nothing; the tile menu closes. Otherwise the button arms:
-  - details page: the button reads "Press A again to uninstall" and an "Uninstall" row, first on
-    the page, says what goes;
-  - tile menu: the entry reads "Press A again: <what goes>".
-  - What goes, which names the store, so a title owned in several stores says which copy:
-    "Steam uninstalls the Steam copy", "legendary deletes the Epic copy", "deletes the GOG copy at
-    <folder>", "forgets the GOG copy; <folder> is kept".
-- Moving focus (pad, keyboard or pointer), closing or reopening lets go of the armed button.
-- Second press: the uninstall starts ("uninstalling <title>"), on a worker. The Downloads page
+- Pressing it: openSU asks `Installs` what would go. A refusal is a toast ("cannot uninstall
+  <title>: <why>") and asks nothing; the tile menu closes. Otherwise a `confirm` dialog asks
+  "Uninstall <title>?" with what goes under it and its Uninstall button focused, so A, A
+  uninstalls and B keeps the game. What goes names the store, so a title owned in several stores
+  says which copy: "Steam uninstalls the Steam copy", "legendary deletes the Epic copy", "deletes
+  the GOG copy at <folder>", "forgets the GOG copy; <folder> is kept".
+- Confirmed: the uninstall starts ("uninstalling <title>"), on a worker. The Downloads page
   lists it as Uninstalling with the store's line ("Steam is removing it", "legendary is removing
   it", "Removing its files"), then Uninstalled or Failed; it has no buttons, since a stopped
   uninstall leaves half a game.
@@ -30,8 +27,7 @@ Requested: "ability to uninstall games".
   any install or uninstall under way ("<title> is still installing"/"uninstalling"; installs are
   refused while an uninstall runs too), a Steam game while Steam is not running, a GOG game with
   no record.
-- `/state`: `armed` while a details button or a menu entry waits for its second press; the
-  uninstall's row in `downloads` with state `uninstalling`, then `uninstalled`.
+- `/state`: `screen` reads `dialog` while the confirm is up; the uninstall's row in `downloads` with state `uninstalling`, then `uninstalled`.
 
 ## Per store
 
@@ -68,10 +64,10 @@ Requested: "ability to uninstall games".
 - `app/installs:Installs::removal`, `uninstall`, `busy`; `Status::work` tells an install from an
   uninstall; the `Playing` hook (`ShellApp`'s running launch) refuses a running game.
 - `app/panel_flow:PanelFlow::service` takes the uninstall's end: toast and catalog reload.
-- `app/uninstall_prompt:UninstallPrompt`: the two presses, shared by `app/details_controller` and
-  `app/context_menu_controller`.
-- `ui/details_page` (`DetailsAction::Uninstall`, `arm`, `shown`, `rows`) and `ui/context_menu`
-  (`ContextAction::Uninstall`, `arm`, `shown`): the armed state, let go on every focus change.
+- `app/uninstall_prompt:UninstallPrompt` (`removal`, `start`), shared by `app/details_controller`
+  and `app/context_menu_controller`, which push `gpu2d::ui::confirm` between them.
+- `ui/game_details` (`detailsUninstallId`) and `app/context_menu_controller:contextEntriesFor`
+  (`menuUninstallId`): the row and entry only for an installed store game.
 - `app/downloads_board`: `DownloadState::Uninstalling` and `Uninstalled`.
 
 ## Tests
@@ -85,13 +81,13 @@ Requested: "ability to uninstall games".
   symlinked out (only forgotten), the data-dir root, no record; Steam without Steam; `Installs`
   refusing a ROM, a game not installed, a running game, any uninstall during an install and any
   install or second uninstall during an uninstall, and its status naming the uninstall.
-- `tests/ui/details_page_test`, `tests/ui/context_menu_test`: the button and entry only for an
-  installed store game, arming, the armed label and row, every focus change letting go.
-- `tests/app/details_page_flow_test`, `tests/app/library_tools_test`: two presses through the
-  controllers, a refused first press.
+- `tests/ui/game_details_test`, `tests/app/library_tools_test` (`menuEntriesFollowTheTile`): the
+  row and entry only for an installed store game.
+- `tests/app/details_page_flow_test`, `tests/app/library_tools_test`: through the navigator, the
+  confirm asked first, B keeping the game, A, A uninstalling, a refusal asking nothing.
 - `tests/app/downloads_board_test`, `downloads_controller_test`, `control_channel_test`: the
-  uninstall row's states, no actions, the page's line, `armed` and `uninstalling` in `/state`.
-- Parity scenes (`tools/screenshots`, `--parity`, the store run): `details-uninstall` (armed),
+  uninstall row's states, no actions, the page's line, `uninstalling` in `/state`.
+- Parity scenes (`tools/screenshots`, `--parity`, the store run): `details-uninstall` (the confirm),
   `downloads-uninstalling` (the stand-in's uninstall waits; the install the `downloads` scene left
   is cancelled first).
 

@@ -1,9 +1,10 @@
-// on_screen_keyboard — the one on-screen keyboard every openSU field types on (search, a folder
-// path, the administrator password): the line being typed with its cursor, and the keys in the
-// style the player chose. The daisy wheel has eight petals of four characters in four sets; the
-// left stick picks a petal and A, B, X and Y type its characters. The regular grid is walked with
-// the D-pad. A physical keyboard types into the line either way. Pure state, tested without a
-// window; `app/keyboard_pad` is its pad buttons and `on_screen_keyboard_painter` draws it.
+// on_screen_keyboard — the one on-screen keyboard a pad types with, an input method docked along
+// the bottom edge: it types into the focused text field (a search, a folder path, a password)
+// through the interface toolkit's typed text, Erase and Submit, and holds no line of its own. The
+// daisy wheel has eight petals of four characters in four sets; the left stick picks a petal and A,
+// B, X and Y type its characters. The regular grid is walked with the D-pad. Pure state, tested
+// without a window; `app/keyboard_pad` is its pad buttons and `on_screen_keyboard_painter` draws
+// it.
 #pragma once
 
 #include <array>
@@ -22,23 +23,8 @@
 
 namespace opensu::ui {
 
-/// What the line is for, which sets how long it may grow and whether it is a secret.
-enum class EntryKind : std::uint8_t {
-    /// The Global Search field: spaces never lead or double.
-    Search,
-    /// A folder path, up to a Linux PATH_MAX.
-    Path,
-    /// A password: shown as dots, wiped when the keyboard closes.
-    Password,
-};
-
-/// The most bytes each kind of line holds.
-inline constexpr std::size_t searchMostLength = 64;
-inline constexpr std::size_t pathMostLength = 4096;
-inline constexpr std::size_t passwordMostLength = 256;
-
 /// What a key of the regular grid does.
-enum class KeyKind : std::uint8_t { Character, Space, Backspace, Clear, Done };
+enum class KeyKind : std::uint8_t { Character, Space, Backspace, Done };
 
 /// One key of the regular grid: its place in the ten-column grid and what it types or does.
 struct GridKey {
@@ -100,8 +86,6 @@ struct KeyboardLayout {
     Rect diamond;
     float faceDistance{};
     float faceRadius{};
-    /// The one-line preview of the text; empty when the caller shows its own field.
-    Rect preview;
     /// The wheel's sets and shoulder buttons, or the grid's first line of hints.
     Rect strip;
     /// The line the button hints stand on.
@@ -117,15 +101,17 @@ struct KeyboardLayout {
 /// Where `face` sits on a petal or in the diamond, as a unit step from its centre (y down).
 [[nodiscard]] std::pair<float, float> faceStep(DaisyFace face) noexcept;
 
-/// The keyboard in `style` docked in `frame`, with a preview line when `preview`.
-[[nodiscard]] KeyboardLayout layoutKeyboard(const Rect& frame, float dp, input::KeyboardStyle style,
-                                            bool preview = true);
+/// The keyboard in `style` docked in `frame`.
+[[nodiscard]] KeyboardLayout layoutKeyboard(const Rect& frame, float dp,
+                                            input::KeyboardStyle style);
 
 /// What pressing the focused key asked for.
 struct KeyPress {
-    /// The line changed.
-    bool edited{false};
-    /// The player is done (the grid's Done key).
+    /// The characters typed; empty for none.
+    std::string typed;
+    /// The character before the caret goes (Delete).
+    bool erase{false};
+    /// The player is done (Done).
     bool done{false};
 };
 
@@ -140,18 +126,7 @@ class OnScreenKeyboard {
         return style_;
     }
 
-    /// What the empty line says and what it is for.
-    void configure(std::string prompt, EntryKind kind) noexcept;
-    [[nodiscard]] const std::string& prompt() const noexcept {
-        return prompt_;
-    }
-    [[nodiscard]] EntryKind kind() const noexcept {
-        return kind_;
-    }
-    [[nodiscard]] bool secret() const noexcept {
-        return kind_ == EntryKind::Password;
-    }
-    /// Whether the grid's letter keys type capitals; only a secret entry has the toggle (X).
+    /// Whether the grid's letter keys type capitals; X toggles it.
     [[nodiscard]] bool shifted() const noexcept {
         return shifted_;
     }
@@ -159,38 +134,12 @@ class OnScreenKeyboard {
         shifted_ = !shifted_;
     }
 
-    /// Opens with `text` in the line, the cursor after it, the first key focused and the wheel on
-    /// letters with no petal picked.
-    void open(std::string text);
-    /// Closes; a secret line is wiped.
+    /// Opens on the first key, without capitals, the wheel on letters with no petal picked.
+    void open();
     void close() noexcept;
     [[nodiscard]] bool isOpen() const noexcept {
         return open_;
     }
-
-    [[nodiscard]] const std::string& text() const noexcept {
-        return text_;
-    }
-    /// Hands the text over and leaves the line empty. The caller owns wiping it.
-    [[nodiscard]] std::string takeText() noexcept {
-        cursor_ = 0;
-        return std::exchange(text_, std::string{});
-    }
-    /// The cursor, as a byte offset into the line on a character boundary.
-    [[nodiscard]] std::size_t cursor() const noexcept {
-        return cursor_;
-    }
-    /// Inserts typed text (UTF-8) at the cursor, up to the line's length; reports whether it
-    /// changed.
-    bool type(std::string_view text);
-    /// Types a space, which a search refuses at the start of the line or after a space.
-    bool typeSpace();
-    /// Removes the character before the cursor; reports whether there was one.
-    bool backspace();
-    /// Empties the line; reports whether it held anything.
-    bool clear();
-    /// Moves the cursor one character left (`step` -1) or right (1); reports whether it moved.
-    bool moveCursor(int step) noexcept;
 
     /// The focused key: a `gridKeys()` index, or the wheel key the pointer is on (a petal, or
     /// `daisyPetals + face`).
@@ -201,8 +150,6 @@ class OnScreenKeyboard {
     bool focusKey(std::size_t index);
     /// Walks the grid with the D-pad; reports whether the focus moved.
     bool move(Direction direction);
-    /// Whether the grid's focus is on its top row, from which Up leaves the keys.
-    [[nodiscard]] bool onTopRow() const noexcept;
     /// Presses the focused key: the grid's, or the wheel face the pointer is on (a petal under the
     /// pointer is already picked, so pressing it types nothing).
     KeyPress press();
@@ -220,17 +167,13 @@ class OnScreenKeyboard {
     [[nodiscard]] bool pointed() const noexcept {
         return pointed_;
     }
-    /// Types `face`'s character on the picked petal; false with no petal picked.
-    bool typeFace(DaisyFace face);
+    /// `face`'s character on the picked petal; empty with no petal picked.
+    [[nodiscard]] std::string typeFace(DaisyFace face);
 
   private:
-    std::string prompt_;
-    EntryKind kind_{EntryKind::Search};
     input::KeyboardStyle chosen_{input::KeyboardStyle::DaisyWheel};
     input::KeyboardStyle style_{input::KeyboardStyle::DaisyWheel};
     bool shifted_{false};
-    std::string text_;
-    std::size_t cursor_{0};
     std::size_t key_{0};
     /// The column the grid focus returns to when it moves between rows, in key-grid columns.
     float anchor_{0.0f};

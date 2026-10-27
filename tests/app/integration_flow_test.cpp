@@ -12,6 +12,8 @@
 #include <thread>
 #include <vector>
 
+#include "gpu2d/ui/navigator.hpp"
+
 #include "audio/sdl_sound_player.hpp"
 #include "first_run_chooser.hpp"
 #include "focus_follow.hpp"
@@ -20,14 +22,14 @@
 #include "integrations_in_force.hpp"
 #include "pad_owner.hpp"
 #include "plugin_service.hpp"
+#include "support/fake_interface_text.hpp"
 #include "ui/check.hpp"
-#include "ui/integration_chooser.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
 using namespace opensu;
-using gamepad::Button;
+using gpu2d::ui::Action;
 using settings::IntegrationChoices;
 using settings::SteamUse;
 using test::expect;
@@ -47,33 +49,42 @@ const ui::SettingsRow* rowOf(const ui::SettingsCategory& page, const std::string
     return nullptr;
 }
 
+/// Presses `action` and lays the stack out again.
+void press(test::InterfaceRig& ui, Action action) {
+    ui.navigator.act(action);
+    ui.frame(1.0);
+}
+
 void theChooserAsksUntilDone(const fs::path& root) {
     app::Preferences preferences = preferencesIn(root / "chooser");
     app::IntegrationsInForce inForce{preferences, false};
     audio::SdlSoundPlayer sounds;
-    ui::IntegrationChooser card;
+    test::InterfaceRig ui;
     int chosen = 0;
-    app::FirstRunChooser chooser{card, inForce, sounds, [&chosen] {
+    app::FirstRunChooser chooser{ui.navigator, inForce, sounds, [&chosen] {
                                      ++chosen;
                                  }};
     chooser.openIfUnchosen();
-    expect(chooser.active() && card.options().size() == 5, "no choices: the card lists five");
-    for (const ui::IntegrationOption& option : card.options()) {
-        expect(!option.on && !option.note.empty(), "each is off and says what it does");
+    ui.frame(1.0);
+    expect(chooser.active() && chooser.rows().size() == 5, "no choices: the card lists five");
+    for (const ui::SettingsRow& row : chooser.rows()) {
+        expect(row.kind == ui::RowKind::Toggle && !row.on && !row.note.empty(),
+               "each is a switch, off, and says what it does");
     }
-    chooser.act(Button::A);
-    chooser.act(Button::Down);
-    chooser.act(Button::Down);
-    chooser.act(Button::A);
-    expect(card.options()[0].on && !card.options()[1].on && card.options()[2].on,
-           "A toggles the focused option");
-    chooser.act(Button::B);
-    expect(chooser.active(), "B does not dismiss it: Done is the way on");
+    expect(ui.navigator.focused() == chooser.rows().front().id, "the first switch has focus");
+    press(ui, Action::Accept);
+    press(ui, Action::Down);
+    press(ui, Action::Down);
+    press(ui, Action::Accept);
+    expect(chooser.rows()[0].on && !chooser.rows()[1].on && chooser.rows()[2].on,
+           "A toggles the focused switch");
+    press(ui, Action::Back);
+    expect(chooser.active(), "Back does not dismiss it: Done is the way on");
     for (int i = 0; i < 5; ++i) {
-        chooser.act(Button::Down);
+        press(ui, Action::Down);
     }
-    expect(card.onDone(), "Done is after the options");
-    chooser.act(Button::A);
+    expect(ui.navigator.focused() == app::firstRunDoneId, "Done is after the switches");
+    press(ui, Action::Accept);
     expect(!chooser.active() && chosen == 1, "Done keeps the choices and closes the card");
     const auto saved = settings::Store{root / "chooser" / "settings.json"}.load().integrations;
     expect(saved && saved->steam && !saved->epic && saved->gog && !saved->emulators &&
@@ -86,8 +97,8 @@ void theChooserAsksUntilDone(const fs::path& root) {
                            [](const std::string&) {
                            }};
     app::IntegrationsInForce later{again, false};
-    ui::IntegrationChooser secondCard;
-    app::FirstRunChooser second{secondCard, later, sounds, [] {
+    test::InterfaceRig secondUi;
+    app::FirstRunChooser second{secondUi.navigator, later, sounds, [] {
                                 }};
     second.openIfUnchosen();
     expect(!second.active(), "once chosen, the card does not come back");
@@ -97,12 +108,13 @@ void allOffIsAChoice(const fs::path& root) {
     app::Preferences preferences = preferencesIn(root / "all-off");
     app::IntegrationsInForce inForce{preferences, false};
     audio::SdlSoundPlayer sounds;
-    ui::IntegrationChooser card;
-    app::FirstRunChooser chooser{card, inForce, sounds, [] {
+    test::InterfaceRig ui;
+    app::FirstRunChooser chooser{ui.navigator, inForce, sounds, [] {
                                  }};
     chooser.openIfUnchosen();
-    card.focusItem(card.options().size());
-    chooser.act(Button::A);
+    ui.frame(1.0);
+    ui.navigator.focus(app::firstRunDoneId);
+    press(ui, Action::Accept);
     expect(inForce.chosen(), "Done with everything off is kept as a choice");
     expect(inForce.current() == settings::Integrations{}, "and nothing is in force");
 }

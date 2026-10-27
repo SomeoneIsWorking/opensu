@@ -1,7 +1,6 @@
-// uninstall_prompt — the two presses that uninstall a store game, shared by the details page and
-// the tile menu: the first asks `Installs` what would go and arms the button with it, or says why
-// the game cannot be uninstalled; the second starts the uninstall. Moving focus between them is the
-// page's or menu's to undo.
+// uninstall_prompt — uninstalling a store game, shared by the details page and the tile menu:
+// first `Installs` says what would go, which the question before it names, or why the game
+// cannot be uninstalled; once the player confirms, the uninstall starts.
 #pragma once
 
 #include <functional>
@@ -27,11 +26,11 @@ class UninstallPrompt {
     explicit UninstallPrompt(Hooks hooks) : hooks_{std::move(hooks)} {
     }
 
-    /// The first press: what the second would remove, to arm the button with; nothing once the
-    /// player was told why `game` cannot be uninstalled.
-    [[nodiscard]] std::optional<std::string> arm(const library::Game& game);
-    /// The second press: starts the uninstall and tells the player.
-    void confirm(const library::Game& game);
+    /// What uninstalling `game` would remove, for the question; nothing once the player was told
+    /// why it cannot be uninstalled.
+    [[nodiscard]] std::optional<std::string> removal(const library::Game& game);
+    /// Starts the uninstall the player confirmed and tells the player.
+    void start(const library::Game& game);
 
   private:
     Hooks hooks_;

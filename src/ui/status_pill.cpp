@@ -8,7 +8,6 @@
 
 #include "battery_icon.hpp"
 #include "round_shape.hpp"
-#include "typeface.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -63,7 +62,7 @@ void StatusPillPainter::paint(Canvas& canvas, const StatusPillView& view) {
     paintLaunchers(canvas, view);
     const float centreY = body.centreY();
     // The text row (iiSU a32.p): clock | NN% battery.
-    const TextStyle text{m.fontSize * dp};
+    const float size = m.fontSize * dp;
     const float spacing = m.textSpacing * dp;
     const std::string clock{view.clock};
     const float icon = m.batteryIcon * dp;
@@ -72,13 +71,13 @@ void StatusPillPainter::paint(Canvas& canvas, const StatusPillView& view) {
         percent = std::to_string(view.battery->percent) + "%";
     }
     float pen = body.x + view.launcherColumn + m.paddingHorizontal * dp;
-    typeface_.drawCentred(canvas, clock, pen, centreY, text, textInk);
-    pen += typeface_.measure(clock, text) + spacing;
+    text_.drawCentred(canvas, clock, Point{pen, centreY}, size, textInk);
+    pen += text_.measure(clock, size) + spacing;
     if (view.battery) {
-        typeface_.drawCentred(canvas, separator, pen, centreY, text, textInk);
-        pen += typeface_.measure(separator, text) + spacing;
-        typeface_.drawCentred(canvas, percent, pen, centreY, text, textInk);
-        pen += typeface_.measure(percent, text) + spacing;
+        text_.drawCentred(canvas, separator, Point{pen, centreY}, size, textInk);
+        pen += text_.measure(separator, size) + spacing;
+        text_.drawCentred(canvas, percent, Point{pen, centreY}, size, textInk);
+        pen += text_.measure(percent, size) + spacing;
         paintBattery(canvas, pen, centreY, icon, *view.battery);
     }
 }
@@ -86,11 +85,11 @@ void StatusPillPainter::paint(Canvas& canvas, const StatusPillView& view) {
 float StatusPillPainter::rowWidth(const StatusPillMetrics& metrics, float dp,
                                   std::string_view clock,
                                   const std::optional<device::BatteryStatus>& battery) const {
-    const TextStyle text{metrics.fontSize * dp};
-    float width = typeface_.measure(std::string{clock}, text);
+    const float size = metrics.fontSize * dp;
+    float width = text_.measure(std::string{clock}, size);
     if (battery) {
-        width += metrics.textSpacing * dp * 3.0f + typeface_.measure(separator, text) +
-                 typeface_.measure(std::to_string(battery->percent) + "%", text) +
+        width += metrics.textSpacing * dp * 3.0f + text_.measure(separator, size) +
+                 text_.measure(std::to_string(battery->percent) + "%", size) +
                  metrics.batteryIcon * dp;
     }
     return width;

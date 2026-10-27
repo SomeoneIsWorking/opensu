@@ -80,7 +80,7 @@ bool intersectsCanvas(const Rect& rect, int width, int height) noexcept {
 } // namespace
 
 Shell::Shell(int width, int height, config::HomeMode mode, const std::filesystem::path& assetsDir)
-    : typeface_{assetsDir}, icons_{assetsDir}, layout_{HomeLayoutInput{}}, mode_{mode},
+    : text_{assetsDir}, icons_{assetsDir}, layout_{HomeLayoutInput{}}, mode_{mode},
       width_{width}, height_{height} {
     hud_.setSize({width, height, dp()});
     relayout();
@@ -91,7 +91,7 @@ Shell::~Shell() {
 }
 
 void Shell::attach(SDL_GPUDevice& device) {
-    typeface_.load(device);
+    text_.load(device);
     icons_.attach(device);
     device_ = &device;
 }
@@ -108,17 +108,14 @@ bool Shell::chromeDark() noexcept {
     return luminance(palette::ground) < 0.5f;
 }
 
-const OnScreenKeyboard* Shell::dockedKeyboard() const noexcept {
-    if (search_.isOpen()) {
-        return &search_.keyboard();
+float Shell::aboveKeyboard() const {
+    const auto height = static_cast<float>(height_);
+    if (!keyboard_.isOpen()) {
+        return height;
     }
-    if (settings_.entry().isOpen()) {
-        return &settings_.entry();
-    }
-    if (session_.password().isOpen()) {
-        return &session_.password();
-    }
-    return nullptr;
+    return layoutKeyboard(Rect{0.0f, 0.0f, static_cast<float>(width_), height}, dp(),
+                          keyboard_.style())
+        .panel.y;
 }
 
 float Shell::dp() const noexcept {
@@ -333,7 +330,6 @@ void Shell::loadArtwork(std::size_t uploads) {
     const auto linear = [&gpu](const gpu2d::image::Bitmap& pixels) {
         return gpu2d::Texture{gpu, pixels.rgba, pixels.width, pixels.height, gpu2d::Filter::Linear};
     };
-    coverArt_.load(cover_, linear);
     screens_.images().load(linear);
 }
 
@@ -585,17 +581,8 @@ void Shell::tick(Clock::time_point now) {
         startEntrance();
     }
     // A panel's fade starts when its state says it opened or closed.
-    followFade(searchFade_, search_.isOpen(), searchWasOpen_);
-    followFade(contextFade_, context_.isOpen(), contextWasOpen_);
-    followFade(coverFade_, cover_.isOpen(), coverWasOpen_);
-    cover_.setCapacity(
-        cover_
-            .layout(Rect{0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_)}, dp())
-            .capacity);
-    followFade(detailsFade_, details_.isOpen(), detailsWasOpen_);
+    followFade(keyboardFade_, keyboard_.isOpen(), keyboardWasOpen_);
     followFade(mappingFade_, mapping_.isOpen(), mappingWasOpen_);
-    settings_.tick(now_);
-    session_.tick(now_);
     volumeOsd_.tick(now_);
     railFocus_.step(dt);
     if (layout_.mode() == ScrollMode::Flow) {
@@ -603,9 +590,10 @@ void Shell::tick(Clock::time_point now) {
                        ScrollMode::Flow);
     }
     hud_.tick(now);
-    screens_.layout(
-        now_, gpu2d::Rect{0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_)},
-        dp(), Chrome{hud_.topInset()});
+    // Overlays stand above the docked keyboard, so the field it types into shows.
+    const auto height = static_cast<float>(height_);
+    screens_.layout(now_, gpu2d::Rect{0.0f, 0.0f, static_cast<float>(width_), height},
+                    height - aboveKeyboard(), dp(), Chrome{hud_.topInset()});
 }
 
 void Shell::settle() {
@@ -664,7 +652,7 @@ bool Shell::focusedGiveaways() const {
 
 std::string Shell::pillTitle() const {
     // The grid names its focused tile; a page that replaces the grid names itself in the trail.
-    const bool page = details_.isOpen() || screens_.active() || settings_.anyOpen();
+    const bool page = screens_.active();
     return presentation() == Presentation::Grid && !page ? focusedTitle() : std::string{};
 }
 
@@ -856,15 +844,6 @@ Shell::DockFrame Shell::dockFrame(float width, float height) const {
                      DockStyle{chromeDark(), pixelsPerDp, dockVisibility_.progress(nowMs())}};
 }
 
-DetailsArt Shell::detailsArt() const {
-    if (focus_.index() >= tiles_.size()) {
-        return {};
-    }
-    const Tile& tile = tiles_[focus_.index()];
-    return DetailsArt::of(tile.portrait ? &*tile.portrait : nullptr,
-                          tile.wide ? &*tile.wide : nullptr);
-}
-
 PointerTarget Shell::pointAt(std::optional<Point> point) {
     dockHover_.reset();
     hud_.setLauncherHover(std::nullopt);
@@ -872,15 +851,14 @@ PointerTarget Shell::pointAt(std::optional<Point> point) {
     if (!point) {
         return {};
     }
-    if (!inGame_ && !launchPanel_.isOpen() &&
-        (!panelOpen() || details_.isOpen() || (screens_.active() && !settings_.anyOpen())) &&
+    if (!inGame_ && (!panelOpen() || (screens_.active() && !keyboard_.isOpen())) &&
         !mapping_.isOpen()) {
         if (const std::optional<std::size_t> crumb = hud_.crumbAt(point->x, point->y)) {
             hud_.setCrumbHover(crumb);
             return OnCrumb{*crumb};
         }
     }
-    if (inGame_ || launchPanel_.isOpen() || panelOpen()) {
+    if (inGame_ || panelOpen()) {
         return pointAtModal(*point);
     }
     if (const LauncherBadge* badge = hud_.launcherAt(point->x, point->y)) {
@@ -901,74 +879,21 @@ PointerTarget Shell::pointAt(std::optional<Point> point) {
 }
 
 PointerTarget Shell::pointAtModal(Point point) const {
-    const auto width = static_cast<float>(width_);
-    const auto height = static_cast<float>(height_);
-    if (session_.anyOpen()) {
-        return session_.pointAt(point, Point{width, height}, dp());
-    }
     // The mapping editor takes the pad only.
-    if (mapping_.isOpen() || (inGame_ && !screens_.active() && !settings_.anyOpen())) {
+    if (mapping_.isOpen() || (inGame_ && !screens_.active())) {
         return {};
     }
-    if (launchPanel_.isOpen()) {
-        const PanelLayout panel =
-            launchPanelPainter_.layout(launchPanel_, Point{width, height}, dp());
-        if (const std::optional<std::size_t> hint = panel.hintAt(point.x, point.y)) {
-            const gamepad::Button button = input::buttonOfGlyph(launchPanel_.hints()[*hint].button);
-            if (button != gamepad::Button::None) {
-                return OnPanelButton{button};
-            }
+    if (keyboard_.isOpen() && point.y >= aboveKeyboard()) {
+        const KeyboardLayout keys = layoutKeyboard(
+            Rect{0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_)}, dp(),
+            keyboard_.style());
+        if (const std::optional<std::size_t> key = keys.keyAt(point.x, point.y)) {
+            return OnKeyboardKey{*key};
         }
         return {};
-    }
-    const Rect frame{0.0f, 0.0f, width, height};
-    if (settings_.anyOpen()) {
-        return settings_.pointAt(point, Point{width, height}, dp());
     }
     if (screens_.active()) {
         return OnScreens{};
-    }
-    if (cover_.isOpen()) {
-        const CoverPickerLayout picker = cover_.layout(frame, dp());
-        if (const std::optional<std::size_t> pick = picker.pickAt(point.x, point.y)) {
-            return OnCoverPick{*pick};
-        }
-        return picker.card.contains(point.x, point.y) ? PointerTarget{} : OnBackdrop{};
-    }
-    if (details_.isOpen()) {
-        if (const std::optional<std::size_t> button = detailsLayout().buttonAt(point.x, point.y)) {
-            return OnDetailsButton{*button};
-        }
-        return {};
-    }
-    if (context_.isOpen()) {
-        const ContextLayout menu = context_.layout(frame, dp());
-        if (const std::optional<std::size_t> row = menu.itemAt(point.x, point.y)) {
-            return OnContextItem{*row};
-        }
-        return menu.contains(point.x, point.y) ? PointerTarget{} : OnBackdrop{};
-    }
-    if (search_.isOpen()) {
-        const SearchLayout panel = layoutSearch(frame, dp(), search_.keyboard().style());
-        if (const std::optional<std::size_t> key = panel.keyboard.keyAt(point.x, point.y)) {
-            return OnKeyboardKey{*key};
-        }
-        if (const std::optional<std::size_t> row = panel.resultAt(point.x, point.y)) {
-            const std::size_t result = search_.firstListed() + *row;
-            return result < search_.results().size() ? PointerTarget{OnSearchResult{result}}
-                                                     : PointerTarget{};
-        }
-        return {};
-    }
-    const ChooserLayout picker = chooser_.layout(frame, dp());
-    if (const std::optional<int> level = picker.iconSizeAt(point.x, point.y)) {
-        return OnIconSize{*level};
-    }
-    if (const std::optional<ChooserRow> row = picker.rowAt(point.x, point.y)) {
-        return OnChooserRow{*row};
-    }
-    if (const std::optional<library::LibraryMode> card = picker.cardAt(point.x, point.y)) {
-        return OnLayoutCard{*card};
     }
     return {};
 }
@@ -1027,38 +952,12 @@ bool Shell::focusTarget(const PointerTarget& target) {
     return std::visit(
         [this](const auto& at) {
             using Target = std::decay_t<decltype(at)>;
-            if constexpr (std::is_same_v<Target, OnDetailsButton>) {
-                return details_.focusButton(at.index);
-            } else if constexpr (std::is_same_v<Target, OnChooserRow>) {
-                return chooser_.focusRow(at.row);
-            } else if constexpr (std::is_same_v<Target, OnIconSize>) {
-                return chooser_.focusRow(ChooserRow::IconSize);
-            } else if constexpr (std::is_same_v<Target, OnDialogButton> ||
-                                 std::is_same_v<Target, OnIntegrationItem>) {
-                return session_.focusTarget(PointerTarget{at});
-            } else if constexpr (std::is_same_v<Target, OnKeyboardKey>) {
-                if (session_.password().isOpen()) {
-                    return session_.focusTarget(PointerTarget{at});
-                }
-                if (settings_.entry().isOpen()) {
-                    return settings_.entry().focusKey(at.index);
-                }
-                const bool entered = search_.enterKeys();
-                return search_.keyboard().focusKey(at.index) || entered;
-            } else if constexpr (std::is_same_v<Target, OnFolderEntry>) {
-                return settings_.focusTarget(at);
-            } else if constexpr (std::is_same_v<Target, OnSearchResult>) {
-                return search_.focusResult(at.index);
-            } else if constexpr (std::is_same_v<Target, OnContextItem>) {
-                return context_.focusItem(at.index);
-            } else if constexpr (std::is_same_v<Target, OnCoverPick>) {
-                return cover_.focusPick(at.index);
+            if constexpr (std::is_same_v<Target, OnKeyboardKey>) {
+                return keyboard_.isOpen() && keyboard_.focusKey(at.index);
             } else if constexpr (std::is_same_v<Target, OnTile>) {
                 return focusTile(at.index);
             } else if constexpr (std::is_same_v<Target, OnPage>) {
                 return focusPage(at.page);
-            } else if constexpr (std::is_same_v<Target, OnLayoutCard>) {
-                return chooser_.focus(at.mode);
             } else {
                 return false;
             }
@@ -1087,21 +986,15 @@ void Shell::drawDock(Canvas& canvas, const gpu2d::RenderTarget& scene, const Doc
 
 void Shell::drawScene(Canvas& canvas) {
     hud_.drawGround(canvas);
-    const bool settingsShown = screens_.pagesVisible();
-    const bool detailsShown = detailsFade_.visible(now_);
+    const bool pageShown = screens_.pagesVisible();
     if (presentation() == Presentation::Grid) {
         drawGrid(canvas);
-        if (!detailsShown && !settingsShown) {
+        if (!pageShown) {
             pillPainter_.paint(canvas, layout_.pagePill(page_), dp(), chromeDark());
             arrowPainter_.paint(canvas, layout_.pageArrows(page_), chromeDark());
         }
     } else {
         drawRail(canvas);
-    }
-    if (detailsShown) {
-        detailsPainter_.paint(canvas, details_, detailsLayout(), detailsArt(),
-                              Point{static_cast<float>(width_), static_cast<float>(height_)}, dp(),
-                              detailsFade_.alpha(now_));
     }
     screens_.paintPages(canvas);
     hud_.drawTopBar(canvas);
@@ -1116,13 +1009,11 @@ void Shell::drawOverGame(Canvas& canvas, Point size) {
         hud_.drawTopBar(canvas);
         hud_.drawHints(canvas);
     }
-    const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
-    settings_.drawOverlays(canvas, size, dp(), now_, seconds);
     mappingPainter_.paint(canvas, mapping_, size, dp(), mappingFade_.look(now_));
     screens_.paintOverlays(canvas);
-    session_.draw(canvas, size, dp(), now_, seconds);
+    keyboardPainter_.paint(canvas, keyboard_, size, dp(), keyboardFade_.look(now_));
     drawChordHint(canvas, size);
-    hud_.drawToast(canvas, size.y);
+    hud_.drawToast(canvas, aboveKeyboard());
 }
 
 void Shell::drawChordHint(Canvas& canvas, Point size) {
@@ -1133,7 +1024,7 @@ void Shell::drawChordHint(Canvas& canvas, Point size) {
 
 void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     // The previous frame was submitted, so the labels it did not draw can go.
-    typeface_.retire();
+    text_.retire();
     const Point size{static_cast<float>(target.width), static_cast<float>(target.height)};
     // Transparent, so a compositor shows what lies below wherever nothing is drawn.
     constexpr Colour clear{0, 0, 0, 0};
@@ -1152,25 +1043,15 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     const gpu2d::Rect whole{0.0f, 0.0f, static_cast<float>(scene.width()),
                             static_cast<float>(scene.height())};
     canvas.image(scene.view(gpu2d::Filter::Nearest), whole, whole, white);
-    float toastFloor = size.y;
-    if (const OnScreenKeyboard* keyboard = dockedKeyboard()) {
-        toastFloor =
-            layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp(), keyboard->style()).panel.y;
-    } else if (!detailsFade_.visible(now_) && !screens_.pagesVisible()) {
+    float toastFloor = aboveKeyboard();
+    if (!keyboard_.isOpen() && !screens_.pagesVisible()) {
         const DockFrame dock = dockFrame(size.x, size.y);
         drawDock(canvas, scene, dock);
         toastFloor = std::min(toastFloor, DockPainter::top(dock.layout, dock.style));
     }
-    const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
-    launchPanelPainter_.paint(canvas, launchPanel_, size, dp(), seconds);
-    chooserPainter_.paint(canvas, chooser_, size, dp());
-    searchPainter_.paint(canvas, search_, size, dp(), searchFade_.look(now_), seconds);
-    contextPainter_.paint(canvas, context_, size, dp(), contextFade_.look(now_));
-    coverPainter_.paint(canvas, cover_, coverArt_, size, dp(), coverFade_.look(now_));
-    settings_.drawOverlays(canvas, size, dp(), now_, seconds);
     mappingPainter_.paint(canvas, mapping_, size, dp(), mappingFade_.look(now_));
     screens_.paintOverlays(canvas);
-    session_.draw(canvas, size, dp(), now_, seconds);
+    keyboardPainter_.paint(canvas, keyboard_, size, dp(), keyboardFade_.look(now_));
     if (volumeOsd_.visible(now_)) {
         volumeOsdPainter_.paint(canvas, volumeOsd_.level(), size, dp(), hud_.topInset(),
                                 volumeOsd_.look(now_));

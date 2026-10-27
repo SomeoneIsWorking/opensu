@@ -56,18 +56,16 @@ struct ShellSnapshot {
     std::string section{"home"};
     /// How Library lays out its tiles: "standard", "xmb" or "carousel".
     std::string libraryMode{"standard"};
+    /// The text in the search panel, or the search still applied.
+    std::string searchText;
     /// Whether the Library options panel is up.
     bool modeChooserOpen{false};
-    /// Whether the search panel is up, and the text in it (or the search still applied).
+    /// Whether the search panel is up.
     bool searchOpen{false};
-    std::string searchText;
     /// Whether a context menu is up.
     bool contextMenuOpen{false};
     /// Whether a game's details page is up.
     bool detailsOpen{false};
-    /// Whether a button on the details page or an entry of a tile's menu waits for its second
-    /// press (Uninstall).
-    bool armed{false};
     /// Whether the Settings screen is up, and whether a folder chooser or its keyboard is over it.
     bool settingsOpen{false};
     bool folderPickerOpen{false};

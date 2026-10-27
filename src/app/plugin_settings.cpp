@@ -3,7 +3,6 @@
 #include <algorithm>
 
 #include "config/config.hpp"
-#include "keyboard_pad.hpp"
 
 namespace opensu::app {
 namespace {
@@ -109,62 +108,29 @@ void PluginSettings::run(const std::string& id, int step) {
 }
 
 void PluginSettings::ask(const PluginInfo& info) {
-    ui::SessionDialogText text;
-    text.title = "Turn on " + info.manifest.name + "?";
-    text.paragraphs.push_back(info.manifest.name + " " + info.manifest.version +
-                              " is a plugin you added, from " + config::shownPath(info.dir, home_) +
-                              ". It runs in a sandbox and can use only what is listed here.");
+    std::string body = info.manifest.name + " " + info.manifest.version +
+                       " is a plugin you added, from " + config::shownPath(info.dir, home_) +
+                       ". It runs in a sandbox and can use only what is listed here.\n\n";
     if (info.readPaths.empty()) {
-        text.paragraphs.emplace_back("It reads no files.");
+        body += "It reads no files.\n";
     }
     for (const std::filesystem::path& path : info.readPaths) {
-        text.paragraphs.push_back("It can read what is in " + config::shownPath(path, home_) + ".");
+        body += "It can read what is in " + config::shownPath(path, home_) + ".\n";
     }
     if (info.hosts.empty()) {
-        text.paragraphs.emplace_back("It does not use the network.");
+        body += "It does not use the network.\n";
     }
     for (const std::string& host : info.hosts) {
-        text.paragraphs.push_back("It can download from " + host + " over HTTPS.");
+        body += "It can download from " + host + " over HTTPS.\n";
     }
-    text.paragraphs.emplace_back("Turn it on only if you trust where it came from.");
-    text.accept = "Turn on";
-    asking_ = info.manifest.id;
+    body += "\nTurn it on only if you trust where it came from.";
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    dialog_.open(std::move(text));
-}
-
-void PluginSettings::close() {
-    // input-sound.md 3.4 Close: the player dismisses a panel.
-    sounds_.play(audio::Effect::Close);
-    dialog_.close();
-    asking_.reset();
-    changed_();
-}
-
-void PluginSettings::act(gamepad::Button button) {
-    switch (button) {
-    case gamepad::Button::Left:
-    case gamepad::Button::Right:
-    case gamepad::Button::Up:
-    case gamepad::Button::Down:
-        if (dialog_.move(directionOf(button))) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::A:
-        if (dialog_.focus() == ui::dialogAccept && asking_) {
-            plugins_.setEnabled(*asking_, true);
-        }
-        close();
-        break;
-    case gamepad::Button::B:
-    case gamepad::Button::Start:
-        close();
-        break;
-    default:
-        break;
-    }
+    navigator_.push(gpu2d::ui::confirm("Turn on " + info.manifest.name + "?", std::move(body),
+                                       "Turn on", [this, id = info.manifest.id] {
+                                           plugins_.setEnabled(id, true);
+                                           changed_();
+                                       }));
 }
 
 } // namespace opensu::app

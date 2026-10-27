@@ -10,34 +10,7 @@ struct FocusesOnHover {
     bool operator()(const ui::OnTile&) const {
         return true;
     }
-    bool operator()(const ui::OnLayoutCard&) const {
-        return true;
-    }
-    bool operator()(const ui::OnChooserRow&) const {
-        return true;
-    }
-    bool operator()(const ui::OnIconSize&) const {
-        return true;
-    }
     bool operator()(const ui::OnKeyboardKey&) const {
-        return true;
-    }
-    bool operator()(const ui::OnSearchResult&) const {
-        return true;
-    }
-    bool operator()(const ui::OnContextItem&) const {
-        return true;
-    }
-    bool operator()(const ui::OnCoverPick&) const {
-        return true;
-    }
-    bool operator()(const ui::OnDetailsButton&) const {
-        return true;
-    }
-    bool operator()(const ui::OnDialogButton&) const {
-        return true;
-    }
-    bool operator()(const ui::OnIntegrationItem&) const {
         return true;
     }
     template <class Other> bool operator()(const Other&) const {
@@ -85,13 +58,6 @@ void PointerRouter::click(const ui::PointerTarget& target) {
         }
     } else if (const auto* crumb = std::get_if<ui::OnCrumb>(&target)) {
         host_.activateCrumb(crumb->index);
-    } else if (const auto* button = std::get_if<ui::OnPanelButton>(&target)) {
-        host_.press(button->button);
-    } else if (const auto* size = std::get_if<ui::OnIconSize>(&target)) {
-        host_.focus(target);
-        host_.chooseLevel(size->level);
-    } else if (std::holds_alternative<ui::OnBackdrop>(target)) {
-        host_.press(gamepad::Button::B);
     } else if (std::holds_alternative<ui::OnPage>(target)) {
         // A page turns.
         host_.focus(target);

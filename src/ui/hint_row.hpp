@@ -7,7 +7,7 @@
 
 #include "button_glyph.hpp"
 #include "paint.hpp"
-#include "typeface.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 
 namespace opensu::ui {
 
@@ -15,11 +15,11 @@ namespace opensu::ui {
 using HintPrompt = std::pair<const char*, const char*>;
 
 /// How wide `hints` stand at `dp` pixels per dp.
-[[nodiscard]] float hintRowWidth(const ButtonGlyphPainter& glyphs, Typeface& typeface,
+[[nodiscard]] float hintRowWidth(const ButtonGlyphPainter& glyphs, gpu2d::ui::Typesetter& text,
                                  std::span<const HintPrompt> hints, float dp);
 
 /// Draws `hints` centred on `centre` at `dp` pixels per dp in `ink`.
-void paintHintRow(Canvas& canvas, const ButtonGlyphPainter& glyphs, Typeface& typeface,
+void paintHintRow(Canvas& canvas, const ButtonGlyphPainter& glyphs, gpu2d::ui::Typesetter& text,
                   std::span<const HintPrompt> hints, Point centre, float dp, Colour ink);
 
 } // namespace opensu::ui

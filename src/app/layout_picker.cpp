@@ -1,199 +1,148 @@
 #include "layout_picker.hpp"
 
 #include <algorithm>
-#include <string>
+#include <memory>
+
+#include "layout_picker_screen.hpp"
 
 namespace opensu::app {
 
-void LayoutPicker::open(bool inLibrary) {
-    // input-sound.md 3.4 Open: a panel appears.
-    sounds_.play(audio::Effect::Open);
-    const settings::Settings& values = preferences_.values();
-    chooser_.open(values.libraryMode, ui::ChooserValues{}, inLibrary);
-    syncValues();
+std::string layoutCardId(library::LibraryMode mode) {
+    return "options.card." + std::string{library::key(mode)};
 }
 
-void LayoutPicker::syncValues() {
-    const settings::Settings& values = preferences_.values();
-    ui::ChooserValues& shown = chooser_.values();
-    shown.pinned = values.pinLibraryDock;
-    shown.iconSize = values.iconSize;
-    shown.sort = std::string{library::label(values.view.sort)};
-    shown.installedOnly = values.view.installedOnly;
-    shown.hiddenOnly = values.view.hiddenOnly;
-    shown.source = values.view.source.empty() ? "All sources" : values.view.source;
-    for (const library::SourceChoice& choice : hooks_.sourceChoices()) {
-        if (choice.key == values.view.source) {
-            shown.source = choice.label;
-        }
+const gpu2d::ui::Screen* LayoutPicker::panel() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto found = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const LayoutPickerScreen*>(screen) != nullptr;
+    });
+    return found == open.end() ? nullptr : *found;
+}
+
+bool LayoutPicker::isOpen() const {
+    return panel() != nullptr;
+}
+
+void LayoutPicker::open(bool inLibrary) {
+    if (isOpen()) {
+        return;
     }
+    inLibrary_ = inLibrary;
+    // input-sound.md 3.4 Open: a panel appears.
+    sounds_.play(audio::Effect::Open);
+    navigator_.push(std::make_unique<LayoutPickerScreen>(*this));
 }
 
 void LayoutPicker::close() {
+    const gpu2d::ui::Screen* open = panel();
+    if (open == nullptr) {
+        return;
+    }
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
-    chooser_.close();
-    if (iconSizeDirty_) {
-        iconSizeDirty_ = false;
-        preferences_.save();
-    }
+    navigator_.closeFrom(*open);
 }
 
-void LayoutPicker::act(gamepad::Button button) {
-    ui::ModeChooser& chooser = chooser_;
-    switch (button) {
-    case gamepad::Button::Up:
-    case gamepad::Button::Down:
-        // input-sound.md 3.4 Navigation: a focus move in a list.
-        if (chooser.moveRow(button == gamepad::Button::Down ? 1 : -1)) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::Left:
-    case gamepad::Button::Right:
-        actOnRow(button == gamepad::Button::Left ? -1 : 1);
-        break;
-    case gamepad::Button::A:
-        actOnRow(0);
-        break;
-    case gamepad::Button::B:
-    case gamepad::Button::Start:
-        close();
-        break;
-    default:
-        break;
+std::vector<ui::SettingsRow> LayoutPicker::rows() const {
+    const settings::Settings& values = preferences_.values();
+    std::vector<ui::SettingsRow> rows;
+    if (inLibrary_) {
+        rows.push_back(ui::makeSlider(std::string{optionIconSizeId}, "Icon size", {},
+                                      ui::SliderRange{.level = values.iconSize,
+                                                      .low = settings::minIconSize,
+                                                      .high = settings::maxIconSize}));
+        rows.push_back(ui::makeToggle(std::string{optionPinId}, "Pin navigation bar on Library", {},
+                                      values.pinLibraryDock));
     }
-}
-
-void LayoutPicker::actOnRow(int step) {
-    ui::ModeChooser& chooser = chooser_;
-    switch (chooser.row()) {
-    case ui::ChooserRow::Cards:
-        if (step != 0) {
-            if (chooser.move(step)) {
-                sounds_.play(audio::Effect::Navigation);
-            }
-            break;
+    ui::Options sorts;
+    for (const library::SortKey sort : library::allSortKeys) {
+        if (sort == values.view.sort) {
+            sorts.chosen = sorts.labels.size();
         }
-        chooseMode(chooser.focused());
-        close();
-        break;
-    case ui::ChooserRow::IconSize:
-        if (step != 0) {
-            stepIconSize(step);
-        }
-        break;
-    case ui::ChooserRow::Pin:
-        if (step == 0) {
-            togglePin();
-        }
-        break;
-    case ui::ChooserRow::Sort:
-        cycleSort(step == 0 ? 1 : step);
-        break;
-    case ui::ChooserRow::Source:
-        cycleSource(step == 0 ? 1 : step);
-        break;
-    case ui::ChooserRow::Installed:
-        if (step == 0) {
-            toggleInstalled();
-        }
-        break;
-    case ui::ChooserRow::Hidden:
-        if (step == 0) {
-            toggleHidden();
-        }
-        break;
-    case ui::ChooserRow::Search:
-        if (step == 0) {
-            close();
-            hooks_.openSearch();
-        }
-        break;
-    case ui::ChooserRow::Settings:
-        if (step == 0) {
-            close();
-            hooks_.openSettings();
-        }
-        break;
+        sorts.labels.emplace_back(library::label(sort));
     }
+    rows.push_back(ui::makeChoice(std::string{optionSortId}, "Sort by", {}, std::move(sorts)));
+    ui::Options sources;
+    for (const library::SourceChoice& choice : hooks_.sourceChoices()) {
+        if (choice.key == values.view.source) {
+            sources.chosen = sources.labels.size();
+        }
+        sources.labels.push_back(choice.label);
+    }
+    rows.push_back(ui::makeChoice(std::string{optionSourceId}, "Show", {}, std::move(sources)));
+    rows.push_back(ui::makeToggle(std::string{optionInstalledId}, "Installed games only", {},
+                                  values.view.installedOnly));
+    rows.push_back(ui::makeToggle(std::string{optionHiddenId}, "Hidden games only", {},
+                                  values.view.hiddenOnly));
+    rows.push_back(ui::makePage(std::string{optionSearchId}, "Search", {}, {}));
+    rows.push_back(ui::makePage(std::string{optionSettingsId}, "Settings", {}, {}));
+    return rows;
 }
 
 void LayoutPicker::chooseMode(library::LibraryMode mode) {
     settings::Settings& values = preferences_.values();
-    if (mode == values.libraryMode) {
-        return;
+    if (mode != values.libraryMode) {
+        values.libraryMode = mode;
+        hooks_.applyLayout();
+        hooks_.reshow(hooks_.focusIndex());
+        preferences_.save();
     }
-    values.libraryMode = mode;
-    hooks_.applyLayout();
-    hooks_.reshow(hooks_.focusIndex());
-    preferences_.save();
+    close();
 }
 
-void LayoutPicker::togglePin() {
-    sounds_.play(audio::Effect::Navigation);
+void LayoutPicker::run(const std::string& id, int step) {
     settings::Settings& values = preferences_.values();
-    values.pinLibraryDock = !values.pinLibraryDock;
-    hooks_.applyLayout();
-    syncValues();
-    preferences_.save();
+    if (id == optionPinId) {
+        values.pinLibraryDock = !values.pinLibraryDock;
+        hooks_.applyLayout();
+        preferences_.save();
+    } else if (id == optionSortId) {
+        const auto count = static_cast<int>(library::allSortKeys.size());
+        const int next = ((static_cast<int>(values.view.sort) + step) % count + count) % count;
+        values.view.sort = library::allSortKeys[static_cast<std::size_t>(next)];
+        viewChanged();
+    } else if (id == optionSourceId) {
+        const std::vector<library::SourceChoice> choices = hooks_.sourceChoices();
+        if (choices.empty()) {
+            return;
+        }
+        const auto at = std::ranges::find(choices, values.view.source, &library::SourceChoice::key);
+        const auto count = static_cast<int>(choices.size());
+        const int from = at == choices.end() ? 0 : static_cast<int>(at - choices.begin());
+        const int next = ((from + step) % count + count) % count;
+        values.view.source = choices[static_cast<std::size_t>(next)].key;
+        viewChanged();
+    } else if (id == optionInstalledId) {
+        values.view.installedOnly = !values.view.installedOnly;
+        viewChanged();
+    } else if (id == optionHiddenId) {
+        values.view.hiddenOnly = !values.view.hiddenOnly;
+        viewChanged();
+    }
 }
 
-void LayoutPicker::stepIconSize(int delta) {
-    chooseIconSize(preferences_.values().iconSize + delta);
-}
-
-void LayoutPicker::chooseIconSize(int level) {
+void LayoutPicker::setLevel(const std::string& id, int level) {
     settings::Settings& values = preferences_.values();
     const int next = std::clamp(level, settings::minIconSize, settings::maxIconSize);
-    if (next == values.iconSize) {
+    if (id != optionIconSizeId || next == values.iconSize) {
         return;
     }
-    sounds_.play(audio::Effect::Navigation);
     values.iconSize = next;
     hooks_.applyLayout();
-    iconSizeDirty_ = true;
-    syncValues();
+    preferences_.save();
 }
 
-void LayoutPicker::cycleSort(int delta) {
-    sounds_.play(audio::Effect::Navigation);
-    settings::Settings& values = preferences_.values();
-    const auto count = static_cast<int>(library::allSortKeys.size());
-    const int next = (static_cast<int>(values.view.sort) + delta + count) % count;
-    values.view.sort = library::allSortKeys[static_cast<std::size_t>(next)];
-    viewChanged();
-}
-
-void LayoutPicker::cycleSource(int delta) {
-    sounds_.play(audio::Effect::Navigation);
-    settings::Settings& values = preferences_.values();
-    const std::vector<library::SourceChoice> choices = hooks_.sourceChoices();
-    const auto at = std::ranges::find(choices, values.view.source, &library::SourceChoice::key);
-    const auto count = static_cast<int>(choices.size());
-    // A source that is no longer there reads as before the first, so the next is "All sources".
-    const int from = at == choices.end() ? -1 : static_cast<int>(at - choices.begin());
-    const int next = ((from + delta) % count + count) % count;
-    values.view.source = choices[static_cast<std::size_t>(next)].key;
-    viewChanged();
-}
-
-void LayoutPicker::toggleInstalled() {
-    sounds_.play(audio::Effect::Navigation);
-    settings::Settings& values = preferences_.values();
-    values.view.installedOnly = !values.view.installedOnly;
-    viewChanged();
-}
-
-void LayoutPicker::toggleHidden() {
-    sounds_.play(audio::Effect::Navigation);
-    settings::Settings& values = preferences_.values();
-    values.view.hiddenOnly = !values.view.hiddenOnly;
-    viewChanged();
+void LayoutPicker::openPage(const std::string& id) {
+    if (id == optionSearchId) {
+        close();
+        hooks_.openSearch();
+    } else if (id == optionSettingsId) {
+        close();
+        hooks_.openSettings();
+    }
 }
 
 void LayoutPicker::viewChanged() {
-    syncValues();
     hooks_.reshow(0);
     preferences_.save();
 }

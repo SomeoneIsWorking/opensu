@@ -51,10 +51,9 @@ struct HintPanelMetrics {
     float glyphSize{};
     float glyphGap{};
     float cornerRadius{};
-    /// Label em and line height in sp, letter spacing in em.
+    /// Label em and line height in sp.
     float labelSize{};
     float labelLineHeight{};
-    float labelTracking{};
     /// a32.b's text nudge before the key's own adjustment: Cal Sans's -1.8 t.
     float labelNudge{};
     /// jj2.g0's floor on the panel height.

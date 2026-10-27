@@ -1,6 +1,5 @@
 // setting_row — a settings-like row as its owner describes it: what kind it is, its words and its
-// value. Every toolkit screen of rows turns each into the widget of its kind (`row_widgets`); the
-// integration chooser still draws them its own way.
+// value. Every toolkit screen of rows turns each into the widget of its kind (`row_widgets`).
 #pragma once
 
 #include <cstddef>
@@ -27,25 +26,6 @@ enum class RowKind : std::uint8_t {
     Heading,
     /// Opens a page of more rows, named by the row's id.
     Page,
-};
-
-/// Whether A opens the row of `kind` so Left and Right can change it: a choice or a slider.
-[[nodiscard]] bool rowOpens(RowKind kind) noexcept;
-
-/// Whether a row is open for Left and Right: the state A sets and A or B clears, as the
-/// integration chooser's rows keep it.
-class RowEditing {
-  public:
-    [[nodiscard]] bool open() const noexcept {
-        return open_;
-    }
-    /// Opens a row of `kind`; false when it is not one Left and Right change.
-    bool begin(RowKind kind) noexcept;
-    /// Closes the open row; false when none was open.
-    bool end() noexcept;
-
-  private:
-    bool open_{false};
 };
 
 /// One line of a category.

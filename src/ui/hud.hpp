@@ -24,7 +24,7 @@
 #include "status_pill.hpp"
 #include "top_bar_layout.hpp"
 #include "top_bar_metrics.hpp"
-#include "typeface.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -35,6 +35,12 @@ inline constexpr Colour ground{0xf4, 0xf3, 0xf7, 255};
 inline constexpr Colour panel{0xff, 0xff, 0xff, 255};
 inline constexpr Colour ink{0x2b, 0x27, 0x33, 255};
 inline constexpr Colour inkSoft{0x6f, 0x68, 0x80, 255};
+/// The focus outline, a switch's "on" and a slider's fill.
+inline constexpr Colour control{0x4D, 0x46, 0x55, 255};
+/// A chosen entry, the lit part of a focused row.
+inline constexpr Colour chosen{0xE6, 0xE4, 0xEE, 255};
+/// A switch's "off" and a slider's track.
+inline constexpr Colour off{0xB7, 0xB2, 0xC0, 255};
 } // namespace palette
 
 class Hud {
@@ -45,9 +51,9 @@ class Hud {
     static constexpr std::chrono::milliseconds toastLifetime{4000};
 
     /// `device` is which prompts the corner hints draw.
-    Hud(const input::Prompts& prompts, Typeface& typeface, IconAtlas& icons) noexcept
-        : typeface_{typeface}, statusPill_{typeface, icons}, crumbs_{typeface},
-          glyphs_{prompts, typeface} {
+    Hud(const input::Prompts& prompts, gpu2d::ui::Typesetter& text, IconAtlas& icons) noexcept
+        : text_{text}, statusPill_{text, icons}, crumbs_{text},
+          glyphs_{prompts, text} {
     }
 
     /// The window in pixels and its pixels per dp.
@@ -149,7 +155,7 @@ class Hud {
     std::string toast_;
     bool toastError_{false};
     Clock::time_point toastUntil_{};
-    Typeface& typeface_;
+    gpu2d::ui::Typesetter& text_;
     StatusPillPainter statusPill_;
     GlassPainter glass_;
     BreadcrumbPainter crumbs_;

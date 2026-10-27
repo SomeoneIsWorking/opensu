@@ -1,18 +1,21 @@
-// panel_flow — what the launch panel is up for and what the buttons do while it is: a launch on its
-// way, an offer to install, an install under way, or a licence question. Owns the one install,
-// update or uninstall that runs at a time, and tells how an update or uninstall ended.
+// panel_flow — the card a launch or an install shows while it is on its way, and the questions
+// before an install: which store to install from, and a licence to accept. Owns the one install,
+// update or uninstall that runs at a time, and tells how an update or uninstall ended. B on the
+// card cancels a launch or hides an install, which goes on without it.
 #pragma once
 
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
+#include "gpu2d/ui/navigator.hpp"
+
 #include "audio/sdl_sound_player.hpp"
-#include "gamepad/event.hpp"
 #include "installs.hpp"
-#include "ui/shell.hpp"
+#include "ui/progress_screen.hpp"
 
 namespace opensu::app {
 
@@ -28,29 +31,31 @@ class PanelFlow {
         Installs::Folders installFolder;
         /// Whether a launch of this game runs now, which no uninstall may remove.
         Installs::Playing playing;
+        /// Tells the player something; `error` marks a refusal.
+        std::function<void(const std::string& text, bool error)> say;
+        /// Whether a game is running, over which the licence question waits.
+        std::function<bool()> gameRunning;
     };
 
-    /// Installs go through `steam` for Steam titles, `legendary` for Epic's and gogdl for GOG's.
-    PanelFlow(ui::Shell& shell, audio::SdlSoundPlayer& sounds, steam::Client& steam,
+    /// The card and the questions go on `navigator`. Installs go through `steam` for Steam
+    /// titles, `legendary` for Epic's and gogdl for GOG's.
+    PanelFlow(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds, steam::Client& steam,
               const std::filesystem::path& dataDir, Hooks hooks);
 
-    /// Whether the panel is up for anything, which is when it takes every button.
-    [[nodiscard]] bool active() const noexcept {
-        return use_ != Use::None;
-    }
+    /// Whether the card is up for a launch or an install.
+    [[nodiscard]] bool active() const;
 
-    /// A button while the panel is up.
-    void act(gamepad::Button button);
-
-    /// Shows the panel for a launch of `title` on its way.
+    /// Shows the card for a launch of `title` on its way.
     void showLaunch(const std::string& title);
-    /// Hides the panel if it was up for a launch.
+    /// The launch's stage, and how far through it when it has a measure.
+    void update(std::string line, std::optional<double> fraction);
+    /// Takes the card down if it was up for a launch.
     void endLaunch();
 
     /// Asks whether to install `game`, from the stores that own it among `copies`.
     void offerInstall(const library::Game& game, std::vector<library::Game> copies);
 
-    /// Shows the install job's news on the panel and reloads the catalog when it, an update or an
+    /// Shows the install job's news on the card and reloads the catalog when it, an update or an
     /// uninstall finishes.
     void service();
 
@@ -61,32 +66,36 @@ class PanelFlow {
 
   private:
     /// Cancelling: the player cancelled the launch, which goes on until it is over.
-    enum class Use : std::uint8_t { None, Launch, Cancelling, OfferInstall, Install, Eula };
+    enum class Use : std::uint8_t { None, Launch, Cancelling, Install, Eula };
 
-    /// Whether the panel is up for a launch, cancelled or not.
+    /// Whether the card is up for a launch, cancelled or not.
     [[nodiscard]] bool forLaunch() const noexcept {
         return use_ == Use::Launch || use_ == Use::Cancelling;
     }
-
-    /// Shows the panel for `title` with iiSU's Open sound.
-    void open(const std::string& title);
-    /// Hides the panel the player dismissed, with iiSU's Close sound.
-    void dismiss();
+    /// Whether the licence question waits: a launch holds the card or a game runs.
+    [[nodiscard]] bool licenceWaits() const;
+    /// The card on the stack, or null.
+    [[nodiscard]] const gpu2d::ui::Screen* card() const;
+    /// Puts the card up for `title`, at `line`, unless it is up.
+    void showCard(const std::string& title, std::string line);
+    /// Takes the card down.
+    void closeCard();
+    /// B on the card: cancels a launch or hides an install.
+    void leave();
     void startInstall(const library::Game& game);
     void presentEula();
     /// Tells how an update or uninstall ended; a done one reloads the catalog.
     void workEnded(const InstallJob::Report& report, Installs::Work work);
 
-    ui::Shell& shell_;
+    gpu2d::ui::Navigator& navigator_;
     audio::SdlSoundPlayer& sounds_;
     Installs install_;
     Hooks hooks_;
     Use use_{Use::None};
-    /// A licence question that arrived while a launch held the panel.
+    /// What the card shows.
+    ui::ProgressCard shown_;
+    /// A licence question that arrived while it had to wait.
     bool eulaWaiting_{false};
-    /// The copies of a game the panel offers to install, one per store: A takes the first, X the
-    /// second.
-    std::vector<library::Game> offered_;
 };
 
 } // namespace opensu::app

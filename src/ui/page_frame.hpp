@@ -1,6 +1,7 @@
 // page_frame — the frame of an interface-toolkit screen that fills the window: room for the shell's
 // top bar, the body (a column or a row of panes), then the hint bar; and the pane a list of rows
-// sits on. Settings, Devices, Downloads and Giveaways share it.
+// sits on. Settings, Devices, Downloads and Giveaways share it. A tall card over the dimmed screen
+// (search, the folder chooser) has its own frame here.
 #pragma once
 
 #include <memory>
@@ -36,6 +37,15 @@ template <typename Body>
     frame.root->template add<gpu2d::ui::HintBar>().fixHeight(theme.spacing.hintBarHeight);
     return frame;
 }
+
+/// The root of a card `widthDp` wide standing over the dimmed screen from under `chrome` to the
+/// bottom of the viewport, and the card.
+struct CardFrame {
+    std::unique_ptr<gpu2d::ui::Widget> root;
+    gpu2d::ui::Card* card{};
+};
+[[nodiscard]] CardFrame tallCard(const gpu2d::ui::Theme& theme, const Chrome& chrome,
+                                 float widthDp);
 
 /// A pane growing across `parent` with a list `id` of rows on it.
 [[nodiscard]] gpu2d::ui::List& rowsPane(gpu2d::ui::Container& parent, const gpu2d::ui::Theme& theme,
