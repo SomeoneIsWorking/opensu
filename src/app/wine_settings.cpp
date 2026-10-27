@@ -100,8 +100,10 @@ std::string whereOf(const library::wine::Runner& runner) {
     switch (runner.origin) {
     case library::wine::Origin::OpenSu:
         return "Downloaded by openSU";
+    case library::wine::Origin::SteamTools:
+        return "Added to Steam's tools folder";
     case library::wine::Origin::Steam:
-        return "From Steam";
+        return "Installed by Steam";
     case library::wine::Origin::Lutris:
         return "From Lutris";
     case library::wine::Origin::System:

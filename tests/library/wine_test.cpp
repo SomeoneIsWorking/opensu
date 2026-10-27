@@ -64,19 +64,20 @@ void runnersAreFound(const fs::path& dir) {
                                                                         .steamRoots = {root},
                                                                         .steamLibraries = {library},
                                                                         .lutris = lutris});
-    const auto steam = [](const char* name, const fs::path& wine) {
+    const auto steam = [](const char* name, const fs::path& wine,
+                          wine::Origin origin = wine::Origin::Steam) {
         // No `proton` script in these fakes: each is taken as its plain Wine.
-        return wine::Runner{
-            .name = name, .wine = wine, .proton = {}, .origin = wine::Origin::Steam};
+        return wine::Runner{.name = name, .wine = wine, .proton = {}, .origin = origin};
     };
-    expect(found == std::vector<wine::Runner>{steam("GE-Proton9-20", ge),
+    expect(found == std::vector<wine::Runner>{steam("GE-Proton9-20", ge, wine::Origin::SteamTools),
                                               steam("Proton 9.0 (Beta)", current),
                                               steam("Proton 7.0", old),
                                               {.name = "wine-ge-8-26-x86_64",
                                                .wine = lutrisWine,
                                                .origin = wine::Origin::Lutris},
                                               {.name = "System Wine", .wine = system}},
-           "Steam's Proton builds newest first, Lutris's Wine builds, then system Wine");
+           "Steam's Proton builds newest first, those added to its tools folder told apart, "
+           "Lutris's Wine builds, then system Wine");
     expect(wine::discover(wine::Search{}).empty(), "nothing searched finds nothing");
     expect(wine::discover(wine::Search{.executablePath = {},
                                        .steamRoots = {root, root},
@@ -111,6 +112,11 @@ void automaticTakesTheFirstThatRuns(const fs::path& dir) {
     choice.found = {steam, lutris, system};
     expect(reason() == wine::Reason::SteamProton && wine::runnerOf(choice, "gog:1") == steam,
            "no GE-Proton: Steam's Proton");
+    wine::Runner added = steam;
+    added.origin = wine::Origin::SteamTools;
+    choice.found = {added, lutris, system};
+    expect(reason() == wine::Reason::SteamProton && wine::runnerOf(choice, "gog:1") == added,
+           "a build added to Steam's tools folder is Steam's Proton too");
     choice.found = {lutris, system};
     expect(reason() == wine::Reason::Lutris && wine::runnerOf(choice, "gog:1") == lutris,
            "neither: what Lutris uses");
@@ -131,7 +137,7 @@ void lutrisDefaultIsRead(const fs::path& dir) {
     const wine::Runner ge{.name = "GE-Proton11-5",
                           .wine = dir / "Steam/compatibilitytools.d/GE-Proton11-5/files/bin/wine",
                           .proton = dir / "Steam/compatibilitytools.d/GE-Proton11-5",
-                          .origin = wine::Origin::Steam};
+                          .origin = wine::Origin::SteamTools};
     const wine::Runner valve{.name = "Proton 10.0",
                              .wine = dir / "common/Proton 10.0/files/bin/wine",
                              .proton = dir / "common/Proton 10.0",
