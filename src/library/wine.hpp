@@ -1,13 +1,14 @@
-// wine — how openSU runs a Windows GOG or Epic install: the Wine runner and the prefix.
+// wine — how openSU runs a Windows GOG or Epic install, or a Windows `.exe` the player added: the
+// Wine runner and the prefix.
 //
-// Every such game shares one prefix, `<data dir>/wine-prefix`, unless the player gave it its own,
-// `<data dir>/wine-prefixes/<store>-<id>`. The runner is the game's pin, else the player's pick,
-// else Automatic, the first that can run of: the newest GE-Proton openSU installed (`ge_proton`),
-// the newest Proton in Steam's folders, what Lutris uses (`lutris`), system Wine. A launch never
-// waits for a download. Discovery only reads Steam's and Lutris's folders. Steam's own games are
-// left to Steam. Plain Wine runs the game itself; a Proton build runs it through `umu-run`
-// (openSU's, else one on PATH, else Lutris's) with `PROTONPATH`, inside the Steam Linux Runtime umu
-// keeps under openSU's data dir.
+// Every store game shares one prefix, `<data dir>/wine-prefix`, unless the player gave it its own,
+// `<data dir>/wine-prefixes/<store>-<id>`; an added `.exe` always has its own (`own-<id>`). The
+// runner is the game's pin, else the player's pick, else Automatic, the first that can run of: the
+// newest GE-Proton openSU installed (`ge_proton`), the newest Proton in Steam's folders, what
+// Lutris uses (`lutris`), system Wine. A launch never waits for a download. Discovery only reads
+// Steam's and Lutris's folders. Steam's own games are left to Steam. Plain Wine runs the game
+// itself; a Proton build runs it through `umu-run` (openSU's, else one on PATH, else Lutris's) with
+// `PROTONPATH`, inside the Steam Linux Runtime umu keeps under openSU's data dir.
 #pragma once
 
 #include <cstdint>
@@ -108,12 +109,12 @@ class OwnPrefixes {
 /// The prefix every game without its own shares.
 [[nodiscard]] std::filesystem::path sharedPrefix(const std::filesystem::path& dataDir);
 
-/// `game`'s own prefix: `<dataDir>/wine-prefixes/<store>-<id>`, any character outside
+/// `game`'s own prefix: `<dataDir>/wine-prefixes/<key(store)>-<id>`, any character outside
 /// `[A-Za-z0-9._-]` in the id made `_`.
 [[nodiscard]] std::filesystem::path ownPrefix(const std::filesystem::path& dataDir,
                                               const Game& game);
 
-/// The prefix `game` runs in.
+/// The prefix `game` runs in: its own for a game in `own` or one the player added.
 [[nodiscard]] std::filesystem::path prefixFor(const std::filesystem::path& dataDir,
                                               const Game& game, const OwnPrefixes& own);
 
@@ -212,7 +213,8 @@ struct Prepared {
 
 /// Readies the launch of a GOG or Epic game whose install is a Windows build and makes its prefix:
 /// `--wine <binary> --wine-prefix <prefix>` for plain Wine, `--no-wine --wrapper <umu-run>` and
-/// umu's environment for a Proton build. Any other game is left as it is.
+/// umu's environment for a Proton build. An added `.exe` is started by the runner itself
+/// (`invocationOf`). Any other game is left as it is.
 [[nodiscard]] Prepared prepare(Game& game, const Choice& choice);
 
 } // namespace opensu::library::wine

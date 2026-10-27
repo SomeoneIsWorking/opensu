@@ -73,6 +73,9 @@ fs::path ArtworkStore::pathFor(const library::Game& game) const {
                    : root_ / "epic" / (game.sourceId + ".jpg");
     case library::Source::Gog:
         return game.sourceId.empty() ? fs::path{} : root_ / "gog" / (game.sourceId + ".jpg");
+    case library::Source::Own:
+        // The Steam app it matched; without one, SteamGridDB's comes through `CoverFitter`.
+        return game.artworkKey.empty() ? fs::path{} : root_ / "own" / (game.sourceId + ".jpg");
     }
     return {};
 }

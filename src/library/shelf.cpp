@@ -11,8 +11,9 @@
 namespace opensu::library {
 namespace {
 
-/// The order the launchers sit in in Library, as the top bar's badges do.
-constexpr std::array<Source, 3> launcherOrder{Source::Steam, Source::Epic, Source::Gog};
+/// The order the launchers sit in in Library, as the top bar's badges do, the player's own last.
+constexpr std::array<Source, 4> launcherOrder{Source::Steam, Source::Epic, Source::Gog,
+                                              Source::Own};
 /// The order store icons are drawn in.
 constexpr std::array<Source, 3> iconOrder{Source::Steam, Source::Gog, Source::Epic};
 
@@ -129,9 +130,12 @@ std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
                                         status->availability == Availability::Loading});
         }
     }
-    if (!shelf.empty()) {
+    if (std::ranges::any_of(shelf, [](const ShelfItem& item) {
+            return std::get<Launcher>(item).source != Source::Own;
+        })) {
         shelf.emplace_back(Giveaways{});
     }
+    shelf.emplace_back(AddGame{});
     const std::vector<Title> titles = storeTitles(games);
     if (!titles.empty()) {
         shelf.emplace_back(AllGames{titles.size()});

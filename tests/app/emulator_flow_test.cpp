@@ -183,6 +183,12 @@ struct Rig {
                                           return std::optional<std::size_t>{};
                                       },
                                       [](const library::Game&) {
+                                      },
+                                      [](const library::Game&) {
+                                      },
+                                      [](const library::Game&) {
+                                      },
+                                      [](const library::Game&) {
                                       }}};
 
     /// Each action as a press, the stack settled after it.

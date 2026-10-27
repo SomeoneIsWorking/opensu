@@ -123,3 +123,17 @@ target_link_libraries(steam_compat_test PRIVATE opensu::library)
 target_include_directories(steam_compat_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_definitions(steam_compat_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME steam_compat COMMAND steam_compat_test)
+
+add_executable(own_games_test own_games_test.cpp)
+target_link_libraries(own_games_test PRIVATE opensu::library SQLite::SQLite3)
+target_include_directories(own_games_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(own_games_test PRIVATE
+    OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME own_games COMMAND own_games_test)
+
+add_executable(game_identify_test game_identify_test.cpp)
+target_link_libraries(game_identify_test PRIVATE opensu::library)
+target_include_directories(game_identify_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(game_identify_test PRIVATE
+    OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME game_identify COMMAND game_identify_test)

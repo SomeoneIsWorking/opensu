@@ -17,7 +17,8 @@ std::string lowered(std::string text) {
 
 } // namespace
 
-void FolderChooser::open(const fs::path& start) {
+void FolderChooser::open(const fs::path& start, Accept files) {
+    accept_ = std::move(files);
     std::error_code error;
     current_ = start.lexically_normal();
     while (!current_.empty() && current_ != current_.root_path() &&
@@ -32,22 +33,30 @@ void FolderChooser::open(const fs::path& start) {
 
 void FolderChooser::list() {
     folders_.clear();
+    files_.clear();
     problem_.clear();
     std::error_code error;
     fs::directory_iterator item{current_, error};
     for (; !error && item != fs::directory_iterator{}; item.increment(error)) {
         std::error_code status;
         const std::string name = item->path().filename().string();
-        if (item->is_directory(status) && !name.starts_with('.')) {
+        if (name.starts_with('.')) {
+            continue;
+        }
+        if (item->is_directory(status)) {
             folders_.push_back(FolderEntry{name, item->path()});
+        } else if (accept_ && accept_(item->path())) {
+            files_.push_back(FolderEntry{name, item->path()});
         }
     }
     if (error) {
         problem_ = "cannot list this folder: " + error.message();
     }
-    std::ranges::sort(folders_, [](const FolderEntry& a, const FolderEntry& b) {
+    const auto byName = [](const FolderEntry& a, const FolderEntry& b) {
         return lowered(a.name) < lowered(b.name);
-    });
+    };
+    std::ranges::sort(folders_, byName);
+    std::ranges::sort(files_, byName);
 }
 
 bool FolderChooser::up() {

@@ -132,6 +132,7 @@ bool Integrations::lists(library::Source source) const noexcept {
     case library::Source::Gog:
         return gog;
     case library::Source::Rom:
+    case library::Source::Own:
         break;
     }
     return true;

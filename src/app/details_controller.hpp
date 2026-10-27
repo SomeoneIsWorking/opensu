@@ -1,8 +1,9 @@
 // details_controller — a game's details page and what its rows do: play or install the game,
 // update it, pick its emulator, open its settings (`LayeredEditor`), download the emulator it is
 // missing, give a Windows install its own Wine prefix or the shared one, hide it, uninstall it
-// (asking first), choose its cover, open its button mapping, go back. Opens for the focused game
-// and keeps what it shows current while the library changes under it.
+// (asking first), rename, change the file of or remove a game the player added
+// (`OwnGamesController`), choose its cover, open its button mapping, go back. Opens for the focused
+// game and keeps what it shows current while the library changes under it.
 #pragma once
 
 #include <functional>
@@ -48,6 +49,10 @@ class DetailsController final : public ui::RowActions {
         std::function<std::optional<std::size_t>(const library::Game& game)> gameSettings;
         /// Opens "Choose artwork" for `game` over the page.
         std::function<void(const library::Game& game)> chooseArtwork;
+        /// A game the player added: asks for its new title, its new file, or whether to remove it.
+        std::function<void(const library::Game& game)> rename;
+        std::function<void(const library::Game& game)> changeFile;
+        std::function<void(const library::Game& game)> remove;
     };
 
     /// What the rows act on.

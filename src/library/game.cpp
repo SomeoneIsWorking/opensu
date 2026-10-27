@@ -43,11 +43,16 @@ std::string_view label(Source source) {
         return "GOG";
     case Source::Rom:
         return "Emulator";
+    case Source::Own:
+        return "Your games";
     }
     return "Unknown";
 }
 
 std::string key(Source source) {
+    if (source == Source::Own) {
+        return "own";
+    }
     std::string out;
     for (const char c : label(source)) {
         out += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);

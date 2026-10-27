@@ -1,6 +1,7 @@
-// shelf — what one screen of the grid holds. Home holds the store games installed here. Library
-// holds one tile per launcher, the stores' giveaways, the combined library and one per console
-// with ROMs. Opening one of the folders holds its games; Giveaways opens a screen of its own.
+// shelf — what one screen of the grid holds. Home holds the store games and the player's own games
+// installed here. Library holds one tile per launcher (the player's own games one of them), the
+// stores' giveaways, Add a game, the combined library and one per console with ROMs. Opening one
+// of the folders holds its games; Giveaways and Add a game open screens of their own.
 #pragma once
 
 #include <array>
@@ -57,9 +58,17 @@ struct Giveaways {
 /// The Giveaways tile's and screen's name.
 inline constexpr std::string_view giveawaysName = "Giveaways";
 
+/// Adds a game of the player's own: a file, or imports from Steam's shortcuts and Lutris.
+struct AddGame {
+    bool operator==(const AddGame&) const = default;
+};
+
+/// The Add a game tile's name.
+inline constexpr std::string_view addGameName = "Add a game";
+
 /// A tile that opens a shelf of its own.
 using Folder = std::variant<Console, Launcher, AllGames>;
-using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways>;
+using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, AddGame>;
 
 /// The folder a shelf item opens, or nothing for a game.
 [[nodiscard]] std::optional<Folder> folderOf(const ShelfItem& item);
@@ -73,12 +82,14 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways>;
 /// One console per system with ROMs, in the known systems' order.
 [[nodiscard]] std::vector<Console> consoles(const std::vector<Game>& games);
 
-/// Home: the store games installed here, a title installed in several stores once.
+/// Home: the store games and the player's own installed here, a title installed in several stores
+/// once.
 [[nodiscard]] std::vector<ShelfItem> homeShelf(const std::vector<Game>& games);
 
-/// Library: one launcher per store that is not absent, Steam, Epic, GOG; Giveaways when there is a
-/// launcher; the combined library when a store has games; then one console per system with ROMs,
-/// in the known systems' order.
+/// Library: one launcher per store that is not absent, Steam, Epic, GOG, then the player's own
+/// games when there are any; Giveaways when a store has a launcher; Add a game; the combined
+/// library when a store or the player has games; then one console per system with ROMs, in the
+/// known systems' order.
 [[nodiscard]] std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
                                                   const std::vector<SourceStatus>& sources);
 

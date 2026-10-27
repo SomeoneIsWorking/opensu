@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libinput-dev libei-dev libpipewire-0.3-dev libvulkan-dev libseat-dev liblcms2-dev \
         libglm-dev libstb-dev libgbm-dev libegl-dev libgles-dev xwayland \
         libpng-dev glslc mesa-vulkan-drivers libpulse-dev libasound2-dev \
-        libfreetype-dev libharfbuzz-dev libvorbis-dev \
+        libfreetype-dev libharfbuzz-dev libvorbis-dev libsqlite3-dev \
     && rm -rf /var/lib/apt/lists/* \
     && for tool in clang clang++ clang-scan-deps; do \
         ln -s "/usr/bin/$tool-22" "/usr/local/bin/$tool"; \

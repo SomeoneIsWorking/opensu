@@ -1,4 +1,5 @@
-// The folder chooser over a real directory tree: its folders, going in and up, and a missing start.
+// The folder chooser over a real directory tree: its folders, the files it is asked to accept,
+// going in and up, and a missing start.
 #include "folder_chooser.hpp"
 
 #include <cstdio>
@@ -24,6 +25,20 @@ void listsFoldersOnly(const fs::path& root) {
     }
     expect(names == std::vector<std::string>{"alpha", "Beta"},
            "folders sort without case, files and dotfolders are skipped");
+    expect(chooser.files().empty(), "no file is listed unless asked for");
+}
+
+void listsAcceptedFiles(const fs::path& root) {
+    FolderChooser chooser;
+    chooser.open(root / "file.txt", [](const fs::path& file) {
+        return file.extension() == ".txt";
+    });
+    expect(chooser.current() == root, "a file's start opens on its folder");
+    expect(chooser.files().size() == 1 && chooser.files().front().name == "file.txt" &&
+               chooser.folders().size() == 2,
+           "the accepted files are listed after the folders");
+    chooser.enter(root / "alpha");
+    expect(chooser.files().empty(), "the filter follows into a folder");
 }
 
 void goingInAndUp(const fs::path& root) {
@@ -55,6 +70,7 @@ int main() {
     std::ofstream out{root / "file.txt"};
     out.close();
     listsFoldersOnly(root);
+    listsAcceptedFiles(root);
     goingInAndUp(root);
     startBelowAMissingFolderFallsBackUp(root);
     fs::remove_all(root);

@@ -140,6 +140,7 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
     details.badge = badgeOf(game);
     details.art = game.artwork.empty() ? game.artworkWide : game.artwork;
     const bool rom = game.source == library::Source::Rom;
+    const bool own = game.source == library::Source::Own;
     const bool updatable = game.installed && game.updateAvailable && !rom;
     std::vector<SettingsRow>& facts = details.facts;
     facts.push_back(detailsFact(
@@ -155,6 +156,10 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
     facts.push_back(detailsFact("Last played", lastPlayedText(game.lastPlayed, now)));
     if (game.playtimeMinutes > 0) {
         facts.push_back(detailsFact("Play time", playtimeText(game.playtimeMinutes)));
+    }
+    if (own) {
+        facts.push_back(game.file.empty() ? detailsFact("Runs through", "Lutris")
+                                          : detailsFact("File", game.file.string()));
     }
     if (rom) {
         facts.push_back(
@@ -185,14 +190,21 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
         actions.push_back(
             makePage(std::string{detailsSettingsId}, "Game settings", {}, *settings.gameSettings));
     }
-    if (game.windowsInstall) {
+    if (game.windowsInstall && !own) {
         actions.push_back(makeChoice(
             std::string{detailsWinePrefixId}, "Wine prefix", {},
             Options{{std::string{sharedPrefix}, std::string{ownPrefix}}, ownWinePrefix ? 1U : 0U}));
     }
     actions.push_back(action(detailsHiddenId, hidden ? "Show game" : "Hide game"));
-    if (game.installed && !rom) {
+    if (game.installed && !rom && !own) {
         actions.push_back(action(detailsUninstallId, "Uninstall"));
+    }
+    if (own) {
+        actions.push_back(action(detailsRenameId, "Rename"));
+        if (!game.file.empty()) {
+            actions.push_back(action(detailsChangeFileId, "Change file"));
+        }
+        actions.push_back(action(detailsRemoveId, "Remove from library"));
     }
     actions.push_back(makePage(std::string{detailsArtworkId}, "Choose artwork", {}, {}));
     actions.push_back(makePage(std::string{detailsControlsId}, "Controls", {}, {}));

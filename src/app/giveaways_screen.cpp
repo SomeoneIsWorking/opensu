@@ -35,6 +35,7 @@ std::string claimText(const giveaways::Offer& offer) {
         return "Claim opens GOG's page in your browser; add it to your library there with your GOG "
                "account.";
     case library::Source::Rom:
+    case library::Source::Own:
         break;
     }
     return {};

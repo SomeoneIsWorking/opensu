@@ -31,6 +31,7 @@ Catalog makeCatalog(const config::Config& config, bool hidden, roms::RomsetLists
         roms::NameDb::under(config.cacheDir), &romsets,
         roms::SwitchInfo{roms::SwitchInfo::edenKeyDirs(config.xdgDataHome, config.home),
                          config.cacheDir / "artwork" / "switch"}));
+    catalog.add(std::make_unique<own::Provider>(own::Records{own::recordsFile(config.dataDir)}));
     return catalog;
 }
 

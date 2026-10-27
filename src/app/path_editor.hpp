@@ -1,8 +1,9 @@
-// path_editor — choosing a folder on the folder chooser card: the path field at its top (typed on
-// the on-screen keyboard or a physical one, Submit takes it), Use this folder, the entry that drops
-// the setting when the request has one, Up one level and the folders to go into. One request at a
-// time: what it is for, where it starts, what makes a folder acceptable and what to do with the
-// answer. A folder that is refused stays on screen with the reason in a toast.
+// path_editor — choosing a folder, or a file, on the folder chooser card: the path field at its top
+// (typed on the on-screen keyboard or a physical one, Submit takes it), Use this folder, the entry
+// that drops the setting when the request has one, Up one level, the folders to go into and, for a
+// file, the files to pick. One request at a time: what it is for, where it starts, what makes an
+// answer acceptable and what to do with it. An answer that is refused stays on screen with the
+// reason in a toast.
 #pragma once
 
 #include <filesystem>
@@ -28,8 +29,10 @@ class PathEditor {
         std::filesystem::path start;
         /// The entry that drops the choice ("Follow the default"); empty for none.
         std::string clearLabel;
-        /// Why a folder is refused, or empty when it is fine.
+        /// Why a folder (or file) is refused, or empty when it is fine.
         std::function<std::string(const std::filesystem::path&)> refusal;
+        /// When set, a file is chosen, not a folder: the files it accepts are listed to pick.
+        ui::FolderChooser::Accept files;
         /// Takes the choice: the folder, or nothing when the player dropped it.
         std::function<void(std::optional<std::filesystem::path>)> done;
     };
@@ -65,6 +68,8 @@ class PathEditor {
     void submitTyped();
     /// Takes the folder shown.
     void useShown();
+    /// Takes `file`, one of the files listed.
+    void pick(const std::filesystem::path& file);
     /// Drops the setting being chosen.
     void dropChoice();
     /// Shows `folder`, one of the folders listed.

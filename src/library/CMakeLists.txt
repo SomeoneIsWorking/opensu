@@ -50,6 +50,10 @@ add_library(opensu_library STATIC
     steam_compat.cpp
     umu_launcher.cpp
     runtime_archive.cpp
+    own_games.cpp
+    game_identify.cpp
+    steam_shortcuts.cpp
+    lutris_games.cpp
 )
 add_library(opensu::library ALIAS opensu_library)
 target_include_directories(opensu_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -59,6 +63,7 @@ target_link_libraries(opensu_library
         opensu::config
         opensu::net
     PRIVATE opensu::command opensu::fileio opensu::zip lucent::lucent OpenSSL::Crypto
+        SQLite::SQLite3
 )
 target_compile_features(opensu_library PUBLIC cxx_std_20)
 # The libretro buildbot's nightly folder and core suffix for the OS and CPU built for.
