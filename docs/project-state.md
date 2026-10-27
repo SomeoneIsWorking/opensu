@@ -500,7 +500,9 @@ the virtual pad the game reads; the shell's controls are never mapped.
 Inside Gamescope the shell holds the pads while its own window is in front (`gamepad::Claim::Shell`,
 `app/pad_owner`), so the Steam client openSU runs never sees Guide; a Steam dialog in front gets
 them, and the shell then hears only Guide, which brings it back (`app/focus_follow`). Big Picture is
-closed whenever it takes the focus. Outside Gamescope the shell leaves the pads free.
+closed whenever it takes the focus, except while openSU's own Steam shows the SteamGridDB sign-in
+there: the pads are then lent to Steam as to a game (`PadOwner::lendToSteam`), virtual pads live while
+Big Picture is in front, Guide bringing the shell back. Outside Gamescope the shell leaves the pads free.
 `docs/issues/guide-opens-steam-big-picture.md`. Tested: `pads` (Shell, Away, Free against another
 reader), `window_focus`, `focus_owner`. Gap: not yet seen on the real pad in the real session.
 

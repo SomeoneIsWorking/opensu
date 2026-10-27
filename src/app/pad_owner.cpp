@@ -26,23 +26,56 @@ Claim PadOwner::claimFor(const Situation& situation) {
     }
     const bool ours = listens(situation);
     if (situation.game) {
-        return ours ? Claim::Game : Claim::Away;
+        return ours || situation.holder == situation.serves ? Claim::Game : Claim::Away;
     }
     return ours && situation.followsFocus && situation.guardsSteam ? Claim::Shell : Claim::Free;
 }
 
 std::vector<std::string> PadOwner::hold(const input::ButtonMap& map) {
+    if (situation_.game) {
+        // A game's launch takes the pads back from Steam.
+        release();
+    }
+    return take(map, FocusHolder::Game);
+}
+
+std::vector<std::string> PadOwner::take(const input::ButtonMap& map, FocusHolder serves) {
     chords_.setGame(map.chords());
     syncChords();
     situation_.game = true;
+    situation_.serves = serves;
     std::vector<std::string> environment = pads_.hold(input::forwardMap(map, chords_.shell()));
     claim_ = Claim::Game;
     follow(situation_.followsFocus, situation_.holder, situation_.menuOver);
     return environment;
 }
 
+void PadOwner::lendToSteam(bool lend) {
+    const bool lent = situation_.game && situation_.serves == FocusHolder::BigPicture;
+    const bool wanted = lend && situation_.guardsSteam && situation_.grabs && !held();
+    if (wanted == lent) {
+        return;
+    }
+    if (wanted) {
+        static_cast<void>(take(input::ButtonMap{}, FocusHolder::BigPicture));
+        return;
+    }
+    release();
+}
+
+void PadOwner::restOutsideBigPicture() {
+    const bool rest = situation_.game && situation_.serves == FocusHolder::BigPicture &&
+                      situation_.followsFocus && situation_.holder != FocusHolder::BigPicture;
+    if (rest != resting_) {
+        resting_ = rest;
+        pads_.setBlocked(rest);
+    }
+}
+
 void PadOwner::release() {
     situation_.game = false;
+    situation_.serves = FocusHolder::Game;
+    resting_ = false;
     situation_.menuOver = false;
     claim_ = claimFor(situation_);
     pads_.release(claim_);
@@ -69,6 +102,7 @@ void PadOwner::follow(bool followsFocus, FocusHolder holder, bool menuOver) {
         claim_ = wanted;
         pads_.claim(wanted);
     }
+    restOutsideBigPicture();
 }
 
 std::vector<gamepad::Event> PadOwner::admit(std::vector<gamepad::Event> events) const {

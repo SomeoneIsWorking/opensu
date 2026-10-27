@@ -68,6 +68,20 @@ void theClaimFollowsTheFocus() {
             .game = true, .followsFocus = true, .holder = FocusHolder::Other, .menuOver = true}) ==
             Claim::Game,
         "the Guide menu over it is openSU's, whatever is focused under it");
+    const auto lent = [](FocusHolder holder) {
+        return S{.game = true,
+                 .serves = FocusHolder::BigPicture,
+                 .followsFocus = true,
+                 .holder = holder};
+    };
+    expect(PadOwner::claimFor(lent(FocusHolder::BigPicture)) == Claim::Game,
+           "pads lent to Steam reach Big Picture through the virtual pads");
+    expect(PadOwner::claimFor(lent(FocusHolder::Other)) == Claim::Away,
+           "another window over Big Picture gets the real pads");
+    expect(PadOwner::claimFor(lent(FocusHolder::OpenSU)) == Claim::Game,
+           "with the shell back in front the lent pads stay held");
+    expect(!PadOwner::listens(lent(FocusHolder::BigPicture)),
+           "behind Big Picture the shell hears only Guide");
 
     expect(!PadOwner::listens(S{.followsFocus = true, .holder = FocusHolder::Other}),
            "the shell does not act on the pads behind another window");

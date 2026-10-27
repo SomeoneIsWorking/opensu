@@ -85,13 +85,25 @@ Checked:
   - After the fix, both with Steam already up and with Steam stopped before Connect: Big Picture
     opens, Steam's OpenID "Sign In" page for www.steamgriddb.com shows in front, Cancel closes
     Big Picture and hides Steam again; no system browser.
+  - The pads during the sign-in: in Isolated with "openSU's virtual pads" Steam's sandbox sees only
+    openSU's kept virtual pads, which rest unless a game holds them, so the player's pad could not
+    reach Big Picture. Fixed: `PadOwner::lendToSteam` holds the pads for Big Picture while the
+    sign-in runs, by the same claim rule as a game (`serves` = Big Picture), and releases them when
+    it ends. Shown in a hidden run with a scratch uinput pad linked into `hidden-pads`
+    (`drive.py NAME BUILD pad`): the pad's presses came out of kept pad `event21`, which Steam had
+    open; Steam's `RegisterForControllerInputMessages` reported controller 0 Up, Right, Left, Down;
+    Big Picture's focus moved from the OpenID page into its top bar (search field), right to the
+    next item, back, and down into the page (Gamescope frames); after Cancel the hide atom was 1
+    and a press reached no virtual pad.
 
 Not checked:
 - The player pressing "Sign In", the redirect back to SteamGridDB, and the API page's key field
   and Generate button on the real site (matched by text and shape, not seen).
-- In a real session (not hidden): openSU's own window under Big Picture and FocusFollow leaving
-  Big Picture open during the sign-in; whether the player's pad reaches Big Picture's browser with
-  Isolated's "openSU's virtual pads" (the real pads are not in Steam's sandbox; mouse, touch and
-  keyboard reach it through Gamescope).
+- In a real session (not hidden): openSU's own window under Big Picture, FocusFollow leaving
+  Big Picture open during the sign-in, the lent virtual pads resting while the shell is in front,
+  and Guide over Big Picture bringing the shell back (a hidden run follows no focus).
+- Reaching the page's "Sign In" with the pad: the D-pad moves Big Picture's focus through its top
+  bar, but did not focus anything in the page itself, and the left stick moved no cursor; Steam
+  offers "Use joystick" there, not tried.
 - Normal mode against a desktop Steam with DevTools.
 - The real API's answers, and the libsecret keyring at run time.
