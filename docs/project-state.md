@@ -335,9 +335,13 @@ The key is read back at start from the Secret Service (else `<config>/secrets/st
 token. Checked in a hidden run against the API stand-in (`tests/support/steamgriddb_api_stand_in`,
 `OPENSU_STEAMGRIDDB_API`): the key typed in Settings › Artwork, six of the seven demo covers
 (landscape screenshots) replaced by square grids, the square one left alone, the picker open with
-its offers, and a picked cover shown on the details page and Home. Not yet checked: the real
-SteamGridDB API and site, the sign-in through a real Steam client, the libsecret keyring at run
-time.
+its offers, and a picked cover shown on the details page and Home. Connect through openSU's own
+Steam (Isolated, the player's real client, hidden run in the headless Gamescope fork,
+`scratch/steamgriddb-signin/drive.py`): Steam started on demand when it had stopped, Big Picture
+opened, Steam's windows shown, and Steam's OpenID "Sign In" page for SteamGridDB in front in
+Gamescope's composite; Cancel closes Big Picture and hides Steam again. Not yet checked: the
+player's "Sign In", the API page's key read and Generate on the real site, Normal mode against a
+desktop Steam, the real API, the libsecret keyring at run time.
 
 Artwork that no source has on disk is downloaded in the background
 (`artwork::ArtworkFetcher`) into `<cache>/artwork` (`$XDG_CACHE_HOME/opensu`):

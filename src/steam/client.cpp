@@ -68,7 +68,7 @@ void Client::ensureStarted() {
         mode = mode_;
         devices = devices_;
     }
-    lucent::info("steam", "a launch needs Steam; starting it in its mode");
+    lucent::info("steam", "Steam is needed; starting it in its mode");
     startLocked(mode, devices);
 }
 

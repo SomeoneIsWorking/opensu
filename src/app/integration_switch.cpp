@@ -23,9 +23,7 @@ IntegrationSwitch::~IntegrationSwitch() {
 }
 
 void IntegrationSwitch::guard() {
-    const bool guards = integrations_.guardsSteam();
-    targets_.pads.guardSteam(guards);
-    targets_.focus.closeBigPicture(guards);
+    targets_.pads.guardSteam(integrations_.guardsSteam());
 }
 
 void IntegrationSwitch::begin() {
@@ -66,9 +64,10 @@ void IntegrationSwitch::apply() {
 }
 
 void IntegrationSwitch::service() {
+    const bool guards = integrations_.guardsSteam() && !hooks_.steamWindowsWanted();
+    targets_.focus.closeBigPicture(guards);
     // Until it is logged on, Steam's login and update windows are the player's to answer.
-    const bool hides =
-        integrations_.guardsSteam() && targets_.steam.state() == launch::SteamState::Ready;
+    const bool hides = guards && targets_.steam.state() == launch::SteamState::Ready;
     if (hidesSteamWindows_ == hides) {
         return;
     }
@@ -76,12 +75,24 @@ void IntegrationSwitch::service() {
     hooks_.hideSteamWindows(hides);
 }
 
-void IntegrationSwitch::moveSteam() {
+std::optional<steam::Client::Mode> IntegrationSwitch::steamMode() {
     std::optional<steam::Client::Mode> mode = integrations_.steamMode();
     if (mode && !hooks_.steamInstalled()) {
         lucent::info("steam", "no Steam install found; nothing to start");
         mode.reset();
     }
+    return mode;
+}
+
+launch::SteamGate* IntegrationSwitch::steamInUse() {
+    if (!steamMode() || !targets_.steam.startsClient()) {
+        return nullptr;
+    }
+    return &targets_.steam;
+}
+
+void IntegrationSwitch::moveSteam() {
+    const std::optional<steam::Client::Mode> mode = steamMode();
     const bool all = integrations_.current().steamPads == settings::SteamPads::All;
     const bool keepsPads =
         mode == steam::Client::Mode::Isolated && !all && targets_.steam.startsClient();

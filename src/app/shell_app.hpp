@@ -288,9 +288,6 @@ class ShellApp final : private PointerHost {
     artwork::SteamGridDb steamGridDb_{environment_.steamGridDbApi.empty()
                                           ? std::string{artwork::steamGridDbApi}
                                           : environment_.steamGridDbApi};
-    /// The player's SteamGridDB key, handed to `steamGridDb_`.
-    SteamGridDbAccount steamGridDbAccount_{SteamGridDbAccount::Parts{
-        host::SecretStore{environment_.configDir / "secrets", environment_.keyring}, steamGridDb_}};
     /// iiSU's UI sounds, played from the loop's input handling.
     audio::SdlSoundPlayer sounds_;
     /// Opened by `run` or `renderToFile`; before the shell, whose textures live on its device.
@@ -782,6 +779,14 @@ class ShellApp final : private PointerHost {
     library::ShelfBrowser browser_;
     /// Started in run(), before the loop, and shut down with the app.
     steam::Client steam_;
+    /// The player's SteamGridDB key, handed to `steamGridDb_`; after the Steam client its sign-in
+    /// starts and waits on, so its worker ends first.
+    SteamGridDbAccount steamGridDbAccount_{SteamGridDbAccount::Parts{
+        .secrets = host::SecretStore{environment_.configDir / "secrets", environment_.keyring},
+        .source = steamGridDb_,
+        .steam = [this] {
+            return integrationSwitch_.steamInUse();
+        }}};
     /// The Settings screen's Steam libraries category; after the client it asks.
     SteamLibrarySettings steamLibrarySettings_{
         SteamLibrarySettings::Sources{steam_.libraries(),
@@ -898,6 +903,10 @@ class ShellApp final : private PointerHost {
                     if (steamWindowHiding_) {
                         steamWindowHiding_->hide(hides);
                     }
+                },
+            .steamWindowsWanted =
+                [this] {
+                    return steamGridDbAccount_.signingIn();
                 }}};
     /// The first-run card that asks which integrations to use.
     FirstRunChooser firstRun_{shell_.sessionPanels().integrations(), integrations_, sounds_,

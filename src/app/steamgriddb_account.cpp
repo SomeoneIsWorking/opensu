@@ -15,6 +15,8 @@ namespace {
 constexpr std::string_view keyName = "steamgriddb-api-key";
 constexpr std::string_view keyLabel = "openSU: SteamGridDB API key";
 constexpr std::chrono::seconds browserTimeout{60};
+/// How long Connect waits for openSU's own Steam to log on, as a launch does.
+constexpr std::chrono::minutes steamStartLimit{3};
 
 std::string placeText(host::SecretPlace place) {
     return place == host::SecretPlace::Keyring ? "the keyring" : "a private file";
@@ -39,12 +41,14 @@ SteamGridDbAccount::~SteamGridDbAccount() {
 }
 
 void SteamGridDbAccount::connect() {
+    launch::SteamGate* steam = parts_.steam();
     {
         const std::lock_guard lock{mutex_};
         signIn_ = std::stop_source{};
-        state_ = State::OpeningSteam;
+        state_ =
+            steam != nullptr && steam->ownsClient() ? State::StartingSteam : State::OpeningSteam;
     }
-    post(Connect{});
+    post(Connect{steam});
 }
 
 void SteamGridDbAccount::openKeyPage() {
@@ -67,6 +71,16 @@ void SteamGridDbAccount::disconnect() {
 SteamGridDbAccount::Status SteamGridDbAccount::status() const {
     const std::lock_guard lock{mutex_};
     return Status{state_, place_, state_ == State::Connected && parts_.source.refused()};
+}
+
+bool SteamGridDbAccount::signingIn() const {
+    const std::lock_guard lock{mutex_};
+    return signingIn(state_);
+}
+
+bool SteamGridDbAccount::signingIn(State state) noexcept {
+    return state == State::StartingSteam || state == State::OpeningSteam ||
+           state == State::WaitingForPlayer || state == State::ReadingKey;
 }
 
 std::vector<SteamGridDbAccount::News> SteamGridDbAccount::take() {
@@ -136,7 +150,7 @@ void SteamGridDbAccount::perform(const Load& /*load*/, const std::stop_token& /*
     lucent::info("steamgriddb", "connected, key kept in {}", placeText(found->place));
 }
 
-void SteamGridDbAccount::perform(const Connect& /*connect*/, const std::stop_token& stop) {
+void SteamGridDbAccount::perform(const Connect& connect, const std::stop_token& stop) {
     std::stop_token cancelled;
     {
         const std::lock_guard lock{mutex_};
@@ -147,16 +161,33 @@ void SteamGridDbAccount::perform(const Connect& /*connect*/, const std::stop_tok
                                         const std::lock_guard lock{mutex_};
                                         signIn_.request_stop();
                                     }};
-    steam::SteamGridDbSignIn signIn{parts_.devToolsPort, parts_.timing};
-    std::string error;
-    if (!signIn.reachable(error)) {
-        lucent::info("steamgriddb", "Steam cannot sign in ({}); asking for the key", error);
-        setState(State::Disconnected);
-        perform(OpenPage{}, stop);
-        tell({"Steam is not available: copy the key from SteamGridDB's page in your browser", false,
-              false, true});
+    if (connect.steam == nullptr) {
+        askForKey("no Steam to sign in with", stop);
         return;
     }
+    // openSU's own Steam has no desktop window in openSU's Gamescope; Big Picture shows the page.
+    const bool own = connect.steam->ownsClient();
+    if (own && !bringUp(*connect.steam, cancelled)) {
+        setState(State::Disconnected);
+        return;
+    }
+    setState(State::OpeningSteam);
+    steam::SteamGridDbSignIn signIn{parts_.devToolsPort, parts_.timing,
+                                    own ? steam::SteamGridDbSignIn::View::BigPicture
+                                        : steam::SteamGridDbSignIn::View::SteamWindow};
+    std::string error;
+    if (!signIn.reachable(error)) {
+        if (!own) {
+            askForKey("the desktop Steam's DevTools do not answer: " + error, stop);
+            return;
+        }
+        lucent::warn("steamgriddb", "sign-in through Steam: {}", error);
+        setState(State::Disconnected);
+        tell({"SteamGridDB sign-in failed: " + error, true});
+        return;
+    }
+    lucent::info("steamgriddb", "signing in through {} Steam",
+                 own ? "openSU's own" : "the desktop");
     std::optional<std::string> key = signIn.run(
         cancelled,
         [this](steam::SteamGridDbSignIn::Step step) {
@@ -174,6 +205,33 @@ void SteamGridDbAccount::perform(const Connect& /*connect*/, const std::stop_tok
         return;
     }
     keep(*key);
+}
+
+bool SteamGridDbAccount::bringUp(launch::SteamGate& steam, const std::stop_token& cancelled) {
+    steam.ensureStarted();
+    const launch::SteamState state = steam.waitReady(steamStartLimit, [&cancelled] {
+        return cancelled.stop_requested();
+    });
+    if (cancelled.stop_requested()) {
+        lucent::warn("steamgriddb", "sign-in through Steam: cancelled while Steam started");
+        tell({"SteamGridDB sign-in cancelled", false});
+        return false;
+    }
+    if (state == launch::SteamState::Ready) {
+        return true;
+    }
+    const std::string why = launch::notReadyReason(state);
+    lucent::warn("steamgriddb", "sign-in through Steam: {}", why);
+    tell({"SteamGridDB sign-in failed: " + why, true});
+    return false;
+}
+
+void SteamGridDbAccount::askForKey(const std::string& why, const std::stop_token& stop) {
+    lucent::info("steamgriddb", "Steam cannot sign in ({}); asking for the key", why);
+    setState(State::Disconnected);
+    perform(OpenPage{}, stop);
+    tell({"Steam is not available: copy the key from SteamGridDB's page in your browser", false,
+          false, true});
 }
 
 void SteamGridDbAccount::perform(const OpenPage& /*page*/, const std::stop_token& /*stop*/) {

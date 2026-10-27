@@ -4,7 +4,9 @@
 // client in its mode (started, attached or stopped on a worker, as Managed's shutdown can take
 // seconds), the fixed virtual pads Isolated Steam's sandbox holds in place of the player's
 // controllers, the pad and focus guards openSU's own Steam asks for (Managed, Isolated), and
-// Steam's windows hidden in Gamescope while that Steam is logged on.
+// Steam's windows hidden in Gamescope while that Steam is logged on. While the player answers
+// something in Steam's own windows (the SteamGridDB sign-in), they are shown and Big Picture is
+// left open; the guards come back when it ends.
 #pragma once
 
 #include <condition_variable>
@@ -18,6 +20,7 @@
 #include "focus_follow.hpp"
 #include "gamepad/pad_source.hpp"
 #include "integrations_in_force.hpp"
+#include "launch/steam_gate.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
 #include "pad_owner.hpp"
@@ -47,6 +50,8 @@ class IntegrationSwitch {
         std::function<void()> emulatorsChanged;
         /// Whether Gamescope leaves Steam's own windows out of focus and the composite.
         std::function<void(bool)> hideSteamWindows;
+        /// Whether the player is answering something in Steam's own windows now.
+        std::function<bool()> steamWindowsWanted;
     };
 
     IntegrationSwitch(const IntegrationsInForce& integrations, Targets targets, Hooks hooks);
@@ -59,12 +64,17 @@ class IntegrationSwitch {
     /// Applies a change: only what differs from what was applied last. Main loop only.
     void apply();
     /// Hides Steam's windows while openSU's own Steam is logged on (Managed or Isolated, and
-    /// Ready), and shows them otherwise; tells the hook only of a change. Every frame, main loop
-    /// only.
+    /// Ready) and nothing wants them, and shows them otherwise; tells the hook only of a change.
+    /// Big Picture taking the focus is closed under the same rule. Every frame, main loop only.
     void service();
+    /// The Steam client in the mode in force, when this run has one to use: nothing when Steam is
+    /// off, not installed, or a hidden run starts none. Main loop only.
+    [[nodiscard]] launch::SteamGate* steamInUse();
 
   private:
     void guard();
+    /// The Steam mode in force, when Steam is installed.
+    [[nodiscard]] std::optional<steam::Client::Mode> steamMode();
     /// Posts the mode in force to the worker and returns; the worker does the slow part.
     void moveSteam();
     /// The worker: waits for the requested mode and moves the client to it, one move at a time.

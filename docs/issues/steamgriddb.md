@@ -1,7 +1,7 @@
 # SteamGridDB artwork, its API key got through the Steam login
 
-Status: open; built and checked against stand-ins, not yet against the real site, API or a real
-Steam client.
+Status: open; built and checked against stand-ins; the sign-in checked against the player's real
+Steam client up to Steam's OpenID page, not past it.
 
 The player: "add SteamGridDB but automate the API key process by using Steam login".
 
@@ -15,8 +15,23 @@ Decided:
   Steam login the client already holds signs in; the player only confirms Steam's "Sign in" page.
   openSU then opens the API page in that view, makes the key if there is none, reads it, and closes
   the view. No Steam credential, cookie or token is read by openSU; only the SteamGridDB key.
-- Steam not available (not installed, not running, or not logged in): the same page in the system
-  browser and a field to paste the key with the on-screen keyboard.
+- Which Steam, by mode:
+  - Managed, Isolated: openSU's own Steam. Connect starts it in its mode when it is not up (it
+    stops when Steam exits; the client owner restarts it, as a launch does) and waits until it is
+    logged on (status "Starting Steam", Cancel works). That Steam runs `-silent` inside openSU's
+    Gamescope and its desktop UI shows no window for `steam://openurl`, so the sign-in opens Big
+    Picture, whose browser shows the page, and closes Big Picture after unless the player had it
+    up. While the sign-in runs, `IntegrationSwitch` shows Steam's windows
+    (GAMESCOPE_HIDE_STEAM_CLIENT 0) and does not close Big Picture; both guards come back when it
+    ends. A desktop Steam keeping openSU's out (Blocked) or a Steam that does not start is an
+    error naming why; the system browser does not open.
+  - Normal: the desktop Steam when its DevTools answer (only when it was started with
+    `-cef-enable-debugging`), in its own window; otherwise the system browser and the key field.
+    Normal is the desktop launcher, so the desktop's browser is the right fallback there, and
+    openSU never switches a desktop Steam to Big Picture.
+  - No Steam to use (Steam off, not installed, or a hidden run that starts none): the system
+    browser and a field to paste the key with the on-screen keyboard. "Enter a key" opens the same
+    page in any mode.
 - The key is a secret: kept in the Secret Service (else a 0600 file under the config dir), never
   logged or shown in full; "Disconnect" forgets it.
 - Use: the existing sources already give every game art, so SteamGridDB does not replace them.
@@ -46,8 +61,37 @@ Checked:
   `steamgriddb_api_stand_in`, `OPENSU_SECRET_STORE=file`): a key typed in Settings › Artwork,
   six demo covers replaced by square grids, the picker open, a pick shown on the details page.
 
+- The player's report "SteamGridDB uses my own browser, not steam browser" (Isolated, journal of
+  2026-10-22/23), reproduced in a hidden run with the player's Steam in the headless Gamescope
+  fork (`scratch/steamgriddb-signin/drive.py`, frames from Gamescope's PipeWire stream):
+  - The system browser at 21:06:25: that openSU was in Isolated with its Steam Blocked by a
+    desktop Steam an earlier Normal run had started, so nothing answered on 8080 and
+    `SteamGridDbAccount::perform(Connect)` took any unreachable DevTools as "no Steam" and opened
+    the default browser. Fixed: own Steam is started and waited for, Blocked is an error.
+  - "sign-in through Steam: cancelled" at 21:07:18, :24, :35 and 17:51:50: Steam was Ready, but
+    `SteamGridDbSignIn::run` sent `steam://openurl` to the desktop UI of the `-silent` client,
+    which opens no page and no window (the DevTools page list does not change), so the sign-in
+    waited for a view that never came until the player pressed Cancel (Settings › Artwork ›
+    Cancel, `SteamGridDbAccount::cancel`). Had a view opened, GAMESCOPE_HIDE_STEAM_CLIENT 1 kept it
+    out of the composite: with the atom 1 Gamescope composited nothing, with 0 the page showed.
+    Fixed: Big Picture's browser, Steam's windows shown while the sign-in runs.
+  - Found on the way: "Login via Steam" was matched by /steam/i, which first hit the page's
+    "Steam Pre-Greenlight Project" link; and clicking the real button makes Steam's browser open
+    the OpenID page in a popup of its own, outside the view. The button is now matched by "log
+    in" and "Steam" together and its link followed in the view.
+  - Big Picture just after a logon sits on its login route and then goes to its home over any
+    page opened meanwhile; the sign-in waits until it is past that route
+    (`steam::BigPicture::shown`).
+  - After the fix, both with Steam already up and with Steam stopped before Connect: Big Picture
+    opens, Steam's OpenID "Sign In" page for www.steamgriddb.com shows in front, Cancel closes
+    Big Picture and hides Steam again; no system browser.
+
 Not checked:
-- The real SteamGridDB site: the "Login via Steam" button, the API page's key field and
-  Generate button are matched by text and shape, not seen.
-- That `steam://openurl` makes a DevTools page in a real Steam client, and the real OpenID step.
+- The player pressing "Sign In", the redirect back to SteamGridDB, and the API page's key field
+  and Generate button on the real site (matched by text and shape, not seen).
+- In a real session (not hidden): openSU's own window under Big Picture and FocusFollow leaving
+  Big Picture open during the sign-in; whether the player's pad reaches Big Picture's browser with
+  Isolated's "openSU's virtual pads" (the real pads are not in Steam's sandbox; mouse, touch and
+  keyboard reach it through Gamescope).
+- Normal mode against a desktop Steam with DevTools.
 - The real API's answers, and the libsecret keyring at run time.

@@ -69,17 +69,7 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
             return Begun::Cancelled;
         }
         if (state != SteamState::Ready) {
-            switch (state) {
-            case SteamState::Blocked:
-                failure = "Steam is running on the desktop; quit it to use it inside opensu";
-                break;
-            case SteamState::Initializing:
-                failure = "Steam did not become ready";
-                break;
-            default:
-                failure = "Steam did not start (" + std::string{name(state)} + ")";
-                break;
-            }
+            failure = notReadyReason(state);
             return Begun::Failed;
         }
     }

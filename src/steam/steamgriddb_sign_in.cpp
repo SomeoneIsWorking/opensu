@@ -18,7 +18,10 @@ using Clock = std::chrono::steady_clock;
 constexpr std::string_view loginPath = "/login";
 
 /// What the view shows, and one step taken on it. LOGIN and GENERATE say whether a press of
-/// "Login via Steam" and "Generate" is still allowed. Runs only on SteamGridDB's origin.
+/// "Login via Steam" and "Generate" is still allowed; the sign-in page also links a "Steam
+/// Pre-Greenlight Project", so the button is matched by "log in" and "Steam" together. A link is
+/// followed in the view itself: clicked, Steam's browser opens it in a popup of its own. Runs only
+/// on SteamGridDB's origin.
 constexpr std::string_view stepScript = R"js((() => {
   const origin = ORIGIN, keyPath = KEY_PATH;
   if (location.origin !== origin) return { state: "elsewhere" };
@@ -26,8 +29,11 @@ constexpr std::string_view stepScript = R"js((() => {
   const pressable = pattern => [...document.querySelectorAll("a, button, input[type=submit]")]
     .find(e => pattern.test(String(e.textContent || e.value || "").trim()));
   if (location.pathname.startsWith(LOGIN_PATH)) {
-    const steam = LOGIN ? pressable(/steam/i) : null;
-    if (steam) { steam.click(); return { state: "login", clicked: true }; }
+    const steam = LOGIN ? pressable(/log\s*in\b.*\bsteam/i) : null;
+    if (steam) {
+      if (steam.href) location.assign(steam.href); else steam.click();
+      return { state: "login", clicked: true };
+    }
     return { state: "login" };
   }
   if (location.pathname !== keyPath) {
@@ -72,12 +78,14 @@ std::string openScript() {
     return "SteamClient.URL.ExecuteSteamURL(" + jsString(url) + "), true";
 }
 
-/// The browser view the sign-in opened: a page that was not there before, else a page already on
-/// SteamGridDB's sign-in, which Steam may have reused.
+/// The browser view the sign-in opened: a page on SteamGridDB that was not there before, else a
+/// page already on SteamGridDB's sign-in, which Steam may have reused. Steam opens popups of its
+/// own at any time, so a new page counts only once it shows SteamGridDB.
 std::optional<std::string> openedView(const std::vector<DevToolsTarget>& now,
                                       const std::vector<std::string>& before) {
     for (const DevToolsTarget& target : now) {
-        if (target.type == "page" && std::ranges::find(before, target.id) == before.end()) {
+        if (target.type == "page" && onSteamGridDb(target.url) &&
+            std::ranges::find(before, target.id) == before.end()) {
             return target.id;
         }
     }
@@ -90,6 +98,34 @@ std::optional<std::string> openedView(const std::vector<DevToolsTarget>& now,
     return std::nullopt;
 }
 
+/// Waits `poll`; false when `stop` came first.
+bool rest(const std::stop_token& stop, std::chrono::milliseconds poll) {
+    std::mutex mutex;
+    std::condition_variable_any wake;
+    std::unique_lock lock{mutex};
+    static_cast<void>(wake.wait_for(lock, stop, poll, [] {
+        return false;
+    }));
+    return !stop.stop_requested();
+}
+
+/// Closes Big Picture on the way out when the sign-in opened it.
+struct LeaveBigPicture {
+    explicit LeaveBigPicture(BigPicture& shown) : bigPicture{shown} {
+    }
+    LeaveBigPicture(const LeaveBigPicture&) = delete;
+    LeaveBigPicture(LeaveBigPicture&&) = delete;
+    LeaveBigPicture& operator=(LeaveBigPicture&&) = delete;
+    LeaveBigPicture& operator=(const LeaveBigPicture&) = delete;
+    ~LeaveBigPicture() {
+        if (opened) {
+            bigPicture.close();
+        }
+    }
+    BigPicture& bigPicture;
+    bool opened{false};
+};
+
 } // namespace
 
 bool isSteamGridDbKey(std::string_view key) noexcept {
@@ -99,8 +135,38 @@ bool isSteamGridDbKey(std::string_view key) noexcept {
            });
 }
 
-SteamGridDbSignIn::SteamGridDbSignIn(std::uint16_t port, Timing timing)
-    : port_{port}, timing_{timing}, shared_{port} {
+SteamGridDbSignIn::SteamGridDbSignIn(std::uint16_t port, Timing timing, View view)
+    : port_{port}, timing_{timing}, view_{view}, shared_{port} {
+}
+
+bool SteamGridDbSignIn::showBigPicture(const std::stop_token& stop, Clock::time_point deadline,
+                                       bool& opened, std::string& error) {
+    std::optional<bool> shown = bigPicture_.shown(error);
+    if (!shown) {
+        return false;
+    }
+    if (*shown) {
+        return true;
+    }
+    if (!bigPicture_.open(error)) {
+        return false;
+    }
+    opened = true;
+    while (rest(stop, timing_.poll)) {
+        if (Clock::now() > deadline) {
+            error = "Steam's Big Picture did not open";
+            return false;
+        }
+        shown = bigPicture_.shown(error);
+        if (!shown) {
+            return false;
+        }
+        if (*shown) {
+            return true;
+        }
+    }
+    error = "cancelled";
+    return false;
 }
 
 bool SteamGridDbSignIn::reachable(std::string& error) {
@@ -110,6 +176,11 @@ bool SteamGridDbSignIn::reachable(std::string& error) {
 std::optional<std::string> SteamGridDbSignIn::run(const std::stop_token& stop,
                                                   const std::function<void(Step)>& step,
                                                   std::string& error) {
+    const Clock::time_point deadline = Clock::now() + timing_.limit;
+    LeaveBigPicture leave{bigPicture_};
+    if (view_ == View::BigPicture && !showBigPicture(stop, deadline, leave.opened, error)) {
+        return std::nullopt;
+    }
     const std::optional<std::vector<DevToolsTarget>> before = devToolsTargets(port_, error);
     if (!before) {
         return std::nullopt;
@@ -121,9 +192,6 @@ std::optional<std::string> SteamGridDbSignIn::run(const std::stop_token& stop,
     if (!shared_.evaluate(openScript(), error)) {
         return std::nullopt;
     }
-    const Clock::time_point deadline = Clock::now() + timing_.limit;
-    std::mutex mutex;
-    std::condition_variable_any wake;
     std::optional<std::string> view;
     std::unique_ptr<DevTools> page;
     std::optional<std::string> key;
@@ -131,16 +199,9 @@ std::optional<std::string> SteamGridDbSignIn::run(const std::stop_token& stop,
     bool generatePressed = false;
     bool reading = false;
     for (;;) {
-        {
-            std::unique_lock lock{mutex};
-            if (wake.wait_for(lock, stop, timing_.poll,
-                              [] {
-                                  return false;
-                              }) ||
-                stop.stop_requested()) {
-                error = "cancelled";
-                break;
-            }
+        if (!rest(stop, timing_.poll)) {
+            error = "cancelled";
+            break;
         }
         if (Clock::now() > deadline) {
             error = "Steam's sign-in was not confirmed in time";

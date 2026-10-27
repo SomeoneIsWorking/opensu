@@ -277,6 +277,10 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                           },
                                       .hideSteamWindows =
                                           [](bool) {
+                                          },
+                                      .steamWindowsWanted =
+                                          [] {
+                                              return false;
                                           }}};
     integrationSwitch.begin();
     expect(!plugins.active() && !emulators.setup().standalone, "all off: no plugins, no emulators");

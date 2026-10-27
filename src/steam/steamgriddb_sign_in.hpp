@@ -4,7 +4,9 @@
 // Steam's "Sign in" page and nothing else. The view then goes to SteamGridDB's API page, makes a
 // key when there is none, and the key is read from that page before the view is closed. Scripts
 // run only in that view and only while it shows SteamGridDB; no Steam page, cookie or credential
-// is read.
+// is read. openSU's own Steam (`-silent`, inside openSU's Gamescope) opens no window for
+// `steam://openurl` on its desktop UI, so there the sign-in opens Big Picture first, whose browser
+// shows the page, and closes it after.
 #pragma once
 
 #include <chrono>
@@ -15,6 +17,7 @@
 #include <string>
 #include <string_view>
 
+#include "big_picture.hpp"
 #include "devtools.hpp"
 
 namespace opensu::steam {
@@ -45,23 +48,41 @@ class SteamGridDbSignIn {
         ReadingKey,
     };
 
+    /// Where Steam shows the page.
+    enum class View : std::uint8_t {
+        /// The client's own browser window: a desktop Steam.
+        SteamWindow,
+        /// Big Picture's browser, opened for the sign-in when it is not up: openSU's own Steam.
+        BigPicture,
+    };
+
     using Timing = SignInTiming;
 
-    explicit SteamGridDbSignIn(std::uint16_t port = devToolsPort, Timing timing = {});
+    explicit SteamGridDbSignIn(std::uint16_t port = devToolsPort, Timing timing = {},
+                               View view = View::SteamWindow);
 
     /// Whether Steam answers on DevTools, which the sign-in needs.
     [[nodiscard]] bool reachable(std::string& error);
 
-    /// Runs the sign-in to the end: the key, or nothing with `error` (Steam unreachable, the
-    /// view closed by the player, the time limit, `stop`). `step` hears each step as it starts.
-    /// The view is closed either way. Blocks; run it off the frame loop.
+    /// Runs the sign-in to the end: the key, or nothing with `error` (Steam unreachable, Big
+    /// Picture not opening, the view closed by the player, the time limit, `stop`). `step` hears
+    /// each step as it starts. The view, and Big Picture when the sign-in opened it, are closed
+    /// either way. Blocks; run it off the frame loop.
     [[nodiscard]] std::optional<std::string>
     run(const std::stop_token& stop, const std::function<void(Step)>& step, std::string& error);
 
   private:
+    /// Opens Big Picture unless it shows and waits until it does; false with `error` when it does
+    /// not come up before `deadline` or `stop`.
+    [[nodiscard]] bool showBigPicture(const std::stop_token& stop,
+                                      std::chrono::steady_clock::time_point deadline, bool& opened,
+                                      std::string& error);
+
     std::uint16_t port_;
     Timing timing_;
+    View view_;
     DevTools shared_;
+    BigPicture bigPicture_{shared_};
 };
 
 } // namespace opensu::steam

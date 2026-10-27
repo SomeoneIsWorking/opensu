@@ -44,7 +44,7 @@ constexpr const char* keyPage = "https://www.steamgriddb.com/profile/preferences
 
 constexpr SteamGridDbSignIn::Timing quick{10ms, 10s};
 
-/// A fake Steam whose `steam://openurl` opens view VIEW on SteamGridDB's sign-in.
+/// A desktop Steam whose `steam://openurl` opens view VIEW on SteamGridDB's sign-in.
 struct Rig {
     FakeSteam* self{nullptr};
     FakeSteam steam{[this](const std::string& expression) {
@@ -65,7 +65,7 @@ void answerAsSteamGridDb(FakeSteam& steam) {
                           const std::string& page, const std::string& expression) -> json {
         const std::string at = steam.pageUrl(page);
         if (at == login) {
-            if (contains(expression, "true ? pressable(/steam/i)")) {
+            if (contains(expression, "true ? pressable(/log")) {
                 steam.putPage(page, openId);
                 return {{"state", "login"}, {"clicked", true}};
             }
@@ -132,12 +132,112 @@ void testSignsInAndReadsTheKey() {
                "no script reads cookies or storage");
         expect(contains(call.expression, "location.origin !== origin"),
                "the script itself refuses another origin");
-        loginOffers += contains(call.expression, "true ? pressable(/steam/i)") ? 1 : 0;
+        loginOffers += contains(call.expression, "true ? pressable(/log") ? 1 : 0;
     }
     loginPressedOnce = loginOffers == 1;
     expect(loginPressedOnce, "Login via Steam is pressed once");
     expect(rig.steam.closed() == std::vector<std::string>{"VIEW"}, "the view is closed after");
     expect(rig.steam.pageUrl("VIEW").empty(), "the view is gone");
+}
+
+/// openSU's own Steam: on its desktop UI until Big Picture is asked for, and only Big Picture's
+/// browser opens SteamGridDB.
+struct BigPictureRig {
+    FakeSteam* self{nullptr};
+    std::atomic<bool> bigPicture{false};
+    FakeSteam steam{[this](const std::string& expression) -> json {
+        if (contains(expression, "GetUIMode")) {
+            return json(bigPicture.load());
+        }
+        if (contains(expression, "steam://open/bigpicture")) {
+            bigPicture = true;
+        } else if (contains(expression, "ExitBigPictureMode")) {
+            bigPicture = false;
+        } else if (contains(expression, "steam://openurl/") && bigPicture) {
+            self->putPage("VIEW", login);
+        }
+        return json(true);
+    }};
+    BigPictureRig() {
+        self = &steam;
+    }
+};
+
+std::vector<std::string> steamCalls(const FakeSteam& steam) {
+    std::vector<std::string> named;
+    for (const std::string& call : steam.calls()) {
+        if (contains(call, "open/bigpicture")) {
+            named.emplace_back("open big picture");
+        } else if (contains(call, "openurl")) {
+            named.emplace_back("open sign-in");
+        } else if (contains(call, "ExitBigPictureMode")) {
+            named.emplace_back("close big picture");
+        }
+    }
+    return named;
+}
+
+void testOwnSteamSignsInThroughBigPicture() {
+    BigPictureRig rig;
+    answerAsSteamGridDb(rig.steam);
+    const std::jthread player = confirmWhenAsked(rig.steam);
+    SteamGridDbSignIn signIn{rig.steam.port(), quick, SteamGridDbSignIn::View::BigPicture};
+    std::string error;
+    const std::optional<std::string> key = signIn.run(
+        std::stop_token{},
+        [](Step) {
+        },
+        error);
+    expect(key && *key == fakeKey, "the key is read through Big Picture's browser");
+    expect(steamCalls(rig.steam) ==
+               std::vector<std::string>{"open big picture", "open sign-in", "close big picture"},
+           "Big Picture opens before the sign-in and closes after it");
+    expect(rig.steam.closed() == std::vector<std::string>{"VIEW"}, "the view is closed after");
+}
+
+void testBigPictureAlreadyUpStaysUp() {
+    BigPictureRig rig;
+    rig.bigPicture = true;
+    rig.steam.answerPages([&rig](const std::string& page, const std::string&) -> json {
+        rig.steam.putPage(page, openId);
+        return {{"state", "login"}, {"clicked", true}};
+    });
+    std::stop_source cancel;
+    SteamGridDbSignIn signIn{rig.steam.port(), quick, SteamGridDbSignIn::View::BigPicture};
+    std::string error;
+    const std::optional<std::string> key = signIn.run(
+        cancel.get_token(),
+        [&cancel](Step step) {
+            if (step == Step::WaitingForPlayer) {
+                cancel.request_stop();
+            }
+        },
+        error);
+    expect(!key && error == "cancelled", "a cancel ends the sign-in");
+    expect(steamCalls(rig.steam) == std::vector<std::string>{"open sign-in"},
+           "a Big Picture the player had up is neither opened nor closed");
+}
+
+void testCancelWhileBigPictureOpensClosesIt() {
+    std::stop_source cancel;
+    // Big Picture never comes up before the cancel.
+    FakeSteam stuck{[&cancel](const std::string& expression) -> json {
+        if (contains(expression, "GetUIMode")) {
+            cancel.request_stop();
+            return false;
+        }
+        return json(true);
+    }};
+    SteamGridDbSignIn signIn{stuck.port(), quick, SteamGridDbSignIn::View::BigPicture};
+    std::string error;
+    const std::optional<std::string> key = signIn.run(
+        cancel.get_token(),
+        [](Step) {
+        },
+        error);
+    expect(!key && error == "cancelled", "a cancel while Big Picture opens ends the sign-in");
+    expect(steamCalls(stuck) == std::vector<std::string>{"open big picture", "close big picture"},
+           "the Big Picture the sign-in asked for is closed again");
 }
 
 void testThePlayerClosingTheWindowEndsIt() {
@@ -230,6 +330,9 @@ int main() {
     try {
         testKeyShape();
         testSignsInAndReadsTheKey();
+        testOwnSteamSignsInThroughBigPicture();
+        testBigPictureAlreadyUpStaysUp();
+        testCancelWhileBigPictureOpensClosesIt();
         testThePlayerClosingTheWindowEndsIt();
         testCancelClosesTheView();
         testTheTimeLimitClosesTheView();

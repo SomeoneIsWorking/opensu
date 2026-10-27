@@ -22,6 +22,7 @@
 #include "settings_controller.hpp"
 #include "shortcut_editor.hpp"
 #include "support/fake_steam.hpp"
+#include "support/fake_steam_gate.hpp"
 #include "ui/check.hpp"
 #include "volume_control.hpp"
 
@@ -88,7 +89,10 @@ struct Rig {
               host::SecretStore{config.configDir / "secrets", false}, steamGridDb, steamPort,
               steam::SteamGridDbSignIn::Timing{std::chrono::milliseconds{10},
                                                std::chrono::seconds{10}},
-              "true"}},
+              "true",
+              [this, steamPort]() -> launch::SteamGate* {
+                  return steamPort == 1 ? nullptr : &steamGate;
+              }}},
           artworkSettings{steamGridDbAccount, entry, sounds,
                           app::ArtworkSettings::Hooks{[this](const std::string& text, bool error) {
                                                           said.push_back({text, error});
@@ -236,6 +240,8 @@ struct Rig {
     app::PathEditor paths;
     /// SteamGridDB with no API behind it: these checks keep and forget keys, never fetch.
     artwork::SteamGridDb steamGridDb{"http://127.0.0.1:1/api/v2"};
+    /// The client Connect signs in with; a desktop Steam unless a test says otherwise.
+    test::FakeSteamGate steamGate;
     app::SteamGridDbAccount steamGridDbAccount;
     app::ArtworkSettings artworkSettings;
     int artworkRequests{0};
@@ -1206,6 +1212,8 @@ void steamGridDbThroughSteam(const fs::path& root) {
         return {{"state", "navigating"}};
     });
     Rig rig{root, true, steam.port()};
+    // Normal: the desktop's Steam, whose DevTools answer.
+    rig.steamGate.setOwnsClient(false);
     rig.controller.open();
     rig.enter("Artwork");
     expect(serviceUntil(rig,
@@ -1225,6 +1233,29 @@ void steamGridDbThroughSteam(const fs::path& root) {
            "the key read through Steam connects");
     expect(rig.steamGridDb.connected() && steam.closed() == std::vector<std::string>{"VIEW"},
            "the key is handed on and Steam's view closed");
+}
+
+/// Connect with openSU's own Steam kept out by a desktop Steam: the reason, not the browser.
+void steamGridDbBlockedSteamSaysWhy(const fs::path& root) {
+    Rig rig{root, true, 9};
+    rig.steamGate.set(launch::SteamState::Blocked);
+    rig.controller.open();
+    rig.enter("Artwork");
+    expect(serviceUntil(rig,
+                        [&] {
+                            return rig.rowOf("artwork.steamgriddb").value == "Not connected";
+                        }),
+           "not connected");
+    rig.focus("artwork.steamgriddb.connect");
+    rig.controller.act(Button::A);
+    expect(serviceUntil(rig,
+                        [&] {
+                            return saidSomething(rig, "running on the desktop", true);
+                        }),
+           "the player hears that the desktop's Steam is in the way");
+    expect(!rig.artworkSettings.typing() &&
+               rig.rowOf("artwork.steamgriddb").value == "Not connected",
+           "no key is asked for and the default browser stays shut");
 }
 
 int main() {
@@ -1252,6 +1283,7 @@ int main() {
     steamGridDbKeyIsReadBack(root / "steamgriddb-kept");
     steamGridDbWithoutSteamAsksForTheKey(root / "steamgriddb-no-steam");
     steamGridDbThroughSteam(root / "steamgriddb-steam");
+    steamGridDbBlockedSteamSaysWhy(root / "steamgriddb-blocked");
     fs::remove_all(root);
     std::printf("settings_controller: all checks passed\n");
     return 0;

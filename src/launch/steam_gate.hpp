@@ -41,6 +41,21 @@ enum class SteamState : std::uint8_t {
     return "stopped";
 }
 
+/// Why a client that stopped at `state` short of Ready cannot take a request, for the player.
+[[nodiscard]] inline std::string notReadyReason(SteamState state) {
+    switch (state) {
+    case SteamState::Blocked:
+        return "Steam is running on the desktop; quit it to use it inside opensu";
+    case SteamState::Initializing:
+        return "Steam did not become ready";
+    case SteamState::Stopped:
+    case SteamState::Ready:
+    case SteamState::Failed:
+        break;
+    }
+    return "Steam did not start (" + std::string{name(state)} + ")";
+}
+
 /// What the Steam client says about one app: its latest launch and whether it runs.
 struct SteamAppActivity {
     /// Steam's latest launch action for the app; ids only grow. 0 when none was seen.
