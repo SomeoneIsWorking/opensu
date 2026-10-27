@@ -3,6 +3,7 @@
 #include <chrono>
 #include <csignal>
 #include <ctime>
+#include <fstream>
 #include <utility>
 
 #include <pthread.h>
@@ -27,9 +28,13 @@ bool takeSignal(const sigset_t& signals, const timespec& wait) {
 
 } // namespace
 
-CompositorSession::CompositorSession(std::string session, fs::path gamescope,
+fs::path logOf(const fs::path& logDir, const Output& output) {
+    return logDir / (output.native() ? "gamescope-session.log" : "gamescope-nested.log");
+}
+
+CompositorSession::CompositorSession(std::string session, fs::path gamescope, fs::path logDir,
                                      host::DesktopRequest desktopRequest, RestartLimit restarts)
-    : session_{std::move(session)}, gamescope_{std::move(gamescope)},
+    : session_{std::move(session)}, gamescope_{std::move(gamescope)}, logDir_{std::move(logDir)},
       desktopRequest_{std::move(desktopRequest)}, restarts_{restarts} {
 }
 
@@ -54,6 +59,13 @@ int CompositorSession::run(const Output& output, const std::vector<std::string>&
         lucent::error("session", "cannot find this executable: {}", ec.message());
         return 1;
     }
+    const fs::path log = logOf(logDir_, output);
+    fs::create_directories(logDir_, ec);
+    if (ec || !std::ofstream{log, std::ios::trunc}) {
+        lucent::error("session", "cannot write Gamescope's log {}", log.string());
+        return 1;
+    }
+    lucent::info("session", "Gamescope's output goes to {}", log.string());
 
     // Blocked for the whole run (a started Gamescope does not inherit the mask), so a signal is
     // taken here and ends the session through the scopes, rather than killing this process and
@@ -90,7 +102,8 @@ int CompositorSession::runOnce(const Output& output, const std::string& self,
     if (!compositor.start(session_ + "-compositor.scope", gamescope_.string(),
                           gamescopeArgs(output, self, args), failure,
                           {std::string{sessionVariable} + "=" + session_,
-                           std::string{launch::gamescopeWsiOff} + "=1"})) {
+                           std::string{launch::gamescopeWsiOff} + "=1"},
+                          {}, logOf(logDir_, output))) {
         lucent::error("session", "{}", failure);
         return -1;
     }

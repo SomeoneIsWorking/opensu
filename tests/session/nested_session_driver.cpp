@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
         lucent::error("driver", "usage: <session> <gamescope> <desktop note> <width> <height>");
         return 2;
     }
-    opensu::session::CompositorSession session{args[0], args[1],
+    opensu::session::CompositorSession session{args[0], args[1], opensu::config::read().stateDir,
                                                opensu::host::DesktopRequest{args[2]}};
     const opensu::session::Output output{std::stoi(args[3]), std::stoi(args[4]), 60};
     return session.run(output, {});

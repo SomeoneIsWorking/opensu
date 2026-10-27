@@ -66,6 +66,7 @@
 #include "library/lossless_scaling.hpp"
 #include "library/shelf.hpp"
 #include "mapping_editor.hpp"
+#include "night_light.hpp"
 #include "offer_claim.hpp"
 #include "own_games_controller.hpp"
 #include "pad_owner.hpp"
@@ -534,6 +535,11 @@ class ShellApp final {
     BluetoothSession bluetooth_{*host_.bluetooth};
     AudioOutputs outputs_{volume_.system()};
     BrightnessControl brightness_{host_.backlight.get()};
+    /// The night light the player chose, shown by openSU's Gamescope when openSU is the login
+    /// session; on a desktop the desktop's own warms the nested Gamescope.
+    NightLight nightLight_{
+        host::DesktopNightLight{host::systemRunner(), environment_.xdgConfigHome / "kwinrc"},
+        openNightLightOutput(settings_.loginSession, environment_.insideGamescope)};
     /// The running game's opensu-retro control channel, when it runs on one.
     RetroSession retro_{environment_.runtimeDir};
     /// Where keys, pad chords and the game-time watcher come out as the shell's buttons.

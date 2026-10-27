@@ -18,6 +18,7 @@
 #include "library/play_history.hpp"
 #include "library/sections.hpp"
 #include "library/wine.hpp"
+#include "night_light_choice.hpp"
 
 namespace opensu::settings {
 
@@ -110,6 +111,9 @@ struct Settings {
 
     /// Which on-screen keyboard openSU's fields open.
     input::KeyboardStyle keyboardStyle{input::KeyboardStyle::DaisyWheel};
+
+    /// The night light in session mode.
+    NightLightChoice nightLight{NightLightChoice::Desktop};
 
     /// The player's changes to the shortcut table.
     input::ShortcutOverrides shortcuts;

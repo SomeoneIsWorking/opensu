@@ -46,7 +46,7 @@ struct Bench {
     }
     [[nodiscard]] session::LoginSession login(std::chrono::seconds window) const {
         return session::LoginSession{
-            session::CompositorSession{session, root / "bin" / "gamescope",
+            session::CompositorSession{session, root / "bin" / "gamescope", root / "state",
                                        host::DesktopRequest{root / "run" / "desktop"}},
             host::LoginSessionEnd{host::systemRunner(), root / "selector",
                                   host::DesktopRequest{root / "run" / "desktop"}, window},

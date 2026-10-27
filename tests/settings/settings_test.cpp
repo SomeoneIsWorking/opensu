@@ -219,6 +219,25 @@ void wineChoices(const fs::path& root) {
            "damaged Wine choices take the defaults");
 }
 
+void nightLight(const fs::path& root) {
+    using opensu::settings::NightLightChoice;
+    const Store store{root / "night" / "settings.json"};
+    expect(store.load().nightLight == NightLightChoice::Desktop,
+           "the night light follows the desktop by default");
+    for (const NightLightChoice choice : opensu::settings::allNightLightChoices) {
+        Settings saved;
+        saved.nightLight = choice;
+        std::string error;
+        expect(store.save(saved, error), "the night light choice is saved");
+        expect(store.load().nightLight == choice, "each night light choice reads back");
+    }
+    expect(read(store.file()).find("\"nightLight\": \"on\"") != std::string::npos,
+           "the choice is kept by its spelling");
+    write(store.file(), R"({"nightLight": "dim"})");
+    expect(store.load().nightLight == NightLightChoice::Desktop,
+           "an unknown night light choice follows the desktop");
+}
+
 void resolution() {
     opensu::config::Config env;
     env.homeMode = opensu::config::HomeMode::WiiSu;
@@ -310,6 +329,7 @@ int main() {
     scaleAndShortcuts(root);
     anOldInterfaceSizeKeepsItsSize(root);
     wineChoices(root);
+    nightLight(root);
     integrationChoices(root);
     resolution();
     unwritable(root);

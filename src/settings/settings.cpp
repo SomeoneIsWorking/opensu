@@ -30,6 +30,7 @@ constexpr const char* steamRootsKey = "steamRoots";
 constexpr const char* uiScaleKey = "uiScale";
 constexpr const char* uiScaleBaseKey = "uiScaleBase";
 constexpr const char* keyboardStyleKey = "keyboard";
+constexpr const char* nightLightKey = "nightLight";
 constexpr const char* shortcutsKey = "shortcuts";
 constexpr const char* shortcutKeysKey = "keys";
 constexpr const char* shortcutPadsKey = "pads";
@@ -379,6 +380,16 @@ Settings Store::load() const {
                          file_.string(), keyboardSpelling);
         }
     }
+    std::string nightLightSpelling;
+    read.text(nightLightKey, nightLightSpelling, "following the desktop");
+    if (!nightLightSpelling.empty()) {
+        if (const std::optional<NightLightChoice> choice = nightLightChoiceOf(nightLightSpelling)) {
+            settings.nightLight = *choice;
+        } else {
+            lucent::warn("settings", "{}: {} is not a night light choice; following the desktop",
+                         file_.string(), nightLightSpelling);
+        }
+    }
     std::string homeSpelling;
     read.text(homeModeKey, homeSpelling, "using the environment's");
     if (!homeSpelling.empty()) {
@@ -451,6 +462,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {uiScaleKey, settings.uiScale},
         {uiScaleBaseKey, uiScaleBaseVersion},
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
+        {nightLightKey, std::string{key(settings.nightLight)}},
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},
         {wineRunnerPinsKey, pins},

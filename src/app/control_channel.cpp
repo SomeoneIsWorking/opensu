@@ -224,6 +224,8 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
             .append("}");
     }
     out.append("],");
+    number("nightLightKelvin", snapshot.nightLightKelvin);
+    flag("nightLightShown", snapshot.nightLightShown);
     text("steam", snapshot.steam);
     text("launchers", snapshot.launchers);
     text("inputDevice", snapshot.inputDevice, true);

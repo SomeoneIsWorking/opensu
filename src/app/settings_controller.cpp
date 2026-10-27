@@ -23,6 +23,7 @@ constexpr const char* layoutId = "layout";
 constexpr const char* iconSizeId = "iconSize";
 constexpr const char* scrollModeId = "scrollMode";
 constexpr const char* pinDockId = "pinDock";
+constexpr const char* nightLightId = "nightLight";
 constexpr const char* shortcutId = "shortcut.";
 constexpr const char* shortcutsResetId = "shortcuts.reset";
 constexpr const char* keyboardId = "keyboard";
@@ -194,6 +195,14 @@ ui::SettingsCategory SettingsController::appearancePage() const {
         ui::Options{{"Scrolling", "Pages"}, mode == config::HomeMode::WiiSu ? 1U : 0U}));
     page.rows.push_back(ui::makeToggle(pinDockId, "Pin navigation bar on Library",
                                        "Keep the dock up on Library", v.pinLibraryDock));
+    page.rows.push_back(ui::makeChoice(
+        nightLightId, "Night light",
+        inForce_.loginSession() ? "Warms the screen's colours at night"
+                                : "For session mode; here the desktop's own night light applies",
+        optionsOf(settings::allNightLightChoices, v.nightLight,
+                  [](settings::NightLightChoice choice) {
+                      return std::string{settings::label(choice)};
+                  })));
     page.rows.push_back(
         ui::makeRow("appearance.scale", RowKind::Info, "Interface size", "In the Guide menu", ""));
     return page;
@@ -547,7 +556,8 @@ void SettingsController::run(const std::string& id, int step) {
         plugins_.run(id, step);
     } else if (id == romAddId || id == steamAddId || id.starts_with(installStoreId)) {
         chooseFolder(id);
-    } else if (id == layoutId || id == scrollModeId || id == pinDockId || id == soundsId) {
+    } else if (id == layoutId || id == scrollModeId || id == pinDockId || id == nightLightId ||
+               id == soundsId) {
         runAppearance(id, step);
         return;
     } else {
@@ -569,6 +579,9 @@ void SettingsController::runAppearance(const std::string& id, int step) {
                          : config::HomeMode::WiiSu;
     } else if (id == pinDockId) {
         v.pinLibraryDock = !v.pinLibraryDock;
+    } else if (id == nightLightId) {
+        v.nightLight = settings::allNightLightChoices[around(
+            static_cast<std::size_t>(v.nightLight), step, settings::allNightLightChoices.size())];
     } else {
         v.uiSounds = !v.uiSounds;
     }

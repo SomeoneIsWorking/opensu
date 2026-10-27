@@ -21,17 +21,26 @@ namespace opensu::session {
 /// The environment variable that tells the inner opensu which session it belongs to.
 inline constexpr const char* sessionVariable = "OPENSU_SESSION";
 
+/// The log of a Gamescope for `output` in `logDir`: `gamescope-session.log` for the top-level
+/// one, `gamescope-nested.log` for a nested one, so a desktop run keeps the last session's.
+[[nodiscard]] std::filesystem::path logOf(const std::filesystem::path& logDir,
+                                          const Output& output);
+
 class CompositorSession {
   public:
     /// `session` names every scope of the run; `gamescope` is the pinned fork's binary
-    /// (`Config::gamescope`); `desktopRequest` is the note Switch to desktop leaves before it
-    /// stops Gamescope; `restarts` bounds how often a crashed Gamescope is started again.
+    /// (`Config::gamescope`); Gamescope's output goes to a log in `logDir` (`Config::stateDir`);
+    /// `desktopRequest` is the note Switch to desktop leaves before it stops Gamescope;
+    /// `restarts` bounds how often a crashed Gamescope is started again.
     CompositorSession(std::string session, std::filesystem::path gamescope,
-                      host::DesktopRequest desktopRequest, RestartLimit restarts = {});
+                      std::filesystem::path logDir, host::DesktopRequest desktopRequest,
+                      RestartLimit restarts = {});
 
     /// Runs `<this executable> <args>` in a Gamescope sized to `output` (top level when it is
     /// native), in the scope `<session>-compositor.scope`, with the Gamescope WSI layer off
-    /// for it (`launch::gamescopeWsiOff`), and waits for it to end. Then stops
+    /// for it (`launch::gamescopeWsiOff`), its stdout and stderr (and so the shell's) in
+    /// `logOf(logDir, output)`, emptied at each run and kept across restarts, and waits for it to
+    /// end. Then stops
     /// every other scope of the session. When Gamescope ended abnormally (a signal or a non-zero
     /// exit) and nobody asked for the end, a fresh Gamescope is started, within `restarts`.
     /// Returns the last Gamescope's exit status, or 1 when it could not be started, among it a
@@ -58,6 +67,7 @@ class CompositorSession {
 
     std::string session_;
     std::filesystem::path gamescope_;
+    std::filesystem::path logDir_;
     host::DesktopRequest desktopRequest_;
     RestartLimit restarts_;
     bool stopRequested_{false};

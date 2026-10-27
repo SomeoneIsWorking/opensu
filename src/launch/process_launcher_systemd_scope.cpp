@@ -9,6 +9,7 @@
 #include <string>
 #include <thread>
 
+#include <fcntl.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -16,6 +17,7 @@
 #include "argv.hpp"
 #include "child_environment.hpp"
 #include "command.hpp"
+#include "descriptor.hpp"
 #include "lucent/log.h"
 
 namespace opensu::launch {
@@ -78,7 +80,8 @@ ProcessLauncher::~ProcessLauncher() {
 bool ProcessLauncher::start(const std::string& unit, const std::string& program,
                             const std::vector<std::string>& args, std::string& failure,
                             const std::vector<std::string>& environment,
-                            const std::filesystem::path& workingDirectory) {
+                            const std::filesystem::path& workingDirectory,
+                            const std::filesystem::path& output) {
     const std::lock_guard lock{mutex_};
     if (!group_->unit.empty()) {
         failure = "an instance is already running";
@@ -99,6 +102,13 @@ bool ProcessLauncher::start(const std::string& unit, const std::string& program,
     runArgs.insert(runArgs.end(), args.begin(), args.end());
     Argv argv{"systemd-run", runArgs};
     ChildEnvironment childEnvironment{environ};
+    const Descriptor outputFile{
+        output.empty() ? -1
+                       : ::open(output.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644)};
+    if (!output.empty() && outputFile.get() < 0) {
+        failure = "cannot write " + output.string() + ": " + std::strerror(errno);
+        return false;
+    }
 
     const pid_t pid = fork();
     if (pid < 0) {
@@ -110,6 +120,10 @@ bool ProcessLauncher::start(const std::string& unit, const std::string& program,
         sigset_t none;
         sigemptyset(&none);
         sigprocmask(SIG_SETMASK, &none, nullptr);
+        if (outputFile.get() >= 0 && (dup2(outputFile.get(), STDOUT_FILENO) < 0 ||
+                                      dup2(outputFile.get(), STDERR_FILENO) < 0)) {
+            std::_Exit(127);
+        }
         execvpe("systemd-run", argv.data(), childEnvironment.data());
         std::_Exit(127);
     }

@@ -115,7 +115,8 @@ struct Fixture {
     Fixture& operator=(const Fixture&) = delete;
 
     [[nodiscard]] CompositorSession compositor(RestartLimit limit = {}) const {
-        return CompositorSession{session, bin / "gamescope", DesktopRequest{desktopNote}, limit};
+        return CompositorSession{session, bin / "gamescope", base / "state",
+                                 DesktopRequest{desktopNote}, limit};
     }
 };
 
@@ -152,7 +153,7 @@ void testRunPassesArgumentsAndStopsLeftovers() {
 
 /// The login session's top-level Gamescope: DRM backend at the native mode, `--session` handed on.
 void testLoginSessionIsTopLevel() {
-    const Fixture fixture{"login", "exit 0\n"};
+    const Fixture fixture{"login", "echo picked HDMI-A-1\necho a warning >&2\nexit 0\n"};
     CompositorSession session = fixture.compositor();
     expect(session.run(Output{}, {"--session"}) == 0, "the top-level run ends with Gamescope");
     expect(slurp(fixture.envFile) == fixture.session + " 1\n",
@@ -162,13 +163,17 @@ void testLoginSessionIsTopLevel() {
     const std::string self = fs::read_symlink("/proc/self/exe", ec).string();
     expect(slurp(fixture.argsFile) == "--backend\ndrm\n--\n" + self + "\n--session\n",
            "Gamescope is told the DRM backend, no size, and runs this executable --session");
+    expect(slurp(fixture.base / "state" / "gamescope-session.log") ==
+               "picked HDMI-A-1\na warning\n",
+           "Gamescope's stdout and stderr are in the session's log under the state dir");
     expect(!scopeActive(fixture.session + "-compositor.scope"), "the compositor scope is gone");
 }
 
 /// A missing gamescope binary is refused, not run.
 void testMissingGamescope() {
     CompositorSession session{"opensu-test-missing-" + std::to_string(getpid()),
-                              "/nonexistent/gamescope", DesktopRequest{"/nonexistent/desktop"}};
+                              "/nonexistent/gamescope", "/nonexistent/state",
+                              DesktopRequest{"/nonexistent/desktop"}};
     expect(session.run(Output{1280, 720, 0}, {}) == 1, "a missing gamescope fails");
 }
 
@@ -214,7 +219,7 @@ void testSignalStopsTheSession() {
 /// A Gamescope that crashes is started again, and the leftovers of the crashed one are stopped
 /// before the fresh one starts.
 void testCrashedGamescopeRestarts() {
-    const Fixture fixture{"restart", crashing(2, "exit 0\n")};
+    const Fixture fixture{"restart", "echo start\n" + crashing(2, "exit 0\n")};
     const std::string steamUnit = fixture.session + "-steam.scope";
     opensu::launch::ProcessLauncher leftover;
     std::string failure;
@@ -223,6 +228,8 @@ void testCrashedGamescopeRestarts() {
     CompositorSession session = fixture.compositor();
     expect(session.run(Output{1280, 720, 0}, {}) == 0, "the session ends with the last Gamescope");
     expect(starts(fixture.base) == 3, "two crashes, two restarts");
+    expect(slurp(fixture.base / "state" / "gamescope-nested.log") == "start\nstart\nstart\n",
+           "the log keeps the crashed Gamescopes' output across the restarts");
     expect(!session.stopRequested(), "nobody asked for the end");
     expect(!scopeActive(steamUnit), "the crashed session's leftover scope was stopped");
 }
