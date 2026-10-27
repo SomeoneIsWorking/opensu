@@ -93,8 +93,11 @@ struct Settings {
     /// Where games install.
     InstallFolders installFolders;
 
-    /// The Wine binary Windows GOG and Epic games run under; the first one found when empty.
+    /// The Wine binary Windows GOG and Epic games run under; the newest GE-Proton openSU keeps up
+    /// to date when empty.
     std::filesystem::path wineRunner;
+    /// The games pinned to a runner of their own, by game id: its Wine binary.
+    std::map<std::string, std::filesystem::path> wineRunnerPins;
 
     /// The games that run in a Wine prefix of their own instead of the shared one.
     library::wine::OwnPrefixes ownWinePrefixes;

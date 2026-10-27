@@ -19,12 +19,9 @@ proton path to Steam, can be configurable how Steam is handled".
   `<data dir>/wine-prefixes/<store>-<id>` for a game set to its own (`settings.json`
   `ownWinePrefix`, a list of game ids). The details page of a Windows install has a "Wine prefix"
   button reading Shared or Own; A switches it. Going back to Shared keeps the own folder.
-- Runner: Settings › Wine › Wine runner steps through Automatic (the first found) and each runner
-  found; the pick is `settings.json` `wineRunner`. Found, in this order: `wine` on PATH ("System
-  Wine"), each `<Steam root>/compatibilitytools.d/*` and each `<Steam library>/steamapps/common/
-  Proton*` with `files/bin/wine` or `dist/bin/wine`. Steam's folders are only read. A Proton build
-  is used as its bundled Wine binary, not through its `proton` script, so the prefix does not get
-  Proton's DXVK/VKD3D setup or `STEAM_COMPAT_DATA_PATH`; running it through umu-launcher is open.
+- Runner: GE-Proton kept up to date by openSU is the default; a Proton build runs through
+  umu-launcher. Settings › Wine picks another runner, pins a game to one and lists every runtime
+  with its games: `docs/issues/ge-proton-default.md`. Steam's folders are only read.
 - A launch is refused with a toast when no runner is found, or the picked runner is gone.
 - Settings › Wine also shows the shared prefix's path, how many games have their own, and "Steam
   games: Left to Steam".

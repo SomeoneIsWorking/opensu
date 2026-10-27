@@ -1,8 +1,9 @@
 // downloads_controller — the Downloads page's contents and buttons. Each frame it reads every
-// download source (Steam's queue, the store install, the emulator download, the romset lists) into
-// `DownloadsBoard`, shows the board's rows on the page while it is up, and sends a chosen action to
-// the row's owner: a cancel to `Installs` or `EmulatorDownloads`, a pause, resume, move or remove
-// to Steam through `steam::DownloadControl`, which runs off the loop as Steam answers.
+// download source (Steam's queue, the store install, the emulator download, the Wine runner
+// download, the romset lists) into `DownloadsBoard`, shows the board's rows on the page while it is
+// up, and sends a chosen action to the row's owner: a cancel to `Installs`, `EmulatorDownloads` or
+// `WineRunners`, a pause, resume, move or remove to Steam through `steam::DownloadControl`, which
+// runs off the loop as Steam answers.
 #pragma once
 
 #include <functional>
@@ -21,6 +22,7 @@
 #include "library/romset_lists.hpp"
 #include "steam/download_control.hpp"
 #include "ui/downloads_page.hpp"
+#include "wine_runners.hpp"
 
 namespace opensu::app {
 
@@ -33,6 +35,7 @@ class DownloadsController {
     struct Sources {
         Installs& installs;
         EmulatorDownloads& emulators;
+        WineRunners& runners;
         const library::roms::RomsetLists& romsetLists;
         steam::DownloadControl& steam;
         /// Whether Steam runs and can be asked.

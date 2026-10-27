@@ -676,8 +676,13 @@ void ShellApp::launch(const library::Game& game) {
         return;
     }
     library::Game started = game;
-    if (const std::string refused = wineSettings_.prepare(started); !refused.empty()) {
-        shell_.setToast(refused, true);
+    const WineSettings::Prepared wine = wineSettings_.prepare(started);
+    if (wine.waiting) {
+        panels_.showLaunch(game.title);
+        return;
+    }
+    if (!wine.refusal.empty()) {
+        shell_.setToast(wine.refusal, true);
         return;
     }
     if (launches_.running()) {
@@ -701,6 +706,7 @@ void ShellApp::launch(const library::Game& game) {
 
     std::vector<std::string> environment = padOwner_.hold(mappings_.forGame(game));
     environment.push_back(std::move(control));
+    environment.insert(environment.end(), wine.environment.begin(), wine.environment.end());
     launches_.start(std::move(started), std::move(environment));
 }
 
@@ -712,7 +718,23 @@ void ShellApp::offerInstall(const library::Game& game) {
 }
 
 void ShellApp::cancelLaunch() {
-    launches_.cancel();
+    if (!wineSettings_.dropHeld()) {
+        launches_.cancel();
+    }
+}
+
+void ShellApp::serviceHeldLaunch() {
+    std::optional<WineSettings::Held> held = wineSettings_.serviceHeld();
+    if (!held) {
+        return;
+    }
+    if (held->ready) {
+        launch(*held->ready);
+    } else if (held->failed) {
+        panels_.endLaunch();
+    } else {
+        shell_.launchPanel().update(held->line, held->fraction);
+    }
 }
 
 void ShellApp::chooseLevel(int level) {
@@ -1222,6 +1244,8 @@ int ShellApp::run() {
         serviceDevices(std::chrono::steady_clock::now());
         sessionInstall_.service();
         emulatorDownloads_.service();
+        wineRunners_.service(std::chrono::steady_clock::now());
+        serviceHeldLaunch();
         downloadsScreen_.service();
         settingsScreen_.service();
         giveaways_.service();

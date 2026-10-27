@@ -32,6 +32,10 @@ std::string emulatorKey(const std::string& id) {
     return "emulator:" + id;
 }
 
+std::string runnerKey(const std::string& id) {
+    return "wine:" + id;
+}
+
 std::string romsetListKey(const std::string& id) {
     return "romsets:" + id;
 }
@@ -216,7 +220,8 @@ void DownloadsBoard::update(const Sources& sources) {
     if (sources.steamReady) {
         applySteam(sources.steam, live);
     }
-    applyEmulator(sources, live);
+    applyDownload(sources.emulator, sources.emulatorEnded, emulatorKey, live);
+    applyDownload(sources.runner, sources.runnerEnded, runnerKey, live);
     applyRomsetLists(sources.romsetLists, live);
     settle(live, sources.steamReady);
     order();
@@ -331,9 +336,12 @@ void DownloadsBoard::applySteam(const std::vector<steam::Download>& queue,
     });
 }
 
-void DownloadsBoard::applyEmulator(const Sources& sources, std::set<std::string>& live) {
-    if (const std::optional<EmulatorLook>& running = sources.emulator) {
-        Entry& at = entry(emulatorKey(running->id));
+void DownloadsBoard::applyDownload(const std::optional<EmulatorLook>& running,
+                                   const std::optional<EmulatorEnd>& end,
+                                   const std::function<std::string(const std::string&)>& key,
+                                   std::set<std::string>& live) {
+    if (running) {
+        Entry& at = entry(key(running->id));
         DownloadRow& row = at.row;
         row.kind = running->kind;
         row.id = running->id;
@@ -350,15 +358,14 @@ void DownloadsBoard::applyEmulator(const Sources& sources, std::set<std::string>
         at.live = true;
         live.insert(row.key);
     }
-    const std::optional<EmulatorEnd>& end = sources.emulatorEnded;
-    if (!end || live.contains(emulatorKey(end->id))) {
+    if (!end || live.contains(key(end->id))) {
         return;
     }
-    const auto found = entries_.find(emulatorKey(end->id));
+    const auto found = entries_.find(key(end->id));
     if (found != entries_.end() && found->second.endSerial == end->serial) {
         return;
     }
-    Entry& at = entry(emulatorKey(end->id));
+    Entry& at = entry(key(end->id));
     at.row.kind = end->kind;
     at.row.id = end->id;
     at.row.title = end->name;

@@ -40,6 +40,7 @@ constexpr const char* enabledKey = "enabled";
 constexpr const char* grantedKey = "granted";
 constexpr const char* wineRunnerKey = "wineRunner";
 constexpr const char* ownWinePrefixKey = "ownWinePrefix";
+constexpr const char* wineRunnerPinsKey = "wineRunnerPins";
 constexpr const char* integrationsKey = "integrations";
 constexpr const char* steamKey = "steam";
 constexpr const char* steamModeKey = "steamMode";
@@ -104,6 +105,23 @@ class Reader {
             out = found->get<std::vector<std::string>>();
         } else {
             reject(name, *found, fallback);
+        }
+    }
+
+    void pathsByName(const char* name, std::map<std::string, std::filesystem::path>& out,
+                     const char* fallback) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        if (!found->is_object() || !std::ranges::all_of(*found, [](const json& item) {
+                return item.is_string();
+            })) {
+            reject(name, *found, fallback);
+            return;
+        }
+        for (const auto& item : found->items()) {
+            out[item.key()] = item.value().get<std::string>();
         }
     }
 
@@ -320,8 +338,9 @@ Settings Store::load() const {
         }
     }
     std::string runner;
-    read.text(wineRunnerKey, runner, "using the first Wine found");
+    read.text(wineRunnerKey, runner, "using the newest GE-Proton");
     settings.wineRunner = runner;
+    read.pathsByName(wineRunnerPinsKey, settings.wineRunnerPins, "no game is pinned to a runner");
     std::vector<std::string> ownPrefixes;
     read.texts(ownWinePrefixKey, ownPrefixes, "every game shares the Wine prefix");
     settings.ownWinePrefixes = library::wine::OwnPrefixes{{ownPrefixes.begin(), ownPrefixes.end()}};
@@ -410,6 +429,10 @@ bool Store::save(const Settings& settings, std::string& error) const {
         shortcutPads[std::string{input::spelling(action)}] = {
             std::string{gamepad::name(chord.modifier)}, std::string{gamepad::name(chord.trigger)}};
     }
+    json pins = json::object();
+    for (const auto& [game, runner] : settings.wineRunnerPins) {
+        pins[game] = runner.string();
+    }
     json document{
         {libraryModeKey, std::string{library::key(settings.libraryMode)}},
         {pinLibraryDockKey, settings.pinLibraryDock},
@@ -428,6 +451,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},
+        {wineRunnerPinsKey, pins},
         {shortcutsKey, {{shortcutKeysKey, shortcutKeys}, {shortcutPadsKey, shortcutPads}}}};
     json plugins = json::object();
     for (const auto& [id, choice] : settings.plugins) {

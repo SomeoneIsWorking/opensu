@@ -1,10 +1,10 @@
 // downloads_board — every download openSU knows of as one list, the Downloads page's model: Steam's
 // queue (its own auto-updates included), the store install, update or uninstall that runs (Epic,
 // GOG, Steam's installer; a Steam update joins Steam's queue row), the emulator, core or shader
-// pack download, and the arcade cores' romset lists (`library::roms::RomsetLists`). Each frame the
-// sources' state goes in and one row per download comes out, with its state, progress and the
-// actions its owner supports. A download that ended stays listed until openSU quits. Pure; no UI
-// and no threads.
+// pack download, the Wine runner download (GE-Proton, umu-launcher), and the arcade cores' romset
+// lists (`library::roms::RomsetLists`). Each frame the sources' state goes in and one row per
+// download comes out, with its state, progress and the actions its owner supports. A download that
+// ended stays listed until openSU quits. Pure; no UI and no threads.
 #pragma once
 
 #include <cstdint>
@@ -23,7 +23,16 @@
 namespace opensu::app {
 
 /// `Tool`: what Steam lists as a tool (Proton, a Steam Linux Runtime, the redistributables).
-enum class DownloadKind : std::uint8_t { Game, Tool, Emulator, Core, ShaderPack, RomsetList };
+/// `WineRunner`: GE-Proton or umu-launcher, which openSU installs for Windows games.
+enum class DownloadKind : std::uint8_t {
+    Game,
+    Tool,
+    Emulator,
+    Core,
+    ShaderPack,
+    RomsetList,
+    WineRunner
+};
 
 enum class DownloadState : std::uint8_t {
     Queued,
@@ -55,7 +64,8 @@ enum class DownloadAction : std::uint8_t {
 
 /// One download as the page lists it.
 struct DownloadRow {
-    /// `steam:<app id>`, `epic:<app name>`, `gog:<id>`, `emulator:<id>`, `romsets:<core id>`:
+    /// `steam:<app id>`, `epic:<app name>`, `gog:<id>`, `emulator:<id>`, `wine:<id>`,
+    /// `romsets:<core id>`:
     /// stable across frames.
     std::string key{};
     /// The store, for a game; nothing for an emulator or a core.
@@ -95,7 +105,7 @@ struct DownloadRow {
 /// Whether the download is over.
 [[nodiscard]] bool ended(DownloadState state) noexcept;
 
-/// The emulator, core or shader pack downloading now.
+/// The emulator, core, shader pack or Wine runner downloading now.
 struct EmulatorLook {
     std::string id{};
     std::string name{};
@@ -119,7 +129,7 @@ struct RomsetListLook {
     std::string detail{};
 };
 
-/// How the last emulator, core or shader pack download ended.
+/// How the last emulator, core, shader pack or Wine runner download ended.
 struct EmulatorEnd {
     /// Counts ends, so one is applied once.
     std::uint64_t serial{0};
@@ -144,6 +154,8 @@ class DownloadsBoard {
         std::optional<Installs::Status> install{};
         std::optional<EmulatorLook> emulator{};
         std::optional<EmulatorEnd> emulatorEnded{};
+        std::optional<EmulatorLook> runner{};
+        std::optional<EmulatorEnd> runnerEnded{};
         std::vector<RomsetListLook> romsetLists{};
     };
 
@@ -181,7 +193,11 @@ class DownloadsBoard {
     void applySteam(const std::vector<steam::Download>& queue, std::set<std::string>& live);
     /// The library's title, else Steam's name, else the app id.
     [[nodiscard]] std::string steamTitle(const steam::Download& download) const;
-    void applyEmulator(const Sources& sources, std::set<std::string>& live);
+    /// The emulator or Wine runner download running now and the last one's end, keyed by `key`.
+    void applyDownload(const std::optional<EmulatorLook>& running,
+                       const std::optional<EmulatorEnd>& end,
+                       const std::function<std::string(const std::string&)>& key,
+                       std::set<std::string>& live);
     void applyRomsetLists(const std::vector<RomsetListLook>& lists, std::set<std::string>& live);
     /// Settles what was live and is gone now.
     void settle(const std::set<std::string>& live, bool steamReady);

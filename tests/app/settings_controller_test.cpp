@@ -379,7 +379,40 @@ struct Rig {
                                       return std::vector<app::MappingEditor::Emulator>{
                                           {"pcsx2", "PCSX2"}, {"mgba", "mGBA"}};
                                   }}};
-    app::WineSettings wine{preferences, config, inForce.current()};
+    app::WineRunners runners{config.dataDir, "",
+                             app::WineRunners::Hooks{.say =
+                                                         [](const std::string&, bool) {
+                                                         },
+                                                     .changed =
+                                                         [] {
+                                                         },
+                                                     .refresh =
+                                                         [] {
+                                                         },
+                                                     .wanted =
+                                                         [] {
+                                                             return false;
+                                                         },
+                                                     .inUse =
+                                                         [] {
+                                                             return app::WineRunners::InUse{};
+                                                         },
+                                                     .gameRunning =
+                                                         [] {
+                                                             return false;
+                                                         }}};
+    app::WineSettings wine{preferences, config, inForce.current(), runners,
+                           app::WineSettings::Hooks{.say =
+                                                        [](const std::string&, bool) {
+                                                        },
+                                                    .games =
+                                                        [] {
+                                                            return std::vector<library::Game>{};
+                                                        },
+                                                    .gameRunning =
+                                                        [] {
+                                                            return false;
+                                                        }}};
     app::SettingsController controller;
 };
 
@@ -1136,8 +1169,8 @@ void wineRunnerIsPicked(const fs::path& root) {
 
     rig.controller.open();
     rig.enter("Wine");
-    expect(rig.rowOf("wine.runner").value == "Automatic: System Wine",
-           "the first runner found is the default");
+    expect(rig.rowOf("wine.runner").value == "Latest GE-Proton (not installed yet)",
+           "GE-Proton kept up to date is the default");
     expect(rig.rowOf("wine.prefix").value == (root / "data" / "wine-prefix").string(),
            "one shared prefix under the data folder");
     expect(rig.rowOf("wine.own").value == "None" &&
@@ -1150,7 +1183,7 @@ void wineRunnerIsPicked(const fs::path& root) {
         picked.push_back(rig.onDisk().wineRunner);
     }
     expect(picked == std::vector<fs::path>{system, ge, proton, {}},
-           "Right steps through every runner found and back to Automatic, each kept");
+           "Right steps through every runner found and back to GE-Proton, each kept");
     rig.act(Button::Left);
     expect(rig.onDisk().wineRunner == proton && rig.rowOf("wine.runner").value == "Proton 9.0",
            "Left steps back, wrapping");
@@ -1162,7 +1195,7 @@ void wineRunnerIsPicked(const fs::path& root) {
     game.sourceId = "2";
     game.windowsInstall = true;
     game.launch = library::LaunchSpec{.program = "gogdl", .args = {"launch"}};
-    expect(rig.wine.prepare(game).empty() &&
+    expect(rig.wine.prepare(game).refusal.empty() &&
                game.launch.args ==
                    std::vector<std::string>{"launch", "--wine", proton.string(), "--wine-prefix",
                                             (root / "data" / "wine-prefix").string()},

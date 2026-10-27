@@ -140,6 +140,28 @@ sleep 60
                                                },
                                                [] {
                                                }}};
+    app::WineRunners runners{root / "data", "",
+                             app::WineRunners::Hooks{.say =
+                                                         [](const std::string&, bool) {
+                                                         },
+                                                     .changed =
+                                                         [] {
+                                                         },
+                                                     .refresh =
+                                                         [] {
+                                                         },
+                                                     .wanted =
+                                                         [] {
+                                                             return false;
+                                                         },
+                                                     .inUse =
+                                                         [] {
+                                                             return app::WineRunners::InUse{};
+                                                         },
+                                                     .gameRunning =
+                                                         [] {
+                                                             return false;
+                                                         }}};
     library::roms::RomsetLists romsetLists{root / "cache"};
     int listsEnded{0};
     ui::DownloadsPage page;
@@ -149,6 +171,7 @@ sleep 60
         app::DownloadsController::Sources{
             .installs = installs,
             .emulators = emulators,
+            .runners = runners,
             .romsetLists = romsetLists,
             .steam = steamControl,
             .steamReady =
@@ -317,6 +340,7 @@ void steamRefusalIsSaid(const fs::path& root) {
         app::DownloadsController::Sources{
             .installs = rig.installs,
             .emulators = rig.emulators,
+            .runners = rig.runners,
             .romsetLists = rig.romsetLists,
             .steam = control,
             .steamReady =

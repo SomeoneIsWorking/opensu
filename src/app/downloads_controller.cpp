@@ -58,6 +58,8 @@ std::string sourceText(const DownloadRow& row) {
         return "Shaders";
     case DownloadKind::RomsetList:
         return "Arcade";
+    case DownloadKind::WineRunner:
+        return "Wine runner";
     case DownloadKind::Game:
     case DownloadKind::Tool:
     case DownloadKind::Emulator:
@@ -217,6 +219,25 @@ void DownloadsController::service() {
             .text = finished->text};
     }
 
+    if (const std::optional<WineRunners::Progress> running = sources_.runners.progress()) {
+        // Past the transfer the row reads as installing: checking the digest, unpacking.
+        const bool moving = running->stage == library::ArchiveStage::Downloading;
+        look.runner = EmulatorLook{running->id, running->name, DownloadKind::WineRunner,
+                                   moving ? running->received : running->total, running->total};
+    }
+    if (const std::optional<WineRunners::Finished> finished = sources_.runners.lastFinished()) {
+        using Outcome = WineRunners::Finished::Outcome;
+        look.runnerEnded = EmulatorEnd{
+            .serial = finished->serial,
+            .id = finished->id,
+            .name = finished->name,
+            .kind = DownloadKind::WineRunner,
+            .state = finished->outcome == Outcome::Installed   ? DownloadState::Finished
+                     : finished->outcome == Outcome::Cancelled ? DownloadState::Cancelled
+                                                               : DownloadState::Failed,
+            .text = finished->text};
+    }
+
     std::optional<SteamAnswer> answer;
     {
         const std::lock_guard lock{mutex_};
@@ -319,6 +340,8 @@ void DownloadsController::perform(const DownloadRow& row, DownloadAction action)
     if (action == DownloadAction::Cancel) {
         if (row.store) {
             cancelInstall(row);
+        } else if (row.kind == DownloadKind::WineRunner) {
+            sources_.runners.cancel();
         } else {
             sources_.emulators.cancel(row.id);
         }

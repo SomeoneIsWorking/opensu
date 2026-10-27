@@ -167,7 +167,7 @@ game has been observed running yet.
 | S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | partial | S016, S026 | G001 |
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
-| S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
+| S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), GE-Proton by default kept up to date through umu-launcher, runner setting with per-game pins and the runtimes list, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`, `docs/issues/ge-proton-default.md`) | partial | S006, S007, S020 | G001 |
 | S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) and the core's own options in setting layers per game, core, console and Global, declared once in `settings::Schema` and edited in one layered editor (Settings › Emulators, details, the quick menu's panel over the game, live), with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 | S042 | Platform seams: every Linux-only concept behind one owner with a per-OS backend picked in CMake (process launching, pads, the shell over a game, Steam modes, user directories, buildbot folder, library loading, battery), Linux unchanged (`docs/issues/cross-platform-releases.md` step 1) | partial | — | G005 |
@@ -1359,17 +1359,24 @@ dialog for `OpenUninstallWizard(..., true)`), a real Epic or GOG uninstall. Deta
 
 ### S038 — Windows games under Wine
 
-A GOG or Epic install of a Windows build launches with `--wine <runner> --wine-prefix <prefix>`
-(`library::wine::prepare`, from `ShellApp::launch` through `WineSettings`): gogdl and legendary
-both take those flags. Every such game shares `<data dir>/wine-prefix`; a game's details page has
-"Wine prefix: Shared/Own", and Own gives it `<data dir>/wine-prefixes/<store>-<id>`
-(`settings.json` `ownWinePrefix`). The runner is Settings › Wine › Wine runner: Automatic (the
-first found) or one of system `wine` and the Proton builds in Steam's `compatibilitytools.d` and
-`steamapps/common`, used as their bundled `wine` binary; Steam's folders are only read. No runner,
-or a picked one that is gone, refuses the launch with a toast. Steam games are left to Steam's own
-compatibility tool. Verified by unit tests through the shipping owners against a fake PATH, fake
-Steam folders and stub launches. Unverified: a real Windows GOG or Epic game launched this way;
-a Proton build's `wine` used without its `proton` script gets no DXVK/VKD3D setup in the prefix.
+A GOG or Epic install of a Windows build launches under the runner it resolves to
+(`library::wine::runnerOf`: the game's pin, else Settings › Wine's pick, else the newest GE-Proton
+openSU installed), from `ShellApp::launch` through `WineSettings`. Plain Wine gets `--wine
+<runner> --wine-prefix <prefix>`; a Proton build gets `--no-wine --wrapper <umu-run>` and umu's
+environment (`PROTONPATH`, `WINEPREFIX`, `GAMEID`, `STORE`, `UMU_FOLDERS_PATH=<data>/wine`). Every
+such game shares `<data dir>/wine-prefix`; a game's details page has "Wine prefix: Shared/Own",
+and Own gives it `<data dir>/wine-prefixes/<store>-<id>` (`settings.json` `ownWinePrefix`).
+GE-Proton and umu-launcher are openSU's own under `<data>/wine` (`WineRunners`): checked at start,
+daily and on Check now, downloaded with their published SHA-512 / SHA-256 checked, shown on the
+Downloads page, and after a check the GE-Proton builds past the newest two are removed unless a
+running game, the pick or a pinned game keeps them. A launch with none installed waits on the
+launch panel. Settings › Wine lists every runner and runtime with where it lives, size and game
+count, each with a page of its games and pins. A plain-Wine prefix's saves are copied once before
+Proton first runs in it. Verified in the hidden product (`docs/issues/ge-proton-default.md`): three
+real GE-Proton releases installed and checked, the rotation keeping a pinned build and then
+removing it, `cmd /c ver` answered through GE-Proton 11-9, 11-10 and 11-11 and system Wine in a
+scratch prefix, a plain-Wine prefix upgraded with its save intact. Unverified: a real Windows GOG
+or Epic game launched this way and the held launch's panel (no signed-in store in the run).
 Missing: "Use <compatibility tool>" for Steam games (writing `CompatToolMapping`), not built until
 the running client's handling is measured (the card lists what).
 
