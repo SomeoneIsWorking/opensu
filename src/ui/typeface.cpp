@@ -139,7 +139,7 @@ void Typeface::drawCentred(Canvas& canvas, std::string_view text, float x, float
     const float runTop = std::round(baseline - glyphs.metrics(grid.em()).ascent);
     float pen = x + grid.lead();
     forEachCodepoint(text, [&](char32_t codepoint, std::string_view bytes) {
-        if (!glyphs.draw(canvas, bytes, Point{std::round(pen), runTop}, glyphStyle, colour)) {
+        if (!glyphs.draw(canvas, bytes, Point{pen, runTop}, glyphStyle, colour)) {
             lucent::error("ui", "could not shape \"{}\": {}", bytes, SDL_GetError());
         }
         pen += grid.advance(codepoint);
