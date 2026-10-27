@@ -94,7 +94,7 @@ std::string WineRunners::check(CheckMode mode) {
     if (!start([this, mode](const std::stop_token& stop) {
             runCheck(stop, mode);
         })) {
-        return "A Wine runner download or test is running; try again when it ends";
+        return "Wait for the current Wine download or test to finish";
     }
     return {};
 }
@@ -123,7 +123,7 @@ std::string WineRunners::test(std::string runner, std::vector<std::string> comma
                 command = std::move(command)](const std::stop_token& stop) {
             runTest(stop, runner, command);
         })) {
-        return "A Wine runner download or test is running; try again when it ends";
+        return "Wait for the current Wine download or test to finish";
     }
     return {};
 }
@@ -170,11 +170,11 @@ void WineRunners::runCheck(const std::stop_token& stop, CheckMode mode) {
         look_.lastCheck =
             look_.builds.empty() ? "Checked" : "Up to date: " + look_.builds.front().name;
     } else if (!checkFailure_.empty()) {
-        look_.lastCheck = "Check failed: " + checkFailure_;
+        look_.lastCheck = checkFailure_;
     } else if (finished_ && finished_->outcome == Outcome::Failed) {
-        look_.lastCheck = "Check failed: " + finished_->text;
+        look_.lastCheck = finished_->text;
     } else {
-        look_.lastCheck = stop.stop_requested() ? "Check cancelled" : "Check failed";
+        look_.lastCheck = stop.stop_requested() ? "Check stopped" : "Last check failed";
     }
 }
 
@@ -184,12 +184,14 @@ bool WineRunners::updateGeProton(const std::stop_token& stop, CheckMode mode) {
     const std::optional<library::roms::ReleaseAsset> tarball =
         releases.latest(library::ge_proton::tarballSource(geApi_), error);
     if (!tarball) {
-        checkFailed(mode, geId, "GE-Proton", "GE-Proton's release cannot be read: " + error);
+        lucent::warn("wine", "GE-Proton's release cannot be read: {}", error);
+        checkFailed(mode, geId, "GE-Proton", "Could not check for GE-Proton");
         return false;
     }
     const std::string tag = tarball->version;
+    const std::string name = library::wine::displayName(tag);
     if (!library::ge_proton::versionOf(tag)) {
-        checkFailed(mode, geId, tag, "GE-Proton's release " + tag + " is not a build name");
+        checkFailed(mode, geId, name, "The latest GE-Proton has an unexpected name: " + tag);
         return false;
     }
     const fs::path runners = library::ge_proton::runnersDir(dataDir_);
@@ -201,19 +203,20 @@ bool WineRunners::updateGeProton(const std::stop_token& stop, CheckMode mode) {
     const std::optional<library::roms::ReleaseAsset> sums =
         releases.latest(library::ge_proton::checksumSource(geApi_), error);
     if (!sums) {
-        checkFailed(mode, geId, tag, "GE-Proton's release cannot be read: " + error);
+        lucent::warn("wine", "GE-Proton's checksum file cannot be read: {}", error);
+        checkFailed(mode, geId, name, "Could not check for GE-Proton");
         return false;
     }
     const std::optional<std::string> listing = web_.get(sums->url, error);
     const std::optional<std::string> sha512 =
         listing ? library::ge_proton::sha512Listed(*listing, tarball->name) : std::nullopt;
     if (!sha512) {
-        checkFailed(mode, geId, tag,
-                    listing ? sums->name + " lists no SHA-512 for " + tarball->name
-                            : "GE-Proton's checksum cannot be read: " + error);
+        lucent::warn("wine", "no SHA-512 for {} from {}: {}", tarball->name, sums->url, error);
+        checkFailed(mode, geId, name,
+                    name + " has no checksum to check it against, so it was not installed");
         return false;
     }
-    return install(stop, geId, tag,
+    return install(stop, geId, name,
                    library::RuntimeArchive{
                        .url = tarball->url,
                        .name = tarball->name,
@@ -231,14 +234,14 @@ bool WineRunners::updateUmu(const std::stop_token& stop, CheckMode mode) {
         library::roms::EmulatorRelease{web_}.latest(library::umu::zipappSource(), error);
     const std::string name = zipapp ? "umu-launcher " + zipapp->version : "umu-launcher";
     if (!zipapp) {
-        checkFailed(mode, umuId, name, "umu-launcher's release cannot be read: " + error);
+        lucent::warn("wine", "umu-launcher's release cannot be read: {}", error);
+        checkFailed(mode, umuId, name, "Could not check for umu-launcher");
         return false;
     }
     if (zipapp->sha256.empty() || zipapp->version.find('/') != std::string::npos ||
         zipapp->version.starts_with('.')) {
         checkFailed(mode, umuId, name,
-                    "umu-launcher " + zipapp->version +
-                        " publishes no SHA-256 to check it against");
+                    name + " has no checksum to check it against, so it was not installed");
         return false;
     }
     const fs::path into = library::umu::launcherDir(dataDir_) / zipapp->version;
@@ -289,10 +292,10 @@ bool WineRunners::install(const std::stop_token& stop, const std::string& id,
     if (!installed) {
         lucent::warn("wine", "{} not installed: {}", name, error);
         ended(error == "cancelled" ? Outcome::Cancelled : Outcome::Failed, id, name,
-              error == "cancelled" ? name + " download cancelled" : name + ": " + error);
+              error == "cancelled" ? "Stopped downloading " + name : "Could not install " + name);
         return false;
     }
-    ended(Outcome::Installed, id, name, name + " installed");
+    ended(Outcome::Installed, id, name, "Installed " + name);
     return true;
 }
 
@@ -308,26 +311,22 @@ void WineRunners::runTest(const std::stop_token& stop, const std::string& runner
     }
     lucent::info("wine", "testing {}: {}", runner, line);
     std::string answer;
-    std::string last;
     const std::optional<int> status = launch::runStreaming(
         "env", command,
-        [&answer, &last](std::string_view line) {
+        [&answer](std::string_view line) {
             lucent::info("wine", "test: {}", line);
             if (line.find("Microsoft Windows") != std::string_view::npos) {
                 answer = line;
-            }
-            if (!line.empty()) {
-                last = line;
             }
         },
         stop);
     std::string result;
     if (status && *status == 0 && !answer.empty()) {
         result = "Works: " + answer;
+    } else if (status) {
+        result = "Failed under " + runner + " with exit code " + std::to_string(*status);
     } else {
-        result = runner + " failed" +
-                 (status ? " (exit " + std::to_string(*status) + ")" : std::string{}) +
-                 (last.empty() ? std::string{} : ": " + last);
+        result = "Failed under " + runner + "; it did not start";
     }
     lucent::info("wine", "test of {}: {}", runner, result);
     measure();
@@ -345,8 +344,9 @@ void WineRunners::measure() {
     Look measured;
     for (const library::ge_proton::Build& build :
          library::ge_proton::installed(library::ge_proton::runnersDir(dataDir_))) {
-        measured.builds.push_back(
-            Piece{.name = build.name, .dir = build.dir, .bytes = bytesUnder(build.dir)});
+        measured.builds.push_back(Piece{.name = library::wine::displayName(build.name),
+                                        .dir = build.dir,
+                                        .bytes = bytesUnder(build.dir)});
     }
     const std::vector<library::umu::Install> umu =
         library::umu::installed(library::umu::launcherDir(dataDir_));
@@ -358,7 +358,8 @@ void WineRunners::measure() {
     if (const fs::path runtime = library::umu::steamRuntime(library::wine::umuFolders(dataDir_));
         !runtime.empty()) {
         measured.steamRuntime =
-            Piece{.name = "Steam Linux Runtime (" + runtime.filename().string() + ")",
+            Piece{.name = "Steam Linux Runtime " +
+                          runtime.filename().string().substr(std::string_view{"steamrt"}.size()),
                   .dir = runtime,
                   .bytes = bytesUnder(runtime)};
     }

@@ -129,6 +129,30 @@ bool isProtonPrefix(const fs::path& prefix) {
 
 } // namespace
 
+std::string displayName(std::string_view name) {
+    for (const std::string_view cpu : {"-x86_64", "-aarch64"}) {
+        if (name.ends_with(cpu)) {
+            name.remove_suffix(cpu.size());
+        }
+    }
+    std::string shown;
+    for (const char c : name) {
+        if (c != '(' && c != ')') {
+            shown += c;
+        }
+    }
+    const std::size_t digit = shown.find_first_of("0123456789");
+    if (digit != std::string::npos && digit > 0) {
+        const char before = shown[digit - 1];
+        if (before == '-') {
+            shown[digit - 1] = ' ';
+        } else if (std::isalpha(static_cast<unsigned char>(before)) != 0) {
+            shown.insert(digit, " ");
+        }
+    }
+    return shown;
+}
+
 std::vector<Runner> discover(const Search& search) {
     std::vector<Runner> runners;
     for (const ge_proton::Build& build : ge_proton::installed(search.managed)) {
@@ -325,8 +349,8 @@ ReadyPrefix readyPrefix(const fs::path& prefix, const Runner& runner) {
     }
     if (error) {
         return {.prefix = runsIn,
-                .refusal = "Cannot ready the Wine prefix " + prefix.string() + " for " +
-                           runner.name + ": " + error.message()};
+                .refusal = "Could not prepare the Wine prefix for " + displayName(runner.name) +
+                           ": " + error.message()};
     }
     return {.prefix = runsIn, .refusal = {}};
 }
@@ -337,20 +361,19 @@ Prepared prepare(Game& game, const Choice& choice) {
     }
     const std::optional<Runner> runner = runnerOf(choice, game.id);
     if (!runner) {
-        return {.refusal = "No Wine runner can run " + game.title +
-                           ": no GE-Proton, Steam Proton or Lutris runner with umu-run, and no "
-                           "system Wine",
+        return {.refusal = game.title + " cannot start: no Wine or Proton is installed",
                 .environment = {}};
     }
     std::error_code error;
     if (!fs::is_regular_file(runner->wine, error)) {
-        return {.refusal = "The Wine runner " + runner->wine.string() +
-                           " is gone; pick another in Settings",
+        return {.refusal = "The runner picked for " + game.title +
+                           " is no longer installed; pick another in Settings › Wine",
                 .environment = {}};
     }
     if (!runner->proton.empty() && choice.umuRun.empty()) {
-        return {.refusal =
-                    "No umu-run to run " + runner->name + "; pick another runner in Settings",
+        return {.refusal = displayName(runner->name) +
+                           " needs umu-launcher, which is not installed; pick another runner in "
+                           "Settings › Wine",
                 .environment = {}};
     }
     ReadyPrefix ready = readyPrefix(prefixFor(choice.dataDir, game, choice.own), *runner);

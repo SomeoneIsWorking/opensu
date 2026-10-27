@@ -39,15 +39,15 @@ std::string countText(std::size_t count) {
 std::string whereOf(const library::wine::Runner& runner) {
     switch (runner.origin) {
     case library::wine::Origin::OpenSu:
-        return "Kept up to date by openSU";
+        return "Downloaded by openSU";
     case library::wine::Origin::Steam:
-        return "Found in Steam's folders";
+        return "From Steam";
     case library::wine::Origin::Lutris:
-        return "Found in Lutris's folders";
+        return "From Lutris";
     case library::wine::Origin::System:
         break;
     }
-    return "System";
+    return "Installed on the system";
 }
 
 bool isManaged(const library::wine::Runner& runner) {
@@ -121,7 +121,7 @@ WineRunners::InUse WineSettings::inUse() const {
         return library::ge_proton::managed(runners, build) ? build : fs::path{};
     };
     if (const fs::path picked = buildOf(v.wineRunner); !picked.empty()) {
-        inUse[picked] = "Picked for every game in Settings › Wine";
+        inUse[picked] = "Kept because it runs every game";
     }
     std::map<fs::path, std::size_t> pinned;
     for (const auto& [game, wine] : v.wineRunnerPins) {
@@ -130,10 +130,11 @@ WineRunners::InUse WineSettings::inUse() const {
         }
     }
     for (const auto& [build, count] : pinned) {
-        inUse[build] = "Kept: " + countText(count) + " pinned to it";
+        inUse[build] =
+            "Kept because " + countText(count) + (count == 1 ? " is" : " are") + " pinned to it";
     }
     if (!launched_.empty() && hooks_.gameRunning()) {
-        inUse[launched_] = "Kept: a game runs on it";
+        inUse[launched_] = "Kept because a game is running on it";
     }
     return inUse;
 }
@@ -145,39 +146,46 @@ ui::SettingsCategory WineSettings::page() const {
 
     // Choice 0 is Automatic, then each runner found, then a pick not found.
     ui::Options runners;
-    runners.labels.emplace_back("Automatic");
+    library::wine::Choice automatic = choice();
+    automatic.runner.clear();
+    automatic.pins.clear();
+    const std::optional<library::wine::Runner> now = library::wine::runnerOf(automatic, {});
+    runners.labels.push_back(now ? "Automatic (" + library::wine::displayName(now->name) + ")"
+                                 : "Automatic (none installed)");
     for (const library::wine::Runner& runner : found_) {
-        runners.labels.push_back(runner.name);
+        runners.labels.push_back(library::wine::displayName(runner.name));
     }
     if (!v.wineRunner.empty()) {
         const auto at = std::ranges::find(found_, v.wineRunner, &library::wine::Runner::wine);
         if (at == found_.end()) {
-            runners.labels.push_back(v.wineRunner.string() + " (not found)");
+            runners.labels.emplace_back("Missing runner");
             runners.chosen = runners.labels.size() - 1;
         } else {
             runners.chosen = static_cast<std::size_t>(at - found_.begin()) + 1;
         }
     }
-    page.rows.push_back(
-        ui::makeChoice(runnerId, "Wine runner", automaticNote(), std::move(runners)));
+    page.rows.push_back(ui::makeChoice(
+        runnerId, "Wine runner", "What Windows GOG and Epic games run under", std::move(runners)));
 
     std::string status = look.lastCheck.empty() ? "Not checked yet" : look.lastCheck;
     if (const std::optional<WineRunners::Progress> running = runners_.progress()) {
-        status = "Getting " + running->name;
         if (running->stage == library::ArchiveStage::Checking) {
-            status += " · checking";
+            status = "Checking " + running->name;
         } else if (running->stage == library::ArchiveStage::Unpacking) {
-            status += " · unpacking";
-        } else if (running->total > 0) {
-            status += " · " + std::to_string(running->received * 100 / running->total) + "%";
+            status = "Unpacking " + running->name;
+        } else {
+            status = "Downloading " + running->name;
+            if (running->total > 0) {
+                status += " · " + std::to_string(running->received * 100 / running->total) + "%";
+            }
         }
     } else if (look.checking) {
-        status = "Checking…";
+        status = "Checking for updates…";
     }
     page.rows.push_back(ui::makeRow(checkId, RowKind::Action, "Check for GE-Proton now",
                                     "Also checked at start and every day", status));
     page.rows.push_back(ui::makeRow(testId, RowKind::Action, "Test the runner",
-                                    "Runs cmd /c ver under the runner in a test prefix",
+                                    "Starts a small Windows program with the runner",
                                     look.testing            ? "Running…"
                                     : look.lastTest.empty() ? "Not run yet"
                                                             : look.lastTest));
@@ -192,23 +200,22 @@ ui::SettingsCategory WineSettings::page() const {
         std::string note = whereOf(runner) + sizeOf(runner.proton);
         if (const auto kept = look.kept.find(runner.name);
             isManaged(runner) && kept != look.kept.end()) {
-            note += " · " + kept->second;
+            note = kept->second;
         }
         page.rows.push_back(ui::makePage(std::string{runtimePage} + runner.wine.string(),
-                                         runner.name, note,
+                                         library::wine::displayName(runner.name), note,
                                          countText(gamesOn(runner.wine).size())));
     }
     const std::size_t onProton = gamesOn({}).size();
     if (look.umu) {
-        page.rows.push_back(
-            ui::makePage(std::string{runtimePage} + std::string{umuKey}, look.umu->name,
-                         "Runs Proton outside Steam · openSU's · " + sizeText(look.umu->bytes),
-                         countText(onProton)));
+        page.rows.push_back(ui::makePage(
+            std::string{runtimePage} + std::string{umuKey}, look.umu->name,
+            "Runs Proton games outside Steam · " + sizeText(look.umu->bytes), countText(onProton)));
     }
     if (look.steamRuntime) {
         page.rows.push_back(ui::makePage(
             std::string{runtimePage} + std::string{steamRuntimeKey}, look.steamRuntime->name,
-            "Proton's container · fetched by umu-launcher · " + sizeText(look.steamRuntime->bytes),
+            "The container Proton games run in · " + sizeText(look.steamRuntime->bytes),
             countText(onProton)));
     }
 
@@ -242,11 +249,11 @@ std::optional<ui::SettingsCategory> WineSettings::subPage(const std::string& id)
             return page;
         }
         page.label = piece->name;
-        page.rows.push_back(ui::makeRow("wine.where", RowKind::Info, "Where", "Managed by openSU",
-                                        piece->dir.string()));
+        page.rows.push_back(ui::makeRow("wine.where", RowKind::Info, "Where",
+                                        "Downloaded by openSU", piece->dir.string()));
         page.rows.push_back(
             ui::makeRow("wine.size", RowKind::Info, "Size", "On disk", sizeText(piece->bytes)));
-        page.rows.push_back(ui::makeHeading("Games using it (every game on a Proton build)"));
+        page.rows.push_back(ui::makeHeading("Games that run on Proton"));
         for (const library::Game& game : gamesOn({})) {
             page.rows.push_back(
                 ui::makeRow("wine.game:" + game.id, RowKind::Info, game.title, "", ""));
@@ -260,7 +267,7 @@ std::optional<ui::SettingsCategory> WineSettings::subPage(const std::string& id)
         return page;
     }
     const settings::Settings& v = preferences_.values();
-    page.label = runner->name;
+    page.label = library::wine::displayName(runner->name);
     page.rows.push_back(
         ui::makeRow("wine.where", RowKind::Info, "Where", whereOf(*runner),
                     (runner->proton.empty() ? runner->wine : runner->proton).string()));
@@ -272,30 +279,30 @@ std::optional<ui::SettingsCategory> WineSettings::subPage(const std::string& id)
     if (const auto kept = look.kept.find(runner->name);
         isManaged(*runner) && kept != look.kept.end()) {
         page.rows.push_back(ui::makeRow("wine.kept", RowKind::Info, "Not removed",
-                                        "Older than the newest two GE-Proton builds",
+                                        "openSU keeps only the newest two GE-Proton builds",
                                         kept->second));
     }
     page.rows.push_back(ui::makeHeading("Games using it"));
     const std::vector<library::Game> using_ = gamesOn(wine);
     for (const library::Game& game : using_) {
         const bool pinned = v.wineRunnerPins.contains(game.id);
-        page.rows.push_back(ui::makeRow(
-            std::string{pinId} + game.id + "\t", pinned ? RowKind::Action : RowKind::Info,
-            game.title, pinned ? "Pinned to it · A unpins" : "By the runner picked for every game",
-            pinned ? "Pinned" : "Default"));
+        page.rows.push_back(ui::makeRow(std::string{pinId} + game.id + "\t",
+                                        pinned ? RowKind::Action : RowKind::Info, game.title,
+                                        pinned ? "Pinned to this runner; press A to unpin"
+                                               : "Uses it for every game",
+                                        pinned ? "Pinned" : "Default"));
     }
     bool listed = !using_.empty();
     // A pin of a game the library does not list now still keeps the runner.
     for (const auto& [game, pinned] : v.wineRunnerPins) {
         if (pinned == wine && std::ranges::find(using_, game, &library::Game::id) == using_.end()) {
             page.rows.push_back(ui::makeRow(std::string{pinId} + game + "\t", RowKind::Action, game,
-                                            "Pinned to it, not in the library now · A unpins",
-                                            "Pinned"));
+                                            "Not in the library now; press A to unpin", "Pinned"));
             listed = true;
         }
     }
     if (!listed) {
-        page.rows.push_back(ui::makeRow("wine.none", RowKind::Info, "No game", "", ""));
+        page.rows.push_back(ui::makeRow("wine.none", RowKind::Info, "No games use it", "", ""));
     }
     std::vector<library::Game> others = windowsGames();
     std::erase_if(others, [&using_](const library::Game& game) {
@@ -304,9 +311,9 @@ std::optional<ui::SettingsCategory> WineSettings::subPage(const std::string& id)
     if (!others.empty()) {
         page.rows.push_back(ui::makeHeading("Pin a game to it"));
         for (const library::Game& game : others) {
-            page.rows.push_back(ui::makeRow(std::string{pinId} + game.id + "\t" + wine.string(),
-                                            RowKind::Action, game.title,
-                                            "Runs it under " + runner->name, "Pin"));
+            page.rows.push_back(ui::makeRow(
+                std::string{pinId} + game.id + "\t" + wine.string(), RowKind::Action, game.title,
+                "Run it under " + library::wine::displayName(runner->name), "Pin"));
         }
     }
     return page;
@@ -363,37 +370,11 @@ void WineSettings::stepRunner(int step) {
     preferences_.save();
 }
 
-std::string WineSettings::automaticNote() const {
-    library::wine::Choice automatic = choice();
-    automatic.runner.clear();
-    automatic.pins.clear();
-    const std::optional<library::wine::Resolved> now = library::wine::resolve(automatic, {});
-    std::string note = "None can run: no Proton with umu-run and no system Wine";
-    if (now) {
-        switch (now->reason) {
-        case library::wine::Reason::OpenSuGeProton:
-            return "Now openSU's newest GE-Proton";
-        case library::wine::Reason::SteamProton:
-            note = "Now Steam's " + now->runner.name;
-            break;
-        case library::wine::Reason::Lutris:
-            note = "Now Lutris's default, " + now->runner.name;
-            break;
-        case library::wine::Reason::SystemWine:
-        case library::wine::Reason::Pinned:
-        case library::wine::Reason::Picked:
-            note = "Now " + now->runner.name;
-            break;
-        }
-    }
-    return note + (runners_.progress() ? " (GE-Proton downloading)" : " (no GE-Proton yet)");
-}
-
 void WineSettings::test() {
     const library::wine::Choice resolved = choice();
     const std::optional<library::wine::Runner> runner = library::wine::runnerOf(resolved, {});
     if (!runner) {
-        hooks_.say("No Wine runner can run the test", true);
+        hooks_.say("No Wine or Proton is installed to test", true);
         return;
     }
     const library::wine::ReadyPrefix ready =
@@ -408,7 +389,8 @@ void WineSettings::test() {
     std::vector<std::string> command = std::move(invocation.environment);
     command.insert(command.end(), invocation.command.begin(), invocation.command.end());
     command.insert(command.end(), std::begin(testProgram), std::end(testProgram));
-    if (const std::string refused = runners_.test(runner->name, std::move(command));
+    if (const std::string refused =
+            runners_.test(library::wine::displayName(runner->name), std::move(command));
         !refused.empty()) {
         hooks_.say(refused, true);
     }
