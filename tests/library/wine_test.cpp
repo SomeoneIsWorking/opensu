@@ -247,9 +247,9 @@ void launchesGetTheRunnerAndPrefix(const fs::path& dir) {
 
     choice.runner = dir / "runners/gone";
     Game gone = windowsGame(Source::Gog, "5");
-    expect(wine::prepare(gone, choice).refusal == "The Wine runner " +
-                                                      (dir / "runners/gone").string() +
-                                                      " is gone; pick another in Settings" &&
+    expect(wine::prepare(gone, choice).refusal ==
+                   "The runner picked for Game 5 is no longer installed; pick another in "
+                   "Settings › Wine" &&
                gone.launch.args.size() == 2,
            "a missing runner refuses the launch and leaves it untouched");
 
@@ -257,14 +257,24 @@ void launchesGetTheRunnerAndPrefix(const fs::path& dir) {
     choice.found.clear();
     Game none = windowsGame(Source::Epic, "Owned");
     expect(wine::prepare(none, choice).refusal ==
-               "No Wine runner can run Game Owned: no GE-Proton, Steam Proton or Lutris runner "
-               "with umu-run, and no system Wine",
+               "Game Owned cannot start: no Wine or Proton is installed",
            "nothing Automatic can run refuses the launch");
 }
 
 } // namespace
 
+void namesReadAsWords() {
+    expect(wine::displayName("GE-Proton11-5-x86_64") == "GE-Proton 11-5", "CPU suffix dropped");
+    expect(wine::displayName("GE-Proton11-11") == "GE-Proton 11-11", "a space before the version");
+    expect(wine::displayName("Proton 9.0 (Beta)") == "Proton 9.0 Beta", "no parentheses");
+    expect(wine::displayName("wine-ge-8-26-x86_64") == "wine-ge 8-26", "a Lutris build");
+    expect(wine::displayName("System Wine") == "System Wine" &&
+               wine::displayName("Proton Experimental") == "Proton Experimental",
+           "names without a version stay");
+}
+
 int main() {
+    namesReadAsWords();
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "wine"};
     runnersAreFound(scratch.path() / "found");
     automaticTakesTheFirstThatRuns(scratch.path() / "automatic");

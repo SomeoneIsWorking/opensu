@@ -71,8 +71,6 @@ class WineSettings {
     [[nodiscard]] std::vector<library::Game> gamesOn(const std::filesystem::path& wine) const;
     void stepRunner(int step);
     void test();
-    /// What Automatic resolves to now and why, as the runner row's note.
-    [[nodiscard]] std::string automaticNote() const;
 
     Preferences& preferences_;
     const config::Config& config_;

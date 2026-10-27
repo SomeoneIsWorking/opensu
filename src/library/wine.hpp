@@ -23,6 +23,11 @@
 
 namespace opensu::library::wine {
 
+/// A runner's name as the player reads it, from its folder or Lutris name: the CPU suffix
+/// (`-x86_64`, `-aarch64`) and parentheses dropped, a space before the version
+/// ("GE-Proton11-5-x86_64" is "GE-Proton 11-5", "Proton 9.0 (Beta)" is "Proton 9.0 Beta").
+[[nodiscard]] std::string displayName(std::string_view name);
+
 /// Who put a runner on this machine.
 enum class Origin : std::uint8_t {
     /// openSU's own GE-Proton builds.

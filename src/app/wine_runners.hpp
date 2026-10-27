@@ -53,7 +53,7 @@ class WineRunners {
     struct Progress {
         /// `ge-proton` or `umu-launcher`.
         std::string id;
-        /// The release: `GE-Proton11-11`, `umu-launcher 1.4.4`.
+        /// The release as the player reads it: `GE-Proton 11-11`, `umu-launcher 1.4.4`.
         std::string name;
         library::ArchiveStage stage{library::ArchiveStage::Downloading};
         std::uint64_t received{0};

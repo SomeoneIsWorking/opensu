@@ -60,10 +60,12 @@ you can fallback to Steam Proton which falls back to what Lutris uses which fall
   the next scheduled check. Sizes are measured again when a game ends, which is when the Steam
   Linux Runtime umu fetched on a first Proton launch shows up. After a successful check the rotation runs on the main loop: builds past the newest
   two are renamed into `<data>/wine/.trash` and removed on a thread; a build kept back says why
-  ("Kept: 1 game pinned to it", "Kept: a game runs on it", "Picked for every game"). Progress and
+  ("Kept because 1 game is pinned to it", "Kept because a game is running on it", "Kept because it
+  runs every game"). Progress and
   Cancel on the Downloads page (`wine:ge-proton`, `wine:umu-launcher`, "Wine runner").
-- Settings › Wine: Wine runner (Automatic, its note naming what it resolves to now and why, e.g.
-  "Now Steam's GE-Proton11-5-x86_64 (GE-Proton downloading)"; each runner found), Check for GE-Proton now with the last outcome, Test the runner (`cmd /c ver` in
+- Settings › Wine: Wine runner, whose value names what Automatic resolves to now ("Automatic
+  (GE-Proton 11-5)"), or an explicit pick by name; Check for GE-Proton now with the download in
+  progress ("Downloading GE-Proton 11-11 · 7%") or the last outcome ("Up to date: GE-Proton 11-11"); Test the runner (`cmd /c ver` in
   `<data>/wine/test-prefix` through the same invocation a launch uses), then "Runners and
   runtimes": every runner with where it lives (kept up to date by openSU, found in Steam's
   folders, system), size for openSU's builds, and how many games use it; umu-launcher and the
@@ -126,12 +128,12 @@ On the player's own setup (installed data dirs, `--hidden` inside a headless Gam
 running; `scratch/ge-proton-real/ge3/`), Nuclear Throne (Epic) on Automatic, runners moved aside on
 their own filesystems for each run and restored after:
 
-1. No openSU GE-Proton: Settings › Wine "Automatic · Now Steam's GE-Proton11-5-x86_64 (GE-Proton
-   downloading)" (`frames/A2-no-ge-1-settings-wine.png`); Play started at once, "runs under
+1. No openSU GE-Proton: Settings › Wine showed Automatic resolving to Steam's GE-Proton 11-5
+   while GE-Proton downloaded (`frames/A2-no-ge-1-settings-wine.png`); Play started at once, "runs under
    GE-Proton11-5-x86_64 through umu-run", window shown, while GE-Proton11-11 downloaded behind it
    (`logs/A2-no-ge.log`).
 2. No openSU GE-Proton and no Steam Proton: Lutris's default (GE-Proton latest) is not on disk, so
-   Automatic is system Wine, "Now System Wine (GE-Proton downloading)"
+   Automatic is system Wine
    (`frames/B2-no-ge-no-steam-1-settings-wine.png`). The shared prefix is Proton's, so the saves
    were copied to `wine-prefix.plain-wine` and the game ran there under system Wine and showed its
    window (`logs/B2-no-ge-no-steam.log`). The run before the twin prefix existed is the failure
@@ -139,6 +141,14 @@ their own filesystems for each run and restored after:
    taken just before it.
 3. Everything restored: "GE-Proton11-11 is the latest GE-Proton and installed", the game runs
    under it in the shared prefix and shows its window, its save unchanged (`logs/D-all-restored.log`).
+
+Runner names read as words everywhere the player sees one (`library::wine::displayName`: the CPU
+suffix dropped, a space before the version, parentheses dropped, so "GE-Proton 11-5" and "Proton
+9.0 Beta"). On the same setup with the gate build (`scratch/ge-proton-real/ge4/frames/`):
+openSU's GE-Proton moved aside, "Automatic (GE-Proton 11-5)" with "Downloading GE-Proton 11-11 ·
+7%" on the Check row (`dl-0.png`); restored, "Automatic (GE-Proton 11-11)" and "Up to date:
+GE-Proton 11-11" (`idle-0.png`); every pick stepped through, Proton 9.0 Beta and Automatic
+(GE-Proton 11-11) fit between the arrows at 1280x800 (`idle-picks-strip.png`).
 
 "None → system" is case 2 on this machine: with no Proton the Lutris step finds nothing on disk.
 

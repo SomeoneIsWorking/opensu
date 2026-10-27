@@ -1108,10 +1108,8 @@ void wineRunnerIsPicked(const fs::path& root) {
 
     rig.controller.open();
     rig.enter("Wine");
-    expect(rig.rowOf("wine.runner").value == "Automatic" &&
-               rig.rowOf("wine.runner").note == "Now Steam's GE-Proton9-20 (no GE-Proton yet)",
-           "Automatic is the default; its note names what it resolves to now, Steam's newest "
-           "Proton, and why");
+    expect(rig.rowOf("wine.runner").value == "Automatic (GE-Proton 9-20)",
+           "Automatic is the default and names what it resolves to now: Steam's newest Proton");
     expect(rig.rowOf("wine.prefix").value == (root / "data" / "wine-prefix").string(),
            "one shared prefix under the data folder");
     expect(rig.rowOf("wine.own").value == "None" &&
