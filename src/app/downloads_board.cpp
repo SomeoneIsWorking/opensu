@@ -281,6 +281,17 @@ void DownloadsBoard::applyInstall(const Installs::Status& install, std::set<std:
     at.endedAt = tick_;
 }
 
+std::string DownloadsBoard::steamTitle(const steam::Download& download) const {
+    // The library's title first, so the row reads as the game's tile does.
+    if (std::string title = titles_(library::Source::Steam, download.appId); !title.empty()) {
+        return title;
+    }
+    if (!download.name.empty()) {
+        return download.name;
+    }
+    return "Steam app " + download.appId;
+}
+
 void DownloadsBoard::applySteam(const std::vector<steam::Download>& queue,
                                 std::set<std::string>& live) {
     int last = -1;
@@ -297,14 +308,9 @@ void DownloadsBoard::applySteam(const std::vector<steam::Download>& queue,
         Entry& at = entry(key);
         DownloadRow& row = at.row;
         row.store = library::Source::Steam;
-        row.kind = DownloadKind::Game;
+        row.kind = download.tool ? DownloadKind::Tool : DownloadKind::Game;
         row.id = download.appId;
-        if (row.title.empty()) {
-            row.title = titles_(library::Source::Steam, download.appId);
-        }
-        if (row.title.empty()) {
-            row.title = "Steam app " + download.appId;
-        }
+        row.title = steamTitle(download);
         row.state = steamState(download);
         row.update = download.active && !download.installing;
         row.fraction = download.progress;

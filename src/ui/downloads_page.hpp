@@ -21,7 +21,7 @@ struct DownloadsEntry {
     /// The controller's name for the row, stable across refreshes.
     std::string key{};
     std::string title{};
-    /// Where it comes from: "Steam", "Epic", "GOG", "Emulator", "Core".
+    /// Where it comes from: "Steam", "Steam tool", "Epic", "GOG", "Emulator", "Core".
     std::string source{};
     /// "Downloading", "Paused", "Failed" and so on.
     std::string state{};

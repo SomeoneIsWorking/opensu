@@ -15,6 +15,12 @@ namespace opensu::steam {
 /// One app with an install or update Steam has not finished.
 struct Download {
     std::string appId{};
+    /// Steam's name for the app, as its own downloads page shows it; empty when its app store has
+    /// none.
+    std::string name{};
+    /// Steam lists the app as a tool (Proton, a Steam Linux Runtime, the Steamworks
+    /// redistributables) rather than a game.
+    bool tool{false};
     /// 0 to 1.
     double progress{0.0};
     /// Steam is transferring it now.
@@ -37,8 +43,9 @@ struct Download {
 };
 
 /// The unfinished downloads in Steam's answer to the query DownloadQueue sends: `items` from
-/// RegisterForDownloadItems and `overview` from RegisterForDownloadOverview. The active one takes
-/// its live figures from the overview; the head of a paused queue is paused.
+/// RegisterForDownloadItems, `overview` from RegisterForDownloadOverview and `apps`, each item's
+/// `display_name` and `app_type` from Steam's app store by app id. The active one takes its live
+/// figures from the overview; the head of a paused queue is paused.
 [[nodiscard]] std::vector<Download> parseDownloads(const nlohmann::json& answer);
 
 class DownloadQueue {

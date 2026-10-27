@@ -15,7 +15,9 @@ Requested: "downloads menu showing active downloads and progess".
 
 - One page lists every download openSU knows of: Steam's queue (its own auto-updates included),
   the store install or uninstall openSU runs (Epic, GOG, Steam's install wizard; uninstalls in
-  `uninstall-games.md`) and the emulator or core download. Each row shows the title, the source,
+  `uninstall-games.md`) and the emulator or core download. Each row shows the title, the source
+  ("Steam tool" for what Steam types a tool: Proton, a Steam Linux Runtime, the Steamworks
+  redistributables),
   the state (Queued, Downloading, Paused, Installing, Finished, Failed, Cancelled, Uninstalling,
   Uninstalled), the figures the owner gives (percent; bytes and rate for Steam and emulators; time
   left for Steam), a progress bar while measured, and its buttons. An uninstall has none.
@@ -34,6 +36,10 @@ Requested: "downloads menu showing active downloads and progess".
   showing a progress ring, and the Downloads chord action (no chord by default; Settings › Guide
   chords binds one).
 - `/state` has `downloadsOpen` and `downloads`, one `{key, title, source, state, percent}` per row.
+- A Steam row's title is the library's title for the app, else Steam's own name for it, else
+  "Steam app <id>", chosen again every frame: a title the library gains later replaces the others.
+  Steam's tools are not in the library (`library/steam:isSteamComponent`), so they take Steam's
+  name.
 
 ## Steam's own calls
 
@@ -47,6 +53,9 @@ client id "0":
   `SetQueueIndex(appid, index, "0")`.
 - Remove is `RemoveFromDownloadList(appid, "0")`; removing the paused head (`queue_index` 0 while
   the overview is paused) then resumes the queue. The page hides Remove on the active download.
+- A row's name is `appStore.GetAppOverviewByAppID(appid).display_name` (`DownloadName` in the
+  page); the overview's `app_type` is EAppType, 4 a tool (Proton Hotfix 2180100, Steam Linux
+  Runtime 4.0 4183110, Steamworks Common Redistributables 228980 all read 4; a game 1, a demo 8).
 - Bytes are `update_type_info[k].progress[2].bytes_in_progress/bytes_total` summed per item (stage
   2 is the transfer); the active download's live bytes, `update_network_bytes_per_second` and
   `update_state` come from the overview.
@@ -83,18 +92,32 @@ It follows iiSU's content: one row per task with its title, progress and a cance
 
 ## Tests
 
-- `steam_devtools`: the new fields parsed; each `DownloadControl` expression exact against
-  `tests/support/fake_steam.hpp`, removing the paused head resumes, a bad app id asks nothing.
+- `steam_devtools`: the new fields parsed, the app store's name and tool type; each
+  `DownloadControl` expression exact against `tests/support/fake_steam.hpp`, removing the paused
+  head resumes, a bad app id asks nothing.
 - `install_job`: cancel while asking for a licence, a stub `legendary` cancelled mid-download ends
   cancelled (not failed) and its process is gone, cancel through `Installs`.
 - `downloads_board`: merging, order, state mapping, Steam actions, install endings, the Steam
-  wizard joining its queue row, Steam unreadable, removal, emulator endings.
+  wizard joining its queue row, Steam unreadable, removal, emulator endings, Steam titles (library,
+  Steam's name, app id; a later library title replaces them) and tool rows.
 - `downloads_controller`: Cancel reaches `Installs` (stub `legendary`) and `EmulatorDownloads`
   (fake release host); each Steam button sends its call to a fake Steam; a refused call is told.
 - `downloads_page`, `control_channel`, `breadcrumb_trail`, the Guide menu, shortcut and pointer
   tests.
 - Parity scene `downloads` (`tools/screenshots`, `--parity`): a run of its own with a stand-in
   `legendary` whose install logs 42% and waits.
+
+## "Steam app <id>" rows (2026-10-27)
+
+The player: "some steam updates show as 'Steam app <id>'". Reproduced with the player's Steam
+(Isolated, hidden openSU in headless Gamescope, `scratch/steam-titles/tools/live.py`): Proton
+Hotfix (2180100) and Steam Linux Runtime 4.0 (4183110) listed as "Steam app 2180100" and
+"Steam app 4183110". Cause: `app/downloads_board:DownloadsBoard::applySteam` named a row only from
+the library, which leaves Steam's tools out, and kept the first title it set, so even a game the
+library learnt of later stayed "Steam app <id>". Now `steam/downloads:parseDownloads` carries
+Steam's name and tool type and the board picks the title every frame; the same queue then read
+"Proton Hotfix" and "Steam Linux Runtime 4.0", source "Steam tool"
+(`scratch/steam-titles/shots/{before,after}-downloads.png`).
 
 ## Not done
 

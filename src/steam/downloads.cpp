@@ -11,13 +11,20 @@ namespace {
 
 using nlohmann::json;
 
-// Both registrations call back at once with the current state.
+// Both registrations call back at once with the current state. Names come from the app store, as
+// Steam's downloads page takes them.
 constexpr std::string_view query = R"js(Promise.all([
   new Promise(done => { const h = SteamClient.Downloads.RegisterForDownloadItems((paused, items) => {
     h.unregister(); done(items); }); }),
   new Promise(done => { const h = SteamClient.Downloads.RegisterForDownloadOverview(overview => {
     h.unregister(); done(overview); }); })
-]).then(([items, overview]) => ({ items, overview })))js";
+]).then(([items, overview]) => ({ items, overview,
+  apps: Object.fromEntries(items.flatMap(c => c.item_data || []).map(i => {
+    const app = window.appStore?.GetAppOverviewByAppID(i.appid);
+    return [i.appid, app ? { display_name: app.display_name, app_type: app.app_type } : {}]; })) })))js";
+
+/// k_EAppType_Tool in an app overview's `app_type`.
+constexpr int toolAppType = 4;
 
 /// The percentage of the item's first pending part, or nothing when it has none.
 std::optional<int> pendingPercent(const json& item) {
@@ -73,6 +80,7 @@ std::vector<Download> parseDownloads(const json& answer) {
     }
     const json overview = answer.value("overview", json::object());
     const std::int64_t activeId = overview.value("update_appid", std::int64_t{0});
+    const json apps = answer.value("apps", json::object());
     for (const json& client : answer["items"]) {
         // Downloads a remote Steam client runs show up here too; only this machine's count.
         if (client.value("remote_client_id", "0") != "0" || !client.contains("item_data")) {
@@ -85,7 +93,11 @@ std::vector<Download> parseDownloads(const json& answer) {
             }
             const std::int64_t appId = item.value("appid", std::int64_t{0});
             const auto [done, total] = itemBytes(item);
+            const json app = apps.is_object() ? apps.value(std::to_string(appId), json::object())
+                                              : json::object();
             Download download{.appId = std::to_string(appId),
+                              .name = app.is_object() ? app.value("display_name", "") : "",
+                              .tool = app.is_object() && app.value("app_type", 0) == toolAppType,
                               .progress = fraction(*percent),
                               .active = item.value("active", false),
                               .paused = item.value("paused", false),

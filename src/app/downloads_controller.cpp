@@ -45,6 +45,9 @@ std::string timeText(int seconds) {
 }
 
 std::string sourceText(const DownloadRow& row) {
+    if (row.kind == DownloadKind::Tool) {
+        return "Steam tool";
+    }
     if (row.store) {
         return std::string{library::label(*row.store)};
     }
@@ -56,6 +59,7 @@ std::string sourceText(const DownloadRow& row) {
     case DownloadKind::RomsetList:
         return "Arcade";
     case DownloadKind::Game:
+    case DownloadKind::Tool:
     case DownloadKind::Emulator:
         break;
     }
@@ -313,7 +317,7 @@ void DownloadsController::act(gamepad::Button button) {
 
 void DownloadsController::perform(const DownloadRow& row, DownloadAction action) {
     if (action == DownloadAction::Cancel) {
-        if (row.kind == DownloadKind::Game) {
+        if (row.store) {
             cancelInstall(row);
         } else {
             sources_.emulators.cancel(row.id);

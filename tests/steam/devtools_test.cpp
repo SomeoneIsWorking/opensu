@@ -102,7 +102,10 @@ void testDownloadsParseQueueAndBytes() {
                                "progress": [{}, {}, {"bytes_in_progress": "50",
                                                      "bytes_total": "500"}]}]},
         {"appid": 70, "queue_index": -1, "paused": true, "completed": false,
-         "update_type_info": [{"has_update": true, "overall_percent_complete": 0}]}]}]
+         "update_type_info": [{"has_update": true, "overall_percent_complete": 0}]}]}],
+      "apps": {"960090": {"display_name": "Bloons TD 6", "app_type": 1},
+               "292030": {"display_name": "Proton Hotfix", "app_type": 4},
+               "70": {}}
     })");
     const std::vector<Download> downloads = opensu::steam::parseDownloads(answer);
     expect(downloads.size() == 3, "every unfinished download is read");
@@ -117,6 +120,12 @@ void testDownloadsParseQueueAndBytes() {
            "a waiting download adds up the bytes of its parts");
     expect(downloads[2].queueIndex == -1 && downloads[2].paused && downloads[2].bytesTotal == 0,
            "a download out of the queue has no place");
+    expect(downloads[0].name == "Bloons TD 6" && !downloads[0].tool,
+           "a game takes Steam's name from its app store");
+    expect(downloads[1].name == "Proton Hotfix" && downloads[1].tool,
+           "an app Steam types as a tool is a tool");
+    expect(downloads[2].name.empty() && !downloads[2].tool,
+           "an app the store has no overview of has no name");
 
     json paused = answer;
     paused["overview"]["paused"] = true;

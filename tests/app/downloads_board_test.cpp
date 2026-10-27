@@ -95,6 +95,47 @@ void testMergesEverySource() {
            "the emulator download is listed with its bytes");
 }
 
+void testSteamTitles() {
+    std::string later;
+    DownloadsBoard shown{[&later](Source store, const std::string& id) -> std::string {
+        return store == Source::Steam && id == "960090" ? later : std::string{};
+    }};
+    const auto queue = [] {
+        return std::vector<Download>{
+            Download{.appId = "2180100", .name = "Proton Hotfix", .tool = true, .queueIndex = 0},
+            Download{.appId = "960090", .name = "Bloons TD 6", .queueIndex = 1},
+            Download{.appId = "4183110", .queueIndex = 2}};
+    };
+    shown.update({.steamReady = true, .steam = queue()});
+    const DownloadRow* tool = shown.find("steam:2180100");
+    expect(tool->title == "Proton Hotfix" && tool->kind == DownloadKind::Tool &&
+               tool->store == Source::Steam,
+           "a Steam tool the library leaves out takes Steam's name and is listed as a tool");
+    expect(shown.find("steam:960090")->title == "Bloons TD 6" &&
+               shown.find("steam:960090")->kind == DownloadKind::Game,
+           "a game the library does not know yet takes Steam's name");
+    expect(shown.find("steam:4183110")->title == "Steam app 4183110",
+           "an app Steam's store has no name for is named by its id");
+    later = "Bloons TD 6 (library)";
+    shown.update({.steamReady = true, .steam = queue()});
+    expect(shown.find("steam:960090")->title == "Bloons TD 6 (library)",
+           "a title the library gains later replaces Steam's name");
+}
+
+void testSteamTitleNotFrozen() {
+    std::string later;
+    DownloadsBoard shown{[&later](Source, const std::string&) {
+        return later;
+    }};
+    const std::vector<Download> queue{Download{.appId = "70", .queueIndex = 0}};
+    shown.update({.steamReady = true, .steam = queue});
+    expect(shown.find("steam:70")->title == "Steam app 70", "no name yet: the app id");
+    later = "Half-Life";
+    shown.update({.steamReady = true, .steam = queue});
+    expect(shown.find("steam:70")->title == "Half-Life",
+           "an update seen before the library loaded takes its title once it has one");
+}
+
 void testOrdering() {
     DownloadsBoard shown = board();
     shown.update(
@@ -416,6 +457,8 @@ void testRomsetLists() {
 
 int main() {
     testMergesEverySource();
+    testSteamTitles();
+    testSteamTitleNotFrozen();
     testOrdering();
     testSteamStates();
     testSteamActions();

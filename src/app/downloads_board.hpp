@@ -22,7 +22,8 @@
 
 namespace opensu::app {
 
-enum class DownloadKind : std::uint8_t { Game, Emulator, Core, ShaderPack, RomsetList };
+/// `Tool`: what Steam lists as a tool (Proton, a Steam Linux Runtime, the redistributables).
+enum class DownloadKind : std::uint8_t { Game, Tool, Emulator, Core, ShaderPack, RomsetList };
 
 enum class DownloadState : std::uint8_t {
     Queued,
@@ -131,7 +132,8 @@ struct EmulatorEnd {
 
 class DownloadsBoard {
   public:
-    /// A game's title by its store and the store's id; empty when the library has none.
+    /// A game's title by its store and the store's id; empty when the library has none. Asked every
+    /// update, so a title the library gains later replaces Steam's name or the fallback.
     using TitleOf = std::function<std::string(library::Source, const std::string&)>;
 
     /// One frame's look at every source.
@@ -177,6 +179,8 @@ class DownloadsBoard {
     Entry& entry(const std::string& key);
     void applyInstall(const Installs::Status& install, std::set<std::string>& live);
     void applySteam(const std::vector<steam::Download>& queue, std::set<std::string>& live);
+    /// The library's title, else Steam's name, else the app id.
+    [[nodiscard]] std::string steamTitle(const steam::Download& download) const;
     void applyEmulator(const Sources& sources, std::set<std::string>& live);
     void applyRomsetLists(const std::vector<RomsetListLook>& lists, std::set<std::string>& live);
     /// Settles what was live and is gone now.
