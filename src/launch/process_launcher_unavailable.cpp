@@ -13,7 +13,8 @@ ProcessLauncher::~ProcessLauncher() = default;
 bool ProcessLauncher::start(const std::string& /*group*/, const std::string& program,
                             const std::vector<std::string>& /*args*/, std::string& failure,
                             const std::vector<std::string>& /*environment*/,
-                            const std::filesystem::path& /*workingDirectory*/) {
+                            const std::filesystem::path& /*workingDirectory*/,
+                            const std::filesystem::path& /*output*/) {
     failure = programName(program) +
               " cannot be started: launching is not available on " OPENSU_SYSTEM_NAME;
     return false;

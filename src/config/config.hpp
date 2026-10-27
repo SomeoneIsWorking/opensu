@@ -73,6 +73,11 @@ struct Config {
     std::filesystem::path xdgCacheHome;
     std::filesystem::path xdgDataHome;
     std::filesystem::path xdgConfigHome;
+    std::filesystem::path xdgStateHome;
+
+    /// opensu's state that outlives a run but is no setting, the session's Gamescope logs:
+    /// `<xdgStateHome>/opensu`.
+    std::filesystem::path stateDir;
 
     /// opensu's cache, downloaded artwork among it (`Locations`): `$XDG_CACHE_HOME/opensu`, else
     /// `~/.cache/opensu`, on Linux.

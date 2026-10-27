@@ -231,6 +231,8 @@ Config read() {
     value.xdgCacheHome = base("XDG_CACHE_HOME", ".cache");
     value.xdgDataHome = base("XDG_DATA_HOME", ".local/share");
     value.xdgConfigHome = base("XDG_CONFIG_HOME", ".config");
+    value.xdgStateHome = base("XDG_STATE_HOME", ".local/state");
+    value.stateDir = value.xdgStateHome / OPENSU_LOCATION_NAME;
     const Locations locations = Locations::resolve({
         .home = env("HOME"),
         .xdg_config_home = env("XDG_CONFIG_HOME"),

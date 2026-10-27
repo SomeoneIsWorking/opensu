@@ -94,7 +94,8 @@ int main(int argc, char** argv) {
     // Steam and every game share the one compositor that closing opensu ends.
     if (!renderPath && !arguments.hidden && !config.insideGamescope && !config.sessionInherited) {
         opensu::session::CompositorSession session{
-            config.session, config.gamescope, opensu::host::DesktopRequest{config.desktopRequest}};
+            config.session, config.gamescope, config.stateDir,
+            opensu::host::DesktopRequest{config.desktopRequest}};
         if (arguments.loginSession) {
             // No display yet: Gamescope takes the seat at the native mode.
             opensu::session::LoginSession login{

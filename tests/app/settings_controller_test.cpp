@@ -603,6 +603,16 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
     rig.act(Button::Right);
     expect(need(rig.onDisk().homeMode, "a scroll mode") != first, "and stepping changes it");
 
+    rig.focus("nightLight");
+    const ui::SettingsRow night = rig.rowOf("nightLight");
+    expect(night.choices.size() == 3 && night.choices[night.chosen] == "Same as desktop" &&
+               night.note == "For session mode; here the desktop's own night light applies",
+           "the night light follows the desktop, and says where it applies");
+    rig.act(Button::Right);
+    expect(rig.onDisk().nightLight == settings::NightLightChoice::Off &&
+               rig.rowOf("nightLight").choices[rig.rowOf("nightLight").chosen] == "Off",
+           "a night light choice is kept");
+
     rig.focus("layout");
     const library::LibraryMode mode = rig.preferences.values().libraryMode;
     const ui::SettingsRow layout = rig.rowOf("layout");

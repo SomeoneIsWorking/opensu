@@ -846,6 +846,8 @@ void ShellApp::publishSnapshot() {
         next.screenFocus = navigator.focused();
     }
     next.firstRunOpen = firstRun_.active();
+    next.nightLightKelvin = static_cast<std::size_t>(nightLight_.kelvin());
+    next.nightLightShown = nightLight_.active();
     next.folderPickerOpen = paths_.active();
     next.capturingShortcut = shortcutEditor_.capturing();
     next.mapping = shell_.mappingPage().state();
@@ -1014,6 +1016,7 @@ int ShellApp::run() {
         padOwner_.lendToSteam(steamGridDbAccount_.signingIn() || offerClaim_.inSteam());
         focusFollow_.service(padOwner_.held());
         frameGeneration_.follow(gameInFront());
+        nightLight_.service(preferences_.values().nightLight, std::chrono::system_clock::now());
         padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),
                          gameScreen_.mode() == session::OverlayMode::Interactive);
         handlePads();

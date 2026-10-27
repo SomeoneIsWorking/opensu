@@ -113,6 +113,9 @@ struct ShellSnapshot {
     /// Whether the Downloads page is open, and every download it lists, in its order.
     bool downloadsOpen{false};
     std::vector<DownloadLine> downloads{};
+    /// The night light's temperature for now, and whether openSU shows it (its login session).
+    std::size_t nightLightKelvin{0};
+    bool nightLightShown{false};
     /// The Steam client's state: stopped, initializing, ready, failed or blocked.
     std::string steam{"stopped"};
     /// The launcher badges, as `steam=ready epic=failed`.

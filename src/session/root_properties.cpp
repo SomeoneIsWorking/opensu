@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
@@ -33,6 +34,14 @@ void RootProperties::setCardinal(std::string_view name, long value) {
     XChangeProperty(connection_->display, DefaultRootWindow(connection_->display),
                     connection_->atom(name), XA_CARDINAL, 32, PropModeReplace,
                     reinterpret_cast<const unsigned char*>(&value), 1);
+}
+
+void RootProperties::setCardinals(std::string_view name, std::span<const std::uint32_t> values) {
+    const std::vector<long> data(values.begin(), values.end());
+    XChangeProperty(connection_->display, DefaultRootWindow(connection_->display),
+                    connection_->atom(name), XA_CARDINAL, 32, PropModeReplace,
+                    reinterpret_cast<const unsigned char*>(data.data()),
+                    static_cast<int>(data.size()));
 }
 
 void RootProperties::setText(std::string_view name, std::string_view value) {

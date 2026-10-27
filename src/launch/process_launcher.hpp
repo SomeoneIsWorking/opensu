@@ -25,13 +25,15 @@ class ProcessLauncher {
 
     /// Starts `program` in the group `group` (the scope's unit name on Linux), with each
     /// "NAME=value" of `environment` added to its environment, in `workingDirectory` (openSU's
-    /// own when empty). Returns once the group exists, so a following stop() always reaches it.
+    /// own when empty), its stdout and stderr appended to `output` when one is given (openSU's
+    /// own otherwise). Returns once the group exists, so a following stop() always reaches it.
     /// The program starts with no signal blocked. False with `failure` when it cannot be started,
     /// which on an OS without a backend is every time.
     [[nodiscard]] bool start(const std::string& group, const std::string& program,
                              const std::vector<std::string>& args, std::string& failure,
                              const std::vector<std::string>& environment = {},
-                             const std::filesystem::path& workingDirectory = {});
+                             const std::filesystem::path& workingDirectory = {},
+                             const std::filesystem::path& output = {});
 
     /// True while anything is left in the group. The started process may exit while processes it
     /// spawned carry on, which still counts as running.

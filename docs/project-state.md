@@ -740,6 +740,45 @@ root-run scripts in `<prefix>/libexec/opensu/` (`install-session.sh`, `opensu-se
 SDDM here (0.21+) reads `/usr/local/share/wayland-sessions` and `/usr/share/wayland-sessions`
 (`sddm --example-config`; `/etc/sddm.conf` sets no `SessionDir`), never `~/.local/share`.
 
+Colour and night light. The desktop's live KMS state on HDMI-A-1 (`drm_info`, KWin 6.7.5, HDR and
+wide colour gamut off, colour profile source sRGB, `rgbRange` Automatic, brightness 1) against the
+fork's `DRMBackend.cpp:drm_prepare` in a login session:
+
+| Property | Desktop (live) | Session | Effect |
+|---|---|---|---|
+| `HDR_OUTPUT_METADATA` | none | none (was a zeroed SDR-EOTF blob on an HDR10 TV) | the TV got an HDR InfoFrame; fixed in c1a4a171 |
+| `content type` | Graphics | Graphics (was Game) | Game puts TVs in their game picture mode; fixed in c1a4a171 |
+| `max bpc` | 10 | 10 with the 2101010 plane (was whatever the previous master left) | fixed in c1a4a171 |
+| CRTC `GAMMA_LUT` | per-channel gains (1.1236, 0.9758, 0.8278) on encoded values at 4500 K, red clipped | none; the night mode in the composite | warm white kept at white's luminance; fixed in 4d39f793 and `night_mode` |
+| `DEGAMMA_LUT`, `CTM` | none | none | none |
+| `Broadcast RGB` | Automatic | Automatic | none |
+| `Colorspace` | Default | Default | none |
+| Primary plane | ARGB2101010, `COLOR_PIPELINE` Bypass | XRGB2101010, no plane colour (`AMD_PLANE_*` absent) | none |
+
+KWin's transfer is the identity on encoded values (its LUT is linear in the input), as Gamescope's
+SDR path (`color_helpers.cpp:buildSDRColorimetry` with `sdrGamutWideness` unset maps EDID primaries
+to themselves). The other output settings change nothing in SDR at their values here
+(`sdrBrightness`, `edrPolicy`, `maxPeakBrightnessOverride` act in HDR; `brightness` 1 dims nothing;
+`iccProfilePath` empty), so the session does not read `kwinoutputconfig.json`, and does not follow
+a desktop with HDR on. openSU shows the night light itself in the login session (`app::NightLight`;
+Settings › Appearance › Night light: Same as desktop, the default, Off, or On at the desktop's night
+temperature): the desktop's settings from `$XDG_CONFIG_HOME/kwinrc` `[NightColor]` and its day and
+night schedule from knighttimed (`org.kde.NightTime`, D-Bus activated, which keeps the location and
+the transition times KWin 6.7's DarkLight mode follows too), KWin's rule for the temperature, the
+blackbody white point at white's luminance (computed; at 4500 K 1.107, 0.983, 0.812 against KWin's
+1.124, 0.976, 0.828) as the fork's `GAMESCOPE_COLOR_NIGHT_MODE` (amount, hue, saturation, value),
+looked at every 10 s. On a desktop it computes the temperature for `/state` (`nightLightKelvin`)
+but shows nothing (`nightLightShown` false): KWin already warms the nested Gamescope. Without
+knighttimed the day temperature stands and a warning says why; GNOME's night light is not read.
+Without plane colour properties Gamescope scans SDR planes out with no LUT, so the fork composites
+while night mode is on (3f14f6e3). Gamescope's stdout and stderr, the shell's with them, go to
+`$XDG_STATE_HOME/opensu/gamescope-session.log` (`gamescope-nested.log` on a desktop), emptied at
+each run and kept across restarts. Verified: `opensu --hidden` on the desktop reported 4500 K,
+KWin's own `currentTemperature`; the Settings row in a real-setup frame; the desktop's KMS state
+above. Not verified: any of it on the TV in a real session-mode login. A headless Gamescope does
+not show the night mode in a `gamescopectl screenshot ... 4` capture: neither the atom nor a pure
+red night mode nor `GAMESCOPE_DEBUG_HDR_HEATMAP` changed the capture, cause not found.
+
 Install session mode (Power list outside the login session, `host::SessionMode`): "Install
 session mode" shows while no entry for this openSU is in a directory SDDM reads or the selector is
 missing; "Switch to session mode" once both are there. Install asks through `confirm` (what it is, that
@@ -872,7 +911,7 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `d155d8c9ddff3746234d968c7efe8d6ba12d449d` (3.16.29 plus fourteen commits).
+to commit `c1a4a171a3a90802c26dc58ddc6e1eb9c4ecdd49` (3.16.29 plus seventeen commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. The other three are upstream's
@@ -902,7 +941,12 @@ code, `docs/design/frame-generation-spec.md`): it reads the LSFG 3 SPIR-V from t
 refuses (logged once, real frames only), and runs the per-real-frame and per-generated-frame passes
 on Gamescope's device, FP16 when the device has it. d155d8c9 measures the base rate from the
 commits' ready times over a full 15-interval history in both modes, without the outlier that
-restarts it (`docs/issues/adaptive-lsfg-vk.md`, "Base rate after a change"). New atoms `_GENERATOR` (1 is the linear blend,
+restarts it (`docs/issues/adaptive-lsfg-vk.md`, "Base rate after a change"). 3f14f6e3 makes the
+DRM backend composite while `GAMESCOPE_COLOR_NIGHT_MODE` is on when the planes have no colour
+properties, since scanout would skip the LUT that carries it (S010). 4d39f793 adds an optional fourth
+night mode value, the tint's HSV value, so a warm white can keep white's luminance and clip past
+full as KWin's does; c1a4a171 sends no HDR InfoFrame in SDR, content type Graphics and `max bpc`
+from the primary plane's format, as KWin's desktop output (S010). New atoms `_GENERATOR` (1 is the linear blend,
 kept as an explicit test choice), `_PERFORMANCE` and `_FLOW_SCALE` (percent). Verified headless:
 motion-interpolated frames with fixed 2x and adaptive 43 to 60, unchanged pacing, no validation
 message from the generator, GPU time per generated frame (`docs/issues/adaptive-lsfg-vk.md`,

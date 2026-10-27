@@ -4,6 +4,10 @@ add_executable(gamescope_test gamescope_test.cpp)
 target_link_libraries(gamescope_test PRIVATE opensu::session)
 add_test(NAME gamescope COMMAND gamescope_test)
 
+add_executable(night_mode_test night_mode_test.cpp)
+target_link_libraries(night_mode_test PRIVATE opensu::session)
+add_test(NAME night_mode COMMAND night_mode_test)
+
 add_executable(compositor_session_test compositor_session_test.cpp)
 target_link_libraries(compositor_session_test PRIVATE opensu::session lucent::lucent Threads::Threads)
 add_test(NAME compositor_session COMMAND compositor_session_test)

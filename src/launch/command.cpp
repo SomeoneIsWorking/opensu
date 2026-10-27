@@ -19,6 +19,7 @@
 
 #include "argv.hpp"
 #include "child_environment.hpp"
+#include "descriptor.hpp"
 #include "lucent/log.h"
 
 namespace opensu::launch {
@@ -41,30 +42,6 @@ int exitCode(int status) {
 constexpr auto readSlice = std::chrono::milliseconds{100};
 /// How long a stopped child has to end on SIGTERM before it is killed.
 constexpr auto termGrace = std::chrono::seconds{2};
-
-/// Closes a descriptor when it goes out of scope.
-class Descriptor {
-  public:
-    explicit Descriptor(int fd) noexcept : fd_{fd} {
-    }
-    ~Descriptor() {
-        close();
-    }
-    Descriptor(const Descriptor&) = delete;
-    Descriptor& operator=(const Descriptor&) = delete;
-    [[nodiscard]] int get() const noexcept {
-        return fd_;
-    }
-    void close() noexcept {
-        if (fd_ >= 0) {
-            ::close(fd_);
-            fd_ = -1;
-        }
-    }
-
-  private:
-    int fd_;
-};
 
 /// Ends the child's process group: SIGTERM, then SIGKILL after the grace, and reaps it.
 void endGroup(pid_t pid) {

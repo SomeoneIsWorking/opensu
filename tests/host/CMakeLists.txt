@@ -61,3 +61,9 @@ target_include_directories(instance_lock_test PRIVATE "${CMAKE_SOURCE_DIR}/tests
 target_compile_options(instance_lock_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(instance_lock_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME instance_lock COMMAND instance_lock_test)
+
+add_executable(desktop_night_light_test desktop_night_light_test.cpp)
+target_link_libraries(desktop_night_light_test PRIVATE opensu::host)
+target_compile_options(desktop_night_light_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(desktop_night_light_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME desktop_night_light COMMAND desktop_night_light_test)
