@@ -72,7 +72,11 @@ void CoverPickerPainter::paint(Canvas& canvas, const CoverPicker& picker, const 
                               withAlpha(palette::ink, look.alpha));
     }
 
-    constexpr std::array<HintPrompt, 2> hints{{{"A", "Choose"}, {"B", "Close"}}};
+    constexpr std::array<HintPrompt, 2> plain{{{"A", "Choose"}, {"B", "Close"}}};
+    constexpr std::array<HintPrompt, 3> connecting{
+        {{"A", "Choose"}, {"Y", "Connect SteamGridDB"}, {"B", "Close"}}};
+    const std::span<const HintPrompt> hints =
+        picker.offersConnect() ? std::span<const HintPrompt>{connecting} : plain;
     paintHintRow(canvas, glyphs_, typeface_, hints,
                  Point{layout.card.centreX(), layout.hints.centreY()}, dp,
                  withAlpha(outlineInk, look.alpha));

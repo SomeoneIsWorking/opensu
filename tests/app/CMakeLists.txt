@@ -50,7 +50,7 @@ target_compile_definitions(details_page_flow_test PRIVATE OPENSU_TEST_SCRATCH="$
 add_test(NAME details_page_flow COMMAND details_page_flow_test)
 
 add_executable(settings_controller_test settings_controller_test.cpp)
-target_link_libraries(settings_controller_test PRIVATE opensu::app)
+target_link_libraries(settings_controller_test PRIVATE opensu::app gpu2d::ui)
 target_include_directories(settings_controller_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_options(settings_controller_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(settings_controller_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")

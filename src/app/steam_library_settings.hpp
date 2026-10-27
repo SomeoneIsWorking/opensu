@@ -16,7 +16,7 @@
 #include "library/steam.hpp"
 #include "path_editor.hpp"
 #include "steam/libraries.hpp"
-#include "ui/settings_page.hpp"
+#include "ui/setting_row.hpp"
 
 namespace opensu::app {
 
@@ -49,11 +49,9 @@ class SteamLibrarySettings {
     void reload();
     [[nodiscard]] ui::SettingsCategory page() const;
     [[nodiscard]] static bool owns(const std::string& id);
-    /// Acts on row `id`: `step` is 0 for A and -1 or 1 for Left and Right.
+    /// Acts on row `id`: `step` is 0 for A and -1 or 1 for Left and Right. A Remove row's
+    /// confirmation is asked before it runs.
     void run(const std::string& id, int step);
-    void disarm() noexcept {
-        armed_.reset();
-    }
     /// Takes what the worker finished. Main loop only.
     void service();
 
@@ -83,8 +81,6 @@ class SteamLibrarySettings {
     std::vector<Action> queued_;
     bool changed_{false};
     std::vector<std::pair<std::string, bool>> said_;
-    /// The library whose Remove was pressed once.
-    std::optional<int> armed_;
     /// Last, so it stops before what it uses goes.
     std::jthread worker_;
 };

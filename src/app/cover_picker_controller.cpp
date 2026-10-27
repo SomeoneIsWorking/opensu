@@ -37,6 +37,12 @@ void CoverPickerController::act(gamepad::Button button) {
     case gamepad::Button::A:
         choose();
         break;
+    case gamepad::Button::Y:
+        if (disconnected()) {
+            close();
+            hooks_.connect();
+        }
+        break;
     case gamepad::Button::B:
         close();
         break;
@@ -116,6 +122,12 @@ void CoverPickerController::show() {
     } else {
         picker_.open(title_, std::move(picks), status());
     }
+    picker_.offerConnect(disconnected());
+}
+
+bool CoverPickerController::disconnected() const {
+    using Status = artwork::SteamGridDb::Covers::Status;
+    return listing_ && (listing_->status == Status::Disconnected || listing_->status == Status::Refused);
 }
 
 std::string CoverPickerController::status() const {
@@ -128,7 +140,7 @@ std::string CoverPickerController::status() const {
     }
     switch (listing_->status) {
     case Status::Disconnected:
-        return "Connect SteamGridDB in Settings > Artwork for more covers";
+        return "Connect SteamGridDB for more covers";
     case Status::Refused:
         return "SteamGridDB refused the key";
     case Status::Unreachable:

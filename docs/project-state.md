@@ -83,10 +83,12 @@ Visible deltas from the baseline:
 - The title pill names the focused tile on Home too; iiSU shows it only inside sections.
 - A signed-out GOG or Epic tile opens that store's sign-in page in the default browser.
 - No store client window is ever opened to reach a game.
-- Settings screen (START options, last row "Settings"): iiSU's settings dialog structure with ten
-  categories (Appearance, Library, Emulators, Steam libraries, Audio, Controls, Guide chords,
-  Install folders, Plugins, About), own controller, model and painter. iiSU's Performance, Updates
-  and Integrations sections have no counterpart; Emulators (download, update, remove official
+- Settings screen (START options, last row "Settings"): iiSU's categories-beside-rows structure,
+  drawn with openSU's own `gpu2d::ui` toolkit (focus ring, eased screen stack, hint bar of the
+  focused control, a confirm dialog before anything is thrown away) instead of iiSU's dialog. Categories
+  Appearance, Library, Integrations, Emulators, Steam libraries, Audio, Controls, Guide chords,
+  Install folders, Artwork, Wine, Plugins, About (Steam libraries, Wine and Plugins with their
+  integration on). iiSU's Performance and Updates sections have no counterpart; Emulators (download, update, remove official
   AppImages, emulator per system), Steam libraries, Guide chords and Plugins are openSU's own.
 - Pad chords: iiSU has three fixed single-button shortcuts and fixed L2/R2 overlays; openSU lets
   any button be held for a chord (Guide + A quick menu, Guide + Up/Down/Left volume, game actions on
@@ -1191,7 +1193,21 @@ from Gamescope's source (`steamcompmgr.cpp`) before any of it is used.
 ### S020 to S022 — Settings, install folders, volume, chords, scale
 
 Settings: `src/app/settings_controller.*` rows per category, saved through `Preferences` into
-`settings.json`; ROM and Steam root changes apply after a restart. Skipped as not user-meaningful
+`settings.json`; ROM and Steam root changes apply after a restart. The screens are `gpu2d::ui`
+screens on the shell's `ui::ScreenStack` (`src/app/settings_screen.*`, `docs/design/ui-toolkit.md`
+step 1): categories as tabs down the side, LB/RB step them from anywhere; each row kind is one
+standard widget (switch flips on A, choice and slider step on Left/Right, A lists a choice's
+options); Emulators is headed sections with sub-pages (Downloads, BIOS, consoles, cores, a
+layer's page); Remove, Clear, Reset and Disconnect ask in a dialog; leaving with Integrations'
+changes not applied asks Apply, Discard or Keep editing, and Apply says how many changes it put in
+force; rows set from the command line or environment say "Set by how openSU was started", never
+the variable or a raw path; About shows the version; "Choose artwork" offers Y to connect
+SteamGridDB when it is not connected. The mouse hovers, clicks and wheels through the same
+widgets. Verified in hidden runs at 1280x800 and 1920x1080 driven over the control channel
+(`POST /input`, `POST /pointer`, `/state` `screen` and `screenFocus`): every category, a choice
+list, the consoles and BIOS pages, a layer page, a confirm, the Integrations leave dialog and
+Apply, pointer hover, click and wheel. Gap: the layered editor's content is still `LayerSettings`'
+rows (step 2); Devices still uses the old `SettingsPage`. Skipped as not user-meaningful
 or not safe live: window size, control channel port, emulator command overrides, 24 hour clock
 (locale-derived), theme, removing a single ROM or Steam folder.
 

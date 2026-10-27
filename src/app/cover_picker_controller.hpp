@@ -1,6 +1,7 @@
 // cover_picker_controller — "Choose artwork" from the details page: lists the cover the game shows
 // now, its own when another replaces it, and SteamGridDB's covers as `artwork::CoverOffers` finds
-// them; A keeps the focused one as the game's choice, B closes.
+// them; A keeps the focused one as the game's choice, Y opens Settings › Artwork while SteamGridDB
+// is not connected, B closes.
 #pragma once
 
 #include <cstddef>
@@ -27,6 +28,8 @@ class CoverPickerController {
         std::function<void(const std::string& id)> changed;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
+        /// Opens Settings › Artwork, where SteamGridDB is connected.
+        std::function<void()> connect;
     };
 
     CoverPickerController(ui::CoverPicker& picker, audio::SdlSoundPlayer& sounds,
@@ -57,6 +60,8 @@ class CoverPickerController {
     void choose();
     void show();
     [[nodiscard]] std::string status() const;
+    /// Whether SteamGridDB needs connecting before it lists covers.
+    [[nodiscard]] bool disconnected() const;
 
     ui::CoverPicker& picker_;
     audio::SdlSoundPlayer& sounds_;

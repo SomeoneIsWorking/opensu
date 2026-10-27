@@ -18,6 +18,7 @@ using lucent::http::Request;
 using lucent::http::Response;
 using opensu::app::ControlChannel;
 using opensu::app::ControlTarget;
+using opensu::app::PointerInjection;
 using opensu::app::ShellSnapshot;
 using opensu::app::SignInResult;
 using opensu::app::SignInService;
@@ -53,6 +54,9 @@ class FakeShell final : public ControlTarget {
     void injectKey(opensu::input::Combo combo) override {
         keys.push_back(combo);
     }
+    void injectPointer(PointerInjection pointer) override {
+        pointers.push_back(pointer);
+    }
     [[nodiscard]] bool captureFrame(std::string& /*png*/) override {
         return false;
     }
@@ -65,6 +69,7 @@ class FakeShell final : public ControlTarget {
     std::vector<std::string> reloads;
     std::vector<std::string> typed;
     std::vector<opensu::input::Combo> keys;
+    std::vector<PointerInjection> pointers;
     std::vector<opensu::gamepad::Button> pressed;
     std::vector<std::vector<opensu::gamepad::Button>> held;
     std::vector<opensu::input::Device> devices;
@@ -348,7 +353,40 @@ void testKeysAndVolumeState() {
            "the state reports the volume, the scale, the shortcut capture and the chord list");
 }
 
+void testPointer() {
+    FakeShell shell;
+    FakeSignIn signIn;
+    ControlChannel channel{shell, signIn, 0};
+    using Kind = PointerInjection::Kind;
+
+    expect(channel.handle(post("/pointer", "move 640 400")).status == 200 &&
+               channel.handle(post("/pointer", " click 12.5 30\n")).status == 200 &&
+               channel.handle(post("/pointer", "wheel 640 400 -2")).status == 200,
+           "a move, a click and a wheel are input");
+    expect(shell.pointers == std::vector<PointerInjection>{{Kind::Move, 640.0f, 400.0f, 0.0f},
+                                                           {Kind::Click, 12.5f, 30.0f, 0.0f},
+                                                           {Kind::Wheel, 640.0f, 400.0f, -2.0f}},
+           "each reaches the shell as that event, in window pixels");
+    for (const char* refused : {"", "move", "move 1", "move 1 2 3", "click x 2", "wheel 1 2",
+                                "wheel 1 2 up", "drag 1 2", "move 1 2px"}) {
+        expect(channel.handle(post("/pointer", refused)).status == 400,
+               "a body that is not move X Y, click X Y or wheel X Y N is refused");
+    }
+    const Request get{.method = "GET", .target = "/pointer", .headers = {}, .body = {}};
+    expect(channel.handle(get).status != 200, "the pointer is POST only");
+    expect(shell.pointers.size() == 3, "a refused pointer reaches nobody");
+
+    shell.state.screen = "dialog";
+    shell.state.screenFocus = "dialog/1";
+    const Response state =
+        channel.handle(Request{.method = "GET", .target = "/state", .headers = {}, .body = {}});
+    expect(contains(state.body, "\"screen\":\"dialog\"") &&
+               contains(state.body, "\"screenFocus\":\"dialog/1\""),
+           "the state reports the toolkit's top screen and its focus");
+}
+
 void run() {
+    testPointer();
     testKeysAndVolumeState();
     testState();
     testKeyboardInput();

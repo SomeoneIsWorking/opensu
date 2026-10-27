@@ -52,6 +52,17 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
       handoff_{environment_.executablePath, environment_.session, steam_, gameWindows_.get()},
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
+    // input-sound.md 3.4: Navigation for a focus move or a press, Close for a page dismissed.
+    shell_.screens().navigator().setSounds(gpu2d::ui::Navigator::Sounds{
+        [this] {
+            sounds_.play(audio::Effect::Navigation);
+        },
+        [this] {
+            sounds_.play(audio::Effect::Navigation);
+        },
+        [this] {
+            sounds_.play(audio::Effect::Close);
+        }});
     padOwner_.syncChords();
     clock_.service(std::chrono::steady_clock::now());
     applyLayout();
@@ -374,6 +385,23 @@ void ShellApp::handlePointer() {
     pointer_.route(window_->pointer());
 }
 
+void ShellApp::screens(const PointerFrame& frame) {
+    gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
+    if (!frame.point) {
+        return;
+    }
+    const gpu2d::Point at{frame.point->x, frame.point->y};
+    if (frame.delta.x != 0.0f || frame.delta.y != 0.0f) {
+        navigator.pointer(gpu2d::ui::PointerEvent{gpu2d::ui::PointerKind::Move, at, 0.0f});
+    }
+    if (frame.left) {
+        navigator.pointer(gpu2d::ui::PointerEvent{gpu2d::ui::PointerKind::Press, at, 0.0f});
+    }
+    if (frame.wheel != 0.0f) {
+        navigator.pointer(gpu2d::ui::PointerEvent{gpu2d::ui::PointerKind::Wheel, at, frame.wheel});
+    }
+}
+
 ui::PointerTarget ShellApp::pointAt(std::optional<ui::Point> point) {
     return shell_.pointAt(point);
 }
@@ -532,7 +560,7 @@ void ShellApp::actOn(gamepad::Button button) {
         downloadsScreen_.act(button);
         return;
     }
-    if (shell_.settingsPanels().page().isOpen()) {
+    if (settingsScreen_.isOpen()) {
         settingsScreen_.act(button);
         return;
     }
@@ -687,8 +715,6 @@ void ShellApp::chooseLevel(int level) {
         layoutPicker_.chooseIconSize(level);
     } else if (shell_.devicesPanel().isOpen()) {
         devicesScreen_.chooseLevel(level);
-    } else if (shell_.settingsPanels().onlyPage()) {
-        settingsScreen_.chooseLevel(level);
     }
 }
 
@@ -906,8 +932,8 @@ void ShellApp::activateCrumb(std::size_t index) {
     // The details page, the Settings screen and the Devices page are the only panels the trail
     // stays clickable over.
     details_.close();
-    if (shell_.panelOpen() && !shell_.settingsPanels().onlyPage() &&
-        !shell_.devicesPanel().isOpen()) {
+    const bool settingsAlone = settingsScreen_.isOpen() && !shell_.settingsPanels().anyOpen();
+    if (shell_.panelOpen() && !settingsAlone && !shell_.devicesPanel().isOpen()) {
         return;
     }
     const ui::Crumb& crumb = trail[index];
@@ -934,6 +960,10 @@ ui::HintContext ShellApp::hints() const {
         covers_.picker().isOpen() || shell_.dockedKeyboard() != nullptr) {
         return ui::HintContext{};
     }
+    // The Settings screens' hint bar names what their focus does.
+    if (settingsScreen_.isOpen()) {
+        return ui::HintContext{};
+    }
     if (shortcutEditor_.capturing()) {
         return ui::HintContext{.back = true};
     }
@@ -942,9 +972,6 @@ ui::HintContext ShellApp::hints() const {
                                .select = true,
                                .change = devicesScreen_.changes(),
                                .forget = devicesScreen_.forgets()};
-    }
-    if (shell_.settingsPanels().page().isOpen()) {
-        return ui::HintContext{.back = true, .select = true, .change = settingsScreen_.changes()};
     }
     if (shell_.detailsPage().isOpen() || shell_.downloadsPanel().isOpen()) {
         return ui::HintContext{.back = true, .select = true};
@@ -989,7 +1016,11 @@ void ShellApp::publishSnapshot() {
     next.contextMenuOpen = shell_.contextMenu().isOpen();
     next.detailsOpen = shell_.detailsPage().isOpen();
     next.armed = shell_.detailsPage().armed() || shell_.contextMenu().armed();
-    next.settingsOpen = shell_.settingsPanels().page().isOpen();
+    next.settingsOpen = settingsScreen_.isOpen();
+    if (const gpu2d::ui::Screen* top = shell_.screens().navigator().top()) {
+        next.screen = top->id();
+        next.screenFocus = shell_.screens().navigator().focused();
+    }
     next.firstRunOpen = firstRun_.active();
     next.folderPickerOpen = paths_.active();
     next.capturingShortcut = shortcutEditor_.capturing();
@@ -1062,6 +1093,17 @@ void ShellApp::serviceControlRequests() {
         } else if (sessionInstall_.typing()) {
             sessionInstall_.typeText(text);
         }
+    }
+    for (const PointerInjection& injected : queued.pointer) {
+        PointerFrame frame;
+        frame.point = ui::Point{injected.x, injected.y};
+        // A move always moves, so it hovers even onto the spot the pointer was last put.
+        if (injected.kind == PointerInjection::Kind::Move) {
+            frame.delta = ui::Point{1.0f, 1.0f};
+        }
+        frame.left = injected.kind == PointerInjection::Kind::Click;
+        frame.wheel = injected.wheel;
+        pointer_.route(frame);
     }
     // An injection carries its releases: without them a direction would repeat forever.
     for (const auto& [event, device] : queued.buttons) {

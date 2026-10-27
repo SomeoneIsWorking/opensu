@@ -1,6 +1,13 @@
-# UI toolkit and settings schema (proposal)
+# UI toolkit and settings schema
 
-Status: proposal, not built. The player: menus "aren't intuitive", it "looks rushed", "layered
+Status: step 1 built. `gpu2d::ui` (gpu2d `docs/ui-toolkit.md`) has the theme, layout, widget
+tree, focus, `Navigator`, the widgets and motion; openSU's Settings screen runs on it
+(`src/app/settings_screen.*`, `src/ui/screen_stack.*`, `src/ui/interface_*`), its old page panel,
+row editing and two-press arming deleted. Not yet: a TextField widget (the folder chooser
+and its keyboard still open over Settings from `ui::SettingsPanels`); `settings::Schema` and the
+layered editor (step 2: a layer's page shows `LayerSettings`' rows as toolkit widgets, with the
+old override model behind them); `SettingsPage`, `PagePanel` and `rowEffect` stay for Devices, the
+quick menu and the game settings tabs until step 3. The player: menus "aren't intuitive", it "looks rushed", "layered
 config not implemented well. Same for frame generation", and "a UI library like code is in order".
 
 Evidence: every screen captured at 1280x800 with a map of how each is reached

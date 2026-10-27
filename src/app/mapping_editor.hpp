@@ -24,7 +24,7 @@
 #include "settings/mapping_store.hpp"
 #include "settings/setting_layers.hpp"
 #include "ui/mapping_page.hpp"
-#include "ui/settings_page.hpp"
+#include "ui/setting_row.hpp"
 
 namespace opensu::app {
 
@@ -77,9 +77,11 @@ class MappingEditor {
     /// Pad events while listening: the chord, or B alone to cancel.
     void capturePad(const std::vector<gamepad::Event>& events);
 
-    /// Settings › Controls' rows: the global mapping, an emulator's, and the global Steam Input
-    /// switch.
+    /// Settings › Controls' rows: the global mapping, the page of each emulator's, and the global
+    /// Steam Input switch.
     [[nodiscard]] std::vector<ui::SettingsRow> settingsRows() const;
+    /// The page of each emulator's mapping, when `id` is the row that opens it.
+    [[nodiscard]] std::optional<ui::SettingsCategory> settingsPage(std::string_view id) const;
     /// Whether the Settings row with `id` is one of these.
     [[nodiscard]] static bool owns(std::string_view id);
     /// Acts on Settings row `id`: `step` is 0 for A and -1 or 1 for Left and Right.
@@ -147,8 +149,6 @@ class MappingEditor {
     std::variant<std::monostate, gamepad::Button, input::PadChord> picking_;
     bool pickingSteam_{false};
     std::vector<Choice> choices_;
-    /// The emulator Settings › Controls has picked.
-    std::size_t emulator_{0};
 };
 
 } // namespace opensu::app

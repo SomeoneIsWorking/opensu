@@ -40,6 +40,11 @@ void ControlBridge::injectKey(input::Combo combo) {
     input_.keys.push_back(combo);
 }
 
+void ControlBridge::injectPointer(PointerInjection pointer) {
+    const std::lock_guard lock{inputMutex_};
+    input_.pointer.push_back(pointer);
+}
+
 void ControlBridge::typeText(std::string text) {
     const std::lock_guard lock{inputMutex_};
     input_.text.push_back(std::move(text));

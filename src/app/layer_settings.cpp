@@ -20,6 +20,8 @@ constexpr std::string_view emulatorRowId = "layers.emulator";
 constexpr std::string_view videoRowId = "layers.video.";
 constexpr std::string_view shaderRowId = "layers.shader";
 constexpr std::string_view clearId = "layers.clear";
+constexpr std::string_view consolesId = "layers.list.consoles";
+constexpr std::string_view coresId = "layers.list.cores";
 
 /// `count` keys set, as a row's value.
 std::string keptText(std::size_t count) {
@@ -58,45 +60,69 @@ std::string LayerSettings::nameOf(const Layer& layer) const {
     return layerName(layer, found_().catalog());
 }
 
-std::vector<ui::SettingsRow> LayerSettings::openRows() const {
+std::vector<ui::SettingsRow> LayerSettings::pageRows() const {
+    const settings::SettingLayers& layers = gameSettings_.layers();
+    const auto kept = layers.layers().find(Layer{});
+    const library::roms::EmulatorCatalog& catalog = found_().catalog();
+    const auto cores = std::ranges::count_if(catalog.entries(), &library::roms::EmulatorEntry::builtIn);
+    return {
+        ui::makePage(std::string{openGlobalId}, "Global", "Video for every game on a built-in core",
+                     keptText(kept == layers.layers().end() ? 0 : kept->second.size())),
+        ui::makePage(std::string{consolesId}, "Consoles", "Emulator and video for each console",
+                     std::to_string(catalog.servedSystems().size())),
+        ui::makePage(std::string{coresId}, "Built-in cores",
+                     "Video for every game a core runs, on any console", std::to_string(cores)),
+    };
+}
+
+std::optional<ui::SettingsCategory> LayerSettings::listPage(std::string_view id) const {
+    if (id != consolesId && id != coresId) {
+        return std::nullopt;
+    }
     const settings::SettingLayers& layers = gameSettings_.layers();
     const auto kept = [&layers](const Layer& layer) {
         const auto found = layers.layers().find(layer);
         return keptText(found == layers.layers().end() ? 0 : found->second.size());
     };
-    std::vector<ui::SettingsRow> rows;
-    rows.push_back(ui::makeRow(std::string{openGlobalId}, RowKind::Action, "Global",
-                               "Video for every game on a built-in core", kept(Layer{})));
     const library::roms::EmulatorCatalog& catalog = found_().catalog();
-    for (const std::string& system : catalog.servedSystems()) {
-        const std::string label = library::roms::systemLabel(system);
-        rows.push_back(ui::makeRow(std::string{openSystemId} + system, RowKind::Action, label,
-                                   "Emulator and video for " + label + " games",
-                                   kept(Layer{Layer::Kind::System, system})));
+    if (id == consolesId) {
+        ui::SettingsCategory page{std::string{id}, "Consoles", {}};
+        for (const std::string& system : catalog.servedSystems()) {
+            const std::string label = library::roms::systemLabel(system);
+            page.rows.push_back(ui::makePage(std::string{openSystemId} + system, label,
+                                             "Emulator and video for " + label + " games",
+                                             kept(Layer{Layer::Kind::System, system})));
+        }
+        return page;
     }
+    ui::SettingsCategory page{std::string{id}, "Built-in cores", {}};
     for (const library::roms::EmulatorEntry& entry : catalog.entries()) {
         if (entry.builtIn()) {
-            rows.push_back(ui::makeRow(std::string{openEmulatorId} + entry.id, RowKind::Action,
-                                       entry.name, "Video for every game it runs, on any console",
-                                       kept(Layer{Layer::Kind::Emulator, entry.id})));
+            page.rows.push_back(ui::makePage(std::string{openEmulatorId} + entry.id, entry.name,
+                                             "Video for every game it runs, on any console",
+                                             kept(Layer{Layer::Kind::Emulator, entry.id})));
         }
     }
-    return rows;
+    return page;
 }
 
 ui::SettingsRow LayerSettings::emulatorRow(const std::string& system) const {
+    const std::vector<std::string> names = namesFor(found_().catalog(), system);
     const std::string* pick =
         gameSettings_.layers().at(Layer{Layer::Kind::System, system}, library::emulatorKey);
     const std::string automatic = found_().chosenName(system);
+    ui::Options options{names, 0};
+    options.labels.front() =
+        "Automatic" + (automatic.empty() ? std::string{} : " (" + automatic + ")");
     if (pick != nullptr) {
-        return ui::makeRow(std::string{emulatorRowId}, RowKind::Choice, "Emulator",
-                           "Set for " + library::roms::systemLabel(system) +
-                               "; runs games that have no emulator of their own",
-                           *pick);
+        const auto at = std::ranges::find(names, *pick);
+        options.chosen = at == names.end() ? 0 : static_cast<std::size_t>(at - names.begin());
     }
-    return ui::makeRow(std::string{emulatorRowId}, RowKind::Choice, "Emulator",
-                       "The emulator found, or the core an arcade romset matches",
-                       "Automatic" + (automatic.empty() ? std::string{} : " (" + automatic + ")"));
+    const std::string note =
+        pick != nullptr ? "Set for " + library::roms::systemLabel(system) +
+                              "; runs games that have no emulator of their own"
+                        : "The emulator found, or the core an arcade romset matches";
+    return ui::makeChoice(std::string{emulatorRowId}, "Emulator", note, std::move(options));
 }
 
 ui::SettingsRow LayerSettings::videoRow(const Layer& layer,
@@ -115,14 +141,24 @@ ui::SettingsRow LayerSettings::videoRowOf(const Layer& layer,
                                           const settings::ChoiceKey& video) const {
     const settings::SettingLayers& layers = gameSettings_.layers();
     const std::string id = std::string{videoRowId} + std::string{video.key};
-    if (const std::string* own = layers.at(layer, video.key)) {
-        return ui::makeRow(id, RowKind::Choice, std::string{video.label},
-                           "Set for " + nameOf(layer),
-                           std::string{settings::choiceLabel(video, *own)});
-    }
     const std::string* everywhere = layers.at(Layer{}, video.key);
     const std::string_view inherited =
-        everywhere != nullptr ? settings::choiceLabel(video, *everywhere) : video.choices[0].label;
+        everywhere != nullptr && layer.kind != Layer::Kind::Global
+            ? settings::choiceLabel(video, *everywhere)
+            : video.choices[0].label;
+    // Place 0 is "not set"; place n + 1 is choice n.
+    ui::Options options;
+    options.labels.push_back(layer.kind == Layer::Kind::Emulator
+                                 ? std::string{"Each game's console"}
+                                 : "Default (" + std::string{inherited} + ")");
+    for (const settings::ChoiceText& choice : video.choices) {
+        options.labels.emplace_back(choice.label);
+    }
+    if (const std::string* own = layers.at(layer, video.key)) {
+        options.chosen = settings::choiceIndex(video, *own).value_or(0) + 1;
+        return ui::makeChoice(id, std::string{video.label}, "Set for " + nameOf(layer),
+                              std::move(options));
+    }
     // Under a core come each game's console, then Global.
     std::string note = "Default";
     if (layer.kind == Layer::Kind::Emulator) {
@@ -130,7 +166,7 @@ ui::SettingsRow LayerSettings::videoRowOf(const Layer& layer,
     } else if (layer.kind == Layer::Kind::System && everywhere != nullptr) {
         note = "From Global";
     }
-    return ui::makeRow(id, RowKind::Choice, std::string{video.label}, note, std::string{inherited});
+    return ui::makeChoice(id, std::string{video.label}, note, std::move(options));
 }
 
 std::string LayerSettings::inheritedShader(const Layer& layer) const {
@@ -204,12 +240,11 @@ void LayerSettings::saveVideo() {
     hooks_.videoChanged();
 }
 
-std::optional<ui::SettingsCategory> LayerSettings::page(const std::string& id,
-                                                        const std::string& label) const {
+std::optional<ui::SettingsCategory> LayerSettings::page() const {
     if (!open_) {
         return std::nullopt;
     }
-    ui::SettingsCategory page{id, label, {}};
+    ui::SettingsCategory page{openRowId(), openName(), {}};
     if (picker_.isOpen()) {
         page.rows = picker_.rows(gameSettings_.layers().at(*open_, settings::shaderKey),
                                  inheritedShader(*open_));
@@ -222,9 +257,11 @@ std::optional<ui::SettingsCategory> LayerSettings::page(const std::string& id,
         page.rows.push_back(videoRow(*open_, video));
     }
     page.rows.push_back(shaderRow(*open_));
-    page.rows.push_back(ui::makeRow(std::string{clearId}, RowKind::Action,
-                                    "Clear " + nameOf(*open_) + " settings",
-                                    "Every value here goes back to the layer under it", "Clear"));
+    ui::SettingsRow clear = ui::makeRow(std::string{clearId}, RowKind::Action,
+                                        "Clear " + nameOf(*open_) + " settings",
+                                        "Every value here goes back to the layer under it", "");
+    clear.confirm = "Every " + nameOf(*open_) + " value goes back to the layer under it.";
+    page.rows.push_back(std::move(clear));
     return page;
 }
 

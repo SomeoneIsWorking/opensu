@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "library/shader_pack.hpp"
-#include "ui/settings_page.hpp"
+#include "ui/setting_row.hpp"
 
 namespace opensu::app {
 

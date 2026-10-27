@@ -165,6 +165,7 @@ class ShellApp final : private PointerHost {
     void openDownloads() override;
     void activateCrumb(std::size_t index) override;
     void scroll(int steps) override;
+    void screens(const PointerFrame& frame) override;
     void chooseLevel(int level) override;
     void chooseTab(std::size_t index) override;
     void contextMenu(const ui::PointerTarget& target) override;
@@ -308,6 +309,9 @@ class ShellApp final : private PointerHost {
                                  },
                                  [this](const std::string& text, bool isError) {
                                      shell_.setToast(text, isError);
+                                 },
+                                 [this] {
+                                     settingsScreen_.openCategory(std::string{ArtworkSettings::categoryId});
                                  }}};
     ArtworkDelivery delivery_{
         shell_, sounds_, artworkStore_, artworkFetcher_,
@@ -595,7 +599,8 @@ class ShellApp final : private PointerHost {
                                }}};
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{
-        shell_.settingsPanels().page(),
+        shell_.screens().navigator(),
+        shell_.screens().chrome(),
         SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts(),
                                      emulatorSettings_, layerSettings_, steamLibrarySettings_,
                                      pluginSettings_, chordSettings_, mappings_, wineSettings_,

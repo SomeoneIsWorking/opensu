@@ -19,6 +19,9 @@ SteamGridDbCovers::SteamGridDbCovers(ui::Shell& shell, audio::SdlSoundPlayer& so
                                            },
                                            [this](const std::string& text, bool error) {
                                                hooks_.say(text, error);
+                                           },
+                                           [this] {
+                                               hooks_.connect();
                                            }}} {
 }
 

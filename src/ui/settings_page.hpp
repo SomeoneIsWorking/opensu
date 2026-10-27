@@ -1,8 +1,7 @@
-// settings_page — the Settings screen: a list of categories on the left and the focused category's
-// rows on the right, as iiSU's settings dialog lays its sections and pages out (screens.md §3.4).
-// Rows are toggles, choices, a slider, folders, plain actions and read-only facts. Pure state and
-// geometry, tested without a window; `SettingsPagePainter` draws it and `app::SettingsController`
-// fills and acts on it.
+// settings_page — a page of categories on the left and the focused category's rows on the right,
+// as iiSU's settings dialog lays its sections and pages out (screens.md §3.4); the Devices page.
+// Pure state and geometry, tested without a window; `SettingsPagePainter` draws it and
+// `app::DevicesController` fills and acts on it.
 #pragma once
 
 #include <cstddef>
@@ -12,84 +11,9 @@
 #include <vector>
 
 #include "home_layout.hpp"
+#include "setting_row.hpp"
 
 namespace opensu::ui {
-
-enum class RowKind : std::uint8_t {
-    /// On or off.
-    Toggle,
-    /// One of a few values, stepped with Left and Right.
-    Choice,
-    /// A level between `low` and `high`, stepped with Left and Right.
-    Slider,
-    /// A folder, chosen on the folder chooser.
-    Folder,
-    /// Does something when pressed.
-    Action,
-    /// A fact; nothing to press.
-    Info,
-};
-
-/// Whether A opens the row of `kind` so Left and Right can change it: a choice or a slider.
-[[nodiscard]] bool rowOpens(RowKind kind) noexcept;
-
-/// Whether a row is open for Left and Right: the state A sets and A or B clears. The Settings
-/// screen, the Devices page and the quick menu each keep one, so a row behaves the same wherever
-/// it is.
-class RowEditing {
-  public:
-    [[nodiscard]] bool open() const noexcept {
-        return open_;
-    }
-    /// Opens a row of `kind`; false when it is not one Left and Right change.
-    bool begin(RowKind kind) noexcept;
-    /// Closes the open row; false when none was open.
-    bool end() noexcept;
-
-  private:
-    bool open_{false};
-};
-
-/// One line of a category.
-struct SettingsRow {
-    /// The controller's name for the row, stable across refreshes.
-    std::string id;
-    RowKind kind{RowKind::Info};
-    std::string label;
-    /// A short line under the label saying what the row does or where its value comes from.
-    std::string note;
-    /// What a choice, folder or action reads: the chosen value, the folder, or the result.
-    std::string value;
-    bool on{false};
-    int level{0};
-    int low{0};
-    int high{0};
-
-    bool operator==(const SettingsRow&) const = default;
-};
-
-/// A row of `kind` with its label, note and value.
-[[nodiscard]] SettingsRow makeRow(std::string id, RowKind kind, std::string label, std::string note,
-                                  std::string value);
-/// A switch row.
-[[nodiscard]] SettingsRow makeToggle(std::string id, std::string label, std::string note, bool on);
-/// Where a slider stands and how far it goes.
-struct SliderRange {
-    int level{};
-    int low{};
-    int high{};
-};
-/// A slider row over `range`.
-[[nodiscard]] SettingsRow makeSlider(std::string id, std::string label, std::string note,
-                                     SliderRange range);
-
-struct SettingsCategory {
-    std::string id;
-    std::string label;
-    std::vector<SettingsRow> rows;
-
-    bool operator==(const SettingsCategory&) const = default;
-};
 
 /// Where the pad is: in the list of categories or in the rows of the focused one.
 enum class SettingsZone : std::uint8_t { Categories, Rows };

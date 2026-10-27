@@ -1,7 +1,8 @@
 // integration_settings — Settings > Integrations: ROMs and libretro as always on, a switch for each
 // opt-in integration, Steam's mode while Steam is on and the build's client has more than one
 // (Normal, Managed and Isolated on a Linux desktop; no Normal in a login session) and, for
-// Isolated, which controllers its sandbox gives Steam. Edits are staged and kept by the Apply row.
+// Isolated, which controllers its sandbox gives Steam. Edits are staged and kept by the Apply row,
+// or by the question Settings asks when it is left with edits staged.
 #pragma once
 
 #include <functional>
@@ -10,7 +11,7 @@
 #include <string_view>
 
 #include "integrations_in_force.hpp"
-#include "ui/settings_page.hpp"
+#include "ui/setting_row.hpp"
 
 namespace opensu::app {
 
@@ -30,19 +31,22 @@ class IntegrationSettings {
     [[nodiscard]] static bool owns(const std::string& id);
     /// Acts on row `id`: A flips a switch or applies; Left and Right step a choice.
     void run(const std::string& id, int step);
-    /// Drops anything staged and shows the saved choices again, when the screen is opened.
+    /// Drops anything staged and shows the saved choices again.
     void sync() noexcept {
         pending_.reset();
     }
+    /// How many staged choices differ from the saved ones.
+    [[nodiscard]] std::size_t pendingCount() const;
+    /// Keeps what is staged and puts it in effect; returns how many choices changed.
+    std::size_t apply();
+    /// Whether `id` is the Apply row.
+    [[nodiscard]] static bool applies(const std::string& id);
 
   private:
     /// The choices the page shows: the staged edit, or the saved ones.
     [[nodiscard]] settings::IntegrationChoices effective() const {
         return pending_.value_or(integrations_.choices());
     }
-    /// How many staged choices differ from the saved ones.
-    [[nodiscard]] std::size_t pendingCount() const;
-
     IntegrationsInForce& integrations_;
     Changed changed_;
     /// The edit not yet applied; nothing until a row is changed.

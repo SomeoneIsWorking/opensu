@@ -14,7 +14,7 @@
 #include "gamepad/event.hpp"
 #include "plugin_service.hpp"
 #include "ui/session_dialog.hpp"
-#include "ui/settings_page.hpp"
+#include "ui/setting_row.hpp"
 
 namespace opensu::app {
 

@@ -57,6 +57,9 @@ class PointerHost {
     virtual void contextMenu(const ui::PointerTarget& target) = 0;
     /// One wheel step: `steps` is 1 towards the end of the list or page, -1 towards its start.
     virtual void scroll(int steps) = 0;
+    /// The pointer over the interface toolkit's screens, which hover, press and scroll it
+    /// themselves.
+    virtual void screens(const PointerFrame& frame) = 0;
 };
 
 class PointerRouter {

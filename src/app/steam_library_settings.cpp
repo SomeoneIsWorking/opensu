@@ -66,7 +66,6 @@ bool SteamLibrarySettings::owns(const std::string& id) {
 }
 
 void SteamLibrarySettings::reload() {
-    armed_.reset();
     {
         const std::lock_guard lock{mutex_};
         recorded_ = sources_.recorded();
@@ -191,10 +190,13 @@ ui::SettingsCategory SteamLibrarySettings::page() const {
                         library.isDefault ? "Default" : "Make default"));
         if (library.index != 0) {
             const std::string refused = steam::removalRefusal(library);
-            page.rows.push_back(
-                ui::makeRow(std::string{removeId} + index, RowKind::Action, "Remove this library",
-                            refused.empty() ? library.path.string() : "Not while " + refused,
-                            armed_ == library.index ? "Press again to remove" : "Remove"));
+            ui::SettingsRow remove = ui::makeRow(
+                std::string{removeId} + index, RowKind::Action, "Remove this library",
+                refused.empty() ? "Steam stops using the folder" : "Not while " + refused, "");
+            if (refused.empty()) {
+                remove.confirm = "Steam stops using " + library.path.string() + ".";
+            }
+            page.rows.push_back(std::move(remove));
         }
     }
     return page;
@@ -202,9 +204,6 @@ ui::SettingsCategory SteamLibrarySettings::page() const {
 
 void SteamLibrarySettings::run(const std::string& id, int step) {
     const std::optional<int> remove = indexIn(id, removeId);
-    if (!remove) {
-        armed_.reset();
-    }
     if (step != 0) {
         return;
     }
@@ -235,11 +234,6 @@ void SteamLibrarySettings::run(const std::string& id, int step) {
         hooks_.say(library->path.string() + " cannot be removed: " + refused, true);
         return;
     }
-    if (armed_ != library->index) {
-        armed_ = library->index;
-        return;
-    }
-    armed_.reset();
     submit([chosen = *library](steam::Libraries& live) {
         return live.remove(chosen);
     });

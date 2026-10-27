@@ -12,7 +12,7 @@
 #include "gamepad/event.hpp"
 #include "steamgriddb_account.hpp"
 #include "ui/on_screen_keyboard.hpp"
-#include "ui/settings_page.hpp"
+#include "ui/setting_row.hpp"
 
 namespace opensu::app {
 

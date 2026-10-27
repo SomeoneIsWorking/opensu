@@ -76,6 +76,13 @@ class CoverPicker {
     [[nodiscard]] std::size_t focus() const noexcept {
         return focus_;
     }
+    /// Whether Y opens SteamGridDB's connection, which the prompts offer.
+    void offerConnect(bool offered) noexcept {
+        connect_ = offered;
+    }
+    [[nodiscard]] bool offersConnect() const noexcept {
+        return connect_;
+    }
     /// Moves focus by `delta` picks, stopping at the ends; reports whether it moved.
     bool move(int delta) noexcept;
     /// Focuses pick `index`; reports whether focus changed.
@@ -98,6 +105,7 @@ class CoverPicker {
     std::size_t first_{0};
     std::size_t capacity_{1};
     bool open_{false};
+    bool connect_{false};
 };
 
 } // namespace opensu::ui

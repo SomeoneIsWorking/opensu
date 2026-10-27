@@ -1,16 +1,20 @@
 #include "settings_controller.hpp"
 
 #include <algorithm>
+#include <memory>
 
+#include "build_version.hpp"
 #include "library/steam.hpp"
 #include "settings/install_folders.hpp"
+#include "settings_screen.hpp"
 #include "ui/icon_size.hpp"
-#include "ui/row_activation.hpp"
+#include "ui/interface_input.hpp"
 
 namespace opensu::app {
 namespace {
 
 namespace fs = std::filesystem;
+using gpu2d::ui::Screen;
 using ui::RowKind;
 using ui::SettingsRow;
 
@@ -23,7 +27,6 @@ constexpr const char* volumeId = "volume";
 constexpr const char* muteId = "volumeMute";
 constexpr const char* shortcutId = "shortcut.";
 constexpr const char* shortcutsResetId = "shortcuts.reset";
-constexpr const char* chordsOpenId = "chords.open";
 constexpr const char* keyboardId = "keyboard";
 constexpr const char* sortId = "sort";
 constexpr const char* sourceId = "source";
@@ -37,6 +40,8 @@ constexpr const char* steamResetId = "steam.reset";
 constexpr const char* soundsId = "uiSounds";
 constexpr const char* installDefaultId = "install.default";
 constexpr const char* installStoreId = "install.";
+/// What a row reads when the command line or the environment openSU was started with set it.
+constexpr const char* startedWith = "Set by how openSU was started";
 
 /// The paths of `folders` for a value, or `none` when there are no paths.
 std::string listed(const std::vector<fs::path>& folders, const std::string& none) {
@@ -72,40 +77,97 @@ std::string countOf(std::size_t count, const char* what) {
 /// Steps `value` by `step` (A is 1) around `count` choices.
 std::size_t around(std::size_t value, int step, std::size_t count) {
     const auto size = static_cast<int>(count);
-    return static_cast<std::size_t>((static_cast<int>(value) + (step == 0 ? 1 : step) + size) %
-                                    size);
+    return static_cast<std::size_t>(
+        (static_cast<int>(value) + (step == 0 ? 1 : step) % size + size) % size);
+}
+
+/// Every entry of `all` as a choice's options, labelled by `label`, `now` chosen.
+template <typename T, std::size_t N, typename Label>
+ui::Options optionsOf(const std::array<T, N>& all, T now, Label label) {
+    ui::Options options;
+    for (std::size_t i = 0; i < N; ++i) {
+        options.labels.emplace_back(label(all[i]));
+        if (all[i] == now) {
+            options.chosen = i;
+        }
+    }
+    return options;
+}
+
+/// The first word of `label`: what a question's button does ("Remove", "Clear").
+std::string verbOf(const std::string& label) {
+    return label.substr(0, label.find(' '));
 }
 
 } // namespace
 
-std::string SettingsController::category() const {
-    if (!page_.isOpen()) {
-        return {};
+const std::vector<ui::SettingsCategory>& SettingsController::categories() {
+    if (!categories_) {
+        categories_ = build();
     }
-    const ui::SettingsCategory& focused = page_.focusedCategory();
-    return layers_.isOpen() && focused.id == EmulatorSettings::categoryId
-               ? focused.label + " › " + layers_.openName()
-               : focused.label;
+    return *categories_;
 }
 
-bool SettingsController::changes() const {
-    const ui::SettingsRow* focused = page_.focusedRow();
-    if (focused == nullptr) {
-        return false;
+const ui::SettingsCategory& SettingsController::page(const std::string& id) {
+    for (const ui::SettingsCategory& category : categories()) {
+        if (category.id == id) {
+            return category;
+        }
     }
-    // A changes a switch outright; a choice or slider is opened first, then Left and Right change
-    // it.
-    return page_.editing() || focused->kind == RowKind::Toggle;
+    if (const auto kept = pages_.find(id); kept != pages_.end()) {
+        return kept->second;
+    }
+    std::optional<ui::SettingsCategory> built = subPage(id);
+    return pages_.emplace(id, built ? std::move(*built) : ui::SettingsCategory{id, "", {}})
+        .first->second;
+}
+
+std::optional<ui::SettingsCategory> SettingsController::subPage(const std::string& id) const {
+    if (std::optional<ui::SettingsCategory> found = emulators_.subPage(id)) {
+        return found;
+    }
+    if (std::optional<ui::SettingsCategory> found = layers_.listPage(id)) {
+        return found;
+    }
+    if (layers_.isOpen() && id == layers_.openRowId()) {
+        return layers_.page();
+    }
+    return mappings_.settingsPage(id);
+}
+
+std::string SettingsController::pageTitle(const std::string& id) {
+    if (layers_.isOpen() && id == layers_.openRowId()) {
+        return layers_.openName();
+    }
+    return page(id).label;
+}
+
+std::string SettingsController::category() const {
+    std::string trail;
+    for (const gpu2d::ui::Screen* screen : navigator_.screens()) {
+        if (screen->overlay()) {
+            continue;
+        }
+        if (const auto* root = dynamic_cast<const SettingsScreen*>(screen)) {
+            trail = root->categoryLabel();
+        } else if (dynamic_cast<const SettingsSubPage*>(screen) != nullptr && !trail.empty()) {
+            trail += " › " + screen->title();
+        }
+    }
+    return trail;
+}
+
+bool SettingsController::isOpen() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    return std::ranges::any_of(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const SettingsScreen*>(screen) != nullptr;
+    });
 }
 
 std::vector<ui::SettingsCategory> SettingsController::build() const {
     const settings::Integrations& in = inForce_.current();
-    ui::SettingsCategory emulators = emulators_.page(layers_.openRows());
-    if (std::optional<ui::SettingsCategory> layer = layers_.page(emulators.id, emulators.label)) {
-        emulators = std::move(*layer);
-    }
     std::vector<ui::SettingsCategory> pages{appearancePage(), libraryPage(), integrations_.page(),
-                                            std::move(emulators)};
+                                            emulatorsPage()};
     if (in.lists(library::Source::Steam)) {
         pages.push_back(steamLibraries_.page());
     }
@@ -128,49 +190,69 @@ std::vector<ui::SettingsCategory> SettingsController::build() const {
 ui::SettingsCategory SettingsController::appearancePage() const {
     const settings::Settings& v = preferences_.values();
     ui::SettingsCategory page{"appearance", "Appearance", {}};
-    page.rows.push_back(ui::makeRow(layoutId, RowKind::Choice, "Library layout",
-                                    "How Library lays out its tiles",
-                                    std::string{library::label(v.libraryMode)}));
+    page.rows.push_back(ui::makeChoice(
+        layoutId, "Library layout", "How Library lays out its tiles",
+        optionsOf(library::allLibraryModes, v.libraryMode, [](library::LibraryMode mode) {
+            return std::string{library::label(mode)};
+        })));
     page.rows.push_back(
         ui::makeSlider(iconSizeId, "Icon size", "How large the shelf's tiles are",
                        ui::SliderRange{v.iconSize, ui::minIconLevel, ui::maxIconLevel}));
     const config::HomeMode mode = v.homeMode.value_or(defaults_.homeMode);
-    page.rows.push_back(
-        ui::makeRow(scrollModeId, RowKind::Choice, "Scroll mode",
-                    v.homeMode ? "How the home grid scrolls" : "From OPENSU_HOME_MODE",
-                    mode == config::HomeMode::WiiSu ? "Pages" : "Scrolling"));
+    page.rows.push_back(ui::makeChoice(
+        scrollModeId, "Scroll mode", "How the home grid scrolls",
+        ui::Options{{"Scrolling", "Pages"}, mode == config::HomeMode::WiiSu ? 1U : 0U}));
     page.rows.push_back(ui::makeToggle(pinDockId, "Pin navigation bar on Library",
                                        "Keep the dock up on Library", v.pinLibraryDock));
-    page.rows.push_back(ui::makeRow(uiScaleId, RowKind::Choice, "Interface size",
-                                    "Scales everything on screen", percentOf(v.uiScale)));
+    ui::Options scales;
+    for (int percent = settings::minUiScale; percent <= settings::maxUiScale;
+         percent += settings::uiScaleStep) {
+        if (percent <= v.uiScale) {
+            scales.chosen = scales.labels.size();
+        }
+        scales.labels.push_back(percentOf(percent));
+    }
+    page.rows.push_back(ui::makeChoice(uiScaleId, "Interface size", "Scales everything on screen",
+                                       std::move(scales)));
     return page;
 }
 
 ui::SettingsCategory SettingsController::libraryPage() const {
     const settings::Settings& v = preferences_.values();
     ui::SettingsCategory page{"library", "Library", {}};
-    page.rows.push_back(ui::makeRow(sortId, RowKind::Choice, "Sort by", "How games are ordered",
-                                    std::string{library::label(v.view.sort)}));
-    std::string source = "All sources";
+    page.rows.push_back(ui::makeHeading("What shows"));
+    page.rows.push_back(ui::makeChoice(
+        sortId, "Sort by", "How games are ordered",
+        optionsOf(library::allSortKeys, v.view.sort, [](library::SortKey key) {
+            return std::string{library::label(key)};
+        })));
+    ui::Options sources;
     for (const library::SourceChoice& choice : hooks_.sourceChoices()) {
         if (choice.key == v.view.source) {
-            source = choice.label;
+            sources.chosen = sources.labels.size();
         }
+        sources.labels.push_back(choice.label);
     }
     page.rows.push_back(
-        ui::makeRow(sourceId, RowKind::Choice, "Show", "Which store's games show", source));
+        ui::makeChoice(sourceId, "Show", "Which store's games show", std::move(sources)));
     page.rows.push_back(ui::makeToggle(installedId, "Installed games only",
                                        "Hide games you have not installed", v.view.installedOnly));
-    page.rows.push_back(ui::makeRow(
+    ui::SettingsRow hidden = ui::makeRow(
         hiddenId, RowKind::Action, "Show hidden games again", "Brings back every game you hid",
-        v.hidden.keys().empty() ? "None hidden" : countOf(v.hidden.keys().size(), "game")));
-    page.rows.push_back(ui::makeRow(
+        v.hidden.keys().empty() ? "None hidden" : countOf(v.hidden.keys().size(), "game"));
+    page.rows.push_back(std::move(hidden));
+    ui::SettingsRow picks = ui::makeRow(
         emulatorsId, RowKind::Action, "Reset emulator choices",
         "Every ROM goes back to its default emulator",
-        layers_.gamePicks() == 0 ? "None chosen" : countOf(layers_.gamePicks(), "game")));
+        layers_.gamePicks() == 0 ? "None chosen" : countOf(layers_.gamePicks(), "game"));
+    if (layers_.gamePicks() > 0) {
+        picks.confirm = "Every game's own emulator is forgotten; each console's stays.";
+    }
+    page.rows.push_back(std::move(picks));
+    page.rows.push_back(ui::makeHeading("ROM folders"));
     page.rows.push_back(ui::makeRow(
         "roms.list", RowKind::Info, "ROM folders",
-        v.romFolders.empty() && !defaults_.romRoots.empty() ? "From OPENSU_ROM_ROOTS"
+        v.romFolders.empty() && !defaults_.romRoots.empty() ? startedWith
                                                             : "Applies after a restart",
         listed(v.romFolders.empty() ? defaults_.romRoots : v.romFolders, "Found automatically")));
     page.rows.push_back(ui::makeRow(romAddId, RowKind::Folder, "Add a ROM folder",
@@ -180,9 +262,10 @@ ui::SettingsCategory SettingsController::libraryPage() const {
     if (!inForce_.current().lists(library::Source::Steam)) {
         return page;
     }
+    page.rows.push_back(ui::makeHeading("Steam"));
     page.rows.push_back(ui::makeRow(
         "steam.list", RowKind::Info, "Steam install folders",
-        v.steamRoots.empty() && !defaults_.steamRoots.empty() ? "From OPENSU_STEAM_ROOTS"
+        v.steamRoots.empty() && !defaults_.steamRoots.empty() ? startedWith
                                                               : "Applies after a restart",
         listed(v.steamRoots.empty() ? defaults_.steamRoots : v.steamRoots, "Found automatically")));
     page.rows.push_back(ui::makeRow(steamAddId, RowKind::Folder, "Add a Steam install folder",
@@ -190,6 +273,10 @@ ui::SettingsCategory SettingsController::libraryPage() const {
     page.rows.push_back(ui::makeRow(steamResetId, RowKind::Action, "Find Steam automatically",
                                     "Forgets the folders you added", ""));
     return page;
+}
+
+ui::SettingsCategory SettingsController::emulatorsPage() const {
+    return emulators_.page(layers_.pageRows());
 }
 
 ui::SettingsCategory SettingsController::audioPage() const {
@@ -205,16 +292,22 @@ ui::SettingsCategory SettingsController::audioPage() const {
     const audio::VolumeState state = volume.state().value_or(audio::VolumeState{});
     page.rows.push_back(ui::makeSlider(volumeId, "System volume",
                                        "The output volume of this computer",
-                                       ui::SliderRange{state.percent, 0, 100}));
+                                       ui::SliderRange{state.percent, 0, 100, audio::volumeStep}));
     page.rows.push_back(ui::makeToggle(muteId, "Mute", "Silences the output", state.muted));
     return page;
 }
 
 ui::SettingsCategory SettingsController::controlsPage() const {
-    ui::SettingsCategory page{"controls", "Controls", mappings_.settingsRows()};
-    page.rows.push_back(ui::makeRow(
-        keyboardId, RowKind::Choice, "Keyboard", "The on-screen keyboard the fields open",
-        std::string{input::label(preferences_.values().keyboardStyle)}));
+    ui::SettingsCategory page{"controls", "Controls", {}};
+    page.rows.push_back(ui::makeHeading("Controllers"));
+    std::ranges::move(mappings_.settingsRows(), std::back_inserter(page.rows));
+    page.rows.push_back(ui::makeChoice(
+        keyboardId, "Keyboard", "The on-screen keyboard the fields open",
+        optionsOf(input::allKeyboardStyles, preferences_.values().keyboardStyle,
+                  [](input::KeyboardStyle style) {
+                      return std::string{input::label(style)};
+                  })));
+    page.rows.push_back(ui::makeHeading("Shortcuts"));
     for (const input::Action action : input::allActions) {
         const bool listening = shortcutEditor_.target() == action;
         std::string value = shortcutValue(shortcuts_, action);
@@ -230,10 +323,11 @@ ui::SettingsCategory SettingsController::controlsPage() const {
             ui::makeRow((std::string{shortcutId} + std::string{input::spelling(action)}).c_str(),
                         RowKind::Action, std::string{input::label(action)}, note, value));
     }
-    page.rows.push_back(ui::makeRow(chordsOpenId, RowKind::Action, "Guide chords",
-                                    "What Guide and a button do, over a game too", "Open"));
-    page.rows.push_back(ui::makeRow(shortcutsResetId, RowKind::Action, "Restore default shortcuts",
-                                    "Every key and chord back to how it shipped", ""));
+    ui::SettingsRow reset =
+        ui::makeRow(shortcutsResetId, RowKind::Action, "Restore default shortcuts",
+                    "Every key and chord back to how it shipped", "");
+    reset.confirm = "Every key and chord goes back to how it shipped.";
+    page.rows.push_back(std::move(reset));
     return page;
 }
 
@@ -280,7 +374,10 @@ ui::SettingsCategory SettingsController::installPage() const {
 ui::SettingsCategory SettingsController::aboutPage() const {
     return {"about",
             "About",
-            {ui::makeRow("about.settings", RowKind::Info, "Settings file", "",
+            {ui::makeRow("about.version", RowKind::Info, "Version", "This build of openSU",
+                         buildVersion.empty() ? "Unknown" : std::string{buildVersion}),
+             ui::makeHeading("Where openSU keeps things"),
+             ui::makeRow("about.settings", RowKind::Info, "Settings file", "What you choose here",
                          (defaults_.configDir / "settings.json").string()),
              ui::makeRow("about.data", RowKind::Info, "Data folder", "Sign-ins and GOG installs",
                          defaults_.dataDir.string()),
@@ -289,6 +386,14 @@ ui::SettingsCategory SettingsController::aboutPage() const {
 }
 
 void SettingsController::open() {
+    show({});
+}
+
+void SettingsController::openCategory(const std::string& id) {
+    show(id);
+}
+
+void SettingsController::show(const std::string& category) {
     emulators_.rescan();
     layers_.close();
     integrations_.sync();
@@ -298,50 +403,81 @@ void SettingsController::open() {
     if (inForce_.current().epic || inForce_.current().gog) {
         wine_.rescan();
     }
+    refresh();
+    if (isOpen()) {
+        navigator_.clear();
+    }
+    const std::vector<ui::SettingsCategory>& all = categories();
+    const bool known = std::ranges::any_of(all, [&category](const ui::SettingsCategory& page) {
+        return page.id == category;
+    });
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    page_.open(build());
-}
-
-void SettingsController::openCategory(const std::string& id) {
-    open();
-    if (const std::optional<std::size_t> index = categoryIndex(id)) {
-        page_.focusCategory(*index);
-    }
-}
-
-bool SettingsController::showCategory(std::string_view id) {
-    const std::optional<std::size_t> index = categoryIndex(id);
-    if (!index) {
-        return false;
-    }
-    page_.focusCategory(*index);
-    return page_.enterRows();
-}
-
-std::optional<std::size_t> SettingsController::categoryIndex(std::string_view id) const {
-    const std::vector<ui::SettingsCategory>& categories = page_.categories();
-    for (std::size_t index = 0; index < categories.size(); ++index) {
-        if (categories[index].id == id) {
-            return index;
-        }
-    }
-    return std::nullopt;
+    navigator_.push(std::make_unique<SettingsScreen>(*this, chrome_,
+                                                    known ? category : all.front().id));
 }
 
 void SettingsController::close() {
-    if (!page_.isOpen()) {
+    if (!isOpen()) {
         return;
     }
+    closeAll();
+}
+
+void SettingsController::closeAll() {
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
-    page_.close();
+    layers_.close();
+    navigator_.clear();
+}
+
+Screen::BackReply SettingsController::leave() {
+    const std::size_t waiting = integrations_.pendingCount();
+    if (waiting == 0) {
+        closeAll();
+        return Screen::BackReply::Stay;
+    }
+    std::vector<gpu2d::ui::Dialog::Choice> choices{
+        {"Apply", [this] {
+             applyIntegrations();
+             closeAll();
+         },
+         gpu2d::ui::ButtonKind::Primary},
+        {"Discard", [this] {
+             integrations_.sync();
+             closeAll();
+         },
+         gpu2d::ui::ButtonKind::Danger},
+        {"Keep editing", {}, gpu2d::ui::ButtonKind::Normal},
+    };
+    navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
+        "Apply integration changes?",
+        countOf(waiting, "change") + " on Integrations " + (waiting == 1 ? "is" : "are") +
+            " not applied yet. Discarded changes are lost.",
+        std::move(choices)));
+    return Screen::BackReply::Stay;
+}
+
+void SettingsController::applyIntegrations() {
+    const std::size_t applied = integrations_.apply();
+    if (applied > 0) {
+        hooks_.say("Integrations: " + countOf(applied, "change") + " applied", false);
+    }
+    refresh();
+}
+
+void SettingsController::act(gamepad::Button button) {
+    if (shortcutEditor_.capturing()) {
+        return;
+    }
+    if (const std::optional<gpu2d::ui::Action> action = ui::interfaceActionOf(button)) {
+        navigator_.act(*action);
+    }
 }
 
 void SettingsController::refresh() {
-    if (page_.isOpen()) {
-        page_.refresh(build());
-    }
+    categories_.reset();
+    pages_.clear();
 }
 
 void SettingsController::service() {
@@ -355,244 +491,150 @@ void SettingsController::changed() {
     refresh();
 }
 
-void SettingsController::focusLayerRow() {
-    const std::string target = layers_.returnRow();
-    const std::vector<ui::SettingsRow>& rows = page_.focusedCategory().rows;
-    const auto at = std::ranges::find(rows, target, &ui::SettingsRow::id);
-    page_.focusRow(at == rows.end() ? 0 : static_cast<std::size_t>(at - rows.begin()));
-}
-
-void SettingsController::closeLayer() {
-    const std::string opener = layers_.openRowId();
-    layers_.close();
-    sounds_.play(audio::Effect::Navigation);
-    refresh();
-    const std::vector<ui::SettingsRow>& rows = page_.focusedCategory().rows;
-    const auto at = std::ranges::find(rows, opener, &ui::SettingsRow::id);
-    page_.focusRow(at == rows.end() ? 0 : static_cast<std::size_t>(at - rows.begin()));
-}
-
 void SettingsController::showCategories() {
-    if (page_.leaveRows()) {
+    const auto* root = dynamic_cast<const SettingsScreen*>(navigator_.top());
+    if (root == nullptr) {
+        // Pages and what is over them close; the root shows its categories.
+        layers_.close();
+        while (navigator_.top() != nullptr &&
+               dynamic_cast<const SettingsScreen*>(navigator_.top()) == nullptr) {
+            navigator_.pop();
+        }
+        root = dynamic_cast<const SettingsScreen*>(navigator_.top());
+    }
+    if (root != nullptr && navigator_.focus(root->tabId())) {
         sounds_.play(audio::Effect::Navigation);
     }
 }
 
-void SettingsController::act(gamepad::Button button) {
-    if (shortcutEditor_.capturing()) {
-        return;
-    }
-    const bool inRows = page_.zone() == ui::SettingsZone::Rows;
-    const ui::SettingsRow* focused = page_.focusedRow();
-    switch (button) {
-    case gamepad::Button::Up:
-    case gamepad::Button::Down:
-        // input-sound.md 3.4 Navigation: the first press of a D-pad key in Settings.
-        if (page_.move(button == gamepad::Button::Down ? 1 : -1)) {
-            sounds_.play(audio::Effect::Navigation);
-            emulators_.disarm();
-            steamLibraries_.disarm();
-            refresh();
-        }
-        break;
-    case gamepad::Button::Left:
-    case gamepad::Button::Right: {
-        const ui::RowStep effect = ui::rowEffect(button, focused, page_.editing(), true);
-        if (effect.effect == ui::RowEffect::Enter) {
-            if (page_.enterRows()) {
-                sounds_.play(audio::Effect::Navigation);
-            }
-        } else if (effect.effect == ui::RowEffect::Change && focused != nullptr) {
-            run(*focused, effect.step);
-        } else if (effect.effect == ui::RowEffect::Leave) {
-            showCategories();
-        }
-        break;
-    }
-    case gamepad::Button::A: {
-        const ui::RowStep effect = ui::rowEffect(button, focused, page_.editing(), true);
-        if (effect.effect == ui::RowEffect::Enter) {
-            if (page_.enterRows()) {
-                sounds_.play(audio::Effect::Navigation);
-            }
-        } else if (effect.effect == ui::RowEffect::Close) {
-            page_.endEdit();
-            sounds_.play(audio::Effect::Navigation);
-        } else if (effect.effect == ui::RowEffect::Open) {
-            if (page_.beginEdit()) {
-                sounds_.play(audio::Effect::Navigation);
-            }
-        } else if (effect.effect == ui::RowEffect::Act && focused != nullptr) {
-            run(*focused, 0);
-        }
-        break;
-    }
-    case gamepad::Button::B:
-        if (ui::rowEffect(button, focused, page_.editing(), true).effect == ui::RowEffect::Close) {
-            page_.endEdit();
-            sounds_.play(audio::Effect::Navigation);
-        } else if (inRows && layers_.isOpen() &&
-                   page_.focusedCategory().id == EmulatorSettings::categoryId) {
-            switch (layers_.back()) {
-            case LayerSettings::Back::Within:
-                sounds_.play(audio::Effect::Navigation);
-                refresh();
-                focusLayerRow();
-                break;
-            case LayerSettings::Back::Layer:
-                closeLayer();
-                break;
-            }
-        } else if (inRows) {
-            showCategories();
-        } else {
-            close();
-        }
-        break;
-    case gamepad::Button::Start:
-        close();
-        break;
-    default:
-        break;
-    }
+void SettingsController::confirm(const ui::SettingsRow& row) {
+    navigator_.push(gpu2d::ui::confirm(row.label + "?", row.confirm, verbOf(row.label),
+                                                 [this, id = row.id] {
+                                                     run(id, 0);
+                                                 }));
 }
 
-void SettingsController::chooseLevel(int level) {
-    const ui::SettingsRow* focused = page_.focusedRow();
-    if (focused == nullptr || focused->kind != RowKind::Slider) {
-        return;
+void SettingsController::openPage(const std::string& id) {
+    if (LayerSettings::owns(id)) {
+        layers_.run(id, 0);
+        refresh();
     }
-    const int next = std::clamp(level, focused->low, focused->high);
-    if (focused->id == volumeId) {
-        if (const std::string refused = volume_.system().setPercent(next); !refused.empty()) {
+    navigator_.push(std::make_unique<SettingsSubPage>(*this, chrome_, id));
+}
+
+Screen::BackReply SettingsController::backFrom(const std::string& id) {
+    if (!layers_.isOpen() || id != layers_.openRowId()) {
+        return Screen::BackReply::Pop;
+    }
+    switch (layers_.back()) {
+    case LayerSettings::Back::Within: {
+        refresh();
+        sounds_.play(audio::Effect::Navigation);
+        if (const std::string target = layers_.returnRow(); !target.empty()) {
+            navigator_.focus(target);
+        }
+        return Screen::BackReply::Stay;
+    }
+    case LayerSettings::Back::Layer:
+        layers_.close();
+        refresh();
+        break;
+    }
+    return Screen::BackReply::Pop;
+}
+
+void SettingsController::setLevel(const std::string& id, int level) {
+    if (id == volumeId) {
+        if (const std::string refused = volume_.system().setPercent(std::clamp(level, 0, 100));
+            !refused.empty()) {
             hooks_.say(refused, true);
         }
+        refresh();
         return;
     }
-    if (next != preferences_.values().iconSize) {
-        sounds_.play(audio::Effect::Navigation);
+    const int next = std::clamp(level, ui::minIconLevel, ui::maxIconLevel);
+    if (id == iconSizeId && next != preferences_.values().iconSize) {
         preferences_.values().iconSize = next;
         changed();
     }
 }
 
-void SettingsController::stepIconSize(int delta) {
-    chooseLevel(preferences_.values().iconSize + delta);
-}
-
-void SettingsController::run(const ui::SettingsRow& focused, int step) {
-    // The row is a reference into the page, which a change rebuilds.
-    const std::string id = focused.id;
-    if (id == iconSizeId) {
-        if (step != 0) {
-            stepIconSize(step);
-        }
-        return;
-    }
-    if (id == volumeId || id == muteId) {
+void SettingsController::run(const std::string& id, int step) {
+    if (id == muteId) {
         runAudio(id, step);
         return;
     }
     if (id == keyboardId) {
         settings::Settings& v = preferences_.values();
-        sounds_.play(audio::Effect::Navigation);
         const auto from = static_cast<std::size_t>(v.keyboardStyle);
         v.keyboardStyle =
             input::allKeyboardStyles[around(from, step, input::allKeyboardStyles.size())];
         changed();
         return;
     }
-    if (id.starts_with(shortcutId) || id == shortcutsResetId || id == chordsOpenId) {
+    if (id.starts_with(shortcutId) || id == shortcutsResetId) {
         runControls(id);
         return;
     }
     if (MappingEditor::owns(id)) {
-        sounds_.play(audio::Effect::Navigation);
         mappings_.runSetting(id, step);
         refresh();
         return;
     }
     if (ChordSettings::owns(id)) {
-        if (step == 0) {
-            sounds_.play(audio::Effect::Navigation);
-            chords_.run(id, step);
-            refresh();
-        }
+        chords_.run(id, step);
+        refresh();
         return;
     }
     if (LayerSettings::owns(id)) {
-        if (focused.kind == RowKind::Info) {
-            return;
-        }
-        sounds_.play(audio::Effect::Navigation);
-        const bool wasOpen = layers_.isOpen();
-        const std::string before = layers_.openName();
-        layers_.run(id, step);
-        refresh();
-        if (!wasOpen && layers_.isOpen()) {
-            page_.focusRow(0);
-        } else if (layers_.openName() != before) {
-            focusLayerRow();
-        }
+        runLayer(id, step);
+        return;
+    }
+    if (IntegrationSettings::applies(id)) {
+        applyIntegrations();
         return;
     }
     if (IntegrationSettings::owns(id)) {
-        if (focused.kind != RowKind::Info) {
-            sounds_.play(audio::Effect::Navigation);
-            integrations_.run(id, step);
-            refresh();
-        }
-        return;
-    }
-    if (ArtworkSettings::owns(id)) {
-        if (focused.kind != RowKind::Info && step == 0) {
-            sounds_.play(audio::Effect::Navigation);
-            artwork_.run(id, step);
-        }
-        return;
-    }
-    if (EmulatorSettings::owns(id) || SteamLibrarySettings::owns(id) || PluginSettings::owns(id) ||
-        WineSettings::owns(id)) {
-        if (focused.kind == RowKind::Info) {
-            return;
-        }
-        sounds_.play(audio::Effect::Navigation);
-        if (EmulatorSettings::owns(id)) {
-            emulators_.run(id, step);
-        } else if (SteamLibrarySettings::owns(id)) {
-            steamLibraries_.run(id, step);
-        } else if (WineSettings::owns(id)) {
-            wine_.run(id, step);
-        } else {
-            plugins_.run(id, step);
-        }
+        integrations_.run(id, step);
         refresh();
         return;
     }
-    if (focused.kind == RowKind::Folder) {
-        if (step == 0) {
-            chooseFolder(id);
-        }
+    if (ArtworkSettings::owns(id)) {
+        artwork_.run(id, step);
+        refresh();
         return;
     }
-    if (focused.kind == RowKind::Info) {
-        return;
-    }
-    if (id == layoutId || id == scrollModeId || id == pinDockId || id == soundsId ||
-        id == uiScaleId) {
+    if (EmulatorSettings::owns(id)) {
+        emulators_.run(id, step);
+    } else if (SteamLibrarySettings::owns(id)) {
+        steamLibraries_.run(id, step);
+    } else if (WineSettings::owns(id)) {
+        wine_.run(id, step);
+    } else if (PluginSettings::owns(id)) {
+        plugins_.run(id, step);
+    } else if (id == romAddId || id == steamAddId || id.starts_with(installStoreId)) {
+        chooseFolder(id);
+    } else if (id == layoutId || id == scrollModeId || id == pinDockId || id == soundsId ||
+               id == uiScaleId) {
         runAppearance(id, step);
+        return;
     } else {
         runLibrary(id, step);
+        return;
+    }
+    refresh();
+}
+
+void SettingsController::runLayer(const std::string& id, int step) {
+    layers_.run(id, step);
+    refresh();
+    if (const std::string target = layers_.returnRow(); !target.empty()) {
+        navigator_.focus(target);
     }
 }
 
 void SettingsController::runAppearance(const std::string& id, int step) {
     settings::Settings& v = preferences_.values();
-    const bool toggles = id == pinDockId || id == soundsId;
-    if (toggles && step != 0) {
-        return;
-    }
-    sounds_.play(audio::Effect::Navigation);
     if (id == layoutId) {
         v.libraryMode = library::allLibraryModes[around(static_cast<std::size_t>(v.libraryMode),
                                                         step, library::allLibraryModes.size())];
@@ -613,11 +655,7 @@ void SettingsController::runAppearance(const std::string& id, int step) {
 
 void SettingsController::runAudio(const std::string& id, int step) {
     std::string refused;
-    if (id == volumeId) {
-        if (step != 0) {
-            refused = volume_.system().step(step * audio::volumeStep);
-        }
-    } else if (step == 0) {
+    if (id == muteId && step == 0) {
         refused = volume_.system().toggleMute();
     }
     if (!refused.empty()) {
@@ -627,17 +665,10 @@ void SettingsController::runAudio(const std::string& id, int step) {
 }
 
 void SettingsController::runControls(const std::string& id) {
-    if (id == chordsOpenId) {
-        if (showCategory(ChordSettings::categoryId)) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        return;
-    }
     if (id == shortcutsResetId) {
         shortcutEditor_.resetAll();
     } else if (const std::optional<input::Action> action = input::actionOf(
                    std::string_view{id}.substr(std::string_view{shortcutId}.size()))) {
-        sounds_.play(audio::Effect::Navigation);
         shortcutEditor_.begin(*action);
     }
     refresh();
@@ -645,12 +676,6 @@ void SettingsController::runControls(const std::string& id) {
 
 void SettingsController::runLibrary(const std::string& id, int step) {
     settings::Settings& v = preferences_.values();
-    if ((id == installedId || id == hiddenId || id == emulatorsId || id == romResetId ||
-         id == steamResetId) &&
-        step != 0) {
-        return;
-    }
-    sounds_.play(audio::Effect::Navigation);
     if (id == sortId) {
         v.view.sort = library::allSortKeys[around(static_cast<std::size_t>(v.view.sort), step,
                                                   library::allSortKeys.size())];
@@ -678,6 +703,8 @@ void SettingsController::runLibrary(const std::string& id, int step) {
     } else if (id == steamResetId) {
         v.steamRoots.clear();
         hooks_.say("Steam is found automatically after a restart", false);
+    } else {
+        return;
     }
     changed();
 }
@@ -688,7 +715,11 @@ void SettingsController::chooseFolder(const std::string& id) {
     } else if (id == installDefaultId) {
         editInstallFolder("Default install folder", id);
     } else {
-        editInstallFolder(page_.focusedRow()->label, id);
+        for (const library::Source store : settings::installStores) {
+            if (id == storeKeyOf(store)) {
+                editInstallFolder(std::string{library::label(store)} + " install folder", id);
+            }
+        }
     }
 }
 

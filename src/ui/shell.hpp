@@ -66,6 +66,7 @@
 #include "search_panel_painter.hpp"
 #include "section_view.hpp"
 #include "session_panels.hpp"
+#include "screen_stack.hpp"
 #include "settings_panels.hpp"
 #include "tile.hpp"
 #include "tile_artwork.hpp"
@@ -208,6 +209,13 @@ class Shell {
         return details_;
     }
     /// The Settings screen, and the folder chooser and keyboard that open over it.
+    /// The interface toolkit's screens: Settings and what opens over it.
+    [[nodiscard]] ScreenStack& screens() noexcept {
+        return screens_;
+    }
+    [[nodiscard]] const ScreenStack& screens() const noexcept {
+        return screens_;
+    }
     [[nodiscard]] SettingsPanels& settingsPanels() noexcept {
         return settings_;
     }
@@ -250,7 +258,8 @@ class Shell {
     [[nodiscard]] const OnScreenKeyboard* dockedKeyboard() const noexcept;
     [[nodiscard]] bool panelOpen() const noexcept {
         return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || cover_.isOpen() ||
-               details_.isOpen() || settings_.anyOpen() || menuPageOpen() || mapping_.isOpen() ||
+               details_.isOpen() || screens_.active() || settings_.anyOpen() || menuPageOpen() ||
+               mapping_.isOpen() ||
                guide_.anyOpen() || session_.anyOpen();
     }
 
@@ -503,6 +512,7 @@ class Shell {
     std::optional<library::Section> dockHover_;
     std::array<IconPop, library::allSections.size()> iconPops_{IconPop{true}, IconPop{false}};
     ModeChooser chooser_;
+    ScreenStack screens_{prompts_, typeface_};
     SettingsPanels settings_{prompts_, typeface_};
     SearchPanel search_;
     PanelFade searchFade_{FadeSpec{120.0f, 120.0f, 0.96f, 140.0f, 1.0f}};

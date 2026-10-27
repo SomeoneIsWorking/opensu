@@ -52,8 +52,10 @@ ui::SettingsCategory ArtworkSettings::page() const {
         return page;
     }
     if (status.state == State::Connected) {
-        page.rows.push_back(ui::makeRow(disconnectId, RowKind::Action, "Disconnect SteamGridDB",
-                                        "Forgets the key", ""));
+        ui::SettingsRow disconnect = ui::makeRow(disconnectId, RowKind::Action,
+                                                 "Disconnect SteamGridDB", "Forgets the key", "");
+        disconnect.confirm = "openSU forgets the key; Connect signs in again.";
+        page.rows.push_back(std::move(disconnect));
         return page;
     }
     if (status.state == State::Disconnected) {
