@@ -15,9 +15,7 @@ Decided:
   catalogue: the player: "you don't have to mock the games for them, you can use my own libraries
   for the shots". No account names, user names, home paths or sign-in state in any shot; game art
   credited as the stores' and publishers' in `docs/screenshots/CREDITS.md`.
-- No sexual content in any shot ("don't show any NSFW games there", "Violent games are fine"): the
-  shot's library leaves out games with Steam's content descriptors 3 (Adult Only Sexual Content)
-  and 4 (Frequent Nudity or Sexual Content), GOG's catalogue tags for nudity and sexual content
-  (the player has explicit games on GOG), and every game the player hid in openSU; not age ratings
-  or violence. Every frame is looked over before it is committed; a game that slips through is
-  excluded by id and the shot retaken.
+- No explicit games in any README shot ("only keep them off of GitHub screenshots, you can
+  honestly just audit the shots and remove the ones containing anything explicit"): every shot is
+  looked over before it is committed, and one showing anything explicit is retaken without that
+  game. Nothing in the product filters games for this.
