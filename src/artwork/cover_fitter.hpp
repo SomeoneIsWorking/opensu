@@ -1,6 +1,7 @@
 // cover_fitter — covers that do not fit their tile: on a worker, each game's cover is decoded for
 // its size, and one of another shape than the tile's (it would be cropped or letterboxed) gets
-// SteamGridDB's first cover of the tile's shape, kept as its fitted cover (`CoverOverrides`). Only
+// SteamGridDB's first cover of the tile's shape, kept as its fitted cover (`CoverOverrides`). A
+// player's own game, which no store has a cover for, gets one the same way by its title. Only
 // while SteamGridDB has a key; a game with a chosen cover is left alone.
 #pragma once
 

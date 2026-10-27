@@ -227,13 +227,15 @@ void ArtworkFetcher::recordMiss(const Work& work) const {
 ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
     switch (game.source) {
     case library::Source::Steam:
-        return fetchSteam(game);
+        return fetchSteam(game, game.sourceId);
     case library::Source::Rom:
         return fetchRom(game);
     case library::Source::Epic:
         return game.artworkUrl.empty() ? Outcome::Missing : keep(game, game.artworkUrl);
     case library::Source::Gog:
         return fetchGog(game);
+    case library::Source::Own:
+        return game.artworkKey.empty() ? Outcome::Missing : fetchSteam(game, game.artworkKey);
     }
     return Outcome::Missing;
 }
@@ -304,8 +306,9 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const NamesWork& /*names*/) {
     return Outcome::Saved;
 }
 
-ArtworkFetcher::Outcome ArtworkFetcher::fetchSteam(const library::Game& game) {
-    const std::string base = sources_.steam + "/" + game.sourceId + "/";
+ArtworkFetcher::Outcome ArtworkFetcher::fetchSteam(const library::Game& game,
+                                                   const std::string& appId) {
+    const std::string base = sources_.steam + "/" + appId + "/";
     // The library portrait, else the store header, which every app has.
     const Outcome portrait = keep(game, base + "library_600x900.jpg");
     if (portrait != Outcome::Missing) {

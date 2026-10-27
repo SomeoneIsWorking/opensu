@@ -85,6 +85,7 @@ std::optional<Icon> iconFor(library::Source source) noexcept {
     case library::Source::Gog:
         return Icon::Gog;
     case library::Source::Rom:
+    case library::Source::Own:
         break;
     }
     return std::nullopt;

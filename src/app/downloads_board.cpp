@@ -22,6 +22,8 @@ std::string keyOf(library::Source store, const std::string& id) {
         return "epic:" + id;
     case library::Source::Gog:
         return "gog:" + id;
+    case library::Source::Own:
+        return "own:" + id;
     case library::Source::Rom:
         break;
     }

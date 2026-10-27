@@ -245,11 +245,7 @@ fs::path sharedPrefix(const fs::path& dataDir) {
 }
 
 fs::path ownPrefix(const fs::path& dataDir, const Game& game) {
-    std::string name{label(game.source)};
-    std::ranges::transform(name, name.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    name += '-';
+    std::string name = key(game.source) + '-';
     for (const char c : game.sourceId) {
         const bool plain =
             std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '.' || c == '_' || c == '-';
@@ -259,7 +255,8 @@ fs::path ownPrefix(const fs::path& dataDir, const Game& game) {
 }
 
 fs::path prefixFor(const fs::path& dataDir, const Game& game, const OwnPrefixes& own) {
-    return own.contains(game.id) ? ownPrefix(dataDir, game) : sharedPrefix(dataDir);
+    return own.contains(game.id) || game.source == Source::Own ? ownPrefix(dataDir, game)
+                                                               : sharedPrefix(dataDir);
 }
 
 fs::path umuFolders(const fs::path& dataDir) {
@@ -358,7 +355,8 @@ ReadyPrefix readyPrefix(const fs::path& prefix, const Runner& runner) {
 }
 
 Prepared prepare(Game& game, const Choice& choice) {
-    if (!isGameStore(game.source) || !game.windowsInstall || game.launch.empty()) {
+    const bool own = game.source == Source::Own;
+    if ((!isGameStore(game.source) && !own) || !game.windowsInstall || game.launch.empty()) {
         return {};
     }
     const std::optional<Runner> runner = runnerOf(choice, game.id);
@@ -383,6 +381,16 @@ Prepared prepare(Game& game, const Choice& choice) {
         return {.refusal = std::move(ready.refusal), .environment = {}};
     }
     const fs::path& prefix = ready.prefix;
+    if (own) {
+        // The player's own .exe: the runner starts it, nothing in between.
+        Invocation invocation = invocationOf(*runner, prefix, choice.umuRun, choice.dataDir, "");
+        game.launch.args.insert(game.launch.args.begin(), game.launch.program);
+        game.launch.args.insert(game.launch.args.begin(), invocation.command.begin() + 1,
+                                invocation.command.end());
+        game.launch.program = invocation.command.front();
+        lucent::info("wine", "{} runs under {} in {}", game.title, runner->name, prefix.string());
+        return {.refusal = {}, .environment = std::move(invocation.environment)};
+    }
     if (runner->proton.empty()) {
         game.launch.args.insert(game.launch.args.end(), {"--wine", runner->wine.string(),
                                                          "--wine-prefix", prefix.string()});

@@ -101,7 +101,8 @@ Handoff::Begun Handoff::beginScope(const library::Game& game,
     }
     const std::string unit =
         session_ + "-game-" + std::to_string(launches_.fetch_add(1)) + ".scope";
-    if (!instance_.start(unit, game.launch.program, game.launch.args, failure, environment)) {
+    if (!instance_.start(unit, game.launch.program, game.launch.args, failure, environment,
+                         game.launch.workingDirectory)) {
         return Begun::Failed;
     }
     return Begun::Started;

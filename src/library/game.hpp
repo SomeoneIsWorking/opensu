@@ -20,12 +20,14 @@ enum class Source : std::uint8_t {
     Epic,
     Gog,
     Rom,
+    /// A game the player added from a file, or imported from Steam's shortcuts or Lutris.
+    Own,
 };
 
 /// The store's display name.
 [[nodiscard]] std::string_view label(Source source);
 
-/// The store's name in lower case, as keys spell it: "steam", "epic", "gog".
+/// The store's name as keys spell it: "steam", "epic", "gog", "emulator", "own".
 [[nodiscard]] std::string key(Source source);
 
 /// The command that starts a game. Every source fills this in, so launching
@@ -33,6 +35,8 @@ enum class Source : std::uint8_t {
 struct LaunchSpec {
     std::string program;
     std::vector<std::string> args;
+    /// The folder it starts in; empty for openSU's own.
+    std::filesystem::path workingDirectory{};
 
     [[nodiscard]] bool empty() const noexcept {
         return program.empty();
@@ -76,7 +80,8 @@ struct Game {
     /// or the system a ROM belongs to.
     std::string sourceId;
     std::string title;
-    /// A ROM's game file, the one its emulator starts; empty for a game of a store.
+    /// A ROM's game file, the one its emulator starts, or the file of a game the player added;
+    /// empty for a game of a store.
     std::filesystem::path file;
 
     /// Whether the title can be launched now.
@@ -89,7 +94,8 @@ struct Game {
     std::filesystem::path artwork;
     std::filesystem::path artworkWide;
     /// The name artwork is looked up by remotely: a ROM's file or folder name without its
-    /// extension, dump tags and all. Empty for a source looked up by `sourceId`.
+    /// extension, dump tags and all, or the Steam app id a player's own game matched. Empty for a
+    /// source looked up by `sourceId`.
     std::string artworkKey;
     /// A store's image for the game, as `https://host/stem` with no size suffix. GOG's takes
     /// `_<size>.jpg`; Epic's is a complete image URL. Empty for a source whose art is looked up
@@ -101,7 +107,8 @@ struct Game {
         bool windows{false};
         bool linuxNative{false};
     } builds;
-    /// The installed build is a Windows one, which runs under Wine (`wine::prepare`); GOG and Epic.
+    /// The installed build is a Windows one, which runs under Wine (`wine::prepare`); GOG, Epic and
+    /// an added `.exe`.
     bool windowsInstall{false};
 
     int playtimeMinutes{0};

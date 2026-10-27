@@ -17,7 +17,7 @@ bool PathEditor::active() const {
 
 void PathEditor::begin(Request request) {
     request_ = std::move(request);
-    folders_.open(request_.start);
+    folders_.open(request_.start, request_.files);
     typed_ = folders_.current().string();
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
@@ -56,6 +56,10 @@ void PathEditor::useShown() {
     choose(folders_.current());
 }
 
+void PathEditor::pick(const std::filesystem::path& file) {
+    choose(file);
+}
+
 void PathEditor::dropChoice() {
     close();
     request_.done(std::nullopt);
@@ -78,7 +82,7 @@ void PathEditor::shown() {
     typed_ = folders_.current().string();
     // input-sound.md 3.4 Navigation: a focus move in a list.
     sounds_.play(audio::Effect::Navigation);
-    navigator_.focus(FolderChooserScreen::useId);
+    navigator_.focus(FolderChooserScreen::landing(*this));
 }
 
 } // namespace opensu::app

@@ -9,8 +9,12 @@
 namespace opensu::artwork {
 namespace {
 
-/// The SteamGridDB lookup of `game`: by Steam app id for a Steam game, and by title.
+/// The SteamGridDB lookup of `game`: by Steam app id for a Steam game or an own game that matched
+/// one, and by title.
 SteamGridDbGame lookupOf(const library::Game& game) {
+    if (game.source == library::Source::Own) {
+        return {game.artworkKey, game.title};
+    }
     return {game.source == library::Source::Steam ? game.sourceId : "", game.title};
 }
 
@@ -29,7 +33,8 @@ CoverFitter::~CoverFitter() {
 }
 
 bool CoverFitter::wanted(const library::Game& game) const {
-    return !game.artwork.empty() && steamGridDb_.connected() &&
+    const bool coverless = game.source == library::Source::Own && game.artwork.empty();
+    return (coverless || !game.artwork.empty()) && steamGridDb_.connected() &&
            overrides_.wantsFit(game.id, ArtworkStore::Clock::now());
 }
 
@@ -97,14 +102,17 @@ bool CoverFitter::fit(const Work& work) {
         return true;
     }
     std::string error;
-    const std::optional<gpu2d::image::Bitmap> cover = gpu2d::image::decodeFile(game.artwork, error);
-    if (!cover) {
-        lucent::warn("artwork", "{} cover unreadable: {}", game.id, error);
-        return true;
-    }
-    if (coverShapeOf(cover->width, cover->height) == work.shape) {
-        fits_.insert(seen);
-        return true;
+    if (!game.artwork.empty()) {
+        const std::optional<gpu2d::image::Bitmap> cover =
+            gpu2d::image::decodeFile(game.artwork, error);
+        if (!cover) {
+            lucent::warn("artwork", "{} cover unreadable: {}", game.id, error);
+            return true;
+        }
+        if (coverShapeOf(cover->width, cover->height) == work.shape) {
+            fits_.insert(seen);
+            return true;
+        }
     }
     const SteamGridDb::Covers offered = steamGridDb_.covers(web_, lookupOf(game), work.shape);
     switch (offered.status) {

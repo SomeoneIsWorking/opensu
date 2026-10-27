@@ -58,6 +58,9 @@ Removal UninstallJob::removal(const library::Game& game,
         }
         return Removal{.what = "forgets the GOG copy; " + record->path.string() + " is kept"};
     }
+    case library::Source::Own:
+        return Removal{.refusal = "openSU never deletes your own games; Remove from library "
+                                  "forgets one"};
     case library::Source::Rom:
         break;
     }
@@ -74,6 +77,9 @@ void UninstallJob::run(const std::stop_token& stop, const std::string& appId) {
         return;
     case library::Source::Gog:
         uninstallGog(appId);
+        return;
+    case library::Source::Own:
+        post(Report{.finished = true, .failure = "openSU never deletes your own games"});
         return;
     case library::Source::Rom:
         break;

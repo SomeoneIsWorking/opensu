@@ -1,6 +1,7 @@
 // folder_chooser_screen — the folder chooser on the interface toolkit: a tall card over the dimmed
-// screen with the request's title, the path field, then Use this folder, the entry that drops the
-// setting, Up one level and the folders under the one shown. Left goes up a level; B cancels.
+// screen with the request's title, the path field, then Use this folder (when a folder is asked
+// for), the entry that drops the setting, Up one level, the folders under the one shown and the
+// files to pick (when a file is). Left goes up a level; B cancels.
 #pragma once
 
 #include <memory>
@@ -32,8 +33,12 @@ class FolderChooserScreen final : public gpu2d::ui::Screen {
     bool act(gpu2d::ui::Action action, gpu2d::ui::ActContext& context) override;
     [[nodiscard]] std::vector<gpu2d::ui::Hint> hints() const override;
     [[nodiscard]] std::string initialFocus() const override {
-        return useId;
+        return landing(editor_);
     }
+
+    /// Where focus lands on a folder shown: Use this folder, else the first file, else Up one
+    /// level, else the field.
+    [[nodiscard]] static std::string landing(const PathEditor& editor);
 
   private:
     PathEditor& editor_;

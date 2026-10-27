@@ -78,6 +78,9 @@ constexpr Colour libraryTo{0x2F, 0x28, 0x5E, 255};
 // Giveaways' card: a warm red apart from the stores and the library.
 constexpr Colour giveawaysFrom{0xB8, 0x3A, 0x52, 255};
 constexpr Colour giveawaysTo{0x5E, 0x1C, 0x33, 255};
+// Add a game's card: a teal apart from the stores, the library and Giveaways.
+constexpr Colour addGameFrom{0x2E, 0x8C, 0x86, 255};
+constexpr Colour addGameTo{0x15, 0x45, 0x4A, 255};
 // A store badge's disc, dark so a white logo reads over any cover.
 constexpr Colour badgeDisc{0x16, 0x13, 0x1E, 200};
 constexpr float badgeLogo = 0.62f;
@@ -337,6 +340,10 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
         paintCard(canvas, tile, content, giveawaysFrom, giveawaysTo);
         return;
     }
+    if (tile.kind == TileKind::AddGame) {
+        paintCard(canvas, tile, content, addGameFrom, addGameTo);
+        return;
+    }
     if (tile.platform != nullptr) {
         // iiSU g24.e: art clipped at the larger art radius, then the platform frame over it.
         const FrameGeometry frame = frameGeometry(content);
@@ -426,7 +433,8 @@ void TilePainter::paintFrame(Canvas& canvas, const Rect& rect, const Platform& p
 }
 
 void TilePainter::paintMark(Canvas& canvas, const TileVisual& tile, const Rect& box, Colour ink) {
-    if (tile.kind == TileKind::Launcher) {
+    // A launcher without a logo (the player's own games) takes the library's glyph.
+    if (tile.kind == TileKind::Launcher && tile.logo) {
         const int pixels = std::max(static_cast<int>(std::lround(box.width)), 1);
         const gpu2d::Texture* mark = tile.logo ? icons_.mask(*tile.logo, pixels) : nullptr;
         if (mark != nullptr) {
@@ -461,6 +469,13 @@ void TilePainter::paintMark(Canvas& canvas, const TileVisual& tile, const Rect& 
         fill(Rect{box.centreX() + ribbon * 0.5f, box.y, loop, loop}, loop * 0.5f);
         return;
     }
+    if (tile.kind == TileKind::AddGame) {
+        // A plus.
+        const float bar = box.width * 0.2f;
+        fill(Rect{box.centreX() - bar * 0.5f, box.y, bar, box.height}, bar * 0.3f);
+        fill(Rect{box.x, box.centreY() - bar * 0.5f, box.width, bar}, bar * 0.3f);
+        return;
+    }
     // Four rounded tiles in a square: a shelf of games.
     const float cell = box.width * glyphTile;
     const float gap = box.width - 2.0f * cell;
@@ -493,7 +508,7 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
     const float nameBox = text_.lineHeight(name);
     const float gap = side * 0.04f;
     const bool marked = tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames ||
-                        tile.kind == TileKind::Giveaways;
+                        tile.kind == TileKind::Giveaways || tile.kind == TileKind::AddGame;
     const float mark = marked ? side * markSide : 0.0f;
     const float markRoom = marked ? side * markGap : 0.0f;
     const float block = mark + markRoom + static_cast<float>(lines.size()) * nameBox + gap +

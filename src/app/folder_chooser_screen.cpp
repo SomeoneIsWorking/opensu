@@ -15,7 +15,22 @@ constexpr float cardDp = 520.0f;
 /// The most bytes a typed path holds: Linux's PATH_MAX.
 constexpr std::size_t pathMostLength = 4096;
 
+std::string fileIdOf(const ui::FolderEntry& entry) {
+    return "folders/file/" + entry.name;
+}
+
 } // namespace
+
+std::string FolderChooserScreen::landing(const PathEditor& editor) {
+    const ui::FolderChooser& folders = editor.folders();
+    if (!editor.request().files) {
+        return useId;
+    }
+    if (!folders.files().empty()) {
+        return fileIdOf(folders.files().front());
+    }
+    return folders.hasParent() ? std::string{"folders/up"} : std::string{fieldId};
+}
 
 std::unique_ptr<tk::Widget> FolderChooserScreen::build(const tk::Theme& theme) {
     ui::CardFrame frame = ui::tallCard(theme, chrome_, cardDp);
@@ -26,7 +41,7 @@ std::unique_ptr<tk::Widget> FolderChooserScreen::build(const tk::Theme& theme) {
                             [this](std::string text) {
                                 editor_.type(std::move(text));
                             })
-        .placeholder("Type a folder path")
+        .placeholder(editor_.request().files ? "Type a file path" : "Type a folder path")
         .limit(pathMostLength)
         .onSubmit(
             [this] {
@@ -39,9 +54,11 @@ std::unique_ptr<tk::Widget> FolderChooserScreen::build(const tk::Theme& theme) {
     tk::List& list = card.add<tk::List>("folders/list", theme.spacing.gap);
     list.grow();
     tk::Column& rows = list.rows();
-    rows.add<tk::Item>(useId, tk::Item::Text{"Use this folder", ""}).onPress([this] {
-        editor_.useShown();
-    });
+    if (!editor_.request().files) {
+        rows.add<tk::Item>(useId, tk::Item::Text{"Use this folder", ""}).onPress([this] {
+            editor_.useShown();
+        });
+    }
     if (const std::string& drop = editor_.request().clearLabel; !drop.empty()) {
         rows.add<tk::Item>("folders/drop", tk::Item::Text{drop, ""}).onPress([this] {
             editor_.dropChoice();
@@ -62,6 +79,14 @@ std::unique_ptr<tk::Widget> FolderChooserScreen::build(const tk::Theme& theme) {
                     editor_.enter(path);
                 },
                 "Open", true);
+    }
+    for (const ui::FolderEntry& entry : folders.files()) {
+        rows.add<tk::Item>(fileIdOf(entry), tk::Item::Text{entry.name, ""})
+            .onPress(
+                [this, path = entry.path] {
+                    editor_.pick(path);
+                },
+                "Choose");
     }
     card.add<tk::HintBar>().fixHeight(theme.spacing.hintBarHeight);
     return std::move(frame.root);

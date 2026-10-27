@@ -42,6 +42,9 @@ TileKind kindOf(const library::ShelfItem& item) noexcept {
     if (std::holds_alternative<library::Giveaways>(item)) {
         return TileKind::Giveaways;
     }
+    if (std::holds_alternative<library::AddGame>(item)) {
+        return TileKind::AddGame;
+    }
     return std::holds_alternative<library::AllGames>(item) ? TileKind::AllGames : TileKind::Game;
 }
 
@@ -56,6 +59,9 @@ std::string shelfKey(const library::ShelfItem& item) {
     }
     if (std::holds_alternative<library::Giveaways>(item)) {
         return "giveaways";
+    }
+    if (std::holds_alternative<library::AddGame>(item)) {
+        return "add-game";
     }
     const std::optional<library::Folder> folder = library::folderOf(item);
     return folder ? "folder:" + library::key(*folder) : std::string{};
@@ -191,6 +197,9 @@ void Shell::fillTile(Tile& tile, library::ShelfItem item) const {
     } else if (std::holds_alternative<library::Giveaways>(tile.item)) {
         tile.title = std::string{library::giveawaysName};
         tile.caption = "Free to keep";
+    } else if (std::holds_alternative<library::AddGame>(tile.item)) {
+        tile.title = std::string{library::addGameName};
+        tile.caption = "A file, Steam shortcuts, Lutris";
     } else {
         for (const library::Source source : std::get<library::Game>(tile.item).ownedIn) {
             if (const std::optional<Icon> icon = iconFor(source)) {
@@ -642,12 +651,20 @@ std::string Shell::focusedTitle() const {
     if (focusedGiveaways()) {
         return std::string{library::giveawaysName};
     }
+    if (focusedAddGame()) {
+        return std::string{library::addGameName};
+    }
     return {};
 }
 
 bool Shell::focusedGiveaways() const {
     return focus_.index() < tiles_.size() &&
            std::holds_alternative<library::Giveaways>(tiles_[focus_.index()].item);
+}
+
+bool Shell::focusedAddGame() const {
+    return focus_.index() < tiles_.size() &&
+           std::holds_alternative<library::AddGame>(tiles_[focus_.index()].item);
 }
 
 std::string Shell::pillTitle() const {

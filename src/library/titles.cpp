@@ -19,6 +19,7 @@ int rank(Source source) noexcept {
     case Source::Epic:
         return 2;
     case Source::Rom:
+    case Source::Own:
         break;
     }
     return 3;

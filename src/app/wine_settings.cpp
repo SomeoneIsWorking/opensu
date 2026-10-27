@@ -162,7 +162,8 @@ std::vector<library::Game> WineSettings::windowsGames() const {
     std::vector<library::Game> games = hooks_.games();
     std::erase_if(games, [](const library::Game& game) {
         return !game.windowsInstall ||
-               (game.source != library::Source::Gog && game.source != library::Source::Epic);
+               (game.source != library::Source::Gog && game.source != library::Source::Epic &&
+                game.source != library::Source::Own);
     });
     return games;
 }

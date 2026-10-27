@@ -211,9 +211,34 @@ void winePrefix() {
            "a game that does not run under Wine has no prefix row");
 }
 
+void ownGame() {
+    Game game;
+    game.id = "own:3";
+    game.source = Source::Own;
+    game.sourceId = "3";
+    game.title = "Celeste";
+    game.file = "/games/Celeste/Celeste.exe";
+    game.installed = true;
+    game.windowsInstall = true;
+    const GameDetails details = detailsOf(game, false, now);
+    expect(details.badge == "Your games" && valueOf(details, "File") == game.file.string(),
+           "an added game says it is the player's and which file it starts");
+    expect(idsOf(details) ==
+               ids({detailsHiddenId, detailsRenameId, detailsChangeFileId, detailsRemoveId,
+                    detailsArtworkId, detailsControlsId, detailsBackId}),
+           "rename, change file and remove; no Uninstall, and no Wine prefix: it has its own");
+
+    game.file.clear();
+    const GameDetails lutris = detailsOf(game, false, now);
+    expect(valueOf(lutris, "Runs through") == "Lutris" &&
+               actionOf(lutris, detailsChangeFileId) == nullptr,
+           "a Lutris game has no file to change");
+}
+
 } // namespace
 
 int main() {
+    ownGame();
     lastPlayed();
     storeGame();
     states();

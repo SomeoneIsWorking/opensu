@@ -123,6 +123,15 @@ struct Rig {
                          },
                          [this](const library::Game& opened) {
                              calls.push_back("artwork " + opened.id);
+                         },
+                         [this](const library::Game& opened) {
+                             calls.push_back("rename " + opened.id);
+                         },
+                         [this](const library::Game& opened) {
+                             calls.push_back("change file " + opened.id);
+                         },
+                         [this](const library::Game& opened) {
+                             calls.push_back("remove " + opened.id);
                          }}} {
     }
 

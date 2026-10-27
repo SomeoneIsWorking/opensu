@@ -96,7 +96,8 @@ harfbuzz-devel SDL3_image-devel libpng-devel` on Fedora), and the UI sounds are 
 (`libcurl-devel`) downloads missing artwork; libcrypto (`openssl-devel`) decrypts a Switch game's
 own title and icon with the player's keys; zlib (`zlib-devel`) reads iiSU's starter pack, libwebp
 (`libwebp-devel`) decodes its console cards, nlohmann/json (`json-devel`) reads and writes the
-settings and libX11 and libXi (`libX11-devel libXi-devel`) read the in-game shortcut keys.
+settings, SQLite (`sqlite-devel`) reads Lutris's game list for Add a game, and libX11 and libXi
+(`libX11-devel libXi-devel`) read the in-game shortcut keys.
 `opensu-retro`, the built-in libretro runner, also needs the Vulkan loader and glslc
 (`vulkan-loader-devel glslc` on Fedora); its tests and the shell's draw on any Vulkan driver,
 lavapipe (`mesa-vulkan-drivers`) included, and use the validation layers

@@ -66,6 +66,7 @@
 #include "library/shelf.hpp"
 #include "mapping_editor.hpp"
 #include "offer_claim.hpp"
+#include "own_games_controller.hpp"
 #include "pad_owner.hpp"
 #include "panel_flow.hpp"
 #include "path_editor.hpp"
@@ -510,6 +511,15 @@ class ShellApp final : private PointerHost {
                                  },
                                  [this](const library::Game& game) {
                                      covers_.choose(game.id);
+                                 },
+                                 [this](const library::Game& game) {
+                                     ownGames_.rename(game);
+                                 },
+                                 [this](const library::Game& game) {
+                                     ownGames_.changeFile(game);
+                                 },
+                                 [this](const library::Game& game) {
+                                     ownGames_.remove(game);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
@@ -582,6 +592,16 @@ class ShellApp final : private PointerHost {
                       [this](const std::string& text, bool isError) {
                           shell_.setToast(text, isError);
                       }};
+    /// The player's own games: Add a game, and their rows on the details page.
+    OwnGamesController ownGames_{
+        OwnGamesController::Parts{shell_.screens().navigator(), paths_, keyboardPad_, sounds_},
+        OwnGamesController::Places::of(resolved_),
+        OwnGamesController::Hooks{[this](const std::string& text, bool isError) {
+                                      shell_.setToast(text, isError);
+                                  },
+                                  [this] {
+                                      reloadCatalog();
+                                  }}};
     /// The plugins, their play time and the Settings screen's Plugins category.
     PluginService plugins_{environment_, preferences_, integrations_.current().plugins,
                            PluginService::Hooks{[this](const std::string& text, bool isError) {

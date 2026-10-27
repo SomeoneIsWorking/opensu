@@ -4,6 +4,7 @@
 // OS's backend lands (`process_launcher_unavailable.cpp`).
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -23,12 +24,14 @@ class ProcessLauncher {
     ~ProcessLauncher();
 
     /// Starts `program` in the group `group` (the scope's unit name on Linux), with each
-    /// "NAME=value" of `environment` added to its environment. Returns once the group exists, so
-    /// a following stop() always reaches it. The program starts with no signal blocked. False with
-    /// `failure` when it cannot be started, which on an OS without a backend is every time.
+    /// "NAME=value" of `environment` added to its environment, in `workingDirectory` (openSU's
+    /// own when empty). Returns once the group exists, so a following stop() always reaches it.
+    /// The program starts with no signal blocked. False with `failure` when it cannot be started,
+    /// which on an OS without a backend is every time.
     [[nodiscard]] bool start(const std::string& group, const std::string& program,
                              const std::vector<std::string>& args, std::string& failure,
-                             const std::vector<std::string>& environment = {});
+                             const std::vector<std::string>& environment = {},
+                             const std::filesystem::path& workingDirectory = {});
 
     /// True while anything is left in the group. The started process may exit while processes it
     /// spawned carry on, which still counts as running.

@@ -77,7 +77,8 @@ ProcessLauncher::~ProcessLauncher() {
 
 bool ProcessLauncher::start(const std::string& unit, const std::string& program,
                             const std::vector<std::string>& args, std::string& failure,
-                            const std::vector<std::string>& environment) {
+                            const std::vector<std::string>& environment,
+                            const std::filesystem::path& workingDirectory) {
     const std::lock_guard lock{mutex_};
     if (!group_->unit.empty()) {
         failure = "an instance is already running";
@@ -89,6 +90,9 @@ bool ProcessLauncher::start(const std::string& unit, const std::string& program,
         "--unit=" + unit, "-p",      "TimeoutStopSec=5"};
     for (const std::string& entry : environment) {
         runArgs.push_back("--setenv=" + entry);
+    }
+    if (!workingDirectory.empty()) {
+        runArgs.push_back("--working-directory=" + workingDirectory.string());
     }
     runArgs.push_back("--");
     runArgs.push_back(program);

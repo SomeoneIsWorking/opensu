@@ -115,6 +115,8 @@ void ShellApp::pressTile() {
     } else if (shell_.focusedGiveaways()) {
         sounds_.play(audio::Effect::EnterConsolesApps);
         giveaways_.open();
+    } else if (shell_.focusedAddGame()) {
+        ownGames_.openAdd();
     } else {
         details_.open();
     }
@@ -814,7 +816,8 @@ ui::HintContext ShellApp::hints() const {
     const bool folder = shell_.focusedFolder().has_value();
     return ui::HintContext{.back = browser_.canBack(),
                            .clearSearch = search_.searching(),
-                           .select = game || folder || shell_.focusedGiveaways(),
+                           .select = game || folder || shell_.focusedGiveaways() ||
+                                     shell_.focusedAddGame(),
                            .details = game,
                            .options = game || folder,
                            .menu = true};
@@ -842,6 +845,8 @@ void ShellApp::publishSnapshot() {
                              : library::key(*folder);
     } else if (shell_.focusedGiveaways()) {
         next.focusedId = "giveaways";
+    } else if (shell_.focusedAddGame()) {
+        next.focusedId = "add-game";
     }
     next.focusedTitle = shell_.focusedTitle();
     next.section = std::string{library::key(browser_.section())};
@@ -1049,6 +1054,7 @@ int ShellApp::run() {
         downloadsScreen_.service();
         settingsScreen_.service();
         giveaways_.service();
+        ownGames_.service();
         keyboardPad_.follow();
         syncOverlay();
         syncChrome();

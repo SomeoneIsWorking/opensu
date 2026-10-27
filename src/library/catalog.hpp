@@ -5,12 +5,14 @@
 #include "epic.hpp"
 #include "game.hpp"
 #include "gog.hpp"
+#include "own_games.hpp"
 #include "roms.hpp"
 #include "steam.hpp"
 
 namespace opensu::library {
 
-/// Which stores the catalog reads besides the ROM library, which it always reads, and whether
+/// Which stores the catalog reads besides the ROM library and the player's own games, which it
+/// always reads, and whether
 /// the ROMs' emulators include standalone ones or only the built-in ones.
 struct CatalogStores {
     bool steam{false};

@@ -181,6 +181,12 @@ void DetailsController::run(const std::string& id, int step) {
         close();
     } else if (id == ui::detailsUninstallId) {
         uninstall(*game);
+    } else if (id == ui::detailsRenameId) {
+        hooks_.rename(*game);
+    } else if (id == ui::detailsChangeFileId) {
+        hooks_.changeFile(*game);
+    } else if (id == ui::detailsRemoveId) {
+        hooks_.remove(*game);
     }
 }
 

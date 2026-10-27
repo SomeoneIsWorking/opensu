@@ -52,6 +52,14 @@ if(NOT OPENSSL_FOUND)
         "(Fedora) or `sudo apt install libssl-dev` (Debian/Ubuntu)")
 endif()
 
+# SQLite reads Lutris's game list (`library/lutris_games`) for Add a game's import.
+find_package(SQLite3)
+if(NOT SQLite3_FOUND)
+    message(FATAL_ERROR
+        "openSU needs SQLite 3. Install it with `sudo dnf install sqlite-devel` (Fedora) or "
+        "`sudo apt install libsqlite3-dev` (Debian/Ubuntu)")
+endif()
+
 # Lucent is the project logger. Shared, not vendored.
 set(LUCENT_ROOT "$ENV{HOME}/repo/lucent" CACHE PATH "Shared Lucent checkout")
 

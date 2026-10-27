@@ -122,7 +122,7 @@ class ArtworkFetcher {
     /// The finished download of `work`, for the shell.
     [[nodiscard]] Fetched arrived(const Work& work) const;
     void recordMiss(const Work& work) const;
-    Outcome fetchSteam(const library::Game& game);
+    Outcome fetchSteam(const library::Game& game, const std::string& appId);
     Outcome fetchGog(const library::Game& game);
     Outcome fetchRom(const library::Game& game);
     Outcome keep(const library::Game& game, const std::string& url);
