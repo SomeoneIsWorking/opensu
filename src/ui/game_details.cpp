@@ -139,6 +139,7 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
     details.title = game.title;
     details.badge = badgeOf(game);
     details.art = game.artwork.empty() ? game.artworkWide : game.artwork;
+    details.hero = game.artwork.empty() ? std::filesystem::path{} : game.artworkWide;
     const bool rom = game.source == library::Source::Rom;
     const bool own = game.source == library::Source::Own;
     const bool updatable = game.installed && game.updateAvailable && !rom;

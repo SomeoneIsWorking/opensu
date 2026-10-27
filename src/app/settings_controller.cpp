@@ -470,7 +470,7 @@ void SettingsController::showCategories() {
     const auto* root = dynamic_cast<const SettingsScreen*>(navigator_.top());
     if (root == nullptr) {
         // Pages and what is over them close; the root shows its categories.
-        while (navigator_.top() != nullptr &&
+        while (navigator_.active() &&
                dynamic_cast<const SettingsScreen*>(navigator_.top()) == nullptr) {
             navigator_.pop();
         }

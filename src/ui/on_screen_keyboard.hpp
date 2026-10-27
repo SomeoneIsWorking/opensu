@@ -91,7 +91,6 @@ struct KeyboardLayout {
     /// The line the button hints stand on.
     Rect hints;
 
-    [[nodiscard]] std::optional<std::size_t> keyAt(float x, float y) const noexcept;
     /// The circle `petal` fills.
     [[nodiscard]] Rect petalBounds(std::size_t petal) const noexcept;
     /// The circle `face` fills in the diamond.

@@ -8,6 +8,7 @@
 
 #include "clock_text.hpp"
 #include "corner_hints.hpp"
+#include "round_shape.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -16,6 +17,11 @@ namespace {
 constexpr Colour hintInk{0x4D, 0x46, 0x55, 255};
 
 } // namespace
+
+bool chromeDark() noexcept {
+    // iiSU gh3.q: the grid chrome is dark when the theme background's luminance is under half.
+    return luminance(palette::ground) < 0.5f;
+}
 
 void Hud::setSize(const Size& size) noexcept {
     width_ = size.width;
@@ -83,34 +89,36 @@ TopBarLayout Hud::topBarLayout() const {
                                     letters, content, visible});
 }
 
-const LauncherBadge* Hud::launcherAt(float x, float y) const {
-    const std::optional<std::size_t> cell = topBarLayout().launcherAt(x, y);
-    if (!cell) {
-        return nullptr;
-    }
+std::vector<Hud::BadgeCell> Hud::badgeCells() const {
+    const TopBarLayout layout = topBarLayout();
+    std::vector<BadgeCell> cells;
     std::size_t seen = 0;
     for (const LauncherBadge& badge : launchers_) {
-        if (badge.state != ServiceState::Hidden && seen++ == *cell) {
-            return &badge;
+        if (badge.state == ServiceState::Hidden || seen >= layout.launchers.size()) {
+            continue;
         }
+        const Rect& cell = layout.launchers[seen++];
+        cells.push_back(BadgeCell{badge, Rect{cell.x - layout.hitSlop, cell.y - layout.hitSlop,
+                                              cell.width + 2.0f * layout.hitSlop,
+                                              cell.height + 2.0f * layout.hitSlop}});
     }
-    return nullptr;
+    return cells;
 }
 
-void Hud::drawTopBar(Canvas& canvas) {
+void Hud::drawTopBar(Canvas& canvas, const TopBarHover& hover) {
     // iiSU mw5.l single-screen Row: friends | title (weight 1) | status, all Top. opensu has no
     // friends; its launchers' badges stand in the status pill where iiSU has the bell.
     const TopBarLayout layout = topBarLayout();
     const double seconds = std::chrono::duration<double>(now_.time_since_epoch()).count();
     statusPill_.paint(canvas, StatusPillView{layout.status, layout.pill, dp_, clock_, battery_,
                                              layout.launcherColumn, layout.divider, launchers_,
-                                             BadgeRow{layout.launchers, launcherHover_, seconds}});
+                                             BadgeRow{layout.launchers, hover.launcher, seconds}});
     // STOPGAP: jj2.w's glass strip behind the status pill is not drawn because its geometry is
     // not in the spec.
 
     drawTitlePill(canvas, layout.top);
     const BreadcrumbLayout trail = crumbs_.layout(trail_, crumbFrame(), metrics().titlePill());
-    crumbs_.paint(canvas, trail_, trail, metrics().titlePill(), dp_, crumbHover_);
+    crumbs_.paint(canvas, trail_, trail, metrics().titlePill(), dp_, hover.crumb);
 }
 
 Rect Hud::titlePillBody(float top) const {
@@ -139,8 +147,8 @@ BreadcrumbFrame Hud::crumbFrame() const {
                            .dp = dp_};
 }
 
-std::optional<std::size_t> Hud::crumbAt(float x, float y) const {
-    return crumbs_.layout(trail_, crumbFrame(), metrics().titlePill()).crumbAt(x, y);
+std::vector<Rect> Hud::crumbCells() const {
+    return crumbs_.layout(trail_, crumbFrame(), metrics().titlePill()).cells;
 }
 
 void Hud::drawTitlePill(Canvas& canvas, float top) const {

@@ -1,8 +1,5 @@
 #include "screen_stack.hpp"
 
-#include <algorithm>
-#include <vector>
-
 #include "interface_theme.hpp"
 
 namespace opensu::ui {
@@ -16,13 +13,6 @@ void ScreenStack::layout(Clock::time_point now, const gpu2d::Rect& window, float
     if (!navigator_.visible()) {
         images_.clear();
     }
-}
-
-bool ScreenStack::paged() const {
-    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
-    return std::ranges::any_of(open, [](const gpu2d::ui::Screen* screen) {
-        return !screen->overlay();
-    });
 }
 
 void ScreenStack::paintPages(Canvas& canvas) {

@@ -2,6 +2,8 @@
 add_library(opensu_grid STATIC home_layout.cpp grid_focus.cpp spatial_focus.cpp tile_motion.cpp tile_geometry.cpp rail_layout.cpp icon_size.cpp)
 add_library(opensu::grid ALIAS opensu_grid)
 target_include_directories(opensu_grid PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+# The toolkit's focus directions.
+target_link_libraries(opensu_grid PUBLIC gpu2d::ui)
 target_compile_features(opensu_grid PUBLIC cxx_std_20)
 target_compile_options(opensu_grid PRIVATE -Wall -Wextra -Wpedantic)
 
@@ -18,7 +20,7 @@ target_compile_features(opensu_hud_model PUBLIC cxx_std_20)
 target_compile_options(opensu_hud_model PRIVATE -Wall -Wextra -Wpedantic)
 
 add_library(opensu_ui STATIC
-    shell.cpp hud.cpp breadcrumb_painter.cpp launcher_badges.cpp vector_icon.cpp status_pill.cpp progress_spinner.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
+    shell.cpp home_grid.cpp home_dock.cpp chrome_panel.cpp top_bar_chrome.cpp keyboard_chrome.cpp mapping_chrome.cpp hud.cpp breadcrumb_painter.cpp launcher_badges.cpp vector_icon.cpp status_pill.cpp progress_spinner.cpp glass.cpp tile_painter.cpp page_pill.cpp page_arrow.cpp
     button_glyph.cpp tile_artwork.cpp dock_painter.cpp on_screen_keyboard_painter.cpp rail_painter.cpp
     round_shape.cpp image_decoder.cpp
     volume_osd_painter.cpp chord_hint_painter.cpp

@@ -53,16 +53,4 @@ TopBarLayout layoutTopBar(const TopBarMetrics& metrics, const TopBarFrame& frame
     return layout;
 }
 
-std::optional<std::size_t> TopBarLayout::launcherAt(float x, float y) const noexcept {
-    for (std::size_t i = 0; i < launchers.size(); ++i) {
-        const Rect& cell = launchers[i];
-        const Rect hit{cell.x - hitSlop, cell.y - hitSlop, cell.width + 2.0f * hitSlop,
-                       cell.height + 2.0f * hitSlop};
-        if (hit.contains(x, y)) {
-            return i;
-        }
-    }
-    return std::nullopt;
-}
-
 } // namespace opensu::ui

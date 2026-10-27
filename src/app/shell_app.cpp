@@ -67,10 +67,70 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     shell_.screens().navigator().setKeyboard([this] {
         keyboardPad_.open();
     });
+    buildHome();
     padOwner_.syncChords();
     clock_.service(std::chrono::steady_clock::now());
     applyLayout();
     firstRun_.openIfUnchosen();
+}
+
+void ShellApp::buildHome() {
+    shell_.screens().navigator().setRoot(std::make_unique<HomeScreen>(
+        shell_.grid(), HomeScreen::Hooks{.inGame =
+                                             [this] {
+                                                 return shell_.inGame();
+                                             },
+                                         .press =
+                                             [this] {
+                                                 pressTile();
+                                             },
+                                         .details =
+                                             [this] {
+                                                 details_.open();
+                                             },
+                                         .refresh =
+                                             [this] {
+                                                 reloadCatalog();
+                                                 shell_.setToast("library refreshed");
+                                             },
+                                         // iiSU `pb0.java:2086`: SELECT asks for the item's menu.
+                                         .options =
+                                             [this] {
+                                                 contextMenu_.open();
+                                             },
+                                         .search =
+                                             [this] {
+                                                 search_.open();
+                                             },
+                                         .menu =
+                                             [this] {
+                                                 layoutPicker_.open(browser_.section() ==
+                                                                    library::Section::Library);
+                                             },
+                                         .back =
+                                             [this] {
+                                                 backOnHome();
+                                             }}));
+    shell_.topBar().setHooks(ui::TopBarChrome::Hooks{.crumb =
+                                                         [this](std::size_t index) {
+                                                             activateCrumb(index);
+                                                         },
+                                                     .launcher =
+                                                         [this](const ui::LauncherBadge& badge) {
+                                                             // A badge that shows a download opens
+                                                             // the Downloads page.
+                                                             if (badge.progress) {
+                                                                 openDownloads();
+                                                             } else {
+                                                                 selectLauncher(badge.source);
+                                                             }
+                                                         }});
+    shell_.dock().onChoose([this](library::Section section) {
+        clickSection(section);
+    });
+    shell_.keyboardChrome().onPress([this] {
+        keyboardPad_.act(gamepad::Button::A);
+    });
 }
 
 void ShellApp::applyIntegrations() {
@@ -80,14 +140,15 @@ void ShellApp::applyIntegrations() {
 
 void ShellApp::applyLayout() {
     const settings::Settings& chosen = preferences_.values();
-    if (shell_.libraryMode() != chosen.libraryMode) {
-        shell_.setLibraryMode(chosen.libraryMode);
+    ui::HomeGrid& grid = shell_.grid();
+    if (grid.libraryMode() != chosen.libraryMode) {
+        grid.setLibraryMode(chosen.libraryMode);
     }
-    shell_.setPinLibraryDock(chosen.pinLibraryDock);
-    if (shell_.iconSize() != chosen.iconSize) {
-        shell_.setIconSize(chosen.iconSize);
+    shell_.dock().setPinLibrary(chosen.pinLibraryDock);
+    if (grid.iconSize() != chosen.iconSize) {
+        grid.setIconSize(chosen.iconSize);
     }
-    shell_.setHomeMode(chosen.homeMode.value_or(settings_.homeMode));
+    grid.setHomeMode(chosen.homeMode.value_or(settings_.homeMode));
     shell_.setUiScale(settings::uiScaleFactor(chosen.uiScale));
     shell_.setKeyboardStyle(chosen.keyboardStyle);
     sounds_.setMuted(!chosen.uiSounds);
@@ -95,7 +156,7 @@ void ShellApp::applyLayout() {
 
 std::vector<SearchResult> ShellApp::searchResults() const {
     std::vector<SearchResult> results;
-    for (const ui::Tile& tile : shell_.tiles()) {
+    for (const ui::Tile& tile : shell_.grid().tiles()) {
         const auto* game = std::get_if<library::Game>(&tile.item);
         results.push_back(SearchResult{game != nullptr ? game->title : tile.title,
                                        library::describeResult(tile.item)});
@@ -104,18 +165,19 @@ std::vector<SearchResult> ShellApp::searchResults() const {
 }
 
 void ShellApp::openTile(std::size_t index) {
-    shell_.focusTile(index);
+    shell_.grid().focusTile(index);
     pressTile();
 }
 
 void ShellApp::pressTile() {
-    shell_.pressFocused();
-    if (const std::optional<library::Folder> folder = shell_.focusedFolder()) {
+    ui::HomeGrid& grid = shell_.grid();
+    grid.pressFocused();
+    if (const std::optional<library::Folder> folder = grid.focusedFolder()) {
         openFolder(*folder);
-    } else if (shell_.focusedGiveaways()) {
+    } else if (grid.focusedGiveaways()) {
         sounds_.play(audio::Effect::EnterConsolesApps);
         giveaways_.open();
-    } else if (shell_.focusedAddGame()) {
+    } else if (grid.focusedAddGame()) {
         ownGames_.openAdd();
     } else {
         details_.open();
@@ -153,7 +215,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     for (const library::Console& console : consoles) {
         const std::filesystem::path glyph = artworkStore_.storedGlyph(console.system);
         if (!glyph.empty()) {
-            shell_.setGlyph(console.system, glyph);
+            shell_.grid().setGlyph(console.system, glyph);
         }
     }
     for (const library::SourceStatus& source : sources_) {
@@ -170,7 +232,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
 }
 
 void ShellApp::pushCatalogToShell() {
-    showShelf(shell_.focusIndex());
+    showShelf(shell_.grid().focusIndex());
 }
 
 void ShellApp::showShelf(std::size_t focus) {
@@ -179,7 +241,7 @@ void ShellApp::showShelf(std::size_t focus) {
         library::visibleShelf(browser_, games_, sources_, chosen.view, chosen.hidden);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
-    shell_.setShelf(std::move(shelf), focus);
+    shell_.grid().setShelf(std::move(shelf), focus);
     finishShelf(chosen);
 }
 
@@ -189,15 +251,15 @@ void ShellApp::refreshShelf() {
         library::visibleShelf(browser_, games_, sources_, chosen.view, chosen.hidden);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
-    shell_.updateShelf(std::move(shelf));
+    shell_.grid().updateShelf(std::move(shelf));
     finishShelf(chosen);
 }
 
 void ShellApp::finishShelf(const settings::Settings& chosen) {
-    shell_.setHeader(folderCard());
+    shell_.grid().setHeader(folderCard());
     shell_.setStatus(std::to_string(games_.size()) + " games · " + std::to_string(installedCount_) +
                      " installed" + (library::narrowing(chosen.view) ? " · filtered" : ""));
-    shell_.setArtworkDownloading(artworkFetcher_.pendingGames());
+    shell_.grid().setArtworkDownloading(artworkFetcher_.pendingGames());
     details_.refresh();
 }
 
@@ -237,7 +299,7 @@ void ShellApp::openFolder(const library::Folder& folder) {
     // input-sound.md 3.4 EnterConsolesApps: A on a console, an app category or a collection.
     sounds_.play(audio::Effect::EnterConsolesApps);
     // A folder opened from search results is entered from the top of its section's shelf.
-    const std::size_t from = search_.searching() ? 0 : shell_.focusIndex();
+    const std::size_t from = search_.searching() ? 0 : shell_.grid().focusIndex();
     search_.clear();
     browser_.open(folder, from);
     showShelf(0);
@@ -340,53 +402,45 @@ void ShellApp::handlePads() {
 }
 
 void ShellApp::handlePointer() {
-    pointer_.route(window_->pointer());
+    pointer(window_->pointer());
 }
 
-void ShellApp::screens(const PointerFrame& frame) {
+void ShellApp::pointer(const PointerFrame& frame) {
+    using gpu2d::ui::PointerEvent;
+    using gpu2d::ui::PointerKind;
+    const bool moved = frame.delta.x != 0.0f || frame.delta.y != 0.0f;
+    shell_.inputDevice().notePointer(frame.delta.x, frame.delta.y,
+                                     frame.left || frame.right || frame.middle ||
+                                         frame.wheel != 0.0f);
     gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
-    if (!frame.point) {
+    if (shell_.inputDevice().current() != input::Device::KeyboardMouse || !frame.point) {
+        if (pointerIn_) {
+            pointerIn_ = false;
+            navigator.pointer(PointerEvent{PointerKind::Leave, {}, 0.0f});
+        }
         return;
     }
+    pointerIn_ = true;
     const gpu2d::Point at{frame.point->x, frame.point->y};
-    if (frame.delta.x != 0.0f || frame.delta.y != 0.0f) {
-        navigator.pointer(gpu2d::ui::PointerEvent{gpu2d::ui::PointerKind::Move, at, 0.0f});
+    // Only a pointer that moved takes focus, so a keyboard or pad move is not undone by a pointer
+    // resting where the focus used to be.
+    if (moved) {
+        navigator.pointer(PointerEvent{PointerKind::Move, at, 0.0f});
     }
     if (frame.left) {
-        navigator.pointer(gpu2d::ui::PointerEvent{gpu2d::ui::PointerKind::Press, at, 0.0f});
+        navigator.pointer(PointerEvent{PointerKind::Press, at, 0.0f});
     }
-    // A right click is the second action (X) of what it is over.
+    // A right click asks for the menu of what it is on; it is never Back.
     if (frame.right) {
-        navigator.pointer(gpu2d::ui::PointerEvent{gpu2d::ui::PointerKind::Move, at, 0.0f});
-        navigator.act(gpu2d::ui::Action::Secondary);
+        navigator.pointer(PointerEvent{PointerKind::Context, at, 0.0f});
     }
     if (frame.wheel != 0.0f) {
-        navigator.pointer(gpu2d::ui::PointerEvent{gpu2d::ui::PointerKind::Wheel, at, frame.wheel});
+        navigator.pointer(PointerEvent{PointerKind::Wheel, at, frame.wheel});
     }
-}
-
-ui::PointerTarget ShellApp::pointAt(std::optional<ui::Point> point) {
-    return shell_.pointAt(point);
-}
-
-void ShellApp::focus(const ui::PointerTarget& target) {
-    // input-sound.md 3.4 Navigation: a focus move.
-    if (shell_.focusTarget(target)) {
-        sounds_.play(audio::Effect::Navigation);
-    }
-}
-
-void ShellApp::press(gamepad::Button button) {
-    actOn(button);
-}
-
-void ShellApp::activateSection(library::Section section) {
-    clickSection(section);
 }
 
 void ShellApp::selectLauncher(library::Source source) {
-    // The gates actOn puts in front of every button.
-    if (shell_.inGame() || shell_.panelOpen()) {
+    if (shell_.inGame() || !shell_.screens().navigator().atRoot()) {
         return;
     }
     // Selecting the store's tile in Library: from its top, whatever is open now.
@@ -396,7 +450,7 @@ void ShellApp::selectLauncher(library::Source source) {
     } else if (const std::optional<std::size_t> focus = browser_.back()) {
         showShelf(*focus);
     }
-    const std::vector<ui::Tile>& tiles = shell_.tiles();
+    const std::vector<ui::Tile>& tiles = shell_.grid().tiles();
     const auto tile = std::ranges::find_if(tiles, [source](const ui::Tile& candidate) {
         const auto* launcher = std::get_if<library::Launcher>(&candidate.item);
         return launcher != nullptr && launcher->source == source;
@@ -405,30 +459,15 @@ void ShellApp::selectLauncher(library::Source source) {
         shell_.setToast("no " + std::string{library::label(source)} + " library here", true);
         return;
     }
-    focus(ui::OnTile{static_cast<std::size_t>(tile - tiles.begin())});
-    actOn(gamepad::Button::A);
-}
-
-void ShellApp::scroll(int steps) {
-    const bool modal = shell_.inGame() || shell_.panelOpen();
-    if (!modal && shell_.layout().mode() == ui::ScrollMode::Paged &&
-        shell_.presentation() == ui::Presentation::Grid) {
-        focus(ui::OnPage{shell_.page() + steps});
-        return;
+    // input-sound.md 3.4 Navigation: a focus move.
+    if (shell_.grid().focusTile(static_cast<std::size_t>(tile - tiles.begin()))) {
+        sounds_.play(audio::Effect::Navigation);
     }
-    // The Guide menu and an XMB run down the screen; the rest run across it.
-    const bool vertical = shell_.inGame() || shell_.panelOpen() ||
-                          (!modal && shell_.presentation() == ui::Presentation::Xmb);
-    if (vertical) {
-        actOn(steps > 0 ? gamepad::Button::Down : gamepad::Button::Up);
-    } else {
-        actOn(steps > 0 ? gamepad::Button::Right : gamepad::Button::Left);
-    }
+    pressTile();
 }
 
 void ShellApp::clickSection(library::Section section) {
-    // The gates actOn puts in front of L1 and R1.
-    if (shell_.inGame() || shell_.panelOpen()) {
+    if (shell_.inGame() || !shell_.screens().navigator().atRoot()) {
         return;
     }
     const int steps = library::Sections::stepsBetween(browser_.section(), section);
@@ -462,98 +501,44 @@ void ShellApp::actOn(gamepad::Button button) {
         keyboardPad_.act(button);
         return;
     }
-    // Over a running game only the pages the Guide menu opened take buttons.
-    if (shell_.inGame() && !shell_.panelOpen()) {
-        return;
-    }
     if (mappings_.active()) {
         mappings_.act(button);
         return;
     }
-    if (shell_.screens().active()) {
-        if (const std::optional<gpu2d::ui::Action> action =
-                ui::interfaceActionOf(button, shell_.screens().navigator().typing());
-            action && !shortcutEditor_.capturing()) {
-            shell_.screens().navigator().act(*action);
-        }
-        return;
-    }
-    switch (button) {
-    case gamepad::Button::Up:
-        moveFocus(ui::Direction::Up);
-        break;
-    case gamepad::Button::Down:
-        moveFocus(ui::Direction::Down);
-        break;
-    case gamepad::Button::Left:
-        moveFocus(ui::Direction::Left);
-        break;
-    case gamepad::Button::Right:
-        moveFocus(ui::Direction::Right);
-        break;
-    case gamepad::Button::A:
-        pressTile();
-        break;
-    case gamepad::Button::Y:
-        details_.open();
-        break;
-    case gamepad::Button::Select:
-        // iiSU `pb0.java:2086`: SELECT asks for the focused item's menu.
-        contextMenu_.open();
-        break;
-    case gamepad::Button::Search:
-        search_.open();
-        break;
-    case gamepad::Button::X:
-        reloadCatalog();
-        shell_.setToast("library refreshed");
-        break;
-    case gamepad::Button::L1:
-        cycleSection(-1);
-        break;
-    case gamepad::Button::R1:
-        cycleSection(1);
-        break;
-    case gamepad::Button::Start:
-        layoutPicker_.open(browser_.section() == library::Section::Library);
-        break;
-    case gamepad::Button::B:
-        if (search_.clear()) {
-            // input-sound.md 3.4 ExitConsolesApps: back out of what was opened.
-            sounds_.play(audio::Effect::ExitConsolesApps);
-        } else if (const std::optional<std::size_t> focus = browser_.back()) {
-            // input-sound.md 3.4 ExitConsolesApps: back out of a console, an app category or a
-            // collection.
-            sounds_.play(audio::Effect::ExitConsolesApps);
-            showShelf(*focus);
-        } else if (shell_.inputDevice().current() == input::Device::KeyboardMouse) {
-            // ESC at the root of the shell has nothing to go back to; it opens the Guide menu.
-            toggleGuide(GuideMenuController::Landing::Places);
-        }
-        break;
-    default:
-        break;
+    gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
+    if (const std::optional<gpu2d::ui::Action> action =
+            ui::interfaceActionOf(button, navigator.typing());
+        action && !shortcutEditor_.capturing()) {
+        navigator.act(*action);
     }
 }
 
-void ShellApp::moveFocus(ui::Direction direction) {
-    // input-sound.md 3.4 Navigation: a D-pad focus move in the home grid.
-    if (shell_.moveFocus(direction)) {
-        sounds_.play(audio::Effect::Navigation);
+void ShellApp::backOnHome() {
+    if (search_.clear()) {
+        // input-sound.md 3.4 ExitConsolesApps: back out of what was opened.
+        sounds_.play(audio::Effect::ExitConsolesApps);
+    } else if (const std::optional<std::size_t> focus = browser_.back()) {
+        // input-sound.md 3.4 ExitConsolesApps: back out of a console, an app category or a
+        // collection.
+        sounds_.play(audio::Effect::ExitConsolesApps);
+        showShelf(*focus);
+    } else if (shell_.inputDevice().current() == input::Device::KeyboardMouse) {
+        // ESC at the root of the shell has nothing to go back to; it opens the Guide menu.
+        toggleGuide(GuideMenuController::Landing::Places);
     }
 }
 
 void ShellApp::cycleSection(int delta) {
     // Search results belong to no section; moving along the dock ends the search.
     if (!search_.clear()) {
-        browser_.leave(shell_.focusIndex());
+        browser_.leave(shell_.grid().focusIndex());
     }
     const std::size_t focus = browser_.cycle(delta);
     shell_.setSection(browser_.section(), true);
     showShelf(focus);
     // input-sound.md 3.3 (`dg3.a`): the cue is sized by how many tiles the section shows at once.
     const std::size_t visible = ui::visibleTiles(
-        browser_.section(), preferences_.values().libraryMode, shell_.tiles().size());
+        browser_.section(), preferences_.values().libraryMode, shell_.grid().tiles().size());
     if (const std::optional<audio::Effect> cue = audio::dominoFor(visible)) {
         sounds_.play(*cue);
     }
@@ -664,7 +649,10 @@ void ShellApp::openDownloads() {
 void ShellApp::syncOverlay() {
     using session::OverlayMode;
     shell_.followChordHint(router_.longHeld(std::chrono::steady_clock::now()));
-    const OverlayMode over = shell_.panelOpen()          ? OverlayMode::Interactive
+    // A screen over Home, the keyboard or the mapping editor takes the buttons.
+    const bool interactive = shell_.screens().navigator().active() || shell_.keyboard().isOpen() ||
+                             shell_.mappingPage().isOpen();
+    const OverlayMode over = interactive                 ? OverlayMode::Interactive
                              : shell_.chordHintVisible() ? OverlayMode::Passive
                                                          : OverlayMode::Hidden;
     gameScreen_.show(shell_.inGame() ? over : OverlayMode::Hidden);
@@ -687,18 +675,6 @@ void ShellApp::serviceDevices(std::chrono::steady_clock::time_point now) {
         shell_.setToast(notice->text, notice->error);
     }
     devicesScreen_.tick(now);
-}
-
-void ShellApp::contextMenu(const ui::PointerTarget& target) {
-    if (shell_.inGame() || sessionInstall_.active()) {
-        return;
-    }
-    // Right click opens a tile's menu; it is never Back.
-    if (shell_.panelOpen() || !std::holds_alternative<ui::OnTile>(target)) {
-        return;
-    }
-    focus(target);
-    contextMenu_.open();
 }
 
 void ShellApp::setHidden(const library::Game& game, bool hidden) {
@@ -730,7 +706,7 @@ void ShellApp::chooseEmulator(const library::Game& game, const std::string& name
 }
 
 std::optional<library::Game> ShellApp::shownGame(const std::string& id) const {
-    for (const ui::Tile& tile : shell_.tiles()) {
+    for (const ui::Tile& tile : shell_.grid().tiles()) {
         const auto* game = std::get_if<library::Game>(&tile.item);
         if (game == nullptr || game->id != id) {
             continue;
@@ -780,7 +756,7 @@ void ShellApp::activateCrumb(std::size_t index) {
     details_.close();
     const bool settingsAlone =
         settingsScreen_.isOpen() && !paths_.active() && !shell_.keyboard().isOpen();
-    if (shell_.panelOpen() && !settingsAlone && !devicesScreen_.isOpen()) {
+    if (shell_.screens().navigator().active() && !settingsAlone && !devicesScreen_.isOpen()) {
         return;
     }
     const ui::Crumb& crumb = trail[index];
@@ -806,18 +782,19 @@ ui::HintContext ShellApp::hints() const {
         return ui::HintContext{};
     }
     // The toolkit screens' hint bar names what their focus does.
-    if (shell_.screens().active() || giveaways_.isOpen()) {
+    if (!shell_.screens().navigator().atRoot()) {
         return ui::HintContext{};
     }
     if (shortcutEditor_.capturing()) {
         return ui::HintContext{.back = true};
     }
-    const bool game = shell_.focusedGame() != nullptr;
-    const bool folder = shell_.focusedFolder().has_value();
+    const ui::HomeGrid& grid = shell_.grid();
+    const bool game = grid.focusedGame() != nullptr;
+    const bool folder = grid.focusedFolder().has_value();
     return ui::HintContext{.back = browser_.canBack(),
                            .clearSearch = search_.searching(),
-                           .select = game || folder || shell_.focusedGiveaways() ||
-                                     shell_.focusedAddGame(),
+                           .select =
+                               game || folder || grid.focusedGiveaways() || grid.focusedAddGame(),
                            .details = game,
                            .options = game || folder,
                            .menu = true};
@@ -826,29 +803,35 @@ ui::HintContext ShellApp::hints() const {
 void ShellApp::syncChrome() {
     shell_.setHints(hints());
     shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
-    // iiSU's Home has no title (pl3.q); opensu's names the focused tile, except over a page, whose
-    // trail names where it is.
-    shell_.setTitle(shell_.pillTitle());
+    const gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
+    const bool home = navigator.atRoot() && !shell_.inGame();
+    // iiSU's Home has no title (pl3.q); opensu's names the focused tile, except over a screen,
+    // whose trail names where it is.
+    shell_.setTitle(navigator.atRoot() ? shell_.grid().pillTitle() : std::string{});
     shell_.setTrail(currentTrail());
+    const bool free = !shell_.keyboard().isOpen() && !shell_.mappingPage().isOpen();
+    shell_.topBar().setLive(
+        ui::TopBarChrome::Live{.crumbs = !shell_.inGame() && free, .launchers = home && free});
 }
 
 void ShellApp::publishSnapshot() {
     ShellSnapshot next;
     next.games = games_.size();
     next.installed = installedCount_;
-    next.artworkPending = shell_.artworkPending();
-    if (const library::Game* focused = shell_.focusedGame(); focused != nullptr) {
+    const ui::HomeGrid& grid = shell_.grid();
+    next.artworkPending = grid.artworkPending();
+    if (const library::Game* focused = grid.focusedGame(); focused != nullptr) {
         next.focusedId = focused->id;
-    } else if (const std::optional<library::Folder> folder = shell_.focusedFolder()) {
+    } else if (const std::optional<library::Folder> folder = grid.focusedFolder()) {
         next.focusedId = std::holds_alternative<library::Console>(*folder)
                              ? "console:" + library::key(*folder)
                              : library::key(*folder);
-    } else if (shell_.focusedGiveaways()) {
+    } else if (grid.focusedGiveaways()) {
         next.focusedId = "giveaways";
-    } else if (shell_.focusedAddGame()) {
+    } else if (grid.focusedAddGame()) {
         next.focusedId = "add-game";
     }
-    next.focusedTitle = shell_.focusedTitle();
+    next.focusedTitle = grid.focusedTitle();
     next.section = std::string{library::key(browser_.section())};
     next.libraryMode = std::string{library::key(preferences_.values().libraryMode)};
     next.modeChooserOpen = layoutPicker_.isOpen();
@@ -857,9 +840,10 @@ void ShellApp::publishSnapshot() {
     next.contextMenuOpen = contextMenu_.isOpen();
     next.detailsOpen = details_.isOpen();
     next.settingsOpen = settingsScreen_.isOpen();
-    if (const gpu2d::ui::Screen* top = shell_.screens().navigator().top()) {
-        next.screen = top->id();
-        next.screenFocus = shell_.screens().navigator().focused();
+    // Home is no screen to the tools that read this.
+    if (const gpu2d::ui::Navigator& navigator = shell_.screens().navigator(); !navigator.atRoot()) {
+        next.screen = navigator.top()->id();
+        next.screenFocus = navigator.focused();
     }
     next.firstRunOpen = firstRun_.active();
     next.folderPickerOpen = paths_.active();
@@ -876,11 +860,11 @@ void ShellApp::publishSnapshot() {
     for (const ui::Crumb& crumb : currentTrail()) {
         next.breadcrumb += (next.breadcrumb.empty() ? "" : " > ") + crumb.label;
     }
-    next.iconSize = static_cast<std::size_t>(shell_.iconSize());
+    next.iconSize = static_cast<std::size_t>(grid.iconSize());
     next.shelf = browser_.folder() ? library::key(*browser_.folder()) : next.section;
-    next.focusIndex = shell_.focusIndex();
-    next.page = static_cast<std::size_t>(std::max(shell_.page(), 0));
-    next.pageCount = static_cast<std::size_t>(std::max(shell_.pageCount(), 1));
+    next.focusIndex = grid.focusIndex();
+    next.page = static_cast<std::size_t>(std::max(grid.page(), 0));
+    next.pageCount = static_cast<std::size_t>(std::max(grid.pageCount(), 1));
     next.status = shell_.status();
     next.toast = shell_.toast();
     next.toastIsError = shell_.toastIsError();
@@ -933,7 +917,7 @@ void ShellApp::serviceControlRequests() {
         }
         frame.left = injected.kind == PointerInjection::Kind::Click;
         frame.wheel = injected.wheel;
-        pointer_.route(frame);
+        pointer(frame);
     }
     // An injection carries its releases: without them a direction would repeat forever.
     for (const auto& [event, device] : queued.buttons) {
@@ -1105,8 +1089,8 @@ bool ShellApp::renderToFile(const std::string& path, bool keyboardPrompts) {
         return false;
     }
     shell_.loadArtworkNow();
-    lucent::info("render", "loaded artwork for {} of {} tiles", shell_.loadedArtwork(),
-                 shell_.tiles().size());
+    lucent::info("render", "loaded artwork for {} of {} tiles", shell_.grid().loadedArtwork(),
+                 shell_.grid().tiles().size());
     // A still frame shows the grid at rest, after its entrance.
     shell_.tick(std::chrono::steady_clock::now());
     syncChrome();

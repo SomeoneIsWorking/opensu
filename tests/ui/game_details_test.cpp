@@ -88,10 +88,14 @@ void storeGame() {
                actionOf(details, detailsControlsId)->kind == RowKind::Page,
            "Hide acts; Choose artwork and Controls open what is over the page");
     Game wide = hades();
-    wide.artwork.clear();
     wide.artworkWide = "/covers/hades-wide.jpg";
-    expect(detailsOf(wide, false, now).art == "/covers/hades-wide.jpg",
-           "without a cover the wide picture shows");
+    expect(detailsOf(wide, false, now).hero == "/covers/hades-wide.jpg",
+           "beside a cover the wide picture is the backdrop");
+    expect(details.hero.empty(), "no wide picture, no backdrop");
+    wide.artwork.clear();
+    expect(detailsOf(wide, false, now).art == "/covers/hades-wide.jpg" &&
+               detailsOf(wide, false, now).hero.empty(),
+           "without a cover the wide picture shows, and not twice");
 }
 
 void states() {

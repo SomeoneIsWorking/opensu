@@ -55,6 +55,14 @@ class Profile:
             env["PATH"] = os.pathsep.join(filter(None, (str(self.tools), env.get("PATH"))))
         return env
 
+    def prepare(self) -> None:
+        """Makes the runtime directory and, the first time, settings with every integration on."""
+        (self.home / "run").mkdir(parents=True, exist_ok=True, mode=0o700)
+        settings = self.home / ".config" / "opensu" / "settings.json"
+        if not settings.exists():
+            settings.parent.mkdir(parents=True, exist_ok=True)
+            settings.write_text(json.dumps(INTEGRATIONS))
+
 
 class HiddenShell:
     """openSU --hidden; stopped through /quit, else by the PID it was started with."""
@@ -67,11 +75,7 @@ class HiddenShell:
         self._base = ""
 
     def __enter__(self) -> "HiddenShell":
-        (self._profile.home / "run").mkdir(parents=True, exist_ok=True, mode=0o700)
-        settings = self._profile.home / ".config" / "opensu" / "settings.json"
-        if not settings.exists():
-            settings.parent.mkdir(parents=True, exist_ok=True)
-            settings.write_text(json.dumps(INTEGRATIONS))
+        self._profile.prepare()
         self._log.parent.mkdir(parents=True, exist_ok=True)
         with self._log.open("wb") as log:
             self._process = subprocess.Popen(

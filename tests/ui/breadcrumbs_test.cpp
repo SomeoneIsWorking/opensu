@@ -9,7 +9,6 @@ namespace {
 
 using namespace opensu::ui;
 using opensu::test::expect;
-using opensu::test::need;
 
 BreadcrumbFrame frame(float maxRight) {
     return BreadcrumbFrame{
@@ -40,19 +39,6 @@ void longTrailFits() {
     expect(tight.textWidths[0] >= crumbMinTextDp, "no level shrinks past its floor");
 }
 
-void hitTesting() {
-    const BreadcrumbLayout layout = layoutBreadcrumbs(frame(1000.0f), {60.0f, 40.0f});
-    for (std::size_t i = 0; i < layout.cells.size(); ++i) {
-        expect(need(layout.crumbAt(layout.cells[i].centreX(), layout.cells[i].centreY()), "cell") ==
-                   i,
-               "a cell's centre hits it");
-    }
-    expect(!layout.crumbAt(layout.chevrons[0], layout.cells[0].centreY()),
-           "a chevron hits no level");
-    expect(!layout.crumbAt(layout.cells[0].centreX(), layout.cells[0].bottom() + 5.0f),
-           "below the bar hits none");
-}
-
 void places() {
     expect(isPlace(Crumb{"Library", CrumbKind::Section, opensu::library::Section::Library}) &&
                isPlace(Crumb{"GOG", CrumbKind::Folder}) && isPlace(Crumb{"had", CrumbKind::Search}),
@@ -67,7 +53,6 @@ void places() {
 int main() {
     cellsRunInOrder();
     longTrailFits();
-    hitTesting();
     places();
     std::puts("breadcrumbs: ok");
     return 0;

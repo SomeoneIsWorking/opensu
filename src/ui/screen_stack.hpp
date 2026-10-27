@@ -1,7 +1,7 @@
-// screen_stack — the shell's one stack of interface-toolkit screens (Settings, and what opens over
-// it), with the face, glyphs and theme they are drawn with and the pictures they show. The shell
-// lays it out each tick over the whole window and draws it under the top bar; the app pushes
-// screens and hands it input.
+// screen_stack — the shell's one stack of interface-toolkit screens (Home at the bottom, Settings
+// and what opens over them), with the face, glyphs and theme they are drawn with and the pictures
+// they show. The shell lays it out each tick over the whole window and draws it under the top bar;
+// the app pushes screens and hands it input.
 #pragma once
 
 #include <chrono>
@@ -42,21 +42,6 @@ class ScreenStack {
     [[nodiscard]] ScreenImages& images() noexcept {
         return images_;
     }
-    /// Whether a screen is open.
-    [[nodiscard]] bool active() const noexcept {
-        return navigator_.active();
-    }
-    /// Whether anything is drawn, which includes screens fading out.
-    [[nodiscard]] bool visible() const noexcept {
-        return navigator_.visible();
-    }
-    /// Whether an open screen fills the window, rather than standing over what is under it.
-    [[nodiscard]] bool paged() const;
-    /// Whether a screen that fills the window is drawn, fading out included.
-    [[nodiscard]] bool pagesVisible() const noexcept {
-        return navigator_.pagesVisible();
-    }
-
     /// Sets the clock and theme and lays the screens out over `window`, under `chrome`, the
     /// overlays above the `covered` strip a docked keyboard takes; drops the pictures once nothing
     /// is drawn.

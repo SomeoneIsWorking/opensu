@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 #include "gpu2d/ui/layout.hpp"
 #include "gpu2d/ui/widgets.hpp"
@@ -20,10 +21,13 @@ template <typename Body> struct PageFrame {
     Body* body{};
 };
 
-/// The frame under `chrome`, with a `Body` (`Column` or `Row`) between the top bar and the hints.
+/// The frame under `chrome`, with a `Body` (`Column` or `Row`) between the top bar and the hints,
+/// on `root`.
 template <typename Body>
-[[nodiscard]] PageFrame<Body> pageFrame(const gpu2d::ui::Theme& theme, const Chrome& chrome) {
-    PageFrame<Body> frame{std::make_unique<gpu2d::ui::Backdrop>(), nullptr};
+[[nodiscard]] PageFrame<Body>
+pageFrame(const gpu2d::ui::Theme& theme, const Chrome& chrome,
+          std::unique_ptr<gpu2d::ui::Backdrop> root = std::make_unique<gpu2d::ui::Backdrop>()) {
+    PageFrame<Body> frame{std::move(root), nullptr};
     frame.root->space(theme.spacing.gap);
     frame.root->template add<gpu2d::ui::Spacer>(0.0f).fixHeight(chrome.top / theme.scale);
     Body& body = frame.root->template add<Body>();

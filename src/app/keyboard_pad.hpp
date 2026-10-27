@@ -1,13 +1,15 @@
 // keyboard_pad — the on-screen keyboard as the pad's way of typing: A on a text field opens it
-// (`gpu2d::ui::Navigator::setKeyboard`), and while it is up the pad's buttons type into the focused
-// field through the navigator's typed text, Erase and Submit. It closes when the focus leaves a
-// field, and Done submits the field.
+// (`gpu2d::ui::Navigator::setKeyboard`), and it is up exactly while the focused field is being
+// edited (`gpu2d::ui::Navigator::edit`): the pad's buttons type into the field through the
+// navigator's typed text, Erase, Left, Right and Submit. It closes when the field stops being
+// edited (the focus leaves it, Back), and Done submits the field.
 //
 // Regular grid: the D-pad walks the keys, A presses the focused key, B deletes and closes when the
 // field is empty, X toggles capitals, Y types a space, Start is Done.
 // Daisy wheel: the left stick picks a petal (`stick`, fed from stick-origin directions) and A, B, X
 // and Y type its characters; with no petal picked X deletes, Y types a space and B closes. LB
-// deletes and RB types a space either way, LT and RT step the set, Start is Done.
+// deletes and RB types a space either way, LT and RT step the set, D-pad Left and Right move the
+// caret, Start is Done.
 #pragma once
 
 #include "gpu2d/ui/navigator.hpp"
@@ -34,7 +36,7 @@ class KeyboardPad {
     [[nodiscard]] bool isOpen() const noexcept {
         return keyboard_.isOpen();
     }
-    /// Closes the keyboard once no field is focused to type into. Each frame.
+    /// Closes the keyboard once the focused field is not being edited. Each frame.
     void follow();
 
     /// A pad button while it is up.

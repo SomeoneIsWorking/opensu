@@ -239,8 +239,7 @@ void DevicesController::choose(const std::string& tab) {
 }
 
 void DevicesController::showTabs() {
-    while (navigator_.top() != nullptr &&
-           dynamic_cast<const DevicesScreen*>(navigator_.top()) == nullptr) {
+    while (navigator_.active() && dynamic_cast<const DevicesScreen*>(navigator_.top()) == nullptr) {
         navigator_.pop();
     }
     const auto* screen = dynamic_cast<const DevicesScreen*>(navigator_.top());

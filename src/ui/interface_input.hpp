@@ -1,7 +1,9 @@
 // interface_input — the pad's buttons as the interface toolkit's actions, one rule both ways: the
 // D-pad moves, A accepts, B goes back, X and Y are a widget's second and third actions, the
-// shoulders step tabs and Start is the menu button, or Done while a text field is focused. A field
-// typed into from the keyboard takes only the keys in `typingKeys`.
+// shoulders step tabs, Select asks for the focused thing's menu, Search is the search and Start
+// is the menu button, or Done while a text field is focused. A field
+// typed into from the keyboard takes only the keys in `typingKeys`; its arrows Left and Right move
+// the caret once the field is being edited.
 #pragma once
 
 #include <array>
@@ -26,10 +28,12 @@ struct TypingKey {
     bool input::TextInput::* pressed;
     gpu2d::ui::Action action;
 };
-inline constexpr std::array<TypingKey, 5> typingKeys{{
+inline constexpr std::array<TypingKey, 7> typingKeys{{
     {&input::TextInput::backspace, gpu2d::ui::Action::Erase},
     {&input::TextInput::up, gpu2d::ui::Action::Up},
     {&input::TextInput::down, gpu2d::ui::Action::Down},
+    {&input::TextInput::left, gpu2d::ui::Action::Left},
+    {&input::TextInput::right, gpu2d::ui::Action::Right},
     {&input::TextInput::enter, gpu2d::ui::Action::Submit},
     {&input::TextInput::escape, gpu2d::ui::Action::Back},
 }};

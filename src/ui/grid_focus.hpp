@@ -11,16 +11,13 @@
 #include <optional>
 #include <vector>
 
+#include "gpu2d/ui/focus.hpp"
+
 #include "home_layout.hpp"
 
 namespace opensu::ui {
 
-enum class Direction : std::uint8_t {
-    Left,
-    Right,
-    Up,
-    Down,
-};
+using Direction = gpu2d::ui::Direction;
 
 /// What a move searches: every focusable tile's lane cell and frame, and the lane centres.
 struct FocusGrid {

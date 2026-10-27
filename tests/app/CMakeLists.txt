@@ -29,11 +29,11 @@ target_compile_definitions(uninstall_job_test PRIVATE OPENSU_TEST_SCRATCH="${CMA
 add_test(NAME uninstall_job COMMAND uninstall_job_test)
 set_tests_properties(uninstall_job PROPERTIES TIMEOUT 120)
 
-add_executable(pointer_router_test pointer_router_test.cpp)
-target_link_libraries(pointer_router_test PRIVATE opensu::app)
-target_include_directories(pointer_router_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
-target_compile_options(pointer_router_test PRIVATE -Wall -Wextra -Wpedantic)
-add_test(NAME pointer_router COMMAND pointer_router_test)
+add_executable(home_screen_flow_test home_screen_flow_test.cpp)
+target_link_libraries(home_screen_flow_test PRIVATE opensu::app)
+target_include_directories(home_screen_flow_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(home_screen_flow_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME home_screen_flow COMMAND home_screen_flow_test)
 
 add_executable(library_tools_test library_tools_test.cpp)
 target_link_libraries(library_tools_test PRIVATE opensu::app)

@@ -48,6 +48,7 @@
 #include "giveaways/giveaway_board.hpp"
 #include "giveaways_controller.hpp"
 #include "guide_menu_controller.hpp"
+#include "home_screen.hpp"
 #include "host_services.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "integration_settings.hpp"
@@ -72,7 +73,6 @@
 #include "path_editor.hpp"
 #include "plugin_service.hpp"
 #include "plugin_settings.hpp"
-#include "pointer_router.hpp"
 #include "preferences.hpp"
 #include "retro_session.hpp"
 #include "search_controller.hpp"
@@ -115,7 +115,7 @@ struct Settings {
 };
 
 /// The running shell.
-class ShellApp final : private PointerHost {
+class ShellApp final {
   public:
     /// `environment` outlives the app; it is what `config::read` returned at start.
     ShellApp(const Settings& settings, const config::Config& environment);
@@ -154,25 +154,24 @@ class ShellApp final : private PointerHost {
     void handleGameKeys();
     /// Pad events, noting the pad as the device in use.
     void handlePads();
-    /// The pointer: routed onto the shell's actions. Main loop only.
+    /// The window's pointer this frame. Main loop only.
     void handlePointer();
-    // PointerHost.
-    ui::PointerTarget pointAt(std::optional<ui::Point> point) override;
-    void focus(const ui::PointerTarget& target) override;
-    void press(gamepad::Button button) override;
-    void activateSection(library::Section section) override;
-    void selectLauncher(library::Source source) override;
+    /// Notes the pointer as the device in use and hands one frame of it to the navigator, which
+    /// is the only way the pointer reaches the shell.
+    void pointer(const PointerFrame& frame);
+    /// A click on a launcher's badge in the top bar: the store's tile in Library.
+    void selectLauncher(library::Source source);
     /// Opens the Downloads page in place of any other page.
-    void openDownloads() override;
-    void activateCrumb(std::size_t index) override;
-    void scroll(int steps) override;
-    void screens(const PointerFrame& frame) override;
-    void contextMenu(const ui::PointerTarget& target) override;
-    /// A click on a dock item: the same section change as L1 and R1.
+    void openDownloads();
+    /// A click on a level of the breadcrumb trail: go back to it.
+    void activateCrumb(std::size_t index);
+    /// A dock section chosen, by a click or L1 and R1: moves along the dock to it.
     void clickSection(library::Section section);
     void actOn(gamepad::Button button);
-    /// Moves home focus, with iiSU's Navigation sound when it moved.
-    void moveFocus(ui::Direction direction);
+    /// B on Home: out of the search or the folder, else ESC opens the Guide menu.
+    void backOnHome();
+    /// Home, at the bottom of the navigator, and the chrome's hooks.
+    void buildHome();
     /// L1 and R1: moves `delta` sections along the dock and shows the section's shelf, with iiSU's
     /// domino cue sized by what the section shows at once.
     void cycleSection(int delta);
@@ -326,7 +325,7 @@ class ShellApp final : private PointerHost {
                                                        showShelf(focus);
                                                    },
                                                    [this] {
-                                                       return shell_.focusIndex();
+                                                       return shell_.grid().focusIndex();
                                                    },
                                                    [this] {
                                                        applyLayout();
@@ -377,31 +376,31 @@ class ShellApp final : private PointerHost {
     ContextMenuController contextMenu_{
         shell_.screens().navigator(), sounds_,
         ContextMenuController::Services{preferences_, uninstallPrompt_, updateRequest_},
-        ContextMenuController::Hooks{[this] {
-                                         return shell_.focusedItem();
-                                     },
-                                     [this] {
-                                         if (const library::Game* game = shell_.focusedGame()) {
-                                             launch(*game);
-                                         }
-                                     },
-                                     [this] {
-                                         details_.open();
-                                     },
-                                     [this](const library::Game& game, bool hidden) {
-                                         setHidden(game, hidden);
-                                     },
-                                     [this](const library::Folder& folder) {
-                                         openFolder(folder);
-                                     },
-                                     [this] {
-                                         reloadCatalog();
-                                         shell_.setToast("library refreshed");
-                                     },
-                                     [this](library::Source source) {
-                                         startSignIn(source == library::Source::Gog ? Store::Gog
-                                                                                    : Store::Epic);
-                                     }}};
+        ContextMenuController::Hooks{
+            [this] {
+                return shell_.grid().focusedItem();
+            },
+            [this] {
+                if (const library::Game* game = shell_.grid().focusedGame()) {
+                    launch(*game);
+                }
+            },
+            [this] {
+                details_.open();
+            },
+            [this](const library::Game& game, bool hidden) {
+                setHidden(game, hidden);
+            },
+            [this](const library::Folder& folder) {
+                openFolder(folder);
+            },
+            [this] {
+                reloadCatalog();
+                shell_.setToast("library refreshed");
+            },
+            [this](library::Source source) {
+                startSignIn(source == library::Source::Gog ? Store::Gog : Store::Epic);
+            }}};
     /// Emulator downloads, updates and removals, off the loop.
     EmulatorDownloads emulatorDownloads_{
         library::roms::EmulatorSetup::standard(resolved_, settings_.hidden,
@@ -480,7 +479,7 @@ class ShellApp final : private PointerHost {
         DetailsController::Services{preferences_, gameSettings_, emulatorDownloads_,
                                     uninstallPrompt_, updateRequest_},
         DetailsController::Hooks{[this] {
-                                     return shell_.focusedGame();
+                                     return shell_.grid().focusedGame();
                                  },
                                  [this](const std::string& id) {
                                      return shownGame(id);
@@ -807,8 +806,8 @@ class ShellApp final : private PointerHost {
                 [this](const std::string& text, bool isError) {
                     shell_.setToast(text, isError);
                 }}};
-    /// After shell_ and the host it drives.
-    PointerRouter pointer_{shell_.inputDevice(), *this};
+    /// Whether the pointer drove the shell last frame, so leaving is said once.
+    bool pointerIn_{false};
     /// Held directions, from a pad or the keyboard, repeat on one schedule.
     gamepad::DirectionRepeat repeat_;
 

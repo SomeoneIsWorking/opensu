@@ -8,7 +8,6 @@
 namespace {
 
 using opensu::test::expect;
-using opensu::test::need;
 using opensu::ui::TopBarFrame;
 using opensu::ui::TopBarLayout;
 using opensu::ui::TopBarMetrics;
@@ -49,31 +48,11 @@ void launchersInThePill() {
     expect(three.launchers[0].right() < three.launchers[1].x, "badges do not overlap");
 }
 
-void hitTesting() {
-    const TopBarLayout layout = layoutOf(3);
-    for (std::size_t i = 0; i < layout.launchers.size(); ++i) {
-        const opensu::ui::Rect& cell = layout.launchers[i];
-        expect(need(layout.launcherAt(cell.centreX(), cell.centreY()), "centre") == i,
-               "a badge's centre hits it");
-    }
-    const opensu::ui::Rect& first = layout.launchers[0];
-    const opensu::ui::Rect& second = layout.launchers[1];
-    expect(layout.launcherAt(first.right() + 1.0f, first.centreY()) == 0u,
-           "a hair past the circle still hits it");
-    expect(!layout.launcherAt((first.right() + second.x) * 0.5f, first.centreY()),
-           "the middle of the gap hits none");
-    expect(!layout.launcherAt(layout.status.right() - 2.0f, layout.status.centreY()),
-           "the clock's area hits none");
-    expect(!layoutOf(0).launcherAt(layout.launchers[0].centreX(), layout.launchers[0].centreY()),
-           "no launcher shown, none hit");
-}
-
 } // namespace
 
 int main() {
     launchersInThePill();
     pillFollowsItsContent();
-    hitTesting();
     std::printf("top_bar_layout: all checks passed\n");
     return 0;
 }

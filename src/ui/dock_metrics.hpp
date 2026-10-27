@@ -57,14 +57,6 @@ struct DockLayout {
     Rect rightBadge;
 };
 
-/// Which item of `layout` the point (`x`, `y`) is on when the bar has slid `slide` pixels down, or
-/// nothing: an item reaches the bar's full height, and the gaps between items belong to none.
-[[nodiscard]] std::optional<std::size_t> dockItemAt(const DockLayout& layout, float slide, float x,
-                                                    float y) noexcept;
-
-/// Whether the point is inside the bar where it rests, which is where a pointer asks for it.
-[[nodiscard]] bool onRestingDock(const DockLayout& layout, float x, float y) noexcept;
-
 /// The layout of a bar of `metrics` on a `width` x `height` pixel canvas of `dp` pixels per dp.
 [[nodiscard]] DockLayout layoutDock(const DockMetrics& metrics, float width, float height,
                                     float dp);

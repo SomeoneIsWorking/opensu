@@ -1,5 +1,8 @@
 #include "details_screen.hpp"
 
+#include <filesystem>
+#include <memory>
+
 #include "gpu2d/ui/layout.hpp"
 #include "gpu2d/ui/widgets.hpp"
 
@@ -34,8 +37,11 @@ std::string DetailsScreen::title() const {
 }
 
 std::unique_ptr<tk::Widget> DetailsScreen::build(const tk::Theme& theme) {
-    ui::PageFrame<tk::Row> frame = ui::pageFrame<tk::Row>(theme, chrome_);
     const ui::GameDetails* details = controller_.details();
+    ui::PageFrame<tk::Row> frame = ui::pageFrame<tk::Row>(
+        theme, chrome_,
+        std::make_unique<ui::PictureBackdrop>(images_, details == nullptr ? std::filesystem::path{}
+                                                                          : details->hero));
     if (details == nullptr) {
         close();
         return std::move(frame.root);

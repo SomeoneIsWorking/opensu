@@ -6,6 +6,12 @@
 #include "tile_painter.hpp"
 
 namespace opensu::ui {
+namespace {
+
+/// How much of a backdrop picture shows through over the ground.
+constexpr float backdropOpacity = 0.14f;
+
+} // namespace
 
 gpu2d::ui::Size ImageView::measure(gpu2d::ui::LayoutContext& context, float maxWidth) {
     if (const std::optional<float> height = fixedHeight()) {
@@ -45,6 +51,18 @@ void ImageView::paint(gpu2d::ui::Painter& painter) const {
         return;
     }
     painter.canvas.fillRoundRect(box(aspect_, 1.0f), radius, painter.fade(theme.colours.control));
+}
+
+void PictureBackdrop::paint(gpu2d::ui::Painter& painter) const {
+    painter.canvas.fillRect(frame_, painter.fade(painter.theme.colours.ground));
+    if (const gpu2d::Texture* texture = images_.find(file_)) {
+        const Rect target{frame_.x, frame_.y, frame_.width, frame_.height};
+        painter.canvas.image(texture->view(),
+                             coverSource(static_cast<float>(texture->width()),
+                                         static_cast<float>(texture->height()), target),
+                             frame_, painter.fade(withAlpha(white, backdropOpacity)));
+    }
+    paintChildren(painter);
 }
 
 } // namespace opensu::ui

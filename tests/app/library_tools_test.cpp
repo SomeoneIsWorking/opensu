@@ -361,6 +361,13 @@ void searchTypesAndCloses(const fs::path& root) {
     pad.stick(ui::Direction::Right, false);
     button(Button::X);
     expect(rig.preferences.values().view.search == "j", "with no petal X deletes");
+    button(Button::Left);
+    ui.navigator.text("a");
+    button(Button::Right);
+    ui.navigator.text("b");
+    expect(rig.preferences.values().view.search == "ajb" && pad.isOpen() &&
+               ui.navigator.focused() == app::SearchScreen::fieldId,
+           "the wheel's D-pad moves the caret, and typing goes in at it");
     button(Button::Start);
     expect(!pad.isOpen() && ui.navigator.focused() == app::SearchScreen::resultId(0),
            "Start is Done: the keyboard closes on the first result");

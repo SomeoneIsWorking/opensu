@@ -1,6 +1,6 @@
 // image_view — a picture on an interface-toolkit screen: a file's image cropped to fill a rounded
 // box of a fixed aspect, or shown whole inside its frame; a plain box of the control colour while
-// it loads or when there is none.
+// it loads or when there is none; and a screen's ground with a picture faded across it.
 #pragma once
 
 #include <filesystem>
@@ -41,6 +41,22 @@ class ImageView final : public gpu2d::ui::Widget {
     std::filesystem::path file_;
     float aspect_;
     std::optional<gpu2d::ui::Align> whole_;
+};
+
+/// The theme's ground with `file` cropped to fill it, faded nearly away, under the children; the
+/// bare ground while it loads or when there is none.
+class PictureBackdrop final : public gpu2d::ui::Backdrop {
+  public:
+    PictureBackdrop(ScreenImages& images, std::filesystem::path file)
+        : images_{images}, file_{std::move(file)} {
+        images_.want(file_);
+    }
+
+    void paint(gpu2d::ui::Painter& painter) const override;
+
+  private:
+    ScreenImages& images_;
+    std::filesystem::path file_;
 };
 
 } // namespace opensu::ui
