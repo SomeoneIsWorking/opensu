@@ -150,6 +150,10 @@ struct Config {
     /// empty for SteamGridDB's own.
     std::string steamGridDbApi;
 
+    /// The GE-Proton release openSU installs, as GitHub release JSON, from
+    /// OPENSU_GE_PROTON_RELEASE (a test run names an older release by tag); empty for the latest.
+    std::string geProtonRelease;
+
     /// Whether secrets go to the desktop's keyring; OPENSU_SECRET_STORE=file keeps them in an
     /// owner-only file under the config dir instead.
     bool keyring{true};

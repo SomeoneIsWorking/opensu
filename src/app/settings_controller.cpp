@@ -130,6 +130,9 @@ std::optional<ui::SettingsCategory> SettingsController::subPage(const std::strin
     if (std::optional<ui::SettingsCategory> found = layers_.listPage(id)) {
         return found;
     }
+    if (std::optional<ui::SettingsCategory> found = wine_.subPage(id)) {
+        return found;
+    }
     return mappings_.settingsPage(id);
 }
 

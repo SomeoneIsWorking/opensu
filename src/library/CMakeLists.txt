@@ -45,6 +45,9 @@ add_library(opensu_library STATIC
     core_bios.cpp
     appimage_runtime.cpp
     wine.cpp
+    ge_proton.cpp
+    umu_launcher.cpp
+    runtime_archive.cpp
 )
 add_library(opensu::library ALIAS opensu_library)
 target_include_directories(opensu_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

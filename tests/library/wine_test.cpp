@@ -92,21 +92,21 @@ void prefixesAreSharedUnlessOwn(const fs::path& dir) {
 void launchesGetTheRunnerAndPrefix(const fs::path& dir) {
     const fs::path data = dir / "data";
     const fs::path runner = binary(dir / "runners/wine");
-    wine::Choice choice{.runner = {},
+    wine::Choice choice{.runner = runner,
                         .found = {{"System Wine", runner}},
                         .dataDir = data,
                         .own = wine::OwnPrefixes{{"epic:Fortnite"}}};
 
     Game gog = windowsGame(Source::Gog, "2");
-    expect(wine::prepare(gog, choice).empty(), "a Windows GOG install is prepared");
+    expect(wine::prepare(gog, choice).refusal.empty(), "a Windows GOG install is prepared");
     expect(gog.launch.args == std::vector<std::string>{"launch", "2", "--wine", runner.string(),
                                                        "--wine-prefix",
                                                        (data / "wine-prefix").string()},
-           "gogdl gets the first runner found and the shared prefix");
+           "gogdl gets the picked plain Wine and the shared prefix");
     expect(fs::is_directory(data / "wine-prefix"), "the shared prefix folder is made");
 
     Game epic = windowsGame(Source::Epic, "Fortnite");
-    expect(wine::prepare(epic, choice).empty(), "a Windows Epic install is prepared");
+    expect(wine::prepare(epic, choice).refusal.empty(), "a Windows Epic install is prepared");
     expect(epic.launch.args ==
                std::vector<std::string>{"launch", "Fortnite", "--wine", runner.string(),
                                         "--wine-prefix",
@@ -117,32 +117,34 @@ void launchesGetTheRunnerAndPrefix(const fs::path& dir) {
     linux.windowsInstall = false;
     Game steam = windowsGame(Source::Steam, "10");
     steam.launch = LaunchSpec{.program = "steam", .args = {"-applaunch", "10"}};
-    expect(wine::prepare(linux, choice).empty() &&
+    expect(wine::prepare(linux, choice).refusal.empty() &&
                linux.launch.args == std::vector<std::string>{"launch", "3"},
            "a Linux install is left as it is");
-    expect(wine::prepare(steam, choice).empty() &&
+    expect(wine::prepare(steam, choice).refusal.empty() &&
                steam.launch.args == std::vector<std::string>{"-applaunch", "10"},
            "a Steam game is left to Steam");
 
     const fs::path picked = binary(dir / "runners/proton-wine");
     choice.runner = picked;
     Game chosen = windowsGame(Source::Gog, "4");
-    expect(wine::prepare(chosen, choice).empty() && chosen.launch.args[3] == picked.string(),
+    expect(wine::prepare(chosen, choice).refusal.empty() &&
+               chosen.launch.args[3] == picked.string(),
            "the player's runner wins over the first found");
 
     choice.runner = dir / "runners/gone";
     Game gone = windowsGame(Source::Gog, "5");
-    expect(wine::prepare(gone, choice) == "The Wine runner " + (dir / "runners/gone").string() +
-                                              " is gone; pick another in Settings" &&
+    expect(wine::prepare(gone, choice).refusal == "The Wine runner " +
+                                                      (dir / "runners/gone").string() +
+                                                      " is gone; pick another in Settings" &&
                gone.launch.args.size() == 2,
            "a missing runner refuses the launch and leaves it untouched");
 
     choice.runner.clear();
     choice.found.clear();
     Game none = windowsGame(Source::Epic, "Owned");
-    expect(wine::prepare(none, choice) ==
-               "No Wine found to run Game Owned; install Wine or a Proton build",
-           "no runner at all refuses the launch");
+    expect(wine::prepare(none, choice).refusal ==
+               "No Wine runner to run Game Owned; GE-Proton is not installed yet",
+           "no GE-Proton for the default refuses the launch");
 }
 
 } // namespace
