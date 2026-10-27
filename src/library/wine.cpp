@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <initializer_list>
 #include <system_error>
 
 #include "ge_proton.hpp"
@@ -86,9 +87,10 @@ bool canRun(const Runner& runner, const Choice& choice) {
     return runner.proton.empty() || !choice.umuRun.empty();
 }
 
-std::optional<Resolved> firstOf(const Choice& choice, Origin origin, Reason reason) {
-    const auto found = std::ranges::find_if(choice.found, [&choice, origin](const Runner& runner) {
-        return runner.origin == origin && canRun(runner, choice);
+std::optional<Resolved> firstOf(const Choice& choice, std::initializer_list<Origin> origins,
+                                Reason reason) {
+    const auto found = std::ranges::find_if(choice.found, [&choice, origins](const Runner& runner) {
+        return std::ranges::find(origins, runner.origin) != origins.end() && canRun(runner, choice);
     });
     return found == choice.found.end()
                ? std::nullopt
@@ -166,7 +168,7 @@ std::vector<Runner> discover(const Search& search) {
     };
     std::vector<Runner> steam;
     for (const fs::path& root : search.steamRoots) {
-        std::ranges::move(buildsIn(root / "compatibilitytools.d", Origin::Steam, any),
+        std::ranges::move(buildsIn(root / "compatibilitytools.d", Origin::SteamTools, any),
                           std::back_inserter(steam));
     }
     for (const fs::path& library : search.steamLibraries) {
@@ -206,8 +208,7 @@ std::optional<Runner> lutrisDefault(const fs::path& lutrisData, const std::vecto
     if (version == lutris::geProtonLatest) {
         // umu's GE-Proton lives in a compatibilitytools.d; `found` is newest first.
         const auto newest = std::ranges::find_if(found, [](const Runner& runner) {
-            return runner.origin == Origin::Steam && runner.name.starts_with("GE-Proton") &&
-                   runner.proton.parent_path().filename() == "compatibilitytools.d";
+            return runner.origin == Origin::SteamTools && runner.name.starts_with("GE-Proton");
         });
         return newest == found.end() ? std::nullopt : std::optional{*newest};
     }
@@ -281,16 +282,17 @@ std::optional<Resolved> resolve(const Choice& choice, const std::string& gameId)
             .runner = Runner{.name = picked.string(), .wine = picked, .proton = protonOf(picked)},
             .reason = reason};
     }
-    if (std::optional<Resolved> ours = firstOf(choice, Origin::OpenSu, Reason::OpenSuGeProton)) {
+    if (std::optional<Resolved> ours = firstOf(choice, {Origin::OpenSu}, Reason::OpenSuGeProton)) {
         return ours;
     }
-    if (std::optional<Resolved> steam = firstOf(choice, Origin::Steam, Reason::SteamProton)) {
+    if (std::optional<Resolved> steam =
+            firstOf(choice, {Origin::SteamTools, Origin::Steam}, Reason::SteamProton)) {
         return steam;
     }
     if (choice.lutris && canRun(*choice.lutris, choice)) {
         return Resolved{.runner = *choice.lutris, .reason = Reason::Lutris};
     }
-    return firstOf(choice, Origin::System, Reason::SystemWine);
+    return firstOf(choice, {Origin::System}, Reason::SystemWine);
 }
 
 std::optional<Runner> runnerOf(const Choice& choice, const std::string& gameId) {

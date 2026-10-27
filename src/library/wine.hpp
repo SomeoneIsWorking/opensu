@@ -32,7 +32,10 @@ namespace opensu::library::wine {
 enum class Origin : std::uint8_t {
     /// openSU's own GE-Proton builds.
     OpenSu,
-    /// Steam's Proton builds and its `compatibilitytools.d`.
+    /// Added to Steam's `compatibilitytools.d` (GE-Proton and other third-party builds), by
+    /// whatever put them there.
+    SteamTools,
+    /// Valve's Proton builds Steam installed into a library's `steamapps/common`.
     Steam,
     /// Lutris's `runners/wine`.
     Lutris,

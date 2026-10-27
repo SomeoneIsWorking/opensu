@@ -69,8 +69,9 @@ you can fallback to Steam Proton which falls back to what Lutris uses which fall
   (GE-Proton 11-5)"), or an explicit pick by name; Check for GE-Proton now with the download in
   progress ("Downloading GE-Proton 11-11 · 7%") or the last outcome ("Up to date: GE-Proton 11-11"); Test the runner (`cmd /c ver` in
   `<data>/wine/test-prefix` through the same invocation a launch uses), then "Runners and
-  runtimes": every runner with where it lives (kept up to date by openSU, found in Steam's
-  folders, system), size for openSU's builds, and how many games use it by store ("3 games from
+  runtimes": every runner with who put it there ("Downloaded by openSU", "Installed by
+  Steam" for Valve's Proton in `steamapps/common`, "Added to Steam's tools folder" for a build in
+  `compatibilitytools.d`, "From Lutris", "Installed on the system"), size for openSU's builds, and how many games use it by store ("3 games from
   Steam, 1 from Epic", "Not used"); umu-launcher and the Steam Linux Runtime with their sizes and
   the GOG and Epic games openSU runs on Proton. Each opens a page: where, size, why kept, the
   games using it under a heading per store (Steam's "Change it in Steam; it can't be pinned here";
@@ -173,6 +174,10 @@ GE-Proton 11-11 with Nuclear Throne from Epic, Steam's other builds "Not used" a
 "Keep GE-Proton up to date" turned off and openSU restarted: no `[wine]` line in 40 s and Check
 now reads "Downloads only when pressed", "Not checked yet" (`logs/restart-off.log`,
 `frames/restart-off-wine.png`); turned back on, the check ran at once (`logs/on.log`).
+
+Who put each build there, same setup (`scratch/ge-proton-real/ge6/frames/rows-rows.png`,
+`rows-rows2.png`): GE-Proton 11-11 "Downloaded by openSU · 1.5 GB", GE-Proton 11-5, 11-3 and 11-1
+"Added to Steam's tools folder", Proton 11.0, 10.0 and 9.0 Beta "Installed by Steam".
 
 "None → system" is case 2 on this machine: with no Proton the Lutris step finds nothing on disk.
 
