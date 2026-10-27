@@ -38,7 +38,7 @@ enum class Action : std::uint8_t {
     Search,
     /// The Guide menu: the left menu, over a running game too.
     Guide,
-    /// The quick menu on the right, over a running game too.
+    /// The Guide menu on Volume, over a running game too.
     QuickMenu,
     VolumeUp,
     VolumeDown,

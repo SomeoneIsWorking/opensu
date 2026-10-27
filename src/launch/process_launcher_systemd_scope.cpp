@@ -121,14 +121,14 @@ bool ProcessLauncher::start(const std::string& unit, const std::string& program,
         if (waitpid(pid, &status, WNOHANG) == pid) {
             group_->child = -1;
             group_->unit.clear();
-            failure = "could not start " + program;
+            failure = "could not start " + programName(program);
             return false;
         }
         if (Clock::now() >= until) {
             lucent::error("launch", "scope {} did not appear", unit);
             group_->end({"kill", "--signal=SIGKILL", unit}, exitStatus_);
             group_->unit.clear();
-            failure = "could not create a scope for " + program;
+            failure = "could not create a scope for " + programName(program);
             return false;
         }
         std::this_thread::sleep_for(step);

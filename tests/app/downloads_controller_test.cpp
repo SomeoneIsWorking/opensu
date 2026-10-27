@@ -1,4 +1,4 @@
-// The Downloads page's controller through the shipping owners: an Epic install against a stub
+// The Downloads screen's controller through the shipping owners: an Epic install against a stub
 // legendary, an emulator download against a fake release host, and Steam's queue against a fake
 // Steam's DevTools. Each button reaches the owner of its row.
 #include "downloads_controller.hpp"
@@ -15,6 +15,8 @@
 #include <utility>
 #include <vector>
 
+#include "downloads_screen.hpp"
+#include "support/fake_interface_text.hpp"
 #include "support/fake_steam.hpp"
 #include "support/release_server.hpp"
 #include "ui/check.hpp"
@@ -25,7 +27,7 @@ namespace fs = std::filesystem;
 using namespace opensu;
 using app::DownloadRow;
 using app::DownloadState;
-using gamepad::Button;
+using gpu2d::ui::Action;
 using test::expect;
 using Clock = std::chrono::steady_clock;
 
@@ -83,17 +85,18 @@ sleep 60
             "Steam answers");
     }
 
-    /// Focuses `key`'s row and button `label`, and presses A.
+    /// Focuses `key`'s button `label` on the screen, and presses A.
     void press(const std::string& key, const std::string& label) {
-        const std::vector<ui::DownloadsEntry>& entries = page.entries();
-        for (std::size_t row = 0; row < entries.size(); ++row) {
-            if (entries[row].key != key) {
+        ui.frame(1.0);
+        for (const app::DownloadsEntry& entry : controller.entries()) {
+            if (entry.key != key) {
                 continue;
             }
-            for (std::size_t action = 0; action < entries[row].actions.size(); ++action) {
-                if (entries[row].actions[action] == label) {
-                    page.focusAction(row, action);
-                    controller.act(Button::A);
+            for (std::size_t action = 0; action < entry.actions.size(); ++action) {
+                if (entry.actions[action] == label &&
+                    ui.navigator.focus(app::downloadButtonId(key, action))) {
+                    ui.navigator.act(Action::Accept);
+                    ui.frame(1.0);
                     return;
                 }
             }
@@ -164,10 +167,11 @@ sleep 60
                                                          }}};
     library::roms::RomsetLists romsetLists{root / "cache"};
     int listsEnded{0};
-    ui::DownloadsPage page;
+    test::InterfaceRig ui;
+    ui::Chrome chrome;
     audio::SdlSoundPlayer sounds;
     app::DownloadsController controller{
-        page,
+        ui.navigator, chrome,
         app::DownloadsController::Sources{
             .installs = installs,
             .emulators = emulators,
@@ -208,15 +212,16 @@ void cancelReachesEachOwner(const fs::path& root) {
     Rig rig{root};
     expect(rig.installs.start(epicGame()), "an Epic install starts");
     rig.controller.open();
-    expect(rig.page.isOpen(), "the page opens");
+    rig.ui.frame(1.0);
+    expect(rig.controller.isOpen(), "the screen opens");
     rig.until(
         [&rig] {
             const DownloadRow* row = rig.controller.board().find("epic:Fortnite");
             return row != nullptr && row->state == DownloadState::Downloading;
         },
         "the Epic install shows as downloading once legendary reports progress");
-    expect(rig.page.entries().size() == 1, "the install is on the page");
-    const ui::DownloadsEntry& epic = rig.page.entries()[0];
+    expect(rig.controller.entries().size() == 1, "the install is on the page");
+    const app::DownloadsEntry& epic = rig.controller.entries()[0];
     expect(epic.title == "Fortnite" && epic.source == "Epic" && epic.state == "Downloading" &&
                epic.figures == "42%" && epic.actions == std::vector<std::string>{"Cancel"},
            "the Epic row shows its source, state, percent and a cancel");
@@ -250,8 +255,9 @@ void cancelReachesEachOwner(const fs::path& root) {
     expect(install && install->job.phase == app::InstallJob::Phase::Cancelled &&
                !rig.emulators.downloaded("emu"),
            "nothing was installed");
-    expect(rig.page.entries().size() == 2 && rig.page.entries()[0].ended &&
-               rig.page.entries()[0].actions.empty() && rig.page.entries()[0].state == "Cancelled",
+    expect(rig.controller.entries().size() == 2 && rig.controller.entries()[0].ended &&
+               rig.controller.entries()[0].actions.empty() &&
+               rig.controller.entries()[0].state == "Cancelled",
            "ended downloads stay on the page without buttons");
 
     const std::vector<app::DownloadLine> lines = rig.controller.lines();
@@ -259,8 +265,9 @@ void cancelReachesEachOwner(const fs::path& root) {
                lines[0].state == "cancelled" && lines[1].key == "epic:Fortnite" &&
                lines[1].percent == 42,
            "the control channel sees the same rows");
-    rig.controller.act(Button::B);
-    expect(!rig.page.isOpen(), "B closes the page");
+    rig.ui.navigator.act(Action::Back);
+    rig.ui.frame(1.0);
+    expect(!rig.controller.isOpen(), "Back closes the screen");
 }
 
 void steamButtonsCallSteam(const fs::path& root) {
@@ -277,7 +284,7 @@ void steamButtonsCallSteam(const fs::path& root) {
                  steam::Download{.appId = "70", .queueIndex = 1},
                  steam::Download{.appId = "71", .queueIndex = 2}};
     rig.controller.open();
-    const std::vector<ui::DownloadsEntry>& entries = rig.page.entries();
+    const std::vector<app::DownloadsEntry>& entries = rig.controller.entries();
     expect(entries.size() == 3 && entries[0].key == "steam:480" && entries[1].key == "steam:70" &&
                entries[2].key == "steam:71",
            "Steam's queue is listed in its order");
@@ -308,15 +315,16 @@ void steamButtonsCallSteam(const fs::path& root) {
     expect(rig.fakeSteam.calls().back() ==
                "SteamClient.Downloads.RemoveFromDownloadList(71, \"0\")",
            "Remove takes it off Steam's list");
-    expect(rig.controller.board().find("steam:71") == nullptr && rig.page.entries().size() == 2,
+    expect(rig.controller.board().find("steam:71") == nullptr &&
+               rig.controller.entries().size() == 2,
            "and off the page while Steam still lists it");
     expect(rig.said.empty(), "nothing was refused");
 
     rig.queue = {steam::Download{.appId = "480", .paused = true, .queueIndex = 0},
                  steam::Download{.appId = "70", .queueIndex = 1}};
     rig.controller.service();
-    expect(rig.page.entries()[0].state == "Paused" &&
-               rig.page.entries()[0].actions == std::vector<std::string>{"Resume", "Remove"},
+    expect(rig.controller.entries()[0].state == "Paused" &&
+               rig.controller.entries()[0].actions == std::vector<std::string>{"Resume", "Remove"},
            "the paused head resumes or goes");
     rig.press("steam:480", "Resume");
     rig.answered();
@@ -336,7 +344,7 @@ void steamRefusalIsSaid(const fs::path& root) {
     steam::DevTools closed{port};
     steam::DownloadControl control{closed};
     app::DownloadsController controller{
-        rig.page,
+        rig.ui.navigator, rig.chrome,
         app::DownloadsController::Sources{
             .installs = rig.installs,
             .emulators = rig.emulators,
@@ -365,7 +373,9 @@ void steamRefusalIsSaid(const fs::path& root) {
                                             [] {
                                             }}};
     controller.open();
-    controller.act(Button::A);
+    rig.ui.frame(1.0);
+    expect(rig.ui.navigator.focus(app::downloadButtonId("steam:480", 0)), "Pause is on the screen");
+    rig.ui.navigator.act(Action::Accept);
     const Clock::time_point stop = Clock::now() + wait;
     while (controller.answering() && Clock::now() < stop) {
         std::this_thread::sleep_for(std::chrono::milliseconds{5});
@@ -403,7 +413,7 @@ void figures() {
     row.state = DownloadState::Failed;
     row.fraction = 0.5;
     row.detail = "Not enough disk space";
-    const ui::DownloadsEntry failed = app::entryOf(row);
+    const app::DownloadsEntry failed = app::entryOf(row);
     expect(failed.failed && failed.ended && failed.figures == "Not enough disk space" &&
                !failed.fraction && failed.actions.empty(),
            "a failed download says why, with no bar or buttons");
@@ -416,7 +426,7 @@ void figures() {
                                .title = "Gwent",
                                .state = DownloadState::Uninstalling,
                                .detail = "legendary is removing it"};
-    const ui::DownloadsEntry entry = app::entryOf(removing);
+    const app::DownloadsEntry entry = app::entryOf(removing);
     expect(entry.state == "Uninstalling" && entry.figures == "legendary is removing it" &&
                !entry.ended && !entry.fraction && entry.actions.empty(),
            "an uninstall reads as uninstalling, with no bar and no buttons");
@@ -451,20 +461,20 @@ void romsetListsAreRows(const fs::path& root) {
                    failed->state == DownloadState::Failed;
         },
         "both romset lists end on the page");
-    const std::vector<ui::DownloadsEntry>& entries = rig.page.entries();
+    const std::vector<app::DownloadsEntry>& entries = rig.controller.entries();
     const auto entry = [&entries](const std::string& key) {
-        const auto found = std::ranges::find(entries, key, &ui::DownloadsEntry::key);
+        const auto found = std::ranges::find(entries, key, &app::DownloadsEntry::key);
         if (found == entries.end()) {
             test::fail("the romset list is on the page");
         }
         return *found;
     };
-    const ui::DownloadsEntry done = entry("romsets:mame2010-core");
+    const app::DownloadsEntry done = entry("romsets:mame2010-core");
     expect(done.title == "Romset list · MAME 2010" && done.source == "Arcade" &&
                done.state == "Finished" && done.ended && done.actions.empty() &&
                done.figures == std::to_string(listing.size()) + " B",
            "a fetched list stays as a finished row with its size and no buttons");
-    const ui::DownloadsEntry failed = entry("romsets:fbneo-core");
+    const app::DownloadsEntry failed = entry("romsets:fbneo-core");
     expect(failed.state == "Failed" && failed.failed &&
                failed.figures.find("HTTP 404") != std::string::npos &&
                failed.figures.ends_with("tried again in 60 min"),

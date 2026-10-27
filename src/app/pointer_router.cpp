@@ -13,12 +13,6 @@ struct FocusesOnHover {
     bool operator()(const ui::OnLayoutCard&) const {
         return true;
     }
-    bool operator()(const ui::OnGuideEntry&) const {
-        return true;
-    }
-    bool operator()(const ui::OnGuidePower&) const {
-        return true;
-    }
     bool operator()(const ui::OnChooserRow&) const {
         return true;
     }
@@ -44,24 +38,6 @@ struct FocusesOnHover {
         return true;
     }
     bool operator()(const ui::OnIntegrationItem&) const {
-        return true;
-    }
-    bool operator()(const ui::OnQuickRow&) const {
-        return true;
-    }
-    bool operator()(const ui::OnQuickSlider&) const {
-        return true;
-    }
-    bool operator()(const ui::OnSettingsRow&) const {
-        return true;
-    }
-    bool operator()(const ui::OnSettingsSlider&) const {
-        return true;
-    }
-    bool operator()(const ui::OnDownloadRow&) const {
-        return true;
-    }
-    bool operator()(const ui::OnDownloadAction&) const {
         return true;
     }
     template <class Other> bool operator()(const Other&) const {
@@ -114,17 +90,10 @@ void PointerRouter::click(const ui::PointerTarget& target) {
     } else if (const auto* size = std::get_if<ui::OnIconSize>(&target)) {
         host_.focus(target);
         host_.chooseLevel(size->level);
-    } else if (const auto* slider = std::get_if<ui::OnSettingsSlider>(&target)) {
-        host_.focus(target);
-        host_.chooseLevel(slider->level);
-    } else if (const auto* quick = std::get_if<ui::OnQuickSlider>(&target)) {
-        host_.focus(target);
-        host_.chooseLevel(quick->level);
     } else if (std::holds_alternative<ui::OnBackdrop>(target)) {
         host_.press(gamepad::Button::B);
-    } else if (std::holds_alternative<ui::OnPage>(target) ||
-               std::holds_alternative<ui::OnDownloadRow>(target)) {
-        // A page turns, and a download row is chosen; only its buttons act.
+    } else if (std::holds_alternative<ui::OnPage>(target)) {
+        // A page turns.
         host_.focus(target);
     } else if (!std::holds_alternative<std::monostate>(target)) {
         host_.focus(target);

@@ -624,8 +624,8 @@ void testMissingProgramReportsFailurePromptly() {
         awaitStart(pending, "a launch of a missing program returns", std::chrono::seconds{20});
 
     expect(!outcome.ok, "a program that does not exist fails");
-    expect(outcome.failure.find(program) != std::string::npos,
-           "the failure names the program that could not be started");
+    expect(outcome.failure == "could not start no-such-program",
+           "the failure names the program that could not be started, not its folder");
     expect(since(began) < std::chrono::seconds{5}, "the failure is reported at once");
     expect(shell.hidden.load() == 0, "the shell was never hidden for a refused launch");
 }

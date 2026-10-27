@@ -1,3 +1,4 @@
+#include "command.hpp"
 #include "process_launcher.hpp"
 
 namespace opensu::launch {
@@ -12,7 +13,8 @@ ProcessLauncher::~ProcessLauncher() = default;
 bool ProcessLauncher::start(const std::string& /*group*/, const std::string& program,
                             const std::vector<std::string>& /*args*/, std::string& failure,
                             const std::vector<std::string>& /*environment*/) {
-    failure = program + " cannot be started: launching is not available on " OPENSU_SYSTEM_NAME;
+    failure = programName(program) +
+              " cannot be started: launching is not available on " OPENSU_SYSTEM_NAME;
     return false;
 }
 

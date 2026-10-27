@@ -19,15 +19,8 @@ std::string AudioOutputs::choose(const std::string& id) {
     return refused;
 }
 
-std::string AudioOutputs::cycle(int step) {
-    if (sinks_.size() < 2) {
-        return "there is no other output";
-    }
-    const auto count = static_cast<int>(sinks_.size());
-    const auto now = std::ranges::find(sinks_, true, &audio::AudioSink::isDefault);
-    const int from = now == sinks_.end() ? 0 : static_cast<int>(now - sinks_.begin());
-    const int to = (from + (step == 0 ? 1 : step) + count) % count;
-    return choose(sinks_[static_cast<std::size_t>(to)].id);
+std::string AudioOutputs::unavailable() const {
+    return volume_.available() ? std::string{} : volume_.unavailable();
 }
 
 } // namespace opensu::app

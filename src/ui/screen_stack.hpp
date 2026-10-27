@@ -53,11 +53,18 @@ class ScreenStack {
     }
     /// Whether an open screen fills the window, rather than standing over what is under it.
     [[nodiscard]] bool paged() const;
+    /// Whether a screen that fills the window is drawn, fading out included.
+    [[nodiscard]] bool pagesVisible() const noexcept {
+        return navigator_.pagesVisible();
+    }
 
     /// Sets the clock and theme and lays the screens out over `window`, under `chrome`; drops the
     /// pictures once nothing is drawn.
     void layout(Clock::time_point now, const gpu2d::Rect& window, float dp, Chrome chrome);
-    void paint(Canvas& canvas);
+    /// The screens that fill the window, drawn under the shell's chrome.
+    void paintPages(Canvas& canvas);
+    /// The overlays over them (the Guide menu, dialogs, lists), drawn over the chrome.
+    void paintOverlays(Canvas& canvas);
 
   private:
     ButtonGlyphPainter glyphs_;

@@ -16,12 +16,8 @@ struct HintContext {
     bool select{false};
     /// A opens the focused game's details page, which the prompt says.
     bool details{false};
-    /// A changes the focused setting, which the prompt says.
-    bool change{false};
     /// Select opens the focused tile's context menu.
     bool options{false};
-    /// Select forgets the focused Bluetooth device.
-    bool forget{false};
     /// START opens a menu.
     bool menu{false};
 };

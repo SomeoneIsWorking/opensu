@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "config/config.hpp"
 #include "keyboard_pad.hpp"
 
 namespace opensu::app {
@@ -50,15 +51,6 @@ std::string stateOf(const PluginInfo& info, bool consent) {
 
 } // namespace
 
-std::string PluginSettings::shown(const std::filesystem::path& path) const {
-    std::string text = path.string();
-    const std::string home = home_.string();
-    if (!home.empty() && text.starts_with(home + "/")) {
-        return "~" + text.substr(home.size());
-    }
-    return text;
-}
-
 ui::SettingsCategory PluginSettings::page() const {
     ui::SettingsCategory page{std::string{categoryId}, "Plugins", {}};
     for (const PluginInfo& info : plugins_.plugins()) {
@@ -74,7 +66,7 @@ ui::SettingsCategory PluginSettings::page() const {
                                            plugins_.enabled(info)));
         std::string access;
         for (const std::filesystem::path& path : info.readPaths) {
-            access += (access.empty() ? "" : ", ") + shown(path);
+            access += (access.empty() ? "" : ", ") + config::shownPath(path, home_);
         }
         std::string hosts;
         for (const std::string& host : info.hosts) {
@@ -120,13 +112,13 @@ void PluginSettings::ask(const PluginInfo& info) {
     ui::SessionDialogText text;
     text.title = "Turn on " + info.manifest.name + "?";
     text.paragraphs.push_back(info.manifest.name + " " + info.manifest.version +
-                              " is a plugin you added, from " + shown(info.dir) +
+                              " is a plugin you added, from " + config::shownPath(info.dir, home_) +
                               ". It runs in a sandbox and can use only what is listed here.");
     if (info.readPaths.empty()) {
         text.paragraphs.emplace_back("It reads no files.");
     }
     for (const std::filesystem::path& path : info.readPaths) {
-        text.paragraphs.push_back("It can read what is in " + shown(path) + ".");
+        text.paragraphs.push_back("It can read what is in " + config::shownPath(path, home_) + ".");
     }
     if (info.hosts.empty()) {
         text.paragraphs.emplace_back("It does not use the network.");

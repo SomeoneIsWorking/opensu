@@ -47,7 +47,6 @@ class PluginSettings {
   private:
     void ask(const plugin::PluginInfo& info);
     void close();
-    [[nodiscard]] std::string shown(const std::filesystem::path& path) const;
 
     PluginService& plugins_;
     ui::SessionDialog& dialog_;

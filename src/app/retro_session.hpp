@@ -1,6 +1,6 @@
 // retro_session — the shell's side of opensu-retro's control channel: the control file each launch
 // names in OPENSU_RETRO_CONTROL and the settings file beside it, the port read from the control
-// file once the runner announces one, the requests the quick menu and the game chords send, and the
+// file once the runner announces one, the requests the Guide menu and the game chords send, and the
 // load failure a runner leaves there.
 #pragma once
 
@@ -60,7 +60,7 @@ class RetroSession {
     /// Shows the game under `video` from its next frame.
     [[nodiscard]] std::string setVideo(const settings::VideoSettings& video);
 
-    /// What the quick menu's game rows and the game chords ask for.
+    /// What the Guide menu's game rows and the game chords ask for.
     enum class Command : std::uint8_t { SaveState, LoadState, Reset };
     /// How a command went, as the toast says it.
     struct Outcome {

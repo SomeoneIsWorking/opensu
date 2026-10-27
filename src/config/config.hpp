@@ -32,6 +32,10 @@ enum class HomeMode : std::uint8_t {
 using EmulatorCommands = std::map<std::string, std::vector<std::string>, std::less<>>;
 
 /// The whole environment, resolved once.
+/// `path` as the player reads it: under `home`, written from `~`.
+[[nodiscard]] std::string shownPath(const std::filesystem::path& path,
+                                    const std::filesystem::path& home);
+
 struct Config {
     /// The user's home directory. Every store keeps its data under it, so this
     /// is resolved rather than guessed by every library source.

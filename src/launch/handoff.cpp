@@ -53,7 +53,7 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
                                    std::string& failure) {
     const std::filesystem::path program = resolveExecutable(game.launch.program, executablePath_);
     if (program.empty()) {
-        failure = "could not start " + game.launch.program;
+        failure = "could not start " + programName(game.launch.program);
         return Begun::Failed;
     }
     // A launch starts openSU's own Steam if it stopped; Normal's is not openSU's to start.
@@ -96,7 +96,7 @@ Handoff::Begun Handoff::beginScope(const library::Game& game,
                                    const std::vector<std::string>& environment,
                                    std::string& failure) {
     if (resolveExecutable(game.launch.program, executablePath_).empty()) {
-        failure = "could not start " + game.launch.program;
+        failure = "could not start " + programName(game.launch.program);
         return Begun::Failed;
     }
     const std::string unit =

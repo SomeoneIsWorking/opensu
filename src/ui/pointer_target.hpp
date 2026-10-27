@@ -35,17 +35,6 @@ struct OnLayoutCard {
     bool operator==(const OnLayoutCard&) const = default;
 };
 
-/// An entry of the Guide menu.
-struct OnGuideEntry {
-    std::size_t index;
-    bool operator==(const OnGuideEntry&) const = default;
-};
-
-/// The Guide menu's power button.
-struct OnGuidePower {
-    bool operator==(const OnGuidePower&) const = default;
-};
-
 /// A row of the Library options under the cards: pin, sort, source, filters or search.
 struct OnChooserRow {
     ChooserRow row;
@@ -87,7 +76,7 @@ struct OnScreens {
     bool operator==(const OnScreens&) const = default;
 };
 
-/// The screen outside the open context menu, Guide menu or quick menu.
+/// The screen outside the open context menu or cover picker.
 struct OnBackdrop {
     bool operator==(const OnBackdrop&) const = default;
 };
@@ -117,38 +106,6 @@ struct OnDetailsButton {
     bool operator==(const OnDetailsButton&) const = default;
 };
 
-/// A row of the quick menu, by its place in it.
-struct OnQuickRow {
-    std::size_t index;
-    bool operator==(const OnQuickRow&) const = default;
-};
-
-/// A point on a quick menu slider's track, by the row and the level it stands for.
-struct OnQuickSlider {
-    std::size_t row;
-    int level;
-    bool operator==(const OnQuickSlider&) const = default;
-};
-
-/// A category of the Settings screen or the Devices page, by its place in the list.
-struct OnSettingsCategory {
-    std::size_t index;
-    bool operator==(const OnSettingsCategory&) const = default;
-};
-
-/// A row of the focused category of the open page, by its place in it.
-struct OnSettingsRow {
-    std::size_t index;
-    bool operator==(const OnSettingsRow&) const = default;
-};
-
-/// A point on a page slider's track, by the row and the level it stands for.
-struct OnSettingsSlider {
-    std::size_t row;
-    int level;
-    bool operator==(const OnSettingsSlider&) const = default;
-};
-
 /// An entry of the folder chooser, by its place in the list.
 struct OnFolderEntry {
     std::size_t index;
@@ -167,26 +124,11 @@ struct OnIntegrationItem {
     bool operator==(const OnIntegrationItem&) const = default;
 };
 
-/// A row of the Downloads page, by its place in the list.
-struct OnDownloadRow {
-    std::size_t row;
-    bool operator==(const OnDownloadRow&) const = default;
-};
-
-/// An action button of a Downloads page row, by the row and the button's place on it.
-struct OnDownloadAction {
-    std::size_t row;
-    std::size_t action;
-    bool operator==(const OnDownloadAction&) const = default;
-};
-
 /// Nothing, or the element the pointer is on.
 using PointerTarget =
-    std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnGuideEntry, OnGuidePower,
-                 OnPanelButton, OnChooserRow, OnIconSize, OnKeyboardKey, OnSearchResult,
-                 OnContextItem, OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton,
-                 OnSettingsCategory, OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow,
-                 OnQuickSlider, OnDialogButton, OnIntegrationItem, OnDownloadRow, OnDownloadAction,
+    std::variant<std::monostate, OnDock, OnTile, OnPage, OnLayoutCard, OnPanelButton, OnChooserRow,
+                 OnIconSize, OnKeyboardKey, OnSearchResult, OnContextItem, OnBackdrop, OnLauncher,
+                 OnCrumb, OnDetailsButton, OnFolderEntry, OnDialogButton, OnIntegrationItem,
                  OnCoverPick, OnScreens>;
 
 } // namespace opensu::ui

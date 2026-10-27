@@ -95,14 +95,14 @@ def _settings_page(label: str) -> Callable[[HiddenShell], None]:
 
 
 def _quick(shell: HiddenShell) -> None:
-    # The pad's Guide + A chord, held over the channel.
+    # The pad's Guide + A chord, held over the channel: the Guide menu on Volume.
     shell.press("guide+a")
-    shell.wait_for("quickMenuOpen", True)
+    shell.wait_for("screenFocus", "guide.volume")
 
 
 def _close_quick(shell: HiddenShell) -> None:
     shell.press("b")
-    shell.wait_for("quickMenuOpen", False)
+    shell.wait_for("guideMenuOpen", False)
 
 
 def _console_shelf(shell: HiddenShell) -> None:
@@ -441,7 +441,7 @@ SCENES: tuple[Scene, ...] = (
     Scene("details", "A game's details page", _details, _back_from_details, readme=True),
     Scene("guide", "Guide menu", _guide, _close_guide, readme=True),
     Scene("settings", "Settings", _settings, _close_settings, readme=True),
-    Scene("quick-menu", "Quick menu", _quick, _close_quick, readme=True),
+    Scene("quick-menu", "Guide menu on Volume (Guide + A)", _quick, _close_quick),
     Scene("console-shelf", "A console's shelf in Library", _console_shelf, _leave_console_shelf),
     Scene("settings-library", "Settings: Library", _settings_page("Library"), _close_settings),
     Scene("settings-audio", "Settings: Audio", _settings_page("Audio"), _close_settings),

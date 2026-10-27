@@ -35,10 +35,8 @@
 #include "dock_metrics.hpp"
 #include "dock_motion.hpp"
 #include "dock_painter.hpp"
-#include "downloads_panel.hpp"
 #include "glyph_textures.hpp"
 #include "grid_focus.hpp"
-#include "guide_panels.hpp"
 #include "home_layout.hpp"
 #include "hud.hpp"
 #include "image_decoder.hpp"
@@ -54,7 +52,6 @@
 #include "mode_chooser.hpp"
 #include "mode_chooser_painter.hpp"
 #include "page_arrow.hpp"
-#include "page_panel.hpp"
 #include "page_pill.hpp"
 #include "paint.hpp"
 #include "panel_fade.hpp"
@@ -62,11 +59,11 @@
 #include "pointer_target.hpp"
 #include "rail_layout.hpp"
 #include "rail_painter.hpp"
+#include "screen_stack.hpp"
 #include "search_panel.hpp"
 #include "search_panel_painter.hpp"
 #include "section_view.hpp"
 #include "session_panels.hpp"
-#include "screen_stack.hpp"
 #include "settings_panels.hpp"
 #include "tile.hpp"
 #include "tile_artwork.hpp"
@@ -208,8 +205,7 @@ class Shell {
     [[nodiscard]] const DetailsPage& detailsPage() const noexcept {
         return details_;
     }
-    /// The Settings screen, and the folder chooser and keyboard that open over it.
-    /// The interface toolkit's screens: Settings and what opens over it.
+    /// The interface toolkit's screens: the Guide menu, Settings and what opens over them.
     [[nodiscard]] ScreenStack& screens() noexcept {
         return screens_;
     }
@@ -229,38 +225,15 @@ class Shell {
     [[nodiscard]] const SessionPanels& sessionPanels() const noexcept {
         return session_;
     }
-    /// The Devices page, which replaces the grid while it is open.
-    [[nodiscard]] PagePanel& devicesPanel() noexcept {
-        return devices_;
-    }
-    [[nodiscard]] const PagePanel& devicesPanel() const noexcept {
-        return devices_;
-    }
-    /// The Downloads page, which replaces the grid while it is open.
-    [[nodiscard]] DownloadsPanel& downloadsPanel() noexcept {
-        return downloads_;
-    }
-    [[nodiscard]] const DownloadsPanel& downloadsPanel() const noexcept {
-        return downloads_;
-    }
-    /// The Guide menu and the quick menu.
-    [[nodiscard]] GuidePanels& guidePanels() noexcept {
-        return guide_;
-    }
-    [[nodiscard]] const GuidePanels& guidePanels() const noexcept {
-        return guide_;
-    }
-    /// Whether a panel that takes every button is up: the options, the search, a context menu, the
-    /// details page, the Settings screen, the Devices or Downloads page, the mapping editor or a
-    /// Guide menu.
     /// The on-screen keyboard docked along the bottom edge (search, a path, a password), which
     /// takes the place of the nav dock and the corner hints; nullptr when none is open.
     [[nodiscard]] const OnScreenKeyboard* dockedKeyboard() const noexcept;
+    /// Whether a panel that takes every button is up: the options, the search, a context menu, the
+    /// details page, a toolkit screen, the mapping editor or a session dialog.
     [[nodiscard]] bool panelOpen() const noexcept {
         return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || cover_.isOpen() ||
-               details_.isOpen() || screens_.active() || settings_.anyOpen() || menuPageOpen() ||
-               mapping_.isOpen() ||
-               guide_.anyOpen() || session_.anyOpen();
+               details_.isOpen() || screens_.active() || settings_.anyOpen() || mapping_.isOpen() ||
+               session_.anyOpen();
     }
 
     /// Which device the prompts name. The caller feeds it; the painters read it.
@@ -403,13 +376,6 @@ class Shell {
     }
 
   private:
-    /// Whether the Devices or the Downloads page is open, or drawn as it fades.
-    [[nodiscard]] bool menuPageOpen() const noexcept {
-        return devices_.isOpen() || downloads_.isOpen();
-    }
-    [[nodiscard]] bool menuPageVisible() const noexcept {
-        return devices_.visible(now_) || downloads_.visible(now_);
-    }
     /// Pixels per dp.
     [[nodiscard]] float dp() const noexcept;
     /// Dark or light grid chrome for the current theme (iiSU ya0.e).
@@ -454,8 +420,6 @@ class Shell {
     void focusOn(std::size_t index, int dx);
     void startEntrance();
     void drawScene(Canvas& canvas);
-    /// The Settings screen, the Devices page and the Downloads page, whichever is shown.
-    void drawPages(Canvas& canvas, Point size);
     /// A frame over a running game: the Guide menus, the pages they open and the chord list.
     void drawOverGame(Canvas& canvas, Point size);
     /// The held modifier's chords, while shown or fading out.
@@ -553,10 +517,7 @@ class Shell {
     PagePillPainter pillPainter_;
     PageArrowPainter arrowPainter_;
     Hud hud_{prompts_, typeface_, icons_};
-    GuidePanels guide_{prompts_, typeface_};
     SessionPanels session_{prompts_, typeface_};
-    PagePanel devices_{typeface_};
-    DownloadsPanel downloads_{typeface_};
     LaunchPanel launchPanel_;
     LaunchPanelPainter launchPanelPainter_{prompts_, typeface_};
 

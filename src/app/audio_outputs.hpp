@@ -24,8 +24,8 @@ class AudioOutputs {
     [[nodiscard]] const audio::AudioSink* current() const;
     /// Makes output `id` the default; empty when done, else why not. Reads the list again.
     std::string choose(const std::string& id);
-    /// Makes the output `step` places on from the default the default, wrapping; A is one.
-    std::string cycle(int step);
+    /// Why the outputs cannot be listed, or empty when they can.
+    [[nodiscard]] std::string unavailable() const;
 
   private:
     audio::SystemVolume& volume_;

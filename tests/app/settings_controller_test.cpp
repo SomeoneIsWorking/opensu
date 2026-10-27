@@ -127,9 +127,9 @@ struct Rig {
           controller{screens.navigator,
                      chrome,
                      app::SettingsController::Services{
-                         paths, shortcutEditor, volume, shortcuts, emulatorSettings, layerSettings,
-                         layered, steamLibrarySettings, pluginSettings, chordSettings, mappings,
-                         wine, integrationSettings, artworkSettings, inForce},
+                         paths, shortcutEditor, shortcuts, emulatorSettings, layerSettings, layered,
+                         steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
+                         integrationSettings, artworkSettings, inForce},
                      sounds,
                      preferences,
                      config,
@@ -777,67 +777,6 @@ void hiddenAndEmulatorsReset(const fs::path& root) {
            "show hidden games again clears them");
 }
 
-void volumeRowsDriveTheMixer(const fs::path& root) {
-    Rig rig{root / "volume"};
-    rig.controller.open();
-    rig.enter("Audio");
-    expect(rig.rowOf("volume").level == 40 && !rig.rowOf("volumeMute").on,
-           "the rows read the mixer");
-    rig.focus("volume");
-    rig.act(Button::Right);
-    expect(rig.mixerState.percent == 45 && rig.rowOf("volume").level == 45,
-           "right raises the volume five percent and the row follows");
-    rig.act(Button::Left);
-    rig.act(Button::Left);
-    expect(rig.mixerState.percent == 35, "left lowers it");
-    rig.controller.setLevel("volume", 80);
-    expect(rig.mixerState.percent == 80, "a click on the track sets the level");
-    rig.controller.setLevel("volume", 400);
-    expect(rig.mixerState.percent == 100, "and clamps");
-    rig.focus("volumeMute");
-    rig.act(Button::A);
-    expect(rig.mixerState.muted && rig.rowOf("volumeMute").on, "A mutes");
-    expect(!rig.shown.empty() && rig.shown.back().muted, "every change was told to the display");
-    const std::size_t told = rig.shown.size();
-    rig.act(Button::A);
-    expect(!rig.mixerState.muted && rig.shown.size() == told + 1, "and unmutes");
-    expect(rig.onDisk().uiScale == settings::defaultUiScale, "nothing else changed");
-}
-
-void withoutAMixerTheRowSaysHow(const fs::path& root) {
-    Rig rig{root / "nomixer", false};
-    rig.controller.open();
-    rig.enter("Audio");
-    const ui::SettingsRow& row = rig.rowOf("volume.missing");
-    expect(row.kind == ui::RowKind::Info && row.note.find("sudo") != std::string::npos,
-           "an unavailable mixer shows the install command");
-    expect(rig.mixerLog.empty(), "nothing was written");
-    rig.volume.act(input::Action::VolumeUp);
-    expect(!rig.said.empty() && rig.said.back().error, "a volume shortcut is refused with a toast");
-}
-
-void interfaceSizeCycles(const fs::path& root) {
-    Rig rig{root / "scale"};
-    rig.controller.open();
-    rig.focus("uiScale");
-    expect(rig.rowOf("uiScale").value == "100%", "100% by default");
-    rig.act(Button::Right);
-    expect(rig.onDisk().uiScale == 105 && rig.rowOf("uiScale").value == "105%", "right grows it");
-    rig.act(Button::Left);
-    rig.act(Button::Left);
-    expect(rig.onDisk().uiScale == 95, "left shrinks it");
-    for (int i = 0; i < 40; ++i) {
-        rig.act(Button::Left);
-    }
-    expect(rig.preferences.values().uiScale >= settings::minUiScale &&
-               rig.preferences.values().uiScale <= settings::maxUiScale,
-           "it wraps inside its range");
-    rig.act(Button::Right);
-    expect(rig.preferences.values().uiScale >= settings::minUiScale &&
-               rig.preferences.values().uiScale <= settings::maxUiScale,
-           "never past it");
-}
-
 void shortcutsAreRemappedAndKept(const fs::path& root) {
     Rig rig{root / "controls"};
     rig.controller.open();
@@ -1458,9 +1397,6 @@ int main() {
     typedPathIsValidated(root);
     rootsAreAddedAndReset(root);
     hiddenAndEmulatorsReset(root);
-    volumeRowsDriveTheMixer(root);
-    withoutAMixerTheRowSaysHow(root);
-    interfaceSizeCycles(root);
     shortcutsAreRemappedAndKept(root);
     guideChordsAreSetOnTheirPage(root);
     mappingsAreReachedFromControls(root);

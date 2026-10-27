@@ -5,8 +5,10 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <memory>
 #include <utility>
 
+#include "downloads_screen.hpp"
 #include "library/emulator_catalog.hpp"
 #include "library/shader_pack.hpp"
 
@@ -107,16 +109,16 @@ void join(std::string& out, const std::string& part) {
 
 } // namespace
 
-ui::DownloadsEntry entryOf(const DownloadRow& row) {
-    ui::DownloadsEntry entry{.key = row.key,
-                             .title = row.title,
-                             .source = sourceText(row),
-                             .state = row.update && row.state == DownloadState::Downloading
-                                          ? std::string{"Updating"}
-                                          : std::string{label(row.state)},
-                             .fraction = row.fraction,
-                             .failed = row.state == DownloadState::Failed,
-                             .ended = ended(row.state)};
+DownloadsEntry entryOf(const DownloadRow& row) {
+    DownloadsEntry entry{.key = row.key,
+                         .title = row.title,
+                         .source = sourceText(row),
+                         .state = row.update && row.state == DownloadState::Downloading
+                                      ? std::string{"Updating"}
+                                      : std::string{label(row.state)},
+                         .fraction = row.fraction,
+                         .failed = row.state == DownloadState::Failed,
+                         .ended = ended(row.state)};
     if (row.state == DownloadState::Failed || row.state == DownloadState::Cancelled) {
         entry.figures = row.state == DownloadState::Failed ? row.detail : std::string{};
         entry.fraction.reset();
@@ -147,10 +149,11 @@ ui::DownloadsEntry entryOf(const DownloadRow& row) {
     return entry;
 }
 
-DownloadsController::DownloadsController(ui::DownloadsPage& page, Sources sources,
-                                         audio::SdlSoundPlayer& sounds, Hooks hooks)
-    : page_{page}, sources_{std::move(sources)}, sounds_{sounds}, hooks_{std::move(hooks)},
-      board_{sources_.titles} {
+DownloadsController::DownloadsController(gpu2d::ui::Navigator& navigator, const ui::Chrome& chrome,
+                                         Sources sources, audio::SdlSoundPlayer& sounds,
+                                         Hooks hooks)
+    : navigator_{navigator}, chrome_{chrome}, sources_{std::move(sources)}, sounds_{sounds},
+      hooks_{std::move(hooks)}, board_{sources_.titles} {
 }
 
 DownloadsController::~DownloadsController() {
@@ -159,29 +162,34 @@ DownloadsController::~DownloadsController() {
     }
 }
 
-std::vector<ui::DownloadsEntry> DownloadsController::entries() const {
-    std::vector<ui::DownloadsEntry> shown;
-    shown.reserve(board_.rows().size());
-    for (const DownloadRow& row : board_.rows()) {
-        shown.push_back(entryOf(row));
-    }
-    return shown;
+bool DownloadsController::isOpen() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    return std::ranges::any_of(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const DownloadsScreen*>(screen) != nullptr;
+    });
 }
 
 void DownloadsController::open() {
+    if (isOpen()) {
+        return;
+    }
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     service();
-    page_.open(entries());
+    navigator_.push(std::make_unique<DownloadsScreen>(*this, chrome_));
 }
 
 void DownloadsController::close() {
-    if (!page_.isOpen()) {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto found = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const DownloadsScreen*>(screen) != nullptr;
+    });
+    if (found == open.end()) {
         return;
     }
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
-    page_.close();
+    navigator_.closeFrom(**found);
 }
 
 void DownloadsController::service() {
@@ -257,11 +265,9 @@ void DownloadsController::service() {
 
     look.romsetLists = lookAtRomsetLists();
     board_.update(look);
-    if (page_.isOpen()) {
-        std::vector<ui::DownloadsEntry> shown = entries();
-        if (shown != page_.entries()) {
-            page_.refresh(std::move(shown));
-        }
+    shown_.clear();
+    for (const DownloadRow& row : board_.rows()) {
+        shown_.push_back(entryOf(row));
     }
 }
 
@@ -301,38 +307,14 @@ std::vector<RomsetListLook> DownloadsController::lookAtRomsetLists() {
     return looks;
 }
 
-void DownloadsController::act(gamepad::Button button) {
-    switch (button) {
-    case gamepad::Button::Up:
-    case gamepad::Button::Down:
-        // input-sound.md 3.4 Navigation: a focus move on a page.
-        if (page_.move(button == gamepad::Button::Down ? 1 : -1)) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::Left:
-    case gamepad::Button::Right:
-        if (page_.step(button == gamepad::Button::Right ? 1 : -1)) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::A: {
-        const ui::DownloadsEntry* entry = page_.focused();
-        const DownloadRow* row = entry != nullptr ? board_.find(entry->key) : nullptr;
-        if (row == nullptr) {
-            break;
-        }
-        const std::vector<DownloadAction> actions = actionsFor(*row);
-        if (page_.action() < actions.size()) {
-            perform(*row, actions[page_.action()]);
-        }
-        break;
+void DownloadsController::press(const std::string& key, std::size_t action) {
+    const DownloadRow* row = board_.find(key);
+    if (row == nullptr) {
+        return;
     }
-    case gamepad::Button::B:
-        close();
-        break;
-    default:
-        break;
+    const std::vector<DownloadAction> actions = actionsFor(*row);
+    if (action < actions.size()) {
+        perform(*row, actions[action]);
     }
 }
 

@@ -152,9 +152,9 @@ game has been observed running yet.
 | S020 | Settings screen with every user-meaningful preference, mouse, keyboard and pad | partial | S005 | G002 |
 | S021 | Install folders: one default plus Steam, Epic and GOG overrides from one resolver | partial | S020 | G001 |
 | S022 | PC volume and mute, volume overlay, remappable shortcut chords (game actions, Guide chords page, chords kept from the game), interface scale | partial | S020 | G002, G003 |
-| S023 | Guide menu (Home, Library, Devices, Downloads, Settings, power button) over the home screen and a running game | partial | S020 | G002, G003 |
-| S024 | Devices page: Bluetooth, controllers, audio output, display | partial | S023 | G002, G003 |
-| S025 | Quick menu on Guide + A over the home screen and a running game | partial | S024 | G002, G003 |
+| S023 | Guide menu (places, the running game's actions, volume, mute, brightness and interface size, Power) over the home screen and a running game, on the `gpu2d::ui` toolkit | partial | S020 | G002, G003 |
+| S024 | Devices screen: Bluetooth, controllers, audio output, display, on the `gpu2d::ui` toolkit | partial | S023 | G002, G003 |
+| S025 | Guide + A opens the Guide menu on Volume, over the home screen and a running game | partial | S024 | G002, G003 |
 | S026 | Emulator catalog, official AppImage download, update and removal, emulator per system | partial | S008, S020 | G001 |
 | S027 | Steam libraries page: list, add, make default, remove an empty library | partial | S020, S016 | G001 |
 | S028 | Sandboxed Lua plugins (API v1: play-time sources, emulator game lists), Settings › Plugins, bundled Eden play time | partial | S008, S020 | G001 |
@@ -995,7 +995,7 @@ Every scope openSU creates is named `<session>-<role>[-N].scope`
 systemd user scope (`launch::ProcessLauncher`'s Linux backend), so processes that setsid or double-fork
 stay owned. A non-Steam game runs in its own scope,
 stopped when the game leaves. A Steam game is handed to the background client
-(`steam -applaunch`). Close game in the Guide or quick menu ends either. A game in a scope
+(`steam -applaunch`). Close game in the Guide menu ends either. A game in a scope
 (ROMs on `opensu-retro` or a standalone emulator, GOG and Epic games under Wine) is stopped:
 `systemctl stop` SIGTERMs every process in the scope, and systemd SIGKILLs what is left after
 `TimeoutStopSec=5`, so `opensu-retro` writes save RAM and destroys a GPU core's context before it
@@ -1020,42 +1020,45 @@ that ignores SIGTERM got it at 18:40:18.588 UTC and systemd's "Stopping timed ou
 (`--expand-environment=no`). Scope ownership, escape-proof stop, tree kill and force-close are
 tested with real processes and a fake `steam`; a real Steam launch is not yet exercised.
 
-### S023 — Guide menu, S024 — Devices page, S025 — quick menu
+### S023 — Guide menu, S024 — Devices, S025 — Guide + A
 
 Guide (a tap on the pad's Guide button, which comes out on release so Guide + A can be a chord, or
-Shift+Tab, Steam's overlay key, read by `session::GameKeys` over a game) opens a menu down the
-left edge: Home, Library, Devices, Downloads and Settings outside a game; Resume, Close game,
-Devices, Downloads and Settings over one. The stores are in Library, not here. Power is a power icon at the left end
-of the bottom row, with the A and B hints stacked at its right end: Down past the last row focuses
-it, Up returns, a click or A opens the power list
-(Sleep, Restart, Shut down, Install session mode or Switch to session mode, Quit to desktop).
-Sleep, Restart and Shut down are `systemctl suspend|reboot|poweroff` through `host::Power`;
-Restart, Shut down and Switch to session mode need a second A; the session entries are S010. With
-`--session` (openSU is the login session) the list ends with Switch to desktop instead of Quit to
-desktop, since quitting the login session only makes the display manager start it again; untested
-against the real
-session, only against fakes. Over a game it draws through the Gamescope overlay (`GameScreen`); the Devices,
-Settings and quick pages do too.
+Shift+Tab, Steam's overlay key, read by `session::GameKeys` over a game) opens one menu down the
+left edge, on the `gpu2d::ui` toolkit (`GuideMenuScreen`). Its places: Home and Library outside a
+game; Resume, Close game, Game settings, and for a game on `opensu-retro` Save state, Load state and
+Reset game over one; then Devices, Downloads, Settings and Power. Beside them stand the changes
+made in place, each of which exists only here: Volume, Mute, Brightness (where a backlight exists)
+and Interface size. Right from a place reaches Volume; Guide + A (Ctrl+Tab on a keyboard) opens the
+same menu with Volume focused. Close game, Load state, Reset game, Restart, Shut down and Switch to
+session mode ask first through the one `confirm` dialog (Cancel focused). Power opens a list over
+the menu (Sleep, Restart, Shut down, Install session mode or Switch to session mode, Quit to
+desktop; with `--session` Switch to desktop in place of Quit, since quitting the login session only
+makes the display manager start it again; untested against the real session). Sleep, Restart and
+Shut down are `systemctl suspend|reboot|poweroff` through `host::Power`; the session entries are
+S010. Over a game it draws through the Gamescope overlay (`GameScreen`).
 
-Devices tabs: Bluetooth (BlueZ over `busctl`: adapter on/off, scan held by `bluetoothctl`, pair
-with trust and connect, connect, disconnect, forget on Select twice or a right click; no
-PIN or passkey agent, so Just-Works pairing only), Controllers (name, player order, battery,
-live held buttons, link to shortcut remapping), Audio output (volume, mute, default sink through
-the volume owner) and Display (interface size, output size and rate, brightness where a backlight
-exists; no resolution backend). The quick menu (Guide + A, Ctrl+Tab on a keyboard) holds volume,
-mute, output, brightness, Bluetooth, controller batteries, Devices and, over a game, Close game.
+Devices (`DevicesScreen`, tabs down the side): Bluetooth (BlueZ over `busctl`: adapter on/off, scan
+held by `bluetoothctl`, pair with trust and connect, connect, disconnect; X or a right click forgets
+a paired device after a `confirm`; no PIN or passkey agent, so Just-Works pairing only),
+Controllers (name, player order, battery, live held buttons, link to shortcut remapping), Audio
+output (the outputs, A makes one the default) and Display (output size and rate). Volume,
+brightness and the interface size point to the Guide menu.
 
-A hidden run reads Bluetooth and the backlight and changes nothing, never runs a power command
-and never starts Steam (`host_services`, `Arguments::startsSteam`). Tested with fakes:
-`host_services`, `bluetooth_session`, `devices_controller`, `quick_menu_controller`,
-`guide_menu_controller`, `controller_roster`, `audio_outputs`, `brightness_control`,
-`shortcut_router`, `pointer_router`, `guide_menu`, `quick_menu`, `game_keys` (Ctrl+Tab). Verified
-headless (`--hidden`, captures under `scratch/guide-menu/` and `scratch/guide-trim/`): Guide menu, power list and armed
-restart, Devices tabs reading the real adapter, quick menu, Settings without the title pill, a
-hidden Restart refused. The overlay's blend over a game (dimmed, not black) is verified in a headless
-Gamescope with a stand-in game (`docs/issues/overlay-blacks-out-game.md`). Unverified: real power
-actions, scan, pairing and connect, the overlay over a real game under the player's Gamescope, mouse clicks on the new pages (routed and unit-tested only), a
-physical pad's battery and button test, a backlight (this machine has none).
+Press counts (hidden run, before → after this change): Home to the volume: Guide + A, Right = 2 → 2
+(or Guide, Right, Right = 3); Downloads: Guide, Down × 3, A = 5 → 5; Close game over a game: Guide,
+Down, A = 3 → Guide, Down, A, Right, A = 5 (it now asks first).
+
+A hidden run reads Bluetooth and the backlight and changes nothing, never runs a power command and
+never starts Steam (`host_services`, `Arguments::startsSteam`). Tested with fakes through the
+toolkit navigator: `guide_menu_controller`, `devices_controller`, `host_services`,
+`bluetooth_session`, `controller_roster`, `audio_outputs`, `brightness_control`,
+`shortcut_router`, `pointer_router`, `game_keys` (Ctrl+Tab). Verified headless (`--hidden`,
+captures under `scratch/ui-toolkit/step3/frames/` at 1280x800 and 1920x1080): the Guide menu over
+the home screen and over a running stand-in game, Volume landing, the Close game question, the
+Power list, each Devices tab reading the real adapter. The overlay's blend over a game is verified
+in a headless Gamescope with a stand-in game (`docs/issues/overlay-blacks-out-game.md`).
+Unverified: real power actions, scan, pairing and connect, the overlay over a real game under the
+player's Gamescope, a physical pad's battery and button test, a backlight (this machine has none).
 
 From launch until the launch ends, `gamepad::EvdevPads` holds every gamepad, including one
 connected meanwhile: each
@@ -1291,7 +1294,9 @@ hidraw, gyro through the motion node, SDL HIDAPI doubled input
 
 ### S035 — Downloads page
 
-One page (Guide › Downloads, a click on a launcher badge's progress ring, or the Downloads chord
+One screen on the `gpu2d::ui` toolkit (`DownloadsScreen`: a card per row with its line, a progress
+bar while measured and its buttons; failed rows in the error red; verified headless at both sizes
+under `scratch/ui-toolkit/step3/frames/`) (Guide › Downloads, a click on a launcher badge's progress ring, or the Downloads chord
 action, unbound by default) lists Steam's queue, the store install openSU runs and the emulator or
 core download, with state, progress, figures and the buttons each owner allows: Pause, Resume,
 Download now, Move up, Move down and Remove for Steam through `SteamClient.Downloads` (the calls

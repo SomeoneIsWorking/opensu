@@ -14,7 +14,6 @@
 
 #include "gpu2d/ui/navigator.hpp"
 
-#include "gamepad/event.hpp"
 #include "giveaways/giveaway_board.hpp"
 #include "giveaways/offer_list.hpp"
 #include "offer_claim.hpp"
@@ -43,7 +42,6 @@ class GiveawaysController {
     /// Closes its screens.
     void close();
     [[nodiscard]] bool isOpen() const;
-    void act(gamepad::Button button);
     /// Each frame: the list again from the board, the library and the settings; the news.
     void service();
     /// Asks the stores again.

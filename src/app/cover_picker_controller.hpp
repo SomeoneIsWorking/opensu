@@ -28,7 +28,7 @@ class CoverPickerController {
         std::function<void(const std::string& id)> changed;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
-        /// Opens Settings › Artwork, where SteamGridDB is connected.
+        /// Starts connecting SteamGridDB, on Settings › Artwork where the sign-in shows.
         std::function<void()> connect;
     };
 

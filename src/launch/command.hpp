@@ -17,6 +17,9 @@ namespace opensu::launch {
 [[nodiscard]] std::filesystem::path
 resolveExecutable(const std::string& program, const std::vector<std::filesystem::path>& path);
 
+/// `program` as the player is told it: its file name, never the folder it is in.
+[[nodiscard]] std::string programName(const std::string& program);
+
 /// Runs `program` with its output discarded and waits for it, at most `timeout`; a
 /// child still running then is killed and reaped. Returns the exit status (128 plus
 /// the signal when it was killed by one), or nothing when it could not be run or

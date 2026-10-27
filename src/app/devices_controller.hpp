@@ -1,39 +1,38 @@
-// devices_controller — the Devices page's contents and buttons. Four tabs: Bluetooth (the adapter,
+// devices_controller — what the Devices screen holds and does. Four tabs: Bluetooth (the adapter,
 // a scan, and each device to pair, connect, disconnect or forget), Controllers (the connected pads
 // with player order, battery and a live button test, and the way to the shortcut remapping), Audio
-// output (volume, mute and the default output) and Display (interface size, the output's size and
-// the brightness where the machine has one). Everything it changes goes through the owner of that
-// thing: `BluetoothSession`, `AudioOutputs`/`VolumeControl`, `BrightnessControl`, `Preferences`.
+// output (the outputs to choose between) and Display (the output's size). Volume, brightness and
+// the interface size are the Guide menu's. Everything it changes goes through the owner of that
+// thing: `BluetoothSession` and `AudioOutputs`.
 #pragma once
 
 #include <chrono>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
+
+#include "gpu2d/ui/navigator.hpp"
 
 #include "audio/sdl_sound_player.hpp"
 #include "audio_outputs.hpp"
 #include "bluetooth_session.hpp"
-#include "brightness_control.hpp"
 #include "controller_roster.hpp"
-#include "gamepad/event.hpp"
-#include "preferences.hpp"
-#include "ui/settings_page.hpp"
-#include "volume_control.hpp"
+#include "ui/row_widgets.hpp"
+#include "ui/screen_stack.hpp"
+#include "ui/setting_row.hpp"
 
 namespace opensu::app {
 
-class DevicesController {
+class DevicesController final : public ui::RowActions {
   public:
     using Clock = std::chrono::steady_clock;
 
     /// How often the controllers' batteries are looked at while the tab shows.
     static constexpr std::chrono::seconds controllerRefresh{2};
 
-    /// What the page asks of the shell app.
+    /// What the screen asks of the shell app.
     struct Hooks {
-        /// Gives the screen the interface size the preferences now hold.
-        std::function<void()> applyLayout;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
         /// Opens the Settings screen on its shortcut remapping.
@@ -47,73 +46,68 @@ class DevicesController {
         BluetoothSession& bluetooth;
         ControllerRoster& controllers;
         AudioOutputs& outputs;
-        VolumeControl& volume;
-        BrightnessControl& brightness;
     };
 
-    DevicesController(ui::SettingsPage& page, Services services, audio::SdlSoundPlayer& sounds,
-                      Preferences& preferences, Hooks hooks)
-        : page_{page}, bluetooth_{services.bluetooth}, controllers_{services.controllers},
-          outputs_{services.outputs}, volume_{services.volume}, brightness_{services.brightness},
-          sounds_{sounds}, preferences_{preferences}, hooks_{std::move(hooks)} {
+    /// The screen goes on `navigator`'s stack, under `chrome`.
+    DevicesController(gpu2d::ui::Navigator& navigator, const ui::Chrome& chrome, Services services,
+                      audio::SdlSoundPlayer& sounds, Hooks hooks)
+        : navigator_{navigator}, chrome_{chrome}, bluetooth_{services.bluetooth},
+          controllers_{services.controllers}, outputs_{services.outputs}, sounds_{sounds},
+          hooks_{std::move(hooks)} {
     }
 
-    /// Opens the page on its first tab.
+    /// Opens the screen on its first tab.
     void open();
-    /// Closes the page with iiSU's Close sound; a scan it started ends.
+    /// Closes the screen and what is over it with iiSU's Close sound; a scan it started ends.
     void close();
-    /// A button while the page is up.
-    void act(gamepad::Button button);
-    /// A click on a slider's track at `level`.
-    void chooseLevel(int level);
-    /// Shows the rows again after something outside the page changed one.
+    [[nodiscard]] bool isOpen() const;
+    /// Shows the rows again after something outside the screen changed one.
     void refresh();
-    /// The pad goes back to the list of tabs; the trail's "Devices" level does this.
+    /// The focus goes back to the tabs; the trail's "Devices" level does this.
     void showTabs();
-    /// Moves the page on: takes the session's finished work and keeps the controllers' batteries
-    /// fresh. Main loop only.
+    /// Keeps the controllers' batteries fresh while their tab shows. Main loop only.
     void tick(Clock::time_point now);
     /// A button went down or up on a pad, which the Controllers tab shows.
     void controllerChanged();
-    /// A right click on a Bluetooth device: the same as Select.
-    void forgetFocused();
 
-    /// The focused tab's name, or empty when the page is closed.
+    /// The chosen tab's name, or empty when the screen is closed.
     [[nodiscard]] std::string tab() const;
     /// Whether the Bluetooth tab shows, which is when BlueZ is read.
     [[nodiscard]] bool showsBluetooth() const;
-    /// Whether a button now changes the focused row, which the corner prompt says.
-    [[nodiscard]] bool changes() const;
-    /// Whether Select now forgets the focused Bluetooth device, which the corner prompt says.
-    [[nodiscard]] bool forgets() const;
+
+    // What the screen asks.
+    /// The tabs in their order, as last built.
+    [[nodiscard]] const std::vector<ui::SettingsCategory>& tabs();
+    /// The tab the screen shows; the screen's tabs set it.
+    [[nodiscard]] const std::string& chosen() const noexcept {
+        return chosen_;
+    }
+    void choose(const std::string& tab);
+    void run(const std::string& id, int step) override;
+    /// X on a paired device: forgets it, asking first.
+    void secondary(const std::string& id) override;
 
   private:
-    [[nodiscard]] std::vector<ui::SettingsCategory> build();
-    [[nodiscard]] ui::SettingsCategory bluetoothTab();
-    [[nodiscard]] ui::SettingsCategory controllersTab();
-    [[nodiscard]] ui::SettingsCategory audioTab();
-    [[nodiscard]] ui::SettingsCategory displayTab();
+    [[nodiscard]] ui::SettingsCategory bluetoothTab() const;
+    [[nodiscard]] ui::SettingsCategory controllersTab() const;
+    [[nodiscard]] ui::SettingsCategory audioTab() const;
+    [[nodiscard]] ui::SettingsCategory displayTab() const;
     /// The device whose row is `id`, or null.
     [[nodiscard]] const host::BluetoothDevice* deviceOf(const std::string& id) const;
-    /// Acts on `row`: `step` is 0 for A and -1 or 1 for Left and Right.
-    void run(const ui::SettingsRow& row, int step);
-    void runBluetooth(const std::string& id, int step);
-    void runAudio(const std::string& id, int step);
-    void runDisplay(const std::string& id, int step);
+    void runBluetooth(const std::string& id);
     /// Tells the player why a change was refused.
     void refuse(const std::string& reason);
 
-    ui::SettingsPage& page_;
+    gpu2d::ui::Navigator& navigator_;
+    const ui::Chrome& chrome_;
     BluetoothSession& bluetooth_;
     ControllerRoster& controllers_;
     AudioOutputs& outputs_;
-    VolumeControl& volume_;
-    BrightnessControl& brightness_;
     audio::SdlSoundPlayer& sounds_;
-    Preferences& preferences_;
     Hooks hooks_;
-    /// The device whose row asked to be forgotten and waits for the second press.
-    std::string armed_;
+    std::string chosen_;
+    /// The tabs as last built; emptied by `refresh`.
+    std::optional<std::vector<ui::SettingsCategory>> tabs_;
     Clock::time_point refreshedAt_{};
 };
 
