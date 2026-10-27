@@ -1,6 +1,6 @@
-// text_grid — where a label's glyphs go, on the pixel grid the shell's stb_truetype atlas laid
-// them on: the face sized so its line box is whole pixels, each advance cut to whole pixels at
-// that size and stretched back to the style's line box, the baseline likewise.
+// text_grid — where a label's glyphs go: the face sized so its line box is whole pixels, the
+// baseline cut to whole pixels at that size and stretched back to the style's line box. Advances
+// stay fractional: Cal Sans's space is under two pixels at caption sizes.
 #pragma once
 
 #include <cstddef>

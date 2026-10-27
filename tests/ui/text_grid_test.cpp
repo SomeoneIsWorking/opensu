@@ -32,18 +32,19 @@ FaceMetrics calSans(const char* path) {
     return std::move(*metrics);
 }
 
-void wholePixelAdvances(const FaceMetrics& face) {
+void wholePixelBaselineExactAdvances(const FaceMetrics& face) {
     // Settings' value text at 1280x800: 15.5 sp at 1280 / 853 px per dp, a 30.24 px line box.
     const TextGrid grid{face, TextStyle{15.5f * 1280.0f / 853.0f}};
     const float stretch = grid.lineBox() / 30.0f;
     near(grid.lineBox(), 30.24f, "the style's line box", 0.01);
     near(grid.em(), 30.0f / 1.3f, "glyphs are rasterised at the em of a 30 px line box");
-    // 'o' is 594 units: 13.71 px at a 30 px line box, cut to 13.
-    near(grid.advance(U'o'), 13.0f * stretch, "an advance is cut to whole pixels");
+    // 'o' is 594 units of a 1300-unit line box.
+    near(grid.advance(U'o'), 594.0f * grid.lineBox() / 1300.0f, "an advance is exact", 0.001);
     // hhea ascent 1000 of 1300: 23.08 px, cut to 23.
     near(grid.ascent(), 23.0f * stretch, "the baseline is cut to whole pixels");
-    // Exact advances would give 133.97.
-    near(grid.measure("None hidden"), 130.02f, "a label is its cut advances", 0.01);
+    // 5760 units, the space 164 of them.
+    near(grid.measure("None hidden"), 5760.0f * grid.lineBox() / 1300.0f,
+         "a label is its exact advances", 0.01);
 }
 
 void tracking(const FaceMetrics& face) {
@@ -71,7 +72,7 @@ void decodesUtf8() {
 int main(int argc, char** argv) {
     expect(argc == 2, "usage: text_grid_test FONT");
     const FaceMetrics face = calSans(argv[1]);
-    wholePixelAdvances(face);
+    wholePixelBaselineExactAdvances(face);
     tracking(face);
     decodesUtf8();
     std::printf("text_grid: all checks passed\n");

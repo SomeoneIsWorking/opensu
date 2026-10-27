@@ -391,7 +391,7 @@ Painters and composition (`opensu_ui`):
 | `src/ui/image_decoder.*` | Cover decode and downscale on a worker thread; the frame only uploads what it takes |
 | `src/ui/glyph_textures.*` | The console glyphs drawn in a ROM tile's frame tab: files by system, textures on load |
 | `src/ui/typeface.*` | Text drawing at Android em sizes: the face loaded into gpu2d's text, labels drawn a glyph at a time where `TextGrid` puts them, one character centred on its ink (`drawInkCentred`, gpu2d's glyph ink bounds), fitted with an ellipsis, wrapped at spaces (`wrapped`); the hinted, kerned interface face the toolkit draws with (`interfaceText`) |
-| `src/ui/text_grid.*` | Where a label's glyphs go: the whole-pixel line box, advances and baseline the stb_truetype atlas used, letter spacing, UTF-8 decoding |
+| `src/ui/text_grid.*` | Where a label's glyphs go: the whole-pixel line box and baseline, exact (fractional) advances, letter spacing, UTF-8 decoding |
 | `src/ui/face_metrics.*` | The face's head, hhea, hmtx and cmap: line metrics and each character's advance |
 
 ## Maintainer tooling

@@ -1,8 +1,8 @@
 // Text drawing, owned in one place.
 //
 // iiSU's default typeface is Cal Sans (pp4.a), drawn a glyph at a time through gpu2d's text,
-// unhinted, each glyph on the whole pixel its TextGrid places it at. Sizes are Android's: the em in
-// pixels, with letter spacing in ems, so sizes recovered from iiSU apply unchanged.
+// unhinted, each glyph at the fractional pen its TextGrid places it at. Sizes are Android's: the em
+// in pixels, with letter spacing in ems, so sizes recovered from iiSU apply unchanged.
 #pragma once
 
 #include <filesystem>

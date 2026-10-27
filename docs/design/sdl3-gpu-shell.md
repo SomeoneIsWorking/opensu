@@ -60,7 +60,7 @@ repository.
 | gpu2d `shape_pipeline` | One SDF pipeline for every shape; per-shape data in a storage buffer (uniform pushes over 4 KB read 0 in SDL3 GPU) |
 | gpu2d `texture` | GPU textures from RGBA pixels, uploads through transfer buffers, sampler choice |
 | gpu2d `render_target` | Offscreen colour targets and their read-back to RGBA |
-| gpu2d `text` | A face file through SDL3_ttf (FreeType, HarfBuzz) and its GPU text engine: glyph atlas, measure, draw. The shell passes Cal Sans unhinted (`FaceOptions`) and draws a glyph at a time where `ui/text_grid` puts it, on the pixel grid stb_truetype's atlas used |
+| gpu2d `text` | A face file through SDL3_ttf (FreeType, HarfBuzz) and its GPU text engine: glyph atlas, measure, draw. The shell passes Cal Sans unhinted (`FaceOptions`) and draws a glyph at a time at the fractional pen `ui/text_grid` keeps |
 | gpu2d `src/shaders/`, `cmake/Gpu2dShaders.cmake` | GLSL compiled to SPIR-V by `glslc` at build time, embedded as headers; `gpu2d_compile_shaders` also builds `opensu-retro`'s |
 | `gpu2d::image` | Decoding PNG, JPEG and WebP with SDL3_image, cubic resizing (Mitchell down, Catmull-Rom up, as stb_image_resize2 defaults), and the one PNG encoder (`opensu-retro` and the starter pack use it already), encoding to memory so `/frame.png` stops writing a temporary file under `/tmp`; no GPU |
 | `src/audio/sdl_sound_player.*`, `sound_clip.*` | UI sounds on SDL audio streams, one per effect; WAV through `SDL_LoadWAV`, OGG through libvorbisfile, decoded without a device |
@@ -116,9 +116,8 @@ through gpu2d.
    unkerned as stb_truetype drew it (`gpu2d::FaceOptions{.hinted = false, .kerned = false}`), but
    rasterised by FreeType. The shell logs what gpu2d reports (`GpuWindow::deviceName`, `driver`,
    `translucent`; `Text::draw` false; decode and encode error strings), since gpu2d never logs.
-   Done. Two owners keep raylib's look rather than SDL's defaults: `ui/text_grid` places each glyph
-   on stb_truetype's whole-pixel advances and baseline (SDL3_ttf's exact advances made labels
-   about half a pixel a glyph wider), and `gpu2d::image` resizes covers with stb_image_resize2's
+   Done. `ui/text_grid` keeps stb_truetype's whole-pixel line box and baseline but exact advances
+   (whole-pixel advances dropped Cal Sans's under-two-pixel space in small text), and `gpu2d::image` resizes covers with stb_image_resize2's
    cubic filters (SDL's bilinear changed the point-sampled covers). An unmapped window gets no
    swapchain image, so the loop streams artwork itself rather than from the draw. The raylib
    `Typeface` kept 16 sizes and drew any further size from the first one's atlas; the reference

@@ -477,9 +477,12 @@ Type is Cal Sans 1.000, iiSU's default face (`pp4.a`; the others it offers are C
 and Arctainium), shipped in `assets/` under the OFL with the licence beside it. The file is the
 Google Fonts build, which matches the one in iiSU's APK in metrics and Latin-1 outlines. Text
 sizes are Android's: the em in pixels, with letter spacing in ems; `TextGrid` sizes the face so its
-`hhea` ascent-to-descent line box is whole pixels and cuts each advance to whole pixels, as the
-stb_truetype atlas the shell drew from before did, and `Typeface` draws each glyph there through
-SDL3_ttf, unhinted.
+`hhea` ascent-to-descent line box is whole pixels with the baseline on a whole pixel, keeps each
+advance exact, and `Typeface` draws each glyph at that fractional pen through SDL3_ttf, unhinted:
+Cal Sans's space is 0.164 em, under two pixels in toasts and captions, so a whole-pixel advance or
+glyph position runs words together. The toolkit's face (`interfaceText`) is laid out by SDL3_ttf
+with each glyph on a whole pixel, and its spaces still blur into the words in Settings subtitles
+at 1280x800 and 70%.
 
 Gap: the per-platform HSL tinting the reference applies to artwork is not
 implemented, so covers are shown at their store's own colours.

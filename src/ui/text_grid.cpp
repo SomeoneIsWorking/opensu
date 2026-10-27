@@ -53,7 +53,7 @@ float TextGrid::ascent() const noexcept {
 }
 
 float TextGrid::advance(char32_t codepoint) const noexcept {
-    return std::trunc(face_.advance(codepoint) * pixelsPerUnit_) * stretch_ + tracking_;
+    return face_.advance(codepoint) * pixelsPerUnit_ * stretch_ + tracking_;
 }
 
 float TextGrid::measure(std::string_view text) const noexcept {
