@@ -3,10 +3,18 @@
 // after SteamGridDB's API page opens in the default browser, kept in the secret store and handed
 // to the artwork source; Disconnect forgets it. Every step runs on its own worker; the loop takes
 // what happened with `take`.
+//
+// Which browser Connect uses: openSU's own Steam (Managed, Isolated) is started in its mode when
+// it is not up and waited for until logged on, then signs in through Big Picture's browser; a
+// desktop Steam that refuses it (Blocked) or a Steam that does not start is an error, not the
+// default browser. Normal signs in through the desktop Steam when its DevTools answer, else the
+// default browser. Only with no Steam to use (off, not installed, a hidden run starting none) does
+// Connect go straight to the default browser.
 #pragma once
 
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <stop_token>
@@ -17,6 +25,7 @@
 
 #include "artwork/steamgriddb.hpp"
 #include "host/secret_store.hpp"
+#include "launch/steam_gate.hpp"
 #include "steam/steamgriddb_sign_in.hpp"
 
 namespace opensu::app {
@@ -28,6 +37,8 @@ class SteamGridDbAccount {
         /// The saved key is being read.
         Loading,
         Disconnected,
+        /// openSU's own Steam is started, or waited for until it is logged on.
+        StartingSteam,
         /// Steam's browser is being asked to open SteamGridDB.
         OpeningSteam,
         /// The player confirms Steam's sign-in page.
@@ -64,6 +75,11 @@ class SteamGridDbAccount {
         steam::SteamGridDbSignIn::Timing timing{};
         /// Opens a URL in the player's default browser.
         std::string browser{"xdg-open"};
+        /// The Steam client in force, asked on the main loop at each Connect; null when there is
+        /// none to use. It outlives this.
+        std::function<launch::SteamGate*()> steam{[] {
+            return nullptr;
+        }};
     };
 
     /// Starts the worker, which first reads the saved key.
@@ -85,12 +101,19 @@ class SteamGridDbAccount {
     void disconnect();
 
     [[nodiscard]] Status status() const;
+    /// Whether a sign-in through Steam is under way, whose pages the player answers in Steam's
+    /// own windows.
+    [[nodiscard]] bool signingIn() const;
+    /// Whether `state` is one of a sign-in through Steam.
+    [[nodiscard]] static bool signingIn(State state) noexcept;
     /// What happened since the last call. Main loop only.
     [[nodiscard]] std::vector<News> take();
 
   private:
     struct Load {};
-    struct Connect {};
+    struct Connect {
+        launch::SteamGate* steam{nullptr};
+    };
     struct OpenPage {};
     struct UseKey {
         std::string key;
@@ -102,6 +125,11 @@ class SteamGridDbAccount {
     void run(const std::stop_token& stop);
     void perform(const Load& load, const std::stop_token& stop);
     void perform(const Connect& connect, const std::stop_token& stop);
+    /// Starts openSU's own Steam when it is not up and waits until it is logged on; false, told
+    /// to the player, when it does not get there.
+    [[nodiscard]] bool bringUp(launch::SteamGate& steam, const std::stop_token& cancelled);
+    /// No Steam to sign in with: the API page in the default browser and the key typed in.
+    void askForKey(const std::string& why, const std::stop_token& stop);
     void perform(const OpenPage& page, const std::stop_token& stop);
     void perform(UseKey& use, const std::stop_token& stop);
     void perform(const Disconnect& disconnect, const std::stop_token& stop);

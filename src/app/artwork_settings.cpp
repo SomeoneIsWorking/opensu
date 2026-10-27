@@ -20,21 +20,18 @@ std::string statusText(const SteamGridDbAccount::Status& status) {
         return "Reading the saved key";
     case State::Disconnected:
         return "Not connected";
+    case State::StartingSteam:
+        return "Starting Steam";
     case State::OpeningSteam:
         return "Opening SteamGridDB in Steam";
     case State::WaitingForPlayer:
-        return "Confirm the sign-in in Steam's window";
+        return "Confirm the sign-in on Steam's page";
     case State::ReadingKey:
         return "Reading the API key";
     case State::Connected:
         return status.refused ? "SteamGridDB refused the key" : "Connected";
     }
     return {};
-}
-
-bool signingIn(State state) {
-    return state == State::OpeningSteam || state == State::WaitingForPlayer ||
-           state == State::ReadingKey;
 }
 
 } // namespace
@@ -49,7 +46,7 @@ ui::SettingsCategory ArtworkSettings::page() const {
     }
     page.rows.push_back(
         ui::makeRow(statusId, RowKind::Info, "SteamGridDB", note, statusText(status)));
-    if (signingIn(status.state)) {
+    if (SteamGridDbAccount::signingIn(status.state)) {
         page.rows.push_back(
             ui::makeRow(cancelId, RowKind::Action, "Cancel", "Ends the sign-in through Steam", ""));
         return page;

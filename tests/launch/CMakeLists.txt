@@ -1,5 +1,6 @@
 add_executable(handoff_test handoff_test.cpp)
 target_link_libraries(handoff_test PRIVATE opensu::launch opensu::library lucent::lucent Threads::Threads)
+target_include_directories(handoff_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 add_test(NAME handoff COMMAND handoff_test)
 set_tests_properties(handoff PROPERTIES TIMEOUT 240)
 
