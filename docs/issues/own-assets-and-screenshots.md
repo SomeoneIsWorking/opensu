@@ -15,3 +15,6 @@ Decided:
   catalogue: the player: "you don't have to mock the games for them, you can use my own libraries
   for the shots". No account names, user names, home paths or sign-in state in any shot; game art
   credited as the stores' and publishers' in `docs/screenshots/CREDITS.md`.
+- No adult games in any shot ("don't show any NSFW games there", some came from giveaways): the
+  shot's library is filtered on Steam's content descriptors (sexual content, adult only) and the
+  stores' age ratings, and every frame is looked over before it is committed.
