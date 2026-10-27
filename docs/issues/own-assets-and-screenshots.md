@@ -17,5 +17,7 @@ Decided:
   credited as the stores' and publishers' in `docs/screenshots/CREDITS.md`.
 - No sexual content in any shot ("don't show any NSFW games there", "Violent games are fine"): the
   shot's library leaves out games with Steam's content descriptors 3 (Adult Only Sexual Content)
-  and 4 (Frequent Nudity or Sexual Content), not age ratings or violence, and every frame is
-  looked over before it is committed.
+  and 4 (Frequent Nudity or Sexual Content), GOG's catalogue tags for nudity and sexual content
+  (the player has explicit games on GOG), and every game the player hid in openSU; not age ratings
+  or violence. Every frame is looked over before it is committed; a game that slips through is
+  excluded by id and the shot retaken.
