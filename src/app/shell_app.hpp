@@ -42,10 +42,11 @@
 #include "game_launch.hpp"
 #include "game_screen.hpp"
 #include "game_settings.hpp"
-#include "game_settings_page.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pad_source.hpp"
 #include "gamescope_windows.hpp"
+#include "giveaways/giveaway_board.hpp"
+#include "giveaways_controller.hpp"
 #include "guide_menu_controller.hpp"
 #include "host_services.hpp"
 #include "input/keyboard_bindings.hpp"
@@ -55,12 +56,15 @@
 #include "launch/handoff.hpp"
 #include "launch/process_tree.hpp"
 #include "launch_mailbox.hpp"
+#include "layered_editor.hpp"
+#include "layered_settings.hpp"
 #include "layout_picker.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
 #include "library/lossless_scaling.hpp"
 #include "library/shelf.hpp"
 #include "mapping_editor.hpp"
+#include "offer_claim.hpp"
 #include "pad_owner.hpp"
 #include "panel_flow.hpp"
 #include "path_editor.hpp"
@@ -167,7 +171,6 @@ class ShellApp final : private PointerHost {
     void scroll(int steps) override;
     void screens(const PointerFrame& frame) override;
     void chooseLevel(int level) override;
-    void chooseTab(std::size_t index) override;
     void contextMenu(const ui::PointerTarget& target) override;
     /// A click on a dock item: the same section change as L1 and R1.
     void clickSection(library::Section section);
@@ -235,9 +238,10 @@ class ShellApp final : private PointerHost {
     void syncChrome();
     /// The trail the top bar shows for where the shell is now.
     [[nodiscard]] ui::Trail currentTrail() const;
-    /// Shows the running game under its video settings again after `game`'s layers changed, when
-    /// it is that game on a built-in core.
-    void applyVideo(const library::Game& game);
+    /// Opens `game`'s settings in the layered editor, as a page or a panel over the running game;
+    /// `closed` runs when Back closes it.
+    void openGameSettings(const library::Game& game, EditorLook look,
+                          std::function<void()> closed = {});
     /// The game whose window is in front: the running game, unless Gamescope's focus is on
     /// another window; null when none.
     [[nodiscard]] const library::Game* gameInFront() const;
@@ -422,18 +426,40 @@ class ShellApp final : private PointerHost {
         emulatorDownloads_, EmulatorSettings::Hooks{[this](const std::string& text, bool isError) {
             shell_.setToast(text, isError);
         }}};
-    /// Settings › Emulators' pages for Global, each console and each core.
+    /// What the layered editor edits, from Settings, a game's details or the quick menu.
+    LayeredSettings layered_{
+        LayeredSettings::Sources{gameSettings_,
+                                 [this]() -> const library::roms::Emulators& {
+                                     return emulatorSettings_.found();
+                                 },
+                                 emulatorDownloads_.shaderPack(), frameGeneration_, retro_,
+                                 CoreOptionStore{environment_.cacheDir / "core-options"}},
+        LayeredSettings::Hooks{[this](const std::string& id) -> std::optional<library::Game> {
+                                   if (const library::Game* game = ownGame(id)) {
+                                       return *game;
+                                   }
+                                   return std::nullopt;
+                               },
+                               [this]() -> const library::Game* {
+                                   return shell_.inGame() ? &launches_.game() : nullptr;
+                               },
+                               [this] {
+                                   reloadCatalog();
+                               },
+                               [this] {
+                                   details_.refresh();
+                                   settingsScreen_.refresh();
+                                   quickMenu_.refresh();
+                               },
+                               [this](const std::string& text, bool isError) {
+                                   shell_.setToast(text, isError);
+                               }}};
+    /// Settings › Emulators' rows for Global, each console and each core.
     LayerSettings layerSettings_{gameSettings_,
                                  [this]() -> const library::roms::Emulators& {
                                      return emulatorSettings_.found();
                                  },
-                                 emulatorDownloads_.shaderPack(),
-                                 LayerSettings::Hooks{[this] {
-                                                          reloadCatalog();
-                                                      },
-                                                      [this] {
-                                                          details_.refresh();
-                                                      }}};
+                                 layered_};
     /// The button mappings, and their page over the details page and Settings › Controls.
     MappingEditor mappings_{
         shell_.mappingPage(),
@@ -482,10 +508,13 @@ class ShellApp final : private PointerHost {
                                      mappings_.openGame(game);
                                  },
                                  [this](const library::Game& game) {
-                                     gameSettingsPage_.open(game, nullptr);
+                                     openGameSettings(game, EditorLook::Page);
                                  },
-                                 [this] {
-                                     return frameGeneration_.available();
+                                 [this](const library::Game& game) -> std::optional<std::size_t> {
+                                     if (!layered_.offers(game)) {
+                                         return std::nullopt;
+                                     }
+                                     return layered_.kept(game);
                                  },
                                  [this](const library::Game& game) {
                                      covers_.choose(game.id);
@@ -601,10 +630,10 @@ class ShellApp final : private PointerHost {
     SettingsController settingsScreen_{
         shell_.screens().navigator(),
         shell_.screens().chrome(),
-        SettingsController::Services{paths_, shortcutEditor_, volume_, shell_.shortcuts(),
-                                     emulatorSettings_, layerSettings_, steamLibrarySettings_,
-                                     pluginSettings_, chordSettings_, mappings_, wineSettings_,
-                                     integrationSettings_, artworkSettings_, integrations_},
+        SettingsController::Services{
+            paths_, shortcutEditor_, volume_, shell_.shortcuts(), emulatorSettings_, layerSettings_,
+            layered_, steamLibrarySettings_, pluginSettings_, chordSettings_, mappings_,
+            wineSettings_, integrationSettings_, artworkSettings_, integrations_},
         sounds_,
         preferences_,
         environment_,
@@ -672,7 +701,7 @@ class ShellApp final : private PointerHost {
             [this] {
                 const bool inGame = shell_.inGame();
                 const bool retro = inGame && retro_.status().has_value();
-                const bool settings = inGame && (retro || frameGeneration_.available());
+                const bool settings = inGame && !layered_.sectionsOf(launches_.game()).empty();
                 return ui::GuideContext{inGame,
                                         launches_.game().title,
                                         settings,
@@ -700,7 +729,7 @@ class ShellApp final : private PointerHost {
             },
             [this] {
                 closePages();
-                gameSettingsPage_.open(launches_.game(), nullptr);
+                openGameSettings(launches_.game(), EditorLook::Panel);
             },
             [this] {
                 const RetroSession::Outcome outcome =
@@ -744,29 +773,15 @@ class ShellApp final : private PointerHost {
                                        shell_.setToast(text, isError);
                                    },
                                    [this] {
-                                       gameSettingsPage_.open(launches_.game(), [this] {
-                                           quickMenu_.reopenOnGameSettings();
-                                       });
+                                       quickMenu_.close();
+                                       openGameSettings(launches_.game(), EditorLook::Panel,
+                                                        [this] {
+                                                            quickMenu_.reopenOnGameSettings();
+                                                        });
                                    },
                                    [this] {
-                                       return frameGeneration_.available();
+                                       return layered_.sectionsOf(launches_.game());
                                    }}};
-    /// The game settings tabs, from the quick menu over a running game or over the details page.
-    GameSettingsPage gameSettingsPage_{
-        shell_.guidePanels().tabs(),
-        gameSettings_,
-        emulatorDownloads_,
-        frameGeneration_,
-        retro_,
-        sounds_,
-        GameSettingsPage::Hooks{[this](const library::Game& game) {
-                                    details_.refresh();
-                                    applyVideo(game);
-                                    frameGeneration_.changed();
-                                },
-                                [this](const std::string& text, bool isError) {
-                                    shell_.setToast(text, isError);
-                                }}};
     /// After shell_ and the host it drives.
     PointerRouter pointer_{shell_.inputDevice(), *this};
     /// Held directions, from a pad or the keyboard, repeat on one schedule.
@@ -792,6 +807,37 @@ class ShellApp final : private PointerHost {
         .steam = [this] {
             return integrationSwitch_.steamInUse();
         }}};
+    /// The stores' free-to-keep offers, read in the background and kept in the cache.
+    giveaways::GiveawayBoard giveawayBoard_{resolved_.cacheDir};
+    /// Claim on a giveaway; after the Steam client whose Big Picture it may show the page in.
+    OfferClaim offerClaim_{OfferClaim::Parts{.steam = [this] {
+        return integrationSwitch_.steamInUse();
+    }}};
+    /// The Giveaways screens, opened from Library's tile.
+    GiveawaysController giveaways_{GiveawaysController::Parts{
+        .navigator = shell_.screens().navigator(),
+        .chrome = shell_.screens().chrome(),
+        .images = shell_.screens().images(),
+        .board = giveawayBoard_,
+        .claim = offerClaim_,
+        .games = [this]() -> const std::vector<library::Game>& {
+            return games_;
+        },
+        .turnedOn =
+            [this] {
+                std::vector<library::Source> on;
+                for (const library::Source store :
+                     {library::Source::Steam, library::Source::Gog, library::Source::Epic}) {
+                    if (integrations_.current().lists(store)) {
+                        on.push_back(store);
+                    }
+                }
+                return on;
+            },
+        .say =
+            [this](std::string text, bool error) {
+                shell_.setToast(std::move(text), error);
+            }}};
     /// The Settings screen's Steam libraries category; after the client it asks.
     SteamLibrarySettings steamLibrarySettings_{
         SteamLibrarySettings::Sources{steam_.libraries(),
@@ -911,7 +957,7 @@ class ShellApp final : private PointerHost {
                 },
             .steamWindowsWanted =
                 [this] {
-                    return steamGridDbAccount_.signingIn();
+                    return steamGridDbAccount_.signingIn() || offerClaim_.inSteam();
                 }}};
     /// The first-run card that asks which integrations to use.
     FirstRunChooser firstRun_{shell_.sessionPanels().integrations(), integrations_, sounds_,

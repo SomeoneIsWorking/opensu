@@ -31,6 +31,36 @@ std::optional<bool> BigPicture::shown(std::string& error) {
     return up->is_boolean() && up->get<bool>();
 }
 
+bool BigPicture::show(const std::stop_token& stop, std::chrono::steady_clock::time_point deadline,
+                      std::chrono::milliseconds poll, bool& opened, std::string& error) {
+    std::optional<bool> up = shown(error);
+    if (!up) {
+        return false;
+    }
+    if (*up) {
+        return true;
+    }
+    if (!open(error)) {
+        return false;
+    }
+    opened = true;
+    while (rest(stop, poll)) {
+        if (std::chrono::steady_clock::now() > deadline) {
+            error = "Steam's Big Picture did not open";
+            return false;
+        }
+        up = shown(error);
+        if (!up) {
+            return false;
+        }
+        if (*up) {
+            return true;
+        }
+    }
+    error = "cancelled";
+    return false;
+}
+
 bool BigPicture::close() {
     std::string error;
     if (!devTools_.evaluate("SteamClient.UI.ExitBigPictureMode()", error)) {
@@ -39,6 +69,12 @@ bool BigPicture::close() {
     }
     lucent::info("steam", "closed Big Picture");
     return true;
+}
+
+bool openInSteamBrowser(DevTools& devTools, const std::string& url, std::string& error) {
+    const std::string target = nlohmann::json("steam://openurl/" + url).dump();
+    return devTools.evaluate("SteamClient.URL.ExecuteSteamURL(" + target + "), true", error)
+        .has_value();
 }
 
 } // namespace opensu::steam

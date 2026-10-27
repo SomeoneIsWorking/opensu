@@ -201,7 +201,7 @@ std::vector<ShelfItem> searchShelf(const LibraryView& view, std::string_view tex
     };
     for (ShelfItem& item : libraryShelf(view.games, view.sources)) {
         const std::optional<Folder> folder = folderOf(item);
-        consider(item, folder ? name(*folder) : std::string{}, true);
+        consider(item, folder ? name(*folder) : std::string{giveawaysName}, true);
     }
     for (ShelfItem& item : allGamesShelf(view.games)) {
         consider(item, std::get<Game>(item).title, false);

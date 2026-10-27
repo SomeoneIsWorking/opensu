@@ -4,14 +4,12 @@
 #include <chrono>
 #include <string>
 
-#include "game_settings_page.hpp"
 #include "library/emulator_choice.hpp"
 #include "library/rom_systems.hpp"
 #include "library/wine.hpp"
 #include "retro_launch.hpp"
-#include "settings/framegen_settings.hpp"
 #include "settings/video_settings.hpp"
-#include "shader_preset_picker.hpp"
+#include "shader_preset_tree.hpp"
 
 namespace opensu::app {
 namespace {
@@ -40,7 +38,6 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
     }
     const library::roms::EmulatorCatalog& catalog = downloads_.setup().catalog;
     const settings::LayerKeys keys = library::layerKeysOf(game);
-    const settings::Layer gameLayer{settings::Layer::Kind::Game, game.id};
     if (builtInOf(game, catalog) != nullptr) {
         const settings::Resolved shader = settings::resolveShader(layers, keys);
         for (const settings::ChoiceKey& video : settings::videoKeys) {
@@ -59,19 +56,12 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
                                                    sourceText(shader.from, catalog)});
         }
     }
-    if (offersGameSettings(game, catalog, hooks_.frameGeneration())) {
-        // "Inherited" only when the game keeps none of its own.
-        const auto kept = layers.layers().find(gameLayer);
-        const std::size_t custom = kept == layers.layers().end() ? 0 : kept->second.size();
-        view.buttons.push_back(
-            ui::DetailsButton{ui::DetailsAction::GameSettings, "Game settings",
-                              custom == 0 ? std::string{"Inherited"}
-                                          : std::to_string(custom) + " custom setting" +
-                                                (custom == 1 ? "" : "s")});
-    }
-    if (layers.layers().contains(gameLayer)) {
-        view.buttons.push_back(
-            ui::DetailsButton{ui::DetailsAction::ClearSettings, "Clear game settings", ""});
+    if (const std::optional<std::size_t> kept = hooks_.gameSettings(game)) {
+        const std::size_t custom = *kept;
+        view.buttons.push_back(ui::DetailsButton{
+            ui::DetailsAction::GameSettings, "Game settings",
+            custom == 0 ? std::string{"Inherited"}
+                        : std::to_string(custom) + " custom setting" + (custom == 1 ? "" : "s")});
     }
     return view;
 }
@@ -171,9 +161,6 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::GameSettings:
         hooks_.openGameSettings(*game);
         break;
-    case ui::DetailsAction::ClearSettings:
-        clearSettings(*game);
-        break;
     case ui::DetailsAction::DownloadEmulator:
         downloadEmulator(*game);
         break;
@@ -197,24 +184,6 @@ void DetailsController::run(ui::DetailsAction action) {
     case ui::DetailsAction::Back:
         break;
     }
-}
-
-void DetailsController::clearSettings(const library::Game& game) {
-    const settings::Layer own{settings::Layer::Kind::Game, game.id};
-    settings::SettingLayers& layers = gameSettings_.layers();
-    const bool picked = layers.at(own, library::emulatorKey) != nullptr;
-    for (const settings::ChoiceKey& video : settings::videoKeys) {
-        layers.clear(own, video.key);
-    }
-    layers.clear(own, settings::shaderKey);
-    sounds_.play(audio::Effect::Navigation);
-    if (picked) {
-        // Saves, and reads the library again for the choice under the pick.
-        hooks_.chooseEmulator(game, "");
-    } else {
-        gameSettings_.save();
-    }
-    refresh();
 }
 
 void DetailsController::downloadEmulator(const library::Game& game) {

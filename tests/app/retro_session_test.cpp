@@ -56,8 +56,8 @@ void requestsReachTheRunner() {
     expect(after && after->hasState, "the runner has the state");
     expect(session.loadState().empty() && session.reset().empty(), "load and reset are done");
     const std::vector<app::RetroSession::CoreOption> options = session.options();
-    expect(options.size() == 1 && options.front().key == "mgba_color" &&
-               options.front().value == "OFF" && options.front().values.size() == 2,
+    expect(options.size() == 1 && options.front().definition.key == "mgba_color" &&
+               options.front().value == "OFF" && options.front().definition.values.size() == 2,
            "the runner's core options are read");
     expect(session.setOption("mgba_color", "GBA").empty(), "an option is set");
     expect(session.options().front().value == "GBA", "the runner holds the new value");

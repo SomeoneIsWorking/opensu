@@ -72,12 +72,6 @@ class SteamGridDbSignIn {
     run(const std::stop_token& stop, const std::function<void(Step)>& step, std::string& error);
 
   private:
-    /// Opens Big Picture unless it shows and waits until it does; false with `error` when it does
-    /// not come up before `deadline` or `stop`.
-    [[nodiscard]] bool showBigPicture(const std::stop_token& stop,
-                                      std::chrono::steady_clock::time_point deadline, bool& opened,
-                                      std::string& error);
-
     std::uint16_t port_;
     Timing timing_;
     View view_;

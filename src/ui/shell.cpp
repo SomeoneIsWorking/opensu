@@ -39,6 +39,9 @@ TileKind kindOf(const library::ShelfItem& item) noexcept {
     if (std::holds_alternative<library::Launcher>(item)) {
         return TileKind::Launcher;
     }
+    if (std::holds_alternative<library::Giveaways>(item)) {
+        return TileKind::Giveaways;
+    }
     return std::holds_alternative<library::AllGames>(item) ? TileKind::AllGames : TileKind::Game;
 }
 
@@ -50,6 +53,9 @@ ScrollMode scrollModeFor(config::HomeMode mode) noexcept {
 std::string shelfKey(const library::ShelfItem& item) {
     if (const auto* game = std::get_if<library::Game>(&item)) {
         return game->id;
+    }
+    if (std::holds_alternative<library::Giveaways>(item)) {
+        return "giveaways";
     }
     const std::optional<library::Folder> folder = library::folderOf(item);
     return folder ? "folder:" + library::key(*folder) : std::string{};
@@ -185,6 +191,9 @@ void Shell::fillTile(Tile& tile, library::ShelfItem item) const {
         tile.logo = iconFor(launcher->source);
     } else if (const auto* all = std::get_if<library::AllGames>(&tile.item)) {
         tile.caption = gameCount(all->games);
+    } else if (std::holds_alternative<library::Giveaways>(tile.item)) {
+        tile.title = std::string{library::giveawaysName};
+        tile.caption = "Free to keep";
     } else {
         for (const library::Source source : std::get<library::Game>(tile.item).ownedIn) {
             if (const std::optional<Icon> icon = iconFor(source)) {
@@ -321,9 +330,11 @@ void Shell::loadArtwork(std::size_t uploads) {
                                   gpu2d::Filter::Nearest};
         },
         tiles_, header_, artWindow(), uploads);
-    coverArt_.load(cover_, [&gpu](const gpu2d::image::Bitmap& pixels) {
+    const auto linear = [&gpu](const gpu2d::image::Bitmap& pixels) {
         return gpu2d::Texture{gpu, pixels.rgba, pixels.width, pixels.height, gpu2d::Filter::Linear};
-    });
+    };
+    coverArt_.load(cover_, linear);
+    screens_.images().load(linear);
 }
 
 void Shell::loadArtworkNow() {
@@ -642,7 +653,15 @@ std::string Shell::focusedTitle() const {
     if (const std::optional<library::Folder> folder = focusedFolder()) {
         return library::name(*folder);
     }
+    if (focusedGiveaways()) {
+        return std::string{library::giveawaysName};
+    }
     return {};
+}
+
+bool Shell::focusedGiveaways() const {
+    return focus_.index() < tiles_.size() &&
+           std::holds_alternative<library::Giveaways>(tiles_[focus_.index()].item);
 }
 
 std::string Shell::pillTitle() const {
@@ -1050,8 +1069,7 @@ bool Shell::focusTarget(const PointerTarget& target) {
             } else if constexpr (std::is_same_v<Target, OnGuideEntry> ||
                                  std::is_same_v<Target, OnGuidePower> ||
                                  std::is_same_v<Target, OnQuickRow> ||
-                                 std::is_same_v<Target, OnQuickSlider> ||
-                                 std::is_same_v<Target, OnTabRow>) {
+                                 std::is_same_v<Target, OnQuickSlider>) {
                 return guide_.focusTarget(at);
             } else if constexpr (std::is_same_v<Target, OnDownloadRow> ||
                                  std::is_same_v<Target, OnDownloadAction>) {
@@ -1126,7 +1144,8 @@ void Shell::drawPages(Canvas& canvas, Point size) {
 void Shell::drawOverGame(Canvas& canvas, Point size) {
     // Only what the Guide menus open is drawn; the game shows through everywhere else.
     drawPages(canvas, size);
-    if (screens_.visible() || menuPageVisible()) {
+    // A panel over the game (a game's settings) leaves the top bar out; a page has it.
+    if (screens_.paged() || menuPageVisible()) {
         hud_.drawTopBar(canvas);
         hud_.drawHints(canvas);
     }

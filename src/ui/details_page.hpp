@@ -31,10 +31,8 @@ enum class DetailsAction : std::uint8_t {
     Hidden,
     /// Uninstall an installed store game, on a second press.
     Uninstall,
-    /// Open the game settings tabs over the page.
+    /// Open the game's settings over the page.
     GameSettings,
-    /// Clear every setting the game keeps of its own.
-    ClearSettings,
     /// Pick the game's cover from SteamGridDB's.
     ChooseArtwork,
     /// Edit the game's button mapping.
@@ -87,8 +85,7 @@ struct GameSettingsView {
     std::string emulatorSource;
     /// After the Emulator row: the value of each setting a layer keeps and where it comes from.
     std::vector<DetailsRow> rows;
-    /// After the Emulator button: `GameSettings` on a built-in core, then `ClearSettings` when the
-    /// game keeps any of its own.
+    /// After the Emulator button: `GameSettings` when the game has anything to set.
     std::vector<DetailsButton> buttons;
 };
 

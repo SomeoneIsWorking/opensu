@@ -72,11 +72,12 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/settings/game_settings_store.*` | `<config>/opensu/game-settings.json`, every layer of every key |
 | `src/settings/emulator_pick_migration.*` | The one-time move of `settings.json`'s `emulators` and `systemEmulators` into the game settings |
 | `src/app/game_settings.*` | The layers as the shell holds them, saved with a toast on failure; the words a source reads with |
-| `src/app/retro_launch.*` | A launch on a built-in core: its video settings resolved, written to the launch's settings file, `--settings` added |
-| `src/app/layer_settings.*` | Settings › Emulators' Global, console and core pages; the only place the core layer is set |
-| `src/app/game_settings_page.*` | The game settings tabs (Global, console, Game) with Override checkboxes, each change saved and sent to the running game |
-| `src/ui/settings_tabs.*`, `settings_tabs_painter.*` | The tabbed side panel's state, layout and drawing: tabs, rows with an Override checkbox and their two focus places |
-| `src/app/shader_preset_picker.*` | The Shader preset picker: Not set, None, then the pack's folder tree |
+| `src/app/retro_launch.*` | A launch on a built-in core: its video settings resolved, written to the launch's settings file, `--settings` added; the core options the layers keep as `--option` |
+| `src/settings/setting_schema.*`, `setting_scope.*`, `core_option_settings.*` | Every layered setting declared once (video, shader preset, frame generation, the emulator pick, a core's options), validation and clear from it; a scope's rows with the value in effect and its source |
+| `src/app/layer_settings.*` | Settings › Emulators' Global, Consoles and Built-in cores rows, each opening the layered editor |
+| `src/app/layered_settings.*`, `layered_editor.*` | The one layered editor (any scope; a page or a panel over the game) and what it edits, each change saved and applied to the running game |
+| `src/app/core_option_store.*` | Each core's option definitions as last seen, for editing while nothing runs |
+| `src/app/shader_preset_tree.*` | The shader pack's folder tree and a preset's label; the picker is `ShaderPresetScreen` in `layered_editor` |
 | `src/library/shader_pack.*` | libretro's `shaders_slang.zip`: the latest build (HEAD: `Last-Modified` and size), the download checked by length and each member's CRC-32, unpacked into `<data>/opensu/shaders/slang/` with its record, removal, the presets it holds |
 | `src/library/libretro_cores.*` | Finding a core and its info file; core downloads from the libretro buildbot under `<data>/opensu/cores/`, with their info and record |
 | `src/library/core_bios.*` | A core's BIOS files from its core info, what it does without them, which are in the system folder |
@@ -160,8 +161,8 @@ socket timeout.
 state (one press), Load state (a second press confirms; an Info row reading "No state saved" when
 the slot is empty) and Reset game (a second press confirms) above Close game. A focus move takes the
 first press back. The results are toasts: "State saved", "State loaded", "Game reset", or the
-runner's reason as an error. Its "Game settings" row opens the game settings tabs (below) over the
-game; B from them comes back to the quick menu on that row.
+runner's reason as an error. Its "Game settings" row opens the layered editor (below) as a panel over the
+game; B from it comes back to the quick menu on that row.
 
 **Input.** The runner reads every evdev pad without grabbing it. While the shell holds the real
 pads during a game, the only pad that moves is the shell's virtual Xbox 360 pad, so the Guide
@@ -193,21 +194,21 @@ default; a layer keeps only what it sets and clearing deletes the key. At launch
 (`app/retro_launch`) resolves them for a game on a built-in core, writes
 `<runtime>/opensu/retro-<shell pid>-<n>.settings.json` and starts the runner with `--settings`; the
 file is removed when the session ends. A launch whose file cannot be written does not start.
-Settings › Emulators has a page for Global, each console (its emulator too) and each built-in
-core; a game's details page shows the source of each value a layer keeps and "Clear game
-settings".
+Settings › Emulators opens the layered editor for Global, each console (its emulator pick too) and
+each built-in core; a game's details page shows the source of each value a layer keeps.
 
-The game settings tabs (`app/game_settings_page`, from the details page's "Game settings" button
-and the quick menu's row) show Global, the game's console and Game, each with the five video rows.
-Global rows are plain values; console and Game rows have an Override checkbox: unticked the row
-shows the inherited value dimmed with its source ("From Global", "From Snes9x (built-in)",
-"Default"), ticked the value is the layer's own and opens for editing, and unticking deletes the
-key. The core layer is not a tab: it is set in Settings › Emulators and shows only as a source
-(the console tab inherits Global and the default, `SettingLayers::inherited`; a row a layer above
-overrides says "Overridden by <layer>"). L1/R1 switch tabs, A ticks or opens, Left/Right move
-between the checkbox and the value, B backs out; a tap focuses and presses A. Each change is
-saved at once and, when that game is running, resolved again (`retroVideoOf`) and sent as
-`POST /video`, so it shows on the next frame. To check: `opensu-retro --hidden --settings <file> --frames N --frame-png <png>`
+The layered editor (`app/layered_editor` over `app/layered_settings`, from Settings › Emulators,
+the details page's "Game settings" button and the quick menu's row) has a tab per scope (Global,
+the console, the core, the game), LB/RB between them. Each row shows the value in effect with a chip
+naming its layer ("Global", "Game Boy Advance", "mGBA", "This game", "Default"); choosing sets it at
+the tab's scope; the first entry of every list is "Use <value> from <layer>", which deletes the
+scope's key (Y too; Y again restores it during the session); X goes to the tab the value comes from.
+Shown-when conditions (Sampling and Filter under a shader preset, the frame generation detail rows
+under Custom) read the values in effect at the tab's scope. The core's own options are rows of the
+same editor at the core's and the game's layers, as `core.<option>`; a launch passes them as
+`--option`, and a running core gets a change over `POST /option`. Each change is saved at once and,
+when that game is running, resolved again (`retroVideoOf`) and sent as `POST /video`, so it shows
+on the next frame. To check: `opensu-retro --hidden --settings <file> --frames N --frame-png <png>`
 and compare the picture's box in the PNG; for a filter, divide its frame by the `none` frame inside
 the box and compare each pixel with 1 − shade × band coverage.
 

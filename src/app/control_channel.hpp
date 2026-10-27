@@ -107,10 +107,8 @@ struct ShellSnapshot {
     bool quickMenuOpen{false};
     /// The quick menu's focused row id; empty while it is closed.
     std::string quickFocus;
-    /// The game settings page's tab on show and its focus (`<row id>:override` or `:value`);
-    /// empty while it is closed.
-    std::string settingsTab;
-    std::string settingsFocus;
+    /// The layered editor's scope on show ("Global", "This game"); empty while it is closed.
+    std::string settingsScope;
     /// The interface toolkit's top screen (`settings`, a page's id, `dialog`, `choice`) and its
     /// focused widget; empty while none is open.
     std::string screen;

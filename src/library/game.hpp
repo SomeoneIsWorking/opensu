@@ -25,6 +25,9 @@ enum class Source : std::uint8_t {
 /// The store's display name.
 [[nodiscard]] std::string_view label(Source source);
 
+/// The store's name in lower case, as keys spell it: "steam", "epic", "gog".
+[[nodiscard]] std::string key(Source source);
+
 /// The command that starts a game. Every source fills this in, so launching
 /// needs no knowledge of which store owns a title.
 struct LaunchSpec {

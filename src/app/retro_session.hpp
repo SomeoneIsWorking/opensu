@@ -12,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "settings/core_option_settings.hpp"
 #include "settings/video_settings.hpp"
 
 namespace opensu::app {
@@ -44,12 +45,12 @@ class RetroSession {
 
     /// The running game's state when it runs on opensu-retro and answers; nothing otherwise.
     [[nodiscard]] std::optional<Status> status();
+    /// One of the running core's options: how the core defines it and its value now.
     struct CoreOption {
-        std::string key;
-        std::string label;
-        std::vector<std::string> values;
+        settings::CoreOptionDefinition definition;
         std::string value;
     };
+    /// The running core's options; none when it does not answer.
     [[nodiscard]] std::vector<CoreOption> options();
     [[nodiscard]] std::string setOption(const std::string& key, const std::string& value);
     /// Each asks the runner and answers empty when it was done, else why not.

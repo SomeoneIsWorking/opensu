@@ -161,8 +161,8 @@ struct Rig {
                                       },
                                       [](const library::Game&) {
                                       },
-                                      [] {
-                                          return false;
+                                      [](const library::Game&) {
+                                          return std::optional<std::size_t>{};
                                       },
                                       [](const library::Game&) {
                                       }}};

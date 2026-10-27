@@ -2,8 +2,8 @@
 // mute and the output go through the volume owner, brightness through `BrightnessControl`,
 // Bluetooth through the shared `BluetoothSession`, and Close game ends the running game as the
 // Guide menu does. The controller batteries come from `ControllerRoster`. A running game has Game
-// settings (the settings tabs, `GameSettingsPage`, in the menu's place) when it is on opensu-retro
-// or frame generation can be set; a game on opensu-retro adds Save state, Load state and Reset game
+// settings (the layered editor as a panel, in the menu's place) when the editor has something for
+// it; a game on opensu-retro adds Save state, Load state and Reset game
 // through `RetroSession`; Load and Reset take a second press.
 #pragma once
 
@@ -38,10 +38,11 @@ class QuickMenuController {
         std::function<void()> openDevices;
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
-        /// Opens the running game's settings tabs in the menu's place.
+        /// Opens the running game's settings in the menu's place.
         std::function<void()> openGameSettings;
-        /// Whether frame generation can be set here (`FrameGeneration::available`).
-        std::function<bool()> frameGeneration;
+        /// What the running game's settings hold, as the row's note ("Video, Frame generation");
+        /// empty when it has nothing to set.
+        std::function<std::string()> gameSettings;
     };
 
     struct Services {
@@ -62,7 +63,7 @@ class QuickMenuController {
     }
 
     void open();
-    /// Opens the menu again on its Game settings row, as the settings tabs close back to it.
+    /// Opens the menu again on its Game settings row, as the game's settings close back to it.
     void reopenOnGameSettings();
     /// Closes the menu with iiSU's Close sound.
     void close();

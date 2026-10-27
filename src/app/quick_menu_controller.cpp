@@ -79,16 +79,10 @@ std::vector<SettingsRow> QuickMenuController::build() {
 }
 
 void QuickMenuController::addGameSettingsRow(std::vector<SettingsRow>& rows) {
-    const bool video = retro_.status().has_value();
-    const bool frameGeneration = hooks_.frameGeneration();
-    if (!video && !frameGeneration) {
+    const std::string note = hooks_.gameSettings();
+    if (note.empty()) {
         return;
     }
-    const std::string_view videoNote = "Aspect, filter, shader, core options";
-    const std::string note = video && frameGeneration
-                                 ? std::string{videoNote} + ", frame generation"
-                             : video ? std::string{videoNote}
-                                     : "Frame generation";
     rows.push_back(ui::makeRow(gameSettingsId, RowKind::Action, "Game settings", note, "Open"));
 }
 

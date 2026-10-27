@@ -36,6 +36,8 @@ enum class TileKind : std::uint8_t {
     Launcher,
     /// The combined library.
     AllGames,
+    /// The stores' free-to-keep offers.
+    Giveaways,
 };
 
 /// Everything one tile is drawn from.

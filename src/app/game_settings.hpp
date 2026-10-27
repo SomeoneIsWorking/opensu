@@ -1,6 +1,8 @@
 // game_settings — the setting layers as the shell holds them: loaded from `game-settings.json`
-// (with the emulator picks an older `settings.json` kept moved in once), saved with a toast when
-// the file cannot be written, and the words a layer and a value's source are shown with.
+// (with the emulator picks an older `settings.json` kept and an older frame generation mode moved
+// in once, then every value checked against the schema of what may be kept), saved with a toast
+// when the file cannot be written, a layer cleared of everything the schema owns, and the words a
+// layer and a value's source are shown with.
 #pragma once
 
 #include <filesystem>
@@ -11,10 +13,11 @@
 #include "library/emulator_catalog.hpp"
 #include "settings/game_settings_store.hpp"
 #include "settings/setting_layers.hpp"
+#include "settings/setting_schema.hpp"
 
 namespace opensu::app {
 
-/// A layer as the player reads it: "Global", "Super Nintendo", "Snes9x", "this game".
+/// A layer as the player reads it: "Global", "Super Nintendo", "Snes9x", "This game".
 [[nodiscard]] std::string layerName(const settings::Layer& layer,
                                     const library::roms::EmulatorCatalog& catalog);
 /// What a game's value reads beside it for where it comes from: "From Super Nintendo", "From
@@ -38,8 +41,13 @@ class GameSettings {
 
     /// Writes the layers; on failure logs it and reports it, and keeps the old file.
     void save();
+    /// Deletes every setting `layer` keeps and saves; how many went.
+    std::size_t clear(const settings::Layer& layer);
 
   private:
+    /// Every key the layers may keep, whatever the context: the video and frame generation
+    /// settings, the emulator pick and any core's options.
+    settings::Schema kept_;
     settings::GameSettingsStore store_;
     std::function<void(const std::string&)> onFailure_;
     settings::SettingLayers layers_;

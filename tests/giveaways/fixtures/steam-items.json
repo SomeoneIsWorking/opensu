@@ -1,0 +1,93 @@
+{
+  "response": {
+    "store_items": [
+      {
+        "item_type": 0,
+        "id": 5340370,
+        "success": 1,
+        "visible": true,
+        "name": "Popcorn & Premieren - Ausgehviertel",
+        "store_url_path": "app/5340370/Popcorn_Premieren_Ausgehviertel",
+        "store_url_slug": "Popcorn_Premieren_Ausgehviertel",
+        "appid": 5340370,
+        "type": 4,
+        "is_free": true,
+        "assets": {
+          "asset_url_format": "steam/apps/5340370/${FILENAME}?t=1792688582",
+          "main_capsule": "4b19d60cbb4aa1b2ebdaa964c3e3c654188fcf95/capsule_616x353.jpg",
+          "main_capsule_2x": "4b19d60cbb4aa1b2ebdaa964c3e3c654188fcf95/capsule_616x353_2x.jpg",
+          "small_capsule": "d86ca80108ef45e832ffefb4a43c913186269930/capsule_231x87.jpg",
+          "small_capsule_2x": "d86ca80108ef45e832ffefb4a43c913186269930/capsule_231x87_2x.jpg",
+          "header": "843485bcea45d0475504553f148de79e2cdf2da8/header.jpg",
+          "header_2x": "843485bcea45d0475504553f148de79e2cdf2da8/header_2x.jpg",
+          "hero_capsule": "38271279f72573dbdd9cba606018f77a92f37d84/hero_capsule.jpg",
+          "hero_capsule_2x": "38271279f72573dbdd9cba606018f77a92f37d84/hero_capsule_2x.jpg",
+          "page_background_path": "app/5340370?t=1792688582",
+          "last_modified": 1792688582
+        },
+        "best_purchase_option": {
+          "packageid": 1894788,
+          "purchase_option_name": "Popcorn & Premieren - Ausgehviertel Limited Free Promotional Package - Oct 2026",
+          "final_price_in_cents": "0",
+          "original_price_in_cents": "499",
+          "formatted_final_price": "$0.00",
+          "formatted_original_price": "$4.99",
+          "discount_pct": 100,
+          "is_free_to_keep": true,
+          "user_can_purchase_as_gift": false,
+          "hide_discount_pct_for_compliance": false,
+          "included_game_count": 0,
+          "free_to_keep_ends": 1793293200,
+          "must_purchase_as_set": false,
+          "package_group": "default",
+          "free_to_keep_base_package": 1845189,
+          "price_cannot_be_displayed_as_discount": false
+        },
+        "is_free_temporarily": true
+      },
+      {
+        "item_type": 0,
+        "id": 292030,
+        "success": 1,
+        "visible": true,
+        "name": "The Witcher 3: Wild Hunt — Remastered",
+        "store_url_path": "app/292030/The_Witcher_3_Wild_Hunt_Remastered",
+        "store_url_slug": "The_Witcher_3_Wild_Hunt_Remastered",
+        "appid": 292030,
+        "type": 0,
+        "assets": {
+          "asset_url_format": "steam/apps/292030/${FILENAME}?t=1790845156",
+          "main_capsule": "c9efb37645a3ee09eb131c7febd471f29fbea587/capsule_616x353_alt_assets_1.jpg",
+          "main_capsule_2x": "c9efb37645a3ee09eb131c7febd471f29fbea587/capsule_616x353_alt_assets_1_2x.jpg",
+          "small_capsule": "62fb0a4707d9fb0f729affec7d7d01dd70099769/capsule_231x87_alt_assets_1.jpg",
+          "small_capsule_2x": "62fb0a4707d9fb0f729affec7d7d01dd70099769/capsule_231x87_alt_assets_1_2x.jpg",
+          "header": "e8afc4252e3fee8ed2525ab2fd7675cca39aa38d/header_alt_assets_1.jpg",
+          "header_2x": "e8afc4252e3fee8ed2525ab2fd7675cca39aa38d/header_alt_assets_1_2x.jpg",
+          "page_background": "94a3c7f9db82538b752312f6e17f912f0899ca30/page_bg_v6.jpg",
+          "hero_capsule": "8557464ea685098b67d2f71b7a7d8c2523f215a0/hero_capsule.jpg",
+          "hero_capsule_2x": "8557464ea685098b67d2f71b7a7d8c2523f215a0/hero_capsule_2x.jpg",
+          "library_capsule": "dd1c19c4e41b120ddfa35734cc31f79254c25082/library_capsule.jpg",
+          "library_capsule_2x": "dd1c19c4e41b120ddfa35734cc31f79254c25082/library_capsule_2x.jpg",
+          "library_hero": "2dbca4868f3a9912aad6966bb0b6ab2d270f6da6/library_hero.jpg",
+          "library_hero_2x": "2dbca4868f3a9912aad6966bb0b6ab2d270f6da6/library_hero_2x.jpg",
+          "community_icon": "7b52d11edee478d652ef4e7103e00644bed2c74c",
+          "page_background_path": "app/292030?t=1790845156",
+          "raw_page_background": "94a3c7f9db82538b752312f6e17f912f0899ca30/page_bg_raw.jpg",
+          "last_modified": 1790845156
+        },
+        "best_purchase_option": {
+          "packageid": 68476,
+          "purchase_option_name": "The Witcher 3: Wild Hunt — Remastered",
+          "final_price_in_cents": "4999",
+          "formatted_final_price": "$49.99",
+          "user_can_purchase_as_gift": true,
+          "hide_discount_pct_for_compliance": false,
+          "included_game_count": 1,
+          "must_purchase_as_set": false,
+          "package_group": "default",
+          "price_cannot_be_displayed_as_discount": false
+        }
+      }
+    ]
+  }
+}

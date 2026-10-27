@@ -36,6 +36,15 @@ ui::Trail trailOf(const TrailState& state) {
         }
         return trail;
     }
+    if (state.giveaways) {
+        trail.push_back(ui::Crumb{sectionLabel(library::Section::Library), ui::CrumbKind::Section,
+                                  library::Section::Library});
+        trail.push_back(ui::Crumb{std::string{library::giveawaysName}, ui::CrumbKind::Page});
+        if (!state.offer.empty()) {
+            trail.push_back(ui::Crumb{state.offer, ui::CrumbKind::Page});
+        }
+        return trail;
+    }
     trail.push_back(ui::Crumb{sectionLabel(state.section), ui::CrumbKind::Section, state.section});
     if (state.folder) {
         trail.push_back(ui::Crumb{library::name(*state.folder), ui::CrumbKind::Folder});

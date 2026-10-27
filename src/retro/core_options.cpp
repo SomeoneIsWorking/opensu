@@ -27,6 +27,20 @@ std::vector<std::string> offeredBy(const retro_core_option_value* values) {
     return offered;
 }
 
+/// The label of each value a definition offers; the value where it names none.
+std::vector<std::string> labelsOf(const retro_core_option_value* values) {
+    std::vector<std::string> labels;
+    for (const retro_core_option_value* value = values; value->value != nullptr; ++value) {
+        labels.emplace_back(value->label != nullptr && value->label[0] != '\0' ? value->label
+                                                                               : value->value);
+    }
+    return labels;
+}
+
+std::string textOf(const char* text) {
+    return text != nullptr ? text : "";
+}
+
 std::string labelOf(const retro_core_option_v2_definition& definition) {
     if (definition.desc != nullptr && definition.desc[0] != '\0') {
         return definition.desc;
@@ -39,21 +53,30 @@ std::string labelOf(const retro_core_option_v2_definition& definition) {
 
 } // namespace
 
-void CoreOptions::define(const std::string& key, const std::string& label,
-                         const std::string& fallback, const std::vector<std::string>& offered) {
+void CoreOptions::define(const std::string& key, Defined defined) {
     const auto chosen = chosen_.find(key);
-    const bool keep =
-        chosen != chosen_.end() && std::ranges::find(offered, chosen->second) != offered.end();
+    const bool keep = chosen != chosen_.end() &&
+                      std::ranges::find(defined.offered, chosen->second) != defined.offered.end();
     if (chosen != chosen_.end() && !keep) {
         lucent::warn("retro", "core option {} has no value {}; keeping {}", key, chosen->second,
-                     fallback);
+                     defined.fallback);
     } else if (keep) {
         lucent::info("retro", "core option {} = {}", key, chosen->second);
     }
+    if (defined.labels.size() != defined.offered.size()) {
+        defined.labels = defined.offered;
+    }
+    if (defined.label.empty()) {
+        defined.label = key;
+    }
+    std::string current = keep ? chosen->second : defined.fallback;
     options_.push_back(Option{.key = key,
-                              .label = label.empty() ? key : label,
-                              .values = offered,
-                              .current = keep ? chosen->second : fallback});
+                              .label = std::move(defined.label),
+                              .info = std::move(defined.info),
+                              .values = std::move(defined.offered),
+                              .valueLabels = std::move(defined.labels),
+                              .fallback = std::move(defined.fallback),
+                              .current = std::move(current)});
 }
 
 void CoreOptions::defineVariables(const retro_variable* variables) {
@@ -73,7 +96,12 @@ void CoreOptions::defineVariables(const retro_variable* variables) {
             offered.emplace_back(choices.substr(at, bar - at));
             at = bar + 1;
         }
-        define(variable->key, std::string{text.substr(0, separator)}, offered.front(), offered);
+        std::string fallback = offered.front();
+        define(variable->key, Defined{.label = std::string{text.substr(0, separator)},
+                                      .info = {},
+                                      .fallback = std::move(fallback),
+                                      .offered = std::move(offered),
+                                      .labels = {}});
     }
 }
 
@@ -81,9 +109,12 @@ void CoreOptions::defineDefinitions(const retro_core_option_definition* definiti
     options_.clear();
     for (const retro_core_option_definition* definition = definitions;
          definition != nullptr && definition->key != nullptr; ++definition) {
-        define(definition->key, definition->desc != nullptr ? definition->desc : "",
-               defaultOf(definition->default_value, definition->values),
-               offeredBy(definition->values));
+        define(definition->key,
+               Defined{.label = textOf(definition->desc),
+                       .info = textOf(definition->info),
+                       .fallback = defaultOf(definition->default_value, definition->values),
+                       .offered = offeredBy(definition->values),
+                       .labels = labelsOf(definition->values)});
     }
 }
 
@@ -91,9 +122,13 @@ void CoreOptions::defineV2(const retro_core_options_v2& options) {
     options_.clear();
     for (const retro_core_option_v2_definition* definition = options.definitions;
          definition != nullptr && definition->key != nullptr; ++definition) {
-        define(definition->key, labelOf(*definition),
-               defaultOf(definition->default_value, definition->values),
-               offeredBy(definition->values));
+        define(definition->key,
+               Defined{.label = labelOf(*definition),
+                       .info = textOf(definition->info != nullptr ? definition->info
+                                                                  : definition->info_categorized),
+                       .fallback = defaultOf(definition->default_value, definition->values),
+                       .offered = offeredBy(definition->values),
+                       .labels = labelsOf(definition->values)});
     }
 }
 

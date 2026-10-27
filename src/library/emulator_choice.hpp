@@ -6,11 +6,13 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <vector>
 
 #include "game.hpp"
 #include "settings/setting_layers.hpp"
+#include "settings/setting_schema.hpp"
 
 namespace opensu::library {
 
@@ -42,6 +44,12 @@ struct EmulatorPick {
 /// Points each ROM with a pick that applies at that emulator: the game's `launch` and `emulator`
 /// follow the pick, and `unavailable` says so when the pick is not installed.
 void applyEmulatorPicks(const settings::SettingLayers& layers, std::vector<Game>& games);
+
+/// The emulator pick as the schema declares it where its choices are known: `names` the emulators
+/// that run the system, and the empty default (no pick) read as `automatic`. Kept at a system's
+/// layer and a game's; it takes effect at the next launch.
+[[nodiscard]] settings::Setting emulatorPickSetting(const std::vector<std::string>& names,
+                                                    std::string automatic);
 
 /// The layers `game` reads its settings through: its own, its emulator's, its system's.
 [[nodiscard]] settings::LayerKeys layerKeysOf(const Game& game);

@@ -1,13 +1,19 @@
 # UI toolkit and settings schema
 
-Status: step 1 built. `gpu2d::ui` (gpu2d `docs/ui-toolkit.md`) has the theme, layout, widget
+Status: steps 1 and 2 built. `gpu2d::ui` (gpu2d `docs/ui-toolkit.md`) has the theme, layout, widget
 tree, focus, `Navigator`, the widgets and motion; openSU's Settings screen runs on it
-(`src/app/settings_screen.*`, `src/ui/screen_stack.*`, `src/ui/interface_*`), its old page panel,
-row editing and two-press arming deleted. Not yet: a TextField widget (the folder chooser
-and its keyboard still open over Settings from `ui::SettingsPanels`); `settings::Schema` and the
-layered editor (step 2: a layer's page shows `LayerSettings`' rows as toolkit widgets, with the
-old override model behind them); `SettingsPage`, `PagePanel` and `rowEffect` stay for Devices, the
-quick menu and the game settings tabs until step 3. The player: menus "aren't intuitive", it "looks rushed", "layered
+(`src/app/settings_screen.*`, `src/ui/screen_stack.*`, `src/ui/interface_*`). Step 2: every
+layered setting is declared once in `settings::Schema` (`src/settings/setting_schema.*`: video,
+shader preset, frame generation, the emulator pick, each core's options), and one editor
+(`src/app/layered_editor.*` over `src/app/layered_settings.*`) edits any scope from Settings ›
+Emulators, a game's details and the quick menu (a panel over the game, changes applied live);
+`game_settings_page`, `shader_preset_picker`, `settings_tabs` and their painters and hit tests are
+deleted. Not yet: a TextField widget (the folder chooser and its keyboard still open over Settings
+from `ui::SettingsPanels`); `SettingsPage`, `PagePanel` and `rowEffect` stay for Devices and the
+quick menu until step 3; core options' `SET_CORE_OPTIONS_DISPLAY` is not honoured, so options a
+core hides for the loaded game (mGBA's Game Boy ones on a GBA game) are listed.
+
+The player: menus "aren't intuitive", it "looks rushed", "layered
 config not implemented well. Same for frame generation", and "a UI library like code is in order".
 
 Evidence: every screen captured at 1280x800 with a map of how each is reached

@@ -50,8 +50,6 @@ class PointerHost {
     virtual void activateCrumb(std::size_t index) = 0;
     /// A click on a slider's track (the icon size, a page or quick menu slider) at `level`.
     virtual void chooseLevel(int level) = 0;
-    /// A click on tab `index` of the game settings page.
-    virtual void chooseTab(std::size_t index) = 0;
     /// A right click on `target`: its context menu opens, an open one closes, and a target
     /// without a menu does nothing.
     virtual void contextMenu(const ui::PointerTarget& target) = 0;

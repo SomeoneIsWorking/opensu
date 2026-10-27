@@ -10,9 +10,10 @@ ROMs have no home at all.
 
 Visible deltas from the baseline:
 
-- Frame generation for the game in front, off by default: fixed ratios or adaptive to a target
-  (or the display's refresh), set per game, per console or globally on the game settings tabs,
-  inside openSU's Gamescope on Linux only. It needs the player's own Lossless Scaling from Steam
+- Frame generation for the game in front, off by default: a preset (Off, Smooth 60, Match display)
+  or Custom fixed ratios or adaptive to a target (or the display's refresh), set per game, per
+  console, per core or globally in the layered settings editor, generated inside openSU's Gamescope
+  on Linux only (outside it the section shows with a note). It needs the player's own Lossless Scaling from Steam
   (its `Lossless.dll`, read in place); Big Picture has nothing like it (S041).
 - Only ROMs and the libretro runner are on out of the box; Steam, Epic, GOG, standalone emulators
   and Lua plugins are each opted into, from a first-run chooser or Settings › Integrations (S039).
@@ -52,9 +53,10 @@ Visible deltas from the baseline:
   overscale), Sampling (nearest, bilinear, sharp-bilinear) and Filter (none, scanlines, LCD grid,
   CRT) or a slang Shader preset from libretro's pack (downloaded in Settings › Emulators, run by
   librashader; it replaces Sampling and Filter), kept per game, per core, per console and
-  globally, each value saying where it comes from, set from Global / console / Game tabs with an
-  Override checkbox per setting, on the details page and from the quick menu while the game runs,
-  where each change shows at once (S040). iiSU has no video settings for its
+  globally, each value showing where it comes from as a chip, set in one layered editor (Global,
+  console, core and game tabs; every list starts with "Use <value> from <layer>") from Settings ›
+  Emulators, the details page and the quick menu while the game runs, where each change shows at
+  once; a core's own options are kept per core and per game the same way (S040). iiSU has no video settings for its
   emulators.
 - A breadcrumb trail in the top bar's start (`Library > GOG > Search "had" > Installed > <game>`)
   names where the player is; each place in it is a pointer target that goes back to that level.
@@ -107,6 +109,7 @@ Visible deltas from the baseline:
 - The grid is ours, so layout, tile sizes and page count are ours.
 - With a SteamGridDB key, a cover Home's square tiles would crop is replaced by SteamGridDB's
   square one, and a game's details offer "Choose artwork" (SteamGridDB's covers); iiSU has neither.
+- A Library tile, Giveaways, lists the stores' free-to-keep games; iiSU has none.
 - Steam's Big Picture does not open inside openSU's session: Guide in the shell never reaches
   Steam, and Big Picture opened any other way is closed and the shell put back in front.
 - Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, or built from source. Windows,
@@ -165,11 +168,12 @@ game has been observed running yet.
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
 | S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Wine runner setting, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`) | partial | S006, S007, S020 | G001 |
-| S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) in setting layers per game, core, console and Global, set live from the quick menu's tabs, with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
+| S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) and the core's own options in setting layers per game, core, console and Global, declared once in `settings::Schema` and edited in one layered editor (Settings › Emulators, details, the quick menu's panel over the game, live), with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 | S042 | Platform seams: every Linux-only concept behind one owner with a per-OS backend picked in CMake (process launching, pads, the shell over a game, Steam modes, user directories, buildbot folder, library loading, battery), Linux unchanged (`docs/issues/cross-platform-releases.md` step 1) | partial | — | G005 |
-| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings on the game settings tabs and the atoms for the game in front verified with a ROM game in the headless fork; a store game, Settings › Emulators rows and the nested and DRM backends not run | partial | S013 | G004 |
+| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings (presets, Custom details) in the layered editor and the atoms for the game in front verified with a ROM game in the headless fork; the editor's frame generation section shown for a store game inside the headless fork; the nested and DRM backends not run | partial | S013 | G004 |
 | S043 | SteamGridDB: the API key through Steam's browser or typed in, kept in the keyring or a 0600 file; covers fitted to Home's square tiles; "Choose artwork" per game (`docs/issues/steamgriddb.md`) | partial | S002, S020 | G001, G002 |
+| S044 | Giveaways: free-to-keep offers from Epic, GOG and Steam read in the background, a Library tile opening a toolkit screen with art, store, ends-in and Owned, details with Claim (store page; Steam's in Big Picture when openSU's Steam runs) (`docs/issues/giveaways.md`) | partial | S002, S007, S043 | G001 |
 
 ## Capability details
 
@@ -478,11 +482,16 @@ and Arctainium), shipped in `assets/` under the OFL with the licence beside it. 
 Google Fonts build, which matches the one in iiSU's APK in metrics and Latin-1 outlines. Text
 sizes are Android's: the em in pixels, with letter spacing in ems; `TextGrid` sizes the face so its
 `hhea` ascent-to-descent line box is whole pixels with the baseline on a whole pixel, keeps each
-advance exact, and `Typeface` draws each glyph at that fractional pen through SDL3_ttf, unhinted:
-Cal Sans's space is 0.164 em, under two pixels in toasts and captions, so a whole-pixel advance or
-glyph position runs words together. The toolkit's face (`interfaceText`) is laid out by SDL3_ttf
-with each glyph on a whole pixel, and its spaces still blur into the words in Settings subtitles
-at 1280x800 and 70%.
+advance exact, and `Typeface` draws each glyph at that fractional pen through SDL3_ttf, unhinted.
+Cal Sans's space is 0.164 em, under two pixels in toasts and captions: cut to whole pixels (the
+old stb_truetype grid) or with each glyph snapped to a pixel, words ran together ("Lastplayed",
+"couldnotstartfalse"); checked in hidden runs at 1280x800 and 1920x1080, 70% to 150%
+(`scratch/text-spaces/`). The toolkit's face (`interfaceText`, hinted and kerned) is laid out by
+gpu2d's `Text`, which shapes with HarfBuzz and draws each character at its fractional pen (SDL3_ttf
+only rasterises): Settings subtitles keep their spaces at 1280x800 100% ("home grid", "tiles are",
+which ran together on SDL3_ttf's whole-pixel layout) and 1920x1080 (`scratch/text-spaces/toolkit/`).
+Gap: at 1280x800 and 70% a subtitle's em is about 7 px and the space about 1.1 px, which shows as
+a faint column rather than a word gap whichever way the glyphs are placed.
 
 Gap: the per-platform HSL tinting the reference applies to artwork is not
 implemented, so covers are shown at their store's own colours.
@@ -926,8 +935,10 @@ nested is untested.
 (`settings::setting_choices` is the choice-list owner both use): `framegen.mode` (off, fixed,
 adaptive), `framegen.ratio` (1.25x to 5x), `framegen.target` (`display` or 30 to 240 fps),
 `framegen.max` (1 to 8), `framegen.tolerance` (0 to 10 fps), `framegen.performance`,
-`framegen.flow-scale` (25 to 100 %). Every default is off. A store game has the Global and Game
-layers; a ROM game also its console's and its emulator's (the core layer, shown only as a source).
+`framegen.flow-scale` (25 to 100 %), and above them `framegen.preset` (off, smooth-60, display,
+custom; only Custom uses the detail keys, and choosing it seeds them from the preset it replaces).
+Every default is off. A store game has the Global and Game layers; a ROM game also its console's and
+its emulator's (the core layer, settable from Settings › Emulators › Built-in cores).
 
 `app::FrameGeneration` is the one owner of the atoms. Each frame the loop hands it the game in
 front (`ShellApp::gameInFront`: the running game, unless `FocusFollow` sees another window in
@@ -937,14 +948,16 @@ front); when that changes, or the tabs change a value, it resolves the game's ke
 `GAMESCOPE_FRAMEGEN` 0 for off, no game in front, or no DLL. `library::findLosslessDll` looks in
 every folder `steam::Library::libraryFolders` reads from `libraryfolders.vdf`, at start, when a
 game comes in front and when the tabs open. The output exists only on Linux inside Gamescope
-(`frame_generation_gamescope.cpp`; `frame_generation_none.cpp` elsewhere); without it the group,
-the quick menu's Game settings row for a game off the runner and the details button for it are not
-shown.
+(`frame_generation_gamescope.cpp`; `frame_generation_none.cpp` elsewhere). `supported()` (Linux)
+decides whether the settings show; `active()` whether frames are generated now.
 
-The tabs' Frame generation group: a heading row, then Mode and the rows the mode uses (Fixed:
-ratio; Adaptive: target, most generated, tolerance; both: performance mode, flow scale), each with
-the same Override checkbox and source note as the video rows. Without the DLL the heading reads
-"Needs Lossless Scaling installed through Steam" and no row can be set.
+The layered editor's Frame generation section: a summary line ("Adaptive · target 60 fps · up to
+3x · tolerance 5 fps") over the generator's source ("Lossless Scaling's shaders, from your Steam
+install", or "Needs Lossless Scaling, installed through Steam"; outside Gamescope "· applies in
+openSU's Gamescope session"), then the preset row, then with Custom the detail rows the pacing uses,
+each with a help line, a source chip and "Use … from …". Evidence (`scratch/ui-toolkit/step2/frames/`):
+`gamescope-1280-01..04` (a Steam game inside the headless fork, `WAYLAND_DISPLAY` empty, fake
+`Lossless.dll`), `after-1280-07..09` and `after-1920-07..09` (Kirby, outside Gamescope).
 
 Verified (`scratch/framegen-settings/`, `tools/proof.py`, `tools/frames.py`): a hidden openSU in
 the headless fork (`build/agent-lossless`, 25cb24bb, 1280x720 at 60 Hz, `DISABLE_LSFG=1`), with the
@@ -1702,19 +1715,22 @@ hardware; the AppImage and CI images with Rust added (not rebuilt); a preset tha
 drawing (not reproduced; the runner ends with saves written and exit 1, and the shell shows
 the ordinary end, not the reason).
 
-The game settings tabs (`app/game_settings_page`, card step 5): the quick menu's Game settings row
-and the details page's Game settings button open Global, console and Game tabs; console and Game
-rows have an Override checkbox (unticked: the inherited value and its source; ticked: the
-layer's own value; unticked again: the key deleted). Each change is saved at once and sent to the
-running game as `POST /video`, which the runner applies between frames. Evidence
-(`scratch/settings-tabs/proof/`, hidden shell, Chrono Trigger and Super Metroid): System Filter
-Scanlines drawn live (`22-runner-system-scanlines.png`), Game Filter CRT ticked over it
-(`26-runner-game-crt.png`), unticked back to scanlines (`27-runner-game-unchecked.png`), Super
-Metroid launched after draws scanlines and reads "From Super Nintendo" (`31`, `32`), the store
-after each step (`*.json`); `runner/smoke-*` for the route alone (400, 409 keeping the settings, 0
-validation errors). Unverified: touch on the tabs, the tabs over a game nested in Gamescope.
-Missing: core options per layer, preset parameters, bezels, touch overlays (the card's steps 6,
-8, 9 and the rest of 7).
+The layered settings editor (`app/layered_editor` over `app/layered_settings`,
+`docs/design/ui-toolkit.md` step 2): Settings › Emulators' Global, console and core rows, the
+details page's Game settings button and the quick menu's Game settings row (a panel over the game)
+open one editor with Global, console, core and game tabs. Each row shows the value in effect and a
+chip naming its layer; choosing sets it at the tab's scope; every list starts with "Use <value> from
+<layer>", which removes the scope's value (Y does the same; Y again restores it in the session); X
+goes to the tab the value comes from. Each change is saved at once and sent to the running game
+(`POST /video`, `POST /option`). The core's options are schema settings at the core's and the
+game's layers, passed at launch as `--option` and remembered per core (`core_option_store`) for
+editing while nothing runs. Evidence (`scratch/ui-toolkit/step2/frames/`, hidden shell, Kirby & the
+Amazing Mirror on mGBA): three layers in one page (`after-1280-02`), the "Use … from …" list
+(`03`), the shader picker (`04`–`06`), Global and console editors (`12`–`14`), the quick menu panel
+(`17`), Color Correction changed live (runner reports `GBA`, `19`; colours before and after,
+`23`/`24`) and kept after closing and launching again (`22`, the runner's `/options`). Unverified:
+touch on the editor, the panel over a game nested in Gamescope. Missing: options a core hides
+(`SET_CORE_OPTIONS_DISPLAY`) are still listed; preset parameters, bezels, touch overlays.
 
 ### S039 — Opt-in integrations and Steam modes
 
@@ -1787,3 +1803,12 @@ it), `SdlPads` with a real pad, and the AppImage: `tools.appimage all` stopped t
 submodule clones (GitHub refusing anonymous clones of different repos each time), with 1378 of
 1406 build steps done in the Ubuntu container and no openSU compile error.
 
+### S044 — Giveaways
+
+Live run on 2026-10-27 (`scratch/giveaways/proof/`, hidden, 1280x800, no sign-ins, no Steam
+client): the stores gave 3 Epic offers (two free now, one upcoming), 1 Steam DLC, 0 GOG; the tile
+(`live-library-tile.png`), the list with art (`live-list.png`) and the Steam offer's details
+(`live-details.png`); every offer shows, with no content filter (`live-list-nofilter.png`).
+
+Gaps: Claim was not pressed (no real accounts), so the browser and Big Picture paths are unrun; no
+GOG giveaway or discounted-to-free GOG game was live, so those parsers ran only on fixtures; Prime Gaming is left out; the new-offer toast was not seen.

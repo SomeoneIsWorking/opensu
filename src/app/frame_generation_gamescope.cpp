@@ -39,6 +39,10 @@ class GamescopeFrameGen final : public FrameGenOutput {
 
 } // namespace
 
+bool frameGenOnPlatform() noexcept {
+    return true;
+}
+
 std::unique_ptr<FrameGenOutput> openFrameGenOutput(bool insideGamescope) {
     if (!insideGamescope) {
         return nullptr;

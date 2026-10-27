@@ -9,17 +9,19 @@ FrameGeneration::FrameGeneration(const GameSettings& gameSettings,
                                  std::unique_ptr<FrameGenOutput> output,
                                  std::function<std::optional<std::filesystem::path>()> findDll)
     : gameSettings_{gameSettings}, output_{std::move(output)}, findDll_{std::move(findDll)} {
-    if (output_) {
+    if (supported()) {
         dll_ = findDll_();
     }
 }
 
 void FrameGeneration::findDll() {
-    if (!output_) {
+    if (!supported()) {
         return;
     }
     dll_ = findDll_();
-    apply();
+    if (output_) {
+        apply();
+    }
 }
 
 void FrameGeneration::follow(const library::Game* inFront) {

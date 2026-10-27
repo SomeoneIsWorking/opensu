@@ -15,6 +15,9 @@ namespace opensu::net {
 /// `scheme://authority/` of `url`, or empty when it has none.
 [[nodiscard]] std::string originOf(std::string_view url);
 
+/// `text` with everything but RFC 3986's unreserved characters percent-encoded.
+[[nodiscard]] std::string percentEncode(std::string_view text);
+
 class WebClient {
   public:
     /// Initialises libcurl for the process; keep one alive while any request runs.

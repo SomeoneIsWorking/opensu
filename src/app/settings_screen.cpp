@@ -187,10 +187,6 @@ std::unique_ptr<tk::Widget> SettingsSubPage::build(const tk::Theme& theme) {
     return std::move(frame.root);
 }
 
-tk::Screen::BackReply SettingsSubPage::back(tk::ActContext& /*context*/) {
-    return controller_.backFrom(id());
-}
-
 bool SettingsSubPage::act(tk::Action action, tk::ActContext& /*context*/) {
     if (action != tk::Action::Menu) {
         return false;

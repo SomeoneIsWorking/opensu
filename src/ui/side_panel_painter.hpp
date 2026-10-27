@@ -1,6 +1,5 @@
-// side_panel_painter — the chrome of a panel down the right edge (the quick menu, the game
-// settings tabs): the dimmed screen or game, the panel's ground, its heading and the button hints
-// along its bottom.
+// side_panel_painter — the chrome of a panel down the right edge (the quick menu): the dimmed
+// screen or game, the panel's ground, its heading and the button hints along its bottom.
 #pragma once
 
 #include <string>

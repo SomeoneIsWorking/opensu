@@ -196,6 +196,11 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
 
 } // namespace
 
+std::string_view EmulatorEntry::shortName() const noexcept {
+    const std::string_view full{name};
+    return full.ends_with(builtInMark) ? full.substr(0, full.size() - builtInMark.size()) : full;
+}
+
 bool EmulatorEntry::serves(std::string_view system) const {
     return std::ranges::find(systems, system) != systems.end();
 }

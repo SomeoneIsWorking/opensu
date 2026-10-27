@@ -1,5 +1,5 @@
 // row_controls — the controls at the end of an option row, shared by the options panel and the
-// settings page: a switch, a checkbox, a level slider and a chevron.
+// settings page: a switch, a level slider and a chevron.
 #pragma once
 
 #include "paint.hpp"
@@ -15,9 +15,6 @@ inline constexpr Colour rowInk{0x4D, 0x46, 0x55, 255};
 inline constexpr Colour rowChosen{0xE6, 0xE4, 0xEE, 255};
 /// The switch's "off" and the slider's track.
 inline constexpr Colour rowOff{0xB7, 0xB2, 0xC0, 255};
-
-/// A checkbox in `box`: an outline, filled and ticked when `checked`.
-void paintCheckbox(Canvas& canvas, const Rect& box, bool checked, float dp);
 
 /// A switch in `track`.
 void paintSwitch(Canvas& canvas, const Rect& track, bool on, float dp);

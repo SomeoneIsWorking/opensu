@@ -128,8 +128,8 @@ struct Rig {
                      chrome,
                      app::SettingsController::Services{
                          paths, shortcutEditor, volume, shortcuts, emulatorSettings, layerSettings,
-                         steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
-                         integrationSettings, artworkSettings, inForce},
+                         layered, steamLibrarySettings, pluginSettings, chordSettings, mappings,
+                         wine, integrationSettings, artworkSettings, inForce},
                      sounds,
                      preferences,
                      config,
@@ -306,15 +306,35 @@ struct Rig {
         downloads, app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
             said.push_back({text, error});
         }}};
+    app::FrameGeneration frameGeneration{gameSettings, nullptr, [] {
+                                             return std::optional<fs::path>{};
+                                         }};
+    app::RetroSession retro{config.cacheDir / "run"};
+    app::LayeredSettings layered{
+        app::LayeredSettings::Sources{gameSettings,
+                                      [this]() -> const library::roms::Emulators& {
+                                          return emulatorSettings.found();
+                                      },
+                                      downloads.shaderPack(), frameGeneration, retro,
+                                      app::CoreOptionStore{config.cacheDir / "core-options"}},
+        app::LayeredSettings::Hooks{[](const std::string&) {
+                                        return std::optional<library::Game>{};
+                                    },
+                                    []() -> const library::Game* {
+                                        return nullptr;
+                                    },
+                                    [] {
+                                    },
+                                    [] {
+                                    },
+                                    [this](const std::string& text, bool error) {
+                                        said.push_back({text, error});
+                                    }}};
     app::LayerSettings layerSettings{gameSettings,
                                      [this]() -> const library::roms::Emulators& {
                                          return emulatorSettings.found();
                                      },
-                                     downloads.shaderPack(),
-                                     app::LayerSettings::Hooks{[] {
-                                                               },
-                                                               [] {
-                                                               }}};
+                                     layered};
     steam::Libraries steamLibraries{devTools};
     app::SteamLibrarySettings steamLibrarySettings{
         app::SteamLibrarySettings::Sources{steamLibraries,

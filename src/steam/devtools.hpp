@@ -4,9 +4,11 @@
 // -cef-enable-debugging.
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <optional>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -32,6 +34,9 @@ struct DevToolsTarget {
 /// Every page Steam's DevTools on `port` lists; nothing when it cannot be reached.
 [[nodiscard]] std::optional<std::vector<DevToolsTarget>> devToolsTargets(std::uint16_t port,
                                                                          std::string& error);
+
+/// Waits `poll` between two looks at Steam; false when `stop` came first.
+[[nodiscard]] bool rest(const std::stop_token& stop, std::chrono::milliseconds poll);
 
 /// Closes the page `id` (`/json/close/<id>`), as its own window's close button does.
 [[nodiscard]] bool closeDevToolsTarget(std::uint16_t port, std::string_view id, std::string& error);

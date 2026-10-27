@@ -207,8 +207,7 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     flag("guideMenuOpen", snapshot.guideMenuOpen);
     flag("quickMenuOpen", snapshot.quickMenuOpen);
     text("quickFocus", snapshot.quickFocus);
-    text("settingsTab", snapshot.settingsTab);
-    text("settingsFocus", snapshot.settingsFocus);
+    text("settingsScope", snapshot.settingsScope);
     text("screen", snapshot.screen);
     text("screenFocus", snapshot.screenFocus);
     flag("devicesOpen", snapshot.devicesOpen);

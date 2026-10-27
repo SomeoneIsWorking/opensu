@@ -1,0 +1,418 @@
+{
+  "data": {
+    "Catalog": {
+      "searchStore": {
+        "elements": [
+          {
+            "title": "Them's Fightin' Herds",
+            "id": "1f723b00df58467998c4984ca39915ad",
+            "namespace": "a567c32599bf4d4fb609e424f3691b39",
+            "effectiveDate": "2022-12-19T16:00:00.000Z",
+            "offerType": "BASE_GAME",
+            "expiryDate": null,
+            "viewableDate": "2022-12-19T15:55:00.000Z",
+            "status": "ACTIVE",
+            "isCodeRedemptionOnly": false,
+            "keyImages": [
+              {
+                "type": "OfferImageWide",
+                "url": "https://cdn1.epicgames.com/offer/a567c32599bf4d4fb609e424f3691b39/EGS_ThemsFightinHerds_Mane6Inc_S1_2560x1440-da3a940faafe30c602d3966d2c295825"
+              },
+              {
+                "type": "OfferImageTall",
+                "url": "https://cdn1.epicgames.com/offer/a567c32599bf4d4fb609e424f3691b39/EGS_ThemsFightinHerds_Mane6Inc_S2_1200x1600-9793ee024c43026c5c2b1612c7a487d0"
+              },
+              {
+                "type": "Thumbnail",
+                "url": "https://cdn1.epicgames.com/offer/a567c32599bf4d4fb609e424f3691b39/EGS_ThemsFightinHerds_Mane6Inc_S2_1200x1600-9793ee024c43026c5c2b1612c7a487d0_1200x1600-9793ee024c43026c5c2b1612c7a487d0"
+              }
+            ],
+            "productSlug": "thems-fightin-herds/home",
+            "urlSlug": "thems-fightin-herds",
+            "url": null,
+            "catalogNs": {
+              "mappings": [
+                {
+                  "pageSlug": "thems-fightin-herds",
+                  "pageType": "productHome"
+                }
+              ]
+            },
+            "offerMappings": [
+              {
+                "pageSlug": "thems-fightin-herds",
+                "pageType": "productHome"
+              }
+            ],
+            "price": {
+              "totalPrice": {
+                "discountPrice": 1999,
+                "originalPrice": 1999,
+                "currencyCode": "USD"
+              },
+              "lineOffers": [
+                {
+                  "appliedRules": []
+                }
+              ]
+            },
+            "promotions": null
+          },
+          {
+            "title": "Eternal Threads",
+            "id": "921e40c4c69f4d728914ca2a4f0aa407",
+            "namespace": "35eda4ff87f94a7491dc28175b8f3b4f",
+            "effectiveDate": "2023-10-19T15:00:00.000Z",
+            "offerType": "BASE_GAME",
+            "expiryDate": null,
+            "viewableDate": "2023-10-12T15:00:00.000Z",
+            "status": "ACTIVE",
+            "isCodeRedemptionOnly": false,
+            "keyImages": [
+              {
+                "type": "OfferImageWide",
+                "url": "https://cdn1.epicgames.com/spt-assets/08813e055af64315b8a55b2e521f4e04/eternal-threads-1vm6i.jpg"
+              },
+              {
+                "type": "OfferImageTall",
+                "url": "https://cdn1.epicgames.com/spt-assets/08813e055af64315b8a55b2e521f4e04/eternal-threads-1v92y.jpg"
+              },
+              {
+                "type": "Thumbnail",
+                "url": "https://cdn1.epicgames.com/spt-assets/08813e055af64315b8a55b2e521f4e04/eternal-threads-1v92y.jpg"
+              }
+            ],
+            "productSlug": null,
+            "urlSlug": "a9152a8924cc4e438f0e61106ec02f7d",
+            "url": null,
+            "catalogNs": {
+              "mappings": [
+                {
+                  "pageSlug": "eternal-threads-197169",
+                  "pageType": "productHome"
+                }
+              ]
+            },
+            "offerMappings": [
+              {
+                "pageSlug": "eternal-threads-197169",
+                "pageType": "productHome"
+              }
+            ],
+            "price": {
+              "totalPrice": {
+                "discountPrice": 399,
+                "originalPrice": 1999,
+                "currencyCode": "USD"
+              },
+              "lineOffers": [
+                {
+                  "appliedRules": [
+                    {
+                      "id": "d24c637d1a564142a6e9072e34bdd65c",
+                      "endDate": "2026-11-02T16:00:00.000Z",
+                      "discountSetting": {
+                        "discountType": "PERCENTAGE"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "promotions": {
+              "promotionalOffers": [
+                {
+                  "promotionalOffers": [
+                    {
+                      "startDate": "2026-10-19T15:00:00.000Z",
+                      "endDate": "2026-11-02T16:00:00.000Z",
+                      "discountSetting": {
+                        "discountType": "PERCENTAGE",
+                        "discountPercentage": 20
+                      }
+                    }
+                  ]
+                }
+              ],
+              "upcomingPromotionalOffers": []
+            }
+          },
+          {
+            "title": "Sker Ritual",
+            "id": "6aab3ddef4f84fbc9dd81c60f9d8549c",
+            "namespace": "156c17659ff0468bb533eba104a1f19f",
+            "effectiveDate": "2024-07-18T17:00:00.000Z",
+            "offerType": "BASE_GAME",
+            "expiryDate": null,
+            "viewableDate": "2023-10-01T07:00:00.000Z",
+            "status": "ACTIVE",
+            "isCodeRedemptionOnly": false,
+            "keyImages": [
+              {
+                "type": "OfferImageWide",
+                "url": "https://cdn1.epicgames.com/spt-assets/43d96f4437e34c87b7eff08831d1b1de/sker-ritual-1tuka.png"
+              },
+              {
+                "type": "OfferImageTall",
+                "url": "https://cdn1.epicgames.com/spt-assets/43d96f4437e34c87b7eff08831d1b1de/sker-ritual-1cyza.png"
+              },
+              {
+                "type": "Thumbnail",
+                "url": "https://cdn1.epicgames.com/spt-assets/43d96f4437e34c87b7eff08831d1b1de/sker-ritual-1cyza.png"
+              },
+              {
+                "type": "heroCarouselVideo",
+                "url": "com.epicgames.video://f68bc14a-bfca-4985-ba22-ff963c5a0fa2?cover=https%3A%2F%2Fcdn1.epicgames.com%2Fspt-assets%2F43d96f4437e34c87b7eff08831d1b1de%2Fsker-ritual-video-1wht4.png"
+              },
+              {
+                "type": "heroCarouselVideo",
+                "url": "com.epicgames.video://6575152d-12bd-45e6-ab31-055e482c8d61?cover=https%3A%2F%2Fcdn1.epicgames.com%2Fspt-assets%2F43d96f4437e34c87b7eff08831d1b1de%2Fsker-ritual-video-1uden.jpg"
+              }
+            ],
+            "productSlug": null,
+            "urlSlug": "8dbc8d70481d4c0b8412d3aec76a35a1",
+            "url": null,
+            "catalogNs": {
+              "mappings": [
+                {
+                  "pageSlug": "sker-ritual-aac702",
+                  "pageType": "productHome"
+                }
+              ]
+            },
+            "offerMappings": [
+              {
+                "pageSlug": "sker-ritual-aac702",
+                "pageType": "productHome"
+              }
+            ],
+            "price": {
+              "totalPrice": {
+                "discountPrice": 0,
+                "originalPrice": 2499,
+                "currencyCode": "USD"
+              },
+              "lineOffers": [
+                {
+                  "appliedRules": [
+                    {
+                      "id": "bdcd4444ca604e5f86df045e7ae04a5d",
+                      "endDate": "2026-10-29T15:00:00.000Z",
+                      "discountSetting": {
+                        "discountType": "PERCENTAGE"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "promotions": {
+              "promotionalOffers": [
+                {
+                  "promotionalOffers": [
+                    {
+                      "startDate": "2026-10-22T15:00:00.000Z",
+                      "endDate": "2026-10-29T15:00:00.000Z",
+                      "discountSetting": {
+                        "discountType": "PERCENTAGE",
+                        "discountPercentage": 0
+                      }
+                    }
+                  ]
+                }
+              ],
+              "upcomingPromotionalOffers": []
+            }
+          },
+          {
+            "title": "Sorry We're Closed",
+            "id": "4e469c7d8bbf49bcabc2c07127d3d946",
+            "namespace": "489af623d8284d518502f8ee9d33b828",
+            "effectiveDate": "2024-11-14T17:00:00.000Z",
+            "offerType": "BASE_GAME",
+            "expiryDate": null,
+            "viewableDate": "2024-11-14T17:00:00.000Z",
+            "status": "ACTIVE",
+            "isCodeRedemptionOnly": false,
+            "keyImages": [
+              {
+                "type": "OfferImageWide",
+                "url": "https://cdn1.epicgames.com/spt-assets/9ab7eaaeb2f041969b350955b789f0f7/sorry-were-closed-1orqh.png"
+              },
+              {
+                "type": "OfferImageTall",
+                "url": "https://cdn1.epicgames.com/spt-assets/9ab7eaaeb2f041969b350955b789f0f7/sorry-were-closed-16sj7.png"
+              },
+              {
+                "type": "Thumbnail",
+                "url": "https://cdn1.epicgames.com/spt-assets/9ab7eaaeb2f041969b350955b789f0f7/sorry-were-closed-16sj7.png"
+              }
+            ],
+            "productSlug": null,
+            "urlSlug": "f2dae10b3c45425ba1e91b4604262283",
+            "url": null,
+            "catalogNs": {
+              "mappings": [
+                {
+                  "pageSlug": "sorry-were-closed-724c86",
+                  "pageType": "productHome"
+                }
+              ]
+            },
+            "offerMappings": [
+              {
+                "pageSlug": "sorry-were-closed-724c86",
+                "pageType": "productHome"
+              }
+            ],
+            "price": {
+              "totalPrice": {
+                "discountPrice": 1749,
+                "originalPrice": 2499,
+                "currencyCode": "USD"
+              },
+              "lineOffers": [
+                {
+                  "appliedRules": [
+                    {
+                      "id": "76374edba129489c826f3baed865e936",
+                      "endDate": "2026-11-02T16:00:00.000Z",
+                      "discountSetting": {
+                        "discountType": "PERCENTAGE"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "promotions": {
+              "promotionalOffers": [
+                {
+                  "promotionalOffers": [
+                    {
+                      "startDate": "2026-10-19T15:00:00.000Z",
+                      "endDate": "2026-11-02T16:00:00.000Z",
+                      "discountSetting": {
+                        "discountType": "PERCENTAGE",
+                        "discountPercentage": 70
+                      }
+                    }
+                  ]
+                }
+              ],
+              "upcomingPromotionalOffers": [
+                {
+                  "promotionalOffers": [
+                    {
+                      "startDate": "2026-10-29T15:00:00.000Z",
+                      "endDate": "2026-11-05T16:00:00.000Z",
+                      "discountSetting": {
+                        "discountType": "PERCENTAGE",
+                        "discountPercentage": 0
+                      }
+                    },
+                    {
+                      "startDate": "2026-12-10T16:00:00.000Z",
+                      "endDate": "2027-01-07T16:00:00.000Z",
+                      "discountSetting": {
+                        "discountType": "PERCENTAGE",
+                        "discountPercentage": 70
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "title": "Home - A Unique Horror Adventure",
+            "id": "06190191cede42afb633fe89ef08c27e",
+            "namespace": "c7e46cce751b40b6937e878abd0fc531",
+            "effectiveDate": "2026-10-22T15:00:00.000Z",
+            "offerType": "BASE_GAME",
+            "expiryDate": null,
+            "viewableDate": "2026-10-14T18:25:38.000Z",
+            "status": "ACTIVE",
+            "isCodeRedemptionOnly": false,
+            "keyImages": [
+              {
+                "type": "OfferImageWide",
+                "url": "https://cdn1.epicgames.com/spt-assets/46fc0cdb9f164a848e916249a8f68fc7/home-1f6qi.png"
+              },
+              {
+                "type": "OfferImageTall",
+                "url": "https://cdn1.epicgames.com/spt-assets/46fc0cdb9f164a848e916249a8f68fc7/home-14ws1.png"
+              },
+              {
+                "type": "Thumbnail",
+                "url": "https://cdn1.epicgames.com/spt-assets/46fc0cdb9f164a848e916249a8f68fc7/home-14ws1.png"
+              },
+              {
+                "type": "OgImage",
+                "url": "https://cdn1.epicgames.com/spt-assets/46fc0cdb9f164a848e916249a8f68fc7/home-1d844.jpg"
+              }
+            ],
+            "productSlug": null,
+            "urlSlug": "ff70f2b02fd842f8961f7729af25cda9",
+            "url": null,
+            "catalogNs": {
+              "mappings": [
+                {
+                  "pageSlug": "home-19212a",
+                  "pageType": "productHome"
+                }
+              ]
+            },
+            "offerMappings": [
+              {
+                "pageSlug": "home-19212a",
+                "pageType": "productHome"
+              }
+            ],
+            "price": {
+              "totalPrice": {
+                "discountPrice": 0,
+                "originalPrice": 499,
+                "currencyCode": "USD"
+              },
+              "lineOffers": [
+                {
+                  "appliedRules": [
+                    {
+                      "id": "577ecd087e5e44e5b17653d0411ee1cc",
+                      "endDate": "2026-10-29T15:00:00.000Z",
+                      "discountSetting": {
+                        "discountType": "PERCENTAGE"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "promotions": {
+              "promotionalOffers": [
+                {
+                  "promotionalOffers": [
+                    {
+                      "startDate": "2026-10-22T15:00:00.000Z",
+                      "endDate": "2026-10-29T15:00:00.000Z",
+                      "discountSetting": {
+                        "discountType": "PERCENTAGE",
+                        "discountPercentage": 0
+                      }
+                    }
+                  ]
+                }
+              ],
+              "upcomingPromotionalOffers": []
+            }
+          }
+        ],
+        "paging": {
+          "count": 40,
+          "total": 13
+        }
+      }
+    }
+  }
+}

@@ -76,11 +76,7 @@ std::string key(const Folder& folder) {
             return console.system;
         }
         std::string operator()(const Launcher& launcher) const {
-            std::string out = "launcher:";
-            for (const char c : label(launcher.source)) {
-                out += static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
-            }
-            return out;
+            return "launcher:" + library::key(launcher.source);
         }
         std::string operator()(const AllGames&) const {
             return "all";
@@ -132,6 +128,9 @@ std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
                                         status->availability == Availability::Ready,
                                         status->availability == Availability::Loading});
         }
+    }
+    if (!shelf.empty()) {
+        shelf.emplace_back(Giveaways{});
     }
     const std::vector<Title> titles = storeTitles(games);
     if (!titles.empty()) {

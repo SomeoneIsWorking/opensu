@@ -22,13 +22,32 @@ const ChoiceKey& filterKey() {
 
 } // namespace
 
-bool replacedByShader(std::string_view key) noexcept {
-    return key == samplingKey().key || key == filterKey().key;
-}
-
-const ChoiceKey* videoKey(std::string_view key) {
-    const auto found = std::ranges::find(videoKeys, key, &ChoiceKey::key);
-    return found == videoKeys.end() ? nullptr : &*found;
+void declareVideo(Schema& schema) {
+    const std::string section{videoSection};
+    const auto withoutShader = [](const SettingLookup& applies) {
+        return applies(shaderKey).empty();
+    };
+    schema.add(choiceSetting(aspectKey(),
+                             "The picture's shape: the core's, 4:3, square pixels or "
+                             "the whole screen",
+                             section));
+    schema.add(choiceSetting(
+        integerKey(), "Whole multiples of the game's pixels; Overscale fills and crops", section));
+    Setting sampling =
+        choiceSetting(samplingKey(), "How pixels are smoothed as they are scaled", section);
+    sampling.shownWhen = withoutShader;
+    schema.add(std::move(sampling));
+    Setting filter = choiceSetting(
+        filterKey(), "A pass over the picture: scanlines, an LCD grid or a CRT", section);
+    filter.shownWhen = withoutShader;
+    schema.add(std::move(filter));
+    Setting shader;
+    shader.key = std::string{shaderKey};
+    shader.label = std::string{shaderLabel};
+    shader.help = "A RetroArch slang preset; it replaces Sampling and Filter";
+    shader.section = section;
+    shader.type = SettingType::Path;
+    schema.add(std::move(shader));
 }
 
 Resolved resolveShader(const SettingLayers& layers, const LayerKeys& keys) {

@@ -354,6 +354,8 @@ class Shell {
     [[nodiscard]] const library::ShelfItem* focusedItem() const;
     /// The folder the focused tile opens, or nothing for a game or an empty slot.
     [[nodiscard]] std::optional<library::Folder> focusedFolder() const;
+    /// Whether the focused tile is Giveaways.
+    [[nodiscard]] bool focusedGiveaways() const;
     /// The title the focused entry shows, empty for an empty slot.
     [[nodiscard]] std::string focusedTitle() const;
     /// The title for the top bar's pill: the grid's, where an XMB and a Carousel draw their own.

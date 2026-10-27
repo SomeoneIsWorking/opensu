@@ -21,7 +21,13 @@ class CoreOptions {
     struct Option {
         std::string key;
         std::string label;
+        /// The core's line about it; empty when it gives none.
+        std::string info;
         std::vector<std::string> values;
+        /// The core's label for each of `values`, the value itself where it gives none.
+        std::vector<std::string> valueLabels;
+        /// What the core starts it at.
+        std::string fallback;
         std::string current;
     };
 
@@ -51,8 +57,15 @@ class CoreOptions {
     }
 
   private:
-    void define(const std::string& key, const std::string& label, const std::string& fallback,
-                const std::vector<std::string>& offered);
+    /// What one definition gives besides its key.
+    struct Defined {
+        std::string label;
+        std::string info;
+        std::string fallback;
+        std::vector<std::string> offered;
+        std::vector<std::string> labels;
+    };
+    void define(const std::string& key, Defined defined);
 
     OptionValues chosen_;
     std::vector<Option> options_;

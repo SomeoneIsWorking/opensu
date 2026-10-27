@@ -1,7 +1,8 @@
 // retro_launch — what a game launched on a built-in core takes besides its command: its video
 // settings resolved from the setting layers, written to the launch's settings file, and
-// `--settings <file>` put on its command line; the same resolution for a change while it runs. The
-// runner never reads the layers itself.
+// `--settings <file>` put on its command line with an `--option key=value` for each core option a
+// layer keeps; the same video resolution for a change while it runs. The runner never reads the
+// layers itself.
 #pragma once
 
 #include <filesystem>

@@ -87,6 +87,24 @@ std::string originOf(std::string_view url) {
     return std::string{url.substr(0, path == std::string_view::npos ? url.size() : path)} + "/";
 }
 
+std::string percentEncode(std::string_view text) {
+    constexpr std::string_view hex = "0123456789ABCDEF";
+    std::string out;
+    for (const char c : text) {
+        const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                           (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~';
+        if (plain) {
+            out.push_back(c);
+            continue;
+        }
+        const auto byte = static_cast<unsigned char>(c);
+        out.push_back('%');
+        out.push_back(hex[byte >> 4U]);
+        out.push_back(hex[byte & 0x0FU]);
+    }
+    return out;
+}
+
 WebClient::WebClient() {
     curl_global_init(CURL_GLOBAL_DEFAULT);
 }

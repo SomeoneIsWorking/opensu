@@ -4,7 +4,8 @@
 // libraries, to the platform's output; with no game in front, or no DLL, frame generation is off.
 // One output per OS, picked in CMakeLists.txt: the Gamescope fork's GAMESCOPE_FRAMEGEN_* root
 // atoms inside Gamescope on Linux (`frame_generation_gamescope.cpp`); none elsewhere
-// (`frame_generation_none.cpp`), where the settings are not offered.
+// (`frame_generation_none.cpp`). The settings are offered wherever the OS has an output, also
+// outside Gamescope, where they wait for openSU's Gamescope session.
 #pragma once
 
 #include <filesystem>
@@ -45,6 +46,9 @@ class FrameGenOutput {
     virtual void off() = 0;
 };
 
+/// Whether this OS has an output at all, inside Gamescope or not.
+[[nodiscard]] bool frameGenOnPlatform() noexcept;
+
 /// The platform's output, or null where it has none (another OS, or not inside Gamescope).
 /// Throws std::runtime_error when it has one that cannot be opened.
 [[nodiscard]] std::unique_ptr<FrameGenOutput> openFrameGenOutput(bool insideGamescope);
@@ -55,8 +59,12 @@ class FrameGeneration {
     FrameGeneration(const GameSettings& gameSettings, std::unique_ptr<FrameGenOutput> output,
                     std::function<std::optional<std::filesystem::path>()> findDll);
 
-    /// Whether frame generation can be set here at all; its settings are shown only then.
-    [[nodiscard]] bool available() const noexcept {
+    /// Whether frame generation can be set on this OS; its settings are shown only then.
+    [[nodiscard]] static bool supported() noexcept {
+        return frameGenOnPlatform();
+    }
+    /// Whether it works now: openSU runs inside its Gamescope session.
+    [[nodiscard]] bool active() const noexcept {
         return output_ != nullptr;
     }
     /// The DLL found by the last look; nothing when Lossless Scaling is not installed.

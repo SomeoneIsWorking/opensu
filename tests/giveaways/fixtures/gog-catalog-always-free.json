@@ -1,0 +1,84 @@
+{
+  "pages": 330,
+  "productCount": 989,
+  "products": [
+    {
+      "id": "1942439921",
+      "slug": "ecstatica_8k_prerendered_backgrounds",
+      "releaseDate": "2026.10.26",
+      "storeReleaseDate": "2026.10.26",
+      "productType": "dlc",
+      "title": "Ecstatica - 8K pre-rendered backgrounds",
+      "coverHorizontal": "https://images.gog-statics.com/30692474a5f672f9b96f870fb3e00119a1aaa2f38200e7449ae948d54a36ea63.png",
+      "coverVertical": "https://images.gog-statics.com/399dab71b05f6786bd2562788fc422d6f50aafc0d83ec8e8a027e2b9f7e5e37d.jpg",
+      "logo": "https://images.gog-statics.com/3fbb5d0dde9d53fc3f789e6e1782bfc9ea28e3feb58b501ff47c5d483b207567.png",
+      "galaxyBackgroundImage": "https://images.gog-statics.com/8df7ff7ade309b9e3beb16147d60d3b3d508deabcdd45a3e366900b7b2d08e64.jpg",
+      "price": {
+        "final": "$0.00",
+        "base": "$0.00",
+        "discount": null,
+        "finalMoney": {
+          "amount": "0.00",
+          "currency": "USD",
+          "discount": "0.00"
+        },
+        "baseMoney": {
+          "amount": "0.00",
+          "currency": "USD"
+        }
+      },
+      "productState": "default",
+      "tags": [
+        {
+          "name": "Adventure",
+          "slug": "adventure"
+        },
+        {
+          "name": "Action",
+          "slug": "action"
+        },
+        {
+          "name": "Exploration",
+          "slug": "exploration"
+        },
+        {
+          "name": "Female Protagonist",
+          "slug": "female-protagonist"
+        },
+        {
+          "name": "Dark",
+          "slug": "dark"
+        },
+        {
+          "name": "Horror",
+          "slug": "horror"
+        },
+        {
+          "name": "Violent",
+          "slug": "violent"
+        },
+        {
+          "name": "Medieval",
+          "slug": "medieval"
+        },
+        {
+          "name": "Survival Horror",
+          "slug": "survival-horror"
+        },
+        {
+          "name": "Supernatural",
+          "slug": "supernatural"
+        }
+      ],
+      "reviewsRating": 0,
+      "reviewsCount": 0,
+      "ratings": [
+        {
+          "name": "esrbRating",
+          "ageRating": "17"
+        }
+      ],
+      "storeLink": "https://www.gog.com/en/game/ecstatica_8k_prerendered_backgrounds"
+    }
+  ]
+}

@@ -74,4 +74,21 @@ settings::LayerKeys layerKeysOf(const Game& game) {
     return keys;
 }
 
+settings::Setting emulatorPickSetting(const std::vector<std::string>& names,
+                                      std::string automatic) {
+    settings::Setting setting;
+    setting.key = std::string{emulatorKey};
+    setting.label = "Emulator";
+    setting.help = "What runs its games: a built-in core or an emulator of your own";
+    setting.section = "Emulator";
+    for (const std::string& name : names) {
+        setting.choices.push_back(settings::SettingChoice{name, name});
+    }
+    setting.fallbackLabel = std::move(automatic);
+    setting.layers =
+        settings::LayerKinds{settings::Layer::Kind::System, settings::Layer::Kind::Game};
+    setting.takes = settings::Takes::NextLaunch;
+    return setting;
+}
+
 } // namespace opensu::library

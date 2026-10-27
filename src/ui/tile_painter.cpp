@@ -76,6 +76,9 @@ constexpr std::array<Brand, 3> brands{
 // The combined library's card: a calm violet apart from the stores' colours.
 constexpr Colour libraryFrom{0x5B, 0x4F, 0x9A, 255};
 constexpr Colour libraryTo{0x2F, 0x28, 0x5E, 255};
+// Giveaways' card: a warm red apart from the stores and the library.
+constexpr Colour giveawaysFrom{0xB8, 0x3A, 0x52, 255};
+constexpr Colour giveawaysTo{0x5E, 0x1C, 0x33, 255};
 // A store badge's disc, dark so a white logo reads over any cover.
 constexpr Colour badgeDisc{0x16, 0x13, 0x1E, 200};
 constexpr float badgeLogo = 0.62f;
@@ -331,6 +334,10 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
         paintCard(canvas, tile, content, libraryFrom, libraryTo);
         return;
     }
+    if (tile.kind == TileKind::Giveaways) {
+        paintCard(canvas, tile, content, giveawaysFrom, giveawaysTo);
+        return;
+    }
     if (tile.platform != nullptr) {
         // iiSU g24.e: art clipped at the larger art radius, then the platform frame over it.
         const FrameGeometry frame = frameGeometry(content);
@@ -431,19 +438,38 @@ void TilePainter::paintMark(Canvas& canvas, const TileVisual& tile, const Rect& 
         }
         return;
     }
+    const auto fill = [&canvas, ink, alpha = tile.alpha](const Rect& rect, float radius) {
+        fillRoundRect(canvas, RoundRect{rect, radius}, [ink, alpha](Point, float) {
+            return withAlpha(ink, alpha);
+        });
+    };
+    if (tile.kind == TileKind::Giveaways) {
+        // A wrapped present: lid and box split by the ribbon, two loops of the bow on top.
+        const float ribbon = box.width * 0.12f;
+        const float half = (box.width - ribbon) * 0.5f;
+        const float lidTop = box.y + box.height * 0.22f;
+        const float lid = box.height * 0.2f;
+        const float inset = box.width * 0.06f;
+        const float bodyTop = lidTop + lid + box.height * 0.04f;
+        const float body = box.bottom() - bodyTop;
+        const float corner = box.width * 0.05f;
+        fill(Rect{box.x, lidTop, half, lid}, corner);
+        fill(Rect{box.x + half + ribbon, lidTop, half, lid}, corner);
+        fill(Rect{box.x + inset, bodyTop, half - inset, body}, corner);
+        fill(Rect{box.x + half + ribbon, bodyTop, half - inset, body}, corner);
+        const float loop = box.width * 0.2f;
+        fill(Rect{box.centreX() - ribbon * 0.5f - loop, box.y, loop, loop}, loop * 0.5f);
+        fill(Rect{box.centreX() + ribbon * 0.5f, box.y, loop, loop}, loop * 0.5f);
+        return;
+    }
     // Four rounded tiles in a square: a shelf of games.
     const float cell = box.width * glyphTile;
     const float gap = box.width - 2.0f * cell;
     for (int row = 0; row < 2; ++row) {
         for (int column = 0; column < 2; ++column) {
-            fillRoundRect(
-                canvas,
-                RoundRect{Rect{box.x + static_cast<float>(column) * (cell + gap),
-                               box.y + static_cast<float>(row) * (cell + gap), cell, cell},
-                          cell * 0.25f},
-                [ink, alpha = tile.alpha](Point, float) {
-                    return withAlpha(ink, alpha);
-                });
+            fill(Rect{box.x + static_cast<float>(column) * (cell + gap),
+                      box.y + static_cast<float>(row) * (cell + gap), cell, cell},
+                 cell * 0.25f);
         }
     }
 }
@@ -467,7 +493,8 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
     const std::vector<std::string_view> lines = breakLines(typeface_, tile.title, name, room);
     const float nameBox = typeface_.lineBox(name);
     const float gap = side * 0.04f;
-    const bool marked = tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames;
+    const bool marked = tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames ||
+                        tile.kind == TileKind::Giveaways;
     const float mark = marked ? side * markSide : 0.0f;
     const float markRoom = marked ? side * markGap : 0.0f;
     const float block = mark + markRoom + static_cast<float>(lines.size()) * nameBox + gap +

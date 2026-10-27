@@ -33,12 +33,10 @@ override".
 - `input/mapping_scopes` and `settings/mapping_store` use the same `Layer`, keep the whole-map rule
   and gained the System layer.
 - UI: Settings › Emulators lists a Global row, one per served console (emulator and video)
-  and one per built-in core (video); each opens a page (`app/layer_settings`) where a value steps
-  through "not set" too, with a Clear row. The details page (`app/details_controller`) gives a game
+  and one per built-in core (video); each opens the layered editor, with a Clear row. The details page (`app/details_controller`) gives a game
   on a built-in core a row per value a layer keeps ("From Super Nintendo", "Set for this game"),
   the emulator's source on its row ("Automatic (romset)", "From <console>", "Set for this game"),
-  a "Game settings" button that opens the tabs of step 5 and "Clear game settings" while the game
-  keeps any.
+  a "Game settings" button that opens the layered editor (its Clear row clears the game's values).
 - Video settings apply to built-in cores only; standalone emulators keep their own.
 
 ## What step 4 built
@@ -124,6 +122,10 @@ override".
   `pixel-art-scaling/sharp-bilinear-simple.slangp`.
 
 ## What step 5 built
+
+Replaced since by the layered editor (`docs/design/ui-toolkit.md` step 2, `app/layered_editor`):
+no Override checkbox; every list starts with "Use <value> from <layer>", a chip names each value's
+layer, and the core layer is a tab. What follows is the step as it was built.
 
 The player turned down "Save to…": "Save to... doesn't sit with me because per setting override,
 maybe we can add tabs, global / system / game and if not in global, they can have an inherit option
@@ -366,8 +368,9 @@ All of these use the existing `settings_page` row types (choice, toggle, slider,
   reads "From Super Nintendo", "From snes9x", "Automatic (romset)" or "Set for this game". The
   row's action menu has "Clear (use <layer below>)".
 - **Quick menu** (`app/quick_menu_controller`, only while a game answers on `opensu-retro`'s
-  channel): a "Game settings" row opens the tabs of step 5; changes apply live and are saved to
-  the tab's layer at once. Still to come there: preset parameters as sliders, Bezel, Core options.
+  channel): a "Game settings" row opens the layered editor as a panel over the game; changes
+  apply live and are saved to the tab's layer at once. Still to come there: preset parameters as
+  sliders, Bezel.
 - The shader picker browses `<data>/opensu/shaders/slang/` by folder; the built-in filters keep
   their own Filter row. The bezel picker will browse the overlay folders.
 
@@ -380,9 +383,10 @@ All of these use the existing `settings_page` row types (choice, toggle, slider,
 3. Done: `emulator_choice` in the layers, `settings.json` migrated, the core layer, and
    `mapping_scopes` on the shared `Layer`.
 4. Done: built-in filters: scanlines, LCD grid, a CRT ported from crt-lottes.
-5. Done: the Global / System / Game settings tabs with Override checkboxes, in the quick menu and
-   on the details page, applied live through `POST /video`.
-6. Core options per layer (`options.<core>.<key>`), `GET_VARIABLE_UPDATE`, `POST /options`.
+5. Done, then replaced by the layered editor: the Global / System / Game settings tabs, in the
+   quick menu and on the details page, applied live through `POST /video`.
+6. Done: core options per layer as `core.<option>` at the core's and the game's layers, `--option`
+   at launch, `POST /option` live; options a core hides (`SET_CORE_OPTIONS_DISPLAY`) still listed.
 7. Done except parameters: librashader from a pinned fork, the `shaders_slang.zip` download and
    the preset picker. Preset parameters as sliders not built.
 8. Bezels: the common-overlays download, folder import for Bezel Project packs, the game rect from
