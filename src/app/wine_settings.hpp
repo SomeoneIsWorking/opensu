@@ -12,7 +12,7 @@
 #include "library/wine.hpp"
 #include "preferences.hpp"
 #include "settings/integrations.hpp"
-#include "ui/settings_page.hpp"
+#include "ui/setting_row.hpp"
 
 namespace opensu::app {
 

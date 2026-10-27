@@ -25,6 +25,7 @@ class ControlBridge final : public ControlTarget {
         std::vector<std::pair<gamepad::Event, input::Device>> buttons;
         std::vector<input::Combo> keys;
         std::vector<std::string> text;
+        std::vector<PointerInjection> pointer;
     };
 
     // ControlTarget. Each is callable from any thread.
@@ -33,6 +34,7 @@ class ControlBridge final : public ControlTarget {
     void inject(const std::vector<gamepad::Button>& buttons, input::Device device,
                 std::chrono::milliseconds hold, bool stick) override;
     void injectKey(input::Combo combo) override;
+    void injectPointer(PointerInjection pointer) override;
     [[nodiscard]] bool captureFrame(std::string& png) override;
     void requestClose() override;
     /// Asks the loop to read the library again; `toast` is shown when it is not empty.

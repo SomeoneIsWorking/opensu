@@ -5,14 +5,8 @@
 namespace opensu::ui {
 
 void SettingsPanels::tick(Clock::time_point now) noexcept {
-    page_.tick(now);
     folderFade_.follow(folders_.isOpen(), now);
     entryFade_.follow(entry_.isOpen(), now);
-}
-
-void SettingsPanels::drawPage(Canvas& canvas, Point size, float dp, float topInset,
-                              float bottomInset, Clock::time_point now) const {
-    page_.draw(canvas, size, dp, topInset, bottomInset, now);
 }
 
 void SettingsPanels::drawOverlays(Canvas& canvas, Point size, float dp, Clock::time_point now,
@@ -27,8 +21,7 @@ Rect SettingsPanels::folderFrame(Point size, float dp) const {
                 layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp, entry_.style()).panel.y};
 }
 
-PointerTarget SettingsPanels::pointAt(Point point, Point size, float dp, float topInset,
-                                      float bottomInset) const {
+PointerTarget SettingsPanels::pointAt(Point point, Point size, float dp) const {
     const Rect frame{0.0f, 0.0f, size.x, size.y};
     if (entry_.isOpen()) {
         const KeyboardLayout panel = layoutKeyboard(frame, dp, entry_.style());
@@ -42,9 +35,8 @@ PointerTarget SettingsPanels::pointAt(Point point, Point size, float dp, float t
                 folders_.layout(folderFrame(size, dp), dp).rowAt(point.x, point.y)) {
             return OnFolderEntry{*row};
         }
-        return {};
     }
-    return page_.pointAt(point, size, dp, topInset, bottomInset);
+    return {};
 }
 
 bool SettingsPanels::focusTarget(const PointerTarget& target) {
@@ -54,7 +46,7 @@ bool SettingsPanels::focusTarget(const PointerTarget& target) {
     if (const auto* key = std::get_if<OnKeyboardKey>(&target); key != nullptr && entry_.isOpen()) {
         return entry_.focusKey(key->index);
     }
-    return page_.focusTarget(target);
+    return false;
 }
 
 } // namespace opensu::ui

@@ -20,7 +20,9 @@
 #include "path_editor.hpp"
 #include "preferences.hpp"
 #include "settings_controller.hpp"
+#include "settings_screen.hpp"
 #include "shortcut_editor.hpp"
+#include "support/fake_interface_text.hpp"
 #include "support/fake_steam.hpp"
 #include "support/fake_steam_gate.hpp"
 #include "ui/check.hpp"
@@ -122,7 +124,8 @@ struct Rig {
                          [this] {
                              ++chordChanges;
                          }},
-          controller{page,
+          controller{screens.navigator,
+                     chrome,
                      app::SettingsController::Services{
                          paths, shortcutEditor, volume, shortcuts, emulatorSettings, layerSettings,
                          steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
@@ -154,6 +157,7 @@ struct Rig {
                           [this](const std::string& text, bool error) {
                               said.push_back({text, error});
                           }}} {
+        screens.frame();
     }
 
     static library::roms::EmulatorSearch downloadsIn(const fs::path& dir) {
@@ -176,33 +180,62 @@ struct Rig {
         return config;
     }
 
-    /// Moves to the category called `label` and into its rows.
-    void enter(const std::string& label) {
-        page.focusCategory(0);
-        while (page.focusedCategory().label != label) {
-            controller.act(Button::Down);
-        }
-        controller.act(Button::A);
+    /// A button on the screen, then the next frame.
+    void act(Button button) {
+        controller.act(button);
+        screens.frame();
     }
-    /// Focuses the row `id` of the focused category.
-    void focus(const std::string& id) {
-        const auto& rows = page.focusedCategory().rows;
-        for (std::size_t i = 0; i < rows.size(); ++i) {
-            if (rows[i].id == id) {
-                page.focusRow(i);
-                return;
+    /// Focuses the tab of the category called `label`, which chooses it, and goes into its rows.
+    void enter(const std::string& label) {
+        std::string id;
+        for (const ui::SettingsCategory& category : controller.categories()) {
+            if (category.label == label) {
+                id = category.id;
             }
         }
-        expect(false, "a row with that id exists");
+        expect(!id.empty(), "a category with that label exists");
+        expect(screens.navigator.focus("categories/" + id), "its tab takes the focus");
+        screens.frame();
+        act(Button::Right);
     }
-    [[nodiscard]] const ui::SettingsRow& rowOf(const std::string& id) const {
-        for (const ui::SettingsRow& row : page.focusedCategory().rows) {
+    /// Focuses the widget `id` on the top screen.
+    void focus(const std::string& id) {
+        expect(screens.navigator.focus(id), "a row with that id takes the focus");
+        screens.frame();
+    }
+    /// The id of the top screen, or empty with none open.
+    [[nodiscard]] std::string top() const {
+        const gpu2d::ui::Screen* screen = screens.navigator.top();
+        return screen == nullptr ? std::string{} : screen->id();
+    }
+    [[nodiscard]] std::string focused() const {
+        return screens.navigator.focused();
+    }
+    /// The category or page the topmost Settings screen shows.
+    [[nodiscard]] std::string pageId() const {
+        const std::vector<const gpu2d::ui::Screen*> open = screens.navigator.screens();
+        for (auto at = open.rbegin(); at != open.rend(); ++at) {
+            if ((*at)->overlay()) {
+                continue;
+            }
+            if (const auto* root = dynamic_cast<const app::SettingsScreen*>(*at)) {
+                return root->tabId().substr(std::string_view{"categories/"}.size());
+            }
+            return (*at)->id();
+        }
+        return {};
+    }
+    /// The rows of the category or page shown.
+    [[nodiscard]] std::vector<ui::SettingsRow> rows() {
+        return controller.page(pageId()).rows;
+    }
+    [[nodiscard]] ui::SettingsRow rowOf(const std::string& id) {
+        for (const ui::SettingsRow& row : controller.page(pageId()).rows) {
             if (row.id == id) {
                 return row;
             }
         }
-        expect(false, "a row with that id exists");
-        return page.focusedCategory().rows.front();
+        test::fail("a row with that id exists");
     }
     /// Every integration on, as the pages these checks read need them.
     static app::Preferences& everyIntegration(app::Preferences& preferences) {
@@ -234,7 +267,8 @@ struct Rig {
     app::IntegrationSettings integrationSettings{inForce, [this] {
                                                      controller.refresh();
                                                  }};
-    ui::SettingsPage page;
+    test::InterfaceRig screens;
+    ui::Chrome chrome;
     ui::FolderChooser folders;
     ui::OnScreenKeyboard entry;
     app::PathEditor paths;
@@ -336,7 +370,7 @@ void pagesFollowTheIntegrations(const fs::path& root) {
     rig.inForce.choose(settings::IntegrationChoices{});
     rig.controller.open();
     std::vector<std::string> names;
-    for (const ui::SettingsCategory& category : rig.page.categories()) {
+    for (const ui::SettingsCategory& category : rig.controller.categories()) {
         names.push_back(category.label);
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
@@ -344,26 +378,29 @@ void pagesFollowTheIntegrations(const fs::path& root) {
                                              "Artwork", "About"},
            "no Steam libraries, Wine or Plugins with their integrations off");
     rig.enter("Library");
-    expect(std::ranges::none_of(rig.page.focusedCategory().rows,
+    expect(std::ranges::none_of(rig.rows(),
                                 [](const ui::SettingsRow& row) {
                                     return row.id.starts_with("steam.");
                                 }),
            "no Steam folders on the Library page");
     rig.controller.showCategories();
     rig.enter("Install folders");
-    expect(rig.page.focusedCategory().rows.size() == 1, "only the default install folder");
+    expect(rig.rows().size() == 1, "only the default install folder");
     rig.controller.showCategories();
     rig.enter("Integrations");
     rig.focus("integrations.steam");
-    rig.controller.act(Button::A);
-    expect(rig.onDisk().integrations && !rig.onDisk().integrations->steam,
-           "a staged switch is not kept until Apply");
+    rig.act(Button::A);
+    const std::optional<settings::IntegrationChoices> staged = rig.onDisk().integrations;
+    expect(staged.has_value() && !staged->steam, "a staged switch is not kept until Apply");
     expect(rig.rowOf("integrations.steamMode").value == "Normal", "its mode shows");
     rig.focus("integrations.apply");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     const std::optional<settings::IntegrationChoices> kept = rig.onDisk().integrations;
     expect(kept && kept->steam, "Steam on is kept once applied");
-    const auto& categories = rig.page.categories();
+    expect(!rig.said.empty() && !rig.said.back().error &&
+               rig.said.back().text == "Integrations: 1 change applied",
+           "Apply says how many changes it put in effect");
+    const auto& categories = rig.controller.categories();
     expect(std::ranges::any_of(categories,
                                [](const ui::SettingsCategory& category) {
                                    return category.label == "Steam libraries";
@@ -371,12 +408,63 @@ void pagesFollowTheIntegrations(const fs::path& root) {
            "Steam libraries is back");
 }
 
+bool saidExactly(const Rig& rig, const std::string& text) {
+    return std::ranges::any_of(rig.said, [&text](const Said& said) {
+        return !said.error && said.text == text;
+    });
+}
+
+/// Leaving Settings with Integrations' changes staged asks whether to apply them.
+void leavingAsksAboutStagedIntegrations(const fs::path& root) {
+    Rig rig{root / "leave"};
+    rig.inForce.choose(settings::IntegrationChoices{});
+    rig.controller.open();
+    rig.enter("Integrations");
+    rig.focus("integrations.steam");
+    rig.act(Button::A);
+    expect(rig.integrationSettings.pendingCount() == 1, "a switch is staged");
+    rig.act(Button::B);
+    expect(rig.focused() == "categories/integrations", "Back goes to the tabs first");
+    rig.act(Button::B);
+    expect(rig.top() == "dialog" && rig.focused() == "dialog/0" && rig.controller.isOpen(),
+           "Back on the tabs asks first, Apply focused");
+    rig.focus("dialog/2");
+    rig.act(Button::A);
+    expect(rig.top() == "settings" && rig.integrationSettings.pendingCount() == 1,
+           "Keep editing stays with the change staged");
+    rig.act(Button::Start);
+    expect(rig.top() == "dialog", "the menu button asks too");
+    rig.act(Button::A);
+    const std::optional<settings::IntegrationChoices> kept = rig.onDisk().integrations;
+    expect(!rig.controller.isOpen() && kept && kept->steam &&
+               rig.integrationSettings.pendingCount() == 0,
+           "Apply puts the change in effect and closes Settings");
+    expect(saidExactly(rig, "Integrations: 1 change applied"), "and says so");
+
+    rig.controller.open();
+    rig.enter("Integrations");
+    rig.focus("integrations.steam");
+    rig.act(Button::A);
+    rig.act(Button::B);
+    rig.act(Button::B);
+    rig.focus("dialog/1");
+    rig.act(Button::A);
+    const std::optional<settings::IntegrationChoices> after = rig.onDisk().integrations;
+    expect(!rig.controller.isOpen() && after && after->steam &&
+               rig.integrationSettings.pendingCount() == 0,
+           "Discard drops the staged change and closes Settings");
+
+    rig.controller.open();
+    rig.act(Button::B);
+    expect(!rig.controller.isOpen(), "with nothing staged Back on the tabs just closes");
+}
+
 void categoriesFollowTheSavedSettings(const fs::path& root) {
     Rig rig{root / "categories"};
     rig.recorded = {library::steam::LibraryFolder{"/mnt/games/SteamLibrary", "", {{"10", 2048}}}};
     rig.controller.open();
     std::vector<std::string> names;
-    for (const ui::SettingsCategory& category : rig.page.categories()) {
+    for (const ui::SettingsCategory& category : rig.controller.categories()) {
         names.push_back(category.label);
     }
     expect(names == std::vector<std::string>{"Appearance", "Library", "Integrations", "Emulators",
@@ -384,64 +472,84 @@ void categoriesFollowTheSavedSettings(const fs::path& root) {
                                              "Install folders", "Artwork", "Wine", "Plugins",
                                              "About"},
            "the thirteen categories");
-    expect(rig.controller.category() == "Appearance" && !rig.controller.changes(),
-           "opens on Appearance with nothing to change yet");
+    expect(rig.controller.isOpen() && rig.top() == "settings" &&
+               rig.controller.category() == "Appearance" &&
+               rig.focused() == "categories/appearance",
+           "opens on Appearance with its tab focused");
     rig.enter("Steam libraries");
-    const auto& rows = rig.page.focusedCategory().rows;
+    expect(rig.focused().starts_with("categories/"), "a page of facts has no row to focus");
+    const auto& rows = rig.rows();
     expect(rows.size() == 2 && rows[0].label == "Steam is not running" &&
                rows[1].kind == ui::RowKind::Info && rows[1].label == "/mnt/games/SteamLibrary" &&
                rows[1].note == "1 game, 2.0 KB" && rows[1].value == "Not mounted",
            "without Steam each recorded library is a read-only row, the page says why");
     rig.controller.close();
-    expect(!rig.page.isOpen() && rig.controller.category().empty(), "closed");
+    expect(!rig.controller.isOpen() && rig.top().empty() && rig.controller.category().empty(),
+           "closed");
 }
 
 void togglesChoicesAndSliderPersist(const fs::path& root) {
     Rig rig{root / "persist"};
     rig.controller.open();
-    rig.controller.act(Button::A);
-    expect(rig.page.zone() == ui::SettingsZone::Rows && !rig.controller.changes(),
-           "a choice row is opened before a button changes it");
+    rig.act(Button::A);
+    expect(rig.focused() == "layout" && rig.applied == 0,
+           "A on a tab goes into its rows and changes nothing");
 
     rig.focus("pinDock");
     const bool pinned = rig.preferences.values().pinLibraryDock;
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.preferences.values().pinLibraryDock != pinned &&
                rig.onDisk().pinLibraryDock != pinned && rig.applied == 1,
            "a toggle flips, is saved and applied");
 
     rig.focus("iconSize");
     const int size = rig.preferences.values().iconSize;
-    rig.controller.act(Button::A);
-    rig.controller.act(Button::Right);
-    rig.controller.act(Button::Right);
-    expect(rig.onDisk().iconSize == size + 2, "right grows the icons, kept");
-    rig.controller.chooseLevel(99);
+    rig.act(Button::Right);
+    rig.act(Button::Right);
+    expect(rig.onDisk().iconSize == size + 2 && rig.rowOf("iconSize").level == size + 2,
+           "right grows the icons, kept");
+    rig.controller.setLevel("iconSize", 99);
     expect(rig.onDisk().iconSize == ui::maxIconLevel, "a click clamps to the top level");
 
     rig.focus("scrollMode");
-    rig.controller.act(Button::A);
-    rig.controller.act(Button::Right);
+    rig.act(Button::Right);
     expect(rig.onDisk().homeMode.has_value(), "choosing a scroll mode overrides the environment");
     const config::HomeMode first = need(rig.onDisk().homeMode, "a scroll mode");
-    rig.controller.act(Button::Right);
+    rig.act(Button::Right);
     expect(need(rig.onDisk().homeMode, "a scroll mode") != first, "and stepping changes it");
-    rig.controller.act(Button::A);
 
-    rig.controller.act(Button::B);
+    rig.focus("layout");
+    const library::LibraryMode mode = rig.preferences.values().libraryMode;
+    const ui::SettingsRow layout = rig.rowOf("layout");
+    rig.act(Button::A);
+    expect(rig.top() == "choice" && rig.focused() == "choice/" + std::to_string(layout.chosen),
+           "A on a choice lists its options, on the one chosen");
+    rig.act(Button::B);
+    expect(rig.top() == "settings" && rig.preferences.values().libraryMode == mode,
+           "Back closes the list and keeps the choice");
+    rig.act(Button::A);
+    const std::size_t other = (layout.chosen + 1) % layout.choices.size();
+    rig.focus("choice/" + std::to_string(other));
+    rig.act(Button::A);
+    expect(rig.top() == "settings" && rig.rowOf("layout").chosen == other &&
+               rig.onDisk().libraryMode != mode,
+           "an option picked on the list is chosen and kept");
+
+    rig.act(Button::B);
+    expect(rig.focused() == "categories/appearance", "Back from the rows focuses the tabs");
     rig.enter("Audio");
-    rig.controller.act(Button::A);
+    rig.focus("uiSounds");
+    rig.act(Button::A);
     expect(!rig.onDisk().uiSounds, "UI sounds off is kept");
     expect(rig.sounds.muted() || rig.applied > 0, "and applied");
 
-    rig.controller.act(Button::B);
+    rig.act(Button::B);
     rig.enter("Library");
     rig.focus("installedOnly");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.onDisk().view.installedOnly, "a view filter is kept");
     rig.focus("source");
-    rig.controller.act(Button::A);
-    rig.controller.act(Button::Right);
+    rig.act(Button::Right);
     expect(rig.onDisk().view.source == "launcher:epic", "the source choice is kept");
     expect(rig.failures.empty(), "nothing failed to save");
 }
@@ -449,21 +557,22 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
 void backAndStartLeave(const fs::path& root) {
     Rig rig{root / "back"};
     rig.controller.open();
-    rig.controller.act(Button::A);
-    expect(rig.page.zone() == ui::SettingsZone::Rows, "A enters the rows");
-    rig.controller.act(Button::B);
-    expect(rig.page.zone() == ui::SettingsZone::Categories && rig.page.isOpen(),
-           "B leaves the rows");
-    rig.controller.act(Button::Right);
-    expect(rig.page.zone() == ui::SettingsZone::Rows, "Right enters them too");
+    rig.act(Button::A);
+    expect(!rig.focused().starts_with("categories/"), "A enters the rows");
+    rig.act(Button::B);
+    expect(rig.focused() == "categories/appearance" && rig.controller.isOpen(),
+           "B leaves the rows for the tabs");
+    rig.act(Button::Right);
+    expect(!rig.focused().starts_with("categories/"), "Right enters them too");
     rig.controller.showCategories();
-    expect(rig.page.zone() == ui::SettingsZone::Categories, "the trail's Settings level goes back");
-    rig.controller.act(Button::B);
-    expect(!rig.page.isOpen(), "B in the list closes the screen");
+    rig.screens.frame();
+    expect(rig.focused() == "categories/appearance", "the trail's Settings level goes back");
+    rig.act(Button::B);
+    expect(!rig.controller.isOpen(), "B on the tabs closes the screen");
     rig.controller.open();
-    rig.controller.act(Button::A);
-    rig.controller.act(Button::Start);
-    expect(!rig.page.isOpen(), "Start closes it from anywhere");
+    rig.act(Button::A);
+    rig.act(Button::Start);
+    expect(!rig.controller.isOpen(), "Start closes it from anywhere");
 }
 
 /// Presses Use on the chooser, which is open on the folder it should choose.
@@ -492,7 +601,7 @@ void installFoldersPersistPerStore(const fs::path& root) {
            "Steam's default is named as unknown while Steam is not running");
 
     rig.focus("install.default");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.paths.active(), "A on a folder row opens the chooser");
     choose(rig, library);
     expect(rig.onDisk().installFolders.defaultFolder() == library, "the default is kept");
@@ -503,14 +612,14 @@ void installFoldersPersistPerStore(const fs::path& root) {
            "the row shows the folder and that it is the default");
 
     rig.focus("install.Epic");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     choose(rig, epic);
     expect(rig.onDisk().installFolders.effective(library::Source::Epic) == epic &&
                rig.onDisk().installFolders.effective(library::Source::Steam) == library,
            "an override beats the default for its own store only");
 
     rig.focus("install.Epic");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     rig.folders.open("", epic, "Follow the default");
     rig.folders.focusEntry(2);
     rig.paths.act(Button::A);
@@ -528,7 +637,7 @@ void refusedFoldersStayOpen(const fs::path& root) {
     rig.controller.open();
     rig.enter("Install folders");
     rig.focus("install.default");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
 
     rig.folders.open("", missing);
     rig.folders.open("", readonly);
@@ -550,7 +659,7 @@ void typedPathIsValidated(const fs::path& root) {
     rig.controller.open();
     rig.enter("Install folders");
     rig.focus("install.GOG");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     rig.paths.act(Button::Down);
     rig.paths.act(Button::A);
     expect(rig.paths.typing(), "the Type entry opens the keyboard");
@@ -567,7 +676,7 @@ void typedPathIsValidated(const fs::path& root) {
                rig.onDisk().installFolders.storeFolder(library::Source::Gog) == good,
            "a good typed path is taken");
     rig.focus("install.GOG");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     rig.paths.act(Button::Down);
     rig.paths.act(Button::A);
     rig.paths.dismiss();
@@ -581,19 +690,19 @@ void rootsAreAddedAndReset(const fs::path& root) {
     rig.controller.open();
     rig.enter("Library");
     rig.focus("roms.add");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     choose(rig, roms);
     expect(rig.onDisk().romFolders == std::vector<fs::path>{roms}, "a ROM folder is kept");
     rig.focus("roms.add");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     choose(rig, roms);
     expect(rig.onDisk().romFolders.size() == 1, "the same folder is not added twice");
     rig.focus("roms.reset");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.onDisk().romFolders.empty(), "reset goes back to automatic");
 
     rig.focus("steam.add");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     choose(rig, roms);
     expect(rig.onDisk().steamRoots.empty() && rig.said.back().error,
            "a folder with no Steam installation is refused");
@@ -610,7 +719,7 @@ void hiddenAndEmulatorsReset(const fs::path& root) {
     rig.enter("Library");
     expect(rig.rowOf("hidden").value == "1 game", "the hidden count is shown");
     rig.focus("hidden");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.onDisk().hidden.keys().empty() && rig.rowOf("hidden").value == "None hidden",
            "show hidden games again clears them");
 }
@@ -622,23 +731,22 @@ void volumeRowsDriveTheMixer(const fs::path& root) {
     expect(rig.rowOf("volume").level == 40 && !rig.rowOf("volumeMute").on,
            "the rows read the mixer");
     rig.focus("volume");
-    rig.controller.act(Button::A);
-    rig.controller.act(Button::Right);
+    rig.act(Button::Right);
     expect(rig.mixerState.percent == 45 && rig.rowOf("volume").level == 45,
            "right raises the volume five percent and the row follows");
-    rig.controller.act(Button::Left);
-    rig.controller.act(Button::Left);
+    rig.act(Button::Left);
+    rig.act(Button::Left);
     expect(rig.mixerState.percent == 35, "left lowers it");
-    rig.controller.chooseLevel(80);
+    rig.controller.setLevel("volume", 80);
     expect(rig.mixerState.percent == 80, "a click on the track sets the level");
-    rig.controller.chooseLevel(400);
+    rig.controller.setLevel("volume", 400);
     expect(rig.mixerState.percent == 100, "and clamps");
     rig.focus("volumeMute");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.mixerState.muted && rig.rowOf("volumeMute").on, "A mutes");
     expect(!rig.shown.empty() && rig.shown.back().muted, "every change was told to the display");
     const std::size_t told = rig.shown.size();
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(!rig.mixerState.muted && rig.shown.size() == told + 1, "and unmutes");
     expect(rig.onDisk().uiScale == settings::defaultUiScale, "nothing else changed");
 }
@@ -658,22 +766,20 @@ void withoutAMixerTheRowSaysHow(const fs::path& root) {
 void interfaceSizeCycles(const fs::path& root) {
     Rig rig{root / "scale"};
     rig.controller.open();
-    rig.controller.act(Button::A);
     rig.focus("uiScale");
     expect(rig.rowOf("uiScale").value == "100%", "100% by default");
-    rig.controller.act(Button::A);
-    rig.controller.act(Button::Right);
+    rig.act(Button::Right);
     expect(rig.onDisk().uiScale == 105 && rig.rowOf("uiScale").value == "105%", "right grows it");
-    rig.controller.act(Button::Left);
-    rig.controller.act(Button::Left);
+    rig.act(Button::Left);
+    rig.act(Button::Left);
     expect(rig.onDisk().uiScale == 95, "left shrinks it");
     for (int i = 0; i < 40; ++i) {
-        rig.controller.act(Button::Left);
+        rig.act(Button::Left);
     }
     expect(rig.preferences.values().uiScale >= settings::minUiScale &&
                rig.preferences.values().uiScale <= settings::maxUiScale,
            "it wraps inside its range");
-    rig.controller.act(Button::Right);
+    rig.act(Button::Right);
     expect(rig.preferences.values().uiScale >= settings::minUiScale &&
                rig.preferences.values().uiScale <= settings::maxUiScale,
            "never past it");
@@ -687,11 +793,11 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
     expect(rig.rowOf("shortcut.volumeUp").value == "Ctrl+Up  Guide + Up", "and its pad chord");
 
     rig.focus("shortcut.quit");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.shortcutEditor.capturing() &&
                rig.rowOf("shortcut.quit").value == "Press the new key",
            "A starts listening and the row says so");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.shortcutEditor.capturing(), "buttons do nothing on the screen meanwhile");
 
     const input::Combo taken = need(input::comboNamed("e"), "a key name");
@@ -711,7 +817,7 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
     expect(rig.rowOf("shortcut.quit").value == "Shift+F9", "the row follows");
 
     rig.focus("shortcut.volumeUp");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.rowOf("shortcut.volumeUp").value == "Press a key, or Guide + a button" &&
                rig.rowOf("shortcut.volumeUp").note.find("Any button") != std::string::npos,
            "a volume row offers the pad's chords");
@@ -730,7 +836,7 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
            "hold R2 and press Y sets the chord");
 
     rig.focus("shortcut.volumeDown");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     rig.shortcutEditor.capturePad(
         {event(Button::R2, false), event(Button::R2, true), event(Button::Y, true)});
     expect(rig.shortcutEditor.capturing() && rig.said.back().error, "a clashing chord is refused");
@@ -741,21 +847,31 @@ void shortcutsAreRemappedAndKept(const fs::path& root) {
     expect(!rig.shortcutEditor.capturing(), "B pressed and released alone cancels");
 
     rig.focus("shortcut.volumeDown");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     rig.shortcutEditor.capturePad({event(Button::Start, true), event(Button::B, true)});
     expect(!rig.shortcutEditor.capturing() && rig.shortcuts.padChord(input::Action::VolumeDown) ==
                                                   input::PadChord{Button::Start, Button::B},
            "any button can be held for a chord, Start too, and B can be its partner");
 
     rig.focus("shortcut.confirm");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     rig.shortcutEditor.capturePad({event(Button::L2, true), event(Button::Up, true)});
     expect(rig.shortcutEditor.capturing(), "an action that is a button takes no chord");
     rig.shortcutEditor.cancel();
 
     rig.focus("shortcuts.reset");
-    rig.controller.act(Button::A);
-    expect(rig.onDisk().shortcuts == input::ShortcutOverrides{} &&
+    rig.act(Button::A);
+    expect(rig.top() == "dialog" && rig.focused() == "dialog/0" &&
+               rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("shift+f9"),
+           "restoring asks first, Cancel focused, and nothing is restored yet");
+    rig.act(Button::B);
+    expect(rig.top() == "settings" && rig.focused() == "shortcuts.reset" &&
+               rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("shift+f9"),
+           "Back cancels the question");
+    rig.act(Button::A);
+    rig.focus("dialog/1");
+    rig.act(Button::A);
+    expect(rig.top() == "settings" && rig.onDisk().shortcuts == input::ShortcutOverrides{} &&
                rig.shortcuts.primary(input::Action::Quit) == input::comboNamed("q"),
            "restore puts every shortcut back");
 }
@@ -764,23 +880,40 @@ void mappingsAreReachedFromControls(const fs::path& root) {
     Rig rig{root / "mappings"};
     rig.controller.open();
     rig.enter("Controls");
-    const auto& rows = rig.page.focusedCategory().rows;
-    expect(rows.size() > 3 && rows[0].id == "mapping.global" && rows[1].id == "mapping.emulator" &&
-               rows[1].value == "PCSX2" && rows[2].id == "mapping.steamInput",
+    const std::vector<ui::SettingsRow> rows = rig.rows();
+    expect(rows.size() > 4 && rows[0].kind == ui::RowKind::Heading &&
+               rows[1].id == "mapping.global" && rows[2].id == "mapping.emulators" &&
+               rows[2].kind == ui::RowKind::Page && rows[3].id == "mapping.steamInput",
            "the Controls page starts with the mappings and the Steam Input switch");
-    rig.focus("mapping.emulator");
-    rig.controller.act(Button::A);
-    rig.controller.act(Button::Right);
-    expect(rig.rowOf("mapping.emulator").value == "mGBA", "Right picks the emulator");
+    expect(std::ranges::none_of(rows,
+                                [](const ui::SettingsRow& row) {
+                                    return row.id == "chords.open";
+                                }),
+           "Guide chords is its own category, not a row here");
+    rig.focus("mapping.emulators");
+    rig.act(Button::A);
+    expect(rig.top() == "mapping.emulators" &&
+               rig.controller.category() == "Controls › Emulator mappings",
+           "A opens the page of emulators' mappings");
+    expect(rig.rows().size() == 2 && rig.rowOf("mapping.emulator.mgba").label == "mGBA",
+           "one row per emulator");
+    rig.focus("mapping.emulator.mgba");
+    rig.act(Button::A);
+    expect(rig.mappings.active() && rig.mappingPage.title() == "Controls · mGBA",
+           "A opens that emulator's mapping");
+    rig.mappings.close();
+    rig.act(Button::B);
+    expect(rig.top() == "settings" && rig.controller.category() == "Controls",
+           "Back returns to Controls");
     rig.focus("mapping.steamInput");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.rowOf("mapping.steamInput").on &&
                settings::MappingStore{rig.config.configDir / settings::mappingsFile}
                    .load()
                    .steamInputGlobal(),
            "A turns Steam Input on for every game and keeps it");
     rig.focus("mapping.global");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.mappings.active() && rig.mappingPage.title() == "Controls · every game",
            "A opens the global mapping");
 }
@@ -788,14 +921,12 @@ void mappingsAreReachedFromControls(const fs::path& root) {
 void guideChordsAreSetOnTheirPage(const fs::path& root) {
     Rig rig{root / "chords"};
     rig.controller.open();
-    rig.enter("Controls");
-    rig.focus("chords.open");
-    rig.controller.act(Button::A);
-    expect(rig.controller.category() == "Guide chords" && rig.page.zone() == ui::SettingsZone::Rows,
-           "the Controls page opens the Guide chords page");
+    rig.enter("Guide chords");
+    expect(rig.controller.category() == "Guide chords" && !rig.focused().starts_with("categories/"),
+           "Guide chords is a category of its own");
 
     std::vector<std::string> labels;
-    for (const ui::SettingsRow& row : rig.page.focusedCategory().rows) {
+    for (const ui::SettingsRow& row : rig.rows()) {
         labels.push_back(row.label + ": " + row.value);
     }
     expect(labels == std::vector<std::string>{"Quick menu: Guide + A", "Volume up: Guide + Up",
@@ -813,7 +944,7 @@ void guideChordsAreSetOnTheirPage(const fs::path& root) {
         return made;
     };
     rig.focus("chord.devices");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.shortcutEditor.capturing() &&
                rig.rowOf("chord.devices").value == "Hold Guide and press a button",
            "A listens for the chord");
@@ -825,7 +956,7 @@ void guideChordsAreSetOnTheirPage(const fs::path& root) {
            "Guide + B is kept, shown, and the pads are told");
 
     rig.focus("chord.home");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     rig.shortcutEditor.capturePad({event(Button::Guide, true), event(Button::A, true)});
     expect(rig.shortcutEditor.capturing() &&
                rig.said.back().text.find("already Quick menu") != std::string::npos,
@@ -835,7 +966,7 @@ void guideChordsAreSetOnTheirPage(const fs::path& root) {
     expect(rig.shortcuts.rebind(input::Action::Quit, input::Combo{input::keys::F9}).empty(),
            "a key is remapped too");
     rig.focus("chords.reset");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.onDisk().shortcuts.pads.empty() && rig.rowOf("chord.devices").value == "None" &&
                rig.onDisk().shortcuts.keys.at(input::Action::Quit) ==
                    input::Combo{input::keys::F9} &&
@@ -894,7 +1025,7 @@ void steamLibrariesWhileSteamRuns(const fs::path& root) {
     rig.controller.open();
     rig.enter("Steam libraries");
     settle(rig, [&rig] {
-        return rig.page.focusedCategory().rows.size() == 6;
+        return rig.rows().size() == 6;
     });
     expect(rig.rowOf("steamLibraries.library.0").note == "1 game, 1.0 KB · 2.0 KB free of 4.0 KB" &&
                rig.rowOf("steamLibraries.library.1").value == "Default" &&
@@ -904,14 +1035,14 @@ void steamLibrariesWhileSteamRuns(const fs::path& root) {
            "a library with games says why it cannot be removed");
 
     rig.focus("steamLibraries.library.2");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     settle(rig, [&rig] {
         return rig.rowOf("steamLibraries.library.2").value == "Default";
     });
     expect(hasCall(steam, "SetDefaultInstallFolder(2)"), "A makes a library the default");
     rig.controller.close();
     rig.controller.openCategory("installs");
-    rig.page.enterRows();
+    rig.act(Button::Right);
     expect(rig.rowOf("install.Steam").value == "/mnt/games" &&
                rig.rowOf("install.Steam").note.starts_with("Steam's own default"),
            "the Install folders page shows Steam's default library as Steam's own");
@@ -919,32 +1050,33 @@ void steamLibrariesWhileSteamRuns(const fs::path& root) {
     rig.controller.open();
     rig.enter("Steam libraries");
     settle(rig, [&rig] {
-        return rig.page.focusedCategory().rows.size() == 6;
+        return rig.rows().size() == 6;
     });
 
     rig.focus("steamLibraries.remove.2");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(!rig.said.empty() && rig.said.back().error &&
                rig.said.back().text.find("uninstall or move them") != std::string::npos &&
                !hasCall(steam, "RemoveInstallFolder"),
            "removing a library with games is refused with the reason");
     rig.focus("steamLibraries.remove.1");
-    rig.controller.act(Button::A);
-    expect(rig.rowOf("steamLibraries.remove.1").value == "Press again to remove" &&
+    rig.act(Button::A);
+    expect(rig.top() == "dialog" && rig.focused() == "dialog/0" &&
                !hasCall(steam, "RemoveInstallFolder"),
-           "an empty library asks for a second press");
-    rig.controller.act(Button::A);
+           "removing an empty library asks first, Cancel focused");
+    rig.focus("dialog/1");
+    rig.act(Button::A);
     settle(
         rig,
         [&steam] {
             return hasCall(steam, "RemoveInstallFolder(1)");
         },
-        "the second press removes the empty library");
+        "Remove on the question removes the empty library");
 
     const fs::path added = root / "new-library";
     fs::create_directories(added);
     rig.focus("steamLibraries.add");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     choose(rig, added);
     settle(
         rig,
@@ -992,15 +1124,14 @@ void wineRunnerIsPicked(const fs::path& root) {
                rig.rowOf("wine.steam").value == "Left to Steam",
            "no game has its own prefix and Steam is left alone");
     rig.focus("wine.runner");
-    rig.controller.act(Button::A);
     std::vector<fs::path> picked;
     for (int press = 0; press < 4; ++press) {
-        rig.controller.act(Button::Right);
+        rig.act(Button::Right);
         picked.push_back(rig.onDisk().wineRunner);
     }
     expect(picked == std::vector<fs::path>{system, ge, proton, {}},
            "Right steps through every runner found and back to Automatic, each kept");
-    rig.controller.act(Button::Left);
+    rig.act(Button::Left);
     expect(rig.onDisk().wineRunner == proton && rig.rowOf("wine.runner").value == "Proton 9.0",
            "Left steps back, wrapping");
     expect(treeOf(steamRoot) == steamBefore, "Steam's folders are only read");
@@ -1043,7 +1174,7 @@ void pluginsAskBeforeTheyRun(const fs::path& root) {
                    "Reads " + (root / "xdg-data" / "probe").string(),
                "its row says what it can read");
         rig.focus("plugins.probe");
-        rig.controller.act(Button::A);
+        rig.act(Button::A);
         expect(rig.pluginSettings.active() && rig.dialog.text().title == "Turn on Probe?",
                "turning it on asks first");
         const auto& paragraphs = rig.dialog.text().paragraphs;
@@ -1057,7 +1188,7 @@ void pluginsAskBeforeTheyRun(const fs::path& root) {
         rig.pluginSettings.act(Button::B);
         expect(!rig.dialog.isOpen() && !rig.rowOf("plugins.probe").on, "Cancel leaves it off");
         rig.focus("plugins.probe");
-        rig.controller.act(Button::A);
+        rig.act(Button::A);
         rig.pluginSettings.act(Button::A);
         expect(!rig.dialog.isOpen() && rig.rowOf("plugins.probe").on, "Accept turns it on");
         const settings::PluginChoice kept = rig.onDisk().plugins.at("probe");
@@ -1109,7 +1240,7 @@ void steamGridDbKeyIsEnteredAndForgotten(const fs::path& root) {
                         }),
            "with no saved key SteamGridDB is not connected");
     rig.focus("artwork.steamgriddb.enter");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(rig.artworkSettings.typing() && rig.entry.secret(),
            "Enter a key opens the keyboard, showing dots");
     rig.artworkSettings.typeText("not a key");
@@ -1122,7 +1253,7 @@ void steamGridDbKeyIsEnteredAndForgotten(const fs::path& root) {
            "a line that is not a key is refused");
 
     rig.focus("artwork.steamgriddb.enter");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     rig.artworkSettings.typeText(std::string{" "} + steamGridDbKey + "\n");
     rig.artworkSettings.confirm();
     expect(serviceUntil(rig,
@@ -1143,7 +1274,11 @@ void steamGridDbKeyIsEnteredAndForgotten(const fs::path& root) {
     }
 
     rig.focus("artwork.steamgriddb.disconnect");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
+    expect(rig.top() == "dialog" && rig.steamGridDb.connected(),
+           "Disconnect asks first and keeps the key meanwhile");
+    rig.focus("dialog/1");
+    rig.act(Button::A);
     expect(serviceUntil(rig,
                         [&] {
                             return rig.rowOf("artwork.steamgriddb").value == "Not connected";
@@ -1183,7 +1318,7 @@ void steamGridDbWithoutSteamAsksForTheKey(const fs::path& root) {
                         }),
            "not connected");
     rig.focus("artwork.steamgriddb.connect");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(serviceUntil(rig,
                         [&] {
                             return rig.artworkSettings.typing();
@@ -1222,9 +1357,8 @@ void steamGridDbThroughSteam(const fs::path& root) {
                         }),
            "not connected");
     rig.focus("artwork.steamgriddb.connect");
-    rig.controller.act(Button::A);
-    expect(rig.page.focusedCategory().rows.size() == 2 &&
-               rig.rowOf("artwork.steamgriddb.cancel").label == "Cancel",
+    rig.act(Button::A);
+    expect(rig.rows().size() == 2 && rig.rowOf("artwork.steamgriddb.cancel").label == "Cancel",
            "while Steam signs in the page offers Cancel");
     expect(serviceUntil(rig,
                         [&] {
@@ -1247,7 +1381,7 @@ void steamGridDbBlockedSteamSaysWhy(const fs::path& root) {
                         }),
            "not connected");
     rig.focus("artwork.steamgriddb.connect");
-    rig.controller.act(Button::A);
+    rig.act(Button::A);
     expect(serviceUntil(rig,
                         [&] {
                             return saidSomething(rig, "running on the desktop", true);
@@ -1263,6 +1397,7 @@ int main() {
     fs::remove_all(root);
     categoriesFollowTheSavedSettings(root);
     pagesFollowTheIntegrations(root);
+    leavingAsksAboutStagedIntegrations(root);
     togglesChoicesAndSliderPersist(root);
     backAndStartLeave(root);
     installFoldersPersistPerStore(root);

@@ -12,7 +12,7 @@ INSTALL_COMPONENT = "Unspecified"
 SIGNIN_XPI = "opensu-signin.xpi"
 
 
-def plan_for(layout: config.Layout) -> cmake.Plan:
+def plan_for(layout: config.Layout, version: str) -> cmake.Plan:
     return cmake.Plan(
         build_dir=layout.root,
         deps=deps.Deps(layout.deps),
@@ -22,13 +22,14 @@ def plan_for(layout: config.Layout) -> cmake.Plan:
         defines=(
             f"-DOPENSU_GAMESCOPE_MESON_OPTIONS={config.GAMESCOPE_MESON_OPTIONS}",
             "-DOPENSU_DESKTOP_EXEC=opensu",
+            f"-DOPENSU_VERSION={version}",
         ),
     )
 
 
 def build(layout: config.Layout, version: str) -> Path:
     env = process.build_environment(layout.scratch)
-    plan = plan_for(layout)
+    plan = plan_for(layout, version)
     deps.fetch(plan.deps, env)
     cmake.configure(plan, env)
     # The tests need a systemd user manager; CI runs them in tools.check's container.

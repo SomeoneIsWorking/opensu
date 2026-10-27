@@ -1,15 +1,21 @@
-// settings_controller — the Settings screen's contents and buttons. Builds the categories from the
-// saved preferences (every user-meaningful setting opensu keeps, and the environment's defaults
-// they override), acts on the focused row, and keeps each change through `Preferences`, the one
-// owner of the settings file. Folder rows go through `PathEditor`.
+// settings_controller — the Settings screen's contents and what its rows do. Builds the categories
+// and the pages their rows open from the saved preferences (every user-meaningful setting opensu
+// keeps, and the environment's defaults they override), acts on a row by its id, and keeps each
+// change through `Preferences`, the one owner of the settings file. The screens themselves
+// (`SettingsScreen`, `SettingsSubPage`) are interface-toolkit screens on the shell's stack; folder
+// rows go through `PathEditor`.
 #pragma once
 
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "gpu2d/ui/navigator.hpp"
+#include "gpu2d/ui/screen.hpp"
 
 #include "artwork_settings.hpp"
 #include "audio/sdl_sound_player.hpp"
@@ -29,7 +35,8 @@
 #include "settings/install_folders.hpp"
 #include "shortcut_editor.hpp"
 #include "steam_library_settings.hpp"
-#include "ui/settings_page.hpp"
+#include "ui/screen_stack.hpp"
+#include "ui/setting_row.hpp"
 #include "volume_control.hpp"
 #include "wine_settings.hpp"
 
@@ -73,10 +80,12 @@ class SettingsController {
         const IntegrationsInForce& inForce;
     };
 
-    /// `defaults` is the environment's configuration, which the settings override.
-    SettingsController(ui::SettingsPage& page, Services services, audio::SdlSoundPlayer& sounds,
-                       Preferences& preferences, const config::Config& defaults, Hooks hooks)
-        : page_{page}, paths_{services.paths}, shortcutEditor_{services.shortcutEditor},
+    /// The Settings screens go on `navigator`'s stack, under `chrome`; `defaults` is the
+    /// environment's configuration, which the settings override.
+    SettingsController(gpu2d::ui::Navigator& navigator, const ui::Chrome& chrome, Services services,
+                       audio::SdlSoundPlayer& sounds, Preferences& preferences,
+                       const config::Config& defaults, Hooks hooks)
+        : navigator_{navigator}, chrome_{chrome}, paths_{services.paths}, shortcutEditor_{services.shortcutEditor},
           volume_{services.volume}, shortcuts_{services.shortcuts}, emulators_{services.emulators},
           layers_{services.layers}, steamLibraries_{services.steamLibraries},
           plugins_{services.plugins}, chords_{services.chords}, mappings_{services.mappings},
@@ -89,53 +98,72 @@ class SettingsController {
     void open();
     /// Opens the screen on the category with id `id` (the first when there is none).
     void openCategory(const std::string& id);
-    /// Closes the screen with iiSU's Close sound.
+    /// Closes every Settings screen at once, asking nothing.
     void close();
+    [[nodiscard]] bool isOpen() const;
     /// A button while the screen is up and no chooser is over it.
     void act(gamepad::Button button);
-    /// A click on a slider's track at `level`.
-    void chooseLevel(int level);
     /// Shows the rows again after something outside the screen changed one.
     void refresh();
     /// Takes what the Steam libraries' and SteamGridDB's workers finished. Main loop only.
     void service();
-    /// The pad goes back to the list of categories; the trail's "Settings" level does this.
+    /// Back to the categories from any page; the trail's "Settings" level does this.
     void showCategories();
-    /// The focused category's name, then the open emulator layer's ("Emulators › Super
+    /// The chosen category's name, then each page open over it ("Emulators › Consoles › Super
     /// Nintendo"); empty when the screen is closed.
     [[nodiscard]] std::string category() const;
-    /// Whether a button now changes the focused setting, which the corner prompt says.
-    [[nodiscard]] bool changes() const;
+
+    // What the screens ask.
+    /// The categories in their order.
+    [[nodiscard]] const std::vector<ui::SettingsCategory>& categories();
+    /// The category or page `id`; an empty one when there is none.
+    [[nodiscard]] const ui::SettingsCategory& page(const std::string& id);
+    /// The title of the page `id`.
+    [[nodiscard]] std::string pageTitle(const std::string& id);
+    /// Acts on row `id`: `step` is 0 for A, else how many places a choice moves.
+    void run(const std::string& id, int step);
+    /// Sets the slider `id` to `level`.
+    void setLevel(const std::string& id, int level);
+    /// Asks the row's question, then runs it.
+    void confirm(const ui::SettingsRow& row);
+    /// Opens the page row `id` leads to.
+    void openPage(const std::string& id);
+    /// Back on the page `id`: stays when it stepped back within the page.
+    [[nodiscard]] gpu2d::ui::Screen::BackReply backFrom(const std::string& id);
+    /// Back on the categories, or the menu button anywhere: closes Settings, asking first when
+    /// Integrations has changes not applied. Stays when it asked.
+    [[nodiscard]] gpu2d::ui::Screen::BackReply leave();
 
   private:
     [[nodiscard]] std::vector<ui::SettingsCategory> build() const;
     [[nodiscard]] ui::SettingsCategory appearancePage() const;
     [[nodiscard]] ui::SettingsCategory libraryPage() const;
+    [[nodiscard]] ui::SettingsCategory emulatorsPage() const;
     [[nodiscard]] ui::SettingsCategory audioPage() const;
     [[nodiscard]] ui::SettingsCategory controlsPage() const;
     [[nodiscard]] ui::SettingsCategory installPage() const;
     [[nodiscard]] ui::SettingsCategory aboutPage() const;
-    /// Back from a layer's page to the Emulators page, on the row that opened it.
-    void closeLayer();
-    /// Focuses the row the layer page names after it changed, else the first.
-    void focusLayerRow();
+    /// A page a row opens, built now.
+    [[nodiscard]] std::optional<ui::SettingsCategory> subPage(const std::string& id) const;
+    /// Pushes the root screen on `category`, after reading what the categories show.
+    void show(const std::string& category);
+    /// Closes Settings with iiSU's Close sound.
+    void closeAll();
     /// Keeps the preferences and shows the change.
     void changed();
-    /// Acts on `row`: `step` is 0 for A and -1 or 1 for Left and Right.
-    void run(const ui::SettingsRow& row, int step);
+    /// Puts Integrations' staged changes in effect and says so.
+    void applyIntegrations();
     void runAppearance(const std::string& id, int step);
     void runLibrary(const std::string& id, int step);
     void runAudio(const std::string& id, int step);
     void runControls(const std::string& id);
-    /// Focuses the rows of the category `id`; false when there is none.
-    bool showCategory(std::string_view id);
-    [[nodiscard]] std::optional<std::size_t> categoryIndex(std::string_view id) const;
+    void runLayer(const std::string& id, int step);
     void chooseFolder(const std::string& id);
     void editInstallFolder(const std::string& title, const std::string& id);
     void addRoot(const std::string& id);
-    void stepIconSize(int delta);
 
-    ui::SettingsPage& page_;
+    gpu2d::ui::Navigator& navigator_;
+    const ui::Chrome& chrome_;
     PathEditor& paths_;
     ShortcutEditor& shortcutEditor_;
     VolumeControl& volume_;
@@ -154,6 +182,9 @@ class SettingsController {
     Preferences& preferences_;
     const config::Config& defaults_;
     Hooks hooks_;
+    /// The categories and pages as last built; emptied by `refresh`.
+    std::optional<std::vector<ui::SettingsCategory>> categories_;
+    std::map<std::string, ui::SettingsCategory, std::less<>> pages_;
 };
 
 } // namespace opensu::app

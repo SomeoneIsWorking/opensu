@@ -1,6 +1,7 @@
 #include "breadcrumb_trail.hpp"
 
 #include <algorithm>
+#include <string_view>
 
 namespace opensu::app {
 namespace {
@@ -24,7 +25,15 @@ ui::Trail trailOf(const TrailState& state) {
     }
     if (!state.settings.empty()) {
         trail.push_back(ui::Crumb{"Settings", ui::CrumbKind::Settings});
-        trail.push_back(ui::Crumb{state.settings, ui::CrumbKind::Page});
+        // A page open over a category is a level of its own.
+        constexpr std::string_view between = " › ";
+        std::string_view rest = state.settings;
+        while (!rest.empty()) {
+            const std::size_t end = rest.find(between);
+            trail.push_back(ui::Crumb{std::string{rest.substr(0, end)}, ui::CrumbKind::Page});
+            rest = end == std::string_view::npos ? std::string_view{}
+                                                 : rest.substr(end + between.size());
+        }
         return trail;
     }
     trail.push_back(ui::Crumb{sectionLabel(state.section), ui::CrumbKind::Section, state.section});

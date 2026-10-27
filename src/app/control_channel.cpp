@@ -80,6 +80,51 @@ std::string_view trimmed(std::string_view text) {
     return text;
 }
 
+/// `move 640 400`, `click 640 400` or `wheel 640 400 -1`, or nothing for another body.
+std::optional<PointerInjection> pointerNamed(std::string_view body) {
+    std::array<std::string_view, 4> words{};
+    std::size_t count = 0;
+    while (!body.empty() && count < words.size()) {
+        const std::size_t space = body.find(' ');
+        words.at(count++) = body.substr(0, space);
+        body = trimmed(body.substr(std::min(space, body.size())));
+    }
+    if (!body.empty() || count < 3) {
+        return std::nullopt;
+    }
+    const auto number = [](std::string_view word) -> std::optional<float> {
+        float value = 0.0f;
+        const auto [end, error] = std::from_chars(word.data(), word.data() + word.size(), value);
+        if (word.empty() || error != std::errc{} || end != word.data() + word.size()) {
+            return std::nullopt;
+        }
+        return value;
+    };
+    const std::optional<float> x = number(words[1]);
+    const std::optional<float> y = number(words[2]);
+    if (!x || !y) {
+        return std::nullopt;
+    }
+    PointerInjection pointer{PointerInjection::Kind::Move, *x, *y, 0.0f};
+    if (words[0] == "move" && count == 3) {
+        return pointer;
+    }
+    if (words[0] == "click" && count == 3) {
+        pointer.kind = PointerInjection::Kind::Click;
+        return pointer;
+    }
+    if (words[0] == "wheel" && count == 4) {
+        const std::optional<float> notches = number(words[3]);
+        if (!notches) {
+            return std::nullopt;
+        }
+        pointer.kind = PointerInjection::Kind::Wheel;
+        pointer.wheel = *notches;
+        return pointer;
+    }
+    return std::nullopt;
+}
+
 /// `1500ms` as a hold of at most `longestHold`, or nothing for another word.
 std::optional<std::chrono::milliseconds> holdNamed(std::string_view word) {
     constexpr std::string_view unit = "ms";
@@ -164,6 +209,8 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     text("quickFocus", snapshot.quickFocus);
     text("settingsTab", snapshot.settingsTab);
     text("settingsFocus", snapshot.settingsFocus);
+    text("screen", snapshot.screen);
+    text("screenFocus", snapshot.screenFocus);
     flag("devicesOpen", snapshot.devicesOpen);
     text("devicesTab", snapshot.devicesTab);
     flag("downloadsOpen", snapshot.downloadsOpen);
@@ -299,6 +346,19 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         target_.injectKey(*combo);
         return lucent::http::Response::json(
             200, "OK", "{\"pressed\":" + jsonString(input::describe(*combo)) + "}");
+    }
+
+    if (path == "/pointer") {
+        if (request.method != "POST") {
+            return refuse("POST only");
+        }
+        const std::optional<PointerInjection> pointer = pointerNamed(trimmed(request.body));
+        if (!pointer) {
+            return refuse("body must be move X Y, click X Y or wheel X Y NOTCHES");
+        }
+        target_.injectPointer(*pointer);
+        return lucent::http::Response::json(200, "OK",
+                                            "{\"pointer\":" + jsonString(request.body) + "}");
     }
 
     if (path == "/text") {

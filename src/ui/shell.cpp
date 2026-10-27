@@ -594,6 +594,9 @@ void Shell::tick(Clock::time_point now) {
                        ScrollMode::Flow);
     }
     hud_.tick(now);
+    screens_.layout(now_,
+                    gpu2d::Rect{0.0f, 0.0f, static_cast<float>(width_), static_cast<float>(height_)},
+                    dp(), Chrome{hud_.topInset()});
 }
 
 void Shell::settle() {
@@ -644,7 +647,8 @@ std::string Shell::focusedTitle() const {
 
 std::string Shell::pillTitle() const {
     // The grid names its focused tile; a page that replaces the grid names itself in the trail.
-    const bool page = details_.isOpen() || settings_.anyOpen() || menuPageOpen();
+    const bool page = details_.isOpen() || screens_.active() || settings_.anyOpen() ||
+                      menuPageOpen();
     return presentation() == Presentation::Grid && !page ? focusedTitle() : std::string{};
 }
 
@@ -853,7 +857,8 @@ PointerTarget Shell::pointAt(std::optional<Point> point) {
         return {};
     }
     if (!inGame_ && !launchPanel_.isOpen() &&
-        (!panelOpen() || details_.isOpen() || settings_.onlyPage() || menuPageOpen()) &&
+        (!panelOpen() || details_.isOpen() || (screens_.active() && !settings_.anyOpen()) ||
+         menuPageOpen()) &&
         !guide_.anyOpen() && !mapping_.isOpen()) {
         if (const std::optional<std::size_t> crumb = hud_.crumbAt(point->x, point->y)) {
             hud_.setCrumbHover(crumb);
@@ -890,7 +895,8 @@ PointerTarget Shell::pointAtModal(Point point) const {
         return guide_.pointAt(point, Point{width, height}, dp());
     }
     // The mapping editor takes the pad only.
-    if (mapping_.isOpen() || (inGame_ && !settings_.anyOpen() && !menuPageOpen())) {
+    if (mapping_.isOpen() ||
+        (inGame_ && !screens_.active() && !settings_.anyOpen() && !menuPageOpen())) {
         return {};
     }
     if (launchPanel_.isOpen()) {
@@ -906,8 +912,10 @@ PointerTarget Shell::pointAtModal(Point point) const {
     }
     const Rect frame{0.0f, 0.0f, width, height};
     if (settings_.anyOpen()) {
-        return settings_.pointAt(point, Point{width, height}, dp(), hud_.topInset(),
-                                 hud_.bottomInset());
+        return settings_.pointAt(point, Point{width, height}, dp());
+    }
+    if (screens_.active()) {
+        return OnScreens{};
     }
     if (devices_.isOpen()) {
         return devices_.pointAt(point, Point{width, height}, dp(), hud_.topInset(),
@@ -1088,7 +1096,7 @@ void Shell::drawDock(Canvas& canvas, const gpu2d::RenderTarget& scene, const Doc
 
 void Shell::drawScene(Canvas& canvas) {
     hud_.drawGround(canvas);
-    const bool settingsShown = settings_.pageVisible(now_) || menuPageVisible();
+    const bool settingsShown = screens_.visible() || menuPageVisible();
     const bool detailsShown = detailsFade_.visible(now_);
     if (presentation() == Presentation::Grid) {
         drawGrid(canvas);
@@ -1110,7 +1118,7 @@ void Shell::drawScene(Canvas& canvas) {
 }
 
 void Shell::drawPages(Canvas& canvas, Point size) {
-    settings_.drawPage(canvas, size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
+    screens_.paint(canvas);
     devices_.draw(canvas, size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
     downloads_.draw(canvas, size, dp(), hud_.topInset(), hud_.bottomInset(), now_);
 }
@@ -1118,7 +1126,7 @@ void Shell::drawPages(Canvas& canvas, Point size) {
 void Shell::drawOverGame(Canvas& canvas, Point size) {
     // Only what the Guide menus open is drawn; the game shows through everywhere else.
     drawPages(canvas, size);
-    if (settings_.pageVisible(now_) || menuPageVisible()) {
+    if (screens_.visible() || menuPageVisible()) {
         hud_.drawTopBar(canvas);
         hud_.drawHints(canvas);
     }
@@ -1162,7 +1170,7 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     if (const OnScreenKeyboard* keyboard = dockedKeyboard()) {
         toastFloor =
             layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp(), keyboard->style()).panel.y;
-    } else if (!detailsFade_.visible(now_) && !settings_.pageVisible(now_) && !menuPageVisible()) {
+    } else if (!detailsFade_.visible(now_) && !screens_.visible() && !menuPageVisible()) {
         const DockFrame dock = dockFrame(size.x, size.y);
         drawDock(canvas, scene, dock);
         toastFloor = std::min(toastFloor, DockPainter::top(dock.layout, dock.style));

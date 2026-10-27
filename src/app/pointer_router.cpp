@@ -81,6 +81,10 @@ void PointerRouter::route(const PointerFrame& frame) {
     const bool active = device_.current() == input::Device::KeyboardMouse;
     const ui::PointerTarget target =
         host_.pointAt(active ? frame.point : std::optional<ui::Point>{});
+    if (std::holds_alternative<ui::OnScreens>(target)) {
+        host_.screens(frame);
+        return;
+    }
     // Only a pointer that moved takes focus, so a keyboard or pad move is not undone by a pointer
     // resting where the focus used to be.
     if (active && moved && std::visit(FocusesOnHover{}, target)) {

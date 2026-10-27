@@ -57,7 +57,32 @@ template <typename T> T stepped(const std::vector<T>& offered, T now, int step) 
     return offered[static_cast<std::size_t>(next)];
 }
 
+/// `offered` as a choice's options, `now` chosen.
+template <typename T> ui::Options optionsOf(const std::vector<T>& offered, T now) {
+    ui::Options options;
+    for (const T& entry : offered) {
+        options.labels.emplace_back(settings::label(entry));
+    }
+    const auto at = std::ranges::find(offered, now);
+    options.chosen = at == offered.end() ? 0 : static_cast<std::size_t>(at - offered.begin());
+    return options;
+}
+
 } // namespace
+
+bool IntegrationSettings::applies(const std::string& id) {
+    return id == applyId;
+}
+
+std::size_t IntegrationSettings::apply() {
+    const std::size_t count = pendingCount();
+    if (pending_) {
+        integrations_.choose(*pending_);
+        pending_.reset();
+        changed_();
+    }
+    return count;
+}
 
 std::size_t IntegrationSettings::pendingCount() const {
     if (!pending_) {
@@ -89,14 +114,14 @@ ui::SettingsCategory IntegrationSettings::page() const {
         const SteamMode mode = modeOf(now.steam);
         // A build whose Steam has one mode has nothing to choose.
         if (integrations_.modesOffered().size() > 1) {
-            page.rows.push_back(ui::makeRow(modeId, RowKind::Choice, "Steam mode",
-                                            std::string{modeNote(mode)},
-                                            std::string{settings::label(mode)}));
+            page.rows.push_back(ui::makeChoice(modeId, "Steam mode", std::string{modeNote(mode)},
+                                               optionsOf(integrations_.modesOffered(), mode)));
         }
         if (mode == SteamMode::Isolated) {
-            page.rows.push_back(ui::makeRow(padsId, RowKind::Choice, "Steam sees",
-                                            std::string{settings::note(now.steamPads)},
-                                            std::string{settings::label(now.steamPads)}));
+            page.rows.push_back(ui::makeChoice(padsId, "Steam sees",
+                                               std::string{settings::note(now.steamPads)},
+                                               optionsOf(settings::Integrations::padsOffered(),
+                                                         now.steamPads)));
         }
     }
     const std::size_t waiting = pendingCount();
@@ -119,10 +144,8 @@ bool IntegrationSettings::owns(const std::string& id) {
 
 void IntegrationSettings::run(const std::string& id, int step) {
     if (id == applyId) {
-        if (step == 0 && pending_) {
-            integrations_.choose(*pending_);
-            pending_.reset();
-            changed_();
+        if (step == 0) {
+            apply();
         }
         return;
     }

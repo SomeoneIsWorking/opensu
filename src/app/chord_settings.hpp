@@ -9,7 +9,7 @@
 
 #include "input/shortcuts.hpp"
 #include "shortcut_editor.hpp"
-#include "ui/settings_page.hpp"
+#include "ui/setting_row.hpp"
 
 namespace opensu::app {
 

@@ -82,6 +82,11 @@ struct OnCoverPick {
     bool operator==(const OnCoverPick&) const = default;
 };
 
+/// The interface toolkit's screens, which take the pointer themselves.
+struct OnScreens {
+    bool operator==(const OnScreens&) const = default;
+};
+
 /// The screen outside the open context menu, Guide menu or quick menu.
 struct OnBackdrop {
     bool operator==(const OnBackdrop&) const = default;
@@ -195,6 +200,6 @@ using PointerTarget =
                  OnContextItem, OnBackdrop, OnLauncher, OnCrumb, OnDetailsButton,
                  OnSettingsCategory, OnSettingsRow, OnSettingsSlider, OnFolderEntry, OnQuickRow,
                  OnQuickSlider, OnSettingsTab, OnTabRow, OnDialogButton, OnIntegrationItem,
-                 OnDownloadRow, OnDownloadAction, OnCoverPick>;
+                 OnDownloadRow, OnDownloadAction, OnCoverPick, OnScreens>;
 
 } // namespace opensu::ui

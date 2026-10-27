@@ -14,7 +14,6 @@ namespace {
 
 using library::roms::EmulatorEntry;
 using library::roms::EmulatorInstall;
-using library::roms::InstallSource;
 using library::roms::shaderPackId;
 using library::roms::shaderPackName;
 using ui::RowKind;
@@ -23,6 +22,8 @@ constexpr std::string_view checkId = "emulators.check";
 constexpr std::string_view emulatorId = "emulators.run.";
 constexpr std::string_view removeId = "emulators.remove.";
 constexpr std::string_view biosId = "emulators.bios.";
+constexpr std::string_view downloadsPageId = "emulators.page.downloads";
+constexpr std::string_view biosPageId = "emulators.page.bios";
 
 std::string systemsOf(const EmulatorEntry& entry) {
     std::string text;
@@ -56,7 +57,6 @@ bool EmulatorSettings::owns(const std::string& id) {
 
 void EmulatorSettings::rescan() {
     found_ = downloads_.discover();
-    armed_.reset();
 }
 
 std::string EmulatorSettings::noteOf(const EmulatorEntry& entry) const {
@@ -69,15 +69,8 @@ std::string EmulatorSettings::noteOf(const EmulatorEntry& entry) const {
     } else {
         note = std::string{library::roms::label(install->source)} +
                (install->version.empty() ? "" : " " + install->version);
-        if (install->source == InstallSource::Core) {
-            note += " in " + std::filesystem::path{install->where}.parent_path().string();
-        }
     }
-    note += " · " + systemsOf(entry);
-    if (!entry.config.empty()) {
-        note += " · settings in " + entry.config.string();
-    }
-    return note;
+    return note + " · " + systemsOf(entry);
 }
 
 std::optional<std::string> EmulatorSettings::downloadValue(std::string_view id, bool ours) const {
@@ -112,30 +105,64 @@ std::string EmulatorSettings::valueOf(const EmulatorEntry& entry) const {
 ui::SettingsCategory EmulatorSettings::page(std::vector<ui::SettingsRow> layerRows) const {
     ui::SettingsCategory page{std::string{categoryId}, "Emulators", {}};
     std::size_t updates = 0;
+    std::size_t installed = 0;
     for (const EmulatorEntry& entry : found_.catalog().entries()) {
         updates += downloads_.updateAvailable(entry.id) ? 1 : 0;
+        const EmulatorInstall* install = found_.installed(entry.id);
+        installed += install != nullptr && install->problem.empty() ? 1 : 0;
     }
     updates += downloads_.updateAvailable(shaderPackId) ? 1 : 0;
+    page.rows.push_back(ui::makeHeading("Updates"));
     page.rows.push_back(
         ui::makeRow(std::string{checkId}, RowKind::Action, "Check for updates",
                     "Reads each emulator's latest release; nothing updates by itself",
                     checkValue(downloads_.check(), updates)));
+    page.rows.push_back(ui::makeHeading("Settings by console and core"));
     std::ranges::move(layerRows, std::back_inserter(page.rows));
+    page.rows.push_back(ui::makeHeading("Downloads"));
+    page.rows.push_back(ui::makePage(std::string{downloadsPageId}, "Emulators and cores",
+                                     "Download, update or remove each one",
+                                     std::to_string(installed) + " installed"));
     addShaderPackRows(page);
+    page.rows.push_back(ui::makeHeading("BIOS"));
+    page.rows.push_back(ui::makePage(std::string{biosPageId}, "BIOS files",
+                                     "What each built-in core runs on", ""));
+    return page;
+}
+
+std::optional<ui::SettingsCategory> EmulatorSettings::subPage(std::string_view id) const {
+    if (id == downloadsPageId) {
+        ui::SettingsCategory page{std::string{id}, "Emulators and cores", {}};
+        addEmulatorRows(page);
+        return page;
+    }
+    if (id == biosPageId) {
+        ui::SettingsCategory page{std::string{id}, "BIOS files", {}};
+        addBiosRows(page);
+        if (page.rows.empty()) {
+            page.rows.push_back(ui::makeRow(std::string{biosId}, RowKind::Info, "No BIOS needed",
+                                            "No chosen built-in core looks for one", ""));
+        }
+        return page;
+    }
+    return std::nullopt;
+}
+
+void EmulatorSettings::addEmulatorRows(ui::SettingsCategory& page) const {
     for (const EmulatorEntry& entry : found_.catalog().entries()) {
         page.rows.push_back(ui::makeRow(std::string{emulatorId} + entry.id, RowKind::Action,
                                         entry.name, noteOf(entry), valueOf(entry)));
         const EmulatorInstall* install = found_.installed(entry.id);
         if (install != nullptr && library::roms::downloadedByOpensu(install->source)) {
-            page.rows.push_back(ui::makeRow(
+            ui::SettingsRow remove = ui::makeRow(
                 std::string{removeId} + entry.id, RowKind::Action, "Remove " + entry.name,
                 entry.builtIn() ? "Deletes the core openSU downloaded; saves stay"
                                 : "Deletes the AppImage openSU downloaded; its settings stay",
-                armed_ == entry.id ? "Press again to remove" : "Remove"));
+                "");
+            remove.confirm = remove.note + ".";
+            page.rows.push_back(std::move(remove));
         }
     }
-    addBiosRows(page);
-    return page;
 }
 
 namespace {
@@ -172,9 +199,10 @@ void EmulatorSettings::addBiosRows(ui::SettingsCategory& page) const {
         const std::string row = std::string{biosId} + entry->id;
         const std::optional<std::string> info = search.cores.info(entry->core);
         if (!info) {
-            page.rows.push_back(ui::makeRow(
-                row, RowKind::Info, systems + " BIOS",
-                entry->name + " has no core info; Check for updates fetches it", "Not listed"));
+            page.rows.push_back(ui::makeHeading(systems));
+            page.rows.push_back(ui::makeRow(row, RowKind::Info, entry->name,
+                                            "No core info yet; Check for updates fetches it",
+                                            "Not listed"));
             continue;
         }
         const library::roms::CoreBios bios = library::roms::biosIn(
@@ -182,9 +210,9 @@ void EmulatorSettings::addBiosRows(ui::SettingsCategory& page) const {
         if (bios.files.empty()) {
             continue;
         }
-        page.rows.push_back(ui::makeRow(row, RowKind::Info, systems + " BIOS",
-                                        entry->name + " · files in " + search.system.string(),
-                                        bios.mode()));
+        page.rows.push_back(ui::makeHeading(systems));
+        page.rows.push_back(ui::makeRow(row, RowKind::Info, entry->name,
+                                        "Looks in the BIOS folder openSU gives it", bios.mode()));
         for (const library::roms::CoreBios::File& file : bios.files) {
             page.rows.push_back(ui::makeRow(
                 row + "/" + file.firmware.path, RowKind::Info, file.firmware.path,
@@ -200,27 +228,24 @@ void EmulatorSettings::addShaderPackRows(ui::SettingsCategory& page) const {
     std::string note = "libretro's slang shader pack from the buildbot, about 54 MB; each shader "
                        "keeps its own licence";
     if (installed) {
-        note = std::to_string(pack.presets().size()) + " presets · " + installed->version() +
-               " · in " + pack.root().string();
+        note = std::to_string(pack.presets().size()) + " presets · " + installed->version();
     }
     page.rows.push_back(
         ui::makeRow(std::string{emulatorId} + std::string{shaderPackId}, RowKind::Action,
                     std::string{shaderPackName}, note,
                     downloadValue(shaderPackId, installed.has_value()).value_or("Download")));
     if (installed) {
-        page.rows.push_back(ui::makeRow(
+        ui::SettingsRow remove = ui::makeRow(
             std::string{removeId} + std::string{shaderPackId}, RowKind::Action,
             "Remove " + std::string{shaderPackName},
-            "Deletes the pack; a preset set for a game is kept and refused until it is back",
-            armed_ == shaderPackId ? "Press again to remove" : "Remove"));
+            "Deletes the pack; a preset set for a game is kept and refused until it is back", "");
+        remove.confirm = remove.note + ".";
+        page.rows.push_back(std::move(remove));
     }
 }
 
 void EmulatorSettings::run(const std::string& id, int step) {
     const std::string_view row{id};
-    if (!row.starts_with(removeId)) {
-        armed_.reset();
-    }
     if (row == checkId) {
         if (step == 0) {
             downloads_.checkUpdates();
@@ -284,11 +309,6 @@ void EmulatorSettings::runDownload(std::string_view id, const std::string& name,
 }
 
 void EmulatorSettings::runRemove(std::string_view id, const std::string& name) {
-    if (armed_ != id) {
-        armed_ = std::string{id};
-        return;
-    }
-    armed_.reset();
     if (const std::string refused = downloads_.remove(id); !refused.empty()) {
         hooks_.say(name + " was not removed: " + refused, true);
         return;

@@ -111,6 +111,10 @@ struct ShellSnapshot {
     /// empty while it is closed.
     std::string settingsTab;
     std::string settingsFocus;
+    /// The interface toolkit's top screen (`settings`, a page's id, `dialog`, `choice`) and its
+    /// focused widget; empty while none is open.
+    std::string screen;
+    std::string screenFocus;
     /// Whether the Devices page is open, and which tab it shows.
     bool devicesOpen{false};
     std::string devicesTab;
@@ -123,6 +127,18 @@ struct ShellSnapshot {
     std::string launchers;
     /// Which device the prompts name: "pad" or "keyboard".
     std::string inputDevice{"pad"};
+};
+
+/// A pointer event `POST /pointer` injects, in window pixels.
+struct PointerInjection {
+    enum class Kind : std::uint8_t { Move, Click, Wheel };
+    Kind kind{Kind::Move};
+    float x{};
+    float y{};
+    /// Wheel notches, positive away from the player.
+    float wheel{};
+
+    bool operator==(const PointerInjection&) const = default;
 };
 
 /// The longest `POST /input` may hold a button, so no injected button stays down for good.
@@ -148,6 +164,9 @@ class ControlTarget {
 
     /// Queues a key combination pressed on the keyboard, to be read through the shortcut table.
     virtual void injectKey(input::Combo combo) = 0;
+
+    /// Queues a pointer event, routed as the mouse's would be.
+    virtual void injectPointer(PointerInjection pointer) = 0;
 
     /// Renders the next frame to a PNG and answers when it is written. Blocks
     /// until the main loop has done it, or fails if it cannot.

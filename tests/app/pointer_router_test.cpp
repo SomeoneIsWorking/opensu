@@ -61,6 +61,9 @@ class Recorder final : public PointerHost {
     void scroll(int steps) override {
         calls.emplace_back(steps > 0 ? "scroll+" : "scroll-");
     }
+    void screens(const PointerFrame& frame) override {
+        calls.emplace_back(frame.left ? "screens click" : "screens");
+    }
 };
 
 PointerFrame at(float x, float y, float dx = 0.0f) {
@@ -283,6 +286,23 @@ void padKeepsFocusFromAStillPointer() {
            "after the pad, a pointer at rest neither focuses nor hovers");
 }
 
+/// Over the interface toolkit's screens every frame goes to them whole, moved or not, and nothing
+/// else is asked.
+void screensTakeThePointerWhole() {
+    Recorder host;
+    LastDevice device;
+    PointerRouter router{device, host};
+    host.under = opensu::ui::OnScreens{};
+    router.route(at(10.0f, 10.0f, 4.0f));
+    expect(host.calls == std::vector<std::string>{"screens"}, "a move goes to the screens");
+    host.calls.clear();
+    PointerFrame click = at(10.0f, 10.0f);
+    click.left = true;
+    router.route(click);
+    expect(host.calls == std::vector<std::string>{"screens click"},
+           "a click goes to the screens, not as focus then A");
+}
+
 } // namespace
 
 int main() {
@@ -296,6 +316,7 @@ int main() {
     rightClickIsNeverBackOnTheNewMenus();
     hoverFocusesThePanelTargets();
     padKeepsFocusFromAStillPointer();
+    screensTakeThePointerWhole();
     std::printf("pointer_router: all checks passed\n");
     return 0;
 }

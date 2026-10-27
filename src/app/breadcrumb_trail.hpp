@@ -26,7 +26,8 @@ struct TrailState {
     std::vector<std::string> filters;
     /// The title of the game whose details page is open; empty for none.
     std::string game;
-    /// The category on show while the Settings screen is open; empty when it is not.
+    /// The category on show while the Settings screen is open, then each page open over it,
+    /// joined by " › "; empty when it is not.
     std::string settings;
     /// The tab on show while the Devices page is open; empty when it is not.
     std::string devices;

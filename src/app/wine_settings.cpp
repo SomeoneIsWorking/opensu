@@ -46,14 +46,24 @@ void WineSettings::rescan() {
 ui::SettingsCategory WineSettings::page() const {
     const settings::Settings& v = preferences_.values();
     ui::SettingsCategory page{std::string{categoryId}, "Wine", {}};
-    std::string runner = "None found";
-    if (!v.wineRunner.empty()) {
-        runner = runnerName(found_, v.wineRunner);
-    } else if (!found_.empty()) {
-        runner = "Automatic: " + found_.front().name;
+    // Choice 0 is Automatic, then each runner found.
+    ui::Options runners;
+    runners.labels.push_back(found_.empty() ? "None found" : "Automatic: " + found_.front().name);
+    for (const library::wine::Runner& runner : found_) {
+        runners.labels.push_back(runner.name);
     }
-    page.rows.push_back(ui::makeRow(runnerId, RowKind::Choice, "Wine runner",
-                                    "What Windows GOG and Epic games run under", runner));
+    if (!v.wineRunner.empty()) {
+        const auto at = std::ranges::find(found_, v.wineRunner, &library::wine::Runner::wine);
+        if (at == found_.end()) {
+            runners.labels.push_back(runnerName(found_, v.wineRunner));
+            runners.chosen = runners.labels.size() - 1;
+        } else {
+            runners.chosen = static_cast<std::size_t>(at - found_.begin()) + 1;
+        }
+    }
+    page.rows.push_back(ui::makeChoice(runnerId, "Wine runner",
+                                       "What Windows GOG and Epic games run under",
+                                       std::move(runners)));
     page.rows.push_back(ui::makeRow(prefixId, RowKind::Info, "Shared Wine prefix",
                                     "Every Windows game without its own prefix",
                                     library::wine::sharedPrefix(config_.dataDir).string()));
@@ -77,13 +87,21 @@ void WineSettings::run(const std::string& id, int step) {
     if (id != runnerId) {
         return;
     }
-    // Choice 0 is Automatic, then each runner found.
+    // Choice 0 is Automatic, then each runner found, then a chosen runner no longer found.
     fs::path& chosen = preferences_.values().wineRunner;
     const auto at = std::ranges::find(found_, chosen, &library::wine::Runner::wine);
-    const int count = static_cast<int>(found_.size()) + 1;
-    const int from =
-        chosen.empty() || at == found_.end() ? 0 : static_cast<int>(at - found_.begin()) + 1;
-    const int to = (from + (step == 0 ? 1 : step) + count) % count;
+    const bool missing = !chosen.empty() && at == found_.end();
+    const int count = static_cast<int>(found_.size()) + (missing ? 2 : 1);
+    int from = 0;
+    if (missing) {
+        from = count - 1;
+    } else if (!chosen.empty()) {
+        from = static_cast<int>(at - found_.begin()) + 1;
+    }
+    const int to = (from + (step == 0 ? 1 : step) % count + count) % count;
+    if (missing && to == count - 1) {
+        return;
+    }
     chosen = to == 0 ? fs::path{} : found_[static_cast<std::size_t>(to - 1)].wine;
     preferences_.save();
 }

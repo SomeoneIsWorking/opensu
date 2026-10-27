@@ -1,7 +1,7 @@
 // Downloading an emulator from where the player meets its absence, through the shipping job,
 // screens and ROM listing, against a fake release host: the details page's Download button with
 // its progress, Play working once it is installed, and the Settings screen's Emulators category
-// (update check, update, a refused update, two-press Remove, each system's default).
+// (update check, update, a refused update, Remove asked first, each system's default).
 #include <chrono>
 #include <cstdio>
 #include <exception>
@@ -181,6 +181,11 @@ const ui::SettingsRow& rowOf(const ui::SettingsCategory& page, const std::string
     test::fail("a row with that id exists");
 }
 
+/// The Emulators category's Downloads page, where each emulator's rows are.
+ui::SettingsCategory downloadsOf(const app::EmulatorSettings& emulators) {
+    return test::need(emulators.subPage("emulators.page.downloads"), "the Downloads page");
+}
+
 bool hasRow(const ui::SettingsCategory& page, const std::string& id) {
     for (const ui::SettingsRow& row : page.rows) {
         if (row.id == id) {
@@ -238,14 +243,14 @@ void detailsCancels(const fs::path& root) {
 
 void settingsUpdateRemoveAndDefault(const fs::path& root) {
     Rig rig{root};
-    ui::SettingsCategory page = rig.emulators.page();
+    ui::SettingsCategory page = downloadsOf(rig.emulators);
     expect(rowOf(page, "emulators.run.emu").value == "Download" &&
                rowOf(page, "emulators.run.emu").note.starts_with("Not installed"),
            "an emulator that is not here offers Download");
     expect(!hasRow(page, "emulators.remove.emu"), "and nothing to remove");
     rig.emulators.run("emulators.run.emu", 0);
     rig.settle();
-    page = rig.emulators.page();
+    page = downloadsOf(rig.emulators);
     expect(rowOf(page, "emulators.run.emu").note.starts_with("AppImage (openSU) v1") &&
                hasRow(page, "emulators.remove.emu"),
            "once downloaded it shows its source and version, and can be removed");
@@ -256,9 +261,9 @@ void settingsUpdateRemoveAndDefault(const fs::path& root) {
     while (!rig.downloads.check().done && std::chrono::steady_clock::now() < until) {
         std::this_thread::sleep_for(std::chrono::milliseconds{10});
     }
-    page = rig.emulators.page();
+    page = downloadsOf(rig.emulators);
     expect(rowOf(page, "emulators.run.emu").value == "Update to v2" &&
-               rowOf(page, "emulators.check").value == "1 update",
+               rowOf(rig.emulators.page(), "emulators.check").value == "1 update",
            "the check shows the available version and updates nothing");
     expect(rig.versionInUse("emu") == "v1", "v1 is still in use");
 
@@ -275,17 +280,12 @@ void settingsUpdateRemoveAndDefault(const fs::path& root) {
     expect(rig.versionInUse("emu") == "v2" && !fs::exists(root / "emulators" / "emu" / "1"),
            "a verified update is switched to and the old version goes");
 
-    rig.emulators.run("emulators.remove.emu", 0);
-    expect(rowOf(rig.emulators.page(), "emulators.remove.emu").value == "Press again to remove" &&
-               rig.downloads.downloaded("emu"),
-           "Remove asks for a second press");
-    rig.emulators.disarm();
-    rig.emulators.run("emulators.remove.emu", 0);
-    expect(rig.downloads.downloaded("emu").has_value(), "moving away forgets the first press");
+    expect(!rowOf(downloadsOf(rig.emulators), "emulators.remove.emu").confirm.empty(),
+           "Remove carries the question the screen asks before it runs");
     rig.emulators.run("emulators.remove.emu", 0);
     expect(!rig.downloads.downloaded("emu") &&
-               !hasRow(rig.emulators.page(), "emulators.remove.emu"),
-           "the second press removes it");
+               !hasRow(downloadsOf(rig.emulators), "emulators.remove.emu"),
+           "once confirmed, Remove removes it");
 
     rig.layers.run("layers.open.system.gba", 0);
     rig.layers.run("layers.emulator", 1);

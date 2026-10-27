@@ -52,6 +52,7 @@ void Typeface::load(SDL_GPUDevice& device) {
             continue;
         }
         text_ = std::make_unique<gpu2d::Text>(device, path, faceOptions);
+        interface_ = std::make_unique<gpu2d::Text>(device, path);
         face_ = std::move(*metrics);
         lucent::info("ui", "typeface loaded from {}", path.string());
         return;
@@ -64,6 +65,13 @@ gpu2d::Text& Typeface::text() {
         throw std::logic_error{"text drawn before the typeface was loaded"};
     }
     return *text_;
+}
+
+gpu2d::Text& Typeface::interfaceText() {
+    if (interface_ == nullptr) {
+        throw std::logic_error{"text drawn before the typeface was loaded"};
+    }
+    return *interface_;
 }
 
 float Typeface::lineBox(const TextStyle& style) const noexcept {
@@ -166,6 +174,9 @@ void Typeface::drawFromCapTop(Canvas& canvas, std::string_view text, Point origi
 void Typeface::retire() {
     if (text_ != nullptr) {
         text_->retire();
+    }
+    if (interface_ != nullptr) {
+        interface_->retire();
     }
 }
 

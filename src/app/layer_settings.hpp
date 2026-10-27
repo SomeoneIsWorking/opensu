@@ -1,8 +1,8 @@
 // layer_settings — Settings › Emulators' pages for the setting layers: Global, each console (its
 // emulator and its video settings) and each built-in core (its video settings). The Emulators page
-// lists a row opening each; an open page takes the category's place until B closes it. A value set
-// on the page reads "Set for <layer>", one inherited reads where it comes from, and each choice
-// steps through "not set" too, which clears it. The Shader preset row opens the preset picker
+// has a row opening Global's page and one each opening the list of consoles and of cores, whose
+// rows open each layer's page. A value set on the page reads "Set for <layer>", one inherited
+// reads where it comes from, and each choice has "not set" as its first option, which clears it. The Shader preset row opens the preset picker
 // (`ShaderPresetPicker`) in the page's place. The core layer is set only here; a game's own values
 // and its console's are also on the game settings tabs (`GameSettingsPage`). Every game's own
 // emulator pick is reset here.
@@ -20,7 +20,7 @@
 #include "settings/setting_layers.hpp"
 #include "settings/video_settings.hpp"
 #include "shader_preset_picker.hpp"
-#include "ui/settings_page.hpp"
+#include "ui/setting_row.hpp"
 
 namespace opensu::app {
 
@@ -50,12 +50,12 @@ class LayerSettings {
           hooks_{std::move(hooks)} {
     }
 
-    /// The rows the Emulators page opens each layer's page with.
-    [[nodiscard]] std::vector<ui::SettingsRow> openRows() const;
-    /// The open layer's page in the place of category `id` labelled `label`, or nothing when
-    /// none is open.
-    [[nodiscard]] std::optional<ui::SettingsCategory> page(const std::string& id,
-                                                           const std::string& label) const;
+    /// The Emulators page's rows: Global's page, and the lists of consoles and of cores.
+    [[nodiscard]] std::vector<ui::SettingsRow> pageRows() const;
+    /// The list of consoles or of cores `id` opens, or nothing for another id.
+    [[nodiscard]] std::optional<ui::SettingsCategory> listPage(std::string_view id) const;
+    /// The open layer's page, its id the row that opened it; nothing when none is open.
+    [[nodiscard]] std::optional<ui::SettingsCategory> page() const;
     /// The open layer's name, as the breadcrumb reads it after the category; empty for none.
     [[nodiscard]] std::string openName() const;
     [[nodiscard]] bool isOpen() const noexcept {

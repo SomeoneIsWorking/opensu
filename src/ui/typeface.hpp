@@ -63,11 +63,15 @@ class Typeface {
     /// Releases the labels the last frame did not draw. Once per frame, after it was submitted.
     void retire();
 
+    /// The same face hinted and kerned, as the interface toolkit's screens draw it.
+    [[nodiscard]] gpu2d::Text& interfaceText();
+
   private:
     [[nodiscard]] gpu2d::Text& text();
 
     std::filesystem::path assetsDir_;
     std::unique_ptr<gpu2d::Text> text_;
+    std::unique_ptr<gpu2d::Text> interface_;
     /// The loaded face's metrics; until then a line box of one em with the baseline at 0.8 of it.
     FaceMetrics face_{
         .unitsPerEm = 1.0f, .ascent = 0.8f, .descent = -0.2f, .advances = {}, .missingAdvance = 0};

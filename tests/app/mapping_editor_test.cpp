@@ -380,15 +380,24 @@ void settingsControlsHoldsTheOtherScopes(const fs::path& dir) {
     Rig rig{dir};
     const std::vector<ui::SettingsRow> rows = rig.editor.settingsRows();
     expect(rows.size() == 3 && rows[0].id == "mapping.global" && rows[0].value == "None" &&
-               rows[1].id == "mapping.emulator" && rows[1].value == "PCSX2" &&
-               rows[2].id == "mapping.steamInput",
-           "the global mapping, an emulator's and the Steam Input switch");
-    expect(app::MappingEditor::owns("mapping.emulator") && !app::MappingEditor::owns("ui.scale"),
+               rows[1].id == "mapping.emulators" && rows[1].kind == ui::RowKind::Page &&
+               rows[1].value == "2" && rows[2].id == "mapping.steamInput",
+           "the global mapping, the page of emulators' and the Steam Input switch");
+    expect(app::MappingEditor::owns("mapping.emulators") &&
+               app::MappingEditor::owns("mapping.emulator.mgba") &&
+               !app::MappingEditor::owns("ui.scale"),
            "the editor owns its rows");
+    expect(!rig.editor.settingsPage("mapping.global"), "only the emulators' row opens a page");
+    const ui::SettingsCategory page =
+        test::need(rig.editor.settingsPage("mapping.emulators"), "the emulators' page");
+    expect(page.rows.size() == 2 && page.rows[0].id == "mapping.emulator.pcsx2" &&
+               page.rows[1].id == "mapping.emulator.mgba" &&
+               page.rows[1].kind == ui::RowKind::Action && page.rows[1].value == "None",
+           "the page lists one row per emulator");
 
-    rig.editor.runSetting("mapping.emulator", 1);
-    expect(rig.editor.settingsRows()[1].value == "mGBA", "Right picks the next emulator");
-    rig.editor.runSetting("mapping.emulator", 0);
+    rig.editor.runSetting("mapping.emulator.mgba", 1);
+    expect(!rig.editor.active(), "Left and Right do nothing on an emulator's row");
+    rig.editor.runSetting("mapping.emulator.mgba", 0);
     expect(rig.editor.active() && rig.page.title() == "Controls · mGBA" &&
                rig.page.items().front().id == "button.a",
            "A opens its mapping, which has no Steam Input switch");

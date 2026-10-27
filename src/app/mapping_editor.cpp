@@ -19,7 +19,8 @@ constexpr std::string_view chordRow = "chord.";
 constexpr std::string_view addRow = "add";
 constexpr std::string_view resetRow = "reset";
 constexpr std::string_view globalSetting = "mapping.global";
-constexpr std::string_view emulatorSetting = "mapping.emulator";
+constexpr std::string_view emulatorsSetting = "mapping.emulators";
+constexpr std::string_view emulatorSetting = "mapping.emulator.";
 constexpr std::string_view steamSetting = "mapping.steamInput";
 constexpr std::string_view listeningPrompt = "Hold a button, then press another";
 constexpr std::string_view steamRefusal =
@@ -453,40 +454,52 @@ std::vector<ui::SettingsRow> MappingEditor::settingsRows() const {
     rows.push_back(ui::makeRow(std::string{globalSetting}, ui::RowKind::Action, "Button mapping",
                                "Every game's, unless it has its own",
                                scopes_.at(settings::Layer{}) != nullptr ? "Custom" : "None"));
-    std::string value = "No emulators";
-    if (!emulators.empty()) {
-        const Emulator& picked = emulators[std::min(emulator_, emulators.size() - 1)];
-        value =
-            picked.name +
-            (scopes_.at(settings::Layer{Kind::Emulator, picked.id}) != nullptr ? " · custom" : "");
-    }
-    rows.push_back(ui::makeRow(std::string{emulatorSetting}, ui::RowKind::Choice,
-                               "Emulator mapping", "Shared by the emulator's games", value));
+    rows.push_back(ui::makePage(std::string{emulatorsSetting}, "Emulator mappings",
+                                "Each emulator's, shared by its games",
+                                emulators.empty() ? "No emulators"
+                                                  : std::to_string(emulators.size())));
     rows.push_back(ui::makeToggle(std::string{steamSetting}, "Steam Input",
                                   "Steam maps every game's buttons", scopes_.steamInputGlobal()));
     return rows;
 }
 
+std::optional<ui::SettingsCategory> MappingEditor::settingsPage(std::string_view id) const {
+    if (id != emulatorsSetting) {
+        return std::nullopt;
+    }
+    ui::SettingsCategory page{std::string{id}, "Emulator mappings", {}};
+    for (const Emulator& emulator : hooks_.emulators()) {
+        page.rows.push_back(ui::makeRow(
+            std::string{emulatorSetting} + emulator.id, ui::RowKind::Action, emulator.name,
+            "Shared by the games it runs",
+            scopes_.at(settings::Layer{Kind::Emulator, emulator.id}) != nullptr ? "Custom"
+                                                                                : "None"));
+    }
+    if (page.rows.empty()) {
+        page.rows.push_back(ui::makeRow(std::string{emulatorSetting}, ui::RowKind::Info,
+                                        "No emulators", "Install one under Emulators", ""));
+    }
+    return page;
+}
+
 bool MappingEditor::owns(std::string_view id) {
-    return id == globalSetting || id == emulatorSetting || id == steamSetting;
+    return id == globalSetting || id == emulatorsSetting || id.starts_with(emulatorSetting) ||
+           id == steamSetting;
 }
 
 void MappingEditor::runSetting(const std::string& id, int step) {
-    if (id == globalSetting && step == 0) {
+    if (step != 0) {
+        return;
+    }
+    if (id == globalSetting) {
         openGlobal();
-    } else if (id == emulatorSetting) {
-        const std::vector<Emulator> emulators = hooks_.emulators();
-        if (emulators.empty()) {
-            return;
+    } else if (id.starts_with(emulatorSetting)) {
+        const std::string_view key = std::string_view{id}.substr(emulatorSetting.size());
+        for (const Emulator& emulator : hooks_.emulators()) {
+            if (emulator.id == key) {
+                openEmulator(emulator.id, emulator.name);
+            }
         }
-        const std::size_t count = emulators.size();
-        emulator_ = std::min(emulator_, count - 1);
-        if (step == 0) {
-            openEmulator(emulators[emulator_].id, emulators[emulator_].name);
-            return;
-        }
-        emulator_ = step > 0 ? (emulator_ + 1) % count : (emulator_ + count - 1) % count;
-        hooks_.changed();
     } else if (id == steamSetting) {
         scopes_.setSteamInputGlobal(!scopes_.steamInputGlobal());
         save();

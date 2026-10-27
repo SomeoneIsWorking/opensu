@@ -25,48 +25,6 @@ constexpr float sliderInsetDp = 52.0f;
 
 } // namespace
 
-bool rowOpens(RowKind kind) noexcept {
-    return kind == RowKind::Choice || kind == RowKind::Slider;
-}
-
-bool RowEditing::begin(RowKind kind) noexcept {
-    open_ = rowOpens(kind);
-    return open_;
-}
-
-bool RowEditing::end() noexcept {
-    const bool was = open_;
-    open_ = false;
-    return was;
-}
-
-SettingsRow makeRow(std::string id, RowKind kind, std::string label, std::string note,
-                    std::string value) {
-    SettingsRow row;
-    row.id = std::move(id);
-    row.kind = kind;
-    row.label = std::move(label);
-    row.note = std::move(note);
-    row.value = std::move(value);
-    return row;
-}
-
-SettingsRow makeToggle(std::string id, std::string label, std::string note, bool on) {
-    SettingsRow row =
-        makeRow(std::move(id), RowKind::Toggle, std::move(label), std::move(note), {});
-    row.on = on;
-    return row;
-}
-
-SettingsRow makeSlider(std::string id, std::string label, std::string note, SliderRange range) {
-    SettingsRow row =
-        makeRow(std::move(id), RowKind::Slider, std::move(label), std::move(note), {});
-    row.level = range.level;
-    row.low = range.low;
-    row.high = range.high;
-    return row;
-}
-
 SettingsRowBox settingsRowBox(const Rect& rect, RowKind kind, float dp) {
     SettingsRowBox box;
     box.rect = rect;

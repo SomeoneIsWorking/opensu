@@ -73,7 +73,8 @@ void paintEnd(Canvas& canvas, Typeface& typeface, const SettingsRow& row, const 
         break;
     }
     case RowKind::Folder:
-    case RowKind::Action: {
+    case RowKind::Action:
+    case RowKind::Page: {
         const std::string shown = typeface.fitted(row.value, room - chevronWidthDp * dp, value);
         typeface.drawCentred(canvas, shown,
                              endX - chevronWidthDp * dp - typeface.measure(shown, value),
@@ -81,6 +82,8 @@ void paintEnd(Canvas& canvas, Typeface& typeface, const SettingsRow& row, const 
         paintChevron(canvas, endX, box.rect.centreY(), dp);
         break;
     }
+    case RowKind::Heading:
+        break;
     case RowKind::Info: {
         const std::string shown = typeface.fitted(row.value, room, value);
         typeface.drawCentred(canvas, shown, endX - typeface.measure(shown, value),

@@ -1,7 +1,8 @@
 // A built-in emulator's core downloaded from where the player meets its absence, through the
 // shipping job, screens and ROM listing, against a fake buildbot: the details page's Download
 // button, Play starting opensu-retro on the core, and Settings › Emulators showing the buildbot
-// as its source, the update check, an update and the two-press Remove.
+// as its source, the update check, an update and Remove, asked first.
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <exception>
@@ -176,6 +177,19 @@ const ui::SettingsRow& rowOf(const ui::SettingsCategory& page, const std::string
     test::fail("a row with that id exists");
 }
 
+/// The Emulators category's page `id`: its Downloads or its BIOS files.
+ui::SettingsCategory pageOf(const app::EmulatorSettings& emulators, std::string_view id) {
+    return test::need(emulators.subPage(id), "the Emulators category's page");
+}
+
+ui::SettingsCategory downloadsOf(const app::EmulatorSettings& emulators) {
+    return pageOf(emulators, "emulators.page.downloads");
+}
+
+ui::SettingsCategory biosOf(const app::EmulatorSettings& emulators) {
+    return pageOf(emulators, "emulators.page.bios");
+}
+
 bool hasRow(const ui::SettingsCategory& page, const std::string& id) {
     for (const ui::SettingsRow& row : page.rows) {
         if (row.id == id) {
@@ -221,12 +235,12 @@ void detailsDownloadsTheCore(const fs::path& root) {
 
 void settingsUpdateAndRemove(const fs::path& root) {
     Rig rig{root};
-    ui::SettingsCategory page = rig.emulators.page();
+    ui::SettingsCategory page = downloadsOf(rig.emulators);
     expect(rowOf(page, "emulators.run.gb-core").value == "Download",
            "Settings offers the core for download");
     rig.emulators.run("emulators.run.gb-core", 0);
     rig.settle();
-    page = rig.emulators.page();
+    page = downloadsOf(rig.emulators);
     expect(rowOf(page, "emulators.run.gb-core").note.starts_with("libretro buildbot 2026-10-01") &&
                hasRow(page, "emulators.remove.gb-core"),
            "once downloaded it names the buildbot and the build, and can be removed");
@@ -234,9 +248,9 @@ void settingsUpdateAndRemove(const fs::path& root) {
     rig.buildbot.publish("mgba_libretro", "2026-10-02", "core two");
     rig.emulators.run("emulators.check", 0);
     waitForCheck(rig);
-    page = rig.emulators.page();
+    page = downloadsOf(rig.emulators);
     expect(rowOf(page, "emulators.run.gb-core").value == "Update to 2026-10-02" &&
-               rowOf(page, "emulators.check").value == "1 update",
+               rowOf(rig.emulators.page(), "emulators.check").value == "1 update",
            "the check finds the newer build and updates nothing");
     expect(rig.version() == "2026-10-01", "the old build stays");
 
@@ -253,13 +267,13 @@ void settingsUpdateAndRemove(const fs::path& root) {
     expect(rig.version() == "2026-10-02" && !rig.downloads.updateAvailable("gb-core"),
            "the verified update is switched to");
 
-    rig.emulators.run("emulators.remove.gb-core", 0);
-    expect(rig.downloads.downloaded("gb-core").has_value(), "Remove asks for a second press");
+    expect(!rowOf(downloadsOf(rig.emulators), "emulators.remove.gb-core").confirm.empty(),
+           "Remove carries the question the screen asks before it runs");
     rig.emulators.run("emulators.remove.gb-core", 0);
     expect(!rig.downloads.downloaded("gb-core") &&
                !fs::exists(root / "cores" / "mgba_libretro.so") &&
-               rowOf(rig.emulators.page(), "emulators.run.gb-core").value == "Download",
-           "the second press removes the core");
+               rowOf(downloadsOf(rig.emulators), "emulators.run.gb-core").value == "Download",
+           "once confirmed, Remove removes the core");
 }
 
 void systemCoreIsNotOurs(const fs::path& root) {
@@ -267,12 +281,11 @@ void systemCoreIsNotOurs(const fs::path& root) {
     fs::create_directories(root / "system");
     std::ofstream{root / "system" / "mgba_libretro.so"} << "core";
     rig.emulators.rescan();
-    const ui::SettingsCategory page = rig.emulators.page();
-    expect(rowOf(page, "emulators.run.gb-core")
-                   .note.starts_with("Core in " + (root / "system").string()) &&
+    const ui::SettingsCategory page = downloadsOf(rig.emulators);
+    expect(rowOf(page, "emulators.run.gb-core").note.starts_with("Core · ") &&
                rowOf(page, "emulators.run.gb-core").value == "Installed" &&
                !hasRow(page, "emulators.remove.gb-core"),
-           "a core in a system folder shows the folder and offers no Remove");
+           "a core in a system folder reads as a core found here and offers no Remove");
     rig.emulators.run("emulators.check", 0);
     waitForCheck(rig);
     expect(rig.downloads.latest("gb-core").has_value() && rig.downloads.check().failures.empty(),
@@ -283,30 +296,36 @@ void systemCoreIsNotOurs(const fs::path& root) {
 
 void settingsShowTheBios(const fs::path& root) {
     Rig rig{root};
-    expect(!hasRow(rig.emulators.page(), "emulators.bios.gb-core"),
+    expect(!hasRow(biosOf(rig.emulators), "emulators.bios.gb-core"),
            "a core not installed shows no BIOS");
     rig.emulators.run("emulators.run.gb-core", 0);
     rig.settle();
-    ui::SettingsCategory page = rig.emulators.page();
-    expect(rowOf(page, "emulators.bios.gb-core").value == "HLE built in" &&
-               rowOf(page, "emulators.bios.gb-core").label == "Game Boy BIOS" &&
-               rowOf(page, "emulators.bios.gb-core/gb_bios.bin").value == "Missing" &&
-               rowOf(page, "emulators.bios.gb-core/gb_bios.bin").note == "Game Boy BIOS",
-           "the downloaded core's info lists its BIOS, missing, so it runs its HLE");
+    ui::SettingsCategory page = biosOf(rig.emulators);
+    expect(
+        rowOf(page, "emulators.bios.gb-core").value == "HLE built in" &&
+            rowOf(page, "emulators.bios.gb-core").label == "GB (built-in)" &&
+            std::ranges::any_of(page.rows,
+                                [](const ui::SettingsRow& row) {
+                                    return row.kind == ui::RowKind::Heading &&
+                                           row.label == "Game Boy";
+                                }) &&
+            rowOf(page, "emulators.bios.gb-core/gb_bios.bin").value == "Missing" &&
+            rowOf(page, "emulators.bios.gb-core/gb_bios.bin").note == "Game Boy BIOS",
+        "the downloaded core's info lists its BIOS under its console, missing, so it runs its HLE");
     fs::create_directories(root / "bios");
     std::ofstream{root / "bios" / "gb_bios.bin"} << "bios";
-    page = rig.emulators.page();
+    page = biosOf(rig.emulators);
     expect(rowOf(page, "emulators.bios.gb-core").value == "Your BIOS file gb_bios.bin" &&
                rowOf(page, "emulators.bios.gb-core/gb_bios.bin").value == "In use",
            "a file in the system folder is the one in use");
 
     fs::remove(root / "cores" / "mgba_libretro.info");
-    expect(rowOf(rig.emulators.page(), "emulators.bios.gb-core").value == "Not listed",
+    expect(rowOf(biosOf(rig.emulators), "emulators.bios.gb-core").value == "Not listed",
            "a core downloaded without its info says so");
     rig.emulators.run("emulators.check", 0);
     waitForCheck(rig);
     expect(rig.downloads.check().failures.empty() &&
-               rowOf(rig.emulators.page(), "emulators.bios.gb-core/gb_bios.bin").value == "In use",
+               rowOf(biosOf(rig.emulators), "emulators.bios.gb-core/gb_bios.bin").value == "In use",
            "the update check fetches the missing info");
 }
 
