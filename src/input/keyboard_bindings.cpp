@@ -62,6 +62,8 @@ TextInput readTextInput(const KeyFrame& keys) {
     input.escape = keys.pressed(keys::Escape);
     input.up = keys.pressedOrRepeated(keys::Up);
     input.down = keys.pressedOrRepeated(keys::Down);
+    input.left = keys.pressedOrRepeated(keys::Left);
+    input.right = keys.pressedOrRepeated(keys::Right);
     return input;
 }
 

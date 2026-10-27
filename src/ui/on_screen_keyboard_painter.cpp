@@ -52,7 +52,7 @@ std::vector<HintPrompt> OnScreenKeyboardPainter::hints(const OnScreenKeyboard& k
         return {{"A", "Done"}, {"B", "Close"}};
     }
     if (keyboard.style() == input::KeyboardStyle::DaisyWheel) {
-        std::vector<HintPrompt> wheel;
+        std::vector<HintPrompt> wheel{{"LEFT", "Cursor"}};
         if (!keyboard.petal()) {
             wheel.emplace_back("B", "Close");
         }
@@ -60,12 +60,8 @@ std::vector<HintPrompt> OnScreenKeyboardPainter::hints(const OnScreenKeyboard& k
         wheel.emplace_back("+", "Done");
         return wheel;
     }
-    return {{"A", "Type"},
-            {"B", "Delete"},
-            {"X", keyboard.shifted() ? "Caps on" : "Caps"},
-            {"Y", "Space"},
-            {"-", "Clear"},
-            {"+", "Done"}};
+    return {{"A", "Type"},  {"B", "Delete"}, {"X", keyboard.shifted() ? "Caps on" : "Caps"},
+            {"Y", "Space"}, {"-", "Clear"},  {"+", "Done"}};
 }
 
 void OnScreenKeyboardPainter::paint(Canvas& canvas, const OnScreenKeyboard& keyboard, Point size,
@@ -113,7 +109,10 @@ void OnScreenKeyboardPainter::paintGrid(Canvas& canvas, const OnScreenKeyboard& 
         if (keys[i].kind == KeyKind::Character) {
             text_.drawInkCentred(canvas, keys[i].label, centreOf(box), cap, ink);
         } else {
-            text_.drawCentred(canvas, keys[i].label, Point{box.centreX() - text_.measure(keys[i].label, cap) * 0.5f, box.centreY()}, cap, ink);
+            text_.drawCentred(
+                canvas, keys[i].label,
+                Point{box.centreX() - text_.measure(keys[i].label, cap) * 0.5f, box.centreY()}, cap,
+                ink);
         }
     }
 }
@@ -166,8 +165,8 @@ void OnScreenKeyboardPainter::paintWheel(Canvas& canvas, const OnScreenKeyboard&
         const bool focused = pointed && keyboard.keyFocus() == daisyPetals + face;
         canvas.fillCircle(centreOf(bounds), layout.faceRadius,
                           withAlpha(focused ? outlineInk : cardFill, alpha));
-        text_.drawInkCentred(canvas, characterOn(keyboard, *picked, shown), centreOf(bounds),
-                                 large, withAlpha(focused ? white : palette::ink, alpha));
+        text_.drawInkCentred(canvas, characterOn(keyboard, *picked, shown), centreOf(bounds), large,
+                             withAlpha(focused ? white : palette::ink, alpha));
     }
 }
 
@@ -208,7 +207,9 @@ float OnScreenKeyboardPainter::paintStrip(Canvas& canvas, const OnScreenKeyboard
         canvas.fillRoundRect(onCanvas(pill), pillHeight * 0.5f,
                              withAlpha(current ? outlineInk : cardFill, alpha));
         const std::string_view text = daisySetLabel(shown);
-        text_.drawCentred(canvas, text, Point{pill.centreX() - text_.measure(text, label) * 0.5f, centre.y}, label, withAlpha(current ? white : palette::ink, alpha));
+        text_.drawCentred(canvas, text,
+                          Point{pill.centreX() - text_.measure(text, label) * 0.5f, centre.y},
+                          label, withAlpha(current ? white : palette::ink, alpha));
         x += pills[set] + pillGapDp * unit;
     }
     x += stripGapDp * unit - pillGapDp * unit;

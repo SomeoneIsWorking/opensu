@@ -196,15 +196,6 @@ KeyboardLayout layoutKeyboard(const Rect& frame, float dp, input::KeyboardStyle 
     return layout;
 }
 
-std::optional<std::size_t> KeyboardLayout::keyAt(float x, float y) const noexcept {
-    for (std::size_t i = 0; i < keys.size(); ++i) {
-        if (keys[i].contains(x, y)) {
-            return i;
-        }
-    }
-    return std::nullopt;
-}
-
 Rect KeyboardLayout::petalBounds(std::size_t petal) const noexcept {
     const double angle =
         static_cast<double>(petal) * 2.0 * std::numbers::pi / static_cast<double>(daisyPetals);

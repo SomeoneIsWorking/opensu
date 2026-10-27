@@ -36,7 +36,7 @@ void SteamGridDbCovers::apply(std::vector<library::ShelfItem>& shelf) const {
 
 void SteamGridDbCovers::coverArrived(const std::string& id, const std::filesystem::path& file) {
     const std::filesystem::path replaced = overrides_.shown(id);
-    shell_.setArtwork(id, replaced.empty() ? file : replaced);
+    shell_.grid().setArtwork(id, replaced.empty() ? file : replaced);
     if (const library::Game* game = hooks_.original(id)) {
         library::Game arrived = *game;
         arrived.artwork = file;
@@ -53,10 +53,10 @@ void SteamGridDbCovers::choose(const std::string& id) {
 void SteamGridDbCovers::show(const std::string& id) {
     const std::filesystem::path replaced = overrides_.shown(id);
     if (!replaced.empty()) {
-        shell_.setArtwork(id, replaced);
+        shell_.grid().setArtwork(id, replaced);
     } else if (const library::Game* game = hooks_.original(id);
                game != nullptr && !game->artwork.empty()) {
-        shell_.setArtwork(id, game->artwork);
+        shell_.grid().setArtwork(id, game->artwork);
     }
 }
 

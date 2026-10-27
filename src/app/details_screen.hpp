@@ -1,6 +1,6 @@
-// details_screen — a game's details page on the interface toolkit: its cover whole beside the
-// title, the store or system and what is known about it, and a pane of the launch button and the
-// rows that act on it, Play focused.
+// details_screen — a game's details page on the interface toolkit, over its wide picture faded
+// when the store has one: its cover whole beside the title, the store or system and what is known
+// about it, and a pane of the launch button and the rows that act on it, Play focused.
 #pragma once
 
 #include <memory>

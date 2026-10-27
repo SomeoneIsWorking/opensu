@@ -19,12 +19,12 @@
 #include "corner_hints.hpp"
 #include "device/battery.hpp"
 #include "glass.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 #include "launcher_badges.hpp"
 #include "library/game.hpp"
 #include "status_pill.hpp"
 #include "top_bar_layout.hpp"
 #include "top_bar_metrics.hpp"
-#include "gpu2d/ui/typesetter.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -43,6 +43,9 @@ inline constexpr Colour chosen{0xE6, 0xE4, 0xEE, 255};
 inline constexpr Colour off{0xB7, 0xB2, 0xC0, 255};
 } // namespace palette
 
+/// Whether the home screen's chrome is dark for the palette's ground (iiSU ya0.e).
+[[nodiscard]] bool chromeDark() noexcept;
+
 class Hud {
   public:
     using Clock = std::chrono::steady_clock;
@@ -52,8 +55,7 @@ class Hud {
 
     /// `device` is which prompts the corner hints draw.
     Hud(const input::Prompts& prompts, gpu2d::ui::Typesetter& text, IconAtlas& icons) noexcept
-        : text_{text}, statusPill_{text, icons}, crumbs_{text},
-          glyphs_{prompts, text} {
+        : text_{text}, statusPill_{text, icons}, crumbs_{text}, glyphs_{prompts, text} {
     }
 
     /// The window in pixels and its pixels per dp.
@@ -85,25 +87,23 @@ class Hud {
     void setTitle(std::string title) {
         title_ = std::move(title);
     }
-    /// The breadcrumb trail and the level the pointer is on; an empty trail draws nothing.
+    /// The breadcrumb trail; an empty trail draws nothing.
     void setTrail(Trail trail) {
         trail_ = std::move(trail);
     }
-    void setCrumbHover(std::optional<std::size_t> crumb) noexcept {
-        crumbHover_ = crumb;
-    }
-    /// The level of the trail under the point, from the geometry the trail paints at.
-    [[nodiscard]] std::optional<std::size_t> crumbAt(float x, float y) const;
+    /// Each level of the trail where the top bar draws it.
+    [[nodiscard]] std::vector<Rect> crumbCells() const;
     /// What each button does now; the corners name only the ones that do something.
     void setHints(const HintContext& hints) noexcept {
         hints_ = hints;
     }
-    /// The launcher the pointer is on, which its badge lights for.
-    void setLauncherHover(std::optional<library::Source> source) noexcept {
-        launcherHover_ = source;
-    }
-    /// The badge under the point, from the geometry the top bar paints at, or null.
-    [[nodiscard]] const LauncherBadge* launcherAt(float x, float y) const;
+    /// A launcher's badge where the top bar draws it, with the room a pointer takes it in.
+    struct BadgeCell {
+        LauncherBadge badge;
+        Rect hit;
+    };
+    /// The badges the top bar shows, in order.
+    [[nodiscard]] std::vector<BadgeCell> badgeCells() const;
     void setToast(std::string text, bool isError, Clock::time_point now);
     /// Clears a toast whose time is up.
     void tick(Clock::time_point now);
@@ -118,8 +118,14 @@ class Hud {
         return toastError_;
     }
 
+    /// What the pointer rests on in the top bar: a level of the trail, a launcher's badge.
+    struct TopBarHover {
+        std::optional<std::size_t> crumb;
+        std::optional<library::Source> launcher;
+    };
+
     void drawGround(Canvas& canvas) const;
-    void drawTopBar(Canvas& canvas);
+    void drawTopBar(Canvas& canvas, const TopBarHover& hover);
     void drawHints(Canvas& canvas) const;
     /// The toast, centred low on the screen and kept above `floor`, the top of what the shell
     /// draws along the bottom edge (the dock).
@@ -148,9 +154,7 @@ class Hud {
     std::vector<LauncherBadge> launchers_;
     std::string title_;
     Trail trail_;
-    std::optional<std::size_t> crumbHover_;
     HintContext hints_;
-    std::optional<library::Source> launcherHover_;
     Clock::time_point now_{};
     std::string toast_;
     bool toastError_{false};

@@ -62,9 +62,11 @@ struct TextInput {
     bool escape{false};
     bool up{false};
     bool down{false};
+    bool left{false};
+    bool right{false};
 
     [[nodiscard]] bool any() const noexcept {
-        return !text.empty() || backspace || enter || escape || up || down;
+        return !text.empty() || backspace || enter || escape || up || down || left || right;
     }
 };
 

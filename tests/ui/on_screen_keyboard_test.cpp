@@ -173,15 +173,12 @@ void layoutsHitTest() {
             expect(std::abs(layout.panel.centreX() - frame.centreX()) < 0.01f, "centred");
             expect(layout.strip.bottom() <= layout.hints.y, "the strip stands over the hints");
             for (std::size_t i = 0; i < layout.keys.size(); ++i) {
-                const auto hit = layout.keyAt(layout.keys[i].centreX(), layout.keys[i].centreY());
-                expect(hit && *hit == i, "a key's centre hits that key");
                 expect(layout.keys[i].y >= layout.panel.y &&
                            layout.keys[i].bottom() <= layout.panel.bottom() &&
                            (layout.keys[i].right() <= layout.strip.x ||
                             layout.keys[i].x >= layout.strip.right()),
                        "keys sit in the dock beside the strip and hints");
             }
-            expect(!layout.keyAt(1.0f, 1.0f), "outside hits nothing");
         }
     }
     const KeyboardLayout wheel =

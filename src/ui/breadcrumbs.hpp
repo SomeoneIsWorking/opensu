@@ -69,9 +69,6 @@ struct BreadcrumbLayout {
     std::vector<float> textWidths;
     /// The centre of the chevron after each crumb but the last.
     std::vector<float> chevrons;
-
-    /// The crumb under the point, or nothing.
-    [[nodiscard]] std::optional<std::size_t> crumbAt(float x, float y) const noexcept;
 };
 
 /// Lays `textWidths`, the measured width of each label, out in `frame`. When the trail would pass

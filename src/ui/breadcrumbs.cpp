@@ -9,15 +9,6 @@ bool isPlace(const Crumb& crumb) noexcept {
            crumb.kind != CrumbKind::Page;
 }
 
-std::optional<std::size_t> BreadcrumbLayout::crumbAt(float x, float y) const noexcept {
-    for (std::size_t i = 0; i < cells.size(); ++i) {
-        if (cells[i].contains(x, y)) {
-            return i;
-        }
-    }
-    return std::nullopt;
-}
-
 BreadcrumbLayout layoutBreadcrumbs(const BreadcrumbFrame& frame,
                                    const std::vector<float>& textWidths) {
     BreadcrumbLayout layout;

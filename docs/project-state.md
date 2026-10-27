@@ -41,8 +41,9 @@ Visible deltas from the baseline:
   store or system badge, installed state, last played and play time beside Play or Install and
   rows for Hide or Show, Update (an installed store game its store has a newer build of, S036),
   Uninstall (an installed store game, asked first in a dialog), Choose artwork, Controls and Back,
-  each a pointer target (the Install flow is the launch panel's). The Steam hero backdrop of the
-  old page is gone. A ROM's page names its emulator and
+  each a pointer target (the Install flow is the launch panel's). A game with a cover and a wide
+  picture (Steam's library hero) shows the wide one cropped across the whole page at 14% over the
+  ground (`ui::PictureBackdrop`, `GameDetails::hero`), as the old page did. A ROM's page names its emulator and
   whether it is installed, and a button steps through the emulators for its system; the pick is
   kept per game in `game-settings.json` (S040). iiSU launches on A with no page (launch.md 3,
   `handleRomActivated`) and only shows game details on a dual-display device's second screen
@@ -533,22 +534,28 @@ the sticks inside the translator's threshold do not count); while it is the keyb
 every prompt (`ButtonGlyphPainter`: corner hints, dock LB/RB, launch panel, Guide menu) draws a
 key cap in the ring's size and stroke instead of the controller glyph.
 
-Mouse: `app::PointerRouter` maps one `PointerFrame` onto the shell's actions through
-`PointerHost` (`ShellApp`), and `Shell::pointAt` says what is under the pointer from the painters'
-own geometry. Hover focuses the tile, layout card or Guide row under a pointer that moved (the
-focus the D-pad moves, with the Navigation sound; a still pointer never refocuses); the dock lights
-its item as before. Left click is focus plus A on a tile, card or row, the section change on a dock
-item, the page turn on a page arrow or dot, and the hint's own button on a launch-panel hint
-(install, store choice, licence accept/decline, cancel). Right click is never Back: on a game tile
-it opens that game's menu, on a folder or store tile the tile's menu (Open, Sign in, Refresh), on
-anything else it does nothing, and outside an open menu it closes it. The wheel
-steps the way the pad does: a page in WiiSu, a column in Flow, down the XMB, along the Carousel,
-between layout cards, down the Guide menu. Hit-tests: `HomeLayout::slotAt/pageAt`,
-`railTileAt`, `ChooserLayout::cardAt/rowAt/iconSizeAt`, `KeyboardLayout::keyAt`, `GuideLayout::rowAt`, `QuickLayout::rowAt/levelAt`, `PanelLayout::hintAt`, `dockItemAt`.
-Tested: `home_layout`, `rail_layout`, `on_screen_keyboard`, `guide_menu`, `quick_menu`, `pointer_router`,
-plus `last_device`, `keyboard_bindings`, `dock_metrics`, `sections`, `control_channel`.
-A launcher badge hovers lit and a click selects that store's tile in Library (`ShellApp::selectLauncher`,
-`TopBarLayout::launcherAt`); the options panel's rows, the icon size slider (a click or drag sets the level), the on-screen keyboard's keys hover and click like a card; search, the folder chooser, the context menu, details page and cover picker are toolkit screens and take the pointer as every toolkit screen does.
+Mouse: `ShellApp::pointer` notes the device and hands each `PointerFrame` (the window's, or one the
+control channel injects) to `Navigator::pointer` as Move, Press, Context (a right click), Wheel or
+Leave; nothing else reads the pointer. The chrome screens (top bar, dock, docked keyboard, mapping
+editor) take it first where their parts are, then the top screen, Home (`app::HomeScreen`, a
+gpu2d `CellGrid` over `ui::HomeGrid`) at the bottom. Hover focuses the tile, card, row or key under
+a pointer that moved (with the Navigation sound; a still pointer never refocuses); the dock lights
+its item and slides in when the pointer rests where it stands. Left click on a tile is focus plus
+A, on a dock item the section change, on a page arrow or dot the page turn, on a launcher badge
+that store's tile in Library (or the Downloads page while it shows a download), on a breadcrumb
+level going back to it; toolkit screens take clicks on their widgets. Right click is never Back: on
+a tile it focuses it and asks for its menu (Options, as Select does), on a toolkit screen it is the
+focused widget's second action, and outside an open menu it closes it. The wheel scrolls a toolkit
+screen's list and on Home steps the way the pad does: a page in WiiSu, a column in Flow, down the
+XMB, along the Carousel. Hit tests are the widgets' frames and `HomeGrid`'s cells
+(`HomeLayout::slotAt/pageAt`, `railTileAt`). Tested: `home_screen_flow` (Home through the
+navigator: focus, paging, LB/RB, A and Y, clicks on tiles and a breadcrumb), `home_layout`,
+`rail_layout`, gpu2d `navigator`, `cell_grid` and `tab_dock`, plus `last_device`,
+`keyboard_bindings`, `dock_metrics`, `sections`, `control_channel`.
+Checked on the real setup (`scratch/ui-toolkit/real/frames/`, against `before/`) at 1280x800 and
+1920x1080: the Home grid, XMB, Carousel, details with its hero, search with results and the Guide
+over a stand-in game look as before; a moved pointer focuses a tile, a click opens its details and
+a click on the Home crumb closes them.
 Not clickable: the rest of the top bar, the corner hints, the toast, the XMB's header
 card (B goes back). The sign-in prompt is the Library launcher tile, so it takes the
 tile click. `opensu --render FILE --keyboard` draws the keyboard's prompts; `POST /input` takes `a keyboard`
@@ -1053,7 +1060,7 @@ A hidden run reads Bluetooth and the backlight and changes nothing, never runs a
 never starts Steam (`host_services`, `Arguments::startsSteam`). Tested with fakes through the
 toolkit navigator: `guide_menu_controller`, `devices_controller`, `host_services`,
 `bluetooth_session`, `controller_roster`, `audio_outputs`, `brightness_control`,
-`shortcut_router`, `pointer_router`, `game_keys` (Ctrl+Tab). Verified headless (`--hidden`,
+`shortcut_router`, `home_screen_flow`, `game_keys` (Ctrl+Tab). Verified headless (`--hidden`,
 captures under `scratch/ui-toolkit/step3/frames/` at 1280x800 and 1920x1080): the Guide menu over
 the home screen and over a running stand-in game, Volume landing, the Close game question, the
 Power list, each Devices tab reading the real adapter. The overlay's blend over a game is verified

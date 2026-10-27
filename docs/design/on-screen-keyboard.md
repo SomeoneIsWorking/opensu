@@ -18,8 +18,9 @@ and the browser is not built yet (`docs/issues/on-screen-keyboard.md`).
 
 A on a focused field asks the navigator for a keyboard (`Navigator::setKeyboard`, which
 `ShellApp` points at `KeyboardPad::open`); search, the path, the key and the password open it
-with their card. `KeyboardPad::follow` closes it each frame once no field holds the focus
-(`Navigator::typing`). While it is open the shell draws neither its bottom nav dock nor the HUD's
+with their card; opening it starts editing the focused field (`Navigator::edit`), closing it
+stops. `KeyboardPad::follow` closes it each frame once the field is not being edited (the focus
+left it, or Submit; `Navigator::editing`). While it is open the shell draws neither its bottom nav dock nor the HUD's
 corner hints, toasts stand above it, it shows its own hints, and overlay cards lay out above it
 (`Navigator::layout`'s covered strip) so the field typed into stays in view.
 
@@ -36,11 +37,14 @@ corner hints, toasts stand above it, it shows its own hints, and overlay cards l
   sends their presses and releases to `KeyboardPad::stick` instead of the direction repeat;
   otherwise the stick moves focus as the d-pad does.
 - Physical keyboard: while a field is focused, text goes to it, Backspace is Erase, Enter is
-  Submit, Escape is Back, Up and Down move (`ui::typingKeys`), either style and with the keyboard
-  open or not; the hint bar then names only those (no "Type", no "Clear").
+  Submit, Escape is Back, Up and Down move, Left and Right move the caret once the field is being
+  edited (typed into, or opened with the keyboard) and the focus otherwise (`ui::typingKeys`),
+  either style and with the keyboard open or not; the hint bar then names only those (no "Type",
+  no "Clear").
 - Pointer: `KeyboardLayout::keys` is one rectangle per grid key, or on the wheel the eight petals
-  then the diamond's four faces (`daisyPetals + face`); hovering focuses it (`OnKeyboardKey`), a
-  click presses A on it. Resting on a petal picks it until the stick picks one or the keyboard
+  then the diamond's four faces (`daisyPetals + face`), each a part of `ui::KeyboardChrome`, the
+  keyboard's chrome screen; hovering focuses it, a click presses A on it, and the strip it covers
+  takes every other click. Resting on a petal picks it until the stick picks one or the keyboard
   closes, so the pointer can move to the diamond and click a character; a click on a petal types
   nothing.
 
@@ -69,6 +73,7 @@ thumb's stick and the diamond under the right thumb's buttons.
 | A, B, X, Y | types that face's character | A: nothing, B: closes the keyboard, X: delete, Y: space |
 | LB / RB | delete / space | delete / space |
 | LT / RT | previous / next set | previous / next set |
+| D-pad Left / Right | moves the field's caret a character | moves the field's caret a character |
 | Start | done | done |
 
 The right stick is not read for the cursor; the shell has no right stick events.
@@ -78,6 +83,7 @@ The right stick is not read for the cursor; the shell has no right stick events.
 Docked as a phone-style bottom keyboard, its hints in two lines beside the keys. Ten columns, five
 rows (digits, three of letters with `' - . &`, then `/`, Space, Delete, Done). D-pad walks, A types, B deletes and closes the
 keyboard when the field is empty, X turns capitals on and off, Y types a space, Start is done.
+The D-pad is the keys', so the caret moves only with a physical keyboard's arrows.
 
 ## Drawing
 
@@ -88,7 +94,8 @@ A single character is centred on its ink (`InterfaceText::drawInkCentred`, from 
 
 ## Invariants
 
-- The keyboard holds no text; a field edits at its end (no mid-line cursor).
+- The keyboard holds no text; the field keeps its caret (gpu2d `TextField`) and the keyboard is up
+  exactly while the field is being edited (`Navigator::edit`, `Navigator::editing`).
 - Done closes the keyboard and submits the field; B closes only the keyboard, a second B is the
   card's Back.
 - The field owns its rules: a search line never starts with a space or doubles one; lengths are

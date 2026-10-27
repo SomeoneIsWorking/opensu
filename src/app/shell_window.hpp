@@ -17,10 +17,24 @@
 #include "gpu2d/surface.hpp"
 
 #include "input/keyboard_bindings.hpp"
-#include "pointer_router.hpp"
 #include "session/gamescope.hpp"
+#include "ui/paint.hpp"
 
 namespace opensu::app {
+
+/// The pointer as one frame saw it.
+struct PointerFrame {
+    /// The pointer inside the window, or nothing.
+    std::optional<ui::Point> point;
+    /// How far it moved since the last frame.
+    ui::Point delta{};
+    /// Wheel notches this frame: positive is away from the player.
+    float wheel{};
+    /// Buttons that went down this frame.
+    bool left{false};
+    bool right{false};
+    bool middle{false};
+};
 
 class ShellWindow {
   public:

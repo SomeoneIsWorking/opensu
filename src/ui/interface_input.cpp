@@ -8,7 +8,7 @@ namespace {
 
 using gpu2d::ui::Action;
 
-constexpr std::array<std::pair<gamepad::Button, Action>, 11> pairs{{
+constexpr std::array<std::pair<gamepad::Button, Action>, 13> pairs{{
     {gamepad::Button::Up, Action::Up},
     {gamepad::Button::Down, Action::Down},
     {gamepad::Button::Left, Action::Left},
@@ -20,6 +20,8 @@ constexpr std::array<std::pair<gamepad::Button, Action>, 11> pairs{{
     {gamepad::Button::L1, Action::PreviousTab},
     {gamepad::Button::R1, Action::NextTab},
     {gamepad::Button::Start, Action::Menu},
+    {gamepad::Button::Select, Action::Options},
+    {gamepad::Button::Search, Action::Search},
 }};
 
 } // namespace

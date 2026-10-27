@@ -38,9 +38,6 @@ struct TopBarLayout {
     float top{};
     /// How far a launcher's hit extends past its circle.
     float hitSlop{};
-
-    /// The launcher under the point, by its place in `launchers`.
-    [[nodiscard]] std::optional<std::size_t> launcherAt(float x, float y) const noexcept;
 };
 
 [[nodiscard]] TopBarLayout layoutTopBar(const TopBarMetrics& metrics, const TopBarFrame& frame);

@@ -1,6 +1,6 @@
 # UI toolkit and settings schema
 
-Status: steps 1 to 3 built (see 5); step 4 started: all text on the toolkit's face, the home grid, rails and dock not yet on the stack. `gpu2d::ui` (gpu2d `docs/ui-toolkit.md`) has the theme, layout, widget
+Status: steps 1 to 4 built (see 5): every screen, Home included, is on the navigator and the pointer reaches the shell only through `Navigator::pointer`. `gpu2d::ui` (gpu2d `docs/ui-toolkit.md`) has the theme, layout, widget
 tree, focus, `Navigator`, the widgets and motion; openSU's Settings screen runs on it
 (`src/app/settings_screen.*`, `src/ui/screen_stack.*`, `src/ui/interface_*`). Step 2: every
 layered setting is declared once in `settings::Schema` (`src/settings/setting_schema.*`: video,
@@ -135,7 +135,8 @@ Each step deletes the code it replaces before the next starts.
    Done: the Guide menu (one screen; Close game, Load state, Reset game and the power steps ask
    through `confirm`; volume, mute, brightness and interface size only there, Guide + A lands on
    Volume), Devices (X forgets a device after `confirm`), Downloads (gpu2d `Progress`, raised
-   `Card`), the details page (`ui::GameDetails` model, cover through `ImageView`, Play and the
+   `Card`), the details page (`ui::GameDetails` model, cover through `ImageView`, the store's wide
+   picture faded behind it through `PictureBackdrop` (the frame's root), Play and the
    action rows through `ui::addRow`, Uninstall asks through `confirm`), the tile context menu (an
    overlay over a scrim; Uninstall asks through `confirm`), the cover picker (an overlay grid of
    gpu2d `CardButton`s, Y signs in to SteamGridDB), a shared row mapping (`ui::addRow`,
@@ -172,8 +173,23 @@ Each step deletes the code it replaces before the next starts.
    through the toolkit's `Typesetter`, one face (`ui::InterfaceText`, hinted and kerned) with
    gpu2d `Typesetter::drawCentred` and `sizeForLineHeight`; `TextGrid`, `Typeface`, `FaceMetrics`
    and the dead `row_controls` are deleted, and with them the corner hints' letter spacing.
-   Left: the home grid, the XMB and Carousel rails and the dock as the navigator's bottom screen
-   (a paging and scrolling grid and a tab dock in gpu2d), then the top bar's crumbs and launcher
-   badges as widgets, deleting `Shell::pointAt`/`pointAtHome`/`focusTarget`, `PointerTarget`'s
-   `OnTile`, `OnPage`, `OnDock`, `OnCrumb`, `OnLauncher` and `OnKeyboardKey`, `PointerRouter`, the
-   home switch in `ShellApp::actOn` and the painters the widgets replace.
+   Done: Home. `app::HomeScreen` is the navigator's root (`Navigator::setRoot`: never popped, Back
+   on it backs out of the search or the folder): one gpu2d `CellGrid` over `ui::HomeGrid`, which
+   owns the tiles, the grid's paging and scrolling and the XMB and Carousel rails, their easing
+   and painters. The top bar (`ui::TopBarChrome`: breadcrumb levels and launcher badges as parts),
+   the dock (`ui::HomeDock`, a gpu2d `TabDock` that LB and RB step from Home), the docked keyboard
+   (`ui::KeyboardChrome`: keys as parts) and the mapping editor (`ui::MappingChrome`, which takes
+   every press) are chrome screens (`Navigator::addChrome`): the pointer reaches them before the
+   top screen and the shell draws each where it belongs, the dock in the second pass over the
+   scene its glass blurs. Every button goes through `interfaceActionOf` to `Navigator::act`
+   (Select is `Options`, Search is `Search`); the window's pointer and the control channel's go
+   through `ShellApp::pointer` to `Navigator::pointer` as Move, Press, Context (a right click,
+   never Back), Wheel and Leave. Whether Home is in front is the navigator's `atRoot` and whether a
+   screen covers it `active` and `pagesVisible`. Deleted: `Shell::pointAt`, `pointAtHome`,
+   `pointAtModal`, `focusTarget`, `moveFocus`, `panelOpen`, `ui::PointerTarget` (`pointer_target.hpp`),
+   `PointerRouter` and `PointerHost` with their test, the home switch and `scroll`/`contextMenu` in
+   `ShellApp`, `ScreenStack::active`/`visible`/`pagesVisible`/`paged`, and the hit tests the
+   widgets' frames replace (`KeyboardLayout::keyAt`, `BreadcrumbLayout::crumbAt`,
+   `TopBarLayout::launcherAt`, `dockItemAt`, `onRestingDock`). `tests/app/home_screen_flow_test`
+   drives Home through the navigator: focus, paging, LB and RB, A and Y, clicks on tiles and a
+   breadcrumb. `/state` keeps `screen` empty on Home.

@@ -45,6 +45,8 @@ struct GameDetails {
     std::string badge;
     /// The cover, else the wide picture; empty for none.
     std::filesystem::path art;
+    /// The wide picture faded behind the page when the cover is a portrait; empty for none.
+    std::filesystem::path hero;
     /// The first button: Play, or Install for a game that is not installed.
     std::string launch;
     /// What is known about the game, as facts.

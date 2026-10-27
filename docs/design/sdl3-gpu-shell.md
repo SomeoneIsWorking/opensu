@@ -40,7 +40,7 @@ Non-goals: new visuals, a Windows build (SDL3 GPU keeps that possible), sharing 
 | Shaders | the blur's two GLSL 330 passes and the capsule mask | `ui/backdrop_blur` |
 | Text | `LoadFontEx` atlas of Cal Sans, `DrawTextCodepoint`, `MeasureTextCodepoints` | `ui/interface_text` |
 | Images | `LoadImage`, `ImageResize`, `ImageFormat`, textures from images (WebP through libwebp already) | `ui/image_decoder`, `ui/glyph_textures`, `artwork/starter_pack` |
-| Input | keys pressed, released and repeated, typed text, mouse position, buttons, wheel | `input/keyboard_bindings`, `input/key_names`, `app/pointer_router` |
+| Input | keys pressed, released and repeated, typed text, mouse position, buttons, wheel | `input/keyboard_bindings`, `input/key_names`, `app/shell_window` (`PointerFrame`) |
 | Sound | the audio device, WAV and OGG UI sounds | `audio/sound_player` |
 
 The layout model (`ui/home_layout`, `rail_layout`, `dock_metrics`, ...) used its own `Rect` and
@@ -64,7 +64,7 @@ repository.
 | gpu2d `src/shaders/`, `cmake/Gpu2dShaders.cmake` | GLSL compiled to SPIR-V by `glslc` at build time, embedded as headers; `gpu2d_compile_shaders` also builds `opensu-retro`'s |
 | `gpu2d::image` | Decoding PNG, JPEG and WebP with SDL3_image, cubic resizing (Mitchell down, Catmull-Rom up, as stb_image_resize2 defaults), and the one PNG encoder (`opensu-retro` and the starter pack use it already), encoding to memory so `/frame.png` stops writing a temporary file under `/tmp`; no GPU |
 | `src/audio/sdl_sound_player.*`, `sound_clip.*` | UI sounds on SDL audio streams, one per effect; WAV through `SDL_LoadWAV`, OGG through libvorbisfile, decoded without a device |
-| `src/input/keyboard_bindings.*`, `app/pointer_router.*` | SDL keyboard, text and mouse events into the existing raylib-free key names and pointer actions |
+| `src/input/keyboard_bindings.*`, `app/shell_window.*` | SDL keyboard, text and mouse events into the existing raylib-free key names and the frame's pointer |
 
 `ui/` painters keep their structure and switch their calls to `gpu2d::Canvas`. In openSU nothing
 outside `src/audio`, `src/retro` and the window owner includes SDL; the rest reaches it only

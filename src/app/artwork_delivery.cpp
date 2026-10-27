@@ -22,7 +22,7 @@ void ArtworkDelivery::loadStoredSounds() {
 void ArtworkDelivery::service() {
     for (const artwork::Fetched& fetched : fetcher_.take()) {
         if (!fetched.saved) {
-            shell_.artworkSettled(fetched.id);
+            shell_.grid().artworkSettled(fetched.id);
             continue;
         }
         if (fetched.kind == artwork::Fetched::Kind::Sound) {
@@ -36,17 +36,17 @@ void ArtworkDelivery::service() {
             continue;
         }
         if (fetched.kind == artwork::Fetched::Kind::Glyph) {
-            shell_.setGlyph(fetched.id, fetched.artwork);
+            shell_.grid().setGlyph(fetched.id, fetched.artwork);
             continue;
         }
         if (fetched.kind == artwork::Fetched::Kind::Console) {
-            shell_.setConsoleArtwork(fetched.id, fetched.artwork);
+            shell_.grid().setConsoleArtwork(fetched.id, fetched.artwork);
             continue;
         }
         hooks_.coverArrived(fetched.id, fetched.artwork);
     }
     // The queue goes to the games on screen first.
-    std::vector<std::string> onScreen = shell_.downloadingOnScreen();
+    std::vector<std::string> onScreen = shell_.grid().downloadingOnScreen();
     if (onScreen != prioritised_) {
         fetcher_.prioritize(onScreen);
         prioritised_ = std::move(onScreen);

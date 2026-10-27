@@ -46,6 +46,7 @@ void KeyboardPad::open() {
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     keyboard_.open();
+    navigator_.edit(true);
 }
 
 void KeyboardPad::close() {
@@ -55,10 +56,11 @@ void KeyboardPad::close() {
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
     keyboard_.close();
+    navigator_.edit(false);
 }
 
 void KeyboardPad::follow() {
-    if (keyboard_.isOpen() && !navigator_.typing()) {
+    if (keyboard_.isOpen() && !navigator_.editing()) {
         keyboard_.close();
     }
 }
@@ -169,6 +171,14 @@ void KeyboardPad::onWheel(gamepad::Button button) {
         }
     }
     switch (button) {
+    case gamepad::Button::Left:
+    case gamepad::Button::Right:
+        // input-sound.md 3.4 Navigation: a caret move.
+        if (navigator_.act(button == gamepad::Button::Left ? gpu2d::ui::Action::Left
+                                                           : gpu2d::ui::Action::Right)) {
+            sounds_.play(audio::Effect::Navigation);
+        }
+        break;
     case gamepad::Button::B:
         close();
         break;
