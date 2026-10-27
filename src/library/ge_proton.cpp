@@ -66,6 +66,24 @@ std::optional<Version> versionOf(std::string_view name) {
     return Version{.major = *major, .minor = *minor};
 }
 
+std::optional<Version> protonVersionOf(std::string_view name) {
+    const std::size_t digit = name.find_first_of("0123456789");
+    if (digit == std::string_view::npos) {
+        return std::nullopt;
+    }
+    name.remove_prefix(digit);
+    const std::optional<int> major = numberAt(name);
+    if (!major) {
+        return std::nullopt;
+    }
+    if (name.size() < 2 || (name.front() != '.' && name.front() != '-')) {
+        return Version{.major = *major, .minor = 0};
+    }
+    name.remove_prefix(1);
+    const std::optional<int> minor = numberAt(name);
+    return Version{.major = *major, .minor = minor.value_or(0)};
+}
+
 fs::path runnersDir(const fs::path& dataDir) {
     return dataDir / "wine" / "runners";
 }

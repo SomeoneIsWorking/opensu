@@ -114,4 +114,10 @@ void order(std::vector<Game>& games) {
     });
 }
 
+bool isReady(const std::vector<SourceStatus>& sources, Source source) {
+    return std::ranges::any_of(sources, [source](const SourceStatus& status) {
+        return status.source == source && status.availability == Availability::Ready;
+    });
+}
+
 } // namespace opensu::library

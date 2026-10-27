@@ -90,10 +90,6 @@ std::string WineRunners::checkNow() {
     return check(CheckMode::Asked);
 }
 
-std::string WineRunners::ensure() {
-    return check(CheckMode::Needed);
-}
-
 std::string WineRunners::check(CheckMode mode) {
     if (!start([this, mode](const std::stop_token& stop) {
             runCheck(stop, mode);
@@ -164,19 +160,13 @@ void WineRunners::runCheck(const std::stop_token& stop, CheckMode mode) {
         look_.checking = true;
         checkFailure_.clear();
     }
-    // The first GE-Proton (565 MB) waits for a game or a test that needs it.
-    const bool fetch =
-        mode == CheckMode::Needed ||
-        !library::ge_proton::installed(library::ge_proton::runnersDir(dataDir_)).empty();
-    const bool ge = updateGeProton(stop, mode, fetch);
-    const bool umu = !stop.stop_requested() && (!fetch || updateUmu(stop, mode));
+    const bool ge = updateGeProton(stop, mode);
+    const bool umu = !stop.stop_requested() && updateUmu(stop, mode);
     measure();
     const std::lock_guard lock{mutex_};
     look_.checking = false;
     checked_ = ge && umu;
-    if (ge && umu && !fetch) {
-        // updateGeProton left the latest tag's news.
-    } else if (ge && umu) {
+    if (ge && umu) {
         look_.lastCheck =
             look_.builds.empty() ? "Checked" : "Up to date: " + look_.builds.front().name;
     } else if (!checkFailure_.empty()) {
@@ -188,7 +178,7 @@ void WineRunners::runCheck(const std::stop_token& stop, CheckMode mode) {
     }
 }
 
-bool WineRunners::updateGeProton(const std::stop_token& stop, CheckMode mode, bool fetch) {
+bool WineRunners::updateGeProton(const std::stop_token& stop, CheckMode mode) {
     std::string error;
     const library::roms::EmulatorRelease releases{web_};
     const std::optional<library::roms::ReleaseAsset> tarball =
@@ -206,18 +196,6 @@ bool WineRunners::updateGeProton(const std::stop_token& stop, CheckMode mode, bo
     const std::vector<library::ge_proton::Build> builds = library::ge_proton::installed(runners);
     if (std::ranges::find(builds, tag, &library::ge_proton::Build::name) != builds.end()) {
         lucent::info("wine", "{} is the latest GE-Proton and installed", tag);
-        return true;
-    }
-    if (!fetch) {
-        const std::string text = tag + " is the latest GE-Proton; it downloads when a Windows game "
-                                       "or Test the runner first needs it";
-        lucent::info("wine", "{}", text);
-        const std::lock_guard lock{mutex_};
-        look_.lastCheck = tag + " · downloads on first use";
-        if (mode == CheckMode::Asked) {
-            news_.push_back(Finished{
-                .serial = 0, .id = geId, .name = tag, .outcome = Outcome::Installed, .text = text});
-        }
         return true;
     }
     const std::optional<library::roms::ReleaseAsset> sums =

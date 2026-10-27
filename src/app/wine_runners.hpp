@@ -1,10 +1,10 @@
 // wine_runners — keeping openSU's own Wine runners current off the main loop: the latest GE-Proton
 // and umu-launcher downloaded, checked and unpacked under `<data>/wine` (`ge_proton`, `umu`,
-// `runtime_archive`), checked at start and daily while GOG or Epic is in force, on "Check now", and
-// at once when a Windows launch finds none. After a check the GE-Proton builds past the newest two
-// are removed unless a game runs on one or is set to it, which keeps it with the reason. Also runs
-// a Windows program through a runner for Settings' "Test" row. One job at a time, with progress
-// and cancel for the Downloads page.
+// `runtime_archive`), checked in the background at start and daily while GOG or Epic is signed in,
+// and on "Check now"; a launch never waits for it and picks a build up once installed. After a
+// check the GE-Proton builds past the newest two are removed unless a game runs on one or is set to
+// it, which keeps it with the reason. Also runs a Windows program through a runner for Settings'
+// "Test" row. One job at a time, with progress and cancel for the Downloads page.
 #pragma once
 
 #include <chrono>
@@ -41,7 +41,7 @@ class WineRunners {
         std::function<void()> changed;
         /// Progress moved: the screens that show it refresh.
         std::function<void()> refresh;
-        /// Whether Windows games are in force (GOG or Epic), which the background check waits for.
+        /// Whether GOG or Epic is signed in, which the background check waits for.
         std::function<bool()> wanted;
         /// The builds that must stay. Main loop only.
         std::function<InUse()> inUse;
@@ -107,9 +107,6 @@ class WineRunners {
     void service(Clock::time_point now);
     /// Checks now, the player asking; refused, with the reason, while a job runs.
     [[nodiscard]] std::string checkNow();
-    /// A launch or a test needs a GE-Proton build and umu-launcher: checks now and downloads them
-    /// even when none is installed; refused, with the reason, while a job runs.
-    [[nodiscard]] std::string ensure();
     /// Stops the running download; what is installed stays.
     void cancel();
     /// Runs `command` (`env NAME=value ... program args`) as the test of a runner, its output
@@ -128,17 +125,15 @@ class WineRunners {
 
   private:
     using Job = std::function<void(const std::stop_token&)>;
-    /// Who started a check. With no GE-Proton installed only `Needed` downloads; a `Scheduled`
-    /// check's failures are logged, not shown.
-    enum class CheckMode : std::uint8_t { Scheduled, Asked, Needed };
+    /// Who started a check: a `Scheduled` check's failures are logged, not shown.
+    enum class CheckMode : std::uint8_t { Scheduled, Asked };
 
     /// Starts `job` on the job thread; false while one runs.
     bool start(Job job);
     [[nodiscard]] std::string check(CheckMode mode);
     void runCheck(const std::stop_token& stop, CheckMode mode);
-    /// Looks up the latest GE-Proton and installs it unless it is installed or `fetch` is false;
-    /// false when it failed.
-    bool updateGeProton(const std::stop_token& stop, CheckMode mode, bool fetch);
+    /// Looks up the latest GE-Proton and installs it unless it is installed; false when it failed.
+    bool updateGeProton(const std::stop_token& stop, CheckMode mode);
     /// Installs the latest umu-launcher unless it is installed; false when it failed.
     bool updateUmu(const std::stop_token& stop, CheckMode mode);
     /// A check could not finish: shown on Downloads unless `mode` is `Scheduled`, then only

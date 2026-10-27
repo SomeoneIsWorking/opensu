@@ -38,6 +38,10 @@ struct Version {
 /// The version a build or tag is named for; nothing for any other name.
 [[nodiscard]] std::optional<Version> versionOf(std::string_view name);
 
+/// The first `<major>.<minor>` or `<major>-<minor>` in any Proton build's name ("Proton 9.0
+/// (Beta)", "GE-Proton11-5-x86_64"); nothing for one without ("Proton Experimental").
+[[nodiscard]] std::optional<Version> protonVersionOf(std::string_view name);
+
 /// openSU's runners folder under its data dir.
 [[nodiscard]] std::filesystem::path runnersDir(const std::filesystem::path& dataDir);
 

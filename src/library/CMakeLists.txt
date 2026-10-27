@@ -45,7 +45,7 @@ add_library(opensu_library STATIC
     core_bios.cpp
     appimage_runtime.cpp
     wine.cpp
-    ge_proton.cpp
+    ge_proton.cpp lutris_wine.cpp
     umu_launcher.cpp
     runtime_archive.cpp
 )

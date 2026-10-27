@@ -1,14 +1,16 @@
 // wine — how openSU runs a Windows GOG or Epic install: the Wine runner and the prefix.
 //
 // Every such game shares one prefix, `<data dir>/wine-prefix`, unless the player gave it its own,
-// `<data dir>/wine-prefixes/<store>-<id>`. The runner is the player's pick, else the newest
-// GE-Proton openSU installed (`ge_proton`). Runners found: openSU's GE-Proton builds, the system
-// `wine` on PATH, then the Proton builds in each Steam root's `compatibilitytools.d` and each Steam
-// library's `steamapps/common`. Discovery only reads Steam's folders. Steam's own games are left
-// to Steam. Plain Wine runs the game itself; a Proton build runs it through umu-launcher's
-// `umu-run` with `PROTONPATH`, inside the Steam Linux Runtime umu keeps under openSU's data dir.
+// `<data dir>/wine-prefixes/<store>-<id>`. The runner is the game's pin, else the player's pick,
+// else Automatic, the first that can run of: the newest GE-Proton openSU installed (`ge_proton`),
+// the newest Proton in Steam's folders, what Lutris uses (`lutris`), system Wine. A launch never
+// waits for a download. Discovery only reads Steam's and Lutris's folders. Steam's own games are
+// left to Steam. Plain Wine runs the game itself; a Proton build runs it through `umu-run`
+// (openSU's, else one on PATH, else Lutris's) with `PROTONPATH`, inside the Steam Linux Runtime umu
+// keeps under openSU's data dir.
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <optional>
@@ -21,6 +23,17 @@
 
 namespace opensu::library::wine {
 
+/// Who put a runner on this machine.
+enum class Origin : std::uint8_t {
+    /// openSU's own GE-Proton builds.
+    OpenSu,
+    /// Steam's Proton builds and its `compatibilitytools.d`.
+    Steam,
+    /// Lutris's `runners/wine`.
+    Lutris,
+    System,
+};
+
 /// One Wine or Proton build a Windows game can run under.
 struct Runner {
     std::string name;
@@ -28,8 +41,7 @@ struct Runner {
     std::filesystem::path wine;
     /// The Proton build's folder (the one holding `proton`); empty for plain Wine.
     std::filesystem::path proton{};
-    /// Installed by openSU under its own runners folder.
-    bool managed{false};
+    Origin origin{Origin::System};
 
     bool operator==(const Runner&) const = default;
 };
@@ -44,11 +56,25 @@ struct Search {
     std::vector<std::filesystem::path> steamLibraries;
     /// openSU's own GE-Proton folder (`ge_proton::runnersDir`); empty for none.
     std::filesystem::path managed{};
+    /// Lutris's data folder (`lutris::dataDir`); empty for none.
+    std::filesystem::path lutris{};
 };
 
-/// Every runner found: openSU's GE-Proton builds newest first, system Wine, then compatibility
-/// tools, then Steam's Proton builds, each group by name.
+/// Every runner found in Automatic's order: openSU's GE-Proton builds, the Proton builds in Steam's
+/// `compatibilitytools.d` and `steamapps/common`, Lutris's Wine builds, each newest first, then
+/// system Wine.
 [[nodiscard]] std::vector<Runner> discover(const Search& search);
+
+/// The `umu-run` a Proton build runs through: openSU's `managed` one, else `umu-run` on PATH, else
+/// Lutris's; empty when there is none.
+[[nodiscard]] std::filesystem::path umuRunOf(const std::filesystem::path& managed,
+                                             const Search& search);
+
+/// The runner Lutris uses for a game with no version of its own, among `found`: the newest
+/// GE-Proton in a `compatibilitytools.d` for Lutris's "ge-proton", a build by name, or the system
+/// Wine it names; nothing when it is not on this machine (Lutris would have umu download it).
+[[nodiscard]] std::optional<Runner> lutrisDefault(const std::filesystem::path& lutrisData,
+                                                  const std::vector<Runner>& found);
 
 /// The games the player gave a prefix of their own, by game id.
 class OwnPrefixes {
@@ -89,24 +115,46 @@ class OwnPrefixes {
 
 /// What a Windows launch runs with.
 struct Choice {
-    /// The Wine binary of the runner the player picked; empty for the newest managed GE-Proton.
+    /// The Wine binary of the runner the player picked; empty for Automatic.
     std::filesystem::path runner;
     /// The games pinned to a runner of their own: its Wine binary, by game id.
     std::map<std::string, std::filesystem::path> pins{};
+    /// In Automatic's order (`discover`).
     std::vector<Runner> found;
+    /// What Lutris uses (`lutrisDefault`).
+    std::optional<Runner> lutris{};
     std::filesystem::path dataDir;
     OwnPrefixes own;
-    /// umu-launcher's `umu-run`, which a Proton build needs; empty when none is installed.
+    /// The `umu-run` a Proton build needs (`umuRunOf`); empty when there is none.
     std::filesystem::path umuRun{};
 };
 
-/// The runner game `gameId` launches with: its pin, else the player's pick, else the newest managed
-/// GE-Proton (a picked binary not found is taken as plain Wine); nothing when there is none. The
-/// one rule the launch and Settings' game counts share.
+/// Why a game runs under its runner.
+enum class Reason : std::uint8_t {
+    Pinned,
+    Picked,
+    OpenSuGeProton,
+    SteamProton,
+    Lutris,
+    SystemWine
+};
+
+struct Resolved {
+    Runner runner;
+    Reason reason{Reason::Picked};
+};
+
+/// The runner game `gameId` launches with and why: its pin, else the player's pick (a binary not
+/// found is taken as plain Wine), else Automatic's first that can run: openSU's newest GE-Proton,
+/// Steam's newest Proton, Lutris's, system Wine, a Proton build only with a `umu-run`. Nothing when
+/// none can. The one rule the launch, the test and Settings' game counts share.
+[[nodiscard]] std::optional<Resolved> resolve(const Choice& choice, const std::string& gameId);
+
+/// `resolve`'s runner.
 [[nodiscard]] std::optional<Runner> runnerOf(const Choice& choice, const std::string& gameId);
 
-/// The Wine binary `gameId` is set to run with: its pin, else the player's pick; empty for the
-/// newest managed GE-Proton.
+/// The Wine binary `gameId` is set to run with: its pin, else the player's pick; empty for
+/// Automatic.
 [[nodiscard]] std::filesystem::path pickOf(const Choice& choice, const std::string& gameId);
 
 /// How a program runs under a runner in a prefix.
@@ -127,12 +175,24 @@ struct Invocation {
 /// Where the saves of a prefix plain Wine made are copied before a Proton build first runs in it.
 [[nodiscard]] std::filesystem::path wineSavesCopy(const std::filesystem::path& prefix);
 
-/// Before a Proton build first runs in `prefix`: when plain Wine made it (registry files, no
-/// Proton `pfx` link), copies its `drive_c/users`, `drive_c/ProgramData` and registry files to
-/// `wineSavesCopy(prefix)` once. Proton then updates the prefix in place and umu links its
-/// `steamuser` folder to the player's, so the saves stay where the games look. Why it could not,
-/// else empty.
-[[nodiscard]] std::string keepWineSaves(const std::filesystem::path& prefix);
+/// Where plain Wine runs for a prefix Proton made: `<prefix>.plain-wine`.
+[[nodiscard]] std::filesystem::path plainWinePrefix(const std::filesystem::path& prefix);
+
+/// The prefix a runner runs in, readied; `refusal` says why it could not be.
+struct ReadyPrefix {
+    std::filesystem::path prefix;
+    std::string refusal;
+};
+
+/// Readies `prefix` (a game's or the test's) for `runner`. Proton upgrades a plain-Wine prefix in
+/// place and umu links its `steamuser` folder to the player's, so the saves stay where the games
+/// look; the first time, `drive_c/users`, `drive_c/ProgramData` and the registry files are copied
+/// to `wineSavesCopy` as well. Plain Wine never runs in a prefix Proton made (umu's `pfx` link):
+/// Proton links its build's DLLs into `system32`, which plain Wine can neither load once that
+/// build is gone nor replace (`wineboot` fails with "file exists"), so it runs in
+/// `plainWinePrefix`, which starts from a copy of the Proton prefix's `drive_c/users` and
+/// `drive_c/ProgramData`.
+[[nodiscard]] ReadyPrefix readyPrefix(const std::filesystem::path& prefix, const Runner& runner);
 
 /// A launch prepared for its runner.
 struct Prepared {

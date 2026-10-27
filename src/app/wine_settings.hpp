@@ -1,9 +1,9 @@
-// wine_settings — Settings › Wine: the runner Windows GOG and Epic games run under (GE-Proton kept
-// up to date by default, one GE-Proton build, another runner found, or system Wine), every runner
-// and runtime with where it lives, its size and the games using it (a page per runtime lists them
-// and pins a game to it), the GE-Proton check (`WineRunners`) and a test run, the shared prefix and
-// how many games have their own. Also prepares a launch with the runner the game resolves to, the
-// one rule the counts use, and holds a launch while its GE-Proton downloads.
+// wine_settings — Settings › Wine: the runner Windows GOG and Epic games run under (Automatic, with
+// what it resolves to now and why, or any runner found), every runner and runtime with where it
+// lives, its size and the games using it (a page per runtime lists them and pins a game to it), the
+// GE-Proton check (`WineRunners`) and a test run, the shared prefix and how many games have their
+// own. Also prepares a launch with the runner the game resolves to now (`library::wine::resolve`,
+// the one rule the counts use); a launch never waits for a download.
 #pragma once
 
 #include <filesystem>
@@ -34,26 +34,6 @@ class WineSettings {
         std::function<bool()> gameRunning;
     };
 
-    /// A launch readied for its runner.
-    struct Prepared {
-        /// Why it cannot run; empty when it can.
-        std::string refusal;
-        /// What the launch's environment gets.
-        std::vector<std::string> environment;
-        /// Held until GE-Proton is installed (`serviceHeld`).
-        bool waiting{false};
-    };
-
-    /// The launch held for a runner download, as the launch panel shows it.
-    struct Held {
-        std::string line;
-        std::optional<double> fraction;
-        /// The game, once it can start.
-        std::optional<library::Game> ready;
-        /// It cannot: the download failed or the player cancelled.
-        bool failed{false};
-    };
-
     /// `config` gives the data dir, PATH and the Steam roots searched for runners, which are
     /// searched only while Steam is in force in `integrations`.
     WineSettings(Preferences& preferences, const config::Config& config,
@@ -74,16 +54,8 @@ class WineSettings {
     void run(const std::string& id, int step);
 
     /// `game` with its runner and prefix added when it is a Windows GOG or Epic install
-    /// (`library::wine::prepare`); held while the GE-Proton it needs downloads.
-    [[nodiscard]] Prepared prepare(library::Game& game);
-    /// The held launch's state; nothing when none is held. Main loop only.
-    [[nodiscard]] std::optional<Held> serviceHeld();
-    /// Drops the held launch; false when none was held.
-    bool dropHeld();
-    /// A launch waits for its runner.
-    [[nodiscard]] bool holding() const noexcept {
-        return held_.has_value();
-    }
+    /// (`library::wine::prepare`).
+    [[nodiscard]] library::wine::Prepared prepare(library::Game& game);
 
     /// The GE-Proton builds a rotation must keep and why: a running game's, the player's pick,
     /// the games pinned to one.
@@ -99,6 +71,8 @@ class WineSettings {
     [[nodiscard]] std::vector<library::Game> gamesOn(const std::filesystem::path& wine) const;
     void stepRunner(int step);
     void test();
+    /// What Automatic resolves to now and why, as the runner row's note.
+    [[nodiscard]] std::string automaticNote() const;
 
     Preferences& preferences_;
     const config::Config& config_;
@@ -106,11 +80,10 @@ class WineSettings {
     WineRunners& runners_;
     Hooks hooks_;
     std::vector<library::wine::Runner> found_;
+    std::optional<library::wine::Runner> lutris_;
+    std::filesystem::path umuRun_;
     /// The Proton build the last launch ran under.
     std::filesystem::path launched_;
-    std::optional<library::Game> held_;
-    bool heldChecking_{false};
-    bool heldDropped_{false};
 };
 
 } // namespace opensu::app

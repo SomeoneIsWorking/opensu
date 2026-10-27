@@ -1108,8 +1108,10 @@ void wineRunnerIsPicked(const fs::path& root) {
 
     rig.controller.open();
     rig.enter("Wine");
-    expect(rig.rowOf("wine.runner").value == "Latest GE-Proton (not installed yet)",
-           "GE-Proton kept up to date is the default");
+    expect(rig.rowOf("wine.runner").value == "Automatic" &&
+               rig.rowOf("wine.runner").note == "Now Steam's GE-Proton9-20 (no GE-Proton yet)",
+           "Automatic is the default; its note names what it resolves to now, Steam's newest "
+           "Proton, and why");
     expect(rig.rowOf("wine.prefix").value == (root / "data" / "wine-prefix").string(),
            "one shared prefix under the data folder");
     expect(rig.rowOf("wine.own").value == "None" &&
@@ -1121,10 +1123,10 @@ void wineRunnerIsPicked(const fs::path& root) {
         rig.act(Button::Right);
         picked.push_back(rig.onDisk().wineRunner);
     }
-    expect(picked == std::vector<fs::path>{system, ge, proton, {}},
-           "Right steps through every runner found and back to GE-Proton, each kept");
+    expect(picked == std::vector<fs::path>{ge, proton, system, {}},
+           "Right steps through every runner found and back to Automatic, each kept");
     rig.act(Button::Left);
-    expect(rig.onDisk().wineRunner == proton && rig.rowOf("wine.runner").value == "Proton 9.0",
+    expect(rig.onDisk().wineRunner == system && rig.rowOf("wine.runner").value == "System Wine",
            "Left steps back, wrapping");
     expect(treeOf(steamRoot) == steamBefore, "Steam's folders are only read");
 
@@ -1136,7 +1138,7 @@ void wineRunnerIsPicked(const fs::path& root) {
     game.launch = library::LaunchSpec{.program = "gogdl", .args = {"launch"}};
     expect(rig.wine.prepare(game).refusal.empty() &&
                game.launch.args ==
-                   std::vector<std::string>{"launch", "--wine", proton.string(), "--wine-prefix",
+                   std::vector<std::string>{"launch", "--wine", system.string(), "--wine-prefix",
                                             (root / "data" / "wine-prefix").string()},
            "a launch gets the runner picked here and the shared prefix");
 }
