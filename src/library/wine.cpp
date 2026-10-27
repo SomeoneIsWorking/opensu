@@ -7,6 +7,7 @@
 #include "ge_proton.hpp"
 #include "launch/command.hpp"
 #include "lucent/log.h"
+#include "lutris_wine.hpp"
 
 namespace opensu::library::wine {
 namespace {
@@ -36,8 +37,10 @@ fs::path protonOf(const fs::path& wine) {
     return !build.empty() && fs::is_regular_file(build / "proton", error) ? build : fs::path{};
 }
 
-/// The Proton builds directly inside `parent` whose name passes `accept`, by name.
-template <typename Accept> std::vector<Runner> protonsIn(const fs::path& parent, Accept accept) {
+/// The Proton builds (and, for Lutris, plain Wine builds with `bin/wine`) directly inside
+/// `parent` whose name passes `accept`.
+template <typename Accept>
+std::vector<Runner> buildsIn(const fs::path& parent, Origin origin, Accept accept) {
     std::vector<Runner> runners;
     std::error_code error;
     for (const fs::directory_entry& entry : fs::directory_iterator{parent, error}) {
@@ -46,22 +49,50 @@ template <typename Accept> std::vector<Runner> protonsIn(const fs::path& parent,
             continue;
         }
         if (fs::path binary = protonWine(entry.path()); !binary.empty()) {
-            runners.push_back(Runner{.name = name,
-                                     .wine = std::move(binary),
-                                     .proton = protonOf(protonWine(entry.path())),
-                                     .managed = false});
+            const fs::path build = protonOf(binary);
+            runners.push_back(
+                Runner{.name = name, .wine = std::move(binary), .proton = build, .origin = origin});
+        } else if (std::error_code ec; origin == Origin::Lutris &&
+                                       fs::is_regular_file(entry.path() / "bin" / "wine", ec)) {
+            runners.push_back(
+                Runner{.name = name, .wine = entry.path() / "bin" / "wine", .origin = origin});
         }
     }
-    std::ranges::sort(runners, {}, &Runner::name);
     return runners;
 }
 
+/// Newest first by the version in the name; builds without one after, by name.
+void sortNewestFirst(std::vector<Runner>& runners) {
+    std::ranges::stable_sort(runners, [](const Runner& a, const Runner& b) {
+        const std::optional<ge_proton::Version> va = ge_proton::protonVersionOf(a.name);
+        const std::optional<ge_proton::Version> vb = ge_proton::protonVersionOf(b.name);
+        if (va.has_value() != vb.has_value()) {
+            return va.has_value();
+        }
+        return va && *va != *vb ? *va > *vb : a.name < b.name;
+    });
+}
+
 void addNew(std::vector<Runner>& runners, std::vector<Runner> more) {
+    sortNewestFirst(more);
     for (Runner& runner : more) {
         if (std::ranges::find(runners, runner.wine, &Runner::wine) == runners.end()) {
             runners.push_back(std::move(runner));
         }
     }
+}
+
+bool canRun(const Runner& runner, const Choice& choice) {
+    return runner.proton.empty() || !choice.umuRun.empty();
+}
+
+std::optional<Resolved> firstOf(const Choice& choice, Origin origin, Reason reason) {
+    const auto found = std::ranges::find_if(choice.found, [&choice, origin](const Runner& runner) {
+        return runner.origin == origin && canRun(runner, choice);
+    });
+    return found == choice.found.end()
+               ? std::nullopt
+               : std::optional{Resolved{.runner = *found, .reason = reason}};
 }
 
 bool isGameStore(Source source) {
@@ -91,6 +122,11 @@ bool hasEntry(const fs::path& path) {
     return fs::exists(fs::symlink_status(path, error));
 }
 
+/// umu gives a prefix Proton runs in a `pfx` link to itself.
+bool isProtonPrefix(const fs::path& prefix) {
+    return hasEntry(prefix / "pfx");
+}
+
 } // namespace
 
 std::vector<Runner> discover(const Search& search) {
@@ -99,24 +135,76 @@ std::vector<Runner> discover(const Search& search) {
         runners.push_back(Runner{.name = build.name,
                                  .wine = build.dir / "files" / "bin" / "wine",
                                  .proton = build.dir,
-                                 .managed = true});
+                                 .origin = Origin::OpenSu});
+    }
+    const auto any = [](const std::string&) {
+        return true;
+    };
+    std::vector<Runner> steam;
+    for (const fs::path& root : search.steamRoots) {
+        std::ranges::move(buildsIn(root / "compatibilitytools.d", Origin::Steam, any),
+                          std::back_inserter(steam));
+    }
+    for (const fs::path& library : search.steamLibraries) {
+        std::ranges::move(buildsIn(library / "steamapps" / "common", Origin::Steam,
+                                   [](const std::string& name) {
+                                       return name.starts_with("Proton");
+                                   }),
+                          std::back_inserter(steam));
+    }
+    addNew(runners, std::move(steam));
+    if (!search.lutris.empty()) {
+        addNew(runners, buildsIn(lutris::wineDir(search.lutris), Origin::Lutris, any));
     }
     if (fs::path system = launch::resolveExecutable("wine", search.executablePath);
         !system.empty()) {
         runners.push_back(Runner{.name = "System Wine", .wine = std::move(system)});
     }
-    const auto any = [](const std::string&) {
-        return true;
-    };
-    for (const fs::path& root : search.steamRoots) {
-        addNew(runners, protonsIn(root / "compatibilitytools.d", any));
-    }
-    for (const fs::path& library : search.steamLibraries) {
-        addNew(runners, protonsIn(library / "steamapps" / "common", [](const std::string& name) {
-                   return name.starts_with("Proton");
-               }));
-    }
     return runners;
+}
+
+fs::path umuRunOf(const fs::path& managed, const Search& search) {
+    if (!managed.empty()) {
+        return managed;
+    }
+    if (fs::path onPath = launch::resolveExecutable("umu-run", search.executablePath);
+        !onPath.empty()) {
+        return onPath;
+    }
+    return search.lutris.empty() ? fs::path{} : lutris::umuRun(search.lutris);
+}
+
+std::optional<Runner> lutrisDefault(const fs::path& lutrisData, const std::vector<Runner>& found) {
+    if (lutrisData.empty()) {
+        return std::nullopt;
+    }
+    const std::string version = lutris::defaultWineVersion(lutrisData);
+    if (version == lutris::geProtonLatest) {
+        // umu's GE-Proton lives in a compatibilitytools.d; `found` is newest first.
+        const auto newest = std::ranges::find_if(found, [](const Runner& runner) {
+            return runner.origin == Origin::Steam && runner.name.starts_with("GE-Proton") &&
+                   runner.proton.parent_path().filename() == "compatibilitytools.d";
+        });
+        return newest == found.end() ? std::nullopt : std::optional{*newest};
+    }
+    if (const auto named = std::ranges::find(found, version, &Runner::name); named != found.end()) {
+        return *named;
+    }
+    if (const std::optional<fs::path> system = lutris::systemWineOf(version)) {
+        const auto same = std::ranges::find_if(found, [&system](const Runner& runner) {
+            return runner.origin == Origin::System &&
+                   (system->is_relative() ? runner.wine.filename() == *system
+                                          : runner.wine == *system);
+        });
+        if (same != found.end()) {
+            return *same;
+        }
+        std::error_code error;
+        if (system->is_absolute() && fs::is_regular_file(*system, error)) {
+            return Runner{.name = version, .wine = *system, .origin = Origin::Lutris};
+        }
+    }
+    return std::nullopt;
 }
 
 void OwnPrefixes::set(const std::string& gameId, bool own) {
@@ -158,17 +246,32 @@ fs::path pickOf(const Choice& choice, const std::string& gameId) {
     return pinned != choice.pins.end() ? pinned->second : choice.runner;
 }
 
+std::optional<Resolved> resolve(const Choice& choice, const std::string& gameId) {
+    if (const fs::path picked = pickOf(choice, gameId); !picked.empty()) {
+        const Reason reason = choice.pins.contains(gameId) ? Reason::Pinned : Reason::Picked;
+        if (const auto found = std::ranges::find(choice.found, picked, &Runner::wine);
+            found != choice.found.end()) {
+            return Resolved{.runner = *found, .reason = reason};
+        }
+        return Resolved{
+            .runner = Runner{.name = picked.string(), .wine = picked, .proton = protonOf(picked)},
+            .reason = reason};
+    }
+    if (std::optional<Resolved> ours = firstOf(choice, Origin::OpenSu, Reason::OpenSuGeProton)) {
+        return ours;
+    }
+    if (std::optional<Resolved> steam = firstOf(choice, Origin::Steam, Reason::SteamProton)) {
+        return steam;
+    }
+    if (choice.lutris && canRun(*choice.lutris, choice)) {
+        return Resolved{.runner = *choice.lutris, .reason = Reason::Lutris};
+    }
+    return firstOf(choice, Origin::System, Reason::SystemWine);
+}
+
 std::optional<Runner> runnerOf(const Choice& choice, const std::string& gameId) {
-    const fs::path picked = pickOf(choice, gameId);
-    if (picked.empty()) {
-        const auto newest = std::ranges::find_if(choice.found, &Runner::managed);
-        return newest == choice.found.end() ? std::nullopt : std::optional{*newest};
-    }
-    if (const auto found = std::ranges::find(choice.found, picked, &Runner::wine);
-        found != choice.found.end()) {
-        return *found;
-    }
-    return Runner{.name = picked.string(), .wine = picked, .proton = protonOf(picked)};
+    std::optional<Resolved> resolved = resolve(choice, gameId);
+    return resolved ? std::optional{std::move(resolved->runner)} : std::nullopt;
 }
 
 Invocation invocationOf(const Runner& runner, const fs::path& prefix, const fs::path& umuRun,
@@ -188,31 +291,44 @@ fs::path wineSavesCopy(const fs::path& prefix) {
     return prefix.parent_path() / (prefix.filename().string() + ".system-wine-saves");
 }
 
-std::string keepWineSaves(const fs::path& prefix) {
-    const fs::path copy = wineSavesCopy(prefix);
-    if (!hasEntry(prefix / "system.reg") || hasEntry(prefix / "pfx") || hasEntry(copy)) {
-        return {};
-    }
+fs::path plainWinePrefix(const fs::path& prefix) {
+    return prefix.parent_path() / (prefix.filename().string() + ".plain-wine");
+}
+
+ReadyPrefix readyPrefix(const fs::path& prefix, const Runner& runner) {
+    const bool proton = !runner.proton.empty();
+    const bool madeByProton = isProtonPrefix(prefix);
+    const fs::path into = proton ? wineSavesCopy(prefix) : plainWinePrefix(prefix);
+    const bool copy = proton ? hasEntry(prefix / "system.reg") && !madeByProton && !hasEntry(into)
+                             : madeByProton && !hasEntry(into / "drive_c" / "users");
+    const fs::path runsIn = proton || !madeByProton ? prefix : into;
     std::error_code error;
-    fs::create_directories(copy / "drive_c", error);
-    for (const char* tree : {"users", "ProgramData"}) {
-        if (!error && hasEntry(prefix / "drive_c" / tree)) {
-            fs::copy(prefix / "drive_c" / tree, copy / "drive_c" / tree,
-                     fs::copy_options::recursive | fs::copy_options::copy_symlinks, error);
+    fs::create_directories(runsIn, error);
+    if (copy && !error) {
+        fs::create_directories(into / "drive_c", error);
+        for (const char* tree : {"users", "ProgramData"}) {
+            if (!error && hasEntry(prefix / "drive_c" / tree)) {
+                fs::copy(prefix / "drive_c" / tree, into / "drive_c" / tree,
+                         fs::copy_options::recursive | fs::copy_options::copy_symlinks, error);
+            }
         }
-    }
-    for (const char* hive : {"system.reg", "user.reg", "userdef.reg"}) {
-        if (!error && hasEntry(prefix / hive)) {
-            fs::copy_file(prefix / hive, copy / hive, error);
+        for (const char* hive : {"system.reg", "user.reg", "userdef.reg"}) {
+            if (proton && !error && hasEntry(prefix / hive)) {
+                fs::copy_file(prefix / hive, into / hive, error);
+            }
+        }
+        if (!error) {
+            lucent::info("wine", "{} was made by {}; its saves are copied to {} before {} runs",
+                         prefix.string(), proton ? "plain Wine" : "Proton", into.string(),
+                         runner.name);
         }
     }
     if (error) {
-        return "Cannot copy the saves of " + prefix.string() +
-               " before Proton runs in it: " + error.message();
+        return {.prefix = runsIn,
+                .refusal = "Cannot ready the Wine prefix " + prefix.string() + " for " +
+                           runner.name + ": " + error.message()};
     }
-    lucent::info("wine", "{} was made by plain Wine; its saves are copied to {}", prefix.string(),
-                 copy.string());
-    return {};
+    return {.prefix = runsIn, .refusal = {}};
 }
 
 Prepared prepare(Game& game, const Choice& choice) {
@@ -221,8 +337,9 @@ Prepared prepare(Game& game, const Choice& choice) {
     }
     const std::optional<Runner> runner = runnerOf(choice, game.id);
     if (!runner) {
-        return {.refusal =
-                    "No Wine runner to run " + game.title + "; GE-Proton is not installed yet",
+        return {.refusal = "No Wine runner can run " + game.title +
+                           ": no GE-Proton, Steam Proton or Lutris runner with umu-run, and no "
+                           "system Wine",
                 .environment = {}};
     }
     std::error_code error;
@@ -232,24 +349,20 @@ Prepared prepare(Game& game, const Choice& choice) {
                 .environment = {}};
     }
     if (!runner->proton.empty() && choice.umuRun.empty()) {
-        return {.refusal = "umu-launcher, which runs " + runner->name +
-                           ", is not installed yet; check for it in Settings › Wine",
-                .environment = {}};
-    }
-    const fs::path prefix = prefixFor(choice.dataDir, game, choice.own);
-    fs::create_directories(prefix, error);
-    if (error) {
         return {.refusal =
-                    "Cannot make the Wine prefix " + prefix.string() + ": " + error.message(),
+                    "No umu-run to run " + runner->name + "; pick another runner in Settings",
                 .environment = {}};
     }
+    ReadyPrefix ready = readyPrefix(prefixFor(choice.dataDir, game, choice.own), *runner);
+    if (!ready.refusal.empty()) {
+        return {.refusal = std::move(ready.refusal), .environment = {}};
+    }
+    const fs::path& prefix = ready.prefix;
     if (runner->proton.empty()) {
         game.launch.args.insert(game.launch.args.end(), {"--wine", runner->wine.string(),
                                                          "--wine-prefix", prefix.string()});
+        lucent::info("wine", "{} runs under {} in {}", game.title, runner->name, prefix.string());
         return {};
-    }
-    if (std::string refused = keepWineSaves(prefix); !refused.empty()) {
-        return {.refusal = std::move(refused), .environment = {}};
     }
     Invocation invocation =
         invocationOf(*runner, prefix, choice.umuRun, choice.dataDir, umuStore(game.source));

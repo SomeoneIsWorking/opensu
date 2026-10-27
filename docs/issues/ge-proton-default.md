@@ -1,12 +1,14 @@
 # GE-Proton is the default Wine runner, kept up to date by openSU
 
-Status: partial. Built and shown in the hidden product (below); a real GOG or Epic Windows game
-launched through it is not. Project state S038.
+Status: partial. Built and shown in the hidden product (below), including an Epic game on the
+player's setup under each fallback; a GOG game is not. Project state S038.
 
 Requested: "Wine default being system is not good. Can we make it GE-Proton and update it
 automatically, it will use the last installed version and when new one is installed it will start
 using that one and it will delete not the previous one but the one before previous". Then: "We can
-add a list of installed runtimes and show how many games using them".
+add a list of installed runtimes and show how many games using them". Then, rejecting a launch
+that waited for the download: "I don't want waits like this, if GE-Proton not downloaded yet then
+you can fallback to Steam Proton which falls back to what Lutris uses which falls back to system".
 
 ## How a runner runs a game
 
@@ -20,9 +22,22 @@ add a list of installed runtimes and show how many games using them".
   (steamrt4 for GE-Proton 11, about 1.3 GB) lands in `<data>/wine/umu/`, not in the player's
   `~/.local/share/umu` or Steam's `compatibilitytools.d`. Proton runs inside that runtime with its
   DXVK/VKD3D setup, unlike the old path that used a Proton build's bare `files/bin/wine`.
-- One rule picks a game's runner (`library::wine::runnerOf`): the game's pin
-  (`settings.json` `wineRunnerPins`), else the runner picked in Settings › Wine (`wineRunner`),
-  else the newest GE-Proton openSU installed. The launch and Settings' game counts both use it.
+- One rule picks a game's runner (`library::wine::resolve`): the game's pin (`settings.json`
+  `wineRunnerPins`), else the runner picked in Settings › Wine (`wineRunner`), else Automatic, the
+  first that can run of: the newest GE-Proton openSU installed; the newest Proton in Steam's
+  folders (`compatibilitytools.d` and `steamapps/common`, by the version in the name); what Lutris
+  uses; system Wine. A Proton build counts only with a `umu-run` (openSU's, else one on PATH, else
+  Lutris's `runtime/umu`). A launch never waits: it runs under what Automatic finds now, and picks
+  GE-Proton up once the background download has installed it. The launch, Test the runner and
+  Settings' game counts all use this rule.
+- What Lutris uses (`library/lutris_wine`, read only): Lutris 0.5.22 here; its default Wine
+  version is `ge-proton` (`lutris/util/wine/wine.py` `get_default_wine_version`), umu-run with
+  `PROTONPATH=GE-Proton`, which umu resolves to the newest GE-Proton in
+  `~/.local/share/Steam/compatibilitytools.d` and downloads when there is none. `runners/wine.yml`
+  `wine: version:` overrides it (here `{}`, unset); `runners/wine` (empty here) holds Lutris's own
+  builds. openSU takes Lutris's choice only when it is on disk; on this machine that is a GE-Proton
+  in `compatibilitytools.d`, which the Steam step already takes, so the Lutris step adds nothing
+  here.
 
 ## Built
 
@@ -38,35 +53,40 @@ add a list of installed runtimes and show how many games using them".
   `<into>/.partial`, the archive's one folder renamed into place under the build name. A failure
   or cancel removes the staging folder and leaves the installed builds alone. SHA-512 is Lucent's
   (`lucent::content::sha512_file`, added for this).
-- `app/wine_runners`: the check runs at start and every 24 h while GOG or Epic is in force (an
-  hour after a failed start), on "Check for GE-Proton now", and when a Windows launch or Test the
-  runner finds no GE-Proton. With no GE-Proton installed only those last two download it (565 MB);
-  the others look up the latest release ("GE-Proton11-11 · downloads on first use"). A scheduled
+- `app/wine_runners`: the check runs in the background at start and every 24 h while GOG or Epic is
+  signed in (`library::isReady`; an hour after a failed start) and on "Check for GE-Proton now",
+  and downloads the latest GE-Proton and umu-launcher when they are missing or older. A scheduled
   check that cannot read the release (HTTP 403, GitHub's rate limit) logs it once and waits for
   the next scheduled check. Sizes are measured again when a game ends, which is when the Steam
   Linux Runtime umu fetched on a first Proton launch shows up. After a successful check the rotation runs on the main loop: builds past the newest
   two are renamed into `<data>/wine/.trash` and removed on a thread; a build kept back says why
   ("Kept: 1 game pinned to it", "Kept: a game runs on it", "Picked for every game"). Progress and
   Cancel on the Downloads page (`wine:ge-proton`, `wine:umu-launcher`, "Wine runner").
-- A Windows launch with no GE-Proton yet is held: the launch panel shows "Getting GE-Proton11-11 ·
-  45%", B drops it, and the game starts when the install ends (`WineSettings::serviceHeld`); the
-  panel stays up while held (`ShellApp::serviceRequests` counts `WineSettings::holding`).
-- Settings › Wine: Wine runner (Latest GE-Proton (11-11), each GE build, other runners found,
-  System Wine), Check for GE-Proton now with the last outcome, Test the runner (`cmd /c ver` in
+- Settings › Wine: Wine runner (Automatic, its note naming what it resolves to now and why, e.g.
+  "Now Steam's GE-Proton11-5-x86_64 (GE-Proton downloading)"; each runner found), Check for GE-Proton now with the last outcome, Test the runner (`cmd /c ver` in
   `<data>/wine/test-prefix` through the same invocation a launch uses), then "Runners and
   runtimes": every runner with where it lives (kept up to date by openSU, found in Steam's
   folders, system), size for openSU's builds, and how many games use it; umu-launcher and the
   Steam Linux Runtime with their sizes. Each opens a page: where, size, why kept, the games using
   it (A unpins a pinned one, pins of games the library does not list now included) and "Pin a
   game to it" for the other Windows games.
-- Migration: an empty `wineRunner` (the old Automatic) now means the newest GE-Proton; an explicit
-  pick (system `/usr/bin/wine`, a Steam Proton) stays as it was. Nothing is rewritten.
-- Prefixes made by plain Wine: Proton upgrades a prefix in place and umu links
-  `drive_c/users/steamuser` to the player's user folder, so saves stay where games look. Before a
-  Proton build first runs in a prefix plain Wine made (registry files, no `pfx` link), openSU
-  copies its `drive_c/users`, `drive_c/ProgramData` and `*.reg` once to
-  `<prefix>.system-wine-saves` (`library::wine::keepWineSaves`). Going back to plain Wine on a
-  prefix Proton touched is not handled specially.
+- Migration: an empty `wineRunner` means Automatic; an explicit pick stays as it was. Nothing is
+  rewritten.
+- Prefixes (`library::wine::readyPrefix`, for launches and the test):
+  - Plain Wine to Proton: Proton upgrades the prefix in place and umu links
+    `drive_c/users/steamuser` and the player's folder, so saves stay where games look. Before a
+    Proton build first runs in a prefix plain Wine made (registry files, no `pfx` link), its
+    `drive_c/users`, `drive_c/ProgramData` and `*.reg` are copied once to
+    `<prefix>.system-wine-saves`.
+  - Proton to plain Wine: never in the same prefix. Proton links its build's DLLs into
+    `system32` (606 links in the real shared prefix, into the build that last ran it). With that
+    build present, system Wine 11.20 ran `cmd /c ver` in a copy and the save stayed; with it gone
+    (moved aside, as a rotation or uninstall does) system Wine's `wineboot` failed on every DLL
+    with error 80 (file exists), `wow64.dll` did not load and Nuclear Throne exited before a window
+    (`scratch/ge-proton-real/ge3/logs/B-no-ge-no-steam.log`). So plain Wine runs in
+    `<prefix>.plain-wine`, which starts from a copy of the Proton prefix's `drive_c/users` and
+    `drive_c/ProgramData`, made the first time; saves made there stay there.
+  - Proton to another Proton: Proton relinks on a version change ("Upgrading prefix").
 
 ## Shown in the product (2026-10-27, `opensu --hidden`, scratch XDG dirs)
 
@@ -102,21 +122,38 @@ The exact wrapper and environment a GOG launch gets were also run by hand throug
 holding `cmd.exe`: gogdl ran umu-run with the exe, Proton started it and everything exited 0
 (`logs/gogdl-wrapper.log`); cmd's own output did not reach that log.
 
-On the player's own setup (installed data dirs, `--hidden` inside a headless Gamescope;
-`scratch/ge-proton-real/ge2/`), with GE-Proton11-11 and `wine/umu` moved aside for the run and
-restored after: the start check only looked up GE-Proton11-11 (`01-settings-wine-start.png`, no
-Steam Linux Runtime row); Play on Nuclear Throne (Epic) held the launch on the panel, "Getting
-GE-Proton11-11 · 3%" (`07-held-launch-later.png`), the SHA-512 matched, the game started through
-umu-run and showed its window; Settings › Wine during the game counted it on umu-launcher and still
-had no runtime row (`11-settings-wine-in-game.png`); after Close game the row "Steam Linux Runtime
-(steamrt4) · 1.3 GB · 1 game" is there (`14-settings-wine-after-game.png`). A start check against a
-release URL answering HTTP 403 logged one `[wine:warn]` line, no toast, no Downloads row
-(`x403/run.log`).
+On the player's own setup (installed data dirs, `--hidden` inside a headless Gamescope, Steam not
+running; `scratch/ge-proton-real/ge3/`), Nuclear Throne (Epic) on Automatic, runners moved aside on
+their own filesystems for each run and restored after:
+
+1. No openSU GE-Proton: Settings › Wine "Automatic · Now Steam's GE-Proton11-5-x86_64 (GE-Proton
+   downloading)" (`frames/A2-no-ge-1-settings-wine.png`); Play started at once, "runs under
+   GE-Proton11-5-x86_64 through umu-run", window shown, while GE-Proton11-11 downloaded behind it
+   (`logs/A2-no-ge.log`).
+2. No openSU GE-Proton and no Steam Proton: Lutris's default (GE-Proton latest) is not on disk, so
+   Automatic is system Wine, "Now System Wine (GE-Proton downloading)"
+   (`frames/B2-no-ge-no-steam-1-settings-wine.png`). The shared prefix is Proton's, so the saves
+   were copied to `wine-prefix.plain-wine` and the game ran there under system Wine and showed its
+   window (`logs/B2-no-ge-no-steam.log`). The run before the twin prefix existed is the failure
+   above (`logs/B-no-ge-no-steam.log`); the shared prefix's registry was put back from the copy
+   taken just before it.
+3. Everything restored: "GE-Proton11-11 is the latest GE-Proton and installed", the game runs
+   under it in the shared prefix and shows its window, its save unchanged (`logs/D-all-restored.log`).
+
+"None → system" is case 2 on this machine: with no Proton the Lutris step finds nothing on disk.
+
+Earlier (before the fallback chain), on the same setup: the Steam Linux Runtime row appears once a
+game ends (`scratch/ge-proton-real/ge2/14-settings-wine-after-game.png`), and a start check
+against a release URL answering HTTP 403 logged one `[wine:warn]` line, no toast, no Downloads row
+(`ge2/x403/run.log`).
 
 ## Open
 
 - A system Wine's version is not shown (its name is "System Wine"); Steam's Proton builds show no
   size (not measured, too many files to walk on the loop).
+- The Lutris step is not distinct on this machine (see above); it is covered by
+  `tests/library/wine_test.cpp` only.
+- Saves made in `<prefix>.plain-wine` stay there; going back to Proton uses the Proton prefix.
 - `GAMEID` is `umu-0` for every game: umu's per-game fixes (protonfixes by store id) are not
   looked up.
 - The Steam Linux Runtime is fetched by umu itself on the first Proton run, without progress in

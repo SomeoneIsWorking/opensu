@@ -183,9 +183,6 @@ class ShellApp final : private PointerHost {
     void launch(const library::Game& game);
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
-    /// Starts a launch held for its Wine runner once the runner is installed, and shows its
-    /// download on the launch panel meanwhile.
-    void serviceHeldLaunch();
     /// Asks whether to install the focused game, which is not installed, from the stores that
     /// can: all the stores that own it when more than one can.
     void offerInstall(const library::Game& game);
@@ -606,33 +603,34 @@ class ShellApp final : private PointerHost {
                                        settingsScreen_.refresh();
                                    }};
     /// GE-Proton and umu-launcher kept current under the data dir, off the loop.
-    WineRunners wineRunners_{resolved_.dataDir, resolved_.geProtonRelease,
-                             WineRunners::Hooks{.say =
-                                                    [this](const std::string& text, bool isError) {
-                                                        shell_.setToast(text, isError);
-                                                    },
-                                                .changed =
-                                                    [this] {
-                                                        wineSettings_.rescan();
-                                                        settingsScreen_.refresh();
-                                                    },
-                                                .refresh =
-                                                    [this] {
-                                                        settingsScreen_.refresh();
-                                                    },
-                                                .wanted =
-                                                    [this] {
-                                                        return integrations_.current().gog ||
-                                                               integrations_.current().epic;
-                                                    },
-                                                .inUse =
-                                                    [this] {
-                                                        return wineSettings_.inUse();
-                                                    },
-                                                .gameRunning =
-                                                    [this] {
-                                                        return launches_.running();
-                                                    }}};
+    WineRunners wineRunners_{
+        resolved_.dataDir, resolved_.geProtonRelease,
+        WineRunners::Hooks{.say =
+                               [this](const std::string& text, bool isError) {
+                                   shell_.setToast(text, isError);
+                               },
+                           .changed =
+                               [this] {
+                                   wineSettings_.rescan();
+                                   settingsScreen_.refresh();
+                               },
+                           .refresh =
+                               [this] {
+                                   settingsScreen_.refresh();
+                               },
+                           .wanted =
+                               [this] {
+                                   return library::isReady(sources_, library::Source::Gog) ||
+                                          library::isReady(sources_, library::Source::Epic);
+                               },
+                           .inUse =
+                               [this] {
+                                   return wineSettings_.inUse();
+                               },
+                           .gameRunning =
+                               [this] {
+                                   return launches_.running();
+                               }}};
     /// Settings › Wine, and the runner and prefix a Windows launch gets.
     WineSettings wineSettings_{
         preferences_, resolved_, integrations_.current(), wineRunners_,

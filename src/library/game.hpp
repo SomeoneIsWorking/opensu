@@ -154,6 +154,9 @@ struct SourceStatus {
     std::string detail;
 };
 
+/// Whether `source` listed its games in the last read: there and signed in.
+[[nodiscard]] bool isReady(const std::vector<SourceStatus>& sources, Source source);
+
 /// One read of every provider.
 struct CatalogSnapshot {
     std::vector<Game> games;

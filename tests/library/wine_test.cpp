@@ -57,20 +57,134 @@ void runnersAreFound(const fs::path& dir) {
     const fs::path old = binary(library / "steamapps/common/Proton 7.0/dist/bin/wine");
     const fs::path current = binary(library / "steamapps/common/Proton 9.0 (Beta)/files/bin/wine");
     binary(library / "steamapps/common/Other Game/files/bin/wine");
+    const fs::path lutris = dir / "lutris";
+    const fs::path lutrisWine = binary(lutris / "runners/wine/wine-ge-8-26-x86_64/bin/wine");
 
-    const std::vector<wine::Runner> found = wine::discover(
-        wine::Search{.executablePath = {bin}, .steamRoots = {root}, .steamLibraries = {library}});
-    expect(found == std::vector<wine::Runner>{{"System Wine", system},
-                                              {"GE-Proton9-20", ge},
-                                              {"Proton 7.0", old},
-                                              {"Proton 9.0 (Beta)", current}},
-           "system Wine, then compatibility tools, then Steam's Proton builds, each by name");
+    const std::vector<wine::Runner> found = wine::discover(wine::Search{.executablePath = {bin},
+                                                                        .steamRoots = {root},
+                                                                        .steamLibraries = {library},
+                                                                        .lutris = lutris});
+    const auto steam = [](const char* name, const fs::path& wine) {
+        // No `proton` script in these fakes: each is taken as its plain Wine.
+        return wine::Runner{
+            .name = name, .wine = wine, .proton = {}, .origin = wine::Origin::Steam};
+    };
+    expect(found == std::vector<wine::Runner>{steam("GE-Proton9-20", ge),
+                                              steam("Proton 9.0 (Beta)", current),
+                                              steam("Proton 7.0", old),
+                                              {.name = "wine-ge-8-26-x86_64",
+                                               .wine = lutrisWine,
+                                               .origin = wine::Origin::Lutris},
+                                              {.name = "System Wine", .wine = system}},
+           "Steam's Proton builds newest first, Lutris's Wine builds, then system Wine");
     expect(wine::discover(wine::Search{}).empty(), "nothing searched finds nothing");
     expect(wine::discover(wine::Search{.executablePath = {},
                                        .steamRoots = {root, root},
                                        .steamLibraries = {library, library}})
                    .size() == 3,
            "a folder searched twice lists each runner once");
+}
+
+void automaticTakesTheFirstThatRuns(const fs::path& dir) {
+    const wine::Runner ours{.name = "GE-Proton11-11",
+                            .wine = dir / "ours/files/bin/wine",
+                            .proton = dir / "ours",
+                            .origin = wine::Origin::OpenSu};
+    const wine::Runner steam{.name = "Proton 9.0",
+                             .wine = dir / "steam/files/bin/wine",
+                             .proton = dir / "steam",
+                             .origin = wine::Origin::Steam};
+    const wine::Runner lutris{
+        .name = "wine-ge-8-26", .wine = dir / "lutris/bin/wine", .origin = wine::Origin::Lutris};
+    const wine::Runner system{.name = "System Wine", .wine = dir / "bin/wine"};
+    wine::Choice choice{.runner = {},
+                        .pins = {},
+                        .found = {ours, steam, lutris, system},
+                        .lutris = lutris,
+                        .dataDir = dir,
+                        .own = {},
+                        .umuRun = dir / "umu-run"};
+    const auto reason = [&choice]() {
+        return wine::resolve(choice, "gog:1")->reason;
+    };
+    expect(reason() == wine::Reason::OpenSuGeProton, "openSU's GE-Proton first");
+    choice.found = {steam, lutris, system};
+    expect(reason() == wine::Reason::SteamProton && wine::runnerOf(choice, "gog:1") == steam,
+           "no GE-Proton: Steam's Proton");
+    choice.found = {lutris, system};
+    expect(reason() == wine::Reason::Lutris && wine::runnerOf(choice, "gog:1") == lutris,
+           "neither: what Lutris uses");
+    choice.lutris.reset();
+    expect(reason() == wine::Reason::SystemWine, "none of those: system Wine");
+    choice.found = {ours, steam, system};
+    choice.umuRun.clear();
+    expect(reason() == wine::Reason::SystemWine, "a Proton build needs a umu-run");
+    choice.pins = {{"gog:1", steam.wine}};
+    expect(reason() == wine::Reason::Pinned && wine::runnerOf(choice, "gog:1") == steam,
+           "a pin wins over Automatic");
+    choice.found.clear();
+    expect(!wine::resolve(choice, "gog:2"), "nothing found: nothing");
+}
+
+void lutrisDefaultIsRead(const fs::path& dir) {
+    const fs::path data = dir / "lutris";
+    const wine::Runner ge{.name = "GE-Proton11-5",
+                          .wine = dir / "Steam/compatibilitytools.d/GE-Proton11-5/files/bin/wine",
+                          .proton = dir / "Steam/compatibilitytools.d/GE-Proton11-5",
+                          .origin = wine::Origin::Steam};
+    const wine::Runner valve{.name = "Proton 10.0",
+                             .wine = dir / "common/Proton 10.0/files/bin/wine",
+                             .proton = dir / "common/Proton 10.0",
+                             .origin = wine::Origin::Steam};
+    const wine::Runner system{.name = "System Wine", .wine = dir / "bin/wine"};
+    fs::create_directories(data / "runners");
+    std::ofstream{data / "runners/wine.yml"} << "{}\n";
+    expect(wine::lutrisDefault(data, {valve, ge, system}) == ge,
+           "no version set: Lutris's latest GE-Proton, the one in compatibilitytools.d");
+    expect(!wine::lutrisDefault(data, {valve, system}),
+           "no GE-Proton on disk: nothing, as Lutris would have umu download one");
+    std::ofstream{data / "runners/wine.yml"} << "wine:\n  version: system\nsystem:\n  x: 1\n";
+    expect(wine::lutrisDefault(data, {valve, ge, system}) == system, "\"system\" is system Wine");
+    std::ofstream{data / "runners/wine.yml"} << "wine:\n  version: 'Proton 10.0'\n";
+    expect(wine::lutrisDefault(data, {valve, ge, system}) == valve, "a version by name");
+    expect(!wine::lutrisDefault({}, {valve, ge, system}), "no Lutris folder: nothing");
+}
+
+void prefixesAreReadiedForTheRunner(const fs::path& dir) {
+    const wine::Runner proton{.name = "GE-Proton11-11",
+                              .wine = dir / "ge/files/bin/wine",
+                              .proton = dir / "ge",
+                              .origin = wine::Origin::OpenSu};
+    const wine::Runner plain{.name = "System Wine", .wine = dir / "bin/wine"};
+    const fs::path prefix = dir / "wine-prefix";
+    expect(wine::readyPrefix(prefix, proton).prefix == prefix && fs::is_directory(prefix) &&
+               !fs::exists(dir / "wine-prefix.system-wine-saves"),
+           "a new prefix is made, with nothing to keep");
+    fs::create_directories(prefix / "drive_c/users/me");
+    std::ofstream{prefix / "drive_c/users/me/save.dat"} << "1";
+    std::ofstream{prefix / "system.reg"} << "WINE REGISTRY Version 2\n";
+    expect(wine::readyPrefix(prefix, plain).prefix == prefix &&
+               !fs::exists(dir / "wine-prefix.plain-wine"),
+           "plain Wine runs in a prefix plain Wine made");
+    const wine::ReadyPrefix toProton = wine::readyPrefix(prefix, proton);
+    expect(toProton.refusal.empty() && toProton.prefix == prefix &&
+               fs::exists(dir / "wine-prefix.system-wine-saves/drive_c/users/me/save.dat") &&
+               fs::exists(dir / "wine-prefix.system-wine-saves/system.reg"),
+           "Proton runs in it too, its saves copied first");
+    fs::create_directory_symlink(".", prefix / "pfx");
+    fs::create_directory_symlink("me", prefix / "drive_c/users/steamuser");
+    const wine::ReadyPrefix toWine = wine::readyPrefix(prefix, plain);
+    expect(toWine.refusal.empty() && toWine.prefix == dir / "wine-prefix.plain-wine" &&
+               fs::exists(dir / "wine-prefix.plain-wine/drive_c/users/me/save.dat") &&
+               fs::is_symlink(dir / "wine-prefix.plain-wine/drive_c/users/steamuser") &&
+               !fs::exists(dir / "wine-prefix.plain-wine/system.reg"),
+           "plain Wine never runs in a Proton prefix: it gets its own, starting from its saves");
+    std::ofstream{prefix / "drive_c/users/me/save.dat"} << "2";
+    static_cast<void>(wine::readyPrefix(prefix, plain));
+    std::ifstream kept{dir / "wine-prefix.plain-wine/drive_c/users/me/save.dat"};
+    std::string line;
+    std::getline(kept, line);
+    expect(line == "1", "and copies them only the first time");
 }
 
 void prefixesAreSharedUnlessOwn(const fs::path& dir) {
@@ -143,8 +257,9 @@ void launchesGetTheRunnerAndPrefix(const fs::path& dir) {
     choice.found.clear();
     Game none = windowsGame(Source::Epic, "Owned");
     expect(wine::prepare(none, choice).refusal ==
-               "No Wine runner to run Game Owned; GE-Proton is not installed yet",
-           "no GE-Proton for the default refuses the launch");
+               "No Wine runner can run Game Owned: no GE-Proton, Steam Proton or Lutris runner "
+               "with umu-run, and no system Wine",
+           "nothing Automatic can run refuses the launch");
 }
 
 } // namespace
@@ -152,6 +267,9 @@ void launchesGetTheRunnerAndPrefix(const fs::path& dir) {
 int main() {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "wine"};
     runnersAreFound(scratch.path() / "found");
+    automaticTakesTheFirstThatRuns(scratch.path() / "automatic");
+    lutrisDefaultIsRead(scratch.path() / "lutris");
+    prefixesAreReadiedForTheRunner(scratch.path() / "saves");
     prefixesAreSharedUnlessOwn(scratch.path() / "prefixes");
     launchesGetTheRunnerAndPrefix(scratch.path() / "launch");
     std::printf("wine: all checks passed\n");

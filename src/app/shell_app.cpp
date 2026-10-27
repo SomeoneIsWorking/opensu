@@ -660,11 +660,7 @@ void ShellApp::launch(const library::Game& game) {
         return;
     }
     library::Game started = game;
-    const WineSettings::Prepared wine = wineSettings_.prepare(started);
-    if (wine.waiting) {
-        panels_.showLaunch(game.title);
-        return;
-    }
+    const library::wine::Prepared wine = wineSettings_.prepare(started);
     if (!wine.refusal.empty()) {
         shell_.setToast(wine.refusal, true);
         return;
@@ -702,23 +698,7 @@ void ShellApp::offerInstall(const library::Game& game) {
 }
 
 void ShellApp::cancelLaunch() {
-    if (!wineSettings_.dropHeld()) {
-        launches_.cancel();
-    }
-}
-
-void ShellApp::serviceHeldLaunch() {
-    std::optional<WineSettings::Held> held = wineSettings_.serviceHeld();
-    if (!held) {
-        return;
-    }
-    if (held->ready) {
-        launch(*held->ready);
-    } else if (held->failed) {
-        panels_.endLaunch();
-    } else {
-        shell_.launchPanel().update(held->line, held->fraction);
-    }
+    launches_.cancel();
 }
 
 void ShellApp::chooseLevel(int level) {
@@ -1098,7 +1078,7 @@ void ShellApp::serviceRequests() {
         shell_.launchPanel().update(launch::describe(*progress),
                                     measured ? std::optional{progress->fraction} : std::nullopt);
     }
-    if (!launching && !wineSettings_.holding()) {
+    if (!launching) {
         panels_.endLaunch();
     }
     panels_.service();
@@ -1185,7 +1165,6 @@ int ShellApp::run() {
         sessionInstall_.service();
         emulatorDownloads_.service();
         wineRunners_.service(std::chrono::steady_clock::now());
-        serviceHeldLaunch();
         downloadsScreen_.service();
         settingsScreen_.service();
         giveaways_.service();

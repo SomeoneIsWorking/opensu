@@ -167,7 +167,7 @@ game has been observed running yet.
 | S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | partial | S016, S026 | G001 |
 | S036 | Game updates for Steam, Epic and GOG (`docs/issues/game-updates.md`) | partial | S035 | G001 |
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
-| S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), GE-Proton by default kept up to date through umu-launcher, runner setting with per-game pins and the runtimes list, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`, `docs/issues/ge-proton-default.md`) | partial | S006, S007, S020 | G001 |
+| S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Automatic runner (openSU's GE-Proton kept up to date through umu-launcher, else Steam's Proton, Lutris's, system Wine; no waits), runner setting with per-game pins and the runtimes list, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`, `docs/issues/ge-proton-default.md`) | partial | S006, S007, S020 | G001 |
 | S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) and the core's own options in setting layers per game, core, console and Global, declared once in `settings::Schema` and edited in one layered editor (Settings › Emulators, details, the quick menu's panel over the game, live), with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 | S042 | Platform seams: every Linux-only concept behind one owner with a per-OS backend picked in CMake (process launching, pads, the shell over a game, Steam modes, user directories, buildbot folder, library loading, battery), Linux unchanged (`docs/issues/cross-platform-releases.md` step 1) | partial | — | G005 |
@@ -1365,25 +1365,25 @@ dialog for `OpenUninstallWizard(..., true)`), a real Epic or GOG uninstall. Deta
 ### S038 — Windows games under Wine
 
 A GOG or Epic install of a Windows build launches under the runner it resolves to
-(`library::wine::runnerOf`: the game's pin, else Settings › Wine's pick, else the newest GE-Proton
-openSU installed), from `ShellApp::launch` through `WineSettings`. Plain Wine gets `--wine
-<runner> --wine-prefix <prefix>`; a Proton build gets `--no-wine --wrapper <umu-run>` and umu's
-environment (`PROTONPATH`, `WINEPREFIX`, `GAMEID`, `STORE`, `UMU_FOLDERS_PATH=<data>/wine`). Every
-such game shares `<data dir>/wine-prefix`; a game's details page has "Wine prefix: Shared/Own",
-and Own gives it `<data dir>/wine-prefixes/<store>-<id>` (`settings.json` `ownWinePrefix`).
-GE-Proton and umu-launcher are openSU's own under `<data>/wine` (`WineRunners`): checked at start,
-daily and on Check now, downloaded with their published SHA-512 / SHA-256 checked, shown on the
-Downloads page, and after a check the GE-Proton builds past the newest two are removed unless a
-running game, the pick or a pinned game keeps them. A launch with none installed waits on the
-launch panel. Settings › Wine lists every runner and runtime with where it lives, size and game
-count, each with a page of its games and pins. A plain-Wine prefix's saves are copied once before
-Proton first runs in it. Verified in the hidden product (`docs/issues/ge-proton-default.md`): three
-real GE-Proton releases installed and checked, the rotation keeping a pinned build and then
-removing it, `cmd /c ver` answered through GE-Proton 11-9, 11-10 and 11-11 and system Wine in a
-scratch prefix, a plain-Wine prefix upgraded with its save intact; on the player's setup Nuclear
-Throne (Epic) held on the launch panel while GE-Proton downloaded, then ran through umu-run, and
-the Steam Linux Runtime umu fetched showed in Settings › Wine once the game closed. The first
-GE-Proton downloads only when a launch or Test the runner needs it. Unverified: a GOG game.
+(`library::wine::resolve`: the game's pin, else Settings › Wine's pick, else Automatic, the first
+that can run of openSU's newest GE-Proton, Steam's newest Proton, what Lutris uses, system Wine),
+from `ShellApp::launch` through `WineSettings`; a launch never waits for a download. Plain Wine gets
+`--wine <runner> --wine-prefix <prefix>`; a Proton build gets `--no-wine --wrapper <umu-run>` and
+umu's environment (`PROTONPATH`, `WINEPREFIX`, `GAMEID`, `STORE`, `UMU_FOLDERS_PATH=<data>/wine`).
+Every such game shares `<data dir>/wine-prefix`; a game's details page has "Wine prefix:
+Shared/Own", and Own gives it `<data dir>/wine-prefixes/<store>-<id>` (`settings.json`
+`ownWinePrefix`). Plain Wine never runs in a prefix Proton made (Proton links its build's DLLs
+into it); it gets `<prefix>.plain-wine`, started from the saves. GE-Proton and umu-launcher are
+openSU's own under `<data>/wine` (`WineRunners`): downloaded in the background while GOG or Epic
+is signed in, checked daily and on Check now with their published SHA-512 / SHA-256, shown on the
+Downloads page; after a check the GE-Proton builds past the newest two are removed unless a
+running game, the pick or a pinned game keeps them. Settings › Wine shows what Automatic resolves
+to now and why, and lists every runner and runtime with where it lives, size and game count, each
+with a page of its games and pins. Verified (`docs/issues/ge-proton-default.md`): three real
+GE-Proton releases installed and checked, the rotation, `cmd /c ver` through GE-Proton and system
+Wine, and on the player's setup Nuclear Throne (Epic) under openSU's GE-Proton, under Steam's
+GE-Proton while openSU's downloaded, and under system Wine in the plain-Wine twin prefix.
+Unverified: a GOG game; a distinct Lutris runner (none on this machine).
 Missing: "Use <compatibility tool>" for Steam games (writing `CompatToolMapping`), not built until
 the running client's handling is measured (the card lists what).
 

@@ -6,6 +6,7 @@
 #include <map>
 
 #include "library/ge_proton.hpp"
+#include "library/lutris_wine.hpp"
 #include "library/steam.hpp"
 #include "lucent/log.h"
 #include "steam_library_settings.hpp"
@@ -28,9 +29,7 @@ constexpr std::string_view umuKey = "umu";
 constexpr std::string_view steamRuntimeKey = "steamrt";
 /// `wine.pin:<game id>\t<Wine binary>`; an empty binary unpins.
 constexpr std::string_view pinId = "wine.pin:";
-constexpr const char* defaultName = "Latest GE-Proton";
 constexpr const char* testProgram[] = {"cmd", "/c", "ver"};
-constexpr double percent = 100.0;
 
 std::string countText(std::size_t count) {
     return std::to_string(count) + (count == 1 ? " game" : " games");
@@ -38,10 +37,21 @@ std::string countText(std::size_t count) {
 
 /// Where a runner lives, as the player reads it.
 std::string whereOf(const library::wine::Runner& runner) {
-    if (runner.managed) {
+    switch (runner.origin) {
+    case library::wine::Origin::OpenSu:
         return "Kept up to date by openSU";
+    case library::wine::Origin::Steam:
+        return "Found in Steam's folders";
+    case library::wine::Origin::Lutris:
+        return "Found in Lutris's folders";
+    case library::wine::Origin::System:
+        break;
     }
-    return runner.proton.empty() ? "System" : "Found in Steam's folders";
+    return "System";
+}
+
+bool isManaged(const library::wine::Runner& runner) {
+    return runner.origin == library::wine::Origin::OpenSu;
 }
 
 } // namespace
@@ -50,7 +60,8 @@ library::wine::Search WineSettings::search() const {
     library::wine::Search search{.executablePath = config_.executablePath,
                                  .steamRoots = {},
                                  .steamLibraries = {},
-                                 .managed = library::ge_proton::runnersDir(config_.dataDir)};
+                                 .managed = library::ge_proton::runnersDir(config_.dataDir),
+                                 .lutris = library::lutris::dataDir(config_.xdgDataHome)};
     if (!integrations_.lists(library::Source::Steam)) {
         return search;
     }
@@ -64,7 +75,10 @@ library::wine::Search WineSettings::search() const {
 }
 
 void WineSettings::rescan() {
-    found_ = library::wine::discover(search());
+    const library::wine::Search where = search();
+    found_ = library::wine::discover(where);
+    lutris_ = library::wine::lutrisDefault(where.lutris, found_);
+    umuRun_ = library::wine::umuRunOf(runners_.umuRun(), where);
 }
 
 library::wine::Choice WineSettings::choice() const {
@@ -72,9 +86,10 @@ library::wine::Choice WineSettings::choice() const {
     return library::wine::Choice{.runner = v.wineRunner,
                                  .pins = v.wineRunnerPins,
                                  .found = found_,
+                                 .lutris = lutris_,
                                  .dataDir = config_.dataDir,
                                  .own = v.ownWinePrefixes,
-                                 .umuRun = runners_.umuRun()};
+                                 .umuRun = umuRun_};
 }
 
 std::vector<library::Game> WineSettings::windowsGames() const {
@@ -128,14 +143,9 @@ ui::SettingsCategory WineSettings::page() const {
     const WineRunners::Look look = runners_.look();
     ui::SettingsCategory page{std::string{categoryId}, "Wine", {}};
 
-    // Choice 0 is GE-Proton kept up to date, then each runner found, then a pick not found.
-    const auto newest = std::ranges::find_if(found_, &library::wine::Runner::managed);
+    // Choice 0 is Automatic, then each runner found, then a pick not found.
     ui::Options runners;
-    runners.labels.push_back(std::string{defaultName} + " (" +
-                             (newest == found_.end()
-                                  ? "not installed yet"
-                                  : newest->name.substr(std::string_view{"GE-Proton"}.size())) +
-                             ")");
+    runners.labels.emplace_back("Automatic");
     for (const library::wine::Runner& runner : found_) {
         runners.labels.push_back(runner.name);
     }
@@ -148,8 +158,8 @@ ui::SettingsCategory WineSettings::page() const {
             runners.chosen = static_cast<std::size_t>(at - found_.begin()) + 1;
         }
     }
-    page.rows.push_back(ui::makeChoice(
-        runnerId, "Wine runner", "What Windows GOG and Epic games run under", std::move(runners)));
+    page.rows.push_back(
+        ui::makeChoice(runnerId, "Wine runner", automaticNote(), std::move(runners)));
 
     std::string status = look.lastCheck.empty() ? "Not checked yet" : look.lastCheck;
     if (const std::optional<WineRunners::Progress> running = runners_.progress()) {
@@ -181,7 +191,7 @@ ui::SettingsCategory WineSettings::page() const {
     for (const library::wine::Runner& runner : found_) {
         std::string note = whereOf(runner) + sizeOf(runner.proton);
         if (const auto kept = look.kept.find(runner.name);
-            runner.managed && kept != look.kept.end()) {
+            isManaged(runner) && kept != look.kept.end()) {
             note += " · " + kept->second;
         }
         page.rows.push_back(ui::makePage(std::string{runtimePage} + runner.wine.string(),
@@ -260,7 +270,7 @@ std::optional<ui::SettingsCategory> WineSettings::subPage(const std::string& id)
                                         piece->bytes > 0 ? sizeText(piece->bytes) : "Measuring"));
     }
     if (const auto kept = look.kept.find(runner->name);
-        runner->managed && kept != look.kept.end()) {
+        isManaged(*runner) && kept != look.kept.end()) {
         page.rows.push_back(ui::makeRow("wine.kept", RowKind::Info, "Not removed",
                                         "Older than the newest two GE-Proton builds",
                                         kept->second));
@@ -334,7 +344,7 @@ void WineSettings::run(const std::string& id, int step) {
 }
 
 void WineSettings::stepRunner(int step) {
-    // Choice 0 is GE-Proton kept up to date, then each runner found, then a pick no longer found.
+    // Choice 0 is Automatic, then each runner found, then a pick no longer found.
     fs::path& chosen = preferences_.values().wineRunner;
     const auto at = std::ranges::find(found_, chosen, &library::wine::Runner::wine);
     const bool missing = !chosen.empty() && at == found_.end();
@@ -353,25 +363,46 @@ void WineSettings::stepRunner(int step) {
     preferences_.save();
 }
 
+std::string WineSettings::automaticNote() const {
+    library::wine::Choice automatic = choice();
+    automatic.runner.clear();
+    automatic.pins.clear();
+    const std::optional<library::wine::Resolved> now = library::wine::resolve(automatic, {});
+    std::string note = "None can run: no Proton with umu-run and no system Wine";
+    if (now) {
+        switch (now->reason) {
+        case library::wine::Reason::OpenSuGeProton:
+            return "Now openSU's newest GE-Proton";
+        case library::wine::Reason::SteamProton:
+            note = "Now Steam's " + now->runner.name;
+            break;
+        case library::wine::Reason::Lutris:
+            note = "Now Lutris's default, " + now->runner.name;
+            break;
+        case library::wine::Reason::SystemWine:
+        case library::wine::Reason::Pinned:
+        case library::wine::Reason::Picked:
+            note = "Now " + now->runner.name;
+            break;
+        }
+    }
+    return note + (runners_.progress() ? " (GE-Proton downloading)" : " (no GE-Proton yet)");
+}
+
 void WineSettings::test() {
     const library::wine::Choice resolved = choice();
     const std::optional<library::wine::Runner> runner = library::wine::runnerOf(resolved, {});
-    if (!runner || (!runner->proton.empty() && resolved.umuRun.empty())) {
-        const std::string refused = runners_.ensure();
-        hooks_.say(refused.empty() ? "Installing GE-Proton first; test again when it is installed"
-                                   : refused,
-                   !refused.empty());
+    if (!runner) {
+        hooks_.say("No Wine runner can run the test", true);
         return;
     }
-    const fs::path prefix = config_.dataDir / "wine" / "test-prefix";
-    std::error_code error;
-    fs::create_directories(prefix, error);
-    if (!runner->proton.empty()) {
-        if (const std::string refused = library::wine::keepWineSaves(prefix); !refused.empty()) {
-            hooks_.say(refused, true);
-            return;
-        }
+    const library::wine::ReadyPrefix ready =
+        library::wine::readyPrefix(config_.dataDir / "wine" / "test-prefix", *runner);
+    if (!ready.refusal.empty()) {
+        hooks_.say(ready.refusal, true);
+        return;
     }
+    const fs::path& prefix = ready.prefix;
     library::wine::Invocation invocation =
         library::wine::invocationOf(*runner, prefix, resolved.umuRun, config_.dataDir, "");
     std::vector<std::string> command = std::move(invocation.environment);
@@ -383,77 +414,19 @@ void WineSettings::test() {
     }
 }
 
-WineSettings::Prepared WineSettings::prepare(library::Game& game) {
+library::wine::Prepared WineSettings::prepare(library::Game& game) {
     if (!game.windowsInstall) {
         return {};
     }
     rescan();
     const library::wine::Choice resolved = choice();
-    const std::optional<library::wine::Runner> runner = library::wine::runnerOf(resolved, game.id);
-    const bool needsGe = !runner && library::wine::pickOf(resolved, game.id).empty();
-    const bool needsUmu = runner && !runner->proton.empty() && resolved.umuRun.empty();
-    if (needsGe || needsUmu) {
-        lucent::info("wine", "{} waits for GE-Proton and umu-launcher to install", game.title);
-        held_ = game;
-        heldDropped_ = false;
-        heldChecking_ = runners_.ensure().empty() || runners_.busy();
-        return {.refusal = {}, .environment = {}, .waiting = true};
-    }
     library::wine::Prepared prepared = library::wine::prepare(game, resolved);
-    if (prepared.refusal.empty() && runner) {
+    if (const std::optional<library::wine::Runner> runner =
+            library::wine::runnerOf(resolved, game.id);
+        prepared.refusal.empty() && runner) {
         launched_ = runner->proton;
     }
-    return {.refusal = std::move(prepared.refusal),
-            .environment = std::move(prepared.environment),
-            .waiting = false};
-}
-
-std::optional<WineSettings::Held> WineSettings::serviceHeld() {
-    if (!held_) {
-        return std::nullopt;
-    }
-    if (heldDropped_) {
-        held_.reset();
-        return Held{.line = {}, .fraction = {}, .ready = {}, .failed = true};
-    }
-    if (runners_.busy()) {
-        Held held{.line = "Getting GE-Proton", .fraction = {}, .ready = {}, .failed = false};
-        if (const std::optional<WineRunners::Progress> running = runners_.progress()) {
-            held.line = "Getting " + running->name;
-            if (running->stage != library::ArchiveStage::Downloading) {
-                held.line += running->stage == library::ArchiveStage::Checking ? " · checking"
-                                                                               : " · unpacking";
-            } else if (running->total > 0) {
-                held.fraction =
-                    static_cast<double>(running->received) / static_cast<double>(running->total);
-                held.line +=
-                    " · " + std::to_string(static_cast<int>(*held.fraction * percent)) + "%";
-            }
-        }
-        return held;
-    }
-    if (!heldChecking_) {
-        heldChecking_ = runners_.ensure().empty();
-        return Held{.line = "Getting GE-Proton", .fraction = {}, .ready = {}, .failed = false};
-    }
-    library::Game game = std::move(*held_);
-    held_.reset();
-    rescan();
-    const library::wine::Choice resolved = choice();
-    const std::optional<library::wine::Runner> runner = library::wine::runnerOf(resolved, game.id);
-    if (!runner || (!runner->proton.empty() && resolved.umuRun.empty())) {
-        lucent::warn("wine", "{} cannot start: no GE-Proton was installed", game.title);
-        return Held{.line = {}, .fraction = {}, .ready = {}, .failed = true};
-    }
-    return Held{.line = {}, .fraction = {}, .ready = std::move(game), .failed = false};
-}
-
-bool WineSettings::dropHeld() {
-    if (!held_) {
-        return false;
-    }
-    heldDropped_ = true;
-    return true;
+    return prepared;
 }
 
 } // namespace opensu::app
