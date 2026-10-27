@@ -1,39 +1,43 @@
 # On-screen keyboard
 
-One keyboard types into every openSU field: Global Search, a folder path (Settings › folder
-chooser › Type a path) and the administrator password (Install session mode). Typing into games
+One keyboard types into every openSU text field (gpu2d `TextField`): Global Search, a folder
+path (the folder chooser's Path field), the SteamGridDB key and the administrator password
+(Install session mode). It is an input method: the text lives in the field, the keyboard holds
+none. Typing into games
 and the browser is not built yet (`docs/issues/on-screen-keyboard.md`).
 
 ## Owners
 
 | Part | Owner |
 | --- | --- |
-| The line, its cursor, the style, the grid's keys and walk, the wheel's petals and sets, layout and hit tests | `ui/on_screen_keyboard` (`OnScreenKeyboard`, `layoutKeyboard`) |
-| Pad buttons, both styles | `app/keyboard_pad` (`actOnKeyboard`) |
+| The style, capitals, the grid's keys and walk, the wheel's petals and sets, layout and hit tests | `ui/on_screen_keyboard` (`OnScreenKeyboard`, `layoutKeyboard`) |
+| Opening, closing and the pad buttons, both styles | `app/keyboard_pad` (`KeyboardPad`) |
 | Drawing | `ui/on_screen_keyboard_painter` |
 | The style chosen | `input/keyboard_style`, saved as `keyboard` (`daisy`, `regular`) in `settings.json`, Settings › Controls › Keyboard |
-| Left stick to the wheel | `app/shell_app` (`wheelTakingStick`) |
+| Docking it under the screens, pointer on its keys | `ui/shell` (`keyboard`, `aboveKeyboard`) |
 
-Search wraps the keyboard in `ui/search_panel`: a card with the field and up to five results
-stands above the docked keyboard, ending under the last row listed (`SearchLayout::cardFor`), and
-the keyboard leaves out its own preview line (`layoutKeyboard(..., preview = false)`).
-`app/search_controller` handles the results zone and passes every other button to
-`actOnKeyboard`. While any keyboard is docked (`ui::Shell::dockedKeyboard`) the shell draws neither its bottom
-nav dock nor the HUD's corner hints, toasts stand above the keyboard, and the keyboard shows its
-own hints. The folder chooser stands in the screen above where its path keyboard docks
-(`SettingsPanels::folderFrame`), so typing a path covers none of it. `ui/settings_panels` owns the path
-keyboard, `ui/session_panels` the password keyboard. `ui::Shell::setKeyboardStyle` hands the
-setting to all three; an open keyboard keeps the style it opened in.
+A on a focused field asks the navigator for a keyboard (`Navigator::setKeyboard`, which
+`ShellApp` points at `KeyboardPad::open`); search, the path, the key and the password open it
+with their card. `KeyboardPad::follow` closes it each frame once no field holds the focus
+(`Navigator::typing`). While it is open the shell draws neither its bottom nav dock nor the HUD's
+corner hints, toasts stand above it, it shows its own hints, and overlay cards lay out above it
+(`Navigator::layout`'s covered strip) so the field typed into stays in view.
 
 ## Inputs and outputs
 
-- Pad buttons from `ShellApp::actOn` through the owning controller to `actOnKeyboard`, which says
-  `Handled`, `Edited`, `Confirm` or `Leave`.
+- Pad buttons from `ShellApp::actOn` to `KeyboardPad::act` while it is open; it types through
+  `Navigator::text`, deletes with `Action::Erase`, clears with Select (the field's Clear,
+  `Action::Tertiary`, which is Y with the keyboard closed) and finishes with `Action::Submit`, so
+  each field's own rules (length, no leading space) apply once. While it is open with a pad the
+  screen's hint bar shows nothing (`InterfacePrompts::bound`); the keyboard's own row names the
+  buttons.
 - Left stick directions: pad sources mark them (`gamepad::Event::stick`, set by `PadTranslator` and
-  `SdlPadState`). While a daisy wheel takes input, `ShellApp::handleEvents` sends their presses and
-  releases to `OnScreenKeyboard::stick` instead of the direction repeat; otherwise the stick moves
-  focus as the d-pad does.
-- Physical keyboard text goes straight into the line (`type`, `backspace`), either style.
+  `SdlPadState`). While the wheel is open (`KeyboardPad::takesStick`) `ShellApp::handleEvents`
+  sends their presses and releases to `KeyboardPad::stick` instead of the direction repeat;
+  otherwise the stick moves focus as the d-pad does.
+- Physical keyboard: while a field is focused, text goes to it, Backspace is Erase, Enter is
+  Submit, Escape is Back, Up and Down move (`ui::typingKeys`), either style and with the keyboard
+  open or not; the hint bar then names only those (no "Type", no "Clear").
 - Pointer: `KeyboardLayout::keys` is one rectangle per grid key, or on the wheel the eight petals
   then the diamond's four faces (`daisyPetals + face`); hovering focuses it (`OnKeyboardKey`), a
   click presses A on it. Resting on a petal picks it until the stick picks one or the keyboard
@@ -45,10 +49,8 @@ setting to all three; an open keyboard keeps the style it opened in.
 Either layout docks along the bottom edge, centred, on a translucent card no taller than a fifth
 of the frame: 92 dp plus a 4 dp margin is a fifth of the 480 dp reference height. The keyboard
 draws in its own unit, `KeyboardLayout::unit`, the frame's dp shrunk when the dock would be taller
-than a fifth or wider than the frame. Nothing above it moves and nothing under it is dimmed. Where
-the caller shows no field of its own (the path, the password, later a game), a one-line preview of
-the text sits above the strip: the prompt when empty, dots for a password, the end of a long line
-kept in view with the caret.
+than a fifth or wider than the frame. Full screens under it do not move and nothing under it is dimmed;
+the field it types into is always on a card above it.
 
 ## Daisy wheel (default)
 
@@ -64,39 +66,38 @@ thumb's stick and the diamond under the right thumb's buttons.
 | Button | With a petal picked | With the stick centred |
 | --- | --- | --- |
 | Left stick | picks the petal it points at (diagonals are the petals between) | |
-| A, B, X, Y | types that face's character | A: nothing, B: leave, X: delete, Y: space |
+| A, B, X, Y | types that face's character | A: nothing, B: closes the keyboard, X: delete, Y: space |
 | LB / RB | delete / space | delete / space |
 | LT / RT | previous / next set | previous / next set |
-| D-pad Left / Right | moves the cursor | moves the cursor |
-| D-pad Down (search) | the results | the results |
-| Select / Start | clear / done | clear / done |
+| Start | done | done |
 
 The right stick is not read for the cursor; the shell has no right stick events.
 
 ## Regular grid
 
-Docked as a phone-style bottom keyboard, its hints in two lines beside the keys. Ten columns, five rows (digits, letters, `' - . & /`, Space, Delete, Clear, Done). D-pad walks,
-A types, B deletes and leaves when empty, Y space, Select clear, Start done; X is Caps on a
-password and "Results" in search; Up from the top row enters the results.
+Docked as a phone-style bottom keyboard, its hints in two lines beside the keys. Ten columns, five
+rows (digits, three of letters with `' - . &`, then `/`, Space, Delete, Done). D-pad walks, A types, B deletes and closes the
+keyboard when the field is empty, X turns capitals on and off, Y types a space, Start is done.
 
 ## Drawing
 
 Discs, rings, keys and cards are gpu2d's anti-aliased SDF shapes (`fillCircle`, `fillRoundRect`,
 `strokeRoundRect`, `ring`), not `ui/round_shape`'s tessellated meshes, which have no anti-aliasing.
-A single character is centred on its ink (`Typeface::drawInkCentred`, from gpu2d's
+A single character is centred on its ink (`InterfaceText::drawInkCentred`, from gpu2d's
 `Text::ink` glyph bounds), not its advance box and baseline; words are centred on their advance.
 
 ## Invariants
 
-- A search line never starts with a space or doubles one; paths and passwords take any.
-- Lengths: search 64 bytes, path 4096, password 256.
-- A password line is reserved to its full length on open and wiped (`host::wipe`) on close and on
-  clear; it is drawn as dots, caret included.
-- Typing inserts at the cursor; backspace deletes the character before it (UTF-8 aware).
+- The keyboard holds no text; a field edits at its end (no mid-line cursor).
+- Done closes the keyboard and submits the field; B closes only the keyboard, a second B is the
+  card's Back.
+- The field owns its rules: a search line never starts with a space or doubles one; lengths are
+  search 64 bytes, path 4096, key and password 256; a masked field draws dots and wipes its copy.
 
 ## Checking it in the product
 
-Run `opensu --hidden` and drive its control channel: `POST /input` with `search` opens search,
+Run `opensu --hidden` and drive its control channel: `POST /input` with `search` opens search
+with the keyboard up,
 `up stick 3000ms` holds the stick up, `a` types, `r2` steps the set, `GET /frame.png` captures.
 `up+a stick` presses the stick and A together in one batch. `OPENSU_WIDTH` and `OPENSU_HEIGHT`
 set the window size; the dock's top should sit at or below four fifths of the frame's height.

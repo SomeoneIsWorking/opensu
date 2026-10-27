@@ -7,14 +7,14 @@
 #include "chord_hint.hpp"
 #include "paint.hpp"
 #include "panel_fade.hpp"
-#include "typeface.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 
 namespace opensu::ui {
 
 class ChordHintPainter {
   public:
-    ChordHintPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
-        : typeface_{typeface}, glyphs_{prompts, typeface} {
+    ChordHintPainter(const input::Prompts& prompts, gpu2d::ui::Typesetter& text) noexcept
+        : text_{text}, glyphs_{prompts, text} {
     }
 
     /// Draws `hint` centred in a frame of `size` at `dp` pixels per dp.
@@ -22,7 +22,7 @@ class ChordHintPainter {
                const PanelLook& look) const;
 
   private:
-    Typeface& typeface_;
+    gpu2d::ui::Typesetter& text_;
     ButtonGlyphPainter glyphs_;
 };
 

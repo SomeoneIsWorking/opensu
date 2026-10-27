@@ -4,7 +4,6 @@
 
 #include "hud.hpp"
 #include "round_shape.hpp"
-#include "row_controls.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -28,16 +27,16 @@ void ChordHintPainter::paint(Canvas& canvas, const ChordHint& hint, Point size, 
     const float unit = dp * look.scale;
     const float glyph = glyphDp * unit;
     const float gap = glyphGapDp * unit;
-    const TextStyle heading{titleSp * unit};
-    const TextStyle label{labelSp * unit};
+    const float heading = titleSp * unit;
+    const float label = labelSp * unit;
 
     float column = glyphs_.advance(hint.modifierGlyph(), glyph);
     for (const ChordHintRow& row : hint.rows()) {
         column = std::max(column, glyphs_.advance(row.glyph, glyph));
     }
-    float text = typeface_.measure(title, heading);
+    float text = text_.measure(title, heading);
     for (const ChordHintRow& row : hint.rows()) {
-        text = std::max(text, typeface_.measure(row.label, label));
+        text = std::max(text, text_.measure(row.label, label));
     }
     const float padding = paddingDp * unit;
     const float width = std::max(minWidthDp * unit, column + gap + text + 2.0f * padding);
@@ -52,25 +51,25 @@ void ChordHintPainter::paint(Canvas& canvas, const ChordHint& hint, Point size, 
         return withAlpha(Colour{0xF7, 0xF6, 0xFA, 255}, alpha);
     });
     fillBand(canvas, shape, shape.grown(-1.5f * dp), [alpha = look.alpha](Point, float) {
-        return withAlpha(rowOff, alpha);
+        return withAlpha(palette::off, alpha);
     });
 
-    const Colour ink = withAlpha(rowInk, look.alpha);
+    const Colour ink = withAlpha(palette::control, look.alpha);
     const Colour soft = withAlpha(palette::inkSoft, look.alpha);
     const float glyphX = panel.x + padding + column * 0.5f;
     const float textX = panel.x + padding + column + gap;
     float centreY = panel.y + padding + glyph * 0.5f;
     glyphs_.paint(canvas, hint.modifierGlyph(), Point{glyphX, centreY}, glyph, ink);
-    typeface_.drawCentred(canvas, title, textX, centreY, heading, soft);
+    text_.drawCentred(canvas, title, Point{textX, centreY}, heading, soft);
 
     centreY += glyph * 0.5f + ruleGapDp * unit;
     canvas.fillRect(
         gpu2d::Rect{panel.x + padding, centreY, panel.width - 2.0f * padding, ruleDp * unit},
-        withAlpha(rowOff, look.alpha));
+        withAlpha(palette::off, look.alpha));
     centreY += ruleGapDp * unit + rowDp * unit * 0.5f;
     for (const ChordHintRow& row : hint.rows()) {
         glyphs_.paint(canvas, row.glyph, Point{glyphX, centreY}, glyph, ink);
-        typeface_.drawCentred(canvas, row.label, textX, centreY, label, ink);
+        text_.drawCentred(canvas, row.label, Point{textX, centreY}, label, ink);
         centreY += rowDp * unit;
     }
 }

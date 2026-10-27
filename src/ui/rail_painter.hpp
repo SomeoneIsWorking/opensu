@@ -16,7 +16,7 @@
 #include "library/shelf.hpp"
 #include "platform.hpp"
 #include "rail_layout.hpp"
-#include "typeface.hpp"
+#include "interface_text.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -39,8 +39,8 @@ struct Focused {
 
 class RailPainter {
   public:
-    RailPainter(Typeface& typeface, IconAtlas& icons) noexcept
-        : typeface_{typeface}, icons_{icons} {
+    RailPainter(InterfaceText& text, IconAtlas& icons) noexcept
+        : text_{text}, icons_{icons} {
     }
 
     /// The XMB's left column at a console list: the icon in the colours of the focused tile's
@@ -77,7 +77,7 @@ class RailPainter {
     void drawTitle(Canvas& canvas, std::string_view title, const TitleBox& box,
                    const RailStyle& style);
 
-    Typeface& typeface_;
+    InterfaceText& text_;
     IconAtlas& icons_;
     std::map<std::string, std::vector<ColourSwap>, std::less<>> swaps_;
 };

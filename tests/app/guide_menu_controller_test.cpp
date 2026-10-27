@@ -94,12 +94,11 @@ struct Rig {
         expect(ui.navigator.focused() == id, ("the menu has " + id).c_str());
         press(Action::Accept);
     }
-    /// Confirms the question on top: its action is the second button.
+    /// Confirms the question on top with A: its action is focused.
     void confirm() {
         expect(ui.navigator.top() != nullptr && ui.navigator.top()->id() == "dialog",
                "the step asks first");
-        expect(ui.navigator.focused() == "dialog/0", "with Cancel focused");
-        press(Action::Right);
+        expect(ui.navigator.focused() == "dialog/1", "with its action focused");
         press(Action::Accept);
     }
     [[nodiscard]] std::vector<std::string> places() const {
@@ -158,8 +157,8 @@ void gameStepsAskFirst() {
                                                     "guide.power"},
            "over a game: Resume, Close game, its settings, then the pages");
     rig.choose("guide.closeGame");
-    rig.press(Action::Accept);
-    expect(rig.calls.empty() && rig.controller.isOpen(), "Cancel keeps the game");
+    rig.press(Action::Back);
+    expect(rig.calls.empty() && rig.controller.isOpen(), "Back keeps the game");
     rig.press(Action::Accept);
     rig.confirm();
     expect(rig.calls == std::vector<std::string>{"closeGame"} && !rig.controller.isOpen(),

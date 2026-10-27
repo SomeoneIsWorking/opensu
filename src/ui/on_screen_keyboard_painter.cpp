@@ -16,18 +16,11 @@ constexpr Colour dockFill{0xF8, 0xF8, 0xFB, 244};
 constexpr Colour cardFill{0xFF, 0xFF, 0xFF, 255};
 constexpr Colour outlineInk{0x4D, 0x46, 0x55, 255};
 constexpr Colour wheelFill{0xE6, 0xE4, 0xEC, 255};
-/// A field 40 dp tall draws its text at 18 sp, 14 dp in from its edges, with a 10 dp corner.
-constexpr float fieldTextShare = 0.45f;
-constexpr float fieldInsetShare = 0.35f;
-constexpr float fieldCornerShare = 0.25f;
-constexpr float fieldIconShare = 0.225f;
 constexpr float keySp = 10.0f;
 constexpr float miniSp = 7.5f;
 constexpr float faceSp = 17.0f;
 constexpr float stripSp = 11.0f;
-constexpr float cornerDp = 10.0f;
 constexpr float keyCornerDp = 4.0f;
-constexpr float outlineDp = 1.8f;
 constexpr float keyOutlineDp = 1.5f;
 constexpr float stickGlyphDp = 14.0f;
 constexpr float stripGlyphDp = 17.0f;
@@ -39,35 +32,8 @@ constexpr float groupGapDp = 14.0f;
 constexpr float miniOffsetShare = 0.5f;
 /// How large a face button glyph is drawn in an empty diamond face, as a share of its radius.
 constexpr float emptyGlyphShare = 1.2f;
-constexpr double caretPeriod = 1.0;
 /// The face buttons' glyphs in `DaisyFace` order.
 constexpr std::array<std::string_view, daisyFaces> faceGlyphs{"X", "Y", "B", "A"};
-
-/// One dot for each character of a password.
-std::string dotsFor(std::string_view secret) {
-    std::string dots;
-    for (const char byte : secret) {
-        if ((static_cast<unsigned char>(byte) & 0xC0U) != 0x80U) {
-            dots += "•";
-        }
-    }
-    return dots;
-}
-
-/// A magnifying glass `size` across: a ring and a handle.
-void paintGlass(Canvas& canvas, Point centre, float size, Colour ink) {
-    const float radius = size * 0.55f;
-    const float stroke = size * 0.1f;
-    const Point ringCentre{centre.x - radius * 0.35f, centre.y - radius * 0.35f};
-    canvas.ring(gpu2d::Ring{.centre = ringCentre,
-                            .inner = radius - stroke,
-                            .outer = radius,
-                            .startDegrees = 0.0f,
-                            .endDegrees = 360.0f},
-                ink);
-    canvas.line(Point{ringCentre.x + radius * 0.7f, ringCentre.y + radius * 0.7f},
-                Point{centre.x + radius, centre.y + radius}, stroke * 2.0f, ink);
-}
 
 Point centreOf(const Rect& rect) noexcept {
     return Point{rect.centreX(), rect.centreY()};
@@ -80,56 +46,39 @@ std::string characterOn(const OnScreenKeyboard& keyboard, std::size_t petal, Dai
 
 } // namespace
 
-void OnScreenKeyboardPainter::paintBar(Canvas& canvas, const Rect& rect, bool focused, float dp,
-                                       float alpha) {
-    const float radius = std::min(cornerDp * dp, rect.height * 0.5f);
-    canvas.fillRoundRect(onCanvas(rect), radius, withAlpha(cardFill, alpha));
-    if (focused) {
-        canvas.strokeRoundRect(onCanvas(rect), radius, outlineDp * dp,
-                               withAlpha(outlineInk, alpha));
-    }
-}
-
 std::vector<HintPrompt> OnScreenKeyboardPainter::hints(const OnScreenKeyboard& keyboard) const {
-    // A physical keyboard types straight into the line, so it needs no key prompts.
+    // A physical keyboard types straight into the field, so it needs no key prompts.
     if (prompts_->device.current() == input::Device::KeyboardMouse) {
         return {{"A", "Done"}, {"B", "Close"}};
     }
     if (keyboard.style() == input::KeyboardStyle::DaisyWheel) {
-        std::vector<HintPrompt> wheel{{"LEFT", "Cursor"}};
+        std::vector<HintPrompt> wheel;
         if (!keyboard.petal()) {
             wheel.emplace_back("B", "Close");
         }
-        wheel.insert(wheel.end(), {{"-", "Clear"}, {"+", "Done"}});
+        wheel.emplace_back("-", "Clear");
+        wheel.emplace_back("+", "Done");
         return wheel;
     }
-    std::vector<HintPrompt> grid{{"A", "Type"}, {"B", "Delete"}};
-    if (keyboard.secret()) {
-        grid.emplace_back("X", keyboard.shifted() ? "Caps on" : "Caps");
-    }
-    grid.insert(grid.end(), {{"Y", "Space"}, {"-", "Clear"}, {"+", "Done"}});
-    return grid;
+    return {{"A", "Type"},
+            {"B", "Delete"},
+            {"X", keyboard.shifted() ? "Caps on" : "Caps"},
+            {"Y", "Space"},
+            {"-", "Clear"},
+            {"+", "Done"}};
 }
 
 void OnScreenKeyboardPainter::paint(Canvas& canvas, const OnScreenKeyboard& keyboard, Point size,
-                                    float dp, const PanelLook& look, double seconds) const {
-    paint(canvas, keyboard, layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp, keyboard.style()),
-          look, seconds, {});
-}
-
-void OnScreenKeyboardPainter::paint(Canvas& canvas, const OnScreenKeyboard& keyboard,
-                                    const KeyboardLayout& layout, const PanelLook& look,
-                                    double seconds, const KeyboardExtras& extras) const {
+                                    float dp, const PanelLook& look) const {
     if (look.alpha <= 0.0f) {
         return;
     }
+    const KeyboardLayout layout =
+        layoutKeyboard(Rect{0.0f, 0.0f, size.x, size.y}, dp, keyboard.style());
     const float alpha = look.alpha;
     const PanelScope scope{canvas, centreOf(layout.panel), look.scale};
     canvas.fillRoundRect(onCanvas(layout.panel), layout.panelRadius, withAlpha(dockFill, alpha));
-    if (layout.preview.height > 0.0f) {
-        paintField(canvas, keyboard, layout.preview, alpha, seconds);
-    }
-    const std::vector<HintPrompt> own = extras.hints.empty() ? hints(keyboard) : extras.hints;
+    const std::vector<HintPrompt> own = hints(keyboard);
     if (keyboard.style() == input::KeyboardStyle::DaisyWheel) {
         paintWheel(canvas, keyboard, layout, alpha);
         const float width = paintStrip(canvas, keyboard, {}, layout.unit, alpha, false);
@@ -138,60 +87,21 @@ void OnScreenKeyboardPainter::paint(Canvas& canvas, const OnScreenKeyboard& keyb
         paintHints(canvas, own, layout.hints, layout.unit, alpha);
         return;
     }
-    paintGrid(canvas, keyboard, layout, alpha, extras.keysFocused);
+    paintGrid(canvas, keyboard, layout, alpha);
     // The grid's hints take two lines, the longer half first.
     const std::size_t half = (own.size() + 1) / 2;
     paintHints(canvas, std::span{own}.first(half), layout.strip, layout.unit, alpha);
     paintHints(canvas, std::span{own}.subspan(half), layout.hints, layout.unit, alpha);
 }
 
-void OnScreenKeyboardPainter::paintField(Canvas& canvas, const OnScreenKeyboard& keyboard,
-                                         const Rect& field, float alpha, double seconds) const {
-    const float height = field.height;
-    canvas.fillRoundRect(onCanvas(field), height * fieldCornerShare, withAlpha(cardFill, alpha));
-    const float inset = height * fieldInsetShare;
-    const float icon = height * fieldIconShare;
-    const bool secret = keyboard.secret();
-    if (!secret) {
-        paintGlass(canvas, Point{field.x + inset + icon * 0.5f, field.centreY()}, icon,
-                   withAlpha(palette::inkSoft, alpha));
-    }
-    const TextStyle style{height * fieldTextShare};
-    const float textX = field.x + inset * (secret ? 1.0f : 2.0f) + (secret ? 0.0f : icon);
-    const float room = field.right() - inset - textX;
-    const std::string& text = keyboard.text();
-    const std::string shown = secret ? dotsFor(text) : text;
-    // The end of a long line, where the cursor usually is, stays in view.
-    const float offset = std::max(0.0f, typeface_.measure(shown, style) - room);
-    if (shown.empty()) {
-        typeface_.drawCentred(canvas, typeface_.fitted(keyboard.prompt(), room, style), textX,
-                              field.centreY(), style, withAlpha(palette::inkSoft, alpha));
-    } else {
-        const ScopedClip clip{canvas, Rect{textX, field.y, room, field.height}};
-        typeface_.drawCentred(canvas, shown, textX - offset, field.centreY(), style,
-                              withAlpha(palette::ink, alpha));
-    }
-    if (std::fmod(seconds, caretPeriod) >= caretPeriod * 0.5) {
-        return;
-    }
-    const std::string_view before = std::string_view{text}.substr(0, keyboard.cursor());
-    const std::string leading = secret ? dotsFor(before) : std::string{before};
-    const float caretX = textX - offset + typeface_.measure(leading, style);
-    const float caretHeight = typeface_.lineBox(style) * 0.8f;
-    canvas.fillRect(gpu2d::Rect{caretX + height * 0.025f, field.centreY() - caretHeight * 0.5f,
-                                height * 0.04f, caretHeight},
-                    withAlpha(palette::ink, alpha));
-}
-
 void OnScreenKeyboardPainter::paintGrid(Canvas& canvas, const OnScreenKeyboard& keyboard,
-                                        const KeyboardLayout& layout, float alpha,
-                                        bool focusedKeys) const {
+                                        const KeyboardLayout& layout, float alpha) const {
     const float unit = layout.unit;
-    const TextStyle cap{keySp * unit};
+    const float cap = keySp * unit;
     const std::span<const GridKey> keys = gridKeys();
     for (std::size_t i = 0; i < keys.size() && i < layout.keys.size(); ++i) {
         const Rect& box = layout.keys[i];
-        const bool focused = focusedKeys && i == keyboard.keyFocus();
+        const bool focused = i == keyboard.keyFocus();
         const bool done = keys[i].kind == KeyKind::Done;
         const float radius = keyCornerDp * unit;
         canvas.fillRoundRect(onCanvas(box), radius, withAlpha(done ? outlineInk : cardFill, alpha));
@@ -201,11 +111,9 @@ void OnScreenKeyboardPainter::paintGrid(Canvas& canvas, const OnScreenKeyboard& 
         }
         const Colour ink = withAlpha(done ? white : palette::ink, alpha);
         if (keys[i].kind == KeyKind::Character) {
-            typeface_.drawInkCentred(canvas, keys[i].label, centreOf(box), cap, ink);
+            text_.drawInkCentred(canvas, keys[i].label, centreOf(box), cap, ink);
         } else {
-            typeface_.drawCentred(canvas, keys[i].label,
-                                  box.centreX() - typeface_.measure(keys[i].label, cap) * 0.5f,
-                                  box.centreY(), cap, ink);
+            text_.drawCentred(canvas, keys[i].label, Point{box.centreX() - text_.measure(keys[i].label, cap) * 0.5f, box.centreY()}, cap, ink);
         }
     }
 }
@@ -219,7 +127,7 @@ void OnScreenKeyboardPainter::paintWheel(Canvas& canvas, const OnScreenKeyboard&
     glyphs_.paint(canvas, "L3", centreOf(layout.ring), stickGlyphDp * unit,
                   withAlpha(palette::inkSoft, alpha));
 
-    const TextStyle mini{miniSp * unit};
+    const float mini = miniSp * unit;
     for (std::size_t petal = 0; petal < daisyPetals; ++petal) {
         const Rect bounds = layout.petalBounds(petal);
         const bool chosen = picked == petal;
@@ -237,7 +145,7 @@ void OnScreenKeyboardPainter::paintWheel(Canvas& canvas, const OnScreenKeyboard&
             const auto shown = static_cast<DaisyFace>(face);
             const auto [stepX, stepY] = faceStep(shown);
             const float offset = layout.petalRadius * miniOffsetShare;
-            typeface_.drawInkCentred(
+            text_.drawInkCentred(
                 canvas, characterOn(keyboard, petal, shown),
                 Point{bounds.centreX() + stepX * offset, bounds.centreY() + stepY * offset}, mini,
                 withAlpha(chosen ? white : palette::ink, alpha));
@@ -245,7 +153,7 @@ void OnScreenKeyboardPainter::paintWheel(Canvas& canvas, const OnScreenKeyboard&
     }
 
     // The picked petal's characters where the face buttons that type them sit.
-    const TextStyle large{faceSp * unit};
+    const float large = faceSp * unit;
     for (std::size_t face = 0; face < daisyFaces; ++face) {
         const auto shown = static_cast<DaisyFace>(face);
         const Rect bounds = layout.faceBounds(shown);
@@ -258,21 +166,21 @@ void OnScreenKeyboardPainter::paintWheel(Canvas& canvas, const OnScreenKeyboard&
         const bool focused = pointed && keyboard.keyFocus() == daisyPetals + face;
         canvas.fillCircle(centreOf(bounds), layout.faceRadius,
                           withAlpha(focused ? outlineInk : cardFill, alpha));
-        typeface_.drawInkCentred(canvas, characterOn(keyboard, *picked, shown), centreOf(bounds),
+        text_.drawInkCentred(canvas, characterOn(keyboard, *picked, shown), centreOf(bounds),
                                  large, withAlpha(focused ? white : palette::ink, alpha));
     }
 }
 
 float OnScreenKeyboardPainter::paintStrip(Canvas& canvas, const OnScreenKeyboard& keyboard,
                                           Point centre, float unit, float alpha, bool draw) const {
-    const TextStyle label{stripSp * unit};
+    const float label = stripSp * unit;
     const float glyph = stripGlyphDp * unit;
     const float pillHeight = glyph;
     const Colour ink = withAlpha(outlineInk, alpha);
     std::array<float, daisySets> pills{};
     float width = glyphs_.advance("LT", glyph) + glyphs_.advance("RT", glyph);
     for (std::size_t set = 0; set < daisySets; ++set) {
-        pills[set] = typeface_.measure(daisySetLabel(static_cast<DaisySet>(set)), label) +
+        pills[set] = text_.measure(daisySetLabel(static_cast<DaisySet>(set)), label) +
                      2.0f * pillPaddingDp * unit;
         width += pills[set] + pillGapDp * unit;
     }
@@ -280,7 +188,7 @@ float OnScreenKeyboardPainter::paintStrip(Canvas& canvas, const OnScreenKeyboard
     const std::array<HintPrompt, 2> shoulders{{{"LB", "Delete"}, {"RB", "Space"}}};
     for (const auto& [key, action] : shoulders) {
         width += groupGapDp * unit + glyphs_.advance(key, glyph) + stripGapDp * unit +
-                 typeface_.measure(action, label);
+                 text_.measure(action, label);
     }
     if (!draw) {
         return width;
@@ -300,8 +208,7 @@ float OnScreenKeyboardPainter::paintStrip(Canvas& canvas, const OnScreenKeyboard
         canvas.fillRoundRect(onCanvas(pill), pillHeight * 0.5f,
                              withAlpha(current ? outlineInk : cardFill, alpha));
         const std::string_view text = daisySetLabel(shown);
-        typeface_.drawCentred(canvas, text, pill.centreX() - typeface_.measure(text, label) * 0.5f,
-                              centre.y, label, withAlpha(current ? white : palette::ink, alpha));
+        text_.drawCentred(canvas, text, Point{pill.centreX() - text_.measure(text, label) * 0.5f, centre.y}, label, withAlpha(current ? white : palette::ink, alpha));
         x += pills[set] + pillGapDp * unit;
     }
     x += stripGapDp * unit - pillGapDp * unit;
@@ -310,17 +217,17 @@ float OnScreenKeyboardPainter::paintStrip(Canvas& canvas, const OnScreenKeyboard
         x += groupGapDp * unit;
         glyphAt(key);
         x += stripGapDp * unit;
-        typeface_.drawCentred(canvas, action, x, centre.y, label, ink);
-        x += typeface_.measure(action, label);
+        text_.drawCentred(canvas, action, Point{x, centre.y}, label, ink);
+        x += text_.measure(action, label);
     }
     return width;
 }
 
 void OnScreenKeyboardPainter::paintHints(Canvas& canvas, std::span<const HintPrompt> hints,
                                          const Rect& line, float unit, float alpha) const {
-    const float width = hintRowWidth(glyphs_, typeface_, hints, unit);
+    const float width = hintRowWidth(glyphs_, text_, hints, unit);
     const float fitted = width > line.width ? unit * line.width / width : unit;
-    paintHintRow(canvas, glyphs_, typeface_, hints, centreOf(line), fitted,
+    paintHintRow(canvas, glyphs_, text_, hints, centreOf(line), fitted,
                  withAlpha(outlineInk, alpha));
 }
 

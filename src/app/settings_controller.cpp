@@ -444,7 +444,8 @@ void SettingsController::act(gamepad::Button button) {
     if (shortcutEditor_.capturing()) {
         return;
     }
-    if (const std::optional<gpu2d::ui::Action> action = ui::interfaceActionOf(button)) {
+    if (const std::optional<gpu2d::ui::Action> action =
+            ui::interfaceActionOf(button, navigator_.typing())) {
         navigator_.act(*action);
     }
 }

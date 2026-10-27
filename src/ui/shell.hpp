@@ -24,14 +24,7 @@
 #include "chord_hint.hpp"
 #include "chord_hint_painter.hpp"
 #include "config/config.hpp"
-#include "context_menu.hpp"
-#include "context_menu_painter.hpp"
 #include "corner_hints.hpp"
-#include "cover_picker.hpp"
-#include "cover_picker_art.hpp"
-#include "cover_picker_painter.hpp"
-#include "details_page.hpp"
-#include "details_page_painter.hpp"
 #include "dock_metrics.hpp"
 #include "dock_motion.hpp"
 #include "dock_painter.hpp"
@@ -42,15 +35,14 @@
 #include "image_decoder.hpp"
 #include "input/chord_set.hpp"
 #include "input/prompts.hpp"
-#include "launch_panel.hpp"
-#include "launch_panel_painter.hpp"
+#include "interface_text.hpp"
 #include "library/game.hpp"
 #include "library/sections.hpp"
 #include "library/shelf.hpp"
 #include "mapping_page.hpp"
 #include "mapping_page_painter.hpp"
-#include "mode_chooser.hpp"
-#include "mode_chooser_painter.hpp"
+#include "on_screen_keyboard.hpp"
+#include "on_screen_keyboard_painter.hpp"
 #include "page_arrow.hpp"
 #include "page_pill.hpp"
 #include "paint.hpp"
@@ -60,16 +52,11 @@
 #include "rail_layout.hpp"
 #include "rail_painter.hpp"
 #include "screen_stack.hpp"
-#include "search_panel.hpp"
-#include "search_panel_painter.hpp"
 #include "section_view.hpp"
-#include "session_panels.hpp"
-#include "settings_panels.hpp"
 #include "tile.hpp"
 #include "tile_artwork.hpp"
 #include "tile_motion.hpp"
 #include "tile_painter.hpp"
-#include "typeface.hpp"
 #include "vector_icon.hpp"
 #include "volume_osd.hpp"
 #include "volume_osd_painter.hpp"
@@ -81,7 +68,7 @@ class Shell {
   public:
     using Clock = std::chrono::steady_clock;
 
-    /// `assetsDir` holds the typeface and the icons the shell draws.
+    /// `assetsDir` holds the face and the icons the shell draws.
     Shell(int width, int height, config::HomeMode mode, const std::filesystem::path& assetsDir);
     ~Shell();
 
@@ -109,8 +96,8 @@ class Shell {
     /// render.
     void loadArtworkNow();
 
-    /// Draws on `device` from here on: loads the typeface and makes every texture there. Once, when
-    /// the window is up; throws gpu2d::GpuError when no typeface loads.
+    /// Draws on `device` from here on: loads the face and makes every texture there. Once, when
+    /// the window is up; throws gpu2d::GpuError when no face loads.
     void attach(SDL_GPUDevice& device);
 
     /// Textures uploaded per frame, so a screenful of new covers spreads over a few frames.
@@ -164,9 +151,7 @@ class Shell {
     void setUiScale(float factor);
     /// The on-screen keyboard style every field opens with from now on.
     void setKeyboardStyle(input::KeyboardStyle style) noexcept {
-        search_.keyboard().setStyle(style);
-        settings_.entry().setStyle(style);
-        session_.password().setStyle(style);
+        keyboard_.setStyle(style);
     }
     /// Shows the volume display with `level`.
     void showVolume(const VolumeLevel& level) {
@@ -187,53 +172,26 @@ class Shell {
         return chordHint_.visible(now_);
     }
 
-    /// The search panel and the context menu. They fade in and out as they open and close.
-    [[nodiscard]] SearchPanel& searchPanel() noexcept {
-        return search_;
-    }
-    [[nodiscard]] ContextMenu& contextMenu() noexcept {
-        return context_;
-    }
-    /// "Choose artwork", the card over the details page listing a game's covers.
-    [[nodiscard]] CoverPicker& coverPicker() noexcept {
-        return cover_;
-    }
-    /// The details page of a game, which replaces the grid while it is open.
-    [[nodiscard]] DetailsPage& detailsPage() noexcept {
-        return details_;
-    }
-    [[nodiscard]] const DetailsPage& detailsPage() const noexcept {
-        return details_;
-    }
-    /// The interface toolkit's screens: the Guide menu, Settings and what opens over them.
+    /// The interface toolkit's screens: the Guide menu, Settings, a game's details, the tile
+    /// menu and what opens over them.
     [[nodiscard]] ScreenStack& screens() noexcept {
         return screens_;
     }
     [[nodiscard]] const ScreenStack& screens() const noexcept {
         return screens_;
     }
-    [[nodiscard]] SettingsPanels& settingsPanels() noexcept {
-        return settings_;
+    /// The on-screen keyboard docked along the bottom edge, which types into the focused field
+    /// and takes the place of the nav dock and the corner hints while it is up.
+    [[nodiscard]] OnScreenKeyboard& keyboard() noexcept {
+        return keyboard_;
     }
-    [[nodiscard]] const SettingsPanels& settingsPanels() const noexcept {
-        return settings_;
+    [[nodiscard]] const OnScreenKeyboard& keyboard() const noexcept {
+        return keyboard_;
     }
-    /// The dialog and password keyboard of installing session mode.
-    [[nodiscard]] SessionPanels& sessionPanels() noexcept {
-        return session_;
-    }
-    [[nodiscard]] const SessionPanels& sessionPanels() const noexcept {
-        return session_;
-    }
-    /// The on-screen keyboard docked along the bottom edge (search, a path, a password), which
-    /// takes the place of the nav dock and the corner hints; nullptr when none is open.
-    [[nodiscard]] const OnScreenKeyboard* dockedKeyboard() const noexcept;
-    /// Whether a panel that takes every button is up: the options, the search, a context menu, the
-    /// details page, a toolkit screen, the mapping editor or a session dialog.
+    /// Whether a panel that takes every button is up: a toolkit screen, the keyboard or the
+    /// mapping editor.
     [[nodiscard]] bool panelOpen() const noexcept {
-        return chooser_.isOpen() || search_.isOpen() || context_.isOpen() || cover_.isOpen() ||
-               details_.isOpen() || screens_.active() || settings_.anyOpen() || mapping_.isOpen() ||
-               session_.anyOpen();
+        return screens_.active() || keyboard_.isOpen() || mapping_.isOpen();
     }
 
     /// Which device the prompts name. The caller feeds it; the painters read it.
@@ -270,14 +228,6 @@ class Shell {
     /// whether it turned.
     bool focusPage(int page);
 
-    /// The picker for Library's layout, and whether it is up.
-    [[nodiscard]] ModeChooser& modeChooser() noexcept {
-        return chooser_;
-    }
-    [[nodiscard]] const ModeChooser& modeChooser() const noexcept {
-        return chooser_;
-    }
-
     /// Moves focus, and reports whether it moved.
     bool moveFocus(Direction direction);
 
@@ -303,9 +253,6 @@ class Shell {
     }
     [[nodiscard]] bool inGame() const noexcept {
         return inGame_;
-    }
-    [[nodiscard]] LaunchPanel& launchPanel() noexcept {
-        return launchPanel_;
     }
 
     [[nodiscard]] const std::vector<Tile>& tiles() const noexcept {
@@ -401,17 +348,8 @@ class Shell {
     [[nodiscard]] Tile makeTile(library::ShelfItem item) const;
     /// What `item` shows, leaving `tile`'s artwork and id.
     void fillTile(Tile& tile, library::ShelfItem item) const;
-    /// The details page's geometry this frame.
-    [[nodiscard]] DetailsLayout detailsLayout() const {
-        return layoutDetails(
-            static_cast<float>(width_), static_cast<float>(height_), dp(), hud_.topInset(),
-            hud_.bottomInset(),
-            DetailsParts{detailsPainter_.headerHeight(dp()), details_.view().buttons.size()});
-    }
     /// Starts `fade` when a panel's `open` state changed from `wasOpen`, which it then records.
     void followFade(PanelFade& fade, bool open, bool& wasOpen) const;
-    /// The textures the details page draws: the focused tile's.
-    [[nodiscard]] DetailsArt detailsArt() const;
     /// The tiles whose art is wanted now: those near the canvas, as the layout owner places them.
     [[nodiscard]] SlotRange artWindow() const;
     /// Fills `visual` with what `tile` shows: its art, frame, names and badges.
@@ -430,9 +368,11 @@ class Shell {
     /// tiles from `first` on.
     [[nodiscard]] std::vector<Rect> railSlots(const std::vector<Rect>& rects,
                                               std::size_t first) const;
-    /// What a click at `point` hits while a menu, a page, the launch panel or the layout picker is
-    /// up.
+    /// What a click at `point` hits while a menu, a page or the search is up.
     [[nodiscard]] PointerTarget pointAtModal(Point point) const;
+    /// Where the window's room above the docked keyboard ends, in pixels: its top while it is up,
+    /// else the window's bottom.
+    [[nodiscard]] float aboveKeyboard() const;
     /// What it hits on the home screen below the dock.
     [[nodiscard]] PointerTarget pointAtHome(Point point) const;
     /// The dock as it stands this frame in a `width` x `height` target.
@@ -458,8 +398,8 @@ class Shell {
     /// What stands for the folder in the XMB's left column.
     std::optional<Tile> header_;
     Platforms platforms_;
-    /// Before the painters that draw with them.
-    Typeface typeface_;
+    /// Before the painters that draw with it.
+    InterfaceText text_;
     IconAtlas icons_;
     /// Before the painters that read it.
     input::Prompts prompts_;
@@ -477,25 +417,14 @@ class Shell {
     /// The section whose dock item the pointer is on.
     std::optional<library::Section> dockHover_;
     std::array<IconPop, library::allSections.size()> iconPops_{IconPop{true}, IconPop{false}};
-    ModeChooser chooser_;
-    ScreenStack screens_{prompts_, typeface_};
-    SettingsPanels settings_{prompts_, typeface_};
-    SearchPanel search_;
-    PanelFade searchFade_{FadeSpec{120.0f, 120.0f, 0.96f, 140.0f, 1.0f}};
-    SearchPanelPainter searchPainter_{prompts_, typeface_};
-    ContextMenu context_;
-    PanelFade contextFade_{FadeSpec{110.0f, 95.0f, 0.96f, 110.0f, 0.985f}};
-    ContextMenuPainter contextPainter_{prompts_, typeface_};
-    CoverPicker cover_;
-    CoverPickerArt coverArt_;
-    PanelFade coverFade_{FadeSpec{110.0f, 95.0f, 0.96f, 110.0f, 0.985f}};
-    CoverPickerPainter coverPainter_{prompts_, typeface_};
-
-    DetailsPage details_;
-    PanelFade detailsFade_{FadeSpec{140.0f, 110.0f, 1.0f, 0.0f, 1.0f}};
+    /// Before the screens, whose prompts give way to it.
+    OnScreenKeyboard keyboard_;
+    ScreenStack screens_{prompts_, text_, keyboard_};
+    PanelFade keyboardFade_{FadeSpec{150.0f, 150.0f, 1.0f, 0.0f, 1.0f}};
+    OnScreenKeyboardPainter keyboardPainter_{prompts_, text_};
     MappingPage mapping_;
     PanelFade mappingFade_{FadeSpec{110.0f, 95.0f, 0.96f, 110.0f, 0.985f}};
-    MappingPagePainter mappingPainter_{prompts_, typeface_};
+    MappingPagePainter mappingPainter_{prompts_, text_};
 
     Clock::time_point now_{Clock::now()};
     Clock::time_point lastTick_{now_};
@@ -504,22 +433,17 @@ class Shell {
     std::size_t pressIndex_{};
     std::optional<Clock::time_point> entranceAt_;
 
-    TilePainter tilePainter_{icons_, typeface_};
-    DockPainter dockPainter_{prompts_, typeface_, icons_};
-    RailPainter railPainter_{typeface_, icons_};
-    DetailsPagePainter detailsPainter_{typeface_};
-    VolumeOsdPainter volumeOsdPainter_{typeface_};
-    ChordHintPainter chordHintPainter_{prompts_, typeface_};
+    TilePainter tilePainter_{icons_, text_};
+    DockPainter dockPainter_{prompts_, text_, icons_};
+    RailPainter railPainter_{text_, icons_};
+    VolumeOsdPainter volumeOsdPainter_{text_};
+    ChordHintPainter chordHintPainter_{prompts_, text_};
     /// The frame up to the dock, which the dock's glass blurs.
     std::optional<gpu2d::RenderTarget> scene_;
     SDL_GPUDevice* device_{};
-    ModeChooserPainter chooserPainter_{typeface_};
     PagePillPainter pillPainter_;
     PageArrowPainter arrowPainter_;
-    Hud hud_{prompts_, typeface_, icons_};
-    SessionPanels session_{prompts_, typeface_};
-    LaunchPanel launchPanel_;
-    LaunchPanelPainter launchPanelPainter_{prompts_, typeface_};
+    Hud hud_{prompts_, text_, icons_};
 
     config::HomeMode mode_;
     library::Section section_{library::Section::Home};
@@ -533,10 +457,7 @@ class Shell {
     bool entrancePending_{false};
     bool inGame_{false};
     bool pinLibraryDock_{true};
-    bool searchWasOpen_{false};
-    bool contextWasOpen_{false};
-    bool coverWasOpen_{false};
-    bool detailsWasOpen_{false};
+    bool keyboardWasOpen_{false};
     bool mappingWasOpen_{false};
 };
 

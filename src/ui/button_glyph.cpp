@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "input/keyboard_bindings.hpp"
-#include "typeface.hpp"
+#include "input/shortcuts.hpp"
+#include "interface_input.hpp"
+#include "interface_text.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -23,8 +25,6 @@ constexpr float vectorBarStroke = 2.0f;
 constexpr float pngRingOuter = 40.0f / 96.0f;
 constexpr float pngRingStroke = 6.0f / 96.0f;
 constexpr float pngCapHeight = 42.0f / 96.0f;
-// Cal Sans capitals are 0.7 em (OS/2 sCapHeight 700 of 1000).
-constexpr float capHeightPerEm = 0.7f;
 
 // lb_button.png and rb_button.png, 249 px: the outline spans 216 px, its large corner 85 px and
 // the others 25 px, and the letters stand 56 px tall.
@@ -118,7 +118,7 @@ std::vector<Point> shoulderOutline(Point centre, float side, bool bigOnLeft) {
     return points;
 }
 
-void paintShoulder(Canvas& canvas, Typeface& typeface, std::string_view key, Point centre,
+void paintShoulder(Canvas& canvas, gpu2d::ui::Typesetter& text, std::string_view key, Point centre,
                    float box, Colour ink) {
     const std::vector<Point> outline =
         shoulderOutline(centre, shoulderSide * box, key == "LB" || key == "LT");
@@ -126,34 +126,34 @@ void paintShoulder(Canvas& canvas, Typeface& typeface, std::string_view key, Poi
     for (std::size_t i = 0; i < outline.size(); ++i) {
         roundBar(canvas, outline[i], outline[(i + 1) % outline.size()], stroke, ink);
     }
-    const TextStyle letters{shoulderCapHeight * box / capHeightPerEm};
-    const float width = typeface.measure(key, letters);
-    typeface.drawCentred(canvas, key, centre.x - width * 0.5f, centre.y, letters, ink);
+    const float letters = shoulderCapHeight * box / capHeightPerEm;
+    const float width = text.measure(key, letters);
+    text.drawCentred(canvas, key, Point{centre.x - width * 0.5f, centre.y}, letters, ink);
 }
 
-TextStyle capLabelStyle(float box) {
-    return TextStyle{pngCapHeight * box / capHeightPerEm};
+float capLabelSize(float box) {
+    return pngCapHeight * box / capHeightPerEm;
 }
 
-float capWidth(Typeface& typeface, std::string_view label, float box) {
+float capWidth(gpu2d::ui::Typesetter& text, std::string_view label, float box) {
     return std::max(2.0f * pngRingOuter * box,
-                    typeface.measure(label, capLabelStyle(box)) + 2.0f * capLabelPadding * box);
+                    text.measure(label, capLabelSize(box)) + 2.0f * capLabelPadding * box);
 }
 
 /// `label` in a rounded outline the ring's height, as a key cap.
-void paintCap(Canvas& canvas, Typeface& typeface, std::string_view label, Point centre, float box,
-              Colour ink) {
+void paintCap(Canvas& canvas, gpu2d::ui::Typesetter& text, std::string_view label, Point centre,
+              float box, Colour ink) {
     const float height = 2.0f * pngRingOuter * box;
-    const float width = capWidth(typeface, label, box);
+    const float width = capWidth(text, label, box);
     const Rect cap{centre.x - width * 0.5f, centre.y - height * 0.5f, width, height};
     // The outline is drawn outside the cap's rectangle.
     const float stroke = pngRingStroke * box;
     canvas.strokeRoundRect(gpu2d::Rect{cap.x - stroke, cap.y - stroke, cap.width + 2.0f * stroke,
                                        cap.height + 2.0f * stroke},
                            cornerRadius(cap, capRoundness) + stroke, stroke, ink);
-    const TextStyle text = capLabelStyle(box);
-    const float textWidth = typeface.measure(label, text);
-    typeface.drawCentred(canvas, label, centre.x - textWidth * 0.5f, centre.y, text, ink);
+    const float size = capLabelSize(box);
+    const float textWidth = text.measure(label, size);
+    text.drawCentred(canvas, label, Point{centre.x - textWidth * 0.5f, centre.y}, size, ink);
 }
 
 void paintArrow(Canvas& canvas, Point direction, Point centre, float box, Colour ink) {
@@ -171,8 +171,12 @@ void paintArrow(Canvas& canvas, Point direction, Point centre, float box, Colour
 
 } // namespace
 
+bool ButtonGlyphPainter::keys() const noexcept {
+    return prompts_->device.current() == input::Device::KeyboardMouse;
+}
+
 std::optional<std::string> ButtonGlyphPainter::capLabel(std::string_view key) const {
-    if (prompts_->device.current() != input::Device::KeyboardMouse) {
+    if (!keys()) {
         return std::nullopt;
     }
     return prompts_->shortcuts.keyLabelForGlyph(key);
@@ -184,18 +188,18 @@ float ButtonGlyphPainter::advance(std::string_view key, float box) const {
         return box;
     }
     // The slack around the ring that the square leaves, so a cap sits as a ring does.
-    return capWidth(typeface_, label ? std::string_view{*label} : key, box) +
+    return capWidth(text_, label ? std::string_view{*label} : key, box) +
            (box - 2.0f * pngRingOuter * box);
 }
 
 void ButtonGlyphPainter::paint(Canvas& canvas, std::string_view key, Point centre, float box,
                                Colour ink) const {
     if (const std::optional<std::string> label = capLabel(key)) {
-        paintCap(canvas, typeface_, *label, centre, box, ink);
+        paintCap(canvas, text_, *label, centre, box, ink);
         return;
     }
     if (!hasShape(key)) {
-        paintCap(canvas, typeface_, key, centre, box, ink);
+        paintCap(canvas, text_, key, centre, box, ink);
         return;
     }
     if (const Point arrow = arrowOf(key); arrow.x != 0.0f || arrow.y != 0.0f) {
@@ -203,7 +207,7 @@ void ButtonGlyphPainter::paint(Canvas& canvas, std::string_view key, Point centr
         return;
     }
     if (isShoulder(key)) {
-        paintShoulder(canvas, typeface_, key, centre, box, ink);
+        paintShoulder(canvas, text_, key, centre, box, ink);
         return;
     }
     if (key == "-" || key == "+") {
@@ -221,9 +225,41 @@ void ButtonGlyphPainter::paint(Canvas& canvas, std::string_view key, Point centr
     }
     const float outer = pngRingOuter * box;
     ring(canvas, centre, outer - pngRingStroke * box, outer, ink);
-    const TextStyle letter{pngCapHeight * box / capHeightPerEm};
-    const float width = typeface_.measure(key, letter);
-    typeface_.drawCentred(canvas, key, centre.x - width * 0.5f, centre.y, letter, ink);
+    const float letter = pngCapHeight * box / capHeightPerEm;
+    const float width = text_.measure(key, letter);
+    text_.drawCentred(canvas, key, Point{centre.x - width * 0.5f, centre.y}, letter, ink);
+}
+
+std::string_view InterfacePrompts::glyph(gpu2d::ui::Action action) const {
+    // A physical keyboard finishes a line with the key A is on.
+    if (action == gpu2d::ui::Action::Submit && glyphs_.keys()) {
+        return input::glyphOf(gamepad::Button::A);
+    }
+    return input::glyphOf(buttonOfInterfaceAction(action));
+}
+
+bool InterfacePrompts::bound(gpu2d::ui::Action action, bool typing) {
+    if (!glyphs_.keys()) {
+        // The pad types on an open keyboard, whose own row names its buttons.
+        return !keyboard_.isOpen();
+    }
+    if (!typing) {
+        return true;
+    }
+    return std::ranges::any_of(typingKeys, [action](const TypingKey& key) {
+        return key.action == action;
+    });
+}
+
+float InterfacePrompts::width(gpu2d::ui::Action action, float height) {
+    return glyphs_.advance(glyph(action), height);
+}
+
+void InterfacePrompts::draw(gpu2d::Canvas& canvas, gpu2d::ui::Action action, const gpu2d::Rect& box,
+                            gpu2d::Colour ink) {
+    glyphs_.paint(canvas, glyph(action),
+                  gpu2d::Point{box.x + box.width * 0.5f, box.y + box.height * 0.5f}, box.height,
+                  ink);
 }
 
 } // namespace opensu::ui

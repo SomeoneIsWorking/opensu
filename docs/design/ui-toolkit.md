@@ -1,6 +1,6 @@
 # UI toolkit and settings schema
 
-Status: steps 1 and 2 built, step 3 in part (see 5). `gpu2d::ui` (gpu2d `docs/ui-toolkit.md`) has the theme, layout, widget
+Status: steps 1 to 3 built (see 5); step 4 started: all text on the toolkit's face, the home grid, rails and dock not yet on the stack. `gpu2d::ui` (gpu2d `docs/ui-toolkit.md`) has the theme, layout, widget
 tree, focus, `Navigator`, the widgets and motion; openSU's Settings screen runs on it
 (`src/app/settings_screen.*`, `src/ui/screen_stack.*`, `src/ui/interface_*`). Step 2: every
 layered setting is declared once in `settings::Schema` (`src/settings/setting_schema.*`: video,
@@ -8,8 +8,7 @@ shader preset, frame generation, the emulator pick, each core's options), and on
 (`src/app/layered_editor.*` over `src/app/layered_settings.*`) edits any scope from Settings ›
 Emulators, a game's details and the Guide menu (a panel over the game, changes applied live);
 `game_settings_page`, `shader_preset_picker`, `settings_tabs` and their painters and hit tests are
-deleted. Not yet: a TextField widget (the folder chooser and its keyboard still open over Settings
-from `ui::SettingsPanels`); core options' `SET_CORE_OPTIONS_DISPLAY` is not honoured, so options a
+deleted. Not yet: core options' `SET_CORE_OPTIONS_DISPLAY` is not honoured, so options a
 core hides for the loaded game (mGBA's Game Boy ones on a GBA game) are listed.
 
 The player: menus "aren't intuitive", it "looks rushed", "layered
@@ -136,11 +135,45 @@ Each step deletes the code it replaces before the next starts.
    Done: the Guide menu (one screen; Close game, Load state, Reset game and the power steps ask
    through `confirm`; volume, mute, brightness and interface size only there, Guide + A lands on
    Volume), Devices (X forgets a device after `confirm`), Downloads (gpu2d `Progress`, raised
-   `Card`), a shared row mapping (`ui::addRow`, `RowActions`) and page frame (`ui::pageFrame`);
-   `GuideMenu`, `QuickMenu`, their painters and `GuidePanels`, `QuickMenuController`, `PagePanel`,
-   `DownloadsPage`/`DownloadsPanel`, `rowEffect` and the Devices and Downloads pointer targets
-   deleted. Open: details' settings and controls, the context menu, the cover picker, the START
-   panel, the dialogs (session, plugin consent, uninstall, install offer, launch panel, integration
-   chooser, which still draws with `SettingsPage`), search and a TextField widget for it and the
-   folder chooser.
+   `Card`), the details page (`ui::GameDetails` model, cover through `ImageView`, Play and the
+   action rows through `ui::addRow`, Uninstall asks through `confirm`), the tile context menu (an
+   overlay over a scrim; Uninstall asks through `confirm`), the cover picker (an overlay grid of
+   gpu2d `CardButton`s, Y signs in to SteamGridDB), a shared row mapping (`ui::addRow`,
+   `RowActions`) and page frame (`ui::pageFrame`); `GuideMenu`, `QuickMenu`, their painters and
+   `GuidePanels`, `QuickMenuController`, `PagePanel`, `DownloadsPage`/`DownloadsPanel`,
+   `DetailsPage`, `ContextMenu`, `CoverPicker`, `CoverPickerArt`, their painters, the two-press
+   armed state, `rowEffect` and the Devices, Downloads, details, context menu, cover and backdrop
+   pointer targets deleted. Then the START panel (an overlay card: the layout cards as
+   `CardButton`s with a `LayoutSketch`, then the rows through `ui::addRow`, each change saved at
+   once), the session-mode question, the plugin consent and the install offer as gpu2d `Dialog`s
+   (`Dialog::Choice::exits` names the button Back stands for; Steam's licence: Decline), the launch,
+   install and session-install cards as one `ui::ProgressScreen` (gpu2d `Progress` with an
+   indeterminate sweep), and the first-run integration card (switches through `ui::addRow`, Done);
+   `ModeChooser`, `SessionDialog`, `SessionPanels`, `LaunchPanel`, `IntegrationChooser`,
+   `SettingsPage`, their painters, `RowEditing`, `rowOpens` and the layout card, options row, icon
+   size, panel button, dialog button and integration pointer targets deleted. Then text entry:
+   gpu2d `TextField` (masked for a secret), `Action::Erase` and `Submit`, `Navigator::typing` and
+   `setKeyboard`; the one on-screen keyboard (`OnScreenKeyboard`, driven by `app::KeyboardPad`)
+   became an input method that types into the focused field and holds no line of its own, docked
+   under overlays that lay out above it. Search (`search_screen`: the field, the results as items;
+   Start goes to them), the folder chooser (`folder_chooser_screen`: the Path field over Use this
+   folder, the clear choice, Up one level and the folders), the SteamGridDB key and the
+   administrator password (`ui::EntryScreen`) moved over; `SearchPanel`, `SettingsPanels`, the
+   search and folder chooser painters, the keyboard's own line, cursor, preview and Clear key, and
+   the search result and folder entry pointer targets deleted. Dropped with the keyboard's line:
+   the D-pad cursor (a field edits at its end) and the keyboard's Clear key; clearing is now the
+   field's own Y (`TextField`'s Tertiary, hinted "Clear" while it holds text), which Select gives
+   while the keyboard is up. A hint names only what the device in use can do now (gpu2d
+   `Prompts::bound`): a keyboard typing into a field shows Enter for Done and no Type, and a pad
+   over the open keyboard leaves the hints to the keyboard's own row.
 4. Home grid, rails and dock last: they already ease and work; they join the screen stack.
+   Done: text. Every painter (tile, rail, dock, top bar, status pill, breadcrumbs, corner hints,
+   toast, volume display, chord list, keyboard, mapping editor, button glyphs) measures and draws
+   through the toolkit's `Typesetter`, one face (`ui::InterfaceText`, hinted and kerned) with
+   gpu2d `Typesetter::drawCentred` and `sizeForLineHeight`; `TextGrid`, `Typeface`, `FaceMetrics`
+   and the dead `row_controls` are deleted, and with them the corner hints' letter spacing.
+   Left: the home grid, the XMB and Carousel rails and the dock as the navigator's bottom screen
+   (a paging and scrolling grid and a tab dock in gpu2d), then the top bar's crumbs and launcher
+   badges as widgets, deleting `Shell::pointAt`/`pointAtHome`/`focusTarget`, `PointerTarget`'s
+   `OnTile`, `OnPage`, `OnDock`, `OnCrumb`, `OnLauncher` and `OnKeyboardKey`, `PointerRouter`, the
+   home switch in `ShellApp::actOn` and the painters the widgets replace.

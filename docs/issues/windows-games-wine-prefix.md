@@ -32,7 +32,7 @@ proton path to Steam, can be configurable how Steam is handled".
 
 Tests: `tests/library/wine_test.cpp` (discovery against a fake PATH and fake Steam folders,
 prefixes, arguments, refusals), `gog_test`, `epic_test` (`windowsInstall`), `settings_test`
-(round trip), `details_page_test` and `details_page_flow_test` (the button, kept on disk),
+(round trip), `game_details_test` and `details_page_flow_test` (the row, kept on disk),
 `settings_controller_test` (the Wine category, runner stepping, Steam's folders unchanged, a launch
 prepared with the picked runner), `uninstall_job_test` (both prefixes kept).
 

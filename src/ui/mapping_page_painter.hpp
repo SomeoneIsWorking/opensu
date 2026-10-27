@@ -11,14 +11,14 @@
 #include "button_glyph.hpp"
 #include "mapping_page.hpp"
 #include "panel_fade.hpp"
-#include "typeface.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 
 namespace opensu::ui {
 
 class MappingPagePainter {
   public:
-    MappingPagePainter(const input::Prompts& prompts, Typeface& typeface) noexcept
-        : typeface_{typeface}, glyphs_{prompts, typeface} {
+    MappingPagePainter(const input::Prompts& prompts, gpu2d::ui::Typesetter& text) noexcept
+        : text_{text}, glyphs_{prompts, text} {
     }
 
     /// Draws `page` into a frame of `size` at `dp` pixels per dp, as faded and scaled by `look`.
@@ -53,7 +53,7 @@ class MappingPagePainter {
     float paintGlyphRun(Canvas& canvas, std::span<const std::string> keys, float x, float centreY,
                         float box, Colour ink) const;
 
-    Typeface& typeface_;
+    gpu2d::ui::Typesetter& text_;
     ButtonGlyphPainter glyphs_;
 };
 

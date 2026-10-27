@@ -1,6 +1,6 @@
 // A built-in emulator's core downloaded from where the player meets its absence, through the
 // shipping job, screens and ROM listing, against a fake buildbot: the details page's Download
-// button, Play starting opensu-retro on the core, and Settings › Emulators showing the buildbot
+// row, Play starting opensu-retro on the core, and Settings › Emulators showing the buildbot
 // as its source, the update check, an update and Remove, asked first.
 #include <algorithm>
 #include <chrono>
@@ -8,6 +8,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -21,6 +22,7 @@
 #include "library/emulator_choice.hpp"
 #include "library/roms.hpp"
 #include "support/buildbot_server.hpp"
+#include "support/fake_interface_text.hpp"
 #include "support/scratch_dir.hpp"
 #include "ui/check.hpp"
 
@@ -28,7 +30,7 @@ namespace {
 
 namespace fs = std::filesystem;
 using namespace opensu;
-using gamepad::Button;
+using gpu2d::ui::Action;
 using test::expect;
 
 constexpr auto wait = std::chrono::seconds{10};
@@ -100,7 +102,9 @@ struct Rig {
                                    }};
     std::vector<std::pair<std::string, bool>> said;
     std::vector<library::LaunchSpec> launched;
-    ui::DetailsPage page;
+    test::InterfaceRig face;
+    ui::ScreenImages images;
+    ui::Chrome chrome;
     audio::SdlSoundPlayer sounds;
     app::EmulatorDownloads downloads{
         setup(), app::EmulatorDownloads::Hooks{[this](const std::string& text, bool error) {
@@ -133,13 +137,8 @@ struct Rig {
                                                         }}};
     library::Game shown = game();
     app::DetailsController details{
-        page,
-        sounds,
-        preferences,
-        gameSettings,
-        downloads,
-        uninstall,
-        update,
+        app::DetailsController::Place{face.navigator, chrome, images}, sounds,
+        app::DetailsController::Services{preferences, gameSettings, downloads, uninstall, update},
         app::DetailsController::Hooks{[this] {
                                           return &shown;
                                       },
@@ -166,6 +165,14 @@ struct Rig {
                                       },
                                       [](const library::Game&) {
                                       }}};
+
+    /// Each action as a press, the stack settled after it.
+    void press(std::initializer_list<Action> actions) {
+        for (const Action action : actions) {
+            face.navigator.act(action);
+            face.frame(1.0);
+        }
+    }
 };
 
 const ui::SettingsRow& rowOf(const ui::SettingsCategory& page, const std::string& id) {
@@ -212,18 +219,18 @@ void detailsDownloadsTheCore(const fs::path& root) {
                rig.shown.emulatorOptions[0].downloadable,
            "a Game Boy ROM lists the built-in emulator, not yet downloaded");
     rig.details.open();
-    const auto& buttons = rig.page.view().buttons;
-    expect(buttons.size() == 6 && buttons[1].action == ui::DetailsAction::DownloadEmulator &&
-               buttons[1].label == "Download GB (built-in)",
+    rig.face.frame(1.0);
+    const ui::SettingsRow* download = ui::actionOf(*rig.details.details(), ui::detailsDownloadId);
+    expect(download != nullptr && download->label == "Download GB (built-in)",
            "the details page offers its core");
-    rig.details.act(Button::Down);
-    rig.details.act(Button::A);
+    rig.press({Action::Down, Action::Accept});
     rig.settle();
     expect(!rig.said.back().second &&
                rig.said.back().first == "GB (built-in) 2026-10-01 is installed",
            "the core is installed with its build date");
     rig.details.refresh();
-    rig.details.act(Button::A);
+    rig.face.frame(1.0);
+    rig.press({Action::Accept});
     const fs::path core = root / "cores" / "mgba_libretro.so";
     expect(rig.launched.size() == 1 &&
                rig.launched[0].program == (root / "bin" / "opensu-retro").string() &&

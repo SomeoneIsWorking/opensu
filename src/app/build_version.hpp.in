@@ -1,5 +1,5 @@
 // build_version — the version this build of openSU is: the release's, else what git described
-// when the build was configured.
+// at build time.
 #pragma once
 
 #include <string_view>

@@ -1,19 +1,24 @@
-// The details page's buttons through the controller (the two-press Uninstall too), and the
-// breadcrumb trail built from the shell's state.
+// The details page on the interface toolkit, driven through the navigator as the shell drives it:
+// its launch button and rows reach their hooks, Uninstall asks first, the page follows the game,
+// and the breadcrumb trail built from the shell's state.
 #include "breadcrumb_trail.hpp"
 #include "details_controller.hpp"
 
 #include <cstdio>
 #include <filesystem>
+#include <initializer_list>
 #include <string>
+#include <string_view>
 #include <vector>
 
+#include "support/fake_interface_text.hpp"
 #include "ui/check.hpp"
 
 namespace {
 
 namespace fs = std::filesystem;
 using namespace opensu;
+using gpu2d::ui::Action;
 using opensu::test::expect;
 
 library::Game rom(const std::string& id) {
@@ -33,7 +38,9 @@ library::Game rom(const std::string& id) {
 }
 
 struct Rig {
-    ui::DetailsPage page;
+    test::InterfaceRig ui;
+    ui::ScreenImages images;
+    ui::Chrome chrome;
     audio::SdlSoundPlayer sounds;
     app::Preferences preferences;
     app::GameSettings gameSettings;
@@ -83,13 +90,9 @@ struct Rig {
                                            [this](const std::string& text, bool) {
                                                calls.push_back("say " + text);
                                            }}},
-          controller{page,
-                     sounds,
-                     preferences,
-                     gameSettings,
-                     downloads,
-                     uninstall,
-                     update,
+          controller{app::DetailsController::Place{ui.navigator, chrome, images}, sounds,
+                     app::DetailsController::Services{preferences, gameSettings, downloads,
+                                                      uninstall, update},
                      app::DetailsController::Hooks{
                          [this] {
                              return &game;
@@ -122,92 +125,116 @@ struct Rig {
                              calls.push_back("artwork " + opened.id);
                          }}} {
     }
-};
 
-using gamepad::Button;
+    void open() {
+        controller.open();
+        ui.frame(1.0);
+    }
+    /// Each action as a press, the stack settled after it.
+    void press(std::initializer_list<Action> actions) {
+        for (const Action action : actions) {
+            ui.navigator.act(action);
+            ui.frame(1.0);
+        }
+    }
+    [[nodiscard]] std::string top() const {
+        const gpu2d::ui::Screen* screen = ui.navigator.top();
+        return screen == nullptr ? std::string{} : screen->id();
+    }
+    [[nodiscard]] std::string focused() const {
+        return ui.navigator.focused();
+    }
+    [[nodiscard]] const ui::SettingsRow& row(std::string_view id) const {
+        const ui::SettingsRow* found = ui::actionOf(*controller.details(), id);
+        expect(found != nullptr, "the row is on the page");
+        return *found;
+    }
+};
 
 void buttonsDoWhatTheyName(const fs::path& dir) {
     Rig rig{dir};
-    rig.controller.open();
-    expect(rig.page.isOpen(), "A on a game's tile opens its details");
-    rig.controller.act(Button::A);
-    expect(rig.calls == std::vector<std::string>{"launch rom:/r/Kirby.nsp"} && rig.page.isOpen(),
+    rig.open();
+    expect(rig.controller.isOpen() && rig.top() == "details" &&
+               rig.focused() == ui::detailsLaunchId,
+           "A on a game's tile opens its details on Play");
+    rig.press({Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"launch rom:/r/Kirby.nsp"} &&
+               rig.controller.isOpen(),
            "Play launches the page's game and the page stays");
     rig.calls.clear();
-    rig.controller.act(Button::Down);
-    rig.controller.act(Button::A);
+    rig.press({Action::Down});
+    expect(rig.focused() == ui::detailsEmulatorId, "the emulator follows Play");
+    rig.press({Action::Accept, Action::Down, Action::Accept});
     expect(rig.calls == std::vector<std::string>{"emulator Ryujinx"},
-           "A on Emulator picks the next");
+           "A on Emulator lists them, and the one picked is the game's");
     rig.calls.clear();
-    rig.controller.act(Button::Left);
+    rig.press({Action::Left});
     expect(rig.calls == std::vector<std::string>{"emulator Ryujinx"},
            "Left on Emulator steps back, wrapping");
     rig.calls.clear();
-    rig.controller.act(Button::Down);
-    rig.controller.act(Button::A);
-    expect(rig.calls == std::vector<std::string>{"hide"} && !rig.page.isOpen(),
+    rig.press({Action::Down, Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"hide"} && !rig.controller.isOpen(),
            "Hide hides the game and closes the page");
 }
 
 void backClosesWithoutActing(const fs::path& dir) {
     Rig rig{dir};
-    rig.controller.open();
-    rig.controller.act(Button::B);
-    expect(!rig.page.isOpen() && rig.calls.empty(), "B closes the page and does nothing else");
-    rig.controller.open();
-    rig.controller.act(Button::Down);
-    rig.controller.act(Button::Down);
-    rig.controller.act(Button::Down);
-    rig.controller.act(Button::A);
-    expect(rig.calls == std::vector<std::string>{"artwork rom:/r/Kirby.nsp"} && rig.page.isOpen(),
+    rig.open();
+    rig.press({Action::Back});
+    expect(!rig.controller.isOpen() && rig.calls.empty(),
+           "B closes the page and does nothing else");
+    rig.open();
+    rig.press({Action::Down, Action::Down, Action::Down, Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"artwork rom:/r/Kirby.nsp"} &&
+               rig.controller.isOpen(),
            "Choose artwork opens the cover picker over the page");
     rig.calls.clear();
-    rig.controller.act(Button::Down);
-    rig.controller.act(Button::A);
-    expect(rig.calls == std::vector<std::string>{"controls rom:/r/Kirby.nsp"} && rig.page.isOpen(),
+    rig.press({Action::Down, Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"controls rom:/r/Kirby.nsp"} &&
+               rig.controller.isOpen(),
            "Controls opens the game's mapping over the page");
     rig.calls.clear();
-    rig.controller.act(Button::Down);
-    rig.controller.act(Button::A);
-    expect(!rig.page.isOpen() && rig.calls.empty(), "the Back button closes it too");
-    rig.controller.act(Button::Select);
-    expect(rig.calls.empty(), "Select does nothing on the page");
+    rig.press({Action::Down, Action::Accept});
+    expect(!rig.controller.isOpen() && rig.calls.empty(), "the Back row closes it too");
 }
 
-void uninstallTakesTwoPresses(const fs::path& dir) {
+library::Game fortnite() {
+    library::Game game;
+    game.id = "epic:Fortnite";
+    game.title = "Fortnite";
+    game.source = library::Source::Epic;
+    game.sourceId = "Fortnite";
+    game.installed = true;
+    return game;
+}
+
+void uninstallAsksFirst(const fs::path& dir) {
     Rig rig{dir};
-    rig.game = library::Game{};
-    rig.game.id = "epic:Fortnite";
-    rig.game.title = "Fortnite";
-    rig.game.source = library::Source::Epic;
-    rig.game.sourceId = "Fortnite";
-    rig.game.installed = true;
-    rig.controller.open();
-    rig.controller.act(Button::Down);
-    rig.controller.act(Button::Down);
-    expect(rig.page.selected() == ui::DetailsAction::Uninstall, "Uninstall follows Hide");
-    rig.controller.act(Button::A);
-    expect(rig.calls.empty() && rig.page.armed() &&
-               rig.page.confirm() == "legendary deletes the Epic copy" &&
-               rig.page.shown(rig.page.focus()) == "Press A again to uninstall",
-           "the first press arms it with what goes and removes nothing");
-    rig.controller.act(Button::Up);
-    expect(!rig.page.armed(), "moving focus lets go of it");
-    rig.controller.act(Button::Down);
-    rig.controller.act(Button::A);
-    rig.controller.act(Button::A);
+    rig.game = fortnite();
+    rig.open();
+    rig.press({Action::Down, Action::Down});
+    expect(rig.focused() == ui::detailsUninstallId, "Uninstall follows Hide");
+    rig.press({Action::Accept});
+    expect(rig.calls.empty() && rig.top() == "dialog" &&
+               rig.ui.navigator.top()->title() == "Uninstall Fortnite?" &&
+               rig.focused() == "dialog/1",
+           "A asks first, its Uninstall focused, and removes nothing");
+    rig.press({Action::Back});
+    expect(rig.calls.empty() && rig.top() == "details" && rig.focused() == ui::detailsUninstallId,
+           "Back keeps the game and the page");
+    rig.press({Action::Accept, Action::Accept});
     expect((rig.calls ==
             std::vector<std::string>{"uninstall epic:Fortnite", "say uninstalling Fortnite"}) &&
-               !rig.page.armed() && rig.page.isOpen(),
-           "the second press starts the uninstall and the page stays");
+               rig.top() == "details",
+           "A, A starts the uninstall and the page stays");
     rig.calls.clear();
     rig.refusal = "Fortnite is still installing";
-    rig.controller.act(Button::A);
+    rig.press({Action::Accept});
     expect(
         (rig.calls ==
          std::vector<std::string>{"say cannot uninstall Fortnite: Fortnite is still installing"}) &&
-            !rig.page.armed(),
-        "a refused first press says why and arms nothing");
+            rig.top() == "details",
+        "a refused Uninstall says why and asks nothing");
 }
 
 void updateStartsWithOnePress(const fs::path& dir) {
@@ -218,26 +245,22 @@ void updateStartsWithOnePress(const fs::path& dir) {
     rig.game.source = library::Source::Gog;
     rig.game.sourceId = "2";
     rig.game.installed = true;
-    rig.controller.open();
-    expect(std::ranges::none_of(rig.page.view().buttons,
-                                [](const ui::DetailsButton& button) {
-                                    return button.action == ui::DetailsAction::Update;
-                                }),
+    rig.open();
+    expect(ui::actionOf(*rig.controller.details(), ui::detailsUpdateId) == nullptr,
            "a game with no update known has no Update");
     rig.controller.close();
+    rig.ui.frame(1.0);
     rig.game.updateAvailable = true;
-    rig.controller.open();
-    rig.controller.act(Button::Down);
-    expect(rig.page.selected() == ui::DetailsAction::Update, "Update follows Play");
-    expect(rig.page.view().rows.front().value == "Installed, update available",
-           "the status says an update is there");
-    rig.controller.act(Button::A);
+    rig.open();
+    rig.press({Action::Down});
+    expect(rig.focused() == ui::detailsUpdateId, "Update follows Play");
+    rig.press({Action::Accept});
     expect((rig.calls == std::vector<std::string>{"update gog:2", "say updating Beta"}) &&
-               rig.page.isOpen(),
+               rig.controller.isOpen(),
            "one press starts the update and the page stays");
     rig.calls.clear();
     rig.updateRefusal = "Beta is running";
-    rig.controller.act(Button::A);
+    rig.press({Action::Accept});
     expect((rig.calls ==
             std::vector<std::string>{"update gog:2", "say cannot update Beta: Beta is running"}),
            "a refused update says why");
@@ -245,40 +268,38 @@ void updateStartsWithOnePress(const fs::path& dir) {
 
 void winePrefixIsChosenPerGame(const fs::path& dir) {
     Rig rig{dir};
-    rig.game = library::Game{};
-    rig.game.id = "epic:Fortnite";
-    rig.game.title = "Fortnite";
-    rig.game.source = library::Source::Epic;
-    rig.game.sourceId = "Fortnite";
-    rig.game.installed = true;
+    rig.game = fortnite();
     rig.game.windowsInstall = true;
-    rig.controller.open();
-    rig.controller.act(Button::Down);
-    expect(rig.page.selected() == ui::DetailsAction::WinePrefix &&
-               rig.page.view().buttons[1].value == "Shared",
+    rig.open();
+    rig.press({Action::Down});
+    expect(rig.focused() == ui::detailsWinePrefixId &&
+               rig.row(ui::detailsWinePrefixId).value == ui::sharedPrefix,
            "a Windows install follows Play with its prefix, shared");
-    rig.controller.act(Button::A);
+    rig.press({Action::Right});
     expect(
-        rig.page.view().buttons[1].value == "Own" &&
+        rig.row(ui::detailsWinePrefixId).value == ui::ownPrefix &&
             settings::Store{dir / "settings.json"}.load().ownWinePrefixes.contains("epic:Fortnite"),
-        "A gives the game its own prefix and keeps that");
+        "Right gives the game its own prefix and keeps that");
     expect(rig.calls == std::vector<std::string>{"say Fortnite gets a Wine prefix of its own"},
            "the player is told");
-    rig.controller.act(Button::A);
-    expect(rig.page.view().buttons[1].value == "Shared" &&
+    rig.press({Action::Right});
+    expect(rig.row(ui::detailsWinePrefixId).value == ui::sharedPrefix &&
                settings::Store{dir / "settings.json"}.load().ownWinePrefixes.ids().empty(),
-           "a second A shares the prefix again");
+           "again shares the prefix again");
 }
 
 void refreshFollowsTheGame(const fs::path& dir) {
     Rig rig{dir};
-    rig.controller.open();
+    rig.open();
     rig.game.emulator = "Ryujinx";
     rig.controller.refresh();
-    expect(rig.page.view().buttons[1].value == "Ryujinx", "a refresh shows the new emulator");
+    expect(rig.row(ui::detailsEmulatorId).value == "Ryujinx", "a refresh shows the new emulator");
+    expect(rig.controller.details()->title == "Kirby", "the trail reads the page's game");
     rig.game.id = "rom:/gone";
     rig.controller.refresh();
-    expect(!rig.page.isOpen(), "a game that left the shelf closes the page");
+    rig.ui.frame(1.0);
+    expect(!rig.controller.isOpen() && rig.controller.details() == nullptr,
+           "a game that left the shelf closes the page");
 }
 
 void trail() {
@@ -324,7 +345,7 @@ int main() {
     buttonsDoWhatTheyName(dir);
     backClosesWithoutActing(dir);
     refreshFollowsTheGame(dir);
-    uninstallTakesTwoPresses(dir);
+    uninstallAsksFirst(dir);
     updateStartsWithOnePress(dir);
     winePrefixIsChosenPerGame(dir / "wine");
     trail();

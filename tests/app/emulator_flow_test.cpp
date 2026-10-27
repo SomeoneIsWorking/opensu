@@ -1,5 +1,5 @@
 // Downloading an emulator from where the player meets its absence, through the shipping job,
-// screens and ROM listing, against a fake release host: the details page's Download button with
+// screens and ROM listing, against a fake release host: the details page's Download row with
 // its progress, Play working once it is installed, and the Settings screen's Emulators category
 // (update check, update, a refused update, Remove asked first, each system's default).
 #include <chrono>
@@ -7,6 +7,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -20,6 +21,7 @@
 #include "layered_settings.hpp"
 #include "library/emulator_choice.hpp"
 #include "library/roms.hpp"
+#include "support/fake_interface_text.hpp"
 #include "support/release_server.hpp"
 #include "ui/check.hpp"
 
@@ -27,7 +29,7 @@ namespace {
 
 namespace fs = std::filesystem;
 using namespace opensu;
-using gamepad::Button;
+using gpu2d::ui::Action;
 using test::expect;
 
 constexpr auto wait = std::chrono::seconds{10};
@@ -93,7 +95,9 @@ struct Rig {
     std::vector<std::pair<std::string, bool>> said;
     std::vector<std::string> launched;
     int changes{0};
-    ui::DetailsPage page;
+    test::InterfaceRig face;
+    ui::ScreenImages images;
+    ui::Chrome chrome;
     audio::SdlSoundPlayer sounds;
     app::EmulatorDownloads downloads{
         setup(), app::EmulatorDownloads::Hooks{[this](const std::string& text, bool error) {
@@ -152,13 +156,8 @@ struct Rig {
                                                         }}};
     library::Game shown = game();
     app::DetailsController details{
-        page,
-        sounds,
-        preferences,
-        gameSettings,
-        downloads,
-        uninstall,
-        update,
+        app::DetailsController::Place{face.navigator, chrome, images}, sounds,
+        app::DetailsController::Services{preferences, gameSettings, downloads, uninstall, update},
         app::DetailsController::Hooks{[this] {
                                           return &shown;
                                       },
@@ -185,6 +184,14 @@ struct Rig {
                                       },
                                       [](const library::Game&) {
                                       }}};
+
+    /// Each action as a press, the stack settled after it.
+    void press(std::initializer_list<Action> actions) {
+        for (const Action action : actions) {
+            face.navigator.act(action);
+            face.frame(1.0);
+        }
+    }
 };
 
 const ui::SettingsRow& rowOf(const ui::SettingsCategory& page, const std::string& id) {
@@ -215,12 +222,12 @@ void detailsDownloadsTheMissingEmulator(const fs::path& root) {
     expect(rig.shown.launch.empty() && rig.shown.unavailable.find("Emu") != std::string::npos,
            "a ROM without its emulator cannot start");
     rig.details.open();
-    const auto& buttons = rig.page.view().buttons;
-    expect(buttons.size() == 6 && buttons[1].action == ui::DetailsAction::DownloadEmulator &&
-               buttons[1].label == "Download Emu",
-           "the details page offers the missing emulator right there");
-    rig.details.act(Button::Down);
-    rig.details.act(Button::A);
+    rig.face.frame(1.0);
+    const ui::SettingsRow* download = ui::actionOf(*rig.details.details(), ui::detailsDownloadId);
+    expect(download != nullptr && download->label == "Download Emu" &&
+               rig.details.details()->actions.front().id == ui::detailsDownloadId,
+           "the details page offers the missing emulator right after Play");
+    rig.press({Action::Down, Action::Accept});
     expect(rig.downloads.progress().has_value(), "A starts the download in the background");
     const auto until = std::chrono::steady_clock::now() + wait;
     while (!rig.downloads.downloaded("emu") && std::chrono::steady_clock::now() < until) {
@@ -235,9 +242,11 @@ void detailsDownloadsTheMissingEmulator(const fs::path& root) {
                rig.changes == 1,
            "it is installed and the library is asked to read again");
     rig.details.refresh();
-    expect(rig.page.view().buttons.size() == 5 && rig.page.selected() == ui::DetailsAction::Launch,
-           "the Download button goes and focus is on Play");
-    rig.details.act(Button::A);
+    rig.face.frame(1.0);
+    expect(ui::actionOf(*rig.details.details(), ui::detailsDownloadId) == nullptr &&
+               rig.face.navigator.focused() == ui::detailsLaunchId,
+           "the Download row goes and focus is on Play");
+    rig.press({Action::Accept});
     expect(rig.launched.size() == 1 && rig.launched[0].ends_with("Emu-1.AppImage"),
            "Play starts the game on the downloaded AppImage without leaving the page");
 }
@@ -247,9 +256,8 @@ void detailsCancels(const fs::path& root) {
     rig.server.publish("emu", "v1", 1, "Emu-1.AppImage",
                        std::string(std::size_t{16} * 1024 * 1024, 'x'));
     rig.details.open();
-    rig.details.act(Button::Down);
-    rig.details.act(Button::A);
-    rig.details.act(Button::A);
+    rig.face.frame(1.0);
+    rig.press({Action::Down, Action::Accept, Action::Accept});
     rig.settle();
     expect(rig.said.back().first == "Emu download cancelled" && rig.changes == 0 &&
                !rig.downloads.downloaded("emu"),

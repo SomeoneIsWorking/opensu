@@ -1,10 +1,13 @@
 // image_view — a picture on an interface-toolkit screen: a file's image cropped to fill a rounded
-// box of a fixed aspect, a plain box of the control colour while it loads or when there is none.
+// box of a fixed aspect, or shown whole inside its frame; a plain box of the control colour while
+// it loads or when there is none.
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <utility>
 
+#include "gpu2d/ui/layout.hpp"
 #include "gpu2d/ui/widget.hpp"
 
 #include "screen_images.hpp"
@@ -16,6 +19,14 @@ class ImageView final : public gpu2d::ui::Widget {
     /// `aspect` is width over height.
     ImageView(ScreenImages& images, std::filesystem::path file, float aspect)
         : images_{images}, file_{std::move(file)}, aspect_{aspect} {
+        images_.want(file_);
+    }
+
+    /// Shows the picture whole at its own shape, as large as the frame allows, placed across the
+    /// frame by `across` and at its top; the box while it loads keeps the view's aspect.
+    ImageView& whole(gpu2d::ui::Align across) noexcept {
+        whole_ = across;
+        return *this;
     }
 
     [[nodiscard]] gpu2d::ui::Size measure(gpu2d::ui::LayoutContext& context,
@@ -23,9 +34,13 @@ class ImageView final : public gpu2d::ui::Widget {
     void paint(gpu2d::ui::Painter& painter) const override;
 
   private:
+    /// The box a picture `width` x `height` is drawn in.
+    [[nodiscard]] gpu2d::Rect box(float width, float height) const noexcept;
+
     ScreenImages& images_;
     std::filesystem::path file_;
     float aspect_;
+    std::optional<gpu2d::ui::Align> whole_;
 };
 
 } // namespace opensu::ui

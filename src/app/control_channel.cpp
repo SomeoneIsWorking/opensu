@@ -184,7 +184,6 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     text("searchText", snapshot.searchText);
     flag("contextMenuOpen", snapshot.contextMenuOpen);
     flag("detailsOpen", snapshot.detailsOpen);
-    flag("armed", snapshot.armed);
     flag("settingsOpen", snapshot.settingsOpen);
     flag("firstRunOpen", snapshot.firstRunOpen);
     flag("folderPickerOpen", snapshot.folderPickerOpen);

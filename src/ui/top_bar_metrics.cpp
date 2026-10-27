@@ -18,7 +18,6 @@ constexpr float titleMediumSp = 16.0f;
 constexpr float labelSizeSp = 16.0f;
 constexpr float labelLineSp = 24.0f * 1.08f;
 constexpr float labelLineScale = 0.92f;
-constexpr float labelTrackingEm = 0.03f;
 // iiSU pp4.e under Cal Sans: -(clamp(t, 0.5, 1.6) * 1.8).
 constexpr float calSansNudge = 1.8f;
 // iiSU mw5.l p11: the entries' base text offset; jj2.p0 lowers it by 0.65 for +, - and X.
@@ -150,7 +149,6 @@ HintPanelMetrics TopBarMetrics::hintPanels() const noexcept {
     panel.cornerRadius = 8.0f;
     panel.labelSize = labelSizeSp * textScale_;
     panel.labelLineHeight = labelLineSp * textScale_ * labelLineScale;
-    panel.labelTracking = labelTrackingEm;
     panel.labelNudge = -clampTo(text, 0.5f, 1.6f) * calSansNudge;
     const float floorScale = clampTo(f / 0.94f, 0.65f, 1.1f);
     panel.minHeight = promptRowHeight(floorScale) - clampTo(4.0f * floorScale, 2.0f, 4.0f);

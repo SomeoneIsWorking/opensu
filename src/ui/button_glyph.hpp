@@ -15,8 +15,10 @@
 
 #include "paint.hpp"
 
+#include "gpu2d/ui/typesetter.hpp"
+
 #include "input/prompts.hpp"
-#include "typeface.hpp"
+#include "on_screen_keyboard.hpp"
 
 namespace opensu::ui {
 
@@ -24,8 +26,8 @@ namespace opensu::ui {
 /// outline in the ring's size and stroke around the key's label.
 class ButtonGlyphPainter {
   public:
-    ButtonGlyphPainter(const input::Prompts& prompts, Typeface& typeface) noexcept
-        : prompts_{&prompts}, typeface_{typeface} {
+    ButtonGlyphPainter(const input::Prompts& prompts, gpu2d::ui::Typesetter& text) noexcept
+        : prompts_{&prompts}, text_{text} {
     }
 
     /// How wide the glyph for `key` is in a `box`-sized square: `box` for a controller button, and
@@ -35,13 +37,35 @@ class ButtonGlyphPainter {
     /// Draws the glyph for `key` (`input::glyphOf`: "A", "+", "LB", "LT", "UP", "L3", "GUIDE") in a
     /// `box`-sized square centred on `centre`.
     void paint(Canvas& canvas, std::string_view key, Point centre, float box, Colour ink) const;
+    /// Whether glyphs draw as keyboard keys: the keyboard and mouse were last used.
+    [[nodiscard]] bool keys() const noexcept;
 
   private:
     /// The key cap text to draw for `key`, or nothing to draw the controller's glyph.
     [[nodiscard]] std::optional<std::string> capLabel(std::string_view key) const;
 
     const input::Prompts* prompts_;
-    Typeface& typeface_;
+    gpu2d::ui::Typesetter& text_;
+};
+
+/// The interface toolkit's prompts, drawn as the glyphs of the device last used.
+class InterfacePrompts final : public gpu2d::ui::Prompts {
+  public:
+    InterfacePrompts(const ButtonGlyphPainter& glyphs, const OnScreenKeyboard& keyboard) noexcept
+        : glyphs_{glyphs}, keyboard_{keyboard} {
+    }
+
+    [[nodiscard]] float width(gpu2d::ui::Action action, float height) override;
+    void draw(gpu2d::Canvas& canvas, gpu2d::ui::Action action, const gpu2d::Rect& box,
+              gpu2d::Colour ink) override;
+    [[nodiscard]] bool bound(gpu2d::ui::Action action, bool typing) override;
+
+  private:
+    /// The glyph `action` shows: its button, or with the keyboard the key that does it.
+    [[nodiscard]] std::string_view glyph(gpu2d::ui::Action action) const;
+
+    const ButtonGlyphPainter& glyphs_;
+    const OnScreenKeyboard& keyboard_;
 };
 
 } // namespace opensu::ui

@@ -1,17 +1,18 @@
 // artwork_settings — Settings › Artwork: SteamGridDB's connection (`SteamGridDbAccount`) with its
 // status, Connect (through Steam's browser, else the key typed in), Cancel, Enter a key and
-// Disconnect, and the on-screen keyboard the key is typed or pasted into. The key shows as dots and
-// is wiped when the keyboard closes.
+// Disconnect, and the card the key is typed or pasted into, with the on-screen keyboard up. The key
+// shows as dots and is wiped when the card closes.
 #pragma once
 
 #include <functional>
 #include <string>
 #include <string_view>
 
+#include "gpu2d/ui/navigator.hpp"
+
 #include "audio/sdl_sound_player.hpp"
-#include "gamepad/event.hpp"
+#include "keyboard_pad.hpp"
 #include "steamgriddb_account.hpp"
-#include "ui/on_screen_keyboard.hpp"
 #include "ui/setting_row.hpp"
 
 namespace opensu::app {
@@ -27,10 +28,22 @@ class ArtworkSettings {
         std::function<void()> refresh;
     };
 
-    ArtworkSettings(SteamGridDbAccount& account, ui::OnScreenKeyboard& entry,
-                    audio::SdlSoundPlayer& sounds, Hooks hooks)
-        : account_{account}, entry_{entry}, sounds_{sounds}, hooks_{std::move(hooks)} {
+    /// What the key card goes on and comes up with.
+    struct Entry {
+        gpu2d::ui::Navigator& navigator;
+        KeyboardPad& keyboard;
+    };
+
+    ArtworkSettings(SteamGridDbAccount& account, Entry entry, audio::SdlSoundPlayer& sounds,
+                    Hooks hooks)
+        : account_{account}, navigator_{entry.navigator}, keyboard_{entry.keyboard},
+          sounds_{sounds}, hooks_{std::move(hooks)} {
     }
+    ~ArtworkSettings();
+    ArtworkSettings(const ArtworkSettings&) = delete;
+    ArtworkSettings& operator=(const ArtworkSettings&) = delete;
+    ArtworkSettings(ArtworkSettings&&) = delete;
+    ArtworkSettings& operator=(ArtworkSettings&&) = delete;
 
     static constexpr std::string_view categoryId = "artwork";
 
@@ -43,25 +56,24 @@ class ArtworkSettings {
     /// Takes what the account did. Main loop only.
     void service();
 
-    /// Whether the key keyboard is up, which takes every button and a physical keyboard's text.
-    [[nodiscard]] bool typing() const noexcept;
-    void act(gamepad::Button button);
-    void typeText(std::string_view text);
-    void backspace();
-    /// Enter or Done: keeps the typed key.
-    void confirm();
-    /// Escape: closes the keyboard, the key unkept.
-    void dismiss();
+    /// Whether the key card is up.
+    [[nodiscard]] bool typing() const;
 
   private:
     void openEntry();
+    /// Submit: keeps the typed key.
+    void confirm();
+    /// Closes the card; the key is wiped.
+    void dismiss();
+    [[nodiscard]] const gpu2d::ui::Screen* keyCard() const;
 
     SteamGridDbAccount& account_;
-    ui::OnScreenKeyboard& entry_;
+    gpu2d::ui::Navigator& navigator_;
+    KeyboardPad& keyboard_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
-    /// Whether the keyboard is up for the key, not for another entry sharing it.
-    bool entering_{false};
+    /// The key as typed.
+    std::string key_;
     SteamGridDbAccount::Status shown_{};
 };
 

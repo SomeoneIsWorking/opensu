@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <string>
 
-#include "typeface.hpp"
+#include "gpu2d/ui/text_fit.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -17,11 +17,11 @@ constexpr Colour hoverFill{0x2B, 0x27, 0x33, 31};
 
 BreadcrumbLayout BreadcrumbPainter::layout(const Trail& trail, const BreadcrumbFrame& frame,
                                            const TitlePillMetrics& text) const {
-    const TextStyle style{text.fontSize * frame.dp};
+    const float style = text.fontSize * frame.dp;
     std::vector<float> widths;
     widths.reserve(trail.size());
     for (const Crumb& crumb : trail) {
-        widths.push_back(typeface_.measure(crumb.label, style));
+        widths.push_back(text_.measure(crumb.label, style));
     }
     return layoutBreadcrumbs(frame, widths);
 }
@@ -33,7 +33,7 @@ void BreadcrumbPainter::paint(Canvas& canvas, const Trail& trail, const Breadcru
         return;
     }
     glass_.paint(canvas, layout.bar);
-    const TextStyle style{text.fontSize * dp};
+    const float style = text.fontSize * dp;
     for (std::size_t i = 0; i < trail.size(); ++i) {
         const Rect& cell = layout.cells[i];
         const bool last = i + 1 == trail.size();
@@ -41,9 +41,8 @@ void BreadcrumbPainter::paint(Canvas& canvas, const Trail& trail, const Breadcru
             const Rect hover{cell.x, cell.y + cell.height * 0.14f, cell.width, cell.height * 0.72f};
             canvas.fillRoundRect(onCanvas(hover), cornerRadius(hover, 0.5f), hoverFill);
         }
-        const std::string label = typeface_.fitted(trail[i].label, layout.textWidths[i], style);
-        typeface_.drawCentred(canvas, label, cell.x + crumbCellPadDp * dp, cell.centreY(), style,
-                              last ? currentInk : pastInk);
+        const std::string label = gpu2d::ui::fitted(text_, trail[i].label, layout.textWidths[i], style);
+        text_.drawCentred(canvas, label, Point{cell.x + crumbCellPadDp * dp, cell.centreY()}, style, last ? currentInk : pastInk);
         if (!last) {
             const float x = layout.chevrons[i];
             const float half = cell.height * 0.1f;

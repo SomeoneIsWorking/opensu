@@ -244,7 +244,6 @@ void testSearchAndText() {
     shell.state.contextMenuOpen = true;
     shell.state.iconSize = 14;
     shell.state.detailsOpen = true;
-    shell.state.armed = true;
     shell.state.settingsOpen = true;
     shell.state.folderPickerOpen = true;
     shell.state.breadcrumb = "Library > GOG > Hades";
@@ -255,12 +254,11 @@ void testSearchAndText() {
                contains(state.body, "\"contextMenuOpen\":true") &&
                contains(state.body, "\"iconSize\":14") &&
                contains(state.body, "\"detailsOpen\":true") &&
-               contains(state.body, "\"armed\":true") &&
                contains(state.body, "\"settingsOpen\":true") &&
                contains(state.body, "\"folderPickerOpen\":true") &&
                contains(state.body, "\"breadcrumb\":\"Library > GOG > Hades\""),
-           "the state reports the search, the menu, the icon size, the details page, an armed "
-           "button and the trail");
+           "the state reports the search, the menu, the icon size, the details page and the "
+           "trail");
 }
 
 void testSectionButtons() {

@@ -1,21 +1,42 @@
 #include "path_editor.hpp"
 
-#include "keyboard_pad.hpp"
+#include <algorithm>
+#include <memory>
+#include <vector>
+
+#include "folder_chooser_screen.hpp"
 
 namespace opensu::app {
 
+bool PathEditor::active() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    return std::ranges::any_of(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const FolderChooserScreen*>(screen) != nullptr;
+    });
+}
+
 void PathEditor::begin(Request request) {
     request_ = std::move(request);
+    folders_.open(request_.start);
+    typed_ = folders_.current().string();
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    folders_.open(request_.title, request_.start, request_.clearLabel);
+    navigator_.push(std::make_unique<FolderChooserScreen>(*this, chrome_));
+}
+
+void PathEditor::close() {
+    for (const gpu2d::ui::Screen* screen : navigator_.screens()) {
+        if (dynamic_cast<const FolderChooserScreen*>(screen) != nullptr) {
+            // input-sound.md 3.4 Close: the player dismisses a panel.
+            sounds_.play(audio::Effect::Close);
+            navigator_.closeFrom(*screen);
+            return;
+        }
+    }
 }
 
 void PathEditor::cancel() {
-    // input-sound.md 3.4 Close: the player dismisses a panel.
-    sounds_.play(audio::Effect::Close);
-    entry_.close();
-    folders_.close();
+    close();
 }
 
 void PathEditor::choose(const std::filesystem::path& folder) {
@@ -23,101 +44,41 @@ void PathEditor::choose(const std::filesystem::path& folder) {
         say_(refused, true);
         return;
     }
-    cancel();
+    close();
     request_.done(folder);
 }
 
-void PathEditor::openEntry() {
-    sounds_.play(audio::Effect::Open);
-    entry_.configure("Type a folder path", ui::EntryKind::Path);
-    entry_.open(folders_.current().string());
+void PathEditor::submitTyped() {
+    choose(std::filesystem::path{typed_});
 }
 
-void PathEditor::closeEntry() {
-    sounds_.play(audio::Effect::Close);
-    entry_.close();
+void PathEditor::useShown() {
+    choose(folders_.current());
 }
 
-void PathEditor::act(gamepad::Button button) {
-    if (typing()) {
-        actOnKeys(button);
-    } else if (folders_.isOpen()) {
-        actInChooser(button);
+void PathEditor::dropChoice() {
+    close();
+    request_.done(std::nullopt);
+}
+
+void PathEditor::enter(const std::filesystem::path& folder) {
+    folders_.enter(folder);
+    shown();
+}
+
+bool PathEditor::up() {
+    if (!folders_.up()) {
+        return false;
     }
+    shown();
+    return true;
 }
 
-void PathEditor::actInChooser(gamepad::Button button) {
-    switch (button) {
-    case gamepad::Button::Up:
-    case gamepad::Button::Down:
-        // input-sound.md 3.4 Navigation: a focus move in a list.
-        if (folders_.move(button == gamepad::Button::Down ? 1 : -1)) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::Left:
-        if (folders_.up()) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::Right:
-    case gamepad::Button::A: {
-        const ui::FolderPress press = folders_.press();
-        if (press.chosen) {
-            choose(*press.chosen);
-        } else if (press.type) {
-            openEntry();
-        } else if (press.clear) {
-            cancel();
-            request_.done(std::nullopt);
-        } else {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    }
-    case gamepad::Button::B:
-    case gamepad::Button::Start:
-        cancel();
-        break;
-    default:
-        break;
-    }
-}
-
-void PathEditor::actOnKeys(gamepad::Button button) {
-    switch (actOnKeyboard(entry_, button, sounds_)) {
-    case KeyboardOutcome::Confirm:
-        confirm();
-        break;
-    case KeyboardOutcome::Leave:
-        closeEntry();
-        break;
-    case KeyboardOutcome::Edited:
-    case KeyboardOutcome::Handled:
-        break;
-    }
-}
-
-void PathEditor::typeText(std::string_view text) {
-    static_cast<void>(entry_.type(text));
-}
-
-void PathEditor::backspace() {
-    static_cast<void>(entry_.backspace());
-}
-
-void PathEditor::confirm() {
-    const std::filesystem::path typed{entry_.text()};
-    if (const std::string refused = request_.refusal(typed); !refused.empty()) {
-        say_(refused, true);
-        return;
-    }
-    cancel();
-    request_.done(typed);
-}
-
-void PathEditor::dismiss() {
-    closeEntry();
+void PathEditor::shown() {
+    typed_ = folders_.current().string();
+    // input-sound.md 3.4 Navigation: a focus move in a list.
+    sounds_.play(audio::Effect::Navigation);
+    navigator_.focus(FolderChooserScreen::useId);
 }
 
 } // namespace opensu::app

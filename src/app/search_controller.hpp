@@ -1,72 +1,98 @@
-// search_controller — the buttons and keys of the search panel. A pad types on the on-screen
-// keyboard (`keyboard_pad`) and walks the results; a physical keyboard types into the field. The
-// text goes into the view's search, so the grid behind narrows as it is typed, and closing the
-// panel leaves the results showing.
+// search_controller — iiSU's Global Search (`g73.b`, `kl2.a`; screens.md) on the interface toolkit:
+// a card over the home screen with the search field and its results under it. It opens with the
+// on-screen keyboard up; the text goes into the view's search as it is typed, so the grid behind
+// narrows, and closing the card leaves the results showing. Submit (Enter, or the keyboard's Done)
+// goes to the first result; A on a result closes the card and presses A on its tile.
 #pragma once
 
+#include <cstddef>
 #include <functional>
-#include <string_view>
+#include <string>
 #include <vector>
 
+#include "gpu2d/ui/navigator.hpp"
+
 #include "audio/sdl_sound_player.hpp"
-#include "gamepad/event.hpp"
+#include "keyboard_pad.hpp"
 #include "preferences.hpp"
-#include "ui/search_panel.hpp"
+#include "ui/screen_stack.hpp"
 
 namespace opensu::app {
+
+/// The most bytes a search holds.
+inline constexpr std::size_t searchMostLength = 64;
+
+/// A line of the results: a title and what it is.
+struct SearchResult {
+    std::string title;
+    std::string detail;
+
+    bool operator==(const SearchResult&) const = default;
+};
 
 class SearchController {
   public:
     struct Hooks {
         /// Shows the shelf again, focusing `focus`, after the search text changed.
         std::function<void(std::size_t focus)> reshow;
-        /// The tiles the grid shows now, as lines of the results list.
-        std::function<std::vector<ui::SearchResult>()> results;
+        /// The tiles the grid shows now, as lines of the results.
+        std::function<std::vector<SearchResult>()> results;
         /// Focuses tile `index` and presses A on it.
         std::function<void(std::size_t index)> openTile;
     };
 
-    SearchController(ui::SearchPanel& panel, audio::SdlSoundPlayer& sounds,
-                     Preferences& preferences, Hooks hooks)
-        : panel_{panel}, sounds_{sounds}, preferences_{preferences}, hooks_{std::move(hooks)} {
+    /// What the search acts on and through.
+    struct Parts {
+        gpu2d::ui::Navigator& navigator;
+        const ui::Chrome& chrome;
+        KeyboardPad& keyboard;
+        audio::SdlSoundPlayer& sounds;
+        Preferences& preferences;
+    };
+
+    SearchController(Parts parts, Hooks hooks)
+        : navigator_{parts.navigator}, chrome_{parts.chrome}, keyboard_{parts.keyboard},
+          sounds_{parts.sounds}, preferences_{parts.preferences}, hooks_{std::move(hooks)} {
     }
 
-    /// Opens the panel on the search in use.
+    /// Opens the card on the search in use, with the keyboard up.
     void open();
-    /// A pad button while the panel is up: it takes them all.
-    void act(gamepad::Button button);
-
-    /// What a physical keyboard typed: characters go into the field.
-    void typeText(std::string_view text);
-    void backspace();
-    /// Enter: opens the focused result, or closes the panel.
-    void confirm();
-    /// Escape: closes the panel, leaving the search applied.
-    void dismiss();
-    /// Up and Down: walk the results.
-    void walk(ui::Direction direction);
+    /// Closes the card, leaving the search applied.
+    void close();
+    [[nodiscard]] bool isOpen() const;
 
     /// Drops the search and shows the unnarrowed shelf. Reports whether there was one.
     bool clear();
     /// Whether a search is applied, which is when its results are what the grid shows.
     [[nodiscard]] bool searching() const noexcept {
-        return !preferences_.values().view.search.empty();
+        return !text().empty();
     }
 
-  private:
-    void close();
-    /// The field changed: search again and list the results.
-    void edited();
-    /// Opens result `index`: closes the panel and presses A on its tile.
+    // What the card asks.
+    [[nodiscard]] const std::string& text() const noexcept {
+        return preferences_.values().view.search;
+    }
+    /// The field changed to `text`; a leading or doubled space is refused.
+    void edit(std::string text);
+    [[nodiscard]] const std::vector<SearchResult>& results() const noexcept {
+        return results_;
+    }
+    /// Submit: the focus goes to the first result.
+    void toResults();
+    /// Opens result `index`: closes the card and presses A on its tile.
     void openResult(std::size_t index);
-    void moved(bool changed);
-    /// A button while the results are focused; reports whether it took it.
-    bool actInResults(gamepad::Button button);
 
-    ui::SearchPanel& panel_;
+  private:
+    /// Searches again and lists the results.
+    void refresh();
+
+    gpu2d::ui::Navigator& navigator_;
+    const ui::Chrome& chrome_;
+    KeyboardPad& keyboard_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;
     Hooks hooks_;
+    std::vector<SearchResult> results_;
 };
 
 } // namespace opensu::app

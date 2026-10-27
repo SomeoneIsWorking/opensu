@@ -5,8 +5,8 @@ foreach(name home_layout grid_focus tile_motion tile_geometry rail_layout)
     add_test(NAME ${name} COMMAND ${name}_test)
 endforeach()
 
-foreach(name top_bar_metrics top_bar_layout corner_hints clock_text launch_panel dock_metrics dock_motion
-             section_view mode_chooser card_border on_screen_keyboard search_panel context_menu panel_fade breadcrumbs details_page settings_page volume_osd chord_hint session_dialog integration_chooser mapping_page)
+foreach(name top_bar_metrics top_bar_layout corner_hints clock_text dock_metrics dock_motion
+             section_view card_border on_screen_keyboard panel_fade breadcrumbs game_details volume_osd chord_hint mapping_page)
     add_executable(${name}_test ${name}_test.cpp)
     target_link_libraries(${name}_test PRIVATE opensu::hud_model)
     target_compile_options(${name}_test PRIVATE -Wall -Wextra -Wpedantic)
@@ -17,18 +17,6 @@ add_executable(round_shape_test round_shape_test.cpp)
 target_link_libraries(round_shape_test PRIVATE opensu::ui)
 target_compile_options(round_shape_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME round_shape COMMAND round_shape_test)
-
-add_executable(face_metrics_test face_metrics_test.cpp)
-target_link_libraries(face_metrics_test PRIVATE opensu::ui)
-target_compile_options(face_metrics_test PRIVATE -Wall -Wextra -Wpedantic)
-add_test(NAME face_metrics
-    COMMAND face_metrics_test "${CMAKE_SOURCE_DIR}/assets/CalSans-Regular.ttf")
-
-add_executable(text_grid_test text_grid_test.cpp)
-target_link_libraries(text_grid_test PRIVATE opensu::ui)
-target_compile_options(text_grid_test PRIVATE -Wall -Wextra -Wpedantic)
-add_test(NAME text_grid
-    COMMAND text_grid_test "${CMAKE_SOURCE_DIR}/assets/CalSans-Regular.ttf")
 
 add_executable(platform_test platform_test.cpp)
 target_link_libraries(platform_test PRIVATE opensu::ui)

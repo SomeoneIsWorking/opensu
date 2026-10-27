@@ -5,8 +5,6 @@
 #include <cmath>
 #include <numbers>
 
-#include "host/secret.hpp"
-
 namespace opensu::ui {
 namespace {
 
@@ -17,7 +15,6 @@ constexpr float dockPaddingDp = 5.0f;
 constexpr float dockRadiusDp = 14.0f;
 constexpr float dockShare = 0.2f;
 constexpr float columnGapDp = 14.0f;
-constexpr float previewHeightDp = 24.0f;
 constexpr float stripHeightDp = 24.0f;
 constexpr float hintHeightDp = 22.0f;
 constexpr float rowGapDp = 5.0f;
@@ -31,7 +28,7 @@ constexpr float keyGapDp = 3.0f;
 constexpr float keyRowGapDp = 2.5f;
 constexpr float gridColumnDp = 220.0f;
 
-constexpr std::size_t keyCount = static_cast<std::size_t>(gridKeyColumns) * 4 + 5;
+constexpr std::size_t keyCount = static_cast<std::size_t>(gridKeyColumns) * 4 + 4;
 
 // What the grid's character keys type, and what they are drawn as (letters as capitals).
 constexpr std::string_view typed = "1234567890qwertyuiopasdfghjkl'zxcvbnm-.&";
@@ -49,10 +46,9 @@ constexpr std::array<GridKey, keyCount> makeKeys() {
     }
     // The slash makes folder paths typeable; the space key gives up a column to it.
     keys[typed.size()] = GridKey{KeyKind::Character, '/', "/", 4, 0, 1};
-    keys[typed.size() + 1] = GridKey{KeyKind::Space, ' ', "Space", 4, 1, 3};
-    keys[typed.size() + 2] = GridKey{KeyKind::Backspace, '\0', "Delete", 4, 4, 2};
-    keys[typed.size() + 3] = GridKey{KeyKind::Clear, '\0', "Clear", 4, 6, 2};
-    keys[typed.size() + 4] = GridKey{KeyKind::Done, '\0', "Done", 4, 8, 2};
+    keys[typed.size() + 1] = GridKey{KeyKind::Space, ' ', "Space", 4, 1, 4};
+    keys[typed.size() + 2] = GridKey{KeyKind::Backspace, '\0', "Delete", 4, 5, 2};
+    keys[typed.size() + 3] = GridKey{KeyKind::Done, '\0', "Done", 4, 7, 3};
     return keys;
 }
 
@@ -72,27 +68,6 @@ static_assert(daisyTable[0].size() == daisyPetals * daisyFaces &&
 
 float centreOf(const GridKey& key) noexcept {
     return static_cast<float>(key.column) + static_cast<float>(key.span - 1) * 0.5f;
-}
-
-/// Bytes the character before `at` in `text` takes.
-std::size_t characterBytesBefore(const std::string& text, std::size_t at) {
-    std::size_t start = at;
-    while (start > 0 && (static_cast<unsigned char>(text[start - 1]) & 0xC0U) == 0x80U) {
-        --start;
-    }
-    return start > 0 ? at - (start - 1) : 0;
-}
-
-/// Bytes the character at `at` in `text` takes.
-std::size_t characterBytesAt(const std::string& text, std::size_t at) {
-    if (at >= text.size()) {
-        return 0;
-    }
-    std::size_t end = at + 1;
-    while (end < text.size() && (static_cast<unsigned char>(text[end]) & 0xC0U) == 0x80U) {
-        ++end;
-    }
-    return end - at;
 }
 
 /// `OnScreenKeyboard::stick_`'s slot for `direction`.
@@ -163,8 +138,7 @@ std::optional<std::size_t> petalPointedAt(bool up, bool down, bool left, bool ri
     return std::nullopt;
 }
 
-KeyboardLayout layoutKeyboard(const Rect& frame, float dp, input::KeyboardStyle style,
-                              bool preview) {
+KeyboardLayout layoutKeyboard(const Rect& frame, float dp, input::KeyboardStyle style) {
     KeyboardLayout layout;
     const bool wheel = style == input::KeyboardStyle::DaisyWheel;
     const float keysDp = wheel ? 2.0f * (petalDistanceDp + petalRadiusDp)
@@ -214,13 +188,8 @@ KeyboardLayout layoutKeyboard(const Rect& frame, float dp, input::KeyboardStyle 
     x += (keysDp + columnGapDp) * unit;
     const float column = columnDp * unit;
     const float gap = rowGapDp * unit;
-    const float rows = (stripHeightDp + hintHeightDp) * unit + gap +
-                       (preview ? previewHeightDp * unit + gap : 0.0f);
+    const float rows = (stripHeightDp + hintHeightDp) * unit + gap;
     float y = top + (inner - rows) * 0.5f;
-    if (preview) {
-        layout.preview = Rect{x, y, column, previewHeightDp * unit};
-        y += previewHeightDp * unit + gap;
-    }
     layout.strip = Rect{x, y, column, stripHeightDp * unit};
     y += stripHeightDp * unit + gap;
     layout.hints = Rect{x, y, column, hintHeightDp * unit};
@@ -251,20 +220,9 @@ Rect KeyboardLayout::faceBounds(DaisyFace face) const noexcept {
     return Rect{x - faceRadius, y - faceRadius, 2.0f * faceRadius, 2.0f * faceRadius};
 }
 
-void OnScreenKeyboard::configure(std::string prompt, EntryKind kind) noexcept {
-    prompt_ = std::move(prompt);
-    kind_ = kind;
-    shifted_ = false;
-}
-
-void OnScreenKeyboard::open(std::string text) {
+void OnScreenKeyboard::open() {
     style_ = chosen_;
-    text_ = std::move(text);
-    if (secret()) {
-        // No growth while it is typed, so no stale copy is left behind.
-        text_.reserve(passwordMostLength + 1);
-    }
-    cursor_ = text_.size();
+    shifted_ = false;
     key_ = 0;
     anchor_ = centreOf(gridKeys()[0]);
     set_ = DaisySet::Letters;
@@ -279,61 +237,6 @@ void OnScreenKeyboard::close() noexcept {
     stick_ = {};
     pointed_ = false;
     pointerPetal_.reset();
-    if (secret()) {
-        host::wipe(text_);
-        cursor_ = 0;
-    }
-}
-
-bool OnScreenKeyboard::type(std::string_view text) {
-    std::size_t most = searchMostLength;
-    if (kind_ == EntryKind::Path) {
-        most = pathMostLength;
-    } else if (kind_ == EntryKind::Password) {
-        most = passwordMostLength;
-    }
-    if (text.empty() || text_.size() + text.size() > most) {
-        return false;
-    }
-    text_.insert(cursor_, text);
-    cursor_ += text.size();
-    return true;
-}
-
-bool OnScreenKeyboard::typeSpace() {
-    if (kind_ == EntryKind::Search && (cursor_ == 0 || text_[cursor_ - 1] == ' ' ||
-                                       (cursor_ < text_.size() && text_[cursor_] == ' '))) {
-        return false;
-    }
-    return type(" ");
-}
-
-bool OnScreenKeyboard::backspace() {
-    const std::size_t bytes = characterBytesBefore(text_, cursor_);
-    text_.erase(cursor_ - bytes, bytes);
-    cursor_ -= bytes;
-    return bytes > 0;
-}
-
-bool OnScreenKeyboard::clear() {
-    const bool held = !text_.empty();
-    if (secret()) {
-        host::wipe(text_);
-    } else {
-        text_.clear();
-    }
-    cursor_ = 0;
-    return held;
-}
-
-bool OnScreenKeyboard::moveCursor(int step) noexcept {
-    const std::size_t bytes =
-        step < 0 ? characterBytesBefore(text_, cursor_) : characterBytesAt(text_, cursor_);
-    if (bytes == 0) {
-        return false;
-    }
-    cursor_ = step < 0 ? cursor_ - bytes : cursor_ + bytes;
-    return true;
 }
 
 bool OnScreenKeyboard::focusKey(std::size_t index) {
@@ -356,10 +259,6 @@ bool OnScreenKeyboard::focusKey(std::size_t index) {
     key_ = index;
     anchor_ = centreOf(gridKeys()[key_]);
     return changed;
-}
-
-bool OnScreenKeyboard::onTopRow() const noexcept {
-    return style_ == input::KeyboardStyle::Regular && gridKeys()[key_].row == 0;
 }
 
 bool OnScreenKeyboard::move(Direction direction) {
@@ -405,7 +304,7 @@ KeyPress OnScreenKeyboard::press() {
         if (key_ < daisyPetals) {
             return {};
         }
-        return KeyPress{.edited = typeFace(static_cast<DaisyFace>(key_ - daisyPetals))};
+        return KeyPress{.typed = typeFace(static_cast<DaisyFace>(key_ - daisyPetals))};
     }
     const GridKey& key = gridKeys()[key_];
     switch (key.kind) {
@@ -413,16 +312,14 @@ KeyPress OnScreenKeyboard::press() {
         const bool capital = shifted_ && std::isalpha(static_cast<unsigned char>(key.character));
         const char character =
             capital ? static_cast<char>(std::toupper(key.character)) : key.character;
-        return KeyPress{.edited = type(std::string_view{&character, 1})};
+        return KeyPress{.typed = std::string(1, character)};
     }
     case KeyKind::Space:
-        return KeyPress{.edited = typeSpace()};
+        return KeyPress{.typed = " "};
     case KeyKind::Backspace:
-        return KeyPress{.edited = backspace()};
-    case KeyKind::Clear:
-        return KeyPress{.edited = clear()};
+        return KeyPress{.typed = {}, .erase = true};
     case KeyKind::Done:
-        return KeyPress{.done = true};
+        return KeyPress{.typed = {}, .erase = false, .done = true};
     }
     return {};
 }
@@ -451,14 +348,13 @@ std::optional<std::size_t> OnScreenKeyboard::petal() const noexcept {
     return pointerPetal_;
 }
 
-bool OnScreenKeyboard::typeFace(DaisyFace face) {
+std::string OnScreenKeyboard::typeFace(DaisyFace face) {
     const std::optional<std::size_t> picked = petal();
     if (!picked) {
-        return false;
+        return {};
     }
     pointed_ = false;
-    const char character = daisyCharacter(set_, *picked, face);
-    return type(std::string_view{&character, 1});
+    return std::string(1, daisyCharacter(set_, *picked, face));
 }
 
 } // namespace opensu::ui

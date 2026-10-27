@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "ui/check.hpp"
@@ -48,9 +49,6 @@ class Recorder final : public PointerHost {
     void activateCrumb(std::size_t index) override {
         calls.push_back("crumb" + std::to_string(index));
     }
-    void chooseLevel(int level) override {
-        calls.push_back("size" + std::to_string(level));
-    }
     void contextMenu(const PointerTarget& target) override {
         calls.emplace_back("menu");
         menuTarget = target;
@@ -95,9 +93,6 @@ void hoverSkipsWhatAHoverWouldTrigger() {
     host.under = opensu::ui::OnDock{opensu::library::Section::Library};
     router.route(at(10.0f, 10.0f, 4.0f));
     expect(host.calls.empty(), "a dock item only lights");
-    host.under = opensu::ui::OnPanelButton{Button::A};
-    router.route(at(10.0f, 10.0f, 4.0f));
-    expect(host.calls.empty(), "a panel hint only presses on a click");
     host.under = opensu::ui::OnLauncher{opensu::library::Source::Gog};
     router.route(at(10.0f, 10.0f, 4.0f));
     expect(host.calls.empty(), "a launcher's badge only lights");
@@ -111,9 +106,7 @@ void leftClickIsFocusThenA() {
     LastDevice device;
     PointerRouter router{device, host};
     for (const PointerTarget target :
-         {PointerTarget{opensu::ui::OnTile{1}},
-          PointerTarget{opensu::ui::OnLayoutCard{opensu::library::LibraryMode::Xmb}},
-          PointerTarget{opensu::ui::OnChooserRow{opensu::ui::ChooserRow::Pin}}}) {
+         {PointerTarget{opensu::ui::OnTile{1}}, PointerTarget{opensu::ui::OnKeyboardKey{0}}}) {
         host.under = target;
         host.calls.clear();
         PointerFrame frame = at(10.0f, 10.0f);
@@ -138,10 +131,6 @@ void leftClickOnTheOthers() {
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"focus"}, "a page control turns the page");
     host.calls.clear();
-    host.under = opensu::ui::OnPanelButton{Button::X};
-    router.route(frame);
-    expect(host.calls == std::vector<std::string>{"other"}, "a panel hint presses its button");
-    host.calls.clear();
     host.under = opensu::ui::OnLauncher{opensu::library::Source::Epic};
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"launcher"},
@@ -155,11 +144,6 @@ void leftClickOnTheOthers() {
     host.under = opensu::ui::OnCrumb{1};
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"crumb1"}, "a breadcrumb goes back to its level");
-    host.calls.clear();
-    host.under = opensu::ui::OnDetailsButton{2};
-    router.route(frame);
-    expect(host.calls == std::vector<std::string>{"focus", "A"},
-           "a details button is focus, then the A press");
     host.calls.clear();
     host.under = PointerTarget{};
     router.route(frame);
@@ -175,9 +159,10 @@ void rightClickAndWheel() {
     host.under = opensu::ui::OnTile{4};
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"menu"}, "a right click asks for a menu");
-    expect(host.menuTarget == PointerTarget{opensu::ui::OnTile{4}}, "the menu is for the target");
+    const auto* menuTile = std::get_if<opensu::ui::OnTile>(&host.menuTarget);
+    expect(menuTile != nullptr && menuTile->index == 4, "the menu is for the target");
     host.calls.clear();
-    host.under = opensu::ui::OnBackdrop{};
+    host.under = opensu::ui::OnKeyboardKey{1};
     router.route(frame);
     expect(host.calls == std::vector<std::string>{"menu"}, "a right click is never B");
     host.calls.clear();
@@ -191,51 +176,13 @@ void rightClickAndWheel() {
     expect(device.current() == Device::KeyboardMouse, "the wheel is real input");
 }
 
-void iconSizeAndBackdropClicks() {
+void hoverFocusesAKeyboardKey() {
     Recorder host;
     LastDevice device;
     PointerRouter router{device, host};
-    PointerFrame frame = at(10.0f, 10.0f);
-    frame.left = true;
-    host.under = opensu::ui::OnIconSize{14};
-    router.route(frame);
-    expect(host.calls == std::vector<std::string>{"focus", "size14"}, "the slider sets the level");
-    host.calls.clear();
-    host.under = opensu::ui::OnBackdrop{};
-    router.route(frame);
-    expect(host.calls == std::vector<std::string>{"B"}, "a click outside a menu closes it");
-}
-
-void rightClickIsNeverBackOnTheNewMenus() {
-    Recorder host;
-    LastDevice device;
-    PointerRouter router{device, host};
-    PointerFrame frame = at(10.0f, 10.0f);
-    frame.right = true;
-    for (const PointerTarget target :
-         {PointerTarget{opensu::ui::OnContextItem{1}}, PointerTarget{opensu::ui::OnBackdrop{}}}) {
-        host.under = target;
-        host.calls.clear();
-        router.route(frame);
-        expect(host.calls == std::vector<std::string>{"menu"},
-               "a right click only reaches the host's menu");
-    }
-}
-
-void hoverFocusesThePanelTargets() {
-    Recorder host;
-    LastDevice device;
-    PointerRouter router{device, host};
-    for (const PointerTarget target :
-         {PointerTarget{opensu::ui::OnIconSize{3}}, PointerTarget{opensu::ui::OnKeyboardKey{2}},
-          PointerTarget{opensu::ui::OnSearchResult{1}}, PointerTarget{opensu::ui::OnContextItem{0}},
-          PointerTarget{opensu::ui::OnDetailsButton{1}},
-          PointerTarget{opensu::ui::OnDialogButton{1}}}) {
-        host.under = target;
-        host.calls.clear();
-        router.route(at(10.0f, 10.0f, 4.0f));
-        expect(host.calls == std::vector<std::string>{"focus"}, "hover focuses a panel target");
-    }
+    host.under = opensu::ui::OnKeyboardKey{2};
+    router.route(at(10.0f, 10.0f, 4.0f));
+    expect(host.calls == std::vector<std::string>{"focus"}, "hover focuses a keyboard key");
 }
 
 void padKeepsFocusFromAStillPointer() {
@@ -279,9 +226,7 @@ int main() {
     leftClickIsFocusThenA();
     leftClickOnTheOthers();
     rightClickAndWheel();
-    iconSizeAndBackdropClicks();
-    rightClickIsNeverBackOnTheNewMenus();
-    hoverFocusesThePanelTargets();
+    hoverFocusesAKeyboardKey();
     padKeepsFocusFromAStillPointer();
     screensTakeThePointerWhole();
     std::printf("pointer_router: all checks passed\n");

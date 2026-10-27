@@ -1,58 +1,57 @@
 #include "first_run_chooser.hpp"
 
-#include <string>
-#include <vector>
+#include <algorithm>
+#include <memory>
 
+#include "first_run_screen.hpp"
 #include "integration_options.hpp"
 #include "lucent/log.h"
 
 namespace opensu::app {
 
 void FirstRunChooser::openIfUnchosen() {
-    if (integrations_.chosen()) {
+    if (integrations_.chosen() || active()) {
         return;
     }
-    std::vector<ui::IntegrationOption> options;
+    rows_.clear();
     for (const IntegrationEntry& entry : integrationEntries()) {
-        options.push_back(ui::IntegrationOption{.id = std::string{entry.id},
-                                                .label = std::string{entry.label},
-                                                .note = std::string{entry.note},
-                                                .on = false});
+        rows_.push_back(ui::makeToggle(std::string{entry.id}, std::string{entry.label},
+                                       std::string{entry.note}, false));
     }
     lucent::info("integrations", "no integration choices saved; showing the first-run chooser");
-    card_.open(std::move(options));
+    navigator_.push(std::make_unique<FirstRunScreen>(*this));
 }
 
-void FirstRunChooser::act(gamepad::Button button) {
-    switch (button) {
-    case gamepad::Button::Up:
-    case gamepad::Button::Down:
-        // input-sound.md 3.4 Navigation: a focus move.
-        if (card_.move(button == gamepad::Button::Down ? 1 : -1)) {
-            sounds_.play(audio::Effect::Navigation);
-        }
-        break;
-    case gamepad::Button::A:
-        sounds_.play(audio::Effect::Navigation);
-        if (!card_.toggleFocused()) {
-            done();
-        }
-        break;
-    default:
-        break;
+bool FirstRunChooser::active() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    return std::ranges::any_of(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const FirstRunScreen*>(screen) != nullptr;
+    });
+}
+
+void FirstRunChooser::run(const std::string& id, int step) {
+    const auto row = std::ranges::find(rows_, id, &ui::SettingsRow::id);
+    if (step == 0 && row != rows_.end()) {
+        row->on = !row->on;
     }
 }
 
 void FirstRunChooser::done() {
     settings::IntegrationChoices choices;
-    for (const ui::IntegrationOption& option : card_.options()) {
-        if (bool* on = switchOf(choices, option.id)) {
-            *on = option.on;
+    for (const ui::SettingsRow& row : rows_) {
+        if (bool* on = switchOf(choices, row.id)) {
+            *on = row.on;
         }
     }
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
-    card_.close();
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto card = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const FirstRunScreen*>(screen) != nullptr;
+    });
+    if (card != open.end()) {
+        navigator_.closeFrom(**card);
+    }
     integrations_.choose(choices);
     chosen_();
 }

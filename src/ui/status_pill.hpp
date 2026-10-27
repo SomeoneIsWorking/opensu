@@ -11,7 +11,7 @@
 #include "home_layout.hpp"
 #include "launcher_badges.hpp"
 #include "top_bar_metrics.hpp"
-#include "typeface.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 
 namespace opensu::ui {
 
@@ -35,8 +35,8 @@ struct StatusPillView {
 
 class StatusPillPainter {
   public:
-    StatusPillPainter(Typeface& typeface, IconAtlas& icons) noexcept
-        : typeface_{typeface}, badges_{icons} {
+    StatusPillPainter(gpu2d::ui::Typesetter& text, IconAtlas& icons) noexcept
+        : text_{text}, badges_{icons} {
     }
 
     void paint(Canvas& canvas, const StatusPillView& view);
@@ -50,7 +50,7 @@ class StatusPillPainter {
     void paintBattery(Canvas& canvas, float x, float centreY, float size,
                       const device::BatteryStatus& battery) const;
 
-    Typeface& typeface_;
+    gpu2d::ui::Typesetter& text_;
     GlassPainter glass_;
     LauncherBadgePainter badges_;
 };

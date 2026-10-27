@@ -5,14 +5,14 @@
 #include "home_layout.hpp"
 #include "paint.hpp"
 #include "panel_fade.hpp"
-#include "typeface.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 #include "volume_osd.hpp"
 
 namespace opensu::ui {
 
 class VolumeOsdPainter {
   public:
-    explicit VolumeOsdPainter(Typeface& typeface) noexcept : typeface_{typeface} {
+    explicit VolumeOsdPainter(gpu2d::ui::Typesetter& text) noexcept : text_{text} {
     }
 
     /// Draws the pill in a frame of `size` at `dp` pixels per dp, `topInset` below the frame's top.
@@ -20,7 +20,7 @@ class VolumeOsdPainter {
                const PanelLook& look) const;
 
   private:
-    Typeface& typeface_;
+    gpu2d::ui::Typesetter& text_;
 };
 
 /// Where the pill stands at rest, in pixels.

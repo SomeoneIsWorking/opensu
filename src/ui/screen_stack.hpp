@@ -12,7 +12,6 @@
 #include "interface_text.hpp"
 #include "paint.hpp"
 #include "screen_images.hpp"
-#include "typeface.hpp"
 
 namespace opensu::ui {
 
@@ -26,9 +25,9 @@ class ScreenStack {
   public:
     using Clock = std::chrono::steady_clock;
 
-    ScreenStack(const input::Prompts& prompts, Typeface& typeface)
-        : glyphs_{prompts, typeface}, text_{typeface}, prompts_{glyphs_},
-          navigator_{text_, prompts_, {}} {
+    ScreenStack(const input::Prompts& prompts, InterfaceText& text,
+                const OnScreenKeyboard& keyboard)
+        : glyphs_{prompts, text}, prompts_{glyphs_, keyboard}, navigator_{text, prompts_, {}} {
     }
 
     [[nodiscard]] gpu2d::ui::Navigator& navigator() noexcept {
@@ -58,9 +57,11 @@ class ScreenStack {
         return navigator_.pagesVisible();
     }
 
-    /// Sets the clock and theme and lays the screens out over `window`, under `chrome`; drops the
-    /// pictures once nothing is drawn.
-    void layout(Clock::time_point now, const gpu2d::Rect& window, float dp, Chrome chrome);
+    /// Sets the clock and theme and lays the screens out over `window`, under `chrome`, the
+    /// overlays above the `covered` strip a docked keyboard takes; drops the pictures once nothing
+    /// is drawn.
+    void layout(Clock::time_point now, const gpu2d::Rect& window, float covered, float dp,
+                Chrome chrome);
     /// The screens that fill the window, drawn under the shell's chrome.
     void paintPages(Canvas& canvas);
     /// The overlays over them (the Guide menu, dialogs, lists), drawn over the chrome.
@@ -68,7 +69,6 @@ class ScreenStack {
 
   private:
     ButtonGlyphPainter glyphs_;
-    InterfaceText text_;
     InterfacePrompts prompts_;
     gpu2d::ui::Navigator navigator_;
     Chrome chrome_;

@@ -4,11 +4,11 @@
 #include <array>
 #include <string>
 
+#include "gpu2d/ui/text_fit.hpp"
 #include "hint_row.hpp"
 #include "hud.hpp"
 #include "paint.hpp"
 #include "round_shape.hpp"
-#include "row_controls.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -16,7 +16,7 @@ namespace {
 constexpr Colour scrim{0, 0, 0, 115};
 constexpr Colour cardFill{0xF8, 0xF8, 0xFB, 255};
 constexpr Colour chipFill{0xFF, 0xFF, 0xFF, 255};
-constexpr Colour outlineInk = rowInk;
+constexpr Colour outlineInk = palette::control;
 constexpr Colour accent{0x5B, 0x4F, 0x9A, 255};
 constexpr Colour accentWash{0xE7, 0xE4, 0xF4, 255};
 constexpr Colour tileFill{0xF1, 0xF0, 0xF5, 255};
@@ -109,14 +109,14 @@ void MappingPagePainter::paint(Canvas& canvas, const MappingPage& page, Point si
     fillShape(canvas, RoundRect{layout.card, layout.radius}, cardFill, look.alpha);
 
     const float unit = layout.unit;
-    const TextStyle title{titleSp * unit};
-    typeface_.drawCentred(canvas, typeface_.fitted(page.title(), layout.title.width, title),
-                          layout.title.x, layout.title.centreY(), title,
-                          withAlpha(palette::ink, look.alpha));
-    const TextStyle note{noteSp * unit};
-    typeface_.drawCentred(canvas, typeface_.fitted(page.note(), layout.note.width, note),
-                          layout.note.x, layout.note.centreY(), note,
-                          withAlpha(palette::inkSoft, look.alpha));
+    const float title = titleSp * unit;
+    text_.drawCentred(canvas, gpu2d::ui::fitted(text_, page.title(), layout.title.width, title),
+                      Point{layout.title.x, layout.title.centreY()}, title,
+                      withAlpha(palette::ink, look.alpha));
+    const float note = noteSp * unit;
+    text_.drawCentred(canvas, gpu2d::ui::fitted(text_, page.note(), layout.note.width, note),
+                      Point{layout.note.x, layout.note.centreY()}, note,
+                      withAlpha(palette::inkSoft, look.alpha));
 
     paintBoard(canvas, page, layout, look.alpha);
     paintStrip(canvas, page, layout, look.alpha);
@@ -168,13 +168,13 @@ void MappingPagePainter::paintBoard(Canvas& canvas, const MappingPage& page,
 
 Rect MappingPagePainter::paintCallout(Canvas& canvas, const MappingItem& item,
                                       const MappingSlot& slot, float unit, float alpha) const {
-    const TextStyle text{calloutSp * unit};
+    const float size = calloutSp * unit;
     const float glyph = glyphDp * 0.9f * unit;
     const bool showGlyphs = item.changed && !item.valueGlyphs.empty();
     const std::string words =
-        showGlyphs ? std::string{} : typeface_.fitted(item.value, slot.callout.width, text);
+        showGlyphs ? std::string{} : gpu2d::ui::fitted(text_, item.value, slot.callout.width, size);
     const float width =
-        showGlyphs ? glyphRunWidth(item.valueGlyphs, glyph) : typeface_.measure(words, text);
+        showGlyphs ? glyphRunWidth(item.valueGlyphs, glyph) : text_.measure(words, size);
     float x = slot.callout.x;
     if (slot.side == CalloutSide::Left) {
         x = slot.callout.right() - width;
@@ -187,7 +187,7 @@ Rect MappingPagePainter::paintCallout(Canvas& canvas, const MappingItem& item,
     if (showGlyphs) {
         paintGlyphRun(canvas, item.valueGlyphs, x, centreY, glyph, ink);
     } else {
-        typeface_.drawCentred(canvas, words, x, centreY, text, ink);
+        text_.drawCentred(canvas, words, Point{x, centreY}, size, ink);
     }
     return Rect{x, slot.callout.y, width, slot.callout.height};
 }
@@ -224,7 +224,7 @@ void MappingPagePainter::paintStrip(Canvas& canvas, const MappingPage& page,
 void MappingPagePainter::paintStripChip(Canvas& canvas, const MappingItem& item, const Rect& chip,
                                         float unit, float alpha) const {
     fillShape(canvas, RoundRect{chip, stripRadiusDp * unit}, chipFill, alpha);
-    const TextStyle text{stripSp * unit};
+    const float size = stripSp * unit;
     const float inset = stripInsetDp * unit;
     const float centreY = chip.centreY();
     const Colour ink = withAlpha(palette::ink, alpha);
@@ -232,20 +232,21 @@ void MappingPagePainter::paintStripChip(Canvas& canvas, const MappingItem& item,
         // Add chord, Steam Input with its setting, Reset.
         const std::string label = item.value.empty() ? item.label : item.label + " · ";
         const float room = chip.width - 2.0f * inset;
-        const float labelWidth = typeface_.measure(label, text);
-        const std::string value = typeface_.fitted(item.value, room - labelWidth, text);
-        const float x = chip.centreX() - (labelWidth + typeface_.measure(value, text)) * 0.5f;
-        typeface_.drawCentred(canvas, typeface_.fitted(label, room, text), x, centreY, text, ink);
-        typeface_.drawCentred(canvas, value, x + labelWidth, centreY, text,
-                              withAlpha(palette::inkSoft, alpha));
+        const float labelWidth = text_.measure(label, size);
+        const std::string value = gpu2d::ui::fitted(text_, item.value, room - labelWidth, size);
+        const float x = chip.centreX() - (labelWidth + text_.measure(value, size)) * 0.5f;
+        text_.drawCentred(canvas, gpu2d::ui::fitted(text_, label, room, size), Point{x, centreY},
+                          size, ink);
+        text_.drawCentred(canvas, value, Point{x + labelWidth, centreY}, size,
+                          withAlpha(palette::inkSoft, alpha));
         return;
     }
     // A chord: its two buttons, an arrow, and what it does.
     const float glyph = glyphDp * unit;
-    const float plusWidth = typeface_.measure(" + ", text);
+    const float plusWidth = text_.measure(" + ", size);
     float x = chip.x + inset;
     x = paintGlyphRun(canvas, std::span{item.glyphs}.first(1), x, centreY, glyph, ink);
-    typeface_.drawCentred(canvas, " + ", x, centreY, text, withAlpha(palette::inkSoft, alpha));
+    text_.drawCentred(canvas, " + ", Point{x, centreY}, size, withAlpha(palette::inkSoft, alpha));
     x += plusWidth;
     x = paintGlyphRun(canvas, std::span{item.glyphs}.subspan(1), x, centreY, glyph, ink);
     x += arrowGapDp * unit;
@@ -255,8 +256,9 @@ void MappingPagePainter::paintStripChip(Canvas& canvas, const MappingItem& item,
     if (!item.valueGlyphs.empty()) {
         paintGlyphRun(canvas, item.valueGlyphs, x, centreY, glyph * 0.9f, sends);
     } else {
-        typeface_.drawCentred(canvas, typeface_.fitted(item.value, chip.right() - inset - x, text),
-                              x, centreY, text, sends);
+        text_.drawCentred(canvas,
+                          gpu2d::ui::fitted(text_, item.value, chip.right() - inset - x, size),
+                          Point{x, centreY}, size, sends);
     }
 }
 
@@ -272,25 +274,25 @@ void MappingPagePainter::paintPopover(Canvas& canvas, const MappingPage& page,
     });
     fillShape(canvas, box, chipFill, alpha);
     fillBand(canvas, box, box.grown(-1.0f * unit), [alpha](Point, float) {
-        return withAlpha(rowOff, alpha);
+        return withAlpha(palette::off, alpha);
     });
 
     // The header: what is being changed, and an arrow to the tiles.
     const MappingPick& pick = page.picker();
     const Colour ink = withAlpha(palette::ink, alpha);
-    const TextStyle heading{headerSp * unit};
+    const float heading = headerSp * unit;
     const float glyph = glyphDp * unit;
     const float centreY = popover.header.centreY();
     float x = popover.header.x;
     if (pick.glyphs.empty()) {
-        typeface_.drawCentred(canvas, pick.label, x, centreY, heading, ink);
-        x += typeface_.measure(pick.label, heading);
+        text_.drawCentred(canvas, pick.label, Point{x, centreY}, heading, ink);
+        x += text_.measure(pick.label, heading);
     } else {
         for (std::size_t i = 0; i < pick.glyphs.size(); ++i) {
             if (i > 0) {
-                typeface_.drawCentred(canvas, " + ", x, centreY, heading,
-                                      withAlpha(palette::inkSoft, alpha));
-                x += typeface_.measure(" + ", heading);
+                text_.drawCentred(canvas, " + ", Point{x, centreY}, heading,
+                                  withAlpha(palette::inkSoft, alpha));
+                x += text_.measure(" + ", heading);
             }
             x = paintGlyphRun(canvas, std::span{pick.glyphs}.subspan(i, 1), x, centreY, glyph, ink);
         }
@@ -299,7 +301,7 @@ void MappingPagePainter::paintPopover(Canvas& canvas, const MappingPage& page,
                withAlpha(palette::inkSoft, alpha));
 
     const ScopedClip clip{canvas, popover.body};
-    const TextStyle label{tileSp * unit};
+    const float label = tileSp * unit;
     const float inset = 10.0f * unit;
     for (std::size_t i = 0; i < pick.choices.size(); ++i) {
         const Rect& tile = popover.tiles[i];
@@ -313,10 +315,11 @@ void MappingPagePainter::paintPopover(Canvas& canvas, const MappingPage& page,
         const Colour tint = withAlpha(current ? accent : outlineInk, alpha);
         if (choice.glyphs.empty()) {
             const std::string text =
-                typeface_.fitted(choice.label, tile.width - 2.0f * inset, label);
-            typeface_.drawCentred(canvas, text,
-                                  tile.centreX() - typeface_.measure(text, label) * 0.5f,
-                                  tile.centreY(), label, tint);
+                gpu2d::ui::fitted(text_, choice.label, tile.width - 2.0f * inset, label);
+            text_.drawCentred(
+                canvas, text,
+                Point{tile.centreX() - text_.measure(text, label) * 0.5f, tile.centreY()}, label,
+                tint);
         } else {
             paintGlyphRun(canvas, choice.glyphs,
                           tile.centreX() - glyphRunWidth(choice.glyphs, glyph) * 0.5f,
@@ -335,30 +338,30 @@ void MappingPagePainter::paintListening(Canvas& canvas, const MappingPage& page,
                       layout.chordWindow.bottom() - layout.board.y};
     canvas.fillRect(onCanvas(dimmed), withAlpha(cardFill, alpha * listeningVeil));
 
-    const TextStyle text{promptSp * unit};
-    const TextStyle hint{noteSp * unit};
+    const float size = promptSp * unit;
+    const float hint = noteSp * unit;
     const float glyph = glyphDp * 0.85f * unit;
     const std::array<std::string, 1> cancelKey{"B"};
     const std::string cancels = " cancels";
-    const float hintWidth = glyphRunWidth(cancelKey, glyph) + typeface_.measure(cancels, hint);
+    const float hintWidth = glyphRunWidth(cancelKey, glyph) + text_.measure(cancels, hint);
     const float pad = promptPadDp * unit;
-    const float width = std::max(typeface_.measure(page.prompt(), text), hintWidth) + 2.0f * pad;
+    const float width = std::max(text_.measure(page.prompt(), size), hintWidth) + 2.0f * pad;
     const float height = 2.0f * promptLineDp * unit + pad;
     const Rect panel{dimmed.centreX() - width * 0.5f, dimmed.centreY() - height * 0.5f, width,
                      height};
     const RoundRect shape{panel, popoverRadiusDp * unit};
     fillShape(canvas, shape, chipFill, alpha);
     fillBand(canvas, shape, shape.grown(-1.0f * unit), [alpha](Point, float) {
-        return withAlpha(rowOff, alpha);
+        return withAlpha(palette::off, alpha);
     });
     const float first = panel.y + pad * 0.5f + promptLineDp * unit * 0.5f;
-    typeface_.drawCentred(canvas, page.prompt(),
-                          panel.centreX() - typeface_.measure(page.prompt(), text) * 0.5f, first,
-                          text, withAlpha(palette::ink, alpha));
+    text_.drawCentred(canvas, page.prompt(),
+                      Point{panel.centreX() - text_.measure(page.prompt(), size) * 0.5f, first},
+                      size, withAlpha(palette::ink, alpha));
     const float second = first + promptLineDp * unit;
     const float x = paintGlyphRun(canvas, cancelKey, panel.centreX() - hintWidth * 0.5f, second,
                                   glyph, withAlpha(outlineInk, alpha));
-    typeface_.drawCentred(canvas, cancels, x, second, hint, withAlpha(palette::inkSoft, alpha));
+    text_.drawCentred(canvas, cancels, Point{x, second}, hint, withAlpha(palette::inkSoft, alpha));
 }
 
 void MappingPagePainter::paintHints(Canvas& canvas, const MappingPage& page,
@@ -368,7 +371,7 @@ void MappingPagePainter::paintHints(Canvas& canvas, const MappingPage& page,
     }
     const std::span<const HintPrompt> hints =
         page.mode() == MappingMode::Picking ? std::span<const HintPrompt>{pickHints} : boardHints;
-    paintHintRow(canvas, glyphs_, typeface_, hints,
+    paintHintRow(canvas, glyphs_, text_, hints,
                  Point{layout.card.centreX(), layout.hints.centreY()}, layout.unit,
                  withAlpha(outlineInk, alpha));
 }

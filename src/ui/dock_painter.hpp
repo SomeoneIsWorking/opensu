@@ -10,7 +10,7 @@
 #include "dock_metrics.hpp"
 #include "glass.hpp"
 #include "library/sections.hpp"
-#include "typeface.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -36,8 +36,8 @@ struct DockStyle {
 
 class DockPainter {
   public:
-    DockPainter(const input::Prompts& prompts, Typeface& typeface, IconAtlas& icons) noexcept
-        : icons_{icons}, glyphs_{prompts, typeface} {
+    DockPainter(const input::Prompts& prompts, gpu2d::ui::Typesetter& text, IconAtlas& icons) noexcept
+        : icons_{icons}, glyphs_{prompts, text} {
     }
 
     /// The bar where this frame draws it, slid down by how far it has left.

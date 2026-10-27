@@ -53,6 +53,7 @@
 #include "integration_settings.hpp"
 #include "integration_switch.hpp"
 #include "integrations_in_force.hpp"
+#include "keyboard_pad.hpp"
 #include "launch/handoff.hpp"
 #include "launch/process_tree.hpp"
 #include "launch_mailbox.hpp"
@@ -145,10 +146,6 @@ class ShellApp final : private PointerHost {
     void loadCatalogNow();
     void applyCatalog(library::CatalogSnapshot snapshot);
     void handleEvents(const std::vector<gamepad::Event>& events);
-    /// The daisy wheel that takes the left stick's directions now: the open keyboard the pad
-    /// types on, when it shows the wheel; else nothing, and the stick moves focus as the d-pad
-    /// does.
-    [[nodiscard]] ui::OnScreenKeyboard* wheelTakingStick();
     /// Maps held keys onto the buttons they stand in for, so the keyboard reaches
     /// the same actions a controller does rather than a parallel set.
     void handleKeyboard();
@@ -169,7 +166,6 @@ class ShellApp final : private PointerHost {
     void activateCrumb(std::size_t index) override;
     void scroll(int steps) override;
     void screens(const PointerFrame& frame) override;
-    void chooseLevel(int level) override;
     void contextMenu(const ui::PointerTarget& target) override;
     /// A click on a dock item: the same section change as L1 and R1.
     void clickSection(library::Section section);
@@ -199,19 +195,18 @@ class ShellApp final : private PointerHost {
     /// Gives the screen the layout, pin and icon size the preferences hold.
     void applyLayout();
     /// The tiles the grid shows, as lines of the search results.
-    [[nodiscard]] std::vector<ui::SearchResult> searchResults() const;
+    [[nodiscard]] std::vector<SearchResult> searchResults() const;
     /// Focuses tile `index` and presses A on it.
     void openTile(std::size_t index);
+    /// A on the focused tile: opens its folder, the giveaways or its details.
+    void pressTile();
     /// Hides or shows `game` everywhere, and keeps it.
     void setHidden(const library::Game& game, bool hidden);
     /// Notes that `game` was launched now, for the recently played sort.
     void recordLaunch(const library::Game& game);
-    /// Feeds a physical keyboard's text into a line entry (`PathEditor`,
-    /// `SessionInstallController`), which takes typed text, Backspace, Enter and Escape.
-    template <class Entry> void typeInto(Entry& entry, const input::TextInput& typed);
-    /// Reads the keyboard as text while the search panel is open. `typed` was read before the
-    /// frame's key bindings ran.
-    void handleSearchText(const input::TextInput& typed);
+    /// Feeds a physical keyboard's text into the focused text field: typed text, Backspace as
+    /// Erase, Enter as Submit, Escape as Back, and Up and Down to move off the field.
+    void typeIntoField(const input::TextInput& typed);
     /// Opens a store's sign-in page in the browser, off the loop.
     void startSignIn(Store store);
     /// Whether a menu cannot open now: a launch, a chooser, the search or a typed field has the
@@ -296,6 +291,8 @@ class ShellApp final : private PointerHost {
     ControlBridge bridge_;
     ui::Shell shell_;
     TopBarClock clock_{shell_, environment_.clock24Hour};
+    /// The on-screen keyboard the pad types into text fields with.
+    KeyboardPad keyboardPad_{shell_.keyboard(), shell_.screens().navigator(), sounds_};
     /// Hands the fetched artwork and the stored sounds on.
     /// Covers the player chose or SteamGridDB fitted, and "Choose artwork".
     SteamGridDbCovers covers_{
@@ -323,7 +320,7 @@ class ShellApp final : private PointerHost {
                                    covers_.coverArrived(id, file);
                                }}};
     /// After the preferences they keep and the shelf they re-show.
-    LayoutPicker layoutPicker_{shell_.modeChooser(), sounds_, preferences_,
+    LayoutPicker layoutPicker_{shell_.screens().navigator(), sounds_, preferences_,
                                LayoutPicker::Hooks{[this](std::size_t focus) {
                                                        showShelf(focus);
                                                    },
@@ -343,7 +340,11 @@ class ShellApp final : private PointerHost {
                                                    [this] {
                                                        settingsScreen_.open();
                                                    }}};
-    SearchController search_{shell_.searchPanel(), sounds_, preferences_,
+    SearchController search_{SearchController::Parts{.navigator = shell_.screens().navigator(),
+                                                     .chrome = shell_.screens().chrome(),
+                                                     .keyboard = keyboardPad_,
+                                                     .sounds = sounds_,
+                                                     .preferences = preferences_},
                              SearchController::Hooks{[this](std::size_t focus) {
                                                          showShelf(focus);
                                                      },
@@ -353,7 +354,7 @@ class ShellApp final : private PointerHost {
                                                      [this](std::size_t index) {
                                                          openTile(index);
                                                      }}};
-    /// The two presses of Uninstall on the details page and the tile menu.
+    /// Uninstall on the details page and the tile menu.
     UninstallPrompt uninstallPrompt_{
         UninstallPrompt::Hooks{[this](const library::Game& game) {
                                    return panels_.installs().removal(game);
@@ -373,11 +374,8 @@ class ShellApp final : private PointerHost {
                                  shell_.setToast(text, isError);
                              }}};
     ContextMenuController contextMenu_{
-        shell_.contextMenu(),
-        sounds_,
-        preferences_,
-        uninstallPrompt_,
-        updateRequest_,
+        shell_.screens().navigator(), sounds_,
+        ContextMenuController::Services{preferences_, uninstallPrompt_, updateRequest_},
         ContextMenuController::Hooks{[this] {
                                          return shell_.focusedItem();
                                      },
@@ -475,13 +473,11 @@ class ShellApp final : private PointerHost {
                                  return emulators;
                              }}};
     DetailsController details_{
-        shell_.detailsPage(),
+        DetailsController::Place{shell_.screens().navigator(), shell_.screens().chrome(),
+                                 shell_.screens().images()},
         sounds_,
-        preferences_,
-        gameSettings_,
-        emulatorDownloads_,
-        uninstallPrompt_,
-        updateRequest_,
+        DetailsController::Services{preferences_, gameSettings_, emulatorDownloads_,
+                                    uninstallPrompt_, updateRequest_},
         DetailsController::Hooks{[this] {
                                      return shell_.focusedGame();
                                  },
@@ -582,7 +578,7 @@ class ShellApp final : private PointerHost {
     /// The Settings screen's Guide chords category.
     ChordSettings chordSettings_{shortcutEditor_, shell_.shortcuts()};
     /// Chooses the folders the Settings screen asks for.
-    PathEditor paths_{shell_.settingsPanels().folders(), shell_.settingsPanels().entry(), sounds_,
+    PathEditor paths_{shell_.screens().navigator(), shell_.screens().chrome(), sounds_,
                       [this](const std::string& text, bool isError) {
                           shell_.setToast(text, isError);
                       }};
@@ -598,7 +594,7 @@ class ShellApp final : private PointerHost {
                                                 [this] {
                                                     settingsScreen_.refresh();
                                                 }}};
-    PluginSettings pluginSettings_{plugins_, shell_.sessionPanels().dialog(), sounds_,
+    PluginSettings pluginSettings_{plugins_, shell_.screens().navigator(), sounds_,
                                    environment_.home, [this] {
                                        settingsScreen_.refresh();
                                    }};
@@ -652,7 +648,8 @@ class ShellApp final : private PointerHost {
                                              }};
     /// Settings › Artwork and its key keyboard.
     ArtworkSettings artworkSettings_{
-        steamGridDbAccount_, shell_.settingsPanels().entry(), sounds_,
+        steamGridDbAccount_, ArtworkSettings::Entry{shell_.screens().navigator(), keyboardPad_},
+        sounds_,
         ArtworkSettings::Hooks{[this](const std::string& text, bool isError) {
                                    shell_.setToast(text, isError);
                                },
@@ -720,12 +717,12 @@ class ShellApp final : private PointerHost {
                                  [this] {
                                      return outputLine();
                                  }}};
-    /// Installing session mode: its dialog, the password keyboard and the root step.
-    SessionInstallController sessionInstall_{
-        shell_.sessionPanels().dialog(), shell_.sessionPanels().password(), *host_.session, sounds_,
-        [this](const std::string& text, bool isError) {
-            shell_.setToast(text, isError);
-        }};
+    /// Installing session mode: its question, the password keyboard and the root step.
+    SessionInstallController sessionInstall_{shell_.screens().navigator(), keyboardPad_,
+                                             *host_.session, sounds_,
+                                             [this](const std::string& text, bool isError) {
+                                                 shell_.setToast(text, isError);
+                                             }};
     /// The menu Guide opens, over the home screen or a running game.
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),
@@ -867,20 +864,32 @@ class ShellApp final : private PointerHost {
     launch::Handoff handoff_;
     /// What the launch panel is up for, and the one install that runs. After steam_, so the
     /// install is stopped before the client it drives. Main loop only.
-    PanelFlow panels_{shell_, sounds_, steam_, environment_.dataDir,
-                      PanelFlow::Hooks{[this] {
-                                           cancelLaunch();
-                                       },
-                                       [this] {
-                                           reloadCatalog();
-                                       },
-                                       [this](library::Source store) {
-                                           return preferences_.values().installFolders.effective(
-                                               store);
-                                       },
-                                       [this](const library::Game& game) {
-                                           return launches_.runs(game);
-                                       }}};
+    PanelFlow panels_{
+        shell_.screens().navigator(), sounds_, steam_, environment_.dataDir,
+        PanelFlow::Hooks{.cancelLaunch =
+                             [this] {
+                                 cancelLaunch();
+                             },
+                         .reloadCatalog =
+                             [this] {
+                                 reloadCatalog();
+                             },
+                         .installFolder =
+                             [this](library::Source store) {
+                                 return preferences_.values().installFolders.effective(store);
+                             },
+                         .playing =
+                             [this](const library::Game& game) {
+                                 return launches_.runs(game);
+                             },
+                         .say =
+                             [this](const std::string& text, bool isError) {
+                                 shell_.setToast(text, isError);
+                             },
+                         .gameRunning =
+                             [this] {
+                                 return shell_.inGame();
+                             }}};
     /// The Downloads page: Steam's queue, the store install, the emulator download and the romset
     /// lists. After the sources it reads.
     DownloadsController downloadsScreen_{
@@ -965,8 +974,7 @@ class ShellApp final : private PointerHost {
                     return steamGridDbAccount_.signingIn() || offerClaim_.inSteam();
                 }}};
     /// The first-run card that asks which integrations to use.
-    FirstRunChooser firstRun_{shell_.sessionPanels().integrations(), integrations_, sounds_,
-                              [this] {
+    FirstRunChooser firstRun_{shell_.screens().navigator(), integrations_, sounds_, [this] {
                                   applyIntegrations();
                               }};
     /// The store sign-ins the control channel drives.

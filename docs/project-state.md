@@ -37,11 +37,12 @@ Visible deltas from the baseline:
   `clock | NN% battery` row, padding at each end), not iiSU's fixed width, so a PC without a
   battery gets a pill that fits its clock. It stays right-aligned.
 - A details page replaces the direct launch: A (Enter, left click) on a game opens it, as do Y and
-  the context menu's Details. It shows the cover (a Steam hero as a faded backdrop), title, store or
-  system badge, installed state, last played and play time, and Play or Install, Hide or Show,
-  Update (an installed store game its store has a newer build of, S036), Uninstall (an installed
-  store game, two presses), Back as pointer targets (the Install flow is the
-  launch panel's). A ROM's page names its emulator and
+  the context menu's Details. It is a toolkit screen (`app/details_screen`): the cover, title,
+  store or system badge, installed state, last played and play time beside Play or Install and
+  rows for Hide or Show, Update (an installed store game its store has a newer build of, S036),
+  Uninstall (an installed store game, asked first in a dialog), Choose artwork, Controls and Back,
+  each a pointer target (the Install flow is the launch panel's). The Steam hero backdrop of the
+  old page is gone. A ROM's page names its emulator and
   whether it is installed, and a button steps through the emulators for its system; the pick is
   kept per game in `game-settings.json` (S040). iiSU launches on A with no page (launch.md 3,
   `handleRomActivated`) and only shows game details on a dual-display device's second screen
@@ -67,9 +68,10 @@ Visible deltas from the baseline:
   default on, kept in `settings.json` as `pinLibraryDock`; off gives iiSU's behaviour.
 - Library tools, openSU's own (iiSU has none of the filters or the sort). Global Search is iiSU's
   panel (Ctrl+F, `/`, or a row of the START options): case- and accent-insensitive substring on the
-  title, prefix matches first, narrowing as typed; a keyboard types straight into the field, a pad
-  gets the on-screen keyboard docked along the bottom fifth with the results above it (compact
-  daisy wheel by default, regular grid in Settings › Controls › Keyboard; `docs/design/on-screen-keyboard.md`). The START options (Home and Library) add a sort (recently played,
+  title, prefix matches first, narrowing as typed. It is a toolkit card: the Search field, the
+  results as rows under it (Start or Enter goes to them, A opens one); a keyboard types straight
+  into the field, a pad gets the on-screen keyboard docked along the bottom fifth with the card
+  above it (compact daisy wheel by default, regular grid in Settings › Controls › Keyboard; `docs/design/on-screen-keyboard.md`). The START options (Home and Library) add a sort (recently played,
   name, store), a source filter (a store or a ROM system), installed only and hidden games only;
   sort, source and installed are kept in `settings.json`, the search and the hidden filter are not.
   Hide/Unhide is in the context menu (Select on a pad; Tab, the Menu key or Shift+F10 on a keyboard;
@@ -81,7 +83,7 @@ Visible deltas from the baseline:
   details page.
 - The corner prompts name only what works: Back inside a folder, Options (the context menu, whose
   key cap is Tab with the keyboard last used) with a tile focused, Details (A) on a game or Select
-  on a folder, Menu on Library, Back and Select on the details page. iiSU shows them all always.
+  on a folder, Menu on Library, Back and the focused row's action on the details page. iiSU shows them all always.
 - The title pill names the focused tile on Home too; iiSU shows it only inside sections.
 - A signed-out GOG or Epic tile opens that store's sign-in page in the default browser.
 - No store client window is ever opened to reach a game.
@@ -261,7 +263,7 @@ for the console; the focused title sits right of the card (cap 25.8 dp, #4D4655 
 Carousel: focused item at 0.5 W (also the first), shared bottom edge at 918/1080, title centred at
 cap top 364/1080 (cap 12.9 dp), a marker under the focused game; the entrance fades the focused
 tile in 130 ms and its neighbours 170 ms later. Console cards sit 2 dp inside their slot, game cards
-fill it; only Standard draws the cyan-violet focus ring. START opens the chooser (`ModeChooser`);
+fill it; only Standard draws the cyan-violet focus ring. START opens the options panel (`app::LayoutPicker`, a toolkit overlay; A on a layout card uses it);
 the choice is saved by `settings::Store`. Home is always the grid. Placeholders (empty glass cells, four pages minimum) are Home's: the ROMs
 category level and folders in captures draw only their items, so `HomeLayoutInput::fillSlots` is true
 only for Home. That rule is read from `roms_standard_light_categories.png`; the RE has no ROMs-specific
@@ -286,7 +288,7 @@ its frame, so the tile has no name or count. Without a card (not downloaded yet,
 offline, or a system the pack lacks, such as PS4) it keeps openSU's own tile: the
 platform's gradient (a neutral one for a system the gradient table lacks) with the
 console's name and game count, broken onto two lines at a space when one is too
-wide, at one name size so the typeface loads one face. A launcher tile is the same
+wide, at one name size so the face rasterises one size. A launcher tile is the same
 card in the store's brand colours with its Simple Icons logo above the name and count;
 the All games tile is a violet card with a four-square library glyph. A opens a console,
 a launcher or All games (`library::ShelfBrowser`, `library::Folder`) on its games; B returns to
@@ -479,17 +481,15 @@ an offscreen gpu2d target and encodes it as PNG in memory, so a frame is a file.
 
 Type is Cal Sans 1.000, iiSU's default face (`pp4.a`; the others it offers are Console Sans
 and Arctainium), shipped in `assets/` under the OFL with the licence beside it. The file is the
-Google Fonts build, which matches the one in iiSU's APK in metrics and Latin-1 outlines. Text
-sizes are Android's: the em in pixels, with letter spacing in ems; `TextGrid` sizes the face so its
-`hhea` ascent-to-descent line box is whole pixels with the baseline on a whole pixel, keeps each
-advance exact, and `Typeface` draws each glyph at that fractional pen through SDL3_ttf, unhinted.
-Cal Sans's space is 0.164 em, under two pixels in toasts and captions: cut to whole pixels (the
-old stb_truetype grid) or with each glyph snapped to a pixel, words ran together ("Lastplayed",
-"couldnotstartfalse"); checked in hidden runs at 1280x800 and 1920x1080, 70% to 150%
-(`scratch/text-spaces/`). The toolkit's face (`interfaceText`, hinted and kerned) is laid out by
-gpu2d's `Text`, which shapes with HarfBuzz and draws each character at its fractional pen (SDL3_ttf
-only rasterises): Settings subtitles keep their spaces at 1280x800 100% ("home grid", "tiles are",
-which ran together on SDL3_ttf's whole-pixel layout) and 1920x1080 (`scratch/text-spaces/toolkit/`).
+Google Fonts build, which matches the one in iiSU's APK in metrics and Latin-1 outlines. Every
+word on screen, the toolkit's screens and the home grid, top bar, dock, rails, volume display,
+chord list, keyboard and toasts alike, goes through one face, `ui::InterfaceText`: hinted and
+kerned, laid out by gpu2d's `Text`, which shapes with HarfBuzz and draws each character at its
+fractional pen (SDL3_ttf only rasterises), so Cal Sans's 0.164 em space stays a gap in toasts and
+captions. The iiSU-grid face (`TextGrid`, `Typeface`: unhinted, whole-pixel line box, letter
+spacing) is gone; sizes are still Android's em in pixels. Checked in hidden runs at 1280x800 and
+1920x1080 (`scratch/ui-toolkit/step4/frames/`).
+
 Gap: at 1280x800 and 70% a subtitle's em is about 7 px and the space about 1.1 px, which shows as
 a faint column rather than a word gap whichever way the glyphs are placed.
 
@@ -543,11 +543,11 @@ it opens that game's menu, on a folder or store tile the tile's menu (Open, Sign
 anything else it does nothing, and outside an open menu it closes it. The wheel
 steps the way the pad does: a page in WiiSu, a column in Flow, down the XMB, along the Carousel,
 between layout cards, down the Guide menu. Hit-tests: `HomeLayout::slotAt/pageAt`,
-`railTileAt`, `ChooserLayout::cardAt/rowAt/iconSizeAt`, `SearchLayout::keyAt/resultAt`, `ContextLayout::itemAt`, `GuideLayout::rowAt`, `QuickLayout::rowAt/levelAt`, `PanelLayout::hintAt`, `dockItemAt`.
-Tested: `home_layout`, `rail_layout`, `mode_chooser`, `search_panel`, `context_menu`, `guide_menu`, `quick_menu`, `launch_panel`, `pointer_router`,
+`railTileAt`, `ChooserLayout::cardAt/rowAt/iconSizeAt`, `KeyboardLayout::keyAt`, `GuideLayout::rowAt`, `QuickLayout::rowAt/levelAt`, `PanelLayout::hintAt`, `dockItemAt`.
+Tested: `home_layout`, `rail_layout`, `on_screen_keyboard`, `guide_menu`, `quick_menu`, `pointer_router`,
 plus `last_device`, `keyboard_bindings`, `dock_metrics`, `sections`, `control_channel`.
 A launcher badge hovers lit and a click selects that store's tile in Library (`ShellApp::selectLauncher`,
-`TopBarLayout::launcherAt`); the options panel's rows, the icon size slider (a click or drag sets the level), the search keys and results, and the context menu's rows hover and click like a card.
+`TopBarLayout::launcherAt`); the options panel's rows, the icon size slider (a click or drag sets the level), the on-screen keyboard's keys hover and click like a card; search, the folder chooser, the context menu, details page and cover picker are toolkit screens and take the pointer as every toolkit screen does.
 Not clickable: the rest of the top bar, the corner hints, the toast, the XMB's header
 card (B goes back). The sign-in prompt is the Library launcher tile, so it takes the
 tile click. `opensu --render FILE --keyboard` draws the keyboard's prompts; `POST /input` takes `a keyboard`
@@ -561,7 +561,7 @@ tests, not by a driven run).
 
 The game gets its own session so a shell exit or a hangup cannot reach it, and the
 shell's window goes down once the game shows a window and comes back when it
-leaves. Until then the shell shows a launch panel over the grid: the title, the
+leaves. Until then the shell shows a launch card over the grid (`ui::ProgressScreen`): the title, the
 stage (waiting for Steam, updating with a bar, Steam's launch task, starting, loading) and B to cancel.
 Inside Gamescope "shows a window" means a pid in the game's process trees owns an
 entry of `GAMESCOPE_FOCUSABLE_WINDOWS` on the root (window, app id, pid triples,
@@ -734,16 +734,16 @@ SDDM here (0.21+) reads `/usr/local/share/wayland-sessions` and `/usr/share/wayl
 
 Install session mode (Power list outside the login session, `host::SessionMode`): "Install
 session mode" shows while no entry for this openSU is in a directory SDDM reads or the selector is
-missing; "Switch to session mode" once both are there. Install opens a dialog (what it is, that
+missing; "Switch to session mode" once both are there. Install asks through `confirm` (what it is, that
 openSU becomes its own login session on Gamescope with no desktop, that Power then Switch to
-desktop comes back, what is installed where, that an administrator password is needed; Accept and
-Cancel by pad, keyboard or mouse; a right click is never Back). Accept opens a masked password
-field with the on-screen keyboard (the daisy wheel's four sets, or the regular grid with Caps on X;
+desktop comes back, what is installed where, that an administrator password is needed; Install and
+Cancel by pad, keyboard or mouse; Back cancels, a right click is never Back). Install opens a toolkit card with a
+masked password field (`ui::EntryScreen`) and the on-screen keyboard (the daisy wheel's four sets, or the regular grid with Caps on X;
 the physical keyboard types anything) or the physical keyboard. The password goes to `sudo -S -k -p ''
 /bin/sh <prefix>/libexec/opensu/install-session.sh` on stdin only (never argv, log, settings or
 control channel), from a worker; the buffer is wiped as soon as sudo has had it. A wrong password
 shows sudo's line and asks again; the installer's first output line (`opensu-install: start`) is
-how a sudo refusal is told from an installer failure. Cancel, or B on an empty field, aborts.
+how a sudo refusal is told from an installer failure. B on the keyboard closes it, then B or Cancel aborts.
 The prompt is in openSU because a desktop polkit dialog is invisible inside nested Gamescope.
 
 The one root step installs, as root: `/usr/local/share/wayland-sessions/opensu.desktop`;
@@ -1030,7 +1030,7 @@ Reset game over one; then Devices, Downloads, Settings and Power. Beside them st
 made in place, each of which exists only here: Volume, Mute, Brightness (where a backlight exists)
 and Interface size. Right from a place reaches Volume; Guide + A (Ctrl+Tab on a keyboard) opens the
 same menu with Volume focused. Close game, Load state, Reset game, Restart, Shut down and Switch to
-session mode ask first through the one `confirm` dialog (Cancel focused). Power opens a list over
+session mode ask first through the one `confirm` dialog (its action focused, so A, A does it). Power opens a list over
 the menu (Sleep, Restart, Shut down, Install session mode or Switch to session mode, Quit to
 desktop; with `--session` Switch to desktop in place of Quit, since quitting the login session only
 makes the display manager start it again; untested against the real session). Sleep, Restart and
@@ -1046,7 +1046,7 @@ brightness and the interface size point to the Guide menu.
 
 Press counts (hidden run, before → after this change): Home to the volume: Guide + A, Right = 2 → 2
 (or Guide, Right, Right = 3); Downloads: Guide, Down × 3, A = 5 → 5; Close game over a game: Guide,
-Down, A = 3 → Guide, Down, A, Right, A = 5 (it now asks first).
+Down, A = 3 → Guide, Down, A, A = 4 (it now asks first, its Close focused).
 
 A hidden run reads Bluetooth and the backlight and changes nothing, never runs a power command and
 never starts Steam (`host_services`, `Arguments::startsSteam`). Tested with fakes through the
@@ -1113,8 +1113,8 @@ legendary's `= Progress:` line (`library::install_log::progress`) on the same pa
 The Steam job drives Steam's own installer through `steam::InstallWizard`, the
 same `SteamClient.Installs` calls Steam's library makes: OpenInstallWizard, then
 ContinueInstall at the config step with Steam's default library folder, until the
-wizard hands off. A licence agreement stops the job and the panel asks the player
-(A accepts and records it with `SteamClient.Apps.MarkEulaAccepted`, B declines and
+wizard hands off. A licence agreement stops the job and a dialog asks the player
+(Accept records it with `SteamClient.Apps.MarkEulaAccepted`, Decline or B declines and
 cancels the wizard); a CD key, password or sign-up step cancels with a toast. The
 download is then followed through the live queue ("Installing · N%" on the panel; B
 hides it and the download goes on), and the catalog is reloaded once the manifest
@@ -1226,7 +1226,7 @@ widgets. Verified in hidden runs at 1280x800 and 1920x1080 driven over the contr
 (`POST /input`, `POST /pointer`, `/state` `screen` and `screenFocus`): every category, a choice
 list, the consoles and BIOS pages, a layer page, a confirm, the Integrations leave dialog and
 Apply, pointer hover, click and wheel. Gap: the layered editor's content is still `LayerSettings`'
-rows (step 2); Devices still uses the old `SettingsPage`. Skipped as not user-meaningful
+rows (step 2). Skipped as not user-meaningful
 or not safe live: window size, control channel port, emulator command overrides, 24 hour clock
 (locale-derived), theme, removing a single ROM or Steam folder.
 
@@ -1346,16 +1346,16 @@ version and `gameinfo` agree for every game. Details in `docs/issues/game-update
 
 ### S037 — Uninstall
 
-An installed store game's details page and tile menu offer Uninstall; the first press arms it
-with what goes ("legendary deletes the Epic copy", "deletes the GOG copy at <folder>", "forgets
-the GOG copy; <folder> is kept", "Steam uninstalls the Steam copy") and moving focus lets go; the
-second starts it. Steam's goes through `SteamClient.Installs.OpenUninstallWizard([app], true)`
+An installed store game's details page and tile menu offer Uninstall; it asks first in a `confirm`
+dialog saying what goes ("legendary deletes the Epic copy", "deletes the GOG copy at <folder>",
+"forgets the GOG copy; <folder> is kept", "Steam uninstalls the Steam copy"), its Uninstall
+focused, so A, A starts it and B keeps the game. Steam's goes through `SteamClient.Installs.OpenUninstallWizard([app], true)`
 and waits for the manifest to go; Epic runs `legendary uninstall <app> -y`; GOG deletes the
 recorded folder only when it lies inside `<install folder>/<id>` once symlinks are resolved, then
 forgets the record. No Wine prefix, shared or own, and no ROM is deleted; a ROM has no Uninstall. It is refused
 while the game runs, while an install or another uninstall runs, while Steam is not running and
 for a GOG game without a record. On success the catalog reloads, so the game leaves Home. The
-Downloads page lists it; `/state` has `armed` and the row's `uninstalling` state. Verified by unit
+Downloads page lists it; `/state` has `screen` `dialog` while it asks and the row's `uninstalling` state. Verified by unit
 tests through the shipping owners (stub `legendary`, fake Steam DevTools, scratch GOG folders with
 symlinks) and the `details-uninstall` and `downloads-uninstalling` parity scenes against a
 stand-in `legendary`. Unverified: a real Steam uninstall (whether Steam raises its own confirm
@@ -1455,7 +1455,7 @@ rows go beside the buttons when they do not fit above them.
 Verified (arcade, 2026-10-20, `scratch/arcade/`): unit tests (`romset_match_test`: datafile and
 `-listxml` parsing, the line format round trip, parent, renamed member, BIOS choice, device of a
 device, disk, kept verdicts invalidated by a parent zip appearing and by a new listing, the pick
-and the no-match text; `details_page_test`, `emulator_catalog_test`, `zip_archive_test`). A hidden
+and the no-match text; `game_details_test`, `emulator_catalog_test`, `zip_archive_test`). A hidden
 shell with `OPENSU_ROM_ROOTS=/mnt/Boy/ROM` fetched the four listings (8,456, 5,409, 8,833 and
 50,368 sets) and logged `romset armwar: MAME 2010 (built-in) matches` and `romset avspu: MAME 2010
 (built-in) matches`, the others lacking `armwar.key` (FinalBurn Neo, MAME 2003-Plus) and
@@ -1605,7 +1605,7 @@ fake DevTools Steam in tests; not against a live Steam.
 `src/plugin/` runs sandboxed Lua 5.4 plugins (`docs/design/lua-plugins.md`): one state per plugin
 on its own worker, I/O on a shared pool, memory, instruction and run-time limits, three faults in a
 row stop a plugin. API v1 has play-time sources and emulator game lists. Settings › Plugins turns
-plugins on and off; a user plugin asks for consent in the session dialog first. The bundled
+plugins on and off; a user plugin asks for consent through `confirm` first. The bundled
 `eden-playtime` reads `playtime.bin` and Eden's game-list cache.
 
 Verified: tests through the shipping host (sandbox escapes, limits, faults, read-path and HTTP

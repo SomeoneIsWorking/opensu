@@ -6,13 +6,13 @@
 #include "breadcrumbs.hpp"
 #include "glass.hpp"
 #include "top_bar_metrics.hpp"
-#include "typeface.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 
 namespace opensu::ui {
 
 class BreadcrumbPainter {
   public:
-    explicit BreadcrumbPainter(Typeface& typeface) noexcept : typeface_{typeface} {
+    explicit BreadcrumbPainter(gpu2d::ui::Typesetter& text) noexcept : text_{text} {
     }
 
     /// Where `trail` stands in `frame`: each label measured at the title pill's text size.
@@ -24,7 +24,7 @@ class BreadcrumbPainter {
                const TitlePillMetrics& text, float dp, std::optional<std::size_t> hovered) const;
 
   private:
-    Typeface& typeface_;
+    gpu2d::ui::Typesetter& text_;
     GlassPainter glass_;
 };
 

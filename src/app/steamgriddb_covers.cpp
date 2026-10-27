@@ -13,7 +13,8 @@ SteamGridDbCovers::SteamGridDbCovers(ui::Shell& shell, audio::SdlSoundPlayer& so
                                      Hooks hooks)
     : shell_{shell}, hooks_{std::move(hooks)}, overrides_{places.chosen, places.fitted},
       fitter_{overrides_, source}, offers_{overrides_, source, places.thumbs},
-      picker_{shell.coverPicker(), sounds, offers_, overrides_,
+      picker_{shell.screens().navigator(), shell.screens().images(), sounds,
+              CoverPickerController::Sources{offers_, overrides_},
               CoverPickerController::Hooks{[this](const std::string& id) {
                                                show(id);
                                            },

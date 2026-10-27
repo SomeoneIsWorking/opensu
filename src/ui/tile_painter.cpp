@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "progress_spinner.hpp"
-#include "typeface.hpp"
 
 namespace opensu::ui {
 
@@ -97,15 +96,15 @@ struct Stop {
 };
 
 /// `text` as one line, or two broken at the last space that lets the first fit `room`.
-std::vector<std::string_view> breakLines(Typeface& typeface, std::string_view text,
-                                         const TextStyle& style, float room) {
-    if (typeface.measure(text, style) <= room) {
+std::vector<std::string_view> breakLines(gpu2d::ui::Typesetter& typesetter, std::string_view text,
+                                         float size, float room) {
+    if (typesetter.measure(text, size) <= room) {
         return {text};
     }
     for (std::size_t space = text.rfind(' '); space != std::string_view::npos && space > 0;
          space = text.rfind(' ', space - 1)) {
         const std::string_view first = text.substr(0, space);
-        if (typeface.measure(first, style) <= room || first.find(' ') == std::string_view::npos) {
+        if (typesetter.measure(first, size) <= room || first.find(' ') == std::string_view::npos) {
             return {first, text.substr(space + 1)};
         }
     }
@@ -484,36 +483,36 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
                   });
     const Colour ink = luminance(mix(from, to, 0.5f)) > 0.6f ? consoleDarkInk : white;
 
-    // One name size and one count size for every card, so the typeface loads two faces; a
+    // One name size and one count size for every card, so the face rasterises two sizes; a
     // name too wide for one line breaks at a space.
     const float side = std::min(content.width, content.height);
     const float room = content.width - 2.0f * std::max(frame.tab, frame.stroke * 2.0f);
-    const TextStyle name{typeface_.emForLineBox(side * 0.15f)};
-    const TextStyle count{typeface_.emForLineBox(side * 0.1f)};
-    const std::vector<std::string_view> lines = breakLines(typeface_, tile.title, name, room);
-    const float nameBox = typeface_.lineBox(name);
+    const float name = text_.sizeForLineHeight(side * 0.15f);
+    const float count = text_.sizeForLineHeight(side * 0.1f);
+    const std::vector<std::string_view> lines = breakLines(text_, tile.title, name, room);
+    const float nameBox = text_.lineHeight(name);
     const float gap = side * 0.04f;
     const bool marked = tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames ||
                         tile.kind == TileKind::Giveaways;
     const float mark = marked ? side * markSide : 0.0f;
     const float markRoom = marked ? side * markGap : 0.0f;
     const float block = mark + markRoom + static_cast<float>(lines.size()) * nameBox + gap +
-                        typeface_.lineBox(count);
+                        text_.lineHeight(count);
     float y = content.centreY() - block * 0.5f;
     if (marked) {
         paintMark(canvas, tile, Rect{content.centreX() - mark * 0.5f, y, mark, mark}, ink);
     }
     y += mark + markRoom + nameBox * 0.5f;
     for (const std::string_view line : lines) {
-        typeface_.drawCentred(canvas, line,
-                              content.centreX() - typeface_.measure(line, name) * 0.5f, y, name,
-                              withAlpha(ink, alpha));
+        text_.drawCentred(canvas, line,
+                          Point{content.centreX() - text_.measure(line, name) * 0.5f, y}, name,
+                          withAlpha(ink, alpha));
         y += nameBox;
     }
-    const float countY = y - nameBox * 0.5f + gap + typeface_.lineBox(count) * 0.5f;
-    typeface_.drawCentred(canvas, tile.caption,
-                          content.centreX() - typeface_.measure(tile.caption, count) * 0.5f, countY,
-                          count, withAlpha(ink, alpha * 0.72f));
+    const float countY = y - nameBox * 0.5f + gap + text_.lineHeight(count) * 0.5f;
+    text_.drawCentred(canvas, tile.caption,
+                      Point{content.centreX() - text_.measure(tile.caption, count) * 0.5f, countY},
+                      count, withAlpha(ink, alpha * 0.72f));
 }
 
 void TilePainter::paintFallback(Canvas& canvas, const TileVisual& tile, const Rect& content) const {
@@ -529,11 +528,11 @@ void TilePainter::paintFallback(Canvas& canvas, const TileVisual& tile, const Re
         return;
     }
     const std::string letter(1, static_cast<char>(std::toupper(static_cast<std::uint8_t>(*found))));
-    const TextStyle text{typeface_.emForLineBox(
-        std::clamp(std::min(content.width, content.height) * 0.34f, 34.0f, 92.0f))};
-    const float width = typeface_.measure(letter, text);
-    typeface_.drawCentred(canvas, letter, content.centreX() - width * 0.5f, content.centreY(), text,
-                          withAlpha(fallbackInk, tile.alpha));
+    const float size = text_.sizeForLineHeight(
+        std::clamp(std::min(content.width, content.height) * 0.34f, 34.0f, 92.0f));
+    const float width = text_.measure(letter, size);
+    text_.drawCentred(canvas, letter, Point{content.centreX() - width * 0.5f, content.centreY()},
+                      size, withAlpha(fallbackInk, tile.alpha));
 }
 
 void TilePainter::paintLoading(Canvas& canvas, const TileVisual& tile, const Rect& content) const {

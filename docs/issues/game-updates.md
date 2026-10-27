@@ -102,8 +102,8 @@ Requested: "game updating".
 - `app/installs:Installs::update`, `Work::Update`, the shared `refusal`, `busy`.
 - `app/update_request:UpdateRequest`, used by `app/details_controller` and
   `app/context_menu_controller`; `app/panel_flow:PanelFlow::workEnded` (toast and reload).
-- `ui/details_page` (`DetailsAction::Update`, the status line), `ui/context_menu`
-  (`ContextAction::Update`), `ui/tile_geometry:updateBadge`, `ui/tile_painter` (`TileVisual::update`,
+- `ui/game_details` (`detailsUpdateId`, the Status fact), `app/context_menu_controller`
+  (`menuUpdateId`), `ui/tile_geometry:updateBadge`, `ui/tile_painter` (`TileVisual::update`,
   `paintUpdate`), `ui/shell:fillContent`.
 - `app/downloads_board` (`DownloadRow::update`, the Steam update joining Steam's row),
   `app/downloads_controller:entryOf` ("Updating").

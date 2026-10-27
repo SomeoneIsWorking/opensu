@@ -2,16 +2,16 @@
 
 namespace opensu::app {
 
-std::optional<std::string> UninstallPrompt::arm(const library::Game& game) {
-    Removal removal = hooks_.plan(game);
-    if (!removal.refusal.empty()) {
-        hooks_.say("cannot uninstall " + game.title + ": " + removal.refusal, true);
+std::optional<std::string> UninstallPrompt::removal(const library::Game& game) {
+    Removal plan = hooks_.plan(game);
+    if (!plan.refusal.empty()) {
+        hooks_.say("cannot uninstall " + game.title + ": " + plan.refusal, true);
         return std::nullopt;
     }
-    return std::move(removal.what);
+    return std::move(plan.what);
 }
 
-void UninstallPrompt::confirm(const library::Game& game) {
+void UninstallPrompt::start(const library::Game& game) {
     if (const std::string refused = hooks_.start(game); !refused.empty()) {
         hooks_.say("cannot uninstall " + game.title + ": " + refused, true);
         return;

@@ -1,107 +1,118 @@
 #include "panel_flow.hpp"
 
+#include <algorithm>
+#include <memory>
 #include <utility>
 
-namespace opensu::app {
+#include "gpu2d/ui/screen.hpp"
 
-PanelFlow::PanelFlow(ui::Shell& shell, audio::SdlSoundPlayer& sounds, steam::Client& steam,
-                     const std::filesystem::path& dataDir, Hooks hooks)
-    : shell_{shell}, sounds_{sounds},
+namespace opensu::app {
+namespace {
+
+/// The card's id on the stack.
+constexpr std::string_view cardId = "launch";
+
+/// The licence question, told apart from other dialogs on the stack.
+class LicenceDialog final : public gpu2d::ui::Dialog {
+  public:
+    using Dialog::Dialog;
+};
+
+} // namespace
+
+PanelFlow::PanelFlow(gpu2d::ui::Navigator& navigator, audio::SdlSoundPlayer& sounds,
+                     steam::Client& steam, const std::filesystem::path& dataDir, Hooks hooks)
+    : navigator_{navigator}, sounds_{sounds},
       install_{steam, "legendary", GogInstallJob::Options{.dataDir = dataDir}, hooks.installFolder,
                hooks.playing},
       hooks_{std::move(hooks)} {
 }
 
-void PanelFlow::act(gamepad::Button button) {
-    switch (use_) {
-    case Use::Launch:
-        if (button == gamepad::Button::B) {
-            hooks_.cancelLaunch();
-            // Nothing is left to press while the launch winds down.
-            shell_.launchPanel().setHints({});
-            use_ = Use::Cancelling;
-        }
-        break;
-    case Use::Cancelling:
-        break;
-    case Use::OfferInstall:
-        if (button == gamepad::Button::A || button == gamepad::Button::X) {
-            const std::size_t choice = button == gamepad::Button::A ? 0 : 1;
-            if (choice < offered_.size()) {
-                startInstall(offered_[choice]);
-            }
-        } else if (button == gamepad::Button::B) {
-            dismiss();
-            offered_.clear();
-        }
-        break;
-    case Use::Install:
-        // The download goes on without the panel.
-        if (button == gamepad::Button::B) {
-            dismiss();
-        }
-        break;
-    case Use::Eula:
-        if (button == gamepad::Button::A || button == gamepad::Button::B) {
-            const bool accepted = button == gamepad::Button::A;
-            install_.decide(accepted);
-            if (accepted) {
-                use_ = Use::Install;
-                shell_.launchPanel().update("Starting the download", std::nullopt);
-                shell_.launchPanel().setHints({{"B", "Hide"}});
-            } else {
-                dismiss();
-            }
-        }
-        break;
-    case Use::None:
-        break;
+const gpu2d::ui::Screen* PanelFlow::card() const {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const auto found = std::ranges::find_if(open, [](const gpu2d::ui::Screen* screen) {
+        return screen->id() == cardId;
+    });
+    return found == open.end() ? nullptr : *found;
+}
+
+bool PanelFlow::active() const {
+    return card() != nullptr;
+}
+
+bool PanelFlow::licenceWaits() const {
+    return forLaunch() || hooks_.gameRunning();
+}
+
+void PanelFlow::showCard(const std::string& title, std::string line) {
+    shown_ = ui::ProgressCard{.title = title, .line = std::move(line), .fraction = {}, .leave = {}};
+    if (card() != nullptr) {
+        return;
+    }
+    navigator_.push(std::make_unique<ui::ProgressScreen>(
+        std::string{cardId},
+        [this] {
+            return shown_;
+        },
+        [this] {
+            leave();
+        }));
+}
+
+void PanelFlow::closeCard() {
+    if (const gpu2d::ui::Screen* open = card()) {
+        navigator_.closeFrom(*open);
+    }
+}
+
+void PanelFlow::leave() {
+    if (use_ == Use::Launch) {
+        hooks_.cancelLaunch();
+        // Nothing is left to press while the launch winds down.
+        shown_.leave.clear();
+        use_ = Use::Cancelling;
+    } else if (use_ == Use::Install) {
+        // The download goes on without the card.
+        // input-sound.md 3.4 Close: the player dismisses a panel.
+        sounds_.play(audio::Effect::Close);
+        closeCard();
+        use_ = Use::None;
     }
 }
 
 void PanelFlow::showLaunch(const std::string& title) {
-    shell_.launchPanel().open(title);
+    showCard(title, "Starting");
+    shown_.leave = "Cancel";
     use_ = Use::Launch;
+}
+
+void PanelFlow::update(std::string line, std::optional<double> fraction) {
+    shown_.line = std::move(line);
+    shown_.fraction.reset();
+    if (fraction) {
+        shown_.fraction = static_cast<float>(std::clamp(*fraction, 0.0, 1.0));
+    }
 }
 
 void PanelFlow::endLaunch() {
     if (forLaunch()) {
-        shell_.launchPanel().close();
+        closeCard();
         use_ = Use::None;
     }
-}
-
-void PanelFlow::open(const std::string& title) {
-    // input-sound.md 3.4 Open: a panel appears.
-    sounds_.play(audio::Effect::Open);
-    shell_.launchPanel().open(title);
-}
-
-void PanelFlow::dismiss() {
-    // input-sound.md 3.4 Close: the player dismisses a panel.
-    sounds_.play(audio::Effect::Close);
-    shell_.launchPanel().close();
-    use_ = Use::None;
 }
 
 void PanelFlow::startInstall(const library::Game& game) {
     if (const std::string refused = install_.folderRefusal(game.source); !refused.empty()) {
-        shell_.launchPanel().close();
-        use_ = Use::None;
-        offered_.clear();
-        shell_.setToast("cannot install " + game.title + ": " + refused, true);
+        hooks_.say("cannot install " + game.title + ": " + refused, true);
         return;
     }
-    if (install_.start(game)) {
-        use_ = Use::Install;
-        shell_.launchPanel().update("Starting", std::nullopt);
-        shell_.launchPanel().setHints({{"B", "Hide"}});
-    } else {
-        shell_.launchPanel().close();
-        use_ = Use::None;
-        shell_.setToast(install_.busy(), true);
+    if (!install_.start(game)) {
+        hooks_.say(install_.busy(), true);
+        return;
     }
-    offered_.clear();
+    use_ = Use::Install;
+    showCard(game.title, "Starting");
+    shown_.leave = "Hide";
 }
 
 void PanelFlow::offerInstall(const library::Game& game, std::vector<library::Game> copies) {
@@ -111,40 +122,68 @@ void PanelFlow::offerInstall(const library::Game& game, std::vector<library::Gam
         return copy.installed || !Installs::supports(copy.source);
     });
     if (copies.empty()) {
-        shell_.setToast(unsupported, true);
+        hooks_.say(unsupported, true);
         return;
     }
     if (const std::string busy = install_.busy(); !busy.empty()) {
-        shell_.setToast(busy, true);
+        hooks_.say(busy, true);
         return;
     }
-    offered_ = std::move(copies);
-    use_ = Use::OfferInstall;
-    open(game.title);
-    if (offered_.size() == 1) {
-        shell_.launchPanel().update("Not installed", std::nullopt, false);
-        shell_.launchPanel().setHints({{"A", "Install"}, {"B", "Cancel"}});
-        return;
+    std::vector<gpu2d::ui::Dialog::Choice> choices;
+    for (const library::Game& copy : copies) {
+        const std::string label =
+            copies.size() == 1 ? "Install" : "From " + std::string{library::label(copy.source)};
+        choices.push_back(gpu2d::ui::Dialog::Choice{label,
+                                                    [this, copy] {
+                                                        startInstall(copy);
+                                                    },
+                                                    gpu2d::ui::ButtonKind::Primary});
     }
-    // Two stores can install it: A is the first, X the second.
-    shell_.launchPanel().update("Install from", std::nullopt, false);
-    shell_.launchPanel().setHints({{"A", std::string{library::label(offered_[0].source)}},
-                                   {"X", std::string{library::label(offered_[1].source)}},
-                                   {"B", "Cancel"}});
+    choices.push_back(gpu2d::ui::Dialog::Choice{"Cancel", {}, gpu2d::ui::ButtonKind::Normal, true});
+    // input-sound.md 3.4 Open: a panel appears.
+    sounds_.play(audio::Effect::Open);
+    navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
+        game.title, copies.size() == 1 ? "Not installed." : "Not installed. Install it from:",
+        std::move(choices)));
 }
 
 void PanelFlow::presentEula() {
     eulaWaiting_ = false;
     use_ = Use::Eula;
     const std::string title = install_.title();
-    open(title);
-    shell_.launchPanel().update("Installing " + title + " means accepting its licence agreement",
-                                std::nullopt, false);
-    shell_.launchPanel().setHints({{"A", "Accept"}, {"B", "Decline"}});
+    // input-sound.md 3.4 Open: a panel appears.
+    sounds_.play(audio::Effect::Open);
+    std::vector<gpu2d::ui::Dialog::Choice> choices{
+        gpu2d::ui::Dialog::Choice{"Accept",
+                                  [this, title] {
+                                      install_.decide(true);
+                                      use_ = Use::Install;
+                                      showCard(title, "Starting the download");
+                                      shown_.leave = "Hide";
+                                  },
+                                  gpu2d::ui::ButtonKind::Primary},
+        gpu2d::ui::Dialog::Choice{"Decline",
+                                  [this] {
+                                      install_.decide(false);
+                                      use_ = Use::None;
+                                  },
+                                  gpu2d::ui::ButtonKind::Normal, true}};
+    navigator_.push(std::make_unique<LicenceDialog>(
+        title, "Installing " + title + " means accepting its licence agreement.",
+        std::move(choices)));
 }
 
 void PanelFlow::service() {
-    if (eulaWaiting_ && !forLaunch()) {
+    const std::vector<const gpu2d::ui::Screen*> open = navigator_.screens();
+    const bool asking = std::ranges::any_of(open, [](const gpu2d::ui::Screen* screen) {
+        return dynamic_cast<const LicenceDialog*>(screen) != nullptr;
+    });
+    if (use_ == Use::Eula && !asking) {
+        // Something closed the question unanswered, as a game starting does: it asks again.
+        eulaWaiting_ = true;
+        use_ = Use::None;
+    }
+    if (eulaWaiting_ && !licenceWaits()) {
         presentEula();
     }
     const std::optional<InstallJob::Report> report = install_.take();
@@ -157,7 +196,7 @@ void PanelFlow::service() {
         return;
     }
     if (report->licence) {
-        if (forLaunch()) {
+        if (licenceWaits()) {
             eulaWaiting_ = true;
         } else {
             presentEula();
@@ -166,23 +205,23 @@ void PanelFlow::service() {
     }
     if (!report->finished) {
         if (use_ == Use::Install) {
-            shell_.launchPanel().update(report->line, report->fraction);
+            update(report->line, report->fraction);
         }
         return;
     }
-    if (use_ == Use::Install || use_ == Use::Eula) {
-        shell_.launchPanel().close();
+    if (use_ == Use::Install) {
+        closeCard();
         use_ = Use::None;
     }
     eulaWaiting_ = false;
     const std::string title = install_.title();
     if (report->cancelled) {
-        shell_.setToast(title + " install cancelled");
+        hooks_.say(title + " install cancelled", false);
     } else if (report->failure.empty()) {
         hooks_.reloadCatalog();
-        shell_.setToast(title + " installed");
+        hooks_.say(title + " installed", false);
     } else {
-        shell_.setToast("cannot install " + title + ": " + report->failure, true);
+        hooks_.say("cannot install " + title + ": " + report->failure, true);
     }
 }
 
@@ -193,13 +232,13 @@ void PanelFlow::workEnded(const InstallJob::Report& report, Installs::Work work)
     const std::string title = install_.title();
     const std::string verb = work == Installs::Work::Update ? "update" : "uninstall";
     if (report.cancelled) {
-        shell_.setToast(title + " " + verb + " stopped", true);
+        hooks_.say(title + " " + verb + " stopped", true);
     } else if (report.failure.empty()) {
         hooks_.reloadCatalog();
         // An uninstall's and Steam's line says how it ended; a store's update says nothing.
-        shell_.setToast(title + " " + (report.line.empty() ? "updated" : report.line));
+        hooks_.say(title + " " + (report.line.empty() ? "updated" : report.line), false);
     } else {
-        shell_.setToast("cannot " + verb + " " + title + ": " + report.failure, true);
+        hooks_.say("cannot " + verb + " " + title + ": " + report.failure, true);
     }
 }
 

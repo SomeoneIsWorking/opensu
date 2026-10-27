@@ -1,45 +1,12 @@
 #include "keyboard_pad.hpp"
 
+#include <optional>
+#include <string>
+
+#include "gpu2d/ui/widgets.hpp"
+
 namespace opensu::app {
 namespace {
-
-KeyboardOutcome editedIf(bool changed) noexcept {
-    return changed ? KeyboardOutcome::Edited : KeyboardOutcome::Handled;
-}
-
-KeyboardOutcome onGrid(ui::OnScreenKeyboard& keyboard, gamepad::Button button,
-                       audio::SdlSoundPlayer& sounds) {
-    switch (button) {
-    case gamepad::Button::Up:
-    case gamepad::Button::Down:
-    case gamepad::Button::Left:
-    case gamepad::Button::Right:
-        // input-sound.md 3.4 Navigation: a focus move in a list.
-        if (keyboard.move(directionOf(button))) {
-            sounds.play(audio::Effect::Navigation);
-        }
-        return KeyboardOutcome::Handled;
-    case gamepad::Button::A: {
-        const ui::KeyPress press = keyboard.press();
-        return press.done ? KeyboardOutcome::Confirm : editedIf(press.edited);
-    }
-    case gamepad::Button::B:
-        // A character at a time; with none left B leaves the keyboard.
-        if (keyboard.text().empty()) {
-            return KeyboardOutcome::Leave;
-        }
-        return editedIf(keyboard.backspace());
-    case gamepad::Button::X:
-        if (keyboard.secret()) {
-            keyboard.toggleShift();
-        }
-        return KeyboardOutcome::Handled;
-    case gamepad::Button::Y:
-        return editedIf(keyboard.typeSpace());
-    default:
-        return KeyboardOutcome::Handled;
-    }
-}
 
 /// The face a face button types on a petal.
 std::optional<ui::DaisyFace> faceOf(gamepad::Button button) noexcept {
@@ -54,42 +21,6 @@ std::optional<ui::DaisyFace> faceOf(gamepad::Button button) noexcept {
         return ui::DaisyFace::Y;
     default:
         return std::nullopt;
-    }
-}
-
-KeyboardOutcome onWheel(ui::OnScreenKeyboard& keyboard, gamepad::Button button,
-                        audio::SdlSoundPlayer& sounds) {
-    if (const std::optional<ui::DaisyFace> face = faceOf(button)) {
-        // A clicked character is typed by the A the pointer presses.
-        if (*face == ui::DaisyFace::A && keyboard.pointed()) {
-            return editedIf(keyboard.press().edited);
-        }
-        if (keyboard.petal()) {
-            return editedIf(keyboard.typeFace(*face));
-        }
-    }
-    switch (button) {
-    case gamepad::Button::Left:
-    case gamepad::Button::Right:
-        if (keyboard.moveCursor(button == gamepad::Button::Left ? -1 : 1)) {
-            sounds.play(audio::Effect::Navigation);
-        }
-        return KeyboardOutcome::Handled;
-    case gamepad::Button::B:
-        return KeyboardOutcome::Leave;
-    case gamepad::Button::X:
-    case gamepad::Button::L1:
-        return editedIf(keyboard.backspace());
-    case gamepad::Button::Y:
-    case gamepad::Button::R1:
-        return editedIf(keyboard.typeSpace());
-    case gamepad::Button::L2:
-    case gamepad::Button::R2:
-        keyboard.cycleSet(button == gamepad::Button::L2 ? -1 : 1);
-        sounds.play(audio::Effect::Navigation);
-        return KeyboardOutcome::Handled;
-    default:
-        return KeyboardOutcome::Handled;
     }
 }
 
@@ -108,18 +39,155 @@ ui::Direction directionOf(gamepad::Button button) noexcept {
     }
 }
 
-KeyboardOutcome actOnKeyboard(ui::OnScreenKeyboard& keyboard, gamepad::Button button,
-                              audio::SdlSoundPlayer& sounds) {
+void KeyboardPad::open() {
+    if (keyboard_.isOpen()) {
+        return;
+    }
+    // input-sound.md 3.4 Open: a panel appears.
+    sounds_.play(audio::Effect::Open);
+    keyboard_.open();
+}
+
+void KeyboardPad::close() {
+    if (!keyboard_.isOpen()) {
+        return;
+    }
+    // input-sound.md 3.4 Close: the player dismisses a panel.
+    sounds_.play(audio::Effect::Close);
+    keyboard_.close();
+}
+
+void KeyboardPad::follow() {
+    if (keyboard_.isOpen() && !navigator_.typing()) {
+        keyboard_.close();
+    }
+}
+
+bool KeyboardPad::takesStick() const noexcept {
+    return keyboard_.isOpen() && keyboard_.style() == input::KeyboardStyle::DaisyWheel;
+}
+
+void KeyboardPad::stick(ui::Direction direction, bool held) {
+    // input-sound.md 3.4 Navigation: a focus move.
+    if (keyboard_.stick(direction, held)) {
+        sounds_.play(audio::Effect::Navigation);
+    }
+}
+
+bool KeyboardPad::fieldEmpty() const {
+    const auto* field =
+        dynamic_cast<const gpu2d::ui::TextField*>(navigator_.find(navigator_.focused()));
+    return field == nullptr || field->text().empty();
+}
+
+void KeyboardPad::type(const std::string& typed) {
+    if (!typed.empty()) {
+        navigator_.text(typed);
+    }
+}
+
+void KeyboardPad::erase() {
+    navigator_.act(gpu2d::ui::Action::Erase);
+}
+
+void KeyboardPad::done() {
+    close();
+    navigator_.act(gpu2d::ui::Action::Submit);
+}
+
+void KeyboardPad::apply(const ui::KeyPress& press) {
+    if (press.done) {
+        done();
+        return;
+    }
+    if (press.erase) {
+        erase();
+    }
+    type(press.typed);
+}
+
+void KeyboardPad::act(gamepad::Button button) {
+    if (button == gamepad::Button::Start) {
+        done();
+        return;
+    }
+    if (button == gamepad::Button::Select) {
+        // Y types on the keyboard, so Select stands for the field's Clear.
+        navigator_.act(gpu2d::ui::Action::Tertiary);
+        return;
+    }
+    if (keyboard_.style() == input::KeyboardStyle::DaisyWheel) {
+        onWheel(button);
+    } else {
+        onGrid(button);
+    }
+}
+
+void KeyboardPad::onGrid(gamepad::Button button) {
     switch (button) {
-    case gamepad::Button::Select:
-        return editedIf(keyboard.clear());
-    case gamepad::Button::Start:
-        return KeyboardOutcome::Confirm;
+    case gamepad::Button::Up:
+    case gamepad::Button::Down:
+    case gamepad::Button::Left:
+    case gamepad::Button::Right:
+        // input-sound.md 3.4 Navigation: a focus move in a list.
+        if (keyboard_.move(directionOf(button))) {
+            sounds_.play(audio::Effect::Navigation);
+        }
+        break;
+    case gamepad::Button::A:
+        apply(keyboard_.press());
+        break;
+    case gamepad::Button::B:
+        // A character at a time; with none left B closes the keyboard.
+        if (fieldEmpty()) {
+            close();
+        } else {
+            erase();
+        }
+        break;
+    case gamepad::Button::X:
+        keyboard_.toggleShift();
+        break;
+    case gamepad::Button::Y:
+        type(" ");
+        break;
     default:
         break;
     }
-    return keyboard.style() == input::KeyboardStyle::DaisyWheel ? onWheel(keyboard, button, sounds)
-                                                                : onGrid(keyboard, button, sounds);
+}
+
+void KeyboardPad::onWheel(gamepad::Button button) {
+    if (const std::optional<ui::DaisyFace> face = faceOf(button)) {
+        // A clicked character is typed by the A the pointer presses.
+        if (*face == ui::DaisyFace::A && keyboard_.pointed()) {
+            apply(keyboard_.press());
+            return;
+        }
+        if (keyboard_.petal()) {
+            type(keyboard_.typeFace(*face));
+            return;
+        }
+    }
+    switch (button) {
+    case gamepad::Button::B:
+        close();
+        break;
+    case gamepad::Button::X:
+    case gamepad::Button::L1:
+        erase();
+        break;
+    case gamepad::Button::Y:
+    case gamepad::Button::R1:
+        type(" ");
+        break;
+    case gamepad::Button::L2:
+    case gamepad::Button::R2:
+        keyboard_.cycleSet(button == gamepad::Button::L2 ? -1 : 1);
+        sounds_.play(audio::Effect::Navigation);
+        break;
+    default:
+        break;
+    }
 }
 
 } // namespace opensu::app

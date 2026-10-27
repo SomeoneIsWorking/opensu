@@ -155,11 +155,12 @@ def _search(shell: HiddenShell) -> None:
 
 
 def _close_search(shell: HiddenShell) -> None:
-    # Select clears the text; B on an empty field closes the panel.
-    shell.press("select")
-    shell.wait_for("searchText", "")
+    # B closes the keyboard, B again the card; on Home, B clears the search kept.
+    shell.press("b")
     shell.press("b")
     shell.wait_for("searchOpen", False)
+    shell.press("b")
+    shell.wait_for("searchText", "")
 
 
 def _volume(shell: HiddenShell) -> None:
@@ -239,17 +240,17 @@ def _details_update(shell: HiddenShell) -> None:
     """The installed stand-in game's details with Update focused."""
     _epic_game(shell, legendary.INSTALLED_APP_NAME)
     _details(shell)
-    # Its buttons: Play, Update, Hide game, Uninstall, Controls, Back.
+    # Its rows: Play, Update, Hide game, Uninstall, Choose artwork, Controls, Back.
     shell.press("down")
 
 
 def _arm_uninstall(shell: HiddenShell) -> None:
-    """The installed stand-in game's details, and the first press on Uninstall."""
+    """The installed stand-in game's details, and Uninstall's question."""
     _epic_game(shell, legendary.INSTALLED_APP_NAME)
     _details(shell)
-    # Its buttons: Play, Update, Hide game, Uninstall, Controls, Back.
+    # Its rows: Play, Update, Hide game, Uninstall, Choose artwork, Controls, Back.
     shell.press("down", "down", "down", "a")
-    shell.wait_for("armed", True)
+    shell.wait_for("screen", "dialog")
 
 
 def _leave_store_details(shell: HiddenShell) -> None:
@@ -316,9 +317,9 @@ def _downloads_uninstalling(shell: HiddenShell) -> None:
     _open_downloads(shell)
 
 
-# The most buttons a details page has: Play, Update, Emulator, Hide game, Uninstall, Choose artwork,
-# Controls, Back.
-LONGEST_DETAILS = 8
+# The most rows a details page has: Play, Update, Download, Emulator, Game settings, Wine prefix,
+# Hide game, Uninstall, Choose artwork, Controls, Back.
+LONGEST_DETAILS = 11
 
 
 def _game_mapping(shell: HiddenShell) -> None:

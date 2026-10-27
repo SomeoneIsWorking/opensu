@@ -1,7 +1,6 @@
 #include "interface_theme.hpp"
 
 #include "hud.hpp"
-#include "row_controls.hpp"
 
 namespace opensu::ui {
 
@@ -12,14 +11,14 @@ gpu2d::ui::Theme interfaceTheme(float dp) noexcept {
     colours.surface = Colour{0xF8, 0xF8, 0xFB, 255};
     colours.control = palette::panel;
     colours.controlFocused = palette::panel;
-    colours.selected = rowChosen;
+    colours.selected = palette::chosen;
     colours.ink = palette::ink;
     colours.inkMuted = palette::inkSoft;
     colours.inkFaint = Colour{0x93, 0x8C, 0xA1, 255};
-    colours.accent = rowInk;
+    colours.accent = palette::control;
     colours.onAccent = palette::panel;
-    colours.track = rowOff;
-    colours.focusRing = rowInk;
+    colours.track = palette::off;
+    colours.focusRing = palette::control;
     colours.scrim = Colour{0x2B, 0x27, 0x33, 120};
     colours.toast = Colour{0x2B, 0x27, 0x33, 240};
     colours.toastError = Colour{0xB3, 0x26, 0x1E, 240};

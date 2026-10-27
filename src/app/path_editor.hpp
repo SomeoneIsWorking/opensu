@@ -1,19 +1,20 @@
-// path_editor — choosing a folder on the folder chooser, with the on-screen keyboard (or a physical
-// keyboard) for typing a path instead. One request at a time: what it is for, where it starts, what
-// makes a folder acceptable and what to do with the answer. A folder that is refused stays on
-// screen with the reason in a toast.
+// path_editor — choosing a folder on the folder chooser card: the path field at its top (typed on
+// the on-screen keyboard or a physical one, Submit takes it), Use this folder, the entry that drops
+// the setting when the request has one, Up one level and the folders to go into. One request at a
+// time: what it is for, where it starts, what makes a folder acceptable and what to do with the
+// answer. A folder that is refused stays on screen with the reason in a toast.
 #pragma once
 
 #include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
-#include <string_view>
+
+#include "gpu2d/ui/navigator.hpp"
 
 #include "audio/sdl_sound_player.hpp"
-#include "gamepad/event.hpp"
 #include "ui/folder_chooser.hpp"
-#include "ui/on_screen_keyboard.hpp"
+#include "ui/screen_stack.hpp"
 
 namespace opensu::app {
 
@@ -36,49 +37,58 @@ class PathEditor {
     /// What the editor tells the player: `error` marks a refusal.
     using Say = std::function<void(const std::string& text, bool error)>;
 
-    PathEditor(ui::FolderChooser& folders, ui::OnScreenKeyboard& entry,
+    PathEditor(gpu2d::ui::Navigator& navigator, const ui::Chrome& chrome,
                audio::SdlSoundPlayer& sounds, Say say)
-        : folders_{folders}, entry_{entry}, sounds_{sounds}, say_{std::move(say)} {
+        : navigator_{navigator}, chrome_{chrome}, sounds_{sounds}, say_{std::move(say)} {
     }
 
     /// Opens the chooser for `request`.
     void begin(Request request);
-    /// Whether the chooser is up, with or without its keyboard, which is when it takes every
-    /// button. The keyboard is shared, and is this editor's only over its chooser.
-    [[nodiscard]] bool active() const noexcept {
-        return folders_.isOpen();
-    }
-    /// Whether its keyboard is up, which a physical keyboard types into.
-    [[nodiscard]] bool typing() const noexcept {
-        return folders_.isOpen() && entry_.isOpen();
-    }
+    /// Whether the chooser is up.
+    [[nodiscard]] bool active() const;
 
-    /// A pad button while it is up.
-    void act(gamepad::Button button);
-
-    /// What a physical keyboard typed while the keyboard is up.
-    void typeText(std::string_view text);
-    void backspace();
-    /// Enter: takes the typed path.
-    void confirm();
-    /// Escape: closes the keyboard, back to the chooser.
-    void dismiss();
+    // What the card asks.
+    [[nodiscard]] const Request& request() const noexcept {
+        return request_;
+    }
+    [[nodiscard]] const ui::FolderChooser& folders() const noexcept {
+        return folders_;
+    }
+    /// The path in the field: the folder shown, or what was typed over it.
+    [[nodiscard]] const std::string& typed() const noexcept {
+        return typed_;
+    }
+    void type(std::string text) {
+        typed_ = std::move(text);
+    }
+    /// Takes the typed path.
+    void submitTyped();
+    /// Takes the folder shown.
+    void useShown();
+    /// Drops the setting being chosen.
+    void dropChoice();
+    /// Shows `folder`, one of the folders listed.
+    void enter(const std::filesystem::path& folder);
+    /// Goes up a level; reports whether there was one.
+    bool up();
+    /// Closes the chooser without an answer.
+    void cancel();
 
   private:
-    void actInChooser(gamepad::Button button);
-    void actOnKeys(gamepad::Button button);
-    /// Closes the chooser and the keyboard without an answer.
-    void cancel();
     /// Takes `folder` if the request accepts it, else says why not.
     void choose(const std::filesystem::path& folder);
-    void openEntry();
-    void closeEntry();
+    /// Closes the card with iiSU's Close sound.
+    void close();
+    /// Another folder shows: the field follows it and the focus goes to Use this folder.
+    void shown();
 
-    ui::FolderChooser& folders_;
-    ui::OnScreenKeyboard& entry_;
+    gpu2d::ui::Navigator& navigator_;
+    const ui::Chrome& chrome_;
     audio::SdlSoundPlayer& sounds_;
     Say say_;
     Request request_;
+    ui::FolderChooser folders_;
+    std::string typed_;
 };
 
 } // namespace opensu::app

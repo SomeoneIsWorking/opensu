@@ -8,7 +8,6 @@
 
 #include "clock_text.hpp"
 #include "corner_hints.hpp"
-#include "typeface.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -117,8 +116,8 @@ void Hud::drawTopBar(Canvas& canvas) {
 Rect Hud::titlePillBody(float top) const {
     const TitlePillMetrics pill = metrics().titlePill();
     const float dp = dp_;
-    const TextStyle text{pill.fontSize * dp};
-    const float textWidth = std::min(typeface_.measure(title_, text), pill.maxTextWidth * dp);
+    const float size = pill.fontSize * dp;
+    const float textWidth = std::min(text_.measure(title_, size), pill.maxTextWidth * dp);
     const float bodyWidth =
         std::max(textWidth + 2.0f * pill.paddingHorizontal * dp, pill.minWidth * dp);
     return Rect{(static_cast<float>(width_) - bodyWidth) * 0.5f, top + pill.topPadding * dp,
@@ -150,12 +149,12 @@ void Hud::drawTitlePill(Canvas& canvas, float top) const {
     }
     // iiSU jj2.c: a glass pill centred in the row, its text titleMedium.
     const TitlePillMetrics pill = metrics().titlePill();
-    const TextStyle text{pill.fontSize * dp_};
-    const float textWidth = std::min(typeface_.measure(title_, text), pill.maxTextWidth * dp_);
+    const float size = pill.fontSize * dp_;
+    const float textWidth = std::min(text_.measure(title_, size), pill.maxTextWidth * dp_);
     const Rect body = titlePillBody(top);
     glass_.paint(canvas, body);
-    typeface_.drawCentred(canvas, title_, body.centreX() - textWidth * 0.5f, body.centreY(), text,
-                          hintInk);
+    text_.drawCentred(canvas, title_, Point{body.centreX() - textWidth * 0.5f, body.centreY()},
+                      size, hintInk);
 }
 
 void Hud::drawHints(Canvas& canvas) const {
@@ -171,13 +170,13 @@ void Hud::drawPromptPanel(Canvas& canvas, const HintPanelMetrics& panel,
         return;
     }
     const float dp = dp_;
-    const TextStyle text{panel.labelSize * dp, panel.labelTracking};
+    const float text = panel.labelSize * dp;
     const float glyph = panel.glyphSize * dp;
     const float gap = panel.glyphGap * dp;
     float labels = 0.0f;
     float column = glyph;
     for (const auto& [key, label] : prompts) {
-        labels = std::max(labels, typeface_.measure(label, text));
+        labels = std::max(labels, text_.measure(label, text));
         column = std::max(column, glyphs_.advance(key, glyph));
     }
     const float width = 2.0f * panel.paddingHorizontal * dp + column + gap + labels;
@@ -197,8 +196,9 @@ void Hud::drawPromptPanel(Canvas& canvas, const HintPanelMetrics& panel,
     for (const auto& [key, label] : prompts) {
         const float centreY = top + row * 0.5f;
         glyphs_.paint(canvas, key, Point{left + column * 0.5f, centreY}, glyph, hintInk);
-        typeface_.drawCentred(canvas, label, left + column + gap,
-                              centreY + panel.labelShift(key) * dp, text, hintInk);
+        text_.drawCentred(canvas, label,
+                          Point{left + column + gap, centreY + panel.labelShift(key) * dp}, text,
+                          hintInk);
         top += row + panel.entrySpacing * dp;
     }
 }
@@ -208,10 +208,10 @@ void Hud::drawToast(Canvas& canvas, float floor) const {
         return;
     }
     const float u = unit();
-    const TextStyle text{typeface_.emForLineBox(u * 1.4f)};
-    const float textWidth = typeface_.measure(toast_, text);
+    const float size = text_.sizeForLineHeight(u * 1.4f);
+    const float textWidth = text_.measure(toast_, size);
     const float padding = u * 2.0f;
-    const float boxHeight = typeface_.lineBox(text) + padding;
+    const float boxHeight = text_.lineHeight(size) + padding;
     const Rect box{
         (static_cast<float>(width_) - textWidth - 2.0f * padding) / 2.0f,
         std::min(static_cast<float>(height_) - u * 8.0f, floor - u - boxHeight),
@@ -221,8 +221,7 @@ void Hud::drawToast(Canvas& canvas, float floor) const {
     canvas.fillRoundRect(onCanvas(box), cornerRadius(box, 0.5f),
                          toastError_ ? Colour{0xb3, 0x26, 0x1e, 240}
                                      : Colour{0x2b, 0x27, 0x33, 240});
-    typeface_.drawCentred(canvas, toast_, box.x + padding / 2.0f,
-                          box.y + padding / 3.0f + typeface_.lineBox(text) * 0.5f, text, white);
+    text_.drawCentred(canvas, toast_, Point{box.x + padding, box.centreY()}, size, white);
 }
 
 } // namespace opensu::ui

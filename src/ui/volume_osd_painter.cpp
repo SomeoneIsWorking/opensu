@@ -1,10 +1,10 @@
 #include "volume_osd_painter.hpp"
 
+#include "hud.hpp"
+
 #include <string>
 
 #include "round_shape.hpp"
-#include "row_controls.hpp"
-#include "typeface.hpp"
 
 namespace opensu::ui {
 namespace {
@@ -66,11 +66,11 @@ void VolumeOsdPainter::paint(Canvas& canvas, const VolumeLevel& level, Point siz
         return withAlpha(Colour{0xF7, 0xF6, 0xFA, 255}, alpha);
     });
     fillBand(canvas, shape, shape.grown(-1.5f * dp), [alpha = look.alpha](Point, float) {
-        return withAlpha(rowOff, alpha);
+        return withAlpha(palette::off, alpha);
     });
 
     const float unit = dp * look.scale;
-    const Colour ink = withAlpha(rowInk, look.alpha);
+    const Colour ink = withAlpha(palette::control, look.alpha);
     const float icon = iconDp * unit;
     const float left = pill.x + paddingDp * unit;
     const int waves = level.muted || level.percent == 0 ? 0 : (level.percent < 50 ? 1 : 2);
@@ -81,7 +81,7 @@ void VolumeOsdPainter::paint(Canvas& canvas, const VolumeLevel& level, Point siz
     const float trackRight = pill.right() - paddingDp * unit - percentRoomDp * unit;
     const float radius = barDp * unit * 0.5f;
     const Rect bar{trackLeft, pill.centreY() - radius, trackRight - trackLeft, radius * 2.0f};
-    const Colour track = withAlpha(rowOff, look.alpha);
+    const Colour track = withAlpha(palette::off, look.alpha);
     fillRoundRect(canvas, RoundRect{bar, radius}, [track](Point, float) {
         return track;
     });
@@ -92,10 +92,10 @@ void VolumeOsdPainter::paint(Canvas& canvas, const VolumeLevel& level, Point siz
                           return ink;
                       });
     }
-    const TextStyle text{percentSp * unit};
+    const float percentSize = percentSp * unit;
     const std::string percent = level.muted ? "Muted" : std::to_string(level.percent) + "%";
-    typeface_.drawCentred(canvas, percent, trackRight + paddingDp * 0.6f * unit, pill.centreY(),
-                          text, ink);
+    text_.drawCentred(canvas, percent, Point{trackRight + paddingDp * 0.6f * unit, pill.centreY()},
+                      percentSize, ink);
 }
 
 } // namespace opensu::ui
