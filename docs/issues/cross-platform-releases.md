@@ -248,9 +248,25 @@ librashader are found beside it as before. `CoreSearch::standard` is `core_searc
 `device::ControllerBatteries` is `controller_batteries_sysfs.cpp` on Linux and
 `controller_batteries_none.cpp` (no controller battery) elsewhere.
 
+POSIX-only calls moved behind owners with a Windows backend: `clock::localTime` and
+`localeClock24Hour` (`src/clock`), `fileio::writeOwnerOnly` and `mayUseFolder`, `app::crashName`
+(a signal, or an exception code), and the process table under `launch::ProcessTree` (/proc on
+Linux, none elsewhere yet). `secrets::wipeBytes` is the one wipe (`OPENSSL_cleanse`), which
+`explicit_bzero` and the Switch keys' own copy were. nlohmann/json is a `find_package` dependency
+(it came from `/usr/include` unnamed).
+
 Windows compile check from Linux: `cmake/toolchains/windows-clang-cl.cmake` (clang-cl, lld-link, the
 Windows SDK and CRT from an `xwin splat` tree when the host is not Windows), `vcpkg.json` (pinned
 baseline) and `packaging/windows/triplets/x64-windows-clangcl.cmake` (release-only, through the same
 toolchain). Every manifest port builds that way except OpenSSL, whose Windows port needs `nmake`.
+
+State of the Windows build (clang-cl, local cross-compile, 2026-10-28): every translation unit of
+`opensu` and `opensu-retro` compiles, and both link, against a stand-in OpenSSL (the Linux headers
+and an import library made from `libcrypto.num`, outside the repo), with
+`-DOPENSU_BUILD_LIBRASHADER=OFF`. Neither has been run. Left for step 2: OpenSSL from vcpkg on a
+Windows host (its port needs `nmake`); librashader's cargo build for `x86_64-pc-windows-msvc`;
+the targets' `-Wall -Wextra -Wpedantic`, which clang-cl reads as `-Weverything` (needs `/W4` under
+the MSVC front end); a Windows `ProcessLauncher` and process table; the tests (POSIX-only, not
+configured for Windows); the installer and the release job.
 
 

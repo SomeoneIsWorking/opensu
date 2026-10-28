@@ -8,8 +8,6 @@
 #include <iterator>
 #include <system_error>
 
-#include <elf.h>
-
 namespace opensu::library::roms {
 namespace {
 
@@ -18,6 +16,15 @@ namespace fs = std::filesystem;
 constexpr std::string_view libfuse2Name = "libfuse.so.2";
 /// No runtime is larger; past this the file is the filesystem image.
 constexpr std::uint64_t runtimeLimit = 8ULL * 1024 * 1024;
+
+// The ELF64 header: magic, class, and the section header table's offset, entry size and count.
+constexpr std::size_t elfHeaderSize = 64;
+constexpr std::array<unsigned char, 4> elfMagic{0x7F, 'E', 'L', 'F'};
+constexpr std::size_t elfClassAt = 4;
+constexpr unsigned char elfClass64 = 2;
+constexpr std::size_t sectionsAt = 0x28;
+constexpr std::size_t sectionSizeAt = 0x3A;
+constexpr std::size_t sectionCountAt = 0x3C;
 
 constexpr std::array libraryDirs{
     "/usr/lib64",           "/lib64", "/usr/lib", "/lib", "/usr/lib/x86_64-linux-gnu",
@@ -41,15 +48,26 @@ std::string osReleaseValue(const std::string& line, std::string_view key) {
     return value;
 }
 
+/// The little-endian unsigned integer of `size` bytes at `at`.
+std::uint64_t littleEndian(const std::array<unsigned char, elfHeaderSize>& bytes, std::size_t at,
+                           std::size_t size) {
+    std::uint64_t value = 0;
+    for (std::size_t i = size; i > 0; --i) {
+        value = (value << 8U) | bytes[at + i - 1];
+    }
+    return value;
+}
+
 /// Where the runtime ends: its section headers are the last thing in it.
 std::uint64_t runtimeSize(std::ifstream& in) {
-    Elf64_Ehdr header{};
-    in.read(reinterpret_cast<char*>(&header), sizeof header);
-    if (!in || std::memcmp(header.e_ident, ELFMAG, SELFMAG) != 0 ||
-        header.e_ident[EI_CLASS] != ELFCLASS64) {
+    std::array<unsigned char, elfHeaderSize> header{};
+    in.read(reinterpret_cast<char*>(header.data()), header.size());
+    if (!in || std::memcmp(header.data(), elfMagic.data(), elfMagic.size()) != 0 ||
+        header[elfClassAt] != elfClass64) {
         return 0;
     }
-    return header.e_shoff + static_cast<std::uint64_t>(header.e_shentsize) * header.e_shnum;
+    return littleEndian(header, sectionsAt, 8) +
+           littleEndian(header, sectionSizeAt, 2) * littleEndian(header, sectionCountAt, 2);
 }
 
 } // namespace

@@ -1991,6 +1991,14 @@ only openSU's downloads are searched.
 
 Controller batteries are sysfs on Linux (`controller_batteries_sysfs.cpp`) and none elsewhere.
 
+Windows compile pass: `opensu.exe` and `opensu-retro.exe` compile and link with clang-cl from
+Linux (xwin SDK, vcpkg `x64-windows-clangcl`) against a stand-in OpenSSL import library and without
+librashader; not run. The POSIX calls behind it went to owners with Windows backends (`src/clock`,
+`fileio::writeOwnerOnly`, `fileio::mayUseFolder`, `app::crashName`, `launch::table`), the
+remaining fixes are portable C++ (iterators, `clock_cast`, UTF-8 paths, the ELF header read by
+offset), and nlohmann/json is found by CMake. Linux: 163 tests pass twice; a hidden run's Home,
+Details (clock, "5 days ago") match before.
+
 Gaps: `launch/command.*` has its
 `posix_child`/`win32_child` backends and `ownProcessId()` replaced `getpid`; the Win32 backend is
 compiled with clang-cl against an xwin SDK and not run. Not run here: a Steam game launch and an AppImage

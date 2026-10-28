@@ -117,8 +117,8 @@ Rect calloutOf(const Rect& chip, CalloutSide side, float width) noexcept {
 }
 
 const Place* placeOf(Button button) noexcept {
-    const auto* place = std::ranges::find(places, button, &Place::button);
-    return place == places.end() ? nullptr : place;
+    const auto found = std::ranges::find(places, button, &Place::button);
+    return found == places.end() ? nullptr : &*found;
 }
 
 /// Whether `item` is a chip on the strip: not a pad button with a place on the board.
