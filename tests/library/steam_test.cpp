@@ -149,7 +149,7 @@ int main() {
     expect(folders.size() == 2, "two library folders, the root and the extra one");
     int rootCount = 0;
     for (const auto& folder : folders) {
-        rootCount += folder.path == fixture.root ? 1 : 0;
+        rootCount += fs::equivalent(folder.path, fixture.root) ? 1 : 0;
     }
     expect(rootCount == 1, "the install root appears once");
 
