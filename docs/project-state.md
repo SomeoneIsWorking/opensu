@@ -203,7 +203,10 @@ game's playtime was zeroed.
 
 openSU's own set (`assets/sounds/`, MIT, synthesized by `tools/sounds/`): one 48 kHz mono Ogg Vorbis
 per effect, peaks at -6 dBFS, loaded at start by `audio::SdlSoundPlayer::loadSet` and played one
-stream per effect. openSU downloads none of iiSU's sounds. Settings › Audio › UI sounds mutes them.
+stream per effect. openSU downloads none of iiSU's sounds. Settings › Audio › UI sounds mutes them;
+Settings › Audio › Interface sounds takes iiSU's instead (`app::InterfaceSounds`), read through
+`artwork::IisuPack` from the iiSU release the player gave for the console art or picks there, the
+one `iisuFile`; an effect the file lacks keeps openSU's.
 A `--hidden` run opens no device unless `--sound`. Events (`input-sound.md` 3.4): Navigation on a
 focus move or a press; EnterConsolesApps on A opening a console, launcher or All games;
 ExitConsolesApps on B back to Library; OpenAppRom on a game launch; Open / Close on a panel
@@ -214,7 +217,9 @@ section and play the Domino cue for the destination's visible tile count (`audio
 audio device the player logs one warning and is silent. Verified: every effect played by a
 `--hidden --sound` run through its real input (Library, a console, its context menu and details
 page, a launch, and L1/R1 over 1, 2, 4, 7 and 13 tiles), recorded from a private PipeWire null
-sink and matched to its file (peaks -5.9 to -6.2 dBFS, nothing clipped); unverified: iiSU's
+sink and matched to its file (peaks -5.9 to -6.2 dBFS, nothing clipped); the same walk with
+Interface sounds on iiSU's and iiSU's Alpha 7.4 APK matched every effect to iiSU's file (log: "12 of
+12 UI sounds are iiSU's"); unverified: iiSU's
 4-stream cap (a repeat of one effect restarts it).
 
 ### S005 — Home grid

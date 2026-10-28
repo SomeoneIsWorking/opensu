@@ -12,6 +12,7 @@ namespace {
 constexpr std::string_view starterPackEntry = "assets/iiSU_StarterPack.zip";
 constexpr std::string_view borderDirectory = "assets/borders/";
 constexpr std::string_view borderPackEntry = "assets/borders/border_pack.json";
+constexpr std::string_view soundDirectory = "assets/";
 constexpr std::string_view cardDirectory = "platforms/";
 constexpr std::string_view cardExtension = ".webp";
 
@@ -151,6 +152,16 @@ std::optional<std::string> IisuPack::glyph(std::string_view system, std::string&
         return std::nullopt;
     }
     const zip::Entry* entry = archive_.find(std::string{borderDirectory} + logo->second, error);
+    return entry == nullptr ? std::nullopt : archive_.extract(*entry, error);
+}
+
+std::optional<std::string> IisuPack::sound(std::string_view file, std::string& error) const {
+    error.clear();
+    if (!apk_ || !plainName(file)) {
+        return std::nullopt;
+    }
+    const std::lock_guard lock{mutex_};
+    const zip::Entry* entry = archive_.find(std::string{soundDirectory} + std::string{file}, error);
     return entry == nullptr ? std::nullopt : archive_.extract(*entry, error);
 }
 

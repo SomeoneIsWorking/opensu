@@ -47,7 +47,14 @@ void SdlSoundPlayer::open() {
 }
 
 bool SdlSoundPlayer::load(Effect effect, const std::filesystem::path& file) {
-    std::optional<SoundClip> clip = decodeSound(file);
+    return keep(effect, decodeSound(file));
+}
+
+bool SdlSoundPlayer::load(Effect effect, std::string_view bytes, std::string_view name) {
+    return keep(effect, decodeSound(bytes, name));
+}
+
+bool SdlSoundPlayer::keep(Effect effect, std::optional<SoundClip> clip) {
     if (!clip) {
         return false;
     }

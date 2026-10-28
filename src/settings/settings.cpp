@@ -32,6 +32,7 @@ constexpr const char* uiScaleBaseKey = "uiScaleBase";
 constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* nightLightKey = "nightLight";
 constexpr const char* consoleArtKey = "consoleArt";
+constexpr const char* interfaceSoundsKey = "interfaceSounds";
 constexpr const char* iisuFileKey = "iisuFile";
 constexpr const char* shortcutsKey = "shortcuts";
 constexpr const char* shortcutKeysKey = "keys";
@@ -92,6 +93,20 @@ class Reader {
         }
         if (found->is_string()) {
             out = found->get<std::string>();
+        } else {
+            reject(name, *found, fallback);
+        }
+    }
+
+    void owner(const char* name, AssetOwner& out, const char* fallback) const {
+        const auto found = document_.find(name);
+        if (found == document_.end()) {
+            return;
+        }
+        const std::optional<AssetOwner> owner =
+            found->is_string() ? assetOwnerOf(found->get<std::string>()) : std::nullopt;
+        if (owner) {
+            out = *owner;
         } else {
             reject(name, *found, fallback);
         }
@@ -392,16 +407,8 @@ Settings Store::load() const {
                          file_.string(), nightLightSpelling);
         }
     }
-    std::string consoleArtSpelling;
-    read.text(consoleArtKey, consoleArtSpelling, "showing openSU's console art");
-    if (!consoleArtSpelling.empty()) {
-        if (const std::optional<ConsoleArtChoice> choice = consoleArtChoiceOf(consoleArtSpelling)) {
-            settings.consoleArt = *choice;
-        } else {
-            lucent::warn("settings", "{}: {} is not a console art choice; showing openSU's",
-                         file_.string(), consoleArtSpelling);
-        }
-    }
+    read.owner(consoleArtKey, settings.consoleArt, "showing openSU's console art");
+    read.owner(interfaceSoundsKey, settings.interfaceSounds, "playing openSU's sounds");
     std::string iisuFile;
     read.text(iisuFileKey, iisuFile, "with no iiSU file");
     settings.iisuFile = iisuFile;
@@ -479,6 +486,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
         {nightLightKey, std::string{key(settings.nightLight)}},
         {consoleArtKey, std::string{key(settings.consoleArt)}},
+        {interfaceSoundsKey, std::string{key(settings.interfaceSounds)}},
         {iisuFileKey, settings.iisuFile.string()},
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},

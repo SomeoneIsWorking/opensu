@@ -26,6 +26,7 @@
 #include "input/shortcuts.hpp"
 #include "integration_settings.hpp"
 #include "integrations_in_force.hpp"
+#include "interface_sound_settings.hpp"
 #include "layer_settings.hpp"
 #include "layered_settings.hpp"
 #include "library/library_query.hpp"
@@ -77,6 +78,7 @@ class SettingsController final : public ui::RowActions {
         WineSettings& wine;
         IntegrationSettings& integrations;
         ArtworkSettings& artwork;
+        InterfaceSoundSettings& interfaceSounds;
         /// Which pages and rows show: those of the integrations in force.
         const IntegrationsInForce& inForce;
     };
@@ -92,8 +94,8 @@ class SettingsController final : public ui::RowActions {
           steamLibraries_{services.steamLibraries}, plugins_{services.plugins},
           chords_{services.chords}, mappings_{services.mappings}, wine_{services.wine},
           integrations_{services.integrations}, artwork_{services.artwork},
-          inForce_{services.inForce}, sounds_{sounds}, preferences_{preferences},
-          defaults_{defaults}, hooks_{std::move(hooks)} {
+          interfaceSounds_{services.interfaceSounds}, inForce_{services.inForce}, sounds_{sounds},
+          preferences_{preferences}, defaults_{defaults}, hooks_{std::move(hooks)} {
     }
 
     /// Opens the screen on its first category.
@@ -170,6 +172,7 @@ class SettingsController final : public ui::RowActions {
     WineSettings& wine_;
     IntegrationSettings& integrations_;
     ArtworkSettings& artwork_;
+    InterfaceSoundSettings& interfaceSounds_;
     const IntegrationsInForce& inForce_;
     audio::SdlSoundPlayer& sounds_;
     Preferences& preferences_;

@@ -1,6 +1,6 @@
 // artwork_settings — Settings › Artwork: whose console art the home shows (openSU's, or iiSU's from
-// the release APK or starter pack the player downloaded, picked on the file chooser and refused
-// with the reason when it is not iiSU's), SteamGridDB's connection
+// the release APK or starter pack the player downloaded, picked on `IisuFileChooser`),
+// SteamGridDB's connection
 // (`SteamGridDbAccount`) with its status, Connect (through Steam's browser, else the key typed in),
 // Cancel, Enter a key and Disconnect, and the card the key is typed or pasted into, with the
 // on-screen keyboard up. The key shows as dots and is wiped when the card closes.
@@ -13,10 +13,9 @@
 
 #include "gpu2d/ui/navigator.hpp"
 
-#include "artwork/iisu_pack.hpp"
 #include "audio/sdl_sound_player.hpp"
+#include "iisu_file_chooser.hpp"
 #include "keyboard_pad.hpp"
-#include "path_editor.hpp"
 #include "preferences.hpp"
 #include "steamgriddb_account.hpp"
 #include "ui/setting_row.hpp"
@@ -45,16 +44,15 @@ class ArtworkSettings {
     /// What the page reads and changes besides the account.
     struct Services {
         Preferences& preferences;
-        /// The file chooser iiSU's file is picked on, which opens in `home`'s Downloads.
-        PathEditor& paths;
-        std::filesystem::path home;
+        /// The chooser iiSU's file is picked on.
+        IisuFileChooser& chooser;
         audio::SdlSoundPlayer& sounds;
     };
 
     ArtworkSettings(SteamGridDbAccount& account, Entry entry, Services services, Hooks hooks)
         : account_{account}, navigator_{entry.navigator}, keyboard_{entry.keyboard},
-          preferences_{services.preferences}, paths_{services.paths},
-          home_{std::move(services.home)}, sounds_{services.sounds}, hooks_{std::move(hooks)} {
+          preferences_{services.preferences}, chooser_{services.chooser}, sounds_{services.sounds},
+          hooks_{std::move(hooks)} {
     }
     ~ArtworkSettings();
     ArtworkSettings(const ArtworkSettings&) = delete;
@@ -80,7 +78,7 @@ class ArtworkSettings {
     /// Opens the file chooser for iiSU's release or starter pack; a file taken chooses iiSU's art.
     void chooseIisuFile();
     /// Keeps `choice` and `iisuFile` and has the home show them.
-    void useConsoleArt(settings::ConsoleArtChoice choice, const std::filesystem::path& iisuFile);
+    void useConsoleArt(settings::AssetOwner choice, const std::filesystem::path& iisuFile);
     void openEntry();
     /// Submit: keeps the typed key.
     void confirm();
@@ -92,8 +90,7 @@ class ArtworkSettings {
     gpu2d::ui::Navigator& navigator_;
     KeyboardPad& keyboard_;
     Preferences& preferences_;
-    PathEditor& paths_;
-    std::filesystem::path home_;
+    IisuFileChooser& chooser_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
     /// The key as typed.

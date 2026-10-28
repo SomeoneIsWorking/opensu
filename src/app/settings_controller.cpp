@@ -274,6 +274,7 @@ ui::SettingsCategory SettingsController::audioPage() const {
     ui::SettingsCategory page{"audio", "Audio", {}};
     page.rows.push_back(ui::makeToggle(soundsId, "UI sounds", "The sounds menus and launches make",
                                        preferences_.values().uiSounds));
+    page.rows.push_back(interfaceSounds_.row());
     page.rows.push_back(
         ui::makeRow("audio.volume", RowKind::Info, "Volume", "In the Guide menu", ""));
     return page;
@@ -543,6 +544,11 @@ void SettingsController::run(const std::string& id, int step) {
     }
     if (ArtworkSettings::owns(id)) {
         artwork_.run(id, step);
+        refresh();
+        return;
+    }
+    if (InterfaceSoundSettings::owns(id)) {
+        interfaceSounds_.run(id, step);
         refresh();
         return;
     }

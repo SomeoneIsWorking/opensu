@@ -72,6 +72,14 @@ The art is iiSU's, not openSU's: openSU does not ship it, download it or relicen
 Captured with `uv run --frozen python -m tools.screenshots --profile real --console-art iisu
 --iisu-file <iiSU's APK>`, which shows iiSU's art for the run only.
 
+### iiSU's interface sounds
+
+openSU plays its own interface sounds (`assets/sounds/`). To hear iiSU's instead, open Settings ›
+Audio › Interface sounds and step it to **iiSU**. openSU reads them from the same iiSU file as the
+console art; when that file is the starter pack, which has no sounds, it asks for iiSU's release
+APK and keeps that as the one file. A sound the file lacks keeps openSU's. The sounds are iiSU's:
+openSU does not ship them, download them or relicense them.
+
 ## Installing the AppImage
 
 Each [release](https://github.com/SomeoneIsWorking/opensu/releases) carries

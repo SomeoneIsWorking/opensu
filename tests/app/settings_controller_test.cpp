@@ -100,8 +100,9 @@ struct Rig {
               [this, steamPort]() -> launch::SteamGate* {
                   return steamPort == 1 ? nullptr : &steamGate;
               }}},
+          chooser{paths, config.home},
           artworkSettings{steamGridDbAccount, app::ArtworkSettings::Entry{screens.navigator, pad},
-                          app::ArtworkSettings::Services{preferences, paths, config.home, sounds},
+                          app::ArtworkSettings::Services{preferences, chooser, sounds},
                           app::ArtworkSettings::Hooks{[this](const std::string& text, bool error) {
                                                           said.push_back({text, error});
                                                       },
@@ -114,6 +115,14 @@ struct Rig {
                                                       [this] {
                                                           ++consoleArtChanges;
                                                       }}},
+          interfaceSoundSettings{preferences, chooser,
+                                 app::InterfaceSoundSettings::Hooks{[this] {
+                                                                        ++soundChanges;
+                                                                        controller.refresh();
+                                                                    },
+                                                                    [this] {
+                                                                        ++iisuFileChanges;
+                                                                    }}},
           volume{mixer ? std::unique_ptr<audio::VolumeBackend>{std::make_unique<FakeMixer>(
                              &mixerState, &mixerLog)}
                        : nullptr,
@@ -138,7 +147,7 @@ struct Rig {
                      app::SettingsController::Services{
                          paths, shortcutEditor, shortcuts, emulatorSettings, layerSettings, layered,
                          steamLibrarySettings, pluginSettings, chordSettings, mappings, wine,
-                         integrationSettings, artworkSettings, inForce},
+                         integrationSettings, artworkSettings, interfaceSoundSettings, inForce},
                      sounds,
                      preferences,
                      config,
@@ -310,9 +319,13 @@ struct Rig {
     /// The client Connect signs in with; a desktop Steam unless a test says otherwise.
     test::FakeSteamGate steamGate;
     app::SteamGridDbAccount steamGridDbAccount;
+    app::IisuFileChooser chooser;
     app::ArtworkSettings artworkSettings;
     int artworkRequests{0};
     int consoleArtChanges{0};
+    app::InterfaceSoundSettings interfaceSoundSettings;
+    int soundChanges{0};
+    int iisuFileChanges{0};
     audio::VolumeState mixerState{40, false};
     std::vector<std::string> mixerLog;
     std::vector<audio::VolumeState> shown;
@@ -1291,7 +1304,7 @@ void consoleArtIsChosen(const fs::path& root) {
            "console art starts as openSU's own");
     rig.focus("artwork.consoleart");
     rig.act(Button::Right);
-    expect(rig.paths.active() && rig.onDisk().consoleArt == settings::ConsoleArtChoice::OpenSu,
+    expect(rig.paths.active() && rig.onDisk().consoleArt == settings::AssetOwner::OpenSu,
            "choosing iiSU's opens the file chooser first");
 
     fs::create_directories(rig.config.home);
@@ -1300,7 +1313,7 @@ void consoleArtIsChosen(const fs::path& root) {
         << test::zipfixture::buildZip({{"assets/other.png", "png", false, {}}});
     rig.paths.pick(other);
     expect(rig.paths.active() && saidSomething(rig, "not iiSU's", true) &&
-               rig.onDisk().consoleArt == settings::ConsoleArtChoice::OpenSu,
+               rig.onDisk().consoleArt == settings::AssetOwner::OpenSu,
            "another app's APK is refused and the chooser stays");
 
     const fs::path pack = rig.config.home / "iiSU_StarterPack.zip";
@@ -1308,14 +1321,62 @@ void consoleArtIsChosen(const fs::path& root) {
         << test::zipfixture::buildZip({{"platforms/gc.webp", "RIFF card", false, {}}});
     rig.paths.pick(pack);
     const ui::SettingsRow chosen = rig.rowOf("artwork.consoleart");
-    expect(!rig.paths.active() && rig.onDisk().consoleArt == settings::ConsoleArtChoice::Iisu &&
+    expect(!rig.paths.active() && rig.onDisk().consoleArt == settings::AssetOwner::Iisu &&
                rig.onDisk().iisuFile == pack && chosen.choices[chosen.chosen] == "iiSU" &&
                chosen.note == "iiSU's, from iiSU_StarterPack.zip" && rig.consoleArtChanges == 1,
            "iiSU's file is kept and its art asked for");
     rig.act(Button::Left);
-    expect(rig.onDisk().consoleArt == settings::ConsoleArtChoice::OpenSu &&
+    expect(rig.onDisk().consoleArt == settings::AssetOwner::OpenSu &&
                rig.onDisk().iisuFile == pack && rig.consoleArtChanges == 2,
            "openSU's comes back the other way, the file remembered");
+}
+
+/// Settings > Audio: Interface sounds are openSU's until the player takes iiSU's; the iiSU file
+/// kept for the console art serves when it holds the sounds, else the chooser asks for the release,
+/// whose file then serves the console art too.
+void interfaceSoundsAreChosen(const fs::path& root) {
+    Rig rig{root};
+    fs::create_directories(rig.config.home);
+    const fs::path pack = rig.config.home / "iiSU_StarterPack.zip";
+    std::ofstream{pack, std::ios::binary}
+        << test::zipfixture::buildZip({{"platforms/gc.webp", "RIFF card", false, {}}});
+    rig.preferences.values().iisuFile = pack;
+    rig.controller.open();
+    rig.enter("Audio");
+    const ui::SettingsRow sounds = rig.rowOf("audio.interfacesounds");
+    expect(sounds.choices.size() == 2 && sounds.choices[sounds.chosen] == "openSU" &&
+               sounds.note == "openSU's own sounds",
+           "interface sounds start as openSU's own");
+    rig.focus("audio.interfacesounds");
+    rig.act(Button::Right);
+    expect(rig.paths.active() && rig.onDisk().interfaceSounds == settings::AssetOwner::OpenSu,
+           "a starter pack holds no sounds, so the chooser asks for the release");
+    rig.paths.pick(pack);
+    expect(rig.paths.active() && saidSomething(rig, "holds no sounds", true),
+           "the starter pack is refused with why");
+
+    const fs::path release = rig.config.home / "iiSU-Alpha-7.4.apk";
+    std::ofstream{release, std::ios::binary} << test::zipfixture::buildZip(
+        {{"assets/iiSU_StarterPack.zip",
+          test::zipfixture::buildZip({{"platforms/gc.webp", "RIFF card", false, {}}}),
+          false,
+          {}},
+         {"assets/Navigation.wav", "RIFF tick", false, {}}});
+    rig.paths.pick(release);
+    const ui::SettingsRow chosen = rig.rowOf("audio.interfacesounds");
+    expect(!rig.paths.active() && rig.onDisk().interfaceSounds == settings::AssetOwner::Iisu &&
+               rig.onDisk().iisuFile == release && chosen.choices[chosen.chosen] == "iiSU" &&
+               chosen.note == "iiSU's, from iiSU-Alpha-7.4.apk" && rig.soundChanges == 1 &&
+               rig.iisuFileChanges == 1,
+           "the release is kept as the one iiSU file and its sounds are loaded");
+    rig.act(Button::Left);
+    expect(rig.onDisk().interfaceSounds == settings::AssetOwner::OpenSu &&
+               rig.onDisk().iisuFile == release && rig.soundChanges == 2,
+           "openSU's come back, the file remembered");
+    rig.act(Button::Right);
+    expect(!rig.paths.active() && rig.onDisk().interfaceSounds == settings::AssetOwner::Iisu &&
+               rig.soundChanges == 3 && rig.iisuFileChanges == 1,
+           "the kept release serves again without the chooser");
 }
 
 constexpr const char* steamGridDbKey = "0123456789abcdef0123456789abcdef";
@@ -1505,6 +1566,7 @@ int main() {
     pluginsAskBeforeTheyRun(root / "plugins");
     wineRunnerIsPicked(root / "wine");
     consoleArtIsChosen(root / "console-art");
+    interfaceSoundsAreChosen(root / "interface-sounds");
     steamGridDbKeyIsEnteredAndForgotten(root / "steamgriddb");
     steamGridDbKeyIsReadBack(root / "steamgriddb-kept");
     steamGridDbWithoutSteamAsksForTheKey(root / "steamgriddb-no-steam");

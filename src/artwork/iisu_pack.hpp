@@ -1,9 +1,10 @@
-// iisu_pack — iiSU's console cards and tab glyphs from the file the player downloaded and gave
-// openSU, never fetched by openSU. The file is iiSU's release APK, whose
-// `assets/iiSU_StarterPack.zip` holds a card per console (`platforms/<system>.webp`) and whose
-// `assets/borders/border_pack.json` maps each console to a logo PNG beside it, or that starter
-// pack zip alone (cards, no glyphs). Any release with that layout is taken; what is read is
-// checked as it is read. Read from disk by ranges; safe to read from several threads.
+// iisu_pack — iiSU's console cards, tab glyphs and interface sounds from the file the player
+// downloaded and gave openSU, never fetched by openSU. The file is iiSU's release APK, whose
+// `assets/iiSU_StarterPack.zip` holds a card per console (`platforms/<system>.webp`), whose
+// `assets/borders/border_pack.json` maps each console to a logo PNG beside it and whose `assets/`
+// holds the sounds, or that starter pack zip alone (cards; no glyphs or sounds). Any release with
+// that layout is taken; what is read is checked as it is read. Read from disk by ranges; safe to
+// read from several threads.
 #pragma once
 
 #include <filesystem>
@@ -29,8 +30,11 @@ class IisuPack {
     [[nodiscard]] const std::filesystem::path& file() const noexcept {
         return file_;
     }
-    /// Whether it holds glyphs: the release APK does, a starter pack alone does not.
+    /// Whether it holds glyphs and sounds: the release APK does, a starter pack alone does not.
     [[nodiscard]] bool hasGlyphs() const noexcept {
+        return apk_;
+    }
+    [[nodiscard]] bool hasSounds() const noexcept {
         return apk_;
     }
 
@@ -41,6 +45,9 @@ class IisuPack {
     /// A console's glyph, PNG as the APK holds it; nothing (`error` empty) from a starter pack.
     [[nodiscard]] std::optional<std::string> glyph(std::string_view system,
                                                    std::string& error) const;
+    /// The sound `file` of the APK's `assets/` (`audio::iisuFile`), as the APK holds it; nothing
+    /// when it has none (`error` empty) or it cannot be read (`error` says why).
+    [[nodiscard]] std::optional<std::string> sound(std::string_view file, std::string& error) const;
 
   private:
     IisuPack(std::filesystem::path file, ApkArchive archive, bool apk);
