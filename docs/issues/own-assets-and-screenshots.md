@@ -7,9 +7,11 @@ ships them but downloads them at run time from iiSU's public release (`artwork/a
 Alpha 7.4), which is legally shaky for a public product and breaks for everyone if that release
 changes.
 
-Done: console cards and tab glyphs are openSU's own drawings (`assets/consoles/`, MIT) and the only
-source; iiSU's starter pack and border-pack glyphs are no longer downloaded, with no iiSU option
-for them. README shots are from the maintainer's own library (`tools.screenshots --profile real`).
+Done: console cards and tab glyphs are openSU's own drawings (`assets/consoles/`, MIT) by default;
+iiSU's cards and glyphs are the option (Settings › Artwork › Console art), downloaded from iiSU's
+release only when chosen, shown in the README's "Using iiSU's console art" section. README shots
+are from the maintainer's own library (`tools.screenshots --profile real`, `--console-art iisu`
+for the showcase).
 
 Decided:
 - Default: openSU's own set from freely licensed sources (Kenney's CC0 UI sounds and input

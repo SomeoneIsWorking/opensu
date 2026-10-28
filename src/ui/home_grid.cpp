@@ -70,8 +70,8 @@ bool intersectsCanvas(const Rect& rect, int width, int height) noexcept {
 } // namespace
 
 HomeGrid::HomeGrid(config::HomeMode mode, InterfaceText& text, IconAtlas& icons)
-    : layout_{HomeLayoutInput{}}, tilePainter_{icons, text}, railPainter_{text, icons},
-      mode_{mode} {
+    : consoleArt_{icons}, layout_{HomeLayoutInput{}}, tilePainter_{icons, consoleArt_, text},
+      railPainter_{text, icons}, mode_{mode} {
 }
 
 HomeGrid::~HomeGrid() {
@@ -274,6 +274,7 @@ SlotRange HomeGrid::artWindow() const {
 }
 
 void HomeGrid::loadArtwork(SDL_GPUDevice& device, std::size_t uploads) {
+    consoleArt_.load(device);
     // Covers are point-sampled.
     artwork_.load(
         [&device](const gpu2d::image::Bitmap& pixels) {
@@ -292,7 +293,7 @@ void HomeGrid::loadArtworkNow(SDL_GPUDevice& device) {
 }
 
 std::size_t HomeGrid::artworkPending() const {
-    return artwork_.pending(tiles_, header_, artWindow());
+    return artwork_.pending(tiles_, header_, artWindow()) + consoleArt_.pending();
 }
 
 std::size_t HomeGrid::loadedArtwork() const noexcept {

@@ -419,8 +419,24 @@ on a 64 x 64 box, drawn as silhouettes with cut-out details (body corners 4, det
 detail lines 2, screens and lids a 40% tone); a card shows the hardware, a glyph the thing held
 in the hand or the console's outline. `ui::IconAtlas` rasterises them with nanosvg as white masks
 at the size they are drawn (`consoleCardFile`, `consoleGlyphFile`) and the tile painter tints
-them. Nothing is downloaded for consoles: iiSU's starter pack and border-pack glyphs are no
-longer read, and a cache's old `artwork/{iisu,console,glyph}` folders are ignored.
+them.
+
+iiSU's console art is the player's alternative (Settings › Artwork › Console art, `consoleArt`
+in `settings.json`: `opensu` by default, or `iisu`). Choosing iiSU's asks the fetcher for a card
+and a glyph of every console in the library, from iiSU 0.0.7.4's release APK by HTTP ranges:
+the starter pack (`StarterPack`, pinned by size and CRC-32, kept as
+`artwork/iisu/starter-pack-0.0.7.4.zip`) gives each card as a PNG (`artwork/console/<system>.png`),
+the border pack's logos give the glyphs (`ConsoleGlyphs`, `artwork/glyph/<system>.png`); a system
+iiSU lacks is a `.miss` (PS4). Nothing of iiSU's ships. The row says "Downloading iiSU's console
+art from iiSU's release", then "iiSU's console art, downloaded from iiSU's release", or why it
+could not (`ArtworkFetcher::consoleArt`). `ui::ConsoleArt` is the one place that picks per
+system: iiSU's card drawn as the whole tile (it carries its own frame and glyph) and iiSU's glyph
+contain-fitted in a ROM's tab when iiSU's is chosen and its file is on disk, openSU's drawing and
+glyph otherwise. iiSU's files on disk are recorded whichever is chosen, and only read into
+textures while iiSU's is, so switching either way is instant and switching back downloads
+nothing. Checked in the running product: a fresh home with `consoleArt` `iisu` shows the row
+downloading, then done, with iiSU's SNES and GameCube cards in Library; the README's
+`library-iisu` and `console-shelf-iisu` are the player's own library with iiSU's art.
 
 A framed tile's tab (a ROM's, and a console card's own) carries its console's white glyph, as
 iiSU's `IconComposition` does (`g24.e`): in the square at 45/1024 and 90/1024 of the short side

@@ -31,6 +31,7 @@ constexpr const char* uiScaleKey = "uiScale";
 constexpr const char* uiScaleBaseKey = "uiScaleBase";
 constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* nightLightKey = "nightLight";
+constexpr const char* consoleArtKey = "consoleArt";
 constexpr const char* shortcutsKey = "shortcuts";
 constexpr const char* shortcutKeysKey = "keys";
 constexpr const char* shortcutPadsKey = "pads";
@@ -390,6 +391,16 @@ Settings Store::load() const {
                          file_.string(), nightLightSpelling);
         }
     }
+    std::string consoleArtSpelling;
+    read.text(consoleArtKey, consoleArtSpelling, "showing openSU's console art");
+    if (!consoleArtSpelling.empty()) {
+        if (const std::optional<ConsoleArtChoice> choice = consoleArtChoiceOf(consoleArtSpelling)) {
+            settings.consoleArt = *choice;
+        } else {
+            lucent::warn("settings", "{}: {} is not a console art choice; showing openSU's",
+                         file_.string(), consoleArtSpelling);
+        }
+    }
     std::string homeSpelling;
     read.text(homeModeKey, homeSpelling, "using the environment's");
     if (!homeSpelling.empty()) {
@@ -463,6 +474,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {uiScaleBaseKey, uiScaleBaseVersion},
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
         {nightLightKey, std::string{key(settings.nightLight)}},
+        {consoleArtKey, std::string{key(settings.consoleArt)}},
         {wineRunnerKey, settings.wineRunner.string()},
         {ownWinePrefixKey, settings.ownWinePrefixes.ids()},
         {wineRunnerPinsKey, pins},

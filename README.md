@@ -44,6 +44,28 @@ and glyphs are openSU's own drawings (`assets/consoles/`, MIT); see
 [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md). Captured with
 `uv run --frozen python -m tools.screenshots --profile real`.
 
+## Using iiSU's console art
+
+openSU draws its own console cards and tab glyphs. If you prefer the look of
+[iiSU](https://github.com/iisu-network/iiSU)'s, openSU can show those instead: open
+Settings › Artwork and set **Console art** to **iiSU**. openSU then downloads iiSU's cards and
+glyphs from iiSU's public release (iiSU 0.0.7.4's APK, only the parts it needs, each checked
+against its pinned size and CRC-32) and keeps them in `~/.cache/opensu/artwork/`. The row says
+while it downloads, or why it could not. A console iiSU has no art for, such as the PS4, keeps
+openSU's. Switching back to **openSU** needs no download, and the downloaded files stay, so
+switching again is instant.
+
+The art is iiSU's, not openSU's: openSU does not ship it or relicense it, and it is fetched only
+when you choose it.
+
+| openSU's console art | iiSU's console art |
+| --- | --- |
+| ![Library in openSU's console art](docs/screenshots/library.webp) | ![Library in iiSU's console art](docs/screenshots/library-iisu.webp) |
+| ![A console's shelf in openSU's console art](docs/screenshots/console-shelf.webp) | ![A console's shelf in iiSU's console art](docs/screenshots/console-shelf-iisu.webp) |
+
+Captured with `uv run --frozen python -m tools.screenshots --profile real --console-art iisu`,
+which shows iiSU's art for the run only.
+
 ## Installing the AppImage
 
 Each [release](https://github.com/SomeoneIsWorking/opensu/releases) carries
@@ -388,7 +410,8 @@ SIL Open Font License; the licence is beside it in `assets/CalSans-OFL.txt`.
 
 openSU is MIT-licensed (`LICENSE`). Cal Sans is under the SIL Open Font License
 (`assets/CalSans-OFL.txt`). openSU is an independent project, not affiliated with iiSU,
-and ships none of iiSU's code or assets.
+and ships none of iiSU's code or assets; iiSU's console art is downloaded from iiSU's own release
+only when you choose it (see [Using iiSU's console art](#using-iisus-console-art)).
 
 ## Plugins
 

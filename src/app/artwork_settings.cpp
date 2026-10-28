@@ -13,6 +13,7 @@ namespace {
 using ui::RowKind;
 using State = SteamGridDbAccount::State;
 
+constexpr const char* consoleArtId = "artwork.consoleart";
 constexpr const char* statusId = "artwork.steamgriddb";
 constexpr const char* connectId = "artwork.steamgriddb.connect";
 constexpr const char* cancelId = "artwork.steamgriddb.cancel";
@@ -42,11 +43,36 @@ std::string statusText(const SteamGridDbAccount::Status& status) {
     return {};
 }
 
+std::string consoleArtNote(settings::ConsoleArtChoice choice,
+                           const artwork::ConsoleArtProgress& progress) {
+    if (choice == settings::ConsoleArtChoice::OpenSu) {
+        return "openSU's own drawings of each console";
+    }
+    if (progress.pending > 0) {
+        return "Downloading iiSU's console art from iiSU's release";
+    }
+    if (!progress.error.empty()) {
+        return "Could not download iiSU's art: " + progress.error;
+    }
+    return "iiSU's console art, downloaded from iiSU's release";
+}
+
 } // namespace
 
 ui::SettingsCategory ArtworkSettings::page() const {
     const SteamGridDbAccount::Status status = account_.status();
     ui::SettingsCategory page{std::string{categoryId}, "Artwork", {}};
+    const settings::ConsoleArtChoice chosen = preferences_.values().consoleArt;
+    ui::Options choices;
+    for (std::size_t i = 0; i < settings::allConsoleArtChoices.size(); ++i) {
+        choices.labels.emplace_back(settings::label(settings::allConsoleArtChoices[i]));
+        if (settings::allConsoleArtChoices[i] == chosen) {
+            choices.chosen = i;
+        }
+    }
+    page.rows.push_back(ui::makeChoice(consoleArtId, "Console art",
+                                       consoleArtNote(chosen, fetcher_.consoleArt()),
+                                       std::move(choices)));
     std::string note = "Covers that fit their tiles";
     if (status.state == State::Connected) {
         note = status.place == host::SecretPlace::Keyring ? "Key kept in the keyring"
@@ -76,10 +102,20 @@ ui::SettingsCategory ArtworkSettings::page() const {
 }
 
 bool ArtworkSettings::owns(const std::string& id) {
-    return id.starts_with(statusId);
+    return id == consoleArtId || id.starts_with(statusId);
 }
 
 void ArtworkSettings::run(const std::string& id, int step) {
+    if (id == consoleArtId) {
+        // Two choices, so every step lands on the other one.
+        settings::ConsoleArtChoice& chosen = preferences_.values().consoleArt;
+        chosen = chosen == settings::ConsoleArtChoice::OpenSu ? settings::ConsoleArtChoice::Iisu
+                                                              : settings::ConsoleArtChoice::OpenSu;
+        preferences_.save();
+        hooks_.consoleArtChanged();
+        hooks_.refresh();
+        return;
+    }
     if (step != 0) {
         return;
     }
@@ -113,8 +149,11 @@ void ArtworkSettings::service() {
             openEntry();
         }
     }
-    if (const SteamGridDbAccount::Status status = account_.status(); status != shown_) {
+    const SteamGridDbAccount::Status status = account_.status();
+    artwork::ConsoleArtProgress art = fetcher_.consoleArt();
+    if (status != shown_ || art != shownArt_) {
         shown_ = status;
+        shownArt_ = std::move(art);
         hooks_.refresh();
     }
 }

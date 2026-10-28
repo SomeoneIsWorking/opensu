@@ -2,8 +2,9 @@
 //
 // Draw order is iiSU nx2.j: shadow, outer focus ring, glass chrome, art, inner
 // focus ring, all scaled about the tile centre. A game tile has no title and no
-// badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile is openSU's
-// card: its platform's colours with openSU's drawing of the console above its name and game
+// badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile is iiSU's
+// card drawn as the whole tile when the player chose iiSU's art and it has one; otherwise
+// openSU's: its platform's colours with openSU's drawing of the console above its name and game
 // count, in the platform frame with the console's glyph in the tab. A launcher and the combined
 // library are cards in the same shape, with the store's logo or a library glyph above the name.
 // A store game that is owned in more than one store carries a row of store icons in its
@@ -18,6 +19,7 @@
 
 #include "paint.hpp"
 
+#include "console_art.hpp"
 #include "gpu2d/ui/typesetter.hpp"
 #include "home_layout.hpp"
 #include "platform.hpp"
@@ -88,8 +90,8 @@ struct ChromeVariant;
 
 class TilePainter {
   public:
-    TilePainter(IconAtlas& icons, gpu2d::ui::Typesetter& text) noexcept
-        : icons_{icons}, text_{text} {
+    TilePainter(IconAtlas& icons, ConsoleArt& consoleArt, gpu2d::ui::Typesetter& text) noexcept
+        : icons_{icons}, consoleArt_{consoleArt}, text_{text} {
     }
 
     void paint(Canvas& canvas, const TileVisual& tile);
@@ -118,6 +120,7 @@ class TilePainter {
     void paintUpdate(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
 
     IconAtlas& icons_;
+    ConsoleArt& consoleArt_;
     gpu2d::ui::Typesetter& text_;
 };
 

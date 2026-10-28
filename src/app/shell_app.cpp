@@ -210,8 +210,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     plugins_.request(games_);
     artworkStore_.apply(games_);
     covers_.catalogChanged(games_);
-    artworkFetcher_.request(games_, artwork::allApkAssets());
-    delivery_.restart();
+    requestArtwork();
     for (const library::SourceStatus& source : sources_) {
         if (source.availability != library::Availability::Ready &&
             source.availability != library::Availability::Loading) {
@@ -223,6 +222,29 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     installedCount_ =
         static_cast<std::size_t>(std::ranges::count_if(games_, &library::Game::installed));
     refreshShelf();
+}
+
+void ShellApp::requestArtwork() {
+    const bool iisu = preferences_.values().consoleArt == settings::ConsoleArtChoice::Iisu;
+    ui::ConsoleArt& consoleArt = shell_.grid().consoleArt();
+    consoleArt.useIisu(iisu);
+    std::vector<std::string> systems;
+    for (const library::Console& console : library::consoles(games_)) {
+        // iiSU's files already on disk are recorded either way, so switching needs no download.
+        if (const std::filesystem::path card = artworkStore_.storedCard(console.system);
+            !card.empty()) {
+            consoleArt.setIisuCard(console.system, card);
+        }
+        if (const std::filesystem::path glyph = artworkStore_.storedGlyph(console.system);
+            !glyph.empty()) {
+            consoleArt.setIisuGlyph(console.system, glyph);
+        }
+        if (iisu) {
+            systems.push_back(console.system);
+        }
+    }
+    artworkFetcher_.request(games_, artwork::allApkAssets(), systems);
+    delivery_.restart();
 }
 
 void ShellApp::pushCatalogToShell() {

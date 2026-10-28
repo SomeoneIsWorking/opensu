@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "config/config.hpp"
+#include "console_art_choice.hpp"
 #include "input/keyboard_style.hpp"
 #include "input/shortcuts.hpp"
 #include "install_folders.hpp"
@@ -114,6 +115,9 @@ struct Settings {
 
     /// The night light in session mode.
     NightLightChoice nightLight{NightLightChoice::Desktop};
+
+    /// Whose console cards and tab glyphs the home shows.
+    ConsoleArtChoice consoleArt{ConsoleArtChoice::OpenSu};
 
     /// The player's changes to the shortcut table.
     input::ShortcutOverrides shortcuts;

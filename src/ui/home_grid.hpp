@@ -22,6 +22,7 @@
 #include "gpu2d/ui/cell_grid.hpp"
 
 #include "config/config.hpp"
+#include "console_art.hpp"
 #include "grid_focus.hpp"
 #include "home_layout.hpp"
 #include "interface_text.hpp"
@@ -94,6 +95,10 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     [[nodiscard]] std::vector<std::string> downloadingOnScreen() const;
     /// A game's artwork is not coming (a confirmed miss, or the round ended): no spinner.
     void artworkSettled(std::string_view gameId);
+    /// Whose console art the tiles show.
+    [[nodiscard]] ConsoleArt& consoleArt() noexcept {
+        return consoleArt_;
+    }
 
     /// Lays out `section`'s shelf: Home fills its pages with empty slots, Library does not.
     void setSection(library::Section section);
@@ -218,6 +223,7 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     /// What stands for the folder in the XMB's left column.
     std::optional<Tile> header_;
     Platforms platforms_;
+    ConsoleArt consoleArt_;
     HomeLayout layout_;
     GridFocus focus_;
     motion::ScrollEaser scroller_;

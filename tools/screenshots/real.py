@@ -1,9 +1,10 @@
 """The real profile's guard: one openSU per user, and the player's settings as they were.
 
 openSU writes focus, last-played and the like into its settings files as it runs, so the run's
-copies of those files are put back afterwards.
+copies of those files are put back afterwards. The console art the run shows is set in them first.
 """
 
+import json
 from pathlib import Path
 from types import TracebackType
 
@@ -64,3 +65,11 @@ class KeptSettings:
             else:
                 target.write_bytes(data)
             print(f"restored {target}")
+
+
+def choose_console_art(choice: str) -> None:
+    """Sets the console art openSU shows (settings.json's `consoleArt`) for the run."""
+    target = SETTINGS / KEPT[0]
+    values = json.loads(target.read_text()) if target.exists() else {}
+    values["consoleArt"] = choice
+    target.write_text(json.dumps(values, indent=4))
