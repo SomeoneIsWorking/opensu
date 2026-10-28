@@ -16,7 +16,7 @@ enum class RunnerExit : std::uint8_t {
     Quit = 0,
     /// The window, Vulkan or the shader preset could not be set up, or drawing failed.
     PresenterFailed = 1,
-    /// The core or game could not be loaded.
+    /// The core, the game or its save could not be loaded.
     LoadFailed = 2,
     /// The Vulkan validation layer reported errors.
     ValidationErrors = 3,

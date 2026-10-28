@@ -1,7 +1,8 @@
 // opensu-retro end to end: the hidden runner against the fake core draws its bars letterboxed,
-// writes and reloads save RAM, refuses what it cannot load, and dies alone when its core crashes.
-// Its control channel announces itself, saves, loads and resets between frames, refuses a core
-// without states and a missing state, and leaves a load failure for the shell.
+// writes and reloads save RAM (a smaller save into its start), refuses what it cannot load (a
+// larger save left untouched), and dies alone when its core crashes. Its control channel announces
+// itself, saves, loads and resets between frames, refuses a core without states and a missing
+// state, and leaves a load failure for the shell.
 #include <chrono>
 #include <cmath>
 #include <csignal>
@@ -306,6 +307,31 @@ void loadFailureIsReported(const Paths& paths) {
            "the control file holds the load failure for the shell");
 }
 
+/// A save smaller than the core's RAM continues the game; a larger one is refused untouched.
+void savesOfOtherSizes(const Paths& paths) {
+    const std::filesystem::path saves = paths.root / "sized";
+    std::filesystem::create_directories(saves);
+    const std::filesystem::path srm = saves / "game.srm";
+    std::ofstream{srm, std::ios::binary} << std::string{"\x05\0\0\0", 4};
+    const Status smaller = run({paths.runner, "--core", paths.core, "--saves", saves.string(),
+                                "--hidden", "--frames", "3", paths.rom.string()});
+    expect(smaller.exited && smaller.code == 0, "a run on a smaller save exits 0");
+    expect(countIn(read(srm)) == 8, "the smaller save filled the start of the core's RAM");
+
+    const std::string larger(300, '\x2A');
+    std::ofstream{srm, std::ios::binary | std::ios::trunc} << larger;
+    const std::filesystem::path control = paths.root / "run" / "larger.json";
+    const Status refused = run({paths.runner, "--core", paths.core, "--saves", saves.string(),
+                                "--hidden", "--frames", "3", paths.rom.string()},
+                               control);
+    expect(refused.exited && refused.code == 2, "a save larger than the core's RAM exits 2");
+    expect(read(srm) == larger, "the save the runner could not load is left as it is");
+    const nlohmann::json report = readJson(control);
+    expect(report.is_object() &&
+               report["error"].get<std::string>().find("game.srm") != std::string::npos,
+           "the control file names the refused save for the shell");
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -364,6 +390,7 @@ int main(int argc, char** argv) {
         resetRestarts(paths);
         statelessCoreRefuses(paths, stateless);
         loadFailureIsReported(paths);
+        savesOfOtherSizes(paths);
     } catch (const std::exception& error) {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;

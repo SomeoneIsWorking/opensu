@@ -309,7 +309,7 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | `src/retro/audio_sink.*` | Resampling ring with ±0.5 % dynamic rate control |
 | `src/retro/audio_output.*` | The sink on the SDL playback device, or drained by the clock when hidden |
 | `src/retro/joypad.*` | `gamepad::Button` and SDL scancodes to `RETRO_DEVICE_JOYPAD`; the pads' and the control pad's sticks to `RETRO_DEVICE_ANALOG` (analogue stick, touch cursor) |
-| `src/retro/save_memory.*` | Save RAM: load, change check, atomic `.srm` write |
+| `src/retro/save_memory.*` | Save RAM: load (a smaller `.srm` into the RAM's start; a larger or unreadable one a `SaveError`, never written over), change check, atomic `.srm` write |
 | `src/retro/presenter.*` | The SDL window and its events; Vulkan swapchain or hidden offscreen image, each frame's submission (a GPU core's semaphores and command buffers, `CoreSync`) and present, read-back, the wait on the last frame |
 | `src/retro/frame_compositor.*` | What a target shows: render pass, frame texture upload or a GPU core's own image sampled in place (`CoreImage`, queue family ownership), placement for aspect and integer scale / overscale (`placeFrame`, `letterbox`), nearest / bilinear / sharp-bilinear sampling; a shader preset's chain drawn into the placed rectangle instead, from the texture or the core's image (copied into the texture when the core keeps it in `GENERAL`); `change`: new video settings between frames, the new preset built first |
 | `src/retro/librashader_library.*` | librashader loaded at run time by explicit path (`SharedLibrary`), ABI/API check, its C API calls with errors as `ShaderError`; missing library refusal |

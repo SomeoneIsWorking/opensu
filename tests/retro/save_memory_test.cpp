@@ -1,4 +1,5 @@
-// Save RAM: the round trip, writing only what changed, the atomic replace, and a wrong-sized file.
+// Save RAM: the round trip, writing only what changed, the atomic replace, a smaller file loaded
+// into the start, and a larger or unreadable file refused and left as it is.
 #include "save_memory.hpp"
 
 #include <array>
@@ -7,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <span>
 #include <string>
 
 #include <sys/stat.h>
@@ -16,6 +18,7 @@
 
 namespace {
 
+using opensu::retro::SaveError;
 using opensu::retro::SaveMemory;
 using opensu::test::expect;
 using opensu::test::ScratchDir;
@@ -49,18 +52,54 @@ void roundTrip(const std::filesystem::path& dir) {
     expect(again == ram, "a load restores the RAM");
 }
 
-void wrongSize(const std::filesystem::path& dir) {
+void smallerFile(const std::filesystem::path& dir) {
     const std::filesystem::path file = dir / "short.srm";
-    write(file, "abc");
+    write(file, "ab");
     std::array<std::byte, 4> ram{std::byte{9}, std::byte{9}, std::byte{9}, std::byte{9}};
     SaveMemory saves{file};
     saves.load(ram);
-    expect(ram[0] == std::byte{9}, "a wrong-sized file leaves the RAM as the core made it");
+    expect(ram[0] == std::byte{'a'} && ram[1] == std::byte{'b'},
+           "a smaller file fills the start of the RAM");
+    expect(ram[2] == std::byte{9}, "the rest stays as the core made it");
     expect(saves.flush(ram), "an unchanged RAM flushes");
-    expect(read(file) == "abc", "the wrong-sized file stays until the core writes");
-    ram[1] = std::byte{1};
-    expect(saves.flush(ram), "the core's write flushes");
-    expect(read(file).size() == 4, "the core's write replaces the file");
+    expect(read(file) == "ab", "an unchanged RAM leaves the smaller file");
+    expect(saves.flush(std::span{ram}.first(2)), "RAM shrunk to its loaded start flushes");
+    expect(read(file) == "ab", "RAM shrunk to its loaded start is unchanged");
+    ram[1] = std::byte{'c'};
+    expect(saves.flush(std::span{ram}.first(2)), "the core's write flushes");
+    expect(read(file) == "ac", "the core's write replaces the file at the RAM's size");
+}
+
+void largerFile(const std::filesystem::path& dir) {
+    const std::filesystem::path file = dir / "long.srm";
+    write(file, "abcdef");
+    std::array<std::byte, 4> ram{};
+    SaveMemory saves{file};
+    bool refused = false;
+    try {
+        saves.load(ram);
+    } catch (const SaveError&) {
+        refused = true;
+    }
+    expect(refused, "a file larger than the RAM is refused");
+    expect(read(file) == "abcdef", "the refused file is left as it is");
+}
+
+void unreadableFile(const std::filesystem::path& dir) {
+    const std::filesystem::path file = dir / "unreadable.srm";
+    write(file, "ab");
+    chmod(file.c_str(), 0200);
+    std::array<std::byte, 4> ram{};
+    SaveMemory saves{file};
+    bool refused = false;
+    try {
+        saves.load(ram);
+    } catch (const SaveError&) {
+        refused = true;
+    }
+    chmod(file.c_str(), 0600);
+    expect(refused, "a file that cannot be read is refused");
+    expect(read(file) == "ab", "the unreadable file is left as it is");
 }
 
 void failedWrite(const std::filesystem::path& dir) {
@@ -86,7 +125,9 @@ void failedWrite(const std::filesystem::path& dir) {
 int main() {
     const ScratchDir scratch{OPENSU_TEST_SCRATCH, "save_memory"};
     roundTrip(scratch.path());
-    wrongSize(scratch.path());
+    smallerFile(scratch.path());
+    largerFile(scratch.path());
+    unreadableFile(scratch.path());
     failedWrite(scratch.path());
     std::printf("save_memory: all checks passed\n");
     return 0;

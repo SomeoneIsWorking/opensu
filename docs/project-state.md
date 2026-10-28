@@ -1730,7 +1730,8 @@ reason (`launch/handoff` `Hooks::ended`, `app/game_end`). A game's button mappin
 the runner through the shell's virtual pad, so `retro/joypad` keeps one fixed table.
 
 Verified: unit tests through the shipping code (pixel formats, rate control against a device 0.3 %
-fast and slow, the joypad mapping, save RAM round trip, failed and wrong-size writes, every answered
+fast and slow, the joypad mapping, save RAM round trip, failed writes, a smaller save loaded into the RAM's start and a larger or
+unreadable one refused untouched, every answered
 and a refused environment command, a fake core through `Core`), and `runner_test` running the real
 binary hidden with Vulkan validation on: the fake core's RGB565 bars letterboxed in the frame PNG,
 its `.srm` continued across two runs, exit 2 for a missing core or ROM, a crashing core killing only

@@ -6,8 +6,9 @@
 //                [--frame-png <file>] <rom>
 //
 // Exit status: 0 on quit, 1 for a bad command line or a window, Vulkan or frame-file failure, 2
-// when the core or game cannot be loaded, 3 when --validate saw Vulkan validation errors.
-// OPENSU_RETRO_CONTROL names the file the control channel's port, or a load failure, is left in.
+// when the core, the game or its save cannot be loaded, 3 when --validate saw Vulkan validation
+// errors. OPENSU_RETRO_CONTROL names the file the control channel's port, or a load failure, is
+// left in.
 #include <charconv>
 #include <fstream>
 #include <iterator>
