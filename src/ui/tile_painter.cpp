@@ -94,8 +94,14 @@ constexpr float updateArrowHead = 0.42f;
 constexpr float markSide = 0.26f;
 // A console's drawing is the card's picture, so it is drawn larger than a store's logo.
 constexpr float consoleMarkSide = 0.36f;
-// A photo carries more detail than a drawing and has its own margin, so it is drawn larger still.
-constexpr float consolePhotoSide = 0.5f;
+// A photo card's console fills the card edge to edge; most of its glow margin runs off.
+constexpr float photoBleed = 1.06f;
+// A photo card's name and count stand this far above the card's bottom edge.
+constexpr float photoLabelInset = 0.07f;
+// Their outline, as a share of each one's size, so they read on any part of the photo.
+constexpr float photoOutline = 0.09f;
+// Their outline's colour.
+constexpr Colour photoEdge{0, 0, 0, 230};
 // The most of a card's height its mark, name and count take together.
 constexpr float blockMost = 0.86f;
 constexpr float markGap = 0.05f;
@@ -456,19 +462,17 @@ void TilePainter::paintFrame(Canvas& canvas, const Rect& rect, const Platform& p
 void TilePainter::paintMark(Canvas& canvas, const TileVisual& tile, const Rect& box, Colour ink) {
     // A launcher without a logo (the player's own games) takes the library's glyph.
     if (tile.kind == TileKind::Console) {
-        const int pixels = std::max(static_cast<int>(std::lround(box.width)), 1);
+        const int pixels =
+            std::max(static_cast<int>(std::lround(std::max(box.width, box.height))), 1);
         if (const gpu2d::Texture* mark = consoleArt_.card(tile.console, pixels)) {
-            // A picture keeps its colours; a drawing takes the card's ink.
-            const bool picture = consoleArt_.look(tile.console) == CardLook::Picture;
-            const auto width = static_cast<float>(mark->width());
-            const auto height = static_cast<float>(mark->height());
-            const auto side = static_cast<float>(pixels);
-            const float fit = side / std::max({width, height, 1.0f});
+            const auto width = std::max(static_cast<float>(mark->width()), 1.0f);
+            const auto height = std::max(static_cast<float>(mark->height()), 1.0f);
+            const float fit = std::min(box.width / width, box.height / height);
             canvas.image(mark->view(), wholeOf(*mark),
-                         gpu2d::Rect{std::round(box.x) + (side - width * fit) * 0.5f,
-                                     std::round(box.y) + (side - height * fit) * 0.5f, width * fit,
-                                     height * fit},
-                         withAlpha(picture ? white : ink, tile.alpha));
+                         gpu2d::Rect{std::round(box.x + (box.width - width * fit) * 0.5f),
+                                     std::round(box.y + (box.height - height * fit) * 0.5f),
+                                     width * fit, height * fit},
+                         withAlpha(ink, tile.alpha));
         }
         return;
     }
@@ -525,6 +529,33 @@ void TilePainter::paintMark(Canvas& canvas, const TileVisual& tile, const Rect& 
     }
 }
 
+void TilePainter::paintPhoto(Canvas& canvas, const TileVisual& tile, const RoundRect& card) {
+    const Rect& content = card.rect;
+    const int pixels =
+        std::max(static_cast<int>(std::lround(std::max(content.width, content.height))), 1);
+    const gpu2d::Texture* photo = consoleArt_.card(tile.console, pixels);
+    if (photo == nullptr) {
+        return;
+    }
+    const auto width = std::max(static_cast<float>(photo->width()), 1.0f);
+    const auto height = std::max(static_cast<float>(photo->height()), 1.0f);
+    // The console's longer side spans the card; only its glow margin is cut off.
+    const float scale = std::min(content.width / width, content.height / height) * photoBleed;
+    const Rect placed{content.centreX() - width * scale * 0.5f,
+                      content.centreY() - height * scale * 0.5f, width * scale, height * scale};
+    const float left = std::max(placed.x, content.x);
+    const float top = std::max(placed.y, content.y);
+    const float right = std::min(placed.right(), content.right());
+    const float bottom = std::min(placed.bottom(), content.bottom());
+    if (right <= left || bottom <= top) {
+        return;
+    }
+    const gpu2d::Rect source{(left - placed.x) / scale, (top - placed.y) / scale,
+                             (right - left) / scale, (bottom - top) / scale};
+    drawTextureRound(canvas, RoundRect{Rect{left, top, right - left, bottom - top}, card.radius},
+                     photo->view(), source, withAlpha(white, tile.alpha));
+}
+
 void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& content,
                             Colour from, Colour to) {
     const FrameGeometry frame = frameGeometry(content);
@@ -548,19 +579,33 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
         tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames ||
         tile.kind == TileKind::Giveaways || tile.kind == TileKind::AddGame ||
         (tile.kind == TileKind::Console && consoleArt_.look(tile.console) != CardLook::None);
-    float markShare = markSide;
-    if (tile.kind == TileKind::Console) {
-        markShare = consoleArt_.look(tile.console) == CardLook::Picture ? consolePhotoSide
-                                                                        : consoleMarkSide;
+    if (tile.kind == TileKind::Console && consoleArt_.look(tile.console) == CardLook::Picture) {
+        // A photo fills the card; the name and count stand over its foot, outlined.
+        paintPhoto(canvas, tile, RoundRect{content, frame.artRadius});
+        const float label =
+            static_cast<float>(lines.size()) * nameBox + gap + text_.lineHeight(count);
+        float y = content.bottom() - side * photoLabelInset - label + nameBox * 0.5f;
+        for (const std::string_view line : lines) {
+            text_.drawCentredOutlined(
+                canvas, line, Point{content.centreX() - text_.measure(line, name) * 0.5f, y}, name,
+                withAlpha(white, alpha), name * photoOutline, withAlpha(photoEdge, alpha));
+            y += nameBox;
+        }
+        const float countY = y - nameBox * 0.5f + gap + text_.lineHeight(count) * 0.5f;
+        text_.drawCentredOutlined(
+            canvas, tile.caption,
+            Point{content.centreX() - text_.measure(tile.caption, count) * 0.5f, countY}, count,
+            withAlpha(white, alpha), count * photoOutline, withAlpha(photoEdge, alpha));
+        return;
     }
     const float markRoom = marked ? side * markGap : 0.0f;
     const float words =
         markRoom + static_cast<float>(lines.size()) * nameBox + gap + text_.lineHeight(count);
     // The mark gives way to a two-line name, so the block keeps a margin inside the card.
-    const float mark =
-        marked ? std::max(std::min(side * markShare, content.height * blockMost - words),
-                          side * markSide)
-               : 0.0f;
+    const float share = tile.kind == TileKind::Console ? consoleMarkSide : markSide;
+    const float mark = marked ? std::max(std::min(side * share, content.height * blockMost - words),
+                                         side * markSide)
+                              : 0.0f;
     const float block = mark + words;
     float y = content.centreY() - block * 0.5f;
     if (marked) {

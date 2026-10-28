@@ -1,5 +1,5 @@
 // console_themes — the console art themes the player can choose: the folders shipped under
-// `<assets>/consoles/` (Drawings, the default, and Photos), iiSU's from the file the player
+// `<assets>/consoles/` (Photos, the default, and Drawings), iiSU's from the file the player
 // chose, and every folder under `<data dir>/themes/` with a `theme.json`.
 #pragma once
 
@@ -14,7 +14,7 @@
 namespace opensu::artwork {
 
 /// The theme shown when the player chose none.
-inline constexpr std::string_view defaultConsoleTheme = "drawings";
+inline constexpr std::string_view defaultConsoleTheme = "photos";
 /// iiSU's theme, read from the player's iiSU file.
 inline constexpr std::string_view iisuConsoleTheme = "iisu";
 /// A player's own theme's id is this and its folder's name.

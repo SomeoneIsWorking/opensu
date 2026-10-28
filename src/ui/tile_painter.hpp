@@ -4,8 +4,9 @@
 // focus ring, all scaled about the tile centre. A game tile has no title and no
 // badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile is drawn from
 // the chosen console art theme (`ConsoleArt`): its card as the whole tile for a tile theme
-// (iiSU's), otherwise the platform's colours with the theme's drawing or photo above the console's
-// name and game count, or no picture when the theme has none for it; the platform frame carries
+// (iiSU's); a picture theme's photo filling the platform's colours, with the console's name and
+// game count outlined over its foot; otherwise the theme's drawing above the name and count, or no
+// picture when the theme has none for it; the platform frame carries
 // the theme's glyph in its tab. A launcher and the combined library are cards in the same shape,
 // with the store's logo or a library glyph above the name.
 // A store game that is owned in more than one store carries a row of store icons in its
@@ -117,6 +118,8 @@ class TilePainter {
     void paintCard(Canvas& canvas, const TileVisual& tile, const Rect& content, Colour from,
                    Colour to);
     void paintMark(Canvas& canvas, const TileVisual& tile, const Rect& box, Colour ink);
+    /// A console's photo over `card`, its longer side spanning the card.
+    void paintPhoto(Canvas& canvas, const TileVisual& tile, const RoundRect& card);
     void paintStores(Canvas& canvas, const TileVisual& tile, const Rect& content);
     void paintUpdate(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
 

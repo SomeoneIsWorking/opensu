@@ -20,6 +20,9 @@ class FakeInterfaceText final : public gpu2d::ui::Typesetter {
     void draw(gpu2d::Canvas& /*canvas*/, std::string_view /*text*/, gpu2d::Point /*topLeft*/,
               float /*size*/, gpu2d::Colour /*colour*/) override {
     }
+    void drawOutline(gpu2d::Canvas& /*canvas*/, std::string_view /*text*/, gpu2d::Point /*topLeft*/,
+                     float /*size*/, float /*outline*/, gpu2d::Colour /*colour*/) override {
+    }
 };
 
 class FakeInterfacePrompts final : public gpu2d::ui::Prompts {

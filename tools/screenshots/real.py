@@ -68,12 +68,16 @@ class KeptSettings:
             print(f"restored {target}")
 
 
+# openSU's default console art theme (`artwork::defaultConsoleTheme`), kept as no key.
+DEFAULT_CONSOLE_THEME = "photos"
+
+
 def choose_console_theme(theme: str, iisu_file: Path | None) -> None:
     """Sets the console art theme openSU shows (`consoleTheme`, and `iisuFile` for iiSU's) for the
     run."""
     target = SETTINGS / KEPT[0]
     values = json.loads(target.read_text()) if target.exists() else {}
-    values["consoleTheme"] = "" if theme == "drawings" else theme
+    values["consoleTheme"] = "" if theme == DEFAULT_CONSOLE_THEME else theme
     if iisu_file is not None:
         values["iisuFile"] = str(iisu_file.resolve())
     target.write_text(json.dumps(values, indent=4))

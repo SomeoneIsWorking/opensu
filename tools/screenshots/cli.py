@@ -5,7 +5,7 @@ has it, and writes the README's WebPs to docs/screenshots/. It refuses while ano
 puts the player's settings files back afterwards. `--game`, `--console` and `--search` pick what it
 shows. `--console-theme THEME` shows another console art theme (`--iisu-file FILE` for iiSU's,
 iiSU's release APK or starter pack) and writes only Library in it, `library-<theme>`; the default
-run writes `library-drawings` beside the README set.
+run (Photos, openSU's default) writes `library-photos` beside the README set.
 
 `--profile demo` (the default) builds the demo library, then runs openSU --hidden offline in a
 throwaway home and writes one WebP per demo scene to scratch/screenshots/demo/. With --parity DIR,
@@ -67,9 +67,9 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--search", default=Picks.search, help="real: the text searched for")
     parser.add_argument(
         "--console-theme",
-        default="drawings",
-        help="real: the console art theme the run shows (drawings, photos, iisu or user/<name>); "
-        "any but drawings writes only Library in it, as library-<theme>",
+        default=real.DEFAULT_CONSOLE_THEME,
+        help="real: the console art theme the run shows (photos, drawings, iisu or user/<name>); "
+        "any but the default writes only Library in it, as library-<theme>",
     )
     parser.add_argument(
         "--iisu-file", type=Path, help="real: iiSU's release APK or starter pack, for iisu"
@@ -91,10 +91,9 @@ def _capture_real(args: argparse.Namespace) -> int:
     frames = run / "frames"
     frames.mkdir(parents=True, exist_ok=True)
     picks = Picks(game=args.game, console=args.console, search=args.search)
-    drawings = args.console_theme == "drawings"
     scenes = (
-        real_scenes(picks) + theme_scenes(picks, "drawings")
-        if drawings
+        real_scenes(picks) + theme_scenes(picks, real.DEFAULT_CONSOLE_THEME)
+        if args.console_theme == real.DEFAULT_CONSOLE_THEME
         else theme_scenes(picks, args.console_theme.replace("/", "-"))
     )
     with real.KeptSettings(run / "settings-backup"):
