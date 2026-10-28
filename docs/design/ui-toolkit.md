@@ -78,8 +78,8 @@ theme and the screens.
 - **Widget tree with layout.** Column, row, stack, grid, scroll view, with padding and spacing.
   Each widget lays out once per frame; painting and hit testing read the same geometry, so pointer
   hits can never drift from what is drawn.
-- **One focus model.** Spatial navigation over focusable widgets in the tree (grown from
-  `spatial_focus`), focus kept by stable id across rebuilds, scroll-into-view eased.
+- **One focus model.** Spatial navigation over focusable widgets in the tree (gpu2d's
+  `ui/focus`, which the mapping board uses too), focus kept by stable id across rebuilds, scroll-into-view eased.
 - **Standard widgets with one behaviour each.** Button, Row (title, subtitle, value), Toggle,
   Choice (Left/Right step; A opens a list), Slider, Tabs (LB/RB), List, Grid, TextField (the
   on-screen keyboard), Dialog, Confirm (one rule for two-press or a dialog), Toast, HintBar built

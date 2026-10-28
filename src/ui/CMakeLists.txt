@@ -1,5 +1,5 @@
 # The home grid's model: layout, focus and motion. Pure, so tests link it alone.
-add_library(opensu_grid STATIC home_layout.cpp grid_focus.cpp spatial_focus.cpp tile_motion.cpp tile_geometry.cpp rail_layout.cpp icon_size.cpp)
+add_library(opensu_grid STATIC home_layout.cpp grid_focus.cpp tile_motion.cpp tile_geometry.cpp rail_layout.cpp icon_size.cpp)
 add_library(opensu::grid ALIAS opensu_grid)
 target_include_directories(opensu_grid PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 # The toolkit's focus directions.

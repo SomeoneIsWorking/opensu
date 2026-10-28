@@ -3,7 +3,8 @@
 #include <algorithm>
 #include <optional>
 
-#include "spatial_focus.hpp"
+#include "gpu2d/ui/focus.hpp"
+#include "paint.hpp"
 
 namespace opensu::ui {
 
@@ -70,10 +71,19 @@ bool MappingPage::move(Direction direction) {
         return false;
     }
     const bool picking = mode_ == MappingMode::Picking;
-    const std::vector<Rect> boxes =
+    const std::vector<Rect> laid =
         picking ? pickerFocusBoxes(pick_.choices) : mappingFocusBoxes(items_);
     std::size_t& at = picking ? choice_ : focus_;
-    const std::optional<std::size_t> next = nearestInDirection(boxes, at, direction);
+    if (at >= laid.size()) {
+        return false;
+    }
+    std::vector<gpu2d::Rect> boxes;
+    boxes.reserve(laid.size());
+    for (const Rect& box : laid) {
+        boxes.push_back(onCanvas(box));
+    }
+    const std::optional<std::size_t> next =
+        gpu2d::ui::nearestInDirection(boxes, boxes[at], direction);
     if (!next) {
         return false;
     }
