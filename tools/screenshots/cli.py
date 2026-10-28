@@ -3,7 +3,8 @@
 `--profile real` runs openSU --hidden on the player's own home with the network, as their session
 has it, and writes the README's WebPs to docs/screenshots/. It refuses while another openSU runs and
 puts the player's settings files back afterwards. `--game`, `--console` and `--search` pick what it
-shows.
+shows. `--console-art iisu` shows iiSU's console art instead and writes only the README's showcase
+of it (`library-iisu`, `console-shelf-iisu`).
 
 `--profile demo` (the default) builds the demo library, then runs openSU --hidden offline in a
 throwaway home and writes one WebP per demo scene to scratch/screenshots/demo/. With --parity DIR,
@@ -26,6 +27,7 @@ from tools.screenshots.scenes import (
     SCENES,
     Picks,
     Scene,
+    iisu_scenes,
     real_scenes,
 )
 from tools.screenshots.shell import HiddenShell, Home, Profile, RealHome
@@ -62,6 +64,12 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument("--console", default="", help="real: the system whose shelf is shown")
     parser.add_argument("--search", default=Picks.search, help="real: the text searched for")
+    parser.add_argument(
+        "--console-art",
+        choices=("opensu", "iisu"),
+        default="opensu",
+        help="real: whose console art the run shows; iisu writes only its showcase scenes",
+    )
     args = parser.parse_args(argv)
     if args.out is None:
         args.out = README_OUTPUT if args.profile == "real" else DEMO_OUTPUT
@@ -77,12 +85,14 @@ def _capture_real(args: argparse.Namespace) -> int:
     frames = run / "frames"
     frames.mkdir(parents=True, exist_ok=True)
     picks = Picks(game=args.game, console=args.console, search=args.search)
+    scenes = iisu_scenes(picks) if args.console_art == "iisu" else real_scenes(picks)
     with real.KeptSettings(run / "settings-backup"):
+        real.choose_console_art(args.console_art)
         _run(
             args.opensu,
             RealHome(),
             run / "opensu.log",
-            real_scenes(picks),
+            scenes,
             frames,
             magick,
             args.out,

@@ -305,6 +305,14 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
     const Rect& content = geometry.content;
     const Colour tint = withAlpha(white, tile.alpha);
     if (tile.kind == TileKind::Console) {
+        if (const gpu2d::Texture* card = consoleArt_.iisuCard(tile.console)) {
+            // iiSU's card is the whole tile: it carries the glyph and its own frame.
+            drawTextureRound(canvas, RoundRect{content, geometry.contentRadius}, card->view(),
+                             coverSource(static_cast<float>(card->width()),
+                                         static_cast<float>(card->height()), content),
+                             tint);
+            return;
+        }
         // The card is the platform's colours deepened, so its frame stands out and white reads.
         const Colour from = tile.platform != nullptr ? mix(unpack(tile.platform->strokeFrom),
                                                            consoleDepth, consoleDeepen)
@@ -421,14 +429,20 @@ void TilePainter::paintFrame(Canvas& canvas, const Rect& rect, const Platform& p
     if (console.empty()) {
         return;
     }
-    // iiSU g24.e: the white glyph in a square at the tab's centre.
+    // iiSU g24.e: the white glyph contain-fitted into a square at the tab's centre.
     const int pixels = std::max(static_cast<int>(std::lround(frame.glyph.width)), 1);
-    if (const gpu2d::Texture* glyph = icons_.mask(consoleGlyphFile(console), pixels)) {
+    if (const gpu2d::Texture* glyph = consoleArt_.glyph(console, pixels)) {
         const auto side = static_cast<float>(pixels);
-        canvas.image(glyph->view(), wholeOf(*glyph),
-                     gpu2d::Rect{std::round(frame.glyph.centreX() - side * 0.5f),
-                                 std::round(frame.glyph.centreY() - side * 0.5f), side, side},
-                     withAlpha(white, alpha));
+        const auto width = static_cast<float>(glyph->width());
+        const auto height = static_cast<float>(glyph->height());
+        const float fit = side / std::max({width, height, 1.0f});
+        canvas.image(
+            glyph->view(), wholeOf(*glyph),
+            gpu2d::Rect{
+                std::round(frame.glyph.centreX() - side * 0.5f) + (side - width * fit) * 0.5f,
+                std::round(frame.glyph.centreY() - side * 0.5f) + (side - height * fit) * 0.5f,
+                width * fit, height * fit},
+            withAlpha(white, alpha));
     }
 }
 
@@ -437,8 +451,8 @@ void TilePainter::paintMark(Canvas& canvas, const TileVisual& tile, const Rect& 
     const bool drawn = tile.kind == TileKind::Console && !tile.console.empty();
     if ((tile.kind == TileKind::Launcher && tile.logo) || drawn) {
         const int pixels = std::max(static_cast<int>(std::lround(box.width)), 1);
-        const gpu2d::Texture* mark = drawn ? icons_.mask(consoleCardFile(tile.console), pixels)
-                                           : icons_.mask(*tile.logo, pixels);
+        const gpu2d::Texture* mark =
+            drawn ? consoleArt_.drawing(tile.console, pixels) : icons_.mask(*tile.logo, pixels);
         if (mark != nullptr) {
             const auto side = static_cast<float>(pixels);
             canvas.image(mark->view(), wholeOf(*mark),

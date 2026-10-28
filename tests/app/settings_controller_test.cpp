@@ -100,7 +100,7 @@ struct Rig {
                   return steamPort == 1 ? nullptr : &steamGate;
               }}},
           artworkSettings{steamGridDbAccount, app::ArtworkSettings::Entry{screens.navigator, pad},
-                          sounds,
+                          app::ArtworkSettings::Services{preferences, artworkFetcher, sounds},
                           app::ArtworkSettings::Hooks{[this](const std::string& text, bool error) {
                                                           said.push_back({text, error});
                                                       },
@@ -109,6 +109,9 @@ struct Rig {
                                                       },
                                                       [this] {
                                                           controller.refresh();
+                                                      },
+                                                      [this] {
+                                                          ++consoleArtChanges;
                                                       }}},
           volume{mixer ? std::unique_ptr<audio::VolumeBackend>{std::make_unique<FakeMixer>(
                              &mixerState, &mixerLog)}
@@ -306,8 +309,12 @@ struct Rig {
     /// The client Connect signs in with; a desktop Steam unless a test says otherwise.
     test::FakeSteamGate steamGate;
     app::SteamGridDbAccount steamGridDbAccount;
+    /// A fetcher never asked for anything: the console art row reads it.
+    artwork::ArtworkStore artworkStore{config.cacheDir / "artwork"};
+    artwork::ArtworkFetcher artworkFetcher{artworkStore, artwork::RemoteSources{}};
     app::ArtworkSettings artworkSettings;
     int artworkRequests{0};
+    int consoleArtChanges{0};
     audio::VolumeState mixerState{40, false};
     std::vector<std::string> mixerLog;
     std::vector<audio::VolumeState> shown;
@@ -1274,6 +1281,29 @@ bool saidSomething(const Rig& rig, const std::string& part, bool error) {
     });
 }
 
+/// Settings > Artwork: Console art is openSU's until the player picks iiSU's, which is kept and
+/// asks for the download.
+void consoleArtIsChosen(const fs::path& root) {
+    Rig rig{root};
+    rig.controller.open();
+    rig.enter("Artwork");
+    const ui::SettingsRow art = rig.rowOf("artwork.consoleart");
+    expect(art.choices.size() == 2 && art.choices[art.chosen] == "openSU" &&
+               art.note == "openSU's own drawings of each console",
+           "console art starts as openSU's own");
+    rig.focus("artwork.consoleart");
+    rig.act(Button::Right);
+    expect(rig.onDisk().consoleArt == settings::ConsoleArtChoice::Iisu &&
+               rig.rowOf("artwork.consoleart").choices[rig.rowOf("artwork.consoleart").chosen] ==
+                   "iiSU" &&
+               rig.consoleArtChanges == 1,
+           "choosing iiSU's is kept and asks for its art");
+    rig.act(Button::Left);
+    expect(rig.onDisk().consoleArt == settings::ConsoleArtChoice::OpenSu &&
+               rig.consoleArtChanges == 2,
+           "and openSU's comes back the other way");
+}
+
 constexpr const char* steamGridDbKey = "0123456789abcdef0123456789abcdef";
 
 /// Settings > Artwork: a key typed in is kept owner-only and handed to the source; Disconnect
@@ -1407,7 +1437,7 @@ void steamGridDbThroughSteam(const fs::path& root) {
            "not connected");
     rig.focus("artwork.steamgriddb.connect");
     rig.act(Button::A);
-    expect(rig.rows().size() == 2 && rig.rowOf("artwork.steamgriddb.cancel").label == "Cancel",
+    expect(rig.rows().size() == 3 && rig.rowOf("artwork.steamgriddb.cancel").label == "Cancel",
            "while Steam signs in the page offers Cancel");
     expect(serviceUntil(rig,
                         [&] {
@@ -1460,6 +1490,7 @@ int main() {
     steamLibrariesWhileSteamRuns(root / "steam");
     pluginsAskBeforeTheyRun(root / "plugins");
     wineRunnerIsPicked(root / "wine");
+    consoleArtIsChosen(root / "console-art");
     steamGridDbKeyIsEnteredAndForgotten(root / "steamgriddb");
     steamGridDbKeyIsReadBack(root / "steamgriddb-kept");
     steamGridDbWithoutSteamAsksForTheKey(root / "steamgriddb-no-steam");

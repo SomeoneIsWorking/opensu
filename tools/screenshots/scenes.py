@@ -1,11 +1,12 @@
 """The screens captured and the input that reaches each from a fresh start on Home.
 
 Every scene starts and ends on Home with nothing open. `readme` marks the demo scenes a demo run
-writes; parity runs capture all of them. `real_scenes` are the README's, on the player's own home.
+writes; parity runs capture all of them. `real_scenes` are the README's, on the player's own home,
+and `iisu_scenes` the README's showcase of iiSU's console art.
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from tools.screenshots import legendary, mixer
 from tools.screenshots.shell import HiddenShell
@@ -606,4 +607,17 @@ def real_scenes(picks: Picks) -> tuple[Scene, ...]:
         Scene("guide", "Guide menu", _guide, _close_guide),
         Scene("settings-wine", "Settings: Wine", _settings_page("Wine"), _close_settings),
         Scene("search", "Search with results", search, _close_search),
+    )
+
+
+# The real scenes that show console art, retaken with iiSU's for the README's showcase.
+CONSOLE_ART_SCENES = ("library", "console-shelf")
+
+
+def iisu_scenes(picks: Picks) -> tuple[Scene, ...]:
+    """The console art scenes again, named for iiSU's art, for a run with iiSU's chosen."""
+    return tuple(
+        replace(scene, name=f"{scene.name}-iisu", caption=f"{scene.caption}, in iiSU's art")
+        for scene in real_scenes(picks)
+        if scene.name in CONSOLE_ART_SCENES
     )

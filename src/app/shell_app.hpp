@@ -148,6 +148,8 @@ class ShellApp final {
     /// Lists every store and waits for all of them; for a still render only.
     void loadCatalogNow();
     void applyCatalog(library::CatalogSnapshot snapshot);
+    /// Shows the chosen console art and asks the fetcher for what the store still wants.
+    void requestArtwork();
     void handleEvents(const std::vector<gamepad::Event>& events);
     /// Maps held keys onto the buttons they stand in for, so the keyboard reaches
     /// the same actions a controller does rather than a parallel set.
@@ -681,7 +683,7 @@ class ShellApp final {
     /// Settings › Artwork and its key keyboard.
     ArtworkSettings artworkSettings_{
         steamGridDbAccount_, ArtworkSettings::Entry{shell_.screens().navigator(), keyboardPad_},
-        sounds_,
+        ArtworkSettings::Services{preferences_, artworkFetcher_, sounds_},
         ArtworkSettings::Hooks{[this](const std::string& text, bool isError) {
                                    shell_.setToast(text, isError);
                                },
@@ -690,6 +692,9 @@ class ShellApp final {
                                },
                                [this] {
                                    settingsScreen_.refresh();
+                               },
+                               [this] {
+                                   requestArtwork();
                                }}};
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{

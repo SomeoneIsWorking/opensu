@@ -1,7 +1,8 @@
-// artwork_settings — Settings › Artwork: SteamGridDB's connection (`SteamGridDbAccount`) with its
-// status, Connect (through Steam's browser, else the key typed in), Cancel, Enter a key and
-// Disconnect, and the card the key is typed or pasted into, with the on-screen keyboard up. The key
-// shows as dots and is wiped when the card closes.
+// artwork_settings — Settings › Artwork: whose console art the home shows (openSU's, or iiSU's
+// downloaded from iiSU's release, with how that download stands), SteamGridDB's connection
+// (`SteamGridDbAccount`) with its status, Connect (through Steam's browser, else the key typed in),
+// Cancel, Enter a key and Disconnect, and the card the key is typed or pasted into, with the
+// on-screen keyboard up. The key shows as dots and is wiped when the card closes.
 #pragma once
 
 #include <functional>
@@ -10,8 +11,10 @@
 
 #include "gpu2d/ui/navigator.hpp"
 
+#include "artwork/artwork_fetcher.hpp"
 #include "audio/sdl_sound_player.hpp"
 #include "keyboard_pad.hpp"
+#include "preferences.hpp"
 #include "steamgriddb_account.hpp"
 #include "ui/setting_row.hpp"
 
@@ -26,6 +29,8 @@ class ArtworkSettings {
         std::function<void()> keyChanged;
         /// The rows changed.
         std::function<void()> refresh;
+        /// The player chose the other console art.
+        std::function<void()> consoleArtChanged;
     };
 
     /// What the key card goes on and comes up with.
@@ -34,10 +39,17 @@ class ArtworkSettings {
         KeyboardPad& keyboard;
     };
 
-    ArtworkSettings(SteamGridDbAccount& account, Entry entry, audio::SdlSoundPlayer& sounds,
-                    Hooks hooks)
+    /// What the page reads and changes besides the account.
+    struct Services {
+        Preferences& preferences;
+        const artwork::ArtworkFetcher& fetcher;
+        audio::SdlSoundPlayer& sounds;
+    };
+
+    ArtworkSettings(SteamGridDbAccount& account, Entry entry, Services services, Hooks hooks)
         : account_{account}, navigator_{entry.navigator}, keyboard_{entry.keyboard},
-          sounds_{sounds}, hooks_{std::move(hooks)} {
+          preferences_{services.preferences}, fetcher_{services.fetcher}, sounds_{services.sounds},
+          hooks_{std::move(hooks)} {
     }
     ~ArtworkSettings();
     ArtworkSettings(const ArtworkSettings&) = delete;
@@ -49,7 +61,7 @@ class ArtworkSettings {
 
     [[nodiscard]] ui::SettingsCategory page() const;
     [[nodiscard]] static bool owns(const std::string& id);
-    /// Acts on row `id` (A only).
+    /// Acts on row `id`: the console art choice steps either way, the rest take A only.
     void run(const std::string& id, int step);
     /// Starts connecting SteamGridDB through Steam, as the Connect row does.
     void connect();
@@ -70,11 +82,14 @@ class ArtworkSettings {
     SteamGridDbAccount& account_;
     gpu2d::ui::Navigator& navigator_;
     KeyboardPad& keyboard_;
+    Preferences& preferences_;
+    const artwork::ArtworkFetcher& fetcher_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
     /// The key as typed.
     std::string key_;
     SteamGridDbAccount::Status shown_{};
+    artwork::ConsoleArtProgress shownArt_{};
 };
 
 } // namespace opensu::app

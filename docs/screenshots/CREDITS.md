@@ -20,6 +20,14 @@ openSU's own parts of every frame:
 - Everything else (tiles, store cards, dock icons, menus, prompts) is drawn by openSU (MIT,
   `LICENSE`).
 
+`library-iisu.webp` and `console-shelf-iisu.webp` (`--console-art iisu`) show the README's
+showcase of the Console art setting:
+
+- **iiSU's console cards and tab glyphs** belong to [iiSU](https://github.com/iisu-network/iiSU).
+  openSU downloads them from iiSU's public release only for a player who chooses them; they are
+  not part of openSU, not in this repository and not licensed by it. Consoles iiSU has no art for
+  (the PS4) show openSU's own in those frames.
+
 `--profile demo` captures the same screens offline in a throwaway home with a demo library of
 freely licensed games (`tools/screenshots/demo.py`, art pinned by SHA-256 with its Wikimedia
 Commons source, author and licence) into `scratch/screenshots/demo/`; those frames are not in the

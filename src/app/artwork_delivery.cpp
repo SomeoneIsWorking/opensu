@@ -35,6 +35,14 @@ void ArtworkDelivery::service() {
             hooks_.namesArrived();
             continue;
         }
+        if (fetched.kind == artwork::Fetched::Kind::Card) {
+            shell_.grid().consoleArt().setIisuCard(fetched.id, fetched.artwork);
+            continue;
+        }
+        if (fetched.kind == artwork::Fetched::Kind::Glyph) {
+            shell_.grid().consoleArt().setIisuGlyph(fetched.id, fetched.artwork);
+            continue;
+        }
         hooks_.coverArrived(fetched.id, fetched.artwork);
     }
     // The queue goes to the games on screen first.

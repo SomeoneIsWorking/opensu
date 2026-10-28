@@ -1,6 +1,6 @@
 // artwork_delivery — hands what the artwork fetcher saved, and what the store already holds, to the
-// shell and the sound player: covers, console cards, glyphs and UI sounds. Keeps the fetcher
-// working on the games on screen first.
+// shell and the sound player: covers, iiSU's console cards and glyphs, and UI sounds. Keeps the
+// fetcher working on the games on screen first.
 #pragma once
 
 #include <filesystem>
