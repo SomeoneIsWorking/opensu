@@ -200,7 +200,7 @@ std::vector<ShelfItem> ShelfBrowser::shelf(const std::vector<Game>& games,
         if (!inside.empty()) {
             return inside;
         }
-        folder_.reset();
+        returned_ = back();
     }
     return section() == Section::Home ? homeShelf(games) : libraryShelf(games, sources);
 }

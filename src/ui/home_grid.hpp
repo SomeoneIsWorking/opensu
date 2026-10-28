@@ -70,6 +70,7 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     /// Replaces the grid's entries, releasing their artwork, focuses `focus` and plays the
     /// entrance.
     void setShelf(std::vector<library::ShelfItem> items, std::size_t focus = 0);
+    /// Replaces the entries in place: the focused tile keeps the focus, or its slot when it went.
     void updateShelf(std::vector<library::ShelfItem> items);
 
     /// Sets the card the XMB's left column shows inside a folder, standing for the folder, or

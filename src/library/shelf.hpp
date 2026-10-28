@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -111,9 +112,16 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 /// Which shelf the grid shows: a section's, or one folder's inside Library.
 class ShelfBrowser {
   public:
-    /// The shelf for the current place. A folder that has emptied returns to its section.
+    /// The shelf for the current place. A folder that has emptied returns to its section, to the
+    /// slot it was entered from (`takeReturn`).
     [[nodiscard]] std::vector<ShelfItem> shelf(const std::vector<Game>& games,
                                                const std::vector<SourceStatus>& sources);
+
+    /// The slot to focus in the section an emptied folder returned to, once; nothing when none
+    /// did since the last call.
+    [[nodiscard]] std::optional<std::size_t> takeReturn() noexcept {
+        return std::exchange(returned_, std::nullopt);
+    }
 
     /// Opens a folder, remembering which slot of the section's shelf had focus.
     void open(const Folder& folder, std::size_t sectionFocus);
@@ -153,6 +161,8 @@ class ShelfBrowser {
     std::optional<Folder> folder_;
     /// The focus the open folder was entered from, in its section's shelf.
     std::size_t parentFocus_{0};
+    /// Where an emptied folder returned to, until taken.
+    std::optional<std::size_t> returned_;
     /// Where each section was left, by `Section`.
     std::array<std::size_t, allSections.size()> left_{};
 };

@@ -28,7 +28,10 @@ std::unique_ptr<tk::Widget> EntryScreen::build(const tk::Theme& theme) {
         .mask(entry_.secret)
         .limit(entry_.mostBytes)
         .onSubmit(entry_.submitted);
-    card.add<tk::HintBar>().fixHeight(spacing.hintBarHeight);
+    // An edited field's prompts are the docked keyboard's row, so the card leaves no room for any.
+    if (view().editing != fieldId) {
+        card.add<tk::HintBar>().fixHeight(spacing.hintBarHeight);
+    }
     return root;
 }
 

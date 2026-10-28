@@ -184,7 +184,7 @@ void HomeGrid::setShelf(std::vector<library::ShelfItem> items, std::size_t focus
         tiles_.back().ticket = artwork_.ticket();
     }
     relayout();
-    const std::size_t start = focus < tiles_.size() ? focus : 0;
+    const std::size_t start = std::min(focus, tiles_.empty() ? 0 : tiles_.size() - 1);
     focus_.reset(start, layout_.cellOf(start));
     page_ = layout_.mode() == ScrollMode::Paged ? layout_.pageOf(start) : 0;
     scroller_.snap(layout_.scrollTarget({start, 0.0f, 0}));
@@ -235,7 +235,8 @@ void HomeGrid::updateShelf(std::vector<library::ShelfItem> items) {
         }
     }
     relayout();
-    std::size_t start = 0;
+    // A focused tile that went keeps its slot, so the focus goes to the tile now in it.
+    std::size_t start = focus_.index();
     if (!focused.empty()) {
         const auto at = std::ranges::find_if(tiles_, [&focused](const Tile& tile) {
             return shelfKey(tile.item) == focused;

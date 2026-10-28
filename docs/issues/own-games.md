@@ -36,7 +36,8 @@ program, not the folder".
   `lutris lutris:rungameid/<id>`, through Lutris's own runner and settings.
 - Details of an own game: a File fact (or "Runs through: Lutris"), no Wine prefix row and no
   Uninstall, plus Rename, Change file and Remove from library, which asks first and says the file
-  stays.
+  stays. After a removal the focus goes to the tile now in the removed game's slot; when the last
+  one goes, Your games goes with it and Library is focused on the tile now in its slot.
 
 ## Checked on the player's setup
 

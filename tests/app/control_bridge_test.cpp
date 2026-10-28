@@ -6,6 +6,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "ui/check.hpp"
@@ -34,11 +35,16 @@ void inputIsTakenOnceInOrder() {
                taken.buttons[0].first.pressed && !taken.buttons[1].first.pressed &&
                taken.buttons[3].second == Device::KeyboardMouse,
            "a button is a press and a release, in order with its device");
-    expect(taken.keys.size() == 1 && taken.text == std::vector<std::string>{"ab"},
-           "keys and text arrive");
+    const auto* key = taken.keystrokes.empty()
+                          ? nullptr
+                          : std::get_if<opensu::input::Combo>(&taken.keystrokes[0]);
+    const auto* text =
+        taken.keystrokes.size() < 2 ? nullptr : std::get_if<std::string>(&taken.keystrokes[1]);
+    expect(taken.keystrokes.size() == 2 && key != nullptr && *key == opensu::input::Combo{1} &&
+               text != nullptr && *text == "ab",
+           "keys and text arrive in the order they were asked for");
     const ControlBridge::Input again = takeLater(bridge);
-    expect(again.buttons.empty() && again.keys.empty() && again.text.empty(),
-           "input is taken once");
+    expect(again.buttons.empty() && again.keystrokes.empty(), "input is taken once");
 }
 
 void heldButtonsAreAChord() {

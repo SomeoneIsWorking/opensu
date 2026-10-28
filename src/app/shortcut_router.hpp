@@ -1,7 +1,7 @@
 // shortcut_router — sends what the keyboard, the pad chords and the game-time key watcher say to
 // the shell. Button actions come out as the pad events they stand for, so there is one set of
-// handlers; every other action (the volume, the Guide menu on Volume, quit, and the game actions a chord
-// performs over a running game) is done here. The table they all read is `Shortcuts`.
+// handlers; every other action (the volume, the Guide menu on Volume, quit, and the game actions a
+// chord performs over a running game) is done here. The table they all read is `Shortcuts`.
 #pragma once
 
 #include <functional>
@@ -52,8 +52,6 @@ class ShortcutRouter {
     };
 
     [[nodiscard]] Keys fromKeys(const input::KeySource& keys);
-    /// A key combination pressed and released, as a tap.
-    [[nodiscard]] std::vector<gamepad::Event> fromCombo(const input::Combo& combo);
     /// `events`, heard at `at`, less the chords, which are done here.
     [[nodiscard]] std::vector<gamepad::Event>
     fromPad(const std::vector<gamepad::Event>& events,

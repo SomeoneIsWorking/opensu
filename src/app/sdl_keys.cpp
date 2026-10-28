@@ -67,4 +67,14 @@ std::optional<int> keyOf(SDL_Scancode scancode) noexcept {
     return std::nullopt;
 }
 
+std::optional<SDL_Scancode> scancodeOf(int key) noexcept {
+    for (int code = SDL_SCANCODE_UNKNOWN; code < SDL_SCANCODE_COUNT; ++code) {
+        const auto scancode = static_cast<SDL_Scancode>(code);
+        if (keyOf(scancode) == key) {
+            return scancode;
+        }
+    }
+    return std::nullopt;
+}
+
 } // namespace opensu::app

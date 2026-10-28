@@ -90,15 +90,6 @@ ShortcutRouter::Keys ShortcutRouter::fromKeys(const input::KeySource& keys) {
     return result;
 }
 
-std::vector<gamepad::Event> ShortcutRouter::fromCombo(const input::Combo& combo) {
-    std::vector<gamepad::Event> events;
-    if (const std::optional<input::Action> action = shortcuts_.actionFor(combo)) {
-        route(*action, true, events);
-        route(*action, false, events);
-    }
-    return events;
-}
-
 std::vector<gamepad::Event> ShortcutRouter::fromPad(const std::vector<gamepad::Event>& events,
                                                     input::PadChords::Clock::time_point at) {
     input::PadChords::Result result = chords_.feed(events, at);

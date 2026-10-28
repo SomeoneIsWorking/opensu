@@ -31,7 +31,8 @@ corner hints, toasts stand above it, it shows its own hints, and overlay cards l
   `Action::Tertiary`, which is Y with the keyboard closed) and finishes with `Action::Submit`, so
   each field's own rules (length, no leading space) apply once. While it is open with a pad the
   screen's hint bar shows nothing (`InterfacePrompts::bound`); the keyboard's own row names the
-  buttons.
+  buttons. A one-line entry card (`ui::EntryScreen`) leaves its hint row out while its field is
+  edited, so the card ends under the field.
 - Left stick directions: pad sources mark them (`gamepad::Event::stick`, set by `PadTranslator` and
   `SdlPadState`). While the wheel is open (`KeyboardPad::takesStick`) `ShellApp::handleEvents`
   sends their presses and releases to `KeyboardPad::stick` instead of the direction repeat;

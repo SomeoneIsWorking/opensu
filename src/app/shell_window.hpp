@@ -1,21 +1,26 @@
 // shell_window — the shell's SDL window on gpu2d: the window and GPU device, the canvas the shell
 // draws on, a frame to the window or to an offscreen target, and the window's events as the
-// frame's keyboard, pointer, resize and close.
+// frame's keyboard, pointer, resize and close. Keys and text injected over the control channel are
+// posted to the same event queue, so they reach the shell exactly as the keyboard's do.
 #pragma once
 
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_scancode.h>
 
 #include "gpu2d/canvas.hpp"
 #include "gpu2d/gpu_window.hpp"
 #include "gpu2d/image/bitmap.hpp"
 #include "gpu2d/surface.hpp"
 
+#include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "session/gamescope.hpp"
 #include "ui/paint.hpp"
@@ -80,6 +85,12 @@ class ShellWindow {
     [[nodiscard]] const PointerFrame& pointer() const noexcept {
         return pointer_;
     }
+    /// Posts `combo` to the event queue as the keyboard presses it: down in one frame, up in the
+    /// next, after whatever was posted before it.
+    void press(input::Combo combo);
+    /// Posts `text` to the event queue as the keyboard types it, after whatever was posted before.
+    void type(std::string text);
+
     /// The window's new size, once per resize.
     [[nodiscard]] std::optional<gpu2d::PixelSize> takeResize() noexcept;
 
@@ -90,6 +101,17 @@ class ShellWindow {
     [[nodiscard]] gpu2d::image::Bitmap render(const Draw& draw);
 
   private:
+    /// A key combination or text waiting to be posted.
+    struct Stroke {
+        /// Modifiers first, then the key.
+        std::vector<SDL_Scancode> keys;
+        std::string text;
+    };
+
+    /// Posts the next step of the oldest stroke: its keys down and its text, or its keys up.
+    void postStroke();
+    void postKey(SDL_Scancode key, bool down);
+    void post(SDL_Event& event);
     /// Encodes the canvas's frame into `commands` and submits it.
     void submit(SDL_GPUCommandBuffer* commands);
     void handle(const SDL_Event& event);
@@ -101,6 +123,10 @@ class ShellWindow {
     input::KeyFrame keys_;
     PointerFrame pointer_;
     std::optional<gpu2d::PixelSize> resized_;
+    /// Strokes to post; the front one's keys are down while `strokeDown_`. Its text stays here
+    /// until the event naming it was taken.
+    std::deque<Stroke> strokes_;
+    bool strokeDown_{false};
     bool closing_{false};
     std::chrono::steady_clock::time_point nextFrame_{std::chrono::steady_clock::now()};
 };

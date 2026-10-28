@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "host_fakes.hpp"
+#include "input/keyboard_bindings.hpp"
 #include "shortcut_router.hpp"
 #include "ui/check.hpp"
 
@@ -77,9 +78,12 @@ struct Rig {
 
 void ctrlTabOpensTheQuickMenu() {
     Rig rig;
-    const std::vector<gamepad::Event> events =
-        rig.router.fromCombo(input::Combo{input::keys::Tab, true, false});
-    expect(rig.quickMenus == 1 && events.empty(), "Ctrl+Tab is the action, not a button");
+    input::KeyFrame keys;
+    keys.keyDown(input::keys::LeftControl, false);
+    keys.keyDown(input::keys::Tab, false);
+    const app::ShortcutRouter::Keys heard = rig.router.fromKeys(keys);
+    expect(rig.quickMenus == 1 && heard.any && heard.events.empty(),
+           "Ctrl+Tab is the action, not a button");
 }
 
 void guidePlusAOpensTheQuickMenu() {

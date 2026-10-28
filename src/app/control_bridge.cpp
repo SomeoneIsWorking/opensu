@@ -37,7 +37,7 @@ void ControlBridge::inject(const std::vector<gamepad::Button>& buttons, input::D
 
 void ControlBridge::injectKey(input::Combo combo) {
     const std::lock_guard lock{inputMutex_};
-    input_.keys.push_back(combo);
+    input_.keystrokes.emplace_back(combo);
 }
 
 void ControlBridge::injectPointer(PointerInjection pointer) {
@@ -47,7 +47,7 @@ void ControlBridge::injectPointer(PointerInjection pointer) {
 
 void ControlBridge::typeText(std::string text) {
     const std::lock_guard lock{inputMutex_};
-    input_.text.push_back(std::move(text));
+    input_.keystrokes.emplace_back(std::move(text));
 }
 
 ControlBridge::Input ControlBridge::takeInput(Clock::time_point now) {
