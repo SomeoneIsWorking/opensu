@@ -148,7 +148,7 @@ game has been observed running yet.
 | S013 | openSU runs in a nested Gamescope inside KDE at the output's resolution | partial | S004 | G004 |
 | S014 | Alt+F4 closes the game in nested mode while Alt+Tab stays with KDE | partial | S013 | G004 |
 | S015 | Shell owns every instance it starts and can force-close it from the pad | partial | S004 | G003 |
-| S017 | Per-game render resolution with Gamescope FSR upscaling, Deck-style | missing | — | G004 |
+| S017 | Per-game render resolution with Gamescope FSR upscaling, Deck-style | partial | S013 | G004 |
 | S016 | Steam client started and owned by openSU, with its state in the top bar | partial | S015 | G003, G004 |
 | S011 | Steam's own components kept out of the game grid | partial | S002 | G001 |
 | S019 | iiSU's UI sounds on the events openSU shares with iiSU | partial | S005 | G002 |
@@ -1254,12 +1254,44 @@ grid. The list drifts as Valve adds runtimes, so reading `common/type` through
 `steam_appinfo` is the real fix.
 ### S017 — Per-game resolution and FSR
 
-Not built. The installed Gamescope exposes the Deck's runtime controls as root
-window atoms: `GAMESCOPE_XWAYLAND_MODE_CONTROL` (switch an Xwayland server's
-mode, so a game sees a smaller screen), `GAMESCOPE_SCALING_FILTER` /
-`GAMESCOPE_NEW_SCALING_FILTER`, `GAMESCOPE_FSR_SHARPNESS`, plus
-`--xwayland-count` for a separate Xwayland per role. Their exact semantics come
-from Gamescope's source (`steamcompmgr.cpp`) before any of it is used.
+Per game, in the layered settings (Global, console, core, game) under "Resolution and upscaling":
+Resolution (Full, or 5/6, 3/4, 2/3, 1/2 of the screen, keeping its shape and named by the size it
+comes to: 1600 x 900, 1440 x 810, 1280 x 720, 960 x 540 on 1080p), Upscaling (Linear, AMD FSR,
+NVIDIA Image Scaling, Nearest, Integer) and Sharpness for FSR and NIS, with a one-line summary.
+`settings/scaling_settings` owns the keys, `app/game_scaling` applies them. Outside Gamescope the
+rows show with "applies in openSU's Gamescope session".
+
+Gamescope's runtime controls, read in the fork (`src/steamcompmgr.cpp`, `handle_property_notify`):
+
+- `GAMESCOPE_XWAYLAND_MODE_CONTROL`: four CARDINALs on the root, server index, width, height,
+  allow-super-res; without the last the size is clamped to the output; sets that Xwayland's mode
+  (`wlserver_set_xwayland_server_mode`), deleted again when the root already has that size. Games
+  read their screen as they start, so the mode is set before the game process starts.
+- `GAMESCOPE_SCALING_FILTER`: the old combined value, 0 linear, 1 nearest, 2 integer (nearest with
+  the integer scaler), 3 FSR, 4 NIS. `GAMESCOPE_NEW_SCALING_FILTER` (`GamescopeUpscaleFilter`: 0
+  linear, 1 nearest, 2 FSR, 3 NIS, 4 pixel, 5 SGSR) and `GAMESCOPE_NEW_SCALING_SCALER` (0 auto, 1
+  integer, 2 fit, 3 fill, 4 stretch) set the two halves; openSU writes these.
+- `GAMESCOPE_FSR_SHARPNESS` and `GAMESCOPE_SHARPNESS`: the same value, 0 sharpest to 20 softest,
+  default 2 (`--sharpness`); used by FSR, NIS and SGSR. openSU's 0-100% is 20 - percent / 5.
+- `GAMESCOPE_FSR_FEEDBACK`: written by Gamescope, 1 while FSR is the active upscaler.
+- Nothing is per window: the filter applies to whatever Gamescope scales. The Deck runs Gamescope
+  with `--xwayland-count 2`: Steam on server 0, games on server 1 (`STEAM_GAME_DISPLAY_0`), and
+  Steam sets the mode of server 1 only. openSU runs one Xwayland, so it sets server 0's mode while a
+  game runs (from launch to its end), and the screen's own size comes back afterwards.
+
+Shown 2026-10-28 (`scratch/fsr/`, `tools/fg.py`: openSU `--hidden` in the release fork, nested on a
+private headless KWin at 1920x1080, the player's data): Absolute Drift (GOG, native) at 1280 x 720
+with AMD FSR 90%: the log has `games see a 1280 x 720 screen`, Gamescope `Updating mode for
+xwayland server #0: 1280x720`, the game's window is 1280x720 and `GAMESCOPE_FSR_FEEDBACK` is 1.
+Switching Upscaling to Linear from the quick menu applies at once (feedback 0); KWin screenshots
+of FSR and Linear back to back: FSR's edges are visibly crisper. Closing the game puts back 1920 x
+1080 and linear. Gamescope's PipeWire stream does not show FSR (`paint_pipewire` blits with
+`vulkan_screenshot`, no FSR pass), so FSR is checked on the compositor's output, not the stream.
+
+Gaps: not run in the login session or with the shell window shown, where the shell's own overlay
+window sees the smaller screen while a game runs; the Deck's two-Xwayland split would keep it at
+full size. A game that picks its own resolution from its settings can still ask for more (Absolute
+Drift asks for "native desktop resolution"); Gamescope then fits whatever window it gets.
 
 ### S020 to S022 — Settings, install folders, volume, chords, scale
 

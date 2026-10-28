@@ -73,7 +73,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/settings/emulator_pick_migration.*` | The one-time move of `settings.json`'s `emulators` and `systemEmulators` into the game settings |
 | `src/app/game_settings.*` | The layers as the shell holds them, saved with a toast on failure; the words a source reads with |
 | `src/app/retro_launch.*` | A launch on a built-in core: its video settings resolved, written to the launch's settings file, `--settings` added; the core options the layers keep as `--option` |
-| `src/settings/setting_schema.*`, `setting_scope.*`, `core_option_settings.*` | Every layered setting declared once (video, shader preset, frame generation, the emulator pick, a core's options), validation and clear from it; a scope's rows with the value in effect and its source |
+| `src/settings/setting_schema.*`, `setting_scope.*`, `core_option_settings.*` | Every layered setting declared once (video, shader preset, frame generation, resolution and upscaling, the emulator pick, a core's options), validation and clear from it; a scope's rows with the value in effect and its source |
 | `src/app/layer_settings.*` | Settings › Emulators' Global, Consoles and Built-in cores rows, each opening the layered editor |
 | `src/app/layered_settings.*`, `layered_editor.*` | The one layered editor (any scope; a page or a panel over the game) and what it edits, each change saved and applied to the running game |
 | `src/app/core_option_store.*` | Each core's option definitions as last seen, for editing while nothing runs |

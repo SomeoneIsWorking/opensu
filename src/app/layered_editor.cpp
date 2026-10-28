@@ -7,6 +7,7 @@
 #include "gpu2d/ui/widgets.hpp"
 
 #include "settings/framegen_settings.hpp"
+#include "settings/scaling_settings.hpp"
 #include "shader_preset_tree.hpp"
 
 namespace opensu::app {
@@ -169,6 +170,8 @@ void LayeredEditor::addRows(tk::Column& rows, const tk::Theme& /*theme*/) {
             rows.add<tk::SectionHeading>(section);
             if (section == settings::frameGenSection) {
                 addFrameGenSummary(rows);
+            } else if (section == settings::scalingSection) {
+                addScalingSummary(rows);
             }
         }
         if (firstRow_.empty()) {
@@ -189,6 +192,12 @@ void LayeredEditor::addFrameGenSummary(tk::Column& rows) {
         settings::scopeLookup(schema_, settings_.layersOf(), context_.keys, scope()), scopeName());
     rows.add<tk::Item>("framegen.summary", tk::Item::Text{settings::frameGenSummary(applies),
                                                           settings_.frameGenSource()});
+}
+
+void LayeredEditor::addScalingSummary(tk::Column& rows) {
+    const std::string summary = settings_.scalingSummary(
+        settings::scopeLookup(schema_, settings_.layersOf(), context_.keys, scope()), scopeName());
+    rows.add<tk::Item>("scaling.summary", tk::Item::Text{summary, settings_.scalingSource()});
 }
 
 void LayeredEditor::addRow(tk::Column& rows, const settings::ScopedValue& value) {

@@ -117,13 +117,14 @@ struct Rig {
     app::FrameGeneration frameGeneration{gameSettings, nullptr, [] {
                                              return std::optional<fs::path>{};
                                          }};
+    app::GameScaling scaling{gameSettings, nullptr};
     app::RetroSession retro{root / "run"};
     app::LayeredSettings layered{
         app::LayeredSettings::Sources{gameSettings,
                                       [this]() -> const library::roms::Emulators& {
                                           return emulators.found();
                                       },
-                                      downloads.shaderPack(), frameGeneration, retro,
+                                      downloads.shaderPack(), frameGeneration, scaling, retro,
                                       app::CoreOptionStore{root / "core-options"}},
         app::LayeredSettings::Hooks{[this](const std::string&) {
                                         return std::optional{game()};

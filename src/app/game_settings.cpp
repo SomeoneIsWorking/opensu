@@ -6,6 +6,7 @@
 #include "settings/core_option_settings.hpp"
 #include "settings/emulator_pick_migration.hpp"
 #include "settings/framegen_settings.hpp"
+#include "settings/scaling_settings.hpp"
 #include "settings/video_settings.hpp"
 
 namespace opensu::app {
@@ -15,6 +16,7 @@ settings::Schema keptSchema() {
     settings::Schema schema;
     settings::declareVideo(schema);
     settings::declareFrameGen(schema);
+    settings::declareScaling(schema, std::nullopt);
     settings::declareCoreOptionFamily(schema);
     schema.addOpen(std::string{library::emulatorKey});
     return schema;

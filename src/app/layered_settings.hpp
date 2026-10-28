@@ -1,11 +1,11 @@
 // layered_settings — what the layered editor edits, for whichever scope it was opened on: a game
 // (its Global, console, core and own scopes), Global, a console or a built-in core. Builds the
-// schema that applies there (the emulator pick, video on a built-in core, frame generation where
-// the platform has it, the core's options from the running core or the last run), reads each
-// scope's rows from it, and keeps every change: set at a scope, removed (remembered for this run so
-// it can be restored), or a scope cleared. Each change is saved and reaches the running game at
-// once: video and core options through the runner, frame generation through its owner, an
-// emulator pick at the next launch.
+// schema that applies there (the emulator pick, video on a built-in core, frame generation and
+// resolution and upscaling where the platform has them, the core's options from the running core or
+// the last run), reads each scope's rows from it, and keeps every change: set at a scope, removed
+// (remembered for this run so it can be restored), or a scope cleared. Each change is saved and
+// reaches the running game at once: video and core options through the runner, frame generation and
+// upscaling through their owners, an emulator pick and a resolution at the next launch.
 #pragma once
 
 #include <cstddef>
@@ -18,6 +18,7 @@
 
 #include "core_option_store.hpp"
 #include "frame_generation.hpp"
+#include "game_scaling.hpp"
 #include "game_settings.hpp"
 #include "library/emulators.hpp"
 #include "library/game.hpp"
@@ -57,6 +58,7 @@ class LayeredSettings {
         std::function<const library::roms::Emulators&()> found;
         const library::roms::ShaderPack& shaders;
         FrameGeneration& frameGeneration;
+        GameScaling& scaling;
         RetroSession& retro;
         CoreOptionStore coreOptions;
     };
@@ -111,6 +113,11 @@ class LayeredSettings {
     }
     /// Under the frame generation summary: where it comes from, and where it applies.
     [[nodiscard]] std::string frameGenSource() const;
+    /// The scaling the values `applies` reads come to, in one line; `where` names them in a report.
+    [[nodiscard]] std::string scalingSummary(const settings::SettingLookup& applies,
+                                             const std::string& where) const;
+    /// Under the scaling summary: what does it, and where it applies.
+    [[nodiscard]] std::string scalingSource() const;
 
   private:
     /// The running core's options when `core` runs now, else those it defined when last run.
@@ -130,6 +137,7 @@ class LayeredSettings {
     std::function<const library::roms::Emulators&()> found_;
     const library::roms::ShaderPack& shaders_;
     FrameGeneration& frameGeneration_;
+    GameScaling& scaling_;
     RetroSession& retro_;
     CoreOptionStore coreOptions_;
     Hooks hooks_;
