@@ -3,8 +3,9 @@
 `--profile real` runs openSU --hidden on the player's own home with the network, as their session
 has it, and writes the README's WebPs to docs/screenshots/. It refuses while another openSU runs and
 puts the player's settings files back afterwards. `--game`, `--console` and `--search` pick what it
-shows. `--console-art iisu` shows iiSU's console art instead and writes only the README's showcase
-of it (`library-iisu`, `console-shelf-iisu`).
+shows. `--console-art iisu --iisu-file FILE` shows iiSU's console art from FILE (iiSU's release APK
+or its starter pack) instead and writes only the README's showcase of it (`library-iisu`,
+`console-shelf-iisu`).
 
 `--profile demo` (the default) builds the demo library, then runs openSU --hidden offline in a
 throwaway home and writes one WebP per demo scene to scratch/screenshots/demo/. With --parity DIR,
@@ -70,7 +71,12 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         default="opensu",
         help="real: whose console art the run shows; iisu writes only its showcase scenes",
     )
+    parser.add_argument(
+        "--iisu-file", type=Path, help="real: iiSU's release APK or starter pack, for --console-art iisu"
+    )
     args = parser.parse_args(argv)
+    if args.console_art == "iisu" and (args.iisu_file is None or not args.iisu_file.is_file()):
+        parser.error("--console-art iisu needs --iisu-file, iiSU's release APK or starter pack")
     if args.out is None:
         args.out = README_OUTPUT if args.profile == "real" else DEMO_OUTPUT
     return args
@@ -87,7 +93,7 @@ def _capture_real(args: argparse.Namespace) -> int:
     picks = Picks(game=args.game, console=args.console, search=args.search)
     scenes = iisu_scenes(picks) if args.console_art == "iisu" else real_scenes(picks)
     with real.KeptSettings(run / "settings-backup"):
-        real.choose_console_art(args.console_art)
+        real.choose_console_art(args.console_art, args.iisu_file)
         _run(
             args.opensu,
             RealHome(),

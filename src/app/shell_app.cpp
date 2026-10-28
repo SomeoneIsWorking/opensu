@@ -225,25 +225,23 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
 }
 
 void ShellApp::requestArtwork() {
-    const bool iisu = preferences_.values().consoleArt == settings::ConsoleArtChoice::Iisu;
-    ui::ConsoleArt& consoleArt = shell_.grid().consoleArt();
-    consoleArt.useIisu(iisu);
-    std::vector<std::string> systems;
-    for (const library::Console& console : library::consoles(games_)) {
-        // iiSU's files already on disk are recorded either way, so switching needs no download.
-        if (const std::filesystem::path card = artworkStore_.storedCard(console.system);
-            !card.empty()) {
-            consoleArt.setIisuCard(console.system, card);
-        }
-        if (const std::filesystem::path glyph = artworkStore_.storedGlyph(console.system);
-            !glyph.empty()) {
-            consoleArt.setIisuGlyph(console.system, glyph);
-        }
-        if (iisu) {
-            systems.push_back(console.system);
+    const settings::Settings& chosen = preferences_.values();
+    const bool iisu = chosen.consoleArt == settings::ConsoleArtChoice::Iisu;
+    if (!iisu) {
+        iisuPack_.reset();
+    } else if (iisuPack_ == nullptr || iisuPack_->file() != chosen.iisuFile) {
+        std::string error;
+        iisuPack_ = artwork::IisuPack::open(chosen.iisuFile, error);
+        if (iisuPack_ == nullptr) {
+            lucent::warn("artwork", "iiSU's console art: {}; showing openSU's", error);
         }
     }
-    artworkFetcher_.request(games_, artwork::allApkAssets(), systems);
+    std::vector<std::string> systems;
+    for (const library::Console& console : library::consoles(games_)) {
+        systems.push_back(console.system);
+    }
+    shell_.grid().consoleArt().useIisu(iisuPack_, std::move(systems));
+    artworkFetcher_.request(games_, artwork::allApkAssets());
     delivery_.restart();
 }
 

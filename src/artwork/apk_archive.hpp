@@ -1,8 +1,11 @@
-// apk_archive — iiSU's release APK read by HTTP ranges: the end record and central directory
-// once, then any entry's header and data on demand, never the whole APK.
+// apk_archive — a zip read by byte ranges: the end record and central directory once, then any
+// entry's header and data on demand, never the whole file. iiSU's release APK is read this way
+// over HTTP for its UI sounds, and the iiSU file the player gives openSU from disk.
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -36,28 +39,42 @@ struct ApkFile {
 
 class ApkArchive {
   public:
-    /// The APK at `url`, which is `size` bytes long. Nothing is fetched until the first use.
-    ApkArchive(std::string url, std::uint64_t size);
+    /// Reads bytes `first` to `last` of the zip, both included; nothing, with `error`, when it
+    /// cannot.
+    using RangeRead = std::function<std::optional<std::string>(
+        std::uint64_t first, std::uint64_t last, std::string& error)>;
 
-    /// The named entry's record, reading the directory on first use. Nothing when the APK has no
-    /// such entry (`error` empty) or cannot be read (`error` says why).
-    [[nodiscard]] const zip::Entry* find(const net::WebClient& web, std::string_view name,
-                                         std::string& error);
+    /// The zip `size` bytes long that `read` reads. Nothing is read until the first use.
+    ApkArchive(std::uint64_t size, RangeRead read);
 
-    /// The entry's file, inflated and checked against its CRC-32.
-    [[nodiscard]] std::optional<std::string> extract(const net::WebClient& web,
-                                                     const zip::Entry& entry, std::string& error);
+    /// The APK at `url` through `web`'s HTTP ranges; `web` outlives the archive.
+    [[nodiscard]] static ApkArchive overHttp(const net::WebClient& web, std::string url,
+                                             std::uint64_t size);
+    /// The zip in `file` on disk. Nothing, with `error`, when it cannot be opened.
+    [[nodiscard]] static std::optional<ApkArchive> overFile(const std::filesystem::path& file,
+                                                            std::string& error);
+
+    /// Every entry's record, reading the directory on first use; null with `error` when the zip
+    /// cannot be read.
+    [[nodiscard]] const std::vector<zip::Entry>* entries(std::string& error);
+
+    /// The named entry's record. Nothing when the zip has no such entry (`error` empty) or cannot
+    /// be read (`error` says why).
+    [[nodiscard]] const zip::Entry* find(std::string_view name, std::string& error);
+
+    /// The entry's file, inflated and checked against its CRC-32; one over `maxSize` is refused.
+    [[nodiscard]] std::optional<std::string> extract(const zip::Entry& entry, std::string& error,
+                                                     std::uint32_t maxSize = zip::maxFileSize);
 
     /// The named file, inflated and checked: find and extract in one.
-    [[nodiscard]] ApkFile fetch(const net::WebClient& web, std::string_view name);
+    [[nodiscard]] ApkFile fetch(std::string_view name);
 
   private:
-    [[nodiscard]] bool load(const net::WebClient& web, std::string& error);
-    [[nodiscard]] std::optional<std::string> span(const net::WebClient& web, std::uint64_t first,
-                                                  std::uint64_t last, std::string& error) const;
+    [[nodiscard]] std::optional<std::string> span(std::uint64_t first, std::uint64_t last,
+                                                  std::string& error) const;
 
-    std::string url_;
     std::uint64_t size_;
+    RangeRead read_;
     std::optional<std::vector<zip::Entry>> entries_;
 };
 

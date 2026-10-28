@@ -1,9 +1,8 @@
 // artwork_store — downloaded artwork on disk: where each game's file goes, which games still
 // want one, the misses not to ask about again soon, and libretro's listings.
 //
-// Layout under the root: steam/<appid>.jpg, rom/<system>/<thumbnail name>.png, and for iiSU's
-// console art console/<system>.png (a card), glyph/<system>.png (a frame glyph) and
-// iisu/<pack> (the starter pack); a `.miss` file beside any that the source does not have,
+// Layout under the root: steam/<appid>.jpg, rom/<system>/<thumbnail name>.png; a `.miss` file
+// beside any that the source does not have,
 // libretro/<system>.txt for a listing and sound/<file> for an APK asset, a UI sound. switch/ is
 // library::roms::SwitchInfo's, a Switch game's own title and icon.
 #pragma once
@@ -34,16 +33,6 @@ class ArtworkStore {
     /// The file a game's downloaded art is kept in; empty for a game no source can supply.
     [[nodiscard]] std::filesystem::path pathFor(const library::Game& game) const;
 
-    /// The file a system's iiSU card is kept in.
-    [[nodiscard]] std::filesystem::path cardPath(std::string_view system) const;
-    /// The file a system's iiSU frame glyph is kept in.
-    [[nodiscard]] std::filesystem::path glyphPath(std::string_view system) const;
-    /// A system's iiSU card or glyph file when it is stored, else empty.
-    [[nodiscard]] std::filesystem::path storedCard(std::string_view system) const;
-    [[nodiscard]] std::filesystem::path storedGlyph(std::string_view system) const;
-    /// Where the starter pack named `name` is kept.
-    [[nodiscard]] std::filesystem::path packPath(std::string_view name) const;
-
     /// The file an APK asset (a UI sound) is kept in.
     [[nodiscard]] std::filesystem::path assetPath(const ApkAsset& asset) const;
 
@@ -61,18 +50,6 @@ class ArtworkStore {
     /// Whether `game` has no art and none is coming: no source can supply it, or its source missed
     /// within `missLifetime` of `now`. A game whose download is still to come is not coverless.
     [[nodiscard]] bool coverless(const library::Game& game, Clock::time_point now) const;
-
-    /// Whether to ask iiSU's APK for a system's card or glyph: it is not stored and not missed
-    /// within `missLifetime` of `now`.
-    [[nodiscard]] bool wantedCard(std::string_view system, Clock::time_point now) const;
-    [[nodiscard]] bool wantedGlyph(std::string_view system, Clock::time_point now) const;
-    /// Keeps a system's iiSU card or glyph, or notes that the APK has none.
-    bool saveCard(std::string_view system, std::string_view bytes, std::string& error) const;
-    bool saveGlyph(std::string_view system, std::string_view bytes, std::string& error) const;
-    void recordCardMiss(std::string_view system) const;
-    void recordGlyphMiss(std::string_view system) const;
-    /// Keeps the starter pack named `name`.
-    bool savePack(std::string_view name, std::string_view bytes, std::string& error) const;
 
     /// Keeps a downloaded image, replacing the file whole. False with `error` on failure.
     bool save(const library::Game& game, std::string_view bytes, std::string& error) const;

@@ -47,24 +47,30 @@ and glyphs are openSU's own drawings (`assets/consoles/`, MIT); see
 ## Using iiSU's console art
 
 openSU draws its own console cards and tab glyphs. If you prefer the look of
-[iiSU](https://github.com/iisu-network/iiSU)'s, openSU can show those instead: open
-Settings › Artwork and set **Console art** to **iiSU**. openSU then downloads iiSU's cards and
-glyphs from iiSU's public release (iiSU 0.0.7.4's APK, only the parts it needs, each checked
-against its pinned size and CRC-32) and keeps them in `~/.cache/opensu/artwork/`. The row says
-while it downloads, or why it could not. A console iiSU has no art for, such as the PS4, keeps
-openSU's. Switching back to **openSU** needs no download, and the downloaded files stay, so
-switching again is instant.
+[iiSU](https://github.com/iisu-network/iiSU)'s, you can point openSU at a copy of iiSU's art you
+download yourself; openSU never downloads it.
 
-The art is iiSU's, not openSU's: openSU does not ship it or relicense it, and it is fetched only
-when you choose it.
+1. Download iiSU's release APK (for example `iiSU-Alpha-7.4.apk`) from
+   [iiSU's releases](https://github.com/iisu-network/iiSU/releases). The `iiSU_StarterPack.zip`
+   inside it works too, if you have it on its own.
+2. In openSU, open Settings › Artwork › Console art and step it to **iiSU**.
+3. Choose the file you downloaded. openSU reads the cards (`platforms/<console>.webp` in the
+   starter pack) and, from the APK, the tab glyphs (`assets/borders/`) straight from that file,
+   and remembers where it is. A file that is not iiSU's is refused with what is wrong with it.
+
+A console the file has no art for, such as the PS4, keeps openSU's. Stepping back to **openSU**
+keeps the file remembered; stepping to **iiSU** again opens the chooser in its folder. If you move
+or delete the file, openSU shows its own art again.
+
+The art is iiSU's, not openSU's: openSU does not ship it, download it or relicense it.
 
 | openSU's console art | iiSU's console art |
 | --- | --- |
 | ![Library in openSU's console art](docs/screenshots/library.webp) | ![Library in iiSU's console art](docs/screenshots/library-iisu.webp) |
 | ![A console's shelf in openSU's console art](docs/screenshots/console-shelf.webp) | ![A console's shelf in iiSU's console art](docs/screenshots/console-shelf-iisu.webp) |
 
-Captured with `uv run --frozen python -m tools.screenshots --profile real --console-art iisu`,
-which shows iiSU's art for the run only.
+Captured with `uv run --frozen python -m tools.screenshots --profile real --console-art iisu
+--iisu-file <iiSU's APK>`, which shows iiSU's art for the run only.
 
 ## Installing the AppImage
 
@@ -410,8 +416,8 @@ SIL Open Font License; the licence is beside it in `assets/CalSans-OFL.txt`.
 
 openSU is MIT-licensed (`LICENSE`). Cal Sans is under the SIL Open Font License
 (`assets/CalSans-OFL.txt`). openSU is an independent project, not affiliated with iiSU,
-and ships none of iiSU's code or assets; iiSU's console art is downloaded from iiSU's own release
-only when you choose it (see [Using iiSU's console art](#using-iisus-console-art)).
+and ships none of iiSU's code or assets; iiSU's console art is read only from a copy of iiSU's
+release you download yourself (see [Using iiSU's console art](#using-iisus-console-art)).
 
 ## Plugins
 

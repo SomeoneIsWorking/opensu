@@ -28,6 +28,7 @@
 #include "support/fake_interface_text.hpp"
 #include "support/fake_steam.hpp"
 #include "support/fake_steam_gate.hpp"
+#include "support/zip_fixture.hpp"
 #include "ui/check.hpp"
 #include "ui/entry_screen.hpp"
 #include "volume_control.hpp"
@@ -100,7 +101,7 @@ struct Rig {
                   return steamPort == 1 ? nullptr : &steamGate;
               }}},
           artworkSettings{steamGridDbAccount, app::ArtworkSettings::Entry{screens.navigator, pad},
-                          app::ArtworkSettings::Services{preferences, artworkFetcher, sounds},
+                          app::ArtworkSettings::Services{preferences, paths, config.home, sounds},
                           app::ArtworkSettings::Hooks{[this](const std::string& text, bool error) {
                                                           said.push_back({text, error});
                                                       },
@@ -309,9 +310,6 @@ struct Rig {
     /// The client Connect signs in with; a desktop Steam unless a test says otherwise.
     test::FakeSteamGate steamGate;
     app::SteamGridDbAccount steamGridDbAccount;
-    /// A fetcher never asked for anything: the console art row reads it.
-    artwork::ArtworkStore artworkStore{config.cacheDir / "artwork"};
-    artwork::ArtworkFetcher artworkFetcher{artworkStore, artwork::RemoteSources{}};
     app::ArtworkSettings artworkSettings;
     int artworkRequests{0};
     int consoleArtChanges{0};
@@ -1281,8 +1279,8 @@ bool saidSomething(const Rig& rig, const std::string& part, bool error) {
     });
 }
 
-/// Settings > Artwork: Console art is openSU's until the player picks iiSU's, which is kept and
-/// asks for the download.
+/// Settings > Artwork: Console art is openSU's until the player picks iiSU's file on the chooser;
+/// a file that is not iiSU's is refused with what is wrong, and the file taken is kept.
 void consoleArtIsChosen(const fs::path& root) {
     Rig rig{root};
     rig.controller.open();
@@ -1293,15 +1291,31 @@ void consoleArtIsChosen(const fs::path& root) {
            "console art starts as openSU's own");
     rig.focus("artwork.consoleart");
     rig.act(Button::Right);
-    expect(rig.onDisk().consoleArt == settings::ConsoleArtChoice::Iisu &&
-               rig.rowOf("artwork.consoleart").choices[rig.rowOf("artwork.consoleart").chosen] ==
-                   "iiSU" &&
-               rig.consoleArtChanges == 1,
-           "choosing iiSU's is kept and asks for its art");
+    expect(rig.paths.active() && rig.onDisk().consoleArt == settings::ConsoleArtChoice::OpenSu,
+           "choosing iiSU's opens the file chooser first");
+
+    fs::create_directories(rig.config.home);
+    const fs::path other = rig.config.home / "other.apk";
+    std::ofstream{other, std::ios::binary}
+        << test::zipfixture::buildZip({{"assets/other.png", "png", false, {}}});
+    rig.paths.pick(other);
+    expect(rig.paths.active() && saidSomething(rig, "not iiSU's", true) &&
+               rig.onDisk().consoleArt == settings::ConsoleArtChoice::OpenSu,
+           "another app's APK is refused and the chooser stays");
+
+    const fs::path pack = rig.config.home / "iiSU_StarterPack.zip";
+    std::ofstream{pack, std::ios::binary}
+        << test::zipfixture::buildZip({{"platforms/gc.webp", "RIFF card", false, {}}});
+    rig.paths.pick(pack);
+    const ui::SettingsRow chosen = rig.rowOf("artwork.consoleart");
+    expect(!rig.paths.active() && rig.onDisk().consoleArt == settings::ConsoleArtChoice::Iisu &&
+               rig.onDisk().iisuFile == pack && chosen.choices[chosen.chosen] == "iiSU" &&
+               chosen.note == "iiSU's, from iiSU_StarterPack.zip" && rig.consoleArtChanges == 1,
+           "iiSU's file is kept and its art asked for");
     rig.act(Button::Left);
     expect(rig.onDisk().consoleArt == settings::ConsoleArtChoice::OpenSu &&
-               rig.consoleArtChanges == 2,
-           "and openSU's comes back the other way");
+               rig.onDisk().iisuFile == pack && rig.consoleArtChanges == 2,
+           "openSU's comes back the other way, the file remembered");
 }
 
 constexpr const char* steamGridDbKey = "0123456789abcdef0123456789abcdef";

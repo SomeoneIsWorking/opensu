@@ -43,18 +43,17 @@ std::string statusText(const SteamGridDbAccount::Status& status) {
     return {};
 }
 
-std::string consoleArtNote(settings::ConsoleArtChoice choice,
-                           const artwork::ConsoleArtProgress& progress) {
-    if (choice == settings::ConsoleArtChoice::OpenSu) {
+std::string consoleArtNote(const settings::Settings& chosen) {
+    if (chosen.consoleArt == settings::ConsoleArtChoice::OpenSu) {
         return "openSU's own drawings of each console";
     }
-    if (progress.pending > 0) {
-        return "Downloading iiSU's console art from iiSU's release";
-    }
-    if (!progress.error.empty()) {
-        return "Could not download iiSU's art: " + progress.error;
-    }
-    return "iiSU's console art, downloaded from iiSU's release";
+    return "iiSU's, from " + chosen.iisuFile.filename().string();
+}
+
+/// The files the chooser lists: an APK or a zip.
+bool packLike(const std::filesystem::path& file) {
+    const std::string extension = file.extension().string();
+    return extension == ".apk" || extension == ".zip";
 }
 
 } // namespace
@@ -71,8 +70,7 @@ ui::SettingsCategory ArtworkSettings::page() const {
         }
     }
     page.rows.push_back(ui::makeChoice(consoleArtId, "Console art",
-                                       consoleArtNote(chosen, fetcher_.consoleArt()),
-                                       std::move(choices)));
+                                       consoleArtNote(preferences_.values()), std::move(choices)));
     std::string note = "Covers that fit their tiles";
     if (status.state == State::Connected) {
         note = status.place == host::SecretPlace::Keyring ? "Key kept in the keyring"
@@ -107,13 +105,12 @@ bool ArtworkSettings::owns(const std::string& id) {
 
 void ArtworkSettings::run(const std::string& id, int step) {
     if (id == consoleArtId) {
-        // Two choices, so every step lands on the other one.
-        settings::ConsoleArtChoice& chosen = preferences_.values().consoleArt;
-        chosen = chosen == settings::ConsoleArtChoice::OpenSu ? settings::ConsoleArtChoice::Iisu
-                                                              : settings::ConsoleArtChoice::OpenSu;
-        preferences_.save();
-        hooks_.consoleArtChanged();
-        hooks_.refresh();
+        // Two choices, so every step lands on the other one; iiSU's asks for its file first.
+        if (preferences_.values().consoleArt == settings::ConsoleArtChoice::OpenSu) {
+            chooseIisuFile();
+            return;
+        }
+        useConsoleArt(settings::ConsoleArtChoice::OpenSu, preferences_.values().iisuFile);
         return;
     }
     if (step != 0) {
@@ -134,6 +131,41 @@ void ArtworkSettings::run(const std::string& id, int step) {
     hooks_.refresh();
 }
 
+void ArtworkSettings::useConsoleArt(settings::ConsoleArtChoice choice,
+                                    const std::filesystem::path& iisuFile) {
+    preferences_.values().consoleArt = choice;
+    preferences_.values().iisuFile = iisuFile;
+    preferences_.save();
+    hooks_.consoleArtChanged();
+    hooks_.refresh();
+}
+
+void ArtworkSettings::chooseIisuFile() {
+    const std::filesystem::path& known = preferences_.values().iisuFile;
+    std::error_code ec;
+    const std::filesystem::path downloads = home_ / "Downloads";
+    std::filesystem::path start = std::filesystem::is_directory(downloads, ec) ? downloads : home_;
+    if (!known.empty()) {
+        start = known.parent_path();
+    }
+    paths_.begin(PathEditor::Request{
+        .title = "iiSU's release or starter pack",
+        .start = start,
+        .clearLabel = {},
+        .refusal =
+            [](const std::filesystem::path& file) {
+                std::string error;
+                return artwork::IisuPack::open(file, error) != nullptr ? std::string{} : error;
+            },
+        .files = &packLike,
+        .done =
+            [this](const std::optional<std::filesystem::path>& file) {
+                if (file) {
+                    useConsoleArt(settings::ConsoleArtChoice::Iisu, *file);
+                }
+            }});
+}
+
 void ArtworkSettings::connect() {
     account_.connect();
     hooks_.refresh();
@@ -150,12 +182,10 @@ void ArtworkSettings::service() {
         }
     }
     const SteamGridDbAccount::Status status = account_.status();
-    artwork::ConsoleArtProgress art = fetcher_.consoleArt();
-    if (status != shown_ || art != shownArt_) {
+    if (status != shown_) {
         const bool connected = status.state == State::Connected && shown_.state != State::Connected;
         const std::string focused = navigator_.focused();
         shown_ = status;
-        shownArt_ = std::move(art);
         hooks_.refresh();
         // The row pressed is gone, and the nearest one in its place is Disconnect.
         if (connected && (focused == connectId || focused == cancelId || focused == enterId)) {

@@ -71,15 +71,15 @@ void testRanges(int fillerEntries) {
     const std::string served = apk(fillerEntries);
     RangeServer server;
     server.put("/apk", served);
-    ApkArchive archive{server.base() + "/apk", served.size()};
     const WebClient web;
-    const ApkFile open = archive.fetch(web, "assets/Open.wav");
+    ApkArchive archive = ApkArchive::overHttp(web, server.base() + "/apk", served.size());
+    const ApkFile open = archive.fetch("assets/Open.wav");
     expect(open.status == ApkFile::Status::Found && open.bytes == openWav,
            "a deflated entry comes out inflated");
-    expect(archive.fetch(web, "assets/Navigation.wav").bytes == navigationWav,
+    expect(archive.fetch("assets/Navigation.wav").bytes == navigationWav,
            "a stored entry comes out as stored");
     expect(server.bytesSent() < served.size() / 2, "the APK is not downloaded whole");
-    expect(archive.fetch(web, "assets/Close.wav").status == ApkFile::Status::Missing,
+    expect(archive.fetch("assets/Close.wav").status == ApkFile::Status::Missing,
            "an entry the APK lacks is missing");
 }
 
@@ -89,8 +89,8 @@ void testRefusals() {
         const std::string served = apk(0, 0x0badf00d);
         RangeServer server;
         server.put("/apk", served);
-        ApkArchive archive{server.base() + "/apk", served.size()};
-        const ApkFile open = archive.fetch(web, "assets/Open.wav");
+        ApkArchive archive = ApkArchive::overHttp(web, server.base() + "/apk", served.size());
+        const ApkFile open = archive.fetch("assets/Open.wav");
         expect(open.status == ApkFile::Status::Failed &&
                    open.error.find("CRC") != std::string::npos,
                "an entry that fails its CRC-32 is refused");
@@ -100,14 +100,14 @@ void testRefusals() {
         RangeServer server;
         server.put("/apk", served);
         server.ignoreRange(true);
-        ApkArchive archive{server.base() + "/apk", served.size()};
-        const ApkFile open = archive.fetch(web, "assets/Open.wav");
+        ApkArchive archive = ApkArchive::overHttp(web, server.base() + "/apk", served.size());
+        const ApkFile open = archive.fetch("assets/Open.wav");
         expect(open.status == ApkFile::Status::Failed &&
                    open.error.find("HTTP 200") != std::string::npos,
                "a server that ignores Range is refused");
     }
-    ApkArchive offline{"http://127.0.0.1:9/apk", apk(0).size()};
-    const ApkFile down = offline.fetch(web, "assets/Open.wav");
+    ApkArchive offline = ApkArchive::overHttp(web, "http://127.0.0.1:9/apk", apk(0).size());
+    const ApkFile down = offline.fetch("assets/Open.wav");
     expect(down.status == ApkFile::Status::Failed && !down.error.empty(),
            "an APK that cannot be reached fails rather than misses");
 }
