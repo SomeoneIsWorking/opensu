@@ -11,6 +11,12 @@ target_link_libraries(opensu_command PUBLIC lucent::lucent)
 target_compile_features(opensu_command PUBLIC cxx_std_20)
 
 add_library(opensu_launch STATIC handoff.cpp launch_progress.cpp process_tree.cpp)
+# The process table: /proc on Linux; elsewhere there is none yet, so no game is found by its hint.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(opensu_launch PRIVATE process_table_proc.cpp)
+else()
+    target_sources(opensu_launch PRIVATE process_table_none.cpp)
+endif()
 add_library(opensu::launch ALIAS opensu_launch)
 # The launcher's backend: a systemd user scope per launch on Linux; elsewhere launches refuse.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
