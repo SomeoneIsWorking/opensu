@@ -357,15 +357,20 @@ in an object `retro_init` makes). CI: the `android` job in `ci.yml` and
 
 Shown on the `codex_shared_api35` AVD (x86_64, landscape 1920x1080 at 420 dpi, phone-sized): first
 run's integrations chooser offering only standalone emulators and Lua plugins, the Home grid, the
-Guide menu with the media volume, Settings. Left for this step: the `:retro` runner on a ROM from
-a SAF folder (`RomTree`), the runner's touch layer, standalone emulators' intent templates in
+Guide menu with the media volume, Settings. "Add a ROM folder" opens Android's folder picker (`SystemFolderPicker`,
+`ACTION_OPEN_DOCUMENT_TREE`) and keeps a persistable read grant; the folder is saved as its tree
+URI and the ROM scan walks it through `DocumentsContract` (`RomTree`, `DocumentTree`); the
+runner gets the game copied into `cacheDir/staged` (cores open games by path). Shown: the picker,
+the NES test ROM listed from `/sdcard/ROMs` picked through it, Mesen downloaded for x86_64 and
+the ROM running on the `:retro` runner. Left for this step: the runner's touch layer and a way
+back to the shell from a game (Back and the Guide button do not reach the shell while the runner
+is in front), standalone emulators' intent templates in
 `emulators.json`, librashader for Android, tablet-size frames, the player's phone (arm64 cores,
 performance).
 
-Seen on the AVD and not yet fixed: "Add a ROM folder" opens the filesystem chooser at `/`, which
-Android does not let the app list ("Permission denied"), and a typed path outside the app's own
-storage does not exist for it, so no ROM folder can be added until the SAF picker replaces that
-chooser on Android; a tablet-shaped display (1920x1600) lays out without overlap. Fixed since: a
+Seen on the AVD and not yet fixed: Settings lists a picked ROM folder by its raw tree URI, the
+Add-a-game tile still says "A file, Steam shortcuts, Lutris", and console photos in WebP do not
+decode there ("Unsupported image format"). A tablet-shaped display (1920x1600) lays out without overlap. Fixed since: a
 refused path shows on the chooser card under the field (`PathEditor::refusal`) instead of a toast
 over the card's prompts, and Settings offers the night light only where the platform can warm the
 screen (`nightLightSupported`: Gamescope on Linux).

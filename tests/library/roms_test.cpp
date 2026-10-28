@@ -165,29 +165,36 @@ void systemsByFolder() {
     expect(systemForFolder("Android") == nullptr, "Android is no emulated system");
 }
 
+/// The file `system` starts for the game at `entry`, found on the filesystem.
+std::optional<fs::path> fileOf(const opensu::library::roms::RomSystem& system,
+                               const fs::path& entry) {
+    const opensu::library::roms::FileTree files;
+    return gameFile(files, system, opensu::library::roms::FileTree::node(entry));
+}
+
 void gameFiles(const Fixture& f) {
     const auto& sw = *systemForFolder("Switch");
-    expect(need(gameFile(sw, f.root / "Switch" / "Kirby Star Allies"), "Kirby has a file")
-                   .filename() == "Kirby Star Allies[01007E3006DDA000][US][v0].nsp",
-           "a Switch folder starts its base title (id ending 000), not a larger update or add-on");
     expect(
-        need(gameFile(sw, f.root / "Switch" / "Metroid Dread"), "Metroid has a file").filename() ==
-            "Metroid Dread.nsp",
-        "a file named Update is not the base");
-    expect(need(gameFile(*systemForFolder("Wii U"), f.root / "Wii U" / "Breath of the Wild"),
+        need(fileOf(sw, f.root / "Switch" / "Kirby Star Allies"), "Kirby has a file").filename() ==
+            "Kirby Star Allies[01007E3006DDA000][US][v0].nsp",
+        "a Switch folder starts its base title (id ending 000), not a larger update or add-on");
+    expect(need(fileOf(sw, f.root / "Switch" / "Metroid Dread"), "Metroid has a file").filename() ==
+               "Metroid Dread.nsp",
+           "a file named Update is not the base");
+    expect(need(fileOf(*systemForFolder("Wii U"), f.root / "Wii U" / "Breath of the Wild"),
                 "Breath of the Wild has a file")
                    .filename() == "U-King.rpx",
            "an extracted Wii U game starts its code/*.rpx");
-    expect(need(gameFile(*systemForFolder("PS4"), f.root / "PS4" / "CUSA00900"),
+    expect(need(fileOf(*systemForFolder("PS4"), f.root / "PS4" / "CUSA00900"),
                 "the PS4 folder has a file")
                    .filename() == "eboot.bin",
            "a PS4 folder starts eboot.bin");
-    expect(need(gameFile(*systemForFolder("PS3"), f.root / "PS3" / "Time Crisis 4 (USA)"),
+    expect(need(fileOf(*systemForFolder("PS3"), f.root / "PS3" / "Time Crisis 4 (USA)"),
                 "the PS3 folder has a file")
                    .filename() == "Time Crisis 4 (USA).iso",
            "a PS3 folder starts its ISO");
-    expect(!gameFile(*systemForFolder("GameBoy"),
-                     f.root / "GameBoy" / "Final Fantasy Adventure DX (USA).ips"),
+    expect(!fileOf(*systemForFolder("GameBoy"),
+                   f.root / "GameBoy" / "Final Fantasy Adventure DX (USA).ips"),
            "a patch is no game");
 }
 

@@ -1,5 +1,7 @@
 package io.github.someoneisworking.opensu;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -9,6 +11,10 @@ import java.io.IOException;
 public final class ShellActivity extends LandscapeActivity {
     private Launches launches;
     private MusicVolume volume;
+    private DocumentTree documents;
+    private static final int PICK_FOLDER = 0x5af;
+    /** The folder picker's answer until native code takes it: a tree URI, "" when cancelled. */
+    private String pickedFolder;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -20,6 +26,7 @@ public final class ShellActivity extends LandscapeActivity {
         }
         launches = new Launches(this);
         volume = new MusicVolume(this);
+        documents = new DocumentTree(this);
         super.onCreate(savedInstanceState);
     }
 
@@ -61,5 +68,44 @@ public final class ShellActivity extends LandscapeActivity {
 
     public boolean setMusicMuted(boolean muted) {
         return volume.setMuted(muted);
+    }
+
+    /** Called from the folder picker backend: opens the system's folder picker. */
+    public void pickFolder() {
+        runOnUiThread(() -> {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            startActivityForResult(pick, PICK_FOLDER);
+        });
+    }
+
+    /** The picked folder once the picker closed ("" when cancelled), else null; taken once. */
+    public synchronized String takePickedFolder() {
+        String answer = pickedFolder;
+        pickedFolder = null;
+        return answer;
+    }
+
+    /** Called from the document RomTree: the children of a picked folder or a folder in it. */
+    public String[] listDocuments(String location) {
+        return documents.children(location);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode != PICK_FOLDER) {
+            super.onActivityResult(requestCode, resultCode, data);
+            return;
+        }
+        Uri tree = resultCode == RESULT_OK && data != null ? data.getData() : null;
+        if (tree != null) {
+            // Kept across restarts, so the library can read the folder at every start.
+            getContentResolver().takePersistableUriPermission(tree,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        }
+        synchronized (this) {
+            pickedFolder = tree != null ? tree.toString() : "";
+        }
     }
 }

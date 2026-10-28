@@ -1048,6 +1048,7 @@ int ShellApp::run() {
         handlePointer();
         handleGameKeys();
         volume_.poll(std::chrono::steady_clock::now());
+        paths_.poll();
         if (const auto direction = repeat_.poll(std::chrono::steady_clock::now())) {
             actOn(*direction);
         }

@@ -8,6 +8,7 @@
 #include "arcade_names.hpp"
 #include "emulators.hpp"
 #include "game.hpp"
+#include "rom_tree.hpp"
 #include "romset_match.hpp"
 #include "switch_info.hpp"
 
@@ -50,6 +51,7 @@ class Provider final : public library::Provider {
 
   private:
     std::vector<std::filesystem::path> roots_;
+    std::unique_ptr<RomTree> tree_{openRomTree()};
     EmulatorSetup emulators_;
     NameDb names_;
     RomsetMatcher romsets_;

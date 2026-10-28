@@ -17,12 +17,31 @@ bool PathEditor::active() const {
 
 void PathEditor::begin(Request request) {
     request_ = std::move(request);
+    if (system_ && !request_.files && system_->open()) {
+        asking_ = true;
+        return;
+    }
     folders_.open(request_.start, request_.files);
     typed_ = folders_.current().string();
     refusal_.clear();
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     navigator_.push(std::make_unique<FolderChooserScreen>(*this, chrome_));
+}
+
+void PathEditor::poll() {
+    if (!asking_) {
+        return;
+    }
+    const std::optional<std::string> answer = system_->take();
+    if (!answer) {
+        return;
+    }
+    asking_ = false;
+    // The OS picker hands back only folders the app was granted, so its answer needs no check.
+    if (!answer->empty()) {
+        request_.done(std::filesystem::path{*answer});
+    }
 }
 
 void PathEditor::close() {
