@@ -499,6 +499,16 @@ spacing) is gone; sizes are still Android's em in pixels. Checked in hidden runs
 Gap: at 1280x800 and 70% a subtitle's em is about 7 px and the space about 1.1 px, which shows as
 a faint column rather than a word gap whichever way the glyphs are placed.
 
+Every picture the shell draws (covers and heroes, the details page and cover picker's pictures,
+console cards and glyphs, the SVG icons) is decoded by gpu2d's `ImageLoader` on its workers and
+lands as a texture between frames, at most 4 MiB a frame (`Shell::uploadBytesPerFrame`); a tile
+shows its placeholder spinner until its handle is ready, and a tile scrolled away before then is
+cancelled. Nothing decodes on the frame thread. Measured on the maintainer's library (774 games in
+All games, hidden window, `worstFrameUs` from `/state`, three runs each on a loaded machine whose
+idle worst frame itself ranged 19-128 ms): choosing iiSU's console art went from 89/92/266 ms worst
+frame to 22/22/115 ms, and 60 tiles of All games scrolled at 0.06 s a step from 17/48/71 ms to
+17/19/25 ms.
+
 Gap: the per-platform HSL tinting the reference applies to artwork is not
 implemented, so covers are shown at their store's own colours.
 

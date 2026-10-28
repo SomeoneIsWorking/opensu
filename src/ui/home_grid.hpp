@@ -19,6 +19,7 @@
 
 #include <SDL3/SDL_gpu.h>
 
+#include "gpu2d/image_loader.hpp"
 #include "gpu2d/ui/cell_grid.hpp"
 
 #include "config/config.hpp"
@@ -57,8 +58,10 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
         float bottomInset{};
     };
 
-    HomeGrid(config::HomeMode mode, InterfaceText& text, IconAtlas& icons);
-    ~HomeGrid() override;
+    /// Tile art and iiSU's console art come through `images`.
+    HomeGrid(config::HomeMode mode, InterfaceText& text, IconAtlas& icons,
+             gpu2d::ImageLoader& images);
+    ~HomeGrid() override = default;
     HomeGrid(const HomeGrid&) = delete;
     HomeGrid& operator=(const HomeGrid&) = delete;
     HomeGrid(HomeGrid&&) = delete;
@@ -77,13 +80,9 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     /// clears it (navigation.md §5.4).
     void setHeader(std::optional<library::ShelfItem> header);
 
-    /// Streams the artwork of the tiles near the canvas: queues their files to decode on the
-    /// decoder's thread and uploads at most `uploads` decoded images as textures on `device`, then
-    /// releases the textures of tiles far from the canvas once many are held. Once a frame.
-    void loadArtwork(SDL_GPUDevice& device, std::size_t uploads);
-    /// Loads the artwork of the tiles near the canvas and waits until it is all in; for a still
-    /// render.
-    void loadArtworkNow(SDL_GPUDevice& device);
+    /// Asks the image loader for the art of the tiles near the canvas and iiSU's console art when
+    /// chosen, and lets go of art far from the canvas once many are held. Once a frame.
+    void requestArtwork();
 
     /// Gives a game's tile artwork that arrived after the shelf was set.
     void setArtwork(std::string_view gameId, const std::filesystem::path& artwork);

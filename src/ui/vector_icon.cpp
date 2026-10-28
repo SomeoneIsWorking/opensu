@@ -5,15 +5,13 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
-#include <stdexcept>
 #include <string>
+#include <utility>
 
 #define NANOSVG_IMPLEMENTATION
 #include <nanosvg.h>
 #define NANOSVGRAST_IMPLEMENTATION
 #include <nanosvgrast.h>
-
-#include "lucent/log.h"
 
 namespace opensu::ui {
 namespace {
@@ -198,26 +196,49 @@ const gpu2d::Texture* IconAtlas::find(std::string_view file, int width, int heig
                entry.mask == mask && sameSwaps(entry.swaps, swaps);
     });
     if (found != entries_.end()) {
-        return found->texture ? &*found->texture : nullptr;
+        return found->image.texture();
     }
-    if (device_ == nullptr) {
-        throw std::logic_error{"an icon was drawn before the atlas had a device"};
+    std::vector<ColourSwap> colours{swaps.begin(), swaps.end()};
+    std::string key = (assetsDir_ / file).string() + " " + std::to_string(width) + "x" +
+                      std::to_string(height) + (mask ? " mask" : "");
+    for (const ColourSwap& swap : colours) {
+        key +=
+            " " + std::to_string(packedRgb(swap.from)) + ">" + std::to_string(packedRgb(swap.to));
     }
-    Entry& entry = entries_.emplace_back(Entry{.file = std::string{file},
-                                               .width = width,
-                                               .height = height,
-                                               .mask = mask,
-                                               .swaps = {swaps.begin(), swaps.end()},
-                                               .texture = {}});
-    const std::filesystem::path path = assetsDir_ / file;
-    const std::optional<std::vector<unsigned char>> rgba =
-        mask ? rasteriseMask(path, width) : rasterise(path, width, height, swaps);
-    if (rgba) {
-        entry.texture.emplace(*device_, *rgba, width, height, gpu2d::Filter::Linear);
-    } else {
-        lucent::error("ui", "icon {} could not be read", path.string());
+    gpu2d::ImageHandle image = images_.load(gpu2d::ImageRequest{
+        .key = std::move(key),
+        .decode = [path = assetsDir_ / file, width, height, mask,
+                   colours](std::string& error) -> std::optional<gpu2d::image::Bitmap> {
+            std::optional<std::vector<unsigned char>> rgba =
+                mask ? rasteriseMask(path, width) : rasterise(path, width, height, colours);
+            if (!rgba) {
+                error = "the SVG cannot be read";
+                return std::nullopt;
+            }
+            return gpu2d::image::Bitmap{.width = width, .height = height, .rgba = std::move(*rgba)};
+        },
+        .filter = gpu2d::Filter::Linear});
+    const Entry& entry = entries_.emplace_back(Entry{.file = std::string{file},
+                                                     .width = width,
+                                                     .height = height,
+                                                     .mask = mask,
+                                                     .swaps = std::move(colours),
+                                                     .image = std::move(image)});
+    return entry.image.texture();
+}
+
+bool IconAtlas::pending() const noexcept {
+    return std::ranges::any_of(entries_, [](const Entry& entry) {
+        return entry.image.pending();
+    });
+}
+
+void IconAtlas::wait() {
+    for (const Entry& entry : entries_) {
+        if (entry.image.pending()) {
+            images_.wait(entry.image);
+        }
     }
-    return entry.texture ? &*entry.texture : nullptr;
 }
 
 } // namespace opensu::ui

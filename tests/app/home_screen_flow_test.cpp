@@ -55,9 +55,10 @@ struct Rig {
     test::InterfaceRig ui;
     /// The grid's own face and icons, which a layout never draws with.
     ui::InterfaceText face{"."};
-    ui::IconAtlas icons{"."};
+    gpu2d::ImageLoader images;
+    ui::IconAtlas icons{".", images};
     input::Prompts prompts;
-    ui::HomeGrid grid{config::HomeMode::WiiSu, face, icons};
+    ui::HomeGrid grid{config::HomeMode::WiiSu, face, icons, images};
     ui::Hud hud{prompts, ui.text, icons};
     ui::TopBarChrome topBar{hud};
     ui::HomeDock dock{prompts, ui.text, icons};

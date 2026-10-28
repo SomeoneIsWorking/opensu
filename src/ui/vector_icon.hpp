@@ -13,9 +13,8 @@
 #include <utility>
 #include <vector>
 
-#include <SDL3/SDL_gpu.h>
-
 #include "gpu2d/geometry.hpp"
+#include "gpu2d/image_loader.hpp"
 #include "gpu2d/texture.hpp"
 
 #include "library/game.hpp"
@@ -64,29 +63,33 @@ rasterise(const std::filesystem::path& svg, int width, int height,
 [[nodiscard]] std::optional<std::vector<unsigned char>>
 rasteriseMask(const std::filesystem::path& svg, int pixels);
 
-/// Icon textures, one per icon, size and colouring, made on first use.
+/// Icon textures, one per icon, size and colouring, rasterised on the image loader's workers
+/// from first use.
 class IconAtlas {
   public:
-    /// The icons are read from `assetsDir`.
-    explicit IconAtlas(std::filesystem::path assetsDir) : assetsDir_{std::move(assetsDir)} {
+    /// The icons are read from `assetsDir` and rasterised through `images`.
+    IconAtlas(std::filesystem::path assetsDir, gpu2d::ImageLoader& images)
+        : assetsDir_{std::move(assetsDir)}, images_{images} {
     }
 
-    /// Makes the textures on `device` from here on.
-    void attach(SDL_GPUDevice& device) noexcept {
-        device_ = &device;
-    }
-
-    /// The icon as a white mask `pixels` square, to draw tinted; null when it cannot be read.
+    /// The icon as a white mask `pixels` square, to draw tinted; null until it lands or when it
+    /// cannot be read.
     [[nodiscard]] const gpu2d::Texture* mask(Icon icon, int pixels);
 
-    /// The SVG at `file` under the assets folder as a white mask `pixels` square; null when it
-    /// cannot be read.
+    /// The SVG at `file` under the assets folder as a white mask `pixels` square; null until it
+    /// lands or when it cannot be read.
     [[nodiscard]] const gpu2d::Texture* mask(std::string_view file, int pixels);
 
     /// The icon in its colours, with `swaps` applied, fitted and centred in `width` x `height`;
-    /// null when it cannot be read.
+    /// null until it lands or when it cannot be read.
     [[nodiscard]] const gpu2d::Texture* image(Icon icon, int width, int height,
                                               std::span<const ColourSwap> swaps = {});
+
+    /// Icons asked for that have not landed yet.
+    [[nodiscard]] bool pending() const noexcept;
+    /// Blocks until every icon asked for is decoded, for the loader's next upload; for a still
+    /// frame.
+    void wait();
 
   private:
     struct Entry {
@@ -95,14 +98,13 @@ class IconAtlas {
         int height{};
         bool mask{};
         std::vector<ColourSwap> swaps;
-        std::optional<gpu2d::Texture> texture;
+        gpu2d::ImageHandle image;
     };
     const gpu2d::Texture* find(std::string_view file, int width, int height, bool mask,
                                std::span<const ColourSwap> swaps);
 
     std::filesystem::path assetsDir_;
-    SDL_GPUDevice* device_{};
-    /// A deque, so a texture handed out stays put as more are made.
+    gpu2d::ImageLoader& images_;
     std::deque<Entry> entries_;
 };
 

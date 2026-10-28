@@ -96,7 +96,8 @@ struct Rig {
     std::vector<std::string> launched;
     int changes{0};
     test::InterfaceRig face;
-    ui::ScreenImages images;
+    gpu2d::ImageLoader loader;
+    ui::ScreenImages images{loader};
     ui::Chrome chrome;
     audio::SdlSoundPlayer sounds;
     app::EmulatorDownloads downloads{

@@ -39,6 +39,7 @@
 #include "first_run_chooser.hpp"
 #include "focus_follow.hpp"
 #include "frame_generation.hpp"
+#include "frame_timing.hpp"
 #include "game_launch.hpp"
 #include "game_scaling.hpp"
 #include "game_screen.hpp"
@@ -297,6 +298,7 @@ class ShellApp final {
     ControlBridge bridge_;
     ui::Shell shell_;
     TopBarClock clock_{shell_, environment_.clock24Hour};
+    FrameTiming frameTiming_;
     /// The on-screen keyboard the pad types into text fields with.
     KeyboardPad keyboardPad_{shell_.keyboard(), shell_.screens().navigator(), sounds_};
     /// Hands the fetched artwork and the stored sounds on.

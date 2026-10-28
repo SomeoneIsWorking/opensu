@@ -69,13 +69,10 @@ bool intersectsCanvas(const Rect& rect, int width, int height) noexcept {
 
 } // namespace
 
-HomeGrid::HomeGrid(config::HomeMode mode, InterfaceText& text, IconAtlas& icons)
-    : consoleArt_{icons}, layout_{HomeLayoutInput{}}, tilePainter_{icons, consoleArt_, text},
-      railPainter_{text, icons}, mode_{mode} {
-}
-
-HomeGrid::~HomeGrid() {
-    artwork_.beginShelf(tiles_, header_);
+HomeGrid::HomeGrid(config::HomeMode mode, InterfaceText& text, IconAtlas& icons,
+                   gpu2d::ImageLoader& images)
+    : artwork_{images}, consoleArt_{icons, images}, layout_{HomeLayoutInput{}},
+      tilePainter_{icons, consoleArt_, text}, railPainter_{text, icons}, mode_{mode} {
 }
 
 void HomeGrid::setFrame(const Frame& frame) {
@@ -163,7 +160,6 @@ void HomeGrid::setHeader(std::optional<library::ShelfItem> header) {
     if (header) {
         header_ = makeTile(std::move(*header));
         header_->id = nextTileId_++;
-        header_->ticket = artwork_.ticket();
     }
 }
 
@@ -178,7 +174,6 @@ void HomeGrid::setShelf(std::vector<library::ShelfItem> items, std::size_t focus
         }
         tiles_.push_back(makeTile(std::move(item)));
         tiles_.back().id = nextTileId_++;
-        tiles_.back().ticket = artwork_.ticket();
     }
     relayout();
     const std::size_t start = std::min(focus, tiles_.empty() ? 0 : tiles_.size() - 1);
@@ -216,7 +211,6 @@ void HomeGrid::updateShelf(std::vector<library::ShelfItem> items) {
         } else {
             next.push_back(makeTile(std::move(item)));
             next.back().id = nextTileId_++;
-            next.back().ticket = artwork_.ticket();
         }
     }
     for (std::size_t i = 0; i < tiles_.size(); ++i) {
@@ -273,23 +267,9 @@ SlotRange HomeGrid::artWindow() const {
     return window;
 }
 
-void HomeGrid::loadArtwork(SDL_GPUDevice& device, std::size_t uploads) {
-    consoleArt_.load(device);
-    // Covers are point-sampled.
-    artwork_.load(
-        [&device](const gpu2d::image::Bitmap& pixels) {
-            return gpu2d::Texture{device, pixels.rgba, pixels.width, pixels.height,
-                                  gpu2d::Filter::Nearest};
-        },
-        tiles_, header_, artWindow(), uploads);
-}
-
-void HomeGrid::loadArtworkNow(SDL_GPUDevice& device) {
-    loadArtwork(device, std::numeric_limits<std::size_t>::max());
-    while (!artwork_.idle()) {
-        artwork_.waitDecoded();
-        loadArtwork(device, std::numeric_limits<std::size_t>::max());
-    }
+void HomeGrid::requestArtwork() {
+    consoleArt_.request();
+    artwork_.request(tiles_, header_, artWindow());
 }
 
 std::size_t HomeGrid::artworkPending() const {
@@ -298,7 +278,7 @@ std::size_t HomeGrid::artworkPending() const {
 
 std::size_t HomeGrid::loadedArtwork() const noexcept {
     return static_cast<std::size_t>(std::ranges::count_if(tiles_, [](const Tile& tile) {
-        return tile.portrait.has_value();
+        return tile.portrait.texture() != nullptr;
     }));
 }
 

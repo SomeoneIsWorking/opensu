@@ -3,10 +3,6 @@
 #include <algorithm>
 #include <string>
 
-#include "gpu2d/image/decode.hpp"
-
-#include "lucent/log.h"
-
 namespace opensu::ui {
 
 void ConsoleArt::useIisu(bool iisu) noexcept {
@@ -24,38 +20,26 @@ void ConsoleArt::setIisuGlyph(std::string_view system, const std::filesystem::pa
 void ConsoleArt::record(Entries& entries, std::string_view system,
                         const std::filesystem::path& file) {
     Entry& entry = entries[std::string{system}];
-    if (entry.file == file && entry.loaded) {
-        return;
+    if (entry.file != file) {
+        entry.file = file;
+        entry.image = {};
     }
-    entry.texture.reset();
-    entry.loaded = false;
-    entry.file = file;
 }
 
-void ConsoleArt::load(SDL_GPUDevice& device) {
+void ConsoleArt::request() {
     if (!iisu_) {
         return;
     }
-    load(cards_, device);
-    load(glyphs_, device);
+    request(cards_);
+    request(glyphs_);
 }
 
-void ConsoleArt::load(Entries& entries, SDL_GPUDevice& device) {
+void ConsoleArt::request(Entries& entries) {
     for (auto& [system, entry] : entries) {
-        if (entry.loaded) {
-            continue;
+        if (entry.image.state() == gpu2d::ImageState::Empty) {
+            // Both are drawn smaller than their files, so mipmaps keep them clean.
+            entry.image = images_.loadFile(entry.file, gpu2d::Filter::Trilinear);
         }
-        entry.loaded = true;
-        std::string error;
-        const std::optional<gpu2d::image::Bitmap> pixels =
-            gpu2d::image::decodeFile(entry.file, error);
-        if (!pixels) {
-            lucent::warn("ui", "iiSU console art {} unreadable: {}", entry.file.string(), error);
-            continue;
-        }
-        // Both are drawn smaller than their files, so mipmaps keep them clean.
-        entry.texture.emplace(device, pixels->rgba, pixels->width, pixels->height,
-                              gpu2d::Filter::Trilinear);
     }
 }
 
@@ -65,7 +49,7 @@ std::size_t ConsoleArt::pending() const noexcept {
     }
     const auto waiting = [](const Entries& entries) {
         return static_cast<std::size_t>(std::ranges::count_if(entries, [](const auto& pair) {
-            return !pair.second.loaded;
+            return pair.second.image.pending();
         }));
     };
     return waiting(cards_) + waiting(glyphs_);
@@ -76,7 +60,7 @@ const gpu2d::Texture* ConsoleArt::find(const Entries& entries, std::string_view 
         return nullptr;
     }
     const auto found = entries.find(system);
-    return found != entries.end() && found->second.texture ? &*found->second.texture : nullptr;
+    return found != entries.end() ? found->second.image.texture() : nullptr;
 }
 
 const gpu2d::Texture* ConsoleArt::iisuCard(std::string_view system) const {

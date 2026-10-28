@@ -25,9 +25,11 @@ class ScreenStack {
   public:
     using Clock = std::chrono::steady_clock;
 
+    /// The screens' pictures come through `images`.
     ScreenStack(const input::Prompts& prompts, InterfaceText& text,
-                const OnScreenKeyboard& keyboard)
-        : glyphs_{prompts, text}, prompts_{glyphs_, keyboard}, navigator_{text, prompts_, {}} {
+                const OnScreenKeyboard& keyboard, gpu2d::ImageLoader& images)
+        : glyphs_{prompts, text}, prompts_{glyphs_, keyboard}, navigator_{text, prompts_, {}},
+          images_{images} {
     }
 
     [[nodiscard]] gpu2d::ui::Navigator& navigator() noexcept {

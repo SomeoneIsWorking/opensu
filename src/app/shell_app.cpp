@@ -842,6 +842,8 @@ void ShellApp::publishSnapshot() {
     next.installed = installedCount_;
     const ui::HomeGrid& grid = shell_.grid();
     next.artworkPending = grid.artworkPending();
+    next.worstFrameUs = static_cast<std::size_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(frameTiming_.worst()).count());
     if (const library::Game* focused = grid.focusedGame(); focused != nullptr) {
         next.focusedId = focused->id;
     } else if (const std::optional<library::Folder> folder = grid.focusedFolder()) {
@@ -1027,6 +1029,7 @@ int ShellApp::run() {
     integrationSwitch_.begin();
 
     while (!bridge_.closeRequested() && window_->pollEvents()) {
+        frameTiming_.start(std::chrono::steady_clock::now());
         // A resize changes the framebuffer, so the layout is recomputed before anything is drawn.
         if (const std::optional<gpu2d::PixelSize> size = window_->takeResize()) {
             shell_.setSize(size->width, size->height);

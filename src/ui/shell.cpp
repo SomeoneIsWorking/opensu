@@ -1,7 +1,10 @@
 #include "shell.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <stdexcept>
+
+#include "lucent/log.h"
 
 namespace opensu::ui {
 namespace {
@@ -14,8 +17,8 @@ constexpr float referenceHeightDp = 480.0f;
 } // namespace
 
 Shell::Shell(int width, int height, config::HomeMode mode, const std::filesystem::path& assetsDir)
-    : text_{assetsDir}, icons_{assetsDir}, grid_{mode, text_, icons_}, width_{width},
-      height_{height} {
+    : text_{assetsDir}, icons_{assetsDir, images_}, grid_{mode, text_, icons_, images_},
+      width_{width}, height_{height} {
     hud_.setSize({width, height, dp()});
     frameGrid();
     // The pointer reaches the last added first: the keyboard, the mapping editor, the dock, the
@@ -29,7 +32,6 @@ Shell::Shell(int width, int height, config::HomeMode mode, const std::filesystem
 
 void Shell::attach(SDL_GPUDevice& device) {
     text_.load(device);
-    icons_.attach(device);
     device_ = &device;
 }
 
@@ -69,21 +71,30 @@ void Shell::setUiScale(float factor) {
     }
 }
 
-void Shell::loadArtwork(std::size_t uploads) {
-    grid_.loadArtwork(device(), uploads);
-    loadPictures();
+void Shell::loadArtwork(std::size_t bytes) {
+    grid_.requestArtwork();
+    land(images_.upload(device(), bytes));
 }
 
 void Shell::loadArtworkNow() {
-    grid_.loadArtworkNow(device());
-    loadPictures();
+    grid_.requestArtwork();
+    images_.waitAll();
+    land(images_.upload(device(), std::numeric_limits<std::size_t>::max()));
 }
 
-void Shell::loadPictures() {
-    SDL_GPUDevice& gpu = device();
-    screens_.images().load([&gpu](const gpu2d::image::Bitmap& pixels) {
-        return gpu2d::Texture{gpu, pixels.rgba, pixels.width, pixels.height, gpu2d::Filter::Linear};
-    });
+bool Shell::settleIcons() {
+    if (!icons_.pending()) {
+        return false;
+    }
+    icons_.wait();
+    land(images_.upload(device(), std::numeric_limits<std::size_t>::max()));
+    return true;
+}
+
+void Shell::land(const gpu2d::ImageUploads& uploads) {
+    for (const gpu2d::ImageFailure& failure : uploads.failures) {
+        lucent::warn("ui", "image {} unreadable: {}", failure.key, failure.error);
+    }
 }
 
 void Shell::setSection(library::Section section, bool revealDock) {
