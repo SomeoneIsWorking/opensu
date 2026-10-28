@@ -32,7 +32,7 @@ void CoverPickerController::open(const library::Game& game) {
     offers_.list(game);
     sounds_.play(audio::Effect::OpenContextMenu);
     show();
-    navigator_.push(std::make_unique<CoverPickerScreen>(*this, images_));
+    navigator_.push(std::make_unique<CoverPickerScreen>(*this, chrome_, images_));
 }
 
 void CoverPickerController::close() {

@@ -31,7 +31,6 @@ class CoverOverrides {
     [[nodiscard]] bool wantsFit(std::string_view id, ArtworkStore::Clock::time_point now) const;
 
     /// Puts each game's shown cover in place of its own.
-    void apply(std::vector<library::Game>& games) const;
     void apply(std::vector<library::ShelfItem>& shelf) const;
 
     /// Keeps `bytes` as the player's choice for `id`.

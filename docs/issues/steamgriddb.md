@@ -1,7 +1,8 @@
 # SteamGridDB artwork, its API key got through the Steam login
 
-Status: open; built and checked against stand-ins; the sign-in checked against the player's real
-Steam client up to Steam's OpenID page, not past it.
+Status: open; connected on the player's own account (Isolated, hidden run in the headless Gamescope
+fork), the key in the keyring, fitting and "Choose artwork" checked on the real library. Not
+checked: a shown (not hidden) session, the pad pressing Steam's "Sign In", Normal mode, Disconnect.
 
 The player: "add SteamGridDB but automate the API key process by using Steam login".
 
@@ -96,9 +97,46 @@ Checked:
     next item, back, and down into the page (Gamescope frames); after Cancel the hide atom was 1
     and a press reached no virtual pad.
 
+- Live on the player's account (2026-10-28, `scratch/steamgriddb-live/live.py`: hidden openSU
+  with `--steam` in the headless Gamescope fork, the real HOME, XDG dirs and keyring, frames from
+  `/frame.png` and Gamescope's PipeWire stream):
+  - Settings › Artwork › Connect: openSU's Steam logged on, Big Picture opened Steam's OpenID page
+    for www.steamgriddb.com (realm and `return_to` on www.steamgriddb.com) already signed in to
+    the player's account; "Sign In" was pressed through DevTools, as the pad cannot reach it.
+    `/login/steam` redirected to the API page, the key was read about 2 s later, Big Picture
+    closed, the hide atom went back to 1, "SteamGridDB connected", "Key kept in the keyring". The
+    keyring holds a 32-character secret under `name=steamgriddb-api-key`; no log or frame holds it.
+    A restart reads it back ("connected, key kept in the keyring").
+  - Fitting: the real API and CDN answer; Steam, GOG, Epic and ROM covers of another shape got
+    square grids (ROMs and GOG/Epic by title search, e.g. both X-Men Legends II ROMs).
+  - "Choose artwork" on Absolute Drift (GOG and Epic): 24 covers listed with thumbnails; a pick
+    showed on the tile, survived a restart, and "Own" put the original back.
+  - Found and fixed on the way:
+    - One image the CDN did not deliver (`Timeout was reached`) or one API call that did not
+      answer (`Could not connect to server`) ended the fitting round with the queue cleared, so
+      after a few dozen games nothing more was fitted until the catalog next changed (seen in
+      three runs). Now an image that does not come skips that game, and an API that does not
+      answer pauses 30 s and asks that game once more at the end of the round
+      (`CoverFitter::fit`, `Outcome`); only no key, a refused key or a cover that cannot be kept
+      ends it.
+    - A game queued again by a new catalog while its fit was under way was fetched twice; the
+      worker now checks `wantsFit` when it takes the game.
+    - The picker's card ran to the window's foot over its "Close"/"Choose" hints and covered the
+      top bar; it is now a `ui::tallCard` with its own hint bar, as search and the folder chooser.
+    - After a pick, the details page under the picker kept showing the old cover until reopened;
+      `SteamGridDbCovers` now says when a tile's cover changes (`Hooks::shown`) and the shell
+      reads the details page again.
+    - The picker looked a game up by Steam app id or title only, the fitter also by an own game's
+      matched app id; both use `steamGridDbGameOf`.
+    - Running ctest while an openSU ran stopped that openSU's Steam: `OrphanedSteam` took a scope
+      as orphaned when its pid was not the caller's program, which in a test binary is every live
+      openSU. It now names `opensu`.
+
 Not checked:
-- The player pressing "Sign In", the redirect back to SteamGridDB, and the API page's key field
-  and Generate button on the real site (matched by text and shape, not seen).
+- Whether the account had a key already or the sign-in pressed Generate (not logged).
+- Disconnect against the real keyring.
+- Non-own games with no source art at all (e.g. ROMs whose thumbnail is missed): the fitter takes
+  only own games as coverless, so these get no cover by title.
 - In a real session (not hidden): openSU's own window under Big Picture, FocusFollow leaving
   Big Picture open during the sign-in, the lent virtual pads resting while the shell is in front,
   and Guide over Big Picture bringing the shell back (a hidden run follows no focus).
@@ -106,4 +144,3 @@ Not checked:
   bar, but did not focus anything in the page itself, and the left stick moved no cursor; Steam
   offers "Use joystick" there, not tried.
 - Normal mode against a desktop Steam with DevTools.
-- The real API's answers, and the libsecret keyring at run time.

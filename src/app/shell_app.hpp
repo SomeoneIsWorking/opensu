@@ -316,6 +316,9 @@ class ShellApp final {
                                      settingsScreen_.openCategory(
                                          std::string{ArtworkSettings::categoryId});
                                      artworkSettings_.connect();
+                                 },
+                                 [this](const std::string& /*id*/) {
+                                     details_.refresh();
                                  }}};
     ArtworkDelivery delivery_{
         shell_, sounds_, artworkStore_, artworkFetcher_,

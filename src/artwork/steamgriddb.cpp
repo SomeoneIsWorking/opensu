@@ -38,6 +38,13 @@ bool isWebUrl(const std::string& url) {
 
 } // namespace
 
+SteamGridDbGame steamGridDbGameOf(const library::Game& game) {
+    if (game.source == library::Source::Own) {
+        return {game.artworkKey, game.title};
+    }
+    return {game.source == library::Source::Steam ? game.sourceId : "", game.title};
+}
+
 // A portrait is under 4:5, a landscape over 5:4.
 CoverShape coverShapeOf(int width, int height) noexcept {
     if (width * 5 < height * 4) {

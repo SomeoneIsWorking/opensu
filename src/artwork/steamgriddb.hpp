@@ -10,6 +10,7 @@
 #include <string_view>
 #include <vector>
 
+#include "library/game.hpp"
 #include "net/web_client.hpp"
 
 namespace opensu::artwork {
@@ -34,6 +35,10 @@ struct SteamGridDbGame {
     std::string steamAppId;
     std::string title;
 };
+
+/// How `game` is looked up: by Steam app id for a Steam game or an own game that matched one, and
+/// by title.
+[[nodiscard]] SteamGridDbGame steamGridDbGameOf(const library::Game& game);
 
 /// One cover SteamGridDB offers.
 struct SteamGridDbCover {
