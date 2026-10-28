@@ -1,6 +1,6 @@
 #include "web_client.hpp"
 
-#include <cstdio>
+#include <fstream>
 #include <memory>
 
 #include <curl/curl.h>
@@ -42,14 +42,10 @@ std::size_t appendCapped(char* data, std::size_t size, std::size_t count, void* 
     return size * count;
 }
 
-struct FileCloser {
-    void operator()(std::FILE* file) const noexcept {
-        std::fclose(file);
-    }
-};
-
 std::size_t write(char* data, std::size_t size, std::size_t count, void* file) {
-    return std::fwrite(data, size, count, static_cast<std::FILE*>(file)) * size;
+    auto& out = *static_cast<std::ofstream*>(file);
+    out.write(data, static_cast<std::streamsize>(size * count));
+    return out ? size * count : 0;
 }
 
 int report(void* progress, curl_off_t total, curl_off_t received, curl_off_t, curl_off_t) {
@@ -247,8 +243,8 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
             return false;
         }
         // Each hop starts the file afresh, so a redirect's body never stays in it.
-        const std::unique_ptr<std::FILE, FileCloser> out{std::fopen(file.c_str(), "wb")};
-        if (out == nullptr) {
+        std::ofstream out{file, std::ios::binary | std::ios::trunc};
+        if (!out) {
             error = "cannot write " + file.string();
             return false;
         }
@@ -260,7 +256,7 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "opensu");
         curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, out.get());
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
         curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, report);
         curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &progress);
@@ -286,7 +282,7 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
             error = "HTTP " + std::to_string(status);
             return false;
         }
-        if (std::fflush(out.get()) != 0) {
+        if (!out.flush()) {
             error = "cannot write " + file.string();
             return false;
         }

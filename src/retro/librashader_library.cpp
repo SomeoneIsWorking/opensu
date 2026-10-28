@@ -71,7 +71,9 @@ libra_shader_preset_t Librashader::loadPreset(const std::filesystem::path& file)
     options.version = LIBRASHADER_CURRENT_VERSION;
     options.original_aspect_uniforms = true;
     libra_shader_preset_t preset = nullptr;
-    check(presetCreate_(file.c_str(), nullptr, &options, &preset),
+    // librashader takes UTF-8 paths on every OS.
+    const std::u8string path = file.u8string();
+    check(presetCreate_(reinterpret_cast<const char*>(path.c_str()), nullptr, &options, &preset),
           "the shader preset " + file.string() + " cannot be read");
     return preset;
 }

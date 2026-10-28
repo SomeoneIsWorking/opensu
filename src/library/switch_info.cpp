@@ -101,7 +101,8 @@ std::optional<std::string> stampOf(const fs::path& file) {
     if (ec) {
         return std::nullopt;
     }
-    const auto since = std::chrono::file_clock::to_sys(written).time_since_epoch();
+    const auto since =
+        std::chrono::clock_cast<std::chrono::system_clock>(written).time_since_epoch();
     return std::to_string(size) + "-" +
            std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(since).count());
 }

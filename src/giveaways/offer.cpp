@@ -119,7 +119,7 @@ std::optional<Cached> fromJson(std::string_view text) {
             continue;
         }
         const std::string store = entry.value("store", "");
-        const auto* known = std::ranges::find_if(cachedStores, [&store](library::Source source) {
+        const auto known = std::ranges::find_if(cachedStores, [&store](library::Source source) {
             return library::key(source) == store;
         });
         Offer offer;

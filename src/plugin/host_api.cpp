@@ -148,9 +148,10 @@ int fsStat(lua_State* state) {
             if (ec) {
                 return failure(path + ": " + ec.message());
             }
-            const auto mtime = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                   std::chrono::file_clock::to_sys(written).time_since_epoch())
-                                   .count();
+            const auto mtime =
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::clock_cast<std::chrono::system_clock>(written).time_since_epoch())
+                    .count();
             return [size, mtime, directory](lua_State* resumed) {
                 lua_createtable(resumed, 0, 3);
                 lua_pushinteger(resumed, static_cast<lua_Integer>(size));
@@ -311,7 +312,7 @@ void pushReadRoots(lua_State* state, const Permissions& permissions) {
         lua_createtable(state, static_cast<int>(paths.size()), 0);
         lua_Integer at = 1;
         for (const fs::path& path : paths) {
-            lua_pushstring(state, path.c_str());
+            lua_pushstring(state, path.string().c_str());
             lua_rawseti(state, -2, at++);
         }
         lua_setfield(state, -2, group.c_str());
