@@ -40,6 +40,23 @@ class DocumentTree final : public RomTree {
         return nodes;
     }
 
+    [[nodiscard]] std::string label(const fs::path& folder) const override {
+        if (!folder.string().starts_with("content://")) {
+            return files_.label(folder);
+        }
+        const android::ActivityCall call;
+        if (!call.ready()) {
+            return folder.string();
+        }
+        auto* name = static_cast<jstring>(call.env()->CallObjectMethod(
+            call.activity(), call.method("documentLabel", "(Ljava/lang/String;)Ljava/lang/String;"),
+            call.env()->NewStringUTF(folder.c_str())));
+        if (!call.takeException().empty() || name == nullptr) {
+            return folder.string();
+        }
+        return call.string(name);
+    }
+
   private:
     /// "d|f TAB size TAB name TAB uri", as DocumentTree.java lists a folder.
     static std::optional<RomNode> parse(std::string_view row) {

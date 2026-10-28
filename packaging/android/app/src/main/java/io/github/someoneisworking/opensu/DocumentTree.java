@@ -65,6 +65,17 @@ final class DocumentTree {
         return rows.toArray(new String[0]);
     }
 
+    /** A picked folder or a document in it as the player reads it: "ROMs" or "ROMs/nes". */
+    String label(String location) {
+        Uri uri = Uri.parse(location);
+        try {
+            Uri document = DocumentsContract.buildDocumentUriUsingTree(uri, documentId(uri));
+            return name(document);
+        } catch (IllegalArgumentException | SecurityException unreadable) {
+            return location;
+        }
+    }
+
     /** The document's display name, or its last path segment when the provider gives none. */
     String name(Uri uri) {
         try (Cursor cursor = context.getContentResolver().query(

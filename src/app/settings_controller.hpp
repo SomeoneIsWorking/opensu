@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -30,6 +31,7 @@
 #include "layer_settings.hpp"
 #include "layered_settings.hpp"
 #include "library/library_query.hpp"
+#include "library/rom_tree.hpp"
 #include "mapping_editor.hpp"
 #include "path_editor.hpp"
 #include "plugin_settings.hpp"
@@ -178,6 +180,8 @@ class SettingsController final : public ui::RowActions {
     Preferences& preferences_;
     const config::Config& defaults_;
     Hooks hooks_;
+    /// Names ROM folders, a picked Android folder by its name.
+    std::unique_ptr<library::roms::RomTree> romTree_{library::roms::openRomTree()};
     /// The categories and pages as last built; emptied by `refresh`.
     std::optional<std::vector<ui::SettingsCategory>> categories_;
     std::map<std::string, ui::SettingsCategory, std::less<>> pages_;

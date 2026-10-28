@@ -44,12 +44,17 @@ constexpr const char* installStoreId = "install.";
 constexpr const char* startedWith = "Set by how openSU was started";
 
 /// The paths of `folders` for a value, or `none` when there are no paths.
-std::string listed(const std::vector<fs::path>& folders, const std::string& none) {
+std::string listed(const std::vector<fs::path>& folders, const std::string& none,
+                   const std::function<std::string(const fs::path&)>& label) {
     std::string text;
     for (const fs::path& folder : folders) {
-        text += (text.empty() ? "" : ", ") + folder.string();
+        text += (text.empty() ? "" : ", ") + label(folder);
     }
     return text.empty() ? none : text;
+}
+
+std::string pathOf(const fs::path& folder) {
+    return folder.string();
 }
 
 std::string storeKeyOf(library::Source store) {
@@ -245,11 +250,14 @@ ui::SettingsCategory SettingsController::libraryPage() const {
     }
     page.rows.push_back(std::move(picks));
     page.rows.push_back(ui::makeHeading("ROM folders"));
-    page.rows.push_back(ui::makeRow(
-        "roms.list", RowKind::Info, "ROM folders",
-        v.romFolders.empty() && !defaults_.romRoots.empty() ? startedWith
-                                                            : "Applies after a restart",
-        listed(v.romFolders.empty() ? defaults_.romRoots : v.romFolders, "Found automatically")));
+    page.rows.push_back(ui::makeRow("roms.list", RowKind::Info, "ROM folders",
+                                    v.romFolders.empty() && !defaults_.romRoots.empty()
+                                        ? startedWith
+                                        : "Applies after a restart",
+                                    listed(v.romFolders.empty() ? defaults_.romRoots : v.romFolders,
+                                           "Found automatically", [this](const fs::path& folder) {
+                                               return romTree_->label(folder);
+                                           })));
     page.rows.push_back(ui::makeRow(romAddId, RowKind::Folder, "Add a ROM folder",
                                     "A folder with one subfolder per system", ""));
     page.rows.push_back(ui::makeRow(romResetId, RowKind::Action, "Find ROM folders automatically",
@@ -262,7 +270,8 @@ ui::SettingsCategory SettingsController::libraryPage() const {
         "steam.list", RowKind::Info, "Steam install folders",
         v.steamRoots.empty() && !defaults_.steamRoots.empty() ? startedWith
                                                               : "Applies after a restart",
-        listed(v.steamRoots.empty() ? defaults_.steamRoots : v.steamRoots, "Found automatically")));
+        listed(v.steamRoots.empty() ? defaults_.steamRoots : v.steamRoots, "Found automatically",
+               pathOf)));
     page.rows.push_back(ui::makeRow(steamAddId, RowKind::Folder, "Add a Steam install folder",
                                     "The folder that holds steamapps", ""));
     page.rows.push_back(ui::makeRow(steamResetId, RowKind::Action, "Find Steam automatically",
