@@ -5,6 +5,8 @@ import android.system.ErrnoException;
 import android.system.Os;
 import android.util.Log;
 
+import java.io.File;
+import java.io.IOException;
 
 /** openSU's libretro runner, one game per `:retro` process, as opensu-retro is on the desktop. */
 public final class RetroActivity extends LandscapeActivity {
@@ -37,10 +39,34 @@ public final class RetroActivity extends LandscapeActivity {
         return new String[] {"SDL3", "opensu-retro"};
     }
 
+    // Runs on SDL's main thread, so a large game is copied off the UI thread.
     @Override
     protected String[] getArguments() {
         String[] arguments = getIntent().getStringArrayExtra(EXTRA_ARGUMENTS);
-        return arguments != null ? arguments : new String[0];
+        if (arguments == null) {
+            return new String[0];
+        }
+        File staged = new File(getCacheDir(), "staged");
+        File[] old = staged.listFiles();
+        if (old != null) {
+            for (File file : old) {
+                file.delete();
+            }
+        }
+        staged.mkdirs();
+        DocumentTree documents = new DocumentTree(this);
+        for (int i = 0; i < arguments.length; ++i) {
+            if (!DocumentTree.isDocument(arguments[i])) {
+                continue;
+            }
+            // Cores open games by path, so a game in a picked folder is copied to the cache first.
+            try {
+                arguments[i] = documents.stage(arguments[i], staged).getAbsolutePath();
+            } catch (IOException | SecurityException error) {
+                Log.e("openSU", "cannot copy " + arguments[i] + ": " + error.getMessage());
+            }
+        }
+        return arguments;
     }
 
     // The process is the game's: it ends with the runner, so the next launch starts clean.

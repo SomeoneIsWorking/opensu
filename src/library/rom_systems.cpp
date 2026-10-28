@@ -37,8 +37,8 @@ std::string folderKey(std::string_view name) {
     return out;
 }
 
-bool isGameFile(const RomSystem& system, const fs::path& file) {
-    const std::string extension = lower(file.extension().string());
+bool isGameFile(const RomSystem& system, const std::string& name) {
+    const std::string extension = lower(fs::path{name}.extension().string());
     return std::ranges::find(system.extensions, extension) != system.extensions.end();
 }
 
@@ -56,18 +56,18 @@ bool matches(std::string_view pattern, const std::string& name) {
 }
 
 /// The file `marker` names inside `folder`, if there is one.
-std::optional<fs::path> findMarker(const fs::path& folder, std::string_view marker) {
-    std::vector<fs::path> here{folder};
+std::optional<fs::path> findMarker(const RomTree& tree, const RomNode& folder,
+                                   std::string_view marker) {
+    std::vector<RomNode> here{folder};
     std::size_t start = 0;
     while (start <= marker.size()) {
         const std::size_t end = std::min(marker.find('/', start), marker.size());
         const std::string_view part = marker.substr(start, end - start);
-        std::vector<fs::path> next;
-        for (const fs::path& dir : here) {
-            std::error_code ec;
-            for (const fs::directory_entry& entry : fs::directory_iterator{dir, ec}) {
-                if (matches(part, lower(entry.path().filename().string()))) {
-                    next.push_back(entry.path());
+        std::vector<RomNode> next;
+        for (const RomNode& dir : here) {
+            for (RomNode& entry : tree.children(dir.location).value_or(std::vector<RomNode>{})) {
+                if (matches(part, lower(entry.name))) {
+                    next.push_back(std::move(entry));
                 }
             }
         }
@@ -77,18 +77,17 @@ std::optional<fs::path> findMarker(const fs::path& folder, std::string_view mark
         }
         start = end + 1;
     }
-    for (const fs::path& found : here) {
-        std::error_code ec;
-        if (fs::is_regular_file(found, ec)) {
-            return found;
+    for (const RomNode& found : here) {
+        if (!found.folder) {
+            return found.location;
         }
     }
     return std::nullopt;
 }
 
 /// An update or DLC beside the base game, by the names dumps give them.
-bool isAddOn(const fs::path& file) {
-    const std::string name = lower(file.filename().string());
+bool isAddOn(const RomNode& file) {
+    const std::string name = lower(file.name);
     if (name.find("update") != std::string::npos || name.find("dlc") != std::string::npos) {
         return true;
     }
@@ -111,10 +110,18 @@ bool isAddOn(const fs::path& file) {
     return tag != std::string::npos && tag + 2 < name.size() && name[tag + 2] != '0';
 }
 
-std::uintmax_t sizeOf(const fs::path& file) {
-    std::error_code ec;
-    const std::uintmax_t size = fs::file_size(file, ec);
-    return ec ? 0 : size;
+/// The files of `system` under `folder`, `depth` levels down at most.
+void collectGames(const RomTree& tree, const RomSystem& system, const fs::path& folder, int depth,
+                  std::vector<RomNode>& files) {
+    for (RomNode& entry : tree.children(folder).value_or(std::vector<RomNode>{})) {
+        if (entry.folder) {
+            if (depth > 0) {
+                collectGames(tree, system, entry.location, depth - 1, files);
+            }
+        } else if (isGameFile(system, entry.name)) {
+            files.push_back(std::move(entry));
+        }
+    }
 }
 
 constexpr auto systems = std::to_array<RomSystem>({
@@ -232,40 +239,30 @@ const RomSystem* systemByKey(std::string_view key) {
     return found == romSystems().end() ? nullptr : &*found;
 }
 
-std::optional<fs::path> gameFile(const RomSystem& system, const fs::path& entry) {
-    std::error_code ec;
-    if (fs::is_regular_file(entry, ec)) {
-        if (isGameFile(system, entry)) {
-            return entry;
+std::optional<fs::path> gameFile(const RomTree& tree, const RomSystem& system,
+                                 const RomNode& entry) {
+    if (!entry.folder) {
+        if (isGameFile(system, entry.name)) {
+            return entry.location;
         }
-        return std::nullopt;
-    }
-    if (!fs::is_directory(entry, ec)) {
         return std::nullopt;
     }
     for (const std::string_view marker : system.markers) {
-        if (std::optional<fs::path> found = findMarker(entry, marker)) {
+        if (std::optional<fs::path> found = findMarker(tree, entry, marker)) {
             return found;
         }
     }
-    std::vector<fs::path> files;
-    for (fs::recursive_directory_iterator it{entry, ec}, end; it != end; it.increment(ec)) {
-        if (it.depth() >= folderDepth) {
-            it.disable_recursion_pending();
-        }
-        if (it->is_regular_file(ec) && isGameFile(system, it->path())) {
-            files.push_back(it->path());
-        }
-    }
+    std::vector<RomNode> files;
+    collectGames(tree, system, entry.location, folderDepth, files);
     if (files.empty()) {
         return std::nullopt;
     }
-    std::vector<fs::path> bases;
-    std::ranges::copy_if(files, std::back_inserter(bases), [](const fs::path& file) {
+    std::vector<RomNode> bases;
+    std::ranges::copy_if(files, std::back_inserter(bases), [](const RomNode& file) {
         return !isAddOn(file);
     });
-    const std::vector<fs::path>& pool = bases.empty() ? files : bases;
-    return *std::ranges::max_element(pool, {}, sizeOf);
+    const std::vector<RomNode>& pool = bases.empty() ? files : bases;
+    return std::ranges::max_element(pool, {}, &RomNode::size)->location;
 }
 
 std::string systemLabel(std::string_view key) {

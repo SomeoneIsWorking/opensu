@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "name_list.hpp"
+#include "rom_tree.hpp"
 
 namespace opensu::library::roms {
 
@@ -43,7 +44,7 @@ struct RomSystem {
 /// file inside a game folder. In a folder a marker wins; otherwise the game file that is no
 /// update or DLC (by its name, version tag, or a Switch title id not ending in 000), the largest
 /// when several are. Nothing when the entry holds no game.
-[[nodiscard]] std::optional<std::filesystem::path> gameFile(const RomSystem& system,
-                                                            const std::filesystem::path& entry);
+[[nodiscard]] std::optional<std::filesystem::path>
+gameFile(const RomTree& tree, const RomSystem& system, const RomNode& entry);
 
 } // namespace opensu::library::roms

@@ -60,8 +60,8 @@ void addRootsIn(const fs::path& dir, std::vector<fs::path>& roots) {
     }
 }
 
-std::string entryName(const fs::path& entry, bool isFile) {
-    return isFile ? entry.stem().string() : entry.filename().string();
+std::string entryName(const RomNode& entry) {
+    return entry.folder ? entry.name : fs::path{entry.name}.stem().string();
 }
 
 /// The name the game is listed under: the arcade listing's description for a short name it
@@ -135,35 +135,35 @@ std::vector<Game> Provider::list() {
     romsets_.begin(RomsetMatcher::Clock::now());
     switch_.begin();
     for (const fs::path& root : roots_) {
-        std::error_code ec;
-        if (!fs::is_directory(root, ec)) {
-            lucent::warn("roms", "{}: not a directory", root.string());
+        const std::optional<std::vector<RomNode>> folders = tree_->children(root);
+        if (!folders) {
+            lucent::warn("roms", "{}: not a folder openSU can read", root.string());
             continue;
         }
-        for (const fs::directory_entry& folder : fs::directory_iterator{root, ec}) {
-            const RomSystem* system = systemForFolder(folder.path().filename().string());
-            if (system == nullptr || !folder.is_directory(ec)) {
+        for (const RomNode& folder : *folders) {
+            const RomSystem* system = systemForFolder(folder.name);
+            if (system == nullptr || !folder.folder) {
                 continue;
             }
-            std::vector<fs::path> entries;
-            for (const fs::directory_entry& entry : fs::directory_iterator{folder.path(), ec}) {
-                entries.push_back(entry.path());
-            }
-            std::ranges::sort(entries);
-            for (const fs::path& entry : entries) {
-                const std::optional<fs::path> file = gameFile(*system, entry);
+            for (const RomNode& entry :
+                 tree_->children(folder.location).value_or(std::vector<RomNode>{})) {
+                const std::optional<fs::path> file = gameFile(*tree_, *system, entry);
                 if (!file) {
                     continue;
                 }
                 Game game;
-                game.id = "rom:" + entry.string();
+                game.id = "rom:" + entry.location.string();
                 game.source = Source::Rom;
                 game.sourceId = std::string{system->key};
-                const std::string name = entryName(entry, fs::is_regular_file(entry, ec));
+                const std::string name = entryName(entry);
                 const std::string listed =
                     listedName(name, system->key == "arcade" ? &arcade : nullptr);
-                const std::optional<DumpInfo> dump =
-                    system->key == "switch" ? switch_.read(*file) : readDumpInfo(*system, entry);
+                // A game's own data is read where it opens as a file; a picked folder's are not.
+                std::optional<DumpInfo> dump;
+                if (entry.local) {
+                    dump = system->key == "switch" ? switch_.read(*file)
+                                                   : readDumpInfo(*system, entry.location);
+                }
                 const bool titled = dump && !dump->title.empty();
                 game.title = titled ? dump->title : cleanTitle(listed);
                 game.artworkKey = titled ? dump->title : listed;
@@ -174,7 +174,7 @@ std::vector<Game> Provider::list() {
                 // The file itself is what makes the entry playable.
                 game.installed = true;
                 // The emulator's command line carries the game's file.
-                game.processHint = file->filename().string();
+                game.processHint = entry.folder ? file->filename().string() : entry.name;
                 game.emulatorOptions = emulators.options(system->key, *file);
                 if (std::optional<LaunchSpec> spec = emulators.launch(system->key, *file)) {
                     game.launch = std::move(*spec);
@@ -182,7 +182,7 @@ std::vector<Game> Provider::list() {
                 } else {
                     game.unavailable = missingEmulator(*system, emulators);
                 }
-                if (system->key == "arcade" && file->extension() == ".zip") {
+                if (entry.local && system->key == "arcade" && file->extension() == ".zip") {
                     applyRomsets(game, lowerAscii(file->stem().string()),
                                  romsets_.check(*file, arcadeCores));
                 }

@@ -14,6 +14,7 @@
 #include "gpu2d/ui/navigator.hpp"
 
 #include "audio/sdl_sound_player.hpp"
+#include "system_folder_picker.hpp"
 #include "ui/folder_chooser.hpp"
 #include "ui/screen_stack.hpp"
 
@@ -42,8 +43,10 @@ class PathEditor {
         : navigator_{navigator}, chrome_{chrome}, sounds_{sounds} {
     }
 
-    /// Opens the chooser for `request`.
+    /// Opens the chooser for `request`; a folder is asked of the OS's own picker where it has one.
     void begin(Request request);
+    /// Hands the OS picker's answer to the request once the picker closed.
+    void poll();
     /// Whether the chooser is up.
     [[nodiscard]] bool active() const;
 
@@ -96,6 +99,9 @@ class PathEditor {
     ui::FolderChooser folders_;
     std::string typed_;
     std::string refusal_;
+    std::unique_ptr<SystemFolderPicker> system_{openSystemFolderPicker()};
+    /// The OS picker is up for `request_`.
+    bool asking_{false};
 };
 
 } // namespace opensu::app
