@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "add_game_offer.hpp"
 #include "rom_systems.hpp"
 #include "titles.hpp"
 
@@ -135,7 +136,9 @@ std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
         })) {
         shelf.emplace_back(Giveaways{});
     }
-    shelf.emplace_back(AddGame{});
+    if (!addGameOffer().empty()) {
+        shelf.emplace_back(AddGame{});
+    }
     const std::vector<Title> titles = storeTitles(games);
     if (!titles.empty()) {
         shelf.emplace_back(AllGames{titles.size()});

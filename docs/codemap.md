@@ -222,6 +222,7 @@ library loading and the battery. X11, Gamescope and `src/session` are Linux's al
 | `src/library/gog_builds.*` | The build GOG offers now for an installed game, where gogdl reads it: the content system's builds for Windows, the product's Linux installer version for Linux; whether an install is behind |
 | `src/library/install_log.*` | What legendary and gogdl log while installing: progress fraction, ERROR/CRITICAL lines |
 | `src/library/sections.*` | The dock's sections (Home, Library), the active one and L1/R1 cycling with wrap; Library's layout modes and their keys |
+| `src/library/add_game_offer*` | What Add a game offers on this OS, as its tile's caption; empty on Android, where nothing it adds could start, so the tile is left out |
 | `src/library/shelf.*` | What the grid holds: Home's installed store games (`homeShelf`); Library's launchers (Your games last), the Giveaways tile (when a store's launcher shows), Add a game, All games and consoles (`libraryShelf`); a console's ROMs, a launcher's library, the combined library; moving between them and between sections; a folder that empties returns to the slot it was entered from (`takeReturn`) |
 | `src/library/library_query.*` | The one owner of what the library shows: the search ranking, the filters (installed, source, hidden), the sort, `HiddenGames`; Home, Library, folders and All games take their games from `visibleShelf` |
 | `src/library/text_fold.*` | Case, accent and white-space folding titles are compared in |
