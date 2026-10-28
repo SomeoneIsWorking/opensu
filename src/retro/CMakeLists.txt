@@ -11,7 +11,7 @@ add_library(opensu::retro ALIAS opensu_retro)
 target_include_directories(opensu_retro
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(opensu_retro
-    PUBLIC opensu::libretro_header opensu::librashader_header opensu::pad opensu::fileio opensu::setting_layers lucent::lucent
+    PUBLIC opensu::libretro_header opensu::librashader_header opensu::pad opensu::command opensu::fileio opensu::setting_layers lucent::lucent
            PkgConfig::SDL3 PkgConfig::VULKAN
     PRIVATE gpu2d::image)
 target_compile_features(opensu_retro PUBLIC cxx_std_20)

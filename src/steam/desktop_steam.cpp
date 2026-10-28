@@ -47,13 +47,13 @@ DesktopSteam::DesktopSteam(const std::filesystem::path& home)
     : pidFile_{home / ".steam" / "steam.pid"} {
 }
 
-std::optional<pid_t> DesktopSteam::running() const {
+std::optional<launch::ProcessId> DesktopSteam::running() const {
     const std::optional<std::filesystem::path> proc = liveProcess(pidFile_);
     // A pid file Steam left behind may name a process that reused its number.
     if (!proc || firstLine(*proc / "comm") != "steam") {
         return std::nullopt;
     }
-    return static_cast<pid_t>(std::stol(proc->filename().string()));
+    return static_cast<launch::ProcessId>(std::stol(proc->filename().string()));
 }
 
 bool DesktopSteam::runningOutside(const std::string& instanceUnit) const {

@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include <sys/types.h>
+#include "process_id.hpp"
 
 namespace opensu::launch {
 
@@ -15,7 +15,7 @@ class GameWindows {
 
     /// True when a window the player could be shown belongs to one of `pids`. Called only from
     /// the thread running Handoff::start().
-    [[nodiscard]] virtual bool anyOwnedBy(const std::vector<pid_t>& pids) = 0;
+    [[nodiscard]] virtual bool anyOwnedBy(const std::vector<ProcessId>& pids) = 0;
 };
 
 } // namespace opensu::launch

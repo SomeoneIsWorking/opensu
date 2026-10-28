@@ -6,9 +6,9 @@
 #include <utility>
 
 #include <nlohmann/json.hpp>
-#include <unistd.h>
 
 #include "fileio/atomic_write.hpp"
+#include "launch/process_id.hpp"
 #include "lucent/log.h"
 
 namespace opensu::retro {
@@ -126,7 +126,7 @@ bool ControlServer::start() {
         lucent::error("retro", "the control channel cannot listen");
         return false;
     }
-    const nlohmann::json announce{{"port", server_.port()}, {"pid", getpid()}};
+    const nlohmann::json announce{{"port", server_.port()}, {"pid", launch::ownProcessId()}};
     std::string error;
     if (!fileio::writeWhole(file_, announce.dump(), error)) {
         lucent::error("retro", "cannot announce the control channel: {}", error);

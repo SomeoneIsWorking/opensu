@@ -223,6 +223,15 @@ raised-window behaviour is step 2's); `steam::clientModes()` taken by `Integrati
 `modesOffered`; `config::Locations` on Lucent's new data, cache and runtime resolvers;
 `library::coreTarget`; `retro::SharedLibrary`; battery on `SDL_GetPowerInfo`; gpu2d's
 `window_platform` seam (gpu2d `b0379eb`, Lucent `1a212bc`, pinned in `tools/check/pins.py`).
+`launch/command.*` runs every short-lived child through `child_process.hpp`'s backend:
+`posix_child.cpp` (the previous code) or `win32_child.cpp` (`CreateProcessW` in a Job Object,
+pipes, a quoted command line, `.exe`/`.com` lookup); `launch::ProcessId` and `ownProcessId()` come
+from the same backend and replace `pid_t` and `getpid` outside the POSIX backends.
+
+Windows compile check from Linux: `cmake/toolchains/windows-clang-cl.cmake` (clang-cl, lld-link, the
+Windows SDK and CRT from an `xwin splat` tree when the host is not Windows), `vcpkg.json` (pinned
+baseline) and `packaging/windows/triplets/x64-windows-clangcl.cmake` (release-only, through the same
+toolchain). Every manifest port builds that way except OpenSSL, whose Windows port needs `nmake`.
 
 Not yet done in step 1, each blocking a non-Linux configure or a non-Linux build:
 
@@ -232,7 +241,6 @@ Not yet done in step 1, each blocking a non-Linux configure or a non-Linux build
   owner with a none backend before `src/session` can be Linux-only.
 - `src/host` (logind, `bluetoothctl`, backlight) is linked on every OS; `HostServices` has no
   absent set, so the tabs cannot hide yet.
-- `launch/command.*` is `fork`/`execv` only (`posix_child`/`win32_child` split).
-- `/proc/self/exe` (`config`), `getpid` (`config`, `retro_session`, `control_server`), RetroArch's
-  Linux core folders in the core search, controller batteries from sysfs.
+- `/proc/self/exe` (`config`), RetroArch's Linux core folders in the core search, controller
+  batteries from sysfs.
 

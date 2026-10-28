@@ -10,8 +10,8 @@
 
 #include <langinfo.h>
 #include <locale.h>
-#include <unistd.h>
 
+#include "launch/process_id.hpp"
 #include "locations.hpp"
 #include "lucent/log.h"
 
@@ -266,7 +266,7 @@ Config read() {
     value.session = std::string{env("OPENSU_SESSION")};
     value.sessionInherited = !value.session.empty();
     if (value.session.empty()) {
-        value.session = "opensu-" + std::to_string(getpid());
+        value.session = "opensu-" + std::to_string(launch::ownProcessId());
     }
     value.sessionBus = std::string{env("DBUS_SESSION_BUS_ADDRESS")};
     if (value.sessionBus.empty()) {

@@ -6,8 +6,8 @@
 #include <utility>
 
 #include <nlohmann/json.hpp>
-#include <unistd.h>
 
+#include "launch/process_id.hpp"
 #include "lucent/http_client.h"
 #include "lucent/log.h"
 
@@ -38,8 +38,8 @@ RetroSession::RetroSession(std::filesystem::path directory) : directory_{std::mo
 
 std::string RetroSession::begin() {
     const std::lock_guard lock{mutex_};
-    file_ = directory_ /
-            ("retro-" + std::to_string(getpid()) + "-" + std::to_string(launches_++) + ".json");
+    file_ = directory_ / ("retro-" + std::to_string(launch::ownProcessId()) + "-" +
+                          std::to_string(launches_++) + ".json");
     port_.reset();
     std::error_code error;
     std::filesystem::remove(file_, error);

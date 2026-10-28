@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 
-#include <sys/types.h>
+#include "launch/process_id.hpp"
 
 namespace opensu::steam {
 
@@ -22,7 +22,7 @@ class DesktopSteam {
 
     /// The Steam client running now: the live process `<home>/.steam/steam.pid` names, when it is
     /// a `steam` process. Nothing when there is none.
-    [[nodiscard]] std::optional<pid_t> running() const;
+    [[nodiscard]] std::optional<launch::ProcessId> running() const;
 
   private:
     std::filesystem::path pidFile_;

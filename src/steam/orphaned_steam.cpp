@@ -6,9 +6,8 @@
 #include <sstream>
 #include <thread>
 
-#include <unistd.h>
-
 #include "launch/command.hpp"
+#include "launch/process_id.hpp"
 #include "lucent/log.h"
 
 namespace opensu::steam {
@@ -95,7 +94,7 @@ std::vector<std::string> OrphanedSteam::find() const {
         std::string unit;
         while (lines >> unit) {
             const long pid = ownerPid(unit, suffix);
-            if (pid > 0 && pid != getpid() && !liveOpenSu(pid)) {
+            if (pid > 0 && pid != launch::ownProcessId() && !liveOpenSu(pid)) {
                 orphans.push_back(unit);
             }
             lines.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
