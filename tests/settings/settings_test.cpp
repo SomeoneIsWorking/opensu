@@ -252,10 +252,10 @@ void interfaceSounds(const fs::path& root) {
            "iiSU's sounds and the file read back");
     expect(read(store.file()).find("\"interfaceSounds\": \"iisu\"") != std::string::npos,
            "the choice is kept by its spelling");
-    write(store.file(), R"({"interfaceSounds": "loud", "consoleArt": "iisu"})");
+    write(store.file(), R"({"interfaceSounds": "loud", "consoleTheme": "photos"})");
     expect(store.load().interfaceSounds == AssetOwner::OpenSu &&
-               store.load().consoleArt == AssetOwner::Iisu,
-           "an unknown sound choice plays openSU's and leaves the console art alone");
+               store.load().consoleTheme == "photos",
+           "an unknown sound choice plays openSU's and leaves the console art theme alone");
 }
 
 void resolution() {

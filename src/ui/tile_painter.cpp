@@ -94,6 +94,10 @@ constexpr float updateArrowHead = 0.42f;
 constexpr float markSide = 0.26f;
 // A console's drawing is the card's picture, so it is drawn larger than a store's logo.
 constexpr float consoleMarkSide = 0.36f;
+// A photo carries more detail than a drawing and has its own margin, so it is drawn larger still.
+constexpr float consolePhotoSide = 0.5f;
+// The most of a card's height its mark, name and count take together.
+constexpr float blockMost = 0.86f;
 constexpr float markGap = 0.05f;
 constexpr float glyphTile = 0.44f;
 
@@ -305,8 +309,11 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
     const Rect& content = geometry.content;
     const Colour tint = withAlpha(white, tile.alpha);
     if (tile.kind == TileKind::Console) {
-        if (const gpu2d::Texture* card = consoleArt_.iisuCard(tile.console)) {
-            // iiSU's card is the whole tile: it carries the glyph and its own frame.
+        const gpu2d::Texture* card = consoleArt_.look(tile.console) == CardLook::Tile
+                                         ? consoleArt_.card(tile.console, 0)
+                                         : nullptr;
+        if (card != nullptr) {
+            // A tile card is the whole tile: it carries the glyph and its own frame.
             drawTextureRound(canvas, RoundRect{content, geometry.contentRadius}, card->view(),
                              coverSource(static_cast<float>(card->width()),
                                          static_cast<float>(card->height()), content),
@@ -448,12 +455,26 @@ void TilePainter::paintFrame(Canvas& canvas, const Rect& rect, const Platform& p
 
 void TilePainter::paintMark(Canvas& canvas, const TileVisual& tile, const Rect& box, Colour ink) {
     // A launcher without a logo (the player's own games) takes the library's glyph.
-    const bool drawn = tile.kind == TileKind::Console && !tile.console.empty();
-    if ((tile.kind == TileKind::Launcher && tile.logo) || drawn) {
+    if (tile.kind == TileKind::Console) {
         const int pixels = std::max(static_cast<int>(std::lround(box.width)), 1);
-        const gpu2d::Texture* mark =
-            drawn ? consoleArt_.drawing(tile.console, pixels) : icons_.mask(*tile.logo, pixels);
-        if (mark != nullptr) {
+        if (const gpu2d::Texture* mark = consoleArt_.card(tile.console, pixels)) {
+            // A picture keeps its colours; a drawing takes the card's ink.
+            const bool picture = consoleArt_.look(tile.console) == CardLook::Picture;
+            const auto width = static_cast<float>(mark->width());
+            const auto height = static_cast<float>(mark->height());
+            const auto side = static_cast<float>(pixels);
+            const float fit = side / std::max({width, height, 1.0f});
+            canvas.image(mark->view(), wholeOf(*mark),
+                         gpu2d::Rect{std::round(box.x) + (side - width * fit) * 0.5f,
+                                     std::round(box.y) + (side - height * fit) * 0.5f, width * fit,
+                                     height * fit},
+                         withAlpha(picture ? white : ink, tile.alpha));
+        }
+        return;
+    }
+    if (tile.kind == TileKind::Launcher && tile.logo) {
+        const int pixels = std::max(static_cast<int>(std::lround(box.width)), 1);
+        if (const gpu2d::Texture* mark = icons_.mask(*tile.logo, pixels)) {
             const auto side = static_cast<float>(pixels);
             canvas.image(mark->view(), wholeOf(*mark),
                          gpu2d::Rect{std::round(box.x), std::round(box.y), side, side},
@@ -523,14 +544,24 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
     const std::vector<std::string_view> lines = breakLines(text_, tile.title, name, room);
     const float nameBox = text_.lineHeight(name);
     const float gap = side * 0.04f;
-    const bool marked = tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames ||
-                        tile.kind == TileKind::Giveaways || tile.kind == TileKind::AddGame ||
-                        (tile.kind == TileKind::Console && !tile.console.empty());
-    const float markShare = tile.kind == TileKind::Console ? consoleMarkSide : markSide;
-    const float mark = marked ? side * markShare : 0.0f;
+    const bool marked =
+        tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames ||
+        tile.kind == TileKind::Giveaways || tile.kind == TileKind::AddGame ||
+        (tile.kind == TileKind::Console && consoleArt_.look(tile.console) != CardLook::None);
+    float markShare = markSide;
+    if (tile.kind == TileKind::Console) {
+        markShare = consoleArt_.look(tile.console) == CardLook::Picture ? consolePhotoSide
+                                                                        : consoleMarkSide;
+    }
     const float markRoom = marked ? side * markGap : 0.0f;
-    const float block = mark + markRoom + static_cast<float>(lines.size()) * nameBox + gap +
-                        text_.lineHeight(count);
+    const float words =
+        markRoom + static_cast<float>(lines.size()) * nameBox + gap + text_.lineHeight(count);
+    // The mark gives way to a two-line name, so the block keeps a margin inside the card.
+    const float mark =
+        marked ? std::max(std::min(side * markShare, content.height * blockMost - words),
+                          side * markSide)
+               : 0.0f;
+    const float block = mark + words;
     float y = content.centreY() - block * 0.5f;
     if (marked) {
         paintMark(canvas, tile, Rect{content.centreX() - mark * 0.5f, y, mark, mark}, ink);

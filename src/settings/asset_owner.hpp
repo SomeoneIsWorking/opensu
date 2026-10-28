@@ -1,5 +1,5 @@
-// asset_owner — whose art or sounds the player chose (Settings › Artwork › Console art, Settings ›
-// Audio › Interface sounds): openSU's own or iiSU's, and how the settings file spells it.
+// asset_owner — whose sounds the player chose (Settings › Audio › Interface sounds): openSU's own
+// or iiSU's, and how the settings file spells it.
 #pragma once
 
 #include <array>

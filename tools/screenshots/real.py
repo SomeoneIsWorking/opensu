@@ -1,7 +1,8 @@
 """The real profile's guard: one openSU per user, and the player's settings as they were.
 
 openSU writes focus, last-played and the like into its settings files as it runs, so the run's
-copies of those files are put back afterwards. The console art the run shows is set in them first.
+copies of those files are put back afterwards. The console art theme the run shows is set in them
+first.
 """
 
 import json
@@ -67,11 +68,12 @@ class KeptSettings:
             print(f"restored {target}")
 
 
-def choose_console_art(choice: str, iisu_file: Path | None) -> None:
-    """Sets the console art openSU shows (`consoleArt`, and `iisuFile` for iiSU's) for the run."""
+def choose_console_theme(theme: str, iisu_file: Path | None) -> None:
+    """Sets the console art theme openSU shows (`consoleTheme`, and `iisuFile` for iiSU's) for the
+    run."""
     target = SETTINGS / KEPT[0]
     values = json.loads(target.read_text()) if target.exists() else {}
-    values["consoleArt"] = choice
+    values["consoleTheme"] = "" if theme == "drawings" else theme
     if iisu_file is not None:
         values["iisuFile"] = str(iisu_file.resolve())
     target.write_text(json.dumps(values, indent=4))

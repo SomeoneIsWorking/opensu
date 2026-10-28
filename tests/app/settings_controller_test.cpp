@@ -102,7 +102,7 @@ struct Rig {
               }}},
           chooser{paths, config.home},
           artworkSettings{steamGridDbAccount, app::ArtworkSettings::Entry{screens.navigator, pad},
-                          app::ArtworkSettings::Services{preferences, chooser, sounds},
+                          app::ArtworkSettings::Services{preferences, themes, chooser, sounds},
                           app::ArtworkSettings::Hooks{[this](const std::string& text, bool error) {
                                                           said.push_back({text, error});
                                                       },
@@ -319,6 +319,8 @@ struct Rig {
     /// The client Connect signs in with; a desktop Steam unless a test says otherwise.
     test::FakeSteamGate steamGate;
     app::SteamGridDbAccount steamGridDbAccount;
+    /// Console art themes from folders a test fills in.
+    artwork::ConsoleThemes themes{config.home / "shipped-themes", config.home / "user-themes"};
     app::IisuFileChooser chooser;
     app::ArtworkSettings artworkSettings;
     int artworkRequests{0};
@@ -1292,28 +1294,40 @@ bool saidSomething(const Rig& rig, const std::string& part, bool error) {
     });
 }
 
-/// Settings > Artwork: Console art is openSU's until the player picks iiSU's file on the chooser;
-/// a file that is not iiSU's is refused with what is wrong, and the file taken is kept.
-void consoleArtIsChosen(const fs::path& root) {
+/// A theme folder holding only its manifest.
+void writeTheme(const fs::path& folder, const std::string& name) {
+    fs::create_directories(folder);
+    std::ofstream{folder / "theme.json"} << R"({"name": ")" << name << R"(", "note": "Test art"})";
+}
+
+/// Settings > Artwork: the console art theme is the default until the player steps it; the
+/// shipped themes come first, then iiSU's, then the player's own. iiSU's asks for its file on
+/// the chooser, refuses a file that is not iiSU's, and keeps the one taken.
+void consoleThemeIsChosen(const fs::path& root) {
     Rig rig{root};
+    writeTheme(rig.config.home / "shipped-themes" / "drawings", "Drawings");
+    writeTheme(rig.config.home / "shipped-themes" / "photos", "Photos");
+    writeTheme(rig.config.home / "user-themes" / "mine", "Mine");
     rig.controller.open();
     rig.enter("Artwork");
     const ui::SettingsRow art = rig.rowOf("artwork.consoleart");
-    expect(art.choices.size() == 2 && art.choices[art.chosen] == "openSU" &&
-               art.note == "openSU's own drawings of each console",
-           "console art starts as openSU's own");
+    expect(art.choices == std::vector<std::string>{"Drawings", "Photos", "iiSU", "Mine"} &&
+               art.choices[art.chosen] == "Drawings" && art.note == "Test art",
+           "the default theme leads and is chosen");
     rig.focus("artwork.consoleart");
     rig.act(Button::Right);
-    expect(rig.paths.active() && rig.onDisk().consoleArt == settings::AssetOwner::OpenSu,
-           "choosing iiSU's opens the file chooser first");
+    expect(rig.onDisk().consoleTheme == "photos" && rig.consoleArtChanges == 1,
+           "stepping keeps the next theme");
+    rig.act(Button::Right);
+    expect(rig.paths.active() && rig.onDisk().consoleTheme == "photos",
+           "stepping to iiSU's opens the file chooser first");
 
-    fs::create_directories(rig.config.home);
     const fs::path other = rig.config.home / "other.apk";
     std::ofstream{other, std::ios::binary}
         << test::zipfixture::buildZip({{"assets/other.png", "png", false, {}}});
     rig.paths.pick(other);
     expect(rig.paths.active() && saidSomething(rig, "not iiSU's", true) &&
-               rig.onDisk().consoleArt == settings::AssetOwner::OpenSu,
+               rig.onDisk().consoleTheme == "photos",
            "another app's APK is refused and the chooser stays");
 
     const fs::path pack = rig.config.home / "iiSU_StarterPack.zip";
@@ -1321,14 +1335,16 @@ void consoleArtIsChosen(const fs::path& root) {
         << test::zipfixture::buildZip({{"platforms/gc.webp", "RIFF card", false, {}}});
     rig.paths.pick(pack);
     const ui::SettingsRow chosen = rig.rowOf("artwork.consoleart");
-    expect(!rig.paths.active() && rig.onDisk().consoleArt == settings::AssetOwner::Iisu &&
+    expect(!rig.paths.active() && rig.onDisk().consoleTheme == "iisu" &&
                rig.onDisk().iisuFile == pack && chosen.choices[chosen.chosen] == "iiSU" &&
-               chosen.note == "iiSU's, from iiSU_StarterPack.zip" && rig.consoleArtChanges == 1,
-           "iiSU's file is kept and its art asked for");
-    rig.act(Button::Left);
-    expect(rig.onDisk().consoleArt == settings::AssetOwner::OpenSu &&
-               rig.onDisk().iisuFile == pack && rig.consoleArtChanges == 2,
-           "openSU's comes back the other way, the file remembered");
+               chosen.note == "iiSU's, from iiSU_StarterPack.zip" && rig.consoleArtChanges == 2,
+           "iiSU's file is kept and its theme shown");
+    rig.act(Button::Right);
+    expect(rig.onDisk().consoleTheme == "user/mine" && rig.onDisk().iisuFile == pack,
+           "the player's own theme follows, the iiSU file remembered");
+    rig.act(Button::Right);
+    expect(rig.onDisk().consoleTheme.empty() && rig.consoleArtChanges == 4,
+           "and the default comes round again");
 }
 
 /// Settings > Audio: Interface sounds are openSU's until the player takes iiSU's; the iiSU file
@@ -1565,7 +1581,7 @@ int main() {
     steamLibrariesWhileSteamRuns(root / "steam");
     pluginsAskBeforeTheyRun(root / "plugins");
     wineRunnerIsPicked(root / "wine");
-    consoleArtIsChosen(root / "console-art");
+    consoleThemeIsChosen(root / "console-art");
     interfaceSoundsAreChosen(root / "interface-sounds");
     steamGridDbKeyIsEnteredAndForgotten(root / "steamgriddb");
     steamGridDbKeyIsReadBack(root / "steamgriddb-kept");

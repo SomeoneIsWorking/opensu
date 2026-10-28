@@ -43,28 +43,29 @@ std::string statusText(const SteamGridDbAccount::Status& status) {
     return {};
 }
 
-std::string consoleArtNote(const settings::Settings& chosen) {
-    if (chosen.consoleArt == settings::AssetOwner::OpenSu) {
-        return "openSU's own drawings of each console";
-    }
-    return "iiSU's, from " + chosen.iisuFile.filename().string();
-}
-
 } // namespace
 
 ui::SettingsCategory ArtworkSettings::page() const {
     const SteamGridDbAccount::Status status = account_.status();
     ui::SettingsCategory page{std::string{categoryId}, "Artwork", {}};
-    const settings::AssetOwner chosen = preferences_.values().consoleArt;
+    const std::vector<artwork::ThemeInfo> themes = themes_.list();
+    const std::string& chosen = preferences_.values().consoleTheme;
     ui::Options choices;
-    for (std::size_t i = 0; i < settings::allAssetOwners.size(); ++i) {
-        choices.labels.emplace_back(settings::label(settings::allAssetOwners[i]));
-        if (settings::allAssetOwners[i] == chosen) {
+    std::string themeNote;
+    for (std::size_t i = 0; i < themes.size(); ++i) {
+        choices.labels.push_back(themes[i].name);
+        const bool current = themes[i].id == (chosen.empty() ? artwork::defaultConsoleTheme
+                                                             : std::string_view{chosen});
+        if (current) {
             choices.chosen = i;
+            themeNote = themes[i].note;
         }
     }
-    page.rows.push_back(ui::makeChoice(consoleArtId, "Console art",
-                                       consoleArtNote(preferences_.values()), std::move(choices)));
+    if (chosen == artwork::iisuConsoleTheme) {
+        themeNote = "iiSU's, from " + preferences_.values().iisuFile.filename().string();
+    }
+    page.rows.push_back(
+        ui::makeChoice(consoleArtId, "Console art theme", themeNote, std::move(choices)));
     std::string note = "Covers that fit their tiles";
     if (status.state == State::Connected) {
         note = status.place == host::SecretPlace::Keyring ? "Key kept in the keyring"
@@ -99,12 +100,23 @@ bool ArtworkSettings::owns(const std::string& id) {
 
 void ArtworkSettings::run(const std::string& id, int step) {
     if (id == consoleArtId) {
-        // Two choices, so every step lands on the other one; iiSU's asks for its file first.
-        if (preferences_.values().consoleArt == settings::AssetOwner::OpenSu) {
+        const std::vector<artwork::ThemeInfo> themes = themes_.list();
+        const std::string& chosen = preferences_.values().consoleTheme;
+        const auto found = std::ranges::find_if(themes, [&chosen](const artwork::ThemeInfo& theme) {
+            return theme.id ==
+                   (chosen.empty() ? artwork::defaultConsoleTheme : std::string_view{chosen});
+        });
+        const auto from = static_cast<int>(found == themes.end() ? 0 : found - themes.begin());
+        const auto count = static_cast<int>(themes.size());
+        const int at = ((from + (step == 0 ? 1 : step)) % count + count) % count;
+        const std::string& next = themes[static_cast<std::size_t>(at)].id;
+        // iiSU's asks for its file first.
+        if (next == artwork::iisuConsoleTheme) {
             chooseIisuFile();
             return;
         }
-        useConsoleArt(settings::AssetOwner::OpenSu, preferences_.values().iisuFile);
+        useTheme(next == artwork::defaultConsoleTheme ? std::string{} : next,
+                 preferences_.values().iisuFile);
         return;
     }
     if (step != 0) {
@@ -125,9 +137,8 @@ void ArtworkSettings::run(const std::string& id, int step) {
     hooks_.refresh();
 }
 
-void ArtworkSettings::useConsoleArt(settings::AssetOwner choice,
-                                    const std::filesystem::path& iisuFile) {
-    preferences_.values().consoleArt = choice;
+void ArtworkSettings::useTheme(std::string theme, const std::filesystem::path& iisuFile) {
+    preferences_.values().consoleTheme = std::move(theme);
     preferences_.values().iisuFile = iisuFile;
     preferences_.save();
     hooks_.consoleArtChanged();
@@ -137,7 +148,7 @@ void ArtworkSettings::useConsoleArt(settings::AssetOwner choice,
 void ArtworkSettings::chooseIisuFile() {
     chooser_.choose(IisuFileChooser::Need::Art, preferences_.values().iisuFile,
                     [this](const std::filesystem::path& file) {
-                        useConsoleArt(settings::AssetOwner::Iisu, file);
+                        useTheme(std::string{artwork::iisuConsoleTheme}, file);
                     });
 }
 

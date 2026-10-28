@@ -1,5 +1,5 @@
 // vector_icon — the shipped SVG icons, rasterised at the size they are drawn so they stay sharp
-// at any resolution: the launcher logos and openSU's console drawings and tab glyphs as white
+// at any resolution: the launcher logos and a console art theme's SVG cards and glyphs as white
 // masks to tint, and openSU's own dock icons in their colours.
 #pragma once
 
@@ -32,12 +32,6 @@ enum class Icon : std::uint8_t { Steam, Epic, Gog, Home, HomeSelected, Library, 
 
 /// The icon's file under the assets folder.
 [[nodiscard]] std::string_view iconFile(Icon icon) noexcept;
-
-/// A console's card drawing under the assets folder, by ES-DE system name.
-[[nodiscard]] std::string consoleCardFile(std::string_view system);
-
-/// A console's tab glyph under the assets folder, by ES-DE system name.
-[[nodiscard]] std::string consoleGlyphFile(std::string_view system);
 
 /// One colour of an SVG's paints drawn as another; matched on red, green and blue, and the
 /// paint keeps its own opacity.

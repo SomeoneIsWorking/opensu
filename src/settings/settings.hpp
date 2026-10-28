@@ -116,8 +116,8 @@ struct Settings {
     /// The night light in session mode.
     NightLightChoice nightLight{NightLightChoice::Desktop};
 
-    /// Whose console cards and tab glyphs the home shows.
-    AssetOwner consoleArt{AssetOwner::OpenSu};
+    /// The console art theme the home shows (`artwork::ConsoleThemes`); empty for the default.
+    std::string consoleTheme;
     /// Whose interface sounds play: openSU's own, or iiSU's from `iisuFile`.
     AssetOwner interfaceSounds{AssetOwner::OpenSu};
     /// The iiSU release APK or starter pack the player gave for iiSU's art and sounds; empty for

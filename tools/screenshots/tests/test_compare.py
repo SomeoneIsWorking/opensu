@@ -7,7 +7,7 @@ import pytest
 
 from tools.screenshots import compare
 from tools.screenshots.compare import Measure, Thresholds
-from tools.screenshots.scenes import README_SCENES, SCENES, Picks, iisu_scenes, real_scenes
+from tools.screenshots.scenes import README_SCENES, SCENES, Picks, real_scenes, theme_scenes
 
 LIMITS = Thresholds(mean=1.0, max=255, fraction=0.01, pixel=16)
 MAGICK = shutil.which("magick")
@@ -96,7 +96,10 @@ def test_main_exits_one_when_a_scene_fails(tmp_path: Path):
 def test_real_scenes_are_the_readme_set():
     readme = (Path(__file__).resolve().parents[3] / "README.md").read_text()
     shown = list(dict.fromkeys(re.findall(r"docs/screenshots/([a-z-]+)\.webp", readme)))
-    real = real_scenes(Picks()) + iisu_scenes(Picks())
+    themes = ("drawings", "photos", "iisu")
+    real = real_scenes(Picks()) + tuple(
+        scene for theme in themes for scene in theme_scenes(Picks(), theme)
+    )
     assert [scene.name for scene in real] == shown
     assert [scene.name for scene in README_SCENES] == [
         "home", "library", "details", "guide", "settings", "search",

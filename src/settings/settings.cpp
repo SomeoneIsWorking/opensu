@@ -31,7 +31,7 @@ constexpr const char* uiScaleKey = "uiScale";
 constexpr const char* uiScaleBaseKey = "uiScaleBase";
 constexpr const char* keyboardStyleKey = "keyboard";
 constexpr const char* nightLightKey = "nightLight";
-constexpr const char* consoleArtKey = "consoleArt";
+constexpr const char* consoleThemeKey = "consoleTheme";
 constexpr const char* interfaceSoundsKey = "interfaceSounds";
 constexpr const char* iisuFileKey = "iisuFile";
 constexpr const char* shortcutsKey = "shortcuts";
@@ -407,7 +407,7 @@ Settings Store::load() const {
                          file_.string(), nightLightSpelling);
         }
     }
-    read.owner(consoleArtKey, settings.consoleArt, "showing openSU's console art");
+    read.text(consoleThemeKey, settings.consoleTheme, "showing the default console art theme");
     read.owner(interfaceSoundsKey, settings.interfaceSounds, "playing openSU's sounds");
     std::string iisuFile;
     read.text(iisuFileKey, iisuFile, "with no iiSU file");
@@ -485,7 +485,7 @@ bool Store::save(const Settings& settings, std::string& error) const {
         {uiScaleBaseKey, uiScaleBaseVersion},
         {keyboardStyleKey, std::string{input::key(settings.keyboardStyle)}},
         {nightLightKey, std::string{key(settings.nightLight)}},
-        {consoleArtKey, std::string{key(settings.consoleArt)}},
+        {consoleThemeKey, settings.consoleTheme},
         {interfaceSoundsKey, std::string{key(settings.interfaceSounds)}},
         {iisuFileKey, settings.iisuFile.string()},
         {wineRunnerKey, settings.wineRunner.string()},
