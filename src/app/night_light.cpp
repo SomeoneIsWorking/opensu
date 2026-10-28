@@ -13,19 +13,23 @@ constexpr std::chrono::seconds lookEvery{10};
 
 } // namespace
 
-NightLight::NightLight(host::DesktopNightLight desktop, std::unique_ptr<NightLightOutput> output)
+NightLight::NightLight(std::unique_ptr<DesktopNight> desktop,
+                       std::unique_ptr<NightLightOutput> output)
     : desktop_{std::move(desktop)}, output_{std::move(output)} {
 }
 
 int NightLight::kelvinFor(settings::NightLightChoice choice,
                           std::chrono::system_clock::time_point now) {
+    if (!desktop_) {
+        return neutralKelvin;
+    }
     switch (choice) {
     case settings::NightLightChoice::Desktop:
-        return desktop_.kelvinAt(now);
+        return desktop_->kelvinAt(now);
     case settings::NightLightChoice::Off:
         return neutralKelvin;
     case settings::NightLightChoice::On:
-        return desktop_.settings().nightKelvin;
+        return desktop_->nightKelvin();
     }
     return neutralKelvin;
 }

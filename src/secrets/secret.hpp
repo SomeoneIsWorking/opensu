@@ -4,7 +4,7 @@
 #include <cstring>
 #include <string>
 
-namespace opensu::host {
+namespace opensu::secrets {
 
 /// Overwrites everything `text` has allocated, so a password typed into it (and anything a
 /// backspace left past its end) does not outlive the buffer, then empties it. The write is not
@@ -15,4 +15,4 @@ inline void wipe(std::string& text) {
     text.clear();
 }
 
-} // namespace opensu::host
+} // namespace opensu::secrets

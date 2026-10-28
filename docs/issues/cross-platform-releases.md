@@ -233,6 +233,14 @@ session, `ShellApp` asks `openShellSession` for the game's windows, the focus so
 window hiding. The window-system-neutral parts moved to `src/display` (`Output`, `displayOutput`,
 `OverlayMode`, `FocusHolder`, `holderOf`, `FocusSource`), so `src/session`, `tests/session` and X11
 are added on Linux only and a Windows configure succeeds.
+`src/host` (logind, BlueZ, backlight, session mode, KDE's night light) is added on Linux only:
+`HostServices::detect` is `host_services_linux.cpp` there and `host_services_none.cpp` (every
+service null) elsewhere; the Devices screen leaves out its Bluetooth tab and opens on Controllers
+without a Bluetooth service, the Guide's Power page leaves out Sleep, Restart and Shut down without
+a power service and the session rows without session mode, and the night light reads the desktop
+through `app::DesktopNight` (`desktop_night_kde.cpp`, none elsewhere). The platform-neutral parts
+moved out: `src/secrets` (the secret store; libsecret looked for on Linux only) and
+`fileio::InstanceLock` (`flock`, or an unshared handle on Windows).
 
 Windows compile check from Linux: `cmake/toolchains/windows-clang-cl.cmake` (clang-cl, lld-link, the
 Windows SDK and CRT from an `xwin splat` tree when the host is not Windows), `vcpkg.json` (pinned
@@ -241,8 +249,6 @@ toolchain). Every manifest port builds that way except OpenSSL, whose Windows po
 
 Not yet done in step 1, each blocking a non-Linux configure or a non-Linux build:
 
-- `src/host` (logind, `bluetoothctl`, backlight) is linked on every OS; `HostServices` has no
-  absent set, so the tabs cannot hide yet.
 - `/proc/self/exe` (`config`), RetroArch's Linux core folders in the core search, controller
   batteries from sysfs.
 

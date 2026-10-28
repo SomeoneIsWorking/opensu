@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-#include "host/secret.hpp"
+#include "secrets/secret.hpp"
 #include "ui/entry_screen.hpp"
 
 namespace opensu::app {
@@ -65,8 +65,8 @@ ui::SettingsCategory ArtworkSettings::page() const {
         ui::makeChoice(consoleArtId, "Console art theme", themeNote, std::move(choices)));
     std::string note = "Covers that fit their tiles";
     if (status.state == State::Connected) {
-        note = status.place == host::SecretPlace::Keyring ? "Key kept in the keyring"
-                                                          : "Key kept in a private file";
+        note = status.place == secrets::SecretPlace::Keyring ? "Key kept in the keyring"
+                                                             : "Key kept in a private file";
     }
     page.rows.push_back(
         ui::makeRow(statusId, RowKind::Info, "SteamGridDB", note, statusText(status)));
@@ -168,7 +168,7 @@ void ArtworkSettings::service() {
 }
 
 ArtworkSettings::~ArtworkSettings() {
-    host::wipe(key_);
+    secrets::wipe(key_);
 }
 
 const gpu2d::ui::Screen* ArtworkSettings::keyCard() const {
@@ -188,7 +188,7 @@ void ArtworkSettings::openEntry() {
         return;
     }
     sounds_.play(audio::Effect::Open);
-    host::wipe(key_);
+    secrets::wipe(key_);
     navigator_.push(std::make_unique<ui::EntryScreen>(
         ui::Entry{.id = std::string{keyCardId},
                   .title = "SteamGridDB API key",
@@ -202,7 +202,7 @@ void ArtworkSettings::openEntry() {
                   },
                   .changed =
                       [this](std::string text) {
-                          host::wipe(key_);
+                          secrets::wipe(key_);
                           key_ = std::move(text);
                       },
                   .submitted =
@@ -229,7 +229,7 @@ void ArtworkSettings::dismiss() {
         navigator_.closeFrom(*card);
     }
     sounds_.play(audio::Effect::Close);
-    host::wipe(key_);
+    secrets::wipe(key_);
 }
 
 } // namespace opensu::app

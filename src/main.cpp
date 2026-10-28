@@ -14,7 +14,7 @@
 #include "app/shell_session.hpp"
 #include "config/arguments.hpp"
 #include "config/config.hpp"
-#include "host/instance_lock.hpp"
+#include "fileio/instance_lock.hpp"
 #include "lucent/log.h"
 
 namespace {
@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
     // One openSU at a time: a second would run a second shell and a second Steam client.
     const bool interactive =
         !renderPath && !arguments.hidden && !config.insideGamescope && !config.sessionInherited;
-    std::optional<opensu::host::InstanceLock> lock;
+    std::optional<opensu::fileio::InstanceLock> lock;
     if (interactive) {
         lock.emplace(config.runtimeDir / "instance.lock");
         if (!lock->held()) {

@@ -9,7 +9,7 @@
 #include <string>
 #include <string_view>
 
-namespace opensu::host {
+namespace opensu::secrets {
 
 /// Where a secret is kept.
 enum class SecretPlace : std::uint8_t {
@@ -49,4 +49,4 @@ class SecretStore {
     bool keyring_;
 };
 
-} // namespace opensu::host
+} // namespace opensu::secrets

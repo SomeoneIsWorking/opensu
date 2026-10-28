@@ -4,9 +4,9 @@
 #include <chrono>
 #include <utility>
 
-#include "host/secret.hpp"
 #include "launch/command.hpp"
 #include "lucent/log.h"
+#include "secrets/secret.hpp"
 
 namespace opensu::app {
 namespace {
@@ -18,8 +18,8 @@ constexpr std::chrono::seconds browserTimeout{60};
 /// How long Connect waits for openSU's own Steam to log on, as a launch does.
 constexpr std::chrono::minutes steamStartLimit{3};
 
-std::string placeText(host::SecretPlace place) {
-    return place == host::SecretPlace::Keyring ? "the keyring" : "a private file";
+std::string placeText(secrets::SecretPlace place) {
+    return place == secrets::SecretPlace::Keyring ? "the keyring" : "a private file";
 }
 
 } // namespace
@@ -139,13 +139,13 @@ void SteamGridDbAccount::run(const std::stop_token& stop) {
 
 void SteamGridDbAccount::perform(const Load& /*load*/, const std::stop_token& /*stop*/) {
     std::string error;
-    std::optional<host::SecretStore::Found> found = parts_.secrets.read(keyName, error);
+    std::optional<secrets::SecretStore::Found> found = parts_.secrets.read(keyName, error);
     if (!error.empty()) {
         lucent::warn("steamgriddb", "saved key: {}", error);
     }
     if (!found || !steam::isSteamGridDbKey(found->value)) {
         if (found) {
-            host::wipe(found->value);
+            secrets::wipe(found->value);
             lucent::warn("steamgriddb", "the saved key is not a SteamGridDB key");
         }
         setState(State::Disconnected);
@@ -264,7 +264,7 @@ void SteamGridDbAccount::perform(UseKey& use, const std::stop_token& /*stop*/) {
     const auto first = std::ranges::find_if_not(use.key, blank);
     use.key.erase(use.key.begin(), first);
     if (!steam::isSteamGridDbKey(use.key)) {
-        host::wipe(use.key);
+        secrets::wipe(use.key);
         tell({"that is not a SteamGridDB key: it is 32 letters and digits", true});
         return;
     }
@@ -273,10 +273,10 @@ void SteamGridDbAccount::perform(UseKey& use, const std::stop_token& /*stop*/) {
 
 void SteamGridDbAccount::keep(std::string& key) {
     std::string error;
-    const std::optional<host::SecretPlace> place =
+    const std::optional<secrets::SecretPlace> place =
         parts_.secrets.save(keyName, keyLabel, key, error);
     if (!place) {
-        host::wipe(key);
+        secrets::wipe(key);
         lucent::warn("steamgriddb", "cannot keep the key: {}", error);
         finish(State::Disconnected, {"cannot keep the SteamGridDB key: " + error, true});
         return;

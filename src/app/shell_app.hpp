@@ -561,13 +561,15 @@ class ShellApp final {
                                                }}};
     /// Power, Bluetooth and the backlight; a hidden run reads them and changes nothing.
     HostServices host_{HostServices::detect(resolved_, settings_.hidden)};
-    BluetoothSession bluetooth_{*host_.bluetooth};
+    /// Null where the machine has no Bluetooth service.
+    std::unique_ptr<BluetoothSession> bluetooth_{
+        host_.bluetooth ? std::make_unique<BluetoothSession>(*host_.bluetooth) : nullptr};
     AudioOutputs outputs_{volume_.system()};
     BrightnessControl brightness_{host_.backlight.get()};
     /// The night light the player chose, shown by openSU's Gamescope when openSU is the login
     /// session; on a desktop the desktop's own warms the nested Gamescope.
     NightLight nightLight_{
-        host::DesktopNightLight{host::systemRunner(), environment_.xdgConfigHome / "kwinrc"},
+        openDesktopNight(environment_.xdgConfigHome),
         openNightLightOutput(settings_.loginSession, environment_.insideGamescope)};
     /// The running game's opensu-retro control channel, when it runs on one.
     RetroSession retro_{environment_.runtimeDir};
@@ -774,7 +776,7 @@ class ShellApp final {
     /// The Devices page, reached from the Guide menu.
     DevicesController devicesScreen_{
         shell_.screens().navigator(), shell_.screens().chrome(),
-        DevicesController::Services{bluetooth_, roster_, outputs_}, sounds_,
+        DevicesController::Services{bluetooth_.get(), roster_, outputs_}, sounds_,
         DevicesController::Hooks{[this](const std::string& text, bool isError) {
                                      shell_.setToast(text, isError);
                                  },
@@ -785,17 +787,20 @@ class ShellApp final {
                                  [this] {
                                      return outputLine();
                                  }}};
-    /// Installing session mode: its question, the password keyboard and the root step.
-    SessionInstallController sessionInstall_{shell_.screens().navigator(), keyboardPad_,
-                                             *host_.session, sounds_,
-                                             [this](const std::string& text, bool isError) {
-                                                 shell_.setToast(text, isError);
-                                             }};
+    /// Installing session mode: its question, the password keyboard and the root step. Null where
+    /// there is no session mode.
+    std::unique_ptr<SessionInstallController> sessionInstall_{
+        host_.session ? std::make_unique<SessionInstallController>(
+                            shell_.screens().navigator(), keyboardPad_, *host_.session, sounds_,
+                            [this](const std::string& text, bool isError) {
+                                shell_.setToast(text, isError);
+                            })
+                      : nullptr};
     /// The menu Guide opens, over the home screen or a running game.
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),
-        GuideMenuController::Services{*host_.power, *host_.session, volume_, brightness_, retro_,
-                                      preferences_},
+        GuideMenuController::Services{host_.power.get(), host_.session.get(), volume_, brightness_,
+                                      retro_, preferences_},
         sounds_,
         GuideMenuController::Hooks{
             .context =
@@ -806,7 +811,8 @@ class ShellApp final {
                         .title = launches_.game().title,
                         .gameSettings = inGame && !layered_.sectionsOf(launches_.game()).empty(),
                         .loginSession = settings_.loginSession,
-                        .sessionInstalled = !settings_.loginSession && host_.session->installed()};
+                        .sessionInstalled =
+                            !settings_.loginSession && host_.session && host_.session->installed()};
                 },
             .showSection =
                 [this](library::Section section) {
@@ -845,7 +851,9 @@ class ShellApp final {
                 },
             .installSession =
                 [this] {
-                    sessionInstall_.begin();
+                    if (sessionInstall_) {
+                        sessionInstall_->begin();
+                    }
                 },
             .say =
                 [this](const std::string& text, bool isError) {
@@ -871,7 +879,7 @@ class ShellApp final {
     /// The player's SteamGridDB key, handed to `steamGridDb_`; after the Steam client its sign-in
     /// starts and waits on, so its worker ends first.
     SteamGridDbAccount steamGridDbAccount_{SteamGridDbAccount::Parts{
-        .secrets = host::SecretStore{environment_.configDir / "secrets", environment_.keyring},
+        .secrets = secrets::SecretStore{environment_.configDir / "secrets", environment_.keyring},
         .source = steamGridDb_,
         .steam = [this] {
             return integrationSwitch_.steamInUse();

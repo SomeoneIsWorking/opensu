@@ -24,8 +24,8 @@
 #include <vector>
 
 #include "artwork/steamgriddb.hpp"
-#include "host/secret_store.hpp"
 #include "launch/steam_gate.hpp"
+#include "secrets/secret_store.hpp"
 #include "steam/steamgriddb_sign_in.hpp"
 
 namespace opensu::app {
@@ -50,7 +50,7 @@ class SteamGridDbAccount {
     struct Status {
         State state{State::Loading};
         /// Where the key is kept, when connected.
-        host::SecretPlace place{host::SecretPlace::File};
+        secrets::SecretPlace place{secrets::SecretPlace::File};
         /// SteamGridDB refused the key.
         bool refused{false};
 
@@ -68,7 +68,7 @@ class SteamGridDbAccount {
     };
 
     struct Parts {
-        host::SecretStore secrets;
+        secrets::SecretStore secrets;
         /// The artwork source the key is handed to; outlives this.
         artwork::SteamGridDb& source;
         std::uint16_t devToolsPort{steam::devToolsPort};
@@ -153,7 +153,7 @@ class SteamGridDbAccount {
     std::vector<Work> queue_;
     std::vector<News> news_;
     State state_{State::Loading};
-    host::SecretPlace place_{host::SecretPlace::File};
+    secrets::SecretPlace place_{secrets::SecretPlace::File};
     std::stop_source signIn_;
     /// Last, so the worker stops before anything it uses is destroyed.
     std::jthread worker_;

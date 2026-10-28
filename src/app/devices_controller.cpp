@@ -80,15 +80,15 @@ std::string DevicesController::tab() const {
 }
 
 bool DevicesController::showsBluetooth() const {
-    return isOpen() && chosen_ == bluetoothTabId;
+    return bluetooth_ != nullptr && isOpen() && chosen_ == bluetoothTabId;
 }
 
 const host::BluetoothDevice* DevicesController::deviceOf(const std::string& id) const {
-    if (!id.starts_with(devicePrefix)) {
+    if (bluetooth_ == nullptr || !id.starts_with(devicePrefix)) {
         return nullptr;
     }
     const std::string path = id.substr(std::string_view{devicePrefix}.size());
-    const auto& devices = bluetooth_.state().devices;
+    const auto& devices = bluetooth_->state().devices;
     const auto found = std::ranges::find(devices, path, &host::BluetoothDevice::path);
     return found == devices.end() ? nullptr : &*found;
 }
@@ -96,16 +96,21 @@ const host::BluetoothDevice* DevicesController::deviceOf(const std::string& id) 
 const std::vector<ui::SettingsCategory>& DevicesController::tabs() {
     if (!tabs_) {
         refreshedAt_ = Clock::now();
-        tabs_ = std::vector<ui::SettingsCategory>{bluetoothTab(), controllersTab(), audioTab(),
-                                                  displayTab()};
+        tabs_.emplace();
+        if (bluetooth_ != nullptr) {
+            tabs_->push_back(bluetoothTab());
+        }
+        tabs_->push_back(controllersTab());
+        tabs_->push_back(audioTab());
+        tabs_->push_back(displayTab());
     }
     return *tabs_;
 }
 
 ui::SettingsCategory DevicesController::bluetoothTab() const {
     ui::SettingsCategory tab{bluetoothTabId, "Bluetooth", {}};
-    const host::BluetoothState& state = bluetooth_.state();
-    if (!bluetooth_.known()) {
+    const host::BluetoothState& state = bluetooth_->state();
+    if (!bluetooth_->known()) {
         tab.rows.push_back(ui::makeRow("bluetooth.checking", RowKind::Info, "Bluetooth",
                                        "Asking BlueZ", "Checking"));
         return tab;
@@ -119,8 +124,8 @@ ui::SettingsCategory DevicesController::bluetoothTab() const {
     tab.rows.push_back(ui::makeToggle("bluetooth.power", "Bluetooth",
                                       adapter.name + " (" + adapter.address + ")",
                                       adapter.powered));
-    if (!bluetooth_.busyWith().empty()) {
-        tab.rows.push_back(ui::makeRow("bluetooth.busy", RowKind::Info, bluetooth_.busyWith(),
+    if (!bluetooth_->busyWith().empty()) {
+        tab.rows.push_back(ui::makeRow("bluetooth.busy", RowKind::Info, bluetooth_->busyWith(),
                                        "BlueZ is working on it", "Please wait"));
     }
     if (!adapter.powered) {
@@ -202,8 +207,12 @@ void DevicesController::open() {
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     outputs_.refresh();
-    bluetooth_.readSoon();
-    chosen_ = bluetoothTabId;
+    if (bluetooth_ != nullptr) {
+        bluetooth_->readSoon();
+        chosen_ = bluetoothTabId;
+    } else {
+        chosen_ = controllersTabId;
+    }
     refresh();
     navigator_.push(std::make_unique<DevicesScreen>(*this, chrome_));
 }
@@ -218,7 +227,9 @@ void DevicesController::close() {
     }
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
-    bluetooth_.stopScan();
+    if (bluetooth_ != nullptr) {
+        bluetooth_->stopScan();
+    }
     navigator_.closeFrom(**found);
 }
 
@@ -278,19 +289,22 @@ void DevicesController::run(const std::string& id, int /*step*/) {
 }
 
 void DevicesController::runBluetooth(const std::string& id) {
+    if (bluetooth_ == nullptr) {
+        return;
+    }
     if (id == "bluetooth.power") {
         const host::BluetoothAdapter* adapter =
-            bluetooth_.state().adapter ? &*bluetooth_.state().adapter : nullptr;
-        refuse(bluetooth_.setPowered(adapter == nullptr || !adapter->powered));
+            bluetooth_->state().adapter ? &*bluetooth_->state().adapter : nullptr;
+        refuse(bluetooth_->setPowered(adapter == nullptr || !adapter->powered));
     } else if (id == "bluetooth.scan") {
-        refuse(bluetooth_.toggleScan());
+        refuse(bluetooth_->toggleScan());
     } else if (const host::BluetoothDevice* device = deviceOf(id)) {
         if (!device->paired) {
-            refuse(bluetooth_.pair(*device));
+            refuse(bluetooth_->pair(*device));
         } else if (device->connected) {
-            refuse(bluetooth_.disconnect(*device));
+            refuse(bluetooth_->disconnect(*device));
         } else {
-            refuse(bluetooth_.connect(*device));
+            refuse(bluetooth_->connect(*device));
         }
     }
 }
@@ -304,7 +318,7 @@ void DevicesController::secondary(const std::string& id) {
                                        "It has to be paired again before it connects.", "Forget",
                                        [this, id] {
                                            if (const host::BluetoothDevice* gone = deviceOf(id)) {
-                                               refuse(bluetooth_.forget(*gone));
+                                               refuse(bluetooth_->forget(*gone));
                                            }
                                            refresh();
                                        }));

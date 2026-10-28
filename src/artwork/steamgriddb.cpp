@@ -2,9 +2,9 @@
 
 #include <nlohmann/json.hpp>
 
-#include "host/secret.hpp"
 #include "libretro_index.hpp"
 #include "lucent/log.h"
+#include "secrets/secret.hpp"
 
 namespace opensu::artwork {
 namespace {
@@ -67,7 +67,7 @@ SteamGridDb::SteamGridDb(std::string api) : api_{std::move(api)} {
 
 void SteamGridDb::setKey(std::string key) {
     const std::lock_guard lock{mutex_};
-    host::wipe(key_);
+    secrets::wipe(key_);
     key_ = std::move(key);
     refused_ = false;
 }
@@ -96,7 +96,7 @@ SteamGridDb::Data SteamGridDb::call(const net::WebClient& web, const std::string
     std::string error;
     const std::optional<net::WebClient::Answer> answer =
         web.request(api_ + path, {header}, guard, error);
-    host::wipe(header);
+    secrets::wipe(header);
     if (!answer) {
         return {Status::Unreachable, {}, api_ + path + ": " + error};
     }
@@ -167,7 +167,7 @@ SteamGridDb::Covers SteamGridDb::covers(const net::WebClient& web, const SteamGr
             found = listed(web, "/game/" + std::to_string(id), shape, key);
         }
     }
-    host::wipe(key);
+    secrets::wipe(key);
     if (found.status == Status::Refused) {
         const std::lock_guard lock{mutex_};
         if (!refused_) {

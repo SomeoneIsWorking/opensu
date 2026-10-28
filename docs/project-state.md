@@ -1957,6 +1957,9 @@ callers have no `#ifdef`. Linux backends are the previous code moved:
 | `library::coreTarget` | `nightly/linux/x86_64/latest/`, `.so` | `windows/x86_64` `.dll`, `apple/osx/arm64` `.dylib`, `android/latest/<abi>` `.so`; any other OS/arch refuses to configure |
 | `retro::SharedLibrary` | `SDL_LoadObject` (cores, librashader) | same |
 | `device::BatteryReader` | `SDL_GetPowerInfo` | same |
+| `app::HostServices::detect` | `host_services_linux.cpp`: logind, SDDM session mode, BlueZ, backlight | `host_services_none.cpp`: all null; no Bluetooth tab, no Sleep/Restart/Shut down or session rows |
+| `app::DesktopNight`, `openDesktopNight` | `desktop_night_kde.cpp` over `host::DesktopNightLight` | none (null): neutral |
+| `fileio::InstanceLock` | `instance_lock_posix.cpp` (`flock`) | `instance_lock_win32.cpp` (an unshared handle) |
 | gpu2d `window_platform` | the 32-bit X11 visual for translucency | none |
 
 The top-level `find_package(X11)` is gone; `src/session` and `tests/session` require X11 themselves
@@ -1978,7 +1981,10 @@ the Linux flags (`non-linux-backends-syntax.log`, `tidy-nonlinux.log`).
 `app::ShellSession` is the one owner of the Gamescope session (`src/session` and X11 are Linux's
 alone; the neutral types are `src/display`), so a Windows configure (clang-cl, xwin, vcpkg) succeeds.
 
-Gaps: `src/host` is still linked on every OS. Still Linux-only and unseamed: `HostServices` has no absent set, `/proc/self/exe` in `config`; RetroArch's Linux
+`src/host` is added on Linux only; the secret store moved to `src/secrets` and the instance lock to
+`src/fileio`.
+
+Gaps: still Linux-only and unseamed: `/proc/self/exe` in `config`; RetroArch's Linux
 core folders in the core search; controller batteries from sysfs. `launch/command.*` has its
 `posix_child`/`win32_child` backends and `ownProcessId()` replaced `getpid`; the Win32 backend is
 compiled with clang-cl against an xwin SDK and not run. Not run here: a Steam game launch and an AppImage

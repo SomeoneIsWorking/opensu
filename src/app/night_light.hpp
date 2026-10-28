@@ -4,17 +4,39 @@
 // when it changes. The output is the Gamescope fork's GAMESCOPE_COLOR_NIGHT_MODE root atom when
 // openSU is the login session on its top-level Gamescope (`night_light_gamescope.cpp`); there is
 // none on a desktop, whose compositor already warms openSU's nested Gamescope, so nothing is
-// warmed twice, and none on other systems (`night_light_none.cpp`).
+// warmed twice, and none on other systems (`night_light_none.cpp`). The desktop's own night light
+// is KDE Plasma's, read from kwinrc and knighttimed on Linux (`desktop_night_kde.cpp`); elsewhere
+// there is none and the desktop choice is neutral.
 #pragma once
 
 #include <chrono>
+#include <filesystem>
 #include <memory>
 #include <optional>
 
-#include "host/desktop_night_light.hpp"
 #include "settings/night_light_choice.hpp"
 
 namespace opensu::app {
+
+/// The night light the desktop is set to.
+class DesktopNight {
+  public:
+    DesktopNight() = default;
+    DesktopNight(const DesktopNight&) = delete;
+    DesktopNight& operator=(const DesktopNight&) = delete;
+    DesktopNight(DesktopNight&&) = delete;
+    DesktopNight& operator=(DesktopNight&&) = delete;
+    virtual ~DesktopNight() = default;
+
+    /// The temperature the desktop shows at `now`.
+    [[nodiscard]] virtual int kelvinAt(std::chrono::system_clock::time_point now) = 0;
+    /// The desktop's night temperature.
+    [[nodiscard]] virtual int nightKelvin() const = 0;
+};
+
+/// The desktop's night light, configured under `xdgConfigHome`; null where the platform has none.
+[[nodiscard]] std::unique_ptr<DesktopNight>
+openDesktopNight(const std::filesystem::path& xdgConfigHome);
 
 /// Where the night light is shown: the compositor in front of everything.
 class NightLightOutput {
@@ -37,7 +59,8 @@ class NightLightOutput {
 
 class NightLight {
   public:
-    NightLight(host::DesktopNightLight desktop, std::unique_ptr<NightLightOutput> output);
+    /// A null `desktop` reads as neutral.
+    NightLight(std::unique_ptr<DesktopNight> desktop, std::unique_ptr<NightLightOutput> output);
 
     /// Whether openSU shows the night light itself: in its login session only.
     [[nodiscard]] bool active() const noexcept {
@@ -58,7 +81,7 @@ class NightLight {
     void service(settings::NightLightChoice choice, std::chrono::system_clock::time_point now);
 
   private:
-    host::DesktopNightLight desktop_;
+    std::unique_ptr<DesktopNight> desktop_;
     std::unique_ptr<NightLightOutput> output_;
     std::optional<settings::NightLightChoice> choice_;
     std::optional<std::chrono::system_clock::time_point> looked_;

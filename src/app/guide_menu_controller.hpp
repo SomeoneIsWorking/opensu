@@ -68,8 +68,10 @@ class GuideMenuController final : public ui::RowActions {
     };
 
     struct Services {
-        host::Power& power;
-        host::SessionMode& session;
+        /// Null where the machine has no power service; Sleep, Restart and Shut down are left out.
+        host::Power* power;
+        /// Null where there is no session mode; its rows are left out.
+        host::SessionMode* session;
         VolumeControl& volume;
         BrightnessControl& brightness;
         RetroSession& retro;
@@ -126,8 +128,8 @@ class GuideMenuController final : public ui::RowActions {
     void refuse(const std::string& reason, const std::string& what = {});
 
     gpu2d::ui::Navigator& navigator_;
-    host::Power& power_;
-    host::SessionMode& session_;
+    host::Power* power_;
+    host::SessionMode* session_;
     VolumeControl& volume_;
     BrightnessControl& brightness_;
     RetroSession& retro_;

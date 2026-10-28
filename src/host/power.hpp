@@ -14,7 +14,17 @@ namespace opensu::host {
 enum class PowerAction : std::uint8_t { Suspend, Restart, ShutDown };
 
 /// The action's name for menus and messages ("Sleep", "Restart", "Shut down").
-[[nodiscard]] const char* label(PowerAction action) noexcept;
+[[nodiscard]] inline const char* label(PowerAction action) noexcept {
+    switch (action) {
+    case PowerAction::Suspend:
+        return "Sleep";
+    case PowerAction::Restart:
+        return "Restart";
+    case PowerAction::ShutDown:
+        return "Shut down";
+    }
+    return "";
+}
 
 class Power {
   public:

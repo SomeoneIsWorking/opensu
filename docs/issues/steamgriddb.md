@@ -47,7 +47,7 @@ Decided:
     theme (`details-themes.md`).
 
 Built:
-- `steam/steamgriddb_sign_in` (the Steam browser flow over DevTools), `host/secret_store` (Secret
+- `steam/steamgriddb_sign_in` (the Steam browser flow over DevTools), `secrets/secret_store` (Secret
   Service through libsecret when built with it, else a 0600 file), `app/steamgriddb_account` and
   Settings › Artwork (`app/artwork_settings`): Connect, Enter a key, Cancel, Disconnect.
 - `artwork/steamgriddb` (API v2, bearer to the API origin only), `artwork/cover_overrides`,

@@ -94,7 +94,7 @@ struct Rig {
                     said.push_back({text, error});
                 }},
           steamGridDbAccount{app::SteamGridDbAccount::Parts{
-              host::SecretStore{config.configDir / "secrets", false}, steamGridDb, steamPort,
+              secrets::SecretStore{config.configDir / "secrets", false}, steamGridDb, steamPort,
               steam::SteamGridDbSignIn::Timing{std::chrono::milliseconds{10},
                                                std::chrono::seconds{10}},
               "true",
@@ -1443,7 +1443,7 @@ void steamGridDbKeyIsEnteredAndForgotten(const fs::path& root) {
 /// A key kept by an earlier run is read back at start.
 void steamGridDbKeyIsReadBack(const fs::path& root) {
     {
-        const host::SecretStore secrets{root / "config" / "secrets", false};
+        const secrets::SecretStore secrets{root / "config" / "secrets", false};
         std::string error;
         expect(secrets.save("steamgriddb-api-key", "key", steamGridDbKey, error).has_value(),
                "a key is kept");

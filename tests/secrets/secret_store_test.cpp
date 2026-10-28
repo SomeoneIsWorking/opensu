@@ -1,6 +1,6 @@
 // The secret store's file place: owner-only file and folder, read back, replaced, forgotten. The
 // keyring is never asked here, so a test run leaves the player's keyring alone.
-#include "secret_store.hpp"
+#include "secrets/secret_store.hpp"
 
 #include <sys/stat.h>
 
@@ -14,8 +14,8 @@
 namespace {
 
 namespace fs = std::filesystem;
-using opensu::host::SecretPlace;
-using opensu::host::SecretStore;
+using opensu::secrets::SecretPlace;
+using opensu::secrets::SecretStore;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
