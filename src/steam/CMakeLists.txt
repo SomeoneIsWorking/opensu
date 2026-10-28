@@ -3,9 +3,11 @@ add_library(opensu_steam STATIC client.cpp desktop_steam.cpp devtools.cpp downlo
     steamgriddb_sign_in.cpp store_page.cpp)
 add_library(opensu::steam ALIAS opensu_steam)
 target_link_libraries(opensu_steam PUBLIC nlohmann_json::nlohmann_json)
-# The client's modes: openSU's own scoped and sandboxed Steam exist only on Linux.
+# The client's modes: openSU's own scoped and sandboxed Steam exist only on Linux; Android has none.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_steam PRIVATE client_modes_scoped.cpp)
+elseif(ANDROID)
+    target_sources(opensu_steam PRIVATE client_modes_none.cpp)
 else()
     target_sources(opensu_steam PRIVATE client_modes_normal.cpp)
 endif()

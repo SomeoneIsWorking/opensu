@@ -1,7 +1,8 @@
 // process_launcher — starts a program in a group of its own that owns everything it starts, and
 // ends the whole group. One backend per OS, picked in CMakeLists.txt: a transient systemd user
-// scope on Linux (`process_launcher_systemd_scope.cpp`); elsewhere a launch refuses until that
-// OS's backend lands (`process_launcher_unavailable.cpp`).
+// scope on Linux (`process_launcher_systemd_scope.cpp`); on Android an intent from the shell's
+// Activity, which owns only openSU's own runner (`process_launcher_intent.cpp`); elsewhere a launch
+// refuses until that OS's backend lands (`process_launcher_unavailable.cpp`).
 #pragma once
 
 #include <filesystem>

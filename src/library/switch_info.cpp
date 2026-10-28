@@ -9,6 +9,7 @@
 #include <string_view>
 #include <system_error>
 
+#include "clock/file_time.hpp"
 #include "fileio/atomic_write.hpp"
 #include "lucent/log.h"
 #include "rom_titles.hpp"
@@ -101,10 +102,7 @@ std::optional<std::string> stampOf(const fs::path& file) {
     if (ec) {
         return std::nullopt;
     }
-    const auto since =
-        std::chrono::clock_cast<std::chrono::system_clock>(written).time_since_epoch();
-    return std::to_string(size) + "-" +
-           std::to_string(std::chrono::duration_cast<std::chrono::nanoseconds>(since).count());
+    return std::to_string(size) + "-" + std::to_string(clock::sinceEpoch(written).count());
 }
 
 /// The Control NCA of the base title, else any Control NCA.

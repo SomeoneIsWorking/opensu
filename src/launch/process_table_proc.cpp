@@ -10,6 +10,10 @@ namespace opensu::launch::table {
 
 namespace fs = std::filesystem;
 
+bool available() {
+    return true;
+}
+
 /// Every pid in /proc.
 std::vector<ProcessId> pids() {
     std::vector<ProcessId> found;

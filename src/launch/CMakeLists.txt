@@ -18,9 +18,13 @@ else()
     target_sources(opensu_launch PRIVATE process_table_none.cpp)
 endif()
 add_library(opensu::launch ALIAS opensu_launch)
-# The launcher's backend: a systemd user scope per launch on Linux; elsewhere launches refuse.
+# The launcher's backend: a systemd user scope per launch on Linux, an intent from the shell's
+# Activity on Android; elsewhere launches refuse.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_launch PRIVATE process_launcher_systemd_scope.cpp)
+elseif(ANDROID)
+    target_sources(opensu_launch PRIVATE process_launcher_intent.cpp)
+    target_link_libraries(opensu_launch PRIVATE opensu::android)
 else()
     target_sources(opensu_launch PRIVATE process_launcher_unavailable.cpp)
     target_compile_definitions(opensu_launch PRIVATE OPENSU_SYSTEM_NAME="${CMAKE_SYSTEM_NAME}")

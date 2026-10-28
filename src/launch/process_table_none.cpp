@@ -2,6 +2,10 @@
 
 namespace opensu::launch::table {
 
+bool available() {
+    return false;
+}
+
 std::vector<ProcessId> pids() {
     return {};
 }

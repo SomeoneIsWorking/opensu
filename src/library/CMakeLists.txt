@@ -57,6 +57,12 @@ add_library(opensu_library STATIC
 )
 add_library(opensu::library ALIAS opensu_library)
 target_link_libraries(opensu_library PRIVATE nlohmann_json::nlohmann_json)
+# Whether legendary and gogdl run here: on the desktop, not on Android.
+if(ANDROID)
+    target_sources(opensu_library PRIVATE cli_stores_none.cpp)
+else()
+    target_sources(opensu_library PRIVATE cli_stores_desktop.cpp)
+endif()
 # Where RetroArch and the system put cores: Linux's folders; elsewhere openSU's downloads only.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_library PRIVATE core_search_linux.cpp)
@@ -70,7 +76,7 @@ target_link_libraries(opensu_library
         opensu::config
         opensu::net
         opensu::secrets
-    PRIVATE opensu::command opensu::fileio opensu::zip lucent::lucent OpenSSL::Crypto
+    PRIVATE opensu::clock opensu::command opensu::fileio opensu::zip lucent::lucent OpenSSL::Crypto
         PkgConfig::SQLITE3
 )
 target_compile_features(opensu_library PUBLIC cxx_std_20)

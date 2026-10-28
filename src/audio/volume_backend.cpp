@@ -6,6 +6,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "lucent/text.h"
+
 namespace opensu::audio {
 namespace {
 
@@ -163,7 +165,8 @@ std::optional<double> numberAfter(std::string_view text, std::string_view marker
         rest.remove_prefix(1);
     }
     double value = 0.0;
-    const auto [end, error] = std::from_chars(rest.data(), rest.data() + rest.size(), value);
+    const auto [end, error] =
+        lucent::text::from_chars_real(rest.data(), rest.data() + rest.size(), value);
     if (error != std::errc{}) {
         return std::nullopt;
     }

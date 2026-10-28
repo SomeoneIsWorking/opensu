@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "clock/file_time.hpp"
 #include "lauxlib.h"
 #include "library/titles.hpp"
 #include "lua_json.hpp"
@@ -148,10 +149,7 @@ int fsStat(lua_State* state) {
             if (ec) {
                 return failure(path + ": " + ec.message());
             }
-            const auto mtime =
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    std::chrono::clock_cast<std::chrono::system_clock>(written).time_since_epoch())
-                    .count();
+            const auto mtime = clock::sinceEpoch(written).count();
             return [size, mtime, directory](lua_State* resumed) {
                 lua_createtable(resumed, 0, 3);
                 lua_pushinteger(resumed, static_cast<lua_Integer>(size));

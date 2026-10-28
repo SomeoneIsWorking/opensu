@@ -24,8 +24,8 @@ class VolumeControl {
         std::function<void(const std::string& text, bool error)> say;
     };
 
-    /// The mixer found on this machine: `wpctl`, else `pactl`. With `readOnly` nothing is written
-    /// to it, for runs that must not touch the player's volume.
+    /// The mixer found on this machine: `wpctl`, else `pactl`; Android's AudioManager there. With
+    /// `readOnly` nothing is written to it, for runs that must not touch the player's volume.
     [[nodiscard]] static std::unique_ptr<audio::VolumeBackend> detect(const config::Config& config,
                                                                       bool readOnly);
 

@@ -175,7 +175,8 @@ Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Report
     bool appeared = false;
     while (!forced_.load()) {
         const std::vector<ProcessId> processes = ProcessTree::treesMatching(game.processHint);
-        if (!processes.empty()) {
+        // Without a process table the started program is all there is to watch.
+        if (!processes.empty() || (!ProcessTree::available() && instance_.startedRunning())) {
             if (!appeared) {
                 lucent::info("launch", "{} is running", game.title);
             }

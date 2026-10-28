@@ -18,8 +18,12 @@
 #include <string_view>
 #include <vector>
 
+// Renames main to SDL_main where the OS enters through SDL (Android's Activity).
+#include <SDL3/SDL_main.h>
+
 #include "config/config.hpp"
 #include "lucent/log.h"
+
 #include "retro/runner_app.hpp"
 #include "settings/video_settings.hpp"
 

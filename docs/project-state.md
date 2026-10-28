@@ -115,9 +115,9 @@ Visible deltas from the baseline:
 - A Library tile, Giveaways, lists the stores' free-to-keep games; iiSU has none.
 - Steam's Big Picture does not open inside openSU's session: Guide in the shell never reaches
   Steam, and Big Picture opened any other way is closed and the shell put back in front.
-- Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, or built from source. Windows,
-  macOS (arm64) and Android packages are planned as launchers (G005, S042); nothing is built for
-  them yet. On each of them openSU will have no: Gamescope (nested session, login session, FSR,
+- Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, or built from source; an
+  Android APK (arm64-v8a, x86_64) runs the shell but cannot start a ROM yet (S042). Windows and
+  macOS (arm64) packages are planned as launchers (G005, S042); nothing is built for them yet. On each of them openSU will have no: Gamescope (nested session, login session, FSR,
   frame generation, Alt+F4 handling); Managed or Isolated Steam (Steam is the player's own, Normal);
   virtual pads remapping another program's input; Wine; the Power, Bluetooth and brightness tabs.
   Android will also have no Steam, Epic, GOG or sign-in extension. Until each OS's backends land,
@@ -1800,7 +1800,9 @@ and `tools.check all --gamescope native` runs as that user: Lucent and gpu2d che
 commit, configure with Clang (any other compiler is refused), build including the Gamescope fork,
 clang-format, clang-tidy, ruff, ctest. A second job builds and smoke-tests the AppImage (S030).
 Actions are pinned by SHA, uv by version and checksum, permissions are `contents: read`.
-No Windows, macOS or Android jobs yet: they come with G005's steps 2 to 4 (S042,
+The `android` job builds the signed APK for both ABIs through `tools.package.android build`
+(android-port's native prefix cached by its pin) and `release.yml` publishes it. No Windows or
+macOS jobs yet: they come with G005's steps 2 and 3 (S042,
 `docs/issues/cross-platform-releases.md`).
 
 Verified: the same steps locally through `tools.check ci`: Clang build including the fork, the

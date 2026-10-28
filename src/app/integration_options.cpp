@@ -2,6 +2,9 @@
 
 #include <array>
 
+#include "library/cli_stores.hpp"
+#include "steam/client_modes.hpp"
+
 namespace opensu::app {
 namespace {
 
@@ -16,8 +19,17 @@ constexpr std::array entries{
 
 } // namespace
 
-std::span<const IntegrationEntry> integrationEntries() noexcept {
-    return entries;
+std::vector<IntegrationEntry> integrationEntries() {
+    std::vector<IntegrationEntry> offered;
+    for (const IntegrationEntry& entry : entries) {
+        const bool served = entry.id == "steam" ? !steam::clientModes().empty()
+                            : entry.id == "epic" || entry.id == "gog" ? library::cliStoresRun()
+                                                                      : true;
+        if (served) {
+            offered.push_back(entry);
+        }
+    }
+    return offered;
 }
 
 bool* switchOf(settings::IntegrationChoices& choices, std::string_view id) noexcept {

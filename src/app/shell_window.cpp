@@ -5,6 +5,7 @@
 
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_timer.h>
@@ -44,6 +45,8 @@ SDL_GPUCommandBuffer* acquireCommands(SDL_GPUDevice& device) {
 ShellWindow::ShellWindow(const Options& options)
     : window_{windowOptions(options)}, canvas_{window_.device()} {
     SDL_SetWindowMinimumSize(window_.window(), minimumWidth, minimumHeight);
+    // Text comes from openSU's own keyboard or a hardware one, never the OS's on-screen keyboard.
+    SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0");
     SDL_StartTextInput(window_.window());
     lucent::info("shell", "drawing on {} through {}, {} window", window_.deviceName(),
                  window_.driver(), window_.translucent() ? "translucent" : "opaque");

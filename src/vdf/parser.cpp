@@ -4,6 +4,7 @@
 
 #include <charconv>
 #include <fstream>
+#include <sstream>
 #include <utility>
 
 namespace opensu::vdf::detail {
