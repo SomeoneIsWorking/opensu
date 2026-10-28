@@ -1021,15 +1021,15 @@ custom; only Custom uses the detail keys, and choosing it seeds them from the pr
 Every default is off. A store game has the Global and Game layers; a ROM game also its console's and
 its emulator's (the core layer, settable from Settings › Emulators › Built-in cores).
 
-`app::FrameGeneration` is the one owner of the atoms. Each frame the loop hands it the game in
+`app::GamePresentation` is the one owner of the atoms. Each frame the loop hands it the game in
 front (`ShellApp::gameInFront`: the running game, unless `FocusFollow` sees another window in
 front); when that changes, or the tabs change a value, it resolves the game's keys and writes
 `GAMESCOPE_FRAMEGEN_DLL`, `_MODE`, `_RATIO`, `_TARGET`, `_MAX`, `_TOLERANCE`, `_PERFORMANCE`,
 `_FLOW_SCALE` and then `GAMESCOPE_FRAMEGEN` 1 on the root (`session::RootProperties`), or only
 `GAMESCOPE_FRAMEGEN` 0 for off, no game in front, or no DLL. `library::findLosslessDll` looks in
 every folder `steam::Library::libraryFolders` reads from `libraryfolders.vdf`, at start, when a
-game comes in front and when the tabs open. The output exists only on Linux inside Gamescope
-(`frame_generation_gamescope.cpp`; `frame_generation_none.cpp` elsewhere). `supported()` (Linux)
+game comes in front. The output exists only on Linux inside Gamescope
+(`game_presentation_gamescope.cpp`; `game_presentation_none.cpp` elsewhere). `supported()` (Linux)
 decides whether the settings show; `active()` whether frames are generated now.
 
 The layered editor's Frame generation section: a summary line ("Adaptive · target 60 fps · up to
@@ -1297,7 +1297,8 @@ Per game, in the layered settings (Global, console, core, game) under "Resolutio
 Resolution (Full, or 5/6, 3/4, 2/3, 1/2 of the screen, keeping its shape and named by the size it
 comes to: 1600 x 900, 1440 x 810, 1280 x 720, 960 x 540 on 1080p), Upscaling (Linear, AMD FSR,
 NVIDIA Image Scaling, Nearest, Integer) and Sharpness for FSR and NIS, with a one-line summary.
-`settings/scaling_settings` owns the keys, `app/game_scaling` applies them. Outside Gamescope the
+`settings/scaling_settings` owns the keys, `app/game_presentation` applies them, beside frame
+generation and through the same output and written-value cache. Outside Gamescope the
 rows show with "applies in openSU's Gamescope session".
 
 Gamescope's runtime controls, read in the fork (`src/steamcompmgr.cpp`, `handle_property_notify`):

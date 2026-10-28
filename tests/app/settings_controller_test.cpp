@@ -355,17 +355,16 @@ struct Rig {
         downloads, app::EmulatorSettings::Hooks{[this](const std::string& text, bool error) {
             said.push_back({text, error});
         }}};
-    app::FrameGeneration frameGeneration{gameSettings, nullptr, [] {
-                                             return std::optional<fs::path>{};
-                                         }};
-    app::GameScaling scaling{gameSettings, nullptr};
+    app::GamePresentation presentation{gameSettings, nullptr, [] {
+                                           return std::optional<fs::path>{};
+                                       }};
     app::RetroSession retro{config.cacheDir / "run"};
     app::LayeredSettings layered{
         app::LayeredSettings::Sources{gameSettings,
                                       [this]() -> const library::roms::Emulators& {
                                           return emulatorSettings.found();
                                       },
-                                      downloads.shaderPack(), frameGeneration, scaling, retro,
+                                      downloads.shaderPack(), presentation, retro,
                                       app::CoreOptionStore{config.cacheDir / "core-options"}},
         app::LayeredSettings::Hooks{[](const std::string&) {
                                         return std::optional<library::Game>{};

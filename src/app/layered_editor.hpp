@@ -57,10 +57,8 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     /// The rows of the scope on show, under their headings, into `rows`.
     void addRows(gpu2d::ui::Column& rows, const gpu2d::ui::Theme& theme);
     void addRow(gpu2d::ui::Column& rows, const settings::ScopedValue& value);
-    /// The frame generation summary over its rows.
-    void addFrameGenSummary(gpu2d::ui::Column& rows);
-    /// The resolution and upscaling summary over its rows.
-    void addScalingSummary(gpu2d::ui::Column& rows);
+    /// The summary over `section`'s rows, for a section that has one.
+    void addSummary(gpu2d::ui::Column& rows, const std::string& section);
     void addClear(gpu2d::ui::Column& rows);
     /// `value` of `setting` as the row reads it.
     [[nodiscard]] std::string labelOf(const settings::Setting& setting,
