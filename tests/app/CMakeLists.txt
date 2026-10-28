@@ -208,3 +208,10 @@ target_include_directories(game_presentation_test PRIVATE "${CMAKE_SOURCE_DIR}/t
 target_compile_options(game_presentation_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(game_presentation_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME game_presentation COMMAND game_presentation_test)
+
+add_executable(wine_runners_test wine_runners_test.cpp)
+target_link_libraries(wine_runners_test PRIVATE opensu::app)
+target_include_directories(wine_runners_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(wine_runners_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(wine_runners_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME wine_runners COMMAND wine_runners_test)

@@ -427,7 +427,7 @@ struct Rig {
                                       return std::vector<app::MappingEditor::Emulator>{
                                           {"pcsx2", "PCSX2"}, {"mgba", "mGBA"}};
                                   }}};
-    app::WineRunners runners{config.dataDir, "",
+    app::WineRunners runners{config.dataDir, "", false,
                              app::WineRunners::Hooks{.say =
                                                          [](const std::string&, bool) {
                                                          },

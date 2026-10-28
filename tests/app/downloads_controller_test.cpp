@@ -143,7 +143,7 @@ sleep 60
                                                },
                                                [] {
                                                }}};
-    app::WineRunners runners{root / "data", "",
+    app::WineRunners runners{root / "data", "", false,
                              app::WineRunners::Hooks{.say =
                                                          [](const std::string&, bool) {
                                                          },

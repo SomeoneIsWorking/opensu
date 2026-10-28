@@ -3,6 +3,7 @@
 #include <system_error>
 #include <utility>
 
+#include "host_services.hpp"
 #include "launch/command.hpp"
 #include "library/emulator_release.hpp"
 #include "library/umu_launcher.hpp"
@@ -55,8 +56,9 @@ bool discard(const fs::path& dataDir, const fs::path& dir, const std::string& na
 
 } // namespace
 
-WineRunners::WineRunners(fs::path dataDir, std::string geApi, Hooks hooks)
-    : dataDir_{std::move(dataDir)}, geApi_{std::move(geApi)}, hooks_{std::move(hooks)} {
+WineRunners::WineRunners(fs::path dataDir, std::string geApi, bool hidden, Hooks hooks)
+    : dataDir_{std::move(dataDir)}, geApi_{std::move(geApi)}, hidden_{hidden},
+      hooks_{std::move(hooks)} {
     // Sizes are measured off the loop; a build is many thousand files.
     static_cast<void>(start([this](const std::stop_token&) {
         measure();
@@ -87,6 +89,9 @@ bool WineRunners::start(Job job) {
 }
 
 std::string WineRunners::checkNow() {
+    if (hidden_) {
+        return std::string{hiddenRunRefusal};
+    }
     return check(CheckMode::Asked);
 }
 
@@ -119,6 +124,9 @@ void WineRunners::cancel() {
 }
 
 std::string WineRunners::test(std::string runner, std::vector<std::string> command) {
+    if (hidden_) {
+        return std::string{hiddenRunRefusal};
+    }
     if (!start([this, runner = std::move(runner),
                 command = std::move(command)](const std::stop_token& stop) {
             runTest(stop, runner, command);
@@ -397,7 +405,7 @@ void WineRunners::service(Clock::time_point now) {
     for (const Finished& finished : news) {
         hooks_.say(finished.text, finished.outcome == Outcome::Failed);
     }
-    const bool keepCurrent = hooks_.keepCurrent();
+    const bool keepCurrent = !hidden_ && hooks_.keepCurrent();
     if (checked && keepCurrent) {
         rotate();
     }

@@ -5,7 +5,8 @@
 // picks a build up once installed. After a check, while the player keeps GE-Proton up to date, the
 // builds past the newest two are removed unless a game runs on one or is set to it, which keeps it
 // with the reason. Also runs a Windows program through a runner for Settings'
-// "Test" row. One job at a time, with progress and cancel for the Downloads page.
+// "Test" row. One job at a time, with progress and cancel for the Downloads page. A hidden run
+// reads what is installed and changes nothing: no check, download, removal or test.
 #pragma once
 
 #include <chrono>
@@ -100,22 +101,25 @@ class WineRunners {
         bool testing{false};
     };
 
-    /// `geApi` is the GE-Proton release JSON (`Config::geProtonRelease`; empty for the latest).
-    WineRunners(std::filesystem::path dataDir, std::string geApi, Hooks hooks);
+    /// `geApi` is the GE-Proton release JSON (`Config::geProtonRelease`; empty for the latest);
+    /// `hidden` makes it read only.
+    WineRunners(std::filesystem::path dataDir, std::string geApi, bool hidden, Hooks hooks);
     ~WineRunners();
     WineRunners(const WineRunners&) = delete;
     WineRunners& operator=(const WineRunners&) = delete;
 
-    /// Starts the check when it is due and rotates after a check, both only while `keepCurrent`;
+    /// Starts the check when it is due and rotates after a check, both only while `keepCurrent`
+    /// and never in a hidden run;
     /// hands ended jobs to the hooks, sweeps what a rotation removed and measures again when a
     /// game ends. Main loop only.
     void service(Clock::time_point now);
-    /// Checks now, the player asking; refused, with the reason, while a job runs.
+    /// Checks now, the player asking; refused, with the reason, while a job runs or in a hidden
+    /// run.
     [[nodiscard]] std::string checkNow();
     /// Stops the running download; what is installed stays.
     void cancel();
     /// Runs `command` (`env NAME=value ... program args`) as the test of a runner, its output
-    /// logged; refused, with the reason, while a job runs.
+    /// logged; refused, with the reason, while a job runs or in a hidden run.
     [[nodiscard]] std::string test(std::string runner, std::vector<std::string> command);
 
     [[nodiscard]] bool busy() const;
@@ -161,6 +165,7 @@ class WineRunners {
 
     std::filesystem::path dataDir_;
     std::string geApi_;
+    bool hidden_;
     Hooks hooks_;
     net::WebClient web_;
 
