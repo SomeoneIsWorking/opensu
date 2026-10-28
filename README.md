@@ -32,14 +32,17 @@ derived from the window, following iiSU's own layout rules.
 | --- | --- |
 | ![Home: installed games from every store](docs/screenshots/home.webp) | ![Library: stores, all games and one tile per console](docs/screenshots/library.webp) |
 | Home: installed games from every store | Library: stores, all games and one tile per console |
-| ![A game's details page](docs/screenshots/details.webp) | ![Guide menu](docs/screenshots/guide.webp) |
-| A game's details page | Guide menu |
-| ![Settings](docs/screenshots/settings.webp) | ![Search with results](docs/screenshots/search.webp) |
-| Settings | Search with results |
+| ![A console's shelf: ROM tiles with its glyph](docs/screenshots/console-shelf.webp) | ![A game's details page](docs/screenshots/details.webp) |
+| A console's shelf: ROM tiles with its glyph | A game's details page |
+| ![Guide menu](docs/screenshots/guide.webp) | ![Settings: Wine](docs/screenshots/settings-wine.webp) |
+| Guide menu | Settings: Wine |
+| ![Search with results](docs/screenshots/search.webp) | |
+| Search with results | |
 
-The demo library is freely licensed games; art sources and licences are in
+The shots are of the maintainer's own library. Game art belongs to its owners and console cards
+and glyphs are iiSU's, downloaded at runtime and never shipped; see
 [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md). Captured with
-`uv run --frozen python -m tools.screenshots`.
+`uv run --frozen python -m tools.screenshots --profile real`.
 
 ## Installing the AppImage
 

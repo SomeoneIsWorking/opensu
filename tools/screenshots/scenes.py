@@ -1,7 +1,7 @@
 """The screens captured and the input that reaches each from a fresh start on Home.
 
-Every scene starts and ends on Home with nothing open. `readme` marks the scenes the README shows;
-parity runs capture all of them.
+Every scene starts and ends on Home with nothing open. `readme` marks the demo scenes a demo run
+writes; parity runs capture all of them. `real_scenes` are the README's, on the player's own home.
 """
 
 from collections.abc import Callable
@@ -105,17 +105,37 @@ def _close_quick(shell: HiddenShell) -> None:
     shell.wait_for("guideMenuOpen", False)
 
 
-def _console_shelf(shell: HiddenShell) -> None:
-    """Library, right along the tiles to the first console, then into it."""
+def _walk_to(shell: HiddenShell, holds: Callable[[str], bool], what: str, steps: int) -> str:
+    """Along each row and back along the next, until the focused id `holds`."""
+    across = "right"
+    for _ in range(steps):
+        state = shell.state()
+        focused = str(state.get("focusedId", ""))
+        if holds(focused):
+            return focused
+        shell.press(across)
+        if shell.state().get("focusIndex") == state.get("focusIndex"):
+            shell.press("down")
+            across = "left" if across == "right" else "right"
+    raise RuntimeError(f"no {what} along the tiles: {shell.state()}")
+
+
+def _into_console(shell: HiddenShell, system: str) -> None:
+    """Library, along the tiles to `system`'s console (the first one when empty), then into it."""
     _library(shell)
-    for _ in range(LONGEST_WALK):
-        focused = str(shell.state().get("focusedId", ""))
-        if focused.startswith("console:"):
-            shell.press("a")
-            shell.wait_for("shelf", focused.removeprefix("console:"))
-            return
-        shell.press("right")
-    raise RuntimeError(f"no console tile to the right in Library: {shell.state()}")
+    wanted = f"console:{system}"
+    focused = _walk_to(
+        shell,
+        lambda focused: focused == wanted if system else focused.startswith("console:"),
+        wanted if system else "console tile",
+        LONGEST_WALK * 4,
+    )
+    shell.press("a")
+    shell.wait_for("shelf", focused.removeprefix("console:"))
+
+
+def _console_shelf(shell: HiddenShell) -> None:
+    _into_console(shell, "")
 
 
 def _leave_console_shelf(shell: HiddenShell) -> None:
@@ -531,3 +551,59 @@ DOWNLOAD_SCENES: tuple[Scene, ...] = (
         _close_downloads_page,
     ),
 )
+
+
+# A player's home has hundreds of tiles; enough steps to reach any of the first pages.
+LONGEST_HOME_WALK = 200
+
+
+@dataclass(frozen=True)
+class Picks:
+    """What the real profile shows: a game id for Home's focus and the details page, a console's
+    system for its shelf, the search text. Empty keeps the first."""
+
+    game: str = ""
+    console: str = ""
+    search: str = SEARCH_TEXT
+
+
+def real_scenes(picks: Picks) -> tuple[Scene, ...]:
+    """The README's scenes on the player's own library."""
+
+    def focus_game(shell: HiddenShell) -> None:
+        if picks.game:
+            _walk_to(shell, lambda focused: focused == picks.game, picks.game, LONGEST_HOME_WALK)
+
+    def details(shell: HiddenShell) -> None:
+        focus_game(shell)
+        _details(shell)
+
+    def console_shelf(shell: HiddenShell) -> None:
+        _into_console(shell, picks.console)
+        shell.press("right")
+
+    def search(shell: HiddenShell) -> None:
+        shell.press("search")
+        shell.wait_for("searchOpen", True)
+        shell.type_text(picks.search)
+        shell.wait_for("searchText", picks.search)
+
+    return (
+        Scene("home", "Home: installed games from every store", focus_game, _nothing),
+        Scene(
+            "library",
+            "Library: stores, all games and one tile per console",
+            _library,
+            _home,
+        ),
+        Scene(
+            "console-shelf",
+            "A console's shelf: ROM tiles with its glyph",
+            console_shelf,
+            _leave_console_shelf,
+        ),
+        Scene("details", "A game's details page", details, _back_from_details),
+        Scene("guide", "Guide menu", _guide, _close_guide),
+        Scene("settings-wine", "Settings: Wine", _settings_page("Wine"), _close_settings),
+        Scene("search", "Search with results", search, _close_search),
+    )
