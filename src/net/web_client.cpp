@@ -20,6 +20,18 @@ struct EasyDeleter {
     }
 };
 
+using Easy = std::unique_ptr<CURL, EasyDeleter>;
+
+/// A request handle that trusts `trust`; null when libcurl cannot start one.
+Easy newEasy(const TrustStore& trust) {
+    Easy handle{curl_easy_init()};
+    if (handle != nullptr && !trust.pem().empty()) {
+        curl_blob blob{const_cast<char*>(trust.pem().data()), trust.pem().size(), CURL_BLOB_NOCOPY};
+        curl_easy_setopt(handle.get(), CURLOPT_CAINFO_BLOB, &blob);
+    }
+    return handle;
+}
+
 std::size_t append(char* data, std::size_t size, std::size_t count, void* body) {
     static_cast<std::string*>(body)->append(data, size * count);
     return size * count;
@@ -127,7 +139,7 @@ std::optional<WebClient::Answer> WebClient::request(const std::string& url,
             error = std::move(refused);
             return std::nullopt;
         }
-        const std::unique_ptr<CURL, EasyDeleter> handle{curl_easy_init()};
+        const Easy handle = newEasy(trust_);
         if (handle == nullptr) {
             error = "libcurl could not start a request";
             return std::nullopt;
@@ -187,7 +199,7 @@ std::optional<WebClient::BodyFacts> WebClient::head(const std::string& url, cons
             error = std::move(refused);
             return std::nullopt;
         }
-        const std::unique_ptr<CURL, EasyDeleter> handle{curl_easy_init()};
+        const Easy handle = newEasy(trust_);
         if (handle == nullptr) {
             error = "libcurl could not start a request";
             return std::nullopt;
@@ -237,7 +249,7 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
             error = std::move(refused);
             return false;
         }
-        const std::unique_ptr<CURL, EasyDeleter> handle{curl_easy_init()};
+        const Easy handle = newEasy(trust_);
         if (handle == nullptr) {
             error = "libcurl could not start a request";
             return false;
@@ -297,7 +309,7 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
 
 std::optional<std::string> WebClient::fetch(const std::string& url, std::string& error,
                                             const std::vector<std::string>& headers) const {
-    const std::unique_ptr<CURL, EasyDeleter> handle{curl_easy_init()};
+    const Easy handle = newEasy(trust_);
     if (handle == nullptr) {
         error = "libcurl could not start a request";
         return std::nullopt;

@@ -10,6 +10,8 @@
 #include <string_view>
 #include <vector>
 
+#include "trust_store.hpp"
+
 namespace opensu::net {
 
 /// `scheme://authority/` of `url`, or empty when it has none.
@@ -85,6 +87,8 @@ class WebClient {
                                 const Refusal& refusal = {}, BodyFacts* facts = nullptr) const;
 
   private:
+    TrustStore trust_;
+
     /// One GET following redirects, answered by a 200.
     [[nodiscard]] std::optional<std::string> fetch(const std::string& url, std::string& error,
                                                    const std::vector<std::string>& headers) const;
