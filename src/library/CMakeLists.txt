@@ -48,7 +48,7 @@ add_library(opensu_library STATIC
     ge_proton.cpp lutris_wine.cpp
     steam_appinfo.cpp
     steam_compat.cpp
-    umu_launcher.cpp
+    umu_launcher.cpp umu_database.cpp
     runtime_archive.cpp
     own_games.cpp
     game_identify.cpp

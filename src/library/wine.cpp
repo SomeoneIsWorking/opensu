@@ -18,7 +18,6 @@ namespace fs = std::filesystem;
 constexpr const char* sharedPrefixName = "wine-prefix";
 constexpr const char* ownPrefixesName = "wine-prefixes";
 /// umu looks a game's fixes up by id; openSU knows none, so every game gets the default.
-constexpr const char* umuGameId = "umu-0";
 
 /// The Wine binary inside Proton build `dir`: `files/bin/wine`, older builds `dist/bin/wine`.
 fs::path protonWine(const fs::path& dir) {
@@ -298,7 +297,7 @@ std::optional<Runner> runnerOf(const Choice& choice, const std::string& gameId) 
 }
 
 Invocation invocationOf(const Runner& runner, const fs::path& prefix, const fs::path& umuRun,
-                        const fs::path& dataDir, std::string_view store) {
+                        const fs::path& dataDir, std::string_view store, std::string_view gameId) {
     if (runner.proton.empty()) {
         return Invocation{.command = {runner.wine.string()},
                           .environment = {"WINEPREFIX=" + prefix.string()}};
@@ -306,7 +305,7 @@ Invocation invocationOf(const Runner& runner, const fs::path& prefix, const fs::
     return Invocation{
         .command = {umuRun.string()},
         .environment = {"WINEPREFIX=" + prefix.string(), "PROTONPATH=" + runner.proton.string(),
-                        std::string{"GAMEID="} + umuGameId, "STORE=" + std::string{store},
+                        "GAMEID=" + std::string{gameId}, "STORE=" + std::string{store},
                         "UMU_FOLDERS_PATH=" + umuFolders(dataDir).string()}};
 }
 
@@ -381,9 +380,12 @@ Prepared prepare(Game& game, const Choice& choice) {
         return {.refusal = std::move(ready.refusal), .environment = {}};
     }
     const fs::path& prefix = ready.prefix;
+    const std::string gameId =
+        choice.umu != nullptr ? choice.umu->gameIdOf(game) : std::string{umu::unknownGameId};
     if (own) {
         // The player's own .exe: the runner starts it, nothing in between.
-        Invocation invocation = invocationOf(*runner, prefix, choice.umuRun, choice.dataDir, "");
+        Invocation invocation =
+            invocationOf(*runner, prefix, choice.umuRun, choice.dataDir, "", gameId);
         game.launch.args.insert(game.launch.args.begin(), game.launch.program);
         game.launch.args.insert(game.launch.args.begin(), invocation.command.begin() + 1,
                                 invocation.command.end());
@@ -398,11 +400,11 @@ Prepared prepare(Game& game, const Choice& choice) {
         return {};
     }
     Invocation invocation =
-        invocationOf(*runner, prefix, choice.umuRun, choice.dataDir, umuStore(game.source));
+        invocationOf(*runner, prefix, choice.umuRun, choice.dataDir, umuStore(game.source), gameId);
     game.launch.args.insert(game.launch.args.end(),
                             {"--no-wine", "--wrapper", shellWord(invocation.command.front())});
-    lucent::info("wine", "{} runs under {} through umu-run in {}", game.title, runner->name,
-                 prefix.string());
+    lucent::info("wine", "{} runs under {} through umu-run in {}, GAMEID {}", game.title,
+                 runner->name, prefix.string(), gameId);
     return {.refusal = {}, .environment = std::move(invocation.environment)};
 }
 

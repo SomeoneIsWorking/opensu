@@ -17,7 +17,8 @@ you can fallback to Steam Proton which falls back to what Lutris uses which fall
 - A Proton build (openSU's GE-Proton, or a Proton found in Steam's folders): through umu-launcher,
   the documented way to run Proton outside Steam. gogdl and legendary get `--no-wine --wrapper
   '<umu-run>'`; the launch environment gets `WINEPREFIX=<prefix>`, `PROTONPATH=<build folder>`,
-  `GAMEID=umu-0`, `STORE=gog|egs` and `UMU_FOLDERS_PATH=<data>/wine`. With an absolute
+  `GAMEID=<the game's umu id>` (`library/umu_database`; `umu-0` when the database lacks it),
+  `STORE=gog|egs` and `UMU_FOLDERS_PATH=<data>/wine`. With an absolute
   `PROTONPATH` umu downloads no Proton; with `UMU_FOLDERS_PATH` the Steam Linux Runtime it fetches
   (steamrt4 for GE-Proton 11, about 1.3 GB) lands in `<data>/wine/umu/`, not in the player's
   `~/.local/share/umu` or Steam's `compatibilitytools.d`. Proton runs inside that runtime with its
@@ -201,7 +202,8 @@ against a release URL answering HTTP 403 logged one `[wine:warn]` line, no toast
 - The Lutris step is not distinct on this machine (see above); it is covered by
   `tests/library/wine_test.cpp` only.
 - Saves made in `<prefix>.plain-wine` stay there; going back to Proton uses the Proton prefix.
-- `GAMEID` is `umu-0` for every game: umu's per-game fixes (protonfixes by store id) are not
-  looked up.
+- A game launched before the first check has fetched the umu database runs as `umu-0`, without
+  its protonfixes; so does every game while the player keeps GE-Proton's checks off and never
+  presses Check now.
 - The Steam Linux Runtime is fetched by umu itself on the first Proton run, without progress in
   openSU; umu keeps it current on later runs.

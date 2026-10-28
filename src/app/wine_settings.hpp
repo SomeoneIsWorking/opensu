@@ -87,6 +87,8 @@ class WineSettings {
     std::vector<library::wine::Runner> found_;
     std::optional<library::wine::Runner> lutris_;
     std::filesystem::path umuRun_;
+    /// The GAMEIDs Proton launches run under, read again with the runners.
+    library::umu::Database umu_;
     /// The installed Steam games by the folder of the tool Steam runs them under.
     std::map<std::filesystem::path, std::vector<library::Game>> steamOn_;
     /// The Proton build the last launch ran under.

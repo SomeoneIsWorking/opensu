@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "game.hpp"
+#include "umu_database.hpp"
 
 namespace opensu::library::wine {
 
@@ -136,6 +137,8 @@ struct Choice {
     OwnPrefixes own;
     /// The `umu-run` a Proton build needs (`umuRunOf`); empty when there is none.
     std::filesystem::path umuRun{};
+    /// The umu database a Proton launch takes its GAMEID from; null runs every game as `umu-0`.
+    const umu::Database* umu{nullptr};
 };
 
 /// Why a game runs under its runner.
@@ -175,11 +178,12 @@ struct Invocation {
 };
 
 /// The invocation of `runner` in `prefix`: plain Wine with `WINEPREFIX`; a Proton build through
-/// `umuRun` with `PROTONPATH`, `WINEPREFIX`, `GAMEID`, `STORE` (`store`, may be empty) and
-/// `UMU_FOLDERS_PATH` under `dataDir`.
+/// `umuRun` with `PROTONPATH`, `WINEPREFIX`, `GAMEID` (`gameId`, which picks the protonfixes),
+/// `STORE` (`store`, may be empty) and `UMU_FOLDERS_PATH` under `dataDir`.
 [[nodiscard]] Invocation invocationOf(const Runner& runner, const std::filesystem::path& prefix,
                                       const std::filesystem::path& umuRun,
-                                      const std::filesystem::path& dataDir, std::string_view store);
+                                      const std::filesystem::path& dataDir, std::string_view store,
+                                      std::string_view gameId);
 
 /// Where the saves of a prefix plain Wine made are copied before a Proton build first runs in it.
 [[nodiscard]] std::filesystem::path wineSavesCopy(const std::filesystem::path& prefix);

@@ -3,9 +3,11 @@
 #include <system_error>
 #include <utility>
 
+#include "fileio/atomic_write.hpp"
 #include "host_services.hpp"
 #include "launch/command.hpp"
 #include "library/emulator_release.hpp"
+#include "library/umu_database.hpp"
 #include "library/umu_launcher.hpp"
 #include "lucent/log.h"
 
@@ -19,6 +21,7 @@ constexpr auto checkEvery = std::chrono::hours{24};
 constexpr auto retryFailedAfter = std::chrono::hours{1};
 constexpr const char* geId = "ge-proton";
 constexpr const char* umuId = "umu-launcher";
+constexpr const char* databaseId = "umu-database";
 constexpr int fullPercent = 100;
 constexpr std::string_view tarSuffix = ".tar.gz";
 
@@ -170,11 +173,12 @@ void WineRunners::runCheck(const std::stop_token& stop, CheckMode mode) {
     }
     const bool ge = updateGeProton(stop, mode);
     const bool umu = !stop.stop_requested() && updateUmu(stop, mode);
+    const bool ids = !stop.stop_requested() && updateDatabase(mode);
     measure();
     const std::lock_guard lock{mutex_};
     look_.checking = false;
-    checked_ = ge && umu;
-    if (ge && umu) {
+    checked_ = ge && umu && ids;
+    if (checked_) {
         look_.lastCheck =
             look_.builds.empty() ? "Checked" : "Up to date: " + look_.builds.front().name;
     } else if (!checkFailure_.empty()) {
@@ -184,6 +188,33 @@ void WineRunners::runCheck(const std::stop_token& stop, CheckMode mode) {
     } else {
         look_.lastCheck = stop.stop_requested() ? "Check stopped" : "Last check failed";
     }
+}
+
+bool WineRunners::updateDatabase(CheckMode mode) {
+    std::string error;
+    const std::optional<std::string> listing =
+        web_.get(std::string{library::umu::databaseApi}, error);
+    if (!listing) {
+        lucent::warn("wine", "the umu database cannot be read: {}", error);
+        checkFailed(mode, databaseId, "umu database", "Could not read the umu database");
+        return false;
+    }
+    std::size_t games = 0;
+    try {
+        games = library::umu::Database::parse(*listing).size();
+    } catch (const std::runtime_error& refused) {
+        checkFailed(mode, databaseId, "umu database",
+                    std::string{"The umu database could not be used: "} + refused.what());
+        return false;
+    }
+    const fs::path file = library::umu::databaseFile(dataDir_);
+    if (!fileio::writeWhole(file, *listing, error)) {
+        checkFailed(mode, databaseId, "umu database", "Could not keep the umu database: " + error);
+        return false;
+    }
+    lucent::info("wine", "the umu database lists {} games' fixes; kept at {}", games,
+                 file.string());
+    return true;
 }
 
 bool WineRunners::updateGeProton(const std::stop_token& stop, CheckMode mode) {

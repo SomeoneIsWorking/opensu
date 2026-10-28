@@ -143,6 +143,7 @@ void WineSettings::rescan() {
     found_ = library::wine::discover(where);
     lutris_ = library::wine::lutrisDefault(where.lutris, found_);
     umuRun_ = library::wine::umuRunOf(runners_.umuRun(), where);
+    umu_ = library::umu::Database::read(library::umu::databaseFile(config_.dataDir));
     steamOn_ = steam ? steamGamesByTool(*steam, hooks_.games())
                      : std::map<fs::path, std::vector<library::Game>>{};
 }
@@ -155,7 +156,8 @@ library::wine::Choice WineSettings::choice() const {
                                  .lutris = lutris_,
                                  .dataDir = config_.dataDir,
                                  .own = v.ownWinePrefixes,
-                                 .umuRun = umuRun_};
+                                 .umuRun = umuRun_,
+                                 .umu = &umu_};
 }
 
 std::vector<library::Game> WineSettings::windowsGames() const {
@@ -498,8 +500,8 @@ void WineSettings::test() {
         return;
     }
     const fs::path& prefix = ready.prefix;
-    library::wine::Invocation invocation =
-        library::wine::invocationOf(*runner, prefix, resolved.umuRun, config_.dataDir, "");
+    library::wine::Invocation invocation = library::wine::invocationOf(
+        *runner, prefix, resolved.umuRun, config_.dataDir, "", library::umu::unknownGameId);
     std::vector<std::string> command = std::move(invocation.environment);
     command.insert(command.end(), invocation.command.begin(), invocation.command.end());
     command.insert(command.end(), std::begin(testProgram), std::end(testProgram));

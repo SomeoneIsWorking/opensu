@@ -1495,6 +1495,13 @@ that can run of openSU's newest GE-Proton, Steam's newest Proton, what Lutris us
 from `ShellApp::launch` through `WineSettings`; a launch never waits for a download. Plain Wine gets
 `--wine <runner> --wine-prefix <prefix>`; a Proton build gets `--no-wine --wrapper <umu-run>` and
 umu's environment (`PROTONPATH`, `WINEPREFIX`, `GAMEID`, `STORE`, `UMU_FOLDERS_PATH=<data>/wine`).
+`GAMEID` picks the game's protonfixes: the umu database's id for a GOG product id or an Epic app
+name (`library/umu_database`), `umu-<app id>` for an own game matched to a Steam app, else `umu-0`.
+umu-launcher takes the id as given and resolves nothing itself; Heroic asks `umu_api.php` per game
+at launch and caches it, Lutris looks it up in a local copy of the whole database. openSU keeps a
+local copy too, fetched with the GE-Proton check (start, daily, Check now; not in a hidden run)
+into `<data>/wine/umu-database.json` and read with the runners, so a launch never waits for it; a
+game launched before the first check runs as `umu-0`.
 Every such game shares `<data dir>/wine-prefix`; a game's details page has "Wine prefix:
 Shared/Own", and Own gives it `<data dir>/wine-prefixes/<store>-<id>` (`settings.json`
 `ownWinePrefix`). Plain Wine never runs in a prefix Proton made (Proton links its build's DLLs
