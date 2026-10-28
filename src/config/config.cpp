@@ -11,6 +11,8 @@
 #include <langinfo.h>
 #include <locale.h>
 
+#include <SDL3/SDL_filesystem.h>
+
 #include "launch/process_id.hpp"
 #include "locations.hpp"
 #include "lucent/log.h"
@@ -157,6 +159,14 @@ bool localeClock24Hour() {
     return twentyFour;
 }
 
+std::filesystem::path shellExecutable() {
+    const char* base = SDL_GetBasePath();
+    if (base == nullptr) {
+        return {};
+    }
+    return std::filesystem::path{base} / (std::string{"opensu"} + OPENSU_EXECUTABLE_SUFFIX);
+}
+
 } // namespace
 
 std::string_view key(HomeMode mode) noexcept {
@@ -213,8 +223,7 @@ Config read() {
     value.steamRoots = splitPaths(env("OPENSU_STEAM_ROOTS"));
     value.romRoots = splitPaths(env("OPENSU_ROM_ROOTS"));
     value.emulators = parseEmulators(env("OPENSU_EMULATORS"));
-    std::error_code error;
-    const std::filesystem::path self = std::filesystem::read_symlink("/proc/self/exe", error);
+    const std::filesystem::path self = shellExecutable();
     if (const std::string_view assets = env("OPENSU_ASSETS"); !assets.empty()) {
         value.assetsDir = std::filesystem::path{assets};
     } else {
