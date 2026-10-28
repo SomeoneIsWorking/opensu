@@ -2,7 +2,7 @@
 
 #include <system_error>
 
-#include <unistd.h>
+#include "fileio/folder_access.hpp"
 
 namespace opensu::settings {
 
@@ -50,7 +50,8 @@ std::string refusal(const std::filesystem::path& folder, Need need) {
     if (!std::filesystem::is_directory(folder, error)) {
         return "that is not a folder";
     }
-    if (access(folder.c_str(), (need == Need::Write ? W_OK : R_OK) | X_OK) != 0) {
+    if (!fileio::mayUseFolder(folder, need == Need::Write ? fileio::FolderUse::Write
+                                                          : fileio::FolderUse::Read)) {
         return need == Need::Write ? "that folder cannot be written to"
                                    : "that folder cannot be read";
     }
