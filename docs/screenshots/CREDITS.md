@@ -25,10 +25,15 @@ openSU's own parts of every frame:
 `library-photos.webp`, `library-drawings.webp` and `library-iisu.webp` (`--console-theme`) show the
 README's console art themes:
 
-- **Photos** (the default): public-domain photos of the hardware by Evan-Amos (Vanamo Online Game Museum) on
-  Wikimedia Commons, each listed with its Commons page and licence in
+- **Photos** (the default): photos of the hardware on Wikimedia Commons, each listed with its
+  Commons page, author and licence in
   [assets/consoles/photos/README.md](../../assets/consoles/photos/README.md); the tab glyphs are
-  the Drawings theme's.
+  the Drawings theme's. Each is public domain, CC BY or CC BY-SA, as listed there: all are public
+  domain by Evan-Amos (Vanamo Online Game Museum) but the Wii U's,
+  "[Wii U Console and Gamepad](https://commons.wikimedia.org/wiki/File:Wii_U_Console_and_Gamepad.png)"
+  by Takimata, edited by Tokyoship,
+  [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). Its card is cropped, its
+  background removed and a glow added, and that derivative is CC BY-SA 3.0 too.
 - **iiSU's console cards and tab glyphs** belong to [iiSU](https://github.com/iisu-network/iiSU).
   openSU reads them from a copy of iiSU's release the player downloads and chooses; openSU never
   downloads them, and they are not part of openSU, not in this repository and not licensed by it.

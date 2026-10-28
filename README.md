@@ -40,7 +40,7 @@ derived from the window, following iiSU's own layout rules.
 | Search with results | |
 
 The shots are of the maintainer's own library. Game art belongs to its owners; the console cards
-are public-domain photos (the Photos theme, `assets/consoles/photos/`) and the tab glyphs openSU's
+are photos (the Photos theme, `assets/consoles/photos/`) and the tab glyphs openSU's
 own drawings (MIT); see
 [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md). Captured with
 `uv run --frozen python -m tools.screenshots --profile real`.
@@ -50,8 +50,9 @@ own drawings (MIT); see
 A console's card in Library and the glyph in its tiles' tabs come from a console art theme. Pick
 one in Settings › Artwork › Console art theme:
 
-- **Photos** (the default): public-domain photos of the hardware by Evan-Amos on Wikimedia
-  Commons, with the Drawings glyphs ([credits](assets/consoles/photos/README.md)).
+- **Photos** (the default): photos of the hardware on Wikimedia Commons, each public domain,
+  CC BY or CC BY-SA as listed in its [credits](assets/consoles/photos/README.md) (the Wii U card
+  is CC BY-SA 3.0, not MIT), with the Drawings glyphs.
 - **Drawings**: openSU's own drawings of the hardware, MIT.
 - **iiSU**: [iiSU](https://github.com/iisu-network/iiSU)'s own art, read from a copy of iiSU's
   release you download yourself; openSU never downloads it. Stepping to **iiSU** asks for the file:

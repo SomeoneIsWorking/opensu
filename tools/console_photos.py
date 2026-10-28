@@ -1,10 +1,11 @@
 """Builds the Photos console art theme: `uv run --frozen python -m tools.console_photos`.
 
-Each card is a public-domain photo of the hardware on Wikimedia Commons, pinned by SHA-256 with its
-page, author and licence. The originals go into scratch/console-photos/<system>/ and are only
-read, as images, by ImageMagick: a white background is cut to alpha from the edges inwards, the
-console is trimmed, fitted and centred on a square with a soft shadow, and the card is written as
-assets/consoles/photos/cards/<system>.webp. The theme's README credits every photo.
+Each card is a photo of the hardware on Wikimedia Commons (public domain, CC BY or CC BY-SA),
+pinned by SHA-256 with its page, author and licence. The originals go into
+scratch/console-photos/<system>/ and are only read, as images, by ImageMagick: a white background
+is cut to alpha from the edges inwards, the console is trimmed, fitted and lit from behind, and
+the card is written as assets/consoles/photos/cards/<system>.webp. The theme's README credits every
+photo.
 """
 
 import subprocess
@@ -22,6 +23,8 @@ COMMONS = "https://upload.wikimedia.org/wikipedia/commons"
 PAGE = "https://commons.wikimedia.org/wiki/File:"
 EVAN_AMOS = "Evan-Amos (Vanamo Online Game Museum)"
 PUBLIC_DOMAIN = "Public domain"
+CC_BY_SA_3 = "CC BY-SA 3.0"
+CC_BY_SA_3_URL = "https://creativecommons.org/licenses/by-sa/3.0/"
 
 # The console's longer side; the card is the console and its glow, in the console's own shape.
 FIT = 448
@@ -39,6 +42,7 @@ class Photo:
     sha256: str
     author: str = EVAN_AMOS
     licence: str = PUBLIC_DOMAIN
+    licence_url: str = ""
 
     @property
     def file_name(self) -> str:
@@ -64,8 +68,10 @@ PHOTOS = (
           "b96b43955f78b78f11390fe729efc2b5098860faec2408e63bb27f7a6ee32ee7"),
     Photo("wii", "f/f3/Wii-Console.png",
           "f1e0ae680f45c60580f9250b5a05e36bb78a24b97e4d6d7f576297c37cd5cc1d"),
-    Photo("wiiu", "d/dd/Nintendo-Wii-U-Console-FL.jpg",
-          "2002fe4abcbb20be0c673abdb9b9de259d0e192f92ed0d351195bab469514b8a"),
+    # The GamePad is what reads as a Wii U; no public-domain photo of it exists.
+    Photo("wiiu", "4/4a/Wii_U_Console_and_Gamepad.png",
+          "cd82f1dae17a73505faf400dac158fbdbef5ff5c4bd3eac63fa2581d300e9dab",
+          "Takimata (edited by Tokyoship)", CC_BY_SA_3, CC_BY_SA_3_URL),
     Photo("switch", "7/76/Nintendo-Switch-Console-Docked-wJoyConRB.jpg",
           "489aa714bb0ffbdfeef9570d17799af28fa90120ed7ab5fb395a365f71e6b8b0"),
     Photo("gb", "f/f4/Game-Boy-FL.jpg",
@@ -127,17 +133,24 @@ def card(magick: str, original: Path, out: Path) -> None:
 
 def credits() -> str:
     rows = "\n".join(
-        f"| `{p.system}` | [{p.file_name}]({p.page}) | {p.author} | {p.licence} |" for p in PHOTOS
+        f"| `{p.system}` | [{p.file_name}]({p.page}) | {p.author} | {licence(p)} |" for p in PHOTOS
     )
     return (
         "# Photos\n\n"
-        "Public-domain photos of the hardware from Wikimedia Commons, made into cards by\n"
-        "`tools/console_photos.py` (background cut to alpha, trimmed, a soft light glow behind).\n"
+        "Photos of the hardware from Wikimedia Commons, each under the licence listed: public\n"
+        "domain, CC BY or CC BY-SA. `tools/console_photos.py` makes each into a card: cropped,\n"
+        "its background removed, scaled and given a soft light glow behind. A card made from a\n"
+        "CC BY-SA photo is that photo's derivative and is itself under CC BY-SA, not the\n"
+        "repository's MIT.\n"
         "The glyphs are the Drawings theme's. A system without a photo here has no picture on its\n"
         "card in this theme.\n\n"
         "| System | Commons page | Author | Licence |\n| --- | --- | --- | --- |\n"
         f"{rows}\n"
     )
+
+
+def licence(photo: Photo) -> str:
+    return f"[{photo.licence}]({photo.licence_url})" if photo.licence_url else photo.licence
 
 
 def main() -> int:
