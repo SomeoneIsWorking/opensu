@@ -3,9 +3,9 @@
 // effect at the scope and a chip naming where it comes from; choosing a value keeps it at the
 // scope, and every list starts with "Use <value> from <layer>", which removes the scope's own. X
 // goes to the scope the value comes from, Y removes the scope's value or restores one removed this
-// run. Frame generation opens on a one-line summary. As a page it fills the screen (Settings, a
-// game's details); as a panel it stands at the right over the running game. The shader preset's
-// row opens `ShaderPresetScreen`, the pack's folders in the same presentation.
+// run. Frame generation and resolution and upscaling open on a one-line summary. As a page it fills
+// the screen (Settings, a game's details); as a panel it stands at the right over the running game.
+// The shader preset's row opens `ShaderPresetScreen`, the pack's folders in the same presentation.
 #pragma once
 
 #include <cstddef>
@@ -59,6 +59,8 @@ class LayeredEditor final : public gpu2d::ui::Screen {
     void addRow(gpu2d::ui::Column& rows, const settings::ScopedValue& value);
     /// The frame generation summary over its rows.
     void addFrameGenSummary(gpu2d::ui::Column& rows);
+    /// The resolution and upscaling summary over its rows.
+    void addScalingSummary(gpu2d::ui::Column& rows);
     void addClear(gpu2d::ui::Column& rows);
     /// `value` of `setting` as the row reads it.
     [[nodiscard]] std::string labelOf(const settings::Setting& setting,

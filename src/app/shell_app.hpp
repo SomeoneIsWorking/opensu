@@ -40,6 +40,7 @@
 #include "focus_follow.hpp"
 #include "frame_generation.hpp"
 #include "game_launch.hpp"
+#include "game_scaling.hpp"
 #include "game_screen.hpp"
 #include "game_settings.hpp"
 #include "gamepad/direction_repeat.hpp"
@@ -274,6 +275,8 @@ class ShellApp final {
             return library::findLosslessDll(
                 library::steam::Library::discover(resolved_.home, resolved_.steamRoots));
         }};
+    /// The running game's resolution and upscaling: Gamescope's atoms, set from its layers.
+    GameScaling gameScaling_{gameSettings_, openScalingOutput(environment_.insideGamescope)};
     /// Lists every store off the loop; the loop takes what has arrived.
     library::CatalogLoader catalogLoader_;
     /// Downloaded artwork, and the worker that fills it in.
@@ -428,8 +431,8 @@ class ShellApp final {
                                  [this]() -> const library::roms::Emulators& {
                                      return emulatorSettings_.found();
                                  },
-                                 emulatorDownloads_.shaderPack(), frameGeneration_, retro_,
-                                 CoreOptionStore{environment_.cacheDir / "core-options"}},
+                                 emulatorDownloads_.shaderPack(), frameGeneration_, gameScaling_,
+                                 retro_, CoreOptionStore{environment_.cacheDir / "core-options"}},
         LayeredSettings::Hooks{[this](const std::string& id) -> std::optional<library::Game> {
                                    if (const library::Game* game = ownGame(id)) {
                                        return *game;

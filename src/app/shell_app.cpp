@@ -587,6 +587,8 @@ void ShellApp::launch(const library::Game& game) {
     std::vector<std::string> environment = padOwner_.hold(mappings_.forGame(game));
     environment.push_back(std::move(control));
     environment.insert(environment.end(), wine.environment.begin(), wine.environment.end());
+    // Before the game starts, so it reads the smaller screen as its own.
+    gameScaling_.follow(&started);
     launches_.start(std::move(started), std::move(environment));
 }
 
@@ -981,6 +983,10 @@ int ShellApp::run() {
     if (!openWindow("openSU", settings_.hidden)) {
         return 1;
     }
+    // Read before any game makes the screen smaller.
+    if (const std::optional<session::Output> output = window_->output()) {
+        gameScaling_.setScreen(settings::ScreenSize{output->width, output->height});
+    }
     if (environment_.insideGamescope && !settings_.hidden) {
         // Gamescope composites a window as the overlay only when it spans the whole screen,
         // which also draws the home screen at the output's own resolution.
@@ -1015,6 +1021,7 @@ int ShellApp::run() {
         padOwner_.lendToSteam(steamGridDbAccount_.signingIn() || offerClaim_.inSteam());
         focusFollow_.service(padOwner_.held());
         frameGeneration_.follow(gameInFront());
+        gameScaling_.follow(launches_.running() ? &launches_.game() : nullptr);
         nightLight_.service(preferences_.values().nightLight, std::chrono::system_clock::now());
         padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),
                          gameScreen_.mode() == session::OverlayMode::Interactive);

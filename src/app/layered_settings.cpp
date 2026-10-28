@@ -7,6 +7,7 @@
 #include "retro_launch.hpp"
 #include "settings/core_option_settings.hpp"
 #include "settings/framegen_settings.hpp"
+#include "settings/scaling_settings.hpp"
 #include "settings/video_settings.hpp"
 
 namespace opensu::app {
@@ -24,7 +25,8 @@ bool builtIn(const library::roms::EmulatorCatalog& catalog, const std::string& i
 
 LayeredSettings::LayeredSettings(Sources sources, Hooks hooks)
     : gameSettings_{sources.gameSettings}, found_{std::move(sources.found)},
-      shaders_{sources.shaders}, frameGeneration_{sources.frameGeneration}, retro_{sources.retro},
+      shaders_{sources.shaders}, frameGeneration_{sources.frameGeneration},
+      scaling_{sources.scaling}, retro_{sources.retro},
       coreOptions_{std::move(sources.coreOptions)}, hooks_{std::move(hooks)} {
 }
 
@@ -135,6 +137,9 @@ settings::Schema LayeredSettings::schemaOf(const EditorContext& context) const {
     if (FrameGeneration::supported()) {
         settings::declareFrameGen(schema);
     }
+    if (GameScaling::supported()) {
+        settings::declareScaling(schema, scaling_.screen());
+    }
     if (video && !context.keys.emulator.empty()) {
         settings::declareCoreOptions(schema, coreOptionsOf(context.keys.emulator));
     }
@@ -187,6 +192,19 @@ std::string LayeredSettings::frameGenSource() const {
                            ? "Lossless Scaling's shaders, from your Steam install"
                            : "Needs Lossless Scaling, installed through Steam";
     if (!frameGeneration_.active()) {
+        text += " · applies in openSU's Gamescope session";
+    }
+    return text;
+}
+
+std::string LayeredSettings::scalingSummary(const settings::SettingLookup& applies,
+                                            const std::string& where) const {
+    return settings::scalingSummary(settings::resolveScaling(applies, where), scaling_.screen());
+}
+
+std::string LayeredSettings::scalingSource() const {
+    std::string text = "Gamescope draws the game at this size and upscales it to the screen";
+    if (!scaling_.active()) {
         text += " · applies in openSU's Gamescope session";
     }
     return text;
@@ -253,6 +271,7 @@ void LayeredSettings::changed(const std::string& key) {
     }
     applyToRunning();
     frameGeneration_.changed();
+    scaling_.changed();
     hooks_.changed();
 }
 
