@@ -179,8 +179,8 @@ void gamesAreIdentified(const fs::path& games) {
         const identify::Guess guess = identify::identify(each.file, &store);
         if (guess.title != each.title || guess.steamAppId != each.appId ||
             guess.kind != each.kind) {
-            std::fprintf(stderr, "%s: %s (%s) from %s\n", each.file.c_str(), guess.title.c_str(),
-                         guess.steamAppId.c_str(), guess.from.c_str());
+            std::fprintf(stderr, "%s: %s (%s) from %s\n", each.file.string().c_str(),
+                         guess.title.c_str(), guess.steamAppId.c_str(), guess.from.c_str());
         }
         expect(guess.title == each.title && guess.steamAppId == each.appId &&
                    guess.kind == each.kind,

@@ -42,7 +42,11 @@ std::string textField(const json& document, const char* name, std::string& error
 
 /// Why `pattern` cannot be a read path, or empty.
 std::string pathRefusal(const std::string& pattern) {
-    const PathTokens probe{"/h", "/d", "/c", "/k"};
+    // Absolute on this OS: on Windows "/h" lacks a drive and is not.
+    const auto probeDir = [](const char* name) {
+        return std::filesystem::absolute(std::filesystem::path{"/"} / name);
+    };
+    const PathTokens probe{probeDir("h"), probeDir("d"), probeDir("c"), probeDir("k")};
     const std::optional<std::filesystem::path> expanded = expandPath(pattern, probe);
     if (!expanded) {
         return "read path " + pattern + " has an unknown token or is not absolute";

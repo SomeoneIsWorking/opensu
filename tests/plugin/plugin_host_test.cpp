@@ -118,6 +118,8 @@ void readsStayInsideTheReadPaths(const fs::path& root) {
     test::writeFile(allowed / "inside.txt", "inside");
     test::writeFile(rig.root() / "data" / "secret.txt", "secret");
     fs::create_directory_symlink(rig.root() / "data", allowed / "link");
+    // Absolute on every OS, and outside every read path.
+    const std::string outside = (rig.root() / "outside.txt").generic_string();
     rig.addPlugin("reader",
                   R"(
         opensu.register_playtime_source{
@@ -125,7 +127,8 @@ void readsStayInsideTheReadPaths(const fs::path& root) {
           read = function()
             local root = opensu.paths.read.mine[1]
             local denied = {}
-            for _, path in ipairs({'/etc/hostname', root .. '/../secret.txt',
+            for _, path in ipairs({')" +
+                      outside + R"(', root .. '/../secret.txt',
                                    root .. '/link/secret.txt', 'relative.txt'}) do
               local bytes, err = opensu.fs.read(path)
               denied[#denied + 1] = bytes and ('READ ' .. path) or err
@@ -144,7 +147,7 @@ void readsStayInsideTheReadPaths(const fs::path& root) {
     rig.refresh({test::romGame("Game", "/roms/switch/game.nsp")});
     const std::string& problem = rig.info("reader").problem;
     expect(!contains(problem, "READ"), "no file outside the read path was read");
-    expect(contains(problem, "/etc/hostname is outside the plugin's read paths"),
+    expect(contains(problem, outside + " is outside the plugin's read paths"),
            "an undeclared path is refused");
     expect(contains(problem, "/../secret.txt is outside"), "climbing out with .. is refused");
     expect(contains(problem, "/link/secret.txt is outside"), "a symlink out is refused");
