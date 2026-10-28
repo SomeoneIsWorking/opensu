@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-namespace opensu::session {
+namespace opensu::display {
 
 enum class OverlayMode : std::uint8_t {
     /// Nothing; the game has the input.
@@ -14,4 +14,4 @@ enum class OverlayMode : std::uint8_t {
     Interactive,
 };
 
-} // namespace opensu::session
+} // namespace opensu::display

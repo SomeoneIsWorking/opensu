@@ -73,9 +73,10 @@ void GamescopeOverlay::enter() {
     connection_->flush();
 }
 
-void GamescopeOverlay::show(OverlayMode mode) {
-    connection_->set(connection_->opacity, {mode == OverlayMode::Hidden ? 0 : opaque});
-    connection_->set(connection_->inputFocus, {mode == OverlayMode::Interactive ? 1UL : 0UL});
+void GamescopeOverlay::show(display::OverlayMode mode) {
+    connection_->set(connection_->opacity, {mode == display::OverlayMode::Hidden ? 0 : opaque});
+    connection_->set(connection_->inputFocus,
+                     {mode == display::OverlayMode::Interactive ? 1UL : 0UL});
     connection_->flush();
 }
 

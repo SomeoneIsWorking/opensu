@@ -12,9 +12,9 @@
 #include "gpu2d/gpu_error.hpp"
 #include "gpu2d/render_target.hpp"
 
+#include "display/output.hpp"
 #include "lucent/log.h"
 #include "sdl_keys.hpp"
-#include "session/monitor.hpp"
 
 namespace opensu::app {
 namespace {
@@ -49,12 +49,12 @@ ShellWindow::ShellWindow(const Options& options)
                  window_.driver(), window_.translucent() ? "translucent" : "opaque");
 }
 
-std::optional<session::Output> ShellWindow::output() const {
-    return session::displayOutput(SDL_GetDisplayForWindow(window_.window()));
+std::optional<display::Output> ShellWindow::output() const {
+    return display::displayOutput(SDL_GetDisplayForWindow(window_.window()));
 }
 
 gpu2d::PixelSize ShellWindow::fillMonitor() {
-    if (const std::optional<session::Output> monitor = output()) {
+    if (const std::optional<display::Output> monitor = output()) {
         SDL_SetWindowSize(window_.window(), monitor->width, monitor->height);
         SDL_SyncWindow(window_.window());
     }

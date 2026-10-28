@@ -5,9 +5,9 @@
 
 namespace opensu::app {
 
-using session::FocusHolder;
+using display::FocusHolder;
 
-void FocusFollow::attach(std::unique_ptr<session::FocusSource> source, std::uint64_t ownWindow) {
+void FocusFollow::attach(std::unique_ptr<display::FocusSource> source, std::uint64_t ownWindow) {
     source_ = std::move(source);
     ownWindow_ = ownWindow;
 }
@@ -16,20 +16,20 @@ void FocusFollow::service(bool game) {
     if (!source_) {
         return;
     }
-    std::optional<session::FocusedWindow> change = source_->takeChange();
+    std::optional<display::FocusedWindow> change = source_->takeChange();
     if (change) {
         focused_ = *change;
     } else if (game == game_ || !focused_) {
         return;
     }
     game_ = game;
-    const session::FocusParties parties{
+    const display::FocusParties parties{
         .self = launch::ownProcessId(),
         .ownWindow = ownWindow_,
         .game = game ? hooks_.gamePids() : std::vector<launch::ProcessId>{},
     };
     const FocusHolder was = holder_;
-    holder_ = session::holderOf(*focused_, parties);
+    holder_ = display::holderOf(*focused_, parties);
     if (holder_ == was) {
         return;
     }

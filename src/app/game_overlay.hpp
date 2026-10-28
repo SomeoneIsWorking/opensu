@@ -8,8 +8,8 @@
 #include <memory>
 #include <vector>
 
+#include "display/overlay_mode.hpp"
 #include "input/shortcuts.hpp"
-#include "session/overlay_mode.hpp"
 #include "shell_window.hpp"
 
 namespace opensu::app {
@@ -26,7 +26,7 @@ class GameOverlay {
     /// A game is running: the window becomes the overlay, showing nothing.
     virtual void enter() = 0;
     /// Shows or hides the overlay, with the keyboard only when `Interactive`.
-    virtual void show(session::OverlayMode mode) = 0;
+    virtual void show(display::OverlayMode mode) = 0;
     /// The game's windows are gone: the window is an ordinary app again and takes focus back.
     virtual void leave() = 0;
     /// The actions `shortcuts` performs that work with a game up and were pressed since the last

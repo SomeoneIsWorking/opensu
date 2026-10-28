@@ -27,10 +27,10 @@ namespace {
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
+using opensu::display::Output;
 using opensu::host::DesktopRequest;
 using opensu::session::CompositorSession;
 using opensu::session::gamescopeArgs;
-using opensu::session::Output;
 using opensu::session::RestartBudget;
 using opensu::session::RestartLimit;
 

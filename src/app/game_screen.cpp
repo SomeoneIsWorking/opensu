@@ -26,7 +26,7 @@ void GameScreen::takeFocus() {
 
 void GameScreen::setRunning(bool running) {
     running_ = running;
-    mode_ = session::OverlayMode::Hidden;
+    mode_ = display::OverlayMode::Hidden;
     if (overlay_) {
         if (running) {
             overlay_->enter();
@@ -38,12 +38,12 @@ void GameScreen::setRunning(bool running) {
     }
 }
 
-void GameScreen::show(session::OverlayMode wanted) {
+void GameScreen::show(display::OverlayMode wanted) {
     if (wanted == mode_) {
         return;
     }
-    const bool wasInteractive = mode_ == session::OverlayMode::Interactive;
-    const bool interactive = wanted == session::OverlayMode::Interactive;
+    const bool wasInteractive = mode_ == display::OverlayMode::Interactive;
+    const bool interactive = wanted == display::OverlayMode::Interactive;
     mode_ = wanted;
     if (overlay_) {
         overlay_->show(wanted);

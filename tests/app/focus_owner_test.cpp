@@ -22,12 +22,12 @@ namespace {
 
 using opensu::app::FocusFollow;
 using opensu::app::PadOwner;
+using opensu::display::FocusedWindow;
+using opensu::display::FocusHolder;
+using opensu::display::steamAppId;
 using opensu::gamepad::Button;
 using opensu::gamepad::Claim;
 using opensu::gamepad::Event;
-using opensu::session::FocusedWindow;
-using opensu::session::FocusHolder;
-using opensu::session::steamAppId;
 using opensu::test::expect;
 
 constexpr std::uint64_t ownWindow = 0x400002;
@@ -119,7 +119,7 @@ void behindAnotherWindowOnlyGuideIsHeard() {
 }
 
 /// Gamescope's focus as the test sets it.
-class FakeFocus final : public opensu::session::FocusSource {
+class FakeFocus final : public opensu::display::FocusSource {
   public:
     explicit FakeFocus(std::optional<FocusedWindow>& next) : next_{next} {
     }

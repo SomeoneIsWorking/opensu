@@ -11,14 +11,12 @@
 #include <optional>
 #include <vector>
 
-#include <sys/types.h>
-
 #include "launch/game_windows.hpp"
 #include "window_focus.hpp"
 
 namespace opensu::session {
 
-class GamescopeWindows final : public launch::GameWindows, public FocusSource {
+class GamescopeWindows final : public launch::GameWindows, public display::FocusSource {
   public:
     /// Opens its own connection to the X display, for the thread that asks.
     /// Throws std::runtime_error when the display cannot be opened.
@@ -28,18 +26,18 @@ class GamescopeWindows final : public launch::GameWindows, public FocusSource {
     GamescopeWindows(const GamescopeWindows&) = delete;
     GamescopeWindows& operator=(const GamescopeWindows&) = delete;
 
-    [[nodiscard]] bool anyOwnedBy(const std::vector<pid_t>& pids) override;
+    [[nodiscard]] bool anyOwnedBy(const std::vector<launch::ProcessId>& pids) override;
 
     /// The pids owning a focusable window now.
-    [[nodiscard]] std::vector<pid_t> owners();
+    [[nodiscard]] std::vector<launch::ProcessId> owners();
 
     /// The first call starts watching the root for focus changes; later calls answer only when
     /// one of the two properties changed.
-    [[nodiscard]] std::optional<FocusedWindow> takeChange() override;
+    [[nodiscard]] std::optional<display::FocusedWindow> takeChange() override;
 
   private:
     [[nodiscard]] std::vector<FocusableWindow> focusable();
-    [[nodiscard]] FocusedWindow focused();
+    [[nodiscard]] display::FocusedWindow focused();
 
     struct Connection;
     std::unique_ptr<Connection> connection_;

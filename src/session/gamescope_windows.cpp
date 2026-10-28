@@ -56,27 +56,27 @@ std::vector<FocusableWindow> GamescopeWindows::focusable() {
     return parseFocusable(connection_->cardinals(connection_->focusable));
 }
 
-std::vector<pid_t> GamescopeWindows::owners() {
-    std::vector<pid_t> pids;
+std::vector<launch::ProcessId> GamescopeWindows::owners() {
+    std::vector<launch::ProcessId> pids;
     for (const FocusableWindow& window : focusable()) {
         pids.push_back(window.pid);
     }
     return pids;
 }
 
-bool GamescopeWindows::anyOwnedBy(const std::vector<pid_t>& pids) {
-    return std::ranges::any_of(owners(), [&pids](pid_t owner) {
+bool GamescopeWindows::anyOwnedBy(const std::vector<launch::ProcessId>& pids) {
+    return std::ranges::any_of(owners(), [&pids](launch::ProcessId owner) {
         return std::ranges::find(pids, owner) != pids.end();
     });
 }
 
-FocusedWindow GamescopeWindows::focused() {
+display::FocusedWindow GamescopeWindows::focused() {
     const std::vector<long> window = connection_->cardinals(connection_->focused);
     return describeFocus(window.empty() ? 0 : static_cast<std::uint64_t>(window.front()),
                          focusable());
 }
 
-std::optional<FocusedWindow> GamescopeWindows::takeChange() {
+std::optional<display::FocusedWindow> GamescopeWindows::takeChange() {
     Display* display = connection_->display;
     if (!watching_) {
         XSelectInput(display, DefaultRootWindow(display), PropertyChangeMask);

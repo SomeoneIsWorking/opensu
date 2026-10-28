@@ -11,8 +11,8 @@
 #include <memory>
 #include <utility>
 
+#include "display/overlay_mode.hpp"
 #include "game_overlay.hpp"
-#include "session/overlay_mode.hpp"
 #include "shell_window.hpp"
 
 namespace opensu::app {
@@ -37,8 +37,8 @@ class GameScreen {
     void setRunning(bool running);
     /// What is wanted over the running game: `Interactive` for a menu or page, `Passive` for the
     /// chord list. Applied once per change.
-    void show(session::OverlayMode wanted);
-    [[nodiscard]] session::OverlayMode mode() const noexcept {
+    void show(display::OverlayMode wanted);
+    [[nodiscard]] display::OverlayMode mode() const noexcept {
         return mode_;
     }
     /// Inside Gamescope with no game running: puts the window back in front of whatever another
@@ -59,7 +59,7 @@ class GameScreen {
     bool running_{false};
     std::function<void(bool blocked)> blockPads_;
     ShellWindow* window_{};
-    session::OverlayMode mode_{session::OverlayMode::Hidden};
+    display::OverlayMode mode_{display::OverlayMode::Hidden};
     std::unique_ptr<GameOverlay> overlay_;
 };
 

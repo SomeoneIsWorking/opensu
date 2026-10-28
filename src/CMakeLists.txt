@@ -21,7 +21,11 @@ add_subdirectory(input)
 add_subdirectory(launch)
 add_subdirectory(host)
 add_subdirectory(steam)
-add_subdirectory(session)
+add_subdirectory(display)
+# Gamescope, X11 and the login session are Linux's alone.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_subdirectory(session)
+endif()
 add_subdirectory(device)
 add_subdirectory(ui)
 add_subdirectory(app)
@@ -35,7 +39,6 @@ target_link_libraries(opensu
         opensu::pad
         opensu::launch
         opensu::steam
-        opensu::session
         opensu::library
         lucent::lucent
 )
@@ -102,7 +105,6 @@ target_include_directories(opensu_command INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(opensu_launch INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(opensu_host INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(opensu_steam INTERFACE "${CMAKE_SOURCE_DIR}/src")
-target_include_directories(opensu_session INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(opensu_app INTERFACE "${CMAKE_SOURCE_DIR}/src")
 target_include_directories(opensu INTERFACE "${CMAKE_SOURCE_DIR}/src")
 
