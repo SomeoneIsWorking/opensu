@@ -109,7 +109,7 @@ std::optional<Nca> Nca::open(SwitchPackage& package, const PackageFile& file,
         nca.romfs_ = section;
         break;
     }
-    wipeBytes(header.data(), header.size());
+    secrets::wipeBytes(header.data(), header.size());
     return nca;
 }
 
@@ -156,7 +156,7 @@ std::optional<Key128> Nca::sectionKey(const SwitchKeys& keys, std::string& error
     }
     Key128 key;
     std::copy_n(decrypted.begin() + ctrKeySlot * aesBlock, aesBlock, key.bytes().begin());
-    wipeBytes(decrypted.data(), decrypted.size());
+    secrets::wipeBytes(decrypted.data(), decrypted.size());
     return key;
 }
 

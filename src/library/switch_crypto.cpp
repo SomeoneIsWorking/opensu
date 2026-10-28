@@ -3,7 +3,6 @@
 #include <climits>
 #include <memory>
 
-#include <openssl/crypto.h>
 #include <openssl/evp.h>
 
 namespace opensu::library::roms {
@@ -38,10 +37,6 @@ bool decryptWith(const EVP_CIPHER* cipher, const std::uint8_t* key, const std::u
 }
 
 } // namespace
-
-void wipeBytes(void* data, std::size_t size) {
-    OPENSSL_cleanse(data, size);
-}
 
 bool decryptEcb(const Key128& key, std::span<std::uint8_t> data) {
     if (data.size() % aesBlock != 0) {
