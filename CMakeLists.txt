@@ -50,6 +50,14 @@ if(NOT OPENSSL_FOUND)
         "(Fedora) or `sudo apt install libssl-dev` (Debian/Ubuntu)")
 endif()
 
+# nlohmann/json parses and writes every JSON file and reply openSU handles.
+find_package(nlohmann_json 3 QUIET)
+if(NOT nlohmann_json_FOUND)
+    message(FATAL_ERROR
+        "openSU needs nlohmann/json 3. Install it with `sudo dnf install json-devel` (Fedora) or "
+        "`sudo apt install nlohmann-json3-dev` (Debian/Ubuntu)")
+endif()
+
 # SQLite reads Lutris's game list (`library/lutris_games`) for Add a game's import.
 pkg_check_modules(SQLITE3 IMPORTED_TARGET GLOBAL sqlite3)
 if(NOT SQLITE3_FOUND)

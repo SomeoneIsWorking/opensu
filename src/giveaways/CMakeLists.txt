@@ -8,6 +8,7 @@ add_library(opensu_giveaways STATIC
     offer_list.cpp
 )
 add_library(opensu::giveaways ALIAS opensu_giveaways)
+target_link_libraries(opensu_giveaways PRIVATE nlohmann_json::nlohmann_json)
 target_include_directories(opensu_giveaways PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_giveaways
     PUBLIC opensu::library opensu::net
