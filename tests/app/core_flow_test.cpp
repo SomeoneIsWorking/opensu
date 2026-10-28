@@ -103,7 +103,8 @@ struct Rig {
     std::vector<std::pair<std::string, bool>> said;
     std::vector<library::LaunchSpec> launched;
     test::InterfaceRig face;
-    ui::ScreenImages images;
+    gpu2d::ImageLoader loader;
+    ui::ScreenImages images{loader};
     ui::Chrome chrome;
     audio::SdlSoundPlayer sounds;
     app::EmulatorDownloads downloads{

@@ -39,7 +39,7 @@ Non-goals: new visuals, a Windows build (SDL3 GPU keeps that possible), sharing 
 | Offscreen | render textures for the dock blur and `--render`/`/frame.png`, read back to PNG | `ui/backdrop_blur`, `app/frame_png` |
 | Shaders | the blur's two GLSL 330 passes and the capsule mask | `ui/backdrop_blur` |
 | Text | `LoadFontEx` atlas of Cal Sans, `DrawTextCodepoint`, `MeasureTextCodepoints` | `ui/interface_text` |
-| Images | `LoadImage`, `ImageResize`, `ImageFormat`, textures from images (WebP through libwebp already) | `ui/image_decoder` |
+| Images | `LoadImage`, `ImageResize`, `ImageFormat`, textures from images (WebP through libwebp already) | `gpu2d::ImageLoader` (decoded on its workers, landed by `ui/shell`), `ui/tile_artwork`, `ui/screen_images` |
 | Input | keys pressed, released and repeated, typed text, mouse position, buttons, wheel | `input/keyboard_bindings`, `input/key_names`, `app/shell_window` (`PointerFrame`) |
 | Sound | the audio device, WAV and OGG UI sounds | `audio/sound_player` |
 

@@ -17,6 +17,7 @@
 
 #include <SDL3/SDL_gpu.h>
 
+#include "gpu2d/image_loader.hpp"
 #include "gpu2d/render_target.hpp"
 #include "gpu2d/surface.hpp"
 
@@ -60,19 +61,24 @@ class Shell {
     /// Reports a new window size and re-flows the grid.
     void setSize(int width, int height);
 
-    /// Streams the grid's artwork (`HomeGrid::loadArtwork`) and the screens' pictures. Once a
-    /// frame, drawn or not.
-    void loadArtwork(std::size_t uploads = uploadsPerFrame);
-    /// Loads the artwork of the tiles near the canvas and waits until it is all in; for a still
+    /// Asks for the grid's artwork (`HomeGrid::requestArtwork`) and lands up to `bytes` of decoded
+    /// images (the grid's, the screens' pictures and the icons) as textures. Once a frame, drawn
+    /// or not.
+    void loadArtwork(std::size_t bytes = uploadBytesPerFrame);
+    /// Asks for the grid's artwork and waits until every image asked for has landed; for a still
     /// render.
     void loadArtworkNow();
+    /// Waits for the icons the last draw asked for and lands them; true when there were any, so
+    /// a still frame is drawn again with them.
+    bool settleIcons();
 
     /// Draws on `device` from here on: loads the face and makes every texture there. Once, when
     /// the window is up; throws gpu2d::GpuError when no face loads.
     void attach(SDL_GPUDevice& device);
 
-    /// Textures uploaded per frame, so a screenful of new covers spreads over a few frames.
-    static constexpr std::size_t uploadsPerFrame = 4;
+    /// Pixels landed as textures per frame (at least one image), so a screenful of new covers
+    /// spreads over a few frames.
+    static constexpr std::size_t uploadBytesPerFrame = std::size_t{4} << 20U;
 
     /// Makes `section` the one shown, which sets its grid and where the dock stands. The shelf is
     /// the caller's to replace after. `revealDock` slides the dock in for a moment (iiSU
@@ -213,8 +219,8 @@ class Shell {
   private:
     /// Pixels per dp.
     [[nodiscard]] float dp() const noexcept;
-    /// Uploads the pictures the screens show.
-    void loadPictures();
+    /// Logs what failed to load among `uploads`.
+    static void land(const gpu2d::ImageUploads& uploads);
     /// Gives the grid the window and the room the chrome keeps.
     void frameGrid();
     /// The held modifier's chords, while shown or fading out.
@@ -223,6 +229,8 @@ class Shell {
     [[nodiscard]] gpu2d::RenderTarget& sceneTarget();
     [[nodiscard]] SDL_GPUDevice& device() const;
 
+    /// Before every owner that asks it for images.
+    gpu2d::ImageLoader images_;
     /// Before the painters that draw with it.
     InterfaceText text_;
     IconAtlas icons_;
@@ -234,7 +242,7 @@ class Shell {
     ChordHint chordHint_;
     /// Before the screens, whose prompts give way to it.
     OnScreenKeyboard keyboard_;
-    ScreenStack screens_{prompts_, text_, keyboard_};
+    ScreenStack screens_{prompts_, text_, keyboard_, images_};
     MappingPage mapping_;
     Hud hud_{prompts_, text_, icons_};
     HomeGrid grid_;

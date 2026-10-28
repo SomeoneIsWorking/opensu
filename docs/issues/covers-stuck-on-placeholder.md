@@ -8,13 +8,13 @@ Observed: in `tools.screenshots --parity` runs of the same build, some Home capt
 after the capture.
 
 Cause: `tools/screenshots/cli.py:_capture` took each frame after a fixed 1.2 s settle, while
-`ui/image_decoder` was still decoding the shelf's covers on its one thread (two images per Steam
+the image decoder was still decoding the shelf's covers on its one thread (two images per Steam
 game, slower when the machine is busy or the catalog arrives twice and `TileArtwork::beginShelf`
 starts the decodes over). `/state` had nothing to wait on.
 
 Fix: `TileArtwork::pending` counts the window's tiles (and the header) for which
-`Tile::awaitingArt` holds: no texture yet, and art downloading, queued, decoding, or decoded but
-not yet uploaded. This is the same rule the tile painter's spinner uses. `/state` reports it as
+`Tile::awaitingArt` holds: no texture yet, and art downloading, or its `gpu2d::ImageHandle`s still pending (queued, decoding, or decoded but
+not yet uploaded). This is the same rule the tile painter's spinner uses. `/state` reports it as
 `artworkPending`, and `_capture` waits for 0 before every frame. `tile_artwork_test` covers a
 decoded cover that is still pending until it is uploaded.
 

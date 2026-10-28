@@ -47,6 +47,8 @@ struct ShellSnapshot {
     std::size_t installed{0};
     /// Tiles near the canvas still showing the loading placeholder.
     std::size_t artworkPending{0};
+    /// The longest frame of the last second, in microseconds (`FrameTiming`).
+    std::size_t worstFrameUs{0};
     std::size_t focusIndex{0};
     std::size_t page{0};
     std::size_t pageCount{1};
