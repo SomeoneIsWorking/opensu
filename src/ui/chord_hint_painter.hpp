@@ -5,9 +5,9 @@
 
 #include "button_glyph.hpp"
 #include "chord_hint.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 #include "paint.hpp"
 #include "panel_fade.hpp"
-#include "gpu2d/ui/typesetter.hpp"
 
 namespace opensu::ui {
 

@@ -125,8 +125,8 @@ ui::SettingsCategory EmulatorSettings::page(std::vector<ui::SettingsRow> layerRo
                                      std::to_string(installed) + " installed"));
     addShaderPackRows(page);
     page.rows.push_back(ui::makeHeading("BIOS"));
-    page.rows.push_back(ui::makePage(std::string{biosPageId}, "BIOS files",
-                                     "What each built-in core runs on", ""));
+    page.rows.push_back(
+        ui::makePage(std::string{biosPageId}, "BIOS files", "What each built-in core runs on", ""));
     return page;
 }
 

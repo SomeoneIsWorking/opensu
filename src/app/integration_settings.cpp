@@ -118,10 +118,9 @@ ui::SettingsCategory IntegrationSettings::page() const {
                                                optionsOf(integrations_.modesOffered(), mode)));
         }
         if (mode == SteamMode::Isolated) {
-            page.rows.push_back(ui::makeChoice(padsId, "Steam sees",
-                                               std::string{settings::note(now.steamPads)},
-                                               optionsOf(settings::Integrations::padsOffered(),
-                                                         now.steamPads)));
+            page.rows.push_back(
+                ui::makeChoice(padsId, "Steam sees", std::string{settings::note(now.steamPads)},
+                               optionsOf(settings::Integrations::padsOffered(), now.steamPads)));
         }
     }
     const std::size_t waiting = pendingCount();

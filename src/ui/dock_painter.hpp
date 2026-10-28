@@ -9,8 +9,8 @@
 #include "button_glyph.hpp"
 #include "dock_metrics.hpp"
 #include "glass.hpp"
-#include "library/sections.hpp"
 #include "gpu2d/ui/typesetter.hpp"
+#include "library/sections.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -36,7 +36,8 @@ struct DockStyle {
 
 class DockPainter {
   public:
-    DockPainter(const input::Prompts& prompts, gpu2d::ui::Typesetter& text, IconAtlas& icons) noexcept
+    DockPainter(const input::Prompts& prompts, gpu2d::ui::Typesetter& text,
+                IconAtlas& icons) noexcept
         : icons_{icons}, glyphs_{prompts, text} {
     }
 

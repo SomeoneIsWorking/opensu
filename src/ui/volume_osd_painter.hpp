@@ -2,10 +2,10 @@
 // its percentage, centred below the top bar.
 #pragma once
 
+#include "gpu2d/ui/typesetter.hpp"
 #include "home_layout.hpp"
 #include "paint.hpp"
 #include "panel_fade.hpp"
-#include "gpu2d/ui/typesetter.hpp"
 #include "volume_osd.hpp"
 
 namespace opensu::ui {

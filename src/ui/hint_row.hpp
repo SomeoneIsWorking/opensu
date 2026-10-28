@@ -6,8 +6,8 @@
 #include <utility>
 
 #include "button_glyph.hpp"
-#include "paint.hpp"
 #include "gpu2d/ui/typesetter.hpp"
+#include "paint.hpp"
 
 namespace opensu::ui {
 
