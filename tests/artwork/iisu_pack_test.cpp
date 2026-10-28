@@ -1,6 +1,7 @@
-// iiSU's console art from the file the player gives openSU: the release APK (cards from its
-// starter pack, glyphs from its border pack) or the starter pack alone, read from disk; anything
-// else is refused with what is wrong.
+// iiSU's console art from the file the player places in the iiSU folder: the release APK (cards
+// from its starter pack, glyphs from its border pack) or the starter pack alone, read from disk;
+// anything else is refused with what is wrong and passed over.
+#include "iisu_install.hpp"
 #include "iisu_pack.hpp"
 
 #include <cstdio>
@@ -17,6 +18,7 @@
 namespace {
 
 namespace fs = std::filesystem;
+using opensu::artwork::IisuInstall;
 using opensu::artwork::IisuPack;
 using opensu::test::zipfixture::buildZip;
 using opensu::test::zipfixture::FixtureEntry;
@@ -112,6 +114,30 @@ void testRefusals(const fs::path& dir) {
            "another app's APK is refused, naming what it lacks");
 }
 
+void testInstall(const fs::path& dir) {
+    const fs::path folder = dir / "themes" / "iiSU";
+    const IisuInstall install{folder};
+    expect(install.pack() == nullptr, "no folder is no iiSU file");
+    fs::create_directories(folder);
+    write(folder / "other.apk", buildZip({{"assets/other.png", "png", false, {}}}));
+    write(folder / "readme.txt", "not a pack");
+    expect(install.pack() == nullptr, "another app's APK in the folder is passed over");
+    write(folder / "iiSU_StarterPack.zip", starterPack());
+    const auto pack = install.pack();
+    expect(pack != nullptr && pack->file().filename() == "iiSU_StarterPack.zip" &&
+               !pack->hasSounds(),
+           "a starter pack placed gives the art");
+    expect(install.pack() == pack, "the same pack while the folder is unchanged");
+    write(folder / "iiSU-Alpha.APK", apk(0));
+    const auto release = install.pack();
+    expect(release != nullptr && release->hasSounds() &&
+               release->file().filename() == "iiSU-Alpha.APK",
+           "the release APK is taken before the starter pack");
+    fs::remove(folder / "iiSU-Alpha.APK");
+    fs::remove(folder / "iiSU_StarterPack.zip");
+    expect(install.pack() == nullptr, "a file removed is no longer offered");
+}
+
 } // namespace
 
 int main() {
@@ -123,6 +149,7 @@ int main() {
         testRelease(dir, 1200);
         testStarterPack(dir);
         testRefusals(dir);
+        testInstall(dir);
         fs::remove_all(dir);
         std::printf("iisu_pack: all checks passed\n");
         return 0;

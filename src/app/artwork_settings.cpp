@@ -61,9 +61,6 @@ ui::SettingsCategory ArtworkSettings::page() const {
             themeNote = themes[i].note;
         }
     }
-    if (chosen == artwork::iisuConsoleTheme) {
-        themeNote = "iiSU's, from " + preferences_.values().iisuFile.filename().string();
-    }
     page.rows.push_back(
         ui::makeChoice(consoleArtId, "Console art theme", themeNote, std::move(choices)));
     std::string note = "Covers that fit their tiles";
@@ -110,13 +107,7 @@ void ArtworkSettings::run(const std::string& id, int step) {
         const auto count = static_cast<int>(themes.size());
         const int at = ((from + (step == 0 ? 1 : step)) % count + count) % count;
         const std::string& next = themes[static_cast<std::size_t>(at)].id;
-        // iiSU's asks for its file first.
-        if (next == artwork::iisuConsoleTheme) {
-            chooseIisuFile();
-            return;
-        }
-        useTheme(next == artwork::defaultConsoleTheme ? std::string{} : next,
-                 preferences_.values().iisuFile);
+        useTheme(next == artwork::defaultConsoleTheme ? std::string{} : next);
         return;
     }
     if (step != 0) {
@@ -137,19 +128,11 @@ void ArtworkSettings::run(const std::string& id, int step) {
     hooks_.refresh();
 }
 
-void ArtworkSettings::useTheme(std::string theme, const std::filesystem::path& iisuFile) {
+void ArtworkSettings::useTheme(std::string theme) {
     preferences_.values().consoleTheme = std::move(theme);
-    preferences_.values().iisuFile = iisuFile;
     preferences_.save();
     hooks_.consoleArtChanged();
     hooks_.refresh();
-}
-
-void ArtworkSettings::chooseIisuFile() {
-    chooser_.choose(IisuFileChooser::Need::Art, preferences_.values().iisuFile,
-                    [this](const std::filesystem::path& file) {
-                        useTheme(std::string{artwork::iisuConsoleTheme}, file);
-                    });
 }
 
 void ArtworkSettings::connect() {

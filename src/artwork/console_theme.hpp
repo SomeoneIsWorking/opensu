@@ -1,7 +1,7 @@
 // console_theme — one console art theme: its name, author and licence, and per system a card and
 // a tab glyph. A folder theme is `theme.json` with `cards/<system>.<svg|webp|png>` and
 // `glyphs/<system>.<svg|webp|png>` beside it (assets/consoles/README.md); iiSU's is read from the
-// file the player chose (`IisuPack`). A system the theme has no art for has none: art is never
+// file the player placed (`IisuPack`). A system the theme has no art for has none: art is never
 // taken from another theme.
 #pragma once
 
@@ -110,7 +110,7 @@ class FolderTheme final : public ConsoleTheme {
     Files glyphs_;
 };
 
-/// iiSU's cards, drawn as whole tiles, and its glyphs, from the file the player chose.
+/// iiSU's cards, drawn as whole tiles, and its glyphs, from the file the player placed.
 class IisuTheme final : public ConsoleTheme {
   public:
     explicit IisuTheme(std::shared_ptr<const IisuPack> pack);

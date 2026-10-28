@@ -64,21 +64,21 @@ int main() {
     write(user / "mine" / "theme.json", R"({"name": "Mine", "cards": "tile"})");
     write(user / "mine" / "cards" / "nes.png", "PNG");
     write(user / "no-manifest" / "cards" / "nes.png", "PNG");
+    write(user / "iiSU" / "notes.txt", "not a pack");
     const ConsoleThemes themes{shipped, user};
 
-    expect(idsOf(themes.list()) ==
-               std::vector<std::string>{"photos", "drawings", "iisu", "user/mine"},
-           "the default leads, iiSU's follows the shipped ones, a folder needs its manifest");
+    expect(idsOf(themes.list()) == std::vector<std::string>{"photos", "drawings", "user/mine"},
+           "the default leads, a folder needs its manifest, iiSU's needs its file placed");
 
     std::string error;
-    const auto standard = themes.open("", {}, error);
+    const auto standard = themes.open("", error);
     expect(standard != nullptr && standard->info().id == "photos", "no id is the default theme");
-    const auto drawings = themes.open("drawings", {}, error);
+    const auto drawings = themes.open("drawings", error);
     expect(drawings != nullptr && drawings->cardStyle() == CardStyle::Mark,
            "a shipped theme opens by its folder name");
     expect(isKind(drawings->card("snes"), ThemeArt::Kind::Mask), "an SVG card is a mask");
 
-    const auto photos = themes.open("photos", {}, error);
+    const auto photos = themes.open("photos", error);
     expect(photos != nullptr && isKind(photos->card("snes"), ThemeArt::Kind::Picture) &&
                isFile(photos->card("gc"), shipped / "photos" / "cards" / "gc.png"),
            "a raster card is a picture from its file");
@@ -87,18 +87,17 @@ int main() {
     expect(isFile(photos->glyph("gc"), shipped / "drawings" / "glyphs" / "gc.svg"),
            "a theme may name the shipped theme whose glyphs it uses");
 
-    const auto mine = themes.open("user/mine", {}, error);
+    const auto mine = themes.open("user/mine", error);
     expect(mine != nullptr && mine->cardStyle() == CardStyle::Tile && mine->card("nes") &&
                !mine->card("snes") && !mine->glyph("snes"),
            "the player's theme has only its own cards and glyphs");
 
-    expect(themes.open("../user/mine", {}, error) == nullptr && !error.empty() &&
-               themes.open("user/../photos", {}, error) == nullptr,
+    expect(themes.open("../user/mine", error) == nullptr && !error.empty() &&
+               themes.open("user/../photos", error) == nullptr,
            "an id cannot reach outside the theme folders");
-    expect(themes.open("absent", {}, error) == nullptr && !error.empty(),
-           "a missing theme says why");
-    expect(themes.open("iisu", root / "absent.apk", error) == nullptr && !error.empty(),
-           "iiSU's theme needs its file");
+    expect(themes.open("absent", error) == nullptr && !error.empty(), "a missing theme says why");
+    expect(themes.open("iisu", error) == nullptr && error.find("iiSU") != std::string::npos,
+           "iiSU's theme needs its file placed");
     fs::remove_all(root);
     std::printf("console_theme: all checks passed\n");
     return 0;

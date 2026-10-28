@@ -12,24 +12,24 @@ namespace opensu::app {
 
 void InterfaceSounds::apply(const settings::Settings& chosen) {
     const bool iisu = chosen.interfaceSounds == settings::AssetOwner::Iisu;
-    const std::filesystem::path file = iisu ? chosen.iisuFile : std::filesystem::path{};
-    if (loaded_ && owner_ == chosen.interfaceSounds && file_ == file) {
+    std::shared_ptr<const artwork::IisuPack> pack = iisu ? iisu_.pack() : nullptr;
+    if (loaded_ && owner_ == chosen.interfaceSounds && pack_ == pack) {
         return;
     }
     loaded_ = true;
     owner_ = chosen.interfaceSounds;
-    file_ = file;
+    pack_ = pack;
     sounds_.loadSet(assetsDir_ / audio::shippedDirectory);
     if (!iisu) {
         return;
     }
-    std::string error;
-    const std::shared_ptr<const artwork::IisuPack> pack = artwork::IisuPack::open(file, error);
     if (pack == nullptr || !pack->hasSounds()) {
         lucent::warn("audio", "iiSU's sounds: {}; playing openSU's",
-                     pack == nullptr ? error : file.filename().string() + " holds no sounds");
+                     pack == nullptr ? "no iiSU release in " + iisu_.folder().string()
+                                     : pack->file().filename().string() + " holds no sounds");
         return;
     }
+    std::string error;
     std::size_t count = 0;
     for (const audio::Effect effect : audio::allEffects) {
         const std::string_view name = audio::iisuFile(effect);
@@ -44,7 +44,7 @@ void InterfaceSounds::apply(const settings::Settings& chosen) {
         }
     }
     lucent::info("audio", "{} of {} UI sounds are iiSU's, from {}", count, audio::allEffects.size(),
-                 file.filename().string());
+                 pack->file().filename().string());
 }
 
 } // namespace opensu::app

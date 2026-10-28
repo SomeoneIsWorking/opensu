@@ -1,10 +1,10 @@
 // iisu_pack — iiSU's console cards, tab glyphs and interface sounds from the file the player
-// downloaded and gave openSU, never fetched by openSU. The file is iiSU's release APK, whose
-// `assets/iiSU_StarterPack.zip` holds a card per console (`platforms/<system>.webp`), whose
-// `assets/borders/border_pack.json` maps each console to a logo PNG beside it and whose `assets/`
-// holds the sounds, or that starter pack zip alone (cards; no glyphs or sounds). Any release with
-// that layout is taken; what is read is checked as it is read. Read from disk by ranges; safe to
-// read from several threads.
+// downloaded and placed in openSU's iiSU folder (`IisuInstall`), never fetched by openSU. The file
+// is iiSU's release APK, whose `assets/iiSU_StarterPack.zip` holds a card per console
+// (`platforms/<system>.webp`), whose `assets/borders/border_pack.json` maps each console to a logo
+// PNG beside it and whose `assets/` holds the sounds, or that starter pack zip alone (cards; no
+// glyphs or sounds). Any release with that layout is taken; what is read is checked as it is read.
+// Read from disk by ranges; safe to read from several threads.
 #pragma once
 
 #include <filesystem>

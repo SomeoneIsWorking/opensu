@@ -244,12 +244,9 @@ void interfaceSounds(const fs::path& root) {
     expect(store.load().interfaceSounds == AssetOwner::OpenSu, "openSU's sounds by default");
     Settings saved;
     saved.interfaceSounds = AssetOwner::Iisu;
-    saved.iisuFile = root / "iiSU.apk";
     std::string error;
     expect(store.save(saved, error), "the sound choice is saved");
-    expect(store.load().interfaceSounds == AssetOwner::Iisu &&
-               store.load().iisuFile == root / "iiSU.apk",
-           "iiSU's sounds and the file read back");
+    expect(store.load().interfaceSounds == AssetOwner::Iisu, "iiSU's sounds read back");
     expect(read(store.file()).find("\"interfaceSounds\": \"iisu\"") != std::string::npos,
            "the choice is kept by its spelling");
     write(store.file(), R"({"interfaceSounds": "loud", "consoleTheme": "photos"})");

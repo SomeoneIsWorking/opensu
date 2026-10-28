@@ -2,39 +2,35 @@
 
 #include <memory>
 
-#include "artwork/iisu_pack.hpp"
-
 namespace opensu::app {
 namespace {
 
 constexpr const char* interfaceSoundsId = "audio.interfacesounds";
 
-std::string note(const settings::Settings& chosen) {
-    if (chosen.interfaceSounds == settings::AssetOwner::OpenSu) {
-        return "openSU's own sounds";
-    }
-    return "iiSU's, from " + chosen.iisuFile.filename().string();
-}
-
-/// Whether `file` is an iiSU release that holds the sounds.
-bool hasSounds(const std::filesystem::path& file) {
-    std::string error;
-    const std::shared_ptr<const artwork::IisuPack> pack = artwork::IisuPack::open(file, error);
-    return pack != nullptr && pack->hasSounds();
-}
-
 } // namespace
 
+std::shared_ptr<const artwork::IisuPack> InterfaceSoundSettings::iisuSounds() const {
+    std::shared_ptr<const artwork::IisuPack> pack = iisu_.pack();
+    return pack != nullptr && pack->hasSounds() ? pack : nullptr;
+}
+
 ui::SettingsRow InterfaceSoundSettings::row() const {
-    const settings::Settings& chosen = preferences_.values();
+    const std::shared_ptr<const artwork::IisuPack> pack = iisuSounds();
+    const bool iisu =
+        pack != nullptr && preferences_.values().interfaceSounds == settings::AssetOwner::Iisu;
     ui::Options choices;
-    for (std::size_t i = 0; i < settings::allAssetOwners.size(); ++i) {
-        choices.labels.emplace_back(settings::label(settings::allAssetOwners[i]));
-        if (settings::allAssetOwners[i] == chosen.interfaceSounds) {
-            choices.chosen = i;
+    for (const settings::AssetOwner owner : settings::allAssetOwners) {
+        if (owner == settings::AssetOwner::Iisu && pack == nullptr) {
+            continue;
         }
+        if (owner == (iisu ? settings::AssetOwner::Iisu : settings::AssetOwner::OpenSu)) {
+            choices.chosen = choices.labels.size();
+        }
+        choices.labels.emplace_back(settings::label(owner));
     }
-    return ui::makeChoice(interfaceSoundsId, "Interface sounds", note(chosen), std::move(choices));
+    const std::string note =
+        iisu ? "iiSU's, from " + pack->file().filename().string() : "openSU's own sounds";
+    return ui::makeChoice(interfaceSoundsId, "Interface sounds", note, std::move(choices));
 }
 
 bool InterfaceSoundSettings::owns(const std::string& id) {
@@ -42,31 +38,14 @@ bool InterfaceSoundSettings::owns(const std::string& id) {
 }
 
 void InterfaceSoundSettings::run(const std::string& /*id*/, int /*step*/) {
-    const settings::Settings& chosen = preferences_.values();
-    if (chosen.interfaceSounds == settings::AssetOwner::Iisu) {
-        use(settings::AssetOwner::OpenSu, chosen.iisuFile);
+    if (iisuSounds() == nullptr) {
         return;
     }
-    if (!chosen.iisuFile.empty() && hasSounds(chosen.iisuFile)) {
-        use(settings::AssetOwner::Iisu, chosen.iisuFile);
-        return;
-    }
-    chooser_.choose(IisuFileChooser::Need::Sounds, chosen.iisuFile,
-                    [this](const std::filesystem::path& file) {
-                        const bool newFile = file != preferences_.values().iisuFile;
-                        use(settings::AssetOwner::Iisu, file);
-                        if (newFile) {
-                            hooks_.fileChanged();
-                        }
-                    });
-}
-
-void InterfaceSoundSettings::use(settings::AssetOwner owner,
-                                 const std::filesystem::path& iisuFile) {
-    preferences_.values().interfaceSounds = owner;
-    preferences_.values().iisuFile = iisuFile;
+    settings::AssetOwner& owner = preferences_.values().interfaceSounds;
+    owner = owner == settings::AssetOwner::Iisu ? settings::AssetOwner::OpenSu
+                                                : settings::AssetOwner::Iisu;
     preferences_.save();
-    hooks_.changed();
+    changed_();
 }
 
 } // namespace opensu::app

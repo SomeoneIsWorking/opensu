@@ -35,7 +35,7 @@ README's console art themes:
   [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). Its card is cropped, its
   background removed and a glow added, and that derivative is CC BY-SA 3.0 too.
 - **iiSU's console cards and tab glyphs** belong to [iiSU](https://github.com/iisu-network/iiSU).
-  openSU reads them from a copy of iiSU's release the player downloads and chooses; openSU never
+  openSU reads them from a copy of iiSU's release the player downloads and places; openSU never
   downloads them, and they are not part of openSU, not in this repository and not licensed by it.
   The PS4, which iiSU has no card for, shows a tile without a picture.
 

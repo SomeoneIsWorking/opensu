@@ -1,12 +1,11 @@
 // artwork_settings — Settings › Artwork: the console art theme the home shows (`ConsoleThemes`:
-// the shipped ones, the player's own, or iiSU's from the release APK or starter pack the player
-// downloaded, picked on `IisuFileChooser`), SteamGridDB's connection
+// the shipped ones, the player's own, or iiSU's when its release APK or starter pack is placed in
+// the iiSU folder), SteamGridDB's connection
 // (`SteamGridDbAccount`) with its status, Connect (through Steam's browser, else the key typed in),
 // Cancel, Enter a key and Disconnect, and the card the key is typed or pasted into, with the
 // on-screen keyboard up. The key shows as dots and is wiped when the card closes.
 #pragma once
 
-#include <filesystem>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -15,7 +14,6 @@
 
 #include "artwork/console_themes.hpp"
 #include "audio/sdl_sound_player.hpp"
-#include "iisu_file_chooser.hpp"
 #include "keyboard_pad.hpp"
 #include "preferences.hpp"
 #include "steamgriddb_account.hpp"
@@ -46,15 +44,13 @@ class ArtworkSettings {
     struct Services {
         Preferences& preferences;
         const artwork::ConsoleThemes& themes;
-        /// The chooser iiSU's file is picked on.
-        IisuFileChooser& chooser;
         audio::SdlSoundPlayer& sounds;
     };
 
     ArtworkSettings(SteamGridDbAccount& account, Entry entry, Services services, Hooks hooks)
         : account_{account}, navigator_{entry.navigator}, keyboard_{entry.keyboard},
-          preferences_{services.preferences}, themes_{services.themes}, chooser_{services.chooser},
-          sounds_{services.sounds}, hooks_{std::move(hooks)} {
+          preferences_{services.preferences}, themes_{services.themes}, sounds_{services.sounds},
+          hooks_{std::move(hooks)} {
     }
     ~ArtworkSettings();
     ArtworkSettings(const ArtworkSettings&) = delete;
@@ -77,11 +73,8 @@ class ArtworkSettings {
     [[nodiscard]] bool typing() const;
 
   private:
-    /// Opens the file chooser for iiSU's release or starter pack; a file taken chooses iiSU's
-    /// theme.
-    void chooseIisuFile();
-    /// Keeps `theme` and `iisuFile` and has the home show them.
-    void useTheme(std::string theme, const std::filesystem::path& iisuFile);
+    /// Keeps `theme` and has the home show it.
+    void useTheme(std::string theme);
     void openEntry();
     /// Submit: keeps the typed key.
     void confirm();
@@ -94,7 +87,6 @@ class ArtworkSettings {
     KeyboardPad& keyboard_;
     Preferences& preferences_;
     const artwork::ConsoleThemes& themes_;
-    IisuFileChooser& chooser_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;
     /// The key as typed.

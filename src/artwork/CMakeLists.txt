@@ -1,5 +1,5 @@
 add_library(opensu_artwork STATIC
-    libretro_index.cpp apk_archive.cpp iisu_pack.cpp console_theme.cpp console_themes.cpp artwork_store.cpp
+    libretro_index.cpp apk_archive.cpp iisu_pack.cpp iisu_install.cpp console_theme.cpp console_themes.cpp artwork_store.cpp
     artwork_fetcher.cpp arcade_dat.cpp steamgriddb.cpp cover_overrides.cpp cover_fitter.cpp
     cover_offers.cpp)
 add_library(opensu::artwork ALIAS opensu_artwork)

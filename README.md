@@ -45,44 +45,33 @@ own drawings (MIT); see
 [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md). Captured with
 `uv run --frozen python -m tools.screenshots --profile real`.
 
-## Console art themes
+## Console art and sounds
 
-A console's card in Library and the glyph in its tiles' tabs come from a console art theme. Pick
-one in Settings › Artwork › Console art theme:
+A console's card in Library and the glyph in its tiles' tabs come from a console art theme, chosen
+in Settings › Artwork › Console art theme:
 
-- **Photos** (the default): photos of the hardware on Wikimedia Commons, each public domain,
-  CC BY or CC BY-SA as listed in its [credits](assets/consoles/photos/README.md) (the Wii U card
-  is CC BY-SA 3.0, not MIT), with the Drawings glyphs.
+- **Photos** (the default): photos of the hardware from Wikimedia Commons, each under the licence
+  in its [credits](assets/consoles/photos/README.md) (the Wii U card is CC BY-SA 3.0), with the
+  Drawings glyphs.
 - **Drawings**: openSU's own drawings of the hardware, MIT.
-- **iiSU**: [iiSU](https://github.com/iisu-network/iiSU)'s own art, read from a copy of iiSU's
-  release you download yourself; openSU never downloads it. Stepping to **iiSU** asks for the file:
-  iiSU's release APK (for example `iiSU-Alpha-7.4.apk` from
-  [iiSU's releases](https://github.com/iisu-network/iiSU/releases)) or the `iiSU_StarterPack.zip`
-  inside it. openSU reads the cards (and, from the APK, the tab glyphs) straight from that file and
-  remembers where it is; a file that is not iiSU's is refused with what is wrong with it. The art is
-  iiSU's: openSU does not ship it, download it or relicense it.
-- **Your own**: any folder in `$XDG_DATA_HOME/opensu/themes/<name>/` (`~/.local/share` by default)
-  with a `theme.json`, laid out as in [assets/consoles/README.md](assets/consoles/README.md):
-  `cards/<system>` and `glyphs/<system>` as an SVG (tinted to the card) or a WebP, PNG or JPEG
-  (drawn as it is).
+- **iiSU**: iiSU's own art, once you add it (below).
 
-A theme shows only its own art. A console it has no art for, such as the PS4 in iiSU's, shows a
-tile without a picture (its colours, name and game count), never another theme's art.
+A console a theme has no art for shows a plain tile with its colours, name and game count.
 
 | Photos | Drawings | iiSU |
 | --- | --- | --- |
 | ![Library in the Photos theme](docs/screenshots/library-photos.webp) | ![Library in the Drawings theme](docs/screenshots/library-drawings.webp) | ![Library in the iiSU theme](docs/screenshots/library-iisu.webp) |
 
-Captured with `uv run --frozen python -m tools.screenshots --profile real --console-theme <theme>`
-(`--iisu-file FILE`, iiSU's APK or starter pack, for iiSU's), which shows the theme for the run only.
+To add your own theme, put a folder with a `theme.json` in `~/.local/share/opensu/themes/<name>/`
+(`$XDG_DATA_HOME/opensu/themes/`), laid out as in [assets/consoles/README.md](assets/consoles/README.md).
 
-### iiSU's interface sounds
+To use iiSU's art and sounds: download iiSU's APK from its
+[releases page](https://github.com/iisu-network/iiSU/releases) and put it in
+`~/.local/share/opensu/themes/iiSU/`. It then appears in Settings › Artwork › Console art theme and
+Settings › Audio › Interface sounds. (`iiSU_StarterPack.zip` there gives the art without the
+sounds.)
 
-openSU plays its own interface sounds (`assets/sounds/`). To hear iiSU's instead, open Settings ›
-Audio › Interface sounds and step it to **iiSU**. openSU reads them from the same iiSU file as the
-console art; when that file is the starter pack, which has no sounds, it asks for iiSU's release
-APK and keeps that as the one file. A sound the file lacks keeps openSU's. The sounds are iiSU's:
-openSU does not ship them, download them or relicense them.
+openSU does not ship or download iiSU's art or sounds.
 
 ## Installing the AppImage
 
@@ -428,8 +417,8 @@ SIL Open Font License; the licence is beside it in `assets/CalSans-OFL.txt`.
 
 openSU is MIT-licensed (`LICENSE`). Cal Sans is under the SIL Open Font License
 (`assets/CalSans-OFL.txt`). openSU is an independent project, not affiliated with iiSU,
-and ships none of iiSU's code or assets; iiSU's console art is read only from a copy of iiSU's
-release you download yourself (see [Using iiSU's console art](#using-iisus-console-art)).
+and ships none of iiSU's code or assets; iiSU's art and sounds are read only from a copy of iiSU's
+release you place yourself (see [Console art and sounds](#console-art-and-sounds)).
 
 ## Plugins
 

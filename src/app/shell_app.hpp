@@ -52,7 +52,6 @@
 #include "guide_menu_controller.hpp"
 #include "home_screen.hpp"
 #include "host_services.hpp"
-#include "iisu_file_chooser.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "integration_settings.hpp"
 #include "integration_switch.hpp"
@@ -294,10 +293,10 @@ class ShellApp final {
     /// The console art themes, shipped and the player's own.
     artwork::ConsoleThemes consoleThemes_{environment_.assetsDir / "consoles",
                                           environment_.dataDir / "themes"};
-    /// The theme the home shows, kept while its id and iiSU file stay the same.
+    /// The theme the home shows, kept while its id and the iiSU file placed stay the same.
     std::shared_ptr<const artwork::ConsoleTheme> consoleTheme_;
     std::string consoleThemeId_;
-    std::filesystem::path consoleThemeFile_;
+    std::shared_ptr<const artwork::IisuPack> consoleThemeIisu_;
     artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{},
                                             library::roms::NameDb::under(environment_.cacheDir)};
     /// SteamGridDB's API, asked only with the player's key.
@@ -307,7 +306,7 @@ class ShellApp final {
     /// The UI sounds, played from the loop's input handling.
     audio::SdlSoundPlayer sounds_;
     /// Whose sounds `sounds_` holds, as the preferences choose.
-    InterfaceSounds interfaceSounds_{sounds_, environment_.assetsDir};
+    InterfaceSounds interfaceSounds_{sounds_, environment_.assetsDir, consoleThemes_.iisu()};
     /// Opened by `run` or `renderToFile`; before the shell, whose textures live on its device.
     std::unique_ptr<ShellWindow> window_;
     /// What the control channel's threads and the loop hand each other.
@@ -708,11 +707,9 @@ class ShellApp final {
                                                  applyIntegrations();
                                              }};
     /// Settings › Artwork and its key keyboard.
-    /// Where the player gives iiSU's release or starter pack, for the art and the sounds.
-    IisuFileChooser iisuChooser_{paths_, resolved_.home};
     ArtworkSettings artworkSettings_{
         steamGridDbAccount_, ArtworkSettings::Entry{shell_.screens().navigator(), keyboardPad_},
-        ArtworkSettings::Services{preferences_, consoleThemes_, iisuChooser_, sounds_},
+        ArtworkSettings::Services{preferences_, consoleThemes_, sounds_},
         ArtworkSettings::Hooks{[this](const std::string& text, bool isError) {
                                    shell_.setToast(text, isError);
                                },
@@ -726,15 +723,10 @@ class ShellApp final {
                                    requestArtwork();
                                }}};
     /// Settings › Audio › Interface sounds.
-    InterfaceSoundSettings interfaceSoundSettings_{
-        preferences_, iisuChooser_,
-        InterfaceSoundSettings::Hooks{[this] {
-                                          applyLayout();
-                                          settingsScreen_.refresh();
-                                      },
-                                      [this] {
-                                          requestArtwork();
-                                      }}};
+    InterfaceSoundSettings interfaceSoundSettings_{preferences_, consoleThemes_.iisu(), [this] {
+                                                       applyLayout();
+                                                       settingsScreen_.refresh();
+                                                   }};
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{
         shell_.screens().navigator(),
