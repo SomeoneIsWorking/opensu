@@ -154,11 +154,15 @@ void ArtworkSettings::chooseIisuFile() {
 
 void ArtworkSettings::connect() {
     account_.connect();
+    // The page shows the state connect set; a sign-in that fails before the next service must
+    // still differ from what is shown.
+    shown_ = account_.status();
     hooks_.refresh();
 }
 
 void ArtworkSettings::service() {
-    for (const SteamGridDbAccount::News& news : account_.take()) {
+    const SteamGridDbAccount::Taken taken = account_.take();
+    for (const SteamGridDbAccount::News& news : taken.news) {
         hooks_.say(news.text, news.error);
         if (news.keyChanged) {
             hooks_.keyChanged();
@@ -167,7 +171,7 @@ void ArtworkSettings::service() {
             openEntry();
         }
     }
-    const SteamGridDbAccount::Status status = account_.status();
+    const SteamGridDbAccount::Status& status = taken.status;
     if (status != shown_) {
         const bool connected = status.state == State::Connected && shown_.state != State::Connected;
         const std::string focused = navigator_.focused();

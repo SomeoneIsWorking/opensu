@@ -345,7 +345,12 @@ of every shape; the pick is kept as `<data>/artwork/chosen/<id>` (or `<id>.own` 
 own) and wins over fitting (`artwork::CoverOverrides`). The game's own file is never touched.
 The key is read back at start from the Secret Service (else `<config>/secrets/steamgriddb-api-key`,
 0600; `OPENSU_SECRET_STORE=file` forces the file) and goes only to the API origin as a bearer
-token. Checked in a hidden run against the API stand-in (`tests/support/steamgriddb_api_stand_in`,
+token. Settings › Artwork reads a sign-in step's end state and its news together
+(`SteamGridDbAccount::take`), and Connect records the state it shows, so a sign-in that ends
+before the next frame never leaves "Starting Steam" or a missing artwork request behind (the
+`settings_controller` test failed about 1 run in 30 on these; after, none of these in 700 runs,
+300 of them beside the whole suite repeated under -j16). Two copies run at once deleted each
+other's scratch, so the test now keeps it under its process id. Checked in a hidden run against the API stand-in (`tests/support/steamgriddb_api_stand_in`,
 `OPENSU_STEAMGRIDDB_API`): the key typed in Settings › Artwork, six of the seven demo covers
 (landscape screenshots) replaced by square grids, the square one left alone, the picker open with
 its offers, and a picked cover shown on the details page and Home. Connect through openSU's own
