@@ -68,6 +68,7 @@ target_link_libraries(opensu_library
         opensu::setting_layers
         opensu::config
         opensu::net
+        opensu::secrets
     PRIVATE opensu::command opensu::fileio opensu::zip lucent::lucent OpenSSL::Crypto
         PkgConfig::SQLITE3
 )

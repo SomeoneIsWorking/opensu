@@ -193,7 +193,7 @@ std::optional<Key128> SwitchPackage::ticketTitleKey(const RightsId& rights) {
         Key128 key;
         std::copy_n(body.begin() + static_cast<std::ptrdiff_t>(ticketTitleKeyAt),
                     key.bytes().size(), key.bytes().begin());
-        wipeBytes(ticket.data(), ticket.size());
+        secrets::wipeBytes(ticket.data(), ticket.size());
         return key;
     }
     return std::nullopt;

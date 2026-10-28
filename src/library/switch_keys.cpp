@@ -47,7 +47,7 @@ std::optional<std::vector<std::uint8_t>> hexBytes(std::string_view hex) {
         const int high = hexDigit(hex[i]);
         const int low = hexDigit(hex[i + 1]);
         if (high < 0 || low < 0) {
-            wipeBytes(bytes.data(), bytes.size());
+            secrets::wipeBytes(bytes.data(), bytes.size());
             return std::nullopt;
         }
         bytes.push_back(static_cast<std::uint8_t>((high << 4) | low));
@@ -136,7 +136,7 @@ std::string readSmall(const fs::path& file, std::string& error) {
 
 SwitchKeys::~SwitchKeys() {
     for (auto& entry : keys_) {
-        wipeBytes(entry.second.data(), entry.second.size());
+        secrets::wipeBytes(entry.second.data(), entry.second.size());
     }
 }
 
@@ -144,13 +144,13 @@ SwitchKeys SwitchKeys::parse(std::string_view prodKeys, std::string_view titleKe
     SwitchKeys keys;
     eachLine(prodKeys, [&keys](std::string name, std::vector<std::uint8_t> value) {
         if (auto [at, added] = keys.keys_.try_emplace(std::move(name), std::move(value)); !added) {
-            wipeBytes(value.data(), value.size());
+            secrets::wipeBytes(value.data(), value.size());
         }
     });
     eachLine(titleKeys, [&keys](const std::string& name, std::vector<std::uint8_t> value) {
         const std::optional<std::vector<std::uint8_t>> rights = hexBytes(name);
         std::optional<Key128> key = fixed<16>(value);
-        wipeBytes(value.data(), value.size());
+        secrets::wipeBytes(value.data(), value.size());
         if (rights && rights->size() == RightsId{}.size() && key) {
             RightsId id{};
             std::ranges::copy(*rights, id.begin());
@@ -180,8 +180,8 @@ std::optional<SwitchKeys> SwitchKeys::load(const fs::path& dir, std::string& err
         titleText = readSmall(title, ignored);
     }
     SwitchKeys keys = parse(prodText, titleText);
-    wipeBytes(prodText.data(), prodText.size());
-    wipeBytes(titleText.data(), titleText.size());
+    secrets::wipeBytes(prodText.data(), prodText.size());
+    secrets::wipeBytes(titleText.data(), titleText.size());
     return keys;
 }
 

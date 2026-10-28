@@ -8,10 +8,9 @@
 #include <cstdint>
 #include <span>
 
-namespace opensu::library::roms {
+#include "secrets/secret.hpp"
 
-/// Overwrites `size` bytes at `data` in a way the compiler keeps.
-void wipeBytes(void* data, std::size_t size);
+namespace opensu::library::roms {
 
 /// Key material that is wiped when it goes out of scope.
 template <std::size_t N> class KeyBytes {
@@ -22,7 +21,7 @@ template <std::size_t N> class KeyBytes {
     KeyBytes(KeyBytes&&) noexcept = default;
     KeyBytes& operator=(KeyBytes&&) noexcept = default;
     ~KeyBytes() {
-        wipeBytes(bytes_.data(), bytes_.size());
+        secrets::wipeBytes(bytes_.data(), bytes_.size());
     }
 
     [[nodiscard]] std::span<std::uint8_t, N> bytes() noexcept {
