@@ -386,4 +386,5 @@ screen (`nightLightSupported`: Gamescope on Linux). Console photos in WebP decod
 SDL3_image is built with the prefix's libwebp named by path (the NDK toolchain searches only its
 sysroot, so `find_library` missed it and SDL3_image dropped WebP silently) and fails without it;
 the profiles ask for the `image_webp` capability, which checks SDL3_image's installed
-`Findwebp.cmake`.
+`Findwebp.cmake`. Library on a phone in landscape: a shelf shorter than a screen spreads across it
+in fewer rows (`HomeLayout`, every platform; a deliberate departure from iiSU, project-state).

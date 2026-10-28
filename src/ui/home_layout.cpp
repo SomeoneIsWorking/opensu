@@ -178,6 +178,14 @@ HomeLayout::HomeLayout(const HomeLayoutInput& input)
         const auto perPage = static_cast<std::size_t>(clampTo(input.rows, 2, 6)) *
                              static_cast<std::size_t>(clampTo(input.columns, 2, 8));
         slots_ = slotsFor(perPage);
+        if (!fillSlots_) {
+            // Fewer items than a screen holds take only the rows they need, so they spread across
+            // the screen instead of stacking in its first column.
+            const auto across = static_cast<std::size_t>(
+                std::max((viewportWidth_ + gap_) / (cellWidth_ + gap_), 1.0f));
+            const auto needed = static_cast<int>((slots_ + across - 1) / across);
+            rows_ = clampTo(needed, 1, rows_);
+        }
         // iiSU hx2.g: a horizontal flow has as many columns as the slots need.
         columns_ = std::max(1, static_cast<int>((slots_ + static_cast<std::size_t>(rows_) - 1) /
                                                 static_cast<std::size_t>(rows_)));

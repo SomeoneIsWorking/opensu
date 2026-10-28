@@ -33,6 +33,9 @@ Visible deltas from the baseline:
   `clock | NN% battery`; the launchers take the bell's column, drawn by the one status pill
   painter, without a circle of their own. A badge is a pointer target: hover lights it, a click
   selects that store's tile in Library.
+- Delta from iiSU, deliberate: a Library shelf with fewer items than a screen holds takes only the
+  rows it needs (`HomeLayout`, any platform), so a few consoles spread across the screen; iiSU keeps
+  its rows and stacks them in the first columns. Cell size still follows the configured rows.
 - Delta from iiSU: the status pill is sized to what it shows (launcher column, the measured
   `clock | NN% battery` row, padding at each end), not iiSU's fixed width, so a PC without a
   battery gets a pill that fits its clock. It stays right-aligned.

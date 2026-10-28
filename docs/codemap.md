@@ -382,7 +382,7 @@ Pure model, unit-tested without a GPU (`opensu_grid`, `opensu_hud_model`):
 
 | Path | Owns |
 | --- | --- |
-| `src/ui/home_layout.*` | Grid geometry; `visibleSlots`, the one visible-window rule painting, hit-testing and artwork requests share for Standard and WiiSu: cells, gaps, insets, placeholder slots, scrolling, page pill and page arrow rects, and the slot or page control under a point (`hx2.g`, `zj2`, `ou4.q`, `ys8.h/k/l`) |
+| `src/ui/home_layout.*` | Grid geometry (a Library shelf shorter than a screen takes only the rows it needs); `visibleSlots`, the one visible-window rule painting, hit-testing and artwork requests share for Standard and WiiSu: cells, gaps, insets, placeholder slots, scrolling, page pill and page arrow rects, and the slot or page control under a point (`hx2.g`, `zj2`, `ou4.q`, `ys8.h/k/l`) |
 | `src/ui/grid_focus.*` | D-pad focus movement and page crossing (`hx2.z/O`) |
 | `src/ui/tile_motion.*` | Focus scale, domino entrance, press pulse, ring rotation, FastOutSlowIn, the rail's visual-index easing |
 | `src/ui/section_view.*` | Per section: the grid viewport (3 rows x 4 columns, column-major, horizontal paging, both sections) and the presentation (Grid, XMB, Carousel) |
