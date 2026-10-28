@@ -1,14 +1,12 @@
 // artwork_fetcher — downloads missing artwork in the background: a Steam game's library
 // portrait from Steam's CDN, a GOG game's portrait cover from gamesdb (else its library tile),
-// a ROM's box art from libretro-thumbnails, an Epic game's key image
-// from its own URL and the UI sounds from iiSU's APK as they are. Each file is kept in the store
-// and handed back for the shell to use.
+// a ROM's box art from libretro-thumbnails and an Epic game's key image from its own URL. Each file
+// is kept in the store and handed back for the shell to use.
 #pragma once
 
 #include <condition_variable>
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <map>
 #include <mutex>
 #include <optional>
@@ -19,11 +17,9 @@
 #include <variant>
 #include <vector>
 
-#include "apk_archive.hpp"
 #include "arcade_dat.hpp"
 #include "arcade_names.hpp"
 #include "artwork_store.hpp"
-#include "iisu_assets.hpp"
 #include "library/game.hpp"
 #include "net/web_client.hpp"
 #include "rom_systems.hpp"
@@ -34,20 +30,17 @@ namespace opensu::artwork {
 struct RemoteSources {
     std::string libretro{"https://thumbnails.libretro.com"};
     std::string steam{"https://cdn.cloudflare.steamstatic.com/steam/apps"};
-    std::string iisuApk{iisuApkUrl};
-    std::uint64_t iisuApkSize{iisuApkBytes};
     std::string gogdb{"https://gamesdb.gog.com/platforms/gog/external_releases"};
     std::string libretroDatabase{libretroDatabaseUrl};
     std::vector<DatPin> arcadeDats{arcadeDatPins.begin(), arcadeDatPins.end()};
 };
 
-/// A game's art, a UI sound, or the arcade names, now on disk.
+/// A game's art or the arcade names, now on disk.
 struct Fetched {
-    enum class Kind : std::uint8_t { Game, Sound, Names };
+    enum class Kind : std::uint8_t { Game, Names };
 
     Kind kind;
-    /// The game's id or the sound's file name; empty for the
-    /// names, whose games are titled again by the next catalog read.
+    /// The game's id; empty for the names, whose games are titled again by the next catalog read.
     std::string id;
     std::filesystem::path artwork;
     /// False for a game whose art will not arrive this round: its source has none (a confirmed
@@ -72,9 +65,9 @@ class ArtworkFetcher {
     ArtworkFetcher(const ArtworkFetcher&) = delete;
     ArtworkFetcher& operator=(const ArtworkFetcher&) = delete;
 
-    /// Replaces the queue with the games and APK assets the store still wants. A source that cannot
-    /// be reached ends the round; the next request starts another.
-    void request(const std::vector<library::Game>& games, const std::vector<ApkAsset>& assets);
+    /// Replaces the queue with the games the store still wants. A source that cannot be reached
+    /// ends the round; the next request starts another.
+    void request(const std::vector<library::Game>& games);
 
     /// Moves the queued games with these ids to the front, in the order given.
     void prioritize(const std::vector<std::string>& gameIds);
@@ -97,14 +90,10 @@ class ArtworkFetcher {
 
     /// The arcade name listings, as queued work.
     struct NamesWork {};
-    using Work = std::variant<library::Game, ApkAsset, NamesWork>;
+    using Work = std::variant<library::Game, NamesWork>;
 
     void run(const std::stop_token& stop);
     Outcome fetch(const library::Game& game);
-    Outcome fetch(const ApkAsset& asset);
-    /// How an APK file ended: `keep` stores a found file's bytes.
-    Outcome kept(const ApkFile& file, std::string_view what,
-                 const std::function<bool(std::string_view, std::string&)>& keep);
     Outcome fetch(const NamesWork& names);
     /// The finished download of `work`, for the shell.
     [[nodiscard]] Fetched arrived(const Work& work) const;
@@ -119,7 +108,6 @@ class ArtworkFetcher {
     const ArtworkStore& store_;
     RemoteSources sources_;
     net::WebClient web_;
-    ApkArchive apk_;
     library::roms::NameDb names_;
     /// The worker's listings, read once per run. Worker only.
     std::map<std::string, std::vector<std::string>, std::less<>> indexes_;

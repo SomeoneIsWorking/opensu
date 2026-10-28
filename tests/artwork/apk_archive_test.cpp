@@ -1,37 +1,20 @@
-// iiSU's APK read by ranges and the UI sounds the fetcher keeps from it, against a local server
-// standing in for GitHub's release download.
+// A zip read by ranges: entries come out checked and inflated, and the file is never read whole.
 #include "apk_archive.hpp"
 
-#include <algorithm>
-#include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
-#include <filesystem>
-#include <fstream>
 #include <optional>
 #include <string>
-#include <thread>
 #include <vector>
 
-#include "artwork_fetcher.hpp"
-#include "artwork_store.hpp"
-#include "range_server.hpp"
 #include "support/zip_fixture.hpp"
 
 namespace {
 
-namespace fs = std::filesystem;
 using opensu::artwork::ApkArchive;
-using opensu::artwork::ApkAsset;
 using opensu::artwork::ApkFile;
-using opensu::artwork::ArtworkFetcher;
-using opensu::artwork::ArtworkStore;
-using opensu::artwork::Fetched;
-using opensu::artwork::soundAsset;
-using opensu::artwork::fixture::RangeServer;
-using opensu::audio::Effect;
-using opensu::net::WebClient;
 using opensu::test::zipfixture::buildZip;
 using opensu::test::zipfixture::FixtureEntry;
 
@@ -46,12 +29,20 @@ void expect(bool condition, const char* what) {
     }
 }
 
-std::string read(const fs::path& file) {
-    std::ifstream in{file, std::ios::binary};
-    return {std::istreambuf_iterator<char>{in}, {}};
+/// Reads ranges of `bytes`, adding every byte read to `read`.
+ApkArchive::RangeRead reader(const std::string& bytes, std::uint64_t& read) {
+    return [&bytes, &read](std::uint64_t first, std::uint64_t last,
+                           std::string& error) -> std::optional<std::string> {
+        if (last >= bytes.size()) {
+            error = "past the end";
+            return std::nullopt;
+        }
+        read += last - first + 1;
+        return bytes.substr(first, last - first + 1);
+    };
 }
 
-/// An APK holding three sounds; `fillerEntries` push the directory out of the tail, and `openCrc`
+/// An APK holding three entries; `fillerEntries` push the directory out of the tail, and `openCrc`
 /// is written in place of Open.wav's CRC-32.
 std::string apk(int fillerEntries, std::optional<std::uint32_t> openCrc = {}) {
     std::vector<FixtureEntry> entries{
@@ -69,27 +60,23 @@ std::string apk(int fillerEntries, std::optional<std::uint32_t> openCrc = {}) {
 
 void testRanges(int fillerEntries) {
     const std::string served = apk(fillerEntries);
-    RangeServer server;
-    server.put("/apk", served);
-    const WebClient web;
-    ApkArchive archive = ApkArchive::overHttp(web, server.base() + "/apk", served.size());
+    std::uint64_t read = 0;
+    ApkArchive archive{served.size(), reader(served, read)};
     const ApkFile open = archive.fetch("assets/Open.wav");
     expect(open.status == ApkFile::Status::Found && open.bytes == openWav,
            "a deflated entry comes out inflated");
     expect(archive.fetch("assets/Navigation.wav").bytes == navigationWav,
            "a stored entry comes out as stored");
-    expect(server.bytesSent() < served.size() / 2, "the APK is not downloaded whole");
+    expect(read < served.size() / 2, "the APK is not read whole");
     expect(archive.fetch("assets/Close.wav").status == ApkFile::Status::Missing,
            "an entry the APK lacks is missing");
 }
 
 void testRefusals() {
-    const WebClient web;
     {
         const std::string served = apk(0, 0x0badf00d);
-        RangeServer server;
-        server.put("/apk", served);
-        ApkArchive archive = ApkArchive::overHttp(web, server.base() + "/apk", served.size());
+        std::uint64_t read = 0;
+        ApkArchive archive{served.size(), reader(served, read)};
         const ApkFile open = archive.fetch("assets/Open.wav");
         expect(open.status == ApkFile::Status::Failed &&
                    open.error.find("CRC") != std::string::npos,
@@ -97,94 +84,24 @@ void testRefusals() {
     }
     {
         const std::string served = apk(0);
-        RangeServer server;
-        server.put("/apk", served);
-        server.ignoreRange(true);
-        ApkArchive archive = ApkArchive::overHttp(web, server.base() + "/apk", served.size());
+        std::uint64_t read = 0;
+        ApkArchive archive{served.size() + 1, reader(served, read)};
         const ApkFile open = archive.fetch("assets/Open.wav");
-        expect(open.status == ApkFile::Status::Failed &&
-                   open.error.find("HTTP 200") != std::string::npos,
-               "a server that ignores Range is refused");
+        expect(open.status == ApkFile::Status::Failed && !open.error.empty(),
+               "a zip that cannot be read fails rather than misses");
     }
-    ApkArchive offline = ApkArchive::overHttp(web, "http://127.0.0.1:9/apk", apk(0).size());
-    const ApkFile down = offline.fetch("assets/Open.wav");
-    expect(down.status == ApkFile::Status::Failed && !down.error.empty(),
-           "an APK that cannot be reached fails rather than misses");
-}
-
-void waitIdle(const ArtworkFetcher& fetcher) {
-    for (int i = 0; i < 500 && !(fetcher.idle() && i > 0); ++i) {
-        std::this_thread::sleep_for(std::chrono::milliseconds{10});
-    }
-}
-
-void testFetcher(const fs::path& root) {
-    const std::string served = apk(0);
-    RangeServer server;
-    server.put("/apk", served);
-    const ArtworkStore store{root};
-    {
-        ArtworkFetcher fetcher{store,
-                               {.libretro = server.base(),
-                                .steam = server.base(),
-                                .iisuApk = server.base() + "/apk",
-                                .iisuApkSize = served.size()}};
-        fetcher.request({}, {soundAsset(Effect::Navigation), soundAsset(Effect::Open),
-                             soundAsset(Effect::Close), soundAsset(Effect::DominoTwo)});
-        waitIdle(fetcher);
-        const std::vector<Fetched> fetched = fetcher.take();
-        const auto arrived = [&fetched](const std::string& id) {
-            return std::ranges::any_of(fetched, [&](const Fetched& one) {
-                return one.kind == Fetched::Kind::Sound && one.id == id;
-            });
-        };
-        expect(fetched.size() == 3 && arrived("Navigation.wav") && arrived("Open.wav") &&
-                   arrived("domino_icons_2.ogg"),
-               "the APK's sounds arrive");
-    }
-    const ApkAsset navigation = soundAsset(Effect::Navigation);
-    const ApkAsset open = soundAsset(Effect::Open);
-    const ApkAsset close = soundAsset(Effect::Close);
-    expect(read(store.assetPath(navigation)) == navigationWav &&
-               read(store.assetPath(open)) == openWav &&
-               read(store.assetPath(soundAsset(Effect::DominoTwo))) == domeOgg,
-           "a sound lands in the store as the APK holds it, stored or deflated");
-    expect(fs::exists(store.assetPath(close).string() + ".miss") &&
-               store.storedAsset(close).empty() && store.storedAsset(open) == store.assetPath(open),
-           "a sound the APK lacks is a miss; a kept one is found on the next start");
-    expect(!store.wantedAsset(navigation, ArtworkStore::Clock::now()) &&
-               !store.wantedAsset(close, ArtworkStore::Clock::now()),
-           "neither a kept sound nor a recent miss is asked for again");
-    expect(store.assetPath(navigation) == root / "sound" / "Navigation.wav",
-           "a sound lands under sound/");
-}
-
-void testUnreachable(const fs::path& root) {
-    const ArtworkStore store{root};
-    ArtworkFetcher fetcher{store,
-                           {.libretro = "http://127.0.0.1:9",
-                            .steam = "http://127.0.0.1:9",
-                            .iisuApk = "http://127.0.0.1:9/apk",
-                            .iisuApkSize = apk(0).size()}};
-    fetcher.request({}, {soundAsset(Effect::Navigation)});
-    waitIdle(fetcher);
-    expect(fetcher.take().empty(), "nothing arrives when the APK cannot be reached");
-    expect(!fs::exists(store.assetPath(soundAsset(Effect::Navigation)).string() + ".miss"),
-           "an unreachable APK is not a miss, so the next run asks again");
+    std::string error;
+    expect(!ApkArchive::overFile("/nonexistent/iiSU.apk", error) && !error.empty(),
+           "a file that cannot be opened is refused");
 }
 
 } // namespace
 
 int main() {
     try {
-        const fs::path root = fs::temp_directory_path() / "opensu-apk-archive-test";
-        fs::remove_all(root);
         testRanges(0);
         testRanges(1200);
         testRefusals();
-        testFetcher(root / "fetch");
-        testUnreachable(root / "offline");
-        fs::remove_all(root);
         std::printf("apk_archive: all checks passed\n");
         return 0;
     } catch (const std::exception& error) {

@@ -151,7 +151,7 @@ game has been observed running yet.
 | S017 | Per-game render resolution with Gamescope FSR upscaling, Deck-style | partial | S013 | G004 |
 | S016 | Steam client started and owned by openSU, with its state in the top bar | partial | S015 | G003, G004 |
 | S011 | Steam's own components kept out of the game grid | partial | S002 | G001 |
-| S019 | iiSU's UI sounds on the events openSU shares with iiSU | partial | S005 | G002 |
+| S019 | openSU's own UI sounds on the events openSU shares with iiSU | verified | S005 | G002 |
 | S020 | Settings screen with every user-meaningful preference, mouse, keyboard and pad | partial | S005 | G002 |
 | S021 | Install folders: one default plus Steam, Epic and GOG overrides from one resolver | partial | S020 | G001 |
 | S022 | PC volume and mute, volume overlay, remappable shortcut chords (game actions, Guide chords page, chords kept from the game), interface scale | partial | S020 | G002, G003 |
@@ -201,21 +201,21 @@ game's playtime was zeroed.
 
 ### S019 — UI sounds
 
-The twelve iiSU effects that have an openSU event are fetched by range from the pinned APK's
-`assets/` into `<cache>/artwork/sound/` (about 1 MB, CRC checked, same worker as the cards) and
-played on SDL audio, one stream per effect (`audio::SdlSoundPlayer`); a `--hidden` run opens no
-device. Always on; there is no volume or
-mute setting. Events (`input-sound.md` 3.4): Navigation on a D-pad focus move in the grid and the
-Guide menu; EnterConsolesApps on A opening a console, launcher or All games; ExitConsolesApps on B
-back to Library; OpenAppRom on a game launch; Open / Close on the install and licence panels
-appearing and being dismissed; OpenContextMenu / Close on the Guide menu. Enter and Exit are dropped
-when the same effect fired under 91 ms ago. X, Y and toasts are silent. L1/R1 switch the dock's section and play the Domino cue for the
-destination's visible tile count (`audio::dominoFor`: 1, 2, 3-5, 6-11, 12+ tiles; the five
-OGGs are fetched with the rest). Nothing plays while a game
-runs except the Guide menu's sounds. Without an audio device the player logs one warning and is
-silent. Verified: the fetch against the real APK (all seven valid 44.1 kHz WAVs) and the headless
-render; unverified: audible playback on a device, and iiSU's 4-stream cap (a repeat of one effect
-restarts it).
+openSU's own set (`assets/sounds/`, MIT, synthesized by `tools/sounds/`): one 48 kHz mono Ogg Vorbis
+per effect, peaks at -6 dBFS, loaded at start by `audio::SdlSoundPlayer::loadSet` and played one
+stream per effect. openSU downloads none of iiSU's sounds. Settings › Audio › UI sounds mutes them.
+A `--hidden` run opens no device unless `--sound`. Events (`input-sound.md` 3.4): Navigation on a
+focus move or a press; EnterConsolesApps on A opening a console, launcher or All games;
+ExitConsolesApps on B back to Library; OpenAppRom on a game launch; Open / Close on a panel
+appearing and being dismissed; OpenContextMenu / Close on the context menu and pickers. Enter, Exit
+and the Domino cues are dropped when the same effect fired under 91 ms ago. L1/R1 switch the dock's
+section and play the Domino cue for the destination's visible tile count (`audio::dominoFor`: 1, 2,
+3-5, 6-11, 12+ tiles). Nothing plays while a game runs except the Guide menu's sounds. Without an
+audio device the player logs one warning and is silent. Verified: every effect played by a
+`--hidden --sound` run through its real input (Library, a console, its context menu and details
+page, a launch, and L1/R1 over 1, 2, 4, 7 and 13 tiles), recorded from a private PipeWire null
+sink and matched to its file (peaks -5.9 to -6.2 dBFS, nothing clipped); unverified: iiSU's
+4-stream cap (a repeat of one effect restarts it).
 
 ### S005 — Home grid
 

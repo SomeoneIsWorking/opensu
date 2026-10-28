@@ -19,3 +19,10 @@ target_compile_definitions(sdl_sound_player_test
     PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 target_compile_options(sdl_sound_player_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME sdl_sound_player COMMAND sdl_sound_player_test)
+
+add_executable(shipped_sounds_test shipped_sounds_test.cpp)
+target_link_libraries(shipped_sounds_test PRIVATE opensu::audio lucent::lucent)
+target_include_directories(shipped_sounds_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_definitions(shipped_sounds_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
+target_compile_options(shipped_sounds_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME shipped_sounds COMMAND shipped_sounds_test)

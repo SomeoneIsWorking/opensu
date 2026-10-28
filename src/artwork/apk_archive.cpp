@@ -18,13 +18,6 @@ constexpr std::uint64_t chunkBytes = 4ULL * 1024 * 1024;
 ApkArchive::ApkArchive(std::uint64_t size, RangeRead read) : size_{size}, read_{std::move(read)} {
 }
 
-ApkArchive ApkArchive::overHttp(const net::WebClient& web, std::string url, std::uint64_t size) {
-    return ApkArchive{size, [&web, url = std::move(url)](std::uint64_t first, std::uint64_t last,
-                                                         std::string& error) {
-                          return web.getRange(url, first, last, error);
-                      }};
-}
-
 std::optional<ApkArchive> ApkArchive::overFile(const std::filesystem::path& file,
                                                std::string& error) {
     std::error_code ec;

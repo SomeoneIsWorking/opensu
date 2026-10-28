@@ -13,6 +13,8 @@ Arguments Arguments::parse(std::span<const std::string> args) {
             parsed.hidden = true;
         } else if (args[i] == "--steam") {
             parsed.steam = true;
+        } else if (args[i] == "--sound") {
+            parsed.sound = true;
         } else if (args[i] == "--session") {
             parsed.loginSession = true;
         } else if (args[i] == "--help" || args[i] == "-h") {

@@ -116,6 +116,8 @@ struct Settings {
     bool loginSession{false};
     /// Whether `run` starts the Steam client, when a Steam install exists.
     bool startSteam{true};
+    /// Whether the UI sounds open the audio device; a hidden run only with `--sound`.
+    bool playSounds{true};
 };
 
 /// The running shell.
@@ -329,7 +331,7 @@ class ShellApp final {
                                      details_.refresh();
                                  }}};
     ArtworkDelivery delivery_{
-        shell_, sounds_, artworkStore_, artworkFetcher_,
+        shell_, artworkFetcher_,
         ArtworkDelivery::Hooks{[this] {
                                    bridge_.requestCatalogReload({});
                                },

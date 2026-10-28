@@ -1,4 +1,4 @@
-// The UI sounds' file names and iiSU's repeat rule.
+// The UI sounds' shipped file names and iiSU's repeat rule.
 #include "debounce.hpp"
 #include "effect.hpp"
 
@@ -15,19 +15,13 @@ using opensu::audio::Effect;
 using opensu::test::expect;
 using std::chrono::milliseconds;
 
-void filesRoundTrip() {
+void filesAreDistinct() {
     std::set<std::string> seen;
     for (const Effect effect : opensu::audio::allEffects) {
-        const std::string_view file = opensu::audio::assetFile(effect);
-        expect(file.ends_with(".wav") ||
-                   (file.starts_with("domino_icons") && file.ends_with(".ogg")),
-               "every effect is a WAV, or a domino cue's OGG");
-        expect(opensu::audio::effectOfFile(file) == effect, "a file names its effect back");
+        const std::string_view file = opensu::audio::shippedFile(effect);
+        expect(file.ends_with(".ogg"), "every shipped sound is Ogg Vorbis");
         expect(seen.insert(std::string{file}).second, "no two effects share a file");
     }
-    expect(opensu::audio::assetFile(Effect::EnterConsolesApps) == "Enter ConsolesApps.wav",
-           "the APK's name keeps its space");
-    expect(!opensu::audio::effectOfFile("Friends Tab.wav"), "an effect opensu lacks is nothing");
 }
 
 void dominoCueSizes() {
@@ -44,8 +38,6 @@ void dominoCueSizes() {
     for (const std::size_t tiles : {12U, 13U, 100U}) {
         expect(opensu::audio::dominoFor(tiles) == Effect::DominoTwelvePlus, "twelve or more");
     }
-    expect(opensu::audio::assetFile(Effect::DominoThreeToFive) == "domino_icons_0_5.ogg",
-           "the 3 to 5 cue is iiSU's _0_5 file");
 }
 
 void consoleEffectsDebounce() {
@@ -81,7 +73,7 @@ void otherEffectsDoNot() {
 } // namespace
 
 int main() {
-    filesRoundTrip();
+    filesAreDistinct();
     dominoCueSizes();
     consoleEffectsDebounce();
     otherEffectsDoNot();

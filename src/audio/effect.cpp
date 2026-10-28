@@ -1,44 +1,35 @@
 #include "effect.hpp"
 
-#include <algorithm>
-
 namespace opensu::audio {
 
-std::string_view assetFile(Effect effect) noexcept {
+std::string_view shippedFile(Effect effect) noexcept {
     switch (effect) {
     case Effect::Open:
-        return "Open.wav";
+        return "open.ogg";
     case Effect::Close:
-        return "Close.wav";
+        return "close.ogg";
     case Effect::OpenContextMenu:
-        return "Open ContextMenu.wav";
+        return "context-menu.ogg";
     case Effect::Navigation:
-        return "Navigation.wav";
+        return "navigation.ogg";
     case Effect::OpenAppRom:
-        return "Open AppRom.wav";
+        return "launch.ogg";
     case Effect::EnterConsolesApps:
-        return "Enter ConsolesApps.wav";
+        return "enter.ogg";
     case Effect::ExitConsolesApps:
-        return "Exit ConsolesApps.wav";
+        return "exit.ogg";
     case Effect::DominoOne:
-        return "domino_icons_1.ogg";
+        return "section-1.ogg";
     case Effect::DominoTwo:
-        return "domino_icons_2.ogg";
+        return "section-2.ogg";
     case Effect::DominoThreeToFive:
-        return "domino_icons_0_5.ogg";
+        return "section-3-5.ogg";
     case Effect::DominoSixToEleven:
-        return "domino_icons_6_11.ogg";
+        return "section-6-11.ogg";
     case Effect::DominoTwelvePlus:
-        return "domino_icons_12_plus.ogg";
+        return "section-12-plus.ogg";
     }
     return {};
-}
-
-std::optional<Effect> effectOfFile(std::string_view file) noexcept {
-    const auto found = std::ranges::find_if(allEffects, [file](Effect effect) {
-        return assetFile(effect) == file;
-    });
-    return found == allEffects.end() ? std::nullopt : std::optional{*found};
 }
 
 std::optional<Effect> dominoFor(std::size_t tiles) noexcept {

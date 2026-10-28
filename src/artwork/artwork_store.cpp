@@ -80,15 +80,6 @@ fs::path ArtworkStore::pathFor(const library::Game& game) const {
     return {};
 }
 
-fs::path ArtworkStore::assetPath(const ApkAsset& asset) const {
-    return root_ / "sound" / asset.file;
-}
-
-fs::path ArtworkStore::storedAsset(const ApkAsset& asset) const {
-    const fs::path file = assetPath(asset);
-    return isFile(file) ? file : fs::path{};
-}
-
 void ArtworkStore::apply(std::vector<library::ShelfItem>& shelf) const {
     for (library::ShelfItem& item : shelf) {
         if (auto* game = std::get_if<library::Game>(&item)) {
@@ -120,19 +111,6 @@ bool ArtworkStore::wanted(const library::Game& game, Clock::time_point now) cons
 bool ArtworkStore::coverless(const library::Game& game, Clock::time_point now) const {
     const fs::path file = pathFor(game);
     return game.artwork.empty() && !isFile(file) && !wantedAt(file, now);
-}
-
-bool ArtworkStore::wantedAsset(const ApkAsset& asset, Clock::time_point now) const {
-    return wantedAt(assetPath(asset), now);
-}
-
-bool ArtworkStore::saveAsset(const ApkAsset& asset, std::string_view bytes,
-                             std::string& error) const {
-    return saveAt(assetPath(asset), asset.file, bytes, error);
-}
-
-void ArtworkStore::recordAssetMiss(const ApkAsset& asset) const {
-    recordMissAt(assetPath(asset));
 }
 
 bool ArtworkStore::save(const library::Game& game, std::string_view bytes,

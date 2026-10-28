@@ -26,6 +26,10 @@ int main() {
     expect(Arguments::parse(hidden).hidden, "--hidden asks for the hidden run");
     expect(!Arguments::parse(hidden).startsSteam() && Arguments{}.startsSteam(),
            "a hidden run never starts Steam");
+    const std::vector<std::string> sound{"--hidden", "--sound"};
+    expect(!Arguments::parse(hidden).playsSounds() && Arguments::parse(sound).playsSounds() &&
+               Arguments{}.playsSounds(),
+           "a hidden run is silent unless --sound asks for the UI sounds");
     const std::vector<std::string> session{"--session"};
     expect(Arguments::parse(session).loginSession && !none.loginSession,
            "--session asks for the login session");

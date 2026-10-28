@@ -2,8 +2,7 @@
 // want one, the misses not to ask about again soon, and libretro's listings.
 //
 // Layout under the root: steam/<appid>.jpg, rom/<system>/<thumbnail name>.png; a `.miss` file
-// beside any that the source does not have,
-// libretro/<system>.txt for a listing and sound/<file> for an APK asset, a UI sound. switch/ is
+// beside any that the source does not have, libretro/<system>.txt for a listing. switch/ is
 // library::roms::SwitchInfo's, a Switch game's own title and icon.
 #pragma once
 
@@ -14,7 +13,6 @@
 #include <string_view>
 #include <vector>
 
-#include "iisu_assets.hpp"
 #include "library/shelf.hpp"
 
 namespace opensu::artwork {
@@ -33,12 +31,6 @@ class ArtworkStore {
     /// The file a game's downloaded art is kept in; empty for a game no source can supply.
     [[nodiscard]] std::filesystem::path pathFor(const library::Game& game) const;
 
-    /// The file an APK asset (a UI sound) is kept in.
-    [[nodiscard]] std::filesystem::path assetPath(const ApkAsset& asset) const;
-
-    /// An asset's file when it is stored, else empty.
-    [[nodiscard]] std::filesystem::path storedAsset(const ApkAsset& asset) const;
-
     /// Gives every game without art of its own its downloaded file, when there is one.
     void apply(std::vector<library::Game>& games) const;
     /// The same for the games of a shelf, which holds copies made before a later download.
@@ -53,14 +45,6 @@ class ArtworkStore {
 
     /// Keeps a downloaded image, replacing the file whole. False with `error` on failure.
     bool save(const library::Game& game, std::string_view bytes, std::string& error) const;
-    /// Whether to ask the APK for an asset: it is not stored and not missed within `missLifetime`
-    /// of `now`.
-    [[nodiscard]] bool wantedAsset(const ApkAsset& asset, Clock::time_point now) const;
-
-    /// Keeps an asset as the APK holds it.
-    bool saveAsset(const ApkAsset& asset, std::string_view bytes, std::string& error) const;
-    void recordAssetMiss(const ApkAsset& asset) const;
-
     /// Notes that the source has nothing for the game.
     void recordMiss(const library::Game& game) const;
 

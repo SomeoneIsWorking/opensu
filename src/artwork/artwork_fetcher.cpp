@@ -46,9 +46,8 @@ std::string gogCoverUrl(const std::string& body) {
 
 ArtworkFetcher::ArtworkFetcher(const ArtworkStore& store, const RemoteSources& sources,
                                library::roms::NameDb names)
-    : store_{store}, sources_{sources},
-      apk_{ApkArchive::overHttp(web_, sources.iisuApk, sources.iisuApkSize)},
-      names_{std::move(names)}, worker_{[this](const std::stop_token& stop) {
+    : store_{store}, sources_{sources}, names_{std::move(names)},
+      worker_{[this](const std::stop_token& stop) {
           run(stop);
       }} {
 }
@@ -58,15 +57,9 @@ ArtworkFetcher::~ArtworkFetcher() {
     wake_.notify_all();
 }
 
-void ArtworkFetcher::request(const std::vector<library::Game>& games,
-                             const std::vector<ApkAsset>& assets) {
+void ArtworkFetcher::request(const std::vector<library::Game>& games) {
     const ArtworkStore::Clock::time_point now = ArtworkStore::Clock::now();
     std::vector<Work> wanted;
-    for (const ApkAsset& asset : assets) {
-        if (store_.wantedAsset(asset, now)) {
-            wanted.emplace_back(asset);
-        }
-    }
     for (const library::Game& game : games) {
         if (store_.wanted(game, now)) {
             wanted.emplace_back(game);
@@ -188,18 +181,12 @@ Fetched ArtworkFetcher::arrived(const Work& work) const {
     if (const auto* game = std::get_if<library::Game>(&work)) {
         return Fetched{Fetched::Kind::Game, game->id, store_.pathFor(*game)};
     }
-    if (std::holds_alternative<NamesWork>(work)) {
-        return Fetched{Fetched::Kind::Names, {}, {}};
-    }
-    const ApkAsset& asset = std::get<ApkAsset>(work);
-    return Fetched{Fetched::Kind::Sound, asset.file, store_.assetPath(asset)};
+    return Fetched{Fetched::Kind::Names, {}, {}};
 }
 
 void ArtworkFetcher::recordMiss(const Work& work) const {
     if (const auto* game = std::get_if<library::Game>(&work)) {
         store_.recordMiss(*game);
-    } else if (const auto* asset = std::get_if<ApkAsset>(&work)) {
-        store_.recordAssetMiss(*asset);
     }
 }
 
@@ -217,33 +204,6 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
         return game.artworkKey.empty() ? Outcome::Missing : fetchSteam(game, game.artworkKey);
     }
     return Outcome::Missing;
-}
-
-ArtworkFetcher::Outcome
-ArtworkFetcher::kept(const ApkFile& file, std::string_view what,
-                     const std::function<bool(std::string_view, std::string&)>& keep) {
-    switch (file.status) {
-    case ApkFile::Status::Missing:
-        return Outcome::Missing;
-    case ApkFile::Status::Failed:
-        lucent::warn("artwork", "{}: {}", what, file.error);
-        return Outcome::Unreachable;
-    case ApkFile::Status::Found:
-        break;
-    }
-    std::string error;
-    if (!keep(file.bytes, error)) {
-        lucent::warn("artwork", "{}", error);
-        return Outcome::Unreachable;
-    }
-    return Outcome::Saved;
-}
-
-ArtworkFetcher::Outcome ArtworkFetcher::fetch(const ApkAsset& asset) {
-    return kept(apk_.fetch(asset.entry), asset.file,
-                [&](std::string_view bytes, std::string& error) {
-                    return store_.saveAsset(asset, bytes, error);
-                });
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetch(const NamesWork& /*names*/) {

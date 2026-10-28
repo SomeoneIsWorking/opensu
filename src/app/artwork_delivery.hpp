@@ -1,6 +1,5 @@
-// artwork_delivery — hands what the artwork fetcher saved, and what the store already holds, to the
-// shell and the sound player: covers and UI sounds. Keeps the
-// fetcher working on the games on screen first.
+// artwork_delivery — hands the covers the artwork fetcher saved to the shell. Keeps the fetcher
+// working on the games on screen first.
 #pragma once
 
 #include <filesystem>
@@ -9,8 +8,6 @@
 #include <vector>
 
 #include "artwork_fetcher.hpp"
-#include "artwork_store.hpp"
-#include "audio/sdl_sound_player.hpp"
 #include "ui/shell.hpp"
 
 namespace opensu::app {
@@ -26,23 +23,17 @@ class ArtworkDelivery {
         std::function<void(const std::string& id)> coverMissing;
     };
 
-    ArtworkDelivery(ui::Shell& shell, audio::SdlSoundPlayer& sounds, artwork::ArtworkStore& store,
-                    artwork::ArtworkFetcher& fetcher, Hooks hooks)
-        : shell_{shell}, sounds_{sounds}, store_{store}, fetcher_{fetcher},
-          hooks_{std::move(hooks)} {
+    ArtworkDelivery(ui::Shell& shell, artwork::ArtworkFetcher& fetcher, Hooks hooks)
+        : shell_{shell}, fetcher_{fetcher}, hooks_{std::move(hooks)} {
     }
 
-    /// Shows artwork and loads sounds the fetcher has downloaded. Main loop only.
+    /// Shows the covers the fetcher has downloaded. Main loop only.
     void service();
-    /// Loads every UI sound the store holds. Main loop only, once the audio device is open.
-    void loadStoredSounds();
     /// A new catalog was requested from the fetcher: its queue order starts over.
     void restart();
 
   private:
     ui::Shell& shell_;
-    audio::SdlSoundPlayer& sounds_;
-    artwork::ArtworkStore& store_;
     artwork::ArtworkFetcher& fetcher_;
     Hooks hooks_;
     /// The games whose art the shell wants first, as last sent to the fetcher.

@@ -61,6 +61,18 @@ bool SdlSoundPlayer::load(Effect effect, const std::filesystem::path& file) {
     return true;
 }
 
+std::size_t SdlSoundPlayer::loadSet(const std::filesystem::path& directory) {
+    std::size_t count = 0;
+    for (const Effect effect : allEffects) {
+        if (load(effect, directory / shippedFile(effect))) {
+            ++count;
+        }
+    }
+    lucent::info("audio", "{} of {} UI sounds loaded from {}", count, allEffects.size(),
+                 directory.string());
+    return count;
+}
+
 bool SdlSoundPlayer::loaded(Effect effect) const noexcept {
     return !clips_[slot(effect)].pcm.empty();
 }

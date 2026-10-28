@@ -38,6 +38,8 @@ void printHelp() {
         "                        and a free control port (logged), for maintainer runs\n"
         "        --steam         with --hidden, start the Steam client in its mode; end the\n"
         "                        run with POST /quit so Steam shuts down with it\n"
+        "        --sound         with --hidden, play the UI sounds on the default audio\n"
+        "                        device (PIPEWIRE_NODE can move them to another sink)\n"
         "  opensu --session      openSU is the login session, started by the display manager\n"
         "                        on a top-level Gamescope; the power list offers Switch to\n"
         "                        desktop instead of Quit to desktop\n"
@@ -123,6 +125,7 @@ int main(int argc, char** argv) {
         .hidden = arguments.hidden,
         .loginSession = arguments.loginSession,
         .startSteam = arguments.startsSteam(),
+        .playSounds = arguments.playsSounds(),
     };
     opensu::app::ShellApp shell{settings, config};
 
