@@ -107,7 +107,8 @@ void categoryLevel() {
     input.fillSlots = false;
     const HomeLayout layout{input};
     expect(layout.slotCount() == 5, "the category level holds its five consoles and no slots");
-    expect(layout.columns() == 2, "five items in 3 rows make 2 columns");
+    expect(layout.rows() == 1 && layout.columns() == 5,
+           "five items that fit across the screen take one row of 5, not 3 rows of 2");
     input.mode = ScrollMode::Paged;
     const HomeLayout paged{input};
     expect(paged.slotCount() == 5 && paged.pageCount() == 1, "one page of items has no pill");
