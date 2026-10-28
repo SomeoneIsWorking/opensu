@@ -58,6 +58,9 @@ class ArtworkStore {
     /// Whether to ask a source for a game: it has no art, a source could supply it, and it was
     /// not missed within `missLifetime` of `now`.
     [[nodiscard]] bool wanted(const library::Game& game, Clock::time_point now) const;
+    /// Whether `game` has no art and none is coming: no source can supply it, or its source missed
+    /// within `missLifetime` of `now`. A game whose download is still to come is not coverless.
+    [[nodiscard]] bool coverless(const library::Game& game, Clock::time_point now) const;
 
     /// Whether to ask iiSU's APK for a system's card or glyph: it is not stored and not missed
     /// within `missLifetime` of `now`.

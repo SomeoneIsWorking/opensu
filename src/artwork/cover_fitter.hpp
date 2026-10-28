@@ -1,7 +1,8 @@
 // cover_fitter — covers that do not fit their tile: on a worker, each game's cover is decoded for
 // its size, and one of another shape than the tile's (it would be cropped or letterboxed) gets
 // SteamGridDB's first cover of the tile's shape, kept as its fitted cover (`CoverOverrides`). A
-// player's own game, which no store has a cover for, gets one the same way by its title. Only
+// game with no art and none coming (`ArtworkStore::coverless`: an own game, a ROM libretro has no
+// thumbnail for) gets one the same way by its title. Only
 // while SteamGridDB has a key; a game with a chosen cover is left alone.
 #pragma once
 
@@ -15,6 +16,7 @@
 #include <thread>
 #include <vector>
 
+#include "artwork_store.hpp"
 #include "cover_overrides.hpp"
 #include "library/game.hpp"
 #include "net/web_client.hpp"
@@ -30,14 +32,16 @@ struct FittedCover {
 
 class CoverFitter {
   public:
-    CoverFitter(const CoverOverrides& overrides, const SteamGridDb& steamGridDb);
+    /// `store` says which games have no art and none coming.
+    CoverFitter(const CoverOverrides& overrides, const SteamGridDb& steamGridDb,
+                const ArtworkStore& store);
     ~CoverFitter();
     CoverFitter(const CoverFitter&) = delete;
     CoverFitter& operator=(const CoverFitter&) = delete;
 
     /// Replaces the queue with the games whose cover may not fit a tile of `shape`.
     void request(const std::vector<library::Game>& games, CoverShape shape);
-    /// Adds one game, whose cover just arrived.
+    /// Adds one game, whose cover just arrived or whose source just came back without one.
     void check(const library::Game& game, CoverShape shape);
 
     /// The covers fitted since the last call.
@@ -69,6 +73,7 @@ class CoverFitter {
 
     const CoverOverrides& overrides_;
     const SteamGridDb& steamGridDb_;
+    const ArtworkStore& store_;
     net::WebClient web_;
     /// The covers already seen to fit, as `<id>\n<file>`. Worker only.
     std::set<std::string> fits_;

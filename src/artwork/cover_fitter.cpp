@@ -15,8 +15,9 @@ constexpr std::chrono::seconds retryPause{30};
 
 } // namespace
 
-CoverFitter::CoverFitter(const CoverOverrides& overrides, const SteamGridDb& steamGridDb)
-    : overrides_{overrides}, steamGridDb_{steamGridDb},
+CoverFitter::CoverFitter(const CoverOverrides& overrides, const SteamGridDb& steamGridDb,
+                         const ArtworkStore& store)
+    : overrides_{overrides}, steamGridDb_{steamGridDb}, store_{store},
       worker_{[this](const std::stop_token& stop) {
           run(stop);
       }} {
@@ -28,9 +29,9 @@ CoverFitter::~CoverFitter() {
 }
 
 bool CoverFitter::wanted(const library::Game& game) const {
-    const bool coverless = game.source == library::Source::Own && game.artwork.empty();
-    return (coverless || !game.artwork.empty()) && steamGridDb_.connected() &&
-           overrides_.wantsFit(game.id, ArtworkStore::Clock::now());
+    const ArtworkStore::Clock::time_point now = ArtworkStore::Clock::now();
+    return (!game.artwork.empty() || store_.coverless(game, now)) && steamGridDb_.connected() &&
+           overrides_.wantsFit(game.id, now);
 }
 
 void CoverFitter::request(const std::vector<library::Game>& games, CoverShape shape) {

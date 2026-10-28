@@ -22,6 +22,8 @@ class ArtworkDelivery {
         std::function<void()> namesArrived;
         /// Game `id`'s cover was saved as `file`; the hook shows it.
         std::function<void(const std::string& id, const std::filesystem::path& file)> coverArrived;
+        /// Game `id`'s download ended without a cover: its source has none, or the round ended.
+        std::function<void(const std::string& id)> coverMissing;
     };
 
     ArtworkDelivery(ui::Shell& shell, audio::SdlSoundPlayer& sounds, artwork::ArtworkStore& store,

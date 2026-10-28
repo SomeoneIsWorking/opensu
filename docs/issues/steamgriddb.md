@@ -1,8 +1,9 @@
 # SteamGridDB artwork, its API key got through the Steam login
 
 Status: open; connected on the player's own account (Isolated, hidden run in the headless Gamescope
-fork), the key in the keyring, fitting and "Choose artwork" checked on the real library. Not
-checked: a shown (not hidden) session, the pad pressing Steam's "Sign In", Normal mode, Disconnect.
+fork), the key in the keyring, fitting (games with no art included), "Choose artwork" and
+Disconnect's dialog checked on the real library. Not checked: a shown (not hidden) session, the pad
+pressing Steam's "Sign In", Normal mode.
 
 The player: "add SteamGridDB but automate the API key process by using Steam login".
 
@@ -131,12 +132,30 @@ Checked:
     - Running ctest while an openSU ran stopped that openSU's Steam: `OrphanedSteam` took a scope
       as orphaned when its pid was not the caller's program, which in a test binary is every live
       openSU. It now names `opensu`.
+  - Second pass (`scratch/steamgriddb-live/run5`):
+    - Games with no art at all: the fitter took only own games as coverless, so a ROM libretro
+      has no thumbnail for (Gears of War and Marvel Ultimate Alliance on Xbox 360, Time Crisis 4)
+      never got a cover. `ArtworkStore::coverless` now says a game has no art and none coming (no
+      source can supply it, or its source missed within `missLifetime`); the fitter asks
+      SteamGridDB by title for those, and a download that ends without a cover reaches it through
+      `ArtworkDelivery::Hooks::coverMissing`. A cover still to be downloaded is not coverless. On
+      start, Gears of War (Xbox 360) and Marvel Ultimate Alliance got square covers by title
+      (SteamGridDB's first title match for Gears carries "Redux" art).
+    - Disconnect asks first ("Disconnect SteamGridDB? openSU forgets the key; Connect signs in
+      again.", the row's `confirm` through the toolkit's dialog); Cancel left the key. After a
+      disconnect and the same key typed back in through Enter a key, the keyring held the same
+      key and the focus went to Console art: the row pressed is gone and the navigator would
+      otherwise take the nearest, Disconnect (`ArtworkSettings::service`). The status row is an
+      Info row the toolkit does not focus.
+    - The page under a tall card showed its own hint bar, dimmed and cut by the card's edge:
+      gpu2d's `Navigator::placeHints` gave the top screen's hints to every bar on the stack. A
+      screen with bars of its own now keeps them; the bars under it stay empty (picker, search,
+      folder chooser).
 
 Not checked:
 - Whether the account had a key already or the sign-in pressed Generate (not logged).
-- Disconnect against the real keyring.
-- Non-own games with no source art at all (e.g. ROMs whose thumbnail is missed): the fitter takes
-  only own games as coverless, so these get no cover by title.
+- Disconnect's dialog opens with its Disconnect button focused, so A then A forgets the key; the
+  toolkit's confirm dialog does that for every destructive row.
 - In a real session (not hidden): openSU's own window under Big Picture, FocusFollow leaving
   Big Picture open during the sign-in, the lent virtual pads resting while the shell is in front,
   and Guide over Big Picture bringing the shell back (a hidden run follows no focus).

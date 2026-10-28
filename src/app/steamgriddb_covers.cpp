@@ -9,10 +9,11 @@ constexpr artwork::CoverShape homeTile = artwork::CoverShape::Square;
 } // namespace
 
 SteamGridDbCovers::SteamGridDbCovers(ui::Shell& shell, audio::SdlSoundPlayer& sounds,
-                                     const artwork::SteamGridDb& source, const Places& places,
+                                     const artwork::SteamGridDb& source,
+                                     const artwork::ArtworkStore& store, const Places& places,
                                      Hooks hooks)
     : shell_{shell}, hooks_{std::move(hooks)}, overrides_{places.chosen, places.fitted},
-      fitter_{overrides_, source}, offers_{overrides_, source, places.thumbs},
+      fitter_{overrides_, source, store}, offers_{overrides_, source, places.thumbs},
       picker_{shell.screens().navigator(),
               shell.screens().chrome(),
               shell.screens().images(),
@@ -44,6 +45,12 @@ void SteamGridDbCovers::coverArrived(const std::string& id, const std::filesyste
         library::Game arrived = *game;
         arrived.artwork = file;
         fitter_.check(arrived, homeTile);
+    }
+}
+
+void SteamGridDbCovers::coverMissing(const std::string& id) {
+    if (const library::Game* game = hooks_.original(id)) {
+        fitter_.check(*game, homeTile);
     }
 }
 

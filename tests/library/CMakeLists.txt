@@ -125,7 +125,7 @@ target_compile_definitions(steam_compat_test PRIVATE OPENSU_TEST_SCRATCH="${CMAK
 add_test(NAME steam_compat COMMAND steam_compat_test)
 
 add_executable(own_games_test own_games_test.cpp)
-target_link_libraries(own_games_test PRIVATE opensu::library SQLite::SQLite3)
+target_link_libraries(own_games_test PRIVATE opensu::library PkgConfig::SQLITE3)
 target_include_directories(own_games_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_definitions(own_games_test PRIVATE
     OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
