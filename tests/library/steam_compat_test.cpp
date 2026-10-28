@@ -1,6 +1,7 @@
 // The tool Steam runs each installed game under, against a fake Steam root: the player's per-game
-// pick, the default for Windows-only games only, a custom tool and an official Proton found where
-// they are installed, a tool that is not installed, and both appinfo.vdf formats.
+// pick, Valve's per-game mapping through a tool's alias, the default for Windows-only games only, a
+// custom tool and an official Proton found where they are installed, a tool that is not installed,
+// and both appinfo.vdf formats.
 #include "library/steam_compat.hpp"
 
 #include <cstdint>
@@ -119,11 +120,22 @@ fs::path fakeSteam(const fs::path& base, bool table) {
     game(300, "linux");
     game(400, "windows");
     game(500, "windows,macos");
+    game(700, "windows,macos,linux");
+    game(800, "windows");
+    const auto mapped = [&info](const std::string& app, const std::string& tool) {
+        return info.block(app, info.text("appid", app) + info.text("platform", "linux") +
+                                   info.text("tool", tool) + info.text("config", "none"));
+    };
     info.app(891390,
              info.block("extended",
                         info.block("compat_tools",
-                                   info.block("proton_10", info.number("appid", 3658110)) +
-                                       info.block("proton_9", info.number("appid", 2805730)))));
+                                   info.block("proton_10",
+                                              info.number("appid", 3658110) +
+                                                  info.text("aliases", "proton-10,proton-stable")) +
+                                       info.block("proton_9", info.number("appid", 2805730))) +
+                            info.block("app_mappings", mapped("300", "proton-stable") +
+                                                           mapped("700", "proton-stable") +
+                                                           mapped("800", ""))));
     write(root / "appcache" / "appinfo.vdf", info.file());
     return root;
 }
@@ -132,7 +144,7 @@ void picksPerGame(const fs::path& base, bool table) {
     const fs::path root = fakeSteam(base, table);
     const steam::Library library = steam::Library::discover(base, {root});
     const std::map<std::string, steam::CompatTool, std::less<>> tools =
-        steam::compatTools(library, {"100", "200", "300", "400", "500", "600"});
+        steam::compatTools(library, {"100", "200", "300", "400", "500", "600", "700", "800"});
     const auto at = [&tools](const char* app) {
         const auto found = tools.find(app);
         return found != tools.end() ? found->second : steam::CompatTool{.name = "-", .dir = {}};
@@ -147,6 +159,9 @@ void picksPerGame(const fs::path& base, bool table) {
     expect(at("400").name == "GE-Proton10-29" && at("400").dir.empty(),
            "a picked tool that is not installed has no folder");
     expect(!tools.contains("600"), "a game appinfo does not know is left alone");
+    expect(at("700").name == "proton_10" && at("700").dir == root / "steamapps/common/Proton 10.0",
+           "Valve's mapping runs a game with a Linux build under the tool its alias names");
+    expect(at("800").name == "proton_10", "a mapping Valve emptied leaves the default");
 }
 
 void readsOnlyWhatIsAsked(const fs::path& base) {

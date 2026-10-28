@@ -78,12 +78,16 @@ you can fallback to Steam Proton which falls back to what Lutris uses which fall
   A unpins a pinned GOG or Epic one; pins of games the library does not list now) and "Pin a
   game to it" for the other Windows games.
 - Steam's games are counted by Steam's own choice (`library/steam_compat`): the game's entry in
-  `config/config.vdf` CompatToolMapping, else the default (entry `0`) for an installed game whose
-  `appinfo.vdf` `common/oslist` has no `linux`; Steam's tool names come from app 891390's
-  `extended/compat_tools`, a custom tool's folder from its `compatibilitytool.vdf`, an official
-  Proton's from its app manifest. A tool Steam names but that is not installed counts nowhere.
-  Valve's own per-game mappings (891390 `app_mappings`, e.g. a native game forced to
-  `proton-stable`) are not read. "Kept because …" still counts only openSU's pins and pick.
+  `config/config.vdf` CompatToolMapping, else Valve's mapping for it (app 891390's
+  `extended/app_mappings/<app>/tool`; an empty tool is no mapping), else the default (entry `0`)
+  for an installed game whose `appinfo.vdf` `common/oslist` has no `linux`. A name is resolved
+  through the tools' `aliases` in 891390's `extended/compat_tools` (`proton-stable` is the current
+  Proton, `proton_11` here); a custom tool's folder comes from its `compatibilitytool.vdf`, an
+  official Proton's from its app manifest. A tool Steam names but that is not installed counts
+  nowhere. Checked on the player's setup: Hollow Knight (367520, native, Valve-mapped to
+  `proton-stable`) was under no runner; it is now listed under Proton 11.0 "From Steam" in
+  Settings › Wine (hidden run, main vs fix). "Kept because …" still counts only openSU's pins and
+  pick.
 - "Keep GE-Proton up to date" (`keepGeProtonCurrent`, default on): off, no scheduled check,
   background download or rotation (`WineRunners::service`); the installed builds stay and
   Automatic still uses them; "Check for GE-Proton now" reads "Downloads only when pressed".
