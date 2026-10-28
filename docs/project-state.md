@@ -1971,7 +1971,7 @@ callers have no `#ifdef`. Linux backends are the previous code moved:
 | `app::GameOverlay`, `openGameOverlay` | Gamescope overlay atoms and XInput2 game keys | none (null) |
 | `steam::clientModes` | Normal, Managed, Isolated | Normal; the Steam mode row is hidden |
 | `config::Locations` on `lucent::platform` | `$XDG_*_HOME/opensu`, `/run/user/<uid>/opensu`, as before | APPDATA/LOCALAPPDATA, Application Support/Caches/TMPDIR as `openSU` |
-| `library::coreTarget` | `nightly/linux/x86_64/latest/`, `.so` | `windows/x86_64` `.dll`, `apple/osx/arm64` `.dylib`, `android/latest/<abi>` `.so`; any other OS/arch refuses to configure |
+| `library::coreTarget` | `nightly/linux/x86_64/latest/`, `.so` | `windows/x86_64` `.dll`, `apple/osx/arm64` `.dylib`, `android/latest/<abi>` `_android.so`; any other OS/arch refuses to configure |
 | `retro::SharedLibrary` | `SDL_LoadObject` (cores, librashader) | same |
 | `device::BatteryReader` | `SDL_GetPowerInfo` | same |
 | `app::HostServices::detect` | `host_services_linux.cpp`: logind, SDDM session mode, BlueZ, backlight | `host_services_none.cpp`: all null; no Bluetooth tab, no Sleep/Restart/Shut down or session rows |

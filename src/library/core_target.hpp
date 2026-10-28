@@ -10,7 +10,7 @@ namespace opensu::library::roms {
 struct CoreTarget {
     /// The buildbot folder shipped cores are downloaded from, ending in /.
     std::string_view buildbotFolder;
-    /// A core's library suffix: ".so", ".dll" or ".dylib".
+    /// A core's library suffix: ".so", ".dll", ".dylib" or Android's "_android.so".
     std::string_view librarySuffix;
 };
 

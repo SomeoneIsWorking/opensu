@@ -88,13 +88,14 @@ Core::Core(const std::filesystem::path& library, CoreHost host) : host_{host} {
     lucent::info("retro", "core {} {}", name_,
                  info.library_version != nullptr ? info.library_version : "");
     api_.setEnvironment(environmentTrampoline);
+    api_.init();
+    initialised_ = true;
+    // After init, as RetroArch does: Mesen keeps its video callback in an object init makes.
     api_.setVideoRefresh(videoTrampoline);
     api_.setAudioSample(sampleTrampoline);
     api_.setAudioSampleBatch(batchTrampoline);
     api_.setInputPoll(pollTrampoline);
     api_.setInputState(inputTrampoline);
-    api_.init();
-    initialised_ = true;
 }
 
 Core::~Core() {

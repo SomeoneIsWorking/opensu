@@ -123,12 +123,12 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
     return options;
 }
 
-/// A core's name without the buildbot's suffix: "mgba" for mgba_libretro.so.
+/// A core's name without the buildbot's suffix: "mgba" for mgba_libretro.so or
+/// mgba_libretro_android.so.
 std::string coreName(const std::filesystem::path& core) {
     std::string name = core.stem().string();
-    constexpr std::string_view suffix = "_libretro";
-    if (name.ends_with(suffix)) {
-        name.erase(name.size() - suffix.size());
+    if (const std::size_t at = name.rfind("_libretro"); at != std::string::npos) {
+        name.erase(at);
     }
     return name;
 }

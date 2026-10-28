@@ -32,7 +32,7 @@ and gpu2d's window including `X11/Xlib.h`. CI and `release.yml` build Linux only
 | `src/library/wine.*`, `app/wine_settings.*`, `gog_install_job.*` (Windows build under Wine) | Wine and Proton runners and prefixes | Windows: the Windows build runs natively, no Wine. macOS: off (Wine on macOS is a non-goal); GOG and Epic list macOS builds where the store has them |
 | `src/library/epic.*`, `gog*.cpp`, `app/epic_install_job.*`, `sign_in.*` | `xdg-open` for the browser; legendary and gogdl found on `PATH` | legendary and gogdl run on Windows and macOS; the browser through `SDL_OpenURL`. Android: off |
 | `src/library/emulators.*`, `emulator_release.*`, `downloaded_emulators.*`, `appimage_runtime.*`, `assets/emulators.json` | AppImage, Flatpak and `PATH` launchers, libfuse2 check | Catalog launchers gain per-OS entries: Windows `.exe` (zip release assets), macOS `.app` in `/Applications`, Android package + activity templates (iiSU's `||`-split command templates, `launch.md` 2.1). AppImage download and `appimage_runtime` stay Linux |
-| `src/library/core_target.hpp`, `libretro_cores.*` (`CoreSearch`) | `nightly/linux/x86_64/latest/` and `.so` (now `coreTarget`, per OS/arch in CMake); RetroArch's Linux core folders | Per OS/arch base: `windows/x86_64` (`.dll`), `apple/osx/arm64` (`.dylib`), `android/latest/arm64-v8a` (and `x86_64` for the AVD). `info.zip` and `shader_pack.*` are platform-neutral |
+| `src/library/core_target.hpp`, `libretro_cores.*` (`CoreSearch`) | `nightly/linux/x86_64/latest/` and `.so` (now `coreTarget`, per OS/arch in CMake); RetroArch's Linux core folders | Per OS/arch base: `windows/x86_64` (`.dll`), `apple/osx/arm64` (`.dylib`), `android/latest/arm64-v8a` (and `x86_64` for the AVD), whose cores are named `<core>_libretro_android.so`. `info.zip` and `shader_pack.*` are platform-neutral |
 | `src/retro/shared_library.*` (core, librashader) | `librashader.so` | `SDL_LoadObject`/`SDL_LoadFunction` everywhere since step 1 |
 | `cmake/Librashader.cmake` | cargo for the host target, staged as `.so` | cargo targets `x86_64-pc-windows-msvc` (`.dll`), `aarch64-apple-darwin` (`.dylib`), `aarch64-linux-android` and `x86_64-linux-android` (NDK linker) |
 | `src/retro/presenter.*`, `vulkan_device.*`, `hardware_render.*` | Nothing Linux in the code; Vulkan loader from the system | Windows: driver Vulkan. macOS: MoltenVK bundled, `VK_KHR_portability_enumeration` and the portability subset at instance and device creation; GPU cores checked one by one. Android: system Vulkan, the runner's API version and features checked on named devices |
@@ -40,7 +40,7 @@ and gpu2d's window including `X11/Xlib.h`. CI and `release.yml` build Linux only
 | `src/config/config.*` | `/proc/self/exe`, `HOME`, `XDG_*`, `XDG_RUNTIME_DIR`, `DISPLAY`, session bus | See the location resolver in 3 |
 | `src/library/gog_token.*` (`writeOwnerOnly`), `settings/install_folders.*`, `app/retro_session.cpp`, `retro/control_server.cpp` | `unistd.h`: `chmod 0600`, `access(W_OK)`, `getpid` | `std::filesystem::permissions` plus Lucent's `ensure_user_data_directory`; writability by a probe write; the own pid from the `ProcessLauncher` backend (`GetCurrentProcessId` on Windows) |
 | `src/library/switch_crypto.*` | Nothing; needs libcrypto | OpenSSL 3 from the platform's dependency set (vcpkg, android prefix) |
-| `src/net/web_client.*` | Nothing; needs libcurl and a CA store | Windows: Schannel. macOS: SecureTransport/system curl. Android: OpenSSL with `CURLOPT_CAPATH=/system/etc/security/cacerts` |
+| `src/net/web_client.*` | Nothing; needs libcurl and a CA store | Windows: Schannel. macOS: SecureTransport/system curl. Android: OpenSSL with the system's CA files as one in-memory bundle (`net::TrustStore`, `CURLOPT_CAINFO_BLOB`); their names use OpenSSL's old subject hash, so `CURLOPT_CAPATH` finds none |
 | `extension/opensu-signin/` | Nothing | Firefox and Zen on Windows and macOS; none on Android (sign-in off there) |
 | Lucent | Log, config, `lucent::http::Server` already build on Windows (`http_socket.h` has a Winsock path) and macOS; `platform::user_data_directory` already resolves APPDATA, Application Support, XDG and the Android override | Reused as is; the cache, data and runtime dirs are added beside it (title-neutral, so Lucent) |
 
@@ -347,7 +347,12 @@ the `intent` `ProcessLauncher` backend over `android::ActivityCall` (`src/androi
 AudioManager volume backend, `clock::sinceEpoch` (the NDK's libc++ has no `clock_cast`),
 `library::cliStoresRun` and an empty `steam::clientModes` (no Steam, Epic or GOG on Android), and
 Lucent's `text::from_chars_real` (no floating `from_chars` in the NDK's libc++). The OS's
-on-screen keyboard is off (openSU draws its own). CI: the `android` job in `ci.yml` and
+on-screen keyboard is off (openSU draws its own). HTTPS trusts the system's CA files, read once
+into memory (`net::TrustStore`); cores come from the buildbot's `android/latest/<abi>` folder as
+`<core>_libretro_android.so`. `Launches` counts the runner as starting until its `:retro`
+process appears (it is forked after `startActivity` returns), and the runner sets a core's video,
+audio and input callbacks after `retro_init`, as RetroArch does (Mesen keeps its video callback
+in an object `retro_init` makes). CI: the `android` job in `ci.yml` and
 `release.yml` builds, signs and uploads the APK; `release.yml` publishes it.
 
 Shown on the `codex_shared_api35` AVD (x86_64, landscape 1920x1080 at 420 dpi, phone-sized): first

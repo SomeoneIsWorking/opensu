@@ -18,14 +18,15 @@ import java.util.List;
  */
 final class Launches {
     static final String RUNNER_LIBRARY = "/libopensu-retro.so";
-    private static final long FOREIGN_START_MILLIS = 10_000;
+    private static final long START_MILLIS = 10_000;
 
     private final Activity shell;
     private boolean runnerStarted;
+    private boolean runnerSeen;
     private boolean foreign;
     private boolean foreignShown;
     private boolean foreignOver;
-    private long foreignStartedAt;
+    private long startedAt;
 
     Launches(Activity shell) {
         this.shell = shell;
@@ -66,23 +67,29 @@ final class Launches {
         } catch (ActivityNotFoundException | SecurityException refused) {
             return program + " cannot be opened: " + refused.getMessage();
         }
+        startedAt = System.currentTimeMillis();
         if (program.endsWith(RUNNER_LIBRARY)) {
             runnerStarted = true;
+            runnerSeen = false;
         } else {
             foreign = true;
             foreignShown = false;
             foreignOver = false;
-            foreignStartedAt = System.currentTimeMillis();
         }
         return null;
     }
 
     synchronized boolean running() {
+        boolean starting = System.currentTimeMillis() - startedAt <= START_MILLIS;
         if (runnerStarted) {
-            return runnerPid() != 0;
+            // The :retro process is forked after startActivity returns.
+            if (runnerPid() != 0) {
+                runnerSeen = true;
+                return true;
+            }
+            return !runnerSeen && starting;
         }
-        if (foreign && !foreignShown
-                && System.currentTimeMillis() - foreignStartedAt > FOREIGN_START_MILLIS) {
+        if (foreign && !foreignShown && !starting) {
             // The app never took the screen from the shell.
             foreignOver = true;
         }
