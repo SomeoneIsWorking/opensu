@@ -14,6 +14,12 @@ else()
     target_sources(opensu_app PRIVATE shell_session_none.cpp game_overlay_none.cpp
         game_presentation_none.cpp night_light_none.cpp host_services_none.cpp)
 endif()
+# How a game's exit status says it crashed: a signal on POSIX, an exception code on Windows.
+if(WIN32)
+    target_sources(opensu_app PRIVATE game_end_win32.cpp)
+else()
+    target_sources(opensu_app PRIVATE game_end_posix.cpp)
+endif()
 target_include_directories(opensu_app PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 # The version About shows: a release passes OPENSU_VERSION, else git describes the checkout each
 # build.

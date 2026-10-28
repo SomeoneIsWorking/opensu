@@ -12,14 +12,13 @@ using namespace opensu;
 using test::expect;
 
 void crashesAreNamedBySignal() {
-    expect(app::crashSignal(128 + SIGSEGV) == "SIGSEGV", "SIGSEGV is named");
-    expect(app::crashSignal(128 + SIGABRT) == "SIGABRT", "SIGABRT is named");
-    expect(app::crashSignal(128 + 40) == "signal 40", "an unnamed signal is numbered");
+    expect(app::crashName(128 + SIGSEGV) == "SIGSEGV", "SIGSEGV is named");
+    expect(app::crashName(128 + SIGABRT) == "SIGABRT", "SIGABRT is named");
+    expect(app::crashName(128 + 40) == "signal 40", "an unnamed signal is numbered");
     for (const int ended : {SIGTERM, SIGKILL, SIGINT, SIGHUP}) {
-        expect(app::crashSignal(128 + ended).empty(), "a signal that ends a game is no crash");
+        expect(app::crashName(128 + ended).empty(), "a signal that ends a game is no crash");
     }
-    expect(app::crashSignal(0).empty() && app::crashSignal(1).empty() &&
-               app::crashSignal(-1).empty(),
+    expect(app::crashName(0).empty() && app::crashName(1).empty() && app::crashName(-1).empty(),
            "an exit or no status is no crash");
 }
 

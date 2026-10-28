@@ -24,9 +24,11 @@ struct EndNotice {
     bool error{false};
 };
 
-/// "SIGSEGV" when `exitStatus` is a death by a signal the player did not send; empty for an exit,
-/// SIGTERM, SIGKILL, SIGINT and SIGHUP.
-[[nodiscard]] std::string crashSignal(int exitStatus);
+/// What crashed the game when `exitStatus` says it crashed, else empty. POSIX
+/// (`game_end_posix.cpp`): "SIGSEGV" for a death by a signal the player did not send, empty for an
+/// exit, SIGTERM, SIGKILL, SIGINT and SIGHUP. Windows (`game_end_win32.cpp`): "access violation"
+/// for an unhandled exception, empty for an exit code and Ctrl+C.
+[[nodiscard]] std::string crashName(int exitStatus);
 
 [[nodiscard]] EndNotice noticeOf(const GameEnd& end);
 
