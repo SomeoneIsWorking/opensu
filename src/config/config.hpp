@@ -169,10 +169,6 @@ struct Config {
     bool keyring{true};
 };
 
-/// Whether a POSIX time format (nl_langinfo T_FMT) is 24-hour, i.e. has no 12-hour directive
-/// (%I, %l or %r).
-[[nodiscard]] bool timeFormatIs24Hour(std::string_view format) noexcept;
-
 /// Where the Gamescope fork sits for an opensu at `executable`: `<prefix>/libexec/opensu/gamescope`
 /// for `<prefix>/bin/opensu` as installed, and `<build>/libexec/opensu/gamescope` for
 /// `<build>/src/opensu` in the build tree. Empty when `executable` is empty.
