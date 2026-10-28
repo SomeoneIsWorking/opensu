@@ -387,4 +387,5 @@ sysroot, so `find_library` missed it and SDL3_image dropped WebP silently) and f
 the profiles ask for the `image_webp` capability, which checks SDL3_image's installed
 `Findwebp.cmake`. Library on a phone in landscape: a shelf shorter than a screen spreads across it
 in fewer rows (`HomeLayout`, every platform; a deliberate departure from iiSU, project-state). Settings names a
-picked ROM folder by its display name ("ROMs", `RomTree::label`), not its tree URI. Android has no Add a game tile (`library::addGameOffer` is empty there).
+picked ROM folder by its display name ("ROMs", `RomTree::label`), not its tree URI. Android has no Add a game tile (`library::addGameOffer` is empty there). The toast is sized in dp from the
+interface theme, so it reads the same on a dense phone screen.
