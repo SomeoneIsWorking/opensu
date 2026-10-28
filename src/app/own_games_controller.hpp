@@ -37,7 +37,7 @@ class OwnGamesController {
 
     /// Where the entries are kept and where imports are read from.
     struct Places {
-        /// `library::own::recordsFile`.
+        /// The entries' file (`PlayerFiles::ownGamesFile`).
         std::filesystem::path records;
         /// Where the file chooser opens: `~/Games` when there is one, else here.
         std::filesystem::path home;
@@ -46,8 +46,8 @@ class OwnGamesController {
         /// Lutris's data folder (`lutris::dataDir`).
         std::filesystem::path lutrisData;
 
-        /// Where they are for `config`.
-        [[nodiscard]] static Places of(const config::Config& config);
+        /// Where they are for `config`, the entries kept in `records`.
+        [[nodiscard]] static Places of(const config::Config& config, std::filesystem::path records);
     };
 
     struct Hooks {

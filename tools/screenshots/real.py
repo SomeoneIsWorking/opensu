@@ -1,8 +1,7 @@
 """The real profile's guard: one openSU per user, and the player's settings as they were.
 
-openSU writes focus, last-played and the like into its settings files as it runs, so the run's
-copies of those files are put back afterwards. The console art theme the run shows is set in them
-first.
+The console art theme the run shows is set in the player's settings files first, so they are put
+back afterwards; the hidden openSU itself writes none of them.
 """
 
 import json

@@ -73,6 +73,12 @@ through gpu2d.
 ## 4. Contracts kept
 
 - `--hidden`: an unmapped window on the player's session, no vsync, no sound device unless `--sound`, errors logged.
+  It reads the player's files and writes none: `settings.json`, `game-settings.json`,
+  `mappings.json`, `own-games.json`, the chosen covers and the built-in runner's saves are copied
+  at start into `<runtime dir>/hidden-<pid>` and the run saves to the copies, removed at its end
+  (`app/player_files`); the machine's services are read-only (`app/host_services`). A standalone
+  emulator or store game keeps its own saves where it always does. Check: hash the files, change a
+  setting and launch a game over the control channel, hash again.
 - `--render FILE` and `GET /frame.png`: one frame drawn offscreen and read back, same size.
 - Inside Gamescope the window is the overlay: SDL is told to use X11 there (the overlay is an X11
   property on the window) and the window is created with alpha so the game shows through.

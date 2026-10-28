@@ -58,8 +58,9 @@ std::string noteOf(const library::identify::Guess& guess) {
 
 } // namespace
 
-OwnGamesController::Places OwnGamesController::Places::of(const config::Config& config) {
-    return Places{.records = library::own::recordsFile(config.dataDir),
+OwnGamesController::Places OwnGamesController::Places::of(const config::Config& config,
+                                                          std::filesystem::path records) {
+    return Places{.records = std::move(records),
                   .home = config.home,
                   .steamRoots =
                       library::steam::Library::discover(config.home, config.steamRoots).roots(),
