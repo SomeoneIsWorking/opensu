@@ -3,9 +3,9 @@
 `--profile real` runs openSU --hidden on the player's own home with the network, as their session
 has it, and writes the README's WebPs to docs/screenshots/. It refuses while another openSU runs and
 puts the player's settings files back afterwards. `--game`, `--console` and `--search` pick what it
-shows. `--console-art iisu --iisu-file FILE` shows iiSU's console art from FILE (iiSU's release APK
-or its starter pack) instead and writes only the README's showcase of it (`library-iisu`,
-`console-shelf-iisu`).
+shows. `--console-theme THEME` shows another console art theme (`--iisu-file FILE` for iiSU's,
+iiSU's release APK or starter pack) and writes only Library in it, `library-<theme>`; the default
+run writes `library-drawings` beside the README set.
 
 `--profile demo` (the default) builds the demo library, then runs openSU --hidden offline in a
 throwaway home and writes one WebP per demo scene to scratch/screenshots/demo/. With --parity DIR,
@@ -28,8 +28,8 @@ from tools.screenshots.scenes import (
     SCENES,
     Picks,
     Scene,
-    iisu_scenes,
     real_scenes,
+    theme_scenes,
 )
 from tools.screenshots.shell import HiddenShell, Home, Profile, RealHome
 
@@ -66,17 +66,17 @@ def _parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--console", default="", help="real: the system whose shelf is shown")
     parser.add_argument("--search", default=Picks.search, help="real: the text searched for")
     parser.add_argument(
-        "--console-art",
-        choices=("opensu", "iisu"),
-        default="opensu",
-        help="real: whose console art the run shows; iisu writes only its showcase scenes",
+        "--console-theme",
+        default="drawings",
+        help="real: the console art theme the run shows (drawings, photos, iisu or user/<name>); "
+        "any but drawings writes only Library in it, as library-<theme>",
     )
     parser.add_argument(
-        "--iisu-file", type=Path, help="real: iiSU's release APK or starter pack, for --console-art iisu"
+        "--iisu-file", type=Path, help="real: iiSU's release APK or starter pack, for iisu"
     )
     args = parser.parse_args(argv)
-    if args.console_art == "iisu" and (args.iisu_file is None or not args.iisu_file.is_file()):
-        parser.error("--console-art iisu needs --iisu-file, iiSU's release APK or starter pack")
+    if args.console_theme == "iisu" and (args.iisu_file is None or not args.iisu_file.is_file()):
+        parser.error("--console-theme iisu needs --iisu-file, iiSU's release APK or starter pack")
     if args.out is None:
         args.out = README_OUTPUT if args.profile == "real" else DEMO_OUTPUT
     return args
@@ -91,9 +91,14 @@ def _capture_real(args: argparse.Namespace) -> int:
     frames = run / "frames"
     frames.mkdir(parents=True, exist_ok=True)
     picks = Picks(game=args.game, console=args.console, search=args.search)
-    scenes = iisu_scenes(picks) if args.console_art == "iisu" else real_scenes(picks)
+    drawings = args.console_theme == "drawings"
+    scenes = (
+        real_scenes(picks) + theme_scenes(picks, "drawings")
+        if drawings
+        else theme_scenes(picks, args.console_theme.replace("/", "-"))
+    )
     with real.KeptSettings(run / "settings-backup"):
-        real.choose_console_art(args.console_art, args.iisu_file)
+        real.choose_console_theme(args.console_theme, args.iisu_file)
         _run(
             args.opensu,
             RealHome(),

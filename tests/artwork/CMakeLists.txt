@@ -41,3 +41,9 @@ add_executable(steamgriddb_api_stand_in "${CMAKE_SOURCE_DIR}/tests/support/steam
 target_link_libraries(steamgriddb_api_stand_in PRIVATE gpu2d::image lucent::lucent Threads::Threads)
 target_include_directories(steamgriddb_api_stand_in PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 target_compile_options(steamgriddb_api_stand_in PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(console_theme_test console_theme_test.cpp)
+target_link_libraries(console_theme_test PRIVATE opensu::artwork)
+target_compile_definitions(console_theme_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+target_compile_options(console_theme_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME console_theme COMMAND console_theme_test)

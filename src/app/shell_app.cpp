@@ -226,21 +226,23 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
 
 void ShellApp::requestArtwork() {
     const settings::Settings& chosen = preferences_.values();
-    const bool iisu = chosen.consoleArt == settings::AssetOwner::Iisu;
-    if (!iisu) {
-        iisuPack_.reset();
-    } else if (iisuPack_ == nullptr || iisuPack_->file() != chosen.iisuFile) {
+    if (consoleTheme_ == nullptr || chosen.consoleTheme != consoleThemeId_ ||
+        chosen.iisuFile != consoleThemeFile_) {
         std::string error;
-        iisuPack_ = artwork::IisuPack::open(chosen.iisuFile, error);
-        if (iisuPack_ == nullptr) {
-            lucent::warn("artwork", "iiSU's console art: {}; showing openSU's", error);
+        consoleTheme_ = consoleThemes_.open(chosen.consoleTheme, chosen.iisuFile, error);
+        if (consoleTheme_ == nullptr) {
+            lucent::warn("artwork", "console art theme {}: {}; showing the default theme",
+                         chosen.consoleTheme, error);
+            consoleTheme_ = consoleThemes_.open({}, {}, error);
         }
+        consoleThemeId_ = chosen.consoleTheme;
+        consoleThemeFile_ = chosen.iisuFile;
     }
     std::vector<std::string> systems;
     for (const library::Console& console : library::consoles(games_)) {
         systems.push_back(console.system);
     }
-    shell_.grid().consoleArt().useIisu(iisuPack_, std::move(systems));
+    shell_.grid().consoleArt().use(consoleTheme_, systems);
     // The console art's file is the sounds' too.
     interfaceSounds_.apply(chosen);
     artworkFetcher_.request(games_);

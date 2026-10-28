@@ -1,11 +1,13 @@
-// console_art — whose console art a tile shows, per system: iiSU's card and tab glyph, read from
-// the iiSU file the player gave openSU (`artwork::IisuPack`) and decoded on the image loader's
-// workers, when the player chose iiSU's; openSU's own drawing otherwise, for a system the file has
-// no art for (as for PS4), and while iiSU's is still loading.
+// console_art — the console art a tile shows, per system, from the one theme the player chose
+// (`artwork::ConsoleThemes`): its card and its tab glyph, SVGs as white masks through the icon
+// atlas and pictures decoded on the image loader's workers. A system the theme has no art for, or
+// whose art cannot be read, shows none; art never comes from another theme.
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -13,10 +15,22 @@
 #include "gpu2d/image_loader.hpp"
 #include "gpu2d/texture.hpp"
 
-#include "iisu_pack.hpp"
+#include "console_theme.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
+
+/// How a console tile's card is drawn.
+enum class CardLook : std::uint8_t {
+    /// No picture: the platform's colours, the name and the count.
+    None,
+    /// A white drawing, tinted, above the name and count.
+    Mask,
+    /// A picture in its own colours above the name and count.
+    Picture,
+    /// A picture as the whole tile.
+    Tile,
+};
 
 class ConsoleArt {
   public:
@@ -24,34 +38,40 @@ class ConsoleArt {
         : icons_{icons}, images_{images} {
     }
 
-    /// Shows iiSU's art from `pack` for `systems`, or openSU's everywhere when `pack` is null.
-    /// Art already loaded from the same file is kept.
-    void useIisu(std::shared_ptr<const artwork::IisuPack> pack, std::vector<std::string> systems);
+    /// Shows `theme`'s art for `systems`, or none when `theme` is null. Art already loaded from
+    /// the same theme is kept.
+    void use(std::shared_ptr<const artwork::ConsoleTheme> theme,
+             const std::vector<std::string>& systems);
 
-    /// Asks the image loader for the systems' cards and glyphs not asked for yet.
+    /// Asks the image loader for the systems' pictures not asked for yet.
     void request();
-    /// Cards and glyphs asked for and not yet landed.
+    /// Pictures asked for and not yet landed.
     [[nodiscard]] std::size_t pending() const noexcept;
 
-    /// iiSU's card, drawn as the whole tile; null when openSU's card stands.
-    [[nodiscard]] const gpu2d::Texture* iisuCard(std::string_view system) const;
-    /// openSU's drawing of the console, `pixels` square.
-    [[nodiscard]] const gpu2d::Texture* drawing(std::string_view system, int pixels);
-    /// The glyph for a platform frame's tab: iiSU's, or openSU's `pixels` square.
+    /// How the system's card is drawn now.
+    [[nodiscard]] CardLook look(std::string_view system) const;
+    /// The system's card: a mask `pixels` square, or the picture; null while it loads or when
+    /// there is none.
+    [[nodiscard]] const gpu2d::Texture* card(std::string_view system, int pixels);
+    /// The system's glyph for a platform frame's tab, a mask `pixels` square or the picture; null
+    /// when there is none.
     [[nodiscard]] const gpu2d::Texture* glyph(std::string_view system, int pixels);
 
   private:
     struct Entry {
-        gpu2d::ImageHandle card;
-        gpu2d::ImageHandle glyph;
+        std::optional<artwork::ThemeArt> card;
+        std::optional<artwork::ThemeArt> glyph;
+        gpu2d::ImageHandle cardImage;
+        gpu2d::ImageHandle glyphImage;
     };
 
     [[nodiscard]] const Entry* find(std::string_view system) const;
+    [[nodiscard]] const gpu2d::Texture* texture(const std::optional<artwork::ThemeArt>& art,
+                                                const gpu2d::ImageHandle& image, int pixels);
 
     IconAtlas& icons_;
     gpu2d::ImageLoader& images_;
-    std::shared_ptr<const artwork::IisuPack> pack_;
-    std::vector<std::string> systems_;
+    std::shared_ptr<const artwork::ConsoleTheme> theme_;
     std::map<std::string, Entry, std::less<>> entries_;
 };
 

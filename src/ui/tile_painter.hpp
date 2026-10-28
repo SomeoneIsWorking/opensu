@@ -2,11 +2,12 @@
 //
 // Draw order is iiSU nx2.j: shadow, outer focus ring, glass chrome, art, inner
 // focus ring, all scaled about the tile centre. A game tile has no title and no
-// badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile is iiSU's
-// card drawn as the whole tile when the player chose iiSU's art and it has one; otherwise
-// openSU's: its platform's colours with openSU's drawing of the console above its name and game
-// count, in the platform frame with the console's glyph in the tab. A launcher and the combined
-// library are cards in the same shape, with the store's logo or a library glyph above the name.
+// badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile is drawn from
+// the chosen console art theme (`ConsoleArt`): its card as the whole tile for a tile theme
+// (iiSU's), otherwise the platform's colours with the theme's drawing or photo above the console's
+// name and game count, or no picture when the theme has none for it; the platform frame carries
+// the theme's glyph in its tab. A launcher and the combined library are cards in the same shape,
+// with the store's logo or a library glyph above the name.
 // A store game that is owned in more than one store carries a row of store icons in its
 // bottom-right corner, and one its store has an update for a down arrow on the same disc in its
 // top-right corner (opensu's own).

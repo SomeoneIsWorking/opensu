@@ -109,14 +109,6 @@ std::string_view iconFile(Icon icon) noexcept {
     return {};
 }
 
-std::string consoleCardFile(std::string_view system) {
-    return "consoles/" + std::string{system} + ".svg";
-}
-
-std::string consoleGlyphFile(std::string_view system) {
-    return "consoles/glyphs/" + std::string{system} + ".svg";
-}
-
 Icon dockIcon(library::Section section, bool selected) noexcept {
     if (section == library::Section::Home) {
         return selected ? Icon::HomeSelected : Icon::Home;

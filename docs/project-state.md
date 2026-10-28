@@ -417,35 +417,40 @@ differs between a user's re-zipped copy and the listing (`armwar.zip` and `avspu
 neither), so it would only work for TorrentZipped sets. A game the two listings lack (newer than
 MAME 2016 and not in FinalBurn Neo) keeps its short name.
 
-Console art is openSU's own and ships with it: `assets/consoles/<system>.svg` is the drawing on
-a console's card and `assets/consoles/glyphs/<system>.svg` the glyph in a framed tile's tab, one
-of each for every system in `library::roms` (`assets/consoles/README.md`, MIT). Both are white
-on a 64 x 64 box, drawn as silhouettes with cut-out details (body corners 4, detail corners 1.5,
-detail lines 2, screens and lids a 40% tone); a card shows the hardware, a glyph the thing held
-in the hand or the console's outline. `ui::IconAtlas` rasterises them with nanosvg as white masks
-at the size they are drawn (`consoleCardFile`, `consoleGlyphFile`) and the tile painter tints
-them.
+Console art comes from one console art theme (Settings › Artwork › Console art theme,
+`consoleTheme` in `settings.json`, empty for the default; `assets/consoles/README.md`). A theme is a
+folder with `theme.json` (name, note, `cards: "tile"` for whole-tile cards, `glyphs` naming a
+shipped theme whose glyphs it uses) and `cards/<system>` and `glyphs/<system>`: an SVG is a white
+mask the tile painter tints, a WebP, PNG or JPEG a picture drawn in its own colours on the
+platform's gradient. `artwork::ConsoleThemes` lists the shipped themes (Drawings first), iiSU's and
+the player's own in `<data dir>/themes/<name>/`; `ui::ConsoleArt` draws only from the chosen one.
+A system the theme has no card for shows its gradient, name and count with no picture, and no glyph
+in its tabs when it has none: no theme fills another's gap (`tests/artwork/console_theme_test.cpp`).
+A theme that fails to open (iiSU's file gone) warns why and the default is shown whole.
 
-iiSU's console art is the player's alternative (Settings › Artwork › Console art, `consoleArt`
-in `settings.json`: `opensu` by default, or `iisu`), read from a file the player downloads from
-iiSU's releases page: the release APK or its starter pack alone. openSU downloads none of it.
-Stepping to iiSU's opens the file chooser (`.apk` and `.zip` listed, starting in the remembered
-file's folder, else `~/Downloads`); `artwork::IisuPack::open` reads the file's zip directory and
-refuses, with the reason, a file that is not a zip or holds neither `assets/iiSU_StarterPack.zip`
-nor `platforms/<console>.webp` cards. The file taken is kept as `iisuFile` and stays remembered
-when the player steps back to openSU's. Cards come from the starter pack's
-`platforms/<system>.webp` (in an APK, the nested pack is read out once, on a loader worker), glyphs
-from the logos `assets/borders/border_pack.json` names, only plain file names in that folder.
-`ui::ConsoleArt` is the one place that picks per system: it asks the image loader for each
-console's card and glyph, read out of the file and decoded on its workers, and draws iiSU's card as
-the whole tile (it carries its own frame and glyph) and iiSU's glyph contain-fitted in a ROM's tab
-once they land; openSU's drawing and glyph stand until then, for a system the file lacks (PS4), and
-when the file is gone (a warning names why). Checked in the running product:
-a throwaway home with eleven consoles refuses another app's file ("other-app.apk is not an APK or
-zip file (no zip end record)") with the chooser left up, then takes iiSU 0.0.7.4's APK: the row reads
-"iiSU's, from iiSU-Alpha-7.4.apk" and Library shows iiSU's cards with PS4 in openSU's, the longest
-frame from the pick until every card landed 23.5 ms. The README's `library-iisu` and
-`console-shelf-iisu` are the player's own library with iiSU's art.
+- Drawings (default, `assets/consoles/drawings/`, MIT): openSU's own silhouettes on a 64 x 64 box
+  (body corners 4, detail corners 1.5, detail lines 2, screens and lids a 40% tone); a card shows
+  the hardware (SNES and Dreamcast their controllers), a glyph the thing held in the hand or the
+  console's outline.
+- Photos (`assets/consoles/photos/`): one public-domain Evan-Amos photo from Wikimedia Commons for
+  each of the 21 systems (the arcade card is Sega's arcade stick), licence read from each file's
+  Commons metadata, made into 512 px WebP cards by `tools/console_photos.py` with each original
+  pinned by sha256; credits in `assets/consoles/photos/README.md`; glyphs are the Drawings'.
+- iiSU: read from a file the player downloads from iiSU's releases page, the release APK or its
+  starter pack alone; openSU downloads none of it. Stepping to iiSU opens the file chooser (`.apk`
+  and `.zip` listed, starting in the remembered file's folder, else `~/Downloads`);
+  `artwork::IisuPack::open` reads the file's zip directory and refuses, with the reason, a file that
+  is not a zip or holds neither `assets/iiSU_StarterPack.zip` nor `platforms/<console>.webp` cards.
+  The file is kept as `iisuFile` and stays remembered when the player steps to another theme. Cards
+  come from the starter pack's `platforms/<system>.webp` and fill the whole tile (they carry their
+  own frame and glyph); glyphs from the logos `assets/borders/border_pack.json` names, so the
+  starter pack alone gives none. iiSU has no PS4 card, so that tile has no picture.
+
+Checked in the running product: throwaway offline homes with one ROM per system show every theme
+at tile size (Drawings and Photos with names and counts fitting, iiSU's whole-tile cards with PS4
+bare), and Settings steps Drawings, Photos, iiSU (chooser, another app's file refused, the starter
+pack taken) and a user theme (`tests/app/settings_controller_test.cpp`). The README's
+`library-drawings`, `library-photos` and `library-iisu` are the player's own library in each.
 
 A framed tile's tab (a ROM's, and a console card's own) carries its console's white glyph, as
 iiSU's `IconComposition` does (`g24.e`): in the square at 45/1024 and 90/1024 of the short side

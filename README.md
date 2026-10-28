@@ -40,37 +40,39 @@ derived from the window, following iiSU's own layout rules.
 | Search with results | |
 
 The shots are of the maintainer's own library. Game art belongs to its owners; the console cards
-and glyphs are openSU's own drawings (`assets/consoles/`, MIT); see
+and glyphs are openSU's own drawings (`assets/consoles/drawings/`, MIT); see
 [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md). Captured with
 `uv run --frozen python -m tools.screenshots --profile real`.
 
-## Using iiSU's console art
+## Console art themes
 
-openSU draws its own console cards and tab glyphs. If you prefer the look of
-[iiSU](https://github.com/iisu-network/iiSU)'s, you can point openSU at a copy of iiSU's art you
-download yourself; openSU never downloads it.
+A console's card in Library and the glyph in its tiles' tabs come from a console art theme. Pick
+one in Settings › Artwork › Console art theme:
 
-1. Download iiSU's release APK (for example `iiSU-Alpha-7.4.apk`) from
-   [iiSU's releases](https://github.com/iisu-network/iiSU/releases). The `iiSU_StarterPack.zip`
-   inside it works too, if you have it on its own.
-2. In openSU, open Settings › Artwork › Console art and step it to **iiSU**.
-3. Choose the file you downloaded. openSU reads the cards (`platforms/<console>.webp` in the
-   starter pack) and, from the APK, the tab glyphs (`assets/borders/`) straight from that file,
-   and remembers where it is. A file that is not iiSU's is refused with what is wrong with it.
+- **Drawings** (the default): openSU's own drawings of the hardware, MIT.
+- **Photos**: public-domain photos of the hardware by Evan-Amos on Wikimedia Commons, with the
+  Drawings glyphs ([credits](assets/consoles/photos/README.md)).
+- **iiSU**: [iiSU](https://github.com/iisu-network/iiSU)'s own art, read from a copy of iiSU's
+  release you download yourself; openSU never downloads it. Stepping to **iiSU** asks for the file:
+  iiSU's release APK (for example `iiSU-Alpha-7.4.apk` from
+  [iiSU's releases](https://github.com/iisu-network/iiSU/releases)) or the `iiSU_StarterPack.zip`
+  inside it. openSU reads the cards (and, from the APK, the tab glyphs) straight from that file and
+  remembers where it is; a file that is not iiSU's is refused with what is wrong with it. The art is
+  iiSU's: openSU does not ship it, download it or relicense it.
+- **Your own**: any folder in `$XDG_DATA_HOME/opensu/themes/<name>/` (`~/.local/share` by default)
+  with a `theme.json`, laid out as in [assets/consoles/README.md](assets/consoles/README.md):
+  `cards/<system>` and `glyphs/<system>` as an SVG (tinted to the card) or a WebP, PNG or JPEG
+  (drawn as it is).
 
-A console the file has no art for, such as the PS4, keeps openSU's. Stepping back to **openSU**
-keeps the file remembered; stepping to **iiSU** again opens the chooser in its folder. If you move
-or delete the file, openSU shows its own art again.
+A theme shows only its own art. A console it has no art for, such as the PS4 in iiSU's, shows a
+tile without a picture (its colours, name and game count), never another theme's art.
 
-The art is iiSU's, not openSU's: openSU does not ship it, download it or relicense it.
+| Drawings | Photos | iiSU |
+| --- | --- | --- |
+| ![Library in the Drawings theme](docs/screenshots/library-drawings.webp) | ![Library in the Photos theme](docs/screenshots/library-photos.webp) | ![Library in the iiSU theme](docs/screenshots/library-iisu.webp) |
 
-| openSU's console art | iiSU's console art |
-| --- | --- |
-| ![Library in openSU's console art](docs/screenshots/library.webp) | ![Library in iiSU's console art](docs/screenshots/library-iisu.webp) |
-| ![A console's shelf in openSU's console art](docs/screenshots/console-shelf.webp) | ![A console's shelf in iiSU's console art](docs/screenshots/console-shelf-iisu.webp) |
-
-Captured with `uv run --frozen python -m tools.screenshots --profile real --console-art iisu
---iisu-file <iiSU's APK>`, which shows iiSU's art for the run only.
+Captured with `uv run --frozen python -m tools.screenshots --profile real --console-theme <theme>`
+(`--iisu-file FILE`, iiSU's APK or starter pack, for iiSU's), which shows the theme for the run only.
 
 ### iiSU's interface sounds
 

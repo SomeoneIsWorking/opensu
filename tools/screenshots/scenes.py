@@ -2,11 +2,11 @@
 
 Every scene starts and ends on Home with nothing open. `readme` marks the demo scenes a demo run
 writes; parity runs capture all of them. `real_scenes` are the README's, on the player's own home,
-and `iisu_scenes` the README's showcase of iiSU's console art.
+and `theme_scenes` its console art themes side by side.
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 from tools.screenshots import legendary, mixer
 from tools.screenshots.shell import HiddenShell
@@ -121,16 +121,21 @@ def _walk_to(shell: HiddenShell, holds: Callable[[str], bool], what: str, steps:
     raise RuntimeError(f"no {what} along the tiles: {shell.state()}")
 
 
-def _into_console(shell: HiddenShell, system: str) -> None:
-    """Library, along the tiles to `system`'s console (the first one when empty), then into it."""
+def _to_console_tile(shell: HiddenShell, system: str) -> str:
+    """Library, along the tiles to `system`'s console (the first one when empty)."""
     _library(shell)
     wanted = f"console:{system}"
-    focused = _walk_to(
+    return _walk_to(
         shell,
         lambda focused: focused == wanted if system else focused.startswith("console:"),
         wanted if system else "console tile",
         LONGEST_WALK * 4,
     )
+
+
+def _into_console(shell: HiddenShell, system: str) -> None:
+    """Library, along the tiles to `system`'s console, then into it."""
+    focused = _to_console_tile(shell, system)
     shell.press("a")
     shell.wait_for("shelf", focused.removeprefix("console:"))
 
@@ -610,14 +615,12 @@ def real_scenes(picks: Picks) -> tuple[Scene, ...]:
     )
 
 
-# The real scenes that show console art, retaken with iiSU's for the README's showcase.
-CONSOLE_ART_SCENES = ("library", "console-shelf")
+def theme_scenes(picks: Picks, theme: str) -> tuple[Scene, ...]:
+    """Library at the console tiles in console art theme `theme`, for the README's themes."""
 
+    def consoles(shell: HiddenShell) -> None:
+        _to_console_tile(shell, picks.console)
 
-def iisu_scenes(picks: Picks) -> tuple[Scene, ...]:
-    """The console art scenes again, named for iiSU's art, for a run with iiSU's chosen."""
-    return tuple(
-        replace(scene, name=f"{scene.name}-iisu", caption=f"{scene.caption}, in iiSU's art")
-        for scene in real_scenes(picks)
-        if scene.name in CONSOLE_ART_SCENES
+    return (
+        Scene(f"library-{theme}", f"Library in the {theme} console art theme", consoles, _home),
     )

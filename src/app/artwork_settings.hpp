@@ -1,6 +1,6 @@
-// artwork_settings — Settings › Artwork: whose console art the home shows (openSU's, or iiSU's from
-// the release APK or starter pack the player downloaded, picked on `IisuFileChooser`),
-// SteamGridDB's connection
+// artwork_settings — Settings › Artwork: the console art theme the home shows (`ConsoleThemes`:
+// the shipped ones, the player's own, or iiSU's from the release APK or starter pack the player
+// downloaded, picked on `IisuFileChooser`), SteamGridDB's connection
 // (`SteamGridDbAccount`) with its status, Connect (through Steam's browser, else the key typed in),
 // Cancel, Enter a key and Disconnect, and the card the key is typed or pasted into, with the
 // on-screen keyboard up. The key shows as dots and is wiped when the card closes.
@@ -13,6 +13,7 @@
 
 #include "gpu2d/ui/navigator.hpp"
 
+#include "artwork/console_themes.hpp"
 #include "audio/sdl_sound_player.hpp"
 #include "iisu_file_chooser.hpp"
 #include "keyboard_pad.hpp"
@@ -31,7 +32,7 @@ class ArtworkSettings {
         std::function<void()> keyChanged;
         /// The rows changed.
         std::function<void()> refresh;
-        /// The player chose the other console art.
+        /// The player chose another console art theme.
         std::function<void()> consoleArtChanged;
     };
 
@@ -44,6 +45,7 @@ class ArtworkSettings {
     /// What the page reads and changes besides the account.
     struct Services {
         Preferences& preferences;
+        const artwork::ConsoleThemes& themes;
         /// The chooser iiSU's file is picked on.
         IisuFileChooser& chooser;
         audio::SdlSoundPlayer& sounds;
@@ -51,8 +53,8 @@ class ArtworkSettings {
 
     ArtworkSettings(SteamGridDbAccount& account, Entry entry, Services services, Hooks hooks)
         : account_{account}, navigator_{entry.navigator}, keyboard_{entry.keyboard},
-          preferences_{services.preferences}, chooser_{services.chooser}, sounds_{services.sounds},
-          hooks_{std::move(hooks)} {
+          preferences_{services.preferences}, themes_{services.themes}, chooser_{services.chooser},
+          sounds_{services.sounds}, hooks_{std::move(hooks)} {
     }
     ~ArtworkSettings();
     ArtworkSettings(const ArtworkSettings&) = delete;
@@ -64,7 +66,7 @@ class ArtworkSettings {
 
     [[nodiscard]] ui::SettingsCategory page() const;
     [[nodiscard]] static bool owns(const std::string& id);
-    /// Acts on row `id`: the console art choice steps either way, the rest take A only.
+    /// Acts on row `id`: the console art theme steps either way, the rest take A only.
     void run(const std::string& id, int step);
     /// Starts connecting SteamGridDB through Steam, as the Connect row does.
     void connect();
@@ -75,10 +77,11 @@ class ArtworkSettings {
     [[nodiscard]] bool typing() const;
 
   private:
-    /// Opens the file chooser for iiSU's release or starter pack; a file taken chooses iiSU's art.
+    /// Opens the file chooser for iiSU's release or starter pack; a file taken chooses iiSU's
+    /// theme.
     void chooseIisuFile();
-    /// Keeps `choice` and `iisuFile` and has the home show them.
-    void useConsoleArt(settings::AssetOwner choice, const std::filesystem::path& iisuFile);
+    /// Keeps `theme` and `iisuFile` and has the home show them.
+    void useTheme(std::string theme, const std::filesystem::path& iisuFile);
     void openEntry();
     /// Submit: keeps the typed key.
     void confirm();
@@ -90,6 +93,7 @@ class ArtworkSettings {
     gpu2d::ui::Navigator& navigator_;
     KeyboardPad& keyboard_;
     Preferences& preferences_;
+    const artwork::ConsoleThemes& themes_;
     IisuFileChooser& chooser_;
     audio::SdlSoundPlayer& sounds_;
     Hooks hooks_;

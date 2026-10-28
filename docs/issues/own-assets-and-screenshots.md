@@ -6,12 +6,13 @@ iiSU's repository has no licence, so its sounds and nav icons are all rights res
 ships or downloads them: downloading from iiSU's public release is legally shaky for a public
 product and breaks for everyone if that release changes.
 
-Done: console cards and tab glyphs are openSU's own drawings (`assets/consoles/`, MIT) by default;
-iiSU's cards and glyphs are the option (Settings › Artwork › Console art), read from iiSU's
-release APK or starter pack that the player downloads and picks on the chooser; openSU no longer
-downloads them. Shown in the README's "Using iiSU's console art" section. README shots are from the
-maintainer's own library (`tools.screenshots --profile real`, `--console-art iisu --iisu-file` for
-the showcase).
+Done: console cards and tab glyphs come from a console art theme (Settings › Artwork › Console
+art theme, `assets/consoles/README.md`): Drawings, openSU's own (MIT), by default; Photos,
+public-domain photos of the hardware; iiSU's, read from iiSU's release APK or starter pack that the
+player downloads and picks on the chooser (openSU does not download them); and any theme folder the
+player puts in `<data dir>/themes/`. A theme never borrows another's art. Shown in the README's
+"Console art themes" section. README shots are from the maintainer's own library
+(`tools.screenshots --profile real`, `--console-theme` for each theme).
 
 Done: the UI sounds are openSU's own (`assets/sounds/`, MIT), synthesized by `tools/sounds/`, one
 per effect. openSU no longer downloads iiSU's sounds: the APK sound jobs, `artwork/iisu_assets.*`,

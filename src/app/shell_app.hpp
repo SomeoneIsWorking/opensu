@@ -27,6 +27,7 @@
 #include "brightness_control.hpp"
 #include "chord_settings.hpp"
 #include "config/config.hpp"
+#include "console_themes.hpp"
 #include "context_menu_controller.hpp"
 #include "control_bridge.hpp"
 #include "control_channel.hpp"
@@ -53,7 +54,6 @@
 #include "home_screen.hpp"
 #include "host_services.hpp"
 #include "iisu_file_chooser.hpp"
-#include "iisu_pack.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "integration_settings.hpp"
 #include "integration_switch.hpp"
@@ -290,8 +290,13 @@ class ShellApp final {
     library::CatalogLoader catalogLoader_;
     /// Downloaded artwork, and the worker that fills it in.
     artwork::ArtworkStore artworkStore_{environment_.cacheDir / "artwork"};
-    /// iiSU's file while its console art is chosen and the file opens.
-    std::shared_ptr<const artwork::IisuPack> iisuPack_;
+    /// The console art themes, shipped and the player's own.
+    artwork::ConsoleThemes consoleThemes_{environment_.assetsDir / "consoles",
+                                          environment_.dataDir / "themes"};
+    /// The theme the home shows, kept while its id and iiSU file stay the same.
+    std::shared_ptr<const artwork::ConsoleTheme> consoleTheme_;
+    std::string consoleThemeId_;
+    std::filesystem::path consoleThemeFile_;
     artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{},
                                             library::roms::NameDb::under(environment_.cacheDir)};
     /// SteamGridDB's API, asked only with the player's key.
@@ -706,7 +711,7 @@ class ShellApp final {
     IisuFileChooser iisuChooser_{paths_, resolved_.home};
     ArtworkSettings artworkSettings_{
         steamGridDbAccount_, ArtworkSettings::Entry{shell_.screens().navigator(), keyboardPad_},
-        ArtworkSettings::Services{preferences_, iisuChooser_, sounds_},
+        ArtworkSettings::Services{preferences_, consoleThemes_, iisuChooser_, sounds_},
         ArtworkSettings::Hooks{[this](const std::string& text, bool isError) {
                                    shell_.setToast(text, isError);
                                },
