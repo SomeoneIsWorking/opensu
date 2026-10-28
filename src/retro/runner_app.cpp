@@ -261,7 +261,15 @@ RunnerExit RunnerApp::run() {
     sink.setCoreRate(core->avInfo().timing.sample_rate);
 
     SaveMemory saves{options_.saves / (options_.rom.stem().string() + ".srm")};
-    saves.load(core->saveRam());
+    try {
+        saves.load(core->saveRam());
+    } catch (const SaveError& failure) {
+        lucent::error("retro", "{}", failure.what());
+        if (!options_.control.empty()) {
+            ControlServer::reportLoadFailure(options_.control, failure.what());
+        }
+        return RunnerExit::LoadFailed;
+    }
     SaveState state{options_.saves / (options_.rom.stem().string() + ".state")};
 
     std::unique_ptr<Presenter> presenter;

@@ -53,7 +53,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/video_frame.*` | A frame in the core's pixel format (0RGB1555, XRGB8888, RGB565) to RGBA, duplicate frames kept |
 | `src/retro/audio_sink.*` | The core's samples into a ring, resampled with dynamic rate control so the buffer stays near its target |
 | `src/retro/joypad.*` | The pads' controls (`gamepad::Button`) and the keyboard to `RETRO_DEVICE_JOYPAD` state, one fixed mapping; the pads' sticks (`gamepad::Sticks`) to `RETRO_DEVICE_ANALOG` |
-| `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame, written atomically when it changes (checked once a second) and at exit |
+| `src/retro/save_memory.*` | The core's save RAM: loaded before the first frame (a smaller file into its start; a larger or unreadable one refused and never written over), written atomically when it changes (checked once a second) and at exit |
 | `src/retro/audio_output.*` | Where the sink's frames go: the default playback device (SDL audio stream, pulled on SDL's thread), or, hidden, drained by the clock at the output rate with nothing played |
 | `src/retro/presenter.*` | The only owner of the SDL window and Vulkan presentation: window events, swapchain (recreated on resize or out-of-date), each frame's command buffer, submission (a GPU core's semaphores waited, its command buffers first, its signal semaphore signalled) and present; hidden, an offscreen image instead of a swapchain, read back for `--frame-png`; the wait on the last frame a core's `wait_sync_index` is |
 | `src/retro/frame_compositor.*` | What is drawn into a target (`change` swaps the video settings between frames, the new preset built before the old one goes): the render pass the targets' framebuffers are made for, the frame texture uploaded each fresh frame or a GPU core's own image sampled in its layout (queue family ownership taken and given back when it names another family, then a barrier so the core's next writes wait for the read), one pipeline drawing it where `placeFrame` puts it for the video settings (aspect, integer scale, overscale clipped to the target) with the chosen sampling and filter, black around it; with a shader preset its chain draws into that rectangle instead, from the texture or the core's image |
@@ -256,8 +256,20 @@ a percent off. The device pulls from the ring on SDL's audio thread.
 **Saves.** `<saves>/<rom stem>.srm`, loaded after the game and before the first frame, checked
 once a second and at exit, and written only when the RAM differs from what was last loaded or
 written, through `fileio::writeWhole` (a `.part` file and a rename), so a crash mid-write leaves the
-previous file. A missing or wrong-sized file starts the game with the core's blank save RAM and is
-kept until the core writes its own. A failed write is logged and tried again at the next check.
+previous file. A file smaller than the core's save RAM fills its start, as RetroArch loads it: mGBA
+reports 128 KiB (`GBA_SIZE_FLASH1M`) until the game first touches its save chip, then the chip's
+size (32 KiB for SRAM), and its save is the start of that buffer. RAM that shrinks to an unchanged
+start of what was loaded is not a change, so learning the save type writes nothing. A missing file
+starts the game with the core's blank save RAM; a core without save RAM leaves any file alone. A
+failed write is logged and tried again at the next check.
+
+Invariant: a save file the runner did not load is never written over. A file larger than the core's
+save RAM, or one that cannot be read, is a load failure (`SaveError`): the game is not started, the
+runner exits 2 with the reason in the control file for the shell's toast, and the file is left
+byte for byte. Refusing beats a backup or a blank start: a blank start writes the game's freshly
+formatted save over the player's within a second, and a run whose saves are not kept loses the
+session's progress silently. Check it with `opensu-retro --hidden` on a copy of a save padded past
+the core's size: exit 2, the error naming the file, the copy's hash unchanged.
 
 **Cores.** A built-in emulator's core is looked for in `<data>/opensu/cores/` (openSU's
 downloads), then `~/.config/retroarch/cores`, `/usr/lib64/libretro`, `/usr/lib/libretro` and
@@ -335,7 +347,8 @@ nothing more of a zip whose stamps all hold.
   counter (reset zeroes the count); one crashes in `retro_run`; one cannot serialize.
 - Unit tests through the shipping code: pixel conversion, resampler fill control, joypad mapping
   and sticks (the furthest of two pads, a pad leaving),
-  save RAM round trip and atomic write, environment answers (an OpenGL context refused by name, a
+  save RAM round trip and atomic write, a smaller save into the RAM's start and a larger or
+  unreadable one refused untouched, environment answers (an OpenGL context refused by name, a
   Vulkan one taken, Vulkan preferred).
 - `core_test` loads the fake core through `Core` with the real owners: frames, samples, the
   joypad and save RAM reach them, a second core and a missing library or ROM are `CoreError`s.
@@ -347,7 +360,9 @@ nothing more of a zip whose stamps all hold.
   save writes the `.state`, a later load leaves the `.srm`'s frame count showing the frames between
   them undone, a reset zeroes it, the stateless core's save is 409 with its reason, an unknown
   route 404, `/input` holding Start reaches the core's `.srm` and Guide or a stick past 1 is 400,
-  SIGTERM exits 0 and removes the file, and a missing ROM exits 2 leaving the error.
+  SIGTERM exits 0 and removes the file, and a missing ROM exits 2 leaving the error. A save smaller
+  than the core's RAM continues the frame count; a larger one exits 2, named in the control file,
+  and is left as it was.
 - `retro_session_test` and `quick_menu_controller_test` run `RetroSession` against a fake runner
   (`tests/support/fake_runner.hpp`): the per-launch file, the port read once announced, reasons
   passed through, the load failure handed over once; the rows, the disabled Load state, the two
