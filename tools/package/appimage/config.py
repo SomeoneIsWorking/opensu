@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 CONTAINERFILE = REPO / "packaging" / "appimage" / "Containerfile"
 IMAGE_NAME = "localhost/opensu-appimage-build"
 

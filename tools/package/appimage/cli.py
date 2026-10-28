@@ -1,4 +1,4 @@
-"""Command line: `uv run --frozen python -m tools.appimage <command>`.
+"""Command line: `uv run --frozen python -m tools.package appimage <command>`.
 
   build [--version V]   build the AppImage in the Ubuntu 24.04 build container
   smoke [--version V]   run the built AppImage's checks on every test distribution
@@ -11,8 +11,8 @@ set to an armored private key, the AppImage is signed with it.
 import argparse
 import subprocess
 
-from tools.appimage import config, container, inner, smoke
 from tools.check import process
+from tools.package.appimage import config, container, inner, smoke
 
 
 def default_version() -> str:
@@ -28,7 +28,18 @@ def build(layout: config.Layout, version: str) -> None:
     tag = container.ensure_image(env)
     container.run_in(
         tag,
-        ["uv", "run", "--frozen", "python", "-m", "tools.appimage", "inner", "--version", version],
+        [
+            "uv",
+            "run",
+            "--frozen",
+            "python",
+            "-m",
+            "tools.package",
+            "appimage",
+            "inner",
+            "--version",
+            version,
+        ],
         layout,
         env,
         passthrough=(config.SIGNING_KEY_ENV,),
@@ -37,7 +48,9 @@ def build(layout: config.Layout, version: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="tools.appimage", description=__doc__, formatter_class=argparse.RawTextHelpFormatter
+        prog="tools.package appimage",
+        description=__doc__,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument("command", choices=("build", "smoke", "all", "inner"))
     parser.add_argument("--version", default="", help="version in the file name (git describe)")

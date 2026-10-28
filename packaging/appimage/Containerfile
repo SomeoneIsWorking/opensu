@@ -1,4 +1,4 @@
-# Build environment for the openSU AppImage (tools/appimage). Ubuntu 24.04 sets the glibc floor
+# Build environment for the openSU AppImage (tools/package/appimage). Ubuntu 24.04 sets the glibc floor
 # (2.39). wlroots 0.20, which the Gamescope fork builds as a subproject, needs wayland, wayland-protocols,
 # libxkbcommon and pixman newer than 24.04 ships, and libdrm 2.4.129 headers: those are built from
 # pinned release tarballs into /usr/local. The AppImage bundles the first four; libdrm is the host's.

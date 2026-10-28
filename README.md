@@ -112,7 +112,7 @@ frame; a Gamescope session itself is not run there); other
 distributions with glibc 2.39 or newer should work but are untested. Linux only: a Windows build
 (without Gamescope) is a possible future target, macOS is not planned.
 
-`uv run --frozen python -m tools.appimage all` builds it in a podman container (Ubuntu 24.04, the
+`uv run --frozen python -m tools.package appimage all` builds it in a podman container (Ubuntu 24.04, the
 glibc floor) and runs the same checks; the AppImage lands in `build/appimage/out/`.
 
 ## Building

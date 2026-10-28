@@ -4,8 +4,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from tools import podman
-from tools.appimage import config
 from tools.check import process
+from tools.package.appimage import config
 
 
 def ensure_image(env: Mapping[str, str]) -> str:

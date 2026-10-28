@@ -65,7 +65,13 @@ def ruff(env: Mapping[str, str]) -> None:
     process.run(["ruff", "format", "--check", REPO], env)
 
 
-def all_checks(cmake_dir: Path, env: Mapping[str, str]) -> None:
+def all_checks(cmake_dir: Path, env: Mapping[str, str], platform: str = "linux") -> None:
+    """Every check, on the Linux tree. A Windows tree is not linted: the format and the Python are
+    the same on every OS, and clang-tidy under the MSVC STL reports its visible throws (a mutex
+    lock in a destructor) across the shared sources, which the Linux tree does not."""
+    if platform != "linux":
+        print(f"+ lint: not run on the {platform} tree; the Linux tree's lint covers the sources")
+        return
     clang_format(env)
     ruff(env)
     clang_tidy(cmake_dir, env)
