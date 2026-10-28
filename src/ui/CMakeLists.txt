@@ -9,7 +9,7 @@ target_compile_options(opensu_grid PRIVATE -Wall -Wextra -Wpedantic)
 
 # The chrome's models: top bar sizing, clock text, battery icon choice, the chord list and the mapping editor. Pure, so tests link it alone.
 add_library(opensu_hud_model STATIC top_bar_metrics.cpp top_bar_layout.cpp corner_hints.cpp clock_text.cpp battery_icon.cpp
-    section_view.cpp dock_metrics.cpp dock_motion.cpp card_border.cpp
+    section_view.cpp dock_metrics.cpp dock_motion.cpp
     on_screen_keyboard.cpp panel_fade.cpp breadcrumbs.cpp game_details.cpp
     setting_row.cpp folder_chooser.cpp volume_osd.cpp chord_hint.cpp
     mapping_board_layout.cpp mapping_page.cpp)
@@ -26,7 +26,7 @@ add_library(opensu_ui STATIC
     volume_osd_painter.cpp chord_hint_painter.cpp
     mapping_page_painter.cpp hint_row.cpp
     interface_input.cpp interface_theme.cpp interface_text.cpp screen_stack.cpp row_widgets.cpp page_frame.cpp screen_images.cpp image_view.cpp layout_sketch.cpp progress_screen.cpp entry_screen.cpp offer_card.cpp
-    platform.cpp glyph_textures.cpp)
+    platform.cpp)
 add_library(opensu::ui ALIAS opensu_ui)
 target_include_directories(opensu_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_ui

@@ -60,6 +60,8 @@ constexpr float loadingStroke = 0.11f;
 constexpr Colour consoleFrom{0x8A, 0x82, 0x9C, 255};
 constexpr Colour consoleTo{0x4D, 0x46, 0x55, 255};
 constexpr Colour consoleDarkInk{0x2B, 0x27, 0x33, 255};
+constexpr Colour consoleDepth{0x1B, 0x17, 0x26, 255};
+constexpr float consoleDeepen = 0.45f;
 
 /// A launcher's card gradient, from its brand's colours.
 struct Brand {
@@ -90,6 +92,8 @@ constexpr float updateArrowWidth = 0.22f;
 constexpr float updateArrowHead = 0.42f;
 // A folder card's mark is a quarter of the card; the library glyph is four tiles of it.
 constexpr float markSide = 0.26f;
+// A console's drawing is the card's picture, so it is drawn larger than a store's logo.
+constexpr float consoleMarkSide = 0.36f;
 constexpr float markGap = 0.05f;
 constexpr float glyphTile = 0.44f;
 
@@ -134,12 +138,6 @@ Colour sample(std::span<const Stop> stops, float t) noexcept {
 /// Position along the top-left to bottom-right diagonal of `rect`, 0 to 1.
 float diagonal(const Rect& rect, Point point) noexcept {
     return ((point.x - rect.x) + (point.y - rect.y)) / std::max(rect.width + rect.height, 1.0f);
-}
-
-Colour unpack(std::uint32_t rgb) noexcept {
-    return Colour{static_cast<std::uint8_t>((rgb >> 16) & 0xffu),
-                  static_cast<std::uint8_t>((rgb >> 8) & 0xffu),
-                  static_cast<std::uint8_t>(rgb & 0xffu), 255};
 }
 
 } // namespace
@@ -306,21 +304,17 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
                                const TileGeometry& geometry) {
     const Rect& content = geometry.content;
     const Colour tint = withAlpha(white, tile.alpha);
-    if (tile.kind == TileKind::Console && tile.art != nullptr) {
-        // The console's card is the whole tile: it carries the glyph and its own frame.
-        drawTextureRound(canvas, RoundRect{content, geometry.contentRadius}, tile.art->view(),
-                         coverSource(static_cast<float>(tile.art->width()),
-                                     static_cast<float>(tile.art->height()), content),
-                         tint);
-        return;
-    }
     if (tile.kind == TileKind::Console) {
-        const Colour from =
-            tile.platform != nullptr ? unpack(tile.platform->strokeFrom) : consoleFrom;
-        const Colour to = tile.platform != nullptr ? unpack(tile.platform->strokeTo) : consoleTo;
+        // The card is the platform's colours deepened, so its frame stands out and white reads.
+        const Colour from = tile.platform != nullptr ? mix(unpack(tile.platform->strokeFrom),
+                                                           consoleDepth, consoleDeepen)
+                                                     : consoleFrom;
+        const Colour to = tile.platform != nullptr
+                              ? mix(unpack(tile.platform->strokeTo), consoleDepth, consoleDeepen)
+                              : consoleTo;
         paintCard(canvas, tile, content, from, to);
         if (tile.platform != nullptr) {
-            paintFrame(canvas, content, *tile.platform, nullptr, tile.alpha);
+            paintFrame(canvas, content, *tile.platform, tile.console, tile.alpha);
         }
         return;
     }
@@ -355,7 +349,7 @@ void TilePainter::paintContent(Canvas& canvas, const TileVisual& tile,
         } else {
             paintFallback(canvas, tile, content);
         }
-        paintFrame(canvas, content, *tile.platform, tile.glyph, tile.alpha);
+        paintFrame(canvas, content, *tile.platform, tile.console, tile.alpha);
     } else if (tile.art != nullptr) {
         // iiSU nx2.l: a cover crop into the content rect at the content radius.
         drawTextureRound(canvas, RoundRect{content, geometry.contentRadius}, tile.art->view(),
@@ -404,7 +398,7 @@ void TilePainter::paintStores(Canvas& canvas, const TileVisual& tile, const Rect
 }
 
 void TilePainter::paintFrame(Canvas& canvas, const Rect& rect, const Platform& platform,
-                             const gpu2d::Texture* glyph, float alpha) const {
+                             std::string_view console, float alpha) {
     // The border sprite drawn as its own shapes: a stroke and a top-left tab, both on the
     // sprite's diagonal gradient.
     const FrameGeometry frame = frameGeometry(rect);
@@ -424,19 +418,27 @@ void TilePainter::paintFrame(Canvas& canvas, const Rect& rect, const Platform& p
     };
     square(Rect{rect.x + frame.tab - corner, rect.y, corner, corner});
     square(Rect{rect.x, rect.y + frame.tab - corner, corner, corner});
-    if (glyph != nullptr) {
-        // iiSU g24.e: the white glyph contain-fitted into a square at the tab's centre.
-        const Rect fit = containFit(static_cast<float>(glyph->width()),
-                                    static_cast<float>(glyph->height()), frame.glyph);
-        canvas.image(glyph->view(), wholeOf(*glyph), onCanvas(fit), withAlpha(white, alpha));
+    if (console.empty()) {
+        return;
+    }
+    // iiSU g24.e: the white glyph in a square at the tab's centre.
+    const int pixels = std::max(static_cast<int>(std::lround(frame.glyph.width)), 1);
+    if (const gpu2d::Texture* glyph = icons_.mask(consoleGlyphFile(console), pixels)) {
+        const auto side = static_cast<float>(pixels);
+        canvas.image(glyph->view(), wholeOf(*glyph),
+                     gpu2d::Rect{std::round(frame.glyph.centreX() - side * 0.5f),
+                                 std::round(frame.glyph.centreY() - side * 0.5f), side, side},
+                     withAlpha(white, alpha));
     }
 }
 
 void TilePainter::paintMark(Canvas& canvas, const TileVisual& tile, const Rect& box, Colour ink) {
     // A launcher without a logo (the player's own games) takes the library's glyph.
-    if (tile.kind == TileKind::Launcher && tile.logo) {
+    const bool drawn = tile.kind == TileKind::Console && !tile.console.empty();
+    if ((tile.kind == TileKind::Launcher && tile.logo) || drawn) {
         const int pixels = std::max(static_cast<int>(std::lround(box.width)), 1);
-        const gpu2d::Texture* mark = tile.logo ? icons_.mask(*tile.logo, pixels) : nullptr;
+        const gpu2d::Texture* mark = drawn ? icons_.mask(consoleCardFile(tile.console), pixels)
+                                           : icons_.mask(*tile.logo, pixels);
         if (mark != nullptr) {
             const auto side = static_cast<float>(pixels);
             canvas.image(mark->view(), wholeOf(*mark),
@@ -508,8 +510,10 @@ void TilePainter::paintCard(Canvas& canvas, const TileVisual& tile, const Rect& 
     const float nameBox = text_.lineHeight(name);
     const float gap = side * 0.04f;
     const bool marked = tile.kind == TileKind::Launcher || tile.kind == TileKind::AllGames ||
-                        tile.kind == TileKind::Giveaways || tile.kind == TileKind::AddGame;
-    const float mark = marked ? side * markSide : 0.0f;
+                        tile.kind == TileKind::Giveaways || tile.kind == TileKind::AddGame ||
+                        (tile.kind == TileKind::Console && !tile.console.empty());
+    const float markShare = tile.kind == TileKind::Console ? consoleMarkSide : markSide;
+    const float mark = marked ? side * markShare : 0.0f;
     const float markRoom = marked ? side * markGap : 0.0f;
     const float block = mark + markRoom + static_cast<float>(lines.size()) * nameBox + gap +
                         text_.lineHeight(count);

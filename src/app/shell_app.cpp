@@ -210,15 +210,8 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     plugins_.request(games_);
     artworkStore_.apply(games_);
     covers_.catalogChanged(games_);
-    const std::vector<library::Console> consoles = library::consoles(games_);
-    artworkFetcher_.request(games_, consoles, artwork::allApkAssets());
+    artworkFetcher_.request(games_, artwork::allApkAssets());
     delivery_.restart();
-    for (const library::Console& console : consoles) {
-        const std::filesystem::path glyph = artworkStore_.storedGlyph(console.system);
-        if (!glyph.empty()) {
-            shell_.grid().setGlyph(console.system, glyph);
-        }
-    }
     for (const library::SourceStatus& source : sources_) {
         if (source.availability != library::Availability::Ready &&
             source.availability != library::Availability::Loading) {

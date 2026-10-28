@@ -6,7 +6,6 @@
 
 #include <array>
 #include <cstddef>
-#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -26,8 +25,6 @@ struct Console {
     /// The name the player reads ("GameCube").
     std::string label;
     std::size_t games{0};
-    /// The console card on disk, or empty for none.
-    std::filesystem::path artwork;
 
     bool operator==(const Console&) const = default;
 };

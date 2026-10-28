@@ -101,14 +101,4 @@ Rect updateBadge(const Rect& content) noexcept {
     return Rect{content.right() - margin - badge, content.y + margin, badge, badge};
 }
 
-Rect containFit(float width, float height, const Rect& slot) noexcept {
-    if (width <= 0.0f || height <= 0.0f) {
-        return Rect{slot.centreX(), slot.centreY(), 0.0f, 0.0f};
-    }
-    const float fit = std::min(slot.width / width, slot.height / height);
-    const float w = width * fit;
-    const float h = height * fit;
-    return Rect{slot.centreX() - w * 0.5f, slot.centreY() - h * 0.5f, w, h};
-}
-
 } // namespace opensu::ui

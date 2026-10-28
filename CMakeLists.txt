@@ -25,11 +25,9 @@ add_library(opensu_nanosvg INTERFACE)
 add_library(opensu::nanosvg ALIAS opensu_nanosvg)
 target_include_directories(opensu_nanosvg SYSTEM INTERFACE "${NANOSVG_INCLUDE_DIR}")
 
-# The starter pack is a zip of WebP images: zlib reads the zip, SDL3_image the images (libwebp
-# encodes the tests' fixture).
+# zlib inflates the zips opensu reads.
 find_package(ZLIB REQUIRED)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(WEBP REQUIRED IMPORTED_TARGET GLOBAL libwebp)
 
 # SDL3 gives the shell its window, input and sound and, with Vulkan, draws opensu-retro;
 # libvorbisfile decodes the UI sounds.

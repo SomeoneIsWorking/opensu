@@ -39,8 +39,8 @@ derived from the window, following iiSU's own layout rules.
 | ![Search with results](docs/screenshots/search.webp) | |
 | Search with results | |
 
-The shots are of the maintainer's own library. Game art belongs to its owners and console cards
-and glyphs are iiSU's, downloaded at runtime and never shipped; see
+The shots are of the maintainer's own library. Game art belongs to its owners; the console cards
+and glyphs are openSU's own drawings (`assets/consoles/`, MIT); see
 [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md). Captured with
 `uv run --frozen python -m tools.screenshots --profile real`.
 
@@ -97,8 +97,7 @@ package (`nanosvg-devel` on Fedora), else a checkout at `NANOSVG_ROOT`, by defau
 faces and images through HarfBuzz, SDL3_ttf and SDL3_image (`SDL3-devel SDL3_ttf-devel
 harfbuzz-devel SDL3_image-devel libpng-devel` on Fedora), and the UI sounds are Ogg Vorbis (`libvorbis-devel`). libcurl
 (`libcurl-devel`) downloads missing artwork; libcrypto (`openssl-devel`) decrypts a Switch game's
-own title and icon with the player's keys; zlib (`zlib-devel`) reads iiSU's starter pack, libwebp
-(`libwebp-devel`) decodes its console cards, nlohmann/json (`json-devel`) reads and writes the
+own title and icon with the player's keys; zlib (`zlib-devel`) inflates zips, nlohmann/json (`json-devel`) reads and writes the
 settings, SQLite (`sqlite-devel`) reads Lutris's game list for Add a game, and libX11 and libXi
 (`libX11-devel libXi-devel`) read the in-game shortcut keys.
 `opensu-retro`, the built-in libretro runner, also needs the Vulkan loader and glslc

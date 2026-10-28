@@ -22,7 +22,6 @@
 #include "gpu2d/ui/cell_grid.hpp"
 
 #include "config/config.hpp"
-#include "glyph_textures.hpp"
 #include "grid_focus.hpp"
 #include "home_layout.hpp"
 #include "interface_text.hpp"
@@ -95,10 +94,6 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     [[nodiscard]] std::vector<std::string> downloadingOnScreen() const;
     /// A game's artwork is not coming (a confirmed miss, or the round ended): no spinner.
     void artworkSettled(std::string_view gameId);
-    /// Gives a console's tile the card that arrived after the shelf was set.
-    void setConsoleArtwork(std::string_view system, const std::filesystem::path& artwork);
-    /// Gives the ROM tiles of a system the glyph for their frame's tab.
-    void setGlyph(std::string_view system, const std::filesystem::path& glyph);
 
     /// Lays out `section`'s shelf: Home fills its pages with empty slots, Library does not.
     void setSection(library::Section section);
@@ -223,7 +218,6 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     /// What stands for the folder in the XMB's left column.
     std::optional<Tile> header_;
     Platforms platforms_;
-    GlyphTextures glyphs_;
     HomeLayout layout_;
     GridFocus focus_;
     motion::ScrollEaser scroller_;

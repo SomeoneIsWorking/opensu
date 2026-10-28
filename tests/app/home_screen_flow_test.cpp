@@ -31,8 +31,7 @@ constexpr float dp = 1.5f;
 
 std::vector<library::ShelfItem> shelf() {
     std::vector<library::ShelfItem> items;
-    items.emplace_back(
-        library::Console{.system = "gb", .label = "Game Boy", .games = 3, .artwork = {}});
+    items.emplace_back(library::Console{.system = "gb", .label = "Game Boy", .games = 3});
     for (int i = 1; i < 30; ++i) {
         library::Game game;
         game.id = "rom:" + std::to_string(i);

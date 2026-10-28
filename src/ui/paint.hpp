@@ -2,6 +2,8 @@
 // the canvas takes it, and scopes that clip or scale what is drawn inside them.
 #pragma once
 
+#include <cstdint>
+
 #include "gpu2d/canvas.hpp"
 #include "gpu2d/geometry.hpp"
 #include "gpu2d/texture.hpp"
@@ -16,6 +18,13 @@ using Point = gpu2d::Point;
 
 inline constexpr Colour white{255, 255, 255, 255};
 inline constexpr Colour black{0, 0, 0, 255};
+
+/// An opaque colour from 0xRRGGBB.
+[[nodiscard]] constexpr Colour unpack(std::uint32_t rgb) noexcept {
+    return Colour{static_cast<std::uint8_t>((rgb >> 16) & 0xffu),
+                  static_cast<std::uint8_t>((rgb >> 8) & 0xffu),
+                  static_cast<std::uint8_t>(rgb & 0xffu), 255};
+}
 
 /// The layout's rectangle as the canvas takes it.
 [[nodiscard]] constexpr gpu2d::Rect onCanvas(const Rect& rect) noexcept {

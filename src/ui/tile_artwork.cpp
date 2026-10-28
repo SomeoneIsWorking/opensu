@@ -50,9 +50,7 @@ void TileArtwork::request(Tile& tile, std::uint64_t id) {
     }
     DecodeJob job{
         .shelf = shelfSerial_, .tile = id, .ticket = tile.ticket, .portrait = {}, .wide = {}};
-    if (const auto* console = std::get_if<library::Console>(&tile.item)) {
-        job.portrait = console->artwork;
-    } else if (const auto* game = std::get_if<library::Game>(&tile.item)) {
+    if (const auto* game = std::get_if<library::Game>(&tile.item)) {
         job.portrait = game->artwork;
         job.wide = game->artworkWide;
     }

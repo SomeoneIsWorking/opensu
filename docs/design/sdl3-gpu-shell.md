@@ -39,7 +39,7 @@ Non-goals: new visuals, a Windows build (SDL3 GPU keeps that possible), sharing 
 | Offscreen | render textures for the dock blur and `--render`/`/frame.png`, read back to PNG | `ui/backdrop_blur`, `app/frame_png` |
 | Shaders | the blur's two GLSL 330 passes and the capsule mask | `ui/backdrop_blur` |
 | Text | `LoadFontEx` atlas of Cal Sans, `DrawTextCodepoint`, `MeasureTextCodepoints` | `ui/interface_text` |
-| Images | `LoadImage`, `ImageResize`, `ImageFormat`, textures from images (WebP through libwebp already) | `ui/image_decoder`, `ui/glyph_textures`, `artwork/starter_pack` |
+| Images | `LoadImage`, `ImageResize`, `ImageFormat`, textures from images (WebP through libwebp already) | `ui/image_decoder` |
 | Input | keys pressed, released and repeated, typed text, mouse position, buttons, wheel | `input/keyboard_bindings`, `input/key_names`, `app/shell_window` (`PointerFrame`) |
 | Sound | the audio device, WAV and OGG UI sounds | `audio/sound_player` |
 
@@ -62,7 +62,7 @@ repository.
 | gpu2d `render_target` | Offscreen colour targets and their read-back to RGBA |
 | gpu2d `text` | A face file through SDL3_ttf (FreeType, HarfBuzz) and its GPU text engine: glyph atlas, measure, draw. The shell draws Cal Sans hinted and kerned through `ui/interface_text` |
 | gpu2d `src/shaders/`, `cmake/Gpu2dShaders.cmake` | GLSL compiled to SPIR-V by `glslc` at build time, embedded as headers; `gpu2d_compile_shaders` also builds `opensu-retro`'s |
-| `gpu2d::image` | Decoding PNG, JPEG and WebP with SDL3_image, cubic resizing (Mitchell down, Catmull-Rom up, as stb_image_resize2 defaults), and the one PNG encoder (`opensu-retro` and the starter pack use it already), encoding to memory so `/frame.png` stops writing a temporary file under `/tmp`; no GPU |
+| `gpu2d::image` | Decoding PNG, JPEG and WebP with SDL3_image, cubic resizing (Mitchell down, Catmull-Rom up, as stb_image_resize2 defaults), and the one PNG encoder (`opensu-retro` uses it already), encoding to memory so `/frame.png` stops writing a temporary file under `/tmp`; no GPU |
 | `src/audio/sdl_sound_player.*`, `sound_clip.*` | UI sounds on SDL audio streams, one per effect; WAV through `SDL_LoadWAV`, OGG through libvorbisfile, decoded without a device |
 | `src/input/keyboard_bindings.*`, `app/shell_window.*` | SDL keyboard, text and mouse events into the existing raylib-free key names and the frame's pointer |
 
@@ -104,8 +104,8 @@ through gpu2d.
 2. Capture the reference screens (§5.1).
 3. Build gpu2d and the SDL sound player with their tests. Done: gpu2d's `canvas_test` (primitives,
    scissor, blend, transform, texture tint, blur, read-back), `text_test` and `image_test`, and
-   openSU's `tests/audio/sdl_sound_player_test`, on RADV and lavapipe. `opensu-retro` and the
-   starter pack already use `gpu2d::image`.
+   openSU's `tests/audio/sdl_sound_player_test`, on RADV and lavapipe. `opensu-retro` already
+   uses `gpu2d::image`.
 4. Move every painter, the window, input and sound to them, delete raylib from the shell and the
    build, in one change; compare against the references. Sound: `app/shell_app` holds an
    `audio::SdlSoundPlayer` (same calls: `open`, `load`, `setMuted`, `play`) instead of

@@ -127,9 +127,8 @@ void testLibraryShelf() {
     expect(std::get_if<AllGames>(&shelf.at(5)) != nullptr &&
                std::get<AllGames>(shelf.at(5)).games == 4,
            "All games counts titles, a title owned in three stores once");
-    expect(*consoleAt(shelf, 6) == Console{"gc", "GameCube", 1, {}},
-           "GameCube first, in system order");
-    expect(*consoleAt(shelf, 7) == Console{"ps2", "PlayStation 2", 2, {}}, "PS2 counts both ROMs");
+    expect(*consoleAt(shelf, 6) == Console{"gc", "GameCube", 1}, "GameCube first, in system order");
+    expect(*consoleAt(shelf, 7) == Console{"ps2", "PlayStation 2", 2}, "PS2 counts both ROMs");
     expect(std::ranges::none_of(shelf,
                                 [](const ShelfItem& item) {
                                     return std::holds_alternative<Game>(item);
@@ -230,7 +229,7 @@ void testBrowser() {
     expect(cycleFrom(browser, 1, 2) == 0 && browser.section() == Section::Library,
            "R1 reaches Library, first visit at its first slot");
     expect(browser.shelf(library(), allReady()).size() == 8, "Library's shelf");
-    browser.open(Console{"ps2", "PlayStation 2", 2, {}}, 5);
+    browser.open(Console{"ps2", "PlayStation 2", 2}, 5);
     expect(keyOf(browser.folder()) == "ps2", "the console is open");
     expect(browser.shelf(library(), allReady()).size() == 2, "its shelf is its ROMs");
     expect(browser.back() == 5, "back restores Library's focus on the console");
@@ -238,7 +237,7 @@ void testBrowser() {
                browser.shelf(library(), allReady()).size() == 8,
            "Library again, not Home");
 
-    browser.open(Console{"ps2", "PlayStation 2", 2, {}}, 5);
+    browser.open(Console{"ps2", "PlayStation 2", 2}, 5);
     std::vector<Game> gone = library();
     std::erase_if(gone, [](const Game& entry) {
         return entry.sourceId == "ps2";
@@ -267,7 +266,7 @@ void testCycling() {
     expect(cycleFrom(browser, -1, 2) == 4 && browser.section() == Section::Library,
            "L1 from Home wraps to Library, which is where it was left");
 
-    browser.open(Console{"gc", "GameCube", 1, {}}, 4);
+    browser.open(Console{"gc", "GameCube", 1}, 4);
     expect(cycleFrom(browser, 1, 0) == 2 && !browser.folder() && browser.section() == Section::Home,
            "leaving Library closes the folder");
     expect(cycleFrom(browser, 1, 2) == 4,

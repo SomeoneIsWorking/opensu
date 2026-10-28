@@ -8,12 +8,12 @@ target_link_libraries(artwork_fetcher_test PRIVATE opensu::artwork lucent::lucen
 target_compile_options(artwork_fetcher_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME artwork_fetcher COMMAND artwork_fetcher_test)
 
-add_executable(starter_pack_test starter_pack_test.cpp)
-target_link_libraries(starter_pack_test PRIVATE opensu::artwork ZLIB::ZLIB PkgConfig::WEBP
-                                                lucent::lucent Threads::Threads)
-target_include_directories(starter_pack_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
-target_compile_options(starter_pack_test PRIVATE -Wall -Wextra -Wpedantic)
-add_test(NAME starter_pack COMMAND starter_pack_test)
+add_executable(apk_archive_test apk_archive_test.cpp)
+target_link_libraries(apk_archive_test PRIVATE opensu::artwork ZLIB::ZLIB lucent::lucent
+                                               Threads::Threads)
+target_include_directories(apk_archive_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(apk_archive_test PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME apk_archive COMMAND apk_archive_test)
 
 add_executable(iisu_assets_test iisu_assets_test.cpp)
 target_link_libraries(iisu_assets_test PRIVATE opensu::artwork)

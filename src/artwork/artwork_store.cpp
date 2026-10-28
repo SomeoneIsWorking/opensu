@@ -80,19 +80,6 @@ fs::path ArtworkStore::pathFor(const library::Game& game) const {
     return {};
 }
 
-fs::path ArtworkStore::pathFor(const library::Console& console) const {
-    return console.system.empty() ? fs::path{} : root_ / "console" / (console.system + ".png");
-}
-
-fs::path ArtworkStore::glyphPath(std::string_view system) const {
-    return system.empty() ? fs::path{} : root_ / "glyph" / (std::string{system} + ".png");
-}
-
-fs::path ArtworkStore::storedGlyph(std::string_view system) const {
-    const fs::path file = glyphPath(system);
-    return !file.empty() && isFile(file) ? file : fs::path{};
-}
-
 fs::path ArtworkStore::assetPath(const ApkAsset& asset) const {
     return root_ / "sound" / asset.file;
 }
@@ -102,47 +89,32 @@ fs::path ArtworkStore::storedAsset(const ApkAsset& asset) const {
     return isFile(file) ? file : fs::path{};
 }
 
-fs::path ArtworkStore::packPath(std::string_view name) const {
-    return root_ / "iisu" / name;
-}
-
 void ArtworkStore::apply(std::vector<library::ShelfItem>& shelf) const {
-    const auto give = [](auto& owner, const fs::path& file) {
-        if (owner.artwork.empty() && !file.empty() && isFile(file)) {
-            owner.artwork = file;
-        }
-    };
     for (library::ShelfItem& item : shelf) {
-        if (auto* console = std::get_if<library::Console>(&item)) {
-            give(*console, pathFor(*console));
-        } else if (auto* game = std::get_if<library::Game>(&item)) {
-            give(*game, pathFor(*game));
+        if (auto* game = std::get_if<library::Game>(&item)) {
+            giveStored(*game);
         }
     }
 }
 
 void ArtworkStore::apply(std::vector<library::Game>& games) const {
     for (library::Game& game : games) {
-        if (!game.artwork.empty()) {
-            continue;
-        }
-        const fs::path file = pathFor(game);
-        if (!file.empty() && isFile(file)) {
-            game.artwork = file;
-        }
+        giveStored(game);
+    }
+}
+
+void ArtworkStore::giveStored(library::Game& game) const {
+    if (!game.artwork.empty()) {
+        return;
+    }
+    const fs::path file = pathFor(game);
+    if (!file.empty() && isFile(file)) {
+        game.artwork = file;
     }
 }
 
 bool ArtworkStore::wanted(const library::Game& game, Clock::time_point now) const {
     return game.artwork.empty() && wantedAt(pathFor(game), now);
-}
-
-bool ArtworkStore::wanted(const library::Console& console, Clock::time_point now) const {
-    return console.artwork.empty() && wantedAt(pathFor(console), now);
-}
-
-bool ArtworkStore::wantedGlyph(std::string_view system, Clock::time_point now) const {
-    return wantedAt(glyphPath(system), now);
 }
 
 bool ArtworkStore::wantedAsset(const ApkAsset& asset, Clock::time_point now) const {
@@ -163,31 +135,8 @@ bool ArtworkStore::save(const library::Game& game, std::string_view bytes,
     return saveAt(pathFor(game), game.title, bytes, error);
 }
 
-bool ArtworkStore::save(const library::Console& console, std::string_view bytes,
-                        std::string& error) const {
-    return saveAt(pathFor(console), console.label, bytes, error);
-}
-
-bool ArtworkStore::saveGlyph(std::string_view system, std::string_view bytes,
-                             std::string& error) const {
-    return saveAt(glyphPath(system), std::string{system}, bytes, error);
-}
-
-bool ArtworkStore::savePack(std::string_view name, std::string_view bytes,
-                            std::string& error) const {
-    return saveAt(packPath(name), std::string{name}, bytes, error);
-}
-
 void ArtworkStore::recordMiss(const library::Game& game) const {
     recordMissAt(pathFor(game));
-}
-
-void ArtworkStore::recordMiss(const library::Console& console) const {
-    recordMissAt(pathFor(console));
-}
-
-void ArtworkStore::recordGlyphMiss(std::string_view system) const {
-    recordMissAt(glyphPath(system));
 }
 
 std::optional<std::vector<std::string>> ArtworkStore::index(std::string_view system,

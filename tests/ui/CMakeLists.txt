@@ -6,7 +6,7 @@ foreach(name home_layout grid_focus tile_motion tile_geometry rail_layout)
 endforeach()
 
 foreach(name top_bar_metrics top_bar_layout corner_hints clock_text dock_metrics dock_motion
-             section_view card_border on_screen_keyboard panel_fade breadcrumbs game_details volume_osd chord_hint mapping_page)
+             section_view on_screen_keyboard panel_fade breadcrumbs game_details volume_osd chord_hint mapping_page)
     add_executable(${name}_test ${name}_test.cpp)
     target_link_libraries(${name}_test PRIVATE opensu::hud_model)
     target_compile_options(${name}_test PRIVATE -Wall -Wextra -Wpedantic)
