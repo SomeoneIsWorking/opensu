@@ -1,7 +1,10 @@
 # Photos
 
-Public-domain photos of the hardware from Wikimedia Commons, made into cards by
-`tools/console_photos.py` (background cut to alpha, trimmed, a soft light glow behind).
+Photos of the hardware from Wikimedia Commons, each under the licence listed: public
+domain, CC BY or CC BY-SA. `tools/console_photos.py` makes each into a card: cropped,
+its background removed, scaled and given a soft light glow behind. A card made from a
+CC BY-SA photo is that photo's derivative and is itself under CC BY-SA, not the
+repository's MIT.
 The glyphs are the Drawings theme's. A system without a photo here has no picture on its
 card in this theme.
 
@@ -12,7 +15,7 @@ card in this theme.
 | `n64` | [N64-Console-Set.png](https://commons.wikimedia.org/wiki/File:N64-Console-Set.png) | Evan-Amos (Vanamo Online Game Museum) | Public domain |
 | `gc` | [Nintendo-GameCube-Console-FL.jpg](https://commons.wikimedia.org/wiki/File:Nintendo-GameCube-Console-FL.jpg) | Evan-Amos (Vanamo Online Game Museum) | Public domain |
 | `wii` | [Wii-Console.png](https://commons.wikimedia.org/wiki/File:Wii-Console.png) | Evan-Amos (Vanamo Online Game Museum) | Public domain |
-| `wiiu` | [Nintendo-Wii-U-Console-FL.jpg](https://commons.wikimedia.org/wiki/File:Nintendo-Wii-U-Console-FL.jpg) | Evan-Amos (Vanamo Online Game Museum) | Public domain |
+| `wiiu` | [Wii_U_Console_and_Gamepad.png](https://commons.wikimedia.org/wiki/File:Wii_U_Console_and_Gamepad.png) | Takimata (edited by Tokyoship) | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) |
 | `switch` | [Nintendo-Switch-Console-Docked-wJoyConRB.jpg](https://commons.wikimedia.org/wiki/File:Nintendo-Switch-Console-Docked-wJoyConRB.jpg) | Evan-Amos (Vanamo Online Game Museum) | Public domain |
 | `gb` | [Game-Boy-FL.jpg](https://commons.wikimedia.org/wiki/File:Game-Boy-FL.jpg) | Evan-Amos (Vanamo Online Game Museum) | Public domain |
 | `gbc` | [Nintendo-Game-Boy-Color-FL.png](https://commons.wikimedia.org/wiki/File:Nintendo-Game-Boy-Color-FL.png) | Evan-Amos (Vanamo Online Game Museum) | Public domain |

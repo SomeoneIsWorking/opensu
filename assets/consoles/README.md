@@ -7,7 +7,7 @@ one.
 
 | Theme | Folder | What it is | Licence |
 | --- | --- | --- | --- |
-| Photos (default) | `photos/` | Public-domain photos of the hardware, with the Drawings glyphs | See [photos/README.md](photos/README.md) |
+| Photos (default) | `photos/` | Photos of the hardware, public domain, CC BY or CC BY-SA as each is listed, with the Drawings glyphs | See [photos/README.md](photos/README.md) |
 | Drawings | `drawings/` | openSU's own drawings of the hardware, no logos | MIT (`LICENSE`) |
 | iiSU | none | iiSU's cards and glyphs, read from iiSU's release file the player chooses | iiSU's; not shipped |
 

@@ -7,7 +7,7 @@ ships or downloads them: downloading from iiSU's public release is legally shaky
 product and breaks for everyone if that release changes.
 
 Done: console cards and tab glyphs come from a console art theme (Settings › Artwork › Console art
-theme, `assets/consoles/README.md`): Photos, public-domain photos of the hardware, by default;
+theme, `assets/consoles/README.md`): Photos, public-domain, CC BY or CC BY-SA photos of the hardware, by default;
 Drawings, openSU's own (MIT); iiSU's, read from iiSU's release APK or starter pack that the player
 downloads and picks on the chooser (openSU does not download them); and any theme folder the player
 puts in `<data dir>/themes/`. A theme never borrows another's art. Shown in the README's "Console

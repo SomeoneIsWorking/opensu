@@ -435,11 +435,14 @@ card for shows its gradient, name and count with no picture, and no glyph in its
 none: no theme fills another's gap (`tests/artwork/console_theme_test.cpp`). A theme that fails to
 open (iiSU's file gone) warns why and the default is shown whole.
 
-- Photos (default, `assets/consoles/photos/`): one public-domain Evan-Amos photo from Wikimedia Commons for
-  each of the 21 systems (the arcade card is Sega's arcade stick), licence read from each file's
-  Commons metadata, made into WebP cards (trimmed to the console, a light glow behind so dark
-  hardware reads on dark gradients) by `tools/console_photos.py` with each original
-  pinned by sha256; credits in `assets/consoles/photos/README.md`; glyphs are the Drawings'.
+- Photos (default, `assets/consoles/photos/`): one Wikimedia Commons photo for each of the 21
+  systems, public domain by Evan-Amos (the arcade card is Sega's arcade stick) except the Wii U's
+  console and GamePad, CC BY-SA 3.0 by Takimata (edited by Tokyoship), as no public-domain GamePad
+  photo exists; that card is CC BY-SA 3.0 too, not MIT. Licence read from each file's Commons
+  metadata, made into WebP cards (a white background cut from the edges, trimmed to the console, a
+  light glow behind so dark hardware reads on dark gradients) by `tools/console_photos.py` with each
+  original pinned by sha256; credits in `assets/consoles/photos/README.md`; glyphs are the
+  Drawings'.
 - Drawings (`assets/consoles/drawings/`, MIT): openSU's own silhouettes on a 64 x 64 box
   (body corners 4, detail corners 1.5, detail lines 2, screens and lids a 40% tone); a card shows
   the hardware (SNES and Dreamcast their controllers), a glyph the thing held in the hand or the
