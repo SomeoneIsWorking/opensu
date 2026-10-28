@@ -19,6 +19,7 @@ void PathEditor::begin(Request request) {
     request_ = std::move(request);
     folders_.open(request_.start, request_.files);
     typed_ = folders_.current().string();
+    refusal_.clear();
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     navigator_.push(std::make_unique<FolderChooserScreen>(*this, chrome_));
@@ -40,8 +41,8 @@ void PathEditor::cancel() {
 }
 
 void PathEditor::choose(const std::filesystem::path& folder) {
-    if (const std::string refused = request_.refusal(folder); !refused.empty()) {
-        say_(refused, true);
+    refusal_ = request_.refusal(folder);
+    if (!refusal_.empty()) {
         return;
     }
     close();
@@ -80,6 +81,7 @@ bool PathEditor::up() {
 
 void PathEditor::shown() {
     typed_ = folders_.current().string();
+    refusal_.clear();
     // input-sound.md 3.4 Navigation: a focus move in a list.
     sounds_.play(audio::Effect::Navigation);
     navigator_.focus(FolderChooserScreen::landing(*this));

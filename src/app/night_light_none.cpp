@@ -2,6 +2,10 @@
 
 namespace opensu::app {
 
+bool nightLightSupported() {
+    return false;
+}
+
 std::unique_ptr<DesktopNight> openDesktopNight(const std::filesystem::path& /*xdgConfigHome*/) {
     return nullptr;
 }

@@ -52,6 +52,9 @@ class NightLightOutput {
     virtual void show(int kelvin) = 0;
 };
 
+/// Whether this platform can warm the screen at all; Settings offers the night light only then.
+[[nodiscard]] bool nightLightSupported();
+
 /// The platform's output when openSU is the login session inside its Gamescope, else null.
 /// Throws std::runtime_error when it has one that cannot be opened.
 [[nodiscard]] std::unique_ptr<NightLightOutput> openNightLightOutput(bool loginSession,

@@ -6,6 +6,7 @@
 #include "build_version.hpp"
 #include "layered_editor.hpp"
 #include "library/steam.hpp"
+#include "night_light.hpp"
 #include "settings/install_folders.hpp"
 #include "settings_screen.hpp"
 #include "ui/icon_size.hpp"
@@ -195,14 +196,17 @@ ui::SettingsCategory SettingsController::appearancePage() const {
         ui::Options{{"Scrolling", "Pages"}, mode == config::HomeMode::WiiSu ? 1U : 0U}));
     page.rows.push_back(ui::makeToggle(pinDockId, "Pin navigation bar on Library",
                                        "Keep the dock up on Library", v.pinLibraryDock));
-    page.rows.push_back(ui::makeChoice(
-        nightLightId, "Night light",
-        inForce_.loginSession() ? "Warms the screen's colours at night"
-                                : "For session mode; here the desktop's own night light applies",
-        optionsOf(settings::allNightLightChoices, v.nightLight,
-                  [](settings::NightLightChoice choice) {
-                      return std::string{settings::label(choice)};
-                  })));
+    if (nightLightSupported()) {
+        page.rows.push_back(
+            ui::makeChoice(nightLightId, "Night light",
+                           inForce_.loginSession()
+                               ? "Warms the screen's colours at night"
+                               : "For session mode; here the desktop's own night light applies",
+                           optionsOf(settings::allNightLightChoices, v.nightLight,
+                                     [](settings::NightLightChoice choice) {
+                                         return std::string{settings::label(choice)};
+                                     })));
+    }
     page.rows.push_back(
         ui::makeRow("appearance.scale", RowKind::Info, "Interface size", "In the Guide menu", ""));
     return page;

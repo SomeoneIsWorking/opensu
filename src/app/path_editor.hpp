@@ -3,7 +3,7 @@
 // that drops the setting when the request has one, Up one level, the folders to go into and, for a
 // file, the files to pick. One request at a time: what it is for, where it starts, what makes an
 // answer acceptable and what to do with it. An answer that is refused stays on screen with the
-// reason in a toast.
+// reason on the card, under the field.
 #pragma once
 
 #include <filesystem>
@@ -37,12 +37,9 @@ class PathEditor {
         std::function<void(std::optional<std::filesystem::path>)> done;
     };
 
-    /// What the editor tells the player: `error` marks a refusal.
-    using Say = std::function<void(const std::string& text, bool error)>;
-
     PathEditor(gpu2d::ui::Navigator& navigator, const ui::Chrome& chrome,
-               audio::SdlSoundPlayer& sounds, Say say)
-        : navigator_{navigator}, chrome_{chrome}, sounds_{sounds}, say_{std::move(say)} {
+               audio::SdlSoundPlayer& sounds)
+        : navigator_{navigator}, chrome_{chrome}, sounds_{sounds} {
     }
 
     /// Opens the chooser for `request`.
@@ -63,6 +60,11 @@ class PathEditor {
     }
     void type(std::string text) {
         typed_ = std::move(text);
+        refusal_.clear();
+    }
+    /// Why the last path offered was not taken, shown on the card; empty when none was refused.
+    [[nodiscard]] const std::string& refusal() const noexcept {
+        return refusal_;
     }
     /// Takes the typed path.
     void submitTyped();
@@ -80,7 +82,7 @@ class PathEditor {
     void cancel();
 
   private:
-    /// Takes `folder` if the request accepts it, else says why not.
+    /// Takes `folder` if the request accepts it, else keeps why not for the card.
     void choose(const std::filesystem::path& folder);
     /// Closes the card with iiSU's Close sound.
     void close();
@@ -90,10 +92,10 @@ class PathEditor {
     gpu2d::ui::Navigator& navigator_;
     const ui::Chrome& chrome_;
     audio::SdlSoundPlayer& sounds_;
-    Say say_;
     Request request_;
     ui::FolderChooser folders_;
     std::string typed_;
+    std::string refusal_;
 };
 
 } // namespace opensu::app

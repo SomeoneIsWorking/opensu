@@ -89,10 +89,7 @@ struct Rig {
                       [this](const std::string& why) {
                           failures.push_back(why);
                       }},
-          paths{screens.navigator, chrome, sounds,
-                [this](const std::string& text, bool error) {
-                    said.push_back({text, error});
-                }},
+          paths{screens.navigator, chrome, sounds},
           steamGridDbAccount{app::SteamGridDbAccount::Parts{
               secrets::SecretStore{config.configDir / "secrets", false}, steamGridDb, steamPort,
               steam::SteamGridDbSignIn::Timing{std::chrono::milliseconds{10},
@@ -764,9 +761,9 @@ void refusedFoldersStayOpen(const fs::path& root) {
 
     choose(rig, readonly);
     const bool root0 = ::geteuid() == 0;
-    expect(root0 || (rig.paths.active() && !rig.said.empty() && rig.said.back().error &&
+    expect(root0 || (rig.paths.active() && !rig.paths.refusal().empty() &&
                      rig.onDisk().installFolders.defaultFolder().empty()),
-           "a folder that cannot be written is refused with a message and nothing is kept");
+           "a folder that cannot be written is refused on the card and nothing is kept");
     rig.act(Button::B);
     expect(!rig.paths.active(), "B cancels the chooser");
     expect(rig.onDisk().installFolders.defaultFolder().empty(), "cancelling keeps nothing");
@@ -789,8 +786,8 @@ void typedPathIsValidated(const fs::path& root) {
     rig.frame();
     expect(!rig.pad.isOpen() && rig.paths.active(), "B on the keyboard closes it, not the chooser");
     rig.typeAndSubmit((root / "typed" / "absent").string());
-    expect(rig.paths.active() && !rig.said.empty() && rig.said.back().error,
-           "a missing typed path is refused and stays up");
+    expect(rig.paths.active() && rig.paths.refusal() == "that folder does not exist",
+           "a missing typed path is refused on the card and stays up");
     rig.typeAndSubmit(good.string());
     expect(!rig.paths.active() &&
                rig.onDisk().installFolders.storeFolder(library::Source::Gog) == good,
@@ -818,7 +815,8 @@ void rootsAreAddedAndReset(const fs::path& root) {
     rig.focus("steam.add");
     rig.act(Button::A);
     choose(rig, roms);
-    expect(rig.onDisk().steamRoots.empty() && rig.said.back().error,
+    expect(rig.onDisk().steamRoots.empty() &&
+               rig.paths.refusal() == "that folder holds no Steam installation",
            "a folder with no Steam installation is refused");
 }
 
