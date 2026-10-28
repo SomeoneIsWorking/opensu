@@ -6,8 +6,8 @@ a demo library. The demo library is a made-up Steam install of seven freely lice
 empty ROM files. No art comes from Steam, Epic or GOG, iiSU or anyone's own library. Each game's
 cover is an image of that game from Wikimedia Commons, under the licence below; openSU crops
 and scales it in the tile, the details page and the blurred backdrop. The files are pinned by SHA-256
-in `tools/screenshots/demo.py`. All seven covers appear in `home`, `guide` and `quick-menu`;
-`details` shows The Battle for Wesnoth. `library`, `settings` show none.
+in `tools/screenshots/demo.py`. All seven covers appear in `home`;
+`details` shows The Battle for Wesnoth and `search` SuperTux. `library`, `guide` and `settings` show none.
 
 | Game | Image | Author | Licence |
 | --- | --- | --- | --- |
