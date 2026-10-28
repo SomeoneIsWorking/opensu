@@ -3,8 +3,8 @@
 import shutil
 from pathlib import Path
 
-from tools.appimage import appdir, bundle, config, pack
 from tools.check import cmake, deps, process
+from tools.package.appimage import appdir, bundle, config, pack
 
 # Everything but the `session` component: a session entry naming the AppImage's mount would break
 # once the mount is gone.

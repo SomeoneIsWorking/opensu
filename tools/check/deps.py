@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.check import process
+from tools.check import process, windows
 from tools.check.pins import GPU2D, LUCENT, GitPin
 
 
@@ -22,6 +22,10 @@ class Deps:
     @property
     def gpu2d(self) -> Path:
         return self.root / "gpu2d"
+
+    @property
+    def vcpkg(self) -> Path:
+        return self.root / "vcpkg"
 
 
 def checkout(pin: GitPin, dest: Path, env: Mapping[str, str]) -> None:
@@ -53,7 +57,10 @@ def _head(dest: Path, env: Mapping[str, str]) -> str:
     return result.stdout.strip()
 
 
-def fetch(deps: Deps, env: Mapping[str, str]) -> None:
-    """Every pinned source in place."""
+def fetch(deps: Deps, env: Mapping[str, str], platform: str = "linux") -> None:
+    """Every pinned source the platform builds with in place."""
     checkout(LUCENT, deps.lucent, env)
     checkout(GPU2D, deps.gpu2d, env)
+    if platform == "windows":
+        checkout(windows.vcpkg_pin(), deps.vcpkg, env)
+        windows.bootstrap(deps.vcpkg, env)

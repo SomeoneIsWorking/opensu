@@ -4,9 +4,9 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
-from tools.appimage import config
 from tools.check import process
 from tools.download import fetch_verified, sha256_file
+from tools.package.appimage import config
 
 
 def import_signing_key(armored: str, gnupg: Path, env: Mapping[str, str]) -> str:

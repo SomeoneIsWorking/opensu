@@ -3,7 +3,7 @@
 import shutil
 from pathlib import Path
 
-from tools.appimage.config import DESKTOP_ID
+from tools.package.appimage.config import DESKTOP_ID
 
 
 def finish(appdir: Path) -> None:

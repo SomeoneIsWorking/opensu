@@ -14,11 +14,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools import podman
-from tools.appimage import bundle, config
 from tools.check import process
+from tools.package import frame
+from tools.package.appimage import bundle, config
 
 ELF_INTERP = 3
-RENDER_SIZE = (1280, 800)
 
 
 @dataclass(frozen=True)
@@ -76,13 +76,6 @@ def check_runtime(appimage: Path) -> None:
         (kind,) = struct.unpack_from("<I", table, index * phentsize)
         if kind == ELF_INTERP:
             raise RuntimeError(f"{appimage.name}'s runtime is dynamically linked")
-
-
-def png_size(path: Path) -> tuple[int, int]:
-    data = path.read_bytes()[:24]
-    if data[:8] != b"\x89PNG\r\n\x1a\n":
-        raise RuntimeError(f"{path} is not a PNG")
-    return struct.unpack(">II", data[16:24])
 
 
 def smoke_image(name: str, distro: Distro, env: Mapping[str, str]) -> str:
@@ -159,17 +152,16 @@ def smoke_one(name: str, layout: config.Layout, appimage: Path, env: Mapping[str
             "XDG_CACHE_HOME=/tmp/xdg/cache XDG_DATA_HOME=/tmp/xdg/data "
             f"{run} --render /tmp/frame.png"
         )
-        frame = layout.smoke / f"{name}.png"
-        box.copy_out("/tmp/frame.png", frame)
-        if png_size(frame) != RENDER_SIZE:
-            raise RuntimeError(f"{name}: the frame is {png_size(frame)}, not {RENDER_SIZE}")
+        rendered = layout.smoke / f"{name}.png"
+        box.copy_out("/tmp/frame.png", rendered)
+        frame.check(rendered)
         written = box.run(
             "find / -xdev -newer /tmp/marker -type f -not -path '/proc/*' -not -path '/sys/*'"
         ).stdout.split()
         stray = [path for path in written if not path.startswith(("/tmp/xdg/", "/tmp/frame.png"))]
         if stray:
             raise RuntimeError(f"{name}: the run wrote outside XDG: {stray}")
-        print(f"{name}: ok ({len(written)} files under XDG, frame {frame})", flush=True)
+        print(f"{name}: ok ({len(written)} files under XDG, frame {rendered})", flush=True)
     finally:
         box.remove()
 
