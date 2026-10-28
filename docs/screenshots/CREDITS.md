@@ -24,8 +24,8 @@ openSU's own parts of every frame:
 showcase of the Console art setting:
 
 - **iiSU's console cards and tab glyphs** belong to [iiSU](https://github.com/iisu-network/iiSU).
-  openSU downloads them from iiSU's public release only for a player who chooses them; they are
-  not part of openSU, not in this repository and not licensed by it. Consoles iiSU has no art for
+  openSU reads them from a copy of iiSU's release the player downloads and chooses; openSU never
+  downloads them, and they are not part of openSU, not in this repository and not licensed by it. Consoles iiSU has no art for
   (the PS4) show openSU's own in those frames.
 
 `--profile demo` captures the same screens offline in a throwaway home with a demo library of

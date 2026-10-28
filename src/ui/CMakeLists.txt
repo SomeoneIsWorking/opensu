@@ -30,7 +30,7 @@ add_library(opensu_ui STATIC
 add_library(opensu::ui ALIAS opensu_ui)
 target_include_directories(opensu_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_ui
-    PUBLIC opensu::grid opensu::hud_model opensu::library opensu::device opensu::input
+    PUBLIC opensu::grid opensu::hud_model opensu::library opensu::device opensu::input opensu::artwork
         opensu::config gpu2d::render gpu2d::ui
     PRIVATE lucent::lucent opensu::nanosvg
 )

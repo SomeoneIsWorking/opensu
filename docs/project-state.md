@@ -422,21 +422,25 @@ at the size they are drawn (`consoleCardFile`, `consoleGlyphFile`) and the tile 
 them.
 
 iiSU's console art is the player's alternative (Settings › Artwork › Console art, `consoleArt`
-in `settings.json`: `opensu` by default, or `iisu`). Choosing iiSU's asks the fetcher for a card
-and a glyph of every console in the library, from iiSU 0.0.7.4's release APK by HTTP ranges:
-the starter pack (`StarterPack`, pinned by size and CRC-32, kept as
-`artwork/iisu/starter-pack-0.0.7.4.zip`) gives each card as a PNG (`artwork/console/<system>.png`),
-the border pack's logos give the glyphs (`ConsoleGlyphs`, `artwork/glyph/<system>.png`); a system
-iiSU lacks is a `.miss` (PS4). Nothing of iiSU's ships. The row says "Downloading iiSU's console
-art from iiSU's release", then "iiSU's console art, downloaded from iiSU's release", or why it
-could not (`ArtworkFetcher::consoleArt`). `ui::ConsoleArt` is the one place that picks per
-system: iiSU's card drawn as the whole tile (it carries its own frame and glyph) and iiSU's glyph
-contain-fitted in a ROM's tab when iiSU's is chosen and its file is on disk, openSU's drawing and
-glyph otherwise. iiSU's files on disk are recorded whichever is chosen, and only read into
-textures while iiSU's is, so switching either way is instant and switching back downloads
-nothing. Checked in the running product: a fresh home with `consoleArt` `iisu` shows the row
-downloading, then done, with iiSU's SNES and GameCube cards in Library; the README's
-`library-iisu` and `console-shelf-iisu` are the player's own library with iiSU's art.
+in `settings.json`: `opensu` by default, or `iisu`), read from a file the player downloads from
+iiSU's releases page: the release APK or its starter pack alone. openSU downloads none of it.
+Stepping to iiSU's opens the file chooser (`.apk` and `.zip` listed, starting in the remembered
+file's folder, else `~/Downloads`); `artwork::IisuPack::open` reads the file's zip directory and
+refuses, with the reason, a file that is not a zip or holds neither `assets/iiSU_StarterPack.zip`
+nor `platforms/<console>.webp` cards. The file taken is kept as `iisuFile` and stays remembered
+when the player steps back to openSU's. Cards come from the starter pack's
+`platforms/<system>.webp` (in an APK, the nested pack is read out once, on a loader worker), glyphs
+from the logos `assets/borders/border_pack.json` names, only plain file names in that folder.
+`ui::ConsoleArt` is the one place that picks per system: it asks the image loader for each
+console's card and glyph, read out of the file and decoded on its workers, and draws iiSU's card as
+the whole tile (it carries its own frame and glyph) and iiSU's glyph contain-fitted in a ROM's tab
+once they land; openSU's drawing and glyph stand until then, for a system the file lacks (PS4), and
+when the file is gone (a warning names why). Checked in the running product:
+a throwaway home with eleven consoles refuses another app's file ("other-app.apk is not an APK or
+zip file (no zip end record)") with the chooser left up, then takes iiSU 0.0.7.4's APK: the row reads
+"iiSU's, from iiSU-Alpha-7.4.apk" and Library shows iiSU's cards with PS4 in openSU's, the longest
+frame from the pick until every card landed 23.5 ms. The README's `library-iisu` and
+`console-shelf-iisu` are the player's own library with iiSU's art.
 
 A framed tile's tab (a ROM's, and a console card's own) carries its console's white glyph, as
 iiSU's `IconComposition` does (`g24.e`): in the square at 45/1024 and 90/1024 of the short side
@@ -505,8 +509,9 @@ lands as a texture between frames, at most 4 MiB a frame (`Shell::uploadBytesPer
 shows its placeholder spinner until its handle is ready, and a tile scrolled away before then is
 cancelled. Nothing decodes on the frame thread. Measured on the maintainer's library (774 games in
 All games, hidden window, `worstFrameUs` from `/state`, three runs each on a loaded machine whose
-idle worst frame itself ranged 19-128 ms): choosing iiSU's console art went from 89/92/266 ms worst
-frame to 22/22/115 ms, and 60 tiles of All games scrolled at 0.06 s a step from 17/48/71 ms to
+idle worst frame itself ranged 19-128 ms): choosing iiSU's console art (before, its downloaded
+cards decoded on the frame thread; now, picking iiSU's APK on the chooser) went from 89/92/266 ms
+worst frame to 22/22/115 ms, and 60 tiles of All games scrolled at 0.06 s a step from 17/48/71 ms to
 17/19/25 ms.
 
 Gap: the per-platform HSL tinting the reference applies to artwork is not

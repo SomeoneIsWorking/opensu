@@ -67,9 +67,11 @@ class KeptSettings:
             print(f"restored {target}")
 
 
-def choose_console_art(choice: str) -> None:
-    """Sets the console art openSU shows (settings.json's `consoleArt`) for the run."""
+def choose_console_art(choice: str, iisu_file: Path | None) -> None:
+    """Sets the console art openSU shows (`consoleArt`, and `iisuFile` for iiSU's) for the run."""
     target = SETTINGS / KEPT[0]
     values = json.loads(target.read_text()) if target.exists() else {}
     values["consoleArt"] = choice
+    if iisu_file is not None:
+        values["iisuFile"] = str(iisu_file.resolve())
     target.write_text(json.dumps(values, indent=4))

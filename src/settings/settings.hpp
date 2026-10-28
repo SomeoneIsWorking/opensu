@@ -118,6 +118,8 @@ struct Settings {
 
     /// Whose console cards and tab glyphs the home shows.
     ConsoleArtChoice consoleArt{ConsoleArtChoice::OpenSu};
+    /// The iiSU release APK or starter pack the player gave for iiSU's console art; empty for none.
+    std::filesystem::path iisuFile;
 
     /// The player's changes to the shortcut table.
     input::ShortcutOverrides shortcuts;

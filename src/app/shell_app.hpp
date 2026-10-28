@@ -52,6 +52,7 @@
 #include "guide_menu_controller.hpp"
 #include "home_screen.hpp"
 #include "host_services.hpp"
+#include "iisu_pack.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "integration_settings.hpp"
 #include "integration_switch.hpp"
@@ -284,6 +285,8 @@ class ShellApp final {
     library::CatalogLoader catalogLoader_;
     /// Downloaded artwork, and the worker that fills it in.
     artwork::ArtworkStore artworkStore_{environment_.cacheDir / "artwork"};
+    /// iiSU's file while its console art is chosen and the file opens.
+    std::shared_ptr<const artwork::IisuPack> iisuPack_;
     artwork::ArtworkFetcher artworkFetcher_{artworkStore_, artwork::RemoteSources{},
                                             library::roms::NameDb::under(environment_.cacheDir)};
     /// SteamGridDB's API, asked only with the player's key.
@@ -694,7 +697,7 @@ class ShellApp final {
     /// Settings › Artwork and its key keyboard.
     ArtworkSettings artworkSettings_{
         steamGridDbAccount_, ArtworkSettings::Entry{shell_.screens().navigator(), keyboardPad_},
-        ArtworkSettings::Services{preferences_, artworkFetcher_, sounds_},
+        ArtworkSettings::Services{preferences_, paths_, resolved_.home, sounds_},
         ArtworkSettings::Hooks{[this](const std::string& text, bool isError) {
                                    shell_.setToast(text, isError);
                                },
