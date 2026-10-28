@@ -243,7 +243,8 @@ moved out: `src/secrets` (the secret store; libsecret looked for on Linux only) 
 `fileio::InstanceLock` (`flock`, or an unshared handle on Windows).
 `config::Config::executable` is openSU's executable in `SDL_GetBasePath` (with the target's
 executable suffix), not `/proc/self/exe`; the assets, the Gamescope fork, `opensu-retro` and
-librashader are found beside it as before.
+librashader are found beside it as before. `CoreSearch::standard` is `core_search_linux.cpp`
+(RetroArch's and the system's Linux core folders) or `core_search_none.cpp` (openSU's downloads only).
 
 Windows compile check from Linux: `cmake/toolchains/windows-clang-cl.cmake` (clang-cl, lld-link, the
 Windows SDK and CRT from an `xwin splat` tree when the host is not Windows), `vcpkg.json` (pinned
@@ -252,5 +253,5 @@ toolchain). Every manifest port builds that way except OpenSSL, whose Windows po
 
 Not yet done in step 1, each blocking a non-Linux configure or a non-Linux build:
 
-- RetroArch's Linux core folders in the core search, controller batteries from sysfs.
+- Controller batteries from sysfs.
 
