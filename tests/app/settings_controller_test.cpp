@@ -28,6 +28,7 @@
 #include "support/fake_interface_text.hpp"
 #include "support/fake_steam.hpp"
 #include "support/fake_steam_gate.hpp"
+#include "support/scratch_dir.hpp"
 #include "support/zip_fixture.hpp"
 #include "ui/check.hpp"
 #include "ui/entry_screen.hpp"
@@ -1562,8 +1563,8 @@ void steamGridDbBlockedSteamSaysWhy(const fs::path& root) {
 }
 
 int main() {
-    const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "settings_controller";
-    fs::remove_all(root);
+    const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "settings_controller"};
+    const fs::path& root = scratch.path();
     categoriesFollowTheSavedSettings(root);
     pagesFollowTheIntegrations(root);
     leavingAsksAboutStagedIntegrations(root);
@@ -1587,7 +1588,6 @@ int main() {
     steamGridDbWithoutSteamAsksForTheKey(root / "steamgriddb-no-steam");
     steamGridDbThroughSteam(root / "steamgriddb-steam");
     steamGridDbBlockedSteamSaysWhy(root / "steamgriddb-blocked");
-    fs::remove_all(root);
     std::printf("settings_controller: all checks passed\n");
     return 0;
 }

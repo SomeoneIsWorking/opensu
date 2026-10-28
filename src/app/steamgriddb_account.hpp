@@ -2,7 +2,7 @@
 // secret store at start, got through Steam's browser (`steam::SteamGridDbSignIn`) or typed in
 // after SteamGridDB's API page opens in the default browser, kept in the secret store and handed
 // to the artwork source; Disconnect forgets it. Every step runs on its own worker; the loop takes
-// what happened with `take`.
+// what happened with `take`, the news and the state it left together.
 //
 // Which browser Connect uses: openSU's own Steam (Managed, Isolated) is started in its mode when
 // it is not up and waited for until logged on, then signs in through Big Picture's browser; a
@@ -106,8 +106,13 @@ class SteamGridDbAccount {
     [[nodiscard]] bool signingIn() const;
     /// Whether `state` is one of a sign-in through Steam.
     [[nodiscard]] static bool signingIn(State state) noexcept;
-    /// What happened since the last call. Main loop only.
-    [[nodiscard]] std::vector<News> take();
+    /// What happened since the last call and the state it left, read together, so a state is
+    /// never seen before the news that came with it. Main loop only.
+    struct Taken {
+        std::vector<News> news;
+        Status status;
+    };
+    [[nodiscard]] Taken take();
 
   private:
     struct Load {};
@@ -125,9 +130,10 @@ class SteamGridDbAccount {
     void run(const std::stop_token& stop);
     void perform(const Load& load, const std::stop_token& stop);
     void perform(const Connect& connect, const std::stop_token& stop);
-    /// Starts openSU's own Steam when it is not up and waits until it is logged on; false, told
-    /// to the player, when it does not get there.
-    [[nodiscard]] bool bringUp(launch::SteamGate& steam, const std::stop_token& cancelled);
+    /// Starts openSU's own Steam when it is not up and waits until it is logged on; what to tell
+    /// the player when it does not get there, nothing when it does.
+    [[nodiscard]] std::optional<News> bringUp(launch::SteamGate& steam,
+                                              const std::stop_token& cancelled);
     /// No Steam to sign in with: the API page in the default browser and the key typed in.
     void askForKey(const std::string& why, const std::stop_token& stop);
     void perform(const OpenPage& page, const std::stop_token& stop);
@@ -135,6 +141,10 @@ class SteamGridDbAccount {
     void perform(const Disconnect& disconnect, const std::stop_token& stop);
     void keep(std::string& key);
     void tell(News news);
+    /// `status` with `mutex_` held.
+    [[nodiscard]] Status statusLocked() const;
+    /// Ends a step in `state` with `news`, both seen at once.
+    void finish(State state, News news);
     void setState(State state);
 
     Parts parts_;

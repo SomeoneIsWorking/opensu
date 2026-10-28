@@ -70,6 +70,10 @@ void SteamGridDbAccount::disconnect() {
 
 SteamGridDbAccount::Status SteamGridDbAccount::status() const {
     const std::lock_guard lock{mutex_};
+    return statusLocked();
+}
+
+SteamGridDbAccount::Status SteamGridDbAccount::statusLocked() const {
     return Status{state_, place_, state_ == State::Connected && parts_.source.refused()};
 }
 
@@ -83,9 +87,9 @@ bool SteamGridDbAccount::signingIn(State state) noexcept {
            state == State::WaitingForPlayer || state == State::ReadingKey;
 }
 
-std::vector<SteamGridDbAccount::News> SteamGridDbAccount::take() {
+SteamGridDbAccount::Taken SteamGridDbAccount::take() {
     const std::lock_guard lock{mutex_};
-    return std::exchange(news_, {});
+    return Taken{.news = std::exchange(news_, {}), .status = statusLocked()};
 }
 
 void SteamGridDbAccount::post(Work work) {
@@ -98,6 +102,12 @@ void SteamGridDbAccount::post(Work work) {
 
 void SteamGridDbAccount::tell(News news) {
     const std::lock_guard lock{mutex_};
+    news_.push_back(std::move(news));
+}
+
+void SteamGridDbAccount::finish(State state, News news) {
+    const std::lock_guard lock{mutex_};
+    state_ = state;
     news_.push_back(std::move(news));
 }
 
@@ -167,9 +177,11 @@ void SteamGridDbAccount::perform(const Connect& connect, const std::stop_token& 
     }
     // openSU's own Steam has no desktop window in openSU's Gamescope; Big Picture shows the page.
     const bool own = connect.steam->ownsClient();
-    if (own && !bringUp(*connect.steam, cancelled)) {
-        setState(State::Disconnected);
-        return;
+    if (own) {
+        if (std::optional<News> failed = bringUp(*connect.steam, cancelled)) {
+            finish(State::Disconnected, std::move(*failed));
+            return;
+        }
     }
     setState(State::OpeningSteam);
     steam::SteamGridDbSignIn signIn{parts_.devToolsPort, parts_.timing,
@@ -182,8 +194,7 @@ void SteamGridDbAccount::perform(const Connect& connect, const std::stop_token& 
             return;
         }
         lucent::warn("steamgriddb", "sign-in through Steam: {}", error);
-        setState(State::Disconnected);
-        tell({"SteamGridDB sign-in failed: " + error, true});
+        finish(State::Disconnected, {"SteamGridDB sign-in failed: " + error, true});
         return;
     }
     lucent::info("steamgriddb", "signing in through {} Steam",
@@ -198,32 +209,30 @@ void SteamGridDbAccount::perform(const Connect& connect, const std::stop_token& 
         error);
     if (!key) {
         lucent::warn("steamgriddb", "sign-in through Steam: {}", error);
-        setState(State::Disconnected);
-        tell({error == "cancelled" ? "SteamGridDB sign-in cancelled"
-                                   : "SteamGridDB sign-in failed: " + error,
-              error != "cancelled"});
+        finish(State::Disconnected, {error == "cancelled" ? "SteamGridDB sign-in cancelled"
+                                                          : "SteamGridDB sign-in failed: " + error,
+                                     error != "cancelled"});
         return;
     }
     keep(*key);
 }
 
-bool SteamGridDbAccount::bringUp(launch::SteamGate& steam, const std::stop_token& cancelled) {
+std::optional<SteamGridDbAccount::News>
+SteamGridDbAccount::bringUp(launch::SteamGate& steam, const std::stop_token& cancelled) {
     steam.ensureStarted();
     const launch::SteamState state = steam.waitReady(steamStartLimit, [&cancelled] {
         return cancelled.stop_requested();
     });
     if (cancelled.stop_requested()) {
         lucent::warn("steamgriddb", "sign-in through Steam: cancelled while Steam started");
-        tell({"SteamGridDB sign-in cancelled", false});
-        return false;
+        return News{"SteamGridDB sign-in cancelled", false};
     }
     if (state == launch::SteamState::Ready) {
-        return true;
+        return std::nullopt;
     }
     const std::string why = launch::notReadyReason(state);
     lucent::warn("steamgriddb", "sign-in through Steam: {}", why);
-    tell({"SteamGridDB sign-in failed: " + why, true});
-    return false;
+    return News{"SteamGridDB sign-in failed: " + why, true};
 }
 
 void SteamGridDbAccount::askForKey(const std::string& why, const std::stop_token& stop) {
@@ -269,18 +278,16 @@ void SteamGridDbAccount::keep(std::string& key) {
     if (!place) {
         host::wipe(key);
         lucent::warn("steamgriddb", "cannot keep the key: {}", error);
-        setState(State::Disconnected);
-        tell({"cannot keep the SteamGridDB key: " + error, true});
+        finish(State::Disconnected, {"cannot keep the SteamGridDB key: " + error, true});
         return;
     }
     parts_.source.setKey(std::exchange(key, {}));
     {
         const std::lock_guard lock{mutex_};
         place_ = *place;
-        state_ = State::Connected;
     }
     lucent::info("steamgriddb", "connected, key kept in {}", placeText(*place));
-    tell({"SteamGridDB connected", false, true});
+    finish(State::Connected, {"SteamGridDB connected", false, true});
 }
 
 void SteamGridDbAccount::perform(const Disconnect& /*disconnect*/,
@@ -288,14 +295,13 @@ void SteamGridDbAccount::perform(const Disconnect& /*disconnect*/,
     std::string error;
     const bool forgotten = parts_.secrets.forget(keyName, error);
     parts_.source.setKey({});
-    setState(State::Disconnected);
     if (!forgotten) {
         lucent::warn("steamgriddb", "forgetting the key: {}", error);
-        tell({"SteamGridDB disconnected, but " + error, true, true});
+        finish(State::Disconnected, {"SteamGridDB disconnected, but " + error, true, true});
         return;
     }
     lucent::info("steamgriddb", "disconnected, key forgotten");
-    tell({"SteamGridDB disconnected", false, true});
+    finish(State::Disconnected, {"SteamGridDB disconnected", false, true});
 }
 
 } // namespace opensu::app
