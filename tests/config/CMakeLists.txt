@@ -1,5 +1,5 @@
 add_executable(config_test config_test.cpp)
-target_link_libraries(config_test PRIVATE opensu::config)
+target_link_libraries(config_test PRIVATE opensu::config opensu::clock)
 add_test(NAME config_session_default COMMAND config_test default)
 add_test(NAME config_session_inherited COMMAND config_test inherited)
 set_tests_properties(config_session_default PROPERTIES

@@ -1,5 +1,6 @@
 // Values read from the environment. ctest sets or unsets the variable per test;
 // the argument says which to expect.
+#include "clock/local_time.hpp"
 #include "config/config.hpp"
 
 #include <cstdio>
@@ -24,7 +25,7 @@ int main(int argc, char** argv) {
     expect(argc == 2, "one argument naming the case");
     const opensu::config::Config& config = opensu::config::read();
     const std::string which{argv[1]};
-    using opensu::config::timeFormatIs24Hour;
+    using opensu::clock::timeFormatIs24Hour;
     if (which == "time-format") {
         expect(timeFormatIs24Hour("%H:%M:%S"), "the C locale is 24-hour");
         expect(timeFormatIs24Hour("%T"), "%T is 24-hour");

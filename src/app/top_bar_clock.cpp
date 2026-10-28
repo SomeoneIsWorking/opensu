@@ -2,6 +2,7 @@
 
 #include <ctime>
 
+#include "clock/local_time.hpp"
 #include "ui/clock_text.hpp"
 
 namespace opensu::app {
@@ -12,8 +13,7 @@ void TopBarClock::service(Clock::time_point now) {
     }
     const auto wall = std::chrono::system_clock::now();
     const std::time_t seconds = std::chrono::system_clock::to_time_t(wall);
-    std::tm parts{};
-    localtime_r(&seconds, &parts);
+    const std::tm parts = clock::localTime(seconds);
     const auto millisecond = static_cast<int>(
         std::chrono::duration_cast<std::chrono::milliseconds>(wall.time_since_epoch()).count() %
         1000);

@@ -8,11 +8,9 @@
 #include <string_view>
 #include <vector>
 
-#include <langinfo.h>
-#include <locale.h>
-
 #include <SDL3/SDL_filesystem.h>
 
+#include "clock/local_time.hpp"
 #include "launch/process_id.hpp"
 #include "locations.hpp"
 #include "lucent/log.h"
@@ -147,18 +145,6 @@ EmulatorCommands parseEmulators(std::string_view raw) {
     return out;
 }
 
-/// The LC_TIME locale's clock convention; the C locale's "%H:%M:%S" when it cannot be loaded.
-bool localeClock24Hour() {
-    const locale_t locale = newlocale(LC_TIME_MASK, "", static_cast<locale_t>(nullptr));
-    if (locale == static_cast<locale_t>(nullptr)) {
-        lucent::warn("config", "the time locale could not be loaded; using a 24-hour clock");
-        return true;
-    }
-    const bool twentyFour = timeFormatIs24Hour(nl_langinfo_l(T_FMT, locale));
-    freelocale(locale);
-    return twentyFour;
-}
-
 std::filesystem::path shellExecutable() {
     const char* base = SDL_GetBasePath();
     if (base == nullptr) {
@@ -181,17 +167,6 @@ std::optional<HomeMode> homeModeOf(std::string_view text) noexcept {
         return HomeMode::WiiSu;
     }
     return std::nullopt;
-}
-
-bool timeFormatIs24Hour(std::string_view format) noexcept {
-    for (std::size_t at = format.find('%'); at != std::string_view::npos && at + 1 < format.size();
-         at = format.find('%', at + 2)) {
-        const char directive = format[at + 1];
-        if (directive == 'I' || directive == 'l' || directive == 'r') {
-            return false;
-        }
-    }
-    return true;
 }
 
 std::filesystem::path gamescopeBeside(const std::filesystem::path& executable) {
@@ -264,7 +239,7 @@ Config read() {
         value.legendaryConfigDir = value.configDir.parent_path() / "legendary";
     }
     value.homeMode = envHomeMode("OPENSU_HOME_MODE", value.homeMode);
-    value.clock24Hour = localeClock24Hour();
+    value.clock24Hour = clock::localeClock24Hour();
     value.width = envInt("OPENSU_WIDTH", value.width);
     value.height = envInt("OPENSU_HEIGHT", value.height);
     value.controlPort = envPort("OPENSU_CONTROL_PORT", value.controlPort);

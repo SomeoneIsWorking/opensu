@@ -1,0 +1,12 @@
+# The wall clock in the player's time zone and locale.
+add_library(opensu_clock STATIC local_time.cpp)
+add_library(opensu::clock ALIAS opensu_clock)
+if(WIN32)
+    target_sources(opensu_clock PRIVATE local_time_win32.cpp)
+else()
+    target_sources(opensu_clock PRIVATE local_time_posix.cpp)
+endif()
+target_include_directories(opensu_clock PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_link_libraries(opensu_clock PRIVATE lucent::lucent)
+target_compile_features(opensu_clock PUBLIC cxx_std_20)
+target_compile_options(opensu_clock PRIVATE -Wall -Wextra -Wpedantic)

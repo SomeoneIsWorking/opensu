@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <ctime>
 
+#include "clock/local_time.hpp"
 #include "library/rom_systems.hpp"
 
 namespace opensu::ui {
@@ -98,8 +99,7 @@ std::string lastPlayedText(const std::optional<std::chrono::system_clock::time_p
         return plural(seconds / 86400, "day");
     }
     const std::time_t when = std::chrono::system_clock::to_time_t(*at);
-    std::tm parts{};
-    localtime_r(&when, &parts);
+    const std::tm parts = clock::localTime(when);
     std::string date(16, '\0');
     date.resize(std::strftime(date.data(), date.size(), "%Y-%m-%d", &parts));
     return date;

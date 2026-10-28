@@ -6,6 +6,7 @@
 # another's internals.
 
 add_subdirectory(vdf)
+add_subdirectory(clock)
 add_subdirectory(config)
 add_subdirectory(fileio)
 add_subdirectory(secrets)
