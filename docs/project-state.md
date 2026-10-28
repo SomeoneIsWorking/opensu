@@ -1139,8 +1139,9 @@ Press counts (hidden run, before → after this change): Home to the volume: Gui
 (or Guide, Right, Right = 3); Downloads: Guide, Down × 3, A = 5 → 5; Close game over a game: Guide,
 Down, A = 3 → Guide, Down, A, A = 4 (it now asks first, its Close focused).
 
-A hidden run reads Bluetooth and the backlight and changes nothing, never runs a power command and
-never starts Steam (`host_services`, `Arguments::startsSteam`). Tested with fakes through the
+A hidden run reads Bluetooth and the backlight and changes nothing, never runs a power command,
+never starts Steam and never downloads or removes a Wine runner (`host_services`,
+`Arguments::startsSteam`, `WineRunners`). Tested with fakes through the
 toolkit navigator: `guide_menu_controller`, `devices_controller`, `host_services`,
 `bluetooth_session`, `controller_roster`, `audio_outputs`, `brightness_control`,
 `shortcut_router`, `home_screen_flow`, `game_keys` (Ctrl+Tab). Verified headless (`--hidden`,
@@ -1501,7 +1502,10 @@ into it); it gets `<prefix>.plain-wine`, started from the saves. GE-Proton and u
 openSU's own under `<data>/wine` (`WineRunners`): downloaded in the background while GOG or Epic
 is signed in, checked daily and on Check now with their published SHA-512 / SHA-256, shown on the
 Downloads page; after a check the GE-Proton builds past the newest two are removed unless a
-running game, the pick or a pinned game keeps them. Settings › Wine shows what Automatic resolves
+running game, the pick or a pinned game keeps them. A hidden run starts no check, download,
+removal or runner test, and Check now and Test answer "changes are off in a hidden run" (checked:
+a hidden run on the player's setup, GOG signed in, logs no `checking for a newer GE-Proton` line,
+where main's logged it 4 s in). Settings › Wine shows what Automatic resolves
 to now and why, and lists every runner and runtime with where it lives, size and game count, each
 with a page of its games and pins. Verified (`docs/issues/ge-proton-default.md`): three real
 GE-Proton releases installed and checked, the rotation, `cmd /c ver` through GE-Proton and system

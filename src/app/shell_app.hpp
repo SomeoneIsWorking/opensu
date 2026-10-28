@@ -652,9 +652,10 @@ class ShellApp final {
                                    environment_.home, [this] {
                                        settingsScreen_.refresh();
                                    }};
-    /// GE-Proton and umu-launcher kept current under the data dir, off the loop.
+    /// GE-Proton and umu-launcher kept current under the data dir, off the loop; read only in a
+    /// hidden run.
     WineRunners wineRunners_{
-        resolved_.dataDir, resolved_.geProtonRelease,
+        resolved_.dataDir, resolved_.geProtonRelease, settings_.hidden,
         WineRunners::Hooks{.say =
                                [this](const std::string& text, bool isError) {
                                    shell_.setToast(text, isError);

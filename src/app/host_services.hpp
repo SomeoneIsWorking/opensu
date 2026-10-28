@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <string_view>
 
 #include "config/config.hpp"
 #include "host/backlight.hpp"
@@ -15,6 +16,9 @@
 #include "host/session_mode.hpp"
 
 namespace opensu::app {
+
+/// What a hidden run answers when asked to change the machine or what openSU installs.
+inline constexpr std::string_view hiddenRunRefusal = "changes are off in a hidden run";
 
 struct HostServices {
     std::unique_ptr<host::Power> power;
