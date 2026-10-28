@@ -379,8 +379,11 @@ is in front), standalone emulators' intent templates in
 performance).
 
 Seen on the AVD and not yet fixed: Settings lists a picked ROM folder by its raw tree URI, the
-Add-a-game tile still says "A file, Steam shortcuts, Lutris", and console photos in WebP do not
-decode there ("Unsupported image format"). A tablet-shaped display (1920x1600) lays out without overlap. Fixed since: a
+Add-a-game tile still says "A file, Steam shortcuts, Lutris". A tablet-shaped display (1920x1600) lays out without overlap. Fixed since: a
 refused path shows on the chooser card under the field (`PathEditor::refusal`) instead of a toast
 over the card's prompts, and Settings offers the night light only where the platform can warm the
-screen (`nightLightSupported`: Gamescope on Linux).
+screen (`nightLightSupported`: Gamescope on Linux). Console photos in WebP decode: android-port's
+SDL3_image is built with the prefix's libwebp named by path (the NDK toolchain searches only its
+sysroot, so `find_library` missed it and SDL3_image dropped WebP silently) and fails without it;
+the profiles ask for the `image_webp` capability, which checks SDL3_image's installed
+`Findwebp.cmake`.
