@@ -2,10 +2,10 @@
 //
 // Draw order is iiSU nx2.j: shadow, outer focus ring, glass chrome, art, inner
 // focus ring, all scaled about the tile centre. A game tile has no title and no
-// badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile is iiSU's
-// card for it when there is one, drawn as the whole tile; without, opensu's own: its platform's
-// colours with the console's name and game count. A launcher and the combined library are
-// opensu's own cards in the same shape, with the store's logo or a library glyph above the name.
+// badges: iiSU's grid path draws neither (home-grid.md §3.6, §3.8). A console tile is openSU's
+// card: its platform's colours with openSU's drawing of the console above its name and game
+// count, in the platform frame with the console's glyph in the tab. A launcher and the combined
+// library are cards in the same shape, with the store's logo or a library glyph above the name.
 // A store game that is owned in more than one store carries a row of store icons in its
 // bottom-right corner, and one its store has an update for a down arrow on the same disc in its
 // top-right corner (opensu's own).
@@ -18,11 +18,11 @@
 
 #include "paint.hpp"
 
+#include "gpu2d/ui/typesetter.hpp"
 #include "home_layout.hpp"
 #include "platform.hpp"
 #include "round_shape.hpp"
 #include "tile_geometry.hpp"
-#include "gpu2d/ui/typesetter.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -60,12 +60,13 @@ struct TileVisual {
     /// Dark or light chrome (iiSU ya0.e).
     bool dark{false};
     float ringDegrees{0.0f};
-    /// Cover art, or a console's card, or null for none.
+    /// Cover art, or null for none.
     const gpu2d::Texture* art{nullptr};
     /// The platform frame, or null for an unframed tile.
     const Platform* platform{nullptr};
-    /// The console's glyph for the frame's tab, or null for none.
-    const gpu2d::Texture* glyph{nullptr};
+    /// The ES-DE system whose drawing a console tile carries and whose glyph a framed tile's tab
+    /// carries; empty for none.
+    std::string_view console;
     std::string_view title;
     TileKind kind{TileKind::Game};
     /// A folder's second line, its game count.
@@ -106,7 +107,7 @@ class TilePainter {
                      bool focused, float alpha) const;
     void paintContent(Canvas& canvas, const TileVisual& tile, const TileGeometry& geometry);
     void paintFrame(Canvas& canvas, const Rect& rect, const Platform& platform,
-                    const gpu2d::Texture* glyph, float alpha) const;
+                    std::string_view console, float alpha);
     void paintFallback(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
     void paintLoading(Canvas& canvas, const TileVisual& tile, const Rect& content) const;
     /// A folder's card: a gradient with the mark, the name and the count centred on it.

@@ -235,11 +235,9 @@ library loading and the battery. X11, Gamescope and `src/session` are Linux's al
 | `src/artwork/cover_overrides.*` | The covers shown in place of a game's own: the player's choice (`<data>/artwork/chosen/<id>`, or a marker keeping its own) and a fitted cover (`<cache>/artwork/fitted/<id>`); the own file stays where its source put it; fit misses |
 | `src/artwork/cover_fitter.*` | Covers that do not fit their tile: each game's cover decoded for its size on a worker, one of another shape replaced by SteamGridDB's first cover of the tile's shape, and an own game without a cover given one by title; only with a key, never over a choice |
 | `src/artwork/cover_offers.*` | What "Choose artwork" offers: SteamGridDB's covers of every shape on a worker, thumbnails under `<cache>/artwork/steamgriddb-thumbs`, the pick downloaded and kept as the game's choice, or its own kept |
-| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings, frame glyphs, the starter pack file, and UI sounds (`sound/<file>`, WAV or OGG) |
-| `src/artwork/artwork_fetcher.*` | The background downloads (queue stages per game, on-screen games first, a settled game reported as not saved): Steam's CDN for Steam and for an own game that matched a Steam app, gamesdb (else the library tile) for GOG, the key image URL for Epic, libretro-thumbnails for ROMs, iiSU's starter pack for console cards, iiSU's border pack for frame glyphs, the APK's sounds (`ApkAsset`) |
-| `src/artwork/apk_archive.*` | iiSU's release APK read by HTTP ranges: central directory once, any entry by range with its CRC checked; `fetch` is find and extract with a found/missing/failed result (glyphs, sounds and nav icons use it) |
-| `src/artwork/starter_pack.*` | iiSU's starter pack: its entry taken out of the APK against a pin, and a system's card (WebP, decoded and re-encoded by `gpu2d::image`) as PNG |
-| `src/artwork/console_glyphs.*` | iiSU's frame glyphs: `border_pack.json` read once, a system's `logo_*.png` out of the APK |
+| `src/artwork/artwork_store.*` | Downloaded artwork on disk under the cache dir: paths, misses, listings and UI sounds (`sound/<file>`, WAV or OGG) |
+| `src/artwork/artwork_fetcher.*` | The background downloads (queue stages per game, on-screen games first, a settled game reported as not saved): Steam's CDN for Steam and for an own game that matched a Steam app, gamesdb (else the library tile) for GOG, the key image URL for Epic, libretro-thumbnails for ROMs, the APK's sounds (`ApkAsset`) |
+| `src/artwork/apk_archive.*` | iiSU's release APK read by HTTP ranges: central directory once, any entry by range with its CRC checked; `fetch` is find and extract with a found/missing/failed result (the UI sounds use it) |
 | `src/artwork/iisu_assets.*` | Which APK entry is each UI sound, and all of them (`allApkAssets`) |
 | `src/audio/effect.*`, `debounce.*` | iiSU's UI sounds openSU plays (`yp8`): effect to APK file name, the Domino cues and `dominoFor(tileCount)` (`xp8.a`), the 91 ms repeat rule for Enter/ExitConsolesApps and the Domino cues; pure (`opensu_audio_model`) |
 | `src/audio/volume_backend.*` | PC output volume through wpctl or pactl (injectable runner), a read-only shadow for hidden runs, the install advice when no backend exists |
@@ -330,6 +328,7 @@ Design and API: `docs/design/lua-plugins.md`.
 | `src/plugin/io_pool.*` | The two I/O threads plugins' file reads and HTTP run on |
 | `src/plugin/plugin_worker.*` | One plugin's thread: load, refresh (game list, match, play time), fault counting |
 | `src/plugin/plugin_host.*` | Discovery of bundled and user plugins, start and stop, results taken by the loop |
+| `assets/consoles/` | openSU's own console drawings, MIT: `<system>.svg` for a console's card, `glyphs/<system>.svg` for a framed tile's tab, one each per `library::roms` system |
 | `assets/plugins/` | Bundled plugins (`eden-playtime`: Eden's play time and game list) |
 
 ## Rendering and images
@@ -355,8 +354,7 @@ Pure model, unit-tested without a GPU (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/tile_motion.*` | Focus scale, domino entrance, press pulse, ring rotation, FastOutSlowIn, the rail's visual-index easing |
 | `src/ui/section_view.*` | Per section: the grid viewport (3 rows x 4 columns, column-major, horizontal paging, both sections) and the presentation (Grid, XMB, Carousel) |
 | `src/ui/rail_layout.*` | XMB and Carousel geometry (navigation.md 5.3): rectangles of the tiles near the canvas only (`first()`), from the fractional focus, left column, header card, marker and title anchors; the tile under a point (`railTileAt`) |
-| `src/ui/rail_painter.*` | XMB/Carousel chrome: the section icon (`library.svg` with its colours swapped for the focused console's border), the header card, the markers and the shadowed title |
-| `src/ui/card_border.*` | Reads a console card's border colours, which the section icon is drawn in |
+| `src/ui/rail_painter.*` | XMB/Carousel chrome: the section icon (`library.svg` with its colours swapped for the focused console's platform gradient), the header card, the markers and the shadowed title |
 | `src/ui/dock_metrics.*` | The dock capsule's sizes and rectangles in dp (`gh3.i1/j1`, `jj2`) |
 | `src/ui/dock_motion.*` | The dock's show/hide (`dockPinned`: Home always, Library by the pin option; else 1200 ms after L1/R1 on Library; show 170 ms ease-out from below, hide 125 ms ease-in straight down) and the icon pop |
 | `src/ui/icon_size.*` | iiSU's icon size levels 1 to 20 and their scale formulas; shared by `home_layout` and `rail_layout` |
@@ -402,7 +400,7 @@ Painters and composition (`opensu_ui`):
 | `src/ui/status_pill.*`, `glass.*` | The one status pill painter: clock, battery and the launchers inline, on a glass body |
 | `src/ui/launcher_badges.*` | Launcher logos with status dots, the starting spinner and the download ring, drawn by the status pill painter; the hover light |
 | `src/ui/breadcrumb_painter.*` | The breadcrumb pill |
-| `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size: launcher logos as white masks, openSU's own Home and Library icons (each with a `_selected` variant) in colour, with paint colours swapped on request (`ColourSwap`) |
+| `src/ui/vector_icon.*` | The shipped SVG icons (`assets/icons/`), rasterised at drawn size: launcher logos and the console drawings and glyphs (`assets/consoles/`, `consoleCardFile`, `consoleGlyphFile`) as white masks, openSU's own Home and Library icons (each with a `_selected` variant) in colour, with paint colours swapped on request (`ColourSwap`) |
 | `src/ui/progress_spinner.*` | Material's indeterminate circular spinner (a starting launcher's ring) |
 | `src/ui/button_glyph.*` | Controller button glyphs (`input_glyph_*`, LB/RB included; LT/RT, d-pad arrows and named caps such as L3 and GUIDE are openSU's), or the bound key's cap when keyboard and mouse were last used; `InterfacePrompts`, the toolkit's prompts as those glyphs, with `bound` saying which actions the device has a control for now (a keyboard typing into a field: only `typingKeys`; a pad while the on-screen keyboard is up: none, its own row names them) |
 | `src/ui/dock_painter.*` | The dock capsule: glass, the sections' icons (from `IconAtlas`, rasterised at their resting size), LB/RB badges; the dock's top as drawn (`top`) |
@@ -412,13 +410,12 @@ Painters and composition (`opensu_ui`):
 | `src/ui/mapping_board_layout.*` | The mapping page's geometry at design size, scaled to the frame: each pad button's chip and callout on the controller board, the strip (chords scrolled to focus, Steam Input and Reset kept right), the picker's tile lines by group and its popover beside the focused chip inside the card |
 | `src/ui/spatial_focus.*` | Which box a direction press moves to among freely placed boxes (nearest within a cone, straight ahead before diagonal); the mapping board and its picker |
 | `src/ui/side_panel_painter.*` | The right-edge panel's chrome for the quick menu: scrim, opaque ground, heading, button hints |
-| `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art (a spinner while it is on its way), platform frame, store icons, the update badge; the name cards of a console, a launcher, All games and Giveaways (a present) |
+| `src/ui/tile_painter.*` | One tile: shadow, ring, chrome, art (a spinner while it is on its way), platform frame, store icons, the update badge; the name cards of a console (its drawing, and its glyph in the frame's tab), a launcher, All games and Giveaways (a present) |
 | `src/ui/page_pill.*`, `page_arrow.*` | WiiSu page dots and page arrows |
-| `src/ui/paint.hpp` | What the painters draw with: gpu2d's `Canvas`, `Colour` and `Point`, the layout's `Rect` on the canvas, corner radii, and the `ScopedClip` and `PanelScope` (scale about a point) scopes |
+| `src/ui/paint.hpp` | What the painters draw with: gpu2d's `Canvas`, `Colour` and `Point`, `unpack` (0xRRGGBB to a colour), the layout's `Rect` on the canvas, corner radii, and the `ScopedClip` and `PanelScope` (scale about a point) scopes |
 | `src/ui/round_shape.*` | Tessellated rounded shapes with per-vertex colour |
 | `src/ui/platform.*`, `platform_stroke.hpp` | Console border sprites, logos, stroke colours |
 | `src/ui/image_decoder.*` | Cover decode and downscale on a worker thread; the frame only uploads what it takes |
-| `src/ui/glyph_textures.*` | The console glyphs drawn in a ROM tile's frame tab: files by system, textures on load |
 
 ## Maintainer tooling
 

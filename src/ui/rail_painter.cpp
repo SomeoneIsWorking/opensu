@@ -4,14 +4,10 @@
 #include <cmath>
 #include <cstdint>
 #include <numbers>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "card_border.hpp"
-#include "gpu2d/image/decode.hpp"
-#include "lucent/log.h"
 #include "round_shape.hpp"
 
 namespace opensu::ui {
@@ -37,39 +33,11 @@ Colour inkOf(bool dark, float alpha) noexcept {
 // library.svg's edge is its body's bottom colour at about this brightness.
 constexpr float edgeShade = 0.66f;
 
-Colour colourOf(Rgb rgb) noexcept {
-    return Colour{rgb.r, rgb.g, rgb.b, 255};
-}
-
 Colour shaded(Colour colour, float by) noexcept {
     const auto scale = [by](std::uint8_t channel) {
         return static_cast<std::uint8_t>(std::lround(static_cast<float>(channel) * by));
     };
     return Colour{scale(colour.r), scale(colour.g), scale(colour.b), colour.a};
-}
-
-Rgb rgbOf(std::uint32_t colour) noexcept {
-    return Rgb{static_cast<std::uint8_t>((colour >> 16) & 0xFF),
-               static_cast<std::uint8_t>((colour >> 8) & 0xFF),
-               static_cast<std::uint8_t>(colour & 0xFF)};
-}
-
-} // namespace
-
-namespace {
-
-/// The colours a card's border runs between, read from its file; nothing when it will not load.
-std::optional<Gradient> cardGradient(const std::filesystem::path& card) {
-    if (card.empty()) {
-        return std::nullopt;
-    }
-    std::string error;
-    const std::optional<gpu2d::image::Bitmap> image = gpu2d::image::decodeFile(card, error);
-    if (!image) {
-        lucent::warn("ui", "{}: {}", card.string(), error);
-        return std::nullopt;
-    }
-    return borderColours(image->rgba, image->width, image->height);
 }
 
 } // namespace
@@ -82,14 +50,10 @@ const std::vector<ColourSwap>& RailPainter::swapsFor(const Focused& focused) {
     if (const auto found = swaps_.find(key); found != swaps_.end()) {
         return found->second;
     }
-    std::optional<Gradient> colours = cardGradient(focused.card);
-    if (!colours && focused.platform != nullptr) {
-        colours = Gradient{rgbOf(focused.platform->strokeFrom), rgbOf(focused.platform->strokeTo)};
-    }
     std::vector<ColourSwap> swaps;
-    if (colours) {
-        const Colour top = colourOf(colours->from);
-        const Colour bottom = colourOf(colours->to);
+    if (focused.platform != nullptr) {
+        const Colour top = unpack(focused.platform->strokeFrom);
+        const Colour bottom = unpack(focused.platform->strokeTo);
         swaps = {ColourSwap{libraryTop, top}, ColourSwap{libraryBottom, bottom},
                  ColourSwap{libraryEdge, shaded(bottom, edgeShade)}};
     }

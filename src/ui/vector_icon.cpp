@@ -111,6 +111,14 @@ std::string_view iconFile(Icon icon) noexcept {
     return {};
 }
 
+std::string consoleCardFile(std::string_view system) {
+    return "consoles/" + std::string{system} + ".svg";
+}
+
+std::string consoleGlyphFile(std::string_view system) {
+    return "consoles/glyphs/" + std::string{system} + ".svg";
+}
+
 Icon dockIcon(library::Section section, bool selected) noexcept {
     if (section == library::Section::Home) {
         return selected ? Icon::HomeSelected : Icon::Home;
@@ -171,18 +179,22 @@ std::optional<std::vector<unsigned char>> rasteriseMask(const std::filesystem::p
 }
 
 const gpu2d::Texture* IconAtlas::mask(Icon icon, int pixels) {
-    return find(icon, pixels, pixels, true, {});
+    return find(iconFile(icon), pixels, pixels, true, {});
+}
+
+const gpu2d::Texture* IconAtlas::mask(std::string_view file, int pixels) {
+    return find(file, pixels, pixels, true, {});
 }
 
 const gpu2d::Texture* IconAtlas::image(Icon icon, int width, int height,
                                        std::span<const ColourSwap> swaps) {
-    return find(icon, width, height, false, swaps);
+    return find(iconFile(icon), width, height, false, swaps);
 }
 
-const gpu2d::Texture* IconAtlas::find(Icon icon, int width, int height, bool mask,
+const gpu2d::Texture* IconAtlas::find(std::string_view file, int width, int height, bool mask,
                                       std::span<const ColourSwap> swaps) {
     const auto found = std::ranges::find_if(entries_, [&](const Entry& entry) {
-        return entry.icon == icon && entry.width == width && entry.height == height &&
+        return entry.file == file && entry.width == width && entry.height == height &&
                entry.mask == mask && sameSwaps(entry.swaps, swaps);
     });
     if (found != entries_.end()) {
@@ -191,13 +203,13 @@ const gpu2d::Texture* IconAtlas::find(Icon icon, int width, int height, bool mas
     if (device_ == nullptr) {
         throw std::logic_error{"an icon was drawn before the atlas had a device"};
     }
-    Entry& entry = entries_.emplace_back(Entry{.icon = icon,
+    Entry& entry = entries_.emplace_back(Entry{.file = std::string{file},
                                                .width = width,
                                                .height = height,
                                                .mask = mask,
                                                .swaps = {swaps.begin(), swaps.end()},
                                                .texture = {}});
-    const std::filesystem::path path = assetsDir_ / iconFile(icon);
+    const std::filesystem::path path = assetsDir_ / file;
     const std::optional<std::vector<unsigned char>> rgba =
         mask ? rasteriseMask(path, width) : rasterise(path, width, height, swaps);
     if (rgba) {

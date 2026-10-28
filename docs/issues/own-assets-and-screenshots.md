@@ -2,10 +2,14 @@
 
 Status: open, planned; follows the UI toolkit's theme (`docs/design/ui-toolkit.md`).
 
-iiSU's repository has no licence, so its sounds, console cards, frame glyphs and nav icons are all
-rights reserved. openSU never ships them but downloads them at run time from iiSU's public
-release (`artwork/starter_pack.hpp`, Alpha 7.4), which is legally shaky for a public product and
-breaks for everyone if that release changes.
+iiSU's repository has no licence, so its sounds and nav icons are all rights reserved. openSU never
+ships them but downloads them at run time from iiSU's public release (`artwork/apk_archive.hpp`,
+Alpha 7.4), which is legally shaky for a public product and breaks for everyone if that release
+changes.
+
+Done: console cards and tab glyphs are openSU's own drawings (`assets/consoles/`, MIT) and the only
+source; iiSU's starter pack and border-pack glyphs are no longer downloaded, with no iiSU option
+for them. README shots are from the maintainer's own library (`tools.screenshots --profile real`).
 
 Decided:
 - Default: openSU's own set from freely licensed sources (Kenney's CC0 UI sounds and input

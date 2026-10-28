@@ -55,9 +55,6 @@ std::string shelfKey(const library::ShelfItem& item) {
 }
 
 std::pair<std::filesystem::path, std::filesystem::path> artPaths(const library::ShelfItem& item) {
-    if (const auto* console = std::get_if<library::Console>(&item)) {
-        return {console->artwork, {}};
-    }
     if (const auto* game = std::get_if<library::Game>(&item)) {
         return {game->artwork, game->artworkWide};
     }
@@ -277,7 +274,6 @@ SlotRange HomeGrid::artWindow() const {
 }
 
 void HomeGrid::loadArtwork(SDL_GPUDevice& device, std::size_t uploads) {
-    glyphs_.load(device);
     // Covers are point-sampled.
     artwork_.load(
         [&device](const gpu2d::image::Bitmap& pixels) {
@@ -345,26 +341,6 @@ void HomeGrid::artworkSettled(std::string_view gameId) {
     if (const auto found = gameTiles_.find(std::string{gameId}); found != gameTiles_.end()) {
         tiles_[found->second].artDownloading = false;
     }
-}
-
-void HomeGrid::setConsoleArtwork(std::string_view system, const std::filesystem::path& artwork) {
-    const auto give = [&](Tile& tile) {
-        auto* console = std::get_if<library::Console>(&tile.item);
-        if (console != nullptr && console->system == system) {
-            console->artwork = artwork;
-            artwork_.unload(tile);
-        }
-    };
-    for (Tile& tile : tiles_) {
-        give(tile);
-    }
-    if (header_) {
-        give(*header_);
-    }
-}
-
-void HomeGrid::setGlyph(std::string_view system, const std::filesystem::path& glyph) {
-    glyphs_.set(system, glyph);
 }
 
 void HomeGrid::setSection(library::Section section) {
@@ -648,9 +624,12 @@ void HomeGrid::fillContent(TileVisual& visual, const Tile& tile) const {
         visual.stores = tile.stores;
         visual.update = game->updateAvailable;
         if (game->source == library::Source::Rom) {
-            visual.glyph = glyphs_.find(game->sourceId);
+            visual.console = game->sourceId;
         }
     } else {
+        if (const auto* console = std::get_if<library::Console>(&tile.item)) {
+            visual.console = console->system;
+        }
         visual.title = tile.title;
         visual.caption = tile.caption;
         visual.logo = tile.logo;
@@ -807,7 +786,6 @@ void HomeGrid::drawRail(Canvas& canvas) {
     source.platform = tiles_[focused].platform;
     if (const auto* console = std::get_if<library::Console>(&tiles_[focused].item)) {
         source.key = console->system;
-        source.card = console->artwork;
     }
     railPainter_.paintColumn(canvas, column, source, columnStyle);
 }

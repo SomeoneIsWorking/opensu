@@ -46,9 +46,8 @@ std::string gogCoverUrl(const std::string& body) {
 
 ArtworkFetcher::ArtworkFetcher(const ArtworkStore& store, const RemoteSources& sources,
                                library::roms::NameDb names)
-    : store_{store}, sources_{sources}, apk_{sources.iisuApk, sources.iisuPin.apkSize},
-      pack_{store, apk_, sources.iisuPin}, glyphs_{apk_}, names_{std::move(names)},
-      worker_{[this](const std::stop_token& stop) {
+    : store_{store}, sources_{sources}, apk_{sources.iisuApk, sources.iisuApkSize},
+      names_{std::move(names)}, worker_{[this](const std::stop_token& stop) {
           run(stop);
       }} {
 }
@@ -59,23 +58,12 @@ ArtworkFetcher::~ArtworkFetcher() {
 }
 
 void ArtworkFetcher::request(const std::vector<library::Game>& games,
-                             const std::vector<library::Console>& consoles,
                              const std::vector<ApkAsset>& assets) {
     const ArtworkStore::Clock::time_point now = ArtworkStore::Clock::now();
     std::vector<Work> wanted;
     for (const ApkAsset& asset : assets) {
         if (store_.wantedAsset(asset, now)) {
             wanted.emplace_back(asset);
-        }
-    }
-    for (const library::Console& console : consoles) {
-        if (store_.wanted(console, now)) {
-            wanted.emplace_back(console);
-        }
-    }
-    for (const library::Console& console : consoles) {
-        if (store_.wantedGlyph(console.system, now)) {
-            wanted.emplace_back(GlyphWork{console.system});
         }
     }
     for (const library::Game& game : games) {
@@ -199,12 +187,6 @@ Fetched ArtworkFetcher::arrived(const Work& work) const {
     if (const auto* game = std::get_if<library::Game>(&work)) {
         return Fetched{Fetched::Kind::Game, game->id, store_.pathFor(*game)};
     }
-    if (const auto* console = std::get_if<library::Console>(&work)) {
-        return Fetched{Fetched::Kind::Console, console->system, store_.pathFor(*console)};
-    }
-    if (const auto* glyph = std::get_if<GlyphWork>(&work)) {
-        return Fetched{Fetched::Kind::Glyph, glyph->system, store_.glyphPath(glyph->system)};
-    }
     if (std::holds_alternative<NamesWork>(work)) {
         return Fetched{Fetched::Kind::Names, {}, {}};
     }
@@ -215,10 +197,6 @@ Fetched ArtworkFetcher::arrived(const Work& work) const {
 void ArtworkFetcher::recordMiss(const Work& work) const {
     if (const auto* game = std::get_if<library::Game>(&work)) {
         store_.recordMiss(*game);
-    } else if (const auto* console = std::get_if<library::Console>(&work)) {
-        store_.recordMiss(*console);
-    } else if (const auto* glyph = std::get_if<GlyphWork>(&work)) {
-        store_.recordGlyphMiss(glyph->system);
     } else if (const auto* asset = std::get_if<ApkAsset>(&work)) {
         store_.recordAssetMiss(*asset);
     }
@@ -240,58 +218,23 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
     return Outcome::Missing;
 }
 
-ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Console& console) {
-    std::string error;
-    if (!pack_.ensure(web_, error)) {
-        lucent::warn("artwork", "starter pack: {}", error);
-        return Outcome::Unreachable;
-    }
-    const std::optional<std::string> png = pack_.card(console.system, error);
-    if (!png) {
-        if (!error.empty()) {
-            lucent::warn("artwork", "{} card: {}", console.system, error);
-        }
-        return Outcome::Missing;
-    }
-    if (!store_.save(console, *png, error)) {
-        lucent::warn("artwork", "{}", error);
-        return Outcome::Unreachable;
-    }
-    return Outcome::Saved;
-}
-
-ArtworkFetcher::Outcome
-ArtworkFetcher::kept(const ApkFile& file, std::string_view what,
-                     const std::function<bool(std::string_view, std::string&)>& keep) {
+ArtworkFetcher::Outcome ArtworkFetcher::fetch(const ApkAsset& asset) {
+    const ApkFile file = apk_.fetch(web_, asset.entry);
     switch (file.status) {
     case ApkFile::Status::Missing:
         return Outcome::Missing;
     case ApkFile::Status::Failed:
-        lucent::warn("artwork", "{}: {}", what, file.error);
+        lucent::warn("artwork", "{}: {}", asset.file, file.error);
         return Outcome::Unreachable;
     case ApkFile::Status::Found:
         break;
     }
     std::string error;
-    if (!keep(file.bytes, error)) {
+    if (!store_.saveAsset(asset, file.bytes, error)) {
         lucent::warn("artwork", "{}", error);
         return Outcome::Unreachable;
     }
     return Outcome::Saved;
-}
-
-ArtworkFetcher::Outcome ArtworkFetcher::fetch(const GlyphWork& glyph) {
-    return kept(glyphs_.fetch(web_, glyph.system), glyph.system + " glyph",
-                [&](std::string_view bytes, std::string& error) {
-                    return store_.saveGlyph(glyph.system, bytes, error);
-                });
-}
-
-ArtworkFetcher::Outcome ArtworkFetcher::fetch(const ApkAsset& asset) {
-    return kept(apk_.fetch(web_, asset.entry), asset.file,
-                [&](std::string_view bytes, std::string& error) {
-                    return store_.saveAsset(asset, bytes, error);
-                });
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetch(const NamesWork& /*names*/) {

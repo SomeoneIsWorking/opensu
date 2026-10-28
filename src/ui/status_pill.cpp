@@ -34,12 +34,6 @@ constexpr std::array<Point, 6> bolt{Point{318.0f, 103.0f}, Point{203.0f, 270.0f}
                                     Point{283.0f, 270.0f}, Point{237.0f, 405.0f},
                                     Point{350.0f, 232.0f}, Point{270.0f, 232.0f}};
 
-Colour unpack(std::uint32_t rgb) noexcept {
-    return Colour{static_cast<std::uint8_t>((rgb >> 16) & 0xffu),
-                  static_cast<std::uint8_t>((rgb >> 8) & 0xffu),
-                  static_cast<std::uint8_t>(rgb & 0xffu), 255};
-}
-
 VertexColour flat(Colour colour) {
     return [colour](Point, float) {
         return colour;

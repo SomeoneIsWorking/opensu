@@ -1,6 +1,6 @@
 // vector_icon — the shipped SVG icons, rasterised at the size they are drawn so they stay sharp
-// at any resolution: the launcher logos as white masks to tint, and openSU's own dock icons in
-// their colours.
+// at any resolution: the launcher logos and openSU's console drawings and tab glyphs as white
+// masks to tint, and openSU's own dock icons in their colours.
 #pragma once
 
 #include <cstdint>
@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -32,6 +33,12 @@ enum class Icon : std::uint8_t { Steam, Epic, Gog, Home, HomeSelected, Library, 
 
 /// The icon's file under the assets folder.
 [[nodiscard]] std::string_view iconFile(Icon icon) noexcept;
+
+/// A console's card drawing under the assets folder, by ES-DE system name.
+[[nodiscard]] std::string consoleCardFile(std::string_view system);
+
+/// A console's tab glyph under the assets folder, by ES-DE system name.
+[[nodiscard]] std::string consoleGlyphFile(std::string_view system);
 
 /// One colour of an SVG's paints drawn as another; matched on red, green and blue, and the
 /// paint keeps its own opacity.
@@ -72,6 +79,10 @@ class IconAtlas {
     /// The icon as a white mask `pixels` square, to draw tinted; null when it cannot be read.
     [[nodiscard]] const gpu2d::Texture* mask(Icon icon, int pixels);
 
+    /// The SVG at `file` under the assets folder as a white mask `pixels` square; null when it
+    /// cannot be read.
+    [[nodiscard]] const gpu2d::Texture* mask(std::string_view file, int pixels);
+
     /// The icon in its colours, with `swaps` applied, fitted and centred in `width` x `height`;
     /// null when it cannot be read.
     [[nodiscard]] const gpu2d::Texture* image(Icon icon, int width, int height,
@@ -79,14 +90,14 @@ class IconAtlas {
 
   private:
     struct Entry {
-        Icon icon{};
+        std::string file;
         int width{};
         int height{};
         bool mask{};
         std::vector<ColourSwap> swaps;
         std::optional<gpu2d::Texture> texture;
     };
-    const gpu2d::Texture* find(Icon icon, int width, int height, bool mask,
+    const gpu2d::Texture* find(std::string_view file, int width, int height, bool mask,
                                std::span<const ColourSwap> swaps);
 
     std::filesystem::path assetsDir_;

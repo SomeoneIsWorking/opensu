@@ -36,12 +36,9 @@ struct FrameGeometry {
     float tabRadius{};
     /// iiSU g24.e: art is clipped at max(roundRadiusPct, 9)% of the short side.
     float artRadius{};
-    /// iiSU g24.e: the square a console glyph is contain-fitted into, centred in the tab.
+    /// iiSU g24.e: the square a console glyph is drawn in, centred in the tab.
     Rect glyph;
 };
-
-/// The largest rectangle of `width` x `height`'s aspect that fits `slot`, centred in it.
-[[nodiscard]] Rect containFit(float width, float height, const Rect& slot) noexcept;
 
 /// The most store icons one tile shows: Steam, GOG and Epic.
 inline constexpr std::size_t maxStoreIcons = 3;

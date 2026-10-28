@@ -13,6 +13,11 @@
 
 namespace opensu::artwork {
 
+inline constexpr std::string_view iisuApkUrl =
+    "https://github.com/iisu-network/iiSU/releases/download/0.0.7.4/iiSU-Alpha-7.4.apk";
+/// The pinned release's size, which its ranged reads are checked against.
+inline constexpr std::uint64_t iisuApkBytes = 128322093;
+
 /// What looking for a file in the APK came to.
 struct ApkFile {
     enum class Status : std::uint8_t {
@@ -34,19 +39,18 @@ class ApkArchive {
     /// The APK at `url`, which is `size` bytes long. Nothing is fetched until the first use.
     ApkArchive(std::string url, std::uint64_t size);
 
-    /// The named entry's record, reading the directory on first use. Nothing when the APK has no
-    /// such entry (`error` empty) or cannot be read (`error` says why).
-    [[nodiscard]] const zip::Entry* find(const net::WebClient& web, std::string_view name,
-                                         std::string& error);
-
-    /// The entry's file, inflated and checked against its CRC-32.
-    [[nodiscard]] std::optional<std::string> extract(const net::WebClient& web,
-                                                     const zip::Entry& entry, std::string& error);
-
-    /// The named file, inflated and checked: find and extract in one.
+    /// The named file, inflated and checked against its CRC-32, reading the directory on first
+    /// use.
     [[nodiscard]] ApkFile fetch(const net::WebClient& web, std::string_view name);
 
   private:
+    /// The named entry's record. Nothing when the APK has no such entry (`error` empty) or cannot
+    /// be read (`error` says why).
+    [[nodiscard]] const zip::Entry* find(const net::WebClient& web, std::string_view name,
+                                         std::string& error);
+    /// The entry's file, inflated and checked against its CRC-32.
+    [[nodiscard]] std::optional<std::string> extract(const net::WebClient& web,
+                                                     const zip::Entry& entry, std::string& error);
     [[nodiscard]] bool load(const net::WebClient& web, std::string& error);
     [[nodiscard]] std::optional<std::string> span(const net::WebClient& web, std::uint64_t first,
                                                   std::uint64_t last, std::string& error) const;

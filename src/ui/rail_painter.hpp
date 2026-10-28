@@ -4,19 +4,17 @@
 // a focused game (navigation.md §5.3, §5.4).
 #pragma once
 
-#include <filesystem>
 #include <map>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "paint.hpp"
 
+#include "interface_text.hpp"
 #include "library/shelf.hpp"
 #include "platform.hpp"
 #include "rail_layout.hpp"
-#include "interface_text.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -31,16 +29,13 @@ struct RailStyle {
 struct Focused {
     /// A key for the colours: the console's system, or empty.
     std::string key;
-    /// The console's card on disk, whose border gives them, or empty.
-    std::filesystem::path card;
-    /// The platform whose stroke gives them when there is no card, or null.
+    /// The platform whose stroke gives them, or null.
     const Platform* platform{nullptr};
 };
 
 class RailPainter {
   public:
-    RailPainter(InterfaceText& text, IconAtlas& icons) noexcept
-        : text_{text}, icons_{icons} {
+    RailPainter(InterfaceText& text, IconAtlas& icons) noexcept : text_{text}, icons_{icons} {
     }
 
     /// The XMB's left column at a console list: the icon in the colours of the focused tile's

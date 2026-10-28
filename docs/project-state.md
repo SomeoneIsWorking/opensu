@@ -260,7 +260,7 @@ Library's modes (`ui::section_view`, `rail_layout`, `rail_painter`; navigation.m
 3 rows x 4 columns, column-major, paged horizontally ("Horizontal Mode"); the earlier single-row
 render came from stale persisted settings in the capture driver, not the layout. XMB: slots start at
 340.5 px of 1920, focused 434 px, others 217, gap 17; the left column shows the section icon
-(openSU's `library.svg`, its gradient and edge swapped for the focused console's border colours) and a marker, and inside a console a 72 dp card
+(openSU's `library.svg`, its gradient and edge swapped for the focused console's platform gradient) and a marker, and inside a console a 72 dp card
 for the console; the focused title sits right of the card (cap 25.8 dp, #4D4655 light, soft shadow).
 Carousel: focused item at 0.5 W (also the first), shared bottom edge at 918/1080, title centred at
 cap top 364/1080 (cap 12.9 dp), a marker under the focused game; the entrance fades the focused
@@ -284,13 +284,11 @@ store has games; one console tile per system with ROMs, in `rom_systems` order;
 Uninstalled store games are only inside the library pages, so Home does not carry hundreds of
 titles it cannot launch.
 A console tile is
-iiSU's own card for it when the starter pack has one (below), drawn as the whole
-tile, cover-fit and clipped at the content radius: the card carries the glyph and
-its frame, so the tile has no name or count. Without a card (not downloaded yet,
-offline, or a system the pack lacks, such as PS4) it keeps openSU's own tile: the
-platform's gradient (a neutral one for a system the gradient table lacks) with the
-console's name and game count, broken onto two lines at a space when one is too
-wide, at one name size so the face rasterises one size. A launcher tile is the same
+openSU's own card (below): the platform's gradient deepened toward #1B1726 by 45% (a neutral
+one for a system the gradient table lacks, such as PS4), openSU's drawing of the console at
+36% of the side above the console's name and game count, and the platform frame with the
+console's glyph in its tab. The name breaks onto two lines at a space when one is too wide,
+at one name size so the face rasterises one size. A launcher tile is the same
 card in the store's brand colours with its Simple Icons logo above the name and count;
 the All games tile is a violet card with a four-square library glyph. A opens a console,
 a launcher or All games (`library::ShelfBrowser`, `library::Folder`) on its games; B returns to
@@ -414,30 +412,20 @@ differs between a user's re-zipped copy and the listing (`armwar.zip` and `avspu
 neither), so it would only work for TorrentZipped sets. A game the two listings lack (newer than
 MAME 2016 and not in FinalBurn Neo) keeps its short name.
 
-Console cards are `platforms/<system>.webp` (512x512, ES-DE system names) in iiSU's
-starter pack, `assets/iiSU_StarterPack.zip` inside the 0.0.7.4 release APK
-(`iiSU-Alpha-7.4.apk`, GitHub). `artwork::StarterPack` fetches only that entry with
-HTTP Range requests (the APK's tail for its zip end record, the entry's header and
-data, 25 MB of the 128 MB APK), checks it against a pin (APK size, entry size and
-CRC-32, then the zip's own CRC-32; a 200 answer to a range or any mismatch stores
-nothing) and keeps it as `<cache>/artwork/iisu/starter-pack-0.0.7.4.zip`. Each
-card is decoded with libwebp and kept as `<cache>/artwork/console/<system>.png`;
-a system the pack lacks gets a `.miss` like a game. iiSU's assets are downloaded,
-never shipped. The older starter-v1.0.0 release is not used: it lacks GBA, GC,
-PSX, PS2, PSP, Switch and Wii.
+Console art is openSU's own and ships with it: `assets/consoles/<system>.svg` is the drawing on
+a console's card and `assets/consoles/glyphs/<system>.svg` the glyph in a framed tile's tab, one
+of each for every system in `library::roms` (`assets/consoles/README.md`, MIT). Both are white
+on a 64 x 64 box, drawn as silhouettes with cut-out details (body corners 4, detail corners 1.5,
+detail lines 2, screens and lids a 40% tone); a card shows the hardware, a glyph the thing held
+in the hand or the console's outline. `ui::IconAtlas` rasterises them with nanosvg as white masks
+at the size they are drawn (`consoleCardFile`, `consoleGlyphFile`) and the tile painter tints
+them. Nothing is downloaded for consoles: iiSU's starter pack and border-pack glyphs are no
+longer read, and a cache's old `artwork/{iisu,console,glyph}` folders are ignored.
 
-A ROM tile's platform frame carries its console's white glyph in the tab, as iiSU's
-`IconComposition` does (`g24.e`): contain-fitted into the square at 45/1024 and 90/1024 of
-the short side (`frameGeometry().glyph`, the tab's centre). The glyph is
-`assets/borders/logo_<console>.png` in the same pinned APK, named by
-`assets/borders/border_pack.json` (`consoles[] {console, border, logo}`).
-`artwork::ConsoleGlyphs` reads that map once through `artwork::ApkArchive` (the one ranged
-APK reader the starter pack shares), then takes only the logos of systems with ROMs, each
-CRC-32 checked, into `<cache>/artwork/glyph/<system>.png`; a system the pack or APK lacks
-gets a `.miss`. The shell reads stored glyphs on each catalog load and takes new ones as they
-arrive (`ui::GlyphTextures`). Without a glyph the tab stays empty. Console cards and store
-tiles are unchanged. Measured against the real APK: five glyphs (gc, psx, snes, n64, switch)
-are 4.3 KB in 8.8 s, over about 11 requests, most of it GitHub's redirect latency.
+A framed tile's tab (a ROM's, and a console card's own) carries its console's white glyph, as
+iiSU's `IconComposition` does (`g24.e`): in the square at 45/1024 and 90/1024 of the short side
+(`frameGeometry().glyph`, the tab's centre). A system without a platform gradient (PS4) has no
+frame, so no tab and no glyph; its card still carries the drawing.
 
 The status pill's bell column (iiSU `a32.n`; openSU has no notifications) holds the launcher badges
 (`ui::LauncherBadgePainter`, mapped in `app::launcherBadges`): Steam, Epic and

@@ -247,7 +247,7 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
     open();
     press({Action::Down, Action::Accept});
     expect(log.back() == "signin", "sign in routes to the store");
-    focus = library::Console{"gc", "GameCube", 4, {}};
+    focus = library::Console{"gc", "GameCube", 4};
     open();
     expect(controller.title() == "GameCube", "a folder's menu is titled with its name");
     press({Action::Accept});

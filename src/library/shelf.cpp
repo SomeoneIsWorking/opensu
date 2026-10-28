@@ -109,7 +109,7 @@ std::vector<Console> consoles(const std::vector<Game>& games) {
                 return isRomOf(game, system.key);
             }));
         if (count > 0) {
-            out.push_back(Console{std::string{system.key}, std::string{system.label}, count, {}});
+            out.push_back(Console{std::string{system.key}, std::string{system.label}, count});
         }
     }
     return out;
