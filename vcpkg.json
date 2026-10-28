@@ -1,0 +1,30 @@
+{
+  "name": "opensu",
+  "version-string": "0",
+  "builtin-baseline": "9eec002df1cd109f8f104cd966a763daf9751489",
+  "dependencies": [
+    "curl",
+    "harfbuzz",
+    "libpng",
+    "libvorbis",
+    "libwebp",
+    "nanosvg",
+    "openssl",
+    {
+      "name": "sdl3",
+      "features": ["vulkan"]
+    },
+    {
+      "name": "sdl3-image",
+      "features": ["png", "webp"]
+    },
+    {
+      "name": "sdl3-ttf",
+      "features": ["harfbuzz"]
+    },
+    "sqlite3",
+    "vulkan-headers",
+    "vulkan-loader",
+    "zlib"
+  ]
+}
