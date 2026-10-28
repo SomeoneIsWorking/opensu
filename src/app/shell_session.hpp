@@ -1,7 +1,8 @@
 // shell_session — the session openSU's shell runs in and what it offers: its own compositor started
 // around the shell, the windows a launched game shows, the focus, and Steam's own windows kept out
 // of sight. One backend per OS, picked in CMakeLists.txt: Gamescope on Linux
-// (`shell_session_gamescope.cpp`, the only user of `src/session`); none elsewhere
+// (`shell_session_gamescope.cpp`, the only user of `src/session`); the Windows desktop, whose
+// windows tell when a game shows (`shell_session_win32.cpp`); none elsewhere
 // (`shell_session_none.cpp`), where the shell runs on the desktop as it is.
 #pragma once
 
@@ -32,10 +33,14 @@ class ShellSession {
     virtual void hideSteamWindows(bool hides) = 0;
     /// A reader of the window in focus, for `FocusFollow`; null where there is none.
     [[nodiscard]] virtual std::unique_ptr<display::FocusSource> focusSource() = 0;
+    /// Whether the shell's window covers its monitor: Gamescope composites a window as the overlay
+    /// only when it spans the screen.
+    [[nodiscard]] virtual bool coversMonitor() const noexcept = 0;
 };
 
-/// The session the shell runs in: inside Gamescope, its windows and focus; null outside one and on
-/// every OS without Gamescope. Throws std::runtime_error when the display cannot be opened.
+/// The session the shell runs in: inside Gamescope, its windows and focus; on Windows, the
+/// desktop's windows; null outside Gamescope on Linux and on every other OS. Throws
+/// std::runtime_error when the display cannot be opened.
 [[nodiscard]] std::unique_ptr<ShellSession> openShellSession(const config::Config& config);
 
 /// Runs openSU inside a compositor of its own when this OS has one: the run's exit status. Nothing

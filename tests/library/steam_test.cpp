@@ -4,6 +4,7 @@
 // game, artwork in the modern and legacy layouts, a user profile, and a second
 // library folder reached both directly and through the install root.
 #include "library/steam.hpp"
+#include "library/steam_host.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -163,8 +164,8 @@ int main() {
     expect(portal->launch.args.size() == 2 && portal->launch.args[0] == "-applaunch" &&
                portal->launch.args[1] == "440",
            "launch args");
-    expect(portal->processHint == std::string{"AppId=440"} + std::string(1, '\0'),
-           "process hint is Steam's whole AppId argument");
+    expect(portal->processHint == opensu::library::steam::processHint("440", "Portal 2"),
+           "process hint is this OS's mark of the app and its install folder");
     expect(!portal->artwork.empty() && fs::exists(portal->artwork),
            "modern portrait artwork found");
     expect(!portal->artworkWide.empty() && fs::exists(portal->artworkWide),

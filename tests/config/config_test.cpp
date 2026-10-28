@@ -46,10 +46,11 @@ int main(int argc, char** argv) {
         expect(gamescopeBeside("").empty(), "an unknown executable has no fork");
         expect(config.gamescope.filename() == "gamescope", "the config names the fork binary");
         expect(opensu::config::retroRunnerBeside("/prefix/bin/opensu") ==
-                       "/prefix/bin/opensu-retro" &&
+                       std::filesystem::path{"/prefix/bin"} /
+                           (std::string{"opensu-retro"} + OPENSU_EXECUTABLE_SUFFIX) &&
                    opensu::config::retroRunnerBeside("").empty(),
                "the libretro runner sits beside opensu");
-        expect(config.retroRunner.filename() == "opensu-retro", "the config names the runner");
+        expect(config.retroRunner.stem() == "opensu-retro", "the config names the runner");
         std::printf("config: all checks passed\n");
         return 0;
     }

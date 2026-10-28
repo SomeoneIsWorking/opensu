@@ -12,6 +12,7 @@
 #include "library/game.hpp"
 #include "lucent/log.h"
 #include "process_tree.hpp"
+#include "steam_request.hpp"
 
 namespace opensu::launch {
 namespace {
@@ -20,9 +21,6 @@ using Clock = std::chrono::system_clock;
 
 /// How often the process table is consulted while waiting.
 constexpr auto pollInterval = std::chrono::milliseconds{750};
-
-/// `steam -applaunch` only hands the request to the running client.
-constexpr auto applaunchWait = std::chrono::seconds{30};
 
 } // namespace
 
@@ -51,11 +49,6 @@ void Handoff::forceClose() {
 
 Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks, int& baseline,
                                    std::string& failure) {
-    const std::filesystem::path program = resolveExecutable(game.launch.program, executablePath_);
-    if (program.empty()) {
-        failure = "could not start " + programName(game.launch.program);
-        return Begun::Failed;
-    }
     // A launch starts openSU's own Steam if it stopped; Normal's is not openSU's to start.
     if (steam_.ownsClient()) {
         steam_.ensureStarted();
@@ -81,14 +74,9 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
         lucent::info("launch", "Steam already runs {}; returning to it", game.title);
         return Begun::Returned;
     }
-    const std::optional<int> status =
-        runCommand(program.string(), game.launch.args,
-                   std::chrono::duration_cast<std::chrono::milliseconds>(applaunchWait));
-    if (!status) {
-        failure = "could not ask Steam to start " + game.title;
+    if (!requestSteamRun(game, executablePath_, failure)) {
         return Begun::Failed;
     }
-    lucent::info("launch", "steam -applaunch for {} exited with {}", game.title, *status);
     return Begun::Started;
 }
 

@@ -171,7 +171,7 @@ std::filesystem::path retroRunnerBeside(const std::filesystem::path& executable)
     if (executable.empty()) {
         return {};
     }
-    return executable.parent_path() / "opensu-retro";
+    return executable.parent_path() / (std::string{"opensu-retro"} + OPENSU_EXECUTABLE_SUFFIX);
 }
 
 std::filesystem::path librashaderBeside(const std::filesystem::path& executable) {

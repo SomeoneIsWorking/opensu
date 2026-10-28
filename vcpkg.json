@@ -12,6 +12,14 @@
     "nlohmann-json",
     "openssl",
     {
+      "name": "pkgconf",
+      "host": true
+    },
+    {
+      "name": "shaderc",
+      "host": true
+    },
+    {
       "name": "sdl3",
       "features": ["vulkan"]
     },

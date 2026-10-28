@@ -1,4 +1,5 @@
 #include "steam.hpp"
+#include "steam_host.hpp"
 
 #include <algorithm>
 #include <array>
@@ -22,15 +23,6 @@ namespace {
 
 namespace fs = std::filesystem;
 using vdf::Node;
-
-/// The standard install locations, in the order Steam itself prefers.
-constexpr std::array<std::string_view, 5> knownRoots{
-    ".local/share/Steam",
-    ".steam/steam",
-    ".steam/root",
-    ".steam/debian-installation",
-    ".var/app/com.valvesoftware.Steam/.local/share/Steam",
-};
 
 /// Artwork candidates, tried in order. Steam stores portrait art under one name
 /// and, since 2023, landscape hero art under another; older caches hold only the
@@ -292,9 +284,7 @@ std::optional<Game> readManifest(const LibraryLocation& library, const fs::path&
     game.installed = installed;
     game.updateAvailable = installed && stateFlagsUpdatePending(*state);
     game.launch = LaunchSpec{.program = "steam", .args = {"-applaunch", appId}};
-    // Steam runs every game, native or Proton, under `reaper SteamLaunch AppId=<id>`;
-    // the trailing NUL ends the argument so AppId=44 cannot match AppId=440.
-    game.processHint = "AppId=" + appId + std::string(1, '\0');
+    game.processHint = processHint(appId, installDir);
 
     if (const auto found = play.find(appId); found != play.end()) {
         const PlayRecord& record = found->second;
@@ -415,10 +405,8 @@ std::vector<LibraryFolder> readExtraFolders(const fs::path& root) {
 
 Library Library::discover(const fs::path& home, const std::vector<fs::path>& explicitRoots) {
     std::vector<fs::path> candidates = explicitRoots;
-    if (candidates.empty() && !home.empty()) {
-        for (const std::string_view rel : knownRoots) {
-            candidates.push_back(home / rel);
-        }
+    if (candidates.empty()) {
+        candidates = standardRoots(home);
     }
 
     Library library;

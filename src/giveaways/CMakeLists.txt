@@ -15,4 +15,4 @@ target_link_libraries(opensu_giveaways
     PRIVATE opensu::fileio lucent::lucent Threads::Threads
 )
 target_compile_features(opensu_giveaways PUBLIC cxx_std_20)
-target_compile_options(opensu_giveaways PRIVATE -Wall -Wextra -Wpedantic)
+opensu_warnings(opensu_giveaways)

@@ -174,8 +174,8 @@ struct Config {
 /// `<build>/src/opensu` in the build tree. Empty when `executable` is empty.
 [[nodiscard]] std::filesystem::path gamescopeBeside(const std::filesystem::path& executable);
 
-/// Where the libretro runner sits for an opensu at `executable`: `opensu-retro` in the same
-/// directory. Empty when `executable` is empty.
+/// Where the libretro runner sits for an opensu at `executable`: `opensu-retro` (`.exe` on Windows)
+/// in the same directory. Empty when `executable` is empty.
 [[nodiscard]] std::filesystem::path retroRunnerBeside(const std::filesystem::path& executable);
 
 /// Where librashader sits for an executable at `executable`:

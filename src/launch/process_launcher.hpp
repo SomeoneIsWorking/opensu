@@ -1,8 +1,9 @@
 // process_launcher — starts a program in a group of its own that owns everything it starts, and
 // ends the whole group. One backend per OS, picked in CMakeLists.txt: a transient systemd user
-// scope on Linux (`process_launcher_systemd_scope.cpp`); on Android an intent from the shell's
-// Activity, which owns only openSU's own runner (`process_launcher_intent.cpp`); elsewhere a launch
-// refuses until that OS's backend lands (`process_launcher_unavailable.cpp`).
+// scope on Linux (`process_launcher_systemd_scope.cpp`), a Job Object on Windows
+// (`process_launcher_job_object.cpp`); on Android an intent from the shell's Activity, which owns
+// only openSU's own runner (`process_launcher_intent.cpp`); elsewhere a launch refuses until that
+// OS's backend lands (`process_launcher_unavailable.cpp`).
 #pragma once
 
 #include <filesystem>
@@ -15,7 +16,8 @@ namespace opensu::launch {
 
 /// Runs a command inside its own group. On Linux the group is a systemd scope, whose cgroup is
 /// the ownership: processes that setsid or double-fork stay in it, so stopping the scope ends all
-/// of them. Every call is thread-safe, so a controller handler can stop a launch another thread is
+/// of them. On Windows it is a Job Object (kill on close), which every child process joins.
+/// Every call is thread-safe, so a controller handler can stop a launch another thread is
 /// waiting on.
 class ProcessLauncher {
   public:
@@ -45,12 +47,13 @@ class ProcessLauncher {
     [[nodiscard]] bool startedRunning();
 
     /// Asks every process in the group to end and returns once the group is gone: on Linux
-    /// SIGTERM, and systemd SIGKILLs whatever is left after TimeoutStopSec (5 s). Then reaps the
+    /// SIGTERM, and systemd SIGKILLs whatever is left after TimeoutStopSec (5 s); on Windows
+    /// WM_CLOSE to the group's windows, and the job is terminated after 5 s. Then reaps the
     /// started one.
     void stop();
 
-    /// How the started process ended (128 plus the signal when a signal did it), or -1 while it
-    /// has not been seen to exit. Observed by running() and stop().
+    /// How the started process ended (128 plus the signal when a signal did it; its exit code on
+    /// Windows), or -1 while it has not been seen to exit. Observed by running() and stop().
     [[nodiscard]] int exitStatus() const;
 
   private:

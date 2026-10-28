@@ -9,6 +9,7 @@
 
 #include "gog_builds.hpp"
 #include "lucent/log.h"
+#include "windows_builds.hpp"
 
 namespace opensu::library::gog {
 namespace {
@@ -81,7 +82,7 @@ void Provider::applyInstall(Game& game,
     game.launch = LaunchSpec{.program = setup_.gogdl,
                              .args = {"launch", install->second.path.string(), game.sourceId,
                                       "--platform", install->second.platform}};
-    game.windowsInstall = install->second.platform == "windows";
+    game.windowsInstall = !windowsBuildsNative && install->second.platform == "windows";
     // The install folder name identifies the running game.
     game.processHint = install->second.path.filename().string();
 }

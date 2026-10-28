@@ -8,8 +8,10 @@
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <string_view>
 #include <vector>
 
+#include "library/core_target.hpp"
 #include "library/emulators.hpp"
 #include "library/libretro_cores.hpp"
 #include "support/buildbot_server.hpp"
@@ -24,6 +26,11 @@ using opensu::library::EmulatorOption;
 using opensu::library::LaunchSpec;
 using opensu::test::expect;
 using opensu::test::need;
+
+/// `core`'s library file on this OS: `mgba_libretro.so`, `.dll` or `.dylib`.
+std::string lib(const std::string& core) {
+    return core + std::string{coreTarget.librarySuffix};
+}
 
 const opensu::net::WebClient::Progress anyProgress = [](std::uint64_t, std::uint64_t) {
     return true;
@@ -50,14 +57,14 @@ std::vector<std::string> namesIn(const fs::path& dir) {
 }
 
 void listingIsRead() {
-    const std::string index = "2026-09-01 0badf00d 2048_libretro.so.zip\n"
-                              "2026-10-01\tA1B2C3D4 mgba_libretro.so.zip\r\n"
-                              "2026-10-01 nothex snes9x_libretro.so.zip\n";
+    const std::string index = "2026-09-01 0badf00d " + lib("2048_libretro") + ".zip\n" +
+                              "2026-10-01\tA1B2C3D4 " + lib("mgba_libretro") + ".zip\r\n" +
+                              "2026-10-01 nothex " + lib("snes9x_libretro") + ".zip\n";
     std::string error;
     const CoreBuild build =
         need(coreBuildIn(index, "mgba_libretro", "https://bb/n/", error), "a listed core is read");
     expect(build == CoreBuild{"mgba_libretro", "2026-10-01", 0xa1b2c3d4,
-                              "https://bb/n/mgba_libretro.so.zip"},
+                              "https://bb/n/" + lib("mgba_libretro") + ".zip"},
            "with its date, CRC-32 and zip URL");
     expect(!coreBuildIn(index, "mesen_libretro", "https://bb/n/", error) &&
                error.find("does not list") != std::string::npos,
@@ -70,14 +77,15 @@ void listingIsRead() {
 void lookupOrder(const fs::path& root) {
     const CoreSearch search{root / "ours", {root / "retroarch", root / "system"}, {}};
     expect(!search.find("mgba_libretro"), "no core anywhere is not found");
-    put(root / "system" / "mgba_libretro.so", "system");
-    expect(need(search.find("mgba_libretro"), "found").file == root / "system" / "mgba_libretro.so",
-           "the system folder's core is found");
-    put(root / "retroarch" / "mgba_libretro.so", "retroarch");
+    put(root / "system" / lib("mgba_libretro"), "system");
     expect(need(search.find("mgba_libretro"), "found").file ==
-               root / "retroarch" / "mgba_libretro.so",
+               root / "system" / lib("mgba_libretro"),
+           "the system folder's core is found");
+    put(root / "retroarch" / lib("mgba_libretro"), "retroarch");
+    expect(need(search.find("mgba_libretro"), "found").file ==
+               root / "retroarch" / lib("mgba_libretro"),
            "RetroArch's folder comes before the system's");
-    put(root / "ours" / "mgba_libretro.so", "stray");
+    put(root / "ours" / lib("mgba_libretro"), "stray");
     expect(!need(search.find("mgba_libretro"), "found").downloaded,
            "a core in openSU's folder without a record is not openSU's download");
     const DownloadedCores store{root / "ours"};
@@ -85,9 +93,21 @@ void lookupOrder(const fs::path& root) {
     expect(store.install({"mgba_libretro", "2026-10-01", 7, "u"}, "ours", "", error),
            "a record is written");
     const FoundCore ours = need(search.find("mgba_libretro"), "found");
-    expect(ours.file == root / "ours" / "mgba_libretro.so" && ours.downloaded &&
+    expect(ours.file == root / "ours" / lib("mgba_libretro") && ours.downloaded &&
                ours.downloaded->date == "2026-10-01" && read(ours.file) == "ours",
            "openSU's download comes first, with its record");
+    const CoreSearch infos{root / "mine", {}, {root / "info"}};
+    put(root / "info" / "mgba_libretro.info", "theirs");
+    fs::create_directories(root / "mine");
+    expect(infos.info("mgba_libretro") == "theirs", "a core installed another way has its info");
+    expect(DownloadedCores{root / "mine"}.installInfo("mgba_libretro", "mine", error) &&
+               infos.info("mgba_libretro") == "mine",
+           "openSU's info comes first");
+    expect(!infos.info("snes9x_libretro"), "a core without info has none");
+}
+
+/// Linux's standard search (`core_search_linux.cpp`); other OSes look in openSU's folder alone.
+void linuxStandardSearch() {
     const CoreSearch standard = CoreSearch::standard("/home/p", "/data/opensu");
     expect(standard.downloads == "/data/opensu/cores" &&
                standard.folders == std::vector<fs::path>{"/home/p/.config/retroarch/cores",
@@ -97,14 +117,6 @@ void lookupOrder(const fs::path& root) {
     expect(standard.infoFolders ==
                std::vector<fs::path>{"/home/p/.config/retroarch/info", "/usr/share/libretro/info"},
            "info files are looked for in RetroArch's and the system's info folders");
-    const CoreSearch infos{root / "mine", {}, {root / "info"}};
-    put(root / "info" / "mgba_libretro.info", "theirs");
-    fs::create_directories(root / "mine");
-    expect(infos.info("mgba_libretro") == "theirs", "a core installed another way has its info");
-    expect(DownloadedCores{root / "mine"}.installInfo("mgba_libretro", "mine", error) &&
-               infos.info("mgba_libretro") == "mine",
-           "openSU's info comes first");
-    expect(!infos.info("snes9x_libretro"), "a core without info has none");
 }
 
 void downloadChecksAndSwitches(const fs::path& root) {
@@ -122,10 +134,9 @@ void downloadChecksAndSwitches(const fs::path& root) {
     expect(read(installed.file) == "core one" && installed.date == "2026-10-01" &&
                installed.crc32 == first.crc32 && installed.file == store.file("mgba_libretro"),
            "the core is taken out of the zip and recorded");
-    expect(namesIn(store.root()) == std::vector<std::string>{"mgba_libretro.info",
-                                                             "mgba_libretro.json",
-                                                             "mgba_libretro.so"},
-           "only the core, its info and its record stay");
+    std::vector<std::string> kept{"mgba_libretro.info", "mgba_libretro.json", lib("mgba_libretro")};
+    std::ranges::sort(kept);
+    expect(namesIn(store.root()) == kept, "only the core, its info and its record stay");
     expect(read(store.info("mgba_libretro")) == info, "the core's info is the buildbot's");
 
     buildbot.publish("mgba_libretro", "2026-10-02", "tampered", 0x12345678);
@@ -140,8 +151,8 @@ void downloadChecksAndSwitches(const fs::path& root) {
            "the core before stays and nothing of the download is kept");
 
     buildbot.publish("mgba_libretro", "2026-10-03", "core two");
-    buildbot.redirect("/nightly/mgba_libretro.so.zip",
-                      buildbot.otherHost() + "mgba_libretro.so.zip");
+    buildbot.redirect("/nightly/" + lib("mgba_libretro") + ".zip",
+                      buildbot.otherHost() + lib("mgba_libretro") + ".zip");
     const CoreBuild moved = need(download.latest("mgba_libretro", error), "read");
     expect(!download.install(moved, store, anyProgress, error) &&
                error.find("not on the buildbot") != std::string::npos,
@@ -149,7 +160,8 @@ void downloadChecksAndSwitches(const fs::path& root) {
     expect(store.find("mgba_libretro") == installed && namesIn(store.root()).size() == 3,
            "and nothing of it is kept");
 
-    buildbot.redirect("/nightly/mgba_libretro.so.zip", buildbot.base() + "mgba_libretro.so.zip");
+    buildbot.redirect("/nightly/" + lib("mgba_libretro") + ".zip",
+                      buildbot.base() + lib("mgba_libretro") + ".zip");
     const DownloadedCore updated = need(download.install(moved, store, anyProgress, error),
                                         "a redirect on the host is followed");
     expect(read(updated.file) == "core two" && store.find("mgba_libretro") == updated &&
@@ -207,7 +219,7 @@ void foundCoreIsAnEmulator(const fs::path& root) {
                missing[0].downloadable && missing[0].id == "gba-core",
            "a ROM lists it as downloadable");
 
-    put(root / "system" / "mgba_libretro.so", "core");
+    put(root / "system" / lib("mgba_libretro"), "core");
     const Emulators noRunner = Emulators::discover(catalog, search, {});
     expect(noRunner.installed("gba-core") != nullptr &&
                noRunner.installed("gba-core")->problem.find("opensu-retro") != std::string::npos &&
@@ -218,7 +230,7 @@ void foundCoreIsAnEmulator(const fs::path& root) {
     fs::permissions(search.runner, fs::perms::owner_all);
     const Emulators found = Emulators::discover(catalog, search, {});
     const EmulatorInstall& install = *found.installed("gba-core");
-    const std::string core = (root / "system" / "mgba_libretro.so").string();
+    const std::string core = (root / "system" / lib("mgba_libretro")).string();
     expect(install.source == InstallSource::Core && install.where == core &&
                install.problem.empty() && !downloadedByOpensu(install.source),
            "a core in a system folder is installed, not openSU's to remove");
@@ -237,7 +249,8 @@ void foundCoreIsAnEmulator(const fs::path& root) {
     expect(DownloadedCores{root / "cores"}.install({"mgba_libretro", "2026-10-05", 9, "u"}, "ours",
                                                    "", error),
            "openSU downloads one");
-    const EmulatorInstall& ours = *Emulators::discover(catalog, search, {}).installed("gba-core");
+    const Emulators downloaded = Emulators::discover(catalog, search, {});
+    const EmulatorInstall& ours = *downloaded.installed("gba-core");
     expect(ours.source == InstallSource::DownloadedCore && ours.version == "2026-10-05" &&
                label(ours.source) == "libretro buildbot" && downloadedByOpensu(ours.source),
            "openSU's download is used first, from the libretro buildbot, with its date");
@@ -245,8 +258,13 @@ void foundCoreIsAnEmulator(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main(int argc, char** argv) {
     try {
+        if (argc > 1 && std::string_view{argv[1]} == "linux-standard-search") {
+            linuxStandardSearch();
+            std::puts("libretro_cores: linux standard search ok");
+            return 0;
+        }
         const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "libretro_cores"};
         listingIsRead();
         lookupOrder(scratch.path() / "lookup");

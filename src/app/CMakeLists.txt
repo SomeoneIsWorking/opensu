@@ -4,12 +4,16 @@ target_link_libraries(opensu_app PRIVATE nlohmann_json::nlohmann_json opensu::cl
 # The session the shell runs in, what openSU's window is over a running game, where frame
 # generation, a game's scaling and the night light are switched, and the machine's services (power,
 # session mode, Bluetooth, the backlight, the desktop's night light): Gamescope, logind, BlueZ and
-# KDE on Linux, none elsewhere.
+# KDE on Linux; on Windows the desktop's windows and the shell's window raised over a game; none
+# elsewhere.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_app PRIVATE shell_session_gamescope.cpp game_overlay_gamescope.cpp
         game_presentation_gamescope.cpp night_light_gamescope.cpp desktop_night_kde.cpp
         host_services_linux.cpp)
     target_link_libraries(opensu_app PRIVATE opensu::session PUBLIC opensu::host)
+elseif(WIN32)
+    target_sources(opensu_app PRIVATE shell_session_win32.cpp game_overlay_raised_window.cpp
+        game_presentation_none.cpp night_light_none.cpp host_services_none.cpp)
 else()
     target_sources(opensu_app PRIVATE shell_session_none.cpp game_overlay_none.cpp
         game_presentation_none.cpp night_light_none.cpp host_services_none.cpp)

@@ -40,8 +40,8 @@ class ControllerRoster {
     struct Sources {
         /// The pads connected now, in connection order.
         std::function<std::vector<gamepad::PadInfo>()> pads;
-        /// The battery of the pad with this unique id.
-        std::function<std::optional<device::BatteryStatus>(const std::string& uniq)> battery;
+        /// The battery of this pad.
+        std::function<std::optional<device::BatteryStatus>(const gamepad::PadInfo& pad)> battery;
     };
 
     explicit ControllerRoster(Sources sources) : sources_{std::move(sources)} {

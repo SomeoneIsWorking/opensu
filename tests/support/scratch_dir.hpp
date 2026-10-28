@@ -6,7 +6,7 @@
 #include <string>
 #include <system_error>
 
-#include <unistd.h>
+#include "launch/process_id.hpp"
 
 namespace opensu::test {
 
@@ -14,7 +14,7 @@ class ScratchDir {
   public:
     /// `<base>/<name>-<pid>`.
     ScratchDir(const std::filesystem::path& base, const std::string& name)
-        : path_{base / (name + "-" + std::to_string(getpid()))} {
+        : path_{base / (name + "-" + std::to_string(opensu::launch::ownProcessId()))} {
         std::filesystem::remove_all(path_);
         std::filesystem::create_directories(path_);
     }

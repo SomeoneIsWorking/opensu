@@ -1,7 +1,8 @@
 # Windows, macOS and Android releases beside the Linux AppImage
 
-Status: open. Goal G005. Step 1 in progress (S042): the seams below exist with Linux unchanged;
-the non-Linux configure is not reached yet (see "Step 1 as built").
+Status: open. Goal G005. Step 1 landed (S042, "Step 1 as built"); step 2, the Windows release,
+landed (S046, "Step 2 as built"); step 3 (macOS) is open; step 4 (Android) is in progress
+("Step 4 as built").
 
 Requested: "I want Windows/Linux/macOS/Android releases, ofc the isolation and gamescope features
 only work in Linux, other platforms just act as a launcher".
@@ -140,7 +141,7 @@ downloads checksummed, explicit timeouts):
 - `release.yml`'s publish job takes every package and its `.sha256`.
 
 Tooling: `tools/check` gains `--platform`; packaging moves into one modular `tools/package/` with
-`appimage` (today's `tools/appimage`, moved), `windows`, `macos`, `android` beside it, sharing
+`appimage` (moved from `tools/appimage` in step 2), `windows`, `macos`, `android` beside it, sharing
 `tools/download.py`.
 
 ## 4. Android
@@ -271,6 +272,61 @@ the MSVC front end); a Windows `ProcessLauncher` and process table; the tests (P
 configured for Windows); the installer and the release job.
 
 
+
+## Step 2 as built
+
+Every Windows backend is one source file picked in its owner's CMakeLists; Linux keeps its code.
+
+- `launch::ProcessLauncher`: `process_launcher_job_object.cpp`. The program starts suspended, joins
+  a Job Object with `KILL_ON_JOB_CLOSE`, then resumes, so nothing it starts escapes the job. The
+  environment block is openSU's own with the launch's variables set over it (sorted, names compared
+  without case). `stop` posts `WM_CLOSE` to every top-level window of the job's processes, waits
+  5 s (systemd's TimeoutStopSec), then terminates the job. `running` is the job's active process
+  count; `startedRunning` and `exitStatus` the started process's handle and exit code.
+- `launch::table`: `process_table_toolhelp.cpp` (Toolhelp32 snapshots; each command line from
+  `NtQueryInformationProcess` class 60, split as `CommandLineToArgvW` splits it).
+- `launch::GameWindows`: `Win32Windows` (a visible, unowned, non-tool top-level window of any of the
+  game's processes). `launch/win32.*` holds the RAII `Handle`, UTF-8/16 text and command-line quoting
+  that `win32_child.cpp` and these share.
+- Steam: `library::standardRoots` and `processHint` (`steam_host_win32.cpp`: `HKCU\Software\Valve\Steam`
+  `SteamPath`, then `C:\Program Files (x86)\Steam`; a running game is a process whose command line
+  holds `\common\<installdir>\`), `steam::DesktopSteam` (`desktop_steam_registry.cpp`: the registry's
+  `ActiveProcess\pid` naming a live `steam.exe`), and `launch::requestSteamRun`
+  (`steam_request_url.cpp`: `steam://rungameid/<id>` through `ShellExecuteExW`; Linux keeps
+  `steam -applaunch` in `steam_request_applaunch.cpp`). Steam stays in Normal mode.
+- `library::windowsBuildsNative`: GOG, Epic and own `.exe` games run as they are, without the Wine
+  runner; legendary and gogdl are found on `PATH` as `.exe`.
+- `app::GameOverlay`: `game_overlay_raised_window.cpp`. Launch minimizes the shell's window; the
+  Guide raises it and its close lowers it again; the game's end raises it. No game-time keys.
+- `app::ShellSession`: `shell_session_win32.cpp` (the shell on the desktop, game windows from
+  `Win32Windows`, no Steam window hiding, `coversMonitor` false so the window keeps its size).
+- Controller batteries: `PadSource::battery`. `SdlPads` reads `SDL_GetGamepadPowerInfo` (and asks SDL
+  for pad events while unfocused, since the shell is minimized under a game); `EvdevPads` keeps sysfs.
+- Build: `opensu_warnings` gives clang-cl `/W4`; `opensu_windowed` makes both executables GUI
+  programs entered at `main`; librashader builds as `librashader.dll` with cargo's
+  `x86_64-pc-windows-msvc` target, clang-cl and lld-link (from Linux too, against xwin);
+  `vcpkg.json` adds the host tools `pkgconf` and `shaderc` (glslc).
+- Tests: every portable test builds and runs on Windows; the ones whose fakes are shell scripts or
+  POSIX calls are left out there, and `tests/launch/win32_launch_test.cpp` covers the Windows
+  launch backends with real processes (cmd.exe, a job owning a grandchild, the process table).
+- Tooling: `tools.check all --platform windows` on a Windows host (vcpkg at the manifest's baseline,
+  Visual Studio's environment, clang-tidy, ctest on lavapipe from a pinned mesa-dist-win);
+  `tools/package` holds `appimage` (moved from `tools/appimage`) and `windows` (stage the default
+  install component, Inno Setup's `packaging/windows/opensu.iss` per user, `.sha256`, then a silent
+  install, `--help` and a `--render` frame). `ci.yml` and `release.yml` have a `windows` job on
+  `windows-2025`; the release publishes the installer beside the AppImage, unsigned.
+- Defects the Windows tests found in shared code: `library::identify`'s folder depth compared
+  iterators of two temporary paths (MSVC's STL looped forever); the emulator-pick migration
+  replaced `settings.json` while still reading it (Windows refuses); plugin read paths were checked
+  against `/h`-style probes, which are not absolute on Windows, so every token path was refused.
+- Not linted on Windows: clang-tidy under the MSVC STL sees its throws (a mutex lock in a
+  destructor, `bugprone-exception-escape`, about 150 places) and flags by-value sinks
+  (`performance-unnecessary-value-param`) across the shared sources, which the Linux tree passes.
+  The Windows-only sources pass apart from that. Proper fix: work those findings off, then lint
+  the Windows tree in its job.
+- Under Wine (local check only): `NtQueryInformationProcess` class 60 is not implemented (Wine
+  11.20), so the process table reads no command lines there; the Job Object launch, its exit code,
+  environment, output file, grandchild ownership and stop pass.
 
 ## Step 4 as built
 

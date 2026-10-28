@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "library/core_target.hpp"
 #include "lucent/http.h"
 #include "support/loopback_server.hpp"
 #include "support/zip_fixture.hpp"
@@ -32,12 +33,13 @@ class BuildbotServer {
     void publish(const std::string& core, const std::string& date, const std::string& library,
                  std::optional<std::uint32_t> listedCrc = std::nullopt,
                  const std::string& info = "firmware_count = \"0\"\n") {
-        const std::string zip = zipfixture::buildZip({{core + ".so", library, true, {}}});
+        const std::string file = core + std::string{library::roms::coreTarget.librarySuffix};
+        const std::string zip = zipfixture::buildZip({{file, library, true, {}}});
         const std::lock_guard lock{mutex_};
         infos_[core + ".info"] = info;
-        files_["/nightly/" + core + ".so.zip"] = zip;
-        listed_[core] = date + " " + hex(listedCrc.value_or(zipfixture::crcOf(library))) + " " +
-                        core + ".so.zip";
+        files_["/nightly/" + file + ".zip"] = zip;
+        listed_[core] =
+            date + " " + hex(listedCrc.value_or(zipfixture::crcOf(library))) + " " + file + ".zip";
     }
 
     /// Answers the next request for `path` with a redirect to `target`.
@@ -75,7 +77,8 @@ class BuildbotServer {
             return response;
         }
         if (path == "/nightly/.index-extended") {
-            std::string index = "2026-01-01 0badf00d 2048_libretro.so.zip\n";
+            std::string index = "2026-01-01 0badf00d 2048_libretro" +
+                                std::string{library::roms::coreTarget.librarySuffix} + ".zip\n";
             for (const auto& [core, line] : listed_) {
                 index += line + "\n";
             }

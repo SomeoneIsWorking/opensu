@@ -34,7 +34,7 @@ std::vector<ControllerStatus> ControllerRoster::controllers(Clock::time_point no
         }
         Reading& reading = batteries_[pad.id];
         if (reading.at == Clock::time_point{} || now - reading.at >= batteryLife) {
-            reading.battery = sources_.battery(pad.uniq);
+            reading.battery = sources_.battery(pad);
             reading.at = now;
         }
         status.battery = reading.battery;

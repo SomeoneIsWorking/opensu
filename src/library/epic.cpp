@@ -11,6 +11,7 @@
 #include "install_log.hpp"
 #include "launch/command.hpp"
 #include "lucent/log.h"
+#include "windows_builds.hpp"
 
 namespace opensu::library::epic {
 namespace {
@@ -168,7 +169,8 @@ std::vector<Game> Provider::list() {
         game.installed = install != installs.end();
         game.updateAvailable = game.installed && updateAvailable(title, install->second);
         game.launch = LaunchSpec{.program = "legendary", .args = {"launch", title.appName}};
-        game.windowsInstall = game.installed && install->second.platform == "Windows";
+        game.windowsInstall =
+            !windowsBuildsNative && game.installed && install->second.platform == "Windows";
         if (game.installed && !install->second.installPath.empty()) {
             // The install folder name identifies the running game.
             game.processHint =

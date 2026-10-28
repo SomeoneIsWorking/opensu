@@ -74,6 +74,10 @@ class ShellWindow {
     gpu2d::PixelSize fillMonitor();
     /// Maps or unmaps the window.
     void setShown(bool shown);
+    /// Puts the window in front and gives it the focus, restoring it when it was lowered.
+    void raise();
+    /// Minimizes the window, so whatever is behind it comes to the front.
+    void lower();
 
     /// Takes the window's events since the last call; false once the window was asked to close.
     [[nodiscard]] bool pollEvents();

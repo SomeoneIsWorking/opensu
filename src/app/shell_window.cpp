@@ -72,6 +72,15 @@ void ShellWindow::setShown(bool shown) {
     }
 }
 
+void ShellWindow::raise() {
+    SDL_RestoreWindow(window_.window());
+    SDL_RaiseWindow(window_.window());
+}
+
+void ShellWindow::lower() {
+    SDL_MinimizeWindow(window_.window());
+}
+
 bool ShellWindow::pollEvents() {
     keys_.nextFrame();
     pointer_ = PointerFrame{};

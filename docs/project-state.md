@@ -115,9 +115,9 @@ Visible deltas from the baseline:
 - A Library tile, Giveaways, lists the stores' free-to-keep games; iiSU has none.
 - Steam's Big Picture does not open inside openSU's session: Guide in the shell never reaches
   Steam, and Big Picture opened any other way is closed and the shell put back in front.
-- Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, or built from source; an
-  Android APK (arm64-v8a, x86_64) runs the shell but cannot start a ROM yet (S042). Windows and
-  macOS (arm64) packages are planned as launchers (G005, S042); nothing is built for them yet. On each of them openSU will have no: Gamescope (nested session, login session, FSR,
+- Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, a Windows x64 per-user
+  installer (S046), or built from source; an Android APK (arm64-v8a, x86_64) runs the shell but
+  cannot start a ROM yet (S042). macOS (arm64) packages are planned as launchers (G005, S042). On each of them openSU will have no: Gamescope (nested session, login session, FSR,
   frame generation, Alt+F4 handling); Managed or Isolated Steam (Steam is the player's own, Normal);
   virtual pads remapping another program's input; Wine; the Power, Bluetooth and brightness tabs.
   Android will also have no Steam, Epic, GOG or sign-in extension. Until each OS's backends land,
@@ -178,6 +178,7 @@ game has been observed running yet.
 | S043 | SteamGridDB: the API key through Steam's browser or typed in, kept in the keyring or a 0600 file; covers fitted to Home's square tiles; "Choose artwork" per game (connected on the player's account, key in the keyring, fitting (games with no art included), the picker and Disconnect's dialog checked on the real library; not checked in a shown session or Normal mode; `docs/issues/steamgriddb.md`) | partial | S002, S020 | G001, G002 |
 | S044 | Giveaways: free-to-keep offers from Epic, GOG and Steam read in the background, a Library tile opening a toolkit screen with art, store, ends-in and Owned, details with Claim (store page; Steam's in Big Picture when openSU's Steam runs) (`docs/issues/giveaways.md`) | partial | S002, S007, S043 | G001 |
 | S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only; Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
+| S046 | Windows release: clang-cl build with vcpkg, Job Object launches, Win32 process table and game windows, the shell minimized under a game and raised for the Guide, Steam from the registry and `steam://`, native GOG and Epic builds, controller batteries through SDL, librashader `.dll`, per-user Inno Setup installer, `windows` CI and release jobs (`docs/issues/cross-platform-releases.md` step 2) | partial | S042 | G005 |
 
 ## Capability details
 
@@ -1801,18 +1802,32 @@ commit, configure with Clang (any other compiler is refused), build including th
 clang-format, clang-tidy, ruff, ctest. A second job builds and smoke-tests the AppImage (S030).
 Actions are pinned by SHA, uv by version and checksum, permissions are `contents: read`.
 The `android` job builds the signed APK for both ABIs through `tools.package.android build`
-(android-port's native prefix cached by its pin) and `release.yml` publishes it. No Windows or
-macOS jobs yet: they come with G005's steps 2 and 3 (S042,
-`docs/issues/cross-platform-releases.md`).
+(android-port's native prefix cached by its pin) and `release.yml` publishes it. A `windows` job
+builds with clang-cl and vcpkg on `windows-2025`, runs the tests on lavapipe and builds and
+smoke-tests the installer (S046). No macOS job yet: it comes with G005's step 3
+(`docs/issues/cross-platform-releases.md`).
 
 Verified: the same steps locally through `tools.check ci`: Clang build including the fork, the
 three linters clean, 117 of 119 tests pass and 2 skip (`game_keys`, `pads`: no uinput in the
 container). Unverified: a run on GitHub's runners
 (rootless podman with systemd as PID 1 there).
 
+### S046 — Windows release
+
+What landed is listed in `docs/issues/cross-platform-releases.md` ("Step 2 as built").
+
+Verified locally (cross-compiled with clang-cl from Linux against xwin, run under Wine 11.20 in a
+headless Gamescope, a stand-in OpenSSL): 104 tests configured for Windows, 94 pass; the 7 linking
+libcrypto cannot load it here, and `win32_launch` stops at the command-line read Wine lacks. The
+Job Object launch (exit code, environment, output file, a grandchild kept in the job, stop) passes.
+The Windows tests found three shared defects, fixed (the step's doc lists them).
+
+Gaps: no run on a real Windows host or VM yet; Steam, legendary and gogdl launches on Windows
+untested; the Windows tree is not linted (the step's doc says why and the proper fix).
+
 ### S030 — AppImage
 
-`tools.appimage` builds in an Ubuntu 24.04 container, so glibc 2.39 is the floor (a check refuses
+`tools.package appimage` builds in an Ubuntu 24.04 container, so glibc 2.39 is the floor (a check refuses
 any bundled ELF needing newer), with Clang 22 and wayland, wayland-protocols, libxkbcommon, pixman
 and libdrm headers from pinned tarballs for the fork's wlroots. Contents: openSU, its assets, the
 sign-in `.xpi`, the fork's `gamescope` in `usr/libexec/opensu/`, the desktop entry and icon, and
@@ -1824,7 +1839,7 @@ the mount. A `v*` tag runs `release.yml`: build, smoke, GitHub Release with the 
 `.sha256`, `.zsync` and the `.xpi`; the AppImage is gpg-signed with the
 `OPENSU_APPIMAGE_SIGNING_KEY` secret (public key `packaging/appimage/signing-key.asc`).
 
-Verified (`tools.appimage smoke`, clean Fedora 44 and Ubuntu 24.04 containers with only the
+Verified (`tools.package appimage smoke`, clean Fedora 44 and Ubuntu 24.04 containers with only the
 README's runtime libraries, no network): the runtime is static type 2 and libfuse2 is absent; it
 mounts through FUSE; every bundled ELF resolves; the fork's `gamescope --help` binds every symbol;
 `opensu --render` draws the home screen at 1280x800 with assets; the run writes only under the
@@ -2005,7 +2020,7 @@ Gaps: `launch/command.*` has its
 `posix_child`/`win32_child` backends and `ownProcessId()` replaced `getpid`; the Win32 backend is
 compiled with clang-cl against an xwin SDK and not run. Not run here: a Steam game launch and an AppImage
 emulator under nested Gamescope, the real shell's overlay (only `--hidden` runs, which never attach
-it), `SdlPads` with a real pad, and the AppImage: `tools.appimage all` stopped twice in the fork's
+it), `SdlPads` with a real pad, and the AppImage: `tools.package appimage all` stopped twice in the fork's
 submodule clones (GitHub refusing anonymous clones of different repos each time), with 1378 of
 1406 build steps done in the Ubuntu container and no openSU compile error.
 
