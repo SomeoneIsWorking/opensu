@@ -197,13 +197,6 @@ bool DownloadedCores::remove(std::string_view core, std::string& error) const {
     return true;
 }
 
-CoreSearch CoreSearch::standard(const fs::path& home, const fs::path& dataDir) {
-    return CoreSearch{DownloadedCores::under(dataDir).root(),
-                      {home / ".config" / "retroarch" / "cores", "/usr/lib64/libretro",
-                       "/usr/lib/libretro", "/usr/lib/x86_64-linux-gnu/libretro"},
-                      {home / ".config" / "retroarch" / "info", "/usr/share/libretro/info"}};
-}
-
 std::optional<std::string> CoreSearch::info(std::string_view core) const {
     std::vector<fs::path> files;
     if (!downloads.empty()) {

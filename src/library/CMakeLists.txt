@@ -56,6 +56,12 @@ add_library(opensu_library STATIC
     lutris_games.cpp
 )
 add_library(opensu::library ALIAS opensu_library)
+# Where RetroArch and the system put cores: Linux's folders; elsewhere openSU's downloads only.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(opensu_library PRIVATE core_search_linux.cpp)
+else()
+    target_sources(opensu_library PRIVATE core_search_none.cpp)
+endif()
 target_include_directories(opensu_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_library
     PUBLIC opensu::vdf

@@ -102,9 +102,10 @@ struct CoreSearch {
     /// Where the info files of cores installed another way are, after openSU's downloads.
     std::vector<std::filesystem::path> infoFolders;
 
-    /// openSU's downloads under `dataDir`, then ~/.config/retroarch/cores, /usr/lib64/libretro,
-    /// /usr/lib/libretro and /usr/lib/x86_64-linux-gnu/libretro; info files in openSU's
-    /// downloads, then ~/.config/retroarch/info and /usr/share/libretro/info.
+    /// openSU's downloads under `dataDir`, then the folders RetroArch and the system install cores
+    /// to on this OS (`core_search_linux.cpp`: ~/.config/retroarch/cores, /usr/lib64/libretro,
+    /// /usr/lib/libretro and /usr/lib/x86_64-linux-gnu/libretro, with ~/.config/retroarch/info
+    /// and /usr/share/libretro/info; `core_search_none.cpp`: none).
     [[nodiscard]] static CoreSearch standard(const std::filesystem::path& home,
                                              const std::filesystem::path& dataDir);
 
