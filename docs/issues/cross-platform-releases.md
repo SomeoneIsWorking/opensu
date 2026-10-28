@@ -21,7 +21,7 @@ and gpu2d's window including `X11/Xlib.h`. CI and `release.yml` build Linux only
 | `src/session/*` (all), `cmake/Gamescope.cmake`, `packaging/gamescope-build/` | Nested and DRM Gamescope, overlay atoms, XInput2 game keys, focus, Steam window hiding, X11 monitor read, restart budget | None. Not built outside Linux |
 | `src/host/session_mode.*`, `login_session_end.*`, `desktop_request.*`, `packaging/install-session.sh`, `opensu-session-select.sh`, `opensu-session.desktop.in` | Login session, SDDM, sudo | None |
 | `src/host/power.*`, `bluetooth.*`, `backlight.*`, `runner.*`; `app/bluetooth_session.*`, `brightness_control.*` | logind over `busctl`, `bluetoothctl`, sysfs backlight | Off; the OS's own settings own them |
-| `src/device/battery.*` | controller batteries from sysfs | The system battery is `SDL_GetPowerInfo` on every OS since step 1 |
+| `src/device/battery.*` | controller batteries from sysfs | The system battery is `SDL_GetPowerInfo` on every OS since step 1; controller batteries are a Linux backend, none elsewhere (`SDL_GetGamepadPowerInfo` through `SdlPads` is the step 2 candidate) |
 | `src/audio/volume_backend.*` | `wpctl`/`pactl` | Windows `IAudioEndpointVolume`, macOS CoreAudio, Android `AudioManager`, or off in the first release of each |
 | `src/gamepad/evdev_device.*`, `virtual_pad.*`, `evdev_pads.*` (was `pads.*`), `pad_translator.*` (evdev in) | evdev reads, `EVIOCGRAB`, uinput Xbox 360 pads, `/sys` | SDL3 gamepad events into the same `Event`/`Button`; no grab, no virtual pads. `chord_gate`, `forward_map`, `direction_repeat` are pure and stay |
 | `src/app/pad_owner.*`, `focus_follow.*`, `game_screen.*` | Claims over grabbed pads, Gamescope focus, overlay modes | Shell window raised and lowered; Guide heard in the background through `SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS` |
@@ -245,13 +245,12 @@ moved out: `src/secrets` (the secret store; libsecret looked for on Linux only) 
 executable suffix), not `/proc/self/exe`; the assets, the Gamescope fork, `opensu-retro` and
 librashader are found beside it as before. `CoreSearch::standard` is `core_search_linux.cpp`
 (RetroArch's and the system's Linux core folders) or `core_search_none.cpp` (openSU's downloads only).
+`device::ControllerBatteries` is `controller_batteries_sysfs.cpp` on Linux and
+`controller_batteries_none.cpp` (no controller battery) elsewhere.
 
 Windows compile check from Linux: `cmake/toolchains/windows-clang-cl.cmake` (clang-cl, lld-link, the
 Windows SDK and CRT from an `xwin splat` tree when the host is not Windows), `vcpkg.json` (pinned
 baseline) and `packaging/windows/triplets/x64-windows-clangcl.cmake` (release-only, through the same
 toolchain). Every manifest port builds that way except OpenSSL, whose Windows port needs `nmake`.
 
-Not yet done in step 1, each blocking a non-Linux configure or a non-Linux build:
-
-- Controller batteries from sysfs.
 
