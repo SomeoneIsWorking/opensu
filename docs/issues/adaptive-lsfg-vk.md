@@ -2,9 +2,10 @@
 
 Status: open. Decided 2026-10-22: frame generation runs inside our Gamescope fork with our own MIT
 generator (see "Decision"). Phases A (mechanism), B (adaptive pacing) and the generator
-(`CLosslessSynthesizer`) are in the fork and pinned at `d155d8c9`. Phase C (openSU settings and the
-atoms for the game in front) is built and shown with a libretro game in headless Gamescope
-(`docs/project-state.md` S041); Settings › Emulators rows and a store game are still open.
+(`CLosslessSynthesizer`) are in the fork, pinned at `7bc32a74`. Phase C (openSU settings and the
+atoms for the game in front) is shown with a libretro game in headless Gamescope and with a store
+game in openSU's nested Gamescope (`docs/project-state.md` S041, "Nested proof" below); Settings ›
+Emulators rows and the DRM backend are still open.
 
 The player: "Another request I have is adaptive LSFG-VK". lsfg-vk is the Vulkan layer that runs
 Lossless Scaling's frame generation on Linux; the player has a fork (`SomeoneIsWorking/lsfg-vk`).
@@ -39,28 +40,33 @@ The fork's `src/FrameGen/` (pinned `d155d8c9`):
     `frametime_buffer_reset_multiplier` (see "Lossless Scaling's Adaptive mode").
   - Nothing is generated, in either mode, until the history is full: after a settings change or
     a restart the first 15 real frames show as they come.
-  - Count and timestamps: a phase accumulator steps by `1 / ratio` (fixed) or
-    `base rate / target` (adaptive, never below `1 / (max + 1)`), carried over between real
-    frames, so fractional ratios work. An output within 0.05 of a real frame shows that real frame
-    (`real_timestamp_tolerance`). When a carried phase would put more than `max` generated images
-    in one interval, the phase realigns so the real frame is one of the outputs.
+  - Count: the step is `1 / ratio` (fixed) or `base rate / target` (adaptive, never below
+    `1 / (max + 1)`); each vblank earns `refresh / (step x interval)` of an output, carried over
+    between real frames, so fractional ratios work, and an interval gets at most `max` generated
+    images. An output within 0.05 of a real frame shows that real frame
+    (`real_timestamp_tolerance`).
   - Adaptive decision: the target is the set rate, or the display's refresh when 0, and never above
     the refresh. Generation stops once the base
     rate reaches `target - tolerance` and restarts only below `target - 1.5 * tolerance`, and
     either change needs the base rate past its threshold for 15 real frames in a row. Below
     10 fps (`base_framerate_threshold`) only real frames show, in both modes.
-  - Presentation: an output shows one real interval after its content on a timeline of the real
-    frames smoothed by 0.1 of each arrival's error, later by the largest arrival lag of the last
-    15 frames and half a refresh, so the vblank it lands on is after its real frame arrived. At
-    most one output per vblank, and an output whose vblank an earlier one already holds is not
-    made. Without generation each real frame shows at the next vblank.
+  - Presentation: outputs go on the vblank grid. An interval's content shows one real interval
+    late on a timeline of the real frames smoothed by 0.1 of each arrival's error, later by the
+    largest arrival lag of the last 15 frames and one refresh (the GPU time the first image after a
+    real frame gets), then earlier by under a refresh so the real frame lands on a vblank. That
+    delay is kept while it stays within the refresh, so arrival jitter moves nothing and content
+    time steps evenly at any ratio; a delay within the real-frame tolerance of the aligned one takes
+    it, so integer ratios keep showing real frames. Each output shows the scene at its own
+    vblank's time. One output per vblank, also when the vblank timer wakes twice for one vblank; a
+    late output gives way once the next is due and ready. Without generation each real frame
+    shows at the next vblank.
 - `FrameGenerator`: copies each new commit of the focused window (8-bit SDR only) into one of
-  three buffered frames, runs the synthesizer for the planned timestamps into that interval's set
-  of images, and gives `paint_window` the image for the current vblank in place of the commit's
+  three buffered frames, gives the synthesizer only the real frames generation uses (restarting it
+  when frames were left out), runs it for the planned timestamps into that interval's set of images, and gives `paint_window` the image for the current vblank in place of the commit's
   texture. PipeWire follows it. Logs `Pacing <state> at real N` whenever the state (measuring,
   below the floor, at the target, within the tolerance, generating) changes.
-- `IFrameSynthesizer`: `BeginSession(w, h)` (forgets history), `AddRealFrame(frame)` for every
-  real frame in order, `Generate(previous, current, t, output)`.
+- `IFrameSynthesizer`: `BeginSession(w, h)` (forgets history), `AddRealFrame(frame)` for the real
+  frames of the session in order, consecutive since `BeginSession`, `Generate(previous, current, t, output)`.
 - `LosslessSynthesizer` (MIT, the default generator): runs the LSFG 3 SPIR-V modules of the
   player's `Lossless.dll` on Gamescope's device as `docs/design/frame-generation-spec.md` section 4
   describes: per real frame Copy, the luma and feature pyramids and the UI mask; per generated frame
@@ -138,6 +144,47 @@ Not proven: DRM and nested (Wayland) backends; HDR and 10-bit content (refused, 
 windows with non-opaque alpha (the blend assumes opaque); the real generator; a game in openSU.
 Under heavy machine load the sources stall and burst; the history then restarts and real frames
 show until it refills, which the log shows as `Pacing measuring`.
+
+## Nested proof (2026-10-28)
+
+Absolute Drift (GOG, native Linux, Unity GL) at 3840x2160 in openSU's nested Gamescope on a
+private 60 Hz KWin, the player's own `Lossless.dll` 3.2.2.0 (balanced, FP16), the game capped by
+MangoHud's GL limiter, title flythrough with its "PRESS ANY BUTTON" text. Shown/s, holds (a vblank
+with nothing new while an output was queued) and arrival-to-screen latency from the fork's debug
+log over 12 s; distinct/s from Gamescope's PipeWire stream; GPU busy from `gpu_busy_percent`.
+Other agents shared the GPU, so single runs vary.
+
+| Base | Setting | Fork before (`c1a4a171` + Wayland fix) | Fork `7bc32a74` |
+| --- | --- | --- | --- |
+| 30 | Off | 30 distinct/s, GPU 50 % | same |
+| 30 | Fixed 2x | 59.5 shown/s, 11 holds, 42 ms | 60.0 shown/s, 1 hold, 59.7 distinct/s, 43 ms, GPU 69 % |
+| 30 | Smooth 60 | 53 shown/s, 74 holds, 98 gaps over a refresh | 59.5 shown/s, 4 holds, 59.4 distinct/s, 43 ms, GPU 70 % |
+| 30 | Match display | 58.6 shown/s, every output generated (real frames never shown), 46 gaps | 59.9 shown/s, 1 hold, 59.9 distinct/s, 44 ms |
+| 45 | Smooth 60 | (not run) | 60.0 shown/s, 3 holds, 60.0 distinct/s, 31 ms |
+| 45 | Match display | (not run) | 60.0 shown/s, 0 holds, 59.3 distinct/s, 32 ms (the build before the aligned-delay snap; at `7bc32a74` only under another agent's GPU load) |
+| ~180 | Match display (within the tolerance) | every real frame ingested: 1.76 ms x 204/s of GPU, GPU 83 % | no ingest, GPU 72 % as Off; 53.7 distinct/s against Off's 59.1 |
+
+The latency column is a real frame's arrival to the vblank it shows on; Off shows it at the next
+vblank (under 16.7 ms), so generation adds about one base interval plus a refresh. Generated frames
+crop clean on moving edges and on the HUD text (`scratch/framegen/runs/cap30g/still/crop-*.png`).
+Target 40 at 30 fps shows about 37/s: 40 on a 60 Hz grid alternates one and two vblanks.
+
+Found and fixed:
+- Gamescope segfaulted in `CWaylandPlane::Present` as soon as an image was generated:
+  `WaylandBackend.cpp:CWaylandConnector::Present` handed every layer to a host subsurface and a
+  generated image has no backend framebuffer. It now composites when any layer lacks one.
+- With generation on but not needed (a game above the target), every real frame was ingested:
+  `FrameGenerator.cpp:CFrameGenerator::Capture` called `AddRealFrame` regardless of the pacing
+  state. Only frames generation uses are added; a gap restarts the synthesizer.
+- Adaptive outputs collided, held and drifted: `FramePacer.cpp:CFramePacer::OnRealFrame` placed
+  outputs by a phase accumulator against the wakeup time, which jitters ahead of the vblank; the
+  nested vblank timer also wakes twice for one vblank, and one late output kept every later one a
+  vblank late. The pacer now plans on the target vblank grid with the steady delay above.
+
+Not proven: the DRM backend (the desktop owns the display), HDR, and pacing while another process
+saturates the GPU (generated images then miss their vblank and show one late). Open: with
+generation on but not needed, every real frame is still copied and the screen composited, which
+shows fewer new images than Off at a high game rate (last table row).
 
 ## Lossless generator (2026-10-22)
 
@@ -592,8 +639,8 @@ superseded by "Decision". Step 1's finding stands as the reason.
 3. Our MIT generator behind `IFrameSynthesizer`, clean-room from the `Lossless.dll` behaviour spec:
    done ("Lossless generator").
 4. Phase C, openSU: the `framegen.*` setting keys on the layers, the atoms set for the game in
-   front, rows on the game settings tabs: done (`docs/project-state.md` S041). Open: rows on
-   Settings › Emulators, and a store game shown in the product.
+   front, rows on the game settings tabs: done (`docs/project-state.md` S041), with a store game in
+   the nested backend ("Nested proof"). Open: rows on Settings › Emulators, the DRM backend.
 5. Record: the codemap rows, project-state rows, this card closed.
 
 Web pages read for this card gave no instructions aimed at an agent. The upstream README only
