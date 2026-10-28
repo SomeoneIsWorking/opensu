@@ -189,7 +189,7 @@ void testFetches(const fs::path& root) {
                                {.libretro = sources.base() + "/libretro",
                                 .steam = sources.base() + "/steam",
                                 .gogdb = sources.base() + "/gogdb"}};
-        fetcher.request(games, {});
+        fetcher.request(games);
         const std::vector<Fetched> fetched = waitFor(fetcher);
         expect(fetched.size() == 5, "the Steam, Epic and GOG games and the matched ROM arrive");
         expect(read(store.pathFor(games[4])) == "epic tall",
@@ -232,7 +232,7 @@ void testArcadeNames(const fs::path& root) {
                                 .libretroDatabase = sources.base() + "/ldb",
                                 .arcadeDats = {arcadePin}},
                                names};
-        fetcher.request(games, {});
+        fetcher.request(games);
         const std::vector<Fetched> fetched = waitFor(fetcher);
         expect(std::ranges::any_of(fetched,
                                    [](const Fetched& item) {
@@ -249,7 +249,7 @@ void testArcadeNames(const fs::path& root) {
                                 .libretroDatabase = sources.base() + "/ldb",
                                 .arcadeDats = {arcadePin}},
                                names};
-        fetcher.request(games, {});
+        fetcher.request(games);
         expect(waitFor(fetcher).empty(), "kept names are not fetched again");
     }
 
@@ -260,7 +260,7 @@ void testArcadeNames(const fs::path& root) {
                             .libretroDatabase = sources.base() + "/ldb",
                             .arcadeDats = {{arcadePin.path, arcadePin.size, 1}}},
                            refused};
-    fetcher.request(games, {});
+    fetcher.request(games);
     expect(waitFor(fetcher).empty() && !refused.cached(), "a listing off its pin is not kept");
 }
 
@@ -270,7 +270,7 @@ void testArcadeBoxArt(const fs::path& root) {
     const Game sf2 = game(Source::Rom, "rom:sf2", "arcade",
                           "Street Fighter II: The World Warrior (World 910522)");
     ArtworkFetcher fetcher{store, {.libretro = sources.base() + "/libretro"}};
-    fetcher.request({sf2}, {});
+    fetcher.request({sf2});
     expect(waitFor(fetcher).size() == 1 && read(store.pathFor(sf2)) == "sf2 flyer",
            "an arcade game gets the MAME box art its listed description names");
 }
@@ -280,7 +280,7 @@ void testUnreachable(const fs::path& root) {
     // Port 9 is discard; nothing listens on loopback there.
     ArtworkFetcher fetcher{store, {"http://127.0.0.1:9/libretro", "http://127.0.0.1:9/steam"}};
     const Game steam = game(Source::Steam, "steam:1", "1");
-    fetcher.request({steam, game(Source::Steam, "steam:2", "2")}, {});
+    fetcher.request({steam, game(Source::Steam, "steam:2", "2")});
     expect(waitFor(fetcher).empty(), "nothing arrives from a source that cannot be reached");
     expect(!fs::exists(store.pathFor(steam).string() + ".miss"),
            "an unreachable source is not a miss, so the next run asks again");
@@ -304,7 +304,7 @@ void testStages(const fs::path& root) {
                                   game(Source::Steam, "steam:404", "404")};
     ArtworkFetcher fetcher{store, {.steam = sources.base() + "/steam"}};
     expect(fetcher.stageOf("steam:777") == Stage::None, "a game not asked for is in no stage");
-    fetcher.request(games, {});
+    fetcher.request(games);
     expect(eventually([&] {
                return fetcher.stageOf("steam:777") == Stage::Downloading;
            }),

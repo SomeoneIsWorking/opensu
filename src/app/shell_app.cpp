@@ -12,7 +12,6 @@
 #include <utility>
 #include <variant>
 
-#include "artwork/iisu_assets.hpp"
 #include "config/config.hpp"
 #include "frame_png.hpp"
 #include "game_end.hpp"
@@ -241,7 +240,7 @@ void ShellApp::requestArtwork() {
         systems.push_back(console.system);
     }
     shell_.grid().consoleArt().useIisu(iisuPack_, std::move(systems));
-    artworkFetcher_.request(games_, artwork::allApkAssets());
+    artworkFetcher_.request(games_);
     delivery_.restart();
 }
 
@@ -1010,11 +1009,10 @@ int ShellApp::run() {
         gameScreen_.attachOverlay();
         focusFollow_.attach(std::make_unique<session::GamescopeWindows>(), window_->x11Window());
     }
-    // A hidden run makes no sound.
-    if (!settings_.hidden) {
+    if (settings_.playSounds) {
         sounds_.open();
     }
-    delivery_.loadStoredSounds();
+    sounds_.loadSet(environment_.assetsDir / audio::shippedDirectory);
 
     // The control channel is part of the product, not a debug flag: it is how an
     // automated run drives the shell without a controller.

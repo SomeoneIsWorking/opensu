@@ -32,11 +32,6 @@ class WebClient {
     get(const std::string& url, std::string& error,
         const std::vector<std::string>& headers = {}) const;
 
-    /// The bytes `first` to `last` inclusive of a URL, from a 206 response. A 200 is an error: the
-    /// server ignored the range.
-    [[nodiscard]] std::optional<std::string> getRange(const std::string& url, std::uint64_t first,
-                                                      std::uint64_t last, std::string& error) const;
-
     /// A response of any status.
     struct Answer {
         long status{0};
@@ -90,9 +85,8 @@ class WebClient {
                                 const Refusal& refusal = {}, BodyFacts* facts = nullptr) const;
 
   private:
-    /// One GET following redirects, answered by `expected`; `range` is "first-last" or empty.
-    [[nodiscard]] std::optional<std::string> fetch(const std::string& url, const std::string& range,
-                                                   long expected, std::string& error,
+    /// One GET following redirects, answered by a 200.
+    [[nodiscard]] std::optional<std::string> fetch(const std::string& url, std::string& error,
                                                    const std::vector<std::string>& headers) const;
 };
 

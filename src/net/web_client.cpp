@@ -65,7 +65,6 @@ constexpr long stallSeconds = 30;
 constexpr long timeoutSeconds = 30;
 constexpr long redirectLimit = 5;
 constexpr long httpOk = 200;
-constexpr long httpPartial = 206;
 
 WebClient::BodyFacts factsOf(CURL* curl) {
     curl_off_t modified = -1;
@@ -115,12 +114,7 @@ WebClient::~WebClient() {
 
 std::optional<std::string> WebClient::get(const std::string& url, std::string& error,
                                           const std::vector<std::string>& headers) const {
-    return fetch(url, {}, httpOk, error, headers);
-}
-
-std::optional<std::string> WebClient::getRange(const std::string& url, std::uint64_t first,
-                                               std::uint64_t last, std::string& error) const {
-    return fetch(url, std::to_string(first) + "-" + std::to_string(last), httpPartial, error, {});
+    return fetch(url, error, headers);
 }
 
 std::optional<WebClient::Answer> WebClient::request(const std::string& url,
@@ -305,8 +299,7 @@ bool WebClient::download(const std::string& url, const std::filesystem::path& fi
     return false;
 }
 
-std::optional<std::string> WebClient::fetch(const std::string& url, const std::string& range,
-                                            long expected, std::string& error,
+std::optional<std::string> WebClient::fetch(const std::string& url, std::string& error,
                                             const std::vector<std::string>& headers) const {
     const std::unique_ptr<CURL, EasyDeleter> handle{curl_easy_init()};
     if (handle == nullptr) {
@@ -324,9 +317,6 @@ std::optional<std::string> WebClient::fetch(const std::string& url, const std::s
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, append);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
-    if (!range.empty()) {
-        curl_easy_setopt(curl, CURLOPT_RANGE, range.c_str());
-    }
     curl_slist* list = nullptr;
     for (const std::string& header : headers) {
         list = curl_slist_append(list, header.c_str());
@@ -342,7 +332,7 @@ std::optional<std::string> WebClient::fetch(const std::string& url, const std::s
     }
     long status = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
-    if (status != expected) {
+    if (status != httpOk) {
         error = "HTTP " + std::to_string(status);
         return std::nullopt;
     }

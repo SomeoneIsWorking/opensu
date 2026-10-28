@@ -72,7 +72,7 @@ through gpu2d.
 
 ## 4. Contracts kept
 
-- `--hidden`: an unmapped window on the player's session, no vsync, no sound device, errors logged.
+- `--hidden`: an unmapped window on the player's session, no vsync, no sound device unless `--sound`, errors logged.
 - `--render FILE` and `GET /frame.png`: one frame drawn offscreen and read back, same size.
 - Inside Gamescope the window is the overlay: SDL is told to use X11 there (the overlay is an X11
   property on the window) and the window is created with alpha so the game shows through.

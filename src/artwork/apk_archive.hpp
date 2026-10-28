@@ -1,6 +1,6 @@
 // apk_archive — a zip read by byte ranges: the end record and central directory once, then any
-// entry's header and data on demand, never the whole file. iiSU's release APK is read this way
-// over HTTP for its UI sounds, and the iiSU file the player gives openSU from disk.
+// entry's header and data on demand, never the whole file. The iiSU file the player gives openSU is
+// read this way from disk.
 #pragma once
 
 #include <cstdint>
@@ -11,15 +11,9 @@
 #include <string_view>
 #include <vector>
 
-#include "net/web_client.hpp"
 #include "zip/zip_archive.hpp"
 
 namespace opensu::artwork {
-
-inline constexpr std::string_view iisuApkUrl =
-    "https://github.com/iisu-network/iiSU/releases/download/0.0.7.4/iiSU-Alpha-7.4.apk";
-/// The pinned release's size, which its ranged reads are checked against.
-inline constexpr std::uint64_t iisuApkBytes = 128322093;
 
 /// What looking for a file in the APK came to.
 struct ApkFile {
@@ -47,9 +41,6 @@ class ApkArchive {
     /// The zip `size` bytes long that `read` reads. Nothing is read until the first use.
     ApkArchive(std::uint64_t size, RangeRead read);
 
-    /// The APK at `url` through `web`'s HTTP ranges; `web` outlives the archive.
-    [[nodiscard]] static ApkArchive overHttp(const net::WebClient& web, std::string url,
-                                             std::uint64_t size);
     /// The zip in `file` on disk. Nothing, with `error`, when it cannot be opened.
     [[nodiscard]] static std::optional<ApkArchive> overFile(const std::filesystem::path& file,
                                                             std::string& error);

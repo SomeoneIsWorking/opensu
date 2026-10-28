@@ -1,9 +1,10 @@
-// sdl_sound_player — plays iiSU's UI sounds on the default SDL audio device, one audio stream per
-// effect so they overlap. The files come from the artwork store; an effect without a file, or a
-// machine without an audio device, plays nothing.
+// sdl_sound_player — plays the UI sounds on the default SDL audio device, one audio stream per
+// effect so they overlap. The files are openSU's own set; an effect without a file, or a machine
+// without an audio device, plays nothing.
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <filesystem>
 
 #include <SDL3/SDL_audio.h>
@@ -35,6 +36,10 @@ class SdlSoundPlayer {
     /// Decodes an effect's WAV or OGG, replacing the one loaded; works without a device. False
     /// when the file is unusable.
     bool load(Effect effect, const std::filesystem::path& file);
+
+    /// Decodes every effect's file in `directory` (`shippedFile`); a missing or unusable one is
+    /// logged and stays silent. How many loaded.
+    std::size_t loadSet(const std::filesystem::path& directory);
 
     /// Whether the effect has a decoded clip.
     [[nodiscard]] bool loaded(Effect effect) const noexcept;
