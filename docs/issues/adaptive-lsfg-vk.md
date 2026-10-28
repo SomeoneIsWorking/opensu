@@ -621,7 +621,7 @@ layer, `conf.toml` and per-process environment are not needed.
   Emulator and Game; every default is off.
   - A store game has only Global and Game, because its system and emulator keys are empty.
   - `display` is written as target 0; the fork resolves it to the output's refresh.
-  - `app/frame_generation` (`FrameGeneration`) is the one owner of the atoms: it resolves the
+  - `app/game_presentation` (`GamePresentation`) is the one owner of the atoms: it resolves the
     settings of the game in front and writes them when that game or a value changes, and writes
     `GAMESCOPE_FRAMEGEN` 0 with no game in front. Its Gamescope backend exists on Linux only;
     elsewhere, and outside Gamescope, the group is hidden.

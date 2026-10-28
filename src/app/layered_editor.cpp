@@ -168,11 +168,7 @@ void LayeredEditor::addRows(tk::Column& rows, const tk::Theme& /*theme*/) {
         if (value.setting->section != section) {
             section = value.setting->section;
             rows.add<tk::SectionHeading>(section);
-            if (section == settings::frameGenSection) {
-                addFrameGenSummary(rows);
-            } else if (section == settings::scalingSection) {
-                addScalingSummary(rows);
-            }
+            addSummary(rows, section);
         }
         if (firstRow_.empty()) {
             firstRow_ = rowId(value.setting->key);
@@ -187,17 +183,14 @@ void LayeredEditor::addRows(tk::Column& rows, const tk::Theme& /*theme*/) {
     addClear(rows);
 }
 
-void LayeredEditor::addFrameGenSummary(tk::Column& rows) {
-    const settings::FrameGenSettings applies = settings::resolveFrameGen(
-        settings::scopeLookup(schema_, settings_.layersOf(), context_.keys, scope()), scopeName());
-    rows.add<tk::Item>("framegen.summary", tk::Item::Text{settings::frameGenSummary(applies),
-                                                          settings_.frameGenSource()});
-}
-
-void LayeredEditor::addScalingSummary(tk::Column& rows) {
-    const std::string summary = settings_.scalingSummary(
-        settings::scopeLookup(schema_, settings_.layersOf(), context_.keys, scope()), scopeName());
-    rows.add<tk::Item>("scaling.summary", tk::Item::Text{summary, settings_.scalingSource()});
+void LayeredEditor::addSummary(tk::Column& rows, const std::string& section) {
+    std::optional<PresentationSummary> summary = settings_.summaryOf(
+        section, settings::scopeLookup(schema_, settings_.layersOf(), context_.keys, scope()),
+        scopeName());
+    if (summary) {
+        rows.add<tk::Item>(summary->id,
+                           tk::Item::Text{std::move(summary->line), std::move(summary->note)});
+    }
 }
 
 void LayeredEditor::addRow(tk::Column& rows, const settings::ScopedValue& value) {

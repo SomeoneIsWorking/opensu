@@ -201,3 +201,10 @@ target_include_directories(integration_flow_test PRIVATE "${CMAKE_SOURCE_DIR}/te
 target_compile_options(integration_flow_test PRIVATE -Wall -Wextra -Wpedantic)
 target_compile_definitions(integration_flow_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME integration_flow COMMAND integration_flow_test)
+
+add_executable(game_presentation_test game_presentation_test.cpp)
+target_link_libraries(game_presentation_test PRIVATE opensu::app)
+target_include_directories(game_presentation_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+target_compile_options(game_presentation_test PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(game_presentation_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+add_test(NAME game_presentation COMMAND game_presentation_test)
