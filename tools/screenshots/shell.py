@@ -9,6 +9,7 @@ import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol
 
 PORT_LINE = re.compile(r"control channel on http://127\.0\.0\.1:(\d+)/")
 
@@ -23,6 +24,14 @@ INTEGRATIONS = {
         "plugins": True,
     }
 }
+
+
+class Home(Protocol):
+    """Where a run's openSU keeps the player's state: its environment and first-run setup."""
+
+    def environment(self) -> dict[str, str]: ...
+
+    def prepare(self) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -64,10 +73,21 @@ class Profile:
             settings.write_text(json.dumps(INTEGRATIONS))
 
 
+@dataclass(frozen=True)
+class RealHome:
+    """The player's own home, as their session has it: no overrides, nothing prepared."""
+
+    def environment(self) -> dict[str, str]:
+        return dict(os.environ)
+
+    def prepare(self) -> None:
+        pass
+
+
 class HiddenShell:
     """openSU --hidden; stopped through /quit, else by the PID it was started with."""
 
-    def __init__(self, executable: Path, profile: Profile, log: Path) -> None:
+    def __init__(self, executable: Path, profile: Home, log: Path) -> None:
         self._executable = executable
         self._profile = profile
         self._log = log

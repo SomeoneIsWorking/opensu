@@ -1,3 +1,4 @@
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -6,7 +7,7 @@ import pytest
 
 from tools.screenshots import compare
 from tools.screenshots.compare import Measure, Thresholds
-from tools.screenshots.scenes import README_SCENES, SCENES
+from tools.screenshots.scenes import README_SCENES, SCENES, Picks, real_scenes
 
 LIMITS = Thresholds(mean=1.0, max=255, fraction=0.01, pixel=16)
 MAGICK = shutil.which("magick")
@@ -92,8 +93,11 @@ def test_main_exits_one_when_a_scene_fails(tmp_path: Path):
     assert compare.main([str(ref), str(new), "--out", str(tmp_path / "d")]) == 1
 
 
-def test_readme_scenes_are_the_readme_set():
+def test_real_scenes_are_the_readme_set():
+    readme = (Path(__file__).resolve().parents[3] / "README.md").read_text()
+    shown = re.findall(r"docs/screenshots/([a-z-]+)\.webp", readme)
+    assert [scene.name for scene in real_scenes(Picks())] == shown
     assert [scene.name for scene in README_SCENES] == [
-        "home", "library", "details", "guide", "settings", "quick-menu",
+        "home", "library", "details", "guide", "settings", "search",
     ]  # fmt: skip
     assert len({scene.name for scene in SCENES}) == len(SCENES)
