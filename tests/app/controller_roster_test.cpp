@@ -28,9 +28,10 @@ struct Rig {
         [this] {
             return pads;
         },
-        [this](const std::string& uniq) {
+        [this](const gamepad::PadInfo& pad) {
             ++batteryReads;
-            return uniq == "aa" ? std::optional{device::BatteryStatus{70, false}} : std::nullopt;
+            return pad.uniq == "aa" ? std::optional{device::BatteryStatus{70, false}}
+                                    : std::nullopt;
         }}};
 };
 

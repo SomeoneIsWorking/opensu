@@ -22,6 +22,7 @@
 #include "integrations_in_force.hpp"
 #include "pad_owner.hpp"
 #include "plugin_service.hpp"
+#include "steam/client_modes.hpp"
 #include "support/fake_interface_text.hpp"
 #include "ui/check.hpp"
 
@@ -119,6 +120,7 @@ void allOffIsAChoice(const fs::path& root) {
     expect(inForce.current() == settings::Integrations{}, "and nothing is in force");
 }
 
+/// Steam's modes on a build that offers several: Linux's Normal, Managed and Isolated.
 void settingsStagesThenApplies(const fs::path& root) {
     app::Preferences preferences = preferencesIn(root / "page");
     app::IntegrationsInForce inForce{preferences, false};
@@ -185,6 +187,25 @@ void settingsStagesThenApplies(const fs::path& root) {
     sessionPage.sync();
     expect(rowOf(sessionPage.page(), "integrations.apply")->value == "Saved",
            "sync drops a staged edit that was never applied");
+}
+
+/// A build whose Steam has one mode (Normal) offers no choice; the switches still stage.
+void oneModeStagesThenApplies(const fs::path& root) {
+    app::Preferences preferences = preferencesIn(root / "one-mode");
+    app::IntegrationsInForce inForce{preferences, false};
+    int changes = 0;
+    app::IntegrationSettings page{inForce, [&changes] {
+                                      ++changes;
+                                  }};
+    page.run("integrations.steam", 0);
+    expect(rowOf(page.page(), "integrations.steamMode") == nullptr,
+           "Steam on: one mode has nothing to choose");
+    page.run("integrations.epic", 0);
+    expect(changes == 0 && inForce.current().steam == SteamUse::Off,
+           "a switch is staged: nothing is in force until Apply");
+    page.run("integrations.apply", 0);
+    expect(changes == 1 && inForce.current().steam == SteamUse::Normal && inForce.current().epic,
+           "Apply keeps every staged choice at once, Steam in its one mode");
 }
 
 /// A provider that only records that it was read.
@@ -264,16 +285,17 @@ void theSwitchAppliesAChange(const fs::path& root) {
     const std::unique_ptr<gamepad::PadSource> pads =
         gamepad::openPadSource(app::PadOwner::padsFor(OPENSU_TEST_SCRATCH, true));
     app::PadOwner padOwner{*pads, chords};
-    app::FocusFollow focus{app::FocusFollow::Hooks{.gamePids =
-                                                       [] {
-                                                           return std::vector<pid_t>{};
-                                                       },
-                                                   .closeBigPicture =
-                                                       [] {
-                                                       },
-                                                   .takeFocus =
-                                                       [] {
-                                                       }}};
+    app::FocusFollow focus{
+        app::FocusFollow::Hooks{.gamePids =
+                                    [] {
+                                        return std::vector<opensu::launch::ProcessId>{};
+                                    },
+                                .closeBigPicture =
+                                    [] {
+                                    },
+                                .takeFocus =
+                                    [] {
+                                    }}};
     int emulatorChanges = 0;
     app::IntegrationSwitch integrationSwitch{
         inForce,
@@ -334,7 +356,11 @@ int main() {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "integration-flow";
     theChooserAsksUntilDone(root);
     allOffIsAChoice(root);
-    settingsStagesThenApplies(root);
+    if (steam::clientModes().size() > 1) {
+        settingsStagesThenApplies(root);
+    } else {
+        oneModeStagesThenApplies(root);
+    }
     theSwitchAppliesAChange(root);
     fs::remove_all(root);
     std::printf("integration_flow: all checks passed\n");

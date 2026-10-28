@@ -1007,10 +1007,11 @@ int ShellApp::run() {
         presentation_.setScreen(settings::ScreenSize{output->width, output->height});
     }
     if (session_ && !settings_.hidden) {
-        // Gamescope composites a window as the overlay only when it spans the whole screen,
-        // which also draws the home screen at the output's own resolution.
-        const gpu2d::PixelSize size = window_->fillMonitor();
-        shell_.setSize(size.width, size.height);
+        // Spanning the screen also draws the home screen at the output's own resolution.
+        if (session_->coversMonitor()) {
+            const gpu2d::PixelSize size = window_->fillMonitor();
+            shell_.setSize(size.width, size.height);
+        }
         gameScreen_.attachOverlay();
         focusFollow_.attach(session_->focusSource(), window_->x11Window());
     }

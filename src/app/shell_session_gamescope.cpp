@@ -25,6 +25,9 @@ class GamescopeShellSession final : public ShellSession {
     std::unique_ptr<display::FocusSource> focusSource() override {
         return std::make_unique<session::GamescopeWindows>();
     }
+    bool coversMonitor() const noexcept override {
+        return true;
+    }
 
   private:
     session::GamescopeWindows windows_;

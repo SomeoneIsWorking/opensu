@@ -11,6 +11,7 @@
 
 #include "fileio/atomic_write.hpp"
 #include "launch/command.hpp"
+#include "windows_builds.hpp"
 
 namespace opensu::library::own {
 namespace {
@@ -82,7 +83,7 @@ void fileLaunch(const Entry& entry, Kind kind, Game& game) {
                                                                          : entry.workingDirectory};
     switch (kind) {
     case Kind::Windows:
-        game.windowsInstall = true;
+        game.windowsInstall = !windowsBuildsNative;
         break;
     case Kind::Script:
         if (!executable(entry.file)) {

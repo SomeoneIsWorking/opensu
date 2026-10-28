@@ -204,7 +204,7 @@ void lutrisGamesAreRead(const fs::path& dir) {
     fs::create_directories(dir / "lutris");
     const fs::path db = dir / "lutris/pga.db";
     sqlite3* database = nullptr;
-    expect(sqlite3_open(db.c_str(), &database) == SQLITE_OK, "a fake pga.db is made");
+    expect(sqlite3_open(db.string().c_str(), &database) == SQLITE_OK, "a fake pga.db is made");
     expect(sqlite3_exec(database,
                         "CREATE TABLE games (id INTEGER PRIMARY KEY, name TEXT, installed INTEGER);"
                         "INSERT INTO games VALUES (2, 'Lies of P', 1), (3, 'Gone', 0),"

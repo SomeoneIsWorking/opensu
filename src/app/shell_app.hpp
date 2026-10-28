@@ -765,13 +765,12 @@ class ShellApp final {
     /// Who has the pads: the shell, the running launch with its mapping, or another window.
     /// Main loop only.
     PadOwner padOwner_{*pads_, shell_.chords()};
-    device::ControllerBatteries padBatteries_;
     /// The pads as the Devices page lists them.
     ControllerRoster roster_{ControllerRoster::Sources{[this] {
                                                            return pads_->connected();
                                                        },
-                                                       [this](const std::string& uniq) {
-                                                           return padBatteries_.read(uniq);
+                                                       [this](const gamepad::PadInfo& pad) {
+                                                           return pads_->battery(pad);
                                                        }}};
     /// The Devices page, reached from the Guide menu.
     DevicesController devicesScreen_{

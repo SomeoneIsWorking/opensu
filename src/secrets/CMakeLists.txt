@@ -5,7 +5,7 @@ add_library(opensu::secrets ALIAS opensu_secrets)
 target_include_directories(opensu_secrets PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(opensu_secrets PRIVATE opensu::fileio lucent::lucent OpenSSL::Crypto)
 target_compile_features(opensu_secrets PUBLIC cxx_std_20)
-target_compile_options(opensu_secrets PRIVATE -Wall -Wextra -Wpedantic)
+opensu_warnings(opensu_secrets)
 
 # libsecret is the Secret Service on Linux. AUTO uses it when found; ON refuses to build without it.
 set(OPENSU_SECRET_SERVICE AUTO CACHE STRING "Keep secrets in the Secret Service (AUTO, ON, OFF)")

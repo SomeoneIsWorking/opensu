@@ -1,6 +1,6 @@
 add_executable(web_client_test web_client_test.cpp)
-target_link_libraries(web_client_test PRIVATE opensu::net lucent::lucent)
+target_link_libraries(web_client_test PRIVATE opensu::net opensu::command lucent::lucent)
 target_include_directories(web_client_test PRIVATE "${CMAKE_SOURCE_DIR}/tests" "${CMAKE_SOURCE_DIR}/src")
-target_compile_options(web_client_test PRIVATE -Wall -Wextra -Wpedantic)
+opensu_warnings(web_client_test)
 add_test(NAME web_client COMMAND web_client_test)
 target_compile_definitions(web_client_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")

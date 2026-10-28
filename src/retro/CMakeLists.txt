@@ -16,7 +16,7 @@ target_link_libraries(opensu_retro
            PkgConfig::SDL3 opensu::vulkan
     PRIVATE gpu2d::image)
 target_compile_features(opensu_retro PUBLIC cxx_std_20)
-target_compile_options(opensu_retro PRIVATE -Wall -Wextra -Wpedantic)
+opensu_warnings(opensu_retro)
 
 # On Android the runner is libopensu-retro.so, which the `:retro` Activity loads.
 if(ANDROID)
@@ -25,7 +25,8 @@ else()
     add_executable(opensu-retro main.cpp)
 endif()
 target_link_libraries(opensu-retro PRIVATE opensu::retro opensu::config lucent::lucent)
-target_compile_options(opensu-retro PRIVATE -Wall -Wextra -Wpedantic)
+opensu_warnings(opensu-retro)
+opensu_windowed(opensu-retro)
 # Beside opensu, in the build tree as installed, where the shell looks for it.
 set_target_properties(opensu-retro PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/src"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/src")

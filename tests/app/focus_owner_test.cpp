@@ -31,8 +31,8 @@ using opensu::gamepad::Event;
 using opensu::test::expect;
 
 constexpr std::uint64_t ownWindow = 0x400002;
-constexpr pid_t steam = 300;
-constexpr pid_t game = 200;
+constexpr opensu::launch::ProcessId steam = 300;
+constexpr opensu::launch::ProcessId game = 200;
 
 /// Waits up to two seconds for `count` to reach `wanted`.
 bool reaches(const std::atomic<int>& count, int wanted) {
@@ -138,7 +138,8 @@ void bigPictureIsClosedAndGuideComesBack() {
     {
         FocusFollow follow{FocusFollow::Hooks{.gamePids =
                                                   [] {
-                                                      return std::vector<pid_t>{game};
+                                                      return std::vector<opensu::launch::ProcessId>{
+                                                          game};
                                                   },
                                               .closeBigPicture =
                                                   [&closes] {
@@ -190,18 +191,19 @@ void aSlowCloseDoesNotHoldTheNextFocus() {
     const std::shared_future<void> released = release.get_future().share();
     std::optional<FocusedWindow> next = FocusedWindow{.window = ownWindow, .appId = {}, .pid = {}};
     {
-        FocusFollow follow{FocusFollow::Hooks{.gamePids =
-                                                  [] {
-                                                      return std::vector<pid_t>{};
-                                                  },
-                                              .closeBigPicture =
-                                                  [&closes, released] {
-                                                      ++closes;
-                                                      released.wait();
-                                                  },
-                                              .takeFocus =
-                                                  [] {
-                                                  }}};
+        FocusFollow follow{
+            FocusFollow::Hooks{.gamePids =
+                                   [] {
+                                       return std::vector<opensu::launch::ProcessId>{};
+                                   },
+                               .closeBigPicture =
+                                   [&closes, released] {
+                                       ++closes;
+                                       released.wait();
+                                   },
+                               .takeFocus =
+                                   [] {
+                                   }}};
         follow.attach(std::make_unique<FakeFocus>(next), ownWindow);
         follow.service(false);
         next = FocusedWindow{.window = 0x600004, .appId = steamAppId, .pid = steam};
@@ -229,18 +231,19 @@ void aDesktopBigPictureIsLeftAlone() {
     int returns = 0;
     std::optional<FocusedWindow> next = FocusedWindow{.window = ownWindow, .appId = {}, .pid = {}};
     {
-        FocusFollow follow{FocusFollow::Hooks{.gamePids =
-                                                  [] {
-                                                      return std::vector<pid_t>{};
-                                                  },
-                                              .closeBigPicture =
-                                                  [&closes] {
-                                                      ++closes;
-                                                  },
-                                              .takeFocus =
-                                                  [&returns] {
-                                                      ++returns;
-                                                  }}};
+        FocusFollow follow{
+            FocusFollow::Hooks{.gamePids =
+                                   [] {
+                                       return std::vector<opensu::launch::ProcessId>{};
+                                   },
+                               .closeBigPicture =
+                                   [&closes] {
+                                       ++closes;
+                                   },
+                               .takeFocus =
+                                   [&returns] {
+                                       ++returns;
+                                   }}};
         follow.closeBigPicture(false);
         follow.attach(std::make_unique<FakeFocus>(next), ownWindow);
         follow.service(false);

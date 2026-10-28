@@ -2,7 +2,7 @@
 
 namespace opensu::app {
 
-std::unique_ptr<GameOverlay> openGameOverlay(const ShellWindow& /*window*/) {
+std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& /*window*/) {
     return nullptr;
 }
 

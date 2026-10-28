@@ -1,8 +1,9 @@
 // game_overlay — openSU's window composited over a running game, where the platform has such an
 // overlay, and the shortcuts pressed while the game has the keyboard. One backend per OS, picked in
 // CMakeLists.txt: Gamescope's overlay and XInput2 game keys on Linux
-// (`game_overlay_gamescope.cpp`); none elsewhere (`game_overlay_none.cpp`), where `GameScreen`
-// lowers and raises the window instead.
+// (`game_overlay_gamescope.cpp`); on Windows the window itself, lowered behind the game and raised
+// over it (`game_overlay_raised_window.cpp`); none elsewhere (`game_overlay_none.cpp`), where
+// `GameScreen` hides and shows the window instead. It is opened only inside the shell's session.
 #pragma once
 
 #include <memory>
@@ -37,6 +38,6 @@ class GameOverlay {
 
 /// The overlay over `window`, or null where the platform has none. Throws std::runtime_error when
 /// the platform has one that cannot be opened.
-[[nodiscard]] std::unique_ptr<GameOverlay> openGameOverlay(const ShellWindow& window);
+[[nodiscard]] std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& window);
 
 } // namespace opensu::app

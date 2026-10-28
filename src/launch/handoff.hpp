@@ -63,9 +63,9 @@ class Handoff {
     /// Steam game gets the client's environment.
     ///
     /// A Steam game first waits for the client to be ready (cancellable by
-    /// forceClose()), then runs `steam -applaunch`; the client is left running when
-    /// the game ends. Anything else runs directly in a ProcessLauncher, stopped when the
-    /// game leaves.
+    /// forceClose()), then asks Steam to run it (`requestSteamRun`); the client is left running
+    /// when the game ends. Anything else runs directly in a ProcessLauncher, stopped when the game
+    /// leaves.
     ///
     /// The wait is two phases, not a wait on the child: a launcher may hand off
     /// and exit at once. The game appears and shows a window, then leaves. It also ends

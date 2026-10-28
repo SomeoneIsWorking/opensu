@@ -1,7 +1,8 @@
 # librashader, which runs libretro slang shader presets in opensu-retro: the C API of the pinned
 # fork, built with cargo (Vulkan runtime only) as an ExternalProject and staged where the runner
-# loads it at run time, `<prefix>/<libdir>/opensu/librashader.so` (`Config::librashader`), in the
-# build tree and installed. The runtime is MPL-2.0 (or GPL-3); its C header librashader.h is MIT
+# loads it at run time, `<prefix>/<libdir>/opensu/librashader.so` (`.dll` on Windows,
+# `Config::librashader`), in the build tree and installed. A Windows build targets
+# x86_64-pc-windows-msvc with clang-cl and lld-link, also from a Linux host through the xwin SDK. The runtime is MPL-2.0 (or GPL-3); its C header librashader.h is MIT
 # and comes from the same commit, checked by SHA-256. Static linking is not supported upstream.
 #
 # OPENSU_BUILD_LIBRASHADER=OFF builds without it, for a machine with no Rust 1.88: the runner then
@@ -24,7 +25,8 @@ set(OPENSU_LIBRASHADER_HEADER_SHA256
 set(OPENSU_LIBRASHADER_RUST_MINIMUM "1.88")
 
 # Where the runner finds the library, relative to the directory above its own.
-set(OPENSU_LIBRASHADER_RELATIVE "${CMAKE_INSTALL_LIBDIR}/opensu/librashader.so")
+set(OPENSU_LIBRASHADER_RELATIVE
+    "${CMAKE_INSTALL_LIBDIR}/opensu/librashader${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 FetchContent_Declare(librashader_header
     URL "https://raw.githubusercontent.com/SomeoneIsWorking/librashader/${OPENSU_LIBRASHADER_COMMIT}/include/librashader.h"
@@ -76,10 +78,38 @@ function(opensu_add_librashader)
     find_package(Git REQUIRED)
     opensu_librashader_cargo(cargo)
     set(root "${CMAKE_BINARY_DIR}/librashader")
-    set(built "${root}/target/optimized/liblibrashader_capi.so")
+    set(library
+        "${CMAKE_SHARED_LIBRARY_PREFIX}librashader_capi${CMAKE_SHARED_LIBRARY_SUFFIX}")
     set(staged "${CMAKE_BINARY_DIR}/${OPENSU_LIBRASHADER_RELATIVE}")
     set(pin_file "${root}/pin.txt")
     file(CONFIGURE OUTPUT "${pin_file}" CONTENT "${OPENSU_LIBRASHADER_COMMIT}\n")
+
+    if(WIN32)
+        # The glslang and SPIRV-Cross crates build with the target's clang-cl; the host's own
+        # compiler and linker stay cargo's defaults for build scripts.
+        set(rust_target "x86_64-pc-windows-msvc")
+        set(built "${root}/target/${rust_target}/optimized/${library}")
+        set(cargo_env
+            "CC_x86_64_pc_windows_msvc=${CMAKE_C_COMPILER}"
+            "CXX_x86_64_pc_windows_msvc=${CMAKE_CXX_COMPILER}"
+            # SPIRV-Cross throws; clang-cl, unlike cl, refuses `try` without /EHsc.
+            "CXXFLAGS_x86_64_pc_windows_msvc=/EHsc"
+            "CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=${CMAKE_LINKER}")
+        # From a Linux host the SDK is the xwin tree, which clang-cl and lld-link read from
+        # INCLUDE and LIB.
+        if(OPENSU_WINDOWS_INCLUDE_DIRS)
+            list(JOIN OPENSU_WINDOWS_INCLUDE_DIRS "|" include_dirs)
+            list(JOIN OPENSU_WINDOWS_LIB_DIRS "|" lib_dirs)
+            list(APPEND cargo_env "INCLUDE=${include_dirs}" "LIB=${lib_dirs}")
+        endif()
+        set(target_args --target "${rust_target}")
+    else()
+        set(built "${root}/target/optimized/${library}")
+        # The glslang and SPIRV-Cross crates compile C and C++ with the project's compilers.
+        set(cargo_env "CC=${CMAKE_C_COMPILER}" "CXX=${CMAKE_CXX_COMPILER}"
+            "${cargo_linker_variable}=${CMAKE_C_COMPILER}")
+        set(target_args "")
+    endif()
 
     ExternalProject_Add(opensu_librashader
         GIT_REPOSITORY "${OPENSU_LIBRASHADER_REPOSITORY}"
@@ -93,15 +123,14 @@ function(opensu_add_librashader)
         TMP_DIR "${root}/tmp"
         DOWNLOAD_DIR "${root}/download"
         CONFIGURE_COMMAND ""
-        # The glslang and SPIRV-Cross crates compile C and C++ with the project's compilers.
-        BUILD_COMMAND "${CMAKE_COMMAND}" -E env "CC=${CMAKE_C_COMPILER}" "CXX=${CMAKE_CXX_COMPILER}"
-            "${cargo_linker_variable}=${CMAKE_C_COMPILER}" "CARGO_TARGET_DIR=${root}/target"
+        BUILD_COMMAND "${CMAKE_COMMAND}" -E env ${cargo_env} "CARGO_TARGET_DIR=${root}/target"
             "${cargo}" build --locked --manifest-path "${root}/source/Cargo.toml"
             --package librashader-capi --profile optimized --no-default-features
-            --features runtime-vulkan
+            --features runtime-vulkan ${target_args}
         BUILD_BYPRODUCTS "${built}"
         INSTALL_COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${built}" "${staged}"
         BUILD_ALWAYS OFF
+        LIST_SEPARATOR "|"
         USES_TERMINAL_DOWNLOAD ON
         USES_TERMINAL_BUILD ON
     )

@@ -3,110 +3,21 @@
 #include <array>
 #include <thread>
 
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-
 #include "lucent/log.h"
 #include "process_id.hpp"
+#include "win32.hpp"
 
 namespace opensu::launch {
 namespace {
 
 namespace fs = std::filesystem;
-using Clock = std::chrono::steady_clock;
+using win32::commandLine;
+using win32::Handle;
+using win32::lastError;
 
 constexpr auto step = std::chrono::milliseconds{5};
 /// The extensions CreateProcessW runs, in the order it tries them.
 constexpr std::array<std::wstring_view, 2> runnableExtensions{L".exe", L".com"};
-
-/// A kernel handle closed when it goes out of scope.
-class Handle {
-  public:
-    Handle() noexcept = default;
-    explicit Handle(HANDLE handle) noexcept : handle_{handle} {
-    }
-    ~Handle() {
-        close();
-    }
-    Handle(const Handle&) = delete;
-    Handle& operator=(const Handle&) = delete;
-    Handle(Handle&&) = delete;
-    Handle& operator=(Handle&&) = delete;
-
-    [[nodiscard]] HANDLE get() const noexcept {
-        return handle_;
-    }
-    [[nodiscard]] HANDLE* put() noexcept {
-        close();
-        return &handle_;
-    }
-    void reset(HANDLE handle) noexcept {
-        close();
-        handle_ = handle;
-    }
-    void close() noexcept {
-        if (handle_ != nullptr && handle_ != INVALID_HANDLE_VALUE) {
-            CloseHandle(handle_);
-        }
-        handle_ = nullptr;
-    }
-
-  private:
-    HANDLE handle_{nullptr};
-};
-
-std::wstring wide(std::string_view text) {
-    if (text.empty()) {
-        return {};
-    }
-    const int size =
-        MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0);
-    std::wstring out(static_cast<std::size_t>(size), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), out.data(), size);
-    return out;
-}
-
-std::string lastError() {
-    return std::to_string(GetLastError());
-}
-
-/// `argument` quoted so CommandLineToArgvW reads it back unchanged.
-void appendQuoted(std::wstring& line, const std::wstring& argument) {
-    if (!argument.empty() && argument.find_first_of(L" \t\n\v\"") == std::wstring::npos) {
-        line += argument;
-        return;
-    }
-    line.push_back(L'"');
-    for (auto it = argument.begin();; ++it) {
-        std::size_t backslashes = 0;
-        while (it != argument.end() && *it == L'\\') {
-            ++it;
-            ++backslashes;
-        }
-        if (it == argument.end()) {
-            line.append(backslashes * 2, L'\\');
-            break;
-        }
-        if (*it == L'"') {
-            line.append(backslashes * 2 + 1, L'\\');
-        } else {
-            line.append(backslashes, L'\\');
-        }
-        line.push_back(*it);
-    }
-    line.push_back(L'"');
-}
-
-std::wstring commandLine(const std::string& program, const std::vector<std::string>& args) {
-    std::wstring line;
-    appendQuoted(line, wide(program));
-    for (const std::string& arg : args) {
-        line.push_back(L' ');
-        appendQuoted(line, wide(arg));
-    }
-    return line;
-}
 
 /// The null device, inheritable, for a child's discarded stream.
 HANDLE openNull(DWORD access) {
@@ -135,9 +46,16 @@ struct Started {
     Handle job;
 };
 
+/// The handles a child gets as its stdin, stdout and stderr.
+struct StandardHandles {
+    HANDLE input;
+    HANDLE output;
+    HANDLE errors;
+};
+
 /// Starts `program` with the given standard handles, suspended until it is in its job.
-bool start(const std::string& program, const std::vector<std::string>& args, HANDLE input,
-           HANDLE output, HANDLE errors, Started& started) {
+bool start(const std::string& program, const std::vector<std::string>& args,
+           const StandardHandles& standard, Started& started) {
     started.job.reset(CreateJobObjectW(nullptr, nullptr));
     if (started.job.get() == nullptr) {
         lucent::warn("launch", "cannot make a job for {}: error {}", program, lastError());
@@ -152,9 +70,9 @@ bool start(const std::string& program, const std::vector<std::string>& args, HAN
     STARTUPINFOW startup{};
     startup.cb = sizeof(startup);
     startup.dwFlags = STARTF_USESTDHANDLES;
-    startup.hStdInput = input;
-    startup.hStdOutput = output;
-    startup.hStdError = errors;
+    startup.hStdInput = standard.input;
+    startup.hStdOutput = standard.output;
+    startup.hStdError = standard.errors;
     PROCESS_INFORMATION info{};
     if (CreateProcessW(nullptr, line.data(), nullptr, nullptr, TRUE,
                        CREATE_SUSPENDED | CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT, nullptr,
@@ -225,7 +143,8 @@ std::optional<int> child::run(const std::string& program, const std::vector<std:
     const Handle input{openNull(GENERIC_READ)};
     const Handle output{openNull(GENERIC_WRITE)};
     Started started;
-    if (!start(program, args, input.get(), output.get(), output.get(), started)) {
+    if (!start(program, args,
+               {.input = input.get(), .output = output.get(), .errors = output.get()}, started)) {
         return std::nullopt;
     }
     if (WaitForSingleObject(started.process.get(), static_cast<DWORD>(timeout.count())) !=
@@ -264,7 +183,8 @@ std::optional<int> child::stream(const std::string& program, const std::vector<s
     }
     Started started;
     const HANDLE errorsTo = errors == CaptureErrors::Merged ? writer.get() : discarded.get();
-    if (!start(program, args, stdinReader.get(), writer.get(), errorsTo, started)) {
+    if (!start(program, args,
+               {.input = stdinReader.get(), .output = writer.get(), .errors = errorsTo}, started)) {
         return std::nullopt;
     }
     writer.close();

@@ -1,5 +1,6 @@
 #include "sdl_pads.hpp"
 
+#include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 
 #include <stdexcept>
@@ -128,6 +129,8 @@ SdlPads::SdlPads(bool reads) : reads_{reads} {
     if (!reads_) {
         return;
     }
+    // The shell is lowered behind a running game and still hears the Guide button.
+    SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
     // Added first: the subsystem announces the pads already connected as it starts.
     if (!SDL_AddEventWatch(watch, this)) {
         throw std::runtime_error{std::string{"cannot watch SDL's events: "} + SDL_GetError()};
@@ -241,6 +244,18 @@ std::optional<PadInfo> SdlPads::close(SDL_JoystickID id) {
     SDL_CloseGamepad(pad->second.gamepad);
     pads_.erase(pad);
     return info;
+}
+
+std::optional<device::BatteryStatus> SdlPads::battery(const PadInfo& pad) const {
+    const std::lock_guard lock{mutex_};
+    for (const auto& [id, open] : pads_) {
+        if (open.info.id == pad.id) {
+            int percent = -1;
+            const SDL_PowerState state = SDL_GetGamepadPowerInfo(open.gamepad, &percent);
+            return device::BatteryReader::statusOf(state, percent);
+        }
+    }
+    return std::nullopt;
 }
 
 std::vector<PadInfo> SdlPads::connected() const {

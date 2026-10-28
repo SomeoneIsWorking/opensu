@@ -57,6 +57,9 @@ class EvdevPads final : public PadSource {
     /// Where each connected pad's sticks stand now, by `PadInfo::id`. Any thread.
     [[nodiscard]] std::map<std::string, Sticks> sticks() const override;
 
+    /// The kernel's power supply named after the pad's unique id (its Bluetooth address).
+    [[nodiscard]] std::optional<device::BatteryStatus> battery(const PadInfo& pad) const override;
+
     /// Claims every pad for a game (Game), its virtual pads sending what `map` says. Returns what
     /// the game needs in its environment to read only the virtual pads: SDL hides every other
     /// controller, the grabbed ones included. Empty when a pad could not be grabbed, since hiding
@@ -135,6 +138,7 @@ class EvdevPads final : public PadSource {
     Wanted applied_;
     bool missed_{false};
 
+    device::ControllerBatteries batteries_;
     mutable std::mutex mutex_;
     std::condition_variable appliedChanged_;
     Wanted wanted_;

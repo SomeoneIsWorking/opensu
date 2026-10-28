@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "chord_gate.hpp"
+#include "device/battery.hpp"
 #include "event.hpp"
 #include "forward_map.hpp"
 #include "pad_translator.hpp"
@@ -69,6 +70,10 @@ class PadSource {
     [[nodiscard]] virtual std::vector<PadInfo> connected() const = 0;
     /// Where each connected pad's sticks stand now, by `PadInfo::id`. Any thread.
     [[nodiscard]] virtual std::map<std::string, Sticks> sticks() const = 0;
+    /// The battery of the connected pad `pad`, or nothing for a wired pad, one that does not say,
+    /// or one that left. Any thread.
+    [[nodiscard]] virtual std::optional<device::BatteryStatus>
+    battery(const PadInfo& pad) const = 0;
 
     /// Claims every pad for a game (Game), its virtual pads sending what `map` says. Returns what
     /// the game needs in its environment to read only the virtual pads; empty when it reads the

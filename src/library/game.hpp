@@ -107,8 +107,8 @@ struct Game {
         bool windows{false};
         bool linuxNative{false};
     } builds;
-    /// The installed build is a Windows one, which runs under Wine (`wine::prepare`); GOG, Epic and
-    /// an added `.exe`.
+    /// The installed build is a Windows one this OS runs under Wine (`wine::prepare`); GOG, Epic
+    /// and an added `.exe`. Never on Windows, which runs them itself (`windowsBuildsNative`).
     bool windowsInstall{false};
 
     int playtimeMinutes{0};

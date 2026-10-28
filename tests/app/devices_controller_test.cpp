@@ -22,7 +22,7 @@ struct Rig {
           roster{{[this] {
                       return pads;
                   },
-                  [](const std::string&) {
+                  [](const gamepad::PadInfo&) {
                       return std::optional{device::BatteryStatus{90, false}};
                   }}},
           controller{ui.navigator,

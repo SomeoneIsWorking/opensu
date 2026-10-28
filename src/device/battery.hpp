@@ -1,7 +1,7 @@
 // battery — the machine's own battery level and charging state, from SDL's power info on every OS
 // (on Linux SDL asks UPower, then /sys/class/power_supply, leaving device batteries out), and a
-// wireless controller's from sysfs on Linux (`controller_batteries_sysfs.cpp`); none elsewhere
-// (`controller_batteries_none.cpp`).
+// wireless controller's from the kernel's power supplies (`controller_batteries_sysfs.cpp`), which
+// the evdev pads read on Linux; SDL's pads report their own (`gamepad::PadSource::battery`).
 #pragma once
 
 #include <filesystem>
@@ -23,7 +23,8 @@ class BatteryReader {
     /// The system battery, or nothing when the machine has none or its level is unknown.
     [[nodiscard]] std::optional<BatteryStatus> read() const;
 
-    /// What SDL's `state` and `percent` (-1 when unknown) say of the system battery.
+    /// What SDL's `state` and `percent` (-1 when unknown) say of a battery: the system's, or a
+    /// gamepad's.
     [[nodiscard]] static std::optional<BatteryStatus> statusOf(SDL_PowerState state, int percent);
 };
 

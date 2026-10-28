@@ -30,7 +30,7 @@ class GamescopeGameOverlay final : public GameOverlay {
 
 } // namespace
 
-std::unique_ptr<GameOverlay> openGameOverlay(const ShellWindow& window) {
+std::unique_ptr<GameOverlay> openGameOverlay(ShellWindow& window) {
     return std::make_unique<GamescopeGameOverlay>(window.x11Window());
 }
 

@@ -2,7 +2,7 @@ add_library(opensu_command STATIC command.cpp)
 add_library(opensu::command ALIAS opensu_command)
 # A short-lived child: posix_spawn in a process group, or CreateProcessW in a Job Object.
 if(WIN32)
-    target_sources(opensu_command PRIVATE win32_child.cpp)
+    target_sources(opensu_command PRIVATE win32_child.cpp win32.cpp)
 else()
     target_sources(opensu_command PRIVATE posix_child.cpp child_environment.cpp)
 endif()
@@ -11,17 +11,30 @@ target_link_libraries(opensu_command PUBLIC lucent::lucent)
 target_compile_features(opensu_command PUBLIC cxx_std_20)
 
 add_library(opensu_launch STATIC handoff.cpp launch_progress.cpp process_tree.cpp)
-# The process table: /proc on Linux; elsewhere there is none yet, so no game is found by its hint.
+# The process table: /proc on Linux, Toolhelp32 on Windows; elsewhere there is none yet, so no game
+# is found by its hint.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_launch PRIVATE process_table_proc.cpp)
+elseif(WIN32)
+    target_sources(opensu_launch PRIVATE process_table_toolhelp.cpp)
+    target_link_libraries(opensu_launch PRIVATE shell32)
 else()
     target_sources(opensu_launch PRIVATE process_table_none.cpp)
 endif()
 add_library(opensu::launch ALIAS opensu_launch)
-# The launcher's backend: a systemd user scope per launch on Linux, an intent from the shell's
-# Activity on Android; elsewhere launches refuse.
+# How a Steam game is handed to the client: `steam -applaunch`, or the steam:// link on Windows.
+if(WIN32)
+    target_sources(opensu_launch PRIVATE steam_request_url.cpp)
+else()
+    target_sources(opensu_launch PRIVATE steam_request_applaunch.cpp)
+endif()
+# The launcher's backend: a systemd user scope per launch on Linux, a Job Object on Windows (with
+# the desktop's windows for the handoff), an intent from the shell's Activity on Android; elsewhere
+# launches refuse.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_launch PRIVATE process_launcher_systemd_scope.cpp)
+elseif(WIN32)
+    target_sources(opensu_launch PRIVATE process_launcher_job_object.cpp win32_windows.cpp)
 elseif(ANDROID)
     target_sources(opensu_launch PRIVATE process_launcher_intent.cpp)
     target_link_libraries(opensu_launch PRIVATE opensu::android)

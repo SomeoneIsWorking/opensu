@@ -18,4 +18,4 @@ target_link_libraries(opensu_plugin
     PRIVATE opensu::clock lucent::lucent
 )
 target_compile_features(opensu_plugin PUBLIC cxx_std_20)
-target_compile_options(opensu_plugin PRIVATE -Wall -Wextra -Wpedantic)
+opensu_warnings(opensu_plugin)

@@ -60,6 +60,8 @@ class SdlPads final : public PadSource {
     [[nodiscard]] std::vector<Event> takeEvents() override;
     [[nodiscard]] std::vector<PadInfo> connected() const override;
     [[nodiscard]] std::map<std::string, Sticks> sticks() const override;
+    /// What SDL reads of the pad's battery (XInput's battery level, a PlayStation pad's report).
+    [[nodiscard]] std::optional<device::BatteryStatus> battery(const PadInfo& pad) const override;
     std::vector<std::string> hold(ForwardMap map) override;
     void release(Claim after) override;
     void claim(Claim claim) override;

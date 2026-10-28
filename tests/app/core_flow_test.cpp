@@ -238,7 +238,8 @@ void detailsDownloadsTheCore(const fs::path& root) {
     rig.details.refresh();
     rig.face.frame(1.0);
     rig.press({Action::Accept});
-    const fs::path core = root / "cores" / "mgba_libretro.so";
+    const fs::path core =
+        root / "cores" / ("mgba_libretro" + std::string{library::roms::coreTarget.librarySuffix});
     expect(rig.launched.size() == 1 &&
                rig.launched[0].program == (root / "bin" / "opensu-retro").string() &&
                rig.launched[0].args ==
@@ -284,16 +285,20 @@ void settingsUpdateAndRemove(const fs::path& root) {
     expect(!rowOf(downloadsOf(rig.emulators), "emulators.remove.gb-core").confirm.empty(),
            "Remove carries the question the screen asks before it runs");
     rig.emulators.run("emulators.remove.gb-core", 0);
-    expect(!rig.downloads.downloaded("gb-core") &&
-               !fs::exists(root / "cores" / "mgba_libretro.so") &&
-               rowOf(downloadsOf(rig.emulators), "emulators.run.gb-core").value == "Download",
-           "once confirmed, Remove removes the core");
+    expect(
+        !rig.downloads.downloaded("gb-core") &&
+            !fs::exists(root / "cores" /
+                        ("mgba_libretro" + std::string{library::roms::coreTarget.librarySuffix})) &&
+            rowOf(downloadsOf(rig.emulators), "emulators.run.gb-core").value == "Download",
+        "once confirmed, Remove removes the core");
 }
 
 void systemCoreIsNotOurs(const fs::path& root) {
     Rig rig{root};
     fs::create_directories(root / "system");
-    std::ofstream{root / "system" / "mgba_libretro.so"} << "core";
+    std::ofstream{root / "system" /
+                  ("mgba_libretro" + std::string{library::roms::coreTarget.librarySuffix})}
+        << "core";
     rig.emulators.rescan();
     const ui::SettingsCategory page = downloadsOf(rig.emulators);
     expect(rowOf(page, "emulators.run.gb-core").note.starts_with("Core · ") &&

@@ -80,6 +80,10 @@ std::vector<PadInfo> EvdevPads::connected() const {
     return connected_;
 }
 
+std::optional<device::BatteryStatus> EvdevPads::battery(const PadInfo& pad) const {
+    return batteries_.read(pad.uniq);
+}
+
 std::vector<std::string> EvdevPads::hold(ForwardMap map) {
     std::unique_lock lock{mutex_};
     wanted_.map = std::move(map);

@@ -4,7 +4,7 @@ pkg_check_modules(TEST_PNG REQUIRED IMPORTED_TARGET libpng)
 foreach(core fake_core fake_crashing_core fake_stateless_core)
     add_library(${core} SHARED fake_core.cpp)
     target_link_libraries(${core} PRIVATE opensu::libretro_header)
-    target_compile_options(${core} PRIVATE -Wall -Wextra -Wpedantic)
+    opensu_warnings(${core})
     set_target_properties(${core} PROPERTIES PREFIX "" CXX_VISIBILITY_PRESET hidden)
 endforeach()
 target_compile_definitions(fake_crashing_core PRIVATE FAKE_CORE_CRASH)
@@ -17,7 +17,7 @@ foreach(name video_frame audio_sink joypad save_memory core_environment core vul
         PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui" "${CMAKE_CURRENT_SOURCE_DIR}/../support")
     target_compile_definitions(retro_${name}_test
         PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
-    target_compile_options(retro_${name}_test PRIVATE -Wall -Wextra -Wpedantic)
+    opensu_warnings(retro_${name}_test)
 endforeach()
 foreach(name video_frame audio_sink joypad save_memory core_environment vulkan_messages)
     add_test(NAME retro_${name} COMMAND retro_${name}_test)
@@ -26,12 +26,12 @@ add_test(NAME retro_core COMMAND retro_core_test "$<TARGET_FILE:fake_core>")
 
 add_executable(retro_runner_test runner_test.cpp)
 target_link_libraries(retro_runner_test
-    PRIVATE PkgConfig::TEST_PNG lucent::lucent opensu::libretro_header)
+    PRIVATE PkgConfig::TEST_PNG lucent::lucent opensu::libretro_header opensu::command)
 target_include_directories(retro_runner_test
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../ui" "${CMAKE_CURRENT_SOURCE_DIR}/../support")
 target_compile_definitions(retro_runner_test
     PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
-target_compile_options(retro_runner_test PRIVATE -Wall -Wextra -Wpedantic)
+opensu_warnings(retro_runner_test)
 add_dependencies(retro_runner_test opensu-retro fake_core fake_crashing_core fake_stateless_core)
 add_test(NAME retro_runner
     COMMAND retro_runner_test "$<TARGET_FILE:opensu-retro>" "$<TARGET_FILE:fake_core>"
