@@ -35,6 +35,8 @@ class ActivityCall {
     [[nodiscard]] std::string takeException() const;
     [[nodiscard]] std::string string(jstring text) const;
     [[nodiscard]] jobjectArray strings(const std::vector<std::string>& values) const;
+    /// A Java String[]'s elements; a null element reads as empty.
+    [[nodiscard]] std::vector<std::string> strings(jobjectArray values) const;
 
   private:
     JNIEnv* env_;

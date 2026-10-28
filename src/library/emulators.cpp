@@ -117,6 +117,17 @@ std::optional<EmulatorInstall> locate(const EmulatorLauncher& launcher,
             }
         }
     }
+    if (const std::string_view app = launcher.android; !app.empty()) {
+        const std::string_view package = app.substr(0, app.find('/'));
+        if (std::ranges::find(search.androidApps, package) != search.androidApps.end()) {
+            return EmulatorInstall{{},
+                                   InstallSource::AndroidApp,
+                                   launcher.android,
+                                   {},
+                                   commandOf(launcher.android, launcher),
+                                   {}};
+        }
+    }
     return std::nullopt;
 }
 
@@ -217,6 +228,8 @@ std::string_view label(InstallSource source) {
         return "AppImage (openSU)";
     case InstallSource::Flatpak:
         return "Flatpak";
+    case InstallSource::AndroidApp:
+        return "Android app";
     case InstallSource::DownloadedCore:
         return "libretro buildbot";
     case InstallSource::Core:
@@ -237,6 +250,7 @@ EmulatorSearch EmulatorSearch::standard(const fs::path& home, const fs::path& da
         .executablePath = std::move(executablePath),
         .appImageDirs = {home / "Applications", home / "AppImages", home / ".local" / "bin"},
         .flatpakDirs = {home / ".local" / "share" / "flatpak" / "app", "/var/lib/flatpak/app"},
+        .androidApps = installedAndroidApps(),
         .downloads = DownloadedEmulators::under(dataDir).root(),
         .fuse = std::move(fuse),
         .cores = CoreSearch::standard(home, dataDir),

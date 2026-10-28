@@ -59,12 +59,15 @@ add_library(opensu_library STATIC
 add_library(opensu::library ALIAS opensu_library)
 target_link_libraries(opensu_library PRIVATE nlohmann_json::nlohmann_json)
 # Whether legendary and gogdl run here: on the desktop, not on Android. What the ROM scan walks:
-# the filesystem, and on Android also the folders picked through the system picker.
+# the filesystem, and on Android also the folders picked through the system picker. Which
+# Android apps are installed: none off Android.
 if(ANDROID)
-    target_sources(opensu_library PRIVATE cli_stores_none.cpp rom_tree_documents.cpp)
+    target_sources(opensu_library PRIVATE cli_stores_none.cpp rom_tree_documents.cpp
+        android_apps_android.cpp)
     target_link_libraries(opensu_library PRIVATE opensu::android)
 else()
-    target_sources(opensu_library PRIVATE cli_stores_desktop.cpp rom_tree_files.cpp)
+    target_sources(opensu_library PRIVATE cli_stores_desktop.cpp rom_tree_files.cpp
+        android_apps_none.cpp)
 endif()
 # Where RetroArch and the system put cores: Linux's folders; elsewhere openSU's downloads only.
 # Where Steam installs itself and how its games run: the home folder and the reaper on Linux, the

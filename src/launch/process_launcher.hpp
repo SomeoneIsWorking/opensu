@@ -23,6 +23,10 @@ class ProcessLauncher {
   public:
     ProcessLauncher();
     ProcessLauncher(const ProcessLauncher&) = delete;
+    /// Whether `program` names what this backend starts: an executable file, by path or on
+    /// `executablePath`; on Android also another app's activity, which start() checks.
+    [[nodiscard]] static bool startable(const std::string& program,
+                                        const std::vector<std::filesystem::path>& executablePath);
     ProcessLauncher& operator=(const ProcessLauncher&) = delete;
     ~ProcessLauncher();
 

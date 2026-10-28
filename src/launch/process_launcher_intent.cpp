@@ -29,6 +29,12 @@ bool launchRunning() {
 
 ProcessLauncher::ProcessLauncher() = default;
 
+// Launches.start says when an app is missing.
+bool ProcessLauncher::startable(const std::string& program,
+                                const std::vector<std::filesystem::path>& /*executablePath*/) {
+    return !program.empty();
+}
+
 ProcessLauncher::~ProcessLauncher() = default;
 
 // The working directory and the output file have no counterpart for an Activity: the runner's

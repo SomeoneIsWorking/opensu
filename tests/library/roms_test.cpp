@@ -230,6 +230,13 @@ void emulatorsAreFound(const Fixture& f) {
     expect(psx && psx->program == "flatpak" && psx->args[0] == "run" &&
                psx->args[1] == "org.duckstation.DuckStation",
            "an installed Flatpak runs through flatpak run");
+    const EmulatorSearch android{.androidApps = {"me.magnum.melonds"}};
+    const auto nds =
+        Emulators::discover(shipped(), android, {}).launch("nds", "content://p/document/d.nds");
+    expect(nds &&
+               nds->program == "me.magnum.melonds/me.magnum.melonds.ui.emulator.EmulatorActivity" &&
+               nds->args == std::vector<std::string>{"-d", "content://p/document/d.nds"},
+           "an installed Android app runs its system's games by intent");
     const auto gb = emulators.launch("gb", "/b.gb");
     expect(gb && gb->program == "mygb" && gb->args == std::vector<std::string>{"--rom", "/b.gb"},
            "an override without {rom} gets the game appended");
