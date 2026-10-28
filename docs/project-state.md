@@ -174,7 +174,7 @@ game has been observed running yet.
 | S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) and the core's own options in setting layers per game, core, console and Global, declared once in `settings::Schema` and edited in one layered editor (Settings › Emulators, details, the quick menu's panel over the game, live), with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
 | S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 | S042 | Platform seams: every Linux-only concept behind one owner with a per-OS backend picked in CMake (process launching, pads, the shell over a game, Steam modes, user directories, buildbot folder, library loading, battery), Linux unchanged (`docs/issues/cross-platform-releases.md` step 1) | partial | — | G005 |
-| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings (presets, Custom details) in the layered editor and the atoms for the game in front verified with a ROM game in the headless fork; the editor's frame generation section shown for a store game inside the headless fork; the nested and DRM backends not run | partial | S013 | G004 |
+| S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings (presets, Custom details) and the atoms for the game in front verified with a ROM game in the headless fork and with a GOG game (Absolute Drift, 4K) in the nested (Wayland) backend on the player's own setup, every preset and Custom row, live changes and Off, Global and game layers; the DRM backend not run | partial | S013 | G004 |
 | S043 | SteamGridDB: the API key through Steam's browser or typed in, kept in the keyring or a 0600 file; covers fitted to Home's square tiles; "Choose artwork" per game (`docs/issues/steamgriddb.md`) | partial | S002, S020 | G001, G002 |
 | S044 | Giveaways: free-to-keep offers from Epic, GOG and Steam read in the background, a Library tile opening a toolkit screen with art, store, ends-in and Owned, details with Claim (store page; Steam's in Big Picture when openSU's Steam runs) (`docs/issues/giveaways.md`) | partial | S002, S007, S043 | G001 |
 | S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only; Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
@@ -899,7 +899,7 @@ session ends. KWin can block all global shortcuts for a window (`gamescope
 --grab`) but not one, which loses Alt+Tab.
 
 openSU therefore runs a fork, `SomeoneIsWorking/gamescope` branch `opensu`, pinned
-to commit `c1a4a171a3a90802c26dc58ddc6e1eb9c4ecdd49` (3.16.29 plus seventeen commits).
+to commit `7bc32a74efb9525e07f215e7326d418247c74021` (3.16.29 plus twenty commits).
 It adds `--close-focused-window`: a host close request sends `WM_DELETE_WINDOW`
 (or the xdg close) to Gamescope's focused app window and the session keeps
 running. `gamescopeArgs` always passes it. The other three are upstream's
@@ -1016,6 +1016,16 @@ to the player's):
   images in a second (`frames/adaptive60-*.png`: four consecutive shown frames of the attract demo).
 - Game tab Mode override off, live: `MODE 0, RATIO 1250` again, "From Super Nintendo".
 - Close game: `GAMESCOPE_FRAMEGEN` 0; openSU logs "frame generation off: no game in front".
+
+Verified nested (`scratch/framegen/`, `tools/fg.py`, `tools/measure`): the player's own data,
+config and `Lossless.dll`, the fork at `7bc32a74` in the nested (Wayland) backend on a private
+3840x2160 60 Hz KWin, openSU `--hidden` inside it with `DISABLE_LSFG=1`, Absolute Drift (GOG,
+native, Unity GL) at 4K capped by MangoHud's GL limiter. Each preset and Custom row reaches the
+atoms and the fork's log (`Frame generation on, …`, `Lossless.dll 3.2.2.0 loaded: …`,
+`flow 3263x1835 (scale 0.85)`) while the game runs; target 30 at a 30 fps game logs `Pacing within
+the tolerance`; Off live writes `GAMESCOPE_FRAMEGEN` 0. A Global Smooth 60 under a game's Off keeps
+the game off; clearing the game's preset makes it Smooth 60 "From Global", with the preset's
+values over the game's leftover detail keys. Measurements are in the card ("Nested proof").
 - `runs/missing-3`, no Lossless Scaling in any library: the group shows only its heading with the
   explanation on the Game and Global tabs; `GAMESCOPE_FRAMEGEN` 0.
 - `runs/outside-tabs`, the hidden shell outside Gamescope: the tabs show the video rows only.
