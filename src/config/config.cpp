@@ -183,8 +183,11 @@ std::filesystem::path librashaderBeside(const std::filesystem::path& executable)
 
 Config read() {
     Config value;
+    // Windows sets USERPROFILE, not HOME.
     if (const std::string_view home = env("HOME"); !home.empty()) {
         value.home = std::filesystem::path{home};
+    } else if (const std::string_view profile = env("USERPROFILE"); !profile.empty()) {
+        value.home = std::filesystem::path{profile};
     }
     value.steamRoots = splitPaths(env("OPENSU_STEAM_ROOTS"));
     value.romRoots = splitPaths(env("OPENSU_ROM_ROOTS"));

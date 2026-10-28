@@ -37,8 +37,8 @@ using EmulatorCommands = std::map<std::string, std::vector<std::string>, std::le
                                     const std::filesystem::path& home);
 
 struct Config {
-    /// The user's home directory. Every store keeps its data under it, so this
-    /// is resolved rather than guessed by every library source.
+    /// The user's home directory ($HOME, else Windows' %USERPROFILE%). Every store keeps its data
+    /// under it, so this is resolved rather than guessed by every library source.
     std::filesystem::path home;
 
     /// Explicit Steam install roots; discovered when empty.
