@@ -98,16 +98,17 @@ void aFailedSaveKeepsTheOldFile(const fs::path& dir) {
     std::string error;
     expect(store.save(sample(), error), "the first save is written");
     const std::string before = read(store.file());
-    fs::permissions(folder, fs::perms::owner_read | fs::perms::owner_exec);
+    // A folder where the save writes its partial file makes the write fail on every OS.
+    const fs::path blocker = folder / "mappings.json.part";
+    fs::create_directories(blocker);
     MappingScopes changed = sample();
     changed.clear(Layer{});
     const bool saved = store.save(changed, error);
-    fs::permissions(folder, fs::perms::owner_all);
-    expect(!saved && !error.empty(), "a save into a folder that cannot be written fails");
+    expect(!saved && !error.empty(), "a save that cannot be written fails");
     expect(read(store.file()) == before && store.load() == sample(), "and the old file is whole");
     std::size_t files = 0;
-    for ([[maybe_unused]] const auto& entry : fs::directory_iterator{folder}) {
-        ++files;
+    for (const auto& entry : fs::directory_iterator{folder}) {
+        files += entry.path() != blocker ? 1 : 0;
     }
     expect(files == 1, "no half-written file is left beside it");
 }

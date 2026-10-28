@@ -231,8 +231,8 @@ std::string unmarked(std::string name) {
 }
 
 std::size_t depthOf(const fs::path& dir) {
-    return static_cast<std::size_t>(
-        std::distance(dir.relative_path().begin(), dir.relative_path().end()));
+    const fs::path relative = dir.relative_path();
+    return static_cast<std::size_t>(std::distance(relative.begin(), relative.end()));
 }
 
 /// The `Name=` of a .desktop entry in `dir` whose `Exec=` names `file`.

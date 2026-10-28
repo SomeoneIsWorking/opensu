@@ -42,7 +42,7 @@ inline plugin::Limits testLimits() {
 
 class PluginRig {
   public:
-    explicit PluginRig(std::filesystem::path root) : root_{std::move(root)} {
+    explicit PluginRig(const std::filesystem::path& root) : root_{std::filesystem::absolute(root)} {
         std::filesystem::remove_all(root_);
         std::filesystem::create_directories(root_ / "user");
     }

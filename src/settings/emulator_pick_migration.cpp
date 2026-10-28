@@ -29,11 +29,15 @@ constexpr std::array<OldPicks, 2> oldPicks{{
 
 bool migrateEmulatorPicks(const std::filesystem::path& settingsFile, SettingLayers& layers,
                           const GameSettingsStore& store, MovedPicks& moved, std::string& error) {
-    std::ifstream in{settingsFile, std::ios::binary};
-    if (!in) {
-        return true;
+    std::string text;
+    {
+        // Closed before the file is replaced: Windows refuses to replace an open file.
+        std::ifstream in{settingsFile, std::ios::binary};
+        if (!in) {
+            return true;
+        }
+        text.assign(std::istreambuf_iterator<char>{in}, {});
     }
-    const std::string text{std::istreambuf_iterator<char>{in}, {}};
     json document = json::parse(text, nullptr, false);
     if (!document.is_object() || std::ranges::none_of(oldPicks, [&document](const OldPicks& old) {
             return document.contains(old.key);
