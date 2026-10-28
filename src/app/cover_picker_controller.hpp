@@ -19,6 +19,7 @@
 #include "audio/sdl_sound_player.hpp"
 #include "library/game.hpp"
 #include "ui/screen_images.hpp"
+#include "ui/screen_stack.hpp"
 
 namespace opensu::app {
 
@@ -49,11 +50,12 @@ class CoverPickerController {
         bool operator==(const Pick&) const = default;
     };
 
-    /// The picker goes on `navigator`'s stack, its pictures among `images`.
-    CoverPickerController(gpu2d::ui::Navigator& navigator, ui::ScreenImages& images,
-                          audio::SdlSoundPlayer& sounds, Sources sources, Hooks hooks)
-        : navigator_{navigator}, images_{images}, sounds_{sounds}, offers_{sources.offers},
-          overrides_{sources.overrides}, hooks_{std::move(hooks)} {
+    /// The picker goes on `navigator`'s stack under `chrome`, its pictures among `images`.
+    CoverPickerController(gpu2d::ui::Navigator& navigator, const ui::Chrome& chrome,
+                          ui::ScreenImages& images, audio::SdlSoundPlayer& sounds, Sources sources,
+                          Hooks hooks)
+        : navigator_{navigator}, chrome_{chrome}, images_{images}, sounds_{sounds},
+          offers_{sources.offers}, overrides_{sources.overrides}, hooks_{std::move(hooks)} {
     }
 
     /// Opens for `game` as its source has it, its own cover in `artwork`.
@@ -93,6 +95,7 @@ class CoverPickerController {
     void show();
 
     gpu2d::ui::Navigator& navigator_;
+    const ui::Chrome& chrome_;
     ui::ScreenImages& images_;
     audio::SdlSoundPlayer& sounds_;
     artwork::CoverOffers& offers_;

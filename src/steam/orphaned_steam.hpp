@@ -17,8 +17,7 @@ class OrphanedSteam {
     explicit OrphanedSteam(const std::filesystem::path& home);
 
     /// Active scopes named `opensu-<pid>-steam.scope` or `opensu-<pid>-steam-bus.scope` whose pid
-    /// is not a live process of this program, which also excludes the caller's own; client scopes
-    /// first.
+    /// is not a live openSU and not the caller; client scopes first.
     [[nodiscard]] std::vector<std::string> find() const;
 
     /// Ends every orphan: `steam -shutdown` when the pid file names a process in it, waiting up to

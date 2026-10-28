@@ -17,6 +17,8 @@ namespace {
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 
+/// The program whose scopes these are, as `/proc/<pid>/comm` names it.
+constexpr std::string_view program = "opensu";
 constexpr std::string_view prefix = "opensu-";
 /// The client's scope, then Isolated's Secret Service relay, in the order they are ended.
 constexpr std::string_view suffixes[] = {"-steam.scope", "-steam-bus.scope"};
@@ -48,15 +50,15 @@ long ownerPid(const std::string& unit, std::string_view suffix) {
     return digits.size() > 9 ? 0 : std::stol(digits);
 }
 
-/// True when `pid` is a live (not exited) process running the same program as this one.
-bool liveSameProgram(long pid) {
+/// True when `pid` is a live (not exited) openSU.
+bool liveOpenSu(long pid) {
     const fs::path proc = "/proc/" + std::to_string(pid);
     const std::string stat = firstLine(proc / "stat");
     const std::size_t close = stat.rfind(')');
     if (close == std::string::npos || close + 2 >= stat.size() || stat[close + 2] == 'Z') {
         return false;
     }
-    return firstLine(proc / "comm") == firstLine("/proc/self/comm");
+    return firstLine(proc / "comm") == program;
 }
 
 bool inScope(const fs::path& proc, const std::string& unit) {
@@ -93,7 +95,7 @@ std::vector<std::string> OrphanedSteam::find() const {
         std::string unit;
         while (lines >> unit) {
             const long pid = ownerPid(unit, suffix);
-            if (pid > 0 && pid != getpid() && !liveSameProgram(pid)) {
+            if (pid > 0 && pid != getpid() && !liveOpenSu(pid)) {
                 orphans.push_back(unit);
             }
             lines.ignore(std::numeric_limits<std::streamsize>::max(), '\n');

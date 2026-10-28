@@ -63,14 +63,6 @@ bool CoverOverrides::wantsFit(std::string_view id, ArtworkStore::Clock::time_poi
     return ec || now - missed >= ArtworkStore::missLifetime;
 }
 
-void CoverOverrides::apply(std::vector<library::Game>& games) const {
-    for (library::Game& game : games) {
-        if (fs::path cover = shown(game.id); !cover.empty()) {
-            game.artwork = std::move(cover);
-        }
-    }
-}
-
 void CoverOverrides::apply(std::vector<library::ShelfItem>& shelf) const {
     for (library::ShelfItem& item : shelf) {
         if (auto* game = std::get_if<library::Game>(&item)) {

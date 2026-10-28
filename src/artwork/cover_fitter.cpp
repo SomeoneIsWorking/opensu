@@ -1,5 +1,6 @@
 #include "cover_fitter.hpp"
 
+#include <chrono>
 #include <optional>
 #include <utility>
 
@@ -9,14 +10,8 @@
 namespace opensu::artwork {
 namespace {
 
-/// The SteamGridDB lookup of `game`: by Steam app id for a Steam game or an own game that matched
-/// one, and by title.
-SteamGridDbGame lookupOf(const library::Game& game) {
-    if (game.source == library::Source::Own) {
-        return {game.artworkKey, game.title};
-    }
-    return {game.source == library::Source::Steam ? game.sourceId : "", game.title};
-}
+/// How long the fitter waits before asking an unreachable SteamGridDB again.
+constexpr std::chrono::seconds retryPause{30};
 
 } // namespace
 
@@ -88,18 +83,26 @@ void CoverFitter::run(const std::stop_token& stop) {
             queue_.erase(queue_.begin());
             busy_ = true;
         }
-        if (!fit(work)) {
-            const std::lock_guard lock{mutex_};
+        const Outcome outcome = fit(work);
+        std::unique_lock lock{mutex_};
+        if (outcome == Outcome::Stop) {
             queue_.clear();
+        } else if (outcome == Outcome::Retry) {
+            work.retried = true;
+            queue_.push_back(std::move(work));
+            wake_.wait_for(lock, stop, retryPause, [] {
+                return false;
+            });
         }
     }
 }
 
-bool CoverFitter::fit(const Work& work) {
+CoverFitter::Outcome CoverFitter::fit(const Work& work) {
     const library::Game& game = work.game;
     const std::string seen = game.id + "\n" + game.artwork.string();
-    if (fits_.contains(seen)) {
-        return true;
+    // A later request can queue a game again while its fit is under way.
+    if (fits_.contains(seen) || !overrides_.wantsFit(game.id, ArtworkStore::Clock::now())) {
+        return Outcome::Next;
     }
     std::string error;
     if (!game.artwork.empty()) {
@@ -107,21 +110,22 @@ bool CoverFitter::fit(const Work& work) {
             gpu2d::image::decodeFile(game.artwork, error);
         if (!cover) {
             lucent::warn("artwork", "{} cover unreadable: {}", game.id, error);
-            return true;
+            return Outcome::Next;
         }
         if (coverShapeOf(cover->width, cover->height) == work.shape) {
             fits_.insert(seen);
-            return true;
+            return Outcome::Next;
         }
     }
-    const SteamGridDb::Covers offered = steamGridDb_.covers(web_, lookupOf(game), work.shape);
+    const SteamGridDb::Covers offered =
+        steamGridDb_.covers(web_, steamGridDbGameOf(game), work.shape);
     switch (offered.status) {
     case SteamGridDb::Covers::Status::Disconnected:
     case SteamGridDb::Covers::Status::Refused:
-        return false;
+        return Outcome::Stop;
     case SteamGridDb::Covers::Status::Unreachable:
         lucent::warn("artwork", "{}", offered.error);
-        return false;
+        return work.retried ? Outcome::Next : Outcome::Retry;
     case SteamGridDb::Covers::Status::Listed:
         break;
     }
@@ -131,21 +135,22 @@ bool CoverFitter::fit(const Work& work) {
             if (error == "HTTP 404") {
                 continue;
             }
-            lucent::warn("artwork", "{}: {}", candidate.url, error);
-            return false;
+            // One image the CDN did not deliver: this game is asked again next round.
+            lucent::warn("artwork", "{}: {}: {}", game.id, candidate.url, error);
+            return Outcome::Next;
         }
         if (!overrides_.fit(game.id, *bytes, error)) {
             lucent::warn("artwork", "{}", error);
-            return false;
+            return Outcome::Stop;
         }
         lucent::info("artwork", "{}: fitted SteamGridDB cover {} ({}x{})", game.id, candidate.id,
                      candidate.width, candidate.height);
         const std::lock_guard lock{mutex_};
         done_.push_back({game.id, overrides_.shown(game.id)});
-        return true;
+        return Outcome::Next;
     }
     overrides_.recordFitMiss(game.id);
-    return true;
+    return Outcome::Next;
 }
 
 } // namespace opensu::artwork

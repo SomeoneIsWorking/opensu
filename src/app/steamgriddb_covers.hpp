@@ -38,6 +38,8 @@ class SteamGridDbCovers {
         std::function<void(const std::string& text, bool error)> say;
         /// Starts connecting SteamGridDB, on Settings › Artwork where the sign-in shows.
         std::function<void()> connect;
+        /// Game `id`'s tile shows another cover: pages showing the game read it again.
+        std::function<void(const std::string& id)> shown;
     };
 
     SteamGridDbCovers(ui::Shell& shell, audio::SdlSoundPlayer& sounds,

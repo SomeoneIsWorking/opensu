@@ -6,6 +6,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <cstdint>
 #include <filesystem>
 #include <mutex>
 #include <set>
@@ -48,12 +49,23 @@ class CoverFitter {
     struct Work {
         library::Game game;
         CoverShape shape{CoverShape::Square};
+        /// SteamGridDB did not answer for it once already this round.
+        bool retried{false};
     };
 
     [[nodiscard]] bool wanted(const library::Game& game) const;
     void run(const std::stop_token& stop);
-    /// Fits one game; false when SteamGridDB cannot be asked, which ends the round.
-    bool fit(const Work& work);
+    /// What the worker does after one game.
+    enum class Outcome : std::uint8_t {
+        Next,
+        /// SteamGridDB did not answer: a pause, and the game once more at the end of the round.
+        Retry,
+        /// No key, a refused key or a cover that cannot be kept: the round ends.
+        Stop,
+    };
+
+    /// Fits one game.
+    Outcome fit(const Work& work);
 
     const CoverOverrides& overrides_;
     const SteamGridDb& steamGridDb_;

@@ -107,9 +107,7 @@ void CoverOffers::run(const std::stop_token& stop) {
 
 void CoverOffers::perform(const List& list) {
     const library::Game& game = list.game;
-    const SteamGridDbGame lookup{game.source == library::Source::Steam ? game.sourceId : "",
-                                 game.title};
-    SteamGridDb::Covers covers = steamGridDb_.covers(web_, lookup, std::nullopt);
+    SteamGridDb::Covers covers = steamGridDb_.covers(web_, steamGridDbGameOf(game), std::nullopt);
     CoverListing listing{game.id, covers.status, {}, covers.error, false};
     if (covers.covers.size() > mostOffers) {
         covers.covers.resize(mostOffers);

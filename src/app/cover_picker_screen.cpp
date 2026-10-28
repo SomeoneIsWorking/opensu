@@ -7,6 +7,7 @@
 #include "gpu2d/ui/widgets.hpp"
 
 #include "ui/image_view.hpp"
+#include "ui/page_frame.hpp"
 
 namespace opensu::app {
 namespace {
@@ -21,10 +22,9 @@ constexpr std::size_t columns = 5;
 
 std::unique_ptr<tk::Widget> CoverPickerScreen::build(const tk::Theme& theme) {
     const tk::Spacing& spacing = theme.spacing;
-    auto root = std::make_unique<tk::Centre>(cardDp);
-    root->pad(tk::Insets::all(spacing.pad));
-    tk::Card& card = root->add<tk::Card>();
-    card.pad(tk::Insets::all(spacing.pad)).space(spacing.gap);
+    ui::CardFrame frame = ui::tallCard(theme, chrome_, cardDp);
+    tk::Card& card = *frame.card;
+    card.space(spacing.gap);
     card.add<tk::Label>(title(), tk::TextRole::Title);
     card.add<tk::Label>(controller_.status(), tk::TextRole::Caption).colour(theme.colours.inkMuted);
     tk::ScrollView& scroll = card.add<tk::ScrollView>("covers/scroll");
@@ -45,7 +45,8 @@ std::unique_ptr<tk::Widget> CoverPickerScreen::build(const tk::Theme& theme) {
         cell.add<ui::ImageView>(images_, picks[i].file, 1.0f).whole(tk::Align::Centre);
         cell.add<tk::Label>(picks[i].label, tk::TextRole::Caption).colour(theme.colours.inkMuted);
     }
-    return root;
+    card.add<tk::HintBar>().fixHeight(spacing.hintBarHeight);
+    return std::move(frame.root);
 }
 
 void CoverPickerScreen::paintBackdrop(tk::Painter& painter, const gpu2d::Rect& viewport) const {

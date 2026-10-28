@@ -6,12 +6,14 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <optional>
 #include <string>
 #include <thread>
+#include <variant>
 #include <vector>
 
 #include "cover_fitter.hpp"
@@ -137,10 +139,11 @@ void testFitsAPortraitCoverToASquareTile() {
     }
     expect(squareAsked, "the square shape is asked for");
 
-    std::vector<opensu::library::Game> shelf{steamGame("620", "Portal 2", tall),
-                                             steamGame("400", "Portal", boxy)};
+    std::vector<opensu::library::ShelfItem> shelf{steamGame("620", "Portal 2", tall),
+                                                  steamGame("400", "Portal", boxy)};
     rig.overrides.apply(shelf);
-    expect(shelf[0].artwork == fitted[0].cover && shelf[1].artwork == boxy,
+    expect(std::get<opensu::library::Game>(shelf[0]).artwork == fitted[0].cover &&
+               std::get<opensu::library::Game>(shelf[1]).artwork == boxy,
            "a shelf shows the fitted cover in place of the own one only where there is one");
 
     std::string error;
@@ -231,9 +234,14 @@ void testChooseArtwork() {
 } // namespace
 
 int main() {
-    testFitsAPortraitCoverToASquareTile();
-    testFittingNeedsAKey();
-    testChooseArtwork();
-    std::puts("steamgriddb_covers: ok");
-    return 0;
+    try {
+        testFitsAPortraitCoverToASquareTile();
+        testFittingNeedsAKey();
+        testChooseArtwork();
+        std::puts("steamgriddb_covers: ok");
+        return 0;
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
+        return 1;
+    }
 }
