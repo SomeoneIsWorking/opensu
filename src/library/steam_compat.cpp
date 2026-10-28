@@ -1,5 +1,7 @@
 #include "steam_compat.hpp"
 
+#include <algorithm>
+#include <cstddef>
 #include <optional>
 #include <set>
 #include <string_view>
@@ -73,6 +75,32 @@ fs::path installedApp(const Library& library, const std::string& appId) {
     return dir && !dir->empty() ? manifest->parent_path() / "common" / *dir : fs::path{};
 }
 
+/// Each official tool's name by itself and by each of its aliases (`proton-stable` is `proton_11`).
+std::map<std::string, std::string, std::less<>>
+officialNames(const std::optional<vdf::Node>& tools) {
+    std::map<std::string, std::string, std::less<>> names;
+    if (!tools) {
+        return names;
+    }
+    for (const std::string& name : tools->keys()) {
+        names.try_emplace(name, name);
+        const std::string aliases = tools->str({name, "aliases"}).value_or("");
+        for (std::size_t at = 0; at < aliases.size();) {
+            const std::size_t end = std::min(aliases.find(',', at), aliases.size());
+            if (end > at) {
+                names.try_emplace(aliases.substr(at, end - at), name);
+            }
+            at = end + 1;
+        }
+    }
+    return names;
+}
+
+/// The tool Valve maps `app` to; empty for none, or a mapping Valve emptied.
+std::string valveMapping(const std::optional<vdf::Node>& mappings, const std::string& app) {
+    return mappings ? mappings->str({app, "tool"}).value_or("") : std::string{};
+}
+
 bool windowsOnly(const vdf::Node& app) {
     const std::optional<std::string> platforms = app.str({"common", "oslist"});
     return platforms && platforms->find("windows") != std::string::npos &&
@@ -95,6 +123,10 @@ std::map<std::string, CompatTool, std::less<>> compatTools(const Library& librar
     const std::optional<vdf::Node> official =
         registry != info.end() ? registry->second.block({"extended", "compat_tools"})
                                : std::nullopt;
+    const std::optional<vdf::Node> valve =
+        registry != info.end() ? registry->second.block({"extended", "app_mappings"})
+                               : std::nullopt;
+    const std::map<std::string, std::string, std::less<>> officialName = officialNames(official);
     const std::map<std::string, fs::path, std::less<>> custom = customTools(library.roots());
 
     std::map<std::string, CompatTool, std::less<>> tools;
@@ -102,12 +134,17 @@ std::map<std::string, CompatTool, std::less<>> compatTools(const Library& librar
         std::string name;
         if (const auto picked = mapping.find(app); picked != mapping.end()) {
             name = picked->second;
+        } else if (std::string mapped = valveMapping(valve, app); !mapped.empty()) {
+            name = std::move(mapped);
         } else if (const auto known = info.find(app);
                    fallback != mapping.end() && known != info.end() && windowsOnly(known->second)) {
             name = fallback->second;
         }
         if (name.empty()) {
             continue;
+        }
+        if (const auto canonical = officialName.find(name); canonical != officialName.end()) {
+            name = canonical->second;
         }
         fs::path dir;
         if (const auto found = custom.find(name); found != custom.end()) {

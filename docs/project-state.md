@@ -1506,8 +1506,9 @@ running game, the pick or a pinned game keeps them. A hidden run starts no check
 removal or runner test, and Check now and Test answer "changes are off in a hidden run" (checked:
 a hidden run on the player's setup, GOG signed in, logs no `checking for a newer GE-Proton` line,
 where main's logged it 4 s in). Settings › Wine shows what Automatic resolves
-to now and why, and lists every runner and runtime with where it lives, size and game count, each
-with a page of its games and pins. Verified (`docs/issues/ge-proton-default.md`): three real
+to now and why, and lists every runner and runtime with where it lives, size and game count (a Steam game by
+Steam's own choice, Valve's per-game mappings and tool aliases included), each with a page of its
+games and pins. Verified (`docs/issues/ge-proton-default.md`): three real
 GE-Proton releases installed and checked, the rotation, `cmd /c ver` through GE-Proton and system
 Wine, and on the player's setup Nuclear Throne (Epic) under openSU's GE-Proton, under Steam's
 GE-Proton while openSU's downloaded, and under system Wine in the plain-Wine twin prefix.
