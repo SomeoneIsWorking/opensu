@@ -63,7 +63,7 @@ target_link_libraries(opensu_library
         opensu::config
         opensu::net
     PRIVATE opensu::command opensu::fileio opensu::zip lucent::lucent OpenSSL::Crypto
-        SQLite::SQLite3
+        PkgConfig::SQLITE3
 )
 target_compile_features(opensu_library PUBLIC cxx_std_20)
 # The libretro buildbot's nightly folder and core suffix for the OS and CPU built for.

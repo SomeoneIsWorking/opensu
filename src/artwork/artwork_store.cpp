@@ -170,6 +170,11 @@ bool ArtworkStore::wanted(const library::Game& game, Clock::time_point now) cons
     return game.artwork.empty() && wantedAt(pathFor(game), now);
 }
 
+bool ArtworkStore::coverless(const library::Game& game, Clock::time_point now) const {
+    const fs::path file = pathFor(game);
+    return game.artwork.empty() && !isFile(file) && !wantedAt(file, now);
+}
+
 bool ArtworkStore::wantedAsset(const ApkAsset& asset, Clock::time_point now) const {
     return wantedAt(assetPath(asset), now);
 }

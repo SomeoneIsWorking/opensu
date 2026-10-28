@@ -51,8 +51,8 @@ if(NOT OPENSSL_FOUND)
 endif()
 
 # SQLite reads Lutris's game list (`library/lutris_games`) for Add a game's import.
-find_package(SQLite3)
-if(NOT SQLite3_FOUND)
+pkg_check_modules(SQLITE3 IMPORTED_TARGET GLOBAL sqlite3)
+if(NOT SQLITE3_FOUND)
     message(FATAL_ERROR
         "openSU needs SQLite 3. Install it with `sudo dnf install sqlite-devel` (Fedora) or "
         "`sudo apt install libsqlite3-dev` (Debian/Ubuntu)")

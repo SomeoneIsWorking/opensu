@@ -16,6 +16,7 @@
 #include <variant>
 #include <vector>
 
+#include "artwork_store.hpp"
 #include "cover_fitter.hpp"
 #include "cover_offers.hpp"
 #include "cover_overrides.hpp"
@@ -94,6 +95,7 @@ struct Rig {
     SteamGridDbServer api{key};
     SteamGridDb steamGridDb{api.api()};
     CoverOverrides overrides;
+    opensu::artwork::ArtworkStore store{scratch.path() / "cache" / "artwork"};
 };
 
 void testFitsAPortraitCoverToASquareTile() {
@@ -112,7 +114,7 @@ void testFitsAPortraitCoverToASquareTile() {
     writeFile(nothing, tallBytes);
     opensu::library::Game unknown = steamGame("1", "Nothing Here", nothing);
 
-    CoverFitter fitter{rig.overrides, rig.steamGridDb};
+    CoverFitter fitter{rig.overrides, rig.steamGridDb, rig.store};
     fitter.request({steamGame("620", "Portal 2", tall), steamGame("400", "Portal", boxy), unknown},
                    CoverShape::Square);
     std::vector<FittedCover> fitted;
@@ -153,12 +155,47 @@ void testFitsAPortraitCoverToASquareTile() {
            "and is not fitted again");
 }
 
+opensu::library::Game gogGame(const std::string& id, const std::string& title) {
+    opensu::library::Game game;
+    game.id = "gog:" + id;
+    game.title = title;
+    game.source = opensu::library::Source::Gog;
+    game.sourceId = id;
+    return game;
+}
+
+void testFitsAGameWhoseSourceHasNoCover() {
+    Rig rig{"cover-fit-coverless"};
+    const std::string square = png(64, 64);
+    rig.api.putGame("Missed Game", 11, {"missed-square.png", square, 512, 512});
+    rig.api.putGame("Pending Game", 12, {"pending-square.png", png(64, 64), 512, 512});
+    const opensu::library::Game missed = gogGame("1", "Missed Game");
+    const opensu::library::Game pending = gogGame("2", "Pending Game");
+    rig.store.recordMiss(missed);
+
+    CoverFitter fitter{rig.overrides, rig.steamGridDb, rig.store};
+    fitter.request({missed, pending}, CoverShape::Square);
+    std::vector<FittedCover> fitted;
+    waitUntil(
+        [&] {
+            for (FittedCover& one : fitter.take()) {
+                fitted.push_back(std::move(one));
+            }
+            return fitter.idle();
+        },
+        "the fitter settles");
+    expect(fitted.size() == 1 && fitted[0].id == "gog:1" && readFile(fitted[0].cover) == square,
+           "a game its source has no cover for gets one by its title");
+    expect(rig.overrides.shown("gog:2").empty(),
+           "a game whose cover is still to be downloaded is left alone");
+}
+
 void testFittingNeedsAKey() {
     Rig rig{"cover-fit-nokey"};
     rig.steamGridDb.setKey("");
     const fs::path tall = rig.scratch.path() / "own" / "620.png";
     writeFile(tall, png(40, 60));
-    CoverFitter fitter{rig.overrides, rig.steamGridDb};
+    CoverFitter fitter{rig.overrides, rig.steamGridDb, rig.store};
     fitter.request({steamGame("620", "Portal 2", tall)}, CoverShape::Square);
     waitUntil(
         [&] {
@@ -236,6 +273,7 @@ void testChooseArtwork() {
 int main() {
     try {
         testFitsAPortraitCoverToASquareTile();
+        testFitsAGameWhoseSourceHasNoCover();
         testFittingNeedsAKey();
         testChooseArtwork();
         std::puts("steamgriddb_covers: ok");

@@ -23,6 +23,9 @@ void ArtworkDelivery::service() {
     for (const artwork::Fetched& fetched : fetcher_.take()) {
         if (!fetched.saved) {
             shell_.grid().artworkSettled(fetched.id);
+            if (fetched.kind == artwork::Fetched::Kind::Game) {
+                hooks_.coverMissing(fetched.id);
+            }
             continue;
         }
         if (fetched.kind == artwork::Fetched::Kind::Sound) {

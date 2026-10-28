@@ -302,7 +302,10 @@ class ShellApp final {
     /// Hands the fetched artwork and the stored sounds on.
     /// Covers the player chose or SteamGridDB fitted, and "Choose artwork".
     SteamGridDbCovers covers_{
-        shell_, sounds_, steamGridDb_,
+        shell_,
+        sounds_,
+        steamGridDb_,
+        artworkStore_,
         SteamGridDbCovers::Places{environment_.dataDir / "artwork" / "chosen",
                                   environment_.cacheDir / "artwork" / "fitted",
                                   environment_.cacheDir / "artwork" / "steamgriddb-thumbs"},
@@ -327,6 +330,9 @@ class ShellApp final {
                                },
                                [this](const std::string& id, const std::filesystem::path& file) {
                                    covers_.coverArrived(id, file);
+                               },
+                               [this](const std::string& id) {
+                                   covers_.coverMissing(id);
                                }}};
     /// After the preferences they keep and the shelf they re-show.
     LayoutPicker layoutPicker_{shell_.screens().navigator(), sounds_, preferences_,

@@ -152,9 +152,15 @@ void ArtworkSettings::service() {
     const SteamGridDbAccount::Status status = account_.status();
     artwork::ConsoleArtProgress art = fetcher_.consoleArt();
     if (status != shown_ || art != shownArt_) {
+        const bool connected = status.state == State::Connected && shown_.state != State::Connected;
+        const std::string focused = navigator_.focused();
         shown_ = status;
         shownArt_ = std::move(art);
         hooks_.refresh();
+        // The row pressed is gone, and the nearest one in its place is Disconnect.
+        if (connected && (focused == connectId || focused == cancelId || focused == enterId)) {
+            navigator_.focus(consoleArtId);
+        }
     }
 }
 

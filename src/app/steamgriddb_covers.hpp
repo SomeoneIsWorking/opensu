@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "artwork/artwork_store.hpp"
 #include "artwork/cover_fitter.hpp"
 #include "artwork/cover_offers.hpp"
 #include "artwork/cover_overrides.hpp"
@@ -42,8 +43,10 @@ class SteamGridDbCovers {
         std::function<void(const std::string& id)> shown;
     };
 
+    /// `store` says which games have no art and none coming.
     SteamGridDbCovers(ui::Shell& shell, audio::SdlSoundPlayer& sounds,
-                      const artwork::SteamGridDb& source, const Places& places, Hooks hooks);
+                      const artwork::SteamGridDb& source, const artwork::ArtworkStore& store,
+                      const Places& places, Hooks hooks);
 
     /// A new catalog: its covers are checked against the Home grid's tiles.
     void catalogChanged(const std::vector<library::Game>& games);
@@ -51,6 +54,8 @@ class SteamGridDbCovers {
     void apply(std::vector<library::ShelfItem>& shelf) const;
     /// Game `id`'s own cover was saved as `file`: shows it, or what replaces it, and checks it.
     void coverArrived(const std::string& id, const std::filesystem::path& file);
+    /// Game `id`'s source came back without a cover: one without any is fitted by title.
+    void coverMissing(const std::string& id);
     /// Opens "Choose artwork" for game `id`.
     void choose(const std::string& id);
     [[nodiscard]] CoverPickerController& picker() noexcept {
