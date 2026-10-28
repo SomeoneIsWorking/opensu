@@ -1311,15 +1311,15 @@ void consoleThemeIsChosen(const fs::path& root) {
     rig.controller.open();
     rig.enter("Artwork");
     const ui::SettingsRow art = rig.rowOf("artwork.consoleart");
-    expect(art.choices == std::vector<std::string>{"Drawings", "Photos", "iiSU", "Mine"} &&
-               art.choices[art.chosen] == "Drawings" && art.note == "Test art",
+    expect(art.choices == std::vector<std::string>{"Photos", "Drawings", "iiSU", "Mine"} &&
+               art.choices[art.chosen] == "Photos" && art.note == "Test art",
            "the default theme leads and is chosen");
     rig.focus("artwork.consoleart");
     rig.act(Button::Right);
-    expect(rig.onDisk().consoleTheme == "photos" && rig.consoleArtChanges == 1,
+    expect(rig.onDisk().consoleTheme == "drawings" && rig.consoleArtChanges == 1,
            "stepping keeps the next theme");
     rig.act(Button::Right);
-    expect(rig.paths.active() && rig.onDisk().consoleTheme == "photos",
+    expect(rig.paths.active() && rig.onDisk().consoleTheme == "drawings",
            "stepping to iiSU's opens the file chooser first");
 
     const fs::path other = rig.config.home / "other.apk";
@@ -1327,7 +1327,7 @@ void consoleThemeIsChosen(const fs::path& root) {
         << test::zipfixture::buildZip({{"assets/other.png", "png", false, {}}});
     rig.paths.pick(other);
     expect(rig.paths.active() && saidSomething(rig, "not iiSU's", true) &&
-               rig.onDisk().consoleTheme == "photos",
+               rig.onDisk().consoleTheme == "drawings",
            "another app's APK is refused and the chooser stays");
 
     const fs::path pack = rig.config.home / "iiSU_StarterPack.zip";

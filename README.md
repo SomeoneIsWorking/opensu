@@ -40,7 +40,8 @@ derived from the window, following iiSU's own layout rules.
 | Search with results | |
 
 The shots are of the maintainer's own library. Game art belongs to its owners; the console cards
-and glyphs are openSU's own drawings (`assets/consoles/drawings/`, MIT); see
+are public-domain photos (the Photos theme, `assets/consoles/photos/`) and the tab glyphs openSU's
+own drawings (MIT); see
 [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md). Captured with
 `uv run --frozen python -m tools.screenshots --profile real`.
 
@@ -49,9 +50,9 @@ and glyphs are openSU's own drawings (`assets/consoles/drawings/`, MIT); see
 A console's card in Library and the glyph in its tiles' tabs come from a console art theme. Pick
 one in Settings › Artwork › Console art theme:
 
-- **Drawings** (the default): openSU's own drawings of the hardware, MIT.
-- **Photos**: public-domain photos of the hardware by Evan-Amos on Wikimedia Commons, with the
-  Drawings glyphs ([credits](assets/consoles/photos/README.md)).
+- **Photos** (the default): public-domain photos of the hardware by Evan-Amos on Wikimedia
+  Commons, with the Drawings glyphs ([credits](assets/consoles/photos/README.md)).
+- **Drawings**: openSU's own drawings of the hardware, MIT.
 - **iiSU**: [iiSU](https://github.com/iisu-network/iiSU)'s own art, read from a copy of iiSU's
   release you download yourself; openSU never downloads it. Stepping to **iiSU** asks for the file:
   iiSU's release APK (for example `iiSU-Alpha-7.4.apk` from
@@ -67,9 +68,9 @@ one in Settings › Artwork › Console art theme:
 A theme shows only its own art. A console it has no art for, such as the PS4 in iiSU's, shows a
 tile without a picture (its colours, name and game count), never another theme's art.
 
-| Drawings | Photos | iiSU |
+| Photos | Drawings | iiSU |
 | --- | --- | --- |
-| ![Library in the Drawings theme](docs/screenshots/library-drawings.webp) | ![Library in the Photos theme](docs/screenshots/library-photos.webp) | ![Library in the iiSU theme](docs/screenshots/library-iisu.webp) |
+| ![Library in the Photos theme](docs/screenshots/library-photos.webp) | ![Library in the Drawings theme](docs/screenshots/library-drawings.webp) | ![Library in the iiSU theme](docs/screenshots/library-iisu.webp) |
 
 Captured with `uv run --frozen python -m tools.screenshots --profile real --console-theme <theme>`
 (`--iisu-file FILE`, iiSU's APK or starter pack, for iiSU's), which shows the theme for the run only.

@@ -23,12 +23,12 @@ PAGE = "https://commons.wikimedia.org/wiki/File:"
 EVAN_AMOS = "Evan-Amos (Vanamo Online Game Museum)"
 PUBLIC_DOMAIN = "Public domain"
 
-# The card is this square; the console fits inside the margin left for its shadow.
-SIDE = 512
-FIT = 440
+# The console's longer side; the card is the console and its glow, in the console's own shape.
+FIT = 448
 # How far from white a background pixel may be, for photos shot on white without alpha.
 BACKGROUND_FUZZ = "7%"
-SHADOW = "45x9+0+7"
+# A light glow behind every console, so a black one stands out on a dark gradient.
+GLOW = "80x12+0+0"
 QUALITY = 90
 
 
@@ -101,7 +101,7 @@ PHOTOS = (
 
 
 def card(magick: str, original: Path, out: Path) -> None:
-    """One card: the background cut to alpha, the console fitted, centred and shadowed."""
+    """One card: the background cut to alpha, the console trimmed, fitted and lit from behind."""
     out.parent.mkdir(parents=True, exist_ok=True)
     opaque = (
         subprocess.run(
@@ -119,9 +119,8 @@ def card(magick: str, original: Path, out: Path) -> None:
                     "-fill", "none", "-draw", "color 0,0 floodfill", "-shave", "1x1",
                     "-fuzz", "0"]  # fmt: skip
     command += ["-trim", "+repage", "-resize", f"{FIT}x{FIT}"]
-    command += ["(", "+clone", "-background", "black", "-shadow", SHADOW, ")", "+swap",
-                "-background", "none", "-layers", "merge", "+repage"]  # fmt: skip
-    command += ["-gravity", "center", "-extent", f"{SIDE}x{SIDE}", "-strip"]
+    command += ["(", "+clone", "-background", "white", "-shadow", GLOW, ")", "+swap",
+                "-background", "none", "-layers", "merge", "+repage", "-strip"]  # fmt: skip
     command += ["-define", "webp:alpha-quality=100", "-quality", str(QUALITY), str(out)]
     subprocess.run(command, check=True)
 
@@ -133,7 +132,7 @@ def credits() -> str:
     return (
         "# Photos\n\n"
         "Public-domain photos of the hardware from Wikimedia Commons, made into cards by\n"
-        "`tools/console_photos.py` (background cut to alpha, trimmed, centred, a soft shadow).\n"
+        "`tools/console_photos.py` (background cut to alpha, trimmed, a soft light glow behind).\n"
         "The glyphs are the Drawings theme's. A system without a photo here has no picture on its\n"
         "card in this theme.\n\n"
         "| System | Commons page | Author | Licence |\n| --- | --- | --- | --- |\n"

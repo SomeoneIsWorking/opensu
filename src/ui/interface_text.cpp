@@ -70,6 +70,18 @@ void InterfaceText::draw(gpu2d::Canvas& canvas, std::string_view text, gpu2d::Po
     }
 }
 
+void InterfaceText::drawOutline(gpu2d::Canvas& canvas, std::string_view text, gpu2d::Point topLeft,
+                                float size, float outline, gpu2d::Colour colour) {
+    if (text.empty() || colour.a == 0) {
+        return;
+    }
+    const gpu2d::Point at{std::round(topLeft.x), std::round(topLeft.y)};
+    if (!face().draw(canvas, text, at, gpu2d::TextStyle{.size = size, .outline = outline},
+                     colour)) {
+        lucent::error("ui", "could not shape \"{}\" outlined: {}", text, SDL_GetError());
+    }
+}
+
 void InterfaceText::drawInkCentred(gpu2d::Canvas& canvas, std::string_view character,
                                    gpu2d::Point centre, float size, gpu2d::Colour colour) {
     if (character.empty()) {

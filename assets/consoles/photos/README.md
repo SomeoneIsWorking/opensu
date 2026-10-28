@@ -1,7 +1,7 @@
 # Photos
 
 Public-domain photos of the hardware from Wikimedia Commons, made into cards by
-`tools/console_photos.py` (background cut to alpha, trimmed, centred, a soft shadow).
+`tools/console_photos.py` (background cut to alpha, trimmed, a soft light glow behind).
 The glyphs are the Drawings theme's. A system without a photo here has no picture on its
 card in this theme.
 

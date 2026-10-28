@@ -96,7 +96,7 @@ def test_main_exits_one_when_a_scene_fails(tmp_path: Path):
 def test_real_scenes_are_the_readme_set():
     readme = (Path(__file__).resolve().parents[3] / "README.md").read_text()
     shown = list(dict.fromkeys(re.findall(r"docs/screenshots/([a-z-]+)\.webp", readme)))
-    themes = ("drawings", "photos", "iisu")
+    themes = ("photos", "drawings", "iisu")
     real = real_scenes(Picks()) + tuple(
         scene for theme in themes for scene in theme_scenes(Picks(), theme)
     )

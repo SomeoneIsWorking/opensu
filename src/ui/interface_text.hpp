@@ -32,6 +32,8 @@ class InterfaceText final : public gpu2d::ui::Typesetter {
     [[nodiscard]] float lineHeight(float size) override;
     void draw(gpu2d::Canvas& canvas, std::string_view text, gpu2d::Point topLeft, float size,
               gpu2d::Colour colour) override;
+    void drawOutline(gpu2d::Canvas& canvas, std::string_view text, gpu2d::Point topLeft, float size,
+                     float outline, gpu2d::Colour colour) override;
 
     /// Draws the first character of `character` with the middle of its ink on `centre`.
     void drawInkCentred(gpu2d::Canvas& canvas, std::string_view character, gpu2d::Point centre,

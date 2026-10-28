@@ -15,16 +15,17 @@ openSU's own parts of every frame:
 - Cal Sans (`assets/CalSans-Regular.ttf`), SIL Open Font License 1.1 (`assets/CalSans-OFL.txt`).
 - Steam, Epic Games and GOG.com logos from [Simple Icons](https://simpleicons.org), CC0 1.0
   (`assets/icons/README.md`). The marks belong to their owners.
-- Console cards and tab glyphs in the Drawings theme (every frame but `library-photos.webp` and
-  `library-iisu.webp`): openSU's own drawings of the hardware (`assets/consoles/drawings/`, MIT).
-  No console maker's logo or box art is in them.
+- Console cards in every frame but `library-drawings.webp` and `library-iisu.webp`: the Photos
+  theme, below.
+- Tab glyphs, and the cards in `library-drawings.webp`: openSU's own drawings of the hardware
+  (`assets/consoles/drawings/`, MIT). No console maker's logo or box art is in them.
 - Everything else (tiles, store cards, dock icons, menus, prompts) is drawn by openSU (MIT,
   `LICENSE`).
 
-`library-drawings.webp`, `library-photos.webp` and `library-iisu.webp` (`--console-theme`) show the
+`library-photos.webp`, `library-drawings.webp` and `library-iisu.webp` (`--console-theme`) show the
 README's console art themes:
 
-- **Photos**: public-domain photos of the hardware by Evan-Amos (Vanamo Online Game Museum) on
+- **Photos** (the default): public-domain photos of the hardware by Evan-Amos (Vanamo Online Game Museum) on
   Wikimedia Commons, each listed with its Commons page and licence in
   [assets/consoles/photos/README.md](../../assets/consoles/photos/README.md); the tab glyphs are
   the Drawings theme's.

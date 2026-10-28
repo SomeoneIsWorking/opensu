@@ -67,14 +67,15 @@ int main() {
     const ConsoleThemes themes{shipped, user};
 
     expect(idsOf(themes.list()) ==
-               std::vector<std::string>{"drawings", "photos", "iisu", "user/mine"},
+               std::vector<std::string>{"photos", "drawings", "iisu", "user/mine"},
            "the default leads, iiSU's follows the shipped ones, a folder needs its manifest");
 
     std::string error;
-    const auto drawings = themes.open("", {}, error);
-    expect(drawings != nullptr && drawings->info().id == "drawings" &&
-               drawings->cardStyle() == CardStyle::Mark,
-           "no id is the default theme");
+    const auto standard = themes.open("", {}, error);
+    expect(standard != nullptr && standard->info().id == "photos", "no id is the default theme");
+    const auto drawings = themes.open("drawings", {}, error);
+    expect(drawings != nullptr && drawings->cardStyle() == CardStyle::Mark,
+           "a shipped theme opens by its folder name");
     expect(isKind(drawings->card("snes"), ThemeArt::Kind::Mask), "an SVG card is a mask");
 
     const auto photos = themes.open("photos", {}, error);
