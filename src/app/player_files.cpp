@@ -4,8 +4,7 @@
 #include <string>
 #include <system_error>
 
-#include <unistd.h>
-
+#include "launch/process_id.hpp"
 #include "library/own_games.hpp"
 #include "lucent/log.h"
 #include "settings/game_settings_store.hpp"
@@ -41,7 +40,8 @@ void copyIfThere(const fs::path& from, const fs::path& to) {
 PlayerFiles PlayerFiles::forRun(const config::Config& config, bool hidden) {
     return PlayerFiles{
         Dirs{.config = config.configDir, .data = config.dataDir, .saves = config.savesDir},
-        hidden ? config.runtimeDir / ("hidden-" + std::to_string(getpid())) : fs::path{}};
+        hidden ? config.runtimeDir / ("hidden-" + std::to_string(launch::ownProcessId()))
+               : fs::path{}};
 }
 
 PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std::move(copiesDir)} {

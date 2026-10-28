@@ -1,7 +1,6 @@
 #include "focus_follow.hpp"
 
-#include <unistd.h>
-
+#include "launch/process_id.hpp"
 #include "lucent/log.h"
 
 namespace opensu::app {
@@ -25,9 +24,9 @@ void FocusFollow::service(bool game) {
     }
     game_ = game;
     const session::FocusParties parties{
-        .self = ::getpid(),
+        .self = launch::ownProcessId(),
         .ownWindow = ownWindow_,
-        .game = game ? hooks_.gamePids() : std::vector<pid_t>{},
+        .game = game ? hooks_.gamePids() : std::vector<launch::ProcessId>{},
     };
     const FocusHolder was = holder_;
     holder_ = session::holderOf(*focused_, parties);

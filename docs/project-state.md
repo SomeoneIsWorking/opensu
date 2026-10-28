@@ -1977,9 +1977,10 @@ the Linux flags (`non-linux-backends-syntax.log`, `tidy-nonlinux.log`).
 Gaps: a non-Linux configure still fails: `src/session` (X11, required by `main.cpp`'s compositor
 and login session, `ShellWindow::output`, `FocusFollow`, `GamescopeWindows` and
 `SteamWindowHiding` in `ShellApp`) and `src/host` are added and linked on every OS. Still Linux-only
-and unseamed: `launch/command.*` (`fork`/`execv`), `HostServices` has no absent set, `/proc/self/exe`
-and `getpid` in `config`, `retro_session`, `control_server`; RetroArch's Linux core folders in the
-core search; controller batteries from sysfs. Not run here: a Steam game launch and an AppImage
+and unseamed: `HostServices` has no absent set, `/proc/self/exe` in `config`; RetroArch's Linux
+core folders in the core search; controller batteries from sysfs. `launch/command.*` has its
+`posix_child`/`win32_child` backends and `ownProcessId()` replaced `getpid`; the Win32 backend is
+compiled with clang-cl against an xwin SDK and not run. Not run here: a Steam game launch and an AppImage
 emulator under nested Gamescope, the real shell's overlay (only `--hidden` runs, which never attach
 it), `SdlPads` with a real pad, and the AppImage: `tools.appimage all` stopped twice in the fork's
 submodule clones (GitHub refusing anonymous clones of different repos each time), with 1378 of

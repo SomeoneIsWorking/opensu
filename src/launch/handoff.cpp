@@ -116,7 +116,7 @@ Handoff::Shown Handoff::awaitSteamWindow(const library::Game& game, int baseline
     GameWindows* windows = steam_.showsInSession() ? windows_ : nullptr;
     while (!forced_.load()) {
         const SteamAppActivity steam = steam_.activity(game.sourceId);
-        const std::vector<pid_t> processes = ProcessTree::treesMatching(game.processHint);
+        const std::vector<ProcessId> processes = ProcessTree::treesMatching(game.processHint);
         const bool running = steam.running.value_or(false);
         if (running || !processes.empty()) {
             if (!appeared) {
@@ -174,7 +174,7 @@ Handoff::Shown Handoff::awaitScopeWindow(const library::Game& game, const Report
     const Clock::time_point deadline = Clock::now() + Handoff::startTimeout;
     bool appeared = false;
     while (!forced_.load()) {
-        const std::vector<pid_t> processes = ProcessTree::treesMatching(game.processHint);
+        const std::vector<ProcessId> processes = ProcessTree::treesMatching(game.processHint);
         if (!processes.empty()) {
             if (!appeared) {
                 lucent::info("launch", "{} is running", game.title);

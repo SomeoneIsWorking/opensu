@@ -16,8 +16,7 @@
 #include <thread>
 #include <vector>
 
-#include <sys/types.h>
-
+#include "launch/process_id.hpp"
 #include "session/window_focus.hpp"
 
 namespace opensu::app {
@@ -26,7 +25,7 @@ class FocusFollow {
   public:
     struct Hooks {
         /// The running game's processes.
-        std::function<std::vector<pid_t>()> gamePids;
+        std::function<std::vector<launch::ProcessId>()> gamePids;
         /// Asks Steam to leave Big Picture; called on FocusFollow's own thread, one close at a
         /// time, as Steam may be slow.
         std::function<void()> closeBigPicture;

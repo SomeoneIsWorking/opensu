@@ -1,5 +1,11 @@
-add_library(opensu_command STATIC command.cpp child_environment.cpp)
+add_library(opensu_command STATIC command.cpp)
 add_library(opensu::command ALIAS opensu_command)
+# A short-lived child: posix_spawn in a process group, or CreateProcessW in a Job Object.
+if(WIN32)
+    target_sources(opensu_command PRIVATE win32_child.cpp)
+else()
+    target_sources(opensu_command PRIVATE posix_child.cpp child_environment.cpp)
+endif()
 target_include_directories(opensu_command PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_command PUBLIC lucent::lucent)
 target_compile_features(opensu_command PUBLIC cxx_std_20)

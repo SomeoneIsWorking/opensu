@@ -132,7 +132,7 @@ void Client::startNormal() {
         lucent::info("steam", "Normal mode: this run starts and attaches to no Steam");
         return;
     }
-    const std::optional<pid_t> running = desktop_.running();
+    const std::optional<launch::ProcessId> running = desktop_.running();
     if (running) {
         lucent::info("steam", "Normal mode: attached to the desktop Steam (pid {})", *running);
         beginWatching(SteamState::Ready);

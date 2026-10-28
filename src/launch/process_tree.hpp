@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include <sys/types.h>
+#include "process_id.hpp"
 
 namespace opensu::launch {
 
@@ -16,17 +16,17 @@ class ProcessTree {
   public:
     /// The processes whose command line contains `hint`. An empty hint matches
     /// nothing.
-    [[nodiscard]] static std::vector<pid_t> matching(const std::string& hint);
+    [[nodiscard]] static std::vector<ProcessId> matching(const std::string& hint);
 
     /// True when any process matches `hint`.
     [[nodiscard]] static bool anyMatches(const std::string& hint);
 
     /// Every process below `root`, found through parent links.
-    [[nodiscard]] static std::vector<pid_t> descendants(pid_t root);
+    [[nodiscard]] static std::vector<ProcessId> descendants(ProcessId root);
 
     /// The processes matching `hint` and every process below them, each tree's leaves first
     /// and its root last. This process and its children are never among them.
-    [[nodiscard]] static std::vector<pid_t> treesMatching(const std::string& hint);
+    [[nodiscard]] static std::vector<ProcessId> treesMatching(const std::string& hint);
 
     /// SIGKILLs every process matching `hint` and all that descend from them, again
     /// until none is left to find. This process is never signalled. Returns how many signals were
