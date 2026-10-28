@@ -1,6 +1,7 @@
 // battery — the machine's own battery level and charging state, from SDL's power info on every OS
 // (on Linux SDL asks UPower, then /sys/class/power_supply, leaving device batteries out), and a
-// wireless controller's from sysfs.
+// wireless controller's from sysfs on Linux (`controller_batteries_sysfs.cpp`); none elsewhere
+// (`controller_batteries_none.cpp`).
 #pragma once
 
 #include <filesystem>
@@ -31,7 +32,10 @@ class BatteryReader {
 /// with `type` Battery and `scope` Device.
 class ControllerBatteries {
   public:
-    explicit ControllerBatteries(std::filesystem::path root = "/sys/class/power_supply");
+    /// The system's: /sys/class/power_supply on Linux.
+    ControllerBatteries();
+    /// The supplies under `root`.
+    explicit ControllerBatteries(std::filesystem::path root);
 
     /// The battery of the controller with `uniq`, or nothing for an empty id or no match. Case and
     /// the separators between address bytes do not matter.

@@ -1989,7 +1989,9 @@ alone; the neutral types are `src/display`), so a Windows configure (clang-cl, x
 RetroArch's and the system's core folders are Linux's backend of `CoreSearch::standard`; elsewhere
 only openSU's downloads are searched.
 
-Gaps: still Linux-only and unseamed: controller batteries from sysfs. `launch/command.*` has its
+Controller batteries are sysfs on Linux (`controller_batteries_sysfs.cpp`) and none elsewhere.
+
+Gaps: `launch/command.*` has its
 `posix_child`/`win32_child` backends and `ownProcessId()` replaced `getpid`; the Win32 backend is
 compiled with clang-cl against an xwin SDK and not run. Not run here: a Steam game launch and an AppImage
 emulator under nested Gamescope, the real shell's overlay (only `--hidden` runs, which never attach
