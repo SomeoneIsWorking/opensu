@@ -300,3 +300,10 @@ Guide menu with the media volume, Settings. Left for this step: the `:retro` run
 a SAF folder (`RomTree`), the runner's touch layer, standalone emulators' intent templates in
 `emulators.json`, librashader for Android, tablet-size frames, the player's phone (arm64 cores,
 performance).
+
+Seen on the AVD and not yet fixed: "Add a ROM folder" opens the filesystem chooser at `/`, which
+Android does not let the app list ("Permission denied"), and a typed path outside the app's own
+storage does not exist for it, so no ROM folder can be added until the SAF picker replaces that
+chooser on Android; the chooser's error toast covers its Enter prompt; the Night light row says
+"here the desktop's own night light applies", which is wrong on Android; a tablet-shaped display
+(1920x1600) lays out without overlap.

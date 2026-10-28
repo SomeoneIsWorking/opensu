@@ -66,6 +66,8 @@ def build(layout: config.Layout, sources: Deps, abi: str, env: Mapping[str, str]
             f"-DGPU2D_ROOT={sources.gpu2d}",
             "-DOPENSU_BUILD_GAMESCOPE=OFF",
             "-DOPENSU_BUILD_LIBRASHADER=OFF",
+            # The NDK's own shader compiler, so the host needs none.
+            f"-DGLSLC={layout.ndk / 'shader-tools' / 'linux-x86_64' / 'glslc'}",
         ],
         native_env,
     )
