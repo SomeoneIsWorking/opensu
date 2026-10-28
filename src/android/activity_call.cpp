@@ -49,6 +49,17 @@ std::string ActivityCall::string(jstring text) const {
     return out;
 }
 
+std::vector<std::string> ActivityCall::strings(jobjectArray values) const {
+    std::vector<std::string> out;
+    const jsize count = env_->GetArrayLength(values);
+    out.reserve(static_cast<std::size_t>(count));
+    for (jsize i = 0; i < count; ++i) {
+        auto* value = static_cast<jstring>(env_->GetObjectArrayElement(values, i));
+        out.push_back(value != nullptr ? string(value) : std::string{});
+    }
+    return out;
+}
+
 jobjectArray ActivityCall::strings(const std::vector<std::string>& values) const {
     jobjectArray array = env_->NewObjectArray(static_cast<jsize>(values.size()),
                                               env_->FindClass("java/lang/String"), nullptr);

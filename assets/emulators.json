@@ -129,7 +129,9 @@
       "config": "~/.config/melonDS",
       "launchers": [
         {"programs": ["melonDS"], "appImage": "melonds", "flatpak": "net.kuribo64.melonDS",
-         "args": ["-f", "{rom}"]}
+         "args": ["-f", "{rom}"]},
+        {"android": "me.magnum.melonds/me.magnum.melonds.ui.emulator.EmulatorActivity",
+         "args": ["-d", "{rom}"]}
       ]
     },
     {
@@ -183,6 +185,42 @@
       "systems": ["xbox360"],
       "launchers": [
         {"programs": ["xenia_canary"], "appImage": "xenia", "args": ["--fullscreen=true", "{rom}"]}
+      ]
+    },
+    {
+      "id": "retroarch-mesen",
+      "name": "RetroArch (Mesen)",
+      "systems": ["nes"],
+      "launchers": [
+        {"android": "com.retroarch/com.retroarch.browser.retroactivity.RetroActivityFuture",
+         "args": ["-a", "android.intent.action.MAIN", "--es", "ROM", "{rom}",
+                  "--es", "LIBRETRO", "/data/data/com.retroarch/cores/mesen_libretro_android.so",
+                  "--es", "CONFIGFILE",
+                  "/storage/emulated/0/Android/data/com.retroarch/files/retroarch.cfg"]}
+      ]
+    },
+    {
+      "id": "retroarch-snes9x",
+      "name": "RetroArch (Snes9x)",
+      "systems": ["snes"],
+      "launchers": [
+        {"android": "com.retroarch/com.retroarch.browser.retroactivity.RetroActivityFuture",
+         "args": ["-a", "android.intent.action.MAIN", "--es", "ROM", "{rom}",
+                  "--es", "LIBRETRO", "/data/data/com.retroarch/cores/snes9x_libretro_android.so",
+                  "--es", "CONFIGFILE",
+                  "/storage/emulated/0/Android/data/com.retroarch/files/retroarch.cfg"]}
+      ]
+    },
+    {
+      "id": "retroarch-mgba",
+      "name": "RetroArch (mGBA)",
+      "systems": ["gba", "gb", "gbc"],
+      "launchers": [
+        {"android": "com.retroarch/com.retroarch.browser.retroactivity.RetroActivityFuture",
+         "args": ["-a", "android.intent.action.MAIN", "--es", "ROM", "{rom}",
+                  "--es", "LIBRETRO", "/data/data/com.retroarch/cores/mgba_libretro_android.so",
+                  "--es", "CONFIGFILE",
+                  "/storage/emulated/0/Android/data/com.retroarch/files/retroarch.cfg"]}
       ]
     },
     {

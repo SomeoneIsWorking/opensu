@@ -3,12 +3,14 @@ package io.github.someoneisworking.opensu;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Process;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -151,6 +153,7 @@ final class Launches {
         }
         Uri data = null;
         String type = null;
+        List<Uri> granted = new ArrayList<>();
         for (int i = 0; i < args.length; ++i) {
             String option = args[i];
             switch (option) {
@@ -166,9 +169,15 @@ final class Launches {
                 case "-c":
                     intent.addCategory(value(args, ++i, option));
                     break;
-                case "--es":
-                    intent.putExtra(value(args, ++i, option), value(args, ++i, option));
+                case "--es": {
+                    String key = value(args, ++i, option);
+                    String text = value(args, ++i, option);
+                    intent.putExtra(key, text);
+                    if (DocumentTree.isDocument(text)) {
+                        granted.add(Uri.parse(text));
+                    }
                     break;
+                }
                 case "--ei":
                     intent.putExtra(value(args, ++i, option), Integer.parseInt(value(args, ++i, option)));
                     break;
@@ -182,7 +191,16 @@ final class Launches {
         if (data != null || type != null) {
             intent.setDataAndType(data, type);
         }
-        if (data != null && "content".equals(data.getScheme())) {
+        if (data != null && DocumentTree.isDocument(data.toString())) {
+            granted.add(data);
+        }
+        // A game in a picked folder is lent to the app: data, or extras through the clip.
+        if (!granted.isEmpty()) {
+            ClipData clip = ClipData.newRawUri(null, granted.get(0));
+            for (Uri uri : granted.subList(1, granted.size())) {
+                clip.addItem(new ClipData.Item(uri));
+            }
+            intent.setClipData(clip);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         }
     }

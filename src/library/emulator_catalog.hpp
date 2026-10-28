@@ -1,6 +1,7 @@
 // emulator_catalog — the emulators openSU knows, read from the shipped `emulators.json`: which
 // systems each runs, how it is found and started on this machine, where it keeps its settings,
-// and, for one that publishes an official AppImage, where its releases are. A built-in emulator
+// and, for one that publishes an official AppImage, where its releases are. An Android
+// launcher names the app's activity, started by an intent. A built-in emulator
 // names a libretro core instead, which openSU's runner plays.
 #pragma once
 
@@ -22,7 +23,10 @@ struct EmulatorLauncher {
     std::string appImage;
     /// The Flatpak app id; empty when there is none.
     std::string flatpak;
-    /// The words after the program, `{rom}` where the game's file goes.
+    /// The Android app's activity, `package/class`; empty when there is none.
+    std::string android;
+    /// The words after the program, `{rom}` where the game's file goes; for an Android app,
+    /// its intent's options (`Launches.applyOptions`).
     std::vector<std::string> args;
 };
 

@@ -31,10 +31,7 @@ class DocumentTree final : public RomTree {
             return std::nullopt;
         }
         std::vector<RomNode> nodes;
-        const jsize count = call.env()->GetArrayLength(rows);
-        for (jsize i = 0; i < count; ++i) {
-            const std::string row =
-                call.string(static_cast<jstring>(call.env()->GetObjectArrayElement(rows, i)));
+        for (const std::string& row : call.strings(rows)) {
             if (std::optional<RomNode> node = parse(row)) {
                 nodes.push_back(std::move(*node));
             }

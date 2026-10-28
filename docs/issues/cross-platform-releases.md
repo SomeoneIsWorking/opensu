@@ -360,7 +360,17 @@ run's integrations chooser offering only standalone emulators and Lua plugins, t
 Guide menu with the media volume, Settings. "Add a ROM folder" opens Android's folder picker (`SystemFolderPicker`,
 `ACTION_OPEN_DOCUMENT_TREE`) and keeps a persistable read grant; the folder is saved as its tree
 URI and the ROM scan walks it through `DocumentsContract` (`RomTree`, `DocumentTree`); the
-runner gets the game copied into `cacheDir/staged` (cores open games by path). Shown: the picker,
+runner gets the game copied into `cacheDir/staged` (cores open games by path). A standalone
+emulator's launcher can name its Android activity (`"android": "package/class"`, its `args` the
+intent's options); it is installed when its package has a launcher activity
+(`installedAndroidApps`), and the game's `content://` URI goes to it with a read grant.
+`emulators.json` has melonDS (`-d {rom}`) and RetroArch with Mesen, Snes9x and mGBA
+(`RetroActivityFuture` with `ROM`, `LIBRETRO` and `CONFIGFILE` extras). Shown: melonDS 2.0.1
+(installed on the AVD from its GitHub release, SHA-256 checked) found for a DS game in the picked
+folder and opened by intent with the game's URI; melonDS-android only plays games in its own ROM
+folders, so the player adds the same folder there (it answered "Could not find ROM"). Unverified:
+the RetroArch templates (no RetroArch on the AVD), and RetroArch reading a `content://` game.
+Shown: the picker,
 the NES test ROM listed from `/sdcard/ROMs` picked through it, Mesen downloaded for x86_64 and
 the ROM running on the `:retro` runner. Left for this step: the runner's touch layer and a way
 back to the shell from a game (Back and the Guide button do not reach the shell while the runner

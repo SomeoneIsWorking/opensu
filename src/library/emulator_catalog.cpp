@@ -183,7 +183,8 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
         }
         entry.launchers.push_back(EmulatorLauncher{
             words(launcher, "programs", where), text(launcher, "appImage", where, false),
-            text(launcher, "flatpak", where, false), words(launcher, "args", where)});
+            text(launcher, "flatpak", where, false), text(launcher, "android", where, false),
+            words(launcher, "args", where)});
     }
     if (const auto release = object.find("release"); release != object.end()) {
         if (!release->is_object()) {

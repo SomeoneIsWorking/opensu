@@ -83,7 +83,7 @@ Handoff::Begun Handoff::beginSteam(const library::Game& game, const Hooks& hooks
 Handoff::Begun Handoff::beginScope(const library::Game& game,
                                    const std::vector<std::string>& environment,
                                    std::string& failure) {
-    if (resolveExecutable(game.launch.program, executablePath_).empty()) {
+    if (!ProcessLauncher::startable(game.launch.program, executablePath_)) {
         failure = "could not start " + programName(game.launch.program);
         return Begun::Failed;
     }

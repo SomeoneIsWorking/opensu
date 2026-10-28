@@ -67,8 +67,10 @@ class ReleaseServer {
         entry.id = emulator.id;
         entry.name = emulator.name;
         entry.systems = {emulator.system};
-        entry.launchers = {
-            library::roms::EmulatorLauncher{{emulator.id + "-not-on-path"}, "", "", {"{rom}"}}};
+        library::roms::EmulatorLauncher launcher;
+        launcher.programs = {emulator.id + "-not-on-path"};
+        launcher.args = {"{rom}"};
+        entry.launchers = {std::move(launcher)};
         entry.release = library::roms::ReleaseSource{base() + "/api/" + emulator.id, emulator.asset,
                                                      base() + "/dl/"};
         return entry;

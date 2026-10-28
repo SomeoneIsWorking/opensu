@@ -87,6 +87,17 @@ public final class ShellActivity extends LandscapeActivity {
         return answer;
     }
 
+    /** Called from the emulator search: packages with a launcher activity. */
+    public String[] installedApps() {
+        Intent launchers = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
+        java.util.Set<String> packages = new java.util.TreeSet<>();
+        for (android.content.pm.ResolveInfo info
+                : getPackageManager().queryIntentActivities(launchers, 0)) {
+            packages.add(info.activityInfo.packageName);
+        }
+        return packages.toArray(new String[0]);
+    }
+
     /** Called from the document RomTree: the children of a picked folder or a folder in it. */
     public String[] listDocuments(String location) {
         return documents.children(location);

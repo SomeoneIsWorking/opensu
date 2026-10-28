@@ -2,10 +2,11 @@
 //
 // The emulators are the catalog's (`emulator_catalog`). One is installed when openSU downloaded
 // its AppImage, or, for each of its launchers in turn, a program of it is on PATH, an AppImage of
-// it is in one of the usual folders, or its Flatpak is installed; the first found is the one that
-// runs. A built-in emulator is installed when its core is found (`libretro_cores`) and runs on
-// openSU's runner, `opensu-retro`. The first emulator of the catalog found for a system serves it,
-// and an override from configuration replaces the search for its system.
+// it is in one of the usual folders, its Flatpak is installed, or its Android app is; the first
+// found is the one that runs. A built-in emulator is installed when its core is found
+// (`libretro_cores`) and runs on openSU's runner, `opensu-retro`. The first emulator of the catalog
+// found for a system serves it, and an override from configuration replaces the search for its
+// system.
 #pragma once
 
 #include <cstdint>
@@ -16,6 +17,7 @@
 #include <string_view>
 #include <vector>
 
+#include "android_apps.hpp"
 #include "appimage_runtime.hpp"
 #include "config/config.hpp"
 #include "core_target.hpp"
@@ -33,6 +35,8 @@ struct EmulatorSearch {
     std::vector<std::filesystem::path> appImageDirs;
     /// Flatpak installations' `app` directories.
     std::vector<std::filesystem::path> flatpakDirs;
+    /// Installed Android apps' package names (`installedAndroidApps`).
+    std::vector<std::string> androidApps;
     /// openSU's own downloads; empty for none.
     std::filesystem::path downloads;
     /// Whether AppImages can start here.
@@ -67,6 +71,8 @@ enum class InstallSource : std::uint8_t {
     /// An AppImage openSU downloaded.
     Downloaded,
     Flatpak,
+    /// An installed Android app, started by an intent.
+    AndroidApp,
     /// A core openSU downloaded from the libretro buildbot.
     DownloadedCore,
     /// A core in RetroArch's or the system's core folder.
