@@ -205,8 +205,8 @@ openSU's own set (`assets/sounds/`, MIT, synthesized by `tools/sounds/`): one 48
 per effect, peaks at -6 dBFS, loaded at start by `audio::SdlSoundPlayer::loadSet` and played one
 stream per effect. openSU downloads none of iiSU's sounds. Settings › Audio › UI sounds mutes them;
 Settings › Audio › Interface sounds takes iiSU's instead (`app::InterfaceSounds`), read through
-`artwork::IisuPack` from the iiSU release the player gave for the console art or picks there, the
-one `iisuFile`; an effect the file lacks keeps openSU's.
+`artwork::IisuPack` from iiSU's release APK placed in `<data dir>/themes/iiSU/`
+(`artwork::IisuInstall`), offered only while it is there; an effect the file lacks keeps openSU's.
 A `--hidden` run opens no device unless `--sound`. Events (`input-sound.md` 3.4): Navigation on a
 focus move or a press; EnterConsolesApps on A opening a console, launcher or All games;
 ExitConsolesApps on B back to Library; OpenAppRom on a game launch; Open / Close on a panel
@@ -447,20 +447,21 @@ open (iiSU's file gone) warns why and the default is shown whole.
   (body corners 4, detail corners 1.5, detail lines 2, screens and lids a 40% tone); a card shows
   the hardware (the SNES its controller, the Dreamcast from above), a glyph the thing held in the
   hand or the console's outline.
-- iiSU: read from a file the player downloads from iiSU's releases page, the release APK or its
-  starter pack alone; openSU downloads none of it. Stepping to iiSU opens the file chooser (`.apk`
-  and `.zip` listed, starting in the remembered file's folder, else `~/Downloads`);
-  `artwork::IisuPack::open` reads the file's zip directory and refuses, with the reason, a file that
-  is not a zip or holds neither `assets/iiSU_StarterPack.zip` nor `platforms/<console>.webp` cards.
-  The file is kept as `iisuFile` and stays remembered when the player steps to another theme. Cards
+- iiSU: read from a file the player downloads from iiSU's releases page and places in
+  `<data dir>/themes/iiSU/`, the release APK or its starter pack alone; openSU downloads none of it.
+  `artwork::IisuInstall` lists that folder's `.apk` and `.zip` files and takes the release APK before
+  a starter pack; `artwork::IisuPack::open` refuses, with the reason (logged), a file that is not a
+  zip or holds neither `assets/iiSU_StarterPack.zip` nor `platforms/<console>.webp` cards. With no
+  iiSU file there, neither the theme nor the iiSU interface sounds are offered; an older
+  `settings.json`'s `iisuFile` is ignored. Cards
   come from the starter pack's `platforms/<system>.webp` and fill the whole tile (they carry their
   own frame and glyph); glyphs from the logos `assets/borders/border_pack.json` names, so the
   starter pack alone gives none. iiSU has no PS4 card, so that tile has no picture.
 
 Checked in the running product: throwaway offline homes with one ROM per system show every theme
 at tile size (Drawings and Photos with names and counts fitting, iiSU's whole-tile cards with PS4
-bare), and Settings steps Drawings, Photos, iiSU (chooser, another app's file refused, the starter
-pack taken) and a user theme (`tests/app/settings_controller_test.cpp`). The README's
+bare), and Settings steps Drawings, Photos, iiSU (offered once its file is placed, another app's
+APK passed over) and a user theme (`tests/app/settings_controller_test.cpp`). The README's
 `library-photos`, `library-drawings` and `library-iisu` are the player's own library in each;
 the rest of the README set is in Photos, the default.
 
@@ -532,7 +533,7 @@ shows its placeholder spinner until its handle is ready, and a tile scrolled awa
 cancelled. Nothing decodes on the frame thread. Measured on the maintainer's library (774 games in
 All games, hidden window, `worstFrameUs` from `/state`, three runs each on a loaded machine whose
 idle worst frame itself ranged 19-128 ms): choosing iiSU's console art (before, its downloaded
-cards decoded on the frame thread; now, picking iiSU's APK on the chooser) went from 89/92/266 ms
+cards decoded on the frame thread; now, read from iiSU's APK) went from 89/92/266 ms
 worst frame to 22/22/115 ms, and 60 tiles of All games scrolled at 0.06 s a step from 17/48/71 ms to
 17/19/25 ms.
 

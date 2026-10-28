@@ -1,13 +1,11 @@
 // interface_sound_settings — Settings › Audio › Interface sounds: openSU's own (the default) or
-// iiSU's, read from the iiSU release the player already gave for the console art, else from one
-// picked here on the same chooser and kept as the same file.
+// iiSU's, offered only while iiSU's release APK is placed in the iiSU folder.
 #pragma once
 
-#include <filesystem>
 #include <functional>
 #include <string>
 
-#include "iisu_file_chooser.hpp"
+#include "artwork/iisu_install.hpp"
 #include "preferences.hpp"
 #include "ui/setting_row.hpp"
 
@@ -15,30 +13,25 @@ namespace opensu::app {
 
 class InterfaceSoundSettings {
   public:
-    struct Hooks {
-        /// The choice changed: the sounds are loaded again.
-        std::function<void()> changed;
-        /// The iiSU file changed, which the console art reads too.
-        std::function<void()> fileChanged;
-    };
-
-    InterfaceSoundSettings(Preferences& preferences, IisuFileChooser& chooser, Hooks hooks)
-        : preferences_{preferences}, chooser_{chooser}, hooks_{std::move(hooks)} {
+    /// `changed` runs when the choice changed: the sounds are loaded again.
+    InterfaceSoundSettings(Preferences& preferences, const artwork::IisuInstall& iisu,
+                           std::function<void()> changed)
+        : preferences_{preferences}, iisu_{iisu}, changed_{std::move(changed)} {
     }
 
     /// The Audio page's row.
     [[nodiscard]] ui::SettingsRow row() const;
     [[nodiscard]] static bool owns(const std::string& id);
-    /// Either step lands on the other choice; iiSU's asks for a release first when the file kept
-    /// has no sounds.
+    /// Either step lands on the other choice, when iiSU's is offered.
     void run(const std::string& id, int step);
 
   private:
-    void use(settings::AssetOwner owner, const std::filesystem::path& iisuFile);
+    /// The iiSU file placed, when it holds the sounds.
+    [[nodiscard]] std::shared_ptr<const artwork::IisuPack> iisuSounds() const;
 
     Preferences& preferences_;
-    IisuFileChooser& chooser_;
-    Hooks hooks_;
+    const artwork::IisuInstall& iisu_;
+    std::function<void()> changed_;
 };
 
 } // namespace opensu::app

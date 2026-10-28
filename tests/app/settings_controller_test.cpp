@@ -101,9 +101,8 @@ struct Rig {
               [this, steamPort]() -> launch::SteamGate* {
                   return steamPort == 1 ? nullptr : &steamGate;
               }}},
-          chooser{paths, config.home},
           artworkSettings{steamGridDbAccount, app::ArtworkSettings::Entry{screens.navigator, pad},
-                          app::ArtworkSettings::Services{preferences, themes, chooser, sounds},
+                          app::ArtworkSettings::Services{preferences, themes, sounds},
                           app::ArtworkSettings::Hooks{[this](const std::string& text, bool error) {
                                                           said.push_back({text, error});
                                                       },
@@ -116,14 +115,11 @@ struct Rig {
                                                       [this] {
                                                           ++consoleArtChanges;
                                                       }}},
-          interfaceSoundSettings{preferences, chooser,
-                                 app::InterfaceSoundSettings::Hooks{[this] {
-                                                                        ++soundChanges;
-                                                                        controller.refresh();
-                                                                    },
-                                                                    [this] {
-                                                                        ++iisuFileChanges;
-                                                                    }}},
+          interfaceSoundSettings{preferences, themes.iisu(),
+                                 [this] {
+                                     ++soundChanges;
+                                     controller.refresh();
+                                 }},
           volume{mixer ? std::unique_ptr<audio::VolumeBackend>{std::make_unique<FakeMixer>(
                              &mixerState, &mixerLog)}
                        : nullptr,
@@ -322,13 +318,11 @@ struct Rig {
     app::SteamGridDbAccount steamGridDbAccount;
     /// Console art themes from folders a test fills in.
     artwork::ConsoleThemes themes{config.home / "shipped-themes", config.home / "user-themes"};
-    app::IisuFileChooser chooser;
     app::ArtworkSettings artworkSettings;
     int artworkRequests{0};
     int consoleArtChanges{0};
     app::InterfaceSoundSettings interfaceSoundSettings;
     int soundChanges{0};
-    int iisuFileChanges{0};
     audio::VolumeState mixerState{40, false};
     std::vector<std::string> mixerLog;
     std::vector<audio::VolumeState> shown;
@@ -1300,99 +1294,89 @@ void writeTheme(const fs::path& folder, const std::string& name) {
     std::ofstream{folder / "theme.json"} << R"({"name": ")" << name << R"(", "note": "Test art"})";
 }
 
+/// iiSU's starter pack: cards only.
+std::string iisuStarterPack() {
+    return test::zipfixture::buildZip({{"platforms/gc.webp", "RIFF card", false, {}}});
+}
+
+/// iiSU's release APK: cards and sounds.
+std::string iisuRelease() {
+    return test::zipfixture::buildZip(
+        {{"assets/iiSU_StarterPack.zip", iisuStarterPack(), false, {}},
+         {"assets/Navigation.wav", "RIFF tick", false, {}}});
+}
+
+/// Places `bytes` as `name` in the iiSU folder of the rig's themes.
+void placeIisu(Rig& rig, const std::string& name, const std::string& bytes) {
+    const fs::path folder = rig.config.home / "user-themes" / "iiSU";
+    fs::create_directories(folder);
+    std::ofstream{folder / name, std::ios::binary} << bytes;
+}
+
 /// Settings > Artwork: the console art theme is the default until the player steps it; the
-/// shipped themes come first, then iiSU's, then the player's own. iiSU's asks for its file on
-/// the chooser, refuses a file that is not iiSU's, and keeps the one taken.
+/// shipped themes come first, then iiSU's while its file is placed, then the player's own.
 void consoleThemeIsChosen(const fs::path& root) {
     Rig rig{root};
     writeTheme(rig.config.home / "shipped-themes" / "drawings", "Drawings");
     writeTheme(rig.config.home / "shipped-themes" / "photos", "Photos");
     writeTheme(rig.config.home / "user-themes" / "mine", "Mine");
+    placeIisu(rig, "other.apk",
+              test::zipfixture::buildZip({{"assets/other.png", "png", false, {}}}));
     rig.controller.open();
     rig.enter("Artwork");
     const ui::SettingsRow art = rig.rowOf("artwork.consoleart");
-    expect(art.choices == std::vector<std::string>{"Photos", "Drawings", "iiSU", "Mine"} &&
+    expect(art.choices == std::vector<std::string>{"Photos", "Drawings", "Mine"} &&
                art.choices[art.chosen] == "Photos" && art.note == "Test art",
-           "the default theme leads and is chosen");
+           "the default theme leads and another app's APK offers no iiSU theme");
+
+    placeIisu(rig, "iiSU_StarterPack.zip", iisuStarterPack());
+    rig.controller.refresh();
+    expect(rig.rowOf("artwork.consoleart").choices ==
+               std::vector<std::string>{"Photos", "Drawings", "iiSU", "Mine"},
+           "iiSU's file placed offers its theme after the shipped ones");
+    rig.screens.frame();
     rig.focus("artwork.consoleart");
     rig.act(Button::Right);
     expect(rig.onDisk().consoleTheme == "drawings" && rig.consoleArtChanges == 1,
            "stepping keeps the next theme");
     rig.act(Button::Right);
-    expect(rig.paths.active() && rig.onDisk().consoleTheme == "drawings",
-           "stepping to iiSU's opens the file chooser first");
-
-    const fs::path other = rig.config.home / "other.apk";
-    std::ofstream{other, std::ios::binary}
-        << test::zipfixture::buildZip({{"assets/other.png", "png", false, {}}});
-    rig.paths.pick(other);
-    expect(rig.paths.active() && saidSomething(rig, "not iiSU's", true) &&
-               rig.onDisk().consoleTheme == "drawings",
-           "another app's APK is refused and the chooser stays");
-
-    const fs::path pack = rig.config.home / "iiSU_StarterPack.zip";
-    std::ofstream{pack, std::ios::binary}
-        << test::zipfixture::buildZip({{"platforms/gc.webp", "RIFF card", false, {}}});
-    rig.paths.pick(pack);
     const ui::SettingsRow chosen = rig.rowOf("artwork.consoleart");
-    expect(!rig.paths.active() && rig.onDisk().consoleTheme == "iisu" &&
-               rig.onDisk().iisuFile == pack && chosen.choices[chosen.chosen] == "iiSU" &&
+    expect(rig.onDisk().consoleTheme == "iisu" && chosen.choices[chosen.chosen] == "iiSU" &&
                chosen.note == "iiSU's, from iiSU_StarterPack.zip" && rig.consoleArtChanges == 2,
-           "iiSU's file is kept and its theme shown");
+           "iiSU's theme is chosen straight away, naming its file");
     rig.act(Button::Right);
-    expect(rig.onDisk().consoleTheme == "user/mine" && rig.onDisk().iisuFile == pack,
-           "the player's own theme follows, the iiSU file remembered");
+    expect(rig.onDisk().consoleTheme == "user/mine", "the player's own theme follows");
     rig.act(Button::Right);
     expect(rig.onDisk().consoleTheme.empty() && rig.consoleArtChanges == 4,
            "and the default comes round again");
 }
 
-/// Settings > Audio: Interface sounds are openSU's until the player takes iiSU's; the iiSU file
-/// kept for the console art serves when it holds the sounds, else the chooser asks for the release,
-/// whose file then serves the console art too.
+/// Settings > Audio: Interface sounds are openSU's alone until iiSU's release is placed; a
+/// starter pack holds no sounds, so it offers none.
 void interfaceSoundsAreChosen(const fs::path& root) {
     Rig rig{root};
     fs::create_directories(rig.config.home);
-    const fs::path pack = rig.config.home / "iiSU_StarterPack.zip";
-    std::ofstream{pack, std::ios::binary}
-        << test::zipfixture::buildZip({{"platforms/gc.webp", "RIFF card", false, {}}});
-    rig.preferences.values().iisuFile = pack;
+    placeIisu(rig, "iiSU_StarterPack.zip", iisuStarterPack());
     rig.controller.open();
     rig.enter("Audio");
     const ui::SettingsRow sounds = rig.rowOf("audio.interfacesounds");
-    expect(sounds.choices.size() == 2 && sounds.choices[sounds.chosen] == "openSU" &&
+    expect(sounds.choices == std::vector<std::string>{"openSU"} &&
                sounds.note == "openSU's own sounds",
-           "interface sounds start as openSU's own");
+           "with no sounds placed only openSU's are offered");
+
+    placeIisu(rig, "iiSU-Alpha-7.4.apk", iisuRelease());
+    rig.controller.refresh();
+    rig.screens.frame();
     rig.focus("audio.interfacesounds");
     rig.act(Button::Right);
-    expect(rig.paths.active() && rig.onDisk().interfaceSounds == settings::AssetOwner::OpenSu,
-           "a starter pack holds no sounds, so the chooser asks for the release");
-    rig.paths.pick(pack);
-    expect(rig.paths.active() && saidSomething(rig, "holds no sounds", true),
-           "the starter pack is refused with why");
-
-    const fs::path release = rig.config.home / "iiSU-Alpha-7.4.apk";
-    std::ofstream{release, std::ios::binary} << test::zipfixture::buildZip(
-        {{"assets/iiSU_StarterPack.zip",
-          test::zipfixture::buildZip({{"platforms/gc.webp", "RIFF card", false, {}}}),
-          false,
-          {}},
-         {"assets/Navigation.wav", "RIFF tick", false, {}}});
-    rig.paths.pick(release);
     const ui::SettingsRow chosen = rig.rowOf("audio.interfacesounds");
-    expect(!rig.paths.active() && rig.onDisk().interfaceSounds == settings::AssetOwner::Iisu &&
-               rig.onDisk().iisuFile == release && chosen.choices[chosen.chosen] == "iiSU" &&
-               chosen.note == "iiSU's, from iiSU-Alpha-7.4.apk" && rig.soundChanges == 1 &&
-               rig.iisuFileChanges == 1,
-           "the release is kept as the one iiSU file and its sounds are loaded");
+    expect(rig.onDisk().interfaceSounds == settings::AssetOwner::Iisu &&
+               chosen.choices[chosen.chosen] == "iiSU" &&
+               chosen.note == "iiSU's, from iiSU-Alpha-7.4.apk" && rig.soundChanges == 1,
+           "the release placed offers iiSU's sounds, which are taken");
     rig.act(Button::Left);
-    expect(rig.onDisk().interfaceSounds == settings::AssetOwner::OpenSu &&
-               rig.onDisk().iisuFile == release && rig.soundChanges == 2,
-           "openSU's come back, the file remembered");
-    rig.act(Button::Right);
-    expect(!rig.paths.active() && rig.onDisk().interfaceSounds == settings::AssetOwner::Iisu &&
-               rig.soundChanges == 3 && rig.iisuFileChanges == 1,
-           "the kept release serves again without the chooser");
+    expect(rig.onDisk().interfaceSounds == settings::AssetOwner::OpenSu && rig.soundChanges == 2,
+           "openSU's come back");
 }
 
 constexpr const char* steamGridDbKey = "0123456789abcdef0123456789abcdef";

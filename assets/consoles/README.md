@@ -9,7 +9,7 @@ one.
 | --- | --- | --- | --- |
 | Photos (default) | `photos/` | Photos of the hardware, public domain, CC BY or CC BY-SA as each is listed, with the Drawings glyphs | See [photos/README.md](photos/README.md) |
 | Drawings | `drawings/` | openSU's own drawings of the hardware, no logos | MIT (`LICENSE`) |
-| iiSU | none | iiSU's cards and glyphs, read from iiSU's release file the player chooses | iiSU's; not shipped |
+| iiSU | none | iiSU's cards and glyphs, read from iiSU's release APK the player places in `<data dir>/themes/iiSU/` | iiSU's; not shipped |
 
 ## Layout
 

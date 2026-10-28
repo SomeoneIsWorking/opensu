@@ -35,9 +35,11 @@ std::vector<ThemeInfo> ConsoleThemes::list() const {
             themes.push_back(theme->info());
         }
     }
-    themes.push_back(ThemeInfo{.id = std::string{iisuConsoleTheme},
-                               .name = "iiSU",
-                               .note = "iiSU's, from iiSU's release file you choose"});
+    if (const std::shared_ptr<const IisuPack> pack = iisu_.pack()) {
+        themes.push_back(ThemeInfo{.id = std::string{iisuConsoleTheme},
+                                   .name = "iiSU",
+                                   .note = "iiSU's, from " + pack->file().filename().string()});
+    }
     for (const std::filesystem::path& folder : foldersIn(user_)) {
         if (const auto theme = openFolder(std::string{userThemePrefix} + folder.filename().string(),
                                           folder, error)) {
@@ -48,14 +50,17 @@ std::vector<ThemeInfo> ConsoleThemes::list() const {
 }
 
 std::shared_ptr<const ConsoleTheme> ConsoleThemes::open(std::string_view id,
-                                                        const std::filesystem::path& iisuFile,
                                                         std::string& error) const {
     if (id.empty()) {
         id = defaultConsoleTheme;
     }
     if (id == iisuConsoleTheme) {
-        std::shared_ptr<const IisuPack> pack = IisuPack::open(iisuFile, error);
-        return pack == nullptr ? nullptr : std::make_shared<const IisuTheme>(std::move(pack));
+        std::shared_ptr<const IisuPack> pack = iisu_.pack();
+        if (pack == nullptr) {
+            error = "no iiSU release or starter pack in " + iisu_.folder().string();
+            return nullptr;
+        }
+        return std::make_shared<const IisuTheme>(std::move(pack));
     }
     if (id.starts_with(userThemePrefix)) {
         const std::string_view folder = id.substr(userThemePrefix.size());

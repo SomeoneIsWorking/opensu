@@ -3,9 +3,9 @@
 `--profile real` runs openSU --hidden on the player's own home with the network, as their session
 has it, and writes the README's WebPs to docs/screenshots/. It refuses while another openSU runs and
 puts the player's settings files back afterwards. `--game`, `--console` and `--search` pick what it
-shows. `--console-theme THEME` shows another console art theme (`--iisu-file FILE` for iiSU's,
-iiSU's release APK or starter pack) and writes only Library in it, `library-<theme>`; the default
-run (Photos, openSU's default) writes `library-photos` beside the README set.
+shows. `--console-theme THEME` shows another console art theme (iiSU's needs its file placed in
+openSU's iiSU themes folder) and writes only Library in it, `library-<theme>`; the default run
+(Photos, openSU's default) writes `library-photos` beside the README set.
 
 `--profile demo` (the default) builds the demo library, then runs openSU --hidden offline in a
 throwaway home and writes one WebP per demo scene to scratch/screenshots/demo/. With --parity DIR,
@@ -71,12 +71,7 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         help="real: the console art theme the run shows (photos, drawings, iisu or user/<name>); "
         "any but the default writes only Library in it, as library-<theme>",
     )
-    parser.add_argument(
-        "--iisu-file", type=Path, help="real: iiSU's release APK or starter pack, for iisu"
-    )
     args = parser.parse_args(argv)
-    if args.console_theme == "iisu" and (args.iisu_file is None or not args.iisu_file.is_file()):
-        parser.error("--console-theme iisu needs --iisu-file, iiSU's release APK or starter pack")
     if args.out is None:
         args.out = README_OUTPUT if args.profile == "real" else DEMO_OUTPUT
     return args
@@ -97,7 +92,7 @@ def _capture_real(args: argparse.Namespace) -> int:
         else theme_scenes(picks, args.console_theme.replace("/", "-"))
     )
     with real.KeptSettings(run / "settings-backup"):
-        real.choose_console_theme(args.console_theme, args.iisu_file)
+        real.choose_console_theme(args.console_theme)
         _run(
             args.opensu,
             RealHome(),
