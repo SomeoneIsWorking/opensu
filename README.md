@@ -34,8 +34,8 @@ derived from the window, following iiSU's own layout rules.
 | Home: installed games from every store | Library: stores, all games and one tile per console |
 | ![A game's details page](docs/screenshots/details.webp) | ![Guide menu](docs/screenshots/guide.webp) |
 | A game's details page | Guide menu |
-| ![Settings](docs/screenshots/settings.webp) | ![Quick menu](docs/screenshots/quick-menu.webp) |
-| Settings | Quick menu |
+| ![Settings](docs/screenshots/settings.webp) | ![Search with results](docs/screenshots/search.webp) |
+| Settings | Search with results |
 
 The demo library is freely licensed games; art sources and licences are in
 [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md). Captured with

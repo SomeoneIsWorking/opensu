@@ -488,7 +488,7 @@ SCENES: tuple[Scene, ...] = (
     ),
     Scene("context-menu", "A game tile's menu", _context_menu, _close_context_menu),
     Scene("options-panel", "Library's options panel", _options_panel, _close_options_panel),
-    Scene("search", "Search with results", _search, _close_search),
+    Scene("search", "Search with results", _search, _close_search, readme=True),
     Scene("volume", "The volume display", _volume, _volume_gone, settle=VOLUME_SETTLE_SECONDS),
     Scene(
         "chord-hint",
