@@ -33,6 +33,12 @@ def run(layout: config.Layout, installer: Path, env: Mapping[str, str]) -> Path:
     if "opensu" not in (usage.stdout + usage.stderr):
         raise RuntimeError(f"`opensu.exe --help` printed no usage:\n{usage.stdout}{usage.stderr}")
     rendered = layout.smoke / "frame.png"
-    process.run([opensu, "--render", rendered], user)
+    # A GUI program only writes its log to handles it is given.
+    drawn = subprocess.run([opensu, "--render", rendered], env=user, capture_output=True,
+                           text=True, check=False, timeout=300)  # fmt: skip
+    (layout.smoke / "render.log").write_text(drawn.stdout + drawn.stderr)
+    if drawn.returncode != 0:
+        output = drawn.stdout + drawn.stderr
+        raise RuntimeError(f"`opensu.exe --render` exited {drawn.returncode}:\n{output}")
     frame.check(rendered)
     return rendered
