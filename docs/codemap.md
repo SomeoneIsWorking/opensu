@@ -426,7 +426,7 @@ Painters and composition (`opensu_ui`):
 | `src/ui/keyboard_chrome.*` | The docked keyboard as a chrome screen: its fade, its keys as parts (hover focuses, a press is A) and the strip it covers taking every other press; the room above it |
 | `src/ui/mapping_chrome.*` | The mapping editor's card as a chrome screen: its fade, and every press while it is up |
 | `src/ui/chrome_panel.*` | A chrome screen's root (drawn by the chrome's painter, solid where it swallows presses) and its pressable parts (`ChromePart`); `ChromeFrame` |
-| `src/ui/hud.*` | Chrome around the grid: ground, top bar (with the crumb or badge the pointer rests on), corner hints, toast (kept above the dock); grid insets; the crumb and badge cells the top bar's parts stand on |
+| `src/ui/hud.*` | Chrome around the grid: ground, top bar (with the crumb or badge the pointer rests on), corner hints, toast (kept above the dock, sized in dp); grid insets; the crumb and badge cells the top bar's parts stand on |
 | `src/ui/folder_chooser.*` | The folder chooser's model: the folder shown, its folders and the files an `Accept` filter takes, up and into, the reason one cannot be read |
 | `src/ui/entry_screen.*` | A card asking for one line of text (a key, a password) in a `TextField`, masked for a secret; no hint row while the field is edited, when the docked keyboard's row names the buttons |
 | `src/ui/volume_osd.*`, `volume_osd_painter.*` | The volume overlay: model (hold, fade) and painter |

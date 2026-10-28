@@ -8,6 +8,7 @@
 
 #include "clock_text.hpp"
 #include "corner_hints.hpp"
+#include "interface_theme.hpp"
 #include "round_shape.hpp"
 
 namespace opensu::ui {
@@ -215,10 +216,12 @@ void Hud::drawToast(Canvas& canvas, float floor) const {
     if (toast_.empty()) {
         return;
     }
+    // In dp like the rest of the interface, so it reads the same on a dense phone screen.
+    const gpu2d::ui::Theme theme = interfaceTheme(dp_);
     const float u = unit();
-    const float size = text_.sizeForLineHeight(u * 1.4f);
+    const float size = theme.px(theme.type.toast);
     const float textWidth = text_.measure(toast_, size);
-    const float padding = u * 2.0f;
+    const float padding = theme.px(theme.spacing.pad);
     const float boxHeight = text_.lineHeight(size) + padding;
     const Rect box{
         (static_cast<float>(width_) - textWidth - 2.0f * padding) / 2.0f,
@@ -227,9 +230,9 @@ void Hud::drawToast(Canvas& canvas, float floor) const {
         boxHeight,
     };
     canvas.fillRoundRect(onCanvas(box), cornerRadius(box, 0.5f),
-                         toastError_ ? Colour{0xb3, 0x26, 0x1e, 240}
-                                     : Colour{0x2b, 0x27, 0x33, 240});
-    text_.drawCentred(canvas, toast_, Point{box.x + padding, box.centreY()}, size, white);
+                         toastError_ ? theme.colours.toastError : theme.colours.toast);
+    text_.drawCentred(canvas, toast_, Point{box.x + padding, box.centreY()}, size,
+                      theme.colours.onToast);
 }
 
 } // namespace opensu::ui
