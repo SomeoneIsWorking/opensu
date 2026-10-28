@@ -2,6 +2,7 @@ add_library(opensu_steam STATIC client.cpp desktop_steam.cpp devtools.cpp downlo
     install_wizard.cpp uninstaller.cpp big_picture.cpp launch_activity.cpp orphaned_steam.cpp libraries.cpp sandbox.cpp secret_bus.cpp
     steamgriddb_sign_in.cpp store_page.cpp)
 add_library(opensu::steam ALIAS opensu_steam)
+target_link_libraries(opensu_steam PUBLIC nlohmann_json::nlohmann_json)
 # The client's modes: openSU's own scoped and sandboxed Steam exist only on Linux.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_steam PRIVATE client_modes_scoped.cpp)

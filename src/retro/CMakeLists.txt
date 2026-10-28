@@ -8,6 +8,7 @@ add_library(opensu_retro STATIC
 gpu2d_compile_shaders(opensu_retro shaders/frame.vert shaders/frame.frag shaders/sharp_bilinear.frag
     shaders/crt_lottes.frag)
 add_library(opensu::retro ALIAS opensu_retro)
+target_link_libraries(opensu_retro PRIVATE nlohmann_json::nlohmann_json)
 target_include_directories(opensu_retro
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(opensu_retro

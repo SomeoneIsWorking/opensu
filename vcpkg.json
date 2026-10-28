@@ -9,6 +9,7 @@
     "libvorbis",
     "libwebp",
     "nanosvg",
+    "nlohmann-json",
     "openssl",
     {
       "name": "sdl3",
