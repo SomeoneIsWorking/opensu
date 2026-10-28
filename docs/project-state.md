@@ -445,8 +445,8 @@ open (iiSU's file gone) warns why and the default is shown whole.
   Drawings'.
 - Drawings (`assets/consoles/drawings/`, MIT): openSU's own silhouettes on a 64 x 64 box
   (body corners 4, detail corners 1.5, detail lines 2, screens and lids a 40% tone); a card shows
-  the hardware (SNES and Dreamcast their controllers), a glyph the thing held in the hand or the
-  console's outline.
+  the hardware (the SNES its controller, the Dreamcast from above), a glyph the thing held in the
+  hand or the console's outline.
 - iiSU: read from a file the player downloads from iiSU's releases page, the release APK or its
   starter pack alone; openSU downloads none of it. Stepping to iiSU opens the file chooser (`.apk`
   and `.zip` listed, starting in the remembered file's folder, else `~/Downloads`);
