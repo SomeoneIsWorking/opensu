@@ -6,6 +6,7 @@
 #include <variant>
 
 #include "hud.hpp"
+#include "library/add_game_offer.hpp"
 #include "lucent/log.h"
 #include "tile_geometry.hpp"
 
@@ -142,7 +143,7 @@ void HomeGrid::fillTile(Tile& tile, library::ShelfItem item) const {
         tile.caption = "Free to keep";
     } else if (std::holds_alternative<library::AddGame>(tile.item)) {
         tile.title = std::string{library::addGameName};
-        tile.caption = "A file, Steam shortcuts, Lutris";
+        tile.caption = std::string{library::addGameOffer()};
     } else {
         for (const library::Source source : std::get<library::Game>(tile.item).ownedIn) {
             if (const std::optional<Icon> icon = iconFor(source)) {
