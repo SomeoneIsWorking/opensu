@@ -454,10 +454,9 @@ std::vector<ui::SettingsRow> MappingEditor::settingsRows() const {
     rows.push_back(ui::makeRow(std::string{globalSetting}, ui::RowKind::Action, "Button mapping",
                                "Every game's, unless it has its own",
                                scopes_.at(settings::Layer{}) != nullptr ? "Custom" : "None"));
-    rows.push_back(ui::makePage(std::string{emulatorsSetting}, "Emulator mappings",
-                                "Each emulator's, shared by its games",
-                                emulators.empty() ? "No emulators"
-                                                  : std::to_string(emulators.size())));
+    rows.push_back(ui::makePage(
+        std::string{emulatorsSetting}, "Emulator mappings", "Each emulator's, shared by its games",
+        emulators.empty() ? "No emulators" : std::to_string(emulators.size())));
     rows.push_back(ui::makeToggle(std::string{steamSetting}, "Steam Input",
                                   "Steam maps every game's buttons", scopes_.steamInputGlobal()));
     return rows;

@@ -8,7 +8,7 @@ namespace opensu::host {
 
 class InstanceLock {
   public:
-    explicit InstanceLock(std::filesystem::path file);
+    explicit InstanceLock(const std::filesystem::path& file);
     ~InstanceLock();
     InstanceLock(const InstanceLock&) = delete;
     InstanceLock& operator=(const InstanceLock&) = delete;

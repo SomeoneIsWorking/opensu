@@ -9,9 +9,9 @@
 
 #include "button_glyph.hpp"
 #include "hint_row.hpp"
+#include "interface_text.hpp"
 #include "on_screen_keyboard.hpp"
 #include "panel_fade.hpp"
-#include "interface_text.hpp"
 
 namespace opensu::ui {
 

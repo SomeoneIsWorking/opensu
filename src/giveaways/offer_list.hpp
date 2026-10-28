@@ -1,6 +1,7 @@
 // offer_list — which offers the Giveaways screen shows and in what order: every offer not ended,
 // the stores the player has turned on first (in Steam, GOG, Epic order), then the others; free now
-// before upcoming, the one ending soonest first. Each says whether the player owns it and when it ends, in words.
+// before upcoming, the one ending soonest first. Each says whether the player owns it and when it
+// ends, in words.
 #pragma once
 
 #include <filesystem>

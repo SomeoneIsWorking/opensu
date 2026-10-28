@@ -5,8 +5,8 @@
 
 #include "breadcrumbs.hpp"
 #include "glass.hpp"
-#include "top_bar_metrics.hpp"
 #include "gpu2d/ui/typesetter.hpp"
+#include "top_bar_metrics.hpp"
 
 namespace opensu::ui {
 

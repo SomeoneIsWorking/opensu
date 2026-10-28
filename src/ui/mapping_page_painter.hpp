@@ -9,9 +9,9 @@
 #include <string>
 
 #include "button_glyph.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 #include "mapping_page.hpp"
 #include "panel_fade.hpp"
-#include "gpu2d/ui/typesetter.hpp"
 
 namespace opensu::ui {
 

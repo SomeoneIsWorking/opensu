@@ -41,8 +41,10 @@ void BreadcrumbPainter::paint(Canvas& canvas, const Trail& trail, const Breadcru
             const Rect hover{cell.x, cell.y + cell.height * 0.14f, cell.width, cell.height * 0.72f};
             canvas.fillRoundRect(onCanvas(hover), cornerRadius(hover, 0.5f), hoverFill);
         }
-        const std::string label = gpu2d::ui::fitted(text_, trail[i].label, layout.textWidths[i], style);
-        text_.drawCentred(canvas, label, Point{cell.x + crumbCellPadDp * dp, cell.centreY()}, style, last ? currentInk : pastInk);
+        const std::string label =
+            gpu2d::ui::fitted(text_, trail[i].label, layout.textWidths[i], style);
+        text_.drawCentred(canvas, label, Point{cell.x + crumbCellPadDp * dp, cell.centreY()}, style,
+                          last ? currentInk : pastInk);
         if (!last) {
             const float x = layout.chevrons[i];
             const float half = cell.height * 0.1f;

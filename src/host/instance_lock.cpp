@@ -11,7 +11,7 @@
 
 namespace opensu::host {
 
-InstanceLock::InstanceLock(std::filesystem::path file) {
+InstanceLock::InstanceLock(const std::filesystem::path& file) {
     std::error_code error;
     std::filesystem::create_directories(file.parent_path(), error);
     fd_ = ::open(file.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0644);

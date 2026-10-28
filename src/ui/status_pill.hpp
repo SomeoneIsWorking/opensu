@@ -8,10 +8,10 @@
 
 #include "device/battery.hpp"
 #include "glass.hpp"
+#include "gpu2d/ui/typesetter.hpp"
 #include "home_layout.hpp"
 #include "launcher_badges.hpp"
 #include "top_bar_metrics.hpp"
-#include "gpu2d/ui/typesetter.hpp"
 
 namespace opensu::ui {
 
