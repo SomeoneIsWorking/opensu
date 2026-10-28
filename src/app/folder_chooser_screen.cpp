@@ -48,7 +48,9 @@ std::unique_ptr<tk::Widget> FolderChooserScreen::build(const tk::Theme& theme) {
                 editor_.submitTyped();
             },
             "Use path");
-    if (!folders.problem().empty()) {
+    if (!editor_.refusal().empty()) {
+        card.add<tk::Label>(editor_.refusal(), tk::TextRole::Caption, true);
+    } else if (!folders.problem().empty()) {
         card.add<tk::Label>(folders.problem(), tk::TextRole::Caption, true);
     }
     tk::List& list = card.add<tk::List>("folders/list", theme.spacing.gap);

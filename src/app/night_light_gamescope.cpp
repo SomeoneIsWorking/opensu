@@ -23,6 +23,10 @@ class GamescopeNightLight final : public NightLightOutput {
 
 } // namespace
 
+bool nightLightSupported() {
+    return true;
+}
+
 std::unique_ptr<NightLightOutput> openNightLightOutput(bool loginSession, bool insideGamescope) {
     if (!loginSession || !insideGamescope) {
         return nullptr;

@@ -624,10 +624,7 @@ class ShellApp final {
     /// The Settings screen's Guide chords category.
     ChordSettings chordSettings_{shortcutEditor_, shell_.shortcuts()};
     /// Chooses the folders the Settings screen asks for.
-    PathEditor paths_{shell_.screens().navigator(), shell_.screens().chrome(), sounds_,
-                      [this](const std::string& text, bool isError) {
-                          shell_.setToast(text, isError);
-                      }};
+    PathEditor paths_{shell_.screens().navigator(), shell_.screens().chrome(), sounds_};
     /// The player's own games: Add a game, and their rows on the details page.
     OwnGamesController ownGames_{
         OwnGamesController::Parts{shell_.screens().navigator(), paths_, keyboardPad_, sounds_},
