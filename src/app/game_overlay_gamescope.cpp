@@ -13,7 +13,7 @@ class GamescopeGameOverlay final : public GameOverlay {
     void enter() override {
         overlay_.enter();
     }
-    void show(session::OverlayMode mode) override {
+    void show(display::OverlayMode mode) override {
         overlay_.show(mode);
     }
     void leave() override {

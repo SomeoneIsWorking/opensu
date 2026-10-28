@@ -28,7 +28,7 @@ bool takeSignal(const sigset_t& signals, const timespec& wait) {
 
 } // namespace
 
-fs::path logOf(const fs::path& logDir, const Output& output) {
+fs::path logOf(const fs::path& logDir, const display::Output& output) {
     return logDir / (output.native() ? "gamescope-session.log" : "gamescope-nested.log");
 }
 
@@ -43,7 +43,7 @@ void CompositorSession::stopLeftovers() const {
     (void)launch::runCommand("systemctl", {"--user", "stop", session_ + "-*"}, stopWait);
 }
 
-int CompositorSession::run(const Output& output, const std::vector<std::string>& args) {
+int CompositorSession::run(const display::Output& output, const std::vector<std::string>& args) {
     stopRequested_ = false;
     if (launch::resolveExecutable(gamescope_.string(), {}).empty()) {
         lucent::error(
@@ -95,7 +95,7 @@ int CompositorSession::run(const Output& output, const std::vector<std::string>&
     return status;
 }
 
-int CompositorSession::runOnce(const Output& output, const std::string& self,
+int CompositorSession::runOnce(const display::Output& output, const std::string& self,
                                const std::vector<std::string>& args, const sigset_t& signals) {
     launch::ProcessLauncher compositor;
     std::string failure;

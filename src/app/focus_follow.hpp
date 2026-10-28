@@ -1,4 +1,4 @@
-// focus_follow — follows the window Gamescope has focused (`session::FocusSource`) and answers it.
+// focus_follow — follows the window Gamescope has focused (`display::FocusSource`) and answers it.
 // openSU's own Steam's Big Picture is never wanted (Managed, Isolated): whenever it takes the
 // focus, by Guide, a steam:// link or Steam itself, it is closed through the Steam client and the
 // shell's window is put back in front. The desktop's Steam (Normal) is never closed. Guide pressed
@@ -16,8 +16,8 @@
 #include <thread>
 #include <vector>
 
+#include "display/focus.hpp"
 #include "launch/process_id.hpp"
-#include "session/window_focus.hpp"
 
 namespace opensu::app {
 
@@ -38,7 +38,7 @@ class FocusFollow {
     }
 
     /// Starts following `source`; `ownWindow` is openSU's X window.
-    void attach(std::unique_ptr<session::FocusSource> source, std::uint64_t ownWindow);
+    void attach(std::unique_ptr<display::FocusSource> source, std::uint64_t ownWindow);
     [[nodiscard]] bool following() const noexcept {
         return source_ != nullptr;
     }
@@ -51,7 +51,7 @@ class FocusFollow {
     /// its start and end also count as a change.
     void service(bool game);
 
-    [[nodiscard]] session::FocusHolder holder() const noexcept {
+    [[nodiscard]] display::FocusHolder holder() const noexcept {
         return holder_;
     }
     /// What Guide does now: true when it puts the shell back in front, rather than toggling the
@@ -65,11 +65,11 @@ class FocusFollow {
     void closeOnRequest(const std::stop_token& stop);
 
     Hooks hooks_;
-    std::unique_ptr<session::FocusSource> source_;
+    std::unique_ptr<display::FocusSource> source_;
     std::uint64_t ownWindow_{};
-    std::optional<session::FocusedWindow> focused_;
+    std::optional<display::FocusedWindow> focused_;
     bool game_{false};
-    session::FocusHolder holder_{session::FocusHolder::OpenSU};
+    display::FocusHolder holder_{display::FocusHolder::OpenSU};
     bool closesBigPicture_{true};
     std::mutex closeMutex_;
     std::condition_variable_any closeWanted_;

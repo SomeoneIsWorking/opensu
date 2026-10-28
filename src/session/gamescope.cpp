@@ -2,7 +2,7 @@
 
 namespace opensu::session {
 
-std::vector<std::string> gamescopeArgs(const Output& output, const std::string& program,
+std::vector<std::string> gamescopeArgs(const display::Output& output, const std::string& program,
                                        const std::vector<std::string>& args) {
     if (output.native()) {
         // Top level on the seat: the DRM backend takes the connector's preferred mode.

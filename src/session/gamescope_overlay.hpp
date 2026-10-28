@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "overlay_mode.hpp"
+#include "display/overlay_mode.hpp"
 
 namespace opensu::session {
 
@@ -31,7 +31,7 @@ class GamescopeOverlay {
     /// A game is running: the window becomes the overlay, fully transparent.
     void enter();
     /// Shows or hides the overlay, with the keyboard only when `Interactive`.
-    void show(OverlayMode mode);
+    void show(display::OverlayMode mode);
     /// The game's windows are gone: the window is an ordinary app again and takes focus back.
     /// Called only then, because Gamescope focuses the most recently mapped window.
     void leave();

@@ -8,8 +8,8 @@
 
 namespace {
 
+using opensu::display::Output;
 using opensu::session::gamescopeArgs;
-using opensu::session::Output;
 
 void expect(bool condition, const char* what) {
     if (!condition) {

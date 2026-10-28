@@ -46,7 +46,6 @@
 #include "game_settings.hpp"
 #include "gamepad/direction_repeat.hpp"
 #include "gamepad/pad_source.hpp"
-#include "gamescope_windows.hpp"
 #include "giveaways/giveaway_board.hpp"
 #include "giveaways_controller.hpp"
 #include "guide_menu_controller.hpp"
@@ -84,13 +83,13 @@
 #include "search_controller.hpp"
 #include "session_install_controller.hpp"
 #include "settings_controller.hpp"
+#include "shell_session.hpp"
 #include "shell_window.hpp"
 #include "shortcut_editor.hpp"
 #include "shortcut_router.hpp"
 #include "sign_in.hpp"
 #include "steam/client.hpp"
 #include "steam_library_settings.hpp"
-#include "steam_window_hiding.hpp"
 #include "steamgriddb_covers.hpp"
 #include "top_bar_clock.hpp"
 #include "ui/shell.hpp"
@@ -926,10 +925,8 @@ class ShellApp final {
                                     [this] {
                                         settingsScreen_.refresh();
                                     }}};
-    /// Inside Gamescope, tells the handoff when a game shows a window. Null elsewhere.
-    std::unique_ptr<session::GamescopeWindows> gameWindows_;
-    /// Inside Gamescope, keeps openSU's own Steam's windows out of sight. Null elsewhere.
-    std::unique_ptr<session::SteamWindowHiding> steamWindowHiding_;
+    /// The session the shell runs in (Gamescope's windows and focus); null outside one.
+    std::unique_ptr<ShellSession> session_;
     launch::Handoff handoff_;
     /// What the launch panel is up for, and the one install that runs. After steam_, so the
     /// install is stopped before the client it drives. Main loop only.
@@ -1035,8 +1032,8 @@ class ShellApp final {
                 },
             .hideSteamWindows =
                 [this](bool hides) {
-                    if (steamWindowHiding_) {
-                        steamWindowHiding_->hide(hides);
+                    if (session_) {
+                        session_->hideSteamWindows(hides);
                     }
                 },
             .steamWindowsWanted =

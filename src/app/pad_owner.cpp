@@ -4,8 +4,8 @@
 
 namespace opensu::app {
 
+using display::FocusHolder;
 using gamepad::Claim;
-using session::FocusHolder;
 
 gamepad::PadSourceOptions PadOwner::padsFor(const std::filesystem::path& dataDir, bool hidden) {
     if (!hidden) {

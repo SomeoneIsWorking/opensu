@@ -1,5 +1,5 @@
 // pad_owner — who has the pads (`gamepad::Claim`), from what openSU is doing and whose window
-// Gamescope has focused (`session::FocusHolder`).
+// Gamescope has focused (`display::FocusHolder`).
 //
 // Inside Gamescope the shell grabs the pads while its own window is in front, so the Steam client
 // it runs (Managed, Isolated) never sees them (Guide would open Big Picture). With no Steam of
@@ -24,11 +24,11 @@
 #include <string>
 #include <vector>
 
+#include "display/focus.hpp"
 #include "gamepad/event.hpp"
 #include "gamepad/pad_source.hpp"
 #include "input/button_map.hpp"
 #include "input/chord_set.hpp"
-#include "session/window_focus.hpp"
 
 namespace opensu::app {
 
@@ -39,10 +39,10 @@ class PadOwner {
         /// A game is launching or running, or the pads are lent to Steam.
         bool game{false};
         /// The window the held pads serve: the game's, or Big Picture's while lent to Steam.
-        session::FocusHolder serves{session::FocusHolder::Game};
+        display::FocusHolder serves{display::FocusHolder::Game};
         /// Gamescope's focus is followed, so the shell may grab.
         bool followsFocus{false};
-        session::FocusHolder holder{session::FocusHolder::OpenSU};
+        display::FocusHolder holder{display::FocusHolder::OpenSU};
         /// A menu or page of openSU's is up over the game.
         bool menuOver{false};
         /// openSU's own Steam runs in its Gamescope, which the shell keeps the pads from.
@@ -73,7 +73,7 @@ class PadOwner {
     void release();
     /// Whether a game holds the pads.
     [[nodiscard]] bool held() const noexcept {
-        return situation_.game && situation_.serves == session::FocusHolder::Game;
+        return situation_.game && situation_.serves == display::FocusHolder::Game;
     }
     /// Lends the pads to openSU's own Steam while `lend`, as to a game shown by Big Picture, and
     /// takes them back after; nothing while a game holds them or Steam is not openSU's.
@@ -84,7 +84,7 @@ class PadOwner {
     void syncChords();
 
     /// Applies the focus as it is now; the pads change hands only when the claim does.
-    void follow(bool followsFocus, session::FocusHolder holder, bool menuOver);
+    void follow(bool followsFocus, display::FocusHolder holder, bool menuOver);
     /// Whether the shell keeps the pads from openSU's own Steam; applied with the next `follow`.
     void guardSteam(bool guards) noexcept {
         situation_.guardsSteam = guards;
@@ -95,7 +95,7 @@ class PadOwner {
 
   private:
     /// Holds the pads with `map` for the window `serves`.
-    std::vector<std::string> take(const input::ButtonMap& map, session::FocusHolder serves);
+    std::vector<std::string> take(const input::ButtonMap& map, display::FocusHolder serves);
     /// Lent to Steam: the virtual pads rest unless Big Picture is in front.
     void restOutsideBigPicture();
 

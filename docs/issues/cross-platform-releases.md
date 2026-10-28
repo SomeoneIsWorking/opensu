@@ -227,6 +227,12 @@ raised-window behaviour is step 2's); `steam::clientModes()` taken by `Integrati
 `posix_child.cpp` (the previous code) or `win32_child.cpp` (`CreateProcessW` in a Job Object,
 pipes, a quoted command line, `.exe`/`.com` lookup); `launch::ProcessId` and `ownProcessId()` come
 from the same backend and replace `pid_t` and `getpid` outside the POSIX backends.
+`app::ShellSession` (`shell_session_gamescope.cpp` on Linux, `shell_session_none.cpp` elsewhere) is
+the one owner of the session: `main.cpp` asks `runInOwnSession` for the compositor and login
+session, `ShellApp` asks `openShellSession` for the game's windows, the focus source and Steam's
+window hiding. The window-system-neutral parts moved to `src/display` (`Output`, `displayOutput`,
+`OverlayMode`, `FocusHolder`, `holderOf`, `FocusSource`), so `src/session`, `tests/session` and X11
+are added on Linux only and a Windows configure succeeds.
 
 Windows compile check from Linux: `cmake/toolchains/windows-clang-cl.cmake` (clang-cl, lld-link, the
 Windows SDK and CRT from an `xwin splat` tree when the host is not Windows), `vcpkg.json` (pinned
@@ -235,10 +241,6 @@ toolchain). Every manifest port builds that way except OpenSSL, whose Windows po
 
 Not yet done in step 1, each blocking a non-Linux configure or a non-Linux build:
 
-- `src/session` is added on every OS and requires X11. `main.cpp` (compositor and login session,
-  `readMonitor`), `ShellWindow::output`, `FocusFollow`/`PadOwner`'s `FocusHolder`, and
-  `ShellApp`'s `GamescopeWindows` and `SteamWindowHiding` use it directly; they need one session
-  owner with a none backend before `src/session` can be Linux-only.
 - `src/host` (logind, `bluetoothctl`, backlight) is linked on every OS; `HostServices` has no
   absent set, so the tabs cannot hide yet.
 - `/proc/self/exe` (`config`), RetroArch's Linux core folders in the core search, controller

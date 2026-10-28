@@ -46,11 +46,9 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
                                           .gpu = steam::gpuNodes("/dev")},
           .desktopBus = environment_.sessionBus,
           .secretBusSocket = environment_.runtimeDir / (resolved_.session + "-secret-bus")}},
-      gameWindows_{environment_.insideGamescope ? std::make_unique<session::GamescopeWindows>()
-                                                : nullptr},
-      steamWindowHiding_{
-          environment_.insideGamescope ? std::make_unique<session::SteamWindowHiding>() : nullptr},
-      handoff_{environment_.executablePath, environment_.session, steam_, gameWindows_.get()},
+      session_{openShellSession(environment_)},
+      handoff_{environment_.executablePath, environment_.session, steam_,
+               session_ ? session_->gameWindows() : nullptr},
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
     // input-sound.md 3.4: Navigation for a focus move or a press, Close for a page dismissed.
@@ -504,7 +502,7 @@ void ShellApp::handleGameKeys() {
         // The watcher is for a game that has the keyboard; otherwise the shell's window keys are
         // the ones to act on, and acting on both would fire every shortcut twice.
         const bool gameHasKeyboard =
-            shell_.inGame() && gameScreen_.mode() != session::OverlayMode::Interactive;
+            shell_.inGame() && gameScreen_.mode() != display::OverlayMode::Interactive;
         const bool backOpensMenu =
             gameHasKeyboard && builtInOf(launches_.game(), emulatorSettings_.catalog()) != nullptr;
         handleEvents(router_.fromGame(*overlay, gameHasKeyboard, backOpensMenu));
@@ -633,7 +631,7 @@ const library::Game* ShellApp::gameInFront() const {
     if (!shell_.inGame()) {
         return nullptr;
     }
-    if (focusFollow_.following() && focusFollow_.holder() != session::FocusHolder::Game) {
+    if (focusFollow_.following() && focusFollow_.holder() != display::FocusHolder::Game) {
         return nullptr;
     }
     return &launches_.game();
@@ -672,7 +670,7 @@ void ShellApp::openDownloads() {
 }
 
 void ShellApp::syncOverlay() {
-    using session::OverlayMode;
+    using display::OverlayMode;
     shell_.followChordHint(router_.longHeld(std::chrono::steady_clock::now()));
     // A screen over Home, the keyboard or the mapping editor takes the buttons.
     const bool interactive = shell_.screens().navigator().active() || shell_.keyboard().isOpen() ||
@@ -684,7 +682,7 @@ void ShellApp::syncOverlay() {
 }
 
 std::string ShellApp::outputLine() const {
-    const std::optional<session::Output> output = window_ ? window_->output() : std::nullopt;
+    const std::optional<display::Output> output = window_ ? window_->output() : std::nullopt;
     if (!output) {
         return {};
     }
@@ -1004,16 +1002,16 @@ int ShellApp::run() {
         return 1;
     }
     // Read before any game makes the screen smaller.
-    if (const std::optional<session::Output> output = window_->output()) {
+    if (const std::optional<display::Output> output = window_->output()) {
         presentation_.setScreen(settings::ScreenSize{output->width, output->height});
     }
-    if (environment_.insideGamescope && !settings_.hidden) {
+    if (session_ && !settings_.hidden) {
         // Gamescope composites a window as the overlay only when it spans the whole screen,
         // which also draws the home screen at the output's own resolution.
         const gpu2d::PixelSize size = window_->fillMonitor();
         shell_.setSize(size.width, size.height);
         gameScreen_.attachOverlay();
-        focusFollow_.attach(std::make_unique<session::GamescopeWindows>(), window_->x11Window());
+        focusFollow_.attach(session_->focusSource(), window_->x11Window());
     }
     if (settings_.playSounds) {
         sounds_.open();
@@ -1042,7 +1040,7 @@ int ShellApp::run() {
         presentation_.follow(gameInFront(), launches_.running() ? &launches_.game() : nullptr);
         nightLight_.service(preferences_.values().nightLight, std::chrono::system_clock::now());
         padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),
-                         gameScreen_.mode() == session::OverlayMode::Interactive);
+                         gameScreen_.mode() == display::OverlayMode::Interactive);
         handlePads();
         handleKeyboard();
         handlePointer();

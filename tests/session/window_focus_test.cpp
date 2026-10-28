@@ -8,14 +8,14 @@
 
 namespace {
 
+using opensu::display::FocusedWindow;
+using opensu::display::FocusHolder;
+using opensu::display::FocusParties;
+using opensu::display::holderOf;
+using opensu::display::steamAppId;
 using opensu::session::describeFocus;
 using opensu::session::FocusableWindow;
-using opensu::session::FocusedWindow;
-using opensu::session::FocusHolder;
-using opensu::session::FocusParties;
-using opensu::session::holderOf;
 using opensu::session::parseFocusable;
-using opensu::session::steamAppId;
 using opensu::test::expect;
 
 constexpr pid_t self = 100;

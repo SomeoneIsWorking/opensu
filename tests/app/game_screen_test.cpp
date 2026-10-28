@@ -9,7 +9,7 @@
 namespace {
 
 using opensu::app::GameScreen;
-using opensu::session::OverlayMode;
+using opensu::display::OverlayMode;
 using opensu::test::expect;
 
 void theChordListLeavesThePadsToTheGame() {

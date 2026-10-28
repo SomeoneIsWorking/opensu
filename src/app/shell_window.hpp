@@ -20,9 +20,9 @@
 #include "gpu2d/image/bitmap.hpp"
 #include "gpu2d/surface.hpp"
 
+#include "display/output.hpp"
 #include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
-#include "session/gamescope.hpp"
 #include "ui/paint.hpp"
 
 namespace opensu::app {
@@ -68,7 +68,7 @@ class ShellWindow {
         return window_.x11Window();
     }
     /// The size and refresh rate of the monitor the window is on.
-    [[nodiscard]] std::optional<session::Output> output() const;
+    [[nodiscard]] std::optional<display::Output> output() const;
 
     /// Covers the window's monitor; returns the size it now has.
     gpu2d::PixelSize fillMonitor();

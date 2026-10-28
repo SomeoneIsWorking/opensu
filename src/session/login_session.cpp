@@ -14,7 +14,7 @@ LoginSession::LoginSession(CompositorSession compositor, host::LoginSessionEnd e
 }
 
 int LoginSession::run(const std::vector<std::string>& args) {
-    const int status = compositor_.run(Output{}, args);
+    const int status = compositor_.run(display::Output{}, args);
     using Ending = host::LoginSessionEnd::Ending;
     switch (end_.settle(status, compositor_.stopRequested())) {
     case Ending::StartDesktop:

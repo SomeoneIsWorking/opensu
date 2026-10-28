@@ -24,7 +24,7 @@ inline constexpr const char* sessionVariable = "OPENSU_SESSION";
 /// The log of a Gamescope for `output` in `logDir`: `gamescope-session.log` for the top-level
 /// one, `gamescope-nested.log` for a nested one, so a desktop run keeps the last session's.
 [[nodiscard]] std::filesystem::path logOf(const std::filesystem::path& logDir,
-                                          const Output& output);
+                                          const display::Output& output);
 
 class CompositorSession {
   public:
@@ -45,7 +45,7 @@ class CompositorSession {
     /// exit) and nobody asked for the end, a fresh Gamescope is started, within `restarts`.
     /// Returns the last Gamescope's exit status, or 1 when it could not be started, among it a
     /// missing `gamescope`. SIGINT and SIGTERM stop the session instead of killing this process.
-    int run(const Output& output, const std::vector<std::string>& args);
+    int run(const display::Output& output, const std::vector<std::string>& args);
 
     /// Whether the last `run` ended because SIGINT or SIGTERM stopped it (a logout or shutdown),
     /// rather than Gamescope ending by itself.
@@ -56,8 +56,8 @@ class CompositorSession {
   private:
     /// Starts one Gamescope and waits until it has exited or a signal in `signals` stopped it.
     /// Returns its exit status, or -1 when it could not be started.
-    int runOnce(const Output& output, const std::string& self, const std::vector<std::string>& args,
-                const sigset_t& signals);
+    int runOnce(const display::Output& output, const std::string& self,
+                const std::vector<std::string>& args, const sigset_t& signals);
 
     /// Whether a Gamescope that ended with `status` is started again; logs the decision.
     bool restartAfter(int status, RestartBudget& budget, const sigset_t& signals);

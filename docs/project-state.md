@@ -1975,10 +1975,10 @@ same pixels before and after in interactive, passive and hidden modes. 160 tests
 (`ctest-2.log`, `game_keys` not run). Non-Linux backends pass `-fsyntax-only` and clang-tidy with
 the Linux flags (`non-linux-backends-syntax.log`, `tidy-nonlinux.log`).
 
-Gaps: a non-Linux configure still fails: `src/session` (X11, required by `main.cpp`'s compositor
-and login session, `ShellWindow::output`, `FocusFollow`, `GamescopeWindows` and
-`SteamWindowHiding` in `ShellApp`) and `src/host` are added and linked on every OS. Still Linux-only
-and unseamed: `HostServices` has no absent set, `/proc/self/exe` in `config`; RetroArch's Linux
+`app::ShellSession` is the one owner of the Gamescope session (`src/session` and X11 are Linux's
+alone; the neutral types are `src/display`), so a Windows configure (clang-cl, xwin, vcpkg) succeeds.
+
+Gaps: `src/host` is still linked on every OS. Still Linux-only and unseamed: `HostServices` has no absent set, `/proc/self/exe` in `config`; RetroArch's Linux
 core folders in the core search; controller batteries from sysfs. `launch/command.*` has its
 `posix_child`/`win32_child` backends and `ownProcessId()` replaced `getpid`; the Win32 backend is
 compiled with clang-cl against an xwin SDK and not run. Not run here: a Steam game launch and an AppImage
