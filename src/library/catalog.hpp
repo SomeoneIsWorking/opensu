@@ -1,6 +1,8 @@
 // catalog — the library sources, built from the one configuration owner.
 #pragma once
 
+#include <filesystem>
+
 #include "config/config.hpp"
 #include "epic.hpp"
 #include "game.hpp"
@@ -25,8 +27,9 @@ struct CatalogStores {
 
 /// Builds the catalog's providers of `stores` from the configuration; a store left out is not
 /// read at all. A `hidden` shell's ROMs start hidden. Arcade romsets are matched with the listings
-/// `romsets` keeps, which outlives the catalog.
+/// `romsets` keeps, which outlives the catalog. The player's own games are read from `ownGames`.
 [[nodiscard]] Catalog makeCatalog(const config::Config& config, bool hidden,
-                                  roms::RomsetLists& romsets, const CatalogStores& stores);
+                                  const std::filesystem::path& ownGames, roms::RomsetLists& romsets,
+                                  const CatalogStores& stores);
 
 } // namespace opensu::library

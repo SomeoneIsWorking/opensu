@@ -77,6 +77,7 @@
 #include "pad_owner.hpp"
 #include "panel_flow.hpp"
 #include "path_editor.hpp"
+#include "player_files.hpp"
 #include "plugin_service.hpp"
 #include "plugin_settings.hpp"
 #include "preferences.hpp"
@@ -258,22 +259,24 @@ class ShellApp final {
     void applyIntegrations();
     const config::Config& environment_;
     Settings settings_;
+    /// Where the player's files are kept: in place, or a hidden run's copies.
+    PlayerFiles files_{PlayerFiles::forRun(environment_, settings_.hidden)};
     /// What the player chose, read at start and saved when it changes.
-    Preferences preferences_{settings::Store{environment_.configDir / settings::settingsFile},
+    Preferences preferences_{settings::Store{files_.settingsFile()},
                              [this](const std::string& why) {
                                  shell_.setToast(why, true);
                              }};
     /// The per-console, per-core and per-game setting layers, read at start and saved on change.
-    GameSettings gameSettings_{
-        settings::GameSettingsStore{environment_.configDir / settings::gameSettingsFile},
-        environment_.configDir / settings::settingsFile, [this](const std::string& why) {
-            shell_.setToast(why, true);
-        }};
+    GameSettings gameSettings_{settings::GameSettingsStore{files_.gameSettingsFile()},
+                               files_.settingsFile(), [this](const std::string& why) {
+                                   shell_.setToast(why, true);
+                               }};
     /// Which integrations and which Steam mode are in force; before everything that asks.
     IntegrationsInForce integrations_{preferences_, settings_.loginSession};
     /// The environment's configuration with what the player set in place of it: the roots the
-    /// catalog and Steam read, fixed for the run.
-    config::Config resolved_{settings::resolved(environment_, preferences_.values())};
+    /// catalog and Steam read, fixed for the run; the runner's saves where `files_` keeps them.
+    config::Config resolved_{
+        files_.savingIn(settings::resolved(environment_, preferences_.values()))};
     /// The arcade cores' romset lists, fetched off the library scan; before the catalog that
     /// matches with them.
     library::roms::RomsetLists romsetLists_{resolved_.cacheDir};
@@ -321,7 +324,7 @@ class ShellApp final {
         sounds_,
         steamGridDb_,
         artworkStore_,
-        SteamGridDbCovers::Places{environment_.dataDir / "artwork" / "chosen",
+        SteamGridDbCovers::Places{files_.chosenCoversDir(),
                                   environment_.cacheDir / "artwork" / "fitted",
                                   environment_.cacheDir / "artwork" / "steamgriddb-thumbs"},
         SteamGridDbCovers::Hooks{[this](const std::string& id) {
@@ -486,8 +489,7 @@ class ShellApp final {
                                  layered_};
     /// The button mappings, and their page over the details page and Settings › Controls.
     MappingEditor mappings_{
-        shell_.mappingPage(),
-        settings::MappingStore{environment_.configDir / settings::mappingsFile}, sounds_,
+        shell_.mappingPage(), settings::MappingStore{files_.mappingsFile()}, sounds_,
         shell_.shortcuts(),
         MappingEditor::Hooks{[this](const std::string& text, bool isError) {
                                  shell_.setToast(text, isError);
@@ -629,7 +631,7 @@ class ShellApp final {
     /// The player's own games: Add a game, and their rows on the details page.
     OwnGamesController ownGames_{
         OwnGamesController::Parts{shell_.screens().navigator(), paths_, keyboardPad_, sounds_},
-        OwnGamesController::Places::of(resolved_),
+        OwnGamesController::Places::of(resolved_, files_.ownGamesFile()),
         OwnGamesController::Hooks{[this](const std::string& text, bool isError) {
                                       shell_.setToast(text, isError);
                                   },
@@ -1026,7 +1028,8 @@ class ShellApp final {
         IntegrationSwitch::Hooks{
             .catalog =
                 [this](const library::CatalogStores& stores) {
-                    return library::makeCatalog(resolved_, settings_.hidden, romsetLists_, stores);
+                    return library::makeCatalog(resolved_, settings_.hidden, files_.ownGamesFile(),
+                                                romsetLists_, stores);
                 },
             .steamInstalled =
                 [this] {
