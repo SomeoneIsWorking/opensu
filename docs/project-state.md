@@ -1817,7 +1817,7 @@ sign-in `.xpi`, the fork's `gamescope` in `usr/libexec/opensu/`, the desktop ent
 the libraries not on every desktop (62, `bundle.HOST_PROVIDED` lists what the host supplies: glibc,
 libstdc++, GPU drivers, GL, EGL, Vulkan, libdrm, gbm, X11/xcb, udev, systemd, curl, PipeWire,
 ALSA, PulseAudio, GLib, D-Bus). Runtime: the static type 2 one, no libfuse2. `AppRun` is a
-symlink to `usr/bin/opensu`, so `/proc/self/exe`-relative assets and Gamescope resolve inside
+symlink to `usr/bin/opensu`, so `SDL_GetBasePath`-relative assets and Gamescope resolve inside
 the mount. A `v*` tag runs `release.yml`: build, smoke, GitHub Release with the AppImage, its
 `.sha256`, `.zsync` and the `.xpi`; the AppImage is gpg-signed with the
 `OPENSU_APPIMAGE_SIGNING_KEY` secret (public key `packaging/appimage/signing-key.asc`).
@@ -1984,7 +1984,9 @@ alone; the neutral types are `src/display`), so a Windows configure (clang-cl, x
 `src/host` is added on Linux only; the secret store moved to `src/secrets` and the instance lock to
 `src/fileio`.
 
-Gaps: still Linux-only and unseamed: `/proc/self/exe` in `config`; RetroArch's Linux
+`config` finds openSU's executable through `SDL_GetBasePath`.
+
+Gaps: still Linux-only and unseamed: RetroArch's Linux
 core folders in the core search; controller batteries from sysfs. `launch/command.*` has its
 `posix_child`/`win32_child` backends and `ownProcessId()` replaced `getpid`; the Win32 backend is
 compiled with clang-cl against an xwin SDK and not run. Not run here: a Steam game launch and an AppImage

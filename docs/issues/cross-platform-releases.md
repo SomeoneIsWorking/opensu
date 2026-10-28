@@ -241,6 +241,9 @@ a power service and the session rows without session mode, and the night light r
 through `app::DesktopNight` (`desktop_night_kde.cpp`, none elsewhere). The platform-neutral parts
 moved out: `src/secrets` (the secret store; libsecret looked for on Linux only) and
 `fileio::InstanceLock` (`flock`, or an unshared handle on Windows).
+`config::Config::executable` is openSU's executable in `SDL_GetBasePath` (with the target's
+executable suffix), not `/proc/self/exe`; the assets, the Gamescope fork, `opensu-retro` and
+librashader are found beside it as before.
 
 Windows compile check from Linux: `cmake/toolchains/windows-clang-cl.cmake` (clang-cl, lld-link, the
 Windows SDK and CRT from an `xwin splat` tree when the host is not Windows), `vcpkg.json` (pinned
@@ -249,6 +252,5 @@ toolchain). Every manifest port builds that way except OpenSSL, whose Windows po
 
 Not yet done in step 1, each blocking a non-Linux configure or a non-Linux build:
 
-- `/proc/self/exe` (`config`), RetroArch's Linux core folders in the core search, controller
-  batteries from sysfs.
+- RetroArch's Linux core folders in the core search, controller batteries from sysfs.
 
