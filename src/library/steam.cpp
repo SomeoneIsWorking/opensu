@@ -435,7 +435,9 @@ std::vector<LibraryFolder> Library::libraryFolders() const {
         folders.push_back(LibraryFolder{.path = root});
         const std::size_t rootAt = folders.size() - 1;
         for (LibraryFolder& extra : readExtraFolders(root)) {
-            if (extra.path != root) {
+            // Windows' registry spells the root "c:/program files (x86)/steam".
+            std::error_code ec;
+            if (extra.path != root && !fs::equivalent(extra.path, root, ec)) {
                 folders.push_back(std::move(extra));
             } else {
                 folders[rootAt].apps = std::move(extra.apps);

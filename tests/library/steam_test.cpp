@@ -32,6 +32,18 @@ void write(const fs::path& path, const std::string& body) {
     out << body;
 }
 
+/// `path` as Steam writes it in a VDF string, its backslashes escaped.
+std::string vdfText(const fs::path& path) {
+    std::string text;
+    for (const char c : path.string()) {
+        if (c == '\\') {
+            text.push_back('\\');
+        }
+        text.push_back(c);
+    }
+    return text;
+}
+
 struct Fixture {
     fs::path base;
     fs::path root;
@@ -55,10 +67,10 @@ struct Fixture {
               "\"libraryfolders\"\n"
               "{\n"
               "\t\"0\"\n\t{\n\t\t\"path\"\t\t\"" +
-                  root.string() +
+                  vdfText(root) +
                   "\"\n\t}\n"
                   "\t\"1\"\n\t{\n\t\t\"path\"\t\t\"" +
-                  extra.string() +
+                  vdfText(extra) +
                   "\"\n"
                   "\t\t\"contentid\"\t\t\"8019845413043883551\"\n\t}\n"
                   "}\n");

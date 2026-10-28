@@ -1,6 +1,7 @@
 // A plugin's manifest: the fields it must have, the read paths' tokens expanded on this machine,
 // and the permission list that a player's consent is compared against.
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -51,18 +52,20 @@ void refusesWhatItCannotTrust() {
 }
 
 void expandsTokens() {
-    const PathTokens tokens{.home = "/home/p",
-                            .xdgData = "/home/p/.local/share",
-                            .xdgConfig = "/home/p/.config",
-                            .xdgCache = "/home/p/.cache"};
-    expect(expandPath("{xdg_data}/eden/play_time", tokens) == "/home/p/.local/share/eden/play_time",
+    // Absolute on this OS: "/home/p" has no drive on Windows.
+    const std::filesystem::path home = std::filesystem::absolute("/home/p");
+    const PathTokens tokens{.home = home,
+                            .xdgData = home / ".local/share",
+                            .xdgConfig = home / ".config",
+                            .xdgCache = home / ".cache"};
+    expect(expandPath("{xdg_data}/eden/play_time", tokens) == home / ".local/share/eden/play_time",
            "xdg_data");
-    expect(expandPath("{xdg_cache}", tokens) == "/home/p/.cache", "a token alone");
+    expect(expandPath("{xdg_cache}", tokens) == home / ".cache", "a token alone");
     expect(expandPath("{flatpak_data:dev.eden_emu.eden}/eden", tokens) ==
-               "/home/p/.var/app/dev.eden_emu.eden/data/eden",
+               home / ".var/app/dev.eden_emu.eden/data/eden",
            "a Flatpak app's data");
     expect(expandPath("{flatpak_cache:dev.eden_emu.eden}", tokens) ==
-               "/home/p/.var/app/dev.eden_emu.eden/cache",
+               home / ".var/app/dev.eden_emu.eden/cache",
            "a Flatpak app's cache");
     expect(!expandPath("{flatpak_data:../x}/y", tokens), "an app id with a slash");
     expect(!expandPath("{home}x", tokens), "a token run into a name");
