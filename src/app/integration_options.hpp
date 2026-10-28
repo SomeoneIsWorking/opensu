@@ -3,8 +3,8 @@
 // switch of `settings::IntegrationChoices` it is.
 #pragma once
 
-#include <span>
 #include <string_view>
+#include <vector>
 
 #include "settings/integrations.hpp"
 
@@ -17,8 +17,9 @@ struct IntegrationEntry {
     std::string_view note;
 };
 
-/// Steam, Epic, GOG, standalone emulators, Lua plugins.
-[[nodiscard]] std::span<const IntegrationEntry> integrationEntries() noexcept;
+/// Steam, Epic, GOG, standalone emulators, Lua plugins: those this build can serve (Steam when its
+/// client has a mode, Epic and GOG where their command-line clients run).
+[[nodiscard]] std::vector<IntegrationEntry> integrationEntries();
 
 /// The switch of `choices` the entry `id` is, or null for no entry.
 [[nodiscard]] bool* switchOf(settings::IntegrationChoices& choices, std::string_view id) noexcept;

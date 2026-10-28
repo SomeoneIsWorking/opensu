@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <charconv>
 
+#include "lucent/text.h"
+
 namespace opensu::library::install_log {
 namespace {
 
@@ -25,7 +27,7 @@ std::optional<double> progress(std::string_view line) {
     const std::string_view number = line.substr(at + progressMarker.size());
     double percent = 0.0;
     const auto [end, error] =
-        std::from_chars(number.data(), number.data() + number.size(), percent);
+        lucent::text::from_chars_real(number.data(), number.data() + number.size(), percent);
     if (error != std::errc{} || end == number.data() + number.size() ||
         (*end != '%' && *end != ' ')) {
         return std::nullopt;

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Artwork, catalogs and cores come over the network; the control channel is loopback. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x400003" android:required="true" />
+    <!-- Standalone emulators are found and opened by package. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+        </intent>
+    </queries>
+    <application android:allowBackup="false" android:appCategory="game" android:hardwareAccelerated="true"
+                 android:extractNativeLibs="true"
+                 android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
+                 android:label="openSU" android:theme="@style/OpensuTheme">
+        <activity android:name=".ShellActivity"
+                  android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|density"
+                  android:exported="true" android:launchMode="singleTask"
+                  android:screenOrientation="sensorLandscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".RetroActivity" android:process=":retro"
+                  android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|density"
+                  android:exported="false" android:screenOrientation="sensorLandscape" />
+    </application>
+</manifest>

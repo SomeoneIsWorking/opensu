@@ -1,0 +1,47 @@
+plugins { id 'com.android.application' }
+
+// tools.package.android stages this project and passes the version and the signing key.
+def env = { String name -> System.getenv(name) }
+def signing = ['OPENSU_ANDROID_KEYSTORE_FILE', 'OPENSU_ANDROID_KEYSTORE_PASSWORD',
+               'OPENSU_ANDROID_KEY_ALIAS', 'OPENSU_ANDROID_KEY_PASSWORD'].collect { env(it) }
+if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') } && signing.any { !it }) {
+    throw new GradleException('A release APK needs OPENSU_ANDROID_KEYSTORE_FILE, _KEYSTORE_PASSWORD, _KEY_ALIAS and _KEY_PASSWORD')
+}
+def versionName = env('OPENSU_ANDROID_VERSION_NAME')
+def versionCode = env('OPENSU_ANDROID_VERSION_CODE')
+if (!versionName || !versionCode) {
+    throw new GradleException('OPENSU_ANDROID_VERSION_NAME and OPENSU_ANDROID_VERSION_CODE are set by tools.package.android')
+}
+
+android {
+    namespace = 'io.github.someoneisworking.opensu'
+    compileSdk = 35
+    ndkVersion = '28.2.13676358'
+
+    defaultConfig {
+        applicationId = 'io.github.someoneisworking.opensu'
+        // posix_spawn and the Vulkan loader both need API 28.
+        minSdk = 28
+        targetSdk = 35
+        setVersionCode(versionCode.toInteger())
+        setVersionName(versionName)
+    }
+    signingConfigs {
+        release {
+            if (signing.every { it }) {
+                storeFile = file(signing[0])
+                storePassword = signing[1]
+                keyAlias = signing[2]
+                keyPassword = signing[3]
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+    buildTypes {
+        debug { debuggable = true }
+        release { minifyEnabled = false; signingConfig = signingConfigs.release }
+    }
+    // Native libraries extracted to nativeLibraryDir, where the runner's library is looked up.
+    packaging { jniLibs { useLegacyPackaging = true } }
+}

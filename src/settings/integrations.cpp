@@ -101,7 +101,7 @@ Integrations Integrations::inForce(const std::optional<IntegrationChoices>& choi
                     .gog = choices->gog,
                     .emulators = choices->emulators,
                     .plugins = choices->plugins};
-    if (choices->steam) {
+    if (choices->steam && !built.empty()) {
         SteamMode mode = choices->steamMode.value_or(defaultMode(loginSession));
         const std::vector<SteamMode> offered = modesOffered(loginSession, built);
         if (std::ranges::find(offered, mode) == offered.end()) {

@@ -14,6 +14,9 @@ namespace opensu::launch {
 /// by its hint and ended with everything below it.
 class ProcessTree {
   public:
+    /// Whether processes can be found on this OS; without a table nothing ever matches.
+    [[nodiscard]] static bool available();
+
     /// The processes whose command line contains `hint`. An empty hint matches
     /// nothing.
     [[nodiscard]] static std::vector<ProcessId> matching(const std::string& hint);

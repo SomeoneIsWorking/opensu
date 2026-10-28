@@ -32,8 +32,20 @@ find_package(PkgConfig REQUIRED)
 # SDL3 gives the shell its window, input and sound and, with Vulkan, draws opensu-retro;
 # libvorbisfile decodes the UI sounds.
 pkg_check_modules(SDL3 IMPORTED_TARGET GLOBAL sdl3>=3.2)
-pkg_check_modules(VULKAN IMPORTED_TARGET GLOBAL vulkan)
 pkg_check_modules(VORBISFILE IMPORTED_TARGET GLOBAL vorbisfile)
+# The Vulkan loader: pkg-config's on the desktop, the NDK sysroot's on Android.
+add_library(opensu_vulkan INTERFACE)
+add_library(opensu::vulkan ALIAS opensu_vulkan)
+if(ANDROID)
+    find_package(Vulkan REQUIRED)
+    target_link_libraries(opensu_vulkan INTERFACE Vulkan::Vulkan)
+    set(VULKAN_FOUND TRUE)
+else()
+    pkg_check_modules(VULKAN IMPORTED_TARGET GLOBAL vulkan)
+    if(VULKAN_FOUND)
+        target_link_libraries(opensu_vulkan INTERFACE PkgConfig::VULKAN)
+    endif()
+endif()
 if(NOT SDL3_FOUND OR NOT VULKAN_FOUND OR NOT VORBISFILE_FOUND)
     message(FATAL_ERROR
         "openSU needs SDL3, the Vulkan loader and libvorbisfile. Install them with "

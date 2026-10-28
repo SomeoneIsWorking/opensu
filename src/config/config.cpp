@@ -8,9 +8,8 @@
 #include <string_view>
 #include <vector>
 
-#include <SDL3/SDL_filesystem.h>
-
 #include "clock/local_time.hpp"
+#include "install_layout.hpp"
 #include "launch/process_id.hpp"
 #include "locations.hpp"
 #include "lucent/log.h"
@@ -145,14 +144,6 @@ EmulatorCommands parseEmulators(std::string_view raw) {
     return out;
 }
 
-std::filesystem::path shellExecutable() {
-    const char* base = SDL_GetBasePath();
-    if (base == nullptr) {
-        return {};
-    }
-    return std::filesystem::path{base} / (std::string{"opensu"} + OPENSU_EXECUTABLE_SUFFIX);
-}
-
 } // namespace
 
 std::string_view key(HomeMode mode) noexcept {
@@ -198,16 +189,12 @@ Config read() {
     value.steamRoots = splitPaths(env("OPENSU_STEAM_ROOTS"));
     value.romRoots = splitPaths(env("OPENSU_ROM_ROOTS"));
     value.emulators = parseEmulators(env("OPENSU_EMULATORS"));
-    const std::filesystem::path self = shellExecutable();
-    if (const std::string_view assets = env("OPENSU_ASSETS"); !assets.empty()) {
-        value.assetsDir = std::filesystem::path{assets};
-    } else {
-        value.assetsDir = self.parent_path().parent_path() / "share" / "opensu";
-    }
-    value.executable = self;
-    value.gamescope = gamescopeBeside(self);
-    value.retroRunner = retroRunnerBeside(self);
-    value.librashader = librashaderBeside(self);
+    const InstallLayout layout = installLayout(env("OPENSU_ASSETS"));
+    value.assetsDir = layout.assetsDir;
+    value.executable = layout.executable;
+    value.gamescope = layout.gamescope;
+    value.retroRunner = layout.retroRunner;
+    value.librashader = layout.librashader;
     const auto base = [&value](const char* variable, const char* fallback) {
         const std::string_view set = env(variable);
         return set.empty() ? value.home / fallback : std::filesystem::path{set};

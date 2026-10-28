@@ -5,6 +5,9 @@
 # session, host device state, and the drawn shell. Entry points compose; nothing here reaches into
 # another's internals.
 
+if(ANDROID)
+    add_subdirectory(android)
+endif()
 add_subdirectory(vdf)
 add_subdirectory(clock)
 add_subdirectory(config)
@@ -33,7 +36,13 @@ add_subdirectory(ui)
 add_subdirectory(app)
 add_subdirectory(retro)
 
-add_executable(opensu main.cpp)
+# On Android the shell is libmain.so, which SDL's Activity loads and enters at SDL_main.
+if(ANDROID)
+    add_library(opensu SHARED main.cpp)
+    set_target_properties(opensu PROPERTIES OUTPUT_NAME main)
+else()
+    add_executable(opensu main.cpp)
+endif()
 target_link_libraries(opensu
     PRIVATE
         opensu::app
@@ -55,7 +64,8 @@ add_custom_target(opensu_assets ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/assets.
 add_dependencies(opensu opensu_assets)
 
 include(GNUInstallDirs)
-install(TARGETS opensu RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(TARGETS opensu RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/" DESTINATION "${CMAKE_INSTALL_DATADIR}/opensu")
 set(OPENSU_EXEC "${CMAKE_INSTALL_FULL_BINDIR}/opensu")
 # The AppImage passes OPENSU_DESKTOP_EXEC=opensu: whatever integrates it rewrites Exec.

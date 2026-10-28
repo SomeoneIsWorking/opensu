@@ -171,8 +171,9 @@ Tooling: `tools/check` gains `--platform`; packaging moves into one modular `too
   `MainActivity.B`, `FLAG_ACTIVITY_NEW_TASK`); a ROM goes over as a `content://` URI with
   `FLAG_GRANT_READ_URI_PERMISSION`. Emulators that only take file paths need the template's path
   form and are listed as such.
-- Off: Steam, Epic, GOG, sign-in extension, volume and power tabs, Lua read paths outside SAF
-  roots until decided.
+- Volume: the media stream through AudioManager, the stream games and the volume keys share.
+- Off: Steam, Epic, GOG, sign-in extension, the power tab, Lua read paths outside SAF roots until
+  decided.
 
 ## 5. Build order
 
@@ -270,3 +271,32 @@ the MSVC front end); a Windows `ProcessLauncher` and process table; the tests (P
 configured for Windows); the installer and the release job.
 
 
+
+## Step 4 as built
+
+The shell runs on Android as `libmain.so` under android-port's SDL Activity; the APK is built by
+`uv run --frozen python -m tools.package.android build` (pinned android-port checked out by commit,
+its shared native prefix reused or built, both ABIs, Gradle 9.4.1 with AGP 9.2, minSdk 28 for
+`posix_spawn` and the Vulkan loader) and signed with the release key from the
+`OPENSU_ANDROID_*` secrets (certificate SHA-256
+`BDC838D582DDC695CDAB431D2053B636EB93A0C2E1C3F468DD002D1011E43238`, checked by the tool).
+`packaging/android` holds the Gradle project, manifest, icon and Java: `ShellActivity` (installs the
+assets from the APK into `filesDir/share/opensu` once per install, then SDL), `RetroActivity`
+(`opensu-retro` as `libopensu-retro.so` in `android:process=":retro"`, its arguments and
+environment from the intent, the process ended when the runner returns), `Launches` (the runner,
+or another app by component or am-style action/data/extras with read permission on `content://`
+data) and `MusicVolume`. Native owners added: `config::installLayout` (beside the executable, or
+the APK's native library dir and `filesDir`), `locations_android.cpp` (`filesDir`, `cacheDir`),
+the `intent` `ProcessLauncher` backend over `android::ActivityCall` (`src/android`), the
+AudioManager volume backend, `clock::sinceEpoch` (the NDK's libc++ has no `clock_cast`),
+`library::cliStoresRun` and an empty `steam::clientModes` (no Steam, Epic or GOG on Android), and
+Lucent's `text::from_chars_real` (no floating `from_chars` in the NDK's libc++). The OS's
+on-screen keyboard is off (openSU draws its own). CI: the `android` job in `ci.yml` and
+`release.yml` builds, signs and uploads the APK; `release.yml` publishes it.
+
+Shown on the `codex_shared_api35` AVD (x86_64, landscape 1920x1080 at 420 dpi, phone-sized): first
+run's integrations chooser offering only standalone emulators and Lua plugins, the Home grid, the
+Guide menu with the media volume, Settings. Left for this step: the `:retro` runner on a ROM from
+a SAF folder (`RomTree`), the runner's touch layer, standalone emulators' intent templates in
+`emulators.json`, librashader for Android, tablet-size frames, the player's phone (arm64 cores,
+performance).

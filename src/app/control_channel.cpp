@@ -14,6 +14,7 @@
 #include <string_view>
 
 #include "lucent/log.h"
+#include "lucent/text.h"
 
 namespace opensu::app {
 namespace {
@@ -94,7 +95,8 @@ std::optional<PointerInjection> pointerNamed(std::string_view body) {
     }
     const auto number = [](std::string_view word) -> std::optional<float> {
         float value = 0.0f;
-        const auto [end, error] = std::from_chars(word.data(), word.data() + word.size(), value);
+        const auto [end, error] =
+            lucent::text::from_chars_real(word.data(), word.data() + word.size(), value);
         if (word.empty() || error != std::errc{} || end != word.data() + word.size()) {
             return std::nullopt;
         }

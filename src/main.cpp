@@ -10,6 +10,9 @@
 #include <string>
 #include <vector>
 
+// Renames main to SDL_main where the OS enters through SDL (Android's Activity).
+#include <SDL3/SDL_main.h>
+
 #include "app/shell_app.hpp"
 #include "app/shell_session.hpp"
 #include "config/arguments.hpp"

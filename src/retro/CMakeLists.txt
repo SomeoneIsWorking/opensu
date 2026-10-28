@@ -13,18 +13,25 @@ target_include_directories(opensu_retro
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(opensu_retro
     PUBLIC opensu::libretro_header opensu::librashader_header opensu::pad opensu::command opensu::fileio opensu::setting_layers lucent::lucent
-           PkgConfig::SDL3 PkgConfig::VULKAN
+           PkgConfig::SDL3 opensu::vulkan
     PRIVATE gpu2d::image)
 target_compile_features(opensu_retro PUBLIC cxx_std_20)
 target_compile_options(opensu_retro PRIVATE -Wall -Wextra -Wpedantic)
 
-add_executable(opensu-retro main.cpp)
+# On Android the runner is libopensu-retro.so, which the `:retro` Activity loads.
+if(ANDROID)
+    add_library(opensu-retro SHARED main.cpp)
+else()
+    add_executable(opensu-retro main.cpp)
+endif()
 target_link_libraries(opensu-retro PRIVATE opensu::retro opensu::config lucent::lucent)
 target_compile_options(opensu-retro PRIVATE -Wall -Wextra -Wpedantic)
 # Beside opensu, in the build tree as installed, where the shell looks for it.
-set_target_properties(opensu-retro PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/src")
+set_target_properties(opensu-retro PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/src"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/src")
 # The librashader it loads for a shader preset, staged where `Config::librashader` looks.
 if(TARGET opensu_librashader)
     add_dependencies(opensu-retro opensu_librashader)
 endif()
-install(TARGETS opensu-retro RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(TARGETS opensu-retro RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")

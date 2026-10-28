@@ -1,0 +1,33 @@
+"""The Gradle project staged under build/android/project: the sources in packaging/android, SDL's
+and android-port's Java, the assets and every ABI's libraries."""
+
+import shutil
+from pathlib import Path
+from types import ModuleType
+
+from tools.package.android import config
+
+
+def stage(layout: config.Layout, port: ModuleType) -> Path:
+    project = layout.project
+    if project.exists():
+        shutil.rmtree(project)
+    shutil.copytree(config.SOURCE / "app", project / "app")
+    for name in ("build.gradle", "settings.gradle"):
+        shutil.copy2(config.SOURCE / name, project / name)
+    wrapper = project / "gradle" / "wrapper"
+    wrapper.mkdir(parents=True)
+    shutil.copy2(config.SOURCE / "gradle-wrapper.properties", wrapper)
+    port.stage_gradle_runtime(layout.prefix(config.ABIS[0]), project)
+    # The Activity copies these to filesDir/share/opensu, where the shell reads them as files.
+    shutil.copytree(config.REPO / "assets", project / "app/src/main/assets/opensu")
+    return project
+
+
+def stage_libraries(layout: config.Layout, port: ModuleType, profile: object, abi: str) -> None:
+    """libmain.so, SDL3 and libc++ through android-port; then the runner beside them."""
+    port.stage_package_runtime(profile)
+    runner = layout.native_dir(abi) / "src" / "libopensu-retro.so"
+    if not runner.is_file():
+        raise config.refuse(f"the {abi} build has no {runner.name}")
+    shutil.copy2(runner, profile.jni_libs / abi / runner.name)

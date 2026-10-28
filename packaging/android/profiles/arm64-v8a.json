@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "nativeDependencies": {
+    "abi": "arm64-v8a",
+    "api": 21,
+    "prefix": "../../../build/android/deps/arm64-v8a",
+    "capabilities": ["sdl3", "image", "font", "text", "png", "shaping", "tls", "http", "webp", "vorbis", "sqlite", "json", "svg"]
+  },
+  "package": {
+    "nativeLibrary": "../../../build/android/arm64-v8a/src/libmain.so",
+    "jniLibs": "../../../build/android/project/app/src/main/jniLibs"
+  },
+  "sharedEmulator": {
+    "lock": "../../../../shared/android-port/coord/android-emulator.lock",
+    "serial": "emulator-5554"
+  }
+}

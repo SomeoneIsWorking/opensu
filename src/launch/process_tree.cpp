@@ -17,6 +17,10 @@ constexpr auto settle = std::chrono::milliseconds{20};
 
 } // namespace
 
+bool ProcessTree::available() {
+    return table::available();
+}
+
 std::vector<ProcessId> ProcessTree::matching(const std::string& hint) {
     std::vector<ProcessId> found;
     if (hint.empty()) {

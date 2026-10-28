@@ -15,7 +15,7 @@ target_link_libraries(opensu_plugin PRIVATE nlohmann_json::nlohmann_json)
 target_include_directories(opensu_plugin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_plugin
     PUBLIC opensu::library opensu::net opensu::lua
-    PRIVATE lucent::lucent
+    PRIVATE opensu::clock lucent::lucent
 )
 target_compile_features(opensu_plugin PUBLIC cxx_std_20)
 target_compile_options(opensu_plugin PRIVATE -Wall -Wextra -Wpedantic)

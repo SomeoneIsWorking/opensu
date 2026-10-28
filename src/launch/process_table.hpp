@@ -9,6 +9,8 @@
 
 namespace opensu::launch::table {
 
+/// Whether this OS's table lists processes at all.
+[[nodiscard]] bool available();
 /// Every running process.
 [[nodiscard]] std::vector<ProcessId> pids();
 /// The parent of `pid`, or -1 when it exited.
