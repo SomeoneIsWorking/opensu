@@ -7,7 +7,7 @@
 #include "fileio/owner_only_write.hpp"
 #include "secret_service.hpp"
 
-namespace opensu::host {
+namespace opensu::secrets {
 namespace {
 
 namespace fs = std::filesystem;
@@ -78,4 +78,4 @@ bool SecretStore::forget(std::string_view name, std::string& error) const {
     return cleared;
 }
 
-} // namespace opensu::host
+} // namespace opensu::secrets

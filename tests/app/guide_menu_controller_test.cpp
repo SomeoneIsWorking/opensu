@@ -20,7 +20,7 @@ using Landing = app::GuideMenuController::Landing;
 using test::expect;
 
 struct Rig {
-    explicit Rig(const app::GuideContext& context = {}, bool mixer = true)
+    explicit Rig(const app::GuideContext& context = {}, bool mixer = true, bool machine = true)
         : scratch{OPENSU_TEST_SCRATCH, "guide-menu"},
           preferences{settings::Store{scratch.path() / "settings.json"},
                       [](const std::string&) {
@@ -28,7 +28,8 @@ struct Rig {
           volume{mixer ? std::make_unique<test::FakeMixer>() : nullptr, {}}, brightness{&light},
           retro{scratch.path() / "retro"},
           controller{ui.navigator,
-                     {power, session, volume, brightness, retro, preferences},
+                     {machine ? &power : nullptr, machine ? &session : nullptr, volume, brightness,
+                      retro, preferences},
                      sounds,
                      app::GuideMenuController::Hooks{
                          .context =
@@ -242,6 +243,16 @@ void sessionInstalledOffersTheSwitch() {
            "as the login session, Switch to desktop ends it");
 }
 
+void withoutPowerOrSessionOnlyQuitIsLeft() {
+    Rig rig{{}, true, false};
+    std::vector<std::string> ids;
+    for (const ui::SettingsRow& row : rig.controller.power()) {
+        ids.push_back(row.id);
+    }
+    expect(ids == std::vector<std::string>{"power.quit"},
+           "without power or session mode, Power holds Quit alone");
+}
+
 } // namespace
 
 int main() {
@@ -251,6 +262,7 @@ int main() {
     withoutAMixerVolumeSaysWhy();
     powerAsksAndSaysRefusals();
     sessionInstalledOffersTheSwitch();
+    withoutPowerOrSessionOnlyQuitIsLeft();
     std::printf("guide menu controller: all checks passed\n");
     return 0;
 }

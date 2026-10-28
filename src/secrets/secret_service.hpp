@@ -7,7 +7,7 @@
 #include <string>
 #include <string_view>
 
-namespace opensu::host::secret_service {
+namespace opensu::secrets::secret_service {
 
 /// Whether this build has a backend at all.
 [[nodiscard]] bool built() noexcept;
@@ -28,4 +28,4 @@ struct SecretItem {
 /// Removes the item `name`; true when there was none.
 [[nodiscard]] bool clear(std::string_view name, std::string& error);
 
-} // namespace opensu::host::secret_service
+} // namespace opensu::secrets::secret_service

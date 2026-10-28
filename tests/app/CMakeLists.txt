@@ -74,12 +74,15 @@ target_include_directories(control_bridge_test PRIVATE "${CMAKE_SOURCE_DIR}/test
 target_compile_options(control_bridge_test PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME control_bridge COMMAND control_bridge_test)
 
-add_executable(host_services_test host_services_test.cpp)
-target_link_libraries(host_services_test PRIVATE opensu::app)
-target_include_directories(host_services_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
-target_compile_options(host_services_test PRIVATE -Wall -Wextra -Wpedantic)
-target_compile_definitions(host_services_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
-add_test(NAME host_services COMMAND host_services_test)
+# The Linux services behind HostServices.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(host_services_test host_services_test.cpp)
+    target_link_libraries(host_services_test PRIVATE opensu::app)
+    target_include_directories(host_services_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
+    target_compile_options(host_services_test PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_definitions(host_services_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
+    add_test(NAME host_services COMMAND host_services_test)
+endif()
 
 add_executable(audio_outputs_test audio_outputs_test.cpp)
 target_link_libraries(audio_outputs_test PRIVATE opensu::app)

@@ -17,7 +17,7 @@ using gpu2d::ui::Action;
 using test::expect;
 
 struct Rig {
-    Rig()
+    explicit Rig(bool withBluetooth = true)
         : volume{std::make_unique<test::FakeMixer>()}, outputs{volume}, bluetooth{radio},
           roster{{[this] {
                       return pads;
@@ -27,7 +27,7 @@ struct Rig {
                   }}},
           controller{ui.navigator,
                      chrome,
-                     {bluetooth, roster, outputs},
+                     {withBluetooth ? &bluetooth : nullptr, roster, outputs},
                      sounds,
                      {[this](const std::string& text, bool) {
                           said.push_back(text);
@@ -128,6 +128,21 @@ void hasFourTabs() {
            "closed it has no tab");
 }
 
+void withoutBluetoothItsTabIsLeftOut() {
+    Rig rig{false};
+    rig.controller.open();
+    rig.ui.frame(1.0);
+    std::vector<std::string> labels;
+    for (const ui::SettingsCategory& tab : rig.controller.tabs()) {
+        labels.push_back(tab.label);
+    }
+    expect(labels == std::vector<std::string>{"Controllers", "Audio output", "Display"},
+           "no Bluetooth tab without a Bluetooth service");
+    expect(rig.controller.tab() == "Controllers" && !rig.controller.showsBluetooth(),
+           "it opens on Controllers");
+    rig.controller.close();
+}
+
 void bluetoothActionsGoThroughTheSession() {
     Rig rig;
     rig.openOn("bluetooth");
@@ -222,6 +237,7 @@ void backGoesToTheTabsThenCloses() {
 
 int main() {
     hasFourTabs();
+    withoutBluetoothItsTabIsLeftOut();
     bluetoothActionsGoThroughTheSession();
     forgettingAsksFirst();
     aRefusalIsSaid();

@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-#include "host/secret.hpp"
+#include "secrets/secret.hpp"
 #include "ui/entry_screen.hpp"
 #include "ui/progress_screen.hpp"
 
@@ -32,7 +32,7 @@ std::string explanation() {
 } // namespace
 
 SessionInstallController::~SessionInstallController() {
-    host::wipe(password_);
+    secrets::wipe(password_);
     if (job_.valid()) {
         job_.wait();
     }
@@ -68,17 +68,17 @@ void SessionInstallController::cancel() {
         sounds_.play(audio::Effect::Close);
         navigator_.closeFrom(*card);
     }
-    host::wipe(password_);
+    secrets::wipe(password_);
 }
 
 void SessionInstallController::typed(std::string text) {
-    host::wipe(password_);
+    secrets::wipe(password_);
     password_ = std::move(text);
 }
 
 void SessionInstallController::openPassword() {
     sounds_.play(audio::Effect::Open);
-    host::wipe(password_);
+    secrets::wipe(password_);
     navigator_.push(std::make_unique<ui::EntryScreen>(
         ui::Entry{.id = std::string{passwordId},
                   .title = std::string{title},
@@ -125,7 +125,7 @@ void SessionInstallController::submit() {
         nullptr));
     job_ = std::async(std::launch::async, [this, secret = std::move(secret)]() mutable {
         const host::InstallResult result = session_.install(secret);
-        host::wipe(secret);
+        secrets::wipe(secret);
         return result;
     });
 }

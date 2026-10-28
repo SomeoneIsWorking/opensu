@@ -1,6 +1,6 @@
 #include "secret_service.hpp"
 
-namespace opensu::host::secret_service {
+namespace opensu::secrets::secret_service {
 
 bool built() noexcept {
     return false;
@@ -20,4 +20,4 @@ bool clear(std::string_view /*name*/, std::string& /*error*/) {
     return true;
 }
 
-} // namespace opensu::host::secret_service
+} // namespace opensu::secrets::secret_service

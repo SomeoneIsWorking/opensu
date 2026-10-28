@@ -1,9 +1,10 @@
 // devices_controller — what the Devices screen holds and does. Four tabs: Bluetooth (the adapter,
-// a scan, and each device to pair, connect, disconnect or forget), Controllers (the connected pads
-// with player order, battery and a live button test, and the way to the shortcut remapping), Audio
-// output (the outputs to choose between) and Display (the output's size). Volume, brightness and
-// the interface size are the Guide menu's. Everything it changes goes through the owner of that
-// thing: `BluetoothSession` and `AudioOutputs`.
+// a scan, shown only where the machine has a Bluetooth service; and each device to pair, connect,
+// disconnect or forget), Controllers (the connected pads with player order, battery and a live
+// button test, and the way to the shortcut remapping), Audio output (the outputs to choose between)
+// and Display (the output's size). Volume, brightness and the interface size are the Guide menu's.
+// Everything it changes goes through the owner of that thing: `BluetoothSession` and
+// `AudioOutputs`.
 #pragma once
 
 #include <chrono>
@@ -43,7 +44,8 @@ class DevicesController final : public ui::RowActions {
 
     /// What the rows act on.
     struct Services {
-        BluetoothSession& bluetooth;
+        /// Null where the machine has no Bluetooth service; the tab is then left out.
+        BluetoothSession* bluetooth;
         ControllerRoster& controllers;
         AudioOutputs& outputs;
     };
@@ -100,7 +102,7 @@ class DevicesController final : public ui::RowActions {
 
     gpu2d::ui::Navigator& navigator_;
     const ui::Chrome& chrome_;
-    BluetoothSession& bluetooth_;
+    BluetoothSession* bluetooth_;
     ControllerRoster& controllers_;
     AudioOutputs& outputs_;
     audio::SdlSoundPlayer& sounds_;

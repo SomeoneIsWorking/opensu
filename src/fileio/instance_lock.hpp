@@ -1,10 +1,12 @@
 // instance_lock — one openSU at a time, so a second launch does not start a second shell and a
-// second Steam client.
+// second Steam client. One backend per OS, picked in CMakeLists.txt: `flock` on POSIX
+// (`instance_lock_posix.cpp`), an unshared open on Windows (`instance_lock_win32.cpp`).
 #pragma once
 
 #include <filesystem>
+#include <memory>
 
-namespace opensu::host {
+namespace opensu::fileio {
 
 class InstanceLock {
   public:
@@ -21,8 +23,11 @@ class InstanceLock {
     }
 
   private:
-    int fd_{-1};
+    /// What the OS's backend keeps open while the lock is held.
+    struct File;
+
+    std::unique_ptr<File> file_;
     bool held_{false};
 };
 
-} // namespace opensu::host
+} // namespace opensu::fileio

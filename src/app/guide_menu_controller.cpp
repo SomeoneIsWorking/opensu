@@ -163,20 +163,23 @@ std::vector<SettingsRow> GuideMenuController::quick() const {
 
 std::vector<SettingsRow> GuideMenuController::power() const {
     std::vector<SettingsRow> rows;
-    rows.push_back(action(sleepId, "Sleep"));
-    rows.push_back(asking(restartId, "Restart", "This computer restarts; a running game ends."));
-    rows.push_back(asking(shutDownId, "Shut down", "This computer turns off; a running game ends.",
-                          "Shut down"));
+    if (power_ != nullptr) {
+        rows.push_back(action(sleepId, "Sleep"));
+        rows.push_back(
+            asking(restartId, "Restart", "This computer restarts; a running game ends."));
+        rows.push_back(asking(shutDownId, "Shut down",
+                              "This computer turns off; a running game ends.", "Shut down"));
+    }
     // As the login session, quitting only ends it and the display manager starts it again.
-    if (context_.loginSession) {
+    if (session_ != nullptr && context_.loginSession) {
         rows.push_back(action(toDesktopId, "Switch to desktop"));
         return rows;
     }
-    if (context_.sessionInstalled) {
+    if (session_ != nullptr && context_.sessionInstalled) {
         rows.push_back(asking(toSessionId, "Switch to session mode",
                               "Your desktop session ends and openSU's starts; a running game "
                               "ends."));
-    } else {
+    } else if (session_ != nullptr) {
         rows.push_back(action(installSessionId, "Install session mode"));
     }
     rows.push_back(action(quitId, "Quit to desktop"));
@@ -239,18 +242,18 @@ void GuideMenuController::runGame(const std::string& id) {
 }
 
 void GuideMenuController::runPower(const std::string& id) {
-    if (id == sleepId || id == restartId || id == shutDownId) {
+    if (power_ != nullptr && (id == sleepId || id == restartId || id == shutDownId)) {
         const host::PowerAction what = id == sleepId     ? host::PowerAction::Suspend
                                        : id == restartId ? host::PowerAction::Restart
                                                          : host::PowerAction::ShutDown;
         close();
-        refuse(power_.perform(what), host::label(what));
-    } else if (id == toDesktopId) {
+        refuse(power_->perform(what), host::label(what));
+    } else if (session_ != nullptr && id == toDesktopId) {
         close();
-        refuse(session_.switchToDesktop(), "Switch to desktop");
-    } else if (id == toSessionId) {
+        refuse(session_->switchToDesktop(), "Switch to desktop");
+    } else if (session_ != nullptr && id == toSessionId) {
         close();
-        refuse(session_.switchToSession(), "Switch to session mode");
+        refuse(session_->switchToSession(), "Switch to session mode");
     } else if (id == installSessionId) {
         leave(hooks_.installSession);
     } else if (id == quitId) {

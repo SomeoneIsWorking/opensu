@@ -45,18 +45,6 @@ class RefusingPower final : public Power {
 
 } // namespace
 
-const char* label(PowerAction action) noexcept {
-    switch (action) {
-    case PowerAction::Suspend:
-        return "Sleep";
-    case PowerAction::Restart:
-        return "Restart";
-    case PowerAction::ShutDown:
-        return "Shut down";
-    }
-    return "";
-}
-
 std::unique_ptr<Power> makeLogindPower(Runner run) {
     return std::make_unique<LogindPower>(std::move(run));
 }

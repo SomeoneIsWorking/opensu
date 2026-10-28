@@ -6,7 +6,7 @@
 
 #include "secret.hpp"
 
-namespace opensu::host::secret_service {
+namespace opensu::secrets::secret_service {
 namespace {
 
 // Items are found by openSU's schema name and their `name` attribute.
@@ -77,4 +77,4 @@ bool clear(std::string_view name, std::string& error) {
     return !failed(raw, error);
 }
 
-} // namespace opensu::host::secret_service
+} // namespace opensu::secrets::secret_service

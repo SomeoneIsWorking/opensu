@@ -639,8 +639,8 @@ const library::Game* ShellApp::gameInFront() const {
 
 bool ShellApp::menusBlocked() {
     return panels_.active() || paths_.active() || artworkSettings_.typing() || mappings_.active() ||
-           sessionInstall_.active() || firstRun_.active() || shortcutEditor_.capturing() ||
-           search_.isOpen() || layoutPicker_.isOpen();
+           (sessionInstall_ && sessionInstall_->active()) || firstRun_.active() ||
+           shortcutEditor_.capturing() || search_.isOpen() || layoutPicker_.isOpen();
 }
 
 void ShellApp::closeRunningGame() {
@@ -691,11 +691,13 @@ std::string ShellApp::outputLine() const {
 }
 
 void ShellApp::serviceDevices(std::chrono::steady_clock::time_point now) {
-    if (bluetooth_.poll(now, devicesScreen_.showsBluetooth())) {
-        devicesScreen_.refresh();
-    }
-    if (const std::optional<BluetoothNotice> notice = bluetooth_.takeNotice()) {
-        shell_.setToast(notice->text, notice->error);
+    if (bluetooth_) {
+        if (bluetooth_->poll(now, devicesScreen_.showsBluetooth())) {
+            devicesScreen_.refresh();
+        }
+        if (const std::optional<BluetoothNotice> notice = bluetooth_->takeNotice()) {
+            shell_.setToast(notice->text, notice->error);
+        }
     }
     devicesScreen_.tick(now);
 }
@@ -1057,7 +1059,9 @@ int ShellApp::run() {
         delivery_.service();
         covers_.service();
         serviceDevices(std::chrono::steady_clock::now());
-        sessionInstall_.service();
+        if (sessionInstall_) {
+            sessionInstall_->service();
+        }
         emulatorDownloads_.service();
         wineRunners_.service(std::chrono::steady_clock::now());
         downloadsScreen_.service();
