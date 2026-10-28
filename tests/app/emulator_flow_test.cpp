@@ -319,8 +319,9 @@ void settingsUpdateRemoveAndDefault(const fs::path& root) {
 
     const settings::Layer gba{settings::Layer::Kind::System, "gba"};
     rig.layered.set(rig.layered.forSystem("gba"), gba, std::string{library::emulatorKey}, "Emu");
-    const std::string* kept = settings::GameSettingsStore{root / "game-settings.json"}.load().at(
-        gba, library::emulatorKey);
+    const settings::SettingLayers saved =
+        settings::GameSettingsStore{root / "game-settings.json"}.load();
+    const std::string* kept = saved.at(gba, library::emulatorKey);
     expect(rig.gameSettings.layers().at(gba, library::emulatorKey) != nullptr &&
                *rig.gameSettings.layers().at(gba, library::emulatorKey) == "Emu" &&
                kept != nullptr && *kept == "Emu",
