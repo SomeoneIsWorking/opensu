@@ -52,11 +52,14 @@
 #include "guide_menu_controller.hpp"
 #include "home_screen.hpp"
 #include "host_services.hpp"
+#include "iisu_file_chooser.hpp"
 #include "iisu_pack.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "integration_settings.hpp"
 #include "integration_switch.hpp"
 #include "integrations_in_force.hpp"
+#include "interface_sound_settings.hpp"
+#include "interface_sounds.hpp"
 #include "keyboard_pad.hpp"
 #include "launch/handoff.hpp"
 #include "launch/process_tree.hpp"
@@ -295,8 +298,10 @@ class ShellApp final {
     artwork::SteamGridDb steamGridDb_{environment_.steamGridDbApi.empty()
                                           ? std::string{artwork::steamGridDbApi}
                                           : environment_.steamGridDbApi};
-    /// iiSU's UI sounds, played from the loop's input handling.
+    /// The UI sounds, played from the loop's input handling.
     audio::SdlSoundPlayer sounds_;
+    /// Whose sounds `sounds_` holds, as the preferences choose.
+    InterfaceSounds interfaceSounds_{sounds_, environment_.assetsDir};
     /// Opened by `run` or `renderToFile`; before the shell, whose textures live on its device.
     std::unique_ptr<ShellWindow> window_;
     /// What the control channel's threads and the loop hand each other.
@@ -697,9 +702,11 @@ class ShellApp final {
                                                  applyIntegrations();
                                              }};
     /// Settings › Artwork and its key keyboard.
+    /// Where the player gives iiSU's release or starter pack, for the art and the sounds.
+    IisuFileChooser iisuChooser_{paths_, resolved_.home};
     ArtworkSettings artworkSettings_{
         steamGridDbAccount_, ArtworkSettings::Entry{shell_.screens().navigator(), keyboardPad_},
-        ArtworkSettings::Services{preferences_, paths_, resolved_.home, sounds_},
+        ArtworkSettings::Services{preferences_, iisuChooser_, sounds_},
         ArtworkSettings::Hooks{[this](const std::string& text, bool isError) {
                                    shell_.setToast(text, isError);
                                },
@@ -712,6 +719,16 @@ class ShellApp final {
                                [this] {
                                    requestArtwork();
                                }}};
+    /// Settings › Audio › Interface sounds.
+    InterfaceSoundSettings interfaceSoundSettings_{
+        preferences_, iisuChooser_,
+        InterfaceSoundSettings::Hooks{[this] {
+                                          applyLayout();
+                                          settingsScreen_.refresh();
+                                      },
+                                      [this] {
+                                          requestArtwork();
+                                      }}};
     /// The Settings screen, reached from the options panel.
     SettingsController settingsScreen_{
         shell_.screens().navigator(),
@@ -719,7 +736,8 @@ class ShellApp final {
         SettingsController::Services{paths_, shortcutEditor_, shell_.shortcuts(), emulatorSettings_,
                                      layerSettings_, layered_, steamLibrarySettings_,
                                      pluginSettings_, chordSettings_, mappings_, wineSettings_,
-                                     integrationSettings_, artworkSettings_, integrations_},
+                                     integrationSettings_, artworkSettings_,
+                                     interfaceSoundSettings_, integrations_},
         sounds_,
         preferences_,
         environment_,

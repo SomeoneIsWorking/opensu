@@ -238,6 +238,26 @@ void nightLight(const fs::path& root) {
            "an unknown night light choice follows the desktop");
 }
 
+void interfaceSounds(const fs::path& root) {
+    using opensu::settings::AssetOwner;
+    const Store store{root / "sounds" / "settings.json"};
+    expect(store.load().interfaceSounds == AssetOwner::OpenSu, "openSU's sounds by default");
+    Settings saved;
+    saved.interfaceSounds = AssetOwner::Iisu;
+    saved.iisuFile = root / "iiSU.apk";
+    std::string error;
+    expect(store.save(saved, error), "the sound choice is saved");
+    expect(store.load().interfaceSounds == AssetOwner::Iisu &&
+               store.load().iisuFile == root / "iiSU.apk",
+           "iiSU's sounds and the file read back");
+    expect(read(store.file()).find("\"interfaceSounds\": \"iisu\"") != std::string::npos,
+           "the choice is kept by its spelling");
+    write(store.file(), R"({"interfaceSounds": "loud", "consoleArt": "iisu"})");
+    expect(store.load().interfaceSounds == AssetOwner::OpenSu &&
+               store.load().consoleArt == AssetOwner::Iisu,
+           "an unknown sound choice plays openSU's and leaves the console art alone");
+}
+
 void resolution() {
     opensu::config::Config env;
     env.homeMode = opensu::config::HomeMode::WiiSu;
@@ -330,6 +350,7 @@ int main() {
     anOldInterfaceSizeKeepsItsSize(root);
     wineChoices(root);
     nightLight(root);
+    interfaceSounds(root);
     integrationChoices(root);
     resolution();
     unwritable(root);

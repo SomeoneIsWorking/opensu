@@ -1,5 +1,5 @@
-// effect — the UI sounds openSU plays at iiSU's events: which shipped file each is and how often it
-// may repeat. Pure, so tests link it alone.
+// effect — the UI sounds openSU plays at iiSU's events: which file each is in openSU's set and in
+// iiSU's release, and how often it may repeat. Pure, so tests link it alone.
 #pragma once
 
 #include <array>
@@ -49,6 +49,10 @@ inline constexpr std::string_view shippedDirectory = "sounds";
 
 /// The effect's Ogg Vorbis file in openSU's own set (`assets/sounds/`).
 [[nodiscard]] std::string_view shippedFile(Effect effect) noexcept;
+
+/// The effect's file in iiSU's release APK, under `assets/` (`xp8.I`): a WAV, or an OGG for a
+/// domino cue.
+[[nodiscard]] std::string_view iisuFile(Effect effect) noexcept;
 
 /// The domino cue for a section change that shows `tiles` tiles at once (`xp8.a`), or nothing for
 /// none.

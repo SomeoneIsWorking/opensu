@@ -30,6 +30,7 @@ constexpr std::string_view borderPack =
     R"({"console": "snes", "border": "SNES.png", "logo": "logo_SNES.png"},)"
     R"({"console": "n64", "border": "n64.png", "logo": "../../classes.dex"}]})";
 constexpr std::string_view gcGlyph = "\x89PNG\r\n\x1a\n glyph of the GameCube";
+constexpr std::string_view navigationWav = "RIFF navigation tick";
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -55,6 +56,7 @@ std::string apk(int fillerEntries) {
         {"assets/iiSU_StarterPack.zip", starterPack(), true, {}},
         {"assets/borders/border_pack.json", std::string{borderPack}, true, {}},
         {"assets/borders/logo_gc.png", std::string{gcGlyph}, false, {}},
+        {"assets/Navigation.wav", std::string{navigationWav}, true, {}},
         {"classes.dex", std::string(std::size_t{2} * 1024 * 1024, 'd'), false, {}},
     };
     for (int i = 0; i < fillerEntries; ++i) {
@@ -68,7 +70,11 @@ void testRelease(const fs::path& dir, int fillerEntries) {
     std::string error;
     const auto pack = IisuPack::open(write(dir / "iiSU.apk", apk(fillerEntries)), error);
     expect(pack != nullptr && error.empty(), "iiSU's release opens");
-    expect(pack->hasGlyphs(), "the release has glyphs");
+    expect(pack->hasGlyphs() && pack->hasSounds(), "the release has glyphs and sounds");
+    expect(pack->sound("Navigation.wav", error) == navigationWav, "a sound comes out of assets/");
+    expect(!pack->sound("Close.wav", error) && error.empty(), "a sound it lacks is nothing");
+    expect(!pack->sound("../classes.dex", error) && error.empty(),
+           "a name that leaves assets/ is nothing");
     expect(pack->card("gc", error) == gcCard, "a card comes out of the nested starter pack");
     expect(!pack->card("ps4", error) && error.empty(), "a console without a card is nothing");
     expect(pack->glyph("gc", error) == gcGlyph,
@@ -83,7 +89,8 @@ void testStarterPack(const fs::path& dir) {
     std::string error;
     const auto pack = IisuPack::open(write(dir / "iiSU_StarterPack.zip", starterPack()), error);
     expect(pack != nullptr, "the starter pack alone opens");
-    expect(!pack->hasGlyphs(), "the starter pack has no glyphs");
+    expect(!pack->hasGlyphs() && !pack->hasSounds(), "the starter pack has no glyphs or sounds");
+    expect(!pack->sound("Navigation.wav", error) && error.empty(), "it gives no sounds");
     expect(pack->card("gc", error) == gcCard, "its cards are read straight from it");
     expect(!pack->glyph("gc", error) && error.empty(), "it gives no glyphs");
 }

@@ -152,6 +152,7 @@ void ShellApp::applyLayout() {
     shell_.setUiScale(settings::uiScaleFactor(chosen.uiScale));
     shell_.setKeyboardStyle(chosen.keyboardStyle);
     sounds_.setMuted(!chosen.uiSounds);
+    interfaceSounds_.apply(chosen);
 }
 
 std::vector<SearchResult> ShellApp::searchResults() const {
@@ -225,7 +226,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
 
 void ShellApp::requestArtwork() {
     const settings::Settings& chosen = preferences_.values();
-    const bool iisu = chosen.consoleArt == settings::ConsoleArtChoice::Iisu;
+    const bool iisu = chosen.consoleArt == settings::AssetOwner::Iisu;
     if (!iisu) {
         iisuPack_.reset();
     } else if (iisuPack_ == nullptr || iisuPack_->file() != chosen.iisuFile) {
@@ -240,6 +241,8 @@ void ShellApp::requestArtwork() {
         systems.push_back(console.system);
     }
     shell_.grid().consoleArt().useIisu(iisuPack_, std::move(systems));
+    // The console art's file is the sounds' too.
+    interfaceSounds_.apply(chosen);
     artworkFetcher_.request(games_);
     delivery_.restart();
 }
@@ -1012,7 +1015,6 @@ int ShellApp::run() {
     if (settings_.playSounds) {
         sounds_.open();
     }
-    sounds_.loadSet(environment_.assetsDir / audio::shippedDirectory);
 
     // The control channel is part of the product, not a debug flag: it is how an
     // automated run drives the shell without a controller.

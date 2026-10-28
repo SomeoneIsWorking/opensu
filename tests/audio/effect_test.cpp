@@ -21,7 +21,15 @@ void filesAreDistinct() {
         const std::string_view file = opensu::audio::shippedFile(effect);
         expect(file.ends_with(".ogg"), "every shipped sound is Ogg Vorbis");
         expect(seen.insert(std::string{file}).second, "no two effects share a file");
+        const std::string_view iisu = opensu::audio::iisuFile(effect);
+        expect(iisu.ends_with(".wav") ||
+                   (iisu.starts_with("domino_icons") && iisu.ends_with(".ogg")),
+               "iiSU's is a WAV, or a domino cue's OGG");
     }
+    expect(opensu::audio::iisuFile(Effect::EnterConsolesApps) == "Enter ConsolesApps.wav",
+           "iiSU's name keeps its space");
+    expect(opensu::audio::iisuFile(Effect::DominoThreeToFive) == "domino_icons_0_5.ogg",
+           "the 3 to 5 cue is iiSU's _0_5 file");
 }
 
 void dominoCueSizes() {

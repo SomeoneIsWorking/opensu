@@ -16,7 +16,8 @@ the showcase).
 Done: the UI sounds are openSU's own (`assets/sounds/`, MIT), synthesized by `tools/sounds/`, one
 per effect. openSU no longer downloads iiSU's sounds: the APK sound jobs, `artwork/iisu_assets.*`,
 the store's `sound/`, `ApkArchive::overHttp`, the pinned release URL and `WebClient::getRange` are
-gone.
+gone. iiSU's sounds are the option (Settings › Audio › Interface sounds), read from the same iiSU
+file as the console art, or a release picked there.
 
 Decided:
 - Default: openSU's own set: our own art and our own synthesized sounds.

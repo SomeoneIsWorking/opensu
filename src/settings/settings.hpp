@@ -9,8 +9,8 @@
 #include <string_view>
 #include <vector>
 
+#include "asset_owner.hpp"
 #include "config/config.hpp"
-#include "console_art_choice.hpp"
 #include "input/keyboard_style.hpp"
 #include "input/shortcuts.hpp"
 #include "install_folders.hpp"
@@ -117,8 +117,11 @@ struct Settings {
     NightLightChoice nightLight{NightLightChoice::Desktop};
 
     /// Whose console cards and tab glyphs the home shows.
-    ConsoleArtChoice consoleArt{ConsoleArtChoice::OpenSu};
-    /// The iiSU release APK or starter pack the player gave for iiSU's console art; empty for none.
+    AssetOwner consoleArt{AssetOwner::OpenSu};
+    /// Whose interface sounds play: openSU's own, or iiSU's from `iisuFile`.
+    AssetOwner interfaceSounds{AssetOwner::OpenSu};
+    /// The iiSU release APK or starter pack the player gave for iiSU's art and sounds; empty for
+    /// none.
     std::filesystem::path iisuFile;
 
     /// The player's changes to the shortcut table.

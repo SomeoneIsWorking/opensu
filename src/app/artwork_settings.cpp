@@ -44,16 +44,10 @@ std::string statusText(const SteamGridDbAccount::Status& status) {
 }
 
 std::string consoleArtNote(const settings::Settings& chosen) {
-    if (chosen.consoleArt == settings::ConsoleArtChoice::OpenSu) {
+    if (chosen.consoleArt == settings::AssetOwner::OpenSu) {
         return "openSU's own drawings of each console";
     }
     return "iiSU's, from " + chosen.iisuFile.filename().string();
-}
-
-/// The files the chooser lists: an APK or a zip.
-bool packLike(const std::filesystem::path& file) {
-    const std::string extension = file.extension().string();
-    return extension == ".apk" || extension == ".zip";
 }
 
 } // namespace
@@ -61,11 +55,11 @@ bool packLike(const std::filesystem::path& file) {
 ui::SettingsCategory ArtworkSettings::page() const {
     const SteamGridDbAccount::Status status = account_.status();
     ui::SettingsCategory page{std::string{categoryId}, "Artwork", {}};
-    const settings::ConsoleArtChoice chosen = preferences_.values().consoleArt;
+    const settings::AssetOwner chosen = preferences_.values().consoleArt;
     ui::Options choices;
-    for (std::size_t i = 0; i < settings::allConsoleArtChoices.size(); ++i) {
-        choices.labels.emplace_back(settings::label(settings::allConsoleArtChoices[i]));
-        if (settings::allConsoleArtChoices[i] == chosen) {
+    for (std::size_t i = 0; i < settings::allAssetOwners.size(); ++i) {
+        choices.labels.emplace_back(settings::label(settings::allAssetOwners[i]));
+        if (settings::allAssetOwners[i] == chosen) {
             choices.chosen = i;
         }
     }
@@ -106,11 +100,11 @@ bool ArtworkSettings::owns(const std::string& id) {
 void ArtworkSettings::run(const std::string& id, int step) {
     if (id == consoleArtId) {
         // Two choices, so every step lands on the other one; iiSU's asks for its file first.
-        if (preferences_.values().consoleArt == settings::ConsoleArtChoice::OpenSu) {
+        if (preferences_.values().consoleArt == settings::AssetOwner::OpenSu) {
             chooseIisuFile();
             return;
         }
-        useConsoleArt(settings::ConsoleArtChoice::OpenSu, preferences_.values().iisuFile);
+        useConsoleArt(settings::AssetOwner::OpenSu, preferences_.values().iisuFile);
         return;
     }
     if (step != 0) {
@@ -131,7 +125,7 @@ void ArtworkSettings::run(const std::string& id, int step) {
     hooks_.refresh();
 }
 
-void ArtworkSettings::useConsoleArt(settings::ConsoleArtChoice choice,
+void ArtworkSettings::useConsoleArt(settings::AssetOwner choice,
                                     const std::filesystem::path& iisuFile) {
     preferences_.values().consoleArt = choice;
     preferences_.values().iisuFile = iisuFile;
@@ -141,29 +135,10 @@ void ArtworkSettings::useConsoleArt(settings::ConsoleArtChoice choice,
 }
 
 void ArtworkSettings::chooseIisuFile() {
-    const std::filesystem::path& known = preferences_.values().iisuFile;
-    std::error_code ec;
-    const std::filesystem::path downloads = home_ / "Downloads";
-    std::filesystem::path start = std::filesystem::is_directory(downloads, ec) ? downloads : home_;
-    if (!known.empty()) {
-        start = known.parent_path();
-    }
-    paths_.begin(PathEditor::Request{
-        .title = "iiSU's release or starter pack",
-        .start = start,
-        .clearLabel = {},
-        .refusal =
-            [](const std::filesystem::path& file) {
-                std::string error;
-                return artwork::IisuPack::open(file, error) != nullptr ? std::string{} : error;
-            },
-        .files = &packLike,
-        .done =
-            [this](const std::optional<std::filesystem::path>& file) {
-                if (file) {
-                    useConsoleArt(settings::ConsoleArtChoice::Iisu, *file);
-                }
-            }});
+    chooser_.choose(IisuFileChooser::Need::Art, preferences_.values().iisuFile,
+                    [this](const std::filesystem::path& file) {
+                        useConsoleArt(settings::AssetOwner::Iisu, file);
+                    });
 }
 
 void ArtworkSettings::connect() {

@@ -6,6 +6,8 @@
 #include <array>
 #include <cstddef>
 #include <filesystem>
+#include <optional>
+#include <string_view>
 
 #include <SDL3/SDL_audio.h>
 
@@ -36,6 +38,8 @@ class SdlSoundPlayer {
     /// Decodes an effect's WAV or OGG, replacing the one loaded; works without a device. False
     /// when the file is unusable.
     bool load(Effect effect, const std::filesystem::path& file);
+    /// The same for a WAV or OGG held in `bytes`, its format by `name`'s extension.
+    bool load(Effect effect, std::string_view bytes, std::string_view name);
 
     /// Decodes every effect's file in `directory` (`shippedFile`); a missing or unusable one is
     /// logged and stays silent. How many loaded.
@@ -57,6 +61,8 @@ class SdlSoundPlayer {
     bool play(Effect effect);
 
   private:
+    /// Replaces the effect's clip with `clip`; false, keeping the old one, for none.
+    bool keep(Effect effect, std::optional<SoundClip> clip);
     /// Binds a stream for each loaded effect that has none.
     void bindStreams();
 
