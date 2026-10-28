@@ -378,7 +378,7 @@ is in front), standalone emulators' intent templates in
 `emulators.json`, librashader for Android, tablet-size frames, the player's phone (arm64 cores,
 performance).
 
-Seen on the AVD and not yet fixed: Settings lists a picked ROM folder by its raw tree URI, the
+Seen on the AVD and not yet fixed: the
 Add-a-game tile still says "A file, Steam shortcuts, Lutris". A tablet-shaped display (1920x1600) lays out without overlap. Fixed since: a
 refused path shows on the chooser card under the field (`PathEditor::refusal`) instead of a toast
 over the card's prompts, and Settings offers the night light only where the platform can warm the
@@ -387,4 +387,5 @@ SDL3_image is built with the prefix's libwebp named by path (the NDK toolchain s
 sysroot, so `find_library` missed it and SDL3_image dropped WebP silently) and fails without it;
 the profiles ask for the `image_webp` capability, which checks SDL3_image's installed
 `Findwebp.cmake`. Library on a phone in landscape: a shelf shorter than a screen spreads across it
-in fewer rows (`HomeLayout`, every platform; a deliberate departure from iiSU, project-state).
+in fewer rows (`HomeLayout`, every platform; a deliberate departure from iiSU, project-state). Settings names a
+picked ROM folder by its display name ("ROMs", `RomTree::label`), not its tree URI.

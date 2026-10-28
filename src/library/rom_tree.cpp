@@ -30,4 +30,8 @@ std::optional<std::vector<RomNode>> FileTree::children(const fs::path& folder) c
     return nodes;
 }
 
+std::string FileTree::label(const fs::path& folder) const {
+    return folder.string();
+}
+
 } // namespace opensu::library::roms

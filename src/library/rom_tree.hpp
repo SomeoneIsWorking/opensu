@@ -35,6 +35,8 @@ class RomTree {
     /// What `folder` holds, sorted by name; nothing when it is no folder the app can read.
     [[nodiscard]] virtual std::optional<std::vector<RomNode>>
     children(const std::filesystem::path& folder) const = 0;
+    /// How the player reads `folder`: its path, or a picked folder's name.
+    [[nodiscard]] virtual std::string label(const std::filesystem::path& folder) const = 0;
 };
 
 /// The filesystem.
@@ -45,6 +47,7 @@ class FileTree final : public RomTree {
 
     [[nodiscard]] std::optional<std::vector<RomNode>>
     children(const std::filesystem::path& folder) const override;
+    [[nodiscard]] std::string label(const std::filesystem::path& folder) const override;
 };
 
 /// This OS's tree: the filesystem, with picked document folders on Android.

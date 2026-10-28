@@ -98,6 +98,11 @@ public final class ShellActivity extends LandscapeActivity {
         return packages.toArray(new String[0]);
     }
 
+    /** Called from the document RomTree: a picked folder's name. */
+    public String documentLabel(String location) {
+        return documents.label(location);
+    }
+
     /** Called from the document RomTree: the children of a picked folder or a folder in it. */
     public String[] listDocuments(String location) {
         return documents.children(location);
