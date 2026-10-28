@@ -1,6 +1,6 @@
 // The Wine runner and prefix of Windows GOG and Epic launches, against a fake PATH and fake Steam
 // folders under the test scratch: what is found, the shared and own prefixes, the arguments added,
-// and the refusals.
+// the GAMEID a Proton launch gets from the umu database, and the refusals.
 #include "library/wine.hpp"
 
 #include <cstdio>
@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "library/umu_database.hpp"
 #include "support/scratch_dir.hpp"
 
 namespace {
@@ -19,6 +20,7 @@ using opensu::library::Game;
 using opensu::library::LaunchSpec;
 using opensu::library::Source;
 namespace wine = opensu::library::wine;
+namespace umu = opensu::library::umu;
 
 void expect(bool condition, const char* what) {
     if (!condition) {
@@ -279,6 +281,55 @@ void namesReadAsWords() {
            "names without a version stay");
 }
 
+/// The environment value `name` in `environment`, or empty.
+std::string valueOf(const std::vector<std::string>& environment, const std::string& name) {
+    for (const std::string& pair : environment) {
+        if (pair.starts_with(name + "=")) {
+            return pair.substr(name.size() + 1);
+        }
+    }
+    return {};
+}
+
+void protonLaunchesGetTheirUmuId(const fs::path& dir) {
+    const fs::path proton = dir / "GE-Proton11-11";
+    binary(proton / "files/bin/wine");
+    const umu::Database database = umu::Database::parse(R"([
+        {"title": "Age of Wonders", "umu_id": "umu-61500", "codename": "1207658883", "store": "gog"},
+        {"title": "Borderlands 3", "umu_id": "umu-397540", "codename": "Catnip", "store": "egs"},
+        {"title": "Dark and Darker", "umu_id": "umu-2016590", "codename": "none", "store": "none"}
+    ])");
+    expect(database.size() == 2, "a standalone entry has no store id to match");
+    wine::Choice choice{.runner = {},
+                        .found = {{.name = "GE-Proton11-11",
+                                   .wine = proton / "files/bin/wine",
+                                   .proton = proton,
+                                   .origin = wine::Origin::OpenSu}},
+                        .dataDir = dir / "data",
+                        .umuRun = binary(dir / "umu-run"),
+                        .umu = &database};
+    const auto gameIdOf = [&choice](Game game) {
+        const wine::Prepared prepared = wine::prepare(game, choice);
+        expect(prepared.refusal.empty(), "a Proton launch is prepared");
+        return valueOf(prepared.environment, "GAMEID");
+    };
+    expect(gameIdOf(windowsGame(Source::Gog, "1207658883")) == "umu-61500",
+           "a GOG game gets the umu id of its product id");
+    expect(gameIdOf(windowsGame(Source::Epic, "catnip")) == "umu-397540",
+           "an Epic game gets the umu id of its app name, in any case");
+    expect(gameIdOf(windowsGame(Source::Gog, "1")) == "umu-0", "a game the database lacks: umu-0");
+    Game own = windowsGame(Source::Gog, "own");
+    own.source = Source::Own;
+    own.id = "own:1";
+    own.artworkKey = "620";
+    own.file = binary(dir / "Portal 2/portal2.exe");
+    own.launch = LaunchSpec{.program = own.file.string(), .args = {}};
+    expect(gameIdOf(own) == "umu-620", "an own game matched to a Steam app gets umu-<app id>");
+    choice.umu = nullptr;
+    expect(gameIdOf(windowsGame(Source::Gog, "1207658883")) == "umu-0",
+           "no database read yet: umu-0");
+}
+
 int main() {
     namesReadAsWords();
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "wine"};
@@ -288,6 +339,7 @@ int main() {
     prefixesAreReadiedForTheRunner(scratch.path() / "saves");
     prefixesAreSharedUnlessOwn(scratch.path() / "prefixes");
     launchesGetTheRunnerAndPrefix(scratch.path() / "launch");
+    protonLaunchesGetTheirUmuId(scratch.path() / "umu");
     std::printf("wine: all checks passed\n");
     return 0;
 }

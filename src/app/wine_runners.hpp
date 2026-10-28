@@ -1,12 +1,13 @@
 // wine_runners — keeping openSU's own Wine runners current off the main loop: the latest GE-Proton
 // and umu-launcher downloaded, checked and unpacked under `<data>/wine` (`ge_proton`, `umu`,
-// `runtime_archive`), checked in the background at start and daily while GOG or Epic is signed in
-// and the player keeps GE-Proton up to date, and on "Check now"; a launch never waits for it and
-// picks a build up once installed. After a check, while the player keeps GE-Proton up to date, the
-// builds past the newest two are removed unless a game runs on one or is set to it, which keeps it
-// with the reason. Also runs a Windows program through a runner for Settings'
-// "Test" row. One job at a time, with progress and cancel for the Downloads page. A hidden run
-// reads what is installed and changes nothing: no check, download, removal or test.
+// `runtime_archive`), and the umu database's listing kept beside them (`umu_database`), checked in
+// the background at start and daily while GOG or Epic is signed in and the player keeps GE-Proton
+// up to date, and on "Check now"; a launch never waits for it and picks a build up once installed.
+// After a check, while the player keeps GE-Proton up to date, the builds past the newest two are
+// removed unless a game runs on one or is set to it, which keeps it with the reason. Also runs a
+// Windows program through a runner for Settings' "Test" row. One job at a time, with progress and
+// cancel for the Downloads page. A hidden run reads what is installed and changes nothing: no
+// check, download, removal or test.
 #pragma once
 
 #include <chrono>
@@ -145,6 +146,8 @@ class WineRunners {
     bool updateGeProton(const std::stop_token& stop, CheckMode mode);
     /// Installs the latest umu-launcher unless it is installed; false when it failed.
     bool updateUmu(const std::stop_token& stop, CheckMode mode);
+    /// Keeps the umu database's listing (`library::umu`); false when it failed.
+    bool updateDatabase(CheckMode mode);
     /// A check could not finish: shown on Downloads unless `mode` is `Scheduled`, then only
     /// logged, so a refused lookup waits for the next scheduled check.
     void checkFailed(CheckMode mode, const std::string& id, const std::string& name,
