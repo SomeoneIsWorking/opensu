@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "control_channel.hpp"
@@ -19,12 +20,15 @@ namespace opensu::app {
 
 class ControlBridge final : public ControlTarget {
   public:
+    /// A key combination pressed or text typed on the keyboard.
+    using Keystroke = std::variant<input::Combo, std::string>;
+
     /// What the channel queued since the loop last took it.
     struct Input {
         /// Presses and releases, each with the device it is from.
         std::vector<std::pair<gamepad::Event, input::Device>> buttons;
-        std::vector<input::Combo> keys;
-        std::vector<std::string> text;
+        /// In the order they were asked for.
+        std::vector<Keystroke> keystrokes;
         std::vector<PointerInjection> pointer;
     };
 
@@ -72,7 +76,7 @@ class ControlBridge final : public ControlTarget {
     };
 
     std::mutex inputMutex_;
-    /// The keys and text; the buttons wait in `edges_` until due.
+    /// The keystrokes and pointer; the buttons wait in `edges_` until due.
     Input input_;
     std::vector<Edge> edges_;
 

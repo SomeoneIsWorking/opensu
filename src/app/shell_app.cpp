@@ -10,6 +10,7 @@
 #include <thread>
 #include <unistd.h>
 #include <utility>
+#include <variant>
 
 #include "artwork/iisu_assets.hpp"
 #include "config/config.hpp"
@@ -241,7 +242,7 @@ void ShellApp::showShelf(std::size_t focus) {
         library::visibleShelf(browser_, games_, sources_, chosen.view, chosen.hidden);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
-    shell_.grid().setShelf(std::move(shelf), focus);
+    shell_.grid().setShelf(std::move(shelf), browser_.takeReturn().value_or(focus));
     finishShelf(chosen);
 }
 
@@ -251,7 +252,11 @@ void ShellApp::refreshShelf() {
         library::visibleShelf(browser_, games_, sources_, chosen.view, chosen.hidden);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
-    shell_.grid().updateShelf(std::move(shelf));
+    if (const std::optional<std::size_t> slot = browser_.takeReturn()) {
+        shell_.grid().setShelf(std::move(shelf), *slot);
+    } else {
+        shell_.grid().updateShelf(std::move(shelf));
+    }
     finishShelf(chosen);
 }
 
@@ -896,18 +901,12 @@ void ShellApp::serviceControlRequests() {
     // Buttons injected over the channel take the same path as a real press, so
     // what the channel exercises is the shell's own handling.
     const ControlBridge::Input queued = bridge_.takeInput(std::chrono::steady_clock::now());
-    for (const input::Combo& combo : queued.keys) {
-        shell_.inputDevice().noteKey();
-        if (shortcutEditor_.capturing()) {
-            shortcutEditor_.captureKey(combo);
+    // Keys and text go to the window's event queue and come back as the keyboard's next frames.
+    for (const ControlBridge::Keystroke& stroke : queued.keystrokes) {
+        if (const auto* combo = std::get_if<input::Combo>(&stroke)) {
+            window_->press(*combo);
         } else {
-            handleEvents(router_.fromCombo(combo));
-        }
-    }
-    for (const std::string& text : queued.text) {
-        if (shell_.screens().navigator().typing()) {
-            shell_.inputDevice().noteKey();
-            shell_.screens().navigator().text(text);
+            window_->type(std::get<std::string>(stroke));
         }
     }
     for (const PointerInjection& injected : queued.pointer) {

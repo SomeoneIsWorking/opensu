@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <utility>
 
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_mouse.h>
@@ -75,6 +76,7 @@ bool ShellWindow::pollEvents() {
     while (SDL_PollEvent(&event)) {
         handle(event);
     }
+    postStroke();
     if (SDL_GetMouseFocus() == window_.window()) {
         float x = 0.0f;
         float y = 0.0f;
@@ -121,6 +123,69 @@ void ShellWindow::handle(const SDL_Event& event) {
         break;
     default:
         break;
+    }
+}
+
+void ShellWindow::press(input::Combo combo) {
+    Stroke stroke;
+    if (combo.ctrl) {
+        stroke.keys.push_back(SDL_SCANCODE_LCTRL);
+    }
+    if (combo.shift) {
+        stroke.keys.push_back(SDL_SCANCODE_LSHIFT);
+    }
+    const std::optional<SDL_Scancode> key = scancodeOf(combo.key);
+    if (!key) {
+        lucent::warn("shell", "no key gives code {}, so it is not pressed", combo.key);
+        return;
+    }
+    stroke.keys.push_back(*key);
+    strokes_.push_back(std::move(stroke));
+}
+
+void ShellWindow::type(std::string text) {
+    strokes_.push_back(Stroke{.keys = {}, .text = std::move(text)});
+}
+
+void ShellWindow::postStroke() {
+    if (strokes_.empty()) {
+        return;
+    }
+    const Stroke& stroke = strokes_.front();
+    if (strokeDown_) {
+        for (auto key = stroke.keys.rbegin(); key != stroke.keys.rend(); ++key) {
+            postKey(*key, false);
+        }
+        strokes_.pop_front();
+        strokeDown_ = false;
+        return;
+    }
+    for (const SDL_Scancode key : stroke.keys) {
+        postKey(key, true);
+    }
+    if (!stroke.text.empty()) {
+        SDL_Event event{};
+        event.text.type = SDL_EVENT_TEXT_INPUT;
+        event.text.windowID = SDL_GetWindowID(window_.window());
+        event.text.text = stroke.text.c_str();
+        post(event);
+    }
+    strokeDown_ = true;
+}
+
+void ShellWindow::postKey(SDL_Scancode key, bool down) {
+    SDL_Event event{};
+    event.key.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+    event.key.windowID = SDL_GetWindowID(window_.window());
+    event.key.scancode = key;
+    event.key.key = SDL_GetKeyFromScancode(key, SDL_KMOD_NONE, false);
+    event.key.down = down;
+    post(event);
+}
+
+void ShellWindow::post(SDL_Event& event) {
+    if (!SDL_PushEvent(&event)) {
+        lucent::error("shell", "could not post an injected event: {}", SDL_GetError());
     }
 }
 

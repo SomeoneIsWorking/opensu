@@ -148,7 +148,7 @@ class ControlTarget {
     /// The shell's state. Callable from any thread.
     [[nodiscard]] virtual ShellSnapshot snapshot() const = 0;
 
-    /// Types `text` as a physical keyboard would, into the search field if it is open.
+    /// Types `text` as a physical keyboard would: through the window's event queue.
     virtual void typeText(std::string text) = 0;
 
     /// Queues `buttons` held together, as if from `device`: pressed in order, then released in
@@ -157,7 +157,8 @@ class ControlTarget {
     virtual void inject(const std::vector<gamepad::Button>& buttons, input::Device device,
                         std::chrono::milliseconds hold, bool stick) = 0;
 
-    /// Queues a key combination pressed on the keyboard, to be read through the shortcut table.
+    /// Queues a key combination pressed and released on the keyboard: through the window's event
+    /// queue, so a field being edited types it and anything else reads the shortcut table.
     virtual void injectKey(input::Combo combo) = 0;
 
     /// Queues a pointer event, routed as the mouse's would be.
