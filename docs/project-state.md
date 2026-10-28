@@ -1412,7 +1412,9 @@ pad is remapped, the shell's controls are not, and `opensu-retro` reads the rema
 Game chords follow the shell's chord rule and join the chord list. The editor opens from a game's
 details page (Controls) and Settings › Controls (global, per emulator, the Steam Input toggle)
 as a controller board with a chip per button, a strip of chords, and a tile picker beside the
-focused chip; while Steam Input has a game its mapping is refused and the page says why. Verified
+focused chip, moved over with gpu2d's `ui::nearestInDirection` (the toolkit's own search; a
+box whose edge only touches the focused one counts as diagonal); while Steam Input has a game its
+mapping is refused and the page says why. Verified
 by unit tests through the shipping code (`button_map`, `mapping_store`, `mapping_editor`,
 `mapping_page`, `pad_translator`, uinput `pads_test`: a remapped A reaches the virtual pad as B
 and a motion node is never grabbed) and the `game-mapping`, `mapping-picker`,

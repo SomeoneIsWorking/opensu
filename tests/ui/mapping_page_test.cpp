@@ -15,7 +15,6 @@
 
 #include "check.hpp"
 #include "input/shortcuts.hpp"
-#include "spatial_focus.hpp"
 
 namespace {
 
@@ -105,26 +104,6 @@ bool inside(const Rect& inner, const Rect& outer) {
 bool overlaps(const Rect& one, const Rect& two) {
     return one.x < two.right() && two.x < one.right() && one.y < two.bottom() &&
            two.y < one.bottom();
-}
-
-void spatialFocusPrefersStraightAhead() {
-    const std::vector<Rect> boxes{
-        Rect{0, 0, 40, 40},      // 0: from
-        Rect{0, -80, 40, 40},    // 1: straight above, two steps
-        Rect{40, -40, 40, 40},   // 2: up-right, one diagonal step
-        Rect{-60, 0, 40, 40},    // 3: left
-        Rect{300, 0, 40, 40},    // 4: far right, level
-        Rect{60, -10, 40, 40},   // 5: right, a little higher
-        Rect{-160, 300, 40, 40}, // 6: far below, left of 3
-    };
-    expect(nearestInDirection(boxes, 0, Direction::Up) == 1u,
-           "straight ahead beats a nearer diagonal");
-    expect(nearestInDirection(boxes, 0, Direction::Right) == 5u, "the nearest the way pressed");
-    expect(nearestInDirection(boxes, 0, Direction::Left) == 3u, "left");
-    expect(nearestInDirection(boxes, 0, Direction::Down) == 6u, "below, within the cone");
-    expect(!nearestInDirection(boxes, 3, Direction::Left),
-           "a box three times as far aside as along is not that way");
-    expect(!nearestInDirection(boxes, 9, Direction::Left), "nothing from a box not there");
 }
 
 /// The index of the item `id` in `page`.
@@ -306,7 +285,6 @@ void thePopoverStaysInsideTheCardBesideTheChip() {
 } // namespace
 
 int main() {
-    spatialFocusPrefersStraightAhead();
     focusMovesOverTheBoard();
     theStripScrollsToTheFocusedChord();
     theBoardFitsTheCard();

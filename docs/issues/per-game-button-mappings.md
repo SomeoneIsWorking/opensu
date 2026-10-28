@@ -42,7 +42,7 @@ again allow chord buttons".
 - **Chord list**: holding a modifier lists the shell's chords on it, then the game's ("Sends
   Select + Start" for a pad chord, the action's name otherwise) (`ui/chord_hint`).
 - **Editor** (`app/mapping_editor`, `ui/mapping_page`, `ui/mapping_board_layout`,
-  `ui/spatial_focus`, `ui/mapping_page_painter`): the details page's Controls button opens the
+  `ui/mapping_page_painter`): the details page's Controls button opens the
   game's own map; Settings › Controls opens the global map, an emulator's (Left and Right pick the
   emulator, A opens it), and has the global Steam Input toggle. The card is a controller board: a
   faint silhouette with a chip per pad button in its place (shoulders on top, d-pad and left stick
@@ -51,7 +51,7 @@ again allow chord buttons".
   glyphs, or "Nothing"). Under it a strip: one chip per chord (`[mod] + [trigger] → output`,
   scrolled to focus), "+ Add chord", then at the right Steam Input (game page only) and the reset
   to what the scope inherits (when the scope has its own map). The direction buttons move to the
-  nearest chip that way (`spatial_focus` on the design-size layout). Item ids are those of the
+  nearest chip that way (gpu2d's `ui::nearestInDirection` on the design-size layout). Item ids are those of the
   control channel: `steam`, `button.<name>`, `chord.<mod>.<trigger>`, `add`, `reset`. A on a chip
   opens a picker popover beside it, flipped to stay inside the card, headed by the source glyphs
   and an arrow, its tiles in lines by group and moved over in 2D, opened on the choice in force:
