@@ -136,6 +136,17 @@ jobs:
           restore-keys: vcpkg-${{ hashFiles('vcpkg.json', 'packaging/windows/triplets/*', 'cmake/toolchains/windows-clang-cl.cmake') }}-
       - name: Pinned sources, configure, build, lint, test (lavapipe for the hidden windows)
         run: uv run --frozen python -m tools.check all --platform windows --build-dir build/windows-ci
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: windows-logs
+          path: |
+            build/windows-ci/cmake/vcpkg-manifest-install.log
+            build/windows-ci/cmake/CMakeFiles/*.log
+            build/windows-ci/cmake/Testing/Temporary/LastTest.log
+            build/windows-ci/deps/vcpkg/buildtrees/**/*.log
+          retention-days: 7
+          if-no-files-found: ignore
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: always()
         with:

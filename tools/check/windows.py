@@ -83,13 +83,15 @@ def msvc_environment(env: Mapping[str, str]) -> dict[str, str]:
         text=True,
         check=True,
     ).stdout
-    merged = dict(env)
+    # Windows names are case-insensitive: vcvars' `Path` replaces the caller's `PATH`, never sits
+    # beside it, or a child would see either one.
+    merged = {name.upper(): value for name, value in env.items()}
     for line in listing.splitlines():
         name, sep, value = line.partition("=")
         if sep and name:
-            merged[name] = value
+            merged[name.upper()] = value
     for tool in ("clang-cl", "lld-link", "ninja"):
-        if shutil.which(tool, path=merged.get("PATH") or merged.get("Path")) is None:
+        if shutil.which(tool, path=merged.get("PATH")) is None:
             raise RuntimeError(f"{tool} is not on PATH; install LLVM (winget install LLVM.LLVM)")
     return merged
 

@@ -4,12 +4,22 @@
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR AMD64)
 
-set(CMAKE_C_COMPILER clang-cl)
-set(CMAKE_CXX_COMPILER clang-cl)
-set(CMAKE_LINKER lld-link)
-set(CMAKE_AR llvm-lib)
+# vcpkg builds its ports with a cleaned PATH, so on Windows the tools are named by their full path
+# in LLVM's own install folder.
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+    set(_llvm_hints HINTS "$ENV{ProgramFiles}/LLVM/bin")
+else()
+    set(_llvm_hints "")
+endif()
+find_program(OPENSU_CLANG_CL clang-cl ${_llvm_hints} REQUIRED)
+find_program(OPENSU_LLD_LINK lld-link ${_llvm_hints} REQUIRED)
+find_program(OPENSU_LLVM_LIB llvm-lib ${_llvm_hints} REQUIRED)
+set(CMAKE_C_COMPILER "${OPENSU_CLANG_CL}")
+set(CMAKE_CXX_COMPILER "${OPENSU_CLANG_CL}")
+set(CMAKE_LINKER "${OPENSU_LLD_LINK}")
+set(CMAKE_AR "${OPENSU_LLVM_LIB}")
 
-if(NOT CMAKE_HOST_WIN32)
+if(NOT CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     # On Windows the SDK's rc and mt come with the developer environment.
     set(CMAKE_RC_COMPILER llvm-rc)
     set(CMAKE_MT llvm-mt)
