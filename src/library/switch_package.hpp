@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -52,14 +53,15 @@ class SwitchPackage {
     [[nodiscard]] std::optional<Key128> ticketTitleKey(const RightsId& rights);
 
   private:
-    SwitchPackage(std::ifstream in, std::uint64_t size);
+    SwitchPackage(std::unique_ptr<std::ifstream> in, std::uint64_t size);
 
     /// The files of the PFS0 or HFS0 at `at`, added to `out`.
     [[nodiscard]] bool readPartition(std::uint64_t at, bool hashed, std::vector<PackageFile>& out,
                                      std::string& error);
     [[nodiscard]] bool openCard(std::string& error);
 
-    std::ifstream in_;
+    /// Held by pointer: moving the stream itself can throw under the MSVC STL (its locale).
+    std::unique_ptr<std::ifstream> in_;
     std::uint64_t size_{0};
     std::vector<PackageFile> files_;
 };

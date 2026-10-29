@@ -43,23 +43,32 @@ constexpr std::array<std::pair<SDL_Scancode, int>, 30> namedKeys{{
     {SDL_SCANCODE_MENU, keys::Menu},
 }};
 
+using KeyPair = std::pair<SDL_Scancode, int>;
+
+/// Every scancode the shell has a key for: the letters, the digits (SDL orders them 1 to 9, then
+/// 0), F1 to F12 and the named keys.
+constexpr std::array<KeyPair, 26 + 10 + 12 + namedKeys.size()> keyTable = [] {
+    std::array<KeyPair, 26 + 10 + 12 + namedKeys.size()> table{};
+    std::size_t at = 0;
+    const auto range = [&table, &at](SDL_Scancode first, int count, int firstKey) {
+        for (int i = 0; i < count; ++i) {
+            table[at++] = {static_cast<SDL_Scancode>(first + i), firstKey + i};
+        }
+    };
+    range(SDL_SCANCODE_A, 26, keys::A);
+    range(SDL_SCANCODE_1, 9, keys::Zero + 1);
+    range(SDL_SCANCODE_0, 1, keys::Zero);
+    range(SDL_SCANCODE_F1, 12, keys::F1);
+    for (const KeyPair& named : namedKeys) {
+        table[at++] = named;
+    }
+    return table;
+}();
+
 } // namespace
 
 std::optional<int> keyOf(SDL_Scancode scancode) noexcept {
-    if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) {
-        return keys::A + (scancode - SDL_SCANCODE_A);
-    }
-    // SDL orders the digits 1 to 9, then 0.
-    if (scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9) {
-        return keys::Zero + 1 + (scancode - SDL_SCANCODE_1);
-    }
-    if (scancode == SDL_SCANCODE_0) {
-        return keys::Zero;
-    }
-    if (scancode >= SDL_SCANCODE_F1 && scancode <= SDL_SCANCODE_F12) {
-        return keys::F1 + (scancode - SDL_SCANCODE_F1);
-    }
-    for (const auto& [code, key] : namedKeys) {
+    for (const auto& [code, key] : keyTable) {
         if (code == scancode) {
             return key;
         }
@@ -68,10 +77,9 @@ std::optional<int> keyOf(SDL_Scancode scancode) noexcept {
 }
 
 std::optional<SDL_Scancode> scancodeOf(int key) noexcept {
-    for (int code = SDL_SCANCODE_UNKNOWN; code < SDL_SCANCODE_COUNT; ++code) {
-        const auto scancode = static_cast<SDL_Scancode>(code);
-        if (keyOf(scancode) == key) {
-            return scancode;
+    for (const auto& [code, mapped] : keyTable) {
+        if (mapped == key) {
+            return code;
         }
     }
     return std::nullopt;

@@ -63,7 +63,7 @@ std::optional<std::size_t> ticketHeaderAt(std::uint32_t signature) {
 
 } // namespace
 
-SwitchPackage::SwitchPackage(std::ifstream in, std::uint64_t size)
+SwitchPackage::SwitchPackage(std::unique_ptr<std::ifstream> in, std::uint64_t size)
     : in_{std::move(in)}, size_{size} {
 }
 
@@ -74,8 +74,8 @@ std::optional<SwitchPackage> SwitchPackage::open(const fs::path& file, std::stri
         error = "cannot be read: " + ec.message();
         return std::nullopt;
     }
-    std::ifstream in{file, std::ios::binary};
-    if (!in) {
+    auto in = std::make_unique<std::ifstream>(file, std::ios::binary);
+    if (!*in) {
         error = "cannot be opened";
         return std::nullopt;
     }
@@ -101,10 +101,10 @@ bool SwitchPackage::read(std::uint64_t offset, std::span<std::uint8_t> out) {
     if (offset > size_ || out.size() > size_ - offset) {
         return false;
     }
-    in_.clear();
-    in_.seekg(static_cast<std::streamoff>(offset));
-    in_.read(reinterpret_cast<char*>(out.data()), static_cast<std::streamsize>(out.size()));
-    return static_cast<std::size_t>(in_.gcount()) == out.size();
+    in_->clear();
+    in_->seekg(static_cast<std::streamoff>(offset));
+    in_->read(reinterpret_cast<char*>(out.data()), static_cast<std::streamsize>(out.size()));
+    return static_cast<std::size_t>(in_->gcount()) == out.size();
 }
 
 bool SwitchPackage::readPartition(std::uint64_t at, bool hashed, std::vector<PackageFile>& out,

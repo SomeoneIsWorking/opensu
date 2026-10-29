@@ -7,7 +7,7 @@ backends and the tests it builds, and none it leaves out.
 import json
 import os
 import subprocess
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -15,6 +15,9 @@ from tools.check import process
 from tools.check.cmake import REPO
 
 CXX_SUFFIXES = (".cpp", ".hpp")
+# The analyzer does not step into the MSVC STL, whose bitmask operators cast bit combinations to
+# its own enums (`__std_fs_stats_flags`), which optin.core.EnumCastOutOfRange reports.
+MSVC_STL_UNINLINED = ("-Xclang", "-analyzer-config", "-Xclang", "c++-stdlib-inlining=false")
 # Only openSU's own sources; Lucent, gpu2d and the fork are checked in their own repositories.
 OWN_ROOTS = ("src/", "tests/")
 
@@ -46,15 +49,23 @@ def compiled_sources(cmake_dir: Path, env: Mapping[str, str]) -> list[Path]:
     )
 
 
-def clang_tidy(cmake_dir: Path, env: Mapping[str, str]) -> None:
-    """Every translation unit through clang-tidy (`.clang-tidy`: warnings are errors)."""
+def clang_tidy(cmake_dir: Path, env: Mapping[str, str], extra: Sequence[str] = ()) -> None:
+    """Every translation unit through clang-tidy (`.clang-tidy`: warnings are errors), each of
+    `extra` put before the compile command's own arguments."""
     files = compiled_sources(cmake_dir, env)
     if not files:
         raise RuntimeError(f"no openSU sources in {cmake_dir}/compile_commands.json")
 
     def check(path: Path) -> tuple[Path, int, str]:
         result = subprocess.run(
-            ["clang-tidy", "--quiet", "-p", str(cmake_dir), str(path)],
+            [
+                "clang-tidy",
+                "--quiet",
+                "-p",
+                str(cmake_dir),
+                *(f"--extra-arg-before={arg}" for arg in extra),
+                str(path),
+            ],
             env=dict(env),
             capture_output=True,
             text=True,
@@ -79,12 +90,10 @@ def ruff(env: Mapping[str, str]) -> None:
 
 
 def all_checks(cmake_dir: Path, env: Mapping[str, str], platform: str = "linux") -> None:
-    """Every check, on the Linux tree. A macOS tree runs clang-tidy alone, over its own translation
-    units: the format and the Python are the same on every OS. A Windows tree is not linted:
-    clang-tidy under the MSVC STL reports its visible throws (a mutex lock in a destructor) across
-    the shared sources, which the Linux tree does not."""
+    """Every check, on the Linux tree. A macOS or Windows tree runs clang-tidy alone, over its own
+    translation units: the format and the Python are the same on every OS."""
     if platform == "windows":
-        print("+ lint: not run on the windows tree; the Linux tree's lint covers the sources")
+        clang_tidy(cmake_dir, env, MSVC_STL_UNINLINED)
         return
     if platform == "macos":
         clang_tidy(cmake_dir, env)
