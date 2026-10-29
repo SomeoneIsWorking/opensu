@@ -36,6 +36,14 @@ void check(VkResult result, const char* what);
 [[nodiscard]] VkImageCreateInfo imageInfo(VkFormat format, VkExtent2D extent,
                                           VkImageUsageFlags usage);
 
+/// A shader module from SPIR-V `code`. Throws VulkanError.
+[[nodiscard]] VkShaderModule makeShader(VkDevice device, std::span<const std::uint32_t> code);
+
+/// Records moving `image`'s one colour level from layout `from` to `to`.
+void imageBarrier(VkCommandBuffer commands, VkImage image, VkImageLayout from, VkImageLayout to,
+                  VkPipelineStageFlags sourceStage, VkAccessFlags sourceAccess,
+                  VkPipelineStageFlags destinationStage, VkAccessFlags destinationAccess);
+
 class VulkanInstance {
   public:
     /// `extensions` are what the window system needs; empty for offscreen drawing. With
