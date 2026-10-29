@@ -1,9 +1,10 @@
 """The macOS build: Homebrew's LLVM Clang, its libraries from vcpkg, MoltenVK as the Vulkan driver.
 
-Runs on an Apple silicon Mac with Xcode's command line tools and Homebrew's `llvm` and `ninja`, as
-the `macos-15` runner image has them after `brew install llvm ninja`. Xcode's own Clang is not used:
-its libc++ keeps std::jthread experimental. vcpkg is checked out at the manifest's own baseline
-commit and builds every port as a dylib through openSU's arm64 triplet (macOS 14 and newer); libcurl
+Runs on an Apple silicon Mac with Xcode's command line tools and Homebrew's `llvm@22` and `ninja`,
+as the `macos-15` runner image has them after `brew install llvm@22 ninja`. Xcode's own Clang is
+not used: its libc++ keeps std::jthread experimental. LLVM 22 is the Linux gate's, so clang-tidy
+holds both trees to the same checks. vcpkg is checked out at the manifest's own baseline commit
+and builds every port as a dylib through openSU's arm64 triplet (macOS 14 and newer); libcurl
 is the system's, which trusts the Keychain. SDL_shadercross, which gpu2d needs for its Metal
 shaders, is built by gpu2d's own script against vcpkg's SDL3. The runner's Vulkan driver is MoltenVK
 from its pinned, checksummed release; the tests draw through it on the Mac's Metal device.
@@ -25,6 +26,8 @@ TRIPLET = "arm64-osx-opensu"
 HOST_TRIPLET = "arm64-osx"
 TRIPLETS = REPO / "packaging" / "macos" / "triplets"
 DEPLOYMENT_TARGET = "14.0"
+# The LLVM major of the Linux gate (Fedora 44): one clang-tidy for both trees.
+LLVM_FORMULA = "llvm@22"
 
 # vcpkg's host builds of pkgconf and of glslc (gpu2d's shaders), under the build's installed tree.
 HOST_TOOLS = Path("vcpkg_installed", HOST_TRIPLET, "tools")
@@ -45,17 +48,19 @@ def require_host() -> None:
     if sys.platform != "darwin" or platform.machine() != "arm64":
         raise RuntimeError(
             "--platform macos builds on an Apple silicon Mac with Xcode's command line tools and "
-            "Homebrew (brew install llvm ninja); there is no cross build from another OS"
+            f"Homebrew (brew install {LLVM_FORMULA} ninja); there is no cross build from another OS"
         )
 
 
 def llvm_bin(env: Mapping[str, str]) -> Path:
-    """Homebrew's LLVM, whose libc++ has std::jthread."""
+    """Homebrew's pinned LLVM, whose libc++ has std::jthread."""
     if shutil.which("brew", path=env.get("PATH")) is None:
-        raise RuntimeError("no Homebrew: see https://brew.sh, then brew install llvm ninja")
-    prefix = Path(process.output(["brew", "--prefix", "llvm"], env).strip())
+        raise RuntimeError(
+            f"no Homebrew: see https://brew.sh, then brew install {LLVM_FORMULA} ninja"
+        )
+    prefix = Path(process.output(["brew", "--prefix", LLVM_FORMULA], env).strip())
     if not (prefix / "bin" / "clang++").is_file():
-        raise RuntimeError("Homebrew's LLVM is not installed: brew install llvm")
+        raise RuntimeError(f"Homebrew's LLVM is not installed: brew install {LLVM_FORMULA}")
     return prefix / "bin"
 
 
