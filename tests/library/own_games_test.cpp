@@ -3,6 +3,7 @@
 // own prefix), and the imports from Steam's shortcuts.vdf and Lutris's pga.db, both read only.
 #include "library/own_games.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>

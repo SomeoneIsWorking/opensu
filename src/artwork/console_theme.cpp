@@ -1,5 +1,6 @@
 #include "console_theme.hpp"
 
+#include <algorithm>
 #include <array>
 #include <fstream>
 #include <system_error>
