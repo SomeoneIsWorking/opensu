@@ -4,7 +4,7 @@ Runs on a Windows host with Visual Studio (its C++ tools and SDK) and LLVM insta
 `windows-2025` runner image has them. vcpkg is checked out at the manifest's own baseline commit,
 so the commit is the checksum, and builds every port through openSU's clang-cl triplet. The tests'
 hidden windows draw through Mesa's lavapipe from a pinned mesa-dist-win release, since a hosted
-runner has no GPU.
+runner has no GPU; an elevated run (a runner's) registers it as a machine Vulkan driver.
 """
 
 import json
@@ -135,4 +135,23 @@ def lavapipe(root: Path, env: Mapping[str, str]) -> dict[str, str]:
         process.run(["7z", "x", "-y", f"-o{unpacked}", archive, "x64"], env)
     if not icd.is_file():
         raise RuntimeError(f"{archive} holds no x64/{LAVAPIPE_ICD}")
+    if elevated():
+        # The Vulkan loader ignores VK_DRIVER_FILES in an elevated process, as a runner's are.
+        register_driver(icd)
     return {**env, "VK_DRIVER_FILES": str(icd), "VK_ICD_FILENAMES": str(icd)}
+
+
+def elevated() -> bool:
+    import ctypes
+
+    return bool(ctypes.windll.shell32.IsUserAnAdmin())
+
+
+def register_driver(icd: Path) -> None:
+    """`icd` among the machine's Vulkan drivers, where the loader looks in every process."""
+    import winreg
+
+    with winreg.CreateKeyEx(
+        winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Khronos\Vulkan\Drivers", 0, winreg.KEY_SET_VALUE
+    ) as drivers:
+        winreg.SetValueEx(drivers, str(icd), 0, winreg.REG_DWORD, 0)
