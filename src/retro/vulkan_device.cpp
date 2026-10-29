@@ -387,4 +387,31 @@ VkImageCreateInfo imageInfo(VkFormat format, VkExtent2D extent, VkImageUsageFlag
     };
 }
 
+VkShaderModule makeShader(VkDevice device, std::span<const std::uint32_t> code) {
+    VkShaderModuleCreateInfo create{};
+    create.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    create.codeSize = code.size_bytes();
+    create.pCode = code.data();
+    VkShaderModule module = VK_NULL_HANDLE;
+    check(vkCreateShaderModule(device, &create, nullptr, &module), "vkCreateShaderModule");
+    return module;
+}
+
+void imageBarrier(VkCommandBuffer commands, VkImage image, VkImageLayout from, VkImageLayout to,
+                  VkPipelineStageFlags sourceStage, VkAccessFlags sourceAccess,
+                  VkPipelineStageFlags destinationStage, VkAccessFlags destinationAccess) {
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.srcAccessMask = sourceAccess;
+    barrier.dstAccessMask = destinationAccess;
+    barrier.oldLayout = from;
+    barrier.newLayout = to;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    vkCmdPipelineBarrier(commands, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1,
+                         &barrier);
+}
+
 } // namespace opensu::retro

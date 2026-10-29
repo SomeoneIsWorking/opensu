@@ -14,8 +14,10 @@
 
 #include <vulkan/vulkan.h>
 
+#include "fullscreen_pipeline.hpp"
 #include "settings/video_settings.hpp"
 #include "shader_chain.hpp"
+#include "streamed_texture.hpp"
 #include "vulkan_device.hpp"
 
 namespace opensu::retro {
@@ -86,24 +88,22 @@ class FrameCompositor {
                 const DrawTarget& target, VkExtent2D extent);
 
   private:
-    void open(VkFormat format, VkImageLayout finalLayout);
-    /// Everything `open` and the texture made, in reverse; safe when partly made.
+    /// Everything the constructor made, in reverse; safe when partly made.
     void release();
-    void createRenderPass(VkFormat format, VkImageLayout finalLayout);
+    /// The sampled input, its pipeline layout and the pipeline, for `video_`.
     void createPipeline();
     /// What `createPipeline` made, in reverse; safe when partly made.
     void destroyPipeline();
-    void ensureTexture(unsigned width, unsigned height);
-    void destroyTexture();
-    /// Points the descriptor at `view`; the previous frame's commands must be done.
-    void bindSource(VkImageView view, VkImageLayout layout);
+    /// Points the input at the frame texture unless it already is; the previous frame's commands
+    /// must be done.
+    void bindTexture();
     void recordUpload(VkCommandBuffer commands, const FrameImage& frame);
     /// The core's image into the frame texture, converted; for a preset when the core keeps the
     /// image in GENERAL, which the runner may not change.
     void recordCopy(VkCommandBuffer commands, const FrameImage& frame, const CoreImage& image);
     void recordCoreImage(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
                          const FrameImage& frame, const CoreImage& image);
-    /// The frame from `source` (the bound descriptor, or the preset's input).
+    /// The frame from `source` (the bound input, or the preset's input).
     void recordDraw(VkCommandBuffer commands, const DrawTarget& target, VkExtent2D extent,
                     const FrameImage& frame, const ChainImage& source, bool ready);
     /// The preset's passes from `source` into `target`, which ends in the render pass's final
@@ -120,23 +120,11 @@ class FrameCompositor {
     /// The shader preset's chain; none without a preset.
     std::unique_ptr<ShaderChain> chain_;
     VkRenderPass renderPass_{VK_NULL_HANDLE};
-    VkDescriptorSetLayout setLayout_{VK_NULL_HANDLE};
+    /// Made again with the pipeline: its sampler follows the video settings.
+    std::unique_ptr<SampledInput> input_;
     VkPipelineLayout pipelineLayout_{VK_NULL_HANDLE};
     VkPipeline pipeline_{VK_NULL_HANDLE};
-    VkSampler sampler_{VK_NULL_HANDLE};
-    VkDescriptorPool descriptorPool_{VK_NULL_HANDLE};
-    VkDescriptorSet descriptorSet_{VK_NULL_HANDLE};
-    VkImageView boundView_{VK_NULL_HANDLE};
-
-    VkImage texture_{VK_NULL_HANDLE};
-    VkDeviceMemory textureMemory_{VK_NULL_HANDLE};
-    VkImageView textureView_{VK_NULL_HANDLE};
-    unsigned textureWidth_{0};
-    unsigned textureHeight_{0};
-    bool textureReady_{false};
-    VkBuffer staging_{VK_NULL_HANDLE};
-    VkDeviceMemory stagingMemory_{VK_NULL_HANDLE};
-    void* stagingMapped_{nullptr};
+    StreamedTexture texture_;
 };
 
 } // namespace opensu::retro

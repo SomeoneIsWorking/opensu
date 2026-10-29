@@ -3,7 +3,8 @@
 add_library(opensu_retro STATIC
     core.cpp core_environment.cpp core_options.cpp video_frame.cpp audio_sink.cpp
     audio_output.cpp joypad.cpp save_memory.cpp vulkan_device.cpp frame_filter.cpp
-    shared_library.cpp librashader_library.cpp shader_chain.cpp frame_compositor.cpp presenter.cpp hardware_render.cpp
+    shared_library.cpp librashader_library.cpp shader_chain.cpp streamed_texture.cpp
+    fullscreen_pipeline.cpp frame_compositor.cpp presenter.cpp hardware_render.cpp
     save_state.cpp control_server.cpp runner_app.cpp)
 gpu2d_compile_shaders(opensu_retro shaders/frame.vert shaders/frame.frag shaders/sharp_bilinear.frag
     shaders/crt_lottes.frag)
