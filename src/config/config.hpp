@@ -149,6 +149,10 @@ struct Config {
     /// The note a login session's Switch to desktop leaves: `<runtimeDir>/desktop`.
     std::filesystem::path desktopRequest;
 
+    /// Where a launched game's stdout and stderr go, one log per launch, where the launcher keeps
+    /// none of its own (`ProcessLauncher::keepsOutput`): `<runtimeDir>/games`.
+    std::filesystem::path gameOutputDir;
+
     /// Where `opensu-retro` announces its control port or its load failure, from
     /// OPENSU_RETRO_CONTROL, which the shell sets for each launch; empty when unset.
     std::filesystem::path retroControl;

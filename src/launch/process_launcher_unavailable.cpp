@@ -8,6 +8,10 @@ struct ProcessLauncher::Group {};
 
 ProcessLauncher::ProcessLauncher() = default;
 
+bool ProcessLauncher::keepsOutput() {
+    return true;
+}
+
 ProcessLauncher::~ProcessLauncher() = default;
 
 bool ProcessLauncher::start(const std::string& /*group*/, const std::string& program,

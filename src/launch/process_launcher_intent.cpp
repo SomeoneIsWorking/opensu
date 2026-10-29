@@ -35,6 +35,10 @@ bool ProcessLauncher::startable(const std::string& program,
     return !program.empty();
 }
 
+bool ProcessLauncher::keepsOutput() {
+    return true;
+}
+
 ProcessLauncher::~ProcessLauncher() = default;
 
 // The working directory and the output file have no counterpart for an Activity: the runner's

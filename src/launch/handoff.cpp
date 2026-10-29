@@ -29,9 +29,9 @@ std::string Error::message() const {
 }
 
 Handoff::Handoff(std::vector<std::filesystem::path> executablePath, std::string session,
-                 SteamGate& steam, GameWindows* windows)
-    : executablePath_{std::move(executablePath)}, session_{std::move(session)}, steam_{steam},
-      windows_{windows} {
+                 SteamGate& steam, GameWindows* windows, std::filesystem::path outputDir)
+    : executablePath_{std::move(executablePath)}, session_{std::move(session)},
+      outputDir_{std::move(outputDir)}, steam_{steam}, windows_{windows} {
 }
 
 void Handoff::pause() {
@@ -87,10 +87,20 @@ Handoff::Begun Handoff::beginScope(const library::Game& game,
         failure = "could not start " + programName(game.launch.program);
         return Begun::Failed;
     }
-    const std::string unit =
-        session_ + "-game-" + std::to_string(launches_.fetch_add(1)) + ".scope";
-    if (!instance_.start(unit, game.launch.program, game.launch.args, failure, environment,
-                         game.launch.workingDirectory)) {
+    const std::string name = session_ + "-game-" + std::to_string(launches_.fetch_add(1));
+    std::filesystem::path output;
+    if (!ProcessLauncher::keepsOutput()) {
+        std::error_code error;
+        std::filesystem::create_directories(outputDir_, error);
+        if (error) {
+            failure = "cannot create " + outputDir_.string() + ": " + error.message();
+            return Begun::Failed;
+        }
+        output = outputDir_ / (name + ".log");
+        lucent::info("launch", "{} writes its output to {}", game.title, output.string());
+    }
+    if (!instance_.start(name + ".scope", game.launch.program, game.launch.args, failure,
+                         environment, game.launch.workingDirectory, output)) {
         return Begun::Failed;
     }
     return Begun::Started;

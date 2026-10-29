@@ -58,6 +58,8 @@ int main(int argc, char** argv) {
         expect(config.runtimeDir == "/xdg-runtime/opensu", "XDG_RUNTIME_DIR holds opensu's files");
         expect(config.desktopRequest == "/xdg-runtime/opensu/desktop",
                "the desktop request is a runtime file");
+        expect(config.gameOutputDir == "/xdg-runtime/opensu/games",
+               "launched games' output is kept under the runtime directory");
         expect(config.retroControl == "/xdg-runtime/opensu/retro-1.json",
                "OPENSU_RETRO_CONTROL names the runner's control file");
         std::printf("config: all checks passed\n");

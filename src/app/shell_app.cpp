@@ -47,7 +47,7 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
           .secretBusSocket = environment_.runtimeDir / (resolved_.session + "-secret-bus")}},
       session_{openShellSession(environment_)},
       handoff_{environment_.executablePath, environment_.session, steam_,
-               session_ ? session_->gameWindows() : nullptr},
+               session_ ? session_->gameWindows() : nullptr, environment_.gameOutputDir},
       signIn_{StoreSignIn::Options{.dataDir = environment_.dataDir}} {
     shell_.shortcuts() = input::Shortcuts{preferences_.values().shortcuts};
     // input-sound.md 3.4: Navigation for a focus move or a press, Close for a page dismissed.

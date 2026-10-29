@@ -1830,8 +1830,8 @@ Home, Guide, Settings, Library and a ROM's details draw and take pad input over 
 channel; the libretro runner draws a ROM on Mesen when run directly.
 
 Gaps: no run on a real Windows host or VM yet; a ROM started from the shell under Wine never left
-"Starting" (Wine reads no command lines, so the started game is not found), and a launched game's
-output is not kept anywhere on Windows; Steam, legendary and
+"Starting" (Wine reads no command lines, so the started game is not found); a launched game's
+output now goes to a log per launch under the runtime dir, not yet shown on Windows; Steam, legendary and
 gogdl launches on Windows untested; the Windows tree is not linted (the step's doc says why and the
 proper fix).
 

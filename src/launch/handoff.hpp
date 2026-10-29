@@ -40,9 +40,11 @@ class Handoff {
     /// `executablePath` is where a launch's program is looked up; `session` names
     /// the scopes (`<session>-game-N.scope`); `steam` is the client Steam games wait for;
     /// `windows` tells when a game shows a window, or is null where there is no display to
-    /// watch, and a game then counts as shown once it runs.
+    /// watch, and a game then counts as shown once it runs; `outputDir` holds each launch's
+    /// output (`<session>-game-N.log`) where the launcher keeps none
+    /// (`ProcessLauncher::keepsOutput`).
     Handoff(std::vector<std::filesystem::path> executablePath, std::string session,
-            SteamGate& steam, GameWindows* windows);
+            SteamGate& steam, GameWindows* windows, std::filesystem::path outputDir);
 
     /// What a launch tells its caller, from the thread running start().
     struct Hooks {
@@ -122,6 +124,7 @@ class Handoff {
 
     std::vector<std::filesystem::path> executablePath_;
     std::string session_;
+    std::filesystem::path outputDir_;
     SteamGate& steam_;
     GameWindows* windows_;
     ProcessLauncher instance_;

@@ -285,6 +285,11 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
   count; `startedRunning` and `exitStatus` the started process's handle and exit code.
 - `launch::table`: `process_table_toolhelp.cpp` (Toolhelp32 snapshots; each command line from
   `NtQueryInformationProcess` class 60, split as `CommandLineToArgvW` splits it).
+- A launched game's output: a Job Object's program inherits openSU's stdout, and openSU is a GUI
+  program with none, so `ProcessLauncher::keepsOutput` is false there and `Handoff` gives each
+  launch its own file, `<runtimeDir>/games/<session>-game-N.log` (`Config::gameOutputDir`;
+  `%LOCALAPPDATA%\Temp\opensu\games`), named in openSU's log. Linux keeps the scope on openSU's
+  own output, which the session keeps.
 - `launch::GameWindows`: `Win32Windows` (a visible, unowned, non-tool top-level window of any of the
   game's processes). `launch/win32.*` holds the RAII `Handle`, UTF-8/16 text and command-line quoting
   that `win32_child.cpp` and these share.
@@ -344,8 +349,7 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
   `windows/x86_64` folder, and `opensu-retro.exe` drawing the game when run directly. Started from
   the shell, the runner ran in its job but the shell stayed on "Starting": `Handoff` finds a
   started game by its command line (`ProcessTree::treesMatching`), which Wine cannot read (class
-  60 above), so this needs real Windows. A launched game's output goes nowhere on Windows (no
-  counterpart of the scope's journal).
+  60 above), so this needs real Windows.
 
 ## Step 4 as built
 
