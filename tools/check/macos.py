@@ -60,10 +60,14 @@ def llvm_bin(env: Mapping[str, str]) -> Path:
 
 
 def environment(build_dir: Path, env: Mapping[str, str]) -> dict[str, str]:
-    """The build's environment: Homebrew's LLVM first on PATH (clang-tidy too), and vcpkg's binary
-    cache under the build directory unless the caller names one."""
+    """The build's environment: Homebrew's LLVM first on PATH (clang-tidy too), one macOS SDK for
+    every compiler and CMake find (`SDKROOT`), and vcpkg's binary cache under the build directory
+    unless the caller names one."""
     merged = dict(env)
     merged["PATH"] = f"{llvm_bin(env)}:{merged.get('PATH', '')}"
+    # Homebrew's Clang and CMake's finds otherwise pick different SDKs, and an SDK's usr/include
+    # on the include path hides libc++'s own C headers.
+    merged["SDKROOT"] = process.output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], env).strip()
     if shutil.which("ninja", path=merged["PATH"]) is None:
         raise RuntimeError("ninja is not on PATH: brew install ninja")
     if "VCPKG_BINARY_SOURCES" not in merged:
@@ -117,6 +121,7 @@ def configure_defines(vcpkg: Path, build_dir: Path, env: Mapping[str, str]) -> l
         f"-DCMAKE_CXX_COMPILER={clang / 'clang++'}",
         "-DCMAKE_OSX_ARCHITECTURES=arm64",
         f"-DCMAKE_OSX_DEPLOYMENT_TARGET={DEPLOYMENT_TARGET}",
+        f"-DCMAKE_OSX_SYSROOT={env['SDKROOT']}",
         # The SDL3, Vulkan, Vorbis and SQLite modules are found through their .pc files.
         f"-DPKG_CONFIG_EXECUTABLE={build_dir / PKGCONF}",
         f"-DGLSLC={build_dir / GLSLC}",
