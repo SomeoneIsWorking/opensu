@@ -15,6 +15,8 @@ public final class ShellActivity extends LandscapeActivity {
     private static final int PICK_FOLDER = 0x5af;
     /** The folder picker's answer until native code takes it: a tree URI, "" when cancelled. */
     private String pickedFolder;
+    /** The shell came to the front over a running game, so its Guide menu opens; taken once. */
+    private boolean menuRequested;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,11 +42,36 @@ public final class ShellActivity extends LandscapeActivity {
     protected void onResume() {
         super.onResume();
         launches.shellResumed();
+        if (launches.running()) {
+            synchronized (this) {
+                menuRequested = true;
+            }
+        }
     }
 
     /** Called from the intent ProcessLauncher backend: null once started, else why not. */
     public String launch(String program, String[] args, String[] environment) {
+        synchronized (this) {
+            menuRequested = false;
+        }
         return launches.start(program, args, environment);
+    }
+
+    /** Called from the Android game overlay: whether the Guide menu was asked for since last time. */
+    public synchronized boolean takeMenuRequest() {
+        boolean requested = menuRequested;
+        menuRequested = false;
+        return requested;
+    }
+
+    /** Called from the Android game overlay: the shell comes to the front, the game over. */
+    public void showShell() {
+        launches.showShell();
+    }
+
+    /** Called from the Android game overlay: the running game comes back to the front. */
+    public boolean resumeGame() {
+        return launches.resume();
     }
 
     /** Whether the last launch is still running. */

@@ -2,7 +2,8 @@
 // overlay, and the shortcuts pressed while the game has the keyboard. One backend per OS, picked in
 // CMakeLists.txt: Gamescope's overlay and XInput2 game keys on Linux
 // (`game_overlay_gamescope.cpp`); on Windows the window itself, lowered behind the game and raised
-// over it (`game_overlay_raised_window.cpp`); none elsewhere (`game_overlay_none.cpp`), where
+// over it (`game_overlay_raised_window.cpp`); on Android the shell's Activity brought in front of
+// the runner's (`game_overlay_activity_task.cpp`); none elsewhere (`game_overlay_none.cpp`), where
 // `GameScreen` hides and shows the window instead. It is opened only inside the shell's session.
 #pragma once
 

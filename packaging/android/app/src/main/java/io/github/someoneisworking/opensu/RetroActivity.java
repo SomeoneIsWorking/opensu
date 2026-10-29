@@ -1,5 +1,6 @@
 package io.github.someoneisworking.opensu;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.system.ErrnoException;
 import android.system.Os;
@@ -67,6 +68,12 @@ public final class RetroActivity extends LandscapeActivity {
             }
         }
         return arguments;
+    }
+
+    /** Called from the runner's shell handoff: the shell comes to the front, where its Guide menu opens. */
+    public void openShellMenu() {
+        startActivity(new Intent(this, ShellActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
     }
 
     // The process is the game's: it ends with the runner, so the next launch starts clean.

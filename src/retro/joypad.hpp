@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <span>
 #include <string>
 
 #include "gamepad/event.hpp"
@@ -23,6 +24,8 @@ class Joypad {
 
     /// A press, release or pad leaving from the pads' reader.
     void apply(const gamepad::Event& event);
+    /// The pad named `source` holds `held` alone: what it held before is let go.
+    void hold(const std::string& source, std::span<const gamepad::Button> held);
     /// A key going down or up, by SDL scancode.
     void key(int scancode, bool down);
     /// Where the sticks of the pad named `source` stand now.

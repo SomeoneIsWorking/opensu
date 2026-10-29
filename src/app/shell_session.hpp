@@ -2,8 +2,9 @@
 // around the shell, the windows a launched game shows, the focus, and Steam's own windows kept out
 // of sight. One backend per OS, picked in CMakeLists.txt: Gamescope on Linux
 // (`shell_session_gamescope.cpp`, the only user of `src/session`); the Windows desktop, whose
-// windows tell when a game shows (`shell_session_win32.cpp`); none elsewhere
-// (`shell_session_none.cpp`), where the shell runs on the desktop as it is.
+// windows tell when a game shows (`shell_session_win32.cpp`); Android's Activity tasks
+// (`shell_session_android.cpp`); none elsewhere (`shell_session_none.cpp`), where the shell runs on
+// the desktop as it is.
 #pragma once
 
 #include <memory>
@@ -39,7 +40,8 @@ class ShellSession {
 };
 
 /// The session the shell runs in: inside Gamescope, its windows and focus; on Windows, the
-/// desktop's windows; null outside Gamescope on Linux and on every other OS. Throws
+/// desktop's windows; on Android, its Activity's task; null outside Gamescope on Linux and on
+/// every other OS. Throws
 /// std::runtime_error when the display cannot be opened.
 [[nodiscard]] std::unique_ptr<ShellSession> openShellSession(const config::Config& config);
 

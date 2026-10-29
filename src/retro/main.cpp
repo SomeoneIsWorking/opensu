@@ -153,6 +153,7 @@ int main(int argc, char** argv) {
     options->fullscreen = config.insideGamescope && !options->hidden;
     options->control = config.retroControl;
     options->librashader = config.librashader;
+    options->touchArt = config.assetsDir / "touch";
     opensu::retro::RunnerApp app{std::move(*options)};
     return static_cast<int>(app.run());
 }

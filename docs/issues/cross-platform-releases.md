@@ -372,11 +372,8 @@ folders, so the player adds the same folder there (it answered "Could not find R
 the RetroArch templates (no RetroArch on the AVD), and RetroArch reading a `content://` game.
 Shown: the picker,
 the NES test ROM listed from `/sdcard/ROMs` picked through it, Mesen downloaded for x86_64 and
-the ROM running on the `:retro` runner. Left for this step: the runner's touch layer and a way
-back to the shell from a game (Back and the Guide button do not reach the shell while the runner
-is in front), standalone emulators' intent templates in
-`emulators.json`, librashader for Android, tablet-size frames, the player's phone (arm64 cores,
-performance).
+the ROM running on the `:retro` runner. Left for this step: librashader for Android and the
+player's phone (arm64 cores, performance).
 
 A tablet-shaped display (1920x1600) lays out without overlap. Fixed since: a
 refused path shows on the chooser card under the field (`PathEditor::refusal`) instead of a toast
@@ -389,3 +386,24 @@ the profiles ask for the `image_webp` capability, which checks SDL3_image's inst
 in fewer rows (`HomeLayout`, every platform; a deliberate departure from iiSU, project-state). Settings names a
 picked ROM folder by its display name ("ROMs", `RomTree::label`), not its tree URI. Android has no Add a game tile (`library::addGameOffer` is empty there). The toast is sized in dp from the
 interface theme, so it reads the same on a dense phone screen.
+
+Back from a game: the runner and the shell are Activities in tasks of their own (`RetroActivity`
+has its own `taskAffinity` and stays out of Recents). Back, a pad's Guide or the touch pause
+button in the runner asks for the shell's menu (`shell_handoff::openMenu`, `RetroActivity.openShellMenu`):
+the shell comes to the front and, finding the game running, opens its Guide menu
+(`game_overlay_activity_task.cpp` reads the request as Guide), whose save, load, reset and options
+go over `retro_session`'s loopback as on the desktop. The runner keeps running its loop in the
+background (SDL's block-on-pause off, Back trapped) without running the core, so it answers them;
+its Vulkan surface is lost with the window and made again on return. Resume sends the runner's task
+back to the front (`Launches.resume`); Close game removes its task and process (`Launches.stop`) and
+brings the shell forward (`Launches.showShell`), as the Windows overlay raises the shell when a game
+ends. The shell cannot draw over the runner, so its menu shows over its own backdrop, not the game.
+The runner draws its own touch controls while no pad is connected (`TouchLayer`, art in
+`assets/touch/`, through `OverlayPass` over the frame): sized in dp inside the safe area,
+multi-touch, its buttons held on the joypad as one more pad. The swapchain is drawn upright on a
+turned display and the system turns it (frames came out turned a quarter before). Shown on the
+AVD at 1920x1264 (400 dpi) and 1920x1600 (320 dpi): the controls laid out, three fingers holding
+right, A and R at once, Back and the pause button opening the shell's Guide menu while the game
+waits, a state saved from it, Resume returning to the game, Close game returning to the Library
+with the runner's process and task gone. Unproven: hiding the controls when a pad connects and
+a pad's Guide (no pad on the AVD).

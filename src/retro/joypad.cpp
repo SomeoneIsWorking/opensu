@@ -83,6 +83,19 @@ void Joypad::sticks(const std::string& source, const gamepad::Sticks& sticks) {
     sticks_.insert_or_assign(source, sticks);
 }
 
+void Joypad::hold(const std::string& source, std::span<const gamepad::Button> held) {
+    gamepad::Event event;
+    event.source = source;
+    event.kind = gamepad::Event::Kind::Disconnected;
+    apply(event);
+    event.kind = gamepad::Event::Kind::Button;
+    event.pressed = true;
+    for (const gamepad::Button button : held) {
+        event.button = button;
+        apply(event);
+    }
+}
+
 void Joypad::key(int scancode, bool down) {
     if (const std::optional<unsigned> id = idOfKey(scancode)) {
         keys_[*id] = down;

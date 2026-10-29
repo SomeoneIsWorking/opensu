@@ -1,5 +1,6 @@
 #include "runner_app.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <exception>
 #include <memory>
@@ -8,6 +9,7 @@
 #include <thread>
 #include <utility>
 
+#include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_scancode.h>
 #include <nlohmann/json.hpp>
 
@@ -26,6 +28,8 @@
 #include "presenter.hpp"
 #include "save_memory.hpp"
 #include "save_state.hpp"
+#include "shell_handoff.hpp"
+#include "touch_layer.hpp"
 #include "video_frame.hpp"
 
 namespace opensu::retro {
@@ -188,17 +192,8 @@ ControlAnswer perform(const ControlRequest& request, const Commanded& on) {
 
 /// The control channel's pad holds `held` alone: what it held before is let go.
 void holdControlPad(Joypad& joypad, const ControlInput& held) {
-    gamepad::Event event;
-    event.source = "control";
-    event.kind = gamepad::Event::Kind::Disconnected;
-    joypad.apply(event);
-    event.kind = gamepad::Event::Kind::Button;
-    event.pressed = true;
-    for (const gamepad::Button button : held.buttons) {
-        event.button = button;
-        joypad.apply(event);
-    }
-    joypad.sticks(event.source, held.sticks);
+    joypad.hold("control", held.buttons);
+    joypad.sticks("control", held.sticks);
     lucent::info("retro", "control pad holds {} buttons, left stick {},{}, right stick {},{}",
                  held.buttons.size(), held.sticks.leftX, held.sticks.leftY, held.sticks.rightX,
                  held.sticks.rightY);
@@ -215,6 +210,23 @@ std::unique_ptr<ControlServer> openControl(const RunnerOptions& options, const C
         return nullptr;
     }
     return control;
+}
+
+/// `buttons` by their prompts, "nothing" for none.
+std::string buttonList(const std::vector<gamepad::Button>& buttons) {
+    std::string list;
+    for (const gamepad::Button button : buttons) {
+        list += (list.empty() ? "" : " ") + std::string{gamepad::prompt(button)};
+    }
+    return list.empty() ? "nothing" : list;
+}
+
+/// Asks for the shell's menu, the game waiting while it is up.
+void openShellMenu(const char* by) {
+    lucent::info("retro", "{} asks for the shell's menu", by);
+    if (!shell_handoff::openMenu()) {
+        lucent::warn("retro", "the shell's menu did not open");
+    }
 }
 
 bool writeFramePng(Presenter& presenter, const std::filesystem::path& file) {
@@ -272,6 +284,13 @@ RunnerExit RunnerApp::run() {
     }
     SaveState state{options_.saves / (options_.rom.stem().string() + ".state")};
 
+    const bool handoff = shell_handoff::active() && !options_.hidden;
+    if (handoff) {
+        // Back asks for the shell's menu instead of closing the Activity, and the loop keeps
+        // serving the shell's save and load requests while the shell is in front.
+        SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
+        SDL_SetHint(SDL_HINT_ANDROID_BLOCK_ON_PAUSE, "0");
+    }
     std::unique_ptr<Presenter> presenter;
     try {
         presenter = std::make_unique<Presenter>(PresenterOptions{
@@ -297,6 +316,15 @@ RunnerExit RunnerApp::run() {
     const std::unique_ptr<gamepad::PadSource> pads = options_.hidden ? nullptr : openPads();
     const std::unique_ptr<ControlServer> control = openControl(options_, *core);
 
+    std::unique_ptr<TouchLayer> touch =
+        handoff ? std::make_unique<TouchLayer>(options_.touchArt) : nullptr;
+    WindowSurface laidOut{};
+    /// Fingers lifted in the frame they went down, let go the next.
+    std::vector<Finger> liftNext;
+    bool padConnected = pads && !pads->connected().empty();
+    /// In the background: the game waits.
+    bool waiting = false;
+
     RunnerExit exit = RunnerExit::Quit;
     std::uint64_t frame = 0;
     /// Whether the last frame came as the core's Vulkan image rather than pixels.
@@ -308,17 +336,75 @@ RunnerExit RunnerApp::run() {
         if (input.quit) {
             break;
         }
+        if (handoff && input.shown) {
+            waiting = !*input.shown;
+            lucent::info("retro", "the game {}", waiting ? "waits in the background" : "goes on");
+        }
         if (!options_.hidden) {
             for (const WindowInput::Key& key : input.keys) {
+                if (handoff && key.scancode == SDL_SCANCODE_AC_BACK) {
+                    if (key.down) {
+                        openShellMenu("Back");
+                    }
+                    continue;
+                }
                 joypad.key(key.scancode, key.down);
             }
         }
         if (pads) {
             for (const gamepad::Event& event : pads->takeEvents()) {
+                if (event.kind == gamepad::Event::Kind::Connected ||
+                    event.kind == gamepad::Event::Kind::Disconnected) {
+                    padConnected = !pads->connected().empty();
+                }
+                if (handoff && event.kind == gamepad::Event::Kind::Button &&
+                    event.button == gamepad::Button::Guide && event.pressed) {
+                    openShellMenu("a pad's Guide");
+                }
                 joypad.apply(event);
             }
             for (const auto& [source, sticks] : pads->sticks()) {
                 joypad.sticks(source, sticks);
+            }
+        }
+        const bool touchShown = touch && !padConnected && !waiting;
+        if (touch) {
+            const WindowSurface surface = presenter->surface();
+            if (surface.width != laidOut.width || surface.height != laidOut.height ||
+                surface.dp != laidOut.dp) {
+                touch->layout(surface);
+                laidOut = surface;
+                joypad.hold("touch", {});
+            }
+            const bool pausing = touch->pressed(gamepad::Button::Guide);
+            bool changed = false;
+            if (touchShown) {
+                std::vector<Finger> fingers = std::exchange(liftNext, {});
+                fingers.insert(fingers.end(), input.fingers.begin(), input.fingers.end());
+                std::vector<std::uint64_t> wentDown;
+                for (const Finger& finger : fingers) {
+                    // A tap shorter than a frame is held for one, so the game sees it.
+                    if (finger.phase == Finger::Phase::Up &&
+                        std::ranges::find(wentDown, finger.id) != wentDown.end()) {
+                        liftNext.push_back(finger);
+                        continue;
+                    }
+                    if (finger.phase == Finger::Phase::Down) {
+                        wentDown.push_back(finger.id);
+                    }
+                    changed = touch->finger(finger) || changed;
+                }
+            } else {
+                liftNext.clear();
+                changed = touch->releaseAll();
+            }
+            if (changed) {
+                const std::vector<gamepad::Button> held = touch->held();
+                joypad.hold("touch", held);
+                lucent::info("retro", "touch holds {}", buttonList(held));
+                if (!pausing && touch->pressed(gamepad::Button::Guide)) {
+                    openShellMenu("the pause button");
+                }
             }
         }
 
@@ -330,6 +416,11 @@ RunnerExit RunnerApp::run() {
                 return perform(request, Commanded{*core, state, *presenter, environment.options(),
                                                   options_.hidden});
             });
+        }
+        if (waiting) {
+            next = Clock::now() + interval;
+            std::this_thread::sleep_until(next);
+            continue;
         }
         core->run();
         ++frame;
@@ -353,10 +444,15 @@ RunnerExit RunnerApp::run() {
         const float aspect = aspectOf(geometry);
         const std::optional<FrameImage> coreImage =
             showingCoreImage ? hardware.frame(aspect) : std::nullopt;
+        std::optional<OverlayImage> overlay;
+        if (touchShown) {
+            overlay = touch->image();
+        }
         try {
             presenter->present(coreImage.value_or(FrameImage{
                                    video.rgba(), video.width(), video.height(), aspect, {}}),
-                               coreImageFresh || pixelsFresh, hardware.takeSync());
+                               coreImageFresh || pixelsFresh, hardware.takeSync(),
+                               overlay ? &*overlay : nullptr);
         } catch (const VulkanError& failure) {
             lucent::error("retro", "{}", failure.what());
             exit = RunnerExit::PresenterFailed;
