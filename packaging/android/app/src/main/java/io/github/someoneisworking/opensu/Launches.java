@@ -98,7 +98,30 @@ final class Launches {
         return foreign && !foreignOver;
     }
 
+    /** Brings the runner's task back to the front; false when there is none. */
+    synchronized boolean resume() {
+        ActivityManager.AppTask task = runnerStarted ? runnerTask() : null;
+        if (task == null) {
+            return false;
+        }
+        task.moveToFront();
+        return true;
+    }
+
+    /** Brings the shell's own task back to the front, as a game ends behind it or in front. */
+    void showShell() {
+        ActivityManager.AppTask task = taskOf(ShellActivity.class.getName());
+        if (task != null) {
+            task.moveToFront();
+        }
+    }
+
     synchronized void stop() {
+        ActivityManager.AppTask task = runnerStarted ? runnerTask() : null;
+        if (task != null) {
+            // A killed activity in the background would otherwise be restored from Recents.
+            task.finishAndRemoveTask();
+        }
         int pid = runnerStarted ? runnerPid() : 0;
         if (pid != 0) {
             Process.killProcess(pid);
@@ -125,6 +148,21 @@ final class Launches {
         if (foreign && foreignShown) {
             foreignOver = true;
         }
+    }
+
+    private ActivityManager.AppTask runnerTask() {
+        return taskOf(RetroActivity.class.getName());
+    }
+
+    private ActivityManager.AppTask taskOf(String activity) {
+        ActivityManager manager = (ActivityManager) shell.getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.AppTask task : manager.getAppTasks()) {
+            ComponentName base = task.getTaskInfo().baseActivity;
+            if (base != null && activity.equals(base.getClassName())) {
+                return task;
+            }
+        }
+        return null;
     }
 
     private int runnerPid() {

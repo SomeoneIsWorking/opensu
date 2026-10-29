@@ -1,5 +1,8 @@
 // runner_app — opensu-retro composed: the core and its owners, the window, the pads and keyboard,
-// the sound device, and the loop that runs frames at the core's rate on a clock.
+// the sound device, and the loop that runs frames at the core's rate on a clock. Where the shell
+// cannot draw over it (`shell_handoff`), Guide, Back and the touch pause button bring the shell's
+// menu forward, the touch controls show while no pad is connected, and the game waits while the
+// runner is in the background, the control channel still served.
 #pragma once
 
 #include <cstdint>
@@ -48,6 +51,8 @@ struct RunnerOptions {
     std::filesystem::path librashader;
     /// Core option values chosen for this launch (a GPU core's renderer among them).
     OptionValues coreOptions;
+    /// The touch controls' art, where the runner draws its own (`shell_handoff`).
+    std::filesystem::path touchArt;
 };
 
 class RunnerApp {

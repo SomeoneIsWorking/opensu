@@ -142,6 +142,7 @@ void Presenter::release() {
         vkDestroySemaphore(vk_, acquired_, nullptr);
         vkDestroyFence(vk_, done_, nullptr);
         vkDestroyCommandPool(vk_, commandPool_, nullptr);
+        overlay_.reset();
         compositor_.reset();
         vk_ = VK_NULL_HANDLE;
     }
@@ -173,6 +174,30 @@ WindowInput Presenter::poll() {
         case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
             stale_ = true;
             break;
+        case SDL_EVENT_WINDOW_MINIMIZED:
+            input.shown = false;
+            break;
+        case SDL_EVENT_WINDOW_RESTORED:
+            input.shown = true;
+            break;
+        case SDL_EVENT_FINGER_DOWN:
+        case SDL_EVENT_FINGER_MOTION:
+        case SDL_EVENT_FINGER_UP:
+        case SDL_EVENT_FINGER_CANCELED: {
+            int width = 0;
+            int height = 0;
+            SDL_GetWindowSizeInPixels(window_, &width, &height);
+            Finger::Phase phase = Finger::Phase::Move;
+            if (event.type == SDL_EVENT_FINGER_DOWN) {
+                phase = Finger::Phase::Down;
+            } else if (event.type != SDL_EVENT_FINGER_MOTION) {
+                phase = Finger::Phase::Up;
+            }
+            input.fingers.push_back(Finger{static_cast<std::uint64_t>(event.tfinger.fingerID),
+                                           event.tfinger.x * static_cast<float>(width),
+                                           event.tfinger.y * static_cast<float>(height), phase});
+            break;
+        }
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_KEY_UP:
             if (!event.key.repeat) {
@@ -319,6 +344,45 @@ void Presenter::destroyTargets() {
     offscreenMemory_ = VK_NULL_HANDLE;
 }
 
+void Presenter::dropSurface() {
+    if (vk_ == VK_NULL_HANDLE || surface_ == VK_NULL_HANDLE) {
+        return;
+    }
+    device_->waitIdle();
+    destroyTargets();
+    vkDestroySwapchainKHR(vk_, swapchain_, nullptr);
+    swapchain_ = VK_NULL_HANDLE;
+    SDL_Vulkan_DestroySurface(instance_->handle(), surface_, nullptr);
+    surface_ = VK_NULL_HANDLE;
+    stale_ = true;
+    lucent::info("retro", "the window's surface let go");
+}
+
+WindowSurface Presenter::surface() const {
+    WindowSurface surface{.width = extent_.width,
+                          .height = extent_.height,
+                          .safeX = 0.0F,
+                          .safeY = 0.0F,
+                          .safeWidth = static_cast<float>(extent_.width),
+                          .safeHeight = static_cast<float>(extent_.height),
+                          .dp = 1.0F};
+    if (options_.hidden) {
+        return surface;
+    }
+    const float density = SDL_GetWindowPixelDensity(window_);
+    if (const float scale = SDL_GetWindowDisplayScale(window_); scale > 0.0F) {
+        surface.dp = scale;
+    }
+    SDL_Rect safe{};
+    if (density > 0.0F && SDL_GetWindowSafeArea(window_, &safe)) {
+        surface.safeX = static_cast<float>(safe.x) * density;
+        surface.safeY = static_cast<float>(safe.y) * density;
+        surface.safeWidth = static_cast<float>(safe.w) * density;
+        surface.safeHeight = static_cast<float>(safe.h) * density;
+    }
+    return surface;
+}
+
 void Presenter::change(const settings::VideoSettings& video) {
     compositor_->change(video, instance_->handle(), options_.librashader);
 }
@@ -327,13 +391,22 @@ VkResult Presenter::waitForFrame() {
     return vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX);
 }
 
-void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync) {
+void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
+                        const OverlayImage* overlay) {
     uploadPending_ = uploadPending_ || fresh;
     syncPending_.waits.insert(syncPending_.waits.end(), sync.waits.begin(), sync.waits.end());
     syncPending_.commands.insert(syncPending_.commands.end(), sync.commands.begin(),
                                  sync.commands.end());
     if (sync.signal != VK_NULL_HANDLE) {
         syncPending_.signal = sync.signal;
+    }
+    if (!options_.hidden && surface_ == VK_NULL_HANDLE) {
+        // The surface was lost (Android in the background); the window may not have one yet.
+        if (!SDL_Vulkan_CreateSurface(window_, instance_->handle(), nullptr, &surface_)) {
+            surface_ = VK_NULL_HANDLE;
+            return;
+        }
+        lucent::info("retro", "the window's surface made again");
     }
     if (!options_.hidden && stale_) {
         check(device_->waitIdle(), "vkDeviceWaitIdle");
@@ -349,6 +422,10 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync) {
             vkAcquireNextImageKHR(vk_, swapchain_, UINT64_MAX, acquired_, VK_NULL_HANDLE, &index);
         if (acquired == VK_ERROR_OUT_OF_DATE_KHR) {
             stale_ = true;
+            return;
+        }
+        if (acquired == VK_ERROR_SURFACE_LOST_KHR) {
+            dropSurface();
             return;
         }
         if (acquired == VK_SUBOPTIMAL_KHR) {
@@ -367,6 +444,17 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync) {
                             DrawTarget{targets_[index].image, targets_[index].framebuffer},
                             extent_)) {
         uploadPending_ = false;
+    }
+    if (overlay != nullptr && overlay->width == extent_.width &&
+        overlay->height == extent_.height) {
+        if (!overlay_) {
+            overlay_ =
+                std::make_unique<OverlayPass>(*device_, format_,
+                                              options_.hidden ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+                                                              : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        }
+        overlay_->recordUpload(commands_, *overlay);
+        overlay_->recordDraw(commands_, targets_[index].framebuffer, extent_);
     }
     check(vkEndCommandBuffer(commands_), "vkEndCommandBuffer");
 
@@ -414,6 +502,8 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync) {
         stale_ = true;
     } else if (presented == VK_SUBOPTIMAL_KHR) {
         stale_ = !turnedBySystem_;
+    } else if (presented == VK_ERROR_SURFACE_LOST_KHR) {
+        dropSurface();
     } else {
         check(presented, "vkQueuePresentKHR");
     }

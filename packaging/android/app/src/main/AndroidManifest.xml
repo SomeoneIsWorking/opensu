@@ -24,7 +24,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Its own task, so the shell comes to the front over the paused game and sends it back. -->
         <activity android:name=".RetroActivity" android:process=":retro"
+                  android:taskAffinity="${applicationId}.retro" android:excludeFromRecents="true"
                   android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|density"
                   android:exported="false" android:screenOrientation="sensorLandscape" />
     </application>
