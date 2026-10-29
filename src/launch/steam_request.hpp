@@ -1,8 +1,8 @@
 // steam_request — hands a Steam game to the Steam client. One backend per OS, picked in
 // CMakeLists.txt: `steam -applaunch <id>` on Linux (`steam_request_applaunch.cpp`), which passes
 // the request to the running client and exits; the `steam://rungameid/<id>` link through the
-// Windows shell (`steam_request_url.cpp`), which starts Steam when it is not running, outside any
-// Job Object of openSU's.
+// Windows shell (`steam_request_url.cpp`) or macOS's `open` (`steam_request_open.cpp`), which start
+// Steam when it is not running, outside any group of openSU's.
 #pragma once
 
 #include <filesystem>

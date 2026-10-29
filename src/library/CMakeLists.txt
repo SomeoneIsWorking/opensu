@@ -69,19 +69,21 @@ if(ANDROID)
 else()
     target_sources(opensu_library PRIVATE cli_stores_desktop.cpp rom_tree_files.cpp android_apps_none.cpp)
 endif()
-# What Add a game offers: no Lutris on Windows, nothing on Android.
-if(WIN32)
-    target_sources(opensu_library PRIVATE add_game_offer_windows.cpp)
+# What Add a game offers: no Lutris on Windows or macOS, nothing on Android.
+if(WIN32 OR APPLE)
+    target_sources(opensu_library PRIVATE add_game_offer_desktop.cpp)
 elseif(NOT ANDROID)
     target_sources(opensu_library PRIVATE add_game_offer_linux.cpp)
 endif()
 # Where RetroArch and the system put cores: Linux's folders; elsewhere openSU's downloads only.
 # Where Steam installs itself and how its games run: the home folder and the reaper on Linux, the
-# registry and the install folder on Windows.
+# registry and the install folder on Windows, Application Support and the install folder on macOS.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_library PRIVATE core_search_linux.cpp steam_host_linux.cpp)
 elseif(WIN32)
     target_sources(opensu_library PRIVATE core_search_none.cpp steam_host_win32.cpp)
+elseif(APPLE)
+    target_sources(opensu_library PRIVATE core_search_none.cpp steam_host_darwin.cpp)
 else()
     target_sources(opensu_library PRIVATE core_search_none.cpp steam_host_none.cpp)
 endif()
@@ -115,12 +117,28 @@ else()
     message(FATAL_ERROR "The libretro buildbot folder for ${CMAKE_SYSTEM_NAME} on "
         "${CMAKE_SYSTEM_PROCESSOR} is not known; add it to src/library/CMakeLists.txt")
 endif()
+# Which store builds run here (`store_builds.hpp`): Windows runs its own, Linux its own and Windows
+# ones under Wine, macOS only its own.
 if(WIN32)
     set(opensu_windows_builds_native 1)
+    set(opensu_windows_builds_run 1)
+    set(opensu_gog_own_platform "windows")
+    set(opensu_gog_platforms_text "Windows")
+elseif(APPLE)
+    set(opensu_windows_builds_native 0)
+    set(opensu_windows_builds_run 0)
+    set(opensu_gog_own_platform "osx")
+    set(opensu_gog_platforms_text "macOS")
 else()
     set(opensu_windows_builds_native 0)
+    set(opensu_windows_builds_run 1)
+    set(opensu_gog_own_platform "linux")
+    set(opensu_gog_platforms_text "Linux or Windows")
 endif()
 target_compile_definitions(opensu_library PUBLIC
     OPENSU_CORE_BUILDBOT_FOLDER="${opensu_core_folder}"
     OPENSU_CORE_LIBRARY_SUFFIX="${opensu_core_suffix}"
-    OPENSU_WINDOWS_BUILDS_NATIVE=${opensu_windows_builds_native})
+    OPENSU_WINDOWS_BUILDS_NATIVE=${opensu_windows_builds_native}
+    OPENSU_WINDOWS_BUILDS_RUN=${opensu_windows_builds_run}
+    OPENSU_GOG_OWN_PLATFORM="${opensu_gog_own_platform}"
+    OPENSU_GOG_PLATFORMS_TEXT="${opensu_gog_platforms_text}")

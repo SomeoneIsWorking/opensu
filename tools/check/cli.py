@@ -5,14 +5,15 @@ Steps run in order: deps (pinned Lucent and gpu2d, and vcpkg for Windows), confi
 test; `all` runs every one. `ci` runs `all --gamescope native` inside the CI image (packaging/ci,
 Fedora 44 with systemd), as the CI workflow does; a maintainer can run any step against the same
 tree. `--platform windows` builds on a Windows host with clang-cl and vcpkg
-(tools/check/windows.py).
+(tools/check/windows.py), `--platform macos` on an Apple silicon Mac with Homebrew's LLVM and vcpkg
+(tools/check/macos.py).
 """
 
 import argparse
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from tools.check import cmake, container, deps, lint, process, windows
+from tools.check import cmake, container, deps, lint, macos, process, windows
 
 STEPS = ("deps", "configure", "build", "lint", "test")
 
@@ -54,6 +55,9 @@ def main(argv: list[str] | None = None) -> int:
     if plan.platform == "windows":
         windows.require_host()
         env = windows.environment(plan.build_dir, env)
+    if plan.platform == "macos":
+        macos.require_host()
+        env = macos.environment(plan.build_dir, env)
     if args.step == "ci":
         container.run_all(plan.build_dir, env)
         return 0

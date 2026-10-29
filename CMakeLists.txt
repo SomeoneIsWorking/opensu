@@ -11,6 +11,16 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
+# A macOS install is the inside of openSU.app, its prefix the bundle's Contents: the executables in
+# MacOS, the assets in Resources, librashader and the Vulkan loader in Frameworks. Set before any
+# project includes GNUInstallDirs, in the build tree as installed.
+if(APPLE)
+    set(CMAKE_INSTALL_BINDIR "MacOS" CACHE PATH "Executables in openSU.app/Contents")
+    set(CMAKE_INSTALL_DATADIR "Resources" CACHE PATH "Assets in openSU.app/Contents")
+    set(CMAKE_INSTALL_LIBDIR "Frameworks" CACHE PATH "Libraries in openSU.app/Contents")
+    set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
+endif()
+
 # nanosvg rasterises the shipped icons. Header-only: the distribution's package or a checkout.
 set(NANOSVG_ROOT "$ENV{HOME}/dev/nanosvg" CACHE PATH "nanosvg checkout")
 find_path(NANOSVG_INCLUDE_DIR nanosvg.h

@@ -3,10 +3,13 @@
 #include <chrono>
 #include <filesystem>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 
 #include "library/install_log.hpp"
+#include "library/store_builds.hpp"
 
 namespace opensu::app {
 namespace {
@@ -43,12 +46,12 @@ fs::path GogInstallJob::gameRoot(const std::string& gameId) const {
 std::vector<std::string> GogInstallJob::arguments(const std::string& gameId) {
     if (updating_) {
         platform_ = updating_->platform;
-    } else if (builds_.linuxNative) {
-        platform_ = "linux";
-    } else if (builds_.windows) {
-        platform_ = "windows";
+    } else if (const std::string_view platform = library::gogInstallPlatform(builds_);
+               !platform.empty()) {
+        platform_ = platform;
     } else {
-        throw std::runtime_error{"GOG lists no Linux or Windows build of this game"};
+        throw std::runtime_error{"GOG lists no " + std::string{library::gogPlatformsText} +
+                                 " build of this game"};
     }
     // Refreshes the token when it is about to expire; NotSignedIn is a runtime_error.
     (void)auth_.accessToken();

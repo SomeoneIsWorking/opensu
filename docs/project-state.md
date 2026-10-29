@@ -120,11 +120,13 @@ Visible deltas from the baseline:
   Steam, and Big Picture opened any other way is closed and the shell put back in front.
 - Shipped as a Linux x86_64 AppImage with the Gamescope fork inside, a Windows x64 per-user
   installer (S046), or built from source; an Android APK (arm64-v8a, x86_64) runs the shell and
-  plays ROMs from folders picked through Android's folder picker on the built-in cores, with touch controls in the runner and the shell's Guide menu brought in front of the paused game (S042). macOS (arm64) packages are planned as launchers (G005, S042). On each of them openSU will have no: Gamescope (nested session, login session, FSR,
+  plays ROMs from folders picked through Android's folder picker on the built-in cores, with touch controls in the runner and the shell's Guide menu brought in front of the paused game (S042). A macOS (Apple silicon) app is built, signed ad hoc, as a launcher (S047). On each of them openSU has no: Gamescope (nested session, login session, FSR,
   frame generation, Alt+F4 handling); Managed or Isolated Steam (Steam is the player's own, Normal);
-  virtual pads remapping another program's input; Wine; the Power, Bluetooth and brightness tabs.
-  Android will also have no Steam, Epic, GOG or sign-in extension. Until each OS's backends land,
-  a launch there refuses with "launching is not available on <OS>".
+  virtual pads remapping another program's input; the Power, Bluetooth and brightness tabs. Windows
+  runs a store's Windows builds itself, Linux under Wine, macOS not at all (it installs a store's
+  Mac builds; Wine on macOS is a non-goal). Android also has no Steam, Epic, GOG or sign-in
+  extension. On macOS a launched game's group is a process group, which a process that calls
+  `setsid` leaves (a scope or a job keeps it).
 
 ## Current focus
 
@@ -182,6 +184,7 @@ game has been observed running yet.
 | S044 | Giveaways: free-to-keep offers from Epic, GOG and Steam read in the background, a Library tile opening a toolkit screen with art, store, ends-in and Owned, details with Claim (store page; Steam's in Big Picture when openSU's Steam runs) (`docs/issues/giveaways.md`) | partial | S002, S007, S043 | G001 |
 | S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only; Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
 | S046 | Windows release: clang-cl build with vcpkg, Job Object launches, Win32 process table and game windows, the shell minimized under a game and raised for the Guide, Steam from the registry and `steam://`, native GOG and Epic builds, controller batteries through SDL, librashader `.dll`, per-user Inno Setup installer, `windows` CI and release jobs (`docs/issues/cross-platform-releases.md` step 2) | partial | S042 | G005 |
+| S047 | macOS release: Homebrew LLVM build with vcpkg, process-group launches, libproc process table, game windows from the window server, the shell minimized under a game and raised for the Guide, Steam from Application Support and `steam://`, GOG and Epic Mac builds, `apple/osx/arm64` cores, librashader `.dylib`, MoltenVK through portability enumeration, ad-hoc signed `openSU.app` zip, `macos` CI and release jobs (`docs/issues/cross-platform-releases.md` step 3) | partial | S042 | G005 |
 
 ## Capability details
 
@@ -1807,8 +1810,9 @@ Actions are pinned by SHA, uv by version and checksum, permissions are `contents
 The `android` job builds the signed APK for both ABIs through `tools.package.android build`
 (android-port's native prefix cached by its pin) and `release.yml` publishes it. A `windows` job
 builds with clang-cl and vcpkg on `windows-2025`, runs the tests on lavapipe and builds and
-smoke-tests the installer (S046). No macOS job yet: it comes with G005's step 3
-(`docs/issues/cross-platform-releases.md`).
+smoke-tests the installer (S046). A `macos` job builds with Homebrew's LLVM and vcpkg on
+`macos-15`, runs the tests on the runner's Metal device and builds and smoke-tests the app (S047).
+A manual run can pick one platform.
 
 Verified: the same steps locally through `tools.check ci`: Clang build including the fork, the
 three linters clean, 117 of 119 tests pass and 2 skip (`game_keys`, `pads`: no uinput in the
@@ -1834,6 +1838,14 @@ Gaps: no run on a real Windows host or VM yet; a ROM started from the shell unde
 output now goes to a log per launch under the runtime dir, not yet shown on Windows; Steam, legendary and
 gogdl launches on Windows untested; the Windows tree is not linted (the step's doc says why and the
 proper fix).
+
+### S047 — macOS release
+
+What landed is listed in `docs/issues/cross-platform-releases.md` ("Step 3 as built"). No Mac
+exists here and Apple licenses its SDK only for Macs, so nothing was compiled for Darwin locally;
+every check ran on GitHub's `macos-15` runner.
+
+Gaps: not yet run on CI.
 
 ### S030 — AppImage
 

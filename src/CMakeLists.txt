@@ -55,17 +55,17 @@ target_link_libraries(opensu
         lucent::lucent
 )
 opensu_windowed(opensu)
-# Assets sit at share/opensu beside the executable's directory, in the build tree as installed.
+# Assets sit at share/opensu (Resources/opensu on macOS) beside the executable's directory, in the
+# build tree as installed.
 file(GLOB_RECURSE opensu_asset_files CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/assets/*")
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/assets.stamp"
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/assets"
-            "$<TARGET_FILE_DIR:opensu>/../share/opensu"
+            "$<TARGET_FILE_DIR:opensu>/../${CMAKE_INSTALL_DATADIR}/opensu"
     COMMAND "${CMAKE_COMMAND}" -E touch "${CMAKE_CURRENT_BINARY_DIR}/assets.stamp"
     DEPENDS ${opensu_asset_files})
 add_custom_target(opensu_assets ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/assets.stamp")
 add_dependencies(opensu opensu_assets)
 
-include(GNUInstallDirs)
 install(TARGETS opensu RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/" DESTINATION "${CMAKE_INSTALL_DATADIR}/opensu")

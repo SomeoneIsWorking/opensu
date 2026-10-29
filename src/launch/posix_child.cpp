@@ -18,6 +18,7 @@
 
 #include "argv.hpp"
 #include "child_environment.hpp"
+#include "child_pipe.hpp"
 #include "descriptor.hpp"
 #include "lucent/log.h"
 #include "process_id.hpp"
@@ -76,7 +77,7 @@ std::optional<fs::path> child::executableAt(const fs::path& candidate) {
 std::optional<int> child::run(const std::string& program, const std::vector<std::string>& args,
                               std::chrono::milliseconds timeout) {
     Argv argv{program, args};
-    ChildEnvironment environment{environ};
+    ChildEnvironment environment;
 
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
@@ -134,9 +135,11 @@ bool writeAll(int fd, std::string_view data) {
             data.remove_prefix(static_cast<std::size_t>(put));
         }
     }
-    if (!ok) {
-        const timespec none{0, 0};
-        sigtimedwait(&pipeSignal, nullptr, &none);
+    sigset_t pending;
+    sigemptyset(&pending);
+    if (!ok && sigpending(&pending) == 0 && sigismember(&pending, SIGPIPE) == 1) {
+        int taken = 0;
+        sigwait(&pipeSignal, &taken);
     }
     pthread_sigmask(SIG_SETMASK, &previous, nullptr);
     return ok;
@@ -149,14 +152,14 @@ std::optional<int> child::stream(const std::string& program, const std::vector<s
                                  const std::stop_token& stop, CaptureErrors errors,
                                  const std::optional<std::string_view>& stdinLine) {
     std::array<int, 2> ends{};
-    if (pipe2(ends.data(), O_CLOEXEC) != 0) {
+    if (!openChildPipe(ends)) {
         lucent::warn("launch", "cannot make a pipe for {}: {}", program, std::strerror(errno));
         return std::nullopt;
     }
     Descriptor reader{ends[0]};
     Descriptor writer{ends[1]};
     std::array<int, 2> inEnds{-1, -1};
-    if (stdinLine && pipe2(inEnds.data(), O_CLOEXEC) != 0) {
+    if (stdinLine && !openChildPipe(inEnds)) {
         lucent::warn("launch", "cannot make a pipe for {}: {}", program, std::strerror(errno));
         return std::nullopt;
     }
@@ -164,7 +167,7 @@ std::optional<int> child::stream(const std::string& program, const std::vector<s
     Descriptor stdinWriter{inEnds[1]};
 
     Argv argv{program, args};
-    ChildEnvironment environment{environ};
+    ChildEnvironment environment;
     posix_spawn_file_actions_t actions;
     posix_spawn_file_actions_init(&actions);
     if (stdinLine) {

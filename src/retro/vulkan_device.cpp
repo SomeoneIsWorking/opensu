@@ -11,6 +11,8 @@ namespace opensu::retro {
 namespace {
 
 constexpr const char* validationLayer = "VK_LAYER_KHRONOS_validation";
+// Spelled out: vulkan_core.h only names them under VK_ENABLE_BETA_EXTENSIONS.
+constexpr const char* portabilitySubset = "VK_KHR_portability_subset";
 
 bool layerInstalled(const char* name) {
     std::uint32_t count = 0;
@@ -23,6 +25,26 @@ bool layerInstalled(const char* name) {
         }
     }
     return false;
+}
+
+bool instanceExtensionOffered(const char* name) {
+    std::uint32_t count = 0;
+    vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
+    std::vector<VkExtensionProperties> extensions(count);
+    vkEnumerateInstanceExtensionProperties(nullptr, &count, extensions.data());
+    return std::ranges::any_of(extensions, [name](const VkExtensionProperties& extension) {
+        return std::strcmp(extension.extensionName, name) == 0;
+    });
+}
+
+bool deviceExtensionOffered(VkPhysicalDevice device, const char* name) {
+    std::uint32_t count = 0;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr);
+    std::vector<VkExtensionProperties> extensions(count);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &count, extensions.data());
+    return std::ranges::any_of(extensions, [name](const VkExtensionProperties& extension) {
+        return std::strcmp(extension.extensionName, name) == 0;
+    });
 }
 
 /// Higher for the devices a player would rather draw on.
@@ -89,6 +111,10 @@ VulkanInstance::VulkanInstance(
     std::span<const char* const> extensions, bool validation,
     const retro_hw_render_context_negotiation_interface_vulkan* negotiation)
     : extensions_(extensions.begin(), extensions.end()) {
+    if (instanceExtensionOffered(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
+        extensions_.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        flags_ |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    }
     if (validation) {
         if (layerInstalled(validationLayer)) {
             layers_.push_back(validationLayer);
@@ -119,6 +145,7 @@ VulkanInstance::VulkanInstance(
     } else {
         VkInstanceCreateInfo create{};
         create.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+        create.flags = flags_;
         create.pApplicationInfo = &application;
         create.enabledLayerCount = static_cast<std::uint32_t>(layers_.size());
         create.ppEnabledLayerNames = layers_.data();
@@ -159,6 +186,7 @@ VkInstance VulkanInstance::createWrapped(void* self, const VkInstanceCreateInfo*
     std::vector<const char*> layers =
         withAll({create->ppEnabledLayerNames, create->enabledLayerCount}, runner.layers_);
     VkInstanceCreateInfo merged = *create;
+    merged.flags |= runner.flags_;
     merged.enabledExtensionCount = static_cast<std::uint32_t>(extensions.size());
     merged.ppEnabledExtensionNames = extensions.data();
     merged.enabledLayerCount = static_cast<std::uint32_t>(layers.size());
@@ -227,6 +255,9 @@ VulkanDevice::VulkanDevice(const VulkanInstance& instance, VkSurfaceKHR surface,
     }
     if (surface != VK_NULL_HANDLE) {
         extensions_.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    }
+    if (deviceExtensionOffered(physical_, portabilitySubset)) {
+        extensions_.push_back(portabilitySubset);
     }
     if (negotiation_ == nullptr || !negotiate(instance, surface)) {
         createOwn();

@@ -105,7 +105,7 @@ bool ProcessLauncher::start(const std::string& unit, const std::string& program,
     runArgs.push_back(program);
     runArgs.insert(runArgs.end(), args.begin(), args.end());
     Argv argv{"systemd-run", runArgs};
-    ChildEnvironment childEnvironment{environ};
+    ChildEnvironment childEnvironment;
     const Descriptor outputFile{
         output.empty() ? -1
                        : ::open(output.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644)};

@@ -11,9 +11,12 @@ elseif(ANDROID)
 else()
     target_sources(opensu_steam PRIVATE client_modes_normal.cpp)
 endif()
-# Where a running client is found: its pid file and /proc, or the Windows registry.
+# Where a running client is found: its pid file and /proc, the Windows registry, or the process
+# table's steam_osx on macOS.
 if(WIN32)
     target_sources(opensu_steam PRIVATE desktop_steam_registry.cpp)
+elseif(APPLE)
+    target_sources(opensu_steam PRIVATE desktop_steam_process.cpp)
 else()
     target_sources(opensu_steam PRIVATE desktop_steam_pid_file.cpp)
 endif()

@@ -1,12 +1,12 @@
-#include "launch/win32_windows.hpp"
+#include "launch/desktop_windows.hpp"
 #include "shell_session.hpp"
 
 namespace opensu::app {
 namespace {
 
-/// The Windows desktop as it is: the game's windows are the desktop's, nothing is hidden and there
-/// is no focus to follow. The shell's window is raised over the game and lowered behind it
-/// (`game_overlay_raised_window.cpp`).
+/// The desktop as it is (Windows, macOS): the game's windows are the desktop's, nothing is hidden
+/// and there is no focus to follow. The shell's window is raised over the game and lowered behind
+/// it (`game_overlay_raised_window.cpp`).
 class DesktopSession final : public ShellSession {
   public:
     [[nodiscard]] launch::GameWindows* gameWindows() noexcept override {
@@ -22,7 +22,7 @@ class DesktopSession final : public ShellSession {
     }
 
   private:
-    launch::Win32Windows windows_;
+    launch::DesktopWindows windows_;
 };
 
 } // namespace
