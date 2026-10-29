@@ -332,7 +332,10 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
   Windows (`add_game_offer_windows.cpp`). SDL's own log lines now go through Lucent
   (`app::SdlLog`), and the CI smoke's `--render` failed because the Vulkan loader ignores
   `VK_DRIVER_FILES` in an elevated process, as a runner's are: `tools/check/windows.py` registers
-  lavapipe under `HKLM\SOFTWARE\Khronos\Vulkan\Drivers` there.
+  lavapipe under `HKLM\SOFTWARE\Khronos\Vulkan\Drivers` there. With that, the smoke's
+  `--render` gets past driver selection and then dies with `0xC0000374` (heap corruption) before
+  the shell logs its device (CI run 40800451380); where is not known. Next: run the smoke under
+  the SDK's `cdb` on the runner for the faulting stack.
 - Shown under Wine 11.20 (the CI installer installed silently per user into a scratch prefix,
   `--hidden` in a headless Gamescope, frames from the control channel's `/frame.png`): the
   first-run chooser, Home (empty slots: no store integration on), the Guide menu, Settings, Library
