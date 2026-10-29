@@ -106,7 +106,10 @@ def state(guest: Agent) -> str:
 
 def press(guest: Agent, button: str) -> str:
     """A pad button (`a`, `down`, `guide`, ...), as `tools.vm ui press` sends it."""
-    return _curl(guest, ["-d", button, f"{CONTROL_URL}/input"]).out
+    done = _curl(guest, ["-d", button, f"{CONTROL_URL}/input"])
+    if done.code != 0:
+        raise AgentError(f"openSU refused the button {button!r}")
+    return done.out
 
 
 def frame(guest: Agent, local: Path) -> Path:
