@@ -69,6 +69,13 @@ add_dependencies(opensu opensu_assets)
 install(TARGETS opensu RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets/" DESTINATION "${CMAKE_INSTALL_DATADIR}/opensu")
+# Visual Studio's C++ runtime (msvcp140, vcruntime140) beside both executables: Windows ships only
+# the UCRT, and a player need not have installed the redistributable. Found in the Visual Studio
+# install, so a cross build from Linux (xwin) installs none.
+if(MSVC AND CMAKE_HOST_WIN32)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION "${CMAKE_INSTALL_BINDIR}")
+    include(InstallRequiredSystemLibraries)
+endif()
 # The desktop entry, the icon and the login session are Linux's.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(OPENSU_EXEC "${CMAKE_INSTALL_FULL_BINDIR}/opensu")
