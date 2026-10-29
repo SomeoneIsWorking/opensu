@@ -7,6 +7,7 @@
 #include <span>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -67,11 +68,13 @@ void duplicates() {
 
 } // namespace
 
-int main() {
+int main() try {
     xrgb8888();
     rgb565();
     xrgb1555();
     duplicates();
     std::printf("video_frame: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

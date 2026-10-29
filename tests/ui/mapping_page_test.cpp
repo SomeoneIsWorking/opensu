@@ -15,6 +15,7 @@
 
 #include "check.hpp"
 #include "input/shortcuts.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -284,7 +285,7 @@ void thePopoverStaysInsideTheCardBesideTheChip() {
 
 } // namespace
 
-int main() {
+int main() try {
     focusMovesOverTheBoard();
     theStripScrollsToTheFocusedChord();
     theBoardFitsTheCard();
@@ -292,4 +293,6 @@ int main() {
     thePopoverStaysInsideTheCardBesideTheChip();
     std::printf("mapping_page: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -11,6 +11,7 @@
 #include "core_environment.hpp"
 #include "joypad.hpp"
 #include "scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "video_frame.hpp"
 
 namespace {
@@ -37,7 +38,7 @@ template <class Action> void expectCoreError(Action action, const char* what) {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     if (argc != 2) {
         fail("usage: core_test <fake core>");
     }
@@ -98,4 +99,6 @@ int main(int argc, char** argv) {
     expect(again.name() == "fake", "a core can be loaded after the last one is gone");
     std::printf("core: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

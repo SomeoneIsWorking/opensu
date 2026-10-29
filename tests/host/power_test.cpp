@@ -1,5 +1,6 @@
 // Power through a fake runner: the systemctl verbs, refusals, and the refusing backend.
 #include "host/power.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -71,10 +72,12 @@ void labels() {
 
 } // namespace
 
-int main() {
+int main() try {
     verbs();
     refusals();
     refusing();
     labels();
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -16,6 +16,7 @@
 
 #include "sound_clip.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -160,7 +161,7 @@ void playerWithoutDevice(const fs::path& wav, const fs::path& ogg) {
 
 } // namespace
 
-int main() {
+int main() try {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "sdl-sound"};
     const fs::path wav = writeWav(scratch.path());
     const fs::path ogg = writeOgg(scratch.path());
@@ -170,4 +171,6 @@ int main() {
     playerWithoutDevice(wav, ogg);
     std::printf("sdl_sound_player: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

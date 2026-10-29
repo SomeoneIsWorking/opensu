@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -95,7 +96,7 @@ void updateBadge() {
 
 } // namespace
 
-int main() {
+int main() try {
     outerForContent();
     cell200();
     smallTile();
@@ -105,4 +106,6 @@ int main() {
     updateBadge();
     std::printf("tile_geometry: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

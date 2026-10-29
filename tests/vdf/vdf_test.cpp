@@ -2,6 +2,7 @@
 // a real app manifest, both libraryfolders layouts, and a user config with the
 // "UserLocalConfigStore" wrapper.
 #include "node.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdlib>
 #include <string>
@@ -208,7 +209,7 @@ void testMalformedIsRejected() {
 
 } // namespace
 
-int main() {
+int main() try {
     testManifest();
     testCaseInsensitiveLookup();
     testQuotedEscapes();
@@ -220,4 +221,6 @@ int main() {
     testMalformedIsRejected();
     std::printf("vdf: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

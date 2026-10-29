@@ -10,6 +10,7 @@
 #include "host_fakes.hpp"
 #include "support/fake_interface_text.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -33,7 +34,7 @@ struct Rig {
                      sounds,
                      app::GuideMenuController::Hooks{
                          .context =
-                             [context] {
+                             [context = context] {
                                  return context;
                              },
                          .showSection =
@@ -255,7 +256,7 @@ void withoutPowerOrSessionOnlyQuitIsLeft() {
 
 } // namespace
 
-int main() {
+int main() try {
     homePlacesReachTheirHooks();
     gameStepsAskFirst();
     quickChangesSitBesideThePlaces();
@@ -265,4 +266,6 @@ int main() {
     withoutPowerOrSessionOnlyQuitIsLeft();
     std::printf("guide menu controller: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

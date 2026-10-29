@@ -5,6 +5,7 @@
 #include <string>
 
 #include "library/emulator_catalog.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -128,11 +129,13 @@ void malformedIsRefused() {
 
 } // namespace
 
-int main() {
+int main() try {
     shippedCatalogParses();
     malformedIsRefused();
     coreEntries();
     romsetSources();
     std::puts("emulator_catalog: ok");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

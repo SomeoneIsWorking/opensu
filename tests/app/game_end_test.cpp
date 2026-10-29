@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "game_end.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -53,9 +54,11 @@ void noticesSayHowTheGameEnded() {
 
 } // namespace
 
-int main() {
+int main() try {
     crashesAreNamedBySignal();
     noticesSayHowTheGameEnded();
     std::printf("game_end: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

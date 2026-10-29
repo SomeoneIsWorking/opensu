@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -397,7 +398,7 @@ void run() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         run();
     } catch (const std::exception& error) {
@@ -406,4 +407,6 @@ int main() {
     }
     std::printf("control channel: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -12,6 +12,7 @@
 #include "library/core_bios.hpp"
 #include "library/emulator_catalog.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "support/zip_fixture.hpp"
 #include "ui/check.hpp"
 
@@ -167,7 +168,7 @@ void catalogNamesTheMode() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "core_bios"};
         firmwareIsRead();
@@ -181,4 +182,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

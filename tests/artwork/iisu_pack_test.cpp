@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "support/test_main.hpp"
 #include "support/zip_fixture.hpp"
 
 namespace {
@@ -140,7 +141,7 @@ void testInstall(const fs::path& dir) {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         const fs::path dir = fs::path{OPENSU_TEST_SCRATCH} / "iisu_pack";
         fs::remove_all(dir);
@@ -157,4 +158,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

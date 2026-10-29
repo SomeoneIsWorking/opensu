@@ -16,6 +16,7 @@
 #include "settings/emulator_pick_migration.hpp"
 #include "settings/video_settings.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -121,7 +122,7 @@ void launchFile() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "game_settings_store"};
         theNearestLayerWins();
@@ -134,4 +135,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

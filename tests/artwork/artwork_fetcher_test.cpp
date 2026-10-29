@@ -16,6 +16,7 @@
 
 #include "arcade_names.hpp"
 #include "lucent/http.h"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -349,7 +350,7 @@ void testShelfPicksUpLateArtwork(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         const fs::path root = fs::temp_directory_path() / "opensu-artwork-test";
         fs::remove_all(root);
@@ -366,4 +367,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

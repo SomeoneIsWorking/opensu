@@ -7,6 +7,7 @@
 #include <fstream>
 #include <string>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -333,7 +334,7 @@ void anOldInterfaceSizeKeepsItsSize(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main() try {
     steppedScale();
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "settings";
     fs::remove_all(root);
@@ -354,4 +355,6 @@ int main() {
     fs::remove_all(root);
     std::printf("settings: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

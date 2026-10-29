@@ -10,6 +10,7 @@
 #include <string>
 
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -58,8 +59,10 @@ void testFileKeepsASecretOwnerOnly() {
 
 } // namespace
 
-int main() {
+int main() try {
     testFileKeepsASecretOwnerOnly();
     std::printf("secret_store: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

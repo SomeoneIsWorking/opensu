@@ -34,8 +34,7 @@ enum class CardLook : std::uint8_t {
 
 class ConsoleArt {
   public:
-    ConsoleArt(IconAtlas& icons, gpu2d::ImageLoader& images) noexcept
-        : icons_{icons}, images_{images} {
+    ConsoleArt(IconAtlas& icons, gpu2d::ImageLoader& images) : icons_{icons}, images_{images} {
     }
 
     /// Shows `theme`'s art for `systems`, or none when `theme` is null. Art already loaded from

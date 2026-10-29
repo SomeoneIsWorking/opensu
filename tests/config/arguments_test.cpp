@@ -1,5 +1,6 @@
 // The command line as typed values.
 #include "config/arguments.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -17,7 +18,7 @@ void expect(bool condition, const char* what) {
 
 } // namespace
 
-int main() {
+int main() try {
     using opensu::config::Arguments;
     const Arguments none = Arguments::parse({});
     expect(!none.hidden && !none.renderPath && !none.keyboardPrompts && !none.help,
@@ -41,4 +42,6 @@ int main() {
     expect(!Arguments::parse(bare).renderPath, "--render without a file is ignored");
     std::printf("arguments: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

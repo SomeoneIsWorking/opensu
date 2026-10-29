@@ -1,6 +1,7 @@
 // Shift+Tab as Guide: the chord's edges, and the raw key path against a real X server (Xvfb,
 // keys injected with XTest).
 #include "session/game_keys.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 #include <chrono>
@@ -189,7 +190,9 @@ int rawKeysFromAServer() {
 
 } // namespace
 
-int main() {
+int main() try {
     chordEdges();
     return rawKeysFromAServer();
+} catch (...) {
+    return opensu::test::escaped();
 }

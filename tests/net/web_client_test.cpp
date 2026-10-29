@@ -10,6 +10,7 @@
 #include "net/web_client.hpp"
 #include "support/loopback_server.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -19,7 +20,7 @@ using test::expect;
 
 } // namespace
 
-int main() {
+int main() try {
     test::LoopbackServer* self = nullptr;
     test::LoopbackServer server{[&self](const lucent::http::Request& request) {
         const std::string path{request.path()};
@@ -99,4 +100,6 @@ int main() {
            "without a refusal, a redirect within the scheme is followed");
     std::printf("web_client: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

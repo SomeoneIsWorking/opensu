@@ -6,7 +6,7 @@ namespace opensu::settings {
 
 SettingLookup scopeLookup(const Schema& schema, const SettingLayers& layers, const LayerKeys& keys,
                           const Layer& scope) {
-    return [&schema, &layers, keys, scope](std::string_view key) {
+    return [&schema, &layers, keys = keys, scope = scope](std::string_view key) {
         if (const std::string* own = layers.at(scope, key)) {
             return *own;
         }

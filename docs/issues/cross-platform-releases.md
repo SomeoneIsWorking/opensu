@@ -324,11 +324,24 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
   iterators of two temporary paths (MSVC's STL looped forever); the emulator-pick migration
   replaced `settings.json` while still reading it (Windows refuses); plugin read paths were checked
   against `/h`-style probes, which are not absolute on Windows, so every token path was refused.
-- Not linted on Windows: clang-tidy under the MSVC STL sees its throws (a mutex lock in a
-  destructor, `bugprone-exception-escape`, about 150 places) and flags by-value sinks
-  (`performance-unnecessary-value-param`) across the shared sources, which the Linux tree passes.
-  The Windows-only sources pass apart from that. Proper fix: work those findings off, then lint
-  the Windows tree in its job.
+- Not linted on Windows yet. clang-tidy now covers only the translation units the build compiles
+  (`compile_commands.json` within `ninja -t inputs all`), so the POSIX-fake tests left out of the
+  Windows build are no longer read there (they were all the `clang-diagnostic-error` and
+  by-value-sink findings). Worked off in the shared code: every test `main` ends in
+  `opensu::test::escaped()` (`tests/support/test_main.hpp`); destructors no longer wait on
+  `std::async` futures (each future's own destructor waits); `secrets::wipe` cannot throw; config
+  reads the environment through `lucent::config::text` (the UCRT deprecates `getenv`); lambdas
+  copy const captures into init-captures so moving them moves; Lucent's log helpers report a
+  formatter's `bad_cast` (the MSVC STL's locale lookup) in the line instead of throwing it. Left,
+  the same with clang-tidy 20.1.8 (CI's) and 22: under the MSVC STL a `std::map`/`std::set` move
+  constructor allocates, so the implicit move of about 30 value types holding one is
+  `bugprone-exception-escape`; five teardown destructors can only throw by allocating (logging,
+  `remove_all`: `ProcessLauncher`, `steam::Client`, `BigPicture`'s `Leave`, `PlayerFiles`, the
+  tests' `ScratchDir`); and `clang-analyzer-optin.core.EnumCastOutOfRange` fires inside the STL's
+  own `__std_fs_stats_flags` bitmask operators (system headers, reported because the analyzer's
+  path starts in our `std::filesystem` calls). None has a local fix: the first two need flat
+  containers in those types or an allocation-failure policy for the check, the last a check
+  decision.
 - Under Wine (local check only): `NtQueryInformationProcess` class 60 is not implemented (Wine
   11.20), so the process table reads no command lines there; the Job Object launch, its exit code,
   environment, output file, grandchild ownership and stop pass.

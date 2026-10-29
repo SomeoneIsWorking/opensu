@@ -13,6 +13,7 @@
 
 #include <sys/stat.h>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -133,7 +134,7 @@ void withoutTheSelectorNothingIsChanged() {
 
 } // namespace
 
-int main() {
+int main() try {
     fs::create_directories(OPENSU_TEST_SCRATCH);
     anAbnormalEndRestoresThePreviousSession();
     aFailedRestoreIsReported();
@@ -142,4 +143,6 @@ int main() {
     aDeliberateSwitchToDesktopIsNotRestoredAgain();
     withoutTheSelectorNothingIsChanged();
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

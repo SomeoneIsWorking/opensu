@@ -9,6 +9,7 @@
 #include <string>
 
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -115,7 +116,7 @@ void aFailedSaveKeepsTheOldFile(const fs::path& dir) {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "mapping_store"};
         roundTrip(scratch.path());
@@ -127,4 +128,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

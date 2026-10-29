@@ -17,6 +17,7 @@
 #include "launch/process_tree.hpp"
 #include "launch/win32.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -148,7 +149,7 @@ void jobOwnsGrandchild() {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     if (argc == 3) {
         return child(argv[1], argv[2]);
     }
@@ -159,4 +160,6 @@ int main(int argc, char** argv) {
     jobOwnsGrandchild();
     std::puts("win32 launch: ok");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

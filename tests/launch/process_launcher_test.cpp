@@ -1,5 +1,6 @@
 // The process launcher, against real systemd scopes and real processes.
 #include "launch/process_launcher.hpp"
+#include "support/test_main.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -80,7 +81,7 @@ pid_t startEscaper(ProcessLauncher& instance, const char* stem, const fs::path& 
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path scratch =
         fs::path{OPENSU_TEST_SCRATCH} / ("opensu-instance-test-" + std::to_string(getpid()));
     fs::create_directories(scratch);
@@ -223,4 +224,6 @@ int main() {
     fs::remove_all(scratch);
     std::printf("instance: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

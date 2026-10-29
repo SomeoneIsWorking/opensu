@@ -2,6 +2,7 @@
 #include "steam/desktop_steam.hpp"
 
 #include "launch/process_launcher.hpp"
+#include "support/test_main.hpp"
 
 #include <csignal>
 #include <cstdio>
@@ -33,7 +34,7 @@ void writePid(const fs::path& home, const std::string& text) {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path home =
         fs::path{OPENSU_TEST_SCRATCH} / ("opensu-steam-test-" + std::to_string(getpid()));
     fs::remove_all(home);
@@ -88,4 +89,6 @@ int main() {
     fs::remove_all(home);
     std::printf("desktop_steam: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

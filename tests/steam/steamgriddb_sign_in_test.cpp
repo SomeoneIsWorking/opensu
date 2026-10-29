@@ -16,6 +16,7 @@
 
 #include "steamgriddb_sign_in.hpp"
 #include "support/fake_steam.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -326,7 +327,7 @@ void testKeyShape() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         testKeyShape();
         testSignsInAndReadsTheKey();
@@ -343,4 +344,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

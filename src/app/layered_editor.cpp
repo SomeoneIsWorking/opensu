@@ -225,20 +225,21 @@ void LayeredEditor::addRow(tk::Column& rows, const settings::ScopedValue& value)
             listed.push_back(offered.label);
             keys.push_back(offered.key);
         }
-        auto& choice = rows.add<tk::Choice>(id, text, std::move(options), chosen,
-                                            [this, here, key = setting.key, keys = std::move(keys),
-                                             own = value.own, chosen](std::size_t picked) {
-                                                if (picked == chosen) {
-                                                    return;
-                                                }
-                                                if (picked == 0) {
-                                                    if (own) {
-                                                        settings_.remove(here, key);
-                                                    }
-                                                    return;
-                                                }
-                                                settings_.set(context_, here, key, keys[picked]);
-                                            });
+        auto& choice =
+            rows.add<tk::Choice>(id, text, std::move(options), chosen,
+                                 [this, here = here, key = setting.key, keys = std::move(keys),
+                                  own = value.own, chosen](std::size_t picked) {
+                                     if (picked == chosen) {
+                                         return;
+                                     }
+                                     if (picked == 0) {
+                                         if (own) {
+                                             settings_.remove(here, key);
+                                         }
+                                         return;
+                                     }
+                                     settings_.set(context_, here, key, keys[picked]);
+                                 });
         choice.listAs(std::move(listed));
         row = &choice;
         break;
@@ -246,7 +247,7 @@ void LayeredEditor::addRow(tk::Column& rows, const settings::ScopedValue& value)
     case SettingType::Slider: {
         auto& slider = rows.add<tk::Slider>(
             id, text, tk::Slider::Range{setting.range.low, setting.range.high, setting.range.step},
-            levelOf(value.value, setting.range), [this, here, key = setting.key](int level) {
+            levelOf(value.value, setting.range), [this, here = here, key = setting.key](int level) {
                 settings_.set(context_, here, key, std::to_string(level));
             });
         slider.unit(setting.unit);
@@ -257,7 +258,7 @@ void LayeredEditor::addRow(tk::Column& rows, const settings::ScopedValue& value)
         auto& item = rows.add<tk::Item>(id, text);
         item.value(labelOf(setting, value.value))
             .onPress(
-                [this, here] {
+                [this, here = here] {
                     navigator_.push(std::make_unique<ShaderPresetScreen>(
                         settings_, navigator_, chrome_, context_, here, look_));
                 },
@@ -279,14 +280,14 @@ void LayeredEditor::addRow(tk::Column& rows, const settings::ScopedValue& value)
     if (value.own) {
         row->onAction(
             tk::Action::Tertiary,
-            [this, here, key = setting.key] {
+            [this, here = here, key = setting.key] {
                 settings_.remove(here, key);
             },
             useText(value));
     } else if (const std::string* removed = settings_.removed(here, setting.key)) {
         row->onAction(
             tk::Action::Tertiary,
-            [this, here, key = setting.key] {
+            [this, here = here, key = setting.key] {
                 settings_.restore(here, key);
             },
             "Restore " + labelOf(setting, *removed));
@@ -308,10 +309,10 @@ void LayeredEditor::addClear(tk::Column& rows) {
                        tk::Item::Text{"Clear " + whose + " settings",
                                       "Every value set here goes back to " + under})
         .value(countOf(kept, "setting"))
-        .onPress([this, here, whose, under] {
+        .onPress([this, here = here, whose = whose, under = under] {
             navigator_.push(tk::confirm("Clear " + whose + " settings?",
                                         "Every value set here goes back to " + under + ".", "Clear",
-                                        [this, here] {
+                                        [this, here = here] {
                                             settings_.clear(here);
                                         }));
         });

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -129,7 +130,7 @@ void testMissingFile() {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     expect(argc == 2, "usage: vector_icon_test ASSETS_DIR");
     testShippedIcons(argv[1]);
     testDockIcons(argv[1]);
@@ -137,4 +138,6 @@ int main(int argc, char** argv) {
     testMissingFile();
     std::printf("vector_icon: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

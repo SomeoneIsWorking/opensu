@@ -74,6 +74,7 @@ class SystemVolume {
     std::unique_ptr<VolumeBackend> backend_;
     std::optional<VolumeState> state_;
     Listener listener_;
+    // After everything its worker reads: an std::async future's destructor waits for it.
     std::future<std::optional<VolumeState>> reading_;
     std::chrono::steady_clock::time_point lastRead_{};
 };

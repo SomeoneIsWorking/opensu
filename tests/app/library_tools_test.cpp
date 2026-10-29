@@ -17,6 +17,7 @@
 #include "search_controller.hpp"
 #include "search_screen.hpp"
 #include "support/fake_interface_text.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 #include "ui/interface_input.hpp"
 
@@ -500,7 +501,7 @@ void optionsChangeAndKeep(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "library_tools";
     fs::remove_all(root);
     menuEntriesFollowTheTile();
@@ -510,4 +511,6 @@ int main() {
     fs::remove_all(root);
     std::printf("library_tools: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

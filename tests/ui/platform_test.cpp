@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -13,7 +14,7 @@ using opensu::ui::Platforms;
 
 } // namespace
 
-int main() {
+int main() try {
     const Platforms platforms;
     expect(platforms.size() == opensu::ui::kStrokeGradients.size(), "one platform per gradient");
     const auto* psx = platforms.find("PSX");
@@ -39,4 +40,6 @@ int main() {
            "a folder of games has no frame");
     std::printf("platform: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

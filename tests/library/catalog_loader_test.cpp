@@ -1,6 +1,7 @@
 // The catalog loader: a provider that blocks delays neither the caller nor the other stores, and
 // each listing is handed over as it arrives.
 #include "library/catalog_loader.hpp"
+#include "support/test_main.hpp"
 
 #include <chrono>
 #include <condition_variable>
@@ -180,10 +181,12 @@ void replaceDropsAStore() {
 
 } // namespace
 
-int main() {
+int main() try {
     blockedStoreDoesNotBlockTheCaller();
     refreshKeepsWhatIsKnown();
     replaceDropsAStore();
     std::printf("catalog_loader: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

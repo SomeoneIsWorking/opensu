@@ -8,6 +8,7 @@
 #include <libretro.h>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -106,11 +107,13 @@ void sticks() {
 
 } // namespace
 
-int main() {
+int main() try {
     mapping();
     state();
     twoSources();
     sticks();
     std::printf("joypad: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

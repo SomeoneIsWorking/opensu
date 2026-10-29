@@ -13,6 +13,7 @@
 
 #include "library/titles.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -216,7 +217,7 @@ void storeAnswersAreRead() {
 
 } // namespace
 
-int main() {
+int main() try {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "game-identify"};
     versionResourceIsRead(scratch.path() / "programs");
     fileNamesAreTitles();
@@ -224,4 +225,6 @@ int main() {
     storeAnswersAreRead();
     std::printf("game_identify: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "plugin_rig.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -203,7 +204,7 @@ void refusedManifestsNeverRun(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "plugin_host";
     sandboxRefusesEveryWayOut(root);
     threeFaultsInARowStopAPlugin(root);
@@ -213,4 +214,6 @@ int main() {
     fs::remove_all(root);
     std::printf("plugin_host: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

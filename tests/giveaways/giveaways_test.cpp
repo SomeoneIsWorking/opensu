@@ -13,6 +13,7 @@
 #include "giveaways/offer.hpp"
 #include "giveaways/offer_list.hpp"
 #include "giveaways/steam_offers.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -211,7 +212,7 @@ void list() {
 
 } // namespace
 
-int main() {
+int main() try {
     isoTimes();
     epicPromotions();
     steamOffers();
@@ -220,4 +221,6 @@ int main() {
     list();
     std::puts("giveaways: ok");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

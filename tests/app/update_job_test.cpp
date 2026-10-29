@@ -17,6 +17,7 @@
 #include "library/gog_token.hpp"
 #include "support/fake_steam.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -248,11 +249,13 @@ void testSteam(const fs::path& dir) {
 
 } // namespace
 
-int main() {
+int main() try {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "update-job"};
     testEpic(scratch.path() / "epic");
     testGog(scratch.path() / "gog");
     testSteam(scratch.path() / "steam");
     std::printf("update_job: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

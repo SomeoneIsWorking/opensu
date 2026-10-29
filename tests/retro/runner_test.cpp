@@ -28,6 +28,7 @@
 #include "check.hpp"
 #include "lucent/http_client.h"
 #include "scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -334,7 +335,7 @@ void savesOfOtherSizes(const Paths& paths) {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     if (argc != 5) {
         fail("usage: runner_test <opensu-retro> <fake core> <crashing core> <stateless core>");
     }
@@ -398,4 +399,6 @@ int main(int argc, char** argv) {
 
     std::printf("runner: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

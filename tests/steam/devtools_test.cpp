@@ -28,6 +28,7 @@
 #include "libraries.hpp"
 #include "lucent/http_client.h"
 #include "support/fake_steam.hpp"
+#include "support/test_main.hpp"
 #include "uninstaller.hpp"
 
 namespace {
@@ -548,7 +549,7 @@ void testLibrariesThroughDevTools() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         testDownloadsParse();
         testDownloadsParseQueueAndBytes();
@@ -573,4 +574,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

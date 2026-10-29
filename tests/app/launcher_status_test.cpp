@@ -1,5 +1,6 @@
 // The launcher badges from Steam's client state, its downloads and the catalog's store statuses.
 #include "launcher_status.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -73,9 +74,11 @@ void testDownloadRing() {
 
 } // namespace
 
-int main() {
+int main() try {
     testStoresAndStartingSteam();
     testDownloadRing();
     std::printf("launcher_status: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

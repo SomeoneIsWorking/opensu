@@ -16,6 +16,7 @@
 #include "input/chord_set.hpp"
 #include "input/shortcuts.hpp"
 #include "pad_owner.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -256,7 +257,7 @@ void aDesktopBigPictureIsLeftAlone() {
 
 } // namespace
 
-int main() {
+int main() try {
     aDesktopBigPictureIsLeftAlone();
     theClaimFollowsTheFocus();
     behindAnotherWindowOnlyGuideIsHeard();
@@ -264,4 +265,6 @@ int main() {
     aSlowCloseDoesNotHoldTheNextFocus();
     std::printf("focus_owner: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

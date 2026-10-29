@@ -9,6 +9,7 @@
 #include <linux/input-event-codes.h>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -344,7 +345,7 @@ void aMappedStartTapSendsItsOutput() {
 
 } // namespace
 
-int main() {
+int main() try {
     faceButtonsPassThrough();
     guideStaysWithOpensu();
     axesRescale();
@@ -364,4 +365,6 @@ int main() {
     aMappedStartTapSendsItsOutput();
     std::printf("pad_translator: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

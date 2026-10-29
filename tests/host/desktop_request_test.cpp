@@ -1,5 +1,6 @@
 // The login session's note to itself, and the hand-over to the desktop program.
 #include "host/desktop_request.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -62,9 +63,11 @@ void desktopRunsInThePlaceOfTheSession() {
 
 } // namespace
 
-int main() {
+int main() try {
     noteIsWrittenAndConsumedOnce();
     desktopRunsInThePlaceOfTheSession();
     std::printf("desktop_request: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

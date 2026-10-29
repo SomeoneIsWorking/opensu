@@ -10,6 +10,7 @@
 
 #include "library/play_history.hpp"
 #include "library/text_fold.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -254,7 +255,7 @@ void playHistoryKeepsTheLaterTime() {
 
 } // namespace
 
-int main() {
+int main() try {
     foldingIgnoresCaseAccentsAndMarks();
     searchRanksPrefixThenWordThenInside();
     searchFindsFoldersBeforeGames();
@@ -267,4 +268,6 @@ int main() {
     playHistoryKeepsTheLaterTime();
     std::printf("library_query: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

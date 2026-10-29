@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 #include "volume_control.hpp"
 
@@ -94,9 +95,11 @@ void withoutAMixerEveryActionIsRefused() {
 
 } // namespace
 
-int main() {
+int main() try {
     actionsMoveTheMixerAndAreShownOnce();
     withoutAMixerEveryActionIsRefused();
     std::printf("volume_control: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

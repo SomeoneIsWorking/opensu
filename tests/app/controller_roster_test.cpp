@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include "controller_roster.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -76,10 +77,12 @@ void aPadThatLeavesIsForgotten() {
 
 } // namespace
 
-int main() {
+int main() try {
     padsAreInConnectionOrderWithTheirHeldButtons();
     batteryIsReadOncePerLifetime();
     aPadThatLeavesIsForgotten();
     std::printf("controller_roster: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

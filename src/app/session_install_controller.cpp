@@ -33,9 +33,6 @@ std::string explanation() {
 
 SessionInstallController::~SessionInstallController() {
     secrets::wipe(password_);
-    if (job_.valid()) {
-        job_.wait();
-    }
 }
 
 const gpu2d::ui::Screen* SessionInstallController::openScreen(std::string_view id) const {

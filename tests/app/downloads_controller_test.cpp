@@ -19,6 +19,7 @@
 #include "support/fake_interface_text.hpp"
 #include "support/fake_steam.hpp"
 #include "support/release_server.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -505,7 +506,7 @@ void romsetListsAreRows(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "downloads_controller";
         std::error_code ec;
@@ -522,4 +523,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

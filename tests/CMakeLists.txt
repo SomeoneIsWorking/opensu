@@ -1,3 +1,6 @@
+# Every test includes its shared helpers as "support/...".
+include_directories("${CMAKE_SOURCE_DIR}/tests")
+
 add_executable(vdf_test vdf/vdf_test.cpp)
 target_link_libraries(vdf_test PRIVATE opensu::vdf)
 add_test(NAME vdf COMMAND vdf_test)

@@ -66,7 +66,8 @@ PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std:
     copyIfThere(library::own::recordsFile(dataDir), ownGames_);
     copyIfThere(chosenCoversUnder(dataDir), chosenCovers_);
     copyIfThere(dirs.saves, saves_);
-    lucent::info("settings", "hidden run: the player's files are kept in {}", copiesDir_.string());
+    copiesShown_ = copiesDir_.string();
+    lucent::info("settings", "hidden run: the player's files are kept in {}", copiesShown_);
 }
 
 config::Config PlayerFiles::savingIn(config::Config config) const {
@@ -81,7 +82,7 @@ PlayerFiles::~PlayerFiles() {
     std::error_code ec;
     fs::remove_all(copiesDir_, ec);
     if (ec) {
-        lucent::warn("settings", "cannot remove {}: {}", copiesDir_.string(), ec.message());
+        lucent::warn("settings", "cannot remove {}: {}", copiesShown_, ec.message());
     }
 }
 

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -108,7 +109,7 @@ void tone() {
 
 } // namespace
 
-int main() {
+int main() try {
     ratioBounds();
     holdsFill(0.003);
     holdsFill(-0.003);
@@ -118,4 +119,6 @@ int main() {
     tone();
     std::printf("audio_sink: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

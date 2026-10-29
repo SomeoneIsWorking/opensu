@@ -20,6 +20,7 @@
 #include "launch/process_launcher.hpp"
 #include "launch/process_table.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -149,7 +150,7 @@ void windows() {
 
 } // namespace
 
-int main() {
+int main() try {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "darwin_launch"};
     environmentFolderOutput(scratch.path());
     grandchildEndsWithGroup(scratch.path());
@@ -158,4 +159,6 @@ int main() {
     windows();
     std::puts("darwin_launch: ok");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

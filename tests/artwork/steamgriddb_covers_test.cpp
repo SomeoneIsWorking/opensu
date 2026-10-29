@@ -24,6 +24,7 @@
 #include "library/game.hpp"
 #include "support/scratch_dir.hpp"
 #include "support/steamgriddb_server.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -270,7 +271,7 @@ void testChooseArtwork() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         testFitsAPortraitCoverToASquareTile();
         testFitsAGameWhoseSourceHasNoCover();
@@ -282,4 +283,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

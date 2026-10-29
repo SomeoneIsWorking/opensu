@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdio>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -86,10 +87,12 @@ void modesOffered() {
 
 } // namespace
 
-int main() {
+int main() try {
     nothingChosen();
     choicesInForce();
     modesOffered();
     std::printf("integrations: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

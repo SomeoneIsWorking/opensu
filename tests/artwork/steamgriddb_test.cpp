@@ -10,6 +10,7 @@
 
 #include "net/web_client.hpp"
 #include "support/steamgriddb_server.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -125,7 +126,7 @@ void testUnreachableApi() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         testShapes();
         testListsCoversByShape();
@@ -138,4 +139,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

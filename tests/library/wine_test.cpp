@@ -12,6 +12,7 @@
 
 #include "library/umu_database.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -330,7 +331,7 @@ void protonLaunchesGetTheirUmuId(const fs::path& dir) {
            "no database read yet: umu-0");
 }
 
-int main() {
+int main() try {
     namesReadAsWords();
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "wine"};
     runnersAreFound(scratch.path() / "found");
@@ -342,4 +343,6 @@ int main() {
     protonLaunchesGetTheirUmuId(scratch.path() / "umu");
     std::printf("wine: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

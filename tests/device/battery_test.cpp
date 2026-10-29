@@ -1,6 +1,7 @@
 // The system battery from SDL's power states, and ControllerBatteries against a fake
 // /sys/class/power_supply.
 #include "device/battery.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -93,9 +94,11 @@ void controllerBattery() {
 
 } // namespace
 
-int main() {
+int main() try {
     controllerBattery();
     systemBattery();
     std::printf("battery: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

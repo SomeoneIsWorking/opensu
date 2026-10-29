@@ -10,6 +10,7 @@
 #include "input/chord_set.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "input/pad_chords.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -390,7 +391,7 @@ void gameChordsJoinTheShells() {
 
 } // namespace
 
-int main() {
+int main() try {
     promptsNameTheBoundKeys();
     shippedKeysAreUnchanged();
     everyActionHasAHandlerNameAndKey();
@@ -407,4 +408,6 @@ int main() {
     gameChordsJoinTheShells();
     std::printf("shortcuts: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

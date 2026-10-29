@@ -13,6 +13,7 @@
 #include "keyboard_pad.hpp"
 #include "session_install_controller.hpp"
 #include "support/fake_interface_text.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 #include "ui/entry_screen.hpp"
 
@@ -269,7 +270,7 @@ void anInstallFailureEndsTheFlowWithItsReason() {
 
 } // namespace
 
-int main() {
+int main() try {
     aBlockedInstallSaysWhyAndOpensNothing();
     theDialogExplainsAndCancelAborts();
     cancellingAtThePasswordWipesIt();
@@ -280,4 +281,6 @@ int main() {
     anInstallFailureEndsTheFlowWithItsReason();
     std::printf("session_install_controller: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

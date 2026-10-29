@@ -16,6 +16,7 @@
 #include "library/libretro_cores.hpp"
 #include "support/buildbot_server.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -32,7 +33,7 @@ std::string lib(const std::string& core) {
     return core + std::string{coreTarget.librarySuffix};
 }
 
-const opensu::net::WebClient::Progress anyProgress = [](std::uint64_t, std::uint64_t) {
+constexpr auto anyProgress = [](std::uint64_t, std::uint64_t) {
     return true;
 };
 
@@ -258,7 +259,7 @@ void foundCoreIsAnEmulator(const fs::path& root) {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     try {
         if (argc > 1 && std::string_view{argv[1]} == "linux-standard-search") {
             linuxStandardSearch();
@@ -277,4 +278,6 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

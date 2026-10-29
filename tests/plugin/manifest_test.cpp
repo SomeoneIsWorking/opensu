@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "plugin/manifest.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -74,10 +75,12 @@ void expandsTokens() {
 
 } // namespace
 
-int main() {
+int main() try {
     readsAWholeManifest();
     refusesWhatItCannotTrust();
     expandsTokens();
     std::printf("manifest: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

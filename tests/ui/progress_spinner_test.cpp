@@ -1,5 +1,6 @@
 // The bell spinner's arc against compose-material3's indeterminate keyframes.
 #include "progress_spinner.hpp"
+#include "support/test_main.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -24,7 +25,7 @@ float wrap(float degrees) {
 
 } // namespace
 
-int main() {
+int main() try {
     using opensu::ui::spinnerArc;
     const auto start = spinnerArc(0.0);
     expect(near(start.start, -90.0f) && near(start.sweep, 0.0f), "it starts empty at 12 o'clock");
@@ -48,4 +49,6 @@ int main() {
            "five rotations make a cycle");
     std::printf("progress spinner: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

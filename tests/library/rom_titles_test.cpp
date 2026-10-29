@@ -1,5 +1,6 @@
 // A ROM's title from its name: No-Intro, Redump, GoodTools, Switch dump and MAME naming.
 #include "rom_titles.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -49,7 +50,7 @@ constexpr Row table[] = {
 
 } // namespace
 
-int main() {
+int main() try {
     int failures = 0;
     for (const Row& row : table) {
         const std::string got = cleanTitle(row.name);
@@ -64,4 +65,6 @@ int main() {
     }
     std::printf("rom_titles: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

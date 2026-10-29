@@ -13,7 +13,7 @@ namespace opensu::ui {
 
 class ScreenImages {
   public:
-    explicit ScreenImages(gpu2d::ImageLoader& loader) noexcept : loader_{loader} {
+    explicit ScreenImages(gpu2d::ImageLoader& loader) : loader_{loader} {
     }
 
     /// Asks for `file` when it was not; an empty path asks for nothing.

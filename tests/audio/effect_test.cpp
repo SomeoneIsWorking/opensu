@@ -6,6 +6,7 @@
 #include <set>
 #include <string>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -80,11 +81,13 @@ void otherEffectsDoNot() {
 
 } // namespace
 
-int main() {
+int main() try {
     filesAreDistinct();
     dominoCueSizes();
     consoleEffectsDebounce();
     otherEffectsDoNot();
     std::printf("effect: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

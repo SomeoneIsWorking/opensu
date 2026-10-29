@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 #include "top_bar_metrics.hpp"
 
 namespace {
@@ -117,7 +118,7 @@ void placement() {
 
 } // namespace
 
-int main() {
+int main() try {
     referenceCapture();
     ourTwoItems();
     otherSize();
@@ -126,4 +127,6 @@ int main() {
     placement();
     std::printf("dock_metrics: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

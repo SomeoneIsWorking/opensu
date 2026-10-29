@@ -66,6 +66,7 @@ class SessionInstallController {
     audio::SdlSoundPlayer& sounds_;
     Say say_;
     std::string password_;
+    // Last: an std::async future's destructor waits for the install, which uses the members above.
     std::future<host::InstallResult> job_;
 };
 

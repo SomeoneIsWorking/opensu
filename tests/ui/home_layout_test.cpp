@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -369,7 +370,7 @@ void visibleWindowIsSmallWhateverTheLibrary() {
 
 } // namespace
 
-int main() {
+int main() try {
     visibleWindowIsSmallWhateverTheLibrary();
     defaultViewport();
     categoryLevel();
@@ -390,4 +391,6 @@ int main() {
     slotOnPage();
     std::printf("home_layout: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

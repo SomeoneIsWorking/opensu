@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -157,7 +158,7 @@ void aQuickChordIsNoLongHold() {
 
 } // namespace
 
-int main() {
+int main() try {
     plainButtonsPass();
     aChordSwallowsItsButtons();
     aLoneModifierIsATapUnderTheHoldDelay();
@@ -170,4 +171,6 @@ int main() {
     aQuickChordIsNoLongHold();
     std::printf("chord_gate: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

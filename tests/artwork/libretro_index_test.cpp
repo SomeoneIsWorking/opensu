@@ -1,5 +1,6 @@
 // Matching ROM names against a libretro-thumbnails listing.
 #include "libretro_index.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -86,10 +87,12 @@ void testNames() {
 
 } // namespace
 
-int main() {
+int main() try {
     testParseIndex();
     testMatches();
     testNames();
     std::printf("libretro_index: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

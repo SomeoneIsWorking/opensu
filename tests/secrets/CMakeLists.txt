@@ -1,6 +1,5 @@
 add_executable(secret_store_test secret_store_test.cpp)
 target_link_libraries(secret_store_test PRIVATE opensu::secrets opensu::command)
-target_include_directories(secret_store_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 opensu_warnings(secret_store_test)
 target_compile_definitions(secret_store_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME secret_store COMMAND secret_store_test)

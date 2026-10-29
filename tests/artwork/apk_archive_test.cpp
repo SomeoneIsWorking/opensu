@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "support/test_main.hpp"
 #include "support/zip_fixture.hpp"
 
 namespace {
@@ -97,7 +98,7 @@ void testRefusals() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         testRanges(0);
         testRanges(1200);
@@ -108,4 +109,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

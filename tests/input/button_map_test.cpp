@@ -7,6 +7,7 @@
 
 #include "check.hpp"
 #include "input/mapping_scopes.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -144,11 +145,13 @@ void steamInputTakesTheGame() {
 
 } // namespace
 
-int main() {
+int main() try {
     aMapTakesPadButtonsOnly();
     thePadsGetButtonsAndPadChords();
     theNearestScopeApplies();
     steamInputTakesTheGame();
     std::printf("button_map: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

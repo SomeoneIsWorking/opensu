@@ -20,6 +20,7 @@
 #include <unistd.h>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -259,7 +260,7 @@ bool readUntil(EvdevDevice& device, PadEvent wanted, std::vector<PadEvent>& seen
 
 } // namespace
 
-int main() {
+int main() try {
     if (::access("/dev/uinput", W_OK) != 0) {
         std::printf("pads: skipped, /dev/uinput is not writable\n");
         return 77;
@@ -593,4 +594,6 @@ int main() {
 
     std::printf("pads: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

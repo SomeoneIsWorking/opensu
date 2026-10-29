@@ -80,9 +80,10 @@ std::unique_ptr<tk::Widget> GiveawaysScreen::build(const tk::Theme& theme) {
         } else if (offer.kind == giveaways::OfferKind::Dlc) {
             text.badge = "DLC";
         }
-        grid.add<ui::OfferCard>("offer/" + key, images_, shown.art, std::move(text), [this, key] {
-            controller_.details(key);
-        });
+        grid.add<ui::OfferCard>("offer/" + key, images_, shown.art, std::move(text),
+                                [this, key = key] {
+                                    controller_.details(key);
+                                });
     }
     return std::move(frame.root);
 }

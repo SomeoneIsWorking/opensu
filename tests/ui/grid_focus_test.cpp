@@ -8,6 +8,7 @@
 
 #include "check.hpp"
 #include "home_layout.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -197,7 +198,7 @@ void pageCrossingNeedsRow() {
 
 } // namespace
 
-int main() {
+int main() try {
     flowNeighbours();
     noWrap();
     shortColumn();
@@ -207,4 +208,6 @@ int main() {
     pageCrossingNeedsRow();
     std::printf("grid_focus: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

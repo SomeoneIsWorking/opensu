@@ -27,8 +27,8 @@ std::optional<ApkArchive> ApkArchive::overFile(const std::filesystem::path& file
         return std::nullopt;
     }
     return ApkArchive{size,
-                      [file](std::uint64_t first, std::uint64_t last,
-                             std::string& reason) -> std::optional<std::string> {
+                      [file = file](std::uint64_t first, std::uint64_t last,
+                                    std::string& reason) -> std::optional<std::string> {
                           std::ifstream in{file, std::ios::binary};
                           std::string bytes(static_cast<std::size_t>(last - first + 1), '\0');
                           in.seekg(static_cast<std::streamoff>(first));

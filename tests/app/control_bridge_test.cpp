@@ -9,6 +9,7 @@
 #include <variant>
 #include <vector>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -151,7 +152,7 @@ void abandoningReleasesTheCaller() {
 
 } // namespace
 
-int main() {
+int main() try {
     inputIsTakenOnceInOrder();
     heldButtonsAreAChord();
     stickMarksOnlyTheDirections();
@@ -161,4 +162,6 @@ int main() {
     frameIsHandedAcross();
     abandoningReleasesTheCaller();
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

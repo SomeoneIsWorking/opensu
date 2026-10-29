@@ -17,6 +17,7 @@
 #include "library/steam_shortcuts.hpp"
 #include "library/wine.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "vdf/binary.hpp"
 
 namespace {
@@ -224,7 +225,7 @@ void lutrisGamesAreRead(const fs::path& dir) {
 
 } // namespace
 
-int main() {
+int main() try {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "own-games"};
     recordsKeepEntries(scratch.path() / "records");
     filesAreKnownAndTitled(scratch.path() / "files");
@@ -234,4 +235,6 @@ int main() {
     lutrisGamesAreRead(scratch.path() / "lutris");
     std::printf("own_games: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

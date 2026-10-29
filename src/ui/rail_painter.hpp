@@ -35,7 +35,7 @@ struct Focused {
 
 class RailPainter {
   public:
-    RailPainter(InterfaceText& text, IconAtlas& icons) noexcept : text_{text}, icons_{icons} {
+    RailPainter(InterfaceText& text, IconAtlas& icons) : text_{text}, icons_{icons} {
     }
 
     /// The XMB's left column at a console list: the icon in the colours of the focused tile's

@@ -27,6 +27,7 @@
 #include "support/loopback_server.hpp"
 #include "support/release_server.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "support/zip_fixture.hpp"
 
 namespace {
@@ -569,7 +570,7 @@ void picksTheEmulator() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         const ScratchDir scratch{OPENSU_TEST_SCRATCH, "romset_match"};
         parsesListings();
@@ -583,4 +584,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

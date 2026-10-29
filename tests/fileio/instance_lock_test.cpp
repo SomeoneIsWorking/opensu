@@ -5,6 +5,7 @@
 #include <filesystem>
 
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -38,9 +39,11 @@ void releasedWhenTheFirstLeaves() {
 
 } // namespace
 
-int main() {
+int main() try {
     oneAtATime();
     releasedWhenTheFirstLeaves();
     std::printf("instance_lock: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

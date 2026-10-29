@@ -134,7 +134,7 @@ void PanelFlow::offerInstall(const library::Game& game, std::vector<library::Gam
         const std::string label =
             copies.size() == 1 ? "Install" : "From " + std::string{library::label(copy.source)};
         choices.push_back(gpu2d::ui::Dialog::Choice{label,
-                                                    [this, copy] {
+                                                    [this, copy = copy] {
                                                         startInstall(copy);
                                                     },
                                                     gpu2d::ui::ButtonKind::Primary});
@@ -155,7 +155,7 @@ void PanelFlow::presentEula() {
     sounds_.play(audio::Effect::Open);
     std::vector<gpu2d::ui::Dialog::Choice> choices{
         gpu2d::ui::Dialog::Choice{"Accept",
-                                  [this, title] {
+                                  [this, title = title] {
                                       install_.decide(true);
                                       use_ = Use::Install;
                                       showCard(title, "Starting the download");

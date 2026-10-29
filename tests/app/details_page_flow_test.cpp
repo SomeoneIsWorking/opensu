@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "support/fake_interface_text.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -348,7 +349,7 @@ void filters() {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path dir = fs::path{OPENSU_TEST_SCRATCH} / "details-flow";
     fs::remove_all(dir);
     fs::create_directories(dir);
@@ -362,4 +363,6 @@ int main() {
     filters();
     std::puts("details_page_flow: ok");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

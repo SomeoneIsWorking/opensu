@@ -8,6 +8,7 @@
 #include "devices_controller.hpp"
 #include "host_fakes.hpp"
 #include "support/fake_interface_text.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -235,7 +236,7 @@ void backGoesToTheTabsThenCloses() {
 
 } // namespace
 
-int main() {
+int main() try {
     hasFourTabs();
     withoutBluetoothItsTabIsLeftOut();
     bluetoothActionsGoThroughTheSession();
@@ -247,4 +248,6 @@ int main() {
     backGoesToTheTabsThenCloses();
     std::printf("devices_controller: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -135,7 +135,7 @@ RomsetDats::fetch(const EmulatorEntry& entry, const net::WebClient::Progress& pr
         const net::WebClient::Guard guard{
             .maxBody = maxListingBytes,
             .refusal =
-                [origin](const std::string& hop) {
+                [origin = origin](const std::string& hop) {
                     return hop.starts_with(origin) ? std::string{}
                                                    : std::format("{} is not on {}", hop, origin);
                 },

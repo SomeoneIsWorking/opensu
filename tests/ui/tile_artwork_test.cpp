@@ -16,6 +16,7 @@
 #include "gpu2d/image_loader.hpp"
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -113,7 +114,7 @@ void headerCounts() {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path dir = fs::path{OPENSU_TEST_SCRATCH} / "tile_artwork";
     const fs::path cover = writeCover(dir);
     pendingUntilLanded(cover);
@@ -122,4 +123,6 @@ int main() {
     headerCounts();
     std::printf("tile_artwork: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

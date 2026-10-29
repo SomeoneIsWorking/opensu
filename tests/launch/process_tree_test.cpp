@@ -1,5 +1,6 @@
 // Finding a process by command line and ending its whole tree, with real processes.
 #include "launch/process_tree.hpp"
+#include "support/test_main.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -60,7 +61,7 @@ pid_t spawn(const std::string& script, const std::string& marker) {
 
 } // namespace
 
-int main() {
+int main() try {
     const std::string id = std::to_string(getpid());
     const std::string nul(1, '\0');
     const std::string hint = "AppId=" + id + nul;
@@ -120,4 +121,6 @@ int main() {
 
     std::printf("process_tree: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

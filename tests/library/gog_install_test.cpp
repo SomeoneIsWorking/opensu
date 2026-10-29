@@ -2,6 +2,7 @@
 // `--auth-config-path` file reads it.
 #include "library/gog_installs.hpp"
 #include "library/gogdl_auth.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -161,7 +162,7 @@ void testAuthFile(const fs::path& dir) {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path dir = fs::current_path() / "gog-install-test";
     std::error_code ec;
     fs::remove_all(dir, ec);
@@ -174,4 +175,6 @@ int main() {
     fs::remove_all(dir, ec);
     std::printf("gog_install: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }
