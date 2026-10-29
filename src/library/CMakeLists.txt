@@ -67,8 +67,13 @@ if(ANDROID)
         android_apps_android.cpp)
     target_link_libraries(opensu_library PRIVATE opensu::android)
 else()
-    target_sources(opensu_library PRIVATE cli_stores_desktop.cpp add_game_offer_desktop.cpp rom_tree_files.cpp
-        android_apps_none.cpp)
+    target_sources(opensu_library PRIVATE cli_stores_desktop.cpp rom_tree_files.cpp android_apps_none.cpp)
+endif()
+# What Add a game offers: no Lutris on Windows, nothing on Android.
+if(WIN32)
+    target_sources(opensu_library PRIVATE add_game_offer_windows.cpp)
+elseif(NOT ANDROID)
+    target_sources(opensu_library PRIVATE add_game_offer_linux.cpp)
 endif()
 # Where RetroArch and the system put cores: Linux's folders; elsewhere openSU's downloads only.
 # Where Steam installs itself and how its games run: the home folder and the reaper on Linux, the
