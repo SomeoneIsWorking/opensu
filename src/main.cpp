@@ -13,6 +13,7 @@
 // Renames main to SDL_main where the OS enters through SDL (Android's Activity).
 #include <SDL3/SDL_main.h>
 
+#include "app/sdl_log.hpp"
 #include "app/shell_app.hpp"
 #include "app/shell_session.hpp"
 #include "config/arguments.hpp"
@@ -67,6 +68,7 @@ int main(int argc, char** argv) {
     // Lucent reads its own debug channels from the environment, so there is
     // nothing to initialise here. Everything else is read once, by config::read.
     const opensu::config::Config config = opensu::config::read();
+    const opensu::app::SdlLog sdlLog;
 
     const std::vector<std::string> args(argv + 1, argv + argc);
     const opensu::config::Arguments arguments = opensu::config::Arguments::parse(args);
