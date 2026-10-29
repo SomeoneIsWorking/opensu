@@ -327,6 +327,20 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
 - Under Wine (local check only): `NtQueryInformationProcess` class 60 is not implemented (Wine
   11.20), so the process table reads no command lines there; the Job Object launch, its exit code,
   environment, output file, grandchild ownership and stop pass.
+- Defects the installed build showed: with no `HOME` (Windows sets `USERPROFILE`) the home folder
+  was empty and every path under it relative (`config::read`); Add a game offered Lutris on
+  Windows (`add_game_offer_windows.cpp`). SDL's own log lines now go through Lucent
+  (`app::SdlLog`), and the CI smoke's `--render` failed because the Vulkan loader ignores
+  `VK_DRIVER_FILES` in an elevated process, as a runner's are: `tools/check/windows.py` registers
+  lavapipe under `HKLM\SOFTWARE\Khronos\Vulkan\Drivers` there.
+- Shown under Wine 11.20 (the CI installer installed silently per user into a scratch prefix,
+  `--hidden` in a headless Gamescope, frames from the control channel's `/frame.png`): the
+  first-run chooser, Home (empty slots: no store integration on), the Guide menu, Settings, Library
+  with the consoles of the ROMs found, a game's details, Mesen downloaded from the buildbot's
+  `windows/x86_64` folder, and `opensu-retro.exe` drawing the game when run directly. Started from
+  the shell, the runner ran in its job but the shell stayed on "Starting" for 45 s, and a launched
+  game's output goes nowhere on Windows (no counterpart of the scope's journal), so why is not
+  known yet.
 
 ## Step 4 as built
 

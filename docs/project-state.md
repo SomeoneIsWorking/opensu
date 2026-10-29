@@ -1825,8 +1825,14 @@ libcrypto cannot load it here, and `win32_launch` stops at the command-line read
 Job Object launch (exit code, environment, output file, a grandchild kept in the job, stop) passes.
 The Windows tests found three shared defects, fixed (the step's doc lists them).
 
-Gaps: no run on a real Windows host or VM yet; Steam, legendary and gogdl launches on Windows
-untested; the Windows tree is not linted (the step's doc says why and the proper fix).
+The installed CI build was run under Wine (the step's doc lists what was shown): first run,
+Home, Guide, Settings, Library and a ROM's details draw and take pad input over the control
+channel; the libretro runner draws a ROM on Mesen when run directly.
+
+Gaps: no run on a real Windows host or VM yet; a ROM started from the shell under Wine never left
+"Starting", and a launched game's output is not kept anywhere on Windows; Steam, legendary and
+gogdl launches on Windows untested; the Windows tree is not linted (the step's doc says why and the
+proper fix).
 
 ### S030 — AppImage
 
