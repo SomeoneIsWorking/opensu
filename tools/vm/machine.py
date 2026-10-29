@@ -6,11 +6,35 @@ import signal
 import subprocess
 import time
 from pathlib import Path
+from typing import Protocol
 
 from tools.vm.config import VmConfig
 from tools.vm.qmp import Qmp
 
 GPU_MODES = ("virtio", "venus")
+
+
+class Machine(Protocol):
+    """What the process lifecycle needs of a guest's configuration, Fedora's or Windows'."""
+
+    @property
+    def run(self) -> Path: ...
+    @property
+    def qmp_socket(self) -> Path: ...
+    @property
+    def vnc_socket(self) -> Path: ...
+    @property
+    def pidfile(self) -> Path: ...
+    @property
+    def qemu_log(self) -> Path: ...
+    @property
+    def overlay(self) -> Path: ...
+    @property
+    def width(self) -> int: ...
+    @property
+    def height(self) -> int: ...
+
+
 RENDER_NODE = "/dev/dri/renderD128"
 
 
@@ -52,7 +76,7 @@ def build_command(cfg: VmConfig, disk: Path, gpu: str, extra: list[str]) -> list
     ]  # fmt: skip
 
 
-def running_pid(cfg: VmConfig) -> int | None:
+def running_pid(cfg: Machine) -> int | None:
     try:
         pid = int(cfg.pidfile.read_text())
     except (FileNotFoundError, ValueError):
@@ -65,13 +89,17 @@ def running_pid(cfg: VmConfig) -> int | None:
 
 
 def launch(cfg: VmConfig, disk: Path, gpu: str, extra: list[str] | None = None) -> int:
+    return spawn(cfg, build_command(cfg, disk, gpu, extra or []))
+
+
+def spawn(cfg: Machine, command: list[str]) -> int:
+    """Starts qemu with `command`, which names cfg's QMP socket and pidfile; returns its PID."""
     if running_pid(cfg) is not None:
         raise RuntimeError("the VM is already running; run `down` first")
     cfg.run.mkdir(parents=True, exist_ok=True)
     cfg.qmp_socket.unlink(missing_ok=True)
     cfg.vnc_socket.unlink(missing_ok=True)
     cfg.pidfile.unlink(missing_ok=True)
-    command = build_command(cfg, disk, gpu, extra or [])
     with cfg.qemu_log.open("w") as log:
         process = subprocess.Popen(
             command, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
@@ -89,7 +117,7 @@ def launch(cfg: VmConfig, disk: Path, gpu: str, extra: list[str] | None = None) 
     return pid
 
 
-def stop(cfg: VmConfig, graceful_s: int = 60) -> None:
+def stop(cfg: Machine, graceful_s: int = 60) -> None:
     """ACPI powerdown, then quit, then SIGKILL of the recorded PID."""
     pid = running_pid(cfg)
     if pid is None:
@@ -112,7 +140,7 @@ def stop(cfg: VmConfig, graceful_s: int = 60) -> None:
     cfg.pidfile.unlink(missing_ok=True)
 
 
-def new_overlay(cfg: VmConfig, backing: Path) -> Path:
+def new_overlay(cfg: Machine, backing: Path) -> Path:
     cfg.run.mkdir(parents=True, exist_ok=True)
     cfg.overlay.unlink(missing_ok=True)
     subprocess.run(
@@ -135,7 +163,7 @@ def require_tools() -> None:
             )
 
 
-def wait_exit(cfg: VmConfig, timeout_s: int) -> None:
+def wait_exit(cfg: Machine, timeout_s: int) -> None:
     deadline = time.monotonic() + timeout_s
     while running_pid(cfg) is not None:
         if time.monotonic() > deadline:

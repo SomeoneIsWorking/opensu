@@ -117,8 +117,9 @@ def configure_defines(vcpkg: Path, build_dir: Path) -> list[str]:
     ]
 
 
-def lavapipe(root: Path, env: Mapping[str, str]) -> dict[str, str]:
-    """`env` with Mesa's lavapipe as the only Vulkan driver."""
+def unpack_lavapipe(root: Path, env: Mapping[str, str]) -> Path:
+    """The pinned release's x64 lavapipe ICD manifest, downloaded and unpacked under `root`; its
+    driver DLL is beside it."""
     archive = download.fetch_verified(
         LAVAPIPE_URL, LAVAPIPE_SHA256, root / f"mesa3d-{LAVAPIPE_VERSION}-release-msvc.7z"
     )
@@ -128,6 +129,12 @@ def lavapipe(root: Path, env: Mapping[str, str]) -> dict[str, str]:
         process.run(["7z", "x", "-y", f"-o{unpacked}", archive, "x64"], env)
     if not icd.is_file():
         raise RuntimeError(f"{archive} holds no x64/{LAVAPIPE_ICD}")
+    return icd
+
+
+def lavapipe(root: Path, env: Mapping[str, str]) -> dict[str, str]:
+    """`env` with Mesa's lavapipe as the only Vulkan driver."""
+    icd = unpack_lavapipe(root, env)
     if elevated():
         # The Vulkan loader ignores VK_DRIVER_FILES in an elevated process, as a runner's are.
         register_driver(icd)
