@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -16,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include <elf.h>
 #include <unistd.h>
 
 #include "library/appimage_runtime.hpp"
@@ -311,17 +309,24 @@ void providerLists(const Fixture& f) {
            "artwork is looked up by the file or folder name, tags kept");
 }
 
+/// `value` as `size` little-endian bytes at `at`.
+void putLittleEndian(std::string& bytes, std::size_t at, std::uint64_t value, std::size_t size) {
+    for (std::size_t i = 0; i < size; ++i) {
+        bytes[at + i] = static_cast<char>((value >> (8U * i)) & 0xFFU);
+    }
+}
+
 /// An AppImage whose runtime is a minimal ELF; `classic` puts libfuse.so.2 in the runtime, as the
 /// runtime that loads it does.
 void writeAppImage(const fs::path& path, bool classic) {
-    Elf64_Ehdr header{};
-    std::copy_n(ELFMAG, SELFMAG, header.e_ident);
-    header.e_ident[EI_CLASS] = ELFCLASS64;
-    header.e_shoff = 64;
-    header.e_shentsize = 64;
-    header.e_shnum = 2;
     std::string bytes(4096, '\0');
-    std::memcpy(bytes.data(), &header, sizeof header);
+    // ELF64 header: magic, ELFCLASS64, then e_shoff, e_shentsize and e_shnum.
+    bytes[0] = '\x7F';
+    bytes.replace(1, 3, "ELF");
+    bytes[4] = 2;
+    putLittleEndian(bytes, 0x28, 64, 8);
+    putLittleEndian(bytes, 0x3A, 64, 2);
+    putLittleEndian(bytes, 0x3C, 2, 2);
     if (classic) {
         bytes.replace(100, 12, "libfuse.so.2");
     } else {

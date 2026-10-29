@@ -426,7 +426,10 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   SDL3 leave out the frameworks it needs. MoltenVK 1.4.2 from its release tarball by SHA-256.
 - Compiler: Homebrew's LLVM Clang (`CMAKE_CXX_COMPILER_ID` `Clang`), against the SDK and the
   system's libc++ dylib; Xcode's AppleClang is not built (its libc++ keeps `std::jthread` behind
-  `-fexperimental-library`, which openSU uses throughout).
+  `-fexperimental-library`, which openSU uses throughout). `tools/check/macos.py` names one SDK
+  (`xcrun --show-sdk-path`) as `SDKROOT` and `CMAKE_OSX_SYSROOT`: CMake 4 picks none, so Homebrew's
+  Clang and `FindCURL` otherwise land in different SDKs and that SDK's `usr/include` hides libc++'s
+  C headers.
 - Package: `tools.package macos` installs into `openSU.app/Contents`, writes `Info.plist`, follows
   every `@rpath` dylib the executables and Frameworks link and copies it from vcpkg into
   Frameworks (anything linked from outside the app and the system is refused), adds MoltenVK and
@@ -437,7 +440,8 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   `opensu-retro` on the tests' fake core with `--frame-png runner.png` and no `VK_*` variable, so
   the frame comes through the app's own loader and MoltenVK. No icon yet (no `.icns`).
 - Tests: `tests/launch/darwin_launch_test.cpp` covers the process group, the process table and the
-  window list with real processes.
+  window list with real processes. The Linux backends' own tests (systemd scopes, `/proc`, the
+  Steam pid file, evdev and uinput pads) are left unbuilt and reported as not run.
 - CI: `macos` in `ci.yml` and `release.yml` on `macos-15`: `brew install llvm ninja`,
   `tools.check all --platform macos` (vcpkg binary cache restored and saved like Windows'), ctest
   with MoltenVK as the only Vulkan driver (`VK_DRIVER_FILES`), so the runner's tests draw on the
