@@ -7,8 +7,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <exception>
+#include <filesystem>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <vector>
 
 // Renames main to SDL_main where the OS enters through SDL (Android's Activity).
@@ -69,6 +71,13 @@ int main(int argc, char** argv) try {
     // Lucent reads its own debug channels from the environment, so there is
     // nothing to initialise here. Everything else is read once, by config::read.
     const opensu::config::Config config = opensu::config::read();
+    std::error_code stateError;
+    std::filesystem::create_directories(config.logFile.parent_path(), stateError);
+    lucent::set_default_log_file(config.logFile.string());
+    if (stateError) {
+        lucent::warn("openSU", "cannot create {}: {}", config.stateDir.string(),
+                     stateError.message());
+    }
     const opensu::app::SdlLog sdlLog;
 
     const std::vector<std::string> args(argv + 1, argv + argc);

@@ -45,6 +45,11 @@ set_tests_properties(config_runtime PROPERTIES
 set_tests_properties(config_runtime_default PROPERTIES
     ENVIRONMENT_MODIFICATION "XDG_RUNTIME_DIR=unset:;OPENSU_RETRO_CONTROL=unset:")
 
+add_test(NAME config_paths COMMAND config_test paths)
+set_tests_properties(config_paths PROPERTIES
+    ENVIRONMENT_MODIFICATION
+    "XDG_STATE_HOME=set:/xdg-state;OPENSU_ROM_ROOTS=set:/roms/a::/roms/b:;PATH=set:/bin-a:/bin-b")
+
 add_executable(arguments_test arguments_test.cpp)
 target_link_libraries(arguments_test PRIVATE opensu::config)
 add_test(NAME config_arguments COMMAND arguments_test)

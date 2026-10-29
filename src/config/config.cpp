@@ -65,13 +65,17 @@ HomeMode envHomeMode(const char* name, HomeMode fallback) {
     return fallback;
 }
 
-/// Splits a colon-separated path list. A trailing or repeated separator is not
+/// The separator of a list of paths in the environment (PATH): `;` where `:` is in a path (a
+/// drive).
+constexpr char pathListSeparator = std::filesystem::path::preferred_separator == '\\' ? ';' : ':';
+
+/// Splits a path list on the platform's separator. A trailing or repeated separator is not
 /// an error, so an empty element is simply dropped.
 std::vector<std::filesystem::path> splitPaths(std::string_view raw) {
     std::vector<std::filesystem::path> out;
     std::size_t start = 0;
     while (start <= raw.size()) {
-        const std::size_t end = raw.find(':', start);
+        const std::size_t end = raw.find(pathListSeparator, start);
         const std::size_t stop = end == std::string_view::npos ? raw.size() : end;
         if (stop > start) {
             out.emplace_back(raw.substr(start, stop - start));
@@ -207,6 +211,7 @@ Config read() {
     value.xdgConfigHome = base("XDG_CONFIG_HOME", ".config");
     value.xdgStateHome = base("XDG_STATE_HOME", ".local/state");
     value.stateDir = value.xdgStateHome / OPENSU_LOCATION_NAME;
+    value.logFile = value.stateDir / "opensu.log";
     const Locations locations = Locations::resolve({
         .home = env("HOME"),
         .xdg_config_home = env("XDG_CONFIG_HOME"),
