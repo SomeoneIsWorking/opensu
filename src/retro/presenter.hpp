@@ -134,6 +134,9 @@ class Presenter {
 
     VkSwapchainKHR swapchain_{VK_NULL_HANDLE};
     bool stale_{false};
+    /// The swapchain is drawn upright on a turned display, which the system turns: its
+    /// suboptimal reports mean only that.
+    bool turnedBySystem_{false};
     std::vector<Target> targets_;
     /// The hidden presenter's one target and its memory.
     VkDeviceMemory offscreenMemory_{VK_NULL_HANDLE};

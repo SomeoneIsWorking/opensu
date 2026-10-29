@@ -10,6 +10,8 @@
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_vulkan.h>
 
+#include "lucent/log.h"
+
 namespace opensu::retro {
 namespace {
 
@@ -221,6 +223,15 @@ void Presenter::createSwapchain() {
     check(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device_->physical(), surface_, &capabilities),
           "vkGetPhysicalDeviceSurfaceCapabilitiesKHR");
     VkExtent2D extent = capabilities.currentExtent;
+    // A display turned from its natural orientation (Android landscape) asks for frames drawn
+    // turned; they are drawn upright and the system turns them, which it reports as suboptimal.
+    VkSurfaceTransformFlagBitsKHR transform = capabilities.currentTransform;
+    turnedBySystem_ =
+        transform != VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR &&
+        (capabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) != 0;
+    if (turnedBySystem_) {
+        transform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    }
     if (extent.width == UINT32_MAX) {
         int width = 0;
         int height = 0;
@@ -239,6 +250,9 @@ void Presenter::createSwapchain() {
         return;
     }
     extent_ = extent;
+    lucent::info("retro", "swapchain {}x{}, surface {}x{} turned {}", extent.width, extent.height,
+                 capabilities.currentExtent.width, capabilities.currentExtent.height,
+                 static_cast<unsigned>(capabilities.currentTransform));
     std::uint32_t images = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0) {
         images = std::min(images, capabilities.maxImageCount);
@@ -263,7 +277,7 @@ void Presenter::createSwapchain() {
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .queueFamilyIndexCount = 0,
         .pQueueFamilyIndices = nullptr,
-        .preTransform = capabilities.currentTransform,
+        .preTransform = transform,
         .compositeAlpha = alpha,
         .presentMode = choosePresentMode(device_->physical(), surface_),
         .clipped = VK_TRUE,
@@ -338,7 +352,7 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync) {
             return;
         }
         if (acquired == VK_SUBOPTIMAL_KHR) {
-            stale_ = true;
+            stale_ = !turnedBySystem_;
         } else {
             check(acquired, "vkAcquireNextImageKHR");
         }
@@ -396,8 +410,10 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync) {
     presentInfo.pSwapchains = &swapchain_;
     presentInfo.pImageIndices = &index;
     const VkResult presented = device_->present(presentInfo);
-    if (presented == VK_ERROR_OUT_OF_DATE_KHR || presented == VK_SUBOPTIMAL_KHR) {
+    if (presented == VK_ERROR_OUT_OF_DATE_KHR) {
         stale_ = true;
+    } else if (presented == VK_SUBOPTIMAL_KHR) {
+        stale_ = !turnedBySystem_;
     } else {
         check(presented, "vkQueuePresentKHR");
     }
