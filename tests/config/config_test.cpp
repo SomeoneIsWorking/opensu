@@ -84,6 +84,17 @@ int main(int argc, char** argv) try {
         std::printf("config: all checks passed\n");
         return 0;
     }
+    if (which == "library-dirs") {
+        const std::filesystem::path support = config.home / "Library" / "Application Support";
+        expect(config.configDir == support / "openSU" && config.dataDir == support / "openSU",
+               "settings and data are in Application Support");
+        expect(config.savesDir == support / "openSU" / "saves", "save RAM sits in openSU's data");
+        expect(config.cacheDir == config.home / "Library" / "Caches" / "openSU",
+               "the cache is in Library/Caches");
+        expect(config.runtimeDir == "/mac-tmp/openSU", "TMPDIR holds openSU's runtime files");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
     if (which == "data-dir") {
         expect(config.dataDir == "/xdg-data/opensu", "XDG_DATA_HOME holds opensu's data");
         expect(config.savesDir == "/xdg-data/opensu/saves", "save RAM sits in opensu's data");

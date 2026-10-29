@@ -272,7 +272,7 @@ struct Rig {
                 return row;
             }
         }
-        test::fail("a row with that id exists");
+        test::fail(("a row " + id + " exists").c_str());
     }
     /// Every integration on, as the pages these checks read need them.
     static app::Preferences& everyIntegration(app::Preferences& preferences) {
@@ -490,7 +490,15 @@ void pagesFollowTheIntegrations(const fs::path& root) {
     rig.act(Button::A);
     const std::optional<settings::IntegrationChoices> staged = rig.onDisk().integrations;
     expect(staged.has_value() && !staged->steam, "a staged switch is not kept until Apply");
-    expect(rig.rowOf("integrations.steamMode").value == "Normal", "its mode shows");
+    if (rig.inForce.modesOffered().size() > 1) {
+        expect(rig.rowOf("integrations.steamMode").value == "Normal", "its mode shows");
+    } else {
+        expect(std::ranges::none_of(rig.rows(),
+                                    [](const ui::SettingsRow& row) {
+                                        return row.id == "integrations.steamMode";
+                                    }),
+               "with one Steam mode there is none to pick");
+    }
     rig.focus("integrations.apply");
     rig.act(Button::A);
     const std::optional<settings::IntegrationChoices> kept = rig.onDisk().integrations;

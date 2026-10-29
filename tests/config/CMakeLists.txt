@@ -21,29 +21,36 @@ set_tests_properties(config_home_invalid PROPERTIES
 
 add_test(NAME config_time_format COMMAND config_test time-format)
 
-add_test(NAME config_data_dir COMMAND config_test data-dir)
-add_test(NAME config_data_dir_default COMMAND config_test data-dir-default)
-set_tests_properties(config_data_dir PROPERTIES
-    ENVIRONMENT_MODIFICATION "XDG_DATA_HOME=set:/xdg-data")
-set_tests_properties(config_data_dir_default PROPERTIES
-    ENVIRONMENT_MODIFICATION "XDG_DATA_HOME=unset:")
-
-add_test(NAME config_config_dir COMMAND config_test config-dir)
-add_test(NAME config_config_dir_default COMMAND config_test config-dir-default)
-set_tests_properties(config_config_dir PROPERTIES
-    ENVIRONMENT_MODIFICATION "XDG_CONFIG_HOME=set:/xdg-config")
-set_tests_properties(config_config_dir_default PROPERTIES
-    ENVIRONMENT_MODIFICATION "XDG_CONFIG_HOME=unset:")
-
 add_test(NAME config_gamescope COMMAND config_test gamescope)
 
-add_test(NAME config_runtime COMMAND config_test runtime)
-add_test(NAME config_runtime_default COMMAND config_test runtime-default)
-set_tests_properties(config_runtime PROPERTIES
-    ENVIRONMENT_MODIFICATION
-    "XDG_RUNTIME_DIR=set:/xdg-runtime;OPENSU_RETRO_CONTROL=set:/xdg-runtime/opensu/retro-1.json")
-set_tests_properties(config_runtime_default PROPERTIES
-    ENVIRONMENT_MODIFICATION "XDG_RUNTIME_DIR=unset:;OPENSU_RETRO_CONTROL=unset:")
+# The user directories: XDG's on Linux, the Library and $TMPDIR on macOS.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_test(NAME config_data_dir COMMAND config_test data-dir)
+    add_test(NAME config_data_dir_default COMMAND config_test data-dir-default)
+    set_tests_properties(config_data_dir PROPERTIES
+        ENVIRONMENT_MODIFICATION "XDG_DATA_HOME=set:/xdg-data")
+    set_tests_properties(config_data_dir_default PROPERTIES
+        ENVIRONMENT_MODIFICATION "XDG_DATA_HOME=unset:")
+
+    add_test(NAME config_config_dir COMMAND config_test config-dir)
+    add_test(NAME config_config_dir_default COMMAND config_test config-dir-default)
+    set_tests_properties(config_config_dir PROPERTIES
+        ENVIRONMENT_MODIFICATION "XDG_CONFIG_HOME=set:/xdg-config")
+    set_tests_properties(config_config_dir_default PROPERTIES
+        ENVIRONMENT_MODIFICATION "XDG_CONFIG_HOME=unset:")
+
+    add_test(NAME config_runtime COMMAND config_test runtime)
+    add_test(NAME config_runtime_default COMMAND config_test runtime-default)
+    set_tests_properties(config_runtime PROPERTIES
+        ENVIRONMENT_MODIFICATION
+        "XDG_RUNTIME_DIR=set:/xdg-runtime;OPENSU_RETRO_CONTROL=set:/xdg-runtime/opensu/retro-1.json")
+    set_tests_properties(config_runtime_default PROPERTIES
+        ENVIRONMENT_MODIFICATION "XDG_RUNTIME_DIR=unset:;OPENSU_RETRO_CONTROL=unset:")
+elseif(APPLE)
+    add_test(NAME config_library_dirs COMMAND config_test library-dirs)
+    set_tests_properties(config_library_dirs PROPERTIES
+        ENVIRONMENT_MODIFICATION "TMPDIR=set:/mac-tmp;OPENSU_RETRO_CONTROL=unset:")
+endif()
 
 add_test(NAME config_paths COMMAND config_test paths)
 set_tests_properties(config_paths PROPERTIES

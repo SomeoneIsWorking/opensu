@@ -18,6 +18,7 @@
 
 #include "library/gog_installs.hpp"
 #include "library/gog_token.hpp"
+#include "library/store_builds.hpp"
 #include "support/test_main.hpp"
 
 namespace {
@@ -345,10 +346,16 @@ fs::path gogData(const fs::path& dir, const char* name) {
 
 void testGog(const fs::path& dir) {
     const fs::path gogdl = writeGogdl(dir / "bin");
+    using opensu::library::gogOwnPlatform;
+    constexpr opensu::library::Game::Builds everyBuild{
+        .windows = true, .linuxNative = true, .mac = true};
+    const std::string own{gogOwnPlatform};
+    const std::string noBuild =
+        "GOG lists no " + std::string{opensu::library::gogPlatformsText} + " build of this game";
 
     const fs::path data = gogData(dir, "gog-native");
     GogInstallJob native{GogInstallJob::Options{.dataDir = data, .gogdl = gogdl.string()}};
-    native.setBuilds({.windows = true, .linuxNative = true});
+    native.setBuilds(everyBuild);
     expect(native.start("native", "Native"), "a GOG install starts");
     std::vector<double> seen;
     const std::vector<InstallJob::Report> reports = drain(native);
@@ -360,26 +367,27 @@ void testGog(const fs::path& dir) {
     expect(reports.back().finished && reports.back().failure.empty(), "it finishes installed");
     expect(seen.size() == 2 && seen[0] == 0.25 && seen[1] == 1.0,
            "progress reaches the loop as gogdl logs it");
-    expect(firstLine(data / "download-args") ==
-               "download native --platform linux --path " + (data / "gog-games/native").string(),
-           "a game with a Linux build downloads that build");
+    expect(firstLine(data / "download-args") == "download native --platform " + own + " --path " +
+                                                    (data / "gog-games/native").string(),
+           "a game with this OS's build downloads that build");
     expect(firstLine(data / "auth-mode") == "600", "gogdl read an owner-only token file");
     expect(!fs::exists(data / "gogdl-auth.json"), "the token file is gone afterwards");
     const auto record =
         opensu::library::gog::InstallRecords{data / "gog-installs.json"}.find("native");
-    expect(record && record->platform == "linux" &&
+    expect(record && record->platform == own &&
                record->path == data / "gog-games/native/Game Folder",
            "the install is recorded with gogdl's folder and platform");
 
     const fs::path placedData = gogData(dir, "gog-placed");
     const fs::path placedFolder = dir / "gog-store" / "games";
     GogInstallJob placed{GogInstallJob::Options{.dataDir = placedData, .gogdl = gogdl.string()}};
-    placed.setBuilds({.windows = true, .linuxNative = true});
+    placed.setBuilds(everyBuild);
     placed.setFolder(placedFolder);
     expect(placed.start("native", "Native"), "a GOG install into a folder starts");
     expect(drain(placed).back().failure.empty(), "it finishes installed");
     expect(firstLine(placedFolder.parent_path() / "download-args") ==
-               "download native --platform linux --path " + (placedFolder / "native").string(),
+               "download native --platform " + own + " --path " +
+                   (placedFolder / "native").string(),
            "gogdl downloads under the folder it is given");
     const auto placedRecord =
         opensu::library::gog::InstallRecords{placedData / "gog-installs.json"}.find("native");
@@ -390,17 +398,24 @@ void testGog(const fs::path& dir) {
     GogInstallJob windows{GogInstallJob::Options{.dataDir = windowsData, .gogdl = gogdl.string()}};
     windows.setBuilds({.windows = true, .linuxNative = false});
     expect(windows.start("winonly", "Win"), "a Windows-only install starts");
-    expect(drain(windows).back().failure.empty(), "it finishes installed");
-    expect(firstLine(windowsData / "download-args").find("--platform windows") != std::string::npos,
-           "a game without a Linux build downloads the Windows build");
-    const auto windowsRecord =
-        opensu::library::gog::InstallRecords{windowsData / "gog-installs.json"}.find("winonly");
-    expect(windowsRecord && windowsRecord->platform == "windows", "and is recorded as Windows");
+    if (opensu::library::windowsBuildsRun) {
+        expect(drain(windows).back().failure.empty(), "it finishes installed");
+        expect(firstLine(windowsData / "download-args").find("--platform windows") !=
+                   std::string::npos,
+               "a game without this OS's build downloads the Windows build");
+        const auto windowsRecord =
+            opensu::library::gog::InstallRecords{windowsData / "gog-installs.json"}.find("winonly");
+        expect(windowsRecord && windowsRecord->platform == "windows", "and is recorded as Windows");
+    } else {
+        expect(drain(windows).back().failure == noBuild,
+               "where Windows builds do not run, a Windows-only game is refused");
+        expect(!fs::exists(windowsData / "download-args"), "gogdl was not run");
+    }
 
     // gogdl refreshed the token while it downloaded; opensu keeps the new one.
     const fs::path rotatedData = gogData(dir, "gog-rotated");
     GogInstallJob rotated{GogInstallJob::Options{.dataDir = rotatedData, .gogdl = gogdl.string()}};
-    rotated.setBuilds({.windows = true, .linuxNative = true});
+    rotated.setBuilds(everyBuild);
     expect(rotated.start("rotate", "Rotate"), "a long install starts");
     expect(drain(rotated).back().failure.empty(), "it finishes installed");
     const auto kept = opensu::library::gog::TokenStore::under(rotatedData).load();
@@ -409,7 +424,7 @@ void testGog(const fs::path& dir) {
 
     const fs::path fullData = gogData(dir, "gog-full");
     GogInstallJob full{GogInstallJob::Options{.dataDir = fullData, .gogdl = gogdl.string()}};
-    full.setBuilds({.windows = true, .linuxNative = true});
+    full.setBuilds(everyBuild);
     expect(full.start("full", "Full"), "an install on a full disk starts");
     expect(drain(full).back().failure == "Not enough disk space", "it fails with gogdl's reason");
     expect(!fs::exists(fullData / "gog-installs.json") && !fs::exists(fullData / "gogdl-auth.json"),
@@ -418,20 +433,19 @@ void testGog(const fs::path& dir) {
     const fs::path noneData = gogData(dir, "gog-none");
     GogInstallJob none{GogInstallJob::Options{.dataDir = noneData, .gogdl = gogdl.string()}};
     expect(none.start("native", "Native"), "a game with no listed build starts");
-    expect(drain(none).back().failure == "GOG lists no Linux or Windows build of this game",
-           "it fails without running gogdl");
+    expect(drain(none).back().failure == noBuild, "it fails without running gogdl");
     expect(!fs::exists(noneData / "download-args"), "gogdl was not run");
 
     const fs::path emptyData = dir / "gog-signed-out";
     GogInstallJob signedOut{GogInstallJob::Options{.dataDir = emptyData, .gogdl = gogdl.string()}};
-    signedOut.setBuilds({.windows = true, .linuxNative = true});
+    signedOut.setBuilds(everyBuild);
     expect(signedOut.start("native", "Native"), "a signed-out install starts");
     expect(drain(signedOut).back().failure == "GOG is not signed in", "it asks for a sign-in");
 
     const fs::path missingData = gogData(dir, "gog-missing");
     GogInstallJob missing{
         GogInstallJob::Options{.dataDir = missingData, .gogdl = (dir / "no-gogdl").string()}};
-    missing.setBuilds({.windows = true, .linuxNative = true});
+    missing.setBuilds(everyBuild);
     expect(missing.start("native", "Native"), "a missing gogdl starts");
     expect(drain(missing).back().failure == "gogdl is not installed", "a missing gogdl says so");
 }

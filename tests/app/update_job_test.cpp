@@ -154,12 +154,20 @@ grep -q '"access_token":"ACCESS-1"' "$auth" || { echo "[AUTH] ERROR: no token" >
 command="$1"
 id="$2"
 all="$*"
-while [ "$1" != "--path" ]; do shift; done
+platform=""
+while [ "$1" != "--path" ]; do
+    if [ "$1" = "--platform" ]; then platform="$2"; fi
+    shift
+done
 path="$2"
 case "$command" in
 download)
     mkdir -p "$path/Game $id"
-    echo '{"buildId":"B-'"$id"'","gameId":"'"$id"'","rootGameId":"'"$id"'"}' > "$path/Game $id/goggame-$id.info"
+    if [ "$platform" = linux ]; then
+        printf 'Game %s\nB-%s\n' "$id" "$id" > "$path/Game $id/gameinfo"
+    else
+        echo '{"buildId":"B-'"$id"'","gameId":"'"$id"'","rootGameId":"'"$id"'"}' > "$path/Game $id/goggame-$id.info"
+    fi
     ;;
 update)
     echo "$all" > "$path/../../../update-args"
@@ -187,7 +195,7 @@ void testGog(const fs::path& dir) {
 
     Game eight = updatable(Source::Gog, "8", "Eight");
     eight.installed = false;
-    eight.builds.windows = true;
+    eight.builds = {.windows = true, .linuxNative = true, .mac = true};
     expect(installs.start(eight) && finish(installs).failure.empty(), "a GOG install ends");
     const std::optional<Installed> installed = records.find("8");
     expect(installed && installed->build == "B-8",

@@ -461,6 +461,10 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
 - Tests: `tests/launch/darwin_launch_test.cpp` covers the process group, the process table and the
   window list with real processes. The Linux backends' own tests (systemd scopes, `/proc`, the
   Steam pid file, evdev and uinput pads) are left unbuilt and reported as not run.
+  `config_test` checks each OS's own user directories (XDG on Linux, `config_library_dirs` for
+  Application Support, Caches and `$TMPDIR` on macOS); the GOG install and update tests take
+  their expected build from `store_builds.hpp`, so macOS checks that a Windows-only game is
+  refused.
 - CI: `macos` in `ci.yml` and `release.yml` on `macos-15`: `brew install llvm@22 ninja`,
   `tools.check all --platform macos` (vcpkg binary cache restored and saved like Windows'), ctest
   with MoltenVK as the only Vulkan driver (`VK_DRIVER_FILES`), so the runner's tests draw on the
