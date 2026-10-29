@@ -196,7 +196,7 @@ jobs:
           enable-cache: false
       # Homebrew checks each bottle's SHA-256; Xcode's Clang has no std::jthread.
       - name: Homebrew's LLVM and Ninja
-        run: brew install llvm ninja
+        run: brew install llvm@22 ninja
       # vcpkg's built ports, keyed by what decides them; saved even when a later step fails.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
