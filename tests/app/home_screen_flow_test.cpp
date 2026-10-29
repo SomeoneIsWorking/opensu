@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "support/fake_interface_text.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 #include "ui/home_dock.hpp"
 #include "ui/home_grid.hpp"
@@ -219,7 +220,7 @@ void aClickOnACrumbReachesTheTopBar() {
 
 } // namespace
 
-int main() {
+int main() try {
     theDpadMovesAcrossTiles();
     theWheelAndAnArrowTurnPages();
     theShouldersStepTheDock();
@@ -228,4 +229,6 @@ int main() {
     aClickOnACrumbReachesTheTopBar();
     std::printf("home screen flow: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

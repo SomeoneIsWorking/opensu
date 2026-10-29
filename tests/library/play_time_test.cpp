@@ -6,6 +6,7 @@
 
 #include "library/emulator_game_list.hpp"
 #include "library/play_time.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -68,9 +69,11 @@ void gameListMatchesByFileThenTitle() {
 
 } // namespace
 
-int main() {
+int main() try {
     sourcesSumPerGame();
     gameListMatchesByFileThenTitle();
     std::printf("play_time: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

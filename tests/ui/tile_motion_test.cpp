@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -124,7 +125,7 @@ void visualIndex() {
 
 } // namespace
 
-int main() {
+int main() try {
     focus();
     domino();
     pulse();
@@ -134,4 +135,6 @@ int main() {
     visualIndex();
     std::printf("tile_motion: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

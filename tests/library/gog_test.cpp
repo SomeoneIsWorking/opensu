@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 
 #include "support/loopback_server.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -338,10 +339,12 @@ void testLibrary() {
 
 } // namespace
 
-int main() {
+int main() try {
     testSignIn();
     testRefresh();
     testLibrary();
     std::printf("gog: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

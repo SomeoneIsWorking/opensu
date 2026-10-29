@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "launch/command.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -264,7 +265,7 @@ void theInstallerPlacesTheThreeFilesAndAValidSudoersRule() {
 
 } // namespace
 
-int main() {
+int main() try {
     if (geteuid() == 0) {
         std::fprintf(stderr, "SKIP: the scripts honour the test root only for a non-root caller\n");
         return skipped;
@@ -276,4 +277,6 @@ int main() {
     restoreLeavesALastSessionThePlayerChoseAlone();
     theInstallerPlacesTheThreeFilesAndAValidSudoersRule();
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

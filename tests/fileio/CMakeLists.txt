@@ -1,6 +1,5 @@
 add_executable(instance_lock_test instance_lock_test.cpp)
 target_link_libraries(instance_lock_test PRIVATE opensu::fileio opensu::command)
-target_include_directories(instance_lock_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 opensu_warnings(instance_lock_test)
 target_compile_definitions(instance_lock_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME instance_lock COMMAND instance_lock_test)

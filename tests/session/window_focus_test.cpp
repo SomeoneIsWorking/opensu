@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -68,9 +69,11 @@ void theHolderFollowsTheFocusedWindow() {
 
 } // namespace
 
-int main() {
+int main() try {
     focusableWindowsAreTriples();
     theHolderFollowsTheFocusedWindow();
     std::printf("window_focus: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

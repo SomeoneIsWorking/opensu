@@ -18,6 +18,7 @@
 
 #include "library/gog_installs.hpp"
 #include "library/gog_token.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -552,7 +553,7 @@ void testSupports() {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path dir = fs::current_path() / ("install-job-test-" + std::to_string(getpid()));
     fs::remove_all(dir);
     testJobLifecycle();
@@ -566,4 +567,6 @@ int main() {
     fs::remove_all(dir);
     std::printf("install_job: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

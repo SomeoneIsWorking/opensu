@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -241,7 +242,7 @@ void ownGame() {
 
 } // namespace
 
-int main() {
+int main() try {
     ownGame();
     lastPlayed();
     storeGame();
@@ -251,4 +252,6 @@ int main() {
     winePrefix();
     std::puts("game_details: ok");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

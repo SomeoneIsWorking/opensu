@@ -22,6 +22,7 @@
 
 #include "launch/command.hpp"
 #include "launch/process_launcher.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -271,7 +272,7 @@ void testRestartBudgetWindow() {
 
 } // namespace
 
-int main() {
+int main() try {
     fs::create_directories(OPENSU_TEST_SCRATCH);
     testRunPassesArgumentsAndStopsLeftovers();
     testLoginSessionIsTopLevel();
@@ -283,4 +284,6 @@ int main() {
     testRestartBudgetWindow();
     std::printf("compositor_session: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

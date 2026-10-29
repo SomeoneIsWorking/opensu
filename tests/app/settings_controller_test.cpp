@@ -29,6 +29,7 @@
 #include "support/fake_steam.hpp"
 #include "support/fake_steam_gate.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "support/zip_fixture.hpp"
 #include "ui/check.hpp"
 #include "ui/entry_screen.hpp"
@@ -1544,7 +1545,7 @@ void steamGridDbBlockedSteamSaysWhy(const fs::path& root) {
            "no key is asked for and the default browser stays shut");
 }
 
-int main() {
+int main() try {
     const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "settings_controller"};
     const fs::path& root = scratch.path();
     categoriesFollowTheSavedSettings(root);
@@ -1572,4 +1573,6 @@ int main() {
     steamGridDbBlockedSteamSaysWhy(root / "steamgriddb-blocked");
     std::printf("settings_controller: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

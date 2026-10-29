@@ -24,6 +24,7 @@
 #include "support/buildbot_server.hpp"
 #include "support/fake_interface_text.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -350,7 +351,7 @@ void settingsShowTheBios(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "core_flow"};
         detailsDownloadsTheCore(scratch.path() / "details");
@@ -363,4 +364,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

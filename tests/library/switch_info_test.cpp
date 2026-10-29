@@ -22,6 +22,7 @@
 #include "library/roms.hpp"
 #include "library/switch_keys.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -444,7 +445,7 @@ void titlesProviderGames() {
 
 } // namespace
 
-int main() {
+int main() try {
     derivesMissingKeys();
     readsAnNsp();
     readsAnXciWithDerivedKeys();
@@ -453,4 +454,6 @@ int main() {
     titlesProviderGames();
     std::printf("switch_info: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

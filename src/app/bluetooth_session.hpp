@@ -90,6 +90,7 @@ class BluetoothSession {
     bool due_{true};
     Clock::time_point lastRead_{};
     std::string busyWith_;
+    // std::async futures: each one's destructor waits for its worker.
     std::future<host::BluetoothState> reading_;
     std::future<Outcome> changing_;
     std::optional<BluetoothNotice> notice_;

@@ -142,7 +142,7 @@ void OwnGamesController::chooseFile() {
 
 void OwnGamesController::identify(const fs::path& file) {
     hooks_.say("Looking up " + file.filename().string(), false);
-    identifier_ = std::jthread{[this, file] {
+    identifier_ = std::jthread{[this, file = file] {
         const net::WebClient web;
         library::identify::Guess guess =
             library::identify::identify(file, [&web](const std::string& term) {
@@ -175,7 +175,7 @@ void OwnGamesController::service() {
 
 void OwnGamesController::confirm(const fs::path& file, const library::identify::Guess& guess) {
     askTitle("Add " + file.filename().string() + "?", noteOf(guess), guess.title,
-             [this, file, steamAppId = guess.steamAppId](const std::string& title) {
+             [this, file = file, steamAppId = guess.steamAppId](const std::string& title) {
                  apply(
                      [this, &file, &title, &steamAppId] {
                          records_.add(Entry{

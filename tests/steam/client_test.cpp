@@ -20,6 +20,7 @@
 
 #include "launch/command.hpp"
 #include "steam/orphaned_steam.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -454,7 +455,7 @@ void testNormalStartsNothing() {
 
 } // namespace
 
-int main() {
+int main() try {
     fs::create_directories(OPENSU_TEST_SCRATCH);
     testReadyThenShutdown();
     testExitIsAFailure();
@@ -469,4 +470,6 @@ int main() {
     testNormalStartsNothing();
     std::printf("steam client: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

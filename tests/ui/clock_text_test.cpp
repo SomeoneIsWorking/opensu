@@ -5,6 +5,7 @@
 
 #include "battery_icon.hpp"
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -45,11 +46,13 @@ void batterySlots() {
 
 } // namespace
 
-int main() {
+int main() try {
     twentyFourHour();
     twelveHour();
     minuteBoundary();
     batterySlots();
     std::printf("clock_text: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

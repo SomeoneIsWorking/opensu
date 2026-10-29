@@ -1,4 +1,8 @@
-"""The source checks: clang-format, clang-tidy and ruff, each failing on any finding."""
+"""The source checks: clang-format, clang-tidy and ruff, each failing on any finding.
+
+clang-tidy covers the translation units the build compiles, so each platform's tree lints its own
+backends and the tests it builds, and none it leaves out.
+"""
 
 import json
 import os
@@ -25,17 +29,26 @@ def clang_format(env: Mapping[str, str]) -> None:
     process.run(["clang-format", "--dry-run", "--Werror", *files], env)
 
 
-def compiled_sources(cmake_dir: Path) -> list[Path]:
-    """openSU's translation units in the build's compile_commands.json."""
+def built_inputs(cmake_dir: Path, env: Mapping[str, str]) -> set[Path]:
+    """Every file the build's default target reads, so targets left out of it are not linted."""
+    names = process.output(["ninja", "-C", cmake_dir, "-t", "inputs", "all"], env).splitlines()
+    return {(cmake_dir / name).resolve() for name in names}
+
+
+def compiled_sources(cmake_dir: Path, env: Mapping[str, str]) -> list[Path]:
+    """openSU's translation units in the build's compile_commands.json that the build compiles."""
     entries = json.loads((cmake_dir / "compile_commands.json").read_text())
     own = [str(REPO / root) for root in OWN_ROOTS]
+    built = built_inputs(cmake_dir, env)
     files = {Path(entry["file"]) for entry in entries}
-    return sorted(path for path in files if str(path).startswith(tuple(own)))
+    return sorted(
+        path for path in files if str(path).startswith(tuple(own)) and path.resolve() in built
+    )
 
 
 def clang_tidy(cmake_dir: Path, env: Mapping[str, str]) -> None:
     """Every translation unit through clang-tidy (`.clang-tidy`: warnings are errors)."""
-    files = compiled_sources(cmake_dir)
+    files = compiled_sources(cmake_dir, env)
     if not files:
         raise RuntimeError(f"no openSU sources in {cmake_dir}/compile_commands.json")
 

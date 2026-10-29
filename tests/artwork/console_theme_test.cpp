@@ -1,5 +1,6 @@
 // Console art themes from folders: listing, opening, and that a theme's art is only its own.
 #include "console_themes.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -48,7 +49,7 @@ bool isFile(const std::optional<ThemeArt>& art, const fs::path& file) {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "console-theme";
     fs::remove_all(root);
     const fs::path shipped = root / "shipped";
@@ -101,4 +102,6 @@ int main() {
     fs::remove_all(root);
     std::printf("console_theme: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

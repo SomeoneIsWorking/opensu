@@ -7,6 +7,7 @@
 
 #include "effect.hpp"
 #include "sound_clip.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -42,9 +43,11 @@ void clipsAreShort() {
 
 } // namespace
 
-int main() {
+int main() try {
     everyEffectLoads();
     clipsAreShort();
     std::printf("shipped_sounds: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -7,11 +7,7 @@ namespace opensu::audio {
 SystemVolume::SystemVolume(std::unique_ptr<VolumeBackend> backend) : backend_{std::move(backend)} {
 }
 
-SystemVolume::~SystemVolume() {
-    if (reading_.valid()) {
-        reading_.wait();
-    }
-}
+SystemVolume::~SystemVolume() = default;
 
 std::string SystemVolume::unavailable() const {
     return available() ? std::string{} : missingBackendAdvice();

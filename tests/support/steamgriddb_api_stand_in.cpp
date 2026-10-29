@@ -11,6 +11,7 @@
 
 #include "gpu2d/image/png_encoder.hpp"
 #include "support/steamgriddb_server.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -46,7 +47,7 @@ std::string drawn(int width, int height, std::uint8_t hue) {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     if (argc < 3) {
         std::fprintf(stderr, "usage: %s <key> <app id>...\n", argv[0]);
         return 2;
@@ -66,4 +67,6 @@ int main(int argc, char** argv) {
     while (std::getline(std::cin, line)) {
     }
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

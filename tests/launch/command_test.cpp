@@ -1,5 +1,6 @@
 // Short-lived children and executable lookup, against real processes.
 #include "launch/command.hpp"
+#include "support/test_main.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -30,7 +31,7 @@ void expect(bool condition, const char* what) {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path scratch =
         fs::path{OPENSU_TEST_SCRATCH} / ("opensu-command-test-" + std::to_string(getpid()));
     fs::create_directories(scratch);
@@ -127,4 +128,6 @@ int main() {
     fs::remove_all(scratch);
     std::printf("command: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

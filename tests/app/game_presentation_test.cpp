@@ -16,6 +16,7 @@
 #include "settings/scaling_settings.hpp"
 #include "settings/setting_schema.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -140,10 +141,12 @@ void summariesNoteTheSession(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main() try {
     const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "game_presentation"};
     followsAndWritesChangesOnly(scratch.path());
     summariesNoteTheSession(scratch.path());
     std::puts("game_presentation: ok");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "support/test_main.hpp"
 #include "system_volume.hpp"
 #include "ui/check.hpp"
 
@@ -321,7 +322,7 @@ void readOnlyOutputs() {
 
 } // namespace
 
-int main() {
+int main() try {
     sinkParsing();
     switchingTheOutput();
     readOnlyOutputs();
@@ -334,4 +335,6 @@ int main() {
     readOnlyNeverWrites();
     std::printf("volume: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

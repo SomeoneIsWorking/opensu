@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -38,8 +39,10 @@ void shownHeldAndFaded() {
 
 } // namespace
 
-int main() {
+int main() try {
     shownHeldAndFaded();
     std::printf("volume_osd: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -126,10 +126,10 @@ void ContextMenuController::uninstall(const library::Game& game) {
     if (!what) {
         return;
     }
-    navigator_.push(
-        gpu2d::ui::confirm("Uninstall " + game.title + "?", *what, "Uninstall", [this, game] {
-            uninstall_.start(game);
-        }));
+    navigator_.push(gpu2d::ui::confirm("Uninstall " + game.title + "?", *what, "Uninstall",
+                                       [this, game = game] {
+                                           uninstall_.start(game);
+                                       }));
 }
 
 } // namespace opensu::app

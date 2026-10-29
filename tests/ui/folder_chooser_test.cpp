@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -61,7 +62,7 @@ void startBelowAMissingFolderFallsBackUp(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "folder_chooser";
     fs::remove_all(root);
     fs::create_directories(root / "alpha");
@@ -76,4 +77,6 @@ int main() {
     fs::remove_all(root);
     std::printf("folder_chooser: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

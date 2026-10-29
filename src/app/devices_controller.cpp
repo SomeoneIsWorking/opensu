@@ -316,7 +316,7 @@ void DevicesController::secondary(const std::string& id) {
     }
     navigator_.push(gpu2d::ui::confirm("Forget " + device->name + "?",
                                        "It has to be paired again before it connects.", "Forget",
-                                       [this, id] {
+                                       [this, id = id] {
                                            if (const host::BluetoothDevice* gone = deviceOf(id)) {
                                                refuse(bluetooth_->forget(*gone));
                                            }

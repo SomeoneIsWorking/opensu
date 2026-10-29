@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -24,8 +25,10 @@ void classification() {
 
 } // namespace
 
-int main() {
+int main() try {
     classification();
     std::printf("vulkan_messages: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

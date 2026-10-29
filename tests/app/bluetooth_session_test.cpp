@@ -6,6 +6,7 @@
 
 #include "bluetooth_session.hpp"
 #include "host_fakes.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -85,11 +86,13 @@ void scanTogglesAndForgetRemoves() {
 
 } // namespace
 
-int main() {
+int main() try {
     readsOnlyWhenWanted();
     pairingTrustsAndConnects();
     aRefusalCarriesItsReason();
     scanTogglesAndForgetRemoves();
     std::printf("bluetooth_session: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

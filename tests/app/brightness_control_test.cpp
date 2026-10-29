@@ -3,6 +3,7 @@
 
 #include "brightness_control.hpp"
 #include "host_fakes.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -27,9 +28,11 @@ void stepsAndClamps() {
 
 } // namespace
 
-int main() {
+int main() try {
     withoutABacklightThereIsNoBrightness();
     stepsAndClamps();
     std::printf("brightness_control: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

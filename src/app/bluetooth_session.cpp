@@ -20,14 +20,7 @@ std::string lowered(std::string text) {
 
 } // namespace
 
-BluetoothSession::~BluetoothSession() {
-    if (reading_.valid()) {
-        reading_.wait();
-    }
-    if (changing_.valid()) {
-        changing_.wait();
-    }
-}
+BluetoothSession::~BluetoothSession() = default;
 
 bool BluetoothSession::poll(Clock::time_point now, bool wanted) {
     bool changed = false;
@@ -119,7 +112,7 @@ void BluetoothSession::stopScan() {
 }
 
 std::string BluetoothSession::pair(const host::BluetoothDevice& device) {
-    return start("Pairing " + device.name, [device](host::Bluetooth& backend) {
+    return start("Pairing " + device.name, [device = device](host::Bluetooth& backend) {
         if (const std::string refused = backend.pair(device.path); !refused.empty()) {
             return BluetoothNotice{device.name + ": " + refused, true};
         }
@@ -137,7 +130,7 @@ std::string BluetoothSession::pair(const host::BluetoothDevice& device) {
 }
 
 std::string BluetoothSession::connect(const host::BluetoothDevice& device) {
-    return start("Connecting " + device.name, [device](host::Bluetooth& backend) {
+    return start("Connecting " + device.name, [device = device](host::Bluetooth& backend) {
         const std::string refused = backend.connect(device.path);
         return refused.empty() ? BluetoothNotice{"Connected " + device.name, false}
                                : BluetoothNotice{device.name + ": " + refused, true};
@@ -145,7 +138,7 @@ std::string BluetoothSession::connect(const host::BluetoothDevice& device) {
 }
 
 std::string BluetoothSession::disconnect(const host::BluetoothDevice& device) {
-    return start("Disconnecting " + device.name, [device](host::Bluetooth& backend) {
+    return start("Disconnecting " + device.name, [device = device](host::Bluetooth& backend) {
         const std::string refused = backend.disconnect(device.path);
         return refused.empty() ? BluetoothNotice{"Disconnected " + device.name, false}
                                : BluetoothNotice{device.name + ": " + refused, true};
@@ -153,7 +146,7 @@ std::string BluetoothSession::disconnect(const host::BluetoothDevice& device) {
 }
 
 std::string BluetoothSession::forget(const host::BluetoothDevice& device) {
-    return start("Forgetting " + device.name, [device](host::Bluetooth& backend) {
+    return start("Forgetting " + device.name, [device = device](host::Bluetooth& backend) {
         const std::string refused = backend.remove(device.path);
         return refused.empty() ? BluetoothNotice{"Forgot " + device.name, false}
                                : BluetoothNotice{device.name + ": " + refused, true};

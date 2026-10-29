@@ -16,13 +16,11 @@ target_compile_definitions(compositor_session_test PRIVATE OPENSU_TEST_SCRATCH="
 
 add_executable(game_keys_test game_keys_test.cpp)
 target_link_libraries(game_keys_test PRIVATE opensu::session X11::X11 X11::Xtst)
-target_include_directories(game_keys_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 add_test(NAME game_keys COMMAND game_keys_test)
 set_tests_properties(game_keys PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)
 
 add_executable(login_session_test login_session_test.cpp)
 target_link_libraries(login_session_test PRIVATE opensu::session lucent::lucent Threads::Threads)
-target_include_directories(login_session_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 add_test(NAME login_session COMMAND login_session_test)
 set_tests_properties(login_session PROPERTIES TIMEOUT 120)
 target_compile_definitions(login_session_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
@@ -33,5 +31,4 @@ target_link_libraries(nested_session_driver PRIVATE opensu::session opensu::conf
 
 add_executable(window_focus_test window_focus_test.cpp)
 target_link_libraries(window_focus_test PRIVATE opensu::session)
-target_include_directories(window_focus_test PRIVATE "${CMAKE_SOURCE_DIR}/tests")
 add_test(NAME window_focus COMMAND window_focus_test)

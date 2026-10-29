@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "breadcrumb_trail.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -61,10 +62,12 @@ void downloadsReplacesEveryTrail() {
 
 } // namespace
 
-int main() {
+int main() try {
     devicesReplacesTheSectionTrail();
     downloadsReplacesEveryTrail();
     settingsReplacesTheSectionTrail();
     std::printf("breadcrumb_trail: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

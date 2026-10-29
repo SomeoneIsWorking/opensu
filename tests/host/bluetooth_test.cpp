@@ -1,6 +1,7 @@
 // The BlueZ backend against canned busctl output: parsing, the commands each change issues, error
 // trimming, path validation and the read-only wrapper. Nothing here reaches the real bus.
 #include "host/bluetooth.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 #include <string>
@@ -303,7 +304,7 @@ void readOnlyNeverChanges() {
 
 } // namespace
 
-int main() {
+int main() try {
     parsesTheAdapterAndSortsDevices();
     reportsWhatIsMissing();
     issuesTheCommands();
@@ -312,4 +313,6 @@ int main() {
     holdsTheScan();
     readOnlyNeverChanges();
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

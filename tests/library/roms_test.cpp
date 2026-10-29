@@ -21,6 +21,7 @@
 
 #include "library/appimage_runtime.hpp"
 #include "library/downloaded_emulators.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -401,7 +402,7 @@ void downloadsMergeWithDetected(const Fixture& f) {
 
 } // namespace
 
-int main() {
+int main() try {
     const Fixture fixture;
     systemsByFolder();
     gameFiles(fixture);
@@ -411,4 +412,6 @@ int main() {
     downloadsMergeWithDetected(fixture);
     std::printf("roms: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

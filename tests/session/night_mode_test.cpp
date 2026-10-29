@@ -1,6 +1,7 @@
 // A colour temperature as Gamescope's night mode: the blackbody white point at the luminance of
 // white, and the HSV that gives the same white point back.
 #include "session/night_mode.hpp"
+#include "support/test_main.hpp"
 
 #include <bit>
 #include <cmath>
@@ -25,7 +26,7 @@ bool near(float a, float b) {
 
 } // namespace
 
-int main() {
+int main() try {
     expect(whitePointOf(6500) == std::array{1.0F, 1.0F, 1.0F} &&
                whitePointOf(9000) == std::array{1.0F, 1.0F, 1.0F},
            "6500 K and above is white");
@@ -69,4 +70,6 @@ int main() {
 
     std::printf("night_mode: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

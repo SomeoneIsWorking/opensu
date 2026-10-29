@@ -1,5 +1,6 @@
 // Title merging across stores: the key titles are compared by, and which copies make one title.
 #include "library/titles.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -96,11 +97,13 @@ void testCopiesOf() {
 
 } // namespace
 
-int main() {
+int main() try {
     testKey();
     testMerge();
     testSameStore();
     testCopiesOf();
     std::printf("titles: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

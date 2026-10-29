@@ -1,6 +1,7 @@
 // The downloaders' install logs: legendary 0.20.35 (cli.py, downloader/mp/manager.py) and gogdl
 // 1.3.1 (dl/progressbar.py), both on '[%(name)s] %(levelname)s: %(message)s'.
 #include "library/install_log.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -56,9 +57,11 @@ void testLoggedError() {
 
 } // namespace
 
-int main() {
+int main() try {
     testProgress();
     testLoggedError();
     std::printf("install_log: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

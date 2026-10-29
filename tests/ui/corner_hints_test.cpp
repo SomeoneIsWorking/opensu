@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -47,10 +48,12 @@ void endCorner() {
 
 } // namespace
 
-int main() {
+int main() try {
     startCorner();
     searchAndOptions();
     endCorner();
     std::printf("corner_hints: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

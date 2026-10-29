@@ -13,6 +13,7 @@
 
 #include <sys/stat.h>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -259,7 +260,7 @@ void aReadOnlyModeReadsAndRefusesEverythingElse() {
 
 } // namespace
 
-int main() {
+int main() try {
     installedMeansAnEntryForThisOpenSuAndTheSelector();
     installBlockerNamesAMissingInstaller();
     aWrongPasswordIsRefusedAndTheRightOneInstalls();
@@ -270,4 +271,6 @@ int main() {
     withoutTheSelectorTheSessionStartsTheDesktopItself();
     aReadOnlyModeReadsAndRefusesEverythingElse();
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

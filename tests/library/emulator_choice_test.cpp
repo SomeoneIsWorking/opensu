@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <vector>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -79,9 +80,11 @@ void unknownPickIsIgnored() {
 
 } // namespace
 
-int main() {
+int main() try {
     pickPointsLaunchAtTheEmulator();
     unknownPickIsIgnored();
     std::puts("emulator_choice: ok");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

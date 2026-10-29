@@ -3,6 +3,7 @@
 
 #include <cstdio>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -57,10 +58,12 @@ void spellings() {
 
 } // namespace
 
-int main() {
+int main() try {
     cyclingWraps();
     stepsReachASection();
     spellings();
     std::printf("sections: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cctype>
 #include <charconv>
-#include <cstdlib>
 #include <ranges>
 #include <string_view>
 #include <vector>
@@ -12,14 +11,15 @@
 #include "install_layout.hpp"
 #include "launch/process_id.hpp"
 #include "locations.hpp"
+#include "lucent/config.h"
 #include "lucent/log.h"
 
 namespace opensu::config {
 namespace {
 
+// Lucent's reader: the platform's own call (getenv is deprecated in the UCRT), read once.
 std::string_view env(const char* name) {
-    const char* raw = std::getenv(name);
-    return raw != nullptr ? std::string_view{raw} : std::string_view{};
+    return lucent::config::text(name);
 }
 
 int envInt(const char* name, int fallback) {

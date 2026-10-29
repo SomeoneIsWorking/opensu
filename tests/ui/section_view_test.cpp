@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -49,10 +50,12 @@ void visible() {
 
 } // namespace
 
-int main() {
+int main() try {
     viewports();
     presentations();
     visible();
     std::printf("section_view: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

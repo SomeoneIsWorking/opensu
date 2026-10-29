@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -57,10 +58,12 @@ void ignoresNoise() {
 
 } // namespace
 
-int main() {
+int main() try {
     startsOnThePad();
     switchesOnRealInput();
     ignoresNoise();
     std::puts("last_device: ok");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

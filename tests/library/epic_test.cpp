@@ -1,6 +1,7 @@
 // The Epic source against a stub `legendary`: owned titles with install state, DLC dropped,
 // and the missing and signed-out cases.
 #include "library/epic.hpp"
+#include "support/test_main.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -108,7 +109,7 @@ void testUpdates(const fs::path& dir) {
 
 } // namespace
 
-int main() {
+int main() try {
     testInstallOutput();
     const fs::path dir = fs::path{OPENSU_TEST_SCRATCH} / ("epic-" + std::to_string(getpid()));
     fs::remove_all(dir);
@@ -177,4 +178,6 @@ esac
 
     fs::remove_all(dir);
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

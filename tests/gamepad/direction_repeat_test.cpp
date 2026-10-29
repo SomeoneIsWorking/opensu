@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -26,7 +27,7 @@ int movesOver(DirectionRepeat& repeat, DirectionRepeat::Clock::time_point from,
 
 } // namespace
 
-int main() {
+int main() try {
     const DirectionRepeat::Clock::time_point start{};
 
     DirectionRepeat tap;
@@ -59,4 +60,6 @@ int main() {
            "only directions repeat");
     std::printf("direction_repeat: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

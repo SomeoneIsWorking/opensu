@@ -5,6 +5,8 @@
 // library folder reached both directly and through the install root.
 #include "library/steam.hpp"
 #include "library/steam_host.hpp"
+#include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -45,13 +47,12 @@ std::string vdfText(const fs::path& path) {
 }
 
 struct Fixture {
-    fs::path base;
+    opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "steam"};
+    fs::path base = scratch.path();
     fs::path root;
     fs::path extra;
 
     Fixture() {
-        base = fs::temp_directory_path() / "opensu-steam-test";
-        fs::remove_all(base);
         root = base / "Steam";
         extra = base / "Games";
 
@@ -120,10 +121,6 @@ struct Fixture {
               "\t\t\t\t\"Favorites\"\n\t\t\t\t{\n\t\t\t\t\t\"440\"\t\t\"1\"\n\t\t\t\t}\n"
               "\t\t\t}\n\t\t}\n\t}\n}\n");
     }
-
-    ~Fixture() {
-        fs::remove_all(base);
-    }
 };
 
 const Game* find(const std::vector<Game>& games, const std::string& id) {
@@ -137,7 +134,7 @@ const Game* find(const std::vector<Game>& games, const std::string& id) {
 
 } // namespace
 
-int main() {
+int main() try {
     Fixture fixture;
 
     const Library library = Library::discover(fixture.base / "", {fixture.root});
@@ -215,4 +212,6 @@ int main() {
 
     std::printf("steam: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

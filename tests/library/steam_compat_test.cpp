@@ -17,6 +17,7 @@
 
 #include "library/steam_appinfo.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -177,10 +178,12 @@ void readsOnlyWhatIsAsked(const fs::path& base) {
 
 } // namespace
 
-int main() {
+int main() try {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "steam-compat"};
     picksPerGame(scratch.path(), true);
     picksPerGame(scratch.path(), false);
     readsOnlyWhatIsAsked(scratch.path());
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

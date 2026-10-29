@@ -1,5 +1,6 @@
 // The arcade listing: parsing a libretro-database clrmamepro .dat and keeping it parsed.
 #include "arcade_names.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -53,7 +54,7 @@ constexpr const char* dat = "clrmamepro (\n"
 
 } // namespace
 
-int main() {
+int main() try {
     const NameMap names = parseDat(dat);
     expect(names.size() == 3, "a zip's game is listed once, anything else is skipped");
     expect(names.at("sf2") == "Street Fighter II: The World Warrior (World 910522)",
@@ -76,4 +77,6 @@ int main() {
     fs::remove_all(dir);
     std::printf("arcade_names: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

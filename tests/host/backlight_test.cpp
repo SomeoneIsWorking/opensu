@@ -1,5 +1,6 @@
 // Backlight against a fake /sys/class/backlight and a fake runner.
 #include "host/backlight.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -119,10 +120,12 @@ void readOnly() {
 
 } // namespace
 
-int main() {
+int main() try {
     reading();
     writing();
     refused();
     readOnly();
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

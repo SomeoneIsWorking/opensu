@@ -7,6 +7,7 @@
 
 #include "host_services.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -101,10 +102,12 @@ void aBacklightIsOnlyThereWhenTheMachineHasOne() {
 
 } // namespace
 
-int main() {
+int main() try {
     hiddenRunsChangeNothing();
     normalRunsReachTheSystem();
     aBacklightIsOnlyThereWhenTheMachineHasOne();
     std::printf("host_services: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

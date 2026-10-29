@@ -8,6 +8,7 @@
 #include "host_fakes.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "shortcut_router.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -148,11 +149,13 @@ void gameActionsTakeChords() {
 
 } // namespace
 
-int main() {
+int main() try {
     ctrlTabOpensTheQuickMenu();
     guidePlusAOpensTheQuickMenu();
     aLoneGuideTapIsGuide();
     gameActionsTakeChords();
     std::printf("shortcut_router: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

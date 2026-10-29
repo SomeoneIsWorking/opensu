@@ -4,6 +4,7 @@
 
 #include "audio_outputs.hpp"
 #include "host_fakes.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -31,9 +32,11 @@ void withoutAMixerSaysWhy() {
 
 } // namespace
 
-int main() {
+int main() try {
     listsAndChooses();
     withoutAMixerSaysWhy();
     std::printf("audio_outputs: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

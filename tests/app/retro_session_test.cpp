@@ -13,6 +13,7 @@
 #include "retro_session.hpp"
 #include "support/fake_runner.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -84,7 +85,7 @@ void loadFailureIsHandedOver() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         eachLaunchHasItsOwnFile();
         requestsReachTheRunner();
@@ -95,4 +96,6 @@ int main() {
     }
     std::printf("retro_session: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

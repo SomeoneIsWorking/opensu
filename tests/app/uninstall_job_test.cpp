@@ -17,6 +17,7 @@
 #include "library/gog_installs.hpp"
 #include "library/wine.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -280,7 +281,7 @@ exit 0
 
 } // namespace
 
-int main() {
+int main() try {
     const opensu::test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "uninstall-job"};
     testEpic(scratch.path() / "epic");
     testGog(scratch.path() / "gog");
@@ -288,4 +289,6 @@ int main() {
     testInstallsRefuse(scratch.path() / "installs");
     std::printf("uninstall_job: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -246,7 +247,7 @@ void largeRailsPlaceOnlyWhatIsNearTheCanvas() {
 
 } // namespace
 
-int main() {
+int main() try {
     largeRailsPlaceOnlyWhatIsNearTheCanvas();
     tileUnderThePointer();
     iconScales();
@@ -262,4 +263,6 @@ int main() {
     carouselBetween();
     std::printf("rail_layout: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

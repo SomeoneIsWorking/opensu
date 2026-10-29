@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -70,10 +71,12 @@ void followsTheHold() {
 
 } // namespace
 
-int main() {
+int main() try {
     rowsAreExactlyTheModifiersChords();
     rowsListTheGamesChords();
     followsTheHold();
     std::printf("chord_hint: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

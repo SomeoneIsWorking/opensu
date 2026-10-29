@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -190,7 +191,7 @@ void avChanges() {
 
 } // namespace
 
-int main() {
+int main() try {
     directories();
     pixelFormats();
     flags();
@@ -199,4 +200,6 @@ int main() {
     avChanges();
     std::printf("core_environment: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

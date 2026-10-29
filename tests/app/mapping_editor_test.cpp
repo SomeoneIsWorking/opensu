@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -421,7 +422,7 @@ void settingsControlsHoldsTheOtherScopes(const fs::path& dir) {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "mapping_editor"};
         aGameGetsItsOwnMapping(scratch.path() / "game");
@@ -435,4 +436,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

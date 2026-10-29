@@ -1,6 +1,7 @@
 // The Downloads page's model: every source merged into one list, ordered, with each owner's state
 // and actions, and ended downloads kept.
 #include "downloads_board.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -455,7 +456,7 @@ void testRomsetLists() {
 
 } // namespace
 
-int main() {
+int main() try {
     testMergesEverySource();
     testSteamTitles();
     testSteamTitleNotFrozen();
@@ -473,4 +474,6 @@ int main() {
     testRomsetLists();
     std::printf("downloads_board: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

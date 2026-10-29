@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "game_screen.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -37,8 +38,10 @@ void theChordListLeavesThePadsToTheGame() {
 
 } // namespace
 
-int main() {
+int main() try {
     theChordListLeavesThePadsToTheGame();
     std::printf("game_screen: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

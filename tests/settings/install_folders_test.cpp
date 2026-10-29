@@ -8,6 +8,7 @@
 
 #include <unistd.h>
 
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -76,7 +77,7 @@ void resolvesWithTheStoresOwn() {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "install-folders";
     fs::remove_all(root);
     fs::create_directories(root);
@@ -86,4 +87,6 @@ int main() {
     fs::remove_all(root);
     std::printf("install_folders: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

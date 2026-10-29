@@ -24,6 +24,7 @@
 #include "plugin_service.hpp"
 #include "steam/client_modes.hpp"
 #include "support/fake_interface_text.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -352,7 +353,7 @@ void theSwitchAppliesAChange(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "integration-flow";
     theChooserAsksUntilDone(root);
     allOffIsAChoice(root);
@@ -365,4 +366,6 @@ int main() {
     fs::remove_all(root);
     std::printf("integration_flow: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

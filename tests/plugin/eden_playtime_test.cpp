@@ -11,6 +11,7 @@
 
 #include "library/play_time.hpp"
 #include "plugin_rig.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -35,7 +36,7 @@ std::string playtimeBin(const std::vector<std::pair<std::uint64_t, std::uint64_t
 
 } // namespace
 
-int main() {
+int main() try {
     test::PluginRig rig{fs::path{OPENSU_TEST_SCRATCH} / "eden_playtime"};
     const fs::path playTime = rig.root() / "data" / "eden" / "play_time" / "playtime.bin";
     const fs::path gameList = rig.root() / "cache" / "eden" / "game_list";
@@ -107,4 +108,6 @@ int main() {
     fs::remove_all(rig.root());
     std::printf("eden_playtime: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

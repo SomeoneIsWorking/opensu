@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 #include "tile_motion.hpp"
 
 namespace {
@@ -124,7 +125,7 @@ void iconPop() {
 
 } // namespace
 
-int main() {
+int main() try {
     easing();
     pinRule();
     pinnedDock();
@@ -135,4 +136,6 @@ int main() {
     iconPop();
     std::printf("dock_motion: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <string>
 
+#include "support/test_main.hpp"
 #include "support/zip_fixture.hpp"
 
 namespace {
@@ -126,10 +127,12 @@ void testRanges() {
 
 } // namespace
 
-int main() {
+int main() try {
     testArchive();
     testChecks();
     testRanges();
     std::printf("zip_archive: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

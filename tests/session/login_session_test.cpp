@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "host/runner.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -90,10 +91,12 @@ void aSessionThatRanAWhileIsLeftAlone() {
 
 } // namespace
 
-int main() {
+int main() try {
     fs::create_directories(OPENSU_TEST_SCRATCH);
     aFailingGamescopeHandsTheLoginBack();
     aMissingGamescopeHandsTheLoginBack();
     aSessionThatRanAWhileIsLeftAlone();
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

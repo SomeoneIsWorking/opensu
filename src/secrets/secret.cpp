@@ -4,7 +4,7 @@
 
 namespace opensu::secrets {
 
-void wipeBytes(void* data, std::size_t size) {
+void wipeBytes(void* data, std::size_t size) noexcept {
     OPENSSL_cleanse(data, size);
 }
 

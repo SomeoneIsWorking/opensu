@@ -1,6 +1,7 @@
 // The desktop's night light: kwinrc's [NightColor] group, knighttimed's schedule as busctl prints
 // it, KWin's temperature through the day, and when knighttimed is asked.
 #include "host/desktop_night_light.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -158,11 +159,13 @@ void reader() {
 
 } // namespace
 
-int main() {
+int main() try {
     settings();
     scheduleParsing();
     temperatures();
     reader();
     std::printf("desktop_night_light: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

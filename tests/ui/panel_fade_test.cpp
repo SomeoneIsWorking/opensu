@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -49,10 +50,12 @@ void reversalStartsFromWhereItWas() {
 
 } // namespace
 
-int main() {
+int main() try {
     showFadesAndGrows();
     hideFadesOutThenStopsDrawing();
     reversalStartsFromWhereItWas();
     std::printf("panel_fade: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

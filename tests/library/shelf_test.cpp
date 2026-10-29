@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "library/catalog_loader.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -342,7 +343,7 @@ void testCatalogStatuses() {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         testHomeShelf();
         testLibraryShelf();
@@ -361,4 +362,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

@@ -10,8 +10,9 @@
 #include "host/desktop_request.hpp"
 #include "lucent/log.h"
 #include "session/compositor_session.hpp"
+#include "support/test_main.hpp"
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     if (opensu::config::read().insideGamescope) {
         lucent::info("driver", "child up in gamescope (pid {})", getpid());
         pause();
@@ -26,4 +27,6 @@ int main(int argc, char** argv) {
                                                opensu::host::DesktopRequest{args[2]}};
     const opensu::display::Output output{std::stoi(args[3]), std::stoi(args[4]), 60};
     return session.run(output, {});
+} catch (...) {
+    return opensu::test::escaped();
 }

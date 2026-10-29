@@ -19,6 +19,7 @@
 #include "preferences.hpp"
 #include "settings/mapping_store.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -143,9 +144,11 @@ void ordinaryRunsWriteInPlace() {
 
 } // namespace
 
-int main() {
+int main() try {
     hiddenRunsKeepThePlayersFiles();
     ordinaryRunsWriteInPlace();
     std::printf("player_files: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

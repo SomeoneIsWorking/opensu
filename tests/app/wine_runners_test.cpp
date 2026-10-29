@@ -11,6 +11,7 @@
 
 #include "host_services.hpp"
 #include "support/scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -61,7 +62,7 @@ void settle(const app::WineRunners& runners) {
 
 } // namespace
 
-int main() {
+int main() try {
     const test::ScratchDir scratch{OPENSU_TEST_SCRATCH, "wine_runners"};
     // Nothing listens on the discard port, should a check start after all.
     app::WineRunners hidden{scratch.path(), "http://127.0.0.1:9/release.json", true, signedIn()};
@@ -75,4 +76,6 @@ int main() {
 
     std::puts("wine_runners: ok");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

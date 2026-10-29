@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -23,8 +24,10 @@ void themeBackgrounds() {
 
 } // namespace
 
-int main() {
+int main() try {
     themeBackgrounds();
     std::printf("round_shape: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

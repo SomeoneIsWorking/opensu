@@ -7,6 +7,7 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 
 #include "config/config.hpp"
 
@@ -53,6 +54,8 @@ class PlayerFiles {
 
   private:
     std::filesystem::path copiesDir_;
+    // Converted at start: on Windows a path's narrow form can throw, and the destructor logs it.
+    std::string copiesShown_;
     std::filesystem::path settings_;
     std::filesystem::path gameSettings_;
     std::filesystem::path mappings_;

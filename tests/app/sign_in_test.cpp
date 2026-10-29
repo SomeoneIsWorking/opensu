@@ -9,6 +9,7 @@
 
 #include "library/gog_token.hpp"
 #include "support/loopback_server.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -55,7 +56,7 @@ fs::path freshDir() {
 
 } // namespace
 
-int main() {
+int main() try {
     const fs::path dir = freshDir();
     LoopbackServer gog{[](const lucent::http::Request& request) {
         const std::string& target = request.target;
@@ -105,4 +106,6 @@ int main() {
 
     std::printf("sign-in: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

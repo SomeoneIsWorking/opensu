@@ -15,6 +15,7 @@
 
 #include "check.hpp"
 #include "scratch_dir.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -122,7 +123,7 @@ void failedWrite(const std::filesystem::path& dir) {
 
 } // namespace
 
-int main() {
+int main() try {
     const ScratchDir scratch{OPENSU_TEST_SCRATCH, "save_memory"};
     roundTrip(scratch.path());
     smallerFile(scratch.path());
@@ -131,4 +132,6 @@ int main() {
     failedWrite(scratch.path());
     std::printf("save_memory: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

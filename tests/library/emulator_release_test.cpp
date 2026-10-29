@@ -12,6 +12,7 @@
 #include "library/downloaded_emulators.hpp"
 #include "library/emulator_release.hpp"
 #include "support/release_server.hpp"
+#include "support/test_main.hpp"
 #include "ui/check.hpp"
 
 namespace {
@@ -26,7 +27,7 @@ std::string read(const fs::path& file) {
     return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
 }
 
-const opensu::net::WebClient::Progress anyProgress = [](std::uint64_t, std::uint64_t) {
+constexpr auto anyProgress = [](std::uint64_t, std::uint64_t) {
     return true;
 };
 
@@ -179,7 +180,7 @@ void removeDeletesOnlyOurs(const fs::path& root) {
 
 } // namespace
 
-int main() {
+int main() try {
     try {
         const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "emulator_release";
         std::error_code ec;
@@ -196,4 +197,6 @@ int main() {
         std::fprintf(stderr, "FAIL: unhandled exception: %s\n", error.what());
         return 1;
     }
+} catch (...) {
+    return opensu::test::escaped();
 }

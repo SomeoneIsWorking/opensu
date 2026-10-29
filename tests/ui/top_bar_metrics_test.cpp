@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "check.hpp"
+#include "support/test_main.hpp"
 
 namespace {
 
@@ -113,7 +114,7 @@ void titlePill() {
 
 } // namespace
 
-int main() {
+int main() try {
     titlePill();
     phone640();
     reference853();
@@ -122,4 +123,6 @@ int main() {
     hintPanels();
     std::printf("top_bar_metrics: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

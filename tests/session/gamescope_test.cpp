@@ -1,5 +1,6 @@
 // The Gamescope command line that wraps opensu: exact argv, with and without a refresh rate.
 #include "session/gamescope.hpp"
+#include "support/test_main.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -22,7 +23,7 @@ using Args = std::vector<std::string>;
 
 } // namespace
 
-int main() {
+int main() try {
     const auto withRefresh = gamescopeArgs(Output{2560, 1440, 144}, "/usr/bin/opensu", {"--x"});
     expect(withRefresh == Args{"-W", "2560", "-H", "1440", "-w", "2560", "-h", "1440", "-r", "144",
                                "-f", "--close-focused-window", "--", "/usr/bin/opensu", "--x"},
@@ -45,4 +46,6 @@ int main() {
 
     std::printf("gamescope: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }
