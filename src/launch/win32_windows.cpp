@@ -1,4 +1,4 @@
-#include "win32_windows.hpp"
+#include "desktop_windows.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -25,7 +25,7 @@ bool showable(HWND window) {
 
 } // namespace
 
-bool Win32Windows::anyOwnedBy(const std::vector<ProcessId>& pids) {
+bool DesktopWindows::anyOwnedBy(const std::vector<ProcessId>& pids) {
     if (pids.empty()) {
         return false;
     }

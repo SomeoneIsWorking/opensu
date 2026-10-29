@@ -79,11 +79,15 @@ class VulkanInstance {
     /// What every instance is made with, the core's wishes added to it.
     std::vector<const char*> extensions_;
     std::vector<const char*> layers_;
+    /// VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR where the loader offers portability
+    /// enumeration, so a portability driver (MoltenVK) is listed.
+    VkInstanceCreateFlags flags_{0};
 };
 
 class VulkanDevice {
   public:
-    /// The best device with a graphics queue that, given a `surface`, can also present to it. With
+    /// The best device with a graphics queue that, given a `surface`, can also present to it, with
+    /// VK_KHR_portability_subset enabled where the device has it, as the spec requires. With
     /// a core's `negotiation` (may be null) the core creates it on that GPU (create_device2, else
     /// create_device), the runner's extensions added; if the core declines, the runner makes it.
     VulkanDevice(const VulkanInstance& instance, VkSurfaceKHR surface,

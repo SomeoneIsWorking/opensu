@@ -4,6 +4,12 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      platform:
+        description: "The one platform to build, or all"
+        type: choice
+        options: [all, linux, appimage, android, windows, macos]
+        default: all
 
 permissions:
   contents: read
@@ -15,6 +21,7 @@ concurrency:
 jobs:
   linux:
     name: Linux (Fedora 44, Clang)
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'linux'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -35,6 +42,7 @@ jobs:
 
   appimage:
     name: AppImage (Ubuntu 24.04 floor)
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'appimage'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -62,6 +70,7 @@ jobs:
 
   android:
     name: Signed Android APK (arm64-v8a, x86_64)
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'android'
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
@@ -115,6 +124,7 @@ jobs:
 
   windows:
     name: Windows (clang-cl, vcpkg)
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'windows'
     runs-on: windows-2025
     timeout-minutes: 240
     steps:
@@ -165,5 +175,60 @@ jobs:
             build/windows-ci/package/smoke/*.log
             build/windows-ci/package/out/
             build/windows-ci/deps/vcpkg/buildtrees/**/*.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  macos:
+    name: macOS (arm64, Homebrew LLVM, vcpkg)
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'macos'
+    runs-on: macos-15
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.19"
+          checksum: "a9a8df1eedeb192f2e47e40e2faabfb387db4b850209118786d42f89dde3e0ba"
+          enable-cache: false
+      # Homebrew checks each bottle's SHA-256; Xcode's Clang has no std::jthread.
+      - name: Homebrew's LLVM and Ninja
+        run: brew install llvm ninja
+      # vcpkg's built ports, keyed by what decides them; saved even when a later step fails.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/macos-ci/vcpkg-cache
+          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'packaging/macos/triplets/*') }}-${{ github.run_id }}
+          restore-keys: vcpkg-macos-${{ hashFiles('vcpkg.json', 'packaging/macos/triplets/*') }}-
+      - name: Pinned sources, configure, build, lint, test (the runner's Metal device through MoltenVK)
+        run: uv run --frozen python -m tools.check all --platform macos --build-dir build/macos-ci
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: always()
+        with:
+          path: build/macos-ci/vcpkg-cache
+          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'packaging/macos/triplets/*') }}-${{ github.run_id }}
+      - name: Build the app, unpack it and draw a frame with it
+        run: uv run --frozen python -m tools.package macos --build-dir build/macos-ci --version "ci-${GITHUB_SHA::12}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos
+          path: |
+            build/macos-ci/package/out/
+            build/macos-ci/package/smoke/frame.png
+            build/macos-ci/package/smoke/runner.png
+            build/macos-ci/package/smoke/*.log
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: macos-logs
+          path: |
+            build/macos-ci/cmake/CMakeFiles/*.log
+            build/macos-ci/cmake/Testing/Temporary/LastTest.log
+            build/macos-ci/package/smoke/
+            build/macos-ci/deps/vcpkg/buildtrees/**/*.log
           retention-days: 7
           if-no-files-found: ignore

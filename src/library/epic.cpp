@@ -11,7 +11,7 @@
 #include "install_log.hpp"
 #include "launch/command.hpp"
 #include "lucent/log.h"
-#include "windows_builds.hpp"
+#include "store_builds.hpp"
 
 namespace opensu::library::epic {
 namespace {

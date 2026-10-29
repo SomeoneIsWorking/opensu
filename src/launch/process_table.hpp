@@ -1,5 +1,6 @@
 // process_table — the OS's table of running processes, under ProcessTree: /proc on Linux
-// (`process_table_proc.cpp`), none elsewhere yet (`process_table_none.cpp`).
+// (`process_table_proc.cpp`), Toolhelp32 on Windows (`process_table_toolhelp.cpp`), libproc and
+// sysctl on macOS (`process_table_darwin.cpp`), none on Android (`process_table_none.cpp`).
 #pragma once
 
 #include <string>

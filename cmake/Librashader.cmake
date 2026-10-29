@@ -1,7 +1,8 @@
 # librashader, which runs libretro slang shader presets in opensu-retro: the C API of the pinned
 # fork, built with cargo (Vulkan runtime only) as an ExternalProject and staged where the runner
 # loads it at run time, `<prefix>/<libdir>/opensu/librashader.so` (`.dll` on Windows,
-# `Config::librashader`), in the build tree and installed. A Windows build targets
+# `Contents/Frameworks/librashader.dylib` in the macOS app, `Config::librashader`), in the build
+# tree and installed. A Windows build targets
 # x86_64-pc-windows-msvc with clang-cl and lld-link, also from a Linux host through the xwin SDK; an
 # Android build targets the ABI's Rust target with the NDK's clang and is packaged beside the
 # runner as librashader.so. The runtime is MPL-2.0 (or GPL-3); its C header librashader.h is MIT
@@ -26,9 +27,15 @@ set(OPENSU_LIBRASHADER_HEADER_SHA256
 # The release the fork's MSRV names (Rust 1.88 without wgpu).
 set(OPENSU_LIBRASHADER_RUST_MINIMUM "1.88")
 
-# Where the runner finds the library, relative to the directory above its own.
+# Where the runner finds the library, relative to the directory above its own: openSU's own
+# folder in the library directory, or the app bundle's Frameworks on macOS.
+if(APPLE)
+    set(OPENSU_LIBRASHADER_DIR "${CMAKE_INSTALL_LIBDIR}")
+else()
+    set(OPENSU_LIBRASHADER_DIR "${CMAKE_INSTALL_LIBDIR}/opensu")
+endif()
 set(OPENSU_LIBRASHADER_RELATIVE
-    "${CMAKE_INSTALL_LIBDIR}/opensu/librashader${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    "${OPENSU_LIBRASHADER_DIR}/librashader${CMAKE_SHARED_LIBRARY_SUFFIX}")
 
 FetchContent_Declare(librashader_header
     URL "https://raw.githubusercontent.com/SomeoneIsWorking/librashader/${OPENSU_LIBRASHADER_COMMIT}/include/librashader.h"
@@ -168,7 +175,7 @@ function(opensu_add_librashader)
         INDEPENDENT TRUE
         USES_TERMINAL ON)
 
-    install(FILES "${staged}" DESTINATION "${CMAKE_INSTALL_LIBDIR}/opensu")
+    install(FILES "${staged}" DESTINATION "${OPENSU_LIBRASHADER_DIR}")
 endfunction()
 
 if(OPENSU_BUILD_LIBRASHADER)

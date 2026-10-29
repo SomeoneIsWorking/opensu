@@ -17,8 +17,8 @@ inline constexpr std::string_view gamescopeWsiOff = "DISABLE_GAMESCOPE_WSI";
 /// threaded process is not safe), owning the strings the pointers refer to.
 class ChildEnvironment {
   public:
-    /// `entries` is a null-terminated "NAME=value" array, as `environ` is.
-    explicit ChildEnvironment(char** entries);
+    /// openSU's own environment with each "NAME=value" of `added` set over it.
+    explicit ChildEnvironment(const std::vector<std::string>& added = {});
 
     [[nodiscard]] char** data() noexcept {
         return pointers_.data();

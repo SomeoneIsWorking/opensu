@@ -1,8 +1,8 @@
 # Windows, macOS and Android releases beside the Linux AppImage
 
 Status: open. Goal G005. Step 1 landed (S042, "Step 1 as built"); step 2, the Windows release,
-landed (S046, "Step 2 as built"); step 3 (macOS) is open; step 4 (Android) is in progress
-("Step 4 as built").
+landed (S046, "Step 2 as built"); step 3, the macOS release, is in progress (S047, "Step 3 as
+built"); step 4 (Android) is in progress ("Step 4 as built").
 
 Requested: "I want Windows/Linux/macOS/Android releases, ofc the isolation and gamescope features
 only work in Linux, other platforms just act as a launcher".
@@ -350,6 +350,83 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
   the shell, the runner ran in its job but the shell stayed on "Starting": `Handoff` finds a
   started game by its command line (`ProcessTree::treesMatching`), which Wine cannot read (class
   60 above), so this needs real Windows.
+
+## Step 3 as built
+
+Every macOS backend is one source file picked in its owner's CMakeLists (`APPLE`); Linux keeps its
+code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_launcher_unavailable`,
+`shell_session_none`, `game_overlay_none`) are gone: every OS openSU configures for now has its own.
+
+- `launch::ProcessLauncher`: `process_launcher_process_group.cpp`. `posix_spawnp` with
+  `POSIX_SPAWN_SETPGROUP` (the program leads a new group), no signal blocked or ignored,
+  `POSIX_SPAWN_CLOEXEC_DEFAULT` (only stdin and the output file or openSU's stdout and stderr are
+  handed over) and `posix_spawn_file_actions_addchdir_np` for the working folder. The environment
+  is openSU's with the launch's variables set over it (`ChildEnvironment`, now the one reader of
+  `environ` for every POSIX backend). `running` is the leader or any group member alive
+  (`kill(-pgid, 0)`); `stop` sends SIGTERM to the group, SIGKILL after 5 s, and reaps the leader.
+  Weaker than a scope or a job: a process that calls `setsid` or `setpgid` leaves the group and
+  outlives `stop`.
+- Short-lived children: `posix_child.cpp` as on Linux; its pipes come from `child_pipe.hpp`
+  (`pipe2` on Linux, `pipe` then `FD_CLOEXEC` on macOS, which has no `pipe2`), and a SIGPIPE from a
+  write to a closed reader is taken with `sigpending`/`sigwait` (macOS has no `sigtimedwait`).
+- `launch::table`: `process_table_darwin.cpp` (`proc_listallpids`, `proc_pidinfo` for the parent,
+  `KERN_PROCARGS2` for the arguments, each ended by a NUL as /proc's are; another user's process
+  reads empty).
+- `launch::GameWindows`: `DesktopWindows` (`desktop_windows.hpp`, was `Win32Windows`), whose
+  backend is `win32_windows.cpp` or `quartz_windows.cpp`: an on-screen window in layer 0 owned by
+  one of the game's pids (`CGWindowListCopyWindowInfo`; owner pids need no screen-recording
+  permission). `app::ShellSession` is `shell_session_desktop.cpp` (was `shell_session_win32.cpp`)
+  on both, and `app::GameOverlay` the raised window on both.
+- Steam: `standardRoots` is `~/Library/Application Support/Steam` and a running game is a process
+  whose arguments hold `/common/<installdir>/` (`steam_host_darwin.cpp`); `DesktopSteam` is a
+  running `steam_osx` (`desktop_steam_process.cpp`); `requestSteamRun` opens
+  `steam://rungameid/<id>` with `/usr/bin/open` (`steam_request_open.cpp`). Steam stays Normal.
+- Stores: `library/store_builds.hpp` (was `windows_builds.hpp`) says which builds run here. GOG's
+  listing reads `worksOn.Mac`; an install takes this OS's own build (`linux`, `windows`, `osx`),
+  else a Windows one only where those run (natively or under Wine; not on macOS), else refuses with
+  "GOG lists no macOS build of this game". This also stops Windows from installing a game's Linux
+  build. legendary picks Mac builds on macOS by itself (its `default_platform` falls back to `Mac`
+  on Darwin), so `list` shows the titles with a Mac build and `install` takes it. Add a game offers
+  a file and Steam shortcuts (`add_game_offer_desktop.cpp`, shared with Windows).
+- Cores: the buildbot's `apple/osx/arm64` `.dylib`s (`coreTarget`, from step 1).
+- Locations: Lucent's resolvers as they were (`~/Library/Application Support/openSU`,
+  `~/Library/Caches/openSU`, `$TMPDIR/openSU`).
+- Runner: `VulkanInstance` enables `VK_KHR_portability_enumeration` with
+  `VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR` wherever the loader offers it (MoltenVK's ICD
+  is marked `is_portability_driver`, so the loader hides it otherwise), also on an instance a core
+  creates; `VulkanDevice` enables `VK_KHR_portability_subset` wherever the device offers it, as the
+  spec requires. Both are capabilities, not OS checks; on Linux the loader offers the first and no
+  driver the second.
+- Install layout: on macOS the install prefix is `openSU.app/Contents`: `CMAKE_INSTALL_BINDIR`
+  `MacOS`, `DATADIR` `Resources`, `LIBDIR` `Frameworks`, install RPATH
+  `@executable_path/../Frameworks` (set before any project includes GNUInstallDirs). The assets
+  path is `OPENSU_ASSETS_RELATIVE` (`Resources/opensu` there, `share/opensu` elsewhere) and
+  librashader is `Frameworks/librashader.dylib`, in the build tree as installed.
+- Dependencies: vcpkg at the manifest's baseline with `packaging/macos/triplets/arm64-osx-opensu.cmake`
+  (dylibs, release, macOS 14), installed before configuring because gpu2d's `ProvisionShadercross`
+  builds SDL_shadercross against vcpkg's SDL3; libcurl is the system's on macOS (`"platform":
+  "!osx"`), which trusts the Keychain. Dylibs, not static ports: pkg-config's flags for a static
+  SDL3 leave out the frameworks it needs. MoltenVK 1.4.2 from its release tarball by SHA-256.
+- Compiler: Homebrew's LLVM Clang (`CMAKE_CXX_COMPILER_ID` `Clang`), against the SDK and the
+  system's libc++ dylib; Xcode's AppleClang is not built (its libc++ keeps `std::jthread` behind
+  `-fexperimental-library`, which openSU uses throughout).
+- Package: `tools.package macos` installs into `openSU.app/Contents`, writes `Info.plist`, follows
+  every `@rpath` dylib the executables and Frameworks link and copies it from vcpkg into
+  Frameworks (anything linked from outside the app and the system is refused), adds MoltenVK and
+  its ICD manifest at `Resources/vulkan/icd.d` (the loader's in-bundle search path; its
+  `library_path` points into Frameworks), signs ad hoc inside out (`codesign -s -`) and verifies,
+  then zips with `ditto` as `openSU-<version>-macos-arm64.zip` with its `.sha256`. Its smoke run
+  unpacks the zip, verifies the signature, runs `--help`, `--render frame.png`, and the bundled
+  `opensu-retro` on the tests' fake core with `--frame-png runner.png` and no `VK_*` variable, so
+  the frame comes through the app's own loader and MoltenVK. No icon yet (no `.icns`).
+- Tests: `tests/launch/darwin_launch_test.cpp` covers the process group, the process table and the
+  window list with real processes.
+- CI: `macos` in `ci.yml` and `release.yml` on `macos-15`: `brew install llvm ninja`,
+  `tools.check all --platform macos` (vcpkg binary cache restored and saved like Windows'), ctest
+  with MoltenVK as the only Vulkan driver (`VK_DRIVER_FILES`), so the runner's tests draw on the
+  runner's Metal device and the shell's through gpu2d's Metal backend; lint is clang-tidy over the
+  macOS tree. `tools.package macos` uploads the zip, `frame.png` and `runner.png`. A manual CI run
+  can pick one platform (`platform` input).
 
 ## Step 4 as built
 

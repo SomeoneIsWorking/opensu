@@ -7,7 +7,6 @@ hidden windows draw through Mesa's lavapipe from a pinned mesa-dist-win release,
 runner has no GPU; an elevated run (a runner's) registers it as a machine Vulkan driver.
 """
 
-import json
 import shutil
 import subprocess
 import sys
@@ -16,7 +15,6 @@ from pathlib import Path
 
 from tools import download
 from tools.check import process
-from tools.check.pins import GitPin
 
 REPO = Path(__file__).resolve().parents[2]
 TRIPLET = "x64-windows-clangcl"
@@ -47,12 +45,6 @@ def require_host() -> None:
             "cmake/toolchains/windows-clang-cl.cmake compiles against an xwin SDK, but vcpkg's "
             "OpenSSL needs nmake"
         )
-
-
-def vcpkg_pin() -> GitPin:
-    """vcpkg at vcpkg.json's builtin-baseline: the ports the manifest resolves are that commit's."""
-    baseline = json.loads((REPO / "vcpkg.json").read_text())["builtin-baseline"]
-    return GitPin("vcpkg", "https://github.com/microsoft/vcpkg.git", baseline)
 
 
 def bootstrap(vcpkg: Path, env: Mapping[str, str]) -> None:

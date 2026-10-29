@@ -1,9 +1,9 @@
 // process_launcher — starts a program in a group of its own that owns everything it starts, and
 // ends the whole group. One backend per OS, picked in CMakeLists.txt: a transient systemd user
 // scope on Linux (`process_launcher_systemd_scope.cpp`), a Job Object on Windows
-// (`process_launcher_job_object.cpp`); on Android an intent from the shell's Activity, which owns
-// only openSU's own runner (`process_launcher_intent.cpp`); elsewhere a launch refuses until that
-// OS's backend lands (`process_launcher_unavailable.cpp`).
+// (`process_launcher_job_object.cpp`), a process group on macOS
+// (`process_launcher_process_group.cpp`); on Android an intent from the shell's Activity, which
+// owns only openSU's own runner (`process_launcher_intent.cpp`).
 #pragma once
 
 #include <filesystem>
@@ -16,7 +16,9 @@ namespace opensu::launch {
 
 /// Runs a command inside its own group. On Linux the group is a systemd scope, whose cgroup is
 /// the ownership: processes that setsid or double-fork stay in it, so stopping the scope ends all
-/// of them. On Windows it is a Job Object (kill on close), which every child process joins.
+/// of them. On Windows it is a Job Object (kill on close), which every child process joins. On
+/// macOS it is a process group led by the program; a process that calls setsid or setpgid leaves
+/// it and is not stopped with it.
 /// Every call is thread-safe, so a controller handler can stop a launch another thread is
 /// waiting on.
 class ProcessLauncher {
@@ -29,7 +31,8 @@ class ProcessLauncher {
                                         const std::vector<std::filesystem::path>& executablePath);
     /// Whether a group started with no `output` file still has its output kept: on Linux it is
     /// openSU's own stdout, which the session keeps; on Android the started app logs to logcat
-    /// itself. A program in a Job Object gets the stdout of openSU, a GUI program, which has none.
+    /// itself. A program in a Job Object gets the stdout of openSU, a GUI program, which has none;
+    /// one in a macOS process group gets the app's, which Finder points at /dev/null.
     [[nodiscard]] static bool keepsOutput();
     ProcessLauncher& operator=(const ProcessLauncher&) = delete;
     ~ProcessLauncher();
@@ -38,8 +41,7 @@ class ProcessLauncher {
     /// "NAME=value" of `environment` added to its environment, in `workingDirectory` (openSU's
     /// own when empty), its stdout and stderr appended to `output` when one is given (openSU's
     /// own otherwise). Returns once the group exists, so a following stop() always reaches it.
-    /// The program starts with no signal blocked. False with `failure` when it cannot be started,
-    /// which on an OS without a backend is every time.
+    /// The program starts with no signal blocked. False with `failure` when it cannot be started.
     [[nodiscard]] bool start(const std::string& group, const std::string& program,
                              const std::vector<std::string>& args, std::string& failure,
                              const std::vector<std::string>& environment = {},
@@ -55,9 +57,9 @@ class ProcessLauncher {
     [[nodiscard]] bool startedRunning();
 
     /// Asks every process in the group to end and returns once the group is gone: on Linux
-    /// SIGTERM, and systemd SIGKILLs whatever is left after TimeoutStopSec (5 s); on Windows
-    /// WM_CLOSE to the group's windows, and the job is terminated after 5 s. Then reaps the
-    /// started one.
+    /// SIGTERM, and systemd SIGKILLs whatever is left after TimeoutStopSec (5 s); on macOS SIGTERM
+    /// to the group and SIGKILL after 5 s; on Windows WM_CLOSE to the group's windows, and the job
+    /// is terminated after 5 s. Then reaps the started one.
     void stop();
 
     /// How the started process ended (128 plus the signal when a signal did it; its exit code on

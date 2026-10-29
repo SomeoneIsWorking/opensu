@@ -22,7 +22,7 @@ InstallLayout installLayout(std::string_view assets) {
     const std::filesystem::path self = shellExecutable();
     return InstallLayout{
         .executable = self,
-        .assetsDir = assets.empty() ? self.parent_path().parent_path() / "share" / "opensu"
+        .assetsDir = assets.empty() ? self.parent_path().parent_path() / OPENSU_ASSETS_RELATIVE
                                     : std::filesystem::path{assets},
         .gamescope = gamescopeBeside(self),
         .retroRunner = retroRunnerBeside(self),

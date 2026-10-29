@@ -5,13 +5,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from tools.check import process, windows
+from tools.check import macos, process, windows
 from tools.check.deps import Deps
 
 REPO = Path(__file__).resolve().parents[2]
 
 GAMESCOPE_MODES = ("podman", "native", "off")
-PLATFORMS = ("linux", "windows")
+PLATFORMS = ("linux", "windows", "macos")
 
 
 @dataclass(frozen=True)
@@ -35,7 +35,7 @@ class Plan:
     def scratch(self) -> Path:
         return self.build_dir / "tmp"
 
-    def configure_args(self) -> list[str]:
+    def configure_args(self, env: Mapping[str, str]) -> list[str]:
         if self.platform not in PLATFORMS:
             raise ValueError(f"platform must be one of {PLATFORMS}, not {self.platform}")
         if self.gamescope not in GAMESCOPE_MODES:
@@ -48,6 +48,16 @@ class Plan:
                 f"-DLUCENT_ROOT={self.deps.lucent}",
                 f"-DGPU2D_ROOT={self.deps.gpu2d}",
                 *windows.configure_defines(self.deps.vcpkg, self.build_dir),
+                *self.defines,
+            ]  # fmt: skip
+        if self.platform == "macos":
+            return [
+                "cmake", "-S", str(REPO), "-B", str(self.cmake_dir), "-G", "Ninja",
+                f"-DCMAKE_BUILD_TYPE={self.build_type}",
+                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+                f"-DLUCENT_ROOT={self.deps.lucent}",
+                f"-DGPU2D_ROOT={self.deps.gpu2d}",
+                *macos.configure_defines(self.deps.vcpkg, self.build_dir, env),
                 *self.defines,
             ]  # fmt: skip
         args = [
@@ -86,7 +96,7 @@ def compiler_id(cmake_dir: Path) -> str:
 
 
 def configure(plan: Plan, env: Mapping[str, str]) -> None:
-    process.run(plan.configure_args(), env)
+    process.run(plan.configure_args(env), env)
     found = compiler_id(plan.cmake_dir)
     if found != "Clang":
         raise RuntimeError(
@@ -101,6 +111,8 @@ def build(plan: Plan, env: Mapping[str, str]) -> None:
 def test(plan: Plan, env: Mapping[str, str]) -> None:
     if plan.platform == "windows":
         env = windows.lavapipe(plan.build_dir / "lavapipe", env)
+    if plan.platform == "macos":
+        env = macos.with_moltenvk(plan.build_dir / "moltenvk", env)
     process.run(["ctest", "--test-dir", plan.cmake_dir, "--output-on-failure"], env)
 
 

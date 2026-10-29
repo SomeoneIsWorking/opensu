@@ -1,10 +1,9 @@
 // shell_session — the session openSU's shell runs in and what it offers: its own compositor started
 // around the shell, the windows a launched game shows, the focus, and Steam's own windows kept out
 // of sight. One backend per OS, picked in CMakeLists.txt: Gamescope on Linux
-// (`shell_session_gamescope.cpp`, the only user of `src/session`); the Windows desktop, whose
-// windows tell when a game shows (`shell_session_win32.cpp`); Android's Activity tasks
-// (`shell_session_android.cpp`); none elsewhere (`shell_session_none.cpp`), where the shell runs on
-// the desktop as it is.
+// (`shell_session_gamescope.cpp`, the only user of `src/session`); the Windows or macOS desktop,
+// whose windows tell when a game shows (`shell_session_desktop.cpp`); Android's Activity tasks
+// (`shell_session_android.cpp`).
 #pragma once
 
 #include <memory>
@@ -39,9 +38,8 @@ class ShellSession {
     [[nodiscard]] virtual bool coversMonitor() const noexcept = 0;
 };
 
-/// The session the shell runs in: inside Gamescope, its windows and focus; on Windows, the
-/// desktop's windows; on Android, its Activity's task; null outside Gamescope on Linux and on
-/// every other OS. Throws
+/// The session the shell runs in: inside Gamescope, its windows and focus; on Windows and macOS,
+/// the desktop's windows; on Android, its Activity's task; null outside Gamescope on Linux. Throws
 /// std::runtime_error when the display cannot be opened.
 [[nodiscard]] std::unique_ptr<ShellSession> openShellSession(const config::Config& config);
 

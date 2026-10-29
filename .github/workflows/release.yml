@@ -127,9 +127,41 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  macos:
+    name: macOS app
+    runs-on: macos-15
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.12.19"
+          checksum: "a9a8df1eedeb192f2e47e40e2faabfb387db4b850209118786d42f89dde3e0ba"
+          enable-cache: false
+      - name: Homebrew's LLVM and Ninja
+        run: brew install llvm ninja
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: build/macos-ci/vcpkg-cache
+          key: vcpkg-macos-${{ hashFiles('vcpkg.json', 'packaging/macos/triplets/*') }}-${{ github.run_id }}
+          restore-keys: vcpkg-macos-${{ hashFiles('vcpkg.json', 'packaging/macos/triplets/*') }}-
+      - name: Build, test, pack and smoke-test the app
+        run: |
+          uv run --frozen python -m tools.check all --platform macos --build-dir build/macos-ci
+          uv run --frozen python -m tools.package macos --build-dir build/macos-ci --version "${GITHUB_REF_NAME#v}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-macos
+          path: build/macos-ci/package/out/
+          retention-days: 7
+          if-no-files-found: error
+
   publish:
     name: GitHub Release
-    needs: [appimage, android, windows]
+    needs: [appimage, android, windows, macos]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -147,6 +179,10 @@ jobs:
         with:
           name: release-windows
           path: out
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-macos
+          path: out
       - name: Verify the checksums
         working-directory: out
         run: sha256sum -c ./*.sha256
@@ -156,5 +192,5 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           gh release create "$GITHUB_REF_NAME" --verify-tag --title "openSU ${GITHUB_REF_NAME#v}" \
-            --notes "Linux x86_64 AppImage (glibc 2.39 or newer; tested on Fedora 44 and Ubuntu 24.04). See the README's Install section for requirements. Android APK for arm64-v8a and x86_64 (Android 9 or newer). Windows x64 per-user installer (Windows 10 or newer; unsigned, so SmartScreen asks once). Verify with \`sha256sum -c\`, the AppImage with the signing key in packaging/appimage/signing-key.asc, the APK's certificate SHA-256 BDC838D582DDC695CDAB431D2053B636EB93A0C2E1C3F468DD002D1011E43238." \
+            --notes "Linux x86_64 AppImage (glibc 2.39 or newer; tested on Fedora 44 and Ubuntu 24.04). See the README's Install section for requirements. Android APK for arm64-v8a and x86_64 (Android 9 or newer). Windows x64 per-user installer (Windows 10 or newer; unsigned, so SmartScreen asks once). macOS app for Apple silicon (macOS 14 or newer; signed ad hoc, so the first start is right-click Open). Verify with \`sha256sum -c\`, the AppImage with the signing key in packaging/appimage/signing-key.asc, the APK's certificate SHA-256 BDC838D582DDC695CDAB431D2053B636EB93A0C2E1C3F468DD002D1011E43238." \
             out/*

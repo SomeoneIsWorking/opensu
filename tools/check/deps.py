@@ -1,12 +1,15 @@
 """Fetching the pinned third-party sources."""
 
+import json
 import subprocess
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from tools.check import process, windows
+from tools.check import macos, process, windows
 from tools.check.pins import GPU2D, LUCENT, GitPin
+
+REPO = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)
@@ -26,6 +29,11 @@ class Deps:
     @property
     def vcpkg(self) -> Path:
         return self.root / "vcpkg"
+
+    @property
+    def build_dir(self) -> Path:
+        """The build directory the sources are fetched for (`<build dir>/deps`)."""
+        return self.root.parent
 
 
 def checkout(pin: GitPin, dest: Path, env: Mapping[str, str]) -> None:
@@ -57,10 +65,22 @@ def _head(dest: Path, env: Mapping[str, str]) -> str:
     return result.stdout.strip()
 
 
+def vcpkg_pin() -> GitPin:
+    """vcpkg at vcpkg.json's builtin-baseline: the ports the manifest resolves are that commit's."""
+    baseline = json.loads((REPO / "vcpkg.json").read_text())["builtin-baseline"]
+    return GitPin("vcpkg", "https://github.com/microsoft/vcpkg.git", baseline)
+
+
 def fetch(deps: Deps, env: Mapping[str, str], platform: str = "linux") -> None:
-    """Every pinned source the platform builds with in place."""
+    """Every pinned source the platform builds with in place; on macOS also the manifest's ports
+    and SDL_shadercross, in the build directory that holds `deps`."""
     checkout(LUCENT, deps.lucent, env)
     checkout(GPU2D, deps.gpu2d, env)
     if platform == "windows":
-        checkout(windows.vcpkg_pin(), deps.vcpkg, env)
+        checkout(vcpkg_pin(), deps.vcpkg, env)
         windows.bootstrap(deps.vcpkg, env)
+    if platform == "macos":
+        checkout(vcpkg_pin(), deps.vcpkg, env)
+        macos.bootstrap(deps.vcpkg, env)
+        macos.install_ports(deps.vcpkg, deps.build_dir, env)
+        macos.shadercross(deps.gpu2d, deps.build_dir, env)

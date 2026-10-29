@@ -56,3 +56,12 @@ if(WIN32)
     set_property(TEST secret_store DIRECTORY secrets PROPERTY DISABLED TRUE)
     set_property(TEST retro_save_memory retro_runner DIRECTORY retro PROPERTY DISABLED TRUE)
 endif()
+
+# Tests of the Linux backends themselves (systemd scopes, /proc): macOS has its own in
+# tests/launch's darwin test.
+if(APPLE)
+    set_target_properties(handoff_test process_launcher_test process_tree_test desktop_steam_test
+        steam_client_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    set_property(TEST handoff process_launcher process_tree DIRECTORY launch PROPERTY DISABLED TRUE)
+    set_property(TEST desktop_steam steam_client DIRECTORY steam PROPERTY DISABLED TRUE)
+endif()

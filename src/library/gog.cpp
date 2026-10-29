@@ -9,7 +9,7 @@
 
 #include "gog_builds.hpp"
 #include "lucent/log.h"
-#include "windows_builds.hpp"
+#include "store_builds.hpp"
 
 namespace opensu::library::gog {
 namespace {
@@ -61,6 +61,7 @@ Page parsePage(const std::string& body) {
         const json worksOn = product.value("worksOn", json::object());
         game.builds.windows = worksOn.value("Windows", false);
         game.builds.linuxNative = worksOn.value("Linux", false);
+        game.builds.mac = worksOn.value("Mac", false);
         page.games.push_back(std::move(game));
     }
     return page;

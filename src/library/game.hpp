@@ -102,10 +102,12 @@ struct Game {
     /// another way.
     std::string artworkUrl;
 
-    /// The platforms the store lists builds for; set by GOG, which installs the one that runs here.
+    /// The platforms the store lists builds for; set by GOG, which installs the one that runs here
+    /// (`gogInstallPlatform`).
     struct Builds {
         bool windows{false};
         bool linuxNative{false};
+        bool mac{false};
     } builds;
     /// The installed build is a Windows one this OS runs under Wine (`wine::prepare`); GOG, Epic
     /// and an added `.exe`. Never on Windows, which runs them itself (`windowsBuildsNative`).
