@@ -162,6 +162,8 @@ jobs:
   publish:
     name: GitHub Release
     needs: [appimage, android, windows, macos]
+    # A milestone ships every platform whose job passed; the notes name any that did not.
+    if: ${{ !cancelled() && needs.appimage.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -169,20 +171,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: release
+          pattern: release*
           path: out
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-android
-          path: out
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-windows
-          path: out
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-macos
-          path: out
+          merge-multiple: true
       - name: Verify the checksums
         working-directory: out
         run: sha256sum -c ./*.sha256
@@ -190,7 +181,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          ANDROID: ${{ needs.android.result }}
+          WINDOWS: ${{ needs.windows.result }}
+          MACOS: ${{ needs.macos.result }}
         run: |
+          notes="Linux x86_64 AppImage (glibc 2.39 or newer; tested on Fedora 44 and Ubuntu 24.04), verified with the signing key in packaging/appimage/signing-key.asc."
+          if [ "$ANDROID" = success ]; then notes="$notes Android APK for arm64-v8a and x86_64 (Android 9 or newer), certificate SHA-256 BDC838D582DDC695CDAB431D2053B636EB93A0C2E1C3F468DD002D1011E43238."; else notes="$notes No Android package in this release."; fi
+          if [ "$WINDOWS" = success ]; then notes="$notes Windows x64 per-user installer (Windows 10 or newer; unsigned, so SmartScreen asks once)."; else notes="$notes No Windows package in this release."; fi
+          if [ "$MACOS" = success ]; then notes="$notes macOS app for Apple silicon (macOS 14 or newer; signed ad hoc, so the first start is right-click Open)."; else notes="$notes No macOS package in this release."; fi
           gh release create "$GITHUB_REF_NAME" --verify-tag --title "openSU ${GITHUB_REF_NAME#v}" \
-            --notes "Linux x86_64 AppImage (glibc 2.39 or newer; tested on Fedora 44 and Ubuntu 24.04). See the README's Install section for requirements. Android APK for arm64-v8a and x86_64 (Android 9 or newer). Windows x64 per-user installer (Windows 10 or newer; unsigned, so SmartScreen asks once). macOS app for Apple silicon (macOS 14 or newer; signed ad hoc, so the first start is right-click Open). Verify with \`sha256sum -c\`, the AppImage with the signing key in packaging/appimage/signing-key.asc, the APK's certificate SHA-256 BDC838D582DDC695CDAB431D2053B636EB93A0C2E1C3F468DD002D1011E43238." \
-            out/*
+            --notes "$notes Verify each file with \`sha256sum -c\`." out/*
