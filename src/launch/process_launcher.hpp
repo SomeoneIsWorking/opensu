@@ -27,6 +27,10 @@ class ProcessLauncher {
     /// `executablePath`; on Android also another app's activity, which start() checks.
     [[nodiscard]] static bool startable(const std::string& program,
                                         const std::vector<std::filesystem::path>& executablePath);
+    /// Whether a group started with no `output` file still has its output kept: on Linux it is
+    /// openSU's own stdout, which the session keeps; on Android the started app logs to logcat
+    /// itself. A program in a Job Object gets the stdout of openSU, a GUI program, which has none.
+    [[nodiscard]] static bool keepsOutput();
     ProcessLauncher& operator=(const ProcessLauncher&) = delete;
     ~ProcessLauncher();
 

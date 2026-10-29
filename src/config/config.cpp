@@ -247,6 +247,7 @@ Config read() {
         value.sessionBus = "unix:path=" + (value.runtimeDir.parent_path() / "bus").string();
     }
     value.desktopRequest = value.runtimeDir / "desktop";
+    value.gameOutputDir = value.runtimeDir / "games";
     value.retroControl = std::filesystem::path{env("OPENSU_RETRO_CONTROL")};
     value.executablePath = splitPaths(env("PATH"));
     value.steamGridDbApi = std::string{env("OPENSU_STEAMGRIDDB_API")};

@@ -73,6 +73,10 @@ struct ProcessLauncher::Group {
 ProcessLauncher::ProcessLauncher() : group_{std::make_unique<Group>()} {
 }
 
+bool ProcessLauncher::keepsOutput() {
+    return true;
+}
+
 ProcessLauncher::~ProcessLauncher() {
     stop();
 }
