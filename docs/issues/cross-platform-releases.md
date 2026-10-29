@@ -190,10 +190,9 @@ Each step lands and is pushed on its own; "shown working" is a run of the real p
 2. **Windows launcher + CI.** clang-cl build, vcpkg, `job_object`, `win32_child`,
    `win32_windows`, `SdlPads`, Steam registry roots and `steam://`, legendary and gogdl native,
    buildbot `windows/x86_64`, librashader `.dll`, Inno installer, `windows` CI job. Shown working:
-   a Windows 11 guest under KVM on this host (none exists: `tools/vm` only provisions Fedora 44
-   KDE; a Windows evaluation image is a new `tools/vm` target, no GPU passthrough, so Vulkan is
-   lavapipe or virtio-gpu and only correctness is shown) runs the installed build: grid, a ROM on
-   mGBA with a shader preset, Close game from the pad. A Steam launch needs Steam installed and
+   a Windows 11 guest under KVM on this host (`tools/vm/windows`, from Microsoft's evaluation
+   media; no GPU passthrough, so Vulkan is lavapipe and only correctness is shown) runs the
+   installed build: grid, a ROM on Mesen, Close game from the pad. A shader preset is unshown. A Steam launch needs Steam installed and
    signed in inside the guest, which the player has to do once.
 3. **macOS.** Metal path in gpu2d, MoltenVK in the runner, `process_group`, `quartz_windows`,
    `.app`, `macos` CI job. Shown working: no Mac and no legal macOS VM exist here, so CI can only
@@ -367,6 +366,19 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
   the shell, the runner ran in its job but the shell stayed on "Starting": `Handoff` finds a
   started game by its command line (`ProcessTree::treesMatching`), which Wine cannot read (class
   60 above), so this needs real Windows.
+- Shown on Windows 11 Enterprise 26H2 (evaluation) under KVM (`tools/vm/windows`, lavapipe, no
+  audio device): the CI installer installed silently per user; first run, Home, the Guide menu,
+  Settings, Library and a game's details drawn; Mesen downloaded from the buildbot; Play on a
+  generated test ROM started `opensu-retro.exe` in its job, `Handoff` logged it running and
+  showing a window and hid the shell; the Guide menu came up over the game, Close game ended the
+  runner and the shell returned to the library. The runner's output landed in
+  `%TEMP%\opensu\games\<session>-game-0.log`.
+- Close game was told as "crashed (exception 0xFFFFFFFF)": a forced close tells no exit status and
+  `GameEnd` marked that with -1, which on Windows reads as an NTSTATUS error. `GameEnd::exitStatus`
+  is now optional.
+- Not yet on Windows: `config`'s `PATH` and `OPENSU_ROM_ROOTS` are split on `:`, which breaks
+  `C:\...;...` lists (legendary and gogdl are found on `PATH`); openSU's own log goes nowhere
+  unless `LUCENT_LOG_FILE` names a file (a GUI program has no stderr).
 
 ## Step 3 as built
 
