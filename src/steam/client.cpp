@@ -1,6 +1,7 @@
 #include "client.hpp"
 
 #include <algorithm>
+#include <exception>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -39,7 +40,12 @@ Client::Client(Options options)
 }
 
 Client::~Client() {
-    shutdown();
+    // A destructor has no caller to tell: a failure to stop Steam is logged and the client is gone.
+    try {
+        shutdown();
+    } catch (const std::exception& failure) {
+        lucent::error("steam", "stopping Steam failed: {}", failure.what());
+    }
 }
 
 SteamState Client::state() const {

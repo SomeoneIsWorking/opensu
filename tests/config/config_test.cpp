@@ -10,6 +10,8 @@
 
 #include <unistd.h>
 
+#include "support/test_main.hpp"
+
 namespace {
 
 void expect(bool condition, const char* what) {
@@ -21,7 +23,7 @@ void expect(bool condition, const char* what) {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     expect(argc == 2, "one argument naming the case");
     const opensu::config::Config& config = opensu::config::read();
     const std::string which{argv[1]};
@@ -114,4 +116,6 @@ int main(int argc, char** argv) {
     }
     std::printf("config: all checks passed\n");
     return 0;
+} catch (...) {
+    return opensu::test::escaped();
 }

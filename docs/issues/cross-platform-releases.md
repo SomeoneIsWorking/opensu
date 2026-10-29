@@ -446,6 +446,11 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   clang-tidy 23 (Homebrew's unversioned `llvm`) adds `bugprone-signed-bitwise` and wider
   `bugprone-exception-escape` findings across shared code (about 40 files, CI run 40833610072);
   moving every gate to LLVM 23 is its own change.
+  The macOS lint reads libc++, whose throws are inline and whose types lay out differently from
+  libstdc++'s, so it sees findings the Linux lint does not: Lucent's log calls are `noexcept`,
+  `~Client` and both `main`s catch at their boundary, and nanosvg's implementation compiles in a
+  build-tree file outside the lint. On Linux, clang-tidy with `-nostdinc++` and Fedora's
+  `libcxx-devel` headers reproduces them.
 - Package: `tools.package macos` installs into `openSU.app/Contents`, writes `Info.plist`, follows
   every `@rpath` dylib the executables and Frameworks link and copies it from vcpkg into
   Frameworks (anything linked from outside the app and the system is refused), adds MoltenVK and
