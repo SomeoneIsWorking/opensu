@@ -1829,15 +1829,15 @@ libcrypto cannot load it here, and `win32_launch` stops at the command-line read
 Job Object launch (exit code, environment, output file, a grandchild kept in the job, stop) passes.
 The Windows tests found three shared defects, fixed (the step's doc lists them).
 
-The installed CI build was run under Wine (the step's doc lists what was shown): first run,
-Home, Guide, Settings, Library and a ROM's details draw and take pad input over the control
-channel; the libretro runner draws a ROM on Mesen when run directly.
+The installed CI build was run on Windows 11 under KVM (`tools/vm/windows`; the step's doc lists
+what was shown): first run, Home, Guide, Settings, Library and a ROM's details draw and take pad
+input over the control channel; a generated test ROM played on Mesen from the shell, `Handoff`
+saw it start and Close game ended it; the runner's output went to its per-launch log.
 
-Gaps: no run on a real Windows host or VM yet; a ROM started from the shell under Wine never left
-"Starting" (Wine reads no command lines, so the started game is not found); a launched game's
-output now goes to a log per launch under the runtime dir, not yet shown on Windows; Steam, legendary and
-gogdl launches on Windows untested; the Windows tree is not linted yet (the step's doc lists what
-was worked off and the three finding classes left).
+Gaps: Steam, legendary and gogdl launches on Windows untested; `PATH` and `OPENSU_ROM_ROOTS` are
+split on `:` (wrong on Windows); openSU's own log on Windows needs `LUCENT_LOG_FILE`; no audio
+device in the VM, so sound is unshown; the Windows tree is not linted yet (the step's doc lists
+what was worked off and the three finding classes left).
 
 ### S047 — macOS release
 
