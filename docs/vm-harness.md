@@ -56,3 +56,40 @@ opens the power list.
    `autologin opensu` for an autologin run.
 3. Drive openSU with `ui press ...`; check the session with `ssh 'loginctl list-sessions'` and
    `~/.cache/wayland-errors` (the session's stdout).
+
+## Windows guest
+
+`tools/vm/windows/` runs a Windows 11 guest the same way: headless qemu/KVM, user-mode networking,
+no root. Its files live in `/mnt/Boy/vm/opensu-windows/` (`OPENSU_WINDOWS_VM_DIR`); screenshots
+and frames in `scratch/vm/windows-shots/`. Run it as `uv run --frozen python -m tools.vm.windows
+<command>`.
+
+- Media: Microsoft's Windows 11 Enterprise evaluation ISO (26H2, en-US), checked against the
+  SHA-256 Microsoft publishes; Fedora's virtio-win RPM (checked against its pinned SHA-256, whose
+  md5 matches the release's `CHECKSUM`), from which the virtio-win ISO is unpacked. fedorapeople
+  throttles each connection, so the RPM comes in 24 ranges at once.
+- Machine: q35 with Secure Boot firmware (`OVMF_CODE_4M.secboot`, Microsoft's keys enrolled in
+  the variables), a TPM 2.0 from `swtpm`, virtio-blk disk, virtio-net, a standard VGA at
+  1280x800 for QMP screendumps, and the QEMU guest agent's virtio serial port
+  (`run/qga.sock`). No GPU passthrough: Vulkan is lavapipe from the mesa-dist-win release
+  `tools/check/windows.py` pins.
+- Install: `autounattend.xml` and `first-logon.cmd` on a small ISO (`unattend.py`); Setup loads
+  `viostor` and `NetKVM` from the virtio-win ISO, wipes the disk, creates user `tester`
+  (Administrators, password in `config.py`) and logs it on; the first logon installs the virtio
+  drivers and the guest agent from the virtio-win ISO, keeps the user logged on at every boot,
+  turns off the lock screen and display sleep, and powers off. The disk, its firmware variables
+  and its TPM state become the base.
+- Control: the guest agent runs as LocalSystem in session 0, which has no desktop. `desktop.py`
+  runs a batch file in the user's session through a scheduled task with an interactive principal,
+  as a player's program would run, and reads its exit code back.
+
+| Command | Does |
+| --- | --- |
+| `provision [--timeout S]` | Downloads and checks the media, installs unattended (spaces pressed for the ISO's "press any key" prompt), saves `base.qcow2`, `base-vars.qcow2`, `base-tpm/` |
+| `up`, `down`, `status` | A fresh overlay of the base with copies of its variables and TPM, waited on until the guest agent answers; ACPI power-off, then the recorded PIDs |
+| `deploy INSTALLER` | Lavapipe registered under `HKLM\SOFTWARE\Khronos\Vulkan\Drivers`, the CI artifact's installer run silently per user (`/VERYSILENT /CURRENTUSER`), the generated NES test ROM (`tools/vm/test_rom.py`) in `%USERPROFILE%\ROMs\NES` |
+| `opensu start [ARGS]`, `opensu stop` | openSU from its installed path on the user's desktop with `LUCENT_LOG_FILE=C:\opensu-vm\opensu.log`; stop ends it and its children by the PID `start` recorded |
+| `ui state\|press BUTTON...\|frame NAME` | openSU's control channel through the guest's `curl.exe` on 127.0.0.1:7311 |
+| `shot NAME`, `key CHORD...` | QMP screendump of the desktop, key chords |
+| `system CMD...`, `desktop CMD...` | A `cmd.exe` command as LocalSystem, or in the user's session |
+| `put LOCAL REMOTE`, `get REMOTE LOCAL` | Files through the guest agent |

@@ -61,6 +61,10 @@ class Qmp:
         self.execute("qmp_capabilities")
 
     def close(self) -> None:
+        # The reader holds the socket open too; QMP takes one client at a time.
+        if self._reader is not None:
+            self._reader.close()
+            self._reader = None
         if self._sock is not None:
             self._sock.close()
             self._sock = None
