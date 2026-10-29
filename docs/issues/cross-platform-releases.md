@@ -372,8 +372,8 @@ folders, so the player adds the same folder there (it answered "Could not find R
 the RetroArch templates (no RetroArch on the AVD), and RetroArch reading a `content://` game.
 Shown: the picker,
 the NES test ROM listed from `/sdcard/ROMs` picked through it, Mesen downloaded for x86_64 and
-the ROM running on the `:retro` runner. Left for this step: librashader for Android and the
-player's phone (arm64 cores, performance).
+the ROM running on the `:retro` runner. Left for this step: the player's phone (arm64 cores,
+performance).
 
 A tablet-shaped display (1920x1600) lays out without overlap. Fixed since: a
 refused path shows on the chooser card under the field (`PathEditor::refusal`) instead of a toast
@@ -407,3 +407,10 @@ right, A and R at once, Back and the pause button opening the shell's Guide menu
 waits, a state saved from it, Resume returning to the game, Close game returning to the Library
 with the runner's process and task gone. Unproven: hiding the controls when a pad connects and
 a pad's Guide (no pad on the AVD).
+
+librashader ships in the APK as `librashader.so` beside the runner for both ABIs, built by cargo
+for the ABI's Rust target with the NDK's API-level clang (`cmake/Librashader.cmake`), where the
+Android install layout already looks. Shown on the AVD (x86_64): the shader pack downloaded from
+Settings › Emulators, `crt › crt-1tap` set for NES, and the runner logging "librashader ABI 2 API
+5 loaded" and "shader preset …/crt/crt-1tap.slangp built" with the scanlines on the game's frame.
+The arm64 build is packaged but not run.

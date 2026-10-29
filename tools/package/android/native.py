@@ -1,4 +1,5 @@
-"""The shared native prefix and openSU's two libraries per ABI: libmain.so, libopensu-retro.so."""
+"""The shared native prefix and openSU's libraries per ABI: libmain.so, libopensu-retro.so and
+librashader.so."""
 
 import os
 from collections.abc import Mapping
@@ -9,7 +10,7 @@ from tools.check import process
 from tools.check.deps import Deps
 from tools.package.android import config
 
-TARGETS = ("opensu", "opensu-retro")
+TARGETS = ("opensu", "opensu-retro", "opensu_librashader")
 
 
 def ensure_prefix(layout: config.Layout, port: ModuleType, abi: str) -> object:
@@ -65,7 +66,7 @@ def build(layout: config.Layout, sources: Deps, abi: str, env: Mapping[str, str]
             f"-DLUCENT_ROOT={sources.lucent}",
             f"-DGPU2D_ROOT={sources.gpu2d}",
             "-DOPENSU_BUILD_GAMESCOPE=OFF",
-            "-DOPENSU_BUILD_LIBRASHADER=OFF",
+            "-DOPENSU_BUILD_LIBRASHADER=ON",
             # The NDK's own shader compiler, so the host needs none.
             f"-DGLSLC={layout.ndk / 'shader-tools' / 'linux-x86_64' / 'glslc'}",
         ],

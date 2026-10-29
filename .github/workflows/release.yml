@@ -67,6 +67,8 @@ jobs:
             ndk;28.2.13676358
       - name: Ninja for the native builds
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build
+      - name: Rust targets for librashader
+        run: rustup target add aarch64-linux-android x86_64-linux-android
       # The android-port prefix only changes with its pin; a miss rebuilds it.
       - name: The android-port pin
         id: port
