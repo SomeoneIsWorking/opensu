@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include <unistd.h>
 
@@ -64,6 +65,15 @@ int main(int argc, char** argv) try {
                "launched games' output is kept under the runtime directory");
         expect(config.retroControl == "/xdg-runtime/opensu/retro-1.json",
                "OPENSU_RETRO_CONTROL names the runner's control file");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
+    if (which == "paths") {
+        using Paths = std::vector<std::filesystem::path>;
+        expect(config.romRoots == Paths{"/roms/a", "/roms/b"},
+               "OPENSU_ROM_ROOTS splits on ':', dropping empty entries");
+        expect(config.executablePath == Paths{"/bin-a", "/bin-b"}, "PATH splits on ':'");
+        expect(config.logFile == "/xdg-state/opensu/opensu.log", "the log file is a state file");
         std::printf("config: all checks passed\n");
         return 0;
     }

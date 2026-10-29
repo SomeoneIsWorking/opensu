@@ -80,6 +80,10 @@ struct Config {
     /// `<xdgStateHome>/opensu`.
     std::filesystem::path stateDir;
 
+    /// openSU's log when it has no stderr (a Windows GUI program started without a console) and
+    /// `LUCENT_LOG_FILE` names none: `<stateDir>/opensu.log`.
+    std::filesystem::path logFile;
+
     /// opensu's cache, downloaded artwork among it (`Locations`): `$XDG_CACHE_HOME/opensu`, else
     /// `~/.cache/opensu`, on Linux.
     std::filesystem::path cacheDir;
