@@ -7,9 +7,7 @@
 #include <memory>
 #include <string>
 
-#define NANOSVG_IMPLEMENTATION
 #include <nanosvg.h>
-#define NANOSVGRAST_IMPLEMENTATION
 #include <nanosvgrast.h>
 
 namespace opensu::svg {

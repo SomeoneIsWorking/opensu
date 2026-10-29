@@ -185,8 +185,8 @@ void OwnGamesController::confirm(const fs::path& file, const library::identify::
              });
 }
 
-void OwnGamesController::pickFile(const std::string& title, const fs::path& start,
-                                  std::function<void(const fs::path&)> picked) {
+template <typename Picked>
+void OwnGamesController::pickFile(const std::string& title, const fs::path& start, Picked picked) {
     paths_.begin(
         PathEditor::Request{.title = title,
                             .start = start,

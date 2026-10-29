@@ -95,11 +95,11 @@ struct Rig {
                                    }};
     std::vector<std::pair<std::string, bool>> said;
     std::vector<std::string> launched;
-    int changes{0};
     test::InterfaceRig face;
     gpu2d::ImageLoader loader;
     ui::ScreenImages images{loader};
     ui::Chrome chrome;
+    int changes{0};
     audio::SdlSoundPlayer sounds;
     app::EmulatorDownloads downloads{
         setup(), app::EmulatorDownloads::Hooks{[this](const std::string& text, bool error) {

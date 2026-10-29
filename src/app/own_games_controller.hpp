@@ -83,8 +83,8 @@ class OwnGamesController {
     [[nodiscard]] std::vector<library::own::Entry> lutrisGames() const;
     void importAll(std::vector<library::own::Entry> entries, std::string_view from);
     /// Opens the folder chooser on `start` for a game file; `picked` takes the one accepted.
-    void pickFile(const std::string& title, const std::filesystem::path& start,
-                  std::function<void(const std::filesystem::path&)> picked);
+    template <typename Picked>
+    void pickFile(const std::string& title, const std::filesystem::path& start, Picked picked);
     /// Asks for a title over the screen, `title` typed in already and `note` under the heading;
     /// `done` takes what was entered.
     void askTitle(const std::string& heading, const std::string& note, std::string title,

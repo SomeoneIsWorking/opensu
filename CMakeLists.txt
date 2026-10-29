@@ -21,7 +21,7 @@ if(APPLE)
     set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks")
 endif()
 
-# nanosvg rasterises the shipped icons. Header-only: the distribution's package or a checkout.
+# nanosvg rasterises the shipped icons: the distribution's package or a checkout.
 set(NANOSVG_ROOT "$ENV{HOME}/dev/nanosvg" CACHE PATH "nanosvg checkout")
 find_path(NANOSVG_INCLUDE_DIR nanosvg.h
     PATH_SUFFIXES nanosvg PATHS "${NANOSVG_ROOT}/src")
@@ -31,9 +31,16 @@ if(NOT NANOSVG_INCLUDE_DIR)
         "`sudo apt install libnanosvg-dev` (Debian/Ubuntu), or clone "
         "https://github.com/memononen/nanosvg to ${NANOSVG_ROOT}")
 endif()
-add_library(opensu_nanosvg INTERFACE)
+# Its implementation is compiled from a file in the build tree, so openSU's lint, which covers src/
+# and tests/, does not analyse nanosvg's code.
+file(CONFIGURE OUTPUT "${CMAKE_BINARY_DIR}/nanosvg/nanosvg_implementation.c" CONTENT
+    "#define NANOSVG_IMPLEMENTATION\n#include <nanosvg.h>\n#define NANOSVGRAST_IMPLEMENTATION\n#include <nanosvgrast.h>\n")
+add_library(opensu_nanosvg STATIC "${CMAKE_BINARY_DIR}/nanosvg/nanosvg_implementation.c")
 add_library(opensu::nanosvg ALIAS opensu_nanosvg)
-target_include_directories(opensu_nanosvg SYSTEM INTERFACE "${NANOSVG_INCLUDE_DIR}")
+target_include_directories(opensu_nanosvg SYSTEM PUBLIC "${NANOSVG_INCLUDE_DIR}")
+if(NOT WIN32 AND NOT APPLE)
+    target_link_libraries(opensu_nanosvg PRIVATE m)
+endif()
 
 # zlib inflates the zips opensu reads.
 find_package(ZLIB REQUIRED)

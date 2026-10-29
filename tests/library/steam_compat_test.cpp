@@ -67,8 +67,8 @@ class AppInfoWriter {
         for (const std::string& key : keys_) {
             strings += key + std::string(1, '\0');
         }
-        return head + bytes(static_cast<std::int64_t>(head.size() + 8 + body.size())) + body +
-               strings;
+        const std::size_t stringsAt = head.size() + 8 + body.size();
+        return head + bytes(static_cast<std::int64_t>(stringsAt)) + body + strings;
     }
 
   private:

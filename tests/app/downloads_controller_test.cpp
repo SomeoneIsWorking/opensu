@@ -122,7 +122,6 @@ sleep 60
     steam::DevTools devTools{fakeSteam.port()};
     steam::DownloadControl steamControl{devTools};
     std::vector<steam::Download> queue;
-    bool steamReady{false};
     steam::Client steamClient{steam::Client::Options{.home = root / "home",
                                                      .executablePath = {},
                                                      .session = "downloads-test",
@@ -171,7 +170,6 @@ sleep 60
                                                              return false;
                                                          }}};
     library::roms::RomsetLists romsetLists{root / "cache"};
-    int listsEnded{0};
     test::InterfaceRig ui;
     ui::Chrome chrome;
     audio::SdlSoundPlayer sounds;
@@ -203,6 +201,8 @@ sleep 60
                                             [this] {
                                                 ++listsEnded;
                                             }}};
+    bool steamReady{false};
+    int listsEnded{0};
 };
 
 library::Game epicGame() {

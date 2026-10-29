@@ -10,6 +10,7 @@
 // errors. OPENSU_RETRO_CONTROL names the file the control channel's port, or a load failure, is
 // left in.
 #include <charconv>
+#include <exception>
 #include <fstream>
 #include <iterator>
 #include <optional>
@@ -135,7 +136,7 @@ std::string coreName(const std::filesystem::path& core) {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     const opensu::config::Config config = opensu::config::read();
     const std::vector<std::string> args(argv + 1, argv + argc);
     std::optional<opensu::retro::RunnerOptions> options = parse(args);
@@ -156,4 +157,7 @@ int main(int argc, char** argv) {
     options->touchArt = config.assetsDir / "touch";
     opensu::retro::RunnerApp app{std::move(*options)};
     return static_cast<int>(app.run());
+} catch (const std::exception& failure) {
+    lucent::error("retro", "stopped by an error: {}", failure.what());
+    return 1;
 }

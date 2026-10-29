@@ -25,7 +25,10 @@ std::optional<int> x11DisplayNumber(std::string_view display) noexcept {
         return std::nullopt;
     }
     display.remove_prefix(1);
-    const std::string_view number = display.substr(0, display.find('.'));
+    std::string_view number = display;
+    if (const std::size_t screen = number.find('.'); screen != std::string_view::npos) {
+        number.remove_suffix(number.size() - screen);
+    }
     int value = -1;
     const auto [end, error] = std::from_chars(number.data(), number.data() + number.size(), value);
     if (error != std::errc{} || end != number.data() + number.size() || value < 0) {

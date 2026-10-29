@@ -295,10 +295,7 @@ struct Rig {
     std::vector<std::string> failures;
     std::vector<Said> said;
     steam::DevTools devTools;
-    bool steamReady{false};
     std::vector<library::steam::LibraryFolder> recorded;
-    int applied{0};
-    int chordChanges{0};
     app::Preferences preferences;
     app::IntegrationsInForce inForce{everyIntegration(preferences), false};
     app::IntegrationSettings integrationSettings{inForce, [this] {
@@ -308,6 +305,7 @@ struct Rig {
     ui::Chrome chrome;
     ui::OnScreenKeyboard keyboard;
     app::KeyboardPad pad{keyboard, screens.navigator, sounds};
+    steam::Libraries steamLibraries{devTools};
     app::PathEditor paths;
     /// SteamGridDB with no API behind it: these checks keep and forget keys, never fetch.
     artwork::SteamGridDb steamGridDb{"http://127.0.0.1:1/api/v2"};
@@ -317,10 +315,7 @@ struct Rig {
     /// Console art themes from folders a test fills in.
     artwork::ConsoleThemes themes{config.home / "shipped-themes", config.home / "user-themes"};
     app::ArtworkSettings artworkSettings;
-    int artworkRequests{0};
-    int consoleArtChanges{0};
     app::InterfaceSoundSettings interfaceSoundSettings;
-    int soundChanges{0};
     audio::VolumeState mixerState{40, false};
     std::vector<std::string> mixerLog;
     std::vector<audio::VolumeState> shown;
@@ -377,7 +372,6 @@ struct Rig {
                                          return emulatorSettings.found();
                                      },
                                      layered};
-    steam::Libraries steamLibraries{devTools};
     app::SteamLibrarySettings steamLibrarySettings{
         app::SteamLibrarySettings::Sources{steamLibraries,
                                            [this] {
@@ -459,6 +453,12 @@ struct Rig {
                                                             return false;
                                                         }}};
     app::SettingsController controller;
+    bool steamReady{false};
+    int applied{0};
+    int chordChanges{0};
+    int artworkRequests{0};
+    int consoleArtChanges{0};
+    int soundChanges{0};
 };
 
 /// With an integration off its pages and rows are gone; turning it on in Settings > Integrations

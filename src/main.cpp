@@ -6,6 +6,7 @@
 // own authentication, downloading and cloud sync.
 #include <cstdint>
 #include <cstdio>
+#include <exception>
 #include <optional>
 #include <string>
 #include <vector>
@@ -64,7 +65,7 @@ void printHelp() {
 
 } // namespace
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
     // Lucent reads its own debug channels from the environment, so there is
     // nothing to initialise here. Everything else is read once, by config::read.
     const opensu::config::Config config = opensu::config::read();
@@ -116,4 +117,7 @@ int main(int argc, char** argv) {
         return shell.renderToFile(*renderPath, arguments.keyboardPrompts) ? 0 : 1;
     }
     return shell.run();
+} catch (const std::exception& failure) {
+    lucent::error("openSU", "stopped by an error: {}", failure.what());
+    return 1;
 }
