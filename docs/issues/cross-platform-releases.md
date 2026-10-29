@@ -345,6 +345,10 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
 - Under Wine (local check only): `NtQueryInformationProcess` class 60 is not implemented (Wine
   11.20), so the process table reads no command lines there; the Job Object launch, its exit code,
   environment, output file, grandchild ownership and stop pass.
+- The installer carries Visual Studio's C++ runtime (`msvcp140*`, `vcruntime140*`) in `bin`
+  (`InstallRequiredSystemLibraries`, found in the Visual Studio install, so a Linux cross build
+  installs none). Without it a clean Windows 11 refused to start `opensu.exe` ("MSVCP140.dll was
+  not found"); hosted runners and Wine have the runtime, so only the VM showed it.
 - Defects the installed build showed: with no `HOME` (Windows sets `USERPROFILE`) the home folder
   was empty and every path under it relative (`config::read`); Add a game offered Lutris on
   Windows (`add_game_offer_windows.cpp`). SDL's own log lines now go through Lucent
