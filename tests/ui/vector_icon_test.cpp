@@ -18,7 +18,7 @@ using opensu::test::fail;
 void testShippedIcons(const std::filesystem::path& assets) {
     for (const opensu::ui::Icon icon :
          {opensu::ui::Icon::Steam, opensu::ui::Icon::Epic, opensu::ui::Icon::Gog}) {
-        const auto mask = opensu::ui::rasteriseMask(assets / opensu::ui::iconFile(icon), 48);
+        const auto mask = opensu::svg::rasteriseMask(assets / opensu::ui::iconFile(icon), 48);
         if (!mask) {
             fail("an icon rasterises at the size asked");
         }
@@ -61,7 +61,8 @@ void testDockIcons(const std::filesystem::path& assets) {
         // A wide box: the icon fills its height and sits centred across.
         constexpr int width = 90;
         constexpr int height = 40;
-        const auto rgba = opensu::ui::rasterise(assets / opensu::ui::iconFile(icon), width, height);
+        const auto rgba =
+            opensu::svg::rasterise(assets / opensu::ui::iconFile(icon), width, height);
         if (!rgba) {
             fail("a dock icon rasterises");
         }
@@ -95,13 +96,13 @@ void testDockIcons(const std::filesystem::path& assets) {
 void testSwaps(const std::filesystem::path& assets) {
     constexpr int side = 64;
     const std::filesystem::path svg = assets / opensu::ui::iconFile(Icon::Library);
-    const opensu::ui::ColourSwap toRed[] = {
+    const opensu::svg::ColourSwap toRed[] = {
         {opensu::ui::libraryTop, {255, 0, 0, 255}},
         {opensu::ui::libraryBottom, {255, 0, 0, 255}},
         {opensu::ui::libraryEdge, {255, 0, 0, 255}},
     };
-    const auto own = opensu::ui::rasterise(svg, side, side);
-    const auto red = opensu::ui::rasterise(svg, side, side, toRed);
+    const auto own = opensu::svg::rasterise(svg, side, side);
+    const auto red = opensu::svg::rasterise(svg, side, side, toRed);
     if (!own || !red) {
         fail("the Library icon rasterises");
     }
@@ -122,8 +123,8 @@ void testSwaps(const std::filesystem::path& assets) {
 }
 
 void testMissingFile() {
-    expect(!opensu::ui::rasteriseMask("does/not/exist.svg", 32), "a missing file gives nothing");
-    expect(!opensu::ui::rasteriseMask("does/not/exist.svg", 0), "no size gives nothing");
+    expect(!opensu::svg::rasteriseMask("does/not/exist.svg", 32), "a missing file gives nothing");
+    expect(!opensu::svg::rasteriseMask("does/not/exist.svg", 0), "no size gives nothing");
 }
 
 } // namespace

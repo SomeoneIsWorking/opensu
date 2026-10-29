@@ -42,7 +42,7 @@ Colour shaded(Colour colour, float by) noexcept {
 
 } // namespace
 
-const std::vector<ColourSwap>& RailPainter::swapsFor(const Focused& focused) {
+const std::vector<svg::ColourSwap>& RailPainter::swapsFor(const Focused& focused) {
     std::string key = focused.key;
     if (key.empty() && focused.platform != nullptr) {
         key = focused.platform->key;
@@ -50,12 +50,12 @@ const std::vector<ColourSwap>& RailPainter::swapsFor(const Focused& focused) {
     if (const auto found = swaps_.find(key); found != swaps_.end()) {
         return found->second;
     }
-    std::vector<ColourSwap> swaps;
+    std::vector<svg::ColourSwap> swaps;
     if (focused.platform != nullptr) {
         const Colour top = unpack(focused.platform->strokeFrom);
         const Colour bottom = unpack(focused.platform->strokeTo);
-        swaps = {ColourSwap{libraryTop, top}, ColourSwap{libraryBottom, bottom},
-                 ColourSwap{libraryEdge, shaded(bottom, edgeShade)}};
+        swaps = {svg::ColourSwap{libraryTop, top}, svg::ColourSwap{libraryBottom, bottom},
+                 svg::ColourSwap{libraryEdge, shaded(bottom, edgeShade)}};
     }
     return swaps_.emplace(key, std::move(swaps)).first->second;
 }
@@ -65,7 +65,7 @@ void RailPainter::paintColumn(Canvas& canvas, const XmbLayout& layout, const Foc
     const Rect& box = layout.sectionIcon();
     const int width = std::max(1, static_cast<int>(std::lround(box.width)));
     const int height = std::max(1, static_cast<int>(std::lround(box.height)));
-    const std::vector<ColourSwap>& swaps = swapsFor(focused);
+    const std::vector<svg::ColourSwap>& swaps = swapsFor(focused);
     if (const gpu2d::Texture* icon = icons_.image(Icon::Library, width, height, swaps)) {
         canvas.image(icon->view(), wholeOf(*icon),
                      gpu2d::Rect{std::round(box.x), std::round(box.y), static_cast<float>(width),

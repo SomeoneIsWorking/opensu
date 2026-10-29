@@ -59,7 +59,7 @@ class RailPainter {
   private:
     /// The Library icon's colours swapped for `focused`'s border, read once per key; none keeps
     /// its own.
-    const std::vector<ColourSwap>& swapsFor(const Focused& focused);
+    const std::vector<svg::ColourSwap>& swapsFor(const Focused& focused);
     /// Where a title stands: its x (left edge, or centre when `centred`), its capitals' top and
     /// height, and the dp the shadow is sized by.
     struct TitleBox {
@@ -74,7 +74,7 @@ class RailPainter {
 
     InterfaceText& text_;
     IconAtlas& icons_;
-    std::map<std::string, std::vector<ColourSwap>, std::less<>> swaps_;
+    std::map<std::string, std::vector<svg::ColourSwap>, std::less<>> swaps_;
 };
 
 } // namespace opensu::ui
