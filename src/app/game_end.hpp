@@ -3,6 +3,7 @@
 // game closed.
 #pragma once
 
+#include <optional>
 #include <string>
 
 namespace opensu::app {
@@ -11,8 +12,8 @@ struct GameEnd {
     std::string title;
     /// Why the launch failed; empty when it ran.
     std::string failure;
-    /// `ProcessLauncher::exitStatus` from the handoff's `ended`; -1 when not reported.
-    int exitStatus{-1};
+    /// `ProcessLauncher::exitStatus` from the handoff's `ended`; none when a forced close skips it.
+    std::optional<int> exitStatus;
     /// The load failure opensu-retro left in its control file.
     std::string runnerError;
     /// The player cancelled the launch from its panel.

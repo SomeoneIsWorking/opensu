@@ -2,6 +2,7 @@
 // first, the launch's failure, and nothing alarming for a game that exited or was closed.
 #include <csignal>
 #include <cstdio>
+#include <optional>
 
 #include "game_end.hpp"
 #include "support/test_main.hpp"
@@ -19,8 +20,7 @@ void crashesAreNamedBySignal() {
     for (const int ended : {SIGTERM, SIGKILL, SIGINT, SIGHUP}) {
         expect(app::crashName(128 + ended).empty(), "a signal that ends a game is no crash");
     }
-    expect(app::crashName(0).empty() && app::crashName(1).empty() && app::crashName(-1).empty(),
-           "an exit or no status is no crash");
+    expect(app::crashName(0).empty() && app::crashName(1).empty(), "an exit is no crash");
 }
 
 void noticesSayHowTheGameEnded() {
@@ -37,17 +37,20 @@ void noticesSayHowTheGameEnded() {
            "the runner's load failure is told instead of the launch's");
 
     const app::EndNotice refused =
-        app::noticeOf(app::GameEnd{"Metroid", "Metroid did not start", -1, ""});
+        app::noticeOf(app::GameEnd{"Metroid", "Metroid did not start", std::nullopt, ""});
     expect(refused.text == "Metroid did not start" && refused.error, "a launch failure is told");
 
     const app::EndNotice exited = app::noticeOf(app::GameEnd{"Metroid", "", 0, ""});
     expect(exited.text == "Metroid closed" && !exited.error, "a clean exit is no error");
-    const app::EndNotice closed = app::noticeOf(app::GameEnd{"Metroid", "", -1, ""});
+    const app::EndNotice closed = app::noticeOf(app::GameEnd{"Metroid", "", std::nullopt, ""});
     expect(closed.text == "Metroid closed" && !closed.error, "a game the player closed neither");
     const app::EndNotice stopped = app::noticeOf(app::GameEnd{"Metroid", "", 128 + SIGTERM, ""});
     expect(!stopped.error, "a game ended by SIGTERM is no crash");
-    const app::EndNotice cancelled = app::noticeOf(app::GameEnd{
-        .title = "Metroid", .failure = "", .exitStatus = -1, .runnerError = "", .cancelled = true});
+    const app::EndNotice cancelled = app::noticeOf(app::GameEnd{.title = "Metroid",
+                                                                .failure = "",
+                                                                .exitStatus = std::nullopt,
+                                                                .runnerError = "",
+                                                                .cancelled = true});
     expect(cancelled.text == "Metroid launch cancelled" && !cancelled.error,
            "a cancelled launch says so, not that the game closed");
 }

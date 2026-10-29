@@ -8,7 +8,8 @@ EndNotice noticeOf(const GameEnd& end) {
     if (!end.runnerError.empty()) {
         return {end.runnerError, true};
     }
-    if (const std::string crash = crashName(end.exitStatus); !crash.empty()) {
+    if (const std::string crash = end.exitStatus ? crashName(*end.exitStatus) : std::string{};
+        !crash.empty()) {
         return {end.title + " crashed (" + crash + ")", true};
     }
     if (end.cancelled) {

@@ -1,5 +1,6 @@
 #include "game_launch.hpp"
 
+#include <optional>
 #include <utility>
 
 #include "game_end.hpp"
@@ -40,7 +41,7 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
     // The thread owns a copy because it outlives this call.
     thread_ = std::jthread{[this, copy = std::move(game), environment = std::move(environment)] {
         std::string failure;
-        int exitStatus = -1;
+        std::optional<int> exitStatus;
         // The window belongs to the loop's thread, so the handoff thread only raises flags and the
         // loop does the work.
         const launch::Handoff::Hooks hooks{.hide =
