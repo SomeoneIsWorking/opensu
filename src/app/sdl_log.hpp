@@ -6,7 +6,7 @@ namespace opensu::app {
 /// Routes SDL's log output into Lucent, GPU warnings included (why a GPU driver was refused), and
 /// gives SDL its default output back when it goes.
 class SdlLog {
-public:
+  public:
     SdlLog();
     ~SdlLog();
     SdlLog(const SdlLog&) = delete;
