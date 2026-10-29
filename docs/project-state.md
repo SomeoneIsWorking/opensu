@@ -1829,9 +1829,7 @@ The installed CI build was run under Wine (the step's doc lists what was shown):
 Home, Guide, Settings, Library and a ROM's details draw and take pad input over the control
 channel; the libretro runner draws a ROM on Mesen when run directly.
 
-Gaps: the `windows` CI job builds, passes every Windows test and packages the installer, but its
-smoke `--render` on lavapipe crashes with heap corruption, so the job is red; no run on a real
-Windows host or VM yet; a ROM started from the shell under Wine never left
+Gaps: no run on a real Windows host or VM yet; a ROM started from the shell under Wine never left
 "Starting", and a launched game's output is not kept anywhere on Windows; Steam, legendary and
 gogdl launches on Windows untested; the Windows tree is not linted (the step's doc says why and the
 proper fix).

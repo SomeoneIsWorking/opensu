@@ -30,12 +30,13 @@ GLSLC = HOST_TOOLS / "shaderc" / "glslc.exe"
 
 VSWHERE = Path(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe")
 
-LAVAPIPE_VERSION = "26.2.3"
+LAVAPIPE_VERSION = "26.2.4"
 LAVAPIPE_URL = (
     "https://github.com/pal1000/mesa-dist-win/releases/download/"
     f"{LAVAPIPE_VERSION}/mesa3d-{LAVAPIPE_VERSION}-release-msvc.7z"
 )
-LAVAPIPE_SHA256 = "3f3613adb43cfd0f2e665ce2400b130c275f0b3317cb3a05566320a3a67589ed"
+# 26.2.3's lavapipe frees pointers that are not heap blocks; Windows ends the process.
+LAVAPIPE_SHA256 = "351fc8c8b695878ffb3eaa044b3ead08672a48b1a045e3c3e3975811df0f6695"
 LAVAPIPE_ICD = "lvp_icd.x86_64.json"
 
 
