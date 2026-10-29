@@ -1,5 +1,6 @@
 #include "wine_runners.hpp"
 
+#include <algorithm>
 #include <system_error>
 #include <utility>
 
