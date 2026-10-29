@@ -1836,8 +1836,7 @@ saw it start and Close game ended it; the runner's output went to its per-launch
 
 Gaps: Steam, legendary and gogdl launches on Windows untested; `PATH` and `OPENSU_ROM_ROOTS` are
 split on `:` (wrong on Windows); openSU's own log on Windows needs `LUCENT_LOG_FILE`; no audio
-device in the VM, so sound is unshown; the Windows tree is not linted yet (the step's doc lists
-what was worked off and the three finding classes left).
+device in the VM, so sound is unshown.
 
 ### S047 — macOS release
 

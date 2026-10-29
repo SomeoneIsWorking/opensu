@@ -323,24 +323,22 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
   iterators of two temporary paths (MSVC's STL looped forever); the emulator-pick migration
   replaced `settings.json` while still reading it (Windows refuses); plugin read paths were checked
   against `/h`-style probes, which are not absolute on Windows, so every token path was refused.
-- Not linted on Windows yet. clang-tidy now covers only the translation units the build compiles
+- Linted on Windows: clang-tidy over the translation units the build compiles
   (`compile_commands.json` within `ninja -t inputs all`), so the POSIX-fake tests left out of the
-  Windows build are no longer read there (they were all the `clang-diagnostic-error` and
-  by-value-sink findings). Worked off in the shared code: every test `main` ends in
+  Windows build are not read there. Worked off in the shared code: every test `main` ends in
   `opensu::test::escaped()` (`tests/support/test_main.hpp`); destructors no longer wait on
   `std::async` futures (each future's own destructor waits); `secrets::wipe` cannot throw; config
   reads the environment through `lucent::config::text` (the UCRT deprecates `getenv`); lambdas
   copy const captures into init-captures so moving them moves; Lucent's log helpers report a
-  formatter's `bad_cast` (the MSVC STL's locale lookup) in the line instead of throwing it. Left,
-  the same with clang-tidy 20.1.8 (CI's) and 22: under the MSVC STL a `std::map`/`std::set` move
-  constructor allocates, so the implicit move of about 30 value types holding one is
-  `bugprone-exception-escape`; five teardown destructors can only throw by allocating (logging,
-  `remove_all`: `ProcessLauncher`, `steam::Client`, `BigPicture`'s `Leave`, `PlayerFiles`, the
-  tests' `ScratchDir`); and `clang-analyzer-optin.core.EnumCastOutOfRange` fires inside the STL's
-  own `__std_fs_stats_flags` bitmask operators (system headers, reported because the analyzer's
-  path starts in our `std::filesystem` calls). None has a local fix: the first two need flat
-  containers in those types or an allocation-failure policy for the check, the last a check
-  decision.
+  formatter's `bad_cast` (the MSVC STL's locale lookup) in the line instead of throwing it;
+  `SwitchPackage` holds its stream by pointer (moving an `ifstream` can throw there);
+  `sdl_keys` maps through one table instead of casting every int to `SDL_Scancode`. Under the
+  MSVC STL a `std::map`/`std::set` move constructor allocates; running out of memory ends the
+  process (`docs/codemap.md`), so `bugprone-exception-escape` ignores `bad_alloc` and
+  `bad_array_new_length` on every platform.
+  The Windows lint runs the analyzer with `c++-stdlib-inlining=false` (`tools/check/lint.py`):
+  the STL's own `__std_fs_stats_flags` bitmask operators cast bit combinations to their enum, which
+  `optin.core.EnumCastOutOfRange` reported from inside Microsoft's headers.
 - Under Wine (local check only): `NtQueryInformationProcess` class 60 is not implemented (Wine
   11.20), so the process table reads no command lines there; the Job Object launch, its exit code,
   environment, output file, grandchild ownership and stop pass.

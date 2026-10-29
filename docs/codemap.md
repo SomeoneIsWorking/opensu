@@ -10,6 +10,11 @@ owner's `CMakeLists.txt` (`CMAKE_SYSTEM_NAME`), so callers never test the OS: pr
 pads, the shell over a game, Steam's modes, the user directories, the buildbot folder, run-time
 library loading and the battery. X11, Gamescope and `src/session` are Linux's alone.
 
+Running out of memory ends the process: no code handles `std::bad_alloc` or
+`std::bad_array_new_length`, so a destructor or `noexcept` function may allocate, and
+`bugprone-exception-escape` does not count them (`.clang-tidy`). Lucent's log calls are `noexcept`
+on the same rule.
+
 ## Entry and composition
 
 | Path | Owns |

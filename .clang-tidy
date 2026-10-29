@@ -7,6 +7,9 @@ WarningsAsErrors: '*'
 HeaderFilterRegex: '.*[/\\]opensu[/\\](src|tests)[/\\].*'
 FormatStyle: file
 CheckOptions:
+  # Running out of memory ends the process, so an allocation failure is not an escaping exception.
+  - key: bugprone-exception-escape.IgnoredExceptions
+    value: 'bad_alloc,bad_array_new_length'
   - key: readability-braces-around-statements.ShortStatementLines
     value: '0'
   - key: bugprone-easily-swappable-parameters.MinimumLength
