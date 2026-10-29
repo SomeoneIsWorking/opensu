@@ -6,7 +6,13 @@ from types import ModuleType
 
 from tools.package.android import config
 
-LIBRARIES = ("libmain.so", "libopensu-retro.so", "libSDL3.so", "libc++_shared.so")
+LIBRARIES = (
+    "libmain.so",
+    "libopensu-retro.so",
+    "librashader.so",
+    "libSDL3.so",
+    "libc++_shared.so",
+)
 
 
 def inspect(apk: Path, layout: config.Layout, port: ModuleType) -> str:

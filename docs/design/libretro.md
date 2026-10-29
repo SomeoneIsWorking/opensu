@@ -45,7 +45,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | Owner | Owns |
 | --- | --- |
 | `cmake/Libretro.cmake` | `libretro.h` and `libretro_vulkan.h` (MIT) from libretro-common at a pinned commit, SHA-256 checked |
-| `cmake/Librashader.cmake` | librashader from the `SomeoneIsWorking/librashader` fork at a pinned commit: its header (MIT, SHA-256 checked), and `librashader-capi` built with cargo (Rust 1.88 or newer) into `<libdir>/opensu/librashader.so`, staged in the build tree and installed |
+| `cmake/Librashader.cmake` | librashader from the `SomeoneIsWorking/librashader` fork at a pinned commit: its header (MIT, SHA-256 checked), and `librashader-capi` built with cargo (Rust 1.88 or newer; for Windows or an Android ABI cross-built for its target) into `<libdir>/opensu/librashader.so`, staged in the build tree and installed; the APK carries it beside the runner |
 | `src/retro/core.*` | One loaded core: `dlopen`, the `retro_*` symbols, init/load/run/unload in order, the callback trampolines |
 | `src/retro/core_environment.*` | The environment commands answered: directories, pixel format, core options, log, input descriptors, geometry and timing changes, the hardware-render commands (through its `HardwareRender`); anything else is refused |
 | `src/retro/core_options.*` | The core's option definitions (v0 variables, v1, v2) and their current values: the defaults, except a value the launch chose (`--option`) that the core offers for that key |

@@ -2,7 +2,9 @@
 # fork, built with cargo (Vulkan runtime only) as an ExternalProject and staged where the runner
 # loads it at run time, `<prefix>/<libdir>/opensu/librashader.so` (`.dll` on Windows,
 # `Config::librashader`), in the build tree and installed. A Windows build targets
-# x86_64-pc-windows-msvc with clang-cl and lld-link, also from a Linux host through the xwin SDK. The runtime is MPL-2.0 (or GPL-3); its C header librashader.h is MIT
+# x86_64-pc-windows-msvc with clang-cl and lld-link, also from a Linux host through the xwin SDK; an
+# Android build targets the ABI's Rust target with the NDK's clang and is packaged beside the
+# runner as librashader.so. The runtime is MPL-2.0 (or GPL-3); its C header librashader.h is MIT
 # and comes from the same commit, checked by SHA-256. Static linking is not supported upstream.
 #
 # OPENSU_BUILD_LIBRASHADER=OFF builds without it, for a machine with no Rust 1.88: the runner then
@@ -102,6 +104,27 @@ function(opensu_add_librashader)
             list(JOIN OPENSU_WINDOWS_LIB_DIRS "|" lib_dirs)
             list(APPEND cargo_env "INCLUDE=${include_dirs}" "LIB=${lib_dirs}")
         endif()
+        set(target_args --target "${rust_target}")
+    elseif(ANDROID)
+        # The NDK's API-level clang wrappers compile the crates' C and C++ and link the library;
+        # build scripts stay on the host's own linker.
+        if(ANDROID_ABI STREQUAL "arm64-v8a")
+            set(rust_target "aarch64-linux-android")
+        elseif(ANDROID_ABI STREQUAL "x86_64")
+            set(rust_target "x86_64-linux-android")
+        else()
+            message(FATAL_ERROR "librashader has no Rust target for ${ANDROID_ABI}")
+        endif()
+        string(TOUPPER "${rust_target}" target_variable)
+        string(REPLACE "-" "_" target_variable "${target_variable}")
+        string(REPLACE "-" "_" target_suffix "${rust_target}")
+        set(clang "${ANDROID_TOOLCHAIN_ROOT}/bin/${rust_target}${ANDROID_PLATFORM_LEVEL}-clang")
+        set(built "${root}/target/${rust_target}/optimized/${library}")
+        set(cargo_env
+            "CC_${target_suffix}=${clang}"
+            "CXX_${target_suffix}=${clang}++"
+            "AR_${target_suffix}=${ANDROID_TOOLCHAIN_ROOT}/bin/llvm-ar"
+            "CARGO_TARGET_${target_variable}_LINKER=${clang}")
         set(target_args --target "${rust_target}")
     else()
         set(built "${root}/target/optimized/${library}")

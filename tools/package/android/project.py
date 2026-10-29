@@ -25,9 +25,14 @@ def stage(layout: config.Layout, port: ModuleType) -> Path:
 
 
 def stage_libraries(layout: config.Layout, port: ModuleType, profile: object, abi: str) -> None:
-    """libmain.so, SDL3 and libc++ through android-port; then the runner beside them."""
+    """libmain.so, SDL3 and libc++ through android-port; then the runner and librashader beside
+    them, where `installLayout` looks."""
     port.stage_package_runtime(profile)
-    runner = layout.native_dir(abi) / "src" / "libopensu-retro.so"
-    if not runner.is_file():
-        raise config.refuse(f"the {abi} build has no {runner.name}")
-    shutil.copy2(runner, profile.jni_libs / abi / runner.name)
+    built = layout.native_dir(abi)
+    for library in (
+        built / "src" / "libopensu-retro.so",
+        built / "lib" / "opensu" / "librashader.so",
+    ):
+        if not library.is_file():
+            raise config.refuse(f"the {abi} build has no {library.name}")
+        shutil.copy2(library, profile.jni_libs / abi / library.name)
