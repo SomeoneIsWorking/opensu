@@ -342,9 +342,10 @@ Every Windows backend is one source file picked in its owner's CMakeLists; Linux
   first-run chooser, Home (empty slots: no store integration on), the Guide menu, Settings, Library
   with the consoles of the ROMs found, a game's details, Mesen downloaded from the buildbot's
   `windows/x86_64` folder, and `opensu-retro.exe` drawing the game when run directly. Started from
-  the shell, the runner ran in its job but the shell stayed on "Starting" for 45 s, and a launched
-  game's output goes nowhere on Windows (no counterpart of the scope's journal), so why is not
-  known yet.
+  the shell, the runner ran in its job but the shell stayed on "Starting": `Handoff` finds a
+  started game by its command line (`ProcessTree::treesMatching`), which Wine cannot read (class
+  60 above), so this needs real Windows. A launched game's output goes nowhere on Windows (no
+  counterpart of the scope's journal).
 
 ## Step 4 as built
 
