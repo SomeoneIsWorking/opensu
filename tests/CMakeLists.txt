@@ -60,11 +60,12 @@ if(WIN32)
     set_property(TEST retro_save_memory retro_runner DIRECTORY retro PROPERTY DISABLED TRUE)
 endif()
 
-# Tests of the Linux backends themselves (systemd scopes, /proc): macOS has its own in
-# tests/launch's darwin test.
+# Tests of the Linux backends themselves (systemd scopes, /proc, evdev and uinput pads): macOS has
+# its own launch backends in tests/launch's darwin test and reads pads through SDL.
 if(APPLE)
     set_target_properties(handoff_test process_launcher_test process_tree_test desktop_steam_test
-        steam_client_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
+        steam_client_test pad_translator_test pads_test PROPERTIES EXCLUDE_FROM_ALL TRUE)
     set_property(TEST handoff process_launcher process_tree DIRECTORY launch PROPERTY DISABLED TRUE)
     set_property(TEST desktop_steam steam_client DIRECTORY steam PROPERTY DISABLED TRUE)
+    set_property(TEST pad_translator pads DIRECTORY gamepad PROPERTY DISABLED TRUE)
 endif()
