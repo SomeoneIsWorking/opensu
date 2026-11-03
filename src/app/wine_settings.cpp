@@ -15,7 +15,7 @@
 #include "library/steam_compat.hpp"
 #include "lucent/log.h"
 #include "lucent/text.h"
-#include "steam_library_settings.hpp"
+#include "ui/size_text.hpp"
 
 namespace opensu::app {
 namespace {
@@ -273,7 +273,7 @@ ui::SettingsCategory WineSettings::page() const {
     page.rows.push_back(ui::makeHeading("Runners and runtimes"));
     const auto sizeOf = [&look](const fs::path& dir) -> std::string {
         const auto piece = std::ranges::find(look.builds, dir, &WineRunners::Piece::dir);
-        return piece != look.builds.end() && piece->bytes > 0 ? " · " + sizeText(piece->bytes)
+        return piece != look.builds.end() && piece->bytes > 0 ? " · " + ui::sizeText(piece->bytes)
                                                               : std::string{};
     };
     for (const library::wine::Runner& runner : found_) {
@@ -292,12 +292,13 @@ ui::SettingsCategory WineSettings::page() const {
     if (look.umu) {
         page.rows.push_back(ui::makePage(
             std::string{runtimePage} + std::string{umuKey}, look.umu->name,
-            "Runs Proton games outside Steam · " + sizeText(look.umu->bytes), onProton));
+            "Runs Proton games outside Steam · " + ui::sizeText(look.umu->bytes), onProton));
     }
     if (look.steamRuntime) {
         page.rows.push_back(ui::makePage(
             std::string{runtimePage} + std::string{steamRuntimeKey}, look.steamRuntime->name,
-            "The container Proton games run in · " + sizeText(look.steamRuntime->bytes), onProton));
+            "The container Proton games run in · " + ui::sizeText(look.steamRuntime->bytes),
+            onProton));
     }
 
     page.rows.push_back(ui::makeHeading("Prefixes"));
@@ -333,7 +334,7 @@ std::optional<ui::SettingsCategory> WineSettings::subPage(const std::string& id)
         page.rows.push_back(ui::makeRow("wine.where", RowKind::Info, "Where",
                                         "Downloaded by openSU", piece->dir.string()));
         page.rows.push_back(
-            ui::makeRow("wine.size", RowKind::Info, "Size", "On disk", sizeText(piece->bytes)));
+            ui::makeRow("wine.size", RowKind::Info, "Size", "On disk", ui::sizeText(piece->bytes)));
         const std::vector<library::Game> onProton = gamesOn({});
         for (const library::Source source : storeOrder) {
             const std::vector<library::Game> games = fromStore(onProton, source);
@@ -363,8 +364,9 @@ std::optional<ui::SettingsCategory> WineSettings::subPage(const std::string& id)
                     (runner->proton.empty() ? runner->wine : runner->proton).string()));
     if (const auto piece = std::ranges::find(look.builds, runner->proton, &WineRunners::Piece::dir);
         piece != look.builds.end()) {
-        page.rows.push_back(ui::makeRow("wine.size", RowKind::Info, "Size", "On disk",
-                                        piece->bytes > 0 ? sizeText(piece->bytes) : "Measuring"));
+        page.rows.push_back(
+            ui::makeRow("wine.size", RowKind::Info, "Size", "On disk",
+                        piece->bytes > 0 ? ui::sizeText(piece->bytes) : "Measuring"));
     }
     if (const auto kept = look.kept.find(runner->name);
         isManaged(*runner) && kept != look.kept.end()) {

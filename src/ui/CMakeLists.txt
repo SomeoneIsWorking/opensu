@@ -11,7 +11,7 @@ opensu_warnings(opensu_grid)
 add_library(opensu_hud_model STATIC top_bar_metrics.cpp top_bar_layout.cpp corner_hints.cpp clock_text.cpp battery_icon.cpp
     section_view.cpp dock_metrics.cpp dock_motion.cpp
     on_screen_keyboard.cpp panel_fade.cpp breadcrumbs.cpp game_details.cpp
-    setting_row.cpp folder_chooser.cpp volume_osd.cpp chord_hint.cpp
+    setting_row.cpp size_text.cpp folder_chooser.cpp volume_osd.cpp chord_hint.cpp
     mapping_board_layout.cpp mapping_page.cpp)
 add_library(opensu::hud_model ALIAS opensu_hud_model)
 target_include_directories(opensu_hud_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

@@ -1,20 +1,19 @@
 #include "steam_library_settings.hpp"
 
-#include <array>
-#include <cstdio>
 #include <system_error>
 
 #include "settings/install_folders.hpp"
+#include "ui/size_text.hpp"
 
 namespace opensu::app {
 namespace {
 
 using ui::RowKind;
+using ui::sizeText;
 
 constexpr std::string_view addId = "steamLibraries.add";
 constexpr std::string_view libraryId = "steamLibraries.library.";
 constexpr std::string_view removeId = "steamLibraries.remove.";
-constexpr double unit = 1024.0;
 
 std::string gamesText(std::size_t count, std::uint64_t bytes) {
     return std::to_string(count) + (count == 1 ? " game, " : " games, ") + sizeText(bytes);
@@ -37,19 +36,6 @@ std::optional<int> indexIn(std::string_view id, std::string_view prefix) {
 }
 
 } // namespace
-
-std::string sizeText(std::uint64_t bytes) {
-    constexpr std::array units{"B", "KB", "MB", "GB", "TB"};
-    auto size = static_cast<double>(bytes);
-    std::size_t at = 0;
-    while (size >= unit && at + 1 < units.size()) {
-        size /= unit;
-        ++at;
-    }
-    std::array<char, 32> text{};
-    std::snprintf(text.data(), text.size(), at == 0 ? "%.0f %s" : "%.1f %s", size, units[at]);
-    return text.data();
-}
 
 SteamLibrarySettings::SteamLibrarySettings(Sources sources, PathEditor& paths,
                                            std::filesystem::path home, Hooks hooks)

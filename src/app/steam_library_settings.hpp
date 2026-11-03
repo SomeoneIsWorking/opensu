@@ -85,7 +85,4 @@ class SteamLibrarySettings {
     std::jthread worker_;
 };
 
-/// `bytes` as the player reads a size: "45.2 GB".
-[[nodiscard]] std::string sizeText(std::uint64_t bytes);
-
 } // namespace opensu::app
