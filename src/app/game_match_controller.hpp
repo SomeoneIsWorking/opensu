@@ -1,9 +1,10 @@
-// game_match_controller — Match a different game, from a game's details or "Choose artwork": the
-// Steam apps Steam's store search finds for the game's title (without its last words while it
-// finds none), or a name the player types, each
-// with its Steam cover and release year as they arrive on a worker. A keeps the one picked as the
-// game's match (`OwnGamesController::match`), which its cover, SteamGridDB lookup and Proton fixes
-// follow; B closes.
+// game_match_controller — Match a different game, from a game's details or "Choose artwork": for a
+// store game or one the player added, the Steam apps Steam's store search finds for its title;
+// for a ROM, the box art titles its system's libretro-thumbnails listing has for it. The title is
+// searched without its last words while nothing is found, or the player types a name; each
+// candidate's cover (and a Steam app's release year) arrives on a worker. A keeps the one picked
+// as the game's match (`library::matchKey`), which its cover and SteamGridDB lookup follow, and an
+// added game's Proton fixes; B closes.
 #pragma once
 
 #include <cstddef>
@@ -19,9 +20,11 @@
 
 #include "gpu2d/ui/navigator.hpp"
 
+#include "artwork/artwork_store.hpp"
 #include "audio/sdl_sound_player.hpp"
 #include "keyboard_pad.hpp"
 #include "library/game.hpp"
+#include "library/match_pick.hpp"
 #include "ui/screen_images.hpp"
 #include "ui/screen_stack.hpp"
 
@@ -44,24 +47,29 @@ class GameMatchController {
         std::filesystem::path covers;
         /// Steam's CDN app root (`artwork::RemoteSources::steam`).
         std::string steamCdn;
+        /// libretro-thumbnails' root (`artwork::RemoteSources::libretro`).
+        std::string libretro;
     };
 
     struct Hooks {
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
-        /// The player picked Steam app `appId`, titled `title`, as what `game` is.
-        std::function<void(const library::Game& game, const std::string& appId,
+        /// The player picked `key` (a Steam app id, or a box art title), titled `title`, as what
+        /// `game` is.
+        std::function<void(const library::Game& game, const std::string& key,
                            const std::string& title)>
             matched;
     };
 
-    /// One Steam app the game could be.
+    /// One game the game could be: a Steam app, or a box art title.
     struct Candidate {
-        std::string appId;
+        /// What is kept as the match: the app id, or the box art title.
+        std::string key;
         std::string title;
-        /// The year it came out on Steam; empty until known or when the store says none.
+        /// The year it came out on Steam; empty until known, when the store says none, and for a
+        /// box art title.
         std::string year;
-        /// Its Steam cover; empty while it downloads or when it has none.
+        /// Its cover; empty while it downloads or when it has none.
         std::filesystem::path cover;
         /// Whether its cover and year have been asked for.
         bool complete{false};
@@ -69,12 +77,14 @@ class GameMatchController {
         bool operator==(const Candidate&) const = default;
     };
 
-    GameMatchController(Parts parts, Places places, Hooks hooks);
+    /// `listings` keeps the systems' box art listings.
+    GameMatchController(Parts parts, Places places, const artwork::ArtworkStore& listings,
+                        Hooks hooks);
     ~GameMatchController();
     GameMatchController(const GameMatchController&) = delete;
     GameMatchController& operator=(const GameMatchController&) = delete;
 
-    /// Opens for `game`, searching Steam for its title.
+    /// Opens for `game`, searching for its title; nothing for a game that cannot be matched.
     void open(const library::Game& game);
     void close();
     [[nodiscard]] bool isOpen() const;
@@ -90,9 +100,12 @@ class GameMatchController {
     [[nodiscard]] const std::vector<Candidate>& candidates() const noexcept {
         return candidates_;
     }
-    /// The Steam app the game is matched to now; empty for none.
+    /// What the game is matched to now; empty for none.
     [[nodiscard]] const std::string& current() const noexcept {
         return game_.artworkKey;
+    }
+    [[nodiscard]] library::MatchKind kind() const noexcept {
+        return kind_;
     }
     /// Keeps candidate `index` as the game's match; the current one just closes.
     void choose(std::size_t index);
@@ -105,17 +118,23 @@ class GameMatchController {
         std::uint64_t generation{0};
         std::vector<Candidate> candidates;
         bool searched{false};
-        /// The name Steam found the apps by: the one searched, or it without its last words.
+        /// The name the candidates were found by: the one searched, or it without its last words.
         std::string term;
         std::string error;
     };
 
     [[nodiscard]] const gpu2d::ui::Screen* screen() const;
-    /// Searches Steam for `term` on the worker.
+    /// Searches for `term` on the worker.
     void search(std::string term);
     void find(const std::stop_token& stop, const std::string& term, std::uint64_t generation);
-    /// The cover of app `appId` in the cache, downloaded when it is not there; empty for none.
-    [[nodiscard]] std::filesystem::path coverOf(const std::string& appId) const;
+    void findSteamApps(const std::stop_token& stop, const std::string& term, Found& found);
+    void findBoxArt(const std::stop_token& stop, const std::string& term, Found& found);
+    /// The file at `url` kept in the cache as `name`, downloaded when it is not there; empty when
+    /// there is none.
+    [[nodiscard]] std::filesystem::path cached(const std::string& url,
+                                               const std::string& name) const;
+    /// Where the candidates are searched, as the player reads it.
+    [[nodiscard]] std::string searched() const;
     void publish(const Found& found);
     void closeName();
 
@@ -125,8 +144,10 @@ class GameMatchController {
     KeyboardPad& keyboard_;
     audio::SdlSoundPlayer& sounds_;
     Places places_;
+    const artwork::ArtworkStore& listings_;
     Hooks hooks_;
     library::Game game_;
+    library::MatchKind kind_{library::MatchKind::None};
     std::string title_;
     std::string term_;
     /// The name card's text.

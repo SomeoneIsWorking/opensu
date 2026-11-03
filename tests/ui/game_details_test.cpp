@@ -81,9 +81,9 @@ void storeGame() {
     expect(valueOf(details, "Play time") == "2 h 5 min", "play time");
     expect(factOf(details, "Emulator") == nullptr, "a store game has no emulator fact");
     expect(details.launch == "Play", "an installed game plays");
-    expect(idsOf(details) == ids({detailsHiddenId, detailsUninstallId, detailsArtworkId,
-                                  detailsControlsId, detailsBackId}),
-           "Hide, Uninstall, Choose artwork, Controls, Back");
+    expect(idsOf(details) == ids({detailsHiddenId, detailsUninstallId, detailsMatchId,
+                                  detailsArtworkId, detailsControlsId, detailsBackId}),
+           "Hide, Uninstall, Match a different game, Choose artwork, Controls, Back");
     expect(actionOf(details, detailsHiddenId)->label == "Hide game" &&
                actionOf(details, detailsArtworkId)->kind == RowKind::Page &&
                actionOf(details, detailsControlsId)->kind == RowKind::Page,

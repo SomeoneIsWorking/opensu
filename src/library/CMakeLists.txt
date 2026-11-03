@@ -54,6 +54,7 @@ add_library(opensu_library STATIC
     own_games.cpp
     game_identify.cpp game_matches.cpp
     steam_shortcuts.cpp
+    match_pick.cpp
     lutris_games.cpp
 )
 add_library(opensu::library ALIAS opensu_library)

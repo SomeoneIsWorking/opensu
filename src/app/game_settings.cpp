@@ -1,6 +1,7 @@
 #include "game_settings.hpp"
 
 #include "library/emulator_choice.hpp"
+#include "library/match_pick.hpp"
 #include "library/rom_systems.hpp"
 #include "lucent/log.h"
 #include "settings/core_option_settings.hpp"
@@ -19,6 +20,7 @@ settings::Schema keptSchema() {
     settings::declareScaling(schema, std::nullopt);
     settings::declareCoreOptionFamily(schema);
     schema.addOpen(std::string{library::emulatorKey});
+    schema.addOpen(std::string{library::matchKey});
     return schema;
 }
 

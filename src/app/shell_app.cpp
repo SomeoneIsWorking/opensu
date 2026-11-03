@@ -21,6 +21,7 @@
 #include "keyboard_pad.hpp"
 #include "launcher_status.hpp"
 #include "library/emulator_choice.hpp"
+#include "library/match_pick.hpp"
 #include "library/titles.hpp"
 #include "lucent/log.h"
 #include "retro_launch.hpp"
@@ -214,6 +215,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     sources_ = std::move(snapshot.sources);
     preferences_.values().lastPlayed.apply(games_);
     library::applyEmulatorPicks(gameSettings_.layers(), games_);
+    library::applyMatchPicks(gameSettings_.layers(), games_);
     plugins_.apply(games_);
     plugins_.request(games_);
     artworkStore_.apply(games_);
@@ -749,6 +751,16 @@ void ShellApp::chooseEmulator(const library::Game& game, const std::string& name
     gameSettings_.save();
     library::applyEmulatorPicks(gameSettings_.layers(), games_);
     refreshShelf();
+}
+
+void ShellApp::keepMatch(const library::Game& game, const std::string& key,
+                         const std::string& title) {
+    gameSettings_.layers().set(settings::Layer{settings::Layer::Kind::Game, game.id},
+                               library::matchKey, key);
+    gameSettings_.save();
+    shell_.setToast(game.title + " is now matched to " + title, false);
+    // The source's own art comes back with a fresh read, for the match to replace.
+    reloadCatalog();
 }
 
 std::optional<library::Game> ShellApp::shownGame(const std::string& id) const {

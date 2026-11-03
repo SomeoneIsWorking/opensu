@@ -5,10 +5,12 @@
 #include <system_error>
 #include <utility>
 
+#include "artwork/libretro_index.hpp"
 #include "fileio/atomic_write.hpp"
 #include "game_match_screen.hpp"
 #include "library/game_identify.hpp"
 #include "library/game_matches.hpp"
+#include "library/rom_systems.hpp"
 #include "lucent/log.h"
 #include "net/web_client.hpp"
 #include "ui/entry_screen.hpp"
@@ -18,17 +20,18 @@ namespace {
 
 namespace fs = std::filesystem;
 
-/// The most apps one search offers.
+/// The most candidates one search offers.
 constexpr std::size_t mostCandidates = 8;
 constexpr const char* nameCardId = "match/name";
 constexpr std::size_t nameMostLength = 256;
 
 } // namespace
 
-GameMatchController::GameMatchController(Parts parts, Places places, Hooks hooks)
+GameMatchController::GameMatchController(Parts parts, Places places,
+                                         const artwork::ArtworkStore& listings, Hooks hooks)
     : navigator_{parts.navigator}, chrome_{parts.chrome}, images_{parts.images},
       keyboard_{parts.keyboard}, sounds_{parts.sounds}, places_{std::move(places)},
-      hooks_{std::move(hooks)} {
+      listings_{listings}, hooks_{std::move(hooks)} {
 }
 
 GameMatchController::~GameMatchController() = default;
@@ -46,10 +49,11 @@ bool GameMatchController::isOpen() const {
 }
 
 void GameMatchController::open(const library::Game& game) {
-    if (isOpen()) {
+    if (isOpen() || library::matchKindOf(game) == library::MatchKind::None) {
         return;
     }
     game_ = game;
+    kind_ = library::matchKindOf(game);
     title_ = "Match a different game: " + game.title;
     sounds_.play(audio::Effect::OpenContextMenu);
     search(game.title);
@@ -81,34 +85,38 @@ void GameMatchController::publish(const Found& found) {
     found_ = found;
 }
 
-fs::path GameMatchController::coverOf(const std::string& appId) const {
-    fs::path file = places_.covers / (appId + ".jpg");
+fs::path GameMatchController::cached(const std::string& url, const std::string& name) const {
+    fs::path file = places_.covers / name;
     std::error_code ec;
     if (fs::is_regular_file(file, ec)) {
         return file;
     }
     const net::WebClient web;
-    const std::string base = places_.steamCdn + "/" + appId + "/";
-    // The library portrait, else the store header, which every app has.
-    for (const char* name : {"library_600x900.jpg", "header.jpg"}) {
-        std::string error;
-        const std::optional<std::string> bytes = web.get(base + name, error);
-        if (!bytes) {
-            continue;
-        }
-        if (!fileio::writeWhole(file, *bytes, error)) {
-            lucent::warn("own-games", "{}", error);
-            return {};
-        }
-        return file;
+    std::string error;
+    const std::optional<std::string> bytes = web.get(url, error);
+    if (!bytes) {
+        return {};
     }
-    return {};
+    if (!fileio::writeWhole(file, *bytes, error)) {
+        lucent::warn("match", "{}", error);
+        return {};
+    }
+    return file;
 }
 
 void GameMatchController::find(const std::stop_token& stop, const std::string& term,
                                std::uint64_t generation) {
-    const net::WebClient web;
     Found found{.generation = generation};
+    if (kind_ == library::MatchKind::LibretroTitle) {
+        findBoxArt(stop, term, found);
+    } else {
+        findSteamApps(stop, term, found);
+    }
+}
+
+void GameMatchController::findSteamApps(const std::stop_token& stop, const std::string& term,
+                                        Found& found) {
+    const net::WebClient web;
     std::vector<library::identify::StoreApp> apps;
     // Steam's search wants every word, so a title with a word Steam's name lacks ("Remake")
     // is searched again without its last words.
@@ -117,7 +125,7 @@ void GameMatchController::find(const std::stop_token& stop, const std::string& t
         const std::optional<std::string> answer =
             web.get(library::identify::storeSearchUrl(asked), error);
         if (!answer) {
-            lucent::warn("own-games", "Steam store search: {}", error);
+            lucent::warn("match", "Steam store search: {}", error);
             found.searched = true;
             found.error = "Steam's store cannot be reached";
             publish(found);
@@ -134,7 +142,7 @@ void GameMatchController::find(const std::stop_token& stop, const std::string& t
             break;
         }
         found.candidates.push_back(
-            Candidate{.appId = std::move(app.appId), .title = std::move(app.title)});
+            Candidate{.key = std::move(app.appId), .title = std::move(app.title)});
     }
     publish(found);
     for (Candidate& candidate : found.candidates) {
@@ -143,10 +151,53 @@ void GameMatchController::find(const std::stop_token& stop, const std::string& t
         }
         std::string dated;
         if (const std::optional<std::string> details =
-                web.get(library::matches::releaseDateUrl(candidate.appId), dated)) {
-            candidate.year = library::matches::parseReleaseYear(*details, candidate.appId);
+                web.get(library::matches::releaseDateUrl(candidate.key), dated)) {
+            candidate.year = library::matches::parseReleaseYear(*details, candidate.key);
         }
-        candidate.cover = coverOf(candidate.appId);
+        const std::string base = places_.steamCdn + "/" + candidate.key + "/";
+        // The library portrait, else the store header, which every app has.
+        candidate.cover = cached(base + "library_600x900.jpg", candidate.key + ".jpg");
+        if (candidate.cover.empty()) {
+            candidate.cover = cached(base + "header.jpg", candidate.key + "-header.jpg");
+        }
+        candidate.complete = true;
+        publish(found);
+    }
+}
+
+void GameMatchController::findBoxArt(const std::stop_token& stop, const std::string& term,
+                                     Found& found) {
+    const library::roms::RomSystem* system = library::roms::systemByKey(game_.sourceId);
+    const net::WebClient web;
+    std::string error;
+    const std::optional<std::vector<std::string>> names =
+        system == nullptr ? std::nullopt
+                          : artwork::boxArtNames(web, listings_, *system, places_.libretro, error);
+    found.searched = true;
+    if (!names) {
+        lucent::warn("match", "libretro-thumbnails listing: {}", error);
+        found.error = "libretro-thumbnails cannot be reached";
+        publish(found);
+        return;
+    }
+    std::vector<std::string> titles;
+    for (std::string asked = term; !asked.empty() && titles.empty();) {
+        titles = artwork::namesMatching(asked, *names, mostCandidates);
+        found.term = asked;
+        const std::size_t space = asked.find_last_of(' ');
+        asked.resize(space == std::string::npos ? 0 : space);
+    }
+    for (std::string& title : titles) {
+        found.candidates.push_back(Candidate{.key = title, .title = std::move(title)});
+    }
+    publish(found);
+    for (Candidate& candidate : found.candidates) {
+        if (stop.stop_requested()) {
+            return;
+        }
+        candidate.cover =
+            cached(artwork::boxArtUrl(places_.libretro, *system, candidate.key),
+                   std::string{system->key} + "-" + artwork::thumbnailName(candidate.key) + ".png");
         candidate.complete = true;
         publish(found);
     }
@@ -169,17 +220,22 @@ void GameMatchController::service() {
     error_ = std::move(found->error);
 }
 
+std::string GameMatchController::searched() const {
+    return kind_ == library::MatchKind::LibretroTitle ? "libretro-thumbnails" : "Steam";
+}
+
 std::string GameMatchController::status() const {
     if (!searched_) {
-        return "Searching Steam for \"" + term_ + "\"...";
+        return "Searching " + searched() + " for \"" + term_ + "\"...";
     }
     if (!error_.empty()) {
         return error_;
     }
     if (candidates_.empty()) {
-        return "Steam has no game called \"" + term_ + "\"; search another name";
+        return searched() + " has no game called \"" + term_ + "\"; search another name";
     }
-    return std::to_string(candidates_.size()) + " games on Steam for \"" + term_ + "\"";
+    return std::to_string(candidates_.size()) + " games on " + searched() + " for \"" + term_ +
+           "\"";
 }
 
 void GameMatchController::choose(std::size_t index) {
@@ -188,12 +244,11 @@ void GameMatchController::choose(std::size_t index) {
     }
     const Candidate picked = candidates_[index];
     close();
-    if (picked.appId == game_.artworkKey) {
+    if (picked.key == game_.artworkKey) {
         return;
     }
-    lucent::info("own-games", "{} matched to Steam app {} ({})", game_.id, picked.appId,
-                 picked.title);
-    hooks_.matched(game_, picked.appId, picked.title);
+    lucent::info("match", "{} matched to {} ({})", game_.id, picked.key, picked.title);
+    hooks_.matched(game_, picked.key, picked.title);
 }
 
 void GameMatchController::searchAnother() {
@@ -202,7 +257,9 @@ void GameMatchController::searchAnother() {
     navigator_.push(std::make_unique<ui::EntryScreen>(
         ui::Entry{.id = nameCardId,
                   .title = "Search another name",
-                  .note = "The name Steam's store is searched for.",
+                  .note = kind_ == library::MatchKind::LibretroTitle
+                              ? "The name libretro-thumbnails' box art is searched for."
+                              : "The name Steam's store is searched for.",
                   .label = "Name",
                   .placeholder = "Name",
                   .secret = false,

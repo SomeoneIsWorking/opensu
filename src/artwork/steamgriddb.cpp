@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "library/rom_titles.hpp"
 #include "libretro_index.hpp"
 #include "lucent/log.h"
 #include "secrets/secret.hpp"
@@ -39,7 +40,10 @@ bool isWebUrl(const std::string& url) {
 } // namespace
 
 SteamGridDbGame steamGridDbGameOf(const library::Game& game) {
-    if (game.source == library::Source::Own) {
+    if (game.source == library::Source::Rom && !game.artworkKey.empty()) {
+        return {"", library::roms::cleanTitle(game.artworkKey)};
+    }
+    if (!game.artworkKey.empty()) {
         return {game.artworkKey, game.title};
     }
     return {game.source == library::Source::Steam ? game.sourceId : "", game.title};

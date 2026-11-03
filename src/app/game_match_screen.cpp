@@ -17,8 +17,9 @@ namespace tk = gpu2d::ui;
 /// The card's widest, in dp, and the covers across it.
 constexpr float cardDp = 1040.0f;
 constexpr std::size_t columns = 4;
-/// A Steam library portrait's width over its height.
-constexpr float coverAspect = 2.0f / 3.0f;
+/// A Steam library portrait's width over its height, and a box art's, which varies by system.
+constexpr float portraitAspect = 2.0f / 3.0f;
+constexpr float boxArtAspect = 1.0f;
 
 } // namespace
 
@@ -35,6 +36,7 @@ std::unique_ptr<tk::Widget> GameMatchScreen::build(const tk::Theme& theme) {
     grid.space(spacing.pad * 0.75f);
     grid.pad(tk::Insets::all(theme.shape.focusRing + theme.shape.focusGap));
     const std::vector<GameMatchController::Candidate>& candidates = controller_.candidates();
+    const bool boxArt = controller_.kind() == library::MatchKind::LibretroTitle;
     for (std::size_t i = 0; i < candidates.size(); ++i) {
         const GameMatchController::Candidate& candidate = candidates[i];
         tk::CardButton& cell = grid.add<tk::CardButton>(
@@ -43,17 +45,20 @@ std::unique_ptr<tk::Widget> GameMatchScreen::build(const tk::Theme& theme) {
                 controller_.choose(i);
             },
             "Match");
-        cell.mark(candidate.appId == controller_.current());
+        cell.mark(candidate.key == controller_.current());
         cell.pad(tk::Insets::all(spacing.gap * 1.5f)).space(spacing.gap);
-        cell.add<ui::ImageView>(images_, candidate.cover, coverAspect)
+        cell.add<ui::ImageView>(images_, candidate.cover, boxArt ? boxArtAspect : portraitAspect)
             .whole(tk::Align::Centre)
             .loading([complete = candidate.complete] {
                 return !complete;
             });
         cell.add<tk::Label>(candidate.title, tk::TextRole::Body, true);
+        if (boxArt) {
+            continue;
+        }
         cell.add<tk::Label>(candidate.year.empty()
-                                ? "Steam app " + candidate.appId
-                                : candidate.year + " · Steam app " + candidate.appId,
+                                ? "Steam app " + candidate.key
+                                : candidate.year + " · Steam app " + candidate.key,
                             tk::TextRole::Caption)
             .colour(theme.colours.inkMuted);
     }

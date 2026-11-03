@@ -68,6 +68,10 @@ add_executable(emulator_choice_test emulator_choice_test.cpp)
 target_link_libraries(emulator_choice_test PRIVATE opensu::library)
 add_test(NAME emulator_choice COMMAND emulator_choice_test)
 
+add_executable(match_pick_test match_pick_test.cpp)
+target_link_libraries(match_pick_test PRIVATE opensu::library)
+add_test(NAME match_pick COMMAND match_pick_test)
+
 add_executable(emulator_catalog_test emulator_catalog_test.cpp)
 target_link_libraries(emulator_catalog_test PRIVATE opensu::library)
 target_compile_definitions(emulator_catalog_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")

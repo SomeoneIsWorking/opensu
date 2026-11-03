@@ -4,6 +4,7 @@
 #include <ctime>
 
 #include "clock/local_time.hpp"
+#include "library/match_pick.hpp"
 #include "library/rom_systems.hpp"
 
 namespace opensu::ui {
@@ -202,8 +203,10 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
     if (game.installed && !rom && !own) {
         actions.push_back(action(detailsUninstallId, "Uninstall"));
     }
-    if (own) {
+    if (library::matchKindOf(game) != library::MatchKind::None) {
         actions.push_back(makePage(std::string{detailsMatchId}, "Match a different game", {}, {}));
+    }
+    if (own) {
         actions.push_back(action(detailsRenameId, "Rename"));
         if (!game.file.empty()) {
             actions.push_back(action(detailsChangeFileId, "Change file"));

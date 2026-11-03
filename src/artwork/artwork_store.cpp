@@ -57,6 +57,12 @@ ArtworkStore::ArtworkStore(const fs::path& root) : root_{root} {
 }
 
 fs::path ArtworkStore::pathFor(const library::Game& game) const {
+    if (game.source != library::Source::Rom && !game.artworkKey.empty()) {
+        // The Steam app it is matched to, so another match is another file.
+        return game.sourceId.empty() ? fs::path{}
+                                     : root_ / library::key(game.source) /
+                                           (game.sourceId + "-" + game.artworkKey + ".jpg");
+    }
     switch (game.source) {
     case library::Source::Steam:
         return game.sourceId.empty() ? fs::path{} : root_ / "steam" / (game.sourceId + ".jpg");
@@ -74,11 +80,8 @@ fs::path ArtworkStore::pathFor(const library::Game& game) const {
     case library::Source::Gog:
         return game.sourceId.empty() ? fs::path{} : root_ / "gog" / (game.sourceId + ".jpg");
     case library::Source::Own:
-        // The Steam app it matched, so another match is another file; without one, SteamGridDB's
-        // comes through `CoverFitter`.
-        return game.artworkKey.empty()
-                   ? fs::path{}
-                   : root_ / "own" / (game.sourceId + "-" + game.artworkKey + ".jpg");
+        // Without a Steam app, SteamGridDB's comes through `CoverFitter`.
+        return {};
     }
     return {};
 }

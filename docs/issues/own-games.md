@@ -39,13 +39,14 @@ program, not the folder".
   Steam app Lutris knows it as: its Steam service id, a Steam runner's `game.appid`, or
   `system.env.GAMEID` (`umu-<id>` or the bare id) in `games/<configpath>.yml`. An entry imported
   before that was read takes it from Lutris on each listing; a match the entry keeps wins.
-- Match a different game, on an own game's details and as X in Choose artwork: Steam's store
+- Match a different game, on a game's details and as X in Choose artwork: Steam's store
   search for the title, dropping its last words while it finds none, or a name typed after X;
   up to eight apps, each with its Steam portrait (else header) under the cache's
   `artwork/match/` and its release year from `appdetails`; the current match is ticked. A keeps
-  the app as the entry's `steamAppId`, which the Steam cover (`artwork/own/<n>-<app>.jpg`), the
-  SteamGridDB lookup and the umu GAMEID follow. Only games the player added can be matched: a
-  store's game is the app it is.
+  the app as the game's `match` setting (`library/match_pick`, `game-settings.json`), which the
+  Steam cover (`artwork/own/<n>-<app>.jpg`), the SteamGridDB lookup and the umu GAMEID follow;
+  the entry's `steamAppId` stays what it was identified as when added. Store games and ROMs are
+  matched the same way (`docs/project-state.md`, S045).
 - A fitted SteamGridDB cover is kept with its lookup (`fitted/<id>.for`: Steam app and title);
   one fitted for another lookup, or kept without one, is dropped and fitted again. Cause of the
   Resident Evil 4 Remake showing the 2005 game: `lutris_games.cpp:lutrisGames` read only the name,

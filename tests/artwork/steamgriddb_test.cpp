@@ -81,6 +81,22 @@ void testShapes() {
            "a near-square box is square");
 }
 
+void testLookupFollowsTheMatch() {
+    opensu::library::Game rom;
+    rom.source = opensu::library::Source::Rom;
+    rom.title = "Crash Bandicoot";
+    rom.artworkKey = "Crash Bandicoot - Warped (USA)";
+    const opensu::artwork::SteamGridDbGame romLookup = opensu::artwork::steamGridDbGameOf(rom);
+    expect(romLookup.steamAppId.empty() && romLookup.title == "Crash Bandicoot - Warped",
+           "a ROM is looked up by the title of the libretro name it is matched to");
+    opensu::library::Game gog;
+    gog.source = opensu::library::Source::Gog;
+    gog.title = "Amnesia";
+    gog.artworkKey = "57300";
+    expect(opensu::artwork::steamGridDbGameOf(gog).steamAppId == "57300",
+           "a store game is looked up by the Steam app it is matched to");
+}
+
 void testRefusedKey() {
     opensu::test::SteamGridDbServer api{key};
     api.putSteam("620", {"portal2-grid.png", "grid"});
@@ -129,6 +145,7 @@ void testUnreachableApi() {
 int main() try {
     try {
         testShapes();
+        testLookupFollowsTheMatch();
         testListsCoversByShape();
         testRefusedKey();
         testNoKeyAsksNothing();

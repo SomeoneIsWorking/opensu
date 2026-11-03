@@ -71,8 +71,6 @@ class OwnGamesController {
     void rename(const library::Game& game);
     void changeFile(const library::Game& game);
     void remove(const library::Game& game);
-    /// Keeps Steam app `appId`, titled `title`, as what `game` is (Match a different game).
-    void match(const library::Game& game, const std::string& appId, const std::string& title);
 
   private:
     /// The entries of `found` not imported yet.

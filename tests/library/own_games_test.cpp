@@ -253,9 +253,6 @@ void lutrisGamesAreRead(const fs::path& dir) {
     expect(games.size() == 2 && games[0].artworkKey == "2050650",
            "an entry imported without its Steam app takes the one Lutris names");
     expect(games[1].artworkKey == "999", "the entry's own match wins over Lutris's");
-    expect(records.setSteamApp("1", "254700") && provider.list()[0].artworkKey == "254700",
-           "a game matched to another Steam app keeps it over Lutris's");
-    expect(!records.setSteamApp("77", "1"), "there is no entry 77 to match");
 }
 
 } // namespace

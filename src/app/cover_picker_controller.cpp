@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "cover_picker_screen.hpp"
+#include "library/match_pick.hpp"
 
 namespace opensu::app {
 
@@ -27,7 +28,7 @@ void CoverPickerController::open(const library::Game& game) {
     gameId_ = game.id;
     title_ = "Choose artwork: " + game.title;
     own_ = game.artwork;
-    matchable_ = game.source == library::Source::Own;
+    matchable_ = library::matchKindOf(game) != library::MatchKind::None;
     listing_.reset();
     saving_ = false;
     offers_.list(game);

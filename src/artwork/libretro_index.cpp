@@ -6,6 +6,8 @@
 #include <cstddef>
 #include <limits>
 
+#include "artwork_store.hpp"
+#include "lucent/log.h"
 #include "rom_titles.hpp"
 
 namespace opensu::artwork {
@@ -75,15 +77,13 @@ std::string region(std::string tag) {
     return tag;
 }
 
-Parsed parse(std::string_view whole) {
-    Parsed parsed;
-    const std::string_view name = library::roms::withoutReleaseNumber(whole);
-    const std::size_t cut = std::min(name.find(" ("), name.find(" ["));
-    const std::string_view title = name.substr(0, cut);
+/// A title's words: letters and digits, lower-case, without "the" and "and".
+std::vector<std::string> wordsOf(std::string_view title) {
+    std::vector<std::string> words;
     std::string word;
-    const auto flush = [&parsed, &word] {
+    const auto flush = [&words, &word] {
         if (!word.empty() && word != "the" && word != "and") {
-            parsed.title += word;
+            words.push_back(word);
         }
         word.clear();
     };
@@ -96,6 +96,16 @@ Parsed parse(std::string_view whole) {
         }
     }
     flush();
+    return words;
+}
+
+Parsed parse(std::string_view whole) {
+    Parsed parsed;
+    const std::string_view name = library::roms::withoutReleaseNumber(whole);
+    const std::size_t cut = std::min(name.find(" ("), name.find(" ["));
+    for (const std::string& word : wordsOf(name.substr(0, cut))) {
+        parsed.title += word;
+    }
     if (cut == std::string_view::npos) {
         return parsed;
     }
@@ -216,6 +226,27 @@ std::optional<std::string> bestMatch(std::string_view romName, std::span<const s
     return best;
 }
 
+std::vector<std::string> namesMatching(std::string_view term, std::span<const std::string> index,
+                                       std::size_t most) {
+    const std::vector<std::string> words = wordsOf(term);
+    std::vector<std::string> found;
+    if (words.empty()) {
+        return found;
+    }
+    for (const std::string& name : index) {
+        if (found.size() == most) {
+            break;
+        }
+        const std::string title = parse(name).title;
+        if (std::ranges::all_of(words, [&title](const std::string& word) {
+                return title.find(word) != std::string::npos;
+            })) {
+            found.push_back(name);
+        }
+    }
+    return found;
+}
+
 std::string encodeSegment(std::string_view segment) {
     constexpr std::string_view hex = "0123456789ABCDEF";
     std::string out;
@@ -232,6 +263,34 @@ std::string encodeSegment(std::string_view segment) {
         }
     }
     return out;
+}
+
+std::string boxArtUrl(std::string_view base, const library::roms::RomSystem& system,
+                      std::string_view name) {
+    return std::string{base} + "/" + encodeSegment(system.libretroName) + "/Named_Boxarts/" +
+           encodeSegment(name) + ".png";
+}
+
+std::optional<std::vector<std::string>> boxArtNames(const net::WebClient& web,
+                                                    const ArtworkStore& store,
+                                                    const library::roms::RomSystem& system,
+                                                    std::string_view base, std::string& error) {
+    std::optional<std::vector<std::string>> names =
+        store.index(system.key, ArtworkStore::Clock::now());
+    if (names) {
+        return names;
+    }
+    const std::string url =
+        std::string{base} + "/" + encodeSegment(system.libretroName) + "/Named_Boxarts/";
+    const std::optional<std::string> html = web.get(url, error);
+    if (!html) {
+        error = url + ": " + error;
+        return std::nullopt;
+    }
+    names = parseIndex(*html);
+    store.saveIndex(system.key, *names);
+    lucent::info("artwork", "{} box art names listed for {}", names->size(), system.libretroName);
+    return names;
 }
 
 } // namespace opensu::artwork

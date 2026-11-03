@@ -94,8 +94,8 @@ struct Game {
     std::filesystem::path artwork;
     std::filesystem::path artworkWide;
     /// The name artwork is looked up by remotely: a ROM's file or folder name without its
-    /// extension, dump tags and all, or the Steam app id a player's own game matched. Empty for a
-    /// source looked up by `sourceId`.
+    /// extension, dump tags and all, or the box art title picked for it; for any other game, the
+    /// Steam app id it is matched to. Empty for a game looked up by `sourceId`.
     std::string artworkKey;
     /// A store's image for the game, as `https://host/stem` with no size suffix. GOG's takes
     /// `_<size>.jpg`; Epic's is a complete image URL. Empty for a source whose art is looked up

@@ -36,8 +36,8 @@ struct SteamGridDbGame {
     std::string title;
 };
 
-/// How `game` is looked up: by Steam app id for a Steam game or an own game that matched one, and
-/// by title.
+/// How `game` is looked up: by the Steam app a store game is matched to, by the title of the
+/// libretro name a ROM is matched to, otherwise by title.
 [[nodiscard]] SteamGridDbGame steamGridDbGameOf(const library::Game& game);
 
 /// The lookup as one line of text, which a fitted cover is kept with: a cover fitted for another

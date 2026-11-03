@@ -191,6 +191,10 @@ void ArtworkFetcher::recordMiss(const Work& work) const {
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
+    if (game.source != library::Source::Rom && !game.artworkKey.empty()) {
+        // Matched to a Steam app: its covers, whatever the game's own source.
+        return fetchSteam(game, game.artworkKey);
+    }
     switch (game.source) {
     case library::Source::Steam:
         return fetchSteam(game, game.sourceId);
@@ -201,7 +205,7 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
     case library::Source::Gog:
         return fetchGog(game);
     case library::Source::Own:
-        return game.artworkKey.empty() ? Outcome::Missing : fetchSteam(game, game.artworkKey);
+        return Outcome::Missing;
     }
     return Outcome::Missing;
 }
@@ -266,8 +270,7 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchRom(const library::Game& game) {
     if (!match) {
         return Outcome::Missing;
     }
-    return keep(game, sources_.libretro + "/" + encodeSegment(system->libretroName) +
-                          "/Named_Boxarts/" + encodeSegment(*match) + ".png");
+    return keep(game, boxArtUrl(sources_.libretro, *system, *match));
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::keep(const library::Game& game, const std::string& url) {
@@ -289,24 +292,15 @@ ArtworkFetcher::Outcome ArtworkFetcher::keep(const library::Game& game, const st
 
 const std::vector<std::string>* ArtworkFetcher::index(const library::roms::RomSystem& rom) {
     const std::string_view system = rom.key;
-    const std::string_view libretroName = rom.libretroName;
     if (const auto found = indexes_.find(system); found != indexes_.end()) {
         return &found->second;
     }
+    std::string error;
     std::optional<std::vector<std::string>> names =
-        store_.index(system, ArtworkStore::Clock::now());
+        boxArtNames(web_, store_, rom, sources_.libretro, error);
     if (!names) {
-        std::string error;
-        const std::string url =
-            sources_.libretro + "/" + encodeSegment(libretroName) + "/Named_Boxarts/";
-        const std::optional<std::string> html = web_.get(url, error);
-        if (!html) {
-            lucent::warn("artwork", "{}: {}", url, error);
-            return nullptr;
-        }
-        names = parseIndex(*html);
-        store_.saveIndex(system, *names);
-        lucent::info("artwork", "{} box art names listed for {}", names->size(), libretroName);
+        lucent::warn("artwork", "{}", error);
+        return nullptr;
     }
     return &indexes_.emplace(std::string{system}, std::move(*names)).first->second;
 }

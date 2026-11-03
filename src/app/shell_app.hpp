@@ -247,6 +247,8 @@ class ShellApp final {
     [[nodiscard]] const library::Game* gameInFront() const;
     /// Runs ROM `game` on emulator `name` from now on, and keeps the pick.
     void chooseEmulator(const library::Game& game, const std::string& name);
+    /// Keeps `key`, titled `title`, as what `game` is for its artwork (Match a different game).
+    void keepMatch(const library::Game& game, const std::string& key, const std::string& title);
     /// The game with `id` as the grid shows it now.
     [[nodiscard]] std::optional<library::Game> shownGame(const std::string& id) const;
     /// The game with `id` as its source lists it, its own cover in `artwork`; null when gone.
@@ -316,18 +318,20 @@ class ShellApp final {
     FrameTiming frameTiming_;
     /// The on-screen keyboard the pad types into text fields with.
     KeyboardPad keyboardPad_{shell_.keyboard(), shell_.screens().navigator(), sounds_};
-    /// Match a different game, for the games the player added.
+    /// Match a different game.
     GameMatchController gameMatch_{
         GameMatchController::Parts{shell_.screens().navigator(), shell_.screens().chrome(),
                                    shell_.screens().images(), keyboardPad_, sounds_},
         GameMatchController::Places{environment_.cacheDir / "artwork" / "match",
-                                    artwork::RemoteSources{}.steam},
+                                    artwork::RemoteSources{}.steam,
+                                    artwork::RemoteSources{}.libretro},
+        artworkStore_,
         GameMatchController::Hooks{
             [this](const std::string& text, bool isError) {
                 shell_.setToast(text, isError);
             },
-            [this](const library::Game& game, const std::string& appId, const std::string& title) {
-                ownGames_.match(game, appId, title);
+            [this](const library::Game& game, const std::string& key, const std::string& title) {
+                keepMatch(game, key, title);
             }}};
     /// Hands the fetched artwork and the stored sounds on.
     /// Covers the player chose or SteamGridDB fitted, and "Choose artwork".

@@ -1613,11 +1613,19 @@ cover; now the remake's Steam portrait (hidden run, the player's files, a copy o
 SteamGridDB art for own games seen in a hidden run. Match a different game (details, and X in
 Choose artwork) lists the Steam apps Steam's store finds for the title, dropping its last words
 while it finds none ("Resident Evil 4 Remake" finds nothing, "Resident Evil 4" eight apps), or a
-typed name, each with its Steam cover and release year; A keeps the app as the entry's
-`steamAppId`, and the cover (`artwork/own/<n>-<app>.jpg`), the fitted SteamGridDB cover and the
-umu GAMEID follow it. Seen on the player's Resident Evil 4 Remake: matched to Resident Evil 4
-(2005), app 254700, its cover and fitted cover became the 2005 game's, then matched back from
-Choose artwork. Unverified: launching a Lutris or Steam-shortcut entry.
+typed name, each with its Steam cover and release year; A keeps the app as the game's `match`
+setting (`library/match_pick`), and the cover (`artwork/own/<n>-<app>.jpg`), the fitted
+SteamGridDB cover and the umu GAMEID follow it. Seen on the player's Resident Evil 4 Remake:
+matched to Resident Evil 4 (2005), app 254700, its cover and fitted cover became the 2005 game's,
+then matched back from Choose artwork. Store games are matched the same way, their cover kept as
+`artwork/<store>/<id>-<app>.jpg`: the player's GOG Amnesia: The Dark Descent went from GOG's
+cover to Steam app 57300's. A ROM of a system libretro-thumbnails has is matched to one of its
+system's box art titles that holds every word of its title; the box art and the SteamGridDB
+lookup (the matched name's title) follow it: the player's PlayStation Crash Bandicoot - Warped
+(USA) matched to Crash Bandicoot 3 - Warped (Europe) took the PAL box on its details and tile
+(hidden runs, the player's files). A regional variant of the same title on a system whose tiles
+show a fitted SteamGridDB cover (SNES) keeps that cover, since SteamGridDB knows the game by its
+title. Unverified: launching a Lutris or Steam-shortcut entry.
 
 ### S026 — Emulator downloads
 
