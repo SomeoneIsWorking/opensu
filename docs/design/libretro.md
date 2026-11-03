@@ -65,6 +65,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/shaders/frame.{vert,frag}`, `sharp_bilinear.frag`, `frame_grid.glsl`, `crt_lottes.frag` | The frame's shaders (sharp-bilinear: integer prescale then bilinear; `frame_grid.glsl`: the scanline and LCD-grid bands both sampling shaders apply; crt-lottes), compiled by glslc at build time into SPIR-V headers under the build tree |
 | `src/retro/save_state.*` | The one state slot `<saves>/<rom stem>.state`: `retro_serialize` written whole, read back through `retro_unserialize` |
 | `src/retro/control_server.*` | The runner's loopback `lucent::http::Server`: the control file (port and pid, or the load failure), the routes, the hand-over of each command and of the control pad's input to the frame loop |
+| `src/retro/frame_stages.*` | Each frame's stages timed (core, audio, fence, acquire, record, present, sleep) and logged with the frame time and audio queue as p50/p95/p99 every 5 s |
 | `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, control commands between frames, the hidden mode for tests |
 | `src/retro/main.cpp` | `opensu-retro`'s command line, the `--settings` file read into `settings::VideoSettings` |
 | `src/settings/setting_layers.*` | The setting layers (Global, System, Emulator — the core layer —, Game) and the one resolution rule, each value with the layer it came from |
@@ -252,6 +253,13 @@ FIFO mode, so presenting does not hold the clock to vblank. Audio goes out at 48
 core's samples are linearly resampled by a ratio within ±0.5 % of nominal, proportional to how far
 the ring is from its 40 ms target, so it never under- or over-runs on a device clock a few tenths of
 a percent off. The device pulls from the ring on SDL's audio thread.
+
+Every 5 s the runner logs `N frames in X s (F/s), ms p50/p95/p99: frame …, core …, audio …, fence
+…, acquire …, record …, present …, sleep …, audio queued …` (`FrameStages`). A `fence` near the frame
+time means the GPU is the limit: one frame is in flight, so a preset slower than the core's interval
+halves the rate and drains the audio queue. On a Kirin T90A tablet at 2800x1840 with mGBA,
+crt-1tap-bloom (26 passes) runs at 33/s (frame p50 29 ms, fence 16-20 ms, audio queued 0), crt-1tap
+and None hold 59.7/s (frame 16.7/17.2/17.4 ms, fence 0, audio queued 40-50 ms).
 
 **Saves.** `<saves>/<rom stem>.srm`, loaded after the game and before the first frame, checked
 once a second and at exit, and written only when the RAM differs from what was last loaded or

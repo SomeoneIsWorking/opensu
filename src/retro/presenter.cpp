@@ -392,7 +392,8 @@ VkResult Presenter::waitForFrame() {
 }
 
 void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
-                        const OverlayImage* overlay) {
+                        const OverlayImage* overlay, FrameStages& stages) {
+    using Stage = FrameStages::Stage;
     uploadPending_ = uploadPending_ || fresh;
     syncPending_.waits.insert(syncPending_.waits.end(), sync.waits.begin(), sync.waits.end());
     syncPending_.commands.insert(syncPending_.commands.end(), sync.commands.begin(),
@@ -415,11 +416,19 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
     if (targets_.empty()) {
         return;
     }
+    FrameStages::Clock::time_point mark = FrameStages::Clock::now();
+    const auto step = [&stages, &mark](Stage stage) {
+        const FrameStages::Clock::time_point now = FrameStages::Clock::now();
+        stages.add(stage, now - mark);
+        mark = now;
+    };
     check(vkWaitForFences(vk_, 1, &done_, VK_TRUE, UINT64_MAX), "vkWaitForFences");
+    step(Stage::Fence);
     std::uint32_t index = 0;
     if (!options_.hidden) {
         const VkResult acquired =
             vkAcquireNextImageKHR(vk_, swapchain_, UINT64_MAX, acquired_, VK_NULL_HANDLE, &index);
+        step(Stage::Acquire);
         if (acquired == VK_ERROR_OUT_OF_DATE_KHR) {
             stale_ = true;
             return;
@@ -486,6 +495,7 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
     submit.signalSemaphoreCount = static_cast<std::uint32_t>(signals.size());
     submit.pSignalSemaphores = signals.data();
     check(device_->submit(submit, done_), "vkQueueSubmit");
+    step(Stage::Record);
     if (options_.hidden) {
         drawnOffscreen_ = true;
         return;
@@ -498,6 +508,7 @@ void Presenter::present(const FrameImage& frame, bool fresh, CoreSync sync,
     presentInfo.pSwapchains = &swapchain_;
     presentInfo.pImageIndices = &index;
     const VkResult presented = device_->present(presentInfo);
+    step(Stage::Present);
     if (presented == VK_ERROR_OUT_OF_DATE_KHR) {
         stale_ = true;
     } else if (presented == VK_SUBOPTIMAL_KHR) {

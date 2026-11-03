@@ -345,6 +345,7 @@ Design: `docs/design/libretro.md`. `opensu_retro` and the `opensu-retro` executa
 | `src/retro/audio_output.*` | The sink on the SDL playback device, or drained by the clock when hidden |
 | `src/retro/joypad.*` | `gamepad::Button` and SDL scancodes to `RETRO_DEVICE_JOYPAD`; the pads' and the control pad's sticks to `RETRO_DEVICE_ANALOG` (analogue stick, touch cursor) |
 | `src/retro/save_memory.*` | Save RAM: load (a smaller `.srm` into the RAM's start; a larger or unreadable one a `SaveError`, never written over), change check, atomic `.srm` write |
+| `src/retro/frame_stages.*` | Per-frame stage timings (core, audio, fence, acquire, record, present, sleep) logged as p50/p95/p99 every 5 s |
 | `src/retro/presenter.*` | The SDL window and its events (keys, fingers, minimized and restored: `WindowInput`), its surface for an overlay (size, safe area, dp: `WindowSurface`); Vulkan swapchain (drawn upright on a turned Android display, which the system turns) or hidden offscreen image, a lost surface let go and made again, each frame's submission (a GPU core's semaphores and command buffers, `CoreSync`) with an overlay drawn over it (`OverlayPass`), present, read-back, the wait on the last frame |
 | `src/retro/window_input.hpp` | What the window reports per poll (`WindowInput`, `Finger`) and the surface an overlay covers (`WindowSurface`) |
 | `src/retro/overlay_pass.*` | An RGBA overlay the size of the target, streamed when it changes and drawn over the compositor's frame by its alpha in a render pass that loads the target |

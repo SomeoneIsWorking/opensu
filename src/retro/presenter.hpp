@@ -15,6 +15,7 @@
 #include <vulkan/vulkan.h>
 
 #include "frame_compositor.hpp"
+#include "frame_stages.hpp"
 #include "overlay_pass.hpp"
 #include "vulkan_device.hpp"
 #include "window_input.hpp"
@@ -70,10 +71,10 @@ class Presenter {
     [[nodiscard]] WindowSurface surface() const;
 
     /// Draws `frame`, uploading it first when `fresh`, with what a Vulkan core handed over (kept
-    /// for the next frame drawn when this one is skipped), and `overlay` over it when given.
-    /// Throws VulkanError when drawing fails.
-    void present(const FrameImage& frame, bool fresh, CoreSync sync = {},
-                 const OverlayImage* overlay = nullptr);
+    /// for the next frame drawn when this one is skipped), and `overlay` over it when given;
+    /// the time each step took goes to `stages`. Throws VulkanError when drawing fails.
+    void present(const FrameImage& frame, bool fresh, CoreSync sync, const OverlayImage* overlay,
+                 FrameStages& stages);
 
     /// Shows frames under `video` from the next one drawn (`FrameCompositor::change`); a shader
     /// preset that cannot run throws ShaderError and the settings in force stay.

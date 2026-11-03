@@ -331,6 +331,7 @@ RunnerExit RunnerApp::run() {
     bool showingCoreImage = false;
     Clock::time_point next = Clock::now();
     Clock::time_point nextSave = next + saveInterval;
+    FrameStages stages;
     while (!options_.frames || frame < *options_.frames) {
         const WindowInput input = presenter->poll();
         if (input.quit) {
@@ -422,7 +423,9 @@ RunnerExit RunnerApp::run() {
             std::this_thread::sleep_until(next);
             continue;
         }
+        const Clock::time_point started = Clock::now();
         core->run();
+        stages.add(FrameStages::Stage::Core, Clock::now() - started);
         ++frame;
         if (control) {
             control->publish(frame, state.exists());
@@ -436,6 +439,7 @@ RunnerExit RunnerApp::run() {
         }
         const Clock::time_point now = Clock::now();
         audio->service(now);
+        stages.add(FrameStages::Stage::Audio, Clock::now() - now);
         const bool coreImageFresh = hardware.takeFresh();
         const bool pixelsFresh = video.takeFresh();
         if (coreImageFresh || pixelsFresh) {
@@ -452,7 +456,7 @@ RunnerExit RunnerApp::run() {
             presenter->present(coreImage.value_or(FrameImage{
                                    video.rgba(), video.width(), video.height(), aspect, {}}),
                                coreImageFresh || pixelsFresh, hardware.takeSync(),
-                               overlay ? &*overlay : nullptr);
+                               overlay ? &*overlay : nullptr, stages);
         } catch (const VulkanError& failure) {
             lucent::error("retro", "{}", failure.what());
             exit = RunnerExit::PresenterFailed;
@@ -468,11 +472,14 @@ RunnerExit RunnerApp::run() {
         }
 
         next += interval;
-        if (Clock::now() - next > interval * maxLateFrames) {
-            next = Clock::now();
+        const Clock::time_point slept = Clock::now();
+        if (slept - next > interval * maxLateFrames) {
+            next = slept;
         } else {
             std::this_thread::sleep_until(next);
         }
+        stages.add(FrameStages::Stage::Sleep, Clock::now() - slept);
+        stages.endFrame(started, static_cast<double>(sink.fill()) * 1000.0 / sink.outputRate());
     }
     const auto millisecondsOf = [&sink](std::size_t frames) {
         return frames * 1000 / static_cast<std::size_t>(sink.outputRate());
