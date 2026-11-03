@@ -194,3 +194,8 @@ target_link_libraries(player_files_test PRIVATE opensu::app)
 opensu_warnings(player_files_test)
 target_compile_definitions(player_files_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 add_test(NAME player_files COMMAND player_files_test)
+
+add_executable(import_picks_test import_picks_test.cpp)
+target_link_libraries(import_picks_test PRIVATE opensu::app)
+opensu_warnings(import_picks_test)
+add_test(NAME import_picks COMMAND import_picks_test)

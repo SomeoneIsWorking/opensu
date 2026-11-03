@@ -1,4 +1,4 @@
-# Code map
+ picked from a list# Code map
 
 Where each concept lives. Read this before placing code; update it in the change that adds or
 moves an owner. The UI replicates iiSU, so UI owners cite the iiSU function they reproduce and the
@@ -93,7 +93,8 @@ on the same rule.
 | `src/app/steam_library_settings.*` | Settings › Steam libraries: the libraries with path, free space, games and size; add, make default, remove an empty one, on a worker thread; read-only from `libraryfolders.vdf` while Steam is not running |
 | `src/app/path_editor.*` | Choosing a folder, or a file that passes the request's `files` filter, on the chooser or typing a path into its Path field; one request at a time, a refusal shown on the card under the field (`refusal`); where the OS has its own folder picker (`SystemFolderPicker`), a folder request opens that instead and `poll` delivers its answer |
 | `src/app/system_folder_picker.hpp`, `system_folder_picker_android.cpp` (Android), `system_folder_picker_none.cpp` (elsewhere) | The OS's folder picker: on Android `ACTION_OPEN_DOCUMENT_TREE` through `ShellActivity.pickFolder`, the picked tree's URI with a persistable read grant; none on the desktop |
-| `src/app/own_games_controller.*` | Add a game (the Library tile): a file picked on the chooser, identified on a worker (`library::identify`) and confirmed or retitled on a card before it is added, or the Steam shortcuts and Lutris games not imported yet; Rename, Change file and Remove from library (asks first, files left alone) from an own game's details |
+| `src/app/own_games_controller.*` | Add a game (the Library tile): a file picked on the chooser, identified on a worker (`library::identify`) and confirmed or retitled on a card before it is added, or the Steam shortcuts and Lutris games not imported yet, picked from a list; Rename, Change file and Remove from library (asks first, files left alone) from an own game's details |
+| `src/app/import_picks.*`, `import_picks_screen.*` | The games found to import (Steam shortcuts, Lutris) as a pick list on the `gpu2d::ui` toolkit: a switch per game (all on at first), Select all, Deselect all, Undo of each change back to the one before, Import selected handing over only those chosen; Back imports nothing |
 | `src/app/folder_chooser_screen.*` | The folder chooser card: the Path field, Use this folder (not when choosing a file), the clear choice, Up one level, the folders and the accepted files; Left goes up |
 | `src/app/artwork_delivery.*` | Hands saved artwork to the shell; a game's saved cover through `Hooks::coverArrived`, so a chosen or fitted one can stand in, and a download that ended without one through `Hooks::coverMissing`; iiSU's console cards and glyphs to the grid's `ConsoleArt` |
 | `src/app/volume_control.*` | The volume actions onto `SystemVolume` and its backend; polling; the OSD listener |

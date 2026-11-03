@@ -11,6 +11,8 @@ program, not the folder".
 
 - Library has an Add a game tile (after Giveaways, before All games). It offers "Choose a file"
   and, when there are any not imported yet, "Import N Steam shortcuts" and "Import N Lutris games".
+  Each opens a pick list: a switch per game, all on at first, Select all, Deselect all, Undo of
+  each change and Import selected, which adds only the games chosen; Back adds nothing.
 - Choose a file opens the folder chooser in file mode: folders and the files `own::kindOf` accepts
   (an executable, a `.sh`, an `.AppImage`, a Windows `.exe`); the Path field takes a typed path.
   The picked file is what launches.

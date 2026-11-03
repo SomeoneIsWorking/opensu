@@ -182,7 +182,7 @@ game has been observed running yet.
 | S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings (presets, Custom details) and the atoms for the game in front verified with a ROM game in the headless fork and with a GOG game (Absolute Drift, 4K) in the nested (Wayland) backend on the player's own setup, every preset and Custom row, live changes and Off, Global and game layers; the DRM backend not run | partial | S013 | G004 |
 | S043 | SteamGridDB: the API key through Steam's browser or typed in, kept in the keyring or a 0600 file; covers fitted to Home's square tiles; "Choose artwork" per game (connected on the player's account, key in the keyring, fitting (games with no art included), the picker and Disconnect's dialog checked on the real library; not checked in a shown session or Normal mode; `docs/issues/steamgriddb.md`) | partial | S002, S020 | G001, G002 |
 | S044 | Giveaways: free-to-keep offers from Epic, GOG and Steam read in the background, a Library tile opening a toolkit screen with art, store, ends-in and Owned, details with Claim (store page; Steam's in Big Picture when openSU's Steam runs) (`docs/issues/giveaways.md`) | partial | S002, S007, S043 | G001 |
-| S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only; Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
+| S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only, picked from a list; Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
 | S046 | Windows release: clang-cl build with vcpkg, Job Object launches, Win32 process table and game windows, the shell minimized under a game and raised for the Guide, Steam from the registry and `steam://`, native GOG and Epic builds, controller batteries through SDL, librashader `.dll`, per-user Inno Setup installer, `windows` CI and release jobs (`docs/issues/cross-platform-releases.md` step 2) | partial | S042 | G005 |
 | S047 | macOS release: Homebrew LLVM build with vcpkg, process-group launches, libproc process table, game windows from the window server, the shell minimized under a game and raised for the Guide, Steam from Application Support and `steam://`, GOG and Epic Mac builds, `apple/osx/arm64` cores, librashader `.dylib`, MoltenVK through portability enumeration, ad-hoc signed `openSU.app` zip, `macos` CI and release jobs (`docs/issues/cross-platform-releases.md` step 3) | partial | S042 | G005 |
 
@@ -1550,7 +1550,9 @@ the running client's handling is measured (the card lists what).
 
 Add a game (Library, after Giveaways) offers a file, picked on the folder chooser in file mode or
 typed into its Path field, then Steam's non-Steam shortcuts and Lutris's installed games not yet
-imported. A picked file is identified on a worker (`library::identify`) and shown on a confirm
+imported, each source as a pick list (`ImportPicksScreen`): a switch per game, all on at first,
+Select all, Deselect all, Undo of each change and Import selected, which adds only those chosen
+(nothing chosen says so; Back adds nothing). A picked file is identified on a worker (`library::identify`) and shown on a confirm
 card: platform, the Steam app it matched and where the title came from, the title editable; Done
 adds it to `<data dir>/own-games.json` (`library::own::Records`). Entries are `own:<n>` games of
 the Your games launcher, with the details page, Play, layered settings, last played, search and
@@ -1560,7 +1562,9 @@ the entry goes). A Windows `.exe` runs through `wine::prepare` in its own prefix
 Verified on the player's setup (`docs/issues/own-games.md`): the eight games in `/mnt/Boy/Games`
 identified, six with their Steam app and cover, two by folder name; Little Kitty, Big City under
 GE-Proton and Nebula Reset (AppImage) to their windows; 12 Steam shortcuts and 9 Lutris games
-imported; Remove from library. Unverified: SteamGridDB art for own games (not connected here);
+imported; from the player's 9 Lutris games, Deselect all, three switched on and Undo imported the
+two left chosen (hidden run on a profile with no imports, Lutris's data as it is); Remove from
+library. Unverified: SteamGridDB art for own games (not connected here);
 launching a Lutris or Steam-shortcut entry.
 
 ### S026 — Emulator downloads

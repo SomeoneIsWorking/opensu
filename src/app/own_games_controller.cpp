@@ -8,6 +8,7 @@
 
 #include "gpu2d/ui/screen.hpp"
 
+#include "import_picks_screen.hpp"
 #include "library/lutris_games.hpp"
 #include "library/lutris_wine.hpp"
 #include "library/own_games.hpp"
@@ -112,13 +113,13 @@ void OwnGamesController::openAdd() {
     if (shortcuts > 0) {
         options.push_back("Import " + countOf(shortcuts, "Steam shortcut", "Steam shortcuts"));
         actions.emplace_back([this] {
-            importSteamShortcuts();
+            offer(steamShortcuts(), "Import Steam shortcuts", "Steam's shortcuts");
         });
     }
     if (lutris > 0) {
         options.push_back("Import " + countOf(lutris, "Lutris game", "Lutris games"));
         actions.emplace_back([this] {
-            importLutris();
+            offer(lutrisGames(), "Import from Lutris", "Lutris");
         });
     }
     // input-sound.md 3.4 Open: a panel appears.
@@ -204,6 +205,18 @@ void OwnGamesController::pickFile(const std::string& title, const fs::path& star
                                 }});
 }
 
+void OwnGamesController::offer(std::vector<Entry> found, const std::string& title,
+                               const std::string& from) {
+    // input-sound.md 3.4 Open: a panel appears.
+    sounds_.play(audio::Effect::Open);
+    navigator_.push(std::make_unique<ImportPicksScreen>(
+        title, ImportPicks{std::move(found)}, places_.home,
+        ImportPicksScreen::Hooks{.say = hooks_.say,
+                                 .imported = [this, from](std::vector<Entry> picked) {
+                                     importAll(std::move(picked), from);
+                                 }}));
+}
+
 void OwnGamesController::importAll(std::vector<Entry> entries, std::string_view from) {
     const std::size_t count = entries.size();
     apply(
@@ -213,14 +226,6 @@ void OwnGamesController::importAll(std::vector<Entry> entries, std::string_view 
             }
         },
         "Imported " + countOf(count, "game", "games") + " from " + std::string{from});
-}
-
-void OwnGamesController::importSteamShortcuts() {
-    importAll(steamShortcuts(), "Steam's shortcuts");
-}
-
-void OwnGamesController::importLutris() {
-    importAll(lutrisGames(), "Lutris");
 }
 
 void OwnGamesController::rename(const library::Game& game) {

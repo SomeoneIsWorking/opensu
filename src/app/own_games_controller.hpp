@@ -1,8 +1,9 @@
 // own_games_controller — adding and keeping the player's own games (`library::own`): Add a game
 // offers a file, picked on the folder chooser and identified on a worker (`library::identify`:
-// title, platform, Steam app), which the player confirms or retitles before it is added, and every
-// Steam shortcut and Lutris game not imported yet; a game's details rename it, point it at another
-// file, or remove it from the library after asking, its files left alone.
+// title, platform, Steam app), which the player confirms or retitles before it is added, or the
+// Steam shortcuts and Lutris games not imported yet, listed to pick from (`ImportPicksScreen`);
+// a game's details rename it, point it at another file, or remove it from the library after
+// asking, its files left alone.
 #pragma once
 
 #include <filesystem>
@@ -65,9 +66,6 @@ class OwnGamesController {
     void service();
     /// Picks the file of a new game.
     void chooseFile();
-    /// Adds every Steam shortcut, or Lutris game, not imported yet.
-    void importSteamShortcuts();
-    void importLutris();
 
     /// From a game's details.
     void rename(const library::Game& game);
@@ -81,6 +79,9 @@ class OwnGamesController {
     /// Steam's shortcuts and Lutris's games; empty when they cannot be read, which is logged.
     [[nodiscard]] std::vector<library::own::Entry> steamShortcuts() const;
     [[nodiscard]] std::vector<library::own::Entry> lutrisGames() const;
+    /// The games `found` in `from` as a pick list titled `title`; those chosen are imported.
+    void offer(std::vector<library::own::Entry> found, const std::string& title,
+               const std::string& from);
     void importAll(std::vector<library::own::Entry> entries, std::string_view from);
     /// Opens the folder chooser on `start` for a game file; `picked` takes the one accepted.
     template <typename Picked>
