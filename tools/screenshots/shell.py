@@ -43,19 +43,21 @@ class Profile:
     rom_root: Path
     # A directory put first on PATH, for host tools stood in by fixtures.
     tools: Path | None = None
+    # Games launch in scopes of the player's systemd user manager, which systemd-run finds
+    # through the player's runtime directory and session bus.
+    user_session: bool = False
 
     def environment(self) -> dict[str, str]:
-        env = {
-            key: value
-            for key, value in os.environ.items()
-            if key in ("DISPLAY", "XAUTHORITY", "PATH", "LANG", "LC_ALL", "LC_TIME")
-        }
+        kept = {"DISPLAY", "XAUTHORITY", "PATH", "LANG", "LC_ALL", "LC_TIME", "DISABLE_LSFG"}
+        if self.user_session:
+            kept |= {"DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"}
+        env = {key: value for key, value in os.environ.items() if key in kept}
         env.update(
             HOME=str(self.home),
             XDG_CONFIG_HOME=str(self.home / ".config"),
             XDG_CACHE_HOME=str(self.home / ".cache"),
             XDG_DATA_HOME=str(self.home / ".local" / "share"),
-            XDG_RUNTIME_DIR=str(self.home / "run"),
+            XDG_RUNTIME_DIR=str(self.runtime()),
             OPENSU_STEAM_ROOTS=str(self.steam_root),
             OPENSU_ROM_ROOTS=str(self.rom_root),
             LC_TIME="C.UTF-8",
@@ -64,9 +66,14 @@ class Profile:
             env["PATH"] = os.pathsep.join(filter(None, (str(self.tools), env.get("PATH"))))
         return env
 
+    def runtime(self) -> Path:
+        if self.user_session:
+            return Path(os.environ["XDG_RUNTIME_DIR"])
+        return self.home / "run"
+
     def prepare(self) -> None:
         """Makes the runtime directory and, the first time, settings with every integration on."""
-        (self.home / "run").mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.runtime().mkdir(parents=True, exist_ok=True, mode=0o700)
         settings = self.home / ".config" / "opensu" / "settings.json"
         if not settings.exists():
             settings.parent.mkdir(parents=True, exist_ok=True)
@@ -142,8 +149,19 @@ class HiddenShell:
     def state(self) -> dict[str, object]:
         return json.loads(self._request("/state", None))
 
+    @property
+    def pid(self) -> int:
+        if self._process is None:
+            raise RuntimeError("openSU is not running")
+        return self._process.pid
+
     def frame(self) -> bytes:
         return self._request("/frame.png", None)
+
+    def fetch(self, url: str) -> bytes:
+        """Another loopback channel's answer, such as the running game's runner."""
+        with urllib.request.urlopen(url, timeout=30) as response:
+            return response.read()
 
     def press(self, *buttons: str, settle: float = 0.35) -> None:
         """Taps each button in turn; `guide+a` holds Guide while A is tapped."""

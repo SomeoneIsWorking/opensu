@@ -2,10 +2,13 @@
 
 `--profile real` runs openSU --hidden on the player's own home with the network, as their session
 has it, and writes the README's WebPs to docs/screenshots/. It refuses while another openSU runs and
-puts the player's settings files back afterwards. `--game`, `--console` and `--search` pick what it
-shows. `--console-theme THEME` shows another console art theme (iiSU's needs its file placed in
-openSU's iiSU themes folder) and writes only Library in it, `library-<theme>`; the default run
-(Photos, openSU's default) writes `library-photos` beside the README set.
+puts the player's settings files back afterwards. A second run, in a home of its own kept in
+scratch/screenshots/retro/, plays a freely licensed homebrew game on a built-in core with a shader
+preset (retro.py): openSU downloads the core and the shader pack into it the first time, and the
+game's saves stay there. `--game` and `--console` pick what the first run shows.
+`--console-theme THEME` shows another console art theme (iiSU's needs its file placed in openSU's
+iiSU themes folder) and writes only Library in it, `library-<theme>`; the default run (Photos,
+openSU's default) writes `library-photos` beside the README set.
 
 `--profile demo` (the default) builds the demo library, then runs openSU --hidden offline in a
 throwaway home and writes one WebP per demo scene to scratch/screenshots/demo/. With --parity DIR,
@@ -21,7 +24,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from tools.screenshots import demo, encode, legendary, mixer, offline, real
+from tools.screenshots import demo, encode, legendary, mixer, offline, real, retro
 from tools.screenshots.scenes import (
     DOWNLOAD_SCENES,
     README_SCENES,
@@ -29,6 +32,8 @@ from tools.screenshots.scenes import (
     Picks,
     Scene,
     real_scenes,
+    retro_scenes,
+    shader_pack,
     theme_scenes,
 )
 from tools.screenshots.shell import HiddenShell, Home, Profile, RealHome
@@ -37,7 +42,8 @@ REPO = Path(__file__).resolve().parents[2]
 WORK = REPO / "scratch" / "screenshots"
 README_OUTPUT = REPO / "docs" / "screenshots"
 DEMO_OUTPUT = WORK / "demo"
-# The player's library is loaded once this many seconds pass with no new installed game.
+# The player's library is loaded once no store is loading and this many seconds pass with no
+# new game.
 LIBRARY_QUIET_SECONDS = 3.0
 LIBRARY_TIMEOUT_SECONDS = 60.0
 
@@ -64,7 +70,6 @@ def _parse(argv: list[str]) -> argparse.Namespace:
         "--game", default="", help="real: the game id Home focuses and details shows"
     )
     parser.add_argument("--console", default="", help="real: the system whose shelf is shown")
-    parser.add_argument("--search", default=Picks.search, help="real: the text searched for")
     parser.add_argument(
         "--console-theme",
         default=real.DEFAULT_CONSOLE_THEME,
@@ -85,10 +90,11 @@ def _capture_real(args: argparse.Namespace) -> int:
     run = WORK / "real"
     frames = run / "frames"
     frames.mkdir(parents=True, exist_ok=True)
-    picks = Picks(game=args.game, console=args.console, search=args.search)
+    picks = Picks(game=args.game, console=args.console)
+    default_theme = args.console_theme == real.DEFAULT_CONSOLE_THEME
     scenes = (
         real_scenes(picks) + theme_scenes(picks, real.DEFAULT_CONSOLE_THEME)
-        if args.console_theme == real.DEFAULT_CONSOLE_THEME
+        if default_theme
         else theme_scenes(picks, args.console_theme.replace("/", "-"))
     )
     with real.KeptSettings(run / "settings-backup"):
@@ -103,20 +109,46 @@ def _capture_real(args: argparse.Namespace) -> int:
             args.out,
             _library_loaded,
         )
+        if default_theme:
+            home = retro.profile(WORK / "retro", WORK / "downloads")
+            _run(
+                args.opensu,
+                home,
+                run / "opensu-retro.log",
+                retro_scenes(home, run / "composite"),
+                frames,
+                magick,
+                args.out,
+                _retro_loaded(home),
+            )
     return 0
 
 
+def _retro_loaded(home: Profile) -> Callable[[HiddenShell], None]:
+    """Waits for the homebrew game, then has openSU download the shader pack if it has none."""
+
+    def wait(shell: HiddenShell) -> None:
+        shell.wait_for("installed", 1)
+        if not retro.shader_pack_installed(home):
+            shader_pack(shell)
+
+    return wait
+
+
 def _library_loaded(shell: HiddenShell) -> None:
-    """Waits until the installed count has held still for a while."""
+    """Waits until no store badge is starting (a store's tile reads Loading until then) and the
+    game counts have held still for a while."""
     deadline = time.monotonic() + LIBRARY_TIMEOUT_SECONDS
-    seen = -1
+    seen: tuple[object, object] = (-1, -1)
     still_since = time.monotonic()
     while time.monotonic() < deadline:
-        installed = shell.state().get("installed")
-        if installed != seen:
-            seen = installed if isinstance(installed, int) else -1
+        state = shell.state()
+        counts = (state.get("installed"), state.get("games"))
+        loading = "=starting" in str(state.get("launchers", ""))
+        if counts != seen or loading:
+            seen = counts
             still_since = time.monotonic()
-        elif seen > 0 and time.monotonic() - still_since >= LIBRARY_QUIET_SECONDS:
+        elif counts[0] and time.monotonic() - still_since >= LIBRARY_QUIET_SECONDS:
             return
         time.sleep(0.2)
     raise RuntimeError(f"the library never settled: {shell.state()}")
@@ -193,8 +225,9 @@ def _run(
             scene.reach(shell)
             time.sleep(scene.settle)
             shell.wait_for("artworkPending", 0)
+            shell.wait_for("imagesPending", 0)
             png = frames / f"{scene.name}.png"
-            png.write_bytes(shell.frame())
+            png.write_bytes(scene.frame(shell))
             if magick is None:
                 print(f"{scene.name}: {png}")
             else:

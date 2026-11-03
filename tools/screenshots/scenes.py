@@ -1,15 +1,17 @@
 """The screens captured and the input that reaches each from a fresh start on Home.
 
-Every scene starts and ends on Home with nothing open. `readme` marks the demo scenes a demo run
-writes; parity runs capture all of them. `real_scenes` are the README's, on the player's own home,
-and `theme_scenes` its console art themes side by side.
+Every scene starts and ends on Home with nothing open, but for `retro_scenes`, which run in order
+over one game. `readme` marks the demo scenes a demo run writes; parity runs capture all of them.
+`real_scenes` are the README's, on the player's own home, `theme_scenes` its console art themes
+side by side, and `retro_scenes` the homebrew game on a built-in core.
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 
-from tools.screenshots import legendary, mixer
-from tools.screenshots.shell import HiddenShell
+from tools.screenshots import legendary, mixer, retro
+from tools.screenshots.shell import HiddenShell, Profile
 
 # Long enough for a panel's slide and the focus ring's entrance to finish.
 SETTLE_SECONDS = 1.2
@@ -33,6 +35,8 @@ class Scene:
     leave: Callable[[HiddenShell], None]
     readme: bool = False
     settle: float = SETTLE_SECONDS
+    # The frame kept: the shell's by default.
+    frame: Callable[[HiddenShell], bytes] = field(default=HiddenShell.frame)
 
 
 def _nothing(_shell: HiddenShell) -> None:
@@ -565,12 +569,11 @@ LONGEST_HOME_WALK = 200
 
 @dataclass(frozen=True)
 class Picks:
-    """What the real profile shows: a game id for Home's focus and the details page, a console's
-    system for its shelf, the search text. Empty keeps the first."""
+    """What the real profile shows: a game id for Home's focus and the details page (one whose
+    cover SteamGridDB fitted), a console's system for its shelf. Empty keeps the first."""
 
     game: str = ""
     console: str = ""
-    search: str = SEARCH_TEXT
 
 
 def real_scenes(picks: Picks) -> tuple[Scene, ...]:
@@ -588,12 +591,6 @@ def real_scenes(picks: Picks) -> tuple[Scene, ...]:
         _into_console(shell, picks.console)
         shell.press("right")
 
-    def search(shell: HiddenShell) -> None:
-        shell.press("search")
-        shell.wait_for("searchOpen", True)
-        shell.type_text(picks.search)
-        shell.wait_for("searchText", picks.search)
-
     return (
         Scene("home", "Home: installed games from every store", focus_game, _nothing),
         Scene(
@@ -608,10 +605,13 @@ def real_scenes(picks: Picks) -> tuple[Scene, ...]:
             console_shelf,
             _leave_console_shelf,
         ),
-        Scene("details", "A game's details page", details, _back_from_details),
-        Scene("guide", "Guide menu", _guide, _close_guide),
+        Scene(
+            "details",
+            "A game's details page with its SteamGridDB cover",
+            details,
+            _back_from_details,
+        ),
         Scene("settings-wine", "Settings: Wine", _settings_page("Wine"), _close_settings),
-        Scene("search", "Search with results", search, _close_search),
     )
 
 
@@ -624,3 +624,107 @@ def theme_scenes(picks: Picks, theme: str) -> tuple[Scene, ...]:
     return (
         Scene(f"library-{theme}", f"Library in the {theme} console art theme", consoles, _home),
     )
+
+
+# The homebrew game's title screen is up and its city scrolling by then.
+RUNNER_FRAMES = 480
+# A store download through openSU: the shader pack is about 54 MB.
+DOWNLOAD_TIMEOUT = 600.0
+
+
+def _downloaded(key: str) -> Callable[[dict[str, object]], bool]:
+    return _download_state(key, "finished")
+
+
+def shader_pack(shell: HiddenShell) -> None:
+    """Settings › Emulators › Shader presets, downloaded through openSU."""
+    _settings_page("Emulators")(shell)
+    shell.press("a")
+    for _ in range(LONGEST_WALK):
+        if shell.state().get("screenFocus") == "emulators.run.shader-presets":
+            break
+        shell.press("down")
+    shell.wait_for("screenFocus", "emulators.run.shader-presets", timeout=1.0)
+    shell.press("a")
+    shell.wait_until(
+        _downloaded("emulator:shader-presets"), "the shader pack downloaded", DOWNLOAD_TIMEOUT
+    )
+    # B leaves the rows for the categories, then closes Settings.
+    shell.press("b")
+    _close_settings(shell)
+
+
+def retro_scenes(home: Profile, work: Path) -> tuple[Scene, ...]:
+    """The homebrew game on its built-in core with the console's shader preset, then the Guide
+    menu and the layered editor over it; the first scene starts the game, the last closes it."""
+
+    def play(shell: HiddenShell) -> None:
+        _into_console(shell, retro.SYSTEM)
+        _details(shell)
+        # A missing core is downloaded from the details page, as a player does.
+        shell.press("down")
+        if shell.state().get("screenFocus") == "details.download":
+            shell.press("a")
+            shell.wait_until(
+                _downloaded(retro.CORE_DOWNLOAD), "the core downloaded", DOWNLOAD_TIMEOUT
+            )
+        shell.press("up")
+        shell.wait_for("screenFocus", "details.launch")
+        shell.press("a")
+        shell.wait_for("inGame", True)
+        shell.wait_until(
+            lambda _state: _runner_past(shell, home), f"the game past frame {RUNNER_FRAMES}", 60.0
+        )
+
+    def game_settings(shell: HiddenShell) -> None:
+        _guide(shell)
+        # Its rows over a game: Resume, Close game, Game settings.
+        shell.press("down", "down", "a")
+        shell.wait_for("screen", "layered")
+        for _ in range(LONGEST_WALK):
+            if shell.state().get("screenFocus") == "row/video.shader":
+                return
+            shell.press("down")
+        shell.wait_for("screenFocus", "row/video.shader", timeout=1.0)
+
+    def close_game(shell: HiddenShell) -> None:
+        shell.press("b")
+        shell.wait_for("screen", "guide")
+        shell.press("up")
+        shell.wait_for("screenFocus", "guide.closeGame")
+        # Close game asks first.
+        shell.press("a", "a")
+        shell.wait_for("inGame", False)
+        _leave_console_shelf(shell)
+
+    return (
+        Scene(
+            "retro-crt",
+            "uCity on mGBA with the crt-royale preset",
+            play,
+            _nothing,
+            frame=lambda shell: retro.runner_frame(shell, home),
+        ),
+        Scene(
+            "guide-game",
+            "The Guide menu over the game",
+            _guide,
+            _close_guide,
+            frame=lambda shell: retro.over_game(shell, home, work),
+        ),
+        Scene(
+            "layered-editor",
+            "Game settings over the game: the shader preset from its console's layer",
+            game_settings,
+            close_game,
+            frame=lambda shell: retro.over_game(shell, home, work),
+        ),
+    )
+
+
+def _runner_past(shell: HiddenShell, home: Profile) -> bool:
+    try:
+        return retro.runner_frames(shell, home) >= RUNNER_FRAMES
+    except (OSError, RuntimeError):
+        # The runner announces its port a moment after the shell says the game runs.
+        return False
