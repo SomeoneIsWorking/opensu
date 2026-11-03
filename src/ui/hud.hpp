@@ -56,7 +56,7 @@ class Hud {
 
     /// `device` is which prompts the corner hints draw.
     Hud(const input::Prompts& prompts, gpu2d::ui::Typesetter& text, IconAtlas& icons) noexcept
-        : text_{text}, statusPill_{text, icons}, crumbs_{text}, glyphs_{prompts, text} {
+        : text_{text}, crumbs_{text}, glyphs_{prompts, text}, statusPill_{text, icons} {
     }
 
     /// The window in pixels and its pixels per dp.
@@ -175,28 +175,28 @@ class Hud {
     void drawPromptPanel(Canvas& canvas, const std::vector<Prompt>& prompts, bool atEnd) const;
     [[nodiscard]] TopBarLayout topBarLayout() const;
 
+    Clock::time_point now_{};
+    Clock::time_point toastUntil_{};
+    gpu2d::ui::Typesetter& text_;
+    BreadcrumbPainter crumbs_;
+    ButtonGlyphPainter glyphs_;
+    std::string status_;
+    std::string clock_;
+    std::vector<LauncherBadge> launchers_;
+    std::string title_;
+    Trail trail_;
+    std::string toast_;
+    StatusPillPainter statusPill_;
     int width_{};
     int height_{};
     float dp_{1.0f};
     float displayDp_{1.0f};
-    std::string status_;
-    std::string clock_;
     std::optional<device::BatteryStatus> battery_;
-    std::vector<LauncherBadge> launchers_;
-    std::string title_;
-    Trail trail_;
-    HintContext hints_;
-    TouchButtons touchButtons_;
-    Clock::time_point now_{};
-    std::string toast_;
     bool toastError_{false};
-    Clock::time_point toastUntil_{};
-    gpu2d::ui::Typesetter& text_;
-    StatusPillPainter statusPill_;
     GlassPainter glass_;
-    BreadcrumbPainter crumbs_;
-    ButtonGlyphPainter glyphs_;
     TouchButtonPainter touchButtonPainter_;
+    TouchButtons touchButtons_;
+    HintContext hints_;
 };
 
 } // namespace opensu::ui
