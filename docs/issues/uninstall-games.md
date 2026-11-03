@@ -33,7 +33,7 @@ Requested: "ability to uninstall games".
 
 - **Steam:** `steam/uninstaller` evaluates `SteamClient.Installs.OpenUninstallWizard([<app>],
   true)` through `steam::DevTools`, the call Steam's own library menu makes
-  (`~/.steam/steam/steamui/chunk~2dcc5aaf7.js`); a non-numeric id asks nothing (`isAppId`). The
+  (`~/.steam/steam/steamui/chunk~2dcc5aaf7.js`); a non-numeric id asks nothing (`library::isSteamAppId`). The
   job then polls every second until no library holds the app's manifest (`Client::hasManifest`),
   failing after two minutes with "Steam did not remove it".
 - **Epic:** `legendary uninstall <app> -y` through `launch::runStreaming`; the failure is the
@@ -57,7 +57,7 @@ Requested: "ability to uninstall games".
 ## Owners
 
 - `steam/uninstaller:Uninstaller`, `steam/client:Client::uninstaller()` and `hasManifest`,
-  `steam/steam_json:isAppId` (shared with the installer and `DownloadControl`).
+  `library/game:isSteamAppId` (shared with the installer, `DownloadControl` and the Lutris and umu lookups).
 - `library/gog_installs`: `Paths::gameRoot`, `InstallRecords::remove`, `ownedFolder`.
 - `app/uninstall_job:UninstallJob`, an `InstallJob` (thread, reports, `status`, `Phase::Done`);
   `removal` says what goes per store.

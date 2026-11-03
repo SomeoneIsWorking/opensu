@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-#include "steam_json.hpp"
+#include "library/game.hpp"
 
 namespace opensu::steam {
 namespace {
@@ -149,7 +149,7 @@ std::optional<Activities> LaunchActivity::read(std::string& error) {
 }
 
 bool LaunchActivity::cancel(std::string_view appId, std::string& error) {
-    if (!isAppId(appId)) {
+    if (!library::isSteamAppId(appId)) {
         error = "not a Steam app id: " + std::string{appId};
         return false;
     }

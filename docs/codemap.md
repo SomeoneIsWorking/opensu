@@ -193,7 +193,7 @@ on the same rule.
 | `src/steam/libraries.*` | Steam's library folders through `SteamClient.InstallFolder`: read, add, set default, remove (refused for Steam's own library or one that holds games) |
 | `src/steam/downloads.*` | Steam's live download queue: parsing and reading it (place, bytes, rate, stage; each app's name and whether Steam types it a tool, from its app store) |
 | `src/steam/download_control.*` | Changes to Steam's queue through `SteamClient.Downloads`, the calls Steam's downloads page makes: pause and resume all, start now, move, remove; queueing an app's pending update |
-| `src/steam/steam_json.*` | Reading values the SharedJSContext returns (sizes as numbers or strings); the one app id check (`isAppId`) before an id goes into a script |
+| `src/steam/steam_json.*` | Reading values the SharedJSContext returns (sizes as numbers or strings) |
 | `src/steam/launch_activity.*` | Steam's game actions and running state per app, recorded in its SharedJSContext; cancelling an app's launch (`SteamClient.Apps.CancelLaunch`, the library's Cancel) |
 | `src/steam/install_wizard.*` | Installing a Steam app through Steam's own installer, licence steps to the player |
 | `src/steam/uninstaller.*` | Uninstalling a Steam app through `SteamClient.Installs.OpenUninstallWizard`, as Steam's library does |
@@ -204,7 +204,7 @@ on the same rule.
 
 | Path | Owns |
 | --- | --- |
-| `src/library/game.*` | The launchable `Game` record; a store's lowercase key (`key(Source)`); whether a store is there and signed in (`isReady`); what can be a Steam app id (`isSteamAppId`) |
+| `src/library/game.*` | The launchable `Game` record; a store's lowercase key (`key(Source)`); whether a store is there and signed in (`isReady`); what can be a Steam app id (`isSteamAppId`), the one check before an id goes into a Steam script |
 | `src/library/catalog.*` | Building the catalog's providers from all sources (`game.*` holds `readProvider` and `assemble`, the merge); only the stores in force (`CatalogStores`), ROMs always |
 | `src/library/catalog_loader.*` | Listing every store off the frame thread: one thread per provider, listings handed over as they arrive, `Loading` until a store's first one; `replace` swaps the providers when the integrations change, dropping a retired store's listings |
 | `src/library/lossless_scaling.*` | The player's `Lossless.dll` from Lossless Scaling on Steam, found read-only in any of their Steam library folders (`findLosslessDll`, through `steam::Library::libraryFolders`), never copied |

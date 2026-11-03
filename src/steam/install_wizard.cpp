@@ -3,8 +3,8 @@
 #include <cstdint>
 #include <optional>
 
+#include "library/game.hpp"
 #include "lucent/log.h"
-#include "steam_json.hpp"
 
 namespace opensu::steam {
 namespace {
@@ -129,7 +129,7 @@ std::optional<std::string> InstallWizard::chooseFolder() {
 
 InstallStep InstallWizard::open(std::string_view appId,
                                 std::optional<std::filesystem::path> folder) {
-    if (!isAppId(appId)) {
+    if (!library::isSteamAppId(appId)) {
         return failed("not a Steam app id: " + std::string{appId});
     }
     appId_ = std::string{appId};

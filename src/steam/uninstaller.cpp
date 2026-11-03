@@ -1,12 +1,12 @@
 #include "uninstaller.hpp"
 
+#include "library/game.hpp"
 #include "lucent/log.h"
-#include "steam_json.hpp"
 
 namespace opensu::steam {
 
 std::string Uninstaller::uninstall(std::string_view appId) {
-    if (!isAppId(appId)) {
+    if (!library::isSteamAppId(appId)) {
         return "not a Steam app id: " + std::string{appId};
     }
     std::string error;

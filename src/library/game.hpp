@@ -213,7 +213,7 @@ class Catalog {
 /// uninstalled, most recently played first, then by title.
 void order(std::vector<Game>& games);
 
-/// Whether `text` can be a Steam app id: digits only.
+/// Whether `text` can be a Steam app id: digits only, so a Steam script takes it as a number.
 [[nodiscard]] bool isSteamAppId(std::string_view text) noexcept;
 
 } // namespace opensu::library
