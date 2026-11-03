@@ -1,16 +1,19 @@
 // EvdevPads against real devices: uinput pads stand in for controllers, and the test reads the
-// virtual pad a game would read. Every EvdevPads reads a private directory linking only the test's
-// own nodes, found through sysfs, so no other controller on the machine is opened, read or grabbed.
+// virtual pad a game would read. Every device is found by the uinput descriptor that made it, never
+// by name, and every EvdevPads reads a private directory linking only the test's own nodes, so a
+// second run or any other controller on the machine is never opened, read or grabbed. The fake
+// pads carry openSU's virtual pad mark, so a running openSU leaves them alone.
 #include "evdev_pads.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
-#include <fstream>
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -41,48 +44,49 @@ using opensu::test::expect;
 using opensu::test::fail;
 namespace fs = std::filesystem;
 
-/// The event nodes of the input devices sysfs names `name`, once each is open to this user. No
-/// node is opened to find them.
-std::vector<fs::path> nodesNamed(std::string_view name) {
+/// The event node of the uinput device made through `fd`, once it is open to this user. No node
+/// is opened to find it.
+fs::path nodeOf(int fd) {
+    std::array<char, 64> sysname{};
+    expect(ioctl(fd, UI_GET_SYSNAME(sysname.size()), sysname.data()) >= 0,
+           "uinput names its device");
+    const fs::path device = fs::path{"/sys/devices/virtual/input"} / sysname.data();
     const auto deadline = std::chrono::steady_clock::now() + 3s;
     while (std::chrono::steady_clock::now() < deadline) {
-        std::vector<fs::path> nodes;
         std::error_code error;
-        for (const auto& device : fs::directory_iterator{"/sys/class/input", error}) {
-            std::string named;
-            std::getline(std::ifstream{device.path() / "name"}, named);
-            if (named != name) {
-                continue;
+        for (const auto& entry : fs::directory_iterator{device, error}) {
+            const std::string leaf = entry.path().filename().string();
+            if (leaf.starts_with("event") && ::access(("/dev/input/" + leaf).c_str(), R_OK) == 0) {
+                return "/dev/input/" + leaf;
             }
-            for (const auto& entry : fs::directory_iterator{device.path(), error}) {
-                const std::string leaf = entry.path().filename().string();
-                if (leaf.starts_with("event") &&
-                    ::access(("/dev/input/" + leaf).c_str(), R_OK) == 0) {
-                    nodes.push_back("/dev/input/" + leaf);
-                }
-            }
-        }
-        if (!nodes.empty()) {
-            return nodes;
         }
         std::this_thread::sleep_for(20ms);
     }
-    return {};
+    fail("the test's node appears");
 }
 
-/// The one node named `name`, opened.
-std::optional<EvdevDevice> openNamed(std::string_view name) {
-    const std::vector<fs::path> nodes = nodesNamed(name);
-    if (nodes.size() != 1) {
-        return std::nullopt;
+/// The nodes of every uinput device this process holds open, except `besides`: the virtual pads
+/// its EvdevPads made, never another process's.
+std::vector<fs::path> ownUinputNodes(const std::vector<fs::path>& besides) {
+    std::vector<fs::path> nodes;
+    for (const auto& entry : fs::directory_iterator{"/proc/self/fd"}) {
+        std::error_code error;
+        if (fs::read_symlink(entry.path(), error) != "/dev/uinput") {
+            continue;
+        }
+        const fs::path node = nodeOf(std::stoi(entry.path().filename().string()));
+        if (std::ranges::find(besides, node) == besides.end()) {
+            nodes.push_back(node);
+        }
     }
-    return EvdevDevice{nodes.front()};
+    std::ranges::sort(nodes);
+    return nodes;
 }
 
-/// Every node named `name`, opened.
-std::vector<EvdevDevice> openAllNamed(std::string_view name) {
+std::vector<EvdevDevice> openAll(const std::vector<fs::path>& nodes) {
     std::vector<EvdevDevice> devices;
-    for (const fs::path& node : nodesNamed(name)) {
+    devices.reserve(nodes.size());
+    for (const fs::path& node : nodes) {
         devices.emplace_back(node);
     }
     return devices;
@@ -107,13 +111,11 @@ class InputDir {
     [[nodiscard]] const fs::path& path() const {
         return path_;
     }
-    /// Links the node named `name` in, as udev would add it; returns the link.
-    fs::path add(std::string_view name) const {
-        const std::vector<fs::path> nodes = nodesNamed(name);
-        expect(nodes.size() == 1, "the test's node appears once");
-        const fs::path link = path_ / nodes.front().filename();
+    /// Links `node` in, as udev would add it; returns the link.
+    fs::path add(const fs::path& node) const {
+        const fs::path link = path_ / node.filename();
         fs::remove(link);
-        fs::create_symlink(nodes.front(), link);
+        fs::create_symlink(node, link);
         return link;
     }
 
@@ -143,6 +145,7 @@ class FakePad {
             setup.absinfo.value = hat ? 0 : 128;
             ioctl(fd_, UI_ABS_SETUP, &setup);
         }
+        ioctl(fd_, UI_SET_PHYS, std::string{VirtualPad::phys}.c_str());
         uinput_setup setup{};
         setup.id.bustype = BUS_USB;
         setup.id.vendor = vendor;
@@ -150,6 +153,7 @@ class FakePad {
         std::snprintf(setup.name, sizeof(setup.name), "%s", name);
         expect(ioctl(fd_, UI_DEV_SETUP, &setup) == 0, "the fake pad is set up");
         expect(ioctl(fd_, UI_DEV_CREATE) == 0, "the fake pad is created");
+        node_ = nodeOf(fd_);
     }
     FakePad(const FakePad&) = delete;
     FakePad& operator=(const FakePad&) = delete;
@@ -158,6 +162,10 @@ class FakePad {
             ioctl(fd_, UI_DEV_DESTROY);
             ::close(fd_);
         }
+    }
+
+    [[nodiscard]] const fs::path& node() const {
+        return node_;
     }
 
     void send(std::vector<PadEvent> events) const {
@@ -173,6 +181,7 @@ class FakePad {
 
   private:
     int fd_{-1};
+    fs::path node_;
 };
 
 /// A pad's motion sensor node as hid-playstation and hid-nintendo make it: accelerometer and gyro
@@ -192,6 +201,7 @@ class FakeMotion {
             setup.absinfo.maximum = 32767;
             ioctl(fd_, UI_ABS_SETUP, &setup);
         }
+        ioctl(fd_, UI_SET_PHYS, std::string{VirtualPad::phys}.c_str());
         uinput_setup setup{};
         setup.id.bustype = BUS_USB;
         setup.id.vendor = 0x054c;
@@ -199,12 +209,17 @@ class FakeMotion {
         std::snprintf(setup.name, sizeof(setup.name), "%s", name);
         expect(ioctl(fd_, UI_DEV_SETUP, &setup) == 0, "the fake motion node is set up");
         expect(ioctl(fd_, UI_DEV_CREATE) == 0, "the fake motion node is created");
+        node_ = nodeOf(fd_);
     }
     FakeMotion(const FakeMotion&) = delete;
     FakeMotion& operator=(const FakeMotion&) = delete;
     ~FakeMotion() {
         ioctl(fd_, UI_DEV_DESTROY);
         ::close(fd_);
+    }
+
+    [[nodiscard]] const fs::path& node() const {
+        return node_;
     }
 
     void tilt(std::int32_t value) const {
@@ -216,6 +231,7 @@ class FakeMotion {
 
   private:
     int fd_{-1};
+    fs::path node_;
 };
 
 /// Collects the pads' events until `done` holds or two seconds pass.
@@ -266,12 +282,13 @@ int main() try {
         return 77;
     }
     const InputDir inputs{"shell"};
-    EvdevPads pads{inputs.path()};
+    // Reads the fakes, which carry the virtual pad mark; the directory holds no virtual pad.
+    EvdevPads pads{inputs.path(), OwnVirtualPads::Read};
     std::vector<Event> seen;
 
     // Connected after the reader started, as a pad switched on mid-session is.
     std::optional<FakePad> physical{std::in_place, "opensu test pad", 0x054c, 0x0ce6};
-    const fs::path testLink = inputs.add("opensu test pad");
+    const fs::path testLink = inputs.add(physical->node());
     expect(collect(pads, seen,
                    [&] {
                        return has(seen, Event::Kind::Connected, "opensu test pad");
@@ -303,7 +320,7 @@ int main() try {
            "a button event names the pad that pressed it");
     {
         const FakePad second{"opensu second pad", 0x054c, 0x0ce6};
-        inputs.add("opensu second pad");
+        inputs.add(second.node());
         expect(collect(pads, seen,
                        [&] {
                            return has(seen, Event::Kind::Connected, "opensu second pad");
@@ -329,7 +346,7 @@ int main() try {
 
     {
         const FakePad steamVirtual{"Steam Virtual Gamepad", 0x28de, 0x11ff};
-        inputs.add("Steam Virtual Gamepad");
+        inputs.add(steamVirtual.node());
         std::this_thread::sleep_for(200ms);
         for (const Event& event : pads.takeEvents()) {
             expect(event.device != "Steam Virtual Gamepad", "Steam's virtual pad is not read");
@@ -338,18 +355,13 @@ int main() try {
 
     // The test pad's motion node, made before the hold as a pad brings it up with its gamepad node.
     const FakeMotion motion{"opensu test pad Motion Sensors"};
-    inputs.add("opensu test pad Motion Sensors");
-    std::optional<EvdevDevice> motionNode = openNamed("opensu test pad Motion Sensors");
-    if (!motionNode) {
-        fail("the motion node appears");
-    }
+    inputs.add(motion.node());
+    std::optional<EvdevDevice> motionNode{std::in_place, motion.node()};
+    const std::vector<fs::path> fakes{physical->node(), motion.node()};
     expect(!pads.hold({}).empty(), "the game is told to read only the virtual pads");
-    std::vector<EvdevDevice> virtualPads = openAllNamed(VirtualPad::name);
+    std::vector<EvdevDevice> virtualPads = openAll(ownUinputNodes(fakes));
     expect(!virtualPads.empty(), "holding gives the pad a virtual pad");
-    auto other = openNamed("opensu test pad");
-    if (!other) {
-        fail("the held pad can still be opened");
-    }
+    std::optional<EvdevDevice> other{std::in_place, physical->node()};
 
     std::vector<PadEvent> read;
     physical->send({{EV_KEY, BTN_SOUTH, 1}, {EV_ABS, ABS_X, 255}});
@@ -392,7 +404,7 @@ int main() try {
     {
         // A game process reading pads, as opensu-retro does: the virtual pad is its controller.
         const InputDir gameInputs{"game"};
-        for (const fs::path& node : nodesNamed(VirtualPad::name)) {
+        for (const fs::path& node : ownUinputNodes(fakes)) {
             fs::create_symlink(node, gameInputs.path() / node.filename());
         }
         EvdevPads reader{gameInputs.path(), OwnVirtualPads::Read};
@@ -550,7 +562,7 @@ int main() try {
     // The game's mapping: A reaches the virtual pad as B, the shell still hears A.
     expect(!pads.hold(ForwardMap{{{Button::A, {Button::B}}}, {}}).empty(),
            "the pads are held with a mapping");
-    std::vector<EvdevDevice> mappedPads = openAllNamed(VirtualPad::name);
+    std::vector<EvdevDevice> mappedPads = openAll(ownUinputNodes(fakes));
     expect(!mappedPads.empty(), "the mapped hold gives the pad a virtual pad");
     seen.clear();
     physical->send({{EV_KEY, BTN_SOUTH, 1}});

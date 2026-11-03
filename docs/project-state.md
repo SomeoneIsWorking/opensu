@@ -566,7 +566,7 @@ switched on later is picked up; it skips openSU's own and Steam Input's virtual 
 the left stick and hat included, so any driver following them works (xpad, xone,
 hid-playstation, hid-nintendo). Held directions, from a pad or the keyboard, move
 once and then repeat after 400 ms every 100 ms (`gamepad::DirectionRepeat`, iiSU's
-95 ms throttle on Android's repeats). Tested: `pads` against uinput pads (hotplug,
+95 ms throttle on Android's repeats). Tested: `pads` against uinput pads found by their own descriptors and marked as openSU's, so a second run or a running openSU never takes them (hotplug,
 Steam's virtual pad ignored, disconnect, a game's mapping on the virtual pad, a motion node never
 grabbed), `direction_repeat`, `pad_translator`. A game's button mapping (S033) applies only to
 the virtual pad the game reads; the shell's controls are never mapped.
@@ -1796,8 +1796,7 @@ frame PNG shows the title screen letterboxed 3:2 and the 32 KiB `.srm` was writt
 also passes on lavapipe with validation.
 
 Unverified: a visible window under Gamescope with sound on a device, a real pad and the shell's
-virtual pad driving a game (`pads_test`'s new reader case cannot pass on this machine while the
-running openSU holds every new pad; the pre-change test binary fails the same way). Both sticks reach cores as `RETRO_DEVICE_ANALOG` from the pads and from the control
+virtual pad driving a game. Both sticks reach cores as `RETRO_DEVICE_ANALOG` from the pads and from the control
 channel's `POST /input` pad (Dawn of Sorrow's touch cursor moved by the right stick, S031).
 Missing: ports beyond the first, a mouse (`RETRO_DEVICE_POINTER`), core option changes. Unverified: the quick menu's
 state rows over a real game in Gamescope, and the crash toast after a real crash from the shell.
