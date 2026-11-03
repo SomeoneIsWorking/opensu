@@ -73,4 +73,15 @@ bool inUnit(ProcessId pid, std::string_view unit) {
     return read(pid, "cgroup").find(unit) != std::string::npos;
 }
 
+std::string flatpakApp(ProcessId pid) {
+    constexpr std::string_view key = "\nname=";
+    const std::string info = "\n" + read(pid, "root/.flatpak-info");
+    const std::size_t at = info.find(key);
+    if (at == std::string::npos) {
+        return {};
+    }
+    const std::size_t first = at + key.size();
+    return info.substr(first, info.find('\n', first) - first);
+}
+
 } // namespace opensu::launch::procfs

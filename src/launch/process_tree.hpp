@@ -1,4 +1,4 @@
-// launch — finds processes by command line and ends their whole trees.
+// launch — finds processes by command line or Flatpak app id and ends their whole trees.
 #pragma once
 
 #include <cstddef>
@@ -17,8 +17,8 @@ class ProcessTree {
     /// Whether processes can be found on this OS; without a table nothing ever matches.
     [[nodiscard]] static bool available();
 
-    /// The processes whose command line contains `hint`. An empty hint matches
-    /// nothing.
+    /// The processes whose command line contains `hint`, or that run in the Flatpak whose app id
+    /// is `hint`. An empty hint matches nothing.
     [[nodiscard]] static std::vector<ProcessId> matching(const std::string& hint);
 
     /// True when any process matches `hint`.

@@ -21,5 +21,8 @@ namespace opensu::launch::procfs {
 [[nodiscard]] std::optional<std::uint64_t> startTime(ProcessId pid);
 /// Whether `pid`'s cgroup path names systemd `unit`.
 [[nodiscard]] bool inUnit(ProcessId pid, std::string_view unit);
+/// The Flatpak app id `pid` runs in, the `name=` of its sandbox's `/.flatpak-info`; empty outside
+/// one. A sandbox's command lines name only its command (`bwrap --args 75 -- eden`).
+[[nodiscard]] std::string flatpakApp(ProcessId pid);
 
 } // namespace opensu::launch::procfs

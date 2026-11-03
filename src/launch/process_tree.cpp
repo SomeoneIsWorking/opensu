@@ -7,6 +7,7 @@
 
 #include "lucent/log.h"
 #include "process_table.hpp"
+#include "procfs.hpp"
 
 namespace opensu::launch {
 namespace {
@@ -27,7 +28,8 @@ std::vector<ProcessId> ProcessTree::matching(const std::string& hint) {
         return found;
     }
     for (const ProcessId pid : table::pids()) {
-        if (table::commandLine(pid).find(hint) != std::string::npos) {
+        if (table::commandLine(pid).find(hint) != std::string::npos ||
+            procfs::flatpakApp(pid) == hint) {
             found.push_back(pid);
         }
     }

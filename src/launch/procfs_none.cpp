@@ -22,4 +22,8 @@ bool inUnit(ProcessId /*pid*/, std::string_view /*unit*/) {
     return false;
 }
 
+std::string flatpakApp(ProcessId /*pid*/) {
+    return {};
+}
+
 } // namespace opensu::launch::procfs
