@@ -40,6 +40,11 @@ void expect(bool condition, const char* what) {
     }
 }
 
+/// The refusal of a GOG install with no build this OS takes.
+std::string noGogBuild() {
+    return "GOG lists no " + std::string{opensu::library::gogPlatformsText} + " build of this game";
+}
+
 /// The reports of a job until it finishes, in order, as the loop would take them.
 std::vector<InstallJob::Report> drain(InstallJob& job) {
     std::vector<InstallJob::Report> reports;
@@ -356,8 +361,6 @@ void testGog(const fs::path& dir) {
     constexpr opensu::library::Game::Builds everyBuild{
         .windows = true, .linuxNative = true, .mac = true};
     const std::string own{gogOwnPlatform};
-    const std::string noBuild =
-        "GOG lists no " + std::string{opensu::library::gogPlatformsText} + " build of this game";
 
     const fs::path data = gogData(dir, "gog-native");
     GogInstallJob native{GogInstallJob::Options{.dataDir = data, .gogdl = gogdl.string()}};
@@ -413,7 +416,7 @@ void testGog(const fs::path& dir) {
             opensu::library::gog::InstallRecords{windowsData / "gog-installs.json"}.find("winonly");
         expect(windowsRecord && windowsRecord->platform == "windows", "and is recorded as Windows");
     } else {
-        expect(drain(windows).back().failure == noBuild,
+        expect(drain(windows).back().failure == noGogBuild(),
                "where Windows builds do not run, a Windows-only game is refused");
         expect(!fs::exists(windowsData / "download-args"), "gogdl was not run");
     }
@@ -439,7 +442,7 @@ void testGog(const fs::path& dir) {
     const fs::path noneData = gogData(dir, "gog-none");
     GogInstallJob none{GogInstallJob::Options{.dataDir = noneData, .gogdl = gogdl.string()}};
     expect(none.start("native", "Native"), "a game with no listed build starts");
-    expect(drain(none).back().failure == noBuild, "it fails without running gogdl");
+    expect(drain(none).back().failure == noGogBuild(), "it fails without running gogdl");
     expect(!fs::exists(noneData / "download-args"), "gogdl was not run");
 
     const fs::path emptyData = dir / "gog-signed-out";
@@ -516,12 +519,13 @@ void testInstalls(const fs::path& dir) {
     installs.cancel();
     expect(!installs.running(), "a cancel with nothing running does nothing");
 
-    // The listing's builds reach the GOG job: with one the install goes on to need a sign-in.
+    // The listing's builds reach the GOG job: with this OS's own the install goes on to need a
+    // sign-in.
     opensu::library::Game gog = epic;
     gog.source = Source::Gog;
     gog.sourceId = "1";
-    for (const bool linux : {false, true}) {
-        gog.builds = {.windows = false, .linuxNative = linux};
+    for (const bool own : {false, true}) {
+        gog.builds = {.windows = false, .linuxNative = own, .mac = own};
         expect(installs.start(gog), "a GOG install starts");
         std::optional<InstallJob::Report> last;
         const Clock::time_point wait = Clock::now() + std::chrono::seconds{20};
@@ -531,9 +535,7 @@ void testInstalls(const fs::path& dir) {
             }
             std::this_thread::sleep_for(std::chrono::milliseconds{2});
         }
-        expect(last &&
-                   last->failure == (linux ? "GOG is not signed in"
-                                           : "GOG lists no Linux or Windows build of this game"),
+        expect(last && last->failure == (own ? "GOG is not signed in" : noGogBuild()),
                "the game's builds decide whether the GOG install can go on");
     }
 }
