@@ -647,6 +647,14 @@ such a gap, and the shell draws its ground there (`ui::Shell::setStandsIn`). Ver
 `kwin_wayland --virtual` desktop with a magenta stand-in behind openSU: with a launcher that closes
 3 s before its game window, before the fix Gamescope's window left KWin for 3.1 s and the frames
 showed the stand-in; after it the window stayed mapped and the gap showed openSU's ground.
+A game reaches only Gamescope's displays: it inherits `DISPLAY` (Gamescope's Xwayland) and
+Gamescope's empty `WAYLAND_DISPLAY`. Proton's pressure-vessel container then shares no Wayland
+socket; it sets `WAYLAND_DISPLAY=wayland-0`, a name nothing answers inside it. Shown with
+GE-Proton 11-11 and `PROTON_ENABLE_WAYLAND=1` in that private desktop, which listens on
+`wayland-0`. The container's runtime dir held only `bus` and `pipewire-0`, only Gamescope
+connected to the desktop's socket, and no window reached KWin. Proton's Wayland driver loads and
+finds no compositor, so a Wine game with `PROTON_ENABLE_WAYLAND` shows no window in openSU.
+Gamescope runs without `--expose-wayland`, so it has no socket for game windows to offer.
 Every source records a `processHint` — the
 Wine prefix path for Steam, the install folder for the others — which is what
 identifies the game in the process table.
