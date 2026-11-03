@@ -69,6 +69,20 @@ bool CoverFitter::idle() const {
     return queue_.empty() && !busy_;
 }
 
+std::vector<std::string> CoverFitter::pendingGames() const {
+    const std::lock_guard lock{mutex_};
+    std::vector<std::string> ids;
+    if (busy_ && fitting_.artwork.empty()) {
+        ids.push_back(fitting_.id);
+    }
+    for (const Work& work : queue_) {
+        if (work.game.artwork.empty()) {
+            ids.push_back(work.game.id);
+        }
+    }
+    return ids;
+}
+
 void CoverFitter::run(const std::stop_token& stop) {
     while (!stop.stop_requested()) {
         Work work;
@@ -83,6 +97,7 @@ void CoverFitter::run(const std::stop_token& stop) {
             work = std::move(queue_.front());
             queue_.erase(queue_.begin());
             busy_ = true;
+            fitting_ = work.game;
         }
         const Outcome outcome = fit(work);
         std::unique_lock lock{mutex_};

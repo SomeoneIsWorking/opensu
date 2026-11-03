@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 #include <stdexcept>
 #include <thread>
 #include <utility>
@@ -289,7 +290,9 @@ void ShellApp::finishShelf(const settings::Settings& chosen) {
     shell_.grid().setHeader(folderCard());
     shell_.setStatus(std::to_string(games_.size()) + " games · " + std::to_string(installedCount_) +
                      " installed" + (library::narrowing(chosen.view) ? " · filtered" : ""));
-    shell_.grid().setArtworkDownloading(artworkFetcher_.pendingGames());
+    std::vector<std::string> downloading = artworkFetcher_.pendingGames();
+    std::ranges::copy(covers_.pendingGames(), std::back_inserter(downloading));
+    shell_.grid().setArtworkDownloading(downloading);
     details_.refresh();
 }
 

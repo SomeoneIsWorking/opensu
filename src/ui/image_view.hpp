@@ -1,9 +1,11 @@
 // image_view — a picture on an interface-toolkit screen: a file's image cropped to fill a rounded
 // box of a fixed aspect, or shown whole inside its frame; a plain box of the control colour while
-// it loads or when there is none; and a screen's ground with a picture faded across it.
+// it loads or when there is none, with the cover spinner while one is downloading; and a screen's
+// ground with a picture faded across it.
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <utility>
 
@@ -28,6 +30,12 @@ class ImageView final : public gpu2d::ui::Widget {
         whole_ = across;
         return *this;
     }
+    /// Shows the cover spinner on the box while there is no picture and `downloading` says one
+    /// is on its way.
+    ImageView& loading(std::function<bool()> downloading) {
+        downloading_ = std::move(downloading);
+        return *this;
+    }
 
     [[nodiscard]] gpu2d::ui::Size measure(gpu2d::ui::LayoutContext& context,
                                           float maxWidth) override;
@@ -41,6 +49,7 @@ class ImageView final : public gpu2d::ui::Widget {
     std::filesystem::path file_;
     float aspect_;
     std::optional<gpu2d::ui::Align> whole_;
+    std::function<bool()> downloading_;
 };
 
 /// The theme's ground with `file` cropped to fill it, faded nearly away, under the children; the

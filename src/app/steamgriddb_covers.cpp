@@ -1,5 +1,8 @@
 #include "steamgriddb_covers.hpp"
 
+#include <algorithm>
+#include <utility>
+
 namespace opensu::app {
 namespace {
 
@@ -78,6 +81,19 @@ void SteamGridDbCovers::service() {
     for (const artwork::FittedCover& fitted : fitter_.take()) {
         show(fitted.id);
     }
+    std::vector<std::string> pending = fitter_.pendingGames();
+    if (pending == pending_) {
+        return;
+    }
+    for (const std::string& id : pending_) {
+        if (std::ranges::find(pending, id) == pending.end()) {
+            shell_.grid().artworkSettled(id);
+        }
+    }
+    for (const std::string& id : pending) {
+        shell_.grid().artworkStarted(id);
+    }
+    pending_ = std::move(pending);
 }
 
 } // namespace opensu::app

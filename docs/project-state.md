@@ -335,10 +335,15 @@ image at full size, all of a shelf's tiles in one frame):
   painting and artwork requests cost the same for 50 tiles and 5000 (unit-tested). Per-event
   work that is still O(items): D-pad focus search (`FocusGrid::of`).
 - A game tile whose art is queued or downloading by the fetcher (`ArtworkFetcher::stageOf`),
-  or whose file is decoding, shows a rotating arc in the focus ring's cyan; a confirmed miss or
-  an unreachable round settles it (`Fetched::saved == false`) and it keeps the first-letter
-  placeholder. iiSU has no tile spinner (`launch.md` F), so the arc is openSU's own, drawn with
-  the Material spinner. The fetcher takes the games on screen first.
+  whose SteamGridDB cover is queued or being fitted while it has no art of its own (a Lutris or
+  Steam shortcut import: `CoverFitter::pendingGames`, followed each frame by
+  `SteamGridDbCovers::service`), or whose file is decoding, shows a rotating arc in the focus
+  ring's cyan; the details page's cover shows the same arc over its placeholder while the grid
+  says that game's art is on its way. A confirmed miss, an unreachable round or a fit that ends
+  without a cover settles it and it keeps the first-letter placeholder. iiSU has no tile spinner
+  (`launch.md` F), so the arc is openSU's own, drawn with the Material spinner
+  (`drawCoverLoading`). The fetcher takes the games on screen first. Seen in a hidden run of 9
+  fresh Lutris imports: the tile and the details cover spin until the fitted cover lands.
 - Epic key image URLs with spaces are percent-encoded; one such URL used to end the whole round.
 
 A tile loads its artwork when it comes near the canvas, so a shelf change or a download needs

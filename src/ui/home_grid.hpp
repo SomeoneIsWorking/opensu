@@ -99,6 +99,10 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     [[nodiscard]] std::vector<std::string> downloadingOnScreen() const;
     /// A game's artwork is not coming (a confirmed miss, or the round ended): no spinner.
     void artworkSettled(std::string_view gameId);
+    /// A game's artwork is on its way again (a cover being fitted for it): its spinner shows.
+    void artworkStarted(std::string_view gameId);
+    /// Whether game `gameId`'s tile waits for artwork downloading or queued.
+    [[nodiscard]] bool artworkDownloading(std::string_view gameId) const;
     /// Whose console art the tiles show.
     [[nodiscard]] ConsoleArt& consoleArt() noexcept {
         return consoleArt_;

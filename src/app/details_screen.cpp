@@ -48,7 +48,12 @@ std::unique_ptr<tk::Widget> DetailsScreen::build(const tk::Theme& theme) {
     }
     tk::Column& art = frame.body->add<tk::Column>();
     art.grow(coverShare);
-    art.add<ui::ImageView>(images_, details->art, coverAspect).whole(tk::Align::Start).grow();
+    art.add<ui::ImageView>(images_, details->art, coverAspect)
+        .whole(tk::Align::Start)
+        .loading([this] {
+            return controller_.artDownloading();
+        })
+        .grow();
 
     tk::Column& about = frame.body->add<tk::Column>();
     about.grow();

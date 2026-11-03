@@ -48,6 +48,8 @@ class CoverFitter {
     [[nodiscard]] std::vector<FittedCover> take();
     /// Whether nothing is queued or being fitted.
     [[nodiscard]] bool idle() const;
+    /// The games with no art of their own queued or being fitted, whose tiles wait for a cover.
+    [[nodiscard]] std::vector<std::string> pendingGames() const;
 
   private:
     struct Work {
@@ -83,6 +85,8 @@ class CoverFitter {
     std::vector<Work> queue_;
     std::vector<FittedCover> done_;
     bool busy_{false};
+    /// The game being fitted, while `busy_`.
+    library::Game fitting_;
     /// Last, so the worker stops before anything it reads is destroyed.
     std::jthread worker_;
 };

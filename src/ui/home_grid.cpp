@@ -341,6 +341,17 @@ void HomeGrid::artworkSettled(std::string_view gameId) {
     }
 }
 
+void HomeGrid::artworkStarted(std::string_view gameId) {
+    if (const auto found = gameTiles_.find(std::string{gameId}); found != gameTiles_.end()) {
+        tiles_[found->second].artDownloading = true;
+    }
+}
+
+bool HomeGrid::artworkDownloading(std::string_view gameId) const {
+    const auto found = gameTiles_.find(std::string{gameId});
+    return found != gameTiles_.end() && tiles_[found->second].artDownloading;
+}
+
 void HomeGrid::setSection(library::Section section) {
     section_ = section;
     relayout();

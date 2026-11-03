@@ -123,6 +123,11 @@ void DetailsController::close() {
     navigator_.closeFrom(*shown);
 }
 
+bool DetailsController::artDownloading() const {
+    const ui::GameDetails* shown = details();
+    return shown != nullptr && hooks_.artDownloading(shown->gameId);
+}
+
 void DetailsController::refresh() {
     if (!isOpen() || !details_) {
         return;

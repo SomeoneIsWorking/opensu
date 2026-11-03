@@ -33,7 +33,8 @@ struct Tile {
     gpu2d::ImageHandle wide;
     /// Whether its files have been asked of the loader, or it has none to ask for.
     bool artRequested{false};
-    /// Whether the artwork fetcher is downloading, or has queued, art for it.
+    /// Whether the artwork fetcher, or SteamGridDB's cover fitting, is downloading or has queued
+    /// art for it.
     bool artDownloading{false};
     /// The tile's platform frame, or null for a game with no platform identity.
     const Platform* platform{nullptr};

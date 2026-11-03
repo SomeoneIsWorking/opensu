@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "progress_spinner.hpp"
 #include "round_shape.hpp"
 #include "tile_painter.hpp"
 
@@ -50,7 +51,13 @@ void ImageView::paint(gpu2d::ui::Painter& painter) const {
                          painter.fade(Colour{255, 255, 255, 255}));
         return;
     }
-    painter.canvas.fillRoundRect(box(aspect_, 1.0f), radius, painter.fade(theme.colours.control));
+    const gpu2d::Rect placeholder = box(aspect_, 1.0f);
+    painter.canvas.fillRoundRect(placeholder, radius, painter.fade(theme.colours.control));
+    if (downloading_ && downloading_()) {
+        drawCoverLoading(painter.canvas,
+                         Rect{placeholder.x, placeholder.y, placeholder.width, placeholder.height},
+                         painter.alpha, painter.now);
+    }
 }
 
 void PictureBackdrop::paint(gpu2d::ui::Painter& painter) const {

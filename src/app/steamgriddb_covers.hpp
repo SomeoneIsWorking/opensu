@@ -64,7 +64,12 @@ class SteamGridDbCovers {
     [[nodiscard]] const CoverPickerController& picker() const noexcept {
         return picker_;
     }
-    /// Shows fitted covers and what the picker found. Main loop only.
+    /// The games with no art of their own whose cover is being fitted or queued.
+    [[nodiscard]] std::vector<std::string> pendingGames() const {
+        return fitter_.pendingGames();
+    }
+    /// Shows fitted covers and what the picker found, and which tiles wait for a fitted cover.
+    /// Main loop only.
     void service();
 
   private:
@@ -77,6 +82,8 @@ class SteamGridDbCovers {
     artwork::CoverFitter fitter_;
     artwork::CoverOffers offers_;
     CoverPickerController picker_;
+    /// The games whose tiles wait for a fitted cover, as last shown.
+    std::vector<std::string> pending_;
 };
 
 } // namespace opensu::app

@@ -549,6 +549,9 @@ class ShellApp final {
                                  },
                                  [this](const library::Game& game) {
                                      ownGames_.remove(game);
+                                 },
+                                 [this](const std::string& id) {
+                                     return shell_.grid().artworkDownloading(id);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),

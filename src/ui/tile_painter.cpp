@@ -50,12 +50,6 @@ constexpr float ringOverInset = 0.9f;
 // iiSU nx2.u: no-art letter is #66FFFFFF, clamp(0.34 min, 34, 92) px.
 constexpr Colour fallbackInk{0xFF, 0xFF, 0xFF, 0x66};
 
-// A cover on its way: the spinner is the focus ring's cyan, a third of the tile.
-constexpr Colour loadingInk{0x71, 0xE0, 0xFF, 255};
-constexpr float loadingSize = 0.3f;
-constexpr float loadingMinSize = 24.0f;
-constexpr float loadingStroke = 0.11f;
-
 // A console with no platform colours of its own: iiSU's prompt ink, lightened.
 constexpr Colour consoleFrom{0x8A, 0x82, 0x9C, 255};
 constexpr Colour consoleTo{0x4D, 0x46, 0x55, 255};
@@ -645,10 +639,7 @@ void TilePainter::paintFallback(Canvas& canvas, const TileVisual& tile, const Re
 }
 
 void TilePainter::paintLoading(Canvas& canvas, const TileVisual& tile, const Rect& content) const {
-    const float side = std::min(content.width, content.height);
-    const float size = std::max(side * loadingSize, loadingMinSize);
-    drawSpinner(canvas, Point{content.centreX(), content.centreY()}, size, size * loadingStroke,
-                withAlpha(loadingInk, tile.alpha), tile.seconds);
+    drawCoverLoading(canvas, content, tile.alpha, tile.seconds);
 }
 
 } // namespace opensu::ui

@@ -53,6 +53,8 @@ class DetailsController final : public ui::RowActions {
         std::function<void(const library::Game& game)> rename;
         std::function<void(const library::Game& game)> changeFile;
         std::function<void(const library::Game& game)> remove;
+        /// Whether game `id`'s cover is downloading or being fitted.
+        std::function<bool(const std::string& id)> artDownloading;
     };
 
     /// What the rows act on.
@@ -87,6 +89,8 @@ class DetailsController final : public ui::RowActions {
     void refresh();
     /// What the page shows; null while it is closed.
     [[nodiscard]] const ui::GameDetails* details() const;
+    /// Whether the page's cover is on its way, which its spinner shows.
+    [[nodiscard]] bool artDownloading() const;
 
     // What the page asks.
     /// The launch button: Play, or offer to install.

@@ -48,6 +48,8 @@ struct Rig {
     app::GameSettings gameSettings;
     library::Game game;
     std::vector<std::string> calls;
+    /// Whether the game's cover is on its way.
+    bool artComing{false};
     /// Why `Installs` would refuse the uninstall; empty when it would not.
     std::string refusal;
     app::EmulatorDownloads downloads;
@@ -134,6 +136,9 @@ struct Rig {
                          },
                          [this](const library::Game& opened) {
                              calls.push_back("remove " + opened.id);
+                         },
+                         [this](const std::string& id) {
+                             return id == game.id && artComing;
                          }}} {
     }
 
@@ -313,6 +318,18 @@ void refreshFollowsTheGame(const fs::path& dir) {
            "a game that left the shelf closes the page");
 }
 
+void coverSpinnerFollowsTheGame(const fs::path& dir) {
+    Rig rig{dir};
+    rig.open();
+    expect(!rig.controller.artDownloading(), "a cover not on its way shows no spinner");
+    rig.artComing = true;
+    rig.ui.frame(1.0);
+    expect(rig.controller.artDownloading(), "a cover on its way shows the spinner");
+    rig.controller.close();
+    rig.ui.frame(2.0);
+    expect(!rig.controller.artDownloading(), "a closed page waits for nothing");
+}
+
 void trail() {
     app::TrailState state;
     expect(app::trailOf(state) ==
@@ -356,6 +373,7 @@ int main() try {
     buttonsDoWhatTheyName(dir);
     backClosesWithoutActing(dir);
     refreshFollowsTheGame(dir);
+    coverSpinnerFollowsTheGame(dir);
     uninstallAsksFirst(dir);
     updateStartsWithOnePress(dir);
     winePrefixIsChosenPerGame(dir / "wine");

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <numbers>
 
+#include "round_shape.hpp"
 #include "tile_motion.hpp"
 
 namespace opensu::ui {
@@ -17,6 +18,12 @@ constexpr float baseRotationAngle = 286.0f;
 constexpr float jumpRotationAngle = 290.0f;
 constexpr float rotationAngleOffset = 216.0f;
 constexpr double headAndTailDuration = 0.666;
+
+// A cover on its way: the focus ring's cyan, a third of the box.
+constexpr Colour coverLoadingInk{0x71, 0xE0, 0xFF, 255};
+constexpr float coverLoadingSize = 0.3f;
+constexpr float coverLoadingMinSize = 24.0f;
+constexpr float coverLoadingStroke = 0.11f;
 
 /// A keyframe pair: 0 until `delay`, eased up to the jump over the next half rotation.
 float headOrTail(double phase, double delay) noexcept {
@@ -60,6 +67,13 @@ void drawSpinner(Canvas& canvas, Point centre, float size, float stroke, Colour 
                             .startDegrees = arc.start - cap,
                             .endDegrees = arc.start + arc.sweep + cap},
                 colour);
+}
+
+void drawCoverLoading(Canvas& canvas, const Rect& box, float alpha, double seconds) {
+    const float size =
+        std::max(std::min(box.width, box.height) * coverLoadingSize, coverLoadingMinSize);
+    drawSpinner(canvas, Point{box.centreX(), box.centreY()}, size, size * coverLoadingStroke,
+                withAlpha(coverLoadingInk, alpha), seconds);
 }
 
 } // namespace opensu::ui
