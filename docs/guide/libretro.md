@@ -1,0 +1,96 @@
+# The built-in libretro runner
+
+`opensu-retro` runs one game in a libretro core, in its own window drawn with Vulkan (MoltenVK on
+macOS): the built-in emulator openSU launches like any other. It reads every pad without grabbing
+it, the keyboard and, on Android, its own touch controls; plays the core's sound at 48 kHz; and
+keeps save RAM in `<data>/opensu/saves/<system>/<rom>.srm`, written when it changes and at exit.
+It and the ROM library are the two parts of openSU that are always on.
+
+![uCity with the crt-royale preset](../screenshots/retro-crt.webp)
+
+## Cores
+
+The built-in emulators are mGBA (Game Boy, Game Boy Color, Game Boy Advance), Gambatte (Game Boy,
+Game Boy Color), Snes9x, Mesen, PCSX ReARMed, Beetle PSX HW and SwanStation (PlayStation),
+Mupen64Plus-Next and ParaLLEl N64 (Nintendo 64), PPSSPP (PSP), Flycast (Dreamcast), melonDS DS
+(Nintendo DS), and for Arcade FinalBurn Neo, MAME 2003-Plus, MAME 2010 and MAME (current). A
+console's standalone emulators come first, so turning on standalone emulators does not change what
+an installed one runs on. GPU cores (Beetle PSX HW, SwanStation, Mupen64Plus-Next, ParaLLEl N64)
+draw on the runner's Vulkan device; a core that asks for OpenGL is refused by name.
+
+A core is found in `<data>/opensu/cores/` (openSU's own downloads), then on Linux in
+`~/.config/retroarch/cores`, `/usr/lib64/libretro`, `/usr/lib/libretro` and
+`/usr/lib/x86_64-linux-gnu/libretro`. A missing core is downloaded from libretro's buildbot from the
+game's details page ("Download <core>") or Settings › Emulators › Emulators and cores: every hop
+stays on the buildbot's host and the library is checked against the CRC-32 the buildbot lists.
+Check for updates compares the listed CRC-32 with the one recorded; nothing updates by itself.
+
+## Arcade romsets
+
+Each arcade core names its romset listing: FinalBurn Neo's arcade and Neo Geo datafiles, MAME
+2003-Plus's and MAME 2010's `-listxml`, and current MAME's from mamedev's latest release
+(SHA-256 checked). They are downloaded in the background, shown on the Downloads page, kept under
+`<cache>/opensu/romsets/` and fetched again after 30 days. Each arcade zip is matched against every
+listing, with its parent's, BIOS's and devices' zips in the same folder counted. The game runs on
+the first matching core installed, else the first matching core is offered for download; with none
+it is listed but cannot start, and its details page names the nearest core and the files it lacks.
+
+## BIOS
+
+Settings › Emulators › BIOS files lists what each built-in core runs on: the files it looks for,
+which of them you have in `<data>/opensu/system/`, and whether it has a built-in HLE BIOS
+(PCSX ReARMed's PlayStation BIOS is "HLE built in" until you add a file). openSU ships and downloads
+no BIOS, keys or firmware.
+
+## Picture: video settings and shader presets
+
+Every built-in core's game has, under Video:
+
+- **Aspect**: Core, 4:3, Pixel 1:1 or Stretch.
+- **Integer scale**: Off, On (whole multiples of the game's pixels) or Overscale (fills and crops).
+- **Sampling**: Nearest, Bilinear or Sharp bilinear.
+- **Filter**: None, Scanlines, LCD grid or CRT (a port of crt-lottes), drawn on the game's own pixel
+  grid.
+- **Shader preset**: a RetroArch slang preset, which replaces Sampling and Filter.
+
+The presets come from libretro's slang shader pack (about 54 MB, each shader under its own
+licence): Settings › Emulators › Shader presets downloads it into `<data>/opensu/shaders/slang/`,
+checks for a newer build and removes it. The preset picker browses its folders (`crt › crt-royale`,
+`pixel-art-scaling › sharp-bilinear-simple`, `bezel › Mega_Bezel` and the rest). The runner builds
+presets with librashader, shipped beside it; without it a game with a preset refuses to start and
+says why.
+
+## Setting layers
+
+Every per-game setting (video, the core's own options, the emulator pick, frame generation and
+resolution) is kept at four layers: Global, the console, the core, and the game. A value resolves
+game, then core, then console, then Global, then the default, and every row names the layer it
+comes from. One editor shows them all, with a tab per layer: Settings › Emulators (Global, Consoles,
+Built-in cores), a game's details page (Game settings) and the Guide menu over a running game (Game
+settings, a panel over the game, whose changes reach the game at once).
+
+![The layered editor over a game](../screenshots/layered-editor.webp)
+
+In the editor, choosing a value sets it at the tab's layer; every list starts with "Use <value>
+from <layer>", which removes the tab's own value (Y does the same, and Y again puts it back); X goes
+to the tab the value comes from; LB and RB change tabs. Each change is saved at once. The settings
+live in `game-settings.json` in openSU's config folder.
+
+A core's own options (Color Correction on mGBA, the renderer on Mupen64Plus-Next, ...) are settings
+of the core's and the game's layers, remembered per core so they can be edited while nothing runs.
+
+## Over a running game
+
+The Guide menu over a built-in core's game adds Save state, Load state (one slot,
+`<saves>/<rom>.state`) and Reset game, the last two on a second press, and Game settings opens the
+editor above. Close game stops the runner so it writes its save RAM first. A core that crashes is
+toasted by name, and a game that fails to load by its reason.
+
+![The Guide menu over a game](../screenshots/guide-game.webp)
+
+## On Android
+
+The runner is a second Activity in a process of its own. Cores come from the buildbot's
+`android/latest/<abi>` folder, games are copied into the app's cache before a core opens them, and
+the runner draws touch controls while no pad is connected. Back, a pad's Guide or the pause button
+brings the shell's Guide menu in front of the paused game; Resume goes back to it.

@@ -680,7 +680,7 @@ server (`tests/library/gog_test.cpp`); no real GOG account has been used.
 
 GOG installs (`app::GogInstallJob`, a `CliInstallJob` like Epic's) run `gogdl --auth-config-path
 <file> download <id> --platform linux|windows --path <data dir>/gog-games/<id>`; gogdl is
-Heroic's `heroic-gogdl` 1.3.1, installed with `uv tool install` pinned to a revision (README).
+Heroic's `heroic-gogdl` 1.3.1, installed with `uv tool install` pinned to a revision (`docs/guide/stores.md`).
 Decisions:
 
 - Token: `TokenStore` stays the only saved token. Before each install the job refreshes it
@@ -1861,7 +1861,7 @@ the mount. A `v*` tag runs `release.yml`: build, smoke, GitHub Release with the 
 `OPENSU_APPIMAGE_SIGNING_KEY` secret (public key `packaging/appimage/signing-key.asc`).
 
 Verified (`tools.package appimage smoke`, clean Fedora 44 and Ubuntu 24.04 containers with only the
-README's runtime libraries, no network): the runtime is static type 2 and libfuse2 is absent; it
+`docs/guide/install.md`'s runtime libraries, no network): the runtime is static type 2 and libfuse2 is absent; it
 mounts through FUSE; every bundled ELF resolves; the fork's `gamescope --help` binds every symbol;
 `opensu --render` draws the home screen at 1280x800 with assets; the run writes only under the
 XDG directories. A signature from a throwaway key is embedded and checks out.

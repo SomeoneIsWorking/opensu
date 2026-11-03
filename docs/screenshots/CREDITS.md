@@ -1,9 +1,22 @@
 # Screenshot credits
 
-The README screenshots are frames of openSU itself (`opensu --hidden`, frames from
-`GET /frame.png`), captured by `uv run --frozen python -m tools.screenshots --profile real` on the
-maintainer's own machine, showing the maintainer's own library as openSU finds it: installed Steam,
-Epic and GOG games and the maintainer's own ROM dumps.
+The screenshots in the README and `docs/guide/` are frames of openSU itself (`opensu --hidden`,
+frames from `GET /frame.png`), captured by `uv run --frozen python -m tools.screenshots --profile
+real` on the maintainer's own machine. All but the three below show the maintainer's own library as
+openSU finds it: installed Steam, Epic and GOG games and the maintainer's own ROM dumps.
+
+`retro-crt.webp`, `guide-game.webp` and `layered-editor.webp` show a homebrew game, never a
+commercial one, run in a home of its own on the built-in mGBA core with libretro's `crt-royale`
+preset (`tools/screenshots/retro.py`):
+
+- **[uCity](https://github.com/AntonioND/ucity)** v1.3 (`ucity.gbc`, pinned by SHA-256) by Antonio
+  Niño Díaz: code GPL-3.0-or-later (its GBT Player music driver BSD-2-Clause), graphics and music
+  CC BY-SA 4.0. Its frames are shown unmodified but for the shader.
+- **crt-royale** from libretro's slang shader pack, by TroggleMonkey, GPL-2.0-or-later.
+- `retro-crt.webp` is the runner's own frame (`opensu-retro`'s `GET /frame.png`). The two menus over
+  the game are the shell's frame laid over the runner's, as Gamescope composes the two windows.
+
+The other frames:
 
 - **Game art** (covers, heroes, ROM box art) belongs to its owners. It is shown only to depict what
   the launcher does with a real library; it is not part of openSU and is not licensed by this
