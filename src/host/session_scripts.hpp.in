@@ -1,0 +1,12 @@
+// session_scripts — the two root-run scripts in packaging/, built into openSU so it can stage them
+// for the root step wherever it runs from (an install, the AppImage, a build tree).
+#pragma once
+
+#include <string_view>
+
+namespace opensu::host {
+
+inline constexpr std::string_view installSessionScript = R"opensu_sh(@OPENSU_INSTALL_SESSION_SH@)opensu_sh";
+inline constexpr std::string_view sessionSelectScript = R"opensu_sh(@OPENSU_SESSION_SELECT_SH@)opensu_sh";
+
+} // namespace opensu::host

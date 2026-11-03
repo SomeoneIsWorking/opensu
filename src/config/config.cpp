@@ -199,6 +199,8 @@ Config read() {
     const InstallLayout layout = installLayout(env("OPENSU_ASSETS"));
     value.assetsDir = layout.assetsDir;
     value.executable = layout.executable;
+    const std::string_view appImage = env("APPIMAGE");
+    value.program = appImage.empty() ? value.executable : std::filesystem::path{appImage};
     value.gamescope = layout.gamescope;
     value.retroRunner = layout.retroRunner;
     value.librashader = layout.librashader;

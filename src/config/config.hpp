@@ -58,6 +58,10 @@ struct Config {
     /// when SDL cannot tell.
     std::filesystem::path executable;
 
+    /// What starts this openSU from outside it, as a session entry does: the AppImage it runs from
+    /// (APPIMAGE, set by the AppImage runtime), else `executable`.
+    std::filesystem::path program;
+
     /// The Gamescope fork the nested session runs, next to this executable's prefix; see
     /// `gamescopeBeside`. May not exist when opensu was built without the fork.
     std::filesystem::path gamescope;

@@ -1,13 +1,12 @@
-// Session mode through the real runners with fake sudo, busctl and systemctl on PATH: what counts
-// as installed, the install's password handling (wrong password, then right; never in an argument
-// or the output), and the order of the selector and the logout in each direction.
+// Session mode through the real runner with fake sudo, pkexec, busctl and systemctl on PATH: what
+// counts as installed, the root step staged and run through pkexec (installed, cancelled at the
+// password, refused, failed), and the order of the selector and the logout in each direction.
 #include "host/session_mode.hpp"
 
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -21,9 +20,6 @@ namespace {
 namespace fs = std::filesystem;
 using namespace opensu;
 using test::expect;
-
-constexpr const char* rightPassword = "s3cret-pw";
-constexpr const char* wrongPassword = "wr0ng-pw";
 
 void touch(const fs::path& file) {
     const std::ofstream created{file};
@@ -39,20 +35,25 @@ struct Bench {
         setenv("BENCH_LOG", log.c_str(), 1);
         touch(log);
         script("sudo", R"(echo "sudo $*" >> "$BENCH_LOG"
-case "$1" in
--S)
-    read pw
-    if [ "$pw" != s3cret-pw ]; then echo "Sorry, try again." >&2; exit 1; fi
-    echo "opensu-install: start"
-    if [ -e "$BENCH_DIR/installer-fails" ]; then
-        echo "opensu-install: visudo rejected the sudoers rule" >&2
-        exit 1
-    fi
-    exit 0 ;;
--n)
-    if [ -e "$BENCH_DIR/select-fails" ]; then echo "sudo: a password is required" >&2; exit 1; fi
-    exit 0 ;;
-esac)");
+if [ -e "$BENCH_DIR/select-fails" ]; then echo "sudo: a password is required" >&2; exit 1; fi)");
+        // polkit's part: the player cancels, polkit refuses, or the staged installer runs, here by
+        // placing what it would place.
+        script("pkexec", R"(echo "pkexec $*" >> "$BENCH_LOG"
+if [ -e "$BENCH_DIR/cancel" ]; then exit 126; fi
+if [ -e "$BENCH_DIR/deny" ]; then
+    echo "Error executing command as another user: Not authorized" >&2; exit 127
+fi
+echo "opensu-install: start"
+if [ -e "$BENCH_DIR/installer-fails" ]; then
+    echo "opensu-install: visudo rejected the sudoers rule" >&2; exit 1
+fi
+if [ ! -e "$BENCH_DIR/installer-does-nothing" ]; then
+    stage=$(dirname "$2")
+    mkdir -p "$BENCH_DIR/local-sessions"
+    cp "$stage/opensu.desktop" "$BENCH_DIR/local-sessions/opensu.desktop"
+    cp "$stage/opensu-session-select" "$BENCH_DIR/selector"
+fi
+echo "opensu-install: done")");
         script("busctl", R"(echo "busctl $*" >> "$BENCH_LOG"
 if [ -e "$BENCH_DIR/logout-fails" ]; then echo "Failed to call method: no KDE here" >&2; exit 1; fi)");
         script("systemctl", R"(echo "systemctl $*" >> "$BENCH_LOG")");
@@ -80,29 +81,27 @@ if [ -e "$BENCH_DIR/logout-fails" ]; then echo "Failed to call method: no KDE he
     void forgetCalls() const {
         const std::ofstream truncated{root / "calls.log", std::ios::trunc};
     }
-    [[nodiscard]] std::string everything() const {
-        std::ostringstream all;
-        for (const std::string& line : calls()) {
-            all << line << '\n';
-        }
-        return all.str();
-    }
 
     [[nodiscard]] host::SessionPaths paths() const {
         host::SessionPaths paths;
         paths.entryDirs = {root / "local-sessions", root / "sessions"};
         paths.selector = root / "selector";
-        paths.installer = root / "prefix" / "libexec" / "opensu" / "install-session.sh";
-        paths.executable = root / "prefix" / "bin" / "opensu";
+        paths.program = root / "prefix" / "bin" / "opensu";
+        paths.stage = root / "run" / "session-install";
+        paths.pkexec = root / "bin" / "pkexec";
         paths.request = host::DesktopRequest{root / "run" / "desktop"};
         paths.compositorScope = "s-compositor.scope";
         return paths;
     }
     [[nodiscard]] std::unique_ptr<host::SessionMode> mode(bool selector = true) const {
+        return mode(paths(), selector);
+    }
+    [[nodiscard]] std::unique_ptr<host::SessionMode> mode(host::SessionPaths given,
+                                                          bool selector) const {
         if (selector) {
             touch(root / "selector");
         }
-        return host::makeSddmSessionMode(host::systemRunner(), host::systemLineRunner(), paths());
+        return host::makeSddmSessionMode(host::systemRunner(), std::move(given));
     }
     void entry(const char* dir, const std::string& exec) const {
         fs::create_directories(root / dir);
@@ -137,53 +136,76 @@ void installedMeansAnEntryForThisOpenSuAndTheSelector() {
     expect(with->installed(), "a symlinked path to this openSU is this openSU");
 }
 
-void installBlockerNamesAMissingInstaller() {
+void theEntryStartsThisOpenSuWhereverItIs() {
     const Bench bench;
-    const auto mode = bench.mode();
-    expect(mode->installBlocker().find("cmake --install") != std::string::npos,
-           "without the installer the blocker says to install openSU");
-    fs::create_directories(bench.paths().installer.parent_path());
-    touch(bench.paths().installer);
-    expect(mode->installBlocker().empty(), "with the installer there is no blocker");
+    host::SessionPaths paths = bench.paths();
+    paths.program = bench.root / "my \"games\" $HOME" / "openSU.AppImage";
+    const auto mode = bench.mode(paths, true);
+    static_cast<void>(mode->stage());
+    fs::create_directories(bench.root / "local-sessions");
+    fs::copy_file(paths.stage / "opensu.desktop", bench.root / "local-sessions" / "opensu.desktop");
+    expect(mode->installed(), "an entry for a path that needs quoting reads back as this openSU");
 }
 
-void aWrongPasswordIsRefusedAndTheRightOneInstalls() {
+void installBlockerNamesWhatIsMissing() {
+    const Bench bench;
+    host::SessionPaths paths = bench.paths();
+    paths.pkexec.clear();
+    const std::string blocker = bench.mode(paths, true)->installBlocker();
+    expect(blocker.find("pkexec") != std::string::npos &&
+               blocker.find("sudo dnf install polkit") != std::string::npos,
+           "without pkexec the blocker names the package and how to install it");
+    expect(bench.mode(paths, true)->install().kind == host::InstallResult::Kind::Failed,
+           "and nothing is installed");
+    expect(bench.mode()->installBlocker().empty(), "with pkexec there is no blocker");
+}
+
+void theRootStepGoesThroughPkexecOverTheStagedFiles() {
     const Bench bench;
     const auto mode = bench.mode(false);
-    const host::InstallResult wrong = mode->install(wrongPassword);
-    expect(wrong.kind == host::InstallResult::Kind::Refused, "a wrong password is refused");
-    expect(wrong.message == "Sorry, try again.", "the refusal is sudo's own line");
-    const host::InstallResult right = mode->install(rightPassword);
-    expect(right.kind == host::InstallResult::Kind::Installed && right.message.empty(),
-           "the right password installs on the retry");
-    const std::string all = bench.everything();
-    expect(all.find(rightPassword) == std::string::npos &&
-               all.find(wrongPassword) == std::string::npos,
-           "no password was in any argument");
-    expect(bench.calls().size() == 2 &&
-               bench.calls()[0] == "sudo -S -k -p  /bin/sh " + bench.paths().installer.string(),
-           "one sudo -S -k per attempt runs the installer through /bin/sh");
-    expect(wrong.message.find(wrongPassword) == std::string::npos,
-           "the message never carries the password");
+    const host::InstallResult result = mode->install();
+    expect(result.kind == host::InstallResult::Kind::Installed && result.message.empty(),
+           "pkexec running the staged installer installs session mode");
+    const fs::path installer = bench.paths().stage / "install-session.sh";
+    expect(bench.calls() == std::vector<std::string>{"pkexec /bin/sh " + installer.string()},
+           "one pkexec runs the staged installer through /bin/sh");
+    expect(fs::is_regular_file(installer) &&
+               fs::is_regular_file(bench.paths().stage / "opensu-session-select"),
+           "the installer and the selector are staged");
+    expect(mode->installed(), "and session mode is in place after");
 }
 
-void anInstallerFailureIsNotAWrongPassword() {
+void cancelRefusalAndFailureAreToldApart() {
     const Bench bench;
+    bench.flag("cancel");
+    const host::InstallResult cancelled = bench.mode(false)->install();
+    expect(cancelled.kind == host::InstallResult::Kind::Cancelled,
+           "dismissing the password dialog is Cancelled");
+    bench.clearFlag("cancel");
+    bench.flag("deny");
+    const host::InstallResult denied = bench.mode(false)->install();
+    expect(denied.kind == host::InstallResult::Kind::Failed &&
+               denied.message == "Error executing command as another user: Not authorized",
+           "polkit's refusal is Failed with its line");
+    bench.clearFlag("deny");
     bench.flag("installer-fails");
-    const host::InstallResult failed = bench.mode(false)->install(rightPassword);
-    expect(failed.kind == host::InstallResult::Kind::Failed, "the installer's failure is Failed");
-    expect(failed.message == "opensu-install: visudo rejected the sudoers rule",
-           "its last line is the reason");
+    const host::InstallResult failed = bench.mode(false)->install();
+    expect(failed.kind == host::InstallResult::Kind::Failed &&
+               failed.message == "opensu-install: visudo rejected the sudoers rule",
+           "the installer's failure is Failed with its last line");
+    bench.clearFlag("installer-fails");
+    bench.flag("installer-does-nothing");
+    expect(bench.mode(false)->install().kind == host::InstallResult::Kind::Failed,
+           "an install that leaves nothing in place is Failed");
 }
 
-void aMissingSudoFails() {
+void aMissingPkexecFails() {
     const Bench bench;
-    fs::remove(bench.root / "bin" / "sudo");
-    setenv("PATH", (bench.root / "bin").c_str(), 1);
-    const host::InstallResult result = bench.mode(false)->install(rightPassword);
+    fs::remove(bench.root / "bin" / "pkexec");
+    const host::InstallResult result = bench.mode(false)->install();
     expect(result.kind == host::InstallResult::Kind::Failed &&
-               result.message == "sudo could not be run",
-           "a missing sudo is said");
+               result.message == "pkexec could not be run",
+           "a pkexec that is gone is said");
 }
 
 void switchingToSessionModeSelectsThenLogsOut() {
@@ -252,9 +274,11 @@ void aReadOnlyModeReadsAndRefusesEverythingElse() {
     expect(mode->switchToSession() == "changes are off" &&
                mode->switchToDesktop() == "changes are off",
            "it refuses both switches");
-    const host::InstallResult result = mode->install(rightPassword);
+    const host::InstallResult result = mode->install();
     expect(result.kind == host::InstallResult::Kind::Failed && result.message == "changes are off",
            "it refuses the install");
+    expect(fs::is_regular_file(bench.paths().stage / "install-session.sh"),
+           "after staging the root step it would run");
     expect(bench.calls().empty(), "nothing reached the system");
 }
 
@@ -262,10 +286,11 @@ void aReadOnlyModeReadsAndRefusesEverythingElse() {
 
 int main() try {
     installedMeansAnEntryForThisOpenSuAndTheSelector();
-    installBlockerNamesAMissingInstaller();
-    aWrongPasswordIsRefusedAndTheRightOneInstalls();
-    anInstallerFailureIsNotAWrongPassword();
-    aMissingSudoFails();
+    theEntryStartsThisOpenSuWhereverItIs();
+    installBlockerNamesWhatIsMissing();
+    theRootStepGoesThroughPkexecOverTheStagedFiles();
+    cancelRefusalAndFailureAreToldApart();
+    aMissingPkexecFails();
     switchingToSessionModeSelectsThenLogsOut();
     switchingToTheDesktopRestoresThenEndsOpenSu();
     withoutTheSelectorTheSessionStartsTheDesktopItself();

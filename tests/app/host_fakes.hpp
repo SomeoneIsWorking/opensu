@@ -33,8 +33,11 @@ class FakeSessionMode final : public host::SessionMode {
     std::string installBlocker() const override {
         return blocker;
     }
-    host::InstallResult install(std::string_view password) override {
-        passwords.emplace_back(password);
+    host::RootStep stage() override {
+        return host::RootStep{.program = "pkexec", .args = {"/bin/sh", "install-session.sh"}};
+    }
+    host::InstallResult install() override {
+        ++installs;
         if (results.empty()) {
             return {};
         }
@@ -56,7 +59,7 @@ class FakeSessionMode final : public host::SessionMode {
     std::string refusal;
     /// The results the installs give, in order; a missing one is a success.
     std::vector<host::InstallResult> results;
-    std::vector<std::string> passwords;
+    int installs{0};
     std::vector<std::string> calls;
 };
 

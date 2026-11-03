@@ -9,3 +9,12 @@ target_link_libraries(opensu_host PUBLIC opensu::command PRIVATE opensu::fileio 
 target_compile_features(opensu_host PUBLIC cxx_std_20)
 opensu_warnings(opensu_host)
 
+
+# The root-run scripts, built in so session mode is staged from the binary itself.
+set(opensu_session_scripts "${CMAKE_SOURCE_DIR}/packaging/install-session.sh"
+    "${CMAKE_SOURCE_DIR}/packaging/opensu-session-select.sh")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${opensu_session_scripts})
+file(READ "${CMAKE_SOURCE_DIR}/packaging/install-session.sh" OPENSU_INSTALL_SESSION_SH)
+file(READ "${CMAKE_SOURCE_DIR}/packaging/opensu-session-select.sh" OPENSU_SESSION_SELECT_SH)
+configure_file(session_scripts.hpp.in "${CMAKE_CURRENT_BINARY_DIR}/generated/session_scripts.hpp" @ONLY)
+target_include_directories(opensu_host PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")

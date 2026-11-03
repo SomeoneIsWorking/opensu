@@ -1,6 +1,7 @@
 // The root-run scripts, run for real against a temp root (OPENSU_SELECT_ROOT, honoured only for a
 // non-root caller): the selector's strict arguments and the files it writes, in the autologin and
-// the no-autologin setups, and the installer's files and sudoers rule, checked by the real visudo.
+// the no-autologin setups, and the installer staged as openSU stages it, with its files and
+// sudoers rule checked by the real visudo.
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -12,6 +13,7 @@
 #include <pwd.h>
 #include <unistd.h>
 
+#include "host/session_mode.hpp"
 #include "launch/command.hpp"
 #include "support/test_main.hpp"
 #include "ui/check.hpp"
@@ -210,32 +212,37 @@ void restoreLeavesALastSessionThePlayerChoseAlone() {
 
 void theInstallerPlacesTheThreeFilesAndAValidSudoersRule() {
     const Machine machine{"installer"};
-    const fs::path tree = machine.root / "tree";
-    const fs::path libexec = tree / "libexec" / "opensu";
-    fs::create_directories(libexec);
-    fs::copy_file(fs::path{OPENSU_PACKAGING_DIR} / "install-session.sh",
-                  libexec / "install-session.sh");
-    fs::copy_file(fs::path{OPENSU_PACKAGING_DIR} / "opensu-session-select.sh",
-                  libexec / "opensu-session-select");
-    write(tree / "share" / "wayland-sessions" / "opensu.desktop",
-          "[Desktop Entry]\nExec=" + tree.string() + "/bin/opensu --session\n");
+    host::SessionPaths paths;
+    paths.program = machine.root / "my games" / "openSU.AppImage";
+    paths.stage = machine.root / "run" / "session-install";
+    paths.pkexec = "/usr/bin/pkexec";
+    const host::RootStep step = host::stageInstall(paths);
+    expect(step.shown() ==
+               "/usr/bin/pkexec /bin/sh " + (paths.stage / "install-session.sh").string(),
+           "the root step is pkexec running the staged installer through /bin/sh");
+    expect((fs::status(paths.stage).permissions() &
+            (fs::perms::group_all | fs::perms::others_all)) == fs::perms::none,
+           "the staged files are the user's alone");
+    const std::string entry = slurp(paths.stage / "opensu.desktop");
+    expect(entry.find("\nExec=\"" + paths.program.string() + "\" --session\n") != std::string::npos,
+           "the entry starts this openSU, its path quoted for the space");
 
-    const auto run = [&](const fs::path& script) {
+    const auto run = [&] {
         const auto out =
-            launch::runCaptured("/bin/sh", {script.string()}, launch::CaptureErrors::Merged);
+            launch::runCaptured("/bin/sh", {step.args.back()}, launch::CaptureErrors::Merged);
         return out ? Run{out->status, out->output} : Run{};
     };
-    const Run done = run(libexec / "install-session.sh");
+    setenv("PKEXEC_UID", std::to_string(getuid()).c_str(), 1);
+    const Run done = run();
     expect(done.status == 0, "the installer succeeds");
     expect(done.output.starts_with("opensu-install: start\n") &&
                done.output.ends_with("opensu-install: done\n"),
            "it opens with the marker and ends done");
-    expect(slurp(machine.at("/usr/local/share/wayland-sessions/opensu.desktop")) ==
-               slurp(tree / "share" / "wayland-sessions" / "opensu.desktop"),
+    expect(slurp(machine.at("/usr/local/share/wayland-sessions/opensu.desktop")) == entry,
            "the session entry is installed where SDDM reads it");
     expect(slurp(machine.at("/usr/local/libexec/opensu-session-select")) ==
-               slurp(libexec / "opensu-session-select"),
-           "the selector is installed");
+               slurp(fs::path{OPENSU_PACKAGING_DIR} / "opensu-session-select.sh"),
+           "the selector built into openSU is installed");
     expect((fs::status(machine.at("/usr/local/libexec/opensu-session-select")).permissions() &
             fs::perms::others_write) == fs::perms::none,
            "and nobody else can write it");
@@ -245,7 +252,7 @@ void theInstallerPlacesTheThreeFilesAndAValidSudoersRule() {
                               " may switch the login session between openSU and the desktop.\n" +
                               machine.user + " ALL=(root) NOPASSWD: " + selector + " opensu, " +
                               selector + " restore\n",
-           "the sudoers rule names the selector with each fixed argument");
+           "the sudoers rule names pkexec's user and the selector with each fixed argument");
     expect(fs::status(rule).permissions() == (fs::perms::owner_read | fs::perms::group_read),
            "it is mode 0440");
     const auto checked = launch::runCaptured("/usr/sbin/visudo", {"-cf", rule.string()},
@@ -254,13 +261,18 @@ void theInstallerPlacesTheThreeFilesAndAValidSudoersRule() {
     expect(!fs::exists(machine.at("/etc/sudoers.d/.zz-opensu-session-select.new")),
            "no staging file is left");
 
-    setenv("SUDO_USER", "no such user!", 1);
-    expect(run(libexec / "install-session.sh").status == 1, "a bad user name is refused");
-    setenv("SUDO_USER", machine.user.c_str(), 1);
-    fs::remove(tree / "share" / "wayland-sessions" / "opensu.desktop");
-    const Run missing = run(libexec / "install-session.sh");
-    expect(missing.status == 1 && missing.output.find("cmake --install") != std::string::npos,
-           "without the installed entry it says to run cmake --install");
+    setenv("PKEXEC_UID", "0", 1);
+    expect(run().status == 1, "root as the user asking is refused");
+    setenv("PKEXEC_UID", "12x", 1);
+    expect(run().status == 1, "a uid that is no number is refused");
+    unsetenv("PKEXEC_UID");
+    expect(run().status == 1, "without pkexec's user it refuses");
+    setenv("PKEXEC_UID", std::to_string(getuid()).c_str(), 1);
+    fs::remove(paths.stage / "opensu.desktop");
+    const Run missing = run();
+    expect(missing.status == 1 &&
+               missing.output.find("opensu.desktop is missing") != std::string::npos,
+           "without the staged entry it says which file is missing");
 }
 
 } // namespace

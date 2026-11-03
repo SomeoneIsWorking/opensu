@@ -9,7 +9,7 @@ from tools import download
 from tools.check import cmake, process
 from tools.package.windows import config
 
-# The `session` component is Linux's login session; everything else ships.
+# Everything openSU installs.
 INSTALL_COMPONENT = "Unspecified"
 
 

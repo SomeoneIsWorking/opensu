@@ -783,11 +783,11 @@ class ShellApp final {
                                  [this] {
                                      return outputLine();
                                  }}};
-    /// Installing session mode: its question, the password keyboard and the root step. Null where
-    /// there is no session mode.
+    /// Installing session mode: its question and the root step through polkit. Null where there
+    /// is no session mode.
     std::unique_ptr<SessionInstallController> sessionInstall_{
         host_.session ? std::make_unique<SessionInstallController>(
-                            shell_.screens().navigator(), keyboardPad_, *host_.session, sounds_,
+                            shell_.screens().navigator(), *host_.session, sounds_,
                             [this](const std::string& text, bool isError) {
                                 shell_.setToast(text, isError);
                             })

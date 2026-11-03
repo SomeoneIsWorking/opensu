@@ -76,7 +76,7 @@ if(MSVC AND CMAKE_HOST_WIN32)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION "${CMAKE_INSTALL_BINDIR}")
     include(InstallRequiredSystemLibraries)
 endif()
-# The desktop entry, the icon and the login session are Linux's.
+# The desktop entry and the icon are Linux's; session mode is staged by openSU at run time.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(OPENSU_EXEC "${CMAKE_INSTALL_FULL_BINDIR}/opensu")
     # The AppImage passes OPENSU_DESKTOP_EXEC=opensu: whatever integrates it rewrites Exec.
@@ -89,28 +89,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
             DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
     install(FILES "${CMAKE_SOURCE_DIR}/packaging/opensu.svg"
             DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps")
-
-    # The login session entry and the root step that makes it usable. SDDM reads only /usr/share
-    # and /usr/local/share wayland-sessions, so install-session.sh (one sudo) copies the entry
-    # there, installs the root-owned session selector and its sudoers rule. openSU runs it from
-    # Power > Install session mode. They are the `session` component, which the AppImage leaves
-    # out: its entry would name the mount.
-    configure_file("${CMAKE_SOURCE_DIR}/packaging/opensu-session.desktop.in"
-                   "${CMAKE_BINARY_DIR}/opensu-session.desktop" @ONLY)
-    install(FILES "${CMAKE_BINARY_DIR}/opensu-session.desktop"
-            DESTINATION "${CMAKE_INSTALL_DATADIR}/wayland-sessions" RENAME opensu.desktop
-            COMPONENT session)
-    install(PROGRAMS "${CMAKE_SOURCE_DIR}/packaging/install-session.sh"
-            DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/opensu" COMPONENT session)
-    install(PROGRAMS "${CMAKE_SOURCE_DIR}/packaging/opensu-session-select.sh"
-            DESTINATION "${CMAKE_INSTALL_LIBEXECDIR}/opensu" RENAME opensu-session-select
-            COMPONENT session)
-    install(CODE "set(OPENSU_SESSION_INSTALLER \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBEXECDIR}/opensu/install-session.sh\")"
-            COMPONENT session)
-    install(CODE [[
-    message(STATUS "To make openSU a login session, use Power > Install session mode in openSU, or run once:")
-    message(STATUS "  sudo sh ${OPENSU_SESSION_INSTALLER}")
-    ]] COMPONENT session)
 endif()
 
 # Subsystem headers are included as "library/game.hpp" and "vdf/node.hpp", so

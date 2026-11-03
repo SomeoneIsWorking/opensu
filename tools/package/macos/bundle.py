@@ -12,7 +12,7 @@ from tools import download
 from tools.check import cmake, macos, process
 from tools.package.macos import config
 
-# The `session` component is Linux's login session; everything else ships.
+# Everything openSU installs.
 INSTALL_COMPONENT = "Unspecified"
 # What every Mac has; anything else a binary links must be inside the app.
 SYSTEM_PREFIXES = ("/usr/lib/", "/System/Library/")

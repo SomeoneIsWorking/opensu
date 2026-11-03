@@ -39,8 +39,8 @@ and the pinned Gamescope fork. It is signed with the key in
 [`packaging/appimage/signing-key.asc`](../../packaging/appimage/signing-key.asc) (fingerprint
 `0604 E249 E180 039C 3BA2 FEF3 419F 535F 9867 0291`);
 `./openSU-<version>-x86_64.AppImage --appimage-signature` prints the signature. Session mode
-(Power › Install session mode) needs an openSU installed from source: the AppImage's mount point
-changes on every run, so a login session entry cannot name it.
+(Power › Install session mode) works from the AppImage too: its session entry names the
+AppImage file, not its mount.
 
 Requirements, which a desktop install of a current distribution already has:
 

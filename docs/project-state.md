@@ -782,10 +782,11 @@ Partial: everything is built and unit-tested; no real login has been run.
 `opensu --session` outside Gamescope runs `session::CompositorSession` with a native
 `Output`, which is `gamescope --backend drm -- opensu --session` (the connector's
 own mode; no `-W/-H/-w/-h/-f`, which are nested-only, and no `-e`: Steam is started
-by openSU as in the nested session). `cmake --install` puts
-`<prefix>/share/wayland-sessions/opensu.desktop` (`Exec=<prefix>/bin/opensu
---session`, `DesktopNames=gamescope`, from `packaging/opensu-session.desktop.in`) and the two
-root-run scripts in `<prefix>/libexec/opensu/` (`install-session.sh`, `opensu-session-select`).
+by openSU as in the nested session). The session entry (`Exec=<program> --session`,
+`DesktopNames=gamescope`, `host::sessionEntry`) names what starts this openSU (`Config::program`:
+the AppImage file from `APPIMAGE`, else the executable, installed or in a build tree); the two
+root-run scripts in `packaging/` are built into openSU (`session_scripts.hpp`, generated), so
+nothing about session mode depends on where or how openSU was installed.
 SDDM here (0.21+) reads `/usr/local/share/wayland-sessions` and `/usr/share/wayland-sessions`
 (`sddm --example-config`; `/etc/sddm.conf` sets no `SessionDir`), never `~/.local/share`.
 
@@ -833,20 +834,21 @@ session mode" shows while no entry for this openSU is in a directory SDDM reads 
 missing; "Switch to session mode" once both are there. Install asks through `confirm` (what it is, that
 openSU becomes its own login session on Gamescope with no desktop, that Power then Switch to
 desktop comes back, what is installed where, that an administrator password is needed; Install and
-Cancel by pad, keyboard or mouse; Back cancels, a right click is never Back). Install opens a toolkit card with a
-masked password field (`ui::EntryScreen`) and the on-screen keyboard (the daisy wheel's four sets, or the regular grid with Caps on X;
-the physical keyboard types anything) or the physical keyboard. The password goes to `sudo -S -k -p ''
-/bin/sh <prefix>/libexec/opensu/install-session.sh` on stdin only (never argv, log, settings or
-control channel), from a worker; the buffer is wiped as soon as sudo has had it. A wrong password
-shows sudo's line and asks again; the installer's first output line (`opensu-install: start`) is
-how a sudo refusal is told from an installer failure. B on the keyboard closes it, then B or Cancel aborts.
-The prompt is in openSU because a desktop polkit dialog is invisible inside nested Gamescope.
+Cancel by pad, keyboard or mouse; Back cancels, a right click is never Back). Install stages the
+root step in `<runtime dir>/session-install` (owner only: the installer, the selector and the entry)
+and runs, from a worker, `pkexec /bin/sh <runtime dir>/session-install/install-session.sh`, with a
+card saying the system asks for the administrator password in its own window; pkexec is found on
+PATH, and without it Install says the package to install. The outcome is said: installed (and
+checked in place), cancelled (pkexec 126, the dialog dismissed, before the installer's first line
+`opensu-install: start`), or failed with polkit's or the installer's last line. A hidden run stages
+the files, logs the command it would run and refuses. Unverified: that the polkit dialog shows over openSU
+in nested Gamescope, which runs full screen (`-f`).
 
 The one root step installs, as root: `/usr/local/share/wayland-sessions/opensu.desktop`;
 `/usr/local/libexec/opensu-session-select` (0755); and `/etc/sudoers.d/zz-opensu-session-select`
 (0440, checked with `visudo -cf` before it is moved in, last, so a failure never leaves a rule
 without its selector): `<user> ALL=(root) NOPASSWD: /usr/local/libexec/opensu-session-select
-opensu, /usr/local/libexec/opensu-session-select restore`. Scope: one user (`SUDO_USER`, validated
+opensu, /usr/local/libexec/opensu-session-select restore`. Scope: one user (pkexec's `PKEXEC_UID`, named by `id -nu` and validated
 `[A-Za-z_][A-Za-z0-9_.-]*`, not root), one root-owned program in a root-owned directory, and only
 its two fixed arguments (sudoers matches the argument list exactly); it cannot run anything else.
 `sudo -n` can use it without a password the way SteamOS's session switch does.
@@ -901,10 +903,10 @@ killed by a signal cannot restore anything; the next login is openSU again until
 or a TTY.
 
 Unverified: a real login on hardware, the DRM start of the fork on a real seat, libseat under
-SDDM, Steam in the top-level session, `[Last] Session=` form and effect without autologin, `sudo
--S` with a real wrong password on a real machine, `visudo` and SELinux contexts on the user's
-machine. Verified in the VM (`docs/vm-harness.md`): the install dialog with a wrong then the right
-password, Switch to session mode from Plasma, Switch to desktop, SDDM re-reading the drop-in at
+SDDM, Steam in the top-level session, `[Last] Session=` form and effect without autologin, the
+root step through pkexec on a real machine, `visudo` and SELinux contexts on the user's
+machine. Verified in the VM (`docs/vm-harness.md`), before pkexec: the install with a wrong then the
+right password, Switch to session mode from Plasma, Switch to desktop, SDDM re-reading the drop-in at
 relogin, and the abnormal-end restore against the failing DRM Gamescope (at most one failed openSU
 login, then the previous session stays up).
 Evidence: unit tests `session_mode`, `session_scripts` (the real scripts against a temp root, the

@@ -1,8 +1,7 @@
 # On-screen keyboard
 
 One keyboard types into every openSU text field (gpu2d `TextField`): Global Search, a folder
-path (the folder chooser's Path field), the SteamGridDB key and the administrator password
-(Install session mode). It is an input method: the text lives in the field, the keyboard holds
+path (the folder chooser's Path field) and the SteamGridDB key. It is an input method: the text lives in the field, the keyboard holds
 none. Typing into games
 and the browser is not built yet (`docs/issues/on-screen-keyboard.md`).
 
@@ -17,7 +16,7 @@ and the browser is not built yet (`docs/issues/on-screen-keyboard.md`).
 | Docking it under the screens, pointer on its keys | `ui/shell` (`keyboard`, `aboveKeyboard`) |
 
 A on a focused field asks the navigator for a keyboard (`Navigator::setKeyboard`, which
-`ShellApp` points at `KeyboardPad::open`); search, the path, the key and the password open it
+`ShellApp` points at `KeyboardPad::open`); search, the path and the key open it
 with their card; opening it starts editing the focused field (`Navigator::edit`), closing it
 stops. `KeyboardPad::follow` closes it each frame once the field is not being edited (the focus
 left it, or Submit; `Navigator::editing`). While it is open the shell draws neither its bottom nav dock nor the HUD's
@@ -100,7 +99,7 @@ A single character is centred on its ink (`InterfaceText::drawInkCentred`, from 
 - Done closes the keyboard and submits the field; B closes only the keyboard, a second B is the
   card's Back.
 - The field owns its rules: a search line never starts with a space or doubles one; lengths are
-  search 64 bytes, path 4096, key and password 256; a masked field draws dots and wipes its copy.
+  search 64 bytes, path 4096, key 256; a masked field draws dots and wipes its copy.
 
 ## Checking it in the product
 

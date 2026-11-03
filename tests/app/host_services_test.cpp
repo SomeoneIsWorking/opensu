@@ -31,13 +31,6 @@ struct Rig {
             return std::optional<launch::Captured>{launch::Captured{}};
         };
     }
-    host::LineRunner lineRunner() {
-        return
-            [this](const std::string& program, const std::vector<std::string>&, std::string_view) {
-                ran.push_back(program + " <line>");
-                return std::optional<launch::Captured>{launch::Captured{}};
-            };
-    }
     host::Spawner spawner() {
         return [this](const std::string& program, const std::vector<std::string>&) {
             spawned.push_back(program);
@@ -55,12 +48,12 @@ bool ranAny(const Rig& rig, const std::string& word) {
 void hiddenRunsChangeNothing() {
     Rig rig;
     app::HostServices services =
-        app::HostServices::over(rig.runner(), rig.lineRunner(), rig.spawner(), rig.root, true);
+        app::HostServices::over(rig.runner(), rig.spawner(), rig.root, true);
     expect(!services.power->perform(host::PowerAction::ShutDown).empty(), "power is refused");
     expect(!services.power->perform(host::PowerAction::Suspend).empty(), "sleep is refused");
     expect(!services.session->switchToDesktop().empty(), "switching to the desktop is refused");
     expect(!services.session->switchToSession().empty(), "switching to session mode is refused");
-    expect(services.session->install("hunter2").kind == host::InstallResult::Kind::Failed,
+    expect(services.session->install().kind == host::InstallResult::Kind::Failed,
            "installing session mode is refused");
     expect(!services.session->installed(), "but whether it is installed can be read");
     expect(!services.bluetooth->startDiscovery().empty(), "a scan is refused");
@@ -78,26 +71,53 @@ void hiddenRunsChangeNothing() {
 void normalRunsReachTheSystem() {
     Rig rig;
     app::HostServices services =
-        app::HostServices::over(rig.runner(), rig.lineRunner(), rig.spawner(), rig.root, false);
+        app::HostServices::over(rig.runner(), rig.spawner(), rig.root, false);
     expect(services.power->perform(host::PowerAction::Restart).empty(), "restart is accepted");
     expect(ranAny(rig, "systemctl reboot"), "restart runs systemctl reboot");
 }
 
 void aBacklightIsOnlyThereWhenTheMachineHasOne() {
     Rig rig;
-    expect(!app::HostServices::over(rig.runner(), rig.lineRunner(), rig.spawner(), rig.root, false)
-                .backlight,
+    expect(!app::HostServices::over(rig.runner(), rig.spawner(), rig.root, false).backlight,
            "no device, no backlight");
     const std::filesystem::path device = rig.root / "panel";
     std::filesystem::create_directories(device);
     std::ofstream{device / "max_brightness"} << "100\n";
     std::ofstream{device / "brightness"} << "40\n";
     app::HostServices services =
-        app::HostServices::over(rig.runner(), rig.lineRunner(), rig.spawner(), rig.root, true);
+        app::HostServices::over(rig.runner(), rig.spawner(), rig.root, true);
     expect(services.backlight && services.backlight->percent() == 40, "a hidden run reads it");
     expect(services.backlight->setPercent(10).empty() && services.backlight->percent() == 10,
            "a change is only held in memory");
     expect(!ranAny(rig, "SetBrightness"), "no write reached logind");
+}
+
+void sessionModeIsFoundThroughTheConfig() {
+    Rig rig;
+    const std::filesystem::path bin = rig.root / "bin";
+    std::filesystem::create_directories(bin);
+    // A stand-in for pkexec whose password dialog the player dismisses.
+    std::ofstream{bin / "pkexec"} << "#!/bin/sh\nexit 126\n";
+    std::filesystem::permissions(bin / "pkexec", std::filesystem::perms::owner_all);
+    config::Config config;
+    config.program = rig.root / "opensu";
+    config.runtimeDir = rig.root / "run";
+    config.desktopRequest = config.runtimeDir / "desktop";
+    config.executablePath = {bin};
+    config.session = "s";
+    const host::SessionPaths paths = app::HostServices::sessionPaths(config);
+    expect(paths.pkexec == bin / "pkexec" && paths.stage == config.runtimeDir / "session-install" &&
+               paths.program == config.program,
+           "pkexec comes from the config's PATH and the stage from its runtime dir");
+    app::HostServices hidden = app::HostServices::detect(config, true);
+    const host::InstallResult refused = hidden.session->install();
+    expect(refused.kind == host::InstallResult::Kind::Failed &&
+               refused.message == app::hiddenRunRefusal &&
+               std::filesystem::is_regular_file(paths.stage / "install-session.sh"),
+           "a hidden run stages the root step and refuses to run it");
+    app::HostServices services = app::HostServices::detect(config, false);
+    expect(services.session->install().kind == host::InstallResult::Kind::Cancelled,
+           "a dismissed password dialog is a cancelled install");
 }
 
 } // namespace
@@ -106,6 +126,7 @@ int main() try {
     hiddenRunsChangeNothing();
     normalRunsReachTheSystem();
     aBacklightIsOnlyThereWhenTheMachineHasOne();
+    sessionModeIsFoundThroughTheConfig();
     std::printf("host_services: all checks passed\n");
     return 0;
 } catch (...) {

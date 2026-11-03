@@ -71,13 +71,6 @@ Runner systemRunner() {
     };
 }
 
-LineRunner systemLineRunner() {
-    return [](const std::string& program, const std::vector<std::string>& args,
-              std::string_view line) {
-        return launch::runCapturedWithLine(program, args, line);
-    };
-}
-
 Spawner systemSpawner(std::vector<std::filesystem::path> executablePath) {
     return [executablePath = std::move(executablePath)](
                const std::string& program,

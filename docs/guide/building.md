@@ -105,8 +105,8 @@ For a desktop icon as well, copy the entry to the desktop and mark it executable
 `cp "$HOME/.local/share/applications/opensu.desktop" "$(xdg-user-dir DESKTOP)/" && chmod +x
 "$(xdg-user-dir DESKTOP)/opensu.desktop"`.
 
-`cmake --install` also puts the session mode's installer in `<prefix>/libexec/opensu/`; see
-[session.md](session.md).
+Session mode needs nothing from the install: openSU stages its root step itself, wherever it
+runs from; see [session.md](session.md).
 
 ## Packages
 

@@ -1,17 +1,18 @@
 #!/bin/sh
 # install-session.sh — the one root step that makes openSU a login session you can switch to.
-# Run through a single sudo, from the install tree (<prefix>/libexec/opensu/):
+# openSU builds this script in, puts it with the two files it installs in a directory of its own
+# (<runtime dir>/session-install) and runs it there through polkit:
 #
-#   sudo sh <prefix>/libexec/opensu/install-session.sh
+#   pkexec /bin/sh <runtime dir>/session-install/install-session.sh
 #
-# openSU's "Install session mode" runs exactly that, with the password on sudo's stdin. It installs
-#   /usr/local/share/wayland-sessions/opensu.desktop       the entry SDDM lists (from <prefix>)
-#   /usr/local/libexec/opensu-session-select               the root-owned session selector
-#   /etc/sudoers.d/zz-opensu-session-select                lets the calling user run the selector
-# The sudoers rule names the selector with each of its two fixed arguments and nothing else, so it
-# grants "start openSU / go back" and no other root command. It goes in last, after visudo -cf
+# From that directory it installs
+#   opensu.desktop          to /usr/local/share/wayland-sessions/opensu.desktop, the entry SDDM lists
+#   opensu-session-select   to /usr/local/libexec/opensu-session-select, the root-owned selector
+# and writes /etc/sudoers.d/zz-opensu-session-select, which lets the user pkexec ran it for run the
+# selector. The rule names the selector with each of its two fixed arguments and nothing else, so
+# it grants "start openSU / go back" and no other root command. It goes in last, after visudo -cf
 # accepts it, so a failure part-way never leaves a rule without its selector.
-# OPENSU_SELECT_ROOT prefixes the targets, but only for a non-root caller (tests): sudo drops it.
+# OPENSU_SELECT_ROOT prefixes the targets, but only for a non-root caller (tests): pkexec drops it.
 
 set -eu
 umask 022
@@ -19,7 +20,7 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 LC_ALL=C
 export PATH LC_ALL
 
-# The first line, which tells openSU that sudo accepted the password and this script began.
+# The first line, which tells openSU that polkit let it run and this script began.
 echo "opensu-install: start"
 
 fail() {
@@ -33,21 +34,24 @@ if [ "$(id -u)" -eq 0 ]; then
 elif [ -n "${OPENSU_SELECT_ROOT:-}" ]; then
     root=$OPENSU_SELECT_ROOT
 else
-    fail "must run as root, through sudo"
+    fail "must run as root, through pkexec"
 fi
 
-user=${SUDO_USER:-}
-case $user in
-'' | root | [!A-Za-z_]* | *[!A-Za-z0-9_.-]*) fail "run it through sudo as a normal user" ;;
+# pkexec names the user who asked by uid.
+uid=${PKEXEC_UID:-}
+case $uid in
+'' | 0 | *[!0-9]*) fail "run it through pkexec as a normal user" ;;
 esac
-id -u -- "$user" >/dev/null 2>&1 || fail "no such user: $user"
+user=$(id -nu -- "$uid" 2>/dev/null) || fail "no user has uid $uid"
+case $user in
+'' | root | [!A-Za-z_]* | *[!A-Za-z0-9_.-]*) fail "the user name $user cannot go in a sudoers rule" ;;
+esac
 
 here=$(cd "$(dirname "$0")" && pwd)
-prefix=$(cd "$here/../.." && pwd)
-entry_source=$prefix/share/wayland-sessions/opensu.desktop
+entry_source=$here/opensu.desktop
 selector_source=$here/opensu-session-select
-[ -f "$entry_source" ] || fail "$entry_source is missing; run cmake --install first"
-[ -f "$selector_source" ] || fail "$selector_source is missing; run cmake --install first"
+[ -f "$entry_source" ] || fail "$entry_source is missing"
+[ -f "$selector_source" ] || fail "$selector_source is missing"
 
 selector=/usr/local/libexec/opensu-session-select
 entry=/usr/local/share/wayland-sessions/opensu.desktop

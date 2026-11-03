@@ -27,9 +27,15 @@ top level on the seat (`--backend drm`, the monitor's own mode) with openSU in i
 desktop underneath. Closing openSU ends the session.
 
 From the desktop, open the Guide menu, then Power. **Install session mode** explains what it is and
-what it installs, and on Accept asks for your administrator password inside openSU (a masked field,
-the on-screen keyboard or your keyboard; it goes to `sudo` on stdin and is never stored or logged).
-It runs one `sudo` step that puts three things in place:
+what it installs, and on Install your system asks for the administrator password in its own
+(polkit) window. openSU, wherever it runs from (an install, the AppImage, a build tree), puts the
+files together in its runtime folder and runs one root step through polkit:
+
+```sh
+pkexec /bin/sh $XDG_RUNTIME_DIR/opensu/session-install/install-session.sh
+```
+
+which puts three things in place:
 
 | File | Why |
 | --- | --- |
@@ -46,14 +52,7 @@ selector writes `/etc/sddm.conf.d/zz-opensu-session.conf` (`[Autologin] Session=
 Switching to session mode ends the session with KDE's `org.kde.Shutdown.logout`, so it needs
 Plasma; on another desktop the selection is undone and the refusal shown.
 
-Session mode needs an openSU installed from source: the AppImage's mount point changes on every
-run, so a login session entry cannot name it. `cmake --install` also puts `install-session.sh` and
-`opensu-session-select` in `<prefix>/libexec/opensu/`, and prints the same step for a terminal:
-
-```sh
-sudo sh ~/.local/libexec/opensu/install-session.sh
-```
-
-(for the `~/.local` prefix). Without the selector, Switch to desktop in a session entered through an
+The session entry names what started openSU: the AppImage file (not its mount, which changes on
+every run), the installed `opensu` or a build tree's. Without the selector, Switch to desktop in a session entered through an
 entry installed by hand still works: openSU leaves a note, ends its Gamescope and starts
 `startplasma-wayland` in the session's place.

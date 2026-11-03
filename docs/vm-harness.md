@@ -28,7 +28,7 @@ SDDM instead of rebooting leaves the old user manager and compositor behind and 
 ## Failure runs
 
 The real DRM Gamescope fails in the guest, which tests an abnormal login-session end: `up --gpu
-virtio`, `deploy` (no shim), `ssh --sudo sh ~/.local/libexec/opensu/install-session.sh`, `ssh sudo
+virtio`, `deploy` (no shim), a hidden run in the guest pressing Install session mode (it stages `/run/user/1000/opensu/session-install` and refuses), `ssh --sudo env PKEXEC_UID=1000 sh /run/user/1000/opensu/session-install/install-session.sh`, `ssh sudo
 -n /usr/local/libexec/opensu-session-select opensu`, reboot. Expect one openSU login, then
 `steamos-session-picker`, and `/etc/sddm.conf.d/zz-opensu-session.conf` gone.
 

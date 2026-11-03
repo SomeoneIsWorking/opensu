@@ -159,8 +159,8 @@ Each step deletes the code it replaces before the next starts.
    became an input method that types into the focused field and holds no line of its own, docked
    under overlays that lay out above it. Search (`search_screen`: the field, the results as items;
    Start goes to them), the folder chooser (`folder_chooser_screen`: the Path field over Use this
-   folder, the clear choice, Up one level and the folders), the SteamGridDB key and the
-   administrator password (`ui::EntryScreen`) moved over; `SearchPanel`, `SettingsPanels`, the
+   folder, the clear choice, Up one level and the folders), the SteamGridDB key
+   (`ui::EntryScreen`) moved over; `SearchPanel`, `SettingsPanels`, the
    search and folder chooser painters, the keyboard's own line, cursor, preview and Clear key, and
    the search result and folder entry pointer targets deleted. Dropped with the keyboard's line:
    the D-pad cursor (a field edits at its end) and the keyboard's Clear key; clearing is now the
