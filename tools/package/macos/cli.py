@@ -1,10 +1,11 @@
 """Command line: `uv run --frozen python -m tools.package macos [--version V] [--build-dir D]`.
 
 Builds the macOS tree in D (the `tools.check --platform macos` tree, default build/macos-ci) with
-the release's version, installs it into openSU.app, carries its dylibs and MoltenVK, signs it
-ad hoc and zips it with its .sha256 into D/package/out, then unpacks that and has the app draw a
-frame (D/package/smoke/frame.png) and its runner a fake core's (D/package/smoke/runner.png) on the
-Mac's Metal device.
+the release's version, installs it into openSU.app, draws its icon, carries its dylibs and
+MoltenVK, signs it ad hoc and zips it with its .sha256 into D/package/out, then unpacks that and has
+the app print its help, draw a frame (D/package/smoke/frame.png), log to ~/Library/Logs/openSU when
+it has no stderr, and its runner draw a fake core's frame (D/package/smoke/runner.png) on the Mac's
+Metal device.
 """
 
 import argparse

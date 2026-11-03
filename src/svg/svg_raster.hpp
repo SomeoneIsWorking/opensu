@@ -1,5 +1,7 @@
 // svg_raster — an SVG file rasterised to RGBA at the size it is drawn, through nanosvg: the shell's
-// icons (`ui/vector_icon`) and the runner's touch controls.
+// icons (`ui/vector_icon`), the runner's touch controls and the macOS app icon (`svg_png.cpp`).
+// nanosvg reads an objectBoundingBox gradient's unitless coordinates as pixels, so the SVGs give
+// their gradients in userSpaceOnUse.
 #pragma once
 
 #include <filesystem>

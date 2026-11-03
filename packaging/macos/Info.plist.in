@@ -8,6 +8,8 @@
     <string>openSU</string>
     <key>CFBundleExecutable</key>
     <string>opensu</string>
+    <key>CFBundleIconFile</key>
+    <string>@ICON@</string>
     <key>CFBundleIdentifier</key>
     <string>io.github.someoneisworking.opensu</string>
     <key>CFBundleInfoDictionaryVersion</key>

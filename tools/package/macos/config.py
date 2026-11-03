@@ -9,6 +9,11 @@ REPO = Path(__file__).resolve().parents[3]
 APP_NAME = "openSU"
 ARCH = "arm64"
 INFO_PLIST = REPO / "packaging" / "macos" / "Info.plist.in"
+ICON_SVG = REPO / "packaging" / "opensu.svg"
+# Contents/Resources/<ICON>.icns, which Info.plist's CFBundleIconFile names.
+ICON = APP_NAME
+# The iconset's sizes in points, each drawn at 1x and 2x, as iconutil takes them.
+ICON_POINTS = (16, 32, 128, 256, 512)
 # The executables CMake installs into Contents/MacOS.
 EXECUTABLES = ("opensu", "opensu-retro")
 # Where the Vulkan loader looks for drivers inside the running app's bundle.
@@ -44,6 +49,15 @@ class Layout:
     @property
     def smoke(self) -> Path:
         return self.root / "smoke"
+
+    @property
+    def iconset(self) -> Path:
+        return self.root / f"{ICON}.iconset"
+
+    @property
+    def icon_renderer(self) -> Path:
+        """src/svg's opensu-svg-png, which draws the iconset with the shell's rasteriser."""
+        return self.build_dir / "cmake" / "src" / "svg" / "opensu-svg-png"
 
     @property
     def libraries(self) -> Path:

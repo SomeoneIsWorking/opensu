@@ -454,7 +454,10 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   also reports padding in structs holding a `std::function` (`Setting`, `ShellApp`), which is
   x86_64's alone (libc++'s buffer is `aligned_storage<24>`, 16-aligned there, 8 on Apple arm64),
   and findings in Linux-only sources the macOS tree does not compile.
-- Package: `tools.package macos` installs into `openSU.app/Contents`, writes `Info.plist`, follows
+- Package: `tools.package macos` installs into `openSU.app/Contents`, writes `Info.plist`, draws
+  the iconset from `packaging/opensu.svg` with `opensu-svg-png` (the shell's nanosvg rasteriser,
+  built only on macOS) and packs it into `Resources/openSU.icns` with the system's `iconutil`
+  (`CFBundleIconFile`), follows
   every `@rpath` dylib the executables and Frameworks link and copies it from vcpkg into
   Frameworks (anything linked from outside the app and the system is refused), adds MoltenVK and
   its ICD manifest at `Resources/vulkan/icd.d` (the loader's in-bundle search path; its
@@ -462,7 +465,10 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   then zips with `ditto` as `openSU-<version>-macos-arm64.zip` with its `.sha256`. Its smoke run
   unpacks the zip, verifies the signature, runs `--help`, `--render frame.png`, and the bundled
   `opensu-retro` on the tests' fake core with `--frame-png runner.png` and no `VK_*` variable, so
-  the frame comes through the app's own loader and MoltenVK. No icon yet (no `.icns`).
+  the frame comes through the app's own loader and MoltenVK. It prints `--help`, the icon
+  `Info.plist` names and `Resources`, and renders once more with `/dev/null` for every stream, as
+  launchd starts an app opened from Finder, and prints the log that run leaves in
+  `~/Library/Logs/openSU/opensu.log`.
 - Tests: `tests/launch/darwin_launch_test.cpp` covers the process group, the process table and the
   window list with real processes. The Linux backends' own tests (systemd scopes, `/proc`, the
   Steam pid file, evdev and uinput pads) are left unbuilt and reported as not run.
@@ -472,8 +478,12 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   refused. Unlike Windows, macOS runs the app, config and store suites with their shell-script
   fakes, so those fakes use only what BSD and GNU tools share (`ls -ln` for a file's mode, `sed`
   without `-i`) and a stopped process is checked with `kill(pid, 0)`, not `/proc`. Settings shows
-  no night light row where `nightLightSupported` is false, and the state folder takes the OS's
-  folder name (`opensu`, `openSU`).
+  no night light row where `nightLightSupported` is false. The state and log folder is Lucent's
+  `resolve_state_directory` (`config_state_dir` on Linux, `~/Library/Logs/openSU` in
+  `config_library_dirs`).
+- Session text: `--help` takes its run, `--hidden`, `--sound` and session lines from the OS's
+  `shell_session_*.cpp` (`sessionHelp`), so macOS and Windows name no Gamescope, `--session`,
+  `OPENSU_SESSION` or PipeWire, and the path lists name the OS's separator.
 - CI: `macos` in `ci.yml` and `release.yml` on `macos-15`: `brew install llvm@22 ninja`,
   `tools.check all --platform macos` (vcpkg binary cache restored and saved like Windows'), ctest
   with MoltenVK as the only Vulkan driver (`VK_DRIVER_FILES`), so the runner's tests draw on the
@@ -486,9 +496,7 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
 - Not yet shown on a Mac: the window, pads and audio; Gatekeeper on the ad-hoc signed,
   unnotarized download; a launched game's process group, its windows and the shell raised over
   it; Steam's detection and `steam://` launches; GOG and Epic Mac installs; buildbot cores and
-  librashader shaders on a real GPU. openSU's log is `~/.local/state/openSU/opensu.log` (`stateDir`
-  is XDG's on every OS; a Lucent state resolver would put it in `~/Library/Logs`), and `--help`
-  still describes Gamescope.
+  librashader shaders on a real GPU; the icon in Finder and the Dock.
 
 ## Step 4 as built
 

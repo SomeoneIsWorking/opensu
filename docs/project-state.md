@@ -1917,8 +1917,7 @@ Metal) and the bundled runner's frame of the tests' core through the app's Molte
 
 Gaps: never run on a Mac: window, pads, audio, Gatekeeper on the ad-hoc signed and unnotarized
 app, real launches and their windows, Steam, GOG and Epic Mac installs, buildbot cores and shaders
-on a real GPU. The log sits in XDG's `~/.local/state/openSU`, not `~/Library/Logs`; `--help`
-describes Gamescope; no `.icns` icon.
+on a real GPU, the icon in Finder and the Dock.
 
 ### S048 — Touch UI
 

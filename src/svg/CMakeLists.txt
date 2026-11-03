@@ -6,3 +6,10 @@ target_include_directories(opensu_svg PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(opensu_svg PUBLIC gpu2d::image PRIVATE opensu::nanosvg)
 target_compile_features(opensu_svg PUBLIC cxx_std_20)
 opensu_warnings(opensu_svg)
+
+# The macOS package's app icon, rendered from packaging/opensu.svg by tools/package/macos.
+if(APPLE)
+    add_executable(opensu-svg-png svg_png.cpp)
+    target_link_libraries(opensu-svg-png PRIVATE opensu::svg lucent::lucent)
+    opensu_warnings(opensu-svg-png)
+endif()

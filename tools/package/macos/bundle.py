@@ -1,6 +1,6 @@
-"""openSU.app from the stage: `cmake --install` of the default component into Contents, the dylibs
-it links copied into Frameworks, MoltenVK as its Vulkan driver, ad-hoc signed and zipped with its
-SHA-256 beside it."""
+"""openSU.app from the stage: `cmake --install` of the default component into Contents, its icon
+drawn from packaging/opensu.svg, the dylibs it links copied into Frameworks, MoltenVK as its Vulkan
+driver, ad-hoc signed and zipped with its SHA-256 beside it."""
 
 import json
 import shutil
@@ -64,9 +64,25 @@ def add_moltenvk(contents: Path, root: Path) -> None:
     (folder / icd.name).write_text(json.dumps(manifest, indent=4) + "\n")
 
 
+def add_icon(layout: config.Layout, env: Mapping[str, str]) -> None:
+    """Contents/Resources/openSU.icns: the iconset drawn by opensu-svg-png, packed by the system's
+    iconutil."""
+    iconset = layout.iconset
+    if iconset.exists():
+        shutil.rmtree(iconset)
+    iconset.mkdir(parents=True)
+    for points in config.ICON_POINTS:
+        for scale, suffix in ((1, ""), (2, "@2x")):
+            png = iconset / f"icon_{points}x{points}{suffix}.png"
+            process.run([layout.icon_renderer, config.ICON_SVG, str(points * scale), png], env)
+    icns = layout.contents / "Resources" / f"{config.ICON}.icns"
+    process.run(["iconutil", "--convert", "icns", "--output", icns, iconset], env)
+
+
 def write_info(contents: Path, version: str) -> None:
     text = config.INFO_PLIST.read_text()
     text = text.replace("@VERSION@", version).replace("@MINIMUM_SYSTEM@", macos.DEPLOYMENT_TARGET)
+    text = text.replace("@ICON@", config.ICON)
     (contents / "Info.plist").write_text(text)
 
 
@@ -92,6 +108,7 @@ def stage(plan: cmake.Plan, layout: config.Layout, version: str, env: Mapping[st
         if not (layout.contents / required).exists():
             raise RuntimeError(f"the stage has no Contents/{required}")
     write_info(layout.contents, version)
+    add_icon(layout, env)
     carry_libraries(layout.contents, layout.libraries, env)
     add_moltenvk(layout.contents, plan.build_dir / "moltenvk")
     sign(layout.app, env)
