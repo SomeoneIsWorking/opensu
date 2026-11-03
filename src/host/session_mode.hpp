@@ -3,12 +3,12 @@
 // Installing it is one root step. openSU puts together, in a directory of its own under the
 // runtime dir, the installer and the selector it has built in (`session_scripts`) and a session
 // entry that starts this openSU, and runs the installer there through polkit (`pkexec`), which asks
-// for the password in the desktop's own dialog. The installer puts the entry where SDDM reads it, a
-// root-owned selector at /usr/local/libexec/opensu-session-select and a sudoers rule that lets the
-// user run the selector with `opensu` or `restore` and nothing else. Switching runs the selector
-// through `sudo -n`, then ends the session: the desktop through KDE's logout call, openSU by
-// stopping its Gamescope. SDDM then logs in to whatever the selector chose. Without the selector,
-// leaving openSU falls back to a note and a desktop started in the session's place.
+// openSU's own agent (`polkit_agent`) for the password. The installer puts the entry where SDDM
+// reads it, a root-owned selector at /usr/local/libexec/opensu-session-select and a sudoers rule
+// that lets the user run the selector with `opensu` or `restore` and nothing else. Switching runs
+// the selector through `sudo -n`, then ends the session: the desktop through KDE's logout call,
+// openSU by stopping its Gamescope. SDDM then logs in to whatever the selector chose. Without the
+// selector, leaving openSU falls back to a note and a desktop started in the session's place.
 #pragma once
 
 #include <array>
@@ -50,6 +50,8 @@ struct SessionPaths {
     std::filesystem::path stage;
     /// polkit's pkexec, as found on PATH; empty when there is none.
     std::filesystem::path pkexec;
+    /// What pkexec runs in place of the installer, for a test run; empty for the installer.
+    std::filesystem::path rootStepStandIn;
     /// The fallback's note, and the scope of the session's Gamescope, which ending is how openSU's
     /// session ends.
     DesktopRequest request{{}};
@@ -115,8 +117,9 @@ class SessionMode {
 [[nodiscard]] std::unique_ptr<SessionMode> makeSddmSessionMode(Runner run, SessionPaths paths);
 
 /// `inner` for reading what is installed and staging the root step; every change refuses with
-/// `reason`, the install after logging the command it would have run. For hidden runs.
+/// `reason`, the install after logging the command it would have run, unless its root step is a
+/// stand-in (`SessionPaths::rootStepStandIn`), which installs nothing and runs. For hidden runs.
 [[nodiscard]] std::unique_ptr<SessionMode>
-makeReadOnlySessionMode(std::unique_ptr<SessionMode> inner, std::string reason);
+makeReadOnlySessionMode(std::unique_ptr<SessionMode> inner, std::string reason, bool standInStep);
 
 } // namespace opensu::host

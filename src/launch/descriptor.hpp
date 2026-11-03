@@ -20,6 +20,12 @@ class Descriptor {
     [[nodiscard]] int get() const noexcept {
         return fd_;
     }
+    /// Hands the descriptor over; this no longer closes it.
+    [[nodiscard]] int release() noexcept {
+        const int fd = fd_;
+        fd_ = -1;
+        return fd;
+    }
     void close() noexcept {
         if (fd_ >= 0) {
             ::close(fd_);

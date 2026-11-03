@@ -2,6 +2,8 @@
 // Linux, `procfs_none.cpp` (no /proc) elsewhere.
 #pragma once
 
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -15,6 +17,8 @@ namespace opensu::launch::procfs {
 [[nodiscard]] bool running(ProcessId pid);
 /// `pid`'s command name (`comm`); empty when it is gone.
 [[nodiscard]] std::string name(ProcessId pid);
+/// When `pid` started, in clock ticks after boot (`stat`'s 22nd field), as polkit names a process.
+[[nodiscard]] std::optional<std::uint64_t> startTime(ProcessId pid);
 /// Whether `pid`'s cgroup path names systemd `unit`.
 [[nodiscard]] bool inUnit(ProcessId pid, std::string_view unit);
 

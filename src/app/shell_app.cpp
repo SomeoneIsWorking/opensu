@@ -662,7 +662,8 @@ const library::Game* ShellApp::gameInFront() const {
 
 bool ShellApp::menusBlocked() {
     return panels_.active() || paths_.active() || artworkSettings_.typing() || mappings_.active() ||
-           (sessionInstall_ && sessionInstall_->active()) || firstRun_.active() ||
+           (sessionInstall_ && sessionInstall_->active()) ||
+           (polkitPrompt_ && polkitPrompt_->asking()) || firstRun_.active() ||
            shortcutEditor_.capturing() || search_.isOpen() || layoutPicker_.isOpen();
 }
 
@@ -1111,6 +1112,9 @@ int ShellApp::run() {
         serviceDevices(std::chrono::steady_clock::now());
         if (sessionInstall_) {
             sessionInstall_->service();
+        }
+        if (polkitPrompt_) {
+            polkitPrompt_->service();
         }
         emulatorDownloads_.service();
         wineRunners_.service(std::chrono::steady_clock::now());

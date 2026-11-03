@@ -14,6 +14,10 @@ std::string name(ProcessId /*pid*/) {
     return {};
 }
 
+std::optional<std::uint64_t> startTime(ProcessId /*pid*/) {
+    return std::nullopt;
+}
+
 bool inUnit(ProcessId /*pid*/, std::string_view /*unit*/) {
     return false;
 }

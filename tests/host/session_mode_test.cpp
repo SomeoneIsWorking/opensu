@@ -269,7 +269,7 @@ void withoutTheSelectorTheSessionStartsTheDesktopItself() {
 void aReadOnlyModeReadsAndRefusesEverythingElse() {
     const Bench bench;
     bench.entry("sessions", (bench.root / "prefix" / "bin" / "opensu").string() + " --session");
-    const auto mode = host::makeReadOnlySessionMode(bench.mode(), "changes are off");
+    const auto mode = host::makeReadOnlySessionMode(bench.mode(), "changes are off", false);
     expect(mode->installed(), "it still reads what is installed");
     expect(mode->switchToSession() == "changes are off" &&
                mode->switchToDesktop() == "changes are off",
@@ -280,6 +280,20 @@ void aReadOnlyModeReadsAndRefusesEverythingElse() {
     expect(fs::is_regular_file(bench.paths().stage / "install-session.sh"),
            "after staging the root step it would run");
     expect(bench.calls().empty(), "nothing reached the system");
+}
+
+void aReadOnlyModeRunsOnlyAStandInRootStep() {
+    const Bench bench;
+    host::SessionPaths paths = bench.paths();
+    paths.rootStepStandIn = "/bin/true";
+    const auto mode =
+        host::makeReadOnlySessionMode(bench.mode(std::move(paths), false), "changes are off", true);
+    static_cast<void>(mode->install());
+    expect(bench.calls() == std::vector<std::string>{"pkexec /bin/true"},
+           "a stand-in root step goes through pkexec in place of the installer");
+    expect(mode->switchToSession() == "changes are off" &&
+               mode->switchToDesktop() == "changes are off" && bench.calls().size() == 1,
+           "and both switches are still refused");
 }
 
 } // namespace
@@ -295,6 +309,7 @@ int main() try {
     switchingToTheDesktopRestoresThenEndsOpenSu();
     withoutTheSelectorTheSessionStartsTheDesktopItself();
     aReadOnlyModeReadsAndRefusesEverythingElse();
+    aReadOnlyModeRunsOnlyAStandInRootStep();
     return 0;
 } catch (...) {
     return opensu::test::escaped();

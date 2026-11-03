@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cerrno>
+#include <charconv>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -43,6 +44,29 @@ std::string name(ProcessId pid) {
         comm.pop_back();
     }
     return comm;
+}
+
+std::optional<std::uint64_t> startTime(ProcessId pid) {
+    const std::string stat = read(pid, "stat");
+    std::size_t at = stat.rfind(')');
+    if (at == std::string::npos) {
+        return std::nullopt;
+    }
+    // The state is field 3, right after the name; the start time is field 22.
+    constexpr int fieldsAfterName = 20;
+    for (int field = 0; field < fieldsAfterName; ++field) {
+        at = stat.find(' ', at + 1);
+        if (at == std::string::npos) {
+            return std::nullopt;
+        }
+    }
+    std::uint64_t ticks = 0;
+    const char* first = stat.data() + at + 1;
+    const auto [end, error] = std::from_chars(first, stat.data() + stat.size(), ticks);
+    if (error != std::errc{} || end == first) {
+        return std::nullopt;
+    }
+    return ticks;
 }
 
 bool inUnit(ProcessId pid, std::string_view unit) {

@@ -11,26 +11,30 @@ host::SessionPaths HostServices::sessionPaths(const config::Config& config) {
     paths.program = config.program;
     paths.stage = config.runtimeDir / "session-install";
     paths.pkexec = launch::resolveExecutable("pkexec", config.executablePath);
+    paths.rootStepStandIn = config.rootStepStandIn;
     paths.request = host::DesktopRequest{config.desktopRequest};
     paths.compositorScope = config.session + "-compositor.scope";
     return paths;
 }
 
 HostServices HostServices::detect(const config::Config& config, bool hidden) {
-    return over(host::systemRunner(), host::systemSpawner(config.executablePath),
-                "/sys/class/backlight", hidden, sessionPaths(config));
+    HostServices services = over(host::systemRunner(), host::systemSpawner(config.executablePath),
+                                 "/sys/class/backlight", hidden, sessionPaths(config));
+    services.polkit = host::startPolkitAgent(config.messageLocale);
+    return services;
 }
 
 HostServices HostServices::over(const host::Runner& run, const host::Spawner& spawn,
                                 const std::filesystem::path& backlightRoot, bool hidden,
                                 host::SessionPaths paths) {
     HostServices services;
+    const bool standInStep = !paths.rootStepStandIn.empty();
     services.power = hidden ? host::makeRefusingPower(std::string{hiddenRunRefusal})
                             : host::makeLogindPower(run);
     services.session = host::makeSddmSessionMode(run, std::move(paths));
     if (hidden) {
-        services.session = host::makeReadOnlySessionMode(std::move(services.session),
-                                                         std::string{hiddenRunRefusal});
+        services.session = host::makeReadOnlySessionMode(
+            std::move(services.session), std::string{hiddenRunRefusal}, standInStep);
     }
     services.bluetooth = host::makeBluez(run, spawn);
     services.backlight = host::makeLogindBacklight(run, backlightRoot);

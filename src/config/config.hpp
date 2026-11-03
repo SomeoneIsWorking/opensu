@@ -182,6 +182,14 @@ struct Config {
     /// OPENSU_GE_PROTON_RELEASE (a test run names an older release by tag); empty for the latest.
     std::string geProtonRelease;
 
+    /// The language polkit words its questions in: LC_ALL, else LC_MESSAGES, else LANG, else C.
+    std::string messageLocale{"C"};
+
+    /// What the session install runs through pkexec in place of its installer, from
+    /// OPENSU_ROOT_STEP, so a test run asks polkit for the password and installs nothing; empty
+    /// for the installer.
+    std::filesystem::path rootStepStandIn;
+
     /// Whether secrets go to the desktop's keyring; OPENSU_SECRET_STORE=file keeps them in an
     /// owner-only file under the config dir instead.
     bool keyring{true};

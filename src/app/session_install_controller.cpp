@@ -21,7 +21,7 @@ std::string explanation() {
            std::string{host::sddmSessionDirs.front()} + ", a small session selector at " +
            host::selectorPath + " and a sudo rule in " + host::sudoersRulePath +
            " that lets you run only that selector without a password.\n\n"
-           "Your system then asks for the administrator password in its own window.";
+           "polkit then asks for the administrator password.";
 }
 
 } // namespace
@@ -51,8 +51,7 @@ void SessionInstallController::start() {
         std::string{installingId},
         [] {
             return ui::ProgressCard{.title = std::string{title},
-                                    .line = "Waiting for the administrator password in your "
-                                            "system's window…",
+                                    .line = "Waiting for the administrator password…",
                                     .fraction = std::nullopt,
                                     .leave = {}};
         },

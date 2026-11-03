@@ -81,7 +81,7 @@ void theDialogExplainsAndCancelAborts() {
     for (const char* mention :
          {"login session", "Gamescope", "Switch to desktop",
           "/usr/local/libexec/opensu-session-select", "/etc/sudoers.d",
-          "/usr/local/share/wayland-sessions", "administrator password", "its own window"}) {
+          "/usr/local/share/wayland-sessions", "administrator password", "polkit then asks"}) {
         expect(question->body().find(mention) != std::string::npos, mention);
     }
     rig.press(Action::Left);

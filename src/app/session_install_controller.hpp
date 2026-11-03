@@ -1,8 +1,9 @@
 // session_install_controller — the Install session mode flow. A question explains what session
 // mode is and what gets installed; Install hands the root step to `host::SessionMode` on a worker,
-// which runs it through polkit, while a card says the system is asking for the administrator
-// password in its own window. The outcome is said: installed, cancelled at the password, or the
-// reason it failed. Cancel, or B, at the question installs nothing.
+// which runs it through polkit, while a card says polkit is waiting for the administrator password
+// (asked in openSU by `polkit_prompt_controller`, or by the desktop's agent without openSU's). The
+// outcome is said: installed, cancelled at the password, or the reason it failed. Cancel, or B, at
+// the question installs nothing.
 #pragma once
 
 #include <functional>

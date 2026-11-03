@@ -257,6 +257,13 @@ Config read() {
     value.steamGridDbApi = std::string{env("OPENSU_STEAMGRIDDB_API")};
     value.geProtonRelease = std::string{env("OPENSU_GE_PROTON_RELEASE")};
     value.keyring = env("OPENSU_SECRET_STORE") != "file";
+    for (const char* name : {"LC_ALL", "LC_MESSAGES", "LANG"}) {
+        if (const std::string_view locale = env(name); !locale.empty()) {
+            value.messageLocale = std::string{locale};
+            break;
+        }
+    }
+    value.rootStepStandIn = std::filesystem::path{env("OPENSU_ROOT_STEP")};
     return value;
 }
 

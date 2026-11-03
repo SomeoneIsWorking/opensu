@@ -79,6 +79,7 @@
 #include "player_files.hpp"
 #include "plugin_service.hpp"
 #include "plugin_settings.hpp"
+#include "polkit_prompt_controller.hpp"
 #include "preferences.hpp"
 #include "retro_session.hpp"
 #include "search_controller.hpp"
@@ -821,6 +822,11 @@ class ShellApp final {
                                 shell_.setToast(text, isError);
                             })
                       : nullptr};
+    /// The password polkit asks openSU's own agent for. Null without the agent.
+    std::unique_ptr<PolkitPromptController> polkitPrompt_{
+        host_.polkit ? std::make_unique<PolkitPromptController>(
+                           shell_.screens().navigator(), keyboardPad_, sounds_, *host_.polkit)
+                     : nullptr};
     /// The menu Guide opens, over the home screen or a running game.
     GuideMenuController guideMenu_{
         shell_.screens().navigator(),

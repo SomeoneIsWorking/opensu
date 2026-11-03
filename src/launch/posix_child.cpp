@@ -1,15 +1,21 @@
 #include "child_process.hpp"
+#include "conversation.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <memory>
+#include <string>
 #include <string_view>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include <fcntl.h>
 #include <poll.h>
+#include <pthread.h>
 #include <signal.h>
 #include <spawn.h>
 #include <sys/wait.h>
@@ -53,6 +59,36 @@ void endGroup(pid_t pid) {
     ::kill(-pid, SIGKILL);
     while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
     }
+}
+
+/// Writes all of `data` to `fd`; false when the reader is gone or the write failed. A closed
+/// reader raises SIGPIPE, which is held back for the write and taken so it never reaches the
+/// process.
+bool writeAll(int fd, std::string_view data) {
+    sigset_t pipeSignal;
+    sigemptyset(&pipeSignal);
+    sigaddset(&pipeSignal, SIGPIPE);
+    sigset_t previous;
+    pthread_sigmask(SIG_BLOCK, &pipeSignal, &previous);
+    bool ok = true;
+    while (ok && !data.empty()) {
+        const ssize_t put = write(fd, data.data(), data.size());
+        if (put < 0 && errno == EINTR) {
+            continue;
+        }
+        ok = put > 0;
+        if (ok) {
+            data.remove_prefix(static_cast<std::size_t>(put));
+        }
+    }
+    sigset_t pending;
+    sigemptyset(&pending);
+    if (!ok && sigpending(&pending) == 0 && sigismember(&pending, SIGPIPE) == 1) {
+        int taken = 0;
+        sigwait(&pipeSignal, &taken);
+    }
+    pthread_sigmask(SIG_SETMASK, &previous, nullptr);
+    return ok;
 }
 
 } // namespace
@@ -188,6 +224,94 @@ std::optional<int> child::stream(const std::string& program, const std::vector<s
         }
     }
     return exitCode(status);
+}
+
+std::unique_ptr<Conversation> Conversation::start(const std::string& program,
+                                                  const std::vector<std::string>& args) {
+    std::array<int, 2> inEnds{};
+    if (!openChildPipe(inEnds)) {
+        lucent::warn("launch", "cannot make a pipe for {}: {}", program, std::strerror(errno));
+        return nullptr;
+    }
+    Descriptor inReader{inEnds[0]};
+    Descriptor inWriter{inEnds[1]};
+    std::array<int, 2> outEnds{};
+    if (!openChildPipe(outEnds)) {
+        lucent::warn("launch", "cannot make a pipe for {}: {}", program, std::strerror(errno));
+        return nullptr;
+    }
+    Descriptor outReader{outEnds[0]};
+    Descriptor outWriter{outEnds[1]};
+
+    Argv argv{program, args};
+    ChildEnvironment environment;
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_adddup2(&actions, inReader.get(), STDIN_FILENO);
+    posix_spawn_file_actions_adddup2(&actions, outWriter.get(), STDOUT_FILENO);
+    posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
+    posix_spawnattr_t attributes;
+    posix_spawnattr_init(&attributes);
+    posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP);
+    posix_spawnattr_setpgroup(&attributes, 0);
+    pid_t pid = -1;
+    const int spawned =
+        posix_spawnp(&pid, program.c_str(), &actions, &attributes, argv.data(), environment.data());
+    posix_spawn_file_actions_destroy(&actions);
+    posix_spawnattr_destroy(&attributes);
+    if (spawned != 0) {
+        lucent::warn("launch", "cannot run {}: {}", program, std::strerror(spawned));
+        return nullptr;
+    }
+    inReader.close();
+    outWriter.close();
+    // Read only what is there, so the caller's poll loop never blocks on the child.
+    fcntl(outReader.get(), F_SETFL, fcntl(outReader.get(), F_GETFL) | O_NONBLOCK);
+    return std::make_unique<Conversation>(
+        pid, Conversation::Ends{.input = inWriter.release(), .output = outReader.release()});
+}
+
+Conversation::Conversation(int pid, Ends ends) noexcept
+    : pid_{pid}, input_{ends.input}, output_{ends.output} {
+}
+
+Conversation::~Conversation() {
+    ::close(input_);
+    ::close(output_);
+    int status = 0;
+    if (waitpid(pid_, &status, WNOHANG) != pid_) {
+        endGroup(pid_);
+    }
+}
+
+bool Conversation::say(std::string_view line) {
+    return writeAll(input_, line) && writeAll(input_, "\n");
+}
+
+std::vector<std::string> Conversation::heard() {
+    std::array<char, 4096> chunk{};
+    for (;;) {
+        const ssize_t got = read(output_, chunk.data(), chunk.size());
+        if (got > 0) {
+            pending_.append(chunk.data(), static_cast<std::size_t>(got));
+            continue;
+        }
+        if (got < 0 && errno == EINTR) {
+            continue;
+        }
+        ended_ = got == 0;
+        break;
+    }
+    std::vector<std::string> lines;
+    for (std::size_t end = pending_.find('\n'); end != std::string::npos;
+         end = pending_.find('\n')) {
+        lines.push_back(pending_.substr(0, end));
+        pending_.erase(0, end + 1);
+    }
+    if (ended_ && !pending_.empty()) {
+        lines.push_back(std::exchange(pending_, std::string{}));
+    }
+    return lines;
 }
 
 } // namespace opensu::launch

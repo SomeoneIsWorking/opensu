@@ -224,8 +224,8 @@ class SddmSessionMode final : public SessionMode {
 
 class ReadOnlySessionMode final : public SessionMode {
   public:
-    ReadOnlySessionMode(std::unique_ptr<SessionMode> inner, std::string reason)
-        : inner_{std::move(inner)}, reason_{std::move(reason)} {
+    ReadOnlySessionMode(std::unique_ptr<SessionMode> inner, std::string reason, bool standInStep)
+        : inner_{std::move(inner)}, reason_{std::move(reason)}, standInStep_{standInStep} {
     }
 
     bool installed() const override {
@@ -238,6 +238,9 @@ class ReadOnlySessionMode final : public SessionMode {
         return inner_->stage();
     }
     InstallResult install() override {
+        if (standInStep_) {
+            return inner_->install();
+        }
         if (const std::string blocked = installBlocker(); !blocked.empty()) {
             return {InstallResult::Kind::Failed, blocked};
         }
@@ -259,6 +262,7 @@ class ReadOnlySessionMode final : public SessionMode {
   private:
     std::unique_ptr<SessionMode> inner_;
     std::string reason_;
+    bool standInStep_;
 };
 
 } // namespace
@@ -287,6 +291,9 @@ RootStep stageInstall(const SessionPaths& paths) {
     stageFile(paths.stage / installerName, installSessionScript);
     stageFile(paths.stage / stagedSelectorName, sessionSelectScript);
     stageFile(paths.stage / sessionEntryName, sessionEntry(paths.program));
+    if (!paths.rootStepStandIn.empty()) {
+        return RootStep{.program = paths.pkexec.string(), .args = {paths.rootStepStandIn.string()}};
+    }
     return RootStep{.program = paths.pkexec.string(),
                     .args = {"/bin/sh", (paths.stage / installerName).string()}};
 }
@@ -301,8 +308,8 @@ std::unique_ptr<SessionMode> makeSddmSessionMode(Runner run, SessionPaths paths)
 }
 
 std::unique_ptr<SessionMode> makeReadOnlySessionMode(std::unique_ptr<SessionMode> inner,
-                                                     std::string reason) {
-    return std::make_unique<ReadOnlySessionMode>(std::move(inner), std::move(reason));
+                                                     std::string reason, bool standInStep) {
+    return std::make_unique<ReadOnlySessionMode>(std::move(inner), std::move(reason), standInStep);
 }
 
 } // namespace opensu::host

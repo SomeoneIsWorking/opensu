@@ -29,8 +29,8 @@ top level on the seat (`--backend drm`, the monitor's own mode) with openSU in i
 desktop underneath. Closing openSU ends the session.
 
 From the desktop, open the Guide menu, then Power. **Install session mode** explains what it is and
-what it installs, and on Install your system asks for the administrator password in its own
-(polkit) window. openSU, wherever it runs from (an install, the AppImage, a build tree), puts the
+what it installs, and on Install openSU asks for the administrator password in its own card, on
+the pad's keyboard or a keyboard (polkit asks openSU's own agent for what openSU starts). openSU, wherever it runs from (an install, the AppImage, a build tree), puts the
 files together in its runtime folder and runs one root step through polkit:
 
 ```sh

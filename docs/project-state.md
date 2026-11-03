@@ -866,22 +866,26 @@ desktop comes back, what is installed where, that an administrator password is n
 Cancel by pad, keyboard or mouse; Back cancels, a right click is never Back). Install stages the
 root step in `<runtime dir>/session-install` (owner only: the installer, the selector and the entry)
 and runs, from a worker, `pkexec /bin/sh <runtime dir>/session-install/install-session.sh`, with a
-card saying the system asks for the administrator password in its own window; pkexec is found on
+card waiting for the administrator password; pkexec is found on
 PATH, and without it Install says the package to install. The outcome is said: installed (and
 checked in place), cancelled (pkexec 126, the dialog dismissed, before the installer's first line
 `opensu-install: start`), or failed with polkit's or the installer's last line. A hidden run stages
-the files, logs the command it would run and refuses. pkexec is openSU's own child
-(`host_services`' stand-in records its parent), so polkit asks the agent of openSU's login session.
-On the KDE desktop that is `polkit-kde-authentication-agent-1` (6.8), which opens a plain toplevel
-with no parent unless the caller first hands it an xdg-foreign handle or an activation token over
-`org.kde.Polkit1AuthAgent` (`setWindowHandleForAction`, `setActivationTokenForAction`); openSU
-hands it neither. KWin (6.8) activates every new window at the default focus stealing level
-(Low), and a full screen window stays above others only while it, or a window on another output,
-is active, so the dialog comes up over the nested Gamescope (`-f`) on the output KWin places it
-on. It is hidden when focus stealing prevention is Medium or above (it is stacked under the active
-Gamescope), and on a second monitor when KWin places it there; it takes a keyboard, which a pad
-player may not have. In openSU's own session there is no agent at all, so pkexec fails there
-("No authentication agent found"). Unverified: the dialog over a running nested Gamescope.
+the files, logs the command it would run and refuses, unless `OPENSU_ROOT_STEP` stands a harmless
+program in for the installer, which then runs through pkexec. pkexec is openSU's own child
+(`host_services`' stand-in records its parent), and polkit asks the agent registered for pkexec's
+parent before the session's: openSU registers its own (`host/polkit_agent`, sd-bus) for its
+process at start, as `pkttyagent --process` does, so the desktop's agent (KDE's
+`polkit-kde-authentication-agent-1`, whose plain toplevel KWin may stack under the full screen
+Gamescope or put on another monitor) is never asked for openSU's pkexec, and openSU's own
+session, which has no agent, gets one. The password is asked in openSU's own card
+(`polkit_prompt_controller`), typed on the pad's keyboard or a keyboard, and goes to
+polkit-agent-helper-1; a refused one is asked again with "That password was not accepted. Try
+again."; B dismisses it (pkexec 126, "the password was cancelled"). Seen in a hidden run inside the
+fork's headless Gamescope on the player's files with `OPENSU_ROOT_STEP=/bin/true`: Install, then
+openSU's card "Password for bhamil" with polkit's "Authentication is needed to run `/bin/true' as
+the super user", a wrong password refused with the note, then dismissed. Unverified: the right
+password (left to the player, who knows it), a finger-typed answer (the control channel cannot
+inject touch), and the real installer through the agent.
 
 The one root step installs, as root: `/usr/local/share/wayland-sessions/opensu.desktop`;
 `/usr/local/libexec/opensu-session-select` (0755); and `/etc/sudoers.d/zz-opensu-session-select`

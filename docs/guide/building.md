@@ -19,7 +19,8 @@ SDL3_image-devel libpng-devel` on Fedora), and the UI sounds are Ogg Vorbis (`li
 libcurl (`libcurl-devel`) downloads missing artwork; libcrypto (`openssl-devel`) decrypts a Switch
 game's own title and icon with the player's keys; zlib (`zlib-devel`) inflates zips, nlohmann/json
 (`json-devel`) reads and writes the settings, SQLite (`sqlite-devel`) reads Lutris's game list for
-Add a game, and libX11 and libXi (`libX11-devel libXi-devel`) read the in-game shortcut keys.
+Add a game, libX11 and libXi (`libX11-devel libXi-devel`) read the in-game shortcut keys, and on
+Linux sd-bus from libsystemd (`systemd-devel`) serves openSU's own polkit agent.
 
 `opensu-retro`, the built-in libretro runner, also needs the Vulkan loader and glslc
 (`vulkan-loader-devel glslc` on Fedora), and Rust (`cargo`) for librashader, the shader preset
