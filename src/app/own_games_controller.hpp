@@ -80,8 +80,9 @@ class OwnGamesController {
     [[nodiscard]] std::vector<library::own::Entry> steamShortcuts() const;
     [[nodiscard]] std::vector<library::own::Entry> lutrisGames() const;
     /// The games `found` in `from` as a pick list titled `title`; those chosen are imported.
+    /// `from` outlives the list (a literal), so the hook copies it without throwing.
     void offer(std::vector<library::own::Entry> found, const std::string& title,
-               const std::string& from);
+               std::string_view from);
     void importAll(std::vector<library::own::Entry> entries, std::string_view from);
     /// Opens the folder chooser on `start` for a game file; `picked` takes the one accepted.
     template <typename Picked>

@@ -206,7 +206,7 @@ void OwnGamesController::pickFile(const std::string& title, const fs::path& star
 }
 
 void OwnGamesController::offer(std::vector<Entry> found, const std::string& title,
-                               const std::string& from) {
+                               std::string_view from) {
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
     navigator_.push(std::make_unique<ImportPicksScreen>(
