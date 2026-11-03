@@ -495,7 +495,7 @@ Painters and composition (`opensu_ui`):
 
 ## Tests and docs
 
-- `tests/<area>/`: one ctest suite per owner, through the shipping code.
+- `tests/<area>/`: one ctest suite per owner, through the shipping code. `tests/CMakeLists.txt` leaves unbuilt, and reports as not run, the suites whose fakes are POSIX or whose feature is Linux-only on Windows, and the Linux backends' own suites (systemd scopes, `/proc`, evdev and uinput pads) on macOS; every other suite runs on macOS and checks that OS's own rule where one differs.
 - `tests/support/`: shared fakes: `fake_steam.hpp` (a DevTools Steam with browser pages), `fake_steam_gate.hpp` (a `launch::SteamGate` whose state the test sets), `steamgriddb_server.hpp` (SteamGridDB's API with its bearer check) and `steamgriddb_api_stand_in.cpp` (that API as a program, for hidden runs), `release_server.hpp` (a release API and asset host), `buildbot_server.hpp` (a libretro buildbot nightly folder), `zip_fixture.hpp` (zips built in memory), `loopback_server.hpp`, `fake_runner.hpp` (`opensu-retro`'s control channel); `scratch_dir.hpp`, a test's own empty directory under the test scratch.
 - `tests/plugin/`: the plugin host through the shipping runtime (`plugin_rig.hpp`), the shipped Eden plugin against fixture files.
 - `docs/design/`: designs (`lua-plugins.md`: the Lua plugin host, phase 1 built, later phases proposed).

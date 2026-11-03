@@ -447,8 +447,13 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   The macOS lint reads libc++, whose throws are inline and whose types lay out differently from
   libstdc++'s, so it sees findings the Linux lint does not: Lucent's log calls are `noexcept`,
   `~Client` and both `main`s catch at their boundary, and nanosvg's implementation compiles in a
-  build-tree file outside the lint. On Linux, clang-tidy with `-nostdinc++` and Fedora's
-  `libcxx-devel` headers reproduces them.
+  build-tree file outside the lint. A lambda held by a `std::function` captures nothing whose
+  copy can throw (`OwnGamesController::offer` takes its source name as a `string_view`): libc++
+  clones a small functor inside the function's `noexcept` move. On Linux, clang-tidy with
+  `-nostdinc++` and Fedora's `libcxx-devel` headers reproduces the findings in the macOS tree; it
+  also reports padding in structs holding a `std::function` (`Setting`, `ShellApp`), which is
+  x86_64's alone (libc++'s buffer is `aligned_storage<24>`, 16-aligned there, 8 on Apple arm64),
+  and findings in Linux-only sources the macOS tree does not compile.
 - Package: `tools.package macos` installs into `openSU.app/Contents`, writes `Info.plist`, follows
   every `@rpath` dylib the executables and Frameworks link and copies it from vcpkg into
   Frameworks (anything linked from outside the app and the system is refused), adds MoltenVK and
@@ -464,7 +469,11 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   `config_test` checks each OS's own user directories (XDG on Linux, `config_library_dirs` for
   Application Support, Caches and `$TMPDIR` on macOS); the GOG install and update tests take
   their expected build from `store_builds.hpp`, so macOS checks that a Windows-only game is
-  refused.
+  refused. Unlike Windows, macOS runs the app, config and store suites with their shell-script
+  fakes, so those fakes use only what BSD and GNU tools share (`ls -ln` for a file's mode, `sed`
+  without `-i`) and a stopped process is checked with `kill(pid, 0)`, not `/proc`. Settings shows
+  no night light row where `nightLightSupported` is false, and the state folder takes the OS's
+  folder name (`opensu`, `openSU`).
 - CI: `macos` in `ci.yml` and `release.yml` on `macos-15`: `brew install llvm@22 ninja`,
   `tools.check all --platform macos` (vcpkg binary cache restored and saved like Windows'), ctest
   with MoltenVK as the only Vulkan driver (`VK_DRIVER_FILES`), so the runner's tests draw on the
