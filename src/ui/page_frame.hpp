@@ -1,13 +1,16 @@
 // page_frame — the frame of an interface-toolkit screen that fills the window: room for the shell's
 // top bar, the body (a column or a row of panes), then the hint bar; and the pane a list of rows
-// sits on. Settings, Devices, Downloads and Giveaways share it. A tall card over the dimmed screen
-// (search, the folder chooser) has its own frame here.
+// sits on, and the column of tabs beside it. Settings, Devices, Downloads and Giveaways share it. A
+// tall card over the dimmed screen (search, the folder chooser) has its own frame here.
 #pragma once
 
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "gpu2d/ui/layout.hpp"
 #include "gpu2d/ui/widgets.hpp"
@@ -54,5 +57,10 @@ struct CardFrame {
 /// A pane growing across `parent` with a list `id` of rows on it.
 [[nodiscard]] gpu2d::ui::List& rowsPane(gpu2d::ui::Container& parent, const gpu2d::ui::Theme& theme,
                                         std::string id);
+
+/// The scrolling column of vertical tabs `id` on the left of `parent`, a row's gap apart.
+void sideTabs(gpu2d::ui::Container& parent, const gpu2d::ui::Theme& theme, const std::string& id,
+              std::vector<gpu2d::ui::Tabs::Tab> tabs, std::size_t chosen,
+              std::function<void(std::size_t)> chose);
 
 } // namespace opensu::ui

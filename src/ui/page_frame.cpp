@@ -25,4 +25,14 @@ gpu2d::ui::List& rowsPane(gpu2d::ui::Container& parent, const gpu2d::ui::Theme& 
     return list;
 }
 
+void sideTabs(gpu2d::ui::Container& parent, const gpu2d::ui::Theme& theme, const std::string& id,
+              std::vector<gpu2d::ui::Tabs::Tab> tabs, std::size_t chosen,
+              std::function<void(std::size_t)> chose) {
+    namespace tk = gpu2d::ui;
+    tk::ScrollView& side = parent.add<tk::ScrollView>(id + "/scroll");
+    side.fixWidth(theme.spacing.sidebarWidth);
+    side.content<tk::Tabs>(id, std::move(tabs), chosen, std::move(chose), tk::Orientation::Vertical)
+        .space(theme.spacing.gap);
+}
+
 } // namespace opensu::ui

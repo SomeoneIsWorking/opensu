@@ -34,14 +34,10 @@ std::unique_ptr<tk::Widget> DevicesScreen::build(const tk::Theme& theme) {
         keys.push_back(tab.id);
     }
     ui::PageFrame<tk::Row> frame = ui::pageFrame<tk::Row>(theme, chrome_);
-    tk::ScrollView& side = frame.body->add<tk::ScrollView>("tabs/scroll");
-    side.fixWidth(theme.spacing.sidebarWidth);
-    side.content<tk::Tabs>(
-        tabsId, std::move(labels), chosen,
-        [this, keys = std::move(keys)](std::size_t index) {
-            controller_.choose(keys[index]);
-        },
-        tk::Orientation::Vertical);
+    ui::sideTabs(*frame.body, theme, tabsId, std::move(labels), chosen,
+                 [this, keys = std::move(keys)](std::size_t index) {
+                     controller_.choose(keys[index]);
+                 });
     const ui::SettingsCategory& shown = tabs[chosen];
     tk::List& list = ui::rowsPane(*frame.body, theme, "rows/" + shown.id);
     for (const ui::SettingsRow& row : shown.rows) {

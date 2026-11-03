@@ -53,15 +53,10 @@ std::unique_ptr<tk::Widget> SettingsScreen::build(const tk::Theme& theme) {
     label_ = categories[chosen].label;
 
     ui::PageFrame<tk::Row> frame = ui::pageFrame<tk::Row>(theme, chrome_);
-    tk::ScrollView& side = frame.body->add<tk::ScrollView>("categories/scroll");
-    side.fixWidth(theme.spacing.sidebarWidth);
-    side.content<tk::Tabs>(
-            tabsId, std::move(tabs), chosen,
-            [this, keys = std::move(keys)](std::size_t index) {
-                category_ = keys[index];
-            },
-            tk::Orientation::Vertical)
-        .space(theme.spacing.gap);
+    ui::sideTabs(*frame.body, theme, tabsId, std::move(tabs), chosen,
+                 [this, keys = std::move(keys)](std::size_t index) {
+                     category_ = keys[index];
+                 });
     addRows(*frame.body, theme, categories[chosen], controller_);
     return std::move(frame.root);
 }
