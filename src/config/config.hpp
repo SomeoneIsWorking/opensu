@@ -15,6 +15,11 @@
 
 namespace opensu::config {
 
+/// The separator of a list of paths in the environment (PATH): `;` where `:` is in a path (a
+/// drive).
+inline constexpr char pathListSeparator =
+    std::filesystem::path::preferred_separator == '\\' ? ';' : ':';
+
 /// iiSU's two single-screen dashboard modes (iiSU fs7).
 enum class HomeMode : std::uint8_t {
     /// One horizontal grid that scrolls continuously (iiSU ap6 Flow); iiSU's default.
@@ -80,12 +85,13 @@ struct Config {
     std::filesystem::path xdgConfigHome;
     std::filesystem::path xdgStateHome;
 
-    /// opensu's state that outlives a run but is no setting, the session's Gamescope logs:
-    /// `<xdgStateHome>/opensu`.
+    /// opensu's logs and the state a run leaves that is no setting, the session's Gamescope logs
+    /// among it (`Locations`): `$XDG_STATE_HOME/opensu` on Linux, `~/Library/Logs/openSU` on
+    /// macOS, `%LOCALAPPDATA%/openSU/state` on Windows, the app's files directory on Android.
     std::filesystem::path stateDir;
 
-    /// openSU's log when it has no stderr (a Windows GUI program started without a console) and
-    /// `LUCENT_LOG_FILE` names none: `<stateDir>/opensu.log`.
+    /// openSU's log when it has no stderr (a Windows GUI program started without a console, a
+    /// macOS app opened from Finder) and `LUCENT_LOG_FILE` names none: `<stateDir>/opensu.log`.
     std::filesystem::path logFile;
 
     /// opensu's cache, downloaded artwork among it (`Locations`): `$XDG_CACHE_HOME/opensu`, else

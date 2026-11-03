@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "config/arguments.hpp"
@@ -48,5 +49,17 @@ class ShellSession {
 [[nodiscard]] std::optional<int> runInOwnSession(const config::Config& config,
                                                  const config::Arguments& arguments,
                                                  const std::vector<std::string>& args);
+
+/// What `--help` says of this OS's session, each part whole help lines: the plain run, what a
+/// hidden run leaves out, where `--sound` plays, the options and environment only it has.
+struct SessionHelp {
+    std::string_view run;
+    std::string_view hidden;
+    std::string_view sound;
+    std::string_view options;
+    std::string_view environment;
+};
+
+[[nodiscard]] SessionHelp sessionHelp() noexcept;
 
 } // namespace opensu::app

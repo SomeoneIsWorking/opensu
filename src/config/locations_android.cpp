@@ -20,6 +20,7 @@ Locations Locations::resolve(const lucent::platform::Environment& /*environment*
         .dataDir = files,
         .cacheDir = cacheDir,
         .runtimeDir = cacheDir / "run",
+        .stateDir = files,
     };
 }
 

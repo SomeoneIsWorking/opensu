@@ -43,6 +43,24 @@ std::unique_ptr<ShellSession> openShellSession(const config::Config& config) {
     return std::make_unique<GamescopeShellSession>();
 }
 
+SessionHelp sessionHelp() noexcept {
+    return {
+        .run = "  opensu                run the shell; from a desktop it starts its own\n"
+               "                        Gamescope, and Steam and games run inside it\n",
+        .hidden =
+            "  opensu --hidden       the shell with an unmapped window, no Gamescope, no pads\n"
+            "                        and a free control port (logged), for maintainer runs\n",
+        .sound = "        --sound         with --hidden, play the UI sounds on the default audio\n"
+                 "                        device (PIPEWIRE_NODE can move them to another sink)\n",
+        .options =
+            "  opensu --session      openSU is the login session, started by the display manager\n"
+            "                        on a top-level Gamescope; the power list offers Switch to\n"
+            "                        desktop instead of Quit to desktop\n",
+        .environment =
+            "  OPENSU_SESSION      name of the session's scopes (default opensu-<pid>)\n",
+    };
+}
+
 std::optional<int> runInOwnSession(const config::Config& config, const config::Arguments& arguments,
                                    const std::vector<std::string>& args) {
     // Without a Gamescope of its own, opensu makes one and runs inside it, so that Steam and every

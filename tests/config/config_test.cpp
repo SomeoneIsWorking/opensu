@@ -73,9 +73,12 @@ int main(int argc, char** argv) try {
         expect(config.romRoots == Paths{"/roms/a", "/roms/b"},
                "OPENSU_ROM_ROOTS splits on ':', dropping empty entries");
         expect(config.executablePath == Paths{"/bin-a", "/bin-b"}, "PATH splits on ':'");
-        expect(config.stateDir == "/xdg-state" / config.dataDir.filename(),
-               "XDG_STATE_HOME holds openSU's state, in this OS's folder name");
         expect(config.logFile == config.stateDir / "opensu.log", "the log file is a state file");
+        std::printf("config: all checks passed\n");
+        return 0;
+    }
+    if (which == "state-dir") {
+        expect(config.stateDir == "/xdg-state/opensu", "XDG_STATE_HOME holds opensu's logs");
         std::printf("config: all checks passed\n");
         return 0;
     }
@@ -94,6 +97,8 @@ int main(int argc, char** argv) try {
         expect(config.cacheDir == config.home / "Library" / "Caches" / "openSU",
                "the cache is in Library/Caches");
         expect(config.runtimeDir == "/mac-tmp/openSU", "TMPDIR holds openSU's runtime files");
+        expect(config.stateDir == config.home / "Library" / "Logs" / "openSU",
+               "the logs are in Library/Logs");
         std::printf("config: all checks passed\n");
         return 0;
     }

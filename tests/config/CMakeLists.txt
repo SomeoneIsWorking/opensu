@@ -46,6 +46,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         "XDG_RUNTIME_DIR=set:/xdg-runtime;OPENSU_RETRO_CONTROL=set:/xdg-runtime/opensu/retro-1.json")
     set_tests_properties(config_runtime_default PROPERTIES
         ENVIRONMENT_MODIFICATION "XDG_RUNTIME_DIR=unset:;OPENSU_RETRO_CONTROL=unset:")
+
+    add_test(NAME config_state_dir COMMAND config_test state-dir)
+    set_tests_properties(config_state_dir PROPERTIES
+        ENVIRONMENT_MODIFICATION "XDG_STATE_HOME=set:/xdg-state")
 elseif(APPLE)
     add_test(NAME config_library_dirs COMMAND config_test library-dirs)
     set_tests_properties(config_library_dirs PROPERTIES
@@ -55,7 +59,7 @@ endif()
 add_test(NAME config_paths COMMAND config_test paths)
 set_tests_properties(config_paths PROPERTIES
     ENVIRONMENT_MODIFICATION
-    "XDG_STATE_HOME=set:/xdg-state;OPENSU_ROM_ROOTS=set:/roms/a::/roms/b:;PATH=set:/bin-a:/bin-b")
+    "OPENSU_ROM_ROOTS=set:/roms/a::/roms/b:;PATH=set:/bin-a:/bin-b")
 
 add_executable(arguments_test arguments_test.cpp)
 target_link_libraries(arguments_test PRIVATE opensu::config)

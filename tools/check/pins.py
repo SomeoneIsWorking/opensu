@@ -13,7 +13,7 @@ class GitPin:
 LUCENT = GitPin(
     "lucent",
     "https://github.com/SomeoneIsWorking/lucent.git",
-    "58388205b89356587a1f6c7042158353c6904096",
+    "a6685b81938308e3376485b0ff1503faf58991d7",
 )
 GPU2D = GitPin(
     "gpu2d",

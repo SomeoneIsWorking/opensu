@@ -28,6 +28,8 @@ Locations Locations::resolve(const lucent::platform::Environment& environment) {
             required(platform::resolve_cache_directory(OPENSU_LOCATION_NAME, environment), "cache"),
         .runtimeDir = required(
             platform::resolve_runtime_directory(OPENSU_LOCATION_NAME, environment), "runtime"),
+        .stateDir =
+            required(platform::resolve_state_directory(OPENSU_LOCATION_NAME, environment), "state"),
     };
 }
 

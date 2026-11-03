@@ -27,6 +27,20 @@ std::unique_ptr<ShellSession> openShellSession(const config::Config& /*config*/)
     return std::make_unique<ActivityTaskSession>();
 }
 
+SessionHelp sessionHelp() noexcept {
+    return {
+        .run = "  opensu                run the shell in its Activity; a game runs in a task of\n"
+               "                        its own, and the shell comes back over it\n",
+        .hidden =
+            "  opensu --hidden       the shell with a hidden window, no pads and a free control\n"
+            "                        port (logged), for maintainer runs\n",
+        .sound = "        --sound         with --hidden, play the UI sounds on the default audio\n"
+                 "                        device\n",
+        .options = {},
+        .environment = {},
+    };
+}
+
 std::optional<int> runInOwnSession(const config::Config& /*config*/,
                                    const config::Arguments& /*arguments*/,
                                    const std::vector<std::string>& /*args*/) {

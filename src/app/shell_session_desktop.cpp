@@ -31,6 +31,20 @@ std::unique_ptr<ShellSession> openShellSession(const config::Config& /*config*/)
     return std::make_unique<DesktopSession>();
 }
 
+SessionHelp sessionHelp() noexcept {
+    return {
+        .run = "  opensu                run the shell in a window on the desktop; Steam and games\n"
+               "                        open their own, and the shell is raised over them\n",
+        .hidden =
+            "  opensu --hidden       the shell with a hidden window, no pads and a free control\n"
+            "                        port (logged), for maintainer runs\n",
+        .sound = "        --sound         with --hidden, play the UI sounds on the default audio\n"
+                 "                        device\n",
+        .options = {},
+        .environment = {},
+    };
+}
+
 std::optional<int> runInOwnSession(const config::Config& /*config*/,
                                    const config::Arguments& /*arguments*/,
                                    const std::vector<std::string>& /*args*/) {

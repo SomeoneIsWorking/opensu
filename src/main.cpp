@@ -27,26 +27,23 @@
 namespace {
 
 void printHelp() {
+    const opensu::app::SessionHelp session = opensu::app::sessionHelp();
+    const char separator = opensu::config::pathListSeparator;
     std::printf(
         "opensu — a gamepad-first game library shell\n"
         "\n"
-        "  opensu                run the shell; from a desktop it starts its own\n"
-        "                        Gamescope, and Steam and games run inside it\n"
+        "%.*s"
         "  opensu --render FILE  render one frame to FILE and exit\n"
         "        --keyboard      with --render, draw the keyboard's prompts\n"
-        "  opensu --hidden       the shell with an unmapped window, no Gamescope, no pads\n"
-        "                        and a free control port (logged), for maintainer runs\n"
+        "%.*s"
         "        --steam         with --hidden, start the Steam client in its mode; end the\n"
         "                        run with POST /quit so Steam shuts down with it\n"
-        "        --sound         with --hidden, play the UI sounds on the default audio\n"
-        "                        device (PIPEWIRE_NODE can move them to another sink)\n"
-        "  opensu --session      openSU is the login session, started by the display manager\n"
-        "                        on a top-level Gamescope; the power list offers Switch to\n"
-        "                        desktop instead of Quit to desktop\n"
+        "%.*s"
+        "%.*s"
         "\n"
         "Environment:\n"
-        "  OPENSU_STEAM_ROOTS  colon-separated Steam install roots\n"
-        "  OPENSU_ROM_ROOTS    colon-separated ROM roots (discovered when unset)\n"
+        "  OPENSU_STEAM_ROOTS  '%c'-separated Steam install roots\n"
+        "  OPENSU_ROM_ROOTS    '%c'-separated ROM roots (discovered when unset)\n"
         "  OPENSU_EMULATORS    system=program arg {rom};system2=program\n"
         "  OPENSU_WIDTH        window width (default 1280)\n"
         "  OPENSU_HEIGHT       window height (default 800)\n"
@@ -55,14 +52,19 @@ void printHelp() {
         "  OPENSU_ASSETS       directory holding the typeface (default ../share/opensu\n"
         "                      beside the executable)\n"
         "  OPENSU_CONTROL_PORT control channel port (default 7311)\n"
-        "  OPENSU_SESSION      name of the session's scopes (default opensu-<pid>)\n"
+        "%.*s"
         "\n"
         "Control channel, on loopback only:\n"
         "  GET  /state       the shell's state as JSON\n"
         "  POST /input       a button name: up down left right a b x y l1 r1\n"
         "                    select start guide\n"
         "  GET  /frame.png   the next frame, as PNG bytes\n"
-        "  POST /quit        close the shell\n");
+        "  POST /quit        close the shell\n",
+        static_cast<int>(session.run.size()), session.run.data(),
+        static_cast<int>(session.hidden.size()), session.hidden.data(),
+        static_cast<int>(session.sound.size()), session.sound.data(),
+        static_cast<int>(session.options.size()), session.options.data(), separator, separator,
+        static_cast<int>(session.environment.size()), session.environment.data());
 }
 
 } // namespace

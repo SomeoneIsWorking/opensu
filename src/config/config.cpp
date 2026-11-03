@@ -65,10 +65,6 @@ HomeMode envHomeMode(const char* name, HomeMode fallback) {
     return fallback;
 }
 
-/// The separator of a list of paths in the environment (PATH): `;` where `:` is in a path (a
-/// drive).
-constexpr char pathListSeparator = std::filesystem::path::preferred_separator == '\\' ? ';' : ':';
-
 /// Splits a path list on the platform's separator. A trailing or repeated separator is not
 /// an error, so an empty element is simply dropped.
 std::vector<std::filesystem::path> splitPaths(std::string_view raw) {
@@ -212,8 +208,6 @@ Config read() {
     value.xdgDataHome = base("XDG_DATA_HOME", ".local/share");
     value.xdgConfigHome = base("XDG_CONFIG_HOME", ".config");
     value.xdgStateHome = base("XDG_STATE_HOME", ".local/state");
-    value.stateDir = value.xdgStateHome / OPENSU_LOCATION_NAME;
-    value.logFile = value.stateDir / "opensu.log";
     const Locations locations = Locations::resolve({
         .home = env("HOME"),
         .xdg_config_home = env("XDG_CONFIG_HOME"),
@@ -223,11 +217,14 @@ Config read() {
         .xdg_runtime_dir = env("XDG_RUNTIME_DIR"),
         .local_appdata = env("LOCALAPPDATA"),
         .tmpdir = env("TMPDIR"),
+        .xdg_state_home = env("XDG_STATE_HOME"),
     });
     value.cacheDir = locations.cacheDir;
     value.dataDir = locations.dataDir;
     value.configDir = locations.configDir;
     value.runtimeDir = locations.runtimeDir;
+    value.stateDir = locations.stateDir;
+    value.logFile = value.stateDir / "opensu.log";
     value.savesDir = value.dataDir / "saves";
     value.retroSystemDir = value.dataDir / "system";
     if (const std::string_view legendary = env("LEGENDARY_CONFIG_PATH"); !legendary.empty()) {
