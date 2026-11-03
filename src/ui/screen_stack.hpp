@@ -7,6 +7,7 @@
 #include <chrono>
 
 #include "gpu2d/ui/navigator.hpp"
+#include "interface_theme.hpp"
 
 #include "button_glyph.hpp"
 #include "interface_text.hpp"
@@ -46,9 +47,9 @@ class ScreenStack {
     }
     /// Sets the clock and theme and lays the screens out over `window`, under `chrome`, the
     /// overlays above the `covered` strip a docked keyboard takes; drops the pictures once nothing
-    /// is drawn.
-    void layout(Clock::time_point now, const gpu2d::Rect& window, float covered, float dp,
-                Chrome chrome);
+    /// is drawn; with `touch` the screens show their touch controls.
+    void layout(Clock::time_point now, const gpu2d::Rect& window, float covered, Density density,
+                Chrome chrome, bool touch);
     /// The screens that fill the window, drawn under the shell's chrome.
     void paintPages(Canvas& canvas);
     /// The overlays over them (the Guide menu, dialogs, lists), drawn over the chrome.

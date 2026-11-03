@@ -30,7 +30,8 @@ class KeyboardPad {
         : keyboard_{keyboard}, navigator_{navigator}, sounds_{sounds} {
     }
 
-    /// Opens the keyboard over the focused field.
+    /// Opens the keyboard over the focused field; while touch controls show, as the regular grid,
+    /// which a finger types on a tap a key, whatever style is chosen.
     void open();
     void close();
     [[nodiscard]] bool isOpen() const noexcept {

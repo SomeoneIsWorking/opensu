@@ -28,6 +28,7 @@ void Hud::setSize(const Size& size) noexcept {
     width_ = size.width;
     height_ = size.height;
     dp_ = size.dp;
+    displayDp_ = size.displayDp;
 }
 
 float Hud::unit() const noexcept {
@@ -120,6 +121,25 @@ void Hud::drawTopBar(Canvas& canvas, const TopBarHover& hover) {
     drawTitlePill(canvas, layout.top);
     const BreadcrumbLayout trail = crumbs_.layout(trail_, crumbFrame(), metrics().titlePill());
     crumbs_.paint(canvas, trail_, trail, metrics().titlePill(), dp_, hover.crumb);
+    for (const TouchButton button : {TouchButton::Back, TouchButton::Menu}) {
+        if (const std::optional<Rect> cell = touchButtonCell(button)) {
+            touchButtonPainter_.paint(canvas, button, *cell, dp_, hover.button == button);
+        }
+    }
+}
+
+std::optional<Rect> Hud::touchButtonCell(TouchButton button) const {
+    if (!(button == TouchButton::Back ? touchButtons_.back : touchButtons_.menu)) {
+        return std::nullopt;
+    }
+    const TopBarLayout bar = topBarLayout();
+    const TitlePillMetrics pill = metrics().titlePill();
+    const float size = touchButtonDp * fingerDp(Density{.dp = dp_, .display = displayDp_});
+    // Centred on the trail's row, at its start or just before the status pill.
+    const float y = bar.top + (pill.topPadding + pill.height * 0.5f) * dp_ - size * 0.5f;
+    const float gap = TopBarMetrics::rowPaddingEnd * dp_;
+    const float x = button == TouchButton::Back ? gap : bar.status.x - gap - size;
+    return Rect{x, y, size, size};
 }
 
 Rect Hud::titlePillBody(float top) const {
@@ -137,11 +157,19 @@ BreadcrumbFrame Hud::crumbFrame() const {
     const TopBarLayout bar = topBarLayout();
     const TitlePillMetrics pill = metrics().titlePill();
     const float gap = TopBarMetrics::rowPaddingEnd * dp_;
+    float left = gap;
     float right = bar.status.x - gap;
     if (!title_.empty()) {
         right = std::min(right, titlePillBody(bar.top).x - gap);
     }
-    return BreadcrumbFrame{.left = TopBarMetrics::rowPaddingEnd * dp_,
+    // The touch buttons keep their room; the trail stands between them.
+    if (const std::optional<Rect> back = touchButtonCell(TouchButton::Back)) {
+        left = back->right() + gap;
+    }
+    if (const std::optional<Rect> menu = touchButtonCell(TouchButton::Menu)) {
+        right = std::min(right, menu->x - gap);
+    }
+    return BreadcrumbFrame{.left = left,
                            .top = bar.top + pill.topPadding * dp_,
                            .height = pill.height * dp_,
                            .maxRight = right,
@@ -168,48 +196,108 @@ void Hud::drawTitlePill(Canvas& canvas, float top) const {
 
 void Hud::drawHints(Canvas& canvas) const {
     // iiSU mw5.h (BottomStart) and mw5.k (BottomEnd): jj2.b glass panels of a32.b entries.
-    const HintPanelMetrics panel = metrics().hintPanels();
-    drawPromptPanel(canvas, panel, startPrompts(hints_), false);
-    drawPromptPanel(canvas, panel, endPrompts(hints_), true);
+    drawPromptPanel(canvas, startPrompts(hints_), false);
+    drawPromptPanel(canvas, endPrompts(hints_), true);
 }
 
-void Hud::drawPromptPanel(Canvas& canvas, const HintPanelMetrics& panel,
-                          const std::vector<Prompt>& prompts, bool atEnd) const {
+std::optional<Hud::PromptPanel> Hud::promptPanel(const std::vector<Prompt>& prompts,
+                                                 bool atEnd) const {
     if (prompts.empty()) {
-        return;
+        return std::nullopt;
     }
+    const HintPanelMetrics panel = metrics().hintPanels();
     const float dp = dp_;
     const float text = panel.labelSize * dp;
     const float glyph = panel.glyphSize * dp;
     const float gap = panel.glyphGap * dp;
     float labels = 0.0f;
-    float column = glyph;
-    for (const auto& [key, label] : prompts) {
-        labels = std::max(labels, text_.measure(label, text));
-        column = std::max(column, glyphs_.advance(key, glyph));
+    PromptPanel placed;
+    placed.column = glyph;
+    for (const Prompt& prompt : prompts) {
+        labels = std::max(labels, text_.measure(prompt.label, text));
+        placed.column = std::max(placed.column, glyphs_.advance(prompt.key, glyph));
     }
-    const float width = 2.0f * panel.paddingHorizontal * dp + column + gap + labels;
-    const float height = panel.height(dp) * dp;
+    const float padding = panel.paddingHorizontal * dp;
     const float bottom = (atEnd ? panel.rightBottom : panel.leftBottom) * dp;
+    const float floor = static_cast<float>(height_) - bottom;
+    if (touchButtons_.prompts) {
+        // Side by side, each a finger's height, so the panel grows across rather than up the
+        // screen; iiSU stacks them for a pad.
+        const gpu2d::ui::Theme theme = interfaceTheme(Density{.dp = dp_, .display = displayDp_});
+        const float tall = std::max(panel.height(dp) * dp, theme.px(theme.spacing.touchTarget));
+        float x = 0.0f;
+        for (const Prompt& prompt : prompts) {
+            const float wide =
+                2.0f * padding + placed.column + gap + text_.measure(prompt.label, text);
+            placed.rows.emplace_back(prompt, Rect{x, floor - tall, wide, tall});
+            x += wide;
+        }
+        const float start =
+            atEnd ? static_cast<float>(width_) - panel.rightInset * dp - x : panel.leftInset * dp;
+        for (auto& [prompt, row] : placed.rows) {
+            row.x += start;
+        }
+        placed.body = Rect{start, floor - tall, x, tall};
+        return placed;
+    }
+    const float width = 2.0f * padding + placed.column + gap + labels;
+    const float height = panel.height(dp) * dp;
     const float x =
         atEnd ? static_cast<float>(width_) - panel.rightInset * dp - width : panel.leftInset * dp;
-    const Rect body{x, static_cast<float>(height_) - bottom - height, width, height};
-    glass_.paint(canvas, body, panel.cornerRadius * dp);
+    placed.body = Rect{x, floor - height, width, height};
 
     // jj2.b: a Column of a32.b rows, centred vertically, rows centred on their tallest child.
     const float row = std::max(glyph, std::ceil(panel.labelLineHeight * dp));
     const auto count = static_cast<float>(prompts.size());
     const float content = count * row + (count - 1.0f) * panel.entrySpacing * dp;
-    float top = body.centreY() - content * 0.5f;
-    const float left = body.x + panel.paddingHorizontal * dp;
-    for (const auto& [key, label] : prompts) {
-        const float centreY = top + row * 0.5f;
-        glyphs_.paint(canvas, key, Point{left + column * 0.5f, centreY}, glyph, hintInk);
-        text_.drawCentred(canvas, label,
-                          Point{left + column + gap, centreY + panel.labelShift(key) * dp}, text,
-                          hintInk);
+    float top = placed.body.centreY() - content * 0.5f;
+    for (const Prompt& prompt : prompts) {
+        placed.rows.emplace_back(prompt, Rect{placed.body.x, top, placed.body.width, row});
         top += row + panel.entrySpacing * dp;
     }
+    return placed;
+}
+
+void Hud::drawPromptPanel(Canvas& canvas, const std::vector<Prompt>& prompts, bool atEnd) const {
+    const std::optional<PromptPanel> placed = promptPanel(prompts, atEnd);
+    if (!placed) {
+        return;
+    }
+    const HintPanelMetrics panel = metrics().hintPanels();
+    const float dp = dp_;
+    const float text = panel.labelSize * dp;
+    const float glyph = panel.glyphSize * dp;
+    const float gap = panel.glyphGap * dp;
+    glass_.paint(canvas, placed->body, panel.cornerRadius * dp);
+    for (const auto& [prompt, row] : placed->rows) {
+        const float left = row.x + panel.paddingHorizontal * dp;
+        const float centreY = row.centreY();
+        glyphs_.paint(canvas, prompt.key, Point{left + placed->column * 0.5f, centreY}, glyph,
+                      hintInk);
+        text_.drawCentred(
+            canvas, prompt.label,
+            Point{left + placed->column + gap, centreY + panel.labelShift(prompt.key) * dp}, text,
+            hintInk);
+    }
+}
+
+std::vector<Hud::PromptCell> Hud::promptCells() const {
+    std::vector<PromptCell> cells;
+    const gpu2d::ui::Theme theme = interfaceTheme(Density{.dp = dp_, .display = displayDp_});
+    const float least = theme.px(theme.spacing.touchTarget);
+    for (const bool atEnd : {false, true}) {
+        const std::optional<PromptPanel> placed =
+            promptPanel(atEnd ? endPrompts(hints_) : startPrompts(hints_), atEnd);
+        if (!placed) {
+            continue;
+        }
+        for (const auto& [prompt, row] : placed->rows) {
+            const float width = std::max(row.width, least);
+            const float x = atEnd ? row.right() - width : row.x;
+            cells.push_back(PromptCell{prompt, Rect{x, row.y, width, row.height}});
+        }
+    }
+    return cells;
 }
 
 void Hud::drawToast(Canvas& canvas, float floor) const {
@@ -217,7 +305,7 @@ void Hud::drawToast(Canvas& canvas, float floor) const {
         return;
     }
     // In dp like the rest of the interface, so it reads the same on a dense phone screen.
-    const gpu2d::ui::Theme theme = interfaceTheme(dp_);
+    const gpu2d::ui::Theme theme = interfaceTheme(Density{.dp = dp_, .display = displayDp_});
     const float u = unit();
     const float size = theme.px(theme.type.toast);
     const float textWidth = text_.measure(toast_, size);

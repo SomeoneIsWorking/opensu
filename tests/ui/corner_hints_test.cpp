@@ -9,17 +9,18 @@
 
 namespace {
 
+using opensu::gamepad::Button;
 using opensu::test::expect;
 using opensu::ui::HintContext;
 using opensu::ui::Prompt;
 
 void startCorner() {
     expect(opensu::ui::startPrompts(HintContext{}).empty(), "nothing to go back to or detail");
-    expect(
-        (opensu::ui::startPrompts(HintContext{.back = true}) == std::vector<Prompt>{{"B", "Back"}}),
-        "Back shows inside a folder only");
+    expect((opensu::ui::startPrompts(HintContext{.back = true}) ==
+            std::vector<Prompt>{{"B", "Back", Button::B}}),
+           "Back shows inside a folder only");
     expect((opensu::ui::startPrompts(HintContext{.options = true}) ==
-            std::vector<Prompt>{{"-", "Options"}}),
+            std::vector<Prompt>{{"-", "Options", Button::Select}}),
            "Options shows with a tile focused, and names the context menu");
     expect(opensu::ui::startPrompts(HintContext{.back = true, .options = true}).size() == 2,
            "both together");
@@ -27,21 +28,21 @@ void startCorner() {
 
 void searchAndOptions() {
     expect((opensu::ui::startPrompts(HintContext{.back = true, .clearSearch = true}) ==
-            std::vector<Prompt>{{"B", "Clear search"}}),
+            std::vector<Prompt>{{"B", "Clear search", Button::B}}),
            "a search being cleared takes B before Back");
 }
 
 void endCorner() {
     expect(opensu::ui::endPrompts(HintContext{}).empty(), "an empty slot selects nothing");
     expect((opensu::ui::endPrompts(HintContext{.select = true}) ==
-            std::vector<Prompt>{{"A", "Select"}}),
+            std::vector<Prompt>{{"A", "Select", Button::A}}),
            "Select shows on a tile");
     expect((opensu::ui::endPrompts(HintContext{.select = true, .details = true}) ==
-            std::vector<Prompt>{{"A", "Details"}}),
+            std::vector<Prompt>{{"A", "Details", Button::A}}),
            "A on a game opens its details");
-    expect(
-        (opensu::ui::endPrompts(HintContext{.menu = true}) == std::vector<Prompt>{{"+", "Menu"}}),
-        "Menu shows where START opens one");
+    expect((opensu::ui::endPrompts(HintContext{.menu = true}) ==
+            std::vector<Prompt>{{"+", "Menu", Button::Start}}),
+           "Menu shows where START opens one");
     expect(opensu::ui::endPrompts(HintContext{.select = true, .menu = true}).size() == 2,
            "both together");
 }

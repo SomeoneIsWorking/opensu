@@ -19,12 +19,13 @@ constexpr float referenceHeightDp = 480.0f;
 Shell::Shell(int width, int height, config::HomeMode mode, const std::filesystem::path& assetsDir)
     : text_{assetsDir}, icons_{assetsDir, images_}, grid_{mode, text_, icons_, images_},
       width_{width}, height_{height} {
-    hud_.setSize({width, height, dp()});
+    hud_.setSize(hudSize());
     frameGrid();
     // The pointer reaches the last added first: the keyboard, the mapping editor, the dock, the
-    // top bar.
+    // corner prompts, the top bar.
     gpu2d::ui::Navigator& navigator = screens_.navigator();
     navigator.addChrome(topBar_);
+    navigator.addChrome(cornerHints_);
     navigator.addChrome(dock_);
     navigator.addChrome(mappingChrome_);
     navigator.addChrome(keyboardChrome_);
@@ -48,25 +49,42 @@ float Shell::dp() const noexcept {
            uiScale_;
 }
 
+Hud::Size Shell::hudSize() const noexcept {
+    return Hud::Size{.width = width_, .height = height_, .dp = dp(), .displayDp = displayDp_};
+}
+
+void Shell::setDisplayDp(float displayDp) {
+    if (displayDp != displayDp_) {
+        displayDp_ = displayDp;
+        hud_.setSize(hudSize());
+        frameGrid();
+    }
+}
+
 void Shell::frameGrid() {
+    const Density density{.dp = dp(), .display = displayDp_};
+    const gpu2d::ui::Theme theme = interfaceTheme(density);
     grid_.setFrame(HomeGrid::Frame{.width = width_,
                                    .height = height_,
-                                   .dp = dp(),
+                                   .dp = density.dp,
                                    .topInset = hud_.topInset(),
-                                   .bottomInset = hud_.bottomInset()});
+                                   .bottomInset = hud_.bottomInset(),
+                                   .slop = theme.px(theme.spacing.touchSlop),
+                                   .flingSeconds = theme.motion.fling / 1000.0f,
+                                   .fingerDp = fingerDp(density)});
 }
 
 void Shell::setSize(int width, int height) {
     width_ = width;
     height_ = height;
-    hud_.setSize({width, height, dp()});
+    hud_.setSize(hudSize());
     frameGrid();
 }
 
 void Shell::setUiScale(float factor) {
     if (factor != uiScale_) {
         uiScale_ = factor;
-        hud_.setSize({width_, height_, dp()});
+        hud_.setSize(hudSize());
         frameGrid();
     }
 }
@@ -124,7 +142,8 @@ void Shell::tick(Clock::time_point now) {
                                            !mapping_.isOpen()});
     // Overlays stand above the docked keyboard, so the field it types into shows.
     screens_.layout(now_, gpu2d::Rect{0.0f, 0.0f, width, height}, height - keyboardChrome_.top(),
-                    dp(), Chrome{hud_.topInset()});
+                    Density{.dp = dp(), .display = displayDp_}, Chrome{hud_.topInset()},
+                    prompts_.device.pointing());
 }
 
 void Shell::settle() {

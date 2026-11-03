@@ -25,6 +25,7 @@
 #include "status_pill.hpp"
 #include "top_bar_layout.hpp"
 #include "top_bar_metrics.hpp"
+#include "touch_button.hpp"
 #include "vector_icon.hpp"
 
 namespace opensu::ui {
@@ -63,6 +64,8 @@ class Hud {
         int width{};
         int height{};
         float dp{1.0f};
+        /// Pixels per dp of the display, for what a finger touches.
+        float displayDp{1.0f};
     };
     void setSize(const Size& size) noexcept;
 
@@ -104,6 +107,25 @@ class Hud {
     };
     /// The badges the top bar shows, in order.
     [[nodiscard]] std::vector<BadgeCell> badgeCells() const;
+    /// Which touch buttons the top bar shows: Back before the trail, the menu before the status;
+    /// `prompts` puts the corner prompts side by side, each a finger's height.
+    struct TouchButtons {
+        bool back{false};
+        bool menu{false};
+        bool prompts{false};
+    };
+    void setTouchButtons(TouchButtons buttons) noexcept {
+        touchButtons_ = buttons;
+    }
+    /// Where the top bar draws `button`, or nothing while it is not shown.
+    [[nodiscard]] std::optional<Rect> touchButtonCell(TouchButton button) const;
+    /// A corner prompt where it is drawn, and the room a pointer takes it in: its row, at least
+    /// 48 dp wide.
+    struct PromptCell {
+        Prompt prompt;
+        Rect hit;
+    };
+    [[nodiscard]] std::vector<PromptCell> promptCells() const;
     void setToast(std::string text, bool isError, Clock::time_point now);
     /// Clears a toast whose time is up.
     void tick(Clock::time_point now);
@@ -122,6 +144,7 @@ class Hud {
     struct TopBarHover {
         std::optional<std::size_t> crumb;
         std::optional<library::Source> launcher;
+        std::optional<TouchButton> button;
     };
 
     void drawGround(Canvas& canvas) const;
@@ -140,14 +163,22 @@ class Hud {
     [[nodiscard]] Rect titlePillBody(float top) const;
     /// Where the trail may stand: from the row's start to the title pill or the status pill.
     [[nodiscard]] BreadcrumbFrame crumbFrame() const;
-    /// One corner prompt panel of (glyph, label) entries (iiSU jj2.b).
-    void drawPromptPanel(Canvas& canvas, const HintPanelMetrics& panel,
-                         const std::vector<Prompt>& prompts, bool atEnd) const;
+    /// One corner prompt panel of (glyph, label) entries (iiSU jj2.b): its glass body, the glyph
+    /// column's width and each entry's row.
+    struct PromptPanel {
+        Rect body;
+        float column{};
+        std::vector<std::pair<Prompt, Rect>> rows;
+    };
+    [[nodiscard]] std::optional<PromptPanel> promptPanel(const std::vector<Prompt>& prompts,
+                                                         bool atEnd) const;
+    void drawPromptPanel(Canvas& canvas, const std::vector<Prompt>& prompts, bool atEnd) const;
     [[nodiscard]] TopBarLayout topBarLayout() const;
 
     int width_{};
     int height_{};
     float dp_{1.0f};
+    float displayDp_{1.0f};
     std::string status_;
     std::string clock_;
     std::optional<device::BatteryStatus> battery_;
@@ -155,6 +186,7 @@ class Hud {
     std::string title_;
     Trail trail_;
     HintContext hints_;
+    TouchButtons touchButtons_;
     Clock::time_point now_{};
     std::string toast_;
     bool toastError_{false};
@@ -164,6 +196,7 @@ class Hud {
     GlassPainter glass_;
     BreadcrumbPainter crumbs_;
     ButtonGlyphPainter glyphs_;
+    TouchButtonPainter touchButtonPainter_;
 };
 
 } // namespace opensu::ui

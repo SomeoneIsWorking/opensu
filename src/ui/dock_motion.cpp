@@ -42,9 +42,9 @@ void DockVisibility::setPinned(bool pinned, double nowMs) {
     turn(pinned_ || nowMs < revealUntilMs_, nowMs);
 }
 
-void DockVisibility::reveal(double nowMs) {
+void DockVisibility::reveal(double nowMs, double forMs) {
     slide_ = settled(nowMs);
-    revealUntilMs_ = nowMs + revealMs;
+    revealUntilMs_ = nowMs + forMs;
     turn(true, nowMs);
 }
 

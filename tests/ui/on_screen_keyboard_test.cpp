@@ -35,7 +35,7 @@ KeyPress pressKey(OnScreenKeyboard& keyboard, KeyKind kind, char character = '\0
 OnScreenKeyboard opened(KeyboardStyle style) {
     OnScreenKeyboard keyboard;
     keyboard.setStyle(style);
-    keyboard.open();
+    keyboard.open(false);
     return keyboard;
 }
 
@@ -53,7 +53,7 @@ void gridKeysType() {
                pressKey(keyboard, KeyKind::Character, '1').typed == "1",
            "capitals apply to letters only");
     keyboard.close();
-    keyboard.open();
+    keyboard.open(false);
     expect(!keyboard.shifted(), "opening again starts without capitals");
 }
 
@@ -120,7 +120,7 @@ void theSetsCycle() {
         expect(!daisySetLabel(static_cast<DaisySet>(set)).empty(), "every set has a label");
     }
     keyboard.close();
-    keyboard.open();
+    keyboard.open(false);
     expect(keyboard.set() == DaisySet::Letters && !keyboard.petal(),
            "opening again starts on letters with no petal");
 }
@@ -149,11 +149,11 @@ void thePointerTypesAWheelCharacter() {
 void styleTakesEffectOnOpen() {
     OnScreenKeyboard keyboard;
     expect(keyboard.style() == KeyboardStyle::DaisyWheel, "the daisy wheel by default");
-    keyboard.open();
+    keyboard.open(false);
     keyboard.setStyle(KeyboardStyle::Regular);
     expect(keyboard.style() == KeyboardStyle::DaisyWheel, "an open keyboard keeps its style");
     keyboard.close();
-    keyboard.open();
+    keyboard.open(false);
     expect(keyboard.style() == KeyboardStyle::Regular, "the next open takes the new one");
 }
 

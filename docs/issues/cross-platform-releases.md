@@ -151,9 +151,9 @@ Tooling: `tools/check` gains `--platform`; packaging moves into one modular `too
   as iiSU. Phone (about 800x360 dp) is below the shell's 960x600 window minimum: the minimum
   becomes a desktop-only window constraint and each page is checked at phone and tablet sizes for
   overlap (frames from the AVD and the phone).
-- Input: gamepads through SDL (`SdlPads`); touch through `shared/android-port`'s raw contacts:
-  the shell's own pointer router already maps click to focus + A and handles the dock, pages and
-  breadcrumbs, so touch is tap = pointer click, swipe = page, long press = context menu. The
+- Input: gamepads through SDL (`SdlPads`); the shell's touch is SDL's touch mouse through the
+  one pointer path (`ShellApp::pointer` to gpu2d's `Navigator`), so a finger and a mouse share
+  every rule: tap, drag, fling, long press. The
   runner gets the authored touch layer the android skill requires (multi-touch pad, pause,
   safe areas, hidden while a controller is connected), through the same action policy as pads.
 - ROMs: Storage Access Framework tree URIs picked by the player (one per ROM root), persisted
@@ -539,6 +539,16 @@ the profiles ask for the `image_webp` capability, which checks SDL3_image's inst
 in fewer rows (`HomeLayout`, every platform; a deliberate departure from iiSU, project-state). Settings names a
 picked ROM folder by its display name ("ROMs", `RomTree::label`), not its tree URI. Android has no Add a game tile (`library::addGameOffer` is empty there). The toast is sized in dp from the
 interface theme, so it reads the same on a dense phone screen.
+
+The shell's touch controls show while a finger or mouse gave the latest input and go with the
+next key or pad button (`LastDevice::pointing`, `ShellApp::syncChrome`): a Back button before the
+trail and a Menu button before the status pill (52 dp glass, iiSU's `xe4.i`; iiSU itself has
+neither, the user asked for both), every hint bar's prompts as 48 dp buttons, the corner prompts a
+finger apart, each sending its button, and a scroll bar on a list that scrolls. A drag scrolls a
+list or the Home grid with the finger and flings on release (a Paged grid flips as iiSU's `pb0`
+does), across a slider sets it, a long press opens the context menu, a tap on a hidden dock shows
+it, the on-screen keyboard opens as the key grid, and the system's Back is B
+(`ShellWindow::systemBack`).
 
 Back from a game: the runner and the shell are Activities in tasks of their own (`RetroActivity`
 has its own `taskAffinity` and stays out of Recents). Back, a pad's Guide or the touch pause

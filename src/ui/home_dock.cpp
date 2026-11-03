@@ -19,14 +19,22 @@ constexpr float glassBlurSigmaDp = 8.0f;
 constexpr std::string_view tabsId = "dock/sections";
 
 /// The sections' tabs where the bar draws its items, the bar's full height and slid with it;
-/// resting on the bar where it rests asks for it.
+/// resting on the bar where it rests asks for it, and a press there while it is out of sight
+/// brings it in rather than choosing (iiSU g23: "Tap the bottom middle to bring back the navbar").
 class SectionTabs final : public gpu2d::ui::TabDock {
   public:
     SectionTabs(std::size_t chosen, std::function<void(std::size_t)> chose, DockLayout layout,
-                float slide, std::function<void()> rest)
+                float slide, bool hidden, std::function<void(bool)> rest)
         : TabDock{std::string{tabsId}, Tabs{.count = library::allSections.size(), .chosen = chosen},
                   std::move(chose)},
-          layout_{std::move(layout)}, slide_{slide}, rest_{std::move(rest)} {
+          layout_{std::move(layout)}, slide_{slide}, hidden_{hidden}, rest_{std::move(rest)} {
+    }
+    bool press(gpu2d::Point at, gpu2d::ui::ActContext& context) override {
+        if (hidden_) {
+            rest_(true);
+            return true;
+        }
+        return TabDock::press(at, context);
     }
 
     void arrange(gpu2d::ui::LayoutContext& context, const gpu2d::Rect& /*frame*/) override {
@@ -39,14 +47,15 @@ class SectionTabs final : public gpu2d::ui::TabDock {
     }
     void hover(gpu2d::Point at, gpu2d::ui::ActContext& /*context*/) override {
         if (layout_.bar.contains(at.x, at.y)) {
-            rest_();
+            rest_(false);
         }
     }
 
   private:
     DockLayout layout_;
     float slide_;
-    std::function<void()> rest_;
+    bool hidden_;
+    std::function<void(bool)> rest_;
 };
 
 } // namespace
@@ -92,8 +101,8 @@ std::optional<float> HomeDock::top() const {
     return DockPainter::top(dock.layout, dock.style);
 }
 
-void HomeDock::rest() {
-    visibility_.reveal(nowMs());
+void HomeDock::rest(bool tapped) {
+    visibility_.reveal(nowMs(), tapped ? DockVisibility::touchRevealMs : DockVisibility::revealMs);
 }
 
 std::unique_ptr<gpu2d::ui::Widget> HomeDock::build(const gpu2d::ui::Theme& /*theme*/) {
@@ -112,9 +121,9 @@ std::unique_ptr<gpu2d::ui::Widget> HomeDock::build(const gpu2d::ui::Theme& /*the
                                chose_(library::allSections[index]);
                            }
                        },
-                       dock.layout, slide,
-                       [this] {
-                           rest();
+                       dock.layout, slide, visibility_.hidden(nowMs()),
+                       [this](bool tapped) {
+                           rest(tapped);
                        }),
                    onCanvas(dock.layout.bar));
     }

@@ -33,18 +33,23 @@ void switchesOnRealInput() {
     expect(device.current() == Device::KeyboardMouse, "a key switches to the keyboard");
     device.notePad(press(Button::A));
     expect(device.current() == Device::Pad, "the next pad button switches back at once");
-    device.notePointer(3.0f, 0.0f, false);
+    device.notePointer(3.0f, 0.0f, false, false);
     expect(device.current() == Device::KeyboardMouse, "a moving pointer switches to the keyboard");
     device.notePad(event(Event::Kind::Button, Button::B, false));
     expect(device.current() == Device::Pad, "a pad button release is input too");
-    device.notePointer(0.0f, 0.0f, true);
+    device.notePointer(0.0f, 0.0f, true, false);
     expect(device.current() == Device::KeyboardMouse, "a click switches to the keyboard");
+    expect(device.pointing(), "a click shows the touch controls");
+    device.notePointer(0.0f, 0.0f, true, true);
+    expect(device.current() == Device::Touch && device.pointing(), "a tap switches to touch");
+    device.noteKey();
+    expect(!device.pointing(), "a key hides the touch controls");
 }
 
 void ignoresNoise() {
     LastDevice device;
     device.noteKey();
-    device.notePointer(0.0f, 0.0f, false);
+    device.notePointer(0.0f, 0.0f, false, false);
     expect(device.current() == Device::KeyboardMouse, "a still pointer is not pad input");
     device.notePad(event(Event::Kind::Connected, Button::None, false));
     device.notePad(event(Event::Kind::Disconnected, Button::None, false));
@@ -52,7 +57,7 @@ void ignoresNoise() {
     device.notePad(event(Event::Kind::Button, Button::None, true));
     expect(device.current() == Device::KeyboardMouse, "an event with no button is not input");
     LastDevice onPad;
-    onPad.notePointer(0.0f, 0.0f, false);
+    onPad.notePointer(0.0f, 0.0f, false, false);
     expect(onPad.current() == Device::Pad, "a still pointer does not take the prompts from a pad");
 }
 

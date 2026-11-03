@@ -56,6 +56,11 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
         float dp{1.0f};
         float topInset{};
         float bottomInset{};
+        /// The toolkit's touch slop in pixels and fling time in seconds, and pixels per dp of a
+        /// finger's speed.
+        float slop{};
+        float flingSeconds{};
+        float fingerDp{1.0f};
     };
 
     /// Tile art and iiSU's console art come through `images`.
@@ -137,6 +142,11 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     bool focus(std::size_t index) override;
     bool turn(std::size_t page) override;
     bool step(int steps) override;
+    /// A drag along the shelf: a grid follows the finger and a Paged one flips on release by
+    /// iiSU's rule (pb0.onTouchEvent); a rail steps a tile each pitch dragged.
+    [[nodiscard]] bool takesDrag(Point by) const override;
+    bool drag(Point by) override;
+    bool release(Point velocity) override;
     [[nodiscard]] std::optional<gpu2d::ui::CellGrid::Spot> at(Point at) const override;
     void paint(gpu2d::ui::Painter& painter, const gpu2d::Rect& frame) override;
 
@@ -179,6 +189,10 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     [[nodiscard]] float sinceMs(Clock::time_point then) const noexcept;
     [[nodiscard]] double nowMs() const noexcept;
     [[nodiscard]] float scroll() const noexcept;
+    /// How far a Paged grid stands off its page: the drag, or what is left of it settling.
+    [[nodiscard]] float pageShift() const noexcept;
+    /// The distance from one rail tile to the next, along the rail.
+    [[nodiscard]] float railPitch() const;
     void relayout();
     /// Moves an XMB's or a Carousel's focus one tile along its axis; Up and Down for the column,
     /// Left and Right for the row (input-sound.md §1.4).
@@ -239,6 +253,12 @@ class HomeGrid final : public gpu2d::ui::CellGrid::Cells {
     std::optional<Clock::time_point> pressAt_;
     std::size_t pressIndex_{};
     std::optional<Clock::time_point> entranceAt_;
+    /// A Paged grid's offset from its page while dragged, and when it was let go to settle.
+    float dragShift_{};
+    bool dragging_{false};
+    Clock::time_point settleAt_{};
+    /// The drag along a rail not yet a whole tile.
+    float railDrag_{};
 
     config::HomeMode mode_;
     Frame frame_;

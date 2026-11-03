@@ -33,6 +33,9 @@ Visible deltas from the baseline:
   `clock | NN% battery`; the launchers take the bell's column, drawn by the one status pill
   painter, without a circle of their own. A badge is a pointer target: hover lights it, a click
   selects that store's tile in Library.
+- Delta from iiSU, deliberate: while a finger or mouse gave the latest input the shell shows a
+  Back button before the trail and a Menu button before the status pill, and its hints become
+  48 dp buttons; iiSU has neither button and keeps its prompts as they are (S048).
 - Delta from iiSU, deliberate: a Library shelf with fewer items than a screen holds takes only the
   rows it needs (`HomeLayout`, any platform), so a few consoles spread across the screen; iiSU keeps
   its rows and stacks them in the first columns. Cell size still follows the configured rows.
@@ -185,6 +188,7 @@ game has been observed running yet.
 | S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only, picked from a list; Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
 | S046 | Windows release: clang-cl build with vcpkg, Job Object launches, Win32 process table and game windows, the shell minimized under a game and raised for the Guide, Steam from the registry and `steam://`, native GOG and Epic builds, controller batteries through SDL, librashader `.dll`, per-user Inno Setup installer, `windows` CI and release jobs (`docs/issues/cross-platform-releases.md` step 2) | partial | S042 | G005 |
 | S047 | macOS release: Homebrew LLVM build with vcpkg, process-group launches, libproc process table, game windows from the window server, the shell minimized under a game and raised for the Guide, Steam from Application Support and `steam://`, GOG and Epic Mac builds, `apple/osx/arm64` cores, librashader `.dylib`, MoltenVK through portability enumeration, ad-hoc signed `openSU.app` zip, `macos` CI and release jobs (`docs/issues/cross-platform-releases.md` step 3) | partial | S042 | G005 |
+| S048 | Touch UI: tap, drag, fling and long press through gpu2d's navigator; while a finger or mouse leads, a top-bar Back and Menu button, every hint a 48 dp button, the corner prompts side by side and tappable, scroll bars; the system's Back as B (`docs/issues/cross-platform-releases.md`) | partial | S042 | G002, G005 |
 
 ## Capability details
 
@@ -1852,6 +1856,26 @@ exists here and Apple licenses its SDK only for Macs, so nothing was compiled fo
 every check ran on GitHub's `macos-15` runner.
 
 Gaps: not yet run on CI.
+
+### S048 — Touch UI
+
+What it does is in `docs/issues/cross-platform-releases.md` (the shell's touch controls) and
+gpu2d's `docs/ui-toolkit.md` (the gesture rules). Touch lengths (the 48 dp target, the 8 dp slop,
+the 52 dp buttons) are in the display's dp (`fingerDp`), never smaller than the shell's.
+
+Shown on the AVD (`codex_shared_api35`, x86_64) at 1080x1920 (420 dpi) and 1600x1920 (320 dpi)
+with real `adb shell input` taps, swipes and key events: the top-bar Menu button opening the Guide
+menu and Settings, its Back button and Android's Back closing a page or the menu, the corner
+prompts (Select opening a console, Menu the Library options, Options a tile's menu, Back), every
+hint bar's buttons, a slider dragged, a choice's arrow and a toggle tapped, a list dragged,
+a breadcrumb tapped, a long press opening a game's menu, Details from it, a scrim tap closing a
+dialog, the folder picker through Android's own, the dock tapped and a hidden dock shown by a
+tap, a Carousel swiped, Downloads, and Search typed into through the key grid.
+
+Gaps: the docked keyboard's keys are about 11 dp tall on a phone (the dock is held to a fifth of
+the screen), under the 48 dp target; iiSU uses the system keyboard there. A Paged or Flow grid
+long enough to swipe, the XMB drag and a fling were not shown on the device. On the 1600x1920
+tablet the Guide menu's Volume label is cut ("Volu…"), cause not traced. Not run on a real phone.
 
 ### S030 — AppImage
 

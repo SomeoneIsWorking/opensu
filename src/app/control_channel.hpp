@@ -124,7 +124,7 @@ struct ShellSnapshot {
     std::string steam{"stopped"};
     /// The launcher badges, as `steam=ready epic=failed`.
     std::string launchers;
-    /// Which device the prompts name: "pad" or "keyboard".
+    /// Which device gave the latest input (`input::name`): "pad", "keyboard" or "touch".
     std::string inputDevice{"pad"};
 };
 

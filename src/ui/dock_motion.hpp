@@ -16,6 +16,8 @@ class DockVisibility {
   public:
     /// How long an L1 or R1 press holds the dock up.
     static constexpr double revealMs = 1200.0;
+    /// How long a tap where the hidden dock rests holds it up (iiSU `g23.java:56-68`).
+    static constexpr double touchRevealMs = 3200.0;
     /// The slide in and the slide out, as the dock moves in iiSU's recordings (navigation.md
     /// §5.1): an ease-out that settles in 170 ms, an ease-in that is gone in 125 ms. The code's
     /// `tween(250 ms)` of `iq3` is the envelope; the visible motion is shorter.
@@ -25,8 +27,12 @@ class DockVisibility {
     /// Whether the section keeps the dock up on its own.
     void setPinned(bool pinned, double nowMs);
 
-    /// Shows the dock until `revealMs` after `nowMs`.
-    void reveal(double nowMs);
+    /// Shows the dock until `forMs` after `nowMs`.
+    void reveal(double nowMs, double forMs = revealMs);
+    /// Whether the dock is out of sight at `nowMs`.
+    [[nodiscard]] bool hidden(double nowMs) const {
+        return progress(nowMs) <= 0.0f;
+    }
 
     /// How far in the dock is at `nowMs`, 0 (out) to 1 (in). The slide and the fade share it.
     [[nodiscard]] float progress(double nowMs) const;

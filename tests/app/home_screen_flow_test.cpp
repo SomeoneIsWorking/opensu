@@ -66,21 +66,28 @@ struct Rig {
     std::vector<std::string> calls;
 
     Rig() {
-        hud.setSize({static_cast<int>(width), static_cast<int>(height), dp});
+        hud.setSize({.width = static_cast<int>(width),
+                     .height = static_cast<int>(height),
+                     .dp = dp,
+                     .displayDp = 1.0f});
         hud.setTrail(ui::Trail{ui::Crumb{"Home", ui::CrumbKind::Section, library::Section::Home},
                                ui::Crumb{"Game Boy", ui::CrumbKind::Folder}});
         grid.setFrame(ui::HomeGrid::Frame{.width = static_cast<int>(width),
                                           .height = static_cast<int>(height),
                                           .dp = dp,
                                           .topInset = hud.topInset(),
-                                          .bottomInset = hud.bottomInset()});
+                                          .bottomInset = hud.bottomInset(),
+                                          .slop = 8.0f * dp,
+                                          .flingSeconds = 0.25f,
+                                          .fingerDp = dp});
         grid.setShelf(shelf());
         topBar.setHooks(ui::TopBarChrome::Hooks{.crumb =
                                                     [this](std::size_t index) {
                                                         calls.push_back("crumb " +
                                                                         std::to_string(index));
                                                     },
-                                                .launcher = {}});
+                                                .launcher = {},
+                                                .button = {}});
         topBar.setLive(ui::TopBarChrome::Live{.crumbs = true, .launchers = false});
         dock.onChoose([this](library::Section section) {
             calls.push_back("section " + std::string{library::key(section)});

@@ -39,6 +39,10 @@ struct PointerFrame {
     bool left{false};
     bool right{false};
     bool middle{false};
+    /// The primary button's or the finger's changes this frame, in order: true down, false up.
+    std::vector<bool> primary;
+    /// This frame's pointer events came from a finger (SDL's touch mouse).
+    bool touch{false};
 };
 
 class ShellWindow {
@@ -89,11 +93,18 @@ class ShellWindow {
     [[nodiscard]] const PointerFrame& pointer() const noexcept {
         return pointer_;
     }
+    /// The system's own Back (Android's gesture or button) came this frame.
+    [[nodiscard]] bool systemBack() const noexcept {
+        return systemBack_;
+    }
     /// Posts `combo` to the event queue as the keyboard presses it: down in one frame, up in the
     /// next, after whatever was posted before it.
     void press(input::Combo combo);
     /// Posts `text` to the event queue as the keyboard types it, after whatever was posted before.
     void type(std::string text);
+
+    /// Pixels per dp of the display the window is on: SDL's display scale, 1 when it has none.
+    [[nodiscard]] float displayDp() const noexcept;
 
     /// The window's new size, once per resize.
     [[nodiscard]] std::optional<gpu2d::PixelSize> takeResize() noexcept;
@@ -132,6 +143,7 @@ class ShellWindow {
     std::deque<Stroke> strokes_;
     bool strokeDown_{false};
     bool closing_{false};
+    bool systemBack_{false};
     std::chrono::steady_clock::time_point nextFrame_{std::chrono::steady_clock::now()};
 };
 

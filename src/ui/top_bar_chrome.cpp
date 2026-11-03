@@ -1,5 +1,6 @@
 #include "top_bar_chrome.hpp"
 
+#include <optional>
 #include <vector>
 
 #include "chrome_panel.hpp"
@@ -12,6 +13,10 @@ std::string TopBarChrome::crumbId(std::size_t index) {
 
 std::string TopBarChrome::launcherId(std::size_t index) {
     return "topbar/launcher/" + std::to_string(index);
+}
+
+std::string TopBarChrome::buttonId(TouchButton button) {
+    return button == TouchButton::Back ? "topbar/back" : "topbar/menu";
 }
 
 std::unique_ptr<gpu2d::ui::Widget> TopBarChrome::build(const gpu2d::ui::Theme& /*theme*/) {
@@ -43,6 +48,22 @@ std::unique_ptr<gpu2d::ui::Widget> TopBarChrome::build(const gpu2d::ui::Theme& /
                        onCanvas(badges[i].hit));
         }
     }
+    if (live_.buttons) {
+        for (const TouchButton button : {TouchButton::Back, TouchButton::Menu}) {
+            const std::optional<Rect> cell = hud_.touchButtonCell(button);
+            if (!cell) {
+                continue;
+            }
+            root->part(
+                std::make_unique<ChromePart>(buttonId(button),
+                                             [this, button](gpu2d::ui::ActContext& /*context*/) {
+                                                 if (hooks_.button) {
+                                                     hooks_.button(button);
+                                                 }
+                                             }),
+                onCanvas(*cell));
+        }
+    }
     return root;
 }
 
@@ -58,6 +79,11 @@ void TopBarChrome::paint(gpu2d::ui::Painter& painter) {
     for (std::size_t i = 0; i < badges.size(); ++i) {
         if (painter.hovered == launcherId(i)) {
             hover.launcher = badges[i].badge.source;
+        }
+    }
+    for (const TouchButton button : {TouchButton::Back, TouchButton::Menu}) {
+        if (painter.hovered == buttonId(button)) {
+            hover.button = button;
         }
     }
     hud_.drawTopBar(painter.canvas, hover);

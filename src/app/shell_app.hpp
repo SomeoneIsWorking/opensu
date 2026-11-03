@@ -857,6 +857,8 @@ class ShellApp final {
                 }}};
     /// Whether the pointer drove the shell last frame, so leaving is said once.
     bool pointerIn_{false};
+    /// Whether the primary button or a finger is down.
+    bool pointerHeld_{false};
     /// Held directions, from a pad or the keyboard, repeat on one schedule.
     gamepad::DirectionRepeat repeat_;
 

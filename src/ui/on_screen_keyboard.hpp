@@ -133,8 +133,9 @@ class OnScreenKeyboard {
         shifted_ = !shifted_;
     }
 
-    /// Opens on the first key, without capitals, the wheel on letters with no petal picked.
-    void open();
+    /// Opens on the first key, without capitals, the wheel on letters with no petal picked; in
+    /// the chosen style, or with `grid` the regular grid.
+    void open(bool grid);
     void close() noexcept;
     [[nodiscard]] bool isOpen() const noexcept {
         return open_;

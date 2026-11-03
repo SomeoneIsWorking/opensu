@@ -9,6 +9,7 @@
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_timer.h>
+#include <SDL3/SDL_touch.h>
 
 #include "gpu2d/gpu_error.hpp"
 #include "gpu2d/render_target.hpp"
@@ -84,6 +85,7 @@ void ShellWindow::lower() {
 bool ShellWindow::pollEvents() {
     keys_.nextFrame();
     pointer_ = PointerFrame{};
+    systemBack_ = false;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         handle(event);
@@ -108,6 +110,8 @@ void ShellWindow::handle(const SDL_Event& event) {
         resized_ = gpu2d::PixelSize{event.window.data1, event.window.data2};
         break;
     case SDL_EVENT_KEY_DOWN:
+        systemBack_ =
+            systemBack_ || (event.key.scancode == SDL_SCANCODE_AC_BACK && !event.key.repeat);
         if (const std::optional<int> key = keyOf(event.key.scancode)) {
             keys_.keyDown(*key, event.key.repeat);
         }
@@ -123,8 +127,19 @@ void ShellWindow::handle(const SDL_Event& event) {
     case SDL_EVENT_MOUSE_MOTION:
         pointer_.delta.x += event.motion.xrel;
         pointer_.delta.y += event.motion.yrel;
+        pointer_.touch = event.motion.which == SDL_TOUCH_MOUSEID;
+        break;
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            pointer_.primary.push_back(false);
+        }
+        pointer_.touch = event.button.which == SDL_TOUCH_MOUSEID;
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            pointer_.primary.push_back(true);
+        }
+        pointer_.touch = event.button.which == SDL_TOUCH_MOUSEID;
         pointer_.left = pointer_.left || event.button.button == SDL_BUTTON_LEFT;
         pointer_.right = pointer_.right || event.button.button == SDL_BUTTON_RIGHT;
         pointer_.middle = pointer_.middle || event.button.button == SDL_BUTTON_MIDDLE;
@@ -199,6 +214,11 @@ void ShellWindow::post(SDL_Event& event) {
     if (!SDL_PushEvent(&event)) {
         lucent::error("shell", "could not post an injected event: {}", SDL_GetError());
     }
+}
+
+float ShellWindow::displayDp() const noexcept {
+    const float scale = SDL_GetWindowDisplayScale(window_.window());
+    return scale > 0.0f ? scale : 1.0f;
 }
 
 std::optional<gpu2d::PixelSize> ShellWindow::takeResize() noexcept {

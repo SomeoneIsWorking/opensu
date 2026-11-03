@@ -16,6 +16,14 @@ namespace {
 // navigation.md §5.3: a console's card sits 2 dp inside its slot in an XMB and a Carousel.
 constexpr float railCardInsetDp = 2.0f;
 
+// The touch rules of iiSU pb0.onTouchEvent, with Android's least fling speed (ViewConfiguration:
+// 50 dp a second).
+constexpr float minFlingDp = 50.0f;
+/// A Paged drag flips past this share of a page, or on a fling past three slops.
+constexpr float flipShare = 0.18f;
+/// How long a Paged grid takes to settle on its page once let go.
+constexpr float settleMs = 260.0f;
+
 std::string gameCount(std::size_t games) {
     return std::to_string(games) + (games == 1 ? " game" : " games");
 }
@@ -108,9 +116,17 @@ double HomeGrid::nowMs() const noexcept {
 float HomeGrid::scroll() const noexcept {
     // iiSU nx2.I: Paged draws straight at the page offset; a flip is instant.
     if (layout_.mode() == ScrollMode::Paged) {
-        return layout_.pageScroll(page_);
+        return layout_.pageScroll(page_) - pageShift();
     }
     return scroller_.offset();
+}
+
+float HomeGrid::pageShift() const noexcept {
+    if (dragging_) {
+        return dragShift_;
+    }
+    const float t = std::clamp(sinceMs(settleAt_) / settleMs, 0.0f, 1.0f);
+    return dragShift_ * (1.0f - static_cast<float>(motion::fastOutSlowIn(t)));
 }
 
 Tile HomeGrid::makeTile(library::ShelfItem item) const {
@@ -458,6 +474,75 @@ bool HomeGrid::step(int steps) {
         return move(steps > 0 ? Direction::Down : Direction::Up);
     }
     return move(steps > 0 ? Direction::Right : Direction::Left);
+}
+
+bool HomeGrid::takesDrag(Point by) const {
+    // An XMB runs down the screen; the grid and the Carousel run across it.
+    const bool down = std::abs(by.y) > std::abs(by.x);
+    return presentation() == Presentation::Xmb ? down : !down;
+}
+
+float HomeGrid::railPitch() const {
+    const RailInput input = railInput();
+    const bool xmb = presentation() == Presentation::Xmb;
+    const std::vector<Rect> rects = xmb ? XmbLayout{input}.rects() : CarouselLayout{input}.rects();
+    if (rects.size() < 2) {
+        return 0.0f;
+    }
+    return xmb ? std::abs(rects[1].y - rects[0].y) : std::abs(rects[1].x - rects[0].x);
+}
+
+bool HomeGrid::drag(Point by) {
+    using gpu2d::ui::Direction;
+    if (presentation() != Presentation::Grid) {
+        const bool xmb = presentation() == Presentation::Xmb;
+        railDrag_ += xmb ? by.y : by.x;
+        // A rail too short to measure steps a tile every few slops.
+        const float pitch = std::max(railPitch(), 4.0f * frame_.slop);
+        bool moved = false;
+        // Dragging the rail one way brings the tiles from the other side to the focus.
+        while (std::abs(railDrag_) >= pitch) {
+            const bool forward = railDrag_ < 0.0f;
+            railDrag_ += forward ? pitch : -pitch;
+            const Direction along = xmb ? (forward ? Direction::Down : Direction::Up)
+                                        : (forward ? Direction::Right : Direction::Left);
+            moved = move(along) || moved;
+        }
+        return moved;
+    }
+    if (layout_.mode() == ScrollMode::Paged) {
+        dragging_ = true;
+        dragShift_ = std::clamp(dragShift_ + by.x, -layout_.pageStride(), layout_.pageStride());
+        return false;
+    }
+    scroller_.snap(std::clamp(scroller_.offset() - by.x, 0.0f, layout_.maxScroll()));
+    return false;
+}
+
+bool HomeGrid::release(Point velocity) {
+    railDrag_ = 0.0f;
+    if (presentation() != Presentation::Grid) {
+        return false;
+    }
+    if (layout_.mode() == ScrollMode::Flow) {
+        const float carried = velocity.x * frame_.flingSeconds;
+        scroller_.retarget(std::clamp(scroller_.offset() - carried, 0.0f, layout_.maxScroll()));
+        return false;
+    }
+    const float slop = frame_.slop;
+    const float shift = dragShift_;
+    const bool flung = std::abs(velocity.x) >= minFlingDp * frame_.fingerDp &&
+                       std::abs(shift) >= 3.0f * slop && (velocity.x > 0.0f) == (shift > 0.0f);
+    const bool far = std::abs(shift) >= std::max(flipShare * layout_.pageStride(), 2.0f * slop);
+    bool moved = false;
+    // A drag to the right brings the page before into view.
+    if ((flung || far) && focusPage(page_ + (shift > 0.0f ? -1 : 1))) {
+        dragShift_ = shift + (shift > 0.0f ? -layout_.pageStride() : layout_.pageStride());
+        moved = true;
+    }
+    dragging_ = false;
+    settleAt_ = now_;
+    return moved;
 }
 
 std::optional<gpu2d::ui::CellGrid::Spot> HomeGrid::at(Point at) const {

@@ -68,8 +68,8 @@ class HomeDock final : public gpu2d::ui::Screen {
     };
     [[nodiscard]] double nowMs() const noexcept;
     [[nodiscard]] Geometry geometry() const;
-    /// Slides a hidden bar in while the pointer rests on it.
-    void rest();
+    /// Slides a hidden bar in while the pointer rests on it, or for longer once tapped.
+    void rest(bool tapped);
     void paint(gpu2d::ui::Painter& painter, std::optional<std::size_t> hovered);
 
     DockPainter painter_;

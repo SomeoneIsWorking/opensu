@@ -211,8 +211,8 @@ Rect KeyboardLayout::faceBounds(DaisyFace face) const noexcept {
     return Rect{x - faceRadius, y - faceRadius, 2.0f * faceRadius, 2.0f * faceRadius};
 }
 
-void OnScreenKeyboard::open() {
-    style_ = chosen_;
+void OnScreenKeyboard::open(bool grid) {
+    style_ = grid ? input::KeyboardStyle::Regular : chosen_;
     shifted_ = false;
     key_ = 0;
     anchor_ = centreOf(gridKeys()[0]);

@@ -7,7 +7,16 @@
 
 namespace opensu::ui {
 
-/// The toolkit theme at `dp` pixels per dp.
-[[nodiscard]] gpu2d::ui::Theme interfaceTheme(float dp) noexcept;
+/// Pixels per dp: the shell's (`dp`, the window on iiSU's canvas) and the display's own.
+struct Density {
+    float dp{1.0f};
+    float display{1.0f};
+};
+
+/// Pixels per dp for what a finger touches: never smaller than the display's own dp.
+[[nodiscard]] float fingerDp(Density density) noexcept;
+
+/// The toolkit theme at the shell's dp, its touch lengths in the display's.
+[[nodiscard]] gpu2d::ui::Theme interfaceTheme(Density density) noexcept;
 
 } // namespace opensu::ui

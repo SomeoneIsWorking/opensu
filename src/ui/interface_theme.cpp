@@ -1,10 +1,16 @@
 #include "interface_theme.hpp"
 
+#include <algorithm>
+
 #include "hud.hpp"
 
 namespace opensu::ui {
 
-gpu2d::ui::Theme interfaceTheme(float dp) noexcept {
+float fingerDp(Density density) noexcept {
+    return std::max(density.dp, density.display);
+}
+
+gpu2d::ui::Theme interfaceTheme(Density density) noexcept {
     gpu2d::ui::Theme theme;
     gpu2d::ui::Palette& colours = theme.colours;
     colours.ground = palette::ground;
@@ -35,6 +41,9 @@ gpu2d::ui::Theme interfaceTheme(float dp) noexcept {
     spacing.contentWidth = 600.0f;
     spacing.hintBarHeight = 34.0f;
     spacing.dialogWidth = 380.0f;
+    const float finger = fingerDp(density) / density.dp;
+    spacing.touchTarget *= finger;
+    spacing.touchSlop *= finger;
 
     gpu2d::ui::Shape& shape = theme.shape;
     shape.radius = 12.0f;
@@ -52,7 +61,7 @@ gpu2d::ui::Theme interfaceTheme(float dp) noexcept {
     type.hint = 13.0f;
     type.toast = 14.0f;
 
-    theme.scale = dp;
+    theme.scale = density.dp;
     return theme;
 }
 

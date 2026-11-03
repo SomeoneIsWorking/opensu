@@ -25,6 +25,7 @@
 #include "chord_hint_painter.hpp"
 #include "config/config.hpp"
 #include "corner_hints.hpp"
+#include "corner_hints_chrome.hpp"
 #include "home_dock.hpp"
 #include "home_grid.hpp"
 #include "hud.hpp"
@@ -86,6 +87,8 @@ class Shell {
     void setSection(library::Section section, bool revealDock);
     /// Draws everything at `factor` of its size; the layouts are drawn at 1.
     void setUiScale(float factor);
+    /// Pixels per dp of the display the window is on (SDL's display scale).
+    void setDisplayDp(float displayDp);
     /// The on-screen keyboard style every field opens with from now on.
     void setKeyboardStyle(input::KeyboardStyle style) noexcept {
         keyboard_.setStyle(style);
@@ -126,6 +129,9 @@ class Shell {
     }
     [[nodiscard]] TopBarChrome& topBar() noexcept {
         return topBar_;
+    }
+    [[nodiscard]] CornerHintsChrome& cornerHints() noexcept {
+        return cornerHints_;
     }
     [[nodiscard]] HomeDock& dock() noexcept {
         return dock_;
@@ -205,6 +211,9 @@ class Shell {
     void setHints(const HintContext& hints) noexcept {
         hud_.setHints(hints);
     }
+    void setTouchButtons(Hud::TouchButtons buttons) noexcept {
+        hud_.setTouchButtons(buttons);
+    }
     void setTitle(std::string title) {
         hud_.setTitle(std::move(title));
     }
@@ -219,6 +228,7 @@ class Shell {
   private:
     /// Pixels per dp.
     [[nodiscard]] float dp() const noexcept;
+    [[nodiscard]] Hud::Size hudSize() const noexcept;
     /// Logs what failed to load among `uploads`.
     static void land(const gpu2d::ImageUploads& uploads);
     /// Gives the grid the window and the room the chrome keeps.
@@ -238,6 +248,7 @@ class Shell {
     input::Prompts prompts_;
     input::ChordSet chords_{prompts_.shortcuts};
     float uiScale_{1.0f};
+    float displayDp_{1.0f};
     VolumeOsd volumeOsd_;
     ChordHint chordHint_;
     /// Before the screens, whose prompts give way to it.
@@ -248,6 +259,7 @@ class Shell {
     HomeGrid grid_;
     HomeDock dock_{prompts_, text_, icons_};
     TopBarChrome topBar_{hud_};
+    CornerHintsChrome cornerHints_{hud_};
     KeyboardChrome keyboardChrome_{keyboard_, prompts_, text_};
     MappingChrome mappingChrome_{mapping_, prompts_, text_};
 

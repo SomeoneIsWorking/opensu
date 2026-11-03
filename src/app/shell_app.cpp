@@ -121,7 +121,17 @@ void ShellApp::buildHome() {
                                                              } else {
                                                                  selectLauncher(badge.source);
                                                              }
+                                                         },
+                                                     .button =
+                                                         [this](ui::TouchButton button) {
+                                                             // Back and the menu as B and Guide.
+                                                             actOn(button == ui::TouchButton::Back
+                                                                       ? gamepad::Button::B
+                                                                       : gamepad::Button::Guide);
                                                          }});
+    shell_.cornerHints().onPress([this](gamepad::Button button) {
+        actOn(button);
+    });
     shell_.dock().onChoose([this](library::Section section) {
         clickSection(section);
     });
@@ -422,6 +432,10 @@ void ShellApp::handlePads() {
 }
 
 void ShellApp::handlePointer() {
+    // The phone's own navigation, not a keyboard: it leaves the touch controls up.
+    if (window_->systemBack()) {
+        actOn(gamepad::Button::B);
+    }
     pointer(window_->pointer());
 }
 
@@ -429,13 +443,14 @@ void ShellApp::pointer(const PointerFrame& frame) {
     using gpu2d::ui::PointerEvent;
     using gpu2d::ui::PointerKind;
     const bool moved = frame.delta.x != 0.0f || frame.delta.y != 0.0f;
-    shell_.inputDevice().notePointer(frame.delta.x, frame.delta.y,
-                                     frame.left || frame.right || frame.middle ||
-                                         frame.wheel != 0.0f);
+    shell_.inputDevice().notePointer(
+        frame.delta.x, frame.delta.y,
+        !frame.primary.empty() || frame.right || frame.middle || frame.wheel != 0.0f, frame.touch);
     gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
-    if (shell_.inputDevice().current() != input::Device::KeyboardMouse || !frame.point) {
+    if (!shell_.inputDevice().pointing() || !frame.point) {
         if (pointerIn_) {
             pointerIn_ = false;
+            pointerHeld_ = false;
             navigator.pointer(PointerEvent{PointerKind::Leave, {}, 0.0f});
         }
         return;
@@ -443,12 +458,13 @@ void ShellApp::pointer(const PointerFrame& frame) {
     pointerIn_ = true;
     const gpu2d::Point at{frame.point->x, frame.point->y};
     // Only a pointer that moved takes focus, so a keyboard or pad move is not undone by a pointer
-    // resting where the focus used to be.
-    if (moved) {
+    // resting where the focus used to be; a finger only moves while it is down.
+    if (moved && (pointerHeld_ || !frame.touch)) {
         navigator.pointer(PointerEvent{PointerKind::Move, at, 0.0f});
     }
-    if (frame.left) {
-        navigator.pointer(PointerEvent{PointerKind::Press, at, 0.0f});
+    for (const bool down : frame.primary) {
+        pointerHeld_ = down;
+        navigator.pointer(PointerEvent{down ? PointerKind::Down : PointerKind::Up, at, 0.0f});
     }
     // A right click asks for the menu of what it is on; it is never Back.
     if (frame.right) {
@@ -825,7 +841,8 @@ ui::HintContext ShellApp::hints() const {
 }
 
 void ShellApp::syncChrome() {
-    shell_.setHints(hints());
+    const ui::HintContext corner = hints();
+    shell_.setHints(corner);
     shell_.setLaunchers(launcherBadges(steam_.state(), steam_.downloads(), sources_));
     const gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
     const bool home = navigator.atRoot() && !shell_.inGame();
@@ -834,8 +851,15 @@ void ShellApp::syncChrome() {
     shell_.setTitle(navigator.atRoot() ? shell_.grid().pillTitle() : std::string{});
     shell_.setTrail(currentTrail());
     const bool free = !shell_.keyboard().isOpen() && !shell_.mappingPage().isOpen();
-    shell_.topBar().setLive(
-        ui::TopBarChrome::Live{.crumbs = !shell_.inGame() && free, .launchers = home && free});
+    // A finger has no B or Guide: while a pointer leads, the top bar offers both.
+    const bool touch = shell_.inputDevice().pointing() && free;
+    shell_.setTouchButtons(ui::Hud::TouchButtons{
+        .back = touch && (!navigator.atRoot() || corner.back || corner.clearSearch),
+        .menu = touch && (guideMenu_.isOpen() || !menusBlocked()),
+        .prompts = touch});
+    shell_.topBar().setLive(ui::TopBarChrome::Live{
+        .crumbs = !shell_.inGame() && free, .launchers = home && free, .buttons = touch});
+    shell_.cornerHints().setLive(free);
 }
 
 void ShellApp::publishSnapshot() {
@@ -912,8 +936,7 @@ void ShellApp::publishSnapshot() {
     next.downloadsOpen = downloadsScreen_.isOpen();
     next.downloads = downloadsScreen_.lines();
     next.steam = std::string{launch::name(steam_.state())};
-    next.inputDevice =
-        shell_.inputDevice().current() == input::Device::KeyboardMouse ? "keyboard" : "pad";
+    next.inputDevice = std::string{input::name(shell_.inputDevice().current())};
     next.launchers = describe(launcherBadges(steam_.state(), steam_.downloads(), sources_));
 
     bridge_.publish(std::move(next));
@@ -938,7 +961,10 @@ void ShellApp::serviceControlRequests() {
         if (injected.kind == PointerInjection::Kind::Move) {
             frame.delta = ui::Point{1.0f, 1.0f};
         }
-        frame.left = injected.kind == PointerInjection::Kind::Click;
+        if (injected.kind == PointerInjection::Kind::Click) {
+            frame.left = true;
+            frame.primary = {true, false};
+        }
         frame.wheel = injected.wheel;
         pointer(frame);
     }
@@ -1036,6 +1062,7 @@ int ShellApp::run() {
         if (const std::optional<gpu2d::PixelSize> size = window_->takeResize()) {
             shell_.setSize(size->width, size->height);
         }
+        shell_.setDisplayDp(window_->displayDp());
 
         integrationSwitch_.service();
         padOwner_.lendToSteam(steamGridDbAccount_.signingIn() || offerClaim_.inSteam());

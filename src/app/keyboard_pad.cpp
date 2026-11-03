@@ -45,7 +45,7 @@ void KeyboardPad::open() {
     }
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    keyboard_.open();
+    keyboard_.open(navigator_.touch());
     navigator_.edit(true);
 }
 

@@ -4,6 +4,8 @@
 
 #include <vector>
 
+#include "gamepad/event.hpp"
+
 namespace opensu::ui {
 
 /// What each button does now, as the shell's own handling of it says.
@@ -26,6 +28,8 @@ struct Prompt {
     /// The glyph's key as `ButtonGlyphPainter` names it.
     const char* key;
     const char* label;
+    /// The button it names, which a tap on it presses.
+    gamepad::Button button{gamepad::Button::None};
 
     bool operator==(const Prompt&) const = default;
 };
