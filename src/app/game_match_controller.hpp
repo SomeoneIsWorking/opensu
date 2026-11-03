@@ -112,7 +112,7 @@ class GameMatchController {
 
     [[nodiscard]] const gpu2d::ui::Screen* screen() const;
     /// Searches Steam for `term` on the worker.
-    void search(const std::string& term);
+    void search(std::string term);
     void find(const std::stop_token& stop, const std::string& term, std::uint64_t generation);
     /// The cover of app `appId` in the cache, downloaded when it is not there; empty for none.
     [[nodiscard]] std::filesystem::path coverOf(const std::string& appId) const;

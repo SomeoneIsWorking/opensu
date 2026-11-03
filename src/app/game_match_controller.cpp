@@ -65,13 +65,13 @@ void GameMatchController::close() {
     navigator_.closeFrom(*shown);
 }
 
-void GameMatchController::search(const std::string& term) {
+void GameMatchController::search(std::string term) {
     term_ = term;
     candidates_.clear();
     searched_ = false;
     error_.clear();
     const std::uint64_t generation = ++generation_;
-    finder_ = std::jthread{[this, term, generation](const std::stop_token& stop) {
+    finder_ = std::jthread{[this, term = std::move(term), generation](const std::stop_token& stop) {
         find(stop, term, generation);
     }};
 }
