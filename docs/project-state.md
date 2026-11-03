@@ -188,7 +188,7 @@ game has been observed running yet.
 | S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only, picked from a list, a Lutris game as the Steam app Lutris runs it as; Match a different game, Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
 | S046 | Windows release: clang-cl build with vcpkg, Job Object launches, Win32 process table and game windows, the shell minimized under a game and raised for the Guide, Steam from the registry and `steam://`, native GOG and Epic builds, controller batteries through SDL, librashader `.dll`, per-user Inno Setup installer, `windows` CI and release jobs (`docs/issues/cross-platform-releases.md` step 2) | partial | S042 | G005 |
 | S047 | macOS release: Homebrew LLVM build with vcpkg, process-group launches, libproc process table, game windows from the window server, the shell minimized under a game and raised for the Guide, Steam from Application Support and `steam://`, GOG and Epic Mac builds, `apple/osx/arm64` cores, librashader `.dylib`, MoltenVK through portability enumeration, ad-hoc signed `openSU.app` zip, `macos` CI and release jobs (`docs/issues/cross-platform-releases.md` step 3) | partial | S042 | G005 |
-| S049 | A game's saves per emulator (`library::saves`: Switch's yuzu and Ryujinx layouts, the runner's `.srm` and state) and Copy saves between two installed Switch emulators from the details page, backed up first and undoable (`docs/plans/save-transfer.md`, `docs/plans/cloud-saves.md` step 1) | partial | S008, S026 | G001 |
+| S049 | A game's saves per emulator (`library::saves`: Switch's yuzu, Eden's newer, Ryubing's and Kenji-NX's layouts, Flatpak folders, the runner's `.srm` and state) and Copy saves between installed Switch emulators from the details page, into a save the target lacks too, off the frame, refused while either runs, backed up first and undoable (`docs/plans/save-transfer.md`, `docs/plans/cloud-saves.md` step 1) | partial | S008, S026 | G001 |
 | S048 | Touch UI: tap, drag, fling and long press through gpu2d's navigator; while a finger or mouse leads, a top-bar Back and Menu button, every hint a 48 dp button, the corner prompts side by side and tappable, scroll bars; the system's Back as B (`docs/issues/cross-platform-releases.md`) | partial | S042 | G002, G005 |
 
 ## Capability details
@@ -2163,32 +2163,66 @@ GOG giveaway or discounted-to-free GOG game was live, so those parsers ran only 
 ### S049 — Game saves and Copy saves
 
 `library::saves::savesOf` is the one owner of a game's saves: each installed emulator of a ROM's
-system with the slots it keeps (account per profile, device, the runner's save RAM and state),
-each measured, keyed by console and game identity (a Switch title id from the file's Control NCA,
-cached as `<size>-<mtime>.id`; the ROM's name for the runner). The catalog's `"saves"` says where a
-standalone emulator keeps them (Eden, Citron, sudachi: yuzu's NAND; Ryujinx: its `bis`);
-`retro/save_paths` is where the runner keeps its own, which the runner, the shell's launch command
-and `savesOf` all use. `SaveCopier` copies slot by slot for the kinds both emulators keep, backs
-the target's slots up whole under `<state dir>/save-backups/` first, puts them back if a copy fails,
-and Undo copy restores the newest backup and removes it.
+system that keeps saves, with the slots it keeps (account per profile, device, the runner's save
+RAM and state), each measured, keyed by console and game identity (a Switch title id from the
+file's Control NCA, cached as `<size>-<mtime>.id`; the ROM's name for the runner), and where it
+would make a slot it lacks (`SaveHome`, with the save sizes from the game's `control.nacp`, cached
+as `.saves`). The catalog's `"saves"` says where a standalone emulator keeps them (Eden, Citron,
+sudachi: yuzu's NAND, Eden's newer `user/save/account` folders read first; Ryujinx: its `bis`),
+the same folders under `~/.var/app/<app id>` for a Flatpak install (`flatpakFolder`);
+`retro/save_paths` is where the runner keeps its own. Only an emulator holding a save is a source.
+`SaveCopier` copies slot by slot for the kinds the source holds files in, makes a slot the target
+lacks as that emulator would (`switch_saves::plannedSlot`, `makeSlot`: yuzu's folder; Kenji-NX's
+`<title id>/<user id>` with `ExtraData0`/`1`; Ryubing's next save id with its index entry), backs
+up the target's slots and the index it changes under `<state dir>/save-backups/` first, puts them
+back if a copy fails, and Undo copy restores the newest backup, removes what the copy made and
+removes the backup. The card's reads, copies and undos run on its worker, one at a time, refused
+while either emulator runs (`launch::ProcessTree`), with the row showing the bytes written as a
+percentage. Sizes read in decimal steps on every screen (`ui::sizeText`).
 
-Live run on 2026-11-04 (`scratch/saves/proof.py`, hidden, scratch home under `scratch/saves/home`
-with copies of the player's Eden `nand/user/save`, profiles and `qt-config.ini`, and Ryujinx
-`bis/user/save`, `system/Profiles.json`; Eden's AppImage and keys linked in; a stand-in `ryujinx`
-on `PATH`, as Ryujinx is not installed here): Mario + Rabbids Kingdom Battle (010067300059A000)
-shows Copy saves "Eden, Ryujinx" (`frames/1-details-row.png`), the card with Eden 2026-04-29 18:09
-90.4 KB and Ryujinx Empty (`2-copy-card.png`), the source list (`3-copy-from-picker.png`) and the
-question (`4-copy-confirm.png`); Copy put Eden's four files into Ryujinx's `0` and `1` (hashes
-match Eden's), left `ExtraData0`/`1` and `.lock`, and wrote the backup with `backup.json`
-(`5-after-copy-undo-row.png`); Undo copy put the tree back identical to the player's original
-(`diff -r`) and removed the backup (`7-after-undo.png`). The player's own folders were only read.
+"Empty" in the first proof (Kingdom Battle's "Ryujinx · Empty") was accurate but misleading:
+Ryujinx had the save folder it makes when a game first boots (`ExtraData0`, `ExtraData1`, `.lock`,
+empty `0` and `1`) and the game had never written a file, so that undo only put back those 1 KB of
+metadata and empty folders, not progress. It now reads "No save yet", and such an emulator is a
+target only.
 
-On this machine `~/.config/Ryujinx/bis/user/save` holds saves under `<title id>/<user id>` (each
-with its own `ExtraData0`) while Ryubing's index (`imkvdb.arc`) names save ids 1 to 6 with no such
-folders, so upstream Ryubing would not see these saves; openSU reads the folders by their
-`ExtraData0`.
+Live runs on 2026-11-04 (`scratch/saves/proof.py`, hidden, one scratch home per run under
+`scratch/saves/homes/` with copies of the player's Eden `nand/user/save`, profiles and
+`qt-config.ini`, and Ryujinx `bis/user/save`, the save index and `system/Profiles.json`; Eden's
+AppImage and keys linked in; a stand-in `ryujinx` script on `PATH`, as Ryujinx is not installed
+here; log in `scratch/saves/proof.txt`, frames in `scratch/saves/frames/`):
 
-Gaps: no copy into an emulator without a save of the game (Ryujinx's index is the emulator's to
-write); no check that the target emulator is closed; Flatpak save folders and Eden's
-`user/save/account` layout are not read; the copy and the listing run on the frame thread (saves
-are small); libretro and standalone pairs of other consoles, cloud and LAN targets are not built.
+- Kingdom Battle (010067300059A000): Copy from is Eden alone, Copy to "Ryujinx · No save yet"
+  (`a2-kb-card.png`).
+- Donkey Kong Country: Tropical Freeze (0100C1F0051B6000), which Ryujinx has no save of: Copy made
+  `0100C1F0051B6000/00000000000000010000000000000000` with Eden's `save.bin` in `0` and `1` and an
+  `ExtraData0` of program 0100C1F0051B6000, the open profile, type 1, owner 0100C1F0051B6000, size
+  0x400000, journal 0x100000 (the NACP's; Kingdom Battle's and Mario Kart's NACP values match the
+  `ExtraData0` Ryujinx itself wrote for them); Undo removed the folder, the tree as before
+  (`a5`, `a6`, `a7`). Without `save-layout.lock` (Ryubing's layout) the same copy made save
+  `0000000000000007` and inserted its entry in program order in both `imkvdb.arc`s,
+  `lastPublishedId` 7; Undo put the whole `bis` back byte for byte.
+- Mario Kart 8 Deluxe (0100152000022000) with the stand-in Ryujinx running: "Close Ryujinx first:
+  it is running", nothing written (`a8-mk8-refused-running.png`); then Ryujinx's save copied over
+  Eden's (both real) and undone byte for byte (`a9`, `a10`).
+- Kingdom Battle with its scratch Eden save grown to 40,000 files: the row read "Copying saves
+  56%" mid-copy (`b-progress-024.png`) while `/state` answered 50 times in the 5.8 s copy; undone
+  byte for byte.
+- A Flatpak Eden (`~/.var/app/dev.eden_emu.eden`) with Kingdom Battle's save moved to Eden's newer
+  `user/save/account/<UUID>/<title id>/0`: refused with "Close Eden first: it is running" while a
+  stand-in sandbox ran (`bwrap` with a `/.flatpak-info` naming `dev.eden_emu.eden`, its command
+  lines `bwrap ... -- /usr/bin/sleep 600` as a real `flatpak run` tree's are `bwrap --args 75 --
+  <command>`, `scratch/saves/flatpak/probe.txt`), then read, copied to Ryujinx and undone
+  (`c0`, `c1`).
+- `find -newer` over the player's Eden and Ryujinx folders found nothing written.
+- Switch keys are read from `keys` beside each catalog NAND of yuzu's line, the Flatpak's after
+  the host's (`SwitchInfo::keyDirsOf`): the Flatpak run read them from
+  `~/.var/app/dev.eden_emu.eden/data/eden/keys`.
+
+The player's `~/.config/Ryujinx` is in Kenji-NX's layout (`user/save-layout.lock`, saves under
+`<title id>/<user id>`), which rebuilds its index from the folders at start; that is why the index
+names save ids 1 to 6 with no folders of those names.
+
+Gaps: libretro and standalone pairs of other consoles, cloud and LAN targets are not built;
+`.yuzu_save_size` (Eden's extended-size note, absent from the player's saves)
+is copied as a file like any other.

@@ -595,6 +595,9 @@ class ShellApp final {
                                      gameMatch_.open(game);
                                  },
                                  [this](const library::Game& game) {
+                                     saveCopy_.read(game);
+                                 },
+                                 [this](const library::Game& game) {
                                      return saveCopy_.offer(game);
                                  },
                                  [this](const library::Game& game) {

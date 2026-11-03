@@ -7,12 +7,17 @@
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <optional>
+#include <random>
 #include <string>
 #include <system_error>
+#include <tuple>
+#include <utility>
 
 #include <nlohmann/json.hpp>
 
+#include "fileio/atomic_write.hpp"
 #include "lucent/log.h"
 
 namespace opensu::library::saves {
@@ -24,6 +29,11 @@ namespace fs = std::filesystem;
 constexpr std::string_view yuzuUserSaves = "user/save/0000000000000000";
 /// yuzu files device saves under the all-zero user.
 constexpr std::string_view yuzuDeviceUser = "00000000000000000000000000000000";
+/// Eden's newer layout, used for a save where it is there: `account/<UUID bytes>/<title id>/0`
+/// and `device/<title id>/0` under `user/save`.
+constexpr std::string_view edenAccountSaves = "user/save/account";
+constexpr std::string_view edenDeviceSaves = "user/save/device";
+constexpr std::string_view edenSaveFolder = "0";
 constexpr std::string_view yuzuProfiles = "system/save/8000000000000010/su/avators/profiles.dat";
 /// profiles.dat: 0x10 bytes of padding, then eight 0xC8-byte users, each starting with its UUID.
 constexpr std::size_t profilesHeader = 0x10;
@@ -40,6 +50,7 @@ constexpr std::uintmax_t extraDataSize = 0x200;
 constexpr std::size_t attributeProgramId = 0x00;
 constexpr std::size_t attributeUserHigh = 0x08;
 constexpr std::size_t attributeUserLow = 0x10;
+constexpr std::size_t attributeStaticId = 0x18;
 constexpr std::size_t attributeType = 0x20;
 constexpr std::size_t attributeRank = 0x21;
 constexpr std::size_t attributeIndex = 0x22;
@@ -49,6 +60,30 @@ constexpr std::uint8_t saveTypeDevice = 3;
 /// DirectorySaveDataFileSystem's committed and working folders.
 constexpr std::string_view committed = "0";
 constexpr std::string_view working = "1";
+constexpr std::string_view extraDataCopy = "ExtraData1";
+constexpr std::string_view saveLock = ".lock";
+/// SaveDataExtraData after the attribute: owner, time stamp, flags and format, sizes, commit id.
+constexpr std::size_t extraOwner = 0x40;
+constexpr std::size_t extraDataSizeAt = 0x58;
+constexpr std::size_t extraJournalSize = 0x60;
+constexpr std::size_t extraCommitId = 0x68;
+/// Kenji-NX holds this beside `user/save` while it runs; its saves are filed by game and profile.
+constexpr std::string_view kenjiLayoutLock = "user/save-layout.lock";
+constexpr std::string_view kenjiDeviceFolder = "device";
+/// Ryubing's save index: the system save 8000000000000000, a KeyValueArchive of
+/// SaveDataAttribute to SaveDataIndexerValue, and the last save id it gave.
+constexpr std::string_view ryubingIndexSave = "system/save/8000000000000000";
+constexpr std::string_view ryubingIndex = "imkvdb.arc";
+constexpr std::string_view ryubingLastId = "lastPublishedId";
+constexpr std::string_view archiveMagic = "IMKV";
+constexpr std::string_view entryMagic = "IMEN";
+constexpr std::size_t archiveHeader = 12;
+constexpr std::size_t entryHeader = 12;
+constexpr std::size_t attributeSize = 0x40;
+constexpr std::size_t indexValueSize = 0x40;
+/// SaveDataIndexerValue: the save id first, the space id at 0x18 (1 is the user partition).
+constexpr std::size_t indexValueSpace = 0x18;
+constexpr std::uint8_t userSpace = 1;
 
 std::string readBytes(const fs::path& file) {
     std::ifstream in{file, std::ios::binary};
@@ -61,6 +96,12 @@ std::uint64_t littleEndian(std::string_view bytes, std::size_t at, std::size_t s
         value = (value << 8U) | static_cast<unsigned char>(bytes[at + i - 1]);
     }
     return value;
+}
+
+void putLittleEndian(std::string& bytes, std::size_t at, std::uint64_t value, std::size_t size) {
+    for (std::size_t i = 0; i < size; ++i) {
+        bytes[at + i] = static_cast<char>((value >> (8 * i)) & 0xFFU);
+    }
 }
 
 std::string hex16(std::uint64_t value) {
@@ -89,8 +130,34 @@ std::vector<fs::path> folders(const fs::path& parent) {
     return found;
 }
 
-/// The user folders of profiles.dat in its order, as yuzu names them: the UUID's second 64 bits
-/// then its first, each upper-case hex.
+/// A UUID's 16 bytes as yuzu names its user folder: the second 64 bits then the first, each
+/// little-endian and upper-case hex.
+std::string yuzuUserName(std::string_view uuid) {
+    const std::uint64_t first = littleEndian(uuid, 0, sizeof(std::uint64_t));
+    const std::uint64_t second = littleEndian(uuid, sizeof(std::uint64_t), sizeof(std::uint64_t));
+    return hex16(second) + hex16(first);
+}
+
+/// A UUID's 16 bytes from Eden's newer folder name, its bytes in order as lower-case hex; nothing
+/// for another name.
+std::optional<std::string> edenUuid(std::string_view name) {
+    if (name.size() != 2 * uuidSize) {
+        return std::nullopt;
+    }
+    std::string bytes(uuidSize, '\0');
+    for (std::size_t i = 0; i < uuidSize; ++i) {
+        unsigned value = 0;
+        const char* at = name.data() + (2 * i);
+        const auto [end, error] = std::from_chars(at, at + 2, value, 16);
+        if (error != std::errc{} || end != at + 2) {
+            return std::nullopt;
+        }
+        bytes[i] = static_cast<char>(value);
+    }
+    return bytes;
+}
+
+/// The user folders of profiles.dat in its order, as yuzu names them (`yuzuUserName`).
 std::vector<std::string> yuzuUsers(const fs::path& nand) {
     const std::string bytes = readBytes(nand / yuzuProfiles);
     std::vector<std::string> users;
@@ -99,11 +166,9 @@ std::vector<std::string> yuzuUsers(const fs::path& nand) {
         if (bytes.size() < at + uuidSize) {
             break;
         }
-        const std::uint64_t first = littleEndian(bytes, at, sizeof(std::uint64_t));
-        const std::uint64_t second =
-            littleEndian(bytes, at + sizeof(std::uint64_t), sizeof(std::uint64_t));
-        if (first != 0 || second != 0) {
-            users.push_back(hex16(second) + hex16(first));
+        const std::string_view uuid = std::string_view{bytes}.substr(at, uuidSize);
+        if (uuid.find_first_not_of('\0') != std::string_view::npos) {
+            users.push_back(yuzuUserName(uuid));
         }
     }
     return users;
@@ -178,6 +243,165 @@ std::optional<SaveSlot> ryujinxSlot(const fs::path& folder, std::uint64_t title)
     return slot;
 }
 
+/// The profile a new account save is made for, as the emulator spells it; empty when it has none.
+std::string currentUser(const SaveHome& home) {
+    if (home.layout == roms::SaveLayout::RyujinxBis) {
+        return ryujinxCurrentUser(home.config);
+    }
+    const std::vector<std::string> users = yuzuUsers(home.folder);
+    const std::size_t index = yuzuCurrentIndex(home.config);
+    return index < users.size() ? users[index] : std::string{};
+}
+
+/// A user id spelled as 32 hex digits, its high 64 bits first.
+std::optional<std::pair<std::uint64_t, std::uint64_t>> userHalves(std::string_view user) {
+    if (user.size() != 2 * sizeof(std::uint64_t) * 2) {
+        return std::nullopt;
+    }
+    const std::optional<std::uint64_t> high = titleNumber(user.substr(0, user.size() / 2));
+    const std::optional<std::uint64_t> low = titleNumber(user.substr(user.size() / 2));
+    if (!high || !low) {
+        return std::nullopt;
+    }
+    return std::pair{*high, *low};
+}
+
+/// The SaveDataAttribute of `title`'s primary `kind` save for `user` (empty for a device save).
+std::string attributeOf(std::uint64_t title, SlotKind kind, std::string_view user) {
+    std::string bytes(attributeSize, '\0');
+    putLittleEndian(bytes, attributeProgramId, title, sizeof(std::uint64_t));
+    if (const auto halves = userHalves(user); kind == SlotKind::Account && halves) {
+        putLittleEndian(bytes, attributeUserHigh, halves->first, sizeof(std::uint64_t));
+        putLittleEndian(bytes, attributeUserLow, halves->second, sizeof(std::uint64_t));
+    }
+    putLittleEndian(bytes, attributeType,
+                    kind == SlotKind::Account ? saveTypeAccount : saveTypeDevice, 1);
+    return bytes;
+}
+
+/// LibHac's SaveDataAttribute order: program, type, user, static save id, index, rank.
+bool attributeBefore(std::string_view a, std::string_view b) {
+    const auto fields = [](std::string_view bytes) {
+        return std::tuple{littleEndian(bytes, attributeProgramId, sizeof(std::uint64_t)),
+                          littleEndian(bytes, attributeType, 1),
+                          littleEndian(bytes, attributeUserHigh, sizeof(std::uint64_t)),
+                          littleEndian(bytes, attributeUserLow, sizeof(std::uint64_t)),
+                          littleEndian(bytes, attributeStaticId, sizeof(std::uint64_t)),
+                          littleEndian(bytes, attributeIndex, 2),
+                          littleEndian(bytes, attributeRank, 1)};
+    };
+    return fields(a) < fields(b);
+}
+
+/// The ExtraData0 and ExtraData1 Ryujinx writes for a new save: the attribute, the owner, the
+/// sizes control.nacp gives the kind, a fresh commit id.
+std::string extraDataOf(const SaveHome& home, std::uint64_t title, SlotKind kind,
+                        std::string_view user) {
+    std::string bytes(extraDataSize, '\0');
+    const std::string attribute = attributeOf(title, kind, user);
+    bytes.replace(0, attribute.size(), attribute);
+    const SwitchSaveData data = home.saveData.value_or(SwitchSaveData{});
+    putLittleEndian(bytes, extraOwner, data.owner != 0 ? data.owner : title, sizeof(std::uint64_t));
+    const bool account = kind == SlotKind::Account;
+    putLittleEndian(bytes, extraDataSizeAt, account ? data.accountSize : data.deviceSize,
+                    sizeof(std::uint64_t));
+    putLittleEndian(bytes, extraJournalSize, account ? data.accountJournal : data.deviceJournal,
+                    sizeof(std::uint64_t));
+    std::random_device random;
+    const std::uint64_t commit = (static_cast<std::uint64_t>(random()) << 32U) | random();
+    putLittleEndian(bytes, extraCommitId, commit, sizeof(std::uint64_t));
+    return bytes;
+}
+
+void writeFile(const fs::path& file, std::string_view bytes) {
+    std::string error;
+    if (!fileio::writeWhole(file, bytes, error)) {
+        throw fs::filesystem_error{error, file, std::make_error_code(std::errc::io_error)};
+    }
+}
+
+/// One KeyValueArchive entry: its key and value bytes.
+struct ArchiveEntry {
+    std::string key;
+    std::string value;
+};
+
+/// The entries of a KeyValueArchive; nothing when it is not one.
+std::optional<std::vector<ArchiveEntry>> archiveEntries(std::string_view bytes) {
+    if (bytes.size() < archiveHeader || bytes.substr(0, archiveMagic.size()) != archiveMagic) {
+        return std::nullopt;
+    }
+    const std::uint64_t count = littleEndian(bytes, 8, 4);
+    std::vector<ArchiveEntry> entries;
+    std::size_t at = archiveHeader;
+    for (std::uint64_t i = 0; i < count; ++i) {
+        if (bytes.size() < at + entryHeader || bytes.substr(at, entryMagic.size()) != entryMagic) {
+            return std::nullopt;
+        }
+        const std::size_t keySize = littleEndian(bytes, at + 4, 4);
+        const std::size_t valueSize = littleEndian(bytes, at + 8, 4);
+        at += entryHeader;
+        if (bytes.size() < at + keySize + valueSize) {
+            return std::nullopt;
+        }
+        entries.push_back({std::string{bytes.substr(at, keySize)},
+                           std::string{bytes.substr(at + keySize, valueSize)}});
+        at += keySize + valueSize;
+    }
+    return entries;
+}
+
+std::string archiveBytes(const std::vector<ArchiveEntry>& entries) {
+    std::string bytes{archiveMagic};
+    bytes.resize(archiveHeader, '\0');
+    putLittleEndian(bytes, 8, entries.size(), 4);
+    for (const ArchiveEntry& entry : entries) {
+        std::string header{entryMagic};
+        header.resize(entryHeader, '\0');
+        putLittleEndian(header, 4, entry.key.size(), 4);
+        putLittleEndian(header, 8, entry.value.size(), 4);
+        bytes += header + entry.key + entry.value;
+    }
+    return bytes;
+}
+
+bool kenjiLayout(const fs::path& bis) {
+    std::error_code ec;
+    return fs::exists(bis / kenjiLayoutLock, ec);
+}
+
+/// Ryubing's index and the next save id it would give; nothing when Ryujinx has not made it yet.
+struct RyubingIndex {
+    std::vector<ArchiveEntry> entries;
+    std::uint64_t nextId{0};
+};
+
+/// The index, its next save id no lower than `atLeast`.
+std::optional<RyubingIndex> ryubingIndexOf(const fs::path& bis, std::uint64_t atLeast) {
+    const fs::path folder = bis / ryubingIndexSave / committed;
+    std::optional<std::vector<ArchiveEntry>> entries =
+        archiveEntries(readBytes(folder / ryubingIndex));
+    if (!entries) {
+        return std::nullopt;
+    }
+    // The indexer publishes the id after the last it gave; system saves keep their static ids.
+    const std::string last = readBytes(folder / ryubingLastId);
+    std::uint64_t next = std::max(
+        atLeast,
+        (last.size() == sizeof(std::uint64_t) ? littleEndian(last, 0, sizeof(std::uint64_t)) : 0) +
+            1);
+    const auto taken = [&entries](std::uint64_t id) {
+        return std::ranges::any_of(*entries, [id](const ArchiveEntry& entry) {
+            return entry.value.size() >= sizeof(std::uint64_t) &&
+                   littleEndian(entry.value, 0, sizeof(std::uint64_t)) == id;
+        });
+    };
+    while (taken(next)) {
+        ++next;
+    }
+    return RyubingIndex{.entries = std::move(*entries), .nextId = next};
+}
+
 } // namespace
 
 std::vector<SaveSlot> yuzuSlots(const fs::path& nand, const fs::path& config,
@@ -185,22 +409,36 @@ std::vector<SaveSlot> yuzuSlots(const fs::path& nand, const fs::path& config,
     const std::vector<std::string> users = yuzuUsers(nand);
     const std::size_t index = yuzuCurrentIndex(config);
     const std::string current = index < users.size() ? users[index] : std::string{};
-    std::vector<SaveSlot> slots;
+    // Each user's save of the title by its user folder's name; Eden's newer place wins.
+    std::map<std::string, std::pair<fs::path, fs::path>> saves;
+    const std::string title{titleId};
+    std::error_code ec;
     for (const fs::path& user : folders(nand / yuzuUserSaves)) {
-        const fs::path save = user / std::string{titleId};
-        std::error_code ec;
-        if (!fs::is_directory(save, ec)) {
-            continue;
+        if (const fs::path save = user / title; fs::is_directory(save, ec)) {
+            saves[user.filename().string()] = {save, save};
         }
-        const std::string name = user.filename().string();
+    }
+    for (const fs::path& user : folders(nand / edenAccountSaves)) {
+        const std::optional<std::string> uuid = edenUuid(user.filename().string());
+        if (const fs::path save = user / title;
+            uuid && fs::is_directory(save / edenSaveFolder, ec)) {
+            saves[yuzuUserName(*uuid)] = {save, save / edenSaveFolder};
+        }
+    }
+    if (const fs::path save = nand / edenDeviceSaves / title;
+        fs::is_directory(save / edenSaveFolder, ec)) {
+        saves[std::string{yuzuDeviceUser}] = {save, save / edenSaveFolder};
+    }
+    std::vector<SaveSlot> slots;
+    for (const auto& [name, where] : saves) {
         SaveSlot slot;
         slot.kind = name == yuzuDeviceUser ? SlotKind::Device : SlotKind::Account;
         if (slot.kind == SlotKind::Account) {
             slot.user = name;
             slot.current = name == current;
         }
-        slot.root = save;
-        slot.content = {save};
+        slot.root = where.first;
+        slot.content = {where.second};
         slots.push_back(std::move(slot));
     }
     return slots;
@@ -234,6 +472,105 @@ std::vector<SaveSlot> ryujinxSlots(const fs::path& bis, const fs::path& config,
         }
     }
     return slots;
+}
+
+std::optional<NewSlot> plannedSlot(const SaveHome& home, SlotKind kind,
+                                   const std::vector<NewSlot>& earlier, std::string& error) {
+    if (kind != SlotKind::Account && kind != SlotKind::Device) {
+        error = "only a Switch save can be made here";
+        return std::nullopt;
+    }
+    const std::optional<std::uint64_t> title = titleNumber(home.titleId);
+    if (!title) {
+        error = home.titleId + " is not a Switch title id";
+        return std::nullopt;
+    }
+    NewSlot planned;
+    planned.slot.kind = kind;
+    if (kind == SlotKind::Account) {
+        planned.slot.user = currentUser(home);
+        planned.slot.current = true;
+        if (planned.slot.user.empty()) {
+            error = "it has no user profile yet: start it once";
+            return std::nullopt;
+        }
+    }
+    if (home.layout == roms::SaveLayout::YuzuNand) {
+        const std::string user =
+            kind == SlotKind::Account ? planned.slot.user : std::string{yuzuDeviceUser};
+        planned.slot.root = home.folder / yuzuUserSaves / user / home.titleId;
+        planned.slot.content = {planned.slot.root};
+        return planned;
+    }
+    if (!home.saveData) {
+        error = "the game's save sizes are not known yet";
+        return std::nullopt;
+    }
+    if (kenjiLayout(home.folder)) {
+        planned.slot.root =
+            home.folder / ryujinxUserSaves / home.titleId /
+            (kind == SlotKind::Account ? planned.slot.user : std::string{kenjiDeviceFolder});
+    } else {
+        std::uint64_t after = 0;
+        for (const NewSlot& before : earlier) {
+            after = std::max(after, titleNumber(before.slot.root.filename().string()).value_or(0));
+        }
+        const std::optional<RyubingIndex> index = ryubingIndexOf(home.folder, after + 1);
+        if (!index) {
+            error = "it has no save index yet: start it once";
+            return std::nullopt;
+        }
+        planned.slot.root = home.folder / ryujinxUserSaves / hex16(index->nextId);
+        planned.touched = {home.folder / ryubingIndexSave};
+    }
+    planned.slot.content = {planned.slot.root / committed, planned.slot.root / working};
+    return planned;
+}
+
+void makeSlot(const SaveHome& home, const NewSlot& planned) {
+    const SaveSlot& slot = planned.slot;
+    fs::create_directories(slot.root);
+    if (home.layout == roms::SaveLayout::YuzuNand) {
+        return;
+    }
+    const std::uint64_t title = titleNumber(home.titleId).value_or(0);
+    const std::string extra = extraDataOf(home, title, slot.kind, slot.user);
+    for (const fs::path& folder : slot.content) {
+        fs::create_directories(folder);
+    }
+    writeFile(slot.root / extraData, extra);
+    writeFile(slot.root / extraDataCopy, extra);
+    writeFile(slot.root / saveLock, {});
+    if (kenjiLayout(home.folder)) {
+        return;
+    }
+    // Ryubing finds a save through its index entry, which names the folder by the save id.
+    std::optional<RyubingIndex> index = ryubingIndexOf(home.folder, 0);
+    const std::optional<std::uint64_t> id = titleNumber(slot.root.filename().string());
+    if (!index || !id) {
+        throw fs::filesystem_error{"Ryujinx's save index cannot be read",
+                                   home.folder / ryubingIndexSave,
+                                   std::make_error_code(std::errc::invalid_argument)};
+    }
+    ArchiveEntry entry{.key = attributeOf(title, slot.kind, slot.user),
+                       .value = std::string(indexValueSize, '\0')};
+    putLittleEndian(entry.value, 0, *id, sizeof(std::uint64_t));
+    putLittleEndian(entry.value, indexValueSpace, userSpace, 1);
+    const auto at = std::ranges::find_if(index->entries, [&entry](const ArchiveEntry& other) {
+        return !attributeBefore(other.key, entry.key);
+    });
+    if (at != index->entries.end() && at->key == entry.key) {
+        at->value = entry.value;
+    } else {
+        index->entries.insert(at, entry);
+    }
+    std::string last(sizeof(std::uint64_t), '\0');
+    putLittleEndian(last, 0, *id, sizeof(std::uint64_t));
+    for (const std::string_view side : {committed, working}) {
+        const fs::path folder = home.folder / ryubingIndexSave / side;
+        writeFile(folder / ryubingIndex, archiveBytes(index->entries));
+        writeFile(folder / ryubingLastId, last);
+    }
 }
 
 } // namespace opensu::library::saves

@@ -53,6 +53,18 @@ enum class RomsetFit : std::uint8_t {
     Pending,
 };
 
+/// What a Switch game's control.nacp says of its saves: their owner and each kind's sizes, which
+/// an emulator's new save of it is made with.
+struct SwitchSaveData {
+    std::uint64_t owner{0};
+    std::uint64_t accountSize{0};
+    std::uint64_t accountJournal{0};
+    std::uint64_t deviceSize{0};
+    std::uint64_t deviceJournal{0};
+
+    bool operator==(const SwitchSaveData&) const = default;
+};
+
 /// One emulator that can run a ROM's system, installed here or not.
 struct EmulatorOption {
     std::string name;
@@ -69,6 +81,11 @@ struct EmulatorOption {
     /// What the set lacks for this core ("lacks 2 of 16 files: a.bin, b.bin"); empty unless
     /// `romset` is `Mismatch`.
     std::string romsetGap;
+    /// What its running process's command line holds: the program or AppImage it starts from, or
+    /// its Flatpak's app id; empty when it is not installed.
+    std::string processHint;
+    /// Whether it is installed as its Flatpak, which keeps its folders under `~/.var/app`.
+    bool flatpak{false};
 };
 
 /// One launchable entry.
@@ -86,6 +103,8 @@ struct Game {
     /// The id a ROM's file gives itself (`DumpInfo::titleId`): a Switch game's title id; empty
     /// when it gives none.
     std::string titleId;
+    /// A Switch game's own save sizes (`DumpInfo::saveData`); nothing for another game.
+    std::optional<SwitchSaveData> switchSaveData;
 
     /// Whether the title can be launched now.
     bool installed{false};

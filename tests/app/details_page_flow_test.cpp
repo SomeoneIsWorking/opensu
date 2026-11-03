@@ -31,9 +31,17 @@ library::Game rom(const std::string& id) {
     game.installed = true;
     game.emulatorOptions = {
         library::EmulatorOption{
-            "Eden", true, library::LaunchSpec{"eden", {}}, "eden", false, {}, {}, {}},
-        library::EmulatorOption{
-            "Ryujinx", true, library::LaunchSpec{"ryujinx", {}}, "ryujinx", false, {}, {}, {}}};
+            "Eden", true, library::LaunchSpec{"eden", {}}, "eden", false, {}, {}, {}, {}, false},
+        library::EmulatorOption{"Ryujinx",
+                                true,
+                                library::LaunchSpec{"ryujinx", {}},
+                                "ryujinx",
+                                false,
+                                {},
+                                {},
+                                {},
+                                {},
+                                false}};
     game.emulator = "Eden";
     return game;
 }
@@ -145,6 +153,9 @@ struct Rig {
                          [this](const library::Game& opened) {
                              calls.push_back("match " + opened.id);
                          },
+                         [this](const library::Game& read) {
+                             calls.push_back("read " + read.id);
+                         },
                          [this](const library::Game&) {
                              return savesOffer;
                          },
@@ -153,9 +164,13 @@ struct Rig {
                          }}} {
     }
 
+    /// Opens the page; the saves read it asks for is checked by `copySavesOpens`.
     void open() {
         controller.open();
         ui.frame(1.0);
+        std::erase_if(calls, [](const std::string& call) {
+            return call.starts_with("read ");
+        });
     }
     /// Each action as a press, the stack settled after it.
     void press(std::initializer_list<Action> actions) {
@@ -341,11 +356,14 @@ void coverSpinnerFollowsTheGame(const fs::path& dir) {
     expect(!rig.controller.artDownloading(), "a closed page waits for nothing");
 }
 
-void copySavesOpensWhileTwoKeepSaves(const fs::path& dir) {
+void copySavesOpens(const fs::path& dir) {
     Rig rig{dir};
-    rig.open();
+    rig.controller.open();
+    expect(rig.calls == std::vector<std::string>{"read rom:/r/Kirby.nsp"},
+           "opening the page reads the game's saves again");
+    rig.calls.clear();
     expect(ui::actionOf(*rig.controller.details(), ui::detailsSavesId) == nullptr,
-           "no Copy saves row while fewer than two emulators keep a save");
+           "no Copy saves row while the read offers no copy");
     rig.savesOffer = "Eden, Ryujinx";
     rig.controller.refresh();
     const ui::SettingsRow& row = rig.row(ui::detailsSavesId);
@@ -400,7 +418,7 @@ int main() try {
     backClosesWithoutActing(dir);
     refreshFollowsTheGame(dir);
     coverSpinnerFollowsTheGame(dir);
-    copySavesOpensWhileTwoKeepSaves(dir);
+    copySavesOpens(dir);
     uninstallAsksFirst(dir);
     updateStartsWithOnePress(dir);
     winePrefixIsChosenPerGame(dir / "wine");

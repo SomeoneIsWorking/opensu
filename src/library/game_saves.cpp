@@ -110,16 +110,16 @@ std::optional<SaveKey> keyOf(const Game& game) {
     return SaveKey{.system = game.sourceId, .game = game.file.stem().string()};
 }
 
-std::vector<SaveSlot> storedSlots(const roms::SaveStore& store, const fs::path& config,
-                                  const SaveKey& key) {
-    std::vector<SaveSlot> slots;
-    if (key.system == switchSystem) {
-        slots = store.layout == roms::SaveLayout::YuzuNand
-                    ? yuzuSlots(store.folder, config, key.game)
-                    : ryujinxSlots(store.folder, config, key.game);
-    }
+std::vector<SaveSlot> storedSlots(const SaveHome& home) {
+    std::vector<SaveSlot> slots = home.layout == roms::SaveLayout::YuzuNand
+                                      ? yuzuSlots(home.folder, home.config, home.titleId)
+                                      : ryujinxSlots(home.folder, home.config, home.titleId);
     std::ranges::for_each(slots, measure);
     return slots;
+}
+
+bool copyable(const std::vector<EmulatorSaves>& saves) {
+    return saves.size() >= 2 && std::ranges::any_of(saves, &EmulatorSaves::holdsFiles);
 }
 
 std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog& catalog,
@@ -135,7 +135,11 @@ std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog
         if (entry == nullptr) {
             continue;
         }
-        EmulatorSaves saves{.emulatorId = entry->id, .emulatorName = entry->name, .slots = {}};
+        EmulatorSaves saves{.emulatorId = entry->id,
+                            .emulatorName = entry->name,
+                            .slots = {},
+                            .home = std::nullopt,
+                            .processHint = {}};
         if (entry->builtIn()) {
             if (runnerListed) {
                 continue;
@@ -143,14 +147,28 @@ std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog
             runnerListed = true;
             saves = EmulatorSaves{.emulatorId = std::string{runnerSavesId},
                                   .emulatorName = std::string{runnerName},
-                                  .slots = runnerSlots(runnerSaves, game)};
+                                  .slots = runnerSlots(runnerSaves, game),
+                                  .home = std::nullopt,
+                                  .processHint = {}};
             std::ranges::for_each(saves.slots, measure);
-        } else if (entry->saves) {
-            saves.slots = storedSlots(*entry->saves, entry->config, *key);
+            if (!saves.slots.empty()) {
+                found.push_back(std::move(saves));
+            }
+            continue;
         }
-        if (!saves.slots.empty()) {
-            found.push_back(std::move(saves));
+        if (!entry->saves || key->system != switchSystem) {
+            continue;
         }
+        const bool flatpak = option.flatpak && !entry->saves->flatpakFolder.empty();
+        saves.home =
+            SaveHome{.layout = entry->saves->layout,
+                     .folder = flatpak ? entry->saves->flatpakFolder : entry->saves->folder,
+                     .config = flatpak ? entry->flatpakConfig : entry->config,
+                     .titleId = key->game,
+                     .saveData = game.switchSaveData};
+        saves.processHint = option.processHint;
+        saves.slots = storedSlots(*saves.home);
+        found.push_back(std::move(saves));
     }
     return found;
 }

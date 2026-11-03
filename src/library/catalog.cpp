@@ -28,12 +28,13 @@ Catalog makeCatalog(const config::Config& config, bool hidden,
     if (romRoots.empty()) {
         romRoots = roms::discoverRoots(config.home, roms::standardMountDirs(config.home));
     }
-    catalog.add(std::make_unique<roms::Provider>(
-        std::move(romRoots),
-        roms::EmulatorSetup::standard(config, hidden, stores.standaloneEmulators),
-        roms::NameDb::under(config.cacheDir), &romsets,
-        roms::SwitchInfo{roms::SwitchInfo::edenKeyDirs(config.xdgDataHome, config.home),
-                         config.cacheDir / "artwork" / "switch"}));
+    roms::EmulatorSetup emulators =
+        roms::EmulatorSetup::standard(config, hidden, stores.standaloneEmulators);
+    roms::SwitchInfo switchInfo{roms::SwitchInfo::keyDirsOf(emulators.catalog),
+                                config.cacheDir / "artwork" / "switch"};
+    catalog.add(std::make_unique<roms::Provider>(std::move(romRoots), std::move(emulators),
+                                                 roms::NameDb::under(config.cacheDir), &romsets,
+                                                 std::move(switchInfo)));
     catalog.add(std::make_unique<own::Provider>(own::Records{ownGames},
                                                 lutris::dataDir(config.xdgDataHome)));
     return catalog;

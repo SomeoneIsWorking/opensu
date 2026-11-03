@@ -179,6 +179,8 @@ struct Rig {
                                       [](const library::Game&) {
                                       },
                                       [](const library::Game&) {
+                                      },
+                                      [](const library::Game&) {
                                           return std::string{};
                                       },
                                       [](const library::Game&) {

@@ -58,8 +58,9 @@ Game kirby(bool edenInstalled) {
     game.title = "Kirby";
     game.installed = true;
     game.emulatorOptions = {
-        EmulatorOption{"Eden", edenInstalled, LaunchSpec{"eden", {}}, "eden", false, {}, {}, {}},
-        EmulatorOption{"Ryujinx", false, {}, "ryujinx", false, {}, {}, {}}};
+        EmulatorOption{
+            "Eden", edenInstalled, LaunchSpec{"eden", {}}, "eden", false, {}, {}, {}, {}, false},
+        EmulatorOption{"Ryujinx", false, {}, "ryujinx", false, {}, {}, {}, {}, false}};
     game.emulator = "Eden";
     return game;
 }
@@ -169,7 +170,9 @@ void arcadeRomset() {
                                            true,
                                            {},
                                            opensu::library::RomsetFit::Mismatch,
-                                           "lacks 1 of 16 files: avsp.key"},
+                                           "lacks 1 of 16 files: avsp.key",
+                                           {},
+                                           false},
                             EmulatorOption{"MAME 2010",
                                            false,
                                            {},
@@ -177,7 +180,9 @@ void arcadeRomset() {
                                            true,
                                            {},
                                            opensu::library::RomsetFit::Mismatch,
-                                           "lacks 2 of 15 files: a, b"}};
+                                           "lacks 2 of 15 files: a, b",
+                                           {},
+                                           false}};
     avsp.romset = "No arcade core matches this romset";
     avsp.romsetNearest = "MAME 2010 lacks 2 of 15 files: a, b";
     avsp.unavailable = avsp.romset;

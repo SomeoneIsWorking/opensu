@@ -110,6 +110,7 @@ void DetailsController::open() {
     }
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
+    hooks_.readSaves(*game);
     details_ = detailsOf(*game);
     navigator_.push(std::make_unique<DetailsScreen>(*this, chrome_, images_));
 }

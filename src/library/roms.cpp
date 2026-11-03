@@ -170,6 +170,7 @@ std::vector<Game> Provider::list() {
                 if (dump) {
                     game.artwork = dump->icon;
                     game.titleId = dump->titleId;
+                    game.switchSaveData = dump->saveData;
                 }
                 game.file = *file;
                 // The file itself is what makes the entry playable.

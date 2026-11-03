@@ -1123,6 +1123,7 @@ int ShellApp::run() {
         giveaways_.service();
         ownGames_.service();
         gameMatch_.service();
+        saveCopy_.service();
         if (window_->screenKeyboardHidden()) {
             keyboardPad_.close();
         }

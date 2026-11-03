@@ -7,6 +7,7 @@
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <string_view>
 #include <system_error>
 #include <utility>
@@ -37,6 +38,12 @@ constexpr std::uint64_t largestIcon = 0x80000;
 /// A base title's id ends in 000; its update's in 800, add-ons count up from 001.
 constexpr std::uint64_t titleIdVariant = 0xFFF;
 constexpr int titleIdDigits = 16;
+/// control.nacp's save data owner, then the account and device saves' sizes and journal sizes.
+constexpr std::size_t nacpSaveOwner = 0x3078;
+constexpr std::size_t nacpAccountSize = 0x3080;
+constexpr std::size_t nacpAccountJournal = 0x3088;
+constexpr std::size_t nacpDeviceSize = 0x3090;
+constexpr std::size_t nacpDeviceJournal = 0x3098;
 
 std::string_view trimmed(std::string_view text) {
     while (!text.empty() && (text.front() == ' ' || text.front() == '\n')) {
@@ -46,6 +53,38 @@ std::string_view trimmed(std::string_view text) {
         text.remove_suffix(1);
     }
     return text;
+}
+
+std::uint64_t nacpNumber(std::string_view nacp, std::size_t at) {
+    std::uint64_t value = 0;
+    for (std::size_t i = sizeof(value); i > 0; --i) {
+        value = (value << 8U) | static_cast<unsigned char>(nacp[at + i - 1]);
+    }
+    return value;
+}
+
+SwitchSaveData nacpSaveData(std::string_view nacp) {
+    return SwitchSaveData{.owner = nacpNumber(nacp, nacpSaveOwner),
+                          .accountSize = nacpNumber(nacp, nacpAccountSize),
+                          .accountJournal = nacpNumber(nacp, nacpAccountJournal),
+                          .deviceSize = nacpNumber(nacp, nacpDeviceSize),
+                          .deviceJournal = nacpNumber(nacp, nacpDeviceJournal)};
+}
+
+/// The cache's `.saves` line: the owner and the four sizes, in decimal.
+std::string saveDataText(const SwitchSaveData& data) {
+    return std::format("{} {} {} {} {}", data.owner, data.accountSize, data.accountJournal,
+                       data.deviceSize, data.deviceJournal);
+}
+
+std::optional<SwitchSaveData> saveDataOf(const std::string& text) {
+    SwitchSaveData data;
+    std::istringstream in{text};
+    if (!(in >> data.owner >> data.accountSize >> data.accountJournal >> data.deviceSize >>
+          data.deviceJournal)) {
+        return std::nullopt;
+    }
+    return data;
 }
 
 /// The American English title, else the first a language gives.
@@ -152,8 +191,18 @@ SwitchInfo::SwitchInfo(std::vector<fs::path> keyDirs, fs::path cacheDir)
     : keyDirs_{std::move(keyDirs)}, cacheDir_{std::move(cacheDir)} {
 }
 
-std::vector<fs::path> SwitchInfo::edenKeyDirs(const fs::path& xdgDataHome, const fs::path& home) {
-    return {xdgDataHome / "eden" / "keys", home / ".var/app/dev.eden_emu.eden/data/eden/keys"};
+std::vector<fs::path> SwitchInfo::keyDirsOf(const EmulatorCatalog& catalog) {
+    std::vector<fs::path> dirs;
+    for (const EmulatorEntry& entry : catalog.entries()) {
+        if (!entry.saves || entry.saves->layout != SaveLayout::YuzuNand) {
+            continue;
+        }
+        dirs.push_back(entry.saves->folder.parent_path() / "keys");
+        if (!entry.saves->flatpakFolder.empty()) {
+            dirs.push_back(entry.saves->flatpakFolder.parent_path() / "keys");
+        }
+    }
+    return dirs;
 }
 
 void SwitchInfo::begin() {
@@ -196,8 +245,11 @@ std::optional<DumpInfo> SwitchInfo::read(const fs::path& file) {
     std::error_code ec;
     const fs::path title = withSuffix(stem, ".title");
     const fs::path id = withSuffix(stem, ".id");
-    if (fs::is_regular_file(title, ec) && fs::is_regular_file(id, ec)) {
-        DumpInfo info{.title = readText(title), .icon = {}, .titleId = readText(id)};
+    const fs::path saves = withSuffix(stem, ".saves");
+    if (std::optional<SwitchSaveData> saveData = saveDataOf(readText(saves));
+        saveData && fs::is_regular_file(title, ec) && fs::is_regular_file(id, ec)) {
+        DumpInfo info{
+            .title = readText(title), .icon = {}, .titleId = readText(id), .saveData = saveData};
         if (fs::path icon = withSuffix(stem, ".jpg"); fs::is_regular_file(icon, ec)) {
             info.icon = std::move(icon);
         }
@@ -244,10 +296,17 @@ std::optional<DumpInfo> SwitchInfo::extract(const fs::path& file, const fs::path
         nacp == files.end() ? std::nullopt : control->readRomFs(*nacp, nacpSize);
     DumpInfo info{.title = nacpBytes ? nacpTitle(*nacpBytes) : std::string{},
                   .icon = {},
-                  .titleId = titleIdOf(control->programId())};
+                  .titleId = titleIdOf(control->programId()),
+                  .saveData = nacpBytes && nacpBytes->size() >= nacpSize
+                                  ? std::optional{nacpSaveData(*nacpBytes)}
+                                  : std::nullopt};
     if (info.title.empty()) {
         error =
             nacp == files.end() ? "Control NCA has no control.nacp" : "control.nacp names no title";
+        return std::nullopt;
+    }
+    if (!info.saveData) {
+        error = "control.nacp is shorter than its save sizes";
         return std::nullopt;
     }
     if (const RomFsFile* icon = iconOf(files); icon != nullptr) {
@@ -262,7 +321,11 @@ std::optional<DumpInfo> SwitchInfo::extract(const fs::path& file, const fs::path
             info.icon = std::move(path);
         }
     }
-    for (const auto& [suffix, text] : {std::pair{".id", &info.titleId}, {".title", &info.title}}) {
+    const std::string saves = saveDataText(*info.saveData);
+    for (const auto& [suffix, text] :
+         {std::pair<const char*, const std::string*>{".id", &info.titleId},
+          {".saves", &saves},
+          {".title", &info.title}}) {
         std::string writeError;
         if (!fileio::writeWhole(withSuffix(stem, suffix), *text, writeError)) {
             lucent::warn("switch", "{}", writeError);

@@ -463,9 +463,10 @@ Game arcadeGame() {
     game.source = Source::Rom;
     game.sourceId = "arcade";
     game.emulatorOptions = {
-        EmulatorOption{"FinalBurn Neo", true, LaunchSpec{"fbneo", {}}, "fbneo", true, {}, {}, {}},
-        EmulatorOption{"MAME 2010", false, {}, "mame2010", true, {}, {}, {}},
-        EmulatorOption{"MAME", true, LaunchSpec{"mame", {}}, "mame", true, {}, {}, {}}};
+        EmulatorOption{
+            "FinalBurn Neo", true, LaunchSpec{"fbneo", {}}, "fbneo", true, {}, {}, {}, {}, false},
+        EmulatorOption{"MAME 2010", false, {}, "mame2010", true, {}, {}, {}, {}, false},
+        EmulatorOption{"MAME", true, LaunchSpec{"mame", {}}, "mame", true, {}, {}, {}, {}, false}};
     game.emulator = "FinalBurn Neo";
     game.launch = LaunchSpec{"fbneo", {}};
     return game;

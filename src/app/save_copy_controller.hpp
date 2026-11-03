@@ -1,14 +1,22 @@
-// save_copy_controller — "Copy saves" over a game's details page: the installed emulators that keep
-// a save of the game (`library::saves::savesOf`), the one to copy from and the one to copy to,
-// each with its newest change and size, the copy with the target's saves backed up first
-// (`SaveCopier`) and its undo. The details page offers it while two or more keep a save.
+// save_copy_controller — "Copy saves" over a game's details page: the installed emulators that
+// keep saves (`library::saves::savesOf`), the one to copy from (one holding a save of the game)
+// and the one to copy to (any other, with a save of the game or none yet), each with its newest
+// change and size, the copy with the target's saves backed up first (`SaveCopier`) and its undo.
+// Every read, copy and undo runs on the worker, one at a time, refused while either emulator is
+// running (`launch::ProcessTree`); the card's row shows how far a copy or undo is. The details
+// page offers it once a read finds a save to copy and another emulator to take it.
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <initializer_list>
+#include <map>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "gpu2d/ui/navigator.hpp"
@@ -29,7 +37,7 @@ class SaveCopyController final : public ui::RowActions {
     struct Hooks {
         /// Tells the player something; `error` marks a refusal.
         std::function<void(const std::string& text, bool error)> say;
-        /// A copy or an undo changed the game's saves.
+        /// A read, a copy or an undo changed what the details page offers.
         std::function<void()> changed;
     };
 
@@ -47,21 +55,32 @@ class SaveCopyController final : public ui::RowActions {
           runnerSaves_{std::move(places.runnerSaves)}, copier_{std::move(places.stateDir)},
           hooks_{std::move(hooks)} {
     }
+    SaveCopyController(const SaveCopyController&) = delete;
+    SaveCopyController& operator=(const SaveCopyController&) = delete;
+    SaveCopyController(SaveCopyController&&) = delete;
+    SaveCopyController& operator=(SaveCopyController&&) = delete;
+    ~SaveCopyController() override = default;
 
-    /// The emulators keeping a save of `game`, as the details page's row reads them
-    /// ("Eden, Ryujinx"); empty while fewer than two do.
+    /// Reads `game`'s saves on the worker, for the details page's row; nothing while it is busy.
+    void read(const library::Game& game);
+    /// The emulators keeping saves of `game` as the last read found them ("Eden, Ryujinx"); empty
+    /// while it reads, or when there is no save to copy or no emulator to take it.
     [[nodiscard]] std::string offer(const library::Game& game) const;
 
-    /// Opens over the details page for `game`; nothing while fewer than two emulators keep a save.
+    /// Opens over the details page for `game`, with what the last read found; nothing when it
+    /// offers no copy.
     void open(const library::Game& game);
     void close();
     [[nodiscard]] bool isOpen() const;
+    /// Takes what the worker finished. Main loop only.
+    void service();
 
     /// The open card's game title; empty while it is closed.
     [[nodiscard]] std::string gameTitle() const {
         return opened_ ? opened_->game.title : std::string{};
     }
-    /// The card's rows: copy from, copy to, Copy saves, Undo copy while a backup is there, Close.
+    /// The card's rows: copy from, copy to, Copy saves (or how far it is), Undo copy while a backup
+    /// is there, Close.
     [[nodiscard]] std::vector<ui::SettingsRow> rows() const;
 
     void run(const std::string& id, int step) override;
@@ -72,16 +91,37 @@ class SaveCopyController final : public ui::RowActions {
         library::Game game;
         library::saves::SaveKey key;
     };
+    /// What a read found: each emulator's saves and its newest backup.
+    struct Found {
+        std::string gameId;
+        std::vector<library::saves::EmulatorSaves> saves;
+        std::map<std::string, library::saves::SaveBackup, std::less<>> backups;
+    };
+    /// What the worker finished: a read, after a copy or an undo with what to tell the player.
+    struct Done {
+        Found found;
+        std::string said;
+        bool error{false};
+    };
+    enum class Work : std::uint8_t { None, Reading, Copying, Undoing };
 
     [[nodiscard]] const gpu2d::ui::Screen* card() const;
-    [[nodiscard]] std::vector<library::saves::EmulatorSaves>
-    savesOf(const library::Game& game) const;
-    /// Reads `game`'s saves again, keeping the source and target by emulator.
-    void reread(const library::Game& game);
+    /// Runs `job` on the worker; nothing while it is busy.
+    void start(Work work, std::function<Done()> job);
+    /// What a read of `game`'s saves through `catalog` finds. Worker only.
+    [[nodiscard]] Found find(const library::Game& game, const library::saves::SaveKey& key,
+                             const library::roms::EmulatorCatalog& catalog) const;
+    /// The places that can be copied from: those holding a save.
+    [[nodiscard]] std::vector<std::size_t> sources() const;
     /// The places other than the source, in order.
     [[nodiscard]] std::vector<std::size_t> targets() const;
+    /// Points the source and target at `source` and `target` where they still are.
+    void place(const std::string& source, const std::string& target);
     void copy(const Opened& opened);
     void undo(const Opened& opened);
+    /// "Close Ryujinx first: it is running"; empty when neither of `saves` is running.
+    [[nodiscard]] static std::string
+    runningRefusal(std::initializer_list<const library::saves::EmulatorSaves*> saves);
 
     gpu2d::ui::Navigator& navigator_;
     const ui::Chrome& chrome_;
@@ -91,9 +131,19 @@ class SaveCopyController final : public ui::RowActions {
     library::saves::SaveCopier copier_;
     Hooks hooks_;
     std::optional<Opened> opened_;
-    std::vector<library::saves::EmulatorSaves> saves_;
+    /// What the last read found; the card and the details row read it.
+    std::optional<Found> found_;
+    /// The game being read for the details row.
+    std::string reading_;
     std::size_t from_{0};
     std::size_t to_{1};
+    Work work_{Work::None};
+
+    library::saves::CopyProgress progress_;
+    std::mutex mutex_;
+    std::optional<Done> done_;
+    /// Last, so it stops before anything it writes is destroyed.
+    std::jthread worker_;
 };
 
 } // namespace opensu::app

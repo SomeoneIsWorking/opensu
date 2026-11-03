@@ -58,6 +58,8 @@ class DetailsController final : public ui::RowActions {
         std::function<bool(const std::string& id)> artDownloading;
         /// Opens Match a different game for a game the player added.
         std::function<void(const library::Game& game)> matchGame;
+        /// Reads `game`'s saves again off the frame, for the Copy saves row; `refresh` shows it.
+        std::function<void(const library::Game& game)> readSaves;
         /// The emulators keeping a save of `game`, as Copy saves reads them; empty for no row.
         std::function<std::string(const library::Game& game)> copySavesOffer;
         /// Opens Copy saves for `game` over the page.

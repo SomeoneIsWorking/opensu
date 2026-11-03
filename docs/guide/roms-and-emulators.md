@@ -34,16 +34,22 @@ system.
 
 ## Copying saves between emulators
 
-When two or more installed emulators keep a save of a Switch game, its details page shows Copy
-saves, naming them. It opens a card: Copy from and Copy to each show an emulator's saves with their
-newest change and size (A lists them), and Copy saves asks, then replaces the target's saves of
-that game with the source's: the current profile's save and the device save, where both keep one.
-The target's saves are backed up first under `~/.local/state/opensu/save-backups/switch/<title
+When an installed emulator keeps a save of a Switch game and another installed one could take it,
+the game's details page shows Copy saves, naming them. It opens a card: Copy from lists the
+emulators that hold a save of the game, Copy to every other one, each with its newest change and
+size, or "No save yet" (A lists them when there is more than one). Copy saves asks, then replaces
+the target's saves of that game with the source's: the current profile's save and the device save.
+A target without one gets it made where that emulator makes it, for its current profile. The
+target's saves are backed up first under `~/.local/state/opensu/save-backups/switch/<title
 id>/<emulator>/<time>/`, and Undo copy on the same card puts the newest backup back exactly as it
-was. Eden, Citron and sudachi are read from `~/.local/share/<name>/nand`, Ryujinx from
-`~/.config/Ryujinx/bis`; a game is matched by the title id in its own file, so it needs the Switch
-keys above. An emulator needs a save of the game to be copied to: start the game in it once.
-Close the emulators before copying.
+was and removes what the copy made. The row shows how far a copy or an undo is. Nothing is copied
+while either emulator is running: close it first, as the message says.
+
+Eden, Citron and sudachi are read from `~/.local/share/<name>/nand` (Eden's newer
+`user/save/account` folders too), Ryujinx from `~/.config/Ryujinx/bis`; an emulator installed as a
+Flatpak from the same folders under `~/.var/app/<app id>/`. A game is matched by the title id in
+its own file, so it needs the Switch keys above. An emulator that has no user profile yet, or a
+Ryujinx that has never made its save index, is started once first.
 
 ## Emulator downloads
 

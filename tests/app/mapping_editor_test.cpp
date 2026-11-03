@@ -96,7 +96,8 @@ library::Game romGame(std::string id) {
     game.sourceId = "gba";
     game.title = "Kirby";
     game.emulator = "mGBA";
-    game.emulatorOptions = {library::EmulatorOption{"mGBA", true, {}, "mgba", false, {}, {}, {}}};
+    game.emulatorOptions = {
+        library::EmulatorOption{"mGBA", true, {}, "mgba", false, {}, {}, {}, {}, false}};
     return game;
 }
 

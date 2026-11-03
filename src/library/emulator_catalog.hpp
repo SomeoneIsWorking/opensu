@@ -68,6 +68,9 @@ struct SaveStore {
     SaveLayout layout{SaveLayout::YuzuNand};
     /// The NAND (yuzu's line) or `bis` (Ryujinx's line) folder.
     std::filesystem::path folder;
+    /// The same folder for its Flatpak, under `~/.var/app/<app id>` where the sandbox's XDG
+    /// folders put it (`flatpakFolder`); empty for an emulator without one.
+    std::filesystem::path flatpakFolder;
 };
 
 /// What the catalog appends to a built-in emulator's name.
@@ -86,6 +89,8 @@ struct EmulatorEntry {
     std::vector<std::string> systems;
     /// Where the emulator keeps its own settings; empty when not known.
     std::filesystem::path config;
+    /// Where its Flatpak keeps them; empty for an emulator without one.
+    std::filesystem::path flatpakConfig;
     /// In the order they are looked for. A downloaded AppImage runs with the first one's words.
     /// None for a built-in emulator.
     std::vector<EmulatorLauncher> launchers;
@@ -145,6 +150,13 @@ class EmulatorCatalog {
   private:
     std::vector<EmulatorEntry> entries_;
 };
+
+/// Where the Flatpak `appId` keeps what a host install keeps at `path`: `~/.config` and
+/// `~/.local/share` of `home` are the sandbox's `~/.var/app/<app id>/config` and `data`. Empty for
+/// a path in neither.
+[[nodiscard]] std::filesystem::path flatpakFolder(const std::filesystem::path& path,
+                                                  const std::filesystem::path& home,
+                                                  std::string_view appId);
 
 /// The shipped catalog's file name in the assets folder.
 inline constexpr std::string_view catalogFile = "emulators.json";

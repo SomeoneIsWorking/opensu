@@ -339,6 +339,8 @@ std::vector<EmulatorOption> Emulators::options(std::string_view system, const fs
             option.installed = install->problem.empty();
             if (option.installed) {
                 option.launch = specOf(install->command, system, rom);
+                option.processHint = install->where;
+                option.flatpak = install->source == InstallSource::Flatpak;
             }
         }
         options.push_back(std::move(option));

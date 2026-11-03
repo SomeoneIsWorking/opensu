@@ -1,8 +1,9 @@
 // game_saves — the one owner of "this game's saves": for a ROM, each installed emulator of its
-// system and the save slots it keeps for the game, found by console and game identity (a Switch
-// title id, the ROM's name for the built-in runner) rather than by path, each with its size and
-// newest change. Standalone emulators' save folders come from the catalog (`SaveStore`), the
-// built-in runner's files from its own path owner (`retro/save_paths`).
+// system that keeps saves, the save slots it keeps for the game, found by console and game
+// identity (a Switch title id, the ROM's name for the built-in runner) rather than by path, each
+// with its size and newest change, and how it would make a slot it does not have yet.
+// Standalone emulators' save folders come from the catalog (`SaveStore`, its Flatpak's when it is
+// installed as one), the built-in runner's files from its own path owner (`retro/save_paths`).
 #pragma once
 
 #include <chrono>
@@ -53,14 +54,35 @@ struct SaveSlot {
     std::optional<std::chrono::system_clock::time_point> modified;
 };
 
+/// Where a standalone emulator keeps a game's saves, which a slot it lacks is made in.
+struct SaveHome {
+    roms::SaveLayout layout{roms::SaveLayout::YuzuNand};
+    /// Its NAND or `bis` folder, its Flatpak's when it is installed as one.
+    std::filesystem::path folder;
+    /// Its settings folder, where its current profile is chosen.
+    std::filesystem::path config;
+    std::string titleId;
+    /// What the game's control.nacp says of its saves; nothing when it is not known.
+    std::optional<SwitchSaveData> saveData;
+};
+
 /// One emulator's saves of the game.
 struct EmulatorSaves {
     std::string emulatorId;
     std::string emulatorName;
     std::vector<SaveSlot> slots;
+    /// Where a slot it lacks is made; nothing for the built-in runner.
+    std::optional<SaveHome> home;
+    /// What its running process's command line holds (`EmulatorOption::processHint`); empty for
+    /// the built-in runner.
+    std::string processHint;
 
     [[nodiscard]] std::uintmax_t bytes() const;
     [[nodiscard]] std::optional<std::chrono::system_clock::time_point> modified() const;
+    /// Whether a slot holds a file: only then is it a copy's source.
+    [[nodiscard]] bool holdsFiles() const {
+        return modified().has_value();
+    }
     /// The slot of `kind` a copy reads or writes: the current profile's, else the only one; null
     /// when there is none or several and none is current.
     [[nodiscard]] const SaveSlot* slotFor(SlotKind kind) const;
@@ -73,16 +95,18 @@ inline constexpr std::string_view runnerSavesId = "built-in";
 /// title id could not be read.
 [[nodiscard]] std::optional<SaveKey> keyOf(const Game& game);
 
-/// The slots `store` keeps for `key`, measured; `config` is the emulator's settings folder, where
-/// its current profile is chosen.
-[[nodiscard]] std::vector<SaveSlot>
-storedSlots(const roms::SaveStore& store, const std::filesystem::path& config, const SaveKey& key);
+/// The slots `home` keeps for its title, measured.
+[[nodiscard]] std::vector<SaveSlot> storedSlots(const SaveHome& home);
 
-/// Each installed emulator of `game` that keeps a save of it, in the game's emulator order:
-/// standalone ones through their catalog `SaveStore`, the built-in runner's `.srm` and state under
-/// `runnerSaves` (`Config::savesDir`).
+/// Each installed emulator of `game` that keeps saves, in the game's emulator order, with the
+/// slots it keeps of the game, none when it has none yet: standalone ones through their catalog
+/// `SaveStore`, the built-in runner's `.srm` and state under `runnerSaves` (`Config::savesDir`),
+/// listed only when it keeps one.
 [[nodiscard]] std::vector<EmulatorSaves> savesOf(const Game& game,
                                                  const roms::EmulatorCatalog& catalog,
                                                  const std::filesystem::path& runnerSaves);
+
+/// Whether `saves` can be copied between: one holds files and another can take them.
+[[nodiscard]] bool copyable(const std::vector<EmulatorSaves>& saves);
 
 } // namespace opensu::library::saves

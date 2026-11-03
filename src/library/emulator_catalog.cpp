@@ -6,6 +6,7 @@
 #include <iterator>
 #include <regex>
 #include <tuple>
+#include <utility>
 
 #include <nlohmann/json.hpp>
 
@@ -215,10 +216,32 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
         entry.release = releaseOf(*release, where);
     }
     entry.saves = savesOf(object, home, where);
+    const auto flatpak =
+        std::ranges::find_if(entry.launchers, [](const EmulatorLauncher& launcher) {
+            return !launcher.flatpak.empty();
+        });
+    if (flatpak != entry.launchers.end()) {
+        entry.flatpakConfig = flatpakFolder(entry.config, home, flatpak->flatpak);
+        if (entry.saves) {
+            entry.saves->flatpakFolder = flatpakFolder(entry.saves->folder, home, flatpak->flatpak);
+        }
+    }
     return entry;
 }
 
 } // namespace
+
+fs::path flatpakFolder(const fs::path& path, const fs::path& home, std::string_view appId) {
+    const fs::path sandbox = home / ".var" / "app" / std::string{appId};
+    for (const auto& [host, inside] :
+         {std::pair{home / ".config", "config"}, std::pair{home / ".local" / "share", "data"}}) {
+        const fs::path rest = path.lexically_relative(host);
+        if (!path.empty() && !rest.empty() && *rest.begin() != "..") {
+            return sandbox / inside / rest;
+        }
+    }
+    return {};
+}
 
 std::string_view EmulatorEntry::shortName() const noexcept {
     std::string_view full{name};

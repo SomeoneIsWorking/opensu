@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 
+#include "game.hpp"
 #include "rom_systems.hpp"
 
 namespace opensu::library::roms {
@@ -18,6 +19,8 @@ struct DumpInfo {
     /// The id the game gives itself: a Switch game's title id as 16 upper-case hex digits; empty
     /// when it gives none.
     std::string titleId;
+    /// What a Switch game's control.nacp says of its saves; nothing for another game.
+    std::optional<SwitchSaveData> saveData;
 };
 
 /// The dump's own title and icon, for a game folder of a system that carries them.
