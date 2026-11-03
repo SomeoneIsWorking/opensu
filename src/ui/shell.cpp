@@ -173,6 +173,9 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     if (inGame_) {
         // Only the Guide menu and what it opens are drawn; the game shows through everywhere else.
         canvas.begin(target, clear);
+        if (standsIn_) {
+            hud_.drawGround(canvas);
+        }
         screens_.paintPages(canvas);
         // A panel over the game (a game's settings) leaves the top bar out; a page has it.
         if (navigator.pagesVisible()) {

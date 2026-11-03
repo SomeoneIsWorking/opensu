@@ -3,7 +3,9 @@
 On Linux openSU runs games inside its own pinned
 [Gamescope fork](https://github.com/SomeoneIsWorking/gamescope) ([building.md](building.md#the-gamescope-fork)).
 Started from a desktop, openSU starts that Gamescope nested in the desktop, and Steam and games run
-inside it; Alt+F4 in KDE closes the game in front instead of ending the session. With `--session`
+inside it; Alt+F4 in KDE closes the game in front instead of ending the session. From Launch until
+the game is over everything stays in openSU's window: a launcher or splash, and any gap while a game
+swaps one window for another, shows openSU's own screen, never the desktop. With `--session`
 openSU is the login session itself. Windows, macOS and Android have no Gamescope; there openSU is a
 launcher ([install.md](install.md#what-each-platform-gets)).
 

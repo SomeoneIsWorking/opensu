@@ -1070,6 +1070,9 @@ int ShellApp::run() {
         integrationSwitch_.service();
         padOwner_.lendToSteam(steamGridDbAccount_.signingIn() || offerClaim_.inSteam());
         focusFollow_.service(padOwner_.held());
+        // Between a game's windows Gamescope focuses the shell's window, which then draws its own.
+        shell_.setStandsIn(shell_.inGame() && focusFollow_.following() &&
+                           focusFollow_.holder() == display::FocusHolder::OpenSU);
         presentation_.follow(gameInFront(), launches_.running() ? &launches_.game() : nullptr);
         nightLight_.service(preferences_.values().nightLight, std::chrono::system_clock::now());
         padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),

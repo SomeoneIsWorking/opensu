@@ -161,7 +161,7 @@ on the same rule.
 | `packaging/gamescope-build/Containerfile` | The Gamescope build image: host's Fedora release plus Gamescope's build dependencies |
 | `src/session/monitor.*` | The primary monitor's size and refresh before the window opens, from SDL's display modes through X11 video |
 | `src/display/output.*` | A display's size and refresh (`Output`, `native()`), read from SDL's mode of a display (`displayOutput`): the window's display on every OS |
-| `src/session/gamescope_overlay.*` | openSU's window as Gamescope's overlay over a running game: hidden, passive (drawn, input left to the game) or interactive (`STEAM_INPUT_FOCUS`) |
+| `src/session/gamescope_overlay.*` | openSU's window over a running game: while it shows nothing, an ordinary window behind the game's, which Gamescope focuses whenever the game has no window, so the nested host window never unmaps to the desktop; Gamescope's overlay while passive (drawn, input left to the game) or interactive (`STEAM_INPUT_FOCUS`) |
 | `src/display/overlay_mode.hpp` | What openSU's window shows over a running game (`OverlayMode`), whichever window system draws it |
 | `src/session/game_keys.*` | The shortcuts that work while a game has the keyboard (Guide, volume), matched against the `Shortcuts` table from XInput2 raw keys |
 | `src/session/gamescope_windows.*` | Which processes own a window Gamescope would show (tells the handoff when a game is on screen), and the focused window's changes from the root's properties |

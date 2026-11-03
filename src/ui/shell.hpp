@@ -175,7 +175,8 @@ class Shell {
     void settle();
 
     /// Records one frame into `target` on `canvas`: the home screen, or while a game runs, only the
-    /// Guide menus and the pages they open over a transparent frame. The caller submits it.
+    /// Guide menus and the pages they open, over a transparent frame or, while the shell is what
+    /// the compositor shows instead of the game, over the ground. The caller submits it.
     void draw(Canvas& canvas, const gpu2d::Surface& target);
 
     /// Whether a game is running, which turns the home screen into the in-game overlay.
@@ -184,6 +185,10 @@ class Shell {
     }
     [[nodiscard]] bool inGame() const noexcept {
         return inGame_;
+    }
+    /// Whether the running game has no window and the compositor shows the shell in its place.
+    void setStandsIn(bool standsIn) noexcept {
+        standsIn_ = standsIn;
     }
 
     [[nodiscard]] const std::string& status() const noexcept {
@@ -274,6 +279,7 @@ class Shell {
     int width_{};
     int height_{};
     bool inGame_{false};
+    bool standsIn_{false};
 };
 
 } // namespace opensu::ui

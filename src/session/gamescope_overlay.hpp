@@ -9,6 +9,9 @@
 // for it, so CompositorSession turns the layer off for the shell.
 // A full-width overlay is painted whenever it is not transparent; without STEAM_INPUT_FOCUS the
 // game keeps the keyboard and the pointer (steamcompmgr.cpp:3340, 4632, 5247).
+// An overlay is never focused, and a nested Gamescope with no focus unmaps its host window
+// (steamcompmgr.cpp:5605, WaylandBackend.cpp:1063), so the window is the overlay only while it
+// shows something; otherwise the game's newer windows outrank it (steamcompmgr.cpp:4237).
 #pragma once
 
 #include <cstdint>
@@ -28,15 +31,18 @@ class GamescopeOverlay {
     GamescopeOverlay(const GamescopeOverlay&) = delete;
     GamescopeOverlay& operator=(const GamescopeOverlay&) = delete;
 
-    /// A game is running: the window becomes the overlay, fully transparent.
+    /// A game is running: the window stays an ordinary app, behind the game's windows.
     void enter();
-    /// Shows or hides the overlay, with the keyboard only when `Interactive`.
+    /// Shows the window over the game as the overlay, with the keyboard only when `Interactive`;
+    /// `Hidden` makes it an ordinary app again.
     void show(display::OverlayMode mode);
-    /// The game's windows are gone: the window is an ordinary app again and takes focus back.
-    /// Called only then, because Gamescope focuses the most recently mapped window.
+    /// The game's windows are gone: the window is an ordinary app and takes focus back.
     void leave();
 
   private:
+    /// No overlay properties: a focus candidate Gamescope falls back to.
+    void ordinary();
+
     struct Connection;
     std::unique_ptr<Connection> connection_;
 };

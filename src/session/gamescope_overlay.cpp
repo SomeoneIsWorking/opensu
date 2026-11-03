@@ -68,19 +68,26 @@ GamescopeOverlay::~GamescopeOverlay() {
 }
 
 void GamescopeOverlay::enter() {
-    connection_->set(connection_->opacity, {0});
-    connection_->set(connection_->overlay, {1});
-    connection_->flush();
+    ordinary();
 }
 
 void GamescopeOverlay::show(display::OverlayMode mode) {
-    connection_->set(connection_->opacity, {mode == display::OverlayMode::Hidden ? 0 : opaque});
+    if (mode == display::OverlayMode::Hidden) {
+        ordinary();
+        return;
+    }
+    connection_->set(connection_->opacity, {opaque});
+    connection_->set(connection_->overlay, {1});
     connection_->set(connection_->inputFocus,
                      {mode == display::OverlayMode::Interactive ? 1UL : 0UL});
     connection_->flush();
 }
 
 void GamescopeOverlay::leave() {
+    ordinary();
+}
+
+void GamescopeOverlay::ordinary() {
     connection_->remove(connection_->overlay);
     connection_->remove(connection_->inputFocus);
     connection_->remove(connection_->opacity);
