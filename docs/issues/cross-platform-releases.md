@@ -492,7 +492,10 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   can pick one platform (`platform` input). First green run: 41682803735 at 8344b47 (lint over
   522 translation units, 139 of 139 tests, the seven Linux-backend suites not run); the app draws
   its first-run dialog on the runner's Apple Paravirtual device through Metal, and the bundled
-  runner draws the fake core through the app's MoltenVK.
+  runner draws the fake core through the app's MoltenVK. Run 41706050004 at 88990d1 shows the
+  macOS `--help` (no Gamescope, `--session` or `OPENSU_SESSION`), `CFBundleIconFile` `openSU` with
+  `openSU.icns` in `Resources`, and the Finder-started run's log in
+  `~/Library/Logs/openSU/opensu.log`.
 - Not yet shown on a Mac: the window, pads and audio; Gatekeeper on the ad-hoc signed,
   unnotarized download; a launched game's process group, its windows and the shell raised over
   it; Steam's detection and `steam://` launches; GOG and Epic Mac installs; buildbot cores and
