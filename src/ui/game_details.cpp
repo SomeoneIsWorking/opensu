@@ -161,6 +161,8 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
     if (own) {
         facts.push_back(game.file.empty() ? detailsFact("Runs through", "Lutris")
                                           : detailsFact("File", game.file.string()));
+        facts.push_back(
+            detailsFact("Steam app", game.artworkKey.empty() ? "None matched" : game.artworkKey));
     }
     if (rom) {
         facts.push_back(
@@ -201,6 +203,7 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
         actions.push_back(action(detailsUninstallId, "Uninstall"));
     }
     if (own) {
+        actions.push_back(makePage(std::string{detailsMatchId}, "Match a different game", {}, {}));
         actions.push_back(action(detailsRenameId, "Rename"));
         if (!game.file.empty()) {
             actions.push_back(action(detailsChangeFileId, "Change file"));

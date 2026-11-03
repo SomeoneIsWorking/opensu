@@ -2,6 +2,7 @@
 // folder and file names) and the Steam store app each matches. The folder and file names are the
 // real ones of games on the maintainer's disk; the store answers are Steam's for those names.
 #include "library/game_identify.hpp"
+#include "library/game_matches.hpp"
 
 #include <cstdint>
 #include <cstdio>
@@ -215,6 +216,28 @@ void storeAnswersAreRead() {
            "punctuation is dropped from the term, which Steam's search needs");
 }
 
+void releaseYearsAreRead() {
+    namespace matches = opensu::library::matches;
+    expect(matches::releaseDateUrl("2050650") ==
+               "https://store.steampowered.com/api/appdetails?appids=2050650&filters=release_date",
+           "only the release date is asked for");
+    expect(matches::parseReleaseYear(R"({"2050650":{"success":true,"data":{"release_date":)"
+                                     R"({"coming_soon":false,"date":"23 Mar, 2023"}}}})",
+                                     "2050650") == "2023",
+           "the year of the day it came out");
+    expect(matches::parseReleaseYear(R"({"9":{"success":true,"data":{"release_date":)"
+                                     R"({"coming_soon":true,"date":"Q1 2027"}}}})",
+                                     "9") == "2027",
+           "a coming game's year");
+    expect(matches::parseReleaseYear(R"({"9":{"success":true,"data":{"release_date":)"
+                                     R"({"coming_soon":true,"date":"To be announced"}}}})",
+                                     "9")
+                   .empty() &&
+               matches::parseReleaseYear(R"({"9":{"success":false}})", "9").empty() &&
+               matches::parseReleaseYear("<html>", "9").empty(),
+           "no year, a refused app or a page that is not an answer is none");
+}
+
 } // namespace
 
 int main() try {
@@ -223,6 +246,7 @@ int main() try {
     fileNamesAreTitles();
     gamesAreIdentified(scratch.path() / "Games");
     storeAnswersAreRead();
+    releaseYearsAreRead();
     std::printf("game_identify: all checks passed\n");
     return 0;
 } catch (...) {

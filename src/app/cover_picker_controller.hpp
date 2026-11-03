@@ -1,7 +1,7 @@
 // cover_picker_controller — "Choose artwork" from the details page: lists the cover the game shows
 // now, its own when another replaces it, and SteamGridDB's covers as `artwork::CoverOffers` finds
 // them; A keeps the chosen one as the game's choice, Y opens Settings › Artwork while SteamGridDB
-// is not connected, B closes.
+// is not connected, X opens Match a different game for a game the player added, B closes.
 #pragma once
 
 #include <cstddef>
@@ -32,6 +32,8 @@ class CoverPickerController {
         std::function<void(const std::string& text, bool error)> say;
         /// Starts connecting SteamGridDB, on Settings › Artwork where the sign-in shows.
         std::function<void()> connect;
+        /// Opens Match a different game for game `id`, one the player added.
+        std::function<void(const std::string& id)> match;
     };
 
     /// What the picker offers and keeps.
@@ -81,6 +83,12 @@ class CoverPickerController {
     void choose(std::size_t index);
     /// Closes the picker and starts connecting SteamGridDB, while it is disconnected.
     void connect();
+    /// Whether the game can be matched to another (one the player added), which X starts.
+    [[nodiscard]] bool matchable() const noexcept {
+        return matchable_;
+    }
+    /// Closes the picker and opens Match a different game.
+    void match();
 
   private:
     /// What a pick stands for: the cover shown now, the game's own, or offer `index`.
@@ -108,6 +116,7 @@ class CoverPickerController {
     std::vector<Pick> picks_;
     std::vector<Entry> entries_;
     bool saving_{false};
+    bool matchable_{false};
 };
 
 } // namespace opensu::app

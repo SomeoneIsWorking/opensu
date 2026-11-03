@@ -31,7 +31,7 @@ program, not the folder".
   non-executable script runs through its `#!` interpreter; a non-executable AppImage or program says
   to `chmod +x` it. A missing file points at Change file.
 - Art: a matched Steam app's portrait from Steam's CDN (`ArtworkFetcher`, cached under
-  `artwork/own/<n>.jpg`); without one, SteamGridDB by title through `CoverFitter` when connected,
+  `artwork/own/<n>-<app>.jpg`); without one, SteamGridDB by title through `CoverFitter` when connected,
   else the placeholder; Choose artwork as for any game.
 - Imports, read only: Steam's `userdata/*/config/shortcuts.vdf` (binary KeyValues, `vdf/binary`),
   and Lutris's `pga.db` opened `immutable`; a Lutris entry runs as
@@ -39,12 +39,19 @@ program, not the folder".
   Steam app Lutris knows it as: its Steam service id, a Steam runner's `game.appid`, or
   `system.env.GAMEID` (`umu-<id>` or the bare id) in `games/<configpath>.yml`. An entry imported
   before that was read takes it from Lutris on each listing; a match the entry keeps wins.
+- Match a different game, on an own game's details and as X in Choose artwork: Steam's store
+  search for the title, dropping its last words while it finds none, or a name typed after X;
+  up to eight apps, each with its Steam portrait (else header) under the cache's
+  `artwork/match/` and its release year from `appdetails`; the current match is ticked. A keeps
+  the app as the entry's `steamAppId`, which the Steam cover (`artwork/own/<n>-<app>.jpg`), the
+  SteamGridDB lookup and the umu GAMEID follow. Only games the player added can be matched: a
+  store's game is the app it is.
 - A fitted SteamGridDB cover is kept with its lookup (`fitted/<id>.for`: Steam app and title);
   one fitted for another lookup, or kept without one, is dropped and fitted again. Cause of the
   Resident Evil 4 Remake showing the 2005 game: `lutris_games.cpp:lutrisGames` read only the name,
   so the game had no Steam app and `SteamGridDb::covers` took the first title match.
 - Details of an own game: a File fact (or "Runs through: Lutris"), no Wine prefix row and no
-  Uninstall, plus Rename, Change file and Remove from library, which asks first and says the file
+  Uninstall, plus a Steam app fact, Match a different game, Rename, Change file and Remove from library, which asks first and says the file
   stays. After a removal the focus goes to the tile now in the removed game's slot; when the last
   one goes, Your games goes with it and Library is focused on the tile now in its slot.
 

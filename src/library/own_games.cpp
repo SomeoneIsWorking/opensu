@@ -230,6 +230,17 @@ bool Records::rename(std::string_view id, const std::string& title) const {
     return true;
 }
 
+bool Records::setSteamApp(std::string_view id, const std::string& appId) const {
+    Document document = read();
+    const auto found = std::ranges::find(document.entries, id, &Entry::id);
+    if (found == document.entries.end()) {
+        return false;
+    }
+    found->steamAppId = appId;
+    write(document);
+    return true;
+}
+
 void Records::write(const Document& document) const {
     json games = json::array();
     for (const Entry& entry : document.entries) {

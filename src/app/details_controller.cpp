@@ -206,6 +206,8 @@ void DetailsController::openPage(const std::string& id) {
         hooks_.chooseArtwork(*game);
     } else if (id == ui::detailsControlsId) {
         hooks_.controls(*game);
+    } else if (id == ui::detailsMatchId) {
+        hooks_.matchGame(*game);
     }
 }
 

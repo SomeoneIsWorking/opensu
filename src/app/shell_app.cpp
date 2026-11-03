@@ -1100,6 +1100,7 @@ int ShellApp::run() {
         settingsScreen_.service();
         giveaways_.service();
         ownGames_.service();
+        gameMatch_.service();
         keyboardPad_.follow();
         syncOverlay();
         syncChrome();

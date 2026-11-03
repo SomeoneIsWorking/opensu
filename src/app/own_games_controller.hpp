@@ -2,8 +2,8 @@
 // offers a file, picked on the folder chooser and identified on a worker (`library::identify`:
 // title, platform, Steam app), which the player confirms or retitles before it is added, or the
 // Steam shortcuts and Lutris games not imported yet, listed to pick from (`ImportPicksScreen`);
-// a game's details rename it, point it at another file, or remove it from the library after
-// asking, its files left alone.
+// a game's details rename it, point it at another file, match it to another Steam app, or remove
+// it from the library after asking, its files left alone.
 #pragma once
 
 #include <filesystem>
@@ -71,6 +71,8 @@ class OwnGamesController {
     void rename(const library::Game& game);
     void changeFile(const library::Game& game);
     void remove(const library::Game& game);
+    /// Keeps Steam app `appId`, titled `title`, as what `game` is (Match a different game).
+    void match(const library::Game& game, const std::string& appId, const std::string& title);
 
   private:
     /// The entries of `found` not imported yet.

@@ -84,6 +84,9 @@ class Records {
     bool setFile(std::string_view id, const std::filesystem::path& file) const;
     /// Gives entry `id` another title; false when there is no such entry.
     bool rename(std::string_view id, const std::string& title) const;
+    /// Matches entry `id` to Steam app `appId` (Match a different game); false when there is no
+    /// such entry.
+    bool setSteamApp(std::string_view id, const std::string& appId) const;
 
   private:
     struct Document {

@@ -30,6 +30,9 @@ SteamGridDbCovers::SteamGridDbCovers(ui::Shell& shell, audio::SdlSoundPlayer& so
                                            },
                                            [this] {
                                                hooks_.connect();
+                                           },
+                                           [this](const std::string& id) {
+                                               hooks_.match(id);
                                            }}} {
 }
 

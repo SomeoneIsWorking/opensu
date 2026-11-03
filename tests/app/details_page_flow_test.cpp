@@ -139,6 +139,9 @@ struct Rig {
                          },
                          [this](const std::string& id) {
                              return id == game.id && artComing;
+                         },
+                         [this](const library::Game& opened) {
+                             calls.push_back("match " + opened.id);
                          }}} {
     }
 

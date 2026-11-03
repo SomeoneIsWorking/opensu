@@ -41,6 +41,7 @@
 #include "focus_follow.hpp"
 #include "frame_timing.hpp"
 #include "game_launch.hpp"
+#include "game_match_controller.hpp"
 #include "game_presentation.hpp"
 #include "game_screen.hpp"
 #include "game_settings.hpp"
@@ -315,6 +316,19 @@ class ShellApp final {
     FrameTiming frameTiming_;
     /// The on-screen keyboard the pad types into text fields with.
     KeyboardPad keyboardPad_{shell_.keyboard(), shell_.screens().navigator(), sounds_};
+    /// Match a different game, for the games the player added.
+    GameMatchController gameMatch_{
+        GameMatchController::Parts{shell_.screens().navigator(), shell_.screens().chrome(),
+                                   shell_.screens().images(), keyboardPad_, sounds_},
+        GameMatchController::Places{environment_.cacheDir / "artwork" / "match",
+                                    artwork::RemoteSources{}.steam},
+        GameMatchController::Hooks{
+            [this](const std::string& text, bool isError) {
+                shell_.setToast(text, isError);
+            },
+            [this](const library::Game& game, const std::string& appId, const std::string& title) {
+                ownGames_.match(game, appId, title);
+            }}};
     /// Hands the fetched artwork and the stored sounds on.
     /// Covers the player chose or SteamGridDB fitted, and "Choose artwork".
     SteamGridDbCovers covers_{
@@ -338,6 +352,11 @@ class ShellApp final {
                                  },
                                  [this](const std::string& /*id*/) {
                                      details_.refresh();
+                                 },
+                                 [this](const std::string& id) {
+                                     if (const library::Game* game = ownGame(id)) {
+                                         gameMatch_.open(*game);
+                                     }
                                  }}};
     ArtworkDelivery delivery_{
         shell_, artworkFetcher_,
@@ -552,6 +571,9 @@ class ShellApp final {
                                  },
                                  [this](const std::string& id) {
                                      return shell_.grid().artworkDownloading(id);
+                                 },
+                                 [this](const library::Game& game) {
+                                     gameMatch_.open(game);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),

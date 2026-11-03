@@ -59,6 +59,10 @@ tk::Screen::BackReply CoverPickerScreen::back(tk::ActContext& /*context*/) {
 }
 
 bool CoverPickerScreen::act(tk::Action action, tk::ActContext& /*context*/) {
+    if (action == tk::Action::Secondary && controller_.matchable()) {
+        controller_.match();
+        return true;
+    }
     if (action != tk::Action::Tertiary || !controller_.disconnected()) {
         return false;
     }
@@ -68,6 +72,9 @@ bool CoverPickerScreen::act(tk::Action action, tk::ActContext& /*context*/) {
 
 std::vector<tk::Hint> CoverPickerScreen::hints() const {
     std::vector<tk::Hint> hints{tk::Hint{{tk::Action::Back}, "Close"}};
+    if (controller_.matchable()) {
+        hints.push_back(tk::Hint{{tk::Action::Secondary}, "Match a different game"});
+    }
     if (controller_.disconnected()) {
         hints.push_back(tk::Hint{{tk::Action::Tertiary}, "Connect SteamGridDB"});
     }

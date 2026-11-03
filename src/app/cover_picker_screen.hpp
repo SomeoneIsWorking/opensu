@@ -1,7 +1,7 @@
 // cover_picker_screen — "Choose artwork" on the interface toolkit: a tall card (`ui::tallCard`)
 // over the dimmed details page, its hints at its foot, with the game's covers in a grid, each whole
 // in its cell over its label, the one shown now ticked; A keeps one, Y connects SteamGridDB while
-// it is not, B closes.
+// it is not, X opens Match a different game for a game the player added, B closes.
 #pragma once
 
 #include <memory>

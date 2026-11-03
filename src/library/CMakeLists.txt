@@ -52,7 +52,7 @@ add_library(opensu_library STATIC
     umu_launcher.cpp umu_database.cpp
     runtime_archive.cpp
     own_games.cpp
-    game_identify.cpp
+    game_identify.cpp game_matches.cpp
     steam_shortcuts.cpp
     lutris_games.cpp
 )

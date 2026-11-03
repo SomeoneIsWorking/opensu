@@ -229,12 +229,17 @@ void ownGame() {
     expect(details.badge == "Your games" && valueOf(details, "File") == game.file.string(),
            "an added game says it is the player's and which file it starts");
     expect(idsOf(details) ==
-               ids({detailsHiddenId, detailsRenameId, detailsChangeFileId, detailsRemoveId,
-                    detailsArtworkId, detailsControlsId, detailsBackId}),
-           "rename, change file and remove; no Uninstall, and no Wine prefix: it has its own");
+               ids({detailsHiddenId, detailsMatchId, detailsRenameId, detailsChangeFileId,
+                    detailsRemoveId, detailsArtworkId, detailsControlsId, detailsBackId}),
+           "match, rename, change file and remove; no Uninstall, and no Wine prefix: it has its "
+           "own");
+    expect(valueOf(details, "Steam app") == "None matched", "no Steam app is said");
 
     game.file.clear();
     const GameDetails lutris = detailsOf(game, false, now);
+    game.artworkKey = "2050650";
+    expect(valueOf(detailsOf(game, false, now), "Steam app") == "2050650",
+           "the Steam app it is matched to is said");
     expect(valueOf(lutris, "Runs through") == "Lutris" &&
                actionOf(lutris, detailsChangeFileId) == nullptr,
            "a Lutris game has no file to change");

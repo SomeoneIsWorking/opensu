@@ -27,6 +27,7 @@ void CoverPickerController::open(const library::Game& game) {
     gameId_ = game.id;
     title_ = "Choose artwork: " + game.title;
     own_ = game.artwork;
+    matchable_ = game.source == library::Source::Own;
     listing_.reset();
     saving_ = false;
     offers_.list(game);
@@ -50,6 +51,14 @@ void CoverPickerController::connect() {
     }
     close();
     hooks_.connect();
+}
+
+void CoverPickerController::match() {
+    if (!matchable_) {
+        return;
+    }
+    close();
+    hooks_.match(gameId_);
 }
 
 void CoverPickerController::choose(std::size_t index) {

@@ -185,7 +185,7 @@ game has been observed running yet.
 | S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings (presets, Custom details) and the atoms for the game in front verified with a ROM game in the headless fork and with a GOG game (Absolute Drift, 4K) in the nested (Wayland) backend on the player's own setup, every preset and Custom row, live changes and Off, Global and game layers; the DRM backend not run | partial | S013 | G004 |
 | S043 | SteamGridDB: the API key through Steam's browser or typed in, kept in the keyring or a 0600 file; covers fitted to Home's square tiles; "Choose artwork" per game (connected on the player's account, key in the keyring, fitting (games with no art included), the picker and Disconnect's dialog checked on the real library; not checked in a shown session or Normal mode; `docs/issues/steamgriddb.md`) | partial | S002, S020 | G001, G002 |
 | S044 | Giveaways: free-to-keep offers from Epic, GOG and Steam read in the background, a Library tile opening a toolkit screen with art, store, ends-in and Owned, details with Claim (store page; Steam's in Big Picture when openSU's Steam runs) (`docs/issues/giveaways.md`) | partial | S002, S007, S043 | G001 |
-| S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only, picked from a list; Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
+| S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only, picked from a list, a Lutris game as the Steam app Lutris runs it as; Match a different game, Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
 | S046 | Windows release: clang-cl build with vcpkg, Job Object launches, Win32 process table and game windows, the shell minimized under a game and raised for the Guide, Steam from the registry and `steam://`, native GOG and Epic builds, controller batteries through SDL, librashader `.dll`, per-user Inno Setup installer, `windows` CI and release jobs (`docs/issues/cross-platform-releases.md` step 2) | partial | S042 | G005 |
 | S047 | macOS release: Homebrew LLVM build with vcpkg, process-group launches, libproc process table, game windows from the window server, the shell minimized under a game and raised for the Guide, Steam from Application Support and `steam://`, GOG and Epic Mac builds, `apple/osx/arm64` cores, librashader `.dylib`, MoltenVK through portability enumeration, ad-hoc signed `openSU.app` zip, `macos` CI and release jobs (`docs/issues/cross-platform-releases.md` step 3) | partial | S042 | G005 |
 | S048 | Touch UI: tap, drag, fling and long press through gpu2d's navigator; while a finger or mouse leads, a top-bar Back and Menu button, every hint a 48 dp button, the corner prompts side by side and tappable, scroll bars; the system's Back as B (`docs/issues/cross-platform-releases.md`) | partial | S042 | G002, G005 |
@@ -1582,8 +1582,14 @@ right game; a fitted SteamGridDB cover is kept with the lookup it was found by
 (`fitted/<id>.for`) and fitted again when the lookup changes. Seen on the player's Resident Evil 4
 Remake (Lutris `GAMEID: '2050650'`): before, SteamGridDB's first title match gave the 2005 game's
 cover; now the remake's Steam portrait (hidden run, the player's files, a copy of the cache).
-SteamGridDB art for own games seen in a hidden run. Unverified: launching a Lutris or
-Steam-shortcut entry.
+SteamGridDB art for own games seen in a hidden run. Match a different game (details, and X in
+Choose artwork) lists the Steam apps Steam's store finds for the title, dropping its last words
+while it finds none ("Resident Evil 4 Remake" finds nothing, "Resident Evil 4" eight apps), or a
+typed name, each with its Steam cover and release year; A keeps the app as the entry's
+`steamAppId`, and the cover (`artwork/own/<n>-<app>.jpg`), the fitted SteamGridDB cover and the
+umu GAMEID follow it. Seen on the player's Resident Evil 4 Remake: matched to Resident Evil 4
+(2005), app 254700, its cover and fitted cover became the 2005 game's, then matched back from
+Choose artwork. Unverified: launching a Lutris or Steam-shortcut entry.
 
 ### S026 — Emulator downloads
 

@@ -28,6 +28,7 @@ inline constexpr std::string_view detailsUninstallId = "details.uninstall";
 inline constexpr std::string_view detailsRenameId = "details.rename";
 inline constexpr std::string_view detailsChangeFileId = "details.changeFile";
 inline constexpr std::string_view detailsRemoveId = "details.remove";
+inline constexpr std::string_view detailsMatchId = "details.match";
 inline constexpr std::string_view detailsArtworkId = "details.artwork";
 inline constexpr std::string_view detailsControlsId = "details.controls";
 inline constexpr std::string_view detailsBackId = "details.back";

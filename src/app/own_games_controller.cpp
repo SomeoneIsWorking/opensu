@@ -239,6 +239,15 @@ void OwnGamesController::rename(const library::Game& game) {
              });
 }
 
+void OwnGamesController::match(const library::Game& game, const std::string& appId,
+                               const std::string& title) {
+    apply(
+        [this, &game, &appId] {
+            records_.setSteamApp(game.sourceId, appId);
+        },
+        game.title + " is now matched to " + title);
+}
+
 void OwnGamesController::changeFile(const library::Game& game) {
     pickFile("Change " + game.title + "'s file",
              game.file.empty() ? places_.home : game.file.parent_path(),

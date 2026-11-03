@@ -55,6 +55,8 @@ class DetailsController final : public ui::RowActions {
         std::function<void(const library::Game& game)> remove;
         /// Whether game `id`'s cover is downloading or being fitted.
         std::function<bool(const std::string& id)> artDownloading;
+        /// Opens Match a different game for a game the player added.
+        std::function<void(const library::Game& game)> matchGame;
     };
 
     /// What the rows act on.

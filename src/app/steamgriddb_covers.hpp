@@ -41,6 +41,8 @@ class SteamGridDbCovers {
         std::function<void()> connect;
         /// Game `id`'s tile shows another cover: pages showing the game read it again.
         std::function<void(const std::string& id)> shown;
+        /// Opens Match a different game for game `id`.
+        std::function<void(const std::string& id)> match;
     };
 
     /// `store` says which games have no art and none coming.
