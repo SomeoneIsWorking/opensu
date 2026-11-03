@@ -32,6 +32,7 @@ guessed. G002 builds only on rows marked grounded.
 | Palette | grounded | `reference/iisu/home-grid.md` §4 |
 | Input routing, section cycling, grid focus rules incl. page crossing, repeat, triggers | grounded | `reference/iisu/input-sound.md` §1 |
 | Per-screen key maps for Compose screens | partial | `reference/iisu/input-sound.md` §6, not re-read against source |
+| Touch: corner prompt chips tap their button (B, A, + Start, − Select) with no touch look or glyph swap; dock icons tap; a bottom-middle tap reveals a hidden dock for 3200 ms; grid drag follows 1:1 past the slop, a paged release flips on a fling or 0.18 page (2 slops min) with a 260 ms snap, flow flings; long press is the system timeout; a scrim tap dismisses; system Back is B; no on-page back arrows, the one glass icon button is 52 dp | grounded | jadx `jj2.b` (chips), `g23` (dock reveal), `pb0` (grid drag), `xe4.i` (icon button); `InputMode {Controller, Touch}` has no setter found. openSU adds a top-bar Back and Menu button and 48 dp chips shown while touch was the last input, which iiSU has not |
 | Haptics | grounded | `reference/iisu/input-sound.md` §2 |
 | Sound effects and domino cue | grounded; effects played (`audio::`), Domino cues not (openSU has no tabs) | `reference/iisu/input-sound.md` §3; home grid moves play `Navigation.wav` |
 | Music presets, loop windows, fades | grounded | `reference/iisu/input-sound.md` §4 |
