@@ -440,14 +440,14 @@ void optionsChangeAndKeep(const fs::path& root) {
            "Right moves to the next card");
     press({Action::Down});
     expect(ui.navigator.focused() == app::optionIconSizeId, "Down leaves the cards for the rows");
-    press({Action::Right, Action::Right});
+    press({Action::Accept, Action::Right, Action::Right});
     expect(rig.preferences.values().iconSize == 11 && applied == 2 &&
                settings::Store{file}.load().iconSize == 11,
            "Right grows the icons, kept at once");
     picker.setLevel(std::string{app::optionIconSizeId}, 99);
     expect(rig.preferences.values().iconSize == settings::maxIconSize, "the slider clamps");
-    press({Action::Back});
-    expect(!picker.isOpen(), "B closes it");
+    press({Action::Accept, Action::Back});
+    expect(!picker.isOpen(), "A lets the slider go, then B closes it");
 
     open(true);
     press({Action::Right, Action::Accept});

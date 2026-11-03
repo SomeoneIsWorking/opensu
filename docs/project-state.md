@@ -1139,8 +1139,9 @@ left edge, on the `gpu2d::ui` toolkit (`GuideMenuScreen`). Its places: Home and 
 game; Resume, Close game, Game settings, and for a game on `opensu-retro` Save state, Load state and
 Reset game over one; then Devices, Downloads, Settings and Power. Beside them stand the changes
 made in place, each of which exists only here: Volume, Mute, Brightness (where a backlight exists)
-and Interface size. Right from a place reaches Volume; Guide + A (Ctrl+Tab on a keyboard) opens the
-same menu with Volume focused. Close game, Load state, Reset game, Restart, Shut down and Switch to
+and Interface size. Right from a place reaches Volume, where Left goes back to the places until A
+holds the slider (then Left and Right change it, A keeps it, B puts it back); Guide + A (Ctrl+Tab on
+a keyboard) opens the same menu with Volume focused. Close game, Load state, Reset game, Restart, Shut down and Switch to
 session mode ask first through the one `confirm` dialog (its action focused, so A, A does it). Power opens a list over
 the menu (Sleep, Restart, Shut down, Install session mode or Switch to session mode, Quit to
 desktop; with `--session` Switch to desktop in place of Quit, since quitting the login session only
@@ -1155,9 +1156,9 @@ Controllers (name, player order, battery, live held buttons, link to shortcut re
 output (the outputs, A makes one the default) and Display (output size and rate). Volume,
 brightness and the interface size point to the Guide menu.
 
-Press counts (hidden run, before → after this change): Home to the volume: Guide + A, Right = 2 → 2
-(or Guide, Right, Right = 3); Downloads: Guide, Down × 3, A = 5 → 5; Close game over a game: Guide,
-Down, A = 3 → Guide, Down, A, A = 4 (it now asks first, its Close focused).
+Press counts (hidden run): the volume a step up from Home: Guide + A, A, Right = 3 (or Guide,
+Right, A, Right = 4); Downloads: Guide, Down × 3, A = 5; Close game over a game: Guide, Down, A, A
+= 4 (it asks first, its Close focused).
 
 A hidden run reads Bluetooth and the backlight and changes nothing, never runs a power command,
 never starts Steam and never downloads or removes a Wine runner (`host_services`,
@@ -1360,11 +1361,11 @@ Settings: `src/app/settings_controller.*` rows per category, saved through `Pref
 `settings.json`; ROM and Steam root changes apply after a restart. The screens are `gpu2d::ui`
 screens on the shell's `ui::ScreenStack` (`src/app/settings_screen.*`, `docs/design/ui-toolkit.md`
 step 1): categories as tabs down the side, LB/RB step them from anywhere; each row kind is one
-standard widget (switch flips on A, choice and slider step on Left/Right, A lists a choice's
-options); Emulators is headed sections with sub-pages (Downloads, BIOS, consoles, cores, a
-layer's page); Remove, Clear, Reset and Disconnect ask in a dialog; leaving with Integrations'
-changes not applied asks Apply, Discard or Keep editing, and Apply says how many changes it put in
-force; rows set from the command line or environment say "Set by how openSU was started", never
+standard widget (switch flips on A, choice steps on Left/Right, A holds a slider for Left/Right and
+A or B lets it go, A lists a choice's options); Emulators is headed sections with sub-pages
+(Downloads, BIOS, consoles, cores, a layer's page); Remove, Clear, Reset and Disconnect ask in a
+dialog; leaving with Integrations' changes not applied asks Apply, Discard or Keep editing, and
+Apply says how many changes it put in force; rows set from the command line or environment say "Set by how openSU was started", never
 the variable or a raw path; About shows the version; "Choose artwork" offers Y to connect
 SteamGridDB when it is not connected. The mouse hovers, clicks and wheels through the same
 widgets. Verified in hidden runs at 1280x800 and 1920x1080 driven over the control channel

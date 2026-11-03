@@ -610,6 +610,7 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
 
     rig.focus("iconSize");
     const int size = rig.preferences.values().iconSize;
+    rig.act(Button::A);
     rig.act(Button::Right);
     rig.act(Button::Right);
     expect(rig.onDisk().iconSize == size + 2 && rig.rowOf("iconSize").level == size + 2,

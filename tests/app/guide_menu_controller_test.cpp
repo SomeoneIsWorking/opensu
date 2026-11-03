@@ -176,9 +176,19 @@ void quickChangesSitBesideThePlaces() {
     rig.open();
     rig.press(Action::Right);
     expect(rig.ui.navigator.focused() == "guide.volume", "Right from a place reaches Volume");
+    rig.press(Action::Left);
+    expect(rig.ui.navigator.focused() == "guide.home" &&
+               test::need(rig.volume.system().state(), "a volume").percent == 40,
+           "Left on Volume goes back to the places, the volume left alone");
+    rig.press(Action::Right);
+    rig.press(Action::Accept);
     rig.press(Action::Right);
     expect(test::need(rig.volume.system().state(), "a volume").percent == 40 + audio::volumeStep,
-           "Right on Volume turns it up a step");
+           "A holds Volume, then Right turns it up a step");
+    rig.press(Action::Back);
+    expect(test::need(rig.volume.system().state(), "a volume").percent == 40 &&
+               rig.ui.navigator.focused() == "guide.volume",
+           "Back lets Volume go, putting back the level it had");
     rig.choose("guide.mute");
     expect(test::need(rig.volume.system().state(), "a volume").muted, "A on Mute mutes");
     rig.choose("guide.scale");
