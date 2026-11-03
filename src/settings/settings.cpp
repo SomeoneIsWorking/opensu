@@ -97,15 +97,15 @@ class Reader {
         }
     }
 
-    void owner(const char* name, AssetOwner& out, const char* fallback) const {
+    void soundSet(const char* name, SoundSet& out, const char* fallback) const {
         const auto found = document_.find(name);
         if (found == document_.end()) {
             return;
         }
-        const std::optional<AssetOwner> owner =
-            found->is_string() ? assetOwnerOf(found->get<std::string>()) : std::nullopt;
-        if (owner) {
-            out = *owner;
+        const std::optional<SoundSet> choice =
+            found->is_string() ? soundSetOf(found->get<std::string>()) : std::nullopt;
+        if (choice) {
+            out = *choice;
         } else {
             reject(name, *found, fallback);
         }
@@ -407,7 +407,7 @@ Settings Store::load() const {
         }
     }
     read.text(consoleThemeKey, settings.consoleTheme, "showing the default console art theme");
-    read.owner(interfaceSoundsKey, settings.interfaceSounds, "playing openSU's sounds");
+    read.soundSet(interfaceSoundsKey, settings.interfaceSounds, "playing Marimba");
     std::string homeSpelling;
     read.text(homeModeKey, homeSpelling, "using the environment's");
     if (!homeSpelling.empty()) {

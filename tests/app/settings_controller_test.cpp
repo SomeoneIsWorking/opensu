@@ -1368,8 +1368,8 @@ void consoleThemeIsChosen(const fs::path& root) {
            "and the default comes round again");
 }
 
-/// Settings > Audio: Interface sounds are openSU's alone until iiSU's release is placed; a
-/// starter pack holds no sounds, so it offers none.
+/// Settings > Audio: Interface sounds offer openSU's three sets, and iiSU's only once its release
+/// is placed; a starter pack holds no sounds, so it adds none.
 void interfaceSoundsAreChosen(const fs::path& root) {
     Rig rig{root};
     fs::create_directories(rig.config.home);
@@ -1377,23 +1377,31 @@ void interfaceSoundsAreChosen(const fs::path& root) {
     rig.controller.open();
     rig.enter("Audio");
     const ui::SettingsRow sounds = rig.rowOf("audio.interfacesounds");
-    expect(sounds.choices == std::vector<std::string>{"openSU"} &&
-               sounds.note == "openSU's own sounds",
-           "with no sounds placed only openSU's are offered");
+    expect(sounds.choices == std::vector<std::string>{"Marimba", "Glass", "Pluck"} &&
+               sounds.chosen == 0 && sounds.note == "openSU's own sounds",
+           "with no sounds placed openSU's sets are offered, Marimba chosen");
+    rig.focus("audio.interfacesounds");
+    rig.act(Button::Right);
+    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Glass && rig.soundChanges == 1,
+           "Right takes Glass");
 
     placeIisu(rig, "iiSU-Alpha-7.4.apk", iisuRelease());
     rig.controller.refresh();
     rig.screens.frame();
     rig.focus("audio.interfacesounds");
     rig.act(Button::Right);
+    rig.act(Button::Right);
     const ui::SettingsRow chosen = rig.rowOf("audio.interfacesounds");
-    expect(rig.onDisk().interfaceSounds == settings::AssetOwner::Iisu &&
+    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Iisu && chosen.choices.size() == 4 &&
                chosen.choices[chosen.chosen] == "iiSU" &&
-               chosen.note == "iiSU's, from iiSU-Alpha-7.4.apk" && rig.soundChanges == 1,
-           "the release placed offers iiSU's sounds, which are taken");
+               chosen.note == "iiSU's, from iiSU-Alpha-7.4.apk" && rig.soundChanges == 3,
+           "the release placed offers iiSU's sounds after Pluck, which are taken");
+    rig.act(Button::Right);
+    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Marimba && rig.soundChanges == 4,
+           "the choice wraps to Marimba");
     rig.act(Button::Left);
-    expect(rig.onDisk().interfaceSounds == settings::AssetOwner::OpenSu && rig.soundChanges == 2,
-           "openSU's come back");
+    expect(rig.onDisk().interfaceSounds == settings::SoundSet::Iisu && rig.soundChanges == 5,
+           "Left steps back to iiSU's");
 }
 
 constexpr const char* steamGridDbKey = "0123456789abcdef0123456789abcdef";

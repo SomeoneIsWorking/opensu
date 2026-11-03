@@ -41,9 +41,9 @@ class SdlSoundPlayer {
     /// The same for a WAV or OGG held in `bytes`, its format by `name`'s extension.
     bool load(Effect effect, std::string_view bytes, std::string_view name);
 
-    /// Decodes every effect's file in `directory` (`shippedFile`); a missing or unusable one is
-    /// logged and stays silent. How many loaded.
-    std::size_t loadSet(const std::filesystem::path& directory);
+    /// Decodes every effect's file (`shippedFile`) of openSU's set `set`, a folder of `sounds`
+    /// (`shippedDirectory`); a missing or unusable one is logged and stays silent. How many loaded.
+    std::size_t loadSet(const std::filesystem::path& sounds, std::string_view set);
 
     /// Whether the effect has a decoded clip.
     [[nodiscard]] bool loaded(Effect effect) const noexcept;

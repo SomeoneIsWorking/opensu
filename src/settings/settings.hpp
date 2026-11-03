@@ -9,7 +9,6 @@
 #include <string_view>
 #include <vector>
 
-#include "asset_owner.hpp"
 #include "config/config.hpp"
 #include "input/keyboard_style.hpp"
 #include "input/shortcuts.hpp"
@@ -20,6 +19,7 @@
 #include "library/sections.hpp"
 #include "library/wine.hpp"
 #include "night_light_choice.hpp"
+#include "sound_set.hpp"
 
 namespace opensu::settings {
 
@@ -118,9 +118,9 @@ struct Settings {
 
     /// The console art theme the home shows (`artwork::ConsoleThemes`); empty for the default.
     std::string consoleTheme;
-    /// Whose interface sounds play: openSU's own, or iiSU's from the file placed in the iiSU
-    /// folder (`artwork::IisuInstall`).
-    AssetOwner interfaceSounds{AssetOwner::OpenSu};
+    /// Which interface sounds play: one of openSU's sets, or iiSU's from the file placed in the
+    /// iiSU folder (`artwork::IisuInstall`).
+    SoundSet interfaceSounds{SoundSet::Marimba};
 
     /// The player's changes to the shortcut table.
     input::ShortcutOverrides shortcuts;

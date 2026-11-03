@@ -240,20 +240,26 @@ void nightLight(const fs::path& root) {
 }
 
 void interfaceSounds(const fs::path& root) {
-    using opensu::settings::AssetOwner;
+    using opensu::settings::SoundSet;
     const Store store{root / "sounds" / "settings.json"};
-    expect(store.load().interfaceSounds == AssetOwner::OpenSu, "openSU's sounds by default");
+    expect(store.load().interfaceSounds == SoundSet::Marimba, "Marimba by default");
     Settings saved;
-    saved.interfaceSounds = AssetOwner::Iisu;
+    saved.interfaceSounds = SoundSet::Glass;
     std::string error;
     expect(store.save(saved, error), "the sound choice is saved");
-    expect(store.load().interfaceSounds == AssetOwner::Iisu, "iiSU's sounds read back");
-    expect(read(store.file()).find("\"interfaceSounds\": \"iisu\"") != std::string::npos,
+    expect(store.load().interfaceSounds == SoundSet::Glass, "Glass reads back");
+    expect(read(store.file()).find("\"interfaceSounds\": \"glass\"") != std::string::npos,
            "the choice is kept by its spelling");
+    saved.interfaceSounds = SoundSet::Iisu;
+    expect(store.save(saved, error) && store.load().interfaceSounds == SoundSet::Iisu,
+           "iiSU's sounds read back");
+    write(store.file(), R"({"interfaceSounds": "opensu"})");
+    expect(store.load().interfaceSounds == SoundSet::Marimba,
+           "an older file's openSU sounds are Marimba");
     write(store.file(), R"({"interfaceSounds": "loud", "consoleTheme": "photos"})");
-    expect(store.load().interfaceSounds == AssetOwner::OpenSu &&
+    expect(store.load().interfaceSounds == SoundSet::Marimba &&
                store.load().consoleTheme == "photos",
-           "an unknown sound choice plays openSU's and leaves the console art theme alone");
+           "an unknown sound choice plays Marimba and leaves the console art theme alone");
 }
 
 void resolution() {

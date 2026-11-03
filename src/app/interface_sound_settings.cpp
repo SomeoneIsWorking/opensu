@@ -1,6 +1,7 @@
 #include "interface_sound_settings.hpp"
 
 #include <memory>
+#include <vector>
 
 namespace opensu::app {
 namespace {
@@ -14,22 +15,34 @@ std::shared_ptr<const artwork::IisuPack> InterfaceSoundSettings::iisuSounds() co
     return pack != nullptr && pack->hasSounds() ? pack : nullptr;
 }
 
-ui::SettingsRow InterfaceSoundSettings::row() const {
-    const std::shared_ptr<const artwork::IisuPack> pack = iisuSounds();
-    const bool iisu =
-        pack != nullptr && preferences_.values().interfaceSounds == settings::AssetOwner::Iisu;
-    ui::Options choices;
-    for (const settings::AssetOwner owner : settings::allAssetOwners) {
-        if (owner == settings::AssetOwner::Iisu && pack == nullptr) {
-            continue;
+std::vector<settings::SoundSet> InterfaceSoundSettings::offered() const {
+    const bool iisu = iisuSounds() != nullptr;
+    std::vector<settings::SoundSet> sets;
+    for (const settings::SoundSet set : settings::allSoundSets) {
+        if (set != settings::SoundSet::Iisu || iisu) {
+            sets.push_back(set);
         }
-        if (owner == (iisu ? settings::AssetOwner::Iisu : settings::AssetOwner::OpenSu)) {
+    }
+    return sets;
+}
+
+settings::SoundSet InterfaceSoundSettings::playing() const {
+    const settings::SoundSet chosen = preferences_.values().interfaceSounds;
+    return iisuSounds() == nullptr ? settings::shippedSet(chosen) : chosen;
+}
+
+ui::SettingsRow InterfaceSoundSettings::row() const {
+    const settings::SoundSet now = playing();
+    ui::Options choices;
+    for (const settings::SoundSet set : offered()) {
+        if (set == now) {
             choices.chosen = choices.labels.size();
         }
-        choices.labels.emplace_back(settings::label(owner));
+        choices.labels.emplace_back(settings::label(set));
     }
-    const std::string note =
-        iisu ? "iiSU's, from " + pack->file().filename().string() : "openSU's own sounds";
+    const std::string note = now == settings::SoundSet::Iisu
+                                 ? "iiSU's, from " + iisuSounds()->file().filename().string()
+                                 : "openSU's own sounds";
     return ui::makeChoice(interfaceSoundsId, "Interface sounds", note, std::move(choices));
 }
 
@@ -37,13 +50,8 @@ bool InterfaceSoundSettings::owns(const std::string& id) {
     return id == interfaceSoundsId;
 }
 
-void InterfaceSoundSettings::run(const std::string& /*id*/, int /*step*/) {
-    if (iisuSounds() == nullptr) {
-        return;
-    }
-    settings::AssetOwner& owner = preferences_.values().interfaceSounds;
-    owner = owner == settings::AssetOwner::Iisu ? settings::AssetOwner::OpenSu
-                                                : settings::AssetOwner::Iisu;
+void InterfaceSoundSettings::run(const std::string& /*id*/, int step) {
+    preferences_.values().interfaceSounds = ui::stepped(offered(), playing(), step);
     preferences_.save();
     changed_();
 }

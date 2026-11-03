@@ -68,15 +68,16 @@ bool SdlSoundPlayer::keep(Effect effect, std::optional<SoundClip> clip) {
     return true;
 }
 
-std::size_t SdlSoundPlayer::loadSet(const std::filesystem::path& directory) {
+std::size_t SdlSoundPlayer::loadSet(const std::filesystem::path& sounds, std::string_view set) {
+    const std::filesystem::path directory = sounds / set;
     std::size_t count = 0;
     for (const Effect effect : allEffects) {
         if (load(effect, directory / shippedFile(effect))) {
             ++count;
         }
     }
-    lucent::info("audio", "{} of {} UI sounds loaded from {}", count, allEffects.size(),
-                 directory.string());
+    lucent::info("audio", "{} of {} UI sounds loaded from the {} set in {}", count,
+                 allEffects.size(), set, directory.string());
     return count;
 }
 

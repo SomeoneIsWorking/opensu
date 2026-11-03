@@ -35,5 +35,12 @@ openSU does not ship or download iiSU's art or sounds.
 openSU plays its own UI sounds on the events it shares with iiSU: focus moving, a panel opening and
 closing, the context menu, a launch, entering and leaving a console, and switching sections (the
 list is in [assets/sounds/README.md](../../assets/sounds/README.md)). They are synthesized by
-`tools/sounds/` and MIT like the rest of openSU. Settings › Audio › Interface sounds chooses
-openSU's own or iiSU's, once its APK is placed.
+`tools/sounds/` and MIT like the rest of openSU. Settings › Audio › Interface sounds chooses one of
+openSU's three sets or iiSU's, once its APK is placed:
+
+- **Marimba** (the default): warm wooden mallet notes in a small dry room.
+- **Glass**: struck glass with a soft shimmer and a longer, airier tail.
+- **Pluck**: a soft, rounder synth pluck.
+
+All three play the same tunes, so switching changes the instrument, not what each cue means. With
+iiSU's chosen, any effect its file lacks plays Marimba's.

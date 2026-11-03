@@ -1,6 +1,8 @@
 # openSU's interface sounds
 
-openSU's own UI sounds, played at the events listed in `src/audio/effect.hpp`. They are synthesized
+openSU's own UI sounds, played at the events listed in `src/audio/effect.hpp`. There are three
+sets, one folder each, chosen in Settings › Audio › Interface sounds (`settings::SoundSet`):
+`marimba/` (the default), `glass/` and `pluck/`. Each holds every file below. They are synthesized
 by `tools/sounds/` and contain no recorded or third-party material. They are part of openSU and
 licensed under its MIT licence (`LICENSE` at the repository root).
 
@@ -19,7 +21,7 @@ licensed under its MIT licence (`LICENSE` at the repository root).
 
 - One score (`tools/sounds/score.py`) in scale degrees of a major pentatonic scale, so any two cues
   that overlap are consonant. Opening and entering rise, closing and exiting fall.
-- One instrument per set (`tools/sounds/timbres.py`): several partials, each with its own
+- One instrument per set (`tools/sounds/timbres.py`, its name the folder's): several partials, each with its own
   exponential decay, a 1.5 ms raised-cosine attack, and a small synthesized room
   (`tools/sounds/room.py`: early reflections, damped combs, all-passes; RT60 under 300 ms).
   Partials above 7 kHz are left out, so energy above 6 kHz stays under 0.1%.
@@ -30,12 +32,11 @@ licensed under its MIT licence (`LICENSE` at the repository root).
   -29 LUFS, section cues -25, panels -21, enter and exit -20, launch -18. Decoded peaks must stay
   below -1 dBFS or the generator refuses the set.
 
-All are 48 kHz mono Ogg Vorbis. Regenerate a set from the repository root, or write every set and
-an audition page (`DIR/audition.html`) to compare them:
+All are 48 kHz mono Ogg Vorbis. Regenerate every set, or one, from the repository root:
 
 ```
-uv run --frozen --group sounds python -m tools.sounds --set marimba
-uv run --frozen --group sounds python -m tools.sounds --audition scratch/sounds2
+uv run --frozen --group sounds python -m tools.sounds
+uv run --frozen --group sounds python -m tools.sounds --set glass
 ```
 
 The audio is the same on every run; the files' bytes differ, as each Ogg stream gets a new serial

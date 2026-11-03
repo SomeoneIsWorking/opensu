@@ -18,7 +18,7 @@ opensu_warnings(sdl_sound_player_test)
 add_test(NAME sdl_sound_player COMMAND sdl_sound_player_test)
 
 add_executable(shipped_sounds_test shipped_sounds_test.cpp)
-target_link_libraries(shipped_sounds_test PRIVATE opensu::audio lucent::lucent)
+target_link_libraries(shipped_sounds_test PRIVATE opensu::audio opensu::settings lucent::lucent)
 target_compile_definitions(shipped_sounds_test PRIVATE OPENSU_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
 opensu_warnings(shipped_sounds_test)
 add_test(NAME shipped_sounds COMMAND shipped_sounds_test)

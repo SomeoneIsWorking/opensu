@@ -44,10 +44,11 @@ inline constexpr std::array allEffects{
     Effect::DominoTwelvePlus,
 };
 
-/// Where openSU's own sounds are installed, under the assets directory.
+/// Where openSU's own sets are installed, under the assets directory: one folder per set
+/// (`settings::key(SoundSet)`), each holding every effect's file.
 inline constexpr std::string_view shippedDirectory = "sounds";
 
-/// The effect's Ogg Vorbis file in openSU's own set (`assets/sounds/`).
+/// The effect's Ogg Vorbis file in each of openSU's sets (`assets/sounds/<set>/`).
 [[nodiscard]] std::string_view shippedFile(Effect effect) noexcept;
 
 /// The effect's file in iiSU's release APK, under `assets/` (`xp8.I`): a WAV, or an OGG for a

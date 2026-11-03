@@ -1,4 +1,5 @@
-"""The candidate sets' instruments: a voice, a tonic and a room each, all playing one score."""
+"""The sets' instruments, one directory of assets/sounds/ each: a voice, a tonic and a room, all
+playing one score."""
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -50,7 +51,6 @@ soft_pluck: Voice = partial(
 @dataclass(frozen=True)
 class Timbre:
     name: str
-    summary: str
     tonic: float
     voice: Voice
     room: Room
@@ -60,24 +60,22 @@ TIMBRES = {
     timbre.name: timbre
     for timbre in (
         Timbre(
+            # Wooden bars with a felt mallet's thud, C major pentatonic, a small dry room.
             "marimba",
-            "Warm wooden mallet bars in C major pentatonic, a soft felt thud and a small dry room.",
             C5,
             marimba,
             Room(decay=0.22, size=0.6, damping=0.45, wet=0.16, predelay=0.004),
         ),
         Timbre(
+            # Struck glass, a beating fundamental and a fast rim tink, E major pentatonic, a plate.
             "glass",
-            "Struck glass in E major pentatonic: a beating, bell-like fundamental, a bright rim "
-            "tink that fades fast, and a longer, airier plate.",
             E5,
             glass,
             Room(decay=0.3, size=0.85, damping=0.25, wet=0.24, predelay=0.008),
         ),
         Timbre(
+            # Two detuned saws through a closing low-pass, A major pentatonic, a medium room.
             "pluck",
-            "A soft synth pluck in A major pentatonic: two detuned saw tones through a low-pass "
-            "that snaps open and closes, rounder and lower, in a medium room.",
             A4,
             soft_pluck,
             Room(decay=0.26, size=0.75, damping=0.4, wet=0.18, predelay=0.006),

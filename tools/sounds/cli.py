@@ -1,11 +1,10 @@
 """Command line, from the repository root:
 
-    uv run --frozen --group sounds python -m tools.sounds --set NAME [--out DIR]
-    uv run --frozen --group sounds python -m tools.sounds --audition DIR
+    uv run --frozen --group sounds python -m tools.sounds [--set NAME] [--out DIR]
 
-Renders a set's cues, matches each to its category's loudness and writes it as 48 kHz mono Ogg
-Vorbis into assets/sounds/ (or DIR), then prints the decoded file's measures. `--audition` writes
-every set to DIR/<set>/ and one page, DIR/audition.html, to compare them on.
+Renders each set's cues (or only NAME's), matches each to its category's loudness and writes it as
+48 kHz mono Ogg Vorbis into assets/sounds/<set>/ (or DIR/<set>/), then prints the decoded file's
+measures.
 """
 
 import argparse
@@ -13,7 +12,6 @@ from pathlib import Path
 
 import soundfile
 
-from tools.sounds.audition import write_page
 from tools.sounds.loudness import Measure
 from tools.sounds.score import CUES
 from tools.sounds.synth import RATE
@@ -59,20 +57,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawTextHelpFormatter
     )
-    target = parser.add_mutually_exclusive_group(required=True)
-    target.add_argument("--set", choices=sorted(TIMBRES))
-    target.add_argument("--audition", type=Path, metavar="DIR")
+    parser.add_argument("--set", choices=sorted(TIMBRES))
     parser.add_argument("--out", type=Path, default=REPO / "assets" / "sounds")
     args = parser.parse_args()
-    if args.set:
-        print_table(args.set, write_set(TIMBRES[args.set], args.out))
-        return 0
-    sets = {}
     for name, timbre in TIMBRES.items():
-        measures = write_set(timbre, args.audition / name)
-        print_table(name, measures)
-        sets[timbre] = measures
-    page = args.audition / "audition.html"
-    write_page(page, args.audition, sets)
-    print(f"audition page: {page}")
+        if args.set in (None, name):
+            print_table(name, write_set(timbre, args.out / name))
     return 0
