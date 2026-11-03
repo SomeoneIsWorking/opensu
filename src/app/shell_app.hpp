@@ -82,6 +82,7 @@
 #include "polkit_prompt_controller.hpp"
 #include "preferences.hpp"
 #include "retro_session.hpp"
+#include "save_copy_controller.hpp"
 #include "search_controller.hpp"
 #include "session_install_controller.hpp"
 #include "settings_controller.hpp"
@@ -526,6 +527,19 @@ class ShellApp final {
                                  }
                                  return emulators;
                              }}};
+    /// Copy saves over the details page; its backups under the state dir.
+    SaveCopyController saveCopy_{
+        shell_.screens().navigator(),
+        shell_.screens().chrome(),
+        sounds_,
+        emulatorDownloads_,
+        SaveCopyController::Places{resolved_.savesDir, environment_.stateDir},
+        SaveCopyController::Hooks{[this](const std::string& text, bool isError) {
+                                      shell_.setToast(text, isError);
+                                  },
+                                  [this] {
+                                      details_.refresh();
+                                  }}};
     DetailsController details_{
         DetailsController::Place{shell_.screens().navigator(), shell_.screens().chrome(),
                                  shell_.screens().images()},
@@ -579,6 +593,12 @@ class ShellApp final {
                                  },
                                  [this](const library::Game& game) {
                                      gameMatch_.open(game);
+                                 },
+                                 [this](const library::Game& game) {
+                                     return saveCopy_.offer(game);
+                                 },
+                                 [this](const library::Game& game) {
+                                     saveCopy_.open(game);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),

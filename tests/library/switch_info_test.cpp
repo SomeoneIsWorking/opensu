@@ -341,13 +341,15 @@ void readsAnNsp() {
     expect(!read.icon.empty() && read.icon.parent_path() == rig.cache &&
                read.icon.extension() == ".jpg" && readFile(read.icon) == jpeg(),
            "its icon is kept in the cache as the JPEG it is");
+    expect(read.titleId == "0100000000001000", "the base title's Control NCA gives the title id");
     info.finish();
 
     // Unchanged, the file is not opened again: the cache answers with no keys there at all.
     SwitchInfo keyless{{rig.scratch.path() / "absent"}, rig.cache};
     keyless.begin();
     const DumpInfo again = need(keyless.read(game), "the cache answers");
-    expect(again.title == "Kirby Star Allies" && again.icon == read.icon,
+    expect(again.title == "Kirby Star Allies" && again.icon == read.icon &&
+               again.titleId == read.titleId,
            "an unchanged file is answered from the cache");
     writeFile(game, Bytes(16));
     expect(!keyless.read(game), "a changed file is read again");

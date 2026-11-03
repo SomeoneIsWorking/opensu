@@ -30,6 +30,7 @@
       "name": "Eden",
       "systems": ["switch"],
       "config": "~/.config/eden",
+      "saves": {"layout": "yuzu", "folder": "~/.local/share/eden/nand"},
       "launchers": [
         {"programs": ["eden"], "appImage": "eden", "flatpak": "dev.eden_emu.eden",
          "args": ["-f", "-g", "{rom}"]}
@@ -45,9 +46,30 @@
       "name": "Ryujinx",
       "systems": ["switch"],
       "config": "~/.config/Ryujinx",
+      "saves": {"layout": "ryujinx", "folder": "~/.config/Ryujinx/bis"},
       "launchers": [
         {"programs": ["ryujinx", "Ryujinx"], "appImage": "ryujinx",
          "flatpak": "io.github.ryubing.Ryujinx", "args": ["--fullscreen", "{rom}"]}
+      ]
+    },
+    {
+      "id": "citron",
+      "name": "Citron",
+      "systems": ["switch"],
+      "config": "~/.config/citron",
+      "saves": {"layout": "yuzu", "folder": "~/.local/share/citron/nand"},
+      "launchers": [
+        {"programs": ["citron"], "appImage": "citron", "args": ["-f", "-g", "{rom}"]}
+      ]
+    },
+    {
+      "id": "sudachi",
+      "name": "sudachi",
+      "systems": ["switch"],
+      "config": "~/.config/sudachi",
+      "saves": {"layout": "yuzu", "folder": "~/.local/share/sudachi/nand"},
+      "launchers": [
+        {"programs": ["sudachi"], "appImage": "sudachi", "args": ["-f", "-g", "{rom}"]}
       ]
     },
     {

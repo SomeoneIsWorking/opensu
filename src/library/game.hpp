@@ -83,6 +83,9 @@ struct Game {
     /// A ROM's game file, the one its emulator starts, or the file of a game the player added;
     /// empty for a game of a store.
     std::filesystem::path file;
+    /// The id a ROM's file gives itself (`DumpInfo::titleId`): a Switch game's title id; empty
+    /// when it gives none.
+    std::string titleId;
 
     /// Whether the title can be launched now.
     bool installed{false};

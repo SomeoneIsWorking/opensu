@@ -1,6 +1,7 @@
 // switch_info — what a Switch game file says about itself: the title in its Control NCA's
-// control.nacp and its icon, read offline with the player's own keys (Eden's prod.keys and
-// title.keys), and kept in the artwork cache by the file's size and modification time.
+// control.nacp, its icon and its title id, read offline with the player's own keys (Eden's
+// prod.keys and title.keys), and kept in the artwork cache by the file's size and modification
+// time.
 #pragma once
 
 #include <filesystem>
@@ -29,7 +30,7 @@ class SwitchInfo {
     /// Starts a listing: the keys are read again when first needed and the counts start over.
     void begin();
 
-    /// The title and icon `file` (an NSP or XCI) carries, from the cache when the file is
+    /// The title, icon and title id `file` (an NSP or XCI) carries, from the cache when the file is
     /// unchanged. Nothing, with the file and the step that failed logged, when they cannot be read.
     [[nodiscard]] std::optional<DumpInfo> read(const std::filesystem::path& file);
 

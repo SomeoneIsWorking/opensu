@@ -83,6 +83,7 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
         view.gameSettings = custom == 0 ? std::string{"Inherited"}
                                         : lucent::text::counted(custom, "custom setting");
     }
+    view.copySaves = hooks_.copySavesOffer(game);
     return view;
 }
 
@@ -208,6 +209,8 @@ void DetailsController::openPage(const std::string& id) {
         hooks_.controls(*game);
     } else if (id == ui::detailsMatchId) {
         hooks_.matchGame(*game);
+    } else if (id == ui::detailsSavesId) {
+        hooks_.copySaves(*game);
     }
 }
 

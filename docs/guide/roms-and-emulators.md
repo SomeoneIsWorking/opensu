@@ -22,7 +22,7 @@ are only read, never copied, logged or sent.
 Built-in cores ([libretro.md](libretro.md)) are always available. Standalone emulators are an
 integration, off until turned on in Settings › Integrations. Then they are found on PATH, as
 AppImages in `~/Applications`, `~/AppImages` or `~/.local/bin`, or as Flatpaks: Dolphin, Cemu,
-Eden, Ryujinx, PCSX2, RPCS3, shadPS4, DuckStation, PPSSPP, melonDS, Azahar, mGBA, xemu and Xenia
+Eden, Ryujinx, Citron, sudachi, PCSX2, RPCS3, shadPS4, DuckStation, PPSSPP, melonDS, Azahar, mGBA, xemu and Xenia
 Canary. On Windows and macOS openSU finds and launches the installed ones (macOS in
 `/Applications`); on Android it starts an installed emulator app by intent with the game.
 
@@ -31,6 +31,19 @@ install. The details page's Emulator row picks one per game, Settings › Emulat
 are setting layers, so a console's pick shows on its games as inherited), and Settings › Library ›
 Reset emulator choices forgets every game's own pick. `OPENSU_EMULATORS` overrides the command per
 system.
+
+## Copying saves between emulators
+
+When two or more installed emulators keep a save of a Switch game, its details page shows Copy
+saves, naming them. It opens a card: Copy from and Copy to each show an emulator's saves with their
+newest change and size (A lists them), and Copy saves asks, then replaces the target's saves of
+that game with the source's: the current profile's save and the device save, where both keep one.
+The target's saves are backed up first under `~/.local/state/opensu/save-backups/switch/<title
+id>/<emulator>/<time>/`, and Undo copy on the same card puts the newest backup back exactly as it
+was. Eden, Citron and sudachi are read from `~/.local/share/<name>/nand`, Ryujinx from
+`~/.config/Ryujinx/bis`; a game is matched by the title id in its own file, so it needs the Switch
+keys above. An emulator needs a save of the game to be copied to: start the game in it once.
+Close the emulators before copying.
 
 ## Emulator downloads
 

@@ -242,9 +242,10 @@ void emulatorsAreFound(const Fixture& f) {
     expect(!emulators.launch("n3ds", "/c.3ds"), "nothing runs a system with no emulator");
 
     const auto options = emulators.options("switch", "/s.nsp");
-    expect(options.size() == 2 && options[0].name == "Eden" && options[0].installed &&
+    expect(options.size() == 4 && options[0].name == "Eden" && options[0].installed &&
                options[0].launch.args.back() == "/s.nsp" && options[1].name == "Ryujinx" &&
-               !options[1].installed && options[1].launch.empty(),
+               !options[1].installed && options[1].launch.empty() && options[2].name == "Citron" &&
+               options[3].name == "sudachi",
            "a system's options list every emulator, the installed one with its command");
     expect(emulators.chosenName("switch") == "Eden" && emulators.chosenName("n3ds").empty(),
            "the default is the first one found, and none when none is");
@@ -292,7 +293,9 @@ void providerLists(const Fixture& f) {
     const Game* kirby = find(games, "Kirby Star Allies");
     expect(kirby != nullptr && kirby->sourceId == "switch", "a game folder is one game");
     expect(kirby->launch.empty() &&
-               kirby->unavailable == "no Nintendo Switch emulator found; install Eden or Ryujinx",
+               kirby->unavailable ==
+                   "no Nintendo Switch emulator found; install Eden or Ryujinx or "
+                   "Citron or sudachi",
            "a game without an emulator names what to install");
     expect(find(games, "Super Mario Bros. Wonder") != nullptr, "dump tags leave the title");
     const Game* tc4 = find(games, "Time Crisis 4");

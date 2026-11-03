@@ -177,6 +177,11 @@ struct Rig {
                                           return false;
                                       },
                                       [](const library::Game&) {
+                                      },
+                                      [](const library::Game&) {
+                                          return std::string{};
+                                      },
+                                      [](const library::Game&) {
                                       }}};
 
     /// Each action as a press, the stack settled after it.

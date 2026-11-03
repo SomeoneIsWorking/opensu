@@ -31,6 +31,7 @@ inline constexpr std::string_view detailsRemoveId = "details.remove";
 inline constexpr std::string_view detailsMatchId = "details.match";
 inline constexpr std::string_view detailsArtworkId = "details.artwork";
 inline constexpr std::string_view detailsControlsId = "details.controls";
+inline constexpr std::string_view detailsSavesId = "details.saves";
 inline constexpr std::string_view detailsBackId = "details.back";
 /// The Emulator choice's option while the game has no emulator picked.
 inline constexpr std::string_view noEmulator = "None";
@@ -77,6 +78,9 @@ struct GameSettingsView {
     /// What the Game settings row reads ("Inherited", "2 custom settings"); nothing when the game
     /// has nothing to set.
     std::optional<std::string> gameSettings;
+    /// What the Copy saves row reads, the emulators keeping a save of the game ("Eden, Ryujinx");
+    /// empty, and no row, while fewer than two do.
+    std::string copySaves;
 };
 
 /// What the page says about the facts' setting `label` reading `value`.

@@ -50,6 +50,8 @@ struct Rig {
     std::vector<std::string> calls;
     /// Whether the game's cover is on its way.
     bool artComing{false};
+    /// What the Copy saves row reads; empty for no row.
+    std::string savesOffer;
     /// Why `Installs` would refuse the uninstall; empty when it would not.
     std::string refusal;
     app::EmulatorDownloads downloads;
@@ -142,6 +144,12 @@ struct Rig {
                          },
                          [this](const library::Game& opened) {
                              calls.push_back("match " + opened.id);
+                         },
+                         [this](const library::Game&) {
+                             return savesOffer;
+                         },
+                         [this](const library::Game& opened) {
+                             calls.push_back("saves " + opened.id);
                          }}} {
     }
 
@@ -333,6 +341,21 @@ void coverSpinnerFollowsTheGame(const fs::path& dir) {
     expect(!rig.controller.artDownloading(), "a closed page waits for nothing");
 }
 
+void copySavesOpensWhileTwoKeepSaves(const fs::path& dir) {
+    Rig rig{dir};
+    rig.open();
+    expect(ui::actionOf(*rig.controller.details(), ui::detailsSavesId) == nullptr,
+           "no Copy saves row while fewer than two emulators keep a save");
+    rig.savesOffer = "Eden, Ryujinx";
+    rig.controller.refresh();
+    const ui::SettingsRow& row = rig.row(ui::detailsSavesId);
+    expect(row.label == "Copy saves" && row.value == "Eden, Ryujinx",
+           "the row names the emulators keeping a save");
+    rig.controller.openPage(std::string{ui::detailsSavesId});
+    expect(rig.calls == std::vector<std::string>{"saves rom:/r/Kirby.nsp"},
+           "it opens Copy saves for the page's game");
+}
+
 void trail() {
     app::TrailState state;
     expect(app::trailOf(state) ==
@@ -377,6 +400,7 @@ int main() try {
     backClosesWithoutActing(dir);
     refreshFollowsTheGame(dir);
     coverSpinnerFollowsTheGame(dir);
+    copySavesOpensWhileTwoKeepSaves(dir);
     uninstallAsksFirst(dir);
     updateStartsWithOnePress(dir);
     winePrefixIsChosenPerGame(dir / "wine");

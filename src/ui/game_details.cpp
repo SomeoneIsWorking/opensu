@@ -214,6 +214,10 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
         }
         actions.push_back(action(detailsRemoveId, "Remove from library"));
     }
+    if (!settings.copySaves.empty()) {
+        actions.push_back(
+            makePage(std::string{detailsSavesId}, "Copy saves", {}, settings.copySaves));
+    }
     actions.push_back(makePage(std::string{detailsArtworkId}, "Choose artwork", {}, {}));
     actions.push_back(makePage(std::string{detailsControlsId}, "Controls", {}, {}));
     actions.push_back(action(detailsBackId, "Back"));

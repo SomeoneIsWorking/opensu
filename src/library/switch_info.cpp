@@ -4,10 +4,12 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <format>
 #include <fstream>
 #include <iterator>
 #include <string_view>
 #include <system_error>
+#include <utility>
 
 #include "clock/file_time.hpp"
 #include "fileio/atomic_write.hpp"
@@ -34,6 +36,7 @@ constexpr std::uint64_t nacpSize = 0x4000;
 constexpr std::uint64_t largestIcon = 0x80000;
 /// A base title's id ends in 000; its update's in 800, add-ons count up from 001.
 constexpr std::uint64_t titleIdVariant = 0xFFF;
+constexpr int titleIdDigits = 16;
 
 std::string_view trimmed(std::string_view text) {
     while (!text.empty() && (text.front() == ' ' || text.front() == '\n')) {
@@ -83,6 +86,11 @@ bool isJpeg(std::string_view bytes) {
 std::string readText(const fs::path& file) {
     std::ifstream in{file, std::ios::binary};
     return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+}
+
+/// The base title's id of `programId`, as Switch tools spell it: 0100152000022000.
+std::string titleIdOf(std::uint64_t programId) {
+    return std::format("{:0{}X}", programId & ~titleIdVariant, titleIdDigits);
 }
 
 fs::path withSuffix(const fs::path& stem, std::string_view suffix) {
@@ -186,8 +194,10 @@ std::optional<DumpInfo> SwitchInfo::read(const fs::path& file) {
     }
     const fs::path stem = cacheDir_ / *stamp;
     std::error_code ec;
-    if (const fs::path title = withSuffix(stem, ".title"); fs::is_regular_file(title, ec)) {
-        DumpInfo info{.title = readText(title), .icon = {}};
+    const fs::path title = withSuffix(stem, ".title");
+    const fs::path id = withSuffix(stem, ".id");
+    if (fs::is_regular_file(title, ec) && fs::is_regular_file(id, ec)) {
+        DumpInfo info{.title = readText(title), .icon = {}, .titleId = readText(id)};
         if (fs::path icon = withSuffix(stem, ".jpg"); fs::is_regular_file(icon, ec)) {
             info.icon = std::move(icon);
         }
@@ -232,7 +242,9 @@ std::optional<DumpInfo> SwitchInfo::extract(const fs::path& file, const fs::path
     const auto nacp = std::ranges::find(files, std::string{"control.nacp"}, &RomFsFile::name);
     const std::optional<std::string> nacpBytes =
         nacp == files.end() ? std::nullopt : control->readRomFs(*nacp, nacpSize);
-    DumpInfo info{.title = nacpBytes ? nacpTitle(*nacpBytes) : std::string{}, .icon = {}};
+    DumpInfo info{.title = nacpBytes ? nacpTitle(*nacpBytes) : std::string{},
+                  .icon = {},
+                  .titleId = titleIdOf(control->programId())};
     if (info.title.empty()) {
         error =
             nacp == files.end() ? "Control NCA has no control.nacp" : "control.nacp names no title";
@@ -250,9 +262,11 @@ std::optional<DumpInfo> SwitchInfo::extract(const fs::path& file, const fs::path
             info.icon = std::move(path);
         }
     }
-    std::string writeError;
-    if (!fileio::writeWhole(withSuffix(stem, ".title"), info.title, writeError)) {
-        lucent::warn("switch", "{}", writeError);
+    for (const auto& [suffix, text] : {std::pair{".id", &info.titleId}, {".title", &info.title}}) {
+        std::string writeError;
+        if (!fileio::writeWhole(withSuffix(stem, suffix), *text, writeError)) {
+            lucent::warn("switch", "{}", writeError);
+        }
     }
     return info;
 }

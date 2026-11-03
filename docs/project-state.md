@@ -188,6 +188,7 @@ game has been observed running yet.
 | S045 | The player's own games: Add a game picks a Linux program, script, AppImage or Windows `.exe`, identifies it (title, platform, Steam app and cover) for the player to confirm; Steam shortcuts and Lutris games imported read only, picked from a list, a Lutris game as the Steam app Lutris runs it as; Match a different game, Rename, Change file, Remove from library (`docs/issues/own-games.md`) | partial | S004, S038 | G001 |
 | S046 | Windows release: clang-cl build with vcpkg, Job Object launches, Win32 process table and game windows, the shell minimized under a game and raised for the Guide, Steam from the registry and `steam://`, native GOG and Epic builds, controller batteries through SDL, librashader `.dll`, per-user Inno Setup installer, `windows` CI and release jobs (`docs/issues/cross-platform-releases.md` step 2) | partial | S042 | G005 |
 | S047 | macOS release: Homebrew LLVM build with vcpkg, process-group launches, libproc process table, game windows from the window server, the shell minimized under a game and raised for the Guide, Steam from Application Support and `steam://`, GOG and Epic Mac builds, `apple/osx/arm64` cores, librashader `.dylib`, MoltenVK through portability enumeration, ad-hoc signed `openSU.app` zip, `macos` CI and release jobs (`docs/issues/cross-platform-releases.md` step 3) | partial | S042 | G005 |
+| S049 | A game's saves per emulator (`library::saves`: Switch's yuzu and Ryujinx layouts, the runner's `.srm` and state) and Copy saves between two installed Switch emulators from the details page, backed up first and undoable (`docs/plans/save-transfer.md`, `docs/plans/cloud-saves.md` step 1) | partial | S008, S026 | G001 |
 | S048 | Touch UI: tap, drag, fling and long press through gpu2d's navigator; while a finger or mouse leads, a top-bar Back and Menu button, every hint a 48 dp button, the corner prompts side by side and tappable, scroll bars; the system's Back as B (`docs/issues/cross-platform-releases.md`) | partial | S042 | G002, G005 |
 
 ## Capability details
@@ -2158,3 +2159,36 @@ client): the stores gave 3 Epic offers (two free now, one upcoming), 1 Steam DLC
 
 Gaps: Claim was not pressed (no real accounts), so the browser and Big Picture paths are unrun; no
 GOG giveaway or discounted-to-free GOG game was live, so those parsers ran only on fixtures; Prime Gaming is left out; the new-offer toast was not seen.
+
+### S049 — Game saves and Copy saves
+
+`library::saves::savesOf` is the one owner of a game's saves: each installed emulator of a ROM's
+system with the slots it keeps (account per profile, device, the runner's save RAM and state),
+each measured, keyed by console and game identity (a Switch title id from the file's Control NCA,
+cached as `<size>-<mtime>.id`; the ROM's name for the runner). The catalog's `"saves"` says where a
+standalone emulator keeps them (Eden, Citron, sudachi: yuzu's NAND; Ryujinx: its `bis`);
+`retro/save_paths` is where the runner keeps its own, which the runner, the shell's launch command
+and `savesOf` all use. `SaveCopier` copies slot by slot for the kinds both emulators keep, backs
+the target's slots up whole under `<state dir>/save-backups/` first, puts them back if a copy fails,
+and Undo copy restores the newest backup and removes it.
+
+Live run on 2026-11-04 (`scratch/saves/proof.py`, hidden, scratch home under `scratch/saves/home`
+with copies of the player's Eden `nand/user/save`, profiles and `qt-config.ini`, and Ryujinx
+`bis/user/save`, `system/Profiles.json`; Eden's AppImage and keys linked in; a stand-in `ryujinx`
+on `PATH`, as Ryujinx is not installed here): Mario + Rabbids Kingdom Battle (010067300059A000)
+shows Copy saves "Eden, Ryujinx" (`frames/1-details-row.png`), the card with Eden 2026-04-29 18:09
+90.4 KB and Ryujinx Empty (`2-copy-card.png`), the source list (`3-copy-from-picker.png`) and the
+question (`4-copy-confirm.png`); Copy put Eden's four files into Ryujinx's `0` and `1` (hashes
+match Eden's), left `ExtraData0`/`1` and `.lock`, and wrote the backup with `backup.json`
+(`5-after-copy-undo-row.png`); Undo copy put the tree back identical to the player's original
+(`diff -r`) and removed the backup (`7-after-undo.png`). The player's own folders were only read.
+
+On this machine `~/.config/Ryujinx/bis/user/save` holds saves under `<title id>/<user id>` (each
+with its own `ExtraData0`) while Ryubing's index (`imkvdb.arc`) names save ids 1 to 6 with no such
+folders, so upstream Ryubing would not see these saves; openSU reads the folders by their
+`ExtraData0`.
+
+Gaps: no copy into an emulator without a save of the game (Ryujinx's index is the emulator's to
+write); no check that the target emulator is closed; Flatpak save folders and Eden's
+`user/save/account` layout are not read; the copy and the listing run on the frame thread (saves
+are small); libretro and standalone pairs of other consoles, cloud and LAN targets are not built.

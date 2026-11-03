@@ -1,10 +1,12 @@
 // emulator_catalog — the emulators openSU knows, read from the shipped `emulators.json`: which
 // systems each runs, how it is found and started on this machine, where it keeps its settings,
-// and, for one that publishes an official AppImage, where its releases are. An Android
+// where it keeps games' saves, and, for one that publishes an official AppImage, where its
+// releases are. An Android
 // launcher names the app's activity, started by an intent. A built-in emulator
 // names a libretro core instead, which openSU's runner plays.
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -51,6 +53,23 @@ struct RomsetSource {
     }
 };
 
+/// How a standalone emulator lays out its games' saves.
+enum class SaveLayout : std::uint8_t {
+    /// yuzu's line (Eden, Citron, sudachi): `user/save/0000000000000000/<user id>/<title id>`
+    /// under its NAND, the profiles in `system/save/8000000000000010/su/avators/profiles.dat`.
+    YuzuNand,
+    /// Ryujinx's line (Ryubing): save folders under `user/save` of its `bis`, each carrying the
+    /// save's attribute in `ExtraData0`, its files in `0` (committed) and `1` (working).
+    RyujinxBis,
+};
+
+/// Where a standalone emulator keeps its games' saves (`"saves"`).
+struct SaveStore {
+    SaveLayout layout{SaveLayout::YuzuNand};
+    /// The NAND (yuzu's line) or `bis` (Ryujinx's line) folder.
+    std::filesystem::path folder;
+};
+
 /// What the catalog appends to a built-in emulator's name.
 inline constexpr std::string_view builtInMark = " (built-in)";
 
@@ -72,6 +91,8 @@ struct EmulatorEntry {
     std::vector<EmulatorLauncher> launchers;
     /// Absent for an emulator without an official AppImage.
     std::optional<ReleaseSource> release;
+    /// Absent for an emulator whose saves openSU cannot read; a built-in one's are the runner's.
+    std::optional<SaveStore> saves;
     /// The libretro core a built-in emulator runs ("mgba_libretro"); empty for a standalone one.
     std::string core;
     /// An arcade core's ROM-set listings; empty for every other emulator.

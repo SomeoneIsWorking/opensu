@@ -21,7 +21,12 @@ player picks which to keep, every replaced copy is backed up first).
 
 ## Order
 
-1. One owner for "this game's saves" per runner and emulator (shared with save transfer).
+1. One owner for "this game's saves" per runner and emulator (shared with save transfer). Built
+   (2026-11-04): `library::saves::savesOf` lists each installed emulator's save slots of a ROM
+   with size and newest change, keyed by `SaveKey` (console and Switch title id, or the ROM's name
+   for the runner); standalone emulators' folders come from the catalog's `"saves"`, the runner's
+   `.srm` and `.state` from `retro/save_paths`. Store games and the standalone emulators of other
+   consoles have no save store yet.
 2. LAN sharing first (the player, 2026-11-03: "LAN save sharing sounds great"): openSU machines
    that found and paired with each other ([LAN pairing](lan-remote-play.md), step 1) sync saves
    directly, proven between this PC and the Windows VM.

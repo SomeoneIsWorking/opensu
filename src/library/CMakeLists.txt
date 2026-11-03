@@ -33,6 +33,7 @@ add_library(opensu_library STATIC
     play_history.cpp
     play_time.cpp
     emulator_game_list.cpp
+    game_saves.cpp switch_saves.cpp save_copy.cpp
     emulator_choice.cpp
     text_fold.cpp
     sections.cpp

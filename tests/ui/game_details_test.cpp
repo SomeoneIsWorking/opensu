@@ -143,12 +143,17 @@ void romEmulator() {
     expect(none != nullptr && none->choices.front() == noEmulator && none->chosen == 0 &&
                none->choices.size() == 3,
            "with none picked the choice says so before the emulators");
-    const GameDetails sourced = detailsOf(kirby(true), false, now, {}, false,
-                                          GameSettingsView{"Set for this game", {}, "Inherited"});
+    const GameDetails sourced =
+        detailsOf(kirby(true), false, now, {}, false,
+                  GameSettingsView{"Set for this game", {}, "Inherited", "Eden, Ryujinx"});
     expect(valueOf(sourced, "Emulator") == "Eden · installed · Set for this game" &&
                actionOf(sourced, detailsEmulatorId)->note == "Set for this game" &&
                actionOf(sourced, detailsSettingsId)->value == "Inherited",
            "where the pick comes from shows, and the Game settings row reads its count");
+    const SettingsRow* saves = actionOf(sourced, detailsSavesId);
+    expect(saves != nullptr && saves->kind == RowKind::Page && saves->value == "Eden, Ryujinx" &&
+               actionOf(unpickedDetails, detailsSavesId) == nullptr,
+           "Copy saves names the emulators keeping a save, and is left out while none is named");
 }
 
 void arcadeRomset() {

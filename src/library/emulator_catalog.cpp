@@ -74,6 +74,27 @@ ReleaseSource releaseOf(const json& object, const std::string& where) {
     return release;
 }
 
+/// A standalone emulator's `"saves"`: its layout and folder.
+std::optional<SaveStore> savesOf(const json& object, const fs::path& home,
+                                 const std::string& where) {
+    const auto found = object.find("saves");
+    if (found == object.end()) {
+        return std::nullopt;
+    }
+    if (!found->is_object()) {
+        throw Malformed{where + ": \"saves\" is not an object"};
+    }
+    const std::string layout = text(*found, "layout", where, true);
+    SaveStore store{.layout = SaveLayout::YuzuNand,
+                    .folder = configPath(text(*found, "folder", where, true), home)};
+    if (layout == "ryujinx") {
+        store.layout = SaveLayout::RyujinxBis;
+    } else if (layout != "yuzu") {
+        throw Malformed{where + ": \"saves\" \"layout\" must be yuzu or ryujinx"};
+    }
+    return store;
+}
+
 /// An arcade core's listings: HTTPS files, or a release.
 RomsetSource romsetsOf(const json& object, const std::string& where) {
     const auto found = object.find("romsets");
@@ -129,8 +150,9 @@ void checkCore(const json& object, const std::string& core, const std::string& w
     if (!named) {
         throw Malformed{where + ": \"core\" must be a core's name, as \"mgba_libretro\""};
     }
-    if (object.contains("launchers") || object.contains("release")) {
-        throw Malformed{where + ": a core runs built in, without \"launchers\" or \"release\""};
+    if (object.contains("launchers") || object.contains("release") || object.contains("saves")) {
+        throw Malformed{where + ": a core runs built in, without \"launchers\", \"release\" or "
+                                "\"saves\""};
     }
 }
 
@@ -192,6 +214,7 @@ EmulatorEntry entryOf(const json& object, const fs::path& home, std::size_t inde
         }
         entry.release = releaseOf(*release, where);
     }
+    entry.saves = savesOf(object, home, where);
     return entry;
 }
 

@@ -169,6 +169,7 @@ std::vector<Game> Provider::list() {
                 game.artworkKey = titled ? dump->title : listed;
                 if (dump) {
                     game.artwork = dump->icon;
+                    game.titleId = dump->titleId;
                 }
                 game.file = *file;
                 // The file itself is what makes the entry playable.
