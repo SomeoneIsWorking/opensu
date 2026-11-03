@@ -29,12 +29,10 @@ executableAt(const std::filesystem::path& candidate);
                                      std::chrono::milliseconds timeout);
 
 /// A child whose stdout (and stderr when `errors` is Merged) is handed to `onLine` line by line,
-/// with `stdinLine` and a newline on its stdin when given, else none; ended with everything it
-/// started when `stop` is requested.
+/// with stdin closed; ended with everything it started when `stop` is requested.
 [[nodiscard]] std::optional<int> stream(const std::string& program,
                                         const std::vector<std::string>& args,
                                         const std::function<void(std::string_view)>& onLine,
-                                        const std::stop_token& stop, CaptureErrors errors,
-                                        const std::optional<std::string_view>& stdinLine);
+                                        const std::stop_token& stop, CaptureErrors errors);
 
 } // namespace opensu::launch::child

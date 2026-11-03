@@ -41,7 +41,7 @@ The shell runs without the layer and goes through Xwayland on its 32-bit visual,
 intended; games keep it. `CompositorSession::runOnce` gives Gamescope (and so the shell)
 `DISABLE_GAMESCOPE_WSI=1` (`launch::gamescopeWsiOff`), and `launch::ChildEnvironment` leaves that
 variable out of every program openSU starts (`Instance::start`, `runCommand`, `runStreaming`,
-`runCaptured`, `runCapturedWithLine`), so games, Steam and the libretro runner load the layer as
+`runCaptured`), so games, Steam and the libretro runner load the layer as
 before.
 
 Not chosen: a `PRE_MULTIPLIED` swapchain through the layer needs SDL changed (a maintained, pinned
