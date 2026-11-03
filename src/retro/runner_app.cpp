@@ -27,6 +27,7 @@
 #include "lucent/log.h"
 #include "presenter.hpp"
 #include "save_memory.hpp"
+#include "save_paths.hpp"
 #include "save_state.hpp"
 #include "shell_handoff.hpp"
 #include "touch_layer.hpp"
@@ -272,7 +273,7 @@ RunnerExit RunnerApp::run() {
     Clock::duration interval = frameInterval(core->avInfo().timing.fps);
     sink.setCoreRate(core->avInfo().timing.sample_rate);
 
-    SaveMemory saves{options_.saves / (options_.rom.stem().string() + ".srm")};
+    SaveMemory saves{saveMemoryFile(options_.saves, options_.rom)};
     try {
         saves.load(core->saveRam());
     } catch (const SaveError& failure) {
@@ -282,7 +283,7 @@ RunnerExit RunnerApp::run() {
         }
         return RunnerExit::LoadFailed;
     }
-    SaveState state{options_.saves / (options_.rom.stem().string() + ".state")};
+    SaveState state{saveStateFile(options_.saves, options_.rom)};
 
     const bool handoff = shell_handoff::active() && !options_.hidden;
     if (handoff) {

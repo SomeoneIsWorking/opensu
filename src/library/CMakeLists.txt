@@ -92,6 +92,7 @@ target_include_directories(opensu_library PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_library
     PUBLIC opensu::vdf
         opensu::setting_layers
+        opensu::retro_saves
         opensu::config
         opensu::net
         opensu::secrets

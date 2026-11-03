@@ -1,5 +1,12 @@
 # opensu-retro, the built-in libretro runner: one core per process, an SDL window drawn with Vulkan.
 
+# Where the runner keeps a game's saves, which the shell's save owner reads too.
+add_library(opensu_retro_saves STATIC save_paths.cpp)
+add_library(opensu::retro_saves ALIAS opensu_retro_saves)
+target_include_directories(opensu_retro_saves PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(opensu_retro_saves PUBLIC cxx_std_20)
+opensu_warnings(opensu_retro_saves)
+
 add_library(opensu_retro STATIC
     core.cpp core_environment.cpp core_options.cpp video_frame.cpp audio_sink.cpp
     audio_output.cpp joypad.cpp save_memory.cpp vulkan_device.cpp frame_filter.cpp
@@ -14,7 +21,7 @@ target_link_libraries(opensu_retro PRIVATE nlohmann_json::nlohmann_json)
 target_include_directories(opensu_retro
     PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(opensu_retro
-    PUBLIC opensu::libretro_header opensu::librashader_header opensu::pad opensu::command opensu::fileio opensu::setting_layers lucent::lucent
+    PUBLIC opensu::retro_saves opensu::libretro_header opensu::librashader_header opensu::pad opensu::command opensu::fileio opensu::setting_layers lucent::lucent
            PkgConfig::SDL3 opensu::vulkan
     PRIVATE gpu2d::image opensu::svg)
 # Where the shell cannot draw over the runner (Android), Guide and Back bring the shell's Activity

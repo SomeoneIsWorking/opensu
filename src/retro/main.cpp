@@ -26,6 +26,7 @@
 #include "lucent/log.h"
 
 #include "retro/runner_app.hpp"
+#include "retro/save_paths.hpp"
 #include "settings/video_settings.hpp"
 
 namespace {
@@ -124,16 +125,6 @@ std::optional<opensu::retro::RunnerOptions> parse(std::span<const std::string> a
     return options;
 }
 
-/// A core's name without the buildbot's suffix: "mgba" for mgba_libretro.so or
-/// mgba_libretro_android.so.
-std::string coreName(const std::filesystem::path& core) {
-    std::string name = core.stem().string();
-    if (const std::size_t at = name.rfind("_libretro"); at != std::string::npos) {
-        name.erase(at);
-    }
-    return name;
-}
-
 } // namespace
 
 int main(int argc, char** argv) try {
@@ -144,7 +135,7 @@ int main(int argc, char** argv) try {
         return 1;
     }
     if (options->saves.empty()) {
-        options->saves = config.savesDir / coreName(options->core);
+        options->saves = opensu::retro::coreSaveFolder(config.savesDir, options->core);
     }
     if (options->system.empty()) {
         options->system = config.retroSystemDir;

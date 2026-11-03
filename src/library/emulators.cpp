@@ -8,6 +8,7 @@
 #include <system_error>
 
 #include "lucent/log.h"
+#include "retro/save_paths.hpp"
 
 namespace opensu::library::roms {
 namespace {
@@ -145,7 +146,8 @@ std::optional<EmulatorInstall> locateCore(const EmulatorEntry& entry,
         command.emplace_back("--hidden");
     }
     if (!search.saves.empty()) {
-        command.insert(command.end(), {"--saves", (search.saves / "{system}").string()});
+        command.insert(command.end(),
+                       {"--saves", retro::systemSaveFolder(search.saves, "{system}").string()});
     }
     for (const CoreOption& option : entry.coreOptions) {
         command.insert(command.end(), {"--option", option.key + "=" + option.value});
