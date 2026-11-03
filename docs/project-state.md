@@ -746,7 +746,7 @@ it), so any local web page can POST a code to it (a login-CSRF, not a credential
 A loopback HTTP channel, part of the product rather than a debug flag, so an
 automated run can drive the shell with no controller and no compositor in the way.
 `GET /state` returns the shell's state as JSON (`artworkPending`: tiles near the canvas still
-showing the loading placeholder, downloading or decoding or not yet uploaded), `POST /input` queues a tap (press and release) of a button by
+showing the loading placeholder, downloading or decoding or not yet uploaded; `imagesPending`: pictures an open screen such as the details page still loads), `POST /input` queues a tap (press and release) of a button by
 name (`guide+a` holds buttons together, `guide 1500ms` holds them up to 10000 ms, every later edge
 queued behind the release), `GET /frame.png` returns the next frame as PNG bytes, `POST /quit` closes
 the shell. `OPENSU_CONTROL_PORT` moves the port; it cannot be closed, because it

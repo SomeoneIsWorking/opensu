@@ -844,6 +844,7 @@ void ShellApp::publishSnapshot() {
     next.installed = installedCount_;
     const ui::HomeGrid& grid = shell_.grid();
     next.artworkPending = grid.artworkPending();
+    next.imagesPending = shell_.screens().images().pending();
     next.worstFrameUs = static_cast<std::size_t>(
         std::chrono::duration_cast<std::chrono::microseconds>(frameTiming_.worst()).count());
     if (const library::Game* focused = grid.focusedGame(); focused != nullptr) {

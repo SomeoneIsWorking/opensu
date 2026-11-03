@@ -3,6 +3,7 @@
 // every picture goes when no screen is drawn.
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
 #include <map>
 
@@ -20,6 +21,8 @@ class ScreenImages {
     void want(const std::filesystem::path& file);
     /// The texture of `file`; null until it lands or when the file does not decode.
     [[nodiscard]] const gpu2d::Texture* find(const std::filesystem::path& file) const;
+    /// How many of the asked-for pictures are still loading.
+    [[nodiscard]] std::size_t pending() const noexcept;
     /// Lets every picture go, cancelling those still loading.
     void clear() noexcept {
         images_.clear();

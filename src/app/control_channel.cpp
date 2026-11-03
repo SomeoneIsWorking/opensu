@@ -174,6 +174,7 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     number("games", snapshot.games);
     number("installed", snapshot.installed);
     number("artworkPending", snapshot.artworkPending);
+    number("imagesPending", snapshot.imagesPending);
     number("worstFrameUs", snapshot.worstFrameUs);
     number("focusIndex", snapshot.focusIndex);
     number("page", snapshot.page);
