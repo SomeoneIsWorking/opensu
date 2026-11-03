@@ -1,14 +1,43 @@
 #include "process_table.hpp"
 
+#include <array>
+#include <cerrno>
 #include <csignal>
+#include <fcntl.h>
 #include <filesystem>
-#include <fstream>
-#include <iterator>
 #include <sstream>
+#include <unistd.h>
 
 namespace opensu::launch::table {
 
 namespace fs = std::filesystem;
+
+namespace {
+
+/// A /proc file of a process; empty once the process is gone, where read() fails with ESRCH and
+/// libstdc++'s filebuf would throw.
+std::string readProcFile(ProcessId pid, const char* name) {
+    const std::string path = "/proc/" + std::to_string(pid) + "/" + name;
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return {};
+    }
+    std::string text;
+    std::array<char, 4096> chunk{};
+    ssize_t got = 0;
+    while ((got = ::read(fd, chunk.data(), chunk.size())) != 0) {
+        if (got < 0 && errno != EINTR) {
+            break;
+        }
+        if (got > 0) {
+            text.append(chunk.data(), static_cast<std::size_t>(got));
+        }
+    }
+    ::close(fd);
+    return got < 0 ? std::string{} : text;
+}
+
+} // namespace
 
 bool available() {
     return true;
@@ -34,9 +63,7 @@ std::vector<ProcessId> pids() {
 /// The command name in /proc/<pid>/stat can hold spaces and parentheses, so the fields are read
 /// after its last ')'.
 ProcessId parentOf(ProcessId pid) {
-    std::ifstream in{"/proc/" + std::to_string(pid) + "/stat"};
-    std::string text;
-    std::getline(in, text);
+    const std::string text = readProcFile(pid, "stat");
     const std::size_t close = text.rfind(')');
     if (close == std::string::npos) {
         return -1;
@@ -51,9 +78,7 @@ ProcessId parentOf(ProcessId pid) {
 }
 
 std::string commandLine(ProcessId pid) {
-    // The process may exit between the listing and the read, which reads empty.
-    std::ifstream cmdline{"/proc/" + std::to_string(pid) + "/cmdline", std::ios::binary};
-    return std::string{std::istreambuf_iterator<char>{cmdline}, std::istreambuf_iterator<char>{}};
+    return readProcFile(pid, "cmdline");
 }
 
 bool kill(ProcessId pid) {
