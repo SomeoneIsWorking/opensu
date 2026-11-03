@@ -48,15 +48,6 @@ SteamMode modeOf(SteamUse use) {
     return SteamMode::Normal;
 }
 
-/// The entry `step` places from `now` in `offered`, wrapping; A steps forward.
-template <typename T> T stepped(const std::vector<T>& offered, T now, int step) {
-    const auto at = std::ranges::find(offered, now);
-    const auto from = at == offered.end() ? 0 : at - offered.begin();
-    const auto count = static_cast<long>(offered.size());
-    const long next = (from + (step == 0 ? 1 : step) % count + count) % count;
-    return offered[static_cast<std::size_t>(next)];
-}
-
 /// `offered` as a choice's options, `now` chosen.
 template <typename T> ui::Options optionsOf(const std::vector<T>& offered, T now) {
     ui::Options options;
@@ -151,9 +142,9 @@ void IntegrationSettings::run(const std::string& id, int step) {
     settings::IntegrationChoices choices = effective();
     const settings::Integrations& now = integrations_.preview(choices);
     if (id == modeId) {
-        choices.steamMode = stepped(integrations_.modesOffered(), modeOf(now.steam), step);
+        choices.steamMode = ui::stepped(integrations_.modesOffered(), modeOf(now.steam), step);
     } else if (id == padsId) {
-        choices.steamPads = stepped(settings::Integrations::padsOffered(), now.steamPads, step);
+        choices.steamPads = ui::stepped(settings::Integrations::padsOffered(), now.steamPads, step);
     } else if (bool* on = switchOf(choices, id.substr(prefix.size())); on != nullptr && step == 0) {
         *on = !*on;
     } else {

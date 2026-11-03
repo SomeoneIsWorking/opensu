@@ -2,6 +2,7 @@
 // value. Every toolkit screen of rows turns each into the widget of its kind (`row_widgets`).
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -80,6 +81,15 @@ struct Options {
 /// A choice row; its value reads the chosen option.
 [[nodiscard]] SettingsRow makeChoice(std::string id, std::string label, std::string note,
                                      Options options);
+/// The entry `step` places from `now` in `offered`, wrapping; A steps forward.
+template <typename T> T stepped(const std::vector<T>& offered, T now, int step) {
+    const auto at = std::ranges::find(offered, now);
+    const auto from = at == offered.end() ? 0 : at - offered.begin();
+    const auto count = static_cast<long>(offered.size());
+    const long next = (from + (step == 0 ? 1 : step) % count + count) % count;
+    return offered[static_cast<std::size_t>(next)];
+}
+
 /// A heading over the rows after it.
 [[nodiscard]] SettingsRow makeHeading(std::string label);
 /// A row opening the page `id`, reading `value`.
