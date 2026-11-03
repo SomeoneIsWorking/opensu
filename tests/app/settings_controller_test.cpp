@@ -20,6 +20,7 @@
 #include "gpu2d/ui/widgets.hpp"
 #include "installs.hpp"
 #include "keyboard_pad.hpp"
+#include "night_light.hpp"
 #include "path_editor.hpp"
 #include "preferences.hpp"
 #include "settings_controller.hpp"
@@ -237,7 +238,7 @@ struct Rig {
     }
     /// Focuses the widget `id` on the top screen.
     void focus(const std::string& id) {
-        expect(screens.navigator.focus(id), "a row with that id takes the focus");
+        expect(screens.navigator.focus(id), ("the row " + id + " takes the focus").c_str());
         screens.frame();
     }
     /// The id of the top screen, or empty with none open.
@@ -625,15 +626,23 @@ void togglesChoicesAndSliderPersist(const fs::path& root) {
     rig.act(Button::Right);
     expect(need(rig.onDisk().homeMode, "a scroll mode") != first, "and stepping changes it");
 
-    rig.focus("nightLight");
-    const ui::SettingsRow night = rig.rowOf("nightLight");
-    expect(night.choices.size() == 3 && night.choices[night.chosen] == "Same as desktop" &&
-               night.note == "For session mode; here the desktop's own night light applies",
-           "the night light follows the desktop, and says where it applies");
-    rig.act(Button::Right);
-    expect(rig.onDisk().nightLight == settings::NightLightChoice::Off &&
-               rig.rowOf("nightLight").choices[rig.rowOf("nightLight").chosen] == "Off",
-           "a night light choice is kept");
+    if (app::nightLightSupported()) {
+        rig.focus("nightLight");
+        const ui::SettingsRow night = rig.rowOf("nightLight");
+        expect(night.choices.size() == 3 && night.choices[night.chosen] == "Same as desktop" &&
+                   night.note == "For session mode; here the desktop's own night light applies",
+               "the night light follows the desktop, and says where it applies");
+        rig.act(Button::Right);
+        expect(rig.onDisk().nightLight == settings::NightLightChoice::Off &&
+                   rig.rowOf("nightLight").choices[rig.rowOf("nightLight").chosen] == "Off",
+               "a night light choice is kept");
+    } else {
+        expect(std::ranges::none_of(rig.rows(),
+                                    [](const ui::SettingsRow& row) {
+                                        return row.id == "nightLight";
+                                    }),
+               "without a night light to switch there is no row for it");
+    }
 
     rig.focus("layout");
     const library::LibraryMode mode = rig.preferences.values().libraryMode;

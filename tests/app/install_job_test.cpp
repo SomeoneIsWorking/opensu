@@ -5,6 +5,7 @@
 #include "install_job.hpp"
 #include "installs.hpp"
 
+#include <cerrno>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -13,6 +14,7 @@
 #include <string>
 #include <thread>
 
+#include <signal.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -299,7 +301,8 @@ sleep 60
     expect(Clock::now() - asked < std::chrono::seconds{10},
            "the cancel does not wait for legendary");
     const std::string pid = firstLine(dir / "busy-pid");
-    expect(!pid.empty() && !fs::exists("/proc/" + pid), "legendary is stopped");
+    expect(!pid.empty() && ::kill(std::stoi(pid), 0) != 0 && errno == ESRCH,
+           "legendary is stopped");
 }
 
 /// A fake gogdl whose `download` records its arguments and the auth file's mode, makes a game
@@ -315,7 +318,7 @@ download)
     while [ "$1" != "--path" ]; do shift; done
     path="$2"
     mkdir -p "$path"
-    echo "$(stat -c %a "$auth")" > "$path/../../auth-mode"
+    ls -ln "$auth" | cut -c1-10 > "$path/../../auth-mode"
     echo "$all" > "$path/../../download-args"
     case "$id" in
     full)
@@ -328,7 +331,10 @@ download)
     sleep 0.3
     echo "[PROGRESS] INFO: = Progress: 100.00 20/20, Running for: 00:00:04, ETA: 00:00:00" >&2
     sleep 0.3
-    [ "$id" = rotate ] && sed -i 's/REFRESH-1/REFRESH-9/' "$auth"
+    if [ "$id" = rotate ]; then
+        rotated=$(sed 's/REFRESH-1/REFRESH-9/' "$auth")
+        printf '%s\n' "$rotated" > "$auth"
+    fi
     exit 0
     ;;
 esac
@@ -370,7 +376,7 @@ void testGog(const fs::path& dir) {
     expect(firstLine(data / "download-args") == "download native --platform " + own + " --path " +
                                                     (data / "gog-games/native").string(),
            "a game with this OS's build downloads that build");
-    expect(firstLine(data / "auth-mode") == "600", "gogdl read an owner-only token file");
+    expect(firstLine(data / "auth-mode") == "-rw-------", "gogdl read an owner-only token file");
     expect(!fs::exists(data / "gogdl-auth.json"), "the token file is gone afterwards");
     const auto record =
         opensu::library::gog::InstallRecords{data / "gog-installs.json"}.find("native");

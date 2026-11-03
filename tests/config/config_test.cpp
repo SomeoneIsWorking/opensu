@@ -73,7 +73,9 @@ int main(int argc, char** argv) try {
         expect(config.romRoots == Paths{"/roms/a", "/roms/b"},
                "OPENSU_ROM_ROOTS splits on ':', dropping empty entries");
         expect(config.executablePath == Paths{"/bin-a", "/bin-b"}, "PATH splits on ':'");
-        expect(config.logFile == "/xdg-state/opensu/opensu.log", "the log file is a state file");
+        expect(config.stateDir == "/xdg-state" / config.dataDir.filename(),
+               "XDG_STATE_HOME holds openSU's state, in this OS's folder name");
+        expect(config.logFile == config.stateDir / "opensu.log", "the log file is a state file");
         std::printf("config: all checks passed\n");
         return 0;
     }
