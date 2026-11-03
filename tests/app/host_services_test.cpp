@@ -4,6 +4,9 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <string>
+
+#include <unistd.h>
 
 #include "host_services.hpp"
 #include "support/scratch_dir.hpp"
@@ -96,8 +99,11 @@ void sessionModeIsFoundThroughTheConfig() {
     Rig rig;
     const std::filesystem::path bin = rig.root / "bin";
     std::filesystem::create_directories(bin);
-    // A stand-in for pkexec whose password dialog the player dismisses.
-    std::ofstream{bin / "pkexec"} << "#!/bin/sh\nexit 126\n";
+    // A stand-in for pkexec that notes what polkit would see of its caller, then has the password
+    // dialog dismissed.
+    const std::filesystem::path seen = rig.root / "pkexec-saw";
+    std::ofstream{bin / "pkexec"} << "#!/bin/sh\nprintf '%s\\n' \"$PPID\" \"$*\" > '"
+                                  << seen.string() << "'\nexit 126\n";
     std::filesystem::permissions(bin / "pkexec", std::filesystem::perms::owner_all);
     config::Config config;
     config.program = rig.root / "opensu";
@@ -118,6 +124,15 @@ void sessionModeIsFoundThroughTheConfig() {
     app::HostServices services = app::HostServices::detect(config, false);
     expect(services.session->install().kind == host::InstallResult::Kind::Cancelled,
            "a dismissed password dialog is a cancelled install");
+    std::ifstream saw{seen};
+    std::string parent;
+    std::string args;
+    std::getline(saw, parent);
+    std::getline(saw, args);
+    // polkit asks the agent of pkexec's parent's session, so the parent must be openSU itself.
+    expect(parent == std::to_string(::getpid()), "pkexec is openSU's own child");
+    expect(args == "/bin/sh " + (paths.stage / "install-session.sh").string(),
+           "pkexec runs the staged installer");
 }
 
 } // namespace
