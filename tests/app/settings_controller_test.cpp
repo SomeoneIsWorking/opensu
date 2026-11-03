@@ -568,7 +568,7 @@ void leavingAsksAboutStagedIntegrations(const fs::path& root) {
 
 void categoriesFollowTheSavedSettings(const fs::path& root) {
     Rig rig{root / "categories"};
-    rig.recorded = {library::steam::LibraryFolder{"/mnt/games/SteamLibrary", "", {{"10", 2048}}}};
+    rig.recorded = {library::steam::LibraryFolder{"/mnt/games/SteamLibrary", "", {{"10", 2000}}}};
     rig.controller.open();
     std::vector<std::string> names;
     for (const ui::SettingsCategory& category : rig.controller.categories()) {
@@ -1077,10 +1077,10 @@ void steamLibrariesWhileSteamRuns(const fs::path& root) {
         }
         return json::array({{{"nFolderIndex", 0},
                              {"strFolderPath", "/home/p/.local/share/Steam"},
-                             {"nFreeSpace", "2048"},
-                             {"nCapacity", "4096"},
+                             {"nFreeSpace", "2000"},
+                             {"nCapacity", "4000"},
                              {"bIsDefaultFolder", defaultIndex == 0},
-                             {"vecApps", json::array({{{"nAppID", 220}, {"nAppSize", "1024"}}})}},
+                             {"vecApps", json::array({{{"nAppID", 220}, {"nAppSize", "1000"}}})}},
                             {{"nFolderIndex", 1},
                              {"strFolderPath", "/mnt/empty"},
                              {"bIsDefaultFolder", defaultIndex == 1},

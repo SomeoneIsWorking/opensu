@@ -428,7 +428,7 @@ Pure model, unit-tested without a GPU (`opensu_grid`, `opensu_hud_model`):
 | `src/ui/corner_hints.*` | Which prompts the bottom corners name and the button each sends, from what each button does now (`HintContext`) |
 | `src/ui/clock_text.*`, `battery_icon.*` | Clock string and battery drawable choice |
 | `src/ui/panel_frame.hpp` | The frame and chrome heights the side menus are laid out in |
-| `src/ui/size_text.*` | A size as the player reads it (`sizeText`, binary steps: "45.2 GB") |
+| `src/ui/size_text.*` | A size as the player reads it, the one rule every screen uses (`sizeText`, decimal steps: "45.2 GB") |
 | `src/ui/setting_row.*` | The settings row model every settings-like list builds: `SettingsRow` kinds (toggle, choice with its options, slider with range and step, folder, action with its confirm question, info, heading, page), `SettingsCategory`, the row builders, `stepped` (a choice's next entry, wrapping) |
 | `src/ui/interface_theme.*` | openSU's theme for the `gpu2d::ui` toolkit: palette, spacing, shape and type tokens at a dp scale |
 | `src/ui/interface_text.*` | The one face (Cal Sans, hinted and kerned): loaded once, the toolkit's `Typesetter` and what every painter measures and draws words with; one character centred on its ink (`drawInkCentred`), a line placed by its capitals' top (`drawFromCapTop`), `capHeightPerEm` |

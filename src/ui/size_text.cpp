@@ -6,7 +6,7 @@
 namespace opensu::ui {
 namespace {
 
-constexpr double unit = 1024.0;
+constexpr double unit = 1000.0;
 
 } // namespace
 

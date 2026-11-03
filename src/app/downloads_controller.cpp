@@ -1,38 +1,24 @@
 #include "downloads_controller.hpp"
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cmath>
-#include <cstdio>
 #include <memory>
 #include <utility>
 
 #include "downloads_screen.hpp"
 #include "library/emulator_catalog.hpp"
 #include "library/shader_pack.hpp"
+#include "ui/size_text.hpp"
 
 namespace opensu::app {
 namespace {
 
+using ui::sizeText;
+
 constexpr int secondsPerMinute = 60;
 constexpr int secondsPerHour = 3600;
 constexpr double percentScale = 100.0;
-constexpr double unitStep = 1000.0;
-
-/// `12.3 MB`: decimal units, as Steam shows sizes.
-std::string sizeText(std::uint64_t bytes) {
-    constexpr std::array<const char*, 5> units{"B", "KB", "MB", "GB", "TB"};
-    auto value = static_cast<double>(bytes);
-    std::size_t unit = 0;
-    while (value >= unitStep && unit + 1 < units.size()) {
-        value /= unitStep;
-        ++unit;
-    }
-    std::array<char, 32> text{};
-    std::snprintf(text.data(), text.size(), unit == 0 ? "%.0f %s" : "%.1f %s", value, units[unit]);
-    return text.data();
-}
 
 std::string timeText(int seconds) {
     if (seconds >= secondsPerHour) {
