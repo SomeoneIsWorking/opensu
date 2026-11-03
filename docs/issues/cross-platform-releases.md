@@ -500,7 +500,7 @@ the `intent` `ProcessLauncher` backend over `android::ActivityCall` (`src/androi
 AudioManager volume backend, `clock::sinceEpoch` (the NDK's libc++ has no `clock_cast`),
 `library::cliStoresRun` and an empty `steam::clientModes` (no Steam, Epic or GOG on Android), and
 Lucent's `text::from_chars_real` (no floating `from_chars` in the NDK's libc++). The OS's
-on-screen keyboard is off (openSU draws its own). HTTPS trusts the system's CA files, read once
+on-screen keyboard shows only while a field is typed into by touch. HTTPS trusts the system's CA files, read once
 into memory (`net::TrustStore`); cores come from the buildbot's `android/latest/<abi>` folder as
 `<core>_libretro_android.so`. `Launches` counts the runner as starting until its `:retro`
 process appears (it is forked after `startActivity` returns), and the runner sets a core's video,
@@ -543,11 +543,13 @@ interface theme, so it reads the same on a dense phone screen.
 The shell's touch controls show while a finger or mouse gave the latest input and go with the
 next key or pad button (`LastDevice::pointing`, `ShellApp::syncChrome`): a Back button before the
 trail and a Menu button before the status pill (52 dp glass, iiSU's `xe4.i`; iiSU itself has
-neither, the user asked for both), every hint bar's prompts as 48 dp buttons, the corner prompts a
-finger apart, each sending its button, and a scroll bar on a list that scrolls. A drag scrolls a
+neither, the user asked for both), every hint bar's prompts as 48 dp buttons (a stepping pair, LB and RB or Left and Right, a chevron
+each side), the corner prompts side by side, each sending its button, no LB and RB badges on the
+dock, and a scroll bar on a list that scrolls. A drag scrolls a
 list or the Home grid with the finger and flings on release (a Paged grid flips as iiSU's `pb0`
 does), across a slider sets it, a long press opens the context menu, a tap on a hidden dock shows
-it, the on-screen keyboard opens as the key grid, and the system's Back is B
+it, a text field types on Android's own keyboard (`KeyboardPad::systemTyping`,
+`ShellWindow::showScreenKeyboard`), and the system's Back is B
 (`ShellWindow::systemBack`).
 
 Back from a game: the runner and the shell are Activities in tasks of their own (`RetroActivity`

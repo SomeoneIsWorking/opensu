@@ -97,6 +97,14 @@ class ShellWindow {
     [[nodiscard]] bool systemBack() const noexcept {
         return systemBack_;
     }
+    /// Whether the system has an on-screen keyboard (Android's) a text field can ask for.
+    [[nodiscard]] bool hasScreenKeyboard() const noexcept;
+    /// Shows or hides the system's on-screen keyboard; it types through the same text events.
+    void showScreenKeyboard(bool shown);
+    /// The system's on-screen keyboard was put away this frame, by the player or the system.
+    [[nodiscard]] bool screenKeyboardHidden() const noexcept {
+        return screenKeyboardHidden_;
+    }
     /// Posts `combo` to the event queue as the keyboard presses it: down in one frame, up in the
     /// next, after whatever was posted before it.
     void press(input::Combo combo);
@@ -144,6 +152,8 @@ class ShellWindow {
     bool strokeDown_{false};
     bool closing_{false};
     bool systemBack_{false};
+    bool screenKeyboard_{false};
+    bool screenKeyboardHidden_{false};
     std::chrono::steady_clock::time_point nextFrame_{std::chrono::steady_clock::now()};
 };
 

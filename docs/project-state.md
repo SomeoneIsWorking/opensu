@@ -1900,10 +1900,15 @@ a breadcrumb tapped, a long press opening a game's menu, Details from it, a scri
 dialog, the folder picker through Android's own, the dock tapped and a hidden dock shown by a
 tap, a Carousel swiped, Downloads, and Search typed into through the key grid.
 
-Gaps: the docked keyboard's keys are about 11 dp tall on a phone (the dock is held to a fifth of
-the screen), under the 48 dp target; iiSU uses the system keyboard there. A Paged or Flow grid
-long enough to swipe, the XMB drag and a fling were not shown on the device. On the 1600x1920
-tablet the Guide menu's Volume label is cut ("Volu…"), cause not traced. Not run on a real phone.
+Shown on a Huawei BKY-W09 tablet (2800x1840, 360 dpi, release APK) the same way: the Guide's
+Volume label whole, the dock's LB/RB badges gone while touch leads, Settings' Category and the
+details page's Change and Scope stepped by a chevron each side, the folder added through Android's
+picker, a Paged grid dragged and flung, a long press, a GBA game played with a CRT preset and the
+game menu over it, and Search typed into through Android's own keyboard (touch opens it; a pad keeps
+the key grid; hiding it ends editing).
+
+Gaps: on the tablet the first Menu tap once did nothing, one chevron tap once stepped twice and one
+once went Home, none reproduced. Not run on a real phone.
 
 ### S030 — AppImage
 

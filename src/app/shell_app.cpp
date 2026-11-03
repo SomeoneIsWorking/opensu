@@ -413,7 +413,10 @@ void ShellApp::typeIntoField(const input::TextInput& typed) {
     if (!typed.any()) {
         return;
     }
-    shell_.inputDevice().noteKey();
+    // The system's on-screen keyboard is the finger's: it leaves the touch controls up.
+    if (!keyboardPad_.systemTyping()) {
+        shell_.inputDevice().noteKey();
+    }
     gpu2d::ui::Navigator& navigator = shell_.screens().navigator();
     navigator.text(typed.text);
     for (const ui::TypingKey& key : ui::typingKeys) {
@@ -1104,7 +1107,11 @@ int ShellApp::run() {
         giveaways_.service();
         ownGames_.service();
         gameMatch_.service();
+        if (window_->screenKeyboardHidden()) {
+            keyboardPad_.close();
+        }
         keyboardPad_.follow();
+        window_->showScreenKeyboard(keyboardPad_.systemTyping());
         syncOverlay();
         syncChrome();
         shell_.tick(std::chrono::steady_clock::now());
@@ -1136,6 +1143,7 @@ bool ShellApp::openWindow(const std::string& title, bool hidden) {
         return false;
     }
     gameScreen_.attach(*window_);
+    keyboardPad_.setSystemKeyboard(window_->hasScreenKeyboard());
     return true;
 }
 

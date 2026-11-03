@@ -40,28 +40,34 @@ ui::Direction directionOf(gamepad::Button button) noexcept {
 }
 
 void KeyboardPad::open() {
-    if (keyboard_.isOpen()) {
+    if (keyboard_.isOpen() || systemTyping_) {
         return;
     }
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    keyboard_.open(navigator_.touch());
+    if (navigator_.touch() && systemKeyboard_) {
+        systemTyping_ = true;
+    } else {
+        keyboard_.open(navigator_.touch());
+    }
     navigator_.edit(true);
 }
 
 void KeyboardPad::close() {
-    if (!keyboard_.isOpen()) {
+    if (!keyboard_.isOpen() && !systemTyping_) {
         return;
     }
     // input-sound.md 3.4 Close: the player dismisses a panel.
     sounds_.play(audio::Effect::Close);
     keyboard_.close();
+    systemTyping_ = false;
     navigator_.edit(false);
 }
 
 void KeyboardPad::follow() {
-    if (keyboard_.isOpen() && !navigator_.editing()) {
+    if (!navigator_.editing()) {
         keyboard_.close();
+        systemTyping_ = false;
     }
 }
 

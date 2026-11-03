@@ -10,6 +10,8 @@
 // and Y type its characters; with no petal picked X deletes, Y types a space and B closes. LB
 // deletes and RB types a space either way, LT and RT step the set, D-pad Left and Right move the
 // caret, Start is Done.
+// While touch controls show, a field types on the system's on-screen keyboard where there is one
+// (Android's), the way iiSU does; the grid is the pad's.
 #pragma once
 
 #include "gpu2d/ui/navigator.hpp"
@@ -30,12 +32,22 @@ class KeyboardPad {
         : keyboard_{keyboard}, navigator_{navigator}, sounds_{sounds} {
     }
 
-    /// Opens the keyboard over the focused field; while touch controls show, as the regular grid,
-    /// which a finger types on a tap a key, whatever style is chosen.
+    /// Whether the system has an on-screen keyboard; set once the window is up.
+    void setSystemKeyboard(bool available) noexcept {
+        systemKeyboard_ = available;
+    }
+    /// Starts editing the focused field. While touch controls show, on the system's keyboard, or
+    /// where there is none on the regular grid a finger taps; otherwise on the grid in the
+    /// chosen style.
     void open();
     void close();
+    /// Whether openSU's own keyboard is up.
     [[nodiscard]] bool isOpen() const noexcept {
         return keyboard_.isOpen();
+    }
+    /// Whether the field is typed into on the system's keyboard now.
+    [[nodiscard]] bool systemTyping() const noexcept {
+        return systemTyping_;
     }
     /// Closes the keyboard once the focused field is not being edited. Each frame.
     void follow();
@@ -62,6 +74,8 @@ class KeyboardPad {
     ui::OnScreenKeyboard& keyboard_;
     gpu2d::ui::Navigator& navigator_;
     audio::SdlSoundPlayer& sounds_;
+    bool systemKeyboard_{false};
+    bool systemTyping_{false};
 };
 
 } // namespace opensu::app

@@ -46,11 +46,19 @@ SDL_GPUCommandBuffer* acquireCommands(SDL_GPUDevice& device) {
 ShellWindow::ShellWindow(const Options& options)
     : window_{windowOptions(options)}, canvas_{window_.device()} {
     SDL_SetWindowMinimumSize(window_.window(), minimumWidth, minimumHeight);
-    // Text comes from openSU's own keyboard or a hardware one, never the OS's on-screen keyboard.
+    // The system's on-screen keyboard shows only when a field asks for it (`showScreenKeyboard`).
     SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, "0");
     SDL_StartTextInput(window_.window());
     lucent::info("shell", "drawing on {} through {}, {} window", window_.deviceName(),
                  window_.driver(), window_.translucent() ? "translucent" : "opaque");
+    SDL_Rect safe{};
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSize(window_.window(), &width, &height);
+    SDL_GetWindowSafeArea(window_.window(), &safe);
+    lucent::info("shell", "window {}x{}, safe area {}x{} at {},{}, {} screen keyboard", width,
+                 height, safe.w, safe.h, safe.x, safe.y,
+                 SDL_HasScreenKeyboardSupport() ? "a" : "no");
 }
 
 std::optional<display::Output> ShellWindow::output() const {
@@ -78,6 +86,22 @@ void ShellWindow::raise() {
     SDL_RaiseWindow(window_.window());
 }
 
+bool ShellWindow::hasScreenKeyboard() const noexcept {
+    return SDL_HasScreenKeyboardSupport();
+}
+
+void ShellWindow::showScreenKeyboard(bool shown) {
+    if (shown == screenKeyboard_) {
+        return;
+    }
+    screenKeyboard_ = shown;
+    // SDL reads the hint when text input starts, so input restarts under the new one.
+    SDL_SetHint(SDL_HINT_ENABLE_SCREEN_KEYBOARD, shown ? "1" : "0");
+    SDL_StopTextInput(window_.window());
+    SDL_StartTextInput(window_.window());
+    lucent::info("shell", "system keyboard {}", shown ? "shown" : "hidden");
+}
+
 void ShellWindow::lower() {
     SDL_MinimizeWindow(window_.window());
 }
@@ -86,6 +110,7 @@ bool ShellWindow::pollEvents() {
     keys_.nextFrame();
     pointer_ = PointerFrame{};
     systemBack_ = false;
+    screenKeyboardHidden_ = false;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         handle(event);
@@ -123,6 +148,9 @@ void ShellWindow::handle(const SDL_Event& event) {
         break;
     case SDL_EVENT_TEXT_INPUT:
         keys_.type(event.text.text);
+        break;
+    case SDL_EVENT_SCREEN_KEYBOARD_HIDDEN:
+        screenKeyboardHidden_ = screenKeyboard_;
         break;
     case SDL_EVENT_MOUSE_MOTION:
         pointer_.delta.x += event.motion.xrel;
