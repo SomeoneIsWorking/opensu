@@ -22,5 +22,7 @@ player picks which to keep, every replaced copy is backed up first).
 ## Order
 
 1. One owner for "this game's saves" per runner and emulator (shared with save transfer).
-2. Folder and WebDAV targets for ROM saves, proven between this PC and the Windows VM.
-3. Epic and GOG cloud through legendary and gogdl; LAN peers once pairing exists.
+2. LAN sharing first (the player, 2026-11-03: "LAN save sharing sounds great"): openSU machines
+   that found and paired with each other ([LAN pairing](lan-remote-play.md), step 1) sync saves
+   directly, proven between this PC and the Windows VM.
+3. Folder and WebDAV targets; Epic and GOG cloud through legendary and gogdl.
