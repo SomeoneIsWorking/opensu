@@ -6,6 +6,7 @@
 #include "build_version.hpp"
 #include "layered_editor.hpp"
 #include "library/steam.hpp"
+#include "lucent/text.h"
 #include "night_light.hpp"
 #include "settings/install_folders.hpp"
 #include "settings_screen.hpp"
@@ -73,10 +74,6 @@ std::string shortcutValue(const input::Shortcuts& shortcuts, input::Action actio
         value += (value.empty() ? "" : "  ") + input::describe(*chord);
     }
     return value;
-}
-
-std::string countOf(std::size_t count, const char* what) {
-    return std::to_string(count) + " " + what + (count == 1 ? "" : "s");
 }
 
 /// Steps `value` by `step` (A is 1) around `count` choices.
@@ -239,12 +236,14 @@ ui::SettingsCategory SettingsController::libraryPage() const {
                                        "Hide games you have not installed", v.view.installedOnly));
     ui::SettingsRow hidden = ui::makeRow(
         hiddenId, RowKind::Action, "Show hidden games again", "Brings back every game you hid",
-        v.hidden.keys().empty() ? "None hidden" : countOf(v.hidden.keys().size(), "game"));
+        v.hidden.keys().empty() ? "None hidden"
+                                : lucent::text::counted(v.hidden.keys().size(), "game"));
     page.rows.push_back(std::move(hidden));
-    ui::SettingsRow picks = ui::makeRow(
-        emulatorsId, RowKind::Action, "Reset emulator choices",
-        "Every ROM goes back to its default emulator",
-        layers_.gamePicks() == 0 ? "None chosen" : countOf(layers_.gamePicks(), "game"));
+    ui::SettingsRow picks =
+        ui::makeRow(emulatorsId, RowKind::Action, "Reset emulator choices",
+                    "Every ROM goes back to its default emulator",
+                    layers_.gamePicks() == 0 ? "None chosen"
+                                             : lucent::text::counted(layers_.gamePicks(), "game"));
     if (layers_.gamePicks() > 0) {
         picks.confirm = "Every game's own emulator is forgotten; each console's stays.";
     }
@@ -449,8 +448,8 @@ Screen::BackReply SettingsController::leave() {
     };
     navigator_.push(std::make_unique<gpu2d::ui::Dialog>(
         "Apply integration changes?",
-        countOf(waiting, "change") + " on Integrations " + (waiting == 1 ? "is" : "are") +
-            " not applied yet. Discarded changes are lost.",
+        lucent::text::counted(waiting, "change") + " on Integrations " +
+            (waiting == 1 ? "is" : "are") + " not applied yet. Discarded changes are lost.",
         std::move(choices)));
     return Screen::BackReply::Stay;
 }
@@ -458,7 +457,7 @@ Screen::BackReply SettingsController::leave() {
 void SettingsController::applyIntegrations() {
     const std::size_t applied = integrations_.apply();
     if (applied > 0) {
-        hooks_.say("Integrations: " + countOf(applied, "change") + " applied", false);
+        hooks_.say("Integrations: " + lucent::text::counted(applied, "change") + " applied", false);
     }
     refresh();
 }

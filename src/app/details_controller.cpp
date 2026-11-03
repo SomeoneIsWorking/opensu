@@ -12,6 +12,7 @@
 #include "library/emulator_choice.hpp"
 #include "library/rom_systems.hpp"
 #include "library/wine.hpp"
+#include "lucent/text.h"
 #include "retro_launch.hpp"
 #include "settings/video_settings.hpp"
 #include "shader_preset_tree.hpp"
@@ -79,9 +80,8 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
     }
     if (const std::optional<std::size_t> kept = hooks_.gameSettings(game)) {
         const std::size_t custom = *kept;
-        view.gameSettings =
-            custom == 0 ? std::string{"Inherited"}
-                        : std::to_string(custom) + " custom setting" + (custom == 1 ? "" : "s");
+        view.gameSettings = custom == 0 ? std::string{"Inherited"}
+                                        : lucent::text::counted(custom, "custom setting");
     }
     return view;
 }

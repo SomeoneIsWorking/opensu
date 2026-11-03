@@ -8,6 +8,7 @@
 #include "hud.hpp"
 #include "library/add_game_offer.hpp"
 #include "lucent/log.h"
+#include "lucent/text.h"
 #include "tile_geometry.hpp"
 
 namespace opensu::ui {
@@ -25,7 +26,7 @@ constexpr float flipShare = 0.18f;
 constexpr float settleMs = 260.0f;
 
 std::string gameCount(std::size_t games) {
-    return std::to_string(games) + (games == 1 ? " game" : " games");
+    return lucent::text::counted(games, "game");
 }
 
 TileKind kindOf(const library::ShelfItem& item) noexcept {

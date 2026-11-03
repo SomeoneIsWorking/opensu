@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "config/config.hpp"
+#include "lucent/text.h"
 
 namespace opensu::app {
 namespace {
@@ -15,10 +16,6 @@ constexpr std::string_view accessSuffix = ".access";
 
 std::string rowId(const PluginInfo& info) {
     return std::string{rowPrefix} + info.manifest.id;
-}
-
-std::string countOf(std::size_t count, const char* what) {
-    return std::to_string(count) + " " + what + (count == 1 ? "" : "s");
 }
 
 /// How the plugin is doing, for its switch's note.
@@ -39,10 +36,11 @@ std::string stateOf(const PluginInfo& info, bool consent) {
         return "Fault " + std::to_string(info.faults) + " of " +
                std::to_string(plugin::faultLimit) + ": " + info.problem;
     }
-    std::string text =
-        info.reported ? "Play time for " + countOf(*info.reported, "game") : std::string{"Running"};
+    std::string text = info.reported
+                           ? "Play time for " + lucent::text::counted(*info.reported, "game")
+                           : std::string{"Running"};
     if (info.listed) {
-        text += "; emulator lists " + countOf(*info.listed, "game") + ", " +
+        text += "; emulator lists " + lucent::text::counted(*info.listed, "game") + ", " +
                 std::to_string(info.matched) + " matched";
     }
     return text;

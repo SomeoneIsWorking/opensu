@@ -1,6 +1,7 @@
 #include "libraries.hpp"
 
 #include "lucent/log.h"
+#include "lucent/text.h"
 #include "steam_json.hpp"
 
 namespace opensu::steam {
@@ -54,8 +55,8 @@ std::string removalRefusal(const SteamLibrary& library) {
         return "it is Steam's own library";
     }
     if (library.apps > 0) {
-        return "it still holds " + std::to_string(library.apps) +
-               (library.apps == 1 ? " game" : " games") + "; uninstall or move them in Steam first";
+        return "it still holds " + lucent::text::counted(library.apps, "game") +
+               "; uninstall or move them in Steam first";
     }
     return {};
 }

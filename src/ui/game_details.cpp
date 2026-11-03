@@ -6,14 +6,15 @@
 #include "clock/local_time.hpp"
 #include "library/match_pick.hpp"
 #include "library/rom_systems.hpp"
+#include "lucent/text.h"
 
 namespace opensu::ui {
 namespace {
 
 constexpr long long monthSeconds = 86400LL * 31;
 
-std::string plural(long long count, const char* unit) {
-    return std::to_string(count) + " " + unit + (count == 1 ? "" : "s") + " ago";
+std::string ago(long long count, const char* unit) {
+    return lucent::text::counted(static_cast<std::size_t>(count), unit) + " ago";
 }
 
 std::string badgeOf(const library::Game& game) {
@@ -91,13 +92,13 @@ std::string lastPlayedText(const std::optional<std::chrono::system_clock::time_p
         return "Just now";
     }
     if (seconds < 3600) {
-        return plural(seconds / 60, "minute");
+        return ago(seconds / 60, "minute");
     }
     if (seconds < 86400) {
-        return plural(seconds / 3600, "hour");
+        return ago(seconds / 3600, "hour");
     }
     if (seconds < monthSeconds) {
-        return plural(seconds / 86400, "day");
+        return ago(seconds / 86400, "day");
     }
     const std::time_t when = std::chrono::system_clock::to_time_t(*at);
     const std::tm parts = clock::localTime(when);

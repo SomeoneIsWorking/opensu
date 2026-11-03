@@ -15,6 +15,7 @@
 #include "library/steam.hpp"
 #include "library/steam_shortcuts.hpp"
 #include "lucent/log.h"
+#include "lucent/text.h"
 #include "net/web_client.hpp"
 #include "ui/entry_screen.hpp"
 
@@ -27,10 +28,6 @@ using library::own::Entry;
 constexpr const char* titleCardId = "own-games/title";
 /// The most bytes a title holds.
 constexpr std::size_t titleMostLength = 256;
-
-std::string countOf(std::size_t count, const char* one, const char* many) {
-    return std::to_string(count) + " " + (count == 1 ? one : many);
-}
 
 std::string kindName(std::optional<library::own::Kind> kind) {
     if (!kind) {
@@ -111,13 +108,13 @@ void OwnGamesController::openAdd() {
         chooseFile();
     }};
     if (shortcuts > 0) {
-        options.push_back("Import " + countOf(shortcuts, "Steam shortcut", "Steam shortcuts"));
+        options.push_back("Import " + lucent::text::counted(shortcuts, "Steam shortcut"));
         actions.emplace_back([this] {
             offer(steamShortcuts(), "Import Steam shortcuts", "Steam's shortcuts");
         });
     }
     if (lutris > 0) {
-        options.push_back("Import " + countOf(lutris, "Lutris game", "Lutris games"));
+        options.push_back("Import " + lucent::text::counted(lutris, "Lutris game"));
         actions.emplace_back([this] {
             offer(lutrisGames(), "Import from Lutris", "Lutris");
         });
@@ -225,7 +222,7 @@ void OwnGamesController::importAll(std::vector<Entry> entries, std::string_view 
                 records_.add(std::move(entry));
             }
         },
-        "Imported " + countOf(count, "game", "games") + " from " + std::string{from});
+        "Imported " + lucent::text::counted(count, "game") + " from " + std::string{from});
 }
 
 void OwnGamesController::rename(const library::Game& game) {

@@ -6,6 +6,7 @@
 #include <tuple>
 
 #include "library/titles.hpp"
+#include "lucent/text.h"
 
 namespace opensu::giveaways {
 namespace {
@@ -17,7 +18,7 @@ constexpr Seconds hour = 60 * minute;
 constexpr Seconds day = 24 * hour;
 
 std::string count(Seconds amount, const char* unit) {
-    return std::to_string(amount) + " " + unit + (amount == 1 ? "" : "s");
+    return lucent::text::counted(static_cast<std::size_t>(amount), unit);
 }
 
 } // namespace

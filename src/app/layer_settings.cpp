@@ -4,6 +4,7 @@
 
 #include "library/emulator_choice.hpp"
 #include "library/rom_systems.hpp"
+#include "lucent/text.h"
 
 namespace opensu::app {
 namespace {
@@ -28,7 +29,7 @@ std::string LayerSettings::keptText(const EditorContext& context) const {
     if (count == 0) {
         return "Nothing set";
     }
-    return std::to_string(count) + (count == 1 ? " setting" : " settings");
+    return lucent::text::counted(count, "setting");
 }
 
 std::vector<ui::SettingsRow> LayerSettings::pageRows() const {

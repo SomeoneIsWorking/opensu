@@ -12,6 +12,7 @@
 #include "library/game_matches.hpp"
 #include "library/rom_systems.hpp"
 #include "lucent/log.h"
+#include "lucent/text.h"
 #include "net/web_client.hpp"
 #include "ui/entry_screen.hpp"
 
@@ -234,8 +235,8 @@ std::string GameMatchController::status() const {
     if (candidates_.empty()) {
         return searched() + " has no game called \"" + term_ + "\"; search another name";
     }
-    return std::to_string(candidates_.size()) + " games on " + searched() + " for \"" + term_ +
-           "\"";
+    return lucent::text::counted(candidates_.size(), "game") + " on " + searched() + " for \"" +
+           term_ + "\"";
 }
 
 void GameMatchController::choose(std::size_t index) {

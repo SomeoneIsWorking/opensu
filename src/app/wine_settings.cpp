@@ -14,6 +14,7 @@
 #include "library/steam.hpp"
 #include "library/steam_compat.hpp"
 #include "lucent/log.h"
+#include "lucent/text.h"
 #include "steam_library_settings.hpp"
 
 namespace opensu::app {
@@ -37,10 +38,6 @@ constexpr std::string_view steamRuntimeKey = "steamrt";
 constexpr std::string_view pinId = "wine.pin:";
 constexpr const char* testProgram[] = {"cmd", "/c", "ver"};
 
-std::string countText(std::size_t count) {
-    return std::to_string(count) + (count == 1 ? " game" : " games");
-}
-
 constexpr library::Source storeOrder[] = {library::Source::Steam, library::Source::Gog,
                                           library::Source::Epic};
 
@@ -53,7 +50,7 @@ std::string usageText(const std::vector<library::Game>& games) {
         if (count == 0) {
             continue;
         }
-        text += text.empty() ? countText(count) : ", " + std::to_string(count);
+        text += text.empty() ? lucent::text::counted(count, "game") : ", " + std::to_string(count);
         text += " from " + std::string{library::label(source)};
     }
     return text.empty() ? "Not used" : text;
@@ -207,8 +204,8 @@ WineRunners::InUse WineSettings::inUse() const {
         }
     }
     for (const auto& [build, count] : pinned) {
-        inUse[build] =
-            "Kept because " + countText(count) + (count == 1 ? " is" : " are") + " pinned to it";
+        inUse[build] = "Kept because " + lucent::text::counted(count, "game") +
+                       (count == 1 ? " is" : " are") + " pinned to it";
     }
     if (!launched_.empty() && hooks_.gameRunning()) {
         inUse[launched_] = "Kept because a game is running on it";
@@ -310,7 +307,7 @@ ui::SettingsCategory WineSettings::page() const {
     const std::size_t own = v.ownWinePrefixes.ids().size();
     page.rows.push_back(ui::makeRow(ownId, RowKind::Info, "Own Wine prefixes",
                                     "Set per game on its details page",
-                                    own == 0 ? "None" : countText(own)));
+                                    own == 0 ? "None" : lucent::text::counted(own, "game")));
     if (integrations_.lists(library::Source::Steam)) {
         page.rows.push_back(ui::makeRow(steamId, RowKind::Info, "Steam games",
                                         "Steam runs them with the tool picked in Steam",

@@ -6,6 +6,7 @@
 #include "gpu2d/ui/layout.hpp"
 #include "gpu2d/ui/widgets.hpp"
 
+#include "lucent/text.h"
 #include "settings/framegen_settings.hpp"
 #include "settings/scaling_settings.hpp"
 #include "shader_preset_tree.hpp"
@@ -32,10 +33,6 @@ std::string phrased(const LayeredSettings& settings, const Layer& scope) {
 
 std::string rowId(std::string_view key) {
     return std::string{rowPrefix} + std::string{key};
-}
-
-std::string countOf(std::size_t count, std::string_view noun) {
-    return std::to_string(count) + " " + std::string{noun} + (count == 1 ? "" : "s");
 }
 
 /// The tree a screen of `look` lays out in: the side column (a page's) or the panel's head, the
@@ -138,7 +135,7 @@ std::unique_ptr<tk::Widget> LayeredEditor::build(const tk::Theme& theme) {
     frame.head->add<tk::Label>(title(), tk::TextRole::Title, look_ == EditorLook::Page);
     const std::size_t kept = settings::keptCount(settings_.rows(schema_, context_, scope()));
     frame.head->add<tk::Label>(kept == 0 ? "Nothing set for " + phrased(settings_, scope())
-                                         : countOf(kept, "custom setting"),
+                                         : lucent::text::counted(kept, "custom setting"),
                                tk::TextRole::Caption);
     if (context_.scopes.size() > 1) {
         std::vector<tk::Tabs::Tab> tabs;
@@ -308,7 +305,7 @@ void LayeredEditor::addClear(tk::Column& rows) {
     rows.add<tk::Item>(std::string{clearId},
                        tk::Item::Text{"Clear " + whose + " settings",
                                       "Every value set here goes back to " + under})
-        .value(countOf(kept, "setting"))
+        .value(lucent::text::counted(kept, "setting"))
         .onPress([this, here = here, whose = whose, under = under] {
             navigator_.push(tk::confirm("Clear " + whose + " settings?",
                                         "Every value set here goes back to " + under + ".", "Clear",
@@ -407,7 +404,7 @@ std::unique_ptr<tk::Widget> ShaderPresetScreen::build(const tk::Theme& theme) {
         const bool chosen = own != nullptr && presetBelow(*own, child.path);
         rows.add<tk::Item>("folder/" + child.path, tk::Item::Text{child.name, {}})
             .value(chosen ? "Chosen: " + library::roms::presetName(*own)
-                          : countOf(child.presets, "preset"))
+                          : lucent::text::counted(child.presets, "preset"))
             .onPress(
                 [this, path = child.path] {
                     open(path);

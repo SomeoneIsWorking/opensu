@@ -8,6 +8,7 @@
 #include "library/core_bios.hpp"
 #include "library/rom_systems.hpp"
 #include "library/shader_pack.hpp"
+#include "lucent/text.h"
 
 namespace opensu::app {
 namespace {
@@ -46,7 +47,7 @@ std::string checkValue(const EmulatorDownloads::Check& check, std::size_t update
     if (updates == 0) {
         return "Everything is up to date";
     }
-    return std::to_string(updates) + (updates == 1 ? " update" : " updates");
+    return lucent::text::counted(updates, "update");
 }
 
 } // namespace
