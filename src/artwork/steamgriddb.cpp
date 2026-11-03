@@ -45,6 +45,10 @@ SteamGridDbGame steamGridDbGameOf(const library::Game& game) {
     return {game.source == library::Source::Steam ? game.sourceId : "", game.title};
 }
 
+std::string lookupKey(const SteamGridDbGame& game) {
+    return game.steamAppId + "\t" + game.title;
+}
+
 // A portrait is under 4:5, a landscape over 5:4.
 CoverShape coverShapeOf(int width, int height) noexcept {
     if (width * 5 < height * 4) {

@@ -35,7 +35,14 @@ program, not the folder".
   else the placeholder; Choose artwork as for any game.
 - Imports, read only: Steam's `userdata/*/config/shortcuts.vdf` (binary KeyValues, `vdf/binary`),
   and Lutris's `pga.db` opened `immutable`; a Lutris entry runs as
-  `lutris lutris:rungameid/<id>`, through Lutris's own runner and settings.
+  `lutris lutris:rungameid/<id>`, through Lutris's own runner and settings. A Lutris game is the
+  Steam app Lutris knows it as: its Steam service id, a Steam runner's `game.appid`, or
+  `system.env.GAMEID` (`umu-<id>` or the bare id) in `games/<configpath>.yml`. An entry imported
+  before that was read takes it from Lutris on each listing; a match the entry keeps wins.
+- A fitted SteamGridDB cover is kept with its lookup (`fitted/<id>.for`: Steam app and title);
+  one fitted for another lookup, or kept without one, is dropped and fitted again. Cause of the
+  Resident Evil 4 Remake showing the 2005 game: `lutris_games.cpp:lutrisGames` read only the name,
+  so the game had no Steam app and `SteamGridDb::covers` took the first title match.
 - Details of an own game: a File fact (or "Runs through: Lutris"), no Wine prefix row and no
   Uninstall, plus Rename, Change file and Remove from library, which asks first and says the file
   stays. After a removal the focus goes to the tile now in the removed game's slot; when the last

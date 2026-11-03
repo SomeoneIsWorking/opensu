@@ -1575,8 +1575,15 @@ identified, six with their Steam app and cover, two by folder name; Little Kitty
 GE-Proton and Nebula Reset (AppImage) to their windows; 12 Steam shortcuts and 9 Lutris games
 imported; from the player's 9 Lutris games, Deselect all, three switched on and Undo imported the
 two left chosen (hidden run on a profile with no imports, Lutris's data as it is); Remove from
-library. Unverified: SteamGridDB art for own games (not connected here);
-launching a Lutris or Steam-shortcut entry.
+library. A Lutris game is the Steam app Lutris knows it as (its Steam service id, a Steam
+runner's `appid`, or the umu `GAMEID` in its config, `lutris_games`), read again on each listing
+for an entry imported without one, so its cover, SteamGridDB lookup and Proton fixes follow the
+right game; a fitted SteamGridDB cover is kept with the lookup it was found by
+(`fitted/<id>.for`) and fitted again when the lookup changes. Seen on the player's Resident Evil 4
+Remake (Lutris `GAMEID: '2050650'`): before, SteamGridDB's first title match gave the 2005 game's
+cover; now the remake's Steam portrait (hidden run, the player's files, a copy of the cache).
+SteamGridDB art for own games seen in a hidden run. Unverified: launching a Lutris or
+Steam-shortcut entry.
 
 ### S026 — Emulator downloads
 

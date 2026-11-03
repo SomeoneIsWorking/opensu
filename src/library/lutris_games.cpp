@@ -3,9 +3,13 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <system_error>
 
 #include <sqlite3.h>
+
+#include "game.hpp"
+#include "lutris_config.hpp"
 
 namespace opensu::library::own {
 namespace {
@@ -45,6 +49,33 @@ std::string column(sqlite3_stmt* statement, int index) {
     return text == nullptr ? std::string{} : std::string{reinterpret_cast<const char*>(text)};
 }
 
+/// umu's game id for a Steam app, `umu-<app id>`, or the bare id.
+std::string appOfUmuId(std::string_view gameId) {
+    if (gameId.starts_with("umu-")) {
+        gameId.remove_prefix(4);
+    }
+    return isSteamAppId(gameId) ? std::string{gameId} : std::string{};
+}
+
+/// The Steam app a Lutris game is: Lutris's Steam service id, a Steam runner's `appid`, or the
+/// `GAMEID` umu runs a Wine game as.
+std::string steamAppOf(const fs::path& lutrisData, const std::string& configpath,
+                       const std::string& runner, const std::string& service,
+                       const std::string& serviceId) {
+    if (service == "steam" && isSteamAppId(serviceId)) {
+        return serviceId;
+    }
+    if (configpath.empty()) {
+        return {};
+    }
+    const fs::path config = lutris::gameConfig(lutrisData, configpath);
+    if (runner == "steam") {
+        std::string appId = lutris::configValue(config, {"game", "appid"});
+        return isSteamAppId(appId) ? appId : std::string{};
+    }
+    return appOfUmuId(lutris::configValue(config, {"system", "env", "GAMEID"}));
+}
+
 } // namespace
 
 std::vector<Entry> lutrisGames(const fs::path& lutrisData) {
@@ -64,8 +95,9 @@ std::vector<Entry> lutrisGames(const fs::path& lutrisData) {
     }
     sqlite3_stmt* prepared = nullptr;
     if (sqlite3_prepare_v2(database.get(),
-                           "SELECT id, name FROM games WHERE installed = 1 ORDER BY name", -1,
-                           &prepared, nullptr) != SQLITE_OK) {
+                           "SELECT id, name, configpath, runner, service, service_id FROM games "
+                           "WHERE installed = 1 ORDER BY name",
+                           -1, &prepared, nullptr) != SQLITE_OK) {
         throw std::runtime_error{"cannot read " + file.string() + ": " +
                                  sqlite3_errmsg(database.get())};
     }
@@ -76,13 +108,17 @@ std::vector<Entry> lutrisGames(const fs::path& lutrisData) {
         if (name.empty()) {
             continue;
         }
-        entries.push_back(Entry{.id = {},
-                                .title = std::move(name),
-                                .file = {},
-                                .args = {},
-                                .workingDirectory = {},
-                                .origin = Origin::Lutris,
-                                .originId = column(statement.get(), 0)});
+        entries.push_back(
+            Entry{.id = {},
+                  .title = std::move(name),
+                  .file = {},
+                  .args = {},
+                  .workingDirectory = {},
+                  .origin = Origin::Lutris,
+                  .originId = column(statement.get(), 0),
+                  .steamAppId =
+                      steamAppOf(lutrisData, column(statement.get(), 2), column(statement.get(), 3),
+                                 column(statement.get(), 4), column(statement.get(), 5))});
     }
     return entries;
 }

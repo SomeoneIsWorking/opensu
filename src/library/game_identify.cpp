@@ -281,10 +281,7 @@ std::string steamAppIdIn(const fs::path& dir) {
     std::ifstream in{dir / "steam_appid.txt"};
     std::string id;
     in >> id;
-    const bool digits = !id.empty() && std::ranges::all_of(id, [](unsigned char c) {
-        return std::isdigit(c) != 0;
-    });
-    return digits ? id : std::string{};
+    return isSteamAppId(id) ? id : std::string{};
 }
 
 void addClue(std::vector<Clue>& names, std::string name, const char* from) {

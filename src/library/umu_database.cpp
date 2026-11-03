@@ -62,12 +62,6 @@ Database::Ids idsOf(const json& listing) {
     return ids;
 }
 
-bool isAppId(std::string_view text) {
-    return !text.empty() && std::ranges::all_of(text, [](unsigned char c) {
-        return std::isdigit(c) != 0;
-    });
-}
-
 } // namespace
 
 fs::path databaseFile(const fs::path& dataDir) {
@@ -93,7 +87,7 @@ Database Database::read(const fs::path& file) {
 }
 
 std::string Database::gameIdOf(const Game& game) const {
-    if (game.source == Source::Own && isAppId(game.artworkKey)) {
+    if (game.source == Source::Own && isSteamAppId(game.artworkKey)) {
         return "umu-" + game.artworkKey;
     }
     const std::string_view store = storeOf(game);

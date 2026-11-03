@@ -104,10 +104,12 @@ class Records {
 /// says why in `unavailable`.
 [[nodiscard]] Game gameOf(const Entry& entry);
 
-/// Lists the entries as games; absent while there are none.
+/// Lists the entries as games; absent while there are none. A Lutris entry with no Steam app of
+/// its own is the app Lutris knows it as (`lutrisGames`), read from `lutrisData` on each listing.
 class Provider final : public library::Provider {
   public:
-    explicit Provider(Records records) : records_{std::move(records)} {
+    Provider(Records records, std::filesystem::path lutrisData)
+        : records_{std::move(records)}, lutrisData_{std::move(lutrisData)} {
     }
 
     [[nodiscard]] Source source() const override {
@@ -117,6 +119,7 @@ class Provider final : public library::Provider {
 
   private:
     Records records_;
+    std::filesystem::path lutrisData_;
 };
 
 } // namespace opensu::library::own

@@ -5,12 +5,15 @@
 #include <fstream>
 #include <stdexcept>
 #include <system_error>
+#include <unordered_map>
 #include <utility>
 
 #include <nlohmann/json.hpp>
 
 #include "fileio/atomic_write.hpp"
 #include "launch/command.hpp"
+#include "lucent/log.h"
+#include "lutris_games.hpp"
 #include "store_builds.hpp"
 
 namespace opensu::library::own {
@@ -285,9 +288,30 @@ Game gameOf(const Entry& entry) {
 }
 
 std::vector<Game> Provider::list() {
-    const std::vector<Entry> entries = records_.all();
+    std::vector<Entry> entries = records_.all();
     if (entries.empty()) {
         throw SourceAbsent{"no games added"};
+    }
+    const bool unmatched = std::ranges::any_of(entries, [](const Entry& entry) {
+        return entry.origin == Origin::Lutris && entry.steamAppId.empty();
+    });
+    if (unmatched) {
+        std::unordered_map<std::string, std::string> apps;
+        try {
+            for (Entry& lutris : lutrisGames(lutrisData_)) {
+                apps.emplace(std::move(lutris.originId), std::move(lutris.steamAppId));
+            }
+        } catch (const std::exception& error) {
+            // The games still list; only Lutris's Steam apps are missing.
+            lucent::warn("own-games", "Lutris's games: {}", error.what());
+        }
+        for (Entry& entry : entries) {
+            if (entry.origin == Origin::Lutris && entry.steamAppId.empty()) {
+                if (const auto found = apps.find(entry.originId); found != apps.end()) {
+                    entry.steamAppId = found->second;
+                }
+            }
+        }
     }
     std::vector<Game> games;
     games.reserve(entries.size());

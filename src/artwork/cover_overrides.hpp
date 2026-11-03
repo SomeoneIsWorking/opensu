@@ -1,7 +1,8 @@
 // cover_overrides — the covers shown in place of a game's own: one the player chose in "Choose
 // artwork", kept under the data dir as `chosen/<id>`, or a SteamGridDB cover of the tile's shape
-// fitted for a cover of another shape, kept under the cache as `fitted/<id>`. The game's own file
-// stays where its source put it. A choice of the game's own art is kept too (`chosen/<id>.own`),
+// fitted for a cover of another shape, kept under the cache as `fitted/<id>` with the SteamGridDB
+// lookup it was found by (`fitted/<id>.for`, `lookupKey`). The game's own file stays where its
+// source put it. A choice of the game's own art is kept too (`chosen/<id>.own`),
 // so no fitted cover replaces it. `<id>` is the game id percent-encoded.
 #pragma once
 
@@ -38,15 +39,22 @@ class CoverOverrides {
                               std::string& error) const;
     /// Keeps the player's choice of the game's own cover.
     [[nodiscard]] bool chooseOwn(std::string_view id, std::string& error) const;
-    /// Keeps `bytes` as the fitted cover of `id`.
-    [[nodiscard]] bool fit(std::string_view id, std::string_view bytes, std::string& error) const;
-    /// Notes that SteamGridDB has no cover of the tile's shape for `id`.
-    void recordFitMiss(std::string_view id) const;
+    /// Keeps `bytes` as the fitted cover of `id`, found by `lookup`.
+    [[nodiscard]] bool fit(std::string_view id, std::string_view bytes, std::string_view lookup,
+                           std::string& error) const;
+    /// Notes that SteamGridDB has no cover of the tile's shape for `id` by `lookup`.
+    void recordFitMiss(std::string_view id, std::string_view lookup) const;
+    /// Forgets the fitted cover or miss of `id` unless it was found by `lookup`: the game is now
+    /// looked up as another (a Steam app matched, a new title).
+    void forgetOtherFit(std::string_view id, std::string_view lookup) const;
 
   private:
     [[nodiscard]] std::filesystem::path chosenPath(std::string_view id) const;
     [[nodiscard]] std::filesystem::path ownMarker(std::string_view id) const;
     [[nodiscard]] std::filesystem::path fittedPath(std::string_view id) const;
+    /// Keeps `lookup` as what `id`'s fit or miss was found by.
+    [[nodiscard]] bool keepLookup(std::string_view id, std::string_view lookup,
+                                  std::string& error) const;
 
     std::filesystem::path chosenDir_;
     std::filesystem::path fittedDir_;

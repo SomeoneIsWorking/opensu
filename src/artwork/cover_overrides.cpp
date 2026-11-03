@@ -1,5 +1,7 @@
 #include "cover_overrides.hpp"
 
+#include <fstream>
+#include <iterator>
 #include <system_error>
 #include <variant>
 
@@ -88,15 +90,39 @@ bool CoverOverrides::chooseOwn(std::string_view id, std::string& error) const {
     return fileio::writeWhole(ownMarker(id), {}, error);
 }
 
-bool CoverOverrides::fit(std::string_view id, std::string_view bytes, std::string& error) const {
-    return fileio::writeWhole(fittedPath(id), bytes, error);
+bool CoverOverrides::keepLookup(std::string_view id, std::string_view lookup,
+                                std::string& error) const {
+    return fileio::writeWhole(withSuffix(fittedPath(id), ".for"), lookup, error);
 }
 
-void CoverOverrides::recordFitMiss(std::string_view id) const {
+bool CoverOverrides::fit(std::string_view id, std::string_view bytes, std::string_view lookup,
+                         std::string& error) const {
+    return keepLookup(id, lookup, error) && fileio::writeWhole(fittedPath(id), bytes, error);
+}
+
+void CoverOverrides::recordFitMiss(std::string_view id, std::string_view lookup) const {
     std::string error;
-    if (!fileio::writeWhole(withSuffix(fittedPath(id), ".miss"), {}, error)) {
+    if (!keepLookup(id, lookup, error) ||
+        !fileio::writeWhole(withSuffix(fittedPath(id), ".miss"), {}, error)) {
         lucent::warn("artwork", "{}", error);
     }
+}
+
+void CoverOverrides::forgetOtherFit(std::string_view id, std::string_view lookup) const {
+    const fs::path fitted = fittedPath(id);
+    const fs::path miss = withSuffix(fitted, ".miss");
+    if (!isFile(fitted) && !isFile(miss)) {
+        return;
+    }
+    const fs::path kept = withSuffix(fitted, ".for");
+    std::ifstream in{kept, std::ios::binary};
+    if (in && std::string{std::istreambuf_iterator<char>{in}, {}} == lookup) {
+        return;
+    }
+    std::error_code ec;
+    fs::remove(fitted, ec);
+    fs::remove(miss, ec);
+    fs::remove(kept, ec);
 }
 
 } // namespace opensu::artwork

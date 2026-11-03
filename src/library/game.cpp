@@ -125,4 +125,10 @@ bool isReady(const std::vector<SourceStatus>& sources, Source source) {
     });
 }
 
+bool isSteamAppId(std::string_view text) noexcept {
+    return !text.empty() && std::ranges::all_of(text, [](unsigned char c) {
+        return c >= '0' && c <= '9';
+    });
+}
+
 } // namespace opensu::library

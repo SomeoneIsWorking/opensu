@@ -191,6 +191,48 @@ void testFitsAGameWhoseSourceHasNoCover() {
            "a game whose cover is still to be downloaded is left alone");
 }
 
+void testAGameMatchedToASteamAppIsFittedAgain() {
+    Rig rig{"cover-fit-matched"};
+    const std::string classic = png(64, 64);
+    const std::string remake = png(32, 32);
+    rig.api.putGame("Resident Evil 4 Remake", 21, {"classic-square.png", classic, 512, 512});
+    rig.api.putSteam("2050650", {"remake-square.png", remake, 512, 512});
+    opensu::library::Game game;
+    game.id = "own:7";
+    game.title = "Resident Evil 4 Remake";
+    game.source = opensu::library::Source::Own;
+    game.sourceId = "7";
+
+    CoverFitter fitter{rig.overrides, rig.steamGridDb, rig.store};
+    const auto settle = [&fitter] {
+        std::vector<FittedCover> fitted;
+        waitUntil(
+            [&] {
+                for (FittedCover& one : fitter.take()) {
+                    fitted.push_back(std::move(one));
+                }
+                return fitter.idle();
+            },
+            "the fitter settles");
+        return fitted;
+    };
+    fitter.request({game}, CoverShape::Square);
+    std::vector<FittedCover> fitted = settle();
+    expect(fitted.size() == 1 && readFile(fitted[0].cover) == classic,
+           "a game without a Steam app is fitted by its title");
+    expect(fitter.pendingGames().empty(), "nothing waits once the round ends");
+
+    game.artworkKey = "2050650";
+    const fs::path own = rig.scratch.path() / "own" / "7.png";
+    writeFile(own, png(40, 60));
+    game.artwork = own;
+    fitter.request({game}, CoverShape::Square);
+    fitted = settle();
+    expect(fitted.size() == 1 && readFile(fitted[0].cover) == remake &&
+               readFile(rig.overrides.shown("own:7")) == remake,
+           "matched to a Steam app, its title's cover goes and the app's is fitted");
+}
+
 void testFittingNeedsAKey() {
     Rig rig{"cover-fit-nokey"};
     rig.steamGridDb.setKey("");
@@ -275,6 +317,7 @@ int main() try {
     try {
         testFitsAPortraitCoverToASquareTile();
         testFitsAGameWhoseSourceHasNoCover();
+        testAGameMatchedToASteamAppIsFittedAgain();
         testFittingNeedsAKey();
         testChooseArtwork();
         std::puts("steamgriddb_covers: ok");

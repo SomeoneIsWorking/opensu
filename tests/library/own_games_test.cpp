@@ -203,25 +203,56 @@ void steamShortcutsAreRead(const fs::path& dir) {
 
 void lutrisGamesAreRead(const fs::path& dir) {
     expect(own::lutrisGames(dir / "none").empty(), "no Lutris is no games");
-    fs::create_directories(dir / "lutris");
+    fs::create_directories(dir / "lutris/games");
     const fs::path db = dir / "lutris/pga.db";
     sqlite3* database = nullptr;
     expect(sqlite3_open(db.string().c_str(), &database) == SQLITE_OK, "a fake pga.db is made");
     expect(sqlite3_exec(database,
-                        "CREATE TABLE games (id INTEGER PRIMARY KEY, name TEXT, installed INTEGER);"
-                        "INSERT INTO games VALUES (2, 'Lies of P', 1), (3, 'Gone', 0),"
-                        "(9, 'Elden Ring', 1);",
+                        "CREATE TABLE games (id INTEGER PRIMARY KEY, name TEXT, installed INTEGER,"
+                        "configpath TEXT, runner TEXT, service TEXT, service_id TEXT);"
+                        "INSERT INTO games VALUES (2, 'Lies of P', 1, 'lies', 'wine', '', ''),"
+                        "(3, 'Gone', 0, '', 'wine', '', ''),"
+                        "(9, 'Elden Ring', 1, 'elden', 'steam', '', ''),"
+                        "(4, 'Resident Evil 4 Remake', 1, 're4', 'wine', '', ''),"
+                        "(5, 'Portal', 1, '', 'steam', 'steam', '400');",
                         nullptr, nullptr, nullptr) == SQLITE_OK,
            "the fake holds games");
     sqlite3_close(database);
+    std::ofstream{dir / "lutris/games/re4.yml"}
+        << "game:\n  exe: /games/Resident Evil 4/re4.exe\n  prefix: /pfx\nsystem:\n  env:\n"
+           "    GAMEID: '2050650'\nwine:\n  overrides:\n    winmm: n, b\n";
+    std::ofstream{dir / "lutris/games/lies.yml"} << "system:\n  env:\n    GAMEID: umu-1627720\n";
+    std::ofstream{dir / "lutris/games/elden.yml"} << "game:\n  appid: 1245620\n";
     const auto before = fs::last_write_time(db);
     const std::vector<own::Entry> found = own::lutrisGames(dir / "lutris");
-    expect(found.size() == 2 && found[0].title == "Elden Ring" && found[0].originId == "9" &&
+    expect(found.size() == 4 && found[0].title == "Elden Ring" && found[0].originId == "9" &&
                found[1].title == "Lies of P" && found[0].origin == own::Origin::Lutris,
            "installed games by name");
+    expect(found[3].title == "Resident Evil 4 Remake" && found[3].steamAppId == "2050650",
+           "a Wine game is the Steam app umu runs it as");
+    expect(found[1].steamAppId == "1627720", "umu's umu- prefix is dropped");
+    expect(found[0].steamAppId == "1245620", "a Steam runner's game is its appid");
+    expect(found[2].title == "Portal" && found[2].steamAppId == "400",
+           "a game from Lutris's Steam service is its service id");
     expect(fs::last_write_time(db) == before && !fs::exists(dir / "lutris/pga.db-journal") &&
                !fs::exists(dir / "lutris/pga.db-shm"),
            "Lutris's database is only read");
+
+    const own::Records records{dir / "own-games.json"};
+    records.add({.id = {},
+                 .title = "Resident Evil 4 Remake",
+                 .origin = own::Origin::Lutris,
+                 .originId = "4"});
+    records.add({.id = {},
+                 .title = "Lies of P",
+                 .origin = own::Origin::Lutris,
+                 .originId = "2",
+                 .steamAppId = "999"});
+    own::Provider provider{records, dir / "lutris"};
+    const std::vector<Game> games = provider.list();
+    expect(games.size() == 2 && games[0].artworkKey == "2050650",
+           "an entry imported without its Steam app takes the one Lutris names");
+    expect(games[1].artworkKey == "999", "the entry's own match wins over Lutris's");
 }
 
 } // namespace

@@ -29,6 +29,7 @@ CoverFitter::~CoverFitter() {
 }
 
 bool CoverFitter::wanted(const library::Game& game) const {
+    overrides_.forgetOtherFit(game.id, lookupKey(steamGridDbGameOf(game)));
     const ArtworkStore::Clock::time_point now = ArtworkStore::Clock::now();
     return (!game.artwork.empty() || store_.coverless(game, now)) && steamGridDb_.connected() &&
            overrides_.wantsFit(game.id, now);
@@ -133,8 +134,8 @@ CoverFitter::Outcome CoverFitter::fit(const Work& work) {
             return Outcome::Next;
         }
     }
-    const SteamGridDb::Covers offered =
-        steamGridDb_.covers(web_, steamGridDbGameOf(game), work.shape);
+    const SteamGridDbGame lookup = steamGridDbGameOf(game);
+    const SteamGridDb::Covers offered = steamGridDb_.covers(web_, lookup, work.shape);
     switch (offered.status) {
     case SteamGridDb::Covers::Status::Disconnected:
     case SteamGridDb::Covers::Status::Refused:
@@ -155,7 +156,7 @@ CoverFitter::Outcome CoverFitter::fit(const Work& work) {
             lucent::warn("artwork", "{}: {}: {}", game.id, candidate.url, error);
             return Outcome::Next;
         }
-        if (!overrides_.fit(game.id, *bytes, error)) {
+        if (!overrides_.fit(game.id, *bytes, lookupKey(lookup), error)) {
             lucent::warn("artwork", "{}", error);
             return Outcome::Stop;
         }
@@ -165,7 +166,7 @@ CoverFitter::Outcome CoverFitter::fit(const Work& work) {
         done_.push_back({game.id, overrides_.shown(game.id)});
         return Outcome::Next;
     }
-    overrides_.recordFitMiss(game.id);
+    overrides_.recordFitMiss(game.id, lookupKey(lookup));
     return Outcome::Next;
 }
 

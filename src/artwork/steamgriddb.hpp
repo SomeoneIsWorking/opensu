@@ -40,6 +40,10 @@ struct SteamGridDbGame {
 /// by title.
 [[nodiscard]] SteamGridDbGame steamGridDbGameOf(const library::Game& game);
 
+/// The lookup as one line of text, which a fitted cover is kept with: a cover fitted for another
+/// lookup is for another game.
+[[nodiscard]] std::string lookupKey(const SteamGridDbGame& game);
+
 /// One cover SteamGridDB offers.
 struct SteamGridDbCover {
     /// SteamGridDB's id for the picture, which a choice is kept by.
