@@ -1,5 +1,6 @@
 // dock_painter — draws iiSU's primary navigation bar (`gh3.K`): a glass capsule at the bottom
-// centre holding one icon per section, with the LB and RB badges on its top corners.
+// centre holding one icon per section, with the LB and RB badges on its top corners unless a finger
+// or mouse leads, which taps the icons instead.
 #pragma once
 
 #include <span>
@@ -38,7 +39,7 @@ class DockPainter {
   public:
     DockPainter(const input::Prompts& prompts, gpu2d::ui::Typesetter& text,
                 IconAtlas& icons) noexcept
-        : icons_{icons}, glyphs_{prompts, text} {
+        : prompts_{prompts}, icons_{icons}, glyphs_{prompts, text} {
     }
 
     /// The bar where this frame draws it, slid down by how far it has left.
@@ -55,6 +56,7 @@ class DockPainter {
                                            const DockStyle& style) noexcept;
 
     GlassPainter glass_;
+    const input::Prompts& prompts_;
     IconAtlas& icons_;
     ButtonGlyphPainter glyphs_;
 };

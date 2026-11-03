@@ -70,6 +70,9 @@ void DockPainter::paint(Canvas& canvas, const DockLayout& layout, const DockMetr
                      withAlpha(white, alpha));
     }
 
+    if (prompts_.device.pointing()) {
+        return;
+    }
     const Colour ink = withAlpha(badgeInk, alpha);
     const Rect left = shifted(layout.leftBadge, dy);
     const Rect right = shifted(layout.rightBadge, dy);
