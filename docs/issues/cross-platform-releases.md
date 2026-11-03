@@ -1,8 +1,8 @@
 # Windows, macOS and Android releases beside the Linux AppImage
 
 Status: open. Goal G005. Step 1 landed (S042, "Step 1 as built"); step 2, the Windows release,
-landed (S046, "Step 2 as built"); step 3, the macOS release, is in progress (S047, "Step 3 as
-built"); step 4 (Android) is in progress ("Step 4 as built").
+landed (S046, "Step 2 as built"); step 3, the macOS release, is built and checked on CI but not
+yet run on a Mac (S047, "Step 3 as built"); step 4 (Android) is in progress ("Step 4 as built").
 
 Requested: "I want Windows/Linux/macOS/Android releases, ofc the isolation and gamescope features
 only work in Linux, other platforms just act as a launcher".
@@ -479,7 +479,16 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   with MoltenVK as the only Vulkan driver (`VK_DRIVER_FILES`), so the runner's tests draw on the
   runner's Metal device and the shell's through gpu2d's Metal backend; lint is clang-tidy over the
   macOS tree. `tools.package macos` uploads the zip, `frame.png` and `runner.png`. A manual CI run
-  can pick one platform (`platform` input).
+  can pick one platform (`platform` input). First green run: 41682803735 at 8344b47 (lint over
+  522 translation units, 139 of 139 tests, the seven Linux-backend suites not run); the app draws
+  its first-run dialog on the runner's Apple Paravirtual device through Metal, and the bundled
+  runner draws the fake core through the app's MoltenVK.
+- Not yet shown on a Mac: the window, pads and audio; Gatekeeper on the ad-hoc signed,
+  unnotarized download; a launched game's process group, its windows and the shell raised over
+  it; Steam's detection and `steam://` launches; GOG and Epic Mac installs; buildbot cores and
+  librashader shaders on a real GPU. openSU's log is `~/.local/state/openSU/opensu.log` (`stateDir`
+  is XDG's on every OS; a Lucent state resolver would put it in `~/Library/Logs`), and `--help`
+  still describes Gamescope.
 
 ## Step 4 as built
 

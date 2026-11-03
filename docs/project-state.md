@@ -1900,7 +1900,15 @@ What landed is listed in `docs/issues/cross-platform-releases.md` ("Step 3 as bu
 exists here and Apple licenses its SDK only for Macs, so nothing was compiled for Darwin locally;
 every check ran on GitHub's `macos-15` runner.
 
-Gaps: not yet run on CI.
+Verified on CI (run 41682803735, 8344b47): Homebrew LLVM 22 build, clang-tidy over the macOS tree,
+139 of 139 tests on the runner's Metal device through MoltenVK, the signed `openSU.app` zip
+unpacked and verified, its `--render` frame (the first-run integrations dialog, drawn through
+Metal) and the bundled runner's frame of the tests' core through the app's MoltenVK.
+
+Gaps: never run on a Mac: window, pads, audio, Gatekeeper on the ad-hoc signed and unnotarized
+app, real launches and their windows, Steam, GOG and Epic Mac installs, buildbot cores and shaders
+on a real GPU. The log sits in XDG's `~/.local/state/openSU`, not `~/Library/Logs`; `--help`
+describes Gamescope; no `.icns` icon.
 
 ### S048 — Touch UI
 
