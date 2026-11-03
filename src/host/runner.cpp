@@ -1,11 +1,10 @@
 #include "runner.hpp"
 
-#include <algorithm>
-#include <cctype>
 #include <string_view>
 #include <thread>
 
 #include "lucent/log.h"
+#include "lucent/text.h"
 
 namespace opensu::host {
 namespace {
@@ -38,17 +37,9 @@ class StreamingHolder final : public Holder {
 };
 
 /// The first line of `output`, trimmed.
-std::string firstLine(const std::string& output) {
-    const auto isSpace = [](unsigned char c) {
-        return std::isspace(c) != 0;
-    };
-    const auto begin = std::find_if_not(output.begin(), output.end(), isSpace);
-    const auto end = std::find(begin, output.end(), '\n');
-    std::string line{begin, end};
-    while (!line.empty() && isSpace(static_cast<unsigned char>(line.back()))) {
-        line.pop_back();
-    }
-    return line;
+std::string firstLine(std::string_view output) {
+    const std::string_view text = lucent::text::trim(output);
+    return std::string{lucent::text::trim(text.substr(0, text.find('\n')))};
 }
 
 } // namespace

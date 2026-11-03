@@ -1,7 +1,6 @@
 #include "backlight.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <cmath>
 #include <fstream>
 #include <system_error>
@@ -29,20 +28,6 @@ std::optional<long> readNumber(const fs::path& file) {
     return value;
 }
 
-/// The first line of `output`, trimmed.
-std::string firstLine(const std::string& output) {
-    const auto isSpace = [](unsigned char c) {
-        return std::isspace(c) != 0;
-    };
-    const auto begin = std::find_if_not(output.begin(), output.end(), isSpace);
-    const auto end = std::find(begin, output.end(), '\n');
-    std::string line{begin, end};
-    while (!line.empty() && isSpace(static_cast<unsigned char>(line.back()))) {
-        line.pop_back();
-    }
-    return line;
-}
-
 class LogindBacklight final : public Backlight {
   public:
     LogindBacklight(Runner run, fs::path directory, long max)
@@ -66,14 +51,7 @@ class LogindBacklight final : public Backlight {
                             "/org/freedesktop/login1/session/auto",
                             "org.freedesktop.login1.Session", "SetBrightness", "ssu", "backlight",
                             directory_.filename().string(), std::to_string(raw)});
-        if (!out) {
-            return "busctl could not be run";
-        }
-        if (out->status == 0) {
-            return {};
-        }
-        const std::string reason = firstLine(out->output);
-        return reason.empty() ? std::string{"logind refused the brightness"} : reason;
+        return refusalOf("busctl", out, "set the brightness");
     }
 
   private:

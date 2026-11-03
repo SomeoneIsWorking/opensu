@@ -4,7 +4,6 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <memory>
 #include <string>
 #include <thread>
@@ -19,6 +18,7 @@
 #include "command.hpp"
 #include "descriptor.hpp"
 #include "lucent/log.h"
+#include "procfs.hpp"
 
 namespace opensu::launch {
 namespace {
@@ -41,18 +41,6 @@ int systemctl(const std::vector<std::string>& args) {
 /// A wait status as a shell reports it: the exit code, or 128 plus the signal.
 int statusOf(int waitStatus) {
     return WIFEXITED(waitStatus) ? WEXITSTATUS(waitStatus) : 128 + WTERMSIG(waitStatus);
-}
-
-/// True when /proc/<pid>/cgroup already places the process in `unit`.
-bool inScope(pid_t pid, const std::string& unit) {
-    std::ifstream in{"/proc/" + std::to_string(pid) + "/cgroup"};
-    std::string line;
-    while (std::getline(in, line)) {
-        if (line.find(unit) != std::string::npos) {
-            return true;
-        }
-    }
-    return false;
 }
 
 } // namespace
@@ -138,7 +126,7 @@ bool ProcessLauncher::start(const std::string& unit, const std::string& program,
     // systemd-run joins the scope before it execs, so the scope is up once the
     // child's cgroup names it.
     const Clock::time_point until = Clock::now() + scopeWait;
-    while (!inScope(pid, unit)) {
+    while (!procfs::inUnit(pid, unit)) {
         int status = 0;
         if (waitpid(pid, &status, WNOHANG) == pid) {
             group_->child = -1;

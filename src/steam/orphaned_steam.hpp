@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "desktop_steam.hpp"
+
 namespace opensu::steam {
 
 /// openSU runs Steam in `opensu-<pid>-steam.scope`, and Isolated's Secret Service relay in
@@ -20,12 +22,12 @@ class OrphanedSteam {
     /// is not a live openSU and not the caller; client scopes first.
     [[nodiscard]] std::vector<std::string> find() const;
 
-    /// Ends every orphan: `steam -shutdown` when the pid file names a process in it, waiting up to
+    /// Ends every orphan: `steam -shutdown` when the running Steam client is in it, waiting up to
     /// `wait` for the scope to empty, then stops the scope. Returns how many were ended.
     int stop(const std::filesystem::path& steam, std::chrono::milliseconds wait) const;
 
   private:
-    std::filesystem::path pidFile_;
+    DesktopSteam desktop_;
 };
 
 } // namespace opensu::steam

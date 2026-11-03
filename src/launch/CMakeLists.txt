@@ -30,6 +30,12 @@ elseif(APPLE)
 else()
     target_sources(opensu_launch PRIVATE process_table_none.cpp)
 endif()
+# One process's /proc entries, which only Linux has.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    target_sources(opensu_launch PRIVATE procfs_linux.cpp)
+else()
+    target_sources(opensu_launch PRIVATE procfs_none.cpp)
+endif()
 # How a Steam game is handed to the client: `steam -applaunch`, or the steam:// link through the
 # Windows shell or macOS's `open`.
 if(WIN32)

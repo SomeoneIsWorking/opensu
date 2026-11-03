@@ -1,13 +1,14 @@
 #include "orphaned_steam.hpp"
 
 #include <cctype>
-#include <fstream>
 #include <limits>
+#include <optional>
 #include <sstream>
 #include <thread>
 
 #include "launch/command.hpp"
 #include "launch/process_id.hpp"
+#include "launch/procfs.hpp"
 #include "lucent/log.h"
 
 namespace opensu::steam {
@@ -24,13 +25,6 @@ constexpr std::string_view suffixes[] = {"-steam.scope", "-steam-bus.scope"};
 constexpr auto systemctlWait = std::chrono::seconds{30};
 constexpr auto shutdownCommandWait = std::chrono::seconds{30};
 constexpr auto scopePoll = std::chrono::milliseconds{200};
-
-std::string firstLine(const fs::path& path) {
-    std::ifstream in{path};
-    std::string line;
-    std::getline(in, line);
-    return line;
-}
 
 /// The pid in `opensu-<pid><suffix>`, or 0 when the name has another shape.
 long ownerPid(const std::string& unit, std::string_view suffix) {
@@ -50,25 +44,8 @@ long ownerPid(const std::string& unit, std::string_view suffix) {
 }
 
 /// True when `pid` is a live (not exited) openSU.
-bool liveOpenSu(long pid) {
-    const fs::path proc = "/proc/" + std::to_string(pid);
-    const std::string stat = firstLine(proc / "stat");
-    const std::size_t close = stat.rfind(')');
-    if (close == std::string::npos || close + 2 >= stat.size() || stat[close + 2] == 'Z') {
-        return false;
-    }
-    return firstLine(proc / "comm") == program;
-}
-
-bool inScope(const fs::path& proc, const std::string& unit) {
-    std::ifstream in{proc / "cgroup"};
-    std::string line;
-    while (std::getline(in, line)) {
-        if (line.find(unit) != std::string::npos) {
-            return true;
-        }
-    }
-    return false;
+bool liveOpenSu(launch::ProcessId pid) {
+    return launch::procfs::running(pid) && launch::procfs::name(pid) == program;
 }
 
 bool scopeActive(const std::string& unit) {
@@ -78,7 +55,7 @@ bool scopeActive(const std::string& unit) {
 
 } // namespace
 
-OrphanedSteam::OrphanedSteam(const fs::path& home) : pidFile_{home / ".steam" / "steam.pid"} {
+OrphanedSteam::OrphanedSteam(const fs::path& home) : desktop_{home} {
 }
 
 std::vector<std::string> OrphanedSteam::find() const {
@@ -94,7 +71,8 @@ std::vector<std::string> OrphanedSteam::find() const {
         std::string unit;
         while (lines >> unit) {
             const long pid = ownerPid(unit, suffix);
-            if (pid > 0 && pid != launch::ownProcessId() && !liveOpenSu(pid)) {
+            if (pid > 0 && pid != launch::ownProcessId() &&
+                !liveOpenSu(static_cast<launch::ProcessId>(pid))) {
                 orphans.push_back(unit);
             }
             lines.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -107,13 +85,8 @@ int OrphanedSteam::stop(const fs::path& steam, std::chrono::milliseconds wait) c
     const std::vector<std::string> orphans = find();
     for (const std::string& unit : orphans) {
         lucent::warn("steam", "ending {}, left behind by an openSU that died", unit);
-        long pid = 0;
-        try {
-            pid = std::stol(firstLine(pidFile_));
-        } catch (const std::exception&) {
-            pid = 0;
-        }
-        if (pid > 0 && inScope("/proc/" + std::to_string(pid), unit)) {
+        const std::optional<launch::ProcessId> steamPid = desktop_.running();
+        if (steamPid && launch::procfs::inUnit(*steamPid, unit)) {
             const auto asked =
                 launch::runCommand(steam.string(), {"-shutdown"}, shutdownCommandWait);
             const Clock::time_point until = Clock::now() + wait;
