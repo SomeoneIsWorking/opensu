@@ -45,7 +45,7 @@ std::unique_ptr<tk::Widget> CoverPickerScreen::build(const tk::Theme& theme) {
         cell.add<ui::ImageView>(images_, picks[i].file, 1.0f).whole(tk::Align::Centre);
         cell.add<tk::Label>(picks[i].label, tk::TextRole::Caption).colour(theme.colours.inkMuted);
     }
-    card.add<tk::HintBar>().fixHeight(spacing.hintBarHeight);
+    card.add<tk::HintBar>();
     return std::move(frame.root);
 }
 

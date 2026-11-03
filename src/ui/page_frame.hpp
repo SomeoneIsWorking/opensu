@@ -38,7 +38,7 @@ pageFrame(const gpu2d::ui::Theme& theme, const Chrome& chrome,
         .space(theme.spacing.pad);
     body.grow();
     frame.body = &body;
-    frame.root->template add<gpu2d::ui::HintBar>().fixHeight(theme.spacing.hintBarHeight);
+    frame.root->template add<gpu2d::ui::HintBar>();
     return frame;
 }
 

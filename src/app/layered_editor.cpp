@@ -55,7 +55,7 @@ Frame frameFor(EditorLook look, const tk::Theme& theme, const ui::Chrome& chrome
         tk::Column& body = card->add<tk::Column>();
         body.grow();
         body.space(theme.spacing.gap * 2.0f);
-        card->add<tk::HintBar>().fixHeight(theme.spacing.hintBarHeight);
+        card->add<tk::HintBar>();
         tk::Column* bodyAt = &body;
         tk::Column* headAt = &head;
         return Frame{std::move(card), headAt, bodyAt};
@@ -73,7 +73,7 @@ Frame frameFor(EditorLook look, const tk::Theme& theme, const ui::Chrome& chrome
     tk::Card& pane = row.add<tk::Card>();
     pane.grow();
     pane.pad(tk::Insets::all(theme.spacing.gap * 2.0f)).space(theme.spacing.gap * 2.0f);
-    root->add<tk::HintBar>().fixHeight(theme.spacing.hintBarHeight);
+    root->add<tk::HintBar>();
     return Frame{std::move(root), &head, &pane};
 }
 

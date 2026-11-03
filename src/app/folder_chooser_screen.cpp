@@ -90,7 +90,7 @@ std::unique_ptr<tk::Widget> FolderChooserScreen::build(const tk::Theme& theme) {
                 },
                 "Choose");
     }
-    card.add<tk::HintBar>().fixHeight(theme.spacing.hintBarHeight);
+    card.add<tk::HintBar>();
     return std::move(frame.root);
 }
 

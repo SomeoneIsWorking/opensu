@@ -44,7 +44,7 @@ std::unique_ptr<tk::Widget> GuideMenuScreen::build(const tk::Theme& theme) {
         ui::addRow(card, row, controller_);
     }
     side.add<tk::Spacer>();
-    root->add<tk::HintBar>().fixHeight(spacing.hintBarHeight);
+    root->add<tk::HintBar>();
     return root;
 }
 

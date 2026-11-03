@@ -49,7 +49,7 @@ std::unique_ptr<tk::Widget> SearchScreen::build(const tk::Theme& theme) {
                 },
                 "Open");
     }
-    card.add<tk::HintBar>().fixHeight(theme.spacing.hintBarHeight);
+    card.add<tk::HintBar>();
     return std::move(frame.root);
 }
 
