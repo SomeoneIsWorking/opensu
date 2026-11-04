@@ -11,16 +11,15 @@
 
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_scancode.h>
-#include <nlohmann/json.hpp>
 
 #include "audio_output.hpp"
 #include "audio_sink.hpp"
+#include "control_commands.hpp"
 #include "control_server.hpp"
 #include "core.hpp"
 #include "core_environment.hpp"
 #include "fileio/atomic_write.hpp"
 #include "gamepad/pad_source.hpp"
-#include "gpu2d/image/png_encoder.hpp"
 #include "hardware_render.hpp"
 #include "joypad.hpp"
 #include "librashader_library.hpp"
@@ -82,113 +81,6 @@ std::unique_ptr<AudioOutput> openAudio(AudioSink& sink, bool hidden) {
         lucent::warn("retro", "playing without sound: {}", failure.what());
         return std::make_unique<ClockOutput>(sink);
     }
-}
-
-ControlAnswer answerOf(const StateOutcome& outcome) {
-    switch (outcome.result) {
-    case StateResult::Done:
-        return {};
-    case StateResult::Refused:
-        return {409, outcome.reason};
-    case StateResult::Missing:
-        return {404, outcome.reason};
-    case StateResult::FileFailed:
-        break;
-    }
-    return {500, outcome.reason};
-}
-
-/// The last image `presenter` showed as PNG; empty with `error` when there is none or it fails.
-std::string framePng(Presenter& presenter, std::string& error) {
-    Readback frame;
-    try {
-        frame = presenter.readBack();
-    } catch (const VulkanError& failure) {
-        error = failure.what();
-        return {};
-    }
-    if (frame.rgba.empty()) {
-        error = "no frame was shown";
-        return {};
-    }
-    return gpu2d::image::encodePng(frame.rgba, frame.width, frame.height, error);
-}
-
-/// What the frame loop runs a control command on.
-struct Commanded {
-    Core& core;
-    SaveState& state;
-    Presenter& presenter;
-    CoreOptions& options;
-    bool hidden;
-};
-
-std::string optionsJson(const CoreOptions& options) {
-    nlohmann::json list = nlohmann::json::array();
-    for (const CoreOptions::Option& option : options.options()) {
-        list.push_back(nlohmann::json{{"key", option.key},
-                                      {"label", option.label},
-                                      {"info", option.info},
-                                      {"values", option.values},
-                                      {"labels", option.valueLabels},
-                                      {"default", option.fallback},
-                                      {"value", option.current}});
-    }
-    return list.dump();
-}
-
-ControlAnswer changeVideo(Presenter& presenter, const settings::VideoSettings& video) {
-    try {
-        presenter.change(video);
-    } catch (const ShaderError& failure) {
-        lucent::error("retro", "{}", failure.what());
-        return {409, failure.what()};
-    }
-    lucent::info("retro", "video now {}", settings::videoJson(video));
-    return {};
-}
-
-ControlAnswer perform(const ControlRequest& request, const Commanded& on) {
-    ControlAnswer answer;
-    switch (request.command) {
-    case ControlCommand::SaveState:
-        answer = answerOf(on.state.save(on.core));
-        break;
-    case ControlCommand::LoadState:
-        answer = answerOf(on.state.load(on.core));
-        break;
-    case ControlCommand::Reset:
-        on.core.reset();
-        lucent::info("retro", "game reset");
-        break;
-    case ControlCommand::Video:
-        answer = changeVideo(on.presenter, request.video);
-        break;
-    case ControlCommand::Options:
-        answer.json = optionsJson(on.options);
-        break;
-    case ControlCommand::Option:
-        if (!on.options.set(request.key, request.value)) {
-            answer = {409, "no such core option or value"};
-            break;
-        }
-        answer.json = optionsJson(on.options);
-        break;
-    case ControlCommand::Frame: {
-        if (!on.hidden) {
-            answer = {409, "the frame is read back in hidden runs only"};
-            break;
-        }
-        std::string error;
-        answer.png = framePng(on.presenter, error);
-        if (answer.png.empty()) {
-            answer = {500, error};
-        }
-        break;
-    }
-    }
-    answer.hasState = on.state.exists();
-    return answer;
 }
 
 /// The control channel's pad holds `held` alone: what it held before is let go.
@@ -316,6 +208,11 @@ RunnerExit RunnerApp::run() {
     const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.hidden);
     const std::unique_ptr<gamepad::PadSource> pads = options_.hidden ? nullptr : openPads();
     const std::unique_ptr<ControlServer> control = openControl(options_, *core);
+    ControlCommands commands{{.core = *core,
+                              .state = state,
+                              .presenter = *presenter,
+                              .options = environment.options(),
+                              .hidden = options_.hidden}};
 
     std::unique_ptr<TouchLayer> touch =
         handoff ? std::make_unique<TouchLayer>(options_.touchArt) : nullptr;
@@ -414,9 +311,8 @@ RunnerExit RunnerApp::run() {
             if (const std::optional<ControlInput> held = control->takeInput()) {
                 holdControlPad(joypad, *held);
             }
-            control->serve([&](const ControlRequest& request) {
-                return perform(request, Commanded{*core, state, *presenter, environment.options(),
-                                                  options_.hidden});
+            control->serve([&commands](const ControlRequest& request) {
+                return commands.perform(request);
             });
         }
         if (waiting) {

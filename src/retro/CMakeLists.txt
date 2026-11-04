@@ -12,7 +12,7 @@ add_library(opensu_retro STATIC
     audio_output.cpp joypad.cpp save_memory.cpp save_ram_fit.cpp vulkan_device.cpp frame_filter.cpp
     shared_library.cpp librashader_library.cpp shader_chain.cpp shader_scale.cpp gpu_timer.cpp
     reduced_output.cpp streamed_texture.cpp fullscreen_pipeline.cpp frame_compositor.cpp presenter.cpp hardware_render.cpp
-    save_state.cpp control_server.cpp overlay_pass.cpp touch_layer.cpp frame_stages.cpp
+    save_state.cpp control_server.cpp control_commands.cpp overlay_pass.cpp touch_layer.cpp frame_stages.cpp
     runner_app.cpp)
 gpu2d_compile_shaders(opensu_retro shaders/frame.vert shaders/frame.frag shaders/sharp_bilinear.frag
     shaders/crt_lottes.frag shaders/sampled.frag)
