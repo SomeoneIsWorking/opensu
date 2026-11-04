@@ -6,8 +6,8 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <span>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 

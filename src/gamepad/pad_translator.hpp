@@ -72,8 +72,8 @@ inline constexpr float stickDirectionAt = 0.5f;
 /// The virtual pad's event for its control `out`, with `level` saying how each control stands (0
 /// or 1, or a trigger's travel): a key, a trigger's axis, or the hat axis `out` shares with its
 /// opposite. Nothing for a control the virtual pad lacks.
-[[nodiscard]] std::optional<PadEvent> virtualPadEvent(
-    Button out, const std::function<std::int32_t(Button)>& level);
+[[nodiscard]] std::optional<PadEvent>
+virtualPadEvent(Button out, const std::function<std::int32_t(Button)>& level);
 
 class PadTranslator {
   public:

@@ -1084,9 +1084,9 @@ FramePng ShellApp::remotePicturePng() const {
         return {};
     }
     std::string error;
-    std::string png = gpu2d::image::encodePng(frame->picture.rgba,
-                                              static_cast<unsigned>(frame->picture.width),
-                                              static_cast<unsigned>(frame->picture.height), error);
+    std::string png =
+        gpu2d::image::encodePng(frame->picture.rgba, static_cast<unsigned>(frame->picture.width),
+                                static_cast<unsigned>(frame->picture.height), error);
     if (png.empty()) {
         lucent::error("remote", "could not encode frame {}: {}", frame->number, error);
     }
@@ -1110,9 +1110,8 @@ void ShellApp::sendRemoteInput() {
     remoteInput_.sticks(pads_->sticks());
     stream::wire::KeyState keys;
     const std::vector<std::uint8_t>& held = window_->keysHeld();
-    keys.held.assign(held.begin(),
-                     held.begin() + static_cast<std::ptrdiff_t>(
-                                        std::min(held.size(), stream::wire::heldKeys)));
+    keys.held.assign(held.begin(), held.begin() + static_cast<std::ptrdiff_t>(std::min(
+                                                      held.size(), stream::wire::heldKeys)));
     remotePlay_.input(remoteInput_.pad(), keys, remoteInput_.mouse());
 }
 

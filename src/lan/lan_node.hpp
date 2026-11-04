@@ -123,9 +123,8 @@ class LanNode {
     /// Asks the paired, announced openSU `hostId` to start its game `gameId` (its own id) and
     /// stream it here. Blocks for the call, so never on the loop. Nothing with `error` when it is
     /// gone, unpaired or refuses.
-    [[nodiscard]] std::optional<PlayOffer> askToPlay(const std::string& hostId,
-                                                     const std::string& gameId,
-                                                     std::string& error) const;
+    [[nodiscard]] std::optional<PlayOffer>
+    askToPlay(const std::string& hostId, const std::string& gameId, std::string& error) const;
 
     /// Forgets `peerId` here, and tells it to forget this one when it is announced. False with
     /// `error` when it could not be forgotten here.

@@ -40,9 +40,10 @@ class AudioEncoder::Codec {
 
     std::string encode(std::span<const float> frame) {
         std::string packet(largestPacket, '\0');
-        const opus_int32 size = opus_encode_float(
-            encoder_, frame.data(), static_cast<int>(frame.size() / audioChannels),
-            reinterpret_cast<unsigned char*>(packet.data()), static_cast<opus_int32>(packet.size()));
+        const opus_int32 size = opus_encode_float(encoder_, frame.data(),
+                                                  static_cast<int>(frame.size() / audioChannels),
+                                                  reinterpret_cast<unsigned char*>(packet.data()),
+                                                  static_cast<opus_int32>(packet.size()));
         if (size < 0) {
             fail("code a frame", size);
         }
@@ -82,8 +83,8 @@ class AudioDecoder::Codec {
 
     bool decode(const unsigned char* packet, opus_int32 size, std::vector<float>& out) {
         out.resize(audioFrame * audioChannels);
-        const int samples = opus_decode_float(decoder_, packet, size, out.data(),
-                                              static_cast<int>(audioFrame), 0);
+        const int samples =
+            opus_decode_float(decoder_, packet, size, out.data(), static_cast<int>(audioFrame), 0);
         if (samples < 0) {
             out.clear();
             return false;

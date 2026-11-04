@@ -101,8 +101,8 @@ Response LanListener::handle(const Request& request) {
     }
     const bool peerPath =
         (request.method == "GET" && (path == "/lan/library" || path.starts_with(coverPrefix))) ||
-        (request.method == "POST" && (path == "/lan/unpair" || path == wire::playRoute ||
-                                      path.starts_with(savesPrefix)));
+        (request.method == "POST" &&
+         (path == "/lan/unpair" || path == wire::playRoute || path.starts_with(savesPrefix)));
     if (!peerPath) {
         return refused(notFound, "Not Found", "no such route");
     }

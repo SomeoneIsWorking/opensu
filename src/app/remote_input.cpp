@@ -33,8 +33,8 @@ void RemoteInput::button(const gamepad::Event& event) {
     }
     if (!padSticks_) {
         const auto travel = [this](Button less, Button more) {
-            const int value = ((stickHeld_ & bit(more)) != 0 ? 1 : 0) -
-                              ((stickHeld_ & bit(less)) != 0 ? 1 : 0);
+            const int value =
+                ((stickHeld_ & bit(more)) != 0 ? 1 : 0) - ((stickHeld_ & bit(less)) != 0 ? 1 : 0);
             return static_cast<std::int16_t>(value * fullTravel);
         };
         pad_.leftX = travel(Button::Left, Button::Right);
@@ -61,7 +61,8 @@ void RemoteInput::pointer(const PointerFrame& frame, const display::Placed& pict
     if (frame.point && picture.width > 1 && picture.height > 1) {
         const auto across = [](float at, int start, int size) {
             const double share = (static_cast<double>(at) - start) / (size - 1);
-            return static_cast<std::uint16_t>(std::lround(std::clamp(share, 0.0, 1.0) * pointerScale));
+            return static_cast<std::uint16_t>(
+                std::lround(std::clamp(share, 0.0, 1.0) * pointerScale));
         };
         mouse_.x = across(frame.point->x, picture.x, picture.width);
         mouse_.y = across(frame.point->y, picture.y, picture.height);

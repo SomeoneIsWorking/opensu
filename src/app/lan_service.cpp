@@ -134,13 +134,13 @@ bool LanService::askToPlay(const std::string& hostId, const std::string& gameId,
     if (asker_.joinable()) {
         asker_.join();
     }
-    asker_ = std::jthread{[node = node_.get(), asking = asking_, hostId, gameId,
-                           answer = std::move(answer)] {
-        std::string error;
-        std::optional<lan::LanNode::PlayOffer> offer = node->askToPlay(hostId, gameId, error);
-        asking->store(false);
-        answer(std::move(offer), std::move(error));
-    }};
+    asker_ = std::jthread{
+        [node = node_.get(), asking = asking_, hostId, gameId, answer = std::move(answer)] {
+            std::string error;
+            std::optional<lan::LanNode::PlayOffer> offer = node->askToPlay(hostId, gameId, error);
+            asking->store(false);
+            answer(std::move(offer), std::move(error));
+        }};
     return true;
 }
 

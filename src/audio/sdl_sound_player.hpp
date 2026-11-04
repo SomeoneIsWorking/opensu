@@ -1,6 +1,6 @@
 // sdl_sound_player — plays the UI sounds on the default SDL audio device, one audio stream per
-// effect so they overlap, and opens live sound (`LiveSound`) on the same device. The files are openSU's own set; an effect without a file, or a machine
-// without an audio device, plays nothing.
+// effect so they overlap, and opens live sound (`LiveSound`) on the same device. The files are
+// openSU's own set; an effect without a file, or a machine without an audio device, plays nothing.
 #pragma once
 
 #include <array>

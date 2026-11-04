@@ -17,8 +17,7 @@ constexpr double microsPerMilli = 1000.0;
 
 } // namespace
 
-GuestAudio::GuestAudio(std::function<void(std::span<const float>)> play)
-    : play_{std::move(play)} {
+GuestAudio::GuestAudio(std::function<void(std::span<const float>)> play) : play_{std::move(play)} {
 }
 
 void GuestAudio::take(const wire::AudioPacket& packet, std::uint64_t receivedUs,

@@ -42,14 +42,14 @@ class RemotePlay {
         std::function<std::optional<library::Game>(const std::string& id)> find;
         /// Starts `game` here through the normal launch path, `environment` added to its own; false
         /// when it was refused.
-        std::function<bool(const library::Game& game, std::vector<std::string> environment)>
-            launch;
+        std::function<bool(const library::Game& game, std::vector<std::string> environment)> launch;
         /// Closes the game started here.
         std::function<void()> close;
         /// Asks host `hostId` to stream its game `gameId` (`LanService::askToPlay`); false when it
         /// cannot be asked now.
-        std::function<bool(const std::string& hostId, const std::string& gameId,
-                           std::function<void(std::optional<lan::LanNode::PlayOffer>, std::string)>)>
+        std::function<bool(
+            const std::string& hostId, const std::string& gameId,
+            std::function<void(std::optional<lan::LanNode::PlayOffer>, std::string)>)>
             ask;
         /// Where a remote game's sound plays: 48 kHz stereo on the shell's device, or none
         /// where the shell plays no sound.

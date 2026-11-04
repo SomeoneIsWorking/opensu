@@ -25,8 +25,7 @@ RemotePlay::~RemotePlay() {
 }
 
 std::optional<std::uint16_t> RemotePlay::offer(const lan::Peer& peer, const std::string& gameId,
-                                               const lan::StreamKeys& keys,
-                                               std::string& refusal) {
+                                               const lan::StreamKeys& keys, std::string& refusal) {
     const std::lock_guard lock{hostMutex_};
     if (hosted_) {
         refusal = "it is already streaming to " + hosted_->guest;
@@ -43,25 +42,25 @@ std::optional<std::uint16_t> RemotePlay::offer(const lan::Peer& peer, const std:
     try {
         auto input = std::make_unique<stream::HostInput>(screen_.x11Display);
         stream::HostInput& player = *input;
-        auto stream = std::make_unique<stream::HostStream>(stream::HostStream::Setup{
-            .keys = keys,
-            .guest = peer.name,
-            .pad =
-                [&player](const stream::wire::PadState& state) {
-                    player.pad(state);
-                },
-            .keyboard =
-                [&player](const stream::wire::KeyState& state) {
-                    player.keys(state);
-                },
-            .mouse =
-                [&player](const stream::wire::MouseState& state) {
-                    player.mouse(state);
-                }});
+        auto stream = std::make_unique<stream::HostStream>(
+            stream::HostStream::Setup{.keys = keys,
+                                      .guest = peer.name,
+                                      .pad =
+                                          [&player](const stream::wire::PadState& state) {
+                                              player.pad(state);
+                                          },
+                                      .keyboard =
+                                          [&player](const stream::wire::KeyState& state) {
+                                              player.keys(state);
+                                          },
+                                      .mouse =
+                                          [&player](const stream::wire::MouseState& state) {
+                                              player.mouse(state);
+                                          }});
         auto video = std::make_unique<stream::HostVideo>(*stream, screen_.gamescopeSocket);
         const std::uint16_t port = stream->port();
-        auto sound = std::make_unique<stream::HostAudio>(
-            *stream, "opensu.remote." + std::to_string(port));
+        auto sound =
+            std::make_unique<stream::HostAudio>(*stream, "opensu.remote." + std::to_string(port));
         hosted_ = Hosted{.input = std::move(input),
                          .stream = std::move(stream),
                          .video = std::move(video),

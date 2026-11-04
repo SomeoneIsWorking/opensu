@@ -8,8 +8,8 @@
 #include <utility>
 
 #include "fileio/atomic_write.hpp"
-#include "pairing_keys.hpp"
 #include "lucent/log.h"
+#include "pairing_keys.hpp"
 #include "secrets/secret.hpp"
 
 namespace opensu::lan {
@@ -148,9 +148,8 @@ void LanNode::endAsking() {
     wake();
 }
 
-std::optional<LanNode::PlayOffer> LanNode::askToPlay(const std::string& hostId,
-                                                     const std::string& gameId,
-                                                     std::string& error) const {
+std::optional<LanNode::PlayOffer>
+LanNode::askToPlay(const std::string& hostId, const std::string& gameId, std::string& error) const {
     const std::vector<Sighting> seen = sightings();
     const auto host = std::ranges::find(seen, hostId, &Sighting::id);
     std::optional<crypto::Bytes> secret = book_.secretOf(hostId);

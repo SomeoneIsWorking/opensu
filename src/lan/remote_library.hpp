@@ -1,7 +1,7 @@
 // remote_library — the games of the paired openSUs on the LAN as this one's catalog lists them:
 // each a `Source::Remote` game marked with its host and its id there, its cover the one the host
-// sent; starting one asks that host to stream it (`app::RemotePlay`). The LAN node fills it as hosts answer; the catalog's
-// provider reads it. Safe from any thread.
+// sent; starting one asks that host to stream it (`app::RemotePlay`). The LAN node fills it as
+// hosts answer; the catalog's provider reads it. Safe from any thread.
 #pragma once
 
 #include <filesystem>

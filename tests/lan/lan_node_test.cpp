@@ -162,19 +162,18 @@ struct Node {
                                                 [this] {
                                                     ++savesChanged;
                                                 }},
-              .play =
-                  [this](const lan::Peer& peer, const std::string& game,
-                         const lan::StreamKeys& keys,
-                         std::string& refusal) -> std::optional<std::uint16_t> {
-                      const std::lock_guard lock{mutex};
-                      if (!refusePlay.empty()) {
-                          refusal = refusePlay;
-                          return std::nullopt;
-                      }
-                      played = peer.name + " " + game;
-                      playKeys = keys;
-                      return streamPort;
-                  },
+              .play = [this](const lan::Peer& peer, const std::string& game,
+                             const lan::StreamKeys& keys,
+                             std::string& refusal) -> std::optional<std::uint16_t> {
+                  const std::lock_guard lock{mutex};
+                  if (!refusePlay.empty()) {
+                      refusal = refusePlay;
+                      return std::nullopt;
+                  }
+                  played = peer.name + " " + game;
+                  playKeys = keys;
+                  return streamPort;
+              },
               .discovery =
                   [&directory](const lan::Announcement& self, std::string& /*error*/) {
                       return std::make_unique<DirectoryDiscovery>(directory, self);
@@ -332,8 +331,7 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     std::string playError;
     const std::optional<lan::LanNode::PlayOffer> offer =
         guest.node.askToPlay(host.node.id(), listed.sourceId, playError);
-    expect(offer && offer->stream.port == Node::streamPort &&
-               offer->stream.address == "127.0.0.1",
+    expect(offer && offer->stream.port == Node::streamPort && offer->stream.address == "127.0.0.1",
            "the host agrees to stream its game and says where");
     {
         const std::lock_guard lock{host.mutex};

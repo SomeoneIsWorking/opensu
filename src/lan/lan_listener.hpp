@@ -39,7 +39,7 @@ class LanListener {
         /// UDP port its stream takes packets on, or nothing with `refusal`. Called on the
         /// listener's thread.
         std::function<std::optional<std::uint16_t>(const Peer& peer, const std::string& game,
-                                                    const StreamKeys& keys, std::string& refusal)>
+                                                   const StreamKeys& keys, std::string& refusal)>
             play;
     };
 

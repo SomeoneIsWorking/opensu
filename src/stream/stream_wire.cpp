@@ -216,7 +216,11 @@ std::optional<End> readEnd(std::string_view payload) {
     }
     std::string reason{payload};
     std::ranges::replace_if(
-        reason, [](char c) { return static_cast<unsigned char>(c) < ' '; }, ' ');
+        reason,
+        [](char c) {
+            return static_cast<unsigned char>(c) < ' ';
+        },
+        ' ');
     return End{std::move(reason)};
 }
 

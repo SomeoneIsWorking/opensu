@@ -8,12 +8,11 @@
 namespace opensu::stream {
 
 HostAudio::HostAudio(HostStream& stream, std::string sinkName)
-    : stream_{stream},
-      sound_{GameSound::Setup{.sinkName = std::move(sinkName),
-                              .samples = [this](std::span<const float> samples,
-                                                std::uint64_t capturedUs) {
-                                  take(samples, capturedUs);
-                              }}} {
+    : stream_{stream}, sound_{GameSound::Setup{.sinkName = std::move(sinkName),
+                                               .samples = [this](std::span<const float> samples,
+                                                                 std::uint64_t capturedUs) {
+                                                   take(samples, capturedUs);
+                                               }}} {
 }
 
 void HostAudio::take(std::span<const float> samples, std::uint64_t capturedUs) {

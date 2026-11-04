@@ -158,7 +158,7 @@ std::string GuestVideo::summary() const {
     const std::lock_guard lock{mutex_};
     std::string out = std::format("decoded={} dropped={} late={} submitted={} drawn={}", decoded_,
                                   dropped_, late_, presented_, drawn_);
-    const auto stage = [this, &out](const char* name, double Stages::*field) {
+    const auto stage = [this, &out](const char* name, double Stages::* field) {
         std::vector<double> values;
         values.reserve(shown_.size());
         for (const Stages& stages : shown_) {

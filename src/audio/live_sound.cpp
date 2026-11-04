@@ -9,8 +9,8 @@ namespace opensu::audio {
 
 LiveSound::LiveSound(SDL_AudioDeviceID device, int rate, int channels)
     : deepestBytes_{static_cast<int>(static_cast<long long>(rate) * channels *
-                                      static_cast<long long>(sizeof(float)) * deepest.count() /
-                                      1000)} {
+                                     static_cast<long long>(sizeof(float)) * deepest.count() /
+                                     1000)} {
     const SDL_AudioSpec spec{.format = SDL_AUDIO_F32, .channels = channels, .freq = rate};
     stream_ = SDL_CreateAudioStream(&spec, nullptr);
     if (stream_ == nullptr || !SDL_BindAudioStream(device, stream_)) {
