@@ -274,7 +274,8 @@ std::string boxArtUrl(std::string_view base, const library::roms::RomSystem& sys
 std::optional<std::vector<std::string>> boxArtNames(const net::WebClient& web,
                                                     const ArtworkStore& store,
                                                     const library::roms::RomSystem& system,
-                                                    std::string_view base, std::string& error) {
+                                                    std::string_view base, std::string& error,
+                                                    const std::stop_token& stop) {
     std::optional<std::vector<std::string>> names =
         store.index(system.key, ArtworkStore::Clock::now());
     if (names) {
@@ -282,7 +283,7 @@ std::optional<std::vector<std::string>> boxArtNames(const net::WebClient& web,
     }
     const std::string url =
         std::string{base} + "/" + encodeSegment(system.libretroName) + "/Named_Boxarts/";
-    const std::optional<std::string> html = web.get(url, error);
+    const std::optional<std::string> html = web.get(url, error, {}, stop);
     if (!html) {
         error = url + ": " + error;
         return std::nullopt;

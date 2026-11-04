@@ -149,10 +149,13 @@ void ArtworkFetcher::run(const std::stop_token& stop) {
             }
         }
         const Outcome outcome = std::visit(
-            [this](const auto& work) {
-                return fetch(work);
+            [this, &stop](const auto& work) {
+                return fetch(work, stop);
             },
             item);
+        if (outcome == Outcome::Stopped) {
+            return;
+        }
         if (outcome == Outcome::Missing) {
             recordMiss(item);
         }
@@ -190,20 +193,21 @@ void ArtworkFetcher::recordMiss(const Work& work) const {
     }
 }
 
-ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
+ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game,
+                                              const std::stop_token& stop) {
     if (game.source != library::Source::Rom && !game.artworkKey.empty()) {
         // Matched to a Steam app: its covers, whatever the game's own source.
-        return fetchSteam(game, game.artworkKey);
+        return fetchSteam(game, game.artworkKey, stop);
     }
     switch (game.source) {
     case library::Source::Steam:
-        return fetchSteam(game, game.sourceId);
+        return fetchSteam(game, game.sourceId, stop);
     case library::Source::Rom:
-        return fetchRom(game);
+        return fetchRom(game, stop);
     case library::Source::Epic:
-        return game.artworkUrl.empty() ? Outcome::Missing : keep(game, game.artworkUrl);
+        return game.artworkUrl.empty() ? Outcome::Missing : keep(game, game.artworkUrl, stop);
     case library::Source::Gog:
-        return fetchGog(game);
+        return fetchGog(game, stop);
     case library::Source::Own:
     // A remote game's host sends its cover with the listing.
     case library::Source::Remote:
@@ -212,10 +216,14 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const library::Game& game) {
     return Outcome::Missing;
 }
 
-ArtworkFetcher::Outcome ArtworkFetcher::fetch(const NamesWork& /*names*/) {
+ArtworkFetcher::Outcome ArtworkFetcher::fetch(const NamesWork& /*names*/,
+                                              const std::stop_token& stop) {
     std::string error;
     const std::optional<library::roms::NameMap> names =
-        fetchArcadeNames(web_, sources_.libretroDatabase, sources_.arcadeDats, error);
+        fetchArcadeNames(web_, sources_.libretroDatabase, sources_.arcadeDats, error, stop);
+    if (stop.stop_requested()) {
+        return Outcome::Stopped;
+    }
     if (!names || !names_.save(*names, error)) {
         lucent::warn("artwork", "arcade names: {}", error);
         return Outcome::Unreachable;
@@ -225,28 +233,33 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetch(const NamesWork& /*names*/) {
 }
 
 ArtworkFetcher::Outcome ArtworkFetcher::fetchSteam(const library::Game& game,
-                                                   const std::string& appId) {
+                                                   const std::string& appId,
+                                                   const std::stop_token& stop) {
     const std::string base = sources_.steam + "/" + appId + "/";
     // The library portrait, else the store header, which every app has.
-    const Outcome portrait = keep(game, base + "library_600x900.jpg");
+    const Outcome portrait = keep(game, base + "library_600x900.jpg", stop);
     if (portrait != Outcome::Missing) {
         return portrait;
     }
-    return keep(game, base + "header.jpg");
+    return keep(game, base + "header.jpg", stop);
 }
 
-ArtworkFetcher::Outcome ArtworkFetcher::fetchGog(const library::Game& game) {
+ArtworkFetcher::Outcome ArtworkFetcher::fetchGog(const library::Game& game,
+                                                 const std::stop_token& stop) {
     if (game.sourceId.empty()) {
         return Outcome::Missing;
     }
     // gamesdb's portrait cover, else the library's own tile.
     const std::string url = sources_.gogdb + "/" + game.sourceId;
     std::string error;
-    const std::optional<std::string> release = web_.get(url, error);
+    const std::optional<std::string> release = web_.get(url, error, {}, stop);
+    if (stop.stop_requested()) {
+        return Outcome::Stopped;
+    }
     if (release) {
         const std::string cover = gogCoverUrl(*release);
         if (!cover.empty()) {
-            const Outcome portrait = keep(game, cover);
+            const Outcome portrait = keep(game, cover, stop);
             if (portrait != Outcome::Missing) {
                 return portrait;
             }
@@ -256,15 +269,19 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchGog(const library::Game& game) {
         return Outcome::Unreachable;
     }
     return game.artworkUrl.empty() ? Outcome::Missing
-                                   : keep(game, game.artworkUrl + std::string{gogTileSuffix});
+                                   : keep(game, game.artworkUrl + std::string{gogTileSuffix}, stop);
 }
 
-ArtworkFetcher::Outcome ArtworkFetcher::fetchRom(const library::Game& game) {
+ArtworkFetcher::Outcome ArtworkFetcher::fetchRom(const library::Game& game,
+                                                 const std::stop_token& stop) {
     const library::roms::RomSystem* system = library::roms::systemByKey(game.sourceId);
     if (system == nullptr || system->libretroName.empty()) {
         return Outcome::Missing;
     }
-    const std::vector<std::string>* names = index(*system);
+    const std::vector<std::string>* names = index(*system, stop);
+    if (stop.stop_requested()) {
+        return Outcome::Stopped;
+    }
     if (names == nullptr) {
         return Outcome::Unreachable;
     }
@@ -272,12 +289,16 @@ ArtworkFetcher::Outcome ArtworkFetcher::fetchRom(const library::Game& game) {
     if (!match) {
         return Outcome::Missing;
     }
-    return keep(game, boxArtUrl(sources_.libretro, *system, *match));
+    return keep(game, boxArtUrl(sources_.libretro, *system, *match), stop);
 }
 
-ArtworkFetcher::Outcome ArtworkFetcher::keep(const library::Game& game, const std::string& url) {
+ArtworkFetcher::Outcome ArtworkFetcher::keep(const library::Game& game, const std::string& url,
+                                             const std::stop_token& stop) {
     std::string error;
-    const std::optional<std::string> bytes = web_.get(url, error);
+    const std::optional<std::string> bytes = web_.get(url, error, {}, stop);
+    if (stop.stop_requested()) {
+        return Outcome::Stopped;
+    }
     if (!bytes) {
         if (isNotFound(error)) {
             return Outcome::Missing;
@@ -292,14 +313,18 @@ ArtworkFetcher::Outcome ArtworkFetcher::keep(const library::Game& game, const st
     return Outcome::Saved;
 }
 
-const std::vector<std::string>* ArtworkFetcher::index(const library::roms::RomSystem& rom) {
+const std::vector<std::string>* ArtworkFetcher::index(const library::roms::RomSystem& rom,
+                                                      const std::stop_token& stop) {
     const std::string_view system = rom.key;
     if (const auto found = indexes_.find(system); found != indexes_.end()) {
         return &found->second;
     }
     std::string error;
     std::optional<std::vector<std::string>> names =
-        boxArtNames(web_, store_, rom, sources_.libretro, error);
+        boxArtNames(web_, store_, rom, sources_.libretro, error, stop);
+    if (stop.stop_requested()) {
+        return nullptr;
+    }
     if (!names) {
         lucent::warn("artwork", "{}", error);
         return nullptr;

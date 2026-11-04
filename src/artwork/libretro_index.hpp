@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <optional>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -41,9 +42,11 @@ namesMatching(std::string_view term, std::span<const std::string> index, std::si
                                     std::string_view name);
 
 /// `system`'s box art names: the listing `store` keeps while it is fresh, else the one under
-/// `base` downloaded and kept there. Nothing when it cannot be downloaded; `error` says why.
+/// `base` downloaded and kept there. Nothing when it cannot be downloaded or `stop` ends the
+/// download; `error` says why.
 [[nodiscard]] std::optional<std::vector<std::string>>
 boxArtNames(const net::WebClient& web, const ArtworkStore& store,
-            const library::roms::RomSystem& system, std::string_view base, std::string& error);
+            const library::roms::RomSystem& system, std::string_view base, std::string& error,
+            const std::stop_token& stop = {});
 
 } // namespace opensu::artwork

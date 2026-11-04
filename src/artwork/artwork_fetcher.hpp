@@ -85,25 +85,27 @@ class ArtworkFetcher {
     [[nodiscard]] bool idle() const;
 
   private:
-    /// How one download ended.
-    enum class Outcome : std::uint8_t { Saved, Missing, Unreachable };
+    /// How one download ended; Stopped when the worker's stop ended it, keeping nothing.
+    enum class Outcome : std::uint8_t { Saved, Missing, Unreachable, Stopped };
 
     /// The arcade name listings, as queued work.
     struct NamesWork {};
     using Work = std::variant<library::Game, NamesWork>;
 
     void run(const std::stop_token& stop);
-    Outcome fetch(const library::Game& game);
-    Outcome fetch(const NamesWork& names);
+    Outcome fetch(const library::Game& game, const std::stop_token& stop);
+    Outcome fetch(const NamesWork& names, const std::stop_token& stop);
     /// The finished download of `work`, for the shell.
     [[nodiscard]] Fetched arrived(const Work& work) const;
     void recordMiss(const Work& work) const;
-    Outcome fetchSteam(const library::Game& game, const std::string& appId);
-    Outcome fetchGog(const library::Game& game);
-    Outcome fetchRom(const library::Game& game);
-    Outcome keep(const library::Game& game, const std::string& url);
-    /// A system's libretro listing from the store or the server; null when unreachable.
-    const std::vector<std::string>* index(const library::roms::RomSystem& system);
+    Outcome fetchSteam(const library::Game& game, const std::string& appId,
+                       const std::stop_token& stop);
+    Outcome fetchGog(const library::Game& game, const std::stop_token& stop);
+    Outcome fetchRom(const library::Game& game, const std::stop_token& stop);
+    Outcome keep(const library::Game& game, const std::string& url, const std::stop_token& stop);
+    /// A system's libretro listing from the store or the server; null when unreachable or stopped.
+    const std::vector<std::string>* index(const library::roms::RomSystem& system,
+                                          const std::stop_token& stop);
 
     const ArtworkStore& store_;
     RemoteSources sources_;

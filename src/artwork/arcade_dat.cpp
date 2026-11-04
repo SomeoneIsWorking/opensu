@@ -26,14 +26,13 @@ std::string urlOf(std::string_view base, std::string_view path) {
 
 } // namespace
 
-std::optional<library::roms::NameMap> fetchArcadeNames(const net::WebClient& web,
-                                                       std::string_view base,
-                                                       std::span<const DatPin> pins,
-                                                       std::string& error) {
+std::optional<library::roms::NameMap>
+fetchArcadeNames(const net::WebClient& web, std::string_view base, std::span<const DatPin> pins,
+                 std::string& error, const std::stop_token& stop) {
     library::roms::NameMap names;
     for (const DatPin& pin : pins) {
         const std::string url = urlOf(base, pin.path);
-        const std::optional<std::string> bytes = web.get(url, error);
+        const std::optional<std::string> bytes = web.get(url, error, {}, stop);
         if (!bytes) {
             error.insert(0, url + ": ");
             return std::nullopt;

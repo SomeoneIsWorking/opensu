@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <stop_token>
 #include <string>
 #include <string_view>
 
@@ -32,10 +33,9 @@ inline constexpr std::string_view libretroDatabaseUrl =
     "https://raw.githubusercontent.com/libretro/libretro-database";
 
 /// Downloads every pinned listing under `base`/`revision`/metadat and merges them, earlier ones
-/// first. Nothing, with `error`, when a download fails or differs from its pin.
-[[nodiscard]] std::optional<library::roms::NameMap> fetchArcadeNames(const net::WebClient& web,
-                                                                     std::string_view base,
-                                                                     std::span<const DatPin> pins,
-                                                                     std::string& error);
+/// first. Nothing, with `error`, when a download fails, differs from its pin or is ended by `stop`.
+[[nodiscard]] std::optional<library::roms::NameMap>
+fetchArcadeNames(const net::WebClient& web, std::string_view base, std::span<const DatPin> pins,
+                 std::string& error, const std::stop_token& stop = {});
 
 } // namespace opensu::artwork
