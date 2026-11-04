@@ -87,10 +87,21 @@ of the core's and the game's layers, remembered per core so they can be edited w
 
 ## Over a running game
 
-The Guide menu over a built-in core's game adds Save state, Load state (one slot,
-`<saves>/<rom>.state`) and Reset game, the last two on a second press, and Game settings opens the
+The Guide menu over a built-in core's game adds Save and close, Save state, Load state (one slot,
+`<saves>/<rom>.state`) and Reset game, the last two asking first, and Game settings opens the
 editor above. Close game stops the runner so it writes its save RAM first. A core that crashes is
 toasted by name, and a game that fails to load by its reason.
+
+Save and close keeps the game where it is in a resume state of its own
+(`<rom>.resume` beside the profile's `.srm`, never your Save state slot; each profile has
+its own), writes its save RAM and closes it. Starting
+the game again puts you back there; the Guide menu then shows "Resumed" with the date. The resume
+state is used once: it is removed as it loads, so a game that crashes later starts from its own
+save next time. While one is waiting, the game's details page reads "Resumes from <date>" and
+offers Start fresh, which throws it away and starts the game from the beginning. A resume state is
+not loaded, and the Guide menu says why, when another core wrote it (it is kept for that core),
+when the core refuses it, or when the game's save changed since (a copied or synced save is never
+undone by it). Close game keeps no resume state.
 
 ![The Guide menu over a game](../screenshots/guide-game.webp)
 

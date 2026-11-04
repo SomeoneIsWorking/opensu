@@ -188,7 +188,7 @@ game has been observed running yet.
 | S029 | CI: pinned sources, Clang build, clang-tidy, clang-format, ruff, ctest on each release tag and on demand; local gates before every commit | partial | — | — |
 | S030 | Linux AppImage release, signed, tested on clean Fedora 44 and Ubuntu 24.04 | partial | S029 | G004 |
 | S031 | Built-in emulators: libretro cores found or downloaded from the buildbot, updated, removed, started on `opensu-retro`; an arcade zip's core picked by its romset | partial | S026 | G001 |
-| S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the quick menu, crash and load-failure toasts, GPU cores on the runner's Vulkan device | partial | S003 | G001 |
+| S032 | `opensu-retro`: a libretro core run in its own SDL window drawn with Vulkan, pads, keyboard, sound, save RAM, save states and reset from the Guide menu, Save and close with the resume on the next start (its own `.resume` state, loaded once for the core and save RAM it was taken with, Start fresh on the details page; shown in hidden runs on a frame-counting Game Boy test ROM), crash and load-failure toasts, GPU cores on the runner's Vulkan device | partial | S003 | G001 |
 | S033 | Button mappings per game and per emulator (shared by its games), with game chords (`docs/issues/per-game-button-mappings.md`) | partial | S003, S022 | G003 |
 | S034 | Holding a chord modifier shows its chords, over a game too (`docs/issues/chord-hold-overlay.md`) | partial | S022 | G003 |
 | S035 | Downloads page: Steam queue, store installs and emulator downloads with progress and cancel (`docs/issues/downloads-page.md`) | partial | S016, S026 | G001 |

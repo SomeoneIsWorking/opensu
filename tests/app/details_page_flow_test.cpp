@@ -175,6 +175,12 @@ struct Rig {
                          },
                          [this](const library::Game& synced) {
                              calls.push_back("sync saves " + synced.id);
+                         },
+                         [](const library::Game&) {
+                             return std::optional<retro::ResumeHeader>{};
+                         },
+                         [](const library::Game&) {
+                             return std::string{};
                          }}} {
     }
 

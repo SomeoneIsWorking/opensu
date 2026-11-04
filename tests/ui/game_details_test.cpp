@@ -151,9 +151,9 @@ void romEmulator() {
     expect(none != nullptr && none->choices.front() == noEmulator && none->chosen == 0 &&
                none->choices.size() == 3,
            "with none picked the choice says so before the emulators");
-    const GameDetails sourced =
-        detailsOf(kirby(true), GameMarks{.hidden = false}, now, {}, false,
-                  GameSettingsView{"Set for this game", {}, "Inherited", "Eden, Ryujinx", {}, {}});
+    const GameDetails sourced = detailsOf(
+        kirby(true), GameMarks{.hidden = false}, now, {}, false,
+        GameSettingsView{"Set for this game", {}, "Inherited", "Eden, Ryujinx", {}, {}, {}});
     expect(valueOf(sourced, "Emulator") == "Eden · installed · Set for this game" &&
                actionOf(sourced, detailsEmulatorId)->note == "Set for this game" &&
                actionOf(sourced, detailsSettingsId)->value == "Inherited",

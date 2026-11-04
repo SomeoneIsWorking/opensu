@@ -4,6 +4,7 @@
 // load failure a runner leaves there.
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <mutex>
@@ -28,6 +29,10 @@ class RetroSession {
         std::string rom;
         std::uint64_t frame{0};
         bool hasState{false};
+        /// When the state the game resumed from was taken; nothing when it did not resume.
+        std::optional<std::chrono::system_clock::time_point> resumedFrom;
+        /// Why the game's resume state was not loaded; empty when none was refused.
+        std::string resumeRefused;
     };
 
     /// Control files go in `directory`, `retro-<shell pid>-<launch>.json`.
@@ -57,6 +62,9 @@ class RetroSession {
     [[nodiscard]] std::string saveState();
     [[nodiscard]] std::string loadState();
     [[nodiscard]] std::string reset();
+    /// Save and close's first half: the runner keeps a resume state, writes the game's save and
+    /// runs no more frames, waiting to be closed.
+    [[nodiscard]] std::string suspend();
     /// Shows the game under `video` from its next frame.
     [[nodiscard]] std::string setVideo(const settings::VideoSettings& video);
 

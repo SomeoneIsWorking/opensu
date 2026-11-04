@@ -64,6 +64,18 @@ std::string framePng(Presenter& presenter, std::string& error) {
     return gpu2d::image::encodePng(frame.rgba, frame.width, frame.height, error);
 }
 
+ControlAnswer ControlCommands::suspend() {
+    if (!parts_.saves.flush(parts_.core.saveRam())) {
+        return {500, "the game's save was not written"};
+    }
+    ControlAnswer answer = answerOf(parts_.resume.suspend(parts_.core));
+    if (answer.status == 200) {
+        suspended_ = true;
+        lucent::info("retro", "saved and waiting to be closed");
+    }
+    return answer;
+}
+
 ControlAnswer ControlCommands::perform(const ControlRequest& request) {
     ControlAnswer answer;
     switch (request.command) {
@@ -89,6 +101,9 @@ ControlAnswer ControlCommands::perform(const ControlRequest& request) {
             break;
         }
         answer.json = optionsJson(parts_.options);
+        break;
+    case ControlCommand::Suspend:
+        answer = suspend();
         break;
     case ControlCommand::Frame: {
         if (!parts_.hidden) {

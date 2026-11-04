@@ -17,6 +17,7 @@
 
 #include "gamepad/event.hpp"
 #include "gamepad/pad_translator.hpp"
+#include "resume_state.hpp"
 #include "settings/video_settings.hpp"
 
 #include "lucent/http.h"
@@ -33,6 +34,9 @@ enum class ControlCommand : std::uint8_t {
     Frame,
     Options,
     Option,
+    /// Save and close: the resume state taken and the save RAM written; the game runs no more
+    /// frames while the shell closes it.
+    Suspend,
 };
 
 /// A command for the frame loop and what it carries.
@@ -81,6 +85,8 @@ class ControlServer {
 
     /// What /status reports from now on. Frame loop only.
     void publish(std::uint64_t frame, bool hasState);
+    /// How the game's start went with its resume state, which /status reports from now on.
+    void reportResume(const ResumeReport& report);
 
     /// Runs every command waiting, on the calling thread. Frame loop only, between frames.
     void serve(const std::function<ControlAnswer(const ControlRequest&)>& perform);
@@ -113,6 +119,7 @@ class ControlServer {
     bool closing_{false};
     std::uint64_t frame_{0};
     bool hasState_{false};
+    ResumeReport resume_;
     bool announced_{false};
     std::optional<ControlInput> input_;
     /// Last, so its handler threads stop before the members they use go.

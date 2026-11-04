@@ -96,10 +96,17 @@ std::optional<RetroSession::Status> RetroSession::status() {
     if (!body.is_object()) {
         return std::nullopt;
     }
-    return Status{.core = body.value("core", std::string{}),
+    Status status{.core = body.value("core", std::string{}),
                   .rom = body.value("rom", std::string{}),
                   .frame = body.value("frame", std::uint64_t{0}),
-                  .hasState = body.value("hasState", false)};
+                  .hasState = body.value("hasState", false),
+                  .resumedFrom = std::nullopt,
+                  .resumeRefused = body.value("resumeRefused", std::string{})};
+    if (body.contains("resumedFrom") && body["resumedFrom"].is_number_integer()) {
+        status.resumedFrom = std::chrono::system_clock::time_point{
+            std::chrono::seconds{body["resumedFrom"].get<std::int64_t>()}};
+    }
+    return status;
 }
 
 std::string RetroSession::post(std::string_view target, const std::string& body) {
@@ -187,6 +194,10 @@ std::string RetroSession::loadState() {
 
 std::string RetroSession::reset() {
     return post("/reset");
+}
+
+std::string RetroSession::suspend() {
+    return post("/suspend");
 }
 
 std::string RetroSession::setVideo(const settings::VideoSettings& video) {

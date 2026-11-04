@@ -1,6 +1,6 @@
-// save_paths — where the built-in runner keeps a game's save RAM and state slot: the one owner of
-// those names, which the runner reads and writes and the shell lists, copies and backs up. The
-// shell keeps each player profile's saves in a folder of its own.
+// save_paths — where the built-in runner keeps a game's save RAM, state slot and resume state: the
+// one owner of those names, which the runner reads and writes and the shell lists, copies and backs
+// up. The shell keeps each player profile's saves in a folder of its own.
 #pragma once
 
 #include <filesystem>
@@ -35,5 +35,9 @@ inline constexpr std::string_view profilesFolder = "profiles";
 /// The game's state slot: `<folder>/<rom stem>.state`.
 [[nodiscard]] std::filesystem::path saveStateFile(const std::filesystem::path& folder,
                                                   const std::filesystem::path& rom);
+
+/// What Save and close leaves, apart from the state slot: `<folder>/<rom stem>.resume`.
+[[nodiscard]] std::filesystem::path resumeStateFile(const std::filesystem::path& folder,
+                                                    const std::filesystem::path& rom);
 
 } // namespace opensu::retro

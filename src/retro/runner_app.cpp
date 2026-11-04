@@ -25,6 +25,7 @@
 #include "librashader_library.hpp"
 #include "lucent/log.h"
 #include "presenter.hpp"
+#include "resume_state.hpp"
 #include "save_memory.hpp"
 #include "save_paths.hpp"
 #include "save_state.hpp"
@@ -176,6 +177,7 @@ RunnerExit RunnerApp::run() {
         return RunnerExit::LoadFailed;
     }
     SaveState state{saveStateFile(options_.saves, options_.rom)};
+    ResumeState resume{resumeStateFile(options_.saves, options_.rom), coreName(options_.core)};
 
     const bool handoff = shell_handoff::active() && !options_.hidden;
     if (handoff) {
@@ -205,11 +207,18 @@ RunnerExit RunnerApp::run() {
         return RunnerExit::PresenterFailed;
     }
     hardware.attach(*presenter);
+    // After a GPU core's context is up, which its state may need.
+    const ResumeReport resumed = resume.resume(*core);
     const std::unique_ptr<AudioOutput> audio = openAudio(sink, options_.hidden);
     const std::unique_ptr<gamepad::PadSource> pads = options_.hidden ? nullptr : openPads();
     const std::unique_ptr<ControlServer> control = openControl(options_, *core);
+    if (control) {
+        control->reportResume(resumed);
+    }
     ControlCommands commands{{.core = *core,
                               .state = state,
+                              .saves = saves,
+                              .resume = resume,
                               .presenter = *presenter,
                               .options = environment.options(),
                               .hidden = options_.hidden}};
@@ -315,7 +324,7 @@ RunnerExit RunnerApp::run() {
                 return commands.perform(request);
             });
         }
-        if (waiting) {
+        if (waiting || commands.suspended()) {
             next = Clock::now() + interval;
             std::this_thread::sleep_until(next);
             continue;

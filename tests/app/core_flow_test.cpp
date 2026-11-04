@@ -194,6 +194,12 @@ struct Rig {
                                           return app::SharedSaves::View{};
                                       },
                                       [](const library::Game&) {
+                                      },
+                                      [](const library::Game&) {
+                                          return std::optional<retro::ResumeHeader>{};
+                                      },
+                                      [](const library::Game&) {
+                                          return std::string{};
                                       }}};
 
     /// Each action as a press, the stack settled after it.

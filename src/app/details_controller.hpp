@@ -4,7 +4,8 @@
 // it, hide it, uninstall it
 // (asking first), rename, change the file of or remove a game the player added
 // (`OwnGamesController`), choose its cover, open its button mapping, copy its saves between
-// emulators (`SaveCopyController`), sync them with paired openSUs (`SharedSaves`), go back. Opens
+// emulators (`SaveCopyController`), sync them with paired openSUs (`SharedSaves`), say where Save
+// and close left it and Start fresh without that (asking first), go back. Opens
 // for the focused game and keeps what it shows current while the library changes under it.
 #pragma once
 
@@ -19,6 +20,7 @@
 #include "game_settings.hpp"
 #include "library/game.hpp"
 #include "preferences.hpp"
+#include "retro/resume_file.hpp"
 #include "shared_saves.hpp"
 #include "ui/game_details.hpp"
 #include "ui/row_widgets.hpp"
@@ -75,6 +77,10 @@ class DetailsController final : public ui::RowActions {
         std::function<SharedSaves::View(const library::Game& game)> sharedSaves;
         /// That row: syncs now, or asks which save to keep.
         std::function<void(const library::Game& game)> syncSaves;
+        /// The header of the resume state Save and close left of `game`, or nothing.
+        std::function<std::optional<retro::ResumeHeader>(const library::Game& game)> resume;
+        /// Throws that state away: empty when it is gone, else why not.
+        std::function<std::string(const library::Game& game)> startFresh;
     };
 
     /// What the rows act on.

@@ -1,6 +1,7 @@
 // control_commands — what each control channel command does to the running game, run by the frame
 // loop between frames: the state slot saved and loaded, reset, live video settings, the core's
-// options listed and changed, and the last frame read back in hidden runs.
+// options listed and changed, the last frame read back in hidden runs, and Save and close, after
+// which the game runs no more frames.
 #pragma once
 
 #include <string>
@@ -9,6 +10,8 @@
 #include "core.hpp"
 #include "core_options.hpp"
 #include "presenter.hpp"
+#include "resume_state.hpp"
+#include "save_memory.hpp"
 #include "save_state.hpp"
 
 namespace opensu::retro {
@@ -21,6 +24,8 @@ class ControlCommands {
     struct Parts {
         Core& core;
         SaveState& state;
+        SaveMemory& saves;
+        ResumeState& resume;
         Presenter& presenter;
         CoreOptions& options;
         /// Whether the run is hidden, the only one whose frame is read back.
@@ -33,8 +38,16 @@ class ControlCommands {
     /// Runs `request` on the game. Frame loop only, between frames.
     [[nodiscard]] ControlAnswer perform(const ControlRequest& request);
 
+    /// Whether Save and close was done: the game waits to be closed, its frames stopped.
+    [[nodiscard]] bool suspended() const noexcept {
+        return suspended_;
+    }
+
   private:
+    [[nodiscard]] ControlAnswer suspend();
+
     Parts parts_;
+    bool suspended_{false};
 };
 
 } // namespace opensu::retro

@@ -71,6 +71,7 @@
 #include "layout_picker.hpp"
 #include "library/catalog.hpp"
 #include "library/catalog_loader.hpp"
+#include "library/game_saves.hpp"
 #include "library/lossless_scaling.hpp"
 #include "library/shelf.hpp"
 #include "library_additions.hpp"
@@ -90,6 +91,7 @@
 #include "profile_settings.hpp"
 #include "remote_input.hpp"
 #include "remote_play.hpp"
+#include "retro/resume_file.hpp"
 #include "retro_session.hpp"
 #include "save_copy_controller.hpp"
 #include "save_sharing.hpp"
@@ -217,6 +219,12 @@ class ShellApp final {
                      const std::string& profile);
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
+    /// Where the active profile's resume state of ROM `game` is kept.
+    [[nodiscard]] std::filesystem::path resumeFileOf(const library::Game& game) const;
+    /// The header of the resume state Save and close left of `game` on the built-in runner.
+    [[nodiscard]] std::optional<retro::ResumeHeader> resumeOf(const library::Game& game) const;
+    /// Throws that state away for Start fresh: empty when it is gone, else why not.
+    [[nodiscard]] std::string startFresh(const library::Game& game) const;
     /// Asks whether to install the focused game, which is not installed, from the stores that
     /// can: all the stores that own it when more than one can.
     void offerInstall(const library::Game& game);
@@ -684,6 +692,12 @@ class ShellApp final {
                                  },
                                  [this](const library::Game& game) {
                                      sharedSaves_.act(game);
+                                 },
+                                 [this](const library::Game& game) {
+                                     return resumeOf(game);
+                                 },
+                                 [this](const library::Game& game) {
+                                     return startFresh(game);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),

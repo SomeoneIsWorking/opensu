@@ -49,12 +49,15 @@ void measure(SaveSlot& slot) {
     }
 }
 
+fs::path runnerFolder(const fs::path& saves, std::string_view profile, const Game& game) {
+    return retro::systemSaveFolder(retro::profileSaveFolder(saves, profile), game.sourceId);
+}
+
 /// The runner's save RAM and state of `game` for `profile`, each where the runner keeps it whether
 /// it is there yet or not.
 std::vector<SaveSlot> runnerSlots(const fs::path& saves, std::string_view profile,
                                   const Game& game) {
-    const fs::path folder =
-        retro::systemSaveFolder(retro::profileSaveFolder(saves, profile), game.sourceId);
+    const fs::path folder = runnerFolder(saves, profile, game);
     std::vector<SaveSlot> slots;
     for (const auto& [kind, file] :
          {std::pair{SlotKind::Memory, retro::saveMemoryFile(folder, game.file)},
@@ -172,6 +175,10 @@ const EmulatorSaves* launchedSaves(const std::vector<EmulatorSaves>& saves, cons
     const std::string id = entry->builtIn() ? std::string{runnerSavesId} : entry->id;
     const auto found = std::ranges::find(saves, id, &EmulatorSaves::emulatorId);
     return found == saves.end() ? nullptr : &*found;
+}
+
+fs::path runnerResumeFile(const fs::path& runnerSaves, std::string_view profile, const Game& game) {
+    return retro::resumeStateFile(runnerFolder(runnerSaves, profile, game), game.file);
 }
 
 bool copyable(const std::vector<EmulatorSaves>& saves) {

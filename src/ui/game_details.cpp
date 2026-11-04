@@ -187,9 +187,18 @@ GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
     if (!settings.sharedSaves.empty()) {
         facts.push_back(detailsFact("Saves", settings.sharedSaves));
     }
+    if (!settings.resume.empty()) {
+        facts.push_back(detailsFact("Resume", settings.resume));
+    }
 
     details.launch = game.installed ? "Play" : "Install";
     std::vector<SettingsRow>& actions = details.actions;
+    if (!settings.resume.empty() && game.installed) {
+        SettingsRow fresh = action(detailsStartFreshId, "Start fresh");
+        fresh.confirm = "The game starts from the beginning; where Save and close left it is lost.";
+        fresh.confirmVerb = "Start";
+        actions.push_back(std::move(fresh));
+    }
     if (updatable) {
         actions.push_back(action(detailsUpdateId, "Update"));
     }

@@ -85,8 +85,8 @@ Core::Core(const std::filesystem::path& library, CoreHost host) : host_{host} {
     retro_system_info info{};
     api_.getSystemInfo(&info);
     name_ = info.library_name != nullptr ? info.library_name : library.stem().string();
-    lucent::info("retro", "core {} {}", name_,
-                 info.library_version != nullptr ? info.library_version : "");
+    version_ = info.library_version != nullptr ? info.library_version : "";
+    lucent::info("retro", "core {} {}", name_, version_);
     api_.setEnvironment(environmentTrampoline);
     api_.init();
     initialised_ = true;

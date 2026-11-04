@@ -82,6 +82,10 @@ class Core {
     [[nodiscard]] const std::string& name() const {
         return name_;
     }
+    /// The version the core reports; empty when it reports none.
+    [[nodiscard]] const std::string& version() const {
+        return version_;
+    }
 
     // The callbacks, reached from the trampolines in core.cpp.
     bool environment(unsigned command, void* data);
@@ -122,6 +126,7 @@ class Core {
     bool initialised_{false};
     bool loaded_{false};
     std::string name_;
+    std::string version_;
     retro_system_av_info avInfo_{};
     /// The game's bytes, kept while it is loaded.
     std::vector<char> content_;

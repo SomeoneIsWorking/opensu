@@ -1,9 +1,10 @@
 # opensu-retro, the built-in libretro runner: one core per process, an SDL window drawn with Vulkan.
 
-# Where the runner keeps a game's saves, which the shell's save owner reads too.
-add_library(opensu_retro_saves STATIC save_paths.cpp)
+# Where the runner keeps a game's saves and the resume state's format, which the shell reads too.
+add_library(opensu_retro_saves STATIC save_paths.cpp resume_file.cpp)
 add_library(opensu::retro_saves ALIAS opensu_retro_saves)
 target_include_directories(opensu_retro_saves PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(opensu_retro_saves PRIVATE nlohmann_json::nlohmann_json opensu::fileio)
 target_compile_features(opensu_retro_saves PUBLIC cxx_std_20)
 opensu_warnings(opensu_retro_saves)
 
@@ -12,7 +13,7 @@ add_library(opensu_retro STATIC
     audio_output.cpp joypad.cpp save_memory.cpp save_ram_fit.cpp vulkan_device.cpp frame_filter.cpp
     shared_library.cpp librashader_library.cpp shader_chain.cpp shader_scale.cpp gpu_timer.cpp
     reduced_output.cpp streamed_texture.cpp fullscreen_pipeline.cpp frame_compositor.cpp presenter.cpp hardware_render.cpp
-    save_state.cpp control_server.cpp control_commands.cpp overlay_pass.cpp touch_layer.cpp frame_stages.cpp
+    save_state.cpp resume_state.cpp control_server.cpp control_commands.cpp overlay_pass.cpp touch_layer.cpp frame_stages.cpp
     runner_app.cpp)
 gpu2d_compile_shaders(opensu_retro shaders/frame.vert shaders/frame.frag shaders/sharp_bilinear.frag
     shaders/crt_lottes.frag shaders/sampled.frag)
@@ -23,7 +24,7 @@ target_include_directories(opensu_retro
 target_link_libraries(opensu_retro
     PUBLIC opensu::retro_saves opensu::libretro_header opensu::librashader_header opensu::pad opensu::command opensu::fileio opensu::setting_layers lucent::lucent
            PkgConfig::SDL3 opensu::vulkan
-    PRIVATE gpu2d::image opensu::svg)
+    PRIVATE gpu2d::image opensu::svg opensu::zip)
 # Where the shell cannot draw over the runner (Android), Guide and Back bring the shell's Activity
 # forward and the runner draws its own touch controls.
 if(ANDROID)

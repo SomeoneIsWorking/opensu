@@ -145,6 +145,11 @@ void ControlServer::publish(std::uint64_t frame, bool hasState) {
     hasState_ = hasState;
 }
 
+void ControlServer::reportResume(const ResumeReport& report) {
+    const std::lock_guard lock{mutex_};
+    resume_ = report;
+}
+
 void ControlServer::serve(const std::function<ControlAnswer(const ControlRequest&)>& perform) {
     std::deque<std::shared_ptr<Pending>> waiting;
     {
@@ -221,8 +226,16 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
             return text(405, "Method Not Allowed", "GET only");
         }
         const std::lock_guard lock{mutex_};
-        const nlohmann::json status{
+        nlohmann::json status{
             {"core", core_}, {"rom", rom_}, {"frame", frame_}, {"hasState", hasState_}};
+        if (resume_.from) {
+            status["resumedFrom"] =
+                std::chrono::duration_cast<std::chrono::seconds>(resume_.from->time_since_epoch())
+                    .count();
+        }
+        if (!resume_.refused.empty()) {
+            status["resumeRefused"] = resume_.refused;
+        }
         return lucent::http::Response::json(200, "OK", status.dump());
     }
     if (path == "/input") {
@@ -265,6 +278,8 @@ lucent::http::Response ControlServer::handle(const lucent::http::Request& reques
         command.command = ControlCommand::Video;
     } else if (path == "/option") {
         command.command = ControlCommand::Option;
+    } else if (path == "/suspend") {
+        command.command = ControlCommand::Suspend;
     } else {
         return text(404, "Not Found", "no such route");
     }

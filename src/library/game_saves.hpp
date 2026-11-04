@@ -138,6 +138,12 @@ inline constexpr std::string_view runnerSavesId = "built-in";
                                                  const Game& game,
                                                  const roms::EmulatorCatalog& catalog);
 
+/// Where the built-in runner keeps the resume state Save and close leaves of ROM `game` for
+/// `profile`, in the profile's folder under `runnerSaves`; kept apart from its saves, which copies
+/// and syncs never take it with.
+[[nodiscard]] std::filesystem::path runnerResumeFile(const std::filesystem::path& runnerSaves,
+                                                     std::string_view profile, const Game& game);
+
 /// Whether `saves` can be copied between: one holds files and another can take them.
 [[nodiscard]] bool copyable(const std::vector<EmulatorSaves>& saves);
 

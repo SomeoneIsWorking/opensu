@@ -65,7 +65,10 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/retro/png_encoder.*` | RGBA to PNG bytes through libpng |
 | `src/retro/shaders/frame.{vert,frag}`, `sharp_bilinear.frag`, `frame_grid.glsl`, `crt_lottes.frag` | The frame's shaders (sharp-bilinear: integer prescale then bilinear; `frame_grid.glsl`: the scanline and LCD-grid bands both sampling shaders apply; crt-lottes), compiled by glslc at build time into SPIR-V headers under the build tree |
 | `src/retro/save_state.*` | The one state slot `<saves>/<rom stem>.state`: `retro_serialize` written whole, read back through `retro_unserialize` |
+| `src/retro/resume_file.*` | The resume state's format, shared with the shell (`opensu::retro_saves`): `opensu-resume 1`, a JSON line (core name, its label and version, when, the save RAM's CRC-32), the core's state; written whole, its header read alone, removed |
+| `src/retro/resume_state.*` | Save and close's state taken (`suspend`) and put back before the first frame (`resume`) under the checks in **Save and close** below |
 | `src/retro/control_server.*` | The runner's loopback `lucent::http::Server`: the control file (port and pid, or the load failure), the routes, the hand-over of each command and of the control pad's input to the frame loop |
+| `src/retro/control_commands.*` | What each queued command does to the game between frames, Save and close's stop included |
 | `src/retro/frame_stages.*` | Each frame's stages timed (core, audio, fence, acquire, record, present, sleep) and logged with the frame time and audio queue as p50/p95/p99 every 5 s |
 | `src/retro/runner_app.*` | Composition: core and owners, presenter, pads, keyboard, sound, the loop and its pacing, save checks, control commands between frames, the hidden mode for tests |
 | `src/retro/main.cpp` | `opensu-retro`'s command line, the `--settings` file read into `settings::VideoSettings` |
@@ -92,7 +95,7 @@ the runner's callback trampolines reach the one loaded core through a single poi
 | `src/library/emulators.*` | A built-in emulator is installed when its core is found and `opensu-retro` is beside `opensu` (`config::retroRunnerBeside`); it starts as `opensu-retro --core <core> [--option <key>=<value>]... <rom>`, with `--hidden` from a hidden shell |
 | `src/app/emulator_downloads.*`, `emulator_settings.*`, `details_controller.*` | Download, update check, update and removal of a core and of the shader pack, on the same paths as an AppImage; the Shader presets rows; the details page's video sources, Game settings button and Clear |
 | `src/app/retro_session.*` | The shell's side of the control channel: each launch's control file, the port read from it, the requests (`setVideo` for `POST /video`), the load failure handed over and the file removed |
-| `src/app/quick_menu_controller.*` | Game settings, Save state, Load state and Reset game while the running game answers on a control channel |
+| `src/app/guide_menu_controller.*` | Save and close, Game settings, Save state, Load state and Reset game while the running game answers on a control channel; the resumed or refused row |
 | `src/app/game_end.*`, `src/launch/handoff.*` | How a game ended (`Hooks::ended`, the scope's exit status) and the toast it gets |
 
 `retro` depends on `gamepad`, `fileio`, Lucent, nlohmann/json, SDL3, the Vulkan loader and libpng;
@@ -145,7 +148,8 @@ cannot be set up (exit 1), it writes `{"error": "<reason>"}` there instead and l
 
 | Route | Answer |
 | --- | --- |
-| `GET /status` | `{"core", "rom", "frame", "hasState"}`: the core's name, the ROM path, frames run, whether the slot holds a state |
+| `GET /status` | `{"core", "rom", "frame", "hasState"}`: the core's name, the ROM path, frames run, whether the slot holds a state; `resumedFrom` (Unix seconds) when the game resumed, `resumeRefused` (the reason) when its resume state was not loaded |
+| `POST /suspend` | Save and close: 200 once the save RAM is written and the resume state taken, after which the runner runs no more frames and waits to be closed; 409 when the core cannot serialize; 500 when either file cannot be written, the game going on |
 | `POST /state/save` | 200; 409 with the reason when the core cannot serialize (`retro_serialize_size` 0 or `retro_serialize` false); 500 when the slot cannot be written |
 | `POST /state/load` | 200; 404 when no state is saved; 409 when the core refuses it |
 | `POST /reset` | 200 after `retro_reset` |
@@ -161,12 +165,36 @@ reads the port lazily and talks through `lucent::http::get_loopback` and `post_l
 run on the shell's loop, which a runner that stops answering holds for up to the client's 5 s
 socket timeout.
 
-**Quick menu.** While the running game answers `/status`, the quick menu (Guide + A) shows Save
-state (one press), Load state (a second press confirms; an Info row reading "No state saved" when
-the slot is empty) and Reset game (a second press confirms) above Close game. A focus move takes the
-first press back. The results are toasts: "State saved", "State loaded", "Game reset", or the
-runner's reason as an error. Its "Game settings" row opens the layered editor (below) as a panel over the
-game; B from it comes back to the quick menu on that row.
+**Guide menu.** While the running game answers `/status`, the Guide menu over it shows Save and
+close below Close game, then Save state (one press), Load state (asking first; an Info row reading
+"No state saved" when the slot is empty) and Reset game (asking first). The results are toasts:
+"State saved", "State loaded", "Game reset", or the runner's reason as an error. Its "Game
+settings" row opens the layered editor (below) as a panel over the game; B from it comes back to
+the menu on that row. A game that resumed shows "Resumed" with the date; one whose resume state was
+refused shows "Not resumed" with the reason.
+
+**Save and close.** Save and close posts `/suspend`, then closes the game the way Close game does
+(the scope stopped, SIGTERM). The runner writes the save RAM first, then the resume state
+`<rom stem>.resume` (`retro::resumeStateFile`) in the profile's system folder beside the `.srm`,
+never the player's `.state` slot, so each profile has its own, and runs no
+more frames, so the state and the `.srm` are of the same frame; a refusal keeps the game running
+and is toasted. The next start of the game, on any launch, loads it once the core has the game, its
+save RAM and (a GPU core) its context, before the first frame, and removes it. It is loaded only
+when the core's name (`coreName`) is the one that wrote it and the save RAM is the one it was taken
+with (CRC-32), so a save copied, synced or made since is never undone by an older state. A state
+another core wrote is kept for that core and reported; one the core refuses, or whose save RAM has
+changed, is reported and removed, and a refusal resets the core with the save RAM it booted with in
+case the core took part of the state. Nothing of it crashes the start: each case is a log line,
+`resumeRefused` and the Guide's "Not resumed" row.
+
+Removing it on load is the choice for a crash: a game that crashes after resuming starts next time
+from its own save, where keeping the state until the next Save and close would put the player back
+at an older point each start and, once the game had saved, could only be refused. Plain Close game
+keeps no resume state: its confirm says unsaved play is lost, and a setting that made it keep one
+would make Close mean two things. The details page reads the header (`retro::readResumeHeader` on
+`library::saves::runnerResumeFile` for the active profile): a Resume fact "Resumes from <date>", or "Kept by <core>, which
+<game> does not start on" when the game's core is another, and Start fresh, which asks first,
+removes the state and starts the game. Copy saves and LAN sharing never carry it.
 
 **Input.** The runner reads every evdev pad without grabbing it. While the shell holds the real
 pads during a game, the only pad that moves is the shell's virtual Xbox 360 pad, so the Guide
@@ -359,8 +387,9 @@ nothing more of a zip whose stamps all hold.
    romset. Genesis Plus GX and PicoDrive wait for Mega Drive, Master System, Game Gear, Sega CD
    and 32X systems in `rom_systems`. Runner, input, audio, save RAM, core downloads through
    Settings › Emulators and the details page.
-2. Built: save states and reset from the quick menu over a loopback `lucent::http::Server` in the
-   runner; a crash named in the shell's toast, a load failure told by its reason.
+2. Built: save states, reset and Save and close with its resume from the Guide menu over a
+   loopback `lucent::http::Server` in the runner; a crash named in the shell's toast, a load
+   failure told by its reason.
 3. Built: GPU cores (`RETRO_ENVIRONMENT_SET_HW_RENDER` with `RETRO_HW_CONTEXT_VULKAN` on the
    presenter's negotiated device, **GPU cores** in §4): Mupen64Plus-Next and ParaLLEl N64
    (ParaLLEl-RDP and ParaLLEl-RSP), Beetle PSX HW and SwanStation (their Vulkan renderers),

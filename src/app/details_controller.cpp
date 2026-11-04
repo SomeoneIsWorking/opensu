@@ -13,9 +13,11 @@
 #include "library/rom_systems.hpp"
 #include "library/wine.hpp"
 #include "lucent/text.h"
+#include "retro/save_paths.hpp"
 #include "retro_launch.hpp"
 #include "settings/video_settings.hpp"
 #include "shader_preset_tree.hpp"
+#include "ui/moment_text.hpp"
 
 namespace opensu::app {
 namespace {
@@ -82,6 +84,14 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
         const std::size_t custom = *kept;
         view.gameSettings = custom == 0 ? std::string{"Inherited"}
                                         : lucent::text::counted(custom, "custom setting");
+    }
+    if (const std::optional<retro::ResumeHeader> kept =
+            game.source == library::Source::Rom ? hooks_.resume(game) : std::nullopt) {
+        const library::roms::EmulatorEntry* runner = builtInOf(game, catalog);
+        view.resume = runner != nullptr && retro::coreName(runner->core) == kept->core
+                          ? "Resumes from " + ui::momentText(kept->saved)
+                          : "Kept by " + (kept->coreLabel.empty() ? kept->core : kept->coreLabel) +
+                                ", which " + game.title + " does not start on";
     }
     view.copySaves = hooks_.copySavesOffer(game);
     const SharedSaves::View shared = hooks_.sharedSaves(game);
@@ -204,6 +214,13 @@ void DetailsController::run(const std::string& id, int step) {
         hooks_.remove(*game);
     } else if (id == ui::detailsSyncSavesId) {
         hooks_.syncSaves(*game);
+    } else if (id == ui::detailsStartFreshId) {
+        if (const std::string refused = hooks_.startFresh(*game); !refused.empty()) {
+            hooks_.say(refused, true);
+            refresh();
+            return;
+        }
+        hooks_.launch(*game);
     }
 }
 

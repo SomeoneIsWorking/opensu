@@ -34,6 +34,7 @@ inline constexpr std::string_view detailsArtworkId = "details.artwork";
 inline constexpr std::string_view detailsControlsId = "details.controls";
 inline constexpr std::string_view detailsSavesId = "details.saves";
 inline constexpr std::string_view detailsSyncSavesId = "details.syncSaves";
+inline constexpr std::string_view detailsStartFreshId = "details.startFresh";
 inline constexpr std::string_view detailsBackId = "details.back";
 /// The Emulator choice's option while the game has no emulator picked.
 inline constexpr std::string_view noEmulator = "None";
@@ -88,6 +89,9 @@ struct GameSettingsView {
     /// row, while no openSU shares them.
     std::string sharedSaves;
     std::string syncSaves;
+    /// What the Resume fact reads while Save and close left the game a resume state ("Resumes
+    /// from 2026-11-04 18:09"), with the Start fresh row; empty, and neither, while there is none.
+    std::string resume;
 };
 
 /// What the page says about the facts' setting `label` reading `value`.

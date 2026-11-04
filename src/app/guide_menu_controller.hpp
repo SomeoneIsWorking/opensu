@@ -5,7 +5,8 @@
 // through `VolumeControl`, brightness through `BrightnessControl`, the interface size through
 // `Preferences`, a game's state commands through `RetroSession`, power through `host::Power` and
 // the session switch through `host::SessionMode`. Every step that throws something away (Close
-// game, Load state, Reset game, Restart, Shut down, the session switch) asks first, one rule.
+// game, Load state, Reset game, Restart, Shut down, the session switch) asks first, one rule. Save
+// and close keeps the game where it is for its next start, and the menu says when a game resumed.
 #pragma once
 
 #include <cstdint>

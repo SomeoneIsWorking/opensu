@@ -6,6 +6,7 @@
 
 #include "guide_menu_screen.hpp"
 #include "settings/settings.hpp"
+#include "ui/moment_text.hpp"
 
 namespace opensu::app {
 namespace {
@@ -15,6 +16,8 @@ using ui::SettingsRow;
 
 constexpr const char* resumeId = "guide.resume";
 constexpr const char* closeGameId = "guide.closeGame";
+constexpr const char* saveAndCloseId = "guide.saveAndClose";
+constexpr const char* resumedId = "guide.resumed";
 constexpr const char* gameSettingsId = "guide.gameSettings";
 constexpr const char* saveStateId = "guide.saveState";
 constexpr const char* loadStateId = "guide.loadState";
@@ -112,6 +115,9 @@ std::vector<SettingsRow> GuideMenuController::places() const {
             rows.push_back(asking(closeGameId, "Close game",
                                   "The game ends; anything it has not saved is lost.", "Close"));
         }
+        if (retroStatus_) {
+            rows.push_back(action(saveAndCloseId, "Save and close"));
+        }
         if (context_.gameSettings) {
             rows.push_back(ui::makePage(gameSettingsId, "Game settings", {}, {}));
         }
@@ -128,6 +134,14 @@ std::vector<SettingsRow> GuideMenuController::places() const {
             }
             rows.push_back(asking(resetGameId, "Reset game",
                                   "The game starts over; play it has not saved is lost.", "Reset"));
+            if (retroStatus_->resumedFrom) {
+                rows.push_back(ui::makeRow(resumedId, RowKind::Info, "Resumed",
+                                           "From " + ui::momentText(*retroStatus_->resumedFrom),
+                                           {}));
+            } else if (!retroStatus_->resumeRefused.empty()) {
+                rows.push_back(ui::makeRow(resumedId, RowKind::Info, "Not resumed",
+                                           retroStatus_->resumeRefused, {}));
+            }
         }
         rows.push_back(ui::makeHeading("openSU"));
     } else {
@@ -227,7 +241,8 @@ void GuideMenuController::run(const std::string& id, int step) {
         stepProfile(step);
     } else if (id == resumeId) {
         close();
-    } else if (id == closeGameId || id == saveStateId || id == loadStateId || id == resetGameId) {
+    } else if (id == closeGameId || id == saveAndCloseId || id == saveStateId ||
+               id == loadStateId || id == resetGameId) {
         runGame(id);
     } else if (id == homeId) {
         leave([this] {
@@ -250,6 +265,15 @@ void GuideMenuController::run(const std::string& id, int step) {
 
 void GuideMenuController::runGame(const std::string& id) {
     if (id == closeGameId) {
+        leave(hooks_.closeGame);
+        return;
+    }
+    if (id == saveAndCloseId) {
+        if (const std::string refused = retro_.suspend(); !refused.empty()) {
+            hooks_.say("Not saved: " + refused, true);
+            read();
+            return;
+        }
         leave(hooks_.closeGame);
         return;
     }

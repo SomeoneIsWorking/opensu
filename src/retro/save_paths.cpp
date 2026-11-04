@@ -41,4 +41,8 @@ fs::path saveStateFile(const fs::path& folder, const fs::path& rom) {
     return named(folder, rom, ".state");
 }
 
+fs::path resumeStateFile(const fs::path& folder, const fs::path& rom) {
+    return named(folder, rom, ".resume");
+}
+
 } // namespace opensu::retro

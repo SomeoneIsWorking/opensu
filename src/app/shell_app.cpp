@@ -785,6 +785,21 @@ void ShellApp::cancelLaunch() {
     launches_.cancel();
 }
 
+std::filesystem::path ShellApp::resumeFileOf(const library::Game& game) const {
+    return library::saves::runnerResumeFile(profiles_.runnerSaves(), profiles_.book().active().id,
+                                            game);
+}
+
+std::optional<retro::ResumeHeader> ShellApp::resumeOf(const library::Game& game) const {
+    return retro::readResumeHeader(resumeFileOf(game));
+}
+
+std::string ShellApp::startFresh(const library::Game& game) const {
+    std::string error;
+    static_cast<void>(retro::discardResume(resumeFileOf(game), error));
+    return error;
+}
+
 void ShellApp::openGameSettings(const library::Game& game, EditorLook look) {
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
