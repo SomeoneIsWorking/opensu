@@ -90,8 +90,9 @@ void SharedSaves::act(const library::Game& game) {
     const auto keep = [this, game, id = shown->peer.id](bool theirs) {
         lan_.keep(game, id, theirs);
     };
-    // Two choices fit the dialog's width with a peer's name; Back cancels.
     std::vector<gpu2d::ui::Dialog::Choice> choices;
+    choices.push_back(gpu2d::ui::Dialog::Choice{
+        .label = "Cancel", .chosen = {}, .kind = gpu2d::ui::ButtonKind::Normal, .exits = true});
     choices.push_back(gpu2d::ui::Dialog::Choice{.label = "Keep this one",
                                                 .chosen =
                                                     [keep] {
@@ -111,7 +112,7 @@ void SharedSaves::act(const library::Game& game) {
         "Which save of " + game.title + "?",
         "Both changed since they last synced.\n\nHere: " + sideText(shown->ours) + "\n" + peer +
             ": " + sideText(*shown->theirs) + "\n\nThe save replaced is backed up first.",
-        std::move(choices), 0));
+        std::move(choices), 1));
 }
 
 } // namespace opensu::app

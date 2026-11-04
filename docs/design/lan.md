@@ -145,7 +145,8 @@ Settings › LAN has a Share saves switch per paired openSU, off by default (`"s
   `<state>/save-backups/`. It then records the hash and tells the peer (`/synced`).
 - A push is only `/news`: the peer pulls, under its own checks. Request bodies stay small.
 - In a conflict the details row is Pick which save to keep: a dialog with each side's date and
-  size. Keep this one tells the peer with `picked` set, and it pulls over its own; Keep X's pulls.
+  size and three buttons: Cancel, Keep this one (focused; tells the peer with `picked` set, and it
+  pulls over its own) and Keep X's (pulls).
 - The work runs on `SaveSync`'s thread, one game at a time; no lock is held while a peer is asked,
   so two openSUs syncing each other cannot deadlock. A hidden run keeps the record, staging and
   backups in its own folder (`PlayerFiles::stateDir`).
