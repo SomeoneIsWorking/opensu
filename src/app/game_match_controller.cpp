@@ -171,11 +171,12 @@ void GameMatchController::findBoxArt(const std::stop_token& stop, const std::str
     const library::roms::RomSystem* system = library::roms::systemByKey(game_.sourceId);
     const net::WebClient web;
     std::string error;
-    const std::optional<std::vector<std::string>> names =
-        system == nullptr ? std::nullopt
-                          : artwork::boxArtNames(web, listings_, *system, places_.libretro, error);
+    std::optional<std::vector<std::string>> names;
+    if (system != nullptr) {
+        names = artwork::boxArtNames(web, listings_, *system, places_.libretro, error);
+    }
     found.searched = true;
-    if (!names) {
+    if (system == nullptr || !names) {
         lucent::warn("match", "libretro-thumbnails listing: {}", error);
         found.error = "libretro-thumbnails cannot be reached";
         publish(found);
