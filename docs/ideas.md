@@ -25,7 +25,9 @@ A profile system would make saves follow a player instead:
   the 'same' profile aka linked"): a paired openSU lists the other machine's profiles; copying one
   creates it here with the same profile id and its saves, and from then on the two are one linked
   profile whose saves sync. A profile nobody copied stays local.
-- Open questions: whether copying a profile needs that profile's own consent on the other machine
-  (a PIN, or the owner accepting) or only the machine pairing; what unlinking does to the copies;
-  whether the built-in runner's `.srm` files move into per-profile folders; and which profile a
-  guest playing remotely uses.
+- Decided by default (the player left these open, 2026-11-04): copying a profile asks on the
+  machine that owns it, like pairing does, so a paired machine cannot take someone's saves
+  unasked; unlinking keeps both copies as separate local profiles with the saves they hold; the
+  built-in runner's saves move into per-profile folders, the current ones becoming the first
+  profile's; a remote-play guest plays as the host's profile linked to the guest's active one,
+  or the host's first profile when none is linked.
