@@ -10,23 +10,14 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <type_traits>
 #include <vector>
 
+#include "fileio/little_endian.hpp"
 #include "switch_keys.hpp"
 
 namespace opensu::library::roms {
 
-/// The little-endian integer at `at` in `bytes`; the caller has checked it fits.
-template <class T>
-    requires std::is_unsigned_v<T>
-[[nodiscard]] T littleEndian(std::span<const std::uint8_t> bytes, std::size_t at) {
-    T value = 0;
-    for (std::size_t i = sizeof(T); i > 0; --i) {
-        value = static_cast<T>((value << 8U) | bytes[at + i - 1]);
-    }
-    return value;
-}
+using fileio::littleEndian;
 
 /// One file of the package, its offset from the start of the game file.
 struct PackageFile {

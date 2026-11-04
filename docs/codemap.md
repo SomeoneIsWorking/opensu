@@ -141,6 +141,7 @@ on the same rule.
 | `src/settings/mapping_store.*` | `mappings.json` under the config dir: every scope's `ButtonMap` and the Steam Input switch, written whole and atomically; a damaged file or entry warned and left out |
 | `src/settings/install_folders.*` | The one resolver of where a store installs: a store's override, else the default, else none (the store's own choice); `resolve` adds the store's own folder and says which of the three applies; validation (exists, writable) |
 | `src/fileio/atomic_write.*` | Whole-file writes through a `.part` file and a rename |
+| `src/fileio/little_endian.hpp` | Unsigned integers as little-endian bytes, read from and appended to byte strings: the Switch's file formats |
 | `src/fileio/owner_only_write.hpp`, `owner_only_write_posix.cpp` / `owner_only_write_win32.cpp` | A file only its owner may read (0600, folder 0700; on Windows the profile folder's own ACL), replaced atomically: sign-ins and keys |
 | `src/fileio/folder_access.hpp`, `folder_access_posix.cpp` / `folder_access_win32.cpp` | Whether this process may list or create files in a folder: access(2), or on Windows a listing or a delete-on-close probe file |
 | `src/fileio/instance_lock.hpp`, `instance_lock_posix.cpp` (`flock`), `instance_lock_win32.cpp` (an unshared handle) | One openSU per user, so a second launch starts no second Steam |

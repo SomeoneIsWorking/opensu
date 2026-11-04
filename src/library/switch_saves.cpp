@@ -18,6 +18,7 @@
 #include <nlohmann/json.hpp>
 
 #include "fileio/atomic_write.hpp"
+#include "fileio/little_endian.hpp"
 #include "lucent/log.h"
 
 namespace opensu::library::saves {
@@ -90,19 +91,8 @@ std::string readBytes(const fs::path& file) {
     return {std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
 }
 
-std::uint64_t littleEndian(std::string_view bytes, std::size_t at, std::size_t size) {
-    std::uint64_t value = 0;
-    for (std::size_t i = size; i > 0; --i) {
-        value = (value << 8U) | static_cast<unsigned char>(bytes[at + i - 1]);
-    }
-    return value;
-}
-
-void putLittleEndian(std::string& bytes, std::size_t at, std::uint64_t value, std::size_t size) {
-    for (std::size_t i = 0; i < size; ++i) {
-        bytes[at + i] = static_cast<char>((value >> (8 * i)) & 0xFFU);
-    }
-}
+using fileio::littleEndian;
+using fileio::putLittleEndian;
 
 std::string hex16(std::uint64_t value) {
     return std::format("{:016X}", value);
