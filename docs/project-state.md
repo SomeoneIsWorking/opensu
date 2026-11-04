@@ -660,7 +660,9 @@ GE-Proton 11-11 and `PROTON_ENABLE_WAYLAND=1` in that private desktop, which lis
 `wayland-0`. The container's runtime dir held only `bus` and `pipewire-0`, only Gamescope
 connected to the desktop's socket, and no window reached KWin. Proton's Wayland driver loads and
 finds no compositor, so a Wine game with `PROTON_ENABLE_WAYLAND` shows no window in openSU.
-Gamescope runs without `--expose-wayland`, so it has no socket for game windows to offer.
+Gamescope always serves `gamescope-0`; without `--expose-wayland` it only leaves its children's
+`WAYLAND_DISPLAY` empty. With it, the pinned fork still lacks `wl_subcompositor` and
+`wp_viewporter`, which Wine's Wayland driver requires (`docs/issues/proton-wayland-games-show-no-window.md`).
 Every source records a `processHint` — the
 Wine prefix path for Steam, the install folder for the others — which is what
 identifies the game in the process table.
