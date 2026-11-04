@@ -3,7 +3,7 @@
 # polkit agent serves an object on the system bus, which needs sd-bus.
 add_library(opensu_host STATIC runner.cpp bluetooth.cpp desktop_request.cpp login_session_end.cpp power.cpp
             session_mode.cpp backlight.cpp desktop_night_light.cpp polkit_helper.cpp
-            polkit_authentication.cpp polkit_agent.cpp)
+            polkit_authentication.cpp polkit_agent.cpp sd_bus.cpp)
 add_library(opensu::host ALIAS opensu_host)
 target_link_libraries(opensu_host PRIVATE nlohmann_json::nlohmann_json)
 target_include_directories(opensu_host PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" INTERFACE "${CMAKE_SOURCE_DIR}/src")

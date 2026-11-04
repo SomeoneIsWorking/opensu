@@ -8,6 +8,8 @@
 #include <iterator>
 #include <system_error>
 
+#include "secrets/secret.hpp"
+
 namespace opensu::library::roms {
 namespace {
 
@@ -24,35 +26,6 @@ std::string_view trimmed(std::string_view text) {
         text.remove_suffix(1);
     }
     return text;
-}
-
-int hexDigit(char c) {
-    if (c >= '0' && c <= '9') {
-        return c - '0';
-    }
-    const int lowered = std::tolower(static_cast<unsigned char>(c));
-    if (lowered >= 'a' && lowered <= 'f') {
-        return lowered - 'a' + 10;
-    }
-    return -1;
-}
-
-std::optional<std::vector<std::uint8_t>> hexBytes(std::string_view hex) {
-    if (hex.empty() || hex.size() % 2 != 0) {
-        return std::nullopt;
-    }
-    std::vector<std::uint8_t> bytes;
-    bytes.reserve(hex.size() / 2);
-    for (std::size_t i = 0; i < hex.size(); i += 2) {
-        const int high = hexDigit(hex[i]);
-        const int low = hexDigit(hex[i + 1]);
-        if (high < 0 || low < 0) {
-            secrets::wipeBytes(bytes.data(), bytes.size());
-            return std::nullopt;
-        }
-        bytes.push_back(static_cast<std::uint8_t>((high << 4) | low));
-    }
-    return bytes;
 }
 
 std::string lowered(std::string_view text) {
@@ -74,7 +47,8 @@ template <class Take> void eachLine(std::string_view text, Take take) {
             continue;
         }
         const std::string_view name = trimmed(line.substr(0, equals));
-        std::optional<std::vector<std::uint8_t>> value = hexBytes(trimmed(line.substr(equals + 1)));
+        std::optional<std::vector<std::uint8_t>> value =
+            secrets::hexBytes(trimmed(line.substr(equals + 1)));
         if (!name.empty() && value) {
             take(lowered(name), std::move(*value));
         }
@@ -148,7 +122,7 @@ SwitchKeys SwitchKeys::parse(std::string_view prodKeys, std::string_view titleKe
         }
     });
     eachLine(titleKeys, [&keys](const std::string& name, std::vector<std::uint8_t> value) {
-        const std::optional<std::vector<std::uint8_t>> rights = hexBytes(name);
+        const std::optional<std::vector<std::uint8_t>> rights = secrets::hexBytes(name);
         std::optional<Key128> key = fixed<16>(value);
         secrets::wipeBytes(value.data(), value.size());
         if (rights && rights->size() == RightsId{}.size() && key) {

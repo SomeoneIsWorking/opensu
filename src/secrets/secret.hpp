@@ -1,8 +1,12 @@
-// secret — clearing memory that held a password or key.
+// secret — clearing memory that held a password or key, and keys written as hex.
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace opensu::secrets {
 
@@ -16,5 +20,9 @@ inline void wipe(std::string& text) noexcept {
     wipeBytes(text.data(), text.capacity());
     text.clear();
 }
+
+/// The bytes `hex` spells, two digits each, either case; nothing when it is empty, odd or holds
+/// anything else, with what was read wiped.
+[[nodiscard]] std::optional<std::vector<std::uint8_t>> hexBytes(std::string_view hex);
 
 } // namespace opensu::secrets

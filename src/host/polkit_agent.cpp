@@ -17,12 +17,12 @@
 #include <pwd.h>
 #include <sys/eventfd.h>
 #include <systemd/sd-bus.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "launch/procfs.hpp"
 #include "lucent/log.h"
 #include "polkit_helper.hpp"
+#include "sd_bus.hpp"
 #include "secrets/secret.hpp"
 
 namespace opensu::host {
@@ -40,49 +40,10 @@ constexpr const char* failedError = "org.freedesktop.PolicyKit1.Error.Failed";
 /// A process subject's fields: its pid, start time and owner, as polkit keys them.
 constexpr int subjectFields = 3;
 
-struct BusClose {
-    void operator()(sd_bus* bus) const noexcept {
-        sd_bus_flush_close_unref(bus);
-    }
-};
-using Bus = std::unique_ptr<sd_bus, BusClose>;
-
-struct MessageUnref {
-    void operator()(sd_bus_message* message) const noexcept {
-        sd_bus_message_unref(message);
-    }
-};
-using Message = std::unique_ptr<sd_bus_message, MessageUnref>;
-
-struct SlotUnref {
-    void operator()(sd_bus_slot* slot) const noexcept {
-        sd_bus_slot_unref(slot);
-    }
-};
-using Slot = std::unique_ptr<sd_bus_slot, SlotUnref>;
-
-/// An sd-bus error, freed when it goes.
-class BusError {
-  public:
-    BusError() = default;
-    ~BusError() {
-        sd_bus_error_free(&error_);
-    }
-    BusError(const BusError&) = delete;
-    BusError& operator=(const BusError&) = delete;
-    BusError(BusError&&) = delete;
-    BusError& operator=(BusError&&) = delete;
-
-    [[nodiscard]] sd_bus_error* get() noexcept {
-        return &error_;
-    }
-    [[nodiscard]] std::string text(int code) const {
-        return error_.message != nullptr ? error_.message : std::strerror(-code);
-    }
-
-  private:
-    sd_bus_error error_{};
-};
+using sdbus::Bus;
+using sdbus::BusError;
+using sdbus::Message;
+using sdbus::Slot;
 
 std::optional<fs::path> installedHelper() {
     for (const std::string_view path : polkit::helperPaths) {
@@ -136,29 +97,6 @@ std::vector<uid_t> identityUids(sd_bus_message* message) {
     }
     sd_bus_message_exit_container(message);
     return uids;
-}
-
-/// The time on sd-bus's clock, in microseconds.
-std::uint64_t monotonicMicroseconds() {
-    timespec now{};
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    constexpr std::uint64_t microsecondsPerSecond = 1000000;
-    constexpr std::uint64_t nanosecondsPerMicrosecond = 1000;
-    return static_cast<std::uint64_t>(now.tv_sec) * microsecondsPerSecond +
-           static_cast<std::uint64_t>(now.tv_nsec) / nanosecondsPerMicrosecond;
-}
-
-/// How long `poll` may wait for sd-bus's next timeout, in milliseconds; -1 for none.
-int pollTimeout(sd_bus* bus) {
-    std::uint64_t until = 0;
-    if (sd_bus_get_timeout(bus, &until) < 0 || until == UINT64_MAX) {
-        return -1;
-    }
-    const std::uint64_t now = monotonicMicroseconds();
-    constexpr std::uint64_t microsecondsPerMillisecond = 1000;
-    return until <= now ? 0
-                        : static_cast<int>((until - now + microsecondsPerMillisecond - 1) /
-                                           microsecondsPerMillisecond);
 }
 
 int beginCall(sd_bus_message* message, void* agent, sd_bus_error* error);
@@ -315,7 +253,7 @@ class SdBusPolkitAgent final : public PolkitAgent {
                 watch[watched++] = {
                     .fd = pending_->authentication.readable(), .events = POLLIN, .revents = 0};
             }
-            if (poll(watch.data(), watched, pollTimeout(bus_.get())) < 0 && errno != EINTR) {
+            if (poll(watch.data(), watched, sdbus::pollTimeout(bus_.get())) < 0 && errno != EINTR) {
                 lucent::warn("polkit", "the agent stopped: poll failed: {}", std::strerror(errno));
                 break;
             }
