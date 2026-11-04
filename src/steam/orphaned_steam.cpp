@@ -5,6 +5,7 @@
 #include <optional>
 #include <sstream>
 #include <thread>
+#include <utility>
 
 #include "launch/command.hpp"
 #include "launch/process_id.hpp"
@@ -19,15 +20,14 @@ using Clock = std::chrono::steady_clock;
 
 /// The program whose scopes these are, as `/proc/<pid>/comm` names it.
 constexpr std::string_view program = "opensu";
-constexpr std::string_view prefix = "opensu-";
 /// The client's scope, then Isolated's Secret Service relay, in the order they are ended.
 constexpr std::string_view suffixes[] = {"-steam.scope", "-steam-bus.scope"};
 constexpr auto systemctlWait = std::chrono::seconds{30};
 constexpr auto shutdownCommandWait = std::chrono::seconds{30};
 constexpr auto scopePoll = std::chrono::milliseconds{200};
 
-/// The pid in `opensu-<pid><suffix>`, or 0 when the name has another shape.
-long ownerPid(const std::string& unit, std::string_view suffix) {
+/// The pid in `<prefix><pid><suffix>`, or 0 when the name has another shape.
+long ownerPid(const std::string& unit, std::string_view prefix, std::string_view suffix) {
     if (unit.size() <= prefix.size() + suffix.size() ||
         unit.compare(0, prefix.size(), prefix) != 0 ||
         unit.compare(unit.size() - suffix.size(), suffix.size(), suffix) != 0) {
@@ -55,7 +55,8 @@ bool scopeActive(const std::string& unit) {
 
 } // namespace
 
-OrphanedSteam::OrphanedSteam(const fs::path& home) : desktop_{home} {
+OrphanedSteam::OrphanedSteam(const fs::path& home, std::string family)
+    : desktop_{home}, family_{std::move(family)} {
 }
 
 std::vector<std::string> OrphanedSteam::find() const {
@@ -63,14 +64,14 @@ std::vector<std::string> OrphanedSteam::find() const {
     for (const std::string_view suffix : suffixes) {
         const auto listed = launch::runCaptured(
             "systemctl", {"--user", "list-units", "--type=scope", "--state=active", "--plain",
-                          "--no-legend", "--no-pager", "opensu-*" + std::string{suffix}});
+                          "--no-legend", "--no-pager", family_ + "*" + std::string{suffix}});
         if (!listed) {
             continue;
         }
         std::istringstream lines{listed->output};
         std::string unit;
         while (lines >> unit) {
-            const long pid = ownerPid(unit, suffix);
+            const long pid = ownerPid(unit, family_, suffix);
             if (pid > 0 && pid != launch::ownProcessId() &&
                 !liveOpenSu(static_cast<launch::ProcessId>(pid))) {
                 orphans.push_back(unit);

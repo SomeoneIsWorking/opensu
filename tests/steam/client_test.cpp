@@ -1,7 +1,10 @@
 // The Steam client opensu owns, against a fake home and a fake `steam` program run
-// in real systemd scopes. Every wait is bounded.
+// in real systemd scopes. Every wait is bounded. Its orphans are of a scope family of its own run,
+// which no openSU or other run looks at, and every fake ends when the test does, so no scope
+// outlives it and none holds the test's output open.
 #include "steam/client.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -15,6 +18,8 @@
 #include <vector>
 
 #include <csignal>
+#include <fcntl.h>
+#include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -50,8 +55,26 @@ enum class Mode : std::uint8_t {
     Stubborn,
 };
 
+/// In a forked child about to run a sleeper: killed when the test ends, and off the test's
+/// output, which ctest reads to its end.
+void detachOutput() {
+    prctl(PR_SET_PDEATHSIG, SIGKILL);
+    const int null = open("/dev/null", O_WRONLY);
+    if (null < 0) {
+        _exit(127);
+    }
+    dup2(null, STDOUT_FILENO);
+    dup2(null, STDERR_FILENO);
+    close(null);
+}
+
 /// Counts the fixtures of this run, so each gets a scope name of its own.
 int fixtures = 0;
+
+/// The orphan scope family of this run: `<family><pid>-steam.scope`.
+std::string orphanFamily() {
+    return "opensu-test-" + std::to_string(getpid()) + "-orphan-";
+}
 
 struct Fixture {
     fs::path base;
@@ -101,7 +124,9 @@ struct Fixture {
                         "echo 'MsgClientLogOnResponse() : processing complete' >> \"" +
                         log.string() + "\"\n";
             }
-            body += "exec sleep 600\n";
+            // Runs until -shutdown or the test ends.
+            body += "exec >/dev/null 2>&1\nwhile kill -0 " + std::to_string(getpid()) +
+                    "; do sleep 0.2; done\n";
         }
         const fs::path program = bin / "steam";
         std::ofstream{program} << body;
@@ -114,8 +139,11 @@ struct Fixture {
 
     /// Nothing listens on DevTools port 1, so no real Steam is asked.
     Client::Options options() const {
-        return Client::Options{
-            .home = home, .executablePath = {bin}, .session = session, .devToolsPort = 1};
+        return Client::Options{.home = home,
+                               .executablePath = {bin},
+                               .session = session,
+                               .orphanFamily = orphanFamily(),
+                               .devToolsPort = 1};
     }
 
     std::string unit() const {
@@ -219,8 +247,9 @@ void testExitIsAFailure() {
 /// No `steam` to run is a failure too.
 void testMissingSteamIsAFailure() {
     const Fixture fixture{Mode::Ready};
-    Client client{Client::Options{
-        .home = fixture.home, .executablePath = {}, .session = fixture.session, .devToolsPort = 1}};
+    Client::Options options = fixture.options();
+    options.executablePath = {};
+    Client client{options};
     client.start(Client::Mode::Managed);
     expect(client.state() == SteamState::Failed, "no steam program fails");
 }
@@ -231,6 +260,7 @@ void testDesktopSteamBlocks() {
     const pid_t desktop = fork();
     expect(desktop >= 0, "fork");
     if (desktop == 0) {
+        detachOutput();
         execl("/bin/sleep", "sleep", "60", static_cast<char*>(nullptr));
         _exit(127);
     }
@@ -254,6 +284,7 @@ pid_t startOrphan(const Fixture& fixture, const std::string& unit) {
     const pid_t child = fork();
     expect(child >= 0, "fork");
     if (child == 0) {
+        detachOutput();
         const std::string name = "--unit=" + unit;
         const std::string steam = (fixture.bin / "steam").string();
         execlp("systemd-run", "systemd-run", "--user", "--scope", "--collect", "--quiet",
@@ -280,22 +311,53 @@ pid_t deadPid() {
     return child;
 }
 
-/// A Steam left in `opensu-<dead pid>-steam.scope` is ended on start instead of blocking it,
-/// and a scope of a live openSU is left alone.
+/// A process named `opensu` that sleeps, standing in for another live openSU to every observer.
+/// The caller kills and reaps it.
+pid_t startLiveOpenSu(const Fixture& fixture) {
+    const fs::path live = fixture.base / "live";
+    fs::create_directories(live);
+    fs::copy_file("/bin/sleep", live / "opensu", fs::copy_options::overwrite_existing);
+    const pid_t openSu = fork();
+    expect(openSu >= 0, "fork");
+    if (openSu == 0) {
+        const std::string program = (live / "opensu").string();
+        detachOutput();
+        execl(program.c_str(), "opensu", "120", static_cast<char*>(nullptr));
+        _exit(127);
+    }
+    expect(waitUntil(
+               [openSu] {
+                   std::ifstream comm{"/proc/" + std::to_string(openSu) + "/comm"};
+                   std::string name;
+                   std::getline(comm, name);
+                   return name == "opensu";
+               },
+               std::chrono::seconds{5}),
+           "the stand-in live openSU runs");
+    return openSu;
+}
+
+/// A Steam left in `<family><dead pid>-steam.scope` is ended on start instead of blocking it,
+/// and a scope of a live openSU or of this process is left alone.
 void testOrphanedScopeIsEnded() {
     const Fixture fixture{Mode::Ready};
-    const std::string orphan = "opensu-" + std::to_string(deadPid()) + "-steam.scope";
+    const opensu::steam::OrphanedSteam orphans{fixture.home, orphanFamily()};
+    const std::string orphan = orphanFamily() + std::to_string(deadPid()) + "-steam.scope";
     const pid_t orphanSteam = startOrphan(fixture, orphan);
     const pid_t orphanPid = recordedPid(fixture.pidFile);
     expect(scopeActive(orphan), "the orphan scope is up");
-    expect(opensu::steam::OrphanedSteam{fixture.home}.find() == std::vector<std::string>{orphan},
+    expect(orphans.find() == std::vector<std::string>{orphan},
            "only the dead openSU's scope is an orphan");
 
     const Fixture live{Mode::Slow};
-    const std::string owned = "opensu-" + std::to_string(getpid()) + "-steam.scope";
+    const pid_t openSu = startLiveOpenSu(live);
+    const std::string owned = orphanFamily() + std::to_string(openSu) + "-steam.scope";
     const pid_t ownedSteam = startOrphan(live, owned);
-    expect(opensu::steam::OrphanedSteam{fixture.home}.find() == std::vector<std::string>{orphan},
-           "a scope of a live openSU is not an orphan");
+    const std::string self = orphanFamily() + std::to_string(getpid()) + "-steam.scope";
+    const Fixture own{Mode::Slow};
+    const pid_t selfSteam = startOrphan(own, self);
+    expect(orphans.find() == std::vector<std::string>{orphan},
+           "a scope of a live openSU, or of this one, is not an orphan");
 
     // Its pid file names the orphan's steam, which would have blocked the start.
     expect(fixture.pidFile != live.pidFile, "separate fixtures");
@@ -306,6 +368,7 @@ void testOrphanedScopeIsEnded() {
     waitpid(orphanSteam, nullptr, 0);
     expect(!alive(orphanPid), "the orphan's steam is gone");
     expect(scopeActive(owned), "the live openSU's scope is untouched");
+    expect(scopeActive(self), "its own scope is untouched");
     expect(scopeActive(fixture.unit()), "a new scope runs steam");
 
     client.shutdown();
@@ -313,6 +376,12 @@ void testOrphanedScopeIsEnded() {
                                       std::chrono::seconds{20}) == 0,
            "the test scope stops");
     waitpid(ownedSteam, nullptr, 0);
+    expect(opensu::launch::runCommand("systemctl", {"--user", "stop", self},
+                                      std::chrono::seconds{20}) == 0,
+           "its own scope stops");
+    waitpid(selfSteam, nullptr, 0);
+    kill(openSu, SIGKILL);
+    waitpid(openSu, nullptr, 0);
 }
 
 /// A wait ends on its timeout and on cancellation, still initializing.
@@ -385,6 +454,7 @@ pid_t startDesktopSteam(const Fixture& fixture) {
     expect(desktop >= 0, "fork");
     if (desktop == 0) {
         const std::string program = (desk / "steam").string();
+        detachOutput();
         execl(program.c_str(), "steam", "60", static_cast<char*>(nullptr));
         _exit(127);
     }

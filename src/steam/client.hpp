@@ -26,6 +26,7 @@
 #include "download_control.hpp"
 #include "downloads.hpp"
 #include "install_wizard.hpp"
+#include "launch/process_id.hpp"
 #include "launch/process_launcher.hpp"
 #include "launch/steam_gate.hpp"
 #include "launch_activity.hpp"
@@ -52,6 +53,9 @@ class Client final : public launch::SteamGate {
         std::vector<std::filesystem::path> executablePath;
         /// Names the scope: `<session>-steam.scope`.
         std::string session;
+        /// The sessions whose Steam scopes `start` ends once their openSU is gone:
+        /// `<orphanFamily><pid>-steam.scope`.
+        std::string orphanFamily{launch::sessionFamily};
         /// Install roots holding the app manifests; discovered under `home` when empty.
         std::vector<std::filesystem::path> steamRoots;
         /// False for a hidden run: `start` decides and logs what it would do, and starts and

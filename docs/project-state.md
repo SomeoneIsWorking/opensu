@@ -1365,7 +1365,12 @@ such scopes first (`steam::OrphanedSteam`): an active `opensu-<pid>-steam.scope`
 not a live process of the same program is stopped, through `steam -shutdown` first when the pid file
 names a process inside it. Ending rather than adopting: the orphan's flags, bus and log position
 are unknown, and `ProcessLauncher` owns a child it started. A Steam outside openSU is in no such scope, so
-it still blocks. Tested with fake scopes of a dead pid and of a live one.
+it still blocks. Only scopes of its own session family are looked at (`Client::Options::orphanFamily`,
+`launch::sessionFamily` for openSU): never a live openSU's, never one of another name. The test runs
+its fake scopes, of a dead pid, of a live process named `opensu` and of itself, in a family of its
+own run (`opensu-test-<pid>-orphan-`), so no openSU and no other run sharing the user's systemd
+manager touches them, nor it theirs; every fake ends with the test, so a failure, abort or timeout
+leaves no scope and ends the ctest run at once.
 
 Steam's downloads are read live from the client itself: Steam is started with
 `-cef-enable-debugging`, which serves Chrome DevTools on 127.0.0.1:8080, and
