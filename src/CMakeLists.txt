@@ -84,15 +84,16 @@ if(MSVC AND CMAKE_HOST_WIN32)
 endif()
 # The desktop entry and the icon are Linux's; session mode is staged by openSU at run time.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    set(OPENSU_EXEC "${CMAKE_INSTALL_FULL_BINDIR}/opensu")
-    # The AppImage passes OPENSU_DESKTOP_EXEC=opensu: whatever integrates it rewrites Exec.
-    if(NOT DEFINED OPENSU_DESKTOP_EXEC)
-        set(OPENSU_DESKTOP_EXEC "${OPENSU_EXEC}")
-    endif()
-    configure_file("${CMAKE_SOURCE_DIR}/packaging/opensu.desktop.in"
-                   "${CMAKE_BINARY_DIR}/opensu.desktop" @ONLY)
-    install(FILES "${CMAKE_BINARY_DIR}/opensu.desktop"
-            DESTINATION "${CMAKE_INSTALL_DATADIR}/applications")
+    # Exec names the prefix the install goes to, known only then. The AppImage passes
+    # OPENSU_DESKTOP_EXEC=opensu: whatever integrates it rewrites Exec.
+    set(OPENSU_DESKTOP_EXEC "" CACHE STRING "The desktop entry's Exec (empty: <prefix>/<bindir>/opensu)")
+    install(CODE "
+        set(opensu_desktop_template \"${CMAKE_SOURCE_DIR}/packaging/opensu.desktop.in\")
+        set(opensu_desktop_exec \"${OPENSU_DESKTOP_EXEC}\")
+        set(opensu_desktop_bindir \"${CMAKE_INSTALL_BINDIR}\")
+        set(opensu_desktop_datadir \"${CMAKE_INSTALL_DATADIR}\")
+        set(opensu_desktop_stage \"${CMAKE_CURRENT_BINARY_DIR}/desktop-entry\")")
+    install(SCRIPT "${CMAKE_SOURCE_DIR}/cmake/InstallDesktopEntry.cmake")
     install(FILES "${CMAKE_SOURCE_DIR}/packaging/opensu.svg"
             DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps")
 endif()
