@@ -449,7 +449,10 @@ code. The `_none`/`unavailable` backends that only "elsewhere" used (`process_la
   `~Client` and both `main`s catch at their boundary, and nanosvg's implementation compiles in a
   build-tree file outside the lint. A lambda held by a `std::function` captures nothing whose
   copy can throw (`OwnGamesController::offer` takes its source name as a `string_view`): libc++
-  clones a small functor inside the function's `noexcept` move. On Linux, clang-tidy with
+  clones a small functor inside the function's `noexcept` move. What a dialog's choices or a held
+  launch need later is shared through a `shared_ptr` (`SharedSaves::act`, `ShellApp::launch`) or
+  read from the owner when chosen (`LanService::answerQuestion`), and a thread's lambda moves its
+  captures in (`SaveCopyController::start` takes the job itself, not a `std::function`). On Linux, clang-tidy with
   `-nostdinc++` and Fedora's `libcxx-devel` headers reproduces the findings in the macOS tree; it
   also reports padding in structs holding a `std::function` (`Setting`, `ShellApp`), which is
   x86_64's alone (libc++'s buffer is `aligned_storage<24>`, 16-aligned there, 8 on Apple arm64),
