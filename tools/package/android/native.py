@@ -8,6 +8,7 @@ from types import ModuleType
 
 from tools.check import process
 from tools.check.deps import Deps
+from tools.checkout import REPO
 from tools.package.android import config
 
 TARGETS = ("opensu", "opensu-retro", "opensu_librashader")
@@ -49,7 +50,7 @@ def build(layout: config.Layout, sources: Deps, abi: str, env: Mapping[str, str]
         [
             "cmake",
             "-S",
-            config.REPO,
+            REPO,
             "-B",
             build_dir,
             "-G",

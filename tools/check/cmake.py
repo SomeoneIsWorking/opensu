@@ -7,8 +7,7 @@ from pathlib import Path
 
 from tools.check import macos, process, windows
 from tools.check.deps import Deps
-
-REPO = Path(__file__).resolve().parents[2]
+from tools.checkout import REPO
 
 GAMESCOPE_MODES = ("podman", "native", "off")
 PLATFORMS = ("linux", "windows", "macos")

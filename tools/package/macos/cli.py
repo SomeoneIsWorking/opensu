@@ -13,12 +13,13 @@ import subprocess
 from pathlib import Path
 
 from tools.check import cmake, deps, macos, process
+from tools.checkout import REPO
 from tools.package.macos import bundle, config, smoke
 
 
 def default_version() -> str:
     described = subprocess.run(
-        ["git", "-C", str(config.REPO), "describe", "--tags", "--always", "--dirty"],
+        ["git", "-C", str(REPO), "describe", "--tags", "--always", "--dirty"],
         capture_output=True, text=True, check=True,
     ).stdout.strip()  # fmt: skip
     return described.removeprefix("v")
@@ -30,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
         formatter_class=argparse.RawTextHelpFormatter,
     )  # fmt: skip
     parser.add_argument("--version", default="", help="version in the file name (git describe)")
-    parser.add_argument("--build-dir", default=str(config.REPO / "build" / "macos-ci"))
+    parser.add_argument("--build-dir", default=str(REPO / "build" / "macos-ci"))
     args = parser.parse_args(argv)
     macos.require_host()
     version = args.version or default_version()

@@ -8,6 +8,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from tools.checkout import REPO
 from tools.nested_remap.host import HostCompositor
 from tools.nested_remap.verdict import Verdict, judge
 
@@ -49,7 +50,7 @@ def run_once(spec: RunSpec, root: Path) -> Verdict:
     with HostCompositor(root, spec.width, spec.height) as host:
         env = host.client_env()
         env["WAYLAND_DEBUG"] = "client"
-        env["PYTHONPATH"] = str(Path(__file__).resolve().parents[2])
+        env["PYTHONPATH"] = str(REPO)
         with log_path.open("wb") as log:
             process = subprocess.Popen(
                 gamescope_command(spec), env=env, stdout=log, stderr=subprocess.STDOUT,

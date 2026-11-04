@@ -12,12 +12,12 @@ from pathlib import Path
 
 import soundfile
 
+from tools.checkout import REPO
 from tools.sounds.loudness import Measure
 from tools.sounds.score import CUES
 from tools.sounds.synth import RATE
 from tools.sounds.timbres import TIMBRES, Timbre
 
-REPO = Path(__file__).resolve().parents[2]
 VORBIS_QUALITY = 0.6
 PEAK_LIMIT_DBFS = -1.0
 

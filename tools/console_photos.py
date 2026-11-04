@@ -13,10 +13,10 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from tools.checkout import REPO
 from tools.download import fetch_verified
 from tools.screenshots.encode import require_magick
 
-REPO = Path(__file__).resolve().parents[1]
 ORIGINALS = REPO / "scratch" / "console-photos"
 THEME = REPO / "assets" / "consoles" / "photos"
 COMMONS = "https://upload.wikimedia.org/wikipedia/commons"

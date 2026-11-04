@@ -8,8 +8,7 @@ from pathlib import Path
 
 from tools.check import macos, process, windows
 from tools.check.pins import GPU2D, LUCENT, GitPin
-
-REPO = Path(__file__).resolve().parents[2]
+from tools.checkout import REPO
 
 
 @dataclass(frozen=True)

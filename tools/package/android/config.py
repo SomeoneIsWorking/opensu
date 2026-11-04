@@ -4,7 +4,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[3]
+from tools.checkout import REPO
+
 SOURCE = REPO / "packaging" / "android"
 BUILD = REPO / "build" / "android"
 

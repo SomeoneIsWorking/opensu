@@ -12,7 +12,7 @@ from pathlib import Path
 
 from tools import podman
 from tools.check import process
-from tools.check.cmake import REPO
+from tools.checkout import REPO
 
 CONTAINERFILE = REPO / "packaging" / "ci" / "Containerfile"
 IMAGE_NAME = "localhost/opensu-ci"

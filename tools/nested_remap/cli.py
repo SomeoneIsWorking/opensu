@@ -6,10 +6,9 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 
+from tools.checkout import REPO
 from tools.nested_remap.child import SCENARIOS
 from tools.nested_remap.run import RunSpec, run_once
-
-REPO = Path(__file__).resolve().parents[2]
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -14,6 +14,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from tools.check import cmake, container, deps, lint, macos, process, windows
+from tools.checkout import REPO
 
 STEPS = ("deps", "configure", "build", "lint", "test")
 
@@ -42,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="tools.check", description=__doc__.splitlines()[0])
     parser.add_argument("step", choices=(*STEPS, "all", "ci"))
     parser.add_argument("--platform", choices=cmake.PLATFORMS, default="linux")
-    parser.add_argument("--build-dir", default=str(cmake.REPO / "build" / "check"))
+    parser.add_argument("--build-dir", default=str(REPO / "build" / "check"))
     parser.add_argument(
         "--gamescope",
         choices=cmake.GAMESCOPE_MODES,

@@ -3,12 +3,13 @@
 import re
 import subprocess
 
+from tools.checkout import REPO
 from tools.package.android import config
 
 
 def describe() -> str:
     return subprocess.run(
-        ["git", "-C", str(config.REPO), "describe", "--tags", "--always", "--dirty"],
+        ["git", "-C", str(REPO), "describe", "--tags", "--always", "--dirty"],
         capture_output=True, text=True, check=True,
     ).stdout.strip().removeprefix("v")  # fmt: skip
 

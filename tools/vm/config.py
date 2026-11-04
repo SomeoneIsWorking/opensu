@@ -4,7 +4,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
+from tools.checkout import REPO
+
 FEDORA_RELEASE = "44"
 TREE_URL = (
     f"https://dl.fedoraproject.org/pub/fedora/linux/releases/{FEDORA_RELEASE}/Everything/x86_64/os"

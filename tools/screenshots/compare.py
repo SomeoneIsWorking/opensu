@@ -12,9 +12,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from tools.checkout import REPO
 from tools.screenshots import encode
 
-REPO = Path(__file__).resolve().parents[2]
 # Difference images are this many times brighter than the difference itself.
 AMPLIFY = 8
 

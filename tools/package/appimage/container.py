@@ -5,6 +5,7 @@ from pathlib import Path
 
 from tools import podman
 from tools.check import process
+from tools.checkout import REPO
 from tools.package.appimage import config
 
 
@@ -37,12 +38,12 @@ def run_in(
     home.mkdir(parents=True, exist_ok=True)
     words: list[str | Path] = [
         "podman", "run", "--rm", "--userns=keep-id", "--security-opt", "label=disable",
-        "-v", f"{config.REPO}:{config.REPO}", "-w", config.REPO,
+        "-v", f"{REPO}:{REPO}", "-w", REPO,
         "-e", f"HOME={home}",
         "-e", f"UV_CACHE_DIR={layout.root / 'uv-cache'}",
         "-e", f"UV_PROJECT_ENVIRONMENT={layout.root / 'venv'}",
     ]  # fmt: skip
-    common = podman.git_common_dir(config.REPO)
+    common = podman.git_common_dir(REPO)
     if common is not None:
         words += ["-v", f"{common}:{common}:ro"]
     for name in passthrough:

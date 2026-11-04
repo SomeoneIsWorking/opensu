@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools.check import macos
+from tools.checkout import REPO
 
-REPO = Path(__file__).resolve().parents[3]
 APP_NAME = "openSU"
 ARCH = "arm64"
 INFO_PLIST = REPO / "packaging" / "macos" / "Info.plist.in"

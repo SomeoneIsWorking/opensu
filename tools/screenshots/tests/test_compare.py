@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from tools.checkout import REPO
 from tools.screenshots import compare
 from tools.screenshots.compare import Measure, Thresholds
 from tools.screenshots.scenes import README_SCENES, SCENES, Picks, real_scenes, theme_scenes
@@ -94,7 +95,7 @@ def test_main_exits_one_when_a_scene_fails(tmp_path: Path):
 
 
 def test_real_scenes_are_the_readme_set():
-    readme = (Path(__file__).resolve().parents[3] / "README.md").read_text()
+    readme = (REPO / "README.md").read_text()
     shown = list(dict.fromkeys(re.findall(r"docs/screenshots/([a-z-]+)\.webp", readme)))
     themes = ("photos", "drawings", "iisu")
     real = real_scenes(Picks()) + tuple(

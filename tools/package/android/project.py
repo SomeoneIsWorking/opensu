@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 from types import ModuleType
 
+from tools.checkout import REPO
 from tools.package.android import config
 
 
@@ -20,7 +21,7 @@ def stage(layout: config.Layout, port: ModuleType) -> Path:
     shutil.copy2(config.SOURCE / "gradle-wrapper.properties", wrapper)
     port.stage_gradle_runtime(layout.prefix(config.ABIS[0]), project)
     # The Activity copies these to filesDir/share/opensu, where the shell reads them as files.
-    shutil.copytree(config.REPO / "assets", project / "app/src/main/assets/opensu")
+    shutil.copytree(REPO / "assets", project / "app/src/main/assets/opensu")
     return project
 
 

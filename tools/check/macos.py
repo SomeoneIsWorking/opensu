@@ -20,8 +20,8 @@ from pathlib import Path
 
 from tools import download
 from tools.check import process
+from tools.checkout import REPO
 
-REPO = Path(__file__).resolve().parents[2]
 TRIPLET = "arm64-osx-opensu"
 HOST_TRIPLET = "arm64-osx"
 TRIPLETS = REPO / "packaging" / "macos" / "triplets"

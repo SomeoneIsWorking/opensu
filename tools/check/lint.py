@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from tools.check import process
-from tools.check.cmake import REPO
+from tools.checkout import REPO
 
 CXX_SUFFIXES = (".cpp", ".hpp")
 # The analyzer does not step into the MSVC STL, whose bitmask operators cast bit combinations to

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from tools import download
 from tools.check import cmake, process
+from tools.checkout import REPO
 from tools.package.windows import config
 
 # Everything openSU installs.
@@ -34,7 +35,7 @@ def pack(plan: cmake.Plan, layout: config.Layout, version: str, env: Mapping[str
     process.run(
         [config.ISCC, "/Qp", f"/DAppVersion={version}", f"/DStageDir={staged}",
          f"/DOutputDir={layout.out}", f"/DOutputName={target.stem}",
-         f"/DLicenseFile={config.REPO / 'LICENSE'}", config.SCRIPT],
+         f"/DLicenseFile={REPO / 'LICENSE'}", config.SCRIPT],
         env,
     )  # fmt: skip
     if not target.is_file():

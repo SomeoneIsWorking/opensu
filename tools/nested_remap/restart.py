@@ -15,9 +15,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from tools.checkout import REPO
 from tools.nested_remap.host import HostCompositor
 
-REPO = Path(__file__).resolve().parents[2]
 BUILD = REPO / "build" / "clang"
 # CompositorSession's default limit.
 RESTARTS = 3

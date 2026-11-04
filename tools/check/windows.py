@@ -15,8 +15,8 @@ from pathlib import Path
 
 from tools import download
 from tools.check import process
+from tools.checkout import REPO
 
-REPO = Path(__file__).resolve().parents[2]
 TRIPLET = "x64-windows-clangcl"
 TOOLCHAIN = REPO / "cmake" / "toolchains" / "windows-clang-cl.cmake"
 TRIPLETS = REPO / "packaging" / "windows" / "triplets"

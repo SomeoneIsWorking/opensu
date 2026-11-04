@@ -12,12 +12,13 @@ import argparse
 import subprocess
 
 from tools.check import process
+from tools.checkout import REPO
 from tools.package.appimage import config, container, inner, smoke
 
 
 def default_version() -> str:
     described = subprocess.run(
-        ["git", "-C", str(config.REPO), "describe", "--tags", "--always", "--dirty"],
+        ["git", "-C", str(REPO), "describe", "--tags", "--always", "--dirty"],
         capture_output=True, text=True, check=True,
     ).stdout.strip()  # fmt: skip
     return described.removeprefix("v")

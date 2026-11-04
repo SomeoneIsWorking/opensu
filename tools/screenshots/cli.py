@@ -24,6 +24,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from tools.checkout import REPO
 from tools.screenshots import demo, encode, legendary, mixer, offline, real, retro
 from tools.screenshots.scenes import (
     DOWNLOAD_SCENES,
@@ -38,7 +39,6 @@ from tools.screenshots.scenes import (
 )
 from tools.screenshots.shell import HiddenShell, Home, Profile, RealHome
 
-REPO = Path(__file__).resolve().parents[2]
 WORK = REPO / "scratch" / "screenshots"
 README_OUTPUT = REPO / "docs" / "screenshots"
 DEMO_OUTPUT = WORK / "demo"
