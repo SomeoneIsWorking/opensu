@@ -4,7 +4,6 @@ Checks: >
   performance-*,
   readability-braces-around-statements
 WarningsAsErrors: '*'
-HeaderFilterRegex: '.*[/\\]opensu[/\\](src|tests)[/\\].*'
 FormatStyle: file
 CheckOptions:
   # Running out of memory ends the process, so an allocation failure is not an escaping exception.

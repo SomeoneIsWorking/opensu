@@ -5,6 +5,7 @@ backends and the tests it builds, and none it leaves out.
 """
 
 import json
+import re
 import subprocess
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +21,13 @@ CXX_SUFFIXES = (".cpp", ".hpp")
 MSVC_STL_UNINLINED = ("-Xclang", "-analyzer-config", "-Xclang", "c++-stdlib-inlining=false")
 # Only openSU's own sources; Lucent, gpu2d and the fork are checked in their own repositories.
 OWN_ROOTS = ("src/", "tests/")
+# Headers in OWN_ROOTS of this checkout, whatever its directory is called.
+_SEPARATOR = r"[/\\]"
+HEADER_FILTER = (
+    "^"
+    + _SEPARATOR.join(map(re.escape, REPO.as_posix().split("/")))
+    + f"{_SEPARATOR}({'|'.join(root.rstrip('/') for root in OWN_ROOTS)}){_SEPARATOR}"
+)
 
 
 def tracked(
@@ -74,6 +82,7 @@ def clang_tidy(
             [
                 "clang-tidy",
                 "--quiet",
+                f"--header-filter={HEADER_FILTER}",
                 "-p",
                 str(cmake_dir),
                 *(f"--extra-arg-before={arg}" for arg in extra),
