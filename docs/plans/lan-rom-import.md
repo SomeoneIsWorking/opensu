@@ -11,8 +11,9 @@ consoles that the runner here lacks. Import copies them into the guest's own ROM
 the ROM folders' owner (`library::roms::RomTree`); on Android that is the folder picked through the
 system picker, asked for when there is none. Each game shows its progress and the total; a
 transfer goes on after the connection drops, and each file is checked against the host's SHA-256.
-Imported ROMs appear in the guest's library and play on the built-in emulator. Linux to Linux works
-the same. Protocol and owners: `docs/design/lan.md#rom-import`.
+Imported ROMs appear in the guest's library and play on the built-in emulator. Library's Import from
+a PC on your network tile opens the same page (a choice of hosts when several are paired, Settings ›
+LAN when none is). Linux to Linux works the same. Protocol and owners: `docs/design/lan.md#rom-import`.
 
 ## Order
 

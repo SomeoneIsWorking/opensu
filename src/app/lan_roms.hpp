@@ -70,6 +70,9 @@ class LanRoms {
     /// The page listing `peerId`'s ROMs.
     [[nodiscard]] static std::string pageOf(const std::string& peerId);
     [[nodiscard]] static bool owns(const std::string& id);
+    /// Where an import from Library starts: the one paired host's page, or a page choosing among
+    /// them when there are several; nothing when none is paired.
+    [[nodiscard]] std::optional<std::string> entry() const;
     /// The page `id` opens: a host's page asks that host for its ROMs.
     void opening(const std::string& id);
     /// A host's page, or one of its consoles; nothing for another id.
@@ -109,6 +112,8 @@ class LanRoms {
     };
 
     [[nodiscard]] static std::string gameKey(std::uint32_t root, const std::string& entry);
+    /// The paired hosts, each opening its page.
+    [[nodiscard]] ui::SettingsCategory hostsPage() const;
     [[nodiscard]] ui::SettingsCategory hostPage(const std::string& peerId) const;
     [[nodiscard]] ui::SettingsCategory consolePage(const std::string& peerId,
                                                    const std::string& system) const;

@@ -66,7 +66,10 @@ void libraryTilesSetUpWhatIsOff(const fs::path& root) {
                                                   [&pressed] {
                                                       pressed.emplace_back("add rom folder");
                                                   },
-                                              .importFromLan = {},
+                                              .importFromLan =
+                                                  [&pressed] {
+                                                      pressed.emplace_back("lan import");
+                                                  },
                                               .setUp =
                                                   [&pressed](const std::string& row) {
                                                       pressed.push_back(row);
@@ -82,7 +85,7 @@ void libraryTilesSetUpWhatIsOff(const fs::path& root) {
                                              "set-up:epic", "set-up:gog", "set-up:emulators",
                                              "set-up:plugins", "set-up:lan"},
            "nothing chosen: Add a game, Add a ROM folder and a tile per integration, no LAN "
-           "import without its hook");
+           "import while LAN is off");
     for (const std::string id : {"add-game", "add-rom-folder", "set-up:gog"}) {
         additions.press(id);
     }
@@ -94,8 +97,12 @@ void libraryTilesSetUpWhatIsOff(const fs::path& root) {
     inForce.choose(chosen);
     const std::vector<std::string> after = ids();
     expect(std::ranges::find(after, "set-up:steam") == after.end() &&
-               std::ranges::find(after, "set-up:lan") == after.end() && after.size() == 6,
+               std::ranges::find(after, "set-up:lan") == after.end() && after.size() == 7,
            "a tile goes once its integration is on");
+    expect(after[2] == "lan-import", "LAN on: Import from a PC on your network follows Add a "
+                                     "ROM folder");
+    additions.press("lan-import");
+    expect(pressed.back() == "lan import", "and opens the LAN's ROM import");
 }
 
 /// Steam's modes on a build that offers several: Linux's Normal, Managed and Isolated.

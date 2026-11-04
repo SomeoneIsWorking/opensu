@@ -519,6 +519,13 @@ void SettingsController::showCategories() {
     }
 }
 
+void SettingsController::openLanImport() {
+    show(std::string{LanSettings::categoryId}, {});
+    if (std::optional<std::string> entry = lanRoms_.entry()) {
+        openPage(*entry);
+    }
+}
+
 void SettingsController::openPage(const std::string& id) {
     if (std::optional<EditorContext> context = layers_.contextOf(id)) {
         std::string title = layered_.scopeName(context->scopes.back());

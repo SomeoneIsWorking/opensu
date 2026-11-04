@@ -19,6 +19,7 @@ using lan::RomImport;
 using ui::RowKind;
 
 constexpr std::string_view pagePrefix = "lanroms:";
+constexpr std::string_view hostsId = "lanroms";
 constexpr std::string_view gamePrefix = "lanroms.game:";
 constexpr std::string_view allPrefix = "lanroms.all:";
 constexpr std::string_view biosPrefix = "lanroms.bios:";
@@ -109,6 +110,18 @@ bool LanRoms::owns(const std::string& id) {
     return id.starts_with(gamePrefix) || id.starts_with(allPrefix) || id.starts_with(biosPrefix) ||
            id.starts_with(importPrefix) || id.starts_with(cancelPrefix) ||
            id.starts_with(againPrefix);
+}
+
+std::optional<std::string> LanRoms::entry() const {
+    const lan::LanNode* node = lan_.node();
+    if (node == nullptr) {
+        return std::nullopt;
+    }
+    const std::vector<lan::Peer> paired = node->paired();
+    if (paired.empty()) {
+        return std::nullopt;
+    }
+    return paired.size() == 1 ? pageOf(paired.front().id) : std::string{hostsId};
 }
 
 std::string LanRoms::gameKey(std::uint32_t root, const std::string& entry) {
@@ -244,11 +257,30 @@ std::vector<LanRoms::OfferedBios> LanRoms::offeredBios(const std::string& peerId
 }
 
 std::optional<ui::SettingsCategory> LanRoms::subPage(const std::string& id) const {
+    if (id == hostsId) {
+        return hostsPage();
+    }
     if (!id.starts_with(pagePrefix)) {
         return std::nullopt;
     }
     const auto [peerId, system] = splitFirst(std::string_view{id}.substr(pagePrefix.size()));
     return system.empty() ? hostPage(peerId) : consolePage(peerId, system);
+}
+
+ui::SettingsCategory LanRoms::hostsPage() const {
+    ui::SettingsCategory page{std::string{hostsId}, "Import ROMs from", {}};
+    const lan::LanNode* node = lan_.node();
+    if (node == nullptr) {
+        return page;
+    }
+    const std::vector<lan::Sighting> seen = node->sightings();
+    for (const lan::Peer& peer : node->paired()) {
+        const bool online = std::ranges::find(seen, peer.id, &lan::Sighting::id) != seen.end();
+        page.rows.push_back(ui::makePage(
+            pageOf(peer.id), peer.name,
+            online ? "Its ROMs by console, to import here" : "Not on the LAN now", ""));
+    }
+    return page;
 }
 
 ui::SettingsCategory LanRoms::hostPage(const std::string& peerId) const {

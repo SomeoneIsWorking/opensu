@@ -1025,7 +1025,10 @@ class ShellApp final {
                                     [this] {
                                         settingsScreen_.addRomFolder();
                                     },
-                                .importFromLan = {},
+                                .importFromLan =
+                                    [this] {
+                                        settingsScreen_.openLanImport();
+                                    },
                                 .setUp =
                                     [this](const std::string& row) {
                                         settingsScreen_.openAt(

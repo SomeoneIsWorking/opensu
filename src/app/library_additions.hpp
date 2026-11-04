@@ -1,6 +1,6 @@
 // library_additions — the add tiles Library shows and what each does: Add a game where this OS can
 // start a game of the player's own (`library::addGameOffer`), Add a ROM folder (Settings' own
-// flow), Import from a PC on your network once the LAN's ROM import fills its hook, and Set up
+// flow), Import from a PC on your network while LAN is on (the LAN's ROM import), and Set up
 // <integration> for each one this build offers that the player has not turned on, which opens its
 // switch in Settings › Integrations. An integration's tile goes once it is on.
 #pragma once
@@ -22,7 +22,7 @@ class LibraryAdditions {
         std::function<void()> addGame;
         /// Library › Add a ROM folder.
         std::function<void()> addRomFolder;
-        /// The LAN's ROM import; its tile is left out while this is unset.
+        /// Library › Import from a PC on your network.
         std::function<void()> importFromLan;
         /// Settings › Integrations with the switch `row` focused.
         std::function<void(const std::string& row)> setUp;

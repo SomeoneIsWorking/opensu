@@ -23,11 +23,11 @@ std::vector<library::AddTile> LibraryAdditions::tiles() const {
         tiles.push_back({std::string{addGameId}, "Add a game", std::string{offer}});
     }
     tiles.push_back({std::string{addRomFolderId}, "Add a ROM folder", "One folder per console"});
-    if (hooks_.importFromLan) {
+    const settings::IntegrationChoices& chosen = integrations_.choices();
+    if (chosen.lan) {
         tiles.push_back(
             {std::string{lanImportId}, "Import from a PC on your network", "From openSU"});
     }
-    const settings::IntegrationChoices& chosen = integrations_.choices();
     for (const IntegrationEntry& entry : integrationEntries()) {
         if (!switchOf(chosen, entry.id)) {
             tiles.push_back({std::string{setUpPrefix} + std::string{entry.id},
@@ -42,7 +42,7 @@ void LibraryAdditions::press(const std::string& id) const {
         hooks_.addGame();
     } else if (id == addRomFolderId) {
         hooks_.addRomFolder();
-    } else if (id == lanImportId && hooks_.importFromLan) {
+    } else if (id == lanImportId) {
         hooks_.importFromLan();
     } else if (id.starts_with(setUpPrefix)) {
         hooks_.setUp(IntegrationSettings::rowId(std::string_view{id}.substr(setUpPrefix.size())));

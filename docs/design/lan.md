@@ -250,7 +250,10 @@ runs.
 
 The host offers what its catalog reads from its ROM folders, and the BIOS files its runner has for
 those consoles. The guest browses them in Settings › LAN › ROMs on <host>, picks games or a whole
-console, and Import copies them into its own ROM folder, where the catalog reads them.
+console, and Import copies them into its own ROM folder, where the catalog reads them. Library's
+Import from a PC on your network tile, shown while LAN is on, opens Settings › LAN with
+`LanRoms::entry` over it: the one paired host's page, Import ROMs from (each paired host) when
+there are several, nothing more when none is paired (`SettingsController::openLanImport`).
 
 - **Host.** `app::LanRoms::share`, called from `ShellApp::applyCatalog`, gives the node's
   `lan::RomShelf` the ROM roots, the ROM games and, for each of their consoles, the BIOS files the

@@ -38,8 +38,10 @@ while that openSU is on and on the network, and are checked again every minute.
 
 ## Importing ROMs
 
-1. Open Settings › LAN › **ROMs on <name>**. Its consoles are listed with how many games each has
-   and their size.
+1. Open Settings › LAN › **ROMs on <name>**, or Library's **Import from a PC on your network**
+   tile, which opens that page when one openSU is paired, asks which when there are several, and
+   opens Settings › LAN to pair one when there is none. Its consoles are listed with how many games
+   each has and their size.
 2. Open a console and pick games, or **Whole console**. Back shows how many are picked.
 3. When that openSU has a BIOS file the emulator here lacks for those consoles, it is listed under
    **BIOS**. One the emulator needs is on; turn on any other you want.

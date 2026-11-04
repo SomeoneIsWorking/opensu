@@ -143,6 +143,9 @@ class SettingsController final : public ui::RowActions {
     void openPage(const std::string& id) override;
     /// Library › Add a ROM folder: the folder picker, and the folder kept and read once picked.
     void addRomFolder();
+    /// Library › Import from a PC on your network: Settings › LAN, with the page `LanRoms::entry`
+    /// names over it when there is one.
+    void openLanImport();
     /// Back on the categories, or the menu button anywhere: closes Settings, asking first when
     /// Integrations has changes not applied. Stays when it asked.
     [[nodiscard]] gpu2d::ui::Screen::BackReply leave();
