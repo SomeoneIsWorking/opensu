@@ -6,6 +6,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "clock/iso_time.hpp"
+
 namespace opensu::giveaways::epic {
 namespace {
 
@@ -30,8 +32,8 @@ std::optional<std::pair<Seconds, Seconds>> freeWindow(const json& groups) {
             if (!setting.is_object() || setting.value("discountPercentage", -1) != 0) {
                 continue;
             }
-            const std::optional<Seconds> starts = parseIsoTime(offer.value("startDate", ""));
-            const std::optional<Seconds> ends = parseIsoTime(offer.value("endDate", ""));
+            const std::optional<Seconds> starts = clock::parseIsoTime(offer.value("startDate", ""));
+            const std::optional<Seconds> ends = clock::parseIsoTime(offer.value("endDate", ""));
             if (starts && ends) {
                 return std::pair{*starts, *ends};
             }

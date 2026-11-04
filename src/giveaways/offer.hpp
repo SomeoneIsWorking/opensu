@@ -48,10 +48,6 @@ struct Offer {
 /// Whether the offer has ended at `now`.
 [[nodiscard]] bool ended(const Offer& offer, Seconds now) noexcept;
 
-/// An ISO 8601 date and time as the stores write it ("2026-10-29T15:00:00.000Z", an offset
-/// "+01:00" or none for UTC), or nothing.
-[[nodiscard]] std::optional<Seconds> parseIsoTime(std::string_view text);
-
 /// The offers as the cache keeps them, and back; an entry that does not read is left out.
 [[nodiscard]] std::string toJson(const std::vector<Offer>& offers, Seconds fetched);
 struct Cached {

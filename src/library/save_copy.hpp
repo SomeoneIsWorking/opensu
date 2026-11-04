@@ -1,7 +1,7 @@
 // save_copy — one emulator's saves of a game copied over another's, slot by slot for each kind
 // the source holds files in (`copiedSlots`); a slot the target lacks is made as that emulator
 // would make it (`plannedSlot`), one it keeps where nothing is yet is made there. The source can
-// be another openSU's saves staged on disk (`save_sync::SaveSync`). The target's slots, and what making
+// be a target's saves staged on disk (`save_sync::SaveSync`). The target's slots, and what making
 // one changes, are copied whole into a backup first, `<backups>/<system>/<game>/<emulator>/<UTC
 // time>/` with `backup.json` naming where each came from and what was made, and undo puts the
 // newest backup back byte for byte, removes what the copy made, and removes the backup.
@@ -33,6 +33,14 @@ struct CopyProgress {
     std::atomic<std::uintmax_t> done{0};
     std::atomic<std::uintmax_t> total{0};
 };
+
+/// The folder under the state dir every backup of saves is kept in.
+inline constexpr std::string_view backupsFolder = "save-backups";
+
+/// A folder for a new backup under `parent`, named for `now` in UTC ("20261104T180900Z"), one not
+/// there yet.
+[[nodiscard]] std::filesystem::path newBackupFolder(const std::filesystem::path& parent,
+                                                    std::chrono::system_clock::time_point now);
 
 /// The slots of `from` a copy carries: for each kind, the one `slotFor` picks, when it holds files.
 [[nodiscard]] std::vector<const SaveSlot*> copiedSlots(const EmulatorSaves& from);

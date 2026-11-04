@@ -23,7 +23,6 @@ namespace fs = std::filesystem;
 using json = nlohmann::json;
 using TimePoint = std::chrono::system_clock::time_point;
 
-constexpr std::string_view backupsFolder = "save-backups";
 constexpr std::string_view manifestFile = "backup.json";
 constexpr std::array kinds{SlotKind::Account, SlotKind::Device, SlotKind::Memory, SlotKind::State};
 
@@ -174,17 +173,6 @@ void restore(const Backup& backup, CopyProgress& progress) {
     }
 }
 
-/// A folder for a new backup under `parent`, named for `now`.
-fs::path newBackupFolder(const fs::path& parent, TimePoint now) {
-    const std::string stamp =
-        std::format("{:%Y%m%dT%H%M%SZ}", std::chrono::floor<std::chrono::seconds>(now));
-    fs::path folder = parent / stamp;
-    for (int again = 2; fs::exists(folder); ++again) {
-        folder = parent / (stamp + "-" + std::to_string(again));
-    }
-    return folder;
-}
-
 /// The slots of `from` with files, each with `to`'s slot of its kind or one made for it. Empty,
 /// with why in `error`, when `to` cannot take one.
 std::vector<Pair> pairsOf(const EmulatorSaves& from, const EmulatorSaves& to, std::string& error) {
@@ -242,6 +230,16 @@ std::vector<Pair> pairsOf(const EmulatorSaves& from, const EmulatorSaves& to, st
 }
 
 } // namespace
+
+fs::path newBackupFolder(const fs::path& parent, TimePoint now) {
+    const std::string stamp =
+        std::format("{:%Y%m%dT%H%M%SZ}", std::chrono::floor<std::chrono::seconds>(now));
+    fs::path folder = parent / stamp;
+    for (int again = 2; fs::exists(folder); ++again) {
+        folder = parent / (stamp + "-" + std::to_string(again));
+    }
+    return folder;
+}
 
 std::vector<const SaveSlot*> copiedSlots(const EmulatorSaves& from) {
     std::vector<const SaveSlot*> slots;

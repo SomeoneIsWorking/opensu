@@ -6,6 +6,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "clock/iso_time.hpp"
 #include "net/web_client.hpp"
 
 namespace opensu::giveaways::gog {
@@ -129,7 +130,7 @@ Giveaway parseGiveaway(std::string_view sectionBody) {
     giveaway.title = text(product, "title");
     giveaway.slug = text(product, "slug");
     giveaway.cover = text(product, "coverHorizontal");
-    giveaway.ends = parseIsoTime(text(properties, "endDate")).value_or(0);
+    giveaway.ends = clock::parseIsoTime(text(properties, "endDate")).value_or(0);
     return giveaway;
 }
 

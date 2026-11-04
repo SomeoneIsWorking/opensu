@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "clock/iso_time.hpp"
 #include "giveaways/epic_offers.hpp"
 #include "giveaways/gog_offers.hpp"
 #include "giveaways/offer.hpp"
@@ -39,7 +40,7 @@ constexpr Seconds day = 24 * hour;
 
 /// The time `iso` names; fails the test when it does not read.
 Seconds timeOf(const char* iso) {
-    const std::optional<Seconds> time = parseIsoTime(iso);
+    const std::optional<Seconds> time = opensu::clock::parseIsoTime(iso);
     expect(time.has_value(), iso);
     return time.value_or(0);
 }
@@ -59,13 +60,13 @@ bool throws(void (*call)()) {
 }
 
 void isoTimes() {
-    expect(parseIsoTime("2026-10-29T15:00:00.000Z") == 1793286000, "Epic's time");
-    expect(parseIsoTime("2026-10-29T15:00:00Z") == 1793286000, "no fraction");
-    expect(parseIsoTime("2026-10-29T16:00:00+01:00") == 1793286000, "an offset");
-    expect(parseIsoTime("2026-10-29T15:00:00") == 1793286000, "no zone is UTC");
-    expect(!parseIsoTime("2026-13-29T15:00:00Z"), "no thirteenth month");
-    expect(!parseIsoTime("tomorrow"), "not a time");
-    expect(!parseIsoTime(""), "empty");
+    expect(opensu::clock::parseIsoTime("2026-10-29T15:00:00.000Z") == 1793286000, "Epic's time");
+    expect(opensu::clock::parseIsoTime("2026-10-29T15:00:00Z") == 1793286000, "no fraction");
+    expect(opensu::clock::parseIsoTime("2026-10-29T16:00:00+01:00") == 1793286000, "an offset");
+    expect(opensu::clock::parseIsoTime("2026-10-29T15:00:00") == 1793286000, "no zone is UTC");
+    expect(!opensu::clock::parseIsoTime("2026-13-29T15:00:00Z"), "no thirteenth month");
+    expect(!opensu::clock::parseIsoTime("tomorrow"), "not a time");
+    expect(!opensu::clock::parseIsoTime(""), "empty");
 }
 
 void epicPromotions() {
