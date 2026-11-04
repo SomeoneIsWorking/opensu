@@ -1,5 +1,6 @@
 #include "shared_library.hpp"
 
+#include <chrono>
 #include <span>
 #include <system_error>
 
@@ -19,7 +20,10 @@ std::string coverToken(const library::Game& game) {
         return {};
     }
     const std::uintmax_t size = fs::file_size(game.artwork, ec);
-    const auto written = fs::last_write_time(game.artwork, ec).time_since_epoch().count();
+    // libc++'s file clock counts in a 128-bit type, which std::to_string does not take.
+    const auto written = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                             fs::last_write_time(game.artwork, ec).time_since_epoch())
+                             .count();
     if (ec) {
         return {};
     }
