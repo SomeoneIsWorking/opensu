@@ -11,6 +11,7 @@ into place whole, so a reader never sees half of one and two builds of the same 
 import hashlib
 import os
 import shutil
+import stat
 import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -46,6 +47,14 @@ def _version(command: Sequence[str], env: Mapping[str, str]) -> str:
     except OSError as error:
         return f"{command[0]}: {error.strerror}"
     return result.stdout + result.stderr
+
+
+def _remove(path: Path) -> None:
+    """`path` and everything in it, read-only files included (git's packs on Windows)."""
+    for item in path.rglob("*"):
+        if item.is_file() and not item.is_symlink():
+            item.chmod(item.stat().st_mode | stat.S_IWRITE)
+    shutil.rmtree(path)
 
 
 def identity(toolchain: Toolchain, env: Mapping[str, str]) -> str:
@@ -89,7 +98,7 @@ def ensure(
     build_dir = work / "build"
     stage = work / "prefix"
     if work.exists():
-        shutil.rmtree(work)
+        _remove(work)
     build_env = {**env, "CARGO_BUILD_JOBS": str(jobs)}
     process.run(
         [
@@ -108,6 +117,6 @@ def ensure(
         # Another build of the same prefix finished first; its copy is the same.
         if not (path / COMPLETE).is_file():
             raise
-    shutil.rmtree(work)
+    _remove(work)
     print(f"+ third-party prefix {path}", flush=True)
     return path
