@@ -19,22 +19,62 @@ constexpr std::chrono::seconds joinLimit{20};
 constexpr std::chrono::milliseconds readWait{100};
 /// An End is sent this many times, so one lost datagram does not leave the guest waiting.
 constexpr int endRepeats = 3;
+/// How often the prober looks for datagrams due: often in a burst, seldom between.
+constexpr std::chrono::milliseconds probeTick{1};
+constexpr std::chrono::milliseconds probeIdle{20};
 
 } // namespace
 
 HostStream::HostStream(Setup setup)
-    : setup_{std::move(setup)}, socket_{0}, opener_{setup_.keys.guest}, seal_{setup_.keys.host} {
+    : setup_{std::move(setup)}, socket_{0}, opener_{setup_.keys.guest}, seal_{setup_.keys.host},
+      link_{setup_.encoders} {
     secrets::wipeBytes(setup_.keys.host.data(), setup_.keys.host.size());
     secrets::wipeBytes(setup_.keys.guest.data(), setup_.keys.guest.size());
     receiver_ = std::jthread{[this](const std::stop_token& stop) {
         receive(stop);
     }};
+    prober_ = std::jthread{[this](const std::stop_token& stop) {
+        probe(stop);
+    }};
 }
 
 HostStream::~HostStream() {
+    prober_.request_stop();
     receiver_.request_stop();
+    if (prober_.joinable()) {
+        prober_.join();
+    }
     if (receiver_.joinable()) {
         receiver_.join();
+    }
+}
+
+std::optional<LinkPlan> HostStream::plan() const {
+    const std::lock_guard lock{linkMutex_};
+    return link_.plan();
+}
+
+void HostStream::refuse(VideoCodec codec) {
+    const std::lock_guard lock{linkMutex_};
+    link_.refuse(codec);
+}
+
+std::string HostStream::linkSummary() const {
+    const std::lock_guard lock{linkMutex_};
+    return link_.summary();
+}
+
+void HostStream::probe(const std::stop_token& stop) {
+    while (!stop.stop_requested() && !over()) {
+        LinkRate::ProbeDue due;
+        if (joined_) {
+            const std::lock_guard lock{linkMutex_};
+            due = link_.probe(wire::nowMicros());
+        }
+        for (std::uint32_t i = 0; i < due.count; ++i) {
+            send(PacketKind::Probe, wire::write(wire::Probe{due.burst, due.first + i}, probeBytes));
+        }
+        std::this_thread::sleep_for(due.count > 0 ? probeTick : probeIdle);
     }
 }
 
@@ -132,9 +172,25 @@ void HostStream::handle(const Opened& opened) {
             finish("the guest ended it: " + end->reason);
         }
         break;
+    case PacketKind::Report:
+        if (const std::optional<wire::Report> report = wire::readReport(opened.payload)) {
+            const std::lock_guard lock{linkMutex_};
+            link_.report(*report, wire::nowMicros());
+        }
+        break;
+    case PacketKind::KeyFrame:
+        keyFrame_ = true;
+        break;
+    case PacketKind::Mapping:
+        if (const std::optional<wire::PadMapping> mapping = wire::readPadMapping(opened.payload);
+            mapping && setup_.mapping) {
+            setup_.mapping(*mapping);
+        }
+        break;
     case PacketKind::Pong:
     case PacketKind::Video:
     case PacketKind::Audio:
+    case PacketKind::Probe:
         break;
     }
 }

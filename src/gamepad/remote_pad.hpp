@@ -1,8 +1,11 @@
 // remote_pad — a pad on another openSU, played here: a virtual pad of opensu's own, set to each
-// state the other side reports as a whole (buttons held, sticks, triggers). Only what changed is
-// written. Guide is not part of a state; it belongs to the openSU it is pressed on.
+// state the other side reports as a whole (buttons held, sticks, triggers' travel) through that
+// side's mapping for the game (`ForwardMap`), applied as a pad held here applies its own
+// (`PadTranslator`). Only what changed is written. Guide is not part of a state; it belongs to
+// the openSU it is pressed on.
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <utility>
@@ -28,8 +31,10 @@ struct PadSnapshot {
 class RemotePad {
   public:
     /// Creates the virtual pad; throws `std::system_error` when uinput is unavailable.
-    RemotePad() = default;
+    RemotePad();
 
+    /// Plays the pad with `map` from now on, a modifier alone a tap for `holdDelay`.
+    void setMapping(ForwardMap map, std::chrono::milliseconds holdDelay);
     /// Takes the virtual pad to `pad`.
     void follow(const PadSnapshot& pad);
     /// Takes it back to rest.
@@ -37,7 +42,9 @@ class RemotePad {
 
   private:
     VirtualPad pad_;
-    /// The virtual pad's state as last written, by (type, code).
+    /// The other side's pad as a pad that reads like the virtual one, through the mapping.
+    PadTranslator translator_;
+    /// The state given to the translator last, by (type, code).
     std::map<std::pair<std::uint16_t, std::uint16_t>, std::int32_t> state_;
 };
 

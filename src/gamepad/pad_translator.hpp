@@ -61,6 +61,15 @@ struct Sticks {
     friend bool operator==(const Sticks&, const Sticks&) = default;
 };
 inline constexpr AxisRange virtualTrigger{0, 255};
+
+/// Where a pad's sticks and analogue triggers stand, on the virtual pad's scales.
+struct PadAxes {
+    Sticks sticks;
+    std::int32_t leftTrigger{};
+    std::int32_t rightTrigger{};
+
+    friend bool operator==(const PadAxes&, const PadAxes&) = default;
+};
 /// How far an analogue trigger travels before it is L2 or R2, and how far back before it is
 /// released; the gap keeps a trigger resting near one point from chattering.
 inline constexpr float triggerPressAt = 0.5f;
@@ -96,10 +105,8 @@ class PadTranslator {
     /// until pressed again, so the press that closed the menu does not reach the game.
     [[nodiscard]] std::vector<PadEvent> resume() const;
 
-    /// The physical pad's sticks as last translated.
-    [[nodiscard]] const Sticks& sticks() const {
-        return sticks_;
-    }
+    /// The physical pad's sticks and triggers as last translated.
+    [[nodiscard]] PadAxes axes() const;
 
   private:
     void forwardKey(std::uint16_t code, std::int32_t value, std::vector<PadEvent>& forward);

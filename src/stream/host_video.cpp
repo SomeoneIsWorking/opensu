@@ -1,6 +1,6 @@
 #include "host_video.hpp"
 
-#include <algorithm>
+#include <span>
 #include <stdexcept>
 
 #include "lucent/log.h"
@@ -19,11 +19,31 @@ void HostVideo::send(const CapturedFrame& frame) {
     if (!stream_.joined() || stream_.over()) {
         return;
     }
-    std::vector<std::string> packets;
+    const std::optional<LinkPlan> plan = stream_.plan();
+    if (!plan) {
+        return;
+    }
+    bool key = stream_.takeKeyFrame();
+    if (!encoder_ || plan->codec != codec_) {
+        try {
+            encoder_ = openEncoder(plan->codec);
+        } catch (const std::runtime_error& failure) {
+            lucent::warn("video", "cannot code with {}: {}", nameOf(plan->codec), failure.what());
+            encoder_.reset();
+            stream_.refuse(plan->codec);
+            return;
+        }
+        codec_ = plan->codec;
+        key = true;
+    }
+    CodedFrame coded;
     try {
-        packets = encoder_.encode(frame, frameBudget);
+        coded = encoder_->encode(frame, plan->bitsPerSecond, key);
     } catch (const std::runtime_error& failure) {
         stream_.end(failure.what());
+        return;
+    }
+    if (coded.packets.empty()) {
         return;
     }
     const std::uint64_t encodedUs = wire::nowMicros();
@@ -31,13 +51,18 @@ void HostVideo::send(const CapturedFrame& frame) {
     wire::VideoPacket packet{.frame = number,
                              .width = static_cast<std::uint16_t>(frame.width & ~1),
                              .height = static_cast<std::uint16_t>(frame.height & ~1),
+                             .codec = static_cast<std::uint8_t>(codec_),
+                             .key = coded.key,
+                             .part = 0,
+                             .parts = static_cast<std::uint16_t>(coded.packets.size()),
                              .capturedUs = frame.capturedUs,
                              .encodedUs = encodedUs,
                              .sentUs = wire::nowMicros(),
                              .data = {}};
-    for (std::string& data : packets) {
+    for (std::string& data : coded.packets) {
         packet.data = std::move(data);
         stream_.send(PacketKind::Video, wire::write(packet));
+        ++packet.part;
     }
     const std::lock_guard lock{lastMutex_};
     lastNumber_ = number;
@@ -53,29 +78,18 @@ std::optional<std::pair<std::uint32_t, Picture>> HostVideo::lastSent() const {
     if (lastNumber_ == 0) {
         return std::nullopt;
     }
-    // The interleaved chroma split into its planes, as the decoder gives them.
-    const auto width = static_cast<std::size_t>(lastWidth_);
-    const auto height = static_cast<std::size_t>(lastHeight_);
-    std::vector<std::uint8_t> luma(width * height);
-    std::vector<std::uint8_t> blue(width * height / 4);
-    std::vector<std::uint8_t> red(width * height / 4);
-    const std::size_t chromaAt = lastStride_ * height;
-    for (std::size_t y = 0; y < height; ++y) {
-        std::copy_n(last_.begin() + static_cast<std::ptrdiff_t>(y * lastStride_), width,
-                    luma.begin() + static_cast<std::ptrdiff_t>(y * width));
-    }
-    for (std::size_t y = 0; y < height / 2; ++y) {
-        for (std::size_t x = 0; x < width / 2; ++x) {
-            const std::size_t from = chromaAt + y * lastStride_ + 2 * x;
-            blue[y * (width / 2) + x] = last_[from];
-            red[y * (width / 2) + x] = last_[from + 1];
-        }
-    }
+    const std::span<const std::uint8_t> planes{last_};
+    const std::size_t chromaAt = lastStride_ * static_cast<std::size_t>(lastHeight_);
     Picture picture{.width = lastWidth_, .height = lastHeight_, .rgba = {}};
-    rgbaFromYcbcr(
-        YcbcrPlanes{
-            .luma = luma, .blue = blue, .red = red, .width = lastWidth_, .height = lastHeight_},
-        picture.rgba);
+    rgbaFromYcbcr(YcbcrPlanes{.luma = planes.subspan(0, chromaAt),
+                              .blue = planes.subspan(chromaAt),
+                              .red = planes.subspan(chromaAt + 1),
+                              .width = lastWidth_,
+                              .height = lastHeight_,
+                              .lumaStride = lastStride_,
+                              .chromaStride = lastStride_,
+                              .chromaStep = 2},
+                  picture.rgba);
     return std::pair{lastNumber_, std::move(picture)};
 }
 

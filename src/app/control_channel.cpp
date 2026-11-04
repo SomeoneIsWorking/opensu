@@ -81,7 +81,8 @@ std::string_view trimmed(std::string_view text) {
     return text;
 }
 
-/// `move 640 400`, `click 640 400` or `wheel 640 400 -1`, or nothing for another body.
+/// `move 640 400`, `click 640 400`, `down 640 400 right`, `up 640 400 right` or
+/// `wheel 640 400 -1`, or nothing for another body.
 std::optional<PointerInjection> pointerNamed(std::string_view body) {
     std::array<std::string_view, 4> words{};
     std::size_t count = 0;
@@ -107,12 +108,26 @@ std::optional<PointerInjection> pointerNamed(std::string_view body) {
     if (!x || !y) {
         return std::nullopt;
     }
-    PointerInjection pointer{PointerInjection::Kind::Move, *x, *y, 0.0f};
+    PointerInjection pointer{.kind = PointerInjection::Kind::Move, .x = *x, .y = *y};
     if (words[0] == "move" && count == 3) {
         return pointer;
     }
     if (words[0] == "click" && count == 3) {
         pointer.kind = PointerInjection::Kind::Click;
+        return pointer;
+    }
+    if ((words[0] == "down" || words[0] == "up") && count == 4) {
+        pointer.kind =
+            words[0] == "down" ? PointerInjection::Kind::Down : PointerInjection::Kind::Up;
+        if (words[3] == "left") {
+            pointer.button = PointerInjection::Button::Left;
+        } else if (words[3] == "middle") {
+            pointer.button = PointerInjection::Button::Middle;
+        } else if (words[3] == "right") {
+            pointer.button = PointerInjection::Button::Right;
+        } else {
+            return std::nullopt;
+        }
         return pointer;
     }
     if (words[0] == "wheel" && count == 4) {
@@ -367,11 +382,29 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
         }
         const std::optional<PointerInjection> pointer = pointerNamed(trimmed(request.body));
         if (!pointer) {
-            return refuse("body must be move X Y, click X Y or wheel X Y NOTCHES");
+            return refuse("body must be move X Y, click X Y, down X Y BUTTON, up X Y BUTTON or "
+                          "wheel X Y NOTCHES, BUTTON left, middle or right");
         }
         target_.injectPointer(*pointer);
         return lucent::http::Response::json(200, "OK",
                                             "{\"pointer\":" + jsonString(request.body) + "}");
+    }
+
+    if (path == "/remote/link") {
+        if (request.method != "POST") {
+            return refuse("POST only");
+        }
+        // A slow link for a test run: the bits a second the guest receives, 0 for no cap.
+        const std::string_view digits = trimmed(request.body);
+        std::uint64_t bitsPerSecond = 0;
+        const auto [end, error] =
+            std::from_chars(digits.data(), digits.data() + digits.size(), bitsPerSecond);
+        if (digits.empty() || error != std::errc{} || end != digits.data() + digits.size()) {
+            return refuse("body must be the bits a second the link carries, 0 for no cap");
+        }
+        target_.capRemoteLink(bitsPerSecond);
+        return lucent::http::Response::json(200, "OK",
+                                            "{\"cap\":" + std::to_string(bitsPerSecond) + "}");
     }
 
     if (path == "/text") {

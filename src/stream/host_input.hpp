@@ -1,7 +1,8 @@
 // host_input — what the guest's player does, done on the host: their pad as a virtual pad of
-// opensu's own (`gamepad::RemotePad`), their keys and pointer as XTest input on the X display of
-// the Gamescope the game runs in, so they reach the game alone and never the desktop. Each state
-// arrives whole; only what changed is done. Called from the stream's thread only.
+// opensu's own through their mapping for the game (`gamepad::RemotePad`), their keys and pointer as
+// XTest input on the X display of the Gamescope the game runs in, so they reach the game alone and
+// never the desktop. Each state arrives whole; only what changed is done. Called from the stream's
+// thread only.
 #pragma once
 
 #include <memory>
@@ -25,6 +26,7 @@ class HostInput {
     void pad(const wire::PadState& state);
     void keys(const wire::KeyState& state);
     void mouse(const wire::MouseState& state);
+    void mapping(const wire::PadMapping& mapping);
 
   private:
     /// The virtual pad and the X display, and what each was last given.

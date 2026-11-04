@@ -26,7 +26,7 @@ GuestVideo::GuestVideo()
       }} {
 }
 
-void GuestVideo::take(const wire::VideoPacket& packet, std::uint64_t receivedUs,
+bool GuestVideo::take(const wire::VideoPacket& packet, std::uint64_t receivedUs,
                       std::int64_t hostAheadUs) {
     {
         const std::lock_guard lock{queueMutex_};
@@ -34,6 +34,7 @@ void GuestVideo::take(const wire::VideoPacket& packet, std::uint64_t receivedUs,
             Queued{.packet = packet, .receivedUs = receivedUs, .hostAheadUs = hostAheadUs});
     }
     queued_.notify_one();
+    return keyWanted_.load();
 }
 
 void GuestVideo::decodeLoop(const std::stop_token& stop) {
@@ -48,7 +49,8 @@ void GuestVideo::decodeLoop(const std::stop_token& stop) {
             }
             batch.swap(queue_);
         }
-        // A frame two newer ones have begun after would only be shown late.
+        // A PyroWave frame two newer ones have begun after would only be shown late; a frame
+        // others build on is decoded anyway.
         std::uint32_t newest = 0;
         for (const Queued& queued : batch) {
             newest = std::max(newest, queued.packet.frame);
@@ -57,7 +59,9 @@ void GuestVideo::decodeLoop(const std::stop_token& stop) {
         std::uint32_t skipped = 0;
         std::size_t lateFrames = 0;
         for (const Queued& queued : batch) {
-            if (queued.packet.frame < oldestKept) {
+            const bool intra =
+                queued.packet.codec == static_cast<std::uint8_t>(VideoCodec::PyroWave);
+            if (intra && queued.packet.frame < oldestKept) {
                 if (queued.packet.frame != skipped) {
                     skipped = queued.packet.frame;
                     ++lateFrames;
@@ -96,14 +100,33 @@ void GuestVideo::decode(const Queued& queued) {
                           .decodedUs = 0};
     }
     building_->receivedUs = static_cast<double>(queued.receivedUs);
-    if (!decoder_.push(packet.width, packet.height, packet.data)) {
+    const auto codec = static_cast<VideoCodec>(packet.codec);
+    std::unique_ptr<VideoDecoder>& decoder = decoders_[codec];
+    if (!decoder) {
+        try {
+            decoder = openDecoder(codec);
+        } catch (const std::runtime_error& failure) {
+            lucent::warn("video", "cannot decode {}: {}", nameOf(codec), failure.what());
+            decoders_.erase(codec);
+            building_.reset();
+            return;
+        }
+    }
+    const bool whole = decoder->push(packet);
+    // Asked again with each packet while the decoder waits, so a lost ask or key frame is mended.
+    keyWanted_ = decoder->awaitingKey();
+    if (!whole) {
         return;
     }
     Frame frame{.number = packet.frame, .picture = {}};
     try {
-        decoder_.decode(frame.picture);
+        if (!decoder->decode(frame.picture)) {
+            building_.reset();
+            return;
+        }
     } catch (const std::runtime_error& failure) {
         lucent::warn("video", "frame {} did not decode: {}", packet.frame, failure.what());
+        keyWanted_ = decoder->awaitingKey();
         building_.reset();
         return;
     }
@@ -112,6 +135,10 @@ void GuestVideo::decode(const Queued& queued) {
     building_.reset();
     const std::lock_guard lock{mutex_};
     ++decoded_;
+    if (nameOf(codec) != codec_) {
+        switches_ += codec_ != "none" ? 1 : 0;
+        codec_ = nameOf(codec);
+    }
     last_ = frame;
     fresh_ = std::move(frame);
     waiting_.push_back(times);
@@ -156,8 +183,9 @@ void GuestVideo::presented(std::uint32_t number, std::uint64_t submittedUs, bool
 
 std::string GuestVideo::summary() const {
     const std::lock_guard lock{mutex_};
-    std::string out = std::format("decoded={} dropped={} late={} submitted={} drawn={}", decoded_,
-                                  dropped_, late_, presented_, drawn_);
+    std::string out =
+        std::format("codec={} switches={} decoded={} dropped={} late={} submitted={} drawn={}",
+                    codec_, switches_, decoded_, dropped_, late_, presented_, drawn_);
     const auto stage = [this, &out](const char* name, double Stages::* field) {
         std::vector<double> values;
         values.reserve(shown_.size());

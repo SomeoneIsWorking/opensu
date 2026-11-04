@@ -1,12 +1,14 @@
 // stream: remote play's sealed datagrams, their payloads, and a host and guest session over
 // loopback UDP.
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <numbers>
 #include <optional>
@@ -21,6 +23,8 @@
 #include "stream/guest_stream.hpp"
 #include "stream/host_stream.hpp"
 #include "stream/host_video.hpp"
+#include "stream/link_cap.hpp"
+#include "stream/link_rate.hpp"
 #include "stream/packet_seal.hpp"
 #include "stream/stream_wire.hpp"
 #include "stream/udp_socket.hpp"
@@ -103,17 +107,50 @@ void payloadsReadAsWritten() {
     const wire::VideoPacket video{.frame = 9,
                                   .width = 1280,
                                   .height = 720,
+                                  .codec = 2,
+                                  .key = true,
+                                  .part = 4,
+                                  .parts = 7,
                                   .capturedUs = 1,
                                   .encodedUs = 2,
                                   .sentUs = 3,
                                   .data = "bits"};
     const std::optional<wire::VideoPacket> readVideo = wire::readVideoPacket(wire::write(video));
     expect(readVideo && readVideo->frame == 9 && readVideo->width == 1280 &&
-               readVideo->height == 720 && readVideo->capturedUs == 1 &&
+               readVideo->height == 720 && readVideo->codec == 2 && readVideo->key &&
+               readVideo->part == 4 && readVideo->parts == 7 && readVideo->capturedUs == 1 &&
                readVideo->encodedUs == 2 && readVideo->sentUs == 3 && readVideo->data == "bits",
            "a video packet reads as written");
     expect(!wire::readVideoPacket(wire::write(video).substr(0, wire::videoHeaderBytes)),
            "one with no data does not");
+    wire::VideoPacket pastItsFrame = video;
+    pastItsFrame.part = 7;
+    expect(!wire::readVideoPacket(wire::write(pastItsFrame)), "nor a part past its frame's last");
+
+    const std::string probe = wire::write(wire::Probe{.burst = 3, .index = 41}, 1428);
+    const std::optional<wire::Probe> readProbe = wire::readProbe(probe);
+    expect(probe.size() == 1428 && readProbe && readProbe->burst == 3 && readProbe->index == 41,
+           "a probe reads as written, padded to its size");
+    const wire::Report report{.decoders = 5,
+                              .datagrams = 1U << 20U,
+                              .bytes = 1ULL << 40U,
+                              .newest = 77,
+                              .probeBurst = 2,
+                              .probeDatagrams = 900};
+    expect(wire::readReport(wire::write(report)) == report, "a report reads as written");
+
+    using gamepad::Button;
+    const wire::PadMapping mapping{
+        .map = gamepad::ForwardMap{.buttons = {{Button::A, {Button::B}},
+                                               {Button::X, {}},
+                                               {Button::L2, {Button::R1, Button::R2}}},
+                                   .chords = {{gamepad::Chord{.modifier = Button::Select,
+                                                              .trigger = Button::Start},
+                                               {Button::L3}}}},
+        .holdDelay = std::chrono::milliseconds{500}};
+    expect(wire::readPadMapping(wire::write(mapping)) == mapping,
+           "a mapping reads as written: swapped, unsent and chorded buttons");
+    expect(!wire::readPadMapping(wire::write(mapping) + "x"), "a longer one does not");
 
     const wire::PadState pad{.buttons = 0x81,
                              .leftX = -32768,
@@ -142,23 +179,32 @@ void aSessionCarriesInputAndEnds() {
     std::mutex mutex;
     std::optional<stream::wire::PadState> heard;
     std::vector<std::string> pictures;
-    stream::HostStream host{stream::HostStream::Setup{.keys = keysFor(3),
-                                                      .guest = "Desk",
-                                                      .pad =
-                                                          [&](const stream::wire::PadState& pad) {
-                                                              const std::lock_guard lock{mutex};
-                                                              heard = pad;
-                                                          },
-                                                      .keyboard = {},
-                                                      .mouse = {}}};
+    std::optional<stream::wire::PadMapping> mapped;
+    const stream::VideoCodecs pyroWave = stream::codecBit(stream::VideoCodec::PyroWave);
+    stream::HostStream host{
+        stream::HostStream::Setup{.keys = keysFor(3),
+                                  .guest = "Desk",
+                                  .pad =
+                                      [&](const stream::wire::PadState& pad) {
+                                          const std::lock_guard lock{mutex};
+                                          heard = pad;
+                                      },
+                                  .keyboard = {},
+                                  .mouse = {},
+                                  .mapping =
+                                      [&](const stream::wire::PadMapping& mapping) {
+                                          const std::lock_guard lock{mutex};
+                                          mapped = mapping;
+                                      },
+                                  .encoders = pyroWave}};
     const std::optional<stream::UdpAddress> address = stream::udpAddress("127.0.0.1", host.port());
     if (!address || host.port() == 0) {
         fail("the host takes packets on a port of its own");
     }
 
     // Someone else's session is not heard; the host waits for its own guest.
-    stream::GuestStream stranger{
-        stream::GuestStream::Setup{.host = *address, .keys = keysFor(4), .video = {}, .audio = {}}};
+    stream::GuestStream stranger{stream::GuestStream::Setup{
+        .host = *address, .keys = keysFor(4), .video = {}, .audio = {}, .decoders = pyroWave}};
     stranger.pad(stream::wire::PadState{.buttons = 2});
     std::this_thread::sleep_for(std::chrono::milliseconds{300});
     expect(!host.joined(), "a datagram sealed with other keys is no guest");
@@ -171,8 +217,15 @@ void aSessionCarriesInputAndEnds() {
                 std::int64_t /*hostAheadUs*/) {
                 const std::lock_guard lock{mutex};
                 pictures.push_back(packet.data);
+                return false;
             },
-        .audio = {}}};
+        .audio = {},
+        .decoders = pyroWave}};
+    const stream::wire::PadMapping swapped{
+        .map = gamepad::ForwardMap{.buttons = {{gamepad::Button::A, {gamepad::Button::B}}},
+                                   .chords = {}},
+        .holdDelay = std::chrono::milliseconds{500}};
+    guest.mapping(swapped);
     guest.pad(stream::wire::PadState{.buttons = 1, .leftX = 100});
     expect(waitFor([&] {
                const std::lock_guard lock{mutex};
@@ -185,9 +238,22 @@ void aSessionCarriesInputAndEnds() {
            }),
            "the guest's pings are answered");
     expect(guest.timing().roundTripUs < 1000000, "over loopback in well under a second");
+    expect(waitFor([&] {
+               const std::lock_guard lock{mutex};
+               return mapped == swapped;
+           }),
+           "the guest's mapping reaches the host");
+    expect(waitFor([&host] {
+               return host.plan().has_value();
+           }) &&
+               host.plan().value_or(stream::LinkPlan{.codec = stream::VideoCodec::H264}).codec ==
+                   stream::VideoCodec::PyroWave,
+           "the host probes the link and codes with PyroWave over loopback");
+    std::printf("stream: loopback %s\n", host.linkSummary().c_str());
 
-    host.send(PacketKind::Video, stream::wire::write(stream::wire::VideoPacket{
-                                     .frame = 1, .width = 2, .height = 2, .data = "frame"}));
+    host.send(PacketKind::Video,
+              stream::wire::write(stream::wire::VideoPacket{
+                  .frame = 1, .width = 2, .height = 2, .parts = 1, .data = "frame"}));
     expect(waitFor([&] {
                const std::lock_guard lock{mutex};
                return pictures.size() == 1 && pictures.front() == "frame";
@@ -205,14 +271,19 @@ void aSessionCarriesInputAndEnds() {
 }
 
 void theHostsEndReachesTheGuest() {
-    stream::HostStream host{stream::HostStream::Setup{
-        .keys = keysFor(5), .guest = "Desk", .pad = {}, .keyboard = {}, .mouse = {}}};
+    stream::HostStream host{stream::HostStream::Setup{.keys = keysFor(5),
+                                                      .guest = "Desk",
+                                                      .pad = {},
+                                                      .keyboard = {},
+                                                      .mouse = {},
+                                                      .mapping = {},
+                                                      .encoders = 0}};
     const std::optional<stream::UdpAddress> address = stream::udpAddress("127.0.0.1", host.port());
     if (!address) {
         fail("the host takes packets on a port of its own");
     }
-    stream::GuestStream guest{
-        stream::GuestStream::Setup{.host = *address, .keys = keysFor(5), .video = {}, .audio = {}}};
+    stream::GuestStream guest{stream::GuestStream::Setup{
+        .host = *address, .keys = keysFor(5), .video = {}, .audio = {}, .decoders = 0}};
     expect(waitFor([&host] {
                return host.joined();
            }),
@@ -261,77 +332,286 @@ Nv12 testPicture(int width, int height) {
     return picture;
 }
 
-void picturesSurviveTheCodec() {
-    const Nv12 source = testPicture(256, 144);
-    const stream::CapturedFrame frame{.width = source.width,
-                                      .height = source.height,
-                                      .stride = source.stride,
-                                      .luma = source.luma,
-                                      .chroma = source.chroma,
-                                      .capturedUs = 0};
-    stream::VideoEncoder encoder;
-    const std::vector<std::string> packets = encoder.encode(frame, stream::frameBudget);
-    expect(packets.size() > 1, "a picture is cut into several packets");
-    for (const std::string& packet : packets) {
-        expect(!packet.empty() && packet.size() <= stream::videoPacketBytes,
-               "each fits one datagram");
+/// `coded` as the packets the host sends of frame `number`.
+std::vector<stream::wire::VideoPacket> packetsOf(const stream::CodedFrame& coded,
+                                                 std::uint32_t number, const Nv12& source,
+                                                 stream::VideoCodec codec) {
+    std::vector<stream::wire::VideoPacket> packets;
+    packets.reserve(coded.packets.size());
+    for (std::size_t i = 0; i < coded.packets.size(); ++i) {
+        packets.push_back(
+            stream::wire::VideoPacket{.frame = number,
+                                      .width = static_cast<std::uint16_t>(source.width),
+                                      .height = static_cast<std::uint16_t>(source.height),
+                                      .codec = static_cast<std::uint8_t>(codec),
+                                      .key = coded.key,
+                                      .part = static_cast<std::uint16_t>(i),
+                                      .parts = static_cast<std::uint16_t>(coded.packets.size()),
+                                      .data = coded.packets[i]});
     }
+    return packets;
+}
 
-    stream::VideoDecoder decoder;
-    for (std::size_t i = 0; i + 1 < packets.size(); ++i) {
-        expect(!decoder.push(source.width, source.height, packets[i]),
-               "a frame is not whole before its last packet");
-    }
-    expect(decoder.push(source.width, source.height, packets.back()),
-           "and is once all of them came");
-    stream::Picture decoded;
-    decoder.decode(decoded);
-    expect(decoded.width == 256 && decoded.height == 144 &&
-               decoded.rgba.size() == std::size_t{256} * 144 * 4,
-           "it decodes at its own size");
+stream::CapturedFrame captured(const Nv12& source) {
+    return stream::CapturedFrame{.width = source.width,
+                                 .height = source.height,
+                                 .stride = source.stride,
+                                 .luma = source.luma,
+                                 .chroma = source.chroma,
+                                 .capturedUs = 0};
+}
 
-    // The source as the decoder's planes, through the same colour conversion.
-    std::vector<std::uint8_t> luma;
-    std::vector<std::uint8_t> blue;
-    std::vector<std::uint8_t> red;
-    for (int y = 0; y < source.height; ++y) {
-        for (int x = 0; x < source.width; ++x) {
-            luma.push_back(source.luma[static_cast<std::size_t>(y) * source.stride +
-                                       static_cast<std::size_t>(x)]);
-        }
-    }
-    for (int y = 0; y < source.height / 2; ++y) {
-        for (int x = 0; x < source.width / 2; ++x) {
-            const std::size_t at =
-                static_cast<std::size_t>(y) * source.stride + 2 * static_cast<std::size_t>(x);
-            blue.push_back(source.chroma[at]);
-            red.push_back(source.chroma[at + 1]);
-        }
-    }
+/// The mean difference per channel between `decoded` and `source` through the one colour
+/// conversion.
+double meanError(const Nv12& source, const stream::Picture& decoded) {
     std::vector<std::uint8_t> expected;
-    stream::rgbaFromYcbcr(
-        stream::YcbcrPlanes{
-            .luma = luma, .blue = blue, .red = red, .width = source.width, .height = source.height},
-        expected);
+    stream::rgbaFromYcbcr(stream::YcbcrPlanes{.luma = source.luma,
+                                              .blue = source.chroma,
+                                              .red = std::span{source.chroma}.subspan(1),
+                                              .width = source.width,
+                                              .height = source.height,
+                                              .lumaStride = source.stride,
+                                              .chromaStride = source.stride,
+                                              .chromaStep = 2},
+                          expected);
+    if (expected.size() != decoded.rgba.size()) {
+        return 255.0;
+    }
     double error = 0;
     for (std::size_t i = 0; i < expected.size(); ++i) {
         error += std::abs(static_cast<int>(expected[i]) - static_cast<int>(decoded.rgba[i]));
     }
-    error /= static_cast<double>(expected.size());
-    std::printf("stream: codec mean error %.3f over %zu packets\n", error, packets.size());
+    return error / static_cast<double>(expected.size());
+}
+
+/// A PyroWave rate a wired link carries.
+constexpr std::uint64_t pyroWaveRate = 150'000'000;
+
+void picturesSurviveTheCodec() {
+    const Nv12 source = testPicture(256, 144);
+    const std::unique_ptr<stream::VideoEncoder> encoder =
+        stream::openEncoder(stream::VideoCodec::PyroWave);
+    const stream::CodedFrame coded = encoder->encode(captured(source), pyroWaveRate, false);
+    expect(coded.key, "every PyroWave frame stands on its own");
+    expect(coded.packets.size() > 1, "a picture is cut into several packets");
+    for (const std::string& packet : coded.packets) {
+        expect(!packet.empty() && packet.size() <= stream::videoPacketBytes,
+               "each fits one datagram");
+    }
+    const std::vector<stream::wire::VideoPacket> packets =
+        packetsOf(coded, 1, source, stream::VideoCodec::PyroWave);
+
+    const std::unique_ptr<stream::VideoDecoder> decoder =
+        stream::openDecoder(stream::VideoCodec::PyroWave);
+    expect(decoder->intraOnly(), "and so may be skipped");
+    for (std::size_t i = 0; i + 1 < packets.size(); ++i) {
+        expect(!decoder->push(packets[i]), "a frame is not whole before its last packet");
+    }
+    expect(decoder->push(packets.back()), "and is once all of them came");
+    stream::Picture decoded;
+    expect(decoder->decode(decoded), "a whole frame decodes");
+    expect(decoded.width == 256 && decoded.height == 144 &&
+               decoded.rgba.size() == std::size_t{256} * 144 * 4,
+           "at its own size");
+    const double error = meanError(source, decoded);
+    std::printf("stream: pyrowave mean error %.3f over %zu packets\n", error, packets.size());
     expect(error < 2.0, "the decoded picture is the one coded, to within the codec's loss");
 
-    const std::vector<std::string> next = encoder.encode(frame, stream::frameBudget);
+    const std::vector<stream::wire::VideoPacket> next =
+        packetsOf(encoder->encode(captured(source), pyroWaveRate, false), 2, source,
+                  stream::VideoCodec::PyroWave);
     for (std::size_t i = 1; i < next.size(); ++i) {
-        expect(!decoder.push(source.width, source.height, next[i]),
-               "a frame missing a packet is never whole");
+        expect(!decoder->push(next[i]), "a frame missing a packet is never whole");
     }
-    const std::vector<std::string> after = encoder.encode(frame, stream::frameBudget);
     bool whole = false;
-    for (const std::string& packet : after) {
-        whole = decoder.push(source.width, source.height, packet);
+    for (const stream::wire::VideoPacket& packet :
+         packetsOf(encoder->encode(captured(source), pyroWaveRate, false), 3, source,
+                   stream::VideoCodec::PyroWave)) {
+        whole = decoder->push(packet);
     }
     expect(whole, "and the next frame drops it and decodes");
+}
+
+/// Each hardware codec this machine both codes and decodes, over pictures that move: only key
+/// frames stand alone, and after a lost packet nothing decodes until the next key frame.
+void picturesSurviveTheHardwareCodecs() {
+    const stream::VideoCodecs both = stream::encodableHere() & stream::decodableHere();
+    for (const stream::VideoCodec codec : stream::hardwareCodecs) {
+        if (!stream::holds(both, codec)) {
+            std::printf("stream: %s is not coded and decoded here\n",
+                        std::string{stream::nameOf(codec)}.c_str());
+            continue;
+        }
+        constexpr std::uint64_t rate = 20'000'000;
+        const std::unique_ptr<stream::VideoEncoder> encoder = stream::openEncoder(codec);
+        const std::unique_ptr<stream::VideoDecoder> decoder = stream::openDecoder(codec);
+        expect(!decoder->intraOnly(), "a hardware codec's frames build on the ones before");
+        Nv12 source = testPicture(320, 192);
+        std::size_t decodedFrames = 0;
+        double worst = 0;
+        bool lostOne = false;
+        bool heldAfterLoss = true;
+        for (std::uint32_t number = 1; number <= 40; ++number) {
+            // The picture scrolls, so each frame differs from the last.
+            std::rotate(source.luma.begin(), source.luma.begin() + 3, source.luma.end());
+            const bool key = number == 1 || number == 30;
+            const stream::CodedFrame coded = encoder->encode(captured(source), rate, key);
+            expect(coded.key == key, "a key frame comes when asked for, and only then");
+            std::vector<stream::wire::VideoPacket> packets =
+                packetsOf(coded, number, source, codec);
+            if (number == 20 && packets.size() > 1) {
+                packets.erase(packets.begin());
+                lostOne = true;
+            }
+            if (number == 25) {
+                expect(decoder->awaitingKey(), "a loss leaves the decoder waiting for a key frame");
+            }
+            for (const stream::wire::VideoPacket& packet : packets) {
+                if (!decoder->push(packet)) {
+                    continue;
+                }
+                stream::Picture decoded;
+                if (!decoder->decode(decoded)) {
+                    continue;
+                }
+                ++decodedFrames;
+                if (lostOne && number >= 20 && number < 30) {
+                    heldAfterLoss = false;
+                }
+                // The hardware codec gives a frame as it is coded, no frame behind.
+                worst = std::max(worst, meanError(source, decoded));
+            }
+        }
+        expect(!decoder->awaitingKey(), "the key frame after the loss ends the wait");
+        std::printf("stream: %s decoded %zu of 40 frames, worst mean error %.3f\n",
+                    std::string{stream::nameOf(codec)}.c_str(), decodedFrames, worst);
+        expect(heldAfterLoss, "after a loss nothing decodes until the next key frame");
+        expect(decodedFrames >= 29, "every other frame decodes");
+        expect(worst < 6.0, "each is the picture coded, to within the codec's loss");
+    }
+}
+
+/// The guest received `datagrams` of `sent` the host sealed, each `bytes` long, by `atUs`.
+stream::wire::Report reported(std::uint64_t sent, std::uint64_t datagrams, std::uint64_t bytes,
+                              stream::VideoCodecs decoders) {
+    return stream::wire::Report{.decoders = decoders,
+                                .datagrams = datagrams,
+                                .bytes = datagrams * bytes,
+                                .newest = sent,
+                                .probeBurst = 0,
+                                .probeDatagrams = 0};
+}
+
+void theLinkPicksTheCodec() {
+    using stream::VideoCodec;
+    const stream::VideoCodecs all = stream::codecBit(VideoCodec::PyroWave) |
+                                    stream::codecBit(VideoCodec::Hevc) |
+                                    stream::codecBit(VideoCodec::H264);
+    // The opening probe: what is due, and the guest's word on it.
+    const auto opening = [](stream::LinkRate& link, double share, stream::VideoCodecs decoders) {
+        std::uint64_t now = 1'000'000;
+        std::uint32_t sent = 0;
+        std::uint32_t burst = 0;
+        for (; now <= 1'000'000 + 300'000; now += 1000) {
+            const stream::LinkRate::ProbeDue due = link.probe(now);
+            sent += due.count;
+            burst = due.count > 0 ? due.burst : burst;
+        }
+        link.report(
+            stream::wire::Report{.decoders = decoders,
+                                 .datagrams = 0,
+                                 .bytes = 0,
+                                 .newest = 0,
+                                 .probeBurst = burst,
+                                 .probeDatagrams = static_cast<std::uint32_t>(sent * share)},
+            now + 450'000);
+        return now + 450'000;
+    };
+
+    // The plan's codec and rate, none planned reading as H.264 at 0.
+    const auto planned = [](const stream::LinkRate& link) {
+        return link.plan().value_or(
+            stream::LinkPlan{.codec = VideoCodec::H264, .bitsPerSecond = 0});
+    };
+    stream::LinkRate wired{all};
+    expect(!wired.plan(), "nothing is coded before the link was probed");
+    opening(wired, 1.0, all);
+    expect(planned(wired).codec == VideoCodec::PyroWave &&
+               planned(wired).bitsPerSecond >= stream::pyroWaveFloor,
+           "a link that carries the probe whole gets PyroWave");
+
+    stream::LinkRate wifi{all};
+    opening(wifi, 0.3, all);
+    expect(planned(wifi).codec == VideoCodec::Hevc && planned(wifi).bitsPerSecond > 0 &&
+               planned(wifi).bitsPerSecond <= stream::hardwareTop,
+           "one that carries a third of it gets the best hardware codec both ends have");
+
+    stream::LinkRate pyroWaveOnly{stream::codecBit(VideoCodec::PyroWave)};
+    opening(pyroWaveOnly, 0.3, all);
+    expect(planned(pyroWaveOnly).codec == VideoCodec::PyroWave,
+           "with no hardware codec on both ends PyroWave codes anyway");
+
+    // Running: a link that drops a tenth of what is sent is over its rate.
+    stream::LinkRate running{all};
+    std::uint64_t now = opening(running, 1.0, all);
+    const std::uint64_t first = planned(running).bitsPerSecond;
+    std::uint64_t sent = 0;
+    std::uint64_t received = 0;
+    for (int second = 0; second < 4; ++second) {
+        for (int tick = 0; tick < 10; ++tick) {
+            now += 100'000;
+            sent += 1000;
+            received += 900;
+            running.report(reported(sent, received, 1428, all), now);
+        }
+    }
+    expect(planned(running).codec == VideoCodec::Hevc,
+           "a link that loses frames at PyroWave's rate falls back to a hardware codec");
+    expect(running.summary().find("switches=1") != std::string::npos, "and the switch is counted");
+
+    // A probe on the hardware codec that comes back whole: PyroWave fits again.
+    const std::uint64_t probeAt = now + 11'000'000;
+    std::uint32_t probeSent = 0;
+    std::uint32_t probeBurst = 0;
+    for (now = probeAt; now <= probeAt + 200'000; now += 1000) {
+        const stream::LinkRate::ProbeDue due = running.probe(now);
+        probeSent += due.count;
+        probeBurst = due.count > 0 ? due.burst : probeBurst;
+    }
+    expect(probeSent > 0, "a hardware codec's link is probed again");
+    stream::wire::Report back = reported(sent, received, 1428, all);
+    back.probeBurst = probeBurst;
+    back.probeDatagrams = probeSent;
+    running.report(back, now + 10'000);
+    expect(planned(running).codec == VideoCodec::PyroWave,
+           "and once a probe comes back whole PyroWave codes again");
+    std::printf("stream: link %s, first %.0f Mbit/s\n", running.summary().c_str(),
+                static_cast<double>(first) / 1e6);
+
+    stream::LinkRate refused{all};
+    opening(refused, 0.3, all);
+    refused.refuse(VideoCodec::Hevc);
+    expect(planned(refused).codec == VideoCodec::H264 && planned(refused).bitsPerSecond > 0,
+           "a codec that cannot open gives way to the next");
+}
+
+void theCapDropsWhatTheRateHasNoRoomFor() {
+    stream::LinkCap cap;
+    expect(cap.admit(1'000'000, 1), "with no cap everything gets through");
+    constexpr std::uint64_t rate = 8'000'000;
+    cap.set(rate);
+    std::uint64_t admitted = 0;
+    // Twice the rate offered for a second.
+    for (std::uint64_t now = 1; now <= 1'000'000; now += 714) {
+        if (cap.admit(1428, now)) {
+            admitted += 1428;
+        }
+    }
+    const double carried = static_cast<double>(admitted) * 8;
+    std::printf("stream: an 8 Mbit/s cap carried %.2f Mbit in a second\n", carried / 1e6);
+    expect(carried > rate * 0.95 && carried < rate * 1.05, "a cap carries its rate and no more");
+    cap.set(0);
+    expect(cap.admit(1'000'000, 2'000'000), "and lifting it lets everything through again");
 }
 
 /// A 440 Hz tone through Opus, one packet lost on the way: the guest plays every frame, the lost
@@ -389,6 +669,9 @@ int main() try {
     aSessionCarriesInputAndEnds();
     theHostsEndReachesTheGuest();
     picturesSurviveTheCodec();
+    picturesSurviveTheHardwareCodecs();
+    theLinkPicksTheCodec();
+    theCapDropsWhatTheRateHasNoRoomFor();
     soundSurvivesTheCodec();
     std::printf("stream: all checks passed\n");
     return 0;

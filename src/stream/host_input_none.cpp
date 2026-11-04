@@ -21,4 +21,7 @@ void HostInput::keys(const wire::KeyState& /*state*/) {
 void HostInput::mouse(const wire::MouseState& /*state*/) {
 }
 
+void HostInput::mapping(const wire::PadMapping& /*mapping*/) {
+}
+
 } // namespace opensu::stream

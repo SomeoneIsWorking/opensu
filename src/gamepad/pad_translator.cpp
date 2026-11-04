@@ -61,6 +61,15 @@ bool PadCapabilities::isGamepad() const {
 PadTranslator::PadTranslator(PadCapabilities physical) : physical_{std::move(physical)} {
 }
 
+PadAxes PadTranslator::axes() const {
+    const auto travel = [this](Button trigger) {
+        const auto found = triggers_.find(trigger);
+        return found != triggers_.end() ? found->second : 0;
+    };
+    return PadAxes{
+        .sticks = sticks_, .leftTrigger = travel(Button::L2), .rightTrigger = travel(Button::R2)};
+}
+
 void PadTranslator::setChords(ChordTriggers chords) {
     chords_ = std::move(chords);
     applyTriggers();

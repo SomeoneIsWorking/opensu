@@ -21,6 +21,20 @@
 namespace opensu::app {
 namespace {
 
+/// `button`'s bit in `PointerFrame::held`, none for a button past the third.
+unsigned heldBit(std::uint8_t button) {
+    switch (button) {
+    case SDL_BUTTON_LEFT:
+        return 1U;
+    case SDL_BUTTON_MIDDLE:
+        return 2U;
+    case SDL_BUTTON_RIGHT:
+        return 4U;
+    default:
+        return 0U;
+    }
+}
+
 /// The layout is computed from the window's size, but a window smaller than this crowds it.
 constexpr int minimumWidth = 960;
 constexpr int minimumHeight = 600;
@@ -116,7 +130,9 @@ bool ShellWindow::pollEvents() {
         handle(event);
     }
     postStroke();
-    if (SDL_GetMouseFocus() == window_.window()) {
+    pointer_.held = pointerHeld_;
+    // An event's own position stands, as a posted one never moves SDL's mouse.
+    if (!pointer_.point && SDL_GetMouseFocus() == window_.window()) {
         float x = 0.0f;
         float y = 0.0f;
         SDL_GetMouseState(&x, &y);
@@ -160,26 +176,32 @@ void ShellWindow::handle(const SDL_Event& event) {
         screenKeyboardHidden_ = screenKeyboard_;
         break;
     case SDL_EVENT_MOUSE_MOTION:
+        pointer_.point = ui::Point{event.motion.x, event.motion.y};
         pointer_.delta.x += event.motion.xrel;
         pointer_.delta.y += event.motion.yrel;
         pointer_.touch = event.motion.which == SDL_TOUCH_MOUSEID;
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
+        pointer_.point = ui::Point{event.button.x, event.button.y};
         if (event.button.button == SDL_BUTTON_LEFT) {
             pointer_.primary.push_back(false);
         }
+        pointerHeld_ = static_cast<std::uint8_t>(pointerHeld_ & ~heldBit(event.button.button));
         pointer_.touch = event.button.which == SDL_TOUCH_MOUSEID;
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        pointer_.point = ui::Point{event.button.x, event.button.y};
         if (event.button.button == SDL_BUTTON_LEFT) {
             pointer_.primary.push_back(true);
         }
+        pointerHeld_ = static_cast<std::uint8_t>(pointerHeld_ | heldBit(event.button.button));
         pointer_.touch = event.button.which == SDL_TOUCH_MOUSEID;
         pointer_.left = pointer_.left || event.button.button == SDL_BUTTON_LEFT;
         pointer_.right = pointer_.right || event.button.button == SDL_BUTTON_RIGHT;
         pointer_.middle = pointer_.middle || event.button.button == SDL_BUTTON_MIDDLE;
         break;
     case SDL_EVENT_MOUSE_WHEEL:
+        pointer_.point = ui::Point{event.wheel.mouse_x, event.wheel.mouse_y};
         pointer_.wheel +=
             event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event.wheel.y : event.wheel.y;
         break;
@@ -207,6 +229,41 @@ void ShellWindow::press(input::Combo combo) {
 
 void ShellWindow::type(std::string text) {
     strokes_.push_back(Stroke{.keys = {}, .text = std::move(text)});
+}
+
+void ShellWindow::movePointer(ui::Point at) {
+    SDL_Event event{};
+    event.motion.type = SDL_EVENT_MOUSE_MOTION;
+    event.motion.windowID = SDL_GetWindowID(window_.window());
+    event.motion.x = at.x;
+    event.motion.y = at.y;
+    // A posted move always moves, so it hovers even onto the spot the pointer was last put.
+    event.motion.xrel = 1.0f;
+    event.motion.yrel = 1.0f;
+    post(event);
+}
+
+void ShellWindow::pressPointer(ui::Point at, std::uint8_t button, bool down) {
+    SDL_Event event{};
+    event.button.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+    event.button.windowID = SDL_GetWindowID(window_.window());
+    event.button.button = button;
+    event.button.down = down;
+    event.button.clicks = 1;
+    event.button.x = at.x;
+    event.button.y = at.y;
+    post(event);
+}
+
+void ShellWindow::turnWheel(ui::Point at, float notches) {
+    SDL_Event event{};
+    event.wheel.type = SDL_EVENT_MOUSE_WHEEL;
+    event.wheel.windowID = SDL_GetWindowID(window_.window());
+    event.wheel.y = notches;
+    event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
+    event.wheel.mouse_x = at.x;
+    event.wheel.mouse_y = at.y;
+    post(event);
 }
 
 void ShellWindow::postStroke() {

@@ -179,21 +179,46 @@ runs.
   screen it would stream), then opens `stream::HostInput` (a `gamepad::RemotePad` on uinput, and
   XTest on that Gamescope's Xwayland for keys and pointer), the stream, `stream::HostVideo`
   (Gamescope's PipeWire node, found as the one owned by the peer of its Wayland socket, NV12
-  BT.709 full range; each frame coded with PyroWave on the capture thread, at most 200 Mbit/s at
-  60 a second, cut into 1400-byte packets) and `stream::HostAudio` (a PipeWire null sink of the
+  BT.709 full range; each frame coded on the capture thread with the link's codec and rate, cut
+  into 1400-byte packets, each carrying its codec, key flag and part of parts) and `stream::HostAudio` (a PipeWire null sink of the
   session's own, `opensu.remote.<port>`, its monitor coded with Opus in 10 ms frames at 192 kbit/s).
   The loop then starts the game through the normal launch path with `PIPEWIRE_NODE` and
   `PULSE_SINK` naming that sink. The game ending ends the session; the guest leaving closes the
   game.
+- Codec and link (`stream::LinkRate`, owned by `HostStream`): the host offers what it codes
+  (`encodableHere`: PyroWave where built, and each of AV1, HEVC and H.264 its VA-API driver
+  encodes) and each guest Report says what it decodes. Once the guest joins, a prober thread sends
+  a 300 ms burst of 1428-byte Probe datagrams at 220 Mbit/s; the guest counts what came and
+  reports with each ping (datagrams and sealed bytes received, the newest counter, the probe burst
+  heard). PyroWave codes while 80 % of what the link delivered is at least 100 Mbit/s (its budget
+  that share, at most 200 Mbit/s); below that the best hardware codec both ends have codes at 60 %
+  of it, 2 to 40 Mbit/s. While running, each second of reports is judged: over 5 % lost (1 % on a
+  hardware codec, which decodes nothing from a loss to the next key frame) replans at what was
+  delivered; under 1 % (0.1 % on hardware) raises the rate (×1.25 PyroWave, ×1.15 hardware). On a
+  hardware codec a 200 ms probe at 131 Mbit/s every 10 s (doubling to 60 s each time one loses
+  more than 2 %) brings PyroWave back once one passes. A codec that will not open on the host is
+  refused and the next planned. Every switch codes a key frame. With neither end's hardware codec
+  in common PyroWave codes whatever the link carries, and says so.
+- Hardware codecs (`hardware_codec_vaapi.cpp`): libavcodec on a VA-API DRM device, CBR at the
+  plan's rate with a two-frame buffer, no B-frames, one frame in flight, a key frame every 300
+  frames or when asked, reopened when the rate moves by a fifth. The guest decodes the same way
+  into NV12 and converts it to RGBA on the CPU.
 - Guest: `stream::GuestStream` receives; `stream::GuestVideo` queues video packets and decodes on a
-  thread of its own: a frame missing a packet is dropped when the next begins (intra only, nothing
-  waits for a resend), and a whole frame two newer ones began after is skipped as late. The loop
+  thread of its own, a decoder per codec: a frame missing a packet is dropped when the next begins
+  (nothing waits for a resend); on a hardware codec every frame after it is dropped until a key
+  frame, which the guest asks for while the decoder waits (KeyFrame, at most every 100 ms); a whole PyroWave frame two
+  newer ones began after is skipped as late. The loop
   uploads the newest picture and `ui::Shell` draws it letterboxed over black. `stream::GuestAudio`
   decodes each Opus packet, conceals up to ten lost ones, and plays on the shell's device
   (`audio::LiveSound`, at most 60 ms queued) when the shell plays sounds.
 - Input: while the remote game has the controls (streaming, no Guide menu or other menu open), the
-  shell's pad buttons other than Guide, the first pad's sticks, the held keys (at most 16) and the
-  pointer over the picture go to the host (`app::RemoteInput`), each sent when it changes. Guide
+  shell's pad buttons other than Guide, the first pad's sticks and triggers' travel (0–255), the
+  held keys (at most 16) and the pointer over the picture with its buttons held and the wheel's
+  whole notches go to the host (`app::RemoteInput`, sampled once a frame, a press and release in
+  one frame sent held for it), each sent when it changes. The guest's mapping for the game
+  (`PadOwner::forwarding`, the same `ForwardMap` a local launch gives its pads, and the chord hold
+  delay) goes with each ping; the host's `RemotePad` plays the pad through a `PadTranslator` with
+  it, as a local game's virtual pad is played. Guide
   opens this openSU's own menu, whose Close game row reads End remote play.
 
 ## Keys and secrets
@@ -225,14 +250,21 @@ Library on both sides.
   or when its details open and Sync saves now is pressed.
 - A game whose emulator keeps no saves openSU can find (store games, standalone emulators of
   consoles other than the Switch) shares none.
-- Remote play is Linux only both ways (PipeWire, uinput, XTest, PyroWave built for Linux), and only
-  with PyroWave: no fallback encoder or bandwidth probing yet (step 3 of
-  `docs/plans/lan-remote-play.md`). Wired gigabit is the intended link.
-- The guest decodes PyroWave into CPU memory and converts to RGBA there, and uploads a new texture
-  each frame; decode p50 is 5–10 ms on a Radeon RX 6700 XT shared with other work.
-- Remote triggers are digital (full travel or none), right and middle mouse buttons are held for
-  one frame, and the remote pad gets no per-game mapping. The guest's Video settings do not apply
-  to the stream.
+- Remote play is Linux only both ways (PipeWire, uinput, XTest, PyroWave and VA-API built for
+  Linux); Windows, macOS and Android guests are not built.
+- Hardware codecs need a VA-API driver that encodes (host) or decodes (guest) them. Fedora's own
+  Mesa encodes none and decodes only AV1 there; RPM Fusion's `mesa-va-drivers-freeworld` adds
+  H.264 and HEVC. The AppImage is built without them (`OPENSU_BUILD_VAAPI=OFF`: libavcodec's
+  soname differs per distro), so it streams PyroWave only.
+- The guest decodes into CPU memory, converts to RGBA there and uploads a new texture each frame.
+  Decoding straight into an image the presenter samples needs the decoder on the presenter's
+  Vulkan device, which SDL GPU neither exposes nor imports (`SDL_GPUDevice` gives no `VkDevice`,
+  queue or external-memory import); it waits on an SDL fork that does.
+- A frame's packets leave the host back to back. On a link with a shallow queue a hardware codec's
+  key frame or a probe burst overflows it, so on a hardware codec the rate saws between 60 % of
+  the link and the loss that lowers it again, each loss costing the frames up to the next key frame
+  (about 0.6 s at a 60 Mbit/s cap). Pacing each frame's packets across its 16 ms would end that.
+- The guest's Video settings do not apply to the stream.
 - A game whose sound ignores `PIPEWIRE_NODE` and `PULSE_SINK` plays on the host's speakers and
   the guest hears silence.
 
@@ -250,14 +282,21 @@ A request to `/lan/library` without a pairing gets 403. A socket dump of the LAN
 routes and lengths but no save bytes.
 
 Remote play: `tests/stream/stream_test.cpp` checks sealing and replay, the payloads, a host and a
-guest session over loopback UDP, PyroWave round trips and a lost packet, and Opus with a lost
-packet concealed. In the product, run the host as the only client of a headless Gamescope
+guest session over loopback UDP (the mapping sent, the opening probe planning PyroWave), PyroWave
+round trips and a lost packet, each hardware codec this machine codes and decodes over moving
+pictures with a lost packet held until the next key frame, `LinkRate`'s choices (a whole probe,
+a third of one, no hardware codec in common, a lossy second, a probe passing, a refused codec),
+`LinkCap` carrying its rate, and Opus with a lost packet concealed. In the product, run the host as the only client of a headless Gamescope
 (`gamescope --backend headless -W 1280 -H 720 -r 60 -- opensu --hidden`, `WAYLAND_DISPLAY` set to
 empty, the user's `XDG_RUNTIME_DIR` for PipeWire) and the guest as a plain `--hidden` openSU, pair
 them and press Play on the host's game in the guest's Library. `/state` reports `remotePlay`
-(`asking`, `playing`, `hosting`), `remotePeer`, `remoteRoundTripUs` and `remoteBytesPerSecond`,
-and on the guest `remoteVideo` (frames decoded, dropped and late, and each stage's p50/p95 in ms
-from capture to the submitted frame) and `remoteAudio` (packets, lost, arrival p50/p95). On both
+(`asking`, `playing`, `hosting`), `remotePeer`, `remoteRoundTripUs` and `remoteBytesPerSecond`;
+on the host `remoteVideo` is the link (codec, rate, delivered, loss, switches, probes), on the guest
+the codec and switches, frames decoded, dropped and late, and each stage's p50/p95 in ms from
+capture to the submitted frame and `remoteAudio` (packets, lost, arrival p50/p95). On both
 sides `/remote/frame.png` returns the newest remote picture, numbered in `X-Opensu-Frame`: the one
 sent on the host and the one decoded on the guest, so the same number can be compared. A hidden
-guest has no surface: `submitted` counts frames submitted and `drawn` stays 0.
+guest has no surface: `submitted` counts frames submitted and `drawn` stays 0. `POST /remote/link`
+with bits a second caps what a hidden guest takes (`stream::LinkCap`, a token bucket 20 ms deep;
+0 lifts it), the slow link that makes the host fall back; the `stream` log lines name each probe
+and plan. `POST /pointer` `down X Y right` and `up X Y right` hold a button across frames.

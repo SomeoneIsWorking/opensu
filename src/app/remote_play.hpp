@@ -77,8 +77,9 @@ class RemotePlay {
                                                      const lan::StreamKeys& keys,
                                                      std::string& refusal);
 
-    /// Plays `game`, another openSU's, from here. Main loop only.
-    void start(const library::Game& game);
+    /// Plays `game`, another openSU's, from here, the pad with `mapping` (this openSU's for the
+    /// game). Main loop only.
+    void start(const library::Game& game, stream::wire::PadMapping mapping);
     /// Ends the session this one plays. Main loop only.
     void end();
     /// Whether this one plays another's game, or is asking to. Main loop only.
@@ -102,6 +103,9 @@ class RemotePlay {
     /// loop only.
     void input(const stream::wire::PadState& pad, const stream::wire::KeyState& keys,
                const stream::wire::MouseState& mouse);
+    /// A test run's slow link: takes at most `bitsPerSecond` from the host from now on, 0 for
+    /// all. Main loop only.
+    void capLink(std::uint64_t bitsPerSecond);
     /// The newest picture from the host not taken yet, to show. Main loop only.
     [[nodiscard]] std::optional<stream::GuestVideo::Frame> takePicture();
     /// The loop submitted the frame showing the host's frame `number` at `submittedUs`; `drawn`
@@ -119,7 +123,8 @@ class RemotePlay {
         std::string peer;
         std::uint64_t roundTripUs{0};
         std::uint64_t bytesPerSecond{0};
-        /// On a guest, how its frames went (`GuestVideo::summary`).
+        /// On a guest, how its frames went (`GuestVideo::summary`); on a host, the link's plan and
+        /// measures (`HostStream::linkSummary`).
         std::string video;
         /// On a guest, how its sound came (`GuestAudio::summary`).
         std::string audio;
@@ -154,6 +159,9 @@ class RemotePlay {
     std::optional<Hosted> hosted_;
 
     library::Game game_;
+    stream::wire::PadMapping mapping_;
+    /// The cap a test run set, kept for the next session.
+    std::uint64_t linkCap_{0};
     bool asking_{false};
     /// What the host answered, left by the asking thread for the loop.
     struct Answer {

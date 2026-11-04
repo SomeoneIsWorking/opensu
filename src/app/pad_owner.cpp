@@ -44,10 +44,14 @@ std::vector<std::string> PadOwner::take(const input::ButtonMap& map, FocusHolder
     syncChords();
     situation_.game = true;
     situation_.serves = serves;
-    std::vector<std::string> environment = pads_.hold(input::forwardMap(map, chords_.shell()));
+    std::vector<std::string> environment = pads_.hold(forwarding(map));
     claim_ = Claim::Game;
     follow(situation_.followsFocus, situation_.holder, situation_.menuOver);
     return environment;
+}
+
+gamepad::ForwardMap PadOwner::forwarding(const input::ButtonMap& map) const {
+    return input::forwardMap(map, chords_.shell());
 }
 
 void PadOwner::lendToSteam(bool lend) {

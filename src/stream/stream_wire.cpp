@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <set>
 
 #include "fileio/little_endian.hpp"
 
@@ -55,6 +56,33 @@ void appendSigned16(std::string& out, std::int16_t value) {
     appendLittleEndian(out, static_cast<std::uint16_t>(value), 2);
 }
 
+std::uint32_t buttonBits(const std::set<gamepad::Button>& buttons) {
+    std::uint32_t bits = 0;
+    for (const gamepad::Button button : buttons) {
+        bits |= 1U << static_cast<unsigned>(button);
+    }
+    return bits;
+}
+
+/// The pad buttons set in `bits`; any other bit is left out.
+std::set<gamepad::Button> buttonsOf(std::uint64_t bits) {
+    std::set<gamepad::Button> buttons;
+    for (const gamepad::Button button : gamepad::padButtons) {
+        if ((bits >> static_cast<unsigned>(button) & 1U) != 0) {
+            buttons.insert(button);
+        }
+    }
+    return buttons;
+}
+
+/// The pad button numbered `value`, or nothing for one the virtual pad does not carry.
+std::optional<gamepad::Button> padButton(std::uint64_t value) {
+    const auto found = std::ranges::find_if(gamepad::padButtons, [value](gamepad::Button button) {
+        return static_cast<std::uint64_t>(button) == value;
+    });
+    return found == gamepad::padButtons.end() ? std::nullopt : std::optional{*found};
+}
+
 } // namespace
 
 std::uint64_t nowMicros() noexcept {
@@ -99,6 +127,10 @@ std::string write(const VideoPacket& packet) {
     appendLittleEndian(out, packet.frame, 4);
     appendLittleEndian(out, packet.width, 2);
     appendLittleEndian(out, packet.height, 2);
+    out.push_back(static_cast<char>(packet.codec));
+    out.push_back(static_cast<char>(packet.key ? 1 : 0));
+    appendLittleEndian(out, packet.part, 2);
+    appendLittleEndian(out, packet.parts, 2);
     appendLittleEndian(out, packet.capturedUs, 8);
     appendLittleEndian(out, packet.encodedUs, 8);
     appendLittleEndian(out, packet.sentUs, 8);
@@ -112,14 +144,102 @@ std::optional<VideoPacket> readVideoPacket(std::string_view payload) {
     packet.frame = static_cast<std::uint32_t>(in.take(4));
     packet.width = static_cast<std::uint16_t>(in.take(2));
     packet.height = static_cast<std::uint16_t>(in.take(2));
+    packet.codec = static_cast<std::uint8_t>(in.take(1));
+    const std::uint64_t flags = in.take(1);
+    packet.key = flags == 1;
+    packet.part = static_cast<std::uint16_t>(in.take(2));
+    packet.parts = static_cast<std::uint16_t>(in.take(2));
     packet.capturedUs = in.take(8);
     packet.encodedUs = in.take(8);
     packet.sentUs = in.take(8);
     packet.data = in.rest();
-    if (!in.ok() || packet.data.empty() || packet.width == 0 || packet.height == 0) {
+    if (!in.ok() || flags > 1 || packet.data.empty() || packet.width == 0 || packet.height == 0 ||
+        packet.part >= packet.parts) {
         return std::nullopt;
     }
     return packet;
+}
+
+std::string write(const Probe& probe, std::size_t bytes) {
+    std::string out;
+    appendLittleEndian(out, probe.burst, 4);
+    appendLittleEndian(out, probe.index, 4);
+    out.resize(std::max(bytes, out.size()), '\0');
+    return out;
+}
+
+std::optional<Probe> readProbe(std::string_view payload) {
+    Reader in{payload};
+    Probe probe;
+    probe.burst = static_cast<std::uint32_t>(in.take(4));
+    probe.index = static_cast<std::uint32_t>(in.take(4));
+    return in.ok() ? std::optional{probe} : std::nullopt;
+}
+
+std::string write(const Report& report) {
+    std::string out;
+    out.push_back(static_cast<char>(report.decoders));
+    appendLittleEndian(out, report.datagrams, 8);
+    appendLittleEndian(out, report.bytes, 8);
+    appendLittleEndian(out, report.newest, 8);
+    appendLittleEndian(out, report.probeBurst, 4);
+    appendLittleEndian(out, report.probeDatagrams, 4);
+    return out;
+}
+
+std::optional<Report> readReport(std::string_view payload) {
+    Reader in{payload};
+    Report report;
+    report.decoders = static_cast<std::uint8_t>(in.take(1));
+    report.datagrams = in.take(8);
+    report.bytes = in.take(8);
+    report.newest = in.take(8);
+    report.probeBurst = static_cast<std::uint32_t>(in.take(4));
+    report.probeDatagrams = static_cast<std::uint32_t>(in.take(4));
+    return in.whole() ? std::optional{report} : std::nullopt;
+}
+
+std::string write(const PadMapping& mapping) {
+    std::string out;
+    appendLittleEndian(out, static_cast<std::uint64_t>(mapping.holdDelay.count()), 4);
+    out.push_back(static_cast<char>(mapping.map.buttons.size()));
+    for (const auto& [button, outputs] : mapping.map.buttons) {
+        out.push_back(static_cast<char>(button));
+        appendLittleEndian(out, buttonBits(outputs), 4);
+    }
+    out.push_back(static_cast<char>(mapping.map.chords.size()));
+    for (const auto& [chord, outputs] : mapping.map.chords) {
+        out.push_back(static_cast<char>(chord.modifier));
+        out.push_back(static_cast<char>(chord.trigger));
+        appendLittleEndian(out, buttonBits(outputs), 4);
+    }
+    return out;
+}
+
+std::optional<PadMapping> readPadMapping(std::string_view payload) {
+    Reader in{payload};
+    PadMapping mapping;
+    mapping.holdDelay = std::chrono::milliseconds{in.take(4)};
+    const std::uint64_t buttons = in.take(1);
+    for (std::uint64_t i = 0; i < buttons && in.ok(); ++i) {
+        const std::optional<gamepad::Button> button = padButton(in.take(1));
+        const std::uint64_t outputs = in.take(4);
+        if (!button) {
+            return std::nullopt;
+        }
+        mapping.map.buttons[*button] = buttonsOf(outputs);
+    }
+    const std::uint64_t chords = in.take(1);
+    for (std::uint64_t i = 0; i < chords && in.ok(); ++i) {
+        const std::optional<gamepad::Button> modifier = padButton(in.take(1));
+        const std::optional<gamepad::Button> trigger = padButton(in.take(1));
+        const std::uint64_t outputs = in.take(4);
+        if (!modifier || !trigger) {
+            return std::nullopt;
+        }
+        mapping.map.chords[gamepad::Chord{*modifier, *trigger}] = buttonsOf(outputs);
+    }
+    return in.whole() ? std::optional{mapping} : std::nullopt;
 }
 
 std::string write(const AudioPacket& packet) {

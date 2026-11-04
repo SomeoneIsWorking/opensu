@@ -39,4 +39,12 @@ fork as any third-party code.
    on uinput and keys and pointer through XTest; the guest shows it full screen, Guide opens its own
    menu with End remote play. Shown with two hidden openSUs on one machine over Avahi on a Game Boy
    test ROM in a headless Gamescope.
-3. Fallback encoder, bandwidth probing, Windows/macOS/Android guests.
+3. Fallback encoder and bandwidth probing. Built on Linux (`docs/design/lan.md#remote-play`):
+   H.264, HEVC and AV1 through libavcodec on VA-API both ways, key frames asked for after a loss;
+   the codec and rate per link from an opening probe burst and the guest's reports each second,
+   PyroWave on links that carry 100 Mbit/s with room and a hardware codec below, re-probed while
+   on one; analogue triggers, mouse buttons held and the wheel; the guest's game mapping played by
+   the host's remote pad. Shown with two hidden openSUs over Avahi on a full-screen moving Game Boy
+   ROM, the switch forced by a link cap on the guest (`POST /remote/link`).
+4. Windows, macOS and Android guests and hosts; the guest decoding straight into the presenter's
+   image (needs Vulkan interop SDL GPU does not offer); hardware codecs in the AppImage.

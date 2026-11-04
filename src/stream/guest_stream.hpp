@@ -1,9 +1,11 @@
 // guest_stream — the guest's end of one remote-play session: a UDP socket of its own, the seal for
 // what it sends and the opener for what the host sends, heard only from the host's address. It
 // pings five times a second, which keeps the session alive and measures the round trip and how far
-// the host's clock is from its own; it sends the player's pad, keys and pointer as they change and
-// again with each ping, so a lost datagram is mended. The session is over when the host says so,
-// goes quiet, or the guest ends it (`end`, told to the host).
+// the host's clock is from its own, and with each ping reports what it received (`wire::Report`)
+// for the host's measure of the link; it sends the player's pad, keys, pointer and pad mapping as
+// they change and again with each ping, so a lost datagram is mended, and asks for a key frame
+// when the video says one is needed. The session is over when the host says so, goes quiet, or the
+// guest ends it (`end`, told to the host). A test run may cap what it takes (`capLink`).
 #pragma once
 
 #include <condition_variable>
@@ -17,9 +19,11 @@
 #include <thread>
 
 #include "lan/pairing_keys.hpp"
+#include "link_cap.hpp"
 #include "packet_seal.hpp"
 #include "stream_wire.hpp"
 #include "udp_socket.hpp"
+#include "video_codec.hpp"
 
 namespace opensu::stream {
 
@@ -29,13 +33,16 @@ class GuestStream {
         UdpAddress host;
         lan::StreamKeys keys;
         /// What the host sends of the game, called on the stream's thread with the time it came
-        /// and how far the host's clock is ahead of this one's then.
-        std::function<void(const wire::VideoPacket&, std::uint64_t receivedUs,
+        /// and how far the host's clock is ahead of this one's then. The video returns whether
+        /// it wants a key frame.
+        std::function<bool(const wire::VideoPacket&, std::uint64_t receivedUs,
                            std::int64_t hostAheadUs)>
             video;
         std::function<void(const wire::AudioPacket&, std::uint64_t receivedUs,
                            std::int64_t hostAheadUs)>
             audio;
+        /// The codecs this guest decodes.
+        VideoCodecs decoders{0};
     };
 
     /// Binds a free UDP port and starts pinging the host; throws `std::system_error`.
@@ -50,6 +57,12 @@ class GuestStream {
     void pad(const wire::PadState& state);
     void keys(const wire::KeyState& state);
     void mouse(const wire::MouseState& state);
+    /// The mapping the pad is played with.
+    void mapping(const wire::PadMapping& mapping);
+    /// Takes at most `bitsPerSecond` from the host from now on, 0 for all: a test run's slow link.
+    void capLink(std::uint64_t bitsPerSecond) {
+        cap_.set(bitsPerSecond);
+    }
 
     /// Ends the session and tells the host `reason`. Any thread.
     void end(std::string_view reason);
@@ -76,6 +89,8 @@ class GuestStream {
     void finish(std::string reason);
     /// Sends the input states held now.
     void sendInput();
+    /// Sends what was received.
+    void sendReport();
 
     Setup setup_;
     UdpSocket socket_;
@@ -88,7 +103,13 @@ class GuestStream {
     std::optional<wire::PadState> pad_;
     std::optional<wire::KeyState> keys_;
     std::optional<wire::MouseState> mouse_;
+    std::optional<wire::PadMapping> mapping_;
+    /// What came from the host, for the report; on the receiving thread, read under `mutex_`.
+    wire::Report received_;
     Timing timing_;
+    LinkCap cap_;
+    /// When a key frame was last asked for, on the receiving thread.
+    std::uint64_t keyAskedUs_{0};
     std::optional<std::string> over_;
     /// Last, so they stop before what they use goes.
     std::jthread receiver_;

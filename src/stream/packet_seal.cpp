@@ -9,7 +9,7 @@
 namespace opensu::stream {
 namespace {
 
-constexpr std::uint8_t version = 1;
+constexpr std::uint8_t version = 2;
 constexpr std::size_t counterAt = 2;
 constexpr std::size_t counterBytes = 8;
 
@@ -25,7 +25,7 @@ std::array<std::uint8_t, lan::crypto::sealNonceBytes> nonceOf(std::uint64_t coun
 
 bool knownKind(std::uint8_t kind) {
     return kind >= static_cast<std::uint8_t>(PacketKind::Ping) &&
-           kind <= static_cast<std::uint8_t>(PacketKind::End);
+           kind <= static_cast<std::uint8_t>(PacketKind::Mapping);
 }
 
 } // namespace

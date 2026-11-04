@@ -68,8 +68,8 @@ class PadSource {
     [[nodiscard]] virtual std::vector<Event> takeEvents() = 0;
     /// The pads connected now, in the order they connected. Any thread.
     [[nodiscard]] virtual std::vector<PadInfo> connected() const = 0;
-    /// Where each connected pad's sticks stand now, by `PadInfo::id`. Any thread.
-    [[nodiscard]] virtual std::map<std::string, Sticks> sticks() const = 0;
+    /// Where each connected pad's sticks and triggers stand now, by `PadInfo::id`. Any thread.
+    [[nodiscard]] virtual std::map<std::string, PadAxes> axes() const = 0;
     /// The battery of the connected pad `pad`, or nothing for a wired pad, one that does not say,
     /// or one that left. Any thread.
     [[nodiscard]] virtual std::optional<device::BatteryStatus>

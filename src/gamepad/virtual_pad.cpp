@@ -47,6 +47,17 @@ constexpr Axis axes[] = {
 
 } // namespace
 
+PadCapabilities VirtualPad::capabilities() {
+    PadCapabilities out;
+    for (const int key : keys) {
+        out.keys.insert(static_cast<std::uint16_t>(key));
+    }
+    for (const Axis& axis : axes) {
+        out.axes[static_cast<std::uint16_t>(axis.code)] = axis.range;
+    }
+    return out;
+}
+
 VirtualPad::VirtualPad() {
     fd_ = ::open("/dev/uinput", O_WRONLY | O_NONBLOCK | O_CLOEXEC);
     check(fd_, "open /dev/uinput");

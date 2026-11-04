@@ -1,11 +1,14 @@
-// host_video — the host's pictures for one session: each frame its Gamescope composes, coded with
-// PyroWave as it arrives and sent to the guest a packet per datagram, every packet carrying when
-// the frame was captured, coded and sent. Frames before the guest joined are not sent. The newest
-// frame is kept, so the control channel can show what went out.
+// host_video — the host's pictures for one session: each frame its Gamescope composes, coded as it
+// arrives with the codec and rate the link plans (`HostStream::plan`) and sent to the guest a
+// packet per datagram, every packet carrying when the frame was captured, coded and sent. Frames
+// before the guest joined and the link was probed are not sent. A codec that cannot open is
+// refused to the link, which plans another; a key frame goes out when the codec changes or the
+// guest asks. The newest frame is kept, so the control channel can show what went out.
 #pragma once
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <vector>
@@ -15,9 +18,6 @@
 #include "video_codec.hpp"
 
 namespace opensu::stream {
-
-/// The bytes one frame may code to: 200 Mbit/s at 60 frames a second.
-inline constexpr std::size_t frameBudget = 200'000'000 / 8 / 60;
 
 class HostVideo {
   public:
@@ -37,7 +37,9 @@ class HostVideo {
     void send(const CapturedFrame& frame);
 
     HostStream& stream_;
-    VideoEncoder encoder_;
+    /// The encoder of the codec planned last.
+    std::unique_ptr<VideoEncoder> encoder_;
+    VideoCodec codec_{VideoCodec::PyroWave};
     std::uint32_t frames_{0};
     /// The newest frame sent, its planes as captured.
     mutable std::mutex lastMutex_;

@@ -161,10 +161,13 @@ struct FramePng {
 
 /// A pointer event `POST /pointer` injects, in window pixels.
 struct PointerInjection {
-    enum class Kind : std::uint8_t { Move, Click, Wheel };
+    /// A click is the left button down and up; down and up hold `button` across frames.
+    enum class Kind : std::uint8_t { Move, Click, Down, Up, Wheel };
+    enum class Button : std::uint8_t { Left, Middle, Right };
     Kind kind{Kind::Move};
     float x{};
     float y{};
+    Button button{Button::Left};
     /// Wheel notches, positive away from the player.
     float wheel{};
 
@@ -198,6 +201,10 @@ class ControlTarget {
 
     /// Queues a pointer event, routed as the mouse's would be.
     virtual void injectPointer(PointerInjection pointer) = 0;
+
+    /// Caps what remote play's guest receives at `bitsPerSecond` (0 for none), as a slow link
+    /// would. Honoured in a hidden run only.
+    virtual void capRemoteLink(std::uint64_t bitsPerSecond) = 0;
 
     /// Renders the next frame of `kind` to a PNG and answers when it is written. Blocks
     /// until the main loop has done it, or fails if it cannot.

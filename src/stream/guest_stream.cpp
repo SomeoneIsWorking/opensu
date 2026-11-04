@@ -22,6 +22,8 @@ constexpr int endRepeats = 3;
 /// The pongs the round trip is taken from: the fastest of the last few seconds.
 constexpr std::size_t pongsKept = 25;
 constexpr std::uint64_t microsPerSecond = 1000000;
+/// Asks for a key frame at most this often; the host's answer takes a round trip.
+constexpr std::uint64_t keyAskEveryUs = 100'000;
 
 /// One pong as heard: the round trip, when its ping went and the host's clock as it answered.
 struct PongSample {
@@ -33,7 +35,13 @@ struct PongSample {
 } // namespace
 
 GuestStream::GuestStream(Setup setup)
-    : setup_{std::move(setup)}, socket_{0}, opener_{setup_.keys.host}, seal_{setup_.keys.guest} {
+    : setup_{std::move(setup)}, socket_{0}, opener_{setup_.keys.host}, seal_{setup_.keys.guest},
+      received_{.decoders = setup_.decoders,
+                .datagrams = 0,
+                .bytes = 0,
+                .newest = 0,
+                .probeBurst = 0,
+                .probeDatagrams = 0} {
     secrets::wipeBytes(setup_.keys.host.data(), setup_.keys.host.size());
     secrets::wipeBytes(setup_.keys.guest.data(), setup_.keys.guest.size());
     receiver_ = std::jthread{[this](const std::stop_token& stop) {
@@ -92,6 +100,18 @@ void GuestStream::mouse(const wire::MouseState& state) {
     changed_.notify_all();
 }
 
+void GuestStream::mapping(const wire::PadMapping& mapping) {
+    {
+        const std::lock_guard lock{mutex_};
+        if (mapping_ == mapping) {
+            return;
+        }
+        mapping_ = mapping;
+        inputChanged_ = true;
+    }
+    changed_.notify_all();
+}
+
 void GuestStream::end(std::string_view reason) {
     const std::string payload = wire::write(wire::End{std::string{reason}});
     for (int i = 0; i < endRepeats; ++i) {
@@ -131,12 +151,17 @@ void GuestStream::sendInput() {
     std::optional<wire::PadState> pad;
     std::optional<wire::KeyState> keys;
     std::optional<wire::MouseState> mouse;
+    std::optional<wire::PadMapping> mapping;
     {
         const std::lock_guard lock{mutex_};
         pad = pad_;
         keys = keys_;
         mouse = mouse_;
+        mapping = mapping_;
         inputChanged_ = false;
+    }
+    if (mapping) {
+        send(PacketKind::Mapping, wire::write(*mapping));
     }
     if (pad) {
         send(PacketKind::Pad, wire::write(*pad));
@@ -149,11 +174,21 @@ void GuestStream::sendInput() {
     }
 }
 
+void GuestStream::sendReport() {
+    wire::Report report;
+    {
+        const std::lock_guard lock{mutex_};
+        report = received_;
+    }
+    send(PacketKind::Report, wire::write(report));
+}
+
 void GuestStream::ping(const std::stop_token& stop) {
     Clock::time_point next = Clock::now();
     while (!stop.stop_requested() && !over()) {
         if (Clock::now() >= next) {
             send(PacketKind::Ping, wire::write(wire::Ping{wire::nowMicros()}));
+            sendReport();
             sendInput();
             next = Clock::now() + pingEvery;
             continue;
@@ -188,7 +223,7 @@ void GuestStream::receive(const std::stop_token& stop) {
             secondStart = receivedUs;
             secondBytes = 0;
         }
-        if (!got || from != setup_.host) {
+        if (!got || from != setup_.host || !cap_.admit(*got, receivedUs)) {
             if (Clock::now() - heard > quietLimit) {
                 finish("the host stopped answering");
             }
@@ -200,6 +235,21 @@ void GuestStream::receive(const std::stop_token& stop) {
         }
         heard = Clock::now();
         secondBytes += *got;
+        {
+            const std::lock_guard lock{mutex_};
+            ++received_.datagrams;
+            received_.bytes += *got;
+            received_.newest = std::max(received_.newest, opened->counter);
+            if (opened->kind == PacketKind::Probe) {
+                if (const std::optional<wire::Probe> probe = wire::readProbe(opened->payload)) {
+                    if (probe->burst != received_.probeBurst) {
+                        received_.probeBurst = probe->burst;
+                        received_.probeDatagrams = 0;
+                    }
+                    ++received_.probeDatagrams;
+                }
+            }
+        }
         if (opened->kind == PacketKind::Pong) {
             const std::optional<wire::Pong> pong = wire::readPong(opened->payload);
             if (!pong || pong->pingUs > receivedUs) {
@@ -227,8 +277,10 @@ void GuestStream::handle(const Opened& opened, std::uint64_t receivedUs) {
     switch (opened.kind) {
     case PacketKind::Video:
         if (const std::optional<wire::VideoPacket> packet = wire::readVideoPacket(opened.payload);
-            packet && setup_.video) {
-            setup_.video(*packet, receivedUs, timing().hostAheadUs);
+            packet && setup_.video && setup_.video(*packet, receivedUs, timing().hostAheadUs) &&
+            receivedUs - keyAskedUs_ >= keyAskEveryUs) {
+            keyAskedUs_ = receivedUs;
+            send(PacketKind::KeyFrame, {});
         }
         break;
     case PacketKind::Audio:
@@ -247,6 +299,10 @@ void GuestStream::handle(const Opened& opened, std::uint64_t receivedUs) {
     case PacketKind::Pad:
     case PacketKind::Keys:
     case PacketKind::Mouse:
+    case PacketKind::Probe:
+    case PacketKind::Report:
+    case PacketKind::KeyFrame:
+    case PacketKind::Mapping:
         break;
     }
 }

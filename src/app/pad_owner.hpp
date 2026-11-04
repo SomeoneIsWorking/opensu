@@ -69,6 +69,9 @@ class PadOwner {
     /// Holds the pads for a game playing with `map`; returns what the game's environment needs
     /// (`gamepad::PadSource::hold`).
     std::vector<std::string> hold(const input::ButtonMap& map);
+    /// What the pads forward for a game playing with `map`, the shell's chords kept for openSU:
+    /// what `hold` gives the local pads and remote play sends the host.
+    [[nodiscard]] gamepad::ForwardMap forwarding(const input::ButtonMap& map) const;
     /// The game is over: its chords are dropped and the pads go back to the shell's claim.
     void release();
     /// Whether a game holds the pads.

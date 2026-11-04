@@ -365,8 +365,8 @@ RunnerExit RunnerApp::run() {
                 }
                 joypad.apply(event);
             }
-            for (const auto& [source, sticks] : pads->sticks()) {
-                joypad.sticks(source, sticks);
+            for (const auto& [source, axes] : pads->axes()) {
+                joypad.sticks(source, axes.sticks);
             }
         }
         const bool touchShown = touch && !padConnected && !waiting;

@@ -20,6 +20,9 @@ class VirtualPad {
     static constexpr std::uint16_t vendor{0x045e};
     static constexpr std::uint16_t product{0x028e};
 
+    /// Its keys and axes, as a pad that reads like it.
+    [[nodiscard]] static PadCapabilities capabilities();
+
     /// Creates the device and returns once its node is open to this user, as it is to a game;
     /// throws std::system_error when uinput is unavailable.
     VirtualPad();

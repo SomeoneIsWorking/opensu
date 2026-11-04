@@ -55,7 +55,7 @@ class EvdevPads final : public PadSource {
     [[nodiscard]] std::vector<PadInfo> connected() const override;
 
     /// Where each connected pad's sticks stand now, by `PadInfo::id`. Any thread.
-    [[nodiscard]] std::map<std::string, Sticks> sticks() const override;
+    [[nodiscard]] std::map<std::string, PadAxes> axes() const override;
 
     /// The kernel's power supply named after the pad's unique id (its Bluetooth address).
     [[nodiscard]] std::optional<device::BatteryStatus> battery(const PadInfo& pad) const override;
@@ -146,7 +146,7 @@ class EvdevPads final : public PadSource {
     bool appliedMissed_{false};
     std::vector<Event> events_;
     std::vector<PadInfo> connected_;
-    std::map<std::string, Sticks> sticks_;
+    std::map<std::string, PadAxes> axes_;
     std::vector<std::filesystem::path> keptNodes_;
 
     std::jthread thread_;

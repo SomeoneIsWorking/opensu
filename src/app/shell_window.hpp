@@ -1,7 +1,8 @@
 // shell_window — the shell's SDL window on gpu2d: the window and GPU device, the canvas the shell
 // draws on, a frame to the window or to an offscreen target, and the window's events as the
-// frame's keyboard, pointer, resize and close. Keys and text injected over the control channel are
-// posted to the same event queue, so they reach the shell exactly as the keyboard's do.
+// frame's keyboard, pointer, resize and close. Keys, text and pointer events injected over the
+// control channel are posted to the same event queue, so they reach the shell exactly as the
+// keyboard's and mouse's do.
 #pragma once
 
 #include <chrono>
@@ -39,6 +40,8 @@ struct PointerFrame {
     bool left{false};
     bool right{false};
     bool middle{false};
+    /// Buttons held as the frame ends: bit 0 left, 1 middle, 2 right.
+    std::uint8_t held{0};
     /// The primary button's or the finger's changes this frame, in order: true down, false up.
     std::vector<bool> primary;
     /// This frame's pointer events came from a finger (SDL's touch mouse).
@@ -114,6 +117,12 @@ class ShellWindow {
     void press(input::Combo combo);
     /// Posts `text` to the event queue as the keyboard types it, after whatever was posted before.
     void type(std::string text);
+    /// Posts the mouse moving to `at` in window pixels.
+    void movePointer(ui::Point at);
+    /// Posts the mouse's `button` (an `SDL_BUTTON_*`) going down or up at `at`.
+    void pressPointer(ui::Point at, std::uint8_t button, bool down);
+    /// Posts the wheel turning `notches` at `at`, positive away from the player.
+    void turnWheel(ui::Point at, float notches);
 
     /// Pixels per dp of the display the window is on: SDL's display scale, 1 when it has none.
     [[nodiscard]] float displayDp() const noexcept;
@@ -156,6 +165,8 @@ class ShellWindow {
     input::KeyFrame keys_;
     std::vector<std::uint8_t> keysHeld_;
     PointerFrame pointer_;
+    /// The mouse's buttons held, as `PointerFrame::held`; kept across frames.
+    std::uint8_t pointerHeld_{0};
     std::optional<gpu2d::PixelSize> resized_;
     /// Strokes to post; the front one's keys are down while `strokeDown_`. Its text stays here
     /// until the event naming it was taken.

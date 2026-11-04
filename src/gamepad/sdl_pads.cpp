@@ -3,6 +3,8 @@
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 
+#include <algorithm>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -73,24 +75,27 @@ void SdlPadState::axis(SDL_GamepadAxis axis, std::int16_t value, std::vector<Eve
     const float travel = static_cast<float>(value) / axisTravel;
     switch (axis) {
     case SDL_GAMEPAD_AXIS_LEFTX:
-        sticks_.leftX = value;
+        axes_.sticks.leftX = value;
         stick(Button::Left, travel < -stickDirectionAt, stickHeld_, controls);
         stick(Button::Right, travel > stickDirectionAt, stickHeld_, controls);
         break;
     case SDL_GAMEPAD_AXIS_LEFTY:
-        sticks_.leftY = value;
+        axes_.sticks.leftY = value;
         stick(Button::Up, travel < -stickDirectionAt, stickHeld_, controls);
         stick(Button::Down, travel > stickDirectionAt, stickHeld_, controls);
         break;
     case SDL_GAMEPAD_AXIS_RIGHTX:
-        sticks_.rightX = value;
+        axes_.sticks.rightX = value;
         break;
     case SDL_GAMEPAD_AXIS_RIGHTY:
-        sticks_.rightY = value;
+        axes_.sticks.rightY = value;
         break;
     case SDL_GAMEPAD_AXIS_LEFT_TRIGGER:
     case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: {
         const Button trigger = axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ? Button::L2 : Button::R2;
+        (trigger == Button::L2 ? axes_.leftTrigger : axes_.rightTrigger) =
+            static_cast<std::int32_t>(std::lround(std::clamp(travel, 0.0f, 1.0f) *
+                                                  static_cast<float>(virtualTrigger.max)));
         const bool held = triggerHeld_[trigger];
         if (held ? travel <= triggerReleaseAt : travel >= triggerPressAt) {
             set(trigger, !held, triggerHeld_, controls);
@@ -268,13 +273,13 @@ std::vector<PadInfo> SdlPads::connected() const {
     return pads;
 }
 
-std::map<std::string, Sticks> SdlPads::sticks() const {
+std::map<std::string, PadAxes> SdlPads::axes() const {
     const std::lock_guard lock{mutex_};
-    std::map<std::string, Sticks> sticks;
+    std::map<std::string, PadAxes> axes;
     for (const auto& [id, pad] : pads_) {
-        sticks.emplace(pad.info.id, pad.state.sticks());
+        axes.emplace(pad.info.id, pad.state.axes());
     }
-    return sticks;
+    return axes;
 }
 
 // Nothing is grabbed or forwarded: the game reads the pads itself, so it needs nothing.

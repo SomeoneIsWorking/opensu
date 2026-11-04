@@ -70,9 +70,9 @@ std::vector<Event> EvdevPads::takeEvents() {
     return std::exchange(events_, {});
 }
 
-std::map<std::string, Sticks> EvdevPads::sticks() const {
+std::map<std::string, PadAxes> EvdevPads::axes() const {
     const std::lock_guard lock{mutex_};
-    return sticks_;
+    return axes_;
 }
 
 std::vector<PadInfo> EvdevPads::connected() const {
@@ -219,7 +219,7 @@ void EvdevPads::add(const std::filesystem::path& node) {
     {
         const std::lock_guard lock{mutex_};
         connected_.push_back(info);
-        sticks_[info.id] = pad->translator.sticks();
+        axes_[info.id] = pad->translator.axes();
     }
     publish(events);
     pads_.push_back(std::move(pad));
@@ -367,7 +367,7 @@ void EvdevPads::run(const std::stop_token& stop) {
                     std::erase_if(connected_, [&id](const PadInfo& info) {
                         return info.id == id;
                     });
-                    sticks_.erase(id);
+                    axes_.erase(id);
                 }
                 pads_.erase(pads_.begin() + static_cast<std::ptrdiff_t>(i - 2));
                 continue;
@@ -382,7 +382,7 @@ void EvdevPads::run(const std::stop_token& stop) {
             }
             {
                 const std::lock_guard lock{mutex_};
-                sticks_[pad.device.node().string()] = pad.translator.sticks();
+                axes_[pad.device.node().string()] = pad.translator.axes();
             }
             if (pad.live) {
                 write(pad, forward);

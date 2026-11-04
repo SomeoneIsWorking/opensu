@@ -45,6 +45,11 @@ void ControlBridge::injectPointer(PointerInjection pointer) {
     input_.pointer.push_back(pointer);
 }
 
+void ControlBridge::capRemoteLink(std::uint64_t bitsPerSecond) {
+    const std::lock_guard lock{inputMutex_};
+    input_.linkCap = bitsPerSecond;
+}
+
 void ControlBridge::typeText(std::string text) {
     const std::lock_guard lock{inputMutex_};
     input_.keystrokes.emplace_back(std::move(text));

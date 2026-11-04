@@ -1,16 +1,20 @@
 // guest_video — the guest's pictures for one session: the host's packets queued as they come and
-// fed to PyroWave on a thread of its own, so a slow decode never holds up the stream's receiving;
-// each frame is decoded once all of its packets are in and handed to the loop newest first. A
-// frame still missing packets when the next one starts is dropped, and so is a whole frame the
-// decoder reaches only after two newer ones began arriving (late). Each shown frame's way from
-// the host's capture to this screen is timed by stage, on this clock (`hostAheadUs` moves the
-// host's times over).
+// fed to the decoder of their codec on a thread of its own, so a slow decode never holds up the
+// stream's receiving; each frame is decoded once all of its packets are in and handed to the loop
+// newest first. A frame still missing packets when the next one starts is dropped; for a codec
+// whose frames build on each other the guest then wants a key frame, and on PyroWave a whole frame
+// the decoder reaches only after two newer ones began arriving is skipped (late). Each shown
+// frame's way from the host's capture to this screen is timed by stage, on this clock
+// (`hostAheadUs` moves the host's times over).
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <map>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <stop_token>
@@ -25,7 +29,7 @@ namespace opensu::stream {
 
 class GuestVideo {
   public:
-    /// Starts the decoding thread; throws `std::runtime_error` when PyroWave cannot decode here.
+    /// Starts the decoding thread. A codec's decoder opens with its first packet.
     GuestVideo();
     ~GuestVideo() = default;
     GuestVideo(const GuestVideo&) = delete;
@@ -34,8 +38,9 @@ class GuestVideo {
     GuestVideo& operator=(GuestVideo&&) = delete;
 
     /// Queues one packet of the host's, which came at `receivedUs` while the host's clock was
-    /// `hostAheadUs` ahead of this one. On the stream's thread.
-    void take(const wire::VideoPacket& packet, std::uint64_t receivedUs, std::int64_t hostAheadUs);
+    /// `hostAheadUs` ahead of this one; whether a key frame is wanted (asked until one decodes).
+    /// On the stream's thread.
+    bool take(const wire::VideoPacket& packet, std::uint64_t receivedUs, std::int64_t hostAheadUs);
 
     /// The newest decoded frame not taken yet. Any thread.
     struct Frame {
@@ -82,9 +87,13 @@ class GuestVideo {
     /// One packet into the decoder, and the frame out once it is whole. Decoding thread.
     void decode(const Queued& queued);
 
-    VideoDecoder decoder_;
+    /// Each codec's decoder once its first packet came, and the codec of the frame shown last;
+    /// on the decoding thread.
+    std::map<VideoCodec, std::unique_ptr<VideoDecoder>> decoders_;
     /// The frame whose packets are going into the decoder, on the decoding thread.
     std::optional<Times> building_;
+    /// The decoder last given a packet waits for a key frame.
+    std::atomic<bool> keyWanted_{false};
 
     std::mutex queueMutex_;
     std::condition_variable_any queued_;
@@ -101,6 +110,8 @@ class GuestVideo {
     std::size_t late_{0};
     std::size_t presented_{0};
     std::size_t drawn_{0};
+    std::string codec_{"none"};
+    std::size_t switches_{0};
     /// Last, so it stops before what it uses goes.
     std::jthread decoding_;
 };

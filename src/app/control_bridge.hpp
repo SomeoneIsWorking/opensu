@@ -30,6 +30,8 @@ class ControlBridge final : public ControlTarget {
         /// In the order they were asked for.
         std::vector<Keystroke> keystrokes;
         std::vector<PointerInjection> pointer;
+        /// The newest remote link cap asked for, if any.
+        std::optional<std::uint64_t> linkCap;
     };
 
     // ControlTarget. Each is callable from any thread.
@@ -39,6 +41,7 @@ class ControlBridge final : public ControlTarget {
                 std::chrono::milliseconds hold, bool stick) override;
     void injectKey(input::Combo combo) override;
     void injectPointer(PointerInjection pointer) override;
+    void capRemoteLink(std::uint64_t bitsPerSecond) override;
     [[nodiscard]] bool captureFrame(FrameKind kind, FramePng& frame) override;
     void requestClose() override;
     /// Asks the loop to read the library again; `toast` is shown when it is not empty.

@@ -248,6 +248,10 @@ class ShellApp final {
     void sendRemoteInput();
     /// Where the remote picture is drawn in the window.
     [[nodiscard]] display::Placed remotePlacement() const;
+    /// Posts an injected pointer event to the window's queue, as the mouse would make it.
+    void postPointer(const PointerInjection& injected);
+    /// Caps remote play's link for a test run; refused outside a hidden one.
+    void capRemoteLink(std::uint64_t bitsPerSecond);
     /// Remote play's newest picture as PNG, for the control channel; empty for none.
     [[nodiscard]] FramePng remotePicturePng() const;
     /// Guide, or Guide + A on Volume: opens the Guide menu, or closes it.

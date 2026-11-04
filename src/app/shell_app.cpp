@@ -13,11 +13,14 @@
 #include <utility>
 #include <variant>
 
+#include <SDL3/SDL_mouse.h>
+
 #include "config/config.hpp"
 #include "frame_png.hpp"
 #include "game_end.hpp"
 #include "gpu2d/gpu_error.hpp"
 #include "gpu2d/image/png_encoder.hpp"
+#include "input/chord_set.hpp"
 #include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "keyboard_pad.hpp"
@@ -638,7 +641,9 @@ bool ShellApp::launch(const library::Game& game, std::vector<std::string> enviro
         return false;
     }
     if (game.source == library::Source::Remote) {
-        remotePlay_.start(game);
+        remotePlay_.start(
+            game, stream::wire::PadMapping{.map = padOwner_.forwarding(mappings_.forGame(game)),
+                                           .holdDelay = input::holdDelay});
         return true;
     }
     if (game.launch.empty()) {
@@ -1052,19 +1057,12 @@ void ShellApp::serviceControlRequests() {
             window_->type(std::get<std::string>(stroke));
         }
     }
+    // The pointer's too, so a posted button is held across frames as the mouse's is.
     for (const PointerInjection& injected : queued.pointer) {
-        PointerFrame frame;
-        frame.point = ui::Point{injected.x, injected.y};
-        // A move always moves, so it hovers even onto the spot the pointer was last put.
-        if (injected.kind == PointerInjection::Kind::Move) {
-            frame.delta = ui::Point{1.0f, 1.0f};
-        }
-        if (injected.kind == PointerInjection::Kind::Click) {
-            frame.left = true;
-            frame.primary = {true, false};
-        }
-        frame.wheel = injected.wheel;
-        pointer(frame);
+        postPointer(injected);
+    }
+    if (queued.linkCap) {
+        capRemoteLink(*queued.linkCap);
     }
     // An injection carries its releases: without them a direction would repeat forever.
     for (const auto& [event, device] : queued.buttons) {
@@ -1088,6 +1086,47 @@ void ShellApp::serviceControlRequests() {
     bridge_.answerFrame(
         FramePng{.png = renderShellPng(*window_, shell_, png) ? std::move(png) : std::string{},
                  .number = 0});
+}
+
+void ShellApp::postPointer(const PointerInjection& injected) {
+    using Kind = PointerInjection::Kind;
+    const auto sdlButton = [](PointerInjection::Button button) -> std::uint8_t {
+        switch (button) {
+        case PointerInjection::Button::Middle:
+            return SDL_BUTTON_MIDDLE;
+        case PointerInjection::Button::Right:
+            return SDL_BUTTON_RIGHT;
+        case PointerInjection::Button::Left:
+            break;
+        }
+        return SDL_BUTTON_LEFT;
+    };
+    const ui::Point at{injected.x, injected.y};
+    switch (injected.kind) {
+    case Kind::Move:
+        window_->movePointer(at);
+        break;
+    case Kind::Click:
+        window_->pressPointer(at, SDL_BUTTON_LEFT, true);
+        window_->pressPointer(at, SDL_BUTTON_LEFT, false);
+        break;
+    case Kind::Down:
+    case Kind::Up:
+        window_->pressPointer(at, sdlButton(injected.button), injected.kind == Kind::Down);
+        break;
+    case Kind::Wheel:
+        window_->turnWheel(at, injected.wheel);
+        break;
+    }
+}
+
+void ShellApp::capRemoteLink(std::uint64_t bitsPerSecond) {
+    if (!settings_.hidden) {
+        lucent::warn("remote", "a link cap is for hidden runs; {} bit/s is not applied",
+                     bitsPerSecond);
+        return;
+    }
+    remotePlay_.capLink(bitsPerSecond);
 }
 
 FramePng ShellApp::remotePicturePng() const {
@@ -1116,15 +1155,17 @@ void ShellApp::sendRemoteInput() {
     }
     if (!remoteHasControls()) {
         remoteInput_.release();
-        remotePlay_.input(remoteInput_.pad(), {}, remoteInput_.mouse());
+        const RemoteInput::State released = remoteInput_.take();
+        remotePlay_.input(released.pad, {}, released.mouse);
         return;
     }
-    remoteInput_.sticks(pads_->sticks());
+    remoteInput_.axes(pads_->axes());
     stream::wire::KeyState keys;
     const std::vector<std::uint8_t>& held = window_->keysHeld();
     keys.held.assign(held.begin(), held.begin() + static_cast<std::ptrdiff_t>(std::min(
                                                       held.size(), stream::wire::heldKeys)));
-    remotePlay_.input(remoteInput_.pad(), keys, remoteInput_.mouse());
+    const RemoteInput::State state = remoteInput_.take();
+    remotePlay_.input(state.pad, keys, state.mouse);
 }
 
 display::Placed ShellApp::remotePlacement() const {

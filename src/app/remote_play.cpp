@@ -56,7 +56,12 @@ std::optional<std::uint16_t> RemotePlay::offer(const lan::Peer& peer, const std:
                                       .mouse =
                                           [&player](const stream::wire::MouseState& state) {
                                               player.mouse(state);
-                                          }});
+                                          },
+                                      .mapping =
+                                          [&player](const stream::wire::PadMapping& mapping) {
+                                              player.mapping(mapping);
+                                          },
+                                      .encoders = stream::encodableHere()});
         auto video = std::make_unique<stream::HostVideo>(*stream, screen_.gamescopeSocket);
         const std::uint16_t port = stream->port();
         auto sound =
@@ -75,12 +80,13 @@ std::optional<std::uint16_t> RemotePlay::offer(const lan::Peer& peer, const std:
     }
 }
 
-void RemotePlay::start(const library::Game& game) {
+void RemotePlay::start(const library::Game& game, stream::wire::PadMapping mapping) {
     if (playing()) {
         hooks_.say("remote play is already on", true);
         return;
     }
     game_ = game;
+    mapping_ = std::move(mapping);
     asking_ = hooks_.ask(game.hostId, game.sourceId,
                          [mutex = answerMutex_, answer = answer_](
                              std::optional<lan::LanNode::PlayOffer> offer, std::string error) {
@@ -187,13 +193,16 @@ void RemotePlay::serviceGuest() {
                 .video =
                     [video = video_.get()](const stream::wire::VideoPacket& packet,
                                            std::uint64_t receivedUs, std::int64_t hostAheadUs) {
-                        video->take(packet, receivedUs, hostAheadUs);
+                        return video->take(packet, receivedUs, hostAheadUs);
                     },
                 .audio =
                     [sound = audio_.get()](const stream::wire::AudioPacket& packet,
                                            std::uint64_t receivedUs, std::int64_t hostAheadUs) {
                         sound->take(packet, receivedUs, hostAheadUs);
-                    }});
+                    },
+                .decoders = stream::decodableHere()});
+            guest_->mapping(mapping_);
+            guest_->capLink(linkCap_);
         } catch (const std::runtime_error& failure) {
             drop();
             lucent::warn("remote", "remote play cannot start: {}", failure.what());
@@ -226,6 +235,14 @@ void RemotePlay::input(const stream::wire::PadState& pad, const stream::wire::Ke
         guest_->keys(keys);
         guest_->mouse(mouse);
     }
+}
+
+void RemotePlay::capLink(std::uint64_t bitsPerSecond) {
+    linkCap_ = bitsPerSecond;
+    if (guest_) {
+        guest_->capLink(bitsPerSecond);
+    }
+    lucent::info("remote", "a test run caps the link at {} bit/s", bitsPerSecond);
 }
 
 std::optional<stream::GuestVideo::Frame> RemotePlay::takePicture() {
@@ -271,6 +288,7 @@ RemotePlay::Glance RemotePlay::glance() const {
         if (hosted_) {
             glance.state = "hosting";
             glance.peer = hosted_->guest;
+            glance.video = hosted_->stream->linkSummary();
         }
     }
     return glance;

@@ -1,6 +1,7 @@
 #include "remote_pad.hpp"
 
 #include <array>
+#include <utility>
 #include <vector>
 
 #include <linux/input-event-codes.h>
@@ -8,6 +9,14 @@
 #include "forward_map.hpp"
 
 namespace opensu::gamepad {
+
+RemotePad::RemotePad() : translator_{VirtualPad::capabilities()} {
+}
+
+void RemotePad::setMapping(ForwardMap map, std::chrono::milliseconds holdDelay) {
+    translator_.setChords(ChordTriggers{.chords = {}, .holdDelay = holdDelay});
+    translator_.setForwardMap(std::move(map));
+}
 
 void RemotePad::follow(const PadSnapshot& pad) {
     const std::function<std::int32_t(Button)> level = [&pad](Button button) -> std::int32_t {
@@ -44,8 +53,19 @@ void RemotePad::follow(const PadSnapshot& pad) {
     if (events.empty()) {
         return;
     }
-    events.push_back(PadEvent{EV_SYN, SYN_REPORT, 0});
-    pad_.write(events);
+    std::vector<PadEvent> forward;
+    std::vector<Event> controls;
+    const ChordGate::Clock::time_point now = ChordGate::Clock::now();
+    for (const PadEvent& event : events) {
+        translator_.translate(event, forward, controls, now);
+    }
+    if (forward.empty()) {
+        return;
+    }
+    if (forward.back().type != EV_SYN) {
+        forward.push_back(PadEvent{EV_SYN, SYN_REPORT, 0});
+    }
+    pad_.write(forward);
 }
 
 void RemotePad::rest() {

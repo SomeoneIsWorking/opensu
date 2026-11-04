@@ -26,8 +26,12 @@ Remote play on Linux captures Gamescope and the game's sound through PipeWire (`
 codes the sound with Opus (`opus-devel`), and plays the guest's keys and pointer through XTest
 (`libXtst-devel`); Debian and Ubuntu name them `libpipewire-0.3-dev libopus-dev libxtst-dev`. Its
 video codec is PyroWave, from the pinned [fork](https://github.com/SomeoneIsWorking/pyrowave) and
-pinned Granite (`-DOPENSU_BUILD_PYROWAVE=OFF` builds without it, and remote play then refuses to
-start).
+pinned Granite (`-DOPENSU_BUILD_PYROWAVE=OFF` builds without it). For links too slow for PyroWave
+it codes H.264, HEVC or AV1 through libavcodec on VA-API (`libavcodec-free-devel
+libavutil-free-devel libva-devel` on Fedora, `libavcodec-dev libavutil-dev libva-dev` on Debian and
+Ubuntu; `-DOPENSU_BUILD_VAAPI=OFF` builds without them). Which hardware codecs work is the VA-API
+driver's: Fedora's own Mesa encodes none, RPM Fusion's `mesa-va-drivers-freeworld` encodes H.264
+and HEVC. Built with neither, remote play has no codec to stream with.
 
 `opensu-retro`, the built-in libretro runner, also needs the Vulkan loader and glslc
 (`vulkan-loader-devel glslc` on Fedora), and Rust (`cargo`) for librashader, the shader preset

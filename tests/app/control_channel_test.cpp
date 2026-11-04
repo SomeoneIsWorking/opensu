@@ -4,6 +4,7 @@
 #include "control_channel.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
@@ -60,6 +61,9 @@ class FakeShell final : public ControlTarget {
     void injectPointer(PointerInjection pointer) override {
         pointers.push_back(pointer);
     }
+    void capRemoteLink(std::uint64_t bitsPerSecond) override {
+        linkCaps.push_back(bitsPerSecond);
+    }
     [[nodiscard]] bool captureFrame(FrameKind /*kind*/, FramePng& /*frame*/) override {
         return false;
     }
@@ -73,6 +77,7 @@ class FakeShell final : public ControlTarget {
     std::vector<std::string> typed;
     std::vector<opensu::input::Combo> keys;
     std::vector<PointerInjection> pointers;
+    std::vector<std::uint64_t> linkCaps;
     std::vector<opensu::gamepad::Button> pressed;
     std::vector<std::vector<opensu::gamepad::Button>> held;
     std::vector<opensu::input::Device> devices;
@@ -359,23 +364,42 @@ void testPointer() {
     FakeSignIn signIn;
     ControlChannel channel{shell, signIn, 0};
     using Kind = PointerInjection::Kind;
+    using PointerButton = PointerInjection::Button;
+    const auto at = [](Kind kind, float x, float y, PointerButton button = PointerButton::Left,
+                       float wheel = 0.0f) {
+        return PointerInjection{.kind = kind, .x = x, .y = y, .button = button, .wheel = wheel};
+    };
 
     expect(channel.handle(post("/pointer", "move 640 400")).status == 200 &&
                channel.handle(post("/pointer", " click 12.5 30\n")).status == 200 &&
-               channel.handle(post("/pointer", "wheel 640 400 -2")).status == 200,
-           "a move, a click and a wheel are input");
-    expect(shell.pointers == std::vector<PointerInjection>{{Kind::Move, 640.0f, 400.0f, 0.0f},
-                                                           {Kind::Click, 12.5f, 30.0f, 0.0f},
-                                                           {Kind::Wheel, 640.0f, 400.0f, -2.0f}},
+               channel.handle(post("/pointer", "wheel 640 400 -2")).status == 200 &&
+               channel.handle(post("/pointer", "down 5 6 right")).status == 200 &&
+               channel.handle(post("/pointer", "up 5 6 middle")).status == 200,
+           "a move, a click, a wheel and a button held are input");
+    expect(shell.pointers ==
+               std::vector<PointerInjection>{
+                   at(Kind::Move, 640.0f, 400.0f), at(Kind::Click, 12.5f, 30.0f),
+                   at(Kind::Wheel, 640.0f, 400.0f, PointerButton::Left, -2.0f),
+                   at(Kind::Down, 5.0f, 6.0f, PointerButton::Right),
+                   at(Kind::Up, 5.0f, 6.0f, PointerButton::Middle)},
            "each reaches the shell as that event, in window pixels");
-    for (const char* refused : {"", "move", "move 1", "move 1 2 3", "click x 2", "wheel 1 2",
-                                "wheel 1 2 up", "drag 1 2", "move 1 2px"}) {
+    for (const char* refused :
+         {"", "move", "move 1", "move 1 2 3", "click x 2", "wheel 1 2", "wheel 1 2 up", "drag 1 2",
+          "move 1 2px", "down 1 2", "up 1 2 side"}) {
         expect(channel.handle(post("/pointer", refused)).status == 400,
-               "a body that is not move X Y, click X Y or wheel X Y N is refused");
+               "a body that is not one of the pointer's events is refused");
     }
     const Request get{.method = "GET", .target = "/pointer", .headers = {}, .body = {}};
     expect(channel.handle(get).status != 200, "the pointer is POST only");
-    expect(shell.pointers.size() == 3, "a refused pointer reaches nobody");
+    expect(shell.pointers.size() == 5, "a refused pointer reaches nobody");
+
+    expect(channel.handle(post("/remote/link", "60000000\n")).status == 200 &&
+               channel.handle(post("/remote/link", "0")).status == 200 &&
+               channel.handle(post("/remote/link", "fast")).status == 400 &&
+               channel.handle(post("/remote/link", "-1")).status == 400,
+           "a remote link cap is bits a second");
+    expect(shell.linkCaps == std::vector<std::uint64_t>{60000000, 0},
+           "each cap reaches the shell, a refused one none");
 
     shell.state.screen = "dialog";
     shell.state.screenFocus = "dialog/1";

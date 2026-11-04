@@ -21,7 +21,7 @@ enum class PacketKind : std::uint8_t {
     /// The guest's keepalive with its clock, which the host answers with `Pong`.
     Ping = 1,
     Pong = 2,
-    /// One PyroWave packet of a frame.
+    /// One packet of a coded frame.
     Video = 3,
     /// One Opus packet.
     Audio = 4,
@@ -33,6 +33,14 @@ enum class PacketKind : std::uint8_t {
     Mouse = 7,
     /// The session is over, and why.
     End = 8,
+    /// Filler the host sends to measure what the link carries.
+    Probe = 9,
+    /// What the guest received, and the codecs it decodes.
+    Report = 10,
+    /// The guest lost a frame its codec needs, and asks for a key frame.
+    KeyFrame = 11,
+    /// The guest's mapping for the remote pad.
+    Mapping = 12,
 };
 
 /// Bytes a sealed datagram adds to its payload: the header and the tag.

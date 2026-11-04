@@ -123,6 +123,8 @@ class HostInput::Devices {
     }
 
     gamepad::RemotePad pad;
+    /// The guest's mapping as last applied.
+    std::optional<wire::PadMapping> mapping;
 
     void keys(const wire::KeyState& state) {
         for (const std::uint8_t usage : held_) {
@@ -200,6 +202,16 @@ void HostInput::pad(const wire::PadState& state) {
                                                                         .rightY = state.rightY},
                                               .leftTrigger = state.leftTrigger,
                                               .rightTrigger = state.rightTrigger});
+}
+
+void HostInput::mapping(const wire::PadMapping& mapping) {
+    if (devices_->mapping == mapping) {
+        return;
+    }
+    devices_->mapping = mapping;
+    devices_->pad.setMapping(mapping.map, mapping.holdDelay);
+    lucent::info("remote", "the guest's pad plays with its mapping of {} buttons and {} chords",
+                 mapping.map.buttons.size(), mapping.map.chords.size());
 }
 
 void HostInput::keys(const wire::KeyState& state) {

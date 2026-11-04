@@ -1,5 +1,3 @@
-#include "video_codec.hpp"
-
 #include <stdexcept>
 #include <utility>
 
@@ -7,9 +5,10 @@
 
 #include <pyrowave/pyrowave.h>
 
+#include "codec_backends.hpp"
 #include "lucent/log.h"
 
-namespace opensu::stream {
+namespace opensu::stream::backend {
 namespace {
 
 void check(pyrowave_result result, const char* what) {
@@ -45,20 +44,25 @@ int even(int value) {
     return value & ~1;
 }
 
-} // namespace
+/// The bytes a frame may code to at `bitsPerSecond` and 60 frames a second.
+std::size_t frameBytes(std::uint64_t bitsPerSecond) {
+    constexpr std::uint64_t framesPerSecond = 60;
+    return static_cast<std::size_t>(bitsPerSecond / 8 / framesPerSecond);
+}
 
-class VideoEncoder::Codec {
+class Encoder final : public VideoEncoder {
   public:
-    ~Codec() {
+    ~Encoder() override {
         drop();
     }
-    Codec() = default;
-    Codec(const Codec&) = delete;
-    Codec& operator=(const Codec&) = delete;
-    Codec(Codec&&) = delete;
-    Codec& operator=(Codec&&) = delete;
+    Encoder() = default;
+    Encoder(const Encoder&) = delete;
+    Encoder& operator=(const Encoder&) = delete;
+    Encoder(Encoder&&) = delete;
+    Encoder& operator=(Encoder&&) = delete;
 
-    std::vector<std::string> encode(const CapturedFrame& frame, std::size_t budget) {
+    CodedFrame encode(const CapturedFrame& frame, std::uint64_t bitsPerSecond,
+                      bool /*key*/) override {
         const int width = even(frame.width);
         const int height = even(frame.height);
         if (encoder_ == nullptr || width != width_ || height != height_) {
@@ -82,7 +86,7 @@ class VideoEncoder::Codec {
         planes.width = width;
         planes.height = height;
         planes.format = PYROWAVE_CPU_BUFFER_FORMAT_NV12;
-        const pyrowave_rate_control rate{.maximum_bitstream_size = budget};
+        const pyrowave_rate_control rate{.maximum_bitstream_size = frameBytes(bitsPerSecond)};
         check(pyrowave_encoder_encode_cpu(encoder_, &planes, &rate), "code a picture");
 
         std::size_t count = 0;
@@ -94,11 +98,12 @@ class VideoEncoder::Codec {
         check(pyrowave_encoder_packetize(encoder_, packets_.data(), videoPacketBytes, &made,
                                          bitstream_.data(), bitstream_.size()),
               "cut a picture into packets");
-        std::vector<std::string> out;
-        out.reserve(made);
+        CodedFrame out{.packets = {}, .key = true};
+        out.packets.reserve(made);
         for (std::size_t i = 0; i < made; ++i) {
-            out.emplace_back(reinterpret_cast<const char*>(bitstream_.data()) + packets_[i].offset,
-                             packets_[i].size);
+            out.packets.emplace_back(reinterpret_cast<const char*>(bitstream_.data()) +
+                                         packets_[i].offset,
+                                     packets_[i].size);
         }
         return out;
     }
@@ -119,27 +124,20 @@ class VideoEncoder::Codec {
     std::vector<std::uint8_t> bitstream_;
 };
 
-VideoEncoder::VideoEncoder() : codec_{std::make_unique<Codec>()} {
-}
-
-VideoEncoder::~VideoEncoder() = default;
-
-std::vector<std::string> VideoEncoder::encode(const CapturedFrame& frame, std::size_t budget) {
-    return codec_->encode(frame, budget);
-}
-
-class VideoDecoder::Codec {
+class Decoder final : public VideoDecoder {
   public:
-    ~Codec() {
+    ~Decoder() override {
         drop();
     }
-    Codec() = default;
-    Codec(const Codec&) = delete;
-    Codec& operator=(const Codec&) = delete;
-    Codec(Codec&&) = delete;
-    Codec& operator=(Codec&&) = delete;
+    Decoder() = default;
+    Decoder(const Decoder&) = delete;
+    Decoder& operator=(const Decoder&) = delete;
+    Decoder(Decoder&&) = delete;
+    Decoder& operator=(Decoder&&) = delete;
 
-    bool push(int width, int height, std::string_view packet) {
+    bool push(const wire::VideoPacket& packet) override {
+        const int width = packet.width;
+        const int height = packet.height;
         if (width < 2 || height < 2 || (width % 2) != 0 || (height % 2) != 0) {
             return false;
         }
@@ -155,14 +153,14 @@ class VideoDecoder::Codec {
             height_ = height;
             lucent::info("video", "decoding {}x{} pictures", width, height);
         }
-        if (pyrowave_decoder_push_packet(decoder_, packet.data(), packet.size()) !=
+        if (pyrowave_decoder_push_packet(decoder_, packet.data.data(), packet.data.size()) !=
             PYROWAVE_SUCCESS) {
             return false;
         }
         return pyrowave_decoder_decode_is_ready(decoder_, false);
     }
 
-    void decode(Picture& picture) {
+    bool decode(Picture& picture) override {
         const auto lumaBytes = static_cast<std::size_t>(width_) * static_cast<std::size_t>(height_);
         const std::size_t chromaBytes = lumaBytes / 4;
         planes_.resize(lumaBytes + 2 * chromaBytes);
@@ -188,8 +186,20 @@ class VideoDecoder::Codec {
                                   .blue = all.subspan(lumaBytes, chromaBytes),
                                   .red = all.subspan(lumaBytes + chromaBytes, chromaBytes),
                                   .width = width_,
-                                  .height = height_},
+                                  .height = height_,
+                                  .lumaStride = static_cast<std::size_t>(width_),
+                                  .chromaStride = static_cast<std::size_t>(width_ / 2),
+                                  .chromaStep = 1},
                       picture.rgba);
+        return true;
+    }
+
+    [[nodiscard]] bool intraOnly() const noexcept override {
+        return true;
+    }
+
+    [[nodiscard]] bool awaitingKey() const noexcept override {
+        return false;
     }
 
   private:
@@ -207,17 +217,18 @@ class VideoDecoder::Codec {
     std::vector<std::uint8_t> planes_;
 };
 
-VideoDecoder::VideoDecoder() : codec_{std::make_unique<Codec>()} {
+} // namespace
+
+bool pyroWaveBuilt() noexcept {
+    return true;
 }
 
-VideoDecoder::~VideoDecoder() = default;
-
-bool VideoDecoder::push(int width, int height, std::string_view packet) {
-    return codec_->push(width, height, packet);
+std::unique_ptr<VideoEncoder> openPyroWaveEncoder() {
+    return std::make_unique<Encoder>();
 }
 
-void VideoDecoder::decode(Picture& picture) {
-    codec_->decode(picture);
+std::unique_ptr<VideoDecoder> openPyroWaveDecoder() {
+    return std::make_unique<Decoder>();
 }
 
-} // namespace opensu::stream
+} // namespace opensu::stream::backend

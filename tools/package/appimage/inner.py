@@ -22,6 +22,8 @@ def plan_for(layout: config.Layout, version: str) -> cmake.Plan:
             f"-DOPENSU_GAMESCOPE_MESON_OPTIONS={config.GAMESCOPE_MESON_OPTIONS}",
             "-DOPENSU_DESKTOP_EXEC=opensu",
             f"-DOPENSU_VERSION={version}",
+            # The host's libavcodec is another library version on each distribution.
+            "-DOPENSU_BUILD_VAAPI=OFF",
         ),
     )
 

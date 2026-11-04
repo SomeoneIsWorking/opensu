@@ -17,6 +17,20 @@ constexpr std::uint8_t fullTrigger = 255;
 constexpr std::int16_t fullTravel = 32767;
 constexpr double pointerScale = 65535.0;
 
+std::int16_t narrowed(std::int32_t value) {
+    return static_cast<std::int16_t>(std::clamp(value, -32768, 32767));
+}
+
+std::uint8_t travel(std::int32_t value) {
+    return static_cast<std::uint8_t>(std::clamp<std::int32_t>(value, 0, fullTrigger));
+}
+
+/// The pointer buttons `frame` saw go down, bit 0 left, 1 middle, 2 right.
+std::uint8_t clicks(const PointerFrame& frame) {
+    return static_cast<std::uint8_t>((frame.left ? 1U : 0U) | (frame.middle ? 2U : 0U) |
+                                     (frame.right ? 4U : 0U));
+}
+
 } // namespace
 
 void RemoteInput::button(const gamepad::Event& event) {
@@ -24,37 +38,24 @@ void RemoteInput::button(const gamepad::Event& event) {
         event.button == Button::None || event.button == Button::Search) {
         return;
     }
-    std::uint32_t& held = event.stick ? stickHeld_ : pad_.buttons;
-    held = event.pressed ? held | bit(event.button) : held & ~bit(event.button);
-    if (event.button == Button::L2) {
-        pad_.leftTrigger = event.pressed ? fullTrigger : 0;
-    } else if (event.button == Button::R2) {
-        pad_.rightTrigger = event.pressed ? fullTrigger : 0;
+    if (event.stick) {
+        stickHeld_ =
+            event.pressed ? stickHeld_ | bit(event.button) : stickHeld_ & ~bit(event.button);
+        return;
     }
-    if (!padSticks_) {
-        const auto travel = [this](Button less, Button more) {
-            const int value =
-                ((stickHeld_ & bit(more)) != 0 ? 1 : 0) - ((stickHeld_ & bit(less)) != 0 ? 1 : 0);
-            return static_cast<std::int16_t>(value * fullTravel);
-        };
-        pad_.leftX = travel(Button::Left, Button::Right);
-        pad_.leftY = travel(Button::Up, Button::Down);
+    if (event.pressed) {
+        held_ |= bit(event.button);
+        pressedThisFrame_ |= bit(event.button);
+        return;
+    }
+    held_ &= ~bit(event.button);
+    if ((pressedThisFrame_ & bit(event.button)) != 0) {
+        endedThisFrame_ |= bit(event.button);
     }
 }
 
-void RemoteInput::sticks(const std::map<std::string, gamepad::Sticks>& sticks) {
-    padSticks_ = !sticks.empty();
-    if (!padSticks_) {
-        return;
-    }
-    const gamepad::Sticks& first = sticks.begin()->second;
-    const auto narrow = [](std::int32_t value) {
-        return static_cast<std::int16_t>(std::clamp(value, -32768, 32767));
-    };
-    pad_.leftX = narrow(first.leftX);
-    pad_.leftY = narrow(first.leftY);
-    pad_.rightX = narrow(first.rightX);
-    pad_.rightY = narrow(first.rightY);
+void RemoteInput::axes(const std::map<std::string, gamepad::PadAxes>& axes) {
+    axes_ = axes.empty() ? std::nullopt : std::optional{axes.begin()->second};
 }
 
 void RemoteInput::pointer(const PointerFrame& frame, const display::Placed& picture) {
@@ -67,19 +68,51 @@ void RemoteInput::pointer(const PointerFrame& frame, const display::Placed& pict
         mouse_.x = across(frame.point->x, picture.x, picture.width);
         mouse_.y = across(frame.point->y, picture.y, picture.height);
     }
-    for (const bool down : frame.primary) {
-        mouse_.buttons = down ? mouse_.buttons | 1U : mouse_.buttons & ~1U;
+    mouse_.buttons = frame.held;
+    clicked_ = static_cast<std::uint8_t>(clicked_ | clicks(frame));
+    wheelRest_ += frame.wheel;
+    const float notches = std::trunc(wheelRest_);
+    mouse_.wheel += static_cast<std::int32_t>(notches);
+    wheelRest_ -= notches;
+}
+
+RemoteInput::State RemoteInput::take() {
+    State state;
+    state.pad.buttons = held_ | endedThisFrame_;
+    if (axes_) {
+        state.pad.leftX = narrowed(axes_->sticks.leftX);
+        state.pad.leftY = narrowed(axes_->sticks.leftY);
+        state.pad.rightX = narrowed(axes_->sticks.rightX);
+        state.pad.rightY = narrowed(axes_->sticks.rightY);
+        state.pad.leftTrigger = travel(axes_->leftTrigger);
+        state.pad.rightTrigger = travel(axes_->rightTrigger);
+    } else {
+        const auto stick = [this](Button less, Button more) {
+            const int value =
+                ((stickHeld_ & bit(more)) != 0 ? 1 : 0) - ((stickHeld_ & bit(less)) != 0 ? 1 : 0);
+            return static_cast<std::int16_t>(value * fullTravel);
+        };
+        state.pad.leftX = stick(Button::Left, Button::Right);
+        state.pad.leftY = stick(Button::Up, Button::Down);
+        state.pad.leftTrigger = (state.pad.buttons & bit(Button::L2)) != 0 ? fullTrigger : 0;
+        state.pad.rightTrigger = (state.pad.buttons & bit(Button::R2)) != 0 ? fullTrigger : 0;
     }
-    // A right or middle press comes as one; it is held for the frame it came in.
-    mouse_.buttons = static_cast<std::uint8_t>((mouse_.buttons & 1U) | (frame.middle ? 2U : 0U) |
-                                               (frame.right ? 4U : 0U));
-    mouse_.wheel += static_cast<std::int32_t>(std::lround(frame.wheel));
+    state.mouse = mouse_;
+    state.mouse.buttons = static_cast<std::uint8_t>(mouse_.buttons | clicked_);
+    pressedThisFrame_ = 0;
+    endedThisFrame_ = 0;
+    clicked_ = 0;
+    return state;
 }
 
 void RemoteInput::release() {
-    pad_ = stream::wire::PadState{};
+    held_ = 0;
+    pressedThisFrame_ = 0;
+    endedThisFrame_ = 0;
     stickHeld_ = 0;
+    axes_.reset();
     mouse_.buttons = 0;
+    clicked_ = 0;
 }
 
 } // namespace opensu::app

@@ -28,8 +28,8 @@ class SdlPadState {
     /// An axis moved to `value` (sticks -32768 to 32767, triggers 0 to 32767).
     void axis(SDL_GamepadAxis axis, std::int16_t value, std::vector<Event>& controls);
 
-    [[nodiscard]] const Sticks& sticks() const noexcept {
-        return sticks_;
+    [[nodiscard]] const PadAxes& axes() const noexcept {
+        return axes_;
     }
 
   private:
@@ -37,7 +37,7 @@ class SdlPadState {
     /// `set` for a left stick direction, its event marked as from the stick.
     void stick(Button button, bool on, std::map<Button, bool>& held, std::vector<Event>& controls);
 
-    Sticks sticks_;
+    PadAxes axes_;
     std::map<Button, bool> buttonHeld_;
     std::map<Button, bool> stickHeld_;
     std::map<Button, bool> triggerHeld_;
@@ -59,7 +59,7 @@ class SdlPads final : public PadSource {
     }
     [[nodiscard]] std::vector<Event> takeEvents() override;
     [[nodiscard]] std::vector<PadInfo> connected() const override;
-    [[nodiscard]] std::map<std::string, Sticks> sticks() const override;
+    [[nodiscard]] std::map<std::string, PadAxes> axes() const override;
     /// What SDL reads of the pad's battery (XInput's battery level, a PlayStation pad's report).
     [[nodiscard]] std::optional<device::BatteryStatus> battery(const PadInfo& pad) const override;
     std::vector<std::string> hold(ForwardMap map) override;
