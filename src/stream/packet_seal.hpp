@@ -59,7 +59,7 @@ class PacketSeal {
 
 /// A datagram that opened.
 struct Opened {
-    PacketKind kind{};
+    PacketKind kind;
     std::uint64_t counter{0};
     std::string payload;
 };

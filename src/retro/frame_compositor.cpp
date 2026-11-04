@@ -37,8 +37,9 @@ VkRect2D clipped(VkRect2D rect, VkExtent2D extent) {
 } // namespace
 
 VkRect2D letterbox(VkExtent2D extent, float aspect) {
-    const display::Placed placed =
-        display::letterbox(static_cast<int>(extent.width), static_cast<int>(extent.height), aspect);
+    const display::Placed placed = display::letterbox(
+        {.width = static_cast<int>(extent.width), .height = static_cast<int>(extent.height)},
+        aspect);
     VkRect2D rect{};
     rect.extent.width = static_cast<std::uint32_t>(placed.width);
     rect.extent.height = static_cast<std::uint32_t>(placed.height);

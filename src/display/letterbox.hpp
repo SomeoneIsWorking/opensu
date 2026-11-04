@@ -7,6 +7,12 @@
 
 namespace opensu::display {
 
+/// An area's size in whole pixels.
+struct Size {
+    int width{0};
+    int height{0};
+};
+
 /// A rectangle in whole pixels.
 struct Placed {
     int x{0};
@@ -15,11 +21,11 @@ struct Placed {
     int height{0};
 };
 
-/// The largest rectangle of `aspect` (width over height) centred in `width` x `height`; all of it
-/// when `aspect` is not positive.
-[[nodiscard]] inline Placed letterbox(int width, int height, float aspect) noexcept {
-    auto drawnWidth = static_cast<float>(width);
-    auto drawnHeight = static_cast<float>(height);
+/// The largest rectangle of `aspect` (width over height) centred in `area`; all of it when `aspect`
+/// is not positive.
+[[nodiscard]] inline Placed letterbox(Size area, float aspect) noexcept {
+    auto drawnWidth = static_cast<float>(area.width);
+    auto drawnHeight = static_cast<float>(area.height);
     if (aspect > 0.0F) {
         if (drawnWidth / drawnHeight > aspect) {
             drawnWidth = drawnHeight * aspect;
@@ -30,8 +36,8 @@ struct Placed {
     Placed placed;
     placed.width = std::max(1, static_cast<int>(std::lround(drawnWidth)));
     placed.height = std::max(1, static_cast<int>(std::lround(drawnHeight)));
-    placed.x = (width - placed.width) / 2;
-    placed.y = (height - placed.height) / 2;
+    placed.x = (area.width - placed.width) / 2;
+    placed.y = (area.height - placed.height) / 2;
     return placed;
 }
 

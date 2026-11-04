@@ -1120,7 +1120,7 @@ display::Placed ShellApp::remotePlacement() const {
     if (!remotePicture_) {
         return display::Placed{.x = 0, .y = 0, .width = window.width, .height = window.height};
     }
-    return display::letterbox(window.width, window.height,
+    return display::letterbox({.width = window.width, .height = window.height},
                               static_cast<float>(remotePicture_->width()) /
                                   static_cast<float>(remotePicture_->height()));
 }
