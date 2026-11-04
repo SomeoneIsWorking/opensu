@@ -52,7 +52,7 @@ PeerClient::call(std::string_view method, std::string_view target, const std::st
         std::string{nonceHeader} + ": " + nonce, std::string{signatureHeader} + ": " + signature};
     std::optional<net::WebClient::Answer> answer =
         send(target, headers, posts ? std::optional<std::string>{sent} : std::nullopt,
-             largest + crypto::sealTagBytes, error);
+             largest + crypto::sealNonceBytes + crypto::sealTagBytes, error);
     if (!answer) {
         return std::nullopt;
     }
