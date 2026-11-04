@@ -7,8 +7,8 @@
 # packaging/gamescope-build/Containerfile, so the host needs no Gamescope build dependencies.
 # The image is built once per Containerfile content, the fork once, and a second build does
 # nothing. OPENSU_GAMESCOPE_BUILD_ENV=native runs meson and ninja directly instead, for a
-# configure that already runs inside a build environment holding the dependencies (CI's Fedora
-# job container, the AppImage build container).
+# configure that already runs inside a build environment holding the dependencies (tools.check's
+# build image, the AppImage build container).
 #
 # Layout: the binary is staged at <build>/<libexecdir>/opensu/gamescope, which is where the
 # running build-tree executable looks (<exe dir>/../<libexecdir>/opensu/gamescope), and it is
@@ -31,6 +31,9 @@ set_property(CACHE OPENSU_GAMESCOPE_BUILD_ENV PROPERTY STRINGS podman native)
 set(OPENSU_GAMESCOPE_MESON_OPTIONS "" CACHE STRING
     "Extra meson options for the fork, for a build environment whose distribution lacks some of its \
 dependencies (-Dforce_fallback_for=...)")
+set(OPENSU_GAMESCOPE_JOBS 0 CACHE STRING
+    "Compilers the fork's ninja runs at once, which the outer build's job count does not reach \
+(0: ninja's default)")
 
 set(OPENSU_GAMESCOPE_REPOSITORY "https://github.com/SomeoneIsWorking/gamescope.git")
 set(OPENSU_GAMESCOPE_COMMIT "7bc32a74efb9525e07f215e7326d418247c74021")
@@ -123,6 +126,10 @@ function(opensu_add_gamescope)
     file(CONFIGURE OUTPUT "${pin_file}" CONTENT "${OPENSU_GAMESCOPE_COMMIT}\n")
     opensu_gamescope_runner("${root}" runner image_dependency)
     separate_arguments(extra_meson_options UNIX_COMMAND "${OPENSU_GAMESCOPE_MESON_OPTIONS}")
+    set(jobs "")
+    if(OPENSU_GAMESCOPE_JOBS GREATER 0)
+        set(jobs -j "${OPENSU_GAMESCOPE_JOBS}")
+    endif()
 
     ExternalProject_Add(opensu_gamescope
         ${image_dependency}
@@ -139,7 +146,7 @@ function(opensu_add_gamescope)
         CONFIGURE_COMMAND ${runner} meson setup --reconfigure "${root}/build" "${root}/source"
             --buildtype=release -Denable_gamescope_wsi_layer=false -Denable_tests=false
             ${extra_meson_options}
-        BUILD_COMMAND ${runner} ninja -C "${root}/build" src/gamescope
+        BUILD_COMMAND ${runner} ninja -C "${root}/build" ${jobs} src/gamescope
         BUILD_BYPRODUCTS "${built}"
         INSTALL_COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${built}" "${staged}"
         BUILD_ALWAYS OFF

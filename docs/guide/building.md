@@ -39,11 +39,28 @@ installed.
 
 `uv run --frozen python -m tools.check all` checks out Lucent and gpu2d at the commits
 `tools/check/pins.py` pins into `build/check/deps`, then configures, builds, lints (clang-format,
-clang-tidy, ruff) and tests openSU with Clang in `build/check`, as CI does (`--gamescope native`
-when Gamescope's build dependencies are installed, `off` to skip the fork). Each step also runs on
-its own (`deps`, `configure`, `build`, `lint`, `test`). `--platform windows` builds on a Windows host
-with clang-cl and vcpkg, `--platform macos` on an Apple silicon Mac with Homebrew's LLVM and vcpkg.
-`--jobs N` caps the compilers and clang-tidy processes that run at once (one per core by default).
+clang-tidy, ruff) and tests openSU with Clang in `build/check`, as CI does (`--gamescope off` leaves
+the fork out). Each step also runs on its own (`deps`, `configure`, `build`, `lint`, `test`), and
+`--build-dir` names another tree (`build/agent`, `build/player`). `--platform windows` builds on a
+Windows host with clang-cl and vcpkg, `--platform macos` on an Apple silicon Mac with Homebrew's
+LLVM and vcpkg. `--jobs N` caps the compilers and clang-tidy processes that run at once, the fork's
+ninja included (one per core by default).
+
+On Linux the host needs podman and none of the build tools or dev packages: `deps`, `configure`,
+`build` and `lint` run in the build image, `packaging/ci/Containerfile` on the host's own Fedora
+release (from `/etc/os-release`), so the binaries link against runtime libraries the host already
+has. The image has Clang, CMake, Ninja, Rust and every package openSU and the fork build against;
+it is tagged by the Containerfile's hash and the release, built on the first run (a few GB, several
+minutes) and reused until either changes. The steps run as the calling user with the checkout, its
+git common dir and the shared third-party prefix mounted at their own paths, so the tree configured
+inside is the same tree outside, and everything they write stays in the build directory (Cargo's
+and uv's caches too). The fork builds natively inside it. `test` runs on the host, where openSU
+runs. The container is always used rather than only when the host lacks a package: one environment,
+the one CI uses, builds every tree, so a tree never changes compiler or headers because the host's
+packages did. A host without a working rootless podman is refused with the install command per
+distribution; a host other than Fedora is refused, since the image's binaries need Fedora's
+libraries, and builds by hand instead. CI's `tools.check ci` runs `all` in the same image on the
+pinned Fedora 44, with systemd as PID 1 for the tests.
 
 PyroWave and librashader are not built in a build tree. `deps` builds `cmake/thirdparty` once per
 pinned revision and toolchain into a prefix of their own,
@@ -60,6 +77,9 @@ tools.check ...`. It refuses a run in another checkout's environment (`uv run --
 tree configured from another checkout, and a lint whose file lists come out empty.
 
 ## By hand
+
+Building outside `tools.check` needs every package listed under Dependencies installed; a missing
+one stops configure with the distribution's package names.
 
 ```sh
 git clone https://github.com/SomeoneIsWorking/lucent.git
@@ -97,9 +117,11 @@ control channel.
 The nested session (openSU started on a desktop) runs openSU's own pinned
 [Gamescope fork](https://github.com/SomeoneIsWorking/gamescope) (branch `opensu`), built by
 `cmake/Gamescope.cmake` from a fixed commit. It adds `--close-focused-window`, so Alt+F4 in KDE
-closes the game instead of ending the session, and openSU's frame generation. The fork is built
-with meson and ninja inside a rootless podman container, so the host needs no Gamescope build
-dependencies, only podman (`sudo dnf install podman`) and the network once. The container image
+closes the game instead of ending the session, and openSU's frame generation. `tools.check` builds
+it natively in its build image (`OPENSU_GAMESCOPE_BUILD_ENV=native`, with `OPENSU_GAMESCOPE_JOBS`
+from `--jobs`). A build by hand runs meson and ninja inside a rootless podman container of their
+own, so the host needs no Gamescope build dependencies, only podman (`sudo dnf install podman`) and
+the network once. That container image
 (`packaging/gamescope-build/Containerfile`) is the host's own Fedora release plus
 `dnf builddep gamescope`, clang, meson, ninja and glslang, tagged by the Containerfile's hash; the
 first `cmake --build` pulls and builds it (a few GB of image, several minutes), clones the commit

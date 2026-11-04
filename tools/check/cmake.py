@@ -11,7 +11,7 @@ from tools.check import deps, macos, process, thirdparty, windows
 from tools.check.deps import Deps
 from tools.checkout import REPO
 
-GAMESCOPE_MODES = ("podman", "native", "off")
+GAMESCOPE_MODES = ("native", "off")
 PLATFORMS = ("linux", "windows", "macos")
 DEFAULT_JOBS = os.cpu_count() or 1
 
@@ -24,7 +24,7 @@ class Plan:
     build_dir: Path
     deps: Deps
     platform: str = "linux"
-    gamescope: str = "podman"
+    gamescope: str = "native"
     build_type: str = "RelWithDebInfo"
     install_prefix: str = "/usr/local"
     defines: Sequence[str] = field(default_factory=tuple)
@@ -104,6 +104,7 @@ class Plan:
             args += [
                 "-DOPENSU_BUILD_GAMESCOPE=ON",
                 f"-DOPENSU_GAMESCOPE_BUILD_ENV={self.gamescope}",
+                f"-DOPENSU_GAMESCOPE_JOBS={self.jobs}",
             ]
         args += list(self.defines)
         return args

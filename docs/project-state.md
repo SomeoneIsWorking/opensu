@@ -1875,9 +1875,9 @@ the row width.
 
 ### S029 — CI
 
-`.github/workflows/ci.yml` runs `tools.check ci`: the `packaging/ci` image (Fedora 44, the release
-the fork's local podman build uses) boots systemd, the user manager starts for the runner's uid,
-and `tools.check all --gamescope native` runs as that user: Lucent and gpu2d checked out by
+`.github/workflows/ci.yml` runs `tools.check ci`: the `packaging/ci` build image on the pinned
+Fedora 44 boots systemd, the user manager starts for the runner's uid,
+and `tools.check all --in-build-image` runs as that user: Lucent and gpu2d checked out by
 commit, configure with Clang (any other compiler is refused), build including the Gamescope fork,
 clang-format, clang-tidy, ruff, ctest. A second job builds and smoke-tests the AppImage (S030).
 Actions are pinned by SHA, uv by version and checksum, permissions are `contents: read`.
@@ -1887,6 +1887,15 @@ builds with clang-cl and vcpkg on `windows-2025`, runs the tests on lavapipe and
 smoke-tests the installer (S046). A `macos` job builds with Homebrew's LLVM and vcpkg on
 `macos-15`, runs the tests on the runner's Metal device and builds and smoke-tests the app (S047).
 A manual run can pick one platform.
+
+A maintainer's build is the same image: `tools.check` runs deps, configure, build and lint in
+`packaging/ci` on the host's Fedora release (`tools/check/container`), and test on the host, so the
+host needs podman and none of the build tools or dev packages; a missing one is never installed on
+the host, and the CMake refusals name that route and the packages to install by hand
+(`opensu_missing_package`). Verified (2026-11-04, Fedora 44 without `pipewire-devel`): a fresh
+`build/player` configured and built in the image with Clang, `opensu` run on the host
+(`--hidden --render`, `ldd` with nothing missing), an unchanged rebuild compiling nothing, lint
+clean, ctest passing twice on the host.
 
 Verified: the same steps locally through `tools.check ci`: Clang build including the fork, the
 three linters clean, 117 of 119 tests pass and 2 skip (`game_keys`, `pads`: no uinput in the
