@@ -38,6 +38,8 @@ All optional.
 | `OPENSU_SECRET_STORE` | `file` keeps secrets (the SteamGridDB key, LAN pairings) in an owner-only file under the config dir instead of the desktop keyring. |
 | `OPENSU_STEAMGRIDDB_API` | SteamGridDB's API root, for pointing a test run at a stand-in. |
 | `OPENSU_GE_PROTON_RELEASE` | The GE-Proton release to install, as GitHub release JSON, for a test run; the latest when unset. |
+| `OPENSU_ROOT_STEP` | A harmless program session mode's install runs through pkexec in place of its installer, for a test run: polkit still asks openSU's agent, nothing is installed. |
+| `OPENSU_POLKIT_HELPER` | A program openSU's polkit agent runs in place of `polkit-agent-helper-1`, for a test run: it gets the user as its argument and polkit's cookie on stdin and writes the helper's lines (`PAM_TEXT_INFO`, `PAM_ERROR_MSG`, `PAM_PROMPT_ECHO_OFF`/`ON`, `SUCCESS`, `FAILURE`). It cannot answer polkit, so the action itself is refused. |
 | `LEGENDARY_CONFIG_PATH` | Legendary's configuration, as Legendary itself reads it. |
 
 The environment seeds defaults; Settings (from the Guide menu) saves your choices (interface size,

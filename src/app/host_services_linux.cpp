@@ -20,7 +20,7 @@ host::SessionPaths HostServices::sessionPaths(const config::Config& config) {
 HostServices HostServices::detect(const config::Config& config, bool hidden) {
     HostServices services = over(host::systemRunner(), host::systemSpawner(config.executablePath),
                                  "/sys/class/backlight", hidden, sessionPaths(config));
-    services.polkit = host::startPolkitAgent(config.messageLocale);
+    services.polkit = host::startPolkitAgent(config.messageLocale, config.polkitHelperStandIn);
     return services;
 }
 

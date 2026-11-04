@@ -265,6 +265,7 @@ Config read() {
         }
     }
     value.rootStepStandIn = std::filesystem::path{env("OPENSU_ROOT_STEP")};
+    value.polkitHelperStandIn = std::filesystem::path{env("OPENSU_POLKIT_HELPER")};
     return value;
 }
 

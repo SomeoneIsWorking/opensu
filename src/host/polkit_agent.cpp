@@ -445,8 +445,9 @@ int cancelCall(sd_bus_message* message, void* agent, sd_bus_error* error) {
 
 } // namespace
 
-std::unique_ptr<PolkitAgent> startPolkitAgent(std::string locale) {
-    const std::optional<fs::path> helper = installedHelper();
+std::unique_ptr<PolkitAgent> startPolkitAgent(std::string locale, const fs::path& helperStandIn) {
+    const std::optional<fs::path> helper =
+        helperStandIn.empty() ? installedHelper() : std::optional<fs::path>{helperStandIn};
     if (!helper) {
         lucent::warn("polkit", "no agent: polkit-agent-helper-1 is not installed");
         return nullptr;

@@ -193,6 +193,10 @@ struct Config {
     /// for the installer.
     std::filesystem::path rootStepStandIn;
 
+    /// What openSU's polkit agent runs in place of polkit-agent-helper-1, from
+    /// OPENSU_POLKIT_HELPER, so a test run scripts PAM's side; empty for the installed helper.
+    std::filesystem::path polkitHelperStandIn;
+
     /// Whether secrets go to the desktop's keyring; OPENSU_SECRET_STORE=file keeps them in an
     /// owner-only file under the config dir instead.
     bool keyring{true};
