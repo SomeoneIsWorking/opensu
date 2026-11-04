@@ -184,6 +184,9 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
             facts.push_back(detailsFact("Nearest", game.romsetNearest));
         }
     }
+    if (!settings.sharedSaves.empty()) {
+        facts.push_back(detailsFact("Saves", settings.sharedSaves));
+    }
 
     details.launch = game.installed ? "Play" : "Install";
     std::vector<SettingsRow>& actions = details.actions;
@@ -222,6 +225,9 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
     if (!settings.copySaves.empty()) {
         actions.push_back(
             makePage(std::string{detailsSavesId}, "Copy saves", {}, settings.copySaves));
+    }
+    if (!settings.syncSaves.empty()) {
+        actions.push_back(action(detailsSyncSavesId, settings.syncSaves));
     }
     if (!remote) {
         actions.push_back(makePage(std::string{detailsArtworkId}, "Choose artwork", {}, {}));

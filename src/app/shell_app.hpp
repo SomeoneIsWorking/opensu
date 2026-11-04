@@ -89,6 +89,7 @@
 #include "search_controller.hpp"
 #include "session_install_controller.hpp"
 #include "settings_controller.hpp"
+#include "shared_saves.hpp"
 #include "shell_session.hpp"
 #include "shell_window.hpp"
 #include "shortcut_editor.hpp"
@@ -194,8 +195,11 @@ class ShellApp final {
     /// L1 and R1: moves `delta` sections along the dock and shows the section's shelf, with iiSU's
     /// domino cue sized by what the section shows at once.
     void cycleSection(int delta);
-    /// Launches `game`, or offers to install it.
+    /// Launches `game`, or offers to install it; its saves are synced with the openSUs sharing
+    /// them first.
     void launch(const library::Game& game);
+    /// Starts `game` now.
+    void startLaunch(const library::Game& game);
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
     /// Asks whether to install the focused game, which is not installed, from the stores that
@@ -542,7 +546,7 @@ class ShellApp final {
         shell_.screens().chrome(),
         sounds_,
         emulatorDownloads_,
-        SaveCopyController::Places{resolved_.savesDir, environment_.stateDir},
+        SaveCopyController::Places{resolved_.savesDir, files_.stateDir()},
         SaveCopyController::Hooks{[this](const std::string& text, bool isError) {
                                       shell_.setToast(text, isError);
                                   },
@@ -605,12 +609,19 @@ class ShellApp final {
                                  },
                                  [this](const library::Game& game) {
                                      saveCopy_.read(game);
+                                     lan_.look(game);
                                  },
                                  [this](const library::Game& game) {
                                      return saveCopy_.offer(game);
                                  },
                                  [this](const library::Game& game) {
                                      saveCopy_.open(game);
+                                 },
+                                 [this](const library::Game& game) {
+                                     return sharedSaves_.view(game);
+                                 },
+                                 [this](const library::Game& game) {
+                                     sharedSaves_.act(game);
                                  }}};
     /// The volume shortcuts and the display that follows every change of the volume.
     VolumeControl volume_{VolumeControl::detect(environment_, settings_.hidden),
@@ -698,10 +709,17 @@ class ShellApp final {
                                       reloadCatalog();
                                   }}};
     /// This openSU on the LAN while LAN is on: pairing, and the paired openSUs' games.
-    LanService lan_{LanService::Places{.bookFile = files_.lanBookFile(),
-                                       .secrets = files_.lanSecrets(environment_.keyring),
-                                       .coverCache = resolved_.cacheDir / "lan",
-                                       .port = settings_.lanPort},
+    LanService lan_{LanService::Places{
+                        .bookFile = files_.lanBookFile(),
+                        .secrets = files_.lanSecrets(environment_.keyring),
+                        .coverCache = resolved_.cacheDir / "lan",
+                        .port = settings_.lanPort,
+                        .saves = lan::SaveSync::Setup{.versionsFile = files_.lanSaveVersionsFile(),
+                                                      .backups = files_.stateDir(),
+                                                      .staging = files_.stateDir() / "lan-incoming",
+                                                      .runnerSaves = resolved_.savesDir,
+                                                      .inUse = {},
+                                                      .changed = {}}},
                     preferences_,
                     shell_.screens().navigator(),
                     sounds_,
@@ -718,7 +736,13 @@ class ShellApp final {
                                       .peersChanged =
                                           [this] {
                                               settingsScreen_.refresh();
+                                          },
+                                      .savesChanged =
+                                          [this] {
+                                              details_.refresh();
                                           }}};
+    /// The details page's Saves fact and row for saves shared with paired openSUs.
+    SharedSaves sharedSaves_{lan_, shell_.screens().navigator(), sounds_};
     /// Settings › LAN.
     LanSettings lanSettings_{
         lan_, preferences_, shell_.screens().navigator(), keyboardPad_, sounds_, [this] {

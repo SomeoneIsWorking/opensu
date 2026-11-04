@@ -1,9 +1,10 @@
 // host_pairing — the host's half of pairing, one guest at a time. A guest's commitment is answered
-// with a fresh X25519 key and nonce; its reveal is checked against the commitment, and the code
-// and secret follow (`pairing_keys`); the player is asked with the code on screen, and the guest's
-// polls get the verdict signed with the secret. Accepted, the guest and its secret are handed to
-// the book. A pairing the player has not answered in `patience` lapses. Safe from any thread: the
-// LAN listener's threads and the shell's loop.
+// with a fresh X25519 key and nonce, at most one offer per `offerSpacing` until the player answers;
+// its reveal is checked against the commitment, and the code and secret follow (`pairing_keys`);
+// the player is asked with the code on screen, and the guest's polls get the verdict signed with
+// the secret. Accepted, the guest and its secret are handed to the book. A pairing the player has
+// not answered in `patience` lapses. Safe from any thread: the LAN listener's threads and the
+// shell's loop.
 #pragma once
 
 #include <chrono>
@@ -20,6 +21,10 @@ namespace opensu::lan {
 
 /// How long a pairing waits for the player, and the guest for the host.
 inline constexpr std::chrono::seconds patience{120};
+/// How soon after one offer the next is made, unless the player answered the first. A man in the
+/// middle learns the host's code from each offer, so this is what bounds his guesses at the
+/// guest's: a dozen in the guest's `patience`, each one in a million.
+inline constexpr std::chrono::seconds offerSpacing{10};
 
 /// The host's word on a pairing, as the wire spells it.
 enum class Verdict : std::uint8_t { Waiting, Accepted, Declined };
@@ -39,7 +44,8 @@ class HostPairing {
         crypto::Bytes nonce;
     };
     /// `guest` asks to pair, committed to `commitment`. Nothing with `refusal` while another guest
-    /// is pairing; the same guest asking again starts over.
+    /// is pairing, or within `offerSpacing` of the last offer the player did not answer; the same
+    /// guest asking again after that starts over.
     [[nodiscard]] std::optional<Offer> begin(const Peer& guest, crypto::Bytes commitment,
                                              Clock::time_point now, std::string& refusal);
 
@@ -100,6 +106,8 @@ class HostPairing {
     std::string hostId_;
     mutable std::mutex mutex_;
     std::optional<Pending> pending_;
+    /// Before this no offer is made; cleared when the player answers.
+    std::optional<Clock::time_point> nextOffer_;
 };
 
 } // namespace opensu::lan

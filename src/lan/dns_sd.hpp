@@ -16,7 +16,7 @@ namespace opensu::lan {
 /// The DNS-SD service type every openSU announces.
 inline constexpr std::string_view serviceType = "_opensu._tcp";
 /// The protocol a service's `v` names.
-inline constexpr std::string_view protocolVersion = "1";
+inline constexpr std::string_view protocolVersion = "2";
 
 /// What this openSU announces.
 struct Announcement {

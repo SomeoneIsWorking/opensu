@@ -1,6 +1,7 @@
 #include "peer_crypto.hpp"
 
 #include <algorithm>
+#include <climits>
 #include <stdexcept>
 #include <string>
 
@@ -25,6 +26,36 @@ using Context = std::unique_ptr<EVP_PKEY_CTX, ContextFree>;
 
 const unsigned char* bytesOf(std::string_view text) noexcept {
     return reinterpret_cast<const unsigned char*>(text.data());
+}
+
+struct CipherFree {
+    void operator()(EVP_CIPHER_CTX* context) const noexcept {
+        EVP_CIPHER_CTX_free(context);
+    }
+};
+using Cipher = std::unique_ptr<EVP_CIPHER_CTX, CipherFree>;
+
+/// A ChaCha20-Poly1305 context keyed for `encrypt` or decrypt, `aad` already taken; null when
+/// libcrypto refuses.
+Cipher aeadFor(bool encrypt, std::span<const std::uint8_t> key, std::span<const std::uint8_t> nonce,
+               std::string_view aad) {
+    if (key.size() != keyBytes || nonce.size() != sealNonceBytes || aad.size() > INT_MAX) {
+        return nullptr;
+    }
+    Cipher context{EVP_CIPHER_CTX_new()};
+    const int mode = encrypt ? 1 : 0;
+    int written = 0;
+    if (context == nullptr ||
+        EVP_CipherInit_ex(context.get(), EVP_chacha20_poly1305(), nullptr, nullptr, nullptr,
+                          mode) != 1 ||
+        EVP_CIPHER_CTX_ctrl(context.get(), EVP_CTRL_AEAD_SET_IVLEN,
+                            static_cast<int>(sealNonceBytes), nullptr) != 1 ||
+        EVP_CipherInit_ex(context.get(), nullptr, nullptr, key.data(), nonce.data(), mode) != 1 ||
+        EVP_CipherUpdate(context.get(), nullptr, &written, bytesOf(aad),
+                         static_cast<int>(aad.size())) != 1) {
+        return nullptr;
+    }
+    return context;
 }
 
 } // namespace
@@ -79,6 +110,54 @@ Bytes hkdfSha256(std::span<const std::uint8_t> secret, std::span<const std::uint
         throw std::runtime_error{"libcrypto cannot derive a key with HKDF"};
     }
     return out;
+}
+
+std::string seal(std::span<const std::uint8_t> key, std::span<const std::uint8_t> nonce,
+                 std::string_view aad, std::string_view plain) {
+    const Cipher context = aeadFor(true, key, nonce, aad);
+    if (context == nullptr || plain.size() > INT_MAX - sealTagBytes) {
+        throw std::runtime_error{"libcrypto cannot seal with ChaCha20-Poly1305"};
+    }
+    std::string sealed(plain.size() + sealTagBytes, '\0');
+    auto* out = reinterpret_cast<unsigned char*>(sealed.data());
+    int written = 0;
+    int finished = 0;
+    if (EVP_CipherUpdate(context.get(), out, &written, bytesOf(plain),
+                         static_cast<int>(plain.size())) != 1 ||
+        EVP_CipherFinal_ex(context.get(), out + written, &finished) != 1 ||
+        static_cast<std::size_t>(written) + static_cast<std::size_t>(finished) != plain.size() ||
+        EVP_CIPHER_CTX_ctrl(context.get(), EVP_CTRL_AEAD_GET_TAG, static_cast<int>(sealTagBytes),
+                            out + plain.size()) != 1) {
+        throw std::runtime_error{"libcrypto cannot seal with ChaCha20-Poly1305"};
+    }
+    return sealed;
+}
+
+std::optional<std::string> open(std::span<const std::uint8_t> key,
+                                std::span<const std::uint8_t> nonce, std::string_view aad,
+                                std::string_view sealed) {
+    if (sealed.size() < sealTagBytes || sealed.size() > INT_MAX) {
+        return std::nullopt;
+    }
+    const Cipher context = aeadFor(false, key, nonce, aad);
+    if (context == nullptr) {
+        return std::nullopt;
+    }
+    const std::size_t length = sealed.size() - sealTagBytes;
+    std::string tag{sealed.substr(length)};
+    std::string plain(length, '\0');
+    auto* out = reinterpret_cast<unsigned char*>(plain.data());
+    int written = 0;
+    int finished = 0;
+    if (EVP_CipherUpdate(context.get(), out, &written, bytesOf(sealed), static_cast<int>(length)) !=
+            1 ||
+        EVP_CIPHER_CTX_ctrl(context.get(), EVP_CTRL_AEAD_SET_TAG, static_cast<int>(sealTagBytes),
+                            tag.data()) != 1 ||
+        EVP_CipherFinal_ex(context.get(), out + written, &finished) != 1) {
+        secrets::wipe(plain);
+        return std::nullopt;
+    }
+    return plain;
 }
 
 bool sameBytes(std::span<const std::uint8_t> a, std::span<const std::uint8_t> b) noexcept {

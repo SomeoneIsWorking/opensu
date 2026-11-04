@@ -1,9 +1,11 @@
-// lan_service — LAN remote play on the shell's loop while the player has LAN on (Integrations):
-// the `lan::LanNode`, made when LAN is turned on or this openSU is renamed and gone when it is
-// turned off; the question the host's half of a pairing asks the player, with the code; the card
-// a pairing this openSU asks for shows, with the same code, until the host answers; and the news
-// the node's threads leave for the loop (the paired peers' games changed, peers came or went).
-// The remote games themselves are in the `RemoteLibrary` the catalog's provider reads.
+// lan_service — LAN remote play and save sharing on the shell's loop while the player has LAN on
+// (Integrations): the `lan::LanNode`, made when LAN is turned on or this openSU is renamed and gone
+// when it is turned off; the question the host's half of a pairing asks the player, with the code;
+// the card a pairing this openSU asks for shows, with the same code, until the host answers; a
+// launch held while a game's saves are taken from a peer first (`before`); and the news the
+// node's threads leave for the loop (the paired peers' games changed, peers came or went, how a
+// game's shared saves stand). The remote games themselves are in the `RemoteLibrary` the catalog's
+// provider reads.
 #pragma once
 
 #include <atomic>
@@ -12,6 +14,7 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -22,6 +25,7 @@
 #include "audio/sdl_sound_player.hpp"
 #include "lan/lan_node.hpp"
 #include "lan/remote_library.hpp"
+#include "library/emulator_catalog.hpp"
 #include "library/game.hpp"
 #include "preferences.hpp"
 #include "secrets/secret_store.hpp"
@@ -37,6 +41,9 @@ class LanService {
         std::filesystem::path coverCache;
         /// The listener's port; 0 for a free one.
         std::uint16_t port{0};
+        /// Where shared saves are recorded, staged and backed up; when they are in use is this
+        /// service's to say.
+        lan::SaveSync::Setup saves;
     };
     struct Hooks {
         /// Tells the player something; `error` marks a refusal.
@@ -45,6 +52,8 @@ class LanService {
         std::function<void()> remoteChanged;
         /// Who is found or paired changed: the Settings page shows it.
         std::function<void()> peersChanged;
+        /// How a game's shared saves stand changed: the details page shows it.
+        std::function<void()> savesChanged;
     };
 
     /// On from the start when `active`. The question and the card go on `navigator`.
@@ -68,8 +77,35 @@ class LanService {
     /// The name this openSU goes by: the player's, else the machine's.
     [[nodiscard]] std::string name() const;
 
-    /// Shares the installed games among `games` with paired peers.
-    void share(const std::vector<library::Game>& games);
+    /// Shares the installed games among `games` with paired peers, and their saves, found through
+    /// `catalog`, with those the player shares saves with.
+    void share(const std::vector<library::Game>& games,
+               const library::roms::EmulatorCatalog& catalog);
+    /// Shares saves with `peerId` from now on, or no longer, and says so.
+    void shareSaves(const std::string& peerId, bool on);
+
+    /// Holds `game`'s launch while its saves are synced with the peers sharing them, then calls
+    /// `launch`; false, and nothing held, when no peer shares them now or a launch is held already.
+    [[nodiscard]] bool before(const library::Game& game, std::function<void()> launch);
+    /// Whether a launch is held for its saves.
+    [[nodiscard]] bool holding() const noexcept {
+        return held_.has_value();
+    }
+    /// The game the shell runs now, or none; its saves are not replaced while it runs. Every
+    /// frame, main loop only.
+    void playing(const library::Game* game);
+    /// The game ended: its saves go to the peers sharing them.
+    void ended(const library::Game& game);
+    /// Finds how `game`'s saves stand with the peers sharing them.
+    void look(const library::Game& game);
+    /// Syncs `game`'s saves now.
+    void syncNow(const library::Game& game);
+    /// The player kept `peerId`'s saves of `game` (`theirs`) or these in a conflict.
+    void keep(const library::Game& game, const std::string& peerId, bool theirs);
+    /// How `game`'s saves stood with each peer sharing them when last looked.
+    [[nodiscard]] std::vector<lan::PeerSaves> standings(const std::string& gameId) const;
+    /// Whether a sync of `gameId` is under way.
+    [[nodiscard]] bool syncing(const std::string& gameId) const;
     /// Starts pairing with the openSU announced as `peerId` and shows its card.
     void pair(const std::string& peerId);
     /// Forgets `peerId` and says so.
@@ -96,6 +132,8 @@ class LanService {
     void serviceCard();
     void closeQuestion();
     void closeCard();
+    /// Lets a held launch go.
+    void release();
     /// The open screen with `id` and `title`.
     [[nodiscard]] const gpu2d::ui::Screen* openScreen(std::string_view id,
                                                       std::string_view title) const;
@@ -110,6 +148,21 @@ class LanService {
     std::shared_ptr<std::atomic<bool>> news_{std::make_shared<std::atomic<bool>>(false)};
     /// What was shared last, shared again after a restart.
     std::vector<library::Game> shared_;
+    library::roms::EmulatorCatalog catalog_;
+    /// A launch waiting for its saves: the ticket it waits on and the launch.
+    struct Held {
+        std::uint64_t ticket{0};
+        std::function<void()> launch;
+    };
+    std::optional<Held> held_;
+    /// The game the shell runs, which the sync's thread reads.
+    struct Playing {
+        std::mutex mutex;
+        std::string gameId;
+    };
+    std::shared_ptr<Playing> playing_{std::make_shared<Playing>()};
+    /// Set on the sync's thread, taken on the loop.
+    std::shared_ptr<std::atomic<bool>> savesNews_{std::make_shared<std::atomic<bool>>(false)};
     /// The question asked now, and its dialog's title while the dialog is open.
     std::optional<lan::HostPairing::Question> asked_;
     std::string questionTitle_;

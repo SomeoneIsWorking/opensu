@@ -1,7 +1,8 @@
 # LAN
 
-With LAN on, openSU finds the other openSUs on your network, pairs with the ones you accept, and
-lists their installed games in your Library under their names. Playing them from here
+With LAN on, openSU finds the other openSUs on your network, pairs with the ones you accept,
+lists their installed games in your Library under their names, and can keep your saves the same
+on both. Playing them from here
 (remote play) is not built yet. Starting one says so.
 
 LAN is an integration, off until you turn it on in Settings › Integrations
@@ -29,14 +30,37 @@ while that openSU is on and on the network, and are checked again every minute.
 - **Found here**: other openSUs on the network you have not paired with.
 - **Paired**: the ones you have. Remove forgets the pairing here and tells the other openSU to
   forget it too. Its games leave Library on both sides. Pairing again shows a new code.
+- **Share saves with <name>**: under each paired openSU, off until you turn it on. Saves are
+  shared only when both openSUs have it on for each other.
+
+## Shared saves
+
+For a game installed on both openSUs, the saves of the emulator it starts with follow you:
+
+- Before the game starts, openSU takes the other one's saves if they are newer ("Syncing ...'s
+  saves first").
+- After the game ends, the other openSU takes yours.
+- The game's details page says how its saves stand under **Saves**: In sync with Desk, Newer on
+  Desk, Conflict with Desk, or Desk is offline. **Sync saves now** syncs at once.
+- If you played on both since they last synced, nothing is replaced. The row says **Pick which
+  save to keep** and shows each side's date and size. B cancels.
+- The saves replaced are always backed up first, as Copy saves does, under
+  `~/.local/state/opensu/save-backups/<console>/<game>/<emulator>/<time>/`.
+- Nothing is replaced while that emulator runs. Close it and sync again.
+
+Switch games match across emulators by title, so Eden on one openSU and Ryujinx on the other share
+a save. Other games match by ROM name on the built-in emulators.
 
 ## What is shared, and with whom
 
 - An openSU you have not paired with learns only this one's name. Everything else is refused.
-- A paired openSU sees the titles and covers of your installed games, nothing more.
+- A paired openSU sees the titles and covers of your installed games, and the saves of the games
+  you share saves for, nothing more.
 - Pairings are kept in your desktop's keyring when there is one, otherwise in an owner-only file
   in openSU's config folder.
-- What is sent is not encrypted: someone else on the same network can read the game list as it
-  passes. Each request is signed with the pairing's secret, so no one can ask in a paired
-  openSU's name or forge its answers. Use LAN only on networks you trust.
+- What is sent between paired openSUs is encrypted and signed with the pairing's secret. Someone
+  else on the network can see that two openSUs talk and how much, but not the games or saves, and
+  cannot ask in a paired openSU's name or change its answers.
+- Accept a pairing only when both screens show the same code. That check is what keeps someone
+  else on the network out of the middle.
 - The two computers' clocks must agree to within two minutes.

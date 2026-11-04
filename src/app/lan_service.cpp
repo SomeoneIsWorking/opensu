@@ -6,6 +6,7 @@
 #include "gpu2d/ui/screen.hpp"
 
 #include "lan/dns_sd.hpp"
+#include "launch/emulator_running.hpp"
 #include "lucent/log.h"
 #include "ui/progress_screen.hpp"
 
@@ -62,6 +63,20 @@ void LanService::rename() {
 }
 
 void LanService::start() {
+    lan::SaveSync::Setup saves = places_.saves;
+    saves.changed = [news = savesNews_] {
+        news->store(true);
+    };
+    saves.inUse = [playing = playing_](const library::Game& game,
+                                       const library::saves::EmulatorSaves& kept) {
+        {
+            const std::lock_guard lock{playing->mutex};
+            if (playing->gameId == game.id) {
+                return "Close " + game.title + " first: it is running";
+            }
+        }
+        return launch::runningRefusal(kept);
+    };
     try {
         node_ = std::make_unique<lan::LanNode>(lan::LanNode::Setup{.bookFile = places_.bookFile,
                                                                    .secrets = places_.secrets,
@@ -69,18 +84,21 @@ void LanService::start() {
                                                                    .name = name(),
                                                                    .port = places_.port,
                                                                    .remote = remote_,
-                                                                   .changed = [news = news_] {
-                                                                       news->store(true);
-                                                                   }});
+                                                                   .changed =
+                                                                       [news = news_] {
+                                                                           news->store(true);
+                                                                       },
+                                                                   .saves = std::move(saves)});
     } catch (const std::runtime_error& error) {
         lucent::error("lan", "LAN cannot start: {}", error.what());
         hooks_.say("LAN cannot start: " + std::string{error.what()}, true);
         return;
     }
-    node_->share(shared_);
+    node_->share(shared_, catalog_);
 }
 
 void LanService::stop() {
+    release();
     closeQuestion();
     closeCard();
     node_.reset();
@@ -92,11 +110,86 @@ void LanService::stop() {
     }
 }
 
-void LanService::share(const std::vector<library::Game>& games) {
+void LanService::share(const std::vector<library::Game>& games,
+                       const library::roms::EmulatorCatalog& catalog) {
     shared_ = games;
+    catalog_ = catalog;
     if (node_ != nullptr) {
-        node_->share(shared_);
+        node_->share(shared_, catalog_);
     }
+}
+
+void LanService::shareSaves(const std::string& peerId, bool on) {
+    if (node_ == nullptr) {
+        return;
+    }
+    const std::vector<lan::Peer> peers = node_->paired();
+    const auto peer = std::ranges::find(peers, peerId, &lan::Peer::id);
+    if (peer == peers.end()) {
+        return;
+    }
+    std::string error;
+    if (!node_->shareSaves(peerId, on, error)) {
+        hooks_.say("Cannot change sharing with " + peer->name + ": " + error, true);
+        return;
+    }
+    lucent::info("lan", "saves {} with {}", on ? "shared" : "no longer shared", peer->name);
+    hooks_.say(on ? "Saves are shared with " + peer->name
+                  : "Saves are no longer shared with " + peer->name,
+               false);
+    hooks_.peersChanged();
+}
+
+bool LanService::before(const library::Game& game, std::function<void()> launch) {
+    if (node_ == nullptr || held_ || !node_->saves().sharing(game)) {
+        return false;
+    }
+    held_ = Held{.ticket = node_->saves().prepare(game), .launch = std::move(launch)};
+    lucent::info("saves", "{}: syncing saves before it starts", game.title);
+    return true;
+}
+
+void LanService::release() {
+    if (std::optional<Held> held = std::exchange(held_, std::nullopt)) {
+        held->launch();
+    }
+}
+
+void LanService::playing(const library::Game* game) {
+    const std::lock_guard lock{playing_->mutex};
+    playing_->gameId = game != nullptr ? game->id : std::string{};
+}
+
+void LanService::ended(const library::Game& game) {
+    if (node_ != nullptr && node_->saves().sharing(game)) {
+        node_->saves().sync(game);
+    }
+}
+
+void LanService::look(const library::Game& game) {
+    if (node_ != nullptr) {
+        node_->saves().look(game);
+    }
+}
+
+void LanService::syncNow(const library::Game& game) {
+    if (node_ != nullptr) {
+        node_->saves().sync(game);
+    }
+}
+
+void LanService::keep(const library::Game& game, const std::string& peerId, bool theirs) {
+    if (node_ != nullptr) {
+        node_->saves().keep(game, peerId, theirs);
+    }
+}
+
+std::vector<lan::PeerSaves> LanService::standings(const std::string& gameId) const {
+    return node_ != nullptr ? node_->saves().standings(gameId) : std::vector<lan::PeerSaves>{};
+}
+
+bool LanService::syncing(const std::string& gameId) const {
+    return node_ != nullptr && node_->saves().busy(gameId);
 }
 
 void LanService::pair(const std::string& peerId) {
@@ -160,6 +253,12 @@ void LanService::service() {
     if (news_->exchange(false)) {
         hooks_.remoteChanged();
         hooks_.peersChanged();
+    }
+    if (savesNews_->exchange(false)) {
+        hooks_.savesChanged();
+    }
+    if (held_ && node_->saves().prepared(held_->ticket)) {
+        release();
     }
     serviceQuestion();
     serviceCard();

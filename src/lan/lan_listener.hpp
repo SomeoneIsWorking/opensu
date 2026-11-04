@@ -1,10 +1,12 @@
 // lan_listener — this openSU's listener on the LAN (`lucent::http::Server` on every IPv4
 // interface, never the loopback control port). Open to anyone: `GET /lan/hello` (the id and name,
 // all an unpaired openSU learns) and the three pairing calls. Everything else is for paired peers
-// only, signed (`request_signature`) and answered signed: `GET /lan/library` (the shared
-// listing), `GET /lan/cover/<token>` (one shared cover) and `POST /lan/unpair` (the peer forgets
-// this one, and this one it). A request that fails its signature, comes late or repeats is
-// refused with 403.
+// only, signed, its body and answer sealed (`request_signature`): `GET /lan/library` (the shared
+// listing), `GET /lan/cover/<token>` (one shared cover), `POST /lan/unpair` (the peer forgets this
+// one, and this one it), and for a peer the player shares saves with the save routes
+// (`SaveSync`: `/lan/saves/status`, `/get`, `/news`, `/synced`). A request that fails its
+// signature, comes late, repeats or does not open is refused with 403, as are the save routes of
+// a peer saves are not shared with.
 #pragma once
 
 #include <cstdint>
@@ -15,6 +17,7 @@
 #include "lucent/http.h"
 #include "peer_book.hpp"
 #include "request_signature.hpp"
+#include "save_sync.hpp"
 #include "shared_library.hpp"
 
 namespace opensu::lan {
@@ -25,6 +28,7 @@ class LanListener {
         PeerBook& book;
         HostPairing& pairing;
         const SharedLibrary& library;
+        SaveSync& saves;
         /// The name this openSU goes by now.
         std::function<std::string()> name;
         /// A peer unpaired itself; called on the listener's thread.
@@ -49,11 +53,13 @@ class LanListener {
     [[nodiscard]] lucent::http::Response handle(const lucent::http::Request& request);
 
   private:
-    /// A request that passed its signature: from whom, with what secret, under what nonce.
+    /// A request that passed its signature: from whom, with what secret, and what its seals are
+    /// keyed by.
     struct Signed {
         Peer peer;
         crypto::Bytes secret;
         std::string nonce;
+        std::int64_t time{0};
     };
 
     [[nodiscard]] lucent::http::Response pair(const lucent::http::Request& request);
@@ -62,6 +68,9 @@ class LanListener {
     /// The signed routes, once `verified` holds.
     [[nodiscard]] lucent::http::Response peerRoute(const lucent::http::Request& request,
                                                    const Signed& verified);
+    /// The save routes, `body` opened.
+    [[nodiscard]] lucent::http::Response savesRoute(std::string_view path, std::string_view body,
+                                                    const Signed& verified);
     [[nodiscard]] std::optional<Signed> verify(const lucent::http::Request& request);
 
     Sources sources_;

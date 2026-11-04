@@ -1,7 +1,10 @@
 #include "wire.hpp"
 
+#include <algorithm>
+
 #include <nlohmann/json.hpp>
 
+#include "dns_sd.hpp"
 #include "peer_book.hpp"
 #include "secrets/secret.hpp"
 
@@ -28,6 +31,24 @@ std::optional<crypto::Bytes> bytesField(const json& document, const char* key, s
     return bytes;
 }
 
+/// A save key's part: a name a folder could be called, at most 255 bytes.
+bool keyPart(std::string_view text) {
+    constexpr std::size_t longest = 255;
+    return !text.empty() && text.size() <= longest && text != "." && text != ".." &&
+           std::ranges::none_of(text, [](char c) {
+               return c == '/' || c == '\\' || static_cast<unsigned char>(c) < ' ';
+           });
+}
+
+/// An unsigned number field; nothing when it is absent or not one.
+std::optional<std::uint64_t> countField(const json& document, const char* key) {
+    const auto found = document.find(key);
+    if (found == document.end() || !found->is_number_unsigned()) {
+        return std::nullopt;
+    }
+    return found->get<std::uint64_t>();
+}
+
 } // namespace
 
 std::string textField(const json& document, const char* key) {
@@ -37,7 +58,7 @@ std::string textField(const json& document, const char* key) {
 }
 
 std::string write(const Hello& hello) {
-    return json{{"id", hello.id}, {"name", hello.name}, {"v", 1}}.dump();
+    return json{{"id", hello.id}, {"name", hello.name}, {"v", std::string{protocolVersion}}}.dump();
 }
 
 std::optional<Hello> readHello(std::string_view body) {
@@ -181,6 +202,52 @@ std::optional<std::vector<ListedGame>> readListing(std::string_view body) {
         games.push_back(std::move(game));
     }
     return games;
+}
+
+std::string write(const SaveAsk& ask) {
+    return json{{"system", ask.system},
+                {"game", ask.game},
+                {"picked", ask.picked},
+                {"hash", ask.hash},
+                {"counter", ask.counter}}
+        .dump();
+}
+
+std::optional<SaveAsk> readSaveAsk(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    SaveAsk ask{textField(*document, "system"), textField(*document, "game"),
+                document->value("picked", false), textField(*document, "hash"),
+                countField(*document, "counter").value_or(0)};
+    if (!keyPart(ask.system) || !keyPart(ask.game)) {
+        return std::nullopt;
+    }
+    return ask;
+}
+
+std::string write(const SaveStatus& status) {
+    return json{{"counter", status.counter},
+                {"hash", status.hash},
+                {"bytes", status.bytes},
+                {"modified", status.modified}}
+        .dump();
+}
+
+std::optional<SaveStatus> readSaveStatus(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    const std::optional<std::uint64_t> counter = countField(*document, "counter");
+    const std::optional<std::uint64_t> bytes = countField(*document, "bytes");
+    const auto modified = document->find("modified");
+    if (!counter || !bytes || modified == document->end() || !modified->is_number_integer()) {
+        return std::nullopt;
+    }
+    return SaveStatus{*counter, textField(*document, "hash"), *bytes,
+                      modified->get<std::int64_t>()};
 }
 
 } // namespace opensu::lan::wire

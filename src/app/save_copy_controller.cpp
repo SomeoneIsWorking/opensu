@@ -2,13 +2,12 @@
 
 #include <algorithm>
 #include <chrono>
-#include <ctime>
 #include <memory>
 #include <utility>
 
-#include "clock/local_time.hpp"
-#include "launch/process_tree.hpp"
+#include "launch/emulator_running.hpp"
 #include "save_copy_screen.hpp"
+#include "ui/moment_text.hpp"
 #include "ui/size_text.hpp"
 
 namespace opensu::app {
@@ -24,14 +23,6 @@ constexpr std::string_view undoId = "saves.undo";
 constexpr std::string_view closeId = "saves.close";
 constexpr std::uintmax_t percent = 100;
 
-/// A moment as the card shows it: "2026-04-29 18:09", local time.
-std::string momentText(std::chrono::system_clock::time_point at) {
-    const std::tm parts = clock::localTime(std::chrono::system_clock::to_time_t(at));
-    std::string text(32, '\0');
-    text.resize(std::strftime(text.data(), text.size(), "%Y-%m-%d %H:%M", &parts));
-    return text;
-}
-
 /// "Eden · 2026-04-29 18:09 · 92.6 KB", or "Ryujinx · No save yet" for one holding no file of the
 /// game.
 std::string savesText(const EmulatorSaves& saves) {
@@ -39,7 +30,8 @@ std::string savesText(const EmulatorSaves& saves) {
     if (!modified) {
         return saves.emulatorName + " · No save yet";
     }
-    return saves.emulatorName + " · " + momentText(*modified) + " · " + ui::sizeText(saves.bytes());
+    return saves.emulatorName + " · " + ui::momentText(*modified) + " · " +
+           ui::sizeText(saves.bytes());
 }
 
 std::size_t wrapped(std::size_t at, int step, std::size_t count) {
@@ -264,7 +256,7 @@ std::vector<ui::SettingsRow> SaveCopyController::rows() const {
         ui::SettingsRow undo =
             ui::makeRow(std::string{undoId}, RowKind::Action, "Undo copy",
                         "Puts back " + to.emulatorName + "'s saves from before " +
-                            momentText(backup->second.made),
+                            ui::momentText(backup->second.made),
                         {});
         undo.confirm = to.emulatorName + "'s saves of " + title +
                        " go back to how they were before " + backup->second.from +
@@ -303,8 +295,8 @@ void SaveCopyController::run(const std::string& id, int step) {
 
 std::string SaveCopyController::runningRefusal(std::initializer_list<const EmulatorSaves*> saves) {
     for (const EmulatorSaves* one : saves) {
-        if (!one->processHint.empty() && launch::ProcessTree::anyMatches(one->processHint)) {
-            return "Close " + one->emulatorName + " first: it is running";
+        if (std::string refused = launch::runningRefusal(*one); !refused.empty()) {
+            return refused;
         }
     }
     return {};

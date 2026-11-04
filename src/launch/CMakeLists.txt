@@ -16,7 +16,7 @@ target_include_directories(opensu_command PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(opensu_command PUBLIC lucent::lucent)
 target_compile_features(opensu_command PUBLIC cxx_std_20)
 
-add_library(opensu_launch STATIC handoff.cpp launch_progress.cpp process_tree.cpp)
+add_library(opensu_launch STATIC handoff.cpp launch_progress.cpp process_tree.cpp emulator_running.cpp)
 add_library(opensu::launch ALIAS opensu_launch)
 # The process table: /proc on Linux, Toolhelp32 on Windows, libproc and sysctl on macOS; Android
 # has none, so no game is found by its hint there.

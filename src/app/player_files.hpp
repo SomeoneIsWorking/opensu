@@ -1,10 +1,11 @@
 // player_files — where the shell keeps the player's own files: `settings.json`,
-// `game-settings.json`, `mappings.json`, `own-games.json`, the LAN's `lan.json` and the secrets its
-// pairings keep, the chosen covers and the built-in runner's save RAM and states. An ordinary run
-// uses them in place. A hidden run copies them at start into its own folder under the runtime dir
-// and keeps every change there, so the run behaves as usual while the player's files stay as they
-// were; the folder goes with the run. A hidden run's secrets stay in that folder, never the
-// keyring.
+// `game-settings.json`, `mappings.json`, `own-games.json`, the LAN's `lan.json`, the secrets its
+// pairings keep and its record of shared saves (`lan-saves.json` in the state dir), the chosen
+// covers, the built-in runner's save RAM and states, and the state dir save backups go to. An
+// ordinary run uses them in place. A hidden run copies them at start into its own folder under the
+// runtime dir and keeps every change there, so the run behaves as usual while the player's files
+// stay as they were; the folder goes with the run. A hidden run's secrets stay in that folder,
+// never the keyring.
 #pragma once
 
 #include <filesystem>
@@ -17,10 +18,11 @@ namespace opensu::app {
 
 class PlayerFiles {
   public:
-    /// openSU's config and data dirs and the runner's saves (`config::Config::savesDir`).
+    /// openSU's config, data and state dirs and the runner's saves (`config::Config::savesDir`).
     struct Dirs {
         std::filesystem::path config;
         std::filesystem::path data;
+        std::filesystem::path state;
         std::filesystem::path saves;
     };
 
@@ -55,6 +57,15 @@ class PlayerFiles {
     [[nodiscard]] const std::filesystem::path& lanBookFile() const noexcept {
         return lanBook_;
     }
+    /// Where this run keeps what it makes of the player's saves: their backups before a copy over
+    /// them, and the LAN's staging; a hidden run's own folder.
+    [[nodiscard]] const std::filesystem::path& stateDir() const noexcept {
+        return state_;
+    }
+    /// The record of the saves shared with paired openSUs, which follows the saves it describes.
+    [[nodiscard]] const std::filesystem::path& lanSaveVersionsFile() const noexcept {
+        return lanSaveVersions_;
+    }
     /// Where the LAN's pairing secrets are kept: the keyring when `keyring` allows and this is
     /// not a hidden run, else owner-only files beside these.
     [[nodiscard]] secrets::SecretStore lanSecrets(bool keyring) const {
@@ -72,7 +83,9 @@ class PlayerFiles {
     std::filesystem::path mappings_;
     std::filesystem::path ownGames_;
     std::filesystem::path chosenCovers_;
+    std::filesystem::path state_;
     std::filesystem::path lanBook_;
+    std::filesystem::path lanSaveVersions_;
     std::filesystem::path secrets_;
     std::filesystem::path saves_;
 };

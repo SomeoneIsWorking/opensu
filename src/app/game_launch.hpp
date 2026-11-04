@@ -1,11 +1,13 @@
 // game_launch — the one game the shell runs at a time: started on a thread of its own through the
 // handoff, whether one is launching or running for any reader, cancelling or closing it from a
-// menu, and its end told to the loop through the mailbox (the toast `game_end` words). Destroying
+// menu, and its end told to the loop through the mailbox (the toast `game_end` words) and
+// `takeEnded`. Destroying
 // it closes the running game and joins that thread, so the handoff, mailbox and runner session
 // the thread uses must outlive it.
 #pragma once
 
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -38,6 +40,8 @@ class GameLaunch {
     [[nodiscard]] const library::Game& game() const noexcept {
         return game_;
     }
+    /// The game whose launch ended since last asked, once. Main loop only.
+    [[nodiscard]] std::optional<library::Game> takeEnded();
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update;
     /// its end is told as cancelled.
     void cancel();
@@ -52,6 +56,7 @@ class GameLaunch {
     mutable std::mutex mutex_;
     bool running_{false};
     bool cancelled_{false};
+    std::optional<library::Game> ended_;
     /// The launch's thread; last, so it is joined before anything it reads goes.
     std::jthread thread_;
 };

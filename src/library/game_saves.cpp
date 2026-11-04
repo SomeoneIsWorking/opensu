@@ -46,17 +46,15 @@ void measure(SaveSlot& slot) {
     }
 }
 
-/// The runner's save RAM and state of `rom`, those that are there.
+/// The runner's save RAM and state of `game`, each where the runner keeps it whether it is there
+/// yet or not.
 std::vector<SaveSlot> runnerSlots(const fs::path& saves, const Game& game) {
     const fs::path folder = retro::systemSaveFolder(saves, game.sourceId);
     std::vector<SaveSlot> slots;
     for (const auto& [kind, file] :
          {std::pair{SlotKind::Memory, retro::saveMemoryFile(folder, game.file)},
           std::pair{SlotKind::State, retro::saveStateFile(folder, game.file)}}) {
-        std::error_code ec;
-        if (fs::is_regular_file(file, ec)) {
-            slots.push_back(SaveSlot{.kind = kind, .root = file, .content = {file}});
-        }
+        slots.push_back(SaveSlot{.kind = kind, .root = file, .content = {file}});
     }
     return slots;
 }
@@ -118,6 +116,20 @@ std::vector<SaveSlot> storedSlots(const SaveHome& home) {
     return slots;
 }
 
+const EmulatorSaves* launchedSaves(const std::vector<EmulatorSaves>& saves, const Game& game,
+                                   const roms::EmulatorCatalog& catalog) {
+    const auto option =
+        std::ranges::find(game.emulatorOptions, game.emulator, &EmulatorOption::name);
+    const roms::EmulatorEntry* entry =
+        option != game.emulatorOptions.end() ? catalog.find(option->id) : nullptr;
+    if (entry == nullptr) {
+        return nullptr;
+    }
+    const std::string id = entry->builtIn() ? std::string{runnerSavesId} : entry->id;
+    const auto found = std::ranges::find(saves, id, &EmulatorSaves::emulatorId);
+    return found == saves.end() ? nullptr : &*found;
+}
+
 bool copyable(const std::vector<EmulatorSaves>& saves) {
     return saves.size() >= 2 && std::ranges::any_of(saves, &EmulatorSaves::holdsFiles);
 }
@@ -151,9 +163,7 @@ std::vector<EmulatorSaves> savesOf(const Game& game, const roms::EmulatorCatalog
                                   .home = std::nullopt,
                                   .processHint = {}};
             std::ranges::for_each(saves.slots, measure);
-            if (!saves.slots.empty()) {
-                found.push_back(std::move(saves));
-            }
+            found.push_back(std::move(saves));
             continue;
         }
         if (!entry->saves || key->system != switchSystem) {

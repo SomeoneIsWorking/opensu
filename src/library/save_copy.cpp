@@ -84,6 +84,7 @@ void copyTree(const fs::path& from, const fs::path& to, CopyProgress& progress) 
 /// `target` made what `source` is: a copy of it, or an empty folder when it is not there.
 void replaceWith(const fs::path& source, const fs::path& target, CopyProgress& progress) {
     fs::remove_all(target);
+    fs::create_directories(target.parent_path());
     if (fs::exists(source)) {
         copyTree(source, target, progress);
     } else {
@@ -173,11 +174,8 @@ fs::path newBackupFolder(const fs::path& parent, TimePoint now) {
 /// with why in `error`, when `to` cannot take one.
 std::vector<Pair> pairsOf(const EmulatorSaves& from, const EmulatorSaves& to, std::string& error) {
     std::vector<Pair> pairs;
-    for (const SlotKind kind : kinds) {
-        const SaveSlot* source = from.slotFor(kind);
-        if (source == nullptr || !source->modified) {
-            continue;
-        }
+    for (const SaveSlot* source : copiedSlots(from)) {
+        const SlotKind kind = source->kind;
         const SaveSlot* target = to.slotFor(kind);
         // Another profile's save stays its own; the current profile's is made.
         if (target != nullptr &&
@@ -208,6 +206,17 @@ std::vector<Pair> pairsOf(const EmulatorSaves& from, const EmulatorSaves& to, st
 
 } // namespace
 
+std::vector<const SaveSlot*> copiedSlots(const EmulatorSaves& from) {
+    std::vector<const SaveSlot*> slots;
+    for (const SlotKind kind : kinds) {
+        const SaveSlot* slot = from.slotFor(kind);
+        if (slot != nullptr && slot->modified) {
+            slots.push_back(slot);
+        }
+    }
+    return slots;
+}
+
 fs::path SaveCopier::folderOf(const SaveKey& key, std::string_view emulatorId) const {
     return backups_ / backupsFolder / key.system / key.game / std::string{emulatorId};
 }
@@ -223,8 +232,13 @@ std::string SaveCopier::copy(const SaveKey& key, const EmulatorSaves& from, cons
     std::vector<fs::path> keep;
     Backup backup;
     for (const Pair& pair : pairs) {
-        if (!pair.made) {
+        // A slot the target keeps where it is not there yet, such as the runner's, is made.
+        if (!pair.made && fs::exists(pair.to.root)) {
             keep.push_back(pair.to.root);
+            continue;
+        }
+        if (!pair.made) {
+            backup.made.push_back(outermostMissing(pair.to.root));
             continue;
         }
         backup.made.push_back(outermostMissing(pair.to.root));

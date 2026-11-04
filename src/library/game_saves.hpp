@@ -50,7 +50,7 @@ struct SaveSlot {
     /// Where the game's files are: read from the first, a copy written to each.
     std::vector<std::filesystem::path> content;
     std::uintmax_t bytes{0};
-    /// The newest file's modification; nothing while the slot holds no file.
+    /// The newest file's modification; nothing while the slot holds no file, or is not there yet.
     std::optional<std::chrono::system_clock::time_point> modified;
 };
 
@@ -101,10 +101,16 @@ inline constexpr std::string_view runnerSavesId = "built-in";
 /// Each installed emulator of `game` that keeps saves, in the game's emulator order, with the
 /// slots it keeps of the game, none when it has none yet: standalone ones through their catalog
 /// `SaveStore`, the built-in runner's `.srm` and state under `runnerSaves` (`Config::savesDir`),
-/// listed only when it keeps one.
+/// both listed where the runner keeps them, holding a file or not.
 [[nodiscard]] std::vector<EmulatorSaves> savesOf(const Game& game,
                                                  const roms::EmulatorCatalog& catalog,
                                                  const std::filesystem::path& runnerSaves);
+
+/// Among `saves` (`savesOf(game)`), those of the emulator `game` starts with (`Game::emulator`);
+/// null when it keeps none there.
+[[nodiscard]] const EmulatorSaves* launchedSaves(const std::vector<EmulatorSaves>& saves,
+                                                 const Game& game,
+                                                 const roms::EmulatorCatalog& catalog);
 
 /// Whether `saves` can be copied between: one holds files and another can take them.
 [[nodiscard]] bool copyable(const std::vector<EmulatorSaves>& saves);

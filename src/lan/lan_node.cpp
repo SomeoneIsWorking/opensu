@@ -42,9 +42,14 @@ LanNode::LanNode(Setup setup)
     : coverCache_{std::move(setup.coverCache)}, remote_{std::move(setup.remote)},
       changed_{std::move(setup.changed)},
       book_{std::move(setup.bookFile), std::move(setup.secrets)}, name_{std::move(setup.name)},
+      saves_{std::move(setup.saves), book_, web_,
+             [this] {
+                 return sightings();
+             }},
       listener_{LanListener::Sources{.book = book_,
                                      .pairing = pairing_,
                                      .library = library_,
+                                     .saves = saves_,
                                      .name =
                                          [this] {
                                              return name_;
@@ -78,6 +83,7 @@ LanNode::~LanNode() {
     if (worker_.joinable()) {
         worker_.join();
     }
+    saves_.stop();
     asking_.reset();
     discovery_.reset();
     listener_.stop();

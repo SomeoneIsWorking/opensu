@@ -1,7 +1,7 @@
-// peer_client — this openSU asking another one on the LAN, over plain HTTP to the address and port
-// its announcement resolved to: the open pairing calls, and calls signed with the pairing's
-// secret whose answers count only when the host signed them with the same secret. Nothing is
-// followed off that address.
+// peer_client — this openSU asking another one on the LAN, over HTTP to the address and port its
+// announcement resolved to: the open pairing calls, and calls signed with the pairing's secret,
+// their bodies and answers sealed with it (`request_signature`), whose answers count only when
+// they open. Nothing is followed off that address.
 #pragma once
 
 #include <cstddef>
@@ -40,9 +40,9 @@ class PeerClient {
         std::span<const std::uint8_t> secret;
     };
 
-    /// `method` (GET, or POST with `body`) of `target`, signed by `signer`. Nothing with `error`
-    /// when it did not arrive, the answer is over `largest` bytes or is not the host's, signed with
-    /// the same secret.
+    /// `method` (GET, or POST with `body` sealed) of `target`, signed by `signer`; the answer as
+    /// it opens. Nothing with `error` when it did not arrive, the answer is over `largest` bytes or
+    /// was not sealed by the host with the same secret for this request.
     [[nodiscard]] std::optional<net::WebClient::Answer>
     call(std::string_view method, std::string_view target, const std::string& body,
          const Signer& signer, std::size_t largest, std::string& error) const;

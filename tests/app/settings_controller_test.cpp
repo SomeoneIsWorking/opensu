@@ -402,25 +402,35 @@ struct Rig {
                                            controller.refresh();
                                        }};
     app::ChordSettings chordSettings{shortcutEditor, shortcuts};
-    app::LanService lan{app::LanService::Places{
-                            .bookFile = config.configDir / "lan.json",
-                            .secrets = secrets::SecretStore{config.configDir / "secrets", false},
-                            .coverCache = config.cacheDir / "lan",
-                            .port = 0},
-                        preferences,
-                        screens.navigator,
-                        sounds,
-                        std::make_shared<lan::RemoteLibrary>(),
-                        false,
-                        app::LanService::Hooks{.say =
-                                                   [](const std::string&, bool) {
-                                                   },
-                                               .remoteChanged =
-                                                   [] {
-                                                   },
-                                               .peersChanged =
-                                                   [] {
-                                                   }}};
+    app::LanService lan{
+        app::LanService::Places{
+            .bookFile = config.configDir / "lan.json",
+            .secrets = secrets::SecretStore{config.configDir / "secrets", false},
+            .coverCache = config.cacheDir / "lan",
+            .port = 0,
+            .saves = lan::SaveSync::Setup{.versionsFile = config.configDir / "lan-saves.json",
+                                          .backups = config.configDir,
+                                          .staging = config.configDir / "incoming",
+                                          .runnerSaves = config.savesDir,
+                                          .inUse = {},
+                                          .changed = {}}},
+        preferences,
+        screens.navigator,
+        sounds,
+        std::make_shared<lan::RemoteLibrary>(),
+        false,
+        app::LanService::Hooks{.say =
+                                   [](const std::string&, bool) {
+                                   },
+                               .remoteChanged =
+                                   [] {
+                                   },
+                               .peersChanged =
+                                   [] {
+                                   },
+                               .savesChanged =
+                                   [] {
+                                   }}};
     app::LanSettings lanSettings{lan, preferences, screens.navigator, pad, sounds, [] {
                                  }};
     ui::MappingPage mappingPage;

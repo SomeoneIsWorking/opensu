@@ -229,7 +229,7 @@ void ShellApp::applyCatalog(library::CatalogSnapshot snapshot) {
     artworkStore_.apply(games_);
     covers_.catalogChanged(games_);
     // With the covers already on disk; one fetched later is shared from the next listing.
-    lan_.share(games_);
+    lan_.share(games_, emulatorSettings_.catalog());
     requestArtwork();
     for (const library::SourceStatus& source : sources_) {
         if (source.availability != library::Availability::Ready &&
@@ -608,14 +608,28 @@ void ShellApp::launch(const library::Game& game) {
             game.unavailable.empty() ? "no way to start " + game.title : game.unavailable, true);
         return;
     }
+    if (launches_.running()) {
+        shell_.setToast("a game is already running", true);
+        return;
+    }
+    if (lan_.holding()) {
+        shell_.setToast("a game is waiting for its saves", true);
+        return;
+    }
+    if (lan_.before(game, [this, game] {
+            startLaunch(game);
+        })) {
+        shell_.setToast("Syncing " + game.title + "'s saves first");
+        return;
+    }
+    startLaunch(game);
+}
+
+void ShellApp::startLaunch(const library::Game& game) {
     library::Game started = game;
     const library::wine::Prepared wine = wineSettings_.prepare(started);
     if (!wine.refusal.empty()) {
         shell_.setToast(wine.refusal, true);
-        return;
-    }
-    if (launches_.running()) {
-        shell_.setToast("a game is already running", true);
         return;
     }
     std::string control = retro_.begin();
@@ -972,6 +986,11 @@ void ShellApp::publishSnapshot() {
     next.lanSeen = lan.seen;
     next.lanPaired = lan.paired;
     next.lanCode = lan.code;
+    if (const ui::GameDetails* shown = details_.details()) {
+        if (const ui::SettingsRow* saves = ui::factOf(*shown, "Saves")) {
+            next.lanSaves = saves->value;
+        }
+    }
 
     bridge_.publish(std::move(next));
 }
@@ -1023,6 +1042,10 @@ void ShellApp::serviceControlRequests() {
 /// that touches the window or the shell happens here, on the loop's thread.
 void ShellApp::serviceRequests() {
     const bool launching = launches_.running();
+    lan_.playing(launching ? &launches_.game() : nullptr);
+    if (const std::optional<library::Game> ended = launches_.takeEnded()) {
+        lan_.ended(*ended);
+    }
     if (padOwner_.held() && !launching) {
         padOwner_.release();
     }

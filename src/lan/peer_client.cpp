@@ -39,26 +39,31 @@ PeerClient::call(std::string_view method, std::string_view target, const std::st
                  const Signer& signer, std::size_t largest, std::string& error) const {
     const std::int64_t now = unixSeconds(std::chrono::system_clock::now());
     const std::string nonce = secrets::hexText(crypto::randomBytes(crypto::nonceBytes));
-    const std::string signature =
-        requestSignature(signer.secret, RequestFacts{method, target, now, nonce, body});
+    RequestFacts facts{method, target, now, nonce, {}};
+    const bool posts = method == "POST";
+    const std::string sent =
+        posts ? sealBody(signer.secret, facts, Direction::Request, 0, body) : std::string{};
+    facts.body = sent;
+    const std::string signature = requestSignature(signer.secret, facts);
     const std::vector<std::string> headers{
-        "Content-Type: application/json",
+        "Content-Type: application/octet-stream",
         std::string{peerHeader} + ": " + std::string{signer.selfId},
         std::string{timeHeader} + ": " + std::to_string(now),
         std::string{nonceHeader} + ": " + nonce, std::string{signatureHeader} + ": " + signature};
     std::optional<net::WebClient::Answer> answer =
-        send(target, headers, method == "POST" ? std::optional<std::string>{body} : std::nullopt,
-             largest, error);
+        send(target, headers, posts ? std::optional<std::string>{sent} : std::nullopt,
+             largest + crypto::sealTagBytes, error);
     if (!answer) {
         return std::nullopt;
     }
-    const std::string expected =
-        answerSignature(signer.secret, nonce, static_cast<int>(answer->status), answer->body);
-    if (!signatureMatches(expected, answer->header(signatureHeader))) {
+    std::optional<std::string> opened = openBody(signer.secret, facts, Direction::Answer,
+                                                 static_cast<int>(answer->status), answer->body);
+    if (!opened) {
         error = answer->status == forbidden ? "it refused: it is not paired with this openSU"
-                                            : "the answer is not signed by the openSU paired with";
+                                            : "the answer is not sealed by the openSU paired with";
         return std::nullopt;
     }
+    answer->body = std::move(*opened);
     return answer;
 }
 

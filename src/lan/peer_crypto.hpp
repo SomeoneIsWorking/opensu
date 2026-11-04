@@ -1,6 +1,6 @@
-// peer_crypto — the primitives LAN pairing and its signed requests are made of, over libcrypto:
-// random bytes, SHA-256, HMAC-SHA-256, HKDF-SHA-256, a constant-time comparison and an ephemeral
-// X25519 key pair.
+// peer_crypto — the primitives LAN pairing and its signed, sealed requests are made of, over
+// libcrypto: random bytes, SHA-256, HMAC-SHA-256, HKDF-SHA-256, ChaCha20-Poly1305, a constant-time
+// comparison and an ephemeral X25519 key pair.
 #pragma once
 
 #include <cstddef>
@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -22,6 +23,10 @@ inline constexpr std::size_t keyBytes = 32;
 /// A request's or a pairing's nonce is this long.
 inline constexpr std::size_t nonceBytes = 16;
 
+/// A ChaCha20-Poly1305 nonce is this long, and its tag, which follows the ciphertext.
+inline constexpr std::size_t sealNonceBytes = 12;
+inline constexpr std::size_t sealTagBytes = 16;
+
 /// `count` bytes from the system's generator; throws `std::runtime_error` when it has none.
 [[nodiscard]] Bytes randomBytes(std::size_t count);
 
@@ -34,6 +39,18 @@ inline constexpr std::size_t nonceBytes = 16;
 [[nodiscard]] Bytes hkdfSha256(std::span<const std::uint8_t> secret,
                                std::span<const std::uint8_t> salt, std::string_view info,
                                std::size_t length);
+
+/// `plain` encrypted and authenticated under the `keyBytes` key `key` and `nonce` with
+/// ChaCha20-Poly1305 (RFC 8439), `aad` authenticated with it; the tag follows the ciphertext.
+[[nodiscard]] std::string seal(std::span<const std::uint8_t> key,
+                               std::span<const std::uint8_t> nonce, std::string_view aad,
+                               std::string_view plain);
+
+/// What `sealed` holds; nothing when it was not sealed under `key`, `nonce` and `aad` or was
+/// changed since.
+[[nodiscard]] std::optional<std::string> open(std::span<const std::uint8_t> key,
+                                              std::span<const std::uint8_t> nonce,
+                                              std::string_view aad, std::string_view sealed);
 
 /// Whether `a` and `b` hold the same bytes, in time that does not depend on where they differ.
 [[nodiscard]] bool sameBytes(std::span<const std::uint8_t> a,

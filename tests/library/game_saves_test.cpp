@@ -257,9 +257,16 @@ void readsTheRunnersFiles() {
     game.emulatorOptions = {installed("mGBA (built-in)", "mgba-core")};
     const std::vector<EmulatorSaves> found = savesOf(game, rig.catalog(), rig.runner);
     expect(found.size() == 1 && found[0].emulatorId == runnerSavesId &&
-               found[0].slots.size() == 1 && found[0].slots[0].kind == SlotKind::Memory &&
-               found[0].bytes() == 32,
+               found[0].slots.size() == 2 && found[0].bytes() == 32 &&
+               found[0].slotFor(SlotKind::Memory)->modified,
            "the runner's .srm is found by the ROM's name under its system's folder");
+    const SaveSlot* state = found[0].slotFor(SlotKind::State);
+    expect(state != nullptr && !state->modified &&
+               state->root == rig.runner / "gba" / "Minish Cap.state",
+           "and its state slot where the runner would write it, holding nothing yet");
+    game.emulator = "mGBA (built-in)";
+    expect(launchedSaves(found, game, rig.catalog()) == &found[0],
+           "the saves a game starts with are its emulator's");
     const std::optional<SaveKey> key = keyOf(game);
     expect(key && key->system == "gba" && key->game == "Minish Cap",
            "a ROM's saves are keyed by its system and name");

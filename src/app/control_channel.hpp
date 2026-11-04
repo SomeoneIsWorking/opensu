@@ -133,6 +133,8 @@ struct ShellSnapshot {
     std::size_t lanSeen{0};
     std::size_t lanPaired{0};
     std::string lanCode;
+    /// The open details page's Saves fact, how its game's shared saves stand; empty for none.
+    std::string lanSaves;
 };
 
 /// A pointer event `POST /pointer` injects, in window pixels.

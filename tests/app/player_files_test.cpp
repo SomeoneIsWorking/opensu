@@ -41,11 +41,13 @@ struct Home {
     fs::path config{scratch.path() / "config"};
     fs::path data{scratch.path() / "data"};
     fs::path saves{data / "saves"};
+    fs::path state{scratch.path() / "state"};
     fs::path copies{scratch.path() / "runtime" / "hidden"};
     fs::path fitted{scratch.path() / "cache" / "fitted"};
 
     explicit Home(const std::string& name) : scratch{OPENSU_TEST_SCRATCH, name} {
-        const app::PlayerFiles inPlace{{.config = config, .data = data, .saves = saves}};
+        const app::PlayerFiles inPlace{
+            {.config = config, .data = data, .state = state, .saves = saves}};
         settings::Settings values;
         values.iconSize = 7;
         std::string error;
@@ -65,17 +67,21 @@ struct Home {
                                                                                  error),
                "a chosen cover kept");
         expect(fileio::writeWhole(saves / "gba" / "game.srm", "ram", error), "a save kept");
+        expect(fileio::writeWhole(inPlace.lanSaveVersionsFile(), R"({"games":[]})", error),
+               "the shared saves' record kept");
     }
 
     [[nodiscard]] std::vector<std::optional<std::string>> files() const {
-        const app::PlayerFiles inPlace{{.config = config, .data = data, .saves = saves}};
+        const app::PlayerFiles inPlace{
+            {.config = config, .data = data, .state = state, .saves = saves}};
         return {bytesOf(inPlace.settingsFile()),
                 bytesOf(inPlace.gameSettingsFile()),
                 bytesOf(inPlace.mappingsFile()),
                 bytesOf(inPlace.ownGamesFile()),
                 bytesOf(inPlace.chosenCoversDir() / "own%3A1"),
                 bytesOf(inPlace.chosenCoversDir() / "steam%3A220"),
-                bytesOf(saves / "gba" / "game.srm")};
+                bytesOf(saves / "gba" / "game.srm"),
+                bytesOf(inPlace.lanSaveVersionsFile())};
     }
 };
 
@@ -87,7 +93,8 @@ void hiddenRunsKeepThePlayersFiles() {
     const auto before = home.files();
     {
         const app::PlayerFiles files{
-            {.config = home.config, .data = home.data, .saves = home.saves}, home.copies};
+            {.config = home.config, .data = home.data, .state = home.state, .saves = home.saves},
+            home.copies};
         app::Preferences preferences{settings::Store{files.settingsFile()}, ignore};
         expect(preferences.values().iconSize == 7, "a hidden run reads the player's settings");
         preferences.values().iconSize = 11;
@@ -123,6 +130,12 @@ void hiddenRunsKeepThePlayersFiles() {
         const fs::path runSaves = files.savingIn(config).savesDir / "gba" / "game.srm";
         expect(bytesOf(runSaves) == "ram", "the runner finds the player's save");
         expect(fileio::writeWhole(runSaves, "played", error), "the runner saves in the run");
+        expect(bytesOf(files.lanSaveVersionsFile()) == R"({"games":[]})",
+               "the run reads the shared saves' record");
+        expect(fileio::writeWhole(files.lanSaveVersionsFile(), "synced", error),
+               "and records its syncs in its copy");
+        expect(files.stateDir().string().starts_with(home.copies.string()),
+               "and keeps the backups it makes of them in its own folder");
         expect(fs::exists(home.copies), "the copies are kept while the run lasts");
     }
     expect(home.files() == before, "the player's files are as they were");
@@ -133,10 +146,12 @@ void ordinaryRunsWriteInPlace() {
     const Home home{"player-files-ordinary"};
     {
         const app::PlayerFiles files{
-            {.config = home.config, .data = home.data, .saves = home.saves}};
+            {.config = home.config, .data = home.data, .state = home.state, .saves = home.saves}};
         app::Preferences preferences{settings::Store{files.settingsFile()}, ignore};
         preferences.values().iconSize = 11;
         preferences.save();
+        expect(files.stateDir() == home.state,
+               "an ordinary run backs saves up in the player's state dir");
     }
     expect(settings::Store{home.config / settings::settingsFile}.load().iconSize == 11,
            "an ordinary run keeps its change in the player's settings");

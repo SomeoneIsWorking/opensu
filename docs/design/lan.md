@@ -1,8 +1,8 @@
 # LAN
 
 The LAN integration (Settings › Integrations › LAN, off by default) makes this openSU findable by
-the other openSUs on the network, pairs with them, and lists the installed games of each paired
-one in Library under that openSU's name. Starting such a game says "Remote play is not built yet";
+the other openSUs on the network, pairs with them, lists the installed games of each paired one in
+Library under that openSU's name, and shares the games' saves with the ones the player chose. Starting such a game says "Remote play is not built yet";
 streaming is step 2 of `docs/plans/lan-remote-play.md`. Module rows are in `docs/codemap.md` under
 LAN.
 
@@ -26,11 +26,12 @@ LAN.
   id and name, the cached cover, `installed`, no launch). `library::libraryShelf` gives each host
   a launcher (`launcher:lan:<peer id>`), sorted by name, after Your games. Home leaves remote games
   out. The details page shows "On <host>", Play, Game settings and Hide game.
+- `lan::SaveSync` (in the node) shares saves; see [Shared saves](#shared-saves).
 
 ## Discovery
 
 Each node announces `_opensu._tcp` on its listener's port with TXT `id` (its 32-hex peer id),
-`name` (at most 63 bytes, no control bytes) and `v` (protocol `1`). On Linux this goes through
+`name` (at most 63 bytes, no control bytes) and `v` (protocol `2`: sealed bodies). On Linux this goes through
 Avahi's D-Bus API (`EntryGroupNew`/`AddService`/`Commit`, `ServiceBrowserNew`, `ResolveService`)
 over sd-bus on the node's own thread. A name clash takes Avahi's alternative name. Only IPv4
 resolutions are kept, and its own id is skipped. An openSU on the same machine resolves on every
@@ -39,7 +40,7 @@ interface, loopback included; the first one is listed. Windows, macOS and Androi
 
 ## Wire
 
-Plain HTTP/1.1 on the LAN listener (`lucent::http::Server`, `ListenScope::LocalNetwork`, every
+HTTP/1.1 on the LAN listener (`lucent::http::Server`, `ListenScope::LocalNetwork`, every
 IPv4 interface, 16 KiB bodies), port `OPENSU_LAN_PORT` (default 7312, a free one in a hidden run).
 It never shares the loopback control channel's port.
 
@@ -52,8 +53,13 @@ It never shares the loopback control channel's port.
 | `GET /lan/library` | paired, signed | `[{"id","title","cover"}]`, installed local games only |
 | `GET /lan/cover/<token>` | paired, signed | one listed cover, at most 16 MiB |
 | `POST /lan/unpair` | paired, signed | the caller forgets this openSU; this one forgets it |
+| `POST /lan/saves/status` | sharing saves, signed | `{"system","game"}` → `{"counter","hash","bytes","modified"}`; 404 when no game here has that key |
+| `POST /lan/saves/get` | sharing saves, signed | the same ask → the saves as a bundle (below), at most 512 MiB |
+| `POST /lan/saves/news` | sharing saves, signed | the caller holds newer saves of the game (`picked`: the player there chose them in a conflict); this one pulls them |
+| `POST /lan/saves/synced` | sharing saves, signed | the caller took `hash` (`counter`) of the game from here |
 
-Everything else, and any signed route that fails its check, is 403.
+Everything else, and any signed route that fails its check or whose body does not open, is 403.
+The saves routes are 403 too, sealed, while this openSU does not share saves with the caller.
 
 ## Pairing
 
@@ -73,16 +79,77 @@ The guest commits before it sees the host's key, so a man in the middle has to f
 each transcript first. The two codes then differ, except for a one-in-a-million guess. One secret
 serves both directions, so each paired openSU lists the other's games.
 
-## Signed requests
+The code is a short authentication string over both keys, so it binds the key exchange only if a
+man in the middle gets few guesses. In protocol 1 the host answered a new `/lan/pair` at once
+after a refused reveal, so he could keep his commitment to the guest, open fresh offers to the
+host without revealing, and reveal only to the one whose code matched the guest's. The host now
+takes a new offer at most every 10 s (`offerSpacing`) until its player has answered one: about
+12 tries in the guest's 120 s, each one in a million.
+
+## Signed and sealed requests
 
 A signed request carries `X-OpenSU-Peer` (the caller's id), `X-OpenSU-Time` (Unix seconds),
 `X-OpenSU-Nonce` (16 random bytes, hex) and `X-OpenSU-Signature`:
-`HMAC(secret, "opensu-lan-request\n" METHOD "\n" TARGET "\n" time "\n" nonce "\n" hex(SHA-256(body)))`.
-The host takes it only from a paired id, within 120 s of its own clock, with a nonce not seen from
-that peer within that window (`ReplayGuard`), and compares the signature in constant time. Its
-answer carries `X-OpenSU-Signature` =
-`HMAC(secret, "opensu-lan-answer\n" nonce "\n" status "\n" hex(SHA-256(body)))`, and the client
-drops an answer that does not match. Redirects are not followed.
+`HMAC(secret, "opensu-lan-request\n" METHOD "\n" TARGET "\n" time "\n" nonce "\n" hex(SHA-256(body)))`,
+over the body as sent (sealed). The host takes it only from a paired id, within 120 s of its own
+clock, with a nonce not seen from that peer within that window (`ReplayGuard`), and compares the
+signature in constant time. Redirects are not followed.
+
+Every body of a signed call is sealed with ChaCha20-Poly1305 (libcrypto's EVP), a POST's request
+body and every answer, refusals included; a GET's request body is empty. Each request and direction
+has its own key:
+
+- `key = HKDF-SHA-256(secret, salt = the request nonce's 16 bytes, info)`, with
+  `info = "opensu-lan-seal\n" ("request" | "answer") "\n" METHOD "\n" TARGET "\n" time`.
+- The additional data is `info "\n" status` (0 for a request), so an answer's status is
+  authenticated with its body.
+- The sealed body is a random 12-byte AEAD nonce, then the ciphertext and the 16-byte tag. The key
+  is already unique to the request; the random nonce keeps a key from sealing two answers under one
+  nonce when a request is replayed after the host restarted and its replay guard is empty.
+- The host opens a request body only after the signature and replay checks, so each nonce reaches
+  sealing once per run. The client drops an answer that does not open, which replaces the answer
+  HMAC protocol 1 had: only the holder of the secret could seal it, for this request.
+
+The headers (route, peer id, time, nonce, `Content-Type: application/octet-stream`, lengths) cross
+in clear. The secret is long-lived: someone who later learns it can open recorded traffic (no
+forward secrecy).
+
+## Shared saves
+
+Settings › LAN has a Share saves switch per paired openSU, off by default (`"shareSaves"` in
+`lan.json`). Saves cross only while both sides have it on and the peer is announced.
+
+- Which saves: those of the emulator the game starts with (`library::saves::launchedSaves`), the
+  slots a copy carries (`copiedSlots`), matched across openSUs by `SaveKey` (console and Switch
+  title id, or the ROM's name for the runner). The saves taken are copied over the ones here by
+  `library::saves::SaveCopier`, so a Switch save made by Eden on one side lands in Ryujinx's
+  format on the other through the same code as Copy saves; other consoles' saves go runner to
+  runner.
+- The record (`lan-saves.json`, state dir): per game a change counter, raised whenever the content
+  hash here changes, the hash (SHA-256 over each file's slot kind, path and bytes; times do not
+  count), and per peer the hash both held when they last synced.
+- The rule (`syncStateOf`): the same hash is in sync; no save on one side takes the other's; else
+  a side whose hash differs from the last-synced one changed. One side changed: its saves go to
+  the other. Both changed, or two openSUs that never synced hold different saves: conflict, and
+  nothing is replaced until the player picks.
+- When: before a game starts (`LanService::before` holds the launch on the shell's loop, "Syncing
+  X's saves first", until `SaveSync::prepared`); after it ends; from Sync saves now; on opening its
+  details (look only); when a peer says it has newer saves (`/news`) or took these (`/synced`).
+- A pull asks `/status`, takes the bundle from `/get`, checks its hash against the status, stages
+  it under `<state>/lan-incoming/<peer>/`, checks that the saves here did not change meanwhile and
+  are not in use (the game the shell plays, or the emulator's process through
+  `launch::runningRefusal`), and copies it in, the saves replaced backed up first under
+  `<state>/save-backups/`. It then records the hash and tells the peer (`/synced`).
+- A push is only `/news`: the peer pulls, under its own checks. Request bodies stay small.
+- In a conflict the details row is Pick which save to keep: a dialog with each side's date and
+  size. Keep this one tells the peer with `picked` set, and it pulls over its own; Keep X's pulls.
+- The work runs on `SaveSync`'s thread, one game at a time; no lock is held while a peer is asked,
+  so two openSUs syncing each other cannot deadlock. A hidden run keeps the record, staging and
+  backups in its own folder (`PlayerFiles::stateDir`).
+
+The Saves fact on the details page shows the peer most worth attention: Conflict with X, Newer on
+X, the reason a sync failed, Newer here than on X, X does not share saves with this openSU, X is
+offline, In sync with X.
 
 ## Keys and secrets
 
@@ -97,8 +164,8 @@ Library on both sides.
 
 ## Known limits
 
-- No confidentiality. The listing, titles and covers cross the LAN in clear and can be read by
-  anyone on it. Only who may ask and whether an answer is genuine are protected.
+- Who talks to whom, when, which routes and how much crosses the LAN in clear; what is said does
+  not. No forward secrecy: the pairing's secret opens recorded traffic.
 - Anyone on the LAN can see that an openSU runs, its name and id, and can ask to pair. The host's
   player sees each request, one at a time.
 - A request is good for 120 s of clock skew, and the replay guard forgets nonces after that.
@@ -108,12 +175,21 @@ Library on both sides.
 - A cover fetched for a local game after the catalog was read is shared from the next catalog
   read.
 - Discovery is Linux only. The rest is portable C++ over libcrypto and Lucent.
+- A save bundle is held whole in memory on both sides (at most 512 MiB).
+- Saves sync only while both openSUs run. One that was off syncs at its next launch of the game,
+  or when its details open and Sync saves now is pressed.
+- A game whose emulator keeps no saves openSU can find (store games, standalone emulators of
+  consoles other than the Switch) shares none.
 
 ## Checking it
 
 `tests/lan/lan_node_test.cpp` runs two nodes and a stranger in one process on loopback, with a
-stand-in directory in place of Avahi. In the product, start two or three `--hidden` openSUs, each
-with its own `HOME` and the XDG dirs under it and `"integrations": {"lan": true}` in its
-settings. Drive Settings › LAN through each control channel. `/state` reports `lanSeen`,
-`lanPaired` and `lanCode`, `/frame.png` shows the code on both screens, and the `lan` log lines
-name every pairing, listing and refusal. A request to `/lan/library` without a pairing gets 403.
+stand-in directory in place of Avahi, and two more sharing a runner game's saves: pulled before a
+launch, pushed after, a conflict left alone until picked, a pick refused while the emulator runs,
+the replaced saves backed up. In the product, start two or three `--hidden` openSUs, each with its
+own `HOME` and the XDG dirs under it and `"integrations": {"lan": true}` in its settings. Drive
+Settings › LAN through each control channel. `/state` reports `lanSeen`, `lanPaired`, `lanCode`
+and, with a details page open, `lanSaves` (its Saves fact); `/frame.png` shows the code on both
+screens, and the `lan` and `saves` log lines name every pairing, listing, refusal, pull and push.
+A request to `/lan/library` without a pairing gets 403. A socket dump of the LAN port shows the
+routes and lengths but no save bytes.

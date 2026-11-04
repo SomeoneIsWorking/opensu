@@ -1,6 +1,7 @@
 // lan_settings — the Settings screen's LAN category while LAN is on: the name this openSU goes by
 // (renamed on an entry card), whether it can be found and on which port, the other openSUs found
-// on the LAN with Pair, and the paired ones with Remove, which asks first.
+// on the LAN with Pair, and the paired ones with Remove, which asks first, and Share saves, off
+// until the player turns it on.
 #pragma once
 
 #include <functional>
@@ -33,7 +34,8 @@ class LanSettings {
 
     [[nodiscard]] ui::SettingsCategory page() const;
     [[nodiscard]] static bool owns(const std::string& id);
-    /// Acts on row `id`: the name opens its card, Pair pairs, Remove asks first.
+    /// Acts on row `id`: the name opens its card, Pair pairs, Remove asks first, Share saves
+    /// turns over.
     void run(const std::string& id, int step);
 
   private:

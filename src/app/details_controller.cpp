@@ -84,6 +84,9 @@ ui::GameSettingsView DetailsController::settingsOf(const library::Game& game) co
                                         : lucent::text::counted(custom, "custom setting");
     }
     view.copySaves = hooks_.copySavesOffer(game);
+    const SharedSaves::View shared = hooks_.sharedSaves(game);
+    view.sharedSaves = shared.fact;
+    view.syncSaves = shared.action;
     return view;
 }
 
@@ -194,6 +197,8 @@ void DetailsController::run(const std::string& id, int step) {
         hooks_.changeFile(*game);
     } else if (id == ui::detailsRemoveId) {
         hooks_.remove(*game);
+    } else if (id == ui::detailsSyncSavesId) {
+        hooks_.syncSaves(*game);
     }
 }
 

@@ -70,7 +70,8 @@ PeerBook::PeerBook(fs::path file, secrets::SecretStore secrets)
                         continue;
                     }
                     Peer peer{wire::textField(entry, "id"),
-                              shownName(wire::textField(entry, "name"))};
+                              shownName(wire::textField(entry, "name")),
+                              entry.value("shareSaves", false)};
                     if (isPeerId(peer.id) && peer.id != id_) {
                         peers_.push_back(std::move(peer));
                     }
@@ -163,6 +164,22 @@ bool PeerBook::remember(const Peer& peer, const crypto::Bytes& secret, std::stri
     return true;
 }
 
+bool PeerBook::shareSaves(std::string_view id, bool on, std::string& error) {
+    const std::lock_guard lock{mutex_};
+    std::vector<Peer> next = peers_;
+    const auto peer = std::ranges::find(next, id, &Peer::id);
+    if (peer == next.end()) {
+        error = "it is not paired with this openSU";
+        return false;
+    }
+    peer->sharesSaves = on;
+    if (!write(next, error)) {
+        return false;
+    }
+    peers_ = std::move(next);
+    return true;
+}
+
 bool PeerBook::forget(std::string_view id, std::string& error) {
     const std::lock_guard lock{mutex_};
     std::vector<Peer> next = peers_;
@@ -183,7 +200,7 @@ bool PeerBook::forget(std::string_view id, std::string& error) {
 bool PeerBook::write(const std::vector<Peer>& peers, std::string& error) const {
     json list = json::array();
     for (const Peer& peer : peers) {
-        list.push_back({{"id", peer.id}, {"name", peer.name}});
+        list.push_back({{"id", peer.id}, {"name", peer.name}, {"shareSaves", peer.sharesSaves}});
     }
     const json document{{"id", id_}, {"peers", list}};
     return fileio::writeWhole(file_, document.dump(2) + "\n", error);

@@ -25,6 +25,7 @@ constexpr int notFound = 404;
 constexpr int conflict = 409;
 constexpr int tooLarge = 413;
 constexpr std::string_view coverPrefix = "/lan/cover/";
+constexpr std::string_view savesPrefix = "/lan/saves/";
 /// A cover larger than this is not sent.
 constexpr std::uintmax_t largestCover = std::uintmax_t{16} * 1024 * 1024;
 /// A pairing or unpairing body is a few hundred bytes.
@@ -99,7 +100,7 @@ Response LanListener::handle(const Request& request) {
     }
     const bool peerPath =
         (request.method == "GET" && (path == "/lan/library" || path.starts_with(coverPrefix))) ||
-        (request.method == "POST" && path == "/lan/unpair");
+        (request.method == "POST" && (path == "/lan/unpair" || path.starts_with(savesPrefix)));
     if (!peerPath) {
         return refused(notFound, "Not Found", "no such route");
     }
@@ -107,10 +108,21 @@ Response LanListener::handle(const Request& request) {
     if (!verified) {
         return refused(forbidden, "Forbidden", "pair with this openSU first");
     }
-    Response answer = peerRoute(request, *verified);
-    answer.headers.push_back(
-        {std::string{signatureHeader},
-         answerSignature(verified->secret, verified->nonce, answer.status, answer.body)});
+    const RequestFacts facts{request.method, request.target, verified->time, verified->nonce,
+                             request.body};
+    Response answer;
+    if (request.method != "POST") {
+        answer = peerRoute(request, *verified);
+    } else if (const std::optional<std::string> body =
+                   openBody(verified->secret, facts, Direction::Request, 0, request.body)) {
+        answer = path.starts_with(savesPrefix) ? savesRoute(path, *body, *verified)
+                                               : peerRoute(request, *verified);
+    } else {
+        lucent::info("lan", "refused {} {} from {}: its body does not open", request.method, path,
+                     verified->peer.name);
+        answer = refused(forbidden, "Forbidden", "the body is not sealed for this openSU");
+    }
+    answer.body = sealBody(verified->secret, facts, Direction::Answer, answer.status, answer.body);
     return answer;
 }
 
@@ -140,7 +152,7 @@ std::optional<LanListener::Signed> LanListener::verify(const Request& request) {
         secrets::wipeBytes(secret->data(), secret->size());
         return std::nullopt;
     }
-    return Signed{*known, std::move(*secret), std::string{*nonce}};
+    return Signed{*known, std::move(*secret), std::string{*nonce}, *sent};
 }
 
 Response LanListener::peerRoute(const Request& request, const Signed& verified) {
@@ -173,6 +185,46 @@ Response LanListener::peerRoute(const Request& request, const Signed& verified) 
         return refused(notFound, "Not Found", "the cover cannot be read");
     }
     return Response::binary(ok, "OK", std::string{contentTypeOf(*cover)}, std::move(bytes));
+}
+
+Response LanListener::savesRoute(std::string_view path, std::string_view body,
+                                 const Signed& verified) {
+    if (!verified.peer.sharesSaves) {
+        lucent::info("lan", "refused {} from {}: saves are not shared with it", path,
+                     verified.peer.name);
+        return refused(forbidden, "Forbidden", "saves are not shared with this openSU");
+    }
+    const std::optional<wire::SaveAsk> ask = wire::readSaveAsk(body);
+    if (!ask) {
+        return refused(badRequest, "Bad Request", "not a game's saves");
+    }
+    const library::saves::SaveKey key{ask->system, ask->game};
+    if (path == wire::saveStatusRoute) {
+        const std::optional<wire::SaveStatus> status = sources_.saves.statusOf(key);
+        if (!status) {
+            return refused(notFound, "Not Found", "no game here has those saves");
+        }
+        return Response::json(ok, "OK", wire::write(*status));
+    }
+    if (path == wire::saveGetRoute) {
+        std::string error;
+        std::optional<std::string> bundle = sources_.saves.sendable(key, error);
+        if (!bundle) {
+            return refused(notFound, "Not Found", error);
+        }
+        lucent::info("lan", "sending {} the saves of {} {}", verified.peer.name, key.system,
+                     key.game);
+        return Response::binary(ok, "OK", "application/octet-stream", std::move(*bundle));
+    }
+    if (path == wire::saveNewsRoute) {
+        sources_.saves.heard(verified.peer, *ask);
+        return Response::json(ok, "OK", "{}");
+    }
+    if (path == wire::saveSyncedRoute) {
+        sources_.saves.syncedWith(verified.peer, *ask);
+        return Response::json(ok, "OK", "{}");
+    }
+    return refused(notFound, "Not Found", "no such route");
 }
 
 Response LanListener::pair(const Request& request) {

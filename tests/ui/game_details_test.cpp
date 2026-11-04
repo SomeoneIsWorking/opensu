@@ -146,7 +146,7 @@ void romEmulator() {
            "with none picked the choice says so before the emulators");
     const GameDetails sourced =
         detailsOf(kirby(true), false, now, {}, false,
-                  GameSettingsView{"Set for this game", {}, "Inherited", "Eden, Ryujinx"});
+                  GameSettingsView{"Set for this game", {}, "Inherited", "Eden, Ryujinx", {}, {}});
     expect(valueOf(sourced, "Emulator") == "Eden · installed · Set for this game" &&
                actionOf(sourced, detailsEmulatorId)->note == "Set for this game" &&
                actionOf(sourced, detailsSettingsId)->value == "Inherited",

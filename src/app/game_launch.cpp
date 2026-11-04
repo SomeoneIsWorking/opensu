@@ -66,6 +66,7 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
             const std::lock_guard lock{mutex_};
             running_ = false;
             cancelled = cancelled_;
+            ended_ = copy;
         }
         const EndNotice notice = noticeOf(GameEnd{.title = copy.title,
                                                   .failure = failure,
@@ -76,6 +77,11 @@ bool GameLaunch::start(library::Game game, std::vector<std::string> environment)
         mailbox_.postToast(notice.text, notice.error);
     }};
     return true;
+}
+
+std::optional<library::Game> GameLaunch::takeEnded() {
+    const std::lock_guard lock{mutex_};
+    return std::exchange(ended_, std::nullopt);
 }
 
 void GameLaunch::cancel() {

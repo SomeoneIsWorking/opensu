@@ -184,6 +184,11 @@ struct Rig {
                                           return std::string{};
                                       },
                                       [](const library::Game&) {
+                                      },
+                                      [](const library::Game&) {
+                                          return app::SharedSaves::View{};
+                                      },
+                                      [](const library::Game&) {
                                       }}};
 
     /// Each action as a press, the stack settled after it.

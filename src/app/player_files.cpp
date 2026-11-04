@@ -5,6 +5,7 @@
 #include <system_error>
 
 #include "lan/peer_book.hpp"
+#include "lan/save_versions.hpp"
 #include "launch/process_id.hpp"
 #include "library/own_games.hpp"
 #include "lucent/log.h"
@@ -39,10 +40,13 @@ void copyIfThere(const fs::path& from, const fs::path& to) {
 } // namespace
 
 PlayerFiles PlayerFiles::forRun(const config::Config& config, bool hidden) {
-    return PlayerFiles{
-        Dirs{.config = config.configDir, .data = config.dataDir, .saves = config.savesDir},
-        hidden ? config.runtimeDir / ("hidden-" + std::to_string(launch::ownProcessId()))
-               : fs::path{}};
+    return PlayerFiles{Dirs{.config = config.configDir,
+                            .data = config.dataDir,
+                            .state = config.stateDir,
+                            .saves = config.savesDir},
+                       hidden ? config.runtimeDir /
+                                    ("hidden-" + std::to_string(launch::ownProcessId()))
+                              : fs::path{}};
 }
 
 PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std::move(copiesDir)} {
@@ -56,6 +60,8 @@ PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std:
     ownGames_ = library::own::recordsFile(keptData);
     chosenCovers_ = chosenCoversUnder(keptData);
     lanBook_ = keptConfig / lan::peerBookFile;
+    state_ = copiesDir_.empty() ? dirs.state : copiesDir_ / "state";
+    lanSaveVersions_ = state_ / lan::saveVersionsFile;
     secrets_ = keptConfig / secrets::secretsFolder;
     saves_ = copiesDir_.empty() ? dirs.saves : copiesDir_ / "saves";
     if (copiesDir_.empty()) {
@@ -69,6 +75,7 @@ PlayerFiles::PlayerFiles(const Dirs& dirs, fs::path copiesDir) : copiesDir_{std:
     copyIfThere(library::own::recordsFile(dataDir), ownGames_);
     copyIfThere(chosenCoversUnder(dataDir), chosenCovers_);
     copyIfThere(configDir / lan::peerBookFile, lanBook_);
+    copyIfThere(dirs.state / lan::saveVersionsFile, lanSaveVersions_);
     copyIfThere(configDir / secrets::secretsFolder, secrets_);
     copyIfThere(dirs.saves, saves_);
     copiesShown_ = copiesDir_.string();

@@ -2,10 +2,13 @@
 // the discovery each node would get from Avahi stood in by a shared directory of announcements.
 // Pairing shows the same code on both sides and leaves both books holding the same secret; each
 // then lists the other's installed games and covers; an unpaired openSU learns only the name;
-// signed requests that are forged, late or repeated are refused; forgetting revokes both sides.
+// signed requests that are forged, late or repeated are refused, and their bodies sealed;
+// forgetting revokes both sides. Saves shared both ways follow the player: pulled before a game,
+// pushed after, a conflict left for the player to pick, every replaced save backed up.
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -16,6 +19,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -30,6 +34,8 @@
 #include "lan/peer_crypto.hpp"
 #include "lan/remote_library.hpp"
 #include "lan/request_signature.hpp"
+#include "lan/save_bundle.hpp"
+#include "lan/save_sync.hpp"
 #include "lan/shared_library.hpp"
 #include "lan/wire.hpp"
 #include "net/web_client.hpp"
@@ -126,10 +132,11 @@ class DirectoryDiscovery final : public lan::ServiceDiscovery {
     lan::Announcement self_;
 };
 
-/// One openSU: its node, its remote games, and how often they changed.
+/// One openSU: its node, its remote games, how often they changed, and where it keeps saves.
 struct Node {
     Node(const fs::path& root, const std::string& name, Directory& directory)
-        : remote{std::make_shared<lan::RemoteLibrary>()},
+        : remote{std::make_shared<lan::RemoteLibrary>()}, saves{root / name / "saves"},
+          state{root / name / "state"},
           node{lan::LanNode::Setup{
               .bookFile = root / name / "lan.json",
               .secrets = secrets::SecretStore{root / name / "secrets", false},
@@ -141,10 +148,30 @@ struct Node {
                   [this] {
                       ++changes;
                   },
+              .saves = lan::SaveSync::Setup{.versionsFile = state / "lan-saves.json",
+                                            .backups = state,
+                                            .staging = state / "lan-incoming",
+                                            .runnerSaves = saves,
+                                            .inUse =
+                                                [this](const library::Game&,
+                                                       const library::saves::EmulatorSaves&) {
+                                                    const std::lock_guard lock{mutex};
+                                                    return busy;
+                                                },
+                                            .changed =
+                                                [this] {
+                                                    ++savesChanged;
+                                                }},
               .discovery =
                   [&directory](const lan::Announcement& self, std::string& /*error*/) {
                       return std::make_unique<DirectoryDiscovery>(directory, self);
                   }}} {
+    }
+
+    /// Why this side's saves cannot be replaced now; empty when they can.
+    void setBusy(std::string why) {
+        const std::lock_guard lock{mutex};
+        busy = std::move(why);
     }
 
     [[nodiscard]] lan::Endpoint endpoint() const {
@@ -153,8 +180,41 @@ struct Node {
 
     std::shared_ptr<lan::RemoteLibrary> remote;
     std::atomic<int> changes{0};
+    std::atomic<int> savesChanged{0};
+    std::mutex mutex;
+    std::string busy;
+    fs::path saves;
+    fs::path state;
     lan::LanNode node;
 };
+
+/// A catalog with the built-in mGBA core, which keeps Game Boy saves in the runner's folder.
+library::roms::EmulatorCatalog runnerCatalog() {
+    library::roms::EmulatorEntry entry;
+    entry.id = "mgba-core";
+    entry.name = "mGBA (built-in)";
+    entry.systems = {"gb"};
+    entry.core = "mgba_libretro";
+    return library::roms::EmulatorCatalog{{entry}};
+}
+
+/// The same Game Boy ROM, installed on each openSU, on the built-in runner.
+library::Game runnerGame() {
+    library::Game game;
+    game.id = "rom:/r/Test.gb";
+    game.source = library::Source::Rom;
+    game.sourceId = "gb";
+    game.title = "Test";
+    game.file = "/r/Test.gb";
+    game.installed = true;
+    library::EmulatorOption option;
+    option.name = "mGBA (built-in)";
+    option.id = "mgba-core";
+    option.installed = true;
+    game.emulatorOptions = {option};
+    game.emulator = option.name;
+    return game;
+}
 
 library::Game installedGame(const std::string& id, const std::string& title,
                             const fs::path& cover) {
@@ -217,8 +277,8 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     writeFile(cover, "not really a png");
     library::Game uninstalled = installedGame("own:3", "Gone", {});
     uninstalled.installed = false;
-    host.node.share({installedGame("own:1", "Shared game", cover), uninstalled});
-    guest.node.share({installedGame("own:9", "Guest game", {})});
+    host.node.share({installedGame("own:1", "Shared game", cover), uninstalled}, runnerCatalog());
+    guest.node.share({installedGame("own:9", "Guest game", {})}, runnerCatalog());
 
     expect(waitFor([&guest] {
                return guest.node.sightings().size() == 2;
@@ -295,6 +355,146 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
            "and the guest's leave the host's");
 }
 
+/// A bundle from another openSU names files inside their slots only.
+void bundlesStayInTheirSlots() {
+    using library::saves::SlotKind;
+    const auto file = [](std::string path) {
+        return lan::BundleFile{
+            .kind = SlotKind::Memory, .path = std::move(path), .bytes = "x", .modified = {}};
+    };
+    const lan::SaveBundle saves{{file("slot/one.sav"), file("two.sav")}};
+    const auto read = lan::readBundle(lan::write(saves));
+    expect(read && read->hash() == saves.hash() && read->bytes() == 2,
+           "a bundle reads back as written");
+    for (const char* outside : {"../x", "a/../../x", "/etc/x", "a\\x", "c:x", "a//x", "./x"}) {
+        expect(!lan::readBundle(lan::write(lan::SaveBundle{{file(outside)}})),
+               "a path outside its slot is refused");
+    }
+    expect(!lan::readBundle(lan::write(lan::SaveBundle{{file("a"), file("a")}})),
+           "and so are two files at one path");
+    expect(!lan::readBundle("99\n{\"files\":[]}"), "and a header longer than the bundle");
+}
+
+/// The standing of `node`'s saves of `game` with its one sharing peer, once a look settles.
+std::optional<lan::PeerSaves::Standing> standingOf(Node& node, const library::Game& game) {
+    const std::vector<lan::PeerSaves> standings = node.node.saves().standings(game.id);
+    if (standings.size() != 1) {
+        return std::nullopt;
+    }
+    return standings.front().standing;
+}
+
+/// Looks at `game` on `node` until its saves stand as `expected` with the peer.
+bool looksLike(Node& node, const library::Game& game, lan::PeerSaves::Standing expected) {
+    return waitFor([&node, &game, expected] {
+        if (node.node.saves().busy(game.id)) {
+            return false;
+        }
+        node.node.saves().look(game);
+        std::this_thread::sleep_for(std::chrono::milliseconds{50});
+        return standingOf(node, game) == expected;
+    });
+}
+
+/// Whether any file under `folder` holds exactly `bytes`.
+bool holdsCopy(const fs::path& folder, const std::string& bytes) {
+    std::error_code ec;
+    for (fs::recursive_directory_iterator it{folder, ec}, end; !ec && it != end; it.increment(ec)) {
+        if (it->is_regular_file() && readFile(it->path()) == bytes) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void sharedSavesFollowThePlayer(const fs::path& root) {
+    using Standing = lan::PeerSaves::Standing;
+    Directory directory;
+    Node host{root, "Den", directory};
+    Node guest{root, "Attic", directory};
+    const library::Game game = runnerGame();
+    host.node.share({game}, runnerCatalog());
+    guest.node.share({game}, runnerCatalog());
+    const fs::path hostSave = host.saves / "gb" / "Test.srm";
+    const fs::path guestSave = guest.saves / "gb" / "Test.srm";
+    expect(waitFor([&guest] {
+               return guest.node.sightings().size() == 1;
+           }),
+           "the two openSUs find each other");
+    expect(pairUp(guest, host, true) == GuestPairing::Phase::Paired, "they pair");
+
+    writeFile(hostSave, "saved on the den");
+    const std::uint64_t unshared = guest.node.saves().prepare(game);
+    expect(waitFor([&guest, unshared] {
+               return guest.node.saves().prepared(unshared);
+           }),
+           "a launch is let go at once while no peer shares saves");
+    expect(!fs::exists(guestSave) && guest.node.saves().standings(game.id).empty(),
+           "and nothing is taken or shown");
+
+    std::string error;
+    expect(guest.node.shareSaves(host.node.id(), true, error),
+           "the attic shares saves with the den");
+    expect(guest.node.saves().sharing(game), "so the game's saves are shared");
+    expect(looksLike(guest, game, Standing::NotShared),
+           "while the den does not share back, it says so");
+
+    expect(host.node.shareSaves(guest.node.id(), true, error), "the den shares back");
+    expect(looksLike(guest, game, Standing::NewerThere), "the den's save is newer");
+    const std::uint64_t ticket = guest.node.saves().prepare(game);
+    expect(waitFor([&guest, ticket] {
+               return guest.node.saves().prepared(ticket);
+           }),
+           "before the game starts here, its saves are synced");
+    expect(readFile(guestSave) == "saved on the den",
+           "a save made on the den is here before the game starts");
+    expect(standingOf(guest, game) == Standing::InSync, "and both are in sync");
+
+    writeFile(guestSave, "played in the attic");
+    guest.node.saves().sync(game);
+    expect(waitFor([&hostSave] {
+               return readFile(hostSave) == "played in the attic";
+           }),
+           "a change here goes to the den after the game ends");
+    expect(holdsCopy(host.state, "saved on the den"), "the den's save it replaced is backed up");
+    expect(looksLike(guest, game, Standing::InSync) && looksLike(host, game, Standing::InSync),
+           "and both say they are in sync");
+
+    writeFile(hostSave, "changed on the den");
+    writeFile(guestSave, "changed in the attic");
+    expect(looksLike(guest, game, Standing::Conflict) && looksLike(host, game, Standing::Conflict),
+           "a save changed on both sides is a conflict on both");
+    guest.node.saves().sync(game);
+    expect(looksLike(guest, game, Standing::Conflict) &&
+               readFile(hostSave) == "changed on the den" &&
+               readFile(guestSave) == "changed in the attic",
+           "which a sync leaves alone");
+
+    host.setBusy("Close mGBA first: it is running");
+    guest.node.saves().keep(game, host.node.id(), false);
+    expect(waitFor([&host, &game] {
+               const auto standings = host.node.saves().standings(game.id);
+               return !host.node.saves().busy(game.id) && standings.size() == 1 &&
+                      standings.front().standing == Standing::Failed &&
+                      standings.front().problem.find("running") != std::string::npos;
+           }),
+           "keeping the attic's is refused on the den while its emulator runs");
+    expect(readFile(hostSave) == "changed on the den", "and the den's save is untouched");
+
+    host.setBusy({});
+    host.node.saves().keep(game, guest.node.id(), true);
+    expect(waitFor([&hostSave] {
+               return readFile(hostSave) == "changed in the attic";
+           }),
+           "once it closed, the player there keeps the attic's");
+    expect(holdsCopy(host.state, "changed on the den"), "the save it replaced is backed up");
+    expect(looksLike(host, game, Standing::InSync) && looksLike(guest, game, Standing::InSync),
+           "and the two are in sync again");
+
+    expect(guest.node.shareSaves(host.node.id(), false, error), "the attic stops sharing");
+    expect(looksLike(host, game, Standing::NotShared), "and the den hears it no longer shares");
+}
+
 /// The signed routes, asked directly of a listener.
 void signedRequestsAreCheckedOnce(const fs::path& root) {
     lan::PeerBook book{root / "signed" / "lan.json",
@@ -302,9 +502,26 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
     lan::HostPairing pairing{book.id()};
     lan::SharedLibrary library;
     library.share({installedGame("own:1", "Shared game", {})});
+    const net::WebClient web;
+    lan::SaveSync saves{
+        lan::SaveSync::Setup{.versionsFile = root / "signed" / "lan-saves.json",
+                             .backups = root / "signed",
+                             .staging = root / "signed" / "incoming",
+                             .runnerSaves = root / "signed" / "saves",
+                             .inUse =
+                                 [](const library::Game&, const library::saves::EmulatorSaves&) {
+                                     return std::string{};
+                                 },
+                             .changed =
+                                 [] {
+                                 }},
+        book, web, [] {
+            return std::vector<lan::Sighting>{};
+        }};
     lan::LanListener listener{lan::LanListener::Sources{.book = book,
                                                         .pairing = pairing,
                                                         .library = library,
+                                                        .saves = saves,
                                                         .name =
                                                             [] {
                                                                 return std::string{"Host"};
@@ -334,20 +551,26 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
 
     const lucent::http::Response answer = listener.handle(request(secret, now, nonce));
     expect(answer.status == 200, "a signed request is answered");
-    const auto signature = std::ranges::find(answer.headers, std::string{lan::signatureHeader},
-                                             &lucent::http::Header::name);
-    expect(signature != answer.headers.end() &&
-               signature->value == lan::answerSignature(secret, nonce, 200, answer.body),
-           "and the answer is signed with the same secret");
-    const auto listing = lan::wire::readListing(answer.body);
+    expect(answer.body.find("Shared game") == std::string::npos,
+           "the answer does not cross the LAN in clear");
+    const lan::RequestFacts facts{"GET", "/lan/library", now, nonce, {}};
+    const lan::crypto::Bytes other = lan::crypto::randomBytes(lan::crypto::keyBytes);
+    expect(!lan::openBody(other, facts, lan::Direction::Answer, 200, answer.body),
+           "it opens with no other secret");
+    const std::string otherNonce =
+        secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+    const lan::RequestFacts otherRequest{"GET", "/lan/library", now, otherNonce, {}};
+    expect(!lan::openBody(secret, otherRequest, lan::Direction::Answer, 200, answer.body),
+           "nor as the answer to another request");
+    const auto opened = lan::openBody(secret, facts, lan::Direction::Answer, 200, answer.body);
+    const auto listing = opened ? lan::wire::readListing(*opened) : std::nullopt;
     expect(listing && listing->size() == 1 && listing->front().title == "Shared game",
-           "with the shared listing");
+           "sealed with the pairing's secret for this request, it holds the shared listing");
 
     expect(listener.handle(request(secret, now, nonce)).status == 403, "a repeat is refused");
     const std::string fresh = secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
     expect(listener.handle(request(secret, now - 3600, fresh)).status == 403,
            "a request an hour late is refused");
-    const lan::crypto::Bytes other = lan::crypto::randomBytes(lan::crypto::keyBytes);
     const std::string another = secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
     expect(listener.handle(request(other, now, another)).status == 403,
            "a request signed with another secret is refused");
@@ -356,6 +579,20 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
     expect(listener.handle(lucent::http::Request{"GET", "/lan/cover/../../etc", {}, {}}).status ==
                403,
            "a cover is for paired peers only");
+
+    // A body signed but not sealed for the host, as a peer that never had the secret could not
+    // send, is refused before it is read.
+    const std::string plain = R"({"system":"gb","game":"Test"})";
+    const std::string fresher = secrets::hexText(lan::crypto::randomBytes(lan::crypto::nonceBytes));
+    lucent::http::Request unsealed{"POST", std::string{lan::wire::saveStatusRoute}, {}, plain};
+    unsealed.headers = {
+        {std::string{lan::peerHeader}, peer},
+        {std::string{lan::timeHeader}, std::to_string(now)},
+        {std::string{lan::nonceHeader}, fresher},
+        {std::string{lan::signatureHeader},
+         lan::requestSignature(
+             secret, lan::RequestFacts{"POST", lan::wire::saveStatusRoute, now, fresher, plain})}};
+    expect(listener.handle(unsealed).status == 403, "a body that does not open is refused");
 }
 
 void bothSidesDeriveOneSecret() {
@@ -400,13 +637,23 @@ void bothSidesDeriveOneSecret() {
     expect(!pairing.question(at), "and nothing is asked of the player");
     expect(!pairing.reveal("g", guest.publicKey(), nonce, at, refusal),
            "a refused reveal ends that pairing");
+    expect(!pairing.begin(lan::Peer{"g", "Guest"}, lan::pairingCommitment(guest.publicKey(), nonce),
+                          at, refusal),
+           "a new offer waits out the spacing, so a man in the middle cannot grind codes");
+    const auto later = at + lan::offerSpacing;
     expect(pairing.begin(lan::Peer{"g", "Guest"}, lan::pairingCommitment(guest.publicKey(), nonce),
-                         at, refusal)
+                         later, refusal)
                    .has_value() &&
-               pairing.reveal("g", guest.publicKey(), nonce, at, refusal) &&
-               pairing.question(at).has_value(),
-           "asked again and revealed as committed, the player is asked");
-    expect(!pairing.question(at + lan::patience + std::chrono::seconds{1}),
+               pairing.reveal("g", guest.publicKey(), nonce, later, refusal) &&
+               pairing.question(later).has_value(),
+           "asked again after it and revealed as committed, the player is asked");
+    pairing.decide("g", lan::Verdict::Declined, later);
+    expect(pairing
+               .begin(lan::Peer{"x", "Other"}, lan::pairingCommitment(swapped.publicKey(), nonce),
+                      later, refusal)
+               .has_value(),
+           "once the player answered, the next guest may ask at once");
+    expect(!pairing.question(later + lan::patience + std::chrono::seconds{1}),
            "a pairing past its time lapses");
 }
 
@@ -417,6 +664,8 @@ int main() try {
     bothSidesDeriveOneSecret();
     signedRequestsAreCheckedOnce(scratch.path());
     pairedNodesListEachOthersGames(scratch.path());
+    bundlesStayInTheirSlots();
+    sharedSavesFollowThePlayer(scratch.path());
     std::printf("lan_node: all checks passed\n");
     return 0;
 } catch (...) {

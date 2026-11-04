@@ -32,6 +32,7 @@ inline constexpr std::string_view detailsMatchId = "details.match";
 inline constexpr std::string_view detailsArtworkId = "details.artwork";
 inline constexpr std::string_view detailsControlsId = "details.controls";
 inline constexpr std::string_view detailsSavesId = "details.saves";
+inline constexpr std::string_view detailsSyncSavesId = "details.syncSaves";
 inline constexpr std::string_view detailsBackId = "details.back";
 /// The Emulator choice's option while the game has no emulator picked.
 inline constexpr std::string_view noEmulator = "None";
@@ -81,6 +82,11 @@ struct GameSettingsView {
     /// What the Copy saves row reads, the emulators keeping a save of the game ("Eden, Ryujinx");
     /// empty, and no row, while fewer than two do.
     std::string copySaves;
+    /// How its saves stand with the openSUs sharing them ("In sync with Desk", "Conflict with
+    /// Desk"), the Saves fact, and what its row does ("Sync saves now"); both empty, and no fact or
+    /// row, while no openSU shares them.
+    std::string sharedSaves;
+    std::string syncSaves;
 };
 
 /// What the page says about the facts' setting `label` reading `value`.

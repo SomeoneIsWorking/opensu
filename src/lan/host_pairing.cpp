@@ -35,6 +35,11 @@ std::optional<HostPairing::Offer> HostPairing::begin(const Peer& guest, crypto::
         refusal = "another openSU is pairing with this one";
         return std::nullopt;
     }
+    if (nextOffer_ && now < *nextOffer_) {
+        refusal = "this openSU was just asked to pair; ask again in a few seconds";
+        return std::nullopt;
+    }
+    nextOffer_ = now + offerSpacing;
     if (pending_) {
         secrets::wipeBytes(pending_->secret.data(), pending_->secret.size());
     }
@@ -125,6 +130,7 @@ void HostPairing::decide(std::string_view guestId, Verdict verdict, Clock::time_
         return;
     }
     pending_->verdict = verdict;
+    nextOffer_.reset();
     lucent::info("lan", "pairing with {}: {}", pending_->guest.name, key(verdict));
 }
 

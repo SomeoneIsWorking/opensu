@@ -1,9 +1,10 @@
 // lan_node — this openSU on the LAN while the player has LAN on: its book of paired peers, its
 // listener, its DNS-SD announcement and browsing, the pairing it hosts and the one it asks for,
-// and a worker that keeps the paired peers' games in `RemoteLibrary` while they are announced
-// (again when one comes or goes, a pairing changes, and every minute), their covers cached under
-// `coverCache`. A pairing is one secret both sides keep, so each lists the other's games. Made on
-// the shell's loop and asked from it; its own threads only fill what it reports.
+// the saves it shares (`SaveSync`), and a worker that keeps the paired peers' games in
+// `RemoteLibrary` while they are announced (again when one comes or goes, a pairing changes, and
+// every minute), their covers cached under `coverCache`. A pairing is one secret both sides keep,
+// so each lists the other's games. Made on the shell's loop and asked from it; its own threads only
+// fill what it reports.
 #pragma once
 
 #include <condition_variable>
@@ -26,6 +27,7 @@
 #include "peer_book.hpp"
 #include "peer_client.hpp"
 #include "remote_library.hpp"
+#include "save_sync.hpp"
 #include "secrets/secret_store.hpp"
 #include "shared_library.hpp"
 
@@ -44,6 +46,9 @@ class LanNode {
         /// What `remote` lists changed, or a peer unpaired itself; called on a thread of the
         /// node's.
         std::function<void()> changed;
+        /// Where saves shared with paired peers are recorded, staged and backed up, and when they
+        /// are in use (`SaveSync::Setup`; its `changed` is called on a thread of the node's).
+        SaveSync::Setup saves;
         /// Announces this openSU and finds the others.
         std::function<std::unique_ptr<ServiceDiscovery>(const Announcement&, std::string&)>
             discovery{startDiscovery};
@@ -73,9 +78,21 @@ class LanNode {
     [[nodiscard]] std::vector<Peer> paired() const {
         return book_.paired();
     }
-    /// Shares the installed games among `games` with paired peers from now on.
-    void share(const std::vector<library::Game>& games) {
+    /// Shares the installed games among `games` with paired peers from now on, and their saves
+    /// with those the player shares saves with, found through `catalog`.
+    void share(const std::vector<library::Game>& games,
+               const library::roms::EmulatorCatalog& catalog) {
         library_.share(games);
+        saves_.know(games, catalog);
+    }
+    /// The saves shared with paired peers.
+    [[nodiscard]] SaveSync& saves() noexcept {
+        return saves_;
+    }
+    /// Shares saves with `peerId` from now on, or no longer. False with `error` when that could
+    /// not be kept.
+    [[nodiscard]] bool shareSaves(const std::string& peerId, bool on, std::string& error) {
+        return book_.shareSaves(peerId, on, error);
     }
 
     /// The pairing this one hosts that waits for the player.
@@ -124,6 +141,7 @@ class LanNode {
     std::string name_;
     HostPairing pairing_{book_.id()};
     SharedLibrary library_;
+    SaveSync saves_;
     LanListener listener_;
     std::string problem_;
     std::unique_ptr<ServiceDiscovery> discovery_;

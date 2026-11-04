@@ -18,6 +18,7 @@ using ui::RowKind;
 constexpr std::string_view nameId = "lan.name";
 constexpr std::string_view pairPrefix = "lan.pair.";
 constexpr std::string_view forgetPrefix = "lan.forget.";
+constexpr std::string_view savesPrefix = "lan.saves.";
 constexpr std::string_view nameCardId = "lan-name";
 
 std::string rowOf(std::string_view prefix, const std::string& peerId) {
@@ -69,6 +70,10 @@ ui::SettingsCategory LanSettings::page() const {
         page.rows.push_back(ui::makeRow(
             rowOf(forgetPrefix, peer.id), RowKind::Action, peer.name,
             online ? "On the LAN; its games are in Library" : "Not on the LAN now", "Remove"));
+        page.rows.push_back(ui::makeToggle(
+            rowOf(savesPrefix, peer.id), "Share saves with " + peer.name,
+            "Saves of the games on both go to whichever played last; it must share them too",
+            peer.sharesSaves));
     }
     if (paired.empty()) {
         page.rows.push_back(ui::makeRow("lan.paired.none", RowKind::Info, "None yet",
@@ -78,7 +83,8 @@ ui::SettingsCategory LanSettings::page() const {
 }
 
 bool LanSettings::owns(const std::string& id) {
-    return id == nameId || id.starts_with(pairPrefix) || id.starts_with(forgetPrefix);
+    return id == nameId || id.starts_with(pairPrefix) || id.starts_with(forgetPrefix) ||
+           id.starts_with(savesPrefix);
 }
 
 void LanSettings::run(const std::string& id, int step) {
@@ -97,10 +103,15 @@ void LanSettings::run(const std::string& id, int step) {
     if (node == nullptr) {
         return;
     }
-    const std::string peerId = id.substr(forgetPrefix.size());
+    const bool shares = id.starts_with(savesPrefix);
+    const std::string peerId = id.substr(shares ? savesPrefix.size() : forgetPrefix.size());
     const std::vector<lan::Peer> paired = node->paired();
     const auto peer = std::ranges::find(paired, peerId, &lan::Peer::id);
     if (peer == paired.end()) {
+        return;
+    }
+    if (shares) {
+        lan_.shareSaves(peerId, !peer->sharesSaves);
         return;
     }
     sounds_.play(audio::Effect::Open);

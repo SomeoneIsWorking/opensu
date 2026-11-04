@@ -3,8 +3,8 @@
 // missing, give a Windows install its own Wine prefix or the shared one, hide it, uninstall it
 // (asking first), rename, change the file of or remove a game the player added
 // (`OwnGamesController`), choose its cover, open its button mapping, copy its saves between
-// emulators (`SaveCopyController`), go back. Opens for the focused
-// game and keeps what it shows current while the library changes under it.
+// emulators (`SaveCopyController`), sync them with paired openSUs (`SharedSaves`), go back. Opens
+// for the focused game and keeps what it shows current while the library changes under it.
 #pragma once
 
 #include <functional>
@@ -18,6 +18,7 @@
 #include "game_settings.hpp"
 #include "library/game.hpp"
 #include "preferences.hpp"
+#include "shared_saves.hpp"
 #include "ui/game_details.hpp"
 #include "ui/row_widgets.hpp"
 #include "ui/screen_stack.hpp"
@@ -58,12 +59,17 @@ class DetailsController final : public ui::RowActions {
         std::function<bool(const std::string& id)> artDownloading;
         /// Opens Match a different game for a game the player added.
         std::function<void(const library::Game& game)> matchGame;
-        /// Reads `game`'s saves again off the frame, for the Copy saves row; `refresh` shows it.
+        /// Reads `game`'s saves again off the frame, for the Copy saves row and the shared saves'
+        /// fact; `refresh` shows them.
         std::function<void(const library::Game& game)> readSaves;
         /// The emulators keeping a save of `game`, as Copy saves reads them; empty for no row.
         std::function<std::string(const library::Game& game)> copySavesOffer;
         /// Opens Copy saves for `game` over the page.
         std::function<void(const library::Game& game)> copySaves;
+        /// How `game`'s saves stand with the openSUs sharing them, and the row that syncs them.
+        std::function<SharedSaves::View(const library::Game& game)> sharedSaves;
+        /// That row: syncs now, or asks which save to keep.
+        std::function<void(const library::Game& game)> syncSaves;
     };
 
     /// What the rows act on.

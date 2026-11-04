@@ -299,25 +299,34 @@ void theSwitchAppliesAChange(const fs::path& root) {
                                     }}};
     audio::SdlSoundPlayer sounds;
     test::InterfaceRig ui;
-    app::LanService lan{
-        app::LanService::Places{.bookFile = dir / "lan.json",
-                                .secrets = secrets::SecretStore{dir / "secrets", false},
-                                .coverCache = dir / "lan-covers",
-                                .port = 0},
-        preferences,
-        ui.navigator,
-        sounds,
-        std::make_shared<lan::RemoteLibrary>(),
-        inForce.current().lan,
-        app::LanService::Hooks{.say =
-                                   [](const std::string&, bool) {
-                                   },
-                               .remoteChanged =
-                                   [] {
-                                   },
-                               .peersChanged =
-                                   [] {
-                                   }}};
+    app::LanService lan{app::LanService::Places{
+                            .bookFile = dir / "lan.json",
+                            .secrets = secrets::SecretStore{dir / "secrets", false},
+                            .coverCache = dir / "lan-covers",
+                            .port = 0,
+                            .saves = lan::SaveSync::Setup{.versionsFile = dir / "lan-saves.json",
+                                                          .backups = dir,
+                                                          .staging = dir / "lan-incoming",
+                                                          .runnerSaves = dir / "saves",
+                                                          .inUse = {},
+                                                          .changed = {}}},
+                        preferences,
+                        ui.navigator,
+                        sounds,
+                        std::make_shared<lan::RemoteLibrary>(),
+                        inForce.current().lan,
+                        app::LanService::Hooks{.say =
+                                                   [](const std::string&, bool) {
+                                                   },
+                                               .remoteChanged =
+                                                   [] {
+                                                   },
+                                               .peersChanged =
+                                                   [] {
+                                                   },
+                                               .savesChanged =
+                                                   [] {
+                                                   }}};
     int emulatorChanges = 0;
     app::IntegrationSwitch integrationSwitch{
         inForce,

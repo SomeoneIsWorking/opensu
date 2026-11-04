@@ -1,13 +1,17 @@
-// request_signature — how a paired guest's request to a host, and the host's answer, are
-// authenticated with the secret their pairing left them: HMAC-SHA-256 over the method, target,
-// time, a fresh nonce and the body's SHA-256, and over the nonce, status and body for the answer.
-// A host takes a request once, within `clockSlack` of its own clock (`ReplayGuard`).
+// request_signature — how a paired guest's request to a host, and the host's answer, are protected
+// with the secret their pairing left them. The request is signed: HMAC-SHA-256 over the method,
+// target, time, a fresh nonce and the sealed body's SHA-256; a host takes it once, within
+// `clockSlack` of its own clock (`ReplayGuard`). Its body and the answer's are sealed with
+// ChaCha20-Poly1305 under keys HKDF-SHA-256 derives from the secret for that request's nonce, one
+// per direction, so each key seals one message and an answer opens only for the request it
+// answers.
 #pragma once
 
 #include <chrono>
 #include <cstdint>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -35,9 +39,20 @@ struct RequestFacts {
 [[nodiscard]] std::string requestSignature(std::span<const std::uint8_t> secret,
                                            const RequestFacts& facts);
 
-[[nodiscard]] std::string answerSignature(std::span<const std::uint8_t> secret,
-                                          std::string_view nonce, int status,
-                                          std::string_view body);
+/// Which way a sealed body goes.
+enum class Direction : std::uint8_t { Request, Answer };
+
+/// `plain` sealed for the request `facts` names (its `body` is not read), going `direction`: a
+/// random ChaCha20-Poly1305 nonce, then the ciphertext and tag under a key only that request and
+/// direction use. An answer's `status` is authenticated with it.
+[[nodiscard]] std::string sealBody(std::span<const std::uint8_t> secret, const RequestFacts& facts,
+                                   Direction direction, int status, std::string_view plain);
+
+/// What `sealed` holds; nothing when it was not sealed with `secret` for that request, direction
+/// and status.
+[[nodiscard]] std::optional<std::string> openBody(std::span<const std::uint8_t> secret,
+                                                  const RequestFacts& facts, Direction direction,
+                                                  int status, std::string_view sealed);
 
 /// Whether `given` is the signature `expected`, compared in constant time.
 [[nodiscard]] bool signatureMatches(std::string_view expected, std::string_view given) noexcept;

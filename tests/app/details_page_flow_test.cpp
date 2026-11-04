@@ -60,6 +60,7 @@ struct Rig {
     bool artComing{false};
     /// What the Copy saves row reads; empty for no row.
     std::string savesOffer;
+    app::SharedSaves::View sharedSaves;
     /// Why `Installs` would refuse the uninstall; empty when it would not.
     std::string refusal;
     app::EmulatorDownloads downloads;
@@ -161,6 +162,12 @@ struct Rig {
                          },
                          [this](const library::Game& opened) {
                              calls.push_back("saves " + opened.id);
+                         },
+                         [this](const library::Game&) {
+                             return sharedSaves;
+                         },
+                         [this](const library::Game& synced) {
+                             calls.push_back("sync saves " + synced.id);
                          }}} {
     }
 
@@ -374,6 +381,24 @@ void copySavesOpens(const fs::path& dir) {
            "it opens Copy saves for the page's game");
 }
 
+void sharedSavesShow(const fs::path& dir) {
+    Rig rig{dir};
+    rig.open();
+    expect(ui::factOf(*rig.controller.details(), "Saves") == nullptr &&
+               ui::actionOf(*rig.controller.details(), ui::detailsSyncSavesId) == nullptr,
+           "no Saves fact or row while no openSU shares the game's saves");
+    rig.sharedSaves = app::SharedSaves::View{"Conflict with Desk", "Pick which save to keep"};
+    rig.controller.refresh();
+    const ui::SettingsRow* fact = ui::factOf(*rig.controller.details(), "Saves");
+    expect(fact != nullptr && fact->value == "Conflict with Desk",
+           "the Saves fact says how they stand");
+    expect(rig.row(ui::detailsSyncSavesId).label == "Pick which save to keep",
+           "and the row what it does");
+    rig.controller.run(std::string{ui::detailsSyncSavesId}, 0);
+    expect(rig.calls == std::vector<std::string>{"sync saves rom:/r/Kirby.nsp"},
+           "the row acts on the page's game");
+}
+
 void trail() {
     app::TrailState state;
     expect(app::trailOf(state) ==
@@ -419,6 +444,7 @@ int main() try {
     refreshFollowsTheGame(dir);
     coverSpinnerFollowsTheGame(dir);
     copySavesOpens(dir);
+    sharedSavesShow(dir);
     uninstallAsksFirst(dir);
     updateStartsWithOnePress(dir);
     winePrefixIsChosenPerGame(dir / "wine");
