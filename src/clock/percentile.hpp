@@ -1,5 +1,5 @@
 // percentile — where a share of measured values lies, for timing figures (the runner's frame
-// stages).
+// stages, remote play's latency).
 #pragma once
 
 #include <algorithm>

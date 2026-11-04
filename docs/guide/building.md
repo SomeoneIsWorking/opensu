@@ -22,6 +22,13 @@ game's own title and icon with the player's keys; zlib (`zlib-devel`) inflates z
 Add a game, libX11 and libXi (`libX11-devel libXi-devel`) read the in-game shortcut keys, and on
 Linux sd-bus from libsystemd (`systemd-devel`) serves openSU's own polkit agent.
 
+Remote play on Linux captures Gamescope and the game's sound through PipeWire (`pipewire-devel`),
+codes the sound with Opus (`opus-devel`), and plays the guest's keys and pointer through XTest
+(`libXtst-devel`); Debian and Ubuntu name them `libpipewire-0.3-dev libopus-dev libxtst-dev`. Its
+video codec is PyroWave, built with CMake from the pinned
+[fork](https://github.com/SomeoneIsWorking/pyrowave) and pinned Granite by `cmake/PyroWave.cmake`
+(`-DOPENSU_BUILD_PYROWAVE=OFF` builds without it, and remote play then refuses to start).
+
 `opensu-retro`, the built-in libretro runner, also needs the Vulkan loader and glslc
 (`vulkan-loader-devel glslc` on Fedora), and Rust (`cargo`) for librashader, the shader preset
 library, built from the pinned [fork](https://github.com/SomeoneIsWorking/librashader) by

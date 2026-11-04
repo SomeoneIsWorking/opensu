@@ -28,7 +28,8 @@ struct CatalogStores {
 };
 
 /// Builds the catalog's providers of `stores` from the configuration; a store left out is not
-/// read at all. A `hidden` shell's ROMs start hidden. Arcade romsets are matched with the listings
+/// read at all. A `hidden` shell's ROMs start hidden, unless it runs inside a Gamescope, whose
+/// screen alone the runner's window then reaches. Arcade romsets are matched with the listings
 /// `romsets` keeps, which outlives the catalog. The player's own games are read from `ownGames`.
 [[nodiscard]] Catalog makeCatalog(const config::Config& config, bool hidden,
                                   const std::filesystem::path& ownGames, roms::RomsetLists& romsets,

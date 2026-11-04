@@ -32,6 +32,9 @@ LanService::LanService(Places places, Preferences& preferences, gpu2d::ui::Navig
 }
 
 LanService::~LanService() {
+    if (asker_.joinable()) {
+        asker_.join();
+    }
     node_.reset();
 }
 
@@ -88,7 +91,8 @@ void LanService::start() {
                                                                        [news = news_] {
                                                                            news->store(true);
                                                                        },
-                                                                   .saves = std::move(saves)});
+                                                                   .saves = std::move(saves),
+                                                                   .play = hooks_.play});
     } catch (const std::runtime_error& error) {
         lucent::error("lan", "LAN cannot start: {}", error.what());
         hooks_.say("LAN cannot start: " + std::string{error.what()}, true);
@@ -98,6 +102,9 @@ void LanService::start() {
 }
 
 void LanService::stop() {
+    if (asker_.joinable()) {
+        asker_.join();
+    }
     release();
     closeQuestion();
     closeCard();
@@ -117,6 +124,24 @@ void LanService::share(const std::vector<library::Game>& games,
     if (node_ != nullptr) {
         node_->share(shared_, catalog_);
     }
+}
+
+bool LanService::askToPlay(const std::string& hostId, const std::string& gameId,
+                           PlayAnswer answer) {
+    if (node_ == nullptr || asking_->exchange(true)) {
+        return false;
+    }
+    if (asker_.joinable()) {
+        asker_.join();
+    }
+    asker_ = std::jthread{[node = node_.get(), asking = asking_, hostId, gameId,
+                           answer = std::move(answer)] {
+        std::string error;
+        std::optional<lan::LanNode::PlayOffer> offer = node->askToPlay(hostId, gameId, error);
+        asking->store(false);
+        answer(std::move(offer), std::move(error));
+    }};
+    return true;
 }
 
 void LanService::shareSaves(const std::string& peerId, bool on) {

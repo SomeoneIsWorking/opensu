@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "fileio/atomic_write.hpp"
+#include "pairing_keys.hpp"
 #include "lucent/log.h"
 #include "secrets/secret.hpp"
 
@@ -57,7 +58,8 @@ LanNode::LanNode(Setup setup)
                                      .unpaired =
                                          [this](const Peer& /*peer*/) {
                                              wake();
-                                         }},
+                                         },
+                                     .play = std::move(setup.play)},
                 setup.port} {
     if (!listener_.start()) {
         problem_ = setup.port == 0 ? std::string{"no port can be had to listen on"}
@@ -144,6 +146,42 @@ std::optional<GuestPairing::State> LanNode::asking() const {
 void LanNode::endAsking() {
     asking_.reset();
     wake();
+}
+
+std::optional<LanNode::PlayOffer> LanNode::askToPlay(const std::string& hostId,
+                                                     const std::string& gameId,
+                                                     std::string& error) const {
+    const std::vector<Sighting> seen = sightings();
+    const auto host = std::ranges::find(seen, hostId, &Sighting::id);
+    std::optional<crypto::Bytes> secret = book_.secretOf(hostId);
+    if (host == seen.end() || !secret) {
+        error = host == seen.end() ? "that openSU is not on the LAN now"
+                                   : "that openSU is not paired with this one";
+        return std::nullopt;
+    }
+    const crypto::Bytes salt = crypto::randomBytes(crypto::nonceBytes);
+    const PeerClient client{web_, Endpoint{host->address, host->port}};
+    const std::optional<net::WebClient::Answer> answer =
+        client.call("POST", wire::playRoute, wire::write(wire::PlayRequest{gameId, salt}),
+                    PeerClient::Signer{book_.id(), *secret}, largestNotice, error);
+    std::optional<wire::PlayAnswer> offered;
+    if (answer && answer->status == ok) {
+        offered = wire::readPlayAnswer(answer->body);
+    } else if (answer) {
+        error = answer->body.empty() ? "HTTP " + std::to_string(answer->status) : answer->body;
+        while (!error.empty() && error.back() == '\n') {
+            error.pop_back();
+        }
+    }
+    std::optional<PlayOffer> offer;
+    if (offered) {
+        offer = PlayOffer{Endpoint{host->address, offered->port},
+                          streamKeys(*secret, salt, offered->salt)};
+    } else if (answer && answer->status == ok) {
+        error = "its answer is not an offer to stream";
+    }
+    secrets::wipeBytes(secret->data(), secret->size());
+    return offer;
 }
 
 bool LanNode::forget(const std::string& peerId, std::string& error) {

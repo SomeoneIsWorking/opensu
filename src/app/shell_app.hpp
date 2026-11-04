@@ -62,6 +62,8 @@
 #include "lan/remote_library.hpp"
 #include "lan_service.hpp"
 #include "lan_settings.hpp"
+#include "remote_input.hpp"
+#include "remote_play.hpp"
 #include "launch/handoff.hpp"
 #include "launch/process_tree.hpp"
 #include "launch_mailbox.hpp"
@@ -195,11 +197,12 @@ class ShellApp final {
     /// L1 and R1: moves `delta` sections along the dock and shows the section's shelf, with iiSU's
     /// domino cue sized by what the section shows at once.
     void cycleSection(int delta);
-    /// Launches `game`, or offers to install it; its saves are synced with the openSUs sharing
-    /// them first.
-    void launch(const library::Game& game);
-    /// Starts `game` now.
-    void startLaunch(const library::Game& game);
+    /// Launches `game` with `environment` added to its own, or offers to install it; its saves
+    /// are synced with the openSUs sharing them first, and another openSU's game is asked of it.
+    /// False when it was refused.
+    bool launch(const library::Game& game, std::vector<std::string> environment);
+    /// Starts `game` now, `extra` added to its environment; false when it was refused.
+    bool startLaunch(const library::Game& game, std::vector<std::string> extra);
     /// Abandons a launch whose game has not appeared yet, such as one waiting on a Steam update.
     void cancelLaunch();
     /// Asks whether to install the focused game, which is not installed, from the stores that
@@ -237,6 +240,16 @@ class ShellApp final {
     [[nodiscard]] bool menusBlocked();
     /// Ends the running game from a menu.
     void closeRunningGame();
+    /// Uploads the newest picture of a remote game and hands it to the shell to draw.
+    void showRemotePicture();
+    /// Whether a remote game has the player's controls: it streams and no menu is up.
+    [[nodiscard]] bool remoteHasControls();
+    /// Sends the player's controls to the remote game, or lets go of them while a menu is up.
+    void sendRemoteInput();
+    /// Where the remote picture is drawn in the window.
+    [[nodiscard]] display::Placed remotePlacement() const;
+    /// Remote play's newest picture as PNG, for the control channel; empty for none.
+    [[nodiscard]] FramePng remotePicturePng() const;
     /// Guide, or Guide + A on Volume: opens the Guide menu, or closes it.
     void toggleGuide(GuideMenuController::Landing landing);
     /// Closes the details, Settings, Devices and Downloads pages, which a Guide menu entry leaves.
@@ -329,6 +342,13 @@ class ShellApp final {
     /// What the control channel's threads and the loop hand each other.
     ControlBridge bridge_;
     ui::Shell shell_;
+    /// The remote game's newest picture on the window's device, which the shell draws; its host
+    /// frame number, and whether no frame has shown it yet.
+    std::optional<gpu2d::Texture> remotePicture_;
+    std::uint32_t remotePictureNumber_{0};
+    bool remotePictureFresh_{false};
+    /// The player's controls while a remote game has them.
+    RemoteInput remoteInput_;
     TopBarClock clock_{shell_, environment_.clock24Hour};
     FrameTiming frameTiming_;
     /// The on-screen keyboard the pad types into text fields with.
@@ -451,7 +471,7 @@ class ShellApp final {
             },
             [this] {
                 if (const library::Game* game = shell_.grid().focusedGame()) {
-                    launch(*game);
+                    static_cast<void>(launch(*game, {}));
                 }
             },
             [this] {
@@ -566,7 +586,7 @@ class ShellApp final {
                                      return shownGame(id);
                                  },
                                  [this](const library::Game& game) {
-                                     launch(game);
+                                     static_cast<void>(launch(game, {}));
                                  },
                                  [this](const library::Game& game, bool hidden) {
                                      setHidden(game, hidden);
@@ -708,6 +728,44 @@ class ShellApp final {
                                   [this] {
                                       reloadCatalog();
                                   }}};
+    /// Remote play with the paired openSUs, both ways; before `lan_`, whose listener offers to it.
+    RemotePlay remotePlay_{
+        RemotePlay::Screen{
+            .gamescopeSocket =
+                environment_.gamescopeWaylandDisplay.empty()
+                    ? std::filesystem::path{}
+                    : environment_.runtimeDir.parent_path() / environment_.gamescopeWaylandDisplay,
+            .x11Display = environment_.x11Display},
+        RemotePlay::Hooks{
+        .say =
+            [this](const std::string& text, bool isError) {
+                shell_.setToast(text, isError);
+            },
+        .find =
+            [this](const std::string& id) -> std::optional<library::Game> {
+                const auto found = std::ranges::find_if(games_, [&id](const library::Game& game) {
+                    return game.id == id && game.installed &&
+                           game.source != library::Source::Remote;
+                });
+                return found == games_.end() ? std::nullopt : std::optional{*found};
+            },
+        .launch =
+            [this](const library::Game& game, std::vector<std::string> environment) {
+                return launch(game, std::move(environment));
+            },
+        .close =
+            [this] {
+                closeRunningGame();
+            },
+        .ask =
+            [this](const std::string& hostId, const std::string& gameId,
+                   LanService::PlayAnswer answer) {
+                return lan_.askToPlay(hostId, gameId, std::move(answer));
+            },
+        .speaker =
+            [this] {
+                return sounds_.live(stream::audioRate, stream::audioChannels);
+            }}};
     /// This openSU on the LAN while LAN is on: pairing, and the paired openSUs' games.
     LanService lan_{LanService::Places{
                         .bookFile = files_.lanBookFile(),
@@ -740,6 +798,12 @@ class ShellApp final {
                                       .savesChanged =
                                           [this] {
                                               details_.refresh();
+                                          },
+                                      .play =
+                                          [this](const lan::Peer& peer, const std::string& game,
+                                                 const lan::StreamKeys& keys,
+                                                 std::string& refusal) {
+                                              return remotePlay_.offer(peer, game, keys, refusal);
                                           }}};
     /// The details page's Saves fact and row for saves shared with paired openSUs.
     SharedSaves sharedSaves_{lan_, shell_.screens().navigator(), sounds_};
@@ -920,10 +984,13 @@ class ShellApp final {
             .context =
                 [this] {
                     const bool inGame = shell_.inGame();
+                    const bool remote = remotePlay_.streaming();
                     return GuideContext{
                         .inGame = inGame,
-                        .title = launches_.game().title,
-                        .gameSettings = inGame && !layered_.sectionsOf(launches_.game()).empty(),
+                        .remote = remote,
+                        .title = remote ? remotePlay_.game().title : launches_.game().title,
+                        .gameSettings = inGame && !remote &&
+                                        !layered_.sectionsOf(launches_.game()).empty(),
                         .loginSession = settings_.loginSession,
                         .sessionInstalled =
                             !settings_.loginSession && host_.session && host_.session->installed()};
@@ -949,7 +1016,11 @@ class ShellApp final {
                 },
             .closeGame =
                 [this] {
-                    closeRunningGame();
+                    if (remotePlay_.streaming()) {
+                        remotePlay_.end();
+                    } else {
+                        closeRunningGame();
+                    }
                 },
             .openGameSettings =
                 [this] {

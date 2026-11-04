@@ -41,7 +41,6 @@ library::Game remoteGame(const Peer& host, const wire::ListedGame& listed,
     game.hostName = host.name;
     game.installed = true;
     game.artwork = cover;
-    game.unavailable = std::string{remotePlayMissing};
     return game;
 }
 

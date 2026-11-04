@@ -122,4 +122,22 @@ struct SaveStatus {
 [[nodiscard]] std::string write(const SaveStatus& status);
 [[nodiscard]] std::optional<SaveStatus> readSaveStatus(std::string_view body);
 
+/// `POST /lan/play`: a paired guest asks to play one of the listed games on the host, with its
+/// half of the session's salt.
+inline constexpr std::string_view playRoute = "/lan/play";
+struct PlayRequest {
+    std::string game;
+    crypto::Bytes salt;
+};
+[[nodiscard]] std::string write(const PlayRequest& request);
+[[nodiscard]] std::optional<PlayRequest> readPlayRequest(std::string_view body);
+
+/// The host's answer: the UDP port its stream listens on and its half of the salt.
+struct PlayAnswer {
+    std::uint16_t port{0};
+    crypto::Bytes salt;
+};
+[[nodiscard]] std::string write(const PlayAnswer& answer);
+[[nodiscard]] std::optional<PlayAnswer> readPlayAnswer(std::string_view body);
+
 } // namespace opensu::lan::wire

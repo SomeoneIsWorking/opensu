@@ -89,6 +89,10 @@ class ShellWindow {
     [[nodiscard]] const input::KeyFrame& keys() const noexcept {
         return keys_;
     }
+    /// Every physical key held now, as SDL's scancodes (USB HID usages), oldest first.
+    [[nodiscard]] const std::vector<std::uint8_t>& keysHeld() const noexcept {
+        return keysHeld_;
+    }
     /// The pointer as the last `pollEvents` left it.
     [[nodiscard]] const PointerFrame& pointer() const noexcept {
         return pointer_;
@@ -117,8 +121,14 @@ class ShellWindow {
     /// The window's new size, once per resize.
     [[nodiscard]] std::optional<gpu2d::PixelSize> takeResize() noexcept;
 
+    /// A frame `present` submitted: when, and whether the window had a surface to draw it into
+    /// (a hidden window has none).
+    struct Presented {
+        std::chrono::steady_clock::time_point submitted;
+        bool drawn{false};
+    };
     /// Draws one frame into the window and presents it, at most 60 a second.
-    void present(const Draw& draw);
+    Presented present(const Draw& draw);
     /// Draws one frame the window's size into an offscreen target and reads it back
     /// (premultiplied RGBA).
     [[nodiscard]] gpu2d::image::Bitmap render(const Draw& draw);
@@ -144,6 +154,7 @@ class ShellWindow {
     gpu2d::GpuWindow window_;
     gpu2d::Canvas canvas_;
     input::KeyFrame keys_;
+    std::vector<std::uint8_t> keysHeld_;
     PointerFrame pointer_;
     std::optional<gpu2d::PixelSize> resized_;
     /// Strokes to post; the front one's keys are down while `strokeDown_`. Its text stays here

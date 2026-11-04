@@ -1,5 +1,5 @@
 // little_endian — unsigned integers as little-endian bytes, read from and written into byte
-// strings: the Switch's file formats.
+// strings: the Switch's file formats and remote play's packets.
 #pragma once
 
 #include <cstddef>

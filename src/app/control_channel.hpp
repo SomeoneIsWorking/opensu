@@ -135,6 +135,28 @@ struct ShellSnapshot {
     std::string lanCode;
     /// The open details page's Saves fact, how its game's shared saves stand; empty for none.
     std::string lanSaves;
+    /// Remote play (`RemotePlay::Glance`): "", "asking", "playing" or "hosting", with whom, and
+    /// on the guest the round trip and what arrives each second.
+    std::string remotePlay;
+    std::string remotePeer;
+    std::size_t remoteRoundTripUs{0};
+    std::size_t remoteBytesPerSecond{0};
+    /// On a guest, how the host's frames and sound came (`GuestVideo`, `GuestAudio`).
+    std::string remoteVideo;
+    std::string remoteAudio;
+};
+
+/// Which picture a frame request wants: the drawn shell (`/frame.png`), or remote play's newest
+/// picture (`/remote/frame.png`): on a host the frame it sent last, on a guest the one it decoded
+/// last.
+enum class FrameKind : std::uint8_t {
+    Shell,
+    Remote,
+};
+/// A frame as PNG, and a remote picture's frame number (0 for the shell).
+struct FramePng {
+    std::string png;
+    std::uint32_t number{0};
 };
 
 /// A pointer event `POST /pointer` injects, in window pixels.
@@ -177,9 +199,9 @@ class ControlTarget {
     /// Queues a pointer event, routed as the mouse's would be.
     virtual void injectPointer(PointerInjection pointer) = 0;
 
-    /// Renders the next frame to a PNG and answers when it is written. Blocks
+    /// Renders the next frame of `kind` to a PNG and answers when it is written. Blocks
     /// until the main loop has done it, or fails if it cannot.
-    [[nodiscard]] virtual bool captureFrame(std::string& png) = 0;
+    [[nodiscard]] virtual bool captureFrame(FrameKind kind, FramePng& frame) = 0;
 
     /// Asks the main loop to shut down cleanly.
     virtual void requestClose() = 0;

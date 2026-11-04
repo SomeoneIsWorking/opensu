@@ -1,6 +1,6 @@
 // remote_library — the games of the paired openSUs on the LAN as this one's catalog lists them:
-// each a `Source::Remote` game marked with its host, its cover the one the host sent, and no way
-// to start it until remote play is built. The LAN node fills it as hosts answer; the catalog's
+// each a `Source::Remote` game marked with its host and its id there, its cover the one the host
+// sent; starting one asks that host to stream it (`app::RemotePlay`). The LAN node fills it as hosts answer; the catalog's
 // provider reads it. Safe from any thread.
 #pragma once
 
@@ -14,9 +14,6 @@
 #include "wire.hpp"
 
 namespace opensu::lan {
-
-/// What a remote game says when it is started.
-inline constexpr std::string_view remotePlayMissing = "Remote play is not built yet";
 
 /// `listed` on `host`, its cover at `cover` (empty for none).
 [[nodiscard]] library::Game remoteGame(const Peer& host, const wire::ListedGame& listed,

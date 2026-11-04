@@ -32,6 +32,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_subdirectory(session)
 endif()
 add_subdirectory(lan)
+add_subdirectory(stream)
 add_subdirectory(device)
 add_subdirectory(svg)
 add_subdirectory(ui)
@@ -56,6 +57,10 @@ target_link_libraries(opensu
         lucent::lucent
 )
 opensu_windowed(opensu)
+# PyroWave is linked from openSU's own library directory, where it is installed.
+if(TARGET opensu::pyrowave)
+    set_property(TARGET opensu APPEND PROPERTY INSTALL_RPATH "\$ORIGIN/../${OPENSU_PYROWAVE_DIR}")
+endif()
 # Assets sit at share/opensu (Resources/opensu on macOS) beside the executable's directory, in the
 # build tree as installed.
 file(GLOB_RECURSE opensu_asset_files CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/assets/*")

@@ -19,6 +19,8 @@ using lucent::http::Request;
 using lucent::http::Response;
 using opensu::app::ControlChannel;
 using opensu::app::ControlTarget;
+using opensu::app::FrameKind;
+using opensu::app::FramePng;
 using opensu::app::PointerInjection;
 using opensu::app::ShellSnapshot;
 using opensu::app::SignInResult;
@@ -58,7 +60,7 @@ class FakeShell final : public ControlTarget {
     void injectPointer(PointerInjection pointer) override {
         pointers.push_back(pointer);
     }
-    [[nodiscard]] bool captureFrame(std::string& /*png*/) override {
+    [[nodiscard]] bool captureFrame(FrameKind /*kind*/, FramePng& /*frame*/) override {
         return false;
     }
     void requestClose() override {

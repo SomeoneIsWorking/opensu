@@ -15,6 +15,8 @@
 namespace {
 
 using opensu::app::ControlBridge;
+using opensu::app::FrameKind;
+using opensu::app::FramePng;
 using opensu::gamepad::Button;
 using opensu::input::Device;
 using opensu::test::expect;
@@ -109,23 +111,24 @@ void snapshotIsWhatWasPublished() {
 
 void frameIsHandedAcross() {
     ControlBridge bridge;
-    std::string png;
+    FramePng png;
     bool got = false;
     std::thread caller{[&] {
-        got = bridge.captureFrame(png);
+        got = bridge.captureFrame(FrameKind::Remote, png);
     }};
     while (!bridge.frameWanted()) {
         std::this_thread::sleep_for(std::chrono::milliseconds{1});
     }
-    bridge.answerFrame("PNG");
+    expect(bridge.frameWanted() == FrameKind::Remote, "the loop is asked for that kind of frame");
+    bridge.answerFrame(FramePng{.png = "PNG", .number = 4});
     caller.join();
-    expect(got && png == "PNG", "the caller gets the frame the loop drew");
+    expect(got && png.png == "PNG" && png.number == 4, "the caller gets the frame the loop drew");
     expect(!bridge.frameWanted(), "the request is settled");
 
     bool failed = true;
     std::thread second{[&] {
-        std::string unused;
-        failed = !bridge.captureFrame(unused);
+        FramePng unused;
+        failed = !bridge.captureFrame(FrameKind::Shell, unused);
     }};
     while (!bridge.frameWanted()) {
         std::this_thread::sleep_for(std::chrono::milliseconds{1});
@@ -139,8 +142,8 @@ void abandoningReleasesTheCaller() {
     ControlBridge bridge;
     bool got = true;
     std::thread caller{[&] {
-        std::string png;
-        got = bridge.captureFrame(png);
+        FramePng png;
+        got = bridge.captureFrame(FrameKind::Shell, png);
     }};
     while (!bridge.frameWanted()) {
         std::this_thread::sleep_for(std::chrono::milliseconds{1});

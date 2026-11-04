@@ -1,5 +1,6 @@
 #include "sdl_sound_player.hpp"
 
+#include <stdexcept>
 #include <utility>
 
 #include <SDL3/SDL_init.h>
@@ -113,6 +114,18 @@ bool SdlSoundPlayer::play(Effect effect) {
     // A replay restarts the sound.
     SDL_ClearAudioStream(stream);
     return SDL_PutAudioStreamData(stream, clip.pcm.data(), static_cast<int>(clip.pcm.size()));
+}
+
+std::unique_ptr<LiveSound> SdlSoundPlayer::live(int rate, int channels) {
+    if (device_ == 0) {
+        return nullptr;
+    }
+    try {
+        return std::make_unique<LiveSound>(device_, rate, channels);
+    } catch (const std::runtime_error& failure) {
+        lucent::warn("audio", "{}", failure.what());
+        return nullptr;
+    }
 }
 
 } // namespace opensu::audio

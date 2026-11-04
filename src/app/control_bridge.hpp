@@ -39,7 +39,7 @@ class ControlBridge final : public ControlTarget {
                 std::chrono::milliseconds hold, bool stick) override;
     void injectKey(input::Combo combo) override;
     void injectPointer(PointerInjection pointer) override;
-    [[nodiscard]] bool captureFrame(std::string& png) override;
+    [[nodiscard]] bool captureFrame(FrameKind kind, FramePng& frame) override;
     void requestClose() override;
     /// Asks the loop to read the library again; `toast` is shown when it is not empty.
     void requestCatalogReload(std::string toast) override;
@@ -55,10 +55,10 @@ class ControlBridge final : public ControlTarget {
     /// The toast of a requested reload (empty for none), or nothing when none was requested.
     [[nodiscard]] std::optional<std::string> takeReload();
     void publish(ShellSnapshot snapshot);
-    /// Whether a caller waits for a frame.
-    [[nodiscard]] bool frameWanted() const;
+    /// The kind of frame a caller waits for, or nothing.
+    [[nodiscard]] std::optional<FrameKind> frameWanted() const;
     /// Hands the waiting caller its frame; empty `png` says it could not be drawn.
-    void answerFrame(std::string png);
+    void answerFrame(FramePng frame);
     /// The loop ended: nobody waiting will get a frame.
     void abandonFrame();
 
@@ -84,8 +84,8 @@ class ControlBridge final : public ControlTarget {
     mutable std::mutex stateMutex_;
     ShellSnapshot published_;
     std::condition_variable frameAnswered_;
-    bool framePending_{false};
-    std::string frame_;
+    std::optional<FrameKind> framePending_;
+    FramePng frame_;
 };
 
 } // namespace opensu::app

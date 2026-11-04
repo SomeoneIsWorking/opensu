@@ -4,6 +4,7 @@
 #include <limits>
 #include <stdexcept>
 
+#include "display/letterbox.hpp"
 #include "lucent/log.h"
 
 namespace opensu::ui {
@@ -163,6 +164,23 @@ void Shell::drawChordHint(Canvas& canvas, Point size) {
     }
 }
 
+void Shell::drawPicture(Canvas& canvas, const gpu2d::TextureView& picture,
+                        const gpu2d::Surface& target) {
+    constexpr Colour black{0, 0, 0, 255};
+    const int width = target.width;
+    const int height = target.height;
+    canvas.fillRect(gpu2d::Rect{0.0F, 0.0F, static_cast<float>(width), static_cast<float>(height)},
+                    black);
+    const display::Placed placed = display::letterbox(
+        width, height, static_cast<float>(picture.width) / static_cast<float>(picture.height));
+    canvas.image(picture,
+                 gpu2d::Rect{0.0F, 0.0F, static_cast<float>(picture.width),
+                             static_cast<float>(picture.height)},
+                 gpu2d::Rect{static_cast<float>(placed.x), static_cast<float>(placed.y),
+                             static_cast<float>(placed.width), static_cast<float>(placed.height)},
+                 white);
+}
+
 void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     // The previous frame was submitted, so the labels it did not draw can go.
     text_.retire();
@@ -173,7 +191,9 @@ void Shell::draw(Canvas& canvas, const gpu2d::Surface& target) {
     if (inGame_) {
         // Only the Guide menu and what it opens are drawn; the game shows through everywhere else.
         canvas.begin(target, clear);
-        if (standsIn_) {
+        if (picture_) {
+            drawPicture(canvas, *picture_, target);
+        } else if (standsIn_) {
             hud_.drawGround(canvas);
         }
         screens_.paintPages(canvas);

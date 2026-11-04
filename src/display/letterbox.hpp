@@ -1,5 +1,5 @@
 // letterbox — the largest rectangle of an aspect ratio centred in an area, for a picture shown
-// whole on a screen of another shape (the runner's frame).
+// whole on a screen of another shape (the runner's frame, a remote game's picture).
 #pragma once
 
 #include <algorithm>

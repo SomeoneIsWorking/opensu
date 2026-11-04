@@ -237,7 +237,13 @@ std::string jsonSnapshot(const ShellSnapshot& snapshot) {
     number("lanSeen", snapshot.lanSeen);
     number("lanPaired", snapshot.lanPaired);
     text("lanCode", snapshot.lanCode);
-    text("lanSaves", snapshot.lanSaves, true);
+    text("lanSaves", snapshot.lanSaves);
+    text("remotePlay", snapshot.remotePlay);
+    text("remotePeer", snapshot.remotePeer);
+    number("remoteRoundTripUs", snapshot.remoteRoundTripUs);
+    number("remoteBytesPerSecond", snapshot.remoteBytesPerSecond);
+    text("remoteVideo", snapshot.remoteVideo);
+    text("remoteAudio", snapshot.remoteAudio, true);
     return out;
 }
 
@@ -378,15 +384,22 @@ lucent::http::Response ControlChannel::handle(const lucent::http::Request& reque
                                             "{\"typed\":" + jsonString(request.body) + "}");
     }
 
-    if (path == "/frame.png") {
+    if (path == "/frame.png" || path == "/remote/frame.png") {
         if (request.method != "GET") {
             return refuse("GET only");
         }
-        std::string png;
-        if (!target_.captureFrame(png)) {
-            return serverError("could not render a frame");
+        const FrameKind kind = path == "/frame.png" ? FrameKind::Shell : FrameKind::Remote;
+        FramePng frame;
+        if (!target_.captureFrame(kind, frame)) {
+            return serverError(kind == FrameKind::Shell ? "could not render a frame"
+                                                        : "no remote play picture");
         }
-        return lucent::http::Response::binary(200, "OK", "image/png", std::move(png));
+        lucent::http::Response response =
+            lucent::http::Response::binary(200, "OK", "image/png", std::move(frame.png));
+        if (kind == FrameKind::Remote) {
+            response.headers.push_back({"X-Opensu-Frame", std::to_string(frame.number)});
+        }
+        return response;
     }
 
     if (path == "/quit") {

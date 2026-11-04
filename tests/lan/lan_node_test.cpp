@@ -162,6 +162,19 @@ struct Node {
                                                 [this] {
                                                     ++savesChanged;
                                                 }},
+              .play =
+                  [this](const lan::Peer& peer, const std::string& game,
+                         const lan::StreamKeys& keys,
+                         std::string& refusal) -> std::optional<std::uint16_t> {
+                      const std::lock_guard lock{mutex};
+                      if (!refusePlay.empty()) {
+                          refusal = refusePlay;
+                          return std::nullopt;
+                      }
+                      played = peer.name + " " + game;
+                      playKeys = keys;
+                      return streamPort;
+                  },
               .discovery =
                   [&directory](const lan::Announcement& self, std::string& /*error*/) {
                       return std::make_unique<DirectoryDiscovery>(directory, self);
@@ -183,6 +196,11 @@ struct Node {
     std::atomic<int> savesChanged{0};
     std::mutex mutex;
     std::string busy;
+    /// What `play` answers: the refusal, else the port; and what it was last asked.
+    std::string refusePlay;
+    static constexpr std::uint16_t streamPort = 4242;
+    std::string played;
+    lan::StreamKeys playKeys;
     fs::path saves;
     fs::path state;
     lan::LanNode node;
@@ -304,12 +322,41 @@ void pairedNodesListEachOthersGames(const fs::path& root) {
     const library::Game listed = guest.remote->games().front();
     expect(listed.source == library::Source::Remote && listed.title == "Shared game" &&
                listed.hostName == "Living room" && listed.hostId == host.node.id() &&
-               listed.launch.empty() && listed.unavailable == lan::remotePlayMissing,
-           "marked with its host, and not startable yet");
+               listed.sourceId == "own:1" && listed.launch.empty(),
+           "marked with its host and its id there");
     expect(!listed.artwork.empty() && readFile(listed.artwork) == "not really a png" &&
                listed.artwork.extension() == ".png",
            "its cover is the host's, cached here");
     expect(guest.changes > 0, "the guest was told its remote games changed");
+
+    std::string playError;
+    const std::optional<lan::LanNode::PlayOffer> offer =
+        guest.node.askToPlay(host.node.id(), listed.sourceId, playError);
+    expect(offer && offer->stream.port == Node::streamPort &&
+               offer->stream.address == "127.0.0.1",
+           "the host agrees to stream its game and says where");
+    {
+        const std::lock_guard lock{host.mutex};
+        expect(host.played == "Desk own:1", "the host is asked by the guest for that game");
+        expect(offer && offer->keys.host == host.playKeys.host &&
+                   offer->keys.guest == host.playKeys.guest && offer->keys.host.size() == 32 &&
+                   offer->keys.host != offer->keys.guest,
+               "both sides hold one pair of session keys, one for each way");
+        host.refusePlay = "a game is already running there";
+    }
+    expect(!guest.node.askToPlay(host.node.id(), listed.sourceId, playError) &&
+               playError.find("a game is already running there") != std::string::npos,
+           "a host that cannot stream says why");
+    expect(!guest.node.askToPlay(host.node.id(), "own:2", playError),
+           "a game the host does not list is not streamed");
+    {
+        const std::lock_guard lock{host.mutex};
+        host.refusePlay.clear();
+    }
+    const std::optional<lan::LanNode::PlayOffer> again =
+        guest.node.askToPlay(host.node.id(), listed.sourceId, playError);
+    expect(again && offer && again->keys.host != offer->keys.host,
+           "each session has keys of its own");
     expect(waitFor([&host] {
                return host.remote->games().size() == 1 &&
                       host.remote->games().front().title == "Guest game";
@@ -528,7 +575,8 @@ void signedRequestsAreCheckedOnce(const fs::path& root) {
                                                             },
                                                         .unpaired =
                                                             [](const lan::Peer&) {
-                                                            }},
+                                                            },
+                                                        .play = {}},
                               0};
     const lan::crypto::Bytes secret = lan::crypto::randomBytes(lan::crypto::keyBytes);
     const std::string peer = secrets::hexText(lan::crypto::randomBytes(lan::peerIdBytes));

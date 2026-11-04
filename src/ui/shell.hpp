@@ -20,6 +20,7 @@
 #include "gpu2d/image_loader.hpp"
 #include "gpu2d/render_target.hpp"
 #include "gpu2d/surface.hpp"
+#include "gpu2d/texture.hpp"
 
 #include "chord_hint.hpp"
 #include "chord_hint_painter.hpp"
@@ -190,6 +191,11 @@ class Shell {
     void setStandsIn(bool standsIn) noexcept {
         standsIn_ = standsIn;
     }
+    /// The picture of a game another openSU runs, shown whole under the in-game overlay in place
+    /// of the ground; nothing for none. Its owner keeps it alive until the frame is submitted.
+    void setPicture(std::optional<gpu2d::TextureView> picture) noexcept {
+        picture_ = picture;
+    }
 
     [[nodiscard]] const std::string& status() const noexcept {
         return hud_.status();
@@ -240,6 +246,9 @@ class Shell {
     void frameGrid();
     /// The held modifier's chords, while shown or fading out.
     void drawChordHint(Canvas& canvas, Point size);
+    /// A remote game's picture over black, whole and centred.
+    static void drawPicture(Canvas& canvas, const gpu2d::TextureView& picture,
+                            const gpu2d::Surface& target);
     /// The scene's target, as big as the window.
     [[nodiscard]] gpu2d::RenderTarget& sceneTarget();
     [[nodiscard]] SDL_GPUDevice& device() const;
@@ -280,6 +289,7 @@ class Shell {
     int height_{};
     bool inGame_{false};
     bool standsIn_{false};
+    std::optional<gpu2d::TextureView> picture_;
 };
 
 } // namespace opensu::ui

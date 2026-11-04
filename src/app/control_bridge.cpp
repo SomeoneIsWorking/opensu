@@ -78,15 +78,15 @@ std::optional<std::string> ControlBridge::takeReload() {
     return std::exchange(reload_, std::nullopt);
 }
 
-bool ControlBridge::captureFrame(std::string& png) {
+bool ControlBridge::captureFrame(FrameKind kind, FramePng& frame) {
     std::unique_lock lock{stateMutex_};
     if (framePending_) {
         // One frame request at a time: two callers racing for the context would
         // interleave, and the second would get the first's answer.
         return false;
     }
-    framePending_ = true;
-    frame_.clear();
+    framePending_ = kind;
+    frame_ = {};
     // The loop answers within a frame or two. The bound stops a caller hanging
     // forever if the loop has already exited.
     frameAnswered_.wait_for(lock, std::chrono::seconds{5}, [this] {
@@ -94,29 +94,28 @@ bool ControlBridge::captureFrame(std::string& png) {
     });
     if (framePending_) {
         // Timed out, so the request is abandoned rather than left set.
-        framePending_ = false;
+        framePending_.reset();
         return false;
     }
-    png = std::move(frame_);
-    frame_.clear();
-    return !png.empty();
+    frame = std::exchange(frame_, {});
+    return !frame.png.empty();
 }
 
-bool ControlBridge::frameWanted() const {
+std::optional<FrameKind> ControlBridge::frameWanted() const {
     const std::lock_guard lock{stateMutex_};
     return framePending_;
 }
 
-void ControlBridge::answerFrame(std::string png) {
+void ControlBridge::answerFrame(FramePng frame) {
     const std::lock_guard lock{stateMutex_};
-    frame_ = std::move(png);
-    framePending_ = false;
+    frame_ = std::move(frame);
+    framePending_.reset();
     frameAnswered_.notify_all();
 }
 
 void ControlBridge::abandonFrame() {
     const std::lock_guard lock{stateMutex_};
-    framePending_ = false;
+    framePending_.reset();
     frameAnswered_.notify_all();
 }
 

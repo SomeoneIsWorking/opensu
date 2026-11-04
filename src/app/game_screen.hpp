@@ -35,6 +35,9 @@ class GameScreen {
 
     /// A game started or ended. The window and the overlay follow; nothing is shown.
     void setRunning(bool running);
+    [[nodiscard]] bool running() const noexcept {
+        return running_;
+    }
     /// What is wanted over the running game: `Interactive` for a menu or page, `Passive` for the
     /// chord list. Applied once per change.
     void show(display::OverlayMode wanted);

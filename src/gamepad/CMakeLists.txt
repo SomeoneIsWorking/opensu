@@ -5,7 +5,7 @@ add_library(opensu_pad STATIC
     event.cpp chord_gate.cpp forward_map.cpp direction_repeat.cpp sdl_pads.cpp)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_sources(opensu_pad PRIVATE pad_translator.cpp evdev_device.cpp virtual_pad.cpp evdev_pads.cpp
-        pad_source_evdev.cpp)
+        pad_source_evdev.cpp remote_pad.cpp)
 else()
     target_sources(opensu_pad PRIVATE pad_source_sdl.cpp)
 endif()

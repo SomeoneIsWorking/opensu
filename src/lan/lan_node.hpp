@@ -2,9 +2,10 @@
 // listener, its DNS-SD announcement and browsing, the pairing it hosts and the one it asks for,
 // the saves it shares (`SaveSync`), and a worker that keeps the paired peers' games in
 // `RemoteLibrary` while they are announced (again when one comes or goes, a pairing changes, and
-// every minute), their covers cached under `coverCache`. A pairing is one secret both sides keep,
-// so each lists the other's games. Made on the shell's loop and asked from it; its own threads only
-// fill what it reports.
+// every minute), their covers cached under `coverCache`; a paired peer's request to play a game
+// here goes to `play`, and this one asks a host to play one of its games (`askToPlay`). A pairing
+// is one secret both sides keep, so each lists the other's games. Made on the shell's loop and
+// asked from it; its own threads only fill what it reports.
 #pragma once
 
 #include <condition_variable>
@@ -49,6 +50,9 @@ class LanNode {
         /// Where saves shared with paired peers are recorded, staged and backed up, and when they
         /// are in use (`SaveSync::Setup`; its `changed` is called on a thread of the node's).
         SaveSync::Setup saves;
+        /// A paired peer asks to play a listed game here (`LanListener::Sources::play`); empty
+        /// refuses every such request.
+        decltype(LanListener::Sources::play) play;
         /// Announces this openSU and finds the others.
         std::function<std::unique_ptr<ServiceDiscovery>(const Announcement&, std::string&)>
             discovery{startDiscovery};
@@ -110,6 +114,18 @@ class LanNode {
     [[nodiscard]] std::optional<GuestPairing::State> asking() const;
     /// Stops the pairing this one asks for and lets it go.
     void endAsking();
+
+    /// What a host agreed to stream: where its stream takes packets and the session's keys.
+    struct PlayOffer {
+        Endpoint stream;
+        StreamKeys keys;
+    };
+    /// Asks the paired, announced openSU `hostId` to start its game `gameId` (its own id) and
+    /// stream it here. Blocks for the call, so never on the loop. Nothing with `error` when it is
+    /// gone, unpaired or refuses.
+    [[nodiscard]] std::optional<PlayOffer> askToPlay(const std::string& hostId,
+                                                     const std::string& gameId,
+                                                     std::string& error) const;
 
     /// Forgets `peerId` here, and tells it to forget this one when it is announced. False with
     /// `error` when it could not be forgotten here.

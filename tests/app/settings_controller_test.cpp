@@ -430,7 +430,8 @@ struct Rig {
                                    },
                                .savesChanged =
                                    [] {
-                                   }}};
+                                   },
+                               .play = {}}};
     app::LanSettings lanSettings{lan, preferences, screens.navigator, pad, sounds, [] {
                                  }};
     ui::MappingPage mappingPage;

@@ -32,4 +32,11 @@ fork as any third-party code.
    revoking both sides. Shown with three hidden openSUs on one machine. Discovery on Windows,
    macOS and Android says it is not built yet.
 2. Launch on the host, PyroWave video plus Opus audio over UDP, pad and keyboard input back.
+   Built on Linux (`docs/design/lan.md#remote-play`): `/lan/play` with per-session HKDF keys, each
+   datagram sealed with its counter as nonce and replays dropped; the host's game launched through
+   its normal path inside its Gamescope, Gamescope's PipeWire stream coded with PyroWave (pinned
+   fork, intra only, a lost frame dropped) and the game's own null sink with Opus; the guest's pad
+   on uinput and keys and pointer through XTest; the guest shows it full screen, Guide opens its own
+   menu with End remote play. Shown with two hidden openSUs on one machine over Avahi on a Game Boy
+   test ROM in a headless Gamescope.
 3. Fallback encoder, bandwidth probing, Windows/macOS/Android guests.

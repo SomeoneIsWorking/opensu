@@ -2,7 +2,9 @@
 // (Integrations): the `lan::LanNode`, made when LAN is turned on or this openSU is renamed and gone
 // when it is turned off; the question the host's half of a pairing asks the player, with the code;
 // the card a pairing this openSU asks for shows, with the same code, until the host answers; a
-// launch held while a game's saves are taken from a peer first (`before`); and the news the
+// launch held while a game's saves are taken from a peer first (`before`); a paired peer's request
+// to play a game here, passed to `Hooks::play`, and this one's to play a host's (`askToPlay`, on a
+// thread of its own); and the news the
 // node's threads leave for the loop (the paired peers' games changed, peers came or went, how a
 // game's shared saves stand). The remote games themselves are in the `RemoteLibrary` the catalog's
 // provider reads.
@@ -18,6 +20,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #include "gpu2d/ui/navigator.hpp"
@@ -54,6 +57,8 @@ class LanService {
         std::function<void()> peersChanged;
         /// How a game's shared saves stand changed: the details page shows it.
         std::function<void()> savesChanged;
+        /// A paired peer asks to play a game here; on the listener's thread.
+        decltype(lan::LanNode::Setup::play) play;
     };
 
     /// On from the start when `active`. The question and the card go on `navigator`.
@@ -110,6 +115,13 @@ class LanService {
     void pair(const std::string& peerId);
     /// Forgets `peerId` and says so.
     void forget(const std::string& peerId);
+
+    /// What a host answered a request to play: its offer, or why there is none.
+    using PlayAnswer = std::function<void(std::optional<lan::LanNode::PlayOffer>, std::string)>;
+    /// Asks the paired openSU `hostId` to stream its game `gameId` here, off the loop; `answer` is
+    /// called on that thread. False while LAN is off or another request is under way.
+    [[nodiscard]] bool askToPlay(const std::string& hostId, const std::string& gameId,
+                                 PlayAnswer answer);
 
     /// Shows the question and the card as the pairings stand and passes on the node's news.
     /// Every frame, main loop only.
@@ -174,6 +186,9 @@ class LanService {
     std::chrono::steady_clock::time_point looked_{};
     /// Last, so it stops before what its callbacks reach goes.
     std::unique_ptr<lan::LanNode> node_;
+    /// A request to play a host's game under way; joined before the node goes.
+    std::jthread asker_;
+    std::shared_ptr<std::atomic<bool>> asking_{std::make_shared<std::atomic<bool>>(false)};
 };
 
 } // namespace opensu::app

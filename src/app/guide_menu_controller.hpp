@@ -33,6 +33,8 @@ namespace opensu::app {
 struct GuideContext {
     /// A game is running; its title heads the menu.
     bool inGame{false};
+    /// The game runs on another openSU and streams here: Close game ends remote play.
+    bool remote{false};
     std::string title;
     /// The running game has settings to open (video, core options or frame generation).
     bool gameSettings{false};
@@ -53,7 +55,7 @@ class GuideMenuController final : public ui::RowActions {
         std::function<void()> openDevices;
         std::function<void()> openDownloads;
         std::function<void()> openSettings;
-        /// Ends the running game.
+        /// Ends the running game, or remote play.
         std::function<void()> closeGame;
         /// Opens the running game's settings over the menu.
         std::function<void()> openGameSettings;

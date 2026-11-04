@@ -89,7 +89,7 @@ void GuideMenuController::close() {
 }
 
 void GuideMenuController::read() {
-    retroStatus_ = context_.inGame ? retro_.status() : std::nullopt;
+    retroStatus_ = context_.inGame && !context_.remote ? retro_.status() : std::nullopt;
     brightnessLevel_ = brightness_.percent();
 }
 
@@ -101,8 +101,15 @@ std::vector<SettingsRow> GuideMenuController::places() const {
     std::vector<SettingsRow> rows;
     if (context_.inGame) {
         rows.push_back(action(resumeId, "Resume"));
-        rows.push_back(asking(closeGameId, "Close game",
-                              "The game ends; anything it has not saved is lost.", "Close"));
+        if (context_.remote) {
+            rows.push_back(asking(closeGameId, "End remote play",
+                                  "The game closes on the openSU it runs on; anything it has not "
+                                  "saved is lost.",
+                                  "End"));
+        } else {
+            rows.push_back(asking(closeGameId, "Close game",
+                                  "The game ends; anything it has not saved is lost.", "Close"));
+        }
         if (context_.gameSettings) {
             rows.push_back(ui::makePage(gameSettingsId, "Game settings", {}, {}));
         }

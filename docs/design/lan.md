@@ -2,9 +2,9 @@
 
 The LAN integration (Settings › Integrations › LAN, off by default) makes this openSU findable by
 the other openSUs on the network, pairs with them, lists the installed games of each paired one in
-Library under that openSU's name, and shares the games' saves with the ones the player chose. Starting such a game says "Remote play is not built yet";
-streaming is step 2 of `docs/plans/lan-remote-play.md`. Module rows are in `docs/codemap.md` under
-LAN.
+Library under that openSU's name, shares the games' saves with the ones the player chose, and
+plays such a game remotely: it runs on the host and streams here (see [Remote play](#remote-play)).
+Module rows are in `docs/codemap.md` under LAN and Remote play.
 
 ## Owners and data flow
 
@@ -27,6 +27,8 @@ LAN.
   a launcher (`launcher:lan:<peer id>`), sorted by name, after Your games. Home leaves remote games
   out. The details page shows "On <host>", Play, Game settings and Hide game.
 - `lan::SaveSync` (in the node) shares saves; see [Shared saves](#shared-saves).
+- `app::RemotePlay` (on the shell's loop, both ways) runs remote play's sessions; see
+  [Remote play](#remote-play).
 
 ## Discovery
 
@@ -57,6 +59,7 @@ It never shares the loopback control channel's port.
 | `POST /lan/saves/get` | sharing saves, signed | the same ask → the saves as a bundle (below), at most 512 MiB |
 | `POST /lan/saves/news` | sharing saves, signed | the caller holds newer saves of the game (`picked`: the player there chose them in a conflict); this one pulls them |
 | `POST /lan/saves/synced` | sharing saves, signed | the caller took `hash` (`counter`) of the game from here |
+| `POST /lan/play` | paired, signed | `{"game","salt"}` → `{"port","salt"}`: the host streams that listed game to the caller; 404 for a game it does not list, 409 with why when it will not (busy, outside Gamescope, no capture) |
 
 Everything else, and any signed route that fails its check or whose body does not open, is 403.
 The saves routes are 403 too, sealed, while this openSU does not share saves with the caller.
@@ -151,6 +154,47 @@ The Saves fact on the details page shows the peer most worth attention: Conflict
 X, the reason a sync failed, Newer here than on X, X does not share saves with this openSU, X is
 offline, In sync with X.
 
+## Remote play
+
+Play on another openSU's game (`ShellApp::launch`, `Source::Remote`) goes to
+`app::RemotePlay::start`, which asks that host over `/lan/play`; the shell shows the host's picture
+until the session ends. One session at a time either way, and a host plays none while its own game
+runs.
+
+- Keys: each side sends 16 fresh random bytes (`salt`); both derive
+  `host, guest = HKDF-SHA-256(secret, salt = guest salt || host salt, info = "opensu-stream\n" ("host" | "guest"))`
+  (`lan::streamKeys`), one key per sender, new every session.
+- Datagrams (`stream::PacketSeal`): a clear 10-byte header (version, kind, the sender's 64-bit
+  packet counter), then the payload under ChaCha20-Poly1305 with the sender's key, the counter as
+  the nonce and the header as additional data. The opener drops what does not open, and any counter
+  already seen or more than 4096 behind the newest (`PacketOpener`): a replayed datagram is never
+  taken.
+- The host binds a free UDP port for the session (`stream::HostStream`) and takes the first
+  datagram that opens as the guest joining; until then it sends nothing, and 20 s without one ends
+  it. The guest pings every 200 ms; the host answers with its clock, and the fastest of the last 25
+  round trips gives the clocks' offset for the latency stages. Five quiet seconds either way, or
+  an End datagram (sent three times), ends the session.
+- Host (`app::RemotePlay::offer`, on the listener's thread): refuses outside a Gamescope (the
+  screen it would stream), then opens `stream::HostInput` (a `gamepad::RemotePad` on uinput, and
+  XTest on that Gamescope's Xwayland for keys and pointer), the stream, `stream::HostVideo`
+  (Gamescope's PipeWire node, found as the one owned by the peer of its Wayland socket, NV12
+  BT.709 full range; each frame coded with PyroWave on the capture thread, at most 200 Mbit/s at
+  60 a second, cut into 1400-byte packets) and `stream::HostAudio` (a PipeWire null sink of the
+  session's own, `opensu.remote.<port>`, its monitor coded with Opus in 10 ms frames at 192 kbit/s).
+  The loop then starts the game through the normal launch path with `PIPEWIRE_NODE` and
+  `PULSE_SINK` naming that sink. The game ending ends the session; the guest leaving closes the
+  game.
+- Guest: `stream::GuestStream` receives; `stream::GuestVideo` queues video packets and decodes on a
+  thread of its own: a frame missing a packet is dropped when the next begins (intra only, nothing
+  waits for a resend), and a whole frame two newer ones began after is skipped as late. The loop
+  uploads the newest picture and `ui::Shell` draws it letterboxed over black. `stream::GuestAudio`
+  decodes each Opus packet, conceals up to ten lost ones, and plays on the shell's device
+  (`audio::LiveSound`, at most 60 ms queued) when the shell plays sounds.
+- Input: while the remote game has the controls (streaming, no Guide menu or other menu open), the
+  shell's pad buttons other than Guide, the first pad's sticks, the held keys (at most 16) and the
+  pointer over the picture go to the host (`app::RemoteInput`), each sent when it changes. Guide
+  opens this openSU's own menu, whose Close game row reads End remote play.
+
 ## Keys and secrets
 
 `lan.json` (config dir) holds this openSU's peer id and each paired peer's id and name. Each
@@ -180,6 +224,16 @@ Library on both sides.
   or when its details open and Sync saves now is pressed.
 - A game whose emulator keeps no saves openSU can find (store games, standalone emulators of
   consoles other than the Switch) shares none.
+- Remote play is Linux only both ways (PipeWire, uinput, XTest, PyroWave built for Linux), and only
+  with PyroWave: no fallback encoder or bandwidth probing yet (step 3 of
+  `docs/plans/lan-remote-play.md`). Wired gigabit is the intended link.
+- The guest decodes PyroWave into CPU memory and converts to RGBA there, and uploads a new texture
+  each frame; decode p50 is 5–10 ms on a Radeon RX 6700 XT shared with other work.
+- Remote triggers are digital (full travel or none), right and middle mouse buttons are held for
+  one frame, and the remote pad gets no per-game mapping. The guest's Video settings do not apply
+  to the stream.
+- A game whose sound ignores `PIPEWIRE_NODE` and `PULSE_SINK` plays on the host's speakers and
+  the guest hears silence.
 
 ## Checking it
 
@@ -193,3 +247,16 @@ and, with a details page open, `lanSaves` (its Saves fact); `/frame.png` shows t
 screens, and the `lan` and `saves` log lines name every pairing, listing, refusal, pull and push.
 A request to `/lan/library` without a pairing gets 403. A socket dump of the LAN port shows the
 routes and lengths but no save bytes.
+
+Remote play: `tests/stream/stream_test.cpp` checks sealing and replay, the payloads, a host and a
+guest session over loopback UDP, PyroWave round trips and a lost packet, and Opus with a lost
+packet concealed. In the product, run the host as the only client of a headless Gamescope
+(`gamescope --backend headless -W 1280 -H 720 -r 60 -- opensu --hidden`, `WAYLAND_DISPLAY` set to
+empty, the user's `XDG_RUNTIME_DIR` for PipeWire) and the guest as a plain `--hidden` openSU, pair
+them and press Play on the host's game in the guest's Library. `/state` reports `remotePlay`
+(`asking`, `playing`, `hosting`), `remotePeer`, `remoteRoundTripUs` and `remoteBytesPerSecond`,
+and on the guest `remoteVideo` (frames decoded, dropped and late, and each stage's p50/p95 in ms
+from capture to the submitted frame) and `remoteAudio` (packets, lost, arrival p50/p95). On both
+sides `/remote/frame.png` returns the newest remote picture, numbered in `X-Opensu-Frame`: the one
+sent on the host and the one decoded on the guest, so the same number can be compared. A hidden
+guest has no surface: `submitted` counts frames submitted and `drawn` stays 0.

@@ -1,5 +1,6 @@
 #include "lan_listener.hpp"
 
+#include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <fstream>
@@ -100,7 +101,8 @@ Response LanListener::handle(const Request& request) {
     }
     const bool peerPath =
         (request.method == "GET" && (path == "/lan/library" || path.starts_with(coverPrefix))) ||
-        (request.method == "POST" && (path == "/lan/unpair" || path.starts_with(savesPrefix)));
+        (request.method == "POST" && (path == "/lan/unpair" || path == wire::playRoute ||
+                                      path.starts_with(savesPrefix)));
     if (!peerPath) {
         return refused(notFound, "Not Found", "no such route");
     }
@@ -115,8 +117,13 @@ Response LanListener::handle(const Request& request) {
         answer = peerRoute(request, *verified);
     } else if (const std::optional<std::string> body =
                    openBody(verified->secret, facts, Direction::Request, 0, request.body)) {
-        answer = path.starts_with(savesPrefix) ? savesRoute(path, *body, *verified)
-                                               : peerRoute(request, *verified);
+        if (path.starts_with(savesPrefix)) {
+            answer = savesRoute(path, *body, *verified);
+        } else if (path == wire::playRoute) {
+            answer = playRoute(*body, *verified);
+        } else {
+            answer = peerRoute(request, *verified);
+        }
     } else {
         lucent::info("lan", "refused {} {} from {}: its body does not open", request.method, path,
                      verified->peer.name);
@@ -225,6 +232,33 @@ Response LanListener::savesRoute(std::string_view path, std::string_view body,
         return Response::json(ok, "OK", "{}");
     }
     return refused(notFound, "Not Found", "no such route");
+}
+
+Response LanListener::playRoute(std::string_view body, const Signed& verified) {
+    const std::optional<wire::PlayRequest> asked = wire::readPlayRequest(body);
+    if (!asked) {
+        return refused(badRequest, "Bad Request", "not a request to play");
+    }
+    const std::vector<wire::ListedGame> listed = sources_.library.listing();
+    const auto game = std::ranges::find(listed, asked->game, &wire::ListedGame::id);
+    if (game == listed.end()) {
+        return refused(notFound, "Not Found", "no game here has that id");
+    }
+    const crypto::Bytes salt = crypto::randomBytes(crypto::nonceBytes);
+    StreamKeys keys = streamKeys(verified.secret, asked->salt, salt);
+    std::string refusal = "this openSU does not offer remote play";
+    const std::optional<std::uint16_t> port =
+        sources_.play ? sources_.play(verified.peer, game->id, keys, refusal) : std::nullopt;
+    secrets::wipeBytes(keys.host.data(), keys.host.size());
+    secrets::wipeBytes(keys.guest.data(), keys.guest.size());
+    if (!port) {
+        lucent::info("lan", "refused {} remote play of {}: {}", verified.peer.name, game->title,
+                     refusal);
+        return refused(conflict, "Conflict", refusal);
+    }
+    lucent::info("lan", "{} plays {} here over remote play, stream on UDP port {}",
+                 verified.peer.name, game->title, *port);
+    return Response::json(ok, "OK", wire::write(wire::PlayAnswer{*port, salt}));
 }
 
 Response LanListener::pair(const Request& request) {

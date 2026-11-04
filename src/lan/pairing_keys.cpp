@@ -57,4 +57,14 @@ std::string pairingVerdictSignature(std::span<const std::uint8_t> secret, std::s
                                                            secrets::hexText(guestNonce)));
 }
 
+StreamKeys streamKeys(std::span<const std::uint8_t> secret, std::span<const std::uint8_t> guestSalt,
+                      std::span<const std::uint8_t> hostSalt) {
+    crypto::Bytes salt{guestSalt.begin(), guestSalt.end()};
+    salt.insert(salt.end(), hostSalt.begin(), hostSalt.end());
+    return StreamKeys{.host = crypto::hkdfSha256(secret, salt, "opensu-stream\nhost",
+                                                 crypto::keyBytes),
+                      .guest = crypto::hkdfSha256(secret, salt, "opensu-stream\nguest",
+                                                  crypto::keyBytes)};
+}
+
 } // namespace opensu::lan

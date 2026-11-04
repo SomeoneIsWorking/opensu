@@ -140,10 +140,17 @@ void ShellWindow::handle(const SDL_Event& event) {
         if (const std::optional<int> key = keyOf(event.key.scancode)) {
             keys_.keyDown(*key, event.key.repeat);
         }
+        if (event.key.scancode <= SDL_SCANCODE_RGUI &&
+            std::ranges::find(keysHeld_, event.key.scancode) == keysHeld_.end()) {
+            keysHeld_.push_back(static_cast<std::uint8_t>(event.key.scancode));
+        }
         break;
     case SDL_EVENT_KEY_UP:
         if (const std::optional<int> key = keyOf(event.key.scancode)) {
             keys_.keyUp(*key);
+        }
+        if (event.key.scancode <= SDL_SCANCODE_RGUI) {
+            std::erase(keysHeld_, static_cast<std::uint8_t>(event.key.scancode));
         }
         break;
     case SDL_EVENT_TEXT_INPUT:
@@ -260,13 +267,17 @@ void ShellWindow::submit(SDL_GPUCommandBuffer* commands) {
     }
 }
 
-void ShellWindow::present(const Draw& draw) {
+ShellWindow::Presented ShellWindow::present(const Draw& draw) {
     SDL_GPUCommandBuffer* commands = acquireCommands(device());
-    if (const std::optional<gpu2d::Surface> surface = window_.acquire(commands)) {
+    const std::optional<gpu2d::Surface> surface = window_.acquire(commands);
+    if (surface) {
         draw(canvas_, *surface);
     }
     submit(commands);
+    const Presented presented{.submitted = std::chrono::steady_clock::now(),
+                              .drawn = surface.has_value()};
     pace();
+    return presented;
 }
 
 gpu2d::image::Bitmap ShellWindow::render(const Draw& draw) {

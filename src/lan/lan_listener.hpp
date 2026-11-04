@@ -4,7 +4,8 @@
 // only, signed, its body and answer sealed (`request_signature`): `GET /lan/library` (the shared
 // listing), `GET /lan/cover/<token>` (one shared cover), `POST /lan/unpair` (the peer forgets this
 // one, and this one it), and for a peer the player shares saves with the save routes
-// (`SaveSync`: `/lan/saves/status`, `/get`, `/news`, `/synced`). A request that fails its
+// (`SaveSync`: `/lan/saves/status`, `/get`, `/news`, `/synced`), and `POST /lan/play`, which asks
+// to play a listed game here over remote play (`play`). A request that fails its
 // signature, comes late, repeats or does not open is refused with 403, as are the save routes of
 // a peer saves are not shared with.
 #pragma once
@@ -15,6 +16,7 @@
 
 #include "host_pairing.hpp"
 #include "lucent/http.h"
+#include "pairing_keys.hpp"
 #include "peer_book.hpp"
 #include "request_signature.hpp"
 #include "save_sync.hpp"
@@ -33,6 +35,12 @@ class LanListener {
         std::function<std::string()> name;
         /// A peer unpaired itself; called on the listener's thread.
         std::function<void(const Peer&)> unpaired;
+        /// A peer asks to play `game`, which this one lists, here; `keys` seal that session. The
+        /// UDP port its stream takes packets on, or nothing with `refusal`. Called on the
+        /// listener's thread.
+        std::function<std::optional<std::uint16_t>(const Peer& peer, const std::string& game,
+                                                    const StreamKeys& keys, std::string& refusal)>
+            play;
     };
 
     /// Listens on `port`, or a free one when it is 0, once started.
@@ -71,6 +79,8 @@ class LanListener {
     /// The save routes, `body` opened.
     [[nodiscard]] lucent::http::Response savesRoute(std::string_view path, std::string_view body,
                                                     const Signed& verified);
+    /// `/lan/play`, `body` opened.
+    [[nodiscard]] lucent::http::Response playRoute(std::string_view body, const Signed& verified);
     [[nodiscard]] std::optional<Signed> verify(const lucent::http::Request& request);
 
     Sources sources_;

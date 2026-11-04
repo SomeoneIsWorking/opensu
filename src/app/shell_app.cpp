@@ -16,6 +16,7 @@
 #include "frame_png.hpp"
 #include "game_end.hpp"
 #include "gpu2d/gpu_error.hpp"
+#include "gpu2d/image/png_encoder.hpp"
 #include "input/key_names.hpp"
 #include "input/keyboard_bindings.hpp"
 #include "keyboard_pad.hpp"
@@ -368,7 +369,13 @@ void ShellApp::handleEvents(const std::vector<gamepad::Event>& incoming) {
         return;
     }
     const std::vector<gamepad::Event> events = router_.fromPad(incoming);
+    const bool remote = remoteHasControls();
     for (const gamepad::Event& event : events) {
+        if (remote && event.kind == gamepad::Event::Kind::Button &&
+            event.button != gamepad::Button::Guide) {
+            remoteInput_.button(event);
+            continue;
+        }
         switch (event.kind) {
         case gamepad::Event::Kind::Connected:
             lucent::info("gamepad", "controller ready: {}", event.device);
@@ -418,6 +425,15 @@ void ShellApp::handleKeyboard() {
     if (keys.any) {
         shell_.inputDevice().noteKey();
     }
+    if (remoteHasControls()) {
+        // The keys themselves go to the remote game; only Guide stays here.
+        std::vector<gamepad::Event> guide;
+        std::ranges::copy_if(keys.events, std::back_inserter(guide), [](const gamepad::Event& e) {
+            return e.button == gamepad::Button::Guide;
+        });
+        handleEvents(guide);
+        return;
+    }
     handleEvents(keys.events);
 }
 
@@ -460,6 +476,10 @@ void ShellApp::handlePointer() {
 void ShellApp::pointer(const PointerFrame& frame) {
     using gpu2d::ui::PointerEvent;
     using gpu2d::ui::PointerKind;
+    if (remoteHasControls()) {
+        remoteInput_.pointer(frame, remotePlacement());
+        return;
+    }
     const bool moved = frame.delta.x != 0.0f || frame.delta.y != 0.0f;
     shell_.inputDevice().notePointer(
         frame.delta.x, frame.delta.y,
@@ -598,39 +618,43 @@ void ShellApp::cycleSection(int delta) {
     }
 }
 
-void ShellApp::launch(const library::Game& game) {
+bool ShellApp::launch(const library::Game& game, std::vector<std::string> environment) {
     if (!game.installed) {
         offerInstall(game);
-        return;
+        return false;
+    }
+    if (launches_.running() || remotePlay_.playing()) {
+        shell_.setToast("a game is already running", true);
+        return false;
+    }
+    if (game.source == library::Source::Remote) {
+        remotePlay_.start(game);
+        return true;
     }
     if (game.launch.empty()) {
         shell_.setToast(
             game.unavailable.empty() ? "no way to start " + game.title : game.unavailable, true);
-        return;
-    }
-    if (launches_.running()) {
-        shell_.setToast("a game is already running", true);
-        return;
+        return false;
     }
     if (lan_.holding()) {
         shell_.setToast("a game is waiting for its saves", true);
-        return;
+        return false;
     }
-    if (lan_.before(game, [this, game] {
-            startLaunch(game);
+    if (lan_.before(game, [this, game, environment] {
+            static_cast<void>(startLaunch(game, environment));
         })) {
         shell_.setToast("Syncing " + game.title + "'s saves first");
-        return;
+        return true;
     }
-    startLaunch(game);
+    return startLaunch(game, std::move(environment));
 }
 
-void ShellApp::startLaunch(const library::Game& game) {
+bool ShellApp::startLaunch(const library::Game& game, std::vector<std::string> extra) {
     library::Game started = game;
     const library::wine::Prepared wine = wineSettings_.prepare(started);
     if (!wine.refusal.empty()) {
         shell_.setToast(wine.refusal, true);
-        return;
+        return false;
     }
     std::string control = retro_.begin();
     if (const std::string refused =
@@ -639,7 +663,7 @@ void ShellApp::startLaunch(const library::Game& game) {
         !refused.empty()) {
         static_cast<void>(retro_.end());
         shell_.setToast("cannot write " + game.title + "'s settings: " + refused, true);
-        return;
+        return false;
     }
 
     // input-sound.md 3.4 OpenAppRom: every game launch.
@@ -650,9 +674,11 @@ void ShellApp::startLaunch(const library::Game& game) {
     std::vector<std::string> environment = padOwner_.hold(mappings_.forGame(game));
     environment.push_back(std::move(control));
     environment.insert(environment.end(), wine.environment.begin(), wine.environment.end());
+    environment.insert(environment.end(), std::make_move_iterator(extra.begin()),
+                       std::make_move_iterator(extra.end()));
     // Before the game starts, so it reads the smaller screen as its own.
     presentation_.follow(gameInFront(), &started);
-    launches_.start(std::move(started), std::move(environment));
+    return launches_.start(std::move(started), std::move(environment));
 }
 
 void ShellApp::offerInstall(const library::Game& game) {
@@ -675,7 +701,7 @@ void ShellApp::openGameSettings(const library::Game& game, EditorLook look) {
 }
 
 const library::Game* ShellApp::gameInFront() const {
-    if (!shell_.inGame()) {
+    if (!shell_.inGame() || remotePlay_.streaming()) {
         return nullptr;
     }
     if (focusFollow_.following() && focusFollow_.holder() != display::FocusHolder::Game) {
@@ -726,7 +752,7 @@ void ShellApp::syncOverlay() {
     const OverlayMode over = interactive                 ? OverlayMode::Interactive
                              : shell_.chordHintVisible() ? OverlayMode::Passive
                                                          : OverlayMode::Hidden;
-    gameScreen_.show(shell_.inGame() ? over : OverlayMode::Hidden);
+    gameScreen_.show(gameScreen_.running() ? over : OverlayMode::Hidden);
 }
 
 std::string ShellApp::outputLine() const {
@@ -991,6 +1017,13 @@ void ShellApp::publishSnapshot() {
             next.lanSaves = saves->value;
         }
     }
+    const RemotePlay::Glance remote = remotePlay_.glance();
+    next.remotePlay = remote.state;
+    next.remotePeer = remote.peer;
+    next.remoteRoundTripUs = remote.roundTripUs;
+    next.remoteBytesPerSecond = remote.bytesPerSecond;
+    next.remoteVideo = remote.video;
+    next.remoteAudio = remote.audio;
 
     bridge_.publish(std::move(next));
 }
@@ -1031,11 +1064,81 @@ void ShellApp::serviceControlRequests() {
         handleEvents({event});
     }
 
-    if (!bridge_.frameWanted()) {
+    const std::optional<FrameKind> wanted = bridge_.frameWanted();
+    if (!wanted) {
+        return;
+    }
+    if (*wanted == FrameKind::Remote) {
+        bridge_.answerFrame(remotePicturePng());
         return;
     }
     std::string png;
-    bridge_.answerFrame(renderShellPng(*window_, shell_, png) ? std::move(png) : std::string{});
+    bridge_.answerFrame(
+        FramePng{.png = renderShellPng(*window_, shell_, png) ? std::move(png) : std::string{},
+                 .number = 0});
+}
+
+FramePng ShellApp::remotePicturePng() const {
+    const std::optional<stream::GuestVideo::Frame> frame = remotePlay_.picture();
+    if (!frame) {
+        return {};
+    }
+    std::string error;
+    std::string png = gpu2d::image::encodePng(frame->picture.rgba,
+                                              static_cast<unsigned>(frame->picture.width),
+                                              static_cast<unsigned>(frame->picture.height), error);
+    if (png.empty()) {
+        lucent::error("remote", "could not encode frame {}: {}", frame->number, error);
+    }
+    return FramePng{.png = std::move(png), .number = frame->number};
+}
+
+bool ShellApp::remoteHasControls() {
+    return remotePlay_.streaming() && !guideMenu_.isOpen() && !menusBlocked() &&
+           !shell_.screens().navigator().active();
+}
+
+void ShellApp::sendRemoteInput() {
+    if (!remotePlay_.streaming()) {
+        return;
+    }
+    if (!remoteHasControls()) {
+        remoteInput_.release();
+        remotePlay_.input(remoteInput_.pad(), {}, remoteInput_.mouse());
+        return;
+    }
+    remoteInput_.sticks(pads_->sticks());
+    stream::wire::KeyState keys;
+    const std::vector<std::uint8_t>& held = window_->keysHeld();
+    keys.held.assign(held.begin(),
+                     held.begin() + static_cast<std::ptrdiff_t>(
+                                        std::min(held.size(), stream::wire::heldKeys)));
+    remotePlay_.input(remoteInput_.pad(), keys, remoteInput_.mouse());
+}
+
+display::Placed ShellApp::remotePlacement() const {
+    const gpu2d::PixelSize window = window_->size();
+    if (!remotePicture_) {
+        return display::Placed{.x = 0, .y = 0, .width = window.width, .height = window.height};
+    }
+    return display::letterbox(window.width, window.height,
+                              static_cast<float>(remotePicture_->width()) /
+                                  static_cast<float>(remotePicture_->height()));
+}
+
+void ShellApp::showRemotePicture() {
+    if (!remotePlay_.streaming()) {
+        remotePicture_.reset();
+        shell_.setPicture(std::nullopt);
+        return;
+    }
+    if (std::optional<stream::GuestVideo::Frame> frame = remotePlay_.takePicture()) {
+        remotePicture_.emplace(window_->device(), frame->picture.rgba, frame->picture.width,
+                               frame->picture.height, gpu2d::Filter::Linear);
+        remotePictureNumber_ = frame->number;
+        remotePictureFresh_ = true;
+    }
+    shell_.setPicture(remotePicture_ ? std::optional{remotePicture_->view()} : std::nullopt);
 }
 
 /// Applies what the launch thread and the control channel asked for. Everything
@@ -1065,11 +1168,14 @@ void ShellApp::serviceRequests() {
         reloadCatalog();
     }
     const bool running = mailbox_.gameRunning();
-    if (running != shell_.inGame()) {
-        shell_.setInGame(running);
+    // A remote game plays in this window, so only a game here moves the window aside.
+    if (running != gameScreen_.running()) {
+        gameScreen_.setRunning(running);
+    }
+    if (const bool inGame = running || remotePlay_.streaming(); inGame != shell_.inGame()) {
+        shell_.setInGame(inGame);
         closePages();
         panels_.endLaunch();
-        gameScreen_.setRunning(running);
         if (!running) {
             // Emulators write their play time as a game ends.
             plugins_.request(games_);
@@ -1125,8 +1231,9 @@ int ShellApp::run() {
         padOwner_.lendToSteam(steamGridDbAccount_.signingIn() || offerClaim_.inSteam());
         focusFollow_.service(padOwner_.held());
         // Between a game's windows Gamescope focuses the shell's window, which then draws its own.
-        shell_.setStandsIn(shell_.inGame() && focusFollow_.following() &&
-                           focusFollow_.holder() == display::FocusHolder::OpenSU);
+        shell_.setStandsIn(remotePlay_.streaming() ||
+                           (shell_.inGame() && focusFollow_.following() &&
+                            focusFollow_.holder() == display::FocusHolder::OpenSU));
         presentation_.follow(gameInFront(), launches_.running() ? &launches_.game() : nullptr);
         nightLight_.service(preferences_.values().nightLight, std::chrono::system_clock::now());
         padOwner_.follow(focusFollow_.following(), focusFollow_.holder(),
@@ -1142,10 +1249,12 @@ int ShellApp::run() {
         }
 
         serviceControlRequests();
+        sendRemoteInput();
         serviceRequests();
         serviceCatalog();
         plugins_.service();
         lan_.service();
+        remotePlay_.service(launches_.running() || lan_.holding());
         delivery_.service();
         covers_.service();
         serviceDevices(std::chrono::steady_clock::now());
@@ -1174,9 +1283,16 @@ int ShellApp::run() {
         publishSnapshot();
         // An unmapped window draws nothing, and its artwork still streams in.
         shell_.loadArtwork();
-        window_->present([this](ui::Canvas& canvas, const gpu2d::Surface& target) {
-            shell_.draw(canvas, target);
-        });
+        showRemotePicture();
+        const ShellWindow::Presented presented =
+            window_->present([this](ui::Canvas& canvas, const gpu2d::Surface& target) {
+                shell_.draw(canvas, target);
+            });
+        if (remotePictureFresh_) {
+            remotePlay_.presented(remotePictureNumber_, stream::wire::microsOf(presented.submitted),
+                                  presented.drawn);
+            remotePictureFresh_ = false;
+        }
         clock_.service(std::chrono::steady_clock::now());
     }
 

@@ -250,4 +250,38 @@ std::optional<SaveStatus> readSaveStatus(std::string_view body) {
                       modified->get<std::int64_t>()};
 }
 
+std::string write(const PlayRequest& request) {
+    return json{{"game", request.game}, {"salt", secrets::hexText(request.salt)}}.dump();
+}
+
+std::optional<PlayRequest> readPlayRequest(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    std::optional<crypto::Bytes> salt = bytesField(*document, "salt", crypto::nonceBytes);
+    std::string game = textField(*document, "game");
+    if (!salt || game.empty()) {
+        return std::nullopt;
+    }
+    return PlayRequest{std::move(game), std::move(*salt)};
+}
+
+std::string write(const PlayAnswer& answer) {
+    return json{{"port", answer.port}, {"salt", secrets::hexText(answer.salt)}}.dump();
+}
+
+std::optional<PlayAnswer> readPlayAnswer(std::string_view body) {
+    const std::optional<json> document = objectOf(body);
+    if (!document) {
+        return std::nullopt;
+    }
+    const std::optional<std::uint64_t> port = countField(*document, "port");
+    std::optional<crypto::Bytes> salt = bytesField(*document, "salt", crypto::nonceBytes);
+    if (!port || *port == 0 || *port > 0xffff || !salt) {
+        return std::nullopt;
+    }
+    return PlayAnswer{static_cast<std::uint16_t>(*port), std::move(*salt)};
+}
+
 } // namespace opensu::lan::wire

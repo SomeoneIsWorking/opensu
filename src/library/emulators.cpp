@@ -267,7 +267,9 @@ EmulatorSetup EmulatorSetup::standard(const config::Config& config, bool hidden,
     return EmulatorSetup{.catalog = EmulatorCatalog::shipped(config.assetsDir, config.home),
                          .search = EmulatorSearch::standard(
                              config.home, config.dataDir, config.executablePath, config.retroRunner,
-                             config.savesDir, config.retroSystemDir, hidden),
+                             config.savesDir, config.retroSystemDir,
+                             // Inside a Gamescope its window reaches that Gamescope's screen alone.
+                             hidden && !config.insideGamescope),
                          .overrides = config.emulators,
                          .shaders = ShaderPack::under(config.dataDir),
                          .standalone = standalone};

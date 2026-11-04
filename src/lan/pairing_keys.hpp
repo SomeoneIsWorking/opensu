@@ -40,4 +40,17 @@ struct PairingTranscript {
                                                   std::string_view verdict,
                                                   std::span<const std::uint8_t> guestNonce);
 
+/// The keys one remote-play session's packets are sealed with, one per sender, so a counter is
+/// never used twice under one key.
+struct StreamKeys {
+    crypto::Bytes host;
+    crypto::Bytes guest;
+};
+
+/// A session's keys: HKDF over the pairing's secret, salted with the fresh salts both sides sent
+/// for it (`crypto::nonceBytes` each).
+[[nodiscard]] StreamKeys streamKeys(std::span<const std::uint8_t> secret,
+                                    std::span<const std::uint8_t> guestSalt,
+                                    std::span<const std::uint8_t> hostSalt);
+
 } // namespace opensu::lan
