@@ -74,7 +74,7 @@ void lastPlayed() {
 }
 
 void storeGame() {
-    const GameDetails details = detailsOf(hades(), false, now);
+    const GameDetails details = detailsOf(hades(), GameMarks{.hidden = false, .onHome = true}, now);
     expect(details.title == "Hades" && details.badge == "Steam", "title and store badge");
     expect(details.art == "/covers/hades.jpg", "the cover is the game's own");
     expect(valueOf(details, "Status") == "Installed", "installed state");
@@ -82,44 +82,50 @@ void storeGame() {
     expect(valueOf(details, "Play time") == "2 h 5 min", "play time");
     expect(factOf(details, "Emulator") == nullptr, "a store game has no emulator fact");
     expect(details.launch == "Play", "an installed game plays");
-    expect(idsOf(details) == ids({detailsHiddenId, detailsUninstallId, detailsMatchId,
-                                  detailsArtworkId, detailsControlsId, detailsBackId}),
-           "Hide, Uninstall, Match a different game, Choose artwork, Controls, Back");
+    expect(idsOf(details) ==
+               ids({detailsHomeId, detailsHiddenId, detailsUninstallId, detailsMatchId,
+                    detailsArtworkId, detailsControlsId, detailsBackId}),
+           "Remove from Home, Hide, Uninstall, Match a different game, Choose artwork, Controls, "
+           "Back");
+    expect(actionOf(details, detailsHomeId)->label == "Remove from Home",
+           "a game on Home offers to be taken off it");
     expect(actionOf(details, detailsHiddenId)->label == "Hide game" &&
                actionOf(details, detailsArtworkId)->kind == RowKind::Page &&
                actionOf(details, detailsControlsId)->kind == RowKind::Page,
            "Hide acts; Choose artwork and Controls open what is over the page");
     Game wide = hades();
     wide.artworkWide = "/covers/hades-wide.jpg";
-    expect(detailsOf(wide, false, now).hero == "/covers/hades-wide.jpg",
+    expect(detailsOf(wide, GameMarks{.hidden = false}, now).hero == "/covers/hades-wide.jpg",
            "beside a cover the wide picture is the backdrop");
     expect(details.hero.empty(), "no wide picture, no backdrop");
     wide.artwork.clear();
-    expect(detailsOf(wide, false, now).art == "/covers/hades-wide.jpg" &&
-               detailsOf(wide, false, now).hero.empty(),
+    expect(detailsOf(wide, GameMarks{.hidden = false}, now).art == "/covers/hades-wide.jpg" &&
+               detailsOf(wide, GameMarks{.hidden = false}, now).hero.empty(),
            "without a cover the wide picture shows, and not twice");
 }
 
 void states() {
     Game missing = hades();
     missing.installed = false;
-    const GameDetails details = detailsOf(missing, true, now);
+    const GameDetails details = detailsOf(missing, GameMarks{.hidden = true}, now);
     expect(details.launch == "Install", "a game that is not installed offers Install");
     expect(valueOf(details, "Status") == "Not installed, hidden", "hidden shows");
     expect(actionOf(details, detailsHiddenId)->label == "Show game",
            "a hidden game offers to be shown");
+    expect(actionOf(details, detailsHomeId)->label == "Add to Home",
+           "a game off Home offers to be added");
     expect(actionOf(details, detailsUninstallId) == nullptr,
            "a game that is not installed has nothing to uninstall");
     Game updatable = hades();
     updatable.updateAvailable = true;
-    const GameDetails update = detailsOf(updatable, false, now);
+    const GameDetails update = detailsOf(updatable, GameMarks{.hidden = false}, now);
     expect(update.actions.front().id == detailsUpdateId &&
                valueOf(update, "Status") == "Installed, update available",
            "an update follows Play, and the status says so");
 }
 
 void romEmulator() {
-    const GameDetails details = detailsOf(kirby(true), false, now);
+    const GameDetails details = detailsOf(kirby(true), GameMarks{.hidden = false}, now);
     expect(details.badge == "Nintendo Switch" || details.badge == "Switch",
            "a ROM's badge is its system");
     expect(valueOf(details, "Emulator") == "Eden · installed",
@@ -130,22 +136,23 @@ void romEmulator() {
                emulator->chosen == 0 && details.actions.front().id == detailsEmulatorId,
            "a ROM with two emulators chooses between them right after Play");
     expect(actionOf(details, detailsUninstallId) == nullptr, "a ROM is never uninstalled");
-    const GameDetails missing = detailsOf(kirby(false), false, now);
+    const GameDetails missing = detailsOf(kirby(false), GameMarks{.hidden = false}, now);
     expect(valueOf(missing, "Emulator") == "Eden · not installed",
            "an emulator that is not installed says so");
     Game single = kirby(true);
     single.emulatorOptions.pop_back();
-    expect(actionOf(detailsOf(single, false, now), detailsEmulatorId) == nullptr,
+    expect(actionOf(detailsOf(single, GameMarks{.hidden = false}, now), detailsEmulatorId) ==
+               nullptr,
            "one emulator leaves nothing to choose");
     Game unpicked = kirby(true);
     unpicked.emulator.clear();
-    const GameDetails unpickedDetails = detailsOf(unpicked, false, now);
+    const GameDetails unpickedDetails = detailsOf(unpicked, GameMarks{.hidden = false}, now);
     const SettingsRow* none = actionOf(unpickedDetails, detailsEmulatorId);
     expect(none != nullptr && none->choices.front() == noEmulator && none->chosen == 0 &&
                none->choices.size() == 3,
            "with none picked the choice says so before the emulators");
     const GameDetails sourced =
-        detailsOf(kirby(true), false, now, {}, false,
+        detailsOf(kirby(true), GameMarks{.hidden = false}, now, {}, false,
                   GameSettingsView{"Set for this game", {}, "Inherited", "Eden, Ryujinx", {}, {}});
     expect(valueOf(sourced, "Emulator") == "Eden · installed · Set for this game" &&
                actionOf(sourced, detailsEmulatorId)->note == "Set for this game" &&
@@ -186,7 +193,7 @@ void arcadeRomset() {
     avsp.romset = "No arcade core matches this romset";
     avsp.romsetNearest = "MAME 2010 lacks 2 of 15 files: a, b";
     avsp.unavailable = avsp.romset;
-    const GameDetails none = detailsOf(avsp, false, now);
+    const GameDetails none = detailsOf(avsp, GameMarks{.hidden = false}, now);
     expect(valueOf(none, "Romset") == "No arcade core matches this romset" &&
                valueOf(none, "Nearest") == "MAME 2010 lacks 2 of 15 files: a, b" &&
                valueOf(none, "Emulator") == "none for this romset",
@@ -194,7 +201,7 @@ void arcadeRomset() {
     expect(emulatorToDownload(avsp) == nullptr,
            "a core the romset does not match is not offered for download");
     avsp.emulator = "FinalBurn Neo";
-    const GameDetails picked = detailsOf(avsp, false, now, "42% · A cancels");
+    const GameDetails picked = detailsOf(avsp, GameMarks{.hidden = false}, now, "42% · A cancels");
     expect(emulatorToDownload(avsp) == &avsp.emulatorOptions[0] &&
                valueOf(picked, "Emulator") ==
                    "FinalBurn Neo · not installed · romset does not match",
@@ -205,7 +212,7 @@ void arcadeRomset() {
            "the download follows Play and reads its progress");
     avsp.emulatorOptions[1].romset = opensu::library::RomsetFit::Matches;
     avsp.emulator = "MAME 2010";
-    expect(valueOf(detailsOf(avsp, false, now), "Emulator") ==
+    expect(valueOf(detailsOf(avsp, GameMarks{.hidden = false}, now), "Emulator") ==
                "MAME 2010 · not installed · romset matches",
            "the emulator fact says the romset matches");
 }
@@ -215,14 +222,16 @@ void winePrefix() {
     windows.id = "gog:2";
     windows.source = Source::Gog;
     windows.windowsInstall = true;
-    const GameDetails windowsDetails = detailsOf(windows, false, now);
+    const GameDetails windowsDetails = detailsOf(windows, GameMarks{.hidden = false}, now);
     const SettingsRow* shared = actionOf(windowsDetails, detailsWinePrefixId);
     expect(shared != nullptr && shared->label == "Wine prefix" && shared->value == sharedPrefix,
            "a Windows install shows its prefix, shared by default");
-    expect(actionOf(detailsOf(windows, false, now, {}, true), detailsWinePrefixId)->value ==
-               ownPrefix,
-           "a game with its own prefix says so");
-    expect(actionOf(detailsOf(hades(), false, now), detailsWinePrefixId) == nullptr,
+    expect(
+        actionOf(detailsOf(windows, GameMarks{.hidden = false}, now, {}, true), detailsWinePrefixId)
+                ->value == ownPrefix,
+        "a game with its own prefix says so");
+    expect(actionOf(detailsOf(hades(), GameMarks{.hidden = false}, now), detailsWinePrefixId) ==
+               nullptr,
            "a game that does not run under Wine has no prefix row");
 }
 
@@ -235,20 +244,20 @@ void ownGame() {
     game.file = "/games/Celeste/Celeste.exe";
     game.installed = true;
     game.windowsInstall = true;
-    const GameDetails details = detailsOf(game, false, now);
+    const GameDetails details = detailsOf(game, GameMarks{.hidden = false}, now);
     expect(details.badge == "Your games" && valueOf(details, "File") == game.file.string(),
            "an added game says it is the player's and which file it starts");
-    expect(idsOf(details) ==
-               ids({detailsHiddenId, detailsMatchId, detailsRenameId, detailsChangeFileId,
-                    detailsRemoveId, detailsArtworkId, detailsControlsId, detailsBackId}),
+    expect(idsOf(details) == ids({detailsHomeId, detailsHiddenId, detailsMatchId, detailsRenameId,
+                                  detailsChangeFileId, detailsRemoveId, detailsArtworkId,
+                                  detailsControlsId, detailsBackId}),
            "match, rename, change file and remove; no Uninstall, and no Wine prefix: it has its "
            "own");
     expect(valueOf(details, "Steam app") == "None matched", "no Steam app is said");
 
     game.file.clear();
-    const GameDetails lutris = detailsOf(game, false, now);
+    const GameDetails lutris = detailsOf(game, GameMarks{.hidden = false}, now);
     game.artworkKey = "2050650";
-    expect(valueOf(detailsOf(game, false, now), "Steam app") == "2050650",
+    expect(valueOf(detailsOf(game, GameMarks{.hidden = false}, now), "Steam app") == "2050650",
            "the Steam app it is matched to is said");
     expect(valueOf(lutris, "Runs through") == "Lutris" &&
                actionOf(lutris, detailsChangeFileId) == nullptr,

@@ -22,8 +22,13 @@ ui::SettingsRow entry(std::string_view id, std::string label) {
 
 } // namespace
 
-std::vector<ui::SettingsRow> contextEntriesFor(const library::ShelfItem& item, bool hidden) {
+std::vector<ui::SettingsRow> contextEntriesFor(const library::ShelfItem& item, bool hidden,
+                                               std::optional<bool> onHome) {
     std::vector<ui::SettingsRow> entries;
+    const auto homeEntry = [onHome] {
+        return *onHome ? entry(menuRemoveHomeId, "Remove from Home")
+                       : entry(menuAddHomeId, "Add to Home");
+    };
     if (const auto* game = std::get_if<library::Game>(&item)) {
         entries.push_back(game->installed ? entry(menuLaunchId, "Launch")
                                           : entry(menuInstallId, "Install"));
@@ -31,6 +36,9 @@ std::vector<ui::SettingsRow> contextEntriesFor(const library::ShelfItem& item, b
             entries.push_back(entry(menuUpdateId, "Update"));
         }
         entries.push_back(entry(menuDetailsId, "Details"));
+        if (onHome) {
+            entries.push_back(homeEntry());
+        }
         entries.push_back(hidden ? entry(menuUnhideId, "Unhide game")
                                  : entry(menuHideId, "Hide game"));
         if (game->installed && game->source != library::Source::Rom) {
@@ -39,6 +47,9 @@ std::vector<ui::SettingsRow> contextEntriesFor(const library::ShelfItem& item, b
         return entries;
     }
     entries.push_back(entry(menuOpenId, "Open"));
+    if (onHome) {
+        entries.push_back(homeEntry());
+    }
     if (const auto* launcher = std::get_if<library::Launcher>(&item);
         launcher != nullptr && needsSignIn(*launcher)) {
         entries.push_back(entry(menuSignInId, "Sign in"));
@@ -73,7 +84,7 @@ void ContextMenuController::open() {
     } else if (const std::optional<library::Folder> folder = library::folderOf(*target_)) {
         title_ = library::name(*folder);
     }
-    entries_ = contextEntriesFor(*target_, hidden);
+    entries_ = contextEntriesFor(*target_, hidden, hooks_.onHome(*target_));
     // input-sound.md 3.4 OpenContextMenu: the home context menu becomes visible.
     sounds_.play(audio::Effect::OpenContextMenu);
     navigator_.push(std::make_unique<ContextMenuScreen>(*this));
@@ -102,6 +113,8 @@ void ContextMenuController::run(const std::string& id, int /*step*/) {
         hooks_.details();
     } else if (id == menuRefreshId) {
         hooks_.refresh();
+    } else if (id == menuAddHomeId || id == menuRemoveHomeId) {
+        hooks_.setOnHome(target, id == menuAddHomeId);
     } else if (id == menuOpenId) {
         if (const std::optional<library::Folder> folder = library::folderOf(target)) {
             hooks_.open(*folder);

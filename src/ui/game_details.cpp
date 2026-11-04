@@ -136,7 +136,7 @@ SettingsRow detailsFact(std::string label, std::string value) {
     return makeRow(std::move(id), RowKind::Info, std::move(label), {}, std::move(value));
 }
 
-GameDetails detailsOf(const library::Game& game, bool hidden,
+GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
                       std::chrono::system_clock::time_point now, const std::string& download,
                       bool ownWinePrefix, const GameSettingsView& settings) {
     GameDetails details;
@@ -153,7 +153,7 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
     std::vector<SettingsRow>& facts = details.facts;
     facts.push_back(detailsFact(
         "Status", std::string{game.installed ? "Installed" : "Not installed"} +
-                      (updatable ? ", update available" : "") + (hidden ? ", hidden" : "")));
+                      (updatable ? ", update available" : "") + (marks.hidden ? ", hidden" : "")));
     if (game.ownedIn.size() > 1) {
         std::string owned;
         for (const library::Source source : game.ownedIn) {
@@ -208,7 +208,8 @@ GameDetails detailsOf(const library::Game& game, bool hidden,
             std::string{detailsWinePrefixId}, "Wine prefix", {},
             Options{{std::string{sharedPrefix}, std::string{ownPrefix}}, ownWinePrefix ? 1U : 0U}));
     }
-    actions.push_back(action(detailsHiddenId, hidden ? "Show game" : "Hide game"));
+    actions.push_back(action(detailsHomeId, marks.onHome ? "Remove from Home" : "Add to Home"));
+    actions.push_back(action(detailsHiddenId, marks.hidden ? "Show game" : "Hide game"));
     if (game.installed && !rom && !own && !remote) {
         actions.push_back(action(detailsUninstallId, "Uninstall"));
     }

@@ -71,35 +71,47 @@ void menuEntriesFollowTheTile() {
     library::Game installed;
     installed.installed = true;
     const library::Game missing;
-    expect(idsOf(app::contextEntriesFor(installed, false)) ==
+    expect(idsOf(app::contextEntriesFor(installed, false, std::nullopt)) ==
                ids({app::menuLaunchId, app::menuDetailsId, app::menuHideId, app::menuUninstallId}),
            "an installed store game launches, shows details, hides and uninstalls");
-    expect(idsOf(app::contextEntriesFor(missing, false)) ==
+    expect(idsOf(app::contextEntriesFor(missing, false, std::nullopt)) ==
                ids({app::menuInstallId, app::menuDetailsId, app::menuHideId}),
            "a missing game installs and has nothing to uninstall");
     expect(
-        idsOf(app::contextEntriesFor(installed, true)) ==
+        idsOf(app::contextEntriesFor(installed, true, std::nullopt)) ==
             ids({app::menuLaunchId, app::menuDetailsId, app::menuUnhideId, app::menuUninstallId}),
         "a hidden game unhides");
     library::Game rom;
     rom.source = library::Source::Rom;
     rom.installed = true;
-    expect(idsOf(app::contextEntriesFor(rom, false)) ==
+    expect(idsOf(app::contextEntriesFor(rom, false, std::nullopt)) ==
                ids({app::menuLaunchId, app::menuDetailsId, app::menuHideId}),
            "a ROM is never uninstalled");
-    expect(idsOf(app::contextEntriesFor(library::Console{}, false)) ==
+    expect(idsOf(app::contextEntriesFor(library::Console{}, false, std::nullopt)) ==
                ids({app::menuOpenId, app::menuRefreshId}),
            "a console opens");
     expect(idsOf(app::contextEntriesFor(library::Launcher{library::Source::Gog, 0, false, false},
-                                        false)) ==
+                                        false, std::nullopt)) ==
                ids({app::menuOpenId, app::menuSignInId, app::menuRefreshId}),
            "a GOG launcher without a sign-in offers one");
     expect(idsOf(app::contextEntriesFor(library::Launcher{library::Source::Gog, 3, true, false},
-                                        false)) == ids({app::menuOpenId, app::menuRefreshId}),
+                                        false, std::nullopt)) ==
+               ids({app::menuOpenId, app::menuRefreshId}),
            "a ready store does not");
     expect(idsOf(app::contextEntriesFor(library::Launcher{library::Source::Steam, 0, false, false},
-                                        false)) == ids({app::menuOpenId, app::menuRefreshId}),
+                                        false, std::nullopt)) ==
+               ids({app::menuOpenId, app::menuRefreshId}),
            "Steam has no sign-in of its own");
+    expect(idsOf(app::contextEntriesFor(installed, false, true)) ==
+               ids({app::menuLaunchId, app::menuDetailsId, app::menuRemoveHomeId, app::menuHideId,
+                    app::menuUninstallId}),
+           "a game on Home can be removed from it");
+    expect(idsOf(app::contextEntriesFor(rom, false, false)) ==
+               ids({app::menuLaunchId, app::menuDetailsId, app::menuAddHomeId, app::menuHideId}),
+           "a ROM off Home can be added to it");
+    expect(idsOf(app::contextEntriesFor(library::Console{}, false, false)) ==
+               ids({app::menuOpenId, app::menuAddHomeId, app::menuRefreshId}),
+           "a console can be added to Home");
 }
 
 void hidingPersistsAndMenuRoutes(const fs::path& root) {
@@ -152,6 +164,14 @@ void hidingPersistsAndMenuRoutes(const fs::path& root) {
                                               rig.preferences.values().hidden.set(game, hidden);
                                               rig.preferences.save();
                                               log.emplace_back(hidden ? "hide" : "unhide");
+                                          },
+                                      .onHome =
+                                          [](const library::ShelfItem&) {
+                                              return std::optional<bool>{};
+                                          },
+                                      .setOnHome =
+                                          [&](const library::ShelfItem&, bool on) {
+                                              log.emplace_back(on ? "add home" : "remove home");
                                           },
                                       .open =
                                           [&](const library::Folder&) {

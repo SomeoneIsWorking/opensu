@@ -30,6 +30,7 @@ add_library(opensu_library STATIC
     romset_match.cpp
     shelf.cpp
     library_query.cpp
+    home_choices.cpp
     play_history.cpp
     play_time.cpp
     emulator_game_list.cpp

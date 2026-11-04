@@ -24,6 +24,23 @@ everywhere, and on Android touch: a click or tap focuses and presses.
 | | Q | Quit openSU |
 | Hold Guide (or any chord's held button) | | After half a second, a list of that button's chords, also over a game in session mode; it goes when you let go or play a chord |
 
+## Home and Library
+
+Home holds every store game and game of your own installed on this computer, plus whatever you
+add to it; Library holds everything: the stores, Giveaways, Add a game, All games and one tile per
+console.
+
+- **Add to Home** puts any game on Home (a ROM, a game not installed yet, a game on another openSU
+  on the LAN) or a console, which opens its ROMs from Home as it does in Library. **Remove from
+  Home** takes it off again, an installed game too; its place in Library stays. Both are in the
+  tile's menu (Select or a right click) and on a game's details page.
+- Consoles you added come first, in Library's order, then the games in the sort the Start menu
+  picks (Recently played by default: installed first, then the latest played, then by name).
+- A hidden game stays off Home whatever you chose; the Start menu's filters narrow Home too.
+- An installed game you never took off stays on Home, and a game you install later joins it unless
+  you took it off before.
+- Settings › Library says what Home shows. The choices are kept in `settings.json` (`home`).
+
 Settings › Controls › Shortcuts sets the key for every action (and the pad chord for those that
 take one); Restore default shortcuts puts them back. Its Keyboard row picks the on-screen keyboard
 the text fields open.

@@ -23,8 +23,8 @@ emulators and plugins stay off until you turn them on. The full table is in
 
 ## Showcase
 
-**Home and Library.** Installed games from every store on Home; stores, giveaways and one tile per
-console in Library.
+**Home and Library.** Installed games from every store on Home, plus any game or console you add;
+stores, giveaways and one tile per console in Library.
 
 | | |
 | --- | --- |

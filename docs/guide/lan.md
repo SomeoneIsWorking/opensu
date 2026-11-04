@@ -18,7 +18,8 @@ says it is not built yet.
    pair. Accept only if it shows the code you see here; Decline is the default.
 
 Once paired, each openSU lists the games installed on the other one. In Library they are a
-launcher named after that openSU, with its covers. They do not appear on Home. They are listed
+launcher named after that openSU, with its covers. They are not on Home unless you add one
+([Home and Library](controls.md#home-and-library)). They are listed
 while that openSU is on and on the network, and are checked again every minute.
 
 ## Settings › LAN

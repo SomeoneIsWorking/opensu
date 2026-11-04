@@ -28,6 +28,7 @@ using opensu::library::Catalog;
 using opensu::library::Console;
 using opensu::library::Game;
 using opensu::library::Giveaways;
+using opensu::library::HomeChoices;
 using opensu::library::Launcher;
 using opensu::library::Section;
 using opensu::library::ShelfBrowser;
@@ -100,7 +101,7 @@ std::vector<Source> stores(std::initializer_list<Source> list) {
 }
 
 void testHomeShelf() {
-    const std::vector<ShelfItem> home = opensu::library::homeShelf(library());
+    const std::vector<ShelfItem> home = opensu::library::homeShelf(library(), {});
     // Hades (Steam), Celeste (Epic), Only Steam: the installed titles, each once.
     expect(home.size() == 3, "Home holds only the installed titles");
     expect(gameAt(home, 0)->id == "steam:hades" && gameAt(home, 1)->id == "epic:celeste" &&
@@ -113,7 +114,35 @@ void testHomeShelf() {
                                     return std::get<Game>(item).source == Source::Rom;
                                 }),
            "no ROM and no folder is on Home");
-    expect(opensu::library::homeShelf({}).empty(), "nothing installed is an empty Home");
+    expect(opensu::library::homeShelf({}, {}).empty(), "nothing installed is an empty Home");
+}
+
+void testHomeChoices() {
+    const std::vector<Game> games = library();
+    HomeChoices choices;
+    opensu::library::setOnHome(games, games.at(2), true, choices);
+    opensu::library::setOnHome(games, Console{"ps2", "PlayStation 2", 2}, true, choices);
+    opensu::library::setOnHome(games, games.at(9), true, choices);
+    opensu::library::setOnHome(games, games.at(4), false, choices);
+    const std::vector<ShelfItem> home = opensu::library::homeShelf(games, choices);
+    // PS2, then Hades, the GC ROM, Celeste, Tunic in the games' order; Only Steam taken off.
+    expect(home.size() == 5 && consoleAt(home, 0) != nullptr &&
+               consoleAt(home, 0)->system == "ps2" && gameAt(home, 1)->id == "steam:hades" &&
+               gameAt(home, 2)->id == "rom:gc-a" && gameAt(home, 3)->id == "epic:celeste" &&
+               gameAt(home, 4)->id == "gog:tunic",
+           "added consoles first, then added and installed games in the games' order");
+    expect(opensu::library::onHome(games, games.at(6), choices) == true,
+           "a title's other copy is on Home with the title");
+    expect(opensu::library::onHome(games, games.at(4), choices) == false &&
+               opensu::library::onHome(games, games.at(5), choices) == false &&
+               opensu::library::onHome(games, AllGames{}, choices) == std::nullopt,
+           "a removed game, a ROM not added; a folder cannot be put on Home");
+    opensu::library::setOnHome(games, games.at(4), true, choices);
+    expect(choices.entries().size() == 3,
+           "putting an installed game back forgets the choice, so it follows the default again");
+    opensu::library::setOnHome(games, games.at(7), false, choices);
+    expect(opensu::library::onHome(games, games.at(3), choices) == false,
+           "taking a title's other copy off takes the title off");
 }
 
 /// The add tiles the shell passes: Add a game alone.
@@ -185,9 +214,10 @@ void testLibraryLaunchers() {
                std::holds_alternative<AddTile>(ownOnly.at(1)) &&
                std::get<AllGames>(ownOnly.at(2)).games == 1,
            "the player's own games are a launcher without Giveaways, and in All games");
-    expect(opensu::library::homeShelf({game(Source::Own, "own:1", "1", "Celeste", true)}).size() ==
-               1,
-           "an added game is on Home");
+    expect(
+        opensu::library::homeShelf({game(Source::Own, "own:1", "1", "Celeste", true)}, {}).size() ==
+            1,
+        "an added game is on Home");
 }
 
 void testConsoleShelf() {
@@ -242,17 +272,17 @@ void testBrowser() {
     ShelfBrowser browser;
     expect(browser.section() == Section::Home, "the browser starts on Home");
     expect(!browser.back().has_value(), "back at a section's top goes nowhere");
-    expect(browser.shelf(library(), allReady(), oneAdd()).size() == 3, "Home's shelf");
+    expect(browser.shelf(library(), allReady(), oneAdd(), {}).size() == 3, "Home's shelf");
 
     expect(cycleFrom(browser, 1, 2) == 0 && browser.section() == Section::Library,
            "R1 reaches Library, first visit at its first slot");
-    expect(browser.shelf(library(), allReady(), oneAdd()).size() == 8, "Library's shelf");
+    expect(browser.shelf(library(), allReady(), oneAdd(), {}).size() == 8, "Library's shelf");
     browser.open(Console{"ps2", "PlayStation 2", 2}, 5);
     expect(keyOf(browser.folder()) == "ps2", "the console is open");
-    expect(browser.shelf(library(), allReady(), oneAdd()).size() == 2, "its shelf is its ROMs");
+    expect(browser.shelf(library(), allReady(), oneAdd(), {}).size() == 2, "its shelf is its ROMs");
     expect(browser.back() == 5, "back restores Library's focus on the console");
     expect(!browser.folder() && browser.section() == Section::Library &&
-               browser.shelf(library(), allReady(), oneAdd()).size() == 8,
+               browser.shelf(library(), allReady(), oneAdd(), {}).size() == 8,
            "Library again, not Home");
 
     browser.open(Console{"ps2", "PlayStation 2", 2}, 5);
@@ -260,20 +290,21 @@ void testBrowser() {
     std::erase_if(gone, [](const Game& entry) {
         return entry.sourceId == "ps2";
     });
-    expect(browser.shelf(gone, allReady(), oneAdd()).size() == 7 && !browser.folder(),
+    expect(browser.shelf(gone, allReady(), oneAdd(), {}).size() == 7 && !browser.folder(),
            "a console whose ROMs are gone returns to Library");
 
     browser.open(Launcher{Source::Epic, 2, true}, 1);
     expect(browser.inLauncher() && keyOf(browser.folder()) == "launcher:epic",
            "a launcher is open");
-    expect(browser.shelf(library(), allReady(), oneAdd()).size() == 2,
+    expect(browser.shelf(library(), allReady(), oneAdd(), {}).size() == 2,
            "its shelf is its store's games");
     expect(browser.back() == 1, "back restores the launcher's slot");
 
     browser.open(AllGames{4}, 3);
     expect(!browser.inLauncher() && keyOf(browser.folder()) == "all",
            "the combined library is open");
-    expect(browser.shelf(library(), allReady(), oneAdd()).size() == 4, "its shelf is every title");
+    expect(browser.shelf(library(), allReady(), oneAdd(), {}).size() == 4,
+           "its shelf is every title");
 }
 
 void testCycling() {
@@ -386,12 +417,14 @@ void testRemoteHosts() {
     expect(held.size() == 2 && gameAt(held, 0)->id == "lan:bb:a" &&
                gameAt(held, 1)->id == "lan:bb:c",
            "it holds that openSU's games only");
-    expect(opensu::library::homeShelf(games).size() == 1, "Home leaves them to their launchers");
+    expect(opensu::library::homeShelf(games, {}).size() == 1,
+           "Home leaves them to their launchers");
 }
 
 int main() try {
     try {
         testHomeShelf();
+        testHomeChoices();
         testLibraryShelf();
         testLibraryLaunchers();
         testConsoleShelf();

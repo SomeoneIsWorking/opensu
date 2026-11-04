@@ -14,6 +14,7 @@
 #include "input/shortcuts.hpp"
 #include "install_folders.hpp"
 #include "integrations.hpp"
+#include "library/home_choices.hpp"
 #include "library/library_query.hpp"
 #include "library/play_history.hpp"
 #include "library/sections.hpp"
@@ -75,6 +76,9 @@ struct Settings {
 
     /// The games the player hid.
     library::HiddenGames hidden;
+
+    /// What the player put on Home or took off it.
+    library::HomeChoices home;
 
     /// When each game was last launched from opensu.
     library::PlayHistory lastPlayed;

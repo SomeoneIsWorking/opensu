@@ -73,15 +73,17 @@ Game entry(const Title& title, const Game& copy, std::optional<Source> leaving) 
     return out;
 }
 
-std::vector<ShelfItem> titleShelf(const std::vector<Game>& games, bool installedOnly) {
-    std::vector<ShelfItem> shelf;
-    for (const Title& title : storeTitles(games)) {
-        const Game& preferred = *title.copies.front();
-        if (!installedOnly || (preferred.installed && preferred.source != Source::Remote)) {
-            shelf.emplace_back(entry(title, *title.copies.front(), std::nullopt));
-        }
+/// What `item` is kept under in `HomeChoices`, and whether it is on Home by default.
+std::optional<std::pair<std::string, bool>> homeSlotOf(const std::vector<Game>& games,
+                                                       const ShelfItem& item) {
+    if (const auto* game = std::get_if<Game>(&item)) {
+        const Game preferred = copiesOf(games, *game).front();
+        return std::pair{choiceKey(preferred), onHomeByDefault(preferred)};
     }
-    return shelf;
+    if (const auto* console = std::get_if<Console>(&item)) {
+        return std::pair{HomeChoices::consoleKey(console->system), false};
+    }
+    return std::nullopt;
 }
 
 std::size_t countOf(const std::vector<Game>& games, Source source) {
@@ -149,8 +151,45 @@ std::vector<Console> consoles(const std::vector<Game>& games) {
     return out;
 }
 
-std::vector<ShelfItem> homeShelf(const std::vector<Game>& games) {
-    return titleShelf(games, true);
+std::vector<ShelfItem> homeShelf(const std::vector<Game>& games, const HomeChoices& choices) {
+    std::vector<ShelfItem> shelf;
+    for (Console& console : consoles(games)) {
+        if (choices.holds(HomeChoices::consoleKey(console.system), false)) {
+            shelf.emplace_back(std::move(console));
+        }
+    }
+    const std::vector<Title> titles = storeTitles(games);
+    std::unordered_map<const Game*, const Title*> preferredOf;
+    for (const Title& title : titles) {
+        preferredOf.emplace(title.copies.front(), &title);
+    }
+    for (const Game& game : games) {
+        if (!choices.holds(choiceKey(game), onHomeByDefault(game))) {
+            continue;
+        }
+        if (game.source == Source::Rom) {
+            shelf.emplace_back(game);
+        } else if (const auto title = preferredOf.find(&game); title != preferredOf.end()) {
+            shelf.emplace_back(entry(*title->second, game, std::nullopt));
+        }
+    }
+    return shelf;
+}
+
+std::optional<bool> onHome(const std::vector<Game>& games, const ShelfItem& item,
+                           const HomeChoices& choices) {
+    const auto slot = homeSlotOf(games, item);
+    if (!slot) {
+        return std::nullopt;
+    }
+    return choices.holds(slot->first, slot->second);
+}
+
+void setOnHome(const std::vector<Game>& games, const ShelfItem& item, bool on,
+               HomeChoices& choices) {
+    if (const auto slot = homeSlotOf(games, item)) {
+        choices.set(slot->first, slot->second, on);
+    }
 }
 
 std::vector<ShelfItem> libraryShelf(const std::vector<Game>& games,
@@ -216,7 +255,11 @@ std::vector<ShelfItem> launcherShelf(const std::vector<Game>& games, const Launc
 }
 
 std::vector<ShelfItem> allGamesShelf(const std::vector<Game>& games) {
-    return titleShelf(games, false);
+    std::vector<ShelfItem> shelf;
+    for (const Title& title : storeTitles(games)) {
+        shelf.emplace_back(entry(title, *title.copies.front(), std::nullopt));
+    }
+    return shelf;
 }
 
 std::vector<ShelfItem> folderShelf(const std::vector<Game>& games, const Folder& folder) {
@@ -237,7 +280,8 @@ std::vector<ShelfItem> folderShelf(const std::vector<Game>& games, const Folder&
 
 std::vector<ShelfItem> ShelfBrowser::shelf(const std::vector<Game>& games,
                                            const std::vector<SourceStatus>& sources,
-                                           const std::vector<AddTile>& adds) {
+                                           const std::vector<AddTile>& adds,
+                                           const HomeChoices& home) {
     if (folder_) {
         std::vector<ShelfItem> inside = folderShelf(games, *folder_);
         if (!inside.empty()) {
@@ -245,7 +289,7 @@ std::vector<ShelfItem> ShelfBrowser::shelf(const std::vector<Game>& games,
         }
         returned_ = back();
     }
-    return section() == Section::Home ? homeShelf(games) : libraryShelf(games, sources, adds);
+    return section() == Section::Home ? homeShelf(games, home) : libraryShelf(games, sources, adds);
 }
 
 void ShelfBrowser::open(const Folder& folder, std::size_t sectionFocus) {

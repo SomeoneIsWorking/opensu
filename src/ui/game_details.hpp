@@ -23,6 +23,7 @@ inline constexpr std::string_view detailsDownloadId = "details.download";
 inline constexpr std::string_view detailsEmulatorId = "details.emulator";
 inline constexpr std::string_view detailsSettingsId = "details.settings";
 inline constexpr std::string_view detailsWinePrefixId = "details.winePrefix";
+inline constexpr std::string_view detailsHomeId = "details.home";
 inline constexpr std::string_view detailsHiddenId = "details.hidden";
 inline constexpr std::string_view detailsUninstallId = "details.uninstall";
 inline constexpr std::string_view detailsRenameId = "details.rename";
@@ -92,10 +93,18 @@ struct GameSettingsView {
 /// What the page says about the facts' setting `label` reading `value`.
 [[nodiscard]] SettingsRow detailsFact(std::string label, std::string value);
 
-/// What the page shows for `game`; `hidden` is whether the player hid it. `download` is what the
-/// Download row reads: the running download's progress, or empty. `ownWinePrefix` is whether a
-/// Windows install runs in a Wine prefix of its own.
-[[nodiscard]] GameDetails detailsOf(const library::Game& game, bool hidden,
+/// Where the player put a game.
+struct GameMarks {
+    /// Whether the player hid it.
+    bool hidden{false};
+    /// Whether it is on Home.
+    bool onHome{false};
+};
+
+/// What the page shows for `game`, as `marks` place it. `download` is what the Download row reads:
+/// the running download's progress, or empty. `ownWinePrefix` is whether a Windows install runs in
+/// a Wine prefix of its own.
+[[nodiscard]] GameDetails detailsOf(const library::Game& game, const GameMarks& marks,
                                     std::chrono::system_clock::time_point now,
                                     const std::string& download = {}, bool ownWinePrefix = false,
                                     const GameSettingsView& settings = {});

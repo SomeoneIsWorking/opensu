@@ -231,6 +231,10 @@ class ShellApp final {
     void pressTile();
     /// Hides or shows `game` everywhere, and keeps it.
     void setHidden(const library::Game& game, bool hidden);
+    /// Whether `item` is on Home; nothing for a tile that cannot be put there.
+    [[nodiscard]] std::optional<bool> onHome(const library::ShelfItem& item) const;
+    /// Puts `item` on Home or takes it off, and keeps it.
+    void setOnHome(const library::ShelfItem& item, bool on);
     /// Notes that `game` was launched now, for the recently played sort.
     void recordLaunch(const library::Game& game);
     /// Feeds a physical keyboard's text into the focused text field: typed text, Backspace as
@@ -488,6 +492,12 @@ class ShellApp final {
             [this](const library::Game& game, bool hidden) {
                 setHidden(game, hidden);
             },
+            [this](const library::ShelfItem& item) {
+                return onHome(item);
+            },
+            [this](const library::ShelfItem& item, bool on) {
+                setOnHome(item, on);
+            },
             [this](const library::Folder& folder) {
                 openFolder(folder);
             },
@@ -598,6 +608,12 @@ class ShellApp final {
                                  },
                                  [this](const library::Game& game, bool hidden) {
                                      setHidden(game, hidden);
+                                 },
+                                 [this](const library::Game& game) {
+                                     return onHome(game).value_or(false);
+                                 },
+                                 [this](const library::Game& game, bool on) {
+                                     setOnHome(game, on);
                                  },
                                  [this](const library::Game& game, const std::string& name) {
                                      chooseEmulator(game, name);

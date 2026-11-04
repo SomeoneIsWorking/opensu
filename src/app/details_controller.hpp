@@ -1,6 +1,7 @@
 // details_controller — a game's details page and what its rows do: play or install the game,
 // update it, pick its emulator, open its settings (`LayeredEditor`), download the emulator it is
-// missing, give a Windows install its own Wine prefix or the shared one, hide it, uninstall it
+// missing, give a Windows install its own Wine prefix or the shared one, add it to Home or remove
+// it, hide it, uninstall it
 // (asking first), rename, change the file of or remove a game the player added
 // (`OwnGamesController`), choose its cover, open its button mapping, copy its saves between
 // emulators (`SaveCopyController`), sync them with paired openSUs (`SharedSaves`), go back. Opens
@@ -39,6 +40,10 @@ class DetailsController final : public ui::RowActions {
         std::function<void(const library::Game& game)> launch;
         /// Hides or shows `game`, and shows the shelf again.
         std::function<void(const library::Game& game, bool hidden)> setHidden;
+        /// Whether `game` is on Home.
+        std::function<bool(const library::Game& game)> onHome;
+        /// Puts `game` on Home or takes it off, and shows the shelf again.
+        std::function<void(const library::Game& game, bool on)> setOnHome;
         /// Runs ROM `game` on emulator `name` from now on.
         std::function<void(const library::Game& game, const std::string& name)> chooseEmulator;
         /// Tells the player something; `error` marks a refusal.

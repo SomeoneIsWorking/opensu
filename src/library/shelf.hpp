@@ -1,5 +1,6 @@
 // shelf — what one screen of the grid holds. Home holds the store games and the player's own games
-// installed here. Library holds one tile per launcher (the player's own games one of them, and one
+// installed here, less those the player took off it, and the games and consoles the player added
+// (`HomeChoices`). Library holds one tile per launcher (the player's own games one of them, and one
 // per openSU on the LAN whose games are listed), the stores' giveaways, Add a game, the combined
 // library and one per console with ROMs. Opening one of the folders holds its games; Giveaways and
 // Add a game open screens of their own.
@@ -15,6 +16,7 @@
 #include <vector>
 
 #include "game.hpp"
+#include "home_choices.hpp"
 #include "sections.hpp"
 
 namespace opensu::library {
@@ -87,9 +89,21 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 /// One console per system with ROMs, in the known systems' order.
 [[nodiscard]] std::vector<Console> consoles(const std::vector<Game>& games);
 
-/// Home: the store games and the player's own installed here, a title installed in several stores
-/// once. A game on another openSU is left to its host's launcher.
-[[nodiscard]] std::vector<ShelfItem> homeShelf(const std::vector<Game>& games);
+/// Home: the consoles the player added, in Library's order, then the games in `games`' order (the
+/// library's sort): each store title whose preferred copy is installed here, a title installed in
+/// several stores once, unless the player took it off, and each game the player added, a ROM, a
+/// title not installed or one on another openSU.
+[[nodiscard]] std::vector<ShelfItem> homeShelf(const std::vector<Game>& games,
+                                               const HomeChoices& choices);
+
+/// Whether `item` is on Home: a game as its title's preferred copy in `games`, or a console;
+/// nothing for a tile that cannot be put on Home.
+[[nodiscard]] std::optional<bool> onHome(const std::vector<Game>& games, const ShelfItem& item,
+                                         const HomeChoices& choices);
+
+/// Puts `item`, a game or a console, on Home or takes it off.
+void setOnHome(const std::vector<Game>& games, const ShelfItem& item, bool on,
+               HomeChoices& choices);
 
 /// Library: one launcher per store that is not absent, Steam, Epic, GOG, then the player's own
 /// games when there are any, then one per openSU on the LAN with games listed, by its name;
@@ -116,14 +130,15 @@ using ShelfItem = std::variant<Game, Console, Launcher, AllGames, Giveaways, Add
 [[nodiscard]] std::vector<ShelfItem> folderShelf(const std::vector<Game>& games,
                                                  const Folder& folder);
 
-/// Which shelf the grid shows: a section's, or one folder's inside Library.
+/// Which shelf the grid shows: a section's, or one folder's inside it.
 class ShelfBrowser {
   public:
     /// The shelf for the current place. A folder that has emptied returns to its section, to the
     /// slot it was entered from (`takeReturn`).
     [[nodiscard]] std::vector<ShelfItem> shelf(const std::vector<Game>& games,
                                                const std::vector<SourceStatus>& sources,
-                                               const std::vector<AddTile>& adds);
+                                               const std::vector<AddTile>& adds,
+                                               const HomeChoices& home);
 
     /// The slot to focus in the section an emptied folder returned to, once; nothing when none
     /// did since the last call.

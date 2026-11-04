@@ -98,7 +98,9 @@ ui::GameDetails DetailsController::detailsOf(const library::Game& game) const {
         const std::optional<int> percent = progress->percent();
         download = percent ? std::to_string(*percent) + "% · A cancels" : "Starting · A cancels";
     }
-    return ui::detailsOf(game, preferences_.values().hidden.contains(game),
+    return ui::detailsOf(game,
+                         ui::GameMarks{.hidden = preferences_.values().hidden.contains(game),
+                                       .onHome = hooks_.onHome(game)},
                          std::chrono::system_clock::now(), download,
                          preferences_.values().ownWinePrefixes.contains(game.id), settingsOf(game));
 }
@@ -185,6 +187,9 @@ void DetailsController::run(const std::string& id, int step) {
         chooseEmulator(*game, step);
     } else if (id == ui::detailsWinePrefixId) {
         toggleOwnPrefix(*game);
+    } else if (id == ui::detailsHomeId) {
+        // Off Home, the page closes with the tile it was opened over (`refresh`).
+        hooks_.setOnHome(*game, !hooks_.onHome(*game));
     } else if (id == ui::detailsHiddenId) {
         hooks_.setHidden(*game, !preferences_.values().hidden.contains(*game));
         // The game leaves or joins the shelf the page was opened over.

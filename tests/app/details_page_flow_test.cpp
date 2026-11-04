@@ -56,6 +56,7 @@ struct Rig {
     app::GameSettings gameSettings;
     library::Game game;
     std::vector<std::string> calls;
+    bool onHome{false};
     /// Whether the game's cover is on its way.
     bool artComing{false};
     /// What the Copy saves row reads; empty for no row.
@@ -120,6 +121,12 @@ struct Rig {
                          },
                          [this](const library::Game&, bool hidden) {
                              calls.push_back(hidden ? "hide" : "show");
+                         },
+                         [this](const library::Game&) {
+                             return onHome;
+                         },
+                         [this](const library::Game&, bool on) {
+                             calls.push_back(on ? "add home" : "remove home");
                          },
                          [this](const library::Game&, const std::string& name) {
                              calls.push_back("emulator " + name);
@@ -221,6 +228,12 @@ void buttonsDoWhatTheyName(const fs::path& dir) {
     expect(rig.calls == std::vector<std::string>{"emulator Ryujinx"},
            "Left on Emulator steps back, wrapping");
     rig.calls.clear();
+    rig.press({Action::Down});
+    expect(rig.focused() == ui::detailsHomeId, "Add to Home follows the emulator");
+    rig.press({Action::Accept});
+    expect(rig.calls == std::vector<std::string>{"add home"} && rig.controller.isOpen(),
+           "Add to Home puts the game on Home and the page stays");
+    rig.calls.clear();
     rig.press({Action::Down, Action::Accept});
     expect(rig.calls == std::vector<std::string>{"hide"} && !rig.controller.isOpen(),
            "Hide hides the game and closes the page");
@@ -233,7 +246,7 @@ void backClosesWithoutActing(const fs::path& dir) {
     expect(!rig.controller.isOpen() && rig.calls.empty(),
            "B closes the page and does nothing else");
     rig.open();
-    rig.press({Action::Down, Action::Down, Action::Down, Action::Accept});
+    rig.press({Action::Down, Action::Down, Action::Down, Action::Down, Action::Accept});
     expect(rig.calls == std::vector<std::string>{"artwork rom:/r/Kirby.nsp"} &&
                rig.controller.isOpen(),
            "Choose artwork opens the cover picker over the page");
@@ -261,8 +274,8 @@ void uninstallAsksFirst(const fs::path& dir) {
     Rig rig{dir};
     rig.game = fortnite();
     rig.open();
-    rig.press({Action::Down, Action::Down});
-    expect(rig.focused() == ui::detailsUninstallId, "Uninstall follows Hide");
+    rig.press({Action::Down, Action::Down, Action::Down});
+    expect(rig.focused() == ui::detailsUninstallId, "Uninstall follows Add to Home and Hide");
     rig.press({Action::Accept});
     expect(rig.calls.empty() && rig.top() == "dialog" &&
                rig.ui.navigator.top()->title() == "Uninstall Fortnite?" &&

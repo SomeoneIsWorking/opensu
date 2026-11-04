@@ -29,14 +29,17 @@ inline constexpr std::string_view menuUpdateId = "menu.update";
 inline constexpr std::string_view menuDetailsId = "menu.details";
 inline constexpr std::string_view menuHideId = "menu.hide";
 inline constexpr std::string_view menuUnhideId = "menu.unhide";
+inline constexpr std::string_view menuAddHomeId = "menu.addHome";
+inline constexpr std::string_view menuRemoveHomeId = "menu.removeHome";
 inline constexpr std::string_view menuUninstallId = "menu.uninstall";
 inline constexpr std::string_view menuOpenId = "menu.open";
 inline constexpr std::string_view menuSignInId = "menu.signIn";
 inline constexpr std::string_view menuRefreshId = "menu.refresh";
 
-/// What the menu offers for `item`, first entry first. `hidden` is whether a game is hidden now.
-[[nodiscard]] std::vector<ui::SettingsRow> contextEntriesFor(const library::ShelfItem& item,
-                                                             bool hidden);
+/// What the menu offers for `item`, first entry first. `hidden` is whether a game is hidden now;
+/// `onHome` whether the tile is on Home, nothing for one that cannot be put there.
+[[nodiscard]] std::vector<ui::SettingsRow>
+contextEntriesFor(const library::ShelfItem& item, bool hidden, std::optional<bool> onHome);
 
 class ContextMenuController final : public ui::RowActions {
   public:
@@ -49,6 +52,10 @@ class ContextMenuController final : public ui::RowActions {
         std::function<void()> details;
         /// Hides or shows `game`, and shows the shelf again.
         std::function<void(const library::Game& game, bool hidden)> setHidden;
+        /// Whether the tile is on Home; nothing for one that cannot be put there.
+        std::function<std::optional<bool>(const library::ShelfItem& item)> onHome;
+        /// Puts the tile on Home or takes it off, and shows the shelf again.
+        std::function<void(const library::ShelfItem& item, bool on)> setOnHome;
         std::function<void(const library::Folder& folder)> open;
         std::function<void()> refresh;
         std::function<void(library::Source source)> signIn;

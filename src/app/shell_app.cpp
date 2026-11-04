@@ -295,8 +295,9 @@ void ShellApp::pushCatalogToShell() {
 
 void ShellApp::showShelf(std::size_t focus) {
     const settings::Settings& chosen = preferences_.values();
-    std::vector<library::ShelfItem> shelf = library::visibleShelf(
-        browser_, games_, sources_, libraryAdditions_.tiles(), chosen.view, chosen.hidden);
+    std::vector<library::ShelfItem> shelf =
+        library::visibleShelf(browser_, games_, sources_, libraryAdditions_.tiles(), chosen.view,
+                              chosen.hidden, chosen.home);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
     shell_.grid().setShelf(std::move(shelf), browser_.takeReturn().value_or(focus));
@@ -305,8 +306,9 @@ void ShellApp::showShelf(std::size_t focus) {
 
 void ShellApp::refreshShelf() {
     const settings::Settings& chosen = preferences_.values();
-    std::vector<library::ShelfItem> shelf = library::visibleShelf(
-        browser_, games_, sources_, libraryAdditions_.tiles(), chosen.view, chosen.hidden);
+    std::vector<library::ShelfItem> shelf =
+        library::visibleShelf(browser_, games_, sources_, libraryAdditions_.tiles(), chosen.view,
+                              chosen.hidden, chosen.home);
     artworkStore_.apply(shelf);
     covers_.apply(shelf);
     if (const std::optional<std::size_t> slot = browser_.takeReturn()) {
@@ -803,6 +805,20 @@ void ShellApp::setHidden(const library::Game& game, bool hidden) {
     preferences_.save();
     refreshShelf();
     shell_.setToast(game.title + (hidden ? " hidden" : " shown again"));
+}
+
+std::optional<bool> ShellApp::onHome(const library::ShelfItem& item) const {
+    return library::onHome(games_, item, preferences_.values().home);
+}
+
+void ShellApp::setOnHome(const library::ShelfItem& item, bool on) {
+    library::setOnHome(games_, item, on, preferences_.values().home);
+    preferences_.save();
+    refreshShelf();
+    const auto* game = std::get_if<library::Game>(&item);
+    const std::optional<library::Folder> folder = library::folderOf(item);
+    const std::string name = game != nullptr ? game->title : folder ? library::name(*folder) : "";
+    shell_.setToast(name + (on ? " added to Home" : " removed from Home"));
 }
 
 void ShellApp::recordLaunch(const library::Game& game) {

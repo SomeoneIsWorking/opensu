@@ -221,6 +221,11 @@ ui::SettingsCategory SettingsController::libraryPage() const {
     const settings::Settings& v = preferences_.values();
     ui::SettingsCategory page{"library", "Library", {}};
     page.rows.push_back(ui::makeHeading("What shows"));
+    page.rows.push_back(ui::makeRow(
+        "library.home", RowKind::Info, "Home",
+        "Your installed games, plus what you add; Add to Home and Remove from Home are in a game's "
+        "or console's menu and on a game's details page",
+        ""));
     page.rows.push_back(
         ui::makeChoice(sortId, "Sort by", "How games are ordered",
                        optionsOf(library::allSortKeys, v.view.sort, [](library::SortKey key) {

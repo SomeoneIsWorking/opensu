@@ -108,10 +108,10 @@ struct LibraryView {
 [[nodiscard]] std::string describeResult(const ShelfItem& item);
 
 /// The shelf the grid shows: the search's results when there is a search, else the browser's
-/// shelf of the narrowed library.
+/// shelf of the narrowed library, Home's as `home` makes it.
 [[nodiscard]] std::vector<ShelfItem>
 visibleShelf(ShelfBrowser& browser, const std::vector<Game>& games,
              const std::vector<SourceStatus>& sources, const std::vector<AddTile>& adds,
-             const ViewOptions& options, const HiddenGames& hidden);
+             const ViewOptions& options, const HiddenGames& hidden, const HomeChoices& home);
 
 } // namespace opensu::library

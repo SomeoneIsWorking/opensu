@@ -239,13 +239,13 @@ std::string describeResult(const ShelfItem& item) {
 std::vector<ShelfItem> visibleShelf(ShelfBrowser& browser, const std::vector<Game>& games,
                                     const std::vector<SourceStatus>& sources,
                                     const std::vector<AddTile>& adds, const ViewOptions& options,
-                                    const HiddenGames& hidden) {
+                                    const HiddenGames& hidden, const HomeChoices& home) {
     LibraryView view = applyOptions(games, sources, options, hidden);
     view.adds = adds;
     if (!options.search.empty()) {
         return searchShelf(view, options.search);
     }
-    return browser.shelf(view.games, view.sources, view.adds);
+    return browser.shelf(view.games, view.sources, view.adds, home);
 }
 
 } // namespace opensu::library
