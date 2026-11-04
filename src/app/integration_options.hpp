@@ -1,5 +1,5 @@
-// integration_options — the opt-in integrations as the player reads them, in the order the
-// first-run chooser and Settings > Integrations list them: what each does and needs, and which
+// integration_options — the opt-in integrations as the player reads them, in the order
+// Settings > Integrations and Library's Set up tiles list them: what each does and needs, and which
 // switch of `settings::IntegrationChoices` it is.
 #pragma once
 

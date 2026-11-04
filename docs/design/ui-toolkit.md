@@ -150,7 +150,7 @@ Each step deletes the code it replaces before the next starts.
    once), the session-mode question, the plugin consent and the install offer as gpu2d `Dialog`s
    (`Dialog::Choice::exits` names the button Back stands for; Steam's licence: Decline), the launch,
    install and session-install cards as one `ui::ProgressScreen` (gpu2d `Progress` with an
-   indeterminate sweep), and the first-run integration card (switches through `ui::addRow`, Done);
+   indeterminate sweep);
    `ModeChooser`, `SessionDialog`, `SessionPanels`, `LaunchPanel`, `IntegrationChooser`,
    `SettingsPage`, their painters, `RowEditing`, `rowOpens` and the layout card, options row, icon
    size, panel button, dialog button and integration pointer targets deleted. Then text entry:

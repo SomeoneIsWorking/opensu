@@ -21,8 +21,8 @@ constexpr std::array linuxModes{SteamMode::Normal, SteamMode::Managed, SteamMode
 constexpr std::array normalOnly{SteamMode::Normal};
 
 void nothingChosen() {
-    const Integrations none = Integrations::inForce(std::nullopt, false, linuxModes);
-    expect(none == Integrations{}, "nothing chosen is everything off");
+    const Integrations none = Integrations::inForce(IntegrationChoices{}, false, linuxModes);
+    expect(none == Integrations{}, "the default choices are everything off");
     expect(none.lists(Source::Rom), "ROMs are always listed");
     expect(!none.lists(Source::Steam) && !none.lists(Source::Epic) && !none.lists(Source::Gog),
            "no store is listed");

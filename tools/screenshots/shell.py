@@ -13,7 +13,7 @@ from typing import Protocol
 
 PORT_LINE = re.compile(r"control channel on http://127\.0\.0\.1:(\d+)/")
 
-# Every integration on, chosen ahead so the first-run chooser stays away and every store shows.
+# Every integration on, so every store shows.
 INTEGRATIONS = {
     "integrations": {
         "steam": True,
@@ -27,7 +27,7 @@ INTEGRATIONS = {
 
 
 class Home(Protocol):
-    """Where a run's openSU keeps the player's state: its environment and first-run setup."""
+    """Where a run's openSU keeps the player's state: its environment and its setup."""
 
     def environment(self) -> dict[str, str]: ...
 

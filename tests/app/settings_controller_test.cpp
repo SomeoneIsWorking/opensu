@@ -540,8 +540,8 @@ void pagesFollowTheIntegrations(const fs::path& root) {
     rig.enter("Integrations");
     rig.focus("integrations.steam");
     rig.act(Button::A);
-    const std::optional<settings::IntegrationChoices> staged = rig.onDisk().integrations;
-    expect(staged.has_value() && !staged->steam, "a staged switch is not kept until Apply");
+    const settings::IntegrationChoices staged = rig.onDisk().integrations;
+    expect(!staged.steam, "a staged switch is not kept until Apply");
     if (rig.inForce.modesOffered().size() > 1) {
         expect(rig.rowOf("integrations.steamMode").value == "Normal", "its mode shows");
     } else {
@@ -553,8 +553,8 @@ void pagesFollowTheIntegrations(const fs::path& root) {
     }
     rig.focus("integrations.apply");
     rig.act(Button::A);
-    const std::optional<settings::IntegrationChoices> kept = rig.onDisk().integrations;
-    expect(kept && kept->steam, "Steam on is kept once applied");
+    const settings::IntegrationChoices kept = rig.onDisk().integrations;
+    expect(kept.steam, "Steam on is kept once applied");
     expect(!rig.said.empty() && !rig.said.back().error &&
                rig.said.back().text == "Integrations: 1 change applied",
            "Apply says how many changes it put in effect");
@@ -593,9 +593,8 @@ void leavingAsksAboutStagedIntegrations(const fs::path& root) {
     rig.act(Button::Start);
     expect(rig.top() == "dialog", "the menu button asks too");
     rig.act(Button::A);
-    const std::optional<settings::IntegrationChoices> kept = rig.onDisk().integrations;
-    expect(!rig.controller.isOpen() && kept && kept->steam &&
-               rig.integrationSettings.pendingCount() == 0,
+    const settings::IntegrationChoices kept = rig.onDisk().integrations;
+    expect(!rig.controller.isOpen() && kept.steam && rig.integrationSettings.pendingCount() == 0,
            "Apply puts the change in effect and closes Settings");
     expect(saidExactly(rig, "Integrations: 1 change applied"), "and says so");
 
@@ -607,9 +606,8 @@ void leavingAsksAboutStagedIntegrations(const fs::path& root) {
     rig.act(Button::B);
     rig.focus("dialog/1");
     rig.act(Button::A);
-    const std::optional<settings::IntegrationChoices> after = rig.onDisk().integrations;
-    expect(!rig.controller.isOpen() && after && after->steam &&
-               rig.integrationSettings.pendingCount() == 0,
+    const settings::IntegrationChoices after = rig.onDisk().integrations;
+    expect(!rig.controller.isOpen() && after.steam && rig.integrationSettings.pendingCount() == 0,
            "Discard drops the staged change and closes Settings");
 
     rig.controller.open();

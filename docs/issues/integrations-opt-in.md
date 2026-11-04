@@ -1,6 +1,6 @@
 # Integrations are opt-in, Steam has modes
 
-Status: partial. Integrations, the first-run chooser and all four Steam modes are built; Isolated
+Status: partial. Integrations, their Library Set up tiles and all four Steam modes are built; Isolated
 and its controller option are shown working with the player's real Steam (As built); what is left
 is listed under Left.
 
@@ -17,9 +17,9 @@ normally, no isolation".
   standalone emulators (downloads and launcher discovery), Lua plugins.
 - An integration that is off starts nothing, reads nothing (no Steam client, no `legendary`, no
   library scan of that store), and its section, tiles, dock badge and Settings pages are absent.
-- First run: a chooser lists the integrations, all off, with what each one does and needs. The
-  chooser shows whenever the settings file has no integration choices, so an existing install sees
-  it once too; no silent migration.
+- First run: no chooser ("I also don't think we need first run things, we can add tiles like add
+  ROM dir and add <some> integration tiles"). A fresh start opens Home with every integration off;
+  Library has a Set up tile for each one that is off, opening its switch in Settings › Integrations.
 
 ## Steam modes
 
@@ -130,8 +130,7 @@ was kept for the devices and the desktop, with the real HOME. The Docker idea is
   for the run and saves a new choice; `app::IntegrationSwitch` applies a change live (catalog
   `replace`, plugins host, standalone emulator discovery and downloads, pad and Big Picture guards,
   Steam stopped and started in its mode on a worker).
-- Chooser: `app::FirstRunChooser` over `ui::IntegrationChooser`; opens when `settings.json` has no
-  `integrations` key or a damaged one. The control channel reports it as `firstRunOpen`.
+- Set up tiles: `app::LibraryAdditions` lists one per offered integration whose switch is off.
 - Settings › Integrations: `app::IntegrationSettings`. Steam libraries, the Library page's Steam
   rows, Wine (Epic or GOG), Plugins and each store's install folder show only with their
   integration on.
@@ -215,7 +214,7 @@ was kept for the devices and the desktop, with the real HOME. The Docker idea is
   games.
 - Proof: `scratch/integrations/drive.py` (`fresh`, `normal`) drives a hidden run with a scratch
   HOME/XDG, a fake Steam root through `OPENSU_STEAM_ROOTS`, and stand-in `steam`, `legendary`,
-  `gogdl`; tests `integrations`, `integration_flow`, `integration_chooser`, `settings_controller`,
+  `gogdl`; tests `integrations`, `integration_flow`, `settings_controller`,
   `client`, `handoff`, `catalog_loader`, `focus_owner`.
 
 ## Left

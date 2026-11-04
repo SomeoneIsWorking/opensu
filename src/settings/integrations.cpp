@@ -92,18 +92,15 @@ std::vector<SteamPads> Integrations::padsOffered() {
     return {SteamPads::VirtualOnly, SteamPads::All};
 }
 
-Integrations Integrations::inForce(const std::optional<IntegrationChoices>& choices,
-                                   bool loginSession, std::span<const SteamMode> built) {
-    if (!choices) {
-        return {};
-    }
-    Integrations in{.epic = choices->epic,
-                    .gog = choices->gog,
-                    .emulators = choices->emulators,
-                    .plugins = choices->plugins,
-                    .lan = choices->lan};
-    if (choices->steam && !built.empty()) {
-        SteamMode mode = choices->steamMode.value_or(defaultMode(loginSession));
+Integrations Integrations::inForce(const IntegrationChoices& choices, bool loginSession,
+                                   std::span<const SteamMode> built) {
+    Integrations in{.epic = choices.epic,
+                    .gog = choices.gog,
+                    .emulators = choices.emulators,
+                    .plugins = choices.plugins,
+                    .lan = choices.lan};
+    if (choices.steam && !built.empty()) {
+        SteamMode mode = choices.steamMode.value_or(defaultMode(loginSession));
         const std::vector<SteamMode> offered = modesOffered(loginSession, built);
         if (std::ranges::find(offered, mode) == offered.end()) {
             mode = defaultMode(loginSession);
@@ -117,7 +114,7 @@ Integrations Integrations::inForce(const std::optional<IntegrationChoices>& choi
             break;
         case SteamMode::Isolated:
             in.steam = SteamUse::Isolated;
-            in.steamPads = choices->steamPads.value_or(padsOffered().front());
+            in.steamPads = choices.steamPads.value_or(padsOffered().front());
             break;
         }
     }

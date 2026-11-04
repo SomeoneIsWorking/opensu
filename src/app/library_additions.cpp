@@ -27,7 +27,7 @@ std::vector<library::AddTile> LibraryAdditions::tiles() const {
         tiles.push_back(
             {std::string{lanImportId}, "Import from a PC on your network", "From openSU"});
     }
-    const settings::IntegrationChoices chosen = integrations_.choices();
+    const settings::IntegrationChoices& chosen = integrations_.choices();
     for (const IntegrationEntry& entry : integrationEntries()) {
         if (!switchOf(chosen, entry.id)) {
             tiles.push_back({std::string{setUpPrefix} + std::string{entry.id},

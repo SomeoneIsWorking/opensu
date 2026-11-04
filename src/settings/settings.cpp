@@ -289,16 +289,15 @@ class Reader {
         }
     }
 
-    /// The integration choices; a damaged entry is reported and leaves them unchosen, so the
-    /// first-run chooser asks again.
-    void integrations(const char* name, std::optional<IntegrationChoices>& out) const {
+    /// The integration choices; a damaged entry is reported and leaves every integration off.
+    void integrations(const char* name, IntegrationChoices& out) const {
         const auto found = document_.find(name);
         if (found == document_.end()) {
             return;
         }
-        const char* fallback = "asking again";
+        const char* fallback = "keeping it off";
         if (!found->is_object()) {
-            reject(name, *found, fallback);
+            reject(name, *found, "keeping every integration off");
             return;
         }
         IntegrationChoices choices;
@@ -528,21 +527,20 @@ bool Store::save(const Settings& settings, std::string& error) const {
         plugins[id] = {{enabledKey, choice.enabled}, {grantedKey, choice.granted}};
     }
     document[pluginsKey] = plugins;
-    if (const std::optional<IntegrationChoices>& chosen = settings.integrations) {
-        json integrations{{steamKey, chosen->steam},
-                          {epicKey, chosen->epic},
-                          {gogKey, chosen->gog},
-                          {standaloneEmulatorsKey, chosen->emulators},
-                          {luaPluginsKey, chosen->plugins},
-                          {lanKey, chosen->lan}};
-        if (chosen->steamMode) {
-            integrations[steamModeKey] = std::string{key(*chosen->steamMode)};
-        }
-        if (chosen->steamPads) {
-            integrations[steamPadsKey] = std::string{key(*chosen->steamPads)};
-        }
-        document[integrationsKey] = integrations;
+    const IntegrationChoices& chosen = settings.integrations;
+    json integrations{{steamKey, chosen.steam},
+                      {epicKey, chosen.epic},
+                      {gogKey, chosen.gog},
+                      {standaloneEmulatorsKey, chosen.emulators},
+                      {luaPluginsKey, chosen.plugins},
+                      {lanKey, chosen.lan}};
+    if (chosen.steamMode) {
+        integrations[steamModeKey] = std::string{key(*chosen.steamMode)};
     }
+    if (chosen.steamPads) {
+        integrations[steamPadsKey] = std::string{key(*chosen.steamPads)};
+    }
+    document[integrationsKey] = integrations;
     if (settings.homeMode) {
         document[homeModeKey] = std::string{config::key(*settings.homeMode)};
     }

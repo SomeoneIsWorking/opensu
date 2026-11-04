@@ -23,14 +23,9 @@ class IntegrationsInForce {
     [[nodiscard]] const settings::Integrations& current() const noexcept {
         return current_;
     }
-    /// Whether the settings file holds the player's choices; until it does, the first-run chooser
-    /// asks.
-    [[nodiscard]] bool chosen() const noexcept {
-        return preferences_.values().integrations.has_value();
-    }
-    /// The choices as saved, or all off before any.
-    [[nodiscard]] settings::IntegrationChoices choices() const {
-        return preferences_.values().integrations.value_or(settings::IntegrationChoices{});
+    /// The choices as saved.
+    [[nodiscard]] const settings::IntegrationChoices& choices() const noexcept {
+        return preferences_.values().integrations;
     }
     [[nodiscard]] bool loginSession() const noexcept {
         return loginSession_;

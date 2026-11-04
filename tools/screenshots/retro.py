@@ -40,7 +40,7 @@ SYSTEM = "gbc"
 CORE_DOWNLOAD = "emulator:mgba-core"
 # Set at the console's layer, so the game's own tab shows it inherited.
 SHADER = "crt/crt-royale.slangp"
-# Only the ROM library and the built-in runner, chosen ahead so the first-run chooser stays away.
+# Only the ROM library and the built-in runner, not the shell profile's every integration.
 INTEGRATIONS = {
     "integrations": {
         "steam": False,

@@ -1,5 +1,5 @@
-// The opt-in integrations through the shipping owners on a scratch settings file: the first-run
-// card (shown while nothing is chosen, all off, A toggles, Done keeps), Settings > Integrations
+// The opt-in integrations through the shipping owners on a scratch settings file: all off on a
+// fresh start with Library's Set up tiles for them, Settings > Integrations
 // (switches, Steam's mode, no Normal in a login session, Isolated's controllers) and the switch
 // that puts a change into effect (the catalog's stores, standalone emulators, Lua plugins, the
 // Steam client's mode), with no Steam started.
@@ -16,7 +16,6 @@
 #include "gpu2d/ui/navigator.hpp"
 
 #include "audio/sdl_sound_player.hpp"
-#include "first_run_chooser.hpp"
 #include "focus_follow.hpp"
 #include "integration_settings.hpp"
 #include "integration_switch.hpp"
@@ -33,7 +32,6 @@ namespace {
 
 namespace fs = std::filesystem;
 using namespace opensu;
-using gpu2d::ui::Action;
 using settings::IntegrationChoices;
 using settings::SteamUse;
 using test::expect;
@@ -53,79 +51,10 @@ const ui::SettingsRow* rowOf(const ui::SettingsCategory& page, const std::string
     return nullptr;
 }
 
-/// Presses `action` and lays the stack out again.
-void press(test::InterfaceRig& ui, Action action) {
-    ui.navigator.act(action);
-    ui.frame(1.0);
-}
-
-void theChooserAsksUntilDone(const fs::path& root) {
-    app::Preferences preferences = preferencesIn(root / "chooser");
-    app::IntegrationsInForce inForce{preferences, false};
-    audio::SdlSoundPlayer sounds;
-    test::InterfaceRig ui;
-    int chosen = 0;
-    app::FirstRunChooser chooser{ui.navigator, inForce, sounds, [&chosen] {
-                                     ++chosen;
-                                 }};
-    chooser.openIfUnchosen();
-    ui.frame(1.0);
-    expect(chooser.active() && chooser.rows().size() == 6, "no choices: the card lists six");
-    for (const ui::SettingsRow& row : chooser.rows()) {
-        expect(row.kind == ui::RowKind::Toggle && !row.on && !row.note.empty(),
-               "each is a switch, off, and says what it does");
-    }
-    expect(ui.navigator.focused() == chooser.rows().front().id, "the first switch has focus");
-    press(ui, Action::Accept);
-    press(ui, Action::Down);
-    press(ui, Action::Down);
-    press(ui, Action::Accept);
-    expect(chooser.rows()[0].on && !chooser.rows()[1].on && chooser.rows()[2].on,
-           "A toggles the focused switch");
-    press(ui, Action::Back);
-    expect(chooser.active(), "Back does not dismiss it: Done is the way on");
-    for (int i = 0; i < 6; ++i) {
-        press(ui, Action::Down);
-    }
-    expect(ui.navigator.focused() == app::firstRunDoneId, "Done is after the switches");
-    press(ui, Action::Accept);
-    expect(!chooser.active() && chosen == 1, "Done keeps the choices and closes the card");
-    const auto saved = settings::Store{root / "chooser" / "settings.json"}.load().integrations;
-    expect(saved && saved->steam && !saved->epic && saved->gog && !saved->emulators &&
-               !saved->plugins && !saved->lan,
-           "the file holds what was chosen");
-    expect(inForce.current().steam == SteamUse::Normal && inForce.current().gog,
-           "and it is in force");
-
-    app::Preferences again{settings::Store{root / "chooser" / "settings.json"},
-                           [](const std::string&) {
-                           }};
-    app::IntegrationsInForce later{again, false};
-    test::InterfaceRig secondUi;
-    app::FirstRunChooser second{secondUi.navigator, later, sounds, [] {
-                                }};
-    second.openIfUnchosen();
-    expect(!second.active(), "once chosen, the card does not come back");
-}
-
-void allOffIsAChoice(const fs::path& root) {
-    app::Preferences preferences = preferencesIn(root / "all-off");
-    app::IntegrationsInForce inForce{preferences, false};
-    audio::SdlSoundPlayer sounds;
-    test::InterfaceRig ui;
-    app::FirstRunChooser chooser{ui.navigator, inForce, sounds, [] {
-                                 }};
-    chooser.openIfUnchosen();
-    ui.frame(1.0);
-    ui.navigator.focus(app::firstRunDoneId);
-    press(ui, Action::Accept);
-    expect(inForce.chosen(), "Done with everything off is kept as a choice");
-    expect(inForce.current() == settings::Integrations{}, "and nothing is in force");
-}
-
 void libraryTilesSetUpWhatIsOff(const fs::path& root) {
     app::Preferences preferences = preferencesIn(root / "tiles");
     app::IntegrationsInForce inForce{preferences, false};
+    expect(inForce.current() == settings::Integrations{}, "a fresh start has nothing in force");
     std::vector<std::string> pressed;
     const app::LibraryAdditions additions{
         inForce, app::LibraryAdditions::Hooks{.addGame =
@@ -437,8 +366,6 @@ void theSwitchAppliesAChange(const fs::path& root) {
 
 int main() try {
     const fs::path root = fs::path{OPENSU_TEST_SCRATCH} / "integration-flow";
-    theChooserAsksUntilDone(root);
-    allOffIsAChoice(root);
     libraryTilesSetUpWhatIsOff(root);
     if (steam::clientModes().size() > 1) {
         settingsStagesThenApplies(root);

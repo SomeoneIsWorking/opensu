@@ -81,11 +81,10 @@ struct Integrations {
     bool plugins{false};
     bool lan{false};
 
-    /// What `choices` puts in force; nothing chosen yet is everything off. `loginSession` is
-    /// openSU running as the login session (`--session`); `built` the modes the build has, none
-    /// keeping Steam off.
-    [[nodiscard]] static Integrations inForce(const std::optional<IntegrationChoices>& choices,
-                                              bool loginSession, std::span<const SteamMode> built);
+    /// What `choices` puts in force. `loginSession` is openSU running as the login session
+    /// (`--session`); `built` the modes the build has, none keeping Steam off.
+    [[nodiscard]] static Integrations inForce(const IntegrationChoices& choices, bool loginSession,
+                                              std::span<const SteamMode> built);
     /// The modes the player can pick, in `built`'s order: no Normal in a login session.
     [[nodiscard]] static std::vector<SteamMode> modesOffered(bool loginSession,
                                                              std::span<const SteamMode> built);

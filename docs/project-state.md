@@ -16,7 +16,7 @@ Visible deltas from the baseline:
   on Linux only (outside it the section shows with a note). It needs the player's own Lossless Scaling from Steam
   (its `Lossless.dll`, read in place); Big Picture has nothing like it (S041).
 - Only ROMs and the libretro runner are on out of the box; Steam, Epic, GOG, standalone emulators
-  and Lua plugins are each opted into, from a first-run chooser or Settings › Integrations (S039).
+  and Lua plugins are each opted into, from Library's Set up tiles or Settings › Integrations (S039).
   Steam Big Picture has no such choice. Steam can be the player's own desktop Steam (Normal),
   openSU's own (Managed), or openSU's own in a sandbox that sees only openSU's virtual pads
   (Isolated); the login session offers Managed and Isolated.
@@ -189,7 +189,7 @@ game has been observed running yet.
 | S037 | Uninstalling Steam, Epic and GOG games (`docs/issues/uninstall-games.md`) | partial | S006, S007, S016 | G001 |
 | S038 | Windows GOG and Epic games in one shared Wine prefix (own prefix per game on request), Automatic runner (openSU's GE-Proton kept up to date through umu-launcher, else Steam's Proton, Lutris's, system Wine; no waits), runner setting with per-game pins and the runtimes list, Steam left to Steam (`docs/issues/windows-games-wine-prefix.md`, `docs/issues/ge-proton-default.md`) | partial | S006, S007, S020 | G001 |
 | S040 | Video settings for built-in cores (aspect, integer scale, sampling, filter, slang shader preset) and the core's own options in setting layers per game, core, console and Global, declared once in `settings::Schema` and edited in one layered editor (Settings › Emulators, details, the quick menu's panel over the game, live), with the emulator pick in the same layers (`docs/issues/retro-shaders-overlays.md`) | partial | S031, S032 | G001 |
-| S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins) with a first-run chooser; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
+| S039 | Opt-in integrations (Steam, Epic, GOG, standalone emulators, Lua plugins), all off on a fresh start with a Set up tile each in Library; Steam Off, Normal, Managed or Isolated with a controller choice (`docs/issues/integrations-opt-in.md`) | partial | S016, S020 | G001, G004 |
 | S042 | Platform seams: every Linux-only concept behind one owner with a per-OS backend picked in CMake (process launching, pads, the shell over a game, Steam modes, user directories, buildbot folder, library loading, battery), Linux unchanged (`docs/issues/cross-platform-releases.md` step 1) | partial | — | G005 |
 | S041 | Adaptive frame generation for the focused game inside openSU's Gamescope, own MIT generator (`docs/issues/adaptive-lsfg-vk.md`): generator and pacing verified headless; openSU's `framegen.*` layered settings (presets, Custom details) and the atoms for the game in front verified with a ROM game in the headless fork and with a GOG game (Absolute Drift, 4K) in the nested (Wayland) backend on the player's own setup, every preset and Custom row, live changes and Off, Global and game layers; the DRM backend not run | partial | S013 | G004 |
 | S043 | SteamGridDB: the API key through Steam's browser or typed in, kept in the keyring or a 0600 file; covers fitted to Home's square tiles; "Choose artwork" per game (connected on the player's account, key in the keyring, fitting (games with no art included), the picker and Disconnect's dialog checked on the real library; not checked in a shown session or Normal mode; `docs/issues/steamgriddb.md`) | partial | S002, S020 | G001, G002 |
@@ -2113,18 +2113,18 @@ touch on the editor, the panel over a game nested in Gamescope. Missing: options
 
 ### S039 — Opt-in integrations and Steam modes
 
-`settings::Integrations::inForce` turns the saved `integrations` choices into what is in force: no
-choices is everything off and opens the first-run chooser (`app::FirstRunChooser`); Steam's mode is
+`settings::Integrations::inForce` turns the saved `integrations` choices into what is in force: a
+settings file without them, or with a damaged entry, is everything off, and a fresh start goes
+straight to Home with a Set up tile in Library for each integration that is off; Steam's mode is
 one the build offers (`steam::clientModes`: Normal, Managed and Isolated on Linux, Normal elsewhere),
 without Normal under `--session`; the Steam mode row shows only when more than one is offered. `app::IntegrationSwitch` applies a
 change live: the catalog's providers are replaced, the plugins host is made or dropped, standalone
 emulator discovery and downloads follow, and Steam is stopped and started in its new mode. Normal
 attaches to the desktop Steam (`~/.steam/steam.pid`, a live `steam` process) or starts one on the
 desktop outside openSU's scope; the shell then neither holds the pads against it nor closes Big
-Picture. Verified by unit tests (`integrations`, `integration_flow`, `integration_chooser`,
+Picture. Verified by unit tests (`integrations`, `integration_flow`,
 `settings_controller`, `client`, `handoff`, `catalog_loader`, `focus_owner`) and a hidden run driven
-over the control channel with a scratch home (`scratch/integrations/drive.py`): the chooser on a
-fresh settings file, only ROM shelves and no Steam process with all off, Steam tiles from a fake
+over the control channel with a scratch home (`scratch/integrations/drive.py`): only ROM shelves and no Steam process with all off, Steam tiles from a fake
 root in Normal and Managed with the mode in the log, Epic tiles and `legendary` calls only while
 Epic is on, and a fake desktop Steam pid file found and logged (a hidden run attaches to nothing and starts nothing).
 Isolated runs openSU's Steam in bwrap (`steam::sandboxArguments`) with the real HOME and login, a

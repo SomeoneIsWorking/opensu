@@ -134,8 +134,8 @@ struct Settings {
     /// The plugins the player turned on or off, by id. A bundled plugin not listed runs.
     std::map<std::string, PluginChoice> plugins;
 
-    /// The integrations the player chose; absent until the first-run chooser was answered.
-    std::optional<IntegrationChoices> integrations;
+    /// The integrations the player turned on; all off until they do.
+    IntegrationChoices integrations;
 
     /// Adds `folder` to `romFolders` unless it is there already.
     void addRomFolder(const std::filesystem::path& folder);

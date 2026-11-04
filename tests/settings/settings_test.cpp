@@ -163,7 +163,7 @@ void installAndSources(const fs::path& root) {
     std::string error;
     expect(store.save(saved, error), "the sources save");
     expect(store.load() == saved, "sounds, scroll mode, folders and install folders round trip");
-    expect(read(file).find("\"epic\"") == std::string::npos,
+    expect(read(file).find("\"epic\": \"") == std::string::npos,
            "a store that follows the default writes no folder");
 
     write(file, R"({"homeMode": "carousel", "romFolders": [1], "installFolders": {"steam": 4}})");
@@ -296,10 +296,11 @@ void steppedScale() {
            "the sizes wrap");
 }
 
-/// Integration choices: absent until chosen, kept as chosen, a damaged entry asks again.
+/// Integration choices: all off with no file, kept as chosen, a damaged entry all off.
 void integrationChoices(const fs::path& root) {
     const Store store{root / "integrations" / "settings.json"};
-    expect(!store.load().integrations, "no file has no integration choices");
+    expect(store.load().integrations == opensu::settings::IntegrationChoices{},
+           "no file has every integration off");
     Settings chosen;
     chosen.integrations =
         opensu::settings::IntegrationChoices{.steam = true,
@@ -316,17 +317,12 @@ void integrationChoices(const fs::path& root) {
                read(store.file()).find("\"steamPads\": \"all\"") != std::string::npos,
            "the mode and Isolated's controllers are kept by name");
 
-    Settings allOff;
-    allOff.integrations = opensu::settings::IntegrationChoices{};
-    expect(store.save(allOff, error), "all off saves");
-    expect(store.load().integrations == opensu::settings::IntegrationChoices{},
-           "all off is a choice, not the absence of one");
-
     write(store.file(), R"({"integrations": "everything"})");
-    expect(!store.load().integrations, "a damaged entry leaves the choices to be asked again");
+    expect(store.load().integrations == opensu::settings::IntegrationChoices{},
+           "a damaged entry leaves every integration off");
     write(store.file(), R"({"integrations": {"steam": true, "steamMode": "sandboxed"}})");
     const auto odd = store.load().integrations;
-    expect(odd && odd->steam && !odd->steamMode, "an unknown mode takes the default");
+    expect(odd.steam && !odd.steamMode, "an unknown mode takes the default");
 }
 
 void anOldInterfaceSizeKeepsItsSize(const fs::path& root) {

@@ -83,7 +83,6 @@ ShellApp::ShellApp(const Settings& settings, const config::Config& environment)
     padOwner_.syncChords();
     clock_.service(std::chrono::steady_clock::now());
     applyLayout();
-    firstRun_.openIfUnchosen();
 }
 
 void ShellApp::buildHome() {
@@ -744,8 +743,8 @@ const library::Game* ShellApp::gameInFront() const {
 bool ShellApp::menusBlocked() {
     return panels_.active() || paths_.active() || artworkSettings_.typing() || mappings_.active() ||
            (sessionInstall_ && sessionInstall_->active()) ||
-           (polkitPrompt_ && polkitPrompt_->asking()) || firstRun_.active() ||
-           shortcutEditor_.capturing() || search_.isOpen() || layoutPicker_.isOpen();
+           (polkitPrompt_ && polkitPrompt_->asking()) || shortcutEditor_.capturing() ||
+           search_.isOpen() || layoutPicker_.isOpen();
 }
 
 void ShellApp::closeRunningGame() {
@@ -902,7 +901,7 @@ ui::Trail ShellApp::currentTrail() const {
 void ShellApp::activateCrumb(std::size_t index) {
     const ui::Trail trail = currentTrail();
     if (index >= trail.size() || !ui::isPlace(trail[index]) || shell_.inGame() ||
-        panels_.active() || firstRun_.active()) {
+        panels_.active()) {
         return;
     }
     // The details page, the Settings screen and the Devices page are the only panels the trail
@@ -1010,7 +1009,6 @@ void ShellApp::publishSnapshot() {
         next.screen = navigator.top()->id();
         next.screenFocus = navigator.focused();
     }
-    next.firstRunOpen = firstRun_.active();
     next.nightLightKelvin = static_cast<std::size_t>(nightLight_.kelvin());
     next.nightLightShown = nightLight_.active();
     next.folderPickerOpen = paths_.active();

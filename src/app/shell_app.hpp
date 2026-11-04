@@ -37,7 +37,6 @@
 #include "downloads_controller.hpp"
 #include "emulator_downloads.hpp"
 #include "emulator_settings.hpp"
-#include "first_run_chooser.hpp"
 #include "focus_follow.hpp"
 #include "frame_timing.hpp"
 #include "game_launch.hpp"
@@ -1318,10 +1317,6 @@ class ShellApp final {
                 [this] {
                     return steamGridDbAccount_.signingIn() || offerClaim_.inSteam();
                 }}};
-    /// The first-run card that asks which integrations to use.
-    FirstRunChooser firstRun_{shell_.screens().navigator(), integrations_, sounds_, [this] {
-                                  applyIntegrations();
-                              }};
     /// The store sign-ins the control channel drives.
     StoreSignIn signIn_;
 
