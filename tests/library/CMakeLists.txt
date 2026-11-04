@@ -116,7 +116,7 @@ target_compile_definitions(switch_info_test PRIVATE
 add_test(NAME switch_info COMMAND switch_info_test)
 
 add_executable(game_saves_test game_saves_test.cpp)
-target_link_libraries(game_saves_test PRIVATE opensu::library)
+target_link_libraries(game_saves_test PRIVATE opensu::library nlohmann_json::nlohmann_json)
 target_compile_definitions(game_saves_test PRIVATE OPENSU_TEST_SCRATCH="${CMAKE_BINARY_DIR}/test-scratch")
 opensu_warnings(game_saves_test)
 add_test(NAME game_saves COMMAND game_saves_test)

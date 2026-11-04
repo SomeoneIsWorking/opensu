@@ -14,6 +14,8 @@
 #include <utility>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "library/emulator_catalog.hpp"
 #include "library/game_saves.hpp"
 #include "library/save_copy.hpp"
@@ -176,20 +178,27 @@ struct Rig {
     }
 
     [[nodiscard]] roms::EmulatorCatalog catalog() const {
-        const auto store = [](std::string_view layout, const fs::path& folder) {
-            return R"("saves": {"layout": ")" + std::string{layout} + R"(", "folder": ")" +
-                   folder.string() + R"("})";
-        };
-        const std::string json =
-            R"({"emulators": [{"id": "eden", "name": "Eden", "systems": ["switch"], "config": ")" +
-            edenConfig.string() + R"(", )" + store("yuzu", eden) +
-            R"(, "launchers": [{"programs": ["eden"]}]}, {"id": "ryujinx", "name": "Ryujinx", )"
-            R"("systems": ["switch"], "config": ")" +
-            ryujinx.string() + R"(", )" + store("ryujinx", ryujinx) +
-            R"json(, "launchers": [{"programs": ["ryujinx"]}]}, {"id": "mgba-core", "name": )json"
-            R"json("mGBA (built-in)", "systems": ["gba"], "core": "mgba_libretro"}]})json";
+        // Built as JSON so a Windows path's backslashes are escaped.
+        const nlohmann::json catalog = {
+            {"emulators",
+             {{{"id", "eden"},
+               {"name", "Eden"},
+               {"systems", {"switch"}},
+               {"config", edenConfig.string()},
+               {"saves", {{"layout", "yuzu"}, {"folder", eden.string()}}},
+               {"launchers", {{{"programs", {"eden"}}}}}},
+              {{"id", "ryujinx"},
+               {"name", "Ryujinx"},
+               {"systems", {"switch"}},
+               {"config", ryujinx.string()},
+               {"saves", {{"layout", "ryujinx"}, {"folder", ryujinx.string()}}},
+               {"launchers", {{{"programs", {"ryujinx"}}}}}},
+              {{"id", "mgba-core"},
+               {"name", "mGBA (built-in)"},
+               {"systems", {"gba"}},
+               {"core", "mgba_libretro"}}}}};
         std::string error;
-        return opensu::test::need(roms::EmulatorCatalog::parse(json, "/home/p", error),
+        return opensu::test::need(roms::EmulatorCatalog::parse(catalog.dump(), "/home/p", error),
                                   "the catalog parses");
     }
 
