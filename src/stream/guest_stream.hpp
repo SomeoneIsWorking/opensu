@@ -13,6 +13,7 @@
 #include <optional>
 #include <stop_token>
 #include <string>
+#include <string_view>
 #include <thread>
 
 #include "lan/pairing_keys.hpp"
@@ -51,7 +52,7 @@ class GuestStream {
     void mouse(const wire::MouseState& state);
 
     /// Ends the session and tells the host `reason`. Any thread.
-    void end(const std::string& reason);
+    void end(std::string_view reason);
     /// Why the session is over; nothing while it runs. Any thread.
     [[nodiscard]] std::optional<std::string> over() const;
 

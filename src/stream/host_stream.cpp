@@ -45,12 +45,12 @@ void HostStream::send(PacketKind kind, std::string_view payload) {
     }
 }
 
-void HostStream::end(const std::string& reason) {
-    const std::string payload = wire::write(wire::End{reason});
+void HostStream::end(std::string_view reason) {
+    const std::string payload = wire::write(wire::End{std::string{reason}});
     for (int i = 0; i < endRepeats; ++i) {
         send(PacketKind::End, payload);
     }
-    finish(reason);
+    finish(std::string{reason});
 }
 
 std::optional<std::string> HostStream::over() const {

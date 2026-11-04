@@ -48,7 +48,7 @@ class HostStream {
     /// Sends a datagram of `kind` to the guest once it is known; dropped before. Any thread.
     void send(PacketKind kind, std::string_view payload);
     /// Ends the session and tells the guest `reason`. Any thread.
-    void end(const std::string& reason);
+    void end(std::string_view reason);
     /// Why the session is over; nothing while it runs. Any thread.
     [[nodiscard]] std::optional<std::string> over() const;
     /// Whether the guest has been heard.

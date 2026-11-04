@@ -92,12 +92,12 @@ void GuestStream::mouse(const wire::MouseState& state) {
     changed_.notify_all();
 }
 
-void GuestStream::end(const std::string& reason) {
-    const std::string payload = wire::write(wire::End{reason});
+void GuestStream::end(std::string_view reason) {
+    const std::string payload = wire::write(wire::End{std::string{reason}});
     for (int i = 0; i < endRepeats; ++i) {
         send(PacketKind::End, payload);
     }
-    finish(reason);
+    finish(std::string{reason});
 }
 
 std::optional<std::string> GuestStream::over() const {
