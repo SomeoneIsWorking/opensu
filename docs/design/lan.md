@@ -259,7 +259,7 @@ console, and Import copies them into its own ROM folder, where the catalog reads
   multi-file game) walked whole. The listing is
   `[{"system","folder","games":[{"title","root","entry","files":[{"path","bytes"}]}],"bios":[...]}]`,
   consoles grouped by system and the host's folder for it. Paths are relative, `/`-separated and
-  checked by `lan::staysInside` (no absolute path, drive, `.` or `..` step), the rule
+  checked by `fileio::staysInside` (no absolute path, drive, `.` or `..` step), the rule
   `save_bundle` checks slots with. `RomShelf` answers a file or a chunk only for a key
   (kind, root, path) it listed, so a path outside the listed folders, or a file in them it does
   not list (`notes.txt`), is 403. It reads only the asked range; nothing holds a whole ROM.
