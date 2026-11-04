@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -49,7 +50,9 @@ class UdpSocket {
                                                      std::chrono::milliseconds wait) const;
 
   private:
-    int fd_{-1};
+    /// The system's socket, which each backend defines.
+    class Descriptor;
+    std::unique_ptr<Descriptor> descriptor_;
     std::uint16_t port_{0};
 };
 

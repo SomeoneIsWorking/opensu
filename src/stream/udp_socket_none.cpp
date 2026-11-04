@@ -9,6 +9,8 @@ std::optional<UdpAddress> udpAddress(const std::string& /*dotted*/, std::uint16_
     return std::nullopt;
 }
 
+class UdpSocket::Descriptor {};
+
 UdpSocket::UdpSocket(std::uint16_t /*port*/) {
     throw std::system_error{ENOSYS, std::generic_category(),
                             "remote play is not built for this system yet"};
