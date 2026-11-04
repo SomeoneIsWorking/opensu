@@ -2,8 +2,8 @@
 
 Every scene starts and ends on Home with nothing open, but for `retro_scenes`, which run in order
 over one game. `readme` marks the demo scenes a demo run writes; parity runs capture all of them.
-`real_scenes` are the README's, on the player's own home, `theme_scenes` its console art themes
-side by side, and `retro_scenes` the homebrew game on a built-in core.
+`real_scenes` are the README's and the guide's, on the player's own home, `theme_scenes` its
+console art themes side by side, and `retro_scenes` the homebrew game on a built-in core.
 """
 
 from collections.abc import Callable
@@ -577,7 +577,7 @@ class Picks:
 
 
 def real_scenes(picks: Picks) -> tuple[Scene, ...]:
-    """The README's scenes on the player's own library."""
+    """The README's and the guide's scenes on the player's own library."""
 
     def focus_game(shell: HiddenShell) -> None:
         if picks.game:

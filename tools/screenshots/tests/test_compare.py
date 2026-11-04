@@ -8,7 +8,15 @@ import pytest
 from tools.checkout import REPO
 from tools.screenshots import compare
 from tools.screenshots.compare import Measure, Thresholds
-from tools.screenshots.scenes import README_SCENES, SCENES, Picks, real_scenes, theme_scenes
+from tools.screenshots.scenes import (
+    README_SCENES,
+    SCENES,
+    Picks,
+    real_scenes,
+    retro_scenes,
+    theme_scenes,
+)
+from tools.screenshots.shell import Profile
 
 LIMITS = Thresholds(mean=1.0, max=255, fraction=0.01, pixel=16)
 MAGICK = shutil.which("magick")
@@ -94,14 +102,23 @@ def test_main_exits_one_when_a_scene_fails(tmp_path: Path):
     assert compare.main([str(ref), str(new), "--out", str(tmp_path / "d")]) == 1
 
 
-def test_real_scenes_are_the_readme_set():
-    readme = (REPO / "README.md").read_text()
-    shown = list(dict.fromkeys(re.findall(r"docs/screenshots/([a-z-]+)\.webp", readme)))
+def test_real_scenes_are_the_docs_set(tmp_path):
+    """A real capture writes each screenshot the README and the guide show, and no other."""
+    pages = [REPO / "README.md", *sorted((REPO / "docs" / "guide").glob("*.md"))]
+    shown = {
+        name
+        for page in pages
+        for name in re.findall(r"screenshots/([a-z-]+)\.webp", page.read_text())
+    }
     themes = ("photos", "drawings", "iisu")
-    real = real_scenes(Picks()) + tuple(
-        scene for theme in themes for scene in theme_scenes(Picks(), theme)
-    )
-    assert [scene.name for scene in real] == shown
+    captured = [
+        *real_scenes(Picks()),
+        *(scene for theme in themes for scene in theme_scenes(Picks(), theme)),
+        *retro_scenes(Profile(tmp_path, tmp_path, tmp_path), tmp_path),
+    ]
+    names = [scene.name for scene in captured]
+    assert len(set(names)) == len(names)
+    assert set(names) == shown
     assert [scene.name for scene in README_SCENES] == [
         "home", "library", "details", "guide", "settings", "search",
     ]  # fmt: skip
