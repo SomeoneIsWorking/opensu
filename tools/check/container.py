@@ -23,7 +23,7 @@ def ensure_image(env: Mapping[str, str]) -> str:
     return podman.ensure_image(tag, env, containerfile=CONTAINERFILE)
 
 
-def run_all(build_dir: Path, env: Mapping[str, str]) -> None:
+def run_all(build_dir: Path, jobs: int, env: Mapping[str, str]) -> None:
     """`tools.check all --gamescope native` in the CI image, against this checkout, on the caller's
     display for the tests' hidden windows."""
     tag = ensure_image(env)
@@ -52,7 +52,7 @@ def run_all(build_dir: Path, env: Mapping[str, str]) -> None:
                 f"UV_CACHE_DIR={build_dir / 'uv-cache'}",
                 f"UV_PROJECT_ENVIRONMENT={build_dir / 'venv'}",
                 "uv", "run", "--frozen", "python", "-m", "tools.check", "all",
-                "--gamescope", "native", "--build-dir", str(build_dir),
+                "--gamescope", "native", "--build-dir", str(build_dir), "--jobs", str(jobs),
             ],
             env,
         )  # fmt: skip

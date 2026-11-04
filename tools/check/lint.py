@@ -5,13 +5,13 @@ backends and the tests it builds, and none it leaves out.
 """
 
 import json
-import os
 import subprocess
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from tools.check import process
+from tools.check.cmake import require_own_tree
 from tools.checkout import REPO
 
 CXX_SUFFIXES = (".cpp", ".hpp")
@@ -22,13 +22,21 @@ MSVC_STL_UNINLINED = ("-Xclang", "-analyzer-config", "-Xclang", "c++-stdlib-inli
 OWN_ROOTS = ("src/", "tests/")
 
 
-def tracked_cxx(env: Mapping[str, str]) -> list[Path]:
-    names = process.output(["git", "-C", REPO, "ls-files", "--", *OWN_ROOTS], env).split()
-    return [REPO / name for name in names if name.endswith(CXX_SUFFIXES)]
+def tracked(
+    env: Mapping[str, str], suffixes: tuple[str, ...], roots: Sequence[str] = ()
+) -> list[Path]:
+    """The checkout's tracked files under `roots` (all of it when empty) ending in `suffixes`; none
+    is an error, since a check over no files passes."""
+    listing = process.output(["git", "-C", REPO, "ls-files", "-z", "--", *roots], env)
+    files = [REPO / name for name in listing.split("\0") if name.endswith(suffixes)]
+    if not files:
+        raise RuntimeError(f"git lists no {' '.join(suffixes)} files in {REPO}")
+    return files
 
 
 def clang_format(env: Mapping[str, str]) -> None:
-    files = tracked_cxx(env)
+    files = tracked(env, CXX_SUFFIXES, OWN_ROOTS)
+    print(f"+ clang-format over {len(files)} files", flush=True)
     process.run(["clang-format", "--dry-run", "--Werror", *files], env)
 
 
@@ -39,22 +47,27 @@ def built_inputs(cmake_dir: Path, env: Mapping[str, str]) -> set[Path]:
 
 
 def compiled_sources(cmake_dir: Path, env: Mapping[str, str]) -> list[Path]:
-    """openSU's translation units in the build's compile_commands.json that the build compiles."""
+    """openSU's translation units in the build's compile_commands.json that the build compiles;
+    none is an error."""
+    require_own_tree(cmake_dir)
     entries = json.loads((cmake_dir / "compile_commands.json").read_text())
-    own = [str(REPO / root) for root in OWN_ROOTS]
+    own = [REPO / root for root in OWN_ROOTS]
     built = built_inputs(cmake_dir, env)
-    files = {Path(entry["file"]) for entry in entries}
-    return sorted(
-        path for path in files if str(path).startswith(tuple(own)) and path.resolve() in built
+    files = {Path(entry["file"]).resolve() for entry in entries}
+    sources = sorted(
+        path for path in files if any(path.is_relative_to(root) for root in own) and path in built
     )
+    if not sources:
+        raise RuntimeError(f"{cmake_dir}/compile_commands.json builds no sources of {REPO}")
+    return sources
 
 
-def clang_tidy(cmake_dir: Path, env: Mapping[str, str], extra: Sequence[str] = ()) -> None:
-    """Every translation unit through clang-tidy (`.clang-tidy`: warnings are errors), each of
-    `extra` put before the compile command's own arguments."""
+def clang_tidy(
+    cmake_dir: Path, env: Mapping[str, str], jobs: int, extra: Sequence[str] = ()
+) -> None:
+    """Every translation unit through clang-tidy (`.clang-tidy`: warnings are errors) on `jobs`
+    processes, each of `extra` put before the compile command's own arguments."""
     files = compiled_sources(cmake_dir, env)
-    if not files:
-        raise RuntimeError(f"no openSU sources in {cmake_dir}/compile_commands.json")
 
     def check(path: Path) -> tuple[Path, int, str]:
         result = subprocess.run(
@@ -73,9 +86,9 @@ def clang_tidy(cmake_dir: Path, env: Mapping[str, str], extra: Sequence[str] = (
         )
         return path, result.returncode, result.stdout + result.stderr
 
-    print(f"+ clang-tidy over {len(files)} files", flush=True)
+    print(f"+ clang-tidy over {len(files)} files on {jobs} processes", flush=True)
     failed = []
-    with ThreadPoolExecutor(max_workers=os.cpu_count() or 1) as pool:
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
         for path, code, text in pool.map(check, files):
             if code != 0:
                 failed.append(path)
@@ -85,19 +98,21 @@ def clang_tidy(cmake_dir: Path, env: Mapping[str, str], extra: Sequence[str] = (
 
 
 def ruff(env: Mapping[str, str]) -> None:
-    process.run(["ruff", "check", REPO], env)
-    process.run(["ruff", "format", "--check", REPO], env)
+    files = tracked(env, (".py",))
+    print(f"+ ruff over {len(files)} files", flush=True)
+    process.run(["ruff", "check", *files], env)
+    process.run(["ruff", "format", "--check", *files], env)
 
 
-def all_checks(cmake_dir: Path, env: Mapping[str, str], platform: str = "linux") -> None:
+def all_checks(cmake_dir: Path, env: Mapping[str, str], jobs: int, platform: str = "linux") -> None:
     """Every check, on the Linux tree. A macOS or Windows tree runs clang-tidy alone, over its own
     translation units: the format and the Python are the same on every OS."""
     if platform == "windows":
-        clang_tidy(cmake_dir, env, MSVC_STL_UNINLINED)
+        clang_tidy(cmake_dir, env, jobs, MSVC_STL_UNINLINED)
         return
     if platform == "macos":
-        clang_tidy(cmake_dir, env)
+        clang_tidy(cmake_dir, env, jobs)
         return
     clang_format(env)
     ruff(env)
-    clang_tidy(cmake_dir, env)
+    clang_tidy(cmake_dir, env, jobs)

@@ -44,6 +44,12 @@ clang-tidy, ruff) and tests openSU with Clang in `build/check`, as CI does (`--g
 when Gamescope's build dependencies are installed, `off` to skip the fork). Each step also runs on
 its own (`deps`, `configure`, `build`, `lint`, `test`). `--platform windows` builds on a Windows host
 with clang-cl and vcpkg, `--platform macos` on an Apple silicon Mac with Homebrew's LLVM and vcpkg.
+`--jobs N` caps the compilers and clang-tidy processes that run at once (one per core by default).
+
+The tool checks the checkout its own code is in, which `python -m` takes from the current
+directory, so another checkout is named with `uv run --frozen --directory <checkout> python -m
+tools.check ...`. It refuses a run in another checkout's environment (`uv run --project`), a build
+tree configured from another checkout, and a lint whose file lists come out empty.
 
 ## By hand
 

@@ -1,5 +1,6 @@
 """Configuring, building, testing and installing openSU with CMake and Clang."""
 
+import os
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -11,12 +12,13 @@ from tools.checkout import REPO
 
 GAMESCOPE_MODES = ("podman", "native", "off")
 PLATFORMS = ("linux", "windows", "macos")
+DEFAULT_JOBS = os.cpu_count() or 1
 
 
 @dataclass(frozen=True)
 class Plan:
-    """One build tree: where it lives, the OS it builds for, what it builds against and how the
-    fork is built (Linux only)."""
+    """One build tree: where it lives, the OS it builds for, what it builds against, how the
+    fork is built (Linux only) and how many compilers or clang-tidy processes run at once."""
 
     build_dir: Path
     deps: Deps
@@ -25,6 +27,7 @@ class Plan:
     build_type: str = "RelWithDebInfo"
     install_prefix: str = "/usr/local"
     defines: Sequence[str] = field(default_factory=tuple)
+    jobs: int = DEFAULT_JOBS
 
     @property
     def cmake_dir(self) -> Path:
@@ -94,6 +97,23 @@ def compiler_id(cmake_dir: Path) -> str:
     return ""
 
 
+def configured_source(cmake_dir: Path) -> Path | None:
+    """The source directory a configured tree was generated from, None before configure."""
+    cache = cmake_dir / "CMakeCache.txt"
+    if not cache.is_file():
+        return None
+    match = re.search(r"^CMAKE_HOME_DIRECTORY:INTERNAL=(.*)$", cache.read_text(), re.MULTILINE)
+    return Path(match.group(1)).resolve() if match else None
+
+
+def require_own_tree(cmake_dir: Path) -> None:
+    """Refuse a tree configured from another checkout, whose build, lint and tests are not this
+    checkout's."""
+    source = configured_source(cmake_dir)
+    if source is not None and source != REPO:
+        raise RuntimeError(f"{cmake_dir} is configured from {source}, not from {REPO}")
+
+
 def configure(plan: Plan, env: Mapping[str, str]) -> None:
     process.run(plan.configure_args(env), env)
     found = compiler_id(plan.cmake_dir)
@@ -104,7 +124,11 @@ def configure(plan: Plan, env: Mapping[str, str]) -> None:
 
 
 def build(plan: Plan, env: Mapping[str, str]) -> None:
-    process.run(["cmake", "--build", plan.cmake_dir], env)
+    # cargo, which builds librashader under one ninja job, would otherwise start a job per core.
+    process.run(
+        ["cmake", "--build", plan.cmake_dir, "--parallel", str(plan.jobs)],
+        {**env, "CARGO_BUILD_JOBS": str(plan.jobs)},
+    )
 
 
 def test(plan: Plan, env: Mapping[str, str]) -> None:
