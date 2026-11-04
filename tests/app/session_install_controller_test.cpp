@@ -22,7 +22,8 @@ using test::expect;
 
 struct Rig {
     Rig()
-        : controller{ui.navigator, session, sounds, [this](const std::string& text, bool error) {
+        : controller{ui.navigator, session, nullptr, sounds,
+                     [this](const std::string& text, bool error) {
                          said.push_back((error ? "error: " : "") + text);
                      }} {
     }

@@ -172,6 +172,15 @@ class SdBusPolkitAgent final : public PolkitAgent {
         wakeUp();
     }
 
+    void shutDown() override {
+        {
+            const std::lock_guard lock{mutex_};
+            closing_ = true;
+            shown_ = withInbox(std::move(shown_));
+        }
+        wakeUp();
+    }
+
     /// polkit's BeginAuthentication: kept unanswered until the authentication has an outcome.
     int begin(sd_bus_message* message, sd_bus_error* error) {
         if (!fromAuthority(message)) {
@@ -192,6 +201,10 @@ class SdBusPolkitAgent final : public PolkitAgent {
         }
         if (pending_) {
             return sd_bus_error_set(error, failedError, "another authentication is under way");
+        }
+        if (closingNow()) {
+            lucent::info("polkit", "{} asked while openSU is closing; cancelled", action);
+            return sd_bus_error_set(error, cancelledError, "openSU is closing");
         }
         // The player's own password when polkit takes it, else the first administrator's.
         const auto own = std::ranges::find(uids, getuid());
@@ -232,6 +245,11 @@ class SdBusPolkitAgent final : public PolkitAgent {
         Message call;
         polkit::Authentication authentication;
     };
+
+    [[nodiscard]] bool closingNow() const {
+        const std::lock_guard lock{mutex_};
+        return closing_;
+    }
 
     void wakeUp() const noexcept {
         const std::uint64_t one = 1;
@@ -359,14 +377,19 @@ class SdBusPolkitAgent final : public PolkitAgent {
         std::uint64_t serial = 0;
         bool answered = false;
         bool cancelling = false;
+        bool closing = false;
         {
             const std::lock_guard lock{mutex_};
             answered = std::exchange(hasAnswer_, false);
             secret.swap(answer_);
             serial = answerSerial_;
             cancelling = std::exchange(cancelWanted_, false);
+            closing = closing_;
         }
-        if (cancelling && pending_) {
+        if (closing && pending_) {
+            lucent::info("polkit", "openSU is closing; the authentication is cancelled");
+            reply(cancelledError, "openSU is closing");
+        } else if (cancelling && pending_) {
             lucent::info("polkit", "the player cancelled the authentication");
             reply(cancelledError, "the player cancelled it");
         } else if (answered && pending_) {
@@ -418,7 +441,7 @@ class SdBusPolkitAgent final : public PolkitAgent {
 
     /// `now` as the player sees it with their answer or cancel not yet taken. Under `mutex_`.
     [[nodiscard]] std::optional<polkit::Prompt> withInbox(std::optional<polkit::Prompt> now) const {
-        if (cancelWanted_) {
+        if (cancelWanted_ || closing_) {
             return std::nullopt;
         }
         if (now && hasAnswer_ && now->serial == answerSerial_) {
@@ -444,6 +467,7 @@ class SdBusPolkitAgent final : public PolkitAgent {
     std::uint64_t answerSerial_{};
     bool hasAnswer_{false};
     bool cancelWanted_{false};
+    bool closing_{false};
     // Last, so it stops before the members it uses go.
     std::jthread worker_;
 };

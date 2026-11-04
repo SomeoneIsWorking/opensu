@@ -46,6 +46,12 @@ void SessionInstallController::begin() {
     }));
 }
 
+SessionInstallController::~SessionInstallController() {
+    if (job_.valid() && agent_ != nullptr) {
+        agent_->shutDown();
+    }
+}
+
 void SessionInstallController::start() {
     navigator_.push(std::make_unique<ui::ProgressScreen>(
         std::string{installingId},

@@ -961,12 +961,13 @@ class ShellApp final {
     /// Installing session mode: its question and the root step through polkit. Null where there
     /// is no session mode.
     std::unique_ptr<SessionInstallController> sessionInstall_{
-        host_.session ? std::make_unique<SessionInstallController>(
-                            shell_.screens().navigator(), *host_.session, sounds_,
-                            [this](const std::string& text, bool isError) {
-                                shell_.setToast(text, isError);
-                            })
-                      : nullptr};
+        host_.session
+            ? std::make_unique<SessionInstallController>(
+                  shell_.screens().navigator(), *host_.session, host_.polkit.get(), sounds_,
+                  [this](const std::string& text, bool isError) {
+                      shell_.setToast(text, isError);
+                  })
+            : nullptr};
     /// The password polkit asks openSU's own agent for. Null without the agent.
     std::unique_ptr<PolkitPromptController> polkitPrompt_{
         host_.polkit ? std::make_unique<PolkitPromptController>(

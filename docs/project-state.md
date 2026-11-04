@@ -902,8 +902,10 @@ Cancel. Earlier, inside the fork's headless Gamescope, the same wrong password a
 under "Authentication is needed to run `/bin/true' as the super user". Unverified: the right
 password (left to the player, who knows it), a real non-password module (fprintd, howdy, pam_u2f,
 the remote-biometry module) end to end, a finger-typed answer (the control channel cannot inject
-touch), and the real installer through the agent. Quitting openSU while an authentication waits
-hangs the quit (`docs/issues/quit-hangs-during-polkit-authentication.md`, open).
+touch), and the real installer through the agent. Quitting openSU (`POST /quit`, SIGTERM) while an
+authentication waits cancels it first (`PolkitAgent::shutDown`, called by the install flow before
+it waits for pkexec), so openSU exits at once with pkexec and the helper gone
+(`docs/issues/quit-hangs-during-polkit-authentication.md`).
 
 The one root step installs, as root: `/usr/local/share/wayland-sessions/opensu.desktop`;
 `/usr/local/libexec/opensu-session-select` (0755); and `/etc/sudoers.d/zz-opensu-session-select`

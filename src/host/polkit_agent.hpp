@@ -27,6 +27,9 @@ class PolkitAgent {
     virtual void answer(std::uint64_t serial, std::string& secret) = 0;
     /// Ends the authentication being asked for; polkit tells pkexec it was dismissed.
     virtual void cancel() = 0;
+    /// Ends the authentication being asked for as `cancel` does, and every one polkit begins
+    /// afterwards, so nothing openSU started through pkexec waits on the player once it quits.
+    virtual void shutDown() = 0;
 };
 
 /// The agent for this process, its messages in `locale`, running `helperStandIn` in place of the
