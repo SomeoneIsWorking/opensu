@@ -168,7 +168,7 @@ class SddmSessionMode final : public SessionMode {
         }
         const bool began = out->output.find(installerMarker) != std::string::npos;
         if (!began && out->status == pkexecDismissed) {
-            lucent::info("session", "installing session mode was cancelled at the password");
+            lucent::info("session", "installing session mode was cancelled at authentication");
             return {InstallResult::Kind::Cancelled, "Session mode was not installed"};
         }
         const std::string reason = lastLine(out->output);

@@ -112,9 +112,9 @@ void aCancelledPasswordIsSaidAsSuch() {
     rig.accept();
     rig.finishInstall();
     expect(rig.top().empty() &&
-               rig.said == std::vector<std::string>{"Session mode was not installed: the "
-                                                    "password was cancelled"},
-           "a dismissed password dialog is said, not as an error");
+               rig.said == std::vector<std::string>{"Session mode was not installed: "
+                                                    "authentication was cancelled"},
+           "a dismissed authentication is said, not as an error");
 }
 
 void anInstallFailureEndsTheFlowWithItsReason() {

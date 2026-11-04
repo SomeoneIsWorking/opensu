@@ -12,12 +12,13 @@ Authentication::Authentication(std::filesystem::path helper, std::string message
                                std::string cookie, std::uint64_t& serials)
     : helper_{std::move(helper)}, user_{std::move(user)}, cookie_{std::move(cookie)},
       serials_{&serials} {
+    prompt_.authentication = ++*serials_;
     prompt_.message = std::move(message);
     prompt_.user = user_;
 }
 
 void Authentication::begin() {
-    asking_ = false;
+    prompt_.state = Prompt::State::Waiting;
     answered_ = false;
     helperRun_ = launch::Conversation::start(helper_.string(), {user_});
     if (!helperRun_ || !helperRun_->say(cookie_)) {
@@ -53,10 +54,11 @@ void Authentication::heard(const std::string& line) {
         prompt_.question = said.text;
         prompt_.shown = said.kind == Kind::AskShown;
         prompt_.serial = ++*serials_;
-        asking_ = true;
+        prompt_.state = Prompt::State::Asking;
         return;
     case Kind::Error:
     case Kind::Info:
+        lucent::info("polkit", "PAM says: {}", said.text);
         prompt_.note = said.text;
         return;
     case Kind::Success:
@@ -84,11 +86,11 @@ void Authentication::heard(const std::string& line) {
 }
 
 void Authentication::answer(std::uint64_t serial, std::string& secret) {
-    if (!asking_ || serial != prompt_.serial || !helperRun_) {
+    if (prompt_.state != Prompt::State::Asking || serial != prompt_.serial || !helperRun_) {
         secrets::wipe(secret);
         return;
     }
-    asking_ = false;
+    prompt_.state = Prompt::State::Waiting;
     answered_ = true;
     prompt_.note.clear();
     const bool written = helperRun_->say(secret);
@@ -99,7 +101,7 @@ void Authentication::answer(std::uint64_t serial, std::string& secret) {
 }
 
 std::optional<Prompt> Authentication::prompt() const {
-    if (!asking_ || outcome_ != Outcome::Pending) {
+    if (outcome_ != Outcome::Pending) {
         return std::nullopt;
     }
     return prompt_;

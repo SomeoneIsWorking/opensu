@@ -881,15 +881,29 @@ parent before the session's: openSU registers its own (`host/polkit_agent`, sd-b
 process at start, as `pkttyagent --process` does, so the desktop's agent (KDE's
 `polkit-kde-authentication-agent-1`, whose plain toplevel KWin may stack under the full screen
 Gamescope or put on another monitor) is never asked for openSU's pkexec, and openSU's own
-session, which has no agent, gets one. The password is asked in openSU's own card
-(`polkit_prompt_controller`), typed on the pad's keyboard or a keyboard, and goes to
-polkit-agent-helper-1; a refused one is asked again with "That password was not accepted. Try
-again."; B dismisses it (pkexec 126, "the password was cancelled"). Seen in a hidden run inside the
-fork's headless Gamescope on the player's files with `OPENSU_ROOT_STEP=/bin/true`: Install, then
-openSU's card "Password for bhamil" with polkit's "Authentication is needed to run `/bin/true' as
-the super user", a wrong password refused with the note, then dismissed. Unverified: the right
-password (left to the player, who knows it), a finger-typed answer (the control channel cannot
-inject touch), and the real installer through the agent.
+session, which has no agent, gets one. openSU's own card (`polkit_prompt_controller`) works with whatever PAM
+stack polkit's service runs, with nothing tied to one module (`docs/issues/polkit-card-non-password-pam.md`):
+the card opens when polkit calls BeginAuthentication, waiting with polkit's message, a sweeping bar
+and Cancel and no field; each `PAM_TEXT_INFO` or `PAM_ERROR_MSG` replaces its note in place, waiting
+or with a field (fprintd's "Failed to match" between tries); a field is added only for
+`PAM_PROMPT_ECHO_OFF` (masked) or `ECHO_ON` (shown as typed), labelled with PAM's question, typed on
+the pad's keyboard or a keyboard, and goes to polkit-agent-helper-1, after which the card waits
+again while the answer is checked; the helper's `SUCCESS` closes it whether or not anything was
+asked; a refused password is asked again with "That password was not accepted. Try again."; B,
+waiting or asking, ends the helper's process group, so a module's wait ends, and dismisses it
+(pkexec 126, "authentication was cancelled"). `Authentication` owns that state (`Prompt::State`
+`Waiting` or `Asking`, the note, the question); the controller only renders it. Seen in hidden runs
+with `OPENSU_ROOT_STEP=/bin/true` and `OPENSU_POLKIT_HELPER` scripting the helper's lines: a
+note then a prompt-less success (card at once, note changed in place, closed on `SUCCESS`), a note,
+a module's failure then a password field, an error between a hidden and a shown question, and
+Cancel during a 20 s wait (the helper and its `sleep` gone); and with the real helper on
+`pkexec /bin/true`, a wrong password (field, waiting through `pam_faildelay`, asked again) and
+Cancel. Earlier, inside the fork's headless Gamescope, the same wrong password and dismissal
+under "Authentication is needed to run `/bin/true' as the super user". Unverified: the right
+password (left to the player, who knows it), a real non-password module (fprintd, howdy, pam_u2f,
+the remote-biometry module) end to end, a finger-typed answer (the control channel cannot inject
+touch), and the real installer through the agent. Quitting openSU while an authentication waits
+hangs the quit (`docs/issues/quit-hangs-during-polkit-authentication.md`, open).
 
 The one root step installs, as root: `/usr/local/share/wayland-sessions/opensu.desktop`;
 `/usr/local/libexec/opensu-session-select` (0755); and `/etc/sudoers.d/zz-opensu-session-select`

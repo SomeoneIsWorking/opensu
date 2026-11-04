@@ -20,7 +20,7 @@ class PolkitAgent {
   public:
     virtual ~PolkitAgent() = default;
 
-    /// The question polkit waits on, if one is.
+    /// The authentication polkit waits on, as the player is shown it, if one is under way.
     [[nodiscard]] virtual std::optional<polkit::Prompt> prompt() const = 0;
     /// Answers question `serial` with `secret`, which it takes, leaving it empty. Swapped, never
     /// moved, so no copy is left in the caller's buffer.
@@ -32,7 +32,7 @@ class PolkitAgent {
 /// The agent for this process, its messages in `locale`, running `helperStandIn` in place of the
 /// installed helper when it is not empty; null, with the reason logged, when there is no system
 /// bus, no polkit or no helper.
-[[nodiscard]] std::unique_ptr<PolkitAgent> startPolkitAgent(std::string locale,
-                                                            const std::filesystem::path& helperStandIn);
+[[nodiscard]] std::unique_ptr<PolkitAgent>
+startPolkitAgent(std::string locale, const std::filesystem::path& helperStandIn);
 
 } // namespace opensu::host

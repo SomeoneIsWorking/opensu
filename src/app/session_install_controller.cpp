@@ -51,7 +51,7 @@ void SessionInstallController::start() {
         std::string{installingId},
         [] {
             return ui::ProgressCard{.title = std::string{title},
-                                    .line = "Waiting for the administrator password…",
+                                    .line = "Waiting for administrator authentication…",
                                     .fraction = std::nullopt,
                                     .leave = {}};
         },
@@ -78,7 +78,7 @@ void SessionInstallController::finish(const host::InstallResult& result) {
         say_("Session mode installed. Power now has Switch to session mode", false);
         return;
     case Kind::Cancelled:
-        say_("Session mode was not installed: the password was cancelled", false);
+        say_("Session mode was not installed: authentication was cancelled", false);
         return;
     case Kind::Failed:
         say_(result.message, true);

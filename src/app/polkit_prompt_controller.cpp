@@ -1,17 +1,18 @@
 #include "polkit_prompt_controller.hpp"
 
 #include <algorithm>
-#include <memory>
+#include <cstddef>
 #include <utility>
 #include <vector>
 
 #include "secrets/secret.hpp"
-#include "ui/entry_screen.hpp"
 
 namespace opensu::app {
 namespace {
 
-constexpr const char* cardId = "polkit.password";
+using host::polkit::Prompt;
+
+constexpr const char* cardId = "polkit.authentication";
 /// PAM's longest answer (PAM_MAX_RESP_SIZE) less its terminating byte.
 constexpr std::size_t answerMostBytes = 511;
 
@@ -23,97 +24,110 @@ const gpu2d::ui::Screen* openCard(const gpu2d::ui::Navigator& navigator) {
     return found == open.end() ? nullptr : *found;
 }
 
-std::string noteOf(const host::polkit::Prompt& prompt) {
-    std::string note = prompt.message;
+ui::AuthenticationCard cardOf(const Prompt& prompt) {
+    ui::AuthenticationCard card{
+        .title = "Authenticate as " + prompt.user, .note = prompt.message, .field = std::nullopt};
     if (!prompt.note.empty()) {
-        note = prompt.note + "\n\n" + note;
+        card.note = prompt.note + "\n\n" + card.note;
     }
-    return note;
+    if (prompt.state == Prompt::State::Asking) {
+        card.field = ui::AuthenticationCard::Field{
+            .label = prompt.question.empty() ? std::string{"Password"} : prompt.question,
+            .secret = !prompt.shown};
+    }
+    return card;
+}
+
+/// Whether `now` asks a question `before` did not.
+bool asksAnew(const std::optional<Prompt>& before, const Prompt& now) {
+    return now.state == Prompt::State::Asking &&
+           (!before || before->state != Prompt::State::Asking || before->serial != now.serial);
 }
 
 } // namespace
 
 void PolkitPromptController::service() {
-    const std::optional<host::polkit::Prompt> prompt = agent_.prompt();
-    if (!prompt || prompt->serial == handled_) {
-        if (serial_) {
-            close();
-        }
+    std::optional<Prompt> now = agent_.prompt();
+    if (shown_ && (!now || now->authentication != shown_->authentication)) {
+        close();
+    }
+    if (!now) {
         return;
     }
-    if (serial_ != prompt->serial) {
-        if (serial_) {
-            close();
+    const bool fresh = !shown_;
+    const bool question = asksAnew(shown_, *now);
+    shown_ = now;
+    if (fresh) {
+        open(*now);
+    }
+    *card_ = cardOf(*now);
+    if (question) {
+        secrets::wipe(typed_);
+        if (navigator_.focus(ui::AuthenticationScreen::fieldId)) {
+            keyboard_.open();
         }
-        open(*prompt);
     }
 }
 
 bool PolkitPromptController::asking() const {
-    return serial_.has_value();
+    return shown_.has_value();
 }
 
-void PolkitPromptController::open(const host::polkit::Prompt& prompt) {
-    serial_ = prompt.serial;
+void PolkitPromptController::open(const Prompt& prompt) {
     secrets::wipe(typed_);
+    card_ = std::make_shared<ui::AuthenticationCard>(cardOf(prompt));
     // input-sound.md 3.4 Open: a panel appears.
     sounds_.play(audio::Effect::Open);
-    navigator_.push(std::make_unique<ui::EntryScreen>(
-        ui::Entry{.id = cardId,
-                  .title = "Password for " + prompt.user,
-                  .note = noteOf(prompt),
-                  .label = prompt.question.empty() ? std::string{"Password"} : prompt.question,
-                  .placeholder = "Password",
-                  .secret = !prompt.shown,
-                  .mostBytes = answerMostBytes,
-                  .text = [this]() -> const std::string& {
-                      return typed_;
-                  },
-                  .changed =
-                      [this](std::string text) {
-                          secrets::wipe(typed_);
-                          typed_ = std::move(text);
-                      },
-                  .submitted =
-                      [this] {
-                          submit();
-                      },
-                  .cancelled =
-                      [this] {
-                          dismiss();
-                      }}));
-    keyboard_.open();
+    navigator_.push(std::make_unique<ui::AuthenticationScreen>(
+        ui::Authenticating{.id = cardId,
+                           .card =
+                               [card = card_] {
+                                   return *card;
+                               },
+                           .mostBytes = answerMostBytes,
+                           .text = [this]() -> const std::string& {
+                               return typed_;
+                           },
+                           .changed =
+                               [this](std::string text) {
+                                   secrets::wipe(typed_);
+                                   typed_ = std::move(text);
+                               },
+                           .submitted =
+                               [this] {
+                                   submit();
+                               },
+                           .cancelled =
+                               [this] {
+                                   dismiss();
+                               }}));
 }
 
 void PolkitPromptController::close() {
     if (const gpu2d::ui::Screen* card = openCard(navigator_)) {
         navigator_.closeFrom(*card);
     }
-    serial_.reset();
+    shown_.reset();
+    card_.reset();
     secrets::wipe(typed_);
 }
 
 void PolkitPromptController::submit() {
-    if (!serial_) {
+    if (!shown_ || shown_->state != Prompt::State::Asking) {
         return;
     }
-    const std::uint64_t serial = *serial_;
-    handled_ = serial;
     std::string secret;
     secret.swap(typed_);
     sounds_.play(audio::Effect::Close);
-    close();
-    agent_.answer(serial, secret);
+    agent_.answer(shown_->serial, secret);
     secrets::wipe(secret);
+    service();
 }
 
 void PolkitPromptController::dismiss() {
-    if (serial_) {
-        handled_ = *serial_;
-    }
     sounds_.play(audio::Effect::Close);
-    close();
     agent_.cancel();
+    service();
 }
 
 } // namespace opensu::app

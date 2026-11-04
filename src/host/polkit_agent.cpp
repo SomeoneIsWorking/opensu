@@ -158,6 +158,7 @@ class SdBusPolkitAgent final : public PolkitAgent {
             answer_.swap(secret);
             answerSerial_ = serial;
             hasAnswer_ = true;
+            shown_ = withInbox(std::move(shown_));
         }
         wakeUp();
     }
@@ -166,6 +167,7 @@ class SdBusPolkitAgent final : public PolkitAgent {
         {
             const std::lock_guard lock{mutex_};
             cancelWanted_ = true;
+            shown_ = withInbox(std::move(shown_));
         }
         wakeUp();
     }
@@ -411,7 +413,18 @@ class SdBusPolkitAgent final : public PolkitAgent {
             now = pending_->authentication.prompt();
         }
         const std::lock_guard lock{mutex_};
-        shown_ = std::move(now);
+        shown_ = withInbox(std::move(now));
+    }
+
+    /// `now` as the player sees it with their answer or cancel not yet taken. Under `mutex_`.
+    [[nodiscard]] std::optional<polkit::Prompt> withInbox(std::optional<polkit::Prompt> now) const {
+        if (cancelWanted_) {
+            return std::nullopt;
+        }
+        if (now && hasAnswer_ && now->serial == answerSerial_) {
+            now->state = polkit::Prompt::State::Waiting;
+        }
+        return now;
     }
 
     fs::path helper_;

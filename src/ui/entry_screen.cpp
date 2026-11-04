@@ -8,14 +8,11 @@ namespace {
 
 namespace tk = gpu2d::ui;
 
-/// The card's width, in dp.
-constexpr float cardDp = 440.0f;
-
 } // namespace
 
 std::unique_ptr<tk::Widget> EntryScreen::build(const tk::Theme& theme) {
     const tk::Spacing& spacing = theme.spacing;
-    auto root = std::make_unique<tk::Centre>(cardDp);
+    auto root = std::make_unique<tk::Centre>(entryCardDp);
     root->pad(tk::Insets::all(spacing.pad));
     tk::Card& card = root->add<tk::Card>();
     card.pad(tk::Insets::all(spacing.pad)).space(spacing.gap * 2.0f);

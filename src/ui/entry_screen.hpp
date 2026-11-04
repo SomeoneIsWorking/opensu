@@ -13,6 +13,9 @@
 
 namespace opensu::ui {
 
+/// An entry card's width, in dp.
+inline constexpr float entryCardDp = 440.0f;
+
 /// What an entry asks and what it does with the answer.
 struct Entry {
     std::string id;

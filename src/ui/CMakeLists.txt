@@ -25,7 +25,7 @@ add_library(opensu_ui STATIC
     round_shape.cpp
     volume_osd_painter.cpp chord_hint_painter.cpp
     mapping_page_painter.cpp hint_row.cpp
-    interface_input.cpp interface_theme.cpp interface_text.cpp screen_stack.cpp row_widgets.cpp page_frame.cpp screen_images.cpp image_view.cpp layout_sketch.cpp progress_screen.cpp entry_screen.cpp offer_card.cpp
+    interface_input.cpp interface_theme.cpp interface_text.cpp screen_stack.cpp row_widgets.cpp page_frame.cpp screen_images.cpp image_view.cpp layout_sketch.cpp progress_screen.cpp entry_screen.cpp authentication_screen.cpp offer_card.cpp
     platform.cpp)
 add_library(opensu::ui ALIAS opensu_ui)
 target_include_directories(opensu_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
